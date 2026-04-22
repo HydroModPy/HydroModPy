@@ -71,7 +71,7 @@ package "hydromodpy.spatial.domain" {
   }
 }
 
-package "hydromodpy.process.flow" {
+package "hydromodpy.physics.flow" {
   class FlowBinders {
     +apply_oceanic_to_flow(flow, oceanic)
     +apply_climatic_to_flow_recharge(flow, climatic)

@@ -1,0 +1,93 @@
+# Reduced pure-flow Boussinesq example reusing one committed triangular mesh.
+#
+# Unlike the historical `run_fast_boussinesq_mesh_input.toml`, this config does
+# not rebuild the catchment mesh. It replays the solver on the versioned mesh
+# already stored under `results_stable/mesh/`.
+
+workflow = "simulation"
+
+[workspace]
+project_root = "./results_reused_real_meshes/example12_fast"
+
+[geographic]
+catch_def = "from_outlet_coord"
+dem_init_path = "../../data/dem/regional_dem_naizin.tif"
+x_outlet = 265611.933
+y_outlet = 6784182.776
+snap_dist = "50 m"
+buff_area = "30%"
+crs_project = "EPSG:2154"
+
+[domain]
+
+[domain.depth_model]
+type = "constant_thickness"
+thickness = "50.0 m"
+
+[data]
+types = ["recharge"]
+
+[[data.recharge.sources]]
+source = "synthetic"
+values = [2.0, 2.0, 2.0, 2.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 2.0, 2.0]
+freq = "MS"
+runoff_ratio = 0.1
+
+[mesh_input]
+mesh_path = "results_stable/mesh/mesh_catchment.msh"
+bundle_dir = "results_stable/mesh/mesh_catchment_bundle"
+
+[flow]
+flow_regime = "transient"
+runtime_backend = "scipy_sparse"
+active_sinks_sources = ["recharge"]
+active_bc = ["drainage"]
+runtime_max_iterations = 80
+runtime_tol_residual_inf = 1.0e-7
+
+[flow.ic]
+type = "top"
+
+[flow.bc.cauchy.drainage]
+application_domain = "top"
+value = "0.0 m2/s"
+
+[flow.sinks_sources.recharge]
+first_clim = "mean"
+negative_to_evt = false
+
+[simulation]
+name = "Example 12 launcher fast boussinesq precomputed mesh"
+run_id = "example12_fast_boussinesq_precomputed_mesh"
+
+[[simulation.process]]
+id = "flow_main"
+type = "flow"
+solvers = ["boussinesq"]
+
+[simulation.time]
+start_datetime = "2003-01-01 00:00:00"
+end_datetime = "2003-03-31 00:00:00"
+step_value = "30 day"
+coverage_policy = "warn"
+
+[postprocess]
+enabled = true
+
+[postprocess.flow]
+enabled = true
+display = true
+
+[display]
+enabled = true
+show = false
+save = true
+dpi = 300
+
+[display.flow]
+enabled = true
+boussinesq_state = true
+boussinesq_diagnostics = true
+boussinesq_mass_balance = true
+boussinesq_probes = true
+boussinesq_edge_flux = true

@@ -1,3 +1,5 @@
+workflow = "simulation"
+
 [simulation]
 name = "Analytical Dupuit divide-river validation"
 description = "Synthetic steady-state unconfined flow with west-side divide, east-side fixed head, and uniform recharge."

@@ -1,9 +1,0 @@
-{
-  "summary_md": "C:\\codes\\HydroModPy-GH\\out\\sih_tx_nwtpts\\summary.md",
-  "timeseries_csv": "C:\\codes\\HydroModPy-GH\\out\\sih_tx_nwtpts\\timeseries.csv",
-  "head_point_timeseries_csv": "C:\\codes\\HydroModPy-GH\\out\\sih_tx_nwtpts\\head_point_timeseries.csv",
-  "summary_metrics_csv": "C:\\codes\\HydroModPy-GH\\out\\sih_tx_nwtpts\\summary_metrics.csv",
-  "execution_times_csv": "C:\\codes\\HydroModPy-GH\\out\\sih_tx_nwtpts\\execution_times.csv",
-  "total_outflow_overlay_png": "C:\\codes\\HydroModPy-GH\\out\\sih_tx_nwtpts\\figures\\total_outflow_overlay.png",
-  "figures_dir": "C:\\codes\\HydroModPy-GH\\out\\sih_tx_nwtpts\\figures"
-}

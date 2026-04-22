@@ -1,2 +1,0 @@
-2026-04-12 23:13:37,803 [INFO] [hydromodpy.data.common.progress] [progress:26] [data] recharge
-2026-04-12 23:13:37,862 [INFO] [hydromodpy.solver.modflow_nwt.modflow.property_mapping] [property_mapping:219] Hydraulic conductivity mapped from flow.K using direct homogeneous mapping

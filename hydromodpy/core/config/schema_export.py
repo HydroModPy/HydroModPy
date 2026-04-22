@@ -1,0 +1,159 @@
+"""JSON Schema export for HydroModPy Pydantic configuration models.
+
+Exports the JSON Schema describing ``HydroModPyConfig`` (or any sub-model)
+so that IDEs (VS Code + ``even-better-toml``, JSON-Schema-aware UIs) can
+provide autocompletion, validation, and documentation for HydroModPy TOML
+configurations.
+
+The exporter preserves the rich ``json_schema_extra`` annotations attached
+to fields (``widget_type``, ``unit``, ``display_name_fr``, ``help_text_fr``,
+``display_min``, ``display_max``) which a front-end (Streamlit, React, ...)
+can consume to render tailored widgets.
+
+Usage
+-----
+Python API::
+
+    from hydromodpy.core.config.schema_export import export_schema, ROOT_SECTIONS
+    from hydromodpy.physics.flow.flow_config import FlowConfig
+
+    schema = export_schema(FlowConfig)
+    # full root schema:
+    schema = export_schema()
+
+    # by section name (e.g. "flow", "workspace", ...)
+    schema = export_schema(section="flow")
+
+CLI::
+
+    hmp config schema                     # full root schema to stdout
+    hmp config schema --section flow      # one section
+    hmp config schema --out schema.json   # write to file
+"""
+
+from __future__ import annotations
+
+import json
+from pathlib import Path
+from typing import Any
+
+
+def _root_sections() -> dict[str, type]:
+    """Return the map of root-level TOML sections to Pydantic model classes.
+
+    Imported lazily to avoid circular imports and to keep module load cheap.
+    Returns a fresh dict so callers can safely mutate it.
+    """
+    from hydromodpy.analysis.capability_gallery import CapabilityGalleryConfig
+    from hydromodpy.display.config import DisplayConfig
+    from hydromodpy.workflow.pipelines.overview_config import OverviewSection
+    from hydromodpy.results.postprocess_config import PostprocessConfig
+    from hydromodpy.core.workspace.config import WorkspaceConfig
+    from hydromodpy.data.data_managers_config import DataManagersConfig
+    from hydromodpy.physics.flow.flow_config import FlowConfig
+    from hydromodpy.physics.flow.physical_properties import FlowPhysicalProperties
+    from hydromodpy.physics.transport.transport_config import TransportConfig
+    from hydromodpy.simulation.planning.config import SimulationConfig
+    from hydromodpy.solver.base.solver_config import SolverConfig
+    from hydromodpy.solver.modflow6.modflow6_config import Modflow6Config
+    from hydromodpy.solver.modflow_nwt.modflow import ModflowConfig
+    from hydromodpy.spatial.domain.domain_config import DomainConfig
+    from hydromodpy.spatial.geographic.geographic_config import GeographicConfig
+    from hydromodpy.spatial.mesh.config import MeshCatchmentConfig
+
+    return {
+        "workspace": WorkspaceConfig,
+        "geographic": GeographicConfig,
+        "domain": DomainConfig,
+        "data": DataManagersConfig,
+        "flow": FlowConfig,
+        "flow_physical_properties": FlowPhysicalProperties,
+        "transport": TransportConfig,
+        "simulation": SimulationConfig,
+        "solver": SolverConfig,
+        "modflownwt": ModflowConfig,
+        "modflow6": Modflow6Config,
+        "display": DisplayConfig,
+        "postprocess": PostprocessConfig,
+        "overview": OverviewSection,
+        "mesh_catchment": MeshCatchmentConfig,
+        "capability_gallery": CapabilityGalleryConfig,
+    }
+
+
+#: Public map of root-level TOML section names to model classes.
+#: Lazily evaluated on first access via :func:`_root_sections`.
+ROOT_SECTIONS: dict[str, type] | None = None
+
+
+def _ensure_root_sections() -> dict[str, type]:
+    global ROOT_SECTIONS
+    if ROOT_SECTIONS is None:
+        ROOT_SECTIONS = _root_sections()
+    return ROOT_SECTIONS
+
+
+def export_schema(
+    model_cls: type | None = None,
+    *,
+    section: str | None = None,
+) -> dict[str, Any]:
+    """Export a JSON Schema dict for a HydroModPy configuration model.
+
+    Parameters
+    ----------
+    model_cls
+        A Pydantic ``BaseModel`` subclass. If ``None``, the root
+        ``HydroModPyConfig`` model is used.
+    section
+        Name of a root TOML section (see :data:`ROOT_SECTIONS`). When given,
+        overrides ``model_cls``.
+
+    Returns
+    -------
+    dict
+        JSON Schema document (draft 2020-12 compatible, as emitted by
+        Pydantic v2).
+    """
+    if section is not None:
+        sections = _ensure_root_sections()
+        if section not in sections:
+            allowed = ", ".join(sorted(sections))
+            raise ValueError(
+                f"unknown config section {section!r} (allowed: {allowed})"
+            )
+        model_cls = sections[section]
+
+    if model_cls is None:
+        from hydromodpy.core.config.hydromodpy_config import HydroModPyConfig
+
+        model_cls = HydroModPyConfig
+
+    schema = model_cls.model_json_schema()
+    # Attach a meta marker so downstream tools can identify the producer.
+    schema.setdefault("$comment", "Generated by hydromodpy.core.config.schema_export")
+    return schema
+
+
+def write_schema(
+    path: str | Path,
+    *,
+    model_cls: type | None = None,
+    section: str | None = None,
+    indent: int = 2,
+) -> Path:
+    """Serialize an exported schema to a JSON file.
+
+    Returns the resolved :class:`Path` of the written file.
+    """
+    schema = export_schema(model_cls, section=section)
+    out_path = Path(path).expanduser().resolve()
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    out_path.write_text(
+        json.dumps(schema, indent=indent, ensure_ascii=False) + "\n",
+        encoding="utf-8",
+    )
+    return out_path
+
+
+__all__ = ["export_schema", "write_schema", "ROOT_SECTIONS"]

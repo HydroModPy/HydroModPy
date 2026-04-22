@@ -19,9 +19,10 @@ from typing import Any, Annotated, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
-from hydromodpy.core.config.param_level import ParamLevel
+from hydromodpy.core.config.profile import Profile
 from hydromodpy.data.variables.dem.config import DemConfig
 from hydromodpy.data.variables.geology.config import GeologyConfig
+from hydromodpy.core.config.base import HydroModelBase
 
 
 SUPPORTED_DATA_MANAGER_TYPES = (
@@ -48,7 +49,7 @@ SUPPORTED_DATA_MANAGER_TYPES = (
 from hydromodpy.data.variables.oceanic.config import OceanicConfig  # noqa: E402
 
 
-class DataManagersConfig(BaseModel):
+class DataManagersConfig(HydroModelBase):
     """
     Top-level configuration for data-manager families.
 
@@ -64,7 +65,7 @@ class DataManagersConfig(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    project_crs: Annotated[str | None, ParamLevel("user")] = Field(
+    project_crs: Annotated[str | None, Profile.USER] = Field(
         default=None,
         description=(
             "EPSG code or WKT string of the project coordinate reference system. "
@@ -72,7 +73,7 @@ class DataManagersConfig(BaseModel):
             "Example: 'EPSG:2154' (Lambert-93)."
         ),
     )
-    types: Annotated[list[str], ParamLevel("user")] = Field(
+    types: Annotated[list[str], Profile.USER] = Field(
         default_factory=list,
         description=(
             "Ordered list of data-manager types explicitly requested in [data]. "
@@ -82,7 +83,7 @@ class DataManagersConfig(BaseModel):
             + ", ".join(f"'{t}'" for t in SUPPORTED_DATA_MANAGER_TYPES) + "."
         ),
     )
-    inference_mode: Annotated[Literal["warn", "strict"], ParamLevel("dev")] = Field(
+    inference_mode: Annotated[Literal["warn", "strict"], Profile.DEV] = Field(
         default="warn",
         description=(
             "Policy applied when the planner infers types not explicitly listed "
@@ -92,73 +93,73 @@ class DataManagersConfig(BaseModel):
             "(except geology, which can use its default typed config)."
         ),
     )
-    dem: Annotated[DemConfig | None, ParamLevel("user")] = Field(
+    dem: Annotated[DemConfig | None, Profile.USER] = Field(
         default=None,
         description="DEM configuration used when 'dem' is listed in data.types.",
     )
-    geology: Annotated[GeologyConfig | None, ParamLevel("user")] = Field(
+    geology: Annotated[GeologyConfig | None, Profile.USER] = Field(
         default=None,
         description="Geology configuration used when 'geology' is listed in data.types.",
     )
-    hydrography: Annotated["HydrographyConfig | None", ParamLevel("user")] = Field(
+    hydrography: Annotated["HydrographyConfig | None", Profile.USER] = Field(
         default=None,
         description="Hydrography configuration (stream network vector data).",
     )
-    hydrometry: Annotated["HydrometryConfig | None", ParamLevel("user")] = Field(
+    hydrometry: Annotated["HydrometryConfig | None", Profile.USER] = Field(
         default=None,
         description="Hydrometry configuration (discharge time-series).",
     )
-    intermittency: Annotated["IntermittencyConfig | None", ParamLevel("user")] = Field(
+    intermittency: Annotated["IntermittencyConfig | None", Profile.USER] = Field(
         default=None,
         description="Intermittency configuration (ONDE stream flow-state observations).",
     )
-    oceanic: Annotated[OceanicConfig | None, ParamLevel("user")] = Field(
+    oceanic: Annotated[OceanicConfig | None, Profile.USER] = Field(
         default=None,
         description=(
             "Oceanic configuration used when 'oceanic' is listed in data.types."
         ),
     )
-    piezometry: Annotated["PiezometryConfig | None", ParamLevel("user")] = Field(
+    piezometry: Annotated["PiezometryConfig | None", Profile.USER] = Field(
         default=None,
         description="Piezometry configuration (groundwater level time-series).",
     )
-    water_quality: Annotated["WaterQualityConfig | None", ParamLevel("user")] = Field(
+    water_quality: Annotated["WaterQualityConfig | None", Profile.USER] = Field(
         default=None,
         description="Water quality configuration (physico-chemical parameters).",
     )
-    recharge: Annotated["RechargeConfig | None", ParamLevel("user")] = Field(
+    recharge: Annotated["RechargeConfig | None", Profile.USER] = Field(
         default=None,
         description="Recharge configuration (drainage / soil infiltration time series).",
     )
-    runoff: Annotated["RunoffConfig | None", ParamLevel("user")] = Field(
+    runoff: Annotated["RunoffConfig | None", Profile.USER] = Field(
         default=None,
         description="Runoff configuration (surface runoff time series).",
     )
-    precipitation: Annotated["PrecipitationConfig | None", ParamLevel("user")] = Field(
+    precipitation: Annotated["PrecipitationConfig | None", Profile.USER] = Field(
         default=None,
         description="Precipitation configuration (liquid and solid precipitation).",
     )
-    etp: Annotated["EtpConfig | None", ParamLevel("user")] = Field(
+    etp: Annotated["EtpConfig | None", Profile.USER] = Field(
         default=None,
         description="ETP configuration (potential evapotranspiration).",
     )
-    temperature: Annotated["TemperatureConfig | None", ParamLevel("user")] = Field(
+    temperature: Annotated["TemperatureConfig | None", Profile.USER] = Field(
         default=None,
         description="Temperature configuration (air temperature time series).",
     )
-    wind: Annotated["WindConfig | None", ParamLevel("user")] = Field(
+    wind: Annotated["WindConfig | None", Profile.USER] = Field(
         default=None,
         description="Wind configuration (wind speed time series).",
     )
-    humidity: Annotated["HumidityConfig | None", ParamLevel("user")] = Field(
+    humidity: Annotated["HumidityConfig | None", Profile.USER] = Field(
         default=None,
         description="Humidity configuration (relative humidity time series).",
     )
-    radiation: Annotated["RadiationConfig | None", ParamLevel("user")] = Field(
+    radiation: Annotated["RadiationConfig | None", Profile.USER] = Field(
         default=None,
         description="Radiation configuration (atmospheric and visible radiation).",
     )
-    soil_moisture: Annotated["SoilMoistureConfig | None", ParamLevel("user")] = Field(
+    soil_moisture: Annotated["SoilMoistureConfig | None", Profile.USER] = Field(
         default=None,
         description="Soil moisture configuration (soil moisture index).",
     )
@@ -218,7 +219,7 @@ class DataManagersConfig(BaseModel):
         for type_name in self.types:
             if type_name == "geology":
                 if self.geology is None:
-                    self.geology = GeologyConfig()
+                    object.__setattr__(self, "geology", GeologyConfig())
                 continue
             section_value = getattr(self, type_name, None)
             if section_value is None:

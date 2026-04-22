@@ -1,3 +1,5 @@
+workflow = "simulation"
+
 [simulation]
 name = "Bsq island piecewise K 2D"
 description = "Synthetic steady-state unconfined flow on a circular island with uniform recharge, ocean boundary, and concentric piecewise-constant hydraulic conductivity."

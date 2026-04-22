@@ -1,0 +1,47 @@
+# Moderate annual Boussinesq run on the committed triangular example12 mesh.
+
+base_config = "config_demonstrative_annual_moderate_common.toml"
+
+workflow = "simulation"
+
+[workspace]
+project_root = "./results_reused_real_meshes/ex12_demo_mod_bouss"
+
+[mesh_input]
+mesh_path = "results_stable/mesh/mesh_catchment.msh"
+bundle_dir = "results_stable/mesh/mesh_catchment_bundle"
+
+[flow]
+runtime_backend = "scipy_sparse"
+runtime_max_iterations = 80
+runtime_tol_residual_inf = 1.0e-7
+
+[simulation]
+name = "Example 12 moderate annual Boussinesq on committed triangular mesh"
+run_id = "ex12_demo_mod_bouss_tri"
+
+[[simulation.process]]
+id = "flow_main"
+type = "flow"
+solvers = ["boussinesq"]
+
+[postprocess]
+enabled = true
+
+[postprocess.flow]
+enabled = true
+display = true
+
+[display]
+enabled = true
+show = false
+save = true
+dpi = 300
+
+[display.flow]
+enabled = true
+boussinesq_state = true
+boussinesq_diagnostics = true
+boussinesq_mass_balance = true
+boussinesq_probes = true
+boussinesq_edge_flux = true

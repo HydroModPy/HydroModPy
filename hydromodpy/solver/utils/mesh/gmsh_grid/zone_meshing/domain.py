@@ -25,12 +25,12 @@ from hydromodpy.solver.utils.mesh.gmsh_grid.zone_meshing._domain_loaders import 
     load_zone_meshing_domain_payload_impl,
 )
 from hydromodpy.solver.utils.mesh.gmsh_grid.zone_meshing._domain_schema import (
-    ZoneMeshingDomainBBoxSchema,
-    ZoneMeshingDomainGeographicBoxBufferSchema,
-    ZoneMeshingDomainGeographicWatershedBoxSchema,
-    ZoneMeshingDomainGeographicWatershedSchema,
-    ZoneMeshingDomainPolygonSchema,
-    ZoneMeshingDomainVectorSchema,
+    ZoneMeshingDomainBBox,
+    ZoneMeshingDomainGeographicBoxBuffer,
+    ZoneMeshingDomainGeographicWatershedBox,
+    ZoneMeshingDomainGeographicWatershed,
+    ZoneMeshingDomainPolygon,
+    ZoneMeshingDomainVector,
 )
 
 
@@ -59,13 +59,13 @@ def load_zone_meshing_domain_payload(
 
 __all__ = [
     "parse_zone_meshing_domain_config",
-    "ZoneMeshingDomainBBoxSchema",
+    "ZoneMeshingDomainBBox",
     "ZoneMeshingDomainConfig",
-    "ZoneMeshingDomainGeographicBoxBufferSchema",
-    "ZoneMeshingDomainGeographicWatershedBoxSchema",
-    "ZoneMeshingDomainGeographicWatershedSchema",
+    "ZoneMeshingDomainGeographicBoxBuffer",
+    "ZoneMeshingDomainGeographicWatershedBox",
+    "ZoneMeshingDomainGeographicWatershed",
     "ZoneMeshingDomainPayload",
-    "ZoneMeshingDomainPolygonSchema",
-    "ZoneMeshingDomainVectorSchema",
+    "ZoneMeshingDomainPolygon",
+    "ZoneMeshingDomainVector",
     "load_zone_meshing_domain_payload",
 ]

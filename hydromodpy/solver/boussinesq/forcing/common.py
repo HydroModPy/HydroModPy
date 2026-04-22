@@ -117,7 +117,7 @@ class ForcingCommonMixin:
         """Resolve one boundary condition to one head value per period."""
         forcing = getattr(boundary, "forcing", None)
         if forcing is not None:
-            from hydromodpy.process.flow.time_forcing import (
+            from hydromodpy.physics.flow.time_forcing import (
                 resolve_period_values_from_forcing,
             )
 

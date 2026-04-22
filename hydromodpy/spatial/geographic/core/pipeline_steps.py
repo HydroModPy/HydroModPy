@@ -20,7 +20,7 @@ from typing import TYPE_CHECKING
 
 import rasterio
 
-from hydromodpy.core.backends import WhiteboxBackend, get_whitebox_backend
+from hydromodpy.spatial.delineation import WhiteboxBackend, get_whitebox_backend
 from hydromodpy.spatial.geographic.geographic_paths import GeographicPaths, build_geographic_paths
 from hydromodpy.spatial.geographic.core.catchment_domain import (
     CatchmentDomainProducts,

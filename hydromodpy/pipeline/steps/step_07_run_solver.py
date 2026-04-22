@@ -1,0 +1,68 @@
+"""Step 7 — run the simulation plan via ``SimulationRunner``.
+
+Executes every ``ProcessRun`` of the plan via its solver adapter. After
+each run, :func:`step_ingest_run_results` is invoked to post-process
+the solver output into the store (this mirrors the callback chain used
+by :func:`execute_simulation`).
+
+Inputs
+------
+``ctx`` : WorkflowContext (with ``execution.simulation_plan`` set and
+``store`` opened)
+
+Outputs
+-------
+``ctx`` : same context with each ``ProcessRun`` result stored in
+``ctx.execution.models_by_run_id``.
+``wall_seconds`` : float (elapsed solver time)
+"""
+
+from __future__ import annotations
+
+import time
+from typing import ClassVar
+
+from hydromodpy.pipeline.state import OpenStoreState, PipelineState, SolverRanState
+
+
+class RunSolverStep:
+    """Execute the plan and ingest results via ``SimulationRunner``."""
+
+    name = "run_solver"
+    tin: ClassVar[type] = OpenStoreState
+    tout: ClassVar[type] = SolverRanState
+
+    def run(self, state: PipelineState) -> PipelineState:
+        from hydromodpy.simulation.execution.runner import (
+            ProcessCallbacks,
+            SimulationRunner,
+        )
+        from hydromodpy.workflow.steps.result_ingestion import step_ingest_run_results
+
+        ctx = state.get("ctx")
+        if ctx is None:
+            raise ValueError("RunSolverStep requires 'ctx' in state.data")
+
+        plan = ctx.execution.simulation_plan
+        if plan is None:
+            raise RuntimeError(
+                "run_solver step requires execution.simulation_plan to be set"
+            )
+
+        callbacks = ProcessCallbacks(
+            after_process=state.get("after_process"),
+            after_run=lambda run, result, st: step_ingest_run_results(
+                ctx, run, result,
+            ),
+        )
+
+        t0 = time.monotonic()
+        SimulationRunner(callbacks=callbacks).execute(plan, ctx)
+        wall_seconds = time.monotonic() - t0
+
+        return state.advance(
+            step_index=state.step_index + 1,
+            step_name=self.name,
+            ctx=ctx,
+            wall_seconds=wall_seconds,
+        )

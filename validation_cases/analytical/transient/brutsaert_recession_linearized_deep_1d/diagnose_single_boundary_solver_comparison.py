@@ -16,7 +16,7 @@ from flopy.utils.binaryfile import CellBudgetFile, HeadFile
 if __package__ is None or __package__ == "":
     sys.path.insert(0, str(Path(__file__).resolve().parents[4]))
 
-from hydromodpy.process.flow import Flow
+from hydromodpy.physics.flow import Flow
 from hydromodpy.solver.modflow6 import Modflow6
 from hydromodpy.solver.modflow_nwt import (
     Modflow,
@@ -24,7 +24,7 @@ from hydromodpy.solver.modflow_nwt import (
     ModflowPreprocessOptions,
     ModflowRunOptions,
 )
-from hydromodpy.project import Simulation
+from hydromodpy.project import Project
 from validation_cases.analytical.transient.brutsaert_common import (
     _load_modflownwt_budget_diagnostics,
 )
@@ -94,7 +94,7 @@ def _build_validation_launcher(*, solver_name: str) -> Simulation:
         solver_name=solver_name,
     )
     try:
-        return Simulation(config_path, headless=True)
+        return Project(config_path, headless=True)
     finally:
         if config_path.exists():
             remove_file_with_retry(config_path)

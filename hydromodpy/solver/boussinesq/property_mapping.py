@@ -10,7 +10,7 @@ contract intentionally stays narrow:
 
 from __future__ import annotations
 
-from hydromodpy.core.tools import get_logger
+from hydromodpy.core.logging import get_logger
 import numpy as np
 
 

@@ -3,15 +3,16 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Annotated, Any
+from typing import Annotated
 from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
-from hydromodpy.core.config.param_level import ParamLevel
+from hydromodpy.core.config.profile import Profile
 from hydromodpy.results.config import ResultsConfig
 from hydromodpy.solver.compatibility import known_process_types
 from hydromodpy.core.units import normalize_time_unit, parse_scalar_and_unit
+from hydromodpy.core.config.base import HydroModelBase
 
 
 _VALID_STEP_UNITS = {"hour", "day", "month", "year"}
@@ -83,26 +84,26 @@ def _parse_step_spec(
     return step_value, parsed_step_unit
 
 
-class SimulationTimeConfig(BaseModel):
+class SimulationTimeConfig(HydroModelBase):
     """Canonical simulation time window and forcing-coverage policy."""
 
     model_config = ConfigDict(extra="forbid")
 
-    start_datetime: Annotated[datetime | None, ParamLevel("user")] = Field(
+    start_datetime: Annotated[datetime | None, Profile.USER] = Field(
         default=None,
         description=(
             "Simulation window lower datetime bound used by launcher-level "
             "time alignment and forcing checks."
         ),
     )
-    end_datetime: Annotated[datetime | None, ParamLevel("user")] = Field(
+    end_datetime: Annotated[datetime | None, Profile.USER] = Field(
         default=None,
         description=(
             "Simulation window upper datetime bound, interpreted as inclusive. "
             "Must be greater than or equal to start_datetime."
         ),
     )
-    step_value: Annotated[int | float | str, ParamLevel("user")] = Field(
+    step_value: Annotated[int | float | str, Profile.USER] = Field(
         default=1,
         description=(
             "Forcing/stress-period time-step scalar or inline token '<value> <unit>' "
@@ -111,14 +112,14 @@ class SimulationTimeConfig(BaseModel):
             "(for example recharge/runoff) and the resulting stress periods."
         ),
     )
-    step_unit: Annotated[Literal["hour", "day", "month", "year"] | None, ParamLevel("user")] = Field(
+    step_unit: Annotated[Literal["hour", "day", "month", "year"] | None, Profile.USER] = Field(
         default=None,
         description=(
             "Optional forcing/stress-period base time unit used with step_value "
             "when step_value is provided without an inline unit."
         ),
     )
-    substeps_per_period: Annotated[int, ParamLevel("dev")] = Field(
+    substeps_per_period: Annotated[int, Profile.DEV] = Field(
         default=1,
         ge=1,
         description=(
@@ -127,7 +128,7 @@ class SimulationTimeConfig(BaseModel):
             "substeps inside monthly stress periods)."
         ),
     )
-    coverage_policy: Annotated[Literal["error", "warn", "ignore"], ParamLevel("dev")] = Field(
+    coverage_policy: Annotated[Literal["error", "warn", "ignore"], Profile.DEV] = Field(
         default="error",
         description=(
             "Behavior when recharge does not fully cover the declared simulation "
@@ -142,8 +143,8 @@ class SimulationTimeConfig(BaseModel):
             raw_step_value=self.step_value,
             raw_step_unit=self.step_unit,
         )
-        self.step_value = int(step_value)
-        self.step_unit = step_unit
+        object.__setattr__(self, "step_value", int(step_value))
+        object.__setattr__(self, "step_unit", step_unit)
 
         if self.start_datetime is None or self.end_datetime is None:
             raise ValueError(
@@ -161,21 +162,21 @@ class SimulationTimeConfig(BaseModel):
         return self
 
 
-class SimulationProcessConfig(BaseModel):
+class SimulationProcessConfig(HydroModelBase):
     """One requested process entry under ``[[simulation.process]]``."""
 
     model_config = ConfigDict(extra="forbid")
 
-    id: Annotated[str, ParamLevel("user")] = Field(
+    id: Annotated[str, Profile.USER] = Field(
         description=(
             "User-facing identifier for the process. "
             "This id is required and must be unique within the simulation."
         ),
     )
-    type: Annotated[str, ParamLevel("user")] = Field(
+    type: Annotated[str, Profile.USER] = Field(
         description="Requested process family executed by the launcher.",
     )
-    solvers: Annotated[list[str], ParamLevel("user")] = Field(
+    solvers: Annotated[list[str], Profile.USER] = Field(
         min_length=1,
         description=(
             "Ordered list of active solver names for this process. Each listed "
@@ -206,13 +207,13 @@ class SimulationProcessConfig(BaseModel):
         return cleaned
 
 
-class SimulationConfig(BaseModel):
+class SimulationConfig(HydroModelBase):
     """Minimal orchestration block declared under ``[simulation]``."""
 
     model_config = ConfigDict(extra="forbid")
 
-    name: Annotated[str, ParamLevel("user")] = Field(default="", description="Human-readable simulation name.")
-    run_id: Annotated[str, ParamLevel("user")] = Field(
+    name: Annotated[str, Profile.USER] = Field(default="", description="Human-readable simulation name.")
+    run_id: Annotated[str, Profile.USER] = Field(
         default="",
         description=(
             "Run identifier used as the output subfolder name under "
@@ -220,11 +221,22 @@ class SimulationConfig(BaseModel):
             "filename at load time (e.g. run_steady_nwt.toml -> steady_nwt)."
         ),
     )
-    description: Annotated[str, ParamLevel("user")] = Field(
+    on_collision: Annotated[
+        Literal["replace", "fail", "version"], Profile.USER,
+    ] = Field(
+        default="replace",
+        description=(
+            "Behavior when registering a simulation whose ``name`` already "
+            "exists in this project. ``replace`` soft-replaces (the previous "
+            "sim keeps its UUID but loses its name), ``fail`` raises an "
+            "error, ``version`` auto-suffixes ``name.v2``, ``name.v3`` ..."
+        ),
+    )
+    description: Annotated[str, Profile.USER] = Field(
         default="",
         description="Short free-text description of the simulation intent.",
     )
-    time: Annotated[SimulationTimeConfig | None, ParamLevel("user")] = Field(
+    time: Annotated[SimulationTimeConfig | None, Profile.USER] = Field(
         default=None,
         description=(
             "Optional canonical simulation window used to align solver temporal "
@@ -233,14 +245,14 @@ class SimulationConfig(BaseModel):
             "simulation-window dates."
         ),
     )
-    process: Annotated[list[SimulationProcessConfig], ParamLevel("user")] = Field(
+    process: Annotated[list[SimulationProcessConfig], Profile.USER] = Field(
         default_factory=list,
         description=(
             "Ordered list of requested processes loaded from "
             "[[simulation.process]]. At most one process per type is supported."
         ),
     )
-    results: Annotated[ResultsConfig, ParamLevel("dev")] = Field(
+    results: Annotated[ResultsConfig, Profile.DEV] = Field(
         default_factory=ResultsConfig,
         description=(
             "Results storage and export configuration loaded from "

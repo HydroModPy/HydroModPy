@@ -1,0 +1,48 @@
+# Transient Boussinesq replay on the committed headwater 100 km2 outlet-2 mesh.
+#
+# This variant starts from a drier aquifer state and alternates wetting and
+# dry-down periods so the surface-threshold activation can turn on and off
+# repeatedly on a true basin geometry.
+
+base_config = "run_headwater_100km2_outlet_2_boussinesq_transient_pulsed_recharge.toml"
+
+workflow = "simulation"
+
+[workspace]
+project_root = "./results_reused_real_meshes/headwater_100km2_outlet_2_boussinesq_transient_cycling_recharge"
+
+[flow]
+runtime_max_iterations = 120
+
+[flow.param.Sy.field_homogeneous]
+value = 0.05
+
+[flow.ic]
+type = "custom"
+value = "75.0 m"
+
+[flow.bc.cauchy.drainage]
+value = "1.0e-5 m2/s"
+
+[flow.sinks_sources.recharge]
+first_clim = "mean"
+negative_to_evt = true
+
+[simulation]
+name = "Headwater 100 km2 Boussinesq transient cycling recharge reused mesh"
+run_id = "headwater_100km2_outlet_2_boussinesq_transient_cycling_recharge"
+
+[simulation.time]
+start_datetime = "2003-01-01 00:00:00"
+end_datetime = "2003-12-31 00:00:00"
+step_value = "1 month"
+coverage_policy = "warn"
+
+[data]
+types = ["recharge"]
+
+[[data.recharge.sources]]
+source = "synthetic"
+values = [0.0, 8.0, -6.0, 8.0, -6.0, 8.0, -6.0, 8.0, -6.0, 8.0, -6.0, 0.0]
+freq = "MS"
+runoff_ratio = 0.10

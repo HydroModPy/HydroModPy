@@ -22,7 +22,7 @@ from dataclasses import dataclass
 
 import numpy as np
 
-from hydromodpy.core.tools import get_logger
+from hydromodpy.core.logging import get_logger
 from hydromodpy.solver.modflow_common.runtime_arrays import (
     resolve_flow_property_runtime_overrides,
 )

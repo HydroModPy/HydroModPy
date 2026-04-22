@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "hydromodpy"
-version = "0.3.5"
+version = "0.5.0"
 description = "A Python toolbox for deploying catchment-scale shallow groundwater models"
 readme = "README.md"
 requires-python = ">=3.11,<3.14"
@@ -56,6 +56,7 @@ dependencies = [
     "pandas",
     "plotly",
     "pint",
+    "pydantic-pint",
     "pyproj",
     "pysheds",
     "rasterio",
@@ -63,6 +64,7 @@ dependencies = [
     "scikit-learn",
     "scipy",
     "cma",
+    "optuna",
     "selenium",
     "ultraplot",
     "vedo",
@@ -74,7 +76,10 @@ dependencies = [
     "sqlalchemy>=2.0",
     "tqdm",
     "zarr>=3.0",
+    "zstandard>=0.22",
+    "tomlkit",
     "pytest",
+    "pandera>=0.20",
 ]
 
 [project.optional-dependencies]
@@ -111,8 +116,13 @@ ugrid = ["xugrid"]
 viewer3d = ["pyvista"]
 
 [project.scripts]
-hmp = "hydromodpy.__main__:main"
-hydromodpy = "hydromodpy.__main__:main"
+hmp = "hydromodpy._cli:main"
+hydromodpy = "hydromodpy._cli:main"
+
+[project.entry-points."hydromodpy.solver"]
+flow_modflownwt = "hydromodpy.simulation.adapters.flow.modflownwt:ModflowNwtFlowAdapter"
+flow_modflow6 = "hydromodpy.simulation.adapters.flow.modflow6:Modflow6FlowAdapter"
+flow_boussinesq = "hydromodpy.simulation.adapters.flow.boussinesq:BoussinesqFlowAdapter"
 
 [project.urls]
 Homepage = "https://hydromodpy-docs.readthedocs.io/en/latest/"
@@ -128,37 +138,15 @@ include-package-data = true
 include = ["hydromodpy*"]
 
 [tool.setuptools.package-data]
-hydromodpy = ["../bin/**/*"]
-"hydromodpy.process.hydrology.pyhelp" = ["*.FOR"]
-"hydromodpy.analysis.calibration.devkit" = ["templates/case/*.tmpl"]
+hydromodpy = ["../bin/**/*", "py.typed"]
+"hydromodpy.physics.hydrology.pyhelp" = ["*.FOR"]
 "hydromodpy.data.common.administrative" = ["*.gpkg"]
-
-[tool.pytest.ini_options]
-testpaths = ["tests"]
-python_files = ["test_*.py"]
-addopts = "-ra -p no:cacheprovider"
-markers = [
-    "regression: non-regression tests based on reference datasets",
-    "validation: scientific or benchmark validation tests against a reference solution",
-    "analytical: validation test compared to an analytical reference solution",
-    "normal: deprecated alias for the fast regression tier",
-    "extensive: extended regression checks for deeper validation",
-    "steady: steady-state validation or regression case",
-    "transient: transient validation or regression case",
-    "fast: quick-running validation, integration, or fast-tier regression cases",
-    "slow: long-running validation, integration, or regression tests",
-    "petsc: tests that exercise the Linux PETSc-backed Boussinesq runtime",
-    "nwt: MODFLOW-NWT / MODPATH / MT3DMS test case",
-    "mf6: MODFLOW 6 / GWT test case",
-    "integration: tests that call external services or systems",
-    "coverage: long-running coverage tests",
-]
 
 [tool.coverage.run]
 source = [
     "hydromodpy.core",
     "hydromodpy.spatial",
-    "hydromodpy.process",
+    "hydromodpy.physics",
     "hydromodpy.data",
     "hydromodpy.results",
     "hydromodpy.simulation",
@@ -169,8 +157,6 @@ parallel = true
 omit = [
     "hydromodpy/**/cases/*",
     "hydromodpy/**/examples/*",
-    "hydromodpy/calibration_legacy/*",
-    "hydromodpy/calibration2/*",
     "examples/*",
     "examples_legacy/*",
     "validation_cases/*",

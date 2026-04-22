@@ -8,16 +8,17 @@ from typing import Annotated, Any, Literal, Mapping
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator, model_validator
 
-from hydromodpy.core.config.param_level import ParamLevel
+from hydromodpy.core.config.profile import Profile
+from hydromodpy.core.config.base import HydroModelBase
 
 
-class GeologySourceConfig(BaseModel):
+class GeologySourceConfig(HydroModelBase):
     """Configuration for ONE geology data source."""
 
     model_config = ConfigDict(extra="forbid")
 
     source: Annotated[
-        Literal["custom", "brgm_1m", "brgm_50k"], ParamLevel("user")
+        Literal["custom", "brgm_1m", "brgm_50k"], Profile.USER
     ] = Field(
         ...,
         description=(
@@ -28,11 +29,11 @@ class GeologySourceConfig(BaseModel):
     )
 
     # --- Custom source fields ---
-    path: Annotated[Path | None, ParamLevel("user")] = Field(
+    path: Annotated[Path | None, Profile.USER] = Field(
         default=None,
         description="Path to custom geology file or directory (SHP, GPKG, TIF, CSV).",
     )
-    code_field: Annotated[str | None, ParamLevel("user")] = Field(
+    code_field: Annotated[str | None, Profile.USER] = Field(
         default=None,
         description=(
             "Attribute column for geology codes in custom vector files "
@@ -40,7 +41,7 @@ class GeologySourceConfig(BaseModel):
             "Ignored for BRGM sources (always CODE_LEG)."
         ),
     )
-    values_table_path: Annotated[Path | None, ParamLevel("user")] = Field(
+    values_table_path: Annotated[Path | None, Profile.USER] = Field(
         default=None,
         description=(
             "Optional CSV linking geology codes to descriptions. "
@@ -49,31 +50,31 @@ class GeologySourceConfig(BaseModel):
     )
 
     # --- CSV interpolation fields ---
-    col_x: Annotated[str, ParamLevel("dev")] = Field(
+    col_x: Annotated[str, Profile.DEV] = Field(
         default="x", description="Column for X coordinate in CSV.",
     )
-    col_y: Annotated[str, ParamLevel("dev")] = Field(
+    col_y: Annotated[str, Profile.DEV] = Field(
         default="y", description="Column for Y coordinate in CSV.",
     )
-    col_code: Annotated[str, ParamLevel("dev")] = Field(
+    col_code: Annotated[str, Profile.DEV] = Field(
         default="geology_code", description="Column for geology code in CSV.",
     )
-    default_crs: Annotated[str, ParamLevel("dev")] = Field(
+    default_crs: Annotated[str, Profile.DEV] = Field(
         default="EPSG:2154", description="Default CRS for CSV points.",
     )
 
     # --- Spatial mask ---
-    mask_path: Annotated[Path | None, ParamLevel("user")] = Field(
+    mask_path: Annotated[Path | None, Profile.USER] = Field(
         default=None,
         description="SHP/GPKG/GeoJSON mask for spatial filtering/clipping.",
     )
-    extent: Annotated[Literal["watershed", "study_area"] | None, ParamLevel("user")] = Field(
+    extent: Annotated[Literal["watershed", "study_area"] | None, Profile.USER] = Field(
         default=None,
         description="Use project extent for bbox-based data retrieval.",
     )
 
     # --- Common ---
-    force_refresh: Annotated[bool, ParamLevel("dev")] = Field(
+    force_refresh: Annotated[bool, Profile.DEV] = Field(
         default=False,
         description="Ignore cache and re-download from API.",
     )
@@ -97,7 +98,7 @@ class GeologySourceConfig(BaseModel):
         return self
 
 
-class GeologyConfig(BaseModel):
+class GeologyConfig(HydroModelBase):
     """Top-level geology variable configuration.
 
     Example TOML::
@@ -116,17 +117,17 @@ class GeologyConfig(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    sources: Annotated[list[GeologySourceConfig], ParamLevel("user")] = Field(
+    sources: Annotated[list[GeologySourceConfig], Profile.USER] = Field(
         default_factory=lambda: [GeologySourceConfig(source="brgm_1m")],
         min_length=1,
         description="At least one geology data source. Defaults to BRGM 1:1M.",
     )
 
-    id: Annotated[str, ParamLevel("user")] = Field(
+    id: Annotated[str, Profile.USER] = Field(
         default="field_geology",
         description="Identifier of the geology spatial field.",
     )
-    cell_samples_per_axis: Annotated[int, ParamLevel("dev")] = Field(
+    cell_samples_per_axis: Annotated[int, Profile.DEV] = Field(
         default=8,
         ge=2,
         description=(
@@ -146,7 +147,7 @@ class GeologyConfig(BaseModel):
 
 # ---------------------------------------------------------------------------
 # Standalone geology field schemas (used by GeologyField.from_dict/from_toml
-# and runtime_loader for direct field construction).
+# and the data loader for direct field construction).
 # ---------------------------------------------------------------------------
 
 SUPPORTED_SOURCE_KINDS = ("auto", "raster", "vector")
@@ -164,38 +165,38 @@ def _get_nested_section(payload: Mapping[str, Any], dotted_path: str) -> Mapping
     return current
 
 
-class GeologySourceSchema(BaseModel):
+class GeologySource(HydroModelBase):
     """Schema for geology data source definition (standalone field construction)."""
 
     model_config = ConfigDict(extra="forbid")
 
-    path: str = Field(
+    path: Annotated[str, Profile.USER] = Field(
         description=(
             "Path to the raw geology dataset used by the meshing workflow. "
             "It can point to a raster or polygon vector file depending on kind."
         )
     )
-    kind: str = Field(
+    kind: Annotated[str, Profile.USER] = Field(
         default="auto",
         description=(
             "How to interpret the geology source. "
             "Use 'vector' for polygon geology, 'raster' for an already rasterized grid, or 'auto' to infer the type from the file."
         ),
     )
-    code_field: str | None = Field(
+    code_field: Annotated[str | None, Profile.USER] = Field(
         default=None,
         description=(
             "Attribute column carrying the geology code for each polygon when kind='vector'."
         ),
     )
-    reference_raster_path: str | None = Field(
+    reference_raster_path: Annotated[str | None, Profile.USER] = Field(
         default=None,
         description=(
             "Reference raster used when vector geology must be rasterized. "
             "Its extent and resolution define the target encoding grid."
         ),
     )
-    all_touched: bool = Field(
+    all_touched: Annotated[bool, Profile.USER] = Field(
         default=False,
         description=(
             "Rasterization rule for vector geology. "
@@ -240,32 +241,32 @@ class GeologySourceSchema(BaseModel):
         return self
 
 
-class GeologyLandSeaSchema(BaseModel):
+class GeologyLandSea(HydroModelBase):
     """Optional sea-mask override for coastal workflows."""
 
     model_config = ConfigDict(extra="forbid")
 
-    enabled: bool = Field(
+    enabled: Annotated[bool, Profile.USER] = Field(
         default=False,
         description=(
             "Enable the coastal override that replaces geology values over sea areas."
         ),
     )
-    path: str | None = Field(
+    path: Annotated[str | None, Profile.USER] = Field(
         default=None,
         description=(
             "Mask raster or vector path used when landsea.enabled=true. "
             "The mask is interpreted so that sea pixels/features overwrite the base geology code."
         ),
     )
-    sea_value: float = Field(
+    sea_value: Annotated[float, Profile.USER] = Field(
         default=0.0,
         description=(
             "Numeric value in the mask that represents the sea class. "
             "It is compared against the loaded mask before applying override_code."
         ),
     )
-    override_code: str = Field(
+    override_code: Annotated[str, Profile.USER] = Field(
         default="1",
         description=(
             "Geology code written into sea areas after applying the land/sea mask. "
@@ -303,38 +304,38 @@ class GeologyLandSeaSchema(BaseModel):
         return self
 
 
-class GeologyConfigSchema(BaseModel):
+class GeologyConfigBlock(HydroModelBase):
     """Top-level schema for one geology field definition (standalone construction)."""
 
     model_config = ConfigDict(extra="forbid")
 
-    id: str = Field(
+    id: Annotated[str, Profile.USER] = Field(
         default="field_geology",
         description=(
             "Logical identifier of the geology field once loaded into HydroModPy. "
             "This id is reused by support discretization and by parameter mappings that target geology-based zonation."
         ),
     )
-    source: GeologySourceSchema = Field(
+    source: Annotated[GeologySource, Profile.USER] = Field(
         description=(
             "Raw geology source definition. "
             "This section explains where the geology polygons or raster come from and how they should be interpreted."
         )
     )
-    clip_polygon_path: str | None = Field(
+    clip_polygon_path: Annotated[str | None, Profile.USER] = Field(
         default=None,
         description=(
             "Optional polygon mask applied before meshing or field projection. "
             "Use it to crop a very large national dataset to one smaller study area before further processing."
         ),
     )
-    landsea: GeologyLandSeaSchema = Field(
-        default_factory=GeologyLandSeaSchema,
+    landsea: Annotated[GeologyLandSea, Profile.USER] = Field(
+        default_factory=GeologyLandSea,
         description=(
             "Optional coastal override applied after loading the base geology source."
         ),
     )
-    cell_samples_per_axis: int = Field(
+    cell_samples_per_axis: Annotated[int, Profile.USER] = Field(
         default=8,
         description=(
             "Default sampling density used later when projecting geology fractions onto a target mesh. "
@@ -374,7 +375,7 @@ def validate_geology_config_data(config_data: Mapping[str, Any]) -> dict[str, An
     if not isinstance(config_data, Mapping):
         raise ValueError("geology configuration must be a mapping")
     try:
-        parsed = GeologyConfigSchema.model_validate(dict(config_data))
+        parsed = GeologyConfigBlock.model_validate(dict(config_data))
     except ValidationError as exc:
         raise ValueError(str(exc)) from exc
     return parsed.model_dump(mode="python")

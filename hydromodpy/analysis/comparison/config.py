@@ -7,6 +7,7 @@ from typing import Any, Literal, Mapping
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 from hydromodpy.core.config.toml_loader import load_toml_with_base_config
+from hydromodpy.core.config.base import HydroModelBase
 
 
 def _clean_optional_text(value: object) -> str | None:
@@ -17,7 +18,7 @@ def _clean_optional_text(value: object) -> str | None:
     return text or None
 
 
-class MethodComparisonVariantSchema(BaseModel):
+class MethodComparisonVariant(HydroModelBase):
     """One solver/mesh method variant to run or reuse."""
 
     model_config = ConfigDict(extra="forbid")
@@ -70,7 +71,7 @@ class MethodComparisonVariantSchema(BaseModel):
         return dict(value)
 
 
-class MethodComparisonObservableSchema(BaseModel):
+class MethodComparisonObservable(HydroModelBase):
     """One quantity of interest extracted from each variant run folder."""
 
     model_config = ConfigDict(extra="forbid")
@@ -150,7 +151,7 @@ class MethodComparisonObservableSchema(BaseModel):
         return cleaned
 
     @model_validator(mode="after")
-    def _validate_support_specific_fields(self) -> "MethodComparisonObservableSchema":
+    def _validate_support_specific_fields(self) -> "MethodComparisonObservable":
         if self.time is not None and self.time_window is not None:
             raise ValueError(
                 "method_comparison.observable cannot declare both time and time_window"
@@ -163,7 +164,7 @@ class MethodComparisonObservableSchema(BaseModel):
                     "point observables require x/y coordinates, anchor_id, or cell_index"
                 )
             if self.reducer is None:
-                self.reducer = "nearest_cell"
+                object.__setattr__(self, "reducer", 'nearest_cell')
         elif self.support == "outlet":
             has_coordinates = self.x is not None and self.y is not None
             has_anchor = self.anchor_id is not None
@@ -180,24 +181,24 @@ class MethodComparisonObservableSchema(BaseModel):
                 )
             variable_key = self.variable.strip().lower()
             if self.reducer is None:
-                self.reducer = "max" if "accumulation" in variable_key else "sum"
+                object.__setattr__(self, "reducer", 'max' if 'accumulation' in variable_key else 'sum')
         elif self.support == "boundary":
             if self.boundary_id is None and not self.cell_indices:
                 raise ValueError(
                     "boundary observables require boundary_id or cell_indices"
                 )
             if self.reducer is None:
-                self.reducer = "sum"
+                object.__setattr__(self, "reducer", 'sum')
         elif self.support == "cell_mask":
             if self.reducer is None:
-                self.reducer = "sum"
+                object.__setattr__(self, "reducer", 'sum')
         elif self.support == "map":
             if self.reducer is None:
-                self.reducer = "identity"
+                object.__setattr__(self, "reducer", 'identity')
         return self
 
 
-class MethodComparisonSectionSchema(BaseModel):
+class MethodComparisonSection(HydroModelBase):
     """Launcher-owned method-comparison section."""
 
     model_config = ConfigDict(extra="forbid")
@@ -209,9 +210,9 @@ class MethodComparisonSectionSchema(BaseModel):
     run_variants: bool = True
     continue_on_error: bool = False
     reference_variant: str | None = None
-    fine_raster: "MethodComparisonFineRasterSchema | None" = None
-    variant: list[MethodComparisonVariantSchema] = Field(default_factory=list)
-    observable: list[MethodComparisonObservableSchema] = Field(default_factory=list)
+    fine_raster: "MethodComparisonFineRaster | None" = None
+    variant: list[MethodComparisonVariant] = Field(default_factory=list)
+    observable: list[MethodComparisonObservable] = Field(default_factory=list)
 
     @field_validator(
         "comparison_id",
@@ -225,7 +226,7 @@ class MethodComparisonSectionSchema(BaseModel):
         return _clean_optional_text(value)
 
     @model_validator(mode="after")
-    def _validate_non_empty_lists(self) -> "MethodComparisonSectionSchema":
+    def _validate_non_empty_lists(self) -> "MethodComparisonSection":
         if not self.variant:
             raise ValueError("method_comparison.variant must contain at least one item")
         if not self.observable:
@@ -254,7 +255,7 @@ class MethodComparisonSectionSchema(BaseModel):
         return self
 
 
-class MethodComparisonFineRasterSchema(BaseModel):
+class MethodComparisonFineRaster(HydroModelBase):
     """Optional common regular-grid rasterization for map comparisons."""
 
     model_config = ConfigDict(extra="forbid")
@@ -276,7 +277,7 @@ class MethodComparisonFineRasterSchema(BaseModel):
         return resolution
 
     @model_validator(mode="after")
-    def _validate_when_enabled(self) -> "MethodComparisonFineRasterSchema":
+    def _validate_when_enabled(self) -> "MethodComparisonFineRaster":
         if self.enabled and self.resolution is None:
             raise ValueError(
                 "method_comparison.fine_raster.resolution is required when fine_raster.enabled=true"
@@ -284,7 +285,7 @@ class MethodComparisonFineRasterSchema(BaseModel):
         return self
 
 
-class MethodComparisonConfig(BaseModel):
+class MethodComparisonConfig(HydroModelBase):
     """Validated top-level configuration for the method-comparison launcher."""
 
     model_config = ConfigDict(arbitrary_types_allowed=True)
@@ -295,7 +296,7 @@ class MethodComparisonConfig(BaseModel):
     base_simulation_config_path: Path | None = None
     anchors_path: Path | None = None
     anchors: dict[str, tuple[float, float]] = Field(default_factory=dict)
-    method_comparison: MethodComparisonSectionSchema
+    method_comparison: MethodComparisonSection
 
     @classmethod
     def from_toml(
@@ -312,7 +313,7 @@ class MethodComparisonConfig(BaseModel):
 
         resolved_config_path = Path(config_path).expanduser().resolve()
         base_dir = resolved_config_path.parent
-        section = MethodComparisonSectionSchema.model_validate(
+        section = MethodComparisonSection.model_validate(
             raw_toml["method_comparison"]
         )
 
@@ -383,7 +384,7 @@ class MethodComparisonConfig(BaseModel):
 
     def resolve_variant_config_path(
         self,
-        variant: MethodComparisonVariantSchema,
+        variant: MethodComparisonVariant,
     ) -> Path | None:
         """Resolve a variant's declared simulation config path, if any."""
         if variant.simulation_config is None:
@@ -395,7 +396,7 @@ class MethodComparisonConfig(BaseModel):
 
     def resolve_variant_run_folder(
         self,
-        variant: MethodComparisonVariantSchema,
+        variant: MethodComparisonVariant,
     ) -> Path | None:
         """Resolve a variant's declared existing run folder, if any."""
         if variant.run_folder is None:
@@ -408,9 +409,9 @@ class MethodComparisonConfig(BaseModel):
 
 __all__ = (
     "MethodComparisonConfig",
-    "MethodComparisonObservableSchema",
-    "MethodComparisonSectionSchema",
-    "MethodComparisonVariantSchema",
+    "MethodComparisonObservable",
+    "MethodComparisonSection",
+    "MethodComparisonVariant",
 )
 
 
@@ -447,7 +448,7 @@ def _collect_anchor_nodes(
 
 
 def _apply_observable_anchors(
-    observables: list[MethodComparisonObservableSchema],
+    observables: list[MethodComparisonObservable],
     anchors: Mapping[str, tuple[float, float]],
 ) -> None:
     for observable in observables:

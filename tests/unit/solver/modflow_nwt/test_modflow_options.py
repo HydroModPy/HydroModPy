@@ -7,7 +7,7 @@ from hydromodpy.solver.modflow_nwt.modflow import (
     ModflowPreprocessOptions,
     ModflowRunOptions,
 )
-from hydromodpy.process.flow.sinks_sources import FlowRechargeConfig
+from hydromodpy.physics.flow.sinks_sources import FlowRechargeConfig
 
 
 def test_preprocess_options_defaults_are_stable():

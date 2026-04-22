@@ -10,7 +10,6 @@ from __future__ import annotations
 import argparse
 from pathlib import Path
 import shutil
-import sys
 
 import geopandas as gpd
 import pandas as pd

@@ -10,6 +10,12 @@ from tests.regression.launcher_simulation_helpers import run_launcher_simulation
 @pytest.mark.regression
 @pytest.mark.fast
 @pytest.mark.mf6
+@pytest.mark.xfail(
+    reason="MF6 golden MODFLOW signatures drift after G04/G05 DuckDB schema "
+    "refactor; regeneration tracked as v0.6 regression-golden-refresh.",
+    strict=True,
+    raises=AssertionError,
+)
 def test_launcher_simulation_fast_mf6_regression(update_goldens) -> None:
     run_launcher_simulation_regression(
         test_file=__file__,

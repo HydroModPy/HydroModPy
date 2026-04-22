@@ -1,3 +1,5 @@
+workflow = "simulation"
+
 [simulation]
 name = "LU hillslope drainage val"
 description = "Synthetic steady-state unconfined flow with fixed heads, linear topography, and uniform top drainage."

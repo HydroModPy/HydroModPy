@@ -7,8 +7,8 @@ from pathlib import Path
 
 import rasterio
 
-from hydromodpy.core.backends import WhiteboxBackend, WhiteboxWorkflowsBackend, get_whitebox_backend
-from hydromodpy.core.tools.raster_io import export_tif
+from hydromodpy.spatial.delineation import WhiteboxBackend, WhiteboxWorkflowsBackend, get_whitebox_backend
+from hydromodpy.core.io.raster_io import export_tif
 from hydromodpy.spatial.geographic.core.domain_dem import clip_dem_to_box_buffer
 from hydromodpy.spatial.geographic.geographic_io import ensure_crs
 from hydromodpy.spatial.geographic.geographic_paths import GeographicPaths

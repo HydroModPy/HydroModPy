@@ -1,4 +1,7 @@
 # -*- coding: utf-8 -*-
+# Intentional duplication with the MF6 flow_to_modflow_adapter: MODFLOW-NWT is
+# scheduled for removal after the Lake (LAK) module lands on the MF6 side — not
+# worth factoring the payload builders out. See docs/developers/nwt_sunset_plan.md.
 """
 Flow -> MODFLOW-NWT adaptation layer.
 
@@ -91,13 +94,12 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 from dataclasses import dataclass
-from numbers import Real
 from typing import TYPE_CHECKING
 
 import numpy as np
 import pandas as pd
 
-from hydromodpy.process.flow.time_forcing import resolve_period_values_from_forcing
+from hydromodpy.physics.flow.time_forcing import resolve_period_values_from_forcing
 from hydromodpy.solver.modflow_common.grid_context import GridReference
 from hydromodpy.solver.modflow_common.solver_mesh import SolverMesh
 from hydromodpy.core.units import (

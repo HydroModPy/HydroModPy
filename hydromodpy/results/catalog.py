@@ -3,9 +3,11 @@ from __future__ import annotations
 import hashlib
 import json
 import logging
+import re
 import shutil
+from dataclasses import dataclass
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Literal
 from uuid import UUID
 
 import duckdb
@@ -13,7 +15,7 @@ import numpy as np
 import pandas as pd
 
 from hydromodpy.results.catalog_schema import (
-    HOMOGENEOUS_ZONE,
+    GLOBAL_ZONE,
     PER_SIM_TABLE_NAMES,
     SOLVER_CATEGORIES,
     ensure_schema,
@@ -25,10 +27,160 @@ from hydromodpy.results.zarr_store import SimulationZarr
 if TYPE_CHECKING:
     import geopandas as gpd
 
-    from hydromodpy.results.simulation import Simulation
+    from hydromodpy.results.run import Run
     from hydromodpy.results.simulation_group import SimulationGroup
 
 logger = logging.getLogger(__name__)
+
+# Reference-resolution helpers -------------------------------------------------
+
+OnCollisionMode = Literal["replace", "fail", "version"]
+_MIN_PREFIX_LEN = 4
+_UUID_FULL_RE = re.compile(
+    r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+    re.IGNORECASE,
+)
+_HEX_RE = re.compile(r"^[0-9a-f]+$", re.IGNORECASE)
+
+
+def short_id(sim_id: str | UUID) -> str:
+    """Return the first 8 hex characters of a simulation UUID (Git-style)."""
+    return str(sim_id)[:8]
+
+
+class SimulationNotFoundError(KeyError):
+    """Raised when a reference does not match any simulation in the catalog."""
+
+
+class AmbiguousReferenceError(KeyError):
+    """Raised when a UUID prefix matches more than one simulation."""
+
+    def __init__(self, ref: str, candidates: list[tuple[str, str | None]]) -> None:
+        self.ref = ref
+        self.candidates = candidates
+        head = candidates[:10]
+        lines = "\n".join(
+            f"  {short_id(sid)}  {name or '(no name)'}" for sid, name in head
+        )
+        suffix = (
+            f"\n  … and {len(candidates) - 10} more"
+            if len(candidates) > 10 else ""
+        )
+        super().__init__(
+            f"Reference '{ref}' is ambiguous; matches {len(candidates)} "
+            f"simulations:\n{lines}{suffix}"
+        )
+
+
+class DuplicateSimulationNameError(ValueError):
+    """Raised when on_collision='fail' and a (project, name) pair already exists."""
+
+    def __init__(self, project: str, name: str, existing_sim_id: str) -> None:
+        self.project = project
+        self.name = name
+        self.existing_sim_id = existing_sim_id
+        super().__init__(
+            f"Simulation '{name}' already exists in project '{project}' "
+            f"(existing sim_id {short_id(existing_sim_id)}). "
+            f"Use on_collision='replace' or 'version' to proceed."
+        )
+
+
+@dataclass(frozen=True)
+class RegistrationResult:
+    """Outcome of :meth:`SimulationCatalog.register_simulation`.
+
+    Attributes
+    ----------
+    sim_id
+        UUID of the newly registered simulation.
+    name
+        Final name assigned to the simulation (may differ from the requested
+        name when ``on_collision='version'`` auto-suffixes it).
+    zarr
+        The freshly created :class:`SimulationZarr`, or ``None`` when mesh
+        dimensions are not yet known at registration time.
+    replaced_sim_id
+        UUID of a previously named simulation whose name was cleared by a
+        soft-replace. ``None`` when no collision occurred.
+    """
+
+    sim_id: str
+    name: str | None
+    zarr: SimulationZarr | None
+    replaced_sim_id: str | None
+
+
+def _next_available_version(
+    db: duckdb.DuckDBPyConnection, project: str, base_name: str,
+) -> str:
+    """Return ``base_name.v{n}`` where ``n`` is the smallest free integer ≥ 2."""
+    rows = db.execute(
+        "SELECT name FROM simulations WHERE project = ? AND "
+        "(name = ? OR name LIKE ?)",
+        [project, base_name, base_name + ".v%"],
+    ).fetchall()
+    existing = {r[0] for r in rows}
+    n = 2
+    while f"{base_name}.v{n}" in existing:
+        n += 1
+    return f"{base_name}.v{n}"
+
+
+def _coerce_timestamp(value: Any) -> Any:
+    """Return a value suitable for a ``TIMESTAMPTZ`` column.
+
+    Accepts ``None``, pandas ``Timestamp``, ``datetime``, or ISO string. Plain
+    strings are validated and passed through; anything else is returned as-is
+    for DuckDB to cast.
+    """
+    if value is None:
+        return None
+    if hasattr(value, "isoformat"):
+        return value
+    return str(value)
+
+
+def _python_value_type(value: object) -> str:
+    if isinstance(value, bool):
+        return "bool"
+    if isinstance(value, int):
+        return "int"
+    if isinstance(value, float):
+        return "double"
+    return "string"
+
+
+def _normalize_geometry_kind(geom_type: str | None) -> str | None:
+    if not geom_type:
+        return None
+    mapping = {
+        "Point": "point",
+        "MultiPoint": "point",
+        "LineString": "linestring",
+        "MultiLineString": "linestring",
+        "Polygon": "polygon",
+        "MultiPolygon": "multipolygon",
+    }
+    return mapping.get(geom_type, "polygon")
+
+
+def _epsg_from_crs(crs: str) -> int | None:
+    """Best-effort extraction of an EPSG code from a CRS string."""
+    if not crs:
+        return None
+    upper = crs.upper().strip()
+    if upper.startswith("EPSG:"):
+        try:
+            return int(upper.split(":", 1)[1])
+        except ValueError:
+            return None
+    try:
+        from pyproj import CRS as _CRS
+
+        return _CRS.from_user_input(crs).to_epsg()
+    except Exception:
+        return None
 
 
 class SimulationCatalog:
@@ -65,75 +217,131 @@ class SimulationCatalog:
         solver: str,
         *,
         name: str | None = None,
+        on_collision: OnCollisionMode = "replace",
         solver_category: str | None = None,
         flow_regime: str | None = None,
         config: dict | None = None,
+        config_snapshot: dict | None = None,
         n_cells: int | None = None,
         n_layers: int | None = None,
         n_timesteps: int | None = None,
         cell_types: list[str] | None = None,
-        bbox: list[float] | None = None,
+        bbox: list[float] | tuple[float, float, float, float] | None = None,
         crs: str | None = None,
+        crs_epsg: int | None = None,
         period_start: Any = None,
         period_end: Any = None,
         time_unit: str | None = None,
         parent_sim_id: str | UUID | None = None,
         mesh_hash: str | None = None,
         mesh_type: str | None = None,
+        mesh_topology: str | None = None,
+        geographic_fingerprint: str | None = None,
         tags: list[str] | None = None,
         notes: str | None = None,
-        run_id: str | None = None,
-    ) -> SimulationZarr | None:
+    ) -> RegistrationResult:
         sid = str(sim_id)
+        replaced_sid: str | None = None
+        final_name = name
 
-        if run_id:
+        if name:
             existing = self._db.execute(
-                "SELECT sim_id FROM simulations WHERE name = ?", [run_id],
-            ).fetchall()
-            for (old_sid,) in existing:
-                self.delete(old_sid)
-                logger.info("Replaced previous simulation %s (run_id=%s)", old_sid, run_id)
+                "SELECT sim_id FROM simulations WHERE project = ? AND name = ?",
+                [project, name],
+            ).fetchone()
+            if existing:
+                existing_sid = str(existing[0])
+                if on_collision == "fail":
+                    raise DuplicateSimulationNameError(project, name, existing_sid)
+                if on_collision == "replace":
+                    self._db.execute(
+                        "UPDATE simulations SET name = NULL WHERE sim_id = ?",
+                        [existing_sid],
+                    )
+                    replaced_sid = existing_sid
+                    logger.info(
+                        "Reassigning name '%s' in project '%s' "
+                        "(previous sim %s kept, name cleared)",
+                        name, project, short_id(existing_sid),
+                    )
+                elif on_collision == "version":
+                    final_name = _next_available_version(self._db, project, name)
+                    logger.info(
+                        "Auto-versioned '%s' → '%s' in project '%s'",
+                        name, final_name, project,
+                    )
+                else:
+                    raise ValueError(
+                        f"Unknown on_collision mode: '{on_collision}'"
+                    )
 
         if solver_category is None:
             solver_category = SOLVER_CATEGORIES.get(solver)
 
         config_json = json.dumps(config) if config else None
+        snapshot_source = config_snapshot if config_snapshot is not None else config
+        snapshot_json = (
+            json.dumps(snapshot_source) if snapshot_source is not None else None
+        )
         config_hash = None
         if config:
             config_hash = hashlib.sha256(
                 json.dumps(config, sort_keys=True).encode()
             ).hexdigest()
 
+        bbox_xmin = bbox_ymin = bbox_xmax = bbox_ymax = None
+        if bbox is not None and len(bbox) == 4:
+            bbox_xmin, bbox_ymin, bbox_xmax, bbox_ymax = (float(v) for v in bbox)
+
+        crs_wkt = crs
+        if crs_epsg is None and crs:
+            crs_epsg = _epsg_from_crs(crs)
+
+        topology = mesh_topology
+        if topology is None and mesh_type in ("dis", "disv", "disu"):
+            topology = mesh_type
+        p_start = _coerce_timestamp(period_start)
+        p_end = _coerce_timestamp(period_end)
+
         zarr_path = f"simulations/{sid}.zarr"
         parent_sid = str(parent_sim_id) if parent_sim_id else None
-        p_start = str(period_start) if period_start is not None else None
-        p_end = str(period_end) if period_end is not None else None
 
         self._db.execute(
             """INSERT INTO simulations
                (sim_id, name, project, solver, solver_category, flow_regime,
-                n_cells, n_layers, n_timesteps, cell_types, bbox, crs,
+                n_cells, n_layers, n_timesteps,
+                bbox_xmin, bbox_ymin, bbox_xmax, bbox_ymax,
+                crs_wkt, crs_epsg,
                 period_start, period_end, time_unit,
-                config_toml, config_hash, zarr_path,
-                parent_sim_id, mesh_hash, mesh_type, tags, notes)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
-                       ?, ?, ?, ?, ?)""",
+                config_toml, config_snapshot, config_hash, zarr_path,
+                parent_sim_id, mesh_hash, mesh_topology,
+                geographic_fingerprint, tags, notes)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
+                       ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
             [
-                sid, name, project, solver, solver_category, flow_regime,
-                n_cells, n_layers, n_timesteps, cell_types, bbox, crs,
+                sid, final_name, project, solver, solver_category, flow_regime,
+                n_cells, n_layers, n_timesteps,
+                bbox_xmin, bbox_ymin, bbox_xmax, bbox_ymax,
+                crs_wkt, crs_epsg,
                 p_start, p_end, time_unit,
-                config_json, config_hash, zarr_path,
-                parent_sid, mesh_hash, mesh_type, tags, notes,
+                config_json, snapshot_json, config_hash, zarr_path,
+                parent_sid, mesh_hash, topology,
+                geographic_fingerprint, tags, notes,
             ],
         )
 
+        zarr_obj: SimulationZarr | None = None
         if n_cells is not None and n_layers is not None:
             zarr_abs = self._workspace / zarr_path
-            return SimulationZarr.create(
+            zarr_obj = SimulationZarr.create(
                 zarr_abs, n_cells=n_cells, n_layers=n_layers,
                 cell_types=cell_types,
+                geographic_fingerprint=geographic_fingerprint,
             )
-        return None
+        return RegistrationResult(
+            sim_id=sid, name=final_name, zarr=zarr_obj,
+            replaced_sim_id=replaced_sid,
+        )
 
     # -- Parameter writes ----------------------------------------------------
 
@@ -145,7 +353,7 @@ class SimulationCatalog:
         sid = str(sim_id)
         for p in params:
             zone = p.get("zone_id")
-            zone_val = HOMOGENEOUS_ZONE if zone is None else str(zone)
+            zone_val = GLOBAL_ZONE if zone is None else str(zone)
             self._db.execute(
                 """INSERT INTO parameters
                    (sim_id, param_name, zone_id, value, unit, parameterization)
@@ -170,20 +378,28 @@ class SimulationCatalog:
         if n == 0:
             return
         sid = str(sim_id)
+        # The timeseries.datetime column is TIMESTAMPTZ (WITH TIME ZONE).
+        # DuckDB 1.5+ can't cast between tz-aware and tz-naive via Arrow,
+        # so normalize to a single tz-aware representation (UTC) here.
+        dt_values = pd.DatetimeIndex(ts.index)
+        if dt_values.tz is None:
+            dt_values = dt_values.tz_localize("UTC")
+        else:
+            dt_values = dt_values.tz_convert("UTC")
         insert_df = pd.DataFrame(
             {
                 "sim_id": np.full(n, sid, dtype=object),
                 "station_id": np.full(n, station_id, dtype=object),
                 "variable": np.full(n, variable, dtype=object),
-                "timestamp": ts.index,
+                "datetime": dt_values,
                 "value": ts.values.astype("float64"),
                 "unit": np.full(n, unit, dtype=object),
             }
         )
         self._db.execute(
-            "INSERT INTO timeseries "
-            "(sim_id, station_id, variable, timestamp, value, unit) "
-            "SELECT sim_id, station_id, variable, timestamp, value, unit "
+            "INSERT OR REPLACE INTO timeseries "
+            "(sim_id, station_id, variable, datetime, value, unit) "
+            "SELECT sim_id, station_id, variable, datetime, value, unit "
             "FROM insert_df"
         )
 
@@ -272,12 +488,14 @@ class SimulationCatalog:
         station_id: str,
         metric_name: str,
         value: float,
+        *,
+        variable: str = "head",
     ) -> None:
         self._db.execute(
             """INSERT OR REPLACE INTO metrics
-               (sim_id, station_id, metric_name, value)
-               VALUES (?, ?, ?, ?)""",
-            [str(sim_id), station_id, metric_name, value],
+               (sim_id, station_id, variable, metric_name, value)
+               VALUES (?, ?, ?, ?, ?)""",
+            [str(sim_id), station_id, variable, metric_name, value],
         )
 
     # -- Provenance ----------------------------------------------------------
@@ -294,15 +512,18 @@ class SimulationCatalog:
         period_end: Any = None,
     ) -> None:
         fp = fingerprint(data)
+        source_type_value = source_type if source_type in (
+            "http_api", "custom_file", "derived", "cache",
+        ) else "derived"
         self._db.execute(
-            """INSERT INTO provenance
+            """INSERT OR REPLACE INTO provenance
                (sim_id, variable, source_type, source_ref,
-                period_start, period_end, checksum, n_records, stats)
+                period_start, period_end, payload_sha256, n_records, stats)
                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
             [
-                str(sim_id), variable, source_type, source_ref,
-                str(period_start) if period_start is not None else None,
-                str(period_end) if period_end is not None else None,
+                str(sim_id), variable, source_type_value, source_ref,
+                _coerce_timestamp(period_start),
+                _coerce_timestamp(period_end),
                 fp["checksum"],
                 int(np.prod(data.shape)),
                 json.dumps(fp["stats"]),
@@ -326,14 +547,15 @@ class SimulationCatalog:
         vertices = mesh["vertices"][:]
         connectivity = mesh["face_node_connectivity"][:]
 
+        _ = variable
         mapping = point_in_cell(vertices, connectivity, points)
         for station_id, (x, y) in points.items():
             cell_id = mapping[station_id]
             self._db.execute(
-                """INSERT INTO observation_points
-                   (sim_id, station_id, x, y, cell_id, layer, variable)
-                   VALUES (?, ?, ?, ?, ?, ?, ?)""",
-                [sid, station_id, x, y, cell_id, layer, variable],
+                """INSERT OR REPLACE INTO observation_points
+                   (sim_id, station_id, x, y, cell_id, layer)
+                   VALUES (?, ?, ?, ?, ?, ?)""",
+                [sid, station_id, x, y, cell_id, layer],
             )
 
     # -- Geographic features & metadata (sim-scoped in DuckDB) ----------------
@@ -343,22 +565,30 @@ class SimulationCatalog:
         sim_id: str | UUID,
         feature_name: str,
         gdf: gpd.GeoDataFrame,
+        *,
+        geoparquet_path: str | None = None,
     ) -> None:
         if gdf.empty:
             return
-        geojson_str = gdf.to_json()
         from shapely.ops import unary_union
         union_geom = unary_union(
             [g for g in gdf.geometry if g is not None and not g.is_empty]
         )
-        geom_type = union_geom.geom_type
-        crs_str = str(gdf.crs) if gdf.crs else ""
-
+        geom_kind = _normalize_geometry_kind(union_geom.geom_type)
+        crs_str = str(gdf.crs) if gdf.crs else None
+        properties = {
+            "geojson": gdf.to_json(),
+            "n_features": int(len(gdf)),
+        }
         self._db.execute(
             "INSERT OR REPLACE INTO geographic_features "
-            "(sim_id, feature_name, geojson, geometry_type, crs, properties) "
-            "VALUES (?, ?, ?, ?, ?, NULL)",
-            [str(sim_id), feature_name, geojson_str, geom_type, crs_str],
+            "(sim_id, feature_name, geometry_kind, crs_wkt, "
+            " geoparquet_path, properties) "
+            "VALUES (?, ?, ?, ?, ?, ?)",
+            [
+                str(sim_id), feature_name, geom_kind, crs_str,
+                geoparquet_path, json.dumps(properties),
+            ],
         )
 
     def read_geographic_feature(
@@ -367,7 +597,7 @@ class SimulationCatalog:
         import geopandas as gpd_mod
 
         row = self._db.execute(
-            "SELECT geojson, crs FROM geographic_features "
+            "SELECT properties, crs_wkt FROM geographic_features "
             "WHERE sim_id = ? AND feature_name = ?",
             [str(sim_id), feature_name],
         ).fetchone()
@@ -375,13 +605,19 @@ class SimulationCatalog:
             raise KeyError(
                 f"Feature '{feature_name}' not found for sim '{sim_id}'"
             )
-        geojson_str, crs = row
-        if geojson_str:
-            gdf = gpd_mod.read_file(geojson_str)
-            if crs and gdf.crs is None:
-                gdf = gdf.set_crs(crs)
-            return gdf
-        raise KeyError(f"No GeoJSON data for feature '{feature_name}'")
+        properties_json, crs = row
+        if not properties_json:
+            raise KeyError(f"No payload for feature '{feature_name}'")
+        props = json.loads(properties_json) if isinstance(
+            properties_json, str
+        ) else properties_json
+        geojson_str = props.get("geojson") if isinstance(props, dict) else None
+        if not geojson_str:
+            raise KeyError(f"No GeoJSON data for feature '{feature_name}'")
+        gdf = gpd_mod.read_file(geojson_str)
+        if crs and gdf.crs is None:
+            gdf = gdf.set_crs(crs)
+        return gdf
 
     def list_geographic_features(self, sim_id: str | UUID) -> list[str]:
         rows = self._db.execute(
@@ -392,14 +628,16 @@ class SimulationCatalog:
         return [r[0] for r in rows]
 
     def write_geographic_metadata(
-        self, sim_id: str | UUID, metadata: dict[str, str],
+        self, sim_id: str | UUID, metadata: dict[str, object],
     ) -> None:
         sid = str(sim_id)
         for key, value in metadata.items():
+            value_type = _python_value_type(value)
             self._db.execute(
-                "INSERT OR REPLACE INTO geographic_metadata (sim_id, key, value) "
-                "VALUES (?, ?, ?)",
-                [sid, str(key), str(value)],
+                "INSERT OR REPLACE INTO geographic_metadata "
+                "(sim_id, key, value, value_type) "
+                "VALUES (?, ?, ?, ?)",
+                [sid, str(key), None if value is None else str(value), value_type],
             )
 
     def read_geographic_metadata(self, sim_id: str | UUID) -> dict[str, str]:
@@ -496,22 +734,34 @@ class SimulationCatalog:
         period: tuple | None = None,
     ) -> pd.Series:
         query = (
-            "SELECT timestamp, value FROM timeseries "
+            "SELECT datetime, value FROM timeseries "
             "WHERE sim_id = ? AND station_id = ? AND variable = ?"
         )
         params: list = [str(sim_id), station_id, variable]
         if period is not None:
-            query += " AND timestamp >= ? AND timestamp <= ?"
-            params.extend([period[0], period[1]])
-        query += " ORDER BY timestamp"
+            # Datetimes are stored as UTC-aware TIMESTAMPTZ; normalize the
+            # caller's bounds to tz-aware UTC so the comparison is stable
+            # regardless of DuckDB's session timezone.
+            lo = pd.Timestamp(period[0])
+            hi = pd.Timestamp(period[1])
+            lo = lo.tz_localize("UTC") if lo.tz is None else lo.tz_convert("UTC")
+            hi = hi.tz_localize("UTC") if hi.tz is None else hi.tz_convert("UTC")
+            query += " AND datetime >= ? AND datetime <= ?"
+            params.extend([lo.to_pydatetime(), hi.to_pydatetime()])
+        query += " ORDER BY datetime"
         result = self._db.execute(query, params).fetchdf()
         if result.empty:
             raise KeyError(
                 f"No timeseries for sim={sim_id}, station={station_id}, var={variable}"
             )
+        # Strip tz back to naive so the returned series aligns with
+        # simulation-internal tz-naive time indexes.
+        idx = pd.DatetimeIndex(result["datetime"])
+        if idx.tz is not None:
+            idx = idx.tz_convert("UTC").tz_localize(None)
         return pd.Series(
             result["value"].values,
-            index=pd.DatetimeIndex(result["timestamp"]),
+            index=idx,
             name=variable,
         )
 
@@ -605,16 +855,83 @@ class SimulationCatalog:
             "SELECT * FROM simulations ORDER BY created_at DESC"
         ).fetchdf()
 
-    def __getitem__(self, sim_id: str | UUID) -> Simulation:
-        from hydromodpy.results.simulation import Simulation
+    def resolve(
+        self, ref: str | UUID, *, project: str | None = None,
+    ) -> str:
+        """Resolve a user reference to a simulation UUID.
 
-        sid = str(sim_id)
-        row = self._db.execute(
-            "SELECT sim_id FROM simulations WHERE sim_id = ?", [sid],
-        ).fetchone()
-        if row is None:
-            raise KeyError(f"Simulation '{sid}' not found")
-        return Simulation(sid, self)
+        Accepts three forms, tried in order:
+
+        1. Full UUID (with dashes, 36 chars).
+        2. UUID prefix of ≥ 4 hex characters (no dashes). Must match a single
+           simulation globally; raises :class:`AmbiguousReferenceError`
+           otherwise.
+        3. Exact ``name`` within ``project`` — requires the ``project``
+           keyword.
+
+        Raises :class:`SimulationNotFoundError` when nothing matches.
+        """
+        ref_s = str(ref).strip()
+        if not ref_s:
+            raise SimulationNotFoundError("Empty reference")
+
+        if _UUID_FULL_RE.match(ref_s):
+            row = self._db.execute(
+                "SELECT CAST(sim_id AS VARCHAR) FROM simulations "
+                "WHERE CAST(sim_id AS VARCHAR) = ?",
+                [ref_s.lower()],
+            ).fetchone()
+            if row:
+                return str(row[0])
+
+        ref_nodash = ref_s.replace("-", "").lower()
+        if _HEX_RE.match(ref_nodash) and len(ref_nodash) >= _MIN_PREFIX_LEN:
+            rows = self._db.execute(
+                "SELECT CAST(sim_id AS VARCHAR), name FROM simulations "
+                "WHERE REPLACE(CAST(sim_id AS VARCHAR), '-', '') LIKE ? || '%'",
+                [ref_nodash],
+            ).fetchall()
+            if len(rows) == 1:
+                return str(rows[0][0])
+            if len(rows) > 1:
+                raise AmbiguousReferenceError(
+                    ref_s, [(str(r[0]), r[1]) for r in rows],
+                )
+
+        if project is not None:
+            row = self._db.execute(
+                "SELECT CAST(sim_id AS VARCHAR) FROM simulations "
+                "WHERE project = ? AND name = ?",
+                [project, ref_s],
+            ).fetchone()
+            if row:
+                return str(row[0])
+        else:
+            rows = self._db.execute(
+                "SELECT CAST(sim_id AS VARCHAR), project FROM simulations "
+                "WHERE name = ?",
+                [ref_s],
+            ).fetchall()
+            if len(rows) == 1:
+                return str(rows[0][0])
+            if len(rows) > 1:
+                raise AmbiguousReferenceError(
+                    ref_s,
+                    [(str(r[0]), f"{ref_s} (project={r[1]})") for r in rows],
+                )
+
+        where = f"'{ref_s}'"
+        context = f" in project '{project}'" if project else ""
+        raise SimulationNotFoundError(
+            f"Reference {where} not found{context}. "
+            "Try `hmp list <project>` or `catalog.simulations` to see known runs."
+        )
+
+    def __getitem__(self, ref: str | UUID) -> Run:
+        from hydromodpy.results.run import Run
+
+        sid = self.resolve(ref)
+        return Run(sid, self)
 
     def find(self, **filters) -> SimulationGroup:
         from hydromodpy.results.simulation_group import SimulationGroup
@@ -658,9 +975,13 @@ class SimulationCatalog:
                 params.append(metric)
                 clauses.append(f"{alias}.value >= ?")
                 params.append(val)
+            elif key == "crs":
+                clauses.append("s.crs_wkt = ?")
+                params.append(val)
             elif key in (
                 "project", "solver", "solver_category", "flow_regime",
-                "status", "name", "crs",
+                "status", "name", "crs_wkt", "mesh_topology",
+                "geographic_fingerprint",
             ):
                 clauses.append(f"s.{key} = ?")
                 params.append(val)
@@ -677,8 +998,8 @@ class SimulationCatalog:
         sim_ids = [str(r[0]) for r in rows]
         return SimulationGroup(sim_ids, self)
 
-    def latest(self, project: str) -> Simulation:
-        from hydromodpy.results.simulation import Simulation
+    def latest(self, project: str) -> Run:
+        from hydromodpy.results.run import Run
 
         row = self._db.execute(
             "SELECT sim_id FROM simulations "
@@ -688,10 +1009,10 @@ class SimulationCatalog:
         ).fetchone()
         if row is None:
             raise KeyError(f"No completed simulation for project '{project}'")
-        return Simulation(str(row[0]), self)
+        return Run(str(row[0]), self)
 
-    def best(self, project: str, metric: str = "nse") -> Simulation:
-        from hydromodpy.results.simulation import Simulation
+    def best(self, project: str, metric: str = "nse") -> Run:
+        from hydromodpy.results.run import Run
 
         row = self._db.execute(
             "SELECT s.sim_id FROM simulations s "
@@ -706,7 +1027,7 @@ class SimulationCatalog:
                 f"No completed simulation with metric '{metric}' "
                 f"for project '{project}'"
             )
-        return Simulation(str(row[0]), self)
+        return Run(str(row[0]), self)
 
     def sql(self, query: str, params: list | None = None) -> pd.DataFrame:
         if params:
@@ -735,128 +1056,30 @@ class SimulationCatalog:
 
     # -- Import / export -----------------------------------------------------
 
-    def export_simulation(
+    def export_package(
         self, sim_id: str | UUID, output_path: Path | str,
     ) -> Path:
-        sid = str(sim_id)
-        output = Path(output_path)
-        output.mkdir(parents=True, exist_ok=True)
+        """Export a simulation as a portable ``.hmp`` archive (tar.zst).
 
-        row = self._db.execute(
-            "SELECT zarr_path FROM simulations WHERE sim_id = ?", [sid],
-        ).fetchone()
-        if row is None:
-            raise KeyError(f"Simulation '{sid}' not found")
-        zarr_rel = row[0]
+        Returns the path to the produced ``.hmp`` file.
+        """
+        from hydromodpy.results.exporters.hmp_package import (
+            export_hmp_package,
+        )
+        return export_hmp_package(self, sim_id, output_path)
 
-        pkg_db_path = output / "simulation.duckdb"
-        pkg_db = duckdb.connect(str(pkg_db_path))
-        try:
-            sim_df = self._db.execute(
-                "SELECT * FROM simulations WHERE sim_id = ?", [sid],
-            ).fetchdf()
-            pkg_db.execute("CREATE TABLE simulations AS SELECT * FROM sim_df")
-
-            for table in PER_SIM_TABLE_NAMES:
-                df = self._db.execute(
-                    f"SELECT * FROM {table} WHERE sim_id = ?", [sid],
-                ).fetchdf()
-                pkg_db.execute(f"CREATE TABLE {table} AS SELECT * FROM df")
-
-            ver_df = self._db.execute("SELECT * FROM _schema_version").fetchdf()
-            pkg_db.execute(
-                "CREATE TABLE _schema_version AS SELECT * FROM ver_df"
-            )
-        finally:
-            pkg_db.close()
-
-        zarr_src = self._workspace / zarr_rel
-        if zarr_src.is_file():
-            zarr_dst = output / "results.zarr.zip"
-            shutil.copy2(zarr_src, zarr_dst)
-        elif zarr_src.is_dir():
-            zarr_dst = output / "results.zarr"
-            shutil.copytree(zarr_src, zarr_dst, dirs_exist_ok=True)
-
-        return output
-
-    def import_simulation(
+    def import_package(
         self, package_path: Path | str, *, force: bool = False,
     ) -> str:
-        pkg = Path(package_path)
-        pkg_db_path = pkg / "simulation.duckdb"
-        if not pkg_db_path.exists():
-            raise FileNotFoundError(f"No simulation.duckdb in {pkg}")
+        """Import a ``.hmp`` archive into this workspace.
 
-        pkg_db = duckdb.connect(str(pkg_db_path), read_only=True)
-        try:
-            sim_row = pkg_db.execute("SELECT sim_id FROM simulations").fetchone()
-            if sim_row is None:
-                raise ValueError("Package contains no simulation")
-            sid = str(sim_row[0])
-
-            existing = self._db.execute(
-                "SELECT sim_id FROM simulations WHERE sim_id = ?", [sid],
-            ).fetchone()
-            if existing is not None:
-                if not force:
-                    raise ValueError(
-                        f"Simulation '{sid}' already exists. Use force=True to overwrite."
-                    )
-                self.delete(sid)
-
-            pkg_tables = {
-                r[0] for r in pkg_db.execute(
-                    "SELECT table_name FROM information_schema.tables "
-                    "WHERE table_schema = 'main'"
-                ).fetchall()
-            }
-
-            self._db.begin()
-            try:
-                sim_df = pkg_db.execute("SELECT * FROM simulations").fetchdf()
-                self._db.execute("INSERT INTO simulations SELECT * FROM sim_df")
-
-                for table in PER_SIM_TABLE_NAMES:
-                    if table in pkg_tables:
-                        df = pkg_db.execute(f"SELECT * FROM {table}").fetchdf()
-                        if not df.empty:
-                            self._db.execute(
-                                f"INSERT INTO {table} SELECT * FROM df"
-                            )
-
-                # Determine zarr_path based on package content
-                pkg_zarr_zip = pkg / "results.zarr.zip"
-                pkg_zarr_dir = pkg / "results.zarr"
-                if pkg_zarr_zip.exists():
-                    zarr_path = f"simulations/{sid}.zarr.zip"
-                else:
-                    zarr_path = f"simulations/{sid}.zarr.zip"
-                self._db.execute(
-                    "UPDATE simulations SET zarr_path = ? WHERE sim_id = ?",
-                    [zarr_path, sid],
-                )
-                self._db.commit()
-            except Exception:
-                self._db.rollback()
-                raise
-        finally:
-            pkg_db.close()
-
-        pkg_zarr_zip = pkg / "results.zarr.zip"
-        pkg_zarr_dir = pkg / "results.zarr"
-        dst = self._workspace / zarr_path
-        if pkg_zarr_zip.exists():
-            shutil.copy2(pkg_zarr_zip, dst)
-        elif pkg_zarr_dir.exists():
-            # Import from old-format directory: pack to zip
-            import zipfile
-            with zipfile.ZipFile(str(dst), "w", compression=zipfile.ZIP_STORED) as zf:
-                for fpath in sorted(pkg_zarr_dir.rglob("*")):
-                    if fpath.is_file():
-                        zf.write(str(fpath), str(fpath.relative_to(pkg_zarr_dir)))
-
-        return sid
+        SHA-256 checksums in the archive manifest are verified before any
+        catalog mutation.
+        """
+        from hydromodpy.results.exporters.hmp_package import (
+            import_hmp_package,
+        )
+        return import_hmp_package(self, package_path, force=force)
 
     # -- Lifecycle -----------------------------------------------------------
 
@@ -877,6 +1100,7 @@ class SimulationCatalog:
             if zarr_dir.is_dir():
                 try:
                     sz = SimulationZarr(zarr_dir)
+                    sz.consolidate_metadata()
                     zip_path = sz.pack_to_zip()
                     rel = f"simulations/{zip_path.name}"
                     self._db.execute(
@@ -893,15 +1117,12 @@ class SimulationCatalog:
             "SELECT zarr_path FROM simulations WHERE sim_id = ?", [sid],
         ).fetchone()
 
-        self._db.begin()
-        try:
-            for table in PER_SIM_TABLE_NAMES:
-                self._db.execute(f"DELETE FROM {table} WHERE sim_id = ?", [sid])
-            self._db.execute("DELETE FROM simulations WHERE sim_id = ?", [sid])
-            self._db.commit()
-        except Exception:
-            self._db.rollback()
-            raise
+        for table in PER_SIM_TABLE_NAMES:
+            self._db.execute(f"DELETE FROM {table} WHERE sim_id = ?", [sid])
+        self._db.execute(
+            "DELETE FROM calibration_iterations WHERE sim_id = ?", [sid],
+        )
+        self._db.execute("DELETE FROM simulations WHERE sim_id = ?", [sid])
 
         if row and row[0]:
             zarr_abs = self._workspace / row[0]
@@ -918,3 +1139,44 @@ class SimulationCatalog:
 
     def __exit__(self, *exc):
         self.close()
+
+    def __repr__(self) -> str:
+        try:
+            count = self._db.execute(
+                "SELECT COUNT(*) FROM simulations"
+            ).fetchone()[0]
+        except Exception:
+            count = "?"
+        return f"SimulationCatalog(workspace={str(self._workspace)!r}, simulations={count})"
+
+    def _repr_html_(self) -> str:
+        try:
+            count = self._db.execute(
+                "SELECT COUNT(*), "
+                "SUM(CASE WHEN status='completed' THEN 1 ELSE 0 END), "
+                "SUM(CASE WHEN status='failed' THEN 1 ELSE 0 END) FROM simulations"
+            ).fetchone()
+            total, ok, failed = count
+            projects = [
+                str(r[0])
+                for r in self._db.execute(
+                    "SELECT DISTINCT project FROM simulations"
+                ).fetchall()
+            ]
+        except Exception:
+            total, ok, failed, projects = 0, 0, 0, []
+        projects_str = ", ".join(sorted(projects)) if projects else "&mdash;"
+        rows = [
+            ("workspace", f"<code>{self._workspace}</code>"),
+            ("simulations", f"{total or 0} ({ok or 0} success, {failed or 0} failed)"),
+            ("projects", projects_str),
+        ]
+        body = "".join(
+            f"<tr><th style='text-align:left'>{k}</th><td>{v}</td></tr>"
+            for k, v in rows
+        )
+        return (
+            "<div><b>SimulationCatalog</b>"
+            "<table style='font-size:0.85em;border-collapse:collapse'>"
+            f"{body}</table></div>"
+        )

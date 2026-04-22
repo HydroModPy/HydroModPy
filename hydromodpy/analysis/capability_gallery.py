@@ -9,7 +9,8 @@ from typing import Annotated
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from hydromodpy.core.config.param_level import ParamLevel
+from hydromodpy.core.config.profile import Profile
+from hydromodpy.core.config.base import HydroModelBase
 
 
 DEFAULT_FLOW_GALLERY_ASSETS: tuple[str, ...] = (
@@ -21,27 +22,27 @@ DEFAULT_FLOW_GALLERY_ASSETS: tuple[str, ...] = (
 )
 
 
-class CapabilityGalleryConfig(BaseModel):
+class CapabilityGalleryConfig(HydroModelBase):
     """Optional publication target for stable, versionable run figures."""
 
     model_config = ConfigDict(extra="forbid")
 
-    enabled: Annotated[bool, ParamLevel("user")] = Field(
+    enabled: Annotated[bool, Profile.USER] = Field(
         default=False,
         description="Copy selected postprocess figures into a versionable gallery folder.",
     )
-    output_dir: Annotated[Path | None, ParamLevel("user")] = Field(
+    output_dir: Annotated[Path | None, Profile.USER] = Field(
         default=None,
         description=(
             "Destination directory for selected gallery assets. Relative paths "
             "are resolved against the TOML directory."
         ),
     )
-    case_slug: Annotated[str, ParamLevel("user")] = Field(
+    case_slug: Annotated[str, Profile.USER] = Field(
         default="launcher_simulation_flow_case",
         description="Stable identifier used in the gallery manifest.",
     )
-    assets: Annotated[tuple[str, ...], ParamLevel("user")] = Field(
+    assets: Annotated[tuple[str, ...], Profile.USER] = Field(
         default=DEFAULT_FLOW_GALLERY_ASSETS,
         description=(
             "Figure filenames copied from `<run>/_postprocess/_figures`. "

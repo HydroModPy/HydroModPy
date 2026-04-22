@@ -8,7 +8,7 @@ import pandas as pd
 
 from hydromodpy.data.common.io_helpers import safe_file_token
 from hydromodpy.data.contracts.timeseries import PointRecord
-from hydromodpy.core.tools.log_manager import get_logger
+from hydromodpy.core.logging import get_logger
 
 logger = get_logger(__name__)
 

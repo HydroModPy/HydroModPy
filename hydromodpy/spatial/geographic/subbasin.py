@@ -21,7 +21,7 @@ import pandas as pd
 import geopandas as gpd
 import glob
 import shutil
-from hydromodpy.core.backends import get_whitebox_backend
+from hydromodpy.spatial.delineation import get_whitebox_backend
 
 # Root
 from os.path import dirname, abspath
@@ -29,7 +29,7 @@ root_dir = dirname(dirname(abspath(__file__)))
 sys.path.append(root_dir)
 
 # HydroModPy
-from hydromodpy.core.tools import get_logger
+from hydromodpy.core.logging import get_logger
 from hydromodpy.core.tools.display import plot_params
 from hydromodpy.core.tools.filesystem import create_folder
 fontprop = plot_params(8,15,18,20) # small, medium, interm, large

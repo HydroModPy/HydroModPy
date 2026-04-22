@@ -44,7 +44,7 @@ def build_catchment_zone_field_from_geographic(
     """Build one catchment-zone field from legacy or V2 geographic payloads.
 
     Supported inputs include:
-    - legacy ``Geographic`` objects exposing ``watershed_shp`` / ``box_buff``,
+    - legacy ``CatchmentDelineation`` objects exposing ``watershed_shp`` / ``box_buff``,
     - ``DomainGeographicContext`` exposing ``watershed_shp`` / ``box_buff_shp``.
 
     Returns

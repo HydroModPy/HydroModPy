@@ -1,10 +1,36 @@
 """Shared pytest configuration for the HydroModPy test suite."""
 
 import os
+import random
 import shutil
 from pathlib import Path
 import tempfile
+
+import numpy as np
 import pytest
+
+
+# Force single-thread BLAS / Rayon so golden signatures are reproducible
+# across CI runners (see tests/TOLERANCES.md §"Cross-platform determinism").
+for _var in (
+    "OMP_NUM_THREADS",
+    "MKL_NUM_THREADS",
+    "OPENBLAS_NUM_THREADS",
+    "NUMEXPR_NUM_THREADS",
+    "RAYON_NUM_THREADS",
+):
+    os.environ.setdefault(_var, "1")
+os.environ.setdefault("PYTHONHASHSEED", "42")
+
+
+_LAYER_DIR_NAMES = ("unit", "integration", "validation", "regression", "e2e")
+_LAYER_TIMEOUTS_SECONDS = {
+    "unit": 60.0,
+    "integration": 300.0,
+    "validation": 900.0,
+    "regression": 300.0,
+    "e2e": 1800.0,
+}
 
 
 def _resolve_test_scratch_root() -> Path:
@@ -58,6 +84,57 @@ def hydromodpy_test_scratch_root() -> Path:
     return _TEST_SCRATCH_ROOT
 
 
+@pytest.fixture
+def tmp_workspace(tmp_path: Path) -> Path:
+    """Create one initialized HydroModPy workspace under *tmp_path*.
+
+    Populates the standard layout (``data/``, ``projects/``, the
+    per-variable ``*_custom/`` seed folders) using the same code path as
+    ``hmp init``, so integration tests can open the workspace with
+    ``hmp.open(...)`` or instantiate a :class:`~hydromodpy.results.catalog.SimulationCatalog`
+    on top of it.  The catalog itself is opened lazily — this fixture
+    only creates folders, keeping the fixture cheap and free of DuckDB
+    I/O until a test explicitly needs it.
+    """
+    from hydromodpy.data.scaffold import scaffold
+
+    root = scaffold(tmp_path / "workspace")
+    return root
+
+
+@pytest.fixture
+def minimal_config(tmp_path: Path):
+    """Return a minimal valid :class:`~hydromodpy.core.config.hydromodpy_config.HydroModPyConfig`.
+
+    Only the two required sub-configs are populated: ``workspace``
+    (``project_root`` pointing at *tmp_path*) and ``geographic``
+    (``source_mode='synthetic'``, avoiding the DEM/outlet requirements
+    of ``'standard'``).  All other sections fall back to their
+    ``default_factory``.  Tests that need a specific flow/solver block
+    should extend the returned instance via ``model_copy(update=...)``.
+    """
+    from hydromodpy.core.config import HydroModPyConfig
+    from hydromodpy.core.workspace.config import WorkspaceConfig
+    from hydromodpy.spatial.geographic.geographic_config import GeographicConfig
+
+    return HydroModPyConfig(
+        workflow="simulation",
+        workspace=WorkspaceConfig(
+            project_root=tmp_path / "project",
+            root=tmp_path,
+        ),
+        geographic=GeographicConfig(source_mode="synthetic"),
+    )
+
+
+@pytest.fixture(autouse=True)
+def _deterministic_seeds():
+    """Reset Python and NumPy RNG seeds before each test for reproducibility."""
+    random.seed(42)
+    np.random.seed(42)
+    yield
+
+
 @pytest.fixture(autouse=True)
 def _redirect_repo_root_cwd_for_gmsh_grid_tests(
     request,
@@ -80,22 +157,41 @@ def _redirect_repo_root_cwd_for_gmsh_grid_tests(
 
 
 def pytest_collection_modifyitems(config, items):
-    """Assign default regression tier markers for selected regression tests."""
+    """Auto-tag tests with their layer marker and default regression tier.
+
+    * Any test in ``tests/<layer>/...`` gets ``@pytest.mark.<layer>``.
+    * Regression tests default to ``fast`` unless they already carry
+      ``fast`` or ``extensive``; the ``extensive/`` directory forces
+      ``extensive``.
+    """
 
     for item in items:
         item_path = Path(str(getattr(item, "fspath", item.path)))
-        is_regression_file = "regression" in item_path.parts
+        parts = item_path.parts
+
+        # 1) Auto-tag layer marker by path + default timeout.
+        for layer in _LAYER_DIR_NAMES:
+            if layer in parts:
+                if layer not in item.keywords:
+                    item.add_marker(getattr(pytest.mark, layer))
+                if not any(
+                    mark.name == "timeout" for mark in item.iter_markers()
+                ):
+                    item.add_marker(
+                        pytest.mark.timeout(_LAYER_TIMEOUTS_SECONDS[layer])
+                    )
+                break
+
+        # 2) Regression tier default markers (fast vs extensive).
+        is_regression_file = "regression" in parts
         is_regression_test = "regression" in item.keywords
-
-        if not is_regression_file or not is_regression_test:
-            continue
-
-        if "fast" in item.keywords or "extensive" in item.keywords:
-            continue
-        if "extensive" in item_path.parts:
-            item.add_marker(pytest.mark.extensive)
-        else:
-            item.add_marker(pytest.mark.fast)
+        if is_regression_file and is_regression_test:
+            if "fast" in item.keywords or "extensive" in item.keywords:
+                continue
+            if "extensive" in parts:
+                item.add_marker(pytest.mark.extensive)
+            else:
+                item.add_marker(pytest.mark.fast)
 
 
 def pytest_sessionfinish(session, exitstatus):
@@ -110,12 +206,4 @@ def pytest_sessionfinish(session, exitstatus):
     scratch = _TEST_SCRATCH_ROOT
     if scratch.exists():
         shutil.rmtree(scratch, ignore_errors=True)
-
-
-def pytest_ignore_collect(collection_path, config):
-    """Skip non-selected regression test files before import/collection."""
-    path = Path(str(collection_path))
-    if path.suffix != ".py":
-        return False
-    return False
 

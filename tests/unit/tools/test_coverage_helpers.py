@@ -10,8 +10,15 @@ def test_coverage_helpers_follow_pyproject_source_list() -> None:
     sources = coverage_sources()
     patterns = coverage_include_patterns()
 
-    assert sources == ("hydromodpy", "launchers")
-    assert patterns == ["*/hydromodpy/*", "*/launchers/*"]
+    assert tuple(sources) == tuple(
+        s.strip()
+        for s in (
+            "hydromodpy.core,hydromodpy.spatial,hydromodpy.physics,"
+            "hydromodpy.data,hydromodpy.results,hydromodpy.simulation,"
+            "hydromodpy.solver,hydromodpy.analysis"
+        ).split(",")
+    )
+    assert patterns == [f"*/{s.replace('.', '/')}/*" for s in sources]
 
 
 def test_run_pytest_with_coverage_module_imports_without_runtime_dependencies() -> None:

@@ -18,7 +18,6 @@ Flow state mapping (Hub'Eau code_ecoulement -> internal 1-5 ordinal):
 
 from __future__ import annotations
 
-import time
 from datetime import datetime
 from typing import Sequence
 
@@ -27,7 +26,7 @@ import pandas as pd
 from hydromodpy.data.common.api_helpers import get_json, paginate_json
 from hydromodpy.data.common.progress import iter_progress, log_step
 from hydromodpy.data.contracts.location import StationLocation
-from hydromodpy.core.tools.log_manager import get_logger
+from hydromodpy.core.logging import get_logger
 
 logger = get_logger(__name__)
 from hydromodpy.data.contracts.timeseries import PointRecord

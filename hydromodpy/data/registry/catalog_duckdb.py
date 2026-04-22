@@ -64,6 +64,99 @@ CREATE TABLE IF NOT EXISTS api_coverage (
 );
 """
 
+# Extended schema tables (v0.5) -----------------------------------------------
+
+_ARTIFACTS_DDL = """
+CREATE TABLE IF NOT EXISTS artifacts (
+    id            INTEGER PRIMARY KEY DEFAULT nextval('artifacts_seq'),
+    sim_id        VARCHAR,
+    variable      VARCHAR,
+    artifact_type VARCHAR NOT NULL,
+    path          TEXT NOT NULL,
+    sha256        VARCHAR,
+    size_bytes    BIGINT,
+    created_at    TIMESTAMP DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS ix_artifacts_sim ON artifacts (sim_id);
+CREATE INDEX IF NOT EXISTS ix_artifacts_sha256 ON artifacts (sha256);
+"""
+
+_PROVENANCE_DDL = """
+CREATE TABLE IF NOT EXISTS provenance (
+    id              INTEGER PRIMARY KEY DEFAULT nextval('provenance_seq'),
+    artifact_id     INTEGER,
+    variable        VARCHAR,
+    source          VARCHAR,
+    input_hash      VARCHAR,
+    tool_name       VARCHAR,
+    tool_version    VARCHAR,
+    parameters_json JSON,
+    recorded_at     TIMESTAMP DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS ix_provenance_artifact ON provenance (artifact_id);
+"""
+
+_STATIONS_DDL = """
+CREATE TABLE IF NOT EXISTS stations (
+    station_id  VARCHAR NOT NULL,
+    variable    VARCHAR NOT NULL,
+    source      VARCHAR,
+    lat         DOUBLE,
+    lon         DOUBLE,
+    z           DOUBLE,
+    name        VARCHAR,
+    first_valid VARCHAR,
+    last_valid  VARCHAR,
+    PRIMARY KEY (station_id, variable)
+);
+"""
+
+_COVERAGE_DDL = """
+CREATE TABLE IF NOT EXISTS coverage (
+    id           INTEGER PRIMARY KEY DEFAULT nextval('coverage_seq'),
+    variable     VARCHAR NOT NULL,
+    source       VARCHAR,
+    region_wkt   TEXT,
+    period_start VARCHAR,
+    period_end   VARCHAR,
+    n_stations   INTEGER
+);
+"""
+
+_FAILURES_DDL = """
+CREATE TABLE IF NOT EXISTS failures (
+    id          INTEGER PRIMARY KEY DEFAULT nextval('failures_seq'),
+    variable    VARCHAR,
+    source_ref  VARCHAR,
+    error_type  VARCHAR NOT NULL,
+    message     TEXT,
+    occurred_at TIMESTAMP DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS ix_failures_variable ON failures (variable);
+"""
+
+_VALIDATION_REPORTS_DDL = """
+CREATE TABLE IF NOT EXISTS validation_reports (
+    id           INTEGER PRIMARY KEY DEFAULT nextval('validation_reports_seq'),
+    artifact_id  INTEGER,
+    schema_name  VARCHAR NOT NULL,
+    passed       BOOLEAN NOT NULL,
+    errors_json  JSON,
+    validated_at TIMESTAMP DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS ix_validation_artifact ON validation_reports (artifact_id);
+"""
+
+# Sorted in schema-version order so we can introspect presence.
+_EXTENDED_TABLES: tuple[str, ...] = (
+    "artifacts",
+    "provenance",
+    "stations",
+    "coverage",
+    "failures",
+    "validation_reports",
+)
+
 
 class _CatalogEntry:
     """Lightweight object mimicking the SQLAlchemy CatalogEntry for callers
@@ -95,8 +188,24 @@ class DataCatalogDuckDB:
 
         self._conn.execute("CREATE SEQUENCE IF NOT EXISTS entries_seq START 1")
         self._conn.execute("CREATE SEQUENCE IF NOT EXISTS api_coverage_seq START 1")
+        self._conn.execute("CREATE SEQUENCE IF NOT EXISTS artifacts_seq START 1")
+        self._conn.execute("CREATE SEQUENCE IF NOT EXISTS provenance_seq START 1")
+        self._conn.execute("CREATE SEQUENCE IF NOT EXISTS coverage_seq START 1")
+        self._conn.execute("CREATE SEQUENCE IF NOT EXISTS failures_seq START 1")
+        self._conn.execute("CREATE SEQUENCE IF NOT EXISTS validation_reports_seq START 1")
         self._conn.execute(_ENTRIES_DDL)
         self._conn.execute(_API_COVERAGE_DDL)
+        self._conn.execute(_ARTIFACTS_DDL)
+        self._conn.execute(_PROVENANCE_DDL)
+        self._conn.execute(_STATIONS_DDL)
+        self._conn.execute(_COVERAGE_DDL)
+        self._conn.execute(_FAILURES_DDL)
+        self._conn.execute(_VALIDATION_REPORTS_DDL)
+
+    @property
+    def connection(self):
+        """Underlying DuckDB connection (advanced usage)."""
+        return self._conn
 
     def close(self) -> None:
         self._conn.close()
@@ -360,6 +469,212 @@ class DataCatalogDuckDB:
         except Exception as exc:
             logger.warning("subsume_entries() failed: %s", exc)
             return 0
+
+    # -- artifacts -------------------------------------------------------------
+
+    def write_artifact(
+        self,
+        *,
+        artifact_type: str,
+        path: str | Path,
+        sha256: str | None = None,
+        size_bytes: int | None = None,
+        sim_id: str | None = None,
+        variable: str | None = None,
+    ) -> int:
+        """Record an artifact row; returns its id."""
+        self._conn.execute(
+            "INSERT INTO artifacts (sim_id, variable, artifact_type, path, sha256, size_bytes) "
+            "VALUES (?, ?, ?, ?, ?, ?)",
+            [sim_id, variable, artifact_type, str(path), sha256, size_bytes],
+        )
+        row = self._conn.execute("SELECT currval('artifacts_seq')").fetchone()
+        return int(row[0]) if row else -1
+
+    # -- provenance ------------------------------------------------------------
+
+    def write_provenance(
+        self,
+        *,
+        artifact_id: int | None = None,
+        variable: str | None = None,
+        source: str | None = None,
+        input_hash: str | None = None,
+        tool_name: str | None = None,
+        tool_version: str | None = None,
+        parameters: dict | None = None,
+    ) -> int:
+        """Record a provenance row; returns its id."""
+        self._conn.execute(
+            "INSERT INTO provenance "
+            "(artifact_id, variable, source, input_hash, tool_name, tool_version, parameters_json) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?)",
+            [
+                artifact_id, variable, source, input_hash,
+                tool_name, tool_version, _json_or_none(parameters),
+            ],
+        )
+        row = self._conn.execute("SELECT currval('provenance_seq')").fetchone()
+        return int(row[0]) if row else -1
+
+    # -- stations --------------------------------------------------------------
+
+    def upsert_station(
+        self,
+        *,
+        station_id: str,
+        variable: str,
+        source: str | None = None,
+        lat: float | None = None,
+        lon: float | None = None,
+        z: float | None = None,
+        name: str | None = None,
+        first_valid: str | None = None,
+        last_valid: str | None = None,
+    ) -> None:
+        """Insert or update a station metadata row."""
+        existing = self._conn.execute(
+            "SELECT 1 FROM stations WHERE station_id = ? AND variable = ?",
+            [station_id, variable],
+        ).fetchone()
+        if existing is None:
+            self._conn.execute(
+                "INSERT INTO stations "
+                "(station_id, variable, source, lat, lon, z, name, first_valid, last_valid) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                [station_id, variable, source, lat, lon, z, name, first_valid, last_valid],
+            )
+        else:
+            self._conn.execute(
+                "UPDATE stations SET source = ?, lat = ?, lon = ?, z = ?, "
+                "name = ?, first_valid = ?, last_valid = ? "
+                "WHERE station_id = ? AND variable = ?",
+                [source, lat, lon, z, name, first_valid, last_valid, station_id, variable],
+            )
+
+    # -- coverage --------------------------------------------------------------
+
+    def write_coverage(
+        self,
+        *,
+        variable: str,
+        source: str | None = None,
+        region_wkt: str | None = None,
+        period_start: str | None = None,
+        period_end: str | None = None,
+        n_stations: int | None = None,
+    ) -> int:
+        """Record a coverage row; returns its id."""
+        self._conn.execute(
+            "INSERT INTO coverage "
+            "(variable, source, region_wkt, period_start, period_end, n_stations) "
+            "VALUES (?, ?, ?, ?, ?, ?)",
+            [variable, source, region_wkt, period_start, period_end, n_stations],
+        )
+        row = self._conn.execute("SELECT currval('coverage_seq')").fetchone()
+        return int(row[0]) if row else -1
+
+    # -- failures --------------------------------------------------------------
+
+    def write_failure(
+        self,
+        *,
+        variable: str | None = None,
+        source_ref: str | None = None,
+        error_type: str,
+        message: str | None = None,
+    ) -> int:
+        """Record a failure row; returns its id."""
+        self._conn.execute(
+            "INSERT INTO failures (variable, source_ref, error_type, message) "
+            "VALUES (?, ?, ?, ?)",
+            [variable, source_ref, error_type, message],
+        )
+        row = self._conn.execute("SELECT currval('failures_seq')").fetchone()
+        return int(row[0]) if row else -1
+
+    # -- validation_reports ----------------------------------------------------
+
+    def write_validation_report(
+        self,
+        *,
+        schema_name: str,
+        passed: bool,
+        artifact_id: int | None = None,
+        errors: list | dict | None = None,
+    ) -> int:
+        """Record a validation report; returns its id."""
+        self._conn.execute(
+            "INSERT INTO validation_reports "
+            "(artifact_id, schema_name, passed, errors_json) "
+            "VALUES (?, ?, ?, ?)",
+            [artifact_id, schema_name, bool(passed), _json_or_none(errors)],
+        )
+        row = self._conn.execute("SELECT currval('validation_reports_seq')").fetchone()
+        return int(row[0]) if row else -1
+
+    # -- introspection ---------------------------------------------------------
+
+    def table_names(self) -> list[str]:
+        """Return the list of tables present in the catalog."""
+        rows = self._conn.execute(
+            "SELECT table_name FROM information_schema.tables "
+            "WHERE table_schema = 'main' ORDER BY table_name"
+        ).fetchall()
+        return [r[0] for r in rows]
+
+    def prune_older_than(
+        self,
+        *,
+        days: int,
+        delete_files: bool = False,
+    ) -> int:
+        """Delete cache entries older than *days* days. Returns count removed."""
+        rows = self._conn.execute(
+            "SELECT id, file_path FROM entries "
+            "WHERE created_at < now() - INTERVAL (?) DAY",
+            [days],
+        ).fetchall()
+        count = 0
+        for eid, fp in rows:
+            if fp in (SENTINEL_CUSTOM, SENTINEL_EMPTY):
+                continue
+            if delete_files:
+                _try_unlink(fp)
+            self._conn.execute("DELETE FROM entries WHERE id = ?", [eid])
+            count += 1
+        return count
+
+    def check_and_fix(self) -> dict[str, int]:
+        """Scan entries and attempt to repair inconsistencies.
+
+        - drop entries whose file is missing
+        - refresh mtime for entries whose file changed
+        Returns a summary dict ``{"dropped": N, "refreshed": N}``.
+        """
+        summary = {"dropped": 0, "refreshed": 0}
+        rows = self._conn.execute(
+            "SELECT id, file_path, file_mtime FROM entries"
+        ).fetchall()
+        for eid, fp, mtime in rows:
+            if fp in (SENTINEL_CUSTOM, SENTINEL_EMPTY):
+                continue
+            p = Path(fp)
+            if not p.exists():
+                self._conn.execute("DELETE FROM entries WHERE id = ?", [eid])
+                summary["dropped"] += 1
+                continue
+            try:
+                current = p.stat().st_mtime
+            except OSError:
+                continue
+            if mtime is None or abs(current - float(mtime)) > 1e-6:
+                self._conn.execute(
+                    "UPDATE entries SET file_mtime = ? WHERE id = ?",
+                    [current, eid],
+                )
+                summary["refreshed"] += 1
+        return summary
 
     # -- cleanup ---------------------------------------------------------------
 

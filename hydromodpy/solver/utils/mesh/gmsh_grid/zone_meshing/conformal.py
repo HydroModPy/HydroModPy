@@ -23,8 +23,6 @@ from hydromodpy.solver.utils.mesh.gmsh_grid._trace import trace_mesh_stage
 from hydromodpy.solver.utils.mesh.gmsh_grid.zone_meshing._geometry_cleaning import (
     as_metric_tolerance,
     iter_line_parts,
-    make_valid_geometry,
-    make_valid_linework,
     segment_intersects_refinement_scope,
     segment_matches_linework,
     split_partition_with_constraint_lines,

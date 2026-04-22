@@ -59,6 +59,35 @@ class SimulationPlan:
         """Return ``True`` when the planner emitted no executable run."""
         return not self.runs
 
+    def _repr_html_(self) -> str:
+        header = (
+            "<div><b>SimulationPlan</b> "
+            f"<code>{self.name}</code>"
+            f"<div style='font-size:0.85em;color:#666'>{self.description}</div>"
+        )
+        if not self.runs:
+            return header + "<i>(empty plan)</i></div>"
+        rows = "".join(
+            "<tr>"
+            f"<td><code>{r.id}</code></td>"
+            f"<td>{r.process_type}</td>"
+            f"<td>{r.solver}</td>"
+            f"<td>{', '.join(r.depends_on) if r.depends_on else '&mdash;'}</td>"
+            "</tr>"
+            for r in self.runs
+        )
+        table = (
+            "<table style='font-size:0.85em;border-collapse:collapse'>"
+            "<thead><tr>"
+            "<th style='text-align:left'>run id</th>"
+            "<th style='text-align:left'>type</th>"
+            "<th style='text-align:left'>solver</th>"
+            "<th style='text-align:left'>depends on</th>"
+            "</tr></thead>"
+            f"<tbody>{rows}</tbody></table>"
+        )
+        return header + table + "</div>"
+
 
 # ---------------------------------------------------------------------------
 # Runtime contracts — shared by runner and adapters

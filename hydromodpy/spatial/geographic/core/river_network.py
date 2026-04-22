@@ -26,7 +26,7 @@ import numpy as np
 import rasterio
 from shapely.geometry import LineString, MultiLineString
 
-from hydromodpy.core.backends import WhiteboxBackend, get_whitebox_backend
+from hydromodpy.spatial.delineation import WhiteboxBackend, get_whitebox_backend
 from hydromodpy.spatial.geographic.geographic_config import RiverNetworkConfig
 from hydromodpy.spatial.geographic.core.river_mesh_trace import RiverMeshTrace
 

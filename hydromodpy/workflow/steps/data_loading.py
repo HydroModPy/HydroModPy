@@ -11,7 +11,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from hydromodpy.spatial.geographic.structure_binders import apply_geology_to_domain
-from hydromodpy.process.flow.structure_binders import (
+from hydromodpy.physics.flow.structure_binders import (
     apply_oceanic_to_flow,
     apply_recharge_load_result_to_flow,
 )
@@ -31,9 +31,9 @@ logger = logging.getLogger(__name__)
 
 def _build_data_plan(*args, **kwargs):
     """Import planner lazily to keep launcher imports lightweight in tests."""
-    from hydromodpy.data import DataManagersPlanner
+    from hydromodpy.data import DataPlanner
 
-    return DataManagersPlanner().build(*args, **kwargs)
+    return DataPlanner().build(*args, **kwargs)
 
 
 def _build_data_runtime_loader(*args, **kwargs):
@@ -52,14 +52,14 @@ def log_data_plan(data_plan: DataLoadPlan) -> None:
     if not data_plan.inferred_types:
         return
     logger.info(
-        "[DataManagersPlanner] inferred data types: %s",
+        "[DataPlanner] inferred data types: %s",
         ", ".join(data_plan.inferred_types),
     )
     for type_name in data_plan.inferred_types:
         reasons = data_plan.reasons_for(type_name)
         if reasons:
             logger.info(
-                "[DataManagersPlanner] %s: %s",
+                "[DataPlanner] %s: %s",
                 type_name,
                 "; ".join(reasons),
             )

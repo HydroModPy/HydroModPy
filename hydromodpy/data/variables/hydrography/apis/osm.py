@@ -5,10 +5,10 @@ from __future__ import annotations
 import json
 
 import geopandas as gpd
-import requests
 from shapely.geometry import LineString
 
-from hydromodpy.core.tools import get_logger
+from hydromodpy.core.io.http_client import get_default_client
+from hydromodpy.core.logging import get_logger
 
 from hydromodpy.data.variables.hydrography.config import HydrographySourceConfig
 
@@ -33,7 +33,9 @@ def fetch(config: HydrographySourceConfig, bbox_wgs84: tuple[float, float, float
     overpass_url = "https://overpass-api.de/api/interpreter"
     logger.info("Querying Overpass API for waterway types %s", waterway_types)
 
-    response = requests.get(overpass_url, params={"data": overpass_query}, stream=True, timeout=300)
+    response = get_default_client().get(
+        overpass_url, params={"data": overpass_query}, stream=True, timeout=300,
+    )
     response.raise_for_status()
 
     try:

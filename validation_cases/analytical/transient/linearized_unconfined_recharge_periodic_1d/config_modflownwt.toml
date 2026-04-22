@@ -1,3 +1,5 @@
+workflow = "simulation"
+
 [simulation]
 name = "LU periodic recharge validation"
 description = "Synthetic transient unconfined flow with a sinusoidal recharge forcing and fixed west/east heads."

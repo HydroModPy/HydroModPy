@@ -38,11 +38,11 @@ df = dirname(dirname(abspath(__file__)))
 sys.path.append(df)
 
 # HydroModPy
-from hydromodpy.core.backends import get_whitebox_backend
+from hydromodpy.spatial.delineation import get_whitebox_backend
 from hydromodpy.solver.modflow_common import ensure_platform_executable
-from hydromodpy.core.tools import get_logger
+from hydromodpy.core.logging import get_logger
 from hydromodpy.core.tools.filesystem import create_folder
-from hydromodpy.core.tools.raster_io import export_tif
+from hydromodpy.core.io.raster_io import export_tif
 from hydromodpy.core.tools.display import plot_params
 logger = get_logger(__name__)
 fontprop = plot_params(8,15,18,20) # small, medium, interm, large
@@ -256,15 +256,13 @@ class Modpath(Solver):
             return False
 
         try:
-            from hydromodpy.core.workspace.config import WorkspaceConfig
+            from hydromodpy.core.workspace.resolve import locate_workspace_root
             from hydromodpy.results.catalog import SimulationCatalog
 
             # model_folder is .solver_scratch/ — project root is its parent.
             mf = Path(self.model_folder)
             project_root = mf.parent if mf.name == ".solver_scratch" else mf
-            workspace_root = WorkspaceConfig.discover_workspace_root(project_root)
-            if workspace_root is None:
-                workspace_root = project_root
+            workspace_root = locate_workspace_root(project_root) or project_root
             catalog = SimulationCatalog(workspace_root)
             sims = catalog.list_simulations()
             if not sims.empty:

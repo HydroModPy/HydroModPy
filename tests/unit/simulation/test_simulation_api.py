@@ -7,7 +7,7 @@ import pandas as pd
 import pytest
 
 from hydromodpy.results.catalog import SimulationCatalog
-from hydromodpy.results.simulation import Simulation
+from hydromodpy.results.run import Run
 from hydromodpy.results.simulation_group import SimulationGroup
 
 
@@ -26,9 +26,9 @@ def _register(catalog, sim_id=None, **kw):
     sid = sim_id or _sid()
     defaults = dict(project="test", solver="modflow6", n_cells=10, n_layers=2)
     defaults.update(kw)
-    sz = catalog.register_simulation(sid, **defaults)
-    if sz:
-        sz.close()
+    reg = catalog.register_simulation(sid, **defaults)
+    if reg.zarr is not None:
+        reg.zarr.close()
     return sid
 
 
@@ -54,8 +54,8 @@ def _populate(catalog, sid):
 class TestSimulationMetadata:
     def test_basic_properties(self, catalog):
         sid = _register(catalog, name="run1", flow_regime="transient")
-        sim = Simulation(sid, catalog)
-        assert sim.id == sid
+        sim = Run(sid, catalog)
+        assert sim.sim_id == sid
         assert sim.name == "run1"
         assert sim.project == "test"
         assert sim.solver == "modflow6"
@@ -66,16 +66,16 @@ class TestSimulationMetadata:
     def test_config_roundtrip(self, catalog):
         cfg = {"flow": {"K": 1.5}}
         sid = _register(catalog, config=cfg)
-        sim = Simulation(sid, catalog)
+        sim = Run(sid, catalog)
         assert sim.config == cfg
 
     def test_tags(self, catalog):
         sid = _register(catalog, tags=["fast", "test"])
-        sim = Simulation(sid, catalog)
+        sim = Run(sid, catalog)
         assert sim.tags == ["fast", "test"]
 
     def test_not_found(self, catalog):
-        sim = Simulation("nonexistent-uuid", catalog)
+        sim = Run("nonexistent-uuid", catalog)
         with pytest.raises(KeyError):
             _ = sim.name
 
@@ -84,49 +84,51 @@ class TestSimulationData:
     def test_parameters(self, catalog):
         sid = _register(catalog)
         _populate(catalog, sid)
-        sim = Simulation(sid, catalog)
+        sim = Run(sid, catalog)
         df = sim.parameters
-        assert len(df) == 2
-        assert set(df["param_name"]) == {"K", "Sy"}
+        # Homogeneous-only payload: simple index by param_name, no zone_id.
+        assert set(df.index) == {"K", "Sy"}
+        assert "value" in df.columns
+        assert sim.parameters.loc["K", "value"] == pytest.approx(1.5)
 
     def test_metrics(self, catalog):
         sid = _register(catalog)
         _populate(catalog, sid)
-        sim = Simulation(sid, catalog)
+        sim = Run(sid, catalog)
         df = sim.metrics
         assert len(df) == 2
 
     def test_timeseries(self, catalog):
         sid = _register(catalog)
         _populate(catalog, sid)
-        sim = Simulation(sid, catalog)
+        sim = Run(sid, catalog)
         ts = sim.timeseries("head", station="P01")
         assert len(ts) == 10
 
     def test_timeseries_not_found(self, catalog):
         sid = _register(catalog)
-        sim = Simulation(sid, catalog)
+        sim = Run(sid, catalog)
         with pytest.raises(KeyError):
             sim.timeseries("head", station="NOPE")
 
     def test_budget(self, catalog):
         sid = _register(catalog)
         _populate(catalog, sid)
-        sim = Simulation(sid, catalog)
+        sim = Run(sid, catalog)
         df = sim.budget(component="recharge")
         assert len(df) == 1
 
     def test_mass_balance(self, catalog):
         sid = _register(catalog)
         _populate(catalog, sid)
-        sim = Simulation(sid, catalog)
+        sim = Run(sid, catalog)
         df = sim.mass_balance
         assert len(df) == 1
 
     def test_provenance(self, catalog):
         sid = _register(catalog)
         catalog.write_provenance(sid, "dem", "dem.tif", np.ones(10))
-        sim = Simulation(sid, catalog)
+        sim = Run(sid, catalog)
         df = sim.provenance
         assert len(df) == 1
 
@@ -137,7 +139,7 @@ class TestSimulationField:
         sz = catalog.open_zarr(sid)
         for t in range(3):
             sz.write_field("head", t, np.ones((2, 20)), n_timesteps=3 if t == 0 else None)
-        sim = Simulation(sid, catalog)
+        sim = Run(sid, catalog)
         result = sim.field("head", timestep=1)
         assert result.shape == (2, 20)
 
@@ -147,7 +149,7 @@ class TestSimulationField:
         for t in range(4):
             vals = np.full(5, float(t))
             sz.write_field("head", t, vals, n_timesteps=4 if t == 0 else None)
-        sim = Simulation(sid, catalog)
+        sim = Run(sid, catalog)
         result = sim.field("head", timestep=-1)
         np.testing.assert_array_equal(result, np.full(5, 3.0))
 
@@ -155,55 +157,55 @@ class TestSimulationField:
 class TestSimulationDisplayCapabilities:
     def test_basic_caps(self, catalog):
         sid = _register(catalog, n_cells=10, n_layers=1, flow_regime="steady")
-        sim = Simulation(sid, catalog)
+        sim = Run(sid, catalog)
         caps = sim.display_capabilities
-        assert "watertable_map" in caps
-        assert "budget_chart" in caps
+        assert "piezometric_map" in caps
+        assert "water_budget" in caps
         assert "cross_section" not in caps
 
     def test_multilayer_caps(self, catalog):
         sid = _register(catalog, n_cells=10, n_layers=3, flow_regime="steady")
-        sim = Simulation(sid, catalog)
+        sim = Run(sid, catalog)
         assert "cross_section" in sim.display_capabilities
 
     def test_transient_caps(self, catalog):
         sid = _register(catalog, n_cells=10, n_layers=1, flow_regime="transient")
-        sim = Simulation(sid, catalog)
+        sim = Run(sid, catalog)
         caps = sim.display_capabilities
-        assert "streamflow" in caps
-        assert "head_timeseries" in caps
+        assert "hydrograph" in caps
 
 
 class TestSimulationPlot:
     def test_plot_invalid_raises(self, catalog):
         sid = _register(catalog, n_cells=10, n_layers=1)
-        sim = Simulation(sid, catalog)
+        sim = Run(sid, catalog)
         with pytest.raises(ValueError, match="not available"):
             sim.plot("nonexistent_figure")
 
-    def test_plot_save(self, catalog, tmp_path, monkeypatch):
-        monkeypatch.setenv("HYDROMODPY_NO_DISPLAY", "1")
+    def test_plot_save(self, catalog, tmp_path):
+        import matplotlib
+        matplotlib.use("Agg", force=True)
         sid = _register(catalog, n_cells=5, n_layers=1, n_timesteps=2)
         sz = catalog.open_zarr(sid)
         sz.write_field("head", 0, np.ones(5), n_timesteps=2)
         sz.write_field("head", 1, np.ones(5) * 2.0)
         catalog.write_budget(sid, 0, "z1", "recharge", 100.0, 0.0)
-        sim = Simulation(sid, catalog)
+        sim = Run(sid, catalog)
         out = tmp_path / "figures"
-        sim.plot("budget_chart", save=out)
-        assert (out / "budget_chart.png").exists()
+        sim.plot("water_budget", save=out)
+        assert (out / "water_budget.png").exists()
 
 
 class TestSimulationRepr:
     def test_repr_found(self, catalog):
         sid = _register(catalog)
-        sim = Simulation(sid, catalog)
+        sim = Run(sid, catalog)
         r = repr(sim)
         assert "test" in r
         assert "modflow6" in r
 
     def test_repr_not_found(self, catalog):
-        sim = Simulation("nope", catalog)
+        sim = Run("nope", catalog)
         r = repr(sim)
         assert "not found" in r
 
@@ -225,14 +227,14 @@ class TestSimulationGroup:
         group = SimulationGroup(sids, catalog)
         sims = list(group)
         assert len(sims) == 2
-        assert all(isinstance(s, Simulation) for s in sims)
+        assert all(isinstance(s, Run) for s in sims)
 
     def test_getitem(self, catalog):
         sids = [_register(catalog) for _ in range(3)]
         group = SimulationGroup(sids, catalog)
         sim = group[1]
-        assert isinstance(sim, Simulation)
-        assert sim.id == sids[1]
+        assert isinstance(sim, Run)
+        assert sim.sim_id == sids[1]
 
     def test_best_worst(self, catalog):
         s1 = _register(catalog)
@@ -243,8 +245,8 @@ class TestSimulationGroup:
         catalog.finalize(s2, "completed")
 
         group = SimulationGroup([s1, s2], catalog)
-        assert group.best("nse").id == s2
-        assert group.worst("nse").id == s1
+        assert group.best("nse").sim_id == s2
+        assert group.worst("nse").sim_id == s1
 
     def test_sort_by(self, catalog):
         s1 = _register(catalog)
@@ -303,8 +305,8 @@ class TestCatalogQueryMethods:
     def test_getitem(self, catalog):
         sid = _register(catalog)
         sim = catalog[sid]
-        assert isinstance(sim, Simulation)
-        assert sim.id == sid
+        assert isinstance(sim, Run)
+        assert sim.sim_id == sid
 
     def test_getitem_not_found(self, catalog):
         with pytest.raises(KeyError):
@@ -367,7 +369,7 @@ class TestCatalogQueryMethods:
         s2 = _register(catalog, project="p1")
         catalog.finalize(s2, "completed")
         sim = catalog.latest("p1")
-        assert sim.id == s2
+        assert sim.sim_id == s2
 
     def test_latest_not_found(self, catalog):
         with pytest.raises(KeyError):
@@ -381,7 +383,7 @@ class TestCatalogQueryMethods:
         catalog.finalize(s1, "completed")
         catalog.finalize(s2, "completed")
         sim = catalog.best("p1", metric="nse")
-        assert sim.id == s2
+        assert sim.sim_id == s2
 
     def test_best_not_found(self, catalog):
         with pytest.raises(KeyError):

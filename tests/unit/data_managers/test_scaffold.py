@@ -2,7 +2,11 @@
 
 from pathlib import Path
 
-from hydromodpy.data.scaffold import scaffold, create_project
+from hydromodpy.data.scaffold import (
+    VARIABLES,
+    create_project,
+    scaffold,
+)
 
 
 class TestScaffold:
@@ -11,37 +15,56 @@ class TestScaffold:
         root = scaffold(tmp_path / "hydromodpy")
 
         assert root.exists()
-        assert (root / "data" / "hydrometry").is_dir()
-        assert (root / "data" / "piezometry").is_dir()
-        assert (root / "data" / "water_quality").is_dir()
+        assert (root / "data").is_dir()
         assert (root / "projects").is_dir()
+        assert (root / "hydrometry_custom").is_dir()
+        assert (root / "piezometry_custom").is_dir()
+        assert (root / "water_quality_custom").is_dir()
+        assert (root / "dem_custom").is_dir()
+        assert (root / "geology_custom").is_dir()
 
-    def test_creates_loc_templates(self, tmp_path):
+    def test_creates_readme_per_variable(self, tmp_path):
         root = scaffold(tmp_path / "hydromodpy")
 
-        loc = root / "data" / "hydrometry" / "hydrometry_custom_LOC.csv"
+        for spec in VARIABLES:
+            readme = root / f"{spec.name}_custom" / "README.md"
+            assert readme.exists(), f"Missing README for {spec.name}_custom"
+            text = readme.read_text()
+            assert spec.name in text
+
+    def test_creates_locations_template_for_timeseries(self, tmp_path):
+        root = scaffold(tmp_path / "hydromodpy")
+
+        loc = root / "hydrometry_custom" / "example_locations.csv"
         assert loc.exists()
         content = loc.read_text()
-        assert "id,x,y,crs" in content
+        assert "id,x,y,crs,unit" in content
 
-        assert (root / "data" / "piezometry" / "piezometry_custom_LOC.csv").exists()
-        assert (root / "data" / "water_quality" / "waterquality_custom_LOC.csv").exists()
+        assert (root / "piezometry_custom" / "example_locations.csv").exists()
+        assert (root / "water_quality_custom" / "example_locations.csv").exists()
 
-    def test_creates_chronicle_examples(self, tmp_path):
+    def test_no_locations_for_raster_or_vector(self, tmp_path):
         root = scaffold(tmp_path / "hydromodpy")
 
-        example = root / "data" / "hydrometry" / "hydrometry_custom_EXAMPLE_20200101_20201231_D.csv"
+        assert not (root / "dem_custom" / "example_locations.csv").exists()
+        assert not (root / "geology_custom" / "example_locations.csv").exists()
+
+    def test_creates_chronicle_example(self, tmp_path):
+        root = scaffold(tmp_path / "hydromodpy")
+
+        chronicles = root / "hydrometry_custom" / "chronicles"
+        assert chronicles.is_dir()
+        example = chronicles / "EXAMPLE.csv"
         assert example.exists()
         content = example.read_text()
         assert "datetime,value" in content
-        assert "Renommer" in content
 
     def test_idempotent(self, tmp_path):
         """Running scaffold twice does not overwrite existing files."""
         root = scaffold(tmp_path / "hydromodpy")
-        loc = root / "data" / "hydrometry" / "hydrometry_custom_LOC.csv"
+        loc = root / "hydrometry_custom" / "example_locations.csv"
 
-        loc.write_text("id,x,y,crs\nST01,-1.5,48.0,EPSG:4326\n")
+        loc.write_text("id,x,y,crs,unit\nST01,-1.5,48.0,EPSG:4326,m3/s\n")
 
         scaffold(tmp_path / "hydromodpy")
 

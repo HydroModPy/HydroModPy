@@ -268,10 +268,10 @@ class MethodComparisonLauncher:
         try:
             config_path = materialize_variant_config(cfg=self.cfg, variant=variant)
             if section.run_variants and config_path is not None:
-                from hydromodpy.project import Simulation
+                from hydromodpy.project import Project
 
                 start = time.monotonic()
-                project = Simulation(config_path)
+                project = Project(config_path)
                 project.run()
                 wall_seconds = round(time.monotonic() - start, 2)
                 run_folder = self._resolve_completed_run_folder(

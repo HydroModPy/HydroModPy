@@ -153,3 +153,113 @@ class TestContextManager:
         path = tmp_path / "ctx.zarr"
         with SimulationZarr.create(path, n_cells=10, n_layers=1) as s:
             assert "mesh" in s.root
+
+
+class TestG05CFMetadata:
+    """Phase G05: CF-1.11 + UGRID-1.0 metadata attached to Zarr stores."""
+
+    def test_root_conventions_attribute(self, sz):
+        assert sz.root.attrs["Conventions"] == "CF-1.11 UGRID-1.0"
+
+    def test_registered_field_gets_cf_attrs(self, sz):
+        vals = np.ones((3, 100))
+        sz.write_field("head", 0, vals, n_timesteps=2)
+        arr = sz.root["head"]
+        assert arr.attrs["standard_name"] == "groundwater_head_above_reference_level"
+        assert arr.attrs["units"] == "m"
+        assert arr.attrs["grid_mapping"] == "crs"
+        assert arr.attrs["coordinates"] == "time layer face"
+
+    def test_derived_subgroup_field_gets_cf_attrs(self, sz):
+        vals = np.ones(100)
+        sz.write_field(
+            "watertable_depth", 0, vals, n_timesteps=2, subgroup="derived",
+        )
+        arr = sz.root["derived/watertable_depth"]
+        assert arr.attrs["standard_name"] == (
+            "depth_of_water_table_below_ground_surface"
+        )
+        assert arr.attrs["units"] == "m"
+
+    def test_unregistered_field_has_no_cf_attrs(self, sz):
+        vals = np.ones(100)
+        sz.write_field("custom_probe", 0, vals, n_timesteps=2)
+        arr = sz.root["custom_probe"]
+        assert "standard_name" not in arr.attrs
+
+    def test_ugrid_mesh_topology(self, sz):
+        verts, conn, z = _make_mesh(4)
+        sz.write_mesh(verts, conn, z)
+        topo = sz.root["mesh/topology"]
+        assert topo.attrs["cf_role"] == "mesh_topology"
+        assert topo.attrs["topology_dimension"] == 2
+        assert topo.attrs["node_coordinates"] == "vertices"
+
+    def test_write_time_and_crs(self, sz):
+        sz.write_time(np.array([0, 3600, 7200]))
+        sz.write_crs(crs_wkt="EPSG:2154", epsg_code=2154)
+        assert "time" in sz.root
+        assert sz.root["time"].attrs["calendar"] == "proleptic_gregorian"
+        assert sz.root["time"].attrs["standard_name"] == "time"
+        assert "crs" in sz.root
+        assert sz.root["crs"].attrs["epsg_code"] == 2154
+
+
+class TestG05ToXarray:
+    """Phase G05: SimulationZarr.to_xarray()."""
+
+    def test_dataset_has_registered_vars(self, sz):
+        sz.write_field("head", 0, np.ones((3, 100)), n_timesteps=1)
+        sz.write_field(
+            "watertable_depth", 0, np.ones(100), n_timesteps=1,
+            subgroup="derived",
+        )
+        ds = sz.to_xarray()
+        assert "head" in ds.data_vars
+        assert "watertable_depth" in ds.data_vars
+        assert ds.attrs["Conventions"] == "CF-1.11 UGRID-1.0"
+
+    def test_cf_attrs_survive_round_trip(self, sz):
+        sz.write_field("head", 0, np.ones((3, 100)), n_timesteps=1)
+        ds = sz.to_xarray()
+        assert (
+            ds["head"].attrs["standard_name"]
+            == "groundwater_head_above_reference_level"
+        )
+        assert ds["head"].attrs["units"] == "m"
+
+
+class TestG05BalancedChunking:
+    def test_default_chunks_single_timestep(self, tmp_path):
+        path = tmp_path / "def.zarr"
+        s = SimulationZarr.create(path, n_cells=100, n_layers=2)
+        try:
+            s.write_field("head", 0, np.ones((2, 100)), n_timesteps=10)
+            assert s.root["head"].chunks == (1, 2, 100)
+        finally:
+            s.close()
+
+    def test_balanced_chunks_pack_multiple_timesteps(self, tmp_path):
+        path = tmp_path / "bal.zarr"
+        s = SimulationZarr.create(
+            path, n_cells=100, n_layers=2, balanced=True,
+        )
+        try:
+            s.write_field("head", 0, np.ones((2, 100)), n_timesteps=10)
+            # 2 * 100 * 8 = 1.6KB; target ~1MiB -> all 10 timesteps fit in a
+            # single chunk.
+            assert s.root["head"].chunks[0] > 1
+            assert s.root.attrs.get("chunking") == "balanced"
+        finally:
+            s.close()
+
+    def test_consolidate_metadata_writes_sentinel(self, tmp_path):
+        path = tmp_path / "cons.zarr"
+        s = SimulationZarr.create(path, n_cells=10, n_layers=1)
+        try:
+            s.write_field("head", 0, np.ones((1, 10)), n_timesteps=1)
+            s.consolidate_metadata()
+        finally:
+            s.close()
+        # zarr v3 drops the consolidated metadata into zarr.json
+        assert (path / "zarr.json").is_file()

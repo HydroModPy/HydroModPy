@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from hydromodpy.data.common.base_field_manager import BaseFieldManager
+from hydromodpy.data.base_manager import BaseFieldManager
 from hydromodpy.data.variables.oceanic.config import OceanicConfig, OceanicSourceConfig
 
 

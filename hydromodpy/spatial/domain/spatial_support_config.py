@@ -4,25 +4,26 @@ from typing import Annotated, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
-from hydromodpy.core.config.param_level import ParamLevel
+from hydromodpy.core.config.profile import Profile
 from hydromodpy.core.units import parse_length_to_m
+from hydromodpy.core.config.base import HydroModelBase
 
 
-class DomainSupportBaseConfig(BaseModel):
+class DomainSupportBaseConfig(HydroModelBase):
     """Base schema for one named spatial-support declaration."""
 
     model_config = ConfigDict(extra="forbid")
 
-    provider: Annotated[str, ParamLevel("user")]
+    provider: Annotated[str, Profile.USER]
 
 
 class GeneratedBandsSupportConfig(DomainSupportBaseConfig):
     """Analytical bands split along one cartesian axis."""
 
-    provider: Annotated[Literal["generated_bands"], ParamLevel("user")]
-    axis: Annotated[Literal["x", "y"], ParamLevel("user")] = "x"
-    coordinate_mode: Annotated[Literal["relative", "absolute"], ParamLevel("dev")] = "relative"
-    breaks: Annotated[list[float | str], ParamLevel("user")] = Field(
+    provider: Annotated[Literal["generated_bands"], Profile.USER]
+    axis: Annotated[Literal["x", "y"], Profile.USER] = "x"
+    coordinate_mode: Annotated[Literal["relative", "absolute"], Profile.DEV] = "relative"
+    breaks: Annotated[list[float | str], Profile.USER] = Field(
         default_factory=list,
         description=(
             "Ordered break coordinates delimiting consecutive bands. "
@@ -30,11 +31,11 @@ class GeneratedBandsSupportConfig(DomainSupportBaseConfig):
             "With coordinate_mode='absolute', values are converted to metres."
         ),
     )
-    labels: Annotated[list[str], ParamLevel("user")] = Field(
+    labels: Annotated[list[str], Profile.USER] = Field(
         default_factory=list,
         description="Ordered band labels. Length must be len(breaks)+1.",
     )
-    default_cell_samples_per_axis: Annotated[int, ParamLevel("dev")] = Field(default=8, ge=2)
+    default_cell_samples_per_axis: Annotated[int, Profile.DEV] = Field(default=8, ge=2)
 
     @field_validator("breaks", mode="before")
     @classmethod
@@ -91,17 +92,17 @@ class GeneratedBandsSupportConfig(DomainSupportBaseConfig):
         if len(set(normalized_labels)) != len(normalized_labels):
             raise ValueError("domain.supports.<id>.labels cannot contain duplicates.")
 
-        self.breaks = normalized_breaks
-        self.labels = normalized_labels
+        object.__setattr__(self, "breaks", normalized_breaks)
+        object.__setattr__(self, "labels", normalized_labels)
         return self
 
 
 class GeneratedRingsSupportConfig(DomainSupportBaseConfig):
     """Analytical concentric rings centered on one cartesian point."""
 
-    provider: Annotated[Literal["generated_rings"], ParamLevel("user")]
-    coordinate_mode: Annotated[Literal["relative", "absolute"], ParamLevel("dev")] = "relative"
-    radii: Annotated[list[float | str], ParamLevel("user")] = Field(
+    provider: Annotated[Literal["generated_rings"], Profile.USER]
+    coordinate_mode: Annotated[Literal["relative", "absolute"], Profile.DEV] = "relative"
+    radii: Annotated[list[float | str], Profile.USER] = Field(
         default_factory=list,
         description=(
             "Ordered ring radii delimiting consecutive concentric zones. "
@@ -110,25 +111,25 @@ class GeneratedRingsSupportConfig(DomainSupportBaseConfig):
             "With coordinate_mode='absolute', values are converted to metres."
         ),
     )
-    labels: Annotated[list[str], ParamLevel("user")] = Field(
+    labels: Annotated[list[str], Profile.USER] = Field(
         default_factory=list,
         description="Ordered ring labels. Length must be len(radii)+1.",
     )
-    center_x: Annotated[float | None, ParamLevel("dev")] = Field(
+    center_x: Annotated[float | None, Profile.DEV] = Field(
         default=None,
         description=(
             "Optional x coordinate of the ring center in projected metres. "
             "Defaults to the domain midpoint."
         ),
     )
-    center_y: Annotated[float | None, ParamLevel("dev")] = Field(
+    center_y: Annotated[float | None, Profile.DEV] = Field(
         default=None,
         description=(
             "Optional y coordinate of the ring center in projected metres. "
             "Defaults to the domain midpoint."
         ),
     )
-    default_cell_samples_per_axis: Annotated[int, ParamLevel("dev")] = Field(default=8, ge=2)
+    default_cell_samples_per_axis: Annotated[int, Profile.DEV] = Field(default=8, ge=2)
 
     @field_validator("radii", mode="before")
     @classmethod
@@ -198,20 +199,20 @@ class GeneratedRingsSupportConfig(DomainSupportBaseConfig):
         if len(set(normalized_labels)) != len(normalized_labels):
             raise ValueError("domain.supports.<id>.labels cannot contain duplicates.")
 
-        self.radii = normalized_radii
-        self.labels = normalized_labels
+        object.__setattr__(self, "radii", normalized_radii)
+        object.__setattr__(self, "labels", normalized_labels)
         return self
 
 
 class CatchmentZonesSupportConfig(DomainSupportBaseConfig):
     """Support built from catchment/domain zonation already prepared in setup."""
 
-    provider: Annotated[Literal["catchment_zones"], ParamLevel("user")]
-    source_zone_id: Annotated[str, ParamLevel("user")] = Field(
+    provider: Annotated[Literal["catchment_zones"], Profile.USER]
+    source_zone_id: Annotated[str, Profile.USER] = Field(
         default="catchment",
         description="Domain zone id providing the source catchment zonation.",
     )
-    default_cell_samples_per_axis: Annotated[int, ParamLevel("dev")] = Field(default=8, ge=2)
+    default_cell_samples_per_axis: Annotated[int, Profile.DEV] = Field(default=8, ge=2)
 
     @field_validator("source_zone_id", mode="before")
     @classmethod
@@ -225,7 +226,7 @@ class CatchmentZonesSupportConfig(DomainSupportBaseConfig):
 class GeologySupportConfig(DomainSupportBaseConfig):
     """Support backed by the geology data manager."""
 
-    provider: Annotated[Literal["geology"], ParamLevel("user")]
+    provider: Annotated[Literal["geology"], Profile.USER]
 
 
 DomainSupportConfig = Annotated[

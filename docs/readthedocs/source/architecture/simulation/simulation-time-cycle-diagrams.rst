@@ -19,11 +19,11 @@ They focus on:
 
 The forcing path now separates three responsibilities:
 
-- ``hydromodpy.process.hydrology.synthetic.forcing`` generates conceptual hydrological
+- ``hydromodpy.physics.hydrology.synthetic.forcing`` generates conceptual hydrological
   signals such as ``seasonal_step``.
-- ``hydromodpy.process.forcing.forcing_bridge`` converts loaded data to
+- ``hydromodpy.physics.forcing.forcing_bridge`` converts loaded data to
   homogeneous or heterogeneous solver-ready forcing payloads.
-- ``hydromodpy.process.forcing.time_alignment`` aligns series on simulation
+- ``hydromodpy.physics.forcing.time_alignment`` aligns series on simulation
   stress-period boundaries.
 - ``hydromodpy.simulation.forcing`` remains the stable re-export surface used
   by orchestration code.

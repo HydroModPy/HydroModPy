@@ -17,7 +17,7 @@ from hydromodpy.spatial.domain import Domain
 from hydromodpy.spatial.geographic.synthetic.config import SyntheticGeographicConfig
 from hydromodpy.spatial.geographic.synthetic.synthetic_geographic import build_synthetic_geographic
 from hydromodpy.spatial.surface import Surface
-from hydromodpy.process.flow import Flow
+from hydromodpy.physics.flow import Flow
 from hydromodpy.solver.modflow6 import Modflow6
 from hydromodpy.solver.modflow_common import (
     ModflowPostprocessOptions,
@@ -520,11 +520,7 @@ def _run_mf6_irregular(*, timeout: int, runtime_configs_dir: Path) -> Validation
         script_path=LAUNCHER_SCRIPT,
         out_path=out_path,
         out_env_var="HYDROMODPY_OUT_PATH",
-        extra_env={
-            "HYDROMODPY_NO_DISPLAY": "1",
-            "HYDROMODPY_NO_SAVE": "1",
-            "MPLBACKEND": "Agg",
-        },
+        extra_env={"MPLBACKEND": "Agg"},
         script_args=[str(config_path)],
         timeout=timeout,
     )

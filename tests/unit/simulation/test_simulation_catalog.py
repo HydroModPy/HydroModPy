@@ -7,7 +7,7 @@ import pandas as pd
 import pytest
 
 from hydromodpy.results.catalog import SimulationCatalog
-from hydromodpy.results.catalog_schema import HOMOGENEOUS_ZONE
+from hydromodpy.results.catalog_schema import GLOBAL_ZONE
 
 
 @pytest.fixture
@@ -25,7 +25,8 @@ def _register(catalog, sim_id=None, **kwargs):
     sid = sim_id or _sim_id()
     defaults = dict(project="test_project", solver="modflow6")
     defaults.update(kwargs)
-    return sid, catalog.register_simulation(sid, **defaults)
+    reg = catalog.register_simulation(sid, **defaults)
+    return sid, reg.zarr
 
 
 class TestRegisterAndFinalize:
@@ -91,17 +92,29 @@ class TestRegisterAndFinalize:
         assert row[0] is not None
         assert len(row[0]) == 64  # SHA-256 hex
 
-    def test_run_id_replaces(self, catalog):
-        sid1, _ = _register(catalog, name="r1", run_id="r1", n_cells=10, n_layers=1)
-        sid2, _ = _register(catalog, name="r1", run_id="r1", n_cells=10, n_layers=1)
+    def test_on_collision_replace_is_soft(self, catalog):
+        """``on_collision='replace'`` (default) moves the name pointer.
+
+        The previous sim_id survives in the catalog but loses its name,
+        preserving an immutable audit trail while keeping the name reusable.
+        """
+        sid1, _ = _register(catalog, name="r1", n_cells=10, n_layers=1)
+        sid2, _ = _register(catalog, name="r1", n_cells=10, n_layers=1)
         count = catalog.connection.execute(
             "SELECT COUNT(*) FROM simulations"
         ).fetchone()[0]
-        assert count == 1
-        remaining = catalog.connection.execute(
-            "SELECT sim_id FROM simulations"
-        ).fetchone()[0]
-        assert str(remaining) == sid2
+        assert count == 2
+        current = catalog.connection.execute(
+            "SELECT CAST(sim_id AS VARCHAR) FROM simulations WHERE name = ?",
+            ["r1"],
+        ).fetchone()
+        assert current is not None
+        assert current[0] == sid2
+        orphan_name = catalog.connection.execute(
+            "SELECT name FROM simulations WHERE CAST(sim_id AS VARCHAR) = ?",
+            [sid1],
+        ).fetchone()
+        assert orphan_name[0] is None
 
     def test_parent_sim_id(self, catalog):
         sid1, _ = _register(catalog)
@@ -126,7 +139,7 @@ class TestWriteMethods:
         ).fetchone()[0]
         assert count == 3
 
-    def test_parameters_homogeneous_zone(self, catalog):
+    def test_parameters_global_zone_default(self, catalog):
         sid, _ = _register(catalog)
         catalog.write_parameters(sid, [
             {"param_name": "K", "value": 1.0},
@@ -135,7 +148,7 @@ class TestWriteMethods:
             "SELECT zone_id FROM parameters WHERE sim_id = ? AND param_name = 'K'",
             [sid],
         ).fetchone()
-        assert row[0] == HOMOGENEOUS_ZONE
+        assert row[0] == GLOBAL_ZONE
 
     def test_write_timeseries(self, catalog):
         sid, _ = _register(catalog)
@@ -195,7 +208,7 @@ class TestWriteMethods:
         data = np.random.default_rng(0).random(100)
         catalog.write_provenance(sid, "recharge", "/data/recharge.nc", data)
         row = catalog.connection.execute(
-            "SELECT checksum, n_records FROM provenance WHERE sim_id = ?",
+            "SELECT payload_sha256, n_records FROM provenance WHERE sim_id = ?",
             [sid],
         ).fetchone()
         assert row[0] is not None
@@ -210,7 +223,7 @@ class TestDelete:
         catalog.write_parameters(sid, [{"param_name": "K", "value": 1.0}])
         idx = pd.date_range("2020-01-01", periods=5, freq="D")
         catalog.write_timeseries(sid, "P01", "head", pd.Series(np.ones(5), index=idx))
-        catalog.write_budget(sid, 0, "z1", "rch", 10.0, 0.0)
+        catalog.write_budget(sid, 0, "z1", "recharge", 10.0, 0.0)
         catalog.write_mass_balance(sid, 0, 10.0, 9.5, 5.0)
         catalog.write_metric(sid, "P01", "nse", 0.8)
         catalog.write_provenance(sid, "dem", "dem.tif", np.ones(10))

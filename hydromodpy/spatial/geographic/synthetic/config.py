@@ -9,46 +9,47 @@ from typing import Annotated, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
-from hydromodpy.core.config.param_level import ParamLevel
+from hydromodpy.core.config.profile import Profile
 from hydromodpy.core.units import parse_length_to_m
+from hydromodpy.core.config.base import HydroModelBase
 
 
-class SyntheticGridConfig(BaseModel):
+class SyntheticGridConfig(HydroModelBase):
     """Structured-grid support used to generate one synthetic DEM."""
 
     model_config = ConfigDict(extra="forbid")
 
-    length_x: Annotated[float, ParamLevel("user")] = Field(
+    length_x: Annotated[float, Profile.USER] = Field(
         default=100.0,
         description="Total domain length along x. Accepts values such as 100, '100 m', or '0.1 km'.",
     )
-    length_y: Annotated[float, ParamLevel("user")] = Field(
+    length_y: Annotated[float, Profile.USER] = Field(
         default=1.0,
         description="Total domain length along y. Accepts values such as 1, '1 m', or '0.001 km'.",
     )
-    nx: Annotated[int, ParamLevel("user")] = Field(
+    nx: Annotated[int, Profile.USER] = Field(
         default=100,
         ge=1,
         description="Number of cells along x.",
     )
-    ny: Annotated[int, ParamLevel("user")] = Field(
+    ny: Annotated[int, Profile.USER] = Field(
         default=1,
         ge=1,
         description="Number of cells along y.",
     )
-    xmin: Annotated[float, ParamLevel("dev")] = Field(
+    xmin: Annotated[float, Profile.DEV] = Field(
         default=0.0,
         description="Lower x coordinate of the support extent.",
     )
-    ymin: Annotated[float, ParamLevel("dev")] = Field(
+    ymin: Annotated[float, Profile.DEV] = Field(
         default=0.0,
         description="Lower y coordinate of the support extent.",
     )
-    crs: Annotated[str, ParamLevel("dev")] = Field(
+    crs: Annotated[str, Profile.DEV] = Field(
         default="EPSG:2154",
         description="Projected CRS attached to synthetic outputs.",
     )
-    nodata: Annotated[float, ParamLevel("dev")] = Field(
+    nodata: Annotated[float, Profile.DEV] = Field(
         default=-9999.0,
         description="Nodata sentinel exported to raster artefacts.",
     )
@@ -109,12 +110,12 @@ class SyntheticGridConfig(BaseModel):
         return float(self.length_y) / float(self.ny)
 
 
-class SyntheticTopographyConfig(BaseModel):
+class SyntheticTopographyConfig(HydroModelBase):
     """Analytical topography definition on the synthetic support."""
 
     model_config = ConfigDict(extra="forbid")
 
-    kind: Annotated[Literal["flat", "linear", "radial_island"], ParamLevel("user")] = Field(
+    kind: Annotated[Literal["flat", "linear", "radial_island"], Profile.USER] = Field(
         default="flat",
         description=(
             "Analytical topography law. "
@@ -124,7 +125,7 @@ class SyntheticTopographyConfig(BaseModel):
             "submerged ocean cells."
         ),
     )
-    base_elevation: Annotated[float, ParamLevel("user")] = Field(
+    base_elevation: Annotated[float, Profile.USER] = Field(
         default=20.0,
         description=(
             "Reference elevation (m). "
@@ -133,7 +134,7 @@ class SyntheticTopographyConfig(BaseModel):
             "For 'radial_island' this is the submerged ocean-floor elevation."
         ),
     )
-    right_to_left_amplitude: Annotated[float, ParamLevel("dev")] = Field(
+    right_to_left_amplitude: Annotated[float, Profile.DEV] = Field(
         default=0.0,
         description=(
             "Additional elevation reached on the left boundary relative to the "
@@ -141,28 +142,28 @@ class SyntheticTopographyConfig(BaseModel):
             "to left."
         ),
     )
-    island_radius: Annotated[float | None, ParamLevel("dev")] = Field(
+    island_radius: Annotated[float | None, Profile.DEV] = Field(
         default=None,
         description=(
             "Circular shoreline radius (m) used by 'radial_island'. "
             "Defaults to 35% of the smallest domain length."
         ),
     )
-    crest_elevation: Annotated[float, ParamLevel("dev")] = Field(
+    crest_elevation: Annotated[float, Profile.DEV] = Field(
         default=10.0,
         description=(
             "Central island elevation (m) used by 'radial_island'. "
             "The land surface decays nonlinearly to sea level at the shoreline."
         ),
     )
-    center_x: Annotated[float | None, ParamLevel("dev")] = Field(
+    center_x: Annotated[float | None, Profile.DEV] = Field(
         default=None,
         description=(
             "Optional x coordinate of the radial-island center. "
             "Defaults to the grid midpoint."
         ),
     )
-    center_y: Annotated[float | None, ParamLevel("dev")] = Field(
+    center_y: Annotated[float | None, Profile.DEV] = Field(
         default=None,
         description=(
             "Optional y coordinate of the radial-island center. "
@@ -201,17 +202,17 @@ class SyntheticTopographyConfig(BaseModel):
         return self
 
 
-class SyntheticGeographicConfig(BaseModel):
+class SyntheticGeographicConfig(HydroModelBase):
     """Top-level config for one synthetic geographic build."""
 
     model_config = ConfigDict(extra="forbid")
 
-    case_id: Annotated[str, ParamLevel("user")] = Field(
+    case_id: Annotated[str, Profile.USER] = Field(
         default="flat20",
         description="Identifier used by local case runners and outputs.",
     )
-    grid: Annotated[SyntheticGridConfig, ParamLevel("user")] = Field(default_factory=SyntheticGridConfig)
-    topography: Annotated[SyntheticTopographyConfig, ParamLevel("user")] = Field(default_factory=SyntheticTopographyConfig)
+    grid: Annotated[SyntheticGridConfig, Profile.USER] = Field(default_factory=SyntheticGridConfig)
+    topography: Annotated[SyntheticTopographyConfig, Profile.USER] = Field(default_factory=SyntheticTopographyConfig)
 
     @classmethod
     def from_toml(cls, path: str | Path) -> "SyntheticGeographicConfig":

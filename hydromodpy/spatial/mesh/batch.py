@@ -19,7 +19,6 @@ import logging
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from pathlib import Path
-import sys
 
 from hydromodpy.core.workspace.path_registry import LEGACY_STABLE_DIR
 from typing import Any
@@ -38,7 +37,7 @@ from hydromodpy.spatial.mesh.batch_reporting import (
     write_mesh_catchment_batch_manifest,
 )
 from hydromodpy.spatial.mesh.config import (
-    MeshCatchmentConfigSchema,
+    MeshCatchmentConfig,
     parse_mesh_catchment_batch_config_data,
 )
 from hydromodpy.spatial.mesh.runtime_single_run import clone_config_like
@@ -139,7 +138,7 @@ class MeshCatchmentBatchRunner:
     """Orchestrate the multi-outlet mesh workflow for one launcher session."""
 
     config_path: Path
-    mesh_section_data: MeshCatchmentConfigSchema
+    mesh_section_data: MeshCatchmentConfig
     workspace_cfg: object
     geographic_cfg: object
     domain_cfg: object | None

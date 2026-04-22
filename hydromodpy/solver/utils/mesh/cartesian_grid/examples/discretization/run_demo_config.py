@@ -9,6 +9,7 @@ import tomllib
 from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator
+from hydromodpy.core.config.base import HydroModelBase
 
 
 def _find_repo_root() -> Path:
@@ -94,7 +95,7 @@ def _resolve_sgrid_paths(payload: Mapping[str, Any], *, base_dir: Path) -> dict[
     return out
 
 
-class SGridFieldParamDiscretizationConfig(BaseModel):
+class SGridFieldParamDiscretizationConfig(HydroModelBase):
     """Configuration for standalone field-parameter discretization on an SGrid."""
 
     model_config = ConfigDict(extra="forbid")

@@ -9,8 +9,8 @@ Open one ready-to-use HydroModPy WSL shell, or run one command inside it.
 
 Options:
   --env-name NAME      Conda environment name (default: hydromodpy-wsl)
-  --headless           Export HYDROMODPY_NO_DISPLAY=1 and MPLBACKEND=Agg
-  --with-display       Unset HYDROMODPY_NO_DISPLAY and MPLBACKEND
+  --headless           Export MPLBACKEND=Agg for non-interactive matplotlib
+  --with-display       Unset MPLBACKEND
   --output-root PATH   Export HYDROMODPY_OUT_PATH to the given path
   -h, --help           Show this help and exit
 
@@ -146,11 +146,9 @@ cd "${REPO_ROOT}"
 
 case "${HEADLESS_MODE}" in
   on)
-    export HYDROMODPY_NO_DISPLAY=1
     export MPLBACKEND=Agg
     ;;
   off)
-    unset HYDROMODPY_NO_DISPLAY || true
     unset MPLBACKEND || true
     ;;
 esac

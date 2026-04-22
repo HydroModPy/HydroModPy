@@ -1,34 +1,48 @@
-"""Shared metadata tags for parameter visibility and conditional display.
+"""Legacy alias. Prefer :class:`hydromodpy.core.config.profile.Profile`.
 
-Used inside ``Annotated[...]`` on Pydantic config fields so that tooling
-(TOML generator, Streamlit UI) can filter parameters by audience and
-conditionally show/hide fields based on sibling values.
+Kept as a pure re-export so existing ``Annotated[..., ParamLevel("user")]``
+call sites still type-check during the migration window. Slated for removal
+in v0.7.
 
-Example::
-
-    catch_def: Annotated[str, ParamLevel("user")] = "dem"
-    x_outlet: Annotated[Optional[float], ParamLevel("user"), VisibleWhen("catch_def", "from_outlet_coord")] = None
-
-The ``VisibleWhen`` tag tells the UI: only show ``x_outlet`` when the
-sibling field ``catch_def`` equals ``"from_outlet_coord"``.  Multiple
-allowed values can be passed as a tuple.
+``VisibleWhen`` remains defined here (unchanged from v0.5) — it is not part
+of the Profile migration.
 """
-
 from dataclasses import dataclass
 from typing import Literal
 
-#: Ordered mapping of profile names to their numeric threshold.
-#: A field is visible when ``PROFILES[field_level] <= PROFILES[requested_profile]``.
-PROFILES: dict[str, int] = {"user": 0, "dev": 1, "expert": 2}
+from hydromodpy.core.config.profile import Profile
 
 ProfileName = Literal["user", "dev", "expert"]
+
+#: Ordered mapping of profile names to their numeric threshold.
+#: Aligned on Profile IntEnum values (1/2/3). A field is visible when
+#: ``PROFILES[field_level] <= PROFILES[requested_profile]`` — ordering preserved
+#: from the v0.5 0/1/2 encoding.
+PROFILES: dict[str, int] = {"user": 1, "dev": 2, "expert": 3}
+
+_STR_TO_PROFILE: dict[str, Profile] = {
+    "user": Profile.USER,
+    "dev": Profile.DEV,
+    "expert": Profile.EXPERT,
+}
 
 
 @dataclass(frozen=True)
 class ParamLevel:
-    """Metadata tag for parameter visibility level (user, dev, expert)."""
+    """Deprecated legacy tag; resolves to a :class:`Profile` enum.
+
+    Example::
+
+        catch_def: Annotated[str, ParamLevel("user")] = "dem"
+
+    Prefer ``Profile.USER`` directly in new code.
+    """
 
     level: ProfileName
+
+    def as_profile(self) -> Profile:
+        """Return the equivalent :class:`Profile` enum value."""
+        return _STR_TO_PROFILE[self.level]
 
 
 @dataclass(frozen=True)
@@ -54,3 +68,6 @@ class VisibleWhen:
         """Return True if *current_value* matches the visibility condition."""
         allowed = self.values if isinstance(self.values, tuple) else (self.values,)
         return current_value in allowed
+
+
+__all__ = ["Profile", "ParamLevel", "VisibleWhen", "PROFILES", "ProfileName"]

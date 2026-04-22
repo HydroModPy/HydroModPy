@@ -1,3 +1,5 @@
+workflow = "simulation"
+
 [simulation]
 name = "LU drainage val"
 description = "Synthetic steady-state unconfined flow with fixed heads and uniform top drainage."

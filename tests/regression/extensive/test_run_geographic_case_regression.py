@@ -9,7 +9,7 @@ import pytest
 
 from hydromodpy.spatial.geographic.cases import run_geographic_cases_from_toml
 from tests.regression.golden_utils import REPO_ROOT, resolve_tiered_golden_file
-from tests.support.whitebox import configure_whitebox_single_thread
+from tests._helpers.whitebox import configure_whitebox_single_thread
 
 METRICS_GOLDEN_REFERENCE_FILE = resolve_tiered_golden_file(
     test_file=__file__,
@@ -79,6 +79,7 @@ def _write_tmp_config(tmp_path: Path) -> Path:
     config_path.write_text(
         "\n".join(
             [
+                'workflow = "simulation"',
                 "[workspace]",
                 f'project_root = "{out_path}"',
                 "",

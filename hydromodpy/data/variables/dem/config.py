@@ -7,10 +7,11 @@ from typing import Annotated, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
-from hydromodpy.core.config.param_level import ParamLevel
+from hydromodpy.core.config.profile import Profile
+from hydromodpy.core.config.base import HydroModelBase
 
 
-class DemSourceConfig(BaseModel):
+class DemSourceConfig(HydroModelBase):
     """Configuration for ONE DEM data source.
 
     Supported sources:
@@ -23,7 +24,7 @@ class DemSourceConfig(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     source: Annotated[
-        Literal["custom", "ign_bdalti"], ParamLevel("user")
+        Literal["custom", "ign_bdalti"], Profile.USER
     ] = Field(
         ...,
         description=(
@@ -33,23 +34,23 @@ class DemSourceConfig(BaseModel):
     )
 
     # --- Custom source fields ---
-    path: Annotated[Path | None, ParamLevel("user")] = Field(
+    path: Annotated[Path | None, Profile.USER] = Field(
         default=None,
         description="Path to custom DEM file or directory (TIF, ASC, NC).",
     )
 
     # --- Spatial mask ---
-    mask_path: Annotated[Path | None, ParamLevel("user")] = Field(
+    mask_path: Annotated[Path | None, Profile.USER] = Field(
         default=None,
         description="SHP/GPKG/GeoJSON mask for spatial filtering/clipping.",
     )
-    extent: Annotated[Literal["watershed", "study_area"] | None, ParamLevel("user")] = Field(
+    extent: Annotated[Literal["watershed", "study_area"] | None, Profile.USER] = Field(
         default=None,
         description="Use project extent for bbox-based data retrieval.",
     )
 
     # --- Common ---
-    force_refresh: Annotated[bool, ParamLevel("dev")] = Field(
+    force_refresh: Annotated[bool, Profile.DEV] = Field(
         default=False,
         description="Ignore cache and re-download from API.",
     )
@@ -64,7 +65,7 @@ class DemSourceConfig(BaseModel):
         return self
 
 
-class DemConfig(BaseModel):
+class DemConfig(HydroModelBase):
     """Top-level DEM variable configuration.
 
     Example TOML::
@@ -81,7 +82,7 @@ class DemConfig(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    sources: Annotated[list[DemSourceConfig], ParamLevel("user")] = Field(
+    sources: Annotated[list[DemSourceConfig], Profile.USER] = Field(
         ...,
         min_length=1,
         description="At least one DEM data source.",

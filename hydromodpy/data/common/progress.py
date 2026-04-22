@@ -11,7 +11,7 @@ import time
 from collections.abc import Generator, Iterable
 from contextlib import contextmanager
 
-from hydromodpy.core.tools.log_manager import get_logger
+from hydromodpy.core.logging import get_logger
 
 logger = get_logger(__name__)
 

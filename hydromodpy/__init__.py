@@ -5,7 +5,6 @@ import logging
 import os
 import re
 import sys
-from importlib import metadata
 from importlib.util import find_spec
 from pathlib import Path
 
@@ -226,61 +225,68 @@ def _ensure_proj_db_compatibility() -> None:
 _ensure_proj_data_from_env()
 _ensure_proj_db_compatibility()
 
-try:
-    __version__ = metadata.version("hydromodpy")
-except metadata.PackageNotFoundError:
-    import tomllib
-
-    _pyproject = Path(__file__).resolve().parents[1] / "pyproject.toml"
-    with _pyproject.open("rb") as fh:
-        __version__ = tomllib.load(fh)["project"]["version"]
+from hydromodpy.core.version import __version__
 
 __author__ = "Alexandre Gauvain, Ronan Abherve, Jean-Raynald de Dreuzy"
 __email__ = "alexandre.gauvain.ag@gmail.com, ronan.abherve@gmail.com, jean-raynald.de-dreuzy@univ-rennes.fr"
 
 # Initialize logging system
-from hydromodpy.core.tools.log_manager import LogManager
+from hydromodpy.core.logging import LogManager
 _log_manager = LogManager(mode="verbose", log_dir=None, overwrite=False)
 # Public access to log manager for users
 log_manager = _log_manager
 
 _MODULE_EXPORTS = {
     "analysis": "hydromodpy.analysis",
+    "calibration": "hydromodpy.calibration",
     "core": "hydromodpy.core",
     "data": "hydromodpy.data",
-    "process": "hydromodpy.process",
+    "physics": "hydromodpy.physics",
+    "results": "hydromodpy.results",
     "simulation": "hydromodpy.simulation",
     "solver": "hydromodpy.solver",
     "spatial": "hydromodpy.spatial",
-    "watershed": "hydromodpy.watershed",
 }
 
 _LAZY_IMPORTS = {
-    "Geographic": "hydromodpy.spatial.geographic.geographic",
-    "HydrographyResult": "hydromodpy.data.variables.hydrography.result",
-    "HydrographyManager": "hydromodpy.data.variables.hydrography.manager",
-    "HydrographyConfig": "hydromodpy.data.variables.hydrography.config",
-    "Hydrometry": "hydromodpy.data.variables.hydrometry.hydrometry",
-    "Workspace": "hydromodpy.core.workspace",
-    "IntermittencyManager": "hydromodpy.data.variables.intermittency.manager",
-    "IntermittencyConfig": "hydromodpy.data.variables.intermittency.config",
-    "OceanicManager": "hydromodpy.data.variables.oceanic",
-    "OceanicConfig": "hydromodpy.data.variables.oceanic",
-    "Piezometry": "hydromodpy.data.variables.piezometry.piezometry",
-    "Subbasin": "hydromodpy.spatial.geographic.subbasin",
-    # config
-    "HydroModPyConfig": "hydromodpy.core.config.hydromodpy_config",
-    "WorkspaceConfig": "hydromodpy.core.workspace",
+    # Spatial / geographic
+    "CatchmentDelineation": "hydromodpy.spatial.geographic.catchment_delineation",
     "GeographicConfig": "hydromodpy.spatial.geographic.geographic_config",
-    # modeling
+    "Subbasin": "hydromodpy.spatial.geographic.subbasin",
+    "HydroMesh": "hydromodpy.spatial.mesh.hydro_mesh",
+    "Domain": "hydromodpy.spatial.domain.domain",
+    # Processes
+    "Flow": "hydromodpy.physics.flow.flow",
+    "Transport": "hydromodpy.physics.transport.transport",
+    # Solvers
     "Modflow": "hydromodpy.solver.modflow_nwt",
+    "Modflow6": "hydromodpy.solver.modflow6.modflow6",
     "Modpath": "hydromodpy.solver.modflow_nwt",
+    "Modpath7": "hydromodpy.solver.modflow_nwt",
     "Mt3dms": "hydromodpy.solver.modflow_nwt",
-    # simulation API
-    "Simulation": "hydromodpy.project",
-    "SimulationResult": "hydromodpy.project",
-    # catalog API
+    "Boussinesq": "hydromodpy.solver.boussinesq.boussinesq",
+    # Core infrastructure
+    "Workspace": "hydromodpy.core.workspace",
+    "WorkspaceConfig": "hydromodpy.core.workspace",
+    "HydroModPyConfig": "hydromodpy.core.config.hydromodpy_config",
+    # Data variables (legacy public surface)
+    "Hydrometry": "hydromodpy.data.variables.hydrometry.hydrometry",
+    "Piezometry": "hydromodpy.data.variables.piezometry.piezometry",
+    "HydrographyConfig": "hydromodpy.data.variables.hydrography.config",
+    "HydrographyManager": "hydromodpy.data.variables.hydrography.manager",
+    "HydrographyResult": "hydromodpy.data.variables.hydrography.result",
+    "IntermittencyConfig": "hydromodpy.data.variables.intermittency.config",
+    "IntermittencyManager": "hydromodpy.data.variables.intermittency.manager",
+    "OceanicConfig": "hydromodpy.data.variables.oceanic",
+    "OceanicManager": "hydromodpy.data.variables.oceanic",
+    # Project / run API (programmatic façade)
+    "Project": "hydromodpy.project",
+    "SimulationPlan": "hydromodpy.simulation.planning.plan",
+    # Catalog API
+    "Catalog": "hydromodpy.results.catalog:SimulationCatalog",
     "SimulationCatalog": "hydromodpy.results.catalog",
+    "SimulationGroup": "hydromodpy.results.simulation_group",
+    "Run": "hydromodpy.results.run",
 }
 
 
@@ -290,31 +296,141 @@ def __getattr__(name):
         globals()[name] = module
         return module
     if name in _LAZY_IMPORTS:
-        module = importlib.import_module(_LAZY_IMPORTS[name])
-        attr = getattr(module, name)
-        globals()[name] = attr  # cache for subsequent accesses
+        target = _LAZY_IMPORTS[name]
+        if ":" in target:
+            module_path, attr_name = target.split(":", 1)
+        else:
+            module_path, attr_name = target, name
+        module = importlib.import_module(module_path)
+        attr = getattr(module, attr_name)
+        globals()[name] = attr
         return attr
     raise AttributeError(f"module 'hydromodpy' has no attribute {name!r}")
 
 
 def open(workspace_path):
+    """Open a HydroModPy workspace and return the unified catalog.
+
+    Mirrors ``xarray.open_dataset`` / ``pandas.read_csv`` in intent: one call,
+    a ready-to-query object backed by ``hydromodpy.duckdb``.
+    """
     from hydromodpy.results.catalog import SimulationCatalog
 
     return SimulationCatalog(workspace_path)
 
 
+def run(config, **kwargs):
+    """Functional façade for ``hmp.Project(config).run()``.
+
+    Keeps CLI and Python API in sync: ``hmp run config.toml`` and
+    ``hmp.run("config.toml")`` execute the same workflow.
+    """
+    from hydromodpy.project import Project
+
+    with Project(config, headless=kwargs.pop("headless", False)) as project:
+        return project.run(**kwargs)
+
+
+def calibrate(config, **kwargs):
+    """Functional façade for a calibration session driven by a TOML config."""
+    from pathlib import Path
+
+    from hydromodpy.calibration.cli import run_calibration_cli
+
+    return run_calibration_cli(Path(config).expanduser().resolve(), **kwargs)
+
+
+def compare(sim_a, sim_b, **kwargs):
+    """Compare two simulations (by object or sim_id)."""
+    from hydromodpy.analysis.comparison.orchestrator import (
+        MethodComparisonLauncher,
+    )
+
+    return MethodComparisonLauncher.pairwise(sim_a, sim_b, **kwargs)
+
+
 __all__ = [
+    # Entry points
+    "open",
+    "run",
+    "calibrate",
+    "compare",
+    "doctor",
+    # Core infrastructure
+    "Workspace",
+    "WorkspaceConfig",
+    "HydroModPyConfig",
+    # Spatial / physics
+    "CatchmentDelineation",
+    "GeographicConfig",
+    "HydroMesh",
+    "Domain",
+    "Subbasin",
+    "Flow",
+    "Transport",
+    # Solvers
+    "Modflow",
+    "Modflow6",
+    "Modpath",
+    "Modpath7",
+    "Mt3dms",
+    "Boussinesq",
+    # Project / run / catalog API
+    "Project",
+    "Run",
+    "SimulationPlan",
+    "Catalog",
+    "SimulationCatalog",
+    "SimulationGroup",
+    # Data variables
+    "Hydrometry",
+    "Piezometry",
+    "HydrographyConfig",
+    "HydrographyManager",
+    "HydrographyResult",
+    "IntermittencyConfig",
+    "IntermittencyManager",
+    "OceanicConfig",
+    "OceanicManager",
+    # Sub-modules
     "analysis",
+    "calibration",
     "core",
     "data",
-    "log_manager",
-    "open",
-    "process",
+    "physics",
+    "results",
     "simulation",
     "solver",
     "spatial",
-    "watershed",
+    # Misc
+    "log_manager",
     "__version__",
-    *_LAZY_IMPORTS,
 ]
+
+
+def doctor() -> dict:
+    """Lightweight environment diagnostic.
+
+    Returns a dict describing Python, hydromodpy, and solver versions. Designed
+    to be quick (no actual solver invocation) and safe to call at import
+    probing time.
+    """
+    import platform
+    import shutil
+
+    report: dict = {
+        "python": platform.python_version(),
+        "hydromodpy": __version__,
+        "solvers": {},
+        "optional": {},
+    }
+    for pkg in ("flopy", "gmsh", "duckdb", "zarr", "pyproj", "rasterio"):
+        try:
+            mod = importlib.import_module(pkg)
+            report["optional"][pkg] = getattr(mod, "__version__", "?")
+        except Exception:
+            report["optional"][pkg] = None
+    for exe in ("mf2005", "mfnwt", "mf6"):
+        report["solvers"][exe] = shutil.which(exe)
+    return report
 

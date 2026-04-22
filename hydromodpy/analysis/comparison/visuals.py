@@ -14,12 +14,11 @@ import numpy as np
 
 from hydromodpy.analysis.comparison.config import (
     MethodComparisonConfig,
-    MethodComparisonFineRasterSchema,
-    MethodComparisonObservableSchema,
-    MethodComparisonVariantSchema,
+    MethodComparisonFineRaster,
+    MethodComparisonObservable,
+    MethodComparisonVariant,
 )
 from hydromodpy.analysis.comparison.runtime import (
-    CellCentroidTable,
     VariableSeries,
     load_variable_series,
     mask_depth_series_from_head_nodata,
@@ -360,7 +359,7 @@ def _series_style(observable_name: str) -> dict[str, Any]:
 def _choose_map_slice(
     *,
     series: VariableSeries,
-    observable: MethodComparisonObservableSchema,
+    observable: MethodComparisonObservable,
 ) -> tuple[np.ndarray, str] | None:
     slices = select_time_slices(series, observable)
     if not slices:
@@ -383,9 +382,9 @@ def _choose_map_slice(
 def _build_map_payload(
     *,
     cfg: MethodComparisonConfig,
-    variant: MethodComparisonVariantSchema,
+    variant: MethodComparisonVariant,
     summary: dict[str, Any],
-    observable: MethodComparisonObservableSchema,
+    observable: MethodComparisonObservable,
     rows: list[dict[str, Any]],
 ) -> MapPayload | None:
     reducer_key = str(observable.reducer or "identity").strip().lower()
@@ -1389,7 +1388,7 @@ def _write_budget_diagnostic_figure(
 def _resolve_fine_grid_bounds(
     *,
     payloads: list[MapPayload],
-    fine_raster: MethodComparisonFineRasterSchema,
+    fine_raster: MethodComparisonFineRaster,
     reference_variant: str | None,
 ) -> tuple[float, float, float, float] | None:
     extents = [

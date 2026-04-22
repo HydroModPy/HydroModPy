@@ -11,6 +11,8 @@ from typing import Any, List, Optional, Union
 import pandas as pd
 import requests
 
+from hydromodpy.core.io.http_client import get_default_client
+
 logger = logging.getLogger(__name__)
 
 try:
@@ -265,7 +267,7 @@ class StationDiscovery(BaseStationSet):
         url = f"{API_BASE_URL}hydrometrie/referentiel/stations"
 
         try:
-            response = requests.get(url, params=params, timeout=30)
+            response = get_default_client().get(url, params=params, timeout=30)
         except requests.exceptions.RequestException as exc:
             raise RuntimeError(f"Failed to query Hub'Eau API: {exc}") from exc
 
@@ -373,7 +375,7 @@ class StationDiscovery(BaseStationSet):
             url = f"{API_BASE_URL}hydrometrie/obs_elab"
 
             try:
-                response = requests.get(url, params=params, timeout=timeout)
+                response = get_default_client().get(url, params=params, timeout=timeout)
             except requests.exceptions.RequestException:
                 continue
 

@@ -15,6 +15,8 @@ def test_load_toml_with_base_config_merges_nested_sections(tmp_path: Path) -> No
     base_path.write_text(
         "\n".join(
             [
+                
+                'workflow = "simulation"',
                 "[workspace]",
                 f'project_root = "{tmp_path / "demo"}"',
                 "",
@@ -77,8 +79,11 @@ def test_hydromodpy_config_from_toml_supports_base_config(tmp_path: Path) -> Non
     base_path.write_text(
         "\n".join(
             [
+                
+                'workflow = "simulation"',
                 "[workspace]",
                 f'project_root = "{tmp_path / "demo"}"',
+                f'root = "{tmp_path}"',
                 "",
                 "[geographic]",
                 'catch_def = "dem"',
@@ -116,7 +121,7 @@ def test_hydromodpy_config_from_toml_supports_base_config(tmp_path: Path) -> Non
 def test_launcher_simulation_example_config_inheritance_keeps_only_relevant_data_types() -> None:
     example_config = (
         Path(__file__).resolve().parents[3]
-        / "examples"
+        / "examples_legacy_2"
         / "projects"
         / "launcher_simulation"
         / "run_fast_mf6.toml"
@@ -134,7 +139,7 @@ def test_launcher_simulation_example_config_inheritance_keeps_only_relevant_data
 def test_launcher_simulation_mf6_precomputed_mesh_input_config_uses_runtime_mesh() -> None:
     example_config = (
         Path(__file__).resolve().parents[3]
-        / "examples"
+        / "examples_legacy_2"
         / "projects"
         / "launcher_simulation"
         / "run_fast_mf6_precomputed_mesh_input.toml"
@@ -152,7 +157,7 @@ def test_launcher_simulation_mf6_precomputed_mesh_input_config_uses_runtime_mesh
 def test_launcher_simulation_mf6_mesh_catchment_config_embeds_mesh_generation() -> None:
     example_config = (
         Path(__file__).resolve().parents[3]
-        / "examples"
+        / "examples_legacy_2"
         / "projects"
         / "launcher_simulation"
         / "run_fast_mf6_mesh_catchment.toml"
@@ -192,6 +197,11 @@ def test_hydromodpy_config_loads_profiling_shortcuts(tmp_path: Path) -> None:
     config_path.write_text(
         "\n".join(
             [
+                
+                'workflow = "simulation"',
+                "[workspace]",
+                f'root = "{tmp_path}"',
+                "",
                 "[geographic]",
                 'catch_def = "dem"',
                 'dem_init_path = "dem.tif"',
@@ -212,7 +222,6 @@ def test_hydromodpy_config_loads_profiling_shortcuts(tmp_path: Path) -> None:
     cfg = HydroModPyConfig.from_toml(config_path)
 
     assert cfg.geographic.reuse_existing_outputs is True
-    assert cfg.postprocess.profile == "solver_only"
-    assert cfg.postprocess.flow.display is False
-    assert cfg.postprocess.flow.native_mesh_npz is False
-    assert cfg.postprocess.flow.native_mesh_csv is False
+    # Postprocess legacy nested options are accepted but no longer interpreted.
+    # The pipeline now drives extract/derive/export unconditionally.
+    assert cfg.postprocess.enabled is False

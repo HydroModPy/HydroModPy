@@ -9,7 +9,6 @@ from hydromodpy.spatial.mesh.config import (
     parse_mesh_catchment_batch_config_data,
     parse_mesh_catchment_config_data,
 )
-from hydromodpy.runners.templates.mesh_catchment import render_mesh_catchment_template
 
 
 def test_parse_mesh_catchment_config_defaults_domain_and_rivers() -> None:
@@ -252,14 +251,3 @@ def test_generate_toml_exposes_mesh_catchment_sections() -> None:
     assert "hydraulic_properties" in content
 
 
-def test_template_renderer_mentions_output_layout() -> None:
-    content = render_mesh_catchment_template(batch=False, profile="user")
-
-    assert 'output_layout = "standard"' in content
-    assert "figures_enabled = true" in content
-    assert 'figure_dpi = 300' in content
-    assert 'figure_regional_dpi = 220' in content
-    assert "write final mesh artifacts directly under `workspace.project_root`" in content
-    assert "[mesh_catchment.watershed_boundary]" in content
-    assert "[mesh_catchment.watershed_boundary.outside_coarsening]" in content
-    assert "[mesh_catchment.watershed_boundary.geology_conformity]" in content

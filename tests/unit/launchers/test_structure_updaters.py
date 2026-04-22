@@ -11,10 +11,10 @@ from hydromodpy.spatial.geographic.structure_binders import (
     apply_catchment_zones_to_domain,
     apply_geology_to_domain,
 )
-from hydromodpy.process.flow.flow import Flow
-from hydromodpy.process.flow.flow_config import FlowConfig
-from hydromodpy.process.flow.sinks_sources import FlowSinksSourcesConfig
-from hydromodpy.process.flow.structure_binders import (
+from hydromodpy.physics.flow.flow import Flow
+from hydromodpy.physics.flow.flow_config import FlowConfig
+from hydromodpy.physics.flow.sinks_sources import FlowSinksSourcesConfig
+from hydromodpy.physics.flow.structure_binders import (
     apply_oceanic_to_flow,
     apply_simulation_time_to_flow_boundary_conditions,
     apply_simulation_time_to_flow_wells,

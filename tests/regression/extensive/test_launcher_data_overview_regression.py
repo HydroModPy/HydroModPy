@@ -47,7 +47,6 @@ def test_launcher_data_overview_data_only_regression():
         script_path=LAUNCHER_DATA_OVERVIEW_SCRIPT,
         out_path=out_path,
         out_env_var="HYDROMODPY_OUT_PATH",
-        extra_env={"HYDROMODPY_NO_DISPLAY": "1"},
         timeout=3600,
     )
 

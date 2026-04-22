@@ -1,0 +1,49 @@
+# Transient Boussinesq replay on the committed headwater 100 km2 outlet-2 mesh
+# with strong lateral hydraulic heterogeneity.
+#
+# This variant keeps the cycling wet/dry chronology used to toggle the surface
+# threshold on and off, but replaces the quasi-uniform hydraulic properties with
+# three contrasted hydrofacies bands. The goal is to stress both the nonlinear
+# overflow activation and the sensitivity to real-basin property contrasts.
+
+base_config = "run_headwater_100km2_outlet_2_boussinesq_transient_cycling_recharge.toml"
+
+workflow = "simulation"
+
+[workspace]
+project_root = "./results_reused_real_meshes/headwater_100km2_outlet_2_boussinesq_transient_cycling_recharge_heterogeneous"
+
+[simulation]
+name = "Headwater 100 km2 Boussinesq transient cycling recharge heterogeneous"
+run_id = "headwater_100km2_outlet_2_boussinesq_transient_cycling_recharge_heterogeneous"
+
+[domain.supports.field_hydrofacies]
+provider = "generated_rings"
+coordinate_mode = "relative"
+radii = [0.24, 0.58]
+labels = ["weathered_core", "fractured_transition", "tight_margin"]
+default_cell_samples_per_axis = 8
+
+[flow]
+param_list = ["K", "Sy"]
+runtime_max_iterations = 160
+
+[flow.param.K.field]
+id = "K"
+kind = "heterogeneous"
+unit = "m/s"
+
+[flow.param.K.field_heterogeneous]
+values_source = "inline"
+values = { weathered_core = 3.0e-4, fractured_transition = 1.5e-5, tight_margin = 8.0e-7 }
+field_spatial_id = "field_hydrofacies"
+
+[flow.param.Sy.field]
+id = "Sy"
+kind = "heterogeneous"
+unit = "-"
+
+[flow.param.Sy.field_heterogeneous]
+values_source = "inline"
+values = { weathered_core = 0.20, fractured_transition = 0.08, tight_margin = 0.02 }
+field_spatial_id = "field_hydrofacies"

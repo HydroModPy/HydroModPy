@@ -13,7 +13,7 @@ from rasterio.transform import from_origin
 from hydromodpy.spatial.domain.domain_config import DomainConfig
 from hydromodpy.spatial.geographic.geographic_config import GeographicConfig
 from hydromodpy.core.workspace.config import WorkspaceConfig
-from hydromodpy.spatial.mesh.config import MeshCatchmentConfigSchema
+from hydromodpy.spatial.mesh.config import MeshCatchmentConfig
 from hydromodpy.spatial.mesh import runtime as mesh_runtime
 from hydromodpy.workflow.pipelines.mesh import MeshCatchmentLauncher
 
@@ -126,7 +126,7 @@ def _batch_cfg(tmp_path: Path):
     return SimpleNamespace(
         workspace=WorkspaceConfig(
             project_root=tmp_path / "out" / "mesh_batch",
-            workspace_root=tmp_path,
+            root=tmp_path,
         ),
         geographic=GeographicConfig(
             catch_def="from_outlet_coord",
@@ -205,7 +205,7 @@ def test_mesh_runtime_require_mesh_section_returns_typed_model() -> None:
         {"mesh_catchment": {"constraints_mode": "rivers_only"}}
     )
 
-    assert isinstance(section, MeshCatchmentConfigSchema)
+    assert isinstance(section, MeshCatchmentConfig)
     assert section.constraints_mode == "rivers_only"
     assert section.domain.kind == "geographic_box_buffer"
 
@@ -711,7 +711,7 @@ def test_mesh_runtime_can_skip_exchange_bundle_export(
 
     summary = mesh_runtime.run_single_mesh_catchment_workflow(
         config_path=tmp_path / "config.toml",
-        section_data=MeshCatchmentConfigSchema.model_validate(
+        section_data=MeshCatchmentConfig.model_validate(
             {
                 "constraints_mode": "rivers_only",
                 "export_exchange_bundle": False,
@@ -760,7 +760,7 @@ def test_mesh_runtime_cleanup_mode_skips_external_domain_geographic(
 
     summary = mesh_runtime.run_single_mesh_catchment_workflow(
         config_path=tmp_path / "config.toml",
-        section_data=MeshCatchmentConfigSchema.model_validate(
+        section_data=MeshCatchmentConfig.model_validate(
             {
                 "constraints_mode": "rivers_only",
                 "geographic_outputs_mode": "cleanup",
@@ -804,7 +804,7 @@ def test_mesh_runtime_accepts_external_geographic_features(
 
     summary = mesh_runtime.run_single_mesh_catchment_workflow(
         config_path=tmp_path / "config.toml",
-        section_data=MeshCatchmentConfigSchema.model_validate(
+        section_data=MeshCatchmentConfig.model_validate(
             {
                 "constraints_mode": "rivers_only",
             }
@@ -1261,7 +1261,7 @@ def test_mesh_catchment_launcher_batch_rejects_outlets_outside_dem_extent(
     runtime_cfg = SimpleNamespace(
         workspace=WorkspaceConfig(
             project_root=tmp_path / "out" / "mesh_batch",
-            workspace_root=tmp_path,
+            root=tmp_path,
         ),
         geographic=GeographicConfig(
             catch_def="from_outlet_coord",

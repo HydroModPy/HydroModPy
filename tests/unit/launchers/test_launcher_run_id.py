@@ -71,12 +71,12 @@ def _patch_launcher_deps(monkeypatch):
     """Patch Workspace, Geographic, Domain, and ensure_* for launcher tests.
 
     Patches target the workflow step modules where the business logic now lives.
-    ``hmp.Workspace`` and ``hmp.Geographic`` are global (patching the module
+    ``hmp.Workspace`` and ``hmp.CatchmentDelineation`` are global (patching the module
     attribute affects all importers).
     """
     # Global module patches (affect all importers)
     monkeypatch.setattr("hydromodpy.workflow.steps.setup.hmp.Workspace", _DummyWorkspace)
-    monkeypatch.setattr("hydromodpy.workflow.steps.setup.hmp.Geographic", _DummyGeographic)
+    monkeypatch.setattr("hydromodpy.workflow.steps.setup.hmp.CatchmentDelineation", _DummyGeographic)
     # Namespace-binding patches (step module)
     monkeypatch.setattr("hydromodpy.workflow.steps.setup.Domain", _DummyDomain)
     monkeypatch.setattr("hydromodpy.workflow.steps.setup.ensure_flow", _noop_ensure)
@@ -173,7 +173,7 @@ def test_run_setup_builds_synthetic_geographic_when_requested(monkeypatch) -> No
         raise AssertionError("standard geographic runtime should not be built")
 
     monkeypatch.setattr(
-        "hydromodpy.workflow.steps.setup.hmp.Geographic",
+        "hydromodpy.workflow.steps.setup.hmp.CatchmentDelineation",
         _unexpected_geographic,
     )
 
@@ -273,7 +273,7 @@ def test_run_setup_does_not_declare_unused_geology_zone(monkeypatch) -> None:
         _DummyWorkspace,
     )
     monkeypatch.setattr(
-        "hydromodpy.workflow.steps.setup.hmp.Geographic",
+        "hydromodpy.workflow.steps.setup.hmp.CatchmentDelineation",
         _DummyGeographic,
     )
     monkeypatch.setattr(
@@ -318,7 +318,7 @@ def test_run_setup_declares_requested_geology_support_id(monkeypatch) -> None:
         _DummyWorkspace,
     )
     monkeypatch.setattr(
-        "hydromodpy.workflow.steps.setup.hmp.Geographic",
+        "hydromodpy.workflow.steps.setup.hmp.CatchmentDelineation",
         _DummyGeographic,
     )
     monkeypatch.setattr(
@@ -378,7 +378,7 @@ def test_run_setup_rejects_heterogeneous_flow_when_support_is_undeclared(monkeyp
         _DummyWorkspace,
     )
     monkeypatch.setattr(
-        "hydromodpy.workflow.steps.setup.hmp.Geographic",
+        "hydromodpy.workflow.steps.setup.hmp.CatchmentDelineation",
         _DummyGeographic,
     )
     monkeypatch.setattr(
@@ -492,7 +492,7 @@ def test_prepare_runtime_executes_embedded_mesh_phase_and_records_metrics(
 
     _patch_launcher_deps(monkeypatch)
     monkeypatch.setattr("hydromodpy.workflow.steps.setup.hmp.Workspace", _DummyRunWorkspace)
-    monkeypatch.setattr("hydromodpy.workflow.steps.setup.hmp.Geographic", _DummyRunGeographic)
+    monkeypatch.setattr("hydromodpy.workflow.steps.setup.hmp.CatchmentDelineation", _DummyRunGeographic)
     monkeypatch.setattr("hydromodpy.workflow.steps.setup.Domain", _DummyRunDomain)
     monkeypatch.setattr("hydromodpy.workflow.steps.data_loading._build_data_runtime_loader",
                         lambda *a, **kw: _DummyRuntimeLoader())
@@ -606,7 +606,7 @@ def test_prepare_runtime_uses_external_mesh_input_and_skips_embedded_workflow(
 
     _patch_launcher_deps(monkeypatch)
     monkeypatch.setattr("hydromodpy.workflow.steps.setup.hmp.Workspace", _DummyRunWorkspace)
-    monkeypatch.setattr("hydromodpy.workflow.steps.setup.hmp.Geographic", _DummyRunGeographic)
+    monkeypatch.setattr("hydromodpy.workflow.steps.setup.hmp.CatchmentDelineation", _DummyRunGeographic)
     monkeypatch.setattr("hydromodpy.workflow.steps.setup.Domain", _DummyRunDomain)
     monkeypatch.setattr("hydromodpy.workflow.steps.data_loading._build_data_runtime_loader",
                         lambda *a, **kw: _DummyRuntimeLoader())

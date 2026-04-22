@@ -30,7 +30,7 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
-from hydromodpy.process.flow import Flow
+from hydromodpy.physics.flow import Flow
 from hydromodpy.solver.boussinesq import Boussinesq
 from hydromodpy.solver.utils.mesh.gmsh_grid.catchment_mesh_bundle_reader import (
     load_catchment_mesh_bundle,
@@ -318,11 +318,7 @@ def _run_launcher_solver_scenario(
         script_path=LAUNCHER_SCRIPT,
         out_path=out_path,
         out_env_var="HYDROMODPY_OUT_PATH",
-        extra_env={
-            "HYDROMODPY_NO_DISPLAY": "1",
-            "HYDROMODPY_NO_SAVE": "1",
-            "MPLBACKEND": "Agg",
-        },
+        extra_env={"MPLBACKEND": "Agg"},
         script_args=[str(config_path)],
         timeout=timeout,
     )

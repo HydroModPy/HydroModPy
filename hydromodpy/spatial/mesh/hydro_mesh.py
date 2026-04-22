@@ -213,3 +213,41 @@ class HydroMesh:
             "cell_data_keys": sorted(self.cell_data),
             "point_data_keys": sorted(self.point_data),
         }
+
+    def _repr_html_(self) -> str:
+        bounds = self.bounds()
+        rows: list[tuple[str, str]] = [
+            ("ndim", str(self.ndim)),
+            ("n_nodes", f"{self.n_nodes:,}"),
+            ("n_cells", f"{self.n_cells:,}"),
+            (
+                "cell_types",
+                ", ".join(ct.value for ct in self.cell_types) or "&mdash;",
+            ),
+            ("structured", "yes" if self.is_structured else "no"),
+            (
+                "structured_shape",
+                str(self.structured_shape) if self.structured_shape else "&mdash;",
+            ),
+            (
+                "bounds",
+                ", ".join(f"{b:.3g}" for b in bounds) if bounds else "&mdash;",
+            ),
+            (
+                "cell_data",
+                ", ".join(sorted(self.cell_data)) or "&mdash;",
+            ),
+            (
+                "point_data",
+                ", ".join(sorted(self.point_data)) or "&mdash;",
+            ),
+        ]
+        body = "".join(
+            f"<tr><th style='text-align:left;padding-right:8px'>{k}</th><td>{v}</td></tr>"
+            for k, v in rows
+        )
+        return (
+            "<div><b>HydroMesh</b>"
+            "<table style='font-size:0.85em;border-collapse:collapse'>"
+            f"{body}</table></div>"
+        )

@@ -51,6 +51,12 @@ REGRESSION_GOLDENS_ROOT = (
     / "golden_references"
 )
 
+# Bump when the statistical signature layout changes (new stats, renamed
+# sections, different aggregation) so stale goldens fail loudly instead of
+# silently comparing against an incompatible schema.
+GOLDEN_SCHEMA_VERSION = "1.0"
+_SCHEMA_VERSION_KEY = "_schema_version"
+
 # Common MODFLOW outputs checked by many tests.
 # Individual tests can override this list when needed.
 DEFAULT_MODFLOW_OUTPUT_NAMES = [
@@ -208,10 +214,13 @@ def write_golden_reference(path: Path, payload: dict) -> None:
     -----
     - Parent folders are created automatically.
     - Pretty printing is kept stable to make diffs review-friendly.
+    - The current ``GOLDEN_SCHEMA_VERSION`` is injected at the top level
+      so ``update_or_assert_goldens`` can detect incompatible layouts.
     """
     path.parent.mkdir(parents=True, exist_ok=True)
+    versioned = {_SCHEMA_VERSION_KEY: GOLDEN_SCHEMA_VERSION, **payload}
     with path.open("w", encoding="utf-8") as stream:
-        json.dump(payload, stream, indent=2)
+        json.dump(versioned, stream, indent=2)
         stream.write("\n")
 
 
@@ -805,6 +814,17 @@ def update_or_assert_goldens(
 
     expected = load_golden_reference(golden_reference_file)
 
+    # Reject stale goldens with an incompatible signature layout. A missing
+    # version key is treated as the current schema for backward compatibility
+    # with pre-versioning files; present but mismatched versions fail loudly.
+    expected_version = expected.pop(_SCHEMA_VERSION_KEY, GOLDEN_SCHEMA_VERSION)
+    if expected_version != GOLDEN_SCHEMA_VERSION:
+        raise AssertionError(
+            f"Golden {golden_reference_file.name} schema version "
+            f"{expected_version!r} is incompatible with current "
+            f"{GOLDEN_SCHEMA_VERSION!r}; regenerate with --update-goldens."
+        )
+
     # Validate only sections present in `actual`.
     # This supports tests that check only MODFLOW, only MODPATH, or both.
     if "modflow_expected" in actual:
@@ -954,150 +974,6 @@ def run_hmp_cli(
     )
 
 
-def run_legacy_example_script(
-    *,
-    script_path: Path,
-    out_path: Path,
-    expected_netcdf_calls: int = 1,
-    stop_method: str = "postprocessing_netcdf",
-    expected_stop_calls: int | None = None,
-    patch_ipython_inline: bool = False,
-    mirror_example_data_dir: bool = False,
-    timeout: int = 1800,
-    cwd: Path = REPO_ROOT,
-    extra_env: dict | None = None,
-) -> None:
-    """
-    Run a legacy example script that hardcodes `examples_legacy/results`.
-
-    Legacy scripts are executed through an inline wrapper. The wrapper:
-    1. redirects only the canonical hardcoded results path,
-    2. optionally patches notebook-oriented IPython calls,
-    3. monkeypatches one `Watershed` method and exits after N calls.
-
-    Why we stop early:
-    many legacy scripts include plotting, calibration loops, or manual
-    exploration sections that are not part of regression validation.
-    """
-    if expected_stop_calls is None:
-        # Keep backward compatibility with older tests using only
-        # `expected_netcdf_calls`.
-        expected_stop_calls = expected_netcdf_calls
-
-    if mirror_example_data_dir:
-        # Some legacy workflows derive input-data paths from the temporary
-        # output workspace parent (e.g., via `workdir.parents[3]`).
-        # Mirror `<example>/data` there so those path assumptions still hold.
-        src_data_dir = script_path.parent / "data"
-        dst_data_dir = out_path.parent / script_path.parent.name / "data"
-        if src_data_dir.is_dir():
-            dst_data_dir.parent.mkdir(parents=True, exist_ok=True)
-            shutil.copytree(src_data_dir, dst_data_dir, dirs_exist_ok=True)
-
-    # Inline wrapper executed via `python -c`.
-    # Arguments are passed in fixed order through `sys.argv`.
-    wrapper = r"""
-import os
-import runpy
-import sys
-from pathlib import Path
-
-import matplotlib
-matplotlib.use("Agg")
-
-script = Path(sys.argv[1]).resolve()
-out_path = Path(sys.argv[2]).resolve()
-stop_method = sys.argv[3]
-expected_stop_calls = int(sys.argv[4])
-patch_ipython_inline = sys.argv[5] == "1"
-
-orig_join = os.path.join
-
-def patched_join(*parts):
-    # Redirect only the canonical hardcoded pattern, keep all other joins intact.
-    if len(parts) == 3 and parts[1] == "examples_legacy" and parts[2] == "results":
-        return str(out_path)
-    return orig_join(*parts)
-
-os.path.join = patched_join
-
-if patch_ipython_inline:
-    try:
-        import IPython
-        class _DummyEvents:
-            # Matplotlib may register post-execution hooks on this object.
-            def register(self, *args, **kwargs):
-                return None
-
-            def unregister(self, *args, **kwargs):
-                return None
-
-        class _DummyIPython:
-            def __init__(self):
-                self.events = _DummyEvents()
-
-            def run_line_magic(self, *args, **kwargs):
-                return None
-        # Some legacy scripts call IPython magic unconditionally.
-        IPython.get_ipython = lambda: _DummyIPython()
-    except Exception:
-        pass
-
-from hydromodpy.watershed.watershed import Watershed
-assert hasattr(Watershed, stop_method), f"Unknown Watershed method: {stop_method}"
-orig_method = getattr(Watershed, stop_method)
-stop_counter = {"calls": 0}
-
-def patched_stop_method(self, *args, **kwargs):
-    # Execute original behavior first, then interrupt after N calls.
-    result = orig_method(self, *args, **kwargs)
-    stop_counter["calls"] += 1
-    if stop_counter["calls"] >= expected_stop_calls:
-        raise SystemExit(0)
-    return result
-
-setattr(Watershed, stop_method, patched_stop_method)
-
-try:
-    runpy.run_path(str(script), run_name="__main__")
-except SystemExit as exc:
-    code = exc.code if isinstance(exc.code, int) else 0
-    if code not in (0, None):
-        raise
-"""
-
-    env = os.environ.copy()
-    env.setdefault("MPLBACKEND", "Agg")
-    if extra_env:
-        for key, value in extra_env.items():
-            env[key] = str(value)
-
-    command = [
-        sys.executable,
-        "-c",
-        wrapper,
-        str(script_path),
-        str(out_path),
-        str(stop_method),
-        str(expected_stop_calls),
-        "1" if patch_ipython_inline else "0",
-    ]
-    # Capture logs so assertion messages include full context on failure.
-    completed = subprocess.run(
-        command,
-        cwd=str(cwd),
-        env=env,
-        text=True,
-        capture_output=True,
-        timeout=timeout,
-    )
-
-    assert completed.returncode == 0, (
-        f"{script_path.name} failed.\n"
-        f"Command: {' '.join(command)}\n"
-        f"Stdout:\n{completed.stdout}\n"
-        f"Stderr:\n{completed.stderr}"
-    )
 
 
 

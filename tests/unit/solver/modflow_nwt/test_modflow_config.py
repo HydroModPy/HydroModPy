@@ -49,8 +49,11 @@ def test_hydromodpy_config_loads_modflow_nested_sections(tmp_path: Path):
     toml_path.write_text(
         "\n".join(
             [
+                
+                'workflow = "simulation"',
                 "[workspace]",
                 f'project_root = "{tmp_path}"',
+                f'root = "{tmp_path}"',
                 "",
                 "[geographic]",
                 'catch_def = "dem"',
@@ -119,8 +122,11 @@ def test_hydromodpy_config_rejects_legacy_flat_sgrid_payload(tmp_path: Path):
     toml_path.write_text(
         "\n".join(
             [
+                
+                'workflow = "simulation"',
                 "[workspace]",
                 f'project_root = "{tmp_path}"',
+                f'root = "{tmp_path}"',
                 "",
                 "[geographic]",
                 'catch_def = "dem"',
@@ -150,8 +156,11 @@ def test_hydromodpy_config_rejects_legacy_planar_mode_aliases(tmp_path: Path):
     toml_path.write_text(
         "\n".join(
             [
+                
+                'workflow = "simulation"',
                 "[workspace]",
                 f'project_root = "{tmp_path}"',
+                f'root = "{tmp_path}"',
                 "",
                 "[geographic]",
                 'catch_def = "dem"',
@@ -185,8 +194,11 @@ def test_hydromodpy_config_loads_modflow_exdp_with_unit_string(tmp_path: Path):
     toml_path.write_text(
         "\n".join(
             [
+                
+                'workflow = "simulation"',
                 "[workspace]",
                 f'project_root = "{tmp_path}"',
+                f'root = "{tmp_path}"',
                 "",
                 "[geographic]",
                 'catch_def = "dem"',
@@ -212,8 +224,11 @@ def test_hydromodpy_config_rejects_legacy_flat_modflow_schema(tmp_path: Path):
     toml_path.write_text(
         "\n".join(
             [
+                
+                'workflow = "simulation"',
                 "[workspace]",
                 f'project_root = "{tmp_path}"',
+                f'root = "{tmp_path}"',
                 "",
                 "[geographic]",
                 'catch_def = "dem"',
@@ -240,8 +255,11 @@ def test_hydromodpy_config_loads_independent_modflow6_runtime(tmp_path: Path):
     toml_path.write_text(
         "\n".join(
             [
+                
+                'workflow = "simulation"',
                 "[workspace]",
                 f'project_root = "{tmp_path}"',
+                f'root = "{tmp_path}"',
                 "",
                 "[geographic]",
                 'catch_def = "dem"',

@@ -8,7 +8,7 @@ from types import SimpleNamespace
 
 import numpy as np
 
-from hydromodpy.process.flow import Flow
+from hydromodpy.physics.flow import Flow
 from hydromodpy.solver.boussinesq import Boussinesq, BoussinesqState
 from hydromodpy.solver.boussinesq.history_contract import (
     build_transient_time_axes,

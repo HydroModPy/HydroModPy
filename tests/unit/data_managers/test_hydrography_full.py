@@ -57,6 +57,7 @@ from pydantic import BaseModel, ValidationError
 from shapely.geometry import LineString, MultiLineString, Point, Polygon
 
 from hydromodpy.core.config.param_level import ParamLevel
+from hydromodpy.core.config.profile import Profile
 from hydromodpy.data.variables.hydrography.config import (
     HydrographyConfig,
     HydrographySourceConfig,
@@ -238,6 +239,8 @@ class TestSourceConfigParamLevels:
     def _get_param_level(model_cls: type[BaseModel], field_name: str) -> str | None:
         info = model_cls.model_fields[field_name]
         for meta in info.metadata:
+            if isinstance(meta, Profile):
+                return meta.name.lower()
             if isinstance(meta, ParamLevel):
                 return meta.level
         return None
@@ -481,7 +484,7 @@ class TestOsmApi:
             })
         return {"elements": elements}
 
-    @patch("hydromodpy.data.variables.hydrography.apis.osm.requests.get")
+    @patch("hydromodpy.core.io.http_client.HTTPClient.get")
     def test_fetch_parses_features(self, mock_get):
         from hydromodpy.data.variables.hydrography.apis.osm import fetch
 
@@ -498,7 +501,7 @@ class TestOsmApi:
         assert "waterway" in gdf.columns
         assert "intermit" in gdf.columns
 
-    @patch("hydromodpy.data.variables.hydrography.apis.osm.requests.get")
+    @patch("hydromodpy.core.io.http_client.HTTPClient.get")
     def test_fetch_empty_response(self, mock_get):
         from hydromodpy.data.variables.hydrography.apis.osm import fetch
 
@@ -512,7 +515,7 @@ class TestOsmApi:
         gdf = fetch(cfg, self.BBOX)
         assert gdf.empty
 
-    @patch("hydromodpy.data.variables.hydrography.apis.osm.requests.get")
+    @patch("hydromodpy.core.io.http_client.HTTPClient.get")
     def test_custom_waterway_types_in_query(self, mock_get):
         from hydromodpy.data.variables.hydrography.apis.osm import fetch
 
@@ -530,7 +533,7 @@ class TestOsmApi:
         query_data = call_params[1]["params"]["data"] if "params" in call_params[1] else call_params[0][1]
         assert "canal" in str(call_params)
 
-    @patch("hydromodpy.data.variables.hydrography.apis.osm.requests.get")
+    @patch("hydromodpy.core.io.http_client.HTTPClient.get")
     def test_intermittent_flag(self, mock_get):
         from hydromodpy.data.variables.hydrography.apis.osm import fetch
 
@@ -590,7 +593,7 @@ class TestBdTopageApi:
             })
         return {"type": "FeatureCollection", "features": features}
 
-    @patch("hydromodpy.data.variables.hydrography.apis.bdtopage.requests.get")
+    @patch("hydromodpy.core.io.http_client.HTTPClient.get")
     def test_fetch_with_features(self, mock_get):
         from hydromodpy.data.variables.hydrography.apis.bdtopage import fetch
 
@@ -610,7 +613,7 @@ class TestBdTopageApi:
         assert str(gdf.crs) == "EPSG:4326"
         assert "gid" in gdf.columns
 
-    @patch("hydromodpy.data.variables.hydrography.apis.bdtopage.requests.get")
+    @patch("hydromodpy.core.io.http_client.HTTPClient.get")
     def test_fetch_zero_hits(self, mock_get):
         from hydromodpy.data.variables.hydrography.apis.bdtopage import fetch
 
@@ -623,7 +626,7 @@ class TestBdTopageApi:
         gdf = fetch(cfg, self.BBOX)
         assert gdf.empty
 
-    @patch("hydromodpy.data.variables.hydrography.apis.bdtopage.requests.get")
+    @patch("hydromodpy.core.io.http_client.HTTPClient.get")
     def test_pagination(self, mock_get):
         from hydromodpy.data.variables.hydrography.apis.bdtopage import fetch
 
@@ -646,7 +649,7 @@ class TestBdTopageApi:
         assert len(gdf) == 3  # 2 + 1
         assert mock_get.call_count == 3  # hits + 2 pages
 
-    @patch("hydromodpy.data.variables.hydrography.apis.bdtopage.requests.get")
+    @patch("hydromodpy.core.io.http_client.HTTPClient.get")
     def test_custom_typename(self, mock_get):
         from hydromodpy.data.variables.hydrography.apis.bdtopage import fetch
 
@@ -707,7 +710,7 @@ class TestEuHydroApi:
             })
         return {"type": "FeatureCollection", "features": features}
 
-    @patch("hydromodpy.data.variables.hydrography.apis.euhydro.requests.get")
+    @patch("hydromodpy.core.io.http_client.HTTPClient.get")
     def test_fetch_two_layers(self, mock_get):
         from hydromodpy.data.variables.hydrography.apis.euhydro import fetch
 
@@ -739,7 +742,7 @@ class TestEuHydroApi:
         assert "layer_id" in gdf.columns
         assert "layer_name" in gdf.columns
 
-    @patch("hydromodpy.data.variables.hydrography.apis.euhydro.requests.get")
+    @patch("hydromodpy.core.io.http_client.HTTPClient.get")
     def test_no_layers_found(self, mock_get):
         from hydromodpy.data.variables.hydrography.apis.euhydro import fetch
 
@@ -752,7 +755,7 @@ class TestEuHydroApi:
         gdf = fetch(cfg, self.BBOX)
         assert gdf.empty
 
-    @patch("hydromodpy.data.variables.hydrography.apis.euhydro.requests.get")
+    @patch("hydromodpy.core.io.http_client.HTTPClient.get")
     def test_strahler_fallback(self, mock_get):
         """When group_name doesn't match, fallback finds layers with 'Strahler' in name."""
         from hydromodpy.data.variables.hydrography.apis.euhydro import (
@@ -768,7 +771,7 @@ class TestEuHydroApi:
         ids = _feature_layer_ids_in_group(ms, "River_Net_lines")
         assert 10 in ids
 
-    @patch("hydromodpy.data.variables.hydrography.apis.euhydro.requests.get")
+    @patch("hydromodpy.core.io.http_client.HTTPClient.get")
     def test_custom_group_and_page_size(self, mock_get):
         from hydromodpy.data.variables.hydrography.apis.euhydro import fetch
 
@@ -1177,22 +1180,7 @@ class TestTomlFormatAcceptance:
 
 
 # =====================================================================
-# 13. Watershed-facing aliases
-# =====================================================================
-
-@pytest.mark.fast
-class TestWatershedAliases:
-    def test_watershed_hydrography_module_alias(self):
-        from hydromodpy.watershed.hydrography import Hydrography
-        assert Hydrography is HydrographyResult
-
-    def test_watershed_package_alias(self):
-        from hydromodpy.watershed import Hydrography
-        assert Hydrography is HydrographyResult
-
-
-# =====================================================================
-# 14. Supported formats / internal data summary
+# 13. Supported formats / internal data summary
 # =====================================================================
 
 @pytest.mark.fast
@@ -1601,10 +1589,13 @@ class TestForceRefreshConfig:
     def test_force_refresh_param_level_dev(self):
         info = HydrographySourceConfig.model_fields["force_refresh"]
         for meta in info.metadata:
+            if isinstance(meta, Profile):
+                assert meta == Profile.DEV
+                return
             if isinstance(meta, ParamLevel):
                 assert meta.level == "dev"
                 return
-        pytest.fail("force_refresh should have ParamLevel('dev')")
+        pytest.fail("force_refresh should have Profile.DEV")
 
     def test_force_refresh_in_model_dump(self):
         cfg = HydrographySourceConfig(source="osm", force_refresh=True)

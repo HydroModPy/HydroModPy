@@ -434,7 +434,7 @@ from pathlib import Path
 import hydromodpy as hmp
 from hydromodpy.config.hydromodpy_config import HydroModPyConfig
 from hydromodpy.domain import Domain
-from hydromodpy.process.flow import Flow
+from hydromodpy.physics.flow import Flow
 from hydromodpy.solver.modflow_nwt import Modflow, ModflowPreprocessOptions, ModflowRunOptions
 
 # 1. Load config from TOML
@@ -443,7 +443,7 @@ cfg = HydroModPyConfig.from_toml(config_path)
 
 # 2. Workspace and geographic preprocessing
 ws = hmp.Workspace(config=cfg.workspace)
-geographic = hmp.Geographic(cfg.geographic, ws)
+geographic = hmp.CatchmentDelineation(cfg.geographic, ws)
 domain_geo = geographic.get_domain_geographic_context()
 
 # 3. Build the 3D domain
@@ -476,7 +476,7 @@ The geographic system extracts the watershed from a DEM:
 
 ```python
 # From TOML config
-geographic = hmp.Geographic(cfg.geographic, ws)
+geographic = hmp.CatchmentDelineation(cfg.geographic, ws)
 domain_geo = geographic.get_domain_geographic_context()
 
 # domain_geo gives you:

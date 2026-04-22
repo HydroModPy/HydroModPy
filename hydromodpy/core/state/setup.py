@@ -9,8 +9,8 @@ if TYPE_CHECKING:
     from hydromodpy.spatial.domain import Domain
     from hydromodpy.spatial.geographic.core.derived_features import GeographicDerivedFeatures
     from hydromodpy.spatial.geographic.core.domain_geographic_pipeline import DomainGeographicContext
-    from hydromodpy.process.flow import Flow
-    from hydromodpy.process.transport import Transport
+    from hydromodpy.physics.flow import Flow
+    from hydromodpy.physics.transport import Transport
     from hydromodpy.solver.utils.mesh.gmsh_grid.catchment_mesh_bundle_reader import (
         CatchmentMeshBundle,
     )
@@ -28,7 +28,7 @@ class SetupContext:
     """Objects prepared during setup and reused by all runs."""
 
     workspace: Workspace | None = None
-    geographic: Any = None  # Geographic
+    geographic: Any = None  # CatchmentDelineation
     geographic_features: GeographicDerivedFeatures | None = None
     domain_geographic: DomainGeographicContext | None = None
     domain: Domain | None = None

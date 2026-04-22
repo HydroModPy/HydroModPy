@@ -597,8 +597,6 @@ def run_launcher_validation_case(
 
     env = os.environ.copy()
     env["HYDROMODPY_PROJECT_ROOT"] = str(out_path)
-    env["HYDROMODPY_NO_DISPLAY"] = "1"
-    env["HYDROMODPY_NO_SAVE"] = "1"
     env.setdefault("MPLBACKEND", "Agg")
 
     command = [

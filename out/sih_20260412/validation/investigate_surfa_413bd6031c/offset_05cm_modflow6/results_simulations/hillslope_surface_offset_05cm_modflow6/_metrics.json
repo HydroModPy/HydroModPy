@@ -1,7 +1,0 @@
-{
-  "wall_time_seconds": 1.09,
-  "solvers": [
-    "modflow6"
-  ],
-  "success": true
-}

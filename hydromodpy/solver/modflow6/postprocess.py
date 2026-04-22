@@ -12,7 +12,9 @@ import numpy as np
 import rasterio
 from flopy.utils import postprocessing as pp
 
-from hydromodpy.core.tools import get_logger, toolbox
+from hydromodpy.core.io import raster_io
+from hydromodpy.core.logging import get_logger
+from hydromodpy.core.tools import filesystem
 from hydromodpy.solver.modflow_common import masstransfer
 from hydromodpy.solver.modflow_common.options import ModflowPostprocessOptions
 
@@ -364,7 +366,7 @@ def export_native_mesh_outputs(
 		return
 
 	mesh_dir = os.path.join(model.save_file, "_mesh")
-	toolbox.create_folder(mesh_dir)
+	filesystem.create_folder(mesh_dir)
 	time_index = np.arange(len(times), dtype=int)
 	times_array = np.asarray(times, dtype=float)
 	cell_ids = np.arange(int(model.ncpl), dtype=int)
@@ -419,7 +421,7 @@ def export_native_mesh_outputs(
 		from hydromodpy.spatial.mesh.plotting import plot_cell_values
 
 		figure_dir = os.path.join(model.save_file, "_figures", "native_mesh")
-		toolbox.create_folder(figure_dir)
+		filesystem.create_folder(figure_dir)
 		field_styles = {
 			"watertable_elevation": ("Hydraulic head", "Head [m]", "viridis"),
 			"watertable_depth": ("Water-table depth", "Top - h [m]", "Blues"),
@@ -544,9 +546,9 @@ def run_flow_post_processing(
 	model.last_postprocess_options = options
 
 	model.save_file = os.path.join(model.full_path, "_postprocess")
-	toolbox.create_folder(model.save_file)
+	filesystem.create_folder(model.save_file)
 	model.tifs_file = os.path.join(model.save_file, "_rasters")
-	toolbox.create_folder(model.tifs_file)
+	filesystem.create_folder(model.tifs_file)
 
 	head_path = os.path.join(model.full_path, f"{model.model_name}.hds")
 	cbc_path = os.path.join(model.full_path, f"{model.model_name}.cbc")
@@ -580,7 +582,7 @@ def run_flow_post_processing(
 			wt_out[dem_mask_flat] = NODATA
 			dict_watertable_elevation[item] = model._to_export_array(wt_out)
 			if can_export_raster and (options.export_all_tif or item == 0):
-				toolbox.export_tif(
+				raster_io.export_tif(
 					model.dem_watershed_path,
 					model._to_export_array(wt_out),
 					os.path.join(model.tifs_file, f"watertable_elevation_t({item}).tif"),
@@ -595,7 +597,7 @@ def run_flow_post_processing(
 			)
 			dict_watertable_depth[item] = model._to_export_array(wtd)
 			if can_export_raster and (options.export_all_tif or item == 0):
-				toolbox.export_tif(
+				raster_io.export_tif(
 					model.dem_watershed_path,
 					model._to_export_array(wtd),
 					os.path.join(model.tifs_file, f"watertable_depth_t({item}).tif"),
@@ -612,7 +614,7 @@ def run_flow_post_processing(
 			dict_outflow_drain[item] = model._to_export_array(outflow)
 		if options.outflow_drain or options.accumulation_flux:
 			if can_export_raster and (options.accumulation_flux or options.export_all_tif or item == 0):
-				toolbox.export_tif(
+				raster_io.export_tif(
 					model.dem_watershed_path,
 					model._to_export_array(outflow),
 					outflow_tif_path,
@@ -621,7 +623,7 @@ def run_flow_post_processing(
 		if options.seepage_areas:
 			dict_seepage_areas[item] = model._to_export_array(seepage)
 			if can_export_raster and (options.export_all_tif or item == 0):
-				toolbox.export_tif(
+				raster_io.export_tif(
 					model.dem_watershed_path,
 					model._to_export_array(seepage),
 					os.path.join(model.tifs_file, f"seepage_areas_t({item}).tif"),
@@ -713,9 +715,9 @@ def run_transport_post_processing(
 	)
 	export_all_tif = bool(runtime_options.export_all_tif)
 	transport_model.save_file = os.path.join(transport_model.full_path, "_postprocess")
-	toolbox.create_folder(transport_model.save_file)
+	filesystem.create_folder(transport_model.save_file)
 	transport_model.tifs_file = os.path.join(transport_model.save_file, "_rasters")
-	toolbox.create_folder(transport_model.tifs_file)
+	filesystem.create_folder(transport_model.tifs_file)
 
 	path_ucn = os.path.join(transport_model.full_path, f"{transport_model.model_name_mt}.ucn")
 	conc_reader = None
@@ -776,7 +778,7 @@ def run_transport_post_processing(
 			conc_surf[dem_mask] = float(NODATA)
 			dict_concentration_seepage[i] = _reshape_for_export(conc_surf)
 			if can_export_raster and (export_all_tif or i == 0):
-				toolbox.export_tif(
+				raster_io.export_tif(
 					transport_model.model_modflow.dem_watershed_path,
 					_reshape_for_export(conc_surf),
 					os.path.join(transport_model.tifs_file, f"concentration_seepage_t({the_time}).tif"),
@@ -792,7 +794,7 @@ def run_transport_post_processing(
 		if mass_seepage and mass_surf is not None:
 			dict_mass_seepage[i] = _reshape_for_export(mass_surf)
 			if can_export_raster and (export_all_tif or i == 0):
-				toolbox.export_tif(
+				raster_io.export_tif(
 					transport_model.model_modflow.dem_watershed_path,
 					_reshape_for_export(mass_surf),
 					os.path.join(transport_model.tifs_file, f"mass_seepage_t({the_time}).tif"),

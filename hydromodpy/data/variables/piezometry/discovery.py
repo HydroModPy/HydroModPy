@@ -11,6 +11,8 @@ from typing import Any, List, Mapping, Optional, Union
 import pandas as pd
 import requests
 
+from hydromodpy.core.io.http_client import get_default_client
+
 logger = logging.getLogger(__name__)
 
 try:
@@ -271,7 +273,7 @@ class PiezometerDiscovery(BaseStationSet):
         url = f"{API_BASE_URL}stations"
 
         try:
-            response = requests.get(url, params=params, timeout=timeout)
+            response = get_default_client().get(url, params=params, timeout=timeout)
         except requests.exceptions.RequestException as exc:
             if fail_silently:
                 logger.warning("Station discovery request failed: %s", exc)
@@ -376,7 +378,9 @@ class PiezometerDiscovery(BaseStationSet):
                 "format": "json",
             }
             try:
-                response = requests.get(f"{API_BASE_URL}chroniques", params=chrono_params, timeout=timeout)
+                response = get_default_client().get(
+                    f"{API_BASE_URL}chroniques", params=chrono_params, timeout=timeout,
+                )
             except requests.exceptions.RequestException:
                 continue
             if response.status_code not in (200, 206):

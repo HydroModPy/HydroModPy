@@ -31,6 +31,8 @@ def _write_base_simulation_config(path: Path) -> None:
     path.write_text(
         "\n".join(
             [
+                
+                'workflow = "simulation"',
                 "[workspace]",
                 'project_root = "project/base_case"',
                 "",
@@ -462,7 +464,7 @@ def test_example_method_comparison_configs_load(
 ) -> None:
     config_path = (
         Path(__file__).resolve().parents[3]
-        / "examples"
+        / "examples_legacy_2"
         / "projects"
         / "launcher_simulation"
         / config_name
@@ -626,6 +628,8 @@ def test_extract_observable_rows_resolves_structured_xy_from_config(tmp_path: Pa
     simulation_config.write_text(
         "\n".join(
             [
+                
+                'workflow = "simulation"',
                 "[workspace]",
                 f'project_root = "{project_root.as_posix()}"',
                 "",
@@ -1307,6 +1311,8 @@ def test_method_comparison_launcher_prefers_model_full_path_for_completed_runs(
     simulation_config.write_text(
         "\n".join(
             [
+                
+                'workflow = "simulation"',
                 "[workspace]",
                 'project_root = "project/demo"',
                 "",
@@ -1373,7 +1379,7 @@ def test_method_comparison_launcher_prefers_model_full_path_for_completed_runs(
 
     import hydromodpy.project as project_module
 
-    monkeypatch.setattr(project_module, "Simulation", _FakeProject)
+    monkeypatch.setattr(project_module, "Project", _FakeProject)
     monkeypatch.setattr(
         "hydromodpy.analysis.comparison.orchestrator.read_variant_run_metadata",
         lambda _run_folder: {},
@@ -1405,10 +1411,11 @@ def test_method_comparison_launcher_reuse_infers_process_output_folder(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     _ = tmp_path
-    _ = monkeypatch
+    repo_root = Path(__file__).resolve().parents[3]
+    monkeypatch.setenv("HYDROMODPY_WORKSPACE", str(repo_root / "examples_legacy_2"))
     config_path = (
-        Path(__file__).resolve().parents[3]
-        / "examples"
+        repo_root
+        / "examples_legacy_2"
         / "projects"
         / "launcher_simulation"
         / "run_demonstrative_annual_moderate_boussinesq_precomputed_mesh_input.toml"

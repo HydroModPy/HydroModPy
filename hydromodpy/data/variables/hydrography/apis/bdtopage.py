@@ -5,9 +5,9 @@ from __future__ import annotations
 import xml.etree.ElementTree as ET
 
 import geopandas as gpd
-import requests
 
-from hydromodpy.core.tools import get_logger
+from hydromodpy.core.io.http_client import get_default_client
+from hydromodpy.core.logging import get_logger
 
 from hydromodpy.data.variables.hydrography.config import HydrographySourceConfig
 
@@ -33,7 +33,7 @@ def _wfs_hits(typename: str, bbox_wgs84: tuple[float, float, float, float]) -> i
         "resulttype": "hits",
         "bbox": _bbox_crs84(bbox_wgs84),
     }
-    r = requests.get(WFS_URL, params=params, timeout=120)
+    r = get_default_client().get(WFS_URL, params=params, timeout=120)
     r.raise_for_status()
     root = ET.fromstring(r.content)
     return int(root.attrib.get("numberMatched", "0"))
@@ -69,7 +69,7 @@ def fetch(
             "count": page_size,
             "startIndex": start,
         }
-        r = requests.get(WFS_URL, params=params, timeout=120)
+        r = get_default_client().get(WFS_URL, params=params, timeout=120)
         r.raise_for_status()
 
         data = r.json()

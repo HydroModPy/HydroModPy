@@ -251,7 +251,6 @@ After activation, a typical Linux/WSL non-interactive test session is:
 
 .. code-block:: bash
 
-   export HYDROMODPY_NO_DISPLAY=1
    export MPLBACKEND=Agg
    python -m pytest tests/unit -q
    hmp test regression --fast -j 2
@@ -273,7 +272,7 @@ Check the installation
 
    import hydromodpy
    from hydromodpy.core.config import HydroModPyConfig
-   from hydromodpy.spatial.geographic import Geographic
+   from hydromodpy.spatial.geographic import CatchmentDelineation
    # Examples of submodule imports
    from hydromodpy.analysis.display import visualization_watershed, visualization_results
    from hydromodpy.core.tools import toolbox

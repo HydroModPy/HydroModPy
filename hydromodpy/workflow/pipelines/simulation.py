@@ -32,7 +32,7 @@ from hydromodpy.workflow.steps.store_lifecycle import (
 
 if TYPE_CHECKING:
     from hydromodpy.workflow.context import WorkflowContext
-    from hydromodpy.spatial.mesh.config import MeshCatchmentConfigSchema
+    from hydromodpy.spatial.mesh.config import MeshCatchmentConfig
 
 logger = logging.getLogger(__name__)
 
@@ -40,7 +40,7 @@ logger = logging.getLogger(__name__)
 def prepare_simulation_runtime(
     ctx: WorkflowContext,
     *,
-    mesh_section_data: MeshCatchmentConfigSchema | None = None,
+    mesh_section_data: MeshCatchmentConfig | None = None,
     constraints_mode: str | None = None,
     external_mesh_input: dict[str, str] | None = None,
     requested_domain_supports: dict[str, object] | None = None,
@@ -108,11 +108,6 @@ def execute_simulation(
     if ctx.store is not None:
         step_write_provenance(ctx)
         step_persist_forcings(ctx)
-
-    # Wire the postprocess runner's store if present.
-    if ctx.postprocess_runner is not None and ctx.store is not None:
-        ctx.postprocess_runner.store = ctx.store
-        ctx.postprocess_runner.sim_id = ctx.sim_id
 
     wall_start = time.monotonic()
     try:

@@ -6,7 +6,7 @@ from pathlib import Path
 
 import geopandas as gpd
 
-from hydromodpy.core.tools import get_logger
+from hydromodpy.core.logging import get_logger
 
 from hydromodpy.data.variables.hydrography.config import HydrographySourceConfig
 

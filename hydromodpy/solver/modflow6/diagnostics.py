@@ -8,7 +8,7 @@ from typing import Protocol
 
 import numpy as np
 
-from hydromodpy.core.tools import toolbox
+from hydromodpy.core.tools import filesystem
 from hydromodpy.solver.modflow_common.options import ModflowPostprocessOptions
 
 
@@ -240,7 +240,7 @@ def export_runtime_support_overview(
 	from matplotlib.patches import Patch
 
 	figure_dir = os.path.join(model.save_file, "_figures", "native_mesh")
-	toolbox.create_folder(figure_dir)
+	filesystem.create_folder(figure_dir)
 
 	all_edge_indices = np.arange(np.asarray(getattr(support, "edge_ids", ()), dtype=int).size, dtype=int)
 	all_segments = support_edge_segments(support, all_edge_indices)

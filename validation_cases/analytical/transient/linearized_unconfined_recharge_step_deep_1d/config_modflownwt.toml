@@ -1,3 +1,5 @@
+workflow = "simulation"
+
 [simulation]
 name = "LU recharge step deep val"
 description = "Synthetic transient unconfined flow with a recharge step, fixed heads, and a deeper aquifer."

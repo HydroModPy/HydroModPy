@@ -38,8 +38,8 @@ from hydromodpy.simulation.planning.plan import (
     SimulationPlan,
 )
 
-from hydromodpy.process.flow import Flow
-from hydromodpy.process.transport import Transport
+from hydromodpy.physics.flow import Flow
+from hydromodpy.physics.transport import Transport
 
 
 # ---------------------------------------------------------------------------

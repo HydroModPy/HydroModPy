@@ -6,6 +6,8 @@ from pathlib import Path
 import subprocess
 import sys
 
+import pytest
+
 from tools.mesh_bundle_viewer import (
     CatchmentMeshBundle,
     VISUALIZATION_SUMMARY_SCHEMA_VERSION,
@@ -22,11 +24,11 @@ def _repo_root() -> Path:
 
 
 def _example_bundle_dir() -> Path:
-    return _repo_root() / "examples" / "mesh_viewer" / "sample_bundle"
+    return _repo_root() / "examples" / "projects" / "08_mesh_viewer" / "sample_bundle"
 
 
 def _example_config_path() -> Path:
-    return _repo_root() / "examples" / "mesh_viewer" / "config_example.toml"
+    return _repo_root() / "examples" / "projects" / "08_mesh_viewer" / "config_example.toml"
 
 
 def test_standalone_bundle_reader_uses_shared_bundle_contracts() -> None:
@@ -58,6 +60,7 @@ def test_build_visualization_summary_contract_returns_typed_summary() -> None:
     )
 
 
+@pytest.mark.allow_subprocess
 def test_python_module_mesh_bundle_viewer_entrypoint_runs_on_example_bundle(
     tmp_path: Path,
 ) -> None:

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from hydromodpy.process.flow.boundary_conditions import SIDE_DIRICHLET_BC_IDS
+from hydromodpy.physics.flow.boundary_conditions import SIDE_DIRICHLET_BC_IDS
 from hydromodpy.solver.boussinesq.methods import (
     resolve_surface_interaction_model_token,
 )

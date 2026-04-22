@@ -21,7 +21,7 @@ def step_ingest_run_results(
     if ctx.store is None:
         return
 
-    from hydromodpy.simulation.results.post_run import post_run_results
+    from hydromodpy.simulation.extraction.post_run import post_run_results
 
     results_cfg = ctx.cfg.simulation.results
     post_run_results(

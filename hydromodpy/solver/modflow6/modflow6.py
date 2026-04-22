@@ -15,25 +15,20 @@ import numpy as np
 import rasterio
 from flopy.utils import postprocessing as pp
 
-from hydromodpy.process.flow.time_forcing import resolve_period_values_from_forcing
+from hydromodpy.physics.flow.time_forcing import resolve_period_values_from_forcing
 from hydromodpy.solver.modflow_common import (
 	masstransfer,
-	SolverGridContext,
-	SolverRoutingContext,
-	build_solver_routing_context,
-	ensure_platform_executable,
-	write_grid_array_to_raster,
-)
-from hydromodpy.solver.modflow_common.discretization_spatial import (
-	build_spatial_discretization,
-)
-from hydromodpy.solver.modflow_common.discretization_temporal import (
-	build_temporal_discretization_from_time_grid,
-)
-from hydromodpy.solver.modflow_common.options import (
 	ModflowPostprocessOptions,
 	ModflowPreprocessOptions,
 	ModflowRunOptions,
+	SolverGridContext,
+	SolverRoutingContext,
+	build_concentration_runtime_overrides,
+	build_solver_routing_context,
+	build_spatial_discretization,
+	build_temporal_discretization_from_time_grid,
+	ensure_platform_executable,
+	write_grid_array_to_raster,
 )
 from hydromodpy.solver import Solver
 from hydromodpy.solver.modflow6.modflow6_config import (
@@ -43,9 +38,6 @@ from hydromodpy.solver.modflow6.modflow6_config import (
 from hydromodpy.solver.modflow6.property_mapping import (
 	resolve_required_flow_properties,
 	resolve_flow_property_arrays,
-)
-from hydromodpy.solver.modflow_common.runtime_arrays import (
-	build_concentration_runtime_overrides,
 )
 from hydromodpy.core.units import (
 	convert_payload_to_m,
@@ -57,9 +49,9 @@ from hydromodpy.core.units.volumetric_flow import (
 	convert_to_m3_per_s,
 	normalize_m3_per_s_unit,
 )
-from hydromodpy.core.tools import get_logger
+from hydromodpy.core.logging import get_logger
 from hydromodpy.core.tools.filesystem import create_folder
-from hydromodpy.core.tools.raster_io import export_tif
+from hydromodpy.core.io.raster_io import export_tif
 
 logger = get_logger(__name__)
 

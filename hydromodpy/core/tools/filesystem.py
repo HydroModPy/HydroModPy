@@ -1,4 +1,4 @@
-"""Filesystem utilities (directory creation, CSV/shapefile loading)."""
+"""Filesystem utilities (directory creation, CSV loading)."""
 
 from __future__ import annotations
 
@@ -6,7 +6,6 @@ import os
 import logging
 
 import pandas as pd
-import geopandas as gpd
 
 logger = logging.getLogger(__name__)
 
@@ -24,12 +23,3 @@ def load_csv(file_path: str) -> pd.DataFrame:
     except Exception:
         logger.exception("Failed to load CSV file %s", file_path)
         return pd.DataFrame()
-
-
-def load_shapefile(shapefile_path: str) -> gpd.GeoDataFrame | None:
-    """Load a shapefile into a GeoDataFrame."""
-    try:
-        return gpd.read_file(shapefile_path)
-    except Exception:
-        logger.exception("Failed to load shapefile %s", shapefile_path)
-        return None

@@ -1,0 +1,30 @@
+# Moderate annual MODFLOW-NWT run on a regular structured example12 grid.
+
+base_config = "config_demonstrative_annual_moderate_common.toml"
+
+workflow = "simulation"
+
+[workspace]
+project_root = "./results_reused_real_meshes/ex12_demo_mod_nwt"
+
+[simulation]
+name = "Example 12 moderate annual NWT on 60x60 structured grid"
+run_id = "ex12_demo_mod_nwt_s60"
+
+[[simulation.process]]
+id = "flow_main"
+type = "flow"
+solvers = ["modflownwt"]
+
+[modflownwt.runtime]
+dis_itmuni = 1
+
+[modflownwt.sgrid.planar]
+mode = "resample_to_shape"
+nx = 60
+ny = 60
+
+[modflownwt.sgrid.vertical]
+genmtd_lay = "decay"
+nlay = 6
+lay_decay = 1.2

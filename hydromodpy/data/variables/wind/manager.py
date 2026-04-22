@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-from hydromodpy.data.common.base_field_manager import BaseFieldManager
-from hydromodpy.data.variables.wind.config import WindConfig, WindSourceConfig
+from hydromodpy.data.base_manager import BaseFieldManager
+from hydromodpy.data.variables.wind.config import WindSourceConfig
 
 
 class WindManager(BaseFieldManager):
