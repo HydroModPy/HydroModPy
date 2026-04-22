@@ -492,20 +492,135 @@ def export_hmp_package(
     return output
 
 
+def _read_snapshot_project(snap_path: Path) -> str | None:
+    import duckdb as _duckdb
+
+    snap = _duckdb.connect(str(snap_path), read_only=True)
+    try:
+        row = snap.execute(
+            "SELECT project FROM simulations LIMIT 1"
+        ).fetchone()
+    finally:
+        snap.close()
+    return str(row[0]) if row and row[0] else None
+
+
+def _check_project_conflict(
+    catalog: Any, manifest: dict, as_project: str | None,
+) -> None:
+    """Raise if the incoming project name collides without an explicit rename."""
+    if as_project:
+        return
+    incoming_project = manifest.get("project")
+    if not incoming_project:
+        return
+    existing_sid = catalog.connection.execute(
+        "SELECT sim_id FROM simulations WHERE project = ? LIMIT 1",
+        [incoming_project],
+    ).fetchone()
+    if existing_sid is not None:
+        raise ValueError(
+            f"Project '{incoming_project}' already exists in this workspace. "
+            "Use `--as <new_name>` to import under a different project name."
+        )
+
+
+def _rewrite_snapshot_project(snap_path: Path, new_project: str) -> None:
+    import duckdb as _duckdb
+
+    snap = _duckdb.connect(str(snap_path))
+    try:
+        snap.execute(
+            "UPDATE simulations SET project = ?", [new_project],
+        )
+    finally:
+        snap.close()
+
+
+def _rewrite_snapshot_paths(snap_path: Path, rewrites: dict[str, str]) -> None:
+    """Rewrite stored config JSON so the input paths point at their new home."""
+    if not rewrites:
+        return
+    import duckdb as _duckdb
+
+    snap = _duckdb.connect(str(snap_path))
+    try:
+        rows = snap.execute(
+            "SELECT sim_id, config_toml, config_snapshot FROM simulations"
+        ).fetchall()
+        for sim_id, config_toml, config_snapshot in rows:
+            new_toml = _rewrite_paths_in_json_blob(config_toml, rewrites)
+            new_snap = _rewrite_paths_in_json_blob(config_snapshot, rewrites)
+            if new_toml is not None or new_snap is not None:
+                snap.execute(
+                    "UPDATE simulations "
+                    "SET config_toml = COALESCE(?, config_toml), "
+                    "    config_snapshot = COALESCE(?, config_snapshot) "
+                    "WHERE sim_id = ?",
+                    [new_toml, new_snap, sim_id],
+                )
+    finally:
+        snap.close()
+
+
+def _rewrite_paths_in_json_blob(
+    raw: str | None, rewrites: dict[str, str],
+) -> str | None:
+    if not raw:
+        return None
+    try:
+        payload = json.loads(raw) if isinstance(raw, str) else raw
+    except (json.JSONDecodeError, TypeError):
+        return None
+    changed = _apply_rewrites_recursive(payload, rewrites)
+    if not changed:
+        return None
+    return json.dumps(payload)
+
+
+def _apply_rewrites_recursive(
+    node: Any, rewrites: dict[str, str],
+) -> bool:
+    changed = False
+    if isinstance(node, dict):
+        for key, val in list(node.items()):
+            if isinstance(val, str) and val in rewrites:
+                node[key] = rewrites[val]
+                changed = True
+            else:
+                if _apply_rewrites_recursive(val, rewrites):
+                    changed = True
+    elif isinstance(node, list):
+        for i, val in enumerate(node):
+            if isinstance(val, str) and val in rewrites:
+                node[i] = rewrites[val]
+                changed = True
+            else:
+                if _apply_rewrites_recursive(val, rewrites):
+                    changed = True
+    return changed
+
+
 def import_hmp_package(
     catalog: Any,
     package_path: Path | str,
     *,
     force: bool = False,
+    as_project: str | None = None,
+    dematerialise_inputs: bool = True,
+    dry_run: bool = False,
 ) -> str:
     """Import a ``.hmp`` archive into the given catalog's workspace.
 
-    Verifies that every file listed in ``manifest.json`` is present with a
-    matching SHA-256 before any catalog mutation. Returns the imported
-    ``sim_id``.
+    Verifies every file listed in ``manifest.json`` before any catalog
+    mutation. When ``dematerialise_inputs`` is true and the archive
+    carries an ``inputs/`` bundle, input files are copied into the
+    workspace ``data/`` layout and the stored config paths are rewritten
+    to point at the new locations. ``as_project`` overrides the project
+    column in the snapshot (useful when the target workspace already
+    owns a project with the incoming name). ``dry_run`` extracts and
+    validates the archive but skips every mutation.
     """
-    import duckdb as _duckdb
-
     archive = Path(package_path)
     if not archive.is_file():
         raise FileNotFoundError(f"No .hmp archive at {archive}")
@@ -514,7 +629,6 @@ def import_hmp_package(
         staging = Path(tmpdir)
         _read_tar_zst(archive, staging)
 
-        # The archive has a single sim_id directory at its root
         roots = [p for p in staging.iterdir() if p.is_dir()]
         if len(roots) != 1:
             raise ValueError(
@@ -555,11 +669,29 @@ def import_hmp_package(
                     f"Simulation '{sid}' already exists. "
                     "Use force=True to overwrite."
                 )
+        else:
+            _check_project_conflict(catalog, manifest, as_project)
+
+        if dry_run:
+            return sid
+
+        if existing is not None:
             catalog.delete(sid)
 
         snap_path = pkg / CATALOG_SNAPSHOT_NAME
         if not snap_path.is_file():
             raise ValueError(f"{CATALOG_SNAPSHOT_NAME} missing from archive")
+
+        rewrites: dict[str, str] = {}
+        if dematerialise_inputs and manifest.get("has_inputs"):
+            from hydromodpy.results.importers import (
+                dematerialise_inputs as _dematerialise,
+            )
+            rewrites = _dematerialise(pkg, catalog.workspace_path, manifest)
+
+        if as_project:
+            _rewrite_snapshot_project(snap_path, as_project)
+        _rewrite_snapshot_paths(snap_path, rewrites)
 
         catalog.connection.begin()
         try:

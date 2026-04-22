@@ -1134,17 +1134,32 @@ class SimulationCatalog:
         return export_hmp_package(self, sim_id, output_path)
 
     def import_package(
-        self, package_path: Path | str, *, force: bool = False,
+        self,
+        package_path: Path | str,
+        *,
+        force: bool = False,
+        as_project: str | None = None,
+        dematerialise_inputs: bool = True,
+        dry_run: bool = False,
     ) -> str:
         """Import a ``.hmp`` archive into this workspace.
 
-        SHA-256 checksums in the archive manifest are verified before any
-        catalog mutation.
+        SHA-256 checksums in the archive manifest are verified before
+        any catalog mutation. ``as_project`` overrides the project
+        column on import. ``dematerialise_inputs`` copies the bundled
+        inputs into ``<workspace>/data/<role>/`` and rewrites the stored
+        config paths to point at the new locations.
         """
         from hydromodpy.results.exporters.hmp_package import (
             import_hmp_package,
         )
-        return import_hmp_package(self, package_path, force=force)
+        return import_hmp_package(
+            self, package_path,
+            force=force,
+            as_project=as_project,
+            dematerialise_inputs=dematerialise_inputs,
+            dry_run=dry_run,
+        )
 
     # -- Lifecycle -----------------------------------------------------------
 

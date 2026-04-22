@@ -8,6 +8,7 @@ in the order they should be registered on the top-level parser.
 from __future__ import annotations
 
 from hydromodpy._cli.commands import (
+    add,
     best,
     compare,
     completion,
@@ -44,6 +45,7 @@ ALL_COMMANDS = (
     lock,
     show,
     compare,
+    add,
     import_cmd,
     doctor,
     inspect,
