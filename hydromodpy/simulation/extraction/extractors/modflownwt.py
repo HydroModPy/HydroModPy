@@ -121,32 +121,41 @@ class ModflowNwtOutputAdapter:
                         text=component, kstpkper=kstpkper, totim=time,
                         full3D=True,
                     )
-                    if not data:
-                        continue
-                    arr = np.asarray(data[0], dtype="float64")
-                    if arr.ndim >= 2:
-                        flux_in = float(np.maximum(arr, 0).sum())
-                        flux_out = float(np.minimum(arr, 0).sum())
-                    else:
-                        flux_in = 0.0
-                        flux_out = 0.0
-                    budget_records.append({
-                        "timestep": t,
-                        "zone_id": "0",
-                        "component": component.lower().strip(),
-                        "flux_in": flux_in,
-                        "flux_out": abs(flux_out),
-                        "unit": "m3/d",
-                    })
-                    if spatial_fields and arr.ndim >= 2:
-                        field = arr.reshape(nlay, n_cells) if arr.ndim == 3 else arr.reshape(1, n_cells)
-                        store.write_field(
-                            sim_id, component.lower().strip(), t, field,
-                            n_timesteps=len(times) if t == 0 else None,
-                            subgroup="budget",
-                        )
-                except Exception:
-                    logger.debug("Could not read budget component '%s' at t=%d", component, t)
+                except Exception as exc:
+                    logger.debug(
+                        "Could not read budget component '%s' at t=%d: %s",
+                        component, t, exc,
+                    )
+                    continue
+                if not data:
+                    continue
+                arr = np.asarray(data[0], dtype="float64")
+                if arr.ndim >= 2:
+                    flux_in = float(np.maximum(arr, 0).sum())
+                    flux_out = float(np.minimum(arr, 0).sum())
+                else:
+                    flux_in = 0.0
+                    flux_out = 0.0
+                budget_records.append({
+                    "timestep": t,
+                    "zone_id": "0",
+                    "component": component.lower().strip(),
+                    "flux_in": flux_in,
+                    "flux_out": abs(flux_out),
+                    "unit": "m3/d",
+                })
+                if spatial_fields and arr.ndim >= 2:
+                    field = arr.reshape(nlay, n_cells) if arr.ndim == 3 else arr.reshape(1, n_cells)
+                    # n_timesteps is always passed: the store ignores it
+                    # on subsequent writes, but needs it for allocation
+                    # on the first write of this variable — which may not
+                    # be t=0 if the record is absent at t=0 (e.g. STORAGE
+                    # in a steady-state initial stress period).
+                    store.write_field(
+                        sim_id, component.lower().strip(), t, field,
+                        n_timesteps=len(times),
+                        subgroup="budget",
+                    )
 
         if budget_records:
             store.write_budgets(sim_id, budget_records)

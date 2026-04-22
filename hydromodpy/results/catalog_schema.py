@@ -100,6 +100,8 @@ CREATE INDEX IF NOT EXISTS ix_sim_created_at ON simulations(created_at);
 CREATE INDEX IF NOT EXISTS ix_sim_config_hash ON simulations(config_hash);
 CREATE INDEX IF NOT EXISTS ix_sim_mesh_hash ON simulations(mesh_hash);
 CREATE INDEX IF NOT EXISTS ix_sim_geo_fp ON simulations(geographic_fingerprint);
+CREATE UNIQUE INDEX IF NOT EXISTS ux_sim_project_name
+    ON simulations(project, name);
 """
 
 # ---------------------------------------------------------------------------

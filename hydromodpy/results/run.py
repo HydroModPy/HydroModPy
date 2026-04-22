@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import logging
+from functools import cached_property
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -14,6 +15,7 @@ if TYPE_CHECKING:
     import geopandas as gpd
 
     from hydromodpy.results.catalog import SimulationCatalog
+    from hydromodpy.results.grid import Grid
 
 
 class Run:
@@ -167,9 +169,14 @@ class Run:
                 f"No timeseries for sim={self._sim_id}, "
                 f"station={station}, var={variable}"
             )
+        # The catalog stores datetimes as TIMESTAMPTZ (UTC); simulation
+        # time_index is tz-naive, so strip the tz here to keep both aligned.
+        idx = pd.DatetimeIndex(result["datetime"])
+        if idx.tz is not None:
+            idx = idx.tz_convert("UTC").tz_localize(None)
         return pd.Series(
             result["value"].values,
-            index=pd.DatetimeIndex(result["datetime"]),
+            index=idx,
             name=variable,
         )
 
@@ -238,6 +245,118 @@ class Run:
     def geographic_raster(self, name: str) -> tuple[np.ndarray, dict]:
         sz = self._catalog.open_zarr(self._sim_id)
         return sz.read_geographic_raster(name)
+
+    @cached_property
+    def grid(self) -> Grid:
+        """Scalar grid metadata: cell_size, shape, extent, CRS, area.
+
+        Raises ``RuntimeError`` for unstructured (``disu``) meshes —
+        use ``run.mesh`` vertices + ``run.field(...)`` in that case —
+        or when geographic metadata has not been ingested.
+        """
+        from hydromodpy.results.grid import build_grid
+        return build_grid(self)
+
+    @cached_property
+    def catchment_mask(self) -> np.ndarray:
+        """2D boolean mask of active catchment cells on the DEM raster.
+
+        Shape matches ``run.grid.shape``. ``True`` where the DEM has a
+        valid positive elevation. Cached on first access.
+        """
+        dem, _ = self.geographic_raster("watershed_dem")
+        dem = dem.astype(float)
+        return np.isfinite(dem) & (dem > 0)
+
+    @cached_property
+    def dem(self) -> np.ndarray:
+        """DEM as ``float64`` with the source nodata sentinel replaced by NaN.
+
+        Use this when plotting or applying NaN-aware reductions. For a
+        bit-for-bit copy of the stored raster (native dtype, sentinel
+        preserved), use ``run.geographic_raster("watershed_dem")``.
+        """
+        raw, meta = self.geographic_raster("watershed_dem")
+        arr = raw.astype("float64", copy=True)
+        nodata = meta.get("nodata")
+        if nodata is not None:
+            arr[arr == float(nodata)] = np.nan
+        return arr
+
+    def fields(self, variable: str) -> np.ndarray:
+        """Stack per-timestep rasters of ``variable`` as ``(n_t, nrow, ncol)``.
+
+        Reshapes each flat cell array to the DEM grid and stacks the
+        ``n_timesteps`` frames. Only defined for regular-in-plan meshes
+        (``dis`` / ``disv``); raises for ``disu`` via ``run.grid``.
+        Values are returned raw (no masking or NaN substitution) —
+        combine with ``run.catchment_mask`` to mask inactive cells.
+        """
+        grid = self.grid
+        n = self.n_timesteps or 1
+        return np.stack([
+            np.asarray(self.field(variable, timestep=t)).reshape(grid.shape)
+            for t in range(n)
+        ])
+
+    @cached_property
+    def time_index(self) -> pd.DatetimeIndex:
+        """Datetime index aligned with the simulation's stress periods.
+
+        Length matches ``run.n_timesteps``. Uses ``period_start`` and
+        ``period_end`` stored in the catalog; raises if either is
+        missing or the simulation has no timesteps.
+        """
+        row = self._load_row()
+        n = row.get("n_timesteps")
+        start, end = row.get("period_start"), row.get("period_end")
+        if n is None:
+            raise RuntimeError(
+                f"Simulation '{self._sim_id}' has no n_timesteps recorded "
+                "(is it completed?)"
+            )
+        if start is None or end is None:
+            raise RuntimeError(
+                f"Simulation '{self._sim_id}' missing period_start/period_end "
+                "in catalog — cannot build a time index."
+            )
+        idx = pd.date_range(start=start, end=end, periods=n)
+        if idx.tz is not None:
+            idx = idx.tz_localize(None)
+        return idx
+
+    @cached_property
+    def params(self) -> dict[str, float]:
+        """Mapping of global (non-zonal) parameter values to scalar floats.
+
+        Shortcut for the common case; for zonal parameters use the full
+        ``run.parameters`` DataFrame (MultiIndex on ``param_name`` and
+        ``zone_id``).
+        """
+        rows = self._catalog.connection.execute(
+            "SELECT param_name, value FROM parameters "
+            "WHERE sim_id = ? AND (zone_id IS NULL OR zone_id = ?)",
+            [self._sim_id, "__global__"],
+        ).fetchall()
+        return {name: float(val) for name, val in rows}
+
+    @cached_property
+    def outlet(self) -> tuple[float, float]:
+        """Outlet coordinates ``(x, y)`` in the simulation CRS.
+
+        Reads ``x_outlet`` / ``y_outlet`` from ``geographic_metadata``.
+        Raises ``RuntimeError`` if either is absent (e.g. catchment
+        defined by a pre-drawn shapefile rather than a pour point).
+        """
+        meta = self._catalog.read_geographic_metadata(self._sim_id)
+        missing = [k for k in ("x_outlet", "y_outlet") if k not in meta]
+        if missing:
+            raise RuntimeError(
+                f"Outlet coordinates missing in geographic_metadata for "
+                f"'{self._sim_id}' ({missing}). The catchment may have "
+                "been defined by a shapefile (catch_def != 'from_outlet_coord')."
+            )
+        return (float(meta["x_outlet"]), float(meta["y_outlet"]))
 
     # -- Rerun ---------------------------------------------------------------
 

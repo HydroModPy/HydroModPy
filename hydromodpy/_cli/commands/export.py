@@ -39,7 +39,12 @@ def register(subparsers) -> argparse.ArgumentParser:
 
 
 def run(args: argparse.Namespace) -> None:
-    from hydromodpy.results.catalog import SimulationCatalog
+    from hydromodpy.results.catalog import (
+        AmbiguousReferenceError,
+        SimulationCatalog,
+        SimulationNotFoundError,
+        short_id,
+    )
 
     project_dir = Path(args.project).expanduser().resolve()
     project_name = project_dir.name
@@ -70,14 +75,18 @@ def run(args: argparse.Namespace) -> None:
         if not sims.empty:
             print("\nSimulations:", file=sys.stderr)
             for _, row in sims.iterrows():
-                sid = str(row["sim_id"])[:8]
+                sid = str(row["sim_id"])
                 name = row.get("name", "")
                 solver = row.get("solver", "")
                 status = row.get("status", "")
                 created = row.get("created_at", "")
                 date_str = str(created)[:16] if created else ""
-                print(f"  {name or sid}  solver={solver}  {date_str}  {status}",
-                      file=sys.stderr)
+                label = name or "(no name)"
+                print(
+                    f"  {label}  [{short_id(sid)}]  solver={solver}  "
+                    f"{date_str}  {status}",
+                    file=sys.stderr,
+                )
         catalog.close()
         return
 
@@ -133,17 +142,22 @@ def run(args: argparse.Namespace) -> None:
                     print(f"  Feature '{name}' not found in store", file=sys.stderr)
 
     if args.sim:
-        sim_name = args.sim
-        sims = catalog.list_simulations(project=project_name)
-        match = sims[sims["name"] == sim_name]
-        if match.empty:
-            match = sims[sims["sim_id"].str.startswith(sim_name)]
-        if match.empty:
-            print(f"Simulation '{sim_name}' not found (use --list)", file=sys.stderr)
+        sim_ref = args.sim
+        try:
+            sim_id = catalog.resolve(sim_ref, project=project_name)
+        except AmbiguousReferenceError as exc:
+            print(str(exc), file=sys.stderr)
             catalog.close()
             sys.exit(EXIT_NOT_FOUND)
-        sim_id = match.iloc[-1]["sim_id"]
-        label = sim_name
+        except SimulationNotFoundError as exc:
+            print(str(exc), file=sys.stderr)
+            catalog.close()
+            sys.exit(EXIT_NOT_FOUND)
+        row = catalog.connection.execute(
+            "SELECT name FROM simulations WHERE CAST(sim_id AS VARCHAR) = ?",
+            [sim_id],
+        ).fetchone()
+        label = (row[0] if row and row[0] else None) or short_id(sim_id)
 
         sim_dir = output_dir or (project_dir / "exports" / label)
         sim_dir.mkdir(parents=True, exist_ok=True)

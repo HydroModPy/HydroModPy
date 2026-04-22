@@ -68,31 +68,23 @@ def resolve_workspace(workspace_arg: str | None) -> Path:
 
 
 def resolve_sim_id(catalog, sim_id_or_prefix: str) -> str:
-    """Resolve a full ``sim_id`` from a prefix or a human-readable name."""
-    conn = catalog.connection
-    row = conn.execute(
-        "SELECT sim_id FROM simulations WHERE sim_id = ?",
-        [sim_id_or_prefix],
-    ).fetchone()
-    if row is not None:
-        return str(row[0])
-    rows = conn.execute(
-        "SELECT sim_id FROM simulations WHERE sim_id LIKE ?",
-        [sim_id_or_prefix + "%"],
-    ).fetchall()
-    if len(rows) == 1:
-        return str(rows[0][0])
-    if len(rows) > 1:
-        print(f"Ambiguous sim_id prefix '{sim_id_or_prefix}'", file=sys.stderr)
+    """Resolve a simulation reference to its full ``sim_id``.
+
+    Delegates to :meth:`SimulationCatalog.resolve` and exits the CLI with a
+    friendly message when the reference is ambiguous or missing.
+    """
+    from hydromodpy.results.catalog import (
+        AmbiguousReferenceError,
+        SimulationNotFoundError,
+    )
+    try:
+        return catalog.resolve(sim_id_or_prefix)
+    except AmbiguousReferenceError as exc:
+        print(str(exc), file=sys.stderr)
         sys.exit(EXIT_NOT_FOUND)
-    row = conn.execute(
-        "SELECT sim_id FROM simulations WHERE name = ?",
-        [sim_id_or_prefix],
-    ).fetchone()
-    if row is not None:
-        return str(row[0])
-    print(f"Simulation not found: {sim_id_or_prefix}", file=sys.stderr)
-    sys.exit(EXIT_NOT_FOUND)
+    except SimulationNotFoundError as exc:
+        print(str(exc), file=sys.stderr)
+        sys.exit(EXIT_NOT_FOUND)
 
 
 # ---------------------------------------------------------------------------

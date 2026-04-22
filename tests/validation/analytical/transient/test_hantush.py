@@ -26,6 +26,13 @@ times 1/3/10 d.
 
 Tolerance rationale — ``tests/TOLERANCES.md`` row 6: NSE > 0.99 and
 maximum pointwise relative error below 2 %.
+
+Scope — ``solver_sanity``:
+   The three-layer sandwich (source / aquitard / pumped aquifer) and the
+   telescoping grid are built directly on the flopy SDK because the
+   hydromodpy launcher TOML does not expose this geometry. The test
+   therefore validates **MODFLOW 6 against the Hantush analytical
+   solution**, not the hydromodpy pipeline.
 """
 
 from __future__ import annotations
@@ -260,6 +267,7 @@ def _build_and_run_hantush_model(workspace: Path) -> tuple[list[float], list[flo
 @pytest.mark.transient
 @pytest.mark.mf6
 @pytest.mark.slow
+@pytest.mark.solver_sanity
 def test_hantush_leaky_aquifer_matches_analytical_reference(tmp_path: Path) -> None:
     """Run the MF6 Hantush model and compare drawdowns to ``W(u, r/B)``."""
     assert_required_executables(

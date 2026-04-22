@@ -15,7 +15,8 @@ from shapely.geometry import LineString
 # the adapter-level assertions below are kept for when that lands.
 _OBSOLETE_RUNTIME_API = pytest.mark.xfail(
     reason="Boussinesq runtime API mismatch (imposed_head_m_by_edge vs "
-    "prescribed_head_m_by_cell) — tracked alongside solver/contract work.",
+    "prescribed_head_m_by_cell); tracked as v0.6 "
+    "boussinesq-runtime-api-alignment.",
     strict=True,
     raises=(TypeError, AttributeError),
 )

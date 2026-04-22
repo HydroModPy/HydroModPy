@@ -26,9 +26,9 @@ def _register(catalog, sim_id=None, **kw):
     sid = sim_id or _sid()
     defaults = dict(project="test", solver="modflow6", n_cells=10, n_layers=2)
     defaults.update(kw)
-    sz = catalog.register_simulation(sid, **defaults)
-    if sz:
-        sz.close()
+    reg = catalog.register_simulation(sid, **defaults)
+    if reg.zarr is not None:
+        reg.zarr.close()
     return sid
 
 

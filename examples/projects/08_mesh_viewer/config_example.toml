@@ -7,11 +7,11 @@ bundle_dir = "./default_bundle"
 
 # Chemin optionnel du PNG de synthese a ecrire.
 # Si absent, aucune figure n'est enregistree sur disque.
-figure_output_path = "../../outputs/mesh_viewer/apercu_maillage.png"
+figure_output_path = "../../../outputs/mesh_viewer/apercu_maillage.png"
 
 # Chemin optionnel du resume JSON a ecrire.
 # Si absent, aucun JSON n'est enregistre sur disque.
-summary_output_path = "../../outputs/mesh_viewer/resume_apercu_maillage.json"
+summary_output_path = "../../../outputs/mesh_viewer/resume_apercu_maillage.json"
 
 # Ouvre ou non une fenetre matplotlib interactive a la fin de l'execution.
 show_window = false

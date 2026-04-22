@@ -134,14 +134,17 @@ def step_open_store(ctx: WorkflowContext) -> None:
     reg_kwargs = _collect_registration_kwargs(ctx)
     if ctx.parent_sim_id is not None:
         reg_kwargs["parent_sim_id"] = ctx.parent_sim_id
-    ctx.store.register_simulation(
+    on_collision = getattr(ctx.cfg.simulation, "on_collision", "replace")
+    registration = ctx.store.register_simulation(
         ctx.sim_id,
         project=project_name,
         solver=",".join(r.solver for r in plan.runs),
         name=ctx.setup.run_id,
-        run_id=ctx.setup.run_id,
+        on_collision=on_collision,
         **reg_kwargs,
     )
+    if registration.name and registration.name != ctx.setup.run_id:
+        ctx.setup.run_id = registration.name
 
     # Write hydraulic parameters
     if ctx.setup.flow is not None:

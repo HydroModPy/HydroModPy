@@ -51,6 +51,12 @@ REGRESSION_GOLDENS_ROOT = (
     / "golden_references"
 )
 
+# Bump when the statistical signature layout changes (new stats, renamed
+# sections, different aggregation) so stale goldens fail loudly instead of
+# silently comparing against an incompatible schema.
+GOLDEN_SCHEMA_VERSION = "1.0"
+_SCHEMA_VERSION_KEY = "_schema_version"
+
 # Common MODFLOW outputs checked by many tests.
 # Individual tests can override this list when needed.
 DEFAULT_MODFLOW_OUTPUT_NAMES = [
@@ -208,10 +214,13 @@ def write_golden_reference(path: Path, payload: dict) -> None:
     -----
     - Parent folders are created automatically.
     - Pretty printing is kept stable to make diffs review-friendly.
+    - The current ``GOLDEN_SCHEMA_VERSION`` is injected at the top level
+      so ``update_or_assert_goldens`` can detect incompatible layouts.
     """
     path.parent.mkdir(parents=True, exist_ok=True)
+    versioned = {_SCHEMA_VERSION_KEY: GOLDEN_SCHEMA_VERSION, **payload}
     with path.open("w", encoding="utf-8") as stream:
-        json.dump(payload, stream, indent=2)
+        json.dump(versioned, stream, indent=2)
         stream.write("\n")
 
 
@@ -804,6 +813,17 @@ def update_or_assert_goldens(
         return
 
     expected = load_golden_reference(golden_reference_file)
+
+    # Reject stale goldens with an incompatible signature layout. A missing
+    # version key is treated as the current schema for backward compatibility
+    # with pre-versioning files; present but mismatched versions fail loudly.
+    expected_version = expected.pop(_SCHEMA_VERSION_KEY, GOLDEN_SCHEMA_VERSION)
+    if expected_version != GOLDEN_SCHEMA_VERSION:
+        raise AssertionError(
+            f"Golden {golden_reference_file.name} schema version "
+            f"{expected_version!r} is incompatible with current "
+            f"{GOLDEN_SCHEMA_VERSION!r}; regenerate with --update-goldens."
+        )
 
     # Validate only sections present in `actual`.
     # This supports tests that check only MODFLOW, only MODPATH, or both.

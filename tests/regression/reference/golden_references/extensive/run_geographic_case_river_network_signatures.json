@@ -1,4 +1,5 @@
 {
+  "_schema_version": "1.0",
   "base": {
     "enabled": true,
     "threshold_mode": "area_km2",

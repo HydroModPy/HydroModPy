@@ -166,17 +166,40 @@ def geometry_to_bbox(geometry) -> tuple[float, float, float, float]:
 def filter_locations_by_geometry(
     locations: Sequence[StationLocation],
     geometry,
+    *,
+    geometry_crs: str = "EPSG:4326",
 ) -> list[StationLocation]:
-    """Keep locations that fall inside a shapely geometry (spatial join)."""
+    """Keep locations that fall inside a shapely geometry (spatial join).
+
+    Reprojects each location to ``geometry_crs`` before testing, so that
+    stations declared in a projected CRS (e.g. Lambert-93 / EPSG:2154) can
+    be matched against a mask loaded via :func:`load_mask_geometry_wgs84`.
+    """
     try:
         from shapely.geometry import Point
     except ImportError as exc:
         raise ImportError("shapely required for geometry filtering. pip install shapely") from exc
+    from pyproj import Transformer
 
-    return [
-        loc for loc in locations
-        if geometry.contains(Point(loc.x, loc.y))
-    ]
+    target_crs = str(geometry_crs)
+    transformers: dict[str, Transformer] = {}
+    kept: list[StationLocation] = []
+    for loc in locations:
+        src_crs = str(loc.crs) if loc.crs else target_crs
+        if src_crs == target_crs:
+            x, y = loc.x, loc.y
+        else:
+            tr = transformers.get(src_crs)
+            if tr is None:
+                tr = Transformer.from_crs(src_crs, target_crs, always_xy=True)
+                transformers[src_crs] = tr
+            x, y = tr.transform(loc.x, loc.y)
+        # ``intersects`` is more permissive than ``contains`` at boundaries —
+        # relevant for outlet stations that land exactly on the watershed
+        # boundary after snapping.
+        if geometry.intersects(Point(x, y)):
+            kept.append(loc)
+    return kept
 
 
 def expand_bbox(

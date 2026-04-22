@@ -17,6 +17,14 @@ three times (1 d, 3 d, 10 d) and compared pointwise against ``s(r, t)``.
 Tolerance rationale — ``tests/TOLERANCES.md`` rows 4/5:
    * NSE against analytical drawdown must exceed 0.999.
    * Maximum absolute error across all (r, t) pairs: 1% relative.
+
+Scope — ``solver_sanity``:
+   The model is built directly on the flopy SDK (telescoping grid, central
+   well, outer CHD ring) because the geometry sits outside what the
+   hydromodpy launcher TOML exposes. This test therefore validates
+   **MODFLOW 6 against the Theis analytical solution**, not the
+   hydromodpy pipeline. It protects against solver-level regressions and
+   bundled-binary drift, not against hydromodpy refactors.
 """
 
 from __future__ import annotations
@@ -214,6 +222,7 @@ def _build_and_run_theis_model(workspace: Path) -> tuple[list[float], list[float
 @pytest.mark.transient
 @pytest.mark.mf6
 @pytest.mark.slow
+@pytest.mark.solver_sanity
 def test_theis_confined_pumping_matches_analytical_reference(tmp_path: Path) -> None:
     """Run the MF6 Theis model and compare drawdowns to ``W(u)`` at (r, t) probes."""
     assert_required_executables(

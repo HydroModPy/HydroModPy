@@ -290,19 +290,28 @@ class HydroModPyConfig(HydroModelBase):
         elif not workspace_section.get("project_root"):
             workspace_section["project_root"] = str(base)
 
-        # DEM bootstrap placeholder for overview workflow.
-        # When [overview] is present without dem_init_path but a DEM API
-        # source is configured in [data], inject a placeholder so
-        # GeographicConfig validation passes.  The overview pipeline
-        # downloads the real DEM later via _bootstrap_dem().
-        geographic_override = raw.get("geographic", {})
-        if "overview" in raw and not geographic_override.get("dem_init_path"):
+        # DEM bridge placeholder.
+        # When dem_init_path is omitted but [[data.dem.sources]] declares at
+        # least one source, inject a placeholder so GeographicConfig
+        # validation passes. setup.resolve_dem_init_path() (or the
+        # overview pipeline) replaces it with a real path before any
+        # geographic step runs.
+        if "geographic" not in raw:
+            raw["geographic"] = {}
+        geographic_override = raw["geographic"]
+        if isinstance(geographic_override, Mapping) and not geographic_override.get(
+            "dem_init_path"
+        ):
             data_section = raw.get("data", {})
-            if "dem" in data_section.get("types", []):
-                geographic_override = {
-                    **geographic_override,
-                    "dem_init_path": "__DEM_API_BOOTSTRAP__",
-                }
+            dem_section = data_section.get("dem") if isinstance(data_section, Mapping) else None
+            has_dem_source = (
+                isinstance(dem_section, Mapping)
+                and bool(dem_section.get("sources"))
+            )
+            if has_dem_source or (
+                "overview" in raw and "dem" in data_section.get("types", [])
+            ):
+                geographic_override["dem_init_path"] = "__DEM_API_BOOTSTRAP__"
 
         section_loaders: dict[str, tuple[Any, Callable[[Any, Path], Any]]] = {
             "workspace": (

@@ -167,10 +167,11 @@ class TestRegisterAndRead:
 
     def test_register_with_zarr_creates_store(self, catalog):
         sid = _sim_id()
-        sz = catalog.register_simulation(
+        reg = catalog.register_simulation(
             sid, project="p", solver="modflow6",
             n_cells=16, n_layers=2, geographic_fingerprint="fp-abc",
         )
+        sz = reg.zarr
         try:
             assert sz is not None
             assert sz.geographic_fingerprint == "fp-abc"
@@ -467,3 +468,134 @@ class TestG05ZoneGlobal:
         from hydromodpy.results import catalog_schema
         assert not hasattr(catalog_schema, "HOMOGENEOUS_ZONE")
         assert catalog_schema.GLOBAL_ZONE == "__global__"
+
+
+class TestResolveReference:
+    """``catalog.resolve(ref)`` — unified UUID / prefix / name resolution."""
+
+    def _register(self, catalog, *, project="p", name=None):
+        sid = _sim_id()
+        catalog.register_simulation(
+            sid, project=project, solver="modflow6", name=name,
+        )
+        return sid
+
+    def test_full_uuid_resolves(self, catalog):
+        sid = self._register(catalog)
+        assert catalog.resolve(sid) == sid
+
+    def test_uuid_prefix_unique_resolves(self, catalog):
+        sid = self._register(catalog)
+        assert catalog.resolve(sid[:8]) == sid
+        assert catalog.resolve(sid[:12]) == sid
+
+    def test_uuid_prefix_too_short_not_accepted_as_uuid(self, catalog):
+        sid = self._register(catalog)
+        from hydromodpy.results.catalog import SimulationNotFoundError
+        with pytest.raises(SimulationNotFoundError):
+            catalog.resolve(sid[:3])
+
+    def test_uuid_prefix_ambiguous_raises(self, catalog):
+        from hydromodpy.results.catalog import AmbiguousReferenceError
+        forced_sid_1 = "12345678-0000-0000-0000-000000000001"
+        forced_sid_2 = "12349999-0000-0000-0000-000000000002"
+        catalog.register_simulation(forced_sid_1, project="p", solver="s")
+        catalog.register_simulation(forced_sid_2, project="p", solver="s")
+        with pytest.raises(AmbiguousReferenceError):
+            catalog.resolve("1234")
+
+    def test_name_in_project_resolves(self, catalog):
+        sid = self._register(catalog, name="baseline")
+        assert catalog.resolve("baseline", project="p") == sid
+
+    def test_name_without_project_resolves_if_unique(self, catalog):
+        sid = self._register(catalog, name="only_one")
+        assert catalog.resolve("only_one") == sid
+
+    def test_name_without_project_ambiguous(self, catalog):
+        from hydromodpy.results.catalog import AmbiguousReferenceError
+        sid_a = self._register(catalog, project="p1", name="shared")
+        sid_b = self._register(catalog, project="p2", name="shared")
+        with pytest.raises(AmbiguousReferenceError):
+            catalog.resolve("shared")
+        assert catalog.resolve("shared", project="p1") == sid_a
+        assert catalog.resolve("shared", project="p2") == sid_b
+
+    def test_not_found_raises(self, catalog):
+        from hydromodpy.results.catalog import SimulationNotFoundError
+        with pytest.raises(SimulationNotFoundError):
+            catalog.resolve("no-such-thing")
+
+    def test_getitem_delegates_to_resolve(self, catalog):
+        sid = self._register(catalog, name="via_item")
+        assert catalog[sid[:8]].sim_id == sid
+        assert catalog[sid].sim_id == sid
+
+
+class TestOnCollision:
+    """``register_simulation(on_collision=...)`` behavior."""
+
+    def test_replace_soft_clears_previous_name(self, catalog):
+        old = _sim_id()
+        new = _sim_id()
+        catalog.register_simulation(old, project="p", solver="s", name="foo")
+        reg = catalog.register_simulation(
+            new, project="p", solver="s", name="foo",
+            on_collision="replace",
+        )
+        assert reg.name == "foo"
+        assert reg.replaced_sim_id == old
+        sims = catalog.list_simulations(project="p")
+        rows = {str(r["sim_id"]): r["name"] for _, r in sims.iterrows()}
+        assert rows[new] == "foo"
+        assert rows[old] is None
+
+    def test_fail_raises_duplicate(self, catalog):
+        from hydromodpy.results.catalog import DuplicateSimulationNameError
+        old = _sim_id()
+        new = _sim_id()
+        catalog.register_simulation(old, project="p", solver="s", name="foo")
+        with pytest.raises(DuplicateSimulationNameError):
+            catalog.register_simulation(
+                new, project="p", solver="s", name="foo",
+                on_collision="fail",
+            )
+
+    def test_version_auto_suffixes(self, catalog):
+        sid_1 = _sim_id()
+        sid_2 = _sim_id()
+        sid_3 = _sim_id()
+        catalog.register_simulation(sid_1, project="p", solver="s", name="foo")
+        reg2 = catalog.register_simulation(
+            sid_2, project="p", solver="s", name="foo",
+            on_collision="version",
+        )
+        reg3 = catalog.register_simulation(
+            sid_3, project="p", solver="s", name="foo",
+            on_collision="version",
+        )
+        assert reg2.name == "foo.v2"
+        assert reg3.name == "foo.v3"
+
+    def test_different_projects_do_not_collide(self, catalog):
+        sid_a = _sim_id()
+        sid_b = _sim_id()
+        catalog.register_simulation(sid_a, project="p1", solver="s", name="foo")
+        reg = catalog.register_simulation(
+            sid_b, project="p2", solver="s", name="foo",
+            on_collision="fail",
+        )
+        assert reg.name == "foo"
+
+    def test_replace_is_the_default(self, catalog):
+        old = _sim_id()
+        new = _sim_id()
+        catalog.register_simulation(old, project="p", solver="s", name="x")
+        reg = catalog.register_simulation(new, project="p", solver="s", name="x")
+        assert reg.replaced_sim_id == old
+
+
+def test_short_id_helper():
+    from hydromodpy.results.catalog import short_id
+    assert short_id("19d90750-a7ae-451a-9e6d-805a46d136d8") == "19d90750"
+    assert len(short_id(uuid.uuid4())) == 8

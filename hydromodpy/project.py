@@ -351,11 +351,13 @@ class Project:
             if time_cfg is not None:
                 reg_kwargs["time_unit"] = getattr(time_cfg, "step_unit", None)
 
-        self._store.register_simulation(
+        registration = self._store.register_simulation(
             sim_id, project=self._project_name, solver=solvers,
-            name=name, run_id=name,
+            name=name, on_collision=self.cfg.simulation.on_collision,
             **reg_kwargs,
         )
+        final_name = registration.name or name
+        replaced_sid = registration.replaced_sim_id
 
         # Write hydraulic parameters
         from hydromodpy.workflow.steps.store_lifecycle import _write_flow_parameters
@@ -421,7 +423,7 @@ class Project:
                 results_config=results_cfg,
                 store=self._store,
                 keep_solver_files=True,
-                run_id=name,
+                run_id=final_name,
             )
 
         original_domain = self._ctx.setup.domain
@@ -440,7 +442,22 @@ class Project:
 
         self._store.finalize(sim_id, status="completed")
 
-        logger.info("Run '%s' completed", name)
+        try:
+            from hydromodpy.simulation.extraction.extractors.observation_ingest import (
+                ingest_observations,
+            )
+            ingest_observations(sim_id, self._store, self._ctx.loaded_data)
+        except Exception:
+            logger.exception("Failed to ingest observations for sim %s", sim_id)
+
+        short = sim_id[:8]
+        if replaced_sid:
+            logger.info(
+                "Run '%s' stored [%s] (replaced %s)",
+                final_name, short, replaced_sid[:8],
+            )
+        else:
+            logger.info("Run '%s' stored [%s]", final_name, short)
         return self._store[sim_id]
 
     def _run_with_overrides(self, name, overrides, *, thickness=None, first_clim=None):

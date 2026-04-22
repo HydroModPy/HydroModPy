@@ -45,8 +45,9 @@ catch_def = "from_outlet_coord"
 # Path to the DEM raster used as input.
 # For 'dem' and 'txt' modes: defines the model domain directly.
 # For 'from_outlet_coord' and 'from_polyg_shp' modes: regional DEM used for flow analysis.
+# Auto-resolved from [[data.dem.sources]] when omitted (see [data] section below).
 # Type: path (optional) | Optional
-dem_init_path = "../../data/dem/DEM_armorican_massif.tif"
+# dem_init_path = "../../data/dem/DEM_armorican_massif.tif"
 
 # Grid cell size in metres used to rasterise the XYZ point cloud.
 # Required for 'txt' mode.
@@ -241,20 +242,21 @@ project_crs = "EPSG:2154"
 # The launcher may append inferred types deduced from other sections (for example domain.zone_ids, flow.active_bc).
 # Allowed values: 'dem', 'etp', 'geology', 'humidity', 'hydrography', 'hydrometry', 'intermittency', 'oceanic', 'piezometry', 'precipitation', 'radiation', 'recharge', 'runoff', 'soil_moisture', 'temperature', 'water_quality', 'wind'.
 # Type: list[str] | REQUIRED
-types = ["geology", "hydrography", "hydrometry", "recharge"]
+types = ["dem", "geology", "hydrography", "hydrometry", "recharge"]
 
 
 # DEM configuration used when 'dem' is listed in data.types.
+# When [[data.dem.sources]] is declared, geographic.dem_init_path is auto-resolved
+# from the first source (custom path or IGN bootstrap).
 
-# At least one DEM data source.
-# [[data.dem.sources]]
+[[data.dem.sources]]
 # Data provider: 'custom' for user files (TIF/ASC/NC), 'ign_bdalti' for the IGN BD ALTI 25 m MNT.
 # Type: Literal['custom', 'ign_bdalti'] | one of: "custom", "ign_bdalti" | REQUIRED
-# source = "custom"
+source = "custom"
 
 # Path to custom DEM file or directory (TIF, ASC, NC).
 # Type: path (optional) | Optional
-# path = ""
+path = "../../data/dem/DEM_armorican_massif.tif"
 
 # SHP/GPKG/GeoJSON mask for spatial filtering/clipping.
 # Type: path (optional) | Optional

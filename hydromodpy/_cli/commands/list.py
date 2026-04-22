@@ -48,7 +48,10 @@ def run(args: argparse.Namespace) -> None:
             print(f"No hydromodpy.duckdb in {workspace_root}")
             return
         try:
-            from hydromodpy.results.catalog import SimulationCatalog
+            from hydromodpy.results.catalog import (
+                SimulationCatalog,
+                short_id,
+            )
             catalog = SimulationCatalog(workspace_root)
             sims = catalog.list_simulations(project=args.project)
             if sims.empty:
@@ -60,9 +63,12 @@ def run(args: argparse.Namespace) -> None:
                     solver = row.get("solver", "")
                     status = row.get("status", "")
                     dur = row.get("duration_s")
-                    label = name or sim_id[:8]
+                    label = name or "(no name)"
                     dur_str = f" {dur:.1f}s" if dur else ""
-                    print(f"  {label}  solver={solver}  status={status}{dur_str}")
+                    print(
+                        f"  {label}  [{short_id(sim_id)}]  "
+                        f"solver={solver}  status={status}{dur_str}"
+                    )
             catalog.close()
         except Exception as exc:
             print(f"  Error reading hydromodpy.duckdb: {exc}", file=sys.stderr)

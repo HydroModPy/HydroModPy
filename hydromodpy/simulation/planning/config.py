@@ -221,6 +221,17 @@ class SimulationConfig(HydroModelBase):
             "filename at load time (e.g. run_steady_nwt.toml -> steady_nwt)."
         ),
     )
+    on_collision: Annotated[
+        Literal["replace", "fail", "version"], Profile.USER,
+    ] = Field(
+        default="replace",
+        description=(
+            "Behavior when registering a simulation whose ``name`` already "
+            "exists in this project. ``replace`` soft-replaces (the previous "
+            "sim keeps its UUID but loses its name), ``fail`` raises an "
+            "error, ``version`` auto-suffixes ``name.v2``, ``name.v3`` ..."
+        ),
+    )
     description: Annotated[str, Profile.USER] = Field(
         default="",
         description="Short free-text description of the simulation intent.",

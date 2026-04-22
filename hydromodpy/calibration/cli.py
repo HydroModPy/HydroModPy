@@ -107,7 +107,13 @@ def run_calibration_cli(
     cfg, _raw = _load_toml_calibration(cfg_path)
     space = _space_from_config(cfg)
 
-    ws = Path(workspace).expanduser().resolve() if workspace else cfg_path.parent
+    if workspace:
+        ws = Path(workspace).expanduser().resolve()
+    else:
+        from hydromodpy.core.config.hydromodpy_config import HydroModPyConfig
+
+        full_cfg = HydroModPyConfig.from_toml(cfg_path)
+        ws = full_cfg.workspace.workspace_root
     from hydromodpy.results.catalog import SimulationCatalog
     from hydromodpy.calibration.persistence import CalibrationPersistence
 

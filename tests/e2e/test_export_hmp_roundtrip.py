@@ -25,7 +25,7 @@ def test_hmp_package_roundtrip(tmp_path: Path) -> None:
     series = pd.Series([10.0, 10.1, 10.2, 10.3], index=index, name="head")
 
     with hmp.open(src_workspace) as catalog:
-        sz = catalog.register_simulation(
+        reg = catalog.register_simulation(
             sim_id=sim_id,
             project="roundtrip",
             solver="modflow_nwt",
@@ -34,6 +34,7 @@ def test_hmp_package_roundtrip(tmp_path: Path) -> None:
             n_cells=4,
             n_layers=1,
         )
+        sz = reg.zarr
         assert sz is not None
         sz.write_field(
             variable="head",

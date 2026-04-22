@@ -116,37 +116,46 @@ class Modflow6OutputAdapter:
             for component in record_names:
                 try:
                     data = cbb.get_data(text=component, kstpkper=kstpkper, totim=time)
-                    if not data:
-                        continue
-                    arr = data[0]
-                    # MF6 stress packages (DRN, CHD, WEL, etc.) return
-                    # structured recarrays instead of plain ndarrays.
-                    # Convert to a full (nlay, n_cells) grid array.
-                    if hasattr(arr, "dtype") and arr.dtype.names is not None:
-                        arr = self._recarray_to_grid(arr, nlay, n_cells)
-                    if hasattr(arr, "shape") and arr.ndim >= 1:
-                        flux_in = float(np.maximum(arr, 0).sum())
-                        flux_out = float(np.minimum(arr, 0).sum())
-                    else:
-                        flux_in = 0.0
-                        flux_out = 0.0
-                    budget_records.append({
-                        "timestep": t,
-                        "zone_id": "0",
-                        "component": component.lower().strip(),
-                        "flux_in": flux_in,
-                        "flux_out": abs(flux_out),
-                        "unit": "m3/d",
-                    })
-                    if spatial_fields and hasattr(arr, "shape") and arr.ndim >= 1:
-                        store.write_field(
-                            sim_id, component.lower().strip(), t,
-                            arr.reshape(-1) if arr.ndim == 1 else arr,
-                            n_timesteps=len(times) if t == 0 else None,
-                            subgroup="budget",
-                        )
-                except Exception:
-                    logger.debug("Could not read MF6 budget '%s' at t=%d", component, t)
+                except Exception as exc:
+                    logger.debug(
+                        "Could not read MF6 budget '%s' at t=%d: %s",
+                        component, t, exc,
+                    )
+                    continue
+                if not data:
+                    continue
+                arr = data[0]
+                # MF6 stress packages (DRN, CHD, WEL, etc.) return
+                # structured recarrays instead of plain ndarrays.
+                # Convert to a full (nlay, n_cells) grid array.
+                if hasattr(arr, "dtype") and arr.dtype.names is not None:
+                    arr = self._recarray_to_grid(arr, nlay, n_cells)
+                if hasattr(arr, "shape") and arr.ndim >= 1:
+                    flux_in = float(np.maximum(arr, 0).sum())
+                    flux_out = float(np.minimum(arr, 0).sum())
+                else:
+                    flux_in = 0.0
+                    flux_out = 0.0
+                budget_records.append({
+                    "timestep": t,
+                    "zone_id": "0",
+                    "component": component.lower().strip(),
+                    "flux_in": flux_in,
+                    "flux_out": abs(flux_out),
+                    "unit": "m3/d",
+                })
+                if spatial_fields and hasattr(arr, "shape") and arr.ndim >= 1:
+                    # n_timesteps is always passed: the store ignores it
+                    # on subsequent writes, but needs it for allocation
+                    # on the first write — which may not be t=0 if the
+                    # record is absent there (e.g. STORAGE in a steady
+                    # initial stress period).
+                    store.write_field(
+                        sim_id, component.lower().strip(), t,
+                        arr.reshape(-1) if arr.ndim == 1 else arr,
+                        n_timesteps=len(times),
+                        subgroup="budget",
+                    )
 
         if budget_records:
             store.write_budgets(sim_id, budget_records)

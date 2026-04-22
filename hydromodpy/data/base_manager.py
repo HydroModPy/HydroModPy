@@ -569,9 +569,9 @@ class BaseFieldManager(ABC):
             return records
         from hydromodpy.data.common.geo_helpers import (
             filter_locations_by_geometry,
-            load_mask_geometry,
+            load_mask_geometry_wgs84,
         )
-        geom = load_mask_geometry(source_cfg.mask_path)
+        geom = load_mask_geometry_wgs84(source_cfg.mask_path)
         locs_to_check = [r.location for r in records if r.location is not None]
         inside = filter_locations_by_geometry(locs_to_check, geom)
         valid_ids = {loc.id for loc in inside}

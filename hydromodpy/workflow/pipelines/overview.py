@@ -75,59 +75,42 @@ class DataOverviewLauncher:
     # Phase 1b — DEM bootstrap (API download)
     # ------------------------------------------------------------------
 
-    @staticmethod
-    def _bootstrap_dem(state: DataOverviewState) -> None:
-        """Download DEM via IGN BD ALTI API when ``dem_init_path`` is absent.
+    def _bootstrap_dem(self, state: DataOverviewState) -> None:
+        """Resolve ``geographic.dem_init_path`` from ``[[data.dem.sources]]`` if absent.
 
-        Uses the outlet coordinates + a generous buffer to build a bbox,
-        then downloads and injects the path into the geographic config.
+        Delegates to the shared resolver so the standard simulation
+        pipeline and the overview pipeline behave identically.
         """
+        from hydromodpy.data.variables.dem.resolver import (
+            resolve_dem_path_from_data_sources,
+        )
+
         geo_cfg = state.cfg.geographic
         if (
             geo_cfg.dem_init_path is not None
-            and str(geo_cfg.dem_init_path) != "__DEM_API_BOOTSTRAP__"
+            and Path(geo_cfg.dem_init_path).name != "__DEM_API_BOOTSTRAP__"
             and geo_cfg.dem_init_path.exists()
         ):
             return
 
-        # Check if a DEM API source is configured in [data.dem].
-        dem_source = _find_dem_api_source(state.cfg)
-        if dem_source is None:
-            raise ValueError(
-                "No dem_init_path and no [data.dem] API source configured. "
-                "Either set geographic.dem_init_path or add:\n"
-                "  [data]\n  types = [..., \"dem\"]\n"
-                "  [[data.dem.sources]]\n  source = \"ign_bdalti\""
-            )
-
-        x_out = geo_cfg.x_outlet
-        y_out = geo_cfg.y_outlet
-        if x_out is None or y_out is None:
-            raise ValueError(
-                "DEM bootstrap requires outlet coordinates "
-                "(geographic.x_outlet / y_outlet)."
-            )
-
-        # Build a generous bbox around the outlet (30 km buffer).
-        _BUFFER_M = 30_000
-        bbox = (x_out - _BUFFER_M, y_out - _BUFFER_M,
-                x_out + _BUFFER_M, y_out + _BUFFER_M)
-
-        from hydromodpy.data.variables.dem.apis.ign_bdalti import (
-            fetch_bdalti,
-        )
-
-        cache_dir = Path.home() / ".cache" / "hydromodpy" / "dem"
+        cache_dir = None
         if state.workspace is not None and state.workspace.paths.data_path is not None:
             cache_dir = state.workspace.paths.data_path / "dem"
-        cache_dir.mkdir(parents=True, exist_ok=True)
 
-        logger.info("[overview] Downloading DEM via %s API ...", dem_source)
-        tif_path = fetch_bdalti(output_dir=cache_dir, bbox=bbox)
-        logger.info("[overview] DEM downloaded: %s", tif_path)
-
-        # Inject into geographic config so the pipeline can use it.
-        geo_cfg.dem_init_path = tif_path
+        resolved = resolve_dem_path_from_data_sources(
+            state.cfg, config_path=self.config_path, cache_dir=cache_dir,
+        )
+        if resolved is None:
+            raise ValueError(
+                "No dem_init_path and no [data.dem] source configured. "
+                "Either set geographic.dem_init_path or add:\n"
+                "  [data]\n  types = [..., \"dem\"]\n"
+                "  [[data.dem.sources]]\n  source = \"ign_bdalti\"\n"
+                "or:\n"
+                "  [[data.dem.sources]]\n  source = \"custom\"\n  path = \"...\""
+            )
+        logger.info("[overview] DEM resolved from [data.dem]: %s", resolved)
+        geo_cfg.dem_init_path = resolved
 
     # ------------------------------------------------------------------
     # Phase 2 — Geographic
@@ -163,14 +146,69 @@ class DataOverviewLauncher:
     # ------------------------------------------------------------------
 
     def _load_data(self, state: DataOverviewState) -> None:
+        """Load every data family declared in ``[data].types`` into ``state.loaded_data``.
+
+        Uses :class:`DataManagersRuntimeLoader` via a duck-typed proxy that
+        mimics ``WorkflowContext``. Overview dates from ``[overview]`` are
+        injected into data sections that have no explicit dates of their own.
+        """
+        from types import SimpleNamespace
+
         from hydromodpy.data.plan import DataLoadPlan
+        from hydromodpy.data.loader import DataManagersRuntimeLoader
 
         data_plan = DataLoadPlan(
             explicit_types=tuple(state.cfg.data.types),
             inferred_types=(),
         )
-        state.loaded_data = state.loaded_data
-        logger.info("[overview] Data plan declared for: %s", list(data_plan.types))
+        logger.info("[overview] Loading data for: %s", list(data_plan.types))
+
+        self._inject_overview_dates(state)
+
+        proxy = SimpleNamespace(
+            cfg=SimpleNamespace(
+                data=state.cfg.data,
+                workspace=state.cfg.workspace,
+                simulation=None,
+                overview=state.cfg.overview,
+            ),
+            setup=SimpleNamespace(
+                workspace=state.workspace,
+                geographic=state.geographic,
+                domain=None,
+            ),
+            loaded_data=state.loaded_data,
+            config_path=self.config_path,
+            data_plan=data_plan,
+        )
+
+        loader = DataManagersRuntimeLoader(
+            config_path=self.config_path,
+            data_plan=data_plan,
+        )
+        loader.load_all(proxy)
+
+    @staticmethod
+    def _inject_overview_dates(state: DataOverviewState) -> None:
+        """Copy ``[overview].date_start/date_end`` into data sections missing them."""
+        overview = state.cfg.overview
+        if overview is None or not overview.date_start or not overview.date_end:
+            return
+
+        for type_name in state.cfg.data.types:
+            section = getattr(state.cfg.data, type_name, None)
+            if section is None or not hasattr(section, "date_start"):
+                continue
+            if not getattr(section, "date_start", None):
+                try:
+                    section.date_start = overview.date_start
+                except (AttributeError, TypeError, ValueError):
+                    pass
+            if not getattr(section, "date_end", None):
+                try:
+                    section.date_end = overview.date_end
+                except (AttributeError, TypeError, ValueError):
+                    pass
 
     # ------------------------------------------------------------------
     # Phase 4 — Report generation
@@ -178,25 +216,8 @@ class DataOverviewLauncher:
 
     @staticmethod
     def _generate_report(state: DataOverviewState) -> list[Path]:
-        logger.info(
-            "[overview] Report panel generation has been removed in P08 — "
-            "use the figure registry (hydromodpy.display) on a Simulation "
-            "for per-figure rendering instead."
-        )
-        return []
+        from hydromodpy.display.overview import generate_overview_report
+
+        return generate_overview_report(state)
 
 
-# ======================================================================
-# Module-level helpers
-# ======================================================================
-
-def _find_dem_api_source(cfg: HydroModPyConfig) -> str | None:
-    """Return the API source name if a DEM API source is configured."""
-    _API_SOURCES = {"ign_bdalti"}
-    dem_cfg = getattr(cfg.data, "dem", None)
-    if dem_cfg is None:
-        return None
-    for src in getattr(dem_cfg, "sources", []):
-        if getattr(src, "source", "") in _API_SOURCES:
-            return src.source
-    return None

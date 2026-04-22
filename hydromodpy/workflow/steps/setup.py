@@ -45,6 +45,46 @@ def build_geographic_runtime(cfg: object, workspace: object) -> object:
     return hmp.CatchmentDelineation(geographic_cfg, workspace)
 
 
+def resolve_dem_init_path(cfg: object, run_state: WorkflowContext) -> None:
+    """Populate ``geographic.dem_init_path`` from ``[[data.dem.sources]]`` when absent.
+
+    Keeps DEM declarations symmetrical with other data managers: a user
+    can either set ``geographic.dem_init_path`` directly (shortcut) or
+    declare ``[[data.dem.sources]] source = "custom" path = ...`` (same
+    pattern as geology, hydrometry, etc.). The geographic pipeline only
+    ever sees a resolved path.
+    """
+    geographic_cfg = cfg.geographic
+    uses_synthetic = getattr(geographic_cfg, "uses_synthetic_geographic", None)
+    if callable(uses_synthetic) and uses_synthetic():
+        return
+
+    existing = getattr(geographic_cfg, "dem_init_path", None)
+    if existing is not None and Path(existing).name != "__DEM_API_BOOTSTRAP__":
+        return
+
+    from hydromodpy.data.variables.dem.resolver import (
+        resolve_dem_path_from_data_sources,
+    )
+
+    config_path = run_state.config_path
+    if config_path is None:
+        return
+
+    cache_dir = None
+    workspace = run_state.setup.workspace
+    paths = getattr(workspace, "paths", None) if workspace is not None else None
+    data_path = getattr(paths, "data_path", None) if paths is not None else None
+    if data_path is not None:
+        cache_dir = Path(data_path) / "dem"
+
+    resolved = resolve_dem_path_from_data_sources(
+        cfg, config_path=Path(config_path), cache_dir=cache_dir,
+    )
+    if resolved is not None:
+        geographic_cfg.dem_init_path = resolved
+
+
 # ---------------------------------------------------------------------------
 # Spatial support helpers
 # ---------------------------------------------------------------------------
@@ -282,6 +322,7 @@ def run_setup(
     setup_state = run_state.setup
 
     setup_state.workspace = hmp.Workspace(config=cfg.workspace)
+    resolve_dem_init_path(cfg, run_state)
     setup_state.geographic = build_geographic_fn(cfg, setup_state.workspace)
     setup_state.geographic_features = coerce_geographic_derived_features(
         geographic=setup_state.geographic,

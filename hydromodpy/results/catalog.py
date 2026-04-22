@@ -3,9 +3,11 @@ from __future__ import annotations
 import hashlib
 import json
 import logging
+import re
 import shutil
+from dataclasses import dataclass
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Literal
 from uuid import UUID
 
 import duckdb
@@ -29,6 +31,100 @@ if TYPE_CHECKING:
     from hydromodpy.results.simulation_group import SimulationGroup
 
 logger = logging.getLogger(__name__)
+
+# Reference-resolution helpers -------------------------------------------------
+
+OnCollisionMode = Literal["replace", "fail", "version"]
+_MIN_PREFIX_LEN = 4
+_UUID_FULL_RE = re.compile(
+    r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+    re.IGNORECASE,
+)
+_HEX_RE = re.compile(r"^[0-9a-f]+$", re.IGNORECASE)
+
+
+def short_id(sim_id: str | UUID) -> str:
+    """Return the first 8 hex characters of a simulation UUID (Git-style)."""
+    return str(sim_id)[:8]
+
+
+class SimulationNotFoundError(KeyError):
+    """Raised when a reference does not match any simulation in the catalog."""
+
+
+class AmbiguousReferenceError(KeyError):
+    """Raised when a UUID prefix matches more than one simulation."""
+
+    def __init__(self, ref: str, candidates: list[tuple[str, str | None]]) -> None:
+        self.ref = ref
+        self.candidates = candidates
+        head = candidates[:10]
+        lines = "\n".join(
+            f"  {short_id(sid)}  {name or '(no name)'}" for sid, name in head
+        )
+        suffix = (
+            f"\n  … and {len(candidates) - 10} more"
+            if len(candidates) > 10 else ""
+        )
+        super().__init__(
+            f"Reference '{ref}' is ambiguous; matches {len(candidates)} "
+            f"simulations:\n{lines}{suffix}"
+        )
+
+
+class DuplicateSimulationNameError(ValueError):
+    """Raised when on_collision='fail' and a (project, name) pair already exists."""
+
+    def __init__(self, project: str, name: str, existing_sim_id: str) -> None:
+        self.project = project
+        self.name = name
+        self.existing_sim_id = existing_sim_id
+        super().__init__(
+            f"Simulation '{name}' already exists in project '{project}' "
+            f"(existing sim_id {short_id(existing_sim_id)}). "
+            f"Use on_collision='replace' or 'version' to proceed."
+        )
+
+
+@dataclass(frozen=True)
+class RegistrationResult:
+    """Outcome of :meth:`SimulationCatalog.register_simulation`.
+
+    Attributes
+    ----------
+    sim_id
+        UUID of the newly registered simulation.
+    name
+        Final name assigned to the simulation (may differ from the requested
+        name when ``on_collision='version'`` auto-suffixes it).
+    zarr
+        The freshly created :class:`SimulationZarr`, or ``None`` when mesh
+        dimensions are not yet known at registration time.
+    replaced_sim_id
+        UUID of a previously named simulation whose name was cleared by a
+        soft-replace. ``None`` when no collision occurred.
+    """
+
+    sim_id: str
+    name: str | None
+    zarr: SimulationZarr | None
+    replaced_sim_id: str | None
+
+
+def _next_available_version(
+    db: duckdb.DuckDBPyConnection, project: str, base_name: str,
+) -> str:
+    """Return ``base_name.v{n}`` where ``n`` is the smallest free integer ≥ 2."""
+    rows = db.execute(
+        "SELECT name FROM simulations WHERE project = ? AND "
+        "(name = ? OR name LIKE ?)",
+        [project, base_name, base_name + ".v%"],
+    ).fetchall()
+    existing = {r[0] for r in rows}
+    n = 2
+    while f"{base_name}.v{n}" in existing:
+        n += 1
+    return f"{base_name}.v{n}"
 
 
 def _coerce_timestamp(value: Any) -> Any:
@@ -121,6 +217,7 @@ class SimulationCatalog:
         solver: str,
         *,
         name: str | None = None,
+        on_collision: OnCollisionMode = "replace",
         solver_category: str | None = None,
         flow_regime: str | None = None,
         config: dict | None = None,
@@ -142,17 +239,41 @@ class SimulationCatalog:
         geographic_fingerprint: str | None = None,
         tags: list[str] | None = None,
         notes: str | None = None,
-        run_id: str | None = None,
-    ) -> SimulationZarr | None:
+    ) -> RegistrationResult:
         sid = str(sim_id)
+        replaced_sid: str | None = None
+        final_name = name
 
-        if run_id:
+        if name:
             existing = self._db.execute(
-                "SELECT sim_id FROM simulations WHERE name = ?", [run_id],
-            ).fetchall()
-            for (old_sid,) in existing:
-                self.delete(old_sid)
-                logger.info("Replaced previous simulation %s (run_id=%s)", old_sid, run_id)
+                "SELECT sim_id FROM simulations WHERE project = ? AND name = ?",
+                [project, name],
+            ).fetchone()
+            if existing:
+                existing_sid = str(existing[0])
+                if on_collision == "fail":
+                    raise DuplicateSimulationNameError(project, name, existing_sid)
+                if on_collision == "replace":
+                    self._db.execute(
+                        "UPDATE simulations SET name = NULL WHERE sim_id = ?",
+                        [existing_sid],
+                    )
+                    replaced_sid = existing_sid
+                    logger.info(
+                        "Reassigning name '%s' in project '%s' "
+                        "(previous sim %s kept, name cleared)",
+                        name, project, short_id(existing_sid),
+                    )
+                elif on_collision == "version":
+                    final_name = _next_available_version(self._db, project, name)
+                    logger.info(
+                        "Auto-versioned '%s' → '%s' in project '%s'",
+                        name, final_name, project,
+                    )
+                else:
+                    raise ValueError(
+                        f"Unknown on_collision mode: '{on_collision}'"
+                    )
 
         if solver_category is None:
             solver_category = SOLVER_CATEGORIES.get(solver)
@@ -198,7 +319,7 @@ class SimulationCatalog:
                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
                        ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
             [
-                sid, name, project, solver, solver_category, flow_regime,
+                sid, final_name, project, solver, solver_category, flow_regime,
                 n_cells, n_layers, n_timesteps,
                 bbox_xmin, bbox_ymin, bbox_xmax, bbox_ymax,
                 crs_wkt, crs_epsg,
@@ -209,14 +330,18 @@ class SimulationCatalog:
             ],
         )
 
+        zarr_obj: SimulationZarr | None = None
         if n_cells is not None and n_layers is not None:
             zarr_abs = self._workspace / zarr_path
-            return SimulationZarr.create(
+            zarr_obj = SimulationZarr.create(
                 zarr_abs, n_cells=n_cells, n_layers=n_layers,
                 cell_types=cell_types,
                 geographic_fingerprint=geographic_fingerprint,
             )
-        return None
+        return RegistrationResult(
+            sim_id=sid, name=final_name, zarr=zarr_obj,
+            replaced_sim_id=replaced_sid,
+        )
 
     # -- Parameter writes ----------------------------------------------------
 
@@ -253,12 +378,20 @@ class SimulationCatalog:
         if n == 0:
             return
         sid = str(sim_id)
+        # The timeseries.datetime column is TIMESTAMPTZ (WITH TIME ZONE).
+        # DuckDB 1.5+ can't cast between tz-aware and tz-naive via Arrow,
+        # so normalize to a single tz-aware representation (UTC) here.
+        dt_values = pd.DatetimeIndex(ts.index)
+        if dt_values.tz is None:
+            dt_values = dt_values.tz_localize("UTC")
+        else:
+            dt_values = dt_values.tz_convert("UTC")
         insert_df = pd.DataFrame(
             {
                 "sim_id": np.full(n, sid, dtype=object),
                 "station_id": np.full(n, station_id, dtype=object),
                 "variable": np.full(n, variable, dtype=object),
-                "datetime": ts.index,
+                "datetime": dt_values,
                 "value": ts.values.astype("float64"),
                 "unit": np.full(n, unit, dtype=object),
             }
@@ -606,17 +739,29 @@ class SimulationCatalog:
         )
         params: list = [str(sim_id), station_id, variable]
         if period is not None:
+            # Datetimes are stored as UTC-aware TIMESTAMPTZ; normalize the
+            # caller's bounds to tz-aware UTC so the comparison is stable
+            # regardless of DuckDB's session timezone.
+            lo = pd.Timestamp(period[0])
+            hi = pd.Timestamp(period[1])
+            lo = lo.tz_localize("UTC") if lo.tz is None else lo.tz_convert("UTC")
+            hi = hi.tz_localize("UTC") if hi.tz is None else hi.tz_convert("UTC")
             query += " AND datetime >= ? AND datetime <= ?"
-            params.extend([period[0], period[1]])
+            params.extend([lo.to_pydatetime(), hi.to_pydatetime()])
         query += " ORDER BY datetime"
         result = self._db.execute(query, params).fetchdf()
         if result.empty:
             raise KeyError(
                 f"No timeseries for sim={sim_id}, station={station_id}, var={variable}"
             )
+        # Strip tz back to naive so the returned series aligns with
+        # simulation-internal tz-naive time indexes.
+        idx = pd.DatetimeIndex(result["datetime"])
+        if idx.tz is not None:
+            idx = idx.tz_convert("UTC").tz_localize(None)
         return pd.Series(
             result["value"].values,
-            index=pd.DatetimeIndex(result["datetime"]),
+            index=idx,
             name=variable,
         )
 
@@ -710,15 +855,82 @@ class SimulationCatalog:
             "SELECT * FROM simulations ORDER BY created_at DESC"
         ).fetchdf()
 
-    def __getitem__(self, sim_id: str | UUID) -> Run:
+    def resolve(
+        self, ref: str | UUID, *, project: str | None = None,
+    ) -> str:
+        """Resolve a user reference to a simulation UUID.
+
+        Accepts three forms, tried in order:
+
+        1. Full UUID (with dashes, 36 chars).
+        2. UUID prefix of ≥ 4 hex characters (no dashes). Must match a single
+           simulation globally; raises :class:`AmbiguousReferenceError`
+           otherwise.
+        3. Exact ``name`` within ``project`` — requires the ``project``
+           keyword.
+
+        Raises :class:`SimulationNotFoundError` when nothing matches.
+        """
+        ref_s = str(ref).strip()
+        if not ref_s:
+            raise SimulationNotFoundError("Empty reference")
+
+        if _UUID_FULL_RE.match(ref_s):
+            row = self._db.execute(
+                "SELECT CAST(sim_id AS VARCHAR) FROM simulations "
+                "WHERE CAST(sim_id AS VARCHAR) = ?",
+                [ref_s.lower()],
+            ).fetchone()
+            if row:
+                return str(row[0])
+
+        ref_nodash = ref_s.replace("-", "").lower()
+        if _HEX_RE.match(ref_nodash) and len(ref_nodash) >= _MIN_PREFIX_LEN:
+            rows = self._db.execute(
+                "SELECT CAST(sim_id AS VARCHAR), name FROM simulations "
+                "WHERE REPLACE(CAST(sim_id AS VARCHAR), '-', '') LIKE ? || '%'",
+                [ref_nodash],
+            ).fetchall()
+            if len(rows) == 1:
+                return str(rows[0][0])
+            if len(rows) > 1:
+                raise AmbiguousReferenceError(
+                    ref_s, [(str(r[0]), r[1]) for r in rows],
+                )
+
+        if project is not None:
+            row = self._db.execute(
+                "SELECT CAST(sim_id AS VARCHAR) FROM simulations "
+                "WHERE project = ? AND name = ?",
+                [project, ref_s],
+            ).fetchone()
+            if row:
+                return str(row[0])
+        else:
+            rows = self._db.execute(
+                "SELECT CAST(sim_id AS VARCHAR), project FROM simulations "
+                "WHERE name = ?",
+                [ref_s],
+            ).fetchall()
+            if len(rows) == 1:
+                return str(rows[0][0])
+            if len(rows) > 1:
+                raise AmbiguousReferenceError(
+                    ref_s,
+                    [(str(r[0]), f"{ref_s} (project={r[1]})") for r in rows],
+                )
+
+        where = f"'{ref_s}'"
+        context = f" in project '{project}'" if project else ""
+        raise SimulationNotFoundError(
+            f"Reference {where} not found{context}. "
+            "Try `hmp list <project>` or `catalog.simulations` to see known runs."
+        )
+
+    def __getitem__(self, ref: str | UUID) -> Run:
         from hydromodpy.results.run import Run
 
-        sid = str(sim_id)
-        row = self._db.execute(
-            "SELECT sim_id FROM simulations WHERE sim_id = ?", [sid],
-        ).fetchone()
-        if row is None:
-            raise KeyError(f"Simulation '{sid}' not found")
+        sid = self.resolve(ref)
         return Run(sid, self)
 
     def find(self, **filters) -> SimulationGroup:

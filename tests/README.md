@@ -51,6 +51,7 @@ Declared in `pyproject.toml`:
 | `petsc`       | Linux PETSc Boussinesq runtime |
 | `integration` | cross-module workflow test (auto-applied to `tests/integration/`) |
 | `coverage`    | long-running coverage-focused test |
+| `solver_sanity` | benchmark built directly on the solver SDK (e.g. flopy); validates the external solver against an analytical reference, **not** the hydromodpy pipeline |
 
 The `fast`/`extensive` markers under `tests/regression/` are auto-applied
 based on the file's subdirectory (see `tests/conftest.py`).

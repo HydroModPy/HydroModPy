@@ -17,6 +17,13 @@ along the column at three times.
 
 Tolerance rationale — ``tests/TOLERANCES.md`` row 7: NSE > 0.95 across
 all (x, t) probes with a maximum pointwise relative error below 3 %.
+
+Scope — ``solver_sanity``:
+   The coupled GWF + GWT column with inlet auxiliary concentration is
+   built directly on the flopy SDK because hydromodpy's transport
+   plumbing does not yet expose MF6 GWT through the launcher TOML. The
+   test therefore validates **MODFLOW 6 GWT against the Ogata-Banks
+   analytical solution**, not the hydromodpy pipeline.
 """
 
 from __future__ import annotations
@@ -248,6 +255,7 @@ def _build_and_run_ogata_banks_model(
 @pytest.mark.transient
 @pytest.mark.mf6
 @pytest.mark.slow
+@pytest.mark.solver_sanity
 def test_ogata_banks_1d_transport_matches_analytical_reference(tmp_path: Path) -> None:
     """Run the MF6 GWF+GWT column and compare ``c(x, t)`` to the Ogata-Banks profile."""
     assert_required_executables(

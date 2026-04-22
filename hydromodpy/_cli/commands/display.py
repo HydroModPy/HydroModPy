@@ -92,9 +92,17 @@ def run(args: argparse.Namespace) -> None:
         )
         sys.exit(EXIT_CONFIG)
 
+    from hydromodpy.results.catalog import (
+        AmbiguousReferenceError,
+        SimulationNotFoundError,
+    )
     workspace_root = find_workspace_root(Path.cwd())
     with SimulationCatalog(workspace_root) as catalog:
-        sim = catalog[target]
+        try:
+            sim = catalog[target]
+        except (AmbiguousReferenceError, SimulationNotFoundError) as exc:
+            print(str(exc), file=sys.stderr)
+            sys.exit(EXIT_NOT_FOUND)
         out_dir = Path.cwd() / "figures"
         save = out_dir / f"{figure_name}.png"
         get_figure(figure_name).plot(sim, save_path=save)
