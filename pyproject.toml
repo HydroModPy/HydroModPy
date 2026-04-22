@@ -114,6 +114,10 @@ ide = [
 ]
 ugrid = ["xugrid"]
 viewer3d = ["pyvista"]
+dev = [
+    "ruff>=0.15",
+    "pre-commit>=4.0",
+]
 
 [project.scripts]
 hmp = "hydromodpy._cli:main"
@@ -174,3 +178,63 @@ exclude_lines = [
     "raise NotImplementedError",
     "\\.\\.\\.",
 ]
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Ruff — unified linter + formatter (replaces black, isort, flake8, pyupgrade…)
+# ──────────────────────────────────────────────────────────────────────────────
+[tool.ruff]
+target-version = "py311"
+line-length = 100
+
+extend-exclude = [
+    "examples_legacy_2",
+    "hydromodpy.egg-info",
+    "docs/_build",
+    "docs/readthedocs/_build",
+    "bin",
+    ".venv",
+    "build",
+    "dist",
+]
+
+[tool.ruff.lint]
+# Classic starter set — the six rule groups most Python projects enable.
+# Extend later (C4, SIM, NPY, RUF, D, ANN…) once the core is clean.
+select = [
+    "E",   # pycodestyle errors
+    "W",   # pycodestyle warnings
+    "F",   # pyflakes (unused imports/variables, undefined names…)
+    "I",   # isort (import sorting)
+    "UP",  # pyupgrade (modernize syntax for your target Python)
+    "B",   # flake8-bugbear (likely-bug patterns)
+]
+
+ignore = [
+    "E501",  # line too long — the formatter handles it
+    "B008",  # function call in default arg (common with pydantic Field(...))
+]
+
+[tool.ruff.lint.per-file-ignores]
+# Package __init__ files commonly re-export symbols and set up paths.
+"__init__.py" = ["F401", "E402"]
+# Tests can use late imports, unused fixtures, magic values.
+"tests/**/*.py" = ["E402", "F401", "B011"]
+# Demo / validation scripts: lenient, they're not production code.
+"hydromodpy/**/cases/**" = ["E402", "F401", "B007"]
+"validation_cases/**" = ["E402", "F401", "B007"]
+"examples/**" = ["E402", "F401", "B007"]
+# CLI shells can do argparse-style late imports.
+"hydromodpy/_cli/**" = ["E402"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["hydromodpy", "hydromodpy_annex"]
+
+[tool.ruff.format]
+# Mirrors black's defaults: double quotes, 4-space indent, trailing commas.
+quote-style = "double"
+indent-style = "space"
+skip-magic-trailing-comma = false
+line-ending = "auto"
+# Also format code blocks inside docstrings (``>>>`` examples etc.).
+docstring-code-format = true
+docstring-code-line-length = 80
