@@ -1,3 +1,5 @@
+workflow = "simulation"
+
 [simulation]
 name = "LU boundary piecewise val"
 description = "Synthetic transient unconfined flow with a piecewise west-boundary head series and a fixed east boundary."

@@ -1,3 +1,5 @@
+workflow = "simulation"
+
 [simulation]
 name = "Analytical circular island ocean validation"
 description = "Synthetic steady-state unconfined flow on a circular island with uniform recharge and sea level imposed through the ocean boundary condition."

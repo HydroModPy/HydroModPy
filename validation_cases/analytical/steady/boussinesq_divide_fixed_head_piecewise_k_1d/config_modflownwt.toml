@@ -1,3 +1,5 @@
+workflow = "simulation"
+
 [simulation]
 name = "Bsq divide piecewise K 1D"
 description = "Synthetic steady-state unconfined flow with west-side divide, east-side fixed head, recharge, and piecewise-constant hydraulic conductivity."
