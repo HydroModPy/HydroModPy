@@ -9,7 +9,6 @@ from __future__ import annotations
 
 from hydromodpy._cli.commands import (
     best,
-    calibrate,
     compare,
     completion,
     config_cmd,
@@ -37,7 +36,6 @@ ALL_COMMANDS = (
     config_cmd,
     schema,
     run,
-    calibrate,
     display,
     list_cmd,
     export,

@@ -25,7 +25,7 @@ import os
 import re
 from collections.abc import Mapping
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Callable
+from typing import TYPE_CHECKING, Any, Callable, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 from pydantic.fields import FieldInfo
@@ -82,6 +82,17 @@ class HydroModPyConfig(HydroModelBase):
 
     model_config = ConfigDict(extra="forbid", arbitrary_types_allowed=True)
 
+    workflow: Annotated[
+        Literal["simulation", "calibration", "batch", "overview", "mesh"],
+        Profile.USER,
+    ] = Field(
+        description=(
+            "Workflow selector (mandatory). Must be one of "
+            "'simulation', 'calibration', 'batch', 'overview', 'mesh'. "
+            "Drives dispatch in `hmp run <toml>` and in API-driven callers "
+            "that instantiate `HydroModPyConfig` from a frontend form."
+        ),
+    )
     workspace: Annotated[WorkspaceConfig, Profile.USER] = Field(
         description="Configuration block for the project workspace and folder structure."
     )
@@ -354,6 +365,10 @@ class HydroModPyConfig(HydroModelBase):
         for section_name, (default_value, loader) in section_loaders.items():
             section_data = raw.get(section_name, default_value)
             parsed_sections[section_name] = loader(section_data, base)
+
+        # Top-level scalar fields (non-section) — forward as-is to Pydantic.
+        if "workflow" in raw:
+            parsed_sections["workflow"] = raw["workflow"]
 
         cfg = cls(**parsed_sections)
 

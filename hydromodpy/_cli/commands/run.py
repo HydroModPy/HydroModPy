@@ -1,7 +1,13 @@
-"""``hmp run`` — execute a simulation, overview, mesh, calibration, or batch.
+"""``hmp run`` — execute a workflow declared by the TOML.
 
-Auto-detects workflow from TOML sections. Supports ``.py`` scripts too, which
-are executed as-is in a subprocess for prototyping.
+Requires the TOML to carry a top-level ``workflow = "..."`` field
+(one of ``simulation``, ``calibration``, ``batch``, ``overview``, ``mesh``).
+Absence raises ``WorkflowMissingError``. Use an explicit subcommand
+(``hmp simulate``, ``hmp mesh``, ``hmp overview``, ``hmp calibrate``,
+``hmp batch``) if you prefer CLI-side selection.
+
+Also supports ``.py`` scripts, executed as-is in a subprocess for
+prototyping (no workflow involved).
 """
 
 from __future__ import annotations
@@ -88,23 +94,38 @@ def run(args: argparse.Namespace) -> None:
 
 
 def _run_toml(config_path: Path, *, args: argparse.Namespace) -> None:
-    """Run a workflow from a TOML file (auto-detected from sections)."""
+    """Run a workflow from a TOML file.
+
+    The TOML MUST declare ``workflow = "..."`` at the top level — otherwise
+    :class:`~hydromodpy._cli.workflows.WorkflowMissingError` is raised and
+    the CLI exits with ``EXIT_CONFIG``. No implicit detection from sections.
+    """
     import tomllib
 
-    from hydromodpy._cli.workflows import detect_workflow
+    from hydromodpy._cli.workflows import (
+        WorkflowError,
+        load_raw_toml,
+        resolve_workflow,
+    )
     from hydromodpy.core.tools.display import print_hydromodpy
 
     print_hydromodpy()
     auto_scan_workspace(config_path)
 
     try:
-        with open(config_path, "rb") as f:
-            raw_toml = tomllib.load(f)
+        raw_toml = load_raw_toml(config_path)
     except tomllib.TOMLDecodeError as exc:
         print(f"Invalid TOML: {exc}", file=sys.stderr)
         sys.exit(EXIT_CONFIG)
 
-    workflow = detect_workflow(raw_toml)
+    try:
+        workflow = resolve_workflow(
+            config_path, cli_workflow=None, require_toml_field=True,
+        )
+    except WorkflowError as exc:
+        print(str(exc), file=sys.stderr)
+        sys.exit(EXIT_CONFIG)
+
     resume = getattr(args, "resume", None)
     from_step = getattr(args, "from_step", None)
     until_step = getattr(args, "until_step", None)
