@@ -11,16 +11,24 @@ import pytest
 
 from hydromodpy.results.catalog import SimulationCatalog
 from hydromodpy.results.catalog_schema import (
+    PARQUET_VIEW_NAMES,
     TABLE_NAMES,
     VIEW_NAMES,
+    ensure_parquet_views,
     ensure_schema,
 )
 
 
 @pytest.fixture
-def mem_conn():
+def mem_conn(tmp_path):
+    """In-memory connection seeded with the full schema + empty Parquet views.
+
+    ``tmp_path`` is used only as the workspace argument so the Parquet-backed
+    views are installed in their empty-typed form (no Parquet files exist
+    under the throwaway directory).
+    """
     conn = duckdb.connect(":memory:")
-    ensure_schema(conn)
+    ensure_schema(conn, tmp_path)
     yield conn
     conn.close()
 
@@ -44,7 +52,18 @@ class TestSchema:
         ).fetchall()
         tables = {r[0] for r in rows}
         assert set(TABLE_NAMES) <= tables
-        assert len(TABLE_NAMES) == 17
+        assert len(TABLE_NAMES) == 14
+
+    def test_parquet_views_present_as_empty(self, mem_conn):
+        rows = mem_conn.execute(
+            "SELECT table_name FROM information_schema.views WHERE table_schema='main'"
+        ).fetchall()
+        names = {r[0] for r in rows}
+        assert set(PARQUET_VIEW_NAMES) <= names
+        for view in PARQUET_VIEW_NAMES:
+            # On a fresh workspace the view has the right columns but 0 rows.
+            count = mem_conn.execute(f"SELECT COUNT(*) FROM {view}").fetchone()[0]
+            assert count == 0
 
     def test_schema_version_table_absent(self, mem_conn):
         rows = mem_conn.execute(
@@ -288,18 +307,16 @@ class TestPrimaryKeys:
 
 class TestPerSimColumns:
     def test_per_sim_tables_carry_sim_id(self, mem_conn):
-        """Each per-sim table exposes a non-null ``sim_id`` column.
+        """Each per-sim DuckDB table exposes a non-null ``sim_id`` column.
 
         Referential integrity is enforced by the catalog's delete path
         rather than by DuckDB FK constraints (see module docstring), so
-        this test only checks the structural invariant.
+        this test only checks the structural invariant. Parquet-backed
+        views are validated separately in ``test_parquet_view_columns``.
         """
         per_sim = (
             "parameters",
             "metrics",
-            "timeseries",
-            "budgets",
-            "mass_balance",
             "observation_points",
             "provenance",
             "geographic_features",
@@ -314,6 +331,20 @@ class TestPerSimColumns:
             assert row is not None, f"{table} missing sim_id"
             assert row[0] == "NO", f"{table}.sim_id must be NOT NULL"
 
+    def test_parquet_view_columns(self, mem_conn):
+        """The three Parquet-backed views expose the expected UUID column."""
+        for view in PARQUET_VIEW_NAMES:
+            cols = {
+                r[0]: r[1]
+                for r in mem_conn.execute(
+                    "SELECT column_name, data_type FROM information_schema.columns "
+                    "WHERE table_name = ?",
+                    [view],
+                ).fetchall()
+            }
+            assert "sim_id" in cols, f"{view} missing sim_id"
+            assert "UUID" in cols["sim_id"].upper()
+
 
 class TestChecks:
     def test_status_enum_enforced(self, mem_conn):
@@ -325,31 +356,35 @@ class TestChecks:
                 [sid],
             )
 
-    def test_budget_component_not_null(self, mem_conn):
-        """The budgets table must reject NULL component values.
+    def test_budget_component_accepts_any_nonempty_label(self, catalog):
+        """Per-sim Parquet budgets accept any non-empty component label.
 
-        The previous enum-based CHECK was dropped because solver
-        extractors legitimately emit labels like ``drains``,
-        ``river leakage`` or ``head dep bounds`` that were outside the
-        original closed list. Only NOT NULL is enforced now.
+        The legacy DuckDB-resident ``budgets`` table enforced NOT NULL on
+        ``component`` via a table constraint. With the Parquet layout the
+        invariant is now enforced by the writer: ``write_budgets`` stores
+        the caller-supplied label verbatim, and extractors emit labels
+        like ``drains``, ``river leakage`` or ``head dep bounds`` that
+        were outside the old closed list.
         """
         sid = _sim_id()
-        mem_conn.execute(
-            "INSERT INTO simulations (sim_id, project, solver) VALUES (?, 'p', 'mf6')",
-            [sid],
+        catalog.register_simulation(sid, project="p", solver="modflow6")
+        catalog.write_budgets(
+            sid,
+            [
+                {
+                    "timestep": 0,
+                    "zone_id": "0",
+                    "component": "drains",
+                    "flux_in": 0.0,
+                    "flux_out": 0.0,
+                    "unit": "m3/d",
+                }
+            ],
         )
-        with pytest.raises(duckdb.ConstraintException):
-            mem_conn.execute(
-                "INSERT INTO budgets (sim_id, timestep, component, "
-                "flux_in, flux_out) VALUES (?, 0, NULL, 0, 0)",
-                [sid],
-            )
-        # A previously-rejected label like 'drains' is now accepted.
-        mem_conn.execute(
-            "INSERT INTO budgets (sim_id, timestep, component, "
-            "flux_in, flux_out) VALUES (?, 0, 'drains', 0, 0)",
-            [sid],
-        )
+        count = catalog.connection.execute(
+            "SELECT COUNT(*) FROM budgets WHERE sim_id = ?", [sid]
+        ).fetchone()[0]
+        assert count == 1
 
     def test_bbox_order_enforced(self, mem_conn):
         sid = _sim_id()
