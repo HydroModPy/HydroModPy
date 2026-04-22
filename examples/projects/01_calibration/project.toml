@@ -4,18 +4,15 @@
 # Aquifère Dupuit synthétique (identique à 00_getting_started) + boucle
 # de calibration Optuna sur la conductivité hydraulique K.
 #
-# Lancement :
+# Lancement (seul point d'entrée — pas de `hmp calibrate` séparé) :
 #   hmp run examples/projects/01_calibration/project.toml
 #
-# ou, équivalent, via la CLI dédiée avec un évaluateur Python :
-#   hmp calibrate examples/projects/01_calibration/project.toml \
-#       --objective examples.projects.01_calibration.evaluator:evaluate
-#
-# NOTE : sans --objective, un mock analytique trivial est utilisé ;
-# chaque itération renvoie sim_id=None et aucune simulation réelle n'est
-# enregistrée dans le catalogue. Pour une vraie calibration, fournir un
-# evaluator.py qui charge ce TOML et relance Project.run() à chaque
-# itération.
+# NOTE (état actuel, à retirer après le refactor décrit dans
+# `docs/developers/calibration_sweep_refactor_prompt.md`) : le CLI
+# utilise aujourd'hui un mock analytique ; chaque itération renvoie
+# sim_id=None et aucune simulation réelle n'est enregistrée. Après
+# refactor, `hmp run` lancera le solveur déclaré dans [solver] et
+# persistera les itérations + le best_sim_id.
 # ======================================================================
 
 workflow = "calibration"
