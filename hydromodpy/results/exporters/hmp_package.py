@@ -90,8 +90,7 @@ def _iter_package_files(staging: Path) -> list[Path]:
 
 
 def _materialise_parquet(
-    workspace_path: Path,
-    sim_id: str,
+    src_dir: Path,
     staging: Path,
 ) -> list[str]:
     """Copy per-sim Parquet files into the archive staging area.
@@ -102,7 +101,6 @@ def _materialise_parquet(
     """
     from hydromodpy.results.catalog_schema import PARQUET_VIEW_NAMES
 
-    src_dir = workspace_path / "simulations" / f"{sim_id}.parquet"
     if not src_dir.is_dir():
         return []
     dst_dir = staging / PARQUET_SUBDIR
@@ -119,8 +117,7 @@ def _materialise_parquet(
 
 def _dematerialise_parquet(
     pkg: Path,
-    workspace_path: Path,
-    sim_id: str,
+    dst_dir: Path,
 ) -> list[str]:
     """Copy Parquet files from the archive into the workspace layout.
 
@@ -129,7 +126,6 @@ def _dematerialise_parquet(
     src_dir = pkg / PARQUET_SUBDIR
     if not src_dir.is_dir():
         return []
-    dst_dir = workspace_path / "simulations" / f"{sim_id}.parquet"
     dst_dir.mkdir(parents=True, exist_ok=True)
     copied: list[str] = []
     for src in sorted(src_dir.iterdir()):
@@ -542,7 +538,7 @@ def export_hmp_package(
         )
         _pack_zarr(zarr_src, staging / ZARR_ARCHIVE_NAME)
         _materialise_geographic(workspace, geo_fp, staging)
-        _materialise_parquet(workspace, sid, staging)
+        _materialise_parquet(catalog.parquet_dir_for(sid), staging)
         inputs_manifest = _materialise_inputs(catalog, sid, staging)
         _write_readme(
             sid,
@@ -768,25 +764,37 @@ def import_hmp_package(
             _rewrite_snapshot_project(snap_path, as_project)
         _rewrite_snapshot_paths(snap_path, rewrites)
 
+        from hydromodpy.results.storage_naming import build_storage_basename
+
         catalog.connection.begin()
         try:
             _restore_catalog_snapshot(catalog.connection, snap_path)
             workspace = catalog.workspace_path
-            zarr_path = f"simulations/{sid}.zarr.zip"
+            row = catalog.connection.execute(
+                "SELECT project, name FROM simulations WHERE sim_id = ?",
+                [sid],
+            ).fetchone()
+            project_final = row[0] if row else None
+            name_final = row[1] if row else None
+            basename = build_storage_basename(project_final, name_final, sid)
+            zarr_path = f"simulations/{basename}.zarr.zip"
             catalog.connection.execute(
-                "UPDATE simulations SET zarr_path = ? WHERE sim_id = ?",
-                [zarr_path, sid],
+                "UPDATE simulations SET zarr_path = ?, storage_basename = ? WHERE sim_id = ?",
+                [zarr_path, basename, sid],
             )
             catalog.connection.commit()
         except Exception:
             catalog.connection.rollback()
             raise
 
+        if hasattr(catalog, "_basename_cache"):
+            catalog._basename_cache[sid] = basename
+
         dst = workspace / zarr_path
         dst.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(pkg / ZARR_ARCHIVE_NAME, dst)
 
-        _dematerialise_parquet(pkg, workspace, sid)
+        _dematerialise_parquet(pkg, workspace / "simulations" / f"{basename}.parquet")
         # Refresh Parquet views so the freshly-materialised files become
         # visible to subsequent ``SELECT ... FROM <view>`` calls on the
         # caller's catalog connection.
