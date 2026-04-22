@@ -56,7 +56,8 @@ ZARR_ARCHIVE_NAME = "simulation.zarr.zip"
 GEOGRAPHIC_SUBDIR = "geographic"
 INPUTS_SUBDIR = "inputs"
 INPUTS_MANIFEST_NAME = "manifest.json"
-HMP_FORMAT_VERSION = "1.1"
+PARQUET_SUBDIR = "parquet"
+HMP_FORMAT_VERSION = "1.2"
 HMP_MAGIC = "hydromodpy/hmp"
 SHAPEFILE_SIDECAR_EXTS = (".shp", ".shx", ".dbf", ".prj", ".cpg", ".sbn", ".sbx")
 
@@ -86,6 +87,57 @@ def _iter_package_files(staging: Path) -> list[Path]:
             continue  # manifest is the last entry, assembled separately
         files.append(path)
     return files
+
+
+def _materialise_parquet(
+    workspace_path: Path,
+    sim_id: str,
+    staging: Path,
+) -> list[str]:
+    """Copy per-sim Parquet files into the archive staging area.
+
+    Returns the list of file base names that were bundled (empty when the
+    simulation was registered but never had any per-sim rows, e.g. an
+    overview-only run).
+    """
+    from hydromodpy.results.catalog_schema import PARQUET_VIEW_NAMES
+
+    src_dir = workspace_path / "simulations" / f"{sim_id}.parquet"
+    if not src_dir.is_dir():
+        return []
+    dst_dir = staging / PARQUET_SUBDIR
+    copied: list[str] = []
+    for view in PARQUET_VIEW_NAMES:
+        src = src_dir / f"{view}.parquet"
+        if not src.is_file():
+            continue
+        dst_dir.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(src, dst_dir / src.name)
+        copied.append(src.name)
+    return copied
+
+
+def _dematerialise_parquet(
+    pkg: Path,
+    workspace_path: Path,
+    sim_id: str,
+) -> list[str]:
+    """Copy Parquet files from the archive into the workspace layout.
+
+    Returns the list of file base names that were materialised.
+    """
+    src_dir = pkg / PARQUET_SUBDIR
+    if not src_dir.is_dir():
+        return []
+    dst_dir = workspace_path / "simulations" / f"{sim_id}.parquet"
+    dst_dir.mkdir(parents=True, exist_ok=True)
+    copied: list[str] = []
+    for src in sorted(src_dir.iterdir()):
+        if src.suffix != ".parquet":
+            continue
+        shutil.copy2(src, dst_dir / src.name)
+        copied.append(src.name)
+    return copied
 
 
 def _pack_zarr(zarr_src: Path, dst: Path) -> None:
@@ -490,6 +542,7 @@ def export_hmp_package(
         )
         _pack_zarr(zarr_src, staging / ZARR_ARCHIVE_NAME)
         _materialise_geographic(workspace, geo_fp, staging)
+        _materialise_parquet(workspace, sid, staging)
         inputs_manifest = _materialise_inputs(catalog, sid, staging)
         _write_readme(
             sid,
@@ -732,6 +785,14 @@ def import_hmp_package(
         dst = workspace / zarr_path
         dst.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(pkg / ZARR_ARCHIVE_NAME, dst)
+
+        _dematerialise_parquet(pkg, workspace, sid)
+        # Refresh Parquet views so the freshly-materialised files become
+        # visible to subsequent ``SELECT ... FROM <view>`` calls on the
+        # caller's catalog connection.
+        from hydromodpy.results.catalog_schema import ensure_parquet_views
+
+        ensure_parquet_views(catalog.connection, workspace)
 
         _dematerialise_geographic(
             pkg,
