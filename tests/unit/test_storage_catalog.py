@@ -252,7 +252,7 @@ class TestRegisterAndRead:
         try:
             assert sz is not None
             assert sz.geographic_fingerprint == "fp-abc"
-            zarr_dir = catalog.workspace_path / "simulations" / f"{sid}.zarr"
+            zarr_dir = catalog.zarr_path_for(sid)
             assert zarr_dir.is_dir()
         finally:
             if sz is not None:

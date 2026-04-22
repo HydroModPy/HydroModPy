@@ -42,7 +42,7 @@ class TestRegisterAndFinalize:
         sid, sz = _register(catalog, n_cells=50, n_layers=2)
         assert sz is not None
         assert "mesh" in sz.root
-        zarr_dir = catalog.workspace_path / "simulations" / f"{sid}.zarr"
+        zarr_dir = catalog.zarr_path_for(sid)
         assert zarr_dir.exists()
         sz.close()
 
@@ -243,7 +243,7 @@ class TestDelete:
         catalog.write_metric(sid, "P01", "nse", 0.8)
         catalog.write_provenance(sid, "dem", "dem.tif", np.ones(10))
 
-        zarr_dir = catalog.workspace_path / "simulations" / f"{sid}.zarr"
+        zarr_dir = catalog.zarr_path_for(sid)
         assert zarr_dir.exists()
 
         catalog.delete(sid)
