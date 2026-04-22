@@ -17,6 +17,8 @@
 # Workspace configuration for project-based workspace structure.
 # ----------------------------------------------------------------------
 
+workflow = "overview"
+
 [workspace]
 # Path to the project directory.
 # Auto-derived from TOML location when absent.

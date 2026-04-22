@@ -1,3 +1,5 @@
+workflow = "overview"
+
 [workspace]
 project_root = "."
 

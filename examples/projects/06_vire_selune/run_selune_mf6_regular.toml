@@ -1,5 +1,7 @@
 base_config = "project_simulation.toml"
 
+workflow = "simulation"
+
 [workspace]
 project_root = "outputs/selune_mf6_regular"
 root = "../../"

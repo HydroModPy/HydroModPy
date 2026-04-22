@@ -18,6 +18,8 @@
 # itération.
 # ======================================================================
 
+workflow = "calibration"
+
 [simulation]
 name = "calibration_dupuit"
 description = "Calibration Optuna de K sur aquifère Dupuit synthétique."

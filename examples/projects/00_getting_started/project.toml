@@ -13,6 +13,8 @@
 #   hmp.run("examples/00_getting_started/project.toml", headless=True)
 # ======================================================================
 
+workflow = "simulation"
+
 [simulation]
 name = "getting_started_dupuit"
 description = "Aquifère Dupuit synthétique minimal, régime permanent, MODFLOW-NWT."

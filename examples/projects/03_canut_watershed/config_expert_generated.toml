@@ -10,6 +10,8 @@
 # Workspace configuration for watershed project structure.
 # ----------------------------------------------------------------------
 
+workflow = "simulation"
+
 [workspace]
 project_root = "."
 

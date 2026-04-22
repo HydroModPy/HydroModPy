@@ -1,3 +1,5 @@
+workflow = "simulation"
+
 [workspace]
 project_root = "."
 

@@ -2,6 +2,8 @@
 # Usage:
 #   hmp run config_hydrography_only.toml
 
+workflow = "overview"
+
 [workspace]
 project_root = "hydrography_only"
 root = "../../"

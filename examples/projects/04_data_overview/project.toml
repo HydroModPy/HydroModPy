@@ -5,6 +5,8 @@
 #   hmp run examples/projects/data_overview/project.toml
 # ======================================================================
 
+workflow = "simulation"
+
 [workspace]
 project_root = "."
 
