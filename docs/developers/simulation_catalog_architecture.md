@@ -7,6 +7,16 @@ Changement fondamental : la **simulation** devient l'entite premiere.
 Le concept de "projet" devient un label, pas un dossier.
 Une seule base DuckDB contient toutes les simulations du workspace.
 
+> **Note (v0.6, refactor Parquet lakehouse)** — les tables
+> `timeseries`, `budgets` et `mass_balance` ne sont plus stockees dans
+> `hydromodpy.duckdb`. Elles vivent desormais en Parquet par simulation
+> sous `simulations/<uuid>.parquet/` et sont exposees comme des vues
+> DuckDB du meme nom, de sorte que le code qui interroge ces tables en
+> SQL reste valide. Voir
+> [`parquet_lakehouse_architecture.md`](parquet_lakehouse_architecture.md),
+> [`parquet_lakehouse_migration_guide.md`](parquet_lakehouse_migration_guide.md)
+> et [`parquet_lakehouse_concurrency.md`](parquet_lakehouse_concurrency.md).
+
 ## 1. Structure physique du workspace
 
 ```
