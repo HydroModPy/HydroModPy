@@ -76,6 +76,7 @@ CREATE TABLE IF NOT EXISTS simulations (
     config_toml             JSON,
     config_snapshot         JSON,
     config_hash             VARCHAR,
+    config_source           VARCHAR,
     parent_sim_id           UUID,
     lineage_kind            VARCHAR,
     zarr_path               VARCHAR,
@@ -98,6 +99,7 @@ CREATE INDEX IF NOT EXISTS ix_sim_solver ON simulations(solver);
 CREATE INDEX IF NOT EXISTS ix_sim_status ON simulations(status);
 CREATE INDEX IF NOT EXISTS ix_sim_created_at ON simulations(created_at);
 CREATE INDEX IF NOT EXISTS ix_sim_config_hash ON simulations(config_hash);
+CREATE INDEX IF NOT EXISTS ix_sim_config_source ON simulations(config_source);
 CREATE INDEX IF NOT EXISTS ix_sim_mesh_hash ON simulations(mesh_hash);
 CREATE INDEX IF NOT EXISTS ix_sim_geo_fp ON simulations(geographic_fingerprint);
 CREATE UNIQUE INDEX IF NOT EXISTS ux_sim_project_name
@@ -546,16 +548,55 @@ _ALL_DDL: tuple[str, ...] = (
 )
 
 
+# Forward-only column additions applied to the ``simulations`` table on every
+# ``ensure_schema`` call. ``CREATE TABLE IF NOT EXISTS`` is a no-op when the
+# table already exists, so a new column added to the DDL never reaches a
+# pre-existing catalog. This lightweight list keeps dev-branch upgrades
+# painless without introducing a full versioned migration system.
+_SIMULATIONS_ADDITIVE_COLUMNS: tuple[tuple[str, str], ...] = (("config_source", "VARCHAR"),)
+
+
+def _apply_simulations_additive_columns(conn: duckdb.DuckDBPyConnection) -> None:
+    """Add missing columns to ``simulations`` without touching existing rows."""
+    existing = {
+        row[0]
+        for row in conn.execute(
+            "SELECT column_name FROM information_schema.columns WHERE table_name = 'simulations'"
+        ).fetchall()
+    }
+    for name, sql_type in _SIMULATIONS_ADDITIVE_COLUMNS:
+        if name not in existing:
+            conn.execute(f"ALTER TABLE simulations ADD COLUMN {name} {sql_type}")
+            logger.info("DuckDB schema upgrade: added simulations.%s", name)
+
+
 def ensure_schema(conn: duckdb.DuckDBPyConnection) -> None:
     """Create the catalog tables and views if they do not already exist.
 
-    Idempotent: repeated calls on the same connection are safe. The function
-    does not register a schema version — the whole catalog follows a
-    clean-slate policy for the current release. See
-    ``docs/developers/schema_evolution.md`` for future-proof evolution rules.
+    Idempotent: repeated calls on the same connection are safe. Additive
+    column evolutions declared in ``_SIMULATIONS_ADDITIVE_COLUMNS`` are
+    back-filled into pre-existing catalogs via ``ALTER TABLE`` so that
+    upgrades don't require wiping ``hydromodpy.duckdb``. See
+    ``docs/developers/schema_evolution.md`` for broader evolution rules.
+
+    Ordering matters: ``CREATE TABLE IF NOT EXISTS`` for an already-existing
+    table is a no-op, so additive columns must be applied *before* any
+    ``CREATE INDEX`` statement that targets them — otherwise DuckDB refuses
+    the index with ``Binder Error: Table X does not have a column named Y``.
     """
+    # Phase 1: create tables only (no indexes that could reference new cols).
     for ddl in _ALL_DDL:
-        conn.execute(ddl)
+        for stmt in _iter_statements_without_index(ddl):
+            conn.execute(stmt)
+
+    # Phase 2: migrate pre-existing tables to the current column set.
+    _apply_simulations_additive_columns(conn)
+
+    # Phase 3: (re-)create indexes now that every referenced column exists.
+    for ddl in _ALL_DDL:
+        for stmt in _iter_index_statements(ddl):
+            conn.execute(stmt)
+
     for ddl in _ALL_VIEW_DDL:
         conn.execute(ddl)
     logger.debug(
@@ -563,3 +604,28 @@ def ensure_schema(conn: duckdb.DuckDBPyConnection) -> None:
         len(TABLE_NAMES),
         len(VIEW_NAMES),
     )
+
+
+def _iter_statements_without_index(ddl: str):
+    """Yield every statement in ``ddl`` that is NOT a CREATE INDEX."""
+    for stmt in _split_ddl_statements(ddl):
+        if not stmt.upper().startswith("CREATE") or "INDEX" not in stmt.upper().split("\n", 1)[0]:
+            yield stmt
+
+
+def _iter_index_statements(ddl: str):
+    """Yield every CREATE INDEX statement in ``ddl``."""
+    for stmt in _split_ddl_statements(ddl):
+        head = stmt.upper().split("\n", 1)[0]
+        if head.startswith("CREATE") and "INDEX" in head:
+            yield stmt
+
+
+def _split_ddl_statements(ddl: str) -> list[str]:
+    """Split a multi-statement DDL string on top-level semicolons.
+
+    Naive but sufficient — our DDL strings contain no string literals that
+    embed a semicolon.
+    """
+    parts = [s.strip() for s in ddl.split(";")]
+    return [f"{s};" for s in parts if s]

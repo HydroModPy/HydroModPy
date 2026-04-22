@@ -161,15 +161,33 @@ class Modflow6OutputAdapter:
                     # on subsequent writes, but needs it for allocation
                     # on the first write — which may not be t=0 if the
                     # record is absent there (e.g. STORAGE in a steady
-                    # initial stress period).
-                    store.write_field(
-                        sim_id,
-                        component.lower().strip(),
-                        t,
-                        arr.reshape(-1) if arr.ndim == 1 else arr,
-                        n_timesteps=len(times),
-                        subgroup="budget",
-                    )
+                    # initial stress period). Records that are not
+                    # cell-sized (FLOW-JA-FACE, DATA-SPDIS, ...) are
+                    # skipped since the store only persists fields on
+                    # the cell grid.
+                    if arr.size == nlay * n_cells:
+                        field = arr.reshape(nlay, n_cells)
+                    elif arr.ndim == 1 and arr.size == n_cells:
+                        field = arr.reshape(1, n_cells)
+                    else:
+                        field = None
+                    if field is not None:
+                        try:
+                            store.write_field(
+                                sim_id,
+                                component.lower().strip(),
+                                t,
+                                field,
+                                n_timesteps=len(times),
+                                subgroup="budget",
+                            )
+                        except Exception:
+                            logger.debug(
+                                "Skipped write_field for MF6 budget '%s' at t=%d",
+                                component,
+                                t,
+                                exc_info=True,
+                            )
 
         if budget_records:
             store.write_budgets(sim_id, budget_records)

@@ -18,13 +18,7 @@ REPO_ROOT = Path(__file__).resolve().parents[3]
 
 def _write_tmp_config(work_root: Path) -> Path:
     config_path = work_root / "case_config_river_network_nancon.toml"
-    dem_path = (
-        REPO_ROOT
-        / "examples_legacy"
-        / "01_simplified_example_presented_in_the_paper"
-        / "data"
-        / "regional dem.tif"
-    ).as_posix()
+    dem_path = (REPO_ROOT / "examples" / "data" / "dem" / "DEM_armorican_massif.tif").as_posix()
     out_path = (work_root / "results").as_posix()
 
     config_path.write_text(
@@ -64,8 +58,8 @@ def _write_tmp_config(work_root: Path) -> Path:
 @pytest.mark.slow
 @pytest.mark.skip(
     reason=(
-        "Nancon reference DEM was part of the examples_legacy tree removed in P13; "
-        "rework this test against examples/data/dem/ when a replacement raster is added."
+        "Workspace resolver now requires one explicit [workspace] scaffold; "
+        "rework this test's TOML before re-enabling."
     )
 )
 def test_run_reference_river_network_nancon_case(

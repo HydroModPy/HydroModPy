@@ -44,13 +44,7 @@ def _build_case_specs(cfg: HydroModPyConfig) -> dict[str, dict[str, Any]]:
     default_snap = int(cfg.geographic.snap_dist) if cfg.geographic.snap_dist is not None else 50
     default_buff = float(cfg.geographic.buff_area) if cfg.geographic.buff_area is not None else 20.0
     canut_shp = REPO_ROOT / "examples" / "data" / "masks" / "canut.shp"
-    wide_brittany_dem = (
-        REPO_ROOT
-        / "examples_legacy"
-        / "01_simplified_example_presented_in_the_paper"
-        / "data"
-        / "regional dem.tif"
-    )
+    wide_brittany_dem = REPO_ROOT / "examples" / "data" / "dem" / "DEM_armorican_massif.tif"
 
     return {
         "base": {

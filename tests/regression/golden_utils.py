@@ -888,6 +888,7 @@ def run_example_script(
     # Redirect outputs into the per-test output directory via project root override.
     env[out_env_var] = str(out_path)
     env["HYDROMODPY_PROJECT_ROOT"] = str(out_path)
+    env["HYDROMODPY_WORKSPACE"] = str(out_path)
     # Force non-interactive plotting backend for headless execution.
     env.setdefault("MPLBACKEND", "Agg")
     if extra_env:
@@ -935,6 +936,7 @@ def run_hmp_cli(
     """
     env = os.environ.copy()
     env["HYDROMODPY_PROJECT_ROOT"] = str(out_path)
+    env["HYDROMODPY_WORKSPACE"] = str(out_path)
     env.setdefault("MPLBACKEND", "Agg")
     if extra_env:
         for key, value in extra_env.items():

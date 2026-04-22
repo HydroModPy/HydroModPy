@@ -485,6 +485,8 @@ def write_piecewise_strip_launcher_config(
         active_sinks_sources.append("recharge")
 
     lines = [
+        'workflow = "simulation"',
+        "",
         "[workspace]",
         'project_root = "."',
         "",
@@ -616,6 +618,7 @@ def run_piecewise_strip_boussinesq_launcher_case(
 
     env = os.environ.copy()
     env["HYDROMODPY_PROJECT_ROOT"] = str(out_path)
+    env["HYDROMODPY_WORKSPACE"] = str(out_path)
     env.setdefault("MPLBACKEND", "Agg")
     command = [sys.executable, "-m", "hydromodpy", "run", str(config_path)]
     completed = _sp.run(

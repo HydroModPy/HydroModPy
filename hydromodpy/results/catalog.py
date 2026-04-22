@@ -243,6 +243,7 @@ class SimulationCatalog:
         geographic_fingerprint: str | None = None,
         tags: list[str] | None = None,
         notes: str | None = None,
+        config_source: str | Path | None = None,
     ) -> RegistrationResult:
         sid = str(sim_id)
         replaced_sid: str | None = None
@@ -307,6 +308,7 @@ class SimulationCatalog:
 
         zarr_path = f"simulations/{sid}.zarr"
         parent_sid = str(parent_sim_id) if parent_sim_id else None
+        config_source_str = str(config_source) if config_source is not None else None
 
         self._db.execute(
             """INSERT INTO simulations
@@ -315,11 +317,11 @@ class SimulationCatalog:
                 bbox_xmin, bbox_ymin, bbox_xmax, bbox_ymax,
                 crs_wkt, crs_epsg,
                 period_start, period_end, time_unit,
-                config_toml, config_snapshot, config_hash, zarr_path,
-                parent_sim_id, mesh_hash, mesh_topology,
+                config_toml, config_snapshot, config_hash, config_source,
+                zarr_path, parent_sim_id, mesh_hash, mesh_topology,
                 geographic_fingerprint, tags, notes)
                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
-                       ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                       ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
             [
                 sid,
                 final_name,
@@ -342,6 +344,7 @@ class SimulationCatalog:
                 config_json,
                 snapshot_json,
                 config_hash,
+                config_source_str,
                 zarr_path,
                 parent_sid,
                 mesh_hash,
@@ -906,6 +909,15 @@ class SimulationCatalog:
         return self._db.execute(query, params).fetchdf()
 
     def list_simulations(self, **filters) -> pd.DataFrame:
+        """Return one DataFrame row per simulation matching ``filters``.
+
+        ``order_by`` is an optional SQL ORDER BY clause (e.g. ``"created_at DESC"``).
+        When omitted, rows are returned in DuckDB storage order — which is
+        typically insertion order but not guaranteed by SQL. Callers that need
+        the most recent run should pass ``order_by="created_at DESC"`` and
+        read ``iloc[0]``.
+        """
+        order_by = filters.pop("order_by", None)
         query = "SELECT * FROM simulations"
         params: list = []
         if filters:
@@ -914,6 +926,8 @@ class SimulationCatalog:
                 clauses.append(f"{key} = ?")
                 params.append(val)
             query += " WHERE " + " AND ".join(clauses)
+        if order_by:
+            query += f" ORDER BY {order_by}"
         return self._db.execute(query, params).fetchdf()
 
     def export(
@@ -1052,42 +1066,46 @@ class SimulationCatalog:
         query = "SELECT DISTINCT s.sim_id FROM simulations s"
         joins: list[str] = []
         clauses: list[str] = []
-        params: list = []
+        # SQL binds positional placeholders in the order they appear in the
+        # query text (JOINs before WHEREs), so keep the two bind lists separate
+        # instead of one ordered by filter-insertion.
+        join_params: list = []
+        clause_params: list = []
 
         for key, val in filters.items():
             if key == "tags":
                 clauses.append("list_contains(s.tags, ?)")
-                params.append(val)
+                clause_params.append(val)
             elif key.endswith("_gt"):
                 metric = key[:-3]
                 alias = f"m_{len(joins)}"
                 joins.append(
                     f"JOIN metrics {alias} ON s.sim_id = {alias}.sim_id AND {alias}.metric_name = ?"
                 )
-                params.append(metric)
+                join_params.append(metric)
                 clauses.append(f"{alias}.value > ?")
-                params.append(val)
+                clause_params.append(val)
             elif key.endswith("_lt"):
                 metric = key[:-3]
                 alias = f"m_{len(joins)}"
                 joins.append(
                     f"JOIN metrics {alias} ON s.sim_id = {alias}.sim_id AND {alias}.metric_name = ?"
                 )
-                params.append(metric)
+                join_params.append(metric)
                 clauses.append(f"{alias}.value < ?")
-                params.append(val)
+                clause_params.append(val)
             elif key.endswith("_gte"):
                 metric = key[:-4]
                 alias = f"m_{len(joins)}"
                 joins.append(
                     f"JOIN metrics {alias} ON s.sim_id = {alias}.sim_id AND {alias}.metric_name = ?"
                 )
-                params.append(metric)
+                join_params.append(metric)
                 clauses.append(f"{alias}.value >= ?")
-                params.append(val)
+                clause_params.append(val)
             elif key == "crs":
                 clauses.append("s.crs_wkt = ?")
-                params.append(val)
+                clause_params.append(val)
             elif key in (
                 "project",
                 "solver",
@@ -1100,7 +1118,7 @@ class SimulationCatalog:
                 "geographic_fingerprint",
             ):
                 clauses.append(f"s.{key} = ?")
-                params.append(val)
+                clause_params.append(val)
             else:
                 raise ValueError(f"Unknown filter: '{key}'")
 
@@ -1110,7 +1128,7 @@ class SimulationCatalog:
             query += " WHERE " + " AND ".join(clauses)
         query += " ORDER BY s.created_at DESC"
 
-        rows = self._db.execute(query, params).fetchall()
+        rows = self._db.execute(query, join_params + clause_params).fetchall()
         sim_ids = [str(r[0]) for r in rows]
         return SimulationGroup(sim_ids, self)
 

@@ -1141,9 +1141,14 @@ class Modflow6(Solver):
                 self.first_clim = "mean"
             return
 
-        # Heterogeneous path: gridded FieldRecords from data managers.
+        # Heterogeneous path: gridded FieldRecords or located PointRecords
+        # from data managers. Both get discretized onto the solver grid by
+        # ``_resolve_deferred_heterogeneous_recharge`` once ``solver_mesh``
+        # is available.
         het_source = getattr(recharge_cfg, "heterogeneous_source", None)
-        if het_source is not None and getattr(het_source, "has_fields", False):
+        if het_source is not None and (
+            getattr(het_source, "has_fields", False) or getattr(het_source, "has_points", False)
+        ):
             self._bind_heterogeneous_recharge(recharge_cfg)
             return
 

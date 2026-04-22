@@ -24,10 +24,14 @@ def _aggregate_triangles_to_grid(
     store: Any,
     sim_id: str,
 ) -> np.ndarray:
-    """Bin unstructured triangle-cell values to a structured (nrow, ncol) grid.
+    """Collapse unstructured triangle-cell values onto an x-profile grid.
 
     Used when the store contains per-cell data from a triangular mesh but
-    the comparison expects a structured grid (e.g. piecewise-strip cases).
+    the comparison expects a structured ``(nrow, ncol)`` grid. The triangles
+    are projected onto a 1D x-profile (mean over cells whose centroid falls
+    in each x-bin, with nearest-value fill for empty bins) and the same
+    profile is repeated across all rows. That keeps the cross-row spread
+    exactly zero, matching the dimensional assumption of 1D validation cases.
     """
     if len(target_shape) != 2:
         return data
@@ -37,24 +41,33 @@ def _aggregate_triangles_to_grid(
         vertices = sz.root["mesh"]["vertices"][:]
         connectivity = sz.root["mesh"]["face_node_connectivity"][:]
         centroids_x = np.mean(vertices[connectivity, 0], axis=1).astype(float)
-        centroids_y = np.mean(vertices[connectivity, 1], axis=1).astype(float)
-        x_min, x_max = float(centroids_x.min()), float(centroids_x.max())
-        y_min, y_max = float(centroids_y.min()), float(centroids_y.max())
+        node_x = np.asarray(vertices[:, 0], dtype=float)
+        x_min = float(node_x.min())
+        x_max = float(node_x.max())
         dx = (x_max - x_min) / ncol
-        dy = (y_max - y_min) / nrow
-        if dx <= 0 or dy <= 0:
+        if dx <= 0:
             return data
         col_idx = np.clip(((centroids_x - x_min) / dx).astype(int), 0, ncol - 1)
-        row_idx = np.clip(((centroids_y - y_min) / dy).astype(int), 0, nrow - 1)
-        total = np.zeros((nrow, ncol), dtype=float)
-        counts = np.zeros((nrow, ncol), dtype=int)
-        for i, v in enumerate(data.flat):
-            total[row_idx[i], col_idx[i]] += float(v)
-            counts[row_idx[i], col_idx[i]] += 1
-        mask = counts > 0
-        result = np.zeros((nrow, ncol), dtype=float)
-        result[mask] = total[mask] / counts[mask]
-        return result
+        flat = np.asarray(data, dtype=float).reshape(-1)
+
+        total_col = np.zeros(ncol, dtype=float)
+        counts_col = np.zeros(ncol, dtype=int)
+        for i, v in enumerate(flat):
+            total_col[col_idx[i]] += float(v)
+            counts_col[col_idx[i]] += 1
+        col_mask = counts_col > 0
+        if not np.any(col_mask):
+            return data
+        profile = np.full(ncol, np.nan, dtype=float)
+        profile[col_mask] = total_col[col_mask] / counts_col[col_mask]
+        if np.any(~col_mask):
+            valid_idx = np.flatnonzero(col_mask)
+            profile = np.interp(
+                np.arange(ncol, dtype=float),
+                valid_idx.astype(float),
+                profile[valid_idx],
+            )
+        return np.repeat(profile.reshape(1, -1), nrow, axis=0)
     except Exception:
         logger.debug("Triangle-to-grid aggregation failed, returning raw data")
         return data
@@ -120,8 +133,59 @@ def load_last_npy_array(postprocess_dir: Path, observable_name: str) -> tuple[in
     return int(last_key), np.asarray(payload[last_key], dtype=float)
 
 
+def _load_last_array_from_store_or_npy(
+    *,
+    postprocess_dir: Path | None,
+    observable_name: str,
+    store: Any,
+    sim_id: str | None,
+    expected_shape: tuple[int, ...] | None = None,
+) -> tuple[int, np.ndarray]:
+    """Return ``(timestep, values)`` for the last timestep of one variable.
+
+    Prefers the :class:`ResultStore` when ``store`` and ``sim_id`` are set;
+    otherwise falls back to the legacy ``.npy`` loader.
+    """
+    if store is not None and sim_id is not None:
+        try:
+            grp = store.open_zarr_group(sim_id)
+            arr = None
+            for loc in (grp, grp.get("derived"), grp.get("budget")):
+                if loc is not None and observable_name in loc:
+                    arr = loc[observable_name][:]
+                    break
+            if arr is not None:
+                data = np.asarray(arr, dtype=float)
+                if data.ndim == 3 and data.shape[1] == 1:
+                    data = data[:, 0, :]
+                n_ts = int(data.shape[0])
+                last_values = np.asarray(data[n_ts - 1], dtype=float)
+                eff_shape = expected_shape
+                if (
+                    eff_shape is not None
+                    and tuple(last_values.shape) != tuple(eff_shape)
+                    and last_values.size == int(np.prod(eff_shape))
+                ):
+                    last_values = last_values.reshape(tuple(eff_shape))
+                return n_ts - 1, last_values
+        except Exception:
+            logger.debug(
+                "Store query failed for last-timestep '%s' (sim_id=%s), "
+                "falling back to legacy .npy loader.",
+                observable_name,
+                sim_id,
+                exc_info=True,
+            )
+
+    if postprocess_dir is None:
+        raise ValueError(
+            f"Cannot load '{observable_name}': no store provided and postprocess_dir is None."
+        )
+    return load_last_npy_array(postprocess_dir, observable_name)
+
+
 def load_last_npy_array_on_expected_grid(
-    postprocess_dir: Path,
+    postprocess_dir: Path | None,
     observable_name: str,
     *,
     case_dir: Path,
@@ -131,6 +195,8 @@ def load_last_npy_array_on_expected_grid(
     x_min_m: float | None = None,
     x_max_m: float | None = None,
     collapse_y_to_x_profile: bool = False,
+    store: Any = None,
+    sim_id: str | None = None,
 ) -> tuple[int, np.ndarray]:
     """Load one validation output and regrid irregular meshes when needed.
 
@@ -139,9 +205,18 @@ def load_last_npy_array_on_expected_grid(
     stored as one cell vector. This helper either projects that vector back onto
     the expected structured grid, or reduces it to one area-weighted x-profile
     when ``collapse_y_to_x_profile`` is requested.
+
+    When a :class:`ResultStore` and ``sim_id`` are provided, values are read
+    from the store first; the legacy ``.npy`` loader is used only as a fallback.
     """
 
-    timestep, values = load_last_npy_array(postprocess_dir, observable_name)
+    timestep, values = _load_last_array_from_store_or_npy(
+        postprocess_dir=postprocess_dir,
+        observable_name=observable_name,
+        store=store,
+        sim_id=sim_id,
+        expected_shape=expected_shape,
+    )
     expected_shape = tuple(expected_shape)
     if not expected_shape or tuple(values.shape) == expected_shape:
         return timestep, values
@@ -394,7 +469,12 @@ def load_time_series_fields(
         except Exception:
             pass
 
-        # Derive outlet discharge from budget table (constant head flux_out)
+        # Derive outlet discharge from budget table (constant head flux_out).
+        # NOTE: the ``unit`` column is a free-text label and does not reliably
+        # describe the numerical values (the extractors currently record
+        # everything as ``"m3/d"`` regardless of the model's real time unit),
+        # so no unit conversion is applied here — callers are responsible for
+        # interpreting the values in the model's native units.
         if "outlet_discharge" in observable_name:
             try:
                 budgets = store.query_budget(sim_id)

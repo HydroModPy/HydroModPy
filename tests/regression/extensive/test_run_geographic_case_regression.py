@@ -82,6 +82,7 @@ def _write_tmp_config(tmp_path: Path) -> Path:
                 'workflow = "simulation"',
                 "[workspace]",
                 f'project_root = "{out_path}"',
+                f'root = "{out_path}"',
                 "",
                 "[geographic]",
                 'catch_def = "from_outlet_coord"',
@@ -123,9 +124,14 @@ def _build_metrics_payload(
     }
 
 
-def _collect_case_signature(catch_folder: str | Path) -> dict[str, bool | str | float | int | None]:
+def _collect_case_signature(
+    project_root: str | Path,
+) -> dict[str, bool | str | float | int | None]:
     summary_path = (
-        Path(catch_folder) / "results_stable" / "geographic" / "river_network_summary.json"
+        Path(project_root)
+        / ".solver_scratch/_preprocessing"
+        / "geographic"
+        / "river_network_summary.json"
     )
     if not summary_path.exists():
         raise AssertionError(f"Missing river network summary: {summary_path}")
@@ -153,7 +159,7 @@ def _build_river_network_payload(
     summaries: dict[str, dict[str, object]],
 ) -> dict[str, dict[str, object]]:
     return {
-        case_id: _collect_case_signature(summaries[case_id]["catch_folder"]) for case_id in CASE_IDS
+        case_id: _collect_case_signature(summaries[case_id]["project_root"]) for case_id in CASE_IDS
     }
 
 
@@ -197,6 +203,9 @@ def test_run_geographic_case_regression_suite(
         )
 
     metrics_expected = _load_json(METRICS_GOLDEN_REFERENCE_FILE)
+    metrics_expected = {
+        key: value for key, value in metrics_expected.items() if not key.startswith("_")
+    }
     assert set(metrics_actual.keys()) == set(metrics_expected.keys())
     for case_id in CASE_IDS:
         assert metrics_actual[case_id]["catchment_area_km2"] == pytest.approx(
@@ -223,6 +232,9 @@ def test_run_geographic_case_regression_suite(
             )
 
     river_network_expected = _load_json(RIVER_NETWORK_GOLDEN_REFERENCE_FILE)
+    river_network_expected = {
+        key: value for key, value in river_network_expected.items() if not key.startswith("_")
+    }
     assert set(river_network_actual.keys()) == set(river_network_expected.keys())
     for case_id in CASE_IDS:
         assert (

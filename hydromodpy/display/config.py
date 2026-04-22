@@ -59,8 +59,11 @@ class DisplayConfig(HydroModelBase):
     figures: Annotated[list[str], Profile.USER] = Field(
         default_factory=list,
         description=(
-            "Names of registered figures to render automatically after a "
-            "simulation. Empty list disables auto-rendering."
+            "Names of registered figures to auto-render at the end of "
+            "`hmp run` (and consumed by `hmp display`). Empty list disables "
+            "auto-rendering; figures can still be produced later with "
+            "`hmp display <toml>`. Disable per-run via `hmp run --no-display` "
+            "or for an entire Python Project via `Project(..., no_display=True)`."
         ),
     )
     overrides: Annotated[dict[str, dict], Profile.EXPERT] = Field(

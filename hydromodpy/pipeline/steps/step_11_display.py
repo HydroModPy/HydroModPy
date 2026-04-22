@@ -1,0 +1,94 @@
+"""Step 11 — auto-render the figures listed in ``[display].figures``.
+
+Runs after :class:`ExportStep`. Reopens the catalog in read-only fashion
+(``ExportStep`` closes it), loads the freshly persisted :class:`Run`, and
+renders each figure declared in the TOML into
+``<project_root>/<display.output_dir>/<run_name>/``.
+
+Skipped silently when ``display.enabled`` is false, when ``display.figures``
+is empty, or when the pipeline was set to headless via
+``state.data["skip_display"]`` (honored by the CLI ``--no-display`` flag).
+
+Inputs
+------
+``ctx`` : WorkflowContext — provides ``sim_id``, ``cfg.display``, workspace.
+
+Outputs
+-------
+``state`` unchanged aside from the usual ``advance(...)`` bookkeeping. The
+rendered file paths are attached via ``state.data["rendered_figures"]`` for
+downstream tooling/tests.
+"""
+
+from __future__ import annotations
+
+import logging
+from typing import ClassVar
+
+from hydromodpy.pipeline.state import ExportedState, PipelineState
+
+logger = logging.getLogger(__name__)
+
+
+class DisplayStep:
+    """Render the figures declared in ``[display].figures`` at pipeline end."""
+
+    name = "display"
+    tin: ClassVar[type] = ExportedState
+    tout: ClassVar[type] = ExportedState
+
+    def run(self, state: PipelineState) -> PipelineState:
+        from hydromodpy.results.catalog import SimulationCatalog
+        from hydromodpy.results.display import (
+            render_figures_for_run,
+            resolve_run_output_dir,
+        )
+
+        ctx = state.get("ctx")
+        if ctx is None:
+            raise ValueError("DisplayStep requires 'ctx' in state.data")
+
+        rendered: list = []
+
+        if state.get("skip_display"):
+            logger.info("DisplayStep skipped (skip_display=True)")
+        else:
+            display_cfg = getattr(ctx.cfg, "display", None)
+            sim_id = getattr(ctx, "sim_id", None)
+            if display_cfg is None or sim_id is None:
+                logger.debug("DisplayStep: no display config or sim_id, skipping")
+            elif not display_cfg.enabled or not display_cfg.figures:
+                logger.debug(
+                    "DisplayStep: nothing to render (enabled=%s, figures=%s)",
+                    display_cfg.enabled,
+                    list(display_cfg.figures),
+                )
+            else:
+                workspace = ctx.setup.workspace
+                project_root = workspace.project_root
+                with SimulationCatalog(workspace.workspace_root) as catalog:
+                    sim = catalog[sim_id]
+                    out_dir = resolve_run_output_dir(
+                        display_cfg,
+                        project_root=project_root,
+                        run_name=sim.name,
+                        sim_id=sim_id,
+                    )
+                    rendered = render_figures_for_run(
+                        sim,
+                        display_cfg,
+                        output_dir=out_dir,
+                    )
+                    if rendered:
+                        logger.info(
+                            "DisplayStep rendered %d figure(s) in %s",
+                            len(rendered),
+                            out_dir,
+                        )
+
+        return state.advance(
+            step_index=state.step_index + 1,
+            step_name=self.name,
+            ctx=ctx,
+            rendered_figures=rendered,
+        )

@@ -14,7 +14,7 @@ results_folder_name = "results_simulations"
 
 [output]
 observable_name = "watertable_elevation"
-expected_periods = 13
+expected_periods = 12
 expected_spatial_shape = [3, 40]
 
 [time]

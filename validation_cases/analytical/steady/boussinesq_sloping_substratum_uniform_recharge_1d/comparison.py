@@ -91,6 +91,8 @@ def build_boussinesq_sloping_substratum_uniform_recharge_comparison(
         x_min_m=float(reference_cfg["xmin"]),
         x_max_m=float(reference_cfg["xmax"]),
         collapse_y_to_x_profile=True,
+        store=getattr(result, "store", None),
+        sim_id=getattr(result, "sim_id", None),
     )
 
     profile_axis = int(reference_cfg.get("profile_axis", 0))

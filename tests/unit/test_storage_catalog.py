@@ -70,6 +70,53 @@ class TestSchema:
         assert row is not None
         assert "VARCHAR" in row[0].upper()
 
+    def test_config_source_column_exists(self, mem_conn):
+        row = mem_conn.execute(
+            "SELECT data_type FROM information_schema.columns "
+            "WHERE table_name='simulations' AND column_name='config_source'"
+        ).fetchone()
+        assert row is not None
+        assert "VARCHAR" in row[0].upper()
+
+    def test_ensure_schema_adds_missing_columns_to_legacy_catalog(self):
+        # Simulate a pre-existing catalog that was created before `config_source`
+        # was added. `ensure_schema` must ALTER the table to add it instead of
+        # crashing on the follow-up CREATE INDEX that references the column.
+        from hydromodpy.results import catalog_schema as cs_mod
+
+        # Strip the new column from the DDL string to recreate the pre-upgrade
+        # table shape in memory, then call ensure_schema with the real DDL.
+        legacy_sim_ddl = cs_mod._SIMULATIONS_DDL.replace(
+            "    config_source           VARCHAR,\n", ""
+        )
+        legacy_sim_ddl = legacy_sim_ddl.replace(
+            "CREATE INDEX IF NOT EXISTS ix_sim_config_source ON simulations(config_source);\n",
+            "",
+        )
+        conn = duckdb.connect(":memory:")
+        try:
+            conn.execute(legacy_sim_ddl)
+            cols_before = {
+                r[0]
+                for r in conn.execute(
+                    "SELECT column_name FROM information_schema.columns "
+                    "WHERE table_name='simulations'"
+                ).fetchall()
+            }
+            assert "config_source" not in cols_before
+
+            ensure_schema(conn)
+            cols_after = {
+                r[0]
+                for r in conn.execute(
+                    "SELECT column_name FROM information_schema.columns "
+                    "WHERE table_name='simulations'"
+                ).fetchall()
+            }
+            assert "config_source" in cols_after
+        finally:
+            conn.close()
+
     def test_bbox_expanded_to_four_columns(self, mem_conn):
         cols = {
             r[0]
@@ -569,6 +616,44 @@ class TestResolveReference:
         sid = self._register(catalog, name="via_item")
         assert catalog[sid[:8]].sim_id == sid
         assert catalog[sid].sim_id == sid
+
+
+class TestConfigSourceAndOrderBy:
+    """Coverage for the new ``config_source`` column and ``order_by`` kwarg."""
+
+    def test_config_source_round_trips(self, catalog):
+        sid = _sim_id()
+        catalog.register_simulation(
+            sid,
+            project="p",
+            solver="s",
+            config_source="/tmp/run_transient.toml",
+        )
+        row = catalog.connection.execute(
+            "SELECT config_source FROM simulations WHERE sim_id = ?",
+            [sid],
+        ).fetchone()
+        assert row[0] == "/tmp/run_transient.toml"
+
+    def test_filter_by_config_source(self, catalog):
+        sid_a = _sim_id()
+        sid_b = _sim_id()
+        catalog.register_simulation(sid_a, project="p", solver="s", config_source="/a.toml")
+        catalog.register_simulation(sid_b, project="p", solver="s", config_source="/b.toml")
+        subset = catalog.list_simulations(config_source="/a.toml")
+        assert [str(s) for s in subset["sim_id"]] == [sid_a]
+
+    def test_order_by_created_at_desc(self, catalog):
+        import time
+
+        sid_old = _sim_id()
+        catalog.register_simulation(sid_old, project="p", solver="s")
+        time.sleep(0.01)  # ensure distinct timestamps
+        sid_new = _sim_id()
+        catalog.register_simulation(sid_new, project="p", solver="s")
+        sims = catalog.list_simulations(order_by="created_at DESC")
+        assert str(sims.iloc[0]["sim_id"]) == sid_new
+        assert str(sims.iloc[1]["sim_id"]) == sid_old
 
 
 class TestOnCollision:

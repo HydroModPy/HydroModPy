@@ -46,6 +46,7 @@ def _write_tmp_config(tmp_path: Path) -> Path:
                 'workflow = "simulation"',
                 "[workspace]",
                 f'project_root = "{out_path}"',
+                f'root = "{out_path}"',
                 "",
                 "[geographic]",
                 'catch_def = "from_outlet_coord"',
@@ -136,6 +137,7 @@ def test_run_geographic_case_river_network_regression(
         )
 
     expected = _load_json(GOLDEN_REFERENCE_FILE)
+    expected = {key: value for key, value in expected.items() if not key.startswith("_")}
     assert set(actual.keys()) == set(expected.keys())
 
     for case_id in CASE_IDS:

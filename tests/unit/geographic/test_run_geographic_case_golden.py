@@ -92,8 +92,8 @@ def _write_tmp_config(tmp_path: Path) -> Path:
 @pytest.mark.slow
 @pytest.mark.skip(
     reason=(
-        "Nancon DEM came from examples_legacy/ removed in P13; "
-        "restore this test once a replacement raster ships under examples/data/dem/."
+        "Workspace resolver now requires one explicit [workspace] scaffold; "
+        "rework this test's TOML before re-enabling."
     )
 )
 def test_run_geographic_case_metrics_golden(

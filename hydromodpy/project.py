@@ -82,6 +82,7 @@ class Project:
         *,
         solver: str | None = None,
         headless: bool = False,
+        no_display: bool = False,
     ) -> None:
         from hydromodpy.core.config.hydromodpy_config import HydroModPyConfig
         from hydromodpy.core.config.toml_loader import load_toml_with_base_config
@@ -191,6 +192,7 @@ class Project:
         # Phase 7: headless overrides (postprocess is now part of the pipeline,
         # so no separate runner is required).
         self._headless = headless
+        self._no_display = no_display
         if headless:
             self.cfg.display.save = False
             self.cfg.display.show = False
@@ -318,6 +320,7 @@ class Project:
         solvers = ",".join(r.solver for r in plan.runs)
         reg_kwargs: dict = {
             "flow_regime": self.cfg.flow.flow_regime,
+            "config_source": str(self._config_path),
         }
         try:
             reg_kwargs["config"] = self.cfg.model_dump(mode="json")
@@ -477,7 +480,10 @@ class Project:
             )
         else:
             logger.info("Run '%s' stored [%s]", final_name, short)
-        return self._store[sim_id]
+
+        run = self._store[sim_id]
+        self._render_figures_if_requested(run, sim_id=sim_id, run_name=final_name)
+        return run
 
     def _run_with_overrides(self, name, overrides, *, thickness=None, first_clim=None):
         """Build a minimal plan with parameter overrides applied to a fresh Flow."""
@@ -646,6 +652,43 @@ class Project:
                 )
             ],
         )
+
+    def _render_figures_if_requested(
+        self,
+        run: Run,
+        *,
+        sim_id: str,
+        run_name: str | None,
+    ) -> None:
+        """Auto-render the figures declared in ``[display].figures``.
+
+        No-op when the project is headless, ``display.enabled`` is false,
+        or ``display.figures`` is empty. Figures are saved under
+        ``<project_root>/<display.output_dir>/<run_name>/`` so that
+        successive runs don't overwrite each other.
+        """
+        if self._headless or self._no_display:
+            return
+        display_cfg = getattr(self.cfg, "display", None)
+        if display_cfg is None or not display_cfg.enabled or not display_cfg.figures:
+            return
+
+        from hydromodpy.results.display import (
+            render_figures_for_run,
+            resolve_run_output_dir,
+        )
+
+        project_root = self._ctx.setup.workspace.project_root
+        out_dir = resolve_run_output_dir(
+            display_cfg,
+            project_root=project_root,
+            run_name=run_name,
+            sim_id=sim_id,
+        )
+        try:
+            render_figures_for_run(run, display_cfg, output_dir=out_dir)
+        except Exception:
+            logger.exception("Auto-render of figures failed for sim %s", sim_id)
 
     def _rebuild_domain(self, thickness: float):
         from hydromodpy.spatial.domain import Domain

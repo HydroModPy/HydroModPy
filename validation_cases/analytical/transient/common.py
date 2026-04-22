@@ -21,6 +21,19 @@ SECONDS_PER_DAY = 86400.0
 
 
 @dataclass(frozen=True, slots=True)
+class TransientProfileOutputs:
+    """Canonical payload returned by :func:`load_transient_profile_outputs`."""
+
+    metadata: dict
+    tolerances: dict
+    observable_name: str
+    period_indices: np.ndarray
+    heads: np.ndarray
+    dt_seconds: float
+    elapsed_seconds: np.ndarray | None = None
+
+
+@dataclass(frozen=True, slots=True)
 class TransientHead1DComparison:
     """Canonical payload used by transient 1D validation cases and plots."""
 
@@ -93,7 +106,7 @@ def load_transient_profile_outputs(
     metadata: dict | None = None,
     tolerances: dict | None = None,
     solver: str | None = None,
-) -> tuple[dict, dict, str, np.ndarray, np.ndarray, float]:
+) -> TransientProfileOutputs:
     """Load one transient `watertable_elevation` dictionary and validate its shape."""
     case_metadata = load_case_metadata(case_dir) if metadata is None else metadata
     solver_name = str(getattr(result, "solver_name", "")).strip().lower() or solver
@@ -150,13 +163,16 @@ def load_transient_profile_outputs(
         )
 
     dt_seconds = float(time_cfg["dt_seconds"])
-    return (
-        case_metadata,
-        case_tolerances,
-        observable_name,
-        period_indices,
-        np.asarray(heads, dtype=float),
-        dt_seconds,
+    period_indices_arr = np.asarray(period_indices, dtype=float)
+    elapsed_seconds = (period_indices_arr + 1.0) * dt_seconds
+    return TransientProfileOutputs(
+        metadata=case_metadata,
+        tolerances=case_tolerances,
+        observable_name=observable_name,
+        period_indices=period_indices_arr,
+        heads=np.asarray(heads, dtype=float),
+        dt_seconds=dt_seconds,
+        elapsed_seconds=elapsed_seconds,
     )
 
 
@@ -165,34 +181,27 @@ def build_transient_head_comparison(
     result: ValidationRunResult,
     case_dir: Path,
     analytical_profiles: np.ndarray,
-    loaded_outputs: tuple[dict, dict, str, np.ndarray, np.ndarray, float] | None = None,
+    loaded_outputs: TransientProfileOutputs | None = None,
     metadata: dict | None = None,
     tolerances: dict | None = None,
 ) -> TransientHead1DComparison:
     """Build one transient comparison payload from already computed analytical profiles."""
-    if loaded_outputs is None:
-        (
-            case_metadata,
-            case_tolerances,
-            observable_name,
-            period_indices,
-            heads,
-            dt_seconds,
-        ) = load_transient_profile_outputs(
+    loaded = (
+        loaded_outputs
+        if loaded_outputs is not None
+        else load_transient_profile_outputs(
             case_dir=case_dir,
             result=result,
             metadata=metadata,
             tolerances=tolerances,
         )
-    else:
-        (
-            case_metadata,
-            case_tolerances,
-            observable_name,
-            period_indices,
-            heads,
-            dt_seconds,
-        ) = loaded_outputs
+    )
+    case_metadata = loaded.metadata
+    case_tolerances = loaded.tolerances
+    observable_name = loaded.observable_name
+    period_indices = loaded.period_indices
+    heads = loaded.heads
+    dt_seconds = loaded.dt_seconds
 
     reference_cfg = dict(case_metadata.get("reference", {}))
     plot_cfg = dict(case_metadata.get("plot", {}))

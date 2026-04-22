@@ -60,7 +60,10 @@ def _get_registry() -> dict[str, type[BaseModel]]:
         from hydromodpy.solver.modflow_nwt.modflow import ModflowConfig
         from hydromodpy.spatial.domain.domain_config import DomainConfig
         from hydromodpy.spatial.geographic.geographic_config import GeographicConfig
-        from hydromodpy.spatial.mesh.config import MeshCatchmentConfig
+        from hydromodpy.spatial.mesh.config import (
+            MeshCatchmentBatchSection,
+            MeshCatchmentConfig,
+        )
         from hydromodpy.workflow.pipelines.overview_config import OverviewSection
 
         _MODULE_REGISTRY = {
@@ -73,12 +76,14 @@ def _get_registry() -> dict[str, type[BaseModel]]:
             "solver": SolverConfig,
             "modflownwt": ModflowConfig,
             "modflow6": Modflow6Config,
-            # ``mesh_catchment`` is optional at the aggregator level and its
-            # inner schema pulls in additional required sections (geology,
-            # rivers) as soon as it is emitted. It is only used for the
-            # mesh-only workflow, so we leave it out of the default template;
-            # users can request it explicitly via ``--modules mesh_catchment``.
+            # ``mesh_catchment`` / ``mesh_catchment_batch`` are optional at
+            # the aggregator level and their inner schemas pull in additional
+            # required sections (geology, rivers) as soon as they are emitted.
+            # They are only used for the mesh-only workflow, so we leave them
+            # out of the default template; users can request them explicitly
+            # via ``--modules mesh_catchment[_batch]``.
             "mesh_catchment": MeshCatchmentConfig,
+            "mesh_catchment_batch": MeshCatchmentBatchSection,
             "overview": OverviewSection,
             "simulation": SimulationConfig,
             "display": DisplayConfig,
@@ -129,7 +134,7 @@ def generate_toml(
         # Default auto-selection: drop opt-in workflow-only sections that are
         # Optional at the aggregator level and would require more targeted
         # inputs to validate out-of-the-box (e.g. mesh-only workflow).
-        _OPT_IN = {"mesh_catchment"}
+        _OPT_IN = {"mesh_catchment", "mesh_catchment_batch"}
         selected = {k: v for k, v in registry.items() if k not in _OPT_IN}
     else:
         unknown = set(modules) - set(registry)

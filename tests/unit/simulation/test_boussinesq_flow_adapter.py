@@ -9,18 +9,6 @@ import pytest
 import xarray as xr
 from shapely.geometry import LineString
 
-# The Boussinesq runtime currently calls ``TransientStepInputs`` /
-# ``SteadySolveInputs`` with an obsolete keyword (``imposed_head_m_by_edge``).
-# Production fix is scheduled alongside the solver/contract alignment work;
-# the adapter-level assertions below are kept for when that lands.
-_OBSOLETE_RUNTIME_API = pytest.mark.xfail(
-    reason="Boussinesq runtime API mismatch (imposed_head_m_by_edge vs "
-    "prescribed_head_m_by_cell); tracked as v0.6 "
-    "boussinesq-runtime-api-alignment.",
-    strict=True,
-    raises=(TypeError, AttributeError),
-)
-
 from hydromodpy.data.contracts.load_result import LoadResult
 from hydromodpy.data.contracts.spatial_field import FieldRecord
 from hydromodpy.physics.flow import Flow
@@ -221,7 +209,6 @@ def test_registry_exposes_boussinesq_flow_adapter() -> None:
     assert isinstance(adapter, BoussinesqFlowAdapter)
 
 
-@_OBSOLETE_RUNTIME_API
 def test_boussinesq_flow_adapter_maps_runtime_mesh_from_flow_parameters(
     tmp_path: Path,
 ) -> None:
@@ -307,7 +294,6 @@ def test_boussinesq_flow_adapter_maps_runtime_mesh_from_flow_parameters(
     assert np.allclose(model.state.head_m, [5.0, 5.0])
 
 
-@_OBSOLETE_RUNTIME_API
 def test_boussinesq_flow_adapter_supports_runtime_mesh_with_heterogeneous_recharge(
     tmp_path: Path,
 ) -> None:
@@ -399,7 +385,6 @@ def test_boussinesq_flow_adapter_supports_runtime_mesh_with_heterogeneous_rechar
     assert model.runtime_summary["active_recharge"] is True
 
 
-@_OBSOLETE_RUNTIME_API
 def test_boussinesq_flow_adapter_maps_runtime_mesh_from_heterogeneous_flow_parameters(
     tmp_path: Path,
 ) -> None:
@@ -492,7 +477,6 @@ def test_boussinesq_flow_adapter_maps_runtime_mesh_from_heterogeneous_flow_param
     assert np.allclose(model.state.head_m, [5.0, 5.0])
 
 
-@_OBSOLETE_RUNTIME_API
 def test_boussinesq_flow_adapter_falls_back_to_bundle_and_overrides_properties(
     tmp_path: Path,
 ) -> None:
@@ -572,7 +556,6 @@ def test_boussinesq_flow_adapter_falls_back_to_bundle_and_overrides_properties(
     assert model.has_numerical_solution is True
 
 
-@_OBSOLETE_RUNTIME_API
 def test_boussinesq_flow_adapter_uses_geographic_features_for_stream_runtime_mesh(
     tmp_path: Path,
 ) -> None:
@@ -663,11 +646,10 @@ def test_boussinesq_flow_adapter_uses_geographic_features_for_stream_runtime_mes
     river_edges = model.mesh.river_edge_indices()
     assert river_edges.shape == (1,)
     assert model.state is not None
-    assert model.state.imposed_head_edge_flux_m3_s is not None
-    assert model.state.imposed_head_edge_flux_m3_s[int(river_edges[0])] > 0.0
+    assert model.state.boundary_edge_flux_m3_s is not None
+    assert model.state.boundary_edge_flux_m3_s[int(river_edges[0])] > 0.0
 
 
-@_OBSOLETE_RUNTIME_API
 def test_boussinesq_flow_adapter_loads_bundle_from_mesh_summary(tmp_path: Path) -> None:
     bundle_dir = _write_minimal_bundle(tmp_path / "bundle")
     state = SimpleNamespace(
@@ -699,7 +681,6 @@ def test_boussinesq_flow_adapter_loads_bundle_from_mesh_summary(tmp_path: Path) 
     assert np.allclose(result.primary_model.state.head_m, [5.0, 4.0])
 
 
-@_OBSOLETE_RUNTIME_API
 def test_boussinesq_flow_adapter_runs_transient_and_writes_outputs(tmp_path: Path) -> None:
     bundle_dir = _write_minimal_bundle(tmp_path / "bundle_transient")
     state = SimpleNamespace(
@@ -736,7 +717,6 @@ def test_boussinesq_flow_adapter_runs_transient_and_writes_outputs(tmp_path: Pat
     assert result.solver_output_dir is not None
 
 
-@_OBSOLETE_RUNTIME_API
 def test_boussinesq_flow_adapter_completes_bundle_storage_from_metadata_default(
     tmp_path: Path,
 ) -> None:
@@ -775,7 +755,6 @@ def test_boussinesq_flow_adapter_completes_bundle_storage_from_metadata_default(
     assert model.has_numerical_solution is True
 
 
-@_OBSOLETE_RUNTIME_API
 def test_boussinesq_flow_adapter_allows_missing_bundle_storage_in_steady_mode(
     tmp_path: Path,
 ) -> None:
@@ -815,7 +794,6 @@ def test_boussinesq_flow_adapter_allows_missing_bundle_storage_in_steady_mode(
     assert model.has_numerical_solution is True
 
 
-@_OBSOLETE_RUNTIME_API
 def test_boussinesq_flow_adapter_supports_recharge_and_side_dirichlet(
     tmp_path: Path,
 ) -> None:
@@ -863,11 +841,10 @@ def test_boussinesq_flow_adapter_supports_recharge_and_side_dirichlet(
     assert model.state is not None
     assert model.state.recharge_rate_m_s is not None
     assert np.allclose(model.state.recharge_rate_m_s, 1.0e-7)
-    assert model.state.imposed_head_edge_flux_m3_s is not None
-    assert model.state.imposed_head_edge_flux_m3_s[4] < 0.0
+    assert model.state.boundary_edge_flux_m3_s is not None
+    assert model.state.boundary_edge_flux_m3_s[4] < 0.0
 
 
-@_OBSOLETE_RUNTIME_API
 def test_boussinesq_flow_adapter_supports_absolute_xy_well(
     tmp_path: Path,
 ) -> None:
@@ -921,7 +898,6 @@ def test_boussinesq_flow_adapter_supports_absolute_xy_well(
     assert np.isclose(model.state.well_flux_m3_s[1], 0.0)
 
 
-@_OBSOLETE_RUNTIME_API
 def test_boussinesq_flow_adapter_supports_stream_on_river_edges(
     tmp_path: Path,
 ) -> None:
@@ -965,11 +941,10 @@ def test_boussinesq_flow_adapter_supports_stream_on_river_edges(
 
     assert model.has_numerical_solution is True
     assert model.state is not None
-    assert model.state.imposed_head_edge_flux_m3_s is not None
-    assert model.state.imposed_head_edge_flux_m3_s[2] > 0.0
+    assert model.state.boundary_edge_flux_m3_s is not None
+    assert model.state.boundary_edge_flux_m3_s[2] > 0.0
 
 
-@_OBSOLETE_RUNTIME_API
 def test_boussinesq_flow_adapter_supports_ocean_on_coastal_edges(
     tmp_path: Path,
 ) -> None:
@@ -1013,9 +988,9 @@ def test_boussinesq_flow_adapter_supports_ocean_on_coastal_edges(
 
     assert model.has_numerical_solution is True
     assert model.state is not None
-    assert model.state.imposed_head_edge_flux_m3_s is not None
+    assert model.state.boundary_edge_flux_m3_s is not None
     assert model.runtime_summary["active_ocean"] is True
-    assert model.state.imposed_head_edge_flux_m3_s[0] < 0.0
-    assert model.state.imposed_head_edge_flux_m3_s[1] < 0.0
-    assert np.allclose(model.state.imposed_head_edge_flux_m3_s[[3, 4]], 0.0, atol=1.0e-12)
+    assert model.state.boundary_edge_flux_m3_s[0] < 0.0
+    assert model.state.boundary_edge_flux_m3_s[1] < 0.0
+    assert np.allclose(model.state.boundary_edge_flux_m3_s[[3, 4]], 0.0, atol=1.0e-12)
     assert model.state.head_m[0] > 8.0

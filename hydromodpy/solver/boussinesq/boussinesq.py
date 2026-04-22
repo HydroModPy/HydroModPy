@@ -33,22 +33,28 @@ from hydromodpy.physics.flow.boundary_conditions import SIDE_DIRICHLET_BC_IDS
 from hydromodpy.physics.flow.initial_conditions import FlowInitialConditions
 from hydromodpy.solver.base.solver import Solver
 from hydromodpy.solver.boussinesq.assembly import (
-    internal_edge_flux_from_head,
     saturated_thickness_from_head,
 )
 from hydromodpy.solver.boussinesq.core.state import BoussinesqState
+from hydromodpy.solver.boussinesq.drivers import (
+    run_steady_runtime,
+    run_transient_runtime,
+)
+from hydromodpy.solver.boussinesq.forcing_resolution import BoussinesqForcingResolver
 from hydromodpy.solver.boussinesq.mesh import BoussinesqMesh
 from hydromodpy.solver.boussinesq.methods import (
     resolve_surface_interaction_model_token,
 )
 from hydromodpy.solver.boussinesq.runtime_contract import (
     NonlinearRuntimeOptions,
-    SteadySolveInputs,
-    TransientStepInputs,
 )
 from hydromodpy.solver.boussinesq.runtime_selection import (
     BoussinesqRuntimeBackend,
     resolve_runtime_backend,
+)
+from hydromodpy.solver.boussinesq.solver_contract import (
+    BoussinesqSolverContract,
+    resolve_solver_contract,
 )
 from hydromodpy.solver.utils.mesh.gmsh_grid import load_planar_mesh
 from hydromodpy.solver.utils.mesh.gmsh_grid.catchment_mesh_bundle_reader import (
@@ -199,11 +205,15 @@ class Boussinesq(Solver):
                 internal_edge_flux_history_m3_s=self._as_export_array(
                     self.state.internal_edge_flux_history_m3_s
                 ),
-                imposed_head_edge_flux_m3_s=self._as_export_array(
-                    self.state.imposed_head_edge_flux_m3_s
+                boundary_edge_flux_m3_s=self._as_export_array(self.state.boundary_edge_flux_m3_s),
+                boundary_edge_flux_history_m3_s=self._as_export_array(
+                    self.state.boundary_edge_flux_history_m3_s
                 ),
-                imposed_head_edge_flux_history_m3_s=self._as_export_array(
-                    self.state.imposed_head_edge_flux_history_m3_s
+                prescribed_head_flux_m3_s=self._as_export_array(
+                    self.state.prescribed_head_flux_m3_s
+                ),
+                prescribed_head_flux_history_m3_s=self._as_export_array(
+                    self.state.prescribed_head_flux_history_m3_s
                 ),
                 drainage_flux_m3_s=self._as_export_array(self.state.drainage_flux_m3_s),
                 drainage_flux_history_m3_s=self._as_export_array(
@@ -501,9 +511,24 @@ class Boussinesq(Solver):
             tol_state_update_inf=tol_state_update_inf,
         )
 
+    def _resolve_solver_contract(self) -> BoussinesqSolverContract:
+        """Resolve the explicit solver contract from the current ``Flow``."""
+        return resolve_solver_contract(self.flow)
+
+    def _forcing_resolver(self) -> BoussinesqForcingResolver:
+        """Build one forcing resolver bound to the current solver state."""
+        if self.mesh is None:
+            raise RuntimeError("Mesh must be built before resolving forcings.")
+        return BoussinesqForcingResolver(
+            mesh=self.mesh,
+            flow=self.flow,
+            time_grid=self.time_grid,
+            mesh_bundle=self.mesh_bundle,
+        )
+
     def _record_runtime_backend_summary(
         self,
-        runtime_backend: BoussinesqRuntimeBackend,
+        contract: BoussinesqSolverContract,
     ) -> None:
         """Record which nonlinear strategy was used for this solve.
 
@@ -512,19 +537,16 @@ class Boussinesq(Solver):
         finding, dense Jacobians, and which convergence policy applied.
         """
         options = self._runtime_options()
-        flow_regime = (
-            str(getattr(self.flow, "flow_regime", "transient") or "transient").strip().lower()
-            or "transient"
-        )
-        time_scheme = runtime_backend.method.time_scheme_for_regime(flow_regime)
+        runtime_backend = contract.runtime_backend
+        time_scheme = runtime_backend.method.time_scheme_for_regime(contract.flow_regime)
         self.runtime_summary["runtime_backend"] = runtime_backend.name
         self.runtime_summary["runtime_engine"] = runtime_backend.name
         self.runtime_summary["runtime_engine_id"] = runtime_backend.engine_id
-        self.runtime_summary["surface_interaction_model_requested"] = str(
-            getattr(self.flow, "surface_interaction_model", "auto") or "auto"
+        self.runtime_summary["surface_interaction_model_requested"] = (
+            contract.surface_interaction_model_requested
         )
         self.runtime_summary["surface_interaction_model_resolved"] = (
-            self._surface_interaction_model()
+            contract.surface_interaction_model_resolved
         )
         self.runtime_summary["runtime_solver_kind"] = runtime_backend.nonlinear_solver_kind
         self.runtime_summary["runtime_linear_system_layout"] = runtime_backend.linear_system_layout
@@ -544,335 +566,18 @@ class Boussinesq(Solver):
     def _run_transient_runtime(self) -> bool:
         """Advance the head state over all launcher stress periods.
 
-        This method resolves every period-dependent forcing into numeric arrays,
-        then loops over the stress periods and asks the selected runtime backend
-        to solve one fully implicit step at a time.
+        Delegates to the canonical driver in ``drivers/transient.py``, which
+        uses the cell-indexed ``prescribed_head_m_by_cell`` runtime contract.
         """
-        if self.mesh is None:
-            raise RuntimeError("Mesh must be built before running the runtime.")
-        if self.state is None:
-            raise RuntimeError("Initial state must exist before time integration.")
-        runtime_backend = self._runtime_backend()
-        self._record_runtime_backend_summary(runtime_backend)
-        self._assert_runtime_mesh_size_supported(runtime_backend)
-
-        period_lengths = tuple(
-            float(value) for value in (getattr(self.time_grid, "period_lengths_seconds", ()) or ())
-        )
-        if not period_lengths:
-            return True
-
-        nper = len(period_lengths)
-        # Resolve all time-varying forcings once so the per-period loop only
-        # has to pass already normalized arrays to the backend.
-        recharge_series_m_s = self._resolve_recharge_series(nper)
-        well_flux_by_period_m3_s = self._resolve_well_flux_by_period(nper)
-        ocean_series_m = self._resolve_ocean_series(nper)
-        imposed_heads_by_period = self._resolve_imposed_head_by_period(
-            nper,
-            ocean_series_m=ocean_series_m,
-        )
-        ocean_supported_cell_masks = self._ocean_supported_cell_masks_by_period(
-            ocean_series_m,
-            nper=nper,
-        )
-        drainage_conductance_series_m2_s = self._resolve_drainage_conductance_series(nper)
-
-        head_prev = np.asarray(self.state.head_m, dtype=float)
-        head_history = [head_prev.copy()]
-        thickness_history = [np.asarray(self.state.saturated_thickness_m, dtype=float).copy()]
-        saturation_excess_history = [np.zeros(self.mesh.n_cells, dtype=float)]
-        recharge_rate_history = [np.zeros(self.mesh.n_cells, dtype=float)]
-        well_flux_history = [np.zeros(self.mesh.n_cells, dtype=float)]
-        internal_edge_flux_history = [np.zeros(self.mesh.n_edges, dtype=float)]
-        imposed_head_edge_flux_history = [np.zeros(self.mesh.n_edges, dtype=float)]
-        drainage_flux_history = [np.zeros(self.mesh.n_cells, dtype=float)]
-        nonlinear_iterations: list[int] = []
-        converged_by_period: list[bool] = []
-        final_internal_flux = internal_edge_flux_from_head(self.mesh, head_prev)
-        final_imposed_head_flux = np.zeros(self.mesh.n_edges, dtype=float)
-        final_drainage_flux = np.zeros(self.mesh.n_cells, dtype=float)
-        final_recharge_rate = np.zeros(self.mesh.n_cells, dtype=float)
-        final_well_flux = np.zeros(self.mesh.n_cells, dtype=float)
-        final_saturation_excess_rate = np.zeros(self.mesh.n_cells, dtype=float)
-        last_residual_norm = 0.0
-
-        for kper, dt_seconds in enumerate(period_lengths):
-            ocean_supported_cell_mask = np.asarray(
-                ocean_supported_cell_masks[kper],
-                dtype=bool,
-            )
-            drainage_conductance: np.ndarray | float
-            if (
-                np.any(ocean_supported_cell_mask)
-                and float(drainage_conductance_series_m2_s[kper]) != 0.0
-            ):
-                # Cells influenced by the ocean stage already have an imposed
-                # head support; top drainage is disabled there to avoid
-                # stacking two different release mechanisms on the same cells.
-                drainage_conductance = np.full(
-                    self.mesh.n_cells,
-                    float(drainage_conductance_series_m2_s[kper]),
-                    dtype=float,
-                )
-                drainage_conductance[np.asarray(ocean_supported_cell_mask, dtype=bool)] = 0.0
-            else:
-                drainage_conductance = float(drainage_conductance_series_m2_s[kper])
-            step = runtime_backend.solve_transient_step(
-                TransientStepInputs(
-                    mesh=self.mesh,
-                    head_prev_m=head_prev,
-                    dt_seconds=float(dt_seconds),
-                    head_initial_guess_m=head_prev,
-                    recharge_rate_m_s=recharge_series_m_s[kper],
-                    well_flux_m3_s=well_flux_by_period_m3_s[kper],
-                    imposed_head_m_by_edge=imposed_heads_by_period[kper],
-                    drainage_conductance_m2_s=drainage_conductance,
-                    options=self._runtime_options(),
-                )
-            )
-            nonlinear_iterations.append(int(step.iterations))
-            converged_by_period.append(bool(step.converged))
-            head_prev = np.asarray(step.head_m, dtype=float)
-            final_internal_flux = np.asarray(
-                step.assembly.internal_edge_flux_m3_s,
-                dtype=float,
-            )
-            final_imposed_head_flux = np.asarray(
-                step.assembly.imposed_head_edge_flux_m3_s,
-                dtype=float,
-            )
-            final_drainage_flux = np.asarray(
-                step.assembly.drainage_flux_m3_s,
-                dtype=float,
-            )
-            final_recharge_rate = np.asarray(
-                step.assembly.recharge_rate_m_s,
-                dtype=float,
-            )
-            final_well_flux = np.asarray(step.assembly.well_flux_m3_s, dtype=float)
-            final_saturation_excess_rate = np.asarray(
-                step.assembly.saturation_excess_rate_m_s,
-                dtype=float,
-            )
-            last_residual_norm = float(step.residual_norm_inf)
-            self.runtime_summary["last_termination_reason"] = str(step.termination_reason)
-            head_history.append(head_prev.copy())
-            thickness_history.append(step.assembly.saturated_thickness_m.copy())
-            saturation_excess_history.append(final_saturation_excess_rate.copy())
-            recharge_rate_history.append(final_recharge_rate.copy())
-            well_flux_history.append(final_well_flux.copy())
-            internal_edge_flux_history.append(final_internal_flux.copy())
-            imposed_head_edge_flux_history.append(final_imposed_head_flux.copy())
-            drainage_flux_history.append(final_drainage_flux.copy())
-            if not step.converged:
-                # Keep the partial state on failure so the caller can inspect
-                # how far the solve got and what the last iterate looked like.
-                self.state = BoussinesqState(
-                    head_m=head_prev.copy(),
-                    saturated_thickness_m=step.assembly.saturated_thickness_m.copy(),
-                    recharge_rate_m_s=final_recharge_rate.copy(),
-                    well_flux_m3_s=final_well_flux.copy(),
-                    saturation_excess_rate_m_s=final_saturation_excess_rate.copy(),
-                    recharge_rate_history_m_s=np.vstack(recharge_rate_history),
-                    well_flux_history_m3_s=np.vstack(well_flux_history),
-                    head_history_m=np.vstack(head_history),
-                    saturated_thickness_history_m=np.vstack(thickness_history),
-                    saturation_excess_history_m_s=np.vstack(saturation_excess_history),
-                    internal_edge_flux_m3_s=final_internal_flux.copy(),
-                    internal_edge_flux_history_m3_s=np.vstack(internal_edge_flux_history),
-                    imposed_head_edge_flux_m3_s=final_imposed_head_flux.copy(),
-                    imposed_head_edge_flux_history_m3_s=np.vstack(imposed_head_edge_flux_history),
-                    drainage_flux_m3_s=final_drainage_flux.copy(),
-                    drainage_flux_history_m3_s=np.vstack(drainage_flux_history),
-                    period_lengths_seconds=period_lengths,
-                    nonlinear_iterations=tuple(nonlinear_iterations),
-                    converged_by_period=tuple(converged_by_period),
-                )
-                self.runtime_summary["last_residual_norm_inf"] = last_residual_norm
-                self.runtime_summary["n_periods"] = nper
-                self.runtime_summary["active_recharge"] = self._has_active_recharge_payload(
-                    recharge_series_m_s
-                )
-                self.runtime_summary["active_wells"] = bool(np.any(well_flux_by_period_m3_s != 0.0))
-                self.runtime_summary["active_imposed_head_bc"] = bool(
-                    any(np.isfinite(values).any() for values in imposed_heads_by_period)
-                )
-                self.runtime_summary["active_ocean"] = bool(
-                    any(np.any(mask) for mask in ocean_supported_cell_masks)
-                )
-                self.runtime_summary["active_drainage"] = bool(
-                    np.any(drainage_conductance_series_m2_s != 0.0)
-                )
-                return False
-
-        final_thickness = np.asarray(thickness_history[-1], dtype=float)
-        self.state = BoussinesqState(
-            head_m=head_prev.copy(),
-            saturated_thickness_m=final_thickness.copy(),
-            recharge_rate_m_s=final_recharge_rate.copy(),
-            well_flux_m3_s=final_well_flux.copy(),
-            saturation_excess_rate_m_s=final_saturation_excess_rate.copy(),
-            recharge_rate_history_m_s=np.vstack(recharge_rate_history),
-            well_flux_history_m3_s=np.vstack(well_flux_history),
-            head_history_m=np.vstack(head_history),
-            saturated_thickness_history_m=np.vstack(thickness_history),
-            saturation_excess_history_m_s=np.vstack(saturation_excess_history),
-            internal_edge_flux_m3_s=final_internal_flux.copy(),
-            internal_edge_flux_history_m3_s=np.vstack(internal_edge_flux_history),
-            imposed_head_edge_flux_m3_s=final_imposed_head_flux.copy(),
-            imposed_head_edge_flux_history_m3_s=np.vstack(imposed_head_edge_flux_history),
-            drainage_flux_m3_s=final_drainage_flux.copy(),
-            drainage_flux_history_m3_s=np.vstack(drainage_flux_history),
-            period_lengths_seconds=period_lengths,
-            nonlinear_iterations=tuple(nonlinear_iterations),
-            converged_by_period=tuple(converged_by_period),
-        )
-        self.runtime_summary["n_periods"] = nper
-        self.runtime_summary["last_residual_norm_inf"] = last_residual_norm
-        self.runtime_summary["active_recharge"] = self._has_active_recharge_payload(
-            recharge_series_m_s
-        )
-        self.runtime_summary["active_wells"] = bool(np.any(well_flux_by_period_m3_s != 0.0))
-        self.runtime_summary["active_imposed_head_bc"] = bool(
-            any(np.isfinite(values).any() for values in imposed_heads_by_period)
-        )
-        self.runtime_summary["active_ocean"] = bool(
-            any(np.any(mask) for mask in ocean_supported_cell_masks)
-        )
-        self.runtime_summary["active_drainage"] = bool(
-            np.any(drainage_conductance_series_m2_s != 0.0)
-        )
-        return True
+        return run_transient_runtime(self)
 
     def _run_steady_runtime(self) -> bool:
-        """Solve one steady nonlinear balance on the selected backend."""
-        if self.mesh is None:
-            raise RuntimeError("Mesh must be built before running the runtime.")
-        if self.state is None:
-            raise RuntimeError("Initial state must exist before steady solve.")
-        runtime_backend = self._runtime_backend()
-        self._record_runtime_backend_summary(runtime_backend)
-        self._assert_runtime_mesh_size_supported(runtime_backend)
+        """Solve one steady nonlinear balance on the selected backend.
 
-        recharge_rate_m_s = self._resolve_recharge_series(1)[0]
-        well_flux_m3_s = np.asarray(
-            self._resolve_well_flux_by_period(1)[0],
-            dtype=float,
-        )
-        ocean_series_m = self._resolve_ocean_series(1)
-        imposed_head_m_by_edge = np.asarray(
-            self._resolve_imposed_head_by_period(
-                1,
-                ocean_series_m=ocean_series_m,
-            )[0],
-            dtype=float,
-        )
-        ocean_supported_cell_mask = np.asarray(
-            self._ocean_supported_cell_masks_by_period(ocean_series_m, nper=1)[0],
-            dtype=bool,
-        )
-        drainage_value = float(self._resolve_drainage_conductance_series(1)[0])
-        if np.any(ocean_supported_cell_mask) and drainage_value != 0.0:
-            # Same rule as in transient mode: an ocean-supported cell should not
-            # also leak through the generic top-drainage operator.
-            drainage_conductance: np.ndarray | float = np.full(
-                self.mesh.n_cells,
-                drainage_value,
-                dtype=float,
-            )
-            drainage_conductance[np.asarray(ocean_supported_cell_mask, dtype=bool)] = 0.0
-        else:
-            drainage_conductance = drainage_value
-
-        steady = runtime_backend.solve_steady_problem(
-            SteadySolveInputs(
-                mesh=self.mesh,
-                head_initial_guess_m=np.asarray(self.state.head_m, dtype=float),
-                recharge_rate_m_s=recharge_rate_m_s,
-                well_flux_m3_s=well_flux_m3_s,
-                imposed_head_m_by_edge=imposed_head_m_by_edge,
-                drainage_conductance_m2_s=drainage_conductance,
-                options=self._runtime_options(),
-            )
-        )
-        self.state = BoussinesqState(
-            head_m=np.asarray(steady.head_m, dtype=float).copy(),
-            saturated_thickness_m=np.asarray(
-                steady.assembly.saturated_thickness_m,
-                dtype=float,
-            ).copy(),
-            recharge_rate_m_s=np.asarray(
-                steady.assembly.recharge_rate_m_s,
-                dtype=float,
-            ).copy(),
-            well_flux_m3_s=np.asarray(
-                steady.assembly.well_flux_m3_s,
-                dtype=float,
-            ).copy(),
-            saturation_excess_rate_m_s=np.asarray(
-                steady.assembly.saturation_excess_rate_m_s,
-                dtype=float,
-            ).copy(),
-            recharge_rate_history_m_s=np.asarray(
-                [steady.assembly.recharge_rate_m_s],
-                dtype=float,
-            ),
-            well_flux_history_m3_s=np.asarray(
-                [steady.assembly.well_flux_m3_s],
-                dtype=float,
-            ),
-            head_history_m=np.asarray([steady.head_m], dtype=float),
-            saturated_thickness_history_m=np.asarray(
-                [steady.assembly.saturated_thickness_m],
-                dtype=float,
-            ),
-            saturation_excess_history_m_s=np.asarray(
-                [steady.assembly.saturation_excess_rate_m_s],
-                dtype=float,
-            ),
-            internal_edge_flux_m3_s=np.asarray(
-                steady.assembly.internal_edge_flux_m3_s,
-                dtype=float,
-            ).copy(),
-            internal_edge_flux_history_m3_s=np.asarray(
-                [steady.assembly.internal_edge_flux_m3_s],
-                dtype=float,
-            ),
-            imposed_head_edge_flux_m3_s=np.asarray(
-                steady.assembly.imposed_head_edge_flux_m3_s,
-                dtype=float,
-            ).copy(),
-            imposed_head_edge_flux_history_m3_s=np.asarray(
-                [steady.assembly.imposed_head_edge_flux_m3_s],
-                dtype=float,
-            ),
-            drainage_flux_m3_s=np.asarray(
-                steady.assembly.drainage_flux_m3_s,
-                dtype=float,
-            ).copy(),
-            drainage_flux_history_m3_s=np.asarray(
-                [steady.assembly.drainage_flux_m3_s],
-                dtype=float,
-            ),
-            period_lengths_seconds=(),
-            nonlinear_iterations=(int(steady.iterations),),
-            converged_by_period=(bool(steady.converged),),
-        )
-        self.runtime_summary["steady_mode"] = f"nonlinear_{runtime_backend.name}"
-        self.runtime_summary["steady_residual_norm_inf"] = float(steady.residual_norm_inf)
-        self.runtime_summary["steady_nonlinear_iterations"] = int(steady.iterations)
-        self.runtime_summary["steady_termination_reason"] = str(steady.termination_reason)
-        self.runtime_summary["active_recharge"] = self._has_active_recharge_payload(
-            (recharge_rate_m_s,)
-        )
-        self.runtime_summary["active_wells"] = bool(np.any(well_flux_m3_s != 0.0))
-        self.runtime_summary["active_imposed_head_bc"] = bool(
-            np.isfinite(imposed_head_m_by_edge).any()
-        )
-        self.runtime_summary["active_ocean"] = bool(np.any(ocean_supported_cell_mask))
-        self.runtime_summary["active_drainage"] = bool(drainage_value != 0.0)
-        return bool(steady.converged)
+        Delegates to the canonical driver in ``drivers/steady.py``, which
+        uses the cell-indexed ``prescribed_head_m_by_cell`` runtime contract.
+        """
+        return run_steady_runtime(self)
 
     def _build_initial_state(self) -> BoussinesqState:
         """Create the initial state from the ``Flow`` initial-condition contract."""
