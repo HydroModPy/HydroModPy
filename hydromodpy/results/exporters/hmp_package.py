@@ -54,8 +54,11 @@ README_NAME = "README.md"
 CATALOG_SNAPSHOT_NAME = "catalog_snapshot.duckdb"
 ZARR_ARCHIVE_NAME = "simulation.zarr.zip"
 GEOGRAPHIC_SUBDIR = "geographic"
-HMP_FORMAT_VERSION = "1.0"
+INPUTS_SUBDIR = "inputs"
+INPUTS_MANIFEST_NAME = "manifest.json"
+HMP_FORMAT_VERSION = "1.1"
 HMP_MAGIC = "hydromodpy/hmp"
+SHAPEFILE_SIDECAR_EXTS = (".shp", ".shx", ".dbf", ".prj", ".cpg", ".sbn", ".sbx")
 
 
 def _hydromodpy_version() -> str:
@@ -96,6 +99,107 @@ def _pack_zarr(zarr_src: Path, dst: Path) -> None:
         for fpath in sorted(zarr_src.rglob("*")):
             if fpath.is_file():
                 zf.write(str(fpath), str(fpath.relative_to(zarr_src)))
+
+
+def _looks_like_shapefile(path: Path) -> bool:
+    return path.is_file() and path.suffix.lower() == ".shp"
+
+
+def _bundle_shapefile(path: Path, dst_dir: Path, basename_prefix: str) -> str:
+    """Pack a .shp and its sidecars into one .shp.zip and return archive path."""
+    stem = path.stem
+    parent = path.parent
+    archive_name = f"{basename_prefix}{path.name}.zip"
+    archive_path = dst_dir / archive_name
+    with zipfile.ZipFile(str(archive_path), "w", compression=zipfile.ZIP_DEFLATED) as zf:
+        for ext in SHAPEFILE_SIDECAR_EXTS:
+            sidecar = parent / f"{stem}{ext}"
+            if sidecar.is_file():
+                zf.write(str(sidecar), sidecar.name)
+    return archive_name
+
+
+def _copy_directory_tree(src: Path, dst: Path) -> None:
+    shutil.copytree(src, dst)
+
+
+def _bundle_one_input(entry_row: "dict", staging_inputs: Path) -> "dict | None":
+    """Copy or pack one tracked file into the inputs staging area.
+
+    Returns the manifest entry for this file, or ``None`` if the source is
+    missing on disk at export time.
+    """
+    src = Path(entry_row["canonical_path"])
+    if not src.exists():
+        logger.warning(
+            "Tracked file missing at export time, skipping: %s", src,
+        )
+        return None
+
+    role = str(entry_row["role"])
+    sha12 = str(entry_row["sha256"])[:12]
+    role_dir = staging_inputs / role
+    role_dir.mkdir(parents=True, exist_ok=True)
+
+    if src.is_dir():
+        dst_dir = role_dir / f"{sha12}__{src.name}"
+        _copy_directory_tree(src, dst_dir)
+        archive_rel = f"{INPUTS_SUBDIR}/{role}/{sha12}__{src.name}"
+        is_directory = True
+    elif _looks_like_shapefile(src):
+        arc_name = _bundle_shapefile(src, role_dir, f"{sha12}__")
+        archive_rel = f"{INPUTS_SUBDIR}/{role}/{arc_name}"
+        is_directory = False
+    else:
+        dst_name = f"{sha12}__{src.name}"
+        shutil.copy2(src, role_dir / dst_name)
+        archive_rel = f"{INPUTS_SUBDIR}/{role}/{dst_name}"
+        is_directory = False
+
+    return {
+        "role": role,
+        "category": str(entry_row["category"]),
+        "original_path": str(entry_row["original_path"]),
+        "archive_path": archive_rel,
+        "sha256": str(entry_row["sha256"]),
+        "size_bytes": int(entry_row["size_bytes"]),
+        "is_directory": is_directory,
+    }
+
+
+def _materialise_inputs(
+    catalog: Any, sim_id: str, staging: Path,
+) -> list[dict]:
+    """Copy every tracked input for ``sim_id`` into ``staging/inputs/``.
+
+    Writes ``inputs/manifest.json`` listing each bundled input. Returns
+    the manifest list (also useful for the root manifest).
+    """
+    rows = catalog.connection.execute(
+        """SELECT role, category, original_path, canonical_path,
+                  sha256, size_bytes, portable
+           FROM tracked_files WHERE sim_id = ?
+           ORDER BY role, canonical_path""",
+        [sim_id],
+    ).fetchdf()
+    if rows.empty:
+        return []
+
+    staging_inputs = staging / INPUTS_SUBDIR
+    staging_inputs.mkdir(parents=True, exist_ok=True)
+
+    entries: list[dict] = []
+    for _, row in rows.iterrows():
+        if not bool(row["portable"]):
+            continue
+        bundled = _bundle_one_input(dict(row), staging_inputs)
+        if bundled is not None:
+            entries.append(bundled)
+
+    (staging_inputs / INPUTS_MANIFEST_NAME).write_text(
+        json.dumps(entries, indent=2, sort_keys=True), encoding="utf-8",
+    )
+    return entries
 
 
 def _materialise_geographic(
@@ -230,7 +334,12 @@ def _restore_catalog_snapshot(
 
 
 def _build_manifest(
-    sim_id: str, staging: Path, geographic_fingerprint: str | None,
+    sim_id: str,
+    staging: Path,
+    geographic_fingerprint: str | None,
+    *,
+    inputs: list[dict] | None = None,
+    project: str | None = None,
 ) -> dict[str, Any]:
     files = []
     for path in _iter_package_files(staging):
@@ -241,24 +350,38 @@ def _build_manifest(
                 "sha256": _sha256_file(path),
             }
         )
+    inputs = inputs or []
     return {
         "format": HMP_MAGIC,
         "format_version": HMP_FORMAT_VERSION,
         "sim_id": sim_id,
+        "project": project,
         "hydromodpy_version": _hydromodpy_version(),
         "geographic_fingerprint": geographic_fingerprint,
+        "has_inputs": bool(inputs),
+        "inputs": inputs,
         "files": files,
     }
 
 
-def _write_readme(sim_id: str, dst: Path) -> None:
+def _write_readme(
+    sim_id: str,
+    dst: Path,
+    *,
+    n_inputs: int = 0,
+) -> None:
+    inputs_line = (
+        f"- **bundled input files**: {n_inputs}\n" if n_inputs else ""
+    )
     dst.write_text(
         (
             f"# HydroModPy simulation package\n\n"
             f"- **sim_id**: `{sim_id}`\n"
             f"- **format_version**: `{HMP_FORMAT_VERSION}`\n"
-            f"- **hydromodpy_version**: `{_hydromodpy_version()}`\n\n"
-            "Import with `SimulationCatalog.import_package(<path>.hmp)`.\n"
+            f"- **hydromodpy_version**: `{_hydromodpy_version()}`\n"
+            f"{inputs_line}\n"
+            "Import with `SimulationCatalog.import_package(<path>.hmp)` "
+            "or the `hmp add <archive>.hmp` CLI.\n"
             "Integrity of the archive is verified against `manifest.json` "
             "on import (SHA-256 per file).\n"
         ),
@@ -329,12 +452,12 @@ def export_hmp_package(
             if output.suffix else output.with_suffix(".hmp")
 
     row = catalog.connection.execute(
-        "SELECT zarr_path, geographic_fingerprint FROM simulations "
+        "SELECT zarr_path, geographic_fingerprint, project FROM simulations "
         "WHERE sim_id = ?", [sid],
     ).fetchone()
     if row is None:
         raise KeyError(f"Simulation '{sid}' not found")
-    zarr_rel, geo_fp = row
+    zarr_rel, geo_fp, project_name = row
     workspace = catalog.workspace_path
     zarr_src = workspace / zarr_rel
 
@@ -347,9 +470,15 @@ def export_hmp_package(
         )
         _pack_zarr(zarr_src, staging / ZARR_ARCHIVE_NAME)
         _materialise_geographic(workspace, geo_fp, staging)
-        _write_readme(sid, staging / README_NAME)
+        inputs_manifest = _materialise_inputs(catalog, sid, staging)
+        _write_readme(
+            sid, staging / README_NAME, n_inputs=len(inputs_manifest),
+        )
 
-        manifest = _build_manifest(sid, staging, geo_fp)
+        manifest = _build_manifest(
+            sid, staging, geo_fp,
+            inputs=inputs_manifest, project=project_name,
+        )
         (staging / MANIFEST_NAME).write_text(
             json.dumps(manifest, indent=2, sort_keys=True),
             encoding="utf-8",
@@ -498,6 +627,8 @@ __all__ = [
     "GEOGRAPHIC_SUBDIR",
     "HMP_FORMAT_VERSION",
     "HMP_MAGIC",
+    "INPUTS_SUBDIR",
+    "INPUTS_MANIFEST_NAME",
     "MANIFEST_NAME",
     "export_hmp_package",
     "import_hmp_package",
