@@ -16,7 +16,6 @@ from pathlib import Path
 import matplotlib.tri as mtri
 import numpy as np
 
-from hydromodpy.spatial.field.core.field_mesh import BaseFieldMesh, MeshCell
 from hydromodpy.solver.utils.mesh.gmsh_grid.gmsh_reader import (
     GmshCellBlock,
     GmshMeshData,
@@ -26,6 +25,7 @@ from hydromodpy.solver.utils.mesh.gmsh_grid.gmsh_reader import (
     read_gmsh_2d_mesh,
     write_gmsh_2d_mesh,
 )
+from hydromodpy.spatial.field.core.field_mesh import BaseFieldMesh, MeshCell
 
 
 class GmshPlanarMesh2D(BaseFieldMesh):
@@ -59,9 +59,7 @@ class GmshPlanarMesh2D(BaseFieldMesh):
             raise ValueError(
                 f"{normalized_cell_type} connectivity must have shape (n_cells, {expected_width})"
             )
-        if np.any(connectivity_arr < 0) or np.any(
-            connectivity_arr >= points_arr.shape[0]
-        ):
+        if np.any(connectivity_arr < 0) or np.any(connectivity_arr >= points_arr.shape[0]):
             raise ValueError("connectivity references node indices outside points_xy")
 
         super().__init__(
@@ -83,7 +81,7 @@ class GmshPlanarMesh2D(BaseFieldMesh):
             )
 
     @classmethod
-    def from_mesh_data(cls, mesh_data: GmshMeshData) -> "GmshPlanarMesh2D":
+    def from_mesh_data(cls, mesh_data: GmshMeshData) -> GmshPlanarMesh2D:
         """Build a planar mesh from the low-level normalized payload."""
         return cls(
             points_xy=mesh_data.points_xy,
@@ -94,17 +92,15 @@ class GmshPlanarMesh2D(BaseFieldMesh):
         )
 
     @classmethod
-    def from_meshio(cls, mesh, *, cell_type: str | None = None) -> "GmshPlanarMesh2D":
+    def from_meshio(cls, mesh, *, cell_type: str | None = None) -> GmshPlanarMesh2D:
         return cls.from_mesh_data(meshio_to_mesh_data(mesh, cell_type=cell_type))
 
     @classmethod
-    def from_file(
-        cls, path: str | Path, *, cell_type: str | None = None
-    ) -> "GmshPlanarMesh2D":
+    def from_file(cls, path: str | Path, *, cell_type: str | None = None) -> GmshPlanarMesh2D:
         return cls.from_mesh_data(read_gmsh_2d_mesh(path, cell_type=cell_type))
 
     @classmethod
-    def from_hydro_mesh(cls, hydro_mesh) -> "GmshPlanarMesh2D":
+    def from_hydro_mesh(cls, hydro_mesh) -> GmshPlanarMesh2D:
         """Build a ``GmshPlanarMesh2D`` from a 2D ``HydroMesh``."""
         from hydromodpy.spatial.mesh.hydro_mesh import HydroMesh
 
@@ -191,9 +187,7 @@ class GmshPlanarMesh2D(BaseFieldMesh):
         """Convert the higher-level mesh object back to the low-level payload."""
         return GmshMeshData(
             points_xy=self.points_xy,
-            cell_blocks=(
-                GmshCellBlock(cell_type=self.cell_type, connectivity=self.connectivity),
-            ),
+            cell_blocks=(GmshCellBlock(cell_type=self.cell_type, connectivity=self.connectivity),),
             source_path=self.source_path,
         )
 
@@ -209,9 +203,7 @@ class GmshPlanarMesh2D(BaseFieldMesh):
             {
                 "cell_type": self.cell_type,
                 "bounds": tuple(float(v) for v in self.bounds),
-                "source_path": (
-                    None if self.source_path is None else str(self.source_path)
-                ),
+                "source_path": (None if self.source_path is None else str(self.source_path)),
             }
         )
         return payload

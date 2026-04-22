@@ -4,20 +4,23 @@ from __future__ import annotations
 
 import warnings
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 import geopandas as gpd
 import numpy as np
 import pandas as pd
 import rasterio
 
-from hydromodpy.core.backends import get_whitebox_backend
-from hydromodpy.core.tools import get_logger
-
+from hydromodpy.core.logging import get_logger
 from hydromodpy.data.variables.hydrography.config import (
     HydrographyConfig,
     HydrographySourceConfig,
 )
 from hydromodpy.data.variables.hydrography.result import HydrographyResult
+from hydromodpy.spatial.delineation import get_whitebox_backend
+
+if TYPE_CHECKING:
+    from hydromodpy.data.registry.catalog_duckdb import DataCatalogDuckDB as DataCatalog
 
 logger = get_logger(__name__)
 
@@ -33,13 +36,14 @@ class HydrographyManager:
         config: HydrographyConfig,
         geographic: object,
         out_path: str | Path,
-        catalog: "DataCatalog | None" = None,
+        catalog: DataCatalog | None = None,
         data_dir: Path | None = None,
         stable_folder: str | Path | None = None,
     ) -> None:
         self.config = config
         self.geographic = geographic
         from hydromodpy.core.workspace.path_registry import LEGACY_STABLE_DIR
+
         base = Path(stable_folder) if stable_folder else Path(out_path) / LEGACY_STABLE_DIR
         self._data_folder = base / "hydrography"
         self._data_folder.mkdir(parents=True, exist_ok=True)
@@ -123,7 +127,10 @@ class HydrographyManager:
 
         with rasterio.open(str(tif_path)) as src:
             out_image, out_transform = rio_mask(
-                src, geom, crop=True, nodata=-32768,
+                src,
+                geom,
+                crop=True,
+                nodata=-32768,
             )
             out_meta = src.meta.copy()
             out_meta.update(
@@ -151,11 +158,13 @@ class HydrographyManager:
     # ------------------------------------------------------------------
 
     def _fetch_from_source(
-        self, source_cfg: HydrographySourceConfig,
+        self,
+        source_cfg: HydrographySourceConfig,
     ) -> gpd.GeoDataFrame | Path:
         """Dispatch to the correct loader/API for *source_cfg*."""
         if source_cfg.source == "custom":
             from hydromodpy.data.variables.hydrography.custom import load_custom
+
             return load_custom(source_cfg)
 
         bbox = self._get_bbox_wgs84()
@@ -175,19 +184,24 @@ class HydrographyManager:
         return gdf
 
     def _fetch_api(
-        self, source_cfg: HydrographySourceConfig, bbox: tuple[float, float, float, float],
+        self,
+        source_cfg: HydrographySourceConfig,
+        bbox: tuple[float, float, float, float],
     ) -> gpd.GeoDataFrame:
         """Call the appropriate API fetch function."""
         if source_cfg.source == "osm":
             from hydromodpy.data.variables.hydrography.apis.osm import fetch
+
             return fetch(source_cfg, bbox)
 
         if source_cfg.source == "bdtopage":
             from hydromodpy.data.variables.hydrography.apis.bdtopage import fetch
+
             return fetch(source_cfg, bbox)
 
         if source_cfg.source == "euhydro":
             from hydromodpy.data.variables.hydrography.apis.euhydro import fetch
+
             return fetch(source_cfg, bbox)
 
         raise ValueError(f"Unknown hydrography source: {source_cfg.source!r}")
@@ -197,13 +211,17 @@ class HydrographyManager:
     # ------------------------------------------------------------------
 
     def _try_load_cached(
-        self, source: str, bbox: tuple[float, float, float, float],
+        self,
+        source: str,
+        bbox: tuple[float, float, float, float],
     ) -> gpd.GeoDataFrame | None:
         """Return cached GeoDataFrame if the catalog has a superset entry."""
         if self._catalog is None:
             return None
         entry = self._catalog.find_cached(
-            variable=self.VARIABLE_NAME, source=source, bbox=bbox,
+            variable=self.VARIABLE_NAME,
+            source=source,
+            bbox=bbox,
         )
         if entry is None:
             return None
@@ -281,17 +299,26 @@ class HydrographyManager:
         if shp_type in ("MultiPolygon", "Polygon"):
             logger.debug("Rasterising polygon geometry: %s", shp_type)
             self._backend.vector_polygons_to_raster(
-                str(streams_path), str(tif_path), field=field, base=watershed_dem,
+                str(streams_path),
+                str(tif_path),
+                field=field,
+                base=watershed_dem,
             )
         elif shp_type in ("MultiLineString", "LineString", "Line"):
             logger.debug("Rasterising line geometry: %s", shp_type)
             self._backend.vector_lines_to_raster(
-                str(streams_path), str(tif_path), field=field, base=watershed_dem,
+                str(streams_path),
+                str(tif_path),
+                field=field,
+                base=watershed_dem,
             )
         elif shp_type in ("Point", "MultiPoint"):
             logger.debug("Rasterising point geometry: %s", shp_type)
             self._backend.vector_points_to_raster(
-                str(streams_path), str(tif_path), field=field, base=watershed_dem,
+                str(streams_path),
+                str(tif_path),
+                field=field,
+                base=watershed_dem,
             )
         else:
             raise ValueError(f"Unsupported geometry type: {shp_type}")

@@ -104,10 +104,7 @@ def build_cell_coupling_rows_by_column(
         coupling[owner].add(neighbour)
         coupling[neighbour].add(owner)
 
-    return tuple(
-        np.asarray(sorted(rows), dtype=int)
-        for rows in coupling
-    )
+    return tuple(np.asarray(sorted(rows), dtype=int) for rows in coupling)
 
 
 def build_sparse_fd_jacobian_triplets(
@@ -145,9 +142,7 @@ def build_sparse_fd_jacobian_triplets(
         perturbed = head.copy()
         perturbed[col] += step
         residual_perturbed = np.asarray(residual_fn(perturbed), dtype=float)
-        column_values = (
-            residual_perturbed[active_rows] - residual_base[active_rows]
-        ) / step
+        column_values = (residual_perturbed[active_rows] - residual_base[active_rows]) / step
         data_parts.append(column_values.astype(float, copy=False))
         row_parts.append(active_rows.astype(int, copy=False))
         col_parts.append(np.full(active_rows.size, col, dtype=int))
@@ -208,11 +203,7 @@ def color_columns_by_row_overlap(
     )
     color_by_col = [-1] * n_cols
     for col in order:
-        forbidden = {
-            color_by_col[other]
-            for other in neighbours[col]
-            if color_by_col[other] >= 0
-        }
+        forbidden = {color_by_col[other] for other in neighbours[col] if color_by_col[other] >= 0}
         color = 0
         while color in forbidden:
             color += 1
@@ -271,9 +262,7 @@ def build_colored_sparse_fd_jacobian_triplets(
         step_by_col: dict[int, float] = {}
         for col in group.tolist():
             if col < 0 or col >= n_cells:
-                raise ValueError(
-                    f"column_groups contains column {col} outside [0, {n_cells - 1}]."
-                )
+                raise ValueError(f"column_groups contains column {col} outside [0, {n_cells - 1}].")
             step = rel_step * max(1.0, abs(float(head[col])))
             perturbed[col] += step
             step_by_col[int(col)] = float(step)
@@ -283,9 +272,9 @@ def build_colored_sparse_fd_jacobian_triplets(
             active_rows = np.asarray(rows_by_col[col], dtype=int).reshape(-1)
             if active_rows.size == 0:
                 continue
-            column_values = (
-                residual_perturbed[active_rows] - residual_base[active_rows]
-            ) / float(step_by_col[int(col)])
+            column_values = (residual_perturbed[active_rows] - residual_base[active_rows]) / float(
+                step_by_col[int(col)]
+            )
             data_parts.append(column_values.astype(float, copy=False))
             row_parts.append(active_rows.astype(int, copy=False))
             col_parts.append(np.full(active_rows.size, int(col), dtype=int))

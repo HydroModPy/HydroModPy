@@ -3,16 +3,15 @@
 from __future__ import annotations
 
 import argparse
-from dataclasses import dataclass
-from datetime import datetime, timezone
 import json
-from pathlib import Path
 import subprocess
 import sys
 import time
+from dataclasses import dataclass
+from datetime import UTC, datetime, timezone
+from pathlib import Path
 
 from validation_cases.shared.loaders import load_case_metadata
-
 
 PACKAGE_ROOT = Path(__file__).resolve().parent
 ANALYTICAL_ROOT = PACKAGE_ROOT / "analytical"
@@ -43,13 +42,7 @@ def _normalize_solver_names(metadata: dict) -> tuple[str, ...]:
     """Extract supported solver names from one case metadata mapping."""
     config_files = metadata.get("config_files")
     if isinstance(config_files, dict) and config_files:
-        solvers = sorted(
-            {
-                str(key).strip().lower()
-                for key in config_files
-                if str(key).strip()
-            }
-        )
+        solvers = sorted({str(key).strip().lower() for key in config_files if str(key).strip()})
         if solvers:
             return tuple(solvers)
 
@@ -207,7 +200,7 @@ def build_execution_report(
     total_duration_seconds = float(sum(float(item.duration_seconds) for item in executions))
     return {
         "schema_version": "validation_batch_report_v1",
-        "generated_at_utc": datetime.now(timezone.utc).isoformat(),
+        "generated_at_utc": datetime.now(UTC).isoformat(),
         "solver": str(solver),
         "regime": str(regime),
         "show_plot": bool(show_plot),
@@ -283,9 +276,7 @@ def main(argv: list[str] | None = None) -> int:
             )
         )
         if completed.returncode != 0:
-            print(
-                f"Case failed with exit code {completed.returncode}: {case.module_name}"
-            )
+            print(f"Case failed with exit code {completed.returncode}: {case.module_name}")
             if args.report_json is not None:
                 report = build_execution_report(
                     solver=str(args.solver),

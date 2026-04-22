@@ -1,0 +1,84 @@
+workflow = "simulation"
+
+[workspace]
+project_root = "."
+
+[geographic]
+catch_def = "from_outlet_coord"
+dem_init_path = "../../data/dem/DEM_armorican_massif.tif"
+snap_dist = "150 m"
+buff_area = "10%"
+crs_project = "EPSG:2154"
+dem_correc_type = "breach"
+
+[domain]
+zone_ids = ["geology"]
+
+[domain.depth_model]
+type = "constant_thickness"
+thickness = "50.0 m"
+
+[data]
+types = ["geology", "recharge"]
+
+[data.geology]
+id = "field_geology"
+cell_samples_per_axis = 8
+
+[[data.geology.sources]]
+source = "brgm_1m"
+
+[data.recharge]
+date_start = "2020-01-01"
+date_end = "2020-12-31"
+
+[[data.recharge.sources]]
+source = "sim2"
+extent = "watershed"
+
+[flow]
+flow_regime = "transient"
+active_sinks_sources = ["recharge"]
+active_bc = ["drainage"]
+param_list = ["K", "Ss", "Sy"]
+
+[flow.param.K.field]
+id = "K"
+kind = "homogeneous"
+unit = "m/s"
+
+[flow.param.K.field_homogeneous]
+value = "1e-5 m/s"
+
+[flow.param.Ss.field]
+id = "Ss"
+kind = "homogeneous"
+unit = "m-1"
+
+[flow.param.Ss.field_homogeneous]
+value = "1e-5 m-1"
+
+[flow.param.Sy.field]
+id = "Sy"
+kind = "homogeneous"
+unit = "-"
+
+[flow.param.Sy.field_homogeneous]
+value = "0.02 -"
+
+[flow.ic]
+type = "top"
+
+[flow.bc.cauchy.drainage]
+application_domain = "top"
+value = "0.0 m2/s"
+
+[flow.sinks_sources.recharge]
+first_clim = "mean"
+negative_to_evt = true
+
+[postprocess]
+enabled = true
+
+[display]
+show = false

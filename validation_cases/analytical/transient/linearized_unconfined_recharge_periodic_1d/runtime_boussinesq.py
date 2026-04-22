@@ -13,7 +13,6 @@ from validation_cases.shared.boussinesq_uniform_strip import (
     run_boussinesq_uniform_strip_case,
 )
 
-
 CASE_DIR = Path(__file__).resolve().parent
 CASE_ID = "lu_recharge_periodic_1d"
 NX = 50
@@ -51,9 +50,7 @@ def run_boussinesq_linearized_unconfined_recharge_periodic_case(
     time_cfg = dict(metadata.get("time", {}))
 
     base_head_m = float(reference_cfg["base_head_m"])
-    reference_saturated_thickness_m = float(
-        reference_cfg["reference_saturated_thickness_m"]
-    )
+    reference_saturated_thickness_m = float(reference_cfg["reference_saturated_thickness_m"])
     nper = int(output_cfg["expected_periods"])
     dt_seconds = float(time_cfg["dt_seconds"])
     recharge_mm_day = _periodic_recharge_series_mm_day(

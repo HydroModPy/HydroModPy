@@ -1,3 +1,5 @@
+workflow = "simulation"
+
 [simulation]
 name = "Brutsaert recession deep validation"
 description = "Synthetic deep-aquifer Brutsaert recession with one steady warm-up period followed by transient recession."

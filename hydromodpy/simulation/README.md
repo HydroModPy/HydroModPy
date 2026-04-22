@@ -4,7 +4,7 @@ The simulation package separates four responsibilities:
 
 - `SimulationPlanner`: turns the declarative `[simulation]` TOML block into an explicit ordered `SimulationPlan`.
 - `SimulationRunner`: walks through that plan, materializes process context when needed via free functions, manages process-family transitions, resolves runtime dependencies, and records outputs.
-- `SolverAdapter`: translates one generic `ProcessRun` into the concrete API call sequence for a specific solver.
+- `SolverRunner`: translates one generic `ProcessRun` into the concrete API call sequence for a specific solver.
 - Solver classes (`Modflow`, `Modpath`, `Mt3dms`, `Modflow6`, ...): perform the actual numerical or post-processing work.
 - Runtime state models (`simulation/state/`): hold setup/data/execution scopes shared by launchers, runner, and postprocess.
 
@@ -16,7 +16,7 @@ SimulationConfig
 -> SimulationPlan (ProcessRun...)
 -> SimulationRunner
 -> ensure_process_context() (on process-family transitions)
--> SolverAdapter
+-> SolverRunner
 -> Solver implementation
 ```
 

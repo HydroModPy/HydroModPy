@@ -1,17 +1,17 @@
 """Backward-compatible aliases for standalone geology case config helpers."""
 
 from hydromodpy.data.variables.geology.config import (
-    GeologyConfigSchema,
-    GeologyLandSeaSchema,
-    GeologySourceSchema,
+    GeologyConfigBlock,
+    GeologyLandSea,
+    GeologySource,
     load_geology_toml,
     validate_geology_config_data,
 )
 
 __all__ = [
-    "GeologyConfigSchema",
-    "GeologyLandSeaSchema",
-    "GeologySourceSchema",
+    "GeologyConfigBlock",
+    "GeologyLandSea",
+    "GeologySource",
     "load_geology_toml",
     "validate_geology_config_data",
 ]

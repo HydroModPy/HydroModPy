@@ -10,8 +10,8 @@ from typing import Any
 
 import numpy as np
 
-from hydromodpy.process.flow import Flow
-from hydromodpy.process.flow.flow_config import FlowConfig
+from hydromodpy.physics.flow import Flow
+from hydromodpy.physics.flow.flow_config import FlowConfig
 from hydromodpy.simulation.adapters.flow.boussinesq import BoussinesqFlowAdapter
 from hydromodpy.simulation.planning.plan import (
     ProcessRun,
@@ -23,7 +23,6 @@ from validation_cases.shared.runtime import (
     ValidationRunResult,
     resolve_validation_results_dir,
 )
-
 
 ScalarOrProfile = float | list[float] | tuple[float, ...] | np.ndarray | Callable[[float], float]
 
@@ -54,7 +53,9 @@ def build_flow_config(
                     continue
                 raw_value = payload.get("value")
                 if isinstance(raw_value, (list, tuple, np.ndarray)):
-                    values = [float(item) for item in np.asarray(raw_value, dtype=float).reshape(-1)]
+                    values = [
+                        float(item) for item in np.asarray(raw_value, dtype=float).reshape(-1)
+                    ]
                     sequence_boundary_values[str(bc_id)] = values
         for bc_id, payload in raw_bc.items():
             if bc_id in {"dirichlet", "cauchy", "robin"} or not isinstance(payload, dict):
@@ -139,8 +140,7 @@ def write_uniform_strip_bundle(
         encoding="utf-8",
     )
     (bundle_dir / "mesh_summary.json").write_text(
-        json.dumps({"constraints_mode": "geology_only"}, indent=2, ensure_ascii=True)
-        + "\n",
+        json.dumps({"constraints_mode": "geology_only"}, indent=2, ensure_ascii=True) + "\n",
         encoding="utf-8",
     )
 
@@ -327,22 +327,14 @@ def aggregate_triangle_history_to_structured_grids(
     dy = (float(model.mesh.y_max_m) - float(model.mesh.y_min_m)) / float(ny)
     col_index = np.clip(
         np.floor(
-            (
-                np.asarray(model.mesh.cell_centroid_x_m, dtype=float)
-                - float(model.mesh.x_min_m)
-            )
-            / dx
+            (np.asarray(model.mesh.cell_centroid_x_m, dtype=float) - float(model.mesh.x_min_m)) / dx
         ).astype(int),
         0,
         int(nx) - 1,
     )
     row_index = np.clip(
         np.floor(
-            (
-                np.asarray(model.mesh.cell_centroid_y_m, dtype=float)
-                - float(model.mesh.y_min_m)
-            )
-            / dy
+            (np.asarray(model.mesh.cell_centroid_y_m, dtype=float) - float(model.mesh.y_min_m)) / dy
         ).astype(int),
         0,
         int(ny) - 1,
@@ -370,7 +362,9 @@ def aggregate_triangle_history_to_structured_grids(
             head_sum[row, col] += float(head_values[cell_idx])
             head_count[row, col] += 1
         if np.any(head_count == 0):
-            raise AssertionError("Every structured validation bin must receive at least one triangle.")
+            raise AssertionError(
+                "Every structured validation bin must receive at least one triangle."
+            )
         head_grid = head_sum / head_count
         watertable_elevation[int(time_index)] = head_grid
         watertable_depth[int(time_index)] = np.maximum(top_grid - head_grid, 0.0)
@@ -451,7 +445,9 @@ def run_boussinesq_uniform_strip_case(
             flow=Flow(build_flow_config(flow_section, case_dir=case_dir)),
             domain=None,
             time_grid=time_grid,
-            workspace=SimpleNamespace(simulations_folder=simulations_folder, solver_scratch_folder=simulations_folder),
+            workspace=SimpleNamespace(
+                simulations_folder=simulations_folder, solver_scratch_folder=simulations_folder
+            ),
         ),
     )
     run = ProcessRun(

@@ -3,26 +3,29 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Annotated, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+from pydantic import ConfigDict, Field, field_validator, model_validator
 
-from hydromodpy.core.config.param_level import ParamLevel, VisibleWhen
-from hydromodpy.spatial.geographic.synthetic.config import SyntheticGeographicConfig
+from hydromodpy.core.config.base import HydroModelBase
+from hydromodpy.core.config.param_level import VisibleWhen
+from hydromodpy.core.config.profile import Profile
+from hydromodpy.core.tracking import InputFile
 from hydromodpy.core.units import parse_length_to_m
+from hydromodpy.spatial.geographic.synthetic.config import SyntheticGeographicConfig
 
 
-class RiverNetworkConfig(BaseModel):
+class RiverNetworkConfig(HydroModelBase):
     """Optional stream-network extraction settings for geographic preprocessing."""
 
     model_config = ConfigDict(extra="forbid")
 
-    enabled: Annotated[bool, ParamLevel("user")] = Field(
+    enabled: Annotated[bool, Profile.USER] = Field(
         default=False,
         description=(
             "Enable DEM-based river-network extraction from flow accumulation "
             "during geographic preprocessing."
         ),
     )
-    threshold_mode: Annotated[Literal["area_km2", "cells"], ParamLevel("user")] = Field(
+    threshold_mode: Annotated[Literal["area_km2", "cells"], Profile.USER] = Field(
         default="area_km2",
         description=(
             "Stream-initiation threshold selector. "
@@ -32,49 +35,45 @@ class RiverNetworkConfig(BaseModel):
     )
     threshold_area_km2: Annotated[
         float | None,
-        ParamLevel("user"),
+        Profile.USER,
         VisibleWhen("threshold_mode", "area_km2"),
     ] = Field(
         default=None,
         description=(
-            "Contributing area threshold (km^2), required when "
-            "threshold_mode='area_km2'."
+            "Contributing area threshold (km^2), required when threshold_mode='area_km2'."
         ),
     )
     threshold_cells: Annotated[
         float | None,
-        ParamLevel("user"),
+        Profile.USER,
         VisibleWhen("threshold_mode", "cells"),
     ] = Field(
         default=None,
-        description=(
-            "Contributing-cell threshold, required when threshold_mode='cells'."
-        ),
+        description=("Contributing-cell threshold, required when threshold_mode='cells'."),
     )
-    prune_short_streams: Annotated[bool, ParamLevel("user")] = Field(
+    prune_short_streams: Annotated[bool, Profile.USER] = Field(
         default=False,
         description="If true, remove short stream segments after extraction.",
     )
-    min_stream_length_m: Annotated[float | str, ParamLevel("user")] = Field(
+    min_stream_length_m: Annotated[float | str, Profile.USER] = Field(
         default=0.0,
         description=(
             "Minimum stream length used by short-segment pruning. "
             "Accepts SI-friendly values (for example 0, 250, '250 m', '0.5 km')."
         ),
     )
-    compute_strahler_order: Annotated[bool, ParamLevel("user")] = Field(
+    compute_strahler_order: Annotated[bool, Profile.USER] = Field(
         default=True,
         description="Compute Strahler order raster from extracted streams.",
     )
-    compute_stream_links: Annotated[bool, ParamLevel("user")] = Field(
+    compute_stream_links: Annotated[bool, Profile.USER] = Field(
         default=True,
         description="Compute stream-link identifier raster from extracted streams.",
     )
-    all_vertices: Annotated[bool, ParamLevel("user")] = Field(
+    all_vertices: Annotated[bool, Profile.USER] = Field(
         default=False,
         description=(
-            "Forwarded to Whitebox raster_streams_to_vector. "
-            "False keeps a lighter vector geometry."
+            "Forwarded to Whitebox raster_streams_to_vector. False keeps a lighter vector geometry."
         ),
     )
 
@@ -100,7 +99,7 @@ class RiverNetworkConfig(BaseModel):
         return length_m
 
     @model_validator(mode="after")
-    def _validate_threshold_payload(self) -> "RiverNetworkConfig":
+    def _validate_threshold_payload(self) -> RiverNetworkConfig:
         if not bool(self.enabled):
             return self
 
@@ -135,7 +134,7 @@ class RiverNetworkConfig(BaseModel):
         return self
 
 
-class GeographicConfig(BaseModel):
+class GeographicConfig(HydroModelBase):
     """
     Geographic configuration for watershed delineation.
 
@@ -145,9 +144,7 @@ class GeographicConfig(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    source_mode: Annotated[
-        Literal["standard", "synthetic"], ParamLevel("user")
-    ] = Field(
+    source_mode: Annotated[Literal["standard", "synthetic"], Profile.USER] = Field(
         default="standard",
         description=(
             "Geographic runtime mode. "
@@ -157,7 +154,7 @@ class GeographicConfig(BaseModel):
     )
     catch_def: Annotated[
         Literal["dem", "txt", "from_outlet_coord", "from_polyg_shp"] | None,
-        ParamLevel("user"),
+        Profile.USER,
     ] = Field(
         default=None,
         description=(
@@ -173,8 +170,9 @@ class GeographicConfig(BaseModel):
 
     dem_init_path: Annotated[
         Path | None,
-        ParamLevel("user"),
+        Profile.USER,
         VisibleWhen("source_mode", "standard"),
+        InputFile(role="dem", category="data"),
     ] = Field(
         default=None,
         description=(
@@ -185,7 +183,7 @@ class GeographicConfig(BaseModel):
     )
     cell_size: Annotated[
         float | None,
-        ParamLevel("user"),
+        Profile.USER,
         VisibleWhen("catch_def", "txt"),
     ] = Field(
         default=None,
@@ -194,7 +192,7 @@ class GeographicConfig(BaseModel):
     )
     x_outlet: Annotated[
         float | None,
-        ParamLevel("user"),
+        Profile.USER,
         VisibleWhen("catch_def", "from_outlet_coord"),
     ] = Field(
         default=None,
@@ -202,7 +200,7 @@ class GeographicConfig(BaseModel):
     )
     y_outlet: Annotated[
         float | None,
-        ParamLevel("user"),
+        Profile.USER,
         VisibleWhen("catch_def", "from_outlet_coord"),
     ] = Field(
         default=None,
@@ -210,7 +208,7 @@ class GeographicConfig(BaseModel):
     )
     snap_dist: Annotated[
         float | str | None,
-        ParamLevel("user"),
+        Profile.USER,
         VisibleWhen("catch_def", "from_outlet_coord"),
     ] = Field(
         default=None,
@@ -222,7 +220,7 @@ class GeographicConfig(BaseModel):
     )
     buff_area: Annotated[
         str | float | None,
-        ParamLevel("user"),
+        Profile.USER,
         VisibleWhen("catch_def", ("from_outlet_coord", "from_polyg_shp")),
     ] = Field(
         default=None,
@@ -235,43 +233,48 @@ class GeographicConfig(BaseModel):
     )
     polyg_shp_path: Annotated[
         Path | None,
-        ParamLevel("user"),
+        Profile.USER,
         VisibleWhen("catch_def", "from_polyg_shp"),
+        InputFile(role="watershed_polygon", category="geometry"),
     ] = Field(
         default=None,
         description="Path to the watershed polygon shapefile. Required for 'from_polyg_shp' mode.",
     )
-    crs_project: Annotated[str | None, ParamLevel("user")] = Field(
+    crs_project: Annotated[str | None, Profile.USER] = Field(
         default=None,
         description="Target projected CRS for all outputs (e.g. 'EPSG:2154'). If not set, derived from the input DEM.",
     )
-    dem_correc_type: Annotated[Literal["breach", "fill"], ParamLevel("user")] = Field(
+    dem_correc_type: Annotated[Literal["breach", "fill"], Profile.USER] = Field(
         default="breach",
         description="DEM depression correction method. 'breach' (recommended) preserves natural flow paths. 'fill' raises sinks to their pour point.",
     )
-    bottom_path: Annotated[Path | None, ParamLevel("user")] = Field(
+    bottom_path: Annotated[
+        Path | None,
+        Profile.USER,
+        InputFile(role="aquifer_bottom", category="geometry"),
+    ] = Field(
         default=None,
         description="Path to a raster representing the aquifer bottom elevation. Must share the same grid as the model domain.",
     )
-    reg_fold: Annotated[Path | None, ParamLevel("dev")] = Field(
+    reg_fold: Annotated[Path | None, Profile.DEV] = Field(
         default=None,
         description="Folder with pre-computed regional flow rasters. When set, rasters are loaded instead of recomputed.",
     )
-    synthetic: Annotated[SyntheticGeographicConfig, ParamLevel("user")] = Field(
+    synthetic: Annotated[SyntheticGeographicConfig, Profile.USER] = Field(
         default_factory=SyntheticGeographicConfig,
         description=(
             "Synthetic geographic support used when source_mode='synthetic'. "
             "This analytical mode bypasses watershed delineation from external DEM files."
         ),
     )
-    river_network: Annotated[RiverNetworkConfig, ParamLevel("user")] = Field(
+    river_network: Annotated[RiverNetworkConfig, Profile.USER] = Field(
         default_factory=RiverNetworkConfig,
         description=(
             "Optional DEM-derived river-network extraction settings. "
             "When disabled, no stream network is generated in geographic preprocessing."
         ),
     )
-    reuse_existing_outputs: Annotated[bool, ParamLevel("user")] = Field(
+    reuse_existing_outputs: Annotated[bool, Profile.USER] = Field(
         default=False,
         description=(
             "If true, reuse previously generated geographic artifacts when the "
@@ -281,7 +284,7 @@ class GeographicConfig(BaseModel):
         ),
     )
 
-    write_intermediates: Annotated[bool, ParamLevel("dev")] = Field(
+    write_intermediates: Annotated[bool, Profile.DEV] = Field(
         default=False,
         description=(
             "Keep intermediate rasters and shapefiles on disk after geographic "
@@ -309,7 +312,9 @@ class GeographicConfig(BaseModel):
     def _normalize_cell_size(cls, value):
         if value is None:
             return None
-        cell_size_m = float(parse_length_to_m(value, default_unit="m", label="geographic.cell_size"))
+        cell_size_m = float(
+            parse_length_to_m(value, default_unit="m", label="geographic.cell_size")
+        )
         if cell_size_m <= 0.0:
             raise ValueError("geographic.cell_size must be > 0.")
         return cell_size_m
@@ -341,7 +346,7 @@ class GeographicConfig(BaseModel):
         return pct
 
     @model_validator(mode="after")
-    def _check_mode_requirements(self) -> "GeographicConfig":
+    def _check_mode_requirements(self) -> GeographicConfig:
         """
         Validates the configuration based on the selected catchment definition mode.
 
@@ -388,9 +393,7 @@ class GeographicConfig(BaseModel):
                 if val is None
             ]
             if missing:
-                raise ValueError(
-                    f"catch_def='from_outlet_coord' requires: {', '.join(missing)}."
-                )
+                raise ValueError(f"catch_def='from_outlet_coord' requires: {', '.join(missing)}.")
 
         elif mode == "from_polyg_shp":
             missing = [
@@ -403,9 +406,6 @@ class GeographicConfig(BaseModel):
                 if val is None
             ]
             if missing:
-                raise ValueError(
-                    f"catch_def='from_polyg_shp' requires: {', '.join(missing)}."
-                )
+                raise ValueError(f"catch_def='from_polyg_shp' requires: {', '.join(missing)}.")
 
         return self
-

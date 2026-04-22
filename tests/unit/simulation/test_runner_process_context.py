@@ -4,13 +4,17 @@ from types import SimpleNamespace
 
 import pytest
 
-from hydromodpy.process.flow.flow_config import FlowConfig
-from hydromodpy.process.transport.transport_config import TransportConfig
+from hydromodpy.physics.flow.flow_config import FlowConfig
+from hydromodpy.physics.transport.transport_config import TransportConfig
 from hydromodpy.simulation.adapters.flow.modflow_common import run_flow_model
-from hydromodpy.solver.modflow_nwt import ModflowPreprocessOptions
-from hydromodpy.simulation.planning.plan import ProcessRun, SimulationPlan
 from hydromodpy.simulation.execution.runner import ProcessCallbacks, SimulationRunner
-from hydromodpy.simulation.planning.plan import RunContext, RunExecutionResult
+from hydromodpy.simulation.planning.plan import (
+    ProcessRun,
+    RunContext,
+    RunExecutionResult,
+    SimulationPlan,
+)
+from hydromodpy.solver.modflow_nwt import ModflowPreprocessOptions
 
 
 class _RecordingAdapter:
@@ -226,8 +230,4 @@ def test_run_flow_model_forwards_flow_runtime_overrides(monkeypatch) -> None:
     )
 
     assert model.pre_kwargs is not None
-    assert model.pre_kwargs["flow_runtime_overrides"] == {
-        "properties": {"K": [1.0, 2.0]}
-    }
-
-
+    assert model.pre_kwargs["flow_runtime_overrides"] == {"properties": {"K": [1.0, 2.0]}}

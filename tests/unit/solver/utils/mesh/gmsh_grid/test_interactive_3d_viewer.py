@@ -78,9 +78,7 @@ def test_vertical_exaggeration_and_selection_helpers():
     grid = build_pyvista_grid_with_values(mesh_with_values)
 
     scaled = add_vertical_exaggeration(grid, 2.5)
-    assert np.allclose(
-        np.asarray(scaled.points)[:, 2], np.asarray(grid.points)[:, 2] * 2.5
-    )
+    assert np.allclose(np.asarray(scaled.points)[:, 2], np.asarray(grid.points)[:, 2] * 2.5)
 
     column_grid = extract_source_column_grid(mesh_with_values, 1)
     assert column_grid.n_cells == mesh_with_values.n_layers

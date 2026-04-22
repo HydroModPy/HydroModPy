@@ -8,9 +8,8 @@ mirrored data structure under `examples/data/geology/`.
 from __future__ import annotations
 
 import argparse
-from pathlib import Path
 import shutil
-import sys
+from pathlib import Path
 
 import geopandas as gpd
 import pandas as pd
@@ -95,13 +94,11 @@ def main(argv=None) -> int:
 
     if output_shp.exists() and not args.overwrite:
         raise FileExistsError(
-            f"Output shapefile already exists: {output_shp}. "
-            "Use --overwrite to replace it."
+            f"Output shapefile already exists: {output_shp}. Use --overwrite to replace it."
         )
     if output_csv.exists() and not args.overwrite:
         raise FileExistsError(
-            f"Output CSV already exists: {output_csv}. "
-            "Use --overwrite to replace it."
+            f"Output CSV already exists: {output_csv}. Use --overwrite to replace it."
         )
 
     # Remove previous shapefile sidecars when overwriting.

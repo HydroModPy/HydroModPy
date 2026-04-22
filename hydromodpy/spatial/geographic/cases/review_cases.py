@@ -8,10 +8,10 @@ moving to the next case.
 from __future__ import annotations
 
 import argparse
+import sys
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from pathlib import Path
-import sys
 from typing import Any
 
 CASES_DIR = Path(__file__).resolve().parent

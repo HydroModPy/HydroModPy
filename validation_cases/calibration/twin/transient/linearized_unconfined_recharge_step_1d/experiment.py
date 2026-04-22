@@ -12,7 +12,6 @@ from validation_cases.calibration.shared.definitions import (
 )
 from validation_cases.shared.runtime import _merge_toml_payloads, _read_toml
 
-
 CASE_DIR = (
     Path(__file__).resolve().parents[4]
     / "analytical"

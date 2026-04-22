@@ -11,7 +11,7 @@ L'objectif de la couche racine est de decider, de maniere deterministe, **quels 
 ## Fichiers racine
 
 - `__init__.py`  
-  API publique du package racine (`DataManagersConfig`, `DataManagersPlanner`, `DataLoadPlan`, `DataManagers`, `DataManagersRuntimeLoader`).
+  API publique du package racine (`DataManagersConfig`, `DataPlanner`, `DataLoadPlan`, `DataManagers`, `DataManagersRuntimeLoader`).
 
 - `data_managers_config.py`  
   Schema Pydantic du bloc `[data]`:
@@ -21,7 +21,7 @@ L'objectif de la couche racine est de decider, de maniere deterministe, **quels 
   - politique d'inference via `data.inference_mode` (`warn` ou `strict`).
 
 - `planner.py`  
-  Moteur d'inference (`DataManagersPlanner`) qui fusionne:
+  Moteur d'inference (`DataPlanner`) qui fusionne:
   - types explicites (TOML),
   - types deduits (regles runtime).
 
@@ -43,7 +43,7 @@ L'objectif de la couche racine est de decider, de maniere deterministe, **quels 
 ## Flux de resolution
 
 1. Charger et valider `[data]` avec `DataManagersConfig`.
-2. Construire un `DataLoadPlan` via `DataManagersPlanner`.
+2. Construire un `DataLoadPlan` via `DataPlanner`.
 3. Appliquer le plan sur la config (`with_resolved_types(...)`).
 4. Charger les donnees via `DataManagersRuntimeLoader`.
 5. Consommer les types actifs via `DataManagers.from_config(...)` ou `DataManagers.from_plan(...)`.
@@ -66,7 +66,7 @@ explicite de `data.<type>` (sauf `geology`, qui peut etre auto-defaulte).
 ## Convention d'extension
 
 Pour ajouter une nouvelle regle:
-1. Ajouter la logique dans `DataManagersPlanner.build(...)`.
+1. Ajouter la logique dans `DataPlanner.build(...)`.
 2. Ajouter une raison explicite (`"inferred from ..."`).
 3. Ajouter un test unitaire dans `tests/unit/data_managers/test_data_managers_planner.py`.
 4. Mettre a jour ce README.

@@ -146,22 +146,14 @@ class TwinMethodBenchmarkResult:
             "calibration_time_seconds": self.calibration_time_seconds,
             "time_per_evaluation_seconds": self.time_per_evaluation_seconds,
             "session_prepare_time_seconds": self.session_prepare_time_seconds,
-            "estimated_candidate_runtime_seconds": (
-                self.estimated_candidate_runtime_seconds
-            ),
-            "algorithm_overhead_time_seconds": (
-                self.algorithm_overhead_time_seconds
-            ),
+            "estimated_candidate_runtime_seconds": (self.estimated_candidate_runtime_seconds),
+            "algorithm_overhead_time_seconds": (self.algorithm_overhead_time_seconds),
             "mean_candidate_total_time_seconds": self.mean_candidate_total_time_seconds,
             "mean_candidate_preparation_time_seconds": (
                 self.mean_candidate_preparation_time_seconds
             ),
-            "mean_candidate_simulation_time_seconds": (
-                self.mean_candidate_simulation_time_seconds
-            ),
-            "mean_candidate_actualize_time_seconds": (
-                self.mean_candidate_actualize_time_seconds
-            ),
+            "mean_candidate_simulation_time_seconds": (self.mean_candidate_simulation_time_seconds),
+            "mean_candidate_actualize_time_seconds": (self.mean_candidate_actualize_time_seconds),
             "mean_candidate_launcher_prepare_time_seconds": (
                 self.mean_candidate_launcher_prepare_time_seconds
             ),
@@ -177,9 +169,7 @@ class TwinMethodBenchmarkResult:
             "mean_candidate_objective_compute_time_seconds": (
                 self.mean_candidate_objective_compute_time_seconds
             ),
-            "mean_candidate_objective_time_seconds": (
-                self.mean_candidate_objective_time_seconds
-            ),
+            "mean_candidate_objective_time_seconds": (self.mean_candidate_objective_time_seconds),
             "failed_iteration_count": int(self.failed_iteration_count),
             "meets_success_target": bool(self.meets_success_target),
             "candidate_run_count": int(self.candidate_run_count),
@@ -189,24 +179,18 @@ class TwinMethodBenchmarkResult:
                 str(name): float(value) for name, value in self.block_raw_cost_best.items()
             },
             "block_normalized_cost_best": {
-                str(name): float(value)
-                for name, value in self.block_normalized_cost_best.items()
+                str(name): float(value) for name, value in self.block_normalized_cost_best.items()
             },
             "block_reference_scale": {
-                str(name): float(value)
-                for name, value in self.block_reference_scale.items()
+                str(name): float(value) for name, value in self.block_reference_scale.items()
             },
             "block_n_values": {
                 str(name): int(value) for name, value in self.block_n_values.items()
             },
             "iteration_history_path": (
-                None
-                if self.iteration_history_path is None
-                else str(self.iteration_history_path)
+                None if self.iteration_history_path is None else str(self.iteration_history_path)
             ),
-            "params_best": {
-                str(name): float(value) for name, value in self.params_best.items()
-            },
+            "params_best": {str(name): float(value) for name, value in self.params_best.items()},
             "param_abs_error": {
                 str(name): float(value) for name, value in self.param_abs_error.items()
             },
@@ -221,9 +205,7 @@ class TwinMethodBenchmarkResult:
                 for name, value in self.truth_distribution_min_abs_error.items()
             },
             "objective_trace_figure": (
-                None
-                if self.objective_trace_figure is None
-                else str(self.objective_trace_figure)
+                None if self.objective_trace_figure is None else str(self.objective_trace_figure)
             ),
             "objective_landscape_figure": (
                 None
@@ -269,9 +251,7 @@ class TwinCalibrationBenchmarkResult:
             "simulation_config_path": str(self.simulation_config_path),
             "truth_simulation_config_path": str(self.truth_simulation_config_path),
             "configuration_figure": (
-                None
-                if self.configuration_figure is None
-                else str(self.configuration_figure)
+                None if self.configuration_figure is None else str(self.configuration_figure)
             ),
             "reference_objective_path": (
                 None
@@ -280,8 +260,7 @@ class TwinCalibrationBenchmarkResult:
             ),
             "pruned_artifacts": [str(item) for item in self.pruned_artifacts],
             "truth_params": {
-                str(name): float(value)
-                for name, value in self.definition.truth_params.items()
+                str(name): float(value) for name, value in self.definition.truth_params.items()
             },
             "parameter_abs_tolerances": {
                 str(name): float(value)

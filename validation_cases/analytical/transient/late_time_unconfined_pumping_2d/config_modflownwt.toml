@@ -1,3 +1,5 @@
+workflow = "simulation"
+
 [simulation]
 name = "Late-time unconfined pumping 2D validation"
 description = "Synthetic transient unconfined flow with one central pumping well and fixed heads on all outer boundaries."

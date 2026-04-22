@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 
-def assert_metric_below(metric_name: str, actual: float, threshold: float, *, unit: str = "") -> None:
+def assert_metric_below(
+    metric_name: str, actual: float, threshold: float, *, unit: str = ""
+) -> None:
     """Assert that one scalar metric is below the configured threshold."""
     unit_suffix = f" {unit}".rstrip() if unit else ""
     assert actual < threshold, (

@@ -51,9 +51,7 @@ def _compute_prism_center_depths(mesh_3d: ExtrudedPrismMesh3D) -> np.ndarray:
 
     n_layers = int(mesh_3d.n_layers)
     n_cells_2d = int(mesh_3d.planar_mesh.n_cells)
-    depth_grid: np.ndarray[Any, Any] = np.full(
-        (n_layers, n_cells_2d), np.nan, dtype=float
-    )
+    depth_grid: np.ndarray[Any, Any] = np.full((n_layers, n_cells_2d), np.nan, dtype=float)
 
     for prism_idx, (layer_idx, source_idx) in enumerate(
         zip(mesh_3d.layer_indices, mesh_3d.source_cell_indices, strict=True)
@@ -106,11 +104,7 @@ def discretize_fieldparam_on_extruded_mesh(
     if is_heterogeneous and strict_field_spatial_id_match:
         required_field_id = str(getattr(field_param, "field_spatial_id", "")).strip()
         support_field_id = str(getattr(support_field, "identifier", "")).strip()
-        if (
-            required_field_id
-            and support_field_id
-            and required_field_id != support_field_id
-        ):
+        if required_field_id and support_field_id and required_field_id != support_field_id:
             raise ValueError(
                 "field_param.field_spatial_id does not match support_field.identifier: "
                 f"{required_field_id!r} != {support_field_id!r}"
@@ -133,9 +127,7 @@ def discretize_fieldparam_on_extruded_mesh(
         )
 
     if field_discretization is None:
-        planar_mesh_values = field_param.to_mesh_field(
-            mesh=planar_mesh, depth=float(depth)
-        )
+        planar_mesh_values = field_param.to_mesh_field(mesh=planar_mesh, depth=float(depth))
     else:
         planar_mesh_values = field_param.to_mesh_field(
             field_discretization,

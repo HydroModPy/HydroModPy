@@ -1,4 +1,0 @@
-scenario_id,scenario_label,solver_left,solver_right,pairwise_profile_rmse_m,pairwise_max_abs_error_m,pairwise_mean_abs_error_m
-offset_25cm,Head offset 25 cm,modflownwt,modflow6,0.0015886126634025027,0.0023033879602252227,0.0014113606322397132
-offset_25cm,Head offset 25 cm,modflownwt,boussinesq,0.18827579996180607,0.26841385157499964,0.18342849066674635
-offset_25cm,Head offset 25 cm,modflow6,boussinesq,0.1870089543977225,0.26839494254590157,0.18200969719022603

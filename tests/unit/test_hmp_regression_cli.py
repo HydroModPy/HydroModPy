@@ -1,13 +1,18 @@
 from __future__ import annotations
 
 import importlib
+import sys
 from pathlib import Path
 
 import pytest
 
 
 def _load_module():
-    return importlib.import_module("hydromodpy.__main__")
+    return importlib.import_module("hydromodpy._cli.commands.test")
+
+
+def _load_main_module():
+    return importlib.import_module("hydromodpy._cli.main")
 
 
 def _capture_pytest_invocation(
@@ -15,6 +20,7 @@ def _capture_pytest_invocation(
     argv: list[str],
 ) -> tuple[list[str], dict[str, str] | None]:
     module = _load_module()
+    main_module = _load_main_module()
     captured: dict[str, object] = {}
 
     def _fake_call(args: list[str], env: dict[str, str] | None = None) -> int:
@@ -23,10 +29,10 @@ def _capture_pytest_invocation(
         return 0
 
     monkeypatch.setattr(module.subprocess, "call", _fake_call)
-    monkeypatch.setattr(module.sys, "argv", argv)
+    monkeypatch.setattr(sys, "argv", argv)
 
     with pytest.raises(SystemExit) as exc_info:
-        module.main()
+        main_module.main()
 
     assert exc_info.value.code == 0
     return captured["args"], captured.get("env")
@@ -38,7 +44,7 @@ def test_hmp_regression_fast_mf6_builds_fast_tier_selection(monkeypatch) -> None
         ["hmp", "test", "regression", "--fast", "--mf6"],
     )
 
-    assert args[:3] == [str(Path(importlib.import_module("hydromodpy.__main__").sys.executable)), "-m", "pytest"]
+    assert args[:3] == [str(Path(sys.executable)), "-m", "pytest"]
     assert any(str(arg).endswith(str(Path("tests") / "regression" / "fast")) for arg in args)
     marker_index = args.index("-m", 3)
     assert args[marker_index + 1] == "fast and mf6"
@@ -50,7 +56,7 @@ def test_hmp_regression_normal_alias_maps_to_fast_tier(monkeypatch) -> None:
         ["hmp", "test", "regression", "--normal"],
     )
 
-    assert args[:3] == [str(Path(importlib.import_module("hydromodpy.__main__").sys.executable)), "-m", "pytest"]
+    assert args[:3] == [str(Path(sys.executable)), "-m", "pytest"]
     assert any(str(arg).endswith(str(Path("tests") / "regression" / "fast")) for arg in args)
     marker_index = args.index("-m", 3)
     assert args[marker_index + 1] == "fast"
@@ -62,7 +68,7 @@ def test_hmp_validation_fast_steady_builds_validation_marker_selection(monkeypat
         ["hmp", "test", "validation", "--fast", "--steady"],
     )
 
-    assert args[:3] == [str(Path(importlib.import_module("hydromodpy.__main__").sys.executable)), "-m", "pytest"]
+    assert args[:3] == [str(Path(sys.executable)), "-m", "pytest"]
     assert any(str(arg).endswith(str(Path("tests") / "validation")) for arg in args)
     marker_index = args.index("-m", 3)
     assert args[marker_index + 1] == "validation and fast and steady"
@@ -74,7 +80,7 @@ def test_hmp_unit_fast_builds_daily_marker_selection(monkeypatch) -> None:
         ["hmp", "test", "unit", "--fast"],
     )
 
-    assert args[:3] == [str(Path(importlib.import_module("hydromodpy.__main__").sys.executable)), "-m", "pytest"]
+    assert args[:3] == [str(Path(sys.executable)), "-m", "pytest"]
     assert any(str(arg).endswith(str(Path("tests") / "unit")) for arg in args)
     marker_index = args.index("-m", 3)
     assert args[marker_index + 1] == "not slow and not integration"
@@ -86,7 +92,7 @@ def test_hmp_unit_normal_alias_builds_daily_marker_selection(monkeypatch) -> Non
         ["hmp", "test", "unit", "--normal"],
     )
 
-    assert args[:3] == [str(Path(importlib.import_module("hydromodpy.__main__").sys.executable)), "-m", "pytest"]
+    assert args[:3] == [str(Path(sys.executable)), "-m", "pytest"]
     assert any(str(arg).endswith(str(Path("tests") / "unit")) for arg in args)
     marker_index = args.index("-m", 3)
     assert args[marker_index + 1] == "not slow and not integration"
@@ -98,7 +104,7 @@ def test_hmp_unit_slow_builds_nightly_marker_selection(monkeypatch) -> None:
         ["hmp", "test", "unit", "--slow"],
     )
 
-    assert args[:3] == [str(Path(importlib.import_module("hydromodpy.__main__").sys.executable)), "-m", "pytest"]
+    assert args[:3] == [str(Path(sys.executable)), "-m", "pytest"]
     assert any(str(arg).endswith(str(Path("tests") / "unit")) for arg in args)
     marker_index = args.index("-m", 3)
     assert args[marker_index + 1] == "slow or integration"
@@ -106,6 +112,7 @@ def test_hmp_unit_slow_builds_nightly_marker_selection(monkeypatch) -> None:
 
 def test_hmp_unit_rejects_normal_with_slow(monkeypatch) -> None:
     module = _load_module()
+    main_module = _load_main_module()
     captured = {"called": False}
 
     def _fake_call(args: list[str]) -> int:
@@ -113,10 +120,10 @@ def test_hmp_unit_rejects_normal_with_slow(monkeypatch) -> None:
         return 0
 
     monkeypatch.setattr(module.subprocess, "call", _fake_call)
-    monkeypatch.setattr(module.sys, "argv", ["hmp", "test", "unit", "--normal", "--slow"])
+    monkeypatch.setattr(sys, "argv", ["hmp", "test", "unit", "--normal", "--slow"])
 
     with pytest.raises(SystemExit) as exc_info:
-        module.main()
+        main_module.main()
 
     assert exc_info.value.code == 2
     assert captured["called"] is False
@@ -124,6 +131,7 @@ def test_hmp_unit_rejects_normal_with_slow(monkeypatch) -> None:
 
 def test_hmp_validation_rejects_extensive(monkeypatch) -> None:
     module = _load_module()
+    main_module = _load_main_module()
     captured = {"called": False}
 
     def _fake_call(args: list[str]) -> int:
@@ -131,10 +139,10 @@ def test_hmp_validation_rejects_extensive(monkeypatch) -> None:
         return 0
 
     monkeypatch.setattr(module.subprocess, "call", _fake_call)
-    monkeypatch.setattr(module.sys, "argv", ["hmp", "test", "validation", "--extensive"])
+    monkeypatch.setattr(sys, "argv", ["hmp", "test", "validation", "--extensive"])
 
     with pytest.raises(SystemExit) as exc_info:
-        module.main()
+        main_module.main()
 
     assert exc_info.value.code == 2
     assert captured["called"] is False
@@ -142,6 +150,7 @@ def test_hmp_validation_rejects_extensive(monkeypatch) -> None:
 
 def test_hmp_unit_rejects_extensive(monkeypatch) -> None:
     module = _load_module()
+    main_module = _load_main_module()
     captured = {"called": False}
 
     def _fake_call(args: list[str]) -> int:
@@ -149,10 +158,10 @@ def test_hmp_unit_rejects_extensive(monkeypatch) -> None:
         return 0
 
     monkeypatch.setattr(module.subprocess, "call", _fake_call)
-    monkeypatch.setattr(module.sys, "argv", ["hmp", "test", "unit", "--extensive"])
+    monkeypatch.setattr(sys, "argv", ["hmp", "test", "unit", "--extensive"])
 
     with pytest.raises(SystemExit) as exc_info:
-        module.main()
+        main_module.main()
 
     assert exc_info.value.code == 2
     assert captured["called"] is False

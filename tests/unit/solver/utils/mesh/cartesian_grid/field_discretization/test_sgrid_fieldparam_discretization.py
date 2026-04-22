@@ -4,16 +4,14 @@ from __future__ import annotations
 
 import json
 import os
-from pathlib import Path
 import textwrap
+from pathlib import Path
 
 import numpy as np
 import pytest
 import rasterio
 from rasterio.transform import from_origin
 
-from hydromodpy.spatial.field.geology.geology_field import GeologyField
-from hydromodpy.spatial.field.core.field_param import FieldParam
 from hydromodpy.solver.utils.mesh.cartesian_grid.examples.discretization.case_runner import (
     run_discretization_case_from_toml,
 )
@@ -24,7 +22,8 @@ from hydromodpy.solver.utils.mesh.cartesian_grid.sgrid_fieldparam_discretization
 from hydromodpy.solver.utils.mesh.cartesian_grid.sgrid_from_config import (
     build_sgrid_from_config,
 )
-
+from hydromodpy.spatial.field.core.field_param import FieldParam
+from hydromodpy.spatial.field.geology.geology_field import GeologyField
 
 GOLDEN_DIR = Path(__file__).resolve().parent / "golden"
 GOLDEN_FILE = GOLDEN_DIR / "sgrid_fieldparam_discretization_signatures.json"
@@ -297,7 +296,9 @@ def test_discretize_fieldparam_on_sgrid_exponential_profile_for_varied_discretiz
     expected_3d = np.asarray(result.values_2d, dtype=float)[None, :, :] * expected_factor
     assert np.allclose(result.values_3d, expected_3d)
 
-    layer_means = np.asarray([np.mean(np.asarray(result.values_3d[il], dtype=float)) for il in range(nlay)])
+    layer_means = np.asarray(
+        [np.mean(np.asarray(result.values_3d[il], dtype=float)) for il in range(nlay)]
+    )
     # Exponential profile should produce a strict decrease with layer-center depth.
     assert np.all(np.diff(layer_means) < 0.0)
 
@@ -489,8 +490,7 @@ def test_discretization_non_regression_golden_signatures(tmp_path: Path):
 
     if not GOLDEN_FILE.exists():
         pytest.fail(
-            f"Missing golden reference: {GOLDEN_FILE}. "
-            f"Generate it once with {UPDATE_GOLDEN_ENV}=1."
+            f"Missing golden reference: {GOLDEN_FILE}. Generate it once with {UPDATE_GOLDEN_ENV}=1."
         )
 
     expected_by_scenario = json.loads(GOLDEN_FILE.read_text(encoding="utf-8"))

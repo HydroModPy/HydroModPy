@@ -9,8 +9,10 @@ from __future__ import annotations
 
 import importlib
 
-from hydromodpy.spatial.geographic.geographic import DEM_correcflow_analysis, Geographic
-from hydromodpy.spatial.geographic.geographic_config import GeographicConfig, RiverNetworkConfig
+from hydromodpy.spatial.geographic.catchment_delineation import (
+    CatchmentDelineation,
+    DEM_correcflow_analysis,
+)
 from hydromodpy.spatial.geographic.dem_metadata import (
     LegacyDemMetadata,
     read_legacy_dem_metadata,
@@ -19,6 +21,7 @@ from hydromodpy.spatial.geographic.domain_rasters import (
     LegacyDomainRasterProducts,
     build_legacy_domain_rasters,
 )
+from hydromodpy.spatial.geographic.geographic_config import GeographicConfig, RiverNetworkConfig
 from hydromodpy.spatial.geographic.pipeline import (
     LegacyGeographicContext,
     build_legacy_geographic_context,
@@ -142,7 +145,7 @@ def __getattr__(name: str):
 
 
 __all__ = [
-    "Geographic",
+    "CatchmentDelineation",
     "GeographicConfig",
     "RiverNetworkConfig",
     "DEM_correcflow_analysis",
@@ -155,5 +158,3 @@ __all__ = [
     "build_legacy_geographic_context",
     *_LAZY_V2_EXPORTS,
 ]
-
-

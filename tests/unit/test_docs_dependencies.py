@@ -4,7 +4,6 @@ import re
 import tomllib
 from pathlib import Path
 
-
 ROOT = Path(__file__).resolve().parents[2]
 PYPROJECT_PATH = ROOT / "pyproject.toml"
 RTD_REQUIREMENTS_PATH = ROOT / "docs" / "readthedocs" / "readthedocs_requirements.txt"

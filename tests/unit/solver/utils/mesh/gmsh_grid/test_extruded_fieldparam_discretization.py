@@ -3,13 +3,13 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-from hydromodpy.spatial.field.cases.square.field_spatial_square import FieldSquare
-from hydromodpy.spatial.field.core.field_param import FieldParam
 from hydromodpy.solver.utils.mesh.gmsh_grid import (
     ExtrudedPrismMesh3D,
     GmshPlanarMesh2D,
     discretize_fieldparam_on_extruded_mesh,
 )
+from hydromodpy.spatial.field.cases.square.field_spatial_square import FieldSquare
+from hydromodpy.spatial.field.core.field_param import FieldParam
 
 
 def _build_planar_triangles() -> GmshPlanarMesh2D:
@@ -96,9 +96,7 @@ def test_discretize_fieldparam_on_extruded_mesh_heterogeneous_matches_planar_ref
     assert set(np.round(result.values_2d, 12).tolist()) == {2.0, 10.0}
     assert np.allclose(result.values_3d[0], result.values_2d)
     assert np.allclose(result.values_3d[1], result.values_2d)
-    assert np.allclose(
-        result.prism_center_depths, np.array([[2.5, 2.5], [7.5, 7.5]], dtype=float)
-    )
+    assert np.allclose(result.prism_center_depths, np.array([[2.5, 2.5], [7.5, 7.5]], dtype=float))
 
 
 def test_discretize_fieldparam_on_extruded_mesh_rejects_spatial_id_mismatch():

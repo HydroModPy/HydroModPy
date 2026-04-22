@@ -1,0 +1,46 @@
+# ======================================================================
+# Nançon — run transitoire MODFLOW-NWT
+# ----------------------------------------------------------------------
+# Overlay qui hérite de `project.toml` (via base_config) puis écrase
+# uniquement les valeurs calibrables et l'orchestration propre à ce run.
+#
+# Lancement :
+#   uv run hmp run examples/02_nancon_watershed/run_transient_nwt.toml
+# ======================================================================
+base_config = "project.toml"
+
+# --- Orchestration ---------------------------------------------------
+
+workflow = "simulation"
+
+[simulation]
+name = "nancon_transient_nwt"
+description = "Bassin du Nançon - transitoire mensuel, MODFLOW-NWT."
+
+[simulation.time]
+start_datetime = "2000-01-01"
+end_datetime = "2002-12-31"
+step_value = "1 month"
+coverage_policy = "warn"
+
+[[simulation.process]]
+id = "flow_main"
+type = "flow"
+solvers = ["modflownwt"]
+
+# --- Paramètres calibrables ------------------------------------------
+
+[domain.depth_model]
+thickness = 30.0
+
+[flow.param.K.field_homogeneous]
+value = 5e-5
+
+[flow.param.Sy.field_homogeneous]
+value = 0.05
+
+[flow.param.Ss.field_homogeneous]
+value = 1e-5
+
+[flow.sinks_sources.recharge]
+first_clim = "first"

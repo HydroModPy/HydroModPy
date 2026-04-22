@@ -15,7 +15,7 @@ python -m pytest tests/unit/solver/utils/mesh/gmsh_grid -q --junitxml "$timingRo
 ## 2) Build the timing distribution report
 
 ```powershell
-python tests/support/pytest_timing_distribution.py `
+python tests/_helpers/pytest_timing_distribution.py `
   --junitxml "$timingRoot/gmsh_grid_junit.xml" `
   --status-filter passed `
   --top-n 20 `

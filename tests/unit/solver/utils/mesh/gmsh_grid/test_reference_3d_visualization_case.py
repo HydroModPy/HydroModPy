@@ -72,9 +72,7 @@ def test_reference_3d_visualization_case_non_regression(update_goldens: bool) ->
 def test_reference_3d_visualization_ensures_backend_before_figure_build(
     monkeypatch,
 ) -> None:
-    output_dir = (
-        Path.cwd() / "scratch_tests" / "reference_3d_visualization_show" / "runtime"
-    )
+    output_dir = Path.cwd() / "scratch_tests" / "reference_3d_visualization_show" / "runtime"
     output_dir.mkdir(parents=True, exist_ok=True)
 
     ensured = {"done": False}
@@ -110,13 +108,9 @@ def test_reference_3d_visualization_ensures_backend_before_figure_build(
         assert ensured["done"]
         return Figure()
 
-    monkeypatch.setattr(
-        run_visualize_module, "ensure_interactive_backend_for_show", _fake_ensure
-    )
+    monkeypatch.setattr(run_visualize_module, "ensure_interactive_backend_for_show", _fake_ensure)
     monkeypatch.setattr(run_visualize_module, "build_layer_maps_figure", _build_layers)
-    monkeypatch.setattr(
-        run_visualize_module, "build_vertical_profiles_figure", _build_profiles
-    )
+    monkeypatch.setattr(run_visualize_module, "build_vertical_profiles_figure", _build_profiles)
     monkeypatch.setattr(
         run_visualize_module,
         "show_figures_blocking",

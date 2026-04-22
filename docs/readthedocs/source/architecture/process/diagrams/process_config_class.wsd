@@ -1,7 +1,7 @@
 @startuml
 title Process - Config Class Diagram
 
-package "hydromodpy.process.base" {
+package "hydromodpy.physics.base" {
   class ProcessSpatialConfig {
     +param_list: list[str]
     +param: dict[str, object]
@@ -13,7 +13,7 @@ package "hydromodpy.process.base" {
   class InitialCondition
 }
 
-package "hydromodpy.process.flow" {
+package "hydromodpy.physics.flow" {
   class FlowConfig {
     +flow_regime: steady | transient
     +param_list: list[str]
@@ -51,7 +51,7 @@ package "hydromodpy.process.flow" {
   }
 }
 
-package "hydromodpy.process.transport" {
+package "hydromodpy.physics.transport" {
   class TransportConfig {
     +particle: TransportParticleConfig
     +conc: TransportConcConfig

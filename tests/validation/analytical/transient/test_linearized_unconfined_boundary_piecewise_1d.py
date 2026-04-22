@@ -23,8 +23,9 @@ from validation_cases.analytical.transient.linearized_unconfined_boundary_piecew
         pytest.param("boussinesq", False, False, id="boussinesq"),
     ],
 )
-
-def test_linearized_unconfined_boundary_piecewise_1d_matches_reference_profiles(solver: str, require_modflow: bool, require_modflow6: bool) -> None:
+def test_linearized_unconfined_boundary_piecewise_1d_matches_reference_profiles(
+    solver: str, require_modflow: bool, require_modflow6: bool
+) -> None:
     """Run the launcher case and compare the full transient profile matrix."""
     assert_required_executables(
         require_modflow=require_modflow,
@@ -33,7 +34,9 @@ def test_linearized_unconfined_boundary_piecewise_1d_matches_reference_profiles(
         require_mt3dms=False,
     )
 
-    comparison = run_linearized_unconfined_boundary_piecewise_comparison(caller_file=__file__, solver=solver)
+    comparison = run_linearized_unconfined_boundary_piecewise_comparison(
+        caller_file=__file__, solver=solver
+    )
     space_time_tol = dict(comparison.tolerances.get("space_time", {}))
     final_profile_tol = dict(comparison.tolerances.get("final_profile", {}))
 
@@ -61,6 +64,3 @@ def test_linearized_unconfined_boundary_piecewise_1d_matches_reference_profiles(
         float(space_time_tol["row_spread"]),
         unit="m",
     )
-
-
-

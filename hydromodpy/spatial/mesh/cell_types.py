@@ -18,8 +18,8 @@ class CellType(Enum):
     QUADRILATERAL = "quadrilateral"
 
     # -- 3D (layered extrusion) -----------------------------------------------
-    WEDGE = "wedge"                  # triangular prism (3 + 3 nodes)
-    HEXAHEDRON = "hexahedron"        # quadrilateral prism (4 + 4 nodes)
+    WEDGE = "wedge"  # triangular prism (3 + 3 nodes)
+    HEXAHEDRON = "hexahedron"  # quadrilateral prism (4 + 4 nodes)
 
     @property
     def nodes_per_cell(self) -> int:
@@ -34,15 +34,13 @@ class CellType(Enum):
         return _MESHIO_NAMES[self]
 
     @classmethod
-    def from_string(cls, name: str) -> "CellType":
+    def from_string(cls, name: str) -> CellType:
         """Resolve a cell type from any common alias."""
         key = str(name).strip().lower()
         result = _ALIASES.get(key)
         if result is None:
             allowed = ", ".join(sorted(_ALIASES))
-            raise ValueError(
-                f"Unknown cell type '{name}'. Allowed: {allowed}"
-            )
+            raise ValueError(f"Unknown cell type '{name}'. Allowed: {allowed}")
         return result
 
 

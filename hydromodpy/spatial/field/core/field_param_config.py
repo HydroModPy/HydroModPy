@@ -10,20 +10,22 @@ This module validates the structure used by `field_param_config.toml`:
 from __future__ import annotations
 
 import csv
-from pathlib import Path
 import math
 import tomllib
-from typing import Annotated, Any, Mapping
+from collections.abc import Mapping
+from pathlib import Path
+from typing import Annotated, Any
 
 from pydantic import (
-    BaseModel,
     ConfigDict,
     Field,
     ValidationError,
     field_validator,
     model_validator,
 )
-from hydromodpy.core.config.param_level import ParamLevel
+
+from hydromodpy.core.config.base import HydroModelBase
+from hydromodpy.core.config.profile import Profile
 from hydromodpy.core.units.hydraulic_conductivity import (
     M_PER_S_CANONICAL_UNITS,
     normalize_m_per_s_unit,
@@ -64,12 +66,10 @@ def _normalize_unit_token(value: str | None) -> str | None:
         return normalize_m_per_s_unit(token)
     except ValueError:
         allowed = ", ".join(SUPPORTED_PARAMETER_UNITS)
-        raise ValueError(
-            f"Unsupported field.unit '{value}'. Allowed: {allowed}"
-        ) from None
+        raise ValueError(f"Unsupported field.unit '{value}'. Allowed: {allowed}") from None
 
 
-class FieldBaseSectionSchema(BaseModel):
+class FieldBaseSection(HydroModelBase):
     """
     Schema for `[field]` base section.
 
@@ -81,23 +81,18 @@ class FieldBaseSectionSchema(BaseModel):
 
     model_config = ConfigDict(extra="allow")
 
-    id: Annotated[str | None, ParamLevel("user")] = Field(
+    id: Annotated[str | None, Profile.USER] = Field(
         default=None,
-        description=(
-            "Parameter identifier used in outputs and logs " "(for example 'K', 'Sy')."
-        ),
+        description=("Parameter identifier used in outputs and logs (for example 'K', 'Sy')."),
     )
-    kind: Annotated[str | None, ParamLevel("user")] = Field(
+    kind: Annotated[str | None, Profile.USER] = Field(
         default=None,
-        description=(
-            "Field type selector. Allowed values: 'homogeneous' or 'heterogeneous'."
-        ),
+        description=("Field type selector. Allowed values: 'homogeneous' or 'heterogeneous'."),
     )
-    unit: Annotated[str | None, ParamLevel("user")] = Field(
+    unit: Annotated[str | None, Profile.USER] = Field(
         default=None,
         description=(
-            "Unit of parameter values. "
-            "Typical examples: 'm/s' (K), '-' (Sy), 'm-1' (Ss)."
+            "Unit of parameter values. Typical examples: 'm/s' (K), '-' (Sy), 'm-1' (Ss)."
         ),
     )
 
@@ -128,14 +123,14 @@ class FieldBaseSectionSchema(BaseModel):
         return _normalize_unit_token(value)
 
 
-class FieldHomogeneousSectionSchema(BaseModel):
+class FieldHomogeneousSection(HydroModelBase):
     """
     Schema for `[field_homogeneous]`.
     """
 
     model_config = ConfigDict(extra="forbid")
 
-    value: Annotated[object | None, ParamLevel("user")] = Field(
+    value: Annotated[object | None, Profile.USER] = Field(
         default=None,
         description="Scalar surface value used when kind='homogeneous'.",
     )
@@ -146,9 +141,7 @@ class FieldHomogeneousSectionSchema(BaseModel):
         if value is None:
             return None
         if isinstance(value, bool):
-            raise TypeError(
-                "field_homogeneous.value must be numeric or '<number> <unit>'"
-            )
+            raise TypeError("field_homogeneous.value must be numeric or '<number> <unit>'")
         if isinstance(value, (int, float)):
             return float(value)
         if isinstance(value, str):
@@ -159,43 +152,43 @@ class FieldHomogeneousSectionSchema(BaseModel):
         raise TypeError("field_homogeneous.value must be numeric or '<number> <unit>'")
 
 
-class FieldHeterogeneousSectionSchema(BaseModel):
+class FieldHeterogeneousSection(HydroModelBase):
     """
     Schema for `[field_heterogeneous]`.
     """
 
     model_config = ConfigDict(extra="forbid")
 
-    values_source: Annotated[str, ParamLevel("user")] = Field(
+    values_source: Annotated[str, Profile.USER] = Field(
         default="inline",
         description=(
             "Source for heterogeneous values. "
             "Use 'inline' for TOML mapping or 'csv' for external table."
         ),
     )
-    values: Annotated[dict[str, object] | None, ParamLevel("user")] = Field(
+    values: Annotated[dict[str, object] | None, Profile.USER] = Field(
         default=None,
         description=(
             "Inline key/value mapping used when values_source='inline'. "
             "Keys are zone/material ids, values are numeric parameter values."
         ),
     )
-    values_csv_file: Annotated[str | None, ParamLevel("dev")] = Field(
+    values_csv_file: Annotated[str | None, Profile.DEV] = Field(
         default=None,
         description=(
             "Path to CSV mapping file used when values_source='csv'. "
             "Relative paths are resolved from TOML directory."
         ),
     )
-    csv_key_column: Annotated[str, ParamLevel("dev")] = Field(
+    csv_key_column: Annotated[str, Profile.DEV] = Field(
         default="zone_key",
         description="CSV column name containing zone/material keys.",
     )
-    csv_value_column: Annotated[str, ParamLevel("dev")] = Field(
+    csv_value_column: Annotated[str, Profile.DEV] = Field(
         default="value",
         description="CSV column name containing numeric parameter values.",
     )
-    field_spatial_id: Annotated[str | None, ParamLevel("user")] = Field(
+    field_spatial_id: Annotated[str | None, Profile.USER] = Field(
         default=None,
         description=(
             "Identifier of the spatial field used to map heterogeneous values "
@@ -210,8 +203,7 @@ class FieldHeterogeneousSectionSchema(BaseModel):
         if key not in SUPPORTED_HETEROGENEOUS_VALUE_SOURCES:
             allowed = ", ".join(SUPPORTED_HETEROGENEOUS_VALUE_SOURCES)
             raise ValueError(
-                f"Unsupported field_heterogeneous.values_source '{value}'. "
-                f"Allowed: {allowed}"
+                f"Unsupported field_heterogeneous.values_source '{value}'. Allowed: {allowed}"
             )
         return key
 
@@ -225,8 +217,7 @@ class FieldHeterogeneousSectionSchema(BaseModel):
             key_text = str(key)
             if isinstance(raw_value, bool):
                 raise TypeError(
-                    f"field_heterogeneous.values['{key_text}'] must be numeric "
-                    "or '<number> <unit>'"
+                    f"field_heterogeneous.values['{key_text}'] must be numeric or '<number> <unit>'"
                 )
             if isinstance(raw_value, (int, float)):
                 values[key_text] = float(raw_value)
@@ -234,14 +225,11 @@ class FieldHeterogeneousSectionSchema(BaseModel):
             if isinstance(raw_value, str):
                 token = raw_value.strip()
                 if token == "":
-                    raise ValueError(
-                        f"field_heterogeneous.values['{key_text}'] cannot be empty"
-                    )
+                    raise ValueError(f"field_heterogeneous.values['{key_text}'] cannot be empty")
                 values[key_text] = token
                 continue
             raise TypeError(
-                f"field_heterogeneous.values['{key_text}'] must be numeric "
-                "or '<number> <unit>'"
+                f"field_heterogeneous.values['{key_text}'] must be numeric or '<number> <unit>'"
             )
         if len(values) == 0:
             raise ValueError("field_heterogeneous.values cannot be empty")
@@ -256,9 +244,7 @@ class FieldHeterogeneousSectionSchema(BaseModel):
             return None
         text = str(value).strip()
         if text == "":
-            raise ValueError(
-                "field_heterogeneous.values_csv_file cannot be empty when provided"
-            )
+            raise ValueError("field_heterogeneous.values_csv_file cannot be empty when provided")
         return text
 
     @field_validator("csv_key_column", "csv_value_column")
@@ -318,50 +304,49 @@ class FieldHeterogeneousSectionSchema(BaseModel):
         return self
 
 
-class FieldVerticalProfileSectionSchema(BaseModel):
+class FieldVerticalProfileSection(HydroModelBase):
     """
     Schema for `[field_vertical_profile]`.
     """
 
     model_config = ConfigDict(extra="forbid")
 
-    mode: Annotated[str, ParamLevel("user")] = Field(
+    mode: Annotated[str, Profile.USER] = Field(
         default="none",
         description=(
             "Depth dependency mode shared over the full domain. "
             "Allowed values: 'none', 'exponential', 'tabulated'."
         ),
     )
-    characteristic_depth: Annotated[float | None, ParamLevel("dev")] = Field(
+    characteristic_depth: Annotated[float | None, Profile.DEV] = Field(
         default=None,
         description=(
             "Characteristic depth for exponential mode. "
             "Vertical factor is exp(-depth/characteristic_depth)."
         ),
     )
-    min_factor: Annotated[float | None, ParamLevel("dev")] = Field(
+    min_factor: Annotated[float | None, Profile.DEV] = Field(
         default=None,
         description=(
             "Optional floor factor for exponential mode. "
             "If provided, factor is max(exp(-depth/characteristic_depth), min_factor)."
         ),
     )
-    depths: Annotated[list[float] | None, ParamLevel("dev")] = Field(
+    depths: Annotated[list[float] | None, Profile.DEV] = Field(
         default=None,
         description="Depth nodes for tabulated mode (meters, first value must be 0).",
     )
-    factors: Annotated[list[float] | None, ParamLevel("dev")] = Field(
+    factors: Annotated[list[float] | None, Profile.DEV] = Field(
         default=None,
         description=(
             "Multiplicative factors aligned with `depths` for tabulated mode "
             "(first value must be 1 at depth 0)."
         ),
     )
-    interpolation: Annotated[str, ParamLevel("dev")] = Field(
+    interpolation: Annotated[str, Profile.DEV] = Field(
         default="linear",
         description=(
-            "Interpolation strategy for tabulated mode. "
-            "Allowed values: 'linear' or 'step'."
+            "Interpolation strategy for tabulated mode. Allowed values: 'linear' or 'step'."
         ),
     )
 
@@ -417,8 +402,7 @@ class FieldVerticalProfileSectionSchema(BaseModel):
         if key not in SUPPORTED_VERTICAL_PROFILE_INTERPOLATIONS:
             allowed = ", ".join(SUPPORTED_VERTICAL_PROFILE_INTERPOLATIONS)
             raise ValueError(
-                f"Unsupported field_vertical_profile.interpolation '{value}'. "
-                f"Allowed: {allowed}"
+                f"Unsupported field_vertical_profile.interpolation '{value}'. Allowed: {allowed}"
             )
         return key
 
@@ -436,41 +420,25 @@ class FieldVerticalProfileSectionSchema(BaseModel):
 
         if self.mode == "tabulated":
             if self.depths is None:
-                raise ValueError(
-                    "field_vertical_profile.depths is required when mode='tabulated'"
-                )
+                raise ValueError("field_vertical_profile.depths is required when mode='tabulated'")
             if self.factors is None:
-                raise ValueError(
-                    "field_vertical_profile.factors is required when mode='tabulated'"
-                )
+                raise ValueError("field_vertical_profile.factors is required when mode='tabulated'")
             if len(self.depths) != len(self.factors):
-                raise ValueError(
-                    "field_vertical_profile.depths and factors must have same length"
-                )
+                raise ValueError("field_vertical_profile.depths and factors must have same length")
             if any(v < 0.0 for v in self.depths):
                 raise ValueError("field_vertical_profile.depths must be >= 0")
-            if any(
-                self.depths[i] <= self.depths[i - 1] for i in range(1, len(self.depths))
-            ):
-                raise ValueError(
-                    "field_vertical_profile.depths must be strictly increasing"
-                )
+            if any(self.depths[i] <= self.depths[i - 1] for i in range(1, len(self.depths))):
+                raise ValueError("field_vertical_profile.depths must be strictly increasing")
             if not math.isclose(float(self.depths[0]), 0.0, rel_tol=0.0, abs_tol=1e-12):
-                raise ValueError(
-                    "field_vertical_profile tabulated first depth must be 0.0"
-                )
-            if not math.isclose(
-                float(self.factors[0]), 1.0, rel_tol=0.0, abs_tol=1e-12
-            ):
-                raise ValueError(
-                    "field_vertical_profile tabulated factor at depth 0.0 must be 1.0"
-                )
+                raise ValueError("field_vertical_profile tabulated first depth must be 0.0")
+            if not math.isclose(float(self.factors[0]), 1.0, rel_tol=0.0, abs_tol=1e-12):
+                raise ValueError("field_vertical_profile tabulated factor at depth 0.0 must be 1.0")
             return self
 
         return self
 
 
-class FieldParamConfig(BaseModel):
+class FieldParamConfig(HydroModelBase):
     """
     Top-level schema for field-parameter TOML files.
 
@@ -481,19 +449,19 @@ class FieldParamConfig(BaseModel):
 
     model_config = ConfigDict(extra="allow")
 
-    field: Annotated[FieldBaseSectionSchema | None, ParamLevel("user")] = Field(
+    field: Annotated[FieldBaseSection | None, Profile.USER] = Field(
         default=None,
         description="Base section `[field]` with parameter id and kind.",
     )
-    field_homogeneous: Annotated[FieldHomogeneousSectionSchema | None, ParamLevel("user")] = Field(
+    field_homogeneous: Annotated[FieldHomogeneousSection | None, Profile.USER] = Field(
         default=None,
         description="Homogeneous parameters section `[field_homogeneous]`.",
     )
-    field_heterogeneous: Annotated[FieldHeterogeneousSectionSchema | None, ParamLevel("user")] = Field(
+    field_heterogeneous: Annotated[FieldHeterogeneousSection | None, Profile.USER] = Field(
         default=None,
         description="Heterogeneous parameters section `[field_heterogeneous]`.",
     )
-    field_vertical_profile: Annotated[FieldVerticalProfileSectionSchema | None, ParamLevel("user")] = Field(
+    field_vertical_profile: Annotated[FieldVerticalProfileSection | None, Profile.USER] = Field(
         default=None,
         description="Optional depth profile section `[field_vertical_profile]`.",
     )
@@ -503,13 +471,31 @@ class FieldParamConfig(BaseModel):
     def _reject_field_common(cls, data):
         if isinstance(data, Mapping) and "field_common" in data:
             raise ValueError(
-                "`[field_common]` is no longer supported. "
-                "Move shared keys to `[field]`."
+                "`[field_common]` is no longer supported. Move shared keys to `[field]`."
             )
         return data
 
+    @model_validator(mode="after")
+    def _enforce_physical_bounds(self) -> FieldParamConfig:
+        """Validate homogeneous scalar values against ``PHYSICAL_BOUNDS``.
 
-class ResolvedFieldParamSchema(BaseModel):
+        Only numeric scalars are checked here; string payloads carry their
+        own unit and are handled by lower-level unit resolution.
+        """
+        from hydromodpy.spatial.field.core.physical_bounds import (
+            validate_physical_value,
+        )
+
+        base = self.field
+        homo = self.field_homogeneous
+        if base is None or base.id is None or homo is None or homo.value is None:
+            return self
+        if isinstance(homo.value, (int, float)) and not isinstance(homo.value, bool):
+            validate_physical_value(param_id=base.id, value=float(homo.value))
+        return self
+
+
+class ResolvedFieldParam(HydroModelBase):
     """
     Schema for a fully resolved field-parameter payload.
 
@@ -518,47 +504,47 @@ class ResolvedFieldParamSchema(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    id: Annotated[str | None, ParamLevel("dev")] = Field(
+    id: Annotated[str | None, Profile.DEV] = Field(
         default=None,
         description="Resolved parameter identifier.",
     )
-    kind: Annotated[str | None, ParamLevel("dev")] = Field(
+    kind: Annotated[str | None, Profile.DEV] = Field(
         default=None,
         description="Resolved parameter kind: homogeneous or heterogeneous.",
     )
-    unit: Annotated[str | None, ParamLevel("dev")] = Field(
+    unit: Annotated[str | None, Profile.DEV] = Field(
         default=None,
         description="Resolved parameter unit (canonical token).",
     )
-    value: Annotated[object | None, ParamLevel("dev")] = Field(
+    value: Annotated[object | None, Profile.DEV] = Field(
         default=None,
         description="Resolved scalar value for homogeneous kind.",
     )
-    values: Annotated[dict[str, object] | None, ParamLevel("dev")] = Field(
+    values: Annotated[dict[str, object] | None, Profile.DEV] = Field(
         default=None,
         description="Resolved mapping for heterogeneous kind.",
     )
-    field_spatial_id: Annotated[str | None, ParamLevel("dev")] = Field(
+    field_spatial_id: Annotated[str | None, Profile.DEV] = Field(
         default=None,
         description="Resolved spatial field identifier for heterogeneous kind.",
     )
-    values_source: Annotated[str | None, ParamLevel("dev")] = Field(
+    values_source: Annotated[str | None, Profile.DEV] = Field(
         default=None,
         description="Optional helper flag describing heterogeneous values source.",
     )
-    values_csv_file: Annotated[str | None, ParamLevel("dev")] = Field(
+    values_csv_file: Annotated[str | None, Profile.DEV] = Field(
         default=None,
         description="Optional helper CSV path used before resolution.",
     )
-    csv_key_column: Annotated[str | None, ParamLevel("dev")] = Field(
+    csv_key_column: Annotated[str | None, Profile.DEV] = Field(
         default=None,
         description="Optional helper CSV key column used before resolution.",
     )
-    csv_value_column: Annotated[str | None, ParamLevel("dev")] = Field(
+    csv_value_column: Annotated[str | None, Profile.DEV] = Field(
         default=None,
         description="Optional helper CSV value column used before resolution.",
     )
-    vertical_profile: Annotated[FieldVerticalProfileSectionSchema | None, ParamLevel("dev")] = Field(
+    vertical_profile: Annotated[FieldVerticalProfileSection | None, Profile.DEV] = Field(
         default=None,
         description="Resolved optional depth profile configuration.",
     )
@@ -614,9 +600,7 @@ class ResolvedFieldParamSchema(BaseModel):
         for key, raw_value in dict(value).items():
             key_text = str(key)
             if isinstance(raw_value, bool):
-                raise TypeError(
-                    f"values['{key_text}'] must be numeric or '<number> <unit>'"
-                )
+                raise TypeError(f"values['{key_text}'] must be numeric or '<number> <unit>'")
             if isinstance(raw_value, (int, float)):
                 values[key_text] = float(raw_value)
                 continue
@@ -626,9 +610,7 @@ class ResolvedFieldParamSchema(BaseModel):
                     raise ValueError(f"values['{key_text}'] cannot be empty")
                 values[key_text] = token
                 continue
-            raise TypeError(
-                f"values['{key_text}'] must be numeric or '<number> <unit>'"
-            )
+            raise TypeError(f"values['{key_text}'] must be numeric or '<number> <unit>'")
         if len(values) == 0:
             raise ValueError("values cannot be empty")
         if any(str(key).strip() == "" for key in values):
@@ -673,15 +655,15 @@ class ResolvedFieldParamSchema(BaseModel):
         if self.kind == "homogeneous":
             if self.value is None:
                 raise ValueError("Homogeneous field requires 'value'")
-            self.values = None
-            self.field_spatial_id = None
+            object.__setattr__(self, "values", None)
+            object.__setattr__(self, "field_spatial_id", None)
             return self
 
         if self.values is None:
             raise ValueError("Heterogeneous field requires 'values'")
         if self.field_spatial_id is None:
             raise ValueError("Heterogeneous field requires 'field_spatial_id'")
-        self.value = None
+        object.__setattr__(self, "value", None)
         return self
 
 
@@ -743,9 +725,7 @@ def _load_values_mapping_csv(
             if key == "":
                 continue
             if key in values:
-                raise ValueError(
-                    f"Duplicate key '{key}' in CSV mapping '{path}' at line {i}."
-                )
+                raise ValueError(f"Duplicate key '{key}' in CSV mapping '{path}' at line {i}.")
             raw_value = row.get(val_col, "")
             try:
                 value = float(raw_value)
@@ -796,9 +776,7 @@ def resolve_field_param_config_payload(
         if isinstance(specific_section, Mapping):
             merged.update(dict(specific_section))
 
-    vertical_section = validated.get(
-        "field_vertical_profile", validated.get("vertical_profile")
-    )
+    vertical_section = validated.get("field_vertical_profile", validated.get("vertical_profile"))
     if isinstance(vertical_section, Mapping):
         merged["vertical_profile"] = dict(vertical_section)
 
@@ -844,9 +822,7 @@ def load_field_param_toml(config_path: str | Path) -> dict[str, Any]:
     try:
         return validate_field_param_toml_data(payload)
     except ValueError as exc:
-        raise ValueError(
-            f"Invalid field parameter configuration in {path}: {exc}"
-        ) from exc
+        raise ValueError(f"Invalid field parameter configuration in {path}: {exc}") from exc
 
 
 def validate_resolved_field_param_data(
@@ -894,7 +870,7 @@ def validate_resolved_field_param_data(
             raise KeyError("Heterogeneous field requires key 'field_spatial_id'")
 
     try:
-        parsed = ResolvedFieldParamSchema.model_validate(payload)
+        parsed = ResolvedFieldParam.model_validate(payload)
     except (ValidationError, TypeError) as exc:
         raise ValueError(str(exc)) from exc
     return parsed.model_dump(mode="python", exclude_none=True)

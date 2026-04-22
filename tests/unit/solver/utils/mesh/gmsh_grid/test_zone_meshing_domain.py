@@ -29,16 +29,12 @@ def _reference_domain_geojson() -> Path:
 
 
 def test_parse_domain_bbox_contract() -> None:
-    cfg = parse_zone_meshing_domain_config(
-        {"kind": "bbox", "bbox": [0.0, 1.0, 10.0, 20.0]}
-    )
+    cfg = parse_zone_meshing_domain_config({"kind": "bbox", "bbox": [0.0, 1.0, 10.0, 20.0]})
     assert cfg.to_mapping() == {"kind": "bbox", "bbox": [0.0, 1.0, 10.0, 20.0]}
 
 
 def test_zone_meshing_domain_config_builds_typed_contract() -> None:
-    cfg = ZoneMeshingDomainConfig.from_mapping(
-        {"kind": "bbox", "bbox": [0.0, 1.0, 10.0, 20.0]}
-    )
+    cfg = ZoneMeshingDomainConfig.from_mapping({"kind": "bbox", "bbox": [0.0, 1.0, 10.0, 20.0]})
 
     assert cfg.kind == "bbox"
     assert cfg.bbox == (0.0, 1.0, 10.0, 20.0)
@@ -118,10 +114,10 @@ def test_load_domain_geometry_vector_single_selected_id() -> None:
     payload = load_zone_meshing_domain_payload(
         parse_zone_meshing_domain_config(
             {
-            "kind": "vector",
-            "path": str(_reference_domain_geojson()),
-            "id_field": "domain_id",
-            "selected_id": "main",
+                "kind": "vector",
+                "path": str(_reference_domain_geojson()),
+                "id_field": "domain_id",
+                "selected_id": "main",
             }
         )
     )

@@ -51,8 +51,6 @@ permissions:
   contents: read
 
 env:
-  HYDROMODPY_NO_DISPLAY: "1"
-  HYDROMODPY_NO_SAVE: "1"
   MPLBACKEND: Agg
 
 jobs:

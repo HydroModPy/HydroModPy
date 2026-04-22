@@ -42,7 +42,10 @@ def test_scaffold_copy_assets_case_updates_manifest_and_assets(tmp_path: Path) -
 
     payload = json.loads(updated_manifest_path.read_text(encoding="utf-8"))
     assert updated_manifest_path == manifest_path
-    assert asset_dir_path == tmp_path / "examples" / "capability_gallery" / "geographic" / "geographic_demo_case"
+    assert (
+        asset_dir_path
+        == tmp_path / "examples" / "capability_gallery" / "geographic" / "geographic_demo_case"
+    )
     assert payload["cases"][0]["slug"] == "geographic_demo_case"
     assert "category" not in payload["cases"][0]
     assert "generator" not in payload["cases"][0]

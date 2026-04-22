@@ -50,20 +50,14 @@ def build_reference_3d_fieldparam_summary(
         "stats_2d": array_stats(values_2d),
         "stats_3d": array_stats(values_3d),
         "depth_stats": array_stats(depth_3d),
-        "layer_means": [
-            round(float(np.mean(values_3d[ilay])), 12) for ilay in range(n_layers)
-        ],
+        "layer_means": [round(float(np.mean(values_3d[ilay])), 12) for ilay in range(n_layers)],
         "layer_depth_means": [
             round(float(np.mean(depth_3d[ilay])), 12) for ilay in range(n_layers)
         ],
         "center_profile": [round(float(v), 12) for v in values_3d[:, center_source]],
-        "center_depth_profile": [
-            round(float(v), 12) for v in depth_3d[:, center_source]
-        ],
+        "center_depth_profile": [round(float(v), 12) for v in depth_3d[:, center_source]],
         "surface_signature_head": [round(float(v), 12) for v in values_2d[:8]],
-        "values_3d_signature_head": [
-            round(float(v), 12) for v in values_3d.reshape(-1)[:8]
-        ],
+        "values_3d_signature_head": [round(float(v), 12) for v in values_3d.reshape(-1)[:8]],
     }
 
 
@@ -83,23 +77,15 @@ def build_reference_3d_postprocess_summary(
     summary = mesh_with_values.to_summary_dict()
     summary.update(
         {
-            "field_id": str(
-                getattr(state_3d_fieldparam["geology_field"], "identifier", "")
-            ),
-            "field_param_id": str(
-                getattr(state_3d_fieldparam["field_param"], "identifier", "")
-            ),
-            "field_param_kind": str(
-                getattr(state_3d_fieldparam["field_param"], "kind", "")
-            ),
+            "field_id": str(getattr(state_3d_fieldparam["geology_field"], "identifier", "")),
+            "field_param_id": str(getattr(state_3d_fieldparam["field_param"], "identifier", "")),
+            "field_param_kind": str(getattr(state_3d_fieldparam["field_param"], "kind", "")),
             "layer0_signature_head": [
                 round(float(v), 12)
                 for v in np.asarray(layer_zero.cell_values, dtype=float).reshape(-1)[:8]
             ],
             "center_profile": [round(float(v), 12) for v in center_profile["values"]],
-            "center_depth_profile": [
-                round(float(v), 12) for v in center_profile.get("depths", [])
-            ],
+            "center_depth_profile": [round(float(v), 12) for v in center_profile.get("depths", [])],
             "layer_mean_sequence": [
                 round(float(layer_stats["mean"]), 12)
                 for layer_stats in mesh_with_values.layer_stats()

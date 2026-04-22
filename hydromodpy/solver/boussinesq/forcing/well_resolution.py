@@ -55,17 +55,15 @@ class WellResolutionMixin:
                 "only coordinate-based wells (absolute_xy or relative_xy)."
             )
         if location_mode == "absolute_xy":
-            x_m = float(getattr(well_cfg, "x"))
-            y_m = float(getattr(well_cfg, "y"))
+            x_m = float(well_cfg.x)
+            y_m = float(well_cfg.y)
         elif location_mode == "relative_xy":
-            x_rel = float(getattr(well_cfg, "x_rel"))
-            y_rel = float(getattr(well_cfg, "y_rel"))
+            x_rel = float(well_cfg.x_rel)
+            y_rel = float(well_cfg.y_rel)
             x_m = self.mesh.x_min_m + x_rel * (self.mesh.x_max_m - self.mesh.x_min_m)
             y_m = self.mesh.y_min_m + y_rel * (self.mesh.y_max_m - self.mesh.y_min_m)
         else:
-            raise ValueError(
-                f"Unsupported well location mode for '{well_id}': {location_mode!r}."
-            )
+            raise ValueError(f"Unsupported well location mode for '{well_id}': {location_mode!r}.")
         return self.mesh.locate_cell_index_for_point(x_m, y_m, allow_nearest=True)
 
     def resolve_well_flux_series(
@@ -77,7 +75,7 @@ class WellResolutionMixin:
         """Resolve one well rate to one value per period in m3/s."""
         forcing = getattr(well_cfg, "forcing", None)
         if forcing is not None:
-            from hydromodpy.process.flow.time_forcing import (
+            from hydromodpy.physics.flow.time_forcing import (
                 resolve_period_values_from_forcing,
             )
 

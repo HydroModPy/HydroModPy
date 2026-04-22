@@ -1,4 +1,4 @@
-﻿"""Execution-engine catalog for the Boussinesq solver."""
+"""Execution-engine catalog for the Boussinesq solver."""
 
 from __future__ import annotations
 
@@ -109,4 +109,3 @@ def resolve_engine_spec(
 
 
 __all__ = ["BoussinesqEngineSpec", "resolve_engine_spec"]
-

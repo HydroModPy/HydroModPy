@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-from pathlib import Path
 import tomllib
+from pathlib import Path
 
 
 def repo_root() -> Path:
@@ -18,12 +18,7 @@ def coverage_sources() -> tuple[str, ...]:
         payload = tomllib.loads(pyproject_path.read_text(encoding="utf-8"))
     except (FileNotFoundError, tomllib.TOMLDecodeError):
         return ("hydromodpy",)
-    sources = (
-        payload.get("tool", {})
-        .get("coverage", {})
-        .get("run", {})
-        .get("source", ())
-    )
+    sources = payload.get("tool", {}).get("coverage", {}).get("run", {}).get("source", ())
     if not isinstance(sources, list):
         return ("hydromodpy",)
     normalized = tuple(str(source).strip() for source in sources if str(source).strip())

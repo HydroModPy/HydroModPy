@@ -9,7 +9,6 @@ import numpy as np
 from validation_cases.analytical.steady.boussinesq_piecewise import mm_day_to_m_s
 from validation_cases.shared.boussinesq_uniform_strip import run_boussinesq_uniform_strip_case
 
-
 CASE_ID = "boussinesq_hillslope_sloping_substratum_1d"
 CASE_DIR = Path(__file__).resolve().parent
 NX = 40
@@ -67,7 +66,9 @@ def _linear_profile(
     right_to_left_amplitude_m: float,
 ) -> np.ndarray:
     x = np.asarray(x_m, dtype=float)
-    return float(base_elevation_m) + float(right_to_left_amplitude_m) * (1.0 - x / float(LENGTH_X_M))
+    return float(base_elevation_m) + float(right_to_left_amplitude_m) * (
+        1.0 - x / float(LENGTH_X_M)
+    )
 
 
 def build_topography_profile(x_m: np.ndarray) -> np.ndarray:

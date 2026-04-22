@@ -11,11 +11,12 @@ import pytest
 import rasterio
 
 from hydromodpy.spatial.geographic.cases import run_geographic_case_from_toml
-from tests.support.whitebox import configure_whitebox_single_thread
-
+from tests._helpers.whitebox import configure_whitebox_single_thread
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
-GOLDEN_FILE = Path(__file__).resolve().parent / "golden" / "run_geographic_river_network_golden.json"
+GOLDEN_FILE = (
+    Path(__file__).resolve().parent / "golden" / "run_geographic_river_network_golden.json"
+)
 
 ABS_TOL_FLOAT = 1e-3
 ABS_TOL_LENGTH_M = 1.0
@@ -40,11 +41,14 @@ def _write_tmp_config(tmp_path: Path) -> Path:
     dem_path = (REPO_ROOT / "examples" / "data" / "dem" / "regional_dem_naizin.tif").as_posix()
     out_path = (tmp_path / "results").as_posix()
 
+    ws_root = tmp_path.as_posix()
     config_path.write_text(
         "\n".join(
             [
+                'workflow = "simulation"',
                 "[workspace]",
                 f'project_root = "{out_path}"',
+                f'root = "{ws_root}"',
                 "",
                 "[geographic]",
                 'catch_def = "from_outlet_coord"',
@@ -124,7 +128,9 @@ def _river_network_signature(tmp_path: Path) -> dict:
             "segment_count": int(summary["segment_count"]),
             "network_total_length_m": float(summary["network_total_length_m"]),
             "max_strahler_order": (
-                None if summary["max_strahler_order"] is None else float(summary["max_strahler_order"])
+                None
+                if summary["max_strahler_order"] is None
+                else float(summary["max_strahler_order"])
             ),
             "catchment_area_km2": float(summary["catchment_area_km2"]),
             "drainage_density_km_per_km2": float(summary["drainage_density_km_per_km2"]),
@@ -194,8 +200,12 @@ def test_run_geographic_river_network_golden(
         assert actual[raster_key]["dtype"] == expected[raster_key]["dtype"]
         assert actual[raster_key]["nodata"] == expected[raster_key]["nodata"]
         assert actual[raster_key]["valid_pixel_count"] == expected[raster_key]["valid_pixel_count"]
-        assert actual[raster_key]["nodata_pixel_count"] == expected[raster_key]["nodata_pixel_count"]
-        assert actual[raster_key]["active_pixel_count"] == expected[raster_key]["active_pixel_count"]
+        assert (
+            actual[raster_key]["nodata_pixel_count"] == expected[raster_key]["nodata_pixel_count"]
+        )
+        assert (
+            actual[raster_key]["active_pixel_count"] == expected[raster_key]["active_pixel_count"]
+        )
         assert float(actual[raster_key]["sum_active"]) == pytest.approx(
             float(expected[raster_key]["sum_active"]),
             abs=ABS_TOL_FLOAT,

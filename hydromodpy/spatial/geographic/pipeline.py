@@ -1,21 +1,21 @@
 """Assemble the full geographic artifact set from one config + workspace.
 
-This module preserves the historical ``Geographic`` payload contract while
+This module preserves the historical ``CatchmentDelineation`` payload contract while
 living in the canonical spatial package behind centralized compatibility aliases.
 """
 
 from __future__ import annotations
 
-from dataclasses import dataclass
 import hashlib
 import json
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
 import geopandas as gpd
 from geopy.geocoders import Nominatim
 
-from hydromodpy.core.backends import WhiteboxBackend, get_whitebox_backend
+from hydromodpy.spatial.delineation import WhiteboxBackend, get_whitebox_backend
 from hydromodpy.spatial.geographic.core.catchment_domain import CatchmentDomainProducts
 from hydromodpy.spatial.geographic.core.catchment_metrics import compute_catchment_area_km2
 from hydromodpy.spatial.geographic.core.direct_dem_domain import build_direct_dem_domain
@@ -23,16 +23,16 @@ from hydromodpy.spatial.geographic.core.flow_products import (
     FlowProducts,
     build_regional_flow_products,
 )
-from hydromodpy.spatial.geographic.core.river_network import (
-    RiverNetworkProducts,
-    _build_river_mesh_trace_from_network_gdf,
-)
 from hydromodpy.spatial.geographic.core.pipeline_steps import (
     build_standard_catchment,
     build_standard_domain_polygons,
     prepare_geographic_run,
 )
-from hydromodpy.spatial.geographic.core.river_network import build_river_network_products
+from hydromodpy.spatial.geographic.core.river_network import (
+    RiverNetworkProducts,
+    _build_river_mesh_trace_from_network_gdf,
+    build_river_network_products,
+)
 from hydromodpy.spatial.geographic.dem_metadata import (
     LegacyDemMetadata,
     read_legacy_dem_metadata,
@@ -43,7 +43,6 @@ from hydromodpy.spatial.geographic.domain_rasters import (
 )
 from hydromodpy.spatial.geographic.geographic_config import GeographicConfig
 from hydromodpy.spatial.geographic.geographic_paths import GeographicPaths
-
 
 _GEOGRAPHIC_CACHE_SCHEMA_VERSION = "hydromodpy_geographic_cache_v1"
 
@@ -61,7 +60,7 @@ class _CachedGeographicProducts:
 
 @dataclass(frozen=True)
 class LegacyGeographicContext:
-    """Full geographic payload used to hydrate the compatibility ``Geographic`` facade."""
+    """Full geographic payload used to hydrate the compatibility ``CatchmentDelineation`` facade."""
 
     paths: GeographicPaths
     flow_products: FlowProducts
@@ -74,7 +73,7 @@ class LegacyGeographicContext:
     dem_res: float
 
     def legacy_attributes(self) -> dict[str, object]:
-        """Return the public attribute payload expected from ``Geographic``."""
+        """Return the public attribute payload expected from ``CatchmentDelineation``."""
         attrs = dict(vars(self.paths))
         attrs.update(
             {
@@ -137,10 +136,7 @@ def _vector_artifact_exists(path: str | Path) -> bool:
     vector_path = Path(path)
     if vector_path.suffix.lower() != ".shp":
         return vector_path.exists()
-    return all(
-        vector_path.with_suffix(suffix).exists()
-        for suffix in (".shp", ".shx", ".dbf")
-    )
+    return all(vector_path.with_suffix(suffix).exists() for suffix in (".shp", ".shx", ".dbf"))
 
 
 def _all_artifacts_exist(paths: list[str | Path]) -> bool:
@@ -219,9 +215,7 @@ def _river_products_from_cache(
     return RiverNetworkProducts(
         enabled=True,
         threshold_cells=(
-            None
-            if summary.get("threshold_cells") is None
-            else float(summary["threshold_cells"])
+            None if summary.get("threshold_cells") is None else float(summary["threshold_cells"])
         ),
         flow_acc_cells_tif=str(Path(paths.correcflow_path) / "dem_acc_cells.tif"),
         streams_tif=paths.river_streams_tif,
@@ -448,9 +442,7 @@ def build_legacy_geographic_context(
                 backend=tool,
                 unsupported_mode="ignore",
             )
-            catchment_area_km2 = float(
-                compute_catchment_area_km2(setup.paths.watershed_shp)
-            )
+            catchment_area_km2 = float(compute_catchment_area_km2(setup.paths.watershed_shp))
             domain_products = build_standard_domain_polygons(
                 config=config,
                 paths=setup.paths,

@@ -5,17 +5,18 @@ from __future__ import annotations
 import json
 
 import geopandas as gpd
-import requests
 from shapely.geometry import LineString
 
-from hydromodpy.core.tools import get_logger
-
+from hydromodpy.core.io.http_client import get_default_client
+from hydromodpy.core.logging import get_logger
 from hydromodpy.data.variables.hydrography.config import HydrographySourceConfig
 
 logger = get_logger(__name__)
 
 
-def fetch(config: HydrographySourceConfig, bbox_wgs84: tuple[float, float, float, float]) -> gpd.GeoDataFrame:
+def fetch(
+    config: HydrographySourceConfig, bbox_wgs84: tuple[float, float, float, float]
+) -> gpd.GeoDataFrame:
     """Download OSM waterways inside *bbox_wgs84* ``(lon_min, lat_min, lon_max, lat_max)``.
 
     Returns a GeoDataFrame in EPSG:4326.
@@ -33,7 +34,12 @@ def fetch(config: HydrographySourceConfig, bbox_wgs84: tuple[float, float, float
     overpass_url = "https://overpass-api.de/api/interpreter"
     logger.info("Querying Overpass API for waterway types %s", waterway_types)
 
-    response = requests.get(overpass_url, params={"data": overpass_query}, stream=True, timeout=300)
+    response = get_default_client().get(
+        overpass_url,
+        params={"data": overpass_query},
+        stream=True,
+        timeout=300,
+    )
     response.raise_for_status()
 
     try:
@@ -52,12 +58,14 @@ def fetch(config: HydrographySourceConfig, bbox_wgs84: tuple[float, float, float
         if water_type not in waterway_types:
             continue
         intermittent = 2 if element.get("tags", {}).get("intermittent", "no") == "yes" else 1
-        features.append({
-            "geometry": LineString(coords),
-            "id": element["id"],
-            "waterway": water_type,
-            "intermit": intermittent,
-        })
+        features.append(
+            {
+                "geometry": LineString(coords),
+                "id": element["id"],
+                "waterway": water_type,
+                "intermit": intermittent,
+            }
+        )
 
     if not features:
         logger.warning("No OSM waterway data found in bbox %s", bbox_wgs84)

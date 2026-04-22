@@ -1,7 +1,0 @@
-{
-  "constraints_mode": "geology_only",
-  "generator": "gmsh_irregular_strip",
-  "seed": 20260413,
-  "base_mesh_size_m": 30.393873212678248,
-  "n_cells": 134
-}

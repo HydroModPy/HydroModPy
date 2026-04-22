@@ -70,7 +70,7 @@ class CatchmentBundleGeologyExportConfig:
     def from_mapping(
         cls,
         payload: Mapping[str, Any],
-    ) -> "CatchmentBundleGeologyExportConfig":
+    ) -> CatchmentBundleGeologyExportConfig:
         normalized = validate_geology_config_data(dict(payload))
         source_raw = dict(normalized["source"])
         return cls(
@@ -79,9 +79,7 @@ class CatchmentBundleGeologyExportConfig:
                 path=str(source_raw["path"]),
                 kind=str(source_raw["kind"]),
                 code_field=_optional_text(source_raw.get("code_field")),
-                reference_raster_path=_optional_text(
-                    source_raw.get("reference_raster_path")
-                ),
+                reference_raster_path=_optional_text(source_raw.get("reference_raster_path")),
             ),
             cell_samples_per_axis=int(normalized.get("cell_samples_per_axis", 8)),
         )
@@ -130,16 +128,13 @@ class CatchmentBundleHydraulicPropertyConfig:
     def from_mapping(
         cls,
         payload: Mapping[str, Any],
-    ) -> "CatchmentBundleHydraulicPropertyConfig":
+    ) -> CatchmentBundleHydraulicPropertyConfig:
         return cls(
-            values_source=str(payload.get("values_source", "inline")).strip().lower()
-            or "inline",
+            values_source=str(payload.get("values_source", "inline")).strip().lower() or "inline",
             values=dict(payload.get("values") or {}),
             values_csv_file=_optional_text(payload.get("values_csv_file")),
-            csv_key_column=str(payload.get("csv_key_column", "zone_key")).strip()
-            or "zone_key",
-            csv_value_column=str(payload.get("csv_value_column", "value")).strip()
-            or "value",
+            csv_key_column=str(payload.get("csv_key_column", "zone_key")).strip() or "zone_key",
+            csv_value_column=str(payload.get("csv_value_column", "value")).strip() or "value",
             default_value=payload.get("default_value"),
             unit=_optional_text(payload.get("unit")),
         )
@@ -156,16 +151,14 @@ class CatchmentBundleHydraulicPropertiesConfig:
     def from_mapping(
         cls,
         payload: Mapping[str, Any],
-    ) -> "CatchmentBundleHydraulicPropertiesConfig":
+    ) -> CatchmentBundleHydraulicPropertiesConfig:
         conductivity_raw = payload.get("conductivity")
         storage_raw = payload.get("storage_coefficient")
         return cls(
             conductivity=(
                 None
                 if not isinstance(conductivity_raw, Mapping)
-                else CatchmentBundleHydraulicPropertyConfig.from_mapping(
-                    conductivity_raw
-                )
+                else CatchmentBundleHydraulicPropertyConfig.from_mapping(conductivity_raw)
             ),
             storage_coefficient=(
                 None
@@ -186,7 +179,7 @@ class CatchmentBundleSummaryReference:
     def from_mapping(
         cls,
         payload: Mapping[str, Any],
-    ) -> "CatchmentBundleSummaryReference":
+    ) -> CatchmentBundleSummaryReference:
         return cls(
             constraints_mode=_optional_text(payload.get("constraints_mode")),
             output_summary_json=_optional_text(payload.get("output_summary_json")),

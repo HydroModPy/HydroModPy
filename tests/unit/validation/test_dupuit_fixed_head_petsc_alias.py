@@ -5,7 +5,9 @@ from pathlib import Path
 from types import SimpleNamespace
 
 from validation_cases.analytical.steady.dupuit_fixed_head_1d import comparison as module
-from validation_cases.analytical.steady.dupuit_fixed_head_1d import runtime_boussinesq as runtime_module
+from validation_cases.analytical.steady.dupuit_fixed_head_1d import (
+    runtime_boussinesq as runtime_module,
+)
 from validation_cases.shared.runtime import ValidationRunResult
 
 
@@ -33,7 +35,9 @@ def test_dupuit_fixed_head_comparison_routes_solver_petsc_to_boussinesq_runtime(
     monkeypatch.setattr(module, "run_boussinesq_dupuit_fixed_head_case", _fake_run_boussinesq_case)
     monkeypatch.setattr(module, "build_dupuit_fixed_head_comparison", _fake_build_comparison)
     monkeypatch.setattr(module, "load_case_metadata", lambda case_dir: {"case_dir": str(case_dir)})
-    monkeypatch.setattr(module, "load_case_tolerances", lambda case_dir, solver=None: {"solver": solver})
+    monkeypatch.setattr(
+        module, "load_case_tolerances", lambda case_dir, solver=None: {"solver": solver}
+    )
 
     comparison = module.run_dupuit_fixed_head_comparison(
         caller_file=Path("dummy_test.py"),
@@ -71,7 +75,9 @@ def test_dupuit_fixed_head_comparison_routes_solver_petsc_partition_to_boussines
     monkeypatch.setattr(module, "run_boussinesq_dupuit_fixed_head_case", _fake_run_boussinesq_case)
     monkeypatch.setattr(module, "build_dupuit_fixed_head_comparison", _fake_build_comparison)
     monkeypatch.setattr(module, "load_case_metadata", lambda case_dir: {"case_dir": str(case_dir)})
-    monkeypatch.setattr(module, "load_case_tolerances", lambda case_dir, solver=None: {"solver": solver})
+    monkeypatch.setattr(
+        module, "load_case_tolerances", lambda case_dir, solver=None: {"solver": solver}
+    )
 
     comparison = module.run_dupuit_fixed_head_comparison(
         caller_file=Path("dummy_test.py"),
@@ -95,12 +101,18 @@ def test_dupuit_fixed_head_runtime_reports_requested_petsc_solver_name(monkeypat
         particles_dir=Path("."),
     )
 
-    monkeypatch.setattr(runtime_module, "load_case_metadata", lambda case_dir: {"reference": {
-        "aquifer_thickness_m": 10.0,
-        "west_head": 10.0,
-        "east_head": 5.0,
-        "hydraulic_conductivity_m_per_s": 1.0e-4,
-    }})
+    monkeypatch.setattr(
+        runtime_module,
+        "load_case_metadata",
+        lambda case_dir: {
+            "reference": {
+                "aquifer_thickness_m": 10.0,
+                "west_head": 10.0,
+                "east_head": 5.0,
+                "hydraulic_conductivity_m_per_s": 1.0e-4,
+            }
+        },
+    )
     monkeypatch.setattr(
         runtime_module,
         "run_boussinesq_uniform_strip_case",

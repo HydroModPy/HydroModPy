@@ -14,7 +14,7 @@ l'export de toutes les donnees d'entree d'HydroModPy.
 ```
 TOML [data]
   -> DataManagersConfig        (validation Pydantic)
-  -> DataManagersPlanner       (inference explicite + implicite)
+  -> DataPlanner       (inference explicite + implicite)
   -> DataLoadPlan              (contrat immutable)
   -> DataManagersRuntimeLoader (dispatch par variable)
   -> VariableManager.load()    (fetch API / custom / cache)
@@ -23,7 +23,7 @@ TOML [data]
 
 **API publique** (`__init__.py`) :
 `DataManagers`, `DataManagersConfig`, `DataLoadPlan`,
-`DataManagersPlanner`, `DataManagersRuntimeLoader`.
+`DataPlanner`, `DataManagersRuntimeLoader`.
 
 ---
 
@@ -579,7 +579,7 @@ Si absent, infere automatiquement depuis `geographic.crs_project`
 
 ---
 
-## 9. Inference (`DataManagersPlanner`)
+## 9. Inference (`DataPlanner`)
 
 Regles actuelles :
 

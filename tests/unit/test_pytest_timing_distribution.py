@@ -1,12 +1,12 @@
 from __future__ import annotations
 
 import os
-from pathlib import Path
 import uuid
+from pathlib import Path
 
 import pytest
 
-from tests.support.pytest_timing_distribution import (
+from tests._helpers.pytest_timing_distribution import (
     _build_report,
     _load_test_timings,
     _parse_bins,

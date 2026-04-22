@@ -5,8 +5,8 @@ from __future__ import annotations
 import argparse
 import importlib.util
 import json
-from pathlib import Path
 import sys
+from pathlib import Path
 from typing import Any
 
 import matplotlib.pyplot as plt
@@ -20,10 +20,10 @@ if (repo_root / "hydromodpy").exists() and str(repo_root) not in sys.path:
     sys.path.insert(0, str(repo_root))
 
 try:
-    from hydromodpy.solver.utils.temporal.tmesh_generation import TMesh_Generation
     from hydromodpy.solver.utils.temporal.cases.run_tmesh_config import (
         load_tmesh_cases_toml,
     )
+    from hydromodpy.solver.utils.temporal.tmesh_generation import TMesh_Generation
 except Exception:
     temporal_root = Path(__file__).resolve().parents[1]
     cases_root = Path(__file__).resolve().parent
@@ -145,10 +145,10 @@ def _summarize_modeltime(
     datetime_vector: list[str],
     figure_path: Path | None,
 ) -> dict[str, Any]:
-    perlen = np.asarray(getattr(tmesh, "perlen"), dtype=float)
-    nstp = np.asarray(getattr(tmesh, "nstp"), dtype=int)
-    tsmult = np.asarray(getattr(tmesh, "tsmult"), dtype=float)
-    steady_state = np.asarray(getattr(tmesh, "steady_state"), dtype=bool)
+    perlen = np.asarray(tmesh.perlen, dtype=float)
+    nstp = np.asarray(tmesh.nstp, dtype=int)
+    tsmult = np.asarray(tmesh.tsmult, dtype=float)
+    steady_state = np.asarray(tmesh.steady_state, dtype=bool)
     start_datetime = getattr(tmesh, "start_datetime", None)
 
     return {

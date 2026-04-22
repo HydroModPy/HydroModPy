@@ -1,3 +1,5 @@
+workflow = "simulation"
+
 [simulation]
 name = "Analytical Dupuit uniform recharge validation"
 description = "Synthetic steady-state unconfined flow with uniform recharge and fixed heads on west/east boundaries."

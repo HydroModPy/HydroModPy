@@ -12,7 +12,6 @@ import sys
 
 import coverage
 
-
 cov = coverage.Coverage(
     config_file=False,
     data_suffix=True,

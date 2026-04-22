@@ -51,6 +51,7 @@ class TestUnitConversion:
 # Temperature (affine conversions)
 # ------------------------------------------------------------------
 
+
 class TestTemperatureConversion:
     def test_kelvin_to_degc(self):
         assert convert_value(273.15, "K", "degC") == pytest.approx(0.0)
@@ -81,6 +82,7 @@ class TestTemperatureConversion:
 # ------------------------------------------------------------------
 # Radiation
 # ------------------------------------------------------------------
+
 
 class TestRadiationConversion:
     def test_mj_m2_day_to_w_m2(self):
@@ -120,6 +122,7 @@ class TestRadiationConversion:
 # Percent / fraction
 # ------------------------------------------------------------------
 
+
 class TestPercentConversion:
     def test_fraction_to_percent(self):
         assert convert_value(0.5, "fraction", "%") == pytest.approx(50.0)
@@ -135,6 +138,7 @@ class TestPercentConversion:
 # Concentration
 # ------------------------------------------------------------------
 
+
 class TestConcentrationConversion:
     def test_g_l_to_mg_l(self):
         assert convert_value(1.0, "g/L", "mg/L") == pytest.approx(1000.0)
@@ -149,6 +153,7 @@ class TestConcentrationConversion:
 # ------------------------------------------------------------------
 # CF-convention remapping
 # ------------------------------------------------------------------
+
 
 class TestCFConventionUnits:
     def test_kgm2s_to_mm_s(self):
@@ -166,6 +171,7 @@ class TestCFConventionUnits:
 # Cross-family rejection
 # ------------------------------------------------------------------
 
+
 class TestCrossFamilyRejection:
     def test_length_vs_flow(self):
         with pytest.raises(ValueError, match="Incompatible"):
@@ -179,6 +185,7 @@ class TestCrossFamilyRejection:
 # ------------------------------------------------------------------
 # convert_array
 # ------------------------------------------------------------------
+
 
 class TestConvertArray:
     def test_numpy_multiplicative(self):
@@ -195,7 +202,9 @@ class TestConvertArray:
         s = pd.Series([32.0, 212.0])
         result = convert_array(s, "degF", "degC")
         pd.testing.assert_series_equal(
-            result, pd.Series([0.0, 100.0]), atol=1e-10,
+            result,
+            pd.Series([0.0, 100.0]),
+            atol=1e-10,
         )
 
     def test_identity_returns_same_object(self):

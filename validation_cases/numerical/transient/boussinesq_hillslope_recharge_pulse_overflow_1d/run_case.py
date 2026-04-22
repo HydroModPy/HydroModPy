@@ -18,7 +18,6 @@ from .comparison import run_hillslope_overflow_scenario
 from .plotting import OverflowPlotOptions, plot_hillslope_overflow_scenario
 from .runtime_boussinesq import DEFAULT_SOLVER
 
-
 DEFAULT_FIGURE_NAME = "boussinesq_hillslope_recharge_pulse_overflow_1d.png"
 
 

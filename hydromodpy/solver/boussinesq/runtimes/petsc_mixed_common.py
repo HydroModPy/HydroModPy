@@ -51,9 +51,7 @@ def _complementarity_scales(
     elif well_flux_raw.size == mesh.n_cells:
         well_rate = np.abs(well_flux_raw).astype(float, copy=False)
     else:
-        raise ValueError(
-            "well_flux_m3_s must be scalar or cell-aligned for the PETSc backend."
-        )
+        raise ValueError("well_flux_m3_s must be scalar or cell-aligned for the PETSc backend.")
     well_rate = np.divide(
         well_rate,
         mesh.cell_area_m2,
@@ -67,9 +65,11 @@ def _complementarity_scales(
     storage_scale = 0.0
     if dt_seconds is not None and float(dt_seconds) > 0.0:
         storage = np.asarray(mesh.storage_coefficient, dtype=float).reshape(-1)
-        storage_scale = float(
-            np.max(np.abs(storage)) if storage.size else 0.0
-        ) * head_scale_m / float(dt_seconds)
+        storage_scale = (
+            float(np.max(np.abs(storage)) if storage.size else 0.0)
+            * head_scale_m
+            / float(dt_seconds)
+        )
 
     rate_scale_m_s = max(
         recharge_scale,
@@ -206,9 +206,7 @@ def _initial_transient_q_ex_guess(
         well_flux_m3_s if well_flux_m3_s is not None else 0.0,
         dtype=float,
     ).reshape(-1)
-    has_positive_surface_loading = bool(np.any(recharge > 0.0)) or bool(
-        np.any(well_flux < 0.0)
-    )
+    has_positive_surface_loading = bool(np.any(recharge > 0.0)) or bool(np.any(well_flux < 0.0))
     if not has_positive_surface_loading:
         return np.zeros(mesh.n_cells, dtype=float)
     guess = np.maximum(

@@ -10,7 +10,6 @@ from validation_cases.shared.boussinesq_piecewise_strip import (
 )
 from validation_cases.shared.runtime import ValidationRunResult
 
-
 CASE_ID = "boussinesq_uniform_recharge_piecewise_k_1d"
 WEST_HEAD_M = 5.0
 EAST_HEAD_M = 5.0

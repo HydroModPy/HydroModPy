@@ -6,7 +6,6 @@ from numbers import Real
 
 from hydromodpy.core.units.scalar import canonical_unit_token as _canonical_unit_token
 
-
 RADIATION_CANONICAL_UNITS: tuple[str, ...] = (
     "W/m2",
     "MJ/m2/day",
@@ -85,9 +84,7 @@ def normalize_radiation_unit(unit: str) -> str:
     canonical = _RADIATION_UNIT_ALIASES.get(token)
     if canonical is None:
         allowed = ", ".join(RADIATION_CANONICAL_UNITS)
-        raise ValueError(
-            f"Unsupported radiation unit '{unit}'. Allowed units: {allowed}"
-        )
+        raise ValueError(f"Unsupported radiation unit '{unit}'. Allowed units: {allowed}")
     return canonical
 
 

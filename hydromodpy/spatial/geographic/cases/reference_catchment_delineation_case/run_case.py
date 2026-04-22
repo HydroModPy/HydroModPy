@@ -3,15 +3,15 @@
 from __future__ import annotations
 
 import argparse
-from pathlib import Path
 import sys
+from pathlib import Path
 from typing import Any
 
 import geopandas as gpd
-from matplotlib import pyplot as plt
-from matplotlib.ticker import ScalarFormatter
 import numpy as np
 import rasterio
+from matplotlib import pyplot as plt
+from matplotlib.ticker import ScalarFormatter
 
 # Allow direct script execution without requiring editable install.
 if __package__ in (None, ""):
@@ -20,12 +20,12 @@ if __package__ in (None, ""):
         sys.path.insert(0, str(_repo_root))
 
 from hydromodpy.core.config.hydromodpy_config import HydroModPyConfig
+from hydromodpy.core.workspace import Workspace
 from hydromodpy.spatial.geographic.cases.plotting_utils import (
     ensure_interactive_backend_for_show,
     show_figures_blocking,
 )
-from hydromodpy.spatial.geographic.geographic import Geographic
-from hydromodpy.core.workspace import Workspace
+from hydromodpy.spatial.geographic.catchment_delineation import CatchmentDelineation
 
 REPO_ROOT = Path(__file__).resolve().parents[5]
 KNOWN_CASE_IDS = ("base", "canut", "nancon", "aber")
@@ -35,23 +35,15 @@ def run_geographic_case_from_toml(config_toml: str | Path):
     """Build Workspace + Geographic from one global TOML file."""
     cfg = HydroModPyConfig.from_toml(config_toml)
     workspace = Workspace(config=cfg.workspace)
-    geographic = Geographic(config=cfg.geographic, initializing=workspace)
+    geographic = CatchmentDelineation(config=cfg.geographic, initializing=workspace)
     return workspace, geographic
 
 
 def _build_case_specs(cfg: HydroModPyConfig) -> dict[str, dict[str, Any]]:
     """Build default run specifications for all supported geographic demo cases."""
-    default_snap = (
-        int(cfg.geographic.snap_dist) if cfg.geographic.snap_dist is not None else 50
-    )
-    default_buff = (
-        float(cfg.geographic.buff_area)
-        if cfg.geographic.buff_area is not None
-        else 20.0
-    )
-    canut_shp = (
-        REPO_ROOT / "examples" / "data" / "masks" / "canut.shp"
-    )
+    default_snap = int(cfg.geographic.snap_dist) if cfg.geographic.snap_dist is not None else 50
+    default_buff = float(cfg.geographic.buff_area) if cfg.geographic.buff_area is not None else 20.0
+    canut_shp = REPO_ROOT / "examples" / "data" / "masks" / "canut.shp"
     wide_brittany_dem = (
         REPO_ROOT
         / "examples_legacy"
@@ -110,9 +102,7 @@ def _resolve_requested_cases(cases_arg: list[str]) -> list[str]:
     return ordered
 
 
-def _valid_dem_values(
-    dem: np.ndarray, nodata: float | None
-) -> tuple[np.ndarray, np.ndarray]:
+def _valid_dem_values(dem: np.ndarray, nodata: float | None) -> tuple[np.ndarray, np.ndarray]:
     """Return validity mask and valid DEM values for one raster array."""
     mask = np.isfinite(dem)
     if nodata is not None:
@@ -187,12 +177,8 @@ def compute_catchment_metrics(geographic) -> dict[str, float | int]:
 
     metrics = {
         "catchment_area_km2": float(area_km2),
-        "mean_elevation_catchment_m": float(
-            np.nanmean(np.where(catch_mask, catch_dem, np.nan))
-        ),
-        "mean_elevation_box_buff_m": float(
-            np.nanmean(np.where(box_mask, box_dem, np.nan))
-        ),
+        "mean_elevation_catchment_m": float(np.nanmean(np.where(catch_mask, catch_dem, np.nan))),
+        "mean_elevation_box_buff_m": float(np.nanmean(np.where(box_mask, box_dem, np.nan))),
     }
     metrics.update(catch_metrics)
     metrics.update(box_metrics)
@@ -215,13 +201,9 @@ def run_geographic_cases_from_toml(
     if "canut" in selected_case_ids:
         canut_path = Path(case_specs["canut"]["overrides"]["polyg_shp_path"]).resolve()
         if not canut_path.exists():
-            raise FileNotFoundError(
-                "Canut shapefile not found at expected path: " f"{canut_path}"
-            )
+            raise FileNotFoundError(f"Canut shapefile not found at expected path: {canut_path}")
 
-    resolved_outputs_root = outputs_root or (
-        Path(__file__).resolve().parent / "outputs"
-    )
+    resolved_outputs_root = outputs_root or (Path(__file__).resolve().parent / "outputs")
     summaries: dict[str, dict[str, Any]] = {}
 
     for case_id in selected_case_ids:
@@ -230,13 +212,11 @@ def run_geographic_cases_from_toml(
         geo_overrides = dict(spec["overrides"])
 
         case_project_root = cfg.workspace.project_root / f"{cfg.workspace.catch_name}_{case_id}"
-        init_cfg = cfg.workspace.model_copy(
-            update={"project_root": case_project_root}
-        )
+        init_cfg = cfg.workspace.model_copy(update={"project_root": case_project_root})
         geo_cfg = cfg.geographic.model_copy(update=geo_overrides)
 
         workspace = Workspace(config=init_cfg)
-        geographic = Geographic(config=geo_cfg, initializing=workspace)
+        geographic = CatchmentDelineation(config=geo_cfg, initializing=workspace)
         metrics = compute_catchment_metrics(geographic)
         fig_path = None
         if write_plot:
@@ -346,9 +326,7 @@ def _plot_geographic_summary(
     ax.xaxis.set_major_formatter(ScalarFormatter(useOffset=False))
     ax.yaxis.set_major_formatter(ScalarFormatter(useOffset=False))
     if outlet_handle is not None:
-        ax.legend(
-            [outlet_handle], ["Outlet"], loc="lower left", fontsize=8, framealpha=0.85
-        )
+        ax.legend([outlet_handle], ["Outlet"], loc="lower left", fontsize=8, framealpha=0.85)
     fig.tight_layout(pad=0.35)
     fig.savefig(fig_path, bbox_inches="tight", pad_inches=0.04)
     if show_plot:
@@ -375,10 +353,7 @@ def _build_parser() -> argparse.ArgumentParser:
         nargs="+",
         choices=("all",) + KNOWN_CASE_IDS,
         default=["all"],
-        help=(
-            "Case ids to run sequentially. "
-            "Use 'all' (default) for: base, canut, nancon, aber."
-        ),
+        help=("Case ids to run sequentially. Use 'all' (default) for: base, canut, nancon, aber."),
     )
     parser.add_argument(
         "--no-show-plot",
@@ -407,10 +382,7 @@ def main(argv: list[str] | None = None) -> int:
             f"{summary['shape_box_buff_dem'][0]}x{summary['shape_box_buff_dem'][1]}"
         )
         print(f"[{case_id}] catchment_area_km2={summary['catchment_area_km2']:.3f}")
-        print(
-            f"[{case_id}] mean_elevation_catchment_m="
-            f"{summary['mean_elevation_catchment_m']:.2f}"
-        )
+        print(f"[{case_id}] mean_elevation_catchment_m={summary['mean_elevation_catchment_m']:.2f}")
         if summary["figure"] is not None:
             print(f"[{case_id}] figure={summary['figure']}")
 

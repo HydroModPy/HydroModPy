@@ -55,12 +55,14 @@ class TestFilenameConventions:
 class TestReadLocationsCSV:
     def test_standard_columns(self, tmp_path):
         csv_path = tmp_path / "loc.csv"
-        pd.DataFrame({
-            "id": ["A", "B"],
-            "x": [1.0, 2.0],
-            "y": [3.0, 4.0],
-            "crs": ["EPSG:4326", "EPSG:4326"],
-        }).to_csv(csv_path, index=False)
+        pd.DataFrame(
+            {
+                "id": ["A", "B"],
+                "x": [1.0, 2.0],
+                "y": [3.0, 4.0],
+                "crs": ["EPSG:4326", "EPSG:4326"],
+            }
+        ).to_csv(csv_path, index=False)
 
         locs = read_locations_csv(csv_path)
         assert len(locs) == 2
@@ -70,11 +72,13 @@ class TestReadLocationsCSV:
 
     def test_custom_columns(self, tmp_path):
         csv_path = tmp_path / "loc.csv"
-        pd.DataFrame({
-            "code": ["X1"],
-            "lon": [10.0],
-            "lat": [20.0],
-        }).to_csv(csv_path, index=False)
+        pd.DataFrame(
+            {
+                "code": ["X1"],
+                "lon": [10.0],
+                "lat": [20.0],
+            }
+        ).to_csv(csv_path, index=False)
 
         locs = read_locations_csv(
             csv_path, col_id="code", col_x="lon", col_y="lat", default_crs="EPSG:2154"
@@ -92,10 +96,12 @@ class TestReadLocationsCSV:
 class TestReadTimeseriesCSV:
     def test_standard(self, tmp_path):
         csv_path = tmp_path / "ts.csv"
-        pd.DataFrame({
-            "datetime": ["2020-01-01", "2020-01-02"],
-            "value": [1.5, 2.5],
-        }).to_csv(csv_path, index=False)
+        pd.DataFrame(
+            {
+                "datetime": ["2020-01-01", "2020-01-02"],
+                "value": [1.5, 2.5],
+            }
+        ).to_csv(csv_path, index=False)
 
         df = read_timeseries_csv(csv_path)
         assert len(df) == 2
@@ -104,10 +110,12 @@ class TestReadTimeseriesCSV:
 
     def test_custom_columns(self, tmp_path):
         csv_path = tmp_path / "ts.csv"
-        pd.DataFrame({
-            "date": ["2020-01-01"],
-            "debit": [3.14],
-        }).to_csv(csv_path, index=False)
+        pd.DataFrame(
+            {
+                "date": ["2020-01-01"],
+                "debit": [3.14],
+            }
+        ).to_csv(csv_path, index=False)
 
         df = read_timeseries_csv(csv_path, col_datetime="date", col_value="debit")
         assert df["value"].iloc[0] == pytest.approx(3.14)

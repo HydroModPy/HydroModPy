@@ -7,9 +7,10 @@ clearer and lets ``conformal.py`` focus on workflow orchestration.
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Mapping
+from typing import Any
 
 from shapely.geometry import LineString, MultiPolygon, Polygon
 from shapely.geometry.base import BaseGeometry
@@ -120,21 +121,17 @@ class ZoneLinearConstraint:
     def from_mapping(
         cls,
         payload: Mapping[str, Any],
-    ) -> "ZoneLinearConstraint":
+    ) -> ZoneLinearConstraint:
         """Build one constraint from the public mapping form."""
         name_text = str(payload.get("name", "")).strip()
         kind_text = str(payload.get("kind", "")).strip()
         if name_text == "":
             raise ValueError("linear constraints require one non-empty name.")
         if kind_text == "":
-            raise ValueError(
-                f"linear constraint '{name_text}' requires one non-empty kind."
-            )
+            raise ValueError(f"linear constraint '{name_text}' requires one non-empty kind.")
         lines_attr = payload.get("lines")
         if lines_attr is None:
-            raise TypeError(
-                f"linear constraint '{name_text}' must expose one 'lines' collection."
-            )
+            raise TypeError(f"linear constraint '{name_text}' must expose one 'lines' collection.")
 
         lines: list[LineString] = []
         for geometry in lines_attr:
@@ -145,16 +142,12 @@ class ZoneLinearConstraint:
                     lines.append(line)
 
         if not lines:
-            raise ValueError(
-                f"linear constraint '{name_text}' produced no usable line segment."
-            )
+            raise ValueError(f"linear constraint '{name_text}' produced no usable line segment.")
         return cls(
             name=name_text,
             kind=kind_text,
             lines=tuple(lines),
-            participates_in_refinement=bool(
-                payload.get("participates_in_refinement", True)
-            ),
+            participates_in_refinement=bool(payload.get("participates_in_refinement", True)),
         )
 
 

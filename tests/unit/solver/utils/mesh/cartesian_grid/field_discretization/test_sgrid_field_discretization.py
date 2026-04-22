@@ -23,17 +23,16 @@ import pandas as pd
 import pytest
 import xarray as xr
 
+from hydromodpy.core.time import ResolvedSimulationTimeWindow
 from hydromodpy.data.contracts.load_result import LoadResult
 from hydromodpy.data.contracts.location import StationLocation
 from hydromodpy.data.contracts.spatial_field import FieldRecord
 from hydromodpy.data.contracts.timeseries import PointRecord
-from hydromodpy.core.time import ResolvedSimulationTimeWindow
 from hydromodpy.solver.utils.mesh.cartesian_grid.sgrid_field_discretization import (
     discretize_fields_on_sgrid,
     discretize_points_on_sgrid,
     spatial_mean_from_fields,
 )
-
 
 # ---------------------------------------------------------------------------
 # Constants
@@ -52,16 +51,10 @@ pytestmark = pytest.mark.fast
 
 def _make_sgrid(nrow: int, ncol: int, dx: float = 10.0, dy: float = 10.0):
     """Minimal mock structured grid with cell-center arrays."""
-    x_centers = np.array(
-        [[(j + 0.5) * dx for j in range(ncol)] for _ in range(nrow)]
-    )
-    y_centers = np.array(
-        [[(i + 0.5) * dy for i in range(nrow)] for _ in range(nrow)]
-    )
+    x_centers = np.array([[(j + 0.5) * dx for j in range(ncol)] for _ in range(nrow)])
+    y_centers = np.array([[(i + 0.5) * dy for i in range(nrow)] for _ in range(nrow)])
     # Fix y_centers: each row should have a constant y
-    y_centers = np.array(
-        [[(nrow - i - 0.5) * dy] * ncol for i in range(nrow)]
-    )
+    y_centers = np.array([[(nrow - i - 0.5) * dy] * ncol for i in range(nrow)])
     return types.SimpleNamespace(
         nrow=nrow,
         ncol=ncol,
@@ -133,7 +126,10 @@ def _make_temporal_field_record(
 
 
 def _make_simulation_window(
-    start: str, end: str, step_value: int = 1, step_unit: str = "month",
+    start: str,
+    end: str,
+    step_value: int = 1,
+    step_unit: str = "month",
 ) -> ResolvedSimulationTimeWindow:
     return ResolvedSimulationTimeWindow(
         start=pd.Timestamp(start),
@@ -150,7 +146,6 @@ def _make_simulation_window(
 
 
 class TestEmptyLoadResult:
-
     def test_no_fields_returns_zeros(self):
         sgrid = _make_sgrid(4, 5)
         result = discretize_fields_on_sgrid(
@@ -170,7 +165,6 @@ class TestEmptyLoadResult:
 
 
 class TestStaticFieldSteady:
-
     def test_uniform_static_field_replicated_to_all_periods(self):
         """A static 5 mm/day field should produce the same m/s array for all kper."""
         nrow, ncol = 4, 5
@@ -211,7 +205,6 @@ class TestStaticFieldSteady:
 
 
 class TestTemporalFieldTransient:
-
     def test_temporal_field_averaged_per_stress_period(self):
         """30 daily values split into 1-month period → mean of the 30 values."""
         nrow, ncol = 3, 4
@@ -220,13 +213,16 @@ class TestTemporalFieldTransient:
         # 31 daily values for January 2020 (1..31 mm/day)
         daily_values = [float(d + 1) for d in range(31)]
         field_rec = _make_temporal_field_record(
-            nrow, ncol,
+            nrow,
+            ncol,
             values_per_day=daily_values,
             start_date="2020-01-01",
             unit="mm/day",
         )
 
-        window = _make_simulation_window("2020-01-01", "2020-01-31", step_value=1, step_unit="month")
+        window = _make_simulation_window(
+            "2020-01-01", "2020-01-31", step_value=1, step_unit="month"
+        )
         result = discretize_fields_on_sgrid(
             load_result=LoadResult(fields=[field_rec]),
             sgrid=sgrid,
@@ -247,13 +243,16 @@ class TestTemporalFieldTransient:
         # Jan: 10 mm/day constant, Feb: 20 mm/day constant
         daily_values = [10.0] * 31 + [20.0] * 29  # 2020 is leap year
         field_rec = _make_temporal_field_record(
-            nrow, ncol,
+            nrow,
+            ncol,
             values_per_day=daily_values,
             start_date="2020-01-01",
             unit="mm/day",
         )
 
-        window = _make_simulation_window("2020-01-01", "2020-02-29", step_value=1, step_unit="month")
+        window = _make_simulation_window(
+            "2020-01-01", "2020-02-29", step_value=1, step_unit="month"
+        )
         result = discretize_fields_on_sgrid(
             load_result=LoadResult(fields=[field_rec]),
             sgrid=sgrid,
@@ -272,14 +271,17 @@ class TestTemporalFieldTransient:
 
         # Only 10 days of data
         field_rec = _make_temporal_field_record(
-            nrow, ncol,
+            nrow,
+            ncol,
             values_per_day=[5.0] * 10,
             start_date="2020-01-01",
             unit="mm/day",
         )
 
         # 3 monthly periods, but data only covers early January
-        window = _make_simulation_window("2020-01-01", "2020-03-31", step_value=1, step_unit="month")
+        window = _make_simulation_window(
+            "2020-01-01", "2020-03-31", step_value=1, step_unit="month"
+        )
         result = discretize_fields_on_sgrid(
             load_result=LoadResult(fields=[field_rec]),
             sgrid=sgrid,
@@ -301,7 +303,6 @@ class TestTemporalFieldTransient:
 
 
 class TestGeoTIFFDiscretization:
-
     def test_geotiff_static_field_steady(self, tmp_path: Path):
         """A GeoTIFF with uniform recharge should produce correct m/s values."""
         rasterio = pytest.importorskip("rasterio")
@@ -315,9 +316,14 @@ class TestGeoTIFFDiscretization:
         tif_path = tmp_path / "recharge.tif"
         transform = from_origin(0.0, float(nrow * dy), dx, dy)
         with rasterio.open(
-            tif_path, "w", driver="GTiff",
-            height=nrow, width=ncol, count=1,
-            dtype=data.dtype, crs="EPSG:2154",
+            tif_path,
+            "w",
+            driver="GTiff",
+            height=nrow,
+            width=ncol,
+            count=1,
+            dtype=data.dtype,
+            crs="EPSG:2154",
             transform=transform,
         ) as dst:
             dst.write(data, 1)
@@ -351,7 +357,6 @@ class TestGeoTIFFDiscretization:
 
 
 class TestNetCDFDiscretization:
-
     def test_netcdf_static_field_steady(self, tmp_path: Path):
         """A static NetCDF with uniform recharge should be discretized correctly."""
         nrow, ncol = 3, 4
@@ -416,7 +421,9 @@ class TestNetCDFDiscretization:
             frequency="D",
         )
 
-        window = _make_simulation_window("2020-01-01", "2020-01-31", step_value=1, step_unit="month")
+        window = _make_simulation_window(
+            "2020-01-01", "2020-01-31", step_value=1, step_unit="month"
+        )
         sgrid = _make_sgrid(nrow, ncol, dx=dx, dy=dy)
         result = discretize_fields_on_sgrid(
             load_result=LoadResult(fields=[field_rec]),
@@ -436,7 +443,6 @@ class TestNetCDFDiscretization:
 
 
 class TestUnitConversion:
-
     @pytest.mark.parametrize(
         "unit, input_val, expected_m_s",
         [
@@ -479,7 +485,6 @@ class TestUnitConversion:
 
 
 class TestSpatiallyVaryingField:
-
     def test_spatially_varying_values_preserved(self):
         """Each cell should receive its own recharge value when grids align."""
         nrow, ncol = 3, 4
@@ -490,11 +495,14 @@ class TestSpatiallyVaryingField:
         y_coords = np.array([(nrow - i - 0.5) * dy for i in range(nrow)])
 
         # Linearly varying: row 0 = 1, row 1 = 2, row 2 = 3 mm/day
-        data_2d = np.array([
-            [1.0, 1.0, 1.0, 1.0],
-            [2.0, 2.0, 2.0, 2.0],
-            [3.0, 3.0, 3.0, 3.0],
-        ], dtype=float)
+        data_2d = np.array(
+            [
+                [1.0, 1.0, 1.0, 1.0],
+                [2.0, 2.0, 2.0, 2.0],
+                [3.0, 3.0, 3.0, 3.0],
+            ],
+            dtype=float,
+        )
 
         ds = xr.Dataset(
             {"recharge": (("y", "x"), data_2d)},
@@ -525,7 +533,6 @@ class TestSpatiallyVaryingField:
 
 
 class TestMultipleFieldRecords:
-
     def test_two_static_fields_averaged(self):
         """Two FieldRecords covering the same period should be averaged."""
         nrow, ncol = 2, 2
@@ -554,10 +561,9 @@ class TestMultipleFieldRecords:
 
 
 class TestFlowRechargeConfigHeterogeneousSource:
-
     def test_heterogeneous_source_field_accepted(self):
         """FlowRechargeConfig should accept and expose heterogeneous_source."""
-        from hydromodpy.process.flow.sinks_sources import FlowRechargeConfig
+        from hydromodpy.physics.flow.sinks_sources import FlowRechargeConfig
 
         lr = LoadResult(
             fields=[_make_static_field_record(2, 2, value=5.0)],
@@ -574,7 +580,7 @@ class TestFlowRechargeConfigHeterogeneousSource:
         assert cfg.heterogeneous_source.has_fields is True
 
     def test_heterogeneous_source_none_by_default(self):
-        from hydromodpy.process.flow.sinks_sources import FlowRechargeConfig
+        from hydromodpy.physics.flow.sinks_sources import FlowRechargeConfig
 
         cfg = FlowRechargeConfig(values=1.0e-8)
         assert cfg.heterogeneous_source is None
@@ -586,7 +592,6 @@ class TestFlowRechargeConfigHeterogeneousSource:
 
 
 class TestInterpolationMethod:
-
     def test_linear_interpolation_produces_valid_output(self):
         nrow, ncol = 3, 4
         sgrid = _make_sgrid(nrow, ncol)
@@ -651,7 +656,6 @@ def _make_located_point_record(
 
 
 class TestPointToGridInterpolation:
-
     def test_single_station_nearest_fills_grid(self):
         """A single station should fill the entire grid with its value."""
         nrow, ncol = 3, 4
@@ -713,7 +717,9 @@ class TestPointToGridInterpolation:
                 method="idw",
             )
 
-        runtime_warnings = [warning for warning in caught if issubclass(warning.category, RuntimeWarning)]
+        runtime_warnings = [
+            warning for warning in caught if issubclass(warning.category, RuntimeWarning)
+        ]
         assert runtime_warnings == []
         arr = result[0]
         assert arr.shape == (nrow, ncol)
@@ -753,7 +759,6 @@ class TestPointToGridInterpolation:
 
 
 class TestSpatialMeanFromFields:
-
     def test_static_field_spatial_mean(self):
         """Spatial mean of a uniform static field should be the field value."""
         nrow, ncol = 3, 4
@@ -770,7 +775,8 @@ class TestSpatialMeanFromFields:
         nrow, ncol = 2, 3
         # 3 days: 1.0, 2.0, 3.0 mm/day
         field_rec = _make_temporal_field_record(
-            nrow, ncol,
+            nrow,
+            ncol,
             values_per_day=[1.0, 2.0, 3.0],
             start_date="2020-01-01",
             unit="mm/day",
@@ -794,7 +800,6 @@ class TestSpatialMeanFromFields:
 
 
 class TestMultiBandGeoTIFF:
-
     def test_multiband_tif_produces_per_band_arrays(self, tmp_path: Path):
         """A multi-band GeoTIFF should produce one array per band."""
         rasterio = pytest.importorskip("rasterio")
@@ -808,9 +813,14 @@ class TestMultiBandGeoTIFF:
         tif_path = tmp_path / "recharge_multi.tif"
         transform = from_origin(0.0, float(nrow * dy), dx, dy)
         with rasterio.open(
-            tif_path, "w", driver="GTiff",
-            height=nrow, width=ncol, count=n_bands,
-            dtype=np.float32, crs="EPSG:2154",
+            tif_path,
+            "w",
+            driver="GTiff",
+            height=nrow,
+            width=ncol,
+            count=n_bands,
+            dtype=np.float32,
+            crs="EPSG:2154",
             transform=transform,
         ) as dst:
             for b_idx, val in enumerate(band_values, start=1):
@@ -844,33 +854,38 @@ class TestMultiBandGeoTIFF:
 
 
 class TestFlowRechargeConfigNewFields:
-
     def test_spatial_mode_default(self):
-        from hydromodpy.process.flow.sinks_sources import FlowRechargeConfig
+        from hydromodpy.physics.flow.sinks_sources import FlowRechargeConfig
+
         cfg = FlowRechargeConfig(values=0.0)
         assert cfg.spatial_mode == "auto"
 
     def test_spatial_mode_homogeneous(self):
-        from hydromodpy.process.flow.sinks_sources import FlowRechargeConfig
+        from hydromodpy.physics.flow.sinks_sources import FlowRechargeConfig
+
         cfg = FlowRechargeConfig(values=0.0, spatial_mode="homogeneous")
         assert cfg.spatial_mode == "homogeneous"
 
     def test_spatial_mode_invalid_raises(self):
-        from hydromodpy.process.flow.sinks_sources import FlowRechargeConfig
+        from hydromodpy.physics.flow.sinks_sources import FlowRechargeConfig
+
         with pytest.raises(Exception):
             FlowRechargeConfig(values=0.0, spatial_mode="invalid")
 
     def test_interpolation_method_default(self):
-        from hydromodpy.process.flow.sinks_sources import FlowRechargeConfig
+        from hydromodpy.physics.flow.sinks_sources import FlowRechargeConfig
+
         cfg = FlowRechargeConfig(values=0.0)
         assert cfg.interpolation_method == "nearest"
 
     def test_interpolation_method_idw(self):
-        from hydromodpy.process.flow.sinks_sources import FlowRechargeConfig
+        from hydromodpy.physics.flow.sinks_sources import FlowRechargeConfig
+
         cfg = FlowRechargeConfig(values=0.0, interpolation_method="idw")
         assert cfg.interpolation_method == "idw"
 
     def test_interpolation_method_invalid_raises(self):
-        from hydromodpy.process.flow.sinks_sources import FlowRechargeConfig
+        from hydromodpy.physics.flow.sinks_sources import FlowRechargeConfig
+
         with pytest.raises(Exception):
             FlowRechargeConfig(values=0.0, interpolation_method="cubic")

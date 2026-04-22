@@ -2,14 +2,18 @@ from __future__ import annotations
 
 from typing import Annotated
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import ConfigDict, Field, field_validator
 
-from hydromodpy.core.config.param_level import ParamLevel
-from hydromodpy.spatial.domain.depth_model_config import ConstantThicknessDepthModel, DepthModelConfig
+from hydromodpy.core.config.base import HydroModelBase
+from hydromodpy.core.config.profile import Profile
+from hydromodpy.spatial.domain.depth_model_config import (
+    ConstantThicknessDepthModel,
+    DepthModelConfig,
+)
 from hydromodpy.spatial.domain.spatial_support_config import DomainSupportConfig
 
 
-class DomainConfig(BaseModel):
+class DomainConfig(HydroModelBase):
     """
     Domain configuration.
 
@@ -18,7 +22,7 @@ class DomainConfig(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    zone_ids: Annotated[list[str], ParamLevel("user")] = Field(
+    zone_ids: Annotated[list[str], Profile.USER] = Field(
         default_factory=list,
         description=(
             "Ordered list of zone identifiers loaded in the domain registry. "
@@ -27,18 +31,17 @@ class DomainConfig(BaseModel):
             "under domain.supports."
         ),
     )
-    supports: Annotated[dict[str, DomainSupportConfig], ParamLevel("user")] = Field(
+    supports: Annotated[dict[str, DomainSupportConfig], Profile.USER] = Field(
         default_factory=dict,
         description=(
             "Named spatial supports available to heterogeneous parameters. "
             "Each key is a support identifier referenced by field_spatial_id."
         ),
     )
-    depth_model: Annotated[DepthModelConfig, ParamLevel("user")] = Field(
+    depth_model: Annotated[DepthModelConfig, Profile.USER] = Field(
         default_factory=ConstantThicknessDepthModel,
         description=(
-            "Vertical domain model configuration. "
-            "Use 'constant_thickness' or 'flat_substratum'."
+            "Vertical domain model configuration. Use 'constant_thickness' or 'flat_substratum'."
         ),
     )
 
@@ -77,7 +80,9 @@ class DomainConfig(BaseModel):
 
     @field_validator("supports")
     @classmethod
-    def _normalize_support_keys(cls, value: dict[str, DomainSupportConfig]) -> dict[str, DomainSupportConfig]:
+    def _normalize_support_keys(
+        cls, value: dict[str, DomainSupportConfig]
+    ) -> dict[str, DomainSupportConfig]:
         out: dict[str, DomainSupportConfig] = {}
         seen: set[str] = set()
         for raw_key, support_cfg in value.items():

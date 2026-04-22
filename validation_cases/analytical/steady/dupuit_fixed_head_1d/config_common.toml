@@ -1,3 +1,5 @@
+workflow = "simulation"
+
 [simulation]
 name = "Analytical linear head validation"
 description = "Synthetic steady-state flow with fixed heads on west/east boundaries."

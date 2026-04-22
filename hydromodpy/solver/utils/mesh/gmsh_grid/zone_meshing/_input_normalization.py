@@ -77,28 +77,18 @@ def normalize_regional_size_fields(
         outside_size = float(payload.outside_size)
         grid_resolution = float(payload.grid_resolution)
         transition_distance = (
-            None
-            if payload.transition_distance is None
-            else float(payload.transition_distance)
+            None if payload.transition_distance is None else float(payload.transition_distance)
         )
         if (not np.isfinite(inside_size)) or inside_size <= 0.0:
-            raise ValueError(
-                f"regional size field '{name}' requires inside_size > 0"
-            )
+            raise ValueError(f"regional size field '{name}' requires inside_size > 0")
         if (not np.isfinite(outside_size)) or outside_size <= 0.0:
-            raise ValueError(
-                f"regional size field '{name}' requires outside_size > 0"
-            )
+            raise ValueError(f"regional size field '{name}' requires outside_size > 0")
         if (not np.isfinite(grid_resolution)) or grid_resolution <= 0.0:
-            raise ValueError(
-                f"regional size field '{name}' requires grid_resolution > 0"
-            )
+            raise ValueError(f"regional size field '{name}' requires grid_resolution > 0")
         if transition_distance is not None and (
             (not np.isfinite(transition_distance)) or transition_distance < 0.0
         ):
-            raise ValueError(
-                f"regional size field '{name}' requires transition_distance >= 0"
-            )
+            raise ValueError(f"regional size field '{name}' requires transition_distance >= 0")
 
         clipped_geometry = make_valid_geometry(
             make_valid_geometry(payload.region_geometry).intersection(domain_geometry)
@@ -133,9 +123,7 @@ def normalize_interface_refinement_inputs(
 
     refine_interfaces_value = bool(refine_interfaces)
     interface_size_value = None if interface_size is None else float(interface_size)
-    interface_distance_value = (
-        None if interface_distance is None else float(interface_distance)
-    )
+    interface_distance_value = None if interface_distance is None else float(interface_distance)
     if not refine_interfaces_value:
         return False, interface_size_value, interface_distance_value
 
@@ -144,19 +132,13 @@ def normalize_interface_refinement_inputs(
         or (not np.isfinite(interface_size_value))
         or interface_size_value <= 0.0
     ):
-        raise ValueError(
-            "interface_size must be finite and > 0 when refine_interfaces=true"
-        )
+        raise ValueError("interface_size must be finite and > 0 when refine_interfaces=true")
     if interface_size_value > float(global_size):
-        raise ValueError(
-            "interface_size must be <= global_size when refine_interfaces=true"
-        )
+        raise ValueError("interface_size must be <= global_size when refine_interfaces=true")
     if (
         interface_distance_value is None
         or (not np.isfinite(interface_distance_value))
         or interface_distance_value <= 0.0
     ):
-        raise ValueError(
-            "interface_distance must be finite and > 0 when refine_interfaces=true"
-        )
+        raise ValueError("interface_distance must be finite and > 0 when refine_interfaces=true")
     return True, interface_size_value, interface_distance_value

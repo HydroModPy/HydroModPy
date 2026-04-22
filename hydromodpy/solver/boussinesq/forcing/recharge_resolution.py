@@ -81,8 +81,7 @@ class RechargeResolutionMixin:
             )
         else:
             raw_arrays = {
-                int(kper): np.zeros(self.mesh.n_cells, dtype=float)
-                for kper in range(int(nper))
+                int(kper): np.zeros(self.mesh.n_cells, dtype=float) for kper in range(int(nper))
             }
 
         return self.apply_first_clim_to_cellwise_recharge(
@@ -131,8 +130,7 @@ class RechargeResolutionMixin:
                 "or a numeric value."
             )
         return tuple(
-            np.asarray(result[kper], dtype=float).reshape(-1).copy()
-            for kper in range(nper)
+            np.asarray(result[kper], dtype=float).reshape(-1).copy() for kper in range(nper)
         )
 
 

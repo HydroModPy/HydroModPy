@@ -26,7 +26,7 @@ from typing import Protocol
 from hydromodpy.simulation.planning.plan import RunContext, RunExecutionResult
 
 
-class SolverAdapter(Protocol):
+class SolverRunner(Protocol):
     """Adapt one generic ``ProcessRun`` to one concrete solver implementation."""
 
     process_type: str

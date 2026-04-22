@@ -1,4 +1,5 @@
 {
+  "_schema_version": "1.0",
   "modflow_expected": {
     "watertable_elevation": {
       "count": 240,

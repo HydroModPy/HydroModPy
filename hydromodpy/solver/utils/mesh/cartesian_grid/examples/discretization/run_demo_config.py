@@ -2,13 +2,15 @@
 
 from __future__ import annotations
 
-from collections.abc import Mapping
-from pathlib import Path
 import sys
 import tomllib
+from collections.abc import Mapping
+from pathlib import Path
 from typing import Any
 
-from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator
+from pydantic import ConfigDict, Field, ValidationError, field_validator
+
+from hydromodpy.core.config.base import HydroModelBase
 
 
 def _find_repo_root() -> Path:
@@ -24,14 +26,14 @@ if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
 from hydromodpy.data.variables.geology.config import validate_geology_config_data
+from hydromodpy.solver.utils._config_helpers import get_nested_section, resolve_path
+from hydromodpy.solver.utils.mesh.cartesian_grid.sgrid_config import (
+    validate_sgrid_config_data,
+)
 from hydromodpy.spatial.field.core.field_param_config import (
     resolve_field_param_config_payload,
     validate_resolved_field_param_data,
 )
-from hydromodpy.solver.utils.mesh.cartesian_grid.sgrid_config import (
-    validate_sgrid_config_data,
-)
-from hydromodpy.solver.utils._config_helpers import get_nested_section, resolve_path
 
 
 def _resolve_optional_mapping_path(
@@ -69,9 +71,7 @@ def _resolve_geology_paths(payload: Mapping[str, Any], *, base_dir: Path) -> dic
     return out
 
 
-def _resolve_field_param_paths(
-    payload: Mapping[str, Any], *, base_dir: Path
-) -> dict[str, Any]:
+def _resolve_field_param_paths(payload: Mapping[str, Any], *, base_dir: Path) -> dict[str, Any]:
     out = dict(payload)
     heterogeneous = out.get("field_heterogeneous")
     if not isinstance(heterogeneous, Mapping):
@@ -94,7 +94,7 @@ def _resolve_sgrid_paths(payload: Mapping[str, Any], *, base_dir: Path) -> dict[
     return out
 
 
-class SGridFieldParamDiscretizationConfig(BaseModel):
+class SGridFieldParamDiscretizationConfig(HydroModelBase):
     """Configuration for standalone field-parameter discretization on an SGrid."""
 
     model_config = ConfigDict(extra="forbid")
@@ -114,8 +114,7 @@ class SGridFieldParamDiscretizationConfig(BaseModel):
     )
     sgrid: dict[str, Any] = Field(
         description=(
-            "Embedded SGrid payload (same keys as section `[sgrid]` "
-            "in SGrid config TOML)."
+            "Embedded SGrid payload (same keys as section `[sgrid]` in SGrid config TOML)."
         )
     )
 
@@ -123,8 +122,7 @@ class SGridFieldParamDiscretizationConfig(BaseModel):
         default=None,
         ge=2,
         description=(
-            "Optional override for geology_field.on_mesh(...). "
-            "If omitted, geology default is used."
+            "Optional override for geology_field.on_mesh(...). If omitted, geology default is used."
         ),
     )
     depth: float = Field(
@@ -200,7 +198,7 @@ class SGridFieldParamDiscretizationConfig(BaseModel):
         config_path: str | Path,
         *,
         section: str = "case",
-    ) -> "SGridFieldParamDiscretizationConfig":
+    ) -> SGridFieldParamDiscretizationConfig:
         """Load one case section from TOML and resolve relative paths."""
         path = Path(config_path).expanduser().resolve()
         payload = tomllib.loads(path.read_text(encoding="utf-8-sig"))

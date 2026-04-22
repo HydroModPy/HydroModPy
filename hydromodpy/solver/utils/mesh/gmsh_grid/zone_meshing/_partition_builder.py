@@ -8,7 +8,8 @@ level orchestration.
 
 from __future__ import annotations
 
-from typing import Any, Callable, Mapping
+from collections.abc import Callable, Mapping
+from typing import Any
 
 import numpy as np
 from shapely.geometry.base import BaseGeometry
@@ -51,9 +52,7 @@ def _select_partition_face_owner(
     """
 
     owners = [
-        zone_key
-        for zone_key, geometry in resolved_geometries.items()
-        if geometry.covers(point)
+        zone_key for zone_key, geometry in resolved_geometries.items() if geometry.covers(point)
     ]
     if len(owners) == 1:
         return str(owners[0])
@@ -121,9 +120,7 @@ def build_partition_from_dataframe_impl(
     if zone_key_column not in gdf.columns:
         raise KeyError(f"Missing zone_key column '{zone_key_column}'")
     if gdf.empty:
-        raise ValueError(
-            "Cannot build a conformal partition from an empty GeoDataFrame"
-        )
+        raise ValueError("Cannot build a conformal partition from an empty GeoDataFrame")
     if priority_column is not None and priority_column not in gdf.columns:
         raise KeyError(f"Missing priority column '{priority_column}'")
 

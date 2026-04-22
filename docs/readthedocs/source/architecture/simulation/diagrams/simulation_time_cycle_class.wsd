@@ -51,7 +51,7 @@ package "launchers.process_simulation" {
   }
 }
 
-package "hydromodpy.process.forcing.recharge_chronicle_config" {
+package "hydromodpy.physics.forcing.recharge_chronicle_config" {
   class SeasonalStepRechargeChronicleConfig {
     +wet_months: list[int]
     +wet_value: float
@@ -95,7 +95,7 @@ package "hydromodpy.process.forcing.recharge_chronicle_config" {
   }
 }
 
-package "hydromodpy.process.forcing.recharge_chronicle" {
+package "hydromodpy.physics.forcing.recharge_chronicle" {
   class ObservedRechargeChronicleRequest {
     +first_year: int
     +last_year: int
@@ -115,7 +115,7 @@ package "hydromodpy.process.forcing.recharge_chronicle" {
   }
 }
 
-package "hydromodpy.process.hydrology.synthetic.forcing" {
+package "hydromodpy.physics.hydrology.synthetic.forcing" {
   class "Synthetic Forcing Builders" as HydrologyForcing <<module>> {
     +build_hydrological_step_series(dates, wet_months, wet_value, dry_value)
     +build_recharge_from_reservoir_chronicle(...)

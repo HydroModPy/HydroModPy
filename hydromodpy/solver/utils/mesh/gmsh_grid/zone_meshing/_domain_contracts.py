@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass
-from typing import Any, Mapping
+from typing import Any
 
 
 @dataclass(frozen=True)
@@ -21,7 +22,7 @@ class ZoneMeshingDomainConfig:
     def from_mapping(
         cls,
         config_data: Mapping[str, Any],
-    ) -> "ZoneMeshingDomainConfig":
+    ) -> ZoneMeshingDomainConfig:
         """Validate one raw mapping and return one typed domain contract."""
         from hydromodpy.solver.utils.mesh.gmsh_grid.zone_meshing._domain_schema import (
             validate_zone_meshing_domain_model,
@@ -34,30 +35,22 @@ class ZoneMeshingDomainConfig:
     def from_normalized_mapping(
         cls,
         payload: Mapping[str, Any],
-    ) -> "ZoneMeshingDomainConfig":
+    ) -> ZoneMeshingDomainConfig:
         """Build one typed domain contract from already normalized values."""
         bbox_raw = payload.get("bbox")
         coordinates_raw = payload.get("coordinates")
         return cls(
             kind=str(payload["kind"]),
-            bbox=(
-                None
-                if bbox_raw is None
-                else tuple(float(value) for value in bbox_raw)
-            ),
+            bbox=(None if bbox_raw is None else tuple(float(value) for value in bbox_raw)),
             coordinates=(
                 None
                 if coordinates_raw is None
                 else tuple((float(pair[0]), float(pair[1])) for pair in coordinates_raw)
             ),
             path=None if payload.get("path") is None else str(payload["path"]),
-            id_field=(
-                None if payload.get("id_field") is None else str(payload["id_field"])
-            ),
+            id_field=(None if payload.get("id_field") is None else str(payload["id_field"])),
             selected_id=(
-                None
-                if payload.get("selected_id") is None
-                else str(payload["selected_id"])
+                None if payload.get("selected_id") is None else str(payload["selected_id"])
             ),
         )
 
@@ -67,9 +60,7 @@ class ZoneMeshingDomainConfig:
         if self.bbox is not None:
             payload["bbox"] = [float(value) for value in self.bbox]
         if self.coordinates is not None:
-            payload["coordinates"] = [
-                [float(x), float(y)] for x, y in self.coordinates
-            ]
+            payload["coordinates"] = [[float(x), float(y)] for x, y in self.coordinates]
         if self.path is not None:
             payload["path"] = self.path
         if self.id_field is not None:
@@ -91,7 +82,7 @@ class ZoneMeshingDomainPayload:
     def from_mapping(
         cls,
         payload: Mapping[str, Any],
-    ) -> "ZoneMeshingDomainPayload":
+    ) -> ZoneMeshingDomainPayload:
         """Build one typed geometry payload from plain mapping form."""
         return cls(
             geometry=payload["geometry"],

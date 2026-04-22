@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Optional
 
 import pandas as pd
 
@@ -12,15 +11,19 @@ def compute_completeness(
     df: pd.DataFrame,
     *,
     date_column: str = "datetime",
-    start_date: Optional[datetime] = None,
-    end_date: Optional[datetime] = None,
+    start_date: datetime | None = None,
+    end_date: datetime | None = None,
     station_id: str = "",
 ) -> dict:
     """Compute missing-data stats for one time series."""
     empty = {
         "station_id": str(station_id),
-        "expected_days": 0, "actual_days": 0, "missing_days": 0,
-        "completeness_pct": 0.0, "first_date": None, "last_date": None,
+        "expected_days": 0,
+        "actual_days": 0,
+        "missing_days": 0,
+        "completeness_pct": 0.0,
+        "first_date": None,
+        "last_date": None,
         "gaps_detected": 0,
     }
 

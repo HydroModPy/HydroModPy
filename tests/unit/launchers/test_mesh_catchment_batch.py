@@ -6,17 +6,17 @@ from types import SimpleNamespace
 
 import pytest
 
-from hydromodpy.spatial.mesh.batch_io import load_mesh_catchment_outlet_records
-from hydromodpy.spatial.mesh.batch_reporting import (
-    write_mesh_catchment_batch_manifest,
-)
 from hydromodpy.spatial.mesh.batch import (
     MeshCatchmentBatchConfig,
     MeshCatchmentBatchResultRow,
     MeshCatchmentBatchRunner,
     MeshCatchmentBatchSummary,
 )
-from hydromodpy.spatial.mesh.config import MeshCatchmentConfigSchema
+from hydromodpy.spatial.mesh.batch_io import load_mesh_catchment_outlet_records
+from hydromodpy.spatial.mesh.batch_reporting import (
+    write_mesh_catchment_batch_manifest,
+)
+from hydromodpy.spatial.mesh.config import MeshCatchmentConfig
 
 
 def test_mesh_catchment_batch_config_from_mapping_returns_typed_values(
@@ -47,7 +47,7 @@ def test_mesh_catchment_batch_config_from_mapping_returns_typed_values(
 def test_batch_runner_validate_output_configuration_requires_per_outlet_pattern(
     tmp_path: Path,
 ) -> None:
-    mesh_section_data = MeshCatchmentConfigSchema.model_validate(
+    mesh_section_data = MeshCatchmentConfig.model_validate(
         {
             "constraints_mode": "rivers_only",
             "output_figure": "outputs/fixed.png",
@@ -191,9 +191,7 @@ def test_batch_runner_marks_missing_mesh_output_as_error_and_continues(
     )
     assert batch_cfg is not None
 
-    mesh_section_data = MeshCatchmentConfigSchema.model_validate(
-        {"constraints_mode": "rivers_only"}
-    )
+    mesh_section_data = MeshCatchmentConfig.model_validate({"constraints_mode": "rivers_only"})
     workspace_cfg = SimpleNamespace(project_root=tmp_path / "mesh_batch")
     geographic_cfg = SimpleNamespace(dem_init_path=tmp_path / "dem.tif")
     call_count = {"n": 0}
@@ -254,9 +252,7 @@ def test_batch_runner_raises_runtime_error_when_missing_mesh_output_and_stop_req
 
     runner = MeshCatchmentBatchRunner(
         config_path=tmp_path / "config.toml",
-        mesh_section_data=MeshCatchmentConfigSchema.model_validate(
-            {"constraints_mode": "rivers_only"}
-        ),
+        mesh_section_data=MeshCatchmentConfig.model_validate({"constraints_mode": "rivers_only"}),
         workspace_cfg=SimpleNamespace(project_root=tmp_path / "mesh_batch"),
         geographic_cfg=SimpleNamespace(dem_init_path=tmp_path / "dem.tif"),
         domain_cfg=None,

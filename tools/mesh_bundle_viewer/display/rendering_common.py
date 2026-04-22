@@ -1,4 +1,4 @@
-﻿"""Shared rendering helpers for the standalone mesh visualization package."""
+"""Shared rendering helpers for the standalone mesh visualization package."""
 
 from __future__ import annotations
 
@@ -62,4 +62,3 @@ __all__ = [
     "load_matplotlib",
     "plot_cell_annotations",
 ]
-

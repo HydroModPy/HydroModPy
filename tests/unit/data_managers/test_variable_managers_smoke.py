@@ -16,26 +16,31 @@ import pytest
 # ── Config imports ────────────────────────────────────────────────────
 from hydromodpy.data.variables.dem.config import DemConfig, DemSourceConfig
 from hydromodpy.data.variables.etp.config import EtpConfig, EtpSourceConfig
-from hydromodpy.data.variables.humidity.config import HumidityConfig, HumiditySourceConfig
-from hydromodpy.data.variables.precipitation.config import PrecipitationConfig, PrecipitationSourceConfig
-from hydromodpy.data.variables.radiation.config import RadiationConfig, RadiationSourceConfig
-from hydromodpy.data.variables.recharge.config import RechargeConfig, RechargeSourceConfig
-from hydromodpy.data.variables.runoff.config import RunoffConfig, RunoffSourceConfig
-from hydromodpy.data.variables.soil_moisture.config import SoilMoistureConfig, SoilMoistureSourceConfig
-from hydromodpy.data.variables.temperature.config import TemperatureConfig, TemperatureSourceConfig
-from hydromodpy.data.variables.wind.config import WindConfig, WindSourceConfig
 
 # ── Custom loader imports ─────────────────────────────────────────────
 from hydromodpy.data.variables.etp.custom import load_custom as load_etp
+from hydromodpy.data.variables.humidity.config import HumidityConfig, HumiditySourceConfig
 from hydromodpy.data.variables.humidity.custom import load_custom as load_humidity
+from hydromodpy.data.variables.precipitation.config import (
+    PrecipitationConfig,
+    PrecipitationSourceConfig,
+)
 from hydromodpy.data.variables.precipitation.custom import load_custom as load_precipitation
+from hydromodpy.data.variables.radiation.config import RadiationConfig, RadiationSourceConfig
 from hydromodpy.data.variables.radiation.custom import load_custom as load_radiation
+from hydromodpy.data.variables.recharge.config import RechargeConfig, RechargeSourceConfig
 from hydromodpy.data.variables.recharge.custom import load_custom as load_recharge
+from hydromodpy.data.variables.runoff.config import RunoffConfig, RunoffSourceConfig
 from hydromodpy.data.variables.runoff.custom import load_custom as load_runoff
+from hydromodpy.data.variables.soil_moisture.config import (
+    SoilMoistureConfig,
+    SoilMoistureSourceConfig,
+)
 from hydromodpy.data.variables.soil_moisture.custom import load_custom as load_soil_moisture
+from hydromodpy.data.variables.temperature.config import TemperatureConfig, TemperatureSourceConfig
 from hydromodpy.data.variables.temperature.custom import load_custom as load_temperature
+from hydromodpy.data.variables.wind.config import WindConfig, WindSourceConfig
 from hydromodpy.data.variables.wind.custom import load_custom as load_wind
-
 
 # ── Shared helpers ────────────────────────────────────────────────────
 
@@ -55,20 +60,24 @@ def _make_custom_csv_dir(
     d.mkdir(parents=True, exist_ok=True)
 
     ids = station_ids or ["ST01"]
-    pd.DataFrame({
-        "id": ids,
-        "x": [-1.5 + i * 0.1 for i in range(len(ids))],
-        "y": [48.1 + i * 0.1 for i in range(len(ids))],
-        "crs": ["EPSG:4326"] * len(ids),
-        "unit": [unit] * len(ids),
-    }).to_csv(d / f"{variable_name}_custom_LOC.csv", index=False)
+    pd.DataFrame(
+        {
+            "id": ids,
+            "x": [-1.5 + i * 0.1 for i in range(len(ids))],
+            "y": [48.1 + i * 0.1 for i in range(len(ids))],
+            "crs": ["EPSG:4326"] * len(ids),
+            "unit": [unit] * len(ids),
+        }
+    ).to_csv(d / f"{variable_name}_custom_LOC.csv", index=False)
 
     dates = pd.date_range("2020-01-01", "2020-03-31", freq="D")
     for sid in ids:
-        pd.DataFrame({
-            "datetime": dates,
-            "value": value,
-        }).to_csv(
+        pd.DataFrame(
+            {
+                "datetime": dates,
+                "value": value,
+            }
+        ).to_csv(
             d / f"{variable_name}_custom_{sid}_20200101_20200331_D.csv",
             index=False,
         )
@@ -78,6 +87,7 @@ def _make_custom_csv_dir(
 # =====================================================================
 # DEM
 # =====================================================================
+
 
 @pytest.mark.fast
 class TestDemConfig:
@@ -114,6 +124,7 @@ class TestDemConfig:
 # =====================================================================
 # ETP
 # =====================================================================
+
 
 @pytest.mark.fast
 class TestEtpConfig:
@@ -186,6 +197,7 @@ class TestEtpCustomLoader:
 # Humidity
 # =====================================================================
 
+
 @pytest.mark.fast
 class TestHumidityConfig:
     def test_valid_custom_source(self, tmp_path):
@@ -237,6 +249,7 @@ class TestHumidityCustomLoader:
 # Precipitation
 # =====================================================================
 
+
 @pytest.mark.fast
 class TestPrecipitationConfig:
     def test_valid_custom_source(self, tmp_path):
@@ -258,7 +271,8 @@ class TestPrecipitationConfig:
 
     def test_components_liquid_solid(self, tmp_path):
         cfg = PrecipitationSourceConfig(
-            source="custom", path=tmp_path,
+            source="custom",
+            path=tmp_path,
             components=["liquid", "solid"],
         )
         assert cfg.components == ["liquid", "solid"]
@@ -266,14 +280,16 @@ class TestPrecipitationConfig:
     def test_invalid_component_rejected(self, tmp_path):
         with pytest.raises(ValueError):
             PrecipitationSourceConfig(
-                source="custom", path=tmp_path,
+                source="custom",
+                path=tmp_path,
                 components=["hail"],
             )
 
     def test_empty_components_rejected(self, tmp_path):
         with pytest.raises(ValueError):
             PrecipitationSourceConfig(
-                source="custom", path=tmp_path,
+                source="custom",
+                path=tmp_path,
                 components=[],
             )
 
@@ -311,6 +327,7 @@ class TestPrecipitationCustomLoader:
 # Radiation
 # =====================================================================
 
+
 @pytest.mark.fast
 class TestRadiationConfig:
     def test_valid_custom_source(self, tmp_path):
@@ -332,7 +349,8 @@ class TestRadiationConfig:
 
     def test_components_atmospheric_only(self, tmp_path):
         cfg = RadiationSourceConfig(
-            source="custom", path=tmp_path,
+            source="custom",
+            path=tmp_path,
             components=["atmospheric"],
         )
         assert cfg.components == ["atmospheric"]
@@ -340,7 +358,8 @@ class TestRadiationConfig:
     def test_invalid_component_rejected(self, tmp_path):
         with pytest.raises(ValueError):
             RadiationSourceConfig(
-                source="custom", path=tmp_path,
+                source="custom",
+                path=tmp_path,
                 components=["infrared"],
             )
 
@@ -377,6 +396,7 @@ class TestRadiationCustomLoader:
 # Recharge
 # =====================================================================
 
+
 @pytest.mark.fast
 class TestRechargeConfig:
     def test_valid_custom_source(self, tmp_path):
@@ -406,8 +426,10 @@ class TestRechargeConfig:
 
     def test_synthetic_with_amplitude(self):
         cfg = RechargeSourceConfig(
-            source="synthetic", values=[1.0],
-            amplitude=0.5, period_days=365,
+            source="synthetic",
+            values=[1.0],
+            amplitude=0.5,
+            period_days=365,
         )
         assert cfg.amplitude == 0.5
         assert cfg.period_days == 365
@@ -445,6 +467,7 @@ class TestRechargeCustomLoader:
 # =====================================================================
 # Runoff
 # =====================================================================
+
 
 @pytest.mark.fast
 class TestRunoffConfig:
@@ -487,8 +510,11 @@ class TestRunoffCustomLoader:
 
     def test_two_stations(self, tmp_path):
         d = _make_custom_csv_dir(
-            tmp_path, "runoff", station_ids=["R01", "R02"],
-            unit="mm/day", value=1.0,
+            tmp_path,
+            "runoff",
+            station_ids=["R01", "R02"],
+            unit="mm/day",
+            value=1.0,
         )
         cfg = RunoffSourceConfig(source="custom", path=d)
         records = load_runoff(cfg, project_period=PROJECT_PERIOD)
@@ -506,6 +532,7 @@ class TestRunoffCustomLoader:
 # =====================================================================
 # Soil Moisture
 # =====================================================================
+
 
 @pytest.mark.fast
 class TestSoilMoistureConfig:
@@ -558,6 +585,7 @@ class TestSoilMoistureCustomLoader:
 # Temperature
 # =====================================================================
 
+
 @pytest.mark.fast
 class TestTemperatureConfig:
     def test_valid_custom_source(self, tmp_path):
@@ -578,7 +606,8 @@ class TestTemperatureConfig:
 
     def test_station_ids_filtering(self, tmp_path):
         cfg = TemperatureSourceConfig(
-            source="custom", path=tmp_path,
+            source="custom",
+            path=tmp_path,
             station_ids=["T01", "T02"],
         )
         assert cfg.station_ids == ["T01", "T02"]
@@ -617,6 +646,7 @@ class TestTemperatureCustomLoader:
 # Wind
 # =====================================================================
 
+
 @pytest.mark.fast
 class TestWindConfig:
     def test_valid_custom_source(self, tmp_path):
@@ -637,7 +667,8 @@ class TestWindConfig:
 
     def test_source_unit_override(self, tmp_path):
         cfg = WindSourceConfig(
-            source="custom", path=tmp_path,
+            source="custom",
+            path=tmp_path,
             source_unit="km/h",
         )
         assert cfg.source_unit == "km/h"

@@ -10,12 +10,12 @@ import rasterio
 from rasterio.transform import from_origin
 
 from hydromodpy.data.variables.geology.config_cases import validate_geology_config_data
-from hydromodpy.spatial.field.geology import GeologyField
 from hydromodpy.spatial.field.cases.square.field_mesh_square import FieldMeshSquare
+from hydromodpy.spatial.field.core.field_param import FieldParam
 from hydromodpy.spatial.field.core.field_spatial_weighted_discretization import (
     WeightedAverageFieldDiscretization,
 )
-from hydromodpy.spatial.field.core.field_param import FieldParam
+from hydromodpy.spatial.field.geology import GeologyField
 
 
 def _write_test_raster(path: Path):
@@ -53,10 +53,7 @@ def _reference_on_mesh(
 ) -> WeightedAverageFieldDiscretization:
     n_sub = max(2, int(cell_samples_per_axis))
     zone_keys = field.zone_keys
-    fractions_flat = {
-        key: np.zeros(int(mesh.n_cells), dtype=float)
-        for key in zone_keys
-    }
+    fractions_flat = {key: np.zeros(int(mesh.n_cells), dtype=float) for key in zone_keys}
 
     for cell in mesh.cells:
         x_s, y_s = field._sample_points_in_cell(cell, n_sub_per_axis=n_sub)
@@ -101,9 +98,9 @@ def test_geology_field_from_raster_to_mesh_field(tmp_path: Path):
     discretization = field.on_mesh(mesh, cell_samples_per_axis=8)
     assert set(discretization.zone_keys) == {"1", "2"}
 
-    frac_sum = np.asarray(
-        discretization.fractions_by_zone["1"], dtype=float
-    ) + np.asarray(discretization.fractions_by_zone["2"], dtype=float)
+    frac_sum = np.asarray(discretization.fractions_by_zone["1"], dtype=float) + np.asarray(
+        discretization.fractions_by_zone["2"], dtype=float
+    )
     assert np.allclose(frac_sum, 1.0)
 
     param = FieldParam(

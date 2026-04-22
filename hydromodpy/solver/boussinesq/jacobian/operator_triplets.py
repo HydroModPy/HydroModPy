@@ -1,4 +1,4 @@
-﻿"""Base sparse Jacobian triplets for Boussinesq residual operators."""
+"""Base sparse Jacobian triplets for Boussinesq residual operators."""
 
 from __future__ import annotations
 
@@ -34,9 +34,7 @@ def build_sparse_semianalytic_triplets(
     head = np.asarray(head_m, dtype=float).reshape(-1)
     n_cells = int(mesh.n_cells)
     if head.size != n_cells:
-        raise ValueError(
-            f"head_m length must match mesh.n_cells ({head.size} != {n_cells})."
-        )
+        raise ValueError(f"head_m length must match mesh.n_cells ({head.size} != {n_cells}).")
 
     boundary_inputs = resolve_boundary_head_inputs(
         mesh,
@@ -220,9 +218,7 @@ def append_boundary_head_triplets(
             _MIN_DISTANCE_M,
         )
         coeff_a = (
-            max(float(mesh.hydraulic_conductivity_m_s[cell_a]), 0.0)
-            * edge_length
-            / distance_a
+            max(float(mesh.hydraulic_conductivity_m_s[cell_a]), 0.0) * edge_length / distance_a
         )
         thickness_a = float(saturated_thickness_value(mesh, head, cell_a))
         tau_a = coeff_a * thickness_a
@@ -240,9 +236,7 @@ def append_boundary_head_triplets(
             _MIN_DISTANCE_M,
         )
         coeff_b = (
-            max(float(mesh.hydraulic_conductivity_m_s[cell_b]), 0.0)
-            * edge_length
-            / distance_b
+            max(float(mesh.hydraulic_conductivity_m_s[cell_b]), 0.0) * edge_length / distance_b
         )
         thickness_b = float(saturated_thickness_value(mesh, head, cell_b))
         tau_b = coeff_b * thickness_b
@@ -265,4 +259,3 @@ __all__ = [
     "append_internal_flux_triplets",
     "build_sparse_semianalytic_triplets",
 ]
-

@@ -3,8 +3,8 @@
 from __future__ import annotations
 
 import argparse
-from pathlib import Path
 import sys
+from pathlib import Path
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -15,6 +15,7 @@ REPO_ROOT = Path(__file__).resolve().parents[5]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
+from hydromodpy.core.units import parse_length_to_m
 from hydromodpy.data.variables.geology.cases.common import (
     clip_square_window,
     format_axes_ticks_km,
@@ -30,7 +31,6 @@ from hydromodpy.data.variables.geology.processing import (
 from hydromodpy.spatial.field.core.field_param import FieldParam
 from hydromodpy.spatial.field.geology.geology_field import GeologyField
 from hydromodpy.spatial.field.geology.geology_mesh import GeologyStructuredMesh
-from hydromodpy.core.units import parse_length_to_m
 
 DEFAULT_GEOLOGY_CONFIG_FILE = "run_geology_case.toml"
 DEFAULT_GEOLOGY_SECTION = "geology"

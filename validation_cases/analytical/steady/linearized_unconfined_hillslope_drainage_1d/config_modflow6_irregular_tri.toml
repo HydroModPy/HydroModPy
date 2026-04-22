@@ -1,3 +1,5 @@
+workflow = "simulation"
+
 [[simulation.process]]
 solvers = ["modflow6"]
 

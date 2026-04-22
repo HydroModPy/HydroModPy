@@ -56,15 +56,11 @@ class ZoneConformalGeologySourceConfig:
     def from_mapping(
         cls,
         payload: Mapping[str, Any],
-    ) -> "ZoneConformalGeologySourceConfig":
+    ) -> ZoneConformalGeologySourceConfig:
         return cls(
             path=str(payload["path"]),
             kind=str(payload["kind"]),
-            code_field=(
-                None
-                if payload.get("code_field") is None
-                else str(payload["code_field"])
-            ),
+            code_field=(None if payload.get("code_field") is None else str(payload["code_field"])),
             reference_raster_path=(
                 None
                 if payload.get("reference_raster_path") is None
@@ -99,7 +95,7 @@ class ZoneConformalGeologyLandSeaConfig:
     def from_mapping(
         cls,
         payload: Mapping[str, Any],
-    ) -> "ZoneConformalGeologyLandSeaConfig":
+    ) -> ZoneConformalGeologyLandSeaConfig:
         return cls(
             enabled=bool(payload.get("enabled", False)),
             path=None if payload.get("path") is None else str(payload["path"]),
@@ -132,7 +128,7 @@ class ZoneConformalGeologyConfig:
     def from_mapping(
         cls,
         payload: Mapping[str, Any],
-    ) -> "ZoneConformalGeologyConfig":
+    ) -> ZoneConformalGeologyConfig:
         return cls(
             id=str(payload["id"]),
             source=ZoneConformalGeologySourceConfig.from_mapping(

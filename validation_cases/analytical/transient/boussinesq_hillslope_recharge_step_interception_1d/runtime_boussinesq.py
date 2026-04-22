@@ -5,7 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 from types import SimpleNamespace
 
-from hydromodpy.process.flow import Flow
+from hydromodpy.physics.flow import Flow
 from hydromodpy.simulation.adapters.flow.boussinesq import BoussinesqFlowAdapter
 from hydromodpy.simulation.planning.plan import (
     ProcessRun,
@@ -13,11 +13,11 @@ from hydromodpy.simulation.planning.plan import (
     SimulationPlan,
 )
 from validation_cases.analytical.steady.boussinesq_hillslope_interception_1d.runtime_boussinesq import (
+    EAST_HEAD_M,
+    NX,
+    NY,
     _build_flow_config,
     _write_hillslope_strip_bundle,
-    EAST_HEAD_M,
-    NY,
-    NX,
 )
 from validation_cases.analytical.steady.boussinesq_piecewise import mm_day_to_m_s
 from validation_cases.analytical.transient.runtime_boussinesq_1d import (
@@ -27,7 +27,6 @@ from validation_cases.shared.runtime import (
     ValidationRunResult,
     resolve_validation_results_dir,
 )
-
 
 CASE_ID = "boussinesq_hillslope_recharge_step_interception_1d"
 DT_DAYS = 10.0
@@ -67,7 +66,7 @@ def run_boussinesq_hillslope_recharge_step_interception_case(
                             "recharge": {
                                 "values": mm_day_to_m_s(RECHARGE_MM_DAY),
                                 "first_clim": "mean",
-                    "units": "m/s",
+                                "units": "m/s",
                             }
                         },
                         "bc": {
@@ -83,7 +82,9 @@ def run_boussinesq_hillslope_recharge_step_interception_case(
                 period_lengths_seconds=period_lengths_seconds,
                 window=None,
             ),
-            workspace=SimpleNamespace(simulations_folder=simulations_folder, solver_scratch_folder=simulations_folder),
+            workspace=SimpleNamespace(
+                simulations_folder=simulations_folder, solver_scratch_folder=simulations_folder
+            ),
         ),
     )
     run = ProcessRun(

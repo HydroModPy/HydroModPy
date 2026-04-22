@@ -10,11 +10,12 @@ import pytest
 import rasterio
 
 from hydromodpy.spatial.geographic.cases import run_geographic_case_from_toml
-from tests.support.whitebox import configure_whitebox_single_thread
-
+from tests._helpers.whitebox import configure_whitebox_single_thread
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
-GOLDEN_FILE = Path(__file__).resolve().parent / "golden" / "run_geographic_dem_processing_golden.json"
+GOLDEN_FILE = (
+    Path(__file__).resolve().parent / "golden" / "run_geographic_dem_processing_golden.json"
+)
 DEM_CORRECTION_TYPES = ["breach", "fill"]
 
 ABS_TOL_ELEV_M = 1e-2
@@ -40,11 +41,14 @@ def _write_tmp_config(tmp_path: Path, *, dem_correc_type: str) -> Path:
     dem_path = (REPO_ROOT / "examples" / "data" / "dem" / "regional_dem_naizin.tif").as_posix()
     out_path = (tmp_path / "results").as_posix()
 
+    ws_root = tmp_path.as_posix()
     config_path.write_text(
         "\n".join(
             [
+                'workflow = "simulation"',
                 "[workspace]",
                 f'project_root = "{out_path}"',
+                f'root = "{ws_root}"',
                 "",
                 "[geographic]",
                 'catch_def = "from_outlet_coord"',
@@ -144,7 +148,9 @@ def _assert_raster_sig_close(actual: dict, expected: dict) -> None:
     assert actual["nodata_pixel_count"] == expected["nodata_pixel_count"]
 
     for key in ("min", "max", "mean", "std", "q05", "q50", "q95"):
-        assert float(actual[key]) == pytest.approx(float(expected[key]), abs=ABS_TOL_ELEV_M, rel=0.0)
+        assert float(actual[key]) == pytest.approx(
+            float(expected[key]), abs=ABS_TOL_ELEV_M, rel=0.0
+        )
     sum_tol = ABS_TOL_SUM_INT if str(actual["dtype"]).startswith("int") else ABS_TOL_SUM_M
     assert float(actual["sum"]) == pytest.approx(float(expected["sum"]), abs=sum_tol, rel=0.0)
 

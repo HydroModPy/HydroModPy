@@ -16,7 +16,7 @@ from hydromodpy.data.data_managers_config import DataManagersConfig
 from hydromodpy.data.plan import DataLoadPlan
 
 
-class DataManagersPlanner:
+class DataPlanner:
     """Build a deterministic data-manager activation plan."""
 
     def build(
@@ -61,11 +61,7 @@ class DataManagersPlanner:
         support_required = requested_spatial_support_ids is None or bool(requested_supports)
         provider_names = self._normalize_tokens(domain_support_provider_names)
 
-        if (
-            support_required
-            and "geology" in provider_names
-            and "geology" not in explicit_set
-        ):
+        if support_required and "geology" in provider_names and "geology" not in explicit_set:
             self._add_inference(
                 inferred_types,
                 reasons_by_type,
@@ -107,14 +103,13 @@ class DataManagersPlanner:
             explicit_types=explicit_types,
             inferred_types=tuple(inferred_types),
             reasons_by_type={
-                type_name: tuple(reasons)
-                for type_name, reasons in reasons_by_type.items()
+                type_name: tuple(reasons) for type_name, reasons in reasons_by_type.items()
             },
         )
 
     @staticmethod
     def _domain_requests_geology(domain_zone_ids: Sequence[str] | None) -> bool:
-        return "geology" in DataManagersPlanner._normalize_tokens(domain_zone_ids)
+        return "geology" in DataPlanner._normalize_tokens(domain_zone_ids)
 
     @staticmethod
     def _normalize_tokens(values: Sequence[str] | None) -> set[str]:

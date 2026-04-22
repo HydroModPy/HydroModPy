@@ -9,17 +9,17 @@ from __future__ import annotations
 from collections.abc import Callable
 from typing import TYPE_CHECKING
 
+from hydromodpy.core.logging import get_logger
 from hydromodpy.data.contracts.timeseries import PointRecord
-from hydromodpy.core.tools.log_manager import get_logger
 
 if TYPE_CHECKING:
-    from hydromodpy.data.common.base_manager import BaseVariableManager
+    from hydromodpy.data.base_manager import BaseVariableManager
 
 logger = get_logger(__name__)
 
 
 def fetch_with_smart_cache(
-    manager: "BaseVariableManager",
+    manager: BaseVariableManager,
     *,
     source_cfg,
     fetch_fn: Callable[..., list[PointRecord]],
@@ -55,11 +55,13 @@ def fetch_with_smart_cache(
                 continue
 
             rec = manager._load_cached_api_record(
-                source=source_name, station_id=sid,
+                source=source_name,
+                station_id=sid,
             )
             if rec is not None:
                 gaps = manager._compute_missing_periods(
-                    rec.date_start, rec.date_end,
+                    rec.date_start,
+                    rec.date_end,
                 )
                 if not gaps:
                     ready.append(rec)
@@ -74,7 +76,8 @@ def fetch_with_smart_cache(
                         to_persist.append(merged)
                         logger.info(
                             "Hub'Eau cache merge: %s (+%d period(s))",
-                            sid, len(gaps),
+                            sid,
+                            len(gaps),
                         )
                     else:
                         ready.append(rec)

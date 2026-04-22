@@ -21,14 +21,14 @@ from hydromodpy.spatial.geographic.core.catchment_zones import (
 )
 
 if TYPE_CHECKING:
-    from hydromodpy.spatial.field.geology.geology_field import GeologyField
     from hydromodpy.spatial.domain import Domain
+    from hydromodpy.spatial.field.geology.geology_field import GeologyField
 
 
 def apply_geology_to_domain(
     *,
-    domain: "Domain",
-    geology: "GeologyField" | None,
+    domain: Domain,
+    geology: GeologyField | None,
     zone_id: str = "geology",
 ) -> None:
     """Attach one loaded geology field to the domain zone registry."""
@@ -44,7 +44,7 @@ def build_catchment_zone_field_from_geographic(
     """Build one catchment-zone field from legacy or V2 geographic payloads.
 
     Supported inputs include:
-    - legacy ``Geographic`` objects exposing ``watershed_shp`` / ``box_buff``,
+    - legacy ``CatchmentDelineation`` objects exposing ``watershed_shp`` / ``box_buff``,
     - ``DomainGeographicContext`` exposing ``watershed_shp`` / ``box_buff_shp``.
 
     Returns
@@ -137,7 +137,7 @@ def build_catchment_zone_field_from_geographic(
 
 def apply_catchment_zones_to_domain(
     *,
-    domain: "Domain",
+    domain: Domain,
     geographic: object | None,
     zone_id: str = "catchment",
 ) -> None:

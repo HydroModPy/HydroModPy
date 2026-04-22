@@ -35,7 +35,10 @@ def __getattr__(name: str):
         attr = getattr(module, attr_name)
         globals()[name] = attr
         return attr
-    raise AttributeError(f"module 'hydromodpy.spatial.geographic.synthetic' has no attribute {name!r}")
+    raise AttributeError(
+        f"module 'hydromodpy.spatial.geographic.synthetic' has no attribute {name!r}"
+    )
+
 
 __all__ = [
     "SyntheticGeographicConfig",

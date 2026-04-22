@@ -1,4 +1,5 @@
 {
+  "_schema_version": "1.0",
   "base": {
     "catchment_area_km2": 1.594375,
     "mean_elevation_catchment_m": 120.91462171697374,

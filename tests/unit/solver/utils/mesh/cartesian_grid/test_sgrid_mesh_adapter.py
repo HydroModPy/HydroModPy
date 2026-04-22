@@ -6,10 +6,10 @@ from types import SimpleNamespace
 
 import numpy as np
 
-from hydromodpy.spatial.field.meshes import StructuredFieldMesh
 from hydromodpy.solver.utils.mesh.cartesian_grid.sgrid_mesh_adapter import (
     build_field_mesh_from_sgrid,
 )
+from hydromodpy.spatial.field.meshes import StructuredFieldMesh
 
 
 def test_build_field_mesh_from_sgrid_returns_generic_structured_mesh():

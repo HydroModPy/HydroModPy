@@ -2,9 +2,8 @@
 
 from __future__ import annotations
 
-from pathlib import Path
 import sys
-
+from pathlib import Path
 
 if __package__ is None or __package__ == "":
     sys.path.insert(0, str(Path(__file__).resolve().parents[4]))
@@ -16,7 +15,6 @@ from validation_cases.analytical.steady.linearized_unconfined_drainage_1d.plotti
     plot_linearized_unconfined_drainage_comparison,
 )
 from validation_cases.shared.cli import run_case_main
-
 
 DEFAULT_FIGURE_NAME = "linearized_unconfined_drainage_1d_validation.png"
 RUN_DESCRIPTION = "Run the linearized unconfined drainage validation case."

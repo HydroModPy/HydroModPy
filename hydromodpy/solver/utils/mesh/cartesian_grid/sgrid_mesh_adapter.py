@@ -31,15 +31,15 @@ def extract_structured_vertices(sgrid) -> tuple[np.ndarray, np.ndarray]:
     """
     # Preferred path: explicit 2D vertex arrays already computed by the grid.
     if hasattr(sgrid, "xvertices") and hasattr(sgrid, "yvertices"):
-        x_vertices = np.asarray(getattr(sgrid, "xvertices"), dtype=float)
-        y_vertices = np.asarray(getattr(sgrid, "yvertices"), dtype=float)
+        x_vertices = np.asarray(sgrid.xvertices, dtype=float)
+        y_vertices = np.asarray(sgrid.yvertices, dtype=float)
         if x_vertices.ndim == 2 and y_vertices.ndim == 2:
             return x_vertices, y_vertices
 
     # Alternative path used by some grid objects:
     # xyzvertices = (x_vertices, y_vertices, z_vertices, ...).
     if hasattr(sgrid, "xyzvertices"):
-        xyz = getattr(sgrid, "xyzvertices")
+        xyz = sgrid.xyzvertices
         if isinstance(xyz, (tuple, list)) and len(xyz) >= 2:
             x_vertices = np.asarray(xyz[0], dtype=float)
             y_vertices = np.asarray(xyz[1], dtype=float)
@@ -50,8 +50,8 @@ def extract_structured_vertices(sgrid) -> tuple[np.ndarray, np.ndarray]:
     # - delr: cell widths along X (columns)
     # - delc: cell heights along Y (rows)
     # Edges are cumulative sums from (xoff, yoff).
-    delr = np.asarray(getattr(sgrid, "delr"), dtype=float).reshape(-1)
-    delc = np.asarray(getattr(sgrid, "delc"), dtype=float).reshape(-1)
+    delr = np.asarray(sgrid.delr, dtype=float).reshape(-1)
+    delc = np.asarray(sgrid.delc, dtype=float).reshape(-1)
     xoff = float(getattr(sgrid, "xoffset", getattr(sgrid, "xoff", 0.0)))
     yoff = float(getattr(sgrid, "yoffset", getattr(sgrid, "yoff", 0.0)))
     x_edges = xoff + np.concatenate(([0.0], np.cumsum(delr)))
@@ -69,8 +69,8 @@ def build_field_mesh_from_sgrid(sgrid) -> StructuredFieldMesh:
     used by downstream discretization routines.
     """
     x_vertices, y_vertices = extract_structured_vertices(sgrid)
-    nrow = int(getattr(sgrid, "nrow"))
-    ncol = int(getattr(sgrid, "ncol"))
+    nrow = int(sgrid.nrow)
+    ncol = int(sgrid.ncol)
     return StructuredFieldMesh(
         x_plot=x_vertices,
         y_plot=y_vertices,

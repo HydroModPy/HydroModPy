@@ -79,9 +79,7 @@ def _coo_to_csr(
 
     col_array = np.asarray(out_cols, dtype=index_dtype)
     data_array = np.asarray(out_data, dtype=float)
-    if col_array.size != 0 and (
-        np.any(col_array < 0) or np.any(col_array >= int(n_cols))
-    ):
+    if col_array.size != 0 and (np.any(col_array < 0) or np.any(col_array >= int(n_cols))):
         raise ValueError("CSR column indices are out of range.")
     return indptr, col_array, data_array
 

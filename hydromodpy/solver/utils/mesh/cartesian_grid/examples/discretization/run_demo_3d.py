@@ -3,13 +3,13 @@
 from __future__ import annotations
 
 import argparse
-from pathlib import Path
 import sys
+from pathlib import Path
 
 import matplotlib
 import matplotlib.colors as mcolors
-from matplotlib.ticker import ScalarFormatter
 import numpy as np
+from matplotlib.ticker import ScalarFormatter
 
 
 def _configure_matplotlib_backend_from_argv(argv: list[str]) -> None:
@@ -31,6 +31,7 @@ _configure_matplotlib_backend_from_argv(sys.argv[1:])
 
 import matplotlib.pyplot as plt
 
+
 # Ensure repository root is importable when script is launched directly.
 def _find_repo_root() -> Path:
     current = Path(__file__).resolve()
@@ -44,7 +45,6 @@ REPO_ROOT = _find_repo_root()
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
-from hydromodpy.spatial.field.core.field_param import FieldParam
 from hydromodpy.solver.utils.mesh.cartesian_grid.examples.discretization.case_runner import (
     run_discretization_case,
 )
@@ -52,14 +52,14 @@ from hydromodpy.solver.utils.mesh.cartesian_grid.examples.discretization.run_dem
     SGridFieldParamDiscretizationConfig,
 )
 from hydromodpy.solver.utils.mesh.cartesian_grid.sgrid_config import SGridConfig
+from hydromodpy.solver.utils.mesh.cartesian_grid.sgrid_fieldparam_discretization import (
+    _compute_layer_center_depths,
+)
 from hydromodpy.solver.utils.mesh.cartesian_grid.sgrid_from_config import (
     build_sgrid_from_config,
 )
 from hydromodpy.solver.utils.mesh.plot_window_utils import maximize_figure_windows
-from hydromodpy.solver.utils.mesh.cartesian_grid.sgrid_fieldparam_discretization import (
-    _compute_layer_center_depths,
-)
-
+from hydromodpy.spatial.field.core.field_param import FieldParam
 
 DEFAULT_CONFIG_FILE = "run_demo_3d_config.toml"
 DEFAULT_SECTION = "case"
@@ -148,8 +148,7 @@ def _resolve_config_path(raw_config: str) -> Path:
         return script_candidate
 
     raise FileNotFoundError(
-        f"Config TOML not found: '{raw_config}'. "
-        f"Tried '{cwd_candidate}' and '{script_candidate}'."
+        f"Config TOML not found: '{raw_config}'. Tried '{cwd_candidate}' and '{script_candidate}'."
     )
 
 
@@ -177,12 +176,12 @@ def _ensure_gui_backend_for_blocking_show() -> None:
 
 def _extract_xy_from_sgrid(sgrid) -> tuple[np.ndarray, np.ndarray]:
     """Return 2D center coordinates for SGrid cells."""
-    nrow = int(getattr(sgrid, "nrow"))
-    ncol = int(getattr(sgrid, "ncol"))
+    nrow = int(sgrid.nrow)
+    ncol = int(sgrid.ncol)
 
     if hasattr(sgrid, "xcellcenters") and hasattr(sgrid, "ycellcenters"):
-        x = np.asarray(getattr(sgrid, "xcellcenters"), dtype=float)
-        y = np.asarray(getattr(sgrid, "ycellcenters"), dtype=float)
+        x = np.asarray(sgrid.xcellcenters, dtype=float)
+        y = np.asarray(sgrid.ycellcenters, dtype=float)
         if x.ndim == 2 and y.ndim == 2 and x.shape == (nrow, ncol) and y.shape == (nrow, ncol):
             return x, y
         if x.ndim == 1 and y.ndim == 1 and x.size == ncol and y.size == nrow:
@@ -213,8 +212,8 @@ def _centers_to_edges_1d(centers: np.ndarray) -> np.ndarray:
 
 def _layer_interfaces_elevation_for_row(sgrid, *, row_idx: int) -> np.ndarray:
     """Return layer-interface elevations at one row as (nlay+1, ncol)."""
-    top = np.asarray(getattr(sgrid, "top"), dtype=float)
-    botm = np.asarray(getattr(sgrid, "botm"), dtype=float)
+    top = np.asarray(sgrid.top, dtype=float)
+    botm = np.asarray(sgrid.botm, dtype=float)
     nlay = int(botm.shape[0])
     ncol = int(top.shape[1])
 
@@ -226,8 +225,8 @@ def _layer_interfaces_elevation_for_row(sgrid, *, row_idx: int) -> np.ndarray:
 
 
 def _compute_layer_center_elevations(sgrid) -> np.ndarray:
-    top = np.asarray(getattr(sgrid, "top"), dtype=float)
-    botm = np.asarray(getattr(sgrid, "botm"), dtype=float)
+    top = np.asarray(sgrid.top, dtype=float)
+    botm = np.asarray(sgrid.botm, dtype=float)
     if botm.ndim != 3:
         raise ValueError("sgrid.botm must be 3D")
     ztop = np.empty_like(botm, dtype=float)
@@ -309,6 +308,7 @@ def _plot_vertical_section(ax, *, values_3d: np.ndarray, sgrid, cmap, norm) -> N
     _disable_axis_offset(ax)
     ax.grid(False)
     _set_square_axes(ax)
+
 
 def _plot_horizontal_center_section(ax, *, values_3d: np.ndarray, sgrid, cmap, norm) -> None:
     """Plot one horizontal slice at the center layer."""
@@ -536,9 +536,9 @@ def _build_projected_field_on_sgrid_3d(
     1) evaluate `FieldParam` at depth=0 on the planar SGrid support,
     2) extrude this planar map uniformly across all layers.
     """
-    nrow = int(getattr(sgrid, "nrow"))
-    ncol = int(getattr(sgrid, "ncol"))
-    nlay = int(getattr(sgrid, "nlay"))
+    nrow = int(sgrid.nrow)
+    ncol = int(sgrid.ncol)
+    nlay = int(sgrid.nlay)
     projected_surface = field_param.to_mesh_field(field_discretization, depth=0.0)
     surface_2d = _reshape_to_sgrid_2d(projected_surface.cell_values, nrow=nrow, ncol=ncol)
     return np.repeat(surface_2d[None, :, :], nlay, axis=0)
@@ -583,7 +583,9 @@ def main(argv=None) -> int:
     mode = str(field_param.vertical_profile.get("mode", "none"))
     char_depth = field_param.vertical_profile.get("characteristic_depth")
     if mode == "exponential" and char_depth is not None:
-        final_subtitle = f"vertical profile: exponential (characteristic_depth={float(char_depth):.3g} m)"
+        final_subtitle = (
+            f"vertical profile: exponential (characteristic_depth={float(char_depth):.3g} m)"
+        )
     else:
         final_subtitle = f"vertical profile: {mode}"
 

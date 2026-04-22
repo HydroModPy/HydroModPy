@@ -1,8 +1,7 @@
 from __future__ import annotations
 
-from pathlib import Path
-
 import tomllib
+from pathlib import Path
 
 from hydromodpy.core.config import HydroModPyConfig
 
@@ -19,9 +18,11 @@ def test_overview_config_respects_project_root_env_override(
         str(redirected_project_root),
     )
 
-    toml_content = """\
+    toml_content = f"""\
+workflow = "simulation"
 [workspace]
 project_root = "."
+root = "{tmp_path}"
 
 [geographic]
 catch_def = "from_outlet_coord"

@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import hashlib
-import json
 import logging
 from typing import TYPE_CHECKING
 
@@ -63,32 +62,77 @@ def _collect_registration_kwargs(ctx: WorkflowContext) -> dict:
     return kwargs
 
 
-def _write_flow_parameters(store, sim_id: str, flow) -> None:
-    """Write hydraulic parameters from a Flow object into the catalog."""
-    params_dict = getattr(flow, "parameters", None)
-    if not params_dict:
+def _register_tracked_input_files(ctx: WorkflowContext) -> None:
+    """Walk the config tree and persist every InputFile-marked path."""
+    from hydromodpy.core.tracking import collect_input_files
+
+    try:
+        entries = collect_input_files(ctx.cfg)
+    except Exception as exc:
+        logger.warning("Skipping tracked-file registration: %s", exc)
         return
-    params = []
-    for pid, fp in params_dict.items():
-        kind = getattr(fp, "kind", "homogeneous")
-        if kind == "homogeneous":
-            params.append({
-                "param_name": pid,
-                "zone_id": None,
-                "value": getattr(fp, "value", None),
-                "unit": getattr(fp, "unit", ""),
-                "parameterization": "homogeneous",
-            })
-        else:
-            values_by_key = getattr(fp, "values_by_key", None) or {}
-            for zone_key, val in values_by_key.items():
-                params.append({
-                    "param_name": pid,
-                    "zone_id": str(zone_key),
-                    "value": val,
-                    "unit": getattr(fp, "unit", ""),
-                    "parameterization": "geology_mapped",
-                })
+
+    portable = [e for e in entries if e.portable]
+    if not portable:
+        return
+    written = ctx.store.register_tracked_files(ctx.sim_id, portable)
+    logger.info(
+        "Registered %d tracked input file(s) for simulation %s",
+        written,
+        ctx.sim_id,
+    )
+
+
+def _write_flow_parameters(store, sim_id: str, flow, domain=None) -> None:
+    """Write hydraulic parameters from a Flow object into the catalog.
+
+    Also persists the domain aquifer thickness (from
+    ``domain.depth_model``) as a global scalar parameter, since it is a
+    calibratable quantity listed alongside K/Sy/Ss.
+    """
+    params: list[dict] = []
+
+    params_dict = getattr(flow, "parameters", None)
+    if params_dict:
+        for pid, fp in params_dict.items():
+            kind = getattr(fp, "kind", "homogeneous")
+            if kind == "homogeneous":
+                params.append(
+                    {
+                        "param_name": pid,
+                        "zone_id": None,
+                        "value": getattr(fp, "value", None),
+                        "unit": getattr(fp, "unit", ""),
+                        "parameterization": "homogeneous",
+                    }
+                )
+            else:
+                values_by_key = getattr(fp, "values_by_key", None) or {}
+                for zone_key, val in values_by_key.items():
+                    params.append(
+                        {
+                            "param_name": pid,
+                            "zone_id": str(zone_key),
+                            "value": val,
+                            "unit": getattr(fp, "unit", ""),
+                            "parameterization": "geology_mapped",
+                        }
+                    )
+
+    if domain is not None:
+        depth_model = getattr(domain, "depth_model", None)
+        thickness = getattr(depth_model, "thickness", None) if depth_model else None
+        if thickness is not None:
+            params.append(
+                {
+                    "param_name": "thickness",
+                    "zone_id": None,
+                    "value": float(thickness),
+                    "unit": "m",
+                    "parameterization": "homogeneous",
+                }
+            )
+
     if params:
         store.write_parameters(sim_id, params)
 
@@ -108,11 +152,7 @@ def step_open_store(ctx: WorkflowContext) -> None:
     from hydromodpy.results.catalog import SimulationCatalog
 
     workspace = ctx.setup.workspace
-    workspace_root = getattr(workspace, "workspace_root", None)
-    if workspace_root is None:
-        workspace_root = workspace.project_root
-
-    ctx.store = SimulationCatalog(workspace_root)
+    ctx.store = SimulationCatalog(workspace.workspace_root)
     ctx.sim_id = str(uuid4())
 
     project_name = workspace.project_root.name
@@ -121,18 +161,28 @@ def step_open_store(ctx: WorkflowContext) -> None:
     reg_kwargs = _collect_registration_kwargs(ctx)
     if ctx.parent_sim_id is not None:
         reg_kwargs["parent_sim_id"] = ctx.parent_sim_id
-    ctx.store.register_simulation(
+    on_collision = getattr(ctx.cfg.simulation, "on_collision", "replace")
+    registration = ctx.store.register_simulation(
         ctx.sim_id,
         project=project_name,
         solver=",".join(r.solver for r in plan.runs),
         name=ctx.setup.run_id,
-        run_id=ctx.setup.run_id,
+        on_collision=on_collision,
         **reg_kwargs,
     )
+    if registration.name and registration.name != ctx.setup.run_id:
+        ctx.setup.run_id = registration.name
+
+    _register_tracked_input_files(ctx)
 
     # Write hydraulic parameters
     if ctx.setup.flow is not None:
-        _write_flow_parameters(ctx.store, ctx.sim_id, ctx.setup.flow)
+        _write_flow_parameters(
+            ctx.store,
+            ctx.sim_id,
+            ctx.setup.flow,
+            domain=ctx.cfg.domain,
+        )
 
     # Write mesh topology into Zarr
     mesh = ctx.setup.mesh_planar
@@ -143,9 +193,11 @@ def step_open_store(ctx: WorkflowContext) -> None:
             z_intf_attr = getattr(domain, "z_interfaces", None)
             if z_intf_attr is not None:
                 import numpy as np
+
                 z_intf = np.asarray(z_intf_attr)
         if z_intf is None:
             import numpy as np
+
             z_intf = np.array([0.0, -10.0])
         ctx.store.write_mesh(
             ctx.sim_id,
@@ -160,7 +212,8 @@ def step_open_store(ctx: WorkflowContext) -> None:
 
     if ctx.setup.geographic is not None:
         persist_geographic_to_store(
-            ctx.setup.geographic, ctx.store,
+            ctx.setup.geographic,
+            ctx.store,
             sim_id=ctx.sim_id,
         )
 

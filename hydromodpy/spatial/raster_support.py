@@ -1,4 +1,3 @@
-from __future__ import annotations
 """
 Raster support metadata used to place 2D surfaces in space.
 
@@ -7,8 +6,10 @@ This module separates spatial referencing from raster values:
 - ``RasterSupport`` stores where those values live in space.
 
 Keeping both concerns separate makes surface operations simpler and avoids
-passing larger objects such as ``Geographic`` into low-level domain classes.
+passing larger objects such as ``CatchmentDelineation`` into low-level domain classes.
 """
+
+from __future__ import annotations
 
 from collections.abc import Mapping
 from dataclasses import dataclass
@@ -58,7 +59,7 @@ class RasterSupport:
         *,
         shape: tuple[int, int] | None = None,
         nodata: float | None = None,
-    ) -> "RasterSupport":
+    ) -> RasterSupport:
         """
         Build one raster support from an explicit georeferencing mapping.
 
@@ -117,13 +118,12 @@ class RasterSupport:
                 missing.append(key)
         if missing:
             raise ValueError(
-                "RasterSupport is missing required domain metadata: "
-                + ", ".join(missing)
+                "RasterSupport is missing required domain metadata: " + ", ".join(missing)
             )
 
     def assert_same_geographic_domain(
         self,
-        other: "RasterSupport",
+        other: RasterSupport,
         *,
         atol: float = 1.0e-9,
     ) -> None:
@@ -151,6 +151,5 @@ class RasterSupport:
             b = float(getattr(other, key))
             if not isclose(a, b, rel_tol=0.0, abs_tol=float(atol)):
                 raise ValueError(
-                    f"Domain extent mismatch for '{key}': {a} != {b} "
-                    f"(abs_tol={atol})."
+                    f"Domain extent mismatch for '{key}': {a} != {b} (abs_tol={atol})."
                 )

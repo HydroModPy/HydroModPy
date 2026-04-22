@@ -18,7 +18,7 @@ from hydromodpy.solver.utils.mesh.gmsh_grid.catchment_mesh_bundle_reader import 
 
 if TYPE_CHECKING:
     from hydromodpy.core.state.run_state import WorkflowContext
-    from hydromodpy.spatial.mesh.config import MeshCatchmentConfigSchema
+    from hydromodpy.spatial.mesh.config import MeshCatchmentConfig
 
 logger = logging.getLogger(__name__)
 
@@ -27,9 +27,10 @@ logger = logging.getLogger(__name__)
 # Optional mesh section resolution
 # ---------------------------------------------------------------------------
 
+
 def resolve_optional_mesh_section(
     raw_toml: Mapping[str, object],
-) -> MeshCatchmentConfigSchema | None:
+) -> MeshCatchmentConfig | None:
     """Extract and validate the optional [mesh_catchment] section from raw TOML."""
     from hydromodpy.spatial.mesh.config import parse_mesh_catchment_batch_config_data
     from hydromodpy.spatial.mesh.runtime import get_optional_mesh_section
@@ -72,9 +73,7 @@ def resolve_optional_mesh_input(
     mesh_path = _resolve_optional_path(section.get("mesh_path"))
     bundle_dir = _resolve_optional_path(section.get("bundle_dir"))
     if mesh_path == "" and bundle_dir == "":
-        raise ValueError(
-            "[mesh_input] requires at least one of 'mesh_path' or 'bundle_dir'."
-        )
+        raise ValueError("[mesh_input] requires at least one of 'mesh_path' or 'bundle_dir'.")
     return {
         "mesh_path": mesh_path,
         "bundle_dir": bundle_dir,
@@ -85,11 +84,12 @@ def resolve_optional_mesh_input(
 # Mesh phases
 # ---------------------------------------------------------------------------
 
+
 def run_mesh_phase(
     config_path: str | Path,
     cfg: object,
     run_state: WorkflowContext,
-    mesh_section_data: MeshCatchmentConfigSchema | None,
+    mesh_section_data: MeshCatchmentConfig | None,
     constraints_mode: str | None,
 ) -> None:
     """Run the optional catchment meshing phase embedded in simulation TOML."""
@@ -143,6 +143,7 @@ def run_mesh_input_phase(
 # Mesh artifact loading
 # ---------------------------------------------------------------------------
 
+
 def load_mesh_artifacts_from_summary(
     run_state: WorkflowContext,
     *,
@@ -190,10 +191,11 @@ def load_mesh_artifacts_from_summary(
 # Step entry points (unified signature for workflow pipelines)
 # ---------------------------------------------------------------------------
 
+
 def step_mesh(
     ctx: WorkflowContext,
     *,
-    mesh_section_data: MeshCatchmentConfigSchema | None = None,
+    mesh_section_data: MeshCatchmentConfig | None = None,
     constraints_mode: str | None = None,
 ) -> None:
     """Run the optional catchment meshing phase embedded in simulation TOML."""

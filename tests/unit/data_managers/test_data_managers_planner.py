@@ -4,14 +4,14 @@ import pytest
 
 from hydromodpy.data import (
     DataManagersConfig,
-    DataManagersPlanner,
+    DataPlanner,
 )
 
 
 def test_planner_infers_geology_from_domain_zone_ids() -> None:
     cfg = DataManagersConfig(types=[])
 
-    plan = DataManagersPlanner().build(
+    plan = DataPlanner().build(
         cfg,
         domain_zone_ids=["geology"],
         raw_toml={},
@@ -26,7 +26,7 @@ def test_planner_infers_geology_from_domain_zone_ids() -> None:
 def test_planner_infers_geology_from_explicit_geology_support_provider() -> None:
     cfg = DataManagersConfig(types=[])
 
-    plan = DataManagersPlanner().build(
+    plan = DataPlanner().build(
         cfg,
         domain_zone_ids=[],
         domain_support_provider_names=["geology"],
@@ -41,7 +41,7 @@ def test_planner_infers_geology_from_explicit_geology_support_provider() -> None
 def test_planner_does_not_infer_geology_from_unused_support_provider() -> None:
     cfg = DataManagersConfig(types=[])
 
-    plan = DataManagersPlanner().build(
+    plan = DataPlanner().build(
         cfg,
         domain_zone_ids=[],
         domain_support_provider_names=["geology"],
@@ -55,7 +55,7 @@ def test_planner_does_not_infer_geology_from_unused_support_provider() -> None:
 def test_planner_does_not_infer_hydrometry_from_unrelated_raw_section() -> None:
     cfg = DataManagersConfig(types=[])
 
-    plan = DataManagersPlanner().build(
+    plan = DataPlanner().build(
         cfg,
         domain_zone_ids=[],
         raw_toml={"custom_data_section": {"selection": {"mode": "mask"}}},
@@ -69,7 +69,7 @@ def test_planner_does_not_infer_hydrometry_from_unrelated_raw_section() -> None:
 def test_planner_does_not_duplicate_explicit_hydrometry() -> None:
     cfg = DataManagersConfig(types=["hydrometry"])
 
-    plan = DataManagersPlanner().build(
+    plan = DataPlanner().build(
         cfg,
         domain_zone_ids=[],
         raw_toml={},
@@ -83,7 +83,7 @@ def test_planner_does_not_duplicate_explicit_hydrometry() -> None:
 def test_planner_infers_hydrography_from_flow_stream_boundary() -> None:
     cfg = DataManagersConfig(types=[])
 
-    plan = DataManagersPlanner().build(
+    plan = DataPlanner().build(
         cfg,
         domain_zone_ids=[],
         raw_toml={},
@@ -98,7 +98,7 @@ def test_planner_infers_hydrography_from_flow_stream_boundary() -> None:
 def test_planner_infers_oceanic_from_flow_ocean_boundary() -> None:
     cfg = DataManagersConfig(types=[])
 
-    plan = DataManagersPlanner().build(
+    plan = DataPlanner().build(
         cfg,
         domain_zone_ids=[],
         raw_toml={},
@@ -113,7 +113,7 @@ def test_planner_infers_oceanic_from_flow_ocean_boundary() -> None:
 def test_planner_does_not_duplicate_explicit_oceanic() -> None:
     cfg = DataManagersConfig(types=["oceanic"])
 
-    plan = DataManagersPlanner().build(
+    plan = DataPlanner().build(
         cfg,
         domain_zone_ids=[],
         raw_toml={},
@@ -128,7 +128,7 @@ def test_planner_does_not_duplicate_explicit_oceanic() -> None:
 def test_planner_strict_mode_raises_when_inference_has_missing_section() -> None:
     cfg = DataManagersConfig(types=[], inference_mode="strict")
     with pytest.raises(ValueError, match="inference_mode='strict'"):
-        DataManagersPlanner().build(
+        DataPlanner().build(
             cfg,
             domain_zone_ids=[],
             raw_toml={},
@@ -138,7 +138,7 @@ def test_planner_strict_mode_raises_when_inference_has_missing_section() -> None
 
 def test_planner_warn_mode_allows_inference_without_section() -> None:
     cfg = DataManagersConfig(types=[], inference_mode="warn")
-    plan = DataManagersPlanner().build(
+    plan = DataPlanner().build(
         cfg,
         domain_zone_ids=[],
         raw_toml={},
@@ -158,7 +158,7 @@ def test_with_resolved_types_injects_default_geology_section() -> None:
 
 def test_plan_types_merge_explicit_and_inferred_deterministically() -> None:
     cfg = DataManagersConfig(types=["oceanic", "hydrometry"])
-    plan = DataManagersPlanner().build(
+    plan = DataPlanner().build(
         cfg,
         domain_zone_ids=["geology"],
         raw_toml={},

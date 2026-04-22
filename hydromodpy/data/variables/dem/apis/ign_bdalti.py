@@ -18,8 +18,8 @@ import subprocess
 import urllib.request
 from pathlib import Path
 
+from hydromodpy.core.logging import get_logger
 from hydromodpy.data.common.progress import iter_progress, log_step
-from hydromodpy.core.tools.log_manager import get_logger
 
 logger = get_logger(__name__)
 
@@ -163,6 +163,7 @@ def _extract_7z(archive_path: Path, output_dir: Path) -> None:
     # Fallback to py7zr Python package.
     try:
         import py7zr
+
         with py7zr.SevenZipFile(str(archive_path), mode="r") as z:
             z.extractall(path=str(output_dir))
         return
@@ -171,7 +172,7 @@ def _extract_7z(archive_path: Path, output_dir: Path) -> None:
             "Cannot extract .7z archive. Install either:\n"
             "  - p7zip-full: sudo apt install p7zip-full\n"
             "  - py7zr: pip install py7zr"
-        )
+        ) from None
 
 
 def _download_department(
@@ -259,7 +260,7 @@ def fetch_bdalti(
             f"No department found overlapping bbox {bbox}. "
             "Ensure the bbox is in EPSG:2154 (Lambert-93)."
         )
-    log_step("IGN BD ALTI: departments %s" % ", ".join(sorted(dept_codes)))
+    log_step("IGN BD ALTI: departments {}".format(", ".join(sorted(dept_codes))))
 
     # Step 2: download each department.
     dept_cache = output_dir / "departments_bdalti"
@@ -276,11 +277,9 @@ def fetch_bdalti(
             all_asc_files.extend(asc_files)
 
     if not all_asc_files:
-        raise ValueError(
-            f"No ASC files found for departments: {list(dept_codes)}"
-        )
+        raise ValueError(f"No ASC files found for departments: {list(dept_codes)}")
 
-    log_step("Merging %d ASC tiles..." % len(all_asc_files))
+    log_step(f"Merging {len(all_asc_files)} ASC tiles...")
 
     # Step 3: open all datasets and merge with bbox crop.
     datasets = []
@@ -310,5 +309,5 @@ def fetch_bdalti(
     with rasterio.open(str(merged_tif), "w", **profile) as dst:
         dst.write(mosaic)
 
-    log_step("Merged BD ALTI MNT: %s" % merged_tif.name)
+    log_step(f"Merged BD ALTI MNT: {merged_tif.name}")
     return merged_tif

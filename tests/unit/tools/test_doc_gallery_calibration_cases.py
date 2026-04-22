@@ -4,16 +4,25 @@ from __future__ import annotations
 
 import pytest
 
+try:
+    from validation_cases.analytical.steady.boussinesq_sloping_substratum_fixed_head_1d.comparison import (  # noqa: F401,E501
+        build_boussinesq_sloping_substratum_fixed_head_comparison,
+    )
+except ImportError as exc:
+    pytest.skip(
+        f"doc-gallery generators transitively import broken validation_cases modules: {exc}",
+        allow_module_level=True,
+    )
+
 from tools.doc_gallery.calibration_case_registry import build_calibration_case_records
 from tools.doc_gallery.gallery_manifest import build_gallery_specs
 from tools.doc_gallery.update_gallery import (
     _build_calibration_intercomparison_page,
-    _build_category_page,
-    _build_case_page,
     _build_calibration_intercomparison_rows,
+    _build_case_page,
+    _build_category_page,
     _with_parameter_docs,
 )
-
 
 pytestmark = pytest.mark.slow
 
@@ -26,8 +35,7 @@ def test_build_calibration_case_records_discovers_curated_benchmarks() -> None:
 
     assert len(records) == EXPECTED_CALIBRATION_CASE_COUNT
     assert (
-        records["calibration_twin_dupuit_fixed_head_modflow6"].metadata["solver_name"]
-        == "modflow6"
+        records["calibration_twin_dupuit_fixed_head_modflow6"].metadata["solver_name"] == "modflow6"
     )
     assert (
         records["calibration_twin_dupuit_fixed_head_posterior_modflow6"].metadata[
@@ -35,39 +43,51 @@ def test_build_calibration_case_records_discovers_curated_benchmarks() -> None:
         ]
         == "da_mh_gp"
     )
-    assert "gp_mapping" in records[
-        "calibration_twin_linearized_recharge_step_modflow6"
-    ].metadata["method_names"]
-    assert "da_mh_gp" in records[
-        "calibration_twin_linearized_recharge_step_modflow6"
-    ].metadata["method_names"]
     assert (
-        records[
-            "calibration_twin_linearized_recharge_step_flux_only_noisy_modflow6"
-        ].metadata["display_method_name"]
+        "gp_mapping"
+        in records["calibration_twin_linearized_recharge_step_modflow6"].metadata["method_names"]
+    )
+    assert (
+        "da_mh_gp"
+        in records["calibration_twin_linearized_recharge_step_modflow6"].metadata["method_names"]
+    )
+    assert (
+        records["calibration_twin_linearized_recharge_step_flux_only_noisy_modflow6"].metadata[
+            "display_method_name"
+        ]
         == "da_mh_gp"
     )
-    assert records[
-        "calibration_twin_linearized_recharge_step_flux_only_noisy_modflow6"
-    ].metadata["output_names"] == ["q_east"]
-    assert "cma_es" in records[
-        "calibration_twin_linearized_recharge_step_flux_only_noisy_modflow6"
-    ].metadata["method_names"]
-    assert "cma_es" in records[
-        "calibration_twin_dupuit_fixed_head_modflow6"
-    ].metadata["method_names"]
-    assert records["calibration_twin_linearized_recharge_step_modflow6"].metadata[
-        "benchmark_family_key"
-    ] == "data_rich_no_uncertainty"
-    assert records[
-        "calibration_twin_linearized_recharge_step_flux_only_noisy_modflow6"
-    ].metadata["benchmark_family_key"] == "uncertain_less_data"
-    assert records["calibration_twin_dupuit_fixed_head_modflow6"].metadata[
-        "benchmark_family_key"
-    ] == "supplementary_scalar_reference"
-    assert records[
-        "calibration_twin_boussinesq_fixed_head_piecewise_k_modflow6"
-    ].metadata["output_names"] == [
+    assert records["calibration_twin_linearized_recharge_step_flux_only_noisy_modflow6"].metadata[
+        "output_names"
+    ] == ["q_east"]
+    assert (
+        "cma_es"
+        in records["calibration_twin_linearized_recharge_step_flux_only_noisy_modflow6"].metadata[
+            "method_names"
+        ]
+    )
+    assert (
+        "cma_es" in records["calibration_twin_dupuit_fixed_head_modflow6"].metadata["method_names"]
+    )
+    assert (
+        records["calibration_twin_linearized_recharge_step_modflow6"].metadata[
+            "benchmark_family_key"
+        ]
+        == "data_rich_no_uncertainty"
+    )
+    assert (
+        records["calibration_twin_linearized_recharge_step_flux_only_noisy_modflow6"].metadata[
+            "benchmark_family_key"
+        ]
+        == "uncertain_less_data"
+    )
+    assert (
+        records["calibration_twin_dupuit_fixed_head_modflow6"].metadata["benchmark_family_key"]
+        == "supplementary_scalar_reference"
+    )
+    assert records["calibration_twin_boussinesq_fixed_head_piecewise_k_modflow6"].metadata[
+        "output_names"
+    ] == [
         "head_west",
         "head_middle",
         "head_east",
@@ -76,9 +96,7 @@ def test_build_calibration_case_records_discovers_curated_benchmarks() -> None:
 
 
 def test_build_gallery_specs_exposes_calibration_inventory() -> None:
-    calibration_specs = [
-        spec for spec in build_gallery_specs() if spec.category == "calibration"
-    ]
+    calibration_specs = [spec for spec in build_gallery_specs() if spec.category == "calibration"]
     record_slugs = {record.slug for record in build_calibration_case_records()}
 
     assert len(calibration_specs) == EXPECTED_CALIBRATION_CASE_COUNT

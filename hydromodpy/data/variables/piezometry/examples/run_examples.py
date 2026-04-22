@@ -18,35 +18,37 @@ import pandas as pd
 def example_custom_csv():
     """Load piezometry from custom CSV files."""
     print("\n=== Example: Piezometry Custom CSV ===")
-    from hydromodpy.data.variables.piezometry.config import PiezometrySourceConfig, PiezometryConfig
-    from hydromodpy.data.variables.piezometry.manager import PiezometryManager
     from hydromodpy.data.registry.catalog_duckdb import DataCatalogDuckDB as DataCatalog
+    from hydromodpy.data.variables.piezometry.config import PiezometryConfig, PiezometrySourceConfig
+    from hydromodpy.data.variables.piezometry.manager import PiezometryManager
 
     with tempfile.TemporaryDirectory() as tmpdir:
         data_dir = Path(tmpdir)
 
         # Location file (unit column required)
-        pd.DataFrame({
-            "id": ["BSS001", "BSS002"],
-            "x": [-1.5, -1.6],
-            "y": [48.1, 48.2],
-            "crs": ["EPSG:4326", "EPSG:4326"],
-            "name": ["Piézo Nord", "Piézo Sud"],
-            "unit": ["m", "m"],
-        }).to_csv(data_dir / "piezometry_custom_LOC.csv", index=False)
+        pd.DataFrame(
+            {
+                "id": ["BSS001", "BSS002"],
+                "x": [-1.5, -1.6],
+                "y": [48.1, 48.2],
+                "crs": ["EPSG:4326", "EPSG:4326"],
+                "name": ["Piézo Nord", "Piézo Sud"],
+                "unit": ["m", "m"],
+            }
+        ).to_csv(data_dir / "piezometry_custom_LOC.csv", index=False)
 
         # Chronicle files
         dates = pd.date_range("2020-01-01", "2020-12-31", freq="D")
         for sid, base_val in [("BSS001", 15.0), ("BSS002", 22.5)]:
-            df = pd.DataFrame({
-                "datetime": dates,
-                "value": [base_val - i * 0.002 for i in range(len(dates))],
-            })
+            df = pd.DataFrame(
+                {
+                    "datetime": dates,
+                    "value": [base_val - i * 0.002 for i in range(len(dates))],
+                }
+            )
             df.to_csv(data_dir / f"piezometry_custom_{sid}_20200101_20201231_D.csv", index=False)
 
-        cfg = PiezometryConfig(sources=[
-            PiezometrySourceConfig(source="custom", path=data_dir)
-        ])
+        cfg = PiezometryConfig(sources=[PiezometrySourceConfig(source="custom", path=data_dir)])
         catalog = DataCatalog()
         mgr = PiezometryManager(
             config=cfg,
@@ -63,25 +65,28 @@ def example_custom_csv():
 def example_custom_constant():
     """Load piezometry with a single-line CSV (constant value)."""
     print("\n=== Example: Piezometry Constant (single-line CSV) ===")
-    from hydromodpy.data.variables.piezometry.config import PiezometrySourceConfig, PiezometryConfig
-    from hydromodpy.data.variables.piezometry.manager import PiezometryManager
     from hydromodpy.data.registry.catalog_duckdb import DataCatalogDuckDB as DataCatalog
+    from hydromodpy.data.variables.piezometry.config import PiezometryConfig, PiezometrySourceConfig
+    from hydromodpy.data.variables.piezometry.manager import PiezometryManager
 
     with tempfile.TemporaryDirectory() as tmpdir:
         data_dir = Path(tmpdir)
 
-        pd.DataFrame({
-            "id": ["PZ_A"], "x": [-1.5], "y": [48.1],
-            "crs": ["EPSG:4326"], "unit": ["m"],
-        }).to_csv(data_dir / "piezometry_custom_LOC.csv", index=False)
+        pd.DataFrame(
+            {
+                "id": ["PZ_A"],
+                "x": [-1.5],
+                "y": [48.1],
+                "crs": ["EPSG:4326"],
+                "unit": ["m"],
+            }
+        ).to_csv(data_dir / "piezometry_custom_LOC.csv", index=False)
 
         pd.DataFrame({"datetime": ["2020-01-01"], "value": [18.0]}).to_csv(
             data_dir / "piezometry_custom_PZ_A_20200101_20200331_D.csv", index=False
         )
 
-        cfg = PiezometryConfig(sources=[
-            PiezometrySourceConfig(source="custom", path=data_dir)
-        ])
+        cfg = PiezometryConfig(sources=[PiezometrySourceConfig(source="custom", path=data_dir)])
         catalog = DataCatalog()
         mgr = PiezometryManager(
             config=cfg,
@@ -91,7 +96,9 @@ def example_custom_constant():
         records = mgr.load()
 
         for r in records:
-            print(f"    {r.station_id}: value={r.data['value'].iloc[0]} {r.unit}, is_constant={r.is_constant}")
+            print(
+                f"    {r.station_id}: value={r.data['value'].iloc[0]} {r.unit}, is_constant={r.is_constant}"
+            )
 
 
 def example_hubeau_api():
@@ -101,17 +108,19 @@ def example_hubeau_api():
     """
     print("\n=== Example: Piezometry Hub'Eau API ===")
     print("  (requires internet connection)")
-    from hydromodpy.data.variables.piezometry.config import PiezometrySourceConfig, PiezometryConfig
-    from hydromodpy.data.variables.piezometry.manager import PiezometryManager
     from hydromodpy.data.registry.catalog_duckdb import DataCatalogDuckDB as DataCatalog
+    from hydromodpy.data.variables.piezometry.config import PiezometryConfig, PiezometrySourceConfig
+    from hydromodpy.data.variables.piezometry.manager import PiezometryManager
 
-    cfg = PiezometryConfig(sources=[
-        PiezometrySourceConfig(
-            source="hubeau",
-            product="level",
-            station_ids=["07548X0009/F"],
-        )
-    ])
+    cfg = PiezometryConfig(
+        sources=[
+            PiezometrySourceConfig(
+                source="hubeau",
+                product="level",
+                station_ids=["07548X0009/F"],
+            )
+        ]
+    )
     catalog = DataCatalog()
     mgr = PiezometryManager(
         config=cfg,

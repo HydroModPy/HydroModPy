@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import hashlib
 import math
+from collections.abc import Sequence
 from pathlib import Path
-from typing import Sequence
 
 from hydromodpy.data.contracts.location import StationLocation
 
@@ -31,9 +31,10 @@ def haversine_km(lon1: float, lat1: float, lon2: float, lat2: float) -> float:
     R = 6371.0
     dlon = math.radians(lon2 - lon1)
     dlat = math.radians(lat2 - lat1)
-    a = math.sin(dlat / 2) ** 2 + math.cos(math.radians(lat1)) * math.cos(
-        math.radians(lat2)
-    ) * math.sin(dlon / 2) ** 2
+    a = (
+        math.sin(dlat / 2) ** 2
+        + math.cos(math.radians(lat1)) * math.cos(math.radians(lat2)) * math.sin(dlon / 2) ** 2
+    )
     return R * 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
 
 
@@ -43,10 +44,7 @@ def filter_locations_by_bbox(
 ) -> list[StationLocation]:
     """Keep locations inside bbox."""
     xmin, ymin, xmax, ymax = bbox
-    return [
-        loc for loc in locations
-        if xmin <= loc.x <= xmax and ymin <= loc.y <= ymax
-    ]
+    return [loc for loc in locations if xmin <= loc.x <= xmax and ymin <= loc.y <= ymax]
 
 
 def nearest_location(
@@ -105,12 +103,18 @@ def _load_mask_from_raster(path: Path):
         from shapely.geometry import shape
         from shapely.ops import unary_union
     except ImportError as exc:
-        raise ImportError("rasterio and shapely required for raster mask. pip install rasterio shapely") from exc
+        raise ImportError(
+            "rasterio and shapely required for raster mask. pip install rasterio shapely"
+        ) from exc
 
     with rasterio.open(path) as src:
         data = src.read(1)
         mask = data != src.nodata if src.nodata is not None else data != 0
-        geoms = [shape(geom) for geom, val in shapes(mask.astype("uint8"), transform=src.transform) if val == 1]
+        geoms = [
+            shape(geom)
+            for geom, val in shapes(mask.astype("uint8"), transform=src.transform)
+            if val == 1
+        ]
         if not geoms:
             raise ValueError(f"No valid cells in raster mask: {path}")
         return unary_union(geoms).convex_hull
@@ -166,17 +170,40 @@ def geometry_to_bbox(geometry) -> tuple[float, float, float, float]:
 def filter_locations_by_geometry(
     locations: Sequence[StationLocation],
     geometry,
+    *,
+    geometry_crs: str = "EPSG:4326",
 ) -> list[StationLocation]:
-    """Keep locations that fall inside a shapely geometry (spatial join)."""
+    """Keep locations that fall inside a shapely geometry (spatial join).
+
+    Reprojects each location to ``geometry_crs`` before testing, so that
+    stations declared in a projected CRS (e.g. Lambert-93 / EPSG:2154) can
+    be matched against a mask loaded via :func:`load_mask_geometry_wgs84`.
+    """
     try:
         from shapely.geometry import Point
     except ImportError as exc:
         raise ImportError("shapely required for geometry filtering. pip install shapely") from exc
+    from pyproj import Transformer
 
-    return [
-        loc for loc in locations
-        if geometry.contains(Point(loc.x, loc.y))
-    ]
+    target_crs = str(geometry_crs)
+    transformers: dict[str, Transformer] = {}
+    kept: list[StationLocation] = []
+    for loc in locations:
+        src_crs = str(loc.crs) if loc.crs else target_crs
+        if src_crs == target_crs:
+            x, y = loc.x, loc.y
+        else:
+            tr = transformers.get(src_crs)
+            if tr is None:
+                tr = Transformer.from_crs(src_crs, target_crs, always_xy=True)
+                transformers[src_crs] = tr
+            x, y = tr.transform(loc.x, loc.y)
+        # ``intersects`` is more permissive than ``contains`` at boundaries —
+        # relevant for outlet stations that land exactly on the watershed
+        # boundary after snapping.
+        if geometry.intersects(Point(x, y)):
+            kept.append(loc)
+    return kept
 
 
 def expand_bbox(

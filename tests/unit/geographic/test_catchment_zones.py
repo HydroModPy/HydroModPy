@@ -7,8 +7,7 @@ import numpy as np
 import pytest
 import rasterio
 from rasterio.transform import from_origin
-from shapely.geometry import box
-from shapely.geometry import Polygon
+from shapely.geometry import Polygon, box
 
 from hydromodpy.spatial.geographic.core.catchment_domain import derive_catchment_domain
 from hydromodpy.spatial.geographic.core.catchment_zones import (
@@ -98,8 +97,12 @@ def test_derive_catchment_domain_with_percent_buffer(tmp_path: Path):
     assert products.catchment_area_km2 == pytest.approx(1.0, abs=1e-12)
     assert products.buffer_distance_m == pytest.approx(200.0, abs=1e-12)
 
-    assert _bounds(products.watershed_box_shp) == pytest.approx((0.0, 0.0, 1000.0, 1000.0), abs=1e-6)
-    assert _bounds(products.watershed_buff_shp) == pytest.approx((-200.0, -200.0, 1200.0, 1200.0), abs=1e-6)
+    assert _bounds(products.watershed_box_shp) == pytest.approx(
+        (0.0, 0.0, 1000.0, 1000.0), abs=1e-6
+    )
+    assert _bounds(products.watershed_buff_shp) == pytest.approx(
+        (-200.0, -200.0, 1200.0, 1200.0), abs=1e-6
+    )
     assert _bounds(products.watershed_box_buff_shp) == pytest.approx(
         (-200.0, -200.0, 1200.0, 1200.0),
         abs=1e-6,

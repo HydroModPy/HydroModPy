@@ -1,4 +1,4 @@
-﻿"""Input-normalization helpers for Boussinesq assembly and Jacobians."""
+"""Input-normalization helpers for Boussinesq assembly and Jacobians."""
 
 from __future__ import annotations
 
@@ -40,9 +40,7 @@ def as_prescribed_head_cell_vector(
         return np.full(n_cells, np.nan, dtype=float)
     array = np.asarray(values, dtype=float).reshape(-1)
     if array.size != int(n_cells):
-        raise ValueError(
-            f"{label} must have length {int(n_cells)}; got {int(array.size)}."
-        )
+        raise ValueError(f"{label} must have length {int(n_cells)}; got {int(array.size)}.")
     return array.astype(float, copy=False)
 
 
@@ -57,9 +55,7 @@ def as_edge_vector(
         return np.full(n_edges, np.nan, dtype=float)
     array = np.asarray(values, dtype=float).reshape(-1)
     if array.size != int(n_edges):
-        raise ValueError(
-            f"{label} must have length {int(n_edges)}; got {int(array.size)}."
-        )
+        raise ValueError(f"{label} must have length {int(n_edges)}; got {int(array.size)}.")
     return array.astype(float, copy=False)
 
 
@@ -149,4 +145,3 @@ __all__ = [
     "finalize_boundary_constrained_residual",
     "resolve_boundary_head_inputs",
 ]
-

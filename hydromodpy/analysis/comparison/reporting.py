@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from typing import Any, Iterable, Mapping
+from collections.abc import Iterable, Mapping
+from typing import Any
 
 from hydromodpy.analysis.comparison.metrics import build_unmatched_groups
 
@@ -69,7 +70,7 @@ def build_comparison_report(
             f"- `{observable.get('name', '')}`:"
             f" variable=`{observable.get('variable', '')}`"
             f", support=`{observable.get('support', '')}`"
-                f", unit=`{observable.get('unit', '') or 'native'}`"
+            f", unit=`{observable.get('unit', '') or 'native'}`"
         )
 
     lines.extend(
@@ -97,9 +98,7 @@ def build_comparison_report(
         lines.append("- No supplemental CSV exports were written.")
     else:
         for artifact in data_files:
-            lines.append(
-                f"- `{artifact.get('kind', '')}`: `{artifact.get('path', '')}`"
-            )
+            lines.append(f"- `{artifact.get('kind', '')}`: `{artifact.get('path', '')}`")
 
     lines.extend(
         [
@@ -113,9 +112,7 @@ def build_comparison_report(
         lines.append(
             "| Variant | Observable | Unit | Pairs | Bias | MAE | RMSE | Max abs | Mean rel |"
         )
-        lines.append(
-            "| --- | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: |"
-        )
+        lines.append("| --- | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: |")
         for row in summary_metrics:
             lines.append(
                 "| "

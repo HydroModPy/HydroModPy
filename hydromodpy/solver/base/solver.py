@@ -34,7 +34,7 @@ class Solver(ABC):
     def post_processing(self, *args, **kwargs) -> None:
         """Analyse and export results (figures, rasters, etc.)."""
 
-    def validate_config(self) -> None:
+    def validate_config(self) -> None:  # noqa: B027 — intentional optional hook
         """Validate solver-specific configuration before execution.
 
         Subclasses should override this to check parameter ranges, file
@@ -49,7 +49,7 @@ class Solver(ABC):
         """
         return {}
 
-    def cleanup(self) -> None:
+    def cleanup(self) -> None:  # noqa: B027 — intentional optional hook
         """Release resources and remove temporary files.
 
         Subclasses should override this when the solver creates large

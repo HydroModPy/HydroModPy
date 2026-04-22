@@ -1,4 +1,4 @@
-﻿"""Regularized-partition saturation triplets for the Boussinesq Jacobian."""
+"""Regularized-partition saturation triplets for the Boussinesq Jacobian."""
 
 from __future__ import annotations
 
@@ -37,9 +37,7 @@ def build_sparse_semianalytic_partition_saturation_triplets(
     head = np.asarray(head_m, dtype=float).reshape(-1)
     n_cells = int(mesh.n_cells)
     if head.size != n_cells:
-        raise ValueError(
-            f"head_m length must match mesh.n_cells ({head.size} != {n_cells})."
-        )
+        raise ValueError(f"head_m length must match mesh.n_cells ({head.size} != {n_cells}).")
 
     boundary_inputs = resolve_boundary_head_inputs(
         mesh,
@@ -61,9 +59,8 @@ def build_sparse_semianalytic_partition_saturation_triplets(
         )
     else:
         boundary_head_flux_residual = np.zeros(n_cells, dtype=float)
-    lateral_flux_residual = (
-        np.asarray(internal_flux_residual, dtype=float)
-        + np.asarray(boundary_head_flux_residual, dtype=float)
+    lateral_flux_residual = np.asarray(internal_flux_residual, dtype=float) + np.asarray(
+        boundary_head_flux_residual, dtype=float
     )
     lateral_triplets = build_sparse_semianalytic_triplets(
         mesh,
@@ -83,12 +80,15 @@ def build_sparse_semianalytic_partition_saturation_triplets(
         as_cell_vector(surface_input_rate_m_s, n_cells=n_cells),
         0.0,
     )
-    balance_rate = np.divide(
-        -lateral_flux_residual,
-        mesh.cell_area_m2,
-        out=np.zeros(n_cells, dtype=float),
-        where=np.asarray(mesh.cell_area_m2, dtype=float) > 0.0,
-    ) + surface_input
+    balance_rate = (
+        np.divide(
+            -lateral_flux_residual,
+            mesh.cell_area_m2,
+            out=np.zeros(n_cells, dtype=float),
+            where=np.asarray(mesh.cell_area_m2, dtype=float) > 0.0,
+        )
+        + surface_input
+    )
     active_ramp = balance_rate > 0.0
     ramp_rate = np.where(active_ramp, balance_rate, 0.0)
 
@@ -119,8 +119,7 @@ def build_sparse_semianalytic_partition_saturation_triplets(
     row_scaling = -regularization * active_ramp.astype(float, copy=False)
     lateral_data, lateral_rows, lateral_cols = lateral_triplets
     scaled_lateral_data = (
-        np.asarray(lateral_data, dtype=float)
-        * row_scaling[np.asarray(lateral_rows, dtype=int)]
+        np.asarray(lateral_data, dtype=float) * row_scaling[np.asarray(lateral_rows, dtype=int)]
     )
     active_lateral = scaled_lateral_data != 0.0
 
@@ -143,4 +142,3 @@ def build_sparse_semianalytic_partition_saturation_triplets(
 
 
 __all__ = ["build_sparse_semianalytic_partition_saturation_triplets"]
-

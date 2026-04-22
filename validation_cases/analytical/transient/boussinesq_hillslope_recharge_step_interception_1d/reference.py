@@ -51,15 +51,10 @@ def expected_linearized_hillslope_recharge_step_profiles(
 
     x_local = np.asarray(x - float(xmin), dtype=float)
     recharge_m_per_s = mm_day_to_m_s(float(recharge_mm_day))
-    transmissivity = (
-        float(hydraulic_conductivity_m_per_s)
-        * float(reference_saturated_thickness_m)
-    )
+    transmissivity = float(hydraulic_conductivity_m_per_s) * float(reference_saturated_thickness_m)
     diffusivity = transmissivity / float(specific_yield)
 
-    eta_steady = (recharge_m_per_s / (2.0 * transmissivity)) * (
-        length**2 - x_local**2
-    )
+    eta_steady = (recharge_m_per_s / (2.0 * transmissivity)) * (length**2 - x_local**2)
     harmonics = np.arange(int(n_terms), dtype=float)
     wave_numbers = ((harmonics + 0.5) * np.pi) / length
     coefficients = (

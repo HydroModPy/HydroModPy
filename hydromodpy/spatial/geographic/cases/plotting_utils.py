@@ -9,7 +9,8 @@ These helpers keep visual-review behavior consistent across cases:
 from __future__ import annotations
 
 import matplotlib
-from matplotlib import pyplot as plt, rcsetup
+from matplotlib import pyplot as plt
+from matplotlib import rcsetup
 
 from hydromodpy.solver.utils.mesh.plot_window_utils import maximize_figure_windows
 

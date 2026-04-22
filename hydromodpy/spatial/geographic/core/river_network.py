@@ -16,8 +16,8 @@ Executed after catchment/domain preprocessing when
 
 from __future__ import annotations
 
-from dataclasses import dataclass
 import json
+from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -26,9 +26,9 @@ import numpy as np
 import rasterio
 from shapely.geometry import LineString, MultiLineString
 
-from hydromodpy.core.backends import WhiteboxBackend, get_whitebox_backend
-from hydromodpy.spatial.geographic.geographic_config import RiverNetworkConfig
+from hydromodpy.spatial.delineation import WhiteboxBackend, get_whitebox_backend
 from hydromodpy.spatial.geographic.core.river_mesh_trace import RiverMeshTrace
+from hydromodpy.spatial.geographic.geographic_config import RiverNetworkConfig
 
 if TYPE_CHECKING:
     from shapely.geometry.base import BaseGeometry
@@ -235,7 +235,9 @@ def compute_river_network_summary(
             else float(river_network.threshold_area_km2)
         )
     else:
-        threshold_value = None if river_network.threshold_cells is None else float(river_network.threshold_cells)
+        threshold_value = (
+            None if river_network.threshold_cells is None else float(river_network.threshold_cells)
+        )
 
     stream_pixel_count = int(_active_positive_count(active_streams_tif))
     _ = network_shp
@@ -415,8 +417,7 @@ def build_river_network_products(
     if missing_methods:
         missing_list = ", ".join(missing_methods)
         raise RuntimeError(
-            "River network generation requires in-memory backend methods; "
-            f"missing: {missing_list}."
+            f"River network generation requires in-memory backend methods; missing: {missing_list}."
         )
 
     streams_raster_obj = tool_any.read_raster(str(active_streams_full_tif))

@@ -1,14 +1,16 @@
 from __future__ import annotations
 
-from dataclasses import replace
 import json
-from pathlib import Path
 import subprocess
 import sys
+from dataclasses import replace
+from pathlib import Path
+
+import pytest
 
 from tools.mesh_bundle_viewer import (
-    CatchmentMeshBundle,
     VISUALIZATION_SUMMARY_SCHEMA_VERSION,
+    CatchmentMeshBundle,
     VisualizationSummary,
     build_visualization_summary_contract,
     load_toml_config,
@@ -22,11 +24,11 @@ def _repo_root() -> Path:
 
 
 def _example_bundle_dir() -> Path:
-    return _repo_root() / "examples" / "mesh_viewer" / "sample_bundle"
+    return _repo_root() / "examples" / "projects" / "08_mesh_viewer" / "sample_bundle"
 
 
 def _example_config_path() -> Path:
-    return _repo_root() / "examples" / "mesh_viewer" / "config_example.toml"
+    return _repo_root() / "examples" / "projects" / "08_mesh_viewer" / "config_example.toml"
 
 
 def test_standalone_bundle_reader_uses_shared_bundle_contracts() -> None:
@@ -53,11 +55,10 @@ def test_build_visualization_summary_contract_returns_typed_summary() -> None:
     assert isinstance(summary, VisualizationSummary)
     assert summary.node_count == data.mesh.n_nodes
     assert summary.cell_count == data.mesh.n_cells
-    assert summary.to_mapping()["summary_schema_version"] == (
-        VISUALIZATION_SUMMARY_SCHEMA_VERSION
-    )
+    assert summary.to_mapping()["summary_schema_version"] == (VISUALIZATION_SUMMARY_SCHEMA_VERSION)
 
 
+@pytest.mark.allow_subprocess
 def test_python_module_mesh_bundle_viewer_entrypoint_runs_on_example_bundle(
     tmp_path: Path,
 ) -> None:

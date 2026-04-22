@@ -6,16 +6,19 @@ import logging
 from datetime import datetime
 from math import asin, cos, radians, sin, sqrt
 from pathlib import Path
-from typing import Any, List, Optional, Union
+from typing import Any
 
 import pandas as pd
 import requests
 
+from hydromodpy.core.io.http_client import get_default_client
+
 logger = logging.getLogger(__name__)
 
 try:
-    from ..common.base_station_set import BaseStationSet
     from hydromodpy.core.units import parse_length_to_m
+
+    from ..common.base_station_set import BaseStationSet
 except ImportError:
     import sys
 
@@ -25,6 +28,7 @@ except ImportError:
         if _path not in sys.path:
             sys.path.insert(0, _path)
     from common.base_station_set import BaseStationSet
+
     from hydromodpy.core.units import parse_length_to_m
 
 
@@ -44,8 +48,10 @@ STATUS_MESSAGES = {
 class StationDiscovery(BaseStationSet):
     """Encapsulate hydrometric station discovery outside ``StationSet``."""
 
-    def __init__(self, *, local_data_dir: Optional[Union[str, Path]] = None):
-        self.local_data_dir = Path(local_data_dir).expanduser().resolve() if local_data_dir else None
+    def __init__(self, *, local_data_dir: str | Path | None = None):
+        self.local_data_dir = (
+            Path(local_data_dir).expanduser().resolve() if local_data_dir else None
+        )
 
     @staticmethod
     def _mask_centroid(mask_gdf: Any):
@@ -58,7 +64,7 @@ class StationDiscovery(BaseStationSet):
             return mask_gdf.unary_union.centroid
 
     @staticmethod
-    def normalize_station_ids(id_values: Union[str, List[str]]) -> tuple[list[str], list[str]]:
+    def normalize_station_ids(id_values: str | list[str]) -> tuple[list[str], list[str]]:
         """Normalize station/site identifiers into parallel station/site lists."""
         if isinstance(id_values, str):
             id_values = [id_values]
@@ -74,7 +80,9 @@ class StationDiscovery(BaseStationSet):
             elif len(id_val) == 8:
                 station_ids.append(id_val + "01")
                 site_ids.append(id_val)
-                logger.info("%s is a site ID, by default, the station ID is %s", id_val, station_ids[-1])
+                logger.info(
+                    "%s is a site ID, by default, the station ID is %s", id_val, station_ids[-1]
+                )
             else:
                 raise ValueError(f"Invalid ID length: {id_val}. Expected 8 or 10 characters.")
 
@@ -84,15 +92,15 @@ class StationDiscovery(BaseStationSet):
     def discover_station_ids(
         cls,
         *,
-        bbox: Optional[tuple[float, float, float, float]] = None,
-        mask_path: Optional[Union[str, Path]] = None,
-        center_point: Optional[tuple[float, float]] = None,
-        fallback_search_radius_m: Optional[Any] = None,
-        fallback_search_radius_km: Optional[Any] = None,
+        bbox: tuple[float, float, float, float] | None = None,
+        mask_path: str | Path | None = None,
+        center_point: tuple[float, float] | None = None,
+        fallback_search_radius_m: Any | None = None,
+        fallback_search_radius_km: Any | None = None,
         require_observations: bool = False,
-        date_start: Optional[str] = None,
-        date_end: Optional[str] = None,
-        max_ids: Optional[int] = 20,
+        date_start: str | None = None,
+        date_end: str | None = None,
+        max_ids: int | None = 20,
         timeout: int = 30,
     ) -> list[str]:
         """Discover valid Hub'Eau hydrometric station identifiers in a geographic area."""
@@ -138,7 +146,9 @@ class StationDiscovery(BaseStationSet):
             raise ValueError(f"Invalid bbox format: {exc}") from exc
 
         if minx >= maxx or miny >= maxy:
-            raise ValueError(f"Invalid bbox: minx={minx} >= maxx={maxx} or miny={miny} >= maxy={maxy}")
+            raise ValueError(
+                f"Invalid bbox: minx={minx} >= maxx={maxx} or miny={miny} >= maxy={maxy}"
+            )
 
         reference_point = center_point
         if reference_point is None and mask_gdf is not None:
@@ -155,7 +165,10 @@ class StationDiscovery(BaseStationSet):
         )
 
         if not candidate_data and radius_m > 0 and reference_point is not None:
-            logger.info("No stations found in initial area. Trying with %.3f km buffer...", radius_m / 1000.0)
+            logger.info(
+                "No stations found in initial area. Trying with %.3f km buffer...",
+                radius_m / 1000.0,
+            )
             lon, lat = reference_point
             lat_offset = radius_m / 111_000.0
             lon_offset = radius_m / (111_000.0 * cos(radians(lat)))
@@ -168,7 +181,11 @@ class StationDiscovery(BaseStationSet):
                 timeout=timeout,
             )
 
-        if reference_point is not None and candidate_data and all(item["coords"] is not None for item in candidate_data):
+        if (
+            reference_point is not None
+            and candidate_data
+            and all(item["coords"] is not None for item in candidate_data)
+        ):
             candidate_data.sort(
                 key=lambda item: helper._haversine_distance(
                     reference_point[0],
@@ -192,11 +209,11 @@ class StationDiscovery(BaseStationSet):
 
     def select_station_ids_from_mask(
         self,
-        mask_path: Union[str, Path],
+        mask_path: str | Path,
         *,
         source_mode: str,
-        fallback_search_radius_m: Optional[Any] = None,
-        fallback_search_radius_km: Optional[Any] = None,
+        fallback_search_radius_m: Any | None = None,
+        fallback_search_radius_km: Any | None = None,
     ) -> tuple[list[str], list[str]]:
         """Select station identifiers located inside a mask geometry."""
         logger.info("Loading geographic mask from: %s", mask_path)
@@ -240,7 +257,7 @@ class StationDiscovery(BaseStationSet):
         return 6_371_000.0 * 2 * asin(sqrt(a))
 
     @staticmethod
-    def _normalize_api_date(value: Optional[str], *, default: str) -> str:
+    def _normalize_api_date(value: str | None, *, default: str) -> str:
         """Normalize date string to API ``YYYY-MM-DD`` format."""
         if value is None:
             return default
@@ -265,12 +282,14 @@ class StationDiscovery(BaseStationSet):
         url = f"{API_BASE_URL}hydrometrie/referentiel/stations"
 
         try:
-            response = requests.get(url, params=params, timeout=30)
+            response = get_default_client().get(url, params=params, timeout=30)
         except requests.exceptions.RequestException as exc:
             raise RuntimeError(f"Failed to query Hub'Eau API: {exc}") from exc
 
         if response.status_code not in (200, 206):
-            status_msg = STATUS_MESSAGES.get(response.status_code, f"Unknown error {response.status_code}")
+            status_msg = STATUS_MESSAGES.get(
+                response.status_code, f"Unknown error {response.status_code}"
+            )
             raise RuntimeError(f"API request failed: {status_msg}")
 
         try:
@@ -285,9 +304,9 @@ class StationDiscovery(BaseStationSet):
         miny: float,
         maxx: float,
         maxy: float,
-        mask_gdf: Optional[Any] = None,
+        mask_gdf: Any | None = None,
         timeout: int = 30,
-    ) -> List[dict]:
+    ) -> list[dict]:
         """Search for hydrometric stations in a bounding box."""
         station_rows = self._request_station_rows_bbox(
             minx=minx,
@@ -319,16 +338,20 @@ class StationDiscovery(BaseStationSet):
 
                 stations_gdf = gpd.GeoDataFrame(valid_rows, geometry=points, crs="EPSG:4326")
                 try:
-                    stations_in_mask = gpd.sjoin(stations_gdf, mask_gdf, how="inner", predicate="within")
+                    stations_in_mask = gpd.sjoin(
+                        stations_gdf, mask_gdf, how="inner", predicate="within"
+                    )
                 except Exception:
-                    stations_in_mask = gpd.sjoin(stations_gdf, mask_gdf, how="inner", predicate="intersects")
+                    stations_in_mask = gpd.sjoin(
+                        stations_gdf, mask_gdf, how="inner", predicate="intersects"
+                    )
 
                 station_rows = stations_in_mask.to_dict("records")
             except ImportError:
                 pass
 
         seen = set()
-        candidate_data: List[dict] = []
+        candidate_data: list[dict] = []
         for row in station_rows:
             station_id = row.get("code_station")
             if station_id is None or station_id in seen:
@@ -351,10 +374,10 @@ class StationDiscovery(BaseStationSet):
     def _filter_by_observations(
         self,
         *,
-        candidate_ids: List[str],
-        date_start: Optional[str],
-        date_end: Optional[str],
-        max_ids: Optional[int],
+        candidate_ids: list[str],
+        date_start: str | None,
+        date_end: str | None,
+        max_ids: int | None,
         timeout: int,
     ) -> list[str]:
         """Filter station IDs by observation availability in a date range."""
@@ -373,7 +396,7 @@ class StationDiscovery(BaseStationSet):
             url = f"{API_BASE_URL}hydrometrie/obs_elab"
 
             try:
-                response = requests.get(url, params=params, timeout=timeout)
+                response = get_default_client().get(url, params=params, timeout=timeout)
             except requests.exceptions.RequestException:
                 continue
 
@@ -432,11 +455,18 @@ class StationDiscovery(BaseStationSet):
 
             if candidate_data:
                 candidate_data.sort(
-                    key=lambda item: float("inf")
-                    if item["coords"] is None
-                    else self._haversine_distance(ref_lon, ref_lat, item["coords"][0], item["coords"][1])
+                    key=lambda item: (
+                        float("inf")
+                        if item["coords"] is None
+                        else self._haversine_distance(
+                            ref_lon, ref_lat, item["coords"][0], item["coords"][1]
+                        )
+                    )
                 )
-                logger.info("Using all %d stations from fallback search (sorted by distance)", len(candidate_data))
+                logger.info(
+                    "Using all %d stations from fallback search (sorted by distance)",
+                    len(candidate_data),
+                )
             else:
                 logger.warning(
                     "No stations found within the specified geographic mask "
@@ -463,14 +493,26 @@ class StationDiscovery(BaseStationSet):
             station_col = "station_id" if "station_id" in df.columns else "code_station"
             lon_col = "longitude_station"
             lat_col = "latitude_station"
-            if station_col not in df.columns or lon_col not in df.columns or lat_col not in df.columns:
-                raise ValueError("stations_info.csv must contain station id and longitude/latitude columns.")
+            if (
+                station_col not in df.columns
+                or lon_col not in df.columns
+                or lat_col not in df.columns
+            ):
+                raise ValueError(
+                    "stations_info.csv must contain station id and longitude/latitude columns."
+                )
             out = df[[station_col, lon_col, lat_col]].copy()
             out.columns = ["station_id", "lon", "lat"]
         elif metadata_path.exists():
             df = pd.read_csv(metadata_path)
-            if "station_id" not in df.columns or "x_wgs84" not in df.columns or "y_wgs84" not in df.columns:
-                raise ValueError("metadata.csv must contain station_id, x_wgs84 and y_wgs84 columns.")
+            if (
+                "station_id" not in df.columns
+                or "x_wgs84" not in df.columns
+                or "y_wgs84" not in df.columns
+            ):
+                raise ValueError(
+                    "metadata.csv must contain station_id, x_wgs84 and y_wgs84 columns."
+                )
             out = df[["station_id", "x_wgs84", "y_wgs84"]].copy()
             out.columns = ["station_id", "lon", "lat"]
         else:
@@ -494,14 +536,19 @@ class StationDiscovery(BaseStationSet):
 
         stations_gdf = gpd.GeoDataFrame(
             station_catalog.copy(),
-            geometry=[Point(xy) for xy in zip(station_catalog["lon"], station_catalog["lat"])],
+            geometry=[
+                Point(xy)
+                for xy in zip(station_catalog["lon"], station_catalog["lat"], strict=False)
+            ],
             crs="EPSG:4326",
         )
 
         try:
             stations_in_mask = gpd.sjoin(stations_gdf, mask_gdf, how="inner", predicate="within")
         except Exception:
-            stations_in_mask = gpd.sjoin(stations_gdf, mask_gdf, how="inner", predicate="intersects")
+            stations_in_mask = gpd.sjoin(
+                stations_gdf, mask_gdf, how="inner", predicate="intersects"
+            )
 
         if stations_in_mask.empty:
             raise ValueError("No local stations found within the specified geographic mask.")
@@ -518,12 +565,12 @@ def discover_station_ids(**kwargs) -> list[str]:
 
 
 def select_station_ids_from_mask(
-    mask_path: Union[str, Path],
+    mask_path: str | Path,
     *,
     source_mode: str,
-    local_data_dir: Optional[Union[str, Path]] = None,
-    fallback_search_radius_m: Optional[Any] = None,
-    fallback_search_radius_km: Optional[Any] = None,
+    local_data_dir: str | Path | None = None,
+    fallback_search_radius_m: Any | None = None,
+    fallback_search_radius_km: Any | None = None,
 ) -> tuple[list[str], list[str]]:
     """Module-level wrapper used by :class:`StationSet`."""
     helper = StationDiscovery(local_data_dir=local_data_dir)
@@ -535,6 +582,6 @@ def select_station_ids_from_mask(
     )
 
 
-def normalize_station_ids(id_values: Union[str, List[str]]) -> tuple[list[str], list[str]]:
+def normalize_station_ids(id_values: str | list[str]) -> tuple[list[str], list[str]]:
     """Module-level wrapper for explicit station-id normalization."""
     return StationDiscovery.normalize_station_ids(id_values)

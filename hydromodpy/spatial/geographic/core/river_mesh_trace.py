@@ -9,9 +9,10 @@ storing raster products or file paths.
 
 from __future__ import annotations
 
+from collections.abc import Iterable
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Iterable, Literal
+from typing import Literal
 
 import geopandas as gpd
 from shapely.geometry import GeometryCollection, LineString, MultiLineString
@@ -37,9 +38,7 @@ def _iter_non_empty_lines(geometries: Iterable[LineString | MultiLineString]) ->
                 if not line.is_empty:
                     lines.append(line)
             continue
-        raise TypeError(
-            "river geometries must contain only LineString or MultiLineString values."
-        )
+        raise TypeError("river geometries must contain only LineString or MultiLineString values.")
     return lines
 
 
@@ -94,7 +93,7 @@ class RiverMeshTrace:
         source_kind: RiverMeshTraceSourceKind,
         crs_wkt: str,
         geometries: Iterable[LineString | MultiLineString],
-    ) -> "RiverMeshTrace":
+    ) -> RiverMeshTrace:
         """Build one trace from raw line or multilinestring geometries."""
         return cls(
             source_kind=source_kind,
@@ -143,7 +142,9 @@ def build_river_mesh_trace_from_vector(
                 f"River network vector has no CRS and no target CRS provided: {src_path}"
             )
 
-    geometries = [geometry for geometry in rivers.geometry if geometry is not None and not geometry.is_empty]
+    geometries = [
+        geometry for geometry in rivers.geometry if geometry is not None and not geometry.is_empty
+    ]
     if not geometries:
         return None
 
@@ -158,7 +159,11 @@ def build_river_mesh_trace_from_vector(
             raise ValueError(f"Clip polygon has no CRS: {clip_path}")
         clip_polygons = clip_polygons.to_crs(rivers.crs)
         clip_union = unary_union(
-            [geometry for geometry in clip_polygons.geometry if geometry is not None and not geometry.is_empty]
+            [
+                geometry
+                for geometry in clip_polygons.geometry
+                if geometry is not None and not geometry.is_empty
+            ]
         )
         if clip_union is None or clip_union.is_empty:
             return None
@@ -174,12 +179,8 @@ def build_river_mesh_trace_from_vector(
 
     if target_crs_token is not None:
         if target_crs_token:
-            rivers = gpd.GeoDataFrame(geometry=geometries, crs=rivers.crs).to_crs(
-                target_crs_token
-            )
-            crs_wkt = (
-                rivers.crs.to_wkt() if rivers.crs is not None else target_crs_token
-            )
+            rivers = gpd.GeoDataFrame(geometry=geometries, crs=rivers.crs).to_crs(target_crs_token)
+            crs_wkt = rivers.crs.to_wkt() if rivers.crs is not None else target_crs_token
             geometries = list(rivers.geometry)
         else:
             crs_wkt = rivers.crs.to_wkt()

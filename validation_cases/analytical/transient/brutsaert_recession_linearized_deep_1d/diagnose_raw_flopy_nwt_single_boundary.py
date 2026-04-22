@@ -3,9 +3,9 @@
 from __future__ import annotations
 
 import json
+import sys
 from dataclasses import asdict, dataclass
 from pathlib import Path
-import sys
 
 import flopy
 import numpy as np
@@ -19,7 +19,6 @@ from validation_cases.analytical.transient.brutsaert_common import (
     _load_modflownwt_budget_diagnostics,
 )
 from validation_cases.shared.runtime import resolve_validation_results_dir
-
 
 CASE_ID = "brutsaert_recession_linearized_deep_1d"
 SUMMARY_FILENAME = "raw_flopy_nwt_single_boundary_summary.json"
@@ -138,7 +137,9 @@ def _build_model(model_ws: Path, *, model_name: str) -> flopy.modflow.Modflow:
     return mf
 
 
-def _load_outlet_series(model_ws: Path, *, model_name: str, nrow: int, ncol: int) -> tuple[float, ...]:
+def _load_outlet_series(
+    model_ws: Path, *, model_name: str, nrow: int, ncol: int
+) -> tuple[float, ...]:
     """Return east-side discharge time series from the raw NWT cell budget."""
     cbb = CellBudgetFile(str(model_ws / f"{model_name}.cbc"))
     east_nodes = {row * ncol + (ncol - 1) + 1 for row in range(nrow)}
@@ -163,7 +164,9 @@ def _load_outlet_series(model_ws: Path, *, model_name: str, nrow: int, ncol: int
     return tuple(series)
 
 
-def _head_change_signature(model_ws: Path, *, model_name: str, limit: int = 5) -> tuple[dict[str, float | int], ...]:
+def _head_change_signature(
+    model_ws: Path, *, model_name: str, limit: int = 5
+) -> tuple[dict[str, float | int], ...]:
     """Return the first inter-period head changes from the raw head file."""
     head_file = HeadFile(str(model_ws / f"{model_name}.hds"))
     times = list(head_file.get_times())

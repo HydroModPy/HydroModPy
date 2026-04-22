@@ -33,22 +33,19 @@ from typing import Any, get_args, get_origin
 try:
     import streamlit as st
 except ImportError:
-    sys.exit(
-        "streamlit is required for the config UI.\n"
-        "Install it with:  pip install streamlit"
-    )
+    sys.exit("streamlit is required for the config UI.\nInstall it with:  pip install streamlit")
 
 from pydantic import BaseModel, ValidationError
 from pydantic.fields import FieldInfo
 
 from hydromodpy.core.config.generate_toml import (
-    _default_value,
-    _get_param_level,
-    _get_registry,
     _UNDEFINED,
+    _default_value,
+    _get_registry,
 )
-from hydromodpy.core.config.param_level import PROFILES, ParamLevel, VisibleWhen
-
+from hydromodpy.core.config.param_level import VisibleWhen
+from hydromodpy.core.config.profile import Profile
+from hydromodpy.core.config.pydantic_introspect import extract_profile
 
 # ── Type introspection helpers ───────────────────────────────────────────
 
@@ -160,20 +157,30 @@ def _render_scalar(
 
     # bool
     if inner is bool or inner_name == "bool":
-        values[key] = st.checkbox(label, value=bool(current or False), help=help_text, key=widget_key)
+        values[key] = st.checkbox(
+            label, value=bool(current or False), help=help_text, key=widget_key
+        )
         return
 
     # int
     if inner is int or inner_name == "int":
         values[key] = st.number_input(
-            label, value=int(current or 0), step=1, help=help_text, key=widget_key,
+            label,
+            value=int(current or 0),
+            step=1,
+            help=help_text,
+            key=widget_key,
         )
         return
 
     # float
     if inner is float or inner_name == "float":
         values[key] = st.number_input(
-            label, value=float(current or 0.0), format="%g", help=help_text, key=widget_key,
+            label,
+            value=float(current or 0.0),
+            format="%g",
+            help=help_text,
+            key=widget_key,
         )
         return
 
@@ -190,7 +197,9 @@ def _render_scalar(
     # dict
     if inner is dict or get_origin(inner) is dict or inner_name == "dict":
         raw = current if isinstance(current, dict) else {}
-        txt = st.text_area(label, value=json.dumps(raw, indent=2), help=help_text, key=widget_key, height=80)
+        txt = st.text_area(
+            label, value=json.dumps(raw, indent=2), help=help_text, key=widget_key, height=80
+        )
         try:
             values[key] = json.loads(txt)
         except Exception:
@@ -211,7 +220,7 @@ def _render_scalar(
 def render_model(
     section_name: str,
     model_cls: type[BaseModel],
-    threshold: int,
+    threshold: Profile,
     values: dict[str, Any],
 ) -> dict[str, Any]:
     """Render all visible fields of a Pydantic model."""
@@ -224,8 +233,8 @@ def render_model(
     for name, field_info in model_cls.model_fields.items():
         if getattr(field_info, "exclude", False):
             continue
-        level = _get_param_level(field_info)
-        if PROFILES.get(level, 0) > threshold:
+        level = extract_profile(field_info)
+        if level > threshold:
             continue
 
         list_cls = _resolve_list_basemodel(field_info)
@@ -266,7 +275,7 @@ def render_model(
             result[name] = render_model(sub_section, nested_cls, threshold, sub_values)
 
     # ── Array-of-tables ─────────────────────────────────────────────
-    for name, field_info, item_cls in array_fields:
+    for name, _field_info, item_cls in array_fields:
         sub_section = f"{section_name}.{name}"
         st.markdown(f"**{sub_section}**")
 
@@ -289,7 +298,7 @@ def render_model(
 
         new_items = [it for idx, it in enumerate(new_items) if idx not in to_remove]
 
-        if st.button(f"+ Ajouter", key=f"add_{sub_section}"):
+        if st.button("+ Ajouter", key=f"add_{sub_section}"):
             new_items.append({})
 
         result[name] = new_items
@@ -308,13 +317,14 @@ def validate_section(
     """Try to validate values against the model, return error messages."""
     # Strip empty strings (same as the TOML loader does)
     from hydromodpy.core.config.toml_loader import _strip_empty_strings
+
     cleaned = _strip_empty_strings(values)
     try:
         model_cls.model_validate(cleaned)
         return []
     except ValidationError as exc:
         return [
-            f"**{'.'.join(str(l) for l in err['loc'])}** — {err['msg']}"
+            f"**{'.'.join(str(part) for part in err['loc'])}** — {err['msg']}"
             for err in exc.errors()
         ]
 
@@ -377,6 +387,7 @@ def _dict_to_toml(data: dict[str, Any], prefix: str = "") -> list[str]:
 def _load_existing_toml(path: Path) -> dict[str, dict[str, Any]]:
     """Load an existing config.toml into per-module dicts."""
     from hydromodpy.core.config.toml_loader import load_toml_with_base_config
+
     raw = load_toml_with_base_config(path)
     return raw
 
@@ -387,18 +398,32 @@ def _load_existing_toml(path: Path) -> dict[str, dict[str, Any]]:
 def main() -> None:
     st.set_page_config(page_title="HydroModPy Config", layout="wide")
     st.title("HydroModPy — Configuration interactive")
-    st.caption("Interface auto-générée depuis les modèles Pydantic. Les champs marqués * sont requis.")
+    st.caption(
+        "Interface auto-générée depuis les modèles Pydantic. Les champs marqués * sont requis."
+    )
 
     registry = _get_registry()
 
     # ── Sidebar ──────────────────────────────────────────────────────
     with st.sidebar:
         st.header("Options")
-        profile = st.selectbox("Profil", list(PROFILES.keys()), index=0)
-        threshold = PROFILES[profile]
+        profile_name = st.selectbox(
+            "Profil",
+            [p.name.lower() for p in Profile],
+            index=0,
+        )
+        threshold = Profile[profile_name.upper()]
 
         all_modules = list(registry.keys())
-        default_modules = ["workspace", "geographic", "domain", "data", "flow", "transport", "modflownwt"]
+        default_modules = [
+            "workspace",
+            "geographic",
+            "domain",
+            "data",
+            "flow",
+            "transport",
+            "modflownwt",
+        ]
         selected = st.multiselect(
             "Modules",
             all_modules,
@@ -430,7 +455,7 @@ def main() -> None:
     # ── Module tabs ──────────────────────────────────────────────────
     if selected:
         tabs = st.tabs(selected)
-        for tab, module_name in zip(tabs, selected):
+        for tab, module_name in zip(tabs, selected, strict=False):
             with tab:
                 model_cls = registry[module_name]
                 existing = st.session_state.config_values.get(module_name, {})
@@ -459,7 +484,7 @@ def main() -> None:
             lines = [
                 "# " + "=" * 70,
                 "# HydroModPy Configuration",
-                f"# Profile: {profile} | Modules: {', '.join(selected)}",
+                f"# Profile: {profile_name} | Modules: {', '.join(selected)}",
                 "# " + "=" * 70,
                 "",
             ]

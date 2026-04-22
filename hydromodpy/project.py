@@ -1,4 +1,4 @@
-"""High-level Simulation API for interactive Python usage.
+"""High-level Project API for interactive Python usage.
 
 Setup-once, run-many interface that wraps the launcher's internal phases
 behind a clean API.  The TOML-driven workflow (``hmp run``) is unchanged;
@@ -10,11 +10,11 @@ Example
 
     import hydromodpy as hmp
 
-    project = hmp.Simulation("project.toml")
+    project = hmp.Project("project.toml")
 
     result = project.run(Sy=0.05, K=5e-5, name="baseline")
     wt = result.field("watertable_depth", timestep=12)
-    ts = result.timeseries("outflow_drain")
+    ts = result.timeseries("discharge", station="_catchment")
 
     project.close()
 """
@@ -24,112 +24,23 @@ from __future__ import annotations
 import logging
 import re
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING
 from uuid import uuid4
 
 import numpy as np
-import pandas as pd
+
+if TYPE_CHECKING:
+    from hydromodpy.results.run import Run
 
 logger = logging.getLogger(__name__)
 
 
 # =====================================================================
-# SimulationResult
+# Project
 # =====================================================================
 
-class SimulationResult:
-    """Read-only view on one simulation's results in the project store.
 
-    Attributes
-    ----------
-    sim_id : str
-        UUID of the simulation.
-    name : str
-        Human-readable run name.
-    """
-
-    def __init__(self, sim_id: str, name: str, store: Any) -> None:
-        self.sim_id = sim_id
-        self.name = name
-        self._store = store
-
-    def field(
-        self,
-        variable: str,
-        timestep: int,
-        layer: int | None = None,
-    ) -> np.ndarray:
-        """Load a spatial field for one timestep.
-
-        Supports stored variables (head, budget), derived variables
-        (watertable_depth, seepage_areas, accumulation_flux), and
-        virtual fields (outflow_drain).
-        """
-        return self._store.query_field(self.sim_id, variable, timestep, layer=layer)
-
-    def timeseries(
-        self,
-        variable: str,
-        station: str = "_catchment",
-        period: tuple | None = None,
-    ) -> pd.Series:
-        """Load a time series from the store.
-
-        Parameters
-        ----------
-        variable : str
-            E.g. ``"outflow_drain"``, ``"watertable_depth"``.
-        station : str
-            Defaults to ``"_catchment"`` (catchment-wide aggregate).
-        """
-        return self._store.query_timeseries(
-            self.sim_id, station, variable, period=period,
-        )
-
-    def budget(
-        self,
-        zone_id: int | None = None,
-        period: tuple | None = None,
-    ) -> pd.DataFrame:
-        """Load budget records."""
-        return self._store.query_budget(self.sim_id, zone_id=zone_id, period=period)
-
-    def export(
-        self,
-        variable: str = "*",
-        fmt: str = "csv",
-        path: str | Path | None = None,
-        **kwargs,
-    ) -> None:
-        """Export results to a file.
-
-        Parameters
-        ----------
-        variable : str
-            Variable name or ``"*"`` for all timeseries.
-        fmt : str
-            ``"csv"``, ``"netcdf"``, ``"geotiff"``, ``"vtu"``, ``"shapefile"``.
-        path : Path, optional
-            Output file path.  Defaults to ``exports/<name>/<variable>.<ext>``.
-        """
-        if path is None:
-            ext_map = {"csv": "csv", "netcdf": "nc", "vtu": "vtu",
-                       "geotiff": "tif", "shapefile": "shp"}
-            ext = ext_map.get(fmt, fmt)
-            out_dir = self._store.project_path / "exports" / self.name
-            out_dir.mkdir(parents=True, exist_ok=True)
-            path = out_dir / f"{variable}.{ext}" if variable != "*" else out_dir / f"timeseries.{ext}"
-        self._store.export(self.sim_id, variable, fmt, path, **kwargs)
-
-    def __repr__(self) -> str:
-        return f"SimulationResult({self.name!r})"
-
-
-# =====================================================================
-# Simulation
-# =====================================================================
-
-class Simulation:
+class Project:
     """Setup-once, run-many interface for HydroModPy simulations.
 
     Loads a project TOML, builds the geographic/domain/data context once,
@@ -152,7 +63,7 @@ class Simulation:
 
         import hydromodpy as hmp
 
-        project = hmp.Simulation("project.toml")
+        project = hmp.Project("project.toml")
 
         # Simple run
         r = project.run(Sy=0.05)
@@ -160,7 +71,7 @@ class Simulation:
         # Parameter sweep
         for sy in [0.001, 0.05, 0.30]:
             r = project.run(Sy=sy, name=f"sy_{sy:.4f}")
-            print(r.timeseries("outflow_drain").mean())
+            print(r.timeseries("discharge").mean())
 
         project.close()
     """
@@ -178,26 +89,25 @@ class Simulation:
             apply_explicit_time_window_to_tgrids,
             require_flow_simulation_time_grid,
         )
-        from hydromodpy.data import DataManagersPlanner
+        from hydromodpy.data import DataPlanner
         from hydromodpy.results.catalog import SimulationCatalog
         from hydromodpy.spatial.domain.spatial_support import (
             build_default_spatial_support_provider_registry,
         )
-        from hydromodpy.analysis.postprocess.runner import PostprocessRunner
         from hydromodpy.workflow.context import WorkflowContext
         from hydromodpy.workflow.pipelines.simulation import (
             prepare_simulation_runtime,
         )
+        from hydromodpy.workflow.steps.data_loading import log_data_plan
+        from hydromodpy.workflow.steps.mesh import (
+            resolve_optional_mesh_input,
+            resolve_optional_mesh_section,
+        )
         from hydromodpy.workflow.steps.setup import (
             collect_requested_support_ids,
-            support_provider_names,
             resolve_support_configs,
+            support_provider_names,
         )
-        from hydromodpy.workflow.steps.mesh import (
-            resolve_optional_mesh_section,
-            resolve_optional_mesh_input,
-        )
-        from hydromodpy.workflow.steps.data_loading import log_data_plan
 
         self._config_path = Path(config_path).resolve()
 
@@ -215,7 +125,8 @@ class Simulation:
         # Phase 3: mesh section detection
         self._mesh_section_data = resolve_optional_mesh_section(raw_toml)
         self._external_mesh_input = resolve_optional_mesh_input(
-            raw_toml, self._config_path,
+            raw_toml,
+            self._config_path,
         )
         self._mesh_constraints_mode = None
         if self._mesh_section_data is not None and self._external_mesh_input is not None:
@@ -227,22 +138,19 @@ class Simulation:
             from hydromodpy.spatial.mesh.runtime import (
                 prepare_geographic_config_for_meshing,
             )
+
             self._mesh_constraints_mode = self._mesh_section_data.constraints_mode
             self.cfg.geographic = prepare_geographic_config_for_meshing(
                 self.cfg.geographic,
                 constraints_mode=self._mesh_constraints_mode,
             )
-        elif (
-            self._external_mesh_input is not None
-            and "stream"
-            in {
-                str(bc_id).strip().lower()
-                for bc_id in getattr(self.cfg.flow, "active_bc", ())
-            }
-        ):
+        elif self._external_mesh_input is not None and "stream" in {
+            str(bc_id).strip().lower() for bc_id in getattr(self.cfg.flow, "active_bc", ())
+        }:
             from hydromodpy.spatial.mesh.runtime import (
                 prepare_geographic_config_for_meshing,
             )
+
             self.cfg.geographic = prepare_geographic_config_for_meshing(
                 self.cfg.geographic,
                 constraints_mode="rivers_only",
@@ -250,16 +158,15 @@ class Simulation:
             )
 
         # Phase 4: spatial supports
-        self._spatial_support_registry = (
-            build_default_spatial_support_provider_registry()
-        )
+        self._spatial_support_registry = build_default_spatial_support_provider_registry()
         self._requested_support_ids = collect_requested_support_ids(self.cfg.flow)
         self._requested_domain_supports = resolve_support_configs(
-            self.cfg.domain, self._requested_support_ids,
+            self.cfg.domain,
+            self._requested_support_ids,
         )
 
         # Phase 5: data plan (enriched with domain supports)
-        data_plan = DataManagersPlanner().build(
+        data_plan = DataPlanner().build(
             self.cfg.data,
             domain_zone_ids=self.cfg.domain.zone_ids,
             domain_support_provider_names=support_provider_names(
@@ -281,15 +188,15 @@ class Simulation:
         self._ctx.data_plan = data_plan
         self._ctx.setup.time_grid = self._time_grid
 
-        # Phase 7: postprocess runner
+        # Phase 7: headless overrides (postprocess is now part of the pipeline,
+        # so no separate runner is required).
         self._headless = headless
         if headless:
-            self.cfg.display.enabled = False
-            self.cfg.display.show = False
             self.cfg.display.save = False
+            self.cfg.display.show = False
             self.cfg.postprocess.enabled = False
-        self._postprocess_runner = PostprocessRunner(self.cfg.postprocess)
-        self._ctx.postprocess_runner = self._postprocess_runner
+        self._postprocess_runner = None
+        self._ctx.postprocess_runner = None
 
         prepare_simulation_runtime(
             self._ctx,
@@ -303,12 +210,11 @@ class Simulation:
 
         # Open catalog (stays open for project lifetime)
         ws = self._ctx.setup.workspace
-        workspace_root = getattr(ws, "workspace_root", None) or ws.project_root
-        self._store = SimulationCatalog(workspace_root)
+        self._store = SimulationCatalog(ws.workspace_root)
         self._project_name = ws.project_root.name
 
         self._run_counter = 0
-        logger.info("Simulation ready: %s", self._config_path.name)
+        logger.info("Project ready: %s", self._config_path.name)
 
     # -- Public properties -------------------------------------------------
 
@@ -339,7 +245,7 @@ class Simulation:
 
     # -- Run ---------------------------------------------------------------
 
-    def run(self, *, name: str | None = None, **overrides) -> SimulationResult:
+    def run(self, *, name: str | None = None, **overrides) -> Run:
         """Execute one simulation with optional parameter overrides.
 
         Without overrides, runs the TOML configuration as-is using the full
@@ -358,30 +264,25 @@ class Simulation:
 
         Returns
         -------
-        SimulationResult
+        :class:`~hydromodpy.results.run.Run`
+            Ready-to-query view exposing ``sim_id``, ``name``,
+            ``timeseries``, ``parameters``, ``budget``, ``export``, the
+            lazy catchment metrics (``saturated_fraction``,
+            ``drainage_density`` …), and ``plot``.
         """
-        from hydromodpy.process.flow import Flow
-        from hydromodpy.process.flow.structure_binders import (
-            apply_recharge_load_result_to_flow,
-        )
-        from hydromodpy.simulation.execution.runner import (
-            ProcessCallbacks,
-            SimulationRunner,
-        )
-        from hydromodpy.simulation.planning.plan import (
-            ProcessRun,
-            SimulationPlan,
-        )
-        from hydromodpy.simulation import SimulationPlanner
-        from hydromodpy.simulation.results.post_run import post_run_results
-        from hydromodpy.spatial.geographic.store_ingestion import (
-            persist_geographic_to_store,
-        )
         from hydromodpy.results.config import (
             BudgetConfig,
             DerivedConfig,
             ExportConfig,
             ResultsConfig,
+        )
+        from hydromodpy.simulation.execution.runner import (
+            ProcessCallbacks,
+            SimulationRunner,
+        )
+        from hydromodpy.simulation.extraction.post_run import post_run_results
+        from hydromodpy.spatial.geographic.store_ingestion import (
+            persist_geographic_to_store,
         )
 
         self._run_counter += 1
@@ -396,7 +297,10 @@ class Simulation:
 
         if overrides or thickness is not None or first_clim is not None:
             plan = self._run_with_overrides(
-                name, overrides, thickness=thickness, first_clim=first_clim,
+                name,
+                overrides,
+                thickness=thickness,
+                first_clim=first_clim,
             )
         else:
             plan = self._run_from_plan(name)
@@ -430,6 +334,7 @@ class Simulation:
                 reg_kwargs["bbox"] = list(bbox)
             try:
                 import hashlib as _hashlib
+
                 mesh_bytes = mesh.points_xy.tobytes() + mesh.connectivity.tobytes()
                 reg_kwargs["mesh_hash"] = _hashlib.sha256(mesh_bytes).hexdigest()
             except Exception:
@@ -450,16 +355,27 @@ class Simulation:
             if time_cfg is not None:
                 reg_kwargs["time_unit"] = getattr(time_cfg, "step_unit", None)
 
-        self._store.register_simulation(
-            sim_id, project=self._project_name, solver=solvers,
-            name=name, run_id=name,
+        registration = self._store.register_simulation(
+            sim_id,
+            project=self._project_name,
+            solver=solvers,
+            name=name,
+            on_collision=self.cfg.simulation.on_collision,
             **reg_kwargs,
         )
+        final_name = registration.name or name
+        replaced_sid = registration.replaced_sim_id
 
         # Write hydraulic parameters
         from hydromodpy.workflow.steps.store_lifecycle import _write_flow_parameters
+
         if self._ctx.setup.flow is not None:
-            _write_flow_parameters(self._store, sim_id, self._ctx.setup.flow)
+            _write_flow_parameters(
+                self._store,
+                sim_id,
+                self._ctx.setup.flow,
+                domain=self.cfg.domain,
+            )
 
         # Write mesh topology into Zarr
         if mesh is not None:
@@ -481,23 +397,25 @@ class Simulation:
         # Persist geographic rasters into this simulation's Zarr
         if self.geographic is not None:
             persist_geographic_to_store(
-                self.geographic, self._store,
+                self.geographic,
+                self._store,
                 sim_id=sim_id,
             )
 
         # Persist input forcings for reproducibility
         from hydromodpy.workflow.steps.result_ingestion import step_persist_forcings
-        _tmp_ctx = type("_Ctx", (), {
-            "store": self._store,
-            "sim_id": sim_id,
-            "loaded_data": self._ctx.loaded_data,
-            "setup": self._ctx.setup,
-        })()
-        step_persist_forcings(_tmp_ctx)
 
-        # Wire store + sim_id into postprocess runner
-        self._postprocess_runner.store = self._store
-        self._postprocess_runner.sim_id = sim_id
+        _tmp_ctx = type(
+            "_Ctx",
+            (),
+            {
+                "store": self._store,
+                "sim_id": sim_id,
+                "loaded_data": self._ctx.loaded_data,
+                "setup": self._ctx.setup,
+            },
+        )()
+        step_persist_forcings(_tmp_ctx)
 
         # Execute
         has_transport = any(r.process_type == "transport" for r in plan.runs)
@@ -521,18 +439,14 @@ class Simulation:
                 results_config=results_cfg,
                 store=self._store,
                 keep_solver_files=True,
-                run_id=name,
+                run_id=final_name,
             )
-
-        def _after_process(process_type):
-            self._postprocess_runner.after_process(process_type, self._ctx)
 
         original_domain = self._ctx.setup.domain
         try:
             SimulationRunner(
                 callbacks=ProcessCallbacks(
                     after_run=_after_run,
-                    after_process=_after_process,
                 ),
             ).execute(plan, self._ctx)
         except Exception:
@@ -544,13 +458,31 @@ class Simulation:
 
         self._store.finalize(sim_id, status="completed")
 
-        logger.info("Run '%s' completed", name)
-        return SimulationResult(sim_id=sim_id, name=name, store=self._store)
+        try:
+            from hydromodpy.simulation.extraction.extractors.observation_ingest import (
+                ingest_observations,
+            )
+
+            ingest_observations(sim_id, self._store, self._ctx.loaded_data)
+        except Exception:
+            logger.exception("Failed to ingest observations for sim %s", sim_id)
+
+        short = sim_id[:8]
+        if replaced_sid:
+            logger.info(
+                "Run '%s' stored [%s] (replaced %s)",
+                final_name,
+                short,
+                replaced_sid[:8],
+            )
+        else:
+            logger.info("Run '%s' stored [%s]", final_name, short)
+        return self._store[sim_id]
 
     def _run_with_overrides(self, name, overrides, *, thickness=None, first_clim=None):
         """Build a minimal plan with parameter overrides applied to a fresh Flow."""
-        from hydromodpy.process.flow import Flow
-        from hydromodpy.process.flow.structure_binders import (
+        from hydromodpy.physics.flow import Flow
+        from hydromodpy.physics.flow.structure_binders import (
             apply_recharge_load_result_to_flow,
         )
         from hydromodpy.simulation.planning.plan import (
@@ -562,8 +494,7 @@ class Simulation:
         for key, value in overrides.items():
             if key not in flow.parameters:
                 raise ValueError(
-                    f"Unknown parameter '{key}'. "
-                    f"Available: {', '.join(sorted(flow.parameters))}"
+                    f"Unknown parameter '{key}'. Available: {', '.join(sorted(flow.parameters))}"
                 )
             flow.parameters[key].value = value
 
@@ -616,6 +547,7 @@ class Simulation:
         from hydromodpy.spatial.geographic.store_ingestion import (
             cleanup_stable_folder,
         )
+
         cleanup_stable_folder(self.geographic)
         if self._store is not None:
             self._store.close()
@@ -628,7 +560,35 @@ class Simulation:
         self.close()
 
     def __repr__(self) -> str:
-        return f"Simulation({self._config_path.name!r})"
+        return f"Project({self._config_path.name!r})"
+
+    def _repr_html_(self) -> str:
+        project_name = self._config_path.parent.name
+        runs = getattr(self, "_run_history", []) or []
+        n_runs = len(runs)
+        last_run = runs[-1] if runs else None
+        rows: list[tuple[str, str]] = [
+            ("config", f"<code>{self._config_path.name}</code>"),
+            ("project", project_name),
+            ("solver", str(getattr(self, "_solver", "") or "&mdash;")),
+            ("headless", "yes" if getattr(self, "_headless", False) else "no"),
+            ("runs", str(n_runs)),
+            (
+                "last run",
+                f"<code>{last_run.sim_id[:8]}</code> ({last_run.name})"
+                if last_run is not None
+                else "&mdash;",
+            ),
+        ]
+        body = "".join(
+            f"<tr><th style='text-align:left;padding-right:8px'>{k}</th><td>{v}</td></tr>"
+            for k, v in rows
+        )
+        return (
+            "<div><b>Project</b>"
+            "<table style='font-size:0.85em;border-collapse:collapse'>"
+            f"{body}</table></div>"
+        )
 
     # -- Private -----------------------------------------------------------
 
@@ -641,6 +601,7 @@ class Simulation:
                     return proc.solvers[0]
         # Infer from TOML sections present in the raw file
         from hydromodpy.core.config.toml_loader import load_toml_with_base_config
+
         raw = load_toml_with_base_config(self._config_path)
         if "modflownwt" in raw:
             return "modflownwt"
@@ -677,9 +638,13 @@ class Simulation:
                 step_value="1 month",
                 coverage_policy="warn",
             ),
-            process=[SimulationProcessConfig(
-                id="flow_main", type="flow", solvers=[self._solver],
-            )],
+            process=[
+                SimulationProcessConfig(
+                    id="flow_main",
+                    type="flow",
+                    solvers=[self._solver],
+                )
+            ],
         )
 
     def _rebuild_domain(self, thickness: float):

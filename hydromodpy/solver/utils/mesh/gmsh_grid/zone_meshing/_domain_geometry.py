@@ -49,9 +49,7 @@ def iter_polygon_parts(geometry):
 def normalize_polygonal_domain_geometry(*, geometry, empty_error: str):
     """Return one cleaned polygonal geometry or raise with a caller-specific message."""
     cleaned = make_valid_geometry(geometry)
-    polygons = [
-        polygon for polygon in iter_polygon_parts(cleaned) if float(polygon.area) > 0.0
-    ]
+    polygons = [polygon for polygon in iter_polygon_parts(cleaned) if float(polygon.area) > 0.0]
     if not polygons:
         raise ValueError(empty_error)
     return unary_union(polygons)

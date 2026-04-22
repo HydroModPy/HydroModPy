@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from typing import Any, Mapping
+from collections.abc import Mapping
+from typing import Annotated, Any
 
 from pydantic import (
     BaseModel,
@@ -13,14 +14,17 @@ from pydantic import (
     model_validator,
 )
 
+from hydromodpy.core.config.base import HydroModelBase
+from hydromodpy.core.config.profile import Profile
 
-class ZoneMeshingDomainBBoxSchema(BaseModel):
+
+class ZoneMeshingDomainBBox(HydroModelBase):
     """Axis-aligned bounding box domain contract."""
 
     model_config = ConfigDict(extra="forbid")
 
-    kind: str = Field(default="bbox")
-    bbox: list[float]
+    kind: Annotated[str, Profile.USER] = Field(default="bbox")
+    bbox: Annotated[list[float], Profile.USER]
 
     @field_validator("kind")
     @classmethod
@@ -37,17 +41,17 @@ class ZoneMeshingDomainBBoxSchema(BaseModel):
         xmin, ymin, xmax, ymax = coords
         if not (xmax > xmin and ymax > ymin):
             raise ValueError("bbox domain requires xmax > xmin and ymax > ymin")
-        self.bbox = [xmin, ymin, xmax, ymax]
+        object.__setattr__(self, "bbox", [xmin, ymin, xmax, ymax])
         return self
 
 
-class ZoneMeshingDomainPolygonSchema(BaseModel):
+class ZoneMeshingDomainPolygon(HydroModelBase):
     """Inline polygon coordinates domain contract."""
 
     model_config = ConfigDict(extra="forbid")
 
-    kind: str = Field(default="polygon")
-    coordinates: list[list[float]]
+    kind: Annotated[str, Profile.USER] = Field(default="polygon")
+    coordinates: Annotated[list[list[float]], Profile.USER]
 
     @field_validator("kind")
     @classmethod
@@ -65,15 +69,15 @@ class ZoneMeshingDomainPolygonSchema(BaseModel):
         return coords
 
 
-class ZoneMeshingDomainVectorSchema(BaseModel):
+class ZoneMeshingDomainVector(HydroModelBase):
     """Vector file domain contract."""
 
     model_config = ConfigDict(extra="forbid")
 
-    kind: str = Field(default="vector")
-    path: str
-    id_field: str | None = Field(default=None)
-    selected_id: str | None = Field(default=None)
+    kind: Annotated[str, Profile.USER] = Field(default="vector")
+    path: Annotated[str, Profile.USER]
+    id_field: Annotated[str | None, Profile.USER] = Field(default=None)
+    selected_id: Annotated[str | None, Profile.USER] = Field(default=None)
 
     @field_validator("kind")
     @classmethod
@@ -103,52 +107,46 @@ class ZoneMeshingDomainVectorSchema(BaseModel):
     @model_validator(mode="after")
     def _validate_selector(self):
         if (self.selected_id is not None) and (self.id_field is None):
-            raise ValueError(
-                "domain.id_field is required when domain.selected_id is provided"
-            )
+            raise ValueError("domain.id_field is required when domain.selected_id is provided")
         return self
 
 
-class ZoneMeshingDomainGeographicBoxBufferSchema(BaseModel):
+class ZoneMeshingDomainGeographicBoxBuffer(HydroModelBase):
     """Domain resolved from ``domain_geographic.box_buff_shp``."""
 
     model_config = ConfigDict(extra="forbid")
 
-    kind: str = Field(default="geographic_box_buffer")
+    kind: Annotated[str, Profile.USER] = Field(default="geographic_box_buffer")
 
     @field_validator("kind")
     @classmethod
     def _validate_kind(cls, value):
         if str(value).strip().lower() != "geographic_box_buffer":
-            raise ValueError(
-                "geographic box-buffer domain kind must be 'geographic_box_buffer'"
-            )
+            raise ValueError("geographic box-buffer domain kind must be 'geographic_box_buffer'")
         return "geographic_box_buffer"
 
 
-class ZoneMeshingDomainGeographicWatershedSchema(BaseModel):
+class ZoneMeshingDomainGeographicWatershed(HydroModelBase):
     """Domain resolved from ``domain_geographic.watershed_shp``."""
 
     model_config = ConfigDict(extra="forbid")
 
-    kind: str = Field(default="geographic_watershed")
+    kind: Annotated[str, Profile.USER] = Field(default="geographic_watershed")
 
     @field_validator("kind")
     @classmethod
     def _validate_kind(cls, value):
         if str(value).strip().lower() != "geographic_watershed":
-            raise ValueError(
-                "geographic watershed domain kind must be 'geographic_watershed'"
-            )
+            raise ValueError("geographic watershed domain kind must be 'geographic_watershed'")
         return "geographic_watershed"
 
 
-class ZoneMeshingDomainGeographicWatershedBoxSchema(BaseModel):
+class ZoneMeshingDomainGeographicWatershedBox(HydroModelBase):
     """Domain resolved from ``domain_geographic.watershed_box_shp``."""
 
     model_config = ConfigDict(extra="forbid")
 
-    kind: str = Field(default="geographic_watershed_box")
+    kind: Annotated[str, Profile.USER] = Field(default="geographic_watershed_box")
 
     @field_validator("kind")
     @classmethod
@@ -182,12 +180,12 @@ def validate_zone_meshing_domain_model(config_data: Mapping[str, Any]) -> BaseMo
         raw["kind"] = kind
 
     schema_by_kind: dict[str, type[BaseModel]] = {
-        "bbox": ZoneMeshingDomainBBoxSchema,
-        "geographic_box_buffer": ZoneMeshingDomainGeographicBoxBufferSchema,
-        "geographic_watershed": ZoneMeshingDomainGeographicWatershedSchema,
-        "geographic_watershed_box": ZoneMeshingDomainGeographicWatershedBoxSchema,
-        "polygon": ZoneMeshingDomainPolygonSchema,
-        "vector": ZoneMeshingDomainVectorSchema,
+        "bbox": ZoneMeshingDomainBBox,
+        "geographic_box_buffer": ZoneMeshingDomainGeographicBoxBuffer,
+        "geographic_watershed": ZoneMeshingDomainGeographicWatershed,
+        "geographic_watershed_box": ZoneMeshingDomainGeographicWatershedBox,
+        "polygon": ZoneMeshingDomainPolygon,
+        "vector": ZoneMeshingDomainVector,
     }
     if kind not in schema_by_kind:
         allowed = ", ".join(sorted(schema_by_kind))

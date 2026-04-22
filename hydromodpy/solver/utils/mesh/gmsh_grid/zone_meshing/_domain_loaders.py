@@ -136,9 +136,7 @@ def _load_geographic_domain_from_attr(
 
     geometry = normalize_polygonal_domain_geometry(
         geometry=unary_union(list(gdf.geometry)),
-        empty_error=(
-            f"{label} domain produced no usable polygon after cleaning: {source_path}"
-        ),
+        empty_error=(f"{label} domain produced no usable polygon after cleaning: {source_path}"),
     )
     domain_gdf = gpd.GeoDataFrame(
         {"domain_id": [domain_id]},

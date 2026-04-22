@@ -111,8 +111,7 @@ def elapsed_seconds_for_time_keys(
         raise ValueError(f"{name} has no elapsed-time axis.")
     if np.any(keys < 0) or np.any(keys >= axis.size):
         raise ValueError(
-            f"{name} time keys must stay within the elapsed-time axis bounds "
-            f"[0, {axis.size - 1}]."
+            f"{name} time keys must stay within the elapsed-time axis bounds [0, {axis.size - 1}]."
         )
     return np.asarray(axis[keys], dtype=float)
 
@@ -140,14 +139,9 @@ def write_time_series_npy(
         rows = [np.asarray(array[index], dtype=float) for index in range(array.shape[0])]
     keys = np.asarray(time_keys, dtype=int).reshape(-1)
     if len(rows) != keys.size:
-        raise ValueError(
-            f"{path} received {len(rows)} value rows but {keys.size} time keys."
-        )
+        raise ValueError(f"{path} received {len(rows)} value rows but {keys.size} time keys.")
 
-    payload = {
-        int(time_key): rows[index]
-        for index, time_key in enumerate(keys.tolist())
-    }
+    payload = {int(time_key): rows[index] for index, time_key in enumerate(keys.tolist())}
     np.save(Path(path), payload)
 
     sidecar_path = time_axis_sidecar_path(path)

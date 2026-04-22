@@ -17,7 +17,6 @@ from validation_cases.shared import (
     rmse,
 )
 
-
 SECONDS_PER_DAY = 86400.0
 
 
@@ -151,7 +150,14 @@ def load_transient_profile_outputs(
         )
 
     dt_seconds = float(time_cfg["dt_seconds"])
-    return case_metadata, case_tolerances, observable_name, period_indices, np.asarray(heads, dtype=float), dt_seconds
+    return (
+        case_metadata,
+        case_tolerances,
+        observable_name,
+        period_indices,
+        np.asarray(heads, dtype=float),
+        dt_seconds,
+    )
 
 
 def build_transient_head_comparison(
@@ -602,8 +608,7 @@ def plot_transient_radial_drawdown_comparison(
     colorbar.set_label("Residual [m]")
 
     azimuth_abs_deviation = np.abs(
-        comparison.numerical_drawdown_by_azimuth
-        - comparison.numerical_drawdown_mean[:, :, None]
+        comparison.numerical_drawdown_by_azimuth - comparison.numerical_drawdown_mean[:, :, None]
     )
     for radius_index, (radius, color) in enumerate(
         zip(comparison.monitor_radii_m, radii_colors, strict=False)

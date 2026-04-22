@@ -24,8 +24,10 @@ class TestPiezometryCustomCSV:
 
     def test_filter_ids(self, sample_piezo_dir, project_period):
         cfg = PiezometrySourceConfig(
-            source="custom", path=sample_piezo_dir,
-            station_ids=["BSS002"], product=None,
+            source="custom",
+            path=sample_piezo_dir,
+            station_ids=["BSS002"],
+            product=None,
         )
         records = load_custom(cfg, project_period=project_period)
         assert len(records) == 1
@@ -37,9 +39,15 @@ class TestPiezometryCustomConstant:
         d = tmp_path / "const_piezo"
         d.mkdir()
 
-        pd.DataFrame({
-            "id": ["PZ1"], "x": [0], "y": [0], "crs": ["EPSG:4326"], "unit": ["m"],
-        }).to_csv(d / "piezometry_custom_LOC.csv", index=False)
+        pd.DataFrame(
+            {
+                "id": ["PZ1"],
+                "x": [0],
+                "y": [0],
+                "crs": ["EPSG:4326"],
+                "unit": ["m"],
+            }
+        ).to_csv(d / "piezometry_custom_LOC.csv", index=False)
 
         pd.DataFrame({"datetime": ["2020-01-01"], "value": [10.0]}).to_csv(
             d / "piezometry_custom_PZ1_20200101_20200331_D.csv", index=False
@@ -55,9 +63,15 @@ class TestPiezometryCustomConstant:
         d = tmp_path / "piezo_cm"
         d.mkdir()
 
-        pd.DataFrame({
-            "id": ["PZ_CM"], "x": [0], "y": [0], "crs": ["EPSG:4326"], "unit": ["cm"],
-        }).to_csv(d / "piezometry_custom_LOC.csv", index=False)
+        pd.DataFrame(
+            {
+                "id": ["PZ_CM"],
+                "x": [0],
+                "y": [0],
+                "crs": ["EPSG:4326"],
+                "unit": ["cm"],
+            }
+        ).to_csv(d / "piezometry_custom_LOC.csv", index=False)
 
         pd.DataFrame({"datetime": ["2020-01-01"], "value": [250.0]}).to_csv(
             d / "piezometry_custom_PZ_CM_20200101_20200331_D.csv", index=False

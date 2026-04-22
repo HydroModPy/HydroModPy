@@ -5,7 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 from types import SimpleNamespace
 
-from hydromodpy.process.flow import Flow
+from hydromodpy.physics.flow import Flow
 from hydromodpy.simulation.adapters.flow.boussinesq import BoussinesqFlowAdapter
 from hydromodpy.simulation.planning.plan import (
     ProcessRun,
@@ -23,7 +23,6 @@ from validation_cases.shared.runtime import (
     ValidationRunResult,
     resolve_validation_results_dir,
 )
-
 
 CASE_DIR = Path(__file__).resolve().parent
 CASE_ID = "dupuit_circular_island_ocean_2d"
@@ -99,7 +98,7 @@ def run_boussinesq_dupuit_circular_island_ocean_case(
                             "recharge": {
                                 "values": recharge_rate_m_s,
                                 "first_clim": "mean",
-                    "units": "m/s",
+                                "units": "m/s",
                             },
                             "wells": wells_payload,
                         },
@@ -114,7 +113,9 @@ def run_boussinesq_dupuit_circular_island_ocean_case(
             ),
             domain=None,
             time_grid=None,
-            workspace=SimpleNamespace(simulations_folder=simulations_folder, solver_scratch_folder=simulations_folder),
+            workspace=SimpleNamespace(
+                simulations_folder=simulations_folder, solver_scratch_folder=simulations_folder
+            ),
         ),
     )
     run = ProcessRun(

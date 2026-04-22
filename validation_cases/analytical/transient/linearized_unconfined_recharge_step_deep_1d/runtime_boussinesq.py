@@ -10,7 +10,6 @@ from validation_cases.analytical.transient.runtime_boussinesq_1d import (
 )
 from validation_cases.shared import load_case_metadata
 
-
 CASE_DIR = Path(__file__).resolve().parent
 CASE_ID = "lu_recharge_step_deep_1d"
 NX = 40
@@ -31,9 +30,7 @@ def run_boussinesq_linearized_unconfined_recharge_step_deep_case(
     time_cfg = dict(metadata.get("time", {}))
 
     base_head_m = float(reference_cfg["base_head_m"])
-    reference_saturated_thickness_m = float(
-        reference_cfg["reference_saturated_thickness_m"]
-    )
+    reference_saturated_thickness_m = float(reference_cfg["reference_saturated_thickness_m"])
     recharge_rate_m_s = mm_day_to_m_s(float(reference_cfg["recharge_mm_day"]))
     nper = int(output_cfg["expected_periods"])
     dt_seconds = float(time_cfg["dt_seconds"])

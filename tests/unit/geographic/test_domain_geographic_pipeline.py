@@ -9,14 +9,14 @@ import pytest
 import rasterio
 from rasterio.transform import from_origin
 
-from hydromodpy.spatial.geographic import GeographicConfig
-from hydromodpy.spatial.geographic.core.domain_geographic_pipeline import (
-    build_geographic_derived_features,
-    build_domain_geographic_context,
-)
-from hydromodpy.spatial.geographic.core.river_network import RiverNetworkProducts
 from hydromodpy.core.workspace import Workspace
 from hydromodpy.core.workspace.config import WorkspaceConfig
+from hydromodpy.spatial.geographic import GeographicConfig
+from hydromodpy.spatial.geographic.core.domain_geographic_pipeline import (
+    build_domain_geographic_context,
+    build_geographic_derived_features,
+)
+from hydromodpy.spatial.geographic.core.river_network import RiverNetworkProducts
 
 
 def _write_dem(path: Path) -> None:
@@ -49,6 +49,7 @@ def test_build_domain_geographic_context_from_dem(tmp_path: Path):
     workspace = Workspace(
         WorkspaceConfig(
             project_root=tmp_path / "results",
+            root=tmp_path,
         )
     )
     config = GeographicConfig(
@@ -96,6 +97,7 @@ def test_build_geographic_derived_features_from_dem(tmp_path: Path):
     workspace = Workspace(
         WorkspaceConfig(
             project_root=tmp_path / "results",
+            root=tmp_path,
         )
     )
     config = GeographicConfig(
@@ -124,6 +126,7 @@ def test_build_domain_geographic_context_from_synthetic_mode(tmp_path: Path):
     workspace = Workspace(
         WorkspaceConfig(
             project_root=tmp_path / "results",
+            root=tmp_path,
         )
     )
     config = GeographicConfig(
@@ -183,18 +186,82 @@ def test_build_domain_geographic_context_retries_with_fill_after_empty_breach_wa
         crs_project="EPSG:2154",
         dem_res=50.0,
         paths=SimpleNamespace(
-            correcflow_path=str(tmp_path / "results" / ".solver_scratch/_preprocessing" / "demcorrecflow"),
-            watershed_shp=str(tmp_path / "results" / ".solver_scratch/_preprocessing" / "geographic" / "watershed.shp"),
-            watershed_box_shp=str(tmp_path / "results" / ".solver_scratch/_preprocessing" / "geographic" / "watershed_box.shp"),
-            box_buff=str(tmp_path / "results" / ".solver_scratch/_preprocessing" / "geographic" / "watershed_box_buff.shp"),
-            watershed_box_buff_dem=str(tmp_path / "results" / ".solver_scratch/_preprocessing" / "geographic" / "watershed_box_buff_dem.tif"),
-            geographic_path=str(tmp_path / "results" / ".solver_scratch/_preprocessing" / "geographic"),
-            river_streams_tif=str(tmp_path / "results" / ".solver_scratch/_preprocessing" / "geographic" / "river_streams.tif"),
-            river_streams_pruned_tif=str(tmp_path / "results" / ".solver_scratch/_preprocessing" / "geographic" / "river_streams_pruned.tif"),
-            river_stream_order_strahler_tif=str(tmp_path / "results" / ".solver_scratch/_preprocessing" / "geographic" / "river_stream_order_strahler.tif"),
-            river_stream_link_id_tif=str(tmp_path / "results" / ".solver_scratch/_preprocessing" / "geographic" / "river_stream_link_id.tif"),
-            river_network_shp=str(tmp_path / "results" / ".solver_scratch/_preprocessing" / "geographic" / "river_network.shp"),
-            river_network_summary_json=str(tmp_path / "results" / ".solver_scratch/_preprocessing" / "geographic" / "river_network_summary.json"),
+            correcflow_path=str(
+                tmp_path / "results" / ".solver_scratch/_preprocessing" / "demcorrecflow"
+            ),
+            watershed_shp=str(
+                tmp_path
+                / "results"
+                / ".solver_scratch/_preprocessing"
+                / "geographic"
+                / "watershed.shp"
+            ),
+            watershed_box_shp=str(
+                tmp_path
+                / "results"
+                / ".solver_scratch/_preprocessing"
+                / "geographic"
+                / "watershed_box.shp"
+            ),
+            box_buff=str(
+                tmp_path
+                / "results"
+                / ".solver_scratch/_preprocessing"
+                / "geographic"
+                / "watershed_box_buff.shp"
+            ),
+            watershed_box_buff_dem=str(
+                tmp_path
+                / "results"
+                / ".solver_scratch/_preprocessing"
+                / "geographic"
+                / "watershed_box_buff_dem.tif"
+            ),
+            geographic_path=str(
+                tmp_path / "results" / ".solver_scratch/_preprocessing" / "geographic"
+            ),
+            river_streams_tif=str(
+                tmp_path
+                / "results"
+                / ".solver_scratch/_preprocessing"
+                / "geographic"
+                / "river_streams.tif"
+            ),
+            river_streams_pruned_tif=str(
+                tmp_path
+                / "results"
+                / ".solver_scratch/_preprocessing"
+                / "geographic"
+                / "river_streams_pruned.tif"
+            ),
+            river_stream_order_strahler_tif=str(
+                tmp_path
+                / "results"
+                / ".solver_scratch/_preprocessing"
+                / "geographic"
+                / "river_stream_order_strahler.tif"
+            ),
+            river_stream_link_id_tif=str(
+                tmp_path
+                / "results"
+                / ".solver_scratch/_preprocessing"
+                / "geographic"
+                / "river_stream_link_id.tif"
+            ),
+            river_network_shp=str(
+                tmp_path
+                / "results"
+                / ".solver_scratch/_preprocessing"
+                / "geographic"
+                / "river_network.shp"
+            ),
+            river_network_summary_json=str(
+                tmp_path
+                / "results"
+                / ".solver_scratch/_preprocessing"
+                / "geographic"
+                / "river_network_summary.json"
+            ),
         ),
     )
     flow_calls: list[str] = []

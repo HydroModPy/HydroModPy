@@ -183,9 +183,7 @@ def _build_policy_result(
         curve_tags=active_tags,
     )
     filtered_candidates = tuple(
-        candidate
-        for candidate in candidates
-        if int(candidate.curve_tag) not in active_tags
+        candidate for candidate in candidates if int(candidate.curve_tag) not in active_tags
     )
     return RefinementPolicyResult(
         candidates=tuple(candidates),

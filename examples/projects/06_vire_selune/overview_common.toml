@@ -1,0 +1,58 @@
+workflow = "overview"
+
+[workspace]
+project_root = "."
+
+[geographic]
+source_mode = "standard"
+catch_def = "from_outlet_coord"
+dem_init_path = "../../data/dem/DEM_armorican_massif.tif"
+snap_dist = "150 m"
+buff_area = "10%"
+crs_project = "EPSG:2154"
+dem_correc_type = "breach"
+
+[domain]
+zone_ids = ["geology"]
+
+[domain.depth_model]
+type = "constant_thickness"
+thickness = "50.0 m"
+
+[data]
+types = ["geology", "hydrography", "hydrometry", "recharge"]
+
+[data.geology]
+id = "field_geology"
+cell_samples_per_axis = 8
+
+[[data.geology.sources]]
+source = "brgm_1m"
+
+[[data.hydrography.sources]]
+source = "bdtopage"
+
+[data.hydrometry]
+date_start = "2020-01-01"
+date_end = "2020-12-31"
+
+[[data.hydrometry.sources]]
+source = "hubeau"
+product = "QmnJ"
+extent = "watershed"
+require_observations = true
+fallback_search_radius_km = 20.0
+
+[data.recharge]
+date_start = "2020-01-01"
+date_end = "2020-12-31"
+
+[[data.recharge.sources]]
+source = "sim2"
+extent = "watershed"
+
+[overview]
+map_hydrography = true
+map_geology = true
+station_inventory = true
+catchment_summary = true

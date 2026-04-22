@@ -19,7 +19,9 @@ from validation_cases.calibration.twin.transient.linearized_unconfined_recharge_
 @pytest.mark.validation
 @pytest.mark.transient
 @pytest.mark.mf6
-def test_calibration_twin_linearized_recharge_step_flux_only_noisy_modflow6_benchmark_stays_informative() -> None:
+def test_calibration_twin_linearized_recharge_step_flux_only_noisy_modflow6_benchmark_stays_informative() -> (
+    None
+):
     """Run the weakly identified flux-only transient twin and verify all methods remain informative."""
     assert_required_executables(
         require_modflow=False,
@@ -45,9 +47,7 @@ def test_calibration_twin_linearized_recharge_step_flux_only_noisy_modflow6_benc
         if result.method_name in {"random_search", "gp_mapping", "da_mh_gp"}
     ]
     point_results = [
-        result
-        for result in benchmark.method_results
-        if result.method_name in {"cma_es", "simplex"}
+        result for result in benchmark.method_results if result.method_name in {"cma_es", "simplex"}
     ]
 
     for result in benchmark.method_results:
@@ -73,7 +73,13 @@ def test_calibration_twin_linearized_recharge_step_flux_only_noisy_modflow6_benc
         ratios = [
             float(value) / float(tolerance)
             for name, value in result.param_abs_error.items()
-            if (tolerance := TRANSIENT_RECHARGE_STEP_FLUX_ONLY_NOISY_TWIN_CASE.parameter_abs_tolerances.get(name)) is not None
+            if (
+                tolerance
+                := TRANSIENT_RECHARGE_STEP_FLUX_ONLY_NOISY_TWIN_CASE.parameter_abs_tolerances.get(
+                    name
+                )
+            )
+            is not None
         ]
         assert ratios
         assert all(math.isfinite(ratio) for ratio in ratios), result.to_mapping()

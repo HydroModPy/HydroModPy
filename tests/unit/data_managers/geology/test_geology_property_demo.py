@@ -3,14 +3,13 @@
 from __future__ import annotations
 
 import json
-from pathlib import Path
 import textwrap
+from pathlib import Path
 
 import numpy as np
 
 from hydromodpy.data.variables.geology.cases import run_geology_property_case as demo
 from hydromodpy.spatial.field.geology.geology_mesh import GeologyStructuredMesh
-
 
 GOLDEN_DIR = Path(__file__).resolve().parent / "golden"
 GOLDEN_FILE = GOLDEN_DIR / "geology_property_demo_brittany_signature.json"
@@ -131,7 +130,9 @@ def _compute_brittany_signature(tmp_path: Path) -> dict:
         identifier=str(loaded["field_id"]),
         target_n_cells=int(args.target_n_cells),
     )
-    mesh = GeologyStructuredMesh.from_bounds(gdf.total_bounds, target_n_cells=int(args.target_n_cells))
+    mesh = GeologyStructuredMesh.from_bounds(
+        gdf.total_bounds, target_n_cells=int(args.target_n_cells)
+    )
     discretized = geology_field.on_mesh(
         mesh,
         cell_samples_per_axis=max(2, int(args.cell_samples_per_axis)),
@@ -184,4 +185,3 @@ def test_geology_property_demo_brittany_non_regression(tmp_path: Path, update_go
 
     expected = _load_json(GOLDEN_FILE)
     assert signature == expected
-

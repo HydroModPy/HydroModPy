@@ -7,7 +7,6 @@ from pathlib import Path
 
 from hydromodpy.data.common.custom_point_loader import load_custom_multiformat
 
-
 VARIABLE_NAME = "radiation"
 
 
@@ -22,8 +21,10 @@ def load_custom(
         variable_name=VARIABLE_NAME,
         internal_unit=internal_unit,
         project_period=project_period,
-        col_id=config.col_id, col_x=config.col_x,
-        col_y=config.col_y, col_crs=config.col_crs,
+        col_id=config.col_id,
+        col_x=config.col_x,
+        col_y=config.col_y,
+        col_crs=config.col_crs,
         default_crs=config.default_crs,
         col_datetime=config.col_datetime,
         col_value=config.col_value,

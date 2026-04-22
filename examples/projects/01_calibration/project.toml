@@ -1,0 +1,140 @@
+# ======================================================================
+# HydroModPy — exemple 01 : calibration
+# ======================================================================
+# Aquifère Dupuit synthétique (identique à 00_getting_started) + boucle
+# de calibration Optuna sur la conductivité hydraulique K.
+#
+# Lancement :
+#   hmp run examples/projects/01_calibration/project.toml
+#
+# ou, équivalent, via la CLI dédiée avec un évaluateur Python :
+#   hmp calibrate examples/projects/01_calibration/project.toml \
+#       --objective examples.projects.01_calibration.evaluator:evaluate
+#
+# NOTE : sans --objective, un mock analytique trivial est utilisé ;
+# chaque itération renvoie sim_id=None et aucune simulation réelle n'est
+# enregistrée dans le catalogue. Pour une vraie calibration, fournir un
+# evaluator.py qui charge ce TOML et relance Project.run() à chaque
+# itération.
+# ======================================================================
+
+workflow = "calibration"
+
+[simulation]
+name = "calibration_dupuit"
+description = "Calibration Optuna de K sur aquifère Dupuit synthétique."
+
+[[simulation.process]]
+id = "flow"
+type = "flow"
+solvers = ["modflownwt"]
+
+# --- Domaine géographique (synthétique, hors-ligne) ------------------
+
+[geographic]
+source_mode = "synthetic"
+
+[geographic.synthetic]
+case_id = "calibration_dupuit"
+
+[geographic.synthetic.grid]
+length_x = "400.0 m"
+length_y = "50.0 m"
+nx = 40
+ny = 5
+
+[geographic.synthetic.topography]
+kind = "flat"
+base_elevation = 20.0
+
+# --- Géométrie verticale --------------------------------------------
+
+[domain]
+
+[domain.depth_model]
+type = "constant_thickness"
+thickness = "20.0 m"
+
+# --- Processus d'écoulement -----------------------------------------
+
+[flow]
+flow_regime = "steady"
+active_sinks_sources = ["recharge"]
+active_bc = ["west_side", "east_side"]
+param_list = ["K"]
+
+[flow.param.K.field]
+id = "K"
+kind = "homogeneous"
+
+[flow.param.K.field_homogeneous]
+value = "1e-4 m/s"
+
+[flow.ic]
+type = "custom"
+value = "5.0 m"
+
+[flow.bc.dirichlet.west_side]
+type = "dirichlet"
+value = "5.0 m"
+
+[flow.bc.dirichlet.east_side]
+type = "dirichlet"
+value = "5.0 m"
+
+[flow.sinks_sources.recharge]
+first_clim = "mean"
+
+# --- Données (recharge synthétique, hors-ligne) ---------------------
+
+[data]
+types = ["recharge"]
+inference_mode = "warn"
+
+[[data.recharge.sources]]
+source = "synthetic"
+values = [3.0]
+runoff_ratio = 0.0
+
+# --- Solveur (MODFLOW-NWT) ------------------------------------------
+
+[modflownwt.sgrid.planar]
+mode = "resample_to_shape"
+nx = 40
+ny = 5
+resampling = "nearest"
+
+[modflownwt.sgrid.vertical]
+nlay = 1
+
+# --- Affichage (headless par défaut) --------------------------------
+
+[display]
+enabled = false
+
+# --- Calibration ----------------------------------------------------
+# La présence de [calibration] déclenche le workflow "calibration" via
+# detect_workflow() ; [simulation] plus haut fournit le plan rejoué
+# par l'évaluateur à chaque itération.
+#
+# Chaque paramètre déclare :
+#   bounds     : [low, high] dans l'espace physique
+#   transform  : 'log' pour quantités positives multi-ordres de magnitude
+#   path       : chemin pointé dans HydroModPyConfig où la valeur est
+#                injectée avant chaque run
+#   units      : label (optionnel, purement informatif)
+
+[calibration]
+method = "optuna"
+max_iter = 20
+save_runs = "best_n"
+save_best_n = 3
+seed = 42
+objective = "nse"
+variable = "head"
+
+[calibration.parameters.K_aquifer]
+bounds = [1e-6, 1e-3]
+transform = "log"
+path = "flow.param.K.field_homogeneous.value"
+units = "m/s"

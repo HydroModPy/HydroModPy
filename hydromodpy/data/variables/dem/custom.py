@@ -49,8 +49,7 @@ def load_custom_dem(
         return _load_netcdf(path, bbox=bbox)
     else:
         raise ValueError(
-            f"Unsupported custom DEM format: '{ext}'. "
-            "Supported: .tif, .tiff, .asc, .nc"
+            f"Unsupported custom DEM format: '{ext}'. Supported: .tif, .tiff, .asc, .nc"
         )
 
 
@@ -60,9 +59,7 @@ def _find_dem_file_in_dir(directory: Path) -> Path:
         candidates = list(directory.glob(f"*{ext}"))
         if candidates:
             return candidates[0]
-    raise FileNotFoundError(
-        f"No DEM file (TIF, ASC, NC) found in {directory}"
-    )
+    raise FileNotFoundError(f"No DEM file (TIF, ASC, NC) found in {directory}")
 
 
 def _load_raster(
@@ -78,11 +75,16 @@ def _load_raster(
         crs = str(src.crs) if src.crs else "EPSG:2154"
         actual_bbox = (bounds.left, bounds.bottom, bounds.right, bounds.top)
 
-    return [FieldRecord(
-        variable="dem", source="custom",
-        unit="m", data=path,
-        bbox=actual_bbox, crs=crs,
-    )]
+    return [
+        FieldRecord(
+            variable="dem",
+            source="custom",
+            unit="m",
+            data=path,
+            bbox=actual_bbox,
+            crs=crs,
+        )
+    ]
 
 
 def _load_asc(
@@ -111,11 +113,16 @@ def _load_asc(
         else:
             data = path
 
-    return [FieldRecord(
-        variable="dem", source="custom",
-        unit="m", data=data,
-        bbox=actual_bbox, crs=crs,
-    )]
+    return [
+        FieldRecord(
+            variable="dem",
+            source="custom",
+            unit="m",
+            data=data,
+            bbox=actual_bbox,
+            crs=crs,
+        )
+    ]
 
 
 def _load_netcdf(
@@ -138,8 +145,7 @@ def _load_netcdf(
         elev_var = list(ds.data_vars)[0]
     if elev_var is None:
         raise ValueError(
-            f"Cannot identify elevation variable in {path}. "
-            f"Available: {list(ds.data_vars)}"
+            f"Cannot identify elevation variable in {path}. Available: {list(ds.data_vars)}"
         )
 
     # Resolve spatial bounds.
@@ -158,16 +164,23 @@ def _load_netcdf(
         x_vals = ds.coords[x_name].values
         y_vals = ds.coords[y_name].values
         actual_bbox = (
-            float(x_vals.min()), float(y_vals.min()),
-            float(x_vals.max()), float(y_vals.max()),
+            float(x_vals.min()),
+            float(y_vals.min()),
+            float(x_vals.max()),
+            float(y_vals.max()),
         )
     else:
         actual_bbox = bbox or (0, 0, 0, 0)
 
     crs = str(ds.attrs.get("crs", ds.attrs.get("proj4", "EPSG:2154")))
 
-    return [FieldRecord(
-        variable="dem", source="custom",
-        unit="m", data=path,
-        bbox=actual_bbox, crs=crs,
-    )]
+    return [
+        FieldRecord(
+            variable="dem",
+            source="custom",
+            unit="m",
+            data=path,
+            bbox=actual_bbox,
+            crs=crs,
+        )
+    ]

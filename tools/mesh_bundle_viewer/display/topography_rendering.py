@@ -1,10 +1,11 @@
-﻿"""Topography-panel rendering for the standalone mesh visualization package."""
+"""Topography-panel rendering for the standalone mesh visualization package."""
 
 from __future__ import annotations
 
 from collections.abc import Mapping
 
 from ..bundle_contracts import MeshBundleLike
+from ..schema import PlotConfig
 from .geometry import (
     build_triangulation_inputs,
     format_axes,
@@ -12,7 +13,6 @@ from .geometry import (
 )
 from .overlay_rendering import plot_overlays
 from .rendering_common import plot_cell_annotations
-from ..schema import PlotConfig
 
 
 def plot_continuous_topography_panel(
@@ -36,8 +36,7 @@ def plot_continuous_topography_panel(
 
     z_values, valid_mask = get_node_topography_values(mesh)
     triangle_mask = [
-        not bool(valid_mask[i0] and valid_mask[i1] and valid_mask[i2])
-        for i0, i1, i2 in triangles
+        not bool(valid_mask[i0] and valid_mask[i1] and valid_mask[i2]) for i0, i1, i2 in triangles
     ]
     if all(triangle_mask):
         return False
@@ -78,4 +77,3 @@ def plot_continuous_topography_panel(
 __all__ = [
     "plot_continuous_topography_panel",
 ]
-

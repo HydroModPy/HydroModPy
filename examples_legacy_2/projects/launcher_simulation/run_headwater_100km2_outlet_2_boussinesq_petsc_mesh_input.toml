@@ -1,0 +1,14 @@
+# PETSc mixed-complementarity replay of the historical headwater 100 km2 outlet-2 real case.
+
+base_config = "run_headwater_100km2_outlet_2_boussinesq_mesh_input.toml"
+
+workflow = "simulation"
+
+[simulation]
+name = "Headwater 100 km2 outlet 2 boussinesq PETSc mixed reused mesh"
+run_id = "headwater_100km2_outlet_2_boussinesq_petsc_mixed_reused_mesh"
+
+[flow]
+runtime_backend = "petsc"
+surface_interaction_model = "complementarity"
+runtime_max_iterations = 200

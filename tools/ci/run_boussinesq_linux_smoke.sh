@@ -1,8 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-export HYDROMODPY_NO_DISPLAY="${HYDROMODPY_NO_DISPLAY:-1}"
-export HYDROMODPY_NO_SAVE="${HYDROMODPY_NO_SAVE:-1}"
 export MPLBACKEND="${MPLBACKEND:-Agg}"
 
 python -m pytest \

@@ -217,9 +217,7 @@ def build_brutsaert_recession_comparison(
     case_metadata = load_case_metadata(case_dir) if metadata is None else metadata
     solver_name = str(getattr(result, "solver_name", "")).strip().lower() or None
     case_tolerances = (
-        load_case_tolerances(case_dir, solver=solver_name)
-        if tolerances is None
-        else tolerances
+        load_case_tolerances(case_dir, solver=solver_name) if tolerances is None else tolerances
     )
 
     output_cfg = dict(case_metadata.get("output", {}))
@@ -289,14 +287,10 @@ def build_brutsaert_recession_comparison(
     analytical_discharge_all = simulate_baseflow(
         elapsed_seconds=elapsed_seconds_all,
         initial_discharge_m3_s=initial_discharge_m3_s,
-        hydraulic_conductivity_m_per_s=float(
-            reference_cfg["hydraulic_conductivity_m_per_s"]
-        ),
+        hydraulic_conductivity_m_per_s=float(reference_cfg["hydraulic_conductivity_m_per_s"]),
         specific_yield=float(reference_cfg["specific_yield"]),
         solution=solution_name,
-        aquifer_thickness_m=(
-            None if aquifer_thickness_m is None else float(aquifer_thickness_m)
-        ),
+        aquifer_thickness_m=(None if aquifer_thickness_m is None else float(aquifer_thickness_m)),
         area_m2=float(reference_cfg["watershed_area_m2"]),
         channel_length_m=float(reference_cfg["channel_length_m"]),
         active_drainage_fraction=float(reference_cfg.get("active_drainage_fraction", 0.7)),
@@ -317,8 +311,7 @@ def build_brutsaert_recession_comparison(
         heads = heads[warmup_periods:]
         if heads.shape[0] != period_indices_all.shape[0]:
             raise ValueError(
-                f"Head observable '{head_observable_name}' does not align with "
-                f"'{observable_name}'."
+                f"Head observable '{head_observable_name}' does not align with '{observable_name}'."
             )
         row_spread = max_std_along_axis(heads[compare_mask], axis=1)
 
@@ -363,14 +356,10 @@ def build_brutsaert_recession_comparison(
 
     characteristic_time_seconds = compute_characteristic_time(
         initial_discharge_m3_s=initial_discharge_m3_s,
-        hydraulic_conductivity_m_per_s=float(
-            reference_cfg["hydraulic_conductivity_m_per_s"]
-        ),
+        hydraulic_conductivity_m_per_s=float(reference_cfg["hydraulic_conductivity_m_per_s"]),
         specific_yield=float(reference_cfg["specific_yield"]),
         solution=solution_name,
-        aquifer_thickness_m=(
-            None if aquifer_thickness_m is None else float(aquifer_thickness_m)
-        ),
+        aquifer_thickness_m=(None if aquifer_thickness_m is None else float(aquifer_thickness_m)),
         area_m2=float(reference_cfg["watershed_area_m2"]),
         channel_length_m=float(reference_cfg["channel_length_m"]),
         active_drainage_fraction=float(reference_cfg.get("active_drainage_fraction", 0.7)),

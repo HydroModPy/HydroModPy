@@ -19,13 +19,9 @@ import logging
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from pathlib import Path
-import sys
-
-from hydromodpy.core.workspace.path_registry import LEGACY_STABLE_DIR
 from typing import Any
 
-logger = logging.getLogger(__name__)
-
+from hydromodpy.core.workspace.path_registry import LEGACY_STABLE_DIR
 from hydromodpy.spatial.mesh.batch_io import (
     MeshCatchmentOutletRecord,
     load_mesh_catchment_outlet_records,
@@ -38,10 +34,12 @@ from hydromodpy.spatial.mesh.batch_reporting import (
     write_mesh_catchment_batch_manifest,
 )
 from hydromodpy.spatial.mesh.config import (
-    MeshCatchmentConfigSchema,
+    MeshCatchmentConfig,
     parse_mesh_catchment_batch_config_data,
 )
 from hydromodpy.spatial.mesh.runtime_single_run import clone_config_like
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
@@ -139,7 +137,7 @@ class MeshCatchmentBatchRunner:
     """Orchestrate the multi-outlet mesh workflow for one launcher session."""
 
     config_path: Path
-    mesh_section_data: MeshCatchmentConfigSchema
+    mesh_section_data: MeshCatchmentConfig
     workspace_cfg: object
     geographic_cfg: object
     domain_cfg: object | None
@@ -201,9 +199,7 @@ class MeshCatchmentBatchRunner:
             return
         reference_raster_path = Path(reference_raster_raw).expanduser()
         if not reference_raster_path.is_absolute():
-            reference_raster_path = (
-                self.config_path.parent / reference_raster_path
-            ).resolve()
+            reference_raster_path = (self.config_path.parent / reference_raster_path).resolve()
         validate_outlets_within_raster(
             records=records,
             raster_path=reference_raster_path,
@@ -298,9 +294,7 @@ class MeshCatchmentBatchRunner:
             if output_layout == "flat"
             else _workspace_stable_folder(workspace_cfg) / "mesh"
         )
-        catch_name_safe = sanitize_batch_path_token(
-            _workspace_catch_name(workspace_cfg)
-        )
+        catch_name_safe = sanitize_batch_path_token(_workspace_catch_name(workspace_cfg))
         tokens = {
             "catch_name": catch_name_safe,
             "outlet_id": record.outlet_id_safe,
@@ -319,9 +313,7 @@ class MeshCatchmentBatchRunner:
             "output_mesh": _format_relative(batch_cfg.outputs.mesh_filename),
             "output_summary_json": _format_relative(batch_cfg.outputs.summary_filename),
             "output_figure": _format_relative(batch_cfg.outputs.figure_filename),
-            "output_figure_regional": _format_relative(
-                batch_cfg.outputs.figure_regional_filename
-            ),
+            "output_figure_regional": _format_relative(batch_cfg.outputs.figure_regional_filename),
         }
 
     def _build_child_runtime(
@@ -374,11 +366,9 @@ class MeshCatchmentBatchRunner:
         record: MeshCatchmentOutletRecord,
     ) -> _BatchChildRunOutcome:
         """Execute one child mono-catchment run and normalize its batch outcome."""
-        catch_name, workspace_cfg, geographic_cfg, output_overrides = (
-            self._build_child_runtime(
-                batch_cfg=batch_cfg,
-                record=record,
-            )
+        catch_name, workspace_cfg, geographic_cfg, output_overrides = self._build_child_runtime(
+            batch_cfg=batch_cfg,
+            record=record,
         )
 
         try:
@@ -462,9 +452,7 @@ class MeshCatchmentBatchRunner:
             x_outlet=record.x_outlet,
             y_outlet=record.y_outlet,
             output_mesh=_optional_text(summary_payload.get("output_mesh")) or "",
-            output_summary_json=(
-                _optional_text(summary_payload.get("output_summary_json")) or ""
-            ),
+            output_summary_json=(_optional_text(summary_payload.get("output_summary_json")) or ""),
             output_figure=_optional_text(summary_payload.get("output_figure")) or "",
             output_figure_regional=(
                 _optional_text(summary_payload.get("output_figure_regional")) or ""

@@ -10,13 +10,13 @@ import logging
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from hydromodpy.spatial.geographic.structure_binders import apply_geology_to_domain
-from hydromodpy.process.flow.structure_binders import (
+from hydromodpy.core.time import resolve_simulation_time_window
+from hydromodpy.physics.flow.structure_binders import (
     apply_oceanic_to_flow,
     apply_recharge_load_result_to_flow,
 )
 from hydromodpy.simulation import ensure_flow
-from hydromodpy.core.time import resolve_simulation_time_window
+from hydromodpy.spatial.geographic.structure_binders import apply_geology_to_domain
 
 if TYPE_CHECKING:
     from hydromodpy.core.state.run_state import WorkflowContext
@@ -29,11 +29,12 @@ logger = logging.getLogger(__name__)
 # Lazy-import helpers (kept at module level for patchability in tests)
 # ---------------------------------------------------------------------------
 
+
 def _build_data_plan(*args, **kwargs):
     """Import planner lazily to keep launcher imports lightweight in tests."""
-    from hydromodpy.data import DataManagersPlanner
+    from hydromodpy.data import DataPlanner
 
-    return DataManagersPlanner().build(*args, **kwargs)
+    return DataPlanner().build(*args, **kwargs)
 
 
 def _build_data_runtime_loader(*args, **kwargs):
@@ -47,19 +48,20 @@ def _build_data_runtime_loader(*args, **kwargs):
 # Data plan logging
 # ---------------------------------------------------------------------------
 
+
 def log_data_plan(data_plan: DataLoadPlan) -> None:
     """Log concise planner diagnostics when inferred types are present."""
     if not data_plan.inferred_types:
         return
     logger.info(
-        "[DataManagersPlanner] inferred data types: %s",
+        "[DataPlanner] inferred data types: %s",
         ", ".join(data_plan.inferred_types),
     )
     for type_name in data_plan.inferred_types:
         reasons = data_plan.reasons_for(type_name)
         if reasons:
             logger.info(
-                "[DataManagersPlanner] %s: %s",
+                "[DataPlanner] %s: %s",
                 type_name,
                 "; ".join(reasons),
             )
@@ -68,6 +70,7 @@ def log_data_plan(data_plan: DataLoadPlan) -> None:
 # ---------------------------------------------------------------------------
 # Data loading
 # ---------------------------------------------------------------------------
+
 
 def run_data(
     config_path: str | Path,
@@ -91,6 +94,7 @@ def run_data(
 # ---------------------------------------------------------------------------
 # Structural updates from loaded data
 # ---------------------------------------------------------------------------
+
 
 def apply_structural_updates_from_data(
     run_state: WorkflowContext,
@@ -118,6 +122,7 @@ def apply_structural_updates_from_data(
 # ---------------------------------------------------------------------------
 # Step entry point (unified signature for workflow pipelines)
 # ---------------------------------------------------------------------------
+
 
 def step_data_loading(ctx: WorkflowContext) -> None:
     """Load forcings into ``ctx.loaded_data`` and bind them to runtime structures."""

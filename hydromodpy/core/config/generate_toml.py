@@ -1,6 +1,6 @@
 """Auto-generate commented TOML templates from Pydantic models.
 
-Reads field names, types, defaults, descriptions, and ParamLevel metadata
+Reads field names, types, defaults, descriptions, and Profile metadata
 directly from Pydantic model_fields. Supports filtering by module and profile.
 
 Supports ``list[BaseModel]`` fields, rendered as TOML array-of-tables
@@ -9,9 +9,11 @@ Supports ``list[BaseModel]`` fields, rendered as TOML array-of-tables
 Usage::
 
     from hydromodpy.core.config.generate_toml import generate_toml
+
     print(generate_toml(modules=["geographic"], profile="user"))
 
     from hydromodpy.core.config.generate_toml import generate_toml_from_instances
+
     generate_toml_from_instances(
         {"hydrometry": cfg_h, "piezometry": cfg_p},
         output_path="config.toml",
@@ -30,7 +32,12 @@ from typing import Any, get_args, get_origin
 from pydantic import BaseModel
 from pydantic.fields import FieldInfo
 
-from hydromodpy.core.config.param_level import PROFILES, ParamLevel
+from hydromodpy.core.config.param_level import (
+    PROFILES,  # noqa: F401 — re-exported for CLI back-compat
+    ParamLevel,
+)
+from hydromodpy.core.config.profile import Profile
+from hydromodpy.core.config.pydantic_introspect import extract_profile, resolve_profile
 
 # Registry of available config modules.
 # Each entry maps a TOML section name to its Pydantic model class.
@@ -41,23 +48,21 @@ def _get_registry() -> dict[str, type[BaseModel]]:
     """Lazy-load the module registry to avoid circular imports."""
     global _MODULE_REGISTRY
     if _MODULE_REGISTRY is None:
+        from hydromodpy.core.workspace.config import WorkspaceConfig
         from hydromodpy.data.data_managers_config import DataManagersConfig
-        from hydromodpy.spatial.domain.domain_config import DomainConfig
-        from hydromodpy.spatial.geographic.geographic_config import GeographicConfig
-        from hydromodpy.process.flow.flow_config import FlowConfig
-        from hydromodpy.process.transport.transport_config import TransportConfig
+        from hydromodpy.display.config import DisplayConfig
+        from hydromodpy.physics.flow.flow_config import FlowConfig
+        from hydromodpy.physics.transport.transport_config import TransportConfig
+        from hydromodpy.results.postprocess_config import PostprocessConfig
+        from hydromodpy.simulation.planning.config import SimulationConfig
+        from hydromodpy.solver.base.solver_config import SolverConfig
         from hydromodpy.solver.modflow6.modflow6_config import Modflow6Config
         from hydromodpy.solver.modflow_nwt.modflow import ModflowConfig
-        from hydromodpy.solver.base.solver_config import SolverConfig
-        from hydromodpy.core.workspace.config import WorkspaceConfig
-        from hydromodpy.simulation.planning.config import SimulationConfig
-        from hydromodpy.analysis.display.display_config import DisplayConfig
-        from hydromodpy.analysis.postprocess.postprocess_config import PostprocessConfig
-        from hydromodpy.analysis.display.report.overview_config import OverviewSection
-        from hydromodpy.spatial.mesh.config import (
-            MeshCatchmentBatchSectionSchema,
-            MeshCatchmentConfigSchema,
-        )
+        from hydromodpy.spatial.domain.domain_config import DomainConfig
+        from hydromodpy.spatial.geographic.geographic_config import GeographicConfig
+        from hydromodpy.spatial.mesh.config import MeshCatchmentConfig
+        from hydromodpy.workflow.pipelines.overview_config import OverviewSection
+
         _MODULE_REGISTRY = {
             "workspace": WorkspaceConfig,
             "geographic": GeographicConfig,
@@ -68,8 +73,12 @@ def _get_registry() -> dict[str, type[BaseModel]]:
             "solver": SolverConfig,
             "modflownwt": ModflowConfig,
             "modflow6": Modflow6Config,
-            "mesh_catchment": MeshCatchmentConfigSchema,
-            "mesh_catchment_batch": MeshCatchmentBatchSectionSchema,
+            # ``mesh_catchment`` is optional at the aggregator level and its
+            # inner schema pulls in additional required sections (geology,
+            # rivers) as soon as it is emitted. It is only used for the
+            # mesh-only workflow, so we leave it out of the default template;
+            # users can request it explicitly via ``--modules mesh_catchment``.
+            "mesh_catchment": MeshCatchmentConfig,
             "overview": OverviewSection,
             "simulation": SimulationConfig,
             "display": DisplayConfig,
@@ -100,7 +109,7 @@ def generate_toml(
         None = all registered modules.
     profile : str
         Visibility profile: "user", "dev", or "expert".
-        Only fields with ParamLevel <= profile are included.
+        Only fields with Profile <= profile are included.
     overrides : dict of {section_name: {field_name: value}}, or None
         Concrete values to write instead of model defaults.
         Fields present in overrides with a non-None value are written
@@ -112,13 +121,16 @@ def generate_toml(
     str
         The TOML content.
     """
-    if profile not in PROFILES:
-        raise ValueError(f"Unknown profile '{profile}'. Choose from: {', '.join(PROFILES)}")
+    threshold = resolve_profile(profile)
 
     registry = _get_registry()
 
     if modules is None:
-        selected = registry
+        # Default auto-selection: drop opt-in workflow-only sections that are
+        # Optional at the aggregator level and would require more targeted
+        # inputs to validate out-of-the-box (e.g. mesh-only workflow).
+        _OPT_IN = {"mesh_catchment"}
+        selected = {k: v for k, v in registry.items() if k not in _OPT_IN}
     else:
         unknown = set(modules) - set(registry)
         if unknown:
@@ -128,13 +140,13 @@ def generate_toml(
             )
         selected = {k: registry[k] for k in modules}
 
-    threshold = PROFILES[profile]
-
     lines = _header(profile, list(selected.keys()))
 
     for section_name, model_cls in selected.items():
         section_values = (overrides or {}).get(section_name)
         lines.extend(_section(section_name, model_cls, threshold, values=section_values))
+        if section_name == "flow":
+            lines.extend(_flow_dynamic_examples(threshold))
 
     content = "\n".join(lines) + "\n"
     if output_path:
@@ -143,7 +155,7 @@ def generate_toml(
 
 
 def generate_toml_from_instances(
-    instances: dict[str, "BaseModel"],
+    instances: dict[str, BaseModel],
     output_path: str | Path | None = None,
     profile: str = "user",
     *,
@@ -184,18 +196,17 @@ def generate_toml_from_instances(
     ::
 
         from hydromodpy.core.config.generate_toml import generate_toml_from_instances
+
         generate_toml_from_instances(
             {"hydrometry": cfg_h, "piezometry": cfg_p},
             output_path="config.toml",
-            exclude_defaults=True, exclude_none=True,
+            exclude_defaults=True,
+            exclude_none=True,
             comment="My project config",
         )
     """
-    if profile not in PROFILES:
-        raise ValueError(f"Unknown profile '{profile}'. Choose from: {', '.join(PROFILES)}")
-
+    threshold = resolve_profile(profile)
     toml_dir = Path(output_path).resolve().parent if output_path else None
-    threshold = PROFILES[profile]
 
     lines: list[str] = []
     if comment:
@@ -215,9 +226,7 @@ def generate_toml_from_instances(
         )
         if toml_dir:
             _relativize_paths_in_dict(values, toml_dir)
-        lines.extend(
-            _section(section_name, type(model), threshold, values=values)
-        )
+        lines.extend(_section(section_name, type(model), threshold, values=values))
 
     content = "\n".join(lines) + "\n"
     if output_path:
@@ -229,12 +238,15 @@ def generate_toml_from_instances(
 # Internal helpers
 # =====================================================================
 
+
 def _get_param_level(field_info: FieldInfo) -> str:
-    """Extract ParamLevel from Annotated metadata, default to 'user'."""
-    for meta in field_info.metadata:
-        if isinstance(meta, ParamLevel):
-            return meta.level
-    return "user"
+    """Legacy helper — return the profile name as a string.
+
+    Prefer :func:`hydromodpy.core.config.pydantic_introspect.extract_profile`
+    which returns the :class:`Profile` enum directly. Kept here because some
+    external tooling (notebook snippets, docs) still imports this name.
+    """
+    return extract_profile(field_info).name.lower()
 
 
 def _fmt(val: Any) -> str:
@@ -246,9 +258,9 @@ def _fmt(val: Any) -> str:
     if isinstance(val, Enum):
         return _fmt(val.value)
     if isinstance(val, Path):
-        return f'"{ val}"'
+        return f'"{val}"'
     if isinstance(val, str):
-        return f'"{ val}"'
+        return f'"{val}"'
     if isinstance(val, (list, tuple)):
         inner = ", ".join(_fmt(item) for item in val)
         return f"[{inner}]"
@@ -256,8 +268,11 @@ def _fmt(val: Any) -> str:
 
 
 _FRIENDLY_TYPES = {
-    "str": "string", "int": "int", "float": "float",
-    "bool": "bool", "Path": "path",
+    "str": "string",
+    "int": "int",
+    "float": "float",
+    "bool": "bool",
+    "Path": "path",
 }
 
 
@@ -277,9 +292,7 @@ def _type_label(field_info: FieldInfo) -> str:
                 friendly = _FRIENDLY_TYPES.get(name, name)
                 return f"{friendly} (optional)"
             inner = ", ".join(
-                repr(a) if isinstance(a, str)
-                else getattr(a, "__name__", str(a))
-                for a in args
+                repr(a) if isinstance(a, str) else getattr(a, "__name__", str(a)) for a in args
             )
             origin_name = getattr(origin, "__name__", str(origin))
             return f"{origin_name}[{inner}]"
@@ -294,7 +307,7 @@ def _constraints_from_field(field_info: FieldInfo) -> list[str]:
     """Extract constraint strings from FieldInfo metadata."""
     parts = []
     for meta in field_info.metadata:
-        if isinstance(meta, ParamLevel):
+        if isinstance(meta, (Profile, ParamLevel)):
             continue
         # Pydantic annotated constraints (Gt, Ge, Lt, Le)
         cls_name = type(meta).__name__
@@ -316,7 +329,7 @@ def _constraints_from_field(field_info: FieldInfo) -> list[str]:
             parts.append(f"one of: {opts}")
     # Enum values
     if isinstance(annotation, type) and issubclass(annotation, Enum):
-        opts = ", ".join(f'"{ e.value}"' for e in annotation)
+        opts = ", ".join(f'"{e.value}"' for e in annotation)
         parts.append(f"one of: {opts}")
     return parts
 
@@ -327,6 +340,7 @@ _UNDEFINED = object()  # sentinel distinct from None
 def _default_value(field_info: FieldInfo) -> Any:
     """Return the field default, or _UNDEFINED if the field is truly required."""
     from pydantic_core import PydanticUndefined
+
     if field_info.default is PydanticUndefined:
         return _UNDEFINED
     return field_info.default  # may be None (optional with no value)
@@ -502,6 +516,97 @@ def _header(profile: str, modules: list[str]) -> list[str]:
     ]
 
 
+# --------------------------------------------------------------------------
+# Dynamic flow examples (parameters / BC / sinks-sources)
+# --------------------------------------------------------------------------
+
+_FLOW_PARAM_EXAMPLES = (
+    ("K", "homogeneous", "m/s"),
+    ("Sy", "homogeneous", "-"),
+    ("Ss", "homogeneous", "m-1"),
+)
+
+
+def _flow_dynamic_examples(threshold: int) -> list[str]:
+    """Emit commented template blocks for the dynamic [flow.param.<id>.*],
+    [flow.bc.<type>.<id>] and [flow.sinks_sources.recharge] payloads.
+
+    These sections are driven by runtime user choices (the ``param_list``
+    and ``active_bc`` declarations in [flow]), so the main generator cannot
+    know their names in advance. We therefore emit documented examples for
+    the canonical MODFLOW triplet K / Sy / Ss, the Cauchy drainage BC, and
+    a recharge sinks-sources block.
+    """
+    from hydromodpy.physics.flow.boundary_conditions import (
+        FlowBoundaryConditionConfig,
+    )
+    from hydromodpy.physics.flow.sinks_sources import FlowRechargeConfig
+    from hydromodpy.spatial.field.core.field_param_config import (
+        FieldBaseSection,
+        FieldHomogeneousSection,
+    )
+
+    out: list[str] = []
+    out.append("")
+    out.append("# " + "-" * 70)
+    out.append("# Flow field parameters — one [flow.param.<id>.field] + one")
+    out.append("# [flow.param.<id>.field_homogeneous] per id declared in")
+    out.append("# [flow].param_list. Example block below for K, Sy, Ss.")
+    out.append("# " + "-" * 70)
+    for pid, kind, unit in _FLOW_PARAM_EXAMPLES:
+        out.extend(
+            _section(
+                f"flow.param.{pid}.field",
+                FieldBaseSection,
+                threshold,
+                values={"id": pid, "kind": kind, "unit": unit},
+                _depth=0,
+            )
+        )
+        out.extend(
+            _section(
+                f"flow.param.{pid}.field_homogeneous",
+                FieldHomogeneousSection,
+                threshold,
+                _depth=0,
+            )
+        )
+
+    out.append("")
+    out.append("# " + "-" * 70)
+    out.append("# Flow boundary conditions — one block per id listed in")
+    out.append("# [flow].active_bc. Supported keys: [flow.bc.dirichlet.<side>],")
+    out.append("# [flow.bc.cauchy.drainage], [flow.bc.robin.drainage].")
+    out.append("# Example: a top-domain Cauchy drainage BC.")
+    out.append("# " + "-" * 70)
+    out.extend(
+        _section(
+            "flow.bc.cauchy.drainage",
+            FlowBoundaryConditionConfig,
+            threshold,
+            values={"application_domain": "top", "type": "cauchy", "unit": "m2/s"},
+            _depth=0,
+        )
+    )
+
+    out.append("")
+    out.append("# " + "-" * 70)
+    out.append("# Flow diffuse recharge — emitted when 'recharge' is listed in")
+    out.append("# [flow].active_sinks_sources. Values are taken from the data")
+    out.append("# layer ([data.recharge]) unless overridden here.")
+    out.append("# " + "-" * 70)
+    out.extend(
+        _section(
+            "flow.sinks_sources.recharge",
+            FlowRechargeConfig,
+            threshold,
+            _depth=0,
+        )
+    )
+
+    return out
+
+
 def _render_field_comment(
     lines: list[str],
     field_info: FieldInfo,
@@ -565,27 +670,32 @@ def _section(
                 inner_values = None
                 if values is not None and _name in values:
                     raw = values[_name]
-                    inner_values = raw if isinstance(raw, dict) else (
-                        raw.model_dump() if isinstance(raw, BaseModel) else None
+                    inner_values = (
+                        raw
+                        if isinstance(raw, dict)
+                        else (raw.model_dump() if isinstance(raw, BaseModel) else None)
                     )
                 return _section(
-                    section_name, inner_cls, threshold,
-                    values=inner_values, _depth=_depth,
+                    section_name,
+                    inner_cls,
+                    threshold,
+                    values=inner_values,
+                    _depth=_depth,
                     _commented=_commented,
                 )
 
     # ----- classify fields ------------------------------------------------
-    scalar_fields: list[tuple[str, FieldInfo, str]] = []   # (name, info, level)
-    nested_fields: list[tuple[str, FieldInfo, str, type[BaseModel]]] = []
-    array_fields: list[tuple[str, FieldInfo, str, type[BaseModel]]] = []
+    scalar_fields: list[tuple[str, FieldInfo, Profile]] = []  # (name, info, level)
+    nested_fields: list[tuple[str, FieldInfo, Profile, type[BaseModel]]] = []
+    array_fields: list[tuple[str, FieldInfo, Profile, type[BaseModel]]] = []
 
     for name, field_info in model_cls.model_fields.items():
         # Skip fields explicitly excluded from serialisation (e.g. Transport)
         if getattr(field_info, "exclude", False):
             continue
 
-        level = _get_param_level(field_info)
-        if PROFILES.get(level, 0) > threshold:
+        level = extract_profile(field_info)
+        if level > threshold:
             continue
 
         # list[BaseModel] -> array of tables [[section.name]]
@@ -629,14 +739,16 @@ def _section(
                 lines.append(_line(f"{name} = {_fmt(values[name])}"))
             elif default is not _UNDEFINED and default is not None:
                 lines.append(_line(f"{name} = {_fmt(default)}"))
-            elif level == "user" and default is _UNDEFINED:
+            elif level == Profile.USER and default is _UNDEFINED:
                 # User-level *required* field — emit an uncommented
                 # placeholder so the user knows to fill it in.
                 lines.append(_line(f"{name} = {_placeholder(field_info)}"))
             else:
                 # Optional field with default=None, or non-user level field
                 # without a concrete default: emit commented-out placeholder.
-                lines.append(f"# {name} = {_placeholder(field_info)}" if default is None else f"# {name} =")
+                lines.append(
+                    f"# {name} = {_placeholder(field_info)}" if default is None else f"# {name} ="
+                )
 
             lines.append("")
 
@@ -648,7 +760,7 @@ def _section(
         lines.append("")
 
     # ----- nested sub-tables ----------------------------------------------
-    for name, field_info, level, nested_cls in nested_fields:
+    for name, field_info, _level, nested_cls in nested_fields:
         sub_section = f"{section_name}.{name}"
 
         # Resolve override values for the sub-section
@@ -662,7 +774,7 @@ def _section(
 
         default = _default_value(field_info)
         has_factory = field_info.default_factory is not None
-        is_truly_optional = (default is None and not has_factory)
+        is_truly_optional = default is None and not has_factory
 
         # Description comment before the sub-table
         desc = field_info.description or ""
@@ -679,8 +791,11 @@ def _section(
             # Optional with no override: expand commented out
             lines.extend(
                 _section(
-                    sub_section, nested_cls, threshold,
-                    values=None, _depth=_depth + 1,
+                    sub_section,
+                    nested_cls,
+                    threshold,
+                    values=None,
+                    _depth=_depth + 1,
                     _commented=True,
                 )
             )
@@ -688,14 +803,17 @@ def _section(
             # Has a default_factory or concrete override: expand recursively
             lines.extend(
                 _section(
-                    sub_section, nested_cls, threshold,
-                    values=sub_values, _depth=_depth + 1,
+                    sub_section,
+                    nested_cls,
+                    threshold,
+                    values=sub_values,
+                    _depth=_depth + 1,
                     _commented=_commented,
                 )
             )
 
     # ----- array-of-tables ([[section.name]]) --------------------------------
-    for name, field_info, level, item_cls in array_fields:
+    for name, field_info, _level, item_cls in array_fields:
         sub_section = f"{section_name}.{name}"
 
         # Description comment
@@ -730,8 +848,8 @@ def _section(
             for fname, finfo in item_cls.model_fields.items():
                 if getattr(finfo, "exclude", False):
                     continue
-                flevel = _get_param_level(finfo)
-                if PROFILES.get(flevel, 0) > threshold:
+                flevel = extract_profile(finfo)
+                if flevel > threshold:
                     continue
                 _render_field_comment(lines, finfo)
                 default = _default_value(finfo)
@@ -742,4 +860,3 @@ def _section(
                 lines.append("")
 
     return lines
-

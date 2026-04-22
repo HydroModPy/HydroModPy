@@ -1,10 +1,10 @@
 from __future__ import annotations
 
 import json
-from pathlib import Path
 import shutil
 import subprocess
 import sys
+from pathlib import Path
 
 import pytest
 
@@ -13,13 +13,13 @@ from tools.mesh_bundle_viewer.loading import (
     load_toml_config,
 )
 from tools.mesh_bundle_viewer.loading.toml_loader import _looks_like_windows_absolute_path
+from tools.mesh_bundle_viewer.runner import run_visualization_from_toml
 from tools.mesh_bundle_viewer.runner.visualization_runner import (
     run_visualization_from_toml as run_root_mesh_visualization_from_toml,
 )
 from tools.mesh_bundle_viewer.schema import (
     DEFAULT_CONFIG_FILENAME as MESH_DEFAULT_CONFIG_FILENAME,
 )
-from tools.mesh_bundle_viewer.runner import run_visualization_from_toml
 
 
 def _ecrire_csv_bundle(path: Path, header: str, rows: list[str]) -> None:
@@ -51,8 +51,7 @@ def _ecrire_bundle_minimal(bundle_dir: Path) -> None:
         encoding="utf-8",
     )
     (bundle_dir / "mesh_summary.json").write_text(
-        json.dumps({"constraints_mode": "geology_rivers"}, indent=2, ensure_ascii=True)
-        + "\n",
+        json.dumps({"constraints_mode": "geology_rivers"}, indent=2, ensure_ascii=True) + "\n",
         encoding="utf-8",
     )
     _ecrire_csv_bundle(
@@ -375,6 +374,7 @@ def test_run_visualization_from_toml_accepts_missing_hydraulic_field(
     assert summary["hydraulic_conductivity_cell_count"] == 0
 
 
+@pytest.mark.allow_subprocess
 def test_python_module_mesh_bundle_viewer_runs_from_distributed_folder(
     tmp_path: Path,
 ) -> None:
@@ -382,9 +382,7 @@ def test_python_module_mesh_bundle_viewer_runs_from_distributed_folder(
     _ecrire_bundle_minimal(bundle_dir)
 
     distribution_root = tmp_path / "distribution_package"
-    mesh_source_dir = (
-        Path(__file__).resolve().parents[3] / "tools" / "mesh_bundle_viewer"
-    )
+    mesh_source_dir = Path(__file__).resolve().parents[3] / "tools" / "mesh_bundle_viewer"
     mesh_target_dir = distribution_root / "mesh_bundle_viewer"
     shutil.copytree(mesh_source_dir, mesh_target_dir)
 
@@ -427,16 +425,17 @@ def test_python_module_mesh_bundle_viewer_runs_from_distributed_folder(
     assert summary["hydraulic_properties_available"] is False
 
 
+@pytest.mark.allow_subprocess
 def test_python_module_mesh_bundle_viewer_runs_with_default_example_bundle(
     tmp_path: Path,
 ) -> None:
     distribution_root = tmp_path / "rbflow_like_package"
-    mesh_source_dir = (
-        Path(__file__).resolve().parents[3] / "tools" / "mesh_bundle_viewer"
+    mesh_source_dir = Path(__file__).resolve().parents[3] / "tools" / "mesh_bundle_viewer"
+    examples_source_dir = (
+        Path(__file__).resolve().parents[3] / "examples" / "projects" / "08_mesh_viewer"
     )
-    examples_source_dir = Path(__file__).resolve().parents[3] / "examples" / "mesh_viewer"
     mesh_target_dir = distribution_root / "mesh_bundle_viewer"
-    examples_target_dir = distribution_root / "examples" / "mesh_viewer"
+    examples_target_dir = distribution_root / "examples" / "projects" / "08_mesh_viewer"
     shutil.copytree(mesh_source_dir, mesh_target_dir)
     shutil.copytree(examples_source_dir, examples_target_dir)
 
@@ -454,9 +453,7 @@ def test_python_module_mesh_bundle_viewer_runs_with_default_example_bundle(
 
     assert completed.returncode == 0, completed.stderr
     assert (distribution_root / "outputs" / "mesh_viewer" / "apercu_maillage.png").exists()
-    assert (
-        distribution_root / "outputs" / "mesh_viewer" / "resume_apercu_maillage.json"
-    ).exists()
+    assert (distribution_root / "outputs" / "mesh_viewer" / "resume_apercu_maillage.json").exists()
     summary = json.loads(completed.stdout)
     assert summary["cell_count"] == 2
     assert summary["geology_available"] is True

@@ -1,3 +1,5 @@
+workflow = "simulation"
+
 [simulation]
 name = "Bsq sloping substratum uniform recharge 1D"
 description = "Synthetic steady-state unconfined flow on a sloping substratum with uniform recharge and fixed heads."

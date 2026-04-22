@@ -167,10 +167,7 @@ def test_resolve_validation_results_dir_uses_deterministic_solver_specific_names
     )
 
     assert out_dir == (
-        out_root.resolve()
-        / "validation"
-        / "test_dupuit_fixed_head_1d"
-        / expected_dir_name
+        out_root.resolve() / "validation" / "test_dupuit_fixed_head_1d" / expected_dir_name
     )
 
 

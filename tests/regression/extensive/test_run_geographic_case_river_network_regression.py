@@ -8,8 +8,8 @@ from pathlib import Path
 import pytest
 
 from hydromodpy.spatial.geographic.cases import run_geographic_cases_from_toml
+from tests._helpers.whitebox import configure_whitebox_single_thread
 from tests.regression.golden_utils import REPO_ROOT, resolve_tiered_golden_file
-from tests.support.whitebox import configure_whitebox_single_thread
 
 GOLDEN_REFERENCE_FILE = resolve_tiered_golden_file(
     test_file=__file__,
@@ -43,6 +43,7 @@ def _write_tmp_config(tmp_path: Path) -> Path:
     config_path.write_text(
         "\n".join(
             [
+                'workflow = "simulation"',
                 "[workspace]",
                 f'project_root = "{out_path}"',
                 "",
@@ -73,7 +74,12 @@ def _write_tmp_config(tmp_path: Path) -> Path:
 
 
 def _collect_case_signature(project_root: str | Path) -> dict:
-    summary_path = Path(project_root) / ".solver_scratch/_preprocessing" / "geographic" / "river_network_summary.json"
+    summary_path = (
+        Path(project_root)
+        / ".solver_scratch/_preprocessing"
+        / "geographic"
+        / "river_network_summary.json"
+    )
     if not summary_path.exists():
         raise AssertionError(f"Missing river network summary: {summary_path}")
 
@@ -116,8 +122,7 @@ def test_run_geographic_case_river_network_regression(
     )
 
     actual = {
-        case_id: _collect_case_signature(summaries[case_id]["project_root"])
-        for case_id in CASE_IDS
+        case_id: _collect_case_signature(summaries[case_id]["project_root"]) for case_id in CASE_IDS
     }
 
     if update_goldens:

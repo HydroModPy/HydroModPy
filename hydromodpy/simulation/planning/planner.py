@@ -91,8 +91,7 @@ class SimulationPlanner:
                 run_id = f"{process_id}::{solver_name}"
                 if run_id in seen_run_ids:
                     raise ValueError(
-                        f"Duplicate process run id '{run_id}'. "
-                        "Check process ids and solver names."
+                        f"Duplicate process run id '{run_id}'. Check process ids and solver names."
                     )
                 seen_run_ids.add(run_id)
 

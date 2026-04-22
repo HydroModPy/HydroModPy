@@ -11,7 +11,6 @@ from typing import Any
 
 import numpy as np
 
-
 SUMMARY_METRIC_FIELDS = [
     "variant_id",
     "reference_variant",
@@ -228,9 +227,7 @@ def build_comparison_metrics(
         signed_error = value - reference_value
         absolute_error = abs(signed_error)
         relative_error = (
-            absolute_error / abs(reference_value)
-            if reference_value != 0.0
-            else math.nan
+            absolute_error / abs(reference_value) if reference_value != 0.0 else math.nan
         )
         detail_rows.append(
             {
@@ -298,9 +295,7 @@ def write_metrics_csv(
     fieldnames: list[str] | None = None,
 ) -> None:
     """Write metrics rows to CSV."""
-    resolved_fieldnames = fieldnames or (
-        list(rows[0].keys()) if rows else SUMMARY_METRIC_FIELDS
-    )
+    resolved_fieldnames = fieldnames or (list(rows[0].keys()) if rows else SUMMARY_METRIC_FIELDS)
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("w", encoding="utf-8", newline="") as handle:
         writer = csv.DictWriter(handle, fieldnames=resolved_fieldnames)

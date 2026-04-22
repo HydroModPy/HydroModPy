@@ -1,25 +1,27 @@
 from __future__ import annotations
 
-from pathlib import Path
 import sys
+from pathlib import Path
 
-from hydromodpy.core.config.hydromodpy_config import HydroModPyConfig
-from hydromodpy.core.config.toml_loader import load_toml_with_base_config
-from hydromodpy.analysis.comparison.config import MethodComparisonConfig
-from examples.projects.launcher_simulation.realistic_campaign.run_campaign import (
+from examples_legacy_2.projects.launcher_simulation.realistic_campaign.run_campaign import (
     CampaignExecution,
     build_execution_report,
     build_run_command,
     filter_campaign_cases,
     load_campaign_manifest,
 )
+from hydromodpy.analysis.comparison.config import MethodComparisonConfig
+from hydromodpy.core.config.hydromodpy_config import HydroModPyConfig
+from hydromodpy.core.config.toml_loader import load_toml_with_base_config
 
 
 def _write_campaign_manifest(tmp_path: Path) -> Path:
     configs_dir = tmp_path / "configs"
     configs_dir.mkdir(parents=True, exist_ok=True)
-    (configs_dir / "sim.toml").write_text("[simulation]\nrun_id = \"demo\"\n", encoding="utf-8")
-    (configs_dir / "compare.toml").write_text("[method_comparison]\ncomparison_id = \"demo\"\n", encoding="utf-8")
+    (configs_dir / "sim.toml").write_text('[simulation]\nrun_id = "demo"\n', encoding="utf-8")
+    (configs_dir / "compare.toml").write_text(
+        '[method_comparison]\ncomparison_id = "demo"\n', encoding="utf-8"
+    )
 
     manifest_path = tmp_path / "campaign.toml"
     manifest_path.write_text(
@@ -145,14 +147,16 @@ def test_build_execution_report_summarizes_runs(tmp_path: Path) -> None:
     assert report["cases"][0]["duration_seconds"] == 1.25
 
 
-def test_headwater_100km2_mf6_heterogeneous_decay_config_loads() -> None:
+def test_headwater_100km2_mf6_heterogeneous_decay_config_loads(monkeypatch) -> None:
+    repo_root = Path(__file__).resolve().parents[3]
     config_path = (
-        Path(__file__).resolve().parents[3]
-        / "examples"
+        repo_root
+        / "examples_legacy_2"
         / "projects"
         / "launcher_simulation"
         / "run_headwater_100km2_outlet_2_mf6_transient_heterogeneous_decay.toml"
     )
+    monkeypatch.setenv("HYDROMODPY_WORKSPACE", str(repo_root / "examples_legacy_2"))
 
     payload = load_toml_with_base_config(config_path)
     assert payload["domain"]["supports"]["field_hydrofacies"]["provider"] == "generated_rings"
@@ -168,7 +172,7 @@ def test_headwater_100km2_mf6_heterogeneous_decay_config_loads() -> None:
 def test_headwater_100km2_mf6_scenario_comparison_config_loads() -> None:
     config_path = (
         Path(__file__).resolve().parents[3]
-        / "examples"
+        / "examples_legacy_2"
         / "projects"
         / "launcher_simulation"
         / "run_method_comparison_headwater_100km2_outlet_2_mf6_transient_scenarios.toml"
@@ -179,7 +183,9 @@ def test_headwater_100km2_mf6_scenario_comparison_config_loads() -> None:
         config_path=config_path,
     )
 
-    assert cfg.method_comparison.comparison_id == "headwater_100km2_outlet_2_mf6_transient_scenarios"
+    assert (
+        cfg.method_comparison.comparison_id == "headwater_100km2_outlet_2_mf6_transient_scenarios"
+    )
     assert [variant.id for variant in cfg.method_comparison.variant] == [
         "mf6_reference",
         "mf6_heterogeneous_decay",

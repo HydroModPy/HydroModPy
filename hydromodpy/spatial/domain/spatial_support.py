@@ -5,7 +5,6 @@ from typing import ClassVar, Literal, Protocol
 
 import numpy as np
 
-from hydromodpy.spatial.raster_support import RasterSupport
 from hydromodpy.spatial.domain.spatial_support_config import (
     CatchmentZonesSupportConfig,
     DomainSupportConfig,
@@ -18,6 +17,7 @@ from hydromodpy.spatial.field.core.field_spatial import Field
 from hydromodpy.spatial.field.core.field_spatial_weighted_discretization import (
     WeightedAverageFieldDiscretization,
 )
+from hydromodpy.spatial.raster_support import RasterSupport
 
 
 def _sample_points_in_cell(cell, *, n_sub_per_axis: int):
@@ -352,8 +352,7 @@ class SpatialSupportProvider(Protocol):
     provider_name: ClassVar[str]
     build_phase: ClassVar[Literal["setup", "data"]]
 
-    def required_data_types(self, config: DomainSupportConfig) -> tuple[str, ...]:
-        ...
+    def required_data_types(self, config: DomainSupportConfig) -> tuple[str, ...]: ...
 
     def build(
         self,
@@ -361,8 +360,7 @@ class SpatialSupportProvider(Protocol):
         support_id: str,
         config: DomainSupportConfig,
         context: SupportBuildContext,
-    ) -> object:
-        ...
+    ) -> object: ...
 
 
 class GeneratedBandsSupportProvider:
@@ -514,9 +512,7 @@ class CatchmentZonesSupportProvider:
             )
 
         if not hasattr(source_zone, "encoded_codes") or not hasattr(source_zone, "encoded_to_zone"):
-            raise TypeError(
-                "Catchment source zone must expose encoded_codes and encoded_to_zone."
-            )
+            raise TypeError("Catchment source zone must expose encoded_codes and encoded_to_zone.")
         surface_topo = getattr(domain, "surface_topo", None)
         raster_support = getattr(surface_topo, "support", None)
         if not isinstance(raster_support, RasterSupport):

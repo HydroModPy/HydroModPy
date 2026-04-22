@@ -1,4 +1,3 @@
-from __future__ import annotations
 """
 Surface abstractions for domain topography and derived vertical supports.
 
@@ -11,6 +10,8 @@ This module intentionally keeps all surface-level operations in one place:
 The goal is to keep ``Domain`` focused on orchestration while all array-level
 transformations that conceptually belong to a surface remain implemented here.
 """
+
+from __future__ import annotations
 
 from dataclasses import dataclass
 from typing import Any
@@ -49,11 +50,11 @@ class Surface:
         *,
         support: RasterSupport | None = None,
         name: str = "surface_topo",
-    ) -> "Surface":
+    ) -> Surface:
         """
         Build one surface from explicit DEM values.
 
-        This constructor does not read from ``Geographic`` directly. The caller
+        This constructor does not read from ``CatchmentDelineation`` directly. The caller
         must provide:
         - the already-extracted DEM values,
         - and, when available, the matching ``RasterSupport``.
@@ -86,13 +87,12 @@ class Surface:
         expected = (int(self.support.nrows), int(self.support.ncols))
         if arr.shape != expected:
             raise ValueError(
-                f"Surface '{self.name}' shape {arr.shape} does not match "
-                f"support shape {expected}."
+                f"Surface '{self.name}' shape {arr.shape} does not match support shape {expected}."
             )
 
     def assert_same_geographic_domain(
         self,
-        other: "Surface",
+        other: Surface,
         *,
         atol: float = 1.0e-9,
     ) -> None:
@@ -120,16 +120,14 @@ class Surface:
         resampling: str = "bilinear",
         nodata: float | None = None,
         name: str | None = None,
-    ) -> "Surface":
+    ) -> Surface:
         """
         Return one new surface re-discretized to ``(nrows, ncols)``.
 
         Geographic extent and CRS are preserved; only raster resolution changes.
         """
         if self.support is None:
-            raise ValueError(
-                f"Surface '{self.name}' has no RasterSupport and cannot be resampled."
-            )
+            raise ValueError(f"Surface '{self.name}' has no RasterSupport and cannot be resampled.")
         self.support.assert_complete_domain()
         self.assert_support_matches_values()
 
@@ -151,7 +149,7 @@ class Surface:
         offset: float,
         *,
         name: str = "substratum",
-    ) -> "Surface":
+    ) -> Surface:
         """
         Return a new surface shifted downward by one constant offset.
 
@@ -172,7 +170,7 @@ class Surface:
         value: float,
         *,
         name: str = "substratum",
-    ) -> "Surface":
+    ) -> Surface:
         """
         Return a flat surface with one constant value on the same support.
 
@@ -192,7 +190,7 @@ class Surface:
         surface.assert_strictly_below(self)
         return surface
 
-    def assert_strictly_below(self, upper_surface: "Surface") -> None:
+    def assert_strictly_below(self, upper_surface: Surface) -> None:
         """
         Validate that this surface is strictly lower than ``upper_surface``.
 
@@ -241,7 +239,7 @@ class Surface:
         resampling: str,
         nodata: float | None,
         name: str | None,
-    ) -> "Surface":
+    ) -> Surface:
         """
         Internal raster resampling helper on the same geographic domain.
 

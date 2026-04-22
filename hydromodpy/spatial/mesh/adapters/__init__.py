@@ -12,18 +12,18 @@ caller can usually guess which one to use from the source object it already
 has in hand.
 """
 
-from hydromodpy.spatial.mesh.adapters.meshio_adapter import (
-    from_meshio,
-    to_meshio,
-)
 from hydromodpy.spatial.mesh.adapters.field_mesh_adapter import (
+    from_extruded_prism,
     from_field_mesh,
     from_gmsh_planar,
-    from_extruded_prism,
 )
 from hydromodpy.spatial.mesh.adapters.flopy_adapter import (
     from_flopy_structured,
     to_flopy_disv_args,
+)
+from hydromodpy.spatial.mesh.adapters.meshio_adapter import (
+    from_meshio,
+    to_meshio,
 )
 
 __all__ = (

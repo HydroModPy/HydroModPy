@@ -4,22 +4,22 @@ from __future__ import annotations
 
 import math
 import re
-from datetime import datetime
+from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
+from datetime import datetime
 from pathlib import Path
-from typing import Any, Iterable, Mapping
+from typing import Any
 
 import matplotlib
 import numpy as np
 
 from hydromodpy.analysis.comparison.config import (
     MethodComparisonConfig,
-    MethodComparisonFineRasterSchema,
-    MethodComparisonObservableSchema,
-    MethodComparisonVariantSchema,
+    MethodComparisonFineRaster,
+    MethodComparisonObservable,
+    MethodComparisonVariant,
 )
 from hydromodpy.analysis.comparison.runtime import (
-    CellCentroidTable,
     VariableSeries,
     load_variable_series,
     mask_depth_series_from_head_nodata,
@@ -340,13 +340,18 @@ def _apply_time_ticks(
         shown_positions.append(unique_positions[-1])
     shown_labels: list[str] = []
     if tick_labels is None:
-        shown_labels = [str(int(value)) if float(value).is_integer() else f"{value:g}" for value in shown_positions]
+        shown_labels = [
+            str(int(value)) if float(value).is_integer() else f"{value:g}"
+            for value in shown_positions
+        ]
     else:
         label_lookup = {
             float(position): _format_time_tick_label(label)
             for position, label in zip(tick_positions, tick_labels, strict=False)
         }
-        shown_labels = [label_lookup.get(float(value), str(int(value))) for value in shown_positions]
+        shown_labels = [
+            label_lookup.get(float(value), str(int(value))) for value in shown_positions
+        ]
     ax.set_xticks(shown_positions)
     ax.set_xticklabels(shown_labels, fontsize=_TICK_FONT_SIZE)
 
@@ -360,7 +365,7 @@ def _series_style(observable_name: str) -> dict[str, Any]:
 def _choose_map_slice(
     *,
     series: VariableSeries,
-    observable: MethodComparisonObservableSchema,
+    observable: MethodComparisonObservable,
 ) -> tuple[np.ndarray, str] | None:
     slices = select_time_slices(series, observable)
     if not slices:
@@ -383,9 +388,9 @@ def _choose_map_slice(
 def _build_map_payload(
     *,
     cfg: MethodComparisonConfig,
-    variant: MethodComparisonVariantSchema,
+    variant: MethodComparisonVariant,
     summary: dict[str, Any],
-    observable: MethodComparisonObservableSchema,
+    observable: MethodComparisonObservable,
     rows: list[dict[str, Any]],
 ) -> MapPayload | None:
     reducer_key = str(observable.reducer or "identity").strip().lower()
@@ -504,9 +509,7 @@ def _render_map_subplot(
         _style_map_axes(ax)
         return artist
 
-    image = _mask_nodata(np.asarray(payload.values, dtype=float)).reshape(
-        payload.structured_shape
-    )
+    image = _mask_nodata(np.asarray(payload.values, dtype=float)).reshape(payload.structured_shape)
     imshow_kwargs: dict[str, Any] = {
         "origin": "lower",
         "cmap": cmap,
@@ -550,9 +553,7 @@ def _render_difference_subplot(
         _style_map_axes(ax)
         return artist
 
-    image = _mask_nodata(np.asarray(payload.values, dtype=float)).reshape(
-        payload.structured_shape
-    )
+    image = _mask_nodata(np.asarray(payload.values, dtype=float)).reshape(payload.structured_shape)
     imshow_kwargs: dict[str, Any] = {
         "origin": "lower",
         "cmap": cmap,
@@ -659,7 +660,7 @@ def _write_map_comparison_figure(
     axes_array = np.asarray(axes, dtype=object).ravel()
     artist = None
     used_axes = axes_array[: len(payloads)].tolist()
-    for ax, payload in zip(used_axes, payloads):
+    for ax, payload in zip(used_axes, payloads, strict=False):
         artist = _render_map_subplot(ax, payload, cmap="viridis", vmin=vmin, vmax=vmax)
         ax.set_title(
             _variant_panel_title(
@@ -795,8 +796,7 @@ def _write_timeseries_figure(
             variant_label=variant_label or variant_id,
         )
         if any(
-            other_value_index != value_index
-            and other_variant_id == variant_id
+            other_value_index != value_index and other_variant_id == variant_id
             for (other_variant_id, _, other_value_index) in series_payloads
         ):
             label = f"{label} [{value_index}]"
@@ -839,11 +839,7 @@ def _write_runtime_bar_figure(
     execution_rows: list[Mapping[str, Any]],
     reference_variant: str | None,
 ) -> bool:
-    rows = [
-        row
-        for row in execution_rows
-        if _safe_float(row.get("runtime_seconds")) is not None
-    ]
+    rows = [row for row in execution_rows if _safe_float(row.get("runtime_seconds")) is not None]
     if len(rows) < 2:
         return False
     ordered = sorted(rows, key=lambda item: float(item["runtime_seconds"]), reverse=True)
@@ -874,7 +870,7 @@ def _write_runtime_bar_figure(
                 reference_runtime = float(row["runtime_seconds"])
                 break
     max_runtime = max(runtimes)
-    for bar, row in zip(bars, ordered):
+    for bar, row in zip(bars, ordered, strict=False):
         runtime = float(row["runtime_seconds"])
         speedup = (
             reference_runtime / runtime
@@ -906,7 +902,9 @@ def _write_point_dashboard(
     rows: list[dict[str, Any]],
 ) -> bool:
     point_rows = [row for row in rows if str(row.get("support", "")) == "point"]
-    observables = sorted({str(row.get("observable", "")) for row in point_rows if row.get("observable")})
+    observables = sorted(
+        {str(row.get("observable", "")) for row in point_rows if row.get("observable")}
+    )
     if len(observables) < 2:
         return False
 
@@ -923,7 +921,11 @@ def _write_point_dashboard(
         )
         grouped.setdefault(observable_name, {}).setdefault(key, []).append((x_value, value))
 
-    plotted_observables = [name for name in observables if any(len(points) >= 2 for points in grouped.get(name, {}).values())]
+    plotted_observables = [
+        name
+        for name in observables
+        if any(len(points) >= 2 for points in grouped.get(name, {}).values())
+    ]
     if len(plotted_observables) < 2:
         return False
 
@@ -953,9 +955,16 @@ def _write_point_dashboard(
                 label=_display_variant_label(variant_id=variant_id, variant_label=variant_label),
                 **style,
             )
-        ax.set_title(_pretty_label(observable_name), fontsize=_PANEL_TITLE_FONT_SIZE, pad=5, loc="left")
+        ax.set_title(
+            _pretty_label(observable_name), fontsize=_PANEL_TITLE_FONT_SIZE, pad=5, loc="left"
+        )
         unit = next(
-            (str(row.get("unit", "")) for row in point_rows if str(row.get("observable", "")) == observable_name and str(row.get("unit", "")) != ""),
+            (
+                str(row.get("unit", ""))
+                for row in point_rows
+                if str(row.get("observable", "")) == observable_name
+                and str(row.get("unit", "")) != ""
+            ),
             "m",
         )
         ax.set_ylabel(unit, fontsize=_LABEL_FONT_SIZE)
@@ -994,9 +1003,7 @@ def _write_native_flux_panel(
 ) -> bool:
     flux_rows = [row for row in long_rows if str(row.get("variable", "")) == variable]
     variant_keys = {
-        str(row.get("variant_id", ""))
-        for row in flux_rows
-        if str(row.get("variant_id", "")) != ""
+        str(row.get("variant_id", "")) for row in flux_rows if str(row.get("variant_id", "")) != ""
     }
     if len(variant_keys) < 2:
         return False
@@ -1062,9 +1069,7 @@ def _write_native_flux_panel(
         for row in relevant_delta:
             key = str(row.get("variant_id", ""))
             time_index = int(float(row["time_index"]))
-            delta_groups.setdefault(key, []).append(
-                (time_index, float(row["signed_error"]))
-            )
+            delta_groups.setdefault(key, []).append((time_index, float(row["signed_error"])))
             label = str(row.get("time_label", "")).strip()
             if label:
                 time_label_lookup[time_index] = label
@@ -1078,7 +1083,10 @@ def _write_native_flux_panel(
                 color=_solver_color(variant_id),
                 label=_display_variant_label(variant_id=variant_id, variant_label=variant_id),
             )
-        tick_labels = [time_label_lookup.get(int(value), str(int(value))) for value in sorted(time_label_lookup)]
+        tick_labels = [
+            time_label_lookup.get(int(value), str(int(value)))
+            for value in sorted(time_label_lookup)
+        ]
         delta_ax.axhline(0.0, color="#111827", linewidth=0.8, alpha=0.65)
     delta_ax.set_xlabel("Time step", fontsize=_LABEL_FONT_SIZE)
     delta_ax.set_ylabel("Delta vs ref", fontsize=_LABEL_FONT_SIZE)
@@ -1104,7 +1112,9 @@ def _write_flux_dashboard(
     rows: list[dict[str, Any]],
     native_long_rows: list[Mapping[str, Any]],
 ) -> bool:
-    panels: list[tuple[str, dict[tuple[str, str], list[tuple[float, float]]], list[str] | None]] = []
+    panels: list[
+        tuple[str, dict[tuple[str, str], list[tuple[float, float]]], list[str] | None]
+    ] = []
 
     outlet_rows = [row for row in rows if str(row.get("observable", "")) == "outlet_flux_series"]
     if outlet_rows:
@@ -1147,7 +1157,13 @@ def _write_flux_dashboard(
     if len(panels) < 2:
         return False
 
-    figure, axes = plt.subplots(len(panels), 1, figsize=(7.6, max(5.6, 2.15 * len(panels) + 0.7)), sharex=True, squeeze=False)
+    figure, axes = plt.subplots(
+        len(panels),
+        1,
+        figsize=(7.6, max(5.6, 2.15 * len(panels) + 0.7)),
+        sharex=True,
+        squeeze=False,
+    )
     axes_flat = np.asarray(axes, dtype=object).ravel()
     tick_positions: list[float] = []
     tick_labels: list[str] | None = None
@@ -1389,7 +1405,7 @@ def _write_budget_diagnostic_figure(
 def _resolve_fine_grid_bounds(
     *,
     payloads: list[MapPayload],
-    fine_raster: MethodComparisonFineRasterSchema,
+    fine_raster: MethodComparisonFineRaster,
     reference_variant: str | None,
 ) -> tuple[float, float, float, float] | None:
     extents = [
@@ -1496,10 +1512,12 @@ def _write_regridded_map_figure(
         vmax += delta
     ncols = min(2, len(arrays))
     nrows = int(math.ceil(len(arrays) / float(ncols)))
-    figure, axes = plt.subplots(nrows, ncols, figsize=(4.8 * ncols, 4.1 * nrows + 0.7), squeeze=False)
+    figure, axes = plt.subplots(
+        nrows, ncols, figsize=(4.8 * ncols, 4.1 * nrows + 0.7), squeeze=False
+    )
     axes_array = np.asarray(axes, dtype=object).ravel()
     artist = None
-    for ax, (payload, array) in zip(axes_array, arrays):
+    for ax, (payload, array) in zip(axes_array, arrays, strict=False):
         artist = ax.imshow(
             array,
             origin="lower",
@@ -1665,9 +1683,7 @@ def generate_comparison_figures(
         for summary in variant_summaries
         if summary.get("status") in {"completed", "reused"}
     }
-    variants = {
-        variant.id: variant for variant in cfg.method_comparison.variant if variant.enabled
-    }
+    variants = {variant.id: variant for variant in cfg.method_comparison.variant if variant.enabled}
 
     artifacts: list[dict[str, Any]] = []
     fine_raster = cfg.method_comparison.fine_raster
@@ -1742,11 +1758,7 @@ def generate_comparison_figures(
                     }
                 )
 
-        if (
-            fine_raster is not None
-            and fine_raster.enabled
-            and griddata is not None
-        ):
+        if fine_raster is not None and fine_raster.enabled and griddata is not None:
             bounds = _resolve_fine_grid_bounds(
                 payloads=payloads,
                 fine_raster=fine_raster,
@@ -1866,12 +1878,8 @@ def generate_comparison_figures(
                                         )
 
     grouped_rows: dict[tuple[str, str], list[dict[str, Any]]] = {}
-    observable_support = {
-        observable.name: observable.support for observable in cfg.method_comparison.observable
-    }
-    observable_variable = {
-        observable.name: observable.variable for observable in cfg.method_comparison.observable
-    }
+    {observable.name: observable.support for observable in cfg.method_comparison.observable}
+    {observable.name: observable.variable for observable in cfg.method_comparison.observable}
     for row in rows:
         if str(row.get("support", "")) == "map":
             continue

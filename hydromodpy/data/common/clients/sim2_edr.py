@@ -8,14 +8,16 @@ Returns raw data as CoverageJSON dicts or xarray Datasets (when NetCDF4).
 
 from __future__ import annotations
 
-import io
 import tempfile
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
-import requests
-
+from hydromodpy.core.exceptions import NetworkError
+from hydromodpy.core.io.http_client import HTTPClient, get_default_client
 from hydromodpy.data.common.api_helpers import check_status
+
+if TYPE_CHECKING:
+    import pandas as pd
 
 BASE_URL = "https://api.geosas.fr/edr/collections/safran-isba"
 DEFAULT_TIMEOUT = 120
@@ -43,11 +45,13 @@ class Sim2EDRClient:
         crs: str = "EPSG:2154",
         date_range: str,
         output_format: str = "CoverageJSON",
+        http_client: HTTPClient | None = None,
     ):
         self.bbox = bbox
         self.crs = crs
         self.date_range = date_range
         self.output_format = output_format
+        self._http = http_client or get_default_client()
 
     def fetch_cube(self, *, parameters: list[str]) -> Any:
         """Fetch gridded data for the bounding box.
@@ -63,10 +67,12 @@ class Sim2EDRClient:
             "datetime": self.date_range,
         }
         url = f"{BASE_URL}/cube"
-        resp = requests.get(url, params=params, timeout=DEFAULT_TIMEOUT)
+        resp = self._http.get(url, params=params, timeout=DEFAULT_TIMEOUT)
         if not check_status(resp.status_code):
-            raise RuntimeError(
-                f"SIM2 EDR API error {resp.status_code} for {url}: {resp.text[:500]}"
+            raise NetworkError(
+                f"SIM2 EDR API error {resp.status_code} for {url}: {resp.text[:500]}",
+                url=url,
+                status_code=resp.status_code,
             )
         if self.output_format == "Netcdf4":
             return self._load_netcdf_from_bytes(resp.content)
@@ -91,10 +97,12 @@ class Sim2EDRClient:
             "datetime": self.date_range,
         }
         url = f"{BASE_URL}/position"
-        resp = requests.get(url, params=params, timeout=DEFAULT_TIMEOUT)
+        resp = self._http.get(url, params=params, timeout=DEFAULT_TIMEOUT)
         if not check_status(resp.status_code):
-            raise RuntimeError(
-                f"SIM2 EDR API error {resp.status_code} for {url}: {resp.text[:500]}"
+            raise NetworkError(
+                f"SIM2 EDR API error {resp.status_code} for {url}: {resp.text[:500]}",
+                url=url,
+                status_code=resp.status_code,
             )
         return resp.json()
 
@@ -118,7 +126,7 @@ class Sim2EDRClient:
         cov_json: dict,
         *,
         parameter: str,
-    ) -> "pd.Series":
+    ) -> pd.Series:
         """Extract a 1D time series from a CoverageJSON point response.
 
         Returns a pandas Series indexed by datetime.
@@ -128,12 +136,15 @@ class Sim2EDRClient:
         axes = cov_json["domain"]["axes"]
         if "values" in axes["t"]:
             times = pd.to_datetime(
-                [t.replace("T", " ").replace("-00-00Z", " 00:00:00").rstrip("Z")
-                 for t in axes["t"]["values"]]
+                [
+                    t.replace("T", " ").replace("-00-00Z", " 00:00:00").rstrip("Z")
+                    for t in axes["t"]["values"]
+                ]
             )
         else:
             times = pd.date_range(
-                start=axes["t"]["start"], periods=axes["t"]["num"],
+                start=axes["t"]["start"],
+                periods=axes["t"]["num"],
                 freq="D",
             )
         values = cov_json["ranges"][parameter]["values"]
@@ -161,12 +172,16 @@ class Sim2EDRClient:
 
         if "values" in axes.get("t", {}):
             t_coords = pd.to_datetime(
-                [t.replace("T", " ").replace("-00-00Z", " 00:00:00").rstrip("Z")
-                 for t in axes["t"]["values"]]
+                [
+                    t.replace("T", " ").replace("-00-00Z", " 00:00:00").rstrip("Z")
+                    for t in axes["t"]["values"]
+                ]
             )
         else:
             t_coords = pd.date_range(
-                start=axes["t"]["start"], periods=axes["t"]["num"], freq="D",
+                start=axes["t"]["start"],
+                periods=axes["t"]["num"],
+                freq="D",
             )
 
         data_vars = {}

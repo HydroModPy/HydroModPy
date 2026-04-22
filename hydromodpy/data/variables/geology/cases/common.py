@@ -80,15 +80,11 @@ def clip_square_window(
     clipped = gdf[gdf.intersects(win)].copy()
     if clipped.empty:
         raise ValueError(
-            "Selected window does not intersect geology features. "
-            "Choose another center/window."
+            "Selected window does not intersect geology features. Choose another center/window."
         )
     clipped = clipped.clip(bbox_gdf)
     if clipped.empty:
-        raise ValueError(
-            "Geology became empty after clipping. "
-            "Choose another center/window."
-        )
+        raise ValueError("Geology became empty after clipping. Choose another center/window.")
     return clipped, win
 
 

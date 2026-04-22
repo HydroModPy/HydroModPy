@@ -4,11 +4,12 @@ from __future__ import annotations
 
 import copy
 import json
+import sys
+from collections.abc import Callable
 from dataclasses import asdict, dataclass
 from pathlib import Path
 from types import SimpleNamespace
-import sys
-from typing import Any, Callable
+from typing import Any
 
 import numpy as np
 from flopy.utils.binaryfile import CellBudgetFile, HeadFile
@@ -16,7 +17,8 @@ from flopy.utils.binaryfile import CellBudgetFile, HeadFile
 if __package__ is None or __package__ == "":
     sys.path.insert(0, str(Path(__file__).resolve().parents[4]))
 
-from hydromodpy.process.flow import Flow
+from hydromodpy.physics.flow import Flow
+from hydromodpy.project import Project
 from hydromodpy.solver.modflow6 import Modflow6
 from hydromodpy.solver.modflow_nwt import (
     Modflow,
@@ -24,7 +26,6 @@ from hydromodpy.solver.modflow_nwt import (
     ModflowPreprocessOptions,
     ModflowRunOptions,
 )
-from hydromodpy.project import Simulation
 from validation_cases.analytical.transient.brutsaert_common import (
     _load_modflownwt_budget_diagnostics,
 )
@@ -33,7 +34,6 @@ from validation_cases.shared.runtime import (
     remove_file_with_retry,
     resolve_validation_results_dir,
 )
-
 
 CASE_DIR = Path(__file__).resolve().parent
 CASE_ID = "brutsaert_recession_linearized_deep_1d"
@@ -81,8 +81,8 @@ class ProbeResult:
 ModelMutator = Callable[[Any], None]
 
 
-def _build_validation_launcher(*, solver_name: str) -> Simulation:
-    """Materialize one Simulation configured exactly like the validation case."""
+def _build_validation_launcher(*, solver_name: str) -> Project:
+    """Materialize one Project configured exactly like the validation case."""
     try:
         config_name = SOLVER_CONFIG_FILES[solver_name]
     except KeyError as exc:
@@ -94,7 +94,7 @@ def _build_validation_launcher(*, solver_name: str) -> Simulation:
         solver_name=solver_name,
     )
     try:
-        return Simulation(config_path, headless=True)
+        return Project(config_path, headless=True)
     finally:
         if config_path.exists():
             remove_file_with_retry(config_path)
@@ -788,7 +788,9 @@ def _build_summary(
                 "steady_flat_outlet_discharge_m3_s": flat_q_mf6,
                 "steady_nudged_outlet_discharge_m3_s": nudged_q_mf6,
                 "steady_flat_vs_nudged_delta_m3_s": (
-                    None if flat_q_mf6 is None or nudged_q_mf6 is None else float(flat_q_mf6 - nudged_q_mf6)
+                    None
+                    if flat_q_mf6 is None or nudged_q_mf6 is None
+                    else float(flat_q_mf6 - nudged_q_mf6)
                 ),
             },
             "nwt_flat_ic_is_solver_specific": {
@@ -885,8 +887,12 @@ def main() -> None:
     mf6_setup = mf6_launcher.run_state.setup
     nwt_base_flow = nwt_setup.flow
     mf6_base_flow = mf6_setup.flow
-    nwt_steady_recharge_m_s = float(copy.deepcopy(nwt_base_flow.sinks_sources["recharge"]).values.iloc[0])
-    mf6_steady_recharge_m_s = float(copy.deepcopy(mf6_base_flow.sinks_sources["recharge"]).values.iloc[0])
+    nwt_steady_recharge_m_s = float(
+        copy.deepcopy(nwt_base_flow.sinks_sources["recharge"]).values.iloc[0]
+    )
+    mf6_steady_recharge_m_s = float(
+        copy.deepcopy(mf6_base_flow.sinks_sources["recharge"]).values.iloc[0]
+    )
 
     out_path = resolve_validation_results_dir(
         test_file=__file__,
@@ -906,7 +912,9 @@ def main() -> None:
     results: list[ProbeResult] = []
 
     nwt_steady_flat_cfg = nwt_cfg.model_copy(deep=True)
-    nwt_steady_flat_cfg.tgrid = nwt_steady_flat_cfg.tgrid.model_copy(update={"firstpersteady": False})
+    nwt_steady_flat_cfg.tgrid = nwt_steady_flat_cfg.tgrid.model_copy(
+        update={"firstpersteady": False}
+    )
     nwt_steady_flat_result, _ = _run_nwt_probe(
         probe_id=PROBE_IDS["nwt_steady_flat"],
         stage="steady",
@@ -991,7 +999,9 @@ def main() -> None:
     results.append(nwt_transient_complex_result)
 
     mf6_steady_flat_cfg = mf6_cfg.model_copy(deep=True)
-    mf6_steady_flat_cfg.tgrid = mf6_steady_flat_cfg.tgrid.model_copy(update={"firstpersteady": False})
+    mf6_steady_flat_cfg.tgrid = mf6_steady_flat_cfg.tgrid.model_copy(
+        update={"firstpersteady": False}
+    )
     mf6_steady_flat_result, _ = _run_mf6_probe(
         probe_id=PROBE_IDS["mf6_steady_flat"],
         stage="steady",
@@ -1011,7 +1021,9 @@ def main() -> None:
     results.append(mf6_steady_flat_result)
 
     mf6_steady_nudged_cfg = mf6_cfg.model_copy(deep=True)
-    mf6_steady_nudged_cfg.tgrid = mf6_steady_nudged_cfg.tgrid.model_copy(update={"firstpersteady": False})
+    mf6_steady_nudged_cfg.tgrid = mf6_steady_nudged_cfg.tgrid.model_copy(
+        update={"firstpersteady": False}
+    )
     mf6_steady_nudged_result, mf6_steady_head = _run_mf6_probe(
         probe_id=PROBE_IDS["mf6_steady_nudged"],
         stage="steady",

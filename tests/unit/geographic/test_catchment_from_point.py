@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 
-from hydromodpy.core.backends.whitebox_workflows_backend import WhiteboxWorkflowsBackend
+from hydromodpy.spatial.delineation.whitebox_workflows_backend import WhiteboxWorkflowsBackend
 from hydromodpy.spatial.geographic.core.catchment_from_point import extract_catchment_from_point
 
 
@@ -24,11 +24,15 @@ def test_extract_catchment_from_point_rejects_empty_snapped_outlet(
         lambda *args, **kwargs: None,
     )
     monkeypatch.setattr(backend, "read_vector", lambda path: _DummyVector([object()]))
-    monkeypatch.setattr(backend, "snap_pour_points_vector", lambda *args, **kwargs: _DummyVector([]))
+    monkeypatch.setattr(
+        backend, "snap_pour_points_vector", lambda *args, **kwargs: _DummyVector([])
+    )
     monkeypatch.setattr(
         backend,
         "write_vector",
-        lambda *args, **kwargs: (_ for _ in ()).throw(AssertionError("write_vector should not be called")),
+        lambda *args, **kwargs: (_ for _ in ()).throw(
+            AssertionError("write_vector should not be called")
+        ),
     )
 
     with pytest.raises(ValueError, match="Outlet snapping produced no feature"):

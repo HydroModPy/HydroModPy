@@ -77,8 +77,7 @@ def _point_in_polygon(
         xj = float(x_coords[prev_idx])
         yj = float(y_coords[prev_idx])
         intersects = ((yi > point_y_m) != (yj > point_y_m)) and (
-            point_x_m
-            < ((xj - xi) * (point_y_m - yi) / ((yj - yi) + 1.0e-300)) + xi
+            point_x_m < ((xj - xi) * (point_y_m - yi) / ((yj - yi) + 1.0e-300)) + xi
         )
         if intersects:
             inside = not inside
@@ -139,15 +138,27 @@ class GmshSupportMetadata:
     node_x_m: np.ndarray = field(default_factory=lambda: np.empty(0, dtype=float), repr=False)
     node_y_m: np.ndarray = field(default_factory=lambda: np.empty(0, dtype=float), repr=False)
     cell_node_indices: tuple[tuple[int, ...], ...] = ()
-    cell_centroid_x_m: np.ndarray = field(default_factory=lambda: np.empty(0, dtype=float), repr=False)
-    cell_centroid_y_m: np.ndarray = field(default_factory=lambda: np.empty(0, dtype=float), repr=False)
+    cell_centroid_x_m: np.ndarray = field(
+        default_factory=lambda: np.empty(0, dtype=float), repr=False
+    )
+    cell_centroid_y_m: np.ndarray = field(
+        default_factory=lambda: np.empty(0, dtype=float), repr=False
+    )
     edge_ids: np.ndarray = field(default_factory=lambda: np.empty(0, dtype=int), repr=False)
-    edge_node_a_index: np.ndarray = field(default_factory=lambda: np.empty(0, dtype=int), repr=False)
-    edge_node_b_index: np.ndarray = field(default_factory=lambda: np.empty(0, dtype=int), repr=False)
+    edge_node_a_index: np.ndarray = field(
+        default_factory=lambda: np.empty(0, dtype=int), repr=False
+    )
+    edge_node_b_index: np.ndarray = field(
+        default_factory=lambda: np.empty(0, dtype=int), repr=False
+    )
     edge_cell_a: np.ndarray = field(default_factory=lambda: np.empty(0, dtype=int), repr=False)
     edge_cell_b: np.ndarray = field(default_factory=lambda: np.empty(0, dtype=int), repr=False)
-    edge_midpoint_x_m: np.ndarray = field(default_factory=lambda: np.empty(0, dtype=float), repr=False)
-    edge_midpoint_y_m: np.ndarray = field(default_factory=lambda: np.empty(0, dtype=float), repr=False)
+    edge_midpoint_x_m: np.ndarray = field(
+        default_factory=lambda: np.empty(0, dtype=float), repr=False
+    )
+    edge_midpoint_y_m: np.ndarray = field(
+        default_factory=lambda: np.empty(0, dtype=float), repr=False
+    )
     edge_kind: tuple[str, ...] = ()
     edge_is_river: np.ndarray = field(
         default_factory=lambda: np.empty(0, dtype=bool),
@@ -229,9 +240,7 @@ class GmshSupportMetadata:
                 return int(cell_index)
 
         if not allow_nearest:
-            raise ValueError(
-                f"Point ({point_x_m}, {point_y_m}) is outside the gmsh mesh domain."
-            )
+            raise ValueError(f"Point ({point_x_m}, {point_y_m}) is outside the gmsh mesh domain.")
 
         dx = np.asarray(self.cell_centroid_x_m, dtype=float) - point_x_m
         dy = np.asarray(self.cell_centroid_y_m, dtype=float) - point_y_m
@@ -386,18 +395,12 @@ def build_gmsh_support_metadata(bundle: object | None) -> GmshSupportMetadata | 
     edges = tuple(getattr(bundle, "edges", ()) or ())
 
     node_ids = np.asarray([int(node.node_id) for node in nodes], dtype=int)
-    node_index_by_id = {
-        int(node_id): int(index)
-        for index, node_id in enumerate(node_ids.tolist())
-    }
+    node_index_by_id = {int(node_id): int(index) for index, node_id in enumerate(node_ids.tolist())}
     node_x_m = np.asarray([float(node.x) for node in nodes], dtype=float)
     node_y_m = np.asarray([float(node.y) for node in nodes], dtype=float)
 
     cell_ids = np.asarray([int(cell.cell_id) for cell in cells], dtype=int)
-    cell_index_by_id = {
-        int(cell_id): int(index)
-        for index, cell_id in enumerate(cell_ids.tolist())
-    }
+    cell_index_by_id = {int(cell_id): int(index) for index, cell_id in enumerate(cell_ids.tolist())}
     cell_node_indices = tuple(
         tuple(node_index_by_id[int(node_id)] for node_id in tuple(cell.node_indices))
         for cell in cells
@@ -430,8 +433,12 @@ def build_gmsh_support_metadata(bundle: object | None) -> GmshSupportMetadata | 
         edge_node_b_index.append(node_b_index)
         edge_cell_a.append(cell_a_index)
         edge_cell_b.append(cell_b_index)
-        edge_midpoint_x_m.append(0.5 * (float(node_x_m[node_a_index]) + float(node_x_m[node_b_index])))
-        edge_midpoint_y_m.append(0.5 * (float(node_y_m[node_a_index]) + float(node_y_m[node_b_index])))
+        edge_midpoint_x_m.append(
+            0.5 * (float(node_x_m[node_a_index]) + float(node_x_m[node_b_index]))
+        )
+        edge_midpoint_y_m.append(
+            0.5 * (float(node_y_m[node_a_index]) + float(node_y_m[node_b_index]))
+        )
         edge_kind.append(str(edge.edge_kind))
         edge_is_river.append(bool(edge.is_river))
         geology_a_key.append(str(edge.geology_a_key))

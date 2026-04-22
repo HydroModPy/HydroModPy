@@ -114,9 +114,7 @@ docs/readthedocs/source/_generated/
 # HydroModPy workspace outputs
 # ──────────────────────────────────────────────
 out/
-**/results_stable/
-**/results_simulations/
-**/results_calibration/
+**/simulations/
 **/exports/
 **/projects/**/figures/
 **/project_results.zarr.db
@@ -226,3 +224,6 @@ examples/Exemple_11_Imene/11S_short/data/regional dem 2.tif.aux.xml
 examples/Exemple_11_Imene/11S_short/data/regional dem.tif
 examples/Exemple_11_Imene/11S_short/data/regional dem.tif.aux.xml
 uv.lock
+examples/hydromodpy.duckdb
+examples/data/cache.duckdb
+examples/data/cache.duckdb

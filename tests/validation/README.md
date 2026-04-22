@@ -26,7 +26,7 @@ The current validation suite focuses on analytical groundwater-flow benchmarks:
 At the moment:
 
 - validation cases are analytical,
-- launcher-backed cases run through `examples/projects/launcher_simulation`,
+- launcher-backed cases run through `examples_legacy_2/projects/launcher_simulation`,
 - current scientific coverage is centered on `modflownwt`,
 - current validation tests do not require `MODPATH` or `MT3DMS`.
 
@@ -123,13 +123,10 @@ In practice:
 - If those Linux dependencies are missing, the PETSc tests will skip or fail at
   import/runtime setup rather than indicate a scientific regression.
 
-During pytest execution, validation runs are launched with:
-
-- `HYDROMODPY_NO_DISPLAY=1`
-- `HYDROMODPY_NO_SAVE=1`
-- `MPLBACKEND=Agg`
-
-This keeps the tests non-interactive and deterministic.
+During pytest execution, validation runs are launched with
+`MPLBACKEND=Agg`. Display behaviour is otherwise driven by the
+``[display]`` TOML section (defaults are non-interactive and
+save-enabled), which keeps the tests deterministic.
 
 ## Running the Suite
 

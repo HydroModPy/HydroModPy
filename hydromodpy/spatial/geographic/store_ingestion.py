@@ -1,6 +1,6 @@
 """Ingest geographic preprocessing outputs into the SimulationCatalog.
 
-Called once per project after :class:`Geographic` processing completes.
+Called once per project after :class:`CatchmentDelineation` processing completes.
 Reads rasters (via rasterio) and shapefiles (via geopandas) from the
 file-based outputs, then writes them into the catalog (Zarr + DuckDB)
 so that downstream consumers can read from the store directly.
@@ -59,7 +59,7 @@ def _ingest_rasters(geographic: Any, store: Any, sim_id: str | None) -> None:
     if sim_id is None:
         return
 
-    from hydromodpy.core.backends import get_whitebox_backend
+    from hydromodpy.spatial.delineation import get_whitebox_backend
 
     wb = get_whitebox_backend()
 
@@ -75,7 +75,9 @@ def _ingest_rasters(geographic: Any, store: Any, sim_id: str | None) -> None:
         if data is not None:
             meta = wb.get_cached_raster_metadata(path)
             store.write_geographic_raster(
-                sim_id, name, data,
+                sim_id,
+                name,
+                data,
                 transform=meta["transform"],
                 crs=str(meta.get("crs", "")),
                 nodata=float(meta["nodata"]) if meta["nodata"] is not None else -99999.0,
@@ -88,6 +90,7 @@ def _ingest_rasters(geographic: Any, store: Any, sim_id: str | None) -> None:
             continue
 
         import rasterio
+
         with rasterio.open(path) as src:
             data = src.read(1)
             transform = tuple(src.transform)[:6]
@@ -95,7 +98,12 @@ def _ingest_rasters(geographic: Any, store: Any, sim_id: str | None) -> None:
             nodata = float(src.nodata) if src.nodata is not None else -99999.0
 
         store.write_geographic_raster(
-            sim_id, name, data, transform=transform, crs=crs, nodata=nodata,
+            sim_id,
+            name,
+            data,
+            transform=transform,
+            crs=crs,
+            nodata=nodata,
         )
         logger.debug("Ingested raster %s from disk (%s)", name, data.shape)
 
@@ -154,7 +162,8 @@ def _ingest_river_network(geographic: Any, store: Any, sim_id: str) -> None:
     store.write_geographic_feature(sim_id, _RIVER_NETWORK_STORE_NAME, gdf)
     logger.debug(
         "Ingested river network (%d segments, %s)",
-        len(gdf), gdf.geometry.geom_type.unique().tolist(),
+        len(gdf),
+        gdf.geometry.geom_type.unique().tolist(),
     )
 
 
@@ -162,8 +171,16 @@ def _ingest_metadata(geographic: Any, store: Any, sim_id: str) -> None:
 
     metadata = {}
 
-    for key in ("crs_proj", "epsg", "catch_area", "dem_res",
-                "x_outlet", "y_outlet", "catch_def", "dem_correc_type"):
+    for key in (
+        "crs_proj",
+        "epsg",
+        "catch_area",
+        "dem_res",
+        "x_outlet",
+        "y_outlet",
+        "catch_def",
+        "dem_correc_type",
+    ):
         val = getattr(geographic, key, None)
         if val is not None:
             metadata[key] = str(val)
@@ -196,7 +213,7 @@ def _cleanup_intermediate_dirs(geographic: Any) -> None:
 
 
 def dump_cached_rasters_to_disk(geographic: Any) -> None:
-    from hydromodpy.core.backends import get_whitebox_backend
+    from hydromodpy.spatial.delineation import get_whitebox_backend
 
     wb = get_whitebox_backend()
     if not wb._raster_cache:
@@ -205,7 +222,10 @@ def dump_cached_rasters_to_disk(geographic: Any) -> None:
     for path, raster in wb._raster_cache.items():
         wb._ensure_parent(path)
         wb._run_env_operation(
-            wb._env.write_raster, raster, path, compress=wb._compress_rasters,
+            wb._env.write_raster,
+            raster,
+            path,
+            compress=wb._compress_rasters,
         )
         logger.debug("Dumped cached raster to %s", path)
 
@@ -214,7 +234,8 @@ def dump_cached_rasters_to_disk(geographic: Any) -> None:
 
 def cleanup_stable_folder(geographic: Any) -> None:
     import shutil
-    from hydromodpy.core.backends import get_whitebox_backend
+
+    from hydromodpy.spatial.delineation import get_whitebox_backend
 
     get_whitebox_backend().clear_raster_cache()
 

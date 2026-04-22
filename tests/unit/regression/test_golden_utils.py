@@ -2,8 +2,11 @@
 
 from __future__ import annotations
 
+import json
 import shutil
 from pathlib import Path
+
+import pytest
 
 from tests.regression import golden_utils
 
@@ -44,6 +47,45 @@ def test_resolve_tiered_results_dir_retries_transient_permission_error(
     assert list(resolved.iterdir()) == []
     assert calls["count"] == 2
     assert sleeps == [golden_utils.remove_tree_with_retry.__kwdefaults__["base_delay_s"]]
+
+
+def test_write_golden_reference_injects_schema_version(tmp_path: Path) -> None:
+    """Freshly written goldens carry the current ``GOLDEN_SCHEMA_VERSION``."""
+    target = tmp_path / "golden.json"
+    golden_utils.write_golden_reference(target, {"modflow_expected": {}})
+    payload = json.loads(target.read_text(encoding="utf-8"))
+    assert payload["_schema_version"] == golden_utils.GOLDEN_SCHEMA_VERSION
+    assert "modflow_expected" in payload
+
+
+def test_update_or_assert_goldens_rejects_incompatible_schema(tmp_path: Path) -> None:
+    """A golden tagged with an older schema version fails loudly."""
+    target = tmp_path / "golden.json"
+    target.write_text(
+        json.dumps({"_schema_version": "0.9", "modflow_expected": {}}),
+        encoding="utf-8",
+    )
+    with pytest.raises(AssertionError, match="schema version"):
+        golden_utils.update_or_assert_goldens(
+            actual={"modflow_expected": {}},
+            golden_reference_file=target,
+            update_goldens=False,
+        )
+
+
+def test_update_or_assert_goldens_accepts_legacy_unversioned(tmp_path: Path) -> None:
+    """Pre-versioning goldens (no ``_schema_version`` key) still compare."""
+    target = tmp_path / "golden.json"
+    target.write_text(
+        json.dumps({"modflow_expected": {}}),
+        encoding="utf-8",
+    )
+    # Should not raise: missing version is treated as the current schema.
+    golden_utils.update_or_assert_goldens(
+        actual={"modflow_expected": {}},
+        golden_reference_file=target,
+        update_goldens=False,
+    )
 
 
 def test_resolve_tiered_results_dir_retries_when_rmtree_onerror_hits_locked_file(

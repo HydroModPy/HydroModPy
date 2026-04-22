@@ -10,7 +10,6 @@ from .gallery_hydraulic_property_specs import build_hydraulic_property_specs
 from .gallery_mesh_specs import MESH_GALLERY_METRIC_SPECS, build_mesh_static_specs
 from .gallery_method_comparison_specs import build_method_comparison_specs
 from .gallery_regional_lab_specs import build_regional_lab_specs
-from .gallery_simulation_specs import build_simulation_specs
 from .gallery_schema import (
     CATEGORY_SPECS,
     GalleryCaseSpec,
@@ -18,8 +17,11 @@ from .gallery_schema import (
     GalleryImageAsset,
     GalleryMetricSpec,
 )
+from .gallery_simulation_specs import build_simulation_specs
 from .manifest_loader import (
     load_json_gallery_case_specs as _load_json_gallery_case_specs_from_module,
+)
+from .manifest_loader import (
     validate_gallery_specs as _validate_gallery_specs_from_module,
 )
 from .mesh_case_registry import (
@@ -42,7 +44,6 @@ def _load_json_gallery_case_specs(manifest_name: str) -> tuple[GalleryCaseSpec, 
 
 def _validate_gallery_specs(specs: tuple[GalleryCaseSpec, ...]) -> tuple[GalleryCaseSpec, ...]:
     return _validate_gallery_specs_from_module(specs)
-
 
 
 def build_repo_mesh_gallery_case_specs(*, repo_root=None) -> tuple[GalleryCaseSpec, ...]:
@@ -104,7 +105,9 @@ def build_repo_mesh_gallery_case_specs(*, repo_root=None) -> tuple[GalleryCaseSp
                                 "Regional framing figure copied from the imported meshing run.",
                             )
                         ),
-                        alt_text=str(payload.get("regional_image_alt_text", f"{title} regional context")),
+                        alt_text=str(
+                            payload.get("regional_image_alt_text", f"{title} regional context")
+                        ),
                         source_path=preferred_doc_regional_figure_path,
                     )
                 )
@@ -129,14 +132,12 @@ def build_repo_mesh_gallery_case_specs(*, repo_root=None) -> tuple[GalleryCaseSp
             if family_key != "":
                 comparison_group = f"{family_key}::outlet::{outlet_id}"
                 comparison_group_title = (
-                    comparison_group_title
-                    or f"{family_label or scale_label}, outlet {outlet_id}"
+                    comparison_group_title or f"{family_label or scale_label}, outlet {outlet_id}"
                 )
             else:
                 comparison_group = f"{scale}::outlet::{outlet_id}"
                 comparison_group_title = (
-                    comparison_group_title
-                    or f"{scale_label}, outlet {outlet_id}"
+                    comparison_group_title or f"{scale_label}, outlet {outlet_id}"
                 )
 
         metadata = {
@@ -179,12 +180,12 @@ def build_repo_mesh_gallery_case_specs(*, repo_root=None) -> tuple[GalleryCaseSp
                     key_parameters=tuple(str(item) for item in payload.get("key_parameters", ())),
                     how_to_read=tuple(str(item) for item in payload.get("how_to_read", ())),
                     next_steps=tuple(str(item) for item in payload.get("next_steps", ())),
-                    reference_highlights=tuple(str(item) for item in payload.get("reference_highlights", ())),
+                    reference_highlights=tuple(
+                        str(item) for item in payload.get("reference_highlights", ())
+                    ),
                     equations_rst=tuple(str(item) for item in payload.get("equations_rst", ())),
                     walkthrough_doc=(
-                        str(payload["walkthrough_doc"])
-                        if payload.get("walkthrough_doc")
-                        else None
+                        str(payload["walkthrough_doc"]) if payload.get("walkthrough_doc") else None
                     ),
                     walkthrough_title=(
                         str(payload["walkthrough_title"])
@@ -282,12 +283,7 @@ def build_gallery_specs(
     validation_specs = _build_validation_gallery_specs() if needs_validation else ()
     calibration_specs = _build_calibration_gallery_specs() if needs_calibration else ()
 
-    return _validate_gallery_specs(
-        static_specs
-        + validation_specs
-        + calibration_specs
-        + mesh_specs
-    )
+    return _validate_gallery_specs(static_specs + validation_specs + calibration_specs + mesh_specs)
 
 
 __all__ = [

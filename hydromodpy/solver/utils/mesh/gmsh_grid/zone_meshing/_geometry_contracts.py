@@ -28,9 +28,7 @@ class ZoneDomainCleaningDiagnostics:
         """Serialize domain-cleaning diagnostics to summary-friendly keys."""
         return {
             "domain_invalid_geometry_count": int(self.invalid_geometry_count),
-            "domain_invalid_geometries_repaired_count": int(
-                self.invalid_geometries_repaired_count
-            ),
+            "domain_invalid_geometries_repaired_count": int(self.invalid_geometries_repaired_count),
             "domain_polygon_parts_before_area_filter_count": int(
                 self.polygon_parts_before_area_filter_count
             ),
@@ -63,9 +61,7 @@ class ZoneRowCleaningDiagnostics:
         return {
             "source_feature_count": int(self.source_feature_count),
             "source_invalid_geometry_count": int(self.source_invalid_geometry_count),
-            "invalid_geometries_repaired_count": int(
-                self.invalid_geometries_repaired_count
-            ),
+            "invalid_geometries_repaired_count": int(self.invalid_geometries_repaired_count),
             "features_skipped_empty_zone_key_count": int(
                 self.features_skipped_empty_zone_key_count
             ),
@@ -73,9 +69,7 @@ class ZoneRowCleaningDiagnostics:
                 self.features_skipped_empty_geometry_count
             ),
             "features_outside_domain_count": int(self.features_outside_domain_count),
-            "features_after_domain_clip_count": int(
-                self.features_after_domain_clip_count
-            ),
+            "features_after_domain_clip_count": int(self.features_after_domain_clip_count),
             "features_dropped_after_cleaning_count": int(
                 self.features_dropped_after_cleaning_count
             ),
@@ -103,7 +97,7 @@ class CleanedZonePolygonRow:
 class ZoneGeometryGrouping:
     """Grouped per-zone geometries and priorities derived from cleaned rows."""
 
-    geometries: dict[str, "ZoneGeometry"]
+    geometries: dict[str, ZoneGeometry]
     priorities: dict[str, float] = field(default_factory=dict)
 
 

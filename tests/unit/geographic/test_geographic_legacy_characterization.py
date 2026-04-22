@@ -1,4 +1,4 @@
-"""Characterization tests for legacy ``hydromodpy.spatial.geographic.Geographic``.
+"""Characterization tests for legacy ``hydromodpy.spatial.geographic.CatchmentDelineation``.
 
 Goal:
 - lock the current public contract of the legacy class before migration,
@@ -19,12 +19,12 @@ from geopy.exc import GeocoderUnavailable
 from rasterio.errors import RasterioIOError
 from rasterio.features import geometry_mask, rasterize, shapes
 from rasterio.transform import from_origin
-from shapely.geometry import box, shape as shapely_shape
+from shapely.geometry import box
+from shapely.geometry import shape as shapely_shape
 
-from hydromodpy.spatial.geographic.geographic import Geographic
-from hydromodpy.spatial.geographic.geographic_config import GeographicConfig
+from hydromodpy.spatial.geographic.catchment_delineation import CatchmentDelineation
 from hydromodpy.spatial.geographic.dem_metadata import _resolve_dep_code
-
+from hydromodpy.spatial.geographic.geographic_config import GeographicConfig
 
 GOLDEN_FILE = (
     Path(__file__).resolve().parent / "golden" / "geographic_legacy_characterization_golden.json"
@@ -135,8 +135,12 @@ class _FakeWhiteboxBackend:
         mask = (xg <= float(outlet.x)) & (yg <= float(outlet.y))
         if not np.any(mask):
             # Ensure at least one cell belongs to watershed if outlet is near edge.
-            ci = int(np.clip(round((float(outlet.x) - transform.c) / transform.a - 0.5), 0, shape[1] - 1))
-            ri = int(np.clip(round((float(outlet.y) - transform.f) / transform.e - 0.5), 0, shape[0] - 1))
+            ci = int(
+                np.clip(round((float(outlet.x) - transform.c) / transform.a - 0.5), 0, shape[1] - 1)
+            )
+            ri = int(
+                np.clip(round((float(outlet.y) - transform.f) / transform.e - 0.5), 0, shape[0] - 1)
+            )
             mask[ri, ci] = True
 
         profile.update(dtype=np.uint8, nodata=0, count=1)
@@ -163,7 +167,9 @@ class _FakeWhiteboxBackend:
 
     def polygons_to_lines(self, in_shp: str, out_shp: str) -> None:
         gdf = gpd.read_file(in_shp)
-        union_geom = gdf.geometry.union_all() if hasattr(gdf.geometry, "union_all") else gdf.unary_union
+        union_geom = (
+            gdf.geometry.union_all() if hasattr(gdf.geometry, "union_all") else gdf.unary_union
+        )
         out = gpd.GeoDataFrame({"id": [1]}, geometry=[union_geom.boundary], crs=gdf.crs)
         Path(out_shp).parent.mkdir(parents=True, exist_ok=True)
         out.to_file(out_shp)
@@ -264,8 +270,10 @@ def _write_json(path: Path, payload: dict) -> None:
         stream.write("\n")
 
 
-def _build_geographic_legacy_case(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Geographic:
-    import hydromodpy.spatial.geographic.geographic as geo_mod
+def _build_geographic_legacy_case(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> CatchmentDelineation:
+    import hydromodpy.spatial.geographic.catchment_delineation as geo_mod
 
     fake_wbt = _FakeWhiteboxBackend()
     monkeypatch.setattr(geo_mod, "get_whitebox_backend", lambda: fake_wbt)
@@ -285,11 +293,13 @@ def _build_geographic_legacy_case(tmp_path: Path, monkeypatch: pytest.MonkeyPatc
         dem_correc_type="breach",
     )
     initializing = SimpleNamespace(project_root=str(tmp_path / "case_run"))
-    return Geographic(config=cfg, initializing=initializing)
+    return CatchmentDelineation(config=cfg, initializing=initializing)
 
 
-def _build_geographic_legacy_outlet_case(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Geographic:
-    import hydromodpy.spatial.geographic.geographic as geo_mod
+def _build_geographic_legacy_outlet_case(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> CatchmentDelineation:
+    import hydromodpy.spatial.geographic.catchment_delineation as geo_mod
 
     fake_wbt = _FakeWhiteboxBackend()
     monkeypatch.setattr(geo_mod, "get_whitebox_backend", lambda: fake_wbt)
@@ -309,10 +319,10 @@ def _build_geographic_legacy_outlet_case(tmp_path: Path, monkeypatch: pytest.Mon
         dem_correc_type="breach",
     )
     initializing = SimpleNamespace(project_root=str(tmp_path / "case_run_outlet"))
-    return Geographic(config=cfg, initializing=initializing)
+    return CatchmentDelineation(config=cfg, initializing=initializing)
 
 
-def _legacy_signature(geo: Geographic) -> dict:
+def _legacy_signature(geo: CatchmentDelineation) -> dict:
     finite_box = np.isfinite(geo.dem_box_buff_data) & (geo.dem_box_buff_data != geo.nodata)
     finite_core = np.isfinite(geo.dem_data) & (geo.dem_data != geo.nodata)
 
@@ -489,7 +499,7 @@ def test_geographic_config_rejects_missing_outlet_fields() -> None:
 
 
 def test_geographic_legacy_missing_dem_file_raises(tmp_path: Path) -> None:
-    """Legacy Geographic should fail early when input DEM does not exist."""
+    """Legacy CatchmentDelineation should fail early when input DEM does not exist."""
     catchment_path = tmp_path / "inputs" / "catchment.shp"
     _write_synthetic_catchment(catchment_path)
     missing_dem = tmp_path / "inputs" / "missing_dem.tif"
@@ -505,7 +515,7 @@ def test_geographic_legacy_missing_dem_file_raises(tmp_path: Path) -> None:
     initializing = SimpleNamespace(project_root=str(tmp_path / "case_missing_dem"))
 
     with pytest.raises(RasterioIOError):
-        Geographic(config=cfg, initializing=initializing)
+        CatchmentDelineation(config=cfg, initializing=initializing)
 
 
 def test_resolve_dep_code_returns_none_when_geocoder_is_unavailable() -> None:

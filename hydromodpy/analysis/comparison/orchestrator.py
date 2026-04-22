@@ -12,9 +12,6 @@ import time
 from pathlib import Path
 from typing import Any
 
-from hydromodpy.core.config.hydromodpy_config import HydroModPyConfig
-from hydromodpy.core.config.toml_loader import load_toml_with_base_config
-
 from hydromodpy.analysis.comparison.config import MethodComparisonConfig
 from hydromodpy.analysis.comparison.exports import (
     write_budget_exports,
@@ -40,6 +37,8 @@ from hydromodpy.analysis.comparison.runtime import (
     write_observables_csv,
 )
 from hydromodpy.analysis.comparison.visuals import generate_comparison_figures
+from hydromodpy.core.config.hydromodpy_config import HydroModPyConfig
+from hydromodpy.core.config.toml_loader import load_toml_with_base_config
 
 
 class MethodComparisonLauncher:
@@ -91,9 +90,7 @@ class MethodComparisonLauncher:
             sim_id = None
             try:
                 config_path = summary.get("config_path")
-                resolved_config_path = (
-                    None if config_path in (None, "") else Path(str(config_path))
-                )
+                resolved_config_path = None if config_path in (None, "") else Path(str(config_path))
                 store, sim_id = discover_result_store(resolved_config_path)
                 rows = extract_observable_rows(
                     comparison_id=str(section.comparison_id),
@@ -160,8 +157,7 @@ class MethodComparisonLauncher:
                 rows=all_rows,
                 detail_metrics=detail_metrics,
                 observables=[
-                    observable.model_dump(mode="json")
-                    for observable in section.observable
+                    observable.model_dump(mode="json") for observable in section.observable
                 ],
             )
         )
@@ -205,8 +201,7 @@ class MethodComparisonLauncher:
                 reference_variant=reference_variant,
                 variant_summaries=variant_summaries,
                 observables=[
-                    observable.model_dump(mode="json")
-                    for observable in section.observable
+                    observable.model_dump(mode="json") for observable in section.observable
                 ],
                 rows=all_rows,
                 summary_metrics=summary_metrics,
@@ -243,8 +238,7 @@ class MethodComparisonLauncher:
             "wall_time_seconds": round(time.monotonic() - started_at, 2),
             "variants": variant_summaries,
             "observables": [
-                observable.model_dump(mode="json")
-                for observable in section.observable
+                observable.model_dump(mode="json") for observable in section.observable
             ],
         }
         manifest_path = comparison_root / "comparison_manifest.json"
@@ -268,10 +262,10 @@ class MethodComparisonLauncher:
         try:
             config_path = materialize_variant_config(cfg=self.cfg, variant=variant)
             if section.run_variants and config_path is not None:
-                from hydromodpy.project import Simulation
+                from hydromodpy.project import Project
 
                 start = time.monotonic()
-                project = Simulation(config_path)
+                project = Project(config_path)
                 project.run()
                 wall_seconds = round(time.monotonic() - start, 2)
                 run_folder = self._resolve_completed_run_folder(
@@ -287,9 +281,7 @@ class MethodComparisonLauncher:
                 )
                 status = "reused"
             elif run_folder is None:
-                raise ValueError(
-                    f"Variant '{variant.id}' has no config_path or run_folder"
-                )
+                raise ValueError(f"Variant '{variant.id}' has no config_path or run_folder")
 
             metrics = compact_run_metrics(read_json_file(run_folder / "_metrics.json"))
             metadata = read_variant_run_metadata(run_folder)

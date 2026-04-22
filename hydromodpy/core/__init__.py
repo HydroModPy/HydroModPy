@@ -3,9 +3,9 @@
 from hydromodpy.core.config import HydroModPyConfig
 from hydromodpy.core.state import (
     ExecutionRegistry,
-    WorkflowContext,
     LoadedDataContext,
     SetupContext,
+    WorkflowContext,
 )
 from hydromodpy.core.time import ResolvedSimulationTimeWindow
 from hydromodpy.core.workspace import Workspace, WorkspaceConfig, WorkspacePathRegistry
@@ -34,7 +34,7 @@ def __getattr__(name: str):
         "clear_whitebox_backend_cache",
         "get_whitebox_backend",
     }:
-        from hydromodpy.core.backends import (
+        from hydromodpy.spatial.delineation import (
             WhiteboxBackend,
             WhiteboxWorkflowsBackend,
             clear_whitebox_backend_cache,

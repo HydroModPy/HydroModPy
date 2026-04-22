@@ -27,6 +27,4 @@ def test_vtu_roundtrip(tmp_path, triangle_mesh) -> None:
     recovered = read_vtu(path)
     assert recovered.n_cells == 2
     assert recovered.n_nodes == 4
-    np.testing.assert_array_almost_equal(
-        recovered.cell_data["conductivity"], [1e-4, 2e-4]
-    )
+    np.testing.assert_array_almost_equal(recovered.cell_data["conductivity"], [1e-4, 2e-4])

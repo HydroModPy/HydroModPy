@@ -52,9 +52,7 @@ def build_read_only_summary(
 ) -> dict[str, object]:
     planar_mesh = load_planar_mesh(planar_mesh_path)
     extruded_mesh = load_extruded_mesh(values_vtu_path)
-    mesh_with_values = load_extruded_mesh_values(
-        values_vtu_path, label="field_param_value"
-    )
+    mesh_with_values = load_extruded_mesh_values(values_vtu_path, label="field_param_value")
     center_source = int(mesh_with_values.n_cells_2d // 2)
     center_profile = mesh_with_values.extract_vertical_profile(center_source)
     return {
@@ -68,20 +66,15 @@ def build_read_only_summary(
         "extruded_cell_type": str(extruded_mesh.cell_type_3d),
         "extruded_n_layers": int(extruded_mesh.n_layers),
         "extruded_n_cells_3d": int(extruded_mesh.n_prisms),
-        "values_shape_3d": [
-            int(v) for v in np.asarray(mesh_with_values.values_3d).shape
-        ],
+        "values_shape_3d": [int(v) for v in np.asarray(mesh_with_values.values_3d).shape],
         "values_mean": round(
             float(np.mean(np.asarray(mesh_with_values.values_3d, dtype=float))), 12
         ),
         "layer_mean_sequence": [
-            round(float(layer_stats["mean"]), 12)
-            for layer_stats in mesh_with_values.layer_stats()
+            round(float(layer_stats["mean"]), 12) for layer_stats in mesh_with_values.layer_stats()
         ],
         "center_profile": [round(float(v), 12) for v in center_profile["values"]],
-        "center_depth_profile": [
-            round(float(v), 12) for v in center_profile.get("depths", [])
-        ],
+        "center_depth_profile": [round(float(v), 12) for v in center_profile.get("depths", [])],
     }
 
 

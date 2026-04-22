@@ -33,7 +33,9 @@ def build_parser() -> argparse.ArgumentParser:
             "layout used by the documentation capability gallery."
         )
     )
-    parser.add_argument("--source-bundle", required=True, help="Path to one existing bundle directory.")
+    parser.add_argument(
+        "--source-bundle", required=True, help="Path to one existing bundle directory."
+    )
     parser.add_argument(
         "--scale",
         required=True,
@@ -46,7 +48,9 @@ def build_parser() -> argparse.ArgumentParser:
         choices=tuple(MESH_GALLERY_VARIANT_SPECS),
         help="Canonical gallery variant for the imported case.",
     )
-    parser.add_argument("--outlet-id", required=True, help="Outlet identifier used in titles and slugs.")
+    parser.add_argument(
+        "--outlet-id", required=True, help="Outlet identifier used in titles and slugs."
+    )
     parser.add_argument("--case-slug", default=None, help="Optional case slug override.")
     parser.add_argument("--title", default=None, help="Optional case title override.")
     parser.add_argument("--deck", default=None, help="Optional card deck override.")
@@ -175,7 +179,9 @@ def import_mesh_bundle_case(
                 )
             # When re-importing an already versioned case, stage the current bundle before deleting it.
             if source_bundle_dir == paths.bundle_dir or paths.case_dir in source_bundle_dir.parents:
-                temp_source_root = tempfile.TemporaryDirectory(prefix="hydromodpy_mesh_gallery_import_")
+                temp_source_root = tempfile.TemporaryDirectory(
+                    prefix="hydromodpy_mesh_gallery_import_"
+                )
                 staged_bundle_dir = Path(temp_source_root.name) / source_bundle_dir.name
                 shutil.copytree(source_bundle_dir, staged_bundle_dir)
                 bundle_dir = staged_bundle_dir
@@ -193,11 +199,15 @@ def import_mesh_bundle_case(
         imported_summary["bundle_readme_present"] = "README.md" in copied_filenames
 
         preferred_doc_figure = _copy_optional_figure(
-            _resolve_existing_path(imported_summary.get("output_figure"), base_dir=bundle_dir.parent),
+            _resolve_existing_path(
+                imported_summary.get("output_figure"), base_dir=bundle_dir.parent
+            ),
             paths.figures_dir / "mesh_overview.png",
         )
         preferred_doc_regional_figure = _copy_optional_figure(
-            _resolve_existing_path(imported_summary.get("output_figure_regional"), base_dir=bundle_dir.parent),
+            _resolve_existing_path(
+                imported_summary.get("output_figure_regional"), base_dir=bundle_dir.parent
+            ),
             paths.figures_dir / "mesh_regional.png",
         )
 
@@ -223,7 +233,9 @@ def import_mesh_bundle_case(
             what_it_shows=what_it_shows,
             reproduction_command=reproduction_command,
             preferred_doc_figure_path=(
-                None if preferred_doc_figure is None else repo_relative(preferred_doc_figure, repo_root=repo_root)
+                None
+                if preferred_doc_figure is None
+                else repo_relative(preferred_doc_figure, repo_root=repo_root)
             ),
             preferred_doc_regional_figure_path=(
                 None

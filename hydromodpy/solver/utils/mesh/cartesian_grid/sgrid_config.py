@@ -11,15 +11,17 @@ Design choices
 
 from __future__ import annotations
 
-from math import isclose
-from pathlib import Path
 import tomllib
 import warnings
-from typing import Annotated, Any, Literal, Mapping
+from collections.abc import Mapping
+from math import isclose
+from pathlib import Path
+from typing import Annotated, Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator, model_validator
+from pydantic import ConfigDict, Field, ValidationError, field_validator, model_validator
 
-from hydromodpy.core.config.param_level import ParamLevel
+from hydromodpy.core.config.base import HydroModelBase
+from hydromodpy.core.config.profile import Profile
 
 
 def _require_positive_int(value, *, name: str) -> int:
@@ -45,7 +47,7 @@ def _require_positive_int(value, *, name: str) -> int:
     return out
 
 
-class VerticalGridConfig(BaseModel):
+class VerticalGridConfig(HydroModelBase):
     """
     Single source of truth for vertical-grid validation.
 
@@ -59,23 +61,23 @@ class VerticalGridConfig(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    genmtd_lay: Annotated[Literal["constant", "decay", "list"], ParamLevel("user")] = Field(
+    genmtd_lay: Annotated[Literal["constant", "decay", "list"], Profile.USER] = Field(
         default="constant",
         description="Vertical-layering strategy.",
     )
-    nlay: Annotated[int | None, ParamLevel("user")] = Field(
+    nlay: Annotated[int | None, Profile.USER] = Field(
         default=1,
         description="Number of layers (required for constant/decay, ignored for list).",
     )
-    lay_decay: Annotated[float | None, ParamLevel("dev")] = Field(
+    lay_decay: Annotated[float | None, Profile.DEV] = Field(
         default=None,
         description="Decay exponent (>1) for decay layering.",
     )
-    lay_proportions: Annotated[list[float] | None, ParamLevel("dev")] = Field(
+    lay_proportions: Annotated[list[float] | None, Profile.DEV] = Field(
         default=None,
         description="Explicit layer fractions when genmtd_lay='list' (must sum to 1).",
     )
-    nodata: Annotated[float, ParamLevel("dev")] = Field(
+    nodata: Annotated[float, Profile.DEV] = Field(
         default=-9999.0,
         description="No-data sentinel value.",
     )
@@ -97,11 +99,11 @@ class VerticalGridConfig(BaseModel):
     @model_validator(mode="after")
     def _validate_cross_fields(self):
         if self.genmtd_lay in ("constant", "decay"):
-            self.nlay = _require_positive_int(self.nlay, name="nlay")
+            object.__setattr__(self, "nlay", _require_positive_int(self.nlay, name="nlay"))
         if self.genmtd_lay == "decay":
             if self.lay_decay is None:
                 raise ValueError("lay_decay is required when genmtd_lay='decay'")
-            self.lay_decay = float(self.lay_decay)
+            object.__setattr__(self, "lay_decay", float(self.lay_decay))
             if self.lay_decay <= 1.0:
                 raise ValueError("lay_decay must be > 1.0 when genmtd_lay='decay'")
 
@@ -116,7 +118,7 @@ class VerticalGridConfig(BaseModel):
                     UserWarning,
                     stacklevel=2,
                 )
-            self.nlay = None
+            object.__setattr__(self, "nlay", None)
         return self
 
     @classmethod
@@ -125,29 +127,29 @@ class VerticalGridConfig(BaseModel):
         return cls.model_validate(payload)
 
 
-class PlanarGridConfig(BaseModel):
+class PlanarGridConfig(HydroModelBase):
     """Planar discretization contract for solver-facing grids."""
 
     model_config = ConfigDict(extra="forbid")
 
-    mode: Annotated[Literal["keep_native", "resample_to_shape"], ParamLevel("user")] = Field(
+    mode: Annotated[Literal["keep_native", "resample_to_shape"], Profile.USER] = Field(
         default="keep_native",
         description=(
             "Planar solver-grid mode: keep the native domain support or "
             "resample to an explicit (ny, nx) target shape."
         ),
     )
-    nx: Annotated[int | None, ParamLevel("user")] = Field(
+    nx: Annotated[int | None, Profile.USER] = Field(
         default=None,
         ge=1,
         description="Target number of columns when planar mode is 'resample_to_shape'.",
     )
-    ny: Annotated[int | None, ParamLevel("user")] = Field(
+    ny: Annotated[int | None, Profile.USER] = Field(
         default=None,
         ge=1,
         description="Target number of rows when planar mode is 'resample_to_shape'.",
     )
-    resampling: Annotated[Literal["bilinear", "average", "nearest"], ParamLevel("dev")] = Field(
+    resampling: Annotated[Literal["bilinear", "average", "nearest"], Profile.DEV] = Field(
         default="bilinear",
         description="Resampling rule applied when planar mode is 'resample_to_shape'.",
     )
@@ -155,23 +157,23 @@ class PlanarGridConfig(BaseModel):
     @model_validator(mode="after")
     def _validate_cross_fields(self):
         if self.mode == "resample_to_shape":
-            self.nx = _require_positive_int(self.nx, name="nx")
-            self.ny = _require_positive_int(self.ny, name="ny")
+            object.__setattr__(self, "nx", _require_positive_int(self.nx, name="nx"))
+            object.__setattr__(self, "ny", _require_positive_int(self.ny, name="ny"))
         elif self.nx is not None or self.ny is not None:
             raise ValueError("nx and ny must be omitted when planar.mode='keep_native'")
         return self
 
 
-class SolverSGridConfig(BaseModel):
+class SolverSGridConfig(HydroModelBase):
     """Solver-facing grid configuration split into explicit planar and vertical parts."""
 
     model_config = ConfigDict(extra="forbid")
 
-    planar: Annotated[PlanarGridConfig, ParamLevel("user")] = Field(
+    planar: Annotated[PlanarGridConfig, Profile.USER] = Field(
         default_factory=PlanarGridConfig,
         description="Planar discretization of the solver grid.",
     )
-    vertical: Annotated[VerticalGridConfig, ParamLevel("user")] = Field(
+    vertical: Annotated[VerticalGridConfig, Profile.USER] = Field(
         default_factory=VerticalGridConfig,
         description="Vertical layering of the solver grid.",
     )
@@ -182,7 +184,7 @@ class SolverSGridConfig(BaseModel):
         return cls.model_validate(payload)
 
 
-class SGridConfig(BaseModel):
+class SGridConfig(HydroModelBase):
     """
     Single source of truth for structured-grid configuration validation.
 
@@ -195,81 +197,85 @@ class SGridConfig(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    sgrid_type: Annotated[Literal["structured"], ParamLevel("user")] = Field(
+    sgrid_type: Annotated[Literal["structured"], Profile.USER] = Field(
         default="structured",
         description="Spatial grid family. Only 'structured' is supported.",
     )
-    genmtd_top: Annotated[Literal["filepath"], ParamLevel("user")] = Field(
+    genmtd_top: Annotated[Literal["filepath"], Profile.USER] = Field(
         default="filepath",
         description="Method used to define top surface. Currently only raster filepath is supported.",
     )
-    top_path: Annotated[str, ParamLevel("user")] = Field(
+    top_path: Annotated[str, Profile.USER] = Field(
         ...,
         description="Path to top DEM raster used as model top surface.",
     )
-    crs: Annotated[str | None, ParamLevel("user")] = Field(
+    crs: Annotated[str | None, Profile.USER] = Field(
         default=None,
         description="Optional CRS identifier (for example 'EPSG:2154').",
     )
-    plan_discretization_mode: Annotated[Literal["keep_native", "resample_to_shape"], ParamLevel("user")] = Field(
+    plan_discretization_mode: Annotated[
+        Literal["keep_native", "resample_to_shape"], Profile.USER
+    ] = Field(
         default="keep_native",
         description=(
             "Planar discretization strategy: keep native support or "
             "resample to explicit (ny, nx) target shape."
         ),
     )
-    nx: Annotated[int | None, ParamLevel("user")] = Field(
+    nx: Annotated[int | None, Profile.USER] = Field(
         default=None,
         ge=1,
         description="Target number of columns when plan_discretization_mode='resample_to_shape'.",
     )
-    ny: Annotated[int | None, ParamLevel("user")] = Field(
+    ny: Annotated[int | None, Profile.USER] = Field(
         default=None,
         ge=1,
         description="Target number of rows when plan_discretization_mode='resample_to_shape'.",
     )
 
-    genmtd_bot: Annotated[Literal["filepath", "raster", "constant_thickness", "constant_altitude"], ParamLevel("user")] = Field(
+    genmtd_bot: Annotated[
+        Literal["filepath", "raster", "constant_thickness", "constant_altitude"], Profile.USER
+    ] = Field(
         ...,
         description="Bottom-surface generation method.",
     )
-    bot_path: Annotated[str | None, ParamLevel("user")] = Field(
+    bot_path: Annotated[str | None, Profile.USER] = Field(
         default=None,
         description="Path to bottom raster when genmtd_bot='filepath'.",
     )
-    bot_raster: Annotated[Any | None, ParamLevel("user")] = Field(
+    bot_raster: Annotated[Any | None, Profile.USER] = Field(
         default=None,
         description="In-memory bottom raster array when genmtd_bot='raster'.",
     )
-    thick: Annotated[float | None, ParamLevel("user")] = Field(
+    thick: Annotated[float | None, Profile.USER] = Field(
         default=None,
         description="Domain thickness when genmtd_bot='constant_thickness'.",
     )
-    zbot: Annotated[float | None, ParamLevel("user")] = Field(
+    zbot: Annotated[float | None, Profile.USER] = Field(
         default=None,
         description="Constant bottom elevation when genmtd_bot='constant_altitude'.",
     )
 
-    genmtd_lay: Annotated[Literal["constant", "decay", "list"], ParamLevel("user")] = Field(
+    genmtd_lay: Annotated[Literal["constant", "decay", "list"], Profile.USER] = Field(
         ...,
         description="Vertical-layering method.",
     )
-    nlay: Annotated[int | None, ParamLevel("user")] = Field(
+    nlay: Annotated[int | None, Profile.USER] = Field(
         default=None,
         ge=1,
         description="Number of model layers for constant/decay layering.",
     )
-    lay_decay: Annotated[float | None, ParamLevel("dev")] = Field(
+    lay_decay: Annotated[float | None, Profile.DEV] = Field(
         default=None,
         gt=1.0,
         description="Decay exponent (>1) for progressively thicker layers with depth.",
     )
-    lay_proportions: Annotated[list[float] | None, ParamLevel("dev")] = Field(
+    lay_proportions: Annotated[list[float] | None, Profile.DEV] = Field(
         default=None,
         description="Per-layer thickness fractions when genmtd_lay='list' (must sum to 1).",
     )
 
-    nodata: Annotated[float, ParamLevel("dev")] = Field(
+    nodata: Annotated[float, Profile.DEV] = Field(
         default=-9999.0,
         description="No-data sentinel value used to mask invalid raster cells.",
     )
@@ -326,14 +332,12 @@ class SGridConfig(BaseModel):
         if self.plan_discretization_mode == "resample_to_shape":
             if self.nx is None or self.ny is None:
                 raise ValueError(
-                    "nx and ny are required when "
-                    "plan_discretization_mode='resample_to_shape'"
+                    "nx and ny are required when plan_discretization_mode='resample_to_shape'"
                 )
         if self.plan_discretization_mode == "keep_native":
             if self.nx is not None or self.ny is not None:
                 raise ValueError(
-                    "nx and ny must not be provided when "
-                    "plan_discretization_mode='keep_native'"
+                    "nx and ny must not be provided when plan_discretization_mode='keep_native'"
                 )
 
         self._require_existing_file(
@@ -388,7 +392,9 @@ class SGridConfig(BaseModel):
         return cls.model_validate(cfg)
 
 
-from hydromodpy.solver.utils._config_helpers import resolve_path as _resolve_path
+from hydromodpy.solver.utils._config_helpers import (  # noqa: E402 — late import to avoid circular dependency
+    resolve_path as _resolve_path,
+)
 
 
 def validate_sgrid_config_data(config_data: Mapping[str, Any]) -> dict[str, Any]:

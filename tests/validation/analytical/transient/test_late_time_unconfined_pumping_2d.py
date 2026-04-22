@@ -96,5 +96,3 @@ def test_late_time_unconfined_pumping_2d_matches_late_time_reference_boussinesq(
         require_modflow=False,
         require_modflow6=False,
     )
-
-

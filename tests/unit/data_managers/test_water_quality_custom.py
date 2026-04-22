@@ -24,7 +24,8 @@ class TestWaterQualityCustomCSV:
 
     def test_filter_ids(self, sample_wq_dir, project_period):
         cfg = WaterQualitySourceConfig(
-            source="custom", path=sample_wq_dir,
+            source="custom",
+            path=sample_wq_dir,
             station_ids=["SITE02"],
         )
         records = load_custom(cfg, project_period=project_period)
@@ -37,10 +38,15 @@ class TestWaterQualityCustomConstant:
         d = tmp_path / "const_wq"
         d.mkdir()
 
-        pd.DataFrame({
-            "id": ["S1"], "x": [2.35], "y": [48.85],
-            "crs": ["EPSG:4326"], "unit": ["mg/L"],
-        }).to_csv(d / "waterquality_custom_LOC.csv", index=False)
+        pd.DataFrame(
+            {
+                "id": ["S1"],
+                "x": [2.35],
+                "y": [48.85],
+                "crs": ["EPSG:4326"],
+                "unit": ["mg/L"],
+            }
+        ).to_csv(d / "waterquality_custom_LOC.csv", index=False)
 
         pd.DataFrame({"datetime": ["2020-01-01"], "value": [7.0]}).to_csv(
             d / "waterquality_custom_S1_20200101_20200331_D.csv", index=False
@@ -56,10 +62,15 @@ class TestWaterQualityCustomConstant:
         d = tmp_path / "const_wq_ug"
         d.mkdir()
 
-        pd.DataFrame({
-            "id": ["S_UG"], "x": [2.35], "y": [48.85],
-            "crs": ["EPSG:4326"], "unit": ["ug/l"],
-        }).to_csv(d / "waterquality_custom_LOC.csv", index=False)
+        pd.DataFrame(
+            {
+                "id": ["S_UG"],
+                "x": [2.35],
+                "y": [48.85],
+                "crs": ["EPSG:4326"],
+                "unit": ["ug/l"],
+            }
+        ).to_csv(d / "waterquality_custom_LOC.csv", index=False)
 
         pd.DataFrame({"datetime": ["2020-01-01"], "value": [2500.0]}).to_csv(
             d / "waterquality_custom_S_UG_20200101_20200331_D.csv", index=False

@@ -11,10 +11,10 @@ workflow while centralizing the repetitive plumbing used by many cases:
 
 from __future__ import annotations
 
-from collections.abc import Mapping
 import json
-from pathlib import Path
 import tomllib
+from collections.abc import Mapping
+from pathlib import Path
 from typing import Any
 
 from hydromodpy.solver.utils._config_helpers import get_nested_section
@@ -36,8 +36,7 @@ def resolve_case_config_path(raw_config: str | Path, *, script_dir: str | Path) 
         return script_candidate
 
     raise FileNotFoundError(
-        f"Config TOML not found: '{raw_config}'. "
-        f"Tried '{cwd_candidate}' and '{script_candidate}'."
+        f"Config TOML not found: '{raw_config}'. Tried '{cwd_candidate}' and '{script_candidate}'."
     )
 
 

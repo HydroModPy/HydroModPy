@@ -13,27 +13,27 @@ the whole internal layout into higher-level code.
 """
 
 from hydromodpy.solver.utils.mesh.gmsh_grid.zone_meshing.config import (
-    parse_zone_meshing_settings,
     ZoneMeshingSettings,
-)
-from hydromodpy.solver.utils.mesh.gmsh_grid.zone_meshing.contracts import (
-    ZoneConformalPhysicalGroup,
-    ZoneConformalMeshResult,
-    ZoneConformalPartition,
-    ZoneLinearConstraint,
-    ZoneRegionalSizeField,
-    ZonePartitionFace,
+    parse_zone_meshing_settings,
 )
 from hydromodpy.solver.utils.mesh.gmsh_grid.zone_meshing.conformal import (
     build_zone_conformal_partition_from_dataframe,
     generate_zone_conformal_mesh_from_dataframe,
     generate_zone_conformal_mesh_from_geology_config,
 )
+from hydromodpy.solver.utils.mesh.gmsh_grid.zone_meshing.contracts import (
+    ZoneConformalMeshResult,
+    ZoneConformalPartition,
+    ZoneConformalPhysicalGroup,
+    ZoneLinearConstraint,
+    ZonePartitionFace,
+    ZoneRegionalSizeField,
+)
 from hydromodpy.solver.utils.mesh.gmsh_grid.zone_meshing.domain import (
-    parse_zone_meshing_domain_config,
     ZoneMeshingDomainConfig,
     ZoneMeshingDomainPayload,
     load_zone_meshing_domain_payload,
+    parse_zone_meshing_domain_config,
 )
 
 __all__ = [

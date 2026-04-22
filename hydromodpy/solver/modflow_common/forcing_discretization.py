@@ -10,8 +10,7 @@ def has_spatially_distributed_source(load_result: object | None) -> bool:
     if load_result is None:
         return False
     return bool(
-        getattr(load_result, "has_fields", False)
-        or getattr(load_result, "has_points", False)
+        getattr(load_result, "has_fields", False) or getattr(load_result, "has_points", False)
     )
 
 
@@ -51,12 +50,9 @@ def discretize_spatially_distributed_source(
                 simulation_window=simulation_window,
                 method=method,
             )
-        nrow = int(getattr(solver_mesh, "nrow"))
-        ncol = int(getattr(solver_mesh, "ncol"))
-        return {
-            kper: np.zeros((nrow, ncol), dtype=float)
-            for kper in range(int(nper))
-        }
+        nrow = int(solver_mesh.nrow)
+        ncol = int(solver_mesh.ncol)
+        return {kper: np.zeros((nrow, ncol), dtype=float) for kper in range(int(nper))}
 
     from hydromodpy.solver.utils.mesh.gmsh_grid.planar_forcing_discretization import (
         discretize_fields_on_planar_mesh,
@@ -69,9 +65,7 @@ def discretize_spatially_distributed_source(
             GmshPlanarMesh2D,
         )
 
-        resolved_planar_mesh = GmshPlanarMesh2D.from_hydro_mesh(
-            solver_mesh.planar_mesh
-        )
+        resolved_planar_mesh = GmshPlanarMesh2D.from_hydro_mesh(solver_mesh.planar_mesh)
 
     if getattr(load_result, "has_fields", False):
         return discretize_fields_on_planar_mesh(
@@ -90,13 +84,35 @@ def discretize_spatially_distributed_source(
             method=method,
         )
     n_cells = int(getattr(solver_mesh, "n_cells", 0))
-    return {
-        kper: np.zeros(n_cells, dtype=float)
-        for kper in range(int(nper))
-    }
+    return {kper: np.zeros(n_cells, dtype=float) for kper in range(int(nper))}
+
+
+def broadcast_to_stress_periods(
+    values: np.ndarray | float,
+    *,
+    nper: int,
+    shape: tuple[int, ...] | None = None,
+) -> dict[int, np.ndarray]:
+    """Expand a steady scalar or constant array to a per-stress-period dict.
+
+    Used by RCH/EVT translators when the user supplies a single uniform
+    forcing value and the MODFLOW API expects one payload per stress
+    period.
+    """
+    arr = np.asarray(values, dtype=float)
+    if shape is not None and arr.ndim == 0:
+        arr = np.full(shape, float(arr))
+    return {kper: arr.copy() for kper in range(int(nper))}
+
+
+def stress_period_axes(nper: int) -> list[int]:
+    """Return the list of stress-period indices ``[0, ..., nper-1]``."""
+    return list(range(int(nper)))
 
 
 __all__ = [
+    "broadcast_to_stress_periods",
     "discretize_spatially_distributed_source",
     "has_spatially_distributed_source",
+    "stress_period_axes",
 ]

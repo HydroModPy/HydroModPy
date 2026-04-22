@@ -81,9 +81,7 @@ class HydroMesh:
         """Validate node coordinates and connectivity consistency."""
         verts = np.asarray(self.vertices, dtype=float)
         if verts.ndim != 2 or verts.shape[1] not in (2, 3):
-            raise ValueError(
-                f"vertices must have shape (n_nodes, 2|3), got {verts.shape}"
-            )
+            raise ValueError(f"vertices must have shape (n_nodes, 2|3), got {verts.shape}")
         object.__setattr__(self, "vertices", verts.copy())
 
         if not self.cell_blocks:
@@ -91,9 +89,7 @@ class HydroMesh:
 
         n_nodes = verts.shape[0]
         for block in self.cell_blocks:
-            if np.any(block.connectivity < 0) or np.any(
-                block.connectivity >= n_nodes
-            ):
+            if np.any(block.connectivity < 0) or np.any(block.connectivity >= n_nodes):
                 raise ValueError(
                     f"connectivity in {block.cell_type.value} block references "
                     "node indices outside vertices"
@@ -127,9 +123,7 @@ class HydroMesh:
         """Return the unique cell type, or raise if mixed."""
         types = set(self.cell_types)
         if len(types) != 1:
-            raise ValueError(
-                f"Mesh has mixed cell types: {[t.value for t in types]}"
-            )
+            raise ValueError(f"Mesh has mixed cell types: {[t.value for t in types]}")
         return next(iter(types))
 
     @property
@@ -142,9 +136,7 @@ class HydroMesh:
         """
         if len(self.cell_blocks) == 1:
             return np.asarray(self.cell_blocks[0].connectivity, dtype=int)
-        return np.vstack(
-            [b.connectivity for b in self.cell_blocks]
-        ).astype(int, copy=False)
+        return np.vstack([b.connectivity for b in self.cell_blocks]).astype(int, copy=False)
 
     def bounds(self) -> tuple[float, ...]:
         """Return ``(xmin, ymin, [zmin,] xmax, ymax, [zmax])``."""
@@ -152,7 +144,7 @@ class HydroMesh:
         maxs = tuple(float(np.nanmax(self.vertices[:, i])) for i in range(self.ndim))
         return mins + maxs
 
-    def with_cell_data(self, **fields: np.ndarray) -> "HydroMesh":
+    def with_cell_data(self, **fields: np.ndarray) -> HydroMesh:
         """Return a new mesh with validated per-cell arrays added.
 
         The method preserves immutability of the original mesh and therefore
@@ -175,7 +167,7 @@ class HydroMesh:
             structured_shape=self.structured_shape,
         )
 
-    def with_point_data(self, **fields: np.ndarray) -> "HydroMesh":
+    def with_point_data(self, **fields: np.ndarray) -> HydroMesh:
         """Return a new mesh with validated per-point arrays added."""
         merged = dict(self.point_data)
         for key, arr in fields.items():
@@ -206,10 +198,46 @@ class HydroMesh:
             "n_cells": self.n_cells,
             "cell_types": [ct.value for ct in self.cell_types],
             "is_structured": self.is_structured,
-            "structured_shape": (
-                list(self.structured_shape) if self.structured_shape else None
-            ),
+            "structured_shape": (list(self.structured_shape) if self.structured_shape else None),
             "bounds": list(self.bounds()),
             "cell_data_keys": sorted(self.cell_data),
             "point_data_keys": sorted(self.point_data),
         }
+
+    def _repr_html_(self) -> str:
+        bounds = self.bounds()
+        rows: list[tuple[str, str]] = [
+            ("ndim", str(self.ndim)),
+            ("n_nodes", f"{self.n_nodes:,}"),
+            ("n_cells", f"{self.n_cells:,}"),
+            (
+                "cell_types",
+                ", ".join(ct.value for ct in self.cell_types) or "&mdash;",
+            ),
+            ("structured", "yes" if self.is_structured else "no"),
+            (
+                "structured_shape",
+                str(self.structured_shape) if self.structured_shape else "&mdash;",
+            ),
+            (
+                "bounds",
+                ", ".join(f"{b:.3g}" for b in bounds) if bounds else "&mdash;",
+            ),
+            (
+                "cell_data",
+                ", ".join(sorted(self.cell_data)) or "&mdash;",
+            ),
+            (
+                "point_data",
+                ", ".join(sorted(self.point_data)) or "&mdash;",
+            ),
+        ]
+        body = "".join(
+            f"<tr><th style='text-align:left;padding-right:8px'>{k}</th><td>{v}</td></tr>"
+            for k, v in rows
+        )
+        return (
+            "<div><b>HydroMesh</b>"
+            "<table style='font-size:0.85em;border-collapse:collapse'>"
+            f"{body}</table></div>"
+        )

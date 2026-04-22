@@ -7,9 +7,9 @@ from math import sqrt
 
 import numpy as np
 
+from hydromodpy.solver.modflow_common.solver_mesh import SolverMesh
 from hydromodpy.spatial.raster_support import RasterSupport
 from hydromodpy.spatial.surface import Surface
-from hydromodpy.solver.modflow_common.solver_mesh import SolverMesh
 
 
 @dataclass(frozen=True, slots=True)
@@ -109,7 +109,7 @@ class GridReference:
         surface: Surface,
         *,
         nodata: float | None = None,
-    ) -> "GridReference":
+    ) -> GridReference:
         support = surface.support
         if support is None:
             raise ValueError("surface.support is required to build GridReference")
@@ -139,7 +139,7 @@ class GridReference:
         *,
         crs: str | None = None,
         nodata: float = -9999.0,
-    ) -> "GridReference":
+    ) -> GridReference:
         """Build from a SolverMesh."""
         mesh_bounds = solver_mesh.planar_mesh.bounds()
         xmin, ymin = float(mesh_bounds[0]), float(mesh_bounds[1])

@@ -27,9 +27,12 @@ mixing generic orchestration with solver-specific API calls.
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Any, Callable
+from typing import Any
 
+from hydromodpy.physics.flow import Flow
+from hydromodpy.physics.transport import Transport
 from hydromodpy.simulation.adapters import get_solver_adapter
 from hydromodpy.simulation.planning.plan import (
     ProcessRun,
@@ -37,10 +40,6 @@ from hydromodpy.simulation.planning.plan import (
     RunExecutionResult,
     SimulationPlan,
 )
-
-from hydromodpy.process.flow import Flow
-from hydromodpy.process.transport import Transport
-
 
 # ---------------------------------------------------------------------------
 # Process-context helpers (free functions, no factory class)
@@ -182,7 +181,10 @@ class SimulationRunner:
             self.callbacks.after_process(process_type)
 
     def _call_after_run(
-        self, run: ProcessRun, result: RunExecutionResult, state: Any,
+        self,
+        run: ProcessRun,
+        result: RunExecutionResult,
+        state: Any,
     ) -> None:
         if self.callbacks.after_run is not None:
             self.callbacks.after_run(run, result, state)

@@ -3,12 +3,11 @@ from __future__ import annotations
 import argparse
 import fnmatch
 import os
-from pathlib import Path
 import shutil
 import stat
 import subprocess
 import sys
-
+from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 ROOT_TEMP_DIR_PATTERNS = (
@@ -91,8 +90,7 @@ def _handle_remove_readonly(
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         description=(
-            "Remove root-level temporary directories already ignored by git. "
-            "Dry-run by default."
+            "Remove root-level temporary directories already ignored by git. Dry-run by default."
         )
     )
     parser.add_argument(

@@ -1,4 +1,4 @@
-﻿"""Comparison workflow for the 1D linearized unconfined periodic-recharge case."""
+"""Comparison workflow for the 1D linearized unconfined periodic-recharge case."""
 
 from __future__ import annotations
 
@@ -18,7 +18,6 @@ from .reference import expected_linearized_unconfined_recharge_periodic_profiles
 from .runtime_boussinesq import (
     run_boussinesq_linearized_unconfined_recharge_periodic_case,
 )
-
 
 CASE_DIR = Path(__file__).resolve().parent
 
@@ -89,6 +88,3 @@ def run_linearized_unconfined_recharge_periodic_comparison(
             solver=solver,
         )
     return build_linearized_unconfined_recharge_periodic_comparison(result=result, solver=solver)
-
-
-

@@ -31,9 +31,10 @@ This allows:
 
 from __future__ import annotations
 
-from functools import lru_cache
+from collections.abc import Mapping
+from functools import cache
 from pathlib import Path
-from typing import Any, Mapping
+from typing import Any
 
 import numpy as np
 from rasterio.transform import rowcol
@@ -45,7 +46,7 @@ from hydromodpy.spatial.field.core.field_spatial_weighted_discretization import 
 )
 
 
-@lru_cache(maxsize=None)
+@cache
 def _quadrilateral_sample_weights(n_sub_per_axis: int) -> np.ndarray:
     n = max(2, int(n_sub_per_axis))
     u = (np.arange(n, dtype=float) + 0.5) / float(n)
@@ -61,7 +62,7 @@ def _quadrilateral_sample_weights(n_sub_per_axis: int) -> np.ndarray:
     )
 
 
-@lru_cache(maxsize=None)
+@cache
 def _triangle_sample_weights(n_sub_per_axis: int) -> np.ndarray:
     n = max(2, int(n_sub_per_axis))
     u = (np.arange(n, dtype=float) + 0.5) / float(n)
@@ -208,16 +209,8 @@ class GeologyField(Field):
             vv = weights[:, 2][None, :]
             p0x = verts[:, 0, 0:1]
             p0y = verts[:, 0, 1:2]
-            x = (
-                p0x
-                + uu * (verts[:, 1, 0:1] - p0x)
-                + vv * (verts[:, 2, 0:1] - p0x)
-            )
-            y = (
-                p0y
-                + uu * (verts[:, 1, 1:2] - p0y)
-                + vv * (verts[:, 2, 1:2] - p0y)
-            )
+            x = p0x + uu * (verts[:, 1, 0:1] - p0x) + vv * (verts[:, 2, 0:1] - p0x)
+            y = p0y + uu * (verts[:, 1, 1:2] - p0y) + vv * (verts[:, 2, 1:2] - p0y)
             return np.asarray(x, dtype=float), np.asarray(y, dtype=float)
         else:
             raise ValueError(f"Unsupported cell kind '{cell_kind}'")
@@ -234,12 +227,7 @@ class GeologyField(Field):
         out = np.zeros(rows.shape, dtype=np.int32)
 
         n_rows, n_cols = self.shape
-        valid = (
-            (rows >= 0)
-            & (rows < n_rows)
-            & (cols >= 0)
-            & (cols < n_cols)
-        )
+        valid = (rows >= 0) & (rows < n_rows) & (cols >= 0) & (cols < n_cols)
         if np.any(valid):
             valid_rows = rows[valid]
             valid_cols = cols[valid]
@@ -336,9 +324,7 @@ class GeologyField(Field):
                             self._code_to_zone_index[valid_codes],
                             minlength=len(zone_keys),
                         )
-                        fractions_flat[:, int(cell.index)] = zone_counts / float(
-                            valid_codes.size
-                        )
+                        fractions_flat[:, int(cell.index)] = zone_counts / float(valid_codes.size)
                     continue
 
                 vertices = np.empty((len(chunk), n_vertices, 2), dtype=float)
@@ -396,7 +382,7 @@ class GeologyField(Field):
         }
 
     @classmethod
-    def from_dict(cls, config: Mapping[str, Any]) -> "GeologyField":
+    def from_dict(cls, config: Mapping[str, Any]) -> GeologyField:
         """Build field from validated geology config mapping (standalone use)."""
         from hydromodpy.data.variables.geology.config import (
             validate_geology_config_data,
@@ -418,7 +404,7 @@ class GeologyField(Field):
         )
 
     @classmethod
-    def from_toml(cls, toml_path: str | Path, section: str = "geology") -> "GeologyField":
+    def from_toml(cls, toml_path: str | Path, section: str = "geology") -> GeologyField:
         """Build field directly from one TOML section (standalone use)."""
         from hydromodpy.data.variables.geology.config import (
             load_geology_toml,

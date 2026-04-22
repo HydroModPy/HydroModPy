@@ -6,12 +6,12 @@ from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
 
-from hydromodpy.spatial.field.core.field_param import FieldParam
 from hydromodpy.solver.utils._config_helpers import resolve_path
 from hydromodpy.solver.utils.mesh.gmsh_grid.cases._common import (
     load_case_section,
     resolve_case_config_path,
 )
+from hydromodpy.spatial.field.core.field_param import FieldParam
 
 
 def resolve_reference_3d_fieldparam_config_path(raw_config: str | Path) -> Path:
@@ -41,17 +41,13 @@ def resolve_reference_3d_fieldparam_run_config(
     config_path = Path(config_toml).resolve()
     payload = _load_case_payload(config_path)
     section_cfg = load_case_section(config_path, section=section)
-    vertical_override = _optional_nested_section(
-        payload, f"{section}.field_param_vertical_profile"
-    )
+    vertical_override = _optional_nested_section(payload, f"{section}.field_param_vertical_profile")
 
     return {
         "reference_2d_config": resolve_path(
             section_cfg["reference_2d_config"], base_dir=config_path.parent
         ),
-        "reference_2d_section": str(
-            section_cfg.get("reference_2d_section", "case")
-        ).strip()
+        "reference_2d_section": str(section_cfg.get("reference_2d_section", "case")).strip()
         or "case",
         "reference_3d_mesh_config": resolve_path(
             section_cfg["reference_3d_mesh_config"],
@@ -97,8 +93,7 @@ def resolve_reference_3d_postprocess_config(
             section_cfg.get("reference_3d_fieldparam_section", "case")
         ).strip()
         or "case",
-        "label": str(section_cfg.get("label", "field_param_value")).strip()
-        or "field_param_value",
+        "label": str(section_cfg.get("label", "field_param_value")).strip() or "field_param_value",
         "value_name": str(section_cfg.get("value_name", "field_param_value")).strip()
         or "field_param_value",
         "depth_name": str(section_cfg.get("depth_name", "prism_center_depth")).strip()

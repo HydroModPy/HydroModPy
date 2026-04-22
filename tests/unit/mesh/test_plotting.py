@@ -10,6 +10,7 @@ from hydromodpy.spatial.mesh.plotting import plot_cell_values
 @pytest.fixture
 def _mpl_backend():
     import matplotlib
+
     matplotlib.use("Agg")
 
 
@@ -61,8 +62,9 @@ class TestPlotCellValues:
     def test_3d_mesh_raises(self) -> None:
         import matplotlib.pyplot as plt
 
-        verts = np.array([[0, 0, 0], [1, 0, 0], [0, 1, 0],
-                          [0, 0, 1], [1, 0, 1], [0, 1, 1]], dtype=float)
+        verts = np.array(
+            [[0, 0, 0], [1, 0, 0], [0, 1, 0], [0, 0, 1], [1, 0, 1], [0, 1, 1]], dtype=float
+        )
         mesh = HydroMesh(
             vertices=verts,
             cell_blocks=(CellBlock(CellType.WEDGE, np.array([[0, 1, 2, 3, 4, 5]])),),

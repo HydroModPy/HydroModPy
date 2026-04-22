@@ -20,7 +20,10 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from hydromodpy.spatial.geographic.geographic_io import ensure_crs, write_shapefile_without_duplicate_columns
+from hydromodpy.spatial.geographic.geographic_io import (
+    ensure_crs,
+    write_shapefile_without_duplicate_columns,
+)
 
 
 def extract_catchment_from_polygon(

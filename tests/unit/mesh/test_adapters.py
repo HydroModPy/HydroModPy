@@ -27,10 +27,17 @@ class TestFieldMeshAdapter:
 
         # 1 triangle extruded into 1 wedge
         extruded = SimpleNamespace(
-            points_xyz=np.array([
-                [0, 0, 1], [1, 0, 1], [0.5, 1, 1],
-                [0, 0, 0], [1, 0, 0], [0.5, 1, 0],
-            ], dtype=float),
+            points_xyz=np.array(
+                [
+                    [0, 0, 1],
+                    [1, 0, 1],
+                    [0.5, 1, 1],
+                    [0, 0, 0],
+                    [1, 0, 0],
+                    [0.5, 1, 0],
+                ],
+                dtype=float,
+            ),
             prism_connectivity=np.array([[0, 1, 2, 3, 4, 5]], dtype=int),
             cell_type_2d="triangle",
             layer_indices=np.array([0], dtype=int),
@@ -46,8 +53,8 @@ class TestFieldMeshAdapter:
         assert "base_index" in mesh.point_data
 
     def test_from_field_mesh_structured(self) -> None:
-        from hydromodpy.spatial.mesh.adapters.field_mesh_adapter import from_field_mesh
         from hydromodpy.spatial.field.meshes import StructuredFieldMesh
+        from hydromodpy.spatial.mesh.adapters.field_mesh_adapter import from_field_mesh
 
         x, y = np.meshgrid([0, 1, 2], [0, 1])
         fm = StructuredFieldMesh(x_plot=x, y_plot=y)
@@ -93,8 +100,9 @@ class TestFlopyAdapter:
     def test_to_flopy_disv_rejects_3d(self) -> None:
         from hydromodpy.spatial.mesh.adapters.flopy_adapter import to_flopy_disv_args
 
-        verts = np.array([[0, 0, 0], [1, 0, 0], [0, 1, 0],
-                          [0, 0, 1], [1, 0, 1], [0, 1, 1]], dtype=float)
+        verts = np.array(
+            [[0, 0, 0], [1, 0, 0], [0, 1, 0], [0, 0, 1], [1, 0, 1], [0, 1, 1]], dtype=float
+        )
         mesh = HydroMesh(
             vertices=verts,
             cell_blocks=(CellBlock(CellType.WEDGE, np.array([[0, 1, 2, 3, 4, 5]])),),
@@ -120,9 +128,5 @@ class TestMeshioAdapter:
 
         assert recovered.n_cells == 2
         assert recovered.n_nodes == 4
-        np.testing.assert_array_almost_equal(
-            recovered.vertices[:, :2], verts
-        )
-        np.testing.assert_array_almost_equal(
-            recovered.cell_data["k"], [1.0, 2.0]
-        )
+        np.testing.assert_array_almost_equal(recovered.vertices[:, :2], verts)
+        np.testing.assert_array_almost_equal(recovered.cell_data["k"], [1.0, 2.0])

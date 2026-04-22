@@ -105,14 +105,12 @@ def compute_east_interface_flux_m3_day(
         zeros = np.zeros(edge_history.shape[0], dtype=float)
         return zeros, zeros
     outward_flux_m3_s = edge_history[:, interface_edges] * outward_sign.reshape(1, -1)
-    east_boundary_outflow_m3_day = (
-        np.sum(np.maximum(outward_flux_m3_s, 0.0), axis=1, dtype=float)
-        * float(seconds_per_day)
-    )
-    east_boundary_inflow_m3_day = (
-        -np.sum(np.minimum(outward_flux_m3_s, 0.0), axis=1, dtype=float)
-        * float(seconds_per_day)
-    )
+    east_boundary_outflow_m3_day = np.sum(
+        np.maximum(outward_flux_m3_s, 0.0), axis=1, dtype=float
+    ) * float(seconds_per_day)
+    east_boundary_inflow_m3_day = -np.sum(
+        np.minimum(outward_flux_m3_s, 0.0), axis=1, dtype=float
+    ) * float(seconds_per_day)
     return (
         np.asarray(east_boundary_inflow_m3_day, dtype=float),
         np.asarray(east_boundary_outflow_m3_day, dtype=float),
@@ -151,9 +149,7 @@ def compute_storage_change_flux_m3_day(
     if delta_head_m.shape[0] != step_days.size:
         raise ValueError("head history and step durations are inconsistent.")
     storage_change_per_step_m3 = np.sum(
-        delta_head_m[:, mask]
-        * area[mask].reshape(1, -1)
-        * storage[mask].reshape(1, -1),
+        delta_head_m[:, mask] * area[mask].reshape(1, -1) * storage[mask].reshape(1, -1),
         axis=1,
         dtype=float,
     )
@@ -205,41 +201,32 @@ def compute_free_control_volume_budget(
         n_steps=n_steps,
         name="saturation_excess_history_m_s",
     )
-    recharge_flux_m3_day = (
-        np.sum(
-            recharge_history[:, free_mask] * cell_area_m2[free_mask].reshape(1, -1),
-            axis=1,
-            dtype=float,
-        )
-        * float(seconds_per_day)
+    recharge_flux_m3_day = np.sum(
+        recharge_history[:, free_mask] * cell_area_m2[free_mask].reshape(1, -1),
+        axis=1,
+        dtype=float,
+    ) * float(seconds_per_day)
+    drainage_flux_m3_day = np.sum(drainage_history[:, free_mask], axis=1, dtype=float) * float(
+        seconds_per_day
     )
-    drainage_flux_m3_day = (
-        np.sum(drainage_history[:, free_mask], axis=1, dtype=float) * float(seconds_per_day)
-    )
-    surface_excess_flux_m3_day = (
-        np.sum(
-            saturation_excess_history[:, free_mask]
-            * cell_area_m2[free_mask].reshape(1, -1),
-            axis=1,
-            dtype=float,
-        )
-        * float(seconds_per_day)
-    )
-    east_boundary_inflow_m3_day, east_boundary_outflow_m3_day = (
-        compute_east_interface_flux_m3_day(
-            bundle_dir=bundle_dir,
-            internal_edge_flux_history_m3_s=step_history_from_history(
-                state_history["internal_edge_flux_history_m3_s"],
-                n_steps=n_steps,
-                name="internal_edge_flux_history_m3_s",
-            ),
-            prescribed_head_history_m_by_cell=step_history_from_history(
-                prescribed_head_history,
-                n_steps=n_steps,
-                name="prescribed_head_history_m_by_cell",
-            ),
-            seconds_per_day=seconds_per_day,
-        )
+    surface_excess_flux_m3_day = np.sum(
+        saturation_excess_history[:, free_mask] * cell_area_m2[free_mask].reshape(1, -1),
+        axis=1,
+        dtype=float,
+    ) * float(seconds_per_day)
+    east_boundary_inflow_m3_day, east_boundary_outflow_m3_day = compute_east_interface_flux_m3_day(
+        bundle_dir=bundle_dir,
+        internal_edge_flux_history_m3_s=step_history_from_history(
+            state_history["internal_edge_flux_history_m3_s"],
+            n_steps=n_steps,
+            name="internal_edge_flux_history_m3_s",
+        ),
+        prescribed_head_history_m_by_cell=step_history_from_history(
+            prescribed_head_history,
+            n_steps=n_steps,
+            name="prescribed_head_history_m_by_cell",
+        ),
+        seconds_per_day=seconds_per_day,
     )
     storage_change_m3_day = compute_storage_change_flux_m3_day(
         head_history_m=head_history,

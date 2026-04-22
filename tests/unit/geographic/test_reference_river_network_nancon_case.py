@@ -11,7 +11,7 @@ import pytest
 from hydromodpy.spatial.geographic.cases.reference_river_network_nancon.run_case_river_network_nancon import (
     run_reference_river_network_nancon_from_toml,
 )
-from tests.support.whitebox import configure_whitebox_single_thread
+from tests._helpers.whitebox import configure_whitebox_single_thread
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 
@@ -30,6 +30,7 @@ def _write_tmp_config(work_root: Path) -> Path:
     config_path.write_text(
         "\n".join(
             [
+                'workflow = "simulation"',
                 "[workspace]",
                 f'project_root = "{out_path}"',
                 "",
@@ -61,6 +62,12 @@ def _write_tmp_config(work_root: Path) -> Path:
 
 
 @pytest.mark.slow
+@pytest.mark.skip(
+    reason=(
+        "Nancon reference DEM was part of the examples_legacy tree removed in P13; "
+        "rework this test against examples/data/dem/ when a replacement raster is added."
+    )
+)
 def test_run_reference_river_network_nancon_case(
     monkeypatch: pytest.MonkeyPatch,
     hydromodpy_test_scratch_root: Path,

@@ -9,15 +9,14 @@ from pathlib import Path
 import tools.doc_gallery.update_gallery as update_gallery_module
 from tools.doc_gallery.gallery_manifest import build_repo_mesh_gallery_case_specs
 from tools.doc_gallery.import_mesh_bundle import import_mesh_bundle_case
-from tools.doc_gallery.update_gallery import _build_category_page, _generate_mesh_viewer_case
 from tools.doc_gallery.mesh_case_registry import (
     MESH_GALLERY_CASE_SCHEMA_VERSION,
     MESH_GALLERY_REQUIRED_BUNDLE_FILES,
     REPO_ROOT,
 )
+from tools.doc_gallery.update_gallery import _build_category_page, _generate_mesh_viewer_case
 
-
-SAMPLE_BUNDLE = REPO_ROOT / "examples" / "mesh_viewer" / "sample_bundle"
+SAMPLE_BUNDLE = REPO_ROOT / "examples" / "projects" / "08_mesh_viewer" / "sample_bundle"
 
 
 def _write_dummy_launcher_config(repo_root: Path, relative_path: str) -> None:
@@ -42,7 +41,9 @@ def _build_bundle_with_mesher_figures(tmp_path: Path) -> tuple[Path, Path, Path]
     payload = json.loads(summary_path.read_text(encoding="utf-8"))
     payload["output_figure"] = str(overview_png)
     payload["output_figure_regional"] = str(regional_png)
-    summary_path.write_text(json.dumps(payload, indent=2, ensure_ascii=True) + "\n", encoding="utf-8")
+    summary_path.write_text(
+        json.dumps(payload, indent=2, ensure_ascii=True) + "\n", encoding="utf-8"
+    )
     return bundle_dir, overview_png, regional_png
 
 
@@ -64,7 +65,8 @@ def test_import_mesh_bundle_case_creates_canonical_layout(tmp_path: Path) -> Non
     expected_case_dir = (
         repo_root
         / "examples"
-        / "mesh_gallery"
+        / "projects"
+        / "07_mesh_gallery"
         / "100km2"
         / "mesh_100km2_outlet_27_geology_rivers_buffer30"
     )
@@ -86,9 +88,11 @@ def test_import_mesh_bundle_case_creates_canonical_layout(tmp_path: Path) -> Non
     assert payload["outlet_id"] == "27"
     assert (
         payload["config_path"]
-        == "examples/mesh_gallery/100km2/mesh_100km2_outlet_27_geology_rivers_buffer30/viewer_config.toml"
+        == "examples/projects/07_mesh_gallery/100km2/mesh_100km2_outlet_27_geology_rivers_buffer30/viewer_config.toml"
     )
-    assert "launchers/mesh_catchment/scenarios/config_headwater_100km2.toml" in payload["source_paths"]
+    assert (
+        "launchers/mesh_catchment/scenarios/config_headwater_100km2.toml" in payload["source_paths"]
+    )
 
     viewer_config = viewer_config_path.read_text(encoding="utf-8")
     assert 'bundle_dir = "./bundle"' in viewer_config
@@ -120,7 +124,7 @@ def test_build_repo_mesh_gallery_case_specs_discovers_imported_cases(tmp_path: P
     assert spec.generator == "mesh_viewer"
     assert spec.metric_specs[0].key == "node_count"
     assert spec.metadata["config_path"] == (
-        "examples/mesh_gallery/100km2/headwater_100km2_outlet_27_rivers_only_buffer30/viewer_config.toml"
+        "examples/projects/07_mesh_gallery/100km2/headwater_100km2_outlet_27_rivers_only_buffer30/viewer_config.toml"
     )
     assert spec.case_setup
     assert spec.metadata["comparison_group"] == "100km2::outlet::27"
@@ -145,7 +149,8 @@ def test_imported_mesh_case_prefers_copied_mesher_figures_when_available(tmp_pat
     case_dir = (
         repo_root
         / "examples"
-        / "mesh_gallery"
+        / "projects"
+        / "07_mesh_gallery"
         / "100km2"
         / "mesh_100km2_outlet_27_geology_rivers_buffer30"
     )
@@ -316,7 +321,9 @@ def test_build_mesh_category_page_groups_similar_cases_in_tabs() -> None:
         "Cross-variant comparisons: 100 km2, outlet 27 "
         "(Geology + rivers, 30% buffer; Rivers only, 30% buffer)."
     ) in page
-    assert "See :doc:`the full case page <cases/mesh_100km2_outlet_27_rivers_only_buffer30>`." in page
+    assert (
+        "See :doc:`the full case page <cases/mesh_100km2_outlet_27_rivers_only_buffer30>`." in page
+    )
     assert ":link: cases/mesh_100km2_outlet_27_geology_rivers_buffer30" not in page
 
 

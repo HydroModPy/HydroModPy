@@ -17,9 +17,7 @@ def _make_triangle_mesh() -> HydroMesh:
 
 
 def _make_quad_mesh() -> HydroMesh:
-    vertices = np.array(
-        [[0, 0], [1, 0], [2, 0], [0, 1], [1, 1], [2, 1]], dtype=float
-    )
+    vertices = np.array([[0, 0], [1, 0], [2, 0], [0, 1], [1, 1], [2, 1]], dtype=float)
     conn = np.array([[0, 1, 4, 3], [1, 2, 5, 4]], dtype=int)
     return HydroMesh(
         vertices=vertices,
@@ -66,8 +64,9 @@ class TestHydroMesh:
         assert b == (0.0, 0.0, 1.5, 1.0)
 
     def test_bounds_3d(self) -> None:
-        verts = np.array([[0, 0, 0], [1, 0, 0], [0, 1, 0],
-                          [0, 0, 1], [1, 0, 1], [0, 1, 1]], dtype=float)
+        verts = np.array(
+            [[0, 0, 0], [1, 0, 0], [0, 1, 0], [0, 0, 1], [1, 0, 1], [0, 1, 1]], dtype=float
+        )
         conn = np.array([[0, 1, 2, 3, 4, 5]], dtype=int)
         mesh = HydroMesh(
             vertices=verts,
@@ -118,9 +117,7 @@ class TestHydroMesh:
         with pytest.raises(ValueError, match="outside vertices"):
             HydroMesh(
                 vertices=np.array([[0, 0], [1, 0]], dtype=float),
-                cell_blocks=(
-                    CellBlock(CellType.TRIANGLE, np.array([[0, 1, 5]])),
-                ),
+                cell_blocks=(CellBlock(CellType.TRIANGLE, np.array([[0, 1, 5]])),),
             )
 
     def test_as_summary(self) -> None:

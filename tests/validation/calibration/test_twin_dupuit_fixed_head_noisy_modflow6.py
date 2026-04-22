@@ -41,9 +41,7 @@ def test_calibration_twin_dupuit_fixed_head_noisy_modflow6_benchmark_recovers_tr
     assert len(benchmark.method_results) == 6
 
     random_results = [
-        result
-        for result in benchmark.method_results
-        if result.method_name == "random_search"
+        result for result in benchmark.method_results if result.method_name == "random_search"
     ]
     assert len(random_results) == 3
     for result in benchmark.method_results:

@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 * Copyright (C) 2023-2025 Alexandre Gauvain, Ronan Abhervé, Jean-Raynald de Dreuzy
 *
@@ -23,8 +22,8 @@ import os
 import numpy as np
 import rasterio
 
-from hydromodpy.core.tools import get_logger
-from hydromodpy.core.tools.raster_io import export_tif
+from hydromodpy.core.io.raster_io import export_tif
+from hydromodpy.core.logging import get_logger
 
 from .postprocess import NODATA
 
@@ -91,18 +90,14 @@ def export_intermittency(
     compt = 0
 
     for i in range(n_windows):
-        logger.debug(
-            "Processing %s intermittency t: %d / %d", label, i, n_windows
-        )
+        logger.debug("Processing %s intermittency t: %d / %d", label, i, n_windows)
 
         window = list(acc_npy)[inf:sup]
 
         with rasterio.open(watershed_dem) as src:
             mask = src.read(1)
 
-        masked_window = [
-            np.ma.masked_array(entry[1], mask=(mask < 0)) for entry in window
-        ]
+        masked_window = [np.ma.masked_array(entry[1], mask=(mask < 0)) for entry in window]
 
         # Count windows with positive flow
         zero = acc_npy_raw[0] * 0

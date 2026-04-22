@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Mapping
+from collections.abc import Mapping
 
 import numpy as np
 from shapely.geometry import LineString
@@ -48,11 +48,7 @@ class SurfaceEmbeddingLocator:
 
     def locate_surface_tags(self, segment: LineString | None) -> tuple[int, ...]:
         """Return candidate surface tags ordered from most likely to fallback."""
-        if (
-            segment is None
-            or bool(getattr(segment, "is_empty", True))
-            or self._tree is None
-        ):
+        if segment is None or bool(getattr(segment, "is_empty", True)) or self._tree is None:
             return ()
 
         probe = segment.representative_point()

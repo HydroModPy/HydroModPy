@@ -1,16 +1,17 @@
 """Selective publication of launcher outputs for the documentation gallery."""
+
 from __future__ import annotations
 
-from datetime import datetime, timezone
 import json
-from pathlib import Path
 import shutil
+from datetime import UTC, datetime
+from pathlib import Path
 from typing import Annotated
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import ConfigDict, Field
 
-from hydromodpy.core.config.param_level import ParamLevel
-
+from hydromodpy.core.config.base import HydroModelBase
+from hydromodpy.core.config.profile import Profile
 
 DEFAULT_FLOW_GALLERY_ASSETS: tuple[str, ...] = (
     "flow_state_triptych.png",
@@ -21,27 +22,27 @@ DEFAULT_FLOW_GALLERY_ASSETS: tuple[str, ...] = (
 )
 
 
-class CapabilityGalleryConfig(BaseModel):
+class CapabilityGalleryConfig(HydroModelBase):
     """Optional publication target for stable, versionable run figures."""
 
     model_config = ConfigDict(extra="forbid")
 
-    enabled: Annotated[bool, ParamLevel("user")] = Field(
+    enabled: Annotated[bool, Profile.USER] = Field(
         default=False,
         description="Copy selected postprocess figures into a versionable gallery folder.",
     )
-    output_dir: Annotated[Path | None, ParamLevel("user")] = Field(
+    output_dir: Annotated[Path | None, Profile.USER] = Field(
         default=None,
         description=(
             "Destination directory for selected gallery assets. Relative paths "
             "are resolved against the TOML directory."
         ),
     )
-    case_slug: Annotated[str, ParamLevel("user")] = Field(
+    case_slug: Annotated[str, Profile.USER] = Field(
         default="launcher_simulation_flow_case",
         description="Stable identifier used in the gallery manifest.",
     )
-    assets: Annotated[tuple[str, ...], ParamLevel("user")] = Field(
+    assets: Annotated[tuple[str, ...], Profile.USER] = Field(
         default=DEFAULT_FLOW_GALLERY_ASSETS,
         description=(
             "Figure filenames copied from `<run>/_postprocess/_figures`. "
@@ -84,9 +85,7 @@ def publish_run_to_capability_gallery(
     if not config.enabled:
         return None
     if config.output_dir is None:
-        raise ValueError(
-            "[capability_gallery] is enabled but output_dir is not configured."
-        )
+        raise ValueError("[capability_gallery] is enabled but output_dir is not configured.")
 
     source_figure_dir = Path(run_folder) / "_postprocess" / "_figures"
     output_dir = Path(config.output_dir)
@@ -114,7 +113,7 @@ def publish_run_to_capability_gallery(
         "schema_version": "hydromodpy_capability_gallery_publication_v1",
         "case_slug": str(config.case_slug),
         "run_id": str(run_id),
-        "published_at_utc": datetime.now(timezone.utc).isoformat(),
+        "published_at_utc": datetime.now(UTC).isoformat(),
         "source_run_folder": _relative_to_cwd(Path(run_folder)),
         "solvers": [str(solver) for solver in solvers],
         "assets": copied_assets,

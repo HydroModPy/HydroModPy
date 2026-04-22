@@ -25,7 +25,6 @@ from validation_cases.calibration.twin.transient.linearized_unconfined_recharge_
     TRANSIENT_RECHARGE_STEP_TWIN_CASE,
 )
 
-
 _CASE_REGISTRY = {
     STEADY_DUPUIT_TWIN_CASE.case_id: STEADY_DUPUIT_TWIN_CASE,
     STEADY_DUPUIT_POSTERIOR_TWIN_CASE.case_id: STEADY_DUPUIT_POSTERIOR_TWIN_CASE,
@@ -138,15 +137,9 @@ def _materialize_suite_rows(benchmarks) -> list[dict[str, object]]:
                 "calibration_time_seconds": result.calibration_time_seconds,
                 "time_per_evaluation_seconds": result.time_per_evaluation_seconds,
                 "session_prepare_time_seconds": result.session_prepare_time_seconds,
-                "estimated_candidate_runtime_seconds": (
-                    result.estimated_candidate_runtime_seconds
-                ),
-                "algorithm_overhead_time_seconds": (
-                    result.algorithm_overhead_time_seconds
-                ),
-                "mean_candidate_total_time_seconds": (
-                    result.mean_candidate_total_time_seconds
-                ),
+                "estimated_candidate_runtime_seconds": (result.estimated_candidate_runtime_seconds),
+                "algorithm_overhead_time_seconds": (result.algorithm_overhead_time_seconds),
+                "mean_candidate_total_time_seconds": (result.mean_candidate_total_time_seconds),
                 "mean_candidate_preparation_time_seconds": (
                     result.mean_candidate_preparation_time_seconds
                 ),
@@ -178,9 +171,7 @@ def _materialize_suite_rows(benchmarks) -> list[dict[str, object]]:
                 "candidate_run_count": result.candidate_run_count,
                 "objective_cache_hit_count": result.objective_cache_hit_count,
                 "objective_cache_hit_rate": result.objective_cache_hit_rate,
-                "model_distribution_sample_count": (
-                    result.model_distribution_sample_count
-                ),
+                "model_distribution_sample_count": (result.model_distribution_sample_count),
                 "benchmark_root": str(benchmark.benchmark_root),
                 "reference_objective_path": (
                     None
@@ -239,12 +230,8 @@ def _materialize_method_stat_rows(benchmarks) -> list[dict[str, object]]:
             for name, value in benchmark.definition.parameter_abs_tolerances.items()
         }
         success_count = sum(1 for item in results if item.recovered_truth)
-        target_success_count = sum(
-            1 for item in results if item.meets_success_target
-        )
-        truth_distribution_count = sum(
-            1 for item in results if item.truth_in_distribution is True
-        )
+        target_success_count = sum(1 for item in results if item.meets_success_target)
+        truth_distribution_count = sum(1 for item in results if item.truth_in_distribution is True)
         finite_costs = [
             float(item.cost_best)
             for item in results
@@ -359,29 +346,19 @@ def _materialize_method_stat_rows(benchmarks) -> list[dict[str, object]]:
             "mean_estimated_candidate_runtime_seconds": _safe_mean(
                 estimated_candidate_runtime_times
             ),
-            "mean_algorithm_overhead_time_seconds": _safe_mean(
-                algorithm_overhead_times
-            ),
+            "mean_algorithm_overhead_time_seconds": _safe_mean(algorithm_overhead_times),
             "mean_time_per_evaluation_seconds": _safe_mean(time_per_eval_values),
             "std_time_per_evaluation_seconds": _safe_std(time_per_eval_values),
-            "mean_candidate_total_time_seconds": _safe_mean(
-                mean_candidate_total_times
-            ),
-            "mean_candidate_preparation_time_seconds": _safe_mean(
-                mean_candidate_prepare_times
-            ),
-            "mean_candidate_actualize_time_seconds": _safe_mean(
-                mean_candidate_actualize_times
-            ),
+            "mean_candidate_total_time_seconds": _safe_mean(mean_candidate_total_times),
+            "mean_candidate_preparation_time_seconds": _safe_mean(mean_candidate_prepare_times),
+            "mean_candidate_actualize_time_seconds": _safe_mean(mean_candidate_actualize_times),
             "mean_candidate_launcher_prepare_time_seconds": _safe_mean(
                 mean_candidate_launcher_prepare_times
             ),
             "mean_candidate_runtime_patch_time_seconds": _safe_mean(
                 mean_candidate_runtime_patch_times
             ),
-            "mean_candidate_simulation_time_seconds": _safe_mean(
-                mean_candidate_simulation_times
-            ),
+            "mean_candidate_simulation_time_seconds": _safe_mean(mean_candidate_simulation_times),
             "mean_candidate_output_selection_time_seconds": _safe_mean(
                 mean_candidate_output_selection_times
             ),
@@ -391,9 +368,7 @@ def _materialize_method_stat_rows(benchmarks) -> list[dict[str, object]]:
             "mean_candidate_objective_compute_time_seconds": _safe_mean(
                 mean_candidate_objective_compute_times
             ),
-            "mean_candidate_objective_time_seconds": _safe_mean(
-                mean_candidate_objective_times
-            ),
+            "mean_candidate_objective_time_seconds": _safe_mean(mean_candidate_objective_times),
             "mean_failed_iteration_count": _safe_mean(failed_iterations),
             "mean_objective_cache_hit_rate": _safe_mean(cache_hit_rates),
             "mean_model_distribution_sample_count": _safe_mean(
@@ -402,11 +377,7 @@ def _materialize_method_stat_rows(benchmarks) -> list[dict[str, object]]:
         }
 
         parameter_names = sorted(
-            {
-                str(parameter_name)
-                for result in results
-                for parameter_name in result.param_abs_error
-            }
+            {str(parameter_name) for result in results for parameter_name in result.param_abs_error}
         )
         for parameter_name in parameter_names:
             errors = [
@@ -426,9 +397,7 @@ def _materialize_method_stat_rows(benchmarks) -> list[dict[str, object]]:
             ]
             tolerance = tolerances.get(parameter_name)
             row[f"mean_param_abs_error__{parameter_name}"] = _safe_mean(errors)
-            row[f"max_param_abs_error__{parameter_name}"] = (
-                None if not errors else max(errors)
-            )
+            row[f"max_param_abs_error__{parameter_name}"] = None if not errors else max(errors)
             row[f"std_params_best__{parameter_name}"] = _safe_std(best_values)
             row[f"range_params_best__{parameter_name}"] = (
                 None if not best_values else max(best_values) - min(best_values)
@@ -466,9 +435,7 @@ def _materialize_method_stat_rows(benchmarks) -> list[dict[str, object]]:
                 for result in results
                 if block_name in result.block_raw_cost_best
             ]
-            row[f"mean_block_normalized_cost_best__{block_name}"] = _safe_mean(
-                normalized_costs
-            )
+            row[f"mean_block_normalized_cost_best__{block_name}"] = _safe_mean(normalized_costs)
             row[f"max_block_normalized_cost_best__{block_name}"] = (
                 None if not normalized_costs else max(normalized_costs)
             )
@@ -512,10 +479,7 @@ def _write_suite_summary(benchmarks) -> tuple[Path, Path] | None:
         "case_count": len(benchmarks),
         "case_ids": [item.definition.case_id for item in benchmarks],
         "cases": [item.to_mapping() for item in benchmarks],
-        "rows": [
-            {key: _json_value(value) for key, value in row.items()}
-            for row in suite_rows
-        ],
+        "rows": [{key: _json_value(value) for key, value in row.items()} for row in suite_rows],
     }
     json_path.write_text(
         json.dumps(payload, indent=2, ensure_ascii=True) + "\n",
@@ -579,9 +543,7 @@ def _write_suite_report(
             f"fast={benchmark.definition.fast}, retention={benchmark.artifact_retention})"
         )
         if benchmark.pruned_artifacts:
-            lines.append(
-                f"  - pruned heavy artifacts: {len(benchmark.pruned_artifacts)}"
-            )
+            lines.append(f"  - pruned heavy artifacts: {len(benchmark.pruned_artifacts)}")
     lines.extend(
         [
             "",

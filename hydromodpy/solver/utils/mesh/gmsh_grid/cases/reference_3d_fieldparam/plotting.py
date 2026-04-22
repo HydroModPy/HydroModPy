@@ -42,9 +42,7 @@ def _plot_layer_panel(
         vmin=vmin,
         vmax=vmax,
     )
-    ax.set_title(
-        f"Layer {layer_index + 1}\nmean depth = {layer_depth:.1f} m", fontsize=18
-    )
+    ax.set_title(f"Layer {layer_index + 1}\nmean depth = {layer_depth:.1f} m", fontsize=18)
     ax.set_xlabel("x [m]", fontsize=14)
     ax.set_ylabel("y [m]", fontsize=14)
     ax.tick_params(labelsize=12)
@@ -167,12 +165,8 @@ def build_reference_3d_fieldparam_figure(
     layer_mins = np.asarray([layer["min"] for layer in layer_stats], dtype=float)
     layer_maxs = np.asarray([layer["max"] for layer in layer_stats], dtype=float)
     ax_means = axes["means"]
-    ax_means.fill_betweenx(
-        layer_depths, layer_mins, layer_maxs, color="#93c5fd", alpha=0.35
-    )
-    ax_means.plot(
-        layer_means, layer_depths, marker="o", color="#1d4ed8", lw=2.2, ms=7.0
-    )
+    ax_means.fill_betweenx(layer_depths, layer_mins, layer_maxs, color="#93c5fd", alpha=0.35)
+    ax_means.plot(layer_means, layer_depths, marker="o", color="#1d4ed8", lw=2.2, ms=7.0)
     ax_means.set_title("Layer mean with min/max envelope", fontsize=18)
     ax_means.set_xlabel("Field parameter value", fontsize=14)
     ax_means.set_ylabel("Depth [m]", fontsize=14)
@@ -188,9 +182,7 @@ def build_reference_3d_fieldparam_figure(
         "Reference 3D FieldParam discretization overview",
         fontsize=22,
     )
-    fig.subplots_adjust(
-        left=0.05, right=0.985, top=0.92, bottom=0.07, wspace=0.22, hspace=0.24
-    )
+    fig.subplots_adjust(left=0.05, right=0.985, top=0.92, bottom=0.07, wspace=0.22, hspace=0.24)
     return fig
 
 

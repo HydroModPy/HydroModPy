@@ -1,13 +1,12 @@
-# -*- coding: utf-8 -*-
 """
- * Copyright (C) 2023-2025 Alexandre Gauvain, Ronan Abherve, Jean-Raynald de Dreuzy
- *
- * This program and the accompanying materials are made available under the
- * terms of the Eclipse Public License 2.0 which is available at
- * http://www.eclipse.org/legal/epl-2.0, or the Apache License, Version 2.0
- * which is available at https://www.apache.org/licenses/LICENSE-2.0.
- *
- * SPDX-License-Identifier: EPL-2.0 OR Apache-2.0
+* Copyright (C) 2023-2025 Alexandre Gauvain, Ronan Abherve, Jean-Raynald de Dreuzy
+*
+* This program and the accompanying materials are made available under the
+* terms of the Eclipse Public License 2.0 which is available at
+* http://www.eclipse.org/legal/epl-2.0, or the Apache License, Version 2.0
+* which is available at https://www.apache.org/licenses/LICENSE-2.0.
+*
+* SPDX-License-Identifier: EPL-2.0 OR Apache-2.0
 """
 
 # %% LIBRAIRIES
@@ -16,17 +15,19 @@
 import os
 
 import rasterio
-from hydromodpy.core.backends import WhiteboxBackend, get_whitebox_backend
+
+from hydromodpy.core.io.raster_io import export_tif
 
 # HydroModPy
-from hydromodpy.core.tools import get_logger
+from hydromodpy.core.logging import get_logger
 from hydromodpy.core.tools.filesystem import create_folder
-from hydromodpy.core.tools.raster_io import export_tif
+from hydromodpy.spatial.delineation import WhiteboxBackend, get_whitebox_backend
 
 logger = get_logger(__name__)
 
 
 # %% CLASS
+
 
 class Masstransfer:
     """

@@ -39,9 +39,7 @@ def rebuild_boundary_edge_flux(
         dtype=float,
     ).reshape(-1)
     if current.size != int(mesh.n_edges):
-        raise ValueError(
-            "assembly_boundary_edge_flux_m3_s must have length mesh.n_edges."
-        )
+        raise ValueError("assembly_boundary_edge_flux_m3_s must have length mesh.n_edges.")
 
     boundary_heads = np.asarray(
         boundary_head_m_by_edge
@@ -125,13 +123,9 @@ def rebuild_boundary_edge_flux(
                 has_free_neighbor = True
                 outward_exchange += -flux
         support_flux = (
-            -outward_exchange
-            if has_free_neighbor
-            else float(prescribed_flux[cell_index])
+            -outward_exchange if has_free_neighbor else float(prescribed_flux[cell_index])
         )
-        rebuilt[supported_boundary_edges] = support_flux / float(
-            supported_boundary_edges.size
-        )
+        rebuilt[supported_boundary_edges] = support_flux / float(supported_boundary_edges.size)
     return rebuilt
 
 

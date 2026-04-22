@@ -4,8 +4,12 @@ from __future__ import annotations
 
 from numbers import Real
 
-from hydromodpy.core.units.scalar import canonical_unit_token as _canonical_unit_token, parse_scalar_and_unit
-
+from hydromodpy.core.units.scalar import (
+    canonical_unit_token as _canonical_unit_token,
+)
+from hydromodpy.core.units.scalar import (
+    parse_scalar_and_unit,
+)
 
 M2_PER_S_CANONICAL_UNITS: tuple[str, ...] = (
     "m2/s",

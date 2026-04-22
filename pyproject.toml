@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "hydromodpy"
-version = "0.3.5"
+version = "0.5.0"
 description = "A Python toolbox for deploying catchment-scale shallow groundwater models"
 readme = "README.md"
 requires-python = ">=3.11,<3.14"
@@ -29,7 +29,7 @@ keywords = [
     "catchment",
 ]
 classifiers = [
-    "Development Status :: 4 - Beta", 
+    "Development Status :: 4 - Beta",
     "Intended Audience :: Science/Research",
     "Operating System :: OS Independent",
     "Programming Language :: Python :: 3",
@@ -56,6 +56,7 @@ dependencies = [
     "pandas",
     "plotly",
     "pint",
+    "pydantic-pint",
     "pyproj",
     "pysheds",
     "rasterio",
@@ -63,6 +64,7 @@ dependencies = [
     "scikit-learn",
     "scipy",
     "cma",
+    "optuna",
     "selenium",
     "ultraplot",
     "vedo",
@@ -74,7 +76,10 @@ dependencies = [
     "sqlalchemy>=2.0",
     "tqdm",
     "zarr>=3.0",
+    "zstandard>=0.22",
+    "tomlkit",
     "pytest",
+    "pandera>=0.20",
 ]
 
 [project.optional-dependencies]
@@ -109,10 +114,19 @@ ide = [
 ]
 ugrid = ["xugrid"]
 viewer3d = ["pyvista"]
+dev = [
+    "ruff>=0.15",
+    "pre-commit>=4.0",
+]
 
 [project.scripts]
-hmp = "hydromodpy.__main__:main"
-hydromodpy = "hydromodpy.__main__:main"
+hmp = "hydromodpy._cli:main"
+hydromodpy = "hydromodpy._cli:main"
+
+[project.entry-points."hydromodpy.solver"]
+flow_modflownwt = "hydromodpy.simulation.adapters.flow.modflownwt:ModflowNwtFlowAdapter"
+flow_modflow6 = "hydromodpy.simulation.adapters.flow.modflow6:Modflow6FlowAdapter"
+flow_boussinesq = "hydromodpy.simulation.adapters.flow.boussinesq:BoussinesqFlowAdapter"
 
 [project.urls]
 Homepage = "https://hydromodpy-docs.readthedocs.io/en/latest/"
@@ -128,37 +142,15 @@ include-package-data = true
 include = ["hydromodpy*"]
 
 [tool.setuptools.package-data]
-hydromodpy = ["../bin/**/*"]
-"hydromodpy.process.hydrology.pyhelp" = ["*.FOR"]
-"hydromodpy.analysis.calibration.devkit" = ["templates/case/*.tmpl"]
+hydromodpy = ["../bin/**/*", "py.typed"]
+"hydromodpy.physics.hydrology.pyhelp" = ["*.FOR"]
 "hydromodpy.data.common.administrative" = ["*.gpkg"]
-
-[tool.pytest.ini_options]
-testpaths = ["tests"]
-python_files = ["test_*.py"]
-addopts = "-ra -p no:cacheprovider"
-markers = [
-    "regression: non-regression tests based on reference datasets",
-    "validation: scientific or benchmark validation tests against a reference solution",
-    "analytical: validation test compared to an analytical reference solution",
-    "normal: deprecated alias for the fast regression tier",
-    "extensive: extended regression checks for deeper validation",
-    "steady: steady-state validation or regression case",
-    "transient: transient validation or regression case",
-    "fast: quick-running validation, integration, or fast-tier regression cases",
-    "slow: long-running validation, integration, or regression tests",
-    "petsc: tests that exercise the Linux PETSc-backed Boussinesq runtime",
-    "nwt: MODFLOW-NWT / MODPATH / MT3DMS test case",
-    "mf6: MODFLOW 6 / GWT test case",
-    "integration: tests that call external services or systems",
-    "coverage: long-running coverage tests",
-]
 
 [tool.coverage.run]
 source = [
     "hydromodpy.core",
     "hydromodpy.spatial",
-    "hydromodpy.process",
+    "hydromodpy.physics",
     "hydromodpy.data",
     "hydromodpy.results",
     "hydromodpy.simulation",
@@ -169,8 +161,6 @@ parallel = true
 omit = [
     "hydromodpy/**/cases/*",
     "hydromodpy/**/examples/*",
-    "hydromodpy/calibration_legacy/*",
-    "hydromodpy/calibration2/*",
     "examples/*",
     "examples_legacy/*",
     "validation_cases/*",
@@ -188,3 +178,87 @@ exclude_lines = [
     "raise NotImplementedError",
     "\\.\\.\\.",
 ]
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Ruff — unified linter + formatter (replaces black, isort, flake8, pyupgrade…)
+# ──────────────────────────────────────────────────────────────────────────────
+[tool.ruff]
+target-version = "py311"
+line-length = 100
+
+extend-exclude = [
+    "examples_legacy_2",
+    "hydromodpy.egg-info",
+    "docs",              # Sphinx conf + doc examples aren't production code
+    "bin",
+    ".venv",
+    "build",
+    "dist",
+    "*.ipynb",           # skip notebooks (stray scratch files like Test_delete.ipynb)
+]
+
+[tool.ruff.lint]
+# Classic starter set — the six rule groups most Python projects enable.
+# Extend later (C4, SIM, NPY, RUF, D, ANN…) once the core is clean.
+select = [
+    "E",   # pycodestyle errors
+    "W",   # pycodestyle warnings
+    "F",   # pyflakes (unused imports/variables, undefined names…)
+    "I",   # isort (import sorting)
+    "UP",  # pyupgrade (modernize syntax for your target Python)
+    "B",   # flake8-bugbear (likely-bug patterns)
+]
+
+ignore = [
+    "E501",  # line too long — the formatter handles it
+    "B008",  # function call in default arg (common with pydantic Field(...))
+]
+
+[tool.ruff.lint.per-file-ignores]
+# Package __init__ files commonly re-export symbols and set up paths.
+"__init__.py" = ["F401", "E402"]
+# Tests can use idiomatic pytest patterns: bare pytest.raises(Exception),
+# zip without strict=, kept assignments for readability, etc.
+"tests/**/*.py" = ["E402", "F401", "B011", "B017", "B905", "F841"]
+# tools/ scripts do `sys.path.insert(0, REPO_ROOT)` before imports — legit pattern.
+"tools/**" = ["E402", "F401", "B007", "B905", "F841"]
+# Annex: legacy/peripheral code, minimal linting.
+"hydromodpy_annex/**" = ["E402", "F401", "B006", "B007"]
+# Demo / validation scripts: lenient, they're not production code.
+"hydromodpy/**/cases/**" = ["E402", "F401", "B007"]
+"hydromodpy/**/examples/**" = ["E402", "F401", "B007"]
+"validation_cases/**" = ["E402", "F401", "B007", "B905"]
+"examples/**" = ["E402", "F401", "B007"]
+# CLI shells can do argparse-style late imports.
+"hydromodpy/_cli/**" = ["E402"]
+# Pydantic `model_rebuild(_types_namespace=...)` pattern: forward refs are
+# resolved at runtime via an explicit namespace dict, so ruff can't see them
+# with static analysis. Known-good, silencing F821 in these files.
+"hydromodpy/data/data_managers_config.py" = ["F821"]
+"hydromodpy/core/config/hydromodpy_config.py" = ["F821"]
+# Legacy MODFLOW-NWT subtree: uses `sys.path` manipulation and double-docstring
+# license headers that technically break import ordering. Not worth rewriting.
+"hydromodpy/solver/modflow_nwt/**" = ["E402"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["hydromodpy", "hydromodpy_annex"]
+
+[tool.ruff.lint.flake8-type-checking]
+# Tell ruff that pydantic's BaseModel is inspected at runtime, so forward
+# references to annotated types (e.g. `"HydrographyConfig | None"`) inside
+# pydantic models must be resolvable — avoids a wave of false-positive F821s
+# when the real import sits under `if TYPE_CHECKING:`.
+runtime-evaluated-base-classes = [
+    "pydantic.BaseModel",
+    "pydantic_settings.BaseSettings",
+]
+
+[tool.ruff.format]
+# Mirrors black's defaults: double quotes, 4-space indent, trailing commas.
+quote-style = "double"
+indent-style = "space"
+skip-magic-trailing-comma = false
+line-ending = "auto"
+# Also format code blocks inside docstrings (``>>>`` examples etc.).
+docstring-code-format = true
+docstring-code-line-length = 80

@@ -14,10 +14,10 @@ import numpy as np
 import pandas as pd
 import requests
 
+from hydromodpy.core.logging import get_logger
 from hydromodpy.data.common.progress import log_step
 from hydromodpy.data.contracts.location import StationLocation
 from hydromodpy.data.contracts.timeseries import PointRecord
-from hydromodpy.core.tools.log_manager import get_logger
 
 logger = get_logger(__name__)
 
@@ -60,7 +60,9 @@ def fetch(
 
         # 2. Find nearest
         tg_id, tg_name, tg_lat, tg_lon = _find_nearest(
-            geographic, gauges, radius_km=fallback_search_radius_km,
+            geographic,
+            gauges,
+            radius_km=fallback_search_radius_km,
         )
 
         # 3. Check for cached data
@@ -84,10 +86,12 @@ def fetch(
         logger.info("SHOM: no data returned for tide gauge %s (%s)", tg_name, tg_id)
         return []
 
-    ts_data = pd.DataFrame({
-        "datetime": pd.to_datetime(df["timestamp"]),
-        "value": df["value"].astype(float),
-    })
+    ts_data = pd.DataFrame(
+        {
+            "datetime": pd.to_datetime(df["timestamp"]),
+            "value": df["value"].astype(float),
+        }
+    )
 
     location = StationLocation(
         id=str(tg_id),
@@ -130,8 +134,7 @@ def _find_nearest(
     centroid = geographic.centroid_long_lat
     gauges = gauges.copy()
     gauges["_dist"] = np.sqrt(
-        (gauges["longitude"] - centroid[1]) ** 2
-        + (gauges["latitude"] - centroid[0]) ** 2
+        (gauges["longitude"] - centroid[1]) ** 2 + (gauges["latitude"] - centroid[0]) ** 2
     )
 
     if radius_km is not None:
@@ -139,16 +142,14 @@ def _find_nearest(
         max_deg = radius_km / 111.0
         gauges = gauges[gauges["_dist"] <= max_deg]
         if gauges.empty:
-            raise ValueError(
-                f"No SHOM tide gauge found within {radius_km} km of centroid."
-            )
+            raise ValueError(f"No SHOM tide gauge found within {radius_km} km of centroid.")
 
     closest = gauges.loc[gauges["_dist"].idxmin()]
     tg_id = str(closest["shom_id"])
     tg_name = str(closest.get("name", tg_id))
     tg_lat = float(closest["latitude"])
     tg_lon = float(closest["longitude"])
-    log_step("SHOM: nearest tide gauge: %s (%s) at (%.4f, %.4f)" % (tg_name, tg_id, tg_lat, tg_lon))
+    log_step(f"SHOM: nearest tide gauge: {tg_name} ({tg_id}) at ({tg_lat:.4f}, {tg_lon:.4f})")
     return tg_id, tg_name, tg_lat, tg_lon
 
 
@@ -176,8 +177,8 @@ def _download_sea_level(
     current = date_start
     while current <= date_end:
         chunk_end = min(current + timedelta(days=31), date_end)
-        dt_start = f'{current.strftime("%Y-%m-%d")}T00%3A00%3A00Z'
-        dt_end = f'{chunk_end.strftime("%Y-%m-%d")}T00%3A00%3A00Z'
+        dt_start = f"{current.strftime('%Y-%m-%d')}T00%3A00%3A00Z"
+        dt_end = f"{chunk_end.strftime('%Y-%m-%d')}T00%3A00%3A00Z"
         url = (
             f"{API_BASE}/observation/json/{tg_id}"
             f"?sources={sources}&dtStart={dt_start}&dtEnd={dt_end}&interval={interval}"
@@ -217,7 +218,7 @@ def _try_load_cached(
     filename = f"sealevel_shom_{tg_id}_{start_str}_{end_str}_H.csv"
     filepath = os.path.join(output_folder, filename)
     if os.path.exists(filepath):
-        log_step("SHOM: cache hit %s" % filename)
+        log_step(f"SHOM: cache hit {filename}")
         return pd.read_csv(filepath, parse_dates=["timestamp"])
     return None
 
@@ -240,4 +241,4 @@ def _write_cache(
     filename = f"sealevel_shom_{tg_id}_{start_str}_{end_str}_H.csv"
     filepath = os.path.join(output_folder, filename)
     df.to_csv(filepath, index=False)
-    log_step("SHOM: cached data to %s" % filename)
+    log_step(f"SHOM: cached data to {filename}")

@@ -40,5 +40,7 @@ class ModpathTransportAdapter:
         # the SimulationCatalog (Zarr).  Shapefile generation is no longer needed.
         return RunExecutionResult(
             primary_model=model_modpath,
-            solver_output_dir=Path(model_modpath.full_path) if hasattr(model_modpath, "full_path") else None,
+            solver_output_dir=Path(model_modpath.full_path)
+            if hasattr(model_modpath, "full_path")
+            else None,
         )

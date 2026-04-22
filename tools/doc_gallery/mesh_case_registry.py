@@ -7,7 +7,6 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-
 REPO_ROOT = Path(__file__).resolve().parents[2]
 MESH_GALLERY_CASE_SCHEMA_VERSION = "mesh_gallery_case_v1"
 MESH_GALLERY_REQUIRED_BUNDLE_FILES = (
@@ -93,7 +92,7 @@ class ImportedMeshCasePaths:
 def mesh_gallery_root(*, repo_root: Path = REPO_ROOT) -> Path:
     """Return the canonical root directory for versioned mesh-gallery cases."""
 
-    return repo_root / "examples" / "mesh_gallery"
+    return repo_root / "examples" / "projects" / "07_mesh_gallery"
 
 
 def _validate_scale(scale: str) -> str:
@@ -163,7 +162,9 @@ def validate_bundle_dir(bundle_dir: Path) -> None:
     """Ensure the imported bundle looks like one standard mesh bundle."""
 
     missing = [
-        filename for filename in MESH_GALLERY_REQUIRED_BUNDLE_FILES if not (bundle_dir / filename).exists()
+        filename
+        for filename in MESH_GALLERY_REQUIRED_BUNDLE_FILES
+        if not (bundle_dir / filename).exists()
     ]
     if missing:
         raise FileNotFoundError(

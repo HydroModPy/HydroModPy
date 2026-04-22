@@ -26,8 +26,9 @@ from validation_cases.analytical.steady.dupuit_divide_river_1d.comparison import
         pytest.param("boussinesq", False, False, id="boussinesq"),
     ],
 )
-
-def test_dupuit_divide_river_1d_matches_reference_profile(solver: str, require_modflow: bool, require_modflow6: bool) -> None:
+def test_dupuit_divide_river_1d_matches_reference_profile(
+    solver: str, require_modflow: bool, require_modflow6: bool
+) -> None:
     """Run the launcher case and compare the final head profile to Dupuit."""
     assert_required_executables(
         require_modflow=require_modflow,
@@ -39,7 +40,9 @@ def test_dupuit_divide_river_1d_matches_reference_profile(solver: str, require_m
     comparison = run_dupuit_divide_river_comparison(caller_file=__file__, solver=solver)
     profile_tol = dict(comparison.tolerances.get("head_profile", {}))
 
-    assert_metric_below("Head-profile RMSE", comparison.rms_error, float(profile_tol["rmse"]), unit="m")
+    assert_metric_below(
+        "Head-profile RMSE", comparison.rms_error, float(profile_tol["rmse"]), unit="m"
+    )
     assert_metric_below(
         "Head-profile max abs error",
         comparison.max_error,
@@ -52,6 +55,3 @@ def test_dupuit_divide_river_1d_matches_reference_profile(solver: str, require_m
         float(profile_tol["row_spread"]),
         unit="m",
     )
-
-
-

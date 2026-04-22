@@ -10,18 +10,18 @@ One PointRecord is produced per (station, parameter) pair.
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from datetime import datetime
-from typing import Mapping
 
 import pandas as pd
 
+from hydromodpy.core.logging import get_logger
 from hydromodpy.data.common.api_helpers import get_json
 from hydromodpy.data.common.progress import iter_progress, log_step
 from hydromodpy.data.contracts.location import StationLocation
-from hydromodpy.core.tools.log_manager import get_logger
+from hydromodpy.data.contracts.timeseries import PointRecord
 
 logger = get_logger(__name__)
-from hydromodpy.data.contracts.timeseries import PointRecord
 
 API_RIVER_URL = "https://hubeau.eaufrance.fr/api/v2/qualite_rivieres/analyse_pc"
 API_PZ_URL = "https://hubeau.eaufrance.fr/api/v1/qualite_nappes/analyses"
@@ -59,8 +59,11 @@ def fetch(
         station_ids = _discover_stations(bbox, is_river=is_river)
         if not station_ids and fallback_search_radius_km:
             from hydromodpy.data.common.geo_helpers import expand_bbox
+
             expanded = expand_bbox(bbox, fallback_search_radius_km)
-            logger.info("Hub'Eau WQ: no stations in bbox, expanding by %s km", fallback_search_radius_km)
+            logger.info(
+                "Hub'Eau WQ: no stations in bbox, expanding by %s km", fallback_search_radius_km
+            )
             station_ids = _discover_stations(expanded, is_river=is_river)
         if not station_ids:
             logger.info("Hub'Eau WQ: no stations in bbox")
@@ -73,12 +76,14 @@ def fetch(
             logger.info("Hub'Eau WQ: no station with coordinates for nearest selection.")
             return []
 
-    log_step("Hub'Eau WQ (%s): %d stations" % (site_type, len(station_ids)))
+    log_step(f"Hub'Eau WQ ({site_type}): {len(station_ids)} stations")
     records: list[PointRecord] = []
 
     for sid in iter_progress(station_ids, desc="Stations"):
         location = _fetch_station_location(sid, is_river=is_river)
-        raw_df = _download_analyses(sid, date_start=date_start, date_end=date_end, is_river=is_river)
+        raw_df = _download_analyses(
+            sid, date_start=date_start, date_end=date_end, is_river=is_river
+        )
         if raw_df.empty:
             logger.info("  %s: no data", sid)
             continue
@@ -105,9 +110,12 @@ def fetch(
             unit = param_df["unit"].iloc[0] if "unit" in param_df.columns else ""
             records.append(
                 PointRecord(
-                    station_id=sid, variable=str(param_name), source="hubeau",
+                    station_id=sid,
+                    variable=str(param_name),
+                    source="hubeau",
                     unit=str(unit) if pd.notna(unit) else "",
-                    frequency="irregular", data=ts,
+                    frequency="irregular",
+                    data=ts,
                     date_start=ts["datetime"].min().to_pydatetime(),
                     date_end=ts["datetime"].max().to_pydatetime(),
                     location=location,
@@ -117,7 +125,7 @@ def fetch(
         n_params = len(set(df["parameter"]))
         logger.info("  %s: %d analyses, %d parameters", sid, len(df), n_params)
 
-    log_step("Hub'Eau WQ: %d total records" % len(records))
+    log_step(f"Hub'Eau WQ: {len(records)} total records")
     return records
 
 
@@ -145,7 +153,13 @@ def _keep_nearest(
 
     if best_id is None:
         return []
-    logger.info("Hub'Eau WQ: nearest to (%.4f, %.4f) → %s (%.1f km)", target_lon, target_lat, best_id, best_dist)
+    logger.info(
+        "Hub'Eau WQ: nearest to (%.4f, %.4f) → %s (%.1f km)",
+        target_lon,
+        target_lat,
+        best_id,
+        best_dist,
+    )
     return [best_id]
 
 
@@ -164,8 +178,9 @@ def _discover_stations(bbox: tuple, *, is_river: bool, max_stations: int = 50) -
     seen: set[str] = set()
     ids: list[str] = []
     for row in payload.get("data", []):
-        sid = str(row.get("code_station" if is_river else "code_bss", "")
-                  or row.get("bss_id", "")).strip()
+        sid = str(
+            row.get("code_station" if is_river else "code_bss", "") or row.get("bss_id", "")
+        ).strip()
         if sid and sid not in seen:
             seen.add(sid)
             ids.append(sid)
@@ -205,8 +220,9 @@ def _fetch_station_location(station_id: str, *, is_river: bool) -> StationLocati
         return None
 
     name = row.get("libelle_station") or row.get("nom_station") or station_id
-    return StationLocation(id=station_id, x=float(x), y=float(y), crs="EPSG:4326",
-                           metadata={"name": name})
+    return StationLocation(
+        id=station_id, x=float(x), y=float(y), crs="EPSG:4326", metadata={"name": name}
+    )
 
 
 def _extract_location_from_data(station_id: str, df: pd.DataFrame) -> StationLocation | None:
@@ -219,7 +235,11 @@ def _extract_location_from_data(station_id: str, df: pd.DataFrame) -> StationLoc
 
 
 def _download_analyses(
-    station_id: str, *, date_start: datetime, date_end: datetime, is_river: bool,
+    station_id: str,
+    *,
+    date_start: datetime,
+    date_end: datetime,
+    is_river: bool,
 ) -> pd.DataFrame:
     """Download analyses year by year."""
     url = API_RIVER_URL if is_river else API_PZ_URL

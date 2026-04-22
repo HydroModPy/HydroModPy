@@ -44,7 +44,7 @@ Notes
 -----
 
 - Config parsing and validation are isolated from solver-specific code.
-- Conceptual hydrology forcing remains outside ``hydromodpy.process`` and is
+- Conceptual hydrology forcing remains outside ``hydromodpy.physics`` and is
   exposed through the simulation forcing adapter layer.
 - Runtime process classes are solver-agnostic containers.
 - Adapter components are the only layer allowed to translate runtime data to

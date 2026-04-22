@@ -58,9 +58,7 @@ def test_hillslope_overflow_petsc_variants_activate_surface_threshold(
         diagnostics.overflow_threshold_mm_day
     )
     assert summary["surface_threshold_first_active_step"] is not None
-    assert float(summary["surface_threshold_first_active_day"]) <= float(
-        diagnostics.onset_day
-    )
+    assert float(summary["surface_threshold_first_active_day"]) <= float(diagnostics.onset_day)
     assert float(summary["surface_threshold_peak_total_m3_day"]) == pytest.approx(
         diagnostics.peak_total_overflow_m3_day
     )

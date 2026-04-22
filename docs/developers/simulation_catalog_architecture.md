@@ -495,8 +495,8 @@ catalog.cleanup(status="failed")                       # nettoyage par statut
 Import / export :
 
 ```python
-catalog.export_simulation("<uuid>", "~/partage/canut_best.hmp")
-catalog.import_simulation("~/partage/colleague_run.hmp")
+catalog.export_package("<uuid>", "~/partage/canut_best.hmp")
+catalog.import_package("~/partage/colleague_run.hmp")
 ```
 
 SQL direct (power users, ML) :
@@ -584,7 +584,7 @@ Export complet (package portable) :
 ```python
 sim.export("~/partage/nancon_best.hmp")
 # cree un dossier contenant simulation.duckdb + results.zarr/
-# le destinataire fait : catalog.import_simulation("nancon_best.hmp")
+# le destinataire fait : catalog.import_package("nancon_best.hmp")
 ```
 
 ### 7.3. SimulationGroup : operations groupees
@@ -754,7 +754,7 @@ Internally :
 ### 10.3. Import
 
 ```python
-catalog.import_simulation("~/partage/nancon_best.hmp")
+catalog.import_package("~/partage/nancon_best.hmp")
 ```
 
 Internally :
@@ -903,7 +903,7 @@ appliquee avec timestamp). Permet de savoir quel schema utilise un fichier parta
 Le package `.hmp` embarque la version du schema :
 
 ```python
-def export_simulation(sim_id, output_path):
+def export_package(sim_id, output_path):
     # ...
     # copie aussi _schema_version dans le package
     conn.execute("CREATE TABLE _schema_version AS SELECT * FROM src._schema_version")
@@ -912,7 +912,7 @@ def export_simulation(sim_id, output_path):
 A l'import, si le package a une version plus recente que le workspace :
 
 ```python
-def import_simulation(package_path):
+def import_package(package_path):
     pkg_version = ...  # lire depuis package
     local_version = ... # lire depuis hydromodpy.duckdb
     if pkg_version > local_version:

@@ -5,19 +5,14 @@ from __future__ import annotations
 from pathlib import Path
 from types import SimpleNamespace
 
-from hydromodpy.process.flow import Flow
-from hydromodpy.process.flow.flow_config import FlowConfig
+from hydromodpy.physics.flow import Flow
+from hydromodpy.physics.flow.flow_config import FlowConfig
 from hydromodpy.simulation.adapters.flow.boussinesq import BoussinesqFlowAdapter
 from hydromodpy.simulation.planning.plan import (
     ProcessRun,
     RunContext,
     SimulationPlan,
 )
-from validation_cases.shared.runtime import (
-    ValidationRunResult,
-    resolve_validation_results_dir,
-)
-from validation_cases.shared.loaders import merge_case_flow_section
 from validation_cases.shared.boussinesq_piecewise_strip import (
     PIECEWISE_STRIP_HYDRAULIC_CONDUCTIVITY_M_S_BY_ZONE,
     PIECEWISE_STRIP_LENGTH_X_M,
@@ -31,7 +26,11 @@ from validation_cases.shared.boussinesq_piecewise_strip import (
     aggregate_triangle_history_to_structured_grids,
     write_piecewise_strip_bundle,
 )
-
+from validation_cases.shared.loaders import merge_case_flow_section
+from validation_cases.shared.runtime import (
+    ValidationRunResult,
+    resolve_validation_results_dir,
+)
 
 CASE_ID = "boussinesq_fixed_head_piecewise_k_1d"
 NX = PIECEWISE_STRIP_NX
@@ -111,7 +110,9 @@ def run_boussinesq_fixed_head_piecewise_k_case(
             ),
             domain=None,
             time_grid=None,
-            workspace=SimpleNamespace(simulations_folder=simulations_folder, solver_scratch_folder=simulations_folder),
+            workspace=SimpleNamespace(
+                simulations_folder=simulations_folder, solver_scratch_folder=simulations_folder
+            ),
         ),
     )
     run = ProcessRun(

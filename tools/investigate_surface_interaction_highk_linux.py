@@ -3,16 +3,14 @@
 from __future__ import annotations
 
 import argparse
-from pathlib import Path
 import sys
-
+from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
 import tools.investigate_surface_interaction_hillslope_transient as base
-
 
 OUTPUT_ROOT_DEFAULT = REPO_ROOT / "out" / "sih_tx_highk_linux_mf6_petsc_comp_20260416"
 

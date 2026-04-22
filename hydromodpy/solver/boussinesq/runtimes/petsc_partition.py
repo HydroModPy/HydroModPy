@@ -1,4 +1,4 @@
-﻿"""PETSc runtime for the regularized partition surface-interaction model.
+"""PETSc runtime for the regularized partition surface-interaction model.
 
 This backend keeps the current head-only Boussinesq residual and solves it with
 PETSc SNES. Surface interaction follows the regularized partition law
@@ -18,14 +18,24 @@ import numpy as np
 from hydromodpy.solver.boussinesq.assembly import (
     BoussinesqAssembly,
 )
-from hydromodpy.solver.boussinesq.runtimes.head_only_common import (
-    build_steady_assembly_callback,
-    build_transient_assembly_callback,
-)
 from hydromodpy.solver.boussinesq.jacobian.semianalytic import (
     build_sparse_semianalytic_regularized_partition_jacobian_triplets,
 )
 from hydromodpy.solver.boussinesq.mesh import BoussinesqMesh
+from hydromodpy.solver.boussinesq.runtime_contract import (
+    RuntimeSolveResult,
+    SteadySolveInputs,
+    TransientStepInputs,
+)
+from hydromodpy.solver.boussinesq.runtimes.execution_common import (
+    apply_residual_tolerance,
+    build_runtime_result,
+    residual_norm_inf,
+)
+from hydromodpy.solver.boussinesq.runtimes.head_only_common import (
+    build_steady_assembly_callback,
+    build_transient_assembly_callback,
+)
 from hydromodpy.solver.boussinesq.runtimes.partition_utils import (
     interiorize_regularized_partition_initial_guess,
     regularized_partition_jacobian_shift,
@@ -35,15 +45,6 @@ from hydromodpy.solver.boussinesq.runtimes.petsc_common import (
     _coo_to_csr,
     _require_petsc,
     _snes_reason_label,
-)
-from hydromodpy.solver.boussinesq.runtimes.execution_common import (
-    apply_residual_tolerance,
-    build_runtime_result,
-    residual_norm_inf,
-)
-from hydromodpy.solver.boussinesq.runtime_contract import (
-    SteadySolveInputs,
-    TransientStepInputs,
 )
 
 
@@ -168,9 +169,7 @@ def _solve_nonlinear_system(
                     n_rows=n_cells,
                 ),
                 residual_norm_inf=float(
-                    residual_norm_inf(
-                        np.asarray(current_assembly.residual_m3_s, dtype=float)
-                    )
+                    residual_norm_inf(np.asarray(current_assembly.residual_m3_s, dtype=float))
                 ),
                 initial_residual_norm_inf=initial_residual_norm_inf,
             )
@@ -190,9 +189,7 @@ def _solve_nonlinear_system(
     snes.solve(None, solution)
     head = np.asarray(solution.getArray(readonly=True), dtype=float).copy()
     current_assembly = assembly_for(head)
-    residual_norm = residual_norm_inf(
-        np.asarray(current_assembly.residual_m3_s, dtype=float)
-    )
+    residual_norm = residual_norm_inf(np.asarray(current_assembly.residual_m3_s, dtype=float))
     converged_reason = int(snes.getConvergedReason())
     reason_label = _snes_reason_label(converged_reason)
     termination_reason_base = (
@@ -261,4 +258,3 @@ def _csr_diagonal(
 
 
 __all__ = ["solve_steady_problem", "solve_transient_step"]
-

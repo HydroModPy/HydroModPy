@@ -19,9 +19,7 @@ from hydromodpy.solver.utils.mesh.gmsh_grid.extruded_prism_mesh import (
 from hydromodpy.solver.utils.mesh.gmsh_grid.gmsh_planar_mesh import GmshPlanarMesh2D
 
 
-def load_planar_mesh(
-    path: str | Path, *, cell_type: str | None = None
-) -> GmshPlanarMesh2D:
+def load_planar_mesh(path: str | Path, *, cell_type: str | None = None) -> GmshPlanarMesh2D:
     """Read one 2D planar mesh into the package-level mesh object."""
     return GmshPlanarMesh2D.from_file(path, cell_type=cell_type)
 
@@ -81,9 +79,7 @@ def save_extruded_mesh_values(
 ) -> Path:
     """Write one valued 3D prism mesh to disk."""
     if not isinstance(mesh_with_values, ExtrudedPrismMeshWithValues):
-        raise TypeError(
-            "mesh_with_values must be an ExtrudedPrismMeshWithValues instance"
-        )
+        raise TypeError("mesh_with_values must be an ExtrudedPrismMeshWithValues instance")
     return mesh_with_values.to_file(
         path,
         value_name=value_name,
@@ -98,9 +94,7 @@ def save_extruded_values_npy(
 ) -> Path:
     """Write the canonical ``(n_layers, n_cells_2d)`` value array to ``.npy``."""
     if not isinstance(mesh_with_values, ExtrudedPrismMeshWithValues):
-        raise TypeError(
-            "mesh_with_values must be an ExtrudedPrismMeshWithValues instance"
-        )
+        raise TypeError("mesh_with_values must be an ExtrudedPrismMeshWithValues instance")
     return mesh_with_values.to_npy(path)
 
 
@@ -110,9 +104,7 @@ def save_extruded_values_summary(
 ) -> Path:
     """Write a compact JSON summary of attached 3D prism values."""
     if not isinstance(mesh_with_values, ExtrudedPrismMeshWithValues):
-        raise TypeError(
-            "mesh_with_values must be an ExtrudedPrismMeshWithValues instance"
-        )
+        raise TypeError("mesh_with_values must be an ExtrudedPrismMeshWithValues instance")
     return mesh_with_values.write_summary_json(path)
 
 
@@ -121,9 +113,7 @@ def save_extruded_values_summary(
 # ---------------------------------------------------------------------------
 
 
-def load_planar_as_hydro_mesh(
-    path: str | Path, *, cell_type: str | None = None
-):
+def load_planar_as_hydro_mesh(path: str | Path, *, cell_type: str | None = None):
     """Read one planar mesh and convert it directly to the generic ``HydroMesh``."""
     return load_planar_mesh(path, cell_type=cell_type).to_hydro_mesh()
 

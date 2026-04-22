@@ -51,9 +51,7 @@ def build_transient_assembly_callback(
         else np.asarray(inputs.head_initial_guess_m, dtype=float).copy()
     )
     options = inputs.options
-    prescribed_head_m_by_cell = _prescribed_head_cells(
-        inputs.prescribed_head_m_by_cell
-    )
+    prescribed_head_m_by_cell = _prescribed_head_cells(inputs.prescribed_head_m_by_cell)
 
     def _assembly_for(candidate_head: np.ndarray) -> BoussinesqAssembly:
         return assemble_transient_residual(
@@ -86,9 +84,7 @@ def build_steady_assembly_callback(
     if head_transform is not None:
         head_initial = np.asarray(head_transform(head_initial), dtype=float).copy()
     options = inputs.options
-    prescribed_head_m_by_cell = _prescribed_head_cells(
-        inputs.prescribed_head_m_by_cell
-    )
+    prescribed_head_m_by_cell = _prescribed_head_cells(inputs.prescribed_head_m_by_cell)
 
     def _assembly_for(candidate_head: np.ndarray) -> BoussinesqAssembly:
         return assemble_steady_residual(

@@ -27,8 +27,8 @@ import numpy as np
 import rasterio
 from shapely.geometry import box
 
-from hydromodpy.spatial.geographic.geographic_io import ensure_crs
 from hydromodpy.core.units import parse_length_to_m
+from hydromodpy.spatial.geographic.geographic_io import ensure_crs
 
 
 @dataclass(frozen=True)

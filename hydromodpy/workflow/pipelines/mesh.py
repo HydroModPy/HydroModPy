@@ -19,22 +19,21 @@ The key design choice is that batch orchestration now lives in
 from __future__ import annotations
 
 import argparse
-from collections.abc import Mapping
 import json
+from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
 
 from hydromodpy.core.config.hydromodpy_config import _load_standard_section
 from hydromodpy.core.config.toml_loader import load_toml_with_base_config
+from hydromodpy.core.workspace.config import WorkspaceConfig
 from hydromodpy.spatial.domain.domain_config import DomainConfig
 from hydromodpy.spatial.geographic.geographic_config import GeographicConfig
-from hydromodpy.core.workspace.config import WorkspaceConfig
 from hydromodpy.spatial.mesh import runtime as mesh_runtime
 from hydromodpy.spatial.mesh.batch import (
     MeshCatchmentBatchConfig,
     MeshCatchmentBatchRunner,
 )
-
 
 DEFAULT_CONFIG_NAME = "scenarios/config_example.toml"
 

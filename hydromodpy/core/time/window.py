@@ -19,8 +19,8 @@ validation errors intended to be user-facing.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
 import warnings
+from dataclasses import dataclass
 from typing import Any, Literal
 
 import pandas as pd
@@ -30,7 +30,6 @@ from hydromodpy.core.units import (
     parse_scalar_and_unit,
     timedelta_to_seconds,
 )
-
 
 _VALID_POLICIES = {"error", "warn", "ignore"}
 _VALID_MODES = {"explicit"}
@@ -171,8 +170,10 @@ def _normalize_step_unit(raw_step_unit: Any) -> Literal["hour", "day", "month", 
         return "month"
     try:
         canonical = normalize_time_unit(token)
-    except ValueError as exc:
-        raise ValueError("simulation.time.step_unit must be one of: hour, day, month, year.")
+    except ValueError:
+        raise ValueError(
+            "simulation.time.step_unit must be one of: hour, day, month, year."
+        ) from None
     token_map = {
         "hours": "hour",
         "days": "day",
@@ -247,7 +248,9 @@ def _build_time_boundaries(window: ResolvedSimulationTimeWindow) -> list[pd.Time
     start = window.start
     end = window.end
     if end < start:
-        raise ValueError("simulation.time.end_datetime must be greater than or equal to start_datetime.")
+        raise ValueError(
+            "simulation.time.end_datetime must be greater than or equal to start_datetime."
+        )
 
     end_exclusive = _inclusive_end_to_exclusive_end(
         end,
@@ -347,7 +350,9 @@ def _process_type(process_cfg: Any) -> str:
 
 def has_flow_simulation_process(cfg: Any) -> bool:
     """Return ``True`` when the simulation plan declares at least one flow process."""
-    return any(_process_type(process_cfg) == "flow" for process_cfg in _iter_simulation_processes(cfg))
+    return any(
+        _process_type(process_cfg) == "flow" for process_cfg in _iter_simulation_processes(cfg)
+    )
 
 
 def _flow_regime(cfg: Any) -> str | None:
@@ -436,16 +441,22 @@ def resolve_simulation_time_window(cfg: Any) -> ResolvedSimulationTimeWindow | N
         return None
 
     coverage_policy = _normalize_policy(getattr(time_cfg, "coverage_policy", "error"))
-    mode = _normalize_mode(getattr(time_cfg, "mode", "explicit"))
+    _normalize_mode(getattr(time_cfg, "mode", "explicit"))
     step_value, step_unit = _parse_step_spec(
         raw_step_value=getattr(time_cfg, "step_value", 1),
         raw_step_unit=getattr(time_cfg, "step_unit", None),
     )
 
-    start = _as_timestamp(getattr(time_cfg, "start_datetime", None), name="simulation.time.start_datetime")
-    end = _as_timestamp(getattr(time_cfg, "end_datetime", None), name="simulation.time.end_datetime")
+    start = _as_timestamp(
+        getattr(time_cfg, "start_datetime", None), name="simulation.time.start_datetime"
+    )
+    end = _as_timestamp(
+        getattr(time_cfg, "end_datetime", None), name="simulation.time.end_datetime"
+    )
     if end < start:
-        raise ValueError("simulation.time.end_datetime must be greater than or equal to start_datetime.")
+        raise ValueError(
+            "simulation.time.end_datetime must be greater than or equal to start_datetime."
+        )
     return ResolvedSimulationTimeWindow(
         start=start,
         end=end,

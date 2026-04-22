@@ -1,7 +1,7 @@
 """Read and normalize DEM-derived metadata from watershed rasters.
 
 This module hosts the historical geographic metadata contract needed by the
-``Geographic`` compatibility facade, but it now lives in the canonical
+``CatchmentDelineation`` compatibility facade, but it now lives in the canonical
 ``hydromodpy.spatial.geographic`` package instead of under ``compat``.
 """
 
@@ -65,7 +65,7 @@ class LegacyDemMetadata:
         }
 
     def legacy_attributes(self) -> dict[str, object]:
-        """Return the legacy ``Geographic`` attributes derived from these rasters."""
+        """Return the legacy ``CatchmentDelineation`` attributes derived from these rasters."""
         attrs: dict[str, object] = {
             "dem_box_buff_data": self.dem_box_buff_data,
             "dem_buff_data": self.dem_buff_data,
@@ -183,7 +183,7 @@ def read_legacy_dem_metadata(
     crs_project: str | None,
     locator_factory: object = Nominatim,
 ) -> LegacyDemMetadata:
-    """Read DEM rasters and rebuild the historical ``Geographic`` metadata."""
+    """Read DEM rasters and rebuild the historical ``CatchmentDelineation`` metadata."""
     with rasterio.open(str(watershed_box_buff_dem_path)) as box_buff_dem_src:
         dem_box_buff_data = box_buff_dem_src.read(1)
     with rasterio.open(str(watershed_buff_dem_path)) as buff_dem_src:

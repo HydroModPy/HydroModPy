@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
 import os
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
@@ -93,7 +93,7 @@ class CatchmentIdentificationConfig:
         config_toml: str | Path,
         *,
         section: str = DEFAULT_SECTION,
-    ) -> "CatchmentIdentificationConfig":
+    ) -> CatchmentIdentificationConfig:
         config_path = Path(config_toml).expanduser().resolve()
         payload = load_toml_with_base_config(config_path)
 
@@ -137,7 +137,9 @@ class CatchmentIdentificationConfig:
         if accumulation_area_km2 <= 0.0:
             raise ValueError("accumulation_area_km2 must be strictly positive")
 
-        outlet_selection_mode = str(raw_section.get("outlet_selection_mode", "border")).strip().lower()
+        outlet_selection_mode = (
+            str(raw_section.get("outlet_selection_mode", "border")).strip().lower()
+        )
         if outlet_selection_mode not in {"border", "scan_global"}:
             raise ValueError("outlet_selection_mode must be 'border' or 'scan_global'")
 
@@ -157,7 +159,9 @@ class CatchmentIdentificationConfig:
         if scan_max_total_outlets <= 0:
             raise ValueError("scan_max_total_outlets must be >= 1")
 
-        basin_selection_mode = str(raw_section.get("basin_selection_mode", "all_min_area")).strip().lower()
+        basin_selection_mode = (
+            str(raw_section.get("basin_selection_mode", "all_min_area")).strip().lower()
+        )
         if basin_selection_mode not in {"all_min_area", "headwater_target"}:
             raise ValueError("basin_selection_mode must be 'all_min_area' or 'headwater_target'")
 

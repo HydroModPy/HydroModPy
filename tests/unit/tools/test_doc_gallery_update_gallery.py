@@ -7,8 +7,8 @@ from pathlib import Path
 
 import pytest
 
-from tools.doc_gallery.gallery_manifest import GalleryCaseSpec, GalleryImageAsset
 from tools.doc_gallery import update_gallery
+from tools.doc_gallery.gallery_manifest import GalleryCaseSpec, GalleryImageAsset
 
 
 def test_reset_generated_dirs_retries_transient_permission_error(
@@ -110,11 +110,11 @@ def test_merge_case_summaries_by_category_keeps_committed_omitted_categories(
     validation_dir.mkdir(parents=True)
     (validation_dir / "validation_alpha_summary.json").write_text(
         (
-            '{\n'
+            "{\n"
             '  "slug": "validation_alpha",\n'
             '  "category": "validation",\n'
             '  "title": "Validation Alpha"\n'
-            '}\n'
+            "}\n"
         ),
         encoding="utf-8",
     )

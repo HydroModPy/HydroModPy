@@ -4,10 +4,10 @@ from __future__ import annotations
 
 import copy
 import json
+import sys
 from dataclasses import asdict, dataclass
 from pathlib import Path
 from types import SimpleNamespace
-import sys
 
 import numpy as np
 from flopy.utils.binaryfile import HeadFile
@@ -15,14 +15,14 @@ from flopy.utils.binaryfile import HeadFile
 if __package__ is None or __package__ == "":
     sys.path.insert(0, str(Path(__file__).resolve().parents[4]))
 
-from hydromodpy.process.flow import Flow
+from hydromodpy.physics.flow import Flow
+from hydromodpy.project import Project
 from hydromodpy.solver.modflow_nwt import (
     Modflow,
     ModflowPostprocessOptions,
     ModflowPreprocessOptions,
     ModflowRunOptions,
 )
-from hydromodpy.project import Simulation
 from validation_cases.analytical.transient.brutsaert_common import (
     _load_modflownwt_budget_diagnostics,
 )
@@ -31,7 +31,6 @@ from validation_cases.shared.runtime import (
     remove_file_with_retry,
     resolve_validation_results_dir,
 )
-
 
 CASE_DIR = Path(__file__).resolve().parent
 CASE_ID = "brutsaert_recession_linearized_deep_1d"
@@ -56,15 +55,15 @@ class ProbeResult:
     note: str
 
 
-def _build_validation_launcher() -> Simulation:
-    """Materialize one Simulation configured exactly like the validation case."""
+def _build_validation_launcher() -> Project:
+    """Materialize one Project configured exactly like the validation case."""
     config_path = _build_validation_launcher_config(
         case_dir=CASE_DIR,
         config_path=CASE_DIR / "config_modflownwt.toml",
         solver_name="modflownwt",
     )
     try:
-        return Simulation(config_path, headless=True)
+        return Project(config_path, headless=True)
     finally:
         if config_path.exists():
             remove_file_with_retry(config_path)
@@ -235,7 +234,9 @@ def _run_probe(
 def _build_summary(results: list[ProbeResult]) -> dict[str, object]:
     """Assemble one JSON-serializable summary payload."""
     flat_steady = next(result for result in results if result.probe_id.endswith("steady_flat_ic"))
-    nudged_steady = next(result for result in results if result.probe_id.endswith("steady_nudged_ic"))
+    nudged_steady = next(
+        result for result in results if result.probe_id.endswith("steady_nudged_ic")
+    )
     transient_simple = next(
         result for result in results if result.probe_id.endswith("transient_restart_simple")
     )
@@ -258,7 +259,9 @@ def _build_summary(results: list[ProbeResult]) -> dict[str, object]:
                     flat_steady.budget_max_abs_rate_discrepancy_percent
                 ),
                 "outlet_discharge_m3_s": (
-                    None if not flat_steady.outlet_series_m3_s else flat_steady.outlet_series_m3_s[-1]
+                    None
+                    if not flat_steady.outlet_series_m3_s
+                    else flat_steady.outlet_series_m3_s[-1]
                 ),
             },
             "steady_nudged_ic_recovers_budget": {
@@ -266,7 +269,9 @@ def _build_summary(results: list[ProbeResult]) -> dict[str, object]:
                     nudged_steady.budget_max_abs_rate_discrepancy_percent
                 ),
                 "outlet_discharge_m3_s": (
-                    None if not nudged_steady.outlet_series_m3_s else nudged_steady.outlet_series_m3_s[-1]
+                    None
+                    if not nudged_steady.outlet_series_m3_s
+                    else nudged_steady.outlet_series_m3_s[-1]
                 ),
             },
             "transient_restart_simple_still_breaks": {
@@ -293,7 +298,9 @@ def _print_probe(result: ProbeResult) -> None:
     print(f"  success: {result.success}")
     print(f"  nwt_options: {result.nwt_options}")
     if result.outlet_series_m3_s:
-        print(f"  outlet first/last [m3/s]: {result.outlet_series_m3_s[0]:.6e} / {result.outlet_series_m3_s[-1]:.6e}")
+        print(
+            f"  outlet first/last [m3/s]: {result.outlet_series_m3_s[0]:.6e} / {result.outlet_series_m3_s[-1]:.6e}"
+        )
     if result.budget_max_abs_rate_discrepancy_percent is not None:
         print(
             "  budget max abs rate discrepancy [%]: "

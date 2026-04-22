@@ -19,7 +19,9 @@ from validation_cases.calibration.twin.steady.dupuit_fixed_head_1d.experiment im
 @pytest.mark.validation
 @pytest.mark.steady
 @pytest.mark.mf6
-def test_calibration_twin_dupuit_fixed_head_mesh_perturbed_modflow6_recovers_truth_under_mesh_mismatch() -> None:
+def test_calibration_twin_dupuit_fixed_head_mesh_perturbed_modflow6_recovers_truth_under_mesh_mismatch() -> (
+    None
+):
     """Run the mesh-perturbed steady twin benchmark and verify recovery remains usable."""
     pytest.importorskip("cma")
 
@@ -60,9 +62,7 @@ def test_calibration_twin_dupuit_fixed_head_mesh_perturbed_modflow6_recovers_tru
     assert all(result.recovered_truth for result in deterministic)
 
     random_result = next(
-        result
-        for result in benchmark.method_results
-        if result.method_name == "random_search"
+        result for result in benchmark.method_results if result.method_name == "random_search"
     )
     assert random_result.model_distribution_sample_count >= 1
     assert random_result.truth_in_distribution is True

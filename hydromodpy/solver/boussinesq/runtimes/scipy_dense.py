@@ -1,4 +1,4 @@
-﻿"""SciPy-based nonlinear runtime for the Boussinesq backend.
+"""SciPy-based nonlinear runtime for the Boussinesq backend.
 
 This backend uses the same physical assembly as the local runtime. The only
 thing that changes is the nonlinear driver: instead of a home-grown Newton line
@@ -9,24 +9,22 @@ from __future__ import annotations
 
 import numpy as np
 
-from hydromodpy.solver.boussinesq.assembly import (
-    BoussinesqAssembly,
-)
-from hydromodpy.solver.boussinesq.runtimes.head_only_common import (
-    build_steady_assembly_callback,
-    build_transient_assembly_callback,
-)
 from hydromodpy.solver.boussinesq.jacobian.semianalytic import (
     build_dense_semianalytic_regularized_partition_jacobian,
+)
+from hydromodpy.solver.boussinesq.runtime_contract import (
+    RuntimeSolveResult,
+    SteadySolveInputs,
+    TransientStepInputs,
 )
 from hydromodpy.solver.boussinesq.runtimes.execution_common import (
     apply_residual_tolerance,
     build_runtime_result,
     residual_norm_inf,
 )
-from hydromodpy.solver.boussinesq.runtime_contract import (
-    SteadySolveInputs,
-    TransientStepInputs,
+from hydromodpy.solver.boussinesq.runtimes.head_only_common import (
+    build_steady_assembly_callback,
+    build_transient_assembly_callback,
 )
 
 
@@ -150,4 +148,3 @@ def _solve_nonlinear_system(
 
 
 __all__ = ["solve_steady_problem", "solve_transient_step"]
-

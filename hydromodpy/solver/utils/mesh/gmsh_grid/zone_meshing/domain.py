@@ -14,8 +14,9 @@ meshing stack.
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from pathlib import Path
-from typing import Any, Mapping
+from typing import Any
 
 from hydromodpy.solver.utils.mesh.gmsh_grid.zone_meshing._domain_contracts import (
     ZoneMeshingDomainConfig,
@@ -25,12 +26,12 @@ from hydromodpy.solver.utils.mesh.gmsh_grid.zone_meshing._domain_loaders import 
     load_zone_meshing_domain_payload_impl,
 )
 from hydromodpy.solver.utils.mesh.gmsh_grid.zone_meshing._domain_schema import (
-    ZoneMeshingDomainBBoxSchema,
-    ZoneMeshingDomainGeographicBoxBufferSchema,
-    ZoneMeshingDomainGeographicWatershedBoxSchema,
-    ZoneMeshingDomainGeographicWatershedSchema,
-    ZoneMeshingDomainPolygonSchema,
-    ZoneMeshingDomainVectorSchema,
+    ZoneMeshingDomainBBox,
+    ZoneMeshingDomainGeographicBoxBuffer,
+    ZoneMeshingDomainGeographicWatershed,
+    ZoneMeshingDomainGeographicWatershedBox,
+    ZoneMeshingDomainPolygon,
+    ZoneMeshingDomainVector,
 )
 
 
@@ -59,13 +60,13 @@ def load_zone_meshing_domain_payload(
 
 __all__ = [
     "parse_zone_meshing_domain_config",
-    "ZoneMeshingDomainBBoxSchema",
+    "ZoneMeshingDomainBBox",
     "ZoneMeshingDomainConfig",
-    "ZoneMeshingDomainGeographicBoxBufferSchema",
-    "ZoneMeshingDomainGeographicWatershedBoxSchema",
-    "ZoneMeshingDomainGeographicWatershedSchema",
+    "ZoneMeshingDomainGeographicBoxBuffer",
+    "ZoneMeshingDomainGeographicWatershedBox",
+    "ZoneMeshingDomainGeographicWatershed",
     "ZoneMeshingDomainPayload",
-    "ZoneMeshingDomainPolygonSchema",
-    "ZoneMeshingDomainVectorSchema",
+    "ZoneMeshingDomainPolygon",
+    "ZoneMeshingDomainVector",
     "load_zone_meshing_domain_payload",
 ]

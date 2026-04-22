@@ -4,7 +4,7 @@ Process Package Map
 Scope
 -----
 
-This page is the code-oriented entry point for ``hydromodpy.process``.
+This page is the code-oriented entry point for ``hydromodpy.physics``.
 
 It is useful when you want to understand:
 
@@ -16,24 +16,24 @@ It is useful when you want to understand:
 Package map
 -----------
 
-The current ``hydromodpy.process`` stack is split into six distinct concerns:
+The current ``hydromodpy.physics`` stack is split into six distinct concerns:
 
-- ``hydromodpy.process``:
+- ``hydromodpy.physics``:
   public compatibility facade that re-exports the main process symbols.
-- ``hydromodpy.process.contracts``:
+- ``hydromodpy.physics.contracts``:
   explicit import path for generic process-layer contracts reused internally.
-- ``hydromodpy.process.prototype``:
+- ``hydromodpy.physics.prototype``:
   process-agnostic building blocks such as ``ProcessSpatial``,
   ``ProcessSpatialConfig``, ``InitialCondition``, ``BoundaryCondition``, and
   ``SinkSource``.
-- ``hydromodpy.process.flow``:
+- ``hydromodpy.physics.flow``:
   concrete flow process object plus typed flow config and payload models.
-- ``hydromodpy.process.transport``:
+- ``hydromodpy.physics.transport``:
   concrete transport process object plus typed transport config.
-- ``hydromodpy.process.forcing``:
+- ``hydromodpy.physics.forcing``:
   helpers that turn loaded data into process-ready forcing payloads aligned to
   simulation time.
-- ``hydromodpy.process.hydrology``:
+- ``hydromodpy.physics.hydrology``:
   hydrological utilities, synthetic forcing helpers, and the ``pyhelp``
   coupling stack.
 

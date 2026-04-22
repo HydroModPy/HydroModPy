@@ -5,8 +5,8 @@ files. Returns a ``LoadResult`` containing ``FieldRecord`` objects
 pointing to cached GeoPackage/GeoTIFF files.
 
 The ``GeologyField`` (field framework) is NOT built here — that
-happens in the runtime_loader, which takes the loaded geodata and
-rasterizes it on the domain grid.
+happens in :mod:`hydromodpy.data.loader`, which takes the loaded
+geodata and rasterizes it on the domain grid.
 """
 
 from __future__ import annotations
@@ -14,7 +14,6 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
-from hydromodpy.data.common.geo_helpers import bbox_hash as _bbox_hash
 from hydromodpy.data.contracts.load_result import LoadResult
 from hydromodpy.data.contracts.spatial_field import FieldRecord
 from hydromodpy.data.registry.constants import (
@@ -86,6 +85,7 @@ class GeologyManager:
                 geometry_to_bbox,
                 load_mask_geometry,
             )
+
             geom = load_mask_geometry(source_cfg.mask_path)
             return geometry_to_bbox(geom)
         if getattr(source_cfg, "extent", None) and self.project_extent:
@@ -97,6 +97,7 @@ class GeologyManager:
                     geometry_to_bbox,
                     load_mask_geometry,
                 )
+
                 geom = load_mask_geometry(watershed_shp)
                 return geometry_to_bbox(geom)
         return None
@@ -112,6 +113,7 @@ class GeologyManager:
             if watershed_shp:
                 import geopandas as gpd
                 from shapely.geometry import box
+
                 gdf = gpd.GeoDataFrame(
                     geometry=[box(*bbox)],
                     crs=gpd.read_file(str(watershed_shp), rows=0).crs,
@@ -137,16 +139,23 @@ class GeologyManager:
         # Check cache
         if not force_refresh and self.catalog is not None and bbox is not None:
             cached = self.catalog.find_cached(
-                variable="geology", source="brgm_1m", bbox=bbox,
+                variable="geology",
+                source="brgm_1m",
+                bbox=bbox,
             )
             if cached is not None and cached.file_path not in (SENTINEL_CUSTOM, SENTINEL_EMPTY):
                 cached_path = Path(cached.file_path)
                 if cached_path.exists():
-                    return [FieldRecord(
-                        variable="geology", source="brgm_1m",
-                        unit="code", data=cached_path,
-                        bbox=bbox, crs="EPSG:2154",
-                    )]
+                    return [
+                        FieldRecord(
+                            variable="geology",
+                            source="brgm_1m",
+                            unit="code",
+                            data=cached_path,
+                            bbox=bbox,
+                            crs="EPSG:2154",
+                        )
+                    ]
 
         from hydromodpy.data.variables.geology.apis.brgm_1m import fetch_brgm_1m
 
@@ -158,20 +167,29 @@ class GeologyManager:
         )
 
         record = FieldRecord(
-            variable="geology", source="brgm_1m",
-            unit="code", data=gpkg_path,
-            bbox=bbox, crs="EPSG:2154",
+            variable="geology",
+            source="brgm_1m",
+            unit="code",
+            data=gpkg_path,
+            bbox=bbox,
+            crs="EPSG:2154",
         )
 
         # Register in catalog
         if self.catalog is not None and bbox is not None:
             entry_id = self.catalog.register(
-                variable="geology", source="brgm_1m",
-                file_path=str(gpkg_path), bbox=bbox, crs="EPSG:2154",
+                variable="geology",
+                source="brgm_1m",
+                file_path=str(gpkg_path),
+                bbox=bbox,
+                crs="EPSG:2154",
             )
             self.catalog.subsume_entries(
-                variable="geology", source="brgm_1m",
-                bbox=bbox, date_start=None, date_end=None,
+                variable="geology",
+                source="brgm_1m",
+                bbox=bbox,
+                date_start=None,
+                date_end=None,
                 exclude_id=entry_id,
             )
 
@@ -194,16 +212,23 @@ class GeologyManager:
         # Check cache
         if not force_refresh and self.catalog is not None:
             cached = self.catalog.find_cached(
-                variable="geology", source="brgm_50k", bbox=bbox,
+                variable="geology",
+                source="brgm_50k",
+                bbox=bbox,
             )
             if cached is not None and cached.file_path not in (SENTINEL_CUSTOM, SENTINEL_EMPTY):
                 cached_path = Path(cached.file_path)
                 if cached_path.exists():
-                    return [FieldRecord(
-                        variable="geology", source="brgm_50k",
-                        unit="code", data=cached_path,
-                        bbox=bbox, crs="EPSG:2154",
-                    )]
+                    return [
+                        FieldRecord(
+                            variable="geology",
+                            source="brgm_50k",
+                            unit="code",
+                            data=cached_path,
+                            bbox=bbox,
+                            crs="EPSG:2154",
+                        )
+                    ]
 
         from hydromodpy.data.variables.geology.apis.brgm_50k import fetch_brgm_50k
 
@@ -215,19 +240,28 @@ class GeologyManager:
         )
 
         record = FieldRecord(
-            variable="geology", source="brgm_50k",
-            unit="code", data=gpkg_path,
-            bbox=bbox, crs="EPSG:2154",
+            variable="geology",
+            source="brgm_50k",
+            unit="code",
+            data=gpkg_path,
+            bbox=bbox,
+            crs="EPSG:2154",
         )
 
         if self.catalog is not None:
             entry_id = self.catalog.register(
-                variable="geology", source="brgm_50k",
-                file_path=str(gpkg_path), bbox=bbox, crs="EPSG:2154",
+                variable="geology",
+                source="brgm_50k",
+                file_path=str(gpkg_path),
+                bbox=bbox,
+                crs="EPSG:2154",
             )
             self.catalog.subsume_entries(
-                variable="geology", source="brgm_50k",
-                bbox=bbox, date_start=None, date_end=None,
+                variable="geology",
+                source="brgm_50k",
+                bbox=bbox,
+                date_start=None,
+                date_end=None,
                 exclude_id=entry_id,
             )
 
@@ -256,9 +290,12 @@ class GeologyManager:
             for rec in records:
                 if isinstance(rec, FieldRecord) and isinstance(rec.data, Path):
                     self.catalog.register(
-                        variable="geology", source="custom",
+                        variable="geology",
+                        source="custom",
                         file_path=str(rec.data),
-                        bbox=rec.bbox, crs=rec.crs, is_custom=True,
+                        bbox=rec.bbox,
+                        crs=rec.crs,
+                        is_custom=True,
                     )
 
         return records

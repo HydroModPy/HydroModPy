@@ -18,8 +18,12 @@ from __future__ import annotations
 from collections.abc import Mapping
 from pathlib import Path
 
-from hydromodpy.simulation.planning.plan import ProcessRun, SimulationPlan
-from hydromodpy.simulation.planning.plan import RunContext, RunExecutionResult
+from hydromodpy.simulation.planning.plan import (
+    ProcessRun,
+    RunContext,
+    RunExecutionResult,
+    SimulationPlan,
+)
 from hydromodpy.solver.modflow_common.options import (
     ModflowPreprocessOptions,
     ModflowRunOptions,
@@ -76,9 +80,7 @@ def resolve_run_model_name(ctx) -> str:
     """
     flow_runtime_overrides = getattr(ctx.state.setup, "flow_runtime_overrides", None)
     if isinstance(flow_runtime_overrides, Mapping):
-        override_name = str(
-            flow_runtime_overrides.get("model_name_override", "") or ""
-        ).strip()
+        override_name = str(flow_runtime_overrides.get("model_name_override", "") or "").strip()
         if override_name:
             return flow_model_name(ctx.plan, override_name, ctx.run)
     return flow_model_name(ctx.plan, resolve_base_model_name(ctx.state.setup), ctx.run)

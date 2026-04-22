@@ -1,3 +1,5 @@
+workflow = "simulation"
+
 [simulation]
 name = "LU boundary step val"
 description = "Synthetic transient unconfined flow with a west-boundary head step and a fixed east boundary."

@@ -5,7 +5,6 @@ from __future__ import annotations
 import re
 from numbers import Real
 
-
 _SCALAR_WITH_OPTIONAL_UNIT_PATTERN = re.compile(
     r"^\s*([+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?)\s*(.*?)\s*$"
 )
@@ -77,4 +76,3 @@ def parse_scalar_and_unit(
         else:
             resolved_unit = inline_unit
     return scalar, resolved_unit
-

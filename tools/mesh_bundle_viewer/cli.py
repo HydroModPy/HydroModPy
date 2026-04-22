@@ -1,4 +1,4 @@
-﻿"""Canonical command-line interface for the standalone mesh bundle viewer."""
+"""Canonical command-line interface for the standalone mesh bundle viewer."""
 
 from __future__ import annotations
 
@@ -20,11 +20,11 @@ def resolve_default_config_path() -> Path:
     repo_root = package_dir.parents[1] if len(package_dir.parents) > 1 else None
     candidates = (
         (
-            repo_root / "examples" / "mesh_viewer" / DEFAULT_CONFIG_FILENAME
+            repo_root / "examples" / "projects" / "08_mesh_viewer" / DEFAULT_CONFIG_FILENAME
             if repo_root is not None
             else None
         ),
-        package_dir.parent / "examples" / "mesh_viewer" / DEFAULT_CONFIG_FILENAME,
+        package_dir.parent / "examples" / "projects" / "08_mesh_viewer" / DEFAULT_CONFIG_FILENAME,
         package_dir / "examples" / DEFAULT_CONFIG_FILENAME,
     )
     for path in candidates:
@@ -90,10 +90,3 @@ __all__ = [
     "main",
     "resolve_default_config_path",
 ]
-
-
-
-
-
-
-

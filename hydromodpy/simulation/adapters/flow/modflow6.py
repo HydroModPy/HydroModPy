@@ -29,16 +29,13 @@ class Modflow6FlowAdapter:
         if isinstance(cache, dict):
             return cache
         cache = {}
-        setattr(state.setup, "_flow_solver_runtime_cache", cache)
+        state.setup._flow_solver_runtime_cache = cache
         return cache
 
     @staticmethod
     def _reuse_solver_model_enabled(state) -> bool:
         overrides = getattr(state.setup, "flow_runtime_overrides", None)
-        return bool(
-            isinstance(overrides, Mapping)
-            and overrides.get("reuse_solver_model", False)
-        )
+        return bool(isinstance(overrides, Mapping) and overrides.get("reuse_solver_model", False))
 
     def execute(self, ctx: RunContext) -> RunExecutionResult:
         """Instantiate and execute one MODFLOW 6 flow run.

@@ -1,19 +1,22 @@
-"""HTTP helpers for API adapters (retry, pagination, status check)."""
+"""HTTP helpers for API adapters (retry, pagination, status check).
+
+Thin wrappers over :class:`hydromodpy.core.io.http_client.HTTPClient` so
+legacy callers that import ``check_status`` / ``get_json`` /
+``paginate_json`` keep working through the unified client.
+"""
 
 from __future__ import annotations
 
-import time
 from typing import Any
 
-import requests
-
-from hydromodpy.core.tools.log_manager import get_logger
+from hydromodpy.core.exceptions import NetworkError
+from hydromodpy.core.io.http_client import get_default_client
+from hydromodpy.core.logging import get_logger
 
 logger = get_logger(__name__)
 
 DEFAULT_TIMEOUT = 60
 MAX_RETRIES = 3
-BACKOFF_FACTOR = 2.0
 
 STATUS_MESSAGES: dict[int, str] = {
     200: "Success",
@@ -42,22 +45,18 @@ def get_json(
     timeout: int = DEFAULT_TIMEOUT,
     retries: int = MAX_RETRIES,
 ) -> dict | None:
-    """GET with retry + backoff. Returns parsed JSON or None."""
-    for attempt in range(1, retries + 1):
-        try:
-            resp = requests.get(url, params=params, timeout=timeout)
-            if check_status(resp.status_code):
-                return resp.json()
-            return None
-        except requests.exceptions.RequestException as exc:
-            if attempt < retries:
-                wait = BACKOFF_FACTOR ** attempt
-                logger.warning("Attempt %d/%d failed (%s), retry in %.0fs", attempt, retries, exc, wait)
-                time.sleep(wait)
-            else:
-                logger.error("All %d attempts failed for %s: %s", retries, url, exc)
-                return None
-    return None
+    """GET with retry + backoff via the unified HTTPClient.
+
+    Returns the parsed JSON payload, or ``None`` if the server responded
+    with a non-recoverable error (e.g. 404) or the client exhausted its
+    retries.
+    """
+    client = get_default_client()
+    try:
+        return client.get_json(url, params=params, timeout=timeout)
+    except NetworkError as exc:
+        logger.error("get_json failed for %s: %s", url, exc)
+        return None
 
 
 def paginate_json(

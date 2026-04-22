@@ -27,7 +27,6 @@ from hydromodpy.solver.boussinesq.smoothing import (
     smooth_positive_thickness,
 )
 
-
 # ---------------------------------------------------------------------------
 # smooth_positive_part
 # ---------------------------------------------------------------------------
@@ -188,7 +187,6 @@ def test_thickness_jacobian_consistency_via_smoothing() -> None:
 
 def test_drainage_jacobian_consistency_via_smoothing() -> None:
     """dsmooth_positive_part is the exact FD derivative of smooth_positive_part (drainage case)."""
-    from hydromodpy.solver.boussinesq.smoothing import _EPS_DRAINAGE_M
 
     head_minus_ztop = np.linspace(-0.5, 0.5, 51)
     eps = _EPS_DRAINAGE_M

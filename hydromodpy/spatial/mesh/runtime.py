@@ -13,27 +13,26 @@ from pathlib import Path
 from typing import Any
 
 import hydromodpy as hmp
-from hydromodpy.spatial.geographic.core.domain_geographic_pipeline import (
-    build_geographic_derived_features,
-    build_domain_geographic_context,
-)
-from hydromodpy.spatial.geographic.geographic_config import GeographicConfig
 from hydromodpy.solver.utils.mesh.gmsh_grid import export_catchment_mesh_bundle
 from hydromodpy.solver.utils.mesh.gmsh_grid.cases.reference_2d_geology_conformal import (
     run_reference_2d_zone_conformal_case_from_toml,
 )
+from hydromodpy.spatial.geographic.core.domain_geographic_pipeline import (
+    build_domain_geographic_context,
+    build_geographic_derived_features,
+)
+from hydromodpy.spatial.geographic.geographic_config import GeographicConfig
 from hydromodpy.spatial.mesh.config import (
-    MeshCatchmentConfigSchema,
+    MeshCatchmentConfig,
     parse_mesh_catchment_config_data,
 )
 from hydromodpy.spatial.mesh.runtime_single_run import (
-    MeshCatchmentWorkflowRuntimeArtifacts,
     MeshCatchmentSingleRunDependencies,
+    MeshCatchmentWorkflowRuntimeArtifacts,
     clone_config_like,
     constraints_mode_requires_river_trace,
     run_single_mesh_catchment_workflow_typed,
 )
-
 
 DEFAULT_SECTION_NAME = "mesh_catchment"
 
@@ -50,7 +49,7 @@ def require_mesh_section(
     payload: Mapping[str, Any],
     *,
     section_name: str = DEFAULT_SECTION_NAME,
-) -> MeshCatchmentConfigSchema:
+) -> MeshCatchmentConfig:
     """Return one validated launcher section and fail fast when it is missing."""
     section = payload.get(section_name)
     if not isinstance(section, Mapping):
@@ -65,7 +64,7 @@ def get_optional_mesh_section(
     payload: Mapping[str, Any],
     *,
     section_name: str = DEFAULT_SECTION_NAME,
-) -> MeshCatchmentConfigSchema | None:
+) -> MeshCatchmentConfig | None:
     """Return one validated optional mesh section, or ``None`` when absent/blank."""
     section = payload.get(section_name)
     if section is None:
@@ -76,6 +75,7 @@ def get_optional_mesh_section(
     if raw_cm is None or str(raw_cm).strip() == "":
         return None
     return parse_mesh_catchment_config_data(section)
+
 
 def prepare_geographic_config_for_meshing(
     geographic_cfg: GeographicConfig,
@@ -118,7 +118,7 @@ def prepare_geographic_config_for_meshing(
 def run_single_mesh_catchment_workflow(
     *,
     config_path: str | Path,
-    section_data: MeshCatchmentConfigSchema,
+    section_data: MeshCatchmentConfig,
     workspace_cfg: object,
     geographic_cfg: GeographicConfig,
     domain_cfg: object | None,
@@ -155,7 +155,7 @@ def run_single_mesh_catchment_workflow(
 def run_single_mesh_catchment_workflow_with_runtime_artifacts(
     *,
     config_path: str | Path,
-    section_data: MeshCatchmentConfigSchema,
+    section_data: MeshCatchmentConfig,
     workspace_cfg: object,
     geographic_cfg: GeographicConfig,
     domain_cfg: object | None,
@@ -189,9 +189,7 @@ def run_single_mesh_catchment_workflow_with_runtime_artifacts(
         return_runtime_artifacts=True,
     )
     if not isinstance(result, MeshCatchmentWorkflowRuntimeArtifacts):
-        raise TypeError(
-            "Expected mesh-catchment runtime execution to return runtime artifacts."
-        )
+        raise TypeError("Expected mesh-catchment runtime execution to return runtime artifacts.")
     return result
 
 

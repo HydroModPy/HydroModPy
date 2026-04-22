@@ -4,11 +4,11 @@ from pathlib import Path
 
 import pytest
 
-from hydromodpy.spatial.geographic.core.flow_products import FlowProducts
 from hydromodpy.solver.modflow_common.routing_context import (
     SolverRoutingContext,
     build_solver_routing_context,
 )
+from hydromodpy.spatial.geographic.core.flow_products import FlowProducts
 
 
 def test_build_solver_routing_context_wraps_flow_products(monkeypatch, tmp_path: Path):

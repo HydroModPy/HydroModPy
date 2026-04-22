@@ -1,4 +1,4 @@
-﻿"""Public panel-level rendering facade for the standalone mesh viewer.
+"""Public panel-level rendering facade for the standalone mesh viewer.
 
 This module intentionally re-exports a small panel API while the lower-level
 cell, overlay, and topography renderers live in dedicated helper modules.
@@ -9,6 +9,7 @@ from __future__ import annotations
 from collections.abc import Mapping
 
 from ..bundle_contracts import MeshBundleLike
+from ..schema import NUMERIC_COLOR_FIELDS, PlotConfig
 from .cell_rendering import (
     plot_categorical_cells,
     plot_numeric_cells,
@@ -27,7 +28,6 @@ from .rendering_common import (
     plot_cell_annotations,
 )
 from .topography_rendering import plot_continuous_topography_panel
-from ..schema import NUMERIC_COLOR_FIELDS, PlotConfig
 
 
 def plot_mesh_panel(
@@ -118,4 +118,3 @@ __all__ = [
     "plot_continuous_topography_panel",
     "plot_mesh_panel",
 ]
-

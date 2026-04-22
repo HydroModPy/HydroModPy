@@ -5,10 +5,10 @@ from .modflow import (
     FlowToModflowAdapter,
     Modflow,
     ModflowConfig,
-    ModflowSpecifParams,
     ModflowPostprocessOptions,
     ModflowPreprocessOptions,
     ModflowRunOptions,
+    ModflowSpecifParams,
 )
 from .modpath import Modpath
 from .mt3dms import Mt3dms
@@ -25,4 +25,3 @@ __all__ = [
     "Modpath",
     "Mt3dms",
 ]
-

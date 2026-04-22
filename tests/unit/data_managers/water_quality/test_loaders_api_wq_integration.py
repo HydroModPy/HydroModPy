@@ -11,7 +11,6 @@ import pytest
 
 from hydromodpy.data.variables.water_quality.apis.hubeau import fetch
 
-
 pytestmark = [pytest.mark.integration, pytest.mark.slow]
 
 

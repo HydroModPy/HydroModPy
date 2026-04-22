@@ -6,12 +6,13 @@ import math
 
 import numpy as np
 
-
 SECONDS_PER_DAY = 86400.0
 EULER_GAMMA = 0.5772156649015329
 
 
-def _exponential_integral_e1_scalar(value: float, *, tol: float = 1e-12, max_terms: int = 200) -> float:
+def _exponential_integral_e1_scalar(
+    value: float, *, tol: float = 1e-12, max_terms: int = 200
+) -> float:
     """Return ``E1(x)`` for one positive scalar using series/asymptotic expansions."""
     x = float(value)
     if x <= 0.0:

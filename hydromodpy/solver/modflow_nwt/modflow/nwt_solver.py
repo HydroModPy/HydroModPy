@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 * Copyright (C) 2023-2025 Alexandre Gauvain, Ronan Abhervé, Jean-Raynald de Dreuzy
 *
@@ -10,43 +9,40 @@
 * SPDX-License-Identifier: EPL-2.0 OR Apache-2.0
 """
 
-# %% LIBRAIRIES
-
-# Python
+import os
+import sys
 from collections.abc import Mapping
+
 import flopy
 import numpy as np
-import os
 import rasterio
-import sys
 from tqdm import tqdm
-from os.path import dirname, abspath
-import flopy.utils.binaryfile as fpu
 
-# Root
-df = dirname(dirname(abspath(__file__)))
-sys.path.append(df)
+from hydromodpy.solver.modflow_common.binary_reader import (
+    open_cell_budget_file,
+    open_head_file,
+)
 
-# HydroModPy
 # Map MODFLOW ITMUNI codes to seconds per time unit.
 # Used to convert FieldParam SI values (m/s) to solver time units.
 _ITMUNI_TO_SECONDS: dict[int, float] = {
-    0: 1.0,         # undefined → treat as seconds
-    1: 1.0,         # seconds
-    2: 60.0,        # minutes
-    3: 3600.0,      # hours
-    4: 86400.0,     # days
+    0: 1.0,  # undefined → treat as seconds
+    1: 1.0,  # seconds
+    2: 60.0,  # minutes
+    3: 3600.0,  # hours
+    4: 86400.0,  # days
     5: 31557600.0,  # years (365.25 days)
 }
 
-from hydromodpy.core.tools import get_logger
+from hydromodpy.core.io.raster_io import export_tif
+from hydromodpy.core.logging import get_logger
 from hydromodpy.core.tools.filesystem import create_folder
-from hydromodpy.core.tools.raster_io import export_tif
+from hydromodpy.solver.contracts import Solver
 from hydromodpy.solver.modflow_common import (
-    ensure_platform_executable,
     SolverGridContext,
     SolverRoutingContext,
     build_solver_routing_context,
+    ensure_platform_executable,
     masstransfer,
     write_grid_array_to_raster,
 )
@@ -57,8 +53,8 @@ from hydromodpy.solver.modflow_common.discretization_spatial import (
 from hydromodpy.solver.modflow_common.discretization_temporal import (
     build_temporal_discretization_from_time_grid,
 )
-from hydromodpy.solver.contracts import Solver
 from hydromodpy.solver.utils.mesh.cartesian_grid.sgrid_config import SolverSGridConfig
+
 from .diagnostics import check_water_flow_connectivity
 from .flow_to_modflow_adapter import FlowToModflowAdapter
 from .intermittency import export_intermittency
@@ -75,8 +71,8 @@ from .postprocess import (
     NODATA,
     compute_groundwater_flux,
     compute_groundwater_storage,
-    compute_outlet_discharge_east_side_m3_s,
     compute_outflow_drain,
+    compute_outlet_discharge_east_side_m3_s,
     compute_seepage_areas,
     compute_watertable_depth,
     compute_watertable_elevation,
@@ -260,16 +256,12 @@ class Modflow(Solver):
         self.nrow = int(dem.shape[0])
         self.ncol = int(dem.shape[1])
 
-    def _apply_preprocess_options(
-        self, options: ModflowPreprocessOptions | None = None
-    ) -> None:
+    def _apply_preprocess_options(self, options: ModflowPreprocessOptions | None = None) -> None:
         """Apply pre-processing options on model state."""
         if options is None:
             options = self.preprocess_options
         if not isinstance(options, ModflowPreprocessOptions):
-            raise TypeError(
-                "pre_processing options must be a ModflowPreprocessOptions instance."
-            )
+            raise TypeError("pre_processing options must be a ModflowPreprocessOptions instance.")
 
         self.preprocess_options = options
         self.sink_fill = bool(options.sink_fill)
@@ -496,9 +488,7 @@ class Modflow(Solver):
         self.runtime_mesh_planar = mesh_planar
         self.runtime_mesh_support = mesh_support
         self.flow_runtime_overrides = (
-            None
-            if flow_runtime_overrides is None
-            else dict(flow_runtime_overrides)
+            None if flow_runtime_overrides is None else dict(flow_runtime_overrides)
         )
         active_options = self.preprocess_options if options is None else options
         self._apply_preprocess_options(active_options)
@@ -521,9 +511,7 @@ class Modflow(Solver):
         self.drain_array = flow_inputs.drain_array
 
         if flow_inputs.chd_spd is not None:
-            self.chd = flopy.modflow.ModflowChd(
-                self.mf, stress_period_data=flow_inputs.chd_spd
-            )
+            self.chd = flopy.modflow.ModflowChd(self.mf, stress_period_data=flow_inputs.chd_spd)
 
         # ---- flopy.modflow.ModflowBas
         # BAS contract reminder:
@@ -612,7 +600,9 @@ class Modflow(Solver):
 
         if flow_inputs.wel_spd:
             self.wel = flopy.modflow.ModflowWel(
-                self.mf, ipakcb=self._params.runtime.wel_ipakcb, stress_period_data=flow_inputs.wel_spd
+                self.mf,
+                ipakcb=self._params.runtime.wel_ipakcb,
+                stress_period_data=flow_inputs.wel_spd,
             )
 
         # %% Output control
@@ -678,7 +668,7 @@ class Modflow(Solver):
             raise TypeError("processing options must be a ModflowRunOptions instance.")
 
         if options.link_mt3dms:
-            lmt = flopy.modflow.ModflowLmt(
+            flopy.modflow.ModflowLmt(
                 self.mf,
                 output_file_name=self._params.runtime.lmt_output_file_name,
                 extension=self._params.runtime.lmt_extension,
@@ -696,7 +686,8 @@ class Modflow(Solver):
         if options.run_model:
             if options.verbose:
                 success_model, _ = _run_model_with_progress(
-                    self.mf, int(self.nper),
+                    self.mf,
+                    int(self.nper),
                 )
             else:
                 success_model, _ = self.mf.run_model(silent=True)
@@ -737,9 +728,7 @@ class Modflow(Solver):
         if options is None:
             options = ModflowPostprocessOptions()
         elif not isinstance(options, ModflowPostprocessOptions):
-            raise TypeError(
-                "post_processing options must be a ModflowPostprocessOptions instance."
-            )
+            raise TypeError("post_processing options must be a ModflowPostprocessOptions instance.")
 
         self._setup_postprocess_folders()
 
@@ -753,9 +742,9 @@ class Modflow(Solver):
             raise ValueError("inactive_mask must be set before MODFLOW post-processing.")
         inactive_mask = np.asarray(self.inactive_mask, dtype=bool)
         # heads
-        self.head_fpu = fpu.HeadFile(self.path_file + ".hds")
+        self.head_fpu = open_head_file(self.path_file + ".hds", precision="single")
         # fluxes
-        self.cbb = fpu.CellBudgetFile(self.path_file + ".cbc")
+        self.cbb = open_cell_budget_file(self.path_file + ".cbc", precision="single")
 
         # Import times
         self.times = self.head_fpu.get_times()
@@ -788,13 +777,14 @@ class Modflow(Solver):
 
         # %% Loop over stress periods
 
-        for item, time in enumerate(tqdm(
-            self.times,
-            desc="[INFO] Post-processing",
-            unit="sp",
-            disable=len(self.times) <= 1,
-        )):
-
+        for item, time in enumerate(
+            tqdm(
+                self.times,
+                desc="[INFO] Post-processing",
+                unit="sp",
+                disable=len(self.times) <= 1,
+            )
+        ):
             if len(self.times) == 1:
                 self.kstpkper = self.kstpkpers[0]
             else:
@@ -808,26 +798,18 @@ class Modflow(Solver):
             if options.watertable_elevation:
                 self.wt_elev = compute_watertable_elevation(self.head, self.nlay)
                 self.wt_elev[inactive_mask] = NODATA
-                output_path = (
-                    self.tifs_file + f"/watertable_elevation_t({lead_numb}).tif"
-                )
+                output_path = self.tifs_file + f"/watertable_elevation_t({lead_numb}).tif"
                 if do_export_tif:
-                    export_tif(
-                        self.dem_watershed_path, self.wt_elev, output_path, NODATA
-                    )
+                    export_tif(self.dem_watershed_path, self.wt_elev, output_path, NODATA)
                 self.dict_watertable_elevation[item] = self.wt_elev
 
             if options.watertable_depth:
                 self.wt_depth = compute_watertable_depth(
                     self.wt_elev, self.top_elevation, inactive_mask
                 )
-                output_path = (
-                    self.tifs_file + f"/watertable_depth_t({lead_numb}).tif"
-                )
+                output_path = self.tifs_file + f"/watertable_depth_t({lead_numb}).tif"
                 if do_export_tif:
-                    export_tif(
-                        self.dem_watershed_path, self.wt_depth, output_path, NODATA
-                    )
+                    export_tif(self.dem_watershed_path, self.wt_depth, output_path, NODATA)
                 self.dict_watertable_depth[item] = self.wt_depth
 
             if options.seepage_areas:
@@ -836,15 +818,11 @@ class Modflow(Solver):
                 )
                 output_path = self.tifs_file + f"/seepage_areas_t({lead_numb}).tif"
                 if do_export_tif:
-                    export_tif(
-                        self.dem_watershed_path, self.seep_area, output_path, NODATA
-                    )
+                    export_tif(self.dem_watershed_path, self.seep_area, output_path, NODATA)
                 self.dict_seepage_areas[item] = self.seep_area
 
             if options.outflow_drain:
-                self.drain = self.cbb.get_data(
-                    text="DRAINS", kstpkper=self.kstpkper, totim=time
-                )
+                self.drain = self.cbb.get_data(text="DRAINS", kstpkper=self.kstpkper, totim=time)
                 self.out_drn = compute_outflow_drain(
                     self.drain,
                     self.drain_array,
@@ -854,9 +832,7 @@ class Modflow(Solver):
                 )
                 output_path = self.tifs_file + f"/outflow_drain_t({lead_numb}).tif"
                 if options.accumulation_flux or do_export_tif:
-                    export_tif(
-                        self.dem_watershed_path, self.out_drn, output_path, NODATA
-                    )
+                    export_tif(self.dem_watershed_path, self.out_drn, output_path, NODATA)
                 self.dict_outflow_drain[item] = self.out_drn
 
             if options.outlet_discharge_east_side_m3_s:
@@ -886,13 +862,9 @@ class Modflow(Solver):
                 self.flux_top = compute_groundwater_flux(
                     self.cbb, self.kstpkper, time, self.nlay, inactive_mask
                 )
-                output_path = (
-                    self.tifs_file + f"/groundwater_flux_t({lead_numb}).tif"
-                )
+                output_path = self.tifs_file + f"/groundwater_flux_t({lead_numb}).tif"
                 if do_export_tif:
-                    export_tif(
-                        self.dem_watershed_path, self.flux_top, output_path, NODATA
-                    )
+                    export_tif(self.dem_watershed_path, self.flux_top, output_path, NODATA)
                 self.dict_groundwater_flux[item] = self.flux_top
 
             if options.groundwater_storage:
@@ -903,13 +875,9 @@ class Modflow(Solver):
                     self.top_elevation,
                     cell_area=float(self.cell_area),
                 )
-                output_path = (
-                    self.tifs_file + f"/groundwater_storage_t({lead_numb}).tif"
-                )
+                output_path = self.tifs_file + f"/groundwater_storage_t({lead_numb}).tif"
                 if do_export_tif:
-                    export_tif(
-                        self.dem_watershed_path, self.wt_sto, output_path, NODATA
-                    )
+                    export_tif(self.dem_watershed_path, self.wt_sto, output_path, NODATA)
                 self.dict_groundwater_storage[item] = self.wt_sto
 
             if options.accumulation_flux:
@@ -924,9 +892,7 @@ class Modflow(Solver):
                     routing_direc_path=routing_ctx.direc_path,
                 )
                 accumulated_flow.trace_cumulated()
-                output_path = (
-                    self.tifs_file + f"/accumulation_flux_t({lead_numb}).tif"
-                )
+                output_path = self.tifs_file + f"/accumulation_flux_t({lead_numb}).tif"
                 with rasterio.open(output_path) as src:
                     self.dict_accumulation_flux[item] = src.read(1)
 
@@ -961,7 +927,11 @@ class Modflow(Solver):
             or options.intermittency_monthly
             or options.intermittency_yearly
         )
-        acc_npy_raw = self.dict_accumulation_flux if (_any_intermittency and self.dict_accumulation_flux) else None
+        acc_npy_raw = (
+            self.dict_accumulation_flux
+            if (_any_intermittency and self.dict_accumulation_flux)
+            else None
+        )
 
         if options.intermittency_daily and acc_npy_raw is not None:
             export_intermittency(

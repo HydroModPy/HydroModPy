@@ -2,25 +2,24 @@
 
 from __future__ import annotations
 
+import shutil
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from pathlib import Path
-import shutil
 from types import SimpleNamespace
 from typing import Any
 
-from hydromodpy.spatial.geographic.core.derived_features import (
-    coerce_geographic_derived_features,
-    resolve_river_mesh_trace,
-)
-from hydromodpy.spatial.geographic.geographic_config import GeographicConfig
 from hydromodpy.solver.utils.mesh.gmsh_grid._bundle_export_contracts import (
     CatchmentBundleGeologyExportConfig,
     CatchmentBundleHydraulicPropertiesConfig,
     CatchmentBundleSummaryReference,
 )
-from hydromodpy.spatial.mesh.config import MeshCatchmentConfigSchema
-
+from hydromodpy.spatial.geographic.core.derived_features import (
+    coerce_geographic_derived_features,
+    resolve_river_mesh_trace,
+)
+from hydromodpy.spatial.geographic.geographic_config import GeographicConfig
+from hydromodpy.spatial.mesh.config import MeshCatchmentConfig
 
 _RIVER_TRACE_CONSTRAINT_MODES = {"rivers_only", "geology_rivers"}
 
@@ -106,9 +105,7 @@ def _derive_regional_figure_path(output_figure: Path | None) -> Path | None:
     """Derive the sibling regional figure path from the main overview figure path."""
     if output_figure is None:
         return None
-    return output_figure.with_name(
-        f"{output_figure.stem}_regional{output_figure.suffix}"
-    )
+    return output_figure.with_name(f"{output_figure.stem}_regional{output_figure.suffix}")
 
 
 def _default_mesh_output_dir(workspace: object) -> Path:
@@ -126,6 +123,7 @@ def _cleanup_geographic_artifacts(*, workspace: object) -> list[str]:
     """Delete intermediate geographic folders from one workspace."""
     root = Path(getattr(workspace, "project_root", "."))
     from hydromodpy.core.workspace.path_registry import LEGACY_STABLE_DIR
+
     stable = root / LEGACY_STABLE_DIR
     deleted: list[str] = []
     for folder in (stable / "geographic", stable / "demcorrecflow"):
@@ -157,7 +155,7 @@ def _cleanup_runtime_workspace_root(*, runtime_project_root: Path) -> list[str]:
 def _resolve_output_overrides(
     *,
     config_path: Path,
-    section_cfg: MeshCatchmentConfigSchema,
+    section_cfg: MeshCatchmentConfig,
     workspace: object,
     explicit_overrides: Mapping[str, Path | str | None] | None = None,
     default_output_dir: Path | None = None,
@@ -176,11 +174,7 @@ def _resolve_output_overrides(
             config_dir=config_path.parent,
             raw_value=section_cfg.output_mesh,
         )
-    output_mesh = (
-        Path(output_mesh)
-        if output_mesh is not None
-        else mesh_dir / "mesh_catchment.msh"
-    )
+    output_mesh = Path(output_mesh) if output_mesh is not None else mesh_dir / "mesh_catchment.msh"
 
     output_summary_json = overrides.get("output_summary_json")
     if output_summary_json is None:
@@ -209,9 +203,7 @@ def _resolve_output_overrides(
             raw_value=section_cfg.output_figure_regional,
         )
     output_figure_regional_path = (
-        None
-        if output_figure_regional is None
-        else Path(output_figure_regional)
+        None if output_figure_regional is None else Path(output_figure_regional)
     )
     if output_figure_regional_path is None:
         output_figure_regional_path = _derive_regional_figure_path(output_figure_path)
@@ -265,7 +257,7 @@ def _resolve_river_trace(
 
 def _prepare_runtime_environment(
     *,
-    section_cfg: MeshCatchmentConfigSchema,
+    section_cfg: MeshCatchmentConfig,
     workspace_cfg: object,
     geographic_cfg: GeographicConfig,
     workspace: object | None,
@@ -277,7 +269,7 @@ def _prepare_runtime_environment(
 
     dedicated_flat_layout = section_cfg.output_layout == "flat" and workspace is None
     effective_output_layout = "flat" if dedicated_flat_layout else "standard"
-    final_project_root = Path(getattr(workspace_cfg, "project_root")).resolve()
+    final_project_root = Path(workspace_cfg.project_root).resolve()
     runtime_project_root: Path | None = None
     runtime_workspace_cfg = workspace_cfg
     if dedicated_flat_layout:
@@ -293,9 +285,7 @@ def _prepare_runtime_environment(
         )
 
     local_workspace = (
-        workspace
-        if workspace is not None
-        else deps.workspace_factory(config=runtime_workspace_cfg)
+        workspace if workspace is not None else deps.workspace_factory(config=runtime_workspace_cfg)
     )
     local_geographic_features = coerce_geographic_derived_features(
         geographic_features=geographic_features,
@@ -347,7 +337,7 @@ def _export_exchange_bundle_if_possible(
     summary_dict: dict[str, Any],
     resolved_outputs: ResolvedMeshCatchmentOutputs,
     prepared_runtime: PreparedMeshCatchmentRuntime,
-    section_cfg: MeshCatchmentConfigSchema,
+    section_cfg: MeshCatchmentConfig,
     domain_cfg: object | None,
     river_trace: object | None,
     config_path: Path,
@@ -391,16 +381,14 @@ def _export_exchange_bundle_if_possible(
     except (Exception, SystemExit) as exc:  # pragma: no cover - defensive only
         message = str(exc).strip()
         summary_dict["exchange_bundle_error"] = (
-            type(exc).__name__
-            if message == ""
-            else f"{type(exc).__name__}: {message}"
+            type(exc).__name__ if message == "" else f"{type(exc).__name__}: {message}"
         )
 
 
 def _apply_post_run_cleanup(
     *,
     summary_dict: dict[str, Any],
-    section_cfg: MeshCatchmentConfigSchema,
+    section_cfg: MeshCatchmentConfig,
     prepared_runtime: PreparedMeshCatchmentRuntime,
 ) -> None:
     """Apply launcher-level cleanup policies after the meshing case returns."""
@@ -411,9 +399,7 @@ def _apply_post_run_cleanup(
         and prepared_runtime.effective_output_layout != "flat"
     ):
         try:
-            deleted_paths = _cleanup_geographic_artifacts(
-                workspace=prepared_runtime.workspace
-            )
+            deleted_paths = _cleanup_geographic_artifacts(workspace=prepared_runtime.workspace)
             summary_dict["geographic_outputs_cleanup_applied"] = bool(deleted_paths)
             if deleted_paths:
                 summary_dict["geographic_outputs_cleanup_deleted"] = deleted_paths
@@ -428,13 +414,9 @@ def _apply_post_run_cleanup(
             deleted_runtime_paths = _cleanup_runtime_workspace_root(
                 runtime_project_root=prepared_runtime.runtime_project_root,
             )
-            summary_dict["runtime_workspace_cleanup_applied"] = bool(
-                deleted_runtime_paths
-            )
+            summary_dict["runtime_workspace_cleanup_applied"] = bool(deleted_runtime_paths)
             if deleted_runtime_paths:
-                summary_dict["runtime_workspace_cleanup_deleted"] = (
-                    deleted_runtime_paths
-                )
+                summary_dict["runtime_workspace_cleanup_deleted"] = deleted_runtime_paths
         except Exception as exc:  # pragma: no cover - defensive only
             summary_dict["runtime_workspace_cleanup_error"] = str(exc)
 
@@ -442,7 +424,7 @@ def _apply_post_run_cleanup(
 def run_single_mesh_catchment_workflow_typed(
     *,
     config_path: Path,
-    section_cfg: MeshCatchmentConfigSchema,
+    section_cfg: MeshCatchmentConfig,
     workspace_cfg: object,
     geographic_cfg: GeographicConfig,
     domain_cfg: object | None,
