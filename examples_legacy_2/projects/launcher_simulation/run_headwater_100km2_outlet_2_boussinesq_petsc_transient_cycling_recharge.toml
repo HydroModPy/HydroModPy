@@ -2,6 +2,8 @@
 
 base_config = "run_headwater_100km2_outlet_2_boussinesq_transient_cycling_recharge.toml"
 
+workflow = "simulation"
+
 [simulation]
 name = "Headwater 100 km2 Boussinesq PETSc mixed transient cycling recharge"
 run_id = "headwater_100km2_outlet_2_boussinesq_petsc_transient_cycling_recharge"

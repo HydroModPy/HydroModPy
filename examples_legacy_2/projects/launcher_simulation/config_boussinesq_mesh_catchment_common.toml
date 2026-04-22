@@ -7,6 +7,8 @@
 
 base_config = "project.toml"
 
+workflow = "mesh"
+
 [geographic]
 buff_area = "30%"
 

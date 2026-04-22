@@ -12,6 +12,8 @@
 #     hmp.run("examples/getting_started/run.toml")
 # ======================================================================
 
+workflow = "simulation"
+
 [simulation]
 name = "getting_started_dupuit"
 description = "Minimal synthetic Dupuit aquifer, steady state, MODFLOW-NWT."

@@ -1,6 +1,8 @@
 # Canonical MODFLOW 6 / GWT launcher baseline for example12.
 base_config = "config_extensive_common.toml"
 
+workflow = "simulation"
+
 [[simulation.process]]
 id = "flow_main"
 type = "flow"

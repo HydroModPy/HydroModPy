@@ -1,6 +1,8 @@
 # Reduced MODFLOW-NWT / MODPATH / MT3DMS regression config.
 base_config = "config_fast_common.toml"
 
+workflow = "simulation"
+
 [[simulation.process]]
 id = "flow_main"
 type = "flow"

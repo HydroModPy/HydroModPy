@@ -2,6 +2,8 @@
 
 base_config = "run_headwater_100km2_outlet_2_boussinesq_mesh_input.toml"
 
+workflow = "simulation"
+
 [simulation]
 name = "Headwater 100 km2 outlet 2 boussinesq PETSc partition reused mesh"
 run_id = "headwater_100km2_outlet_2_boussinesq_petsc_partition_reused_mesh"

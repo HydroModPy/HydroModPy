@@ -1,5 +1,7 @@
 # Shared launcher_simulation settings for all example12 regression variants.
 
+workflow = "simulation"
+
 [workspace]
 project_root = "."
 

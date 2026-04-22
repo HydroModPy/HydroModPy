@@ -4,6 +4,8 @@
 # not rebuild the catchment mesh. It replays the solver on the versioned mesh
 # already stored under `results_stable/mesh/`.
 
+workflow = "simulation"
+
 [workspace]
 project_root = "./results_reused_real_meshes/example12_fast"
 

@@ -3,6 +3,8 @@
 
 base_config = "config_headwater_100km2_mf6_transient_common.toml"
 
+workflow = "simulation"
+
 [simulation]
 name = "Headwater 100 km2 MF6 heterogeneous-decay reused mesh"
 run_id = "headwater_100km2_outlet_2_mf6_transient_heterogeneous_decay"

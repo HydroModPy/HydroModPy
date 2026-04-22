@@ -2,6 +2,8 @@
 
 base_config = "config_demonstrative_annual_moderate_common.toml"
 
+workflow = "simulation"
+
 [workspace]
 project_root = "./results_reused_real_meshes/ex12_demo_mod_nwt"
 

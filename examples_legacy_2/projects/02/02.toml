@@ -10,6 +10,8 @@
 # Simulation — orchestration des solveurs et pas de temps
 # ----------------------------------------------------------------------
 
+workflow = "simulation"
+
 [simulation]
 name = "02"
 

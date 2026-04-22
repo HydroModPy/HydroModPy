@@ -4,6 +4,8 @@
 # solving, using the same mesh-catchment profile as the dedicated examples.
 base_config = "config_boussinesq_mesh_catchment_common.toml"
 
+workflow = "simulation"
+
 [simulation]
 name = "Example 12 launcher fast boussinesq"
 

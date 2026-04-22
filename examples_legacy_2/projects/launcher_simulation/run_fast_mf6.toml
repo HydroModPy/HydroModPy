@@ -1,6 +1,8 @@
 # Reduced MODFLOW 6 / GWT regression config.
 base_config = "config_fast_common.toml"
 
+workflow = "simulation"
+
 [[simulation.process]]
 id = "flow_main"
 type = "flow"

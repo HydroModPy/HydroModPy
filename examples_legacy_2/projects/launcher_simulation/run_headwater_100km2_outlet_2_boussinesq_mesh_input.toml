@@ -4,6 +4,8 @@
 # instead of rebuilding the catchment mesh. It is intended as the clean restart
 # point for testing Boussinesq runtimes on one real basin geometry.
 
+workflow = "simulation"
+
 [workspace]
 project_root = "./results_reused_real_meshes/headwater_100km2_outlet_2"
 

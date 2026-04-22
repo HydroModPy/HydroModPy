@@ -3,6 +3,8 @@
 # This common base is intentionally flow-only and keeps the geometry stable.
 # Child overlays specialize recharge scenarios and hydraulic-property patterns.
 
+workflow = "simulation"
+
 [workspace]
 project_root = "./results_reused_real_meshes/headwater_100km2_outlet_2_mf6"
 

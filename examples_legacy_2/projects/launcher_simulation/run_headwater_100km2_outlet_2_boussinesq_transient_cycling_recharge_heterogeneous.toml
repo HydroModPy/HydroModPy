@@ -8,6 +8,8 @@
 
 base_config = "run_headwater_100km2_outlet_2_boussinesq_transient_cycling_recharge.toml"
 
+workflow = "simulation"
+
 [workspace]
 project_root = "./results_reused_real_meshes/headwater_100km2_outlet_2_boussinesq_transient_cycling_recharge_heterogeneous"
 

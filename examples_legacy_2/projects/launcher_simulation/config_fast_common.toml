@@ -1,5 +1,7 @@
 base_config = "project.toml"
 
+workflow = "simulation"
+
 [simulation]
 name = "Example 12 launcher fast"
 

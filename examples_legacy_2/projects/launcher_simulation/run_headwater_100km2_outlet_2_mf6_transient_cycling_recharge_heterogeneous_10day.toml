@@ -6,6 +6,8 @@
 
 base_config = "config_headwater_100km2_mf6_transient_common.toml"
 
+workflow = "simulation"
+
 [workspace]
 project_root = "./results_reused_real_meshes/headwater_100km2_outlet_2_mf6_transient_cycling_recharge_heterogeneous_10day"
 
