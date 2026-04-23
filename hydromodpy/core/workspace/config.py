@@ -153,16 +153,6 @@ class WorkspaceConfig(HydroModelBase):
         """How the workspace was located ("explicit", "env", "scaffold")."""
         return getattr(self, "_resolution_source", "explicit")
 
-    # -- Back-compat shims -------------------------------------------------
-    #
-    # ``workspace_root`` was the historical alias for ``root``. Keep the
-    # property so consumers that still read it (e.g. legacy solver code)
-    # keep working during the v0.6 sweep.
-
-    @property
-    def workspace_root(self) -> Path:
-        return self.root
-
     @property
     def _effective_output_root(self) -> Path:
         """Root for result directories: output_root if set, else project_root."""

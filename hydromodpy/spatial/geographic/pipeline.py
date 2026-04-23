@@ -1,7 +1,6 @@
 """Assemble the full geographic artifact set from one config + workspace.
 
-This module preserves the historical ``CatchmentDelineation`` payload contract while
-living in the canonical spatial package behind centralized compatibility aliases.
+Builds the runtime payload consumed by ``CatchmentDelineation``.
 """
 
 from __future__ import annotations
@@ -34,12 +33,12 @@ from hydromodpy.spatial.geographic.core.river_network import (
     build_river_network_products,
 )
 from hydromodpy.spatial.geographic.dem_metadata import (
-    LegacyDemMetadata,
-    read_legacy_dem_metadata,
+    DemMetadata,
+    read_dem_metadata,
 )
 from hydromodpy.spatial.geographic.domain_rasters import (
-    LegacyDomainRasterProducts,
-    build_legacy_domain_rasters,
+    DomainRasterProducts,
+    build_domain_rasters,
 )
 from hydromodpy.spatial.geographic.geographic_config import GeographicConfig
 from hydromodpy.spatial.geographic.geographic_paths import GeographicPaths
@@ -53,26 +52,26 @@ class _CachedGeographicProducts:
 
     flow_products: FlowProducts
     domain_products: CatchmentDomainProducts
-    raster_products: LegacyDomainRasterProducts
+    raster_products: DomainRasterProducts
     river_network_products: RiverNetworkProducts
     catchment_area_km2: float
 
 
 @dataclass(frozen=True)
-class LegacyGeographicContext:
-    """Full geographic payload used to hydrate the compatibility ``CatchmentDelineation`` facade."""
+class GeographicRuntimeContext:
+    """Full geographic payload used to hydrate the ``CatchmentDelineation`` runtime."""
 
     paths: GeographicPaths
     flow_products: FlowProducts
-    raster_products: LegacyDomainRasterProducts
-    dem_metadata: LegacyDemMetadata
+    raster_products: DomainRasterProducts
+    dem_metadata: DemMetadata
     river_network_products: RiverNetworkProducts
     catchment_area_km2: float
     crs_project: str | None
     epsg: int | None
     dem_res: float
 
-    def legacy_attributes(self) -> dict[str, object]:
+    def runtime_attributes(self) -> dict[str, object]:
         """Return the public attribute payload expected from ``CatchmentDelineation``."""
         attrs = dict(vars(self.paths))
         attrs.update(
@@ -87,7 +86,7 @@ class LegacyGeographicContext:
                 "river_mesh_trace": self.river_network_products.river_mesh_trace,
             }
         )
-        attrs.update(self.dem_metadata.legacy_attributes())
+        attrs.update(self.dem_metadata.runtime_attributes())
         return attrs
 
 
@@ -163,9 +162,9 @@ def _flow_products_from_paths(paths: GeographicPaths, dem_correc_type: str) -> F
     )
 
 
-def _raster_products_from_paths(paths: GeographicPaths) -> LegacyDomainRasterProducts:
+def _raster_products_from_paths(paths: GeographicPaths) -> DomainRasterProducts:
     """Reconstruct the legacy raster-products view from canonical cache paths."""
-    return LegacyDomainRasterProducts(
+    return DomainRasterProducts(
         watershed_box_buff_dem=paths.watershed_box_buff_dem,
         watershed_box_buff_fill=paths.watershed_box_buff_fill,
         watershed_box_buff_direc=paths.watershed_box_buff_direc,
@@ -247,7 +246,7 @@ def _required_geographic_cache_artifacts(
     config: GeographicConfig,
     paths: GeographicPaths,
     flow_products: FlowProducts,
-    raster_products: LegacyDomainRasterProducts,
+    raster_products: DomainRasterProducts,
 ) -> list[str | Path]:
     """Return the concrete files required for a safe cache hit."""
     required: list[str | Path] = [
@@ -376,13 +375,13 @@ def _write_geographic_cache_manifest(
     )
 
 
-def build_legacy_geographic_context(
+def build_geographic_runtime_context(
     *,
     config: GeographicConfig,
     out_dir_path: str | Path,
     backend: WhiteboxBackend | None = None,
     locator_factory: object = Nominatim,
-) -> LegacyGeographicContext:
+) -> GeographicRuntimeContext:
     """
     Build the full compatibility geographic payload from config + output folder.
 
@@ -473,7 +472,7 @@ def build_legacy_geographic_context(
             backend=tool,
         )
 
-        raster_products = build_legacy_domain_rasters(
+        raster_products = build_domain_rasters(
             dem_init_path=setup.dem_init_path,
             correc_path=flow_products.correc,
             direc_path=flow_products.direc,
@@ -492,7 +491,7 @@ def build_legacy_geographic_context(
             catchment_area_km2=catchment_area_km2,
         )
 
-    dem_metadata = read_legacy_dem_metadata(
+    dem_metadata = read_dem_metadata(
         watershed_box_buff_dem_path=raster_products.watershed_box_buff_dem,
         watershed_buff_dem_path=raster_products.watershed_buff_dem,
         watershed_dem_path=raster_products.watershed_dem,
@@ -500,7 +499,7 @@ def build_legacy_geographic_context(
         locator_factory=locator_factory,
     )
 
-    return LegacyGeographicContext(
+    return GeographicRuntimeContext(
         paths=setup.paths,
         flow_products=flow_products,
         raster_products=raster_products,

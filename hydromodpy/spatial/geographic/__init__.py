@@ -1,8 +1,8 @@
-"""Geographic compatibility package.
+"""Geographic package.
 
-The decomposed geographic workflow now lives in ``hydromodpy.spatial.geographic.core``.
-This package exposes the historical runtime facade and its compatibility
-helpers.
+The decomposed geographic workflow lives in ``hydromodpy.spatial.geographic.core``.
+This package exposes the ``CatchmentDelineation`` runtime facade and its
+public data contracts.
 """
 
 from __future__ import annotations
@@ -14,17 +14,17 @@ from hydromodpy.spatial.geographic.catchment_delineation import (
     DEM_correcflow_analysis,
 )
 from hydromodpy.spatial.geographic.dem_metadata import (
-    LegacyDemMetadata,
-    read_legacy_dem_metadata,
+    DemMetadata,
+    read_dem_metadata,
 )
 from hydromodpy.spatial.geographic.domain_rasters import (
-    LegacyDomainRasterProducts,
-    build_legacy_domain_rasters,
+    DomainRasterProducts,
+    build_domain_rasters,
 )
 from hydromodpy.spatial.geographic.geographic_config import GeographicConfig, RiverNetworkConfig
 from hydromodpy.spatial.geographic.pipeline import (
-    LegacyGeographicContext,
-    build_legacy_geographic_context,
+    GeographicRuntimeContext,
+    build_geographic_runtime_context,
 )
 from hydromodpy.spatial.geographic.subbasin import Subbasin
 
@@ -150,11 +150,11 @@ __all__ = [
     "RiverNetworkConfig",
     "DEM_correcflow_analysis",
     "Subbasin",
-    "LegacyDemMetadata",
-    "read_legacy_dem_metadata",
-    "LegacyDomainRasterProducts",
-    "build_legacy_domain_rasters",
-    "LegacyGeographicContext",
-    "build_legacy_geographic_context",
+    "DemMetadata",
+    "read_dem_metadata",
+    "DomainRasterProducts",
+    "build_domain_rasters",
+    "GeographicRuntimeContext",
+    "build_geographic_runtime_context",
     *_LAZY_V2_EXPORTS,
 ]

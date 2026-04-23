@@ -48,7 +48,7 @@ def test_geographic_config_standard_mode_requires_catch_def():
         GeographicConfig.model_validate({"source_mode": "standard"})
 
 
-def test_hydromodpy_config_accepts_matching_streams_with_synthetic_geographic(
+def test_hydromodpy_config_accepts_synthetic_geographic(
     tmp_path,
 ):
     toml_path = tmp_path / "config.toml"
@@ -62,13 +62,6 @@ def test_hydromodpy_config_accepts_matching_streams_with_synthetic_geographic(
                 "",
                 "[geographic]",
                 'source_mode = "synthetic"',
-                "",
-                "[postprocess]",
-                "enabled = true",
-                "",
-                "[postprocess.flow]",
-                "enabled = true",
-                "matching_streams = true",
             ]
         ),
         encoding="utf-8",
@@ -77,5 +70,3 @@ def test_hydromodpy_config_accepts_matching_streams_with_synthetic_geographic(
     cfg = HydroModPyConfig.from_toml(toml_path)
 
     assert cfg.geographic.uses_synthetic_geographic() is True
-    # Postprocess legacy nested options are accepted but no longer interpreted.
-    assert cfg.postprocess.enabled is True

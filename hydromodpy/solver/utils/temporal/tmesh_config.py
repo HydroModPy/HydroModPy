@@ -15,7 +15,7 @@ from hydromodpy.core.config.profile import Profile
 from hydromodpy.solver.utils._config_helpers import get_nested_section, resolve_path
 
 
-class TMeshConfigModel(HydroModelBase):
+class TMeshConfig(HydroModelBase):
     """Validated input model for ``TMesh_Generation`` settings."""
 
     # ``chron_colsep`` accepts single whitespace separators (e.g. ``"\t"``) so
@@ -225,7 +225,7 @@ class TMeshConfigModel(HydroModelBase):
 
         Pedagogical intent
         ------------------
-        ``TMeshConfigModel`` is the typed/validated contract (Pydantic side),
+        ``TMeshConfig`` is the typed/validated contract (Pydantic side),
         while ``TMesh_Generation`` expects plain Python arguments (builder side).
         This method is the bridge between both layers.
 
@@ -276,7 +276,7 @@ def validate_tmesh_config_data(config_data: Mapping[str, Any]) -> dict[str, Any]
     if not isinstance(config_data, Mapping):
         raise ValueError("tmesh configuration must be a mapping")
     try:
-        parsed = TMeshConfigModel.from_mapping(config_data)
+        parsed = TMeshConfig.from_mapping(config_data)
     except ValidationError as exc:
         raise ValueError(str(exc)) from exc
     except ValueError as exc:
@@ -292,7 +292,7 @@ def load_tmesh_toml(
     """Load and validate temporal mesh configuration from TOML."""
     path = Path(config_path).expanduser().resolve()
     try:
-        parsed = TMeshConfigModel.from_toml(path, section=section)
+        parsed = TMeshConfig.from_toml(path, section=section)
     except ValidationError as exc:
         raise ValueError(f"Invalid tmesh configuration in {path}: {exc}") from exc
     except (ValueError, KeyError) as exc:

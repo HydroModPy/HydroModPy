@@ -1587,9 +1587,3 @@ figures = [
 # ----------------------------------------------------------------------
 # No-op postprocess settings parsed from the ``[postprocess]`` section.
 # ----------------------------------------------------------------------
-
-[postprocess]
-# Legacy switch.
-# The pipeline now always runs the extract/derive/export steps regardless of this flag.
-# Type: bool | Default: false
-enabled = false

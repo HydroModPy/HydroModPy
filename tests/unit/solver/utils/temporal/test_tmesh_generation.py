@@ -53,7 +53,6 @@ def test_synthetic_regular_builds_expected_arrays(monkeypatch):
     assert np.allclose(tmesh.tsmult, np.array([1.5, 1.5, 1.5]))
     assert np.array_equal(tmesh.steady_state, np.array([True, False, False]))
     assert builder._tmesh_created is True
-    assert builder._tgrid_created is True
 
 
 def test_synthetic_regular_with_seconds_itmuni_keeps_second_lengths(monkeypatch):
@@ -298,20 +297,10 @@ def test_changing_property_invalidates_cached_mesh(monkeypatch):
     builder.lenper = 3
 
     assert builder._tmesh_created is False
-    assert builder._tgrid_created is False
 
     second = builder.run()
     assert first is not second
     assert np.allclose(second.perlen, np.array([3.0, 3.0]))
-
-
-def test_legacy_genmtd_tgrid_alias():
-    mod = _load_tmesh_module()
-    builder = mod.TMesh_Generation()
-
-    assert builder.genmtd_tgrid == "synthetic_regular"
-    builder.genmtd_tgrid = "synthetic_regular"
-    assert builder.genmtd == "synthetic_regular"
 
 
 def test_run_raises_when_flopy_modeltime_is_unavailable(monkeypatch):

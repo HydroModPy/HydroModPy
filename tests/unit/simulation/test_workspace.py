@@ -53,7 +53,7 @@ def test_workspace_resolves_scaffold(tmp_path) -> None:
     ws_root = tmp_path / "myworkspace"
     project = _scaffold(ws_root)
     cfg = WorkspaceConfig(project_root=project)
-    assert cfg.workspace_root == ws_root.resolve()
+    assert cfg.root == ws_root.resolve()
     assert cfg.resolution_source == "scaffold"
 
 
@@ -64,7 +64,7 @@ def test_workspace_resolves_explicit_root(tmp_path) -> None:
     project = tmp_path / "some" / "other" / "place"
     project.mkdir(parents=True)
     cfg = WorkspaceConfig(project_root=project, root=ws_root)
-    assert cfg.workspace_root == ws_root.resolve()
+    assert cfg.root == ws_root.resolve()
     assert cfg.resolution_source == "explicit"
 
 
@@ -75,7 +75,7 @@ def test_workspace_resolves_env_var(tmp_path, monkeypatch) -> None:
     project = tmp_path / "standalone_project"
     project.mkdir()
     cfg = WorkspaceConfig(project_root=project)
-    assert cfg.workspace_root == ws_root.resolve()
+    assert cfg.root == ws_root.resolve()
     assert cfg.resolution_source == "env"
 
 
@@ -124,5 +124,5 @@ def test_workspace_component_override(tmp_path) -> None:
         catalog_path=custom_catalog,
     )
     assert cfg.catalog_path == custom_catalog.resolve()
-    assert cfg.workspace_root == ws_root.resolve()
+    assert cfg.root == ws_root.resolve()
     assert cfg.resolution_source == "explicit"

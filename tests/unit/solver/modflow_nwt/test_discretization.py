@@ -4,7 +4,7 @@ from types import SimpleNamespace
 
 import numpy as np
 
-from hydromodpy.solver.modflow_nwt.modflow.discretization import (
+from hydromodpy.solver.modflow_common import (
     build_temporal_discretization_from_time_grid,
 )
 

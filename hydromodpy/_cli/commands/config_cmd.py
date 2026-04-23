@@ -25,7 +25,7 @@ HELP = "Generate a TOML template, validate a config, or export the JSON Schema"
 
 
 def register(subparsers) -> argparse.ArgumentParser:
-    from hydromodpy.core.config.generate_toml import PROFILES
+    from hydromodpy.core.config.param_level import PROFILES
 
     parser = subparsers.add_parser(NAME, help=HELP)
     sub = parser.add_subparsers(dest="config_command", required=False)

@@ -45,7 +45,7 @@ class Workspace:
     def __init__(self, config: WorkspaceConfig):
         self.paths = WorkspacePathRegistry.from_config(config)
         self.project_root = self.paths.project_root
-        self.workspace_root = self.paths.workspace_root
+        self.root = self.paths.root
         self.catalog_path = self.paths.catalog_path
         self.data_dir = self.paths.data_dir
         self.simulations_dir = self.paths.simulations_dir

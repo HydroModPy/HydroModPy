@@ -84,7 +84,7 @@ def fake_pipeline(monkeypatch, tmp_path):
 
     class _FakeSetup:
         def __init__(self):
-            self.workspace = type("_WS", (), {"workspace_root": tmp_path / "ws"})()
+            self.workspace = type("_WS", (), {"root": tmp_path / "ws"})()
             self.flow = None
             self.transport = None
             self.flow_runtime_overrides = None

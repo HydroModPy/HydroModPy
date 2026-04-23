@@ -11,7 +11,7 @@ from hydromodpy.solver.modflow_nwt.modflow import (
     ModflowSpecifParams,
 )
 from hydromodpy.solver.utils.mesh.cartesian_grid.sgrid_config import SolverSGridConfig
-from hydromodpy.solver.utils.temporal.tmesh_config import TMeshConfigModel
+from hydromodpy.solver.utils.temporal.tmesh_config import TMeshConfig
 
 
 def test_modflow_config_defaults_match_runtime_defaults():
@@ -107,7 +107,7 @@ def test_hydromodpy_config_loads_modflow_nested_sections(tmp_path: Path):
     assert cfg.modflownwt.sgrid.vertical.genmtd_lay == "decay"
     assert cfg.modflownwt.sgrid.vertical.nlay == 3
     assert cfg.modflownwt.sgrid.vertical.lay_decay == 1.8
-    assert isinstance(cfg.modflownwt.tgrid, TMeshConfigModel)
+    assert isinstance(cfg.modflownwt.tgrid, TMeshConfig)
     assert cfg.modflownwt.tgrid.flow_regime == "transient"
     assert cfg.modflownwt.tgrid.nper == 4
     assert cfg.modflownwt.tgrid.ntsp == [1, 2, 2, 3]

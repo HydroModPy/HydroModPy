@@ -32,10 +32,7 @@ from typing import Any, get_args, get_origin
 from pydantic import BaseModel
 from pydantic.fields import FieldInfo
 
-from hydromodpy.core.config.param_level import (
-    PROFILES,  # noqa: F401 - re-exported for CLI back-compat
-    ParamLevel,
-)
+from hydromodpy.core.config.param_level import ParamLevel
 from hydromodpy.core.config.profile import Profile
 from hydromodpy.core.config.pydantic_introspect import extract_profile, resolve_profile
 
@@ -53,7 +50,6 @@ def _get_registry() -> dict[str, type[BaseModel]]:
         from hydromodpy.display.config import DisplayConfig
         from hydromodpy.physics.flow.flow_config import FlowConfig
         from hydromodpy.physics.transport.transport_config import TransportConfig
-        from hydromodpy.results.postprocess_config import PostprocessConfig
         from hydromodpy.simulation.planning.config import SimulationConfig
         from hydromodpy.solver.base.solver_config import SolverConfig
         from hydromodpy.solver.modflow6.modflow6_config import Modflow6Config
@@ -87,7 +83,6 @@ def _get_registry() -> dict[str, type[BaseModel]]:
             "overview": OverviewSection,
             "simulation": SimulationConfig,
             "display": DisplayConfig,
-            "postprocess": PostprocessConfig,
         }
     return _MODULE_REGISTRY
 

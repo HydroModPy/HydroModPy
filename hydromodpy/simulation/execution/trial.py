@@ -256,7 +256,7 @@ def prepare_trials(
             logger.debug("prepare_trials: could not resolve time_grid eagerly")
 
     workspace_obj = getattr(ctx.setup, "workspace", None)
-    workspace = Path(workspace_obj.workspace_root) if workspace_obj is not None else cfg_path.parent
+    workspace = Path(workspace_obj.root) if workspace_obj is not None else cfg_path.parent
 
     return TrialContext(
         base_cfg=cfg,

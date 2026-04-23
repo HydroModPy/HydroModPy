@@ -12,14 +12,11 @@ The bridge provides:
   solver output available for optional post-calibration persistence.
 - ``promote_trial``: after calibration converges, stores one run into
   the SimulationCatalog for archival and comparison.
-  ``persist_calibration_result`` is kept as a deprecated alias for one
-  release cycle.
 """
 
 from __future__ import annotations
 
 import logging
-import warnings
 from collections.abc import Callable
 from typing import Any
 
@@ -131,20 +128,6 @@ def promote_trial(
     logger.info("Persisted calibration result for sim %s", sim_id)
 
 
-def persist_calibration_result(*args: Any, **kwargs: Any) -> None:
-    """Deprecated alias for :func:`promote_trial`.
-
-    Kept for one release cycle so downstream callers can migrate.
-    """
-    warnings.warn(
-        "persist_calibration_result has been renamed to promote_trial; "
-        "update imports before the next release.",
-        DeprecationWarning,
-        stacklevel=2,
-    )
-    return promote_trial(*args, **kwargs)
-
-
 def persist_calibration_summary_to_store(
     store: Any,
     sim_id: str,
@@ -159,7 +142,7 @@ def persist_calibration_summary_to_store(
 ) -> None:
     """Persist a lightweight calibration summary into the SimulationCatalog.
 
-    Unlike :func:`persist_calibration_result`, this does **not** re-run the
+    Unlike :func:`promote_trial`, this does **not** re-run the
     simulation.  It only records the optimizer output (best parameters,
     objective value, method, iteration count) so that the calibration
     outcome is discoverable from the store.

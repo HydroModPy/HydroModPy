@@ -19,7 +19,7 @@ from hydromodpy.spatial.geographic.geographic_paths import GeographicPaths
 
 
 @dataclass(frozen=True)
-class LegacyDomainRasterProducts:
+class DomainRasterProducts:
     """Raster artifacts produced by the historical watershed pipeline."""
 
     watershed_box_buff_dem: str
@@ -79,7 +79,7 @@ def _export_reshaped_rasters(
         export_tif(paths.watershed_box_buff_dem, data, dst_path, nodata)
 
 
-def build_legacy_domain_rasters(
+def build_domain_rasters(
     *,
     dem_init_path: str | Path,
     correc_path: str | Path,
@@ -91,7 +91,7 @@ def build_legacy_domain_rasters(
     paths: GeographicPaths,
     crs_project: str | None = None,
     backend: WhiteboxBackend | None = None,
-) -> LegacyDomainRasterProducts:
+) -> DomainRasterProducts:
     """
     Build the raster bundle still consumed by legacy solvers and postprocess.
 
@@ -215,7 +215,7 @@ def build_legacy_domain_rasters(
         if src1.read(1).shape != src2.read(1).shape != src3.read(1).shape:
             _export_reshaped_rasters(paths=paths)
 
-    return LegacyDomainRasterProducts(
+    return DomainRasterProducts(
         watershed_box_buff_dem=paths.watershed_box_buff_dem,
         watershed_box_buff_fill=paths.watershed_box_buff_fill,
         watershed_box_buff_direc=paths.watershed_box_buff_direc,

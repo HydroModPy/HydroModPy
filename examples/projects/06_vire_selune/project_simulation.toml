@@ -77,8 +77,5 @@ value = "0.0 m2/s"
 first_clim = "mean"
 negative_to_evt = true
 
-[postprocess]
-enabled = true
-
 [display]
 show = false

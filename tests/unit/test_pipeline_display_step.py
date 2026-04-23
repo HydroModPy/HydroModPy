@@ -22,7 +22,7 @@ from hydromodpy.pipeline.steps.step_11_display import DisplayStep
 def _make_ctx(*, enabled: bool, figures: list[str], project_root: Path) -> SimpleNamespace:
     workspace = SimpleNamespace(
         project_root=project_root,
-        workspace_root=project_root.parent,
+        root=project_root.parent,
     )
     display = SimpleNamespace(
         enabled=enabled,

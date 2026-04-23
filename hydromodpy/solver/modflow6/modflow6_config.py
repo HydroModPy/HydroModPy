@@ -11,7 +11,7 @@ from pydantic import ConfigDict, Field
 from hydromodpy.core.config.base import HydroModelBase
 from hydromodpy.core.config.profile import Profile
 from hydromodpy.solver.utils.mesh.cartesian_grid.sgrid_config import SolverSGridConfig
-from hydromodpy.solver.utils.temporal.tmesh_config import TMeshConfigModel
+from hydromodpy.solver.utils.temporal.tmesh_config import TMeshConfig
 
 
 class Modflow6RuntimeConfig(HydroModelBase):
@@ -112,10 +112,10 @@ class Modflow6Config(HydroModelBase):
         default_factory=SolverSGridConfig,
         description="Solver-grid payload split into planar and vertical sections.",
     )
-    tgrid: Annotated[TMeshConfigModel | None, Profile.USER] = Field(
+    tgrid: Annotated[TMeshConfig | None, Profile.USER] = Field(
         default=None,
         description=(
-            "Optional temporal discretization payload as TMeshConfigModel. In "
+            "Optional temporal discretization payload as TMeshConfig. In "
             "launcher mode, stress periods are driven by [simulation.time]; "
             "this section is mirrored for compatibility and mainly keeps "
             "`firstpersteady`."
@@ -148,7 +148,7 @@ class Modflow6SpecifParams:
         default_factory=Modflow6ProcessSpecificConfig,
     )
     sgrid: SolverSGridConfig = field(default_factory=SolverSGridConfig)
-    tgrid: TMeshConfigModel | None = None
+    tgrid: TMeshConfig | None = None
 
     @classmethod
     def from_config(

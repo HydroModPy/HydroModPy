@@ -2,8 +2,8 @@ hydromodpy.spatial.geographic
 =============================
 
 Geographic preprocessing entry points used to derive catchment supports, DEM
-products, and the compatibility payload exposed by
-``hydromodpy.spatial.geographic.Geographic``.
+products, and the runtime payload exposed by
+``hydromodpy.spatial.geographic.CatchmentDelineation``.
 
 Class overview
 --------------
@@ -12,12 +12,12 @@ Class overview
    :nosignatures:
    :toctree: generated/geographic
 
-   ~hydromodpy.spatial.geographic.geographic.Geographic
+   ~hydromodpy.spatial.geographic.catchment_delineation.CatchmentDelineation
    ~hydromodpy.spatial.geographic.geographic_config.GeographicConfig
    ~hydromodpy.spatial.geographic.geographic_config.RiverNetworkConfig
-   ~hydromodpy.spatial.geographic.dem_metadata.LegacyDemMetadata
-   ~hydromodpy.spatial.geographic.domain_rasters.LegacyDomainRasterProducts
-   ~hydromodpy.spatial.geographic.pipeline.LegacyGeographicContext
+   ~hydromodpy.spatial.geographic.dem_metadata.DemMetadata
+   ~hydromodpy.spatial.geographic.domain_rasters.DomainRasterProducts
+   ~hydromodpy.spatial.geographic.pipeline.GeographicRuntimeContext
 
 Function overview
 -----------------
@@ -26,7 +26,7 @@ Function overview
    :nosignatures:
    :toctree: generated/geographic
 
-   ~hydromodpy.spatial.geographic.geographic.DEM_correcflow_analysis
-   ~hydromodpy.spatial.geographic.dem_metadata.read_legacy_dem_metadata
-   ~hydromodpy.spatial.geographic.domain_rasters.build_legacy_domain_rasters
-   ~hydromodpy.spatial.geographic.pipeline.build_legacy_geographic_context
+   ~hydromodpy.spatial.geographic.catchment_delineation.DEM_correcflow_analysis
+   ~hydromodpy.spatial.geographic.dem_metadata.read_dem_metadata
+   ~hydromodpy.spatial.geographic.domain_rasters.build_domain_rasters
+   ~hydromodpy.spatial.geographic.pipeline.build_geographic_runtime_context

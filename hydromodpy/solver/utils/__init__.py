@@ -15,7 +15,6 @@ _CARTESIAN_EXPORTS = {
 }
 _TEMPORAL_EXPORTS = {
     "TMeshConfig",
-    "TMeshConfigModel",
     "TMesh_Generation",
     "load_tmesh_toml",
     "validate_tmesh_config_data",
@@ -25,7 +24,6 @@ __all__ = [
     "build_field_mesh_from_sgrid",
     "extract_structured_vertices",
     "TMeshConfig",
-    "TMeshConfigModel",
     "TMesh_Generation",
     "validate_tmesh_config_data",
     "load_tmesh_toml",

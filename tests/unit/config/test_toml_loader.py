@@ -206,14 +206,6 @@ def test_hydromodpy_config_loads_profiling_shortcuts(tmp_path: Path) -> None:
                 'catch_def = "dem"',
                 'dem_init_path = "dem.tif"',
                 "reuse_existing_outputs = true",
-                "",
-                "[postprocess]",
-                'profile = "solver_only"',
-                "",
-                "[postprocess.flow]",
-                "display = true",
-                "native_mesh_npz = true",
-                "native_mesh_csv = true",
             ]
         ),
         encoding="utf-8",
@@ -222,6 +214,3 @@ def test_hydromodpy_config_loads_profiling_shortcuts(tmp_path: Path) -> None:
     cfg = HydroModPyConfig.from_toml(config_path)
 
     assert cfg.geographic.reuse_existing_outputs is True
-    # Postprocess legacy nested options are accepted but no longer interpreted.
-    # The pipeline now drives extract/derive/export unconditionally.
-    assert cfg.postprocess.enabled is False

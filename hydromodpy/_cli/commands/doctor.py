@@ -369,7 +369,7 @@ def _probe_from_toml(toml_path: Path, WorkspaceConfig, WorkspaceError) -> list[d
             "detail": f"resolved via {cfg.resolution_source}",
             "hint": None,
         },
-        _path_check("workspace_root", cfg.workspace_root),
+        _path_check("workspace_root", cfg.root),
         _path_check("catalog_path", cfg.catalog_path),
         _path_check("data_dir", cfg.data_dir),
         _path_check("simulations_dir", cfg.simulations_dir),

@@ -125,30 +125,3 @@ class TestPromoteTrial:
         ts_h = store.query_timeseries(sid, "P1", "head")
         assert len(ts_q) == 10
         assert len(ts_h) == 10
-
-    def test_deprecated_alias_still_works(self, store):
-        """persist_calibration_result is kept for one cycle with a DeprecationWarning."""
-        import warnings
-
-        from hydromodpy.simulation.extraction.calibration_bridge import (
-            persist_calibration_result,
-        )
-
-        sid = str(uuid4())
-        obs_plan = [
-            ("outlet", "discharge", pd.date_range("2020-01-01", periods=3, freq="D").tolist()),
-        ]
-        with warnings.catch_warnings(record=True) as caught:
-            warnings.simplefilter("always")
-            persist_calibration_result(
-                store=store,
-                sim_id=sid,
-                run_fn=_dummy_run_fn,
-                best_params={"K": 1.0},
-                observation_plan=obs_plan,
-                solver="gr4j",
-            )
-        assert any(issubclass(w.category, DeprecationWarning) for w in caught)
-        sims = store.list_simulations(sim_id=sid)
-        assert len(sims) == 1
-        assert sims.iloc[0]["status"] == "completed"

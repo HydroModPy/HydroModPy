@@ -49,7 +49,6 @@ if TYPE_CHECKING:
     from hydromodpy.display.config import DisplayConfig
     from hydromodpy.physics.flow.flow_config import FlowConfig
     from hydromodpy.physics.transport.transport_config import TransportConfig
-    from hydromodpy.results.postprocess_config import PostprocessConfig
     from hydromodpy.simulation.planning.config import SimulationConfig
     from hydromodpy.solver.base.solver_config import SolverConfig
     from hydromodpy.solver.modflow6.modflow6_config import Modflow6Config
@@ -166,12 +165,6 @@ class HydroModPyConfig(HydroModelBase):
     display: Annotated[DisplayConfig, Profile.USER] = Field(
         default_factory=lambda: DisplayConfig(),
         description=("Optional display and export toggles loaded from the [display] section."),
-    )
-    postprocess: Annotated[PostprocessConfig, Profile.USER] = Field(
-        default_factory=lambda: PostprocessConfig(),
-        description=(
-            "Optional launcher-managed postprocess workflow loaded from the [postprocess] section."
-        ),
     )
     capability_gallery: Annotated[CapabilityGalleryConfig, Profile.USER] = Field(
         default_factory=lambda: CapabilityGalleryConfig(),
@@ -336,10 +329,6 @@ class HydroModPyConfig(HydroModelBase):
             "modflownwt": ({}, lambda data, b: _load_standard_section(data, ModflowConfig, b)),
             "modflow6": ({}, lambda data, b: _load_standard_section(data, Modflow6Config, b)),
             "display": ({}, lambda data, b: _load_standard_section(data, DisplayConfig, b)),
-            "postprocess": (
-                {},
-                lambda data, b: _load_standard_section(data, PostprocessConfig, b),
-            ),
             "capability_gallery": (
                 {},
                 lambda data, b: _load_standard_section(
@@ -491,7 +480,6 @@ def _rebuild_forward_refs() -> None:
     from hydromodpy.display.config import DisplayConfig
     from hydromodpy.physics.flow.flow_config import FlowConfig
     from hydromodpy.physics.transport.transport_config import TransportConfig
-    from hydromodpy.results.postprocess_config import PostprocessConfig
     from hydromodpy.simulation.planning.config import SimulationConfig
     from hydromodpy.solver.base.solver_config import SolverConfig
     from hydromodpy.solver.modflow6.modflow6_config import Modflow6Config
@@ -508,7 +496,6 @@ def _rebuild_forward_refs() -> None:
         DisplayConfig=DisplayConfig,
         FlowConfig=FlowConfig,
         TransportConfig=TransportConfig,
-        PostprocessConfig=PostprocessConfig,
         SimulationConfig=SimulationConfig,
         SolverConfig=SolverConfig,
         Modflow6Config=Modflow6Config,

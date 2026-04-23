@@ -50,10 +50,10 @@ def _download_department(
     Returns path to the extracted S_FGEOL shapefile, or None if unavailable.
     """
     from hydromodpy.data.common.administrative.france import (
-        department_code_to_brgm_code,
+        department_code_to_padded,
     )
 
-    brgm_code = department_code_to_brgm_code(dept_code)
+    brgm_code = department_code_to_padded(dept_code)
     url = BRGM_50K_URL_TEMPLATE.format(dept=brgm_code)
 
     dept_dir = cache_dir / f"GEO050K_HARM_{brgm_code}"

@@ -1,8 +1,7 @@
 """Read and normalize DEM-derived metadata from watershed rasters.
 
-This module hosts the historical geographic metadata contract needed by the
-``CatchmentDelineation`` compatibility facade, but it now lives in the canonical
-``hydromodpy.spatial.geographic`` package instead of under ``compat``.
+Defines the geographic metadata contract consumed by ``CatchmentDelineation``
+and downstream runtime components.
 """
 
 from __future__ import annotations
@@ -21,7 +20,7 @@ from pyproj import Transformer
 
 
 @dataclass(frozen=True)
-class LegacyDemMetadata:
+class DemMetadata:
     """DEM-derived runtime attributes consumed across HydroModPy."""
 
     crs: str | None
@@ -64,8 +63,8 @@ class LegacyDemMetadata:
             "ymax": self.ymax,
         }
 
-    def legacy_attributes(self) -> dict[str, object]:
-        """Return the legacy ``CatchmentDelineation`` attributes derived from these rasters."""
+    def runtime_attributes(self) -> dict[str, object]:
+        """Return the ``CatchmentDelineation`` attributes derived from these rasters."""
         attrs: dict[str, object] = {
             "dem_box_buff_data": self.dem_box_buff_data,
             "dem_buff_data": self.dem_buff_data,
@@ -175,14 +174,14 @@ def _resolve_dep_code(
         return None
 
 
-def read_legacy_dem_metadata(
+def read_dem_metadata(
     *,
     watershed_box_buff_dem_path: str | Path,
     watershed_buff_dem_path: str | Path,
     watershed_dem_path: str | Path,
     crs_project: str | None,
     locator_factory: object = Nominatim,
-) -> LegacyDemMetadata:
+) -> DemMetadata:
     """Read DEM rasters and rebuild the historical ``CatchmentDelineation`` metadata."""
     with rasterio.open(str(watershed_box_buff_dem_path)) as box_buff_dem_src:
         dem_box_buff_data = box_buff_dem_src.read(1)
@@ -228,7 +227,7 @@ def read_legacy_dem_metadata(
         locator_factory=locator_factory,
     )
 
-    return LegacyDemMetadata(
+    return DemMetadata(
         crs=crs_project,
         dem_box_buff_data=dem_box_buff_data,
         dem_buff_data=dem_buff_data,

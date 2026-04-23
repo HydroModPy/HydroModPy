@@ -53,6 +53,11 @@ from hydromodpy.solver.modflow_common.discretization_spatial import (
 from hydromodpy.solver.modflow_common.discretization_temporal import (
     build_temporal_discretization_from_time_grid,
 )
+from hydromodpy.solver.modflow_common.options import (
+    ModflowPostprocessOptions,
+    ModflowPreprocessOptions,
+    ModflowRunOptions,
+)
 from hydromodpy.solver.utils.mesh.cartesian_grid.sgrid_config import SolverSGridConfig
 
 from .diagnostics import check_water_flow_connectivity
@@ -61,11 +66,6 @@ from .intermittency import export_intermittency
 from .nwt_config import (
     ModflowConfig,
     ModflowSpecifParams,
-)
-from .nwt_options import (
-    ModflowPostprocessOptions,
-    ModflowPreprocessOptions,
-    ModflowRunOptions,
 )
 from .postprocess import (
     NODATA,

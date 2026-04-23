@@ -67,10 +67,6 @@ def department_code_to_padded(dept_code: str) -> str:
     return code
 
 
-# Backward-compatible alias used by geology.
-department_code_to_brgm_code = department_code_to_padded
-
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------

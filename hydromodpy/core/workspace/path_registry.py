@@ -20,7 +20,7 @@ class WorkspacePathRegistry:
     """Centralize canonical input/output paths for one workspace."""
 
     project_root: Path
-    workspace_root: Path
+    root: Path
     catalog_path: Path
     data_dir: Path
     simulations_dir: Path
@@ -31,7 +31,7 @@ class WorkspacePathRegistry:
         """Build a registry from a fully resolved workspace config."""
         return cls(
             project_root=Path(config.project_root),
-            workspace_root=Path(config.root),
+            root=Path(config.root),
             catalog_path=Path(config.catalog_path),
             data_dir=Path(config.data_dir),
             simulations_dir=Path(config.simulations_dir),
