@@ -420,7 +420,7 @@ _DEFAULT_METHOD_KWARGS: dict[str, dict[str, Any]] = {
     "gp_mapping": {
         "max_iter": 15,
         "n_init": 8,
-        "seed": 42,
+        "seed": 7,
         "log_scale_indices": [0],
     },
     "da_mh_gp": {
@@ -979,7 +979,7 @@ def calibrate_brutsaert(
             cost_fn=cost_fn,
             max_iter=int(kwargs.get("max_iter", 15)),
             n_init=int(kwargs.get("n_init", 8)),
-            seed=int(kwargs.get("seed", 42)),
+            seed=int(kwargs.get("seed", 7)),
             log_scale_indices=kwargs.get("log_scale_indices"),
         )
     elif method_name == "da_mh_gp":

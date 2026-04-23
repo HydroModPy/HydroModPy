@@ -33,7 +33,7 @@ try:
     from scipy.stats import norm as _scipy_norm
     from sklearn.exceptions import ConvergenceWarning
     from sklearn.gaussian_process import GaussianProcessRegressor
-    from sklearn.gaussian_process.kernels import ConstantKernel, Matern
+    from sklearn.gaussian_process.kernels import RBF, ConstantKernel
 
     _SKLEARN_AVAILABLE = True
 except ImportError:  # pragma: no cover - tested via sklearn availability guard
@@ -41,7 +41,7 @@ except ImportError:  # pragma: no cover - tested via sklearn availability guard
     ConvergenceWarning = None
     GaussianProcessRegressor = None
     ConstantKernel = None
-    Matern = None
+    RBF = None
     _scipy_minimize = None
     _scipy_norm = None
 
@@ -91,6 +91,10 @@ class GPMappingOptimizer:
         RNG seed for both the initial design and the EI restarts.
     ei_tol
         Convergence threshold on Expected Improvement at its argmax.
+    ei_patience
+        Number of consecutive iterations with EI below ``ei_tol`` required
+        before reporting convergence. Defaults to ``3`` to guard against
+        spurious "GP confident at sampled points" early-exits.
     xi
         Exploration-exploitation tradeoff constant (default ``0.0``).
     n_restarts
@@ -107,6 +111,7 @@ class GPMappingOptimizer:
         n_init: int = 10,
         seed: int | None = None,
         ei_tol: float = 1e-6,
+        ei_patience: int = 3,
         xi: float = 0.0,
         n_restarts: int = 5,
     ):
@@ -120,6 +125,7 @@ class GPMappingOptimizer:
         self._n_init = max(1, min(int(n_init), self._max_iter))
         self._seed = seed
         self._ei_tol = float(ei_tol)
+        self._ei_patience = max(1, int(ei_patience))
         self._xi = float(xi)
         self._n_restarts = max(1, int(n_restarts))
 
@@ -143,6 +149,7 @@ class GPMappingOptimizer:
         self._y_history: list[float] = []  # objective values
         self._results: list[EvaluationResult] = []
         self._last_ei: float = float("inf")
+        self._low_ei_streak: int = 0
         self._exhausted = False
         self._warned_fit_failure = False
 
@@ -199,7 +206,10 @@ class GPMappingOptimizer:
             return True
         if len(self._x_history) < self._n_init:
             return False
-        return self._last_ei < self._ei_tol
+        # EI alone is not a robust stopping signal — the GP often reports
+        # vanishingly small EI once it becomes confident. Require a run of
+        # ``ei_patience`` consecutive iterations below ``ei_tol``.
+        return self._low_ei_streak >= self._ei_patience
 
     # ------------------------------------------------------------------
     # Internals
@@ -225,6 +235,10 @@ class GPMappingOptimizer:
         y_best = float(np.min(y_train))
         x_next, ei_next = self._maximise_ei(gp, y_best)
         self._last_ei = float(ei_next)
+        if self._last_ei < self._ei_tol:
+            self._low_ei_streak += 1
+        else:
+            self._low_ei_streak = 0
         return x_next
 
     def _fit_gp(
@@ -232,10 +246,11 @@ class GPMappingOptimizer:
         x_train: np.ndarray,
         y_train: np.ndarray,
     ) -> GaussianProcessRegressor | None:
-        kernel = ConstantKernel(1.0, (1e-3, 1e3)) * Matern(
+        # RBF matches the legacy gp_mapping kernel (nu=infinity analogue of
+        # Matern), which the Brutsaert golden was generated against.
+        kernel = ConstantKernel(1.0, (1e-3, 1e3)) * RBF(
             length_scale=np.ones(self._dim, dtype=float),
             length_scale_bounds=(1e-3, 1e3),
-            nu=2.5,
         )
         gp = GaussianProcessRegressor(
             kernel=kernel,

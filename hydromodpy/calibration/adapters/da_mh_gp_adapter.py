@@ -3,22 +3,14 @@
 Ported from the legacy ``da_mh_gp`` calibration method (see
 ``old/hydromodpy/analysis/calibration/core/methods/da_mh_gp.py``).
 
-The sampler is a two-stage MCMC for expensive simulators:
-
-1. Stage 1 filters weak proposals cheaply by evaluating a Gaussian-process
-   surrogate of the log-posterior.
-2. Stage 2 corrects the acceptance ratio with one full-model evaluation, so
-   the Markov chain targets the exact posterior (delayed acceptance).
-
-The surrogate is ``sklearn.gaussian_process.GaussianProcessRegressor`` with a
-Constant-kernel * RBF kernel. It is retrained every ``retrain_interval`` new
-expensive evaluations. Only candidates that pass the stage-1 filter are sent
-to the engine for full-model evaluation, so the sampler drives the ask/tell
-loop via a background thread (like ``scipy_adapter``).
-
-The objective function is assumed to return **RMSE**; the log-likelihood is
-``-0.5 * (RMSE / sigma_noise)**2`` and the log-prior is flat on the bounded
-box (or Normal when ``prior_mean`` / ``prior_std`` are provided).
+Two-stage MCMC for expensive simulators: stage 1 filters proposals with a
+sklearn GaussianProcessRegressor surrogate of the log-posterior; stage 2
+corrects the acceptance ratio with one full-model call, so the chain targets
+the exact posterior. The surrogate is retrained every ``retrain_interval``
+new evaluations. The objective is assumed to return **RMSE**; the
+log-likelihood is built internally as ``-0.5 * (RMSE / sigma_noise)**2``.
+The sampler pulls evaluations from the engine via a background thread
+(like ``scipy_adapter``).
 """
 
 from __future__ import annotations
@@ -80,14 +72,7 @@ def _as_vector(value: object, name: str, n_dim: int) -> np.ndarray:
 
 
 class _EngineBridge:
-    """Bridge between a pull-style MCMC and the ask/tell engine.
-
-    The sampler runs in a daemon thread. When it needs a full-model RMSE,
-    it calls :meth:`submit` with a transformed parameter vector; the engine
-    pops that vector via ``next_point`` (through ``ask``) and feeds back the
-    RMSE via ``feed`` (through ``tell``). When the sampler finishes, it
-    pushes ``None`` to signal exhaustion.
-    """
+    """Bridge between a pull-style MCMC and the ask/tell engine via two queues."""
 
     def __init__(self) -> None:
         self._pending_in: queue.Queue[float | object] = queue.Queue()
@@ -95,7 +80,6 @@ class _EngineBridge:
         self._done = threading.Event()
 
     def submit(self, x_t: np.ndarray) -> float:
-        """Called by the MCMC thread to request a full-model RMSE at ``x_t``."""
         self._pending_out.put(np.asarray(x_t, dtype=float).copy())
         value = self._pending_in.get()
         if value is _SENTINEL:
@@ -103,12 +87,10 @@ class _EngineBridge:
         return float(value)
 
     def terminate(self) -> None:
-        """Called by the MCMC thread once the chain is done."""
         self._done.set()
         self._pending_out.put(None)
 
     def next_point(self, timeout: float | None = None) -> np.ndarray | None:
-        """Block until the sampler requests a full-model evaluation (or finishes)."""
         return self._pending_out.get(timeout=timeout)
 
     def feed(self, value: float) -> None:
@@ -122,36 +104,13 @@ class _EngineBridge:
 class DaMhGpOptimizer:
     """Delayed-Acceptance Metropolis-Hastings with GP surrogate.
 
-    Parameters
-    ----------
-    space
-        Parameter space (bounds + transforms).
-    max_iter
-        Total MCMC iterations (chain length). Defaults to ``200``.
-    burn_in
-        Number of initial chain samples discarded from the returned posterior.
-    proposal_sigma
-        Random-walk proposal std (absolute units of the transformed space).
-        Scalar or per-dimension vector.
-    n_init
-        Initial Sobol design size for GP training. Defaults to ``20``.
-    retrain_interval
-        Retrain the GP every this many new expensive evaluations.
-    sigma_noise
-        Scale parameter of the Gaussian RMSE likelihood. Must be ``> 0``.
-    full_mh_prob
-        Probability of bypassing the surrogate and doing one plain MH step.
-    prior_mean, prior_std
-        Optional Normal prior; when both are ``None`` a uniform prior on the
-        bounded box is used.
-    seed
-        RNG seed.
-
-    Notes
-    -----
-    The optimizer expects the engine's evaluator to return **RMSE** (not a
-    log-posterior). The log-likelihood is computed internally as
-    ``-0.5 * (RMSE / sigma_noise)**2``.
+    The evaluator must return **RMSE**; the log-likelihood is built internally
+    as ``-0.5 * (RMSE / sigma_noise)**2``. Parameters: ``max_iter`` (chain
+    length, default 200), ``burn_in``, ``proposal_sigma`` (random-walk std in
+    the transformed space, scalar or per-dimension), ``n_init`` (Sobol design
+    size), ``retrain_interval``, ``sigma_noise`` (> 0), ``full_mh_prob`` (in
+    [0, 1]), optional ``prior_mean`` / ``prior_std`` Normal prior (otherwise
+    uniform on the bounded box), ``seed``.
     """
 
     name = "da_mh_gp"
@@ -309,21 +268,14 @@ class DaMhGpOptimizer:
             self._bridge.terminate()
 
     def _mcmc_loop(self) -> None:
-        # Initial Sobol design.
         x_design = _sobol_or_uniform(self._n_init, self._lower, self._upper, self._seed)
-        design_logposts: list[float] = []
-        for x in x_design:
-            lp = self._evaluate_true(np.asarray(x, dtype=float))
-            design_logposts.append(lp)
-
-        finite = [lp for lp in design_logposts if np.isfinite(lp)]
-        if not finite:
+        design_logposts = [self._evaluate_true(np.asarray(x, dtype=float)) for x in x_design]
+        if not any(np.isfinite(lp) for lp in design_logposts):
             return
 
         idx_best = int(np.argmax(design_logposts))
         x_cur = np.asarray(x_design[idx_best], dtype=float).copy()
         log_true_cur = float(design_logposts[idx_best])
-
         gp = self._fit_gp()
         mu_cur = self._gp_mean(gp, x_cur)
         new_evals = 0
@@ -337,36 +289,25 @@ class DaMhGpOptimizer:
             if not self._in_bounds(x_prop):
                 continue
 
-            # Optional full-MH bypass.
-            if self._rng.random() < self._full_mh_prob:
-                log_true_prop = self._evaluate_true(x_prop)
-                if np.isfinite(log_true_prop):
-                    new_evals += 1
-                log_alpha = log_true_prop - log_true_cur
-                if np.log(self._rng.random()) < log_alpha:
-                    x_cur = x_prop
-                    log_true_cur = log_true_prop
-                    mu_cur = self._gp_mean(gp, x_cur)
-                if new_evals >= self._retrain_interval:
-                    gp = self._fit_gp()
-                    mu_cur = self._gp_mean(gp, x_cur)
-                    new_evals = 0
-                continue
+            bypass = self._rng.random() < self._full_mh_prob
+            if not bypass:
+                # Stage 1: surrogate filter.
+                mu_prop = self._gp_mean(gp, x_prop)
+                if np.log(self._rng.random()) >= (mu_prop - mu_cur):
+                    continue
 
-            # Stage 1: surrogate filter.
-            mu_prop = self._gp_mean(gp, x_prop)
-            if np.log(self._rng.random()) >= (mu_prop - mu_cur):
-                continue  # surrogate rejects — keep chain at x_cur.
-
-            # Stage 2: full-model correction.
+            # Stage 2 (or plain MH when bypassing): full-model correction.
             log_true_prop = self._evaluate_true(x_prop)
             if np.isfinite(log_true_prop):
                 new_evals += 1
-            log_alpha2 = (log_true_prop - log_true_cur) - (mu_prop - mu_cur)
-            if np.log(self._rng.random()) < log_alpha2:
+            if bypass:
+                log_alpha = log_true_prop - log_true_cur
+            else:
+                log_alpha = (log_true_prop - log_true_cur) - (mu_prop - mu_cur)
+            if np.log(self._rng.random()) < log_alpha:
                 x_cur = x_prop
                 log_true_cur = log_true_prop
-                mu_cur = mu_prop
+                mu_cur = self._gp_mean(gp, x_cur) if bypass else mu_prop
 
             if new_evals >= self._retrain_interval:
                 gp = self._fit_gp()
@@ -411,68 +352,48 @@ class DaMhGpOptimizer:
     def best(self) -> EvaluationResult | None:
         """Return the posterior mode as an EvaluationResult.
 
-        The mode is the chain sample with the highest log-posterior. We match
-        that chain sample back to the evaluation whose physical parameters are
-        closest to it (in transformed space) so the returned ``trial_id`` and
-        ``sim_id`` remain meaningful.
+        The mode is the chain sample with the highest log-posterior. We find
+        the evaluation closest to that mode in transformed space and enrich
+        its metadata with ``posterior_mode`` (physical-space values).
         """
         valid = [r for r in self._results if r.status == "completed"]
         if not valid:
             return None
-
         if not self._chain_logpost:
-            # Chain not populated (e.g. failed initialisation): fall back to
-            # the minimum-RMSE evaluation.
             return min(valid, key=lambda r: r.objective_value)
 
         logposts = np.asarray(self._chain_logpost, dtype=float)
         idx_mode = int(np.argmax(logposts))
         x_mode_t = np.asarray(self._chain[idx_mode], dtype=float)
 
-        # Find the evaluated point closest to the mode (transformed space).
-        def _x_transformed(result: EvaluationResult) -> np.ndarray:
-            values = dict(result.metadata.get("values", {})) or {}
+        def _dist(result: EvaluationResult) -> float:
+            values = (result.metadata or {}).get("values")
             if not values:
-                return np.full(self._dim, np.nan)
+                return np.inf
             try:
-                return np.array(
-                    [
-                        self.space.parameters[i].to_transformed(float(values[p.name]))
-                        for i, p in enumerate(self.space.parameters)
-                    ],
+                x_r = np.array(
+                    [p.to_transformed(float(values[p.name])) for p in self.space.parameters],
                     dtype=float,
                 )
             except Exception:  # pragma: no cover - defensive
-                return np.full(self._dim, np.nan)
+                return np.inf
+            return float(np.linalg.norm(x_r - x_mode_t))
 
-        best = None
-        best_dist = np.inf
-        for r in valid:
-            x_r = _x_transformed(r)
-            if not np.all(np.isfinite(x_r)):
-                continue
-            dist = float(np.linalg.norm(x_r - x_mode_t))
-            if dist < best_dist:
-                best_dist = dist
-                best = r
-        if best is None:
-            return min(valid, key=lambda r: r.objective_value)
-
-        # Enrich metadata with the (transformed-space) mode and physical values.
+        picked = min(valid, key=_dist)
         mode_physical = {
             p.name: p.to_physical(float(x_mode_t[i])) for i, p in enumerate(self.space.parameters)
         }
-        meta = dict(best.metadata or {})
+        meta = dict(picked.metadata or {})
         meta["posterior_mode"] = mode_physical
         meta["posterior_mode_logpost"] = float(logposts[idx_mode])
         return EvaluationResult(
-            trial_id=best.trial_id,
-            sim_id=best.sim_id,
-            objective_value=best.objective_value,
-            status=best.status,
-            duration_s=best.duration_s,
-            components=best.components,
-            from_cache=best.from_cache,
+            trial_id=picked.trial_id,
+            sim_id=picked.sim_id,
+            objective_value=picked.objective_value,
+            status=picked.status,
+            duration_s=picked.duration_s,
+            components=picked.components,
+            from_cache=picked.from_cache,
             metadata=meta,
         )
 
