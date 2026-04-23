@@ -22,7 +22,7 @@ Code map
   resolution of final artifacts for one mono-run execution.
 - batch-side helpers under ``launchers/mesh_catchment/batch.py``:
   outlet-specific naming and manifest rules.
-- ``hydromodpy/solver/utils/mesh/gmsh_grid`` exporters:
+- ``hydromodpy/spatial/mesh/gmsh_grid`` exporters:
   mesh, figure, sidecar, and exchange-bundle persistence.
 
 Recommended reading path
@@ -30,7 +30,7 @@ Recommended reading path
 
 1. ``launchers/mesh_catchment/runtime_single_run.py``
 2. ``launchers/mesh_catchment/batch.py`` when batch naming matters
-3. the exporter helpers under ``hydromodpy/solver/utils/mesh/gmsh_grid/``
+3. the exporter helpers under ``hydromodpy/spatial/mesh/gmsh_grid/``
 
 Diagram source
 --------------

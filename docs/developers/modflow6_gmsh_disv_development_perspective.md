@@ -8,7 +8,7 @@ Liens :
 [nwt_sunset_plan.md](nwt_sunset_plan.md),
 [glossary.md](glossary.md).
 
-Code : `hydromodpy/solver/modflow6/`, `hydromodpy/solver/utils/mesh/gmsh_grid/`.
+Code : `hydromodpy/solver/modflow6/`, `hydromodpy/spatial/mesh/gmsh_grid/`.
 
 ## Objet du document
 
@@ -58,9 +58,9 @@ Fichiers locaux principalement concernés:
 - `hydromodpy/solver/modflow_common/runtime_arrays.py`
 - `hydromodpy/process/flow/sinks_sources.py`
 - `hydromodpy/process/flow/boundary_conditions.py`
-- `hydromodpy/solver/utils/mesh/gmsh_grid/gmsh_reader.py`
-- `hydromodpy/solver/utils/mesh/gmsh_grid/gmsh_planar_mesh.py`
-- `hydromodpy/solver/utils/mesh/gmsh_grid/planar_forcing_discretization.py`
+- `hydromodpy/spatial/mesh/gmsh_grid/gmsh_reader.py`
+- `hydromodpy/spatial/mesh/gmsh_grid/gmsh_planar_mesh.py`
+- `hydromodpy/spatial/mesh/gmsh_grid/planar_forcing_discretization.py`
 - `hydromodpy/solver/boussinesq/mesh.py`
 - `hydromodpy/solver/boussinesq/adapters/flow.py`
 
@@ -475,7 +475,7 @@ Mais le dépôt contient déjà:
 - `discretize_fields_on_planar_mesh(...)`,
 - `discretize_points_on_planar_mesh(...)`,
 
-dans `hydromodpy/solver/utils/mesh/gmsh_grid/planar_forcing_discretization.py`.
+dans `hydromodpy/spatial/mesh/gmsh_grid/planar_forcing_discretization.py`.
 
 Conclusion très pratique:
 
@@ -806,7 +806,7 @@ Fichiers principaux:
 
 - `hydromodpy/solver/modflow_nwt/modflow/discretization.py`
 - `hydromodpy/solver/modflow_common/solver_mesh.py`
-- `hydromodpy/solver/utils/mesh/gmsh_grid/gmsh_planar_mesh.py`
+- `hydromodpy/spatial/mesh/gmsh_grid/gmsh_planar_mesh.py`
 
 À traiter:
 
@@ -846,8 +846,8 @@ Fichiers principaux:
 
 Fichiers principaux:
 
-- `hydromodpy/solver/utils/mesh/cartesian_grid/sgrid_field_discretization.py`
-- `hydromodpy/solver/utils/mesh/gmsh_grid/planar_forcing_discretization.py`
+- `hydromodpy/spatial/mesh/cartesian_grid/sgrid_field_discretization.py`
+- `hydromodpy/spatial/mesh/gmsh_grid/planar_forcing_discretization.py`
 - `hydromodpy/solver/modflow6/modflow6.py`
 
 À traiter:

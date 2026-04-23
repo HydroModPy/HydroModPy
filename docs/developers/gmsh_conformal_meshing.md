@@ -74,7 +74,7 @@ métier du domaine reste dans `spatial/domain/`.
 
 ## 3. Génération gmsh conforme
 
-Module : `hydromodpy/solver/utils/mesh/gmsh_grid/zone_meshing/`.
+Module : `hydromodpy/spatial/mesh/gmsh_grid/zone_meshing/`.
 
 Point d'entrée principal : `conformal.py`. Pipeline :
 

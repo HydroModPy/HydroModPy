@@ -13,7 +13,7 @@ package "flopy.discretization" {
   }
 }
 
-package "hydromodpy.solver.utils.mesh.cartesian_grid" {
+package "hydromodpy.spatial.mesh.cartesian_grid" {
   class StructuredGridBuilder {
     +build_from_surfaces(top_surface, bottom_surface, vertical_config) StructuredGrid
   }

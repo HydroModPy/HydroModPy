@@ -17,11 +17,11 @@ It highlights:
 Code map
 --------
 
-- ``hydromodpy/solver/utils/mesh/cartesian_grid/sgrid_from_config.py``:
+- ``hydromodpy/spatial/mesh/cartesian_grid/sgrid_from_config.py``:
   public entry point to grid creation from config.
-- ``hydromodpy/solver/utils/mesh/cartesian_grid/sgrid_generation.py``:
+- ``hydromodpy/spatial/mesh/cartesian_grid/sgrid_generation.py``:
   ``StructuredGridBuilder`` and geometric assembly.
-- ``hydromodpy/solver/utils/mesh/cartesian_grid/sgrid_mesh_adapter.py``:
+- ``hydromodpy/spatial/mesh/cartesian_grid/sgrid_mesh_adapter.py``:
   downstream bridge from solver grid to field-style geometry.
 - ``hydromodpy/solver/modflow_common/solver_mesh.py``:
   one solver-side consumer of the resolved mesh contract.
@@ -29,9 +29,9 @@ Code map
 Recommended reading path
 ------------------------
 
-1. ``hydromodpy/solver/utils/mesh/cartesian_grid/sgrid_from_config.py``
-2. ``hydromodpy/solver/utils/mesh/cartesian_grid/sgrid_generation.py``
-3. ``hydromodpy/solver/utils/mesh/cartesian_grid/sgrid_mesh_adapter.py``
+1. ``hydromodpy/spatial/mesh/cartesian_grid/sgrid_from_config.py``
+2. ``hydromodpy/spatial/mesh/cartesian_grid/sgrid_generation.py``
+3. ``hydromodpy/spatial/mesh/cartesian_grid/sgrid_mesh_adapter.py``
 4. ``hydromodpy/solver/modflow_common/solver_mesh.py``
 
 Reading Guide

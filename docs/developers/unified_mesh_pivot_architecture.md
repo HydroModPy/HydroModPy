@@ -7,7 +7,7 @@ Liens : [glossary.md](glossary.md),
 [modflow6_gmsh_disv_development_perspective.md](modflow6_gmsh_disv_development_perspective.md).
 
 Code : `hydromodpy/spatial/field/` (coeur maillage) et
-`hydromodpy/solver/utils/mesh/` (intégration gmsh vers solveurs).
+`hydromodpy/spatial/mesh/` (intégration gmsh vers solveurs).
 
 ## 1. Vue d'ensemble
 
@@ -42,10 +42,10 @@ BaseFieldMesh (ABC)                      # hydromodpy/spatial/field/core/field_m
 │     _kind = "triangular_unstructured"  # Triangles Delaunay aléatoires
 ├── GeologyStructuredMesh                # hydromodpy/spatial/field/geology/geology_mesh.py
 │     _kind = "structured_rect"          # Quadrilatères en coordonnées réelles
-└── GmshPlanarMesh2D                     # hydromodpy/solver/utils/mesh/gmsh_grid/gmsh_planar_mesh.py
+└── GmshPlanarMesh2D                     # hydromodpy/spatial/mesh/gmsh_grid/gmsh_planar_mesh.py
       _kind = "gmsh_2d"                  # Triangles ou quads depuis fichier .msh
 
-ExtrudedPrismMesh3D                      # hydromodpy/solver/utils/mesh/gmsh_grid/extruded_prism_mesh.py
+ExtrudedPrismMesh3D                      # hydromodpy/spatial/mesh/gmsh_grid/extruded_prism_mesh.py
       # Prismes 3D par extrusion verticale d'un GmshPlanarMesh2D
 ```
 
@@ -136,7 +136,7 @@ mesh = FieldMeshSquare.from_unit_square(
 ### 3.4 Maillage Gmsh depuis fichier `.msh`
 
 ```python
-from hydromodpy.solver.utils.mesh.gmsh_grid.gmsh_planar_mesh import GmshPlanarMesh2D
+from hydromodpy.spatial.mesh.gmsh_grid.gmsh_planar_mesh import GmshPlanarMesh2D
 
 planar = GmshPlanarMesh2D.from_file("domain.msh")
 # planar.points_xy → ndarray (n_nodes, 2)
@@ -159,7 +159,7 @@ mesh = GeologyStructuredMesh.from_bounds(
 ### 3.6 Maillage 3D extrudé (prismes)
 
 ```python
-from hydromodpy.solver.utils.mesh.gmsh_grid.extruded_prism_mesh import ExtrudedPrismMesh3D
+from hydromodpy.spatial.mesh.gmsh_grid.extruded_prism_mesh import ExtrudedPrismMesh3D
 
 mesh_3d = ExtrudedPrismMesh3D.from_planar_mesh(
     planar,
@@ -300,7 +300,7 @@ vertical_profile={
 Pour le pipeline MODFLOW (grille flopy `StructuredGrid`) :
 
 ```python
-from hydromodpy.solver.utils.mesh.cartesian_grid.sgrid_fieldparam_discretization import (
+from hydromodpy.spatial.mesh.cartesian_grid.sgrid_fieldparam_discretization import (
     discretize_fieldparam_on_sgrid,
 )
 
@@ -318,7 +318,7 @@ result = discretize_fieldparam_on_sgrid(
 Pour les maillages non-structurés :
 
 ```python
-from hydromodpy.solver.utils.mesh.gmsh_grid.extruded_fieldparam_discretization import (
+from hydromodpy.spatial.mesh.gmsh_grid.extruded_fieldparam_discretization import (
     discretize_fieldparam_on_extruded_mesh,
 )
 
@@ -546,10 +546,10 @@ planar.to_file("output.msh")
 
 ### 7.3 API publique d'échange (exchange_api)
 
-L'API publique dans `hydromodpy.solver.utils.mesh.gmsh_grid.exchange_api` :
+L'API publique dans `hydromodpy.spatial.mesh.gmsh_grid.exchange_api` :
 
 ```python
-from hydromodpy.solver.utils.mesh.gmsh_grid.exchange_api import (
+from hydromodpy.spatial.mesh.gmsh_grid.exchange_api import (
     load_planar_as_hydro_mesh,     # .msh → HydroMesh 2D
     load_extruded_as_hydro_mesh,   # .vtu → HydroMesh 3D
     save_hydro_mesh_vtu,           # HydroMesh → .vtu

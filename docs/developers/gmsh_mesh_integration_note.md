@@ -12,7 +12,7 @@ Liens : [unified_mesh_pivot_architecture.md](unified_mesh_pivot_architecture.md)
 [glossary.md](glossary.md),
 [modflow6_gmsh_disv_development_perspective.md](modflow6_gmsh_disv_development_perspective.md).
 
-Code : `hydromodpy/solver/utils/mesh/gmsh_grid/`.
+Code : `hydromodpy/spatial/mesh/gmsh_grid/`.
 
 ## Objectif
 
@@ -31,7 +31,7 @@ structure doit rester inchange dans la premiere iteration.
 Le depot contient deja :
 
 - un workflow de grille structuree oriente solveur dans
-  `hydromodpy/solver/utils/mesh/cartesian_grid/`
+  `hydromodpy/spatial/mesh/cartesian_grid/`
 - un contrat de maillage planaire generique dans
   `hydromodpy/spatial/field/core/field_mesh.py`
 - une logique de discretisation champ/support qui depend du maillage dans
@@ -70,7 +70,7 @@ Convention pratique a garder :
 
 ### Le chemin solveur structure est volontairement specifique
 
-`hydromodpy/solver/utils/mesh/cartesian_grid/` est aujourd'hui lie au chemin
+`hydromodpy/spatial/mesh/cartesian_grid/` est aujourd'hui lie au chemin
 solveur structure :
 
 - `sgrid_config.py` ne valide que `sgrid_type = "structured"`
@@ -132,7 +132,7 @@ Le point important est de ne pas confondre deux niveaux d'objet :
 
 Aujourd'hui, le lien entre les deux est un **adaptateur** :
 
-- `hydromodpy/solver/utils/mesh/cartesian_grid/sgrid_mesh_adapter.py`
+- `hydromodpy/spatial/mesh/cartesian_grid/sgrid_mesh_adapter.py`
 
 Cet adaptateur convertit un `StructuredGrid` en une vue 2D compatible
 `BaseFieldMesh`, uniquement pour la projection planaire des supports.
@@ -434,8 +434,8 @@ Dans l'etat actuel du code, il est deja sur un chemin de production :
 
 - il est re-exporte publiquement depuis [field/__init__.py](c:/codes/HydroModPy-GH/hydromodpy/spatial/field/__init__.py#L16)
 - il est re-exporte depuis [field/cases/__init__.py](c:/codes/HydroModPy-GH/hydromodpy/spatial/field/cases/__init__.py#L6)
-- il est utilise par l'adaptateur solveur->field dans [sgrid_mesh_adapter.py](c:/codes/HydroModPy-GH/hydromodpy/solver/utils/mesh/cartesian_grid/sgrid_mesh_adapter.py#L18)
-- il est tape dans la discretisation centrale de `FieldParam` sur SGrid dans [sgrid_fieldparam_discretization.py](c:/codes/HydroModPy-GH/hydromodpy/solver/utils/mesh/cartesian_grid/sgrid_fieldparam_discretization.py#L21)
+- il est utilise par l'adaptateur solveur->field dans [sgrid_mesh_adapter.py](c:/codes/HydroModPy-GH/hydromodpy/spatial/mesh/cartesian_grid/sgrid_mesh_adapter.py#L18)
+- il est tape dans la discretisation centrale de `FieldParam` sur SGrid dans [sgrid_fieldparam_discretization.py](c:/codes/HydroModPy-GH/hydromodpy/spatial/mesh/cartesian_grid/sgrid_fieldparam_discretization.py#L21)
 
 Donc oui : son emplacement actuel dans `field/cases/square/` est trop profond
 et trompeur.
@@ -550,8 +550,8 @@ specifique au carre unite, pas le lieu canonique des classes generiques.
 
 Fichiers a modifier en priorite :
 
-- [sgrid_mesh_adapter.py](c:/codes/HydroModPy-GH/hydromodpy/solver/utils/mesh/cartesian_grid/sgrid_mesh_adapter.py)
-- [sgrid_fieldparam_discretization.py](c:/codes/HydroModPy-GH/hydromodpy/solver/utils/mesh/cartesian_grid/sgrid_fieldparam_discretization.py)
+- [sgrid_mesh_adapter.py](c:/codes/HydroModPy-GH/hydromodpy/spatial/mesh/cartesian_grid/sgrid_mesh_adapter.py)
+- [sgrid_fieldparam_discretization.py](c:/codes/HydroModPy-GH/hydromodpy/spatial/mesh/cartesian_grid/sgrid_fieldparam_discretization.py)
 - [field/__init__.py](c:/codes/HydroModPy-GH/hydromodpy/spatial/field/__init__.py)
 - [field/cases/__init__.py](c:/codes/HydroModPy-GH/hydromodpy/spatial/field/cases/__init__.py)
 - [field/cases/square/__init__.py](c:/codes/HydroModPy-GH/hydromodpy/spatial/field/cases/square/__init__.py)
@@ -660,7 +660,7 @@ deja de sortir `StructuredFieldMesh` du dossier `cases`.
 Ajouter un nouveau package frere :
 
 ```text
-hydromodpy/solver/utils/mesh/
+hydromodpy/spatial/mesh/
   cartesian_grid/
   gmsh_grid/
     __init__.py
@@ -860,7 +860,7 @@ Les actifs deja disponibles sont :
 
 - `data/Brittany_small_test_example/geology/GEO1M_brittany.shp`
 - `data/Brittany_small_test_example/geology/geology_K_dummy_demo.csv`
-- `hydromodpy/solver/utils/mesh/cartesian_grid/examples/discretization/demo_top_bretagne_10km.tif`
+- `hydromodpy/spatial/mesh/cartesian_grid/examples/discretization/demo_top_bretagne_10km.tif`
 
 ### Pourquoi ce choix est bon
 
@@ -1573,7 +1573,7 @@ que :
 Structure recommandee :
 
 ```text
-hydromodpy/solver/utils/mesh/gmsh_grid/cases/reference_3d_fieldparam/
+hydromodpy/spatial/mesh/gmsh_grid/cases/reference_3d_fieldparam/
   README.md
   run_case_3d_fieldparam.py
   case_config_3d_fieldparam.toml
@@ -1710,7 +1710,7 @@ et les tests doivent etre sautes proprement si `pyvista` n'est pas installe.
 Structure recommandee :
 
 ```text
-hydromodpy/solver/utils/mesh/gmsh_grid/cases/reference_2d_geology_base/
+hydromodpy/spatial/mesh/gmsh_grid/cases/reference_2d_geology_base/
   README.md
   run_case_gmsh.py
   case_config_gmsh.toml
@@ -1733,14 +1733,14 @@ Il devrait surtout pointer explicitement vers les actifs existants :
 
 - `data/Brittany_small_test_example/geology/GEO1M_brittany.shp`
 - `data/Brittany_small_test_example/geology/geology_K_dummy_demo.csv`
-- `hydromodpy/solver/utils/mesh/cartesian_grid/examples/discretization/demo_top_bretagne_10km.tif`
+- `hydromodpy/spatial/mesh/cartesian_grid/examples/discretization/demo_top_bretagne_10km.tif`
 
 ### 7. Dossier `cases/comparison_cartesian_vs_gmsh_2d`
 
 Structure recommandee :
 
 ```text
-hydromodpy/solver/utils/mesh/gmsh_grid/cases/comparison_cartesian_vs_gmsh_2d/
+hydromodpy/spatial/mesh/gmsh_grid/cases/comparison_cartesian_vs_gmsh_2d/
   README.md
   run_compare.py
   case_config_cartesian.toml
@@ -1764,7 +1764,7 @@ Le script `run_compare.py` peut :
 Structure recommandee :
 
 ```text
-hydromodpy/solver/utils/mesh/gmsh_grid/cases/synthetic_2d/
+hydromodpy/spatial/mesh/gmsh_grid/cases/synthetic_2d/
   README.md
   run_case.py
   case_config.toml
@@ -1811,7 +1811,7 @@ Pour `synthetic_2d`, la figure peut rester plus simple.
 Je recommanderais d'organiser les tests comme suit :
 
 ```text
-tests/unit/solver/utils/mesh/gmsh_grid/
+tests/unit/spatial/mesh/gmsh_grid/
   test_gmsh_reader.py
   test_gmsh_planar_mesh.py
   test_extruded_prism_mesh.py
@@ -1900,7 +1900,7 @@ test unitaire
 Version detaillee :
 
 ```text
-hydromodpy/solver/utils/mesh/gmsh_grid/
+hydromodpy/spatial/mesh/gmsh_grid/
   __init__.py
   gmsh_config.py
   gmsh_reader.py
@@ -1939,7 +1939,7 @@ hydromodpy/solver/utils/mesh/gmsh_grid/
       outputs/
         exported_meshes/
 
-tests/unit/solver/utils/mesh/gmsh_grid/
+tests/unit/spatial/mesh/gmsh_grid/
   test_gmsh_reader.py
   test_gmsh_planar_mesh.py
   test_extruded_prism_mesh.py
@@ -2070,7 +2070,7 @@ de developpement et de test.
 Zone de tests unitaires suggeree :
 
 ```text
-tests/unit/solver/utils/mesh/gmsh_grid/
+tests/unit/spatial/mesh/gmsh_grid/
 ```
 
 Premiers tests suggeres :
@@ -2364,7 +2364,7 @@ Ce qui reste ouvert apres cette implementation :
 Pour l'iteration 1, la direction la plus pragmatique est :
 
 - conserver le code solveur structure inchange
-- ajouter `hydromodpy/solver/utils/mesh/gmsh_grid/`
+- ajouter `hydromodpy/spatial/mesh/gmsh_grid/`
 - reutiliser `BaseFieldMesh` comme interface commune hors solveur
 - ne pas faire remonter les concepts solveur dans le contrat `BaseFieldMesh`
 - ajouter une classe 2D concrete, identifiable et distribuable

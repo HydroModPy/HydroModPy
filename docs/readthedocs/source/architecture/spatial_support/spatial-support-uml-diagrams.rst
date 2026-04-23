@@ -24,7 +24,7 @@ Code map
   runtime support builders and providers.
 - ``hydromodpy/spatial/field/core/field_param.py``:
   consumption point through ``field_spatial_id``.
-- ``hydromodpy/solver/utils/mesh/cartesian_grid/sgrid_fieldparam_discretization.py``:
+- ``hydromodpy/spatial/mesh/cartesian_grid/sgrid_fieldparam_discretization.py``:
   downstream discretization over solver meshes.
 
 Recommended reading path
@@ -34,7 +34,7 @@ Recommended reading path
 2. ``hydromodpy/spatial/domain/spatial_support_config.py``
 3. ``hydromodpy/spatial/domain/spatial_support.py``
 4. ``hydromodpy/spatial/field/core/field_param.py``
-5. ``hydromodpy/solver/utils/mesh/cartesian_grid/sgrid_fieldparam_discretization.py``
+5. ``hydromodpy/spatial/mesh/cartesian_grid/sgrid_fieldparam_discretization.py``
 
 Context Diagram
 ---------------

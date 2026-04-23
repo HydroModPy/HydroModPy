@@ -48,7 +48,7 @@ When the question is "how is a runtime mesh generated and injected?":
 
 1. ``launchers/mesh_catchment/runtime.py``
 2. ``launchers/mesh_catchment/batch.py``
-3. ``hydromodpy/solver/utils/mesh/gmsh_grid/``
+3. ``hydromodpy/spatial/mesh/gmsh_grid/``
 4. the pages under :doc:`../mesh/index`
 
 Calibration
