@@ -10,6 +10,7 @@ Public surface:
 
 from hydromodpy.calibration.engine import CalibrationEngine, CalibrationSession
 from hydromodpy.calibration.objective import (
+    CompositeObjective,
     Objective,
     ObjectiveValue,
     ObservationSet,
@@ -39,6 +40,7 @@ __all__ = [
     "ObservationSet",
     "SimulationOutput",
     "ScalarObjective",
+    "CompositeObjective",
     "Calibrable",
     "CalibParameter",
     "ParameterSpace",

@@ -99,4 +99,14 @@ def _ensure_builtins_loaded() -> None:
     except ImportError:
         pass
 
+    try:
+        from hydromodpy.calibration.adapters import gp_mapping_adapter  # noqa: F401
+    except ImportError:
+        pass
+
+    try:
+        from hydromodpy.calibration.adapters import da_mh_gp_adapter  # noqa: F401
+    except ImportError:
+        pass
+
     _LOADED = True

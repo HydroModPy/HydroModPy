@@ -417,6 +417,22 @@ _DEFAULT_METHOD_KWARGS: dict[str, dict[str, Any]] = {
     "nelder_mead": {"max_iter": 60},
     "simplex": {"max_iter": 60, "max_fun": 120, "xtol": 1e-10, "ftol": 1e-10},
     "cma_es": {"sigma0": 0.2, "max_evaluations": 36, "seed": 7, "normalize": True},
+    "gp_mapping": {
+        "max_iter": 15,
+        "n_init": 8,
+        "seed": 42,
+        "log_scale_indices": [0],
+    },
+    "da_mh_gp": {
+        "sigma_noise": 0.20,
+        "n_init": 12,
+        "max_iter": 80,
+        "burn_in": 10,
+        "proposal_sigma": 0.05,
+        "retrain_interval": 10,
+        "seed": 123,
+        "log_scale_indices": [0],
+    },
 }
 
 
@@ -648,6 +664,136 @@ def _run_cma_es(
     return x_best, float(best.objective_value), len(history)
 
 
+def _run_gp_mapping(
+    *,
+    simulator: Callable[[float, float], np.ndarray],
+    q_observed: np.ndarray,
+    bounds: Mapping[str, tuple[float, float]],
+    cost_fn: Callable[[np.ndarray, np.ndarray], float],
+    max_iter: int,
+    n_init: int,
+    seed: int,
+    log_scale_indices: list[int] | None,
+) -> tuple[np.ndarray, float, int]:
+    """Gaussian-process surrogate + Expected-Improvement driver.
+
+    Wired through ``CalibrationEngine`` + ``GPMappingOptimizer``. The
+    caller picks which dimensions live on a log axis via
+    ``log_scale_indices`` (the legacy default used log K, linear Sy).
+    """
+    log_idx = set() if log_scale_indices is None else set(log_scale_indices)
+    params: list[CalibParameter] = []
+    for i, name in enumerate(MODEL_PARAMETER_ORDER):
+        low, high = bounds[name]
+        transform = "log" if i in log_idx else "identity"
+        params.append(
+            CalibParameter(name=name, lower=float(low), upper=float(high), transform=transform)
+        )
+    space = ParameterSpace(params)
+
+    optimizer = build_optimizer(
+        "gp_mapping",
+        space,
+        max_iter=int(max_iter),
+        n_init=int(n_init),
+        seed=int(seed),
+    )
+    engine = CalibrationEngine(
+        space=space,
+        optimizer=optimizer,
+        evaluator=_make_engine_evaluator(simulator, q_observed, cost_fn),
+        max_iter=int(max_iter),
+        batch_size=1,
+    )
+    session = engine.run()
+    best = session.best
+    if best is None:
+        raise RuntimeError("gp_mapping produced no result")
+    history = [r for r in session.history if r.status == "completed"]
+    best_values = _lookup_values(session, best.trial_id)
+    x_best = np.array([best_values[name] for name in MODEL_PARAMETER_ORDER], dtype=float)
+    return x_best, float(best.objective_value), len(history)
+
+
+def _run_da_mh_gp(
+    *,
+    simulator: Callable[[float, float], np.ndarray],
+    q_observed: np.ndarray,
+    bounds: Mapping[str, tuple[float, float]],
+    cost_fn: Callable[[np.ndarray, np.ndarray], float],
+    sigma_noise: float,
+    n_init: int,
+    max_iter: int,
+    burn_in: int,
+    proposal_sigma: float,
+    retrain_interval: int,
+    seed: int,
+    log_scale_indices: list[int] | None,
+) -> tuple[np.ndarray, float, int]:
+    """Delayed-Acceptance MH with GP surrogate.
+
+    Wired through ``CalibrationEngine`` + ``DaMhGpOptimizer``. The optimizer
+    expects the evaluator to return RMSE (the log-likelihood is built
+    internally from ``sigma_noise``). ``log_scale_indices`` selects the log
+    axis for K (matches the legacy default).
+
+    The engine's ``max_iter`` is sized as ``n_init + max_iter`` so the
+    optimizer can first consume its Sobol initial design and then run the
+    chain budget without getting capped by the engine.
+    """
+    log_idx = set() if log_scale_indices is None else set(log_scale_indices)
+    params: list[CalibParameter] = []
+    for i, name in enumerate(MODEL_PARAMETER_ORDER):
+        low, high = bounds[name]
+        transform = "log" if i in log_idx else "identity"
+        params.append(
+            CalibParameter(name=name, lower=float(low), upper=float(high), transform=transform)
+        )
+    space = ParameterSpace(params)
+
+    optimizer = build_optimizer(
+        "da_mh_gp",
+        space,
+        sigma_noise=float(sigma_noise),
+        n_init=int(n_init),
+        max_iter=int(max_iter),
+        burn_in=int(burn_in),
+        proposal_sigma=float(proposal_sigma),
+        retrain_interval=int(retrain_interval),
+        seed=int(seed),
+    )
+    # Engine budget must cover init design + accepted proposals; the
+    # optimizer's background thread stops on its own.
+    engine_budget = int(n_init) + int(max_iter) + 16
+    engine = CalibrationEngine(
+        space=space,
+        optimizer=optimizer,
+        evaluator=_make_engine_evaluator(simulator, q_observed, cost_fn),
+        max_iter=engine_budget,
+        batch_size=1,
+    )
+    session = engine.run()
+    best = session.best
+    if best is None:
+        raise RuntimeError("da_mh_gp produced no result")
+
+    history = [r for r in session.history if r.status == "completed"]
+    # ``best`` is the posterior mode if available; fall back to the trial's
+    # values when the optimizer could not populate the chain.
+    mode = None
+    if best.metadata:
+        mode = best.metadata.get("posterior_mode")
+    if mode is not None:
+        x_best = np.array([float(mode[name]) for name in MODEL_PARAMETER_ORDER], dtype=float)
+    else:
+        best_values = _lookup_values(session, best.trial_id)
+        x_best = np.array([best_values[name] for name in MODEL_PARAMETER_ORDER], dtype=float)
+
+    sim_best = simulator(float(x_best[0]), float(x_best[1]))
+    cost_best = float(cost_fn(q_observed, sim_best))
+    return x_best, cost_best, len(history)
+
+
 def _configure_cmaes(optimizer: Any, *, sigma0: float) -> None:
     """Best-effort tuning of Optuna's CMA-ES sampler.
 
@@ -824,6 +970,37 @@ def calibrate_brutsaert(
             max_evaluations=int(kwargs.get("max_evaluations", 36)),
             seed=int(kwargs.get("seed", 7)),
             normalize=bool(kwargs.get("normalize", True)),
+        )
+    elif method_name == "gp_mapping":
+        x_best, cost_best, n_eval = _run_gp_mapping(
+            simulator=simulator,
+            q_observed=q_observed,
+            bounds=effective_bounds,
+            cost_fn=cost_fn,
+            max_iter=int(kwargs.get("max_iter", 15)),
+            n_init=int(kwargs.get("n_init", 8)),
+            seed=int(kwargs.get("seed", 42)),
+            log_scale_indices=kwargs.get("log_scale_indices"),
+        )
+    elif method_name == "da_mh_gp":
+        # DA-MH-GP assumes the evaluator returns RMSE (the sampler builds a
+        # Gaussian log-likelihood from it), so force the metric accordingly.
+        if metric_key != "rmse":
+            cost_fn = _COST_FNS["rmse"]
+            metric_key = "rmse"
+        x_best, cost_best, n_eval = _run_da_mh_gp(
+            simulator=simulator,
+            q_observed=q_observed,
+            bounds=effective_bounds,
+            cost_fn=cost_fn,
+            sigma_noise=float(kwargs.get("sigma_noise", 0.20)),
+            n_init=int(kwargs.get("n_init", 12)),
+            max_iter=int(kwargs.get("max_iter", 80)),
+            burn_in=int(kwargs.get("burn_in", 10)),
+            proposal_sigma=float(kwargs.get("proposal_sigma", 0.05)),
+            retrain_interval=int(kwargs.get("retrain_interval", 10)),
+            seed=int(kwargs.get("seed", 123)),
+            log_scale_indices=kwargs.get("log_scale_indices"),
         )
     else:
         raise ValueError(f"Unsupported calibration method: {method_name!r}")
