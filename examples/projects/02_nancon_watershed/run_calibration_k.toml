@@ -7,15 +7,16 @@
 #
 # Sy, Ss et l'épaisseur d'aquifère sont gelés à leur valeur baseline.
 #
-# Lancement (seul point d'entrée — pas de `hmp calibrate` séparé) :
-#   uv run hmp run examples/projects/02_nancon_watershed/run_calibration_k.toml
+# `hmp run` détecte `workflow = "calibration"` et dispatche vers la
+# boucle ask/tell (voir `hydromodpy/calibration/cli.py`). Chaque
+# itération forke le contexte préparé et lance une vraie simulation
+# MODFLOW-NWT en mode lightweight (pas de Zarr/Parquet par itération).
+# `save_runs = "best_n"` promeut les 5 meilleures itérations en fin
+# de campagne et back-fille leur `sim_id` dans
+# `calibration_iterations`.
 #
-# IMPORTANT (état actuel, à retirer après le refactor décrit dans
-# `docs/developers/calibration_sweep_refactor_prompt.md`) : le CLI
-# utilise aujourd'hui un évaluateur mock analytique (cf.
-# `hydromodpy/calibration/cli.py:66`), qui ne relance PAS de vraies
-# simulations. Après refactor, `hmp run` lancera le solveur déclaré
-# dans [solver] et persistera les itérations / le best_sim_id.
+# Lancement :
+#   uv run hmp run examples/projects/02_nancon_watershed/run_calibration_k.toml
 # ======================================================================
 base_config = "project.toml"
 
