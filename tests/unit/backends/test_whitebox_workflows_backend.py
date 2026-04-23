@@ -19,6 +19,10 @@ from hydromodpy.spatial.delineation.whitebox_workflows_backend import (
     _get_cached_whitebox_backend,
 )
 
+# The whitebox_workflows native binding is not safe under pytest-xdist fork
+# distribution. Keep every test in this module on the same worker.
+pytestmark = pytest.mark.xdist_group(name="whitebox_backend")
+
 
 def _write_raster(path: Path, data: np.ndarray, *, nodata: float = -9999.0) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)

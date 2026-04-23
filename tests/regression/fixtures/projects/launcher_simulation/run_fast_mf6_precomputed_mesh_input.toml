@@ -1,0 +1,51 @@
+# Reduced MODFLOW 6 / GWT example reusing one committed triangular mesh.
+#
+# This keeps the same `process_simulation` launcher as the regular structured
+# MF6 example. The only difference is the mesh source: geometry comes from
+# `[mesh_input]` instead of `[modflow6.sgrid.planar]`.
+
+base_config = "config_fast_common.toml"
+
+workflow = "simulation"
+
+[workspace]
+project_root = "./results_reused_real_meshes/example12_fast_mf6"
+
+[mesh_input]
+mesh_path = "results_stable/mesh/mesh_catchment.msh"
+bundle_dir = "results_stable/mesh/mesh_catchment_bundle"
+
+[simulation]
+name = "Example 12 launcher fast MODFLOW 6 precomputed mesh"
+run_id = "example12_fast_mf6_precomputed_mesh"
+
+[[simulation.process]]
+id = "flow_main"
+type = "flow"
+solvers = ["modflow6"]
+
+[[simulation.process]]
+id = "transport_main"
+type = "transport"
+solvers = ["modflow6gwt"]
+
+[transport.modflow6gwt.parameters]
+sconc_init = 0.1
+sconc_input = 0.05
+diffu_coeff = 8.64e-06
+react_order = 1
+rate_decay = 0.00136986301369863
+
+[modflow6.sgrid.vertical]
+genmtd_lay = "decay"
+nlay = 2
+lay_decay = 1.2
+
+[postprocess]
+enabled = true
+
+[postprocess.flow]
+native_mesh_npz = true
+native_mesh_csv = true
+native_mesh_vtu = true
+native_mesh_png = true

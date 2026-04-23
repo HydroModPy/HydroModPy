@@ -26,7 +26,7 @@ The current validation suite focuses on analytical groundwater-flow benchmarks:
 At the moment:
 
 - validation cases are analytical,
-- launcher-backed cases run through `examples_legacy_2/projects/launcher_simulation`,
+- launcher-backed cases run through `tests/regression/fixtures/launcher_simulation`,
 - current scientific coverage is centered on `modflownwt`,
 - current validation tests do not require `MODPATH` or `MT3DMS`.
 

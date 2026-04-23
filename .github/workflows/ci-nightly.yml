@@ -54,7 +54,7 @@ jobs:
       - name: Run extensive regression
         env:
           HYDROMODPY_COVERAGE: "1"
-        run: python -m pytest tests/regression/extensive/ -n auto -q
+        run: python -m pytest tests/regression/extensive/ -n auto --dist loadgroup -q
 
       - name: Combine and report coverage
         if: always()
@@ -109,7 +109,7 @@ jobs:
           coverage run --rcfile=/dev/null \
             --include="hydromodpy/*" \
             --omit="hydromodpy/**/cases/*,hydromodpy/**/examples/*" \
-            -m pytest tests/validation/ -m "not petsc" -n auto -q
+            -m pytest tests/validation/ -m "not petsc" -n auto --dist loadgroup -q
 
       - name: Report coverage
         if: always()
@@ -166,7 +166,7 @@ jobs:
           coverage run --rcfile=/dev/null \
             --include="hydromodpy/*" \
             --omit="hydromodpy/**/cases/*,hydromodpy/**/examples/*" \
-            -m pytest tests/integration/ -n auto -q
+            -m pytest tests/integration/ -n auto --dist loadgroup -q
 
       - name: Report coverage
         if: always()

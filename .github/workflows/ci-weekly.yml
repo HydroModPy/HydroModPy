@@ -52,15 +52,15 @@ jobs:
 
       - name: Run unit tests
         shell: bash
-        run: python -m pytest tests/unit/ -n auto -q
+        run: python -m pytest tests/unit/ -n auto --dist loadgroup -q
 
       - name: Run fast regression
         shell: bash
-        run: python -m pytest tests/regression/fast/ -n auto -q
+        run: python -m pytest tests/regression/fast/ -n auto --dist loadgroup -q
 
       - name: Run analytical validation
         shell: bash
-        run: python -m pytest tests/validation/analytical/ -m "not petsc" -n auto -q
+        run: python -m pytest tests/validation/analytical/ -m "not petsc" -n auto --dist loadgroup -q
 
   # End-to-end tier on Linux only. Heavy scenarios that exercise the full pipeline.
   e2e:
@@ -141,4 +141,4 @@ jobs:
           pip install -e ".[test]"
 
       - name: Run full regression
-        run: python -m pytest tests/regression/ -n auto -q
+        run: python -m pytest tests/regression/ -n auto --dist loadgroup -q

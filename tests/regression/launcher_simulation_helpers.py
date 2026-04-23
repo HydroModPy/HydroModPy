@@ -31,7 +31,7 @@ from validation_cases.shared.boussinesq_piecewise_strip import (
 )
 
 LAUNCHER_SIMULATION_CONFIG_DIR = (
-    REPO_ROOT / "examples_legacy_2" / "projects" / "launcher_simulation"
+    REPO_ROOT / "tests" / "regression" / "fixtures" / "projects" / "launcher_simulation"
 )
 
 MODFLOW_OUTPUT_NAMES = [

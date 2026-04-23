@@ -64,8 +64,13 @@ def _run_transient_real_case_summary(
     _require_linux_petsc4py()
 
     repo_root = Path(__file__).resolve().parents[4]
-    base_dir = repo_root / "examples_legacy_2" / "projects" / "launcher_simulation"
+    base_dir = repo_root / "tests" / "validation" / "fixtures" / "petsc_headwater_100km2"
     base_config = base_dir / config_name
+    if not base_config.exists():
+        pytest.skip(
+            f"Fixture {base_config.relative_to(repo_root)} is missing. "
+            "Restore the headwater 100km2 PETSc fixtures to re-enable this test."
+        )
     project_root = tmp_path / base_config.stem
     config_path = _write_overlay_config(
         tmp_path=tmp_path,

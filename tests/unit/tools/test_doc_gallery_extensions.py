@@ -137,9 +137,9 @@ def test_generate_method_comparison_case_smoke(tmp_path: Path) -> None:
     # the solver run folders (which are not checked in).
     committed_root = (
         Path(__file__).resolve().parents[3]
-        / "examples_legacy_2"
-        / "projects"
-        / "launcher_simulation"
+        / "tests"
+        / "regression"
+        / "fixtures"
         / "method_comparison"
         / "example12_map_method_comparison"
     )

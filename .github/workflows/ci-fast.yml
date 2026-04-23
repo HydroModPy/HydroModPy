@@ -78,7 +78,7 @@ jobs:
           coverage run --rcfile=/dev/null \
             --include="hydromodpy/*" \
             --omit="hydromodpy/**/cases/*,hydromodpy/**/examples/*" \
-            -m pytest tests/unit/ -n auto -q
+            -m pytest tests/unit/ -n auto --dist loadgroup -q
 
       - name: Report coverage
         if: always()
@@ -131,7 +131,7 @@ jobs:
       - name: Run fast regression with coverage
         env:
           HYDROMODPY_COVERAGE: "1"
-        run: python -m pytest tests/regression/fast/ -n auto -q
+        run: python -m pytest tests/regression/fast/ -n auto --dist loadgroup -q
 
       - name: Combine and report coverage
         if: always()
