@@ -12,8 +12,8 @@ from typing import Any
 
 import numpy as np
 
-from hydromodpy.analysis.calibration.engine.launcher import ModelCalibrationLauncher
-from hydromodpy.analysis.calibration.engine.session import (
+from hydromodpy.calibration._legacy_launcher_shim import (
+    ModelCalibrationLauncher,
     ModelCalibrationObjectiveEvaluator,
     actualize_candidate,
     select_candidate_outputs,

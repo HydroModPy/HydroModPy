@@ -15,7 +15,7 @@ from pathlib import Path
 
 import numpy as np
 
-from hydromodpy.analysis.calibration.engine.objective_mapping import (
+from hydromodpy.calibration.objective_mapping import (
     ObjectiveMappingPoint,
     load_objective_mapping_points,
 )
