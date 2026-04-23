@@ -29,7 +29,6 @@ from __future__ import annotations
 import copy as _copy
 import logging
 import time
-import tomllib
 from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -199,13 +198,15 @@ def prepare_trials(
         :func:`hydromodpy.pipeline.steps.standard_steps`.
     """
     from hydromodpy.core.config.hydromodpy_config import HydroModPyConfig
+    from hydromodpy.core.config.toml_loader import load_toml_with_base_config
     from hydromodpy.pipeline.pipeline import Pipeline
     from hydromodpy.pipeline.steps import standard_steps
 
     cfg_path = Path(cfg_path).expanduser().resolve()
-    with open(cfg_path, "rb") as f:
-        raw_toml = tomllib.load(f)
-    cfg = HydroModPyConfig.model_validate(raw_toml)
+    raw_toml = load_toml_with_base_config(cfg_path)
+    # from_toml handles base_config inheritance + resolves relative paths
+    # against the TOML directory (e.g. data.dem.source_path -> absolute).
+    cfg = HydroModPyConfig.from_toml(cfg_path)
 
     if isinstance(override_paths, Mapping):
         path_map: dict[str, str] = {str(k): str(v) for k, v in override_paths.items()}
@@ -237,6 +238,22 @@ def prepare_trials(
         raise RuntimeError(
             "prepare_trials: pipeline did not produce a WorkflowContext — ensure ResolveStep ran."
         )
+
+    # Mirror Project.py: resolve the time_grid once so subsequent trials
+    # do not need to re-derive it. Step 06/07 require it in
+    # preprocess_options and the pipeline's ResolveStep does not populate
+    # it on its own.
+    if getattr(ctx.setup, "time_grid", None) is None:
+        try:
+            from hydromodpy.core.time import (
+                apply_explicit_time_window_to_tgrids,
+                require_flow_simulation_time_grid,
+            )
+
+            apply_explicit_time_window_to_tgrids(cfg)
+            ctx.setup.time_grid = require_flow_simulation_time_grid(cfg)
+        except Exception:
+            logger.debug("prepare_trials: could not resolve time_grid eagerly")
 
     workspace_obj = getattr(ctx.setup, "workspace", None)
     workspace = Path(workspace_obj.workspace_root) if workspace_obj is not None else cfg_path.parent
@@ -456,12 +473,24 @@ def promote_trial(
 
 
 def _set_by_path(cfg: Any, path: str, value: Any) -> None:
-    """Set ``value`` on the leaf located at dotted ``path`` under ``cfg``."""
+    """Set ``value`` on the leaf at dotted ``path`` under ``cfg``.
+
+    Traversal handles Pydantic attributes (``getattr``/``setattr``) and
+    mapping entries (``"cfg.flow.param.K"`` where ``param`` is a dict
+    keyed by parameter name) transparently.
+    """
     parts = path.split(".")
     target: Any = cfg
     for part in parts[:-1]:
-        target = getattr(target, part)
-    setattr(target, parts[-1], value)
+        if isinstance(target, Mapping):
+            target = target[part]
+        else:
+            target = getattr(target, part)
+    leaf_key = parts[-1]
+    if isinstance(target, Mapping):
+        target[leaf_key] = value
+    else:
+        setattr(target, leaf_key, value)
 
 
 __all__ = (

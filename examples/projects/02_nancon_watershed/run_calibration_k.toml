@@ -78,5 +78,5 @@ use_cache = true
 bounds = [1e-6, 1e-3]
 transform = "log"
 prior = "log_uniform"
-path = "flow.param.K.field_homogeneous.value"
+path = "flow.param.K.value"
 units = "m/s"

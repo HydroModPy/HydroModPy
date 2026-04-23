@@ -282,11 +282,15 @@ def run_calibration_cli(
             variable=cfg.variable,
             metric_fn=metric_fn,
         )
+        # calibration_iterations CHECK accepts only
+        # {completed, diverged, timeout, crashed, cached} — map "failed"
+        # (setup/metric errors) onto "crashed" for persistence.
+        db_status = "crashed" if result.status == "failed" else result.status
         return EvaluationResult(
             trial_id=sugg.trial_id,
             sim_id=None,
             objective_value=result.primary_metric,
-            status=result.status,
+            status=db_status,
             duration_s=result.duration_s,
             components=dict(result.metrics) if result.metrics else None,
             metadata={"error": result.error} if result.error else {},
