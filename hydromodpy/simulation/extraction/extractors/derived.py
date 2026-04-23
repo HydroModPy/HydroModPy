@@ -124,8 +124,8 @@ def _compute_watertable_elevation(
 
     # Sentinels (HDRY/HNOFLO) should already be NaN from the extraction
     # phase.  Use NaN as the nodata marker for flopy's get_water_table.
-    # Legacy fallback: if heads still contain non-NaN negatives far below
-    # any realistic elevation, treat them as sentinels too.
+    # Safety net: if heads still contain non-NaN negatives far below any
+    # realistic elevation, treat them as sentinels too.
     _SENTINEL_THRESHOLD = -50.0
     head_sample = head_arr[:].ravel()
     finite_heads = head_sample[np.isfinite(head_sample)]
@@ -135,9 +135,9 @@ def _compute_watertable_elevation(
             if np.any(finite_heads > _SENTINEL_THRESHOLD)
             else 0.0
         )
-        legacy_floor = min(_SENTINEL_THRESHOLD, p01 - 200.0)
+        sentinel_floor = min(_SENTINEL_THRESHOLD, p01 - 200.0)
     else:
-        legacy_floor = _SENTINEL_THRESHOLD
+        sentinel_floor = _SENTINEL_THRESHOLD
 
     for t in range(n_timesteps):
         head = head_arr[t]
@@ -155,9 +155,9 @@ def _compute_watertable_elevation(
             wt[np.isclose(wt, _DUMMY_HDRY)] = np.nan
         else:
             wt = head[0].copy() if head.ndim == 2 else head.copy()
-        # Mask any remaining sentinel-like values (legacy stores without
-        # NaN masking, or MF6 outputs with different sentinel values).
-        wt = np.where(np.isfinite(wt) & (wt < legacy_floor), np.nan, wt)
+        # Mask any remaining sentinel-like values (stores without NaN
+        # masking, or MF6 outputs with different sentinel values).
+        wt = np.where(np.isfinite(wt) & (wt < sentinel_floor), np.nan, wt)
         store.write_field(
             sim_id,
             "watertable_elevation",
