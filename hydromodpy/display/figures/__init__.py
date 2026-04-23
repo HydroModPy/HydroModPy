@@ -10,7 +10,11 @@ from __future__ import annotations
 
 from hydromodpy.display.figures import (  # noqa: F401
     calibration_convergence,
+    calibration_landscape,
+    calibration_objective_surface,
     calibration_pairplot,
+    calibration_posterior,
+    calibration_trace,
     concentration_map,
     cross_section,
     difference_map,

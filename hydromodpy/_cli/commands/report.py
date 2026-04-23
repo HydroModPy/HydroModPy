@@ -1,0 +1,95 @@
+"""``hmp report <session_id>`` — generate an HTML report for a calibration session.
+
+Reads the ``calibration_sessions`` + ``calibration_iterations`` tables in
+the workspace DuckDB, renders the six calibration figures into a single
+HTML page, and drops the result under
+``<workspace>/reports/<session_id>/report.html``.
+
+Usage
+-----
+``hmp report <session_id>``           Full session id (UUID hex or dashed).
+``hmp report <short_prefix>``         First ≥8 hex chars (must be unique).
+``hmp report <session_id> --open``    Open the HTML in the default browser.
+"""
+
+from __future__ import annotations
+
+import argparse
+import sys
+from pathlib import Path
+
+from hydromodpy._cli.helpers import EXIT_CONFIG, EXIT_NOT_FOUND, find_workspace_root
+
+NAME = "report"
+HELP = "Render an HTML report for a calibration session"
+
+
+def register(subparsers) -> argparse.ArgumentParser:
+    parser = subparsers.add_parser(NAME, help=HELP)
+    parser.add_argument(
+        "session_id",
+        help="Calibration session UUID (full or unambiguous short prefix)",
+    )
+    parser.add_argument(
+        "--workspace",
+        type=Path,
+        default=None,
+        metavar="PATH",
+        help="Workspace root (defaults to ancestor of CWD).",
+    )
+    parser.add_argument(
+        "--open",
+        action="store_true",
+        dest="open_browser",
+        help="Open the generated HTML in the default browser on completion.",
+    )
+    parser.set_defaults(_handler=run)
+    return parser
+
+
+def run(args: argparse.Namespace) -> None:
+    from hydromodpy.calibration.report import render_session_report
+    from hydromodpy.results.catalog import SimulationCatalog
+
+    workspace_root = args.workspace or find_workspace_root(Path.cwd())
+    with SimulationCatalog(workspace_root) as catalog:
+        session_id = _resolve_session_id(catalog, args.session_id)
+        out_path = render_session_report(
+            catalog=catalog,
+            session_id=session_id,
+            workspace_root=workspace_root,
+        )
+    print(f"wrote {out_path}", file=sys.stderr)
+    if args.open_browser:
+        import webbrowser
+
+        webbrowser.open(out_path.as_uri())
+
+
+def _resolve_session_id(catalog, raw: str) -> str:
+    """Return the full canonical session UUID matching ``raw`` (full or prefix)."""
+    import uuid
+
+    normalized = raw.replace("-", "").lower()
+    if len(normalized) == 32:
+        try:
+            return uuid.UUID(normalized).hex
+        except ValueError:
+            pass
+
+    rows = catalog.connection.execute(
+        "SELECT session_id FROM calibration_sessions",
+    ).fetchall()
+    candidates = [r[0].hex if hasattr(r[0], "hex") else str(r[0]).replace("-", "") for r in rows]
+    matches = [c for c in candidates if c.startswith(normalized)]
+    if not matches:
+        print(f"No calibration session matches {raw!r}.", file=sys.stderr)
+        sys.exit(EXIT_NOT_FOUND)
+    if len(matches) > 1:
+        print(
+            f"Session prefix {raw!r} is ambiguous ({len(matches)} matches). "
+            "Use more hex characters.",
+            file=sys.stderr,
+        )
+        sys.exit(EXIT_CONFIG)
+    return matches[0]
