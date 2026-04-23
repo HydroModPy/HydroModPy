@@ -14,6 +14,7 @@ class ModpathTransportAdapter:
 
     process_type = "transport"
     solver_name = "modpath"
+    requires: tuple[tuple[str, str], ...] = (("flow", "modflownwt"),)
 
     def execute(self, ctx: RunContext) -> RunExecutionResult:
         """Instantiate and execute one Modpath particle-tracking run."""

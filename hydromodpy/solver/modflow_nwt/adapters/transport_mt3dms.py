@@ -17,6 +17,8 @@ class Mt3dmsTransportAdapter:
 
     process_type = "transport"
     solver_name = "mt3dms"
+    requires: tuple[tuple[str, str], ...] = (("flow", "modflownwt"),)
+    produces_concentration: bool = True
 
     def execute(self, ctx: RunContext) -> RunExecutionResult:
         """Instantiate and execute one MT3DMS concentration transport run."""

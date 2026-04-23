@@ -23,6 +23,7 @@ class Modflow6FlowAdapter:
 
     process_type = "flow"
     solver_name = "modflow6"
+    requires: tuple[tuple[str, str], ...] = ()
 
     @staticmethod
     def _solver_runtime_cache(state) -> dict[tuple[str, str, str], Modflow6]:

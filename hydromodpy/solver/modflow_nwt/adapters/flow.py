@@ -21,6 +21,7 @@ class ModflowNwtFlowAdapter:
 
     process_type = "flow"
     solver_name = "modflownwt"
+    requires: tuple[tuple[str, str], ...] = ()
 
     def execute(self, ctx: RunContext) -> RunExecutionResult:
         """Instantiate and execute one MODFLOW-NWT flow run.

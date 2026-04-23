@@ -17,6 +17,8 @@ class Modflow6GwtTransportAdapter:
 
     process_type = "transport"
     solver_name = "modflow6gwt"
+    requires: tuple[tuple[str, str], ...] = (("flow", "modflow6"),)
+    produces_concentration: bool = True
 
     def execute(self, ctx: RunContext) -> RunExecutionResult:
         """Instantiate and execute one MODFLOW 6 GWT concentration run."""

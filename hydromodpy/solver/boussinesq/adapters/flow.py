@@ -283,6 +283,7 @@ class BoussinesqFlowAdapter:
 
     process_type = "flow"
     solver_name = "boussinesq"
+    requires: tuple[tuple[str, str], ...] = ()
 
     def execute(self, ctx: RunContext) -> RunExecutionResult:
         """Instantiate and execute one Boussinesq flow run."""

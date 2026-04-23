@@ -19,7 +19,7 @@ from __future__ import annotations
 
 from hydromodpy.simulation.planning.config import SimulationConfig
 from hydromodpy.simulation.planning.plan import ProcessRun, SimulationPlan
-from hydromodpy.solver.compatibility import required_bindings
+from hydromodpy.solver.base.registry import required_bindings
 
 
 class SimulationPlanner:

@@ -15,6 +15,7 @@ class FlowDisplayAdapter:
 
     process_type = "display"
     solver_name = "flow"
+    requires: tuple[tuple[str, str], ...] = ()
 
     def execute(self, ctx: RunContext) -> RunExecutionResult:
         raise NotImplementedError(
@@ -27,6 +28,7 @@ class TransportDisplayAdapter:
 
     process_type = "display"
     solver_name = "transport"
+    requires: tuple[tuple[str, str], ...] = ()
 
     def execute(self, ctx: RunContext) -> RunExecutionResult:
         raise NotImplementedError(
