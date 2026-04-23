@@ -1,3 +1,6 @@
+# Checks that the committed documentation gallery artifacts match what
+# tools/doc_gallery would regenerate. Runs only when gallery inputs change.
+
 name: Docs Gallery Check
 
 on:
@@ -14,10 +17,7 @@ on:
       - "docs/readthedocs/source/capability_gallery/**"
       - "docs/readthedocs/source/_static/capability_gallery/**"
   push:
-    branches:
-      - main
-      - dev
-      - develop
+    branches: [master, dev]
     paths:
       - ".github/workflows/docs-gallery-check.yml"
       - "tools/doc_gallery/**"
@@ -30,6 +30,10 @@ on:
       - "docs/readthedocs/source/capability_gallery/**"
       - "docs/readthedocs/source/_static/capability_gallery/**"
   workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 permissions:
   contents: read
@@ -44,37 +48,20 @@ jobs:
     timeout-minutes: 30
 
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
+      - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
           cache: pip
-          cache-dependency-path: |
-            install/requirements-docker-light.txt
-            docs/readthedocs/readthedocs_requirements.txt
-            pyproject.toml
 
-      - name: Install gallery and docs dependencies
+      - name: Install system libraries
+        run: sudo apt-get update && sudo apt-get install -y libglu1-mesa
+
+      - name: Install package and docs extras
         run: |
-          python -m pip install --upgrade pip setuptools wheel
-          python -m pip install -r install/requirements-docker-light.txt
-          python -m pip install -r docs/readthedocs/readthedocs_requirements.txt
-          python -m pip install \
-            "pydantic>=2.0" \
-            dask \
-            imageio \
-            matplotlib \
-            meshio \
-            pint \
-            plotly \
-            scipy \
-            sqlalchemy \
-            tomli-w \
-            tqdm
-          python -m pip install -e . --no-deps
+          pip install --upgrade pip
+          pip install -e ".[docs,test]"
 
       - name: Verify committed gallery artifacts
         run: python -m tools.doc_gallery --check

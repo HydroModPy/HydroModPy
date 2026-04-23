@@ -1,0 +1,150 @@
+# Fast checks for every push and pull request on dev or master.
+# Keeps feedback under ten minutes: lint, unit tests, fast regression.
+
+name: CI Fast
+
+on:
+  push:
+    branches: [master, dev]
+  pull_request:
+    branches: [master, dev]
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  MPLBACKEND: Agg
+  PYTHON_VERSION: "3.12"
+
+jobs:
+  lint:
+    name: Ruff lint and format
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+
+      - name: Install ruff
+        run: pip install "ruff>=0.6"
+
+      - name: Check lint rules
+        run: ruff check .
+
+      - name: Check formatting
+        run: ruff format --check .
+
+  unit:
+    name: Unit tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+
+      - name: Install system libraries
+        run: sudo apt-get update && sudo apt-get install -y libglu1-mesa
+
+      - name: Install package and test extras
+        run: |
+          pip install --upgrade pip
+          pip install -e ".[test]"
+
+      # The coverage .pth shim breaks numpy C extensions on CI runners.
+      - name: Drop coverage .pth shim
+        run: |
+          python -c "
+          import pathlib, sysconfig
+          site = pathlib.Path(sysconfig.get_path('purelib'))
+          for pth in site.glob('*coverage*.pth'):
+              pth.unlink()
+          "
+
+      - name: Run unit tests with coverage
+        run: |
+          coverage run --rcfile=/dev/null \
+            --include="hydromodpy/*" \
+            --omit="hydromodpy/**/cases/*,hydromodpy/**/examples/*" \
+            -m pytest tests/unit/ -n auto -q
+
+      - name: Report coverage
+        if: always()
+        run: |
+          coverage report --rcfile=/dev/null --show-missing \
+            --include="hydromodpy/*" \
+            --omit="hydromodpy/**/cases/*,hydromodpy/**/examples/*"
+          coverage xml --rcfile=/dev/null \
+            --include="hydromodpy/*" \
+            --omit="hydromodpy/**/cases/*,hydromodpy/**/examples/*"
+
+      - name: Upload coverage to Codecov
+        if: always()
+        uses: codecov/codecov-action@v5
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: coverage.xml
+          flags: unit
+          fail_ci_if_error: false
+
+  regression-fast:
+    name: Fast regression
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+
+      - name: Install system libraries
+        run: sudo apt-get update && sudo apt-get install -y libglu1-mesa
+
+      - name: Install package and test extras
+        run: |
+          pip install --upgrade pip
+          pip install -e ".[test]"
+
+      - name: Drop coverage .pth shim
+        run: |
+          python -c "
+          import pathlib, sysconfig
+          site = pathlib.Path(sysconfig.get_path('purelib'))
+          for pth in site.glob('*coverage*.pth'):
+              pth.unlink()
+          "
+
+      - name: Run fast regression with coverage
+        env:
+          HYDROMODPY_COVERAGE: "1"
+        run: python -m pytest tests/regression/fast/ -n auto -q
+
+      - name: Combine and report coverage
+        if: always()
+        run: |
+          coverage combine || true
+          coverage report --show-missing || true
+          coverage xml || true
+
+      - name: Upload coverage to Codecov
+        if: always()
+        uses: codecov/codecov-action@v5
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: coverage.xml
+          flags: regression-fast
+          fail_ci_if_error: false

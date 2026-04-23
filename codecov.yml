@@ -1,0 +1,69 @@
+# Codecov configuration for HydroModPy.
+# Docs: https://docs.codecov.com/docs/codecov-yaml
+
+codecov:
+  require_ci_to_pass: true
+  notify:
+    wait_for_ci: true
+
+coverage:
+  precision: 2
+  round: down
+  range: "70...95"
+
+  status:
+    project:
+      default:
+        target: auto
+        threshold: 1%
+        base: auto
+        if_ci_failed: error
+    patch:
+      default:
+        target: 80%
+        threshold: 5%
+        if_ci_failed: error
+
+# One flag per test tier so the dashboard can report them side by side.
+flags:
+  unit:
+    paths:
+      - hydromodpy/
+    carryforward: true
+  regression-fast:
+    paths:
+      - hydromodpy/
+    carryforward: true
+  regression-extensive:
+    paths:
+      - hydromodpy/
+    carryforward: true
+  validation:
+    paths:
+      - hydromodpy/
+    carryforward: true
+  integration:
+    paths:
+      - hydromodpy/
+    carryforward: true
+  e2e:
+    paths:
+      - hydromodpy/
+    carryforward: true
+
+ignore:
+  - "tests/"
+  - "tools/"
+  - "docs/"
+  - "examples/"
+  - "validation_cases/"
+  - "hydromodpy/**/cases/"
+  - "hydromodpy/**/examples/"
+  - "hydromodpy_annex/"
+
+comment:
+  layout: "reach, diff, flags, files"
+  behavior: default
+  require_changes: false
+  require_base: false
+  require_head: true

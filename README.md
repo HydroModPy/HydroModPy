@@ -2,12 +2,23 @@
 
 HydroModPy: A Python toolbox for deploying catchment-scale shallow groundwater models.
 
-[![Coverage](https://github.com/HydroModPy/HydroModPy/actions/workflows/coverage.yml/badge.svg)](https://github.com/HydroModPy/HydroModPy/actions/workflows/coverage.yml)
-[![Boussinesq Linux](https://github.com/HydroModPy/HydroModPy/actions/workflows/linux-boussinesq.yml/badge.svg)](https://github.com/HydroModPy/HydroModPy/actions/workflows/linux-boussinesq.yml)
+<!-- Continuous integration -->
+[![CI Fast](https://github.com/HydroModPy/HydroModPy/actions/workflows/ci-fast.yml/badge.svg)](https://github.com/HydroModPy/HydroModPy/actions/workflows/ci-fast.yml)
+[![CI Nightly](https://github.com/HydroModPy/HydroModPy/actions/workflows/ci-nightly.yml/badge.svg)](https://github.com/HydroModPy/HydroModPy/actions/workflows/ci-nightly.yml)
+[![CI Weekly](https://github.com/HydroModPy/HydroModPy/actions/workflows/ci-weekly.yml/badge.svg)](https://github.com/HydroModPy/HydroModPy/actions/workflows/ci-weekly.yml)
+[![PETSc Smoke](https://github.com/HydroModPy/HydroModPy/actions/workflows/petsc-smoke.yml/badge.svg)](https://github.com/HydroModPy/HydroModPy/actions/workflows/petsc-smoke.yml)
+[![Docs Gallery](https://github.com/HydroModPy/HydroModPy/actions/workflows/docs-gallery-check.yml/badge.svg)](https://github.com/HydroModPy/HydroModPy/actions/workflows/docs-gallery-check.yml)
+
+<!-- Code quality -->
+[![Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
+[![Codecov](https://codecov.io/gh/HydroModPy/HydroModPy/graph/badge.svg)](https://codecov.io/gh/HydroModPy/HydroModPy)
 [![Documentation](https://readthedocs.org/projects/hydromodpy-docs/badge/?version=latest)](https://hydromodpy-docs.readthedocs.io/en/latest/)
-[![Python 3.11 | 3.12 | 3.13](https://img.shields.io/badge/python-3.11_|_3.12_|_3.13-blue.svg)](https://www.python.org/)
-[![License: EPL-2.0](https://img.shields.io/badge/license-EPL--2.0-green.svg)](https://opensource.org/licenses/EPL-2.0)
+
+<!-- Project info -->
 [![PyPI](https://img.shields.io/pypi/v/hydromodpy.svg)](https://pypi.org/project/hydromodpy/)
+[![Downloads](https://img.shields.io/pypi/dm/hydromodpy.svg)](https://pypi.org/project/hydromodpy/)
+[![Python](https://img.shields.io/badge/python-3.11%20%7C%203.12%20%7C%203.13-blue.svg)](https://www.python.org/)
+[![License: EPL-2.0](https://img.shields.io/badge/license-EPL--2.0-green.svg)](https://opensource.org/licenses/EPL-2.0)
 
 ## Presentation
 
@@ -249,8 +260,9 @@ Platform note:
   by design; on Windows they are skipped, not failed.
 - PETSc-focused validation tests are tagged with `pytest.mark.petsc`, so a
   provisioned Linux environment can run `python -m pytest -m petsc -q`.
-- The Linux smoke commands used in CI are `bash tools/ci/run_boussinesq_linux_smoke.sh`
-  and `bash tools/ci/run_boussinesq_petsc_smoke.sh`.
+- The PETSc smoke workflow runs `bash tools/ci/run_boussinesq_petsc_smoke.sh`
+  on a conda environment. The Boussinesq pip path is covered by the
+  standard unit and validation tiers.
 
 For the detailed validation workflow, available analytical cases, and guidance
 to add a new benchmark, see:

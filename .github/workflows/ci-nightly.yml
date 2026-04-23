@@ -1,0 +1,188 @@
+# Nightly checks that run every day at 05:00 UTC on dev and master.
+# These tiers are too slow for every push but must stay green on a daily basis.
+
+name: CI Nightly
+
+on:
+  schedule:
+    - cron: "0 5 * * *"
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+env:
+  MPLBACKEND: Agg
+  PYTHON_VERSION: "3.12"
+
+jobs:
+  regression-extensive:
+    name: Extensive regression
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref_name }}
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+
+      - name: Install system libraries
+        run: sudo apt-get update && sudo apt-get install -y libglu1-mesa
+
+      - name: Install package and test extras
+        run: |
+          pip install --upgrade pip
+          pip install -e ".[test]"
+
+      - name: Drop coverage .pth shim
+        run: |
+          python -c "
+          import pathlib, sysconfig
+          site = pathlib.Path(sysconfig.get_path('purelib'))
+          for pth in site.glob('*coverage*.pth'):
+              pth.unlink()
+          "
+
+      - name: Run extensive regression
+        env:
+          HYDROMODPY_COVERAGE: "1"
+        run: python -m pytest tests/regression/extensive/ -n auto -q
+
+      - name: Combine and report coverage
+        if: always()
+        run: |
+          coverage combine || true
+          coverage report --show-missing || true
+          coverage xml || true
+
+      - name: Upload coverage to Codecov
+        if: always()
+        uses: codecov/codecov-action@v5
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: coverage.xml
+          flags: regression-extensive
+          fail_ci_if_error: false
+
+  validation:
+    name: Validation tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref_name }}
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+
+      - name: Install system libraries
+        run: sudo apt-get update && sudo apt-get install -y libglu1-mesa
+
+      - name: Install package and test extras
+        run: |
+          pip install --upgrade pip
+          pip install -e ".[test]"
+
+      - name: Drop coverage .pth shim
+        run: |
+          python -c "
+          import pathlib, sysconfig
+          site = pathlib.Path(sysconfig.get_path('purelib'))
+          for pth in site.glob('*coverage*.pth'):
+              pth.unlink()
+          "
+
+      # Skip PETSc-only validation tests here; they live in the petsc-smoke workflow.
+      - name: Run validation tests
+        run: |
+          coverage run --rcfile=/dev/null \
+            --include="hydromodpy/*" \
+            --omit="hydromodpy/**/cases/*,hydromodpy/**/examples/*" \
+            -m pytest tests/validation/ -m "not petsc" -n auto -q
+
+      - name: Report coverage
+        if: always()
+        run: |
+          coverage report --rcfile=/dev/null --show-missing \
+            --include="hydromodpy/*" \
+            --omit="hydromodpy/**/cases/*,hydromodpy/**/examples/*"
+          coverage xml --rcfile=/dev/null \
+            --include="hydromodpy/*" \
+            --omit="hydromodpy/**/cases/*,hydromodpy/**/examples/*"
+
+      - name: Upload coverage to Codecov
+        if: always()
+        uses: codecov/codecov-action@v5
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: coverage.xml
+          flags: validation
+          fail_ci_if_error: false
+
+  integration:
+    name: Integration tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref_name }}
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+
+      - name: Install system libraries
+        run: sudo apt-get update && sudo apt-get install -y libglu1-mesa
+
+      - name: Install package and test extras
+        run: |
+          pip install --upgrade pip
+          pip install -e ".[test]"
+
+      - name: Drop coverage .pth shim
+        run: |
+          python -c "
+          import pathlib, sysconfig
+          site = pathlib.Path(sysconfig.get_path('purelib'))
+          for pth in site.glob('*coverage*.pth'):
+              pth.unlink()
+          "
+
+      - name: Run integration tests
+        run: |
+          coverage run --rcfile=/dev/null \
+            --include="hydromodpy/*" \
+            --omit="hydromodpy/**/cases/*,hydromodpy/**/examples/*" \
+            -m pytest tests/integration/ -n auto -q
+
+      - name: Report coverage
+        if: always()
+        run: |
+          coverage report --rcfile=/dev/null --show-missing \
+            --include="hydromodpy/*" \
+            --omit="hydromodpy/**/cases/*,hydromodpy/**/examples/*"
+          coverage xml --rcfile=/dev/null \
+            --include="hydromodpy/*" \
+            --omit="hydromodpy/**/cases/*,hydromodpy/**/examples/*"
+
+      - name: Upload coverage to Codecov
+        if: always()
+        uses: codecov/codecov-action@v5
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: coverage.xml
+          flags: integration
+          fail_ci_if_error: false

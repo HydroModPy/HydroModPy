@@ -1,0 +1,144 @@
+# Weekly cross-platform checks that run Sunday at 05:00 UTC.
+# Covers the three supported Python versions on Linux, macOS and Windows.
+# Also runs the end-to-end tier that is too expensive for nightly.
+
+name: CI Weekly
+
+on:
+  schedule:
+    - cron: "0 5 * * 0"
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+env:
+  MPLBACKEND: Agg
+
+jobs:
+  # Cross-OS matrix on the fast tiers.
+  # Catches platform specific regressions without burning every week on the full suite.
+  cross-os:
+    name: ${{ matrix.os }} / py${{ matrix.python-version }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+        python-version: ["3.11", "3.12", "3.13"]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+
+      # gmsh needs libglu on Linux only. macOS and Windows have system equivalents.
+      - name: Install Linux system libraries
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y libglu1-mesa
+
+      - name: Install package and test extras
+        shell: bash
+        run: |
+          pip install --upgrade pip
+          pip install -e ".[test]"
+
+      - name: Run unit tests
+        shell: bash
+        run: python -m pytest tests/unit/ -n auto -q
+
+      - name: Run fast regression
+        shell: bash
+        run: python -m pytest tests/regression/fast/ -n auto -q
+
+      - name: Run analytical validation
+        shell: bash
+        run: python -m pytest tests/validation/analytical/ -m "not petsc" -n auto -q
+
+  # End-to-end tier on Linux only. Heavy scenarios that exercise the full pipeline.
+  e2e:
+    name: End-to-end (Linux)
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install system libraries
+        run: sudo apt-get update && sudo apt-get install -y libglu1-mesa
+
+      - name: Install package and test extras
+        run: |
+          pip install --upgrade pip
+          pip install -e ".[test]"
+
+      - name: Drop coverage .pth shim
+        run: |
+          python -c "
+          import pathlib, sysconfig
+          site = pathlib.Path(sysconfig.get_path('purelib'))
+          for pth in site.glob('*coverage*.pth'):
+              pth.unlink()
+          "
+
+      - name: Run e2e tests
+        run: |
+          coverage run --rcfile=/dev/null \
+            --include="hydromodpy/*" \
+            --omit="hydromodpy/**/cases/*,hydromodpy/**/examples/*" \
+            -m pytest tests/e2e/ -q
+
+      - name: Report coverage
+        if: always()
+        run: |
+          coverage report --rcfile=/dev/null --show-missing \
+            --include="hydromodpy/*" \
+            --omit="hydromodpy/**/cases/*,hydromodpy/**/examples/*"
+          coverage xml --rcfile=/dev/null \
+            --include="hydromodpy/*" \
+            --omit="hydromodpy/**/cases/*,hydromodpy/**/examples/*"
+
+      - name: Upload coverage to Codecov
+        if: always()
+        uses: codecov/codecov-action@v5
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: coverage.xml
+          flags: e2e
+          fail_ci_if_error: false
+
+  # Extensive regression on Linux only. The weekly run keeps a fresh signal
+  # in addition to the nightly run, useful if nightly was skipped.
+  regression-full:
+    name: Full regression (Linux)
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install system libraries
+        run: sudo apt-get update && sudo apt-get install -y libglu1-mesa
+
+      - name: Install package and test extras
+        run: |
+          pip install --upgrade pip
+          pip install -e ".[test]"
+
+      - name: Run full regression
+        run: python -m pytest tests/regression/ -n auto -q
