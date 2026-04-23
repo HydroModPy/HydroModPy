@@ -10,6 +10,7 @@ from examples_legacy_2.projects.launcher_simulation.realistic_campaign.run_campa
     filter_campaign_cases,
     load_campaign_manifest,
 )
+
 from hydromodpy.analysis.comparison.config import MethodComparisonConfig
 from hydromodpy.core.config.hydromodpy_config import HydroModPyConfig
 from hydromodpy.core.config.toml_loader import load_toml_with_base_config
