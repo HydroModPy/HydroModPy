@@ -244,4 +244,4 @@ def cleanup_stable_folder(geographic: Any) -> None:
         stable_path = Path(stable)
         if stable_path.is_dir():
             shutil.rmtree(stable_path, ignore_errors=True)
-            logger.info("Removed %s — all data is in the project store", stable_path)
+            logger.info("Removed %s - all data is in the project store", stable_path)

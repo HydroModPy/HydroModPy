@@ -1,4 +1,4 @@
-"""Step 6 — prepare the solver store and the simulation plan.
+"""Step 6 - prepare the solver store and the simulation plan.
 
 Builds the :class:`SimulationPlan` (if not already present in the
 context) and opens the ``SimulationCatalog`` store so subsequent steps

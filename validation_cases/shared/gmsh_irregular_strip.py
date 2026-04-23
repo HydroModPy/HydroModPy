@@ -8,8 +8,8 @@ from pathlib import Path
 
 import numpy as np
 
-from hydromodpy.solver.utils.mesh.gmsh_grid._deps import require_gmsh
-from hydromodpy.solver.utils.mesh.gmsh_grid.zone_meshing._gmsh_export import (
+from hydromodpy.spatial.mesh.gmsh_grid._deps import require_gmsh
+from hydromodpy.spatial.mesh.gmsh_grid.zone_meshing._gmsh_export import (
     build_runtime_planar_mesh_from_gmsh,
     write_repository_compatible_mesh,
 )

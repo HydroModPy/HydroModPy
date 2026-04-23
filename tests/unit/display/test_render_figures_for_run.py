@@ -1,4 +1,4 @@
-"""Coverage for ``hydromodpy.results.display`` — the shared helper used by
+"""Coverage for ``hydromodpy.results.display`` - the shared helper used by
 both ``hmp display`` and the pipeline ``DisplayStep``.
 
 These tests exercise policy, not rendering:
@@ -24,7 +24,7 @@ from hydromodpy.results.display import (
 
 
 class _StubRun:
-    """Minimal Run stand-in — the stubbed figure never reads from it."""
+    """Minimal Run stand-in - the stubbed figure never reads from it."""
 
     sim_id = "11111111-2222-3333-4444-555555555555"
     name = "baseline"
@@ -85,7 +85,7 @@ def test_writes_one_file_per_figure(tmp_path, patched_registry):
 
 
 def test_unknown_figure_is_skipped_not_raised(tmp_path, patched_registry):
-    # The helper must swallow KeyError for unknown figures and keep going —
+    # The helper must swallow KeyError for unknown figures and keep going -
     # one typo in the TOML must not abort an otherwise-good render batch.
     cfg = DisplayConfig(enabled=True, figures=["bad_missing", "piezometric_map"])
     out = tmp_path / "figures" / "baseline"

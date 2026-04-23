@@ -8,7 +8,7 @@ from pathlib import Path
 
 import numpy as np
 
-from hydromodpy.solver.boussinesq.history_contract import (
+from hydromodpy.physics.flow.history_contract import (
     snapshot_elapsed_seconds_from_payload,
     step_history_from_history,
 )

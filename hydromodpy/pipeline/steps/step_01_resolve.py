@@ -1,4 +1,4 @@
-"""Step 1 — resolve workspace paths, create the workflow context.
+"""Step 1 - resolve workspace paths, create the workflow context.
 
 Takes a validated config (from :class:`ValidateStep`) and builds a
 :class:`WorkflowContext` bound to the config and its source TOML. This

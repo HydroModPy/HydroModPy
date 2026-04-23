@@ -68,7 +68,7 @@ Run the underlying example or validation case with:
 
 .. code-block:: bash
 
-   python -m launchers method-comparison run examples_legacy_2/projects/launcher_simulation/run_method_comparison_example12_map_existing.toml
+   python -m hydromodpy run examples_legacy_2/projects/launcher_simulation/run_method_comparison_example12_map_existing.toml
 
 Refresh the committed gallery artifacts with:
 

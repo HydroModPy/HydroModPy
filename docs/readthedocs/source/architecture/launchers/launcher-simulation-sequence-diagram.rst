@@ -23,7 +23,7 @@ Code map
   construction of ``SimulationPlan``.
 - ``hydromodpy/simulation/execution/runner.py``:
   dispatch over planned runs.
-- ``hydromodpy/simulation/adapters/flow`` and ``transport``:
+- ``hydromodpy/solver/<backend>/adapters/``:
   adapter selection before backend execution.
 
 Recommended reading path
@@ -32,7 +32,7 @@ Recommended reading path
 1. ``launchers/process_simulation/launcher.py``
 2. ``hydromodpy/simulation/planning/planner.py``
 3. ``hydromodpy/simulation/execution/runner.py``
-4. one adapter under ``hydromodpy/simulation/adapters/flow/`` or
+4. one adapter under ``hydromodpy/solver/<backend>/adapters/`` or
    ``transport/``
 
 Diagram source

@@ -273,7 +273,7 @@ class GeologyField(Field):
         Project geology zones onto a target mesh as per-cell zone fractions.
 
         Works with both regular (structured) and irregular (triangular,
-        unstructured) meshes — any mesh implementing ``BaseFieldMesh``.
+        unstructured) meshes - any mesh implementing ``BaseFieldMesh``.
 
         Parameters
         ----------

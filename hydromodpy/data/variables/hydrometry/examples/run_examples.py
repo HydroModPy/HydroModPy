@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-"""Hydrometry use-case examples — run standalone to test each scenario.
+"""Hydrometry use-case examples - run standalone to test each scenario.
 
 Usage::
 

@@ -118,7 +118,7 @@ class CalibrationLandscapeFigure(BaseFigure):
             ax.grid(True, ls=":", lw=0.4)
             if obj is not None:
                 fig.colorbar(sc, ax=ax, label=objective)
-            fig.suptitle(f"Objective landscape — {sim.name or sim.sim_id}")
+            fig.suptitle(f"Objective landscape - {sim.name or sim.sim_id}")
             if save_path is not None:
                 from pathlib import Path
 
@@ -155,7 +155,7 @@ class CalibrationLandscapeFigure(BaseFigure):
                 ax.grid(True, ls=":", lw=0.3)
         if sc is not None and obj is not None:
             fig.colorbar(sc, ax=axes[:, -1], label=objective)
-        fig.suptitle(f"Objective landscape — {sim.name or sim.sim_id}")
+        fig.suptitle(f"Objective landscape - {sim.name or sim.sim_id}")
         if save_path is not None:
             from pathlib import Path
 

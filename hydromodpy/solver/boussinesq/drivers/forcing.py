@@ -94,18 +94,6 @@ def resolve_runtime_forcing_by_period(
     )
 
 
-def resolve_boundary_forcing_by_period(
-    solver: BoussinesqForcingSolver,
-    *,
-    nper: int,
-) -> ResolvedRuntimeForcing:
-    """Backward-compatible alias kept for pre-refactor callers."""
-    return resolve_runtime_forcing_by_period(solver, nper=nper)
-
-
-ResolvedBoundaryForcing = ResolvedRuntimeForcing
-
-
 def apply_ocean_drainage_mask(
     *,
     n_cells: int,
@@ -127,9 +115,7 @@ def apply_ocean_drainage_mask(
 
 
 __all__ = [
-    "ResolvedBoundaryForcing",
     "ResolvedRuntimeForcing",
     "apply_ocean_drainage_mask",
-    "resolve_boundary_forcing_by_period",
     "resolve_runtime_forcing_by_period",
 ]

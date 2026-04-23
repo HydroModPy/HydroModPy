@@ -85,28 +85,30 @@ _LOADED = False
 
 
 def _ensure_builtins_loaded() -> None:
+    """Auto-discover every adapter module under ``calibration/adapters/``.
+
+    Each adapter registers itself via ``@register_optimizer`` at import
+    time. Optional dependencies (optuna, GP, DA-MH-GP) surface as
+    ``ImportError``; those adapters just stay unregistered.
+    """
     global _LOADED
     if _LOADED:
         return
-    # Importing these modules triggers the @register_optimizer decorators.
-    from hydromodpy.calibration.adapters import (
-        grid_adapter,  # noqa: F401
-        scipy_adapter,  # noqa: F401
-    )
 
-    try:
-        from hydromodpy.calibration.adapters import optuna_adapter  # noqa: F401
-    except ImportError:
-        pass
+    import importlib
+    import logging
+    import pkgutil
 
-    try:
-        from hydromodpy.calibration.adapters import gp_mapping_adapter  # noqa: F401
-    except ImportError:
-        pass
+    from hydromodpy.calibration import adapters
 
-    try:
-        from hydromodpy.calibration.adapters import da_mh_gp_adapter  # noqa: F401
-    except ImportError:
-        pass
+    logger = logging.getLogger(__name__)
+    for module_info in pkgutil.iter_modules(adapters.__path__):
+        name = module_info.name
+        if name.startswith("_"):
+            continue
+        try:
+            importlib.import_module(f"{adapters.__name__}.{name}")
+        except ImportError as exc:
+            logger.debug("Optional optimizer adapter %r skipped: %s", name, exc)
 
     _LOADED = True

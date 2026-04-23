@@ -91,7 +91,7 @@ def tmp_workspace(tmp_path: Path) -> Path:
     per-variable ``*_custom/`` seed folders) using the same code path as
     ``hmp init``, so integration tests can open the workspace with
     ``hmp.open(...)`` or instantiate a :class:`~hydromodpy.results.catalog.SimulationCatalog`
-    on top of it.  The catalog itself is opened lazily — this fixture
+    on top of it.  The catalog itself is opened lazily - this fixture
     only creates folders, keeping the fixture cheap and free of DuckDB
     I/O until a test explicitly needs it.
     """

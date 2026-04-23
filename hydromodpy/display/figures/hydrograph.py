@@ -47,7 +47,7 @@ class Hydrograph(BaseFigure):
         ax.set_ylabel(f"{variable} (m³/s)")
         if log_y:
             ax.set_yscale("log")
-        ax.set_title(f"Hydrograph — {sim.name or sim.sim_id} @ {station}")
+        ax.set_title(f"Hydrograph - {sim.name or sim.sim_id} @ {station}")
         ax.grid(True, ls=":", lw=0.4)
         ax.legend()
         style_date_axis(ax)

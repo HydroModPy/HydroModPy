@@ -16,7 +16,7 @@ import numpy as np
 import pandas as pd
 
 from hydromodpy.core.units import factor_to_seconds, to_pandas_timedelta_unit
-from hydromodpy.solver.utils.temporal.tmesh_config import TMeshConfigModel
+from hydromodpy.solver.utils.temporal.tmesh_config import TMeshConfig
 
 try:
     from flopy.discretization.modeltime import ModelTime
@@ -26,10 +26,6 @@ except ModuleNotFoundError:  # pragma: no cover - used only in minimal local env
 
 _VALID_FLOW_REGIMES = {"steady", "transient"}
 _VALID_GEN_METHODS = {"synthetic_regular", "from_chron"}
-
-# Backward-compatible alias: TMeshConfig was a frozen dataclass, now backed by the
-# validated Pydantic model.  Existing code that imports TMeshConfig still works.
-TMeshConfig = TMeshConfigModel
 
 
 def _as_positive_int(name: str, value: Any) -> int:
@@ -321,14 +317,7 @@ def _build_modeltime(
 
 
 class TMesh_Generation:
-    """
-    Temporal mesh builder.
-
-    Backward compatibility is preserved:
-    - legacy property names are still available,
-    - legacy alias `genmtd_tgrid` maps to `genmtd`,
-    - `_tgrid_created` and `_tgrid` are kept synchronized.
-    """
+    """Temporal mesh builder."""
 
     def __init__(self, config: TMeshConfig | None = None, **kwargs):
         if config is not None and kwargs:
@@ -338,9 +327,7 @@ class TMesh_Generation:
         _validate_config(config)
         self._config: TMeshConfig = config
         self._tmesh_created = False
-        self._tgrid_created = False
         self._tmesh = None
-        self._tgrid = None
 
     @classmethod
     def from_config(cls, config: TMeshConfig) -> "TMesh_Generation":
@@ -357,9 +344,7 @@ class TMesh_Generation:
 
     def _invalidate_mesh(self) -> None:
         self._tmesh_created = False
-        self._tgrid_created = False
         self._tmesh = None
-        self._tgrid = None
 
     def _set_config_value(self, key: str, value: Any) -> None:
         new_config = self._config.model_copy(update={key: value})
@@ -395,14 +380,6 @@ class TMesh_Generation:
     @genmtd.setter
     def genmtd(self, value):
         self._set_config_value("genmtd", value)
-
-    @property
-    def genmtd_tgrid(self):
-        return self.genmtd
-
-    @genmtd_tgrid.setter
-    def genmtd_tgrid(self, value):
-        self.genmtd = value
 
     @property
     def nper(self):
@@ -514,9 +491,7 @@ class TMesh_Generation:
             tsmult=tsmult,
         )
         self._tmesh = tmesh
-        self._tgrid = tmesh
         self._tmesh_created = True
-        self._tgrid_created = True
 
     def _get_period_lengths(self):
         return _build_period_lengths(self._config)

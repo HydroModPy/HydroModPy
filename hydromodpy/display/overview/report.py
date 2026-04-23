@@ -36,7 +36,7 @@ def generate_overview_report(state: DataOverviewState) -> list[Path]:
     matplotlib.use("Agg")
 
     if state.cfg.overview is None:
-        logger.info("[overview] No [overview] section — skipping report generation.")
+        logger.info("[overview] No [overview] section - skipping report generation.")
         return []
 
     panels_cfg = state.cfg.overview.panels
@@ -65,7 +65,7 @@ def generate_overview_report(state: DataOverviewState) -> list[Path]:
                 watershed_shp=str(watershed_shp) if watershed_shp else None,
                 streams_gdf=streams_gdf,
                 station_points=station_points,
-                title=f"{title} — DEM",
+                title=f"{title} - DEM",
             )
         )
 
@@ -79,7 +79,7 @@ def generate_overview_report(state: DataOverviewState) -> list[Path]:
                 dem_path=str(dem_path),
                 watershed_shp=str(watershed_shp) if watershed_shp else None,
                 geology_gdf=geology_gdf,
-                title=f"{title} — Geology",
+                title=f"{title} - Geology",
             )
         )
 
@@ -96,7 +96,7 @@ def generate_overview_report(state: DataOverviewState) -> list[Path]:
                 watershed_shp=str(watershed_shp) if watershed_shp else None,
                 streams_gdf=streams_gdf,
                 outlet_xy=outlet_xy,
-                title=f"{title} — Hydrography",
+                title=f"{title} - Hydrography",
             )
         )
 
@@ -112,7 +112,7 @@ def generate_overview_report(state: DataOverviewState) -> list[Path]:
                 df=obs_df,
                 ylabel="Discharge",
                 unit="m³/s",
-                title=f"{title} — Observed discharge",
+                title=f"{title} - Observed discharge",
             )
         )
 
@@ -127,7 +127,7 @@ def generate_overview_report(state: DataOverviewState) -> list[Path]:
                 df=obs_df,
                 ylabel="Piezometric level",
                 unit="m",
-                title=f"{title} — Piezometry",
+                title=f"{title} - Piezometry",
             )
         )
 
@@ -141,7 +141,7 @@ def generate_overview_report(state: DataOverviewState) -> list[Path]:
                 render_fn=render_climatic_summary,
                 monthly_precip=monthly_precip,
                 monthly_etp=monthly_etp,
-                title=f"{title} — Monthly climatology",
+                title=f"{title} - Monthly climatology",
             )
         )
 
@@ -171,7 +171,7 @@ def generate_overview_report(state: DataOverviewState) -> list[Path]:
 
 
 # ---------------------------------------------------------------------------
-# Helpers — output dir, figure plumbing
+# Helpers - output dir, figure plumbing
 # ---------------------------------------------------------------------------
 
 
@@ -198,7 +198,7 @@ def _render_panel(save_path: Path, *, figsize: tuple[float, float], render_fn, *
 
 
 # ---------------------------------------------------------------------------
-# Helpers — domain-to-generic conversions
+# Helpers - domain-to-generic conversions
 # ---------------------------------------------------------------------------
 
 
@@ -379,7 +379,7 @@ def _build_station_inventory(state: DataOverviewState) -> list[dict[str, Any]]:
     """Build a flat list of station dicts for the inventory table.
 
     Stations are deduped by ``(type, station_id)`` so that variables like
-    water_quality — which emit one PointRecord per (station, parameter) —
+    water_quality - which emit one PointRecord per (station, parameter) -
     don't blow up the inventory into thousands of rows. Period is the
     union of all per-parameter records for that station.
     """

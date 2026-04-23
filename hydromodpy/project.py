@@ -189,16 +189,11 @@ class Project:
         self._ctx.data_plan = data_plan
         self._ctx.setup.time_grid = self._time_grid
 
-        # Phase 7: headless overrides (postprocess is now part of the pipeline,
-        # so no separate runner is required).
         self._headless = headless
         self._no_display = no_display
         if headless:
             self.cfg.display.save = False
             self.cfg.display.show = False
-            self.cfg.postprocess.enabled = False
-        self._postprocess_runner = None
-        self._ctx.postprocess_runner = None
 
         prepare_simulation_runtime(
             self._ctx,
@@ -212,7 +207,7 @@ class Project:
 
         # Open catalog (stays open for project lifetime)
         ws = self._ctx.setup.workspace
-        self._store = SimulationCatalog(ws.workspace_root)
+        self._store = SimulationCatalog(ws.root)
         self._project_name = ws.project_root.name
 
         self._run_counter = 0

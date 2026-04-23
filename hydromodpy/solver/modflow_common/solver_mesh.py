@@ -5,7 +5,7 @@ pipeline.  It wraps a 2D ``HydroMesh`` (planar geometry) together with
 layer elevations, providing everything the solver needs to build MODFLOW
 DIS or DISV packages.
 
-All solver code receives a ``SolverMesh`` — never raw FloPy grids or
+All solver code receives a ``SolverMesh`` - never raw FloPy grids or
 explicit ``(nlay, nrow, ncol)`` tuples.  The structured/unstructured
 distinction is handled internally and exposed via ``is_structured``.
 """

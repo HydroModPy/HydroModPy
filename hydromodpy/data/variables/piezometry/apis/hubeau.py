@@ -24,7 +24,7 @@ API_BASE = "https://hubeau.eaufrance.fr/api/v1/niveaux_nappes"
 
 COVERAGE = {
     "country": "FR",
-    "description": "Hub'Eau Piézométrie — piézomètres France métropolitaine",
+    "description": "Hub'Eau Piézométrie - piézomètres France métropolitaine",
     "variables": ["level", "depth"],
 }
 

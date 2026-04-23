@@ -23,9 +23,9 @@ from hydromodpy.spatial.geographic.core.domain_geographic_pipeline import Domain
 from hydromodpy.spatial.geographic.core.flow_products import build_regional_flow_products
 from hydromodpy.spatial.geographic.core.river_network import RiverNetworkProducts
 from hydromodpy.spatial.geographic.core.surface_from_dem import build_surface_topo_from_dem
-from hydromodpy.spatial.geographic.dem_metadata import read_legacy_dem_metadata
+from hydromodpy.spatial.geographic.dem_metadata import read_dem_metadata
 from hydromodpy.spatial.geographic.geographic_config import GeographicConfig
-from hydromodpy.spatial.geographic.pipeline import build_legacy_geographic_context
+from hydromodpy.spatial.geographic.pipeline import build_geographic_runtime_context
 
 logger = get_logger(__name__)
 
@@ -179,23 +179,19 @@ class CatchmentDelineation:
     def get_domain_geographic_context(self) -> DomainGeographicContext:
         """
         Return the narrow geographic payload consumed by `Domain`.
-
-        This keeps the compatibility facade available for legacy runtime users
-        while allowing newer orchestration code to depend on an explicit,
-        smaller contract.
         """
         return self.get_geographic_derived_features().to_domain_geographic_context()
 
     def processing(self):
-        """Build and hydrate the full legacy geographic runtime payload."""
+        """Build and hydrate the full geographic runtime payload."""
         tool = get_whitebox_backend()
-        context = build_legacy_geographic_context(
+        context = build_geographic_runtime_context(
             config=self._config,
             out_dir_path=self.out_dir_path,
             backend=tool,
             locator_factory=Nominatim,
         )
-        for attr_name, value in context.legacy_attributes().items():
+        for attr_name, value in context.runtime_attributes().items():
             setattr(self, attr_name, value)
 
     # ------------------------------------------------------------------
@@ -206,18 +202,18 @@ class CatchmentDelineation:
         Extract metadata and spatial characteristics from generated DEM rasters.
         """
         if hasattr(self, "_dem_metadata"):
-            for attr_name, value in self._dem_metadata.legacy_attributes().items():
+            for attr_name, value in self._dem_metadata.runtime_attributes().items():
                 setattr(self, attr_name, value)
             return
 
-        self._dem_metadata = read_legacy_dem_metadata(
+        self._dem_metadata = read_dem_metadata(
             watershed_box_buff_dem_path=self.watershed_box_buff_dem,
             watershed_buff_dem_path=self.watershed_buff_dem,
             watershed_dem_path=self.watershed_dem,
             crs_project=self.crs_proj,
             locator_factory=Nominatim,
         )
-        for attr_name, value in self._dem_metadata.legacy_attributes().items():
+        for attr_name, value in self._dem_metadata.runtime_attributes().items():
             setattr(self, attr_name, value)
 
     def _repr_html_(self) -> str:

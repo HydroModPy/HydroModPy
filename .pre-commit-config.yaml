@@ -14,10 +14,10 @@ repos:
   - repo: https://github.com/astral-sh/ruff-pre-commit
     rev: v0.15.9
     hooks:
-      # 1. Lint — auto-fix what can be fixed (imports, simple rewrites…).
+      # 1. Lint - auto-fix what can be fixed (imports, simple rewrites…).
       - id: ruff-check
         args: [--fix]
-      # 2. Format — apply ruff's formatter (black-compatible).
+      # 2. Format - apply ruff's formatter (black-compatible).
       - id: ruff-format
 
   # Small, uncontroversial hygiene hooks. Remove any you don't want.

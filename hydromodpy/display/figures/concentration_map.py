@@ -43,7 +43,7 @@ class ConcentrationMap(BaseFigure):
         if c.ndim == 2:
             c = c[0]
         render_face_field(ax, sim, c, cmap=cmap, cbar_label="Concentration")
-        ax.set_title(f"Concentration — {sim.name or sim.sim_id}")
+        ax.set_title(f"Concentration - {sim.name or sim.sim_id}")
         ax.set_xlabel("x (m)")
         ax.set_ylabel("y (m)")
         return ax

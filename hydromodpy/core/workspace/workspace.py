@@ -22,16 +22,8 @@ logger = get_logger(__name__)
 
 
 def _resolve_bin_path() -> str:
-    """Resolve the executable folder with repo-root priority."""
-    here = Path(__file__).resolve()
-    candidates = [
-        here.parents[3] / "bin",  # <repo>/bin
-        here.parents[2] / "bin",  # <repo>/hydromodpy/bin (legacy fallback)
-    ]
-    for candidate in candidates:
-        if candidate.exists():
-            return str(candidate)
-    return str(candidates[0])
+    """Resolve the executable folder at ``<repo>/bin``."""
+    return str(Path(__file__).resolve().parents[3] / "bin")
 
 
 class Workspace:
@@ -45,7 +37,7 @@ class Workspace:
     def __init__(self, config: WorkspaceConfig):
         self.paths = WorkspacePathRegistry.from_config(config)
         self.project_root = self.paths.project_root
-        self.workspace_root = self.paths.workspace_root
+        self.root = self.paths.root
         self.catalog_path = self.paths.catalog_path
         self.data_dir = self.paths.data_dir
         self.simulations_dir = self.paths.simulations_dir

@@ -1,4 +1,4 @@
-"""Mesh step — optional catchment meshing or external mesh loading.
+"""Mesh step - optional catchment meshing or external mesh loading.
 
 This module contains the functions that handle the optional catchment meshing
 phase, including both embedded mesh generation and external mesh loading.
@@ -11,11 +11,11 @@ from collections.abc import Mapping
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from hydromodpy.solver.utils.mesh.gmsh_grid import load_planar_mesh
-from hydromodpy.solver.utils.mesh.gmsh_grid.catchment_mesh_bundle_reader import (
+from hydromodpy.spatial.mesh.gmsh_grid import load_planar_mesh
+from hydromodpy.spatial.mesh.gmsh_grid.catchment_mesh_bundle_reader import (
     load_catchment_mesh_bundle,
 )
-from hydromodpy.solver.utils.mesh.gmsh_grid.runtime_support import (
+from hydromodpy.spatial.mesh.gmsh_grid.runtime_support import (
     build_gmsh_support_metadata,
 )
 

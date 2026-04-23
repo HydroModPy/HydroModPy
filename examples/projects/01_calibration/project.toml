@@ -1,10 +1,10 @@
 # ======================================================================
-# HydroModPy — exemple 01 : calibration
+# HydroModPy - exemple 01 : calibration
 # ======================================================================
 # Aquifère Dupuit synthétique (identique à 00_getting_started) + boucle
 # de calibration Optuna sur la conductivité hydraulique K.
 #
-# Lancement (seul point d'entrée — pas de `hmp calibrate` séparé) :
+# Lancement (seul point d'entrée - pas de `hmp calibrate` séparé) :
 #   hmp run examples/projects/01_calibration/project.toml
 #
 # NOTE (état actuel, à retirer après le refactor décrit dans

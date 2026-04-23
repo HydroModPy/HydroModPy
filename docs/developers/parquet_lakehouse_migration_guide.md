@@ -19,7 +19,7 @@ That split is not a long-term supported state.
 
 ## Running the migration
 
-Shut down any other process that has the workspace catalog open — DuckDB
+Shut down any other process that has the workspace catalog open: DuckDB
 holds a per-file lock.
 
 Dry-run first to see what would happen:
@@ -61,7 +61,7 @@ OK     parquet:layout               42 per-sim Parquet dir(s)
 
 ## Idempotency
 
-Running `hmp migrate` on an already-migrated workspace is a no-op — no
+Running `hmp migrate` on an already-migrated workspace is a no-op: no
 legacy tables means nothing to do.
 
 ## Rollback

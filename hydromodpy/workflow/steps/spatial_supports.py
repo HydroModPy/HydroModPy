@@ -1,4 +1,4 @@
-"""Spatial-supports step — materialize declared domain spatial supports.
+"""Spatial-supports step - materialize declared domain spatial supports.
 
 Delegates to ``build_domain_spatial_supports`` which now lives in
 ``hydromodpy.workflow.steps.setup``.

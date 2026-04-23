@@ -25,7 +25,7 @@ Recommended reading path
 1. ``hydromodpy/process/prototype/process_spatial_config.py``
 2. ``hydromodpy/process/prototype/process_spatial.py``
 3. ``hydromodpy/process/flow/`` as the main concrete example
-4. ``hydromodpy/simulation/adapters/registry.py``
+4. ``hydromodpy/solver/base/registry.py``
 5. ``hydromodpy/solver/compatibility.py``
 
 Diagram source

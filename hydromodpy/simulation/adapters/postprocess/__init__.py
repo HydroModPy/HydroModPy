@@ -1,1 +1,1 @@
-"""Post-processing phase adapters (stubs — to be implemented)."""
+"""Post-processing phase adapters (stubs - to be implemented)."""

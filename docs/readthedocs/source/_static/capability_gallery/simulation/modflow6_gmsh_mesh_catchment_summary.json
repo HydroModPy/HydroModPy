@@ -43,17 +43,13 @@
     "examples_legacy_2/projects/launcher_simulation/run_fast_mf6_mesh_catchment.toml",
     "examples_legacy_2/projects/launcher_simulation/config_mf6_mesh_catchment_common.toml",
     "examples/projects/09_capability_gallery/launcher_simulation/modflow6_gmsh_mesh_catchment/manifest.json",
-    "hydromodpy/display/__init__.py",
-    "hydromodpy/display/figures/__init__.py",
     "hydromodpy/analysis/capability_gallery.py"
   ],
   "source_hashes": {
     "examples_legacy_2/projects/launcher_simulation/run_fast_mf6_mesh_catchment.toml": "572decacd4b3d956fdf89312d61c415c485dc08acd435e351e33b63f25371186",
     "examples_legacy_2/projects/launcher_simulation/config_mf6_mesh_catchment_common.toml": "dbd2fed65dfc15b372ec3f565f1bdc485dab3704d2a88064e217d42631908df9",
-    "examples/projects/09_capability_gallery/launcher_simulation/modflow6_gmsh_mesh_catchment/manifest.json": "67824f0927444255b6d5bd8c02a4ee137361f8d54d74240e57c2b19bcb468c73",
-    "hydromodpy/display/__init__.py": "7b5e36ba66b417385f21e0965b47f9018c9ab7d03573d32da1d36dccb729facc",
-    "hydromodpy/display/figures/__init__.py": "9a064174ee7fca56b71a714b55ab6f411af66a372bd861d6a68511152960ff36",
-    "hydromodpy/analysis/capability_gallery.py": "77bf173e6ba84192cd0282da330c5069a675d9b2aee7cfaac29ed3365d2dbe38"
+    "examples/projects/09_capability_gallery/launcher_simulation/modflow6_gmsh_mesh_catchment/manifest.json": "702f7788b54d317912f9aab98c68b61d6dc26f001cf19ab64519d8d234c94194",
+    "hydromodpy/analysis/capability_gallery.py": "c758751d189bb7e46919327c2933cf8e4f67a2fb71a8364dec9e02e140455823"
   },
   "docname": "cases/modflow6_gmsh_mesh_catchment",
   "images": [

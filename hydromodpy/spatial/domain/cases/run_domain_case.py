@@ -28,7 +28,6 @@ if (repo_root / "hydromodpy").exists() and str(repo_root) not in sys.path:
 
 from hydromodpy.core.config.hydromodpy_config import HydroModPyConfig
 from hydromodpy.core.workspace import Workspace
-from hydromodpy.solver.utils.mesh.plot_window_utils import maximize_figure_windows
 from hydromodpy.spatial.domain import Domain
 from hydromodpy.spatial.geographic.core.domain_geographic_pipeline import (
     DomainGeographicContext,
@@ -37,6 +36,7 @@ from hydromodpy.spatial.geographic.core.domain_geographic_pipeline import (
 from hydromodpy.spatial.geographic.structure_binders import (
     build_catchment_zone_field_from_geographic,
 )
+from hydromodpy.spatial.mesh.plot_window_utils import maximize_figure_windows
 
 
 def _is_non_interactive_backend(backend_name: str) -> bool:

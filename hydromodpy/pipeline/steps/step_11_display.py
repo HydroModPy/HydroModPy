@@ -1,4 +1,4 @@
-"""Step 11 — auto-render the figures listed in ``[display].figures``.
+"""Step 11 - auto-render the figures listed in ``[display].figures``.
 
 Runs after :class:`ExportStep`. Reopens the catalog in read-only fashion
 (``ExportStep`` closes it), loads the freshly persisted :class:`Run`, and
@@ -11,7 +11,7 @@ is empty, or when the pipeline was set to headless via
 
 Inputs
 ------
-``ctx`` : WorkflowContext — provides ``sim_id``, ``cfg.display``, workspace.
+``ctx`` : WorkflowContext - provides ``sim_id``, ``cfg.display``, workspace.
 
 Outputs
 -------
@@ -67,7 +67,7 @@ class DisplayStep:
             else:
                 workspace = ctx.setup.workspace
                 project_root = workspace.project_root
-                with SimulationCatalog(workspace.workspace_root) as catalog:
+                with SimulationCatalog(workspace.root) as catalog:
                     sim = catalog[sim_id]
                     out_dir = resolve_run_output_dir(
                         display_cfg,

@@ -98,12 +98,6 @@ class DataContractViolation(DataError):
     code = "HMPY.E201"
 
 
-class ContractViolationError(DataContractViolation):
-    """Alias retained for compatibility with spec §1.5 naming."""
-
-    code = "HMPY.E201"
-
-
 class DataCacheError(DataError):
     """Local cache corruption or inconsistency."""
 
@@ -355,7 +349,6 @@ __all__ = [
     # Data
     "DataError",
     "DataContractViolation",
-    "ContractViolationError",
     "DataCacheError",
     "CacheCorruptionError",
     "DataSourceError",

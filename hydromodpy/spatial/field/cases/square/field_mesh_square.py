@@ -146,20 +146,10 @@ class FieldMeshSquare(FieldMesh):
                 break
 
         if target_n_cells is None:
-            # Backward compatibility with old n_grid config.
-            if "n_grid" not in config:
-                raise KeyError(
-                    "Mesh config requires 'target_n_cells' "
-                    "(aliases: 'approx_n_cells', 'target_cell_count')"
-                )
-            n_grid = int(config["n_grid"])
-            if n_grid <= 2:
-                raise ValueError("n_grid must be > 2")
-            kind_key = str(mesh_kind).strip().lower()
-            if kind_key == "structured":
-                target_n_cells = (n_grid - 1) ** 2
-            else:
-                target_n_cells = 2 * (n_grid - 1) ** 2
+            raise KeyError(
+                "Mesh config requires 'target_n_cells' "
+                "(aliases: 'approx_n_cells', 'target_cell_count')"
+            )
 
         seed = int(config.get("seed", 42))
         return cls.from_unit_square(

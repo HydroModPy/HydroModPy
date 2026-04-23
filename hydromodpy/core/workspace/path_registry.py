@@ -9,7 +9,7 @@ from typing import TYPE_CHECKING
 #: Preprocessing intermediates go under .solver_scratch/_preprocessing/.
 #: These files are needed on disk by whitebox/rasterio during the pipeline,
 #: then ingested into the project store and cleaned up.
-LEGACY_STABLE_DIR = ".solver_scratch/_preprocessing"
+PREPROCESSING_DIR = ".solver_scratch/_preprocessing"
 
 if TYPE_CHECKING:
     from hydromodpy.core.workspace.config import WorkspaceConfig
@@ -20,7 +20,7 @@ class WorkspacePathRegistry:
     """Centralize canonical input/output paths for one workspace."""
 
     project_root: Path
-    workspace_root: Path
+    root: Path
     catalog_path: Path
     data_dir: Path
     simulations_dir: Path
@@ -31,7 +31,7 @@ class WorkspacePathRegistry:
         """Build a registry from a fully resolved workspace config."""
         return cls(
             project_root=Path(config.project_root),
-            workspace_root=Path(config.root),
+            root=Path(config.root),
             catalog_path=Path(config.catalog_path),
             data_dir=Path(config.data_dir),
             simulations_dir=Path(config.simulations_dir),

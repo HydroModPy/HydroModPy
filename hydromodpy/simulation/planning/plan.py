@@ -90,7 +90,7 @@ class SimulationPlan:
 
 
 # ---------------------------------------------------------------------------
-# Runtime contracts — shared by runner and adapters
+# Runtime contracts - shared by runner and adapters
 # ---------------------------------------------------------------------------
 
 

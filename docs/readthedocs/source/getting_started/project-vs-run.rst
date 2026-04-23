@@ -17,7 +17,7 @@ Three levels
    * - 1
      - **Workspace**
      - One directory with ``hydromodpy.duckdb``, ``data/``, ``simulations/``,
-       and ``projects/``. Open with ``hmp.open(path)`` — returns a
+       and ``projects/``. Open with ``hmp.open(path)`` - returns a
        :class:`~hydromodpy.results.catalog.SimulationCatalog`.
    * - N
      - **Project**

@@ -5,17 +5,17 @@ from types import SimpleNamespace
 import numpy as np
 import pytest
 
-from hydromodpy.solver.modflow_nwt.modflow import Modflow
-from hydromodpy.solver.modflow_nwt.modflow.discretization import (
+from hydromodpy.solver.modflow_common import (
     build_spatial_discretization,
 )
-from hydromodpy.solver.utils.mesh.cartesian_grid.sgrid_config import (
+from hydromodpy.solver.modflow_nwt.modflow import Modflow
+from hydromodpy.spatial import RasterSupport, Surface
+from hydromodpy.spatial.domain import Domain, DomainConfig
+from hydromodpy.spatial.mesh.cartesian_grid.sgrid_config import (
     PlanarGridConfig,
     SolverSGridConfig,
     VerticalGridConfig,
 )
-from hydromodpy.spatial import RasterSupport, Surface
-from hydromodpy.spatial.domain import Domain, DomainConfig
 
 
 class _DummyGeographic:

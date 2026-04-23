@@ -12,9 +12,9 @@ Supersedes the "timeseries / budgets / mass_balance" portions of
 Before the v0.6 refactor, every per-simulation table sat inside the
 workspace-level `hydromodpy.duckdb` file:
 
-- `timeseries` — 70 years of daily rows per station per variable per sim.
-- `budgets` — water budget per (timestep, zone, component) per sim.
-- `mass_balance` — global in/out/percent_error per timestep per sim.
+- `timeseries`: 70 years of daily rows per station per variable per sim.
+- `budgets`: water budget per (timestep, zone, component) per sim.
+- `mass_balance`: global in/out/percent_error per timestep per sim.
 
 These three tables were the only ones with append-only, high-volume,
 per-simulation rows. Keeping them in a single DuckDB file made concurrent
@@ -112,7 +112,7 @@ single-writer lock point. `connect_with_retry` in `_db_retry.py` loops
 with exponential backoff over `duckdb.IOException` at connect time, and
 `@with_lock_retry` does the same on `execute()` calls for write methods.
 
-Read-only queries never hit the retry path — a reader that collides with
+Read-only queries never hit the retry path: a reader that collides with
 a writer raises naturally and the caller can retry.
 
 See `parquet_lakehouse_concurrency.md` for the failure modes and

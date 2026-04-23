@@ -1,4 +1,4 @@
-"""``hmp new`` — create a new project inside a workspace."""
+"""``hmp new`` - create a new project inside a workspace."""
 
 from __future__ import annotations
 

@@ -6,11 +6,11 @@ from pathlib import Path
 
 import numpy as np
 
-from hydromodpy.solver.boussinesq.core.state import BoussinesqState
-from hydromodpy.solver.boussinesq.history_contract import (
+from hydromodpy.physics.flow.history_contract import (
     build_transient_time_axes,
     write_time_series_npy,
 )
+from hydromodpy.solver.boussinesq.core.state import BoussinesqState
 from hydromodpy.solver.boussinesq.mesh import BoussinesqMesh
 
 

@@ -33,13 +33,13 @@ from typing import Any
 
 from hydromodpy.physics.flow import Flow
 from hydromodpy.physics.transport import Transport
-from hydromodpy.simulation.adapters import get_solver_adapter
 from hydromodpy.simulation.planning.plan import (
     ProcessRun,
     RunContext,
     RunExecutionResult,
     SimulationPlan,
 )
+from hydromodpy.solver.base.registry import get_solver_adapter
 
 # ---------------------------------------------------------------------------
 # Process-context helpers (free functions, no factory class)
@@ -73,7 +73,7 @@ def ensure_process_context(state: Any, process_type: str) -> None:
     """Ensure all process objects required by ``process_type`` exist.
 
     Process types not listed in ``_REQUIRED_COMPONENTS_BY_PROCESS`` are
-    silently accepted — they simply have no components to materialize.
+    silently accepted - they simply have no components to materialize.
     """
     components = _REQUIRED_COMPONENTS_BY_PROCESS.get(process_type, ())
     for component_name in components:

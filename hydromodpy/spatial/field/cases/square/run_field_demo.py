@@ -28,10 +28,10 @@ from matplotlib import pyplot as plt
 from matplotlib.colors import ListedColormap
 from matplotlib.patches import Patch
 
-from hydromodpy.solver.utils.mesh.plot_window_utils import maximize_figure_windows
 from hydromodpy.spatial.field.cases.square.field_mesh_square import FieldMeshSquare
 from hydromodpy.spatial.field.cases.square.field_spatial_square import FieldSquare
 from hydromodpy.spatial.field.core.field_param import FieldParam
+from hydromodpy.spatial.mesh.plot_window_utils import maximize_figure_windows
 
 DEFAULT_FIELD_PARAM_CONFIG_FILE = "field_param_config.toml"
 DEFAULT_MESH_CONFIG_FILE = "mesh_config.toml"

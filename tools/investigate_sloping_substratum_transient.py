@@ -14,13 +14,13 @@ import numpy as np
 
 import tools.investigate_surface_interaction_hillslope_transient as base
 from hydromodpy.physics.flow import Flow
-from hydromodpy.simulation.adapters.flow.boussinesq import BoussinesqFlowAdapter
-from hydromodpy.simulation.planning.plan import ProcessRun, RunContext, SimulationPlan
-from hydromodpy.solver.boussinesq.history_contract import (
+from hydromodpy.physics.flow.history_contract import (
     build_transient_time_axes,
     elapsed_seconds_for_time_keys,
     write_time_series_npy,
 )
+from hydromodpy.simulation.adapters.flow.boussinesq import BoussinesqFlowAdapter
+from hydromodpy.simulation.planning.plan import ProcessRun, RunContext, SimulationPlan
 from hydromodpy.solver.modflow6 import Modflow6
 from hydromodpy.solver.modflow_common import (
     ModflowPostprocessOptions,

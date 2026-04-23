@@ -1,11 +1,11 @@
-"""Data-overview launcher — "watershed identity card" workflow.
+"""Data-overview launcher - "watershed identity card" workflow.
 
 Orchestrates four phases:
 
-1. **Workspace** — prepare output directories.
-2. **Geographic** — delineate watershed from outlet coordinates.
-3. **Data loading** — download / load all requested data families.
-4. **Report** — generate overview PNGs (one per panel).
+1. **Workspace** - prepare output directories.
+2. **Geographic** - delineate watershed from outlet coordinates.
+3. **Data loading** - download / load all requested data families.
+4. **Report** - generate overview PNGs (one per panel).
 """
 
 from __future__ import annotations
@@ -59,7 +59,7 @@ class DataOverviewLauncher:
         }
 
     # ------------------------------------------------------------------
-    # Phase 1 — Workspace
+    # Phase 1 - Workspace
     # ------------------------------------------------------------------
 
     @staticmethod
@@ -70,7 +70,7 @@ class DataOverviewLauncher:
         logger.info("[overview] Workspace: %s", state.workspace.project_root)
 
     # ------------------------------------------------------------------
-    # Phase 1b — DEM bootstrap (API download)
+    # Phase 1b - DEM bootstrap (API download)
     # ------------------------------------------------------------------
 
     def _bootstrap_dem(self, state: DataOverviewState) -> None:
@@ -113,7 +113,7 @@ class DataOverviewLauncher:
         geo_cfg.dem_init_path = resolved
 
     # ------------------------------------------------------------------
-    # Phase 2 — Geographic
+    # Phase 2 - Geographic
     # ------------------------------------------------------------------
 
     @staticmethod
@@ -142,7 +142,7 @@ class DataOverviewLauncher:
         )
 
     # ------------------------------------------------------------------
-    # Phase 3 — Data loading
+    # Phase 3 - Data loading
     # ------------------------------------------------------------------
 
     def _load_data(self, state: DataOverviewState) -> None:
@@ -211,7 +211,7 @@ class DataOverviewLauncher:
                     pass
 
     # ------------------------------------------------------------------
-    # Phase 4 — Report generation
+    # Phase 4 - Report generation
     # ------------------------------------------------------------------
 
     @staticmethod

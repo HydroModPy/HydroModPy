@@ -6,7 +6,7 @@ timeseries on the fly. Nothing is written to DuckDB: results are returned
 as ``pd.Series`` so that callers can plot, combine or aggregate them
 freely.
 
-All functions are pure — they take a :class:`Run` (or any
+All functions are pure - they take a :class:`Run` (or any
 object exposing the same ``field`` / ``n_timesteps`` / ``mesh`` API) and
 the reduction parameters, and return a new object. They never mutate the
 catalog.

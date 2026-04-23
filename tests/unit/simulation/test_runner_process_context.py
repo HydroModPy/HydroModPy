@@ -6,7 +6,6 @@ import pytest
 
 from hydromodpy.physics.flow.flow_config import FlowConfig
 from hydromodpy.physics.transport.transport_config import TransportConfig
-from hydromodpy.simulation.adapters.flow.modflow_common import run_flow_model
 from hydromodpy.simulation.execution.runner import ProcessCallbacks, SimulationRunner
 from hydromodpy.simulation.planning.plan import (
     ProcessRun,
@@ -14,6 +13,7 @@ from hydromodpy.simulation.planning.plan import (
     RunExecutionResult,
     SimulationPlan,
 )
+from hydromodpy.solver.modflow_common.flow_adapter_helpers import run_flow_model
 from hydromodpy.solver.modflow_nwt import ModflowPreprocessOptions
 
 

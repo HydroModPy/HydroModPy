@@ -1,4 +1,4 @@
-"""``hmp report <session_id>`` — generate an HTML report for a calibration session.
+"""``hmp report <session_id>`` - generate an HTML report for a calibration session.
 
 Reads the ``calibration_sessions`` + ``calibration_iterations`` tables in
 the workspace DuckDB, renders the six calibration figures into a single

@@ -53,10 +53,9 @@ def parse_to_canonical_magnitude(
     """Parse one scalar + unit payload into a float magnitude in ``canonical_unit``.
 
     Uses the shared pint registry to enforce dimensional compatibility with
-    ``canonical_unit``. The ``length_label`` argument, when provided, is used
-    to shape the "Unsupported <label> unit" error expected by legacy call
-    sites (for example ``length_label="length"`` reproduces the historical
-    ``"Unsupported length unit 'furlong'"`` message).
+    ``canonical_unit``. The ``length_label`` argument, when provided, shapes
+    the "Unsupported <label> unit" error message (for example
+    ``length_label="length"`` produces ``"Unsupported length unit 'furlong'"``).
     """
     scalar, resolved_unit = parse_scalar_and_unit(
         value,

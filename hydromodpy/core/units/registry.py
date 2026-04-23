@@ -40,7 +40,7 @@ def get_registry() -> UnitRegistry:
 
     The registry is instantiated on first call and cached for the lifetime of
     the interpreter. All HydroModPy code MUST use this function (or the
-    re-exports from :mod:`hydromodpy.core.units`) to obtain a registry — mixing
+    re-exports from :mod:`hydromodpy.core.units`) to obtain a registry - mixing
     registries causes pint to raise ``DimensionalityError`` on equality.
     """
     import pint
@@ -51,9 +51,9 @@ def get_registry() -> UnitRegistry:
     # it with convenient aliases for hydrogeology.
     reg.define("percent = 1e-2 = %")
     reg.define("permille = 1e-3")
-    # Some datasets use "day" abbreviated as "d" — pint supports ``day`` but
+    # Some datasets use "day" abbreviated as "d" - pint supports ``day`` but
     # mixed "d" occurs in legacy configs. Register as alias where safe.
-    # NOTE: do not alias "d" to day — pint already uses "d" for day.
+    # NOTE: do not alias "d" to day - pint already uses "d" for day.
 
     # Default application-level formatting. Prefer ``formatter.default_format``
     # (introduced in pint >= 0.24); fall back to the deprecated attribute for

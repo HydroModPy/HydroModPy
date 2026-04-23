@@ -42,9 +42,9 @@ class HydrographyManager:
     ) -> None:
         self.config = config
         self.geographic = geographic
-        from hydromodpy.core.workspace.path_registry import LEGACY_STABLE_DIR
+        from hydromodpy.core.workspace.path_registry import PREPROCESSING_DIR
 
-        base = Path(stable_folder) if stable_folder else Path(out_path) / LEGACY_STABLE_DIR
+        base = Path(stable_folder) if stable_folder else Path(out_path) / PREPROCESSING_DIR
         self._data_folder = base / "hydrography"
         self._data_folder.mkdir(parents=True, exist_ok=True)
         self._backend = get_whitebox_backend()
@@ -64,7 +64,7 @@ class HydrographyManager:
             elif not result.empty:
                 vector_gdfs.append(result)
 
-        # TIF custom shortcut — skip vector pipeline
+        # TIF custom shortcut - skip vector pipeline
         if tif_path is not None:
             return self._load_from_tif(tif_path)
 

@@ -51,19 +51,19 @@ def cartesian_quad_mesh(
 
 @pytest.fixture(scope="session")
 def mini_cartesian_3x3() -> HydroMesh:
-    """3x3 quad grid (dx=dy=1m) — cheap unit fixture."""
+    """3x3 quad grid (dx=dy=1m) - cheap unit fixture."""
     return cartesian_quad_mesh(nx=3, ny=3, dx=1.0, dy=1.0)
 
 
 @pytest.fixture(scope="session")
 def mini_cartesian_10x10() -> HydroMesh:
-    """10x10 quad grid (dx=dy=10m) — small integration fixture."""
+    """10x10 quad grid (dx=dy=10m) - small integration fixture."""
     return cartesian_quad_mesh(nx=10, ny=10, dx=10.0, dy=10.0)
 
 
 @pytest.fixture(scope="module")
 def cartesian_101x101() -> HydroMesh:
-    """101x101 quad grid (dx=dy=1m) — MMS / convergence fixture."""
+    """101x101 quad grid (dx=dy=1m) - MMS / convergence fixture."""
     return cartesian_quad_mesh(nx=101, ny=101, dx=1.0, dy=1.0)
 
 

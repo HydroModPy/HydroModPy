@@ -75,7 +75,7 @@ class EnsembleBandFigure(BaseFigure):
             )
         ax.set_xlabel("Date")
         ax.set_ylabel(axis_label(variable))
-        ax.set_title(f"Ensemble envelope — {len(series)} runs @ {station}")
+        ax.set_title(f"Ensemble envelope - {len(series)} runs @ {station}")
         ax.grid(True, ls=":", lw=0.4)
         ax.legend()
         return ax

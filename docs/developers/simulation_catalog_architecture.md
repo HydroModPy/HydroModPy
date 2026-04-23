@@ -1,21 +1,24 @@
-# Architecture cible : Simulation Catalog
+# Architecture du Simulation Catalog
 
-Ce document remplace `ARCHITECTURE_RESULTS.md` et decrit l'architecture complete
-du stockage, de l'acces aux donnees et de l'API Python pour HydroModPy.
+Ce document décrit l'architecture complète du stockage, de l'accès aux
+données et de l'API Python pour HydroModPy.
 
-Changement fondamental : la **simulation** devient l'entite premiere.
-Le concept de "projet" devient un label, pas un dossier.
-Une seule base DuckDB contient toutes les simulations du workspace.
+Principe fondamental : la **simulation** est l'entité première. Le concept
+de « projet » est un label, pas un dossier. Une seule base DuckDB contient
+toutes les simulations du workspace.
 
-> **Note (v0.6, refactor Parquet lakehouse)** — les tables
-> `timeseries`, `budgets` et `mass_balance` ne sont plus stockees dans
-> `hydromodpy.duckdb`. Elles vivent desormais en Parquet par simulation
-> sous `simulations/<uuid>.parquet/` et sont exposees comme des vues
-> DuckDB du meme nom, de sorte que le code qui interroge ces tables en
-> SQL reste valide. Voir
-> [`parquet_lakehouse_architecture.md`](parquet_lakehouse_architecture.md),
-> [`parquet_lakehouse_migration_guide.md`](parquet_lakehouse_migration_guide.md)
-> et [`parquet_lakehouse_concurrency.md`](parquet_lakehouse_concurrency.md).
+Liens : [glossary.md](glossary.md),
+[parquet_lakehouse_architecture.md](parquet_lakehouse_architecture.md),
+[parquet_lakehouse_concurrency.md](parquet_lakehouse_concurrency.md),
+[parquet_lakehouse_migration_guide.md](parquet_lakehouse_migration_guide.md),
+[schema_evolution.md](schema_evolution.md),
+[calibration_guide.md](calibration_guide.md).
+
+Note v0.6 (refactor Parquet lakehouse) : les tables `timeseries`,
+`budgets` et `mass_balance` ne sont plus stockées dans
+`hydromodpy.duckdb`. Elles vivent désormais en Parquet par simulation
+sous `simulations/<uuid>.parquet/`, exposées comme des vues DuckDB du
+même nom afin que le code SQL existant reste valide.
 
 ## 1. Structure physique du workspace
 

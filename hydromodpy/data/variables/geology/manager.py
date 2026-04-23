@@ -1,10 +1,10 @@
-"""Geology variable manager — standard data-manager pattern.
+"""Geology variable manager - standard data-manager pattern.
 
 Downloads, caches, and serves geology data from BRGM APIs or custom
 files. Returns a ``LoadResult`` containing ``FieldRecord`` objects
 pointing to cached GeoPackage/GeoTIFF files.
 
-The ``GeologyField`` (field framework) is NOT built here — that
+The ``GeologyField`` (field framework) is NOT built here - that
 happens in :mod:`hydromodpy.data.loader`, which takes the loaded
 geodata and rasterizes it on the domain grid.
 """
@@ -107,7 +107,7 @@ class GeologyManager:
         bbox = self._resolve_bbox(source_cfg)
         if bbox is None:
             return None
-        # BRGM data is in EPSG:2154 — reproject bbox if needed
+        # BRGM data is in EPSG:2154 - reproject bbox if needed
         if self.geographic is not None:
             watershed_shp = getattr(self.geographic, "watershed_shp", None)
             if watershed_shp:

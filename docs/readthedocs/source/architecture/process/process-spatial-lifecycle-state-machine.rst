@@ -14,7 +14,7 @@ Code map
   lifecycle root for process runtime objects.
 - ``hydromodpy/process/flow/structure_binders.py``:
   one example of hydration from domain and loaded data.
-- ``hydromodpy/simulation/adapters/flow/``:
+- ``hydromodpy/solver/<backend>/adapters/``:
   preparation boundary before solver calls.
 
 Recommended reading path
@@ -23,7 +23,7 @@ Recommended reading path
 1. ``hydromodpy/process/prototype/process_spatial.py``
 2. ``hydromodpy/process/flow/flow.py``
 3. ``hydromodpy/process/flow/structure_binders.py``
-4. one adapter under ``hydromodpy/simulation/adapters/flow/``
+4. one adapter under ``hydromodpy/solver/<backend>/adapters/``
 
 Diagram source
 --------------

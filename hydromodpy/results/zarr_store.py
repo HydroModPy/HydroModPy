@@ -35,7 +35,7 @@ def _balanced_chunks_1d(
     target = _BALANCED_TARGET_BYTES // max(itemsize, 1)
     if n_timesteps <= 0 or n_cells <= 0:
         return (1, max(n_cells, 1))
-    # Keep ``cell_chunk = n_cells`` whenever it already fits — readers almost
+    # Keep ``cell_chunk = n_cells`` whenever it already fits - readers almost
     # always consume a whole timestep at once.
     if n_cells <= target:
         time_chunk = max(1, min(n_timesteps, target // n_cells))
@@ -146,7 +146,7 @@ class SimulationZarr:
         """Fingerprint pointing at the shared workspace ``geographic`` cache.
 
         Simulations no longer duplicate DEM/geology rasters inside their Zarr
-        store — instead they write the SHA-256 fingerprint computed by
+        store - instead they write the SHA-256 fingerprint computed by
         :class:`~hydromodpy.results.geographic_cache.GeographicCache` here.
         """
         value = self._root.attrs.get("geographic_fingerprint")

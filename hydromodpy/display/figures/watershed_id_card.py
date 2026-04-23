@@ -88,7 +88,7 @@ class WatershedIdCardFigure(GeoFigureMixin, BaseFigure):
         self._draw_metadata(ax_meta, sim)
 
         fig.suptitle(
-            f"Watershed ID card — {sim.name or sim.sim_id[:8]}",
+            f"Watershed ID card - {sim.name or sim.sim_id[:8]}",
             fontweight="bold",
             fontsize=14,
         )
@@ -211,11 +211,11 @@ class WatershedIdCardFigure(GeoFigureMixin, BaseFigure):
         sid_short = f"{sid[:8]}…" if len(sid) > 10 else sid
         rows: list[tuple[str, str]] = [
             ("ID", sid_short),
-            ("Name", str(sim.name or "—")),
-            ("Project", str(sim.project or "—")),
-            ("Solver", str(sim.solver or "—")),
-            ("Regime", str(sim.flow_regime or "—")),
-            ("Status", str(sim.status or "—")),
+            ("Name", str(sim.name or "-")),
+            ("Project", str(sim.project or "-")),
+            ("Solver", str(sim.solver or "-")),
+            ("Regime", str(sim.flow_regime or "-")),
+            ("Status", str(sim.status or "-")),
             ("Cells", _as_int_str(sim.n_cells)),
             ("Layers", _as_int_str(sim.n_layers)),
             ("Timesteps", _as_int_str(sim.n_timesteps)),
@@ -276,7 +276,7 @@ def _as_float(value) -> float | None:
 
 def _as_int_str(value) -> str:
     if value in (None, 0):
-        return "—"
+        return "-"
     try:
         return f"{int(value):,}"
     except (TypeError, ValueError):

@@ -1,168 +1,143 @@
-# Perspective de developpement: site 3D de Ploemeur
+# Perspective site 3D de Ploémeur
 
-Statut : note de cadrage initiale a partir des elements de contexte disponibles.
+Statut : note de cadrage. Ce document résume les caractéristiques du
+modèle 3D de Ploémeur, son usage actuel, ses limites et une trajectoire
+de portage vers la version courante d'HydroModPy.
 
-## Objet du document
+Liens : [nwt_sunset_plan.md](nwt_sunset_plan.md),
+[modflow6_gmsh_disv_development_perspective.md](modflow6_gmsh_disv_development_perspective.md),
+[gmsh_conformal_meshing.md](gmsh_conformal_meshing.md).
 
-Cette note resume les caracteristiques du modele 3D de Ploemeur, son usage
-actuel, ses limites, et une trajectoire de migration possible vers la nouvelle
-version d'HydroModPy.
+## Périmètre
 
-Le site cible couvre environ `10 km x 10 km x 500 m`.
+Site couvrant environ `10 km x 10 km x 500 m`.
 
 ## Question scientifique centrale
 
-Le point scientifique le plus structurant semble etre le role hydraulique de la
-zone de contact pegmatitique entre micaschistes et granites. Cette zone de
-contact doit etre consideree comme un objet geologique majeur du modele, au
-moins au meme niveau que les lithologies principales, les alterites de surface
-et les grandes failles.
+Le rôle hydraulique de la zone de contact pegmatitique entre
+micaschistes et granites. Cet objet géologique est au moins aussi
+structurant que les lithologies principales, les altérites de surface et
+les grandes failles.
 
-## Geometrie geologique de reference
+## Géométrie géologique de référence
 
-Le modele geologique provient de GOCAD et est exporte sur une grille 3D
-reguliere.
+Modèle géologique issu de GOCAD, exporté sur grille 3D régulière.
 
-Les objets geologiques mentionnes a ce stade sont les suivants :
+Objets géologiques actuellement représentés :
 
-- un niveau d'alterites proche de la surface, sur environ `20 m` d'epaisseur ;
+- niveau d'altérites proche de la surface, environ `20 m` d'épaisseur ;
 - cinq lithologies au total ;
-- une zone de contact pegmatitique entre micaschistes et granites, d'une
-  epaisseur de l'ordre de `50 m` ;
-- un pendage initial de cette zone d'environ `30 degres` vers le nord ;
-- une geometrie qui devient ensuite quasi verticale au bout de quelques
-  kilometres ;
-- deux grandes failles `N20`, chacune d'une largeur de l'ordre de `50 m`,
-  recoupant le site.
+- zone de contact pegmatitique entre micaschistes et granites,
+  épaisseur d'environ `50 m` ;
+- pendage initial d'environ `30 degrés` vers le nord, puis
+  quasi vertical au-delà de quelques kilomètres ;
+- deux grandes failles `N20` de largeur de l'ordre de `50 m`.
 
-## Proprietes hydrauliques
+## Propriétés hydrauliques
 
-Les proprietes hydrauliques habillent la geologie, avec un accent particulier
-sur :
+Les propriétés habillent la géologie, avec un accent sur :
 
-- la conductivite hydraulique ;
+- la conductivité hydraulique ;
 - l'anisotropie hydraulique ;
-- le contraste de comportement entre lithologies ;
-- le role specifique des micaschistes et de la zone de contact.
+- le contraste entre lithologies ;
+- le rôle spécifique des micaschistes et de la zone de contact.
 
-Autrement dit, la geologie n'est pas seulement descriptive : elle sert de
-support direct au parametrage hydraulique du modele.
+La géologie sert de support direct au paramétrage.
 
-## Discretisation et cout de calcul
+## Discrétisation et coût de calcul
 
-Le modele actuel repose sur :
+- maille horizontale `25 m x 25 m` ;
+- discrétisation verticale évolutive en profondeur ;
+- environ `2 à 3 millions` de mailles ;
+- grille régulière en plan, adaptée verticalement.
 
-- une maille horizontale de `25 m x 25 m` ;
-- une discretisation verticale evolutive avec la profondeur ;
-- un maillage de l'ordre de `2 a 3 millions` de mailles ;
-- une grille reguliere en plan, adaptee en profondeur.
+En régime permanent : un calcul MODFLOW prend environ dix minutes. Les
+calculs de particules MODPATH sont plus rapides. Pas de transitoire à ce
+stade.
 
-En simulation permanente :
+## Usage actuel
 
-- un calcul MODFLOW prend environ une dizaine de minutes ;
-- les calculs de particules MODPATH sont plus rapides.
+- simulations en régime permanent ;
+- calibration sur niveaux piézométriques en permanent ;
+- calibration visuelle sur les débits ;
+- ajustement léger sur le débit.
 
-Il n'y a pas encore de simulation transitoire a ce stade.
+Constat important : beaucoup de jeux de paramètres produisent des charges
+voisines. Problème classique de non-unicité, ou sensibilité limitée des
+charges seules pour discriminer les modèles.
 
-## Usage actuel du modele
+## Limites actuelles
 
-Le modele est aujourd'hui utilise principalement pour :
-
-- des simulations en regime permanent ;
-- une calibration sur les niveaux piezometriques en permanent ;
-- une calibration visuelle sur les debits ;
-- un ajustement leger sur le debit.
-
-Un point important ressort deja : beaucoup de jeux de parametres produisent des
-charges voisines. Cela suggere un probleme classique de non-unicite, ou au
-moins une sensibilite limitee des charges seules pour discriminer les modeles.
-
-## Sensibilite et limites actuelles
-
-Les limites actuelles peuvent etre formulees ainsi :
-
-- l'analyse de sensibilite montre que plusieurs modeles conduisent a des
-  charges proches ;
-- le permanent seul ne suffit probablement pas pour contraindre finement les
-  parametres ;
-- l'usage du transitoire pourrait aider a aller plus loin dans la
-  discrimination des hypotheses hydrauliques ;
-- les couts de post-traitement peuvent devenir importants quand le nombre de
-  particules augmente fortement.
+- plusieurs modèles conduisent à des charges proches ;
+- le régime permanent seul ne suffit pas à contraindre finement les
+  paramètres ;
+- le transitoire pourrait aider à discriminer les hypothèses ;
+- les coûts de post-traitement explosent avec le nombre de particules.
 
 ## Post-traitement particulaire
 
-Le post-traitement des trajectoires de particules repose sur PMPATH, comme
-alternative pratique a FloPy pour certaines analyses de trajectoires. FloPy a
-ete debranche sur ce volet.
+PMPATH est utilisé comme alternative à FloPy pour certaines analyses
+de trajectoires. FloPy est débranché sur ce volet.
 
 Points de vigilance :
 
-- PMPATH genere des fichiers de sortie dans la chaine `modflow_nwt` ;
-- pour `10 millions` de particules, ce sont surtout les sorties qui prennent de
-  la place disque et du temps ;
-- il existe deja des metriques de post-traitement permettant d'analyser les
-  trajectoires, ce qui constitue un acquis important a conserver dans la
+- PMPATH génère ses sorties dans la chaîne `modflow_nwt` ;
+- pour `10 millions` de particules, les sorties pèsent en disque et en
+  temps ;
+- des métriques de post-traitement existent déjà : à conserver dans la
   migration.
 
-## Trajectoire de migration vers la nouvelle version d'HydroModPy
+## Trajectoire de migration
 
-La migration parait devoir se faire en deux temps.
+Deux étapes.
 
-### Etape 1 - porter le modele sur une grille reguliere
+### Étape 1 : portage sur grille régulière
 
-La premiere etape devrait consister a reproduire au plus pres le modele actuel,
-sans changer sa logique geometrique :
+Reproduire au plus près le modèle actuel sans changer sa logique
+géométrique :
 
-- conserver l'entree geologique issue de GOCAD sur grille reguliere ;
-- conserver une discretisation structuree en plan ;
-- reconstruire le mapping geologie -> proprietes hydrauliques ;
-- representer explicitement les alterites, les cinq lithologies, la zone de
-  contact et les failles ;
-- remettre en priorite les cas permanents, la calibration piezometrique et la
-  chaine particulaire existante.
+- conserver l'entrée géologique GOCAD sur grille régulière ;
+- conserver une discrétisation structurée en plan ;
+- reconstruire le mapping géologie vers propriétés hydrauliques ;
+- représenter explicitement altérites, cinq lithologies, zone de
+  contact et failles ;
+- prioriser le permanent, la calibration piézométrique et la chaîne
+  particulaire existante.
 
-L'objectif de cette etape est de retrouver un cas de reference robuste avant
-de changer de type de maillage.
+Objectif : retrouver un cas de référence robuste avant de changer de
+type de maillage.
 
-### Etape 2 - passer a un maillage irregulier
+## Étape 2 : maillage irrégulier
 
-Une deuxieme etape pourra ensuite viser un maillage irregulier, si cela apporte
-un gain net sur la representation des objets geologiques structurants :
+Passer à un maillage irrégulier si cela apporte un gain net :
 
-- meilleure representation geometrique du contact pegmatitique ;
-- meilleure representation des failles `N20` ;
+- meilleure représentation du contact pegmatitique ;
+- meilleure représentation des failles `N20` ;
 - raffinement local plus efficace ;
-- reduction possible du cout global a precision equivalente.
+- réduction possible du coût à précision équivalente.
 
-Cette deuxieme etape n'a de sens que si l'etape reguliere a deja stabilise :
+Cette étape n'a de sens qu'après stabilisation des conventions
+géométriques, du paramétrage, des observables et du post-traitement.
 
-- les conventions de geometrie ;
-- le parametrage hydraulique ;
-- les observables de calibration ;
-- la chaine de post-traitement des trajectoires.
+## Priorités techniques
 
-## Priorites techniques recommandees
+1. définir un cas de référence Ploémeur sur grille régulière dans
+   l'architecture courante ;
+2. formaliser le schéma des unités géologiques et des propriétés
+   hydrauliques ;
+3. garantir la reprise des sorties permanentes et des sorties de
+   trajectoires ;
+4. encapsuler les métriques PMPATH pour ne pas dépendre du chemin FloPy
+   historique ;
+5. ouvrir un chantier transitoire ;
+6. n'aborder le maillage irrégulier qu'après validation du cas
+   structuré.
 
-Ordre de priorite propose :
+## Résumé exécutif
 
-1. definir un cas de reference Ploemeur sur grille reguliere dans la nouvelle
-   architecture ;
-2. formaliser le schema des unites geologiques et des proprietes hydrauliques ;
-3. garantir la reprise des sorties permanentes et des sorties de trajectoires ;
-4. encapsuler les metriques PMPATH pour ne pas dependre du chemin historique
-   FloPy ;
-5. ouvrir ensuite un chantier transitoire ;
-6. n'aborder le maillage irregulier qu'apres validation du cas structure.
-
-## Resume executif
-
-Le modele de Ploemeur est un modele 3D structure, dense, geologiquement riche,
-et deja operationnel en permanent. Son coeur scientifique semble etre le role
-hydraulique de la zone de contact pegmatitique, en interaction avec les
-micaschistes, les alterites superficielles et deux grandes failles `N20`.
-
-Pour la nouvelle version d'HydroModPy, la bonne strategie semble etre de
-porter d'abord fidelement ce modele sur une grille reguliere, puis seulement
-dans un second temps de viser un maillage irregulier et un passage au
-transitoire.
+Modèle 3D structuré, dense, géologiquement riche, opérationnel en
+permanent. Cœur scientifique : rôle hydraulique de la zone de contact
+pegmatitique, en interaction avec les micaschistes, les altérites
+superficielles et deux grandes failles `N20`. Stratégie de migration :
+porter d'abord fidèlement sur grille régulière, puis viser maillage
+irrégulier et transitoire dans un second temps.

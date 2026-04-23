@@ -1,4 +1,4 @@
-"""Step 7 — run the simulation plan via ``SimulationRunner``.
+"""Step 7 - run the simulation plan via ``SimulationRunner``.
 
 Executes every ``ProcessRun`` of the plan via its solver adapter. After
 each run, :func:`step_ingest_run_results` is invoked to post-process

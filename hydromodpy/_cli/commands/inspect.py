@@ -1,4 +1,4 @@
-"""``hmp inspect`` — detailed inspection of a simulation."""
+"""``hmp inspect`` - detailed inspection of a simulation."""
 
 from __future__ import annotations
 

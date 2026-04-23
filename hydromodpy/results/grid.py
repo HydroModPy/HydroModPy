@@ -4,7 +4,7 @@ Exposed as :attr:`hydromodpy.results.run.Run.grid`. Provides the
 scalars typically needed when post-processing or plotting a
 distributed simulation without reaching for the raw DEM transform.
 
-Only applies to simulations whose mesh is regular in plan — the
+Only applies to simulations whose mesh is regular in plan - the
 MODFLOW ``dis`` and ``disv`` topologies. For ``disu`` (unstructured)
 the builder raises: no uniform ``cell_size`` applies, and the caller
 should use :attr:`~hydromodpy.results.run.Run.mesh` vertices instead.
@@ -33,7 +33,7 @@ class Grid:
     shape : tuple[int, int]
         DEM raster shape as ``(nrow, ncol)``.
     extent : tuple[float, float, float, float]
-        CRS-aligned spatial extent as ``(xmin, xmax, ymin, ymax)`` —
+        CRS-aligned spatial extent as ``(xmin, xmax, ymin, ymax)`` -
         the 4-tuple expected by ``matplotlib.imshow(extent=...)``.
     crs : str | None
         Proj string describing the CRS, or ``None`` if unknown.
@@ -76,7 +76,7 @@ def build_grid(run: Run) -> Grid:
         raise RuntimeError(
             f"Grid metadata incomplete for simulation '{run._sim_id}' "
             f"(missing {missing} in geographic_metadata). The simulation "
-            "may pre-date grid ingestion — re-run to populate."
+            "may pre-date grid ingestion - re-run to populate."
         )
 
     cell_size = float(meta["dem_res"])

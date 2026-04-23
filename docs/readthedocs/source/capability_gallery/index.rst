@@ -14,8 +14,8 @@ This section groups a small set of static, versioned illustrations that explain 
 Coverage Snapshot
 -----------------
 
-- Category pages available today: 8.
-- Curated gallery cases available today: 78.
+- Category pages available today: 9.
+- Curated gallery cases available today: 83.
 - Most populated sections: Mesh Gallery (29), Validation Benchmarks (23), Method Comparison (6).
 
 Browse By Intent
@@ -119,12 +119,22 @@ Use these pages when the goal is not demonstration only, but numerical trust or 
       ^^^
       Analytical and semi-analytical comparisons rendered as reproducible teaching figures. 23 cases.
 
+   .. grid-item-card::
+      :class-card: sd-shadow-sm sd-rounded-3 sd-p-4
+      :link: calibration
+      :link-type: doc
+
+      **Calibration Benchmarks**
+      ^^^
+      Synthetic inverse problems used to inspect calibration workflows, search methods, and timing diagnostics. 5 cases.
+
 .. toctree::
    :hidden:
    :maxdepth: 1
 
    mesh
    validation
+   calibration
    geographic
    geometry
    hydraulic_properties

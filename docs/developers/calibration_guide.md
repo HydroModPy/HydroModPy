@@ -1,53 +1,57 @@
-# Calibration guide
+# Guide de calibration
 
-> **Audience** — hydrogeologists, modelers, and HydroModPy developers
-> who want to calibrate the parameters of a catchment-scale groundwater
-> model. Reading order: §1 (what calibration does) → §2 (end-to-end
-> workflow) → §3 (writing the TOML) → §7 (reading the results).
-> Sections §4–§9 are reference material you dip into once the loop is
-> actually running.
+Public : hydrogéologues, modélisateurs et développeurs HydroModPy
+souhaitant calibrer les paramètres d'un modèle d'eau souterraine à
+l'échelle du bassin versant. Ordre de lecture conseillé : §1 (principes),
+§2 (workflow), §3 (TOML), §7 (lecture des résultats). Les sections §4 à
+§9 sont de la référence à consulter une fois la boucle en route.
 
-This guide supersedes the former `calibration_restore_prompt.md` and
-`calibration_sweep_refactor_prompt.md`. It is the single source of
-truth for the calibration subsystem shipped on branch `dev-database`.
+Ce guide est la source unique de vérité pour le sous-système de
+calibration dans la branche `dev-database`. Code : `hydromodpy/calibration/`.
+
+Liens : [glossary.md](glossary.md),
+[design_patterns.md](design_patterns.md),
+[simulation_catalog_architecture.md](simulation_catalog_architecture.md),
+[CLI.md](CLI.md).
 
 ---
 
 ## Vue d'ensemble
 
-A *calibration* in HydroModPy is an ask/tell loop that repeatedly
-adjusts a handful of model parameters — typically hydraulic
-conductivity `K`, specific yield `Sy`, drain conductance — so that the
-simulated output best matches a reference time series (discharge at a
-gauging station, head at a piezometer, …). The loop is driven by an
-**optimizer** that proposes values and reacts to scalar objectives
-(NSE, KGE, RMSE) computed on each trial.
+Une calibration HydroModPy est une boucle ask/tell qui ajuste
+itérativement quelques paramètres du modèle (conductivité hydraulique
+`K`, porosité efficace `Sy`, conductance de drainage) afin que la sortie
+simulée s'approche au mieux d'une série de référence (débit à une
+station, charge à un piézomètre). La boucle est pilotée par un
+optimiseur qui propose des valeurs et réagit à un objectif scalaire
+(NSE, KGE, RMSE) calculé à chaque trial.
 
-Compared to a single `hmp run`, a calibration:
+Par rapport à un `hmp run` simple, une calibration :
 
-- produces a **trace** of N evaluations (one row per trial in the
-  DuckDB catalog), not a single simulation;
-- reuses the expensive setup steps (geography, mesh, data loading)
-  across trials via the *prepare-once-evaluate-many* primitive;
-- writes **only the best-N runs** to disk as full Zarr + Parquet
-  simulations — the other trials live as lightweight rows in DuckDB;
-- can be **resumed across sessions** thanks to a content-addressable
-  `params_hash` cache.
+- produit une trace de N évaluations (une ligne par trial dans le
+  catalogue DuckDB), pas une simulation unique ;
+- réutilise les étapes coûteuses de setup (géographie, maillage,
+  chargement de données) entre trials via la primitive
+  `prepare-once-evaluate-many` ;
+- n'écrit sur disque que les meilleurs runs sous forme de simulations
+  Zarr et Parquet complètes. Les autres trials restent sous forme de
+  lignes légères dans DuckDB ;
+- peut être reprise entre sessions grâce au cache adressé par contenu
+  `params_hash`.
 
-Use a calibration when you need to fit a model to observations. Use a
-simple `hmp run` when you already know the parameters.
+Utiliser une calibration pour ajuster un modèle à des observations.
+Utiliser un `hmp run` simple si les paramètres sont déjà connus.
 
-Throughout this guide the following terms have a precise meaning (all
-defined on first use and cross-referenced):
+Termes précis employés dans ce guide :
 
-- **TrialContext** — the prepared runtime reused by every trial in a
+- `TrialContext` : runtime préparé, réutilisé par chaque trial d'une
   session (§2, §4).
-- **earliest_affected_step** — the integer that decides which pipeline
-  steps are skipped per trial (§4).
-- **params_hash** — the SHA-256 fingerprint used for the cross-session
-  cache (§8).
-- **promote_trial** — the action that turns a lightweight trial row
-  into a full Zarr + Parquet simulation (§2, §5).
+- `earliest_affected_step` : entier qui décide quelles étapes du
+  pipeline sont skippées par trial (§4).
+- `params_hash` : fingerprint SHA-256 utilisé pour le cache inter-session
+  (§8).
+- `promote_trial` : action qui transforme une ligne trial légère en
+  simulation Zarr et Parquet complète (§2, §5).
 
 ---
 
@@ -77,33 +81,33 @@ flowchart LR
 
 Node by node:
 
-- **TOML** — a regular HydroModPy project TOML extended with a
+- **TOML**: a regular HydroModPy project TOML extended with a
   `[calibration]` section and a top-level `workflow = "calibration"`
   marker. The rest of the file (`[simulation]`, `[flow]`, `[data]`,
   `[solver]`) is exactly what you would write for a single run.
-- **`hmp run`** — the unified CLI entry point. It reads `workflow =
+- **`hmp run`**: the unified CLI entry point. It reads `workflow =
   "calibration"` and dispatches to
   `hydromodpy.calibration.cli.run_calibration_cli`. There is no
   separate `hmp calibrate` command.
-- **`prepare_trials`** — runs pipeline steps `[0..earliest)` exactly
+- **`prepare_trials`**: runs pipeline steps `[0..earliest)` exactly
   once. `earliest` is computed from the dotted paths declared by
   `[calibration.parameters.*]` (see §4). The prepared
   `WorkflowContext` (geographic, mesh, loaded forcings) is held in
   RAM and forked by every trial.
-- **Ask/tell loop** — the optimizer proposes a parameter point, the
+- **Ask/tell loop**: the optimizer proposes a parameter point, the
   loop forks the prepared context, injects the values, runs steps
   `[earliest..8]` in **lightweight** mode (no disk writes beyond the
   solver's own scratch files), extracts the scalar objective from RAM,
   and tells the optimizer. Repeat up to `max_iter`.
-- **DuckDB** — every trial adds one row to `calibration_iterations`
+- **DuckDB**: every trial adds one row to `calibration_iterations`
   (`sim_id` stays `NULL`). The session metadata lives in one row of
   `calibration_sessions` that is finalized at the end.
-- **`promote_trial` (top-N)** — if `save_runs != "none"`, the chosen
+- **`promote_trial` (top-N)**: if `save_runs != "none"`, the chosen
   trials are replayed through the *full* pipeline (steps `00..11`) by
   `hydromodpy.Project(cfg_path).run(**values)`. Each promotion creates
   a Zarr store, a Parquet directory, and a `simulations` row, and
   back-fills the corresponding `calibration_iterations.sim_id`.
-- **`hmp report <session_id>`** — post-processing CLI that reads the
+- **`hmp report <session_id>`**: post-processing CLI that reads the
   session + iterations from DuckDB, renders the six calibration
   figures, and emits a standalone HTML report at
   `<workspace>/reports/<session_id>/report.html`.
@@ -112,12 +116,11 @@ Node by node:
 
 ## Le TOML côté utilisateur
 
-This section walks through the canonical example shipped with the
-repository:
-`examples/projects/02_nancon_watershed/run_calibration_k.toml`. Every
-snippet below is a verbatim excerpt.
+Cette section s'appuie sur l'exemple canonique livré avec le dépôt :
+`examples/projects/02_nancon_watershed/run_calibration_k.toml`. Les
+extraits ci-dessous en sont copiés verbatim.
 
-### Overlay and workflow marker
+### Overlay et marqueur de workflow
 
 ```toml
 base_config = "project.toml"
@@ -125,17 +128,17 @@ base_config = "project.toml"
 workflow = "calibration"
 ```
 
-- `base_config` — relative path to the *base* project TOML
+- `base_config`: relative path to the *base* project TOML
   (`project.toml` here). All sections of the base are inherited and
   overridden by the current file. This is how you keep a single
   description of the catchment shared between simulation, calibration,
   and sweep overlays.
-- `workflow = "calibration"` — the single switch that tells `hmp run`
+- `workflow = "calibration"`: the single switch that tells `hmp run`
   to dispatch to the ask/tell loop instead of the default
   single-simulation path. Dispatch logic lives in
   `hydromodpy/_cli/workflows.py:DISPATCH`.
 
-### Simulation block (standard)
+### Bloc simulation (standard)
 
 ```toml
 [simulation]
@@ -156,14 +159,14 @@ solvers = ["modflownwt"]
 
 The `[simulation]` tree is exactly what you write for a single `hmp
 run`: a name, a time window, and one or more processes. **Changing the
-solver does not change anything in the `[calibration]` section** — the
+solver does not change anything in the `[calibration]` section**: the
 calibration code is solver-agnostic (no `modflow`, `modflow6`,
 `boussinesq`, or `solver_engine` string appears anywhere in
 `hydromodpy/calibration/`). Swap `"modflownwt"` for `"modflow6"` and
 the same TOML calibrates the other solver (subject to the metric
 extractor coverage noted in §6).
 
-### Frozen parameters
+### Paramètres figés
 
 ```toml
 [domain.depth_model]
@@ -183,7 +186,7 @@ Any leaf not listed under `[calibration.parameters.*]` is **frozen**
 at the value written in the TOML. Here `Sy` and `Ss` are frozen at
 `0.05` and `1e-5`; only `K` is calibrated.
 
-### The `[calibration]` section
+### La section `[calibration]`
 
 ```toml
 [calibration]
@@ -213,7 +216,7 @@ Exhaustive option reference:
 | `batch_size` | integer ≥ 1 | `1` | Suggestions drawn per `ask`. Reserved for future parallel trials. Leave at `1` today. |
 | `optimizer_kwargs` | dict | `{}` | Extra kwargs forwarded to the sampler (e.g. `{sampler = "cmaes"}` for Optuna). |
 
-### Per-parameter declarations
+### Déclarations par paramètre
 
 ```toml
 [calibration.parameters.K]
@@ -244,7 +247,7 @@ bounds = [1e-6, 1e-3]
 transform = "log"
 path = "flow.param.K.value"
 
-# Zoned K — one block per zone, each with its own `path`
+# Zoned K: one block per zone, each with its own `path`
 [calibration.parameters.K_granite]
 bounds = [1e-6, 1e-3]
 transform = "log"
@@ -255,7 +258,7 @@ bounds = [1e-6, 1e-3]
 transform = "log"
 path = "flow.param.K.field_spatial.zone_schiste.value"
 
-# Specific yield (no log — already O(1))
+# Specific yield (no log: already O(1))
 [calibration.parameters.Sy]
 bounds = [0.02, 0.30]
 transform = "identity"
@@ -274,7 +277,7 @@ transform = "identity"
 path = "domain.depth_model.thickness"
 ```
 
-### Recipes cheat-sheet
+### Aide-mémoire recettes
 
 | Use case | Block |
 |---|---|
@@ -286,7 +289,7 @@ path = "domain.depth_model.thickness"
 
 ---
 
-## Step auto-invalidation
+## Invalidation automatique d'étapes
 
 Every pipeline step declares which TOML subtrees it reads via a
 `config_sections` class variable. When a calibration mutates
@@ -324,17 +327,17 @@ flowchart TB
     class S09,S10,S11 promoted
 ```
 
-- **Green (shared)** — steps `00..05`. Executed once by
+- **Green (shared)**: steps `00..05`. Executed once by
   `prepare_trials`. Geographic, mesh, and loaded forcings live in
   `TrialContext.ctx` and are shared by reference across every fork.
-- **Orange (looped)** — steps `06..08`. Re-run per trial in
+- **Orange (looped)**: steps `06..08`. Re-run per trial in
   `run_trial_light`. The trial fork deep-copies the config, injects
   the new parameter values, and re-executes this slice only.
-- **Blue (promoted)** — steps `09..11`. Never run during the
+- **Blue (promoted)**: steps `09..11`. Never run during the
   calibration loop. Executed only for the trials picked up by
   `promote_trial` after the loop converges.
 
-### "If I calibrate X, what re-runs?"
+### Si je calibre X, qu'est-ce qui est rejoué ?
 
 | Calibrated path | `earliest` | Steps shared (run once) | Steps re-run per trial | Rough speedup |
 |---|---|---|---|---|
@@ -347,7 +350,7 @@ flowchart TB
 | `domain.supports.cell_size` | 4 | 00-03 | 04-08 | ~1.7× |
 | `geographic.buff_area` | 3 | 00-02 | 03-08 | ~1.3× |
 
-**Matching rule — dotted longest-prefix.** Given an override path like
+**Matching rule: dotted longest-prefix.** Given an override path like
 `flow.param.K.field_homogeneous.value`, the selector walks each step's
 `config_sections` and accepts a match when the section is a
 dotted-prefix of the path. `flow` matches, `flow.param.K` matches,
@@ -363,7 +366,7 @@ each of the 12 `step_<nn>_*.py` modules.
 
 ---
 
-## Storage
+## Stockage
 
 ```mermaid
 flowchart LR
@@ -411,7 +414,7 @@ Parquet only for promoted runs.**
 
 | Artefact | Lives in | Written when |
 |---|---|---|
-| Simulated vector aligned on observations | RAM only | Each `run_trial_light` — discarded at end of trial |
+| Simulated vector aligned on observations | RAM only | Each `run_trial_light`: discarded at end of trial |
 | Per-station scalar metrics (NSE, KGE, RMSE) | `calibration_iterations.metrics` (JSON column) | After each trial |
 | Session metadata | `calibration_sessions` (1 row / session) | Start + finalize |
 | Parameters + scalar objective | `calibration_iterations` (sim_id NULL by default) | After each trial |
@@ -452,25 +455,25 @@ run on disk.
 
 `optimizer_kwargs` hints:
 
-- **`grid`** — `{ "n_points": {K = 10, Sy = 5} }` to set per-parameter
+- **`grid`**: `{ "n_points": {K = 10, Sy = 5} }` to set per-parameter
   granularity. Defaults to a uniform count across all parameters.
-- **`optuna`** — `{ "sampler": "tpe" | "cmaes" | "random", "pruner": "median" }`.
+- **`optuna`**: `{ "sampler": "tpe" | "cmaes" | "random", "pruner": "median" }`.
   Default sampler is TPE; `cmaes` is strongly recommended when you
   have 3+ continuous parameters.
-- **`scipy_de`** — `{ "popsize": 15, "mutation": [0.5, 1.0], "recombination": 0.7 }`
-  — the standard `scipy.optimize.differential_evolution` knobs.
-- **`scipy_nelder_mead`** — `{ "xatol": 1e-4, "fatol": 1e-4, "adaptive": true }`.
+- **`scipy_de`**: `{ "popsize": 15, "mutation": [0.5, 1.0], "recombination": 0.7 }`
+ : the standard `scipy.optimize.differential_evolution` knobs.
+- **`scipy_nelder_mead`**: `{ "xatol": 1e-4, "fatol": 1e-4, "adaptive": true }`.
   `adaptive = true` is friendlier in higher dimensions.
-- **`gp_mapping`** — `{ "n_initial": 10, "acq": "ei" }` — expected
+- **`gp_mapping`**: `{ "n_initial": 10, "acq": "ei" }`: expected
   improvement over an RBF Gaussian Process surrogate.
-- **`da_mh_gp`** — `{ "burn_in": 200, "thin": 5, "proposal_scale": 0.3 }` —
+- **`da_mh_gp`**: `{ "burn_in": 200, "thin": 5, "proposal_scale": 0.3 }` :
   Metropolis-Hastings tuned by the surrogate.
 
 ---
 
 ## Lire les résultats
 
-### a) Python / DuckDB API
+### a) API Python et DuckDB
 
 ```python
 import hydromodpy as hmp
@@ -491,20 +494,20 @@ print(iters.head())
 - `catalog.best(project, metric)` gives you a `Run` object for the
   best promoted trial across sessions matching `project`.
 
-### b) Figures — Display registry
+### b) Figures via le registre display
 
 Six named figures ship with HydroModPy. Each implements the `Figure`
 protocol and is registered in `hydromodpy/display/figures/__init__.py`.
 
-- `calibration_convergence` — best-so-far objective vs iteration.
-- `calibration_trace` — parallel plots of every parameter + objective
+- `calibration_convergence`: best-so-far objective vs iteration.
+- `calibration_trace`: parallel plots of every parameter + objective
   across iterations.
-- `calibration_landscape` — 2D scatter of any pair of parameters
+- `calibration_landscape`: 2D scatter of any pair of parameters
   coloured by objective value.
-- `calibration_posterior` — marginal histograms per parameter.
-- `calibration_objective_surface` — interpolated NSE surface over any
+- `calibration_posterior`: marginal histograms per parameter.
+- `calibration_objective_surface`: interpolated NSE surface over any
   2-parameter slice.
-- `calibration_pairplot` — pairwise grid of scatter + histograms.
+- `calibration_pairplot`: pairwise grid of scatter + histograms.
 
 Render one figure at a time from the CLI (the session id is printed
 on stderr during `hmp run`):
@@ -520,14 +523,14 @@ hmp display run_calibration_k.toml --session <session_id> --figure calibration_p
 
 Pre-rendered examples for a Dupuit / MODFLOW-6 twin benchmark live
 under
-`docs/readthedocs/source/_static/capability_gallery/calibration/` —
+`docs/readthedocs/source/_static/capability_gallery/calibration/` :
 reuse them as visual references.
 
 You can also ask the loop to render figures automatically at the end
 of the session by listing them under `[display] figures = [...]` in
 the TOML.
 
-### c) HTML report
+### c) Rapport HTML
 
 For users who do not want to drop into Python:
 
@@ -538,7 +541,7 @@ xdg-open ~/workspace/reports/<session_id>/report.html
 
 The report embeds the six figures together with a summary table
 (method, objective, best parameters, best_sim_id, duration). It is
-fully standalone — the HTML file + its sibling PNGs can be shipped as
+fully standalone: the HTML file + its sibling PNGs can be shipped as
 a single folder.
 
 ---
@@ -550,13 +553,13 @@ canonical parameter JSON representation (keys sorted, floats
 normalized). The hash is written on every `calibration_iterations`
 row.
 
-- `use_cache = true` (default) — before running a trial, the engine
+- `use_cache = true` (default): before running a trial, the engine
   looks up `params_hash` in the `ParamsHashCache`. The cache is
   preloaded at session start from every *completed* and *promoted*
   iteration of every previous session on the same workspace. If a hit
-  is found, the sim_id is reused and the solver is skipped entirely —
+  is found, the sim_id is reused and the solver is skipped entirely :
   the cached objective value is returned.
-- `seed = 42` — seeds the sampler. Combined with a deterministic
+- `seed = 42`: seeds the sampler. Combined with a deterministic
   solver, this makes the whole sequence reproducible. Leave `null`
   for stochastic exploration.
 
@@ -590,7 +593,7 @@ Disable the cache (`use_cache = false`) when:
   `[data.piezometry]` for head) is populated.
 - **MODFLOW-6 + calibration de discharge.** The extractor in
   `hydromodpy.calibration.metrics` currently covers MODFLOW-NWT only;
-  MODFLOW-6 returns `NaN`. Scheduled as future work — use
+  MODFLOW-6 returns `NaN`. Scheduled as future work: use
   MODFLOW-NWT in the meantime or plug in a custom extractor via §10.
 - **Oublier `workflow = "calibration"`.** `hmp run` then treats the
   TOML as a simulation and runs `K` exactly once with its default
@@ -632,7 +635,7 @@ session_id, method, n_iterations, best_objective,
 best_sim_id, duration_s, save_runs, promoted
 ```
 
-### Lower-level building blocks
+### Briques bas niveau
 
 The CLI is a thin wrapper around three primitives you can call
 directly for custom orchestration:
@@ -687,16 +690,16 @@ fig = hmp.display.get("calibration_convergence").plot(
 )
 ```
 
-### Analytical test cases
+### Cas de test analytiques
 
 Two pure-Python demos are shipped for local experimentation (no
 MODFLOW install needed):
 
-- `hydromodpy.calibration.cases.recession_brutsaert` — hydrograph
+- `hydromodpy.calibration.cases.recession_brutsaert`: hydrograph
   recession fit (`Q(t) = Q0 * exp(-t/tau)`) used as the golden for
   `grid_search`, `random_search`, `nelder_mead`, `simplex`, `cma_es`,
   `gp_mapping`, `da_mh_gp`.
-- `hydromodpy.calibration.cases.groundwater_1d` — 1D synthetic
+- `hydromodpy.calibration.cases.groundwater_1d`: 1D synthetic
   aquifer with analytical head profile.
 
 They are the quickest way to check that a new optimizer adapter

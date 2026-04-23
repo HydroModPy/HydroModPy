@@ -264,7 +264,7 @@ class Modpath(Solver):
             from hydromodpy.core.workspace.resolve import locate_workspace_root
             from hydromodpy.results.catalog import SimulationCatalog
 
-            # model_folder is .solver_scratch/ — project root is its parent.
+            # model_folder is .solver_scratch/ - project root is its parent.
             mf = Path(self.model_folder)
             project_root = mf.parent if mf.name == ".solver_scratch" else mf
             workspace_root = locate_workspace_root(project_root) or project_root
@@ -646,11 +646,11 @@ class Modpath(Solver):
             unitnumber=86,
         )
 
-        # 1	gauche	face Ouest (x– direction)
+        # 1	gauche	face Ouest (x- direction)
         # 2	droite	face Est (x+ direction)
-        # 3	avant	face Sud (y– direction)
+        # 3	avant	face Sud (y- direction)
         # 4	arrière	face Nord (y+ direction)
-        # 5	bas   	face inférieure (z– direction)
+        # 5	bas   	face inférieure (z- direction)
         # 6	haut	face supérieure (z+ direction)
 
     # %% PROCESSING

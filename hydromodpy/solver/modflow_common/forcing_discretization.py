@@ -29,7 +29,7 @@ def discretize_spatially_distributed_source(
     period. Unstructured planar meshes receive one flat ``(ncpl,)`` vector.
     """
     if bool(getattr(solver_mesh, "is_structured", False)):
-        from hydromodpy.solver.utils.mesh.cartesian_grid.sgrid_field_discretization import (
+        from hydromodpy.spatial.mesh.cartesian_grid.sgrid_field_discretization import (
             discretize_fields_on_sgrid,
             discretize_points_on_sgrid,
         )
@@ -54,14 +54,14 @@ def discretize_spatially_distributed_source(
         ncol = int(solver_mesh.ncol)
         return {kper: np.zeros((nrow, ncol), dtype=float) for kper in range(int(nper))}
 
-    from hydromodpy.solver.utils.mesh.gmsh_grid.planar_forcing_discretization import (
+    from hydromodpy.spatial.mesh.gmsh_grid.planar_forcing_discretization import (
         discretize_fields_on_planar_mesh,
         discretize_points_on_planar_mesh,
     )
 
     resolved_planar_mesh = planar_mesh
     if resolved_planar_mesh is None:
-        from hydromodpy.solver.utils.mesh.gmsh_grid.gmsh_planar_mesh import (
+        from hydromodpy.spatial.mesh.gmsh_grid.gmsh_planar_mesh import (
             GmshPlanarMesh2D,
         )
 

@@ -1,4 +1,4 @@
-"""``hmp schema`` — export the JSON Schema and validate single fields."""
+"""``hmp schema`` - export the JSON Schema and validate single fields."""
 
 from __future__ import annotations
 

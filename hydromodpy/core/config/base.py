@@ -27,15 +27,15 @@ class HydroModelBase(BaseModel):
 
     Sets the strictness defaults required by the architecture spec:
 
-    * ``extra="forbid"`` — typos in TOML keys are rejected.
-    * ``populate_by_name=True`` — model can be built from either alias
+    * ``extra="forbid"`` - typos in TOML keys are rejected.
+    * ``populate_by_name=True`` - model can be built from either alias
       or internal field name.
-    * ``serialize_by_alias=True`` — dumps respect the declared aliases.
-    * ``validate_assignment=True`` — mutations go through validators.
-    * ``str_strip_whitespace=True`` — trims free-form string inputs.
-    * ``arbitrary_types_allowed=True`` — needed for pint Quantities and
+    * ``serialize_by_alias=True`` - dumps respect the declared aliases.
+    * ``validate_assignment=True`` - mutations go through validators.
+    * ``str_strip_whitespace=True`` - trims free-form string inputs.
+    * ``arbitrary_types_allowed=True`` - needed for pint Quantities and
       other third-party types used in sub-configs.
-    * ``ser_json_inf_nan="strings"`` — reproducible JSON even for ``inf``.
+    * ``ser_json_inf_nan="strings"`` - reproducible JSON even for ``inf``.
     """
 
     model_config = ConfigDict(

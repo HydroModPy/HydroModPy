@@ -15,10 +15,10 @@ concentration ``c0`` at the inlet and an open boundary at the outlet.
 Numerical and analytical concentrations are compared at probe points
 along the column at three times.
 
-Tolerance rationale — ``tests/TOLERANCES.md`` row 7: NSE > 0.95 across
+Tolerance rationale - ``tests/TOLERANCES.md`` row 7: NSE > 0.95 across
 all (x, t) probes with a maximum pointwise relative error below 3 %.
 
-Scope — ``solver_sanity``:
+Scope - ``solver_sanity``:
    The coupled GWF + GWT column with inlet auxiliary concentration is
    built directly on the flopy SDK because hydromodpy's transport
    plumbing does not yet expose MF6 GWT through the launcher TOML. The
@@ -91,11 +91,11 @@ def _build_and_run_ogata_banks_model(
     repo_root = Path(__file__).resolve().parents[4]
     mf6_exe = repo_root / "bin" / "linux" / "mf6"
 
-    # Aquifer geometry — unit cross-section, uniform cells.
+    # Aquifer geometry - unit cross-section, uniform cells.
     aquifer_top = 1.0
     aquifer_bot = 0.0
     aquifer_thickness = aquifer_top - aquifer_bot
-    hydraulic_conductivity = 1.0  # m/day — chosen with the head gradient so v matches
+    hydraulic_conductivity = 1.0  # m/day - chosen with the head gradient so v matches
 
     # For pore velocity v = K * i / n  ⇒  head gradient i = v n / K.
     head_gradient = PORE_VELOCITY_M_PER_DAY * POROSITY / hydraulic_conductivity

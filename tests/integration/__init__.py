@@ -1,1 +1,1 @@
-"""Integration test tier — cross-module tests with shared fixtures."""
+"""Integration test tier - cross-module tests with shared fixtures."""

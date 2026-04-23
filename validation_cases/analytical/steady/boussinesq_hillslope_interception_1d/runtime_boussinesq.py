@@ -10,7 +10,7 @@ import numpy as np
 from hydromodpy.physics.flow import Flow
 from hydromodpy.solver.boussinesq import Boussinesq, BoussinesqState
 from hydromodpy.solver.boussinesq.assembly import saturated_thickness_from_head
-from hydromodpy.solver.utils.mesh.gmsh_grid.catchment_mesh_bundle_reader import (
+from hydromodpy.spatial.mesh.gmsh_grid.catchment_mesh_bundle_reader import (
     load_catchment_mesh_bundle,
 )
 from validation_cases.analytical.steady.boussinesq_fixed_head_piecewise_k_1d.runtime_boussinesq import (

@@ -16,7 +16,7 @@ from hydromodpy.solver.modflow_nwt.modflow.property_mapping import (
 from hydromodpy.solver.modflow_nwt.modflow.property_mapping import (
     resolve_required_flow_properties,
 )
-from hydromodpy.solver.utils.mesh.gmsh_grid.gmsh_planar_mesh import GmshPlanarMesh2D
+from hydromodpy.spatial.mesh.gmsh_grid.gmsh_planar_mesh import GmshPlanarMesh2D
 
 logger = get_logger(__name__)
 _DEFAULT_CELL_SAMPLES_PER_AXIS = 8

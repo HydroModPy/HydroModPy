@@ -36,7 +36,7 @@ def _solve_laplacian_1d(n_cells: int) -> tuple[np.ndarray, np.ndarray, float]:
 
     The grid uses ``n_cells`` interior unknowns on ``[0, 1]`` with uniform
     spacing ``h = 1 / (n_cells + 1)``. The tridiagonal system is assembled
-    and solved with ``numpy.linalg.solve`` — large enough for the expected
+    and solved with ``numpy.linalg.solve`` - large enough for the expected
     refinements (N up to 80) without becoming ill-conditioned.
     """
     if n_cells < 3:

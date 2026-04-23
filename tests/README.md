@@ -64,13 +64,13 @@ pytest tests/unit/ -q                         # all unit tests
 pytest tests/unit/solver -q                   # a subpath
 pytest tests/unit/ -q -k metrics_nse          # keyword filter
 
-# Regression — fast tier (parallel)
+# Regression - fast tier (parallel)
 pytest tests/regression/fast/ -q -n auto
 
-# Regression — extensive tier (serial)
+# Regression - extensive tier (serial)
 pytest tests/regression/extensive/ -q -n 1
 
-# Validation — all analytical cases
+# Validation - all analytical cases
 pytest tests/validation/ -q
 
 # Marker selection
@@ -110,7 +110,7 @@ so spawned subprocesses inherit the same cleanup policy.
 ## Golden references
 
 Regression tests compare the output of a pipeline run to a committed
-**signature** — a statistical summary of fields stored as JSON under
+**signature** - a statistical summary of fields stored as JSON under
 `tests/regression/reference/golden_references/{fast,extensive}/`.
 
 ### Reading a failure
@@ -122,9 +122,9 @@ When a regression assertion fails:
 2. Open the corresponding JSON and compare the stored signature to the
    freshly computed one.
 3. Decide whether the difference is:
-   - **a legitimate code change** — update the golden (see below),
-   - **a numerical drift** — investigate the responsible commit,
-   - **a platform difference** — document and, if needed, tighten the
+   - **a legitimate code change** - update the golden (see below),
+   - **a numerical drift** - investigate the responsible commit,
+   - **a platform difference** - document and, if needed, tighten the
      tolerance or mark the test platform-specific.
 
 ### Updating goldens
@@ -158,15 +158,15 @@ for the per-case workflow.
 
 ## Writing new tests
 
-- **unit/** — one importable module under test, one behaviour per test,
+- **unit/** - one importable module under test, one behaviour per test,
   budget ≤ 2 s. No external binaries. Use `tmp_path` for any I/O.
-- **integration/** — cross-module test (pipeline + catalog, planner +
+- **integration/** - cross-module test (pipeline + catalog, planner +
   adapters, …) backed by shared fixtures from the root conftest
   (`tmp_workspace`, `minimal_config`). Budget ≤ 10 s, no golden files.
-- **regression/** — exercise a full launcher / pipeline on a fixture, then
+- **regression/** - exercise a full launcher / pipeline on a fixture, then
   compare a committed signature. Tag with `@pytest.mark.regression` and
   (if solver-specific) `@pytest.mark.nwt` or `@pytest.mark.mf6`.
-- **validation/** — exercise a physical case against a known analytical
+- **validation/** - exercise a physical case against a known analytical
   solution; document the reference and the tolerance rationale.
 
 The shared fixtures come from `tests/conftest.py`:
@@ -187,9 +187,9 @@ usually hiding several independent suites.
 `.github/workflows/coverage.yml` runs on push to `master`/`dev-refact`/
 `dev-data`/`dev-database` and on PRs to `master`:
 
-- **unit job** — `pytest tests/unit/` on Python 3.12 with coverage
+- **unit job** - `pytest tests/unit/` on Python 3.12 with coverage
   (`unit` flag on Codecov).
-- **regression job** — `pytest tests/regression/fast/ tests/regression/extensive/`
+- **regression job** - `pytest tests/regression/fast/ tests/regression/extensive/`
   with coverage (`regression` flag on Codecov).
 
 Validation runs are not part of the fast PR-blocking suite; run them

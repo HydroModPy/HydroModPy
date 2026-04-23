@@ -59,11 +59,11 @@ Solver Coverage
          Dupuit Circular-Island Ocean 2D rendered with MODFLOW-NWT for the analytical gallery.
 
       **Metrics**
-      - Radial head-profile RMSE: 2.6844 m
-      - Radial head-profile max abs error: 3.4429 m
-      - Azimuthal spread: 0.0000 m
+      - Radial head-profile RMSE: 0.0489 m
+      - Radial head-profile max abs error: 0.0918 m
+      - Azimuthal spread: 0.1120 m
       - Ocean head max abs error: 0.00e+00 m
-      - Minimum land freeboard: 1.0392 m
+      - Minimum land freeboard: 0.7869 m
 
       - Config file: ``validation_cases/analytical/steady/dupuit_circular_island_ocean_2d/config_modflownwt.toml``
       - Tolerances: ``validation_cases/analytical/steady/dupuit_circular_island_ocean_2d/tolerances.toml``

@@ -1,4 +1,4 @@
-"""Tests for simulation/results/exporters/ — format-specific exporters."""
+"""Tests for simulation/results/exporters/ - format-specific exporters."""
 
 from __future__ import annotations
 

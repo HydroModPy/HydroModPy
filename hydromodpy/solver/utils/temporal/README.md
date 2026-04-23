@@ -3,9 +3,8 @@
 `hydromodpy/solver/utils/temporal/` contains the time-discretization layer used
 to build solver stress periods.
 
-- `tmesh_generation.py`: temporal mesh/grid generation class (`TMesh_Generation`)
-  with typed runtime config (`TMeshConfig`).
-- `tmesh_config.py`: Pydantic model (`TMeshConfigModel`) + TOML helpers.
+- `tmesh_generation.py`: temporal mesh/grid generation class (`TMesh_Generation`).
+- `tmesh_config.py`: Pydantic model (`TMeshConfig`) + TOML helpers.
 - `tmesh_config.toml`: minimal template with all `TMesh_Generation` entries.
 - `cases/`: runnable demo cases (`run_tmesh_case.py`) and sample TOML.
 
@@ -50,7 +49,7 @@ between two inclusive dates".
 
 ## TGrid Format Consumed By MODFLOW
 
-Input schema is `TMeshConfigModel` with key fields:
+Input schema is `TMeshConfig` with key fields:
 
 - `itmuni`, `genmtd`, `nper`, `lenper`, `chron_*`, `start_datetime`,
   `end_datetime`, `firstpersteady`, `ntsp`, `tsmult`.
@@ -87,4 +86,3 @@ defines another `tsmult`.
 
 The current temporal builder computes `perlen` from timedeltas and normalizes
 to day-equivalent floats. In practice, keep `itmuni="days"` to avoid ambiguity.
-

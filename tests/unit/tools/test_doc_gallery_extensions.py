@@ -8,14 +8,14 @@ import pytest
 
 # Several validation-case ``comparison.py`` modules currently import
 # ``load_last_npy_array_on_expected_grid`` from ``validation_cases.shared``
-# — that helper has been removed and the callers still need a rewrite.
+# - that helper has been removed and the callers still need a rewrite.
 # Skip the whole module until that refactor lands.
 pytest.importorskip(
     "validation_cases.shared",
     reason="validation_cases.shared is missing "
-    "load_last_npy_array_on_expected_grid — skipped until fixed.",
+    "load_last_npy_array_on_expected_grid - skipped until fixed.",
 )
-try:  # noqa: SIM105 — explicit skip when the real cause is a broken import
+try:  # noqa: SIM105 - explicit skip when the real cause is a broken import
     from validation_cases.analytical.steady.boussinesq_sloping_substratum_fixed_head_1d.comparison import (  # noqa: F401,E501
         build_boussinesq_sloping_substratum_fixed_head_comparison,
     )
@@ -132,16 +132,20 @@ def test_generate_depth_property_case_smoke(tmp_path: Path) -> None:
 
 def test_generate_method_comparison_case_smoke(tmp_path: Path) -> None:
     spec = _spec_by_slug("example12_map_method_comparison")
-    run_folder = (
+    # Generation reuses committed comparison artifacts via
+    # ``_load_committed_method_comparison_payload`` - gate on those, not on
+    # the solver run folders (which are not checked in).
+    committed_root = (
         Path(__file__).resolve().parents[3]
-        / "examples"
+        / "examples_legacy_2"
         / "projects"
         / "launcher_simulation"
-        / "results_simulations"
-        / "example12_fast_mf6_mesh_catchment"
+        / "method_comparison"
+        / "example12_map_method_comparison"
     )
-    if not run_folder.exists():
-        pytest.skip("method comparison run folder not available on this branch")
+    required = ("comparison_manifest.json", "comparison_metrics.json", "observables.csv")
+    if not all((committed_root / name).exists() for name in required):
+        pytest.skip("committed method comparison artifacts not available on this branch")
 
     summary = _generate_case(spec, tmp_path)
 

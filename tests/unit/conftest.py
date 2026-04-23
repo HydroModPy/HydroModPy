@@ -22,7 +22,7 @@ from pathlib import Path
 import pytest
 
 _MESSAGE = (
-    "subprocess is forbidden in unit/ — move this test to integration/ "
+    "subprocess is forbidden in unit/ - move this test to integration/ "
     "or e2e/, or mark it @pytest.mark.allow_subprocess to opt in."
 )
 

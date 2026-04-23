@@ -177,7 +177,7 @@ If HydroModPy supports your work, please cite:
 
 .. code-block:: text
 
-   Gauvain, A., Abhervé, R., Coche, A., Le Mesnil, M., Roques, C., Bouchez, C., Marçais, J., Leray, S., Marti, E., Figueroa, R., Bresciani, E., Vautier, C., Boivin, B., Sallou, J., Bourcier, J., Combemale, B., Longuevergne, L., Aquilina, L., & de Dreuzy, J.-R. (2025). HydroModPy – a Python toolbox for deploying catchment-scale shallow groundwater models. Hydrology and Earth System Sciences. In preparation.
+   Gauvain, A., Abhervé, R., Coche, A., Le Mesnil, M., Roques, C., Bouchez, C., Marçais, J., Leray, S., Marti, E., Figueroa, R., Bresciani, E., Vautier, C., Boivin, B., Sallou, J., Bourcier, J., Combemale, B., Longuevergne, L., Aquilina, L., & de Dreuzy, J.-R. (2025). HydroModPy - a Python toolbox for deploying catchment-scale shallow groundwater models. Hydrology and Earth System Sciences. In preparation.
 
 Linked publications
 -------------------
@@ -187,15 +187,15 @@ Linked publications
 - Floriancic, M. G., Abhervé, R., Bouchez, C., Martinez, J. J., & Roques, C. (2024). *Evidence of Groundwater Seepage and Mixing at the Vicinity of a Knickpoint in a Mountain Stream*. Geophysical Research Letters, 51. https://doi.org/10.1029/2024GL111325
 - Le Mesnil, M., Gauvain, A., Gresselin, F., Aquilina, L., & de Dreuzy, J. (2024). *Characterizing coastal aquifer heterogeneity from a single piezometer head chronicle*. Journal of Hydrology, 131859. https://doi.org/10.1016/j.jhydrol.2024.131859
 - Abhervé, R., Roques, C., de Dreuzy, J.-R., Datry, T., Brunner, P., Longuevergne, L., & Aquilina, L. (2024). *Improving calibration of groundwater flow models using headwater streamflow intermittence*. Hydrological Processes, 38(6). https://doi.org/10.1002/hyp.15167
-- Abhervé, R., Roques, C., Gauvain, A., Longuevergne, L., Louaisil, S., Aquilina, L., & de Dreuzy, J.-R. (2023). *Calibration of groundwater seepage against the spatial distribution of the stream network to assess catchment-scale hydraulic properties*. Hydrology and Earth System Sciences, 27(17), 3221–3239. https://doi.org/10.5194/hess-27-3221-2023
+- Abhervé, R., Roques, C., Gauvain, A., Longuevergne, L., Louaisil, S., Aquilina, L., & de Dreuzy, J.-R. (2023). *Calibration of groundwater seepage against the spatial distribution of the stream network to assess catchment-scale hydraulic properties*. Hydrology and Earth System Sciences, 27(17), 3221-3239. https://doi.org/10.5194/hess-27-3221-2023
 
 Corresponding authors
 ---------------------
 
 For any question or collaboration request, contact:
 
-- Alexandre Gauvain – ``alexandre.gauvain.ag@gmail.com``
-- Ronan Abhervé – ``ronan.abherve@gmail.com``
+- Alexandre Gauvain - ``alexandre.gauvain.ag@gmail.com``
+- Ronan Abhervé - ``ronan.abherve@gmail.com``
 
 .. toctree::
    :hidden:

@@ -126,7 +126,7 @@ class TestCacheRoundtrip:
 
     def test_is_cached_false_without_manifest(self, cache, tmp_path):
         # A bare directory without the sentinel manifest file is not
-        # considered cached — prevents half-written entries from being
+        # considered cached - prevents half-written entries from being
         # used.
         fp = "z" * 64
         (cache.root / fp).mkdir()

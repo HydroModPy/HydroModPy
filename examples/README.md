@@ -1,4 +1,4 @@
-# HydroModPy — exemples
+# HydroModPy - exemples
 
 Suite d'exemples alignés sur l'API **v0.6** :
 
@@ -35,29 +35,29 @@ dans les TOML d'exemple y pointent via `../../data/...`.
 | 01 | [`projects/01_calibration/`](projects/01_calibration/) | Calibration Optuna sur K | MODFLOW-NWT | ~1 min | non |
 | 02 | [`projects/02_nancon_watershed/`](projects/02_nancon_watershed/) | Bassin du Nançon (MODFLOW-NWT) | MODFLOW-NWT | ~5 min | possible |
 | 03 | [`projects/03_canut_watershed/`](projects/03_canut_watershed/) | Bassin du Canut (config expert) | MODFLOW-NWT | ~5 min | possible |
-| 04 | [`projects/04_data_overview/`](projects/04_data_overview/) | Carte d'identité d'un bassin | — | ~1 min | oui |
-| 05 | [`projects/05_nancon_data_overview/`](projects/05_nancon_data_overview/) | Overview complet Nançon | — | ~2 min | oui |
-| 06 | [`projects/06_vire_selune/`](projects/06_vire_selune/) | Vire & Sélune — MF6 et NWT | MF6 / NWT | ~10 min | possible |
-| 07 | [`projects/07_mesh_gallery/`](projects/07_mesh_gallery/) | Galerie de maillages (bundles) | — | instantané | non |
-| 08 | [`projects/08_mesh_viewer/`](projects/08_mesh_viewer/) | Visualisation de bundles de maillage | — | instantané | non |
-| 09 | [`projects/09_capability_gallery/`](projects/09_capability_gallery/) | Figures de référence (gallery statique) | — | — | non |
+| 04 | [`projects/04_data_overview/`](projects/04_data_overview/) | Carte d'identité d'un bassin | - | ~1 min | oui |
+| 05 | [`projects/05_nancon_data_overview/`](projects/05_nancon_data_overview/) | Overview complet Nançon | - | ~2 min | oui |
+| 06 | [`projects/06_vire_selune/`](projects/06_vire_selune/) | Vire & Sélune - MF6 et NWT | MF6 / NWT | ~10 min | possible |
+| 07 | [`projects/07_mesh_gallery/`](projects/07_mesh_gallery/) | Galerie de maillages (bundles) | - | instantané | non |
+| 08 | [`projects/08_mesh_viewer/`](projects/08_mesh_viewer/) | Visualisation de bundles de maillage | - | instantané | non |
+| 09 | [`projects/09_capability_gallery/`](projects/09_capability_gallery/) | Figures de référence (gallery statique) | - | - | non |
 
 ## Ordre de lecture recommandé
 
-1. **00_getting_started** — structure minimale d'un `project.toml`,
+1. **00_getting_started** - structure minimale d'un `project.toml`,
    premier run, découverte du catalogue.
-2. **01_calibration** — bloc `[calibration]`, API `hmp.calibrate`,
+2. **01_calibration** - bloc `[calibration]`, API `hmp.calibrate`,
    `save_runs` (`best_n` / `all`).
-3. **04_data_overview** — workflow « données seulement » (sans
+3. **04_data_overview** - workflow « données seulement » (sans
    simulation) pour inventorier ce que charge le launcher.
-4. **02_nancon_watershed** — premier bassin réel, Nançon (~110 km²).
-5. **03_canut_watershed** — variante plus riche (config expert
+4. **02_nancon_watershed** - premier bassin réel, Nançon (~110 km²).
+5. **03_canut_watershed** - variante plus riche (config expert
    `config_expert_generated.toml`).
-6. **06_vire_selune** — comparaison régime permanent / transitoire,
+6. **06_vire_selune** - comparaison régime permanent / transitoire,
    MODFLOW-NWT vs MODFLOW 6, maillage régulier vs irrégulier.
-7. **07_mesh_gallery** / **08_mesh_viewer** — cas « maillage seul »
+7. **07_mesh_gallery** / **08_mesh_viewer** - cas « maillage seul »
    (inspection de bundles existants).
-8. **09_capability_gallery** — figures publiées (gallery statique).
+8. **09_capability_gallery** - figures publiées (gallery statique).
 
 ## Parcours alternatif pour un data-scientist
 

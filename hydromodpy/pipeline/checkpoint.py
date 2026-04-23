@@ -25,7 +25,7 @@ try:
     import zstandard as _zstd
 
     _HAS_ZSTD = True
-except ImportError:  # pragma: no cover — optional dep
+except ImportError:  # pragma: no cover - optional dep
     _zstd = None
     _HAS_ZSTD = False
 

@@ -1,4 +1,4 @@
-"""Tests for registry/catalog_duckdb (DataCatalogDuckDB — mirror of test_catalog.py)."""
+"""Tests for registry/catalog_duckdb (DataCatalogDuckDB - mirror of test_catalog.py)."""
 
 import sqlite3
 from datetime import datetime

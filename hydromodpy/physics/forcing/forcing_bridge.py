@@ -89,7 +89,7 @@ def extract_homogeneous_series_from_fields(result: LoadResult) -> pd.Series | No
     by averaging all spatial cells.  Returns a Series in the data-manager
     internal unit, or None.
     """
-    from hydromodpy.solver.utils.mesh.cartesian_grid.sgrid_field_discretization import (
+    from hydromodpy.spatial.mesh.cartesian_grid.sgrid_field_discretization import (
         spatial_mean_from_fields,
     )
 
@@ -183,11 +183,11 @@ def resolve_forcing(
     simulation_window :
         For stress-period alignment of the homogeneous series.
     spatial_mode :
-        ``"auto"``  — points → homogeneous, fields → heterogeneous.
-        ``"homogeneous"`` — force spatial averaging (even for fields).
-        ``"heterogeneous"`` — force per-cell discretization.
+        ``"auto"``  - points → homogeneous, fields → heterogeneous.
+        ``"homogeneous"`` - force spatial averaging (even for fields).
+        ``"heterogeneous"`` - force per-cell discretization.
     interpolation_method :
-        ``"nearest"``, ``"linear"``, or ``"idw"`` — used when discretizing
+        ``"nearest"``, ``"linear"``, or ``"idw"`` - used when discretizing
         points or re-gridding fields onto the solver mesh.
     label :
         Human-readable name for error messages (e.g. ``"recharge"``).

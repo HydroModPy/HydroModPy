@@ -17,25 +17,25 @@ It highlights:
 Code map
 --------
 
-- ``hydromodpy/solver/utils/mesh/cartesian_grid/sgrid_config.py``:
+- ``hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py``:
   validated grid config contract.
-- ``hydromodpy/solver/utils/mesh/cartesian_grid/sgrid_from_config.py``:
+- ``hydromodpy/spatial/mesh/cartesian_grid/sgrid_from_config.py``:
   public build entry point.
-- ``hydromodpy/solver/utils/mesh/cartesian_grid/utils/raster_grid_reader.py``:
+- ``hydromodpy/spatial/mesh/cartesian_grid/utils/raster_grid_reader.py``:
   top-surface raster loading.
-- ``hydromodpy/solver/utils/mesh/cartesian_grid/utils/planar_discretizer.py``:
+- ``hydromodpy/spatial/mesh/cartesian_grid/utils/planar_discretizer.py``:
   planar discretization helpers.
-- ``hydromodpy/solver/utils/mesh/cartesian_grid/sgrid_generation.py``:
+- ``hydromodpy/spatial/mesh/cartesian_grid/sgrid_generation.py``:
   final FloPy grid assembly.
 
 Recommended reading path
 ------------------------
 
-1. ``hydromodpy/solver/utils/mesh/cartesian_grid/sgrid_config.py``
-2. ``hydromodpy/solver/utils/mesh/cartesian_grid/sgrid_from_config.py``
-3. ``hydromodpy/solver/utils/mesh/cartesian_grid/utils/raster_grid_reader.py``
-4. ``hydromodpy/solver/utils/mesh/cartesian_grid/utils/planar_discretizer.py``
-5. ``hydromodpy/solver/utils/mesh/cartesian_grid/sgrid_generation.py``
+1. ``hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py``
+2. ``hydromodpy/spatial/mesh/cartesian_grid/sgrid_from_config.py``
+3. ``hydromodpy/spatial/mesh/cartesian_grid/utils/raster_grid_reader.py``
+4. ``hydromodpy/spatial/mesh/cartesian_grid/utils/planar_discretizer.py``
+5. ``hydromodpy/spatial/mesh/cartesian_grid/sgrid_generation.py``
 
 Reading Guide
 -------------

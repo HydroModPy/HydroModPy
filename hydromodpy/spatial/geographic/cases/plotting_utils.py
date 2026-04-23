@@ -12,7 +12,7 @@ import matplotlib
 from matplotlib import pyplot as plt
 from matplotlib import rcsetup
 
-from hydromodpy.solver.utils.mesh.plot_window_utils import maximize_figure_windows
+from hydromodpy.spatial.mesh.plot_window_utils import maximize_figure_windows
 
 
 def _normalized_backend_name() -> str:

@@ -9,17 +9,17 @@ from pathlib import Path
 from types import SimpleNamespace
 from typing import Any
 
-from hydromodpy.solver.utils.mesh.gmsh_grid._bundle_export_contracts import (
-    CatchmentBundleGeologyExportConfig,
-    CatchmentBundleHydraulicPropertiesConfig,
-    CatchmentBundleSummaryReference,
-)
 from hydromodpy.spatial.geographic.core.derived_features import (
     coerce_geographic_derived_features,
     resolve_river_mesh_trace,
 )
 from hydromodpy.spatial.geographic.geographic_config import GeographicConfig
 from hydromodpy.spatial.mesh.config import MeshCatchmentConfig
+from hydromodpy.spatial.mesh.gmsh_grid._bundle_export_contracts import (
+    CatchmentBundleGeologyExportConfig,
+    CatchmentBundleHydraulicPropertiesConfig,
+    CatchmentBundleSummaryReference,
+)
 
 _RIVER_TRACE_CONSTRAINT_MODES = {"rivers_only", "geology_rivers"}
 
@@ -122,9 +122,9 @@ def _derive_flat_runtime_project_root(*, final_project_root: Path) -> Path:
 def _cleanup_geographic_artifacts(*, workspace: object) -> list[str]:
     """Delete intermediate geographic folders from one workspace."""
     root = Path(getattr(workspace, "project_root", "."))
-    from hydromodpy.core.workspace.path_registry import LEGACY_STABLE_DIR
+    from hydromodpy.core.workspace.path_registry import PREPROCESSING_DIR
 
-    stable = root / LEGACY_STABLE_DIR
+    stable = root / PREPROCESSING_DIR
     deleted: list[str] = []
     for folder in (stable / "geographic", stable / "demcorrecflow"):
         if not folder.exists():

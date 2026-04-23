@@ -1,4 +1,4 @@
-"""Tests for simulation/results/spatial_index.py — point-in-cell."""
+"""Tests for simulation/results/spatial_index.py - point-in-cell."""
 
 from __future__ import annotations
 
@@ -51,7 +51,7 @@ class TestPointInCellTriangles:
 
     def test_point_in_different_cell(self, tri_mesh):
         vertices, conn = tri_mesh
-        # Triangle 1: vertices (2,0), (2,2), (1,1) — centroid ~(1.67, 1.0)
+        # Triangle 1: vertices (2,0), (2,2), (1,1) - centroid ~(1.67, 1.0)
         result = point_in_cell(vertices, conn, {"P2": (1.7, 0.8)})
         assert result["P2"] == 1
 

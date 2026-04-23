@@ -25,7 +25,7 @@ def _load_tmesh_config_module():
 def test_from_mapping_accepts_valid_synthetic_payload():
     mod = _load_tmesh_config_module()
 
-    cfg = mod.TMeshConfigModel.from_mapping(
+    cfg = mod.TMeshConfig.from_mapping(
         {
             "tmesh": {
                 "itmuni": "d",
@@ -61,7 +61,7 @@ def test_from_toml_resolves_relative_chron_path(tmp_path: Path):
         encoding="utf-8",
     )
 
-    cfg = mod.TMeshConfigModel.from_toml(toml_path)
+    cfg = mod.TMeshConfig.from_toml(toml_path)
     assert Path(cfg.chron_path).resolve() == chron.resolve()
 
 
@@ -72,14 +72,14 @@ def test_from_toml_raises_for_missing_section(tmp_path: Path):
     toml_path.write_text("[other]\nvalue = 1\n", encoding="utf-8")
 
     with pytest.raises(KeyError, match="Missing TOML section"):
-        _ = mod.TMeshConfigModel.from_toml(toml_path, section="tmesh")
+        _ = mod.TMeshConfig.from_toml(toml_path, section="tmesh")
 
 
 def test_from_mapping_raises_when_from_chron_without_path():
     mod = _load_tmesh_config_module()
 
     with pytest.raises(ValueError, match="chron_path is required"):
-        _ = mod.TMeshConfigModel.from_mapping(
+        _ = mod.TMeshConfig.from_mapping(
             {
                 "genmtd": "from_chron",
                 "flow_regime": "transient",
@@ -91,7 +91,7 @@ def test_validate_lists_require_positive_values():
     mod = _load_tmesh_config_module()
 
     with pytest.raises(ValueError, match="ntsp values must be > 0"):
-        _ = mod.TMeshConfigModel.from_mapping(
+        _ = mod.TMeshConfig.from_mapping(
             {
                 "genmtd": "synthetic_regular",
                 "flow_regime": "steady",
@@ -102,7 +102,7 @@ def test_validate_lists_require_positive_values():
         )
 
     with pytest.raises(ValueError, match="tsmult values must be > 0"):
-        _ = mod.TMeshConfigModel.from_mapping(
+        _ = mod.TMeshConfig.from_mapping(
             {
                 "genmtd": "synthetic_regular",
                 "flow_regime": "steady",
@@ -138,7 +138,7 @@ def test_legacy_sim_state_key_is_rejected():
     mod = _load_tmesh_config_module()
 
     with pytest.raises(ValueError):
-        _ = mod.TMeshConfigModel.from_mapping(
+        _ = mod.TMeshConfig.from_mapping(
             {
                 "tmesh": {
                     "sim_state": "steady",
@@ -154,7 +154,7 @@ def test_end_datetime_must_be_after_start_datetime():
     mod = _load_tmesh_config_module()
 
     with pytest.raises(ValueError, match="end_datetime must be greater than or equal"):
-        _ = mod.TMeshConfigModel.from_mapping(
+        _ = mod.TMeshConfig.from_mapping(
             {
                 "tmesh": {
                     "genmtd": "synthetic_regular",

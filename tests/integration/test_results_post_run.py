@@ -1,4 +1,4 @@
-"""Tests for simulation/results/post_run.py — post-run hook."""
+"""Tests for simulation/results/post_run.py - post-run hook."""
 
 from __future__ import annotations
 

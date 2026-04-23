@@ -1,7 +1,7 @@
 """Unit tests for :class:`hydromodpy.core.state.execution.ExecutionRegistry`.
 
 Covers the ``lightweight`` flag added in Phase 1 of the calibration
-refactor — the flag is what step 06 / step 07 read to decide whether to
+refactor - the flag is what step 06 / step 07 read to decide whether to
 open the store, write provenance, and ingest run results.
 """
 

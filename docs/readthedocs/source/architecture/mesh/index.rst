@@ -3,7 +3,7 @@ Mesh Architecture
 
 This section documents HydroModPy's meshing stack, from catchment-mesh
 generation to solver-side structured-grid contracts implemented around
-``hydromodpy.solver.utils.mesh``.
+``hydromodpy.spatial.mesh``.
 
 It focuses on:
 

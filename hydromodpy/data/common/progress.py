@@ -2,7 +2,7 @@
 
 Provides structured logging with visual hierarchy and optional tqdm
 progress bars for long-running operations. All output goes through
-the standard logging module — no print() calls.
+the standard logging module - no print() calls.
 """
 
 from __future__ import annotations

@@ -51,7 +51,6 @@ def _root_sections() -> dict[str, type]:
     from hydromodpy.physics.flow.flow_config import FlowConfig
     from hydromodpy.physics.flow.physical_properties import FlowPhysicalProperties
     from hydromodpy.physics.transport.transport_config import TransportConfig
-    from hydromodpy.results.postprocess_config import PostprocessConfig
     from hydromodpy.simulation.planning.config import SimulationConfig
     from hydromodpy.solver.base.solver_config import SolverConfig
     from hydromodpy.solver.modflow6.modflow6_config import Modflow6Config
@@ -74,7 +73,6 @@ def _root_sections() -> dict[str, type]:
         "modflownwt": ModflowConfig,
         "modflow6": Modflow6Config,
         "display": DisplayConfig,
-        "postprocess": PostprocessConfig,
         "overview": OverviewSection,
         "mesh_catchment": MeshCatchmentConfig,
         "capability_gallery": CapabilityGalleryConfig,

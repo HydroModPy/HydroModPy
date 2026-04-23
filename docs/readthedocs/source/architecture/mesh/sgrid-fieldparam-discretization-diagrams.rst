@@ -13,11 +13,11 @@ These diagrams describe how HydroModPy bridges:
 Code map
 --------
 
-- ``hydromodpy/solver/utils/mesh/cartesian_grid/sgrid_mesh_adapter.py``:
+- ``hydromodpy/spatial/mesh/cartesian_grid/sgrid_mesh_adapter.py``:
   geometry bridge from solver grid to field-side mesh logic.
-- ``hydromodpy/solver/utils/mesh/cartesian_grid/sgrid_field_discretization.py``:
+- ``hydromodpy/spatial/mesh/cartesian_grid/sgrid_field_discretization.py``:
   field discretization helpers.
-- ``hydromodpy/solver/utils/mesh/cartesian_grid/sgrid_fieldparam_discretization.py``:
+- ``hydromodpy/spatial/mesh/cartesian_grid/sgrid_fieldparam_discretization.py``:
   heterogeneous parameter mapping to solver arrays.
 - ``hydromodpy/spatial/field/core/field_param.py``:
   upstream field-side parameter contract.
@@ -26,9 +26,9 @@ Recommended reading path
 ------------------------
 
 1. ``hydromodpy/spatial/field/core/field_param.py``
-2. ``hydromodpy/solver/utils/mesh/cartesian_grid/sgrid_mesh_adapter.py``
-3. ``hydromodpy/solver/utils/mesh/cartesian_grid/sgrid_field_discretization.py``
-4. ``hydromodpy/solver/utils/mesh/cartesian_grid/sgrid_fieldparam_discretization.py``
+2. ``hydromodpy/spatial/mesh/cartesian_grid/sgrid_mesh_adapter.py``
+3. ``hydromodpy/spatial/mesh/cartesian_grid/sgrid_field_discretization.py``
+4. ``hydromodpy/spatial/mesh/cartesian_grid/sgrid_fieldparam_discretization.py``
 
 For a narrower static view centered on the solver grid itself, see
 :doc:`structured-grid-class-diagram`.

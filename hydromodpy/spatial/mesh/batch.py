@@ -21,7 +21,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from hydromodpy.core.workspace.path_registry import LEGACY_STABLE_DIR
+from hydromodpy.core.workspace.path_registry import PREPROCESSING_DIR
 from hydromodpy.spatial.mesh.batch_io import (
     MeshCatchmentOutletRecord,
     load_mesh_catchment_outlet_records,
@@ -556,8 +556,8 @@ def _workspace_stable_folder(workspace_like: object) -> Path:
     """Return the canonical ``results_stable`` folder for one workspace-like object."""
     output_root = getattr(workspace_like, "output_root", None)
     if output_root is not None:
-        return Path(output_root) / LEGACY_STABLE_DIR
-    return Path(workspace_like.project_root) / LEGACY_STABLE_DIR
+        return Path(output_root) / PREPROCESSING_DIR
+    return Path(workspace_like.project_root) / PREPROCESSING_DIR
 
 
 __all__ = [

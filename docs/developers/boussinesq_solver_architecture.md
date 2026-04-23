@@ -1,4 +1,13 @@
-# Solveur Boussinesq 2D pour HydroModPy
+# Architecture du solveur Boussinesq 2D
+
+Liens : [glossary.md](glossary.md),
+[design_patterns.md](design_patterns.md),
+[boussinesq_linux_ci.md](boussinesq_linux_ci.md),
+[boussinesq_petsc_vs_marcais_2017.md](boussinesq_petsc_vs_marcais_2017.md),
+[boussinesq_petsc_headwater_100km2_diagnostic.md](boussinesq_petsc_headwater_100km2_diagnostic.md),
+[modflow_contracts.md](modflow_contracts.md).
+
+Code : `hydromodpy/solver/boussinesq/`.
 
 ## 1. Objectif
 
@@ -791,12 +800,12 @@ hydromodpy/
 Et extension des points d'entree existants :
 
 - `SolverEngine` -> ajouter `boussinesq`,
-- `simulation.adapters.registry` -> ajouter `("flow", "boussinesq")`,
+- `solver.base.registry` -> ajouter `("flow", "boussinesq")`,
 - config solveur -> ajouter une section `boussinesq`.
 
 Important :
 
-- l'adapter `simulation.adapters.flow.boussinesq` doit etre un pair des
+- l'adapter `solver.boussinesq.adapters.flow` doit etre un pair des
   adapters MODFLOW existants, pas une surcouche de `modflow_common` ;
 - `modflow_common` peut servir de reference de structure pour le cycle
   `pre/process/post`, mais ne doit pas devenir une dependance directe du
@@ -1132,7 +1141,7 @@ une famille de tests.
 #### Bloc A : branchement minimal dans HydroModPy
 
 - ajouter `solver_engine = "boussinesq"` ;
-- ajouter l'adapter `simulation.adapters.flow.boussinesq` ;
+- ajouter l'adapter `solver.boussinesq.adapters.flow` ;
 - brancher le solveur sur le meme cycle `pre/process/post` que les solveurs
   flow existants, sans dependance directe a `modflow_common` ;
 - ajouter des tests de contrat simples sur le registre d'adapters.

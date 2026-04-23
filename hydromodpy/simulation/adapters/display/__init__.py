@@ -1,1 +1,1 @@
-"""Display phase adapters (stubs — to be implemented)."""
+"""Display phase adapters (stubs - to be implemented)."""

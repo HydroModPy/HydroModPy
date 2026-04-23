@@ -18,14 +18,14 @@ from pathlib import Path
 
 import numpy as np
 
-from hydromodpy.solver.utils.mesh.gmsh_grid.catchment_mesh_bundle_reader import (
+from hydromodpy.spatial.mesh.gmsh_grid.catchment_mesh_bundle_reader import (
     CatchmentMeshBundle,
     CatchmentMeshBundleCell,
     CatchmentMeshBundleEdge,
     CatchmentMeshBundleNode,
 )
-from hydromodpy.solver.utils.mesh.gmsh_grid.gmsh_planar_mesh import GmshPlanarMesh2D
-from hydromodpy.solver.utils.mesh.gmsh_grid.runtime_support import (
+from hydromodpy.spatial.mesh.gmsh_grid.gmsh_planar_mesh import GmshPlanarMesh2D
+from hydromodpy.spatial.mesh.gmsh_grid.runtime_support import (
     GmshSupportMetadata,
     build_gmsh_support_metadata,
 )
@@ -297,7 +297,7 @@ class BoussinesqMesh:
         hydraulic properties come from process-level parameter mapping rather
         than pre-exported CSV tables.
         """
-        from hydromodpy.solver.utils.mesh.gmsh_grid.catchment_mesh_bundle import (
+        from hydromodpy.spatial.mesh.gmsh_grid.catchment_mesh_bundle import (
             _build_edge_rows,
         )
 

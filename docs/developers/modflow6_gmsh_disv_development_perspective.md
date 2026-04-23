@@ -1,10 +1,19 @@
-# Perspective de développement: MODFLOW 6 sur maillages Gmsh triangulaires (DISV)
+# Perspective MODFLOW 6 sur maillages gmsh triangulaires (DISV)
+
+Liens :
+[unified_mesh_pivot_architecture.md](unified_mesh_pivot_architecture.md),
+[gmsh_mesh_integration_note.md](gmsh_mesh_integration_note.md),
+[gmsh_conformal_meshing.md](gmsh_conformal_meshing.md),
+[modflow_contracts.md](modflow_contracts.md),
+[nwt_sunset_plan.md](nwt_sunset_plan.md),
+[glossary.md](glossary.md).
+
+Code : `hydromodpy/solver/modflow6/`, `hydromodpy/spatial/mesh/gmsh_grid/`.
 
 ## Objet du document
 
-Cette note a pour objectif de cadrer, de façon détaillée, l'intégration de
-MODFLOW 6 sur des maillages irréguliers triangulaires produits avec Gmsh dans
-HydroModPy.
+Cette note cadre en détail l'intégration de MODFLOW 6 sur des maillages
+irréguliers triangulaires produits avec gmsh dans HydroModPy.
 
 Le point important qui ressort de l'analyse du dépôt est le suivant:
 
@@ -49,11 +58,11 @@ Fichiers locaux principalement concernés:
 - `hydromodpy/solver/modflow_common/runtime_arrays.py`
 - `hydromodpy/process/flow/sinks_sources.py`
 - `hydromodpy/process/flow/boundary_conditions.py`
-- `hydromodpy/solver/utils/mesh/gmsh_grid/gmsh_reader.py`
-- `hydromodpy/solver/utils/mesh/gmsh_grid/gmsh_planar_mesh.py`
-- `hydromodpy/solver/utils/mesh/gmsh_grid/planar_forcing_discretization.py`
+- `hydromodpy/spatial/mesh/gmsh_grid/gmsh_reader.py`
+- `hydromodpy/spatial/mesh/gmsh_grid/gmsh_planar_mesh.py`
+- `hydromodpy/spatial/mesh/gmsh_grid/planar_forcing_discretization.py`
 - `hydromodpy/solver/boussinesq/mesh.py`
-- `hydromodpy/simulation/adapters/flow/boussinesq.py`
+- `hydromodpy/solver/boussinesq/adapters/flow.py`
 
 ## Réponses directes aux questions
 
@@ -466,7 +475,7 @@ Mais le dépôt contient déjà:
 - `discretize_fields_on_planar_mesh(...)`,
 - `discretize_points_on_planar_mesh(...)`,
 
-dans `hydromodpy/solver/utils/mesh/gmsh_grid/planar_forcing_discretization.py`.
+dans `hydromodpy/spatial/mesh/gmsh_grid/planar_forcing_discretization.py`.
 
 Conclusion très pratique:
 
@@ -675,11 +684,11 @@ raccord entre ce maillage runtime et les adapters MODFLOW.
 
 Aujourd'hui:
 
-- `hydromodpy/simulation/adapters/flow/boussinesq.py`
+- `hydromodpy/solver/boussinesq/adapters/flow.py`
   exploite explicitement `state.setup.mesh_planar` et `state.setup.mesh_bundle`
-- `hydromodpy/simulation/adapters/flow/modflow6.py`
+- `hydromodpy/solver/modflow6/adapters/flow.py`
   ne regarde pas ces objets
-- `hydromodpy/simulation/adapters/flow/modflownwt.py`
+- `hydromodpy/solver/modflow_nwt/adapters/flow.py`
   ne les regarde pas non plus
 - `build_preprocess_options(...)` ne transmet que `time_grid`
 
@@ -699,7 +708,7 @@ C'est le triplet suivant:
 
 - `SetupContext`
   comme source canonique du maillage runtime
-- `simulation/adapters/flow/modflow_common.py`
+- `solver/modflow_common/flow_adapter_helpers.py`
   comme point de passage commun du launcher vers les solveurs MODFLOW
 - la discrétisation commune appelée ensuite par `pre_processing(...)`
 
@@ -740,7 +749,7 @@ La solution la plus cohérente me paraît être:
 - enrichir le contrat de préprocessing MODFLOW pour qu'il puisse recevoir
   un maillage runtime optionnel,
 - centraliser cette transmission dans
-  `hydromodpy/simulation/adapters/flow/modflow_common.py`.
+  `hydromodpy/solver/modflow_common/flow_adapter_helpers.py`.
 
 Deux variantes étaient possibles:
 
@@ -772,7 +781,7 @@ Il devient le bon lieu pour porter:
 Cela renforce la recommandation précédente:
 
 - sortir le contrat commun hors de l'arborescence NWT,
-- faire de `simulation/adapters/flow/modflow_common.py` le point d'entrée
+- faire de `solver/modflow_common/flow_adapter_helpers.py` le point d'entrée
   unique côté launcher,
 - et faire dépendre NWT et MF6 du même pipeline amont.
 
@@ -797,7 +806,7 @@ Fichiers principaux:
 
 - `hydromodpy/solver/modflow_nwt/modflow/discretization.py`
 - `hydromodpy/solver/modflow_common/solver_mesh.py`
-- `hydromodpy/solver/utils/mesh/gmsh_grid/gmsh_planar_mesh.py`
+- `hydromodpy/spatial/mesh/gmsh_grid/gmsh_planar_mesh.py`
 
 À traiter:
 
@@ -837,8 +846,8 @@ Fichiers principaux:
 
 Fichiers principaux:
 
-- `hydromodpy/solver/utils/mesh/cartesian_grid/sgrid_field_discretization.py`
-- `hydromodpy/solver/utils/mesh/gmsh_grid/planar_forcing_discretization.py`
+- `hydromodpy/spatial/mesh/cartesian_grid/sgrid_field_discretization.py`
+- `hydromodpy/spatial/mesh/gmsh_grid/planar_forcing_discretization.py`
 - `hydromodpy/solver/modflow6/modflow6.py`
 
 À traiter:

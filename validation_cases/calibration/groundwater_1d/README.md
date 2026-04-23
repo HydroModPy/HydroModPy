@@ -1,4 +1,4 @@
-# 1D transient groundwater calibration — demo
+# 1D transient groundwater calibration - demo
 
 Analytic-grade 1D confined aquifer, implicit finite-difference recession.
 Recovers `(T, S)` from a noisy head record at a mid-column well using the

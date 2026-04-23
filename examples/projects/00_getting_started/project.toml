@@ -1,5 +1,5 @@
 # ======================================================================
-# HydroModPy — exemple 00 : getting_started
+# HydroModPy - exemple 00 : getting_started
 # ======================================================================
 # Aquifère synthétique 1D de type Dupuit, recharge uniforme, régime
 # permanent, résolu avec MODFLOW-NWT. Auto-contenu : aucune donnée

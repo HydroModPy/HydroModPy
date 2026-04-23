@@ -2,7 +2,7 @@
 
 A catchment may be re-used across hundreds of simulations (e.g. calibration
 runs sweeping hydraulic parameters on a fixed domain). The geographic
-artefacts — DEM raster, geology raster, watershed polygon, river network —
+artefacts - DEM raster, geology raster, watershed polygon, river network -
 are identical across all those runs and do not need to be duplicated inside
 each ``simulations/<uuid>.zarr``.
 
@@ -128,7 +128,7 @@ class GeographicCache:
         ``spatial_config`` may be a :class:`GeographicInputs` instance or a
         plain dict with a compatible subset of keys. When ``hash_files`` is
         ``True`` (default), missing SHA-256 values are derived by streaming
-        the referenced file. Paths that do not exist are retained textually —
+        the referenced file. Paths that do not exist are retained textually -
         this lets consumers compute fingerprints for planned inputs before
         data is downloaded.
         """

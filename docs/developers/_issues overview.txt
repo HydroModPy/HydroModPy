@@ -1,7 +1,0 @@
-To-do
-- Gérer les messages d'erreur/warnings/prints qui s'affichent en lançant les exemples (issues sur GitHub)
-- Relire et reparcourir l'ensemble du code et le commenter pour la doc automatique readthedocs en ligne
-- Voir avec les différents utilisateurs pour supprimer leur dossier 'users'
-- Reprendre un HydroDataPy ou remettre en route le partage de données sur un OneDrive partagé
-- en parallèle de la mise en place d'un fichier de paramètres extérieur au code, réorganiser les exemples de manière à regrouper les variables à modifier au même endroit, dans une section "USER INPUTS" ? (voir organisation du fichier de Tristan B. en exemple)
-

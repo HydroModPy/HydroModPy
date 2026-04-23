@@ -3,21 +3,21 @@
 A ``.hmp`` file is a single ``tar`` archive compressed with Zstandard,
 containing:
 
-* ``manifest.json`` — archive header with the HydroModPy version that
+* ``manifest.json`` - archive header with the HydroModPy version that
   produced the archive, the simulation UUID, and a list of
   ``{path, size, sha256}`` entries covering every other file. The manifest is
   itself included in the archive under ``manifest.json`` (its own sha256 is
-  therefore omitted — checksums are verified against the other files).
-* ``catalog_snapshot.duckdb`` — a one-simulation DuckDB snapshot containing
+  therefore omitted - checksums are verified against the other files).
+* ``catalog_snapshot.duckdb`` - a one-simulation DuckDB snapshot containing
   the ``simulations`` row plus per-sim data (parameters, timeseries,
   budgets, metrics, provenance, geographic features / metadata, tags,
   runs_environment).
-* ``simulation.zarr.zip`` — the simulation's Zarr store, packed to a
+* ``simulation.zarr.zip`` - the simulation's Zarr store, packed to a
   deterministic ``zip`` file (already BLOSC-compressed internally).
-* ``geographic/`` (optional) — the workspace-level content-addressable
+* ``geographic/`` (optional) - the workspace-level content-addressable
   raster cache materialised for the simulation's ``geographic_fingerprint``,
   so the archive is self-contained on a fresh workspace.
-* ``README.md`` — human-readable summary generated at export time.
+* ``README.md`` - human-readable summary generated at export time.
 
 The archive is *reproducible*: given the same inputs, the archive layout,
 file ordering and manifest are byte-identical, which makes SHA-256 checks
@@ -264,7 +264,7 @@ def _materialise_geographic(
     cache = GeographicCache(workspace_path)
     if not cache.is_cached(fingerprint):
         logger.warning(
-            "Geographic fingerprint %s not found in cache %s — archive will "
+            "Geographic fingerprint %s not found in cache %s - archive will "
             "ship without geographic payload",
             fingerprint,
             cache.root,
@@ -299,7 +299,7 @@ def _dematerialise_geographic(
             except (json.JSONDecodeError, OSError):
                 fingerprint = None
     if not fingerprint:
-        logger.warning("No fingerprint for geographic payload — skipping cache")
+        logger.warning("No fingerprint for geographic payload - skipping cache")
         return
     manifest = {}
     mpath = src / MANIFEST_FILENAME
@@ -382,7 +382,7 @@ def _restore_catalog_snapshot(
             ).fetchall()
         }
 
-        sim_df = snap.execute("SELECT * FROM simulations").fetchdf()  # noqa: F841 — referenced by DuckDB replacement scan in SQL below
+        sim_df = snap.execute("SELECT * FROM simulations").fetchdf()  # noqa: F841 - referenced by DuckDB replacement scan in SQL below
         conn.execute("INSERT INTO simulations SELECT * FROM sim_df")
 
         for table in PER_SIM_TABLE_NAMES:
@@ -813,43 +813,6 @@ def import_hmp_package(
     return sid
 
 
-# Kept for backwards compatibility inside the same module, no longer used
-# from the catalog.
-def materialize_geographic_on_export(
-    workspace_path: Path | str,
-    fingerprint: str | None,
-    package_dir: Path | str,
-) -> Path | None:
-    """Deprecated helper from the pre-G05 folder-based ``.hmp``.
-
-    Left as a thin wrapper so scripts that imported the helper directly keep
-    working while the rest of the system migrates to
-    :func:`export_hmp_package`.
-    """
-    pkg = Path(package_dir)
-    pkg.mkdir(parents=True, exist_ok=True)
-    _materialise_geographic(Path(workspace_path), fingerprint, pkg)
-    return pkg / GEOGRAPHIC_SUBDIR if (pkg / GEOGRAPHIC_SUBDIR).is_dir() else None
-
-
-def dematerialize_geographic_on_import(
-    package_dir: Path | str,
-    workspace_path: Path | str,
-    fingerprint: str | None = None,
-    *,
-    overwrite: bool = False,
-) -> str | None:
-    """Deprecated helper from the pre-G05 folder-based ``.hmp``."""
-    pkg = Path(package_dir)
-    _dematerialise_geographic(
-        pkg,
-        Path(workspace_path),
-        fingerprint,
-        overwrite=overwrite,
-    )
-    return fingerprint
-
-
 __all__ = [
     "CACHE_DIRNAME",
     "GEOGRAPHIC_SUBDIR",
@@ -860,6 +823,4 @@ __all__ = [
     "MANIFEST_NAME",
     "export_hmp_package",
     "import_hmp_package",
-    "materialize_geographic_on_export",
-    "dematerialize_geographic_on_import",
 ]

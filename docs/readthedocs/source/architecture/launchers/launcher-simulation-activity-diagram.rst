@@ -24,7 +24,7 @@ Code map
   immutable run schedule consumed at execution time.
 - ``hydromodpy/simulation/execution/runner.py``:
   ordered runtime dispatch and callback lifecycle.
-- ``hydromodpy/simulation/adapters/registry.py``:
+- ``hydromodpy/solver/base/registry.py``:
   backend-resolution boundary.
 
 Recommended reading path
@@ -33,7 +33,7 @@ Recommended reading path
 1. ``launchers/process_simulation/launcher.py``
 2. ``hydromodpy/simulation/planning/plan.py``
 3. ``hydromodpy/simulation/execution/runner.py``
-4. ``hydromodpy/simulation/adapters/registry.py``
+4. ``hydromodpy/solver/base/registry.py``
 
 Diagram source
 --------------

@@ -1,4 +1,4 @@
-"""Step 0 — config validation.
+"""Step 0 - config validation.
 
 Loads the TOML config (if a path is present in ``state.data["config_path"]``)
 and instantiates the Pydantic ``HydroModPyConfig``. If ``state.data["cfg"]``

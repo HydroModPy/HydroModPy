@@ -56,13 +56,13 @@ def test_pipeline_resume_after_step_crash(tmp_path: Path) -> None:
 
     initial = PipelineState(run_id="rid-1")
 
-    # First run — step "d" crashes after "a","b","c" were checkpointed.
+    # First run - step "d" crashes after "a","b","c" were checkpointed.
     try:
         pipeline.run(initial)
     except Exception:
         pass
 
-    # Second run — resume from the failing step; "d" now succeeds.
+    # Second run - resume from the failing step; "d" now succeeds.
     final = pipeline.run(initial, resume_from=3)
 
     assert final.data["history"] == ["a", "b", "c", "d", "e"]

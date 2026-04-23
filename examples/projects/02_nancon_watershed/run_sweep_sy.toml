@@ -1,5 +1,5 @@
 # ======================================================================
-# Nançon — sweep paramétrique sur Sy
+# Nançon - sweep paramétrique sur Sy
 # ----------------------------------------------------------------------
 # Overlay qui hérite de `project.toml`. Reproduit ce que fait
 # `run_transient_prototype.py` : enchaîne 3 simulations avec trois
@@ -24,7 +24,7 @@ workflow = "sweep"
 
 [simulation]
 name = "nancon_sweep_sy"
-description = "Sweep Sy ∈ {0.001, 0.05, 0.30} — K/Ss/épaisseur gelés."
+description = "Sweep Sy ∈ {0.001, 0.05, 0.30} - K/Ss/épaisseur gelés."
 
 [simulation.time]
 start_datetime = "2000-01-01"
@@ -75,7 +75,7 @@ values = [0.001, 0.05, 0.30]
 path = "flow.param.Sy.field_homogeneous.value"
 units = "-"
 
-# Exemple de sweep 2D (produit cartésien → 3×2 = 6 runs) — commenté :
+# Exemple de sweep 2D (produit cartésien → 3×2 = 6 runs) - commenté :
 # [sweep.parameters.K]
 # values = [1e-5, 5e-5]
 # path = "flow.param.K.field_homogeneous.value"

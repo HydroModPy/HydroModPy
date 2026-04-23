@@ -19,10 +19,10 @@ from pydantic import ConfigDict, Field, ValidationError, field_validator, model_
 from hydromodpy.core.config.base import HydroModelBase
 from hydromodpy.core.config.profile import Profile
 from hydromodpy.data.variables.geology.config import GeologyConfigBlock
-from hydromodpy.solver.utils.mesh.gmsh_grid.zone_meshing.config import (
+from hydromodpy.spatial.mesh.gmsh_grid.zone_meshing.config import (
     ZoneMeshingSettingsSchema,
 )
-from hydromodpy.solver.utils.mesh.gmsh_grid.zone_meshing.domain import (
+from hydromodpy.spatial.mesh.gmsh_grid.zone_meshing.domain import (
     ZoneMeshingDomainBBox,
     ZoneMeshingDomainGeographicBoxBuffer,
     ZoneMeshingDomainGeographicWatershed,

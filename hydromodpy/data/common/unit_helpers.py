@@ -68,7 +68,7 @@ def _resolve_via_support_units(unit: str) -> _ResolvedUnit | None:
 # Manual families (temperature, percent, concentration, code)
 # ------------------------------------------------------------------
 
-# Temperature — affine conversions (offset-based).
+# Temperature - affine conversions (offset-based).
 # Base: degC (factor=1, offset=0).
 _TEMPERATURE_UNITS: dict[str, tuple[str, float, float]] = {
     # token: (canonical, factor_to_base, offset_to_base)
@@ -86,7 +86,7 @@ _TEMPERATURE_UNITS: dict[str, tuple[str, float, float]] = {
     "fahrenheit": ("degF", 5.0 / 9.0, -160.0 / 9.0),
 }
 
-# Percent / fraction — multiplicative.
+# Percent / fraction - multiplicative.
 # Base: % (factor=1).
 _PERCENT_UNITS: dict[str, tuple[str, float]] = {
     "%": ("%", 1.0),
@@ -98,7 +98,7 @@ _PERCENT_UNITS: dict[str, tuple[str, float]] = {
     "ratio": ("fraction", 100.0),
 }
 
-# Concentration — multiplicative.
+# Concentration - multiplicative.
 # Base: mg/L (factor=1).
 _CONCENTRATION_UNITS: dict[str, tuple[str, float]] = {
     "mg/l": ("mg/L", 1.0),
@@ -109,7 +109,7 @@ _CONCENTRATION_UNITS: dict[str, tuple[str, float]] = {
     "g/l": ("g/L", 1000.0),
 }
 
-# CF-convention remapping — common NetCDF unit strings.
+# CF-convention remapping - common NetCDF unit strings.
 _CF_REMAP: dict[str, str] = {
     "kgm-2s-1": "mm/s",  # precipitation mass flux → mm/s
     "kg.m-2.s-1": "mm/s",
@@ -142,7 +142,7 @@ def _resolve_manual_unit(unit: str) -> _ResolvedUnit | None:
         canonical, factor = conc
         return _ResolvedUnit("concentration", canonical, factor)
 
-    # Code (intermittency — identity)
+    # Code (intermittency - identity)
     if token == "code":
         return _ResolvedUnit("code", "code", 1.0)
 

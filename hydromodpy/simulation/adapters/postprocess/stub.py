@@ -15,6 +15,7 @@ class TimeseriesPostprocessAdapter:
 
     process_type = "postprocess"
     solver_name = "timeseries"
+    requires: tuple[tuple[str, str], ...] = ()
 
     def execute(self, ctx: RunContext) -> RunExecutionResult:
         raise NotImplementedError(
@@ -28,6 +29,7 @@ class NetcdfPostprocessAdapter:
 
     process_type = "postprocess"
     solver_name = "netcdf"
+    requires: tuple[tuple[str, str], ...] = ()
 
     def execute(self, ctx: RunContext) -> RunExecutionResult:
         raise NotImplementedError(

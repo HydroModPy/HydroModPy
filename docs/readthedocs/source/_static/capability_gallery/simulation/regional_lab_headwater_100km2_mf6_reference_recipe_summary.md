@@ -1,7 +1,7 @@
 # Regional Lab Summary: headwater_100km2_lab_mf6_reference
 
-- Config: `C:\codes\HydroModPy-GH\examples\projects\launcher_simulation\regional_lab\config_headwater_100km2_lab_mf6_reference.toml`
-- Site catalog: `C:\codes\HydroModPy-GH\examples\projects\launcher_simulation\regional_lab\site_catalog.csv`
+- Config: `/home/bb/Documents/01_Git_Repository/02-HydroModPy-dev/examples_legacy_2/projects/launcher_simulation/regional_lab/config_headwater_100km2_lab_mf6_reference.toml`
+- Site catalog: `/home/bb/Documents/01_Git_Repository/02-HydroModPy-dev/examples_legacy_2/projects/launcher_simulation/regional_lab/site_catalog.csv`
 - Selected sites: 5
 - Planned cases: 1
 - Skipped cases: 2

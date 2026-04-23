@@ -9,12 +9,12 @@ from types import SimpleNamespace
 import numpy as np
 
 from hydromodpy.physics.flow import Flow
-from hydromodpy.simulation.adapters.flow.boussinesq import BoussinesqFlowAdapter
 from hydromodpy.simulation.planning.plan import (
     ProcessRun,
     RunContext,
     SimulationPlan,
 )
+from hydromodpy.solver.boussinesq.adapters.flow import BoussinesqFlowAdapter
 from hydromodpy.spatial.geographic.synthetic import SyntheticGridConfig, SyntheticTopographyConfig
 from hydromodpy.spatial.geographic.synthetic.topography import build_topography_values
 from validation_cases.analytical.steady.boussinesq_fixed_head_piecewise_k_1d.runtime_boussinesq import (

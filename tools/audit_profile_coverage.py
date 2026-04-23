@@ -5,9 +5,8 @@ drift of the visibility classification introduced in v0.6.
 
 The audit walks every :class:`HydroModelBase` subclass reachable from the
 registered top-level configs and inspects their ``model_fields``. A field
-is *covered* when its ``Annotated[...]`` metadata carries either a
-:class:`Profile` enum or a legacy :class:`ParamLevel` dataclass (the shim
-is still valid during the migration window).
+is *covered* when its ``Annotated[...]`` metadata carries a
+:class:`Profile` enum tag.
 
 When a field carries a forward-reference annotation, Pydantic's runtime
 ``metadata`` list is empty even if the source does tag the field. In that
@@ -23,17 +22,16 @@ import sys
 from pathlib import Path
 
 from hydromodpy.core.config.base import HydroModelBase
-from hydromodpy.core.config.param_level import ParamLevel
 from hydromodpy.core.config.profile import Profile
 
 
 def _runtime_has_profile(field_info) -> bool:
     metadata = getattr(field_info, "metadata", ())
-    return any(isinstance(m, (Profile, ParamLevel)) for m in metadata)
+    return any(isinstance(m, Profile) for m in metadata)
 
 
 def _ast_has_profile(src_file: Path, qualname: str, field_name: str) -> bool:
-    """Return True if the source class body tags *field_name* with Profile/ParamLevel.
+    """Return True if the source class body tags *field_name* with a Profile enum.
 
     Used as a fallback when runtime metadata is empty because the annotation
     is a :class:`typing.ForwardRef` string.
@@ -82,12 +80,6 @@ def _ast_has_profile(src_file: Path, qualname: str, field_name: str) -> bool:
                 isinstance(tag, ast.Attribute)
                 and isinstance(tag.value, ast.Name)
                 and tag.value.id == "Profile"
-            ):
-                return True
-            if (
-                isinstance(tag, ast.Call)
-                and isinstance(tag.func, ast.Name)
-                and tag.func.id == "ParamLevel"
             ):
                 return True
         return False

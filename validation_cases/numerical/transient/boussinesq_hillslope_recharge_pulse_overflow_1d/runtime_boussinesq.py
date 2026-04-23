@@ -9,12 +9,12 @@ from types import SimpleNamespace
 import numpy as np
 
 from hydromodpy.physics.flow import Flow
-from hydromodpy.simulation.adapters.flow.boussinesq import BoussinesqFlowAdapter
 from hydromodpy.simulation.planning.plan import (
     ProcessRun,
     RunContext,
     SimulationPlan,
 )
+from hydromodpy.solver.boussinesq.adapters.flow import BoussinesqFlowAdapter
 from validation_cases.analytical.steady.boussinesq_piecewise import mm_day_to_m_s
 from validation_cases.shared.boussinesq_uniform_strip import (
     aggregate_triangle_history_to_structured_grids,

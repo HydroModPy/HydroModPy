@@ -41,7 +41,6 @@ from hydromodpy.solver.boussinesq.assembly.residuals import (
 )
 from hydromodpy.solver.boussinesq.assembly.surface import (
     regularized_partition_surface_rate_from_balance,
-    saturation_excess_rate_from_balance,
 )
 from hydromodpy.solver.boussinesq.assembly.types import BoussinesqAssembly
 from hydromodpy.solver.boussinesq.mesh import BoussinesqMesh

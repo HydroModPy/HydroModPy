@@ -224,7 +224,7 @@ class Run:
     def at(self, timestep: int = -1, layer: int | None = None) -> _AtAccessor:
         """Return a chainable accessor bound to ``(timestep, layer)``.
 
-        Enables ``sim.at(timestep=5).field("head")`` — the dual spelling of
+        Enables ``sim.at(timestep=5).field("head")`` - the dual spelling of
         ``sim.field("head", timestep=5)``. Useful in notebook sessions where
         the same slice is reused across several variables.
         """
@@ -253,8 +253,8 @@ class Run:
     def grid(self) -> Grid:
         """Scalar grid metadata: cell_size, shape, extent, CRS, area.
 
-        Raises ``RuntimeError`` for unstructured (``disu``) meshes —
-        use ``run.mesh`` vertices + ``run.field(...)`` in that case —
+        Raises ``RuntimeError`` for unstructured (``disu``) meshes -
+        use ``run.mesh`` vertices + ``run.field(...)`` in that case -
         or when geographic metadata has not been ingested.
         """
         from hydromodpy.results.grid import build_grid
@@ -293,7 +293,7 @@ class Run:
         Reshapes each flat cell array to the DEM grid and stacks the
         ``n_timesteps`` frames. Only defined for regular-in-plan meshes
         (``dis`` / ``disv``); raises for ``disu`` via ``run.grid``.
-        Values are returned raw (no masking or NaN substitution) —
+        Values are returned raw (no masking or NaN substitution) -
         combine with ``run.catchment_mask`` to mask inactive cells.
         """
         grid = self.grid
@@ -320,7 +320,7 @@ class Run:
         if start is None or end is None:
             raise RuntimeError(
                 f"Simulation '{self._sim_id}' missing period_start/period_end "
-                "in catalog — cannot build a time index."
+                "in catalog - cannot build a time index."
             )
         idx = pd.date_range(start=start, end=end, periods=n)
         if idx.tz is not None:
@@ -387,7 +387,7 @@ class Run:
         """
         snapshot = self.config
         if snapshot is None:
-            raise ValueError(f"Simulation '{self._sim_id}' has no config snapshot — cannot rerun")
+            raise ValueError(f"Simulation '{self._sim_id}' has no config snapshot - cannot rerun")
 
         from hydromodpy.core.config.hydromodpy_config import HydroModPyConfig
 

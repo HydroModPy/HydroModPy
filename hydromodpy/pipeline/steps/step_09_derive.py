@@ -1,4 +1,4 @@
-"""Step 9 — derived fields via the :mod:`~hydromodpy.pipeline.derived` registry.
+"""Step 9 - derived fields via the :mod:`~hydromodpy.pipeline.derived` registry.
 
 Runs the registered :class:`DerivedComputation` objects over the
 simulation Zarr store. Each computation is responsible for its own

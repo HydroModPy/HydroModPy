@@ -1,4 +1,4 @@
-"""Brutsaert-Nieber recession calibration — standalone experiment.
+"""Brutsaert-Nieber recession calibration - standalone experiment.
 
 Forward model
 -------------

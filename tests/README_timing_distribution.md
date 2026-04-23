@@ -9,7 +9,7 @@ Example:
 
 ```powershell
 $timingRoot = Join-Path $env:HYDROMODPY_TEST_SCRATCH_ROOT "timing_reports"
-python -m pytest tests/unit/solver/utils/mesh/gmsh_grid -q --junitxml "$timingRoot/gmsh_grid_junit.xml" -p no:cacheprovider
+python -m pytest tests/unit/spatial/mesh/gmsh_grid -q --junitxml "$timingRoot/gmsh_grid_junit.xml" -p no:cacheprovider
 ```
 
 ## 2) Build the timing distribution report

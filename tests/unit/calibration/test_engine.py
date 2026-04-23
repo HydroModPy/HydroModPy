@@ -134,7 +134,7 @@ class TestEngineRun:
         )
         session = engine.run()
         assert session.best is not None
-        # Grid spans [0.0, 1.0] with 5 points — min is 0.0.
+        # Grid spans [0.0, 1.0] with 5 points - min is 0.0.
         assert session.best.objective_value == pytest.approx(0.0)
 
     def test_session_exposes_duration(self):
@@ -172,7 +172,7 @@ class TestEngineEdgeCases:
     def test_batch_size_larger_than_max_iter_is_clamped(self):
         """When ``batch_size > max_iter`` the engine clamps the per-ask ``n``."""
         space = _unit_space()
-        # Use a stub that returns 5 suggestions if asked — we expect only 3.
+        # Use a stub that returns 5 suggestions if asked - we expect only 3.
         opt = _StubOptimizer([{"x": 0.1}, {"x": 0.2}, {"x": 0.3}, {"x": 0.4}, {"x": 0.5}])
         engine = CalibrationEngine(
             space=space,

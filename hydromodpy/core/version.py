@@ -2,9 +2,9 @@
 
 The runtime resolves ``__version__`` in this order:
 
-1. ``importlib.metadata.version("hydromodpy")`` — the authoritative answer
+1. ``importlib.metadata.version("hydromodpy")`` - the authoritative answer
    once the package is installed (wheel / editable install).
-2. ``pyproject.toml`` parsed with :mod:`tomllib` — used when HydroModPy is
+2. ``pyproject.toml`` parsed with :mod:`tomllib` - used when HydroModPy is
    imported straight from a source checkout before ``pip install -e .``.
 3. A hard-coded development fallback, kept in sync with ``pyproject.toml``.
 

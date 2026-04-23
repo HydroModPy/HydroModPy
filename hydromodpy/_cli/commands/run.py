@@ -1,4 +1,4 @@
-"""``hmp run`` — execute a workflow declared by the TOML.
+"""``hmp run`` - execute a workflow declared by the TOML.
 
 Single CLI entry point. The TOML must carry a top-level
 ``workflow = "..."`` field (one of ``simulation``, ``calibration``,
@@ -116,7 +116,7 @@ def run(args: argparse.Namespace) -> None:
 def _run_toml(config_path: Path, *, args: argparse.Namespace) -> None:
     """Run a workflow from a TOML file.
 
-    The TOML MUST declare ``workflow = "..."`` at the top level — otherwise
+    The TOML MUST declare ``workflow = "..."`` at the top level - otherwise
     :class:`~hydromodpy._cli.workflows.WorkflowMissingError` is raised and
     the CLI exits with ``EXIT_CONFIG``. No implicit detection from sections.
     """
@@ -323,7 +323,7 @@ def _run_script(script_path: Path, extra_args: list[str]) -> None:
 def _infer_workflow_from_sections(raw_toml: dict) -> str:
     """Infer the workflow from the TOML sections present.
 
-    Mirrors the dispatch table in :mod:`hydromodpy._cli.workflows` — used
+    Mirrors the dispatch table in :mod:`hydromodpy._cli.workflows` - used
     only when ``--dry-run`` is set and the user has not declared
     ``workflow = "..."`` at the top level.
     """

@@ -198,7 +198,7 @@ def filter_locations_by_geometry(
                 tr = Transformer.from_crs(src_crs, target_crs, always_xy=True)
                 transformers[src_crs] = tr
             x, y = tr.transform(loc.x, loc.y)
-        # ``intersects`` is more permissive than ``contains`` at boundaries —
+        # ``intersects`` is more permissive than ``contains`` at boundaries -
         # relevant for outlet stations that land exactly on the watershed
         # boundary after snapping.
         if geometry.intersects(Point(x, y)):

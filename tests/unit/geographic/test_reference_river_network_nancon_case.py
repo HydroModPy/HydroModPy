@@ -20,6 +20,7 @@ def _write_tmp_config(work_root: Path) -> Path:
     config_path = work_root / "case_config_river_network_nancon.toml"
     dem_path = (REPO_ROOT / "examples" / "data" / "dem" / "DEM_armorican_massif.tif").as_posix()
     out_path = (work_root / "results").as_posix()
+    ws_root = work_root.as_posix()
 
     config_path.write_text(
         "\n".join(
@@ -27,6 +28,7 @@ def _write_tmp_config(work_root: Path) -> Path:
                 'workflow = "simulation"',
                 "[workspace]",
                 f'project_root = "{out_path}"',
+                f'root = "{ws_root}"',
                 "",
                 "[geographic]",
                 'catch_def = "from_outlet_coord"',
@@ -56,12 +58,6 @@ def _write_tmp_config(work_root: Path) -> Path:
 
 
 @pytest.mark.slow
-@pytest.mark.skip(
-    reason=(
-        "Workspace resolver now requires one explicit [workspace] scaffold; "
-        "rework this test's TOML before re-enabling."
-    )
-)
 def test_run_reference_river_network_nancon_case(
     monkeypatch: pytest.MonkeyPatch,
     hydromodpy_test_scratch_root: Path,

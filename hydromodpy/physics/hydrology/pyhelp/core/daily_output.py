@@ -124,8 +124,7 @@ def calc_area_daily_avg(cellnames, workdir):
 
     df_concat.columns = pd.MultiIndex.from_tuples(multi_cols)
 
-    # Moyenne spatiale => groupby(level=1).mean()
-    # groupby across columns via transpose to avoid deprecated axis param
+    # Moyenne spatiale via transpose + groupby par niveau (colonnes).
     df_mean = df_concat.T.groupby(level=1).mean().T
 
     return df_mean

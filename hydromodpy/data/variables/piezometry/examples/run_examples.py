@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-"""Piezometry use-case examples — run standalone to test each scenario.
+"""Piezometry use-case examples - run standalone to test each scenario.
 
 Usage::
 

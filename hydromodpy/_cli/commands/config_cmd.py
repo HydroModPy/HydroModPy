@@ -1,13 +1,10 @@
-"""``hmp config`` — configuration TOML template + schema + validator.
+"""``hmp config`` - configuration TOML template + schema + validator.
 
 Subparsers:
   - ``hmp config template [OUTPUT]``  : generate a TOML template
   - ``hmp config check FILE.toml``    : validate a TOML against the Pydantic schema
   - ``hmp config schema ...``         : export the JSON Schema (alias of ``hmp schema``)
   - ``hmp config wizard``             : stdin-driven wizard
-
-v0.5 breaking change: the bare form ``hmp config FILE.toml`` has been
-retired in favour of the explicit ``hmp config template FILE.toml``.
 """
 
 from __future__ import annotations
@@ -25,7 +22,7 @@ HELP = "Generate a TOML template, validate a config, or export the JSON Schema"
 
 
 def register(subparsers) -> argparse.ArgumentParser:
-    from hydromodpy.core.config.generate_toml import PROFILES
+    from hydromodpy.core.config.param_level import PROFILES
 
     parser = subparsers.add_parser(NAME, help=HELP)
     sub = parser.add_subparsers(dest="config_command", required=False)

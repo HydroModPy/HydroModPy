@@ -274,7 +274,7 @@ _LAZY_IMPORTS = {
     "Workspace": "hydromodpy.core.workspace",
     "WorkspaceConfig": "hydromodpy.core.workspace",
     "HydroModPyConfig": "hydromodpy.core.config.hydromodpy_config",
-    # Data variables (legacy public surface)
+    # Data variables (public surface)
     "Hydrometry": "hydromodpy.data.variables.hydrometry.hydrometry",
     "Piezometry": "hydromodpy.data.variables.piezometry.piezometry",
     "HydrographyConfig": "hydromodpy.data.variables.hydrography.config",

@@ -1,4 +1,4 @@
-"""Unit tests for :class:`DisplayStep` — the 12th pipeline step.
+"""Unit tests for :class:`DisplayStep` - the 12th pipeline step.
 
 Heavy I/O (catalog open, figure rendering) is kept out of this unit test
 via monkey-patching. We verify the *policy* layer:
@@ -22,7 +22,7 @@ from hydromodpy.pipeline.steps.step_11_display import DisplayStep
 def _make_ctx(*, enabled: bool, figures: list[str], project_root: Path) -> SimpleNamespace:
     workspace = SimpleNamespace(
         project_root=project_root,
-        workspace_root=project_root.parent,
+        root=project_root.parent,
     )
     display = SimpleNamespace(
         enabled=enabled,

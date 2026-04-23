@@ -6,7 +6,7 @@ Run with::
     streamlit run docs/examples/streamlit_app.py
 
 The goal is to demonstrate that a frontend can render a form without
-importing HydroModPy directly — only the three JSON files produced by
+importing HydroModPy directly - only the three JSON files produced by
 ``hmp schema export`` are read. ``streamlit`` is **not** part of the
 HydroModPy dependencies; install it separately if you want to try the
 example (``pip install streamlit``).
@@ -94,7 +94,7 @@ def main(schema_dir: Path = DEFAULT_SCHEMA_DIR) -> None:  # pragma: no cover - U
         return
 
     st.set_page_config(page_title="HydroModPy config", layout="wide")
-    st.title("HydroModPy — schema-driven form")
+    st.title("HydroModPy - schema-driven form")
 
     try:
         schema = load_schema(schema_dir)

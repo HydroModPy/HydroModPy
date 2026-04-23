@@ -1,7 +1,7 @@
 """Colormap policy.
 
 A short list of perceptually-broken colormaps is banned across the whole
-display corpus. :func:`get_cmap` is the single entry point — it rejects
+display corpus. :func:`get_cmap` is the single entry point - it rejects
 a banned name up-front so misuse fails loudly at figure construction
 time, not later in a CI pipeline. The ``check_no_banned_in_call`` helper
 is used by the unit-test that scans the figures directory for direct

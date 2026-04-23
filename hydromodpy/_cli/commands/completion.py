@@ -1,4 +1,4 @@
-"""``hmp completion`` — emit shell completion scripts."""
+"""``hmp completion`` - emit shell completion scripts."""
 
 from __future__ import annotations
 

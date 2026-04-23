@@ -4,8 +4,8 @@ Historically, ~14 variable modules under :mod:`hydromodpy.data.variables`
 (``etp``, ``humidity``, ``temperature``, ``wind``, ``precipitation``,
 ``radiation``, ``hydrometry``, ``intermittency``, ``piezometry``,
 ``soil_moisture``, ``runoff``, ``recharge``, etc.) declared the same
-handful of columns — ``col_id``, ``col_x``, ``col_y``, ``col_crs``,
-``col_datetime``, ``col_value``, ``default_crs`` — plus ``station_ids``,
+handful of columns - ``col_id``, ``col_x``, ``col_y``, ``col_crs``,
+``col_datetime``, ``col_value``, ``default_crs`` - plus ``station_ids``,
 ``extent`` and ``force_refresh``. The architecture spec
 (``architecture_cible/02_config_pydantic.md`` §3.4) factors these fields
 out into a single :class:`TimeseriesVariableConfig` base.

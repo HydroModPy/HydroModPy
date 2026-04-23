@@ -44,24 +44,6 @@ def regularized_partition_surface_rate_from_balance(
     return regularization * ramp_rate
 
 
-def saturation_excess_rate_from_balance(
-    mesh: BoussinesqMesh,
-    head_m: np.ndarray,
-    *,
-    lateral_flux_residual_m3_s: np.ndarray,
-    surface_input_rate_m_s: np.ndarray | float | None,
-    regularization_radius: float,
-) -> np.ndarray:
-    """Backward-compatible alias for the regularized partition surface law."""
-    return regularized_partition_surface_rate_from_balance(
-        mesh,
-        head_m,
-        lateral_flux_residual_m3_s=lateral_flux_residual_m3_s,
-        surface_input_rate_m_s=surface_input_rate_m_s,
-        regularization_radius=regularization_radius,
-    )
-
-
 def resolve_saturation_excess_rate(
     mesh: BoussinesqMesh,
     *,
@@ -90,5 +72,4 @@ def resolve_saturation_excess_rate(
 __all__ = [
     "regularized_partition_surface_rate_from_balance",
     "resolve_saturation_excess_rate",
-    "saturation_excess_rate_from_balance",
 ]

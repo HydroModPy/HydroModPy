@@ -1,4 +1,4 @@
-"""Objective Protocol — computes a cost from observed vs simulated data.
+"""Objective Protocol - computes a cost from observed vs simulated data.
 
 The calibration engine only requires an object with ``evaluate(sim) -> float``
 or ``evaluate(sim) -> dict`` (multi-objective). ``ObservationSet`` and
@@ -172,7 +172,7 @@ def evaluate_objective(obj: Objective, sim: SimulationOutput) -> ObjectiveValue:
 
 
 # ---------------------------------------------------------------------------
-# CompositeObjective — weighted multi-block composite
+# CompositeObjective - weighted multi-block composite
 # ---------------------------------------------------------------------------
 
 

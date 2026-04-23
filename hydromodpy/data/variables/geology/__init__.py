@@ -1,4 +1,4 @@
-"""Geology variable — data acquisition, caching, and serving."""
+"""Geology variable - data acquisition, caching, and serving."""
 
 from hydromodpy.data.variables.geology.config import (
     GeologyConfig,

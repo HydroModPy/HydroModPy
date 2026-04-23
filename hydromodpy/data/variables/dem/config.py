@@ -18,7 +18,7 @@ class DemSourceConfig(HydroModelBase):
     Supported sources:
 
     - ``custom``: user-provided raster file (GeoTIFF, Esri ASCII Grid, NetCDF).
-    - ``ign_bdalti``: IGN BD ALTI® 25 m — French national MNT downloaded
+    - ``ign_bdalti``: IGN BD ALTI® 25 m - French national MNT downloaded
       per-department from the GéoPlateforme.
     """
 

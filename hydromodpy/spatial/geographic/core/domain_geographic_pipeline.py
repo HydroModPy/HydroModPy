@@ -18,7 +18,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from hydromodpy.core.logging import get_logger
-from hydromodpy.core.workspace.path_registry import LEGACY_STABLE_DIR
+from hydromodpy.core.workspace.path_registry import PREPROCESSING_DIR
 from hydromodpy.spatial.geographic.core.catchment_metrics import compute_catchment_area_km2
 from hydromodpy.spatial.geographic.core.derived_features import (
     GeographicBoundaryFeatures,
@@ -136,7 +136,7 @@ def build_geographic_derived_features(
 
         geographic = build_synthetic_geographic(
             config=config.synthetic,
-            output_dir=Path(workspace.project_root) / LEGACY_STABLE_DIR / "geographic",
+            output_dir=Path(workspace.project_root) / PREPROCESSING_DIR / "geographic",
             workspace=workspace,
         )
         return geographic.get_geographic_derived_features()

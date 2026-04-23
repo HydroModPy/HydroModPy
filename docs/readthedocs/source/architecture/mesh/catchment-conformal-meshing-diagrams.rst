@@ -25,7 +25,7 @@ Code map
   concrete runtime path behind the public facade.
 - ``hydromodpy/spatial/geographic`` and related domain helpers:
   geographic context preparation before meshing.
-- ``hydromodpy/solver/utils/mesh/gmsh_grid/zone_meshing/``:
+- ``hydromodpy/spatial/mesh/gmsh_grid/zone_meshing/``:
   conformal meshing core and export helpers.
 
 Recommended reading path
@@ -33,8 +33,8 @@ Recommended reading path
 
 1. ``launchers/mesh_catchment/runtime.py``
 2. ``launchers/mesh_catchment/runtime_single_run.py``
-3. ``hydromodpy/solver/utils/mesh/gmsh_grid/runtime_support.py``
-4. ``hydromodpy/solver/utils/mesh/gmsh_grid/zone_meshing/conformal.py``
+3. ``hydromodpy/spatial/mesh/gmsh_grid/runtime_support.py``
+4. ``hydromodpy/spatial/mesh/gmsh_grid/zone_meshing/conformal.py``
 5. the surrounding files under ``zone_meshing/`` when a lower-level geometry
    question appears
 

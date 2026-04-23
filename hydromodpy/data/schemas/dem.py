@@ -2,7 +2,7 @@
 
 The contract is intentionally light: it asserts that the payload is a
 2D grid with a declared CRS and a resolution no finer than 1 metre. The
-underlying storage format (xarray, rasterio, numpy) is not prescribed —
+underlying storage format (xarray, rasterio, numpy) is not prescribed -
 we accept any object exposing the attributes we need.
 """
 

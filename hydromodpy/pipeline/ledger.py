@@ -44,7 +44,7 @@ class StepsLedger:
     def _connect(self) -> None:
         try:
             import duckdb
-        except ImportError:  # pragma: no cover — duckdb always present
+        except ImportError:  # pragma: no cover - duckdb always present
             self._enabled = False
             logger.warning("duckdb not available; steps ledger disabled")
             return

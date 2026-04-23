@@ -4,14 +4,14 @@ During a calibration loop, each trial runs in ``lightweight`` mode: the
 solver still writes its binary output (``.hds``, ``.cbc``, ...) to the
 workspace scratch folder, but no Zarr / Parquet / catalog rows are
 created. The optimizer only needs a scalar objective value to drive the
-ask/tell loop — the metric extractor in this module reads the solver
+ask/tell loop - the metric extractor in this module reads the solver
 binaries directly, aligns the simulated series with the observations
 that were loaded once during ``prepare_trials``, and returns a
 ``(primary_metric, per_component_metrics)`` tuple.
 
 Current coverage:
 
-- **MODFLOW-NWT** — discharge (DRAIN budget summed over the catchment)
+- **MODFLOW-NWT** - discharge (DRAIN budget summed over the catchment)
   and head at observation points (read from the ``.hds`` file).
 
 MODFLOW-6 and other solvers are scheduled for a follow-up: the
@@ -61,8 +61,8 @@ def _load_observed(
 
     ``variable`` is the calibration-target variable (``"discharge"``,
     ``"head"``). Discharge comes from ``hydrometry``, head from
-    ``piezometry``. The helper returns a list of ``ObservedSeries`` —
-    one per station — so multi-station calibration works uniformly.
+    ``piezometry``. The helper returns a list of ``ObservedSeries`` -
+    one per station - so multi-station calibration works uniformly.
     """
     field_name = {"discharge": "hydrometry", "head": "piezometry"}.get(variable)
     if field_name is None:
@@ -268,7 +268,7 @@ def _resolve_time_index(ctx: Any, n_timesteps: int) -> pd.DatetimeIndex | None:
 def _score(observed: pd.Series, simulated: pd.Series, objective: str) -> float:
     """Align two series on the observed index and compute the scalar metric.
 
-    Returns the *cost* (lower is better) — higher-is-better metrics like
+    Returns the *cost* (lower is better) - higher-is-better metrics like
     NSE / KGE are flipped into ``1 - value`` so the optimizer always
     minimizes. This matches the convention in ``ScalarObjective``.
     """
@@ -280,7 +280,7 @@ def _score(observed: pd.Series, simulated: pd.Series, objective: str) -> float:
         )
     obs = observed.astype(float)
     sim = simulated.astype(float)
-    # Align to the observed index — MODFLOW may emit at different stamps.
+    # Align to the observed index - MODFLOW may emit at different stamps.
     sim_aligned = sim.reindex(obs.index, method="nearest", tolerance=pd.Timedelta(days=31))
     value = float(metric(obs.values, sim_aligned.values))
     if np.isnan(value):
@@ -289,7 +289,7 @@ def _score(observed: pd.Series, simulated: pd.Series, objective: str) -> float:
 
 
 # ---------------------------------------------------------------------------
-# Public factory — build a metric_fn bound to the prepared observations
+# Public factory - build a metric_fn bound to the prepared observations
 # ---------------------------------------------------------------------------
 
 
@@ -387,14 +387,14 @@ def _resolve_station_cells(
 
     Reads lat/lon from the station metadata and intersects with the
     model grid when available. Returns an empty dict when the mapping
-    cannot be resolved — head calibration then degrades to NaN which
+    cannot be resolved - head calibration then degrades to NaN which
     the optimizer will skip.
     """
     domain = getattr(ctx.setup, "domain", None)
     mesh = getattr(ctx.setup, "mesh_planar", None)
     if mesh is None or domain is None:
         return {}
-    # The real mapping lives in hydromodpy.data.variables.piezometry.* —
+    # The real mapping lives in hydromodpy.data.variables.piezometry.* -
     # we look up the station record directly from ctx.loaded_data.piezometry
     # to avoid duplicating geometry logic here.
     piezo = getattr(ctx.loaded_data, "piezometry", None)

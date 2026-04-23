@@ -21,7 +21,7 @@ REPO_ROOT = ROOT.parents[3]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
-from hydromodpy.solver.utils.mesh.gmsh_grid.catchment_mesh_bundle_reader import (  # noqa: E402
+from hydromodpy.spatial.mesh.gmsh_grid.catchment_mesh_bundle_reader import (  # noqa: E402
     load_catchment_mesh_bundle,
 )
 

@@ -68,5 +68,5 @@ class StiffDiagramFigure(BaseFigure):
         max_side = max(abs(xs.min()), xs.max(), 1.0)
         ax.set_xlim(-max_side * 1.1, max_side * 1.1)
         ax.set_ylim(0.5, 3.5)
-        ax.set_title(f"Stiff diagram — sample {sample}")
+        ax.set_title(f"Stiff diagram - sample {sample}")
         return ax

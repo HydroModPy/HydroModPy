@@ -11,10 +11,10 @@ from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_valida
 
 from hydromodpy.core.config.base import HydroModelBase
 from hydromodpy.solver.utils._config_helpers import get_nested_section, resolve_path
-from hydromodpy.solver.utils.temporal.tmesh_config import TMeshConfigModel
+from hydromodpy.solver.utils.temporal.tmesh_config import TMeshConfig
 
 
-class TMeshCaseScenarioConfig(TMeshConfigModel):
+class TMeshCaseScenarioConfig(TMeshConfig):
     """One named temporal-mesh demo scenario."""
 
     model_config = ConfigDict(extra="forbid")

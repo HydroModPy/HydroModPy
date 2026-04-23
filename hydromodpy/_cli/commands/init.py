@@ -1,4 +1,4 @@
-"""``hmp init`` — scaffold a HydroModPy workspace."""
+"""``hmp init`` - scaffold a HydroModPy workspace."""
 
 from __future__ import annotations
 

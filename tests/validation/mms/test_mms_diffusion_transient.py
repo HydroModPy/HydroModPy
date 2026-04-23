@@ -11,10 +11,10 @@ combines the standard second-order centred-space stencil with either
 backward Euler (first-order in time) or Crank-Nicolson (second-order in
 time) for the temporal update. Two refinement studies are run:
 
-* **space** — ``dx`` refined with Crank-Nicolson in time so the temporal
+* **space** - ``dx`` refined with Crank-Nicolson in time so the temporal
   error stays small enough for the spatial slope to emerge. Expected
   slope ~2.
-* **time**  — ``dx`` held fine, ``dt`` refined under backward Euler.
+* **time**  - ``dx`` held fine, ``dt`` refined under backward Euler.
   Expected slope ~1 (see ``tests/TOLERANCES.md`` row 10).
 """
 
@@ -26,7 +26,7 @@ import pytest
 from .conftest import l2_error, run_mms_convergence
 
 D = 1.0  # diffusion coefficient (unit strength keeps numbers O(1))
-T_FINAL = 0.1  # final time — several e-folding times for D = 1
+T_FINAL = 0.1  # final time - several e-folding times for D = 1
 LAMBDA = (np.pi**2) * D
 
 

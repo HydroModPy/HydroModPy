@@ -206,7 +206,7 @@ class GPMappingOptimizer:
             return True
         if len(self._x_history) < self._n_init:
             return False
-        # EI alone is not a robust stopping signal — the GP often reports
+        # EI alone is not a robust stopping signal - the GP often reports
         # vanishingly small EI once it becomes confident. Require a run of
         # ``ei_patience`` consecutive iterations below ``ei_tol``.
         return self._low_ei_streak >= self._ei_patience

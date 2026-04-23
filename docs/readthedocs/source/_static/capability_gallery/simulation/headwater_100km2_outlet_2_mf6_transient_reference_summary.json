@@ -41,18 +41,14 @@
     "examples_legacy_2/projects/launcher_simulation/config_headwater_100km2_mf6_transient_common.toml",
     "examples_legacy_2/projects/launcher_simulation/README.md",
     "examples/projects/09_capability_gallery/launcher_simulation/headwater_100km2_outlet_2_mf6_transient_reference/manifest.json",
-    "hydromodpy/display/__init__.py",
-    "hydromodpy/display/figures/__init__.py",
     "hydromodpy/analysis/capability_gallery.py"
   ],
   "source_hashes": {
     "examples_legacy_2/projects/launcher_simulation/run_headwater_100km2_outlet_2_mf6_transient_reference.toml": "35464713f1c8e99fa9bf583f3ebfafb9fc543f19ac00255a10b371d8bae8f8bd",
     "examples_legacy_2/projects/launcher_simulation/config_headwater_100km2_mf6_transient_common.toml": "72aa57f14d7ff85a0d2836a229b45c884e02b8d1e60b8ddc2cf228fe3f7018a5",
     "examples_legacy_2/projects/launcher_simulation/README.md": "ecbaa8c0ed4b211588ef167ef0e8d0235d01b25464d23bcdf0e0726e77ebab6a",
-    "examples/projects/09_capability_gallery/launcher_simulation/headwater_100km2_outlet_2_mf6_transient_reference/manifest.json": "1c391e2c9e59981fd3b3673b428026ca9a2e6ab7aa5b6e61ed6994c5f4ae8e3e",
-    "hydromodpy/display/__init__.py": "7b5e36ba66b417385f21e0965b47f9018c9ab7d03573d32da1d36dccb729facc",
-    "hydromodpy/display/figures/__init__.py": "9a064174ee7fca56b71a714b55ab6f411af66a372bd861d6a68511152960ff36",
-    "hydromodpy/analysis/capability_gallery.py": "77bf173e6ba84192cd0282da330c5069a675d9b2aee7cfaac29ed3365d2dbe38"
+    "examples/projects/09_capability_gallery/launcher_simulation/headwater_100km2_outlet_2_mf6_transient_reference/manifest.json": "c63ba9ee64467dfa0ed4ed4607c9fcc7cc817da11e086f18060dfc9d3db1cca2",
+    "hydromodpy/analysis/capability_gallery.py": "c758751d189bb7e46919327c2933cf8e4f67a2fb71a8364dec9e02e140455823"
   },
   "docname": "cases/headwater_100km2_outlet_2_mf6_transient_reference",
   "images": [

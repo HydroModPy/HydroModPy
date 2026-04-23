@@ -13,17 +13,17 @@ from hydromodpy.data.contracts.load_result import LoadResult
 from hydromodpy.data.contracts.spatial_field import FieldRecord
 from hydromodpy.physics.flow import Flow
 from hydromodpy.physics.flow.flow_config import FlowConfig
-from hydromodpy.simulation.adapters.flow.boussinesq import BoussinesqFlowAdapter
-from hydromodpy.simulation.adapters.registry import get_solver_adapter
 from hydromodpy.simulation.planning.plan import (
     ProcessRun,
     RunContext,
     SimulationPlan,
 )
-from hydromodpy.solver.utils.mesh.gmsh_grid import GmshPlanarMesh2D
+from hydromodpy.solver.base.registry import get_solver_adapter
+from hydromodpy.solver.boussinesq.adapters.flow import BoussinesqFlowAdapter
 from hydromodpy.spatial.field.core.field_spatial_weighted_discretization import (
     WeightedAverageFieldDiscretization,
 )
+from hydromodpy.spatial.mesh.gmsh_grid import GmshPlanarMesh2D
 
 
 def _write_csv(path: Path, header: str, rows: list[str]) -> None:
@@ -712,7 +712,7 @@ def test_boussinesq_flow_adapter_runs_transient_and_writes_outputs(tmp_path: Pat
     assert model.state is not None
     assert model.state.head_history_m is not None
     assert model.state.head_history_m.shape == (2, 2)
-    # Post-processing is no longer called by the adapter — ResultStore
+    # Post-processing is no longer called by the adapter - ResultStore
     # extractors handle it.  Verify the solver output directory exists.
     assert result.solver_output_dir is not None
 

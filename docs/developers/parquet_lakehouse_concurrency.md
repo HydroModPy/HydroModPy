@@ -42,7 +42,7 @@ Every Parquet write goes through `_atomic_write_parquet`:
    target already exists, the select unions the existing file with
    `_hmp_insert`, deduplicates on the primary key, and keeps the newer
    row. This mirrors the old `INSERT OR REPLACE` semantics.
-3. `os.replace('<target>.tmp', '<target>')` — atomic on POSIX and on
+3. `os.replace('<target>.tmp', '<target>')`: atomic on POSIX and on
    NTFS when both paths are on the same volume, which they always are
    because the `.tmp` is a sibling of the target.
 4. Unregister `_hmp_insert`.
@@ -77,7 +77,7 @@ survives; the loser's rows are lost. This is acceptable because:
 - Inside one simulation, writes happen from one extractor run in a
   single process. The calibration loop is strictly serial
   (`hydromodpy/calibration/engine.py`).
-- `write_timeseries` is idempotent against the same input — two calls
+- `write_timeseries` is idempotent against the same input: two calls
   with the same rows produce the same file, regardless of order.
 
 If a future workflow runs parallel workers that all write against the

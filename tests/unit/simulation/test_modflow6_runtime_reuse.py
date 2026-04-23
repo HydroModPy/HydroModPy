@@ -3,8 +3,8 @@ from __future__ import annotations
 from pathlib import Path
 from types import SimpleNamespace
 
-from hydromodpy.simulation.adapters.flow.modflow6 import Modflow6FlowAdapter
 from hydromodpy.simulation.planning.plan import ProcessRun, RunContext, SimulationPlan
+from hydromodpy.solver.modflow6.adapters.flow import Modflow6FlowAdapter
 from hydromodpy.solver.modflow6.modflow6 import Modflow6
 from hydromodpy.solver.modflow_common.options import ModflowRunOptions
 
@@ -82,7 +82,7 @@ def test_modflow6_flow_adapter_reuses_solver_instance(monkeypatch) -> None:
             del options
 
     monkeypatch.setattr(
-        "hydromodpy.simulation.adapters.flow.modflow6.Modflow6",
+        "hydromodpy.solver.modflow6.adapters.flow.Modflow6",
         _FakeModel,
     )
 

@@ -6,12 +6,12 @@ from pathlib import Path
 from types import SimpleNamespace
 
 from hydromodpy.physics.flow import Flow
-from hydromodpy.simulation.adapters.flow.boussinesq import BoussinesqFlowAdapter
 from hydromodpy.simulation.planning.plan import (
     ProcessRun,
     RunContext,
     SimulationPlan,
 )
+from hydromodpy.solver.boussinesq.adapters.flow import BoussinesqFlowAdapter
 from validation_cases.analytical.steady.boussinesq_circular_island_piecewise_k_2d import (
     runtime_boussinesq as circular_runtime,
 )

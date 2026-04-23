@@ -54,6 +54,6 @@ class CalibrationConvergenceFigure(BaseFigure):
         ax.set_xlabel("Iteration")
         ax.set_ylabel(objective)
         ax.grid(True, ls=":", lw=0.4)
-        ax.set_title(f"Calibration convergence — {sim.name or sim.sim_id}")
+        ax.set_title(f"Calibration convergence - {sim.name or sim.sim_id}")
         ax.legend()
         return ax

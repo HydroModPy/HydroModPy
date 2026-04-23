@@ -82,7 +82,7 @@ def resolve_workflow(
         Workflow name from the CLI subcommand (e.g. ``"simulation"`` when the
         user invoked ``hmp simulate``), or ``None`` for ``hmp run``.
     require_toml_field
-        If ``True``, the TOML MUST declare ``workflow = "..."`` — else
+        If ``True``, the TOML MUST declare ``workflow = "..."`` - else
         :class:`WorkflowMissingError`. Set by ``hmp run``.
 
     Returns
@@ -194,17 +194,6 @@ def dispatch_workflow(workflow: str, config_path: Path, **kwargs) -> dict:
     return runner(config_path, **kwargs)
 
 
-# Legacy alias — retained for callers that imported the old name. Identical
-# semantics: maps a workflow label to a "module:fn" string.
-WORKFLOW_DISPATCH: dict[str, str] = {
-    "simulation": "hydromodpy._cli.workflows:run_simulation",
-    "overview": "hydromodpy._cli.workflows:run_overview",
-    "mesh": "hydromodpy._cli.workflows:run_mesh",
-    "calibration": "hydromodpy._cli.workflows:run_calibration",
-    "batch": "hydromodpy._cli.workflows:run_batch",
-}
-
-
 def _run_resume(config_path: Path, run_id: str, *, no_display: bool = False) -> dict:
     """Resume a previously interrupted simulation via the new Pipeline."""
     from hydromodpy.pipeline import Pipeline, PipelineState
@@ -269,6 +258,5 @@ __all__ = (
     "run_mesh",
     "run_calibration",
     "run_batch",
-    "WORKFLOW_DISPATCH",
     "DISPATCH",
 )

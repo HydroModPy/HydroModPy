@@ -2,7 +2,7 @@
 
 Uses a bundled GeoPackage (``departement.gpkg``) containing simplified
 department polygons in EPSG:2154 (Lambert-93).  The file ships with the
-package (~600 KB) so detection is purely local — no network call needed.
+package (~600 KB) so detection is purely local - no network call needed.
 
 Source: IGN ADMIN EXPRESS COG CARTO (Licence Ouverte / ETALAB v2.0),
 simplified to 500 m tolerance.
@@ -65,10 +65,6 @@ def department_code_to_padded(dept_code: str) -> str:
     if code.isdigit():
         return code.zfill(3)
     return code
-
-
-# Backward-compatible alias used by geology.
-department_code_to_brgm_code = department_code_to_padded
 
 
 # ---------------------------------------------------------------------------

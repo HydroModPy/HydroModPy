@@ -27,7 +27,7 @@ VARIABLE_UNITS: dict[str, str] = {
 # ``hydromodpy.results.metrics`` / ``Run`` methods, so the
 # catalog stays focused on observation-comparable point series.
 _AGGREGATION_SPEC: list[tuple[str, str, str]] = [
-    # Outlet discharge (m3/s) — consumed by hydrograph, watershed_id_card,
+    # Outlet discharge (m3/s) - consumed by hydrograph, watershed_id_card,
     # calibration.
     ("drains|drn|drain", "discharge", "qspe"),
     # Well pumping total (m3/d).
@@ -61,7 +61,7 @@ def aggregate_catchment_timeseries(
 
     active_mask = _build_active_mask(grp)
 
-    # Resolve a DatetimeIndex — DuckDB timeseries table requires TIMESTAMP.
+    # Resolve a DatetimeIndex - DuckDB timeseries table requires TIMESTAMP.
     if time_index is not None and len(time_index) == n_timesteps:
         ts_index = time_index
     else:

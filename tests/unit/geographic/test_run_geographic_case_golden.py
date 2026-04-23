@@ -65,12 +65,14 @@ def _write_tmp_config(tmp_path: Path) -> Path:
     dem_path = (REPO_ROOT / "examples" / "data" / "dem" / "regional_dem_naizin.tif").as_posix()
     out_path = (tmp_path / "results").as_posix()
 
+    ws_root = tmp_path.as_posix()
     config_path.write_text(
         "\n".join(
             [
                 'workflow = "simulation"',
                 "[workspace]",
                 f'project_root = "{out_path}"',
+                f'root = "{ws_root}"',
                 "",
                 "[geographic]",
                 'catch_def = "from_outlet_coord"',
@@ -90,12 +92,6 @@ def _write_tmp_config(tmp_path: Path) -> Path:
 
 
 @pytest.mark.slow
-@pytest.mark.skip(
-    reason=(
-        "Workspace resolver now requires one explicit [workspace] scaffold; "
-        "rework this test's TOML before re-enabling."
-    )
-)
 def test_run_geographic_case_metrics_golden(
     update_goldens, tmp_path, monkeypatch: pytest.MonkeyPatch
 ):

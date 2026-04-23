@@ -6,7 +6,7 @@ PNG under ``<workspace>/reports/<session_id>/figures/``, and assembles
 a self-contained ``report.html`` that embeds the PNGs + the session
 metadata table.
 
-The report is intentionally static — no JS, no external fonts, no CDN.
+The report is intentionally static - no JS, no external fonts, no CDN.
 It opens offline from the workspace directory.
 """
 

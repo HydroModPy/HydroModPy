@@ -4,7 +4,7 @@ Covers:
 
 - Config validation (HydrographySourceConfig, HydrographyConfig)
   - All four source types: custom, osm, bdtopage, euhydro
-  - ParamLevel annotations on every field
+  - Profile annotations on every field
   - Field defaults, constraints, extra="forbid"
   - Model validator (custom requires path)
   - Serialization round-trips (model_dump / model_validate)
@@ -56,7 +56,6 @@ import pytest
 from pydantic import BaseModel, ValidationError
 from shapely.geometry import LineString, MultiLineString, Point, Polygon
 
-from hydromodpy.core.config.param_level import ParamLevel
 from hydromodpy.core.config.profile import Profile
 from hydromodpy.data.variables.hydrography.config import (
     HydrographyConfig,
@@ -148,7 +147,7 @@ def _write_dummy_tif(path, crs="EPSG:2154", shape=(100, 100)):
 
 
 # =====================================================================
-# 1. Config — HydrographySourceConfig
+# 1. Config - HydrographySourceConfig
 # =====================================================================
 
 
@@ -236,13 +235,13 @@ class TestSourceConfigValidation:
 
 
 # =====================================================================
-# 2. Config — ParamLevel annotations
+# 2. Config - Profile annotations
 # =====================================================================
 
 
 @pytest.mark.fast
 class TestSourceConfigParamLevels:
-    """Every field must carry a ParamLevel annotation."""
+    """Every field must carry a Profile annotation."""
 
     @staticmethod
     def _get_param_level(model_cls: type[BaseModel], field_name: str) -> str | None:
@@ -250,8 +249,6 @@ class TestSourceConfigParamLevels:
         for meta in info.metadata:
             if isinstance(meta, Profile):
                 return meta.name.lower()
-            if isinstance(meta, ParamLevel):
-                return meta.level
         return None
 
     @pytest.mark.parametrize(
@@ -271,7 +268,7 @@ class TestSourceConfigParamLevels:
     def test_source_config_param_levels(self, field, expected_level):
         level = self._get_param_level(HydrographySourceConfig, field)
         assert level == expected_level, (
-            f"Field '{field}' expected ParamLevel('{expected_level}'), got '{level}'"
+            f"Field '{field}' expected Profile('{expected_level}'), got '{level}'"
         )
 
     def test_config_sources_field_is_user(self):
@@ -280,7 +277,7 @@ class TestSourceConfigParamLevels:
 
 
 # =====================================================================
-# 3. Config — HydrographyConfig (container)
+# 3. Config - HydrographyConfig (container)
 # =====================================================================
 
 
@@ -368,7 +365,7 @@ class TestDataManagersConfigIntegration:
         """HydrographyConfig is registered in _TYPED_SECTIONS dict."""
         from hydromodpy.data.data_managers_config import DataManagersConfig
 
-        # from_toml_section validates hydrography as typed — just check it doesn't error
+        # from_toml_section validates hydrography as typed - just check it doesn't error
         section = {
             "types": ["hydrography"],
             "hydrography": {"sources": [{"source": "osm"}]},
@@ -1017,7 +1014,7 @@ class TestHydrographyManager:
         """Data in EPSG:4326 gets reprojected to project CRS before clip."""
         from hydromodpy.data.variables.hydrography.manager import HydrographyManager
 
-        # Data in WGS84 — inside the watershed after reprojection
+        # Data in WGS84 - inside the watershed after reprojection
         gdf_4326 = gpd.GeoDataFrame(
             {"id": [1]},
             geometry=[LineString([(-1.5, 48.2), (-1.4, 48.3)])],
@@ -1311,7 +1308,7 @@ class TestDocumentedContracts:
 
 
 # =====================================================================
-# 15. Custom loader — TIF support
+# 15. Custom loader - TIF support
 # =====================================================================
 
 
@@ -1386,7 +1383,7 @@ class TestCustomLoaderTif:
 
 
 # =====================================================================
-# 16. Manager — TIF pipeline
+# 16. Manager - TIF pipeline
 # =====================================================================
 
 
@@ -1525,7 +1522,7 @@ class TestCatalogCacheManager:
         gpkg_files = list(data_dir.glob("*.gpkg"))
         assert len(gpkg_files) == 1
 
-        # Second call — should use cache, not call API again
+        # Second call - should use cache, not call API again
         mgr2 = HydrographyManager(
             config=mgr.config,
             geographic=mgr.geographic,
@@ -1687,7 +1684,7 @@ class TestResultOptionalStreams:
 
 
 # =====================================================================
-# 19. Config — force_refresh field
+# 19. Config - force_refresh field
 # =====================================================================
 
 
@@ -1707,9 +1704,6 @@ class TestForceRefreshConfig:
             if isinstance(meta, Profile):
                 assert meta == Profile.DEV
                 return
-            if isinstance(meta, ParamLevel):
-                assert meta.level == "dev"
-                return
         pytest.fail("force_refresh should have Profile.DEV")
 
     def test_force_refresh_in_model_dump(self):
@@ -1719,7 +1713,7 @@ class TestForceRefreshConfig:
 
 
 # =====================================================================
-# 20. DataStore — load_hydrography method
+# 20. DataStore - load_hydrography method
 # =====================================================================
 
 

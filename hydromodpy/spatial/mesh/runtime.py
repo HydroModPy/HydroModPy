@@ -13,10 +13,6 @@ from pathlib import Path
 from typing import Any
 
 import hydromodpy as hmp
-from hydromodpy.solver.utils.mesh.gmsh_grid import export_catchment_mesh_bundle
-from hydromodpy.solver.utils.mesh.gmsh_grid.cases.reference_2d_geology_conformal import (
-    run_reference_2d_zone_conformal_case_from_toml,
-)
 from hydromodpy.spatial.geographic.core.domain_geographic_pipeline import (
     build_domain_geographic_context,
     build_geographic_derived_features,
@@ -25,6 +21,10 @@ from hydromodpy.spatial.geographic.geographic_config import GeographicConfig
 from hydromodpy.spatial.mesh.config import (
     MeshCatchmentConfig,
     parse_mesh_catchment_config_data,
+)
+from hydromodpy.spatial.mesh.gmsh_grid import export_catchment_mesh_bundle
+from hydromodpy.spatial.mesh.gmsh_grid.cases.reference_2d_geology_conformal import (
+    run_reference_2d_zone_conformal_case_from_toml,
 )
 from hydromodpy.spatial.mesh.runtime_single_run import (
     MeshCatchmentSingleRunDependencies,

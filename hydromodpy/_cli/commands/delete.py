@@ -1,4 +1,4 @@
-"""``hmp delete`` — delete a simulation from the catalog and the Zarr store."""
+"""``hmp delete`` - delete a simulation from the catalog and the Zarr store."""
 
 from __future__ import annotations
 

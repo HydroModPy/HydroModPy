@@ -444,7 +444,7 @@ def _resolve_sim_id(store, sim_name: str | None = None) -> str:
         match = sims[sims["name"] == sim_name]
         if not match.empty:
             return str(match.iloc[0]["sim_id"])
-    # DuckDB may return UUID objects — always convert to str.
+    # DuckDB may return UUID objects - always convert to str.
     return str(sims.iloc[-1]["sim_id"])
 
 
@@ -493,7 +493,7 @@ def collect_store_field_signatures(
     sim_id: str,
     names: list[str],
 ) -> dict:
-    """Collect SimulationCatalog field signatures — drop-in for ``collect_modflow_signatures``."""
+    """Collect SimulationCatalog field signatures - drop-in for ``collect_modflow_signatures``."""
     result = {}
     for name in names:
         try:
@@ -510,7 +510,7 @@ def collect_store_npz_signatures(
     solver_output_dir: Path,
     names: list[str],
 ) -> dict:
-    """Collect .npz signatures from solver scratch — same as ``collect_npz_signatures``."""
+    """Collect .npz signatures from solver scratch - same as ``collect_npz_signatures``."""
     npz_path = solver_output_dir / "_boussinesq_state_history.npz"
     return collect_npz_signatures(npz_path, names)
 
@@ -765,7 +765,7 @@ def resolve_model_workspace(
                 particles_dir = postprocess_dir / "_particles"
                 return model_ws, postprocess_dir, particles_dir
 
-    # Neither layout found — give a clear error.
+    # Neither layout found - give a clear error.
     raise AssertionError(
         f"Results folder not found in {out_path} "
         f"(checked .solver_scratch/ and {results_folder_name}/)"
@@ -932,7 +932,7 @@ def run_hmp_cli(
     """Run ``hmp run <config>`` as a subprocess.
 
     Uses ``python -m hydromodpy run`` which invokes
-    :class:`Simulation` — the production entry point.
+    :class:`Simulation` - the production entry point.
     """
     env = os.environ.copy()
     env["HYDROMODPY_PROJECT_ROOT"] = str(out_path)

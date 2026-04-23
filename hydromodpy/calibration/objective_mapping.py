@@ -2,9 +2,7 @@
 
 Used by validation benchmark plots (``validation_cases/calibration/plotting.py``)
 to render objective surfaces from persisted JSONL traces. Kept deliberately
-dependency-light so the same helper reads both legacy launcher histories
-and the ones written by :mod:`hydromodpy.calibration.compat` for the new
-CLI.
+dependency-light.
 """
 
 from __future__ import annotations

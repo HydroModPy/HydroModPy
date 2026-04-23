@@ -224,11 +224,6 @@ def _build_validation_gallery_specs() -> tuple[GalleryCaseSpec, ...]:
 
 
 def _build_calibration_gallery_specs() -> tuple[GalleryCaseSpec, ...]:
-    from importlib.util import find_spec
-
-    if find_spec("hydromodpy.analysis.calibration") is None:
-        return ()
-
     from .calibration_case_registry import build_calibration_case_records
 
     return tuple(

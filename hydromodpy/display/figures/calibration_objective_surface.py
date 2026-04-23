@@ -128,7 +128,7 @@ class CalibrationObjectiveSurfaceFigure(BaseFigure):
         fig.colorbar(pcm, ax=ax, label=objective)
         ax.set_xlabel(parameters[0])
         ax.set_ylabel(parameters[1])
-        ax.set_title(f"Objective surface ({method}) — {sim.name or sim.sim_id}")
+        ax.set_title(f"Objective surface ({method}) - {sim.name or sim.sim_id}")
         return ax
 
     def plot(

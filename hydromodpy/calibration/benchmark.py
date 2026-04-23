@@ -1,29 +1,27 @@
-"""Legacy launcher-API bridge for twin calibration benchmarks.
+"""Twin-benchmark calibration harness for validation cases.
 
-Validation cases under ``validation_cases/calibration/`` and the tests in
-``tests/validation/calibration/test_twin_*.py`` were written against the
-pre-P09 ``ModelCalibrationLauncher`` and companion helpers located in
-``hydromodpy.analysis.calibration.engine.*``. That tree has been removed
-in favour of :mod:`hydromodpy.calibration`.
+Used exclusively by ``validation_cases/calibration/`` and
+``tests/validation/calibration/test_twin_*.py``. Built on top of
+:mod:`hydromodpy.calibration` and :class:`hydromodpy.Project`, it accepts
+the richer ``[model_calibration]`` TOML schema the validation cases are
+authored against.
 
-This module provides a drop-in reimplementation of the four public
-symbols those tests rely on, built **on top of the new architecture**:
+Public surface:
 
-* :class:`ModelCalibrationLauncher` — loads a legacy
-  ``[model_calibration]`` TOML, prepares a session on disk, and runs one
-  full calibration loop using simple method implementations that wrap
-  ``hydromodpy.Project`` + :func:`hydromodpy.simulation.execution.trial._set_by_path`.
-* :class:`ModelCalibrationObjectiveEvaluator` — single-shot evaluator
+* :class:`ModelCalibrationLauncher` - loads a ``[model_calibration]``
+  TOML, prepares a session on disk, and runs one calibration loop using
+  method implementations that wrap ``hydromodpy.Project`` +
+  :func:`hydromodpy.simulation.execution.trial._set_by_path`.
+* :class:`ModelCalibrationObjectiveEvaluator` - single-shot evaluator
   used by ``validation_cases.calibration.shared.runtime`` to score one
   candidate parameter vector.
-* :func:`actualize_candidate` — materialize a candidate override TOML
+* :func:`actualize_candidate` - materialize a candidate override TOML
   (inheriting from the target simulation config via ``base_config``) for
   an explicit parameter point.
-* :func:`select_candidate_outputs` — read configured observables from a
+* :func:`select_candidate_outputs` - read configured observables from a
   finished :class:`hydromodpy.core.state.run_state.WorkflowContext`.
 
-The legacy TOML schema is considerably richer than the new
-``[calibration]`` section. For the benchmark surface we only need:
+Supported TOML schema:
 
 - ``[model_calibration]`` top-level knobs (``simulation_config``,
   ``calibration_id``, ``disable_display``, ``disable_postprocess``,
@@ -38,14 +36,14 @@ The legacy TOML schema is considerably richer than the new
 - ``[calibration_method.<method>]`` keyword arguments;
 - ``[bounds]`` table ``{name: [low, high]}``.
 
-Implementation strategy: parse the TOML ourselves (no Pydantic) and run
-a simple dispatch into one of the supported methods
-(``grid_search``, ``random_search``, ``cma_es``, ``simplex``,
-``nelder_mead``, ``gp_mapping``, ``da_mh_gp``). The objective is a
-weighted root-mean-square distance between the candidate outputs
-(extracted via :func:`select_candidate_outputs`) and the observed
-values from the TOML. Each candidate runs through
-:class:`hydromodpy.Project` in headless mode.
+Implementation strategy: parse the TOML directly (no Pydantic) and
+dispatch into one of the supported methods (``grid_search``,
+``random_search``, ``cma_es``, ``simplex``, ``nelder_mead``,
+``gp_mapping``, ``da_mh_gp``). The objective is a weighted
+root-mean-square distance between the candidate outputs (extracted via
+:func:`select_candidate_outputs`) and the observed values from the
+TOML. Each candidate runs through :class:`hydromodpy.Project` in
+headless mode.
 """
 
 from __future__ import annotations
@@ -287,7 +285,7 @@ class _ParameterSet:
     """Minimal ``parameter_set`` replacement used by the legacy surface.
 
     ``core_settings['parameter_set']`` exposed ``.vector_from(mapping|vector)``
-    and ``.mapping_from(vector)`` helpers — keep the exact same contract so
+    and ``.mapping_from(vector)`` helpers - keep the exact same contract so
     ``actualize_candidate`` / :class:`ModelCalibrationObjectiveEvaluator`
     keep working unmodified.
     """
@@ -790,7 +788,7 @@ def _nearest_cell_index(mesh: Any, *, x: float, y: float) -> tuple[int, int, int
     flat_index = int(np.argmin(distances))
     shape = getattr(mesh, "shape", None)
     if shape is None or len(shape) < 2:
-        # 1D fallback — treat as (0, 0, flat_index)
+        # 1D fallback - treat as (0, 0, flat_index)
         return (0, 0, flat_index)
     _, n_rows, n_cols = shape if len(shape) == 3 else (1, *shape)
     layer = 0
@@ -1591,7 +1589,7 @@ class ModelCalibrationLauncher:
         wall_seconds = float(time.perf_counter() - t_start)
 
         # Write full iteration history (the streamed file already contains
-        # every record — this ensures we have the final, consolidated
+        # every record - this ensures we have the final, consolidated
         # JSONL even when the driver crashed mid-way).
         self._rewrite_iteration_history(iteration_records)
 
@@ -1785,22 +1783,6 @@ def _detect_primary_solver(raw_simulation_toml: Mapping[str, Any]) -> str | None
     return None
 
 
-# ---------------------------------------------------------------------------
-# persist_to_catalog — stub used by the skipped catalog test.
-# ---------------------------------------------------------------------------
-
-
-def persist_to_catalog(session: Any, catalog: Any, *, best_sim_id: Any = None) -> None:
-    """Stub kept only so that ``tests/unit/simulation/test_catalog_import_export.py``
-    (which is ``@pytest.mark.skip``-ed) can import this function from the
-    new benchmark module without raising ``ImportError`` during collection.
-    """
-    raise NotImplementedError(
-        "persist_to_catalog is not implemented in the new architecture — the "
-        "calibration persistence now lives in hydromodpy.calibration.persistence."
-    )
-
-
 __all__ = (
     "CandidateEvaluation",
     "CandidateRunRequest",
@@ -1808,6 +1790,5 @@ __all__ = (
     "ModelCalibrationObjectiveEvaluator",
     "PreparedCalibrationSession",
     "actualize_candidate",
-    "persist_to_catalog",
     "select_candidate_outputs",
 )

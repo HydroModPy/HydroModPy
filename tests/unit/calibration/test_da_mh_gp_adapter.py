@@ -1,7 +1,7 @@
 """Unit tests for :class:`hydromodpy.calibration.adapters.da_mh_gp_adapter.DaMhGpOptimizer`.
 
 The DA-MH-GP sampler exposes the ask/tell Protocol. These tests exercise the
-high-level behaviour — smoke run, posterior-mode recovery, chain length — on
+high-level behaviour - smoke run, posterior-mode recovery, chain length - on
 a cheap 2D quadratic RMSE surface. Heavier scientific checks live in
 ``tests/regression/fast/calibration/test_brutsaert_methods.py``.
 """
@@ -11,7 +11,7 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-sklearn = pytest.importorskip("sklearn")  # noqa: F841 — skip gracefully if missing
+sklearn = pytest.importorskip("sklearn")  # noqa: F841 - skip gracefully if missing
 
 from hydromodpy.calibration.engine import CalibrationEngine
 from hydromodpy.calibration.optimizer import (

@@ -11,11 +11,11 @@ scenario you need.
    inventory below. Open :doc:`getting_started/index` first, then return here
    once you know which workflow family you want.
 
-- **Pip installations** – the PyPI wheel does not include the `examples/`
+- **Pip installations** - the PyPI wheel does not include the `examples/`
   directory. Download the full archive from
   https://github.com/HydroModPy/HydroModPy/archive/refs/heads/main.zip
   and extract the `examples/` folder where you run the project.
-- **Conda / source installations** – the cloned repository already provides
+- **Conda / source installations** - the cloned repository already provides
   `examples/`, keep it in place so the relative paths used in the scripts remain valid.
 
 First-visit path

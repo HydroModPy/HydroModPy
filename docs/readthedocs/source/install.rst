@@ -104,7 +104,7 @@ Command recipes
 ---------------
 
 Pick the setup that matches your workflow. Replace ``<env>`` with your
-environment name, set ``<py>`` to the desired Python version (3.11–3.13), and switch
+environment name, set ``<py>`` to the desired Python version (3.11-3.13), and switch
 ``hydromodpy`` to ``"hydromodpy[docs]"`` if you need the documentation extras.
 
 .. dropdown:: Conda + YAML
@@ -310,6 +310,3 @@ older interpreters.
    Known ``pyproj`` / ``proj.db`` issues observed in earlier releases were fixed
    from v0.3.0 onward. Upgrade to this version (or newer) to avoid the missing
    database errors that appeared on some conda setups.
-
-
-

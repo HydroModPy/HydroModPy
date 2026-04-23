@@ -92,21 +92,6 @@ value = "0.0 m2/s"
 first_clim = "mean"
 negative_to_evt = true
 
-[postprocess]
-enabled = true
-
-[postprocess.flow]
-enabled = true
-display = true
-matching_streams = false
-native_mesh_npz = true
-native_mesh_csv = true
-native_mesh_vtu = false
-native_mesh_png = true
-
-[postprocess.flow.timeseries]
-enabled = true
-
 [display]
 enabled = true
 show = false
