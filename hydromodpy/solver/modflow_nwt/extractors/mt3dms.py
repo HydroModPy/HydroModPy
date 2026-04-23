@@ -1,4 +1,11 @@
-"""Output adapter for MT3DMS / MF6-GWT solver results."""
+"""Output adapter for MT3DMS / MF6-GWT concentration results.
+
+The file lives in ``modflow_nwt`` because MT3DMS ships with the NWT toolchain,
+but the binary concentration file (``.ucn``) uses the same format produced by
+MODFLOW 6's GWT model. ``Modflow6GwtOutputAdapter`` in
+``solver/modflow6/extractors/transport.py`` is a thin subclass that only
+differs by its ``solver_name`` class attribute.
+"""
 
 from __future__ import annotations
 
@@ -15,6 +22,9 @@ class Mt3dmsOutputAdapter:
     Expects a solver output directory containing ``{model_name}.ucn``
     (unformatted concentration file).
     """
+
+    solver_name = "mt3dms"
+    category = "distributed"
 
     def extract(
         self,
@@ -85,12 +95,7 @@ class Mt3dmsOutputAdapter:
         store: Any,
         config: dict | None = None,
     ) -> None:
-        """Compute derived variables from stored concentration fields.
-
-        Delegates to :mod:`hydromodpy.simulation.extraction.extractors.derived`
-        for transport-dependent variables (concentration_seepage,
-        mass_seepage, mass_accumulated).
-        """
+        """Compute derived variables from stored concentration fields."""
         from hydromodpy.simulation.extraction.extractors.derived import compute_derived
 
         cfg = config or {}

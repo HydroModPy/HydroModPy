@@ -21,6 +21,9 @@ class BoussinesqOutputAdapter:
     numerical solve.
     """
 
+    solver_name = "boussinesq"
+    category = "integrated"
+
     def extract(
         self,
         sim_id: str,
@@ -58,9 +61,8 @@ class BoussinesqOutputAdapter:
                 n_cells,
             )
 
-            # Write head as a 1-layer field.
             for t in range(n_timesteps):
-                values = head_history[t].reshape(1, n_cells)  # (1 layer, n_cells)
+                values = head_history[t].reshape(1, n_cells)
                 store.write_field(
                     sim_id,
                     "head",
@@ -69,11 +71,8 @@ class BoussinesqOutputAdapter:
                     n_timesteps=n_timesteps if t == 0 else None,
                 )
 
-            # Persist all state history arrays into a Zarr group so that
-            # display suites can read them without the .npz file.
             self._persist_state_history(sim_id, store, payload)
 
-        # Write surface elevation from the Boussinesq summary or bundle.
         self._write_surface_elevation(sim_id, store, solver_output_dir, n_cells)
 
     @staticmethod
@@ -111,7 +110,6 @@ class BoussinesqOutputAdapter:
             if z_top is not None:
                 top = np.full(n_cells, float(z_top), dtype="float64")
             else:
-                # Try reading from the npz (no z_top in summary, estimate from head).
                 return
 
             grp = store.open_zarr_group(sim_id)
@@ -135,14 +133,10 @@ class BoussinesqOutputAdapter:
         """Compute watertable_elevation and watertable_depth from head.
 
         Boussinesq is a single-layer model so watertable_elevation == head.
-        Depth requires the mesh z_top which is not in the store; instead we
-        read the _boussinesq_state_history.npz if head_history and the mesh
-        are both available via the store.
         """
         from hydromodpy.simulation.extraction.extractors.derived import compute_derived
 
         cfg = config or {}
-        # Only compute what makes sense for a single-layer model.
         boussinesq_cfg = {
             "watertable_elevation": cfg.get("watertable_elevation", True),
             "watertable_depth": cfg.get("watertable_depth", True),

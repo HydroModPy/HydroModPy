@@ -1,4 +1,4 @@
-"""Output adapter for MODFLOW 6 solver results."""
+"""Output adapter for MODFLOW 6 flow solver results."""
 
 from __future__ import annotations
 
@@ -17,6 +17,9 @@ class Modflow6OutputAdapter:
     Expects a solver output directory with ``{model_name}.hds`` and
     ``{model_name}.cbc`` in MODFLOW 6 format.
     """
+
+    solver_name = "modflow6"
+    category = "distributed"
 
     def extract(
         self,
@@ -67,7 +70,6 @@ class Modflow6OutputAdapter:
             head = head_file.get_data(totim=time)
             values = head.reshape(nlay, n_cells) if head.ndim == 3 else head.reshape(nlay, n_cells)
             values = values.astype("float64")
-            # MF6 uses 1e30 for dry/no-flow cells.
             values[np.abs(values) > 1e20] = np.nan
             store.write_field(
                 sim_id,
@@ -95,7 +97,6 @@ class Modflow6OutputAdapter:
 
         head_file.close()
 
-        # Write minimal mesh data (surface elevation) for derived variables.
         self._write_surface_elevation(sim_id, store, solver_output_dir, model_name, nlay, n_cells)
 
     def _extract_budget(
@@ -135,9 +136,6 @@ class Modflow6OutputAdapter:
                 if not data:
                     continue
                 arr = data[0]
-                # MF6 stress packages (DRN, CHD, WEL, etc.) return
-                # structured recarrays instead of plain ndarrays.
-                # Convert to a full (nlay, n_cells) grid array.
                 if hasattr(arr, "dtype") and arr.dtype.names is not None:
                     arr = self._recarray_to_grid(arr, nlay, n_cells)
                 if hasattr(arr, "shape") and arr.ndim >= 1:
@@ -157,14 +155,6 @@ class Modflow6OutputAdapter:
                     }
                 )
                 if spatial_fields and hasattr(arr, "shape") and arr.ndim >= 1:
-                    # n_timesteps is always passed: the store ignores it
-                    # on subsequent writes, but needs it for allocation
-                    # on the first write - which may not be t=0 if the
-                    # record is absent there (e.g. STORAGE in a steady
-                    # initial stress period). Records that are not
-                    # cell-sized (FLOW-JA-FACE, DATA-SPDIS, ...) are
-                    # skipped since the store only persists fields on
-                    # the cell grid.
                     if arr.size == nlay * n_cells:
                         field = arr.reshape(nlay, n_cells)
                     elif arr.ndim == 1 and arr.size == n_cells:
@@ -214,7 +204,7 @@ class Modflow6OutputAdapter:
         nodes = np.asarray(rec["node"], dtype="int64") if "node" in names else None
         out = np.zeros((nlay, n_cells), dtype="float64")
         if nodes is not None:
-            idx = nodes - 1  # 1-based → 0-based
+            idx = nodes - 1
             lay = idx // n_cells
             cell = idx % n_cells
             valid = (lay >= 0) & (lay < nlay) & (cell >= 0) & (cell < n_cells)
@@ -230,11 +220,7 @@ class Modflow6OutputAdapter:
         store: Any,
         lst_path: Path,
     ) -> None:
-        """Parse MODFLOW 6 listing file for mass balance summary.
-
-        Uses ``flopy.utils.Mf6ListBudget`` to read volumetric budget
-        from the listing file.
-        """
+        """Parse MODFLOW 6 listing file for mass balance summary."""
         try:
             from flopy.utils import Mf6ListBudget
 
@@ -295,19 +281,18 @@ class Modflow6OutputAdapter:
                 )
                 if botm_per_layer is not None:
                     z_intf = np.vstack([top.reshape(1, -1), botm_per_layer])
-                    z_flat = np.array([z_intf[:, 0].mean()])  # placeholder
-                    z_flat = np.concatenate([top[:1], botm_per_layer[:, 0]])  # (nlay+1,)
+                    z_flat = np.array([z_intf[:, 0].mean()])
+                    z_flat = np.concatenate([top[:1], botm_per_layer[:, 0]])
                 else:
                     z_flat = np.array([float(top.mean()), float(top.mean()) - 10.0])
             else:
-                return  # no grid binary file
+                return
 
             grp = store.open_zarr_group(sim_id)
             if "mesh" not in grp:
                 grp.create_group("mesh")
             mesh = grp["mesh"]
             mesh.create_array("z_interfaces", data=z_flat, overwrite=True)
-            # Store the full top array so derived variables can use per-cell top.
             mesh.create_array("surface_top", data=top, overwrite=True)
             mesh.attrs["n_cells"] = int(n_cells)
             mesh.attrs["n_layers"] = int(nlay)

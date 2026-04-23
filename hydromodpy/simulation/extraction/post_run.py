@@ -12,40 +12,9 @@ from pathlib import Path
 from typing import Any
 
 from hydromodpy.results.config import ResultsConfig
+from hydromodpy.solver.base.registry import get_extractor_instance
 
 logger = logging.getLogger(__name__)
-
-# Mapping solver name → output adapter module/class
-_ADAPTER_REGISTRY: dict[str, tuple[str, str]] = {
-    "modflownwt": (
-        "hydromodpy.simulation.extraction.extractors.modflownwt",
-        "ModflowNwtOutputAdapter",
-    ),
-    "modflow6": (
-        "hydromodpy.simulation.extraction.extractors.modflow6",
-        "Modflow6OutputAdapter",
-    ),
-    "gr4j": (
-        "hydromodpy.simulation.extraction.extractors.gr4j",
-        "GR4JOutputAdapter",
-    ),
-    "mt3dms": (
-        "hydromodpy.simulation.extraction.extractors.mt3dms",
-        "Mt3dmsOutputAdapter",
-    ),
-    "modflow6gwt": (
-        "hydromodpy.simulation.extraction.extractors.mt3dms",
-        "Mt3dmsOutputAdapter",
-    ),
-    "modpath": (
-        "hydromodpy.simulation.extraction.extractors.modpath",
-        "ModpathOutputAdapter",
-    ),
-    "boussinesq": (
-        "hydromodpy.simulation.extraction.extractors.boussinesq",
-        "BoussinesqOutputAdapter",
-    ),
-}
 
 
 def post_run_results(
@@ -80,7 +49,7 @@ def post_run_results(
     if not results_config.store:
         return
 
-    adapter = _get_output_adapter(solver_name)
+    adapter = get_extractor_instance(solver_name)
     if adapter is None:
         logger.debug("No output adapter for solver '%s', skipping results ingestion", solver_name)
         return
@@ -88,7 +57,6 @@ def post_run_results(
     # Phase 1: extract raw outputs
     if solver_output_dir is not None and solver_output_dir.exists():
         try:
-            # Pass budget_spatial_fields if the adapter supports it.
             extract_kwargs = {}
             if results_config.budget.spatial_fields:
                 extract_kwargs["budget_spatial_fields"] = True
@@ -220,16 +188,3 @@ def _auto_export(
                 )
             except Exception:
                 logger.exception("Auto-export Shapefile failed for %s/%s", sim_id, var)
-
-
-def _get_output_adapter(solver_name: str):
-    """Lazily import and instantiate the output adapter for a solver."""
-    entry = _ADAPTER_REGISTRY.get(solver_name)
-    if entry is None:
-        return None
-    import importlib
-
-    module_path, class_name = entry
-    mod = importlib.import_module(module_path)
-    cls = getattr(mod, class_name)
-    return cls()

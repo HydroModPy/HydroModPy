@@ -19,6 +19,9 @@ class ModpathOutputAdapter:
     padding for particles that terminate early.
     """
 
+    solver_name = "modpath"
+    category = "distributed"
+
     def extract(
         self,
         sim_id: str,
@@ -31,14 +34,12 @@ class ModpathOutputAdapter:
 
         solver_output_dir = Path(solver_output_dir)
 
-        # Try pathline file first
         pth_files = list(solver_output_dir.glob("*.mppth")) + list(
             solver_output_dir.glob("*pathline*")
         )
         if pth_files:
             self._extract_pathlines(sim_id, store, pth_files[0])
 
-        # Also try endpoint file
         ept_files = list(solver_output_dir.glob("*.mpend")) + list(
             solver_output_dir.glob("*endpoint*")
         )

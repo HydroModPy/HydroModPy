@@ -1,4 +1,4 @@
-"""Output adapter for MODFLOW-NWT solver results."""
+"""Output adapter for MODFLOW-NWT flow solver results."""
 
 from __future__ import annotations
 
@@ -17,6 +17,9 @@ class ModflowNwtOutputAdapter:
     Expects a solver output directory containing ``{model_name}.hds``,
     ``{model_name}.cbc``, and optionally ``{model_name}.lst``.
     """
+
+    solver_name = "modflownwt"
+    category = "distributed"
 
     def extract(
         self,
@@ -47,7 +50,6 @@ class ModflowNwtOutputAdapter:
         kstpkpers = head_file.get_kstpkper()
         n_timesteps = len(times)
 
-        # Read head for first timestep to get grid dimensions
         head0 = head_file.get_data(totim=times[0])
         nlay, nrow, ncol = head0.shape
         n_cells = nrow * ncol
@@ -59,12 +61,10 @@ class ModflowNwtOutputAdapter:
             n_cells,
         )
 
-        # Write head fields - mask HDRY/HNOFLO sentinels to NaN so that
-        # all downstream consumers (watertable, seepage, cross-section, etc.)
-        # receive clean data without needing to re-detect sentinels.
+        # Mask HDRY/HNOFLO sentinels to NaN so all downstream consumers
+        # (watertable, seepage, cross-section, etc.) receive clean data.
         for t, time in enumerate(times):
             head = head_file.get_data(totim=time)
-            # Reshape from (nlay, nrow, ncol) to (nlay, n_cells)
             values = head.reshape(nlay, n_cells).astype("float64")
             values[np.isclose(values, hdry, atol=1.0)] = np.nan
             values[np.isclose(values, hnoflo, atol=1.0)] = np.nan
@@ -76,7 +76,6 @@ class ModflowNwtOutputAdapter:
                 n_timesteps=n_timesteps if t == 0 else None,
             )
 
-        # Write budget components
         if cbc_path.exists():
             self._extract_budget(
                 sim_id,
@@ -90,14 +89,12 @@ class ModflowNwtOutputAdapter:
                 spatial_fields=budget_spatial_fields,
             )
 
-        # Write mass balance from listing file
         lst_path = solver_output_dir / f"{model_name}.lst"
         if lst_path.exists():
             self._extract_mass_balance(sim_id, store, lst_path)
 
         head_file.close()
 
-        # Write surface elevation for derived variables.
         self._write_surface_elevation(
             sim_id, store, solver_output_dir, model_name, nlay, nrow, ncol
         )
@@ -126,9 +123,6 @@ class ModflowNwtOutputAdapter:
         for t, (time, kstpkper) in enumerate(zip(times, kstpkpers, strict=False)):
             for component in record_names:
                 try:
-                    # Use full3D=True to get 3D arrays for list-based
-                    # packages (DRN, WEL, RCH, etc.) that otherwise
-                    # return recarray objects.
                     data = cbb.get_data(
                         text=component,
                         kstpkper=kstpkper,
@@ -164,11 +158,6 @@ class ModflowNwtOutputAdapter:
                 )
                 if spatial_fields and arr.ndim >= 2:
                     field = arr.reshape(nlay, n_cells) if arr.ndim == 3 else arr.reshape(1, n_cells)
-                    # n_timesteps is always passed: the store ignores it
-                    # on subsequent writes, but needs it for allocation
-                    # on the first write of this variable - which may not
-                    # be t=0 if the record is absent at t=0 (e.g. STORAGE
-                    # in a steady-state initial stress period).
                     store.write_field(
                         sim_id,
                         component.lower().strip(),
@@ -262,7 +251,7 @@ class ModflowNwtOutputAdapter:
             # structured DIS grid so downstream readers (piezometric_map,
             # exporters) can treat NWT runs the same way as DISV.
             sg = m.modelgrid
-            x_edges = np.asarray(sg.xvertices, dtype="float64")  # (nrow+1, ncol+1)
+            x_edges = np.asarray(sg.xvertices, dtype="float64")
             y_edges = np.asarray(sg.yvertices, dtype="float64")
             vertices = np.column_stack(
                 [
@@ -298,10 +287,7 @@ class ModflowNwtOutputAdapter:
         store: Any,
         config: dict | None = None,
     ) -> None:
-        """Compute derived variables from stored head fields.
-
-        Delegates to :mod:`hydromodpy.simulation.extraction.extractors.derived`.
-        """
+        """Compute derived variables from stored head fields."""
         from hydromodpy.simulation.extraction.extractors.derived import compute_derived
 
         cfg = config or {}

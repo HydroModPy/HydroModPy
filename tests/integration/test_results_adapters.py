@@ -11,7 +11,7 @@ import pytest
 from hydromodpy.results.catalog import SimulationCatalog
 from hydromodpy.simulation.extraction.extractors.base import cleanup_solver_files
 from hydromodpy.simulation.extraction.extractors.derived import compute_derived
-from hydromodpy.simulation.extraction.extractors.gr4j import GR4JOutputAdapter
+from hydromodpy.solver.gr4j.extractors import GR4JOutputAdapter
 
 
 @pytest.fixture

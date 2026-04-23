@@ -19,13 +19,16 @@ class GR4JOutputAdapter:
     forwards them to the store's DuckDB tables.
     """
 
+    solver_name = "gr4j"
+    category = "lumped"
+
     def extract(
         self,
         sim_id: str,
         solver_output_dir: Path,
         store: Any,
     ) -> None:
-        """No-op: GR4J results are injected via write_from_memory."""
+        """No-op: GR4J results are injected via extract_from_memory."""
         pass
 
     def extract_from_memory(
