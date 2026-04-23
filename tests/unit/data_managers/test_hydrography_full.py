@@ -148,7 +148,7 @@ def _write_dummy_tif(path, crs="EPSG:2154", shape=(100, 100)):
 
 
 # =====================================================================
-# 1. Config — HydrographySourceConfig
+# 1. Config - HydrographySourceConfig
 # =====================================================================
 
 
@@ -236,7 +236,7 @@ class TestSourceConfigValidation:
 
 
 # =====================================================================
-# 2. Config — ParamLevel annotations
+# 2. Config - ParamLevel annotations
 # =====================================================================
 
 
@@ -280,7 +280,7 @@ class TestSourceConfigParamLevels:
 
 
 # =====================================================================
-# 3. Config — HydrographyConfig (container)
+# 3. Config - HydrographyConfig (container)
 # =====================================================================
 
 
@@ -368,7 +368,7 @@ class TestDataManagersConfigIntegration:
         """HydrographyConfig is registered in _TYPED_SECTIONS dict."""
         from hydromodpy.data.data_managers_config import DataManagersConfig
 
-        # from_toml_section validates hydrography as typed — just check it doesn't error
+        # from_toml_section validates hydrography as typed - just check it doesn't error
         section = {
             "types": ["hydrography"],
             "hydrography": {"sources": [{"source": "osm"}]},
@@ -1017,7 +1017,7 @@ class TestHydrographyManager:
         """Data in EPSG:4326 gets reprojected to project CRS before clip."""
         from hydromodpy.data.variables.hydrography.manager import HydrographyManager
 
-        # Data in WGS84 — inside the watershed after reprojection
+        # Data in WGS84 - inside the watershed after reprojection
         gdf_4326 = gpd.GeoDataFrame(
             {"id": [1]},
             geometry=[LineString([(-1.5, 48.2), (-1.4, 48.3)])],
@@ -1311,7 +1311,7 @@ class TestDocumentedContracts:
 
 
 # =====================================================================
-# 15. Custom loader — TIF support
+# 15. Custom loader - TIF support
 # =====================================================================
 
 
@@ -1386,7 +1386,7 @@ class TestCustomLoaderTif:
 
 
 # =====================================================================
-# 16. Manager — TIF pipeline
+# 16. Manager - TIF pipeline
 # =====================================================================
 
 
@@ -1525,7 +1525,7 @@ class TestCatalogCacheManager:
         gpkg_files = list(data_dir.glob("*.gpkg"))
         assert len(gpkg_files) == 1
 
-        # Second call — should use cache, not call API again
+        # Second call - should use cache, not call API again
         mgr2 = HydrographyManager(
             config=mgr.config,
             geographic=mgr.geographic,
@@ -1687,7 +1687,7 @@ class TestResultOptionalStreams:
 
 
 # =====================================================================
-# 19. Config — force_refresh field
+# 19. Config - force_refresh field
 # =====================================================================
 
 
@@ -1719,7 +1719,7 @@ class TestForceRefreshConfig:
 
 
 # =====================================================================
-# 20. DataStore — load_hydrography method
+# 20. DataStore - load_hydrography method
 # =====================================================================
 
 

@@ -19,7 +19,7 @@ class GeoFigureMixin:
     """Helpers for figures drawn on projected (x,y) axes.
 
     The mixin assumes axes are in a projected CRS whose units are metres
-    (this is the HydroModPy convention — all meshes live in a metric CRS).
+    (this is the HydroModPy convention - all meshes live in a metric CRS).
     """
 
     crs: str | None = None

@@ -1,4 +1,4 @@
-"""Step 3 — build the geographic runtime and spatial supports (setup phase).
+"""Step 3 - build the geographic runtime and spatial supports (setup phase).
 
 Wraps the geographic portion of ``step_setup`` + the ``setup`` phase of
 ``step_spatial_supports``. After this step, ``ctx.setup.geographic`` is

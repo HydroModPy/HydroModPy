@@ -337,7 +337,7 @@ def load_field(
     Returns
     -------
     tuple[int, np.ndarray]
-        ``(timestep_key, values)`` — the resolved integer timestep key
+        ``(timestep_key, values)`` - the resolved integer timestep key
         and the corresponding spatial array.
     """
     resolved_ts: int
@@ -473,7 +473,7 @@ def load_time_series_fields(
         # NOTE: the ``unit`` column is a free-text label and does not reliably
         # describe the numerical values (the extractors currently record
         # everything as ``"m3/d"`` regardless of the model's real time unit),
-        # so no unit conversion is applied here — callers are responsible for
+        # so no unit conversion is applied here - callers are responsible for
         # interpreting the values in the model's native units.
         if "outlet_discharge" in observable_name:
             try:

@@ -4,8 +4,8 @@ The legacy ``hydromodpy.analysis.calibration.engine.{launcher,session}``
 modules were removed when calibration moved onto the unified
 ``hmp run <calibration.toml>`` entry point (Phases 1-4 of the
 calibration refactor). A handful of callers in
-``validation_cases/calibration/`` — the twin-benchmark runner and its
-standalone CLI helpers — still use the old launcher API.
+``validation_cases/calibration/`` - the twin-benchmark runner and its
+standalone CLI helpers - still use the old launcher API.
 
 Rather than keep those imports failing at module load (which also
 breaks unrelated code living next to them), this module provides

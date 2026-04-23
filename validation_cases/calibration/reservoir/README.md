@@ -1,4 +1,4 @@
-# Lumped reservoir calibration — demo
+# Lumped reservoir calibration - demo
 
 Single-reservoir ODE with non-linear outlet (`dh/dt = Q_in - k h^n`) plus a
 two-reservoir-in-series variant. Recovers `(k, n)` or `(k1, k2)` from a

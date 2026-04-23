@@ -1,4 +1,4 @@
-"""Tests for simulation/results/provenance.py — fingerprinting."""
+"""Tests for simulation/results/provenance.py - fingerprinting."""
 
 from __future__ import annotations
 

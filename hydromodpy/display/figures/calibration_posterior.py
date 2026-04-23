@@ -135,7 +135,7 @@ class CalibrationPosteriorFigure(BaseFigure):
                 label=f"mean {objective}",
                 shrink=0.7,
             )
-        fig.suptitle(f"Parameter posteriors — {sim.name or sim.sim_id}")
+        fig.suptitle(f"Parameter posteriors - {sim.name or sim.sim_id}")
         if save_path is not None:
             from pathlib import Path
 

@@ -2,11 +2,11 @@
 
 Runtime entry points:
 
-- ``DelineationBackend`` — high-level Protocol (see :mod:`.base`).
-- ``WhiteboxBackend`` — low-level file-based Protocol (legacy contract).
-- ``get_backend(name)`` — resolve a registered backend by name with
+- ``DelineationBackend`` - high-level Protocol (see :mod:`.base`).
+- ``WhiteboxBackend`` - low-level file-based Protocol (legacy contract).
+- ``get_backend(name)`` - resolve a registered backend by name with
   graceful fallback when an optional dependency is missing.
-- ``get_whitebox_backend()`` — shortcut returning the default
+- ``get_whitebox_backend()`` - shortcut returning the default
   workflows-backed instance, kept as the direct replacement for the
   old ``hydromodpy.core.backends.get_whitebox_backend`` API.
 """

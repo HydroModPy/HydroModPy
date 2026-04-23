@@ -392,7 +392,7 @@ class SGridConfig(HydroModelBase):
         return cls.model_validate(cfg)
 
 
-from hydromodpy.solver.utils._config_helpers import (  # noqa: E402 — late import to avoid circular dependency
+from hydromodpy.solver.utils._config_helpers import (  # noqa: E402 - late import to avoid circular dependency
     resolve_path as _resolve_path,
 )
 

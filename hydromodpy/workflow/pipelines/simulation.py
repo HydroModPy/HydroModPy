@@ -1,4 +1,4 @@
-"""Simulation pipeline — Setup → Data → Mesh → Supports → Execute → Ingest.
+"""Simulation pipeline - Setup → Data → Mesh → Supports → Execute → Ingest.
 
 This module provides two entry points:
 

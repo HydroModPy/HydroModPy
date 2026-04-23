@@ -1,4 +1,4 @@
-"""``hmp data`` — inspect and manage custom data artefacts."""
+"""``hmp data`` - inspect and manage custom data artefacts."""
 
 from __future__ import annotations
 
@@ -156,7 +156,7 @@ def _cmd_list(args: argparse.Namespace) -> None:
             source=args.provider,
         )
         if df.empty:
-            print("  (empty cache — drop files in <variable>_custom/ then run 'hmp run')")
+            print("  (empty cache - drop files in <variable>_custom/ then run 'hmp run')")
             return
         cols = [c for c in ("variable", "source", "station_id", "file_path") if c in df.columns]
         print(df[cols].to_string(index=False))

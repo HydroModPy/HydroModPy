@@ -1,4 +1,4 @@
-"""``hmp lock`` — manage the reproducible data lockfile."""
+"""``hmp lock`` - manage the reproducible data lockfile."""
 
 from __future__ import annotations
 

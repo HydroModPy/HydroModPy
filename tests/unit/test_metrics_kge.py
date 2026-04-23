@@ -61,7 +61,7 @@ def test_pbias_zero_when_perfect():
 
 
 def test_pbias_negative_when_sim_overshoots():
-    """Σ(obs − sim) is negative when sim > obs, so PBIAS < 0."""
+    """Σ(obs - sim) is negative when sim > obs, so PBIAS < 0."""
     obs = np.array([1.0, 2.0, 3.0])
     sim = obs + 1.0
     assert pbias(sim, obs) < 0.0

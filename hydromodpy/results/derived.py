@@ -1,7 +1,7 @@
 """Pure-function derivations of secondary fields from primary outputs.
 
 The functions here turn primary fields (head, surface elevation, drain
-budget) into the quantities needed by figures and exports — water-table
+budget) into the quantities needed by figures and exports - water-table
 elevation, depth, seepage masks, fluxes. They never read the catalog
 directly: callers pass in numpy or xarray arrays and receive arrays back.
 
@@ -26,7 +26,7 @@ __all__ = [
 
 
 def watertable_elevation(head: ArrayLike, top: ArrayLike) -> ArrayLike:
-    """Water-table elevation — head clipped to the surface elevation.
+    """Water-table elevation - head clipped to the surface elevation.
 
     ``head`` is an N-D array shaped ``(..., n_cells)`` (or ``(n_layers, n_cells)``
     for multilayer models). ``top`` is a per-cell surface array.

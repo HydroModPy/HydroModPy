@@ -34,7 +34,7 @@ def _version_string() -> str:
         )
         if git.returncode == 0 and git.stdout.strip():
             parts.append(f"git {git.stdout.strip()}")
-    except Exception:  # pragma: no cover — optional
+    except Exception:  # pragma: no cover - optional
         pass
     return " | ".join(parts)
 

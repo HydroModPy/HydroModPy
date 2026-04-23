@@ -1,4 +1,4 @@
-"""Grid-search adapter — deterministic, no external dependency."""
+"""Grid-search adapter - deterministic, no external dependency."""
 
 from __future__ import annotations
 

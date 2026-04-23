@@ -1,7 +1,7 @@
 """Calibrable parameters: annotations, space, transforms, discovery.
 
 A Pydantic field becomes calibrable by attaching a ``Calibrable`` instance via
-``Field.json_schema_extra['calibrable']`` — or by being referenced in a TOML
+``Field.json_schema_extra['calibrable']`` - or by being referenced in a TOML
 ``[calibration.parameters]`` block. Discovery walks a config tree and emits
 ``CalibParameter`` entries.
 """

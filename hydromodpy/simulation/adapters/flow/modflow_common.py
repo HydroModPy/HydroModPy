@@ -118,7 +118,7 @@ def run_flow_model(ctx: RunContext, model_modflow, preprocess_options) -> RunExe
 
     1. run preprocessing against the shared ``flow`` and ``domain`` objects,
     2. launch the numerical solve,
-    3. return the result — post-processing is handled by ``post_run_results()``.
+    3. return the result - post-processing is handled by ``post_run_results()``.
     """
 
     state = ctx.state

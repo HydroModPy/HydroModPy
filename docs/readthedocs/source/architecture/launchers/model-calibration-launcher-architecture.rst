@@ -1,4 +1,4 @@
-Model Calibration — superseded
+Model Calibration - superseded
 ==============================
 
 .. note::
@@ -12,10 +12,10 @@ Model Calibration — superseded
 For the current architecture, user guide, TOML reference, optimizer
 catalogue, reporting commands, and Python API, see:
 
-- :doc:`/../../developers/calibration_guide` — end-to-end user guide.
-- :mod:`hydromodpy.calibration` — the calibration package (engine,
+- :doc:`/../../developers/calibration_guide` - end-to-end user guide.
+- :mod:`hydromodpy.calibration` - the calibration package (engine,
   parameters, objective, optimizer registry, diagnostics, cases).
-- :mod:`hydromodpy.simulation.execution.trial` — the prepare-once /
+- :mod:`hydromodpy.simulation.execution.trial` - the prepare-once /
   evaluate-many primitive used by every trial inside the ask/tell loop.
 
 This stub page is kept so existing cross-references resolve; future doc

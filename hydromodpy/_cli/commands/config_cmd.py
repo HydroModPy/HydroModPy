@@ -1,4 +1,4 @@
-"""``hmp config`` — configuration TOML template + schema + validator.
+"""``hmp config`` - configuration TOML template + schema + validator.
 
 Subparsers:
   - ``hmp config template [OUTPUT]``  : generate a TOML template

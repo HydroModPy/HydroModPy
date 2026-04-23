@@ -44,7 +44,7 @@ def load_custom(config: HydrographySourceConfig) -> gpd.GeoDataFrame | Path:
         path = candidates[0]
         logger.info("Auto-detected vector file: %s", path)
 
-    # Single file — decide by extension
+    # Single file - decide by extension
     if path.suffix.lower() in (".tif", ".tiff"):
         logger.info("Loading custom hydrography raster from %s", path)
         return path

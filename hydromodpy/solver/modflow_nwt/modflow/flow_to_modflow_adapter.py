@@ -1,5 +1,5 @@
 # Intentional duplication with the MF6 flow_to_modflow_adapter: MODFLOW-NWT is
-# scheduled for removal after the Lake (LAK) module lands on the MF6 side — not
+# scheduled for removal after the Lake (LAK) module lands on the MF6 side - not
 # worth factoring the payload builders out. See docs/developers/nwt_sunset_plan.md.
 """
 Flow -> MODFLOW-NWT adaptation layer.
@@ -580,7 +580,7 @@ class FlowToModflowAdapter:
         maximum sea level over the series. This keeps a stable active set
         through time and only changes imposed heads per period.
         """
-        # 1) Resolve ocean BC payload — only when ocean is explicitly activated.
+        # 1) Resolve ocean BC payload - only when ocean is explicitly activated.
         if not self._is_bc_active("ocean"):
             return None
         ocean_boundary = self._boundary_conditions.get("ocean")
@@ -968,9 +968,9 @@ class FlowToModflowAdapter:
 
         Uses a two-pass fallback strategy to handle heterogeneous containers:
 
-        1. Direct comparison ``(payload < 0).any().any()`` — covers numpy
+        1. Direct comparison ``(payload < 0).any().any()`` - covers numpy
            arrays and pandas DataFrames/Series.
-        2. Fallback via ``np.asarray`` and ``np.nanmin`` — covers plain
+        2. Fallback via ``np.asarray`` and ``np.nanmin`` - covers plain
            Python lists and generic 1-D sequences.
 
         Returns ``False`` when neither strategy succeeds (conservative choice:
@@ -1010,8 +1010,8 @@ class FlowToModflowAdapter:
 
         Looks up the regime in two locations in priority order:
 
-        1. ``flow.config.flow_regime`` — typed config sub-object (preferred).
-        2. ``flow.flow_regime`` — direct attribute fallback.
+        1. ``flow.config.flow_regime`` - typed config sub-object (preferred).
+        2. ``flow.flow_regime`` - direct attribute fallback.
 
         Returns
         -------
@@ -1186,7 +1186,7 @@ class FlowToModflowAdapter:
         In MODFLOW, EVT (EvapTranspiration) represents upward fluxes from the
         water table. When a recharge series contains negative values, those can
         optionally be routed to the EVT package instead of being zeroed out or
-        left as negative RCH — which MODFLOW would otherwise reject.
+        left as negative RCH - which MODFLOW would otherwise reject.
 
         This method is a no-op (payload unchanged, ``None`` for EVT) when any
         of the following is true:

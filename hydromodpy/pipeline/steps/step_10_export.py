@@ -1,4 +1,4 @@
-"""Step 10 — export run artefacts and finalize the store.
+"""Step 10 - export run artefacts and finalize the store.
 
 Saves the config snapshot + capability gallery via
 :func:`step_save_run_artifacts` and closes the ``SimulationCatalog``

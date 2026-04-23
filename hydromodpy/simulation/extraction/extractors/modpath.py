@@ -15,7 +15,7 @@ class ModpathOutputAdapter:
     """Read MODPATH pathline / endpoint files and inject into a SimulationCatalog.
 
     Stores pathline data as Zarr arrays under the ``pathlines/`` subgroup:
-    x, y, z, time — each shaped ``(n_particles, max_steps)`` with NaN
+    x, y, z, time - each shaped ``(n_particles, max_steps)`` with NaN
     padding for particles that terminate early.
     """
 

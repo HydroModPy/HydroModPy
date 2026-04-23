@@ -1,6 +1,6 @@
 """Regression test: end-to-end pipeline execution with checkpoint + resume.
 
-This test does not run a real MODFLOW simulation — the pipeline
+This test does not run a real MODFLOW simulation - the pipeline
 orchestration is exercised through a representative synthetic workflow
 that validates the contract guaranteed by ``Pipeline``:
 
@@ -62,13 +62,13 @@ def _make_pipeline(crash_at: int | None = None):
     for i, name in enumerate(CANONICAL_NAMES):
         if i == crash_at:
 
-            def _crash(data, _i=i):  # noqa: ANN001 — inner helper
+            def _crash(data, _i=i):  # noqa: ANN001 - inner helper
                 raise RuntimeError(f"synthetic crash at step {_i}")
 
             steps.append(_NamedStep(name, _crash))
         else:
 
-            def _bump(data, _i=i):  # noqa: ANN001 — inner helper
+            def _bump(data, _i=i):  # noqa: ANN001 - inner helper
                 history = list(data.get("history", ()))
                 history.append(_i)
                 return {

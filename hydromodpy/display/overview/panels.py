@@ -81,7 +81,7 @@ def render_hydrography_map(
     outlet_xy: tuple[float, float] | None = None,
     title: str = "",
 ) -> Axes:
-    """Render a hydrography map — hillshade background, streams, outlet."""
+    """Render a hydrography map - hillshade background, streams, outlet."""
     import rasterio
 
     with rasterio.open(dem_path) as src:
@@ -330,18 +330,18 @@ def render_stats_card(ax: Axes, *, summary: OverviewSummary) -> Axes:
     ax.set_axis_off()
 
     rows: list[tuple[str, str]] = [
-        ("Name", summary.watershed_name or "—"),
+        ("Name", summary.watershed_name or "-"),
         (
             "Area",
             f"{summary.catchment_area_km2:.2f} km²"
             if summary.catchment_area_km2 is not None
-            else "—",
+            else "-",
         ),
         (
             "Outlet",
             f"({summary.outlet_xy[0]:.1f}, {summary.outlet_xy[1]:.1f})"
             if summary.outlet_xy is not None
-            else "—",
+            else "-",
         ),
         ("Period", f"{summary.date_start} → {summary.date_end}"),
         ("Streams", str(summary.n_streams)),
@@ -363,7 +363,7 @@ def render_stats_card(ax: Axes, *, summary: OverviewSummary) -> Axes:
     for i, _ in enumerate(rows):
         table[(i, 0)].set_text_props(fontweight="bold")
     ax.set_title(
-        f"Identity — {summary.watershed_name or 'Watershed'}",
+        f"Identity - {summary.watershed_name or 'Watershed'}",
         fontsize=11,
         fontweight="bold",
     )
@@ -413,7 +413,7 @@ def render_station_inventory(ax: Axes, *, inventory: list[dict]) -> Axes:
     for j in range(len(headers)):
         table[(0, j)].set_text_props(fontweight="bold")
         table[(0, j)].set_facecolor("#e8e8e8")
-    ax.set_title(f"Station inventory — {len(inventory)} stations", fontsize=10)
+    ax.set_title(f"Station inventory - {len(inventory)} stations", fontsize=10)
     return ax
 
 

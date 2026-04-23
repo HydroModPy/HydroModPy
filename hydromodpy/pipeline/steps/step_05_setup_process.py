@@ -1,4 +1,4 @@
-"""Step 5 — set up Flow / Transport / Particles processes.
+"""Step 5 - set up Flow / Transport / Particles processes.
 
 The domain-level process objects (``Flow``, ``Transport`` …) are
 materialized lazily by ``SimulationRunner`` via the helpers

@@ -1,5 +1,5 @@
 # ======================================================================
-# HydroModPy — getting-started example
+# HydroModPy - getting-started example
 # ======================================================================
 # A self-contained 1D Dupuit case with uniform recharge, solved with
 # MODFLOW-NWT in steady state. No external DEM or download required.

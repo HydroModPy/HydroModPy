@@ -14,7 +14,7 @@ logger = logging.getLogger(__name__)
 class GR4JOutputAdapter:
     """Inject GR4J in-memory results into a SimulationCatalog.
 
-    GR4J is a lumped catchment model — results are already in memory
+    GR4J is a lumped catchment model - results are already in memory
     as pandas Series (no binary files to parse). This adapter simply
     forwards them to the store's DuckDB tables.
     """

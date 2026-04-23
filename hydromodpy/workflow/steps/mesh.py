@@ -1,4 +1,4 @@
-"""Mesh step — optional catchment meshing or external mesh loading.
+"""Mesh step - optional catchment meshing or external mesh loading.
 
 This module contains the functions that handle the optional catchment meshing
 phase, including both embedded mesh generation and external mesh loading.

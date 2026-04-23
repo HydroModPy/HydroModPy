@@ -1,4 +1,4 @@
-"""Interactive TOML configuration editor — auto-generated from Pydantic models.
+"""Interactive TOML configuration editor - auto-generated from Pydantic models.
 
 Launch with::
 
@@ -10,7 +10,7 @@ Or via the CLI::
 
 The interface is **entirely derived** from Pydantic model metadata (types,
 defaults, descriptions, ParamLevel, VisibleWhen).  Adding or modifying a
-field in a config model automatically updates the UI — no widget code to
+field in a config model automatically updates the UI - no widget code to
 maintain.
 
 Features:
@@ -253,7 +253,7 @@ def render_model(
         if vw is not None:
             sibling_val = result.get(vw.field)
             if not vw.matches(sibling_val):
-                # Field hidden — keep existing value but don't show widget
+                # Field hidden - keep existing value but don't show widget
                 continue
 
         widget_key = f"{section_name}.{name}"
@@ -268,7 +268,7 @@ def render_model(
 
         desc = field_info.description or name
         first_line = desc.split(".")[0].strip()
-        with st.expander(f"{sub_section} — {first_line}", expanded=False):
+        with st.expander(f"{sub_section} - {first_line}", expanded=False):
             sub_values = result.get(name, {})
             if not isinstance(sub_values, dict):
                 sub_values = {}
@@ -324,7 +324,7 @@ def validate_section(
         return []
     except ValidationError as exc:
         return [
-            f"**{'.'.join(str(part) for part in err['loc'])}** — {err['msg']}"
+            f"**{'.'.join(str(part) for part in err['loc'])}** - {err['msg']}"
             for err in exc.errors()
         ]
 
@@ -397,7 +397,7 @@ def _load_existing_toml(path: Path) -> dict[str, dict[str, Any]]:
 
 def main() -> None:
     st.set_page_config(page_title="HydroModPy Config", layout="wide")
-    st.title("HydroModPy — Configuration interactive")
+    st.title("HydroModPy - Configuration interactive")
     st.caption(
         "Interface auto-générée depuis les modèles Pydantic. Les champs marqués * sont requis."
     )

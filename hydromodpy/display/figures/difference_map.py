@@ -20,7 +20,7 @@ if TYPE_CHECKING:
 class DifferenceMap(BaseFigure):
     """Map of ``sim - reference`` for one field at one timestep.
 
-    Both simulations must share the same mesh — the figure does not perform
+    Both simulations must share the same mesh - the figure does not perform
     any interpolation. Pass a second :class:`Run` via ``reference``.
     """
 
@@ -49,7 +49,7 @@ class DifferenceMap(BaseFigure):
         b = np.asarray(reference.field(field, timestep=ts)).ravel()
         if a.shape != b.shape:
             raise ValueError(
-                f"difference_map: incompatible mesh — sim has {a.size} faces, "
+                f"difference_map: incompatible mesh - sim has {a.size} faces, "
                 f"reference has {b.size}"
             )
         diff = a - b
@@ -63,7 +63,7 @@ class DifferenceMap(BaseFigure):
             vmax=vmax,
             cbar_label=f"Δ {field}",
         )
-        ax.set_title(f"Δ {field} — {sim.sim_id} − {reference.id}")
+        ax.set_title(f"Δ {field} - {sim.sim_id} - {reference.id}")
         ax.set_xlabel("x (m)")
         ax.set_ylabel("y (m)")
         return ax

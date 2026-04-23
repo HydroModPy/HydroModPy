@@ -1,4 +1,4 @@
-"""CalibrationEngine — orchestrates an ask/tell loop.
+"""CalibrationEngine - orchestrates an ask/tell loop.
 
 The engine is solver-agnostic and pipeline-agnostic: it takes a callable
 ``evaluator(values: dict[str, float]) -> EvaluationResult`` and runs the

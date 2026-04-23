@@ -25,7 +25,7 @@ appears in a conference.
       :link: news/v0_3_0
       :link-type: doc
 
-      **November 2025 – v0.3.0**
+      **November 2025 - v0.3.0**
       ^^^
       - Python baseline bumped to 3.11+.
       - The package layout now exposes ``hydromodpy`` directly (no ``src`` package).
@@ -37,9 +37,9 @@ appears in a conference.
       :link: news/v0_2_0
       :link-type: doc
 
-      **October 2025 – v0.2.0**
+      **October 2025 - v0.2.0**
       ^^^
-      Maintenance line for Python 3.8–3.10 with documentation cleanup.
+      Maintenance line for Python 3.8-3.10 with documentation cleanup.
 
 Full changelog
 --------------

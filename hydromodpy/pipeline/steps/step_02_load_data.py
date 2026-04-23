@@ -1,4 +1,4 @@
-"""Step 2 — load external forcing data.
+"""Step 2 - load external forcing data.
 
 Thin wrapper around :func:`hydromodpy.workflow.steps.data_loading.step_data_loading`.
 Loads recharge, hydrometry, piezometry, geology, … via the data managers.

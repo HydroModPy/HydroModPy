@@ -2,11 +2,11 @@
 
 Two production paths are supported:
 
-1. **Render on demand** (preferred) — when a ``Run`` is provided, each asset
+1. **Render on demand** (preferred) - when a ``Run`` is provided, each asset
    name is interpreted as ``<figure_name>.png`` and rendered through
    ``run.plot(figure_name, save=...)``. Figure names come from the canonical
    registry in ``hydromodpy.display``.
-2. **Copy existing file** (fallback) — if no ``Run`` is available or the
+2. **Copy existing file** (fallback) - if no ``Run`` is available or the
    figure cannot be rendered, the publisher looks for a matching PNG in one
    of the candidate subdirectories of the run folder
    (``_postprocess/_figures``, ``figures``, ``_figures``) and copies it

@@ -159,7 +159,7 @@ cd HydroModPy
 ## Getting started
 
 The fastest route is the self-contained example under
-`examples/getting_started/` — a synthetic 1D Dupuit aquifer that
+`examples/getting_started/` - a synthetic 1D Dupuit aquifer that
 requires no external DEM or downloaded data.
 
 ```bash
@@ -172,8 +172,8 @@ python examples/getting_started/run_sim.py
 
 Outputs land in a workspace next to the config:
 
-- `hydromodpy.duckdb` — the unified simulation catalog.
-- `simulations/<uuid>.zarr/` — spatial fields and metadata per run.
+- `hydromodpy.duckdb` - the unified simulation catalog.
+- `simulations/<uuid>.zarr/` - spatial fields and metadata per run.
 
 Open the results programmatically:
 
@@ -188,10 +188,10 @@ sim.plot("watertable_map", save=".")
 
 ## Usage Examples
 
-- `examples/getting_started/` — minimal synthetic example (start here).
-- `examples/projects/01_canut/` — delineated catchment from a regional DEM.
-- `examples/projects/data_overview/` — data-only overview workflow.
-- `examples/projects/04_nancon/` — transient case with piezometry data.
+- `examples/getting_started/` - minimal synthetic example (start here).
+- `examples/projects/01_canut/` - delineated catchment from a regional DEM.
+- `examples/projects/data_overview/` - data-only overview workflow.
+- `examples/projects/04_nancon/` - transient case with piezometry data.
 
 More examples live alongside each validation case under
 `validation_cases/analytical/` and `validation_cases/numerical/`.
@@ -272,7 +272,7 @@ Le Mesnil, M., Gauvain, A., Gresselin, F., Aquilina, L., & Dreuzy, J. De. (2024)
 
 Abhervé, R., Roques, C., De Dreuzy, J.-R., Datry, T., Brunner, P., Longuevergne, L., & Aquilina, L. (2024). Improving calibration of groundwater flow models using headwater streamflow intermittence. Hydrological Processes, 38((6)). https://doi.org/10.1002/hyp.15167
 
-Abhervé, R., Roques, C., Gauvain, A., Longuevergne, L., Louaisil, S., Aquilina, L., & de Dreuzy, J.-R. (2023). Calibration of groundwater seepage against the spatial distribution of the stream network to assess catchment-scale hydraulic properties. Hydrology and Earth System Sciences, 27(17), 3221–3239. https://doi.org/10.5194/hess-27-3221-2023
+Abhervé, R., Roques, C., Gauvain, A., Longuevergne, L., Louaisil, S., Aquilina, L., & de Dreuzy, J.-R. (2023). Calibration of groundwater seepage against the spatial distribution of the stream network to assess catchment-scale hydraulic properties. Hydrology and Earth System Sciences, 27(17), 3221-3239. https://doi.org/10.5194/hess-27-3221-2023
 
 ## Coresponding authors
 
@@ -290,4 +290,4 @@ HydroModPy's user-friendly Python interface allows for testing and exploring var
 
 A paper about HydroModPy is in preparation for the journal Technical Note: Hydrology and Earth System Sciences.
 
-Gauvain, A., Abhervé, R., Coche, A., Le Mesnil, M., Roques, C., Bouchez, C., Marçais, J., Leray, S., Marti, E., Figueroa, R., Bresciani, E., Vautier, C., Boivin, B., Sallou, J., Bourcier, J., Combemale, B., Longuevergne, L., Aquilina, L., and de Dreuzy, J.-R. (2025). Technical note: HydroModPy – a Python toolbox for deploying catchment-scale shallow groundwater models. Hydrology and Earth System Sciences. In prep.
+Gauvain, A., Abhervé, R., Coche, A., Le Mesnil, M., Roques, C., Bouchez, C., Marçais, J., Leray, S., Marti, E., Figueroa, R., Bresciani, E., Vautier, C., Boivin, B., Sallou, J., Bourcier, J., Combemale, B., Longuevergne, L., Aquilina, L., and de Dreuzy, J.-R. (2025). Technical note: HydroModPy - a Python toolbox for deploying catchment-scale shallow groundwater models. Hydrology and Earth System Sciences. In prep.

@@ -357,7 +357,7 @@ class HydroModPyConfig(HydroModelBase):
             section_data = raw.get(section_name, default_value)
             parsed_sections[section_name] = loader(section_data, base)
 
-        # Top-level scalar fields (non-section) — forward as-is to Pydantic.
+        # Top-level scalar fields (non-section) - forward as-is to Pydantic.
         if "workflow" in raw:
             parsed_sections["workflow"] = raw["workflow"]
 

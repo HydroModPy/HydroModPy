@@ -307,7 +307,7 @@ def test_modflow6_resolves_boundary_forcing_without_runtime_binding() -> None:
 
     chd_spd = model._build_side_boundary_chd_spd()
 
-    # DISV: [lay, cell_id, head] — east_side last cell_id=5
+    # DISV: [lay, cell_id, head] - east_side last cell_id=5
     assert chd_spd[0][-1] == [0, 5, pytest.approx(0.2)]
     assert chd_spd[1][-1] == [0, 5, pytest.approx(0.2)]
 
@@ -330,7 +330,7 @@ def test_modflow6_resolves_well_forcing_without_runtime_binding() -> None:
 
     wel_spd = model._build_well_stress_period_data(2)
 
-    # DISV: [lay, cell_id, flux] — cell (0,0,0) → cell_id=0
+    # DISV: [lay, cell_id, flux] - cell (0,0,0) → cell_id=0
     assert wel_spd[0] == [[0, 0, pytest.approx(-1.0)]]
     assert wel_spd[1] == [[0, 0, pytest.approx(-1.0)]]
 
@@ -513,7 +513,7 @@ def test_modflow6_accepts_bottom_initial_condition_name() -> None:
 
     strt = model._build_start_heads(solver_mesh)
 
-    # DISV: strt shape is (nlay, ncpl) — all layers start at deepest botm
+    # DISV: strt shape is (nlay, ncpl) - all layers start at deepest botm
     assert np.allclose(strt[0], botm_layer2.ravel())
 
 

@@ -1,4 +1,4 @@
-"""Result-ingestion step — ingest solver outputs and save run artifacts."""
+"""Result-ingestion step - ingest solver outputs and save run artifacts."""
 
 from __future__ import annotations
 
@@ -112,9 +112,9 @@ def step_persist_forcings(ctx: WorkflowContext) -> None:
     Handles three data shapes from LoadedDataContext:
 
     - ``LoadResult`` with ``.points`` (PointRecord timeseries) and
-      ``.fields`` (FieldRecord grids) — most variables
-    - ``GeologyField`` — encoded raster + zone mapping
-    - ``HydrographyResult`` — stream raster array
+      ``.fields`` (FieldRecord grids) - most variables
+    - ``GeologyField`` - encoded raster + zone mapping
+    - ``HydrographyResult`` - stream raster array
     """
     if ctx.store is None or ctx.sim_id is None:
         return

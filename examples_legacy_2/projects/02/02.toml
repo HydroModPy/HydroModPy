@@ -7,7 +7,7 @@
 
 
 # ----------------------------------------------------------------------
-# Simulation — orchestration des solveurs et pas de temps
+# Simulation - orchestration des solveurs et pas de temps
 # ----------------------------------------------------------------------
 
 workflow = "simulation"

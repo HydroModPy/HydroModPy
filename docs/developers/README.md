@@ -87,7 +87,7 @@ sur la discrétisation temporelle de MODFLOW.
 ## Conventions rédactionnelles
 
 - Français, phrases courtes.
-- Pas de tiret long `—` ni `–` (remplacer par `:` ou `,`).
+- Pas de tiret long `-` ni `-` (remplacer par `:` ou `,`).
 - Pas d'emoji.
 - Chemins absolus dans `hydromodpy/`, liens relatifs entre docs.
 - Vérifier que chaque classe ou fonction citée existe dans le code avant

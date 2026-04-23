@@ -3,21 +3,21 @@
 A ``.hmp`` file is a single ``tar`` archive compressed with Zstandard,
 containing:
 
-* ``manifest.json`` — archive header with the HydroModPy version that
+* ``manifest.json`` - archive header with the HydroModPy version that
   produced the archive, the simulation UUID, and a list of
   ``{path, size, sha256}`` entries covering every other file. The manifest is
   itself included in the archive under ``manifest.json`` (its own sha256 is
-  therefore omitted — checksums are verified against the other files).
-* ``catalog_snapshot.duckdb`` — a one-simulation DuckDB snapshot containing
+  therefore omitted - checksums are verified against the other files).
+* ``catalog_snapshot.duckdb`` - a one-simulation DuckDB snapshot containing
   the ``simulations`` row plus per-sim data (parameters, timeseries,
   budgets, metrics, provenance, geographic features / metadata, tags,
   runs_environment).
-* ``simulation.zarr.zip`` — the simulation's Zarr store, packed to a
+* ``simulation.zarr.zip`` - the simulation's Zarr store, packed to a
   deterministic ``zip`` file (already BLOSC-compressed internally).
-* ``geographic/`` (optional) — the workspace-level content-addressable
+* ``geographic/`` (optional) - the workspace-level content-addressable
   raster cache materialised for the simulation's ``geographic_fingerprint``,
   so the archive is self-contained on a fresh workspace.
-* ``README.md`` — human-readable summary generated at export time.
+* ``README.md`` - human-readable summary generated at export time.
 
 The archive is *reproducible*: given the same inputs, the archive layout,
 file ordering and manifest are byte-identical, which makes SHA-256 checks
@@ -264,7 +264,7 @@ def _materialise_geographic(
     cache = GeographicCache(workspace_path)
     if not cache.is_cached(fingerprint):
         logger.warning(
-            "Geographic fingerprint %s not found in cache %s — archive will "
+            "Geographic fingerprint %s not found in cache %s - archive will "
             "ship without geographic payload",
             fingerprint,
             cache.root,
@@ -299,7 +299,7 @@ def _dematerialise_geographic(
             except (json.JSONDecodeError, OSError):
                 fingerprint = None
     if not fingerprint:
-        logger.warning("No fingerprint for geographic payload — skipping cache")
+        logger.warning("No fingerprint for geographic payload - skipping cache")
         return
     manifest = {}
     mpath = src / MANIFEST_FILENAME
@@ -382,7 +382,7 @@ def _restore_catalog_snapshot(
             ).fetchall()
         }
 
-        sim_df = snap.execute("SELECT * FROM simulations").fetchdf()  # noqa: F841 — referenced by DuckDB replacement scan in SQL below
+        sim_df = snap.execute("SELECT * FROM simulations").fetchdf()  # noqa: F841 - referenced by DuckDB replacement scan in SQL below
         conn.execute("INSERT INTO simulations SELECT * FROM sim_df")
 
         for table in PER_SIM_TABLE_NAMES:

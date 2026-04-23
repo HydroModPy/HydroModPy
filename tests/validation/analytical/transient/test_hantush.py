@@ -14,9 +14,9 @@ and the Hantush well function
 
 The numerical reference is a three-layer MF6 IMS model:
 
-  * layer 0: source bed — all cells are CHD at the initial head,
-  * layer 1: aquitard — thickness ``b'`` and K = ``K'``, no storage,
-  * layer 2: main pumped aquifer — thickness ``b``, K such that
+  * layer 0: source bed - all cells are CHD at the initial head,
+  * layer 1: aquitard - thickness ``b'`` and K = ``K'``, no storage,
+  * layer 2: main pumped aquifer - thickness ``b``, K such that
     ``T = K b``, specific storage such that ``S = S_s b``.
 
 A telescoping grid concentrates resolution near the well; the outer
@@ -24,10 +24,10 @@ Dirichlet ring sits well beyond the radius of influence
 ``~sqrt(4 T t / S)``. Drawdown is compared at radii 10/50/100 m and
 times 1/3/10 d.
 
-Tolerance rationale — ``tests/TOLERANCES.md`` row 6: NSE > 0.99 and
+Tolerance rationale - ``tests/TOLERANCES.md`` row 6: NSE > 0.99 and
 maximum pointwise relative error below 2 %.
 
-Scope — ``solver_sanity``:
+Scope - ``solver_sanity``:
    The three-layer sandwich (source / aquitard / pumped aquifer) and the
    telescoping grid are built directly on the flopy SDK because the
    hydromodpy launcher TOML does not expose this geometry. The test

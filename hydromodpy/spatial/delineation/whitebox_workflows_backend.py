@@ -34,7 +34,7 @@ class WhiteboxWorkflowsBackend:
         # In-memory raster cache: when enabled, _write_raster stores to this
         # dict (keyed by path) instead of writing to disk, and _read_raster
         # checks it before falling back to disk.  The pipeline code passes
-        # "paths" as usual — they just become dict keys.
+        # "paths" as usual - they just become dict keys.
         self._raster_cache: dict[str, object] = {}
         self._cache_rasters = False
 
@@ -835,7 +835,7 @@ class WhiteboxWorkflowsBackend:
         checks the cache first, falling back to disk for paths not yet cached
         (e.g. the initial DEM input).
 
-        The pipeline code is unchanged — it still passes file path strings.
+        The pipeline code is unchanged - it still passes file path strings.
         They just become dict keys instead of real files.
         """
         self._cache_rasters = bool(enabled)

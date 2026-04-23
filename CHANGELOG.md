@@ -14,12 +14,12 @@ from new features to fixes and internal updates.
 
 Each release section includes the following standard categories:
 
-- **Added** – for new features
-- **Changed** – for updates in existing functionality
-- **Deprecated** – for soon-to-be removed features
-- **Removed** – for removed features or files
-- **Fixed** – for any bug fixes
-- **Security** – for security improvements
+- **Added** - for new features
+- **Changed** - for updates in existing functionality
+- **Deprecated** - for soon-to-be removed features
+- **Removed** - for removed features or files
+- **Fixed** - for any bug fixes
+- **Security** - for security improvements
 
 ### How to update it
 
@@ -36,7 +36,7 @@ Each release section includes the following standard categories:
 - Per-simulation `timeseries`, `budgets`, and `mass_balance` rows now live as
   Parquet files under `simulations/<uuid>.parquet/` instead of DuckDB tables
   inside `hydromodpy.duckdb`. DuckDB views with the original table names
-  keep the read surface unchanged — every `SELECT ... FROM timeseries`
+  keep the read surface unchanged - every `SELECT ... FROM timeseries`
   call keeps working. See
   `docs/developers/parquet_lakehouse_architecture.md` for the layout and
   `docs/developers/parquet_lakehouse_concurrency.md` for the retry and
@@ -56,21 +56,21 @@ Each release section includes the following standard categories:
   (deprecated alias kept for one release cycle).
 
 ### Added
-- Calibration refactor — trial primitive plus step auto-invalidation:
+- Calibration refactor - trial primitive plus step auto-invalidation:
   - `hydromodpy.simulation.execution.trial` with `TrialContext`,
     `prepare_trials`, `run_trial_light`, `promote_trial`.
   - `hydromodpy.pipeline.dependencies.earliest_affected_step` computes
     which pipeline step must re-run first from a set of override paths,
     using longest-prefix match on the new `config_sections` class var
     declared by each of the 12 pipeline steps.
-  - `hydromodpy.calibration.metrics.build_metric_extractor` — RAM-only
+  - `hydromodpy.calibration.metrics.build_metric_extractor` - RAM-only
     metric extractor for MODFLOW-NWT discharge (DRAIN budget aggregated)
     and head at observation cells.
   - `ExecutionRegistry.lightweight` flag gates Zarr / Parquet / catalog
     writes in steps 06 and 07.
   - `ParamsHashCache` preload from DuckDB at session start for
     cross-session trial deduplication.
-- `hmp report <session_id>` — generates a self-contained HTML report
+- `hmp report <session_id>` - generates a self-contained HTML report
   under `<workspace>/reports/<session_id>/report.html` embedding the
   calibration session metadata plus the six calibration figures.
 - Six calibration figures registered in the Display registry:
@@ -123,7 +123,7 @@ Each release section includes the following standard categories:
 
 ### Fixed
 - Pandas warnings in PyHELP CSV ingestion and daily output aggregation (removed deprecated args and axis-based groupby).
-- Multiprocessing pools in PyHELP now use a spawn context to avoid fork-in-multithreaded warnings on Python 3.11–3.13.
+- Multiprocessing pools in PyHELP now use a spawn context to avoid fork-in-multithreaded warnings on Python 3.11-3.13.
 
 ### Removed
 - `hydromodpy.modeling.downslope` module (functionality consolidated into `masstransfer`).
@@ -144,7 +144,7 @@ Each release section includes the following standard categories:
 ## [v0.3.1] - 2025-11-14
 ### Changed
 - Installation guide reorganized with ready-made command recipes, dual YAML options (runtime vs editable), and clearer guidance for conda-versus-pip setups.
-- README now flags v0.3.1 as the stable release and the conda YAMLs pin Python 3.11–3.13 explicitly.
+- README now flags v0.3.1 as the stable release and the conda YAMLs pin Python 3.11-3.13 explicitly.
 - Add spyder package to the conda environment for users of that IDE.
 
 ### Fixed
@@ -155,7 +155,7 @@ Each release section includes the following standard categories:
 
 ## [v0.3.0] - 2025-11-06
 ### Compatibility
-- Runtime baseline jumps from Python 3.8.10 to the Python 3.11–3.13 series. Tested on Linux, macOS, and Windows.
+- Runtime baseline jumps from Python 3.8.10 to the Python 3.11-3.13 series. Tested on Linux, macOS, and Windows.
 
 ### Added
 - Logging system with `LogManager` class (replaces all `print()` statements).

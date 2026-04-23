@@ -1,4 +1,4 @@
-"""Tests for simulation/results/config.py — ResultsConfig Pydantic models."""
+"""Tests for simulation/results/config.py - ResultsConfig Pydantic models."""
 
 from __future__ import annotations
 

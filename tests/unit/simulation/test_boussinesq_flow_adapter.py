@@ -712,7 +712,7 @@ def test_boussinesq_flow_adapter_runs_transient_and_writes_outputs(tmp_path: Pat
     assert model.state is not None
     assert model.state.head_history_m is not None
     assert model.state.head_history_m.shape == (2, 2)
-    # Post-processing is no longer called by the adapter — ResultStore
+    # Post-processing is no longer called by the adapter - ResultStore
     # extractors handle it.  Verify the solver output directory exists.
     assert result.solver_output_dir is not None
 

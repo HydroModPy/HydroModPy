@@ -2,9 +2,9 @@
 
 Three optional backends:
 
-- :func:`build_gif` (PIL) — always available with the base install.
-- :func:`build_mp4` (imageio + ffmpeg) — silently skipped when missing.
-- :func:`build_plotly_slider` (plotly) — silently skipped when missing.
+- :func:`build_gif` (PIL) - always available with the base install.
+- :func:`build_mp4` (imageio + ffmpeg) - silently skipped when missing.
+- :func:`build_plotly_slider` (plotly) - silently skipped when missing.
 """
 
 from __future__ import annotations

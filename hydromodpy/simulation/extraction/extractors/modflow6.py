@@ -159,7 +159,7 @@ class Modflow6OutputAdapter:
                 if spatial_fields and hasattr(arr, "shape") and arr.ndim >= 1:
                     # n_timesteps is always passed: the store ignores it
                     # on subsequent writes, but needs it for allocation
-                    # on the first write — which may not be t=0 if the
+                    # on the first write - which may not be t=0 if the
                     # record is absent there (e.g. STORAGE in a steady
                     # initial stress period). Records that are not
                     # cell-sized (FLOW-JA-FACE, DATA-SPDIS, ...) are

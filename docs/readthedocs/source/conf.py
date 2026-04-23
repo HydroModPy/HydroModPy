@@ -154,7 +154,7 @@ if _PLANTUML_COMMAND is not None:
     plantuml_output_format = "svg"
 
 # ---------------------------------------------------------------------------
-# autodoc-pydantic – configuration des modèles de paramètres
+# autodoc-pydantic - configuration des modèles de paramètres
 # ---------------------------------------------------------------------------
 autodoc_pydantic_model_show_json = False
 autodoc_pydantic_model_show_config_summary = False

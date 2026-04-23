@@ -2,7 +2,7 @@
 
 Uses a bundled GeoPackage (``departement.gpkg``) containing simplified
 department polygons in EPSG:2154 (Lambert-93).  The file ships with the
-package (~600 KB) so detection is purely local — no network call needed.
+package (~600 KB) so detection is purely local - no network call needed.
 
 Source: IGN ADMIN EXPRESS COG CARTO (Licence Ouverte / ETALAB v2.0),
 simplified to 500 m tolerance.

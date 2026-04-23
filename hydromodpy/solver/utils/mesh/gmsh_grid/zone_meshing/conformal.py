@@ -3,8 +3,8 @@
 This module exposes the high-level entry points.
 The heavy lifting is delegated to:
 
-* ``_geometry_cleaning`` — Shapely geometry validation, cleaning, partitioning
-* ``_gmsh_driver`` — Gmsh Python API helpers (rings, polylines, refinement)
+* ``_geometry_cleaning`` - Shapely geometry validation, cleaning, partitioning
+* ``_gmsh_driver`` - Gmsh Python API helpers (rings, polylines, refinement)
 """
 
 from __future__ import annotations

@@ -1,4 +1,4 @@
-"""Tests for simulation/results/adapters/ — output adapters."""
+"""Tests for simulation/results/adapters/ - output adapters."""
 
 from __future__ import annotations
 

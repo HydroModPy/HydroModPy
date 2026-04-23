@@ -38,7 +38,7 @@ def connect_with_retry(
 
     DuckDB acquires the per-file lock at ``connect()`` time. When several
     processes race to open the same catalog, the losers raise
-    ``duckdb.IOException`` immediately — no built-in waiting. We loop with
+    ``duckdb.IOException`` immediately - no built-in waiting. We loop with
     exponential backoff so short-lived contention resolves transparently.
     """
     last_exc: Exception | None = None

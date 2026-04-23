@@ -4,14 +4,14 @@ Derived fields (watertable elevation/depth, seepage mask, cell-averaged
 fluxes) are computed from primary solver outputs already persisted in the
 Zarr store (``head``, ``budget``, ``mesh``). This module exposes:
 
-- :class:`DerivedComputation` — a ``Protocol`` that any derivation must
+- :class:`DerivedComputation` - a ``Protocol`` that any derivation must
   implement. A computation declares its output name, its required input
   fields, an optional set of upstream derivations, and a ``compute``
   method.
-- :class:`DerivedRegistry` — an ordered registry of computations with
+- :class:`DerivedRegistry` - an ordered registry of computations with
   ``register``, ``get``, ``list``, and an ``apply`` helper that honours
   topological order and skips entries whose inputs are missing.
-- :data:`registry` — the module-level singleton pre-populated with the
+- :data:`registry` - the module-level singleton pre-populated with the
   canonical derivations (watertable elevation/depth, seepage mask,
   cell-averaged fluxes).
 
@@ -319,7 +319,7 @@ class DerivedRegistry:
     def get(self, name: str) -> DerivedComputation:
         return self._entries[name]
 
-    def list(self) -> tuple[str, ...]:  # noqa: A003 — mirrors public API
+    def list(self) -> tuple[str, ...]:  # noqa: A003 - mirrors public API
         return tuple(self._entries.keys())
 
     def __contains__(self, name: str) -> bool:
@@ -400,7 +400,7 @@ class DerivedRegistry:
             else:
                 try:
                     result = comp.compute(sim_zarr, **ctx)
-                except Exception as exc:  # pragma: no cover — logged + surfaced
+                except Exception as exc:  # pragma: no cover - logged + surfaced
                     logger.warning("DerivedRegistry: '%s' raised %s", name, exc)
                     results.append(
                         DerivedResult(name=name, status="skipped", reason=f"error: {exc}")

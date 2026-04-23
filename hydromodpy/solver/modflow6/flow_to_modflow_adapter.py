@@ -1,5 +1,5 @@
 # Intentional duplication with the NWT flow_to_modflow_adapter: MODFLOW-NWT is
-# scheduled for removal after the Lake (LAK) module lands on the MF6 side — not
+# scheduled for removal after the Lake (LAK) module lands on the MF6 side - not
 # worth factoring the payload builders out. See docs/developers/nwt_sunset_plan.md.
 """Flow-to-MODFLOW 6 adaptation helpers for wells, recharge, and EVT."""
 

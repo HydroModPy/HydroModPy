@@ -111,7 +111,7 @@ class Pipeline:
         try:
             out = step.run(state)
         except (KeyboardInterrupt, SystemExit):
-            # Never swallow user interrupts — let them propagate intact.
+            # Never swallow user interrupts - let them propagate intact.
             raise
         except StepError as exc:
             elapsed_ms = (time.monotonic() - t0) * 1000.0

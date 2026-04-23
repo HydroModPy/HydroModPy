@@ -7,10 +7,10 @@ That separation is important because it lets the driver switch from the local
 Newton loop to SciPy root finding without touching the physics assembly or the
 post-processing code.
 
-Dirichlet representation — known systematic boundary bias
+Dirichlet representation - known systematic boundary bias
 ---------------------------------------------------------
 
-The canonical Dirichlet input below is ``prescribed_head_m_by_cell`` — the
+The canonical Dirichlet input below is ``prescribed_head_m_by_cell`` - the
 head value is assigned directly to the unknown of the boundary cell, not to
 the boundary edge midpoint. This is a deliberate simplification (one fewer
 unknown, no interface equation) inherited from the v0.6 runtime refactor

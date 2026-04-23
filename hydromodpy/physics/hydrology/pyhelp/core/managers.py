@@ -658,7 +658,7 @@ def load_weather_from_csv(filename: str) -> pd.DataFrame:
     # are located above the data block.
     latitudes = None
     longitudes = None
-    for i, line in enumerate(reader):  # noqa: B007 — `i` is used after the loop as `skiprows=i`
+    for i, line in enumerate(reader):  # noqa: B007 - `i` is used after the loop as `skiprows=i`
         if not line or not line[0]:
             continue
 

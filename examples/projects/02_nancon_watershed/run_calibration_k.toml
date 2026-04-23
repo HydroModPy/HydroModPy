@@ -1,5 +1,5 @@
 # ======================================================================
-# Nançon — calibration de K sur le débit observé
+# Nançon - calibration de K sur le débit observé
 # ----------------------------------------------------------------------
 # Overlay qui hérite de `project.toml`. Optimise log10(K) par Optuna
 # pour maximiser le NSE entre le débit simulé (outflow drain, cumulé
@@ -54,12 +54,12 @@ first_clim = "first"
 # --- Calibration -----------------------------------------------------
 #
 # La présence de [calibration] (+ `workflow = "calibration"`) bascule
-# `hmp run` sur la boucle ask/tell — cf. `hydromodpy/_cli/workflows.py`.
+# `hmp run` sur la boucle ask/tell - cf. `hydromodpy/_cli/workflows.py`.
 #
 # Chaque paramètre déclare :
 #   bounds     : [low, high] dans l'espace physique
 #   transform  : 'log' pour K (strictement positif, multi-ordres de
-#                magnitude — sampling uniforme en log10)
+#                magnitude - sampling uniforme en log10)
 #   path       : chemin dotté dans HydroModPyConfig injecté à chaque run
 #   units      : label informatif
 

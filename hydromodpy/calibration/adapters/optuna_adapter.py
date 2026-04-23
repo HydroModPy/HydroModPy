@@ -1,4 +1,4 @@
-"""Optuna adapter — TPE / CMA-ES / Random / NSGA-II.
+"""Optuna adapter - TPE / CMA-ES / Random / NSGA-II.
 
 This is the **recommended** adapter for new calibrations. Optuna manages the
 sampler state natively via its ``ask()`` / ``tell()`` API.
@@ -87,7 +87,7 @@ class OptunaAdapter:
         return min(valid, key=lambda r: r.objective_value)
 
     def converged(self) -> bool:
-        # Optuna has no natural convergence — budget is driven by the engine.
+        # Optuna has no natural convergence - budget is driven by the engine.
         return False
 
 

@@ -1,7 +1,7 @@
 """Calibration bridge: hot path (RAM) vs cold path (SimulationCatalog).
 
 During calibration, the optimizer runs hundreds of simulations. Each
-iteration must be fast — no disk I/O in the inner loop. Only the best
+iteration must be fast - no disk I/O in the inner loop. Only the best
 result is persisted at the end.
 
 The bridge provides:
@@ -54,7 +54,7 @@ def make_hot_simulator(
         the observation plan (used to compute the objective); the second
         is the raw ``run_fn`` output so the caller can persist selected
         series post-calibration without re-running the solver.
-        No disk I/O occurs — everything stays in RAM.
+        No disk I/O occurs - everything stays in RAM.
     """
 
     def simulator(**params) -> tuple[np.ndarray, dict[str, pd.Series]]:

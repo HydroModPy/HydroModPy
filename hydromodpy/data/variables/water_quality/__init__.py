@@ -1,1 +1,1 @@
-"""Water quality data manager — custom files and Hub'Eau APIs."""
+"""Water quality data manager - custom files and Hub'Eau APIs."""

@@ -223,7 +223,7 @@ def spatial_mean_from_fields(
 
 
 # ------------------------------------------------------------------
-# Internal helpers — grid utilities
+# Internal helpers - grid utilities
 # ------------------------------------------------------------------
 
 
@@ -285,7 +285,7 @@ def _stress_period_bounds(
 
 
 # ------------------------------------------------------------------
-# Internal helpers — field discretization
+# Internal helpers - field discretization
 # ------------------------------------------------------------------
 
 
@@ -600,7 +600,7 @@ def _discretize_geotiff(
 
 
 # ------------------------------------------------------------------
-# Internal helpers — spatial mean (field → homogeneous)
+# Internal helpers - spatial mean (field → homogeneous)
 # ------------------------------------------------------------------
 
 
@@ -672,7 +672,7 @@ def _spatial_mean_from_file(path: Path) -> pd.Series | None:
 
 
 # ------------------------------------------------------------------
-# Internal helpers — point extraction
+# Internal helpers - point extraction
 # ------------------------------------------------------------------
 
 

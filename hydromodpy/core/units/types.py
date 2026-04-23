@@ -26,11 +26,11 @@ Design notes
 - ``BeforeValidator`` coerces bare numeric inputs (``int``/``float``, but NOT
   ``bool``) to the canonical-unit string before handing off to pydantic-pint.
   Important: in an ``Annotated[...]`` chain, later entries wrap earlier ones,
-  so ``BeforeValidator`` must be listed **after** ``PydanticPintQuantity`` —
+  so ``BeforeValidator`` must be listed **after** ``PydanticPintQuantity`` -
   otherwise pydantic-pint's custom core schema replaces the chain and the
   before-validator never runs.
 - ``SpecificYield`` is a plain ``float`` constrained to [0, 1] (it is
-  genuinely dimensionless with a physical range) — not a pint Quantity.
+  genuinely dimensionless with a physical range) - not a pint Quantity.
 - ``Dimensionless`` is the pint way to express a pure-number quantity when the
   pipeline expects a Quantity object regardless.
 """

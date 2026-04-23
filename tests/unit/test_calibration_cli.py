@@ -108,7 +108,7 @@ def fake_pipeline(monkeypatch, tmp_path):
 
         with open(cfg_path, "rb") as f:
             raw = tomllib.load(f)
-        # Toy config — we only need something Pydantic-friendly downstream.
+        # Toy config - we only need something Pydantic-friendly downstream.
         from pydantic import BaseModel
 
         class _Leaf(BaseModel):
@@ -136,7 +136,7 @@ def fake_pipeline(monkeypatch, tmp_path):
         return TrialContext(
             base_cfg=cfg,
             ctx=ctx,
-            earliest=9,  # never run downstream — our metric_fn ignores ctx
+            earliest=9,  # never run downstream - our metric_fn ignores ctx
             downstream_steps=(),
             override_paths=paths,
             workspace=tmp_path / "ws",
@@ -304,7 +304,7 @@ class TestCachePreload:
 
         monkeypatch.setattr(cli_module, "_preload_hash_cache", spy)
 
-        # Session 2 — same TOML, cache should preload.
+        # Session 2 - same TOML, cache should preload.
         run_calibration_cli(calib_toml, metric_fn=quadratic_metric)
         # Each of the 2 promoted rows should have left a params_hash → sim_id
         # mapping that the second session's preload picked up.

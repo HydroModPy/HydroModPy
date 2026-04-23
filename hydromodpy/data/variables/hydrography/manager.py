@@ -64,7 +64,7 @@ class HydrographyManager:
             elif not result.empty:
                 vector_gdfs.append(result)
 
-        # TIF custom shortcut — skip vector pipeline
+        # TIF custom shortcut - skip vector pipeline
         if tif_path is not None:
             return self._load_from_tif(tif_path)
 

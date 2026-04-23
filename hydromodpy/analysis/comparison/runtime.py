@@ -1191,7 +1191,7 @@ def _load_store_series(
         )
     else:
         # data.shape[0] is the time dimension.  For multilayer fields the
-        # shape is (n_timesteps, n_layers, n_cells) — flatten to (n_cells,)
+        # shape is (n_timesteps, n_layers, n_cells) - flatten to (n_cells,)
         # per slice.
         slices = tuple(
             TimeSlice(

@@ -1,4 +1,4 @@
-"""Pipeline state — the object that flows between pipeline steps.
+"""Pipeline state - the object that flows between pipeline steps.
 
 ``PipelineState`` is a frozen, generic dataclass that each step receives as
 input and returns a new version of as output. Steps must never mutate a state
@@ -124,7 +124,7 @@ class PipelineState(Generic[T]):
 
 
 # ---------------------------------------------------------------------------
-# Typed payloads — one per step transition
+# Typed payloads - one per step transition
 # ---------------------------------------------------------------------------
 
 

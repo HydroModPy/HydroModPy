@@ -1,4 +1,4 @@
-"""Unit tests for :class:`DisplayStep` — the 12th pipeline step.
+"""Unit tests for :class:`DisplayStep` - the 12th pipeline step.
 
 Heavy I/O (catalog open, figure rendering) is kept out of this unit test
 via monkey-patching. We verify the *policy* layer:

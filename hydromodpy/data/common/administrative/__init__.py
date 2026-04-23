@@ -1,4 +1,4 @@
-"""Administrative boundary detection — country-specific subdivision lookup.
+"""Administrative boundary detection - country-specific subdivision lookup.
 
 Currently supported countries:
 

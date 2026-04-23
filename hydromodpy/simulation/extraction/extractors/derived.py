@@ -419,7 +419,7 @@ def _accumulation_flux_routed(
     if nrow * ncol == n_cells:
         grid_shape = (nrow, ncol)
     else:
-        # Resampled grid — infer from n_cells (square grids or from DuckDB).
+        # Resampled grid - infer from n_cells (square grids or from DuckDB).
         side = int(np.sqrt(n_cells))
         if side * side == n_cells:
             grid_shape = (side, side)

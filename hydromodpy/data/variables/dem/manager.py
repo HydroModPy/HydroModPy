@@ -1,4 +1,4 @@
-"""DEM variable manager — standard data-manager pattern.
+"""DEM variable manager - standard data-manager pattern.
 
 Downloads, caches, and serves DEM data from IGN BD ALTI or custom
 files. Returns a ``LoadResult`` containing ``FieldRecord`` objects
@@ -102,7 +102,7 @@ class DemManager:
         bbox = self._resolve_bbox(source_cfg)
         if bbox is None:
             return None
-        # BD ALTI data is in EPSG:2154 — reproject bbox if needed.
+        # BD ALTI data is in EPSG:2154 - reproject bbox if needed.
         if self.geographic is not None:
             watershed_shp = getattr(self.geographic, "watershed_shp", None)
             if watershed_shp:

@@ -13,12 +13,12 @@ Workflow:
    :func:`hydromodpy.calibration.metrics.build_metric_extractor`.
 4. Persist every iteration into the DuckDB ``calibration_iterations``
    table (``sim_id`` left ``NULL`` by default).
-5. Honor ``save_runs`` — ``"best_n"`` / ``"all"`` replay the chosen
+5. Honor ``save_runs`` - ``"best_n"`` / ``"all"`` replay the chosen
    trials through :func:`promote_trial` and back-fill ``sim_id`` in the
    iterations table. ``"none"`` (the default) leaves the trace-only.
 
 The ``objective`` argument is a Python escape hatch
-(``"module.path:fn"``) for users who need a custom scalar — the TOML
+(``"module.path:fn"``) for users who need a custom scalar - the TOML
 ``[calibration].objective`` + ``[calibration].variable`` pair already
 covers the standard NSE / KGE / RMSE cases.
 """
@@ -283,7 +283,7 @@ def run_calibration_cli(
             metric_fn=metric_fn,
         )
         # calibration_iterations CHECK accepts only
-        # {completed, diverged, timeout, crashed, cached} — map "failed"
+        # {completed, diverged, timeout, crashed, cached} - map "failed"
         # (setup/metric errors) onto "crashed" for persistence.
         db_status = "crashed" if result.status == "failed" else result.status
         return EvaluationResult(

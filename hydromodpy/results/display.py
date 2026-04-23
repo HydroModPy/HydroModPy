@@ -90,7 +90,7 @@ def render_figures_for_run(
         try:
             fig = _get_figure(name)
         except KeyError:
-            logger.warning("Unknown figure '%s' — skipped.", name)
+            logger.warning("Unknown figure '%s' - skipped.", name)
             continue
         save_path = output_dir / f"{name}.png" if display_cfg.save else None
         try:

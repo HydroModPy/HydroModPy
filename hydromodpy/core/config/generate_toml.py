@@ -33,7 +33,7 @@ from pydantic import BaseModel
 from pydantic.fields import FieldInfo
 
 from hydromodpy.core.config.param_level import (
-    PROFILES,  # noqa: F401 — re-exported for CLI back-compat
+    PROFILES,  # noqa: F401 - re-exported for CLI back-compat
     ParamLevel,
 )
 from hydromodpy.core.config.profile import Profile
@@ -245,7 +245,7 @@ def generate_toml_from_instances(
 
 
 def _get_param_level(field_info: FieldInfo) -> str:
-    """Legacy helper — return the profile name as a string.
+    """Legacy helper - return the profile name as a string.
 
     Prefer :func:`hydromodpy.core.config.pydantic_introspect.extract_profile`
     which returns the :class:`Profile` enum directly. Kept here because some
@@ -554,7 +554,7 @@ def _flow_dynamic_examples(threshold: int) -> list[str]:
     out: list[str] = []
     out.append("")
     out.append("# " + "-" * 70)
-    out.append("# Flow field parameters — one [flow.param.<id>.field] + one")
+    out.append("# Flow field parameters - one [flow.param.<id>.field] + one")
     out.append("# [flow.param.<id>.field_homogeneous] per id declared in")
     out.append("# [flow].param_list. Example block below for K, Sy, Ss.")
     out.append("# " + "-" * 70)
@@ -579,7 +579,7 @@ def _flow_dynamic_examples(threshold: int) -> list[str]:
 
     out.append("")
     out.append("# " + "-" * 70)
-    out.append("# Flow boundary conditions — one block per id listed in")
+    out.append("# Flow boundary conditions - one block per id listed in")
     out.append("# [flow].active_bc. Supported keys: [flow.bc.dirichlet.<side>],")
     out.append("# [flow.bc.cauchy.drainage], [flow.bc.robin.drainage].")
     out.append("# Example: a top-domain Cauchy drainage BC.")
@@ -596,7 +596,7 @@ def _flow_dynamic_examples(threshold: int) -> list[str]:
 
     out.append("")
     out.append("# " + "-" * 70)
-    out.append("# Flow diffuse recharge — emitted when 'recharge' is listed in")
+    out.append("# Flow diffuse recharge - emitted when 'recharge' is listed in")
     out.append("# [flow].active_sinks_sources. Values are taken from the data")
     out.append("# layer ([data.recharge]) unless overridden here.")
     out.append("# " + "-" * 70)
@@ -745,7 +745,7 @@ def _section(
             elif default is not _UNDEFINED and default is not None:
                 lines.append(_line(f"{name} = {_fmt(default)}"))
             elif level == Profile.USER and default is _UNDEFINED:
-                # User-level *required* field — emit an uncommented
+                # User-level *required* field - emit an uncommented
                 # placeholder so the user knows to fill it in.
                 lines.append(_line(f"{name} = {_placeholder(field_info)}"))
             else:

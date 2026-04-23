@@ -50,9 +50,9 @@ class RechargeMap(BaseFigure):
         overlay_watershed_contour(ax, sim)
         style_map_axes(ax)
         # Spatially uniform recharge produces a cosmetic colorbar with a
-        # microscopic range — annotate the mean value so the plot is readable.
+        # microscopic range - annotate the mean value so the plot is readable.
         mean_val = float(rch[~_nanmask(rch)].mean()) if rch.size else 0.0
-        title = f"Recharge — {sim.name or sim.sim_id}"
+        title = f"Recharge - {sim.name or sim.sim_id}"
         if rch.size and _is_uniform(rch):
             title += f"  ({mean_val:.2e} m/d, uniform)"
         ax.set_title(title)

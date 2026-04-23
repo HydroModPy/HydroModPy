@@ -82,7 +82,7 @@ def resolve_workflow(
         Workflow name from the CLI subcommand (e.g. ``"simulation"`` when the
         user invoked ``hmp simulate``), or ``None`` for ``hmp run``.
     require_toml_field
-        If ``True``, the TOML MUST declare ``workflow = "..."`` — else
+        If ``True``, the TOML MUST declare ``workflow = "..."`` - else
         :class:`WorkflowMissingError`. Set by ``hmp run``.
 
     Returns
@@ -194,7 +194,7 @@ def dispatch_workflow(workflow: str, config_path: Path, **kwargs) -> dict:
     return runner(config_path, **kwargs)
 
 
-# Legacy alias — retained for callers that imported the old name. Identical
+# Legacy alias - retained for callers that imported the old name. Identical
 # semantics: maps a workflow label to a "module:fn" string.
 WORKFLOW_DISPATCH: dict[str, str] = {
     "simulation": "hydromodpy._cli.workflows:run_simulation",

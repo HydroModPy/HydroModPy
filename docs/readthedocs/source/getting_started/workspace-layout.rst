@@ -49,9 +49,9 @@ it answers "where is the workspace" by trying three branches in order:
       # data_dir = "/path/to/data"
       # simulations_dir = "/path/to/simulations"
 
-2. **Env var** — ``HYDROMODPY_WORKSPACE`` pointing at a directory.
+2. **Env var** - ``HYDROMODPY_WORKSPACE`` pointing at a directory.
 
-3. **Scaffold** — the TOML lives at
+3. **Scaffold** - the TOML lives at
    ``<workspace>/projects/<name>/project.toml`` and ``<workspace>`` contains
    a ``hydromodpy.duckdb`` file or a ``data/`` directory.
 

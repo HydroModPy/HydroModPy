@@ -4,7 +4,7 @@ Kept as a pure re-export so existing ``Annotated[..., ParamLevel("user")]``
 call sites still type-check during the migration window. Slated for removal
 in v0.7.
 
-``VisibleWhen`` remains defined here (unchanged from v0.5) — it is not part
+``VisibleWhen`` remains defined here (unchanged from v0.5) - it is not part
 of the Profile migration.
 """
 
@@ -17,7 +17,7 @@ ProfileName = Literal["user", "dev", "expert"]
 
 #: Ordered mapping of profile names to their numeric threshold.
 #: Aligned on Profile IntEnum values (1/2/3). A field is visible when
-#: ``PROFILES[field_level] <= PROFILES[requested_profile]`` — ordering preserved
+#: ``PROFILES[field_level] <= PROFILES[requested_profile]`` - ordering preserved
 #: from the v0.5 0/1/2 encoding.
 PROFILES: dict[str, int] = {"user": 1, "dev": 2, "expert": 3}
 

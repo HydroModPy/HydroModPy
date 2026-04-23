@@ -1569,7 +1569,7 @@ class Modflow6(Solver):
             print_flows=getattr(runtime, "mf_verbose", False),
         )
         self.sim.register_ims_package(self.ims, [self.gwf.name])
-        # Build idomain as flat (nlay, ncpl) — DISV convention.
+        # Build idomain as flat (nlay, ncpl) - DISV convention.
         idomain = np.where(solver_mesh.inactive_mask, 0, 1).astype(int)  # (nlay, ncpl)
 
         disv_kwargs = solver_mesh.to_disv_kwargs()

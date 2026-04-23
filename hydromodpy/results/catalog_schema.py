@@ -392,7 +392,7 @@ WHERE rnk = 1
 
 # Known metric names (keep in sync with write paths). PIVOT in a view
 # requires a fixed IN-list, so metric names outside this list will not show up
-# in ``v_metrics_wide`` — they remain queryable via the ``metrics`` table.
+# in ``v_metrics_wide`` - they remain queryable via the ``metrics`` table.
 _KNOWN_METRIC_NAMES = (
     "nse",
     "kge",
@@ -469,7 +469,7 @@ TABLE_NAMES: tuple[str, ...] = (
 
 # DuckDB-resident per-simulation tables. The Parquet-backed per-simulation
 # views (``timeseries``, ``budgets``, ``mass_balance``) are listed separately
-# in :data:`PARQUET_VIEW_NAMES` — they are never touched by SQL DELETE
+# in :data:`PARQUET_VIEW_NAMES` - they are never touched by SQL DELETE
 # statements because they are not tables.
 PER_SIM_TABLE_NAMES: tuple[str, ...] = (
     "parameters",
@@ -560,7 +560,7 @@ def _empty_view_ddl(view_name: str) -> str:
 
 def _read_parquet_view_ddl(view_name: str, glob_path: str) -> str:
     # read_parquet preserves UUID and TIMESTAMPTZ as DuckDB native types, so
-    # an explicit cast on read is not required — see the unit test in
+    # an explicit cast on read is not required - see the unit test in
     # ``tests/unit/results/test_parquet_view_types.py``.
     escaped = glob_path.replace("'", "''")
     return (
@@ -652,7 +652,7 @@ def ensure_schema(
 
     Ordering matters: ``CREATE TABLE IF NOT EXISTS`` for an already-existing
     table is a no-op, so additive columns must be applied *before* any
-    ``CREATE INDEX`` statement that targets them — otherwise DuckDB refuses
+    ``CREATE INDEX`` statement that targets them - otherwise DuckDB refuses
     the index with ``Binder Error: Table X does not have a column named Y``.
 
     When ``workspace_path`` is given, the three Parquet-backed views are
@@ -705,7 +705,7 @@ def _drop_legacy_parquet_tables(conn: duckdb.DuckDBPyConnection) -> None:
             count = conn.execute(f'SELECT COUNT(*) FROM "{name}"').fetchone()[0]
             if count:
                 logger.warning(
-                    "Catalog still has %d rows in legacy table %r — "
+                    "Catalog still has %d rows in legacy table %r - "
                     "regenerate the workspace to migrate to the Parquet layout.",
                     count,
                     name,
@@ -732,7 +732,7 @@ def _iter_index_statements(ddl: str):
 def _split_ddl_statements(ddl: str) -> list[str]:
     """Split a multi-statement DDL string on top-level semicolons.
 
-    Naive but sufficient — our DDL strings contain no string literals that
+    Naive but sufficient - our DDL strings contain no string literals that
     embed a semicolon.
     """
     parts = [s.strip() for s in ddl.split(";")]

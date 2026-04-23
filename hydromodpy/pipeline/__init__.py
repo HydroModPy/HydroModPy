@@ -1,4 +1,4 @@
-"""HydroModPy pipeline — orchestration, checkpointing, resume.
+"""HydroModPy pipeline - orchestration, checkpointing, resume.
 
 This package provides a single ``Pipeline`` orchestrator that runs a list of
 ``Step`` objects sequentially. State flows between steps via

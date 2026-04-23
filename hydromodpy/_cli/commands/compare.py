@@ -1,4 +1,4 @@
-"""``hmp compare`` — compare two simulations side-by-side."""
+"""``hmp compare`` - compare two simulations side-by-side."""
 
 from __future__ import annotations
 

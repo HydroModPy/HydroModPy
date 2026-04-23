@@ -3,7 +3,7 @@
 Spec reference: ``architecture_cible/12_input_data_rethink.md`` §3. The
 Protocol makes it easy to plug additional data sources without having
 to subclass :class:`hydromodpy.data.base_manager.BaseVariableManager`
-— a plain function or small class that exposes ``variable_type``,
+- a plain function or small class that exposes ``variable_type``,
 ``source_name`` and ``fetch()`` is enough.
 
 The registry is intentionally a simple module-level dict keyed by the

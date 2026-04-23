@@ -7,10 +7,10 @@ live in `whitebox_cli_backend.py`, `whitebox_workflows_backend.py`,
 
 Two protocols cohabit during the P05 migration:
 
-- `DelineationBackend` — high-level API expected by runtime code
+- `DelineationBackend` - high-level API expected by runtime code
   (flow accumulation, flow direction, stream network extraction and
   catchment delineation from an outlet point).
-- `WhiteboxBackend` — low-level, file-oriented contract kept for
+- `WhiteboxBackend` - low-level, file-oriented contract kept for
   backward compatibility with the existing Whitebox-based pipeline. It
   will be narrowed or removed in a later phase.
 """

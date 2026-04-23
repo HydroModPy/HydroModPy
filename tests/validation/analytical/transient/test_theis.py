@@ -8,17 +8,17 @@ The drawdown field is radial::
 
 with well function ``W(u) = E_1(u)`` (exponential integral). The numerical
 reference is an MF6 IMS-backed confined GWF model. The grid is
-**telescoping** — a fine inner patch resolves the near-well drawdown and
+**telescoping** - a fine inner patch resolves the near-well drawdown and
 coarse outer cells push the Dirichlet boundary far enough that its
 influence on the observation window stays well below the test tolerance.
 Drawdown is evaluated at three radial distances (10 m, 50 m, 100 m) and
 three times (1 d, 3 d, 10 d) and compared pointwise against ``s(r, t)``.
 
-Tolerance rationale — ``tests/TOLERANCES.md`` rows 4/5:
+Tolerance rationale - ``tests/TOLERANCES.md`` rows 4/5:
    * NSE against analytical drawdown must exceed 0.999.
    * Maximum absolute error across all (r, t) pairs: 1% relative.
 
-Scope — ``solver_sanity``:
+Scope - ``solver_sanity``:
    The model is built directly on the flopy SDK (telescoping grid, central
    well, outer CHD ring) because the geometry sits outside what the
    hydromodpy launcher TOML exposes. This test therefore validates
@@ -47,7 +47,7 @@ SPECIFIC_STORAGE = STORATIVITY / AQUIFER_THICKNESS_M
 
 # Telescoping grid: 1 m cells inside a 21-cell-wide fine patch, then
 # geometric growth at 1.2 outward. With 40 growth cells per side the
-# domain half-width reaches ~8.8 km — well beyond the radius of
+# domain half-width reaches ~8.8 km - well beyond the radius of
 # influence r_i ~ sqrt(4 T t / S) ~ 6.3 km at t = 10 d.
 MIN_CELL_SIZE_M = 1.0
 GROWTH_RATIO = 1.2
@@ -97,7 +97,7 @@ def _build_and_run_theis_model(workspace: Path) -> tuple[list[float], list[float
 
     The returned lists are ordered ``[(r, t) for r in radii for t in times]``.
     """
-    import flopy  # local import — heavy dependency
+    import flopy  # local import - heavy dependency
 
     repo_root = Path(__file__).resolve().parents[4]
     mf6_exe = repo_root / "bin" / "linux" / "mf6"

@@ -585,7 +585,7 @@ class TestG05ZoneGlobal:
 
 
 class TestResolveReference:
-    """``catalog.resolve(ref)`` — unified UUID / prefix / name resolution."""
+    """``catalog.resolve(ref)`` - unified UUID / prefix / name resolution."""
 
     def _register(self, catalog, *, project="p", name=None):
         sid = _sim_id()

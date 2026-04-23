@@ -6,9 +6,9 @@ they round-trip cleanly through JSON and DuckDB.
 
 References
 ----------
-- Nash, J. E., Sutcliffe, J. V. (1970). Journal of Hydrology, 10(3), 282–290.
-- Gupta, H. V., et al. (2009). Journal of Hydrology, 377(1-2), 80–91.
-- Moriasi, D. N., et al. (2007). Trans. ASABE, 50(3), 885–900. (PBIAS)
+- Nash, J. E., Sutcliffe, J. V. (1970). Journal of Hydrology, 10(3), 282-290.
+- Gupta, H. V., et al. (2009). Journal of Hydrology, 377(1-2), 80-91.
+- Moriasi, D. N., et al. (2007). Trans. ASABE, 50(3), 885-900. (PBIAS)
 """
 
 from __future__ import annotations
@@ -42,9 +42,9 @@ def align(sim, obs) -> tuple[np.ndarray, np.ndarray]:
 
 
 def nse(sim, obs) -> float:
-    """Nash–Sutcliffe Efficiency.
+    """Nash-Sutcliffe Efficiency.
 
-        NSE = 1 − Σ(sim − obs)² / Σ(obs − mean(obs))²
+        NSE = 1 - Σ(sim - obs)² / Σ(obs - mean(obs))²
 
     Returns NaN if ``obs`` is constant (denominator vanishes).
     """
@@ -76,7 +76,7 @@ def log_nse(sim, obs, *, eps: float | None = None) -> float:
 
 
 def kge(sim, obs) -> dict[str, float]:
-    """Kling–Gupta Efficiency (2009) and its decomposition.
+    """Kling-Gupta Efficiency (2009) and its decomposition.
 
     Returns ``{"kge", "r", "alpha", "beta"}``.
     """
@@ -104,7 +104,7 @@ def rmse(sim, obs) -> float:
 
 
 def bias(sim, obs) -> float:
-    """Mean signed error (sim − obs)."""
+    """Mean signed error (sim - obs)."""
     s, o = align(sim, obs)
     if s.size == 0:
         return float("nan")
@@ -112,7 +112,7 @@ def bias(sim, obs) -> float:
 
 
 def pbias(sim, obs) -> float:
-    """Percent bias: 100 × Σ(obs − sim) / Σ(obs).
+    """Percent bias: 100 × Σ(obs - sim) / Σ(obs).
 
     Positive values indicate model underestimation. |PBIAS| < 10 % is
     considered "very good" by Moriasi et al. (2007).

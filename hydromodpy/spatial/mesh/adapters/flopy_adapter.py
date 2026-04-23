@@ -2,9 +2,9 @@
 
 The two main pathways:
 
-1. **from_flopy_structured** — read a flopy ``StructuredGrid`` into a
+1. **from_flopy_structured** - read a flopy ``StructuredGrid`` into a
    ``HydroMesh`` (preserving the structured_shape hint).
-2. **to_flopy_disv_args** — export a planar ``HydroMesh`` as the keyword
+2. **to_flopy_disv_args** - export a planar ``HydroMesh`` as the keyword
    arguments needed by ``flopy.mf6.ModflowGwfdisv`` (vertices, cell2d,
    top, botm).
 """

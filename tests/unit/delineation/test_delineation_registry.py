@@ -66,7 +66,7 @@ def test_register_backend_can_add_custom_entry() -> None:
     register_backend("fake", lambda: _FakeBackend)
     # Alias set is static, so the name must be registered via
     # register_backend's own slot; attempting to resolve via get_backend
-    # will fail on the alias check — we exercise only the registry side.
+    # will fail on the alias check - we exercise only the registry side.
     assert "fake" in available_backends()
 
     # Clean up for other tests.

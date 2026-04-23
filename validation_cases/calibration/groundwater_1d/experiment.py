@@ -1,4 +1,4 @@
-"""Transient 1D groundwater calibration — standalone experiment.
+"""Transient 1D groundwater calibration - standalone experiment.
 
 Forward model
 -------------
@@ -8,7 +8,7 @@ Forward model
 
 with Dirichlet boundary ``h(0) = h(L) = 0`` (reference fixed head), uniform
 recharge ``R(t)``. The aquifer starts at steady-state with a constant
-recharge and relaxes when recharge drops to zero — the classical recession.
+recharge and relaxes when recharge drops to zero - the classical recession.
 
 Synthetic observations are drawn at one mid-column well with additive
 Gaussian noise. Calibration recovers ``(T, S)`` from the noisy heads.

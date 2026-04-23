@@ -1,4 +1,4 @@
-"""Overview report — watershed identity-card panel rendering.
+"""Overview report - watershed identity-card panel rendering.
 
 Consumes a :class:`DataOverviewState` (pre-simulation: geographic + loaded
 data only) and produces one PNG per enabled panel in

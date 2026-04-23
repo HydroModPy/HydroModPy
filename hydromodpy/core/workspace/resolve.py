@@ -2,7 +2,7 @@
 
 Used by solver-side and analysis helpers that need to re-open a workspace
 catalog from a project directory on disk (e.g. MODPATH replaying a
-previous solve). This is a **read-only** lookup — it does not drive the
+previous solve). This is a **read-only** lookup - it does not drive the
 strict binary resolution of ``WorkspaceConfig``.
 
 Lookup strategy (first match wins):
@@ -12,7 +12,7 @@ Lookup strategy (first match wins):
 2. ``<project_root>/../..`` when ``project_root.parent.name == "projects"``
    and the grand-grand-parent contains ``hydromodpy.duckdb`` or ``data/``.
 
-Returns ``None`` when no workspace can be found — callers fall back to
+Returns ``None`` when no workspace can be found - callers fall back to
 the project_root directly.
 """
 

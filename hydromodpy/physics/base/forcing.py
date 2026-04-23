@@ -7,9 +7,9 @@ forcing consumer (``FlowBoundaryForcingConstantConfig``,
 (``architecture_cible/02_config_pydantic.md`` §1.2) factorises these into a
 single discriminated union keyed on ``kind``:
 
-* ``ConstantForcing`` — one scalar value held over the whole simulation;
-* ``CsvForcing``      — a time series loaded from a CSV file;
-* ``SyntheticForcing``— an amplitude/period synthetic signal.
+* ``ConstantForcing`` - one scalar value held over the whole simulation;
+* ``CsvForcing``      - a time series loaded from a CSV file;
+* ``SyntheticForcing``- an amplitude/period synthetic signal.
 
 Consumers can accept the union directly (via the :data:`Forcing` alias) and
 branch on ``kind`` for dispatch.

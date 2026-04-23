@@ -1,4 +1,4 @@
-# Brutsaert-Nieber recession calibration — demo
+# Brutsaert-Nieber recession calibration - demo
 
 Analytical recession `dQ/dt = -a Q^b` with log-normal noise. Recovers
 `(a, b)` using the `hydromodpy.calibration` engine.

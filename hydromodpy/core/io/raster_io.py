@@ -11,7 +11,7 @@ import geopandas as gpd
 import numpy as np
 import pandas as pd
 import rasterio as rio
-import rasterio.enums  # noqa: F401 — used as rio.enums across this module
+import rasterio.enums  # noqa: F401 - used as rio.enums across this module
 import rasterio.features
 import xarray as xr
 from pyproj import CRS

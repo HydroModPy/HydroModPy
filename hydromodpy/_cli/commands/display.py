@@ -1,4 +1,4 @@
-"""``hmp display`` — render figures for one or several simulations.
+"""``hmp display`` - render figures for one or several simulations.
 
 Usage
 -----

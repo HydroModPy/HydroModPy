@@ -1,4 +1,4 @@
-"""Example 01 — Canut catchment, steady-state with hmp.Simulation API.
+"""Example 01 - Canut catchment, steady-state with hmp.Simulation API.
 
 Runs MODFLOW-NWT in steady state and produces cross-section,
 streamflow statistics, and recharge plots.
@@ -64,7 +64,7 @@ try:
     ax.set_ylim(np.nanmin(dem_profile) - thickness - 5, np.nanmax(dem_profile) + 5)
     ax.set_xlabel("Distance [m]")
     ax.set_ylabel("Elevation [m]")
-    ax.set_title("Canut — steady-state cross section")
+    ax.set_title("Canut - steady-state cross section")
     ax.legend(fontsize=8)
     fig.tight_layout()
     fig.savefig(fig_dir / "cross_section_steady.png", bbox_inches="tight")

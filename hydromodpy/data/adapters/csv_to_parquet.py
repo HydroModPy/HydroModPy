@@ -201,7 +201,7 @@ def read_locations_csv(path: str | Path) -> LocationsArtifact:
     errors: list[str] = []
 
     if not rows:
-        # Empty template (only comments + header) is legitimate — no stations yet.
+        # Empty template (only comments + header) is legitimate - no stations yet.
         return LocationsArtifact(
             stations=[],
             crs="",

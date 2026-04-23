@@ -1,4 +1,4 @@
-"""Nançon — specific yield (Sy) sensitivity.
+"""Nançon - specific yield (Sy) sensitivity.
 
 Template showing how to drive HydroModPy from Python: sweep one
 parameter across several runs, then read back each run's catalog
@@ -17,7 +17,7 @@ from matplotlib.colors import ListedColormap
 import hydromodpy as hmp
 
 # ---------------------------------------------------------------------
-# Configuration — edit these to fit your project
+# Configuration - edit these to fit your project
 # ---------------------------------------------------------------------
 
 HERE = Path(__file__).resolve().parent

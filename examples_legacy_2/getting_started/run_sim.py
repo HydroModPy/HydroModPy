@@ -1,4 +1,4 @@
-"""Getting-started example — run the Dupuit synthetic aquifer from Python.
+"""Getting-started example - run the Dupuit synthetic aquifer from Python.
 
 Run it directly::
 

@@ -89,7 +89,7 @@ def test_scan_reports_schema_errors(tmp_path):
 
 def test_scan_skips_example_file(tmp_path):
     root = scaffold(tmp_path / "ws")
-    # EXAMPLE.csv is shipped by default — scan must not ingest it
+    # EXAMPLE.csv is shipped by default - scan must not ingest it
     report = scan_custom(root)
     assert all("EXAMPLE.csv" not in str(a.source_path) for a in report.added)
 

@@ -10,7 +10,7 @@ Exercises the canonical newcomer flow end-to-end (without running the solver):
     hmp doctor
 
 The assertions check that each step surfaces human-readable output and
-exits with the right code — not that the simulation succeeds end-to-end
+exits with the right code - not that the simulation succeeds end-to-end
 (that is covered by the regression suite).
 """
 

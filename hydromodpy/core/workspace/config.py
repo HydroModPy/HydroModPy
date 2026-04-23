@@ -2,13 +2,13 @@
 
 Resolution order (first match wins):
 
-1. **Explicit** — the TOML declares at least one of ``root``,
+1. **Explicit** - the TOML declares at least one of ``root``,
    ``catalog_path``, ``data_dir`` or ``simulations_dir`` under
    ``[workspace]``. A declared ``root`` derives the other three unless
    they are explicitly overridden.
-2. **Env var** — ``HYDROMODPY_WORKSPACE`` is set and points to a
+2. **Env var** - ``HYDROMODPY_WORKSPACE`` is set and points to a
    directory.
-3. **Scaffold** — the TOML lives at
+3. **Scaffold** - the TOML lives at
    ``<workspace>/projects/<name>/project.toml`` and the grand-grand-parent
    contains a ``hydromodpy.duckdb`` file or a ``data/`` directory.
 
@@ -213,7 +213,7 @@ def _resolve_root(
     if root is not None:
         return Path(root).expanduser().resolve(), "explicit"
     if any(p is not None for p in (catalog_path, data_dir, simulations_dir)):
-        # At least one component is explicit — derive the root from the
+        # At least one component is explicit - derive the root from the
         # first one that is set (catalog_path first, then data_dir, then
         # simulations_dir), using its parent as the workspace root.
         for component, _default_name in (
@@ -230,7 +230,7 @@ def _resolve_root(
     if env_root:
         return Path(env_root).expanduser().resolve(), "env"
 
-    # 3. Scaffold layout — <workspace>/projects/<name>/project.toml.
+    # 3. Scaffold layout - <workspace>/projects/<name>/project.toml.
     if project_root.parent.name == "projects":
         candidate = project_root.parent.parent
         if (candidate / "hydromodpy.duckdb").exists() or (candidate / "data").is_dir():

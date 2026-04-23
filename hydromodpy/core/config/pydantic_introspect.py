@@ -1,7 +1,7 @@
 """Introspection helpers for HydroModPy Pydantic config fields.
 
 Central location for logic that reads ``Annotated[...]`` metadata off
-:class:`pydantic.fields.FieldInfo` — profile visibility, conditional
+:class:`pydantic.fields.FieldInfo` - profile visibility, conditional
 display, and any future metadata tags.
 
 Kept separate from :mod:`hydromodpy.core.config.generate_toml` and

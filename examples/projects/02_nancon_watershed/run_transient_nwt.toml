@@ -1,5 +1,5 @@
 # ======================================================================
-# Nançon — run transitoire MODFLOW-NWT
+# Nançon - run transitoire MODFLOW-NWT
 # ----------------------------------------------------------------------
 # Overlay qui hérite de `project.toml` (via base_config) puis écrase
 # uniquement les valeurs calibrables et l'orchestration propre à ce run.

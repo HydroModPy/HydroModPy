@@ -51,5 +51,5 @@ class PiezometricMap(BaseFigure):
         )
         overlay_watershed_contour(ax, sim)
         style_map_axes(ax)
-        ax.set_title(f"Water table — {sim.name or sim.sim_id}")
+        ax.set_title(f"Water table - {sim.name or sim.sim_id}")
         return ax

@@ -1,11 +1,11 @@
 """Hub'Eau stream-flow (ecoulement) API adapter.
 
 Produces ``PointRecord`` instances from the Hub'Eau v1 ecoulement endpoints
-(ONDE — National Low-Flow Observatory).
+(ONDE - National Low-Flow Observatory).
 
 Endpoints used:
-- ``/v1/ecoulement/stations``     — station discovery (bbox, department, etc.)
-- ``/v1/ecoulement/observations`` — flow-state observations per station
+- ``/v1/ecoulement/stations``     - station discovery (bbox, department, etc.)
+- ``/v1/ecoulement/observations`` - flow-state observations per station
 
 Flow state mapping (Hub'Eau code_ecoulement -> internal 1-5 ordinal):
     "1"  -> Visible flow              -> 5
@@ -35,7 +35,7 @@ API_BASE = "https://hubeau.eaufrance.fr/api/v1/ecoulement"
 
 COVERAGE = {
     "country": "FR",
-    "description": "Hub'Eau stream-flow — ONDE stations metropolitan France",
+    "description": "Hub'Eau stream-flow - ONDE stations metropolitan France",
     "variables": ["flow_state"],
     "frequency": ["irregular"],
 }
@@ -47,7 +47,7 @@ _CODE_ECOULEMENT_MAP: dict[str, int] = {
     "1f": 3,  # Weak visible flow
     "2": 2,  # Non-visible flow
     "3": 1,  # Dry (no water)
-    # "4" -> Observation impossible — intentionally omitted (NaN)
+    # "4" -> Observation impossible - intentionally omitted (NaN)
 }
 
 

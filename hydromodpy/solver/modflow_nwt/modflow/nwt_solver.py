@@ -579,7 +579,7 @@ class Modflow(Solver):
         # object.  This is the *processed* schedule: first_clim has been applied
         # to period 0 and, when negative_to_evt=True, negative values have already
         # been clipped to 0 (their absolute values were routed to the EVT package
-        # above).  Format: dict {kper: rate [L/T]} — one entry per stress period.
+        # above).  Format: dict {kper: rate [L/T]} - one entry per stress period.
         # None when recharge is not in active_sinks_sources.
         self.recharge = flow_inputs.rch_data
 
@@ -757,7 +757,7 @@ class Modflow(Solver):
             self.kstp = self.nstp[self.kper] - 1
 
         # %% Initialize result dictionaries
-        # x[time] = matrix — one 2-D array per stress period
+        # x[time] = matrix - one 2-D array per stress period
         self.dict_watertable_elevation = {}
         self.dict_watertable_depth = {}
         self.dict_seepage_areas = {}

@@ -225,7 +225,7 @@ type = "constant_thickness"
 
 # Constant aquifer thickness (m) applied below topography.
 # Type: float | > 0.0 | Default: 50.0
-# Épaisseur baseline — remplacée par le run overlay (run_transient_nwt.toml).
+# Épaisseur baseline - remplacée par le run overlay (run_transient_nwt.toml).
 thickness = 30.0
 
 
@@ -973,7 +973,7 @@ param_list = ["K", "Sy", "Ss"]
 
 # Mapping of flow-parameter identifiers to resolved FieldParamConfig payloads.
 # Type: dict[str, dict] | REQUIRED
-# Empty inline dict would block [flow.param.<id>.*] extension below — leave implicit.
+# Empty inline dict would block [flow.param.<id>.*] extension below - leave implicit.
 # param = {}
 
 # Mapping of flow boundary-condition payloads parsed from [flow.bc].
@@ -984,7 +984,7 @@ param_list = ["K", "Sy", "Ss"]
 # Supported application_domain values are: top, north side, south side, east side, west side.
 # Default units: m for dirichlet, m2/s for cauchy/robin.
 # Type: dict[str, object] | REQUIRED
-# Payload assembled from [flow.bc.*.*] sections below — leave implicit.
+# Payload assembled from [flow.bc.*.*] sections below - leave implicit.
 # bc = {}
 
 # Explicitly activated sink/source names for this flow run.
@@ -1045,7 +1045,7 @@ wells = {}
 
 
 # ----------------------------------------------------------------------
-# Flow field parameters — one [flow.param.<id>.field] + one
+# Flow field parameters - one [flow.param.<id>.field] + one
 # [flow.param.<id>.field_homogeneous] per id declared in
 # [flow].param_list. Example block below for K, Sy, Ss.
 # ----------------------------------------------------------------------
@@ -1077,7 +1077,7 @@ unit = "m/s"
 [flow.param.K.field_homogeneous]
 # Scalar surface value used when kind='homogeneous'.
 # Type: object (optional) | Optional
-# Valeur baseline — remplacée par le run overlay (run_transient_nwt.toml)
+# Valeur baseline - remplacée par le run overlay (run_transient_nwt.toml)
 # ou par `project.run(K=...)` depuis un script Python.
 value = 5e-5
 
@@ -1109,7 +1109,7 @@ unit = "-"
 [flow.param.Sy.field_homogeneous]
 # Scalar surface value used when kind='homogeneous'.
 # Type: object (optional) | Optional
-# Valeur baseline — remplacée par le run overlay (run_transient_nwt.toml)
+# Valeur baseline - remplacée par le run overlay (run_transient_nwt.toml)
 # ou par `project.run(Sy=...)` depuis un script Python.
 value = 0.05
 
@@ -1141,13 +1141,13 @@ unit = "m-1"
 [flow.param.Ss.field_homogeneous]
 # Scalar surface value used when kind='homogeneous'.
 # Type: object (optional) | Optional
-# Valeur baseline — remplacée par le run overlay (run_transient_nwt.toml)
+# Valeur baseline - remplacée par le run overlay (run_transient_nwt.toml)
 # ou par `project.run(Ss=...)` depuis un script Python.
 value = 1e-5
 
 
 # ----------------------------------------------------------------------
-# Flow boundary conditions — one block per id listed in
+# Flow boundary conditions - one block per id listed in
 # [flow].active_bc. Supported keys: [flow.bc.dirichlet.<side>],
 # [flow.bc.cauchy.drainage], [flow.bc.robin.drainage].
 # Example: a top-domain Cauchy drainage BC.
@@ -1185,7 +1185,7 @@ application_domain = "top"
 
 
 # ----------------------------------------------------------------------
-# Flow diffuse recharge — emitted when 'recharge' is listed in
+# Flow diffuse recharge - emitted when 'recharge' is listed in
 # [flow].active_sinks_sources. Values are taken from the data
 # layer ([data.recharge]) unless overridden here.
 # ----------------------------------------------------------------------
@@ -1492,7 +1492,7 @@ run_id = ""
 
 # Short free-text description of the simulation intent.
 # Type: string | Default: ""
-description = "Squelette du bassin du Nançon — les runs héritent via base_config."
+description = "Squelette du bassin du Nançon - les runs héritent via base_config."
 
 
 # Optional canonical simulation window used to align solver temporal settings and validate forcing coverage.

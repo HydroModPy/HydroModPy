@@ -129,7 +129,7 @@ class TestImportSimulation:
             catalog.import_package(produced)
 
     def test_import_rejects_tampered_archive(self, tmp_path):
-        """Flip a byte in the archive — SHA-256 verification must fail."""
+        """Flip a byte in the archive - SHA-256 verification must fail."""
         ws1 = tmp_path / "ws1"
         ws2 = tmp_path / "ws2"
 

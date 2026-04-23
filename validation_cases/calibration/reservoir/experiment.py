@@ -1,4 +1,4 @@
-"""Lumped reservoir calibration — standalone experiment.
+"""Lumped reservoir calibration - standalone experiment.
 
 Forward model
 -------------
@@ -82,7 +82,7 @@ def solve_two_reservoirs(
     inflow: np.ndarray,
     dt: float = 1.0,
 ) -> np.ndarray:
-    """Two reservoirs in series — ``Q_out`` from the second reservoir."""
+    """Two reservoirs in series - ``Q_out`` from the second reservoir."""
     h1 = 0.0
     h2 = 0.0
     qout2 = np.empty_like(inflow, dtype=float)

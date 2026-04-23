@@ -1,4 +1,4 @@
-"""Tests for results/catalog.py — SimulationCatalog integration."""
+"""Tests for results/catalog.py - SimulationCatalog integration."""
 
 from __future__ import annotations
 

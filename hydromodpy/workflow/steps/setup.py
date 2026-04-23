@@ -1,4 +1,4 @@
-"""Setup step — structural bootstrap (workspace, geographic, domain, flow, transport).
+"""Setup step - structural bootstrap (workspace, geographic, domain, flow, transport).
 
 This module contains the functions that build the shared structural objects
 (workspace, geographic context, domain, flow/transport configs) used by all

@@ -1,7 +1,7 @@
 """SHOM tide gauge API client for sea-level data.
 
 Downloads sea-level observations from the Service Hydrographique et
-Oceanographique de la Marine (SHOM) API.  Stateless — no class state,
+Oceanographique de la Marine (SHOM) API.  Stateless - no class state,
 returns ``list[PointRecord]``.
 """
 

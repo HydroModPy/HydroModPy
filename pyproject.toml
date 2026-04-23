@@ -180,7 +180,7 @@ exclude_lines = [
 ]
 
 # ──────────────────────────────────────────────────────────────────────────────
-# Ruff — unified linter + formatter (replaces black, isort, flake8, pyupgrade…)
+# Ruff - unified linter + formatter (replaces black, isort, flake8, pyupgrade…)
 # ──────────────────────────────────────────────────────────────────────────────
 [tool.ruff]
 target-version = "py311"
@@ -198,7 +198,7 @@ extend-exclude = [
 ]
 
 [tool.ruff.lint]
-# Classic starter set — the six rule groups most Python projects enable.
+# Classic starter set - the six rule groups most Python projects enable.
 # Extend later (C4, SIM, NPY, RUF, D, ANN…) once the core is clean.
 select = [
     "E",   # pycodestyle errors
@@ -210,7 +210,7 @@ select = [
 ]
 
 ignore = [
-    "E501",  # line too long — the formatter handles it
+    "E501",  # line too long - the formatter handles it
     "B008",  # function call in default arg (common with pydantic Field(...))
 ]
 
@@ -220,7 +220,7 @@ ignore = [
 # Tests can use idiomatic pytest patterns: bare pytest.raises(Exception),
 # zip without strict=, kept assignments for readability, etc.
 "tests/**/*.py" = ["E402", "F401", "B011", "B017", "B905", "F841"]
-# tools/ scripts do `sys.path.insert(0, REPO_ROOT)` before imports — legit pattern.
+# tools/ scripts do `sys.path.insert(0, REPO_ROOT)` before imports - legit pattern.
 "tools/**" = ["E402", "F401", "B007", "B905", "F841"]
 # Annex: legacy/peripheral code, minimal linting.
 "hydromodpy_annex/**" = ["E402", "F401", "B006", "B007"]
@@ -246,7 +246,7 @@ known-first-party = ["hydromodpy", "hydromodpy_annex"]
 [tool.ruff.lint.flake8-type-checking]
 # Tell ruff that pydantic's BaseModel is inspected at runtime, so forward
 # references to annotated types (e.g. `"HydrographyConfig | None"`) inside
-# pydantic models must be resolvable — avoids a wave of false-positive F821s
+# pydantic models must be resolvable - avoids a wave of false-positive F821s
 # when the real import sits under `if TYPE_CHECKING:`.
 runtime-evaluated-base-classes = [
     "pydantic.BaseModel",

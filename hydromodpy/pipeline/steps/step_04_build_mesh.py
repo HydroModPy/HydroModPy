@@ -1,4 +1,4 @@
-"""Step 4 — build or load the hydrological mesh.
+"""Step 4 - build or load the hydrological mesh.
 
 Wraps ``step_mesh`` (embedded catchment mesh) + ``step_mesh_input``
 (external pre-computed mesh) + the ``data`` phase of

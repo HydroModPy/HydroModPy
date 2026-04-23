@@ -325,7 +325,7 @@ def _nse_log(obs: np.ndarray, sim: np.ndarray) -> float:
 
 
 def _kge_with_components(obs: np.ndarray, sim: np.ndarray) -> dict[str, float]:
-    """KGE 2009 with ddof=1 components — matches legacy golden."""
+    """KGE 2009 with ddof=1 components - matches legacy golden."""
     mask = np.isfinite(obs) & np.isfinite(sim)
     o, s = obs[mask], sim[mask]
     obs_mean = float(np.mean(o))
@@ -629,7 +629,7 @@ def _run_cma_es(
     accepts.
     """
     # Normalize optimisation is achieved via the ``identity`` transform on
-    # the physical bounds — Optuna's CmaEsSampler handles bound scaling
+    # the physical bounds - Optuna's CmaEsSampler handles bound scaling
     # internally, so we pass bounds directly.
     _ = normalize  # retained for signature compatibility with the legacy API
     lower = np.array([bounds[name][0] for name in MODEL_PARAMETER_ORDER], dtype=float)
@@ -798,7 +798,7 @@ def _configure_cmaes(optimizer: Any, *, sigma0: float) -> None:
     """Best-effort tuning of Optuna's CMA-ES sampler.
 
     Optuna's ``CmaEsSampler`` accepts ``sigma0`` as constructor argument
-    but our adapter only forwards ``seed`` — we patch it after the fact
+    but our adapter only forwards ``seed`` - we patch it after the fact
     so the calibration matches the legacy sigma0 choice when possible.
     """
     try:

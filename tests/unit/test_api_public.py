@@ -1,7 +1,7 @@
 """Smoke tests for the public ``hydromodpy`` API surface.
 
 These checks pin down the top-level symbols that the P10 spec promises to
-users — ``hmp.open``, ``hmp.Project``, ``hmp.Run``, ``hmp.SimulationCatalog``,
+users - ``hmp.open``, ``hmp.Project``, ``hmp.Run``, ``hmp.SimulationCatalog``,
 etc. Regressions here usually mean a refactor broke the import contract.
 """
 

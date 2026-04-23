@@ -1,4 +1,4 @@
-"""Step 8 — finalize solver result extraction.
+"""Step 8 - finalize solver result extraction.
 
 Result ingestion (Zarr writes for head / budget / timeseries) happens
 run-by-run via the ``after_run`` callback installed by

@@ -1,4 +1,4 @@
-"""Store-lifecycle step — open, register, finalize, and close SimulationCatalog."""
+"""Store-lifecycle step - open, register, finalize, and close SimulationCatalog."""
 
 from __future__ import annotations
 

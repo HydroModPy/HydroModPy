@@ -54,7 +54,7 @@ CHRONICLE_HEADER = "datetime,value\n"
 
 
 _README_TIMESERIES = """\
-# {name}_custom — drag-and-drop for {label_fr}
+# {name}_custom - drag-and-drop for {label_fr}
 
 Drop your files into this folder and run `hmp run`. HydroModPy will auto-scan
 new or modified files, validate them, and index them in `data/cache.duckdb`
@@ -93,14 +93,14 @@ One file per station, named after its `id` column:
 
 ## Power-user commands (optional)
 
-- `hmp data check --variable {name}` — validate files without ingesting.
-- `hmp data list --variable {name}` — list indexed artefacts.
-- `hmp data add <file> --type {name}` — explicit ingest with metadata.
+- `hmp data check --variable {name}` - validate files without ingesting.
+- `hmp data list --variable {name}` - list indexed artefacts.
+- `hmp data add <file> --type {name}` - explicit ingest with metadata.
 """
 
 
 _README_RASTER = """\
-# {name}_custom — drag-and-drop for {label_fr}
+# {name}_custom - drag-and-drop for {label_fr}
 
 Drop raster files (GeoTIFF or Esri ASCII grid) into this folder and run
 `hmp run`. HydroModPy converts ASC to Cloud Optimized GeoTIFF (COG)
@@ -118,14 +118,14 @@ sidecar for ASC). Units ({unit}) and nodata values are read from the file.
 
 ## Power-user commands (optional)
 
-- `hmp data check --variable {name}` — validate files without ingesting.
-- `hmp data list --variable {name}` — list indexed artefacts.
-- `hmp data add <file> --type {name}` — explicit ingest with metadata.
+- `hmp data check --variable {name}` - validate files without ingesting.
+- `hmp data list --variable {name}` - list indexed artefacts.
+- `hmp data add <file> --type {name}` - explicit ingest with metadata.
 """
 
 
 _README_VECTOR = """\
-# {name}_custom — drag-and-drop for {label_fr}
+# {name}_custom - drag-and-drop for {label_fr}
 
 Drop vector files (Shapefile, GeoJSON, GeoPackage, or GeoParquet) into
 this folder and run `hmp run`. HydroModPy converts everything to
@@ -144,9 +144,9 @@ Each file must carry its CRS. For `.shp`, the `.prj` sidecar is required.
 
 ## Power-user commands (optional)
 
-- `hmp data check --variable {name}` — validate files without ingesting.
-- `hmp data list --variable {name}` — list indexed artefacts.
-- `hmp data add <file> --type {name}` — explicit ingest with metadata.
+- `hmp data check --variable {name}` - validate files without ingesting.
+- `hmp data list --variable {name}` - list indexed artefacts.
+- `hmp data add <file> --type {name}` - explicit ingest with metadata.
 """
 
 
@@ -270,7 +270,7 @@ def scaffold(
         |-- projects/                       (empty, ready for hmp new)
 
     Idempotent for user-authored files (custom locations, chronicles,
-    READMEs) — they are never overwritten. When ``force=True`` the
+    READMEs) - they are never overwritten. When ``force=True`` the
     simulation catalog is recreated; otherwise an existing catalog is
     left intact.
     """

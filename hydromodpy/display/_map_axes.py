@@ -5,7 +5,7 @@ needs: no scientific-notation offset on metric coordinates (which
 collides with the title), comma-separated tick labels, sane tick density,
 and an optional watershed outline drawn on top of the field.
 
-The helpers stay backend-agnostic — they only touch a matplotlib Axes.
+The helpers stay backend-agnostic - they only touch a matplotlib Axes.
 """
 
 from __future__ import annotations
@@ -31,7 +31,7 @@ def style_map_axes(
     - Forces plain (no scientific) formatting with thousands-separator commas.
     - Caps the number of ticks on each axis so labels don't overlap.
     - Enables equal aspect so the catchment shape is not distorted.
-    - ``steps=[1, 2, 5, 10]`` keeps tick positions on round values — avoids
+    - ``steps=[1, 2, 5, 10]`` keeps tick positions on round values - avoids
       ugly labels like ``387,342``.
     """
     from matplotlib.ticker import FuncFormatter, MaxNLocator
@@ -45,7 +45,7 @@ def style_map_axes(
     locator_kw = {"nbins": max_ticks, "integer": False, "prune": "both", "steps": [1, 2, 5, 10]}
     ax.xaxis.set_major_locator(MaxNLocator(**locator_kw))
     ax.yaxis.set_major_locator(MaxNLocator(**locator_kw))
-    # Comma thousands separator — "388,000" is readable where "388000" is not.
+    # Comma thousands separator - "388,000" is readable where "388000" is not.
     fmt = FuncFormatter(lambda v, _pos: f"{int(v):,}" if abs(v) >= 1 else f"{v:g}")
     ax.xaxis.set_major_formatter(fmt)
     ax.yaxis.set_major_formatter(fmt)
@@ -62,7 +62,7 @@ def overlay_watershed_contour(
 ) -> None:
     """Draw the catchment polygon outline on top of a map, if available.
 
-    Silently no-ops when the ``watershed`` feature is missing — this keeps
+    Silently no-ops when the ``watershed`` feature is missing - this keeps
     the helper safe on synthetic cases that have no delineation.
     """
     try:
@@ -74,7 +74,7 @@ def overlay_watershed_contour(
     try:
         gdf.boundary.plot(ax=ax, color=color, linewidth=linewidth, alpha=alpha, zorder=5)
     except Exception:
-        # Rare case: geometry column is missing or CRS mismatch — don't abort.
+        # Rare case: geometry column is missing or CRS mismatch - don't abort.
         return
 
 

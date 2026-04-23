@@ -1,8 +1,8 @@
 """Integration tests for the ``hmp`` public surface.
 
 The only import allowed here is ``import hydromodpy as hmp``. These tests
-exercise the journey a downstream user would actually write — open a
-workspace, register a simulation, attach metrics, query the catalog —
+exercise the journey a downstream user would actually write - open a
+workspace, register a simulation, attach metrics, query the catalog -
 so any regression in the public API trips this file before it reaches
 end users. Workflows that need internal machinery belong in
 ``tests/unit/`` or ``tests/e2e/``.

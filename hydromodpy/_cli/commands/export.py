@@ -1,4 +1,4 @@
-"""``hmp export`` — export geographic or simulation results."""
+"""``hmp export`` - export geographic or simulation results."""
 
 from __future__ import annotations
 

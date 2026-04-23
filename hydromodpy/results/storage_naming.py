@@ -4,7 +4,7 @@ A simulation's on-disk artefacts (Zarr store, Parquet directory) are placed
 under ``simulations/<basename>.zarr`` / ``.parquet``, where ``<basename>`` is
 built from the simulation's ``(project, name, sim_id)`` so a plain ``ls`` of
 the workspace is readable. Older workspaces that pre-date this scheme use
-the bare ``sim_id`` as the basename — callers that resolve paths must query
+the bare ``sim_id`` as the basename - callers that resolve paths must query
 ``simulations.storage_basename`` from the catalog and fall back to ``sim_id``
 when it is ``NULL``.
 """

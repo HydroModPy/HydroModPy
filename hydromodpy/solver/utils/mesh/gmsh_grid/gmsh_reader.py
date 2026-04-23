@@ -36,7 +36,7 @@ _NODES_PER_CELL = {
 }
 
 
-from hydromodpy.solver.utils.mesh.gmsh_grid._deps import (  # noqa: E402 — late import to avoid circular dependency
+from hydromodpy.solver.utils.mesh.gmsh_grid._deps import (  # noqa: E402 - late import to avoid circular dependency
     require_meshio as _require_meshio,
 )
 

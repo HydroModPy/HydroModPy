@@ -36,7 +36,7 @@ PROCESS_SOLVER_REQUIREMENTS: dict[ProcessSolverKey, tuple[ProcessSolverKey, ...]
     ("transport", "modpath"): (("flow", "modflownwt"),),
     ("transport", "mt3dms"): (("flow", "modflownwt"),),
     ("transport", "modflow6gwt"): (("flow", "modflow6"),),
-    # Post-processing and display phases — stubs registered for extensibility.
+    # Post-processing and display phases - stubs registered for extensibility.
     # No dependency requirements (adapters inspect state at runtime).
     ("postprocess", "timeseries"): (),
     ("postprocess", "netcdf"): (),

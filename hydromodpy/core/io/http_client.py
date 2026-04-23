@@ -182,7 +182,7 @@ class HTTPClient:
                         break
                     delay = self._compute_backoff(attempt, None)
                     logger.warning(
-                        "HTTP %s %s failed (%s) — retry %d/%d in %.2fs",
+                        "HTTP %s %s failed (%s) - retry %d/%d in %.2fs",
                         method,
                         url,
                         exc,

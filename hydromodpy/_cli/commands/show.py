@@ -1,4 +1,4 @@
-"""``hmp show`` — print metadata, metrics, and parameters of a simulation."""
+"""``hmp show`` - print metadata, metrics, and parameters of a simulation."""
 
 from __future__ import annotations
 

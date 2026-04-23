@@ -4,10 +4,10 @@ Produces three companion JSON files ready to be consumed by an external
 frontend that renders a formular without having to know anything about
 Python:
 
-* ``config.json``           — the full JSON Schema of ``HydroModPyConfig``.
-* ``config_meta.json``      — high-level metadata (ordered root sections,
+* ``config.json``           - the full JSON Schema of ``HydroModPyConfig``.
+* ``config_meta.json``      - high-level metadata (ordered root sections,
                                UI groups, per-section titles).
-* ``field_validators.json`` — flat mapping ``field_path -> validator_type``
+* ``field_validators.json`` - flat mapping ``field_path -> validator_type``
                                so the frontend can pick a widget + a local
                                validator without re-parsing the schema.
 

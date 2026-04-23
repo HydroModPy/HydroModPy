@@ -1,4 +1,4 @@
-"""``hmp list`` — list projects or runs in a workspace."""
+"""``hmp list`` - list projects or runs in a workspace."""
 
 from __future__ import annotations
 

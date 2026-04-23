@@ -1,4 +1,4 @@
-"""``hmp test`` — run the unit/regression/validation pytest suites."""
+"""``hmp test`` - run the unit/regression/validation pytest suites."""
 
 from __future__ import annotations
 

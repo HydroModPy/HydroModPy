@@ -1,4 +1,4 @@
-"""Data-loading step — load external forcings and apply structural bindings.
+"""Data-loading step - load external forcings and apply structural bindings.
 
 This module contains the functions that load external forcings and bind the
 loaded data objects to runtime structures.

@@ -118,7 +118,7 @@ class CalibrationTraceFigure(BaseFigure):
             ax.set_ylabel(objective)
             ax.grid(True, ls=":", lw=0.4)
         axes[-1].set_xlabel("Iteration")
-        fig.suptitle(f"Calibration trace — {sim.name or sim.sim_id}")
+        fig.suptitle(f"Calibration trace - {sim.name or sim.sim_id}")
         if save_path is not None:
             from pathlib import Path
 

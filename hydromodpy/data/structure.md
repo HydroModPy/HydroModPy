@@ -1,4 +1,4 @@
-# Data Managers — Architecture complete
+# Data Managers - Architecture complete
 
 > Derniere mise a jour : 2026-04-02
 
@@ -252,7 +252,7 @@ architecture car leurs pipelines sont specifiques :
 
 ## 5. Les 17 variables
 
-### Variables climatiques (9) — BaseFieldManager + SIM2 EDR
+### Variables climatiques (9) - BaseFieldManager + SIM2 EDR
 
 | Variable | INTERNAL_UNIT | Code SIM2 | Sources |
 |----------|--------------|-----------|---------|
@@ -272,7 +272,7 @@ architecture car leurs pipelines sont specifiques :
 **Source synthetic** (recharge uniquement) : valeur scalaire avec modulation
 sinusoidale optionnelle (amplitude, periode, offset).
 
-### Variables hydrologiques ponctuelles (4) — BaseVariableManager
+### Variables hydrologiques ponctuelles (4) - BaseVariableManager
 
 | Variable | INTERNAL_UNIT | API | Sources |
 |----------|--------------|-----|---------|
@@ -290,7 +290,7 @@ conversion L/s → m3/s.
 **Discovery** (`hydrometry/discovery.py`, `piezometry/discovery.py`) :
 recherche par bbox, masque, rayon de repli, tri haversine par centroide.
 
-### Variables spatiales (3) — Architecture custom
+### Variables spatiales (3) - Architecture custom
 
 | Variable | Sources | Sortie |
 |----------|---------|--------|
@@ -298,7 +298,7 @@ recherche par bbox, masque, rayon de repli, tri haversine par centroide.
 | geology | brgm_1m, brgm_50k, custom | FieldRecord (GPKG/TIF) |
 | hydrography | bdtopage, euhydro, osm, custom | HydrographyResult |
 
-### Oceanic (1) — BaseFieldManager
+### Oceanic (1) - BaseFieldManager
 
 | Variable | INTERNAL_UNIT | Sources |
 |----------|--------------|---------|
@@ -409,13 +409,13 @@ fetch_metadata = {
 
 ### Operations du catalogue
 
-#### register() — Upsert
+#### register() - Upsert
 
 - **Cle point** : `(variable, source, station_id)` → update si existe
 - **Cle grille** : `(variable, source, file_path)` → update si existe
 - Retourne l'`id` de l'entree
 
-#### find_cached() — Recherche superset
+#### find_cached() - Recherche superset
 
 Retourne la premiere entree dont les bornes **contiennent** les bornes
 demandees (bbox ET dates). Logique stricte : couverture partielle = miss.
@@ -426,7 +426,7 @@ Cache   : bbox=(0,1,4,5), dates=[2019, 2026]  →  HIT (superset)
 Cache   : bbox=(1,2,3,4), dates=[2020, 2023]  →  MISS (dates partielles)
 ```
 
-#### subsume_entries() — Nettoyage grilles
+#### subsume_entries() - Nettoyage grilles
 
 Apres enregistrement d'une grande grille, supprime les entrees :
 - Meme `(variable, source)`, `station_id IS NULL`
@@ -437,17 +437,17 @@ Apres enregistrement d'une grande grille, supprime les entrees :
 
 **Supprime aussi les fichiers .nc du disque.**
 
-#### invalidate() — Suppression selective
+#### invalidate() - Suppression selective
 
 Filtre par `variable`, `source`, `station_id` (tous optionnels).
 `delete_files=True` → supprime les fichiers. Ignore les sentinelles
 ("custom", "empty").
 
-#### cleanup() — Purge orphelins
+#### cleanup() - Purge orphelins
 
 Parcourt toutes les entrees, supprime celles dont le fichier n'existe plus.
 
-#### list_entries() — Audit
+#### list_entries() - Audit
 
 DataFrame avec colonnes : id, variable, source, station_id, date_start,
 date_end, file_path, is_custom, fetch_metadata.
@@ -643,7 +643,7 @@ def load_all(self, result):
 ```
 
 Le parallelisme est I/O-bound (appels HTTP vers Hub'Eau, SIM2) donc
-`ThreadPoolExecutor` suffit — pas besoin d'`asyncio`.
+`ThreadPoolExecutor` suffit - pas besoin d'`asyncio`.
 
 ### Gestion d'erreur partielle
 
@@ -757,7 +757,7 @@ class DataStore:
                   **extra_kwargs)
         return mgr.load()
 
-# RuntimeLoader simplifie — delegue tout a DataStore
+# RuntimeLoader simplifie - delegue tout a DataStore
 class DataManagersRuntimeLoader:
     def load_all(self, result):
         store = DataStore(workspace_root=..., ...)
@@ -858,12 +858,12 @@ retelecharge pas les donnees deja en cache.
 | Migration catalogue SQLite → DuckDB | Planifie | §6 |
 | Fusion DataStore / RuntimeLoader | Planifie | §12 |
 | Suppression `_FallbackDataCatalog` | Planifie (apres migration DuckDB) | §12 |
-| `LoadResult.warnings` (erreur partielle) | **Fait** — RuntimeLoader propage | §3, §10 |
-| `PointRecord.quality` (`n_duplicates` dans completude) | **Fait** — `compute_completeness()` | §3 |
-| `FieldRecord` lazy loading (`dataset` property) | **Fait** — `spatial_field.py` | §3 |
+| `LoadResult.warnings` (erreur partielle) | **Fait** - RuntimeLoader propage | §3, §10 |
+| `PointRecord.quality` (`n_duplicates` dans completude) | **Fait** - `compute_completeness()` | §3 |
+| `FieldRecord` lazy loading (`dataset` property) | **Fait** - `spatial_field.py` | §3 |
 | `HydrographyResult` → `LoadResult` | Planifie | §4.3 |
-| `project_crs` (reprojection auto) | **Fait** — champ dans `DataManagersConfig` | §8 |
-| Chargement parallele (`ThreadPoolExecutor`) | **Fait** — `runtime_loader.py` | §10 |
-| `fetch_metadata` (provenance API) | **Fait** — dans `list_entries()` | §6 |
-| `resample.py` (resampling standardise) | **Fait** — stub dans `results/` | §11 |
-| Suppression dependance SQLAlchemy | **Fait** — retiree des env_*.yml | §6 |
+| `project_crs` (reprojection auto) | **Fait** - champ dans `DataManagersConfig` | §8 |
+| Chargement parallele (`ThreadPoolExecutor`) | **Fait** - `runtime_loader.py` | §10 |
+| `fetch_metadata` (provenance API) | **Fait** - dans `list_entries()` | §6 |
+| `resample.py` (resampling standardise) | **Fait** - stub dans `results/` | §11 |
+| Suppression dependance SQLAlchemy | **Fait** - retiree des env_*.yml | §6 |

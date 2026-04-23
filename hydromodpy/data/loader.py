@@ -276,7 +276,7 @@ class DataManagersRuntimeLoader:
             )
         else:
             if source_kind == "vector":
-                # Vector without raster support — needs reference raster
+                # Vector without raster support - needs reference raster
                 cfg_dict["source"]["reference_raster_path"] = data_path
             cfg = validate_geology_config_data(cfg_dict)
             loaded = load_geology_encoded_grid(cfg)
@@ -525,7 +525,7 @@ class DataManagersRuntimeLoader:
 
         try:
             wq_cfg = WaterQualityConfig.model_validate(raw_section)
-            # WaterQualityConfig has no date fields — derive period from
+            # WaterQualityConfig has no date fields - derive period from
             # simulation window or overview dates on the proxy.
             period = self._resolve_simulation_time_window_dates(result)
             if period is None:

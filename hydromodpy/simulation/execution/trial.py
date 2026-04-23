@@ -1,4 +1,4 @@
-"""Trial primitive — "prepare once, evaluate many".
+"""Trial primitive - "prepare once, evaluate many".
 
 The calibration loop needs a cheap inner step that lets the optimizer
 evaluate hundreds of parameter combinations without re-running the
@@ -6,16 +6,16 @@ expensive setup phases (geographic, mesh, data loading) every time.
 
 Three public entry points:
 
-- :func:`prepare_trials` — load the TOML, compute which pipeline steps
+- :func:`prepare_trials` - load the TOML, compute which pipeline steps
   are affected by the calibration overrides, and run the shared prefix
   (steps ``[0..earliest)``) exactly once. Returns a
   :class:`TrialContext` that downstream trials fork from.
-- :func:`run_trial_light` — fork the trial context, inject one
+- :func:`run_trial_light` - fork the trial context, inject one
   parameter sample, run steps ``[earliest..8]`` with
   ``execution.lightweight = True`` so no Zarr / Parquet / provenance
   artefacts are written, extract the objective in RAM, and return a
   :class:`TrialResult`.
-- :func:`promote_trial` — re-run the full pipeline (``00..11``) via
+- :func:`promote_trial` - re-run the full pipeline (``00..11``) via
   :class:`hydromodpy.Project`, persisting Zarr + Parquet + catalog rows.
   Used once the calibration loop has finished to materialise the top-N
   best iterations.
@@ -56,7 +56,7 @@ class TrialResult:
     """Outcome of a single lightweight trial.
 
     ``primary_metric`` is the scalar used by the optimizer (lower is
-    better by convention — ScalarObjective already flips higher-is-better
+    better by convention - ScalarObjective already flips higher-is-better
     metrics like NSE/KGE into costs). ``metrics`` holds the per-component
     breakdown. When ``status != "completed"``, ``primary_metric`` is
     ``nan`` and ``error`` carries the exception string.
@@ -187,7 +187,7 @@ def prepare_trials(
     Parameters
     ----------
     cfg_path
-        Path to the calibration TOML (must be a full HydroModPy config —
+        Path to the calibration TOML (must be a full HydroModPy config -
         ``base_config`` + ``[calibration]`` + ``[simulation]`` etc.).
     override_paths
         Either a mapping ``{parameter_name: dotted_path}`` or a raw
@@ -216,7 +216,7 @@ def prepare_trials(
         path_map = {p: p for p in path_set}
 
     pipeline_steps = tuple(steps if steps is not None else standard_steps())
-    # Cap at 9 (extract) — the trial primitive never runs derive/export/display.
+    # Cap at 9 (extract) - the trial primitive never runs derive/export/display.
     max_downstream = 9
     earliest = earliest_affected_step(path_set, pipeline_steps)
     earliest = min(earliest, max_downstream)
@@ -236,7 +236,7 @@ def prepare_trials(
     ctx = state.get("ctx")
     if ctx is None:
         raise RuntimeError(
-            "prepare_trials: pipeline did not produce a WorkflowContext — ensure ResolveStep ran."
+            "prepare_trials: pipeline did not produce a WorkflowContext - ensure ResolveStep ran."
         )
 
     # Mirror Project.py: resolve the time_grid once so subsequent trials
@@ -306,7 +306,7 @@ def run_trial_light(
     metric_fn
         Optional RAM-only extractor with signature
         ``(ctx, objective, variable) -> (primary, metrics)``. When
-        ``None`` the default stub returns ``(nan, {})`` — the full
+        ``None`` the default stub returns ``(nan, {})`` - the full
         extractor is wired in by the calibration CLI in Phase 2.
     """
     from hydromodpy.pipeline.pipeline import Pipeline

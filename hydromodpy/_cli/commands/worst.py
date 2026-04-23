@@ -1,4 +1,4 @@
-"""``hmp worst`` — show the worst simulation for a project."""
+"""``hmp worst`` - show the worst simulation for a project."""
 
 from __future__ import annotations
 

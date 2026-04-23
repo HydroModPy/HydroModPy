@@ -1,4 +1,4 @@
-"""``hmp best`` — show the best simulation for a project."""
+"""``hmp best`` - show the best simulation for a project."""
 
 from __future__ import annotations
 

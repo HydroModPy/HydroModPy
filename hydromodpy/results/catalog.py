@@ -210,7 +210,7 @@ class SimulationCatalog:
         """Return the on-disk basename for ``sim_id``.
 
         Reads ``simulations.storage_basename`` and falls back to the raw
-        ``sim_id`` string when the column is ``NULL`` — the case for rows
+        ``sim_id`` string when the column is ``NULL`` - the case for rows
         written before human-readable storage names were introduced.
         Such workspaces continue to work via the UUID fallback; new
         registrations populate the column going forward.
@@ -1089,7 +1089,7 @@ class SimulationCatalog:
         """Return one DataFrame row per simulation matching ``filters``.
 
         ``order_by`` is an optional SQL ORDER BY clause (e.g. ``"created_at DESC"``).
-        When omitted, rows are returned in DuckDB storage order — which is
+        When omitted, rows are returned in DuckDB storage order - which is
         typically insertion order but not guaranteed by SQL. Callers that need
         the most recent run should pass ``order_by="created_at DESC"`` and
         read ``iloc[0]``.
@@ -1172,7 +1172,7 @@ class SimulationCatalog:
         2. UUID prefix of ≥ 4 hex characters (no dashes). Must match a single
            simulation globally; raises :class:`AmbiguousReferenceError`
            otherwise.
-        3. Exact ``name`` within ``project`` — requires the ``project``
+        3. Exact ``name`` within ``project`` - requires the ``project``
            keyword.
 
         Raises :class:`SimulationNotFoundError` when nothing matches.

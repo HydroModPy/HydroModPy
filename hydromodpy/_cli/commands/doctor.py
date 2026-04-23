@@ -1,4 +1,4 @@
-"""``hmp doctor`` — diagnose the local environment."""
+"""``hmp doctor`` - diagnose the local environment."""
 
 from __future__ import annotations
 

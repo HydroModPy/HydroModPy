@@ -382,7 +382,7 @@ class BaseVariableManager(ABC):
     ) -> PointRecord | None:
         """Try to load a single station from cached CSV via the catalog.
 
-        Does NOT filter by date — returns whatever is cached. The caller
+        Does NOT filter by date - returns whatever is cached. The caller
         uses _compute_missing_periods() to detect partial coverage.
         """
         if self.catalog is None or self.data_dir is None:
@@ -397,7 +397,7 @@ class BaseVariableManager(ABC):
 
         filepath = self._resolve_catalog_path(entry.file_path)
         if not filepath.exists():
-            # File deleted externally — clean up stale entry
+            # File deleted externally - clean up stale entry
             self.catalog.invalidate(
                 variable=self.VARIABLE_NAME,
                 source=source,
@@ -409,7 +409,7 @@ class BaseVariableManager(ABC):
         if entry.file_mtime is not None:
             current_mtime = filepath.stat().st_mtime
             if abs(current_mtime - entry.file_mtime) > 1.0:
-                # File modified externally — invalidate and re-fetch
+                # File modified externally - invalidate and re-fetch
                 self.catalog.invalidate(
                     variable=self.VARIABLE_NAME,
                     source=source,

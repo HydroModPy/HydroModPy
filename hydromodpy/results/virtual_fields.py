@@ -60,7 +60,7 @@ def _drn_budget_field(store: Any, sim_id: str, timestep: int) -> np.ndarray:
     grp = store.open_zarr_group(sim_id)
     budget = grp.get("budget")
     if budget is None:
-        raise KeyError("No budget spatial fields stored — enable budget.spatial_fields")
+        raise KeyError("No budget spatial fields stored - enable budget.spatial_fields")
     for key in ("drn", "drain", "drains"):
         if key in budget:
             return np.asarray(budget[key][timestep], dtype="float64")

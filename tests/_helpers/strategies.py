@@ -12,7 +12,7 @@ try:
     import numpy as np
     from hypothesis import strategies as st
     from hypothesis.extra.numpy import arrays
-except ImportError:  # pragma: no cover — fallback when hypothesis unavailable
+except ImportError:  # pragma: no cover - fallback when hypothesis unavailable
     finite_floats = None
     positive_hk = None
     valid_porosity = None

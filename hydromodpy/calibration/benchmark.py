@@ -9,17 +9,17 @@ in favour of :mod:`hydromodpy.calibration`.
 This module provides a drop-in reimplementation of the four public
 symbols those tests rely on, built **on top of the new architecture**:
 
-* :class:`ModelCalibrationLauncher` — loads a legacy
+* :class:`ModelCalibrationLauncher` - loads a legacy
   ``[model_calibration]`` TOML, prepares a session on disk, and runs one
   full calibration loop using simple method implementations that wrap
   ``hydromodpy.Project`` + :func:`hydromodpy.simulation.execution.trial._set_by_path`.
-* :class:`ModelCalibrationObjectiveEvaluator` — single-shot evaluator
+* :class:`ModelCalibrationObjectiveEvaluator` - single-shot evaluator
   used by ``validation_cases.calibration.shared.runtime`` to score one
   candidate parameter vector.
-* :func:`actualize_candidate` — materialize a candidate override TOML
+* :func:`actualize_candidate` - materialize a candidate override TOML
   (inheriting from the target simulation config via ``base_config``) for
   an explicit parameter point.
-* :func:`select_candidate_outputs` — read configured observables from a
+* :func:`select_candidate_outputs` - read configured observables from a
   finished :class:`hydromodpy.core.state.run_state.WorkflowContext`.
 
 The legacy TOML schema is considerably richer than the new
@@ -287,7 +287,7 @@ class _ParameterSet:
     """Minimal ``parameter_set`` replacement used by the legacy surface.
 
     ``core_settings['parameter_set']`` exposed ``.vector_from(mapping|vector)``
-    and ``.mapping_from(vector)`` helpers — keep the exact same contract so
+    and ``.mapping_from(vector)`` helpers - keep the exact same contract so
     ``actualize_candidate`` / :class:`ModelCalibrationObjectiveEvaluator`
     keep working unmodified.
     """
@@ -790,7 +790,7 @@ def _nearest_cell_index(mesh: Any, *, x: float, y: float) -> tuple[int, int, int
     flat_index = int(np.argmin(distances))
     shape = getattr(mesh, "shape", None)
     if shape is None or len(shape) < 2:
-        # 1D fallback — treat as (0, 0, flat_index)
+        # 1D fallback - treat as (0, 0, flat_index)
         return (0, 0, flat_index)
     _, n_rows, n_cols = shape if len(shape) == 3 else (1, *shape)
     layer = 0
@@ -1591,7 +1591,7 @@ class ModelCalibrationLauncher:
         wall_seconds = float(time.perf_counter() - t_start)
 
         # Write full iteration history (the streamed file already contains
-        # every record — this ensures we have the final, consolidated
+        # every record - this ensures we have the final, consolidated
         # JSONL even when the driver crashed mid-way).
         self._rewrite_iteration_history(iteration_records)
 
@@ -1786,7 +1786,7 @@ def _detect_primary_solver(raw_simulation_toml: Mapping[str, Any]) -> str | None
 
 
 # ---------------------------------------------------------------------------
-# persist_to_catalog — stub used by the skipped catalog test.
+# persist_to_catalog - stub used by the skipped catalog test.
 # ---------------------------------------------------------------------------
 
 
@@ -1796,7 +1796,7 @@ def persist_to_catalog(session: Any, catalog: Any, *, best_sim_id: Any = None) -
     new benchmark module without raising ``ImportError`` during collection.
     """
     raise NotImplementedError(
-        "persist_to_catalog is not implemented in the new architecture — the "
+        "persist_to_catalog is not implemented in the new architecture - the "
         "calibration persistence now lives in hydromodpy.calibration.persistence."
     )
 

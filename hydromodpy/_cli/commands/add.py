@@ -1,4 +1,4 @@
-"""``hmp add`` — import a .hmp archive and its bundled inputs into a workspace."""
+"""``hmp add`` - import a .hmp archive and its bundled inputs into a workspace."""
 
 from __future__ import annotations
 

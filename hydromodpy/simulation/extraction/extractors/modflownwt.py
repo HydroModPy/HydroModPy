@@ -59,7 +59,7 @@ class ModflowNwtOutputAdapter:
             n_cells,
         )
 
-        # Write head fields — mask HDRY/HNOFLO sentinels to NaN so that
+        # Write head fields - mask HDRY/HNOFLO sentinels to NaN so that
         # all downstream consumers (watertable, seepage, cross-section, etc.)
         # receive clean data without needing to re-detect sentinels.
         for t, time in enumerate(times):
@@ -166,7 +166,7 @@ class ModflowNwtOutputAdapter:
                     field = arr.reshape(nlay, n_cells) if arr.ndim == 3 else arr.reshape(1, n_cells)
                     # n_timesteps is always passed: the store ignores it
                     # on subsequent writes, but needs it for allocation
-                    # on the first write of this variable — which may not
+                    # on the first write of this variable - which may not
                     # be t=0 if the record is absent at t=0 (e.g. STORAGE
                     # in a steady-state initial stress period).
                     store.write_field(

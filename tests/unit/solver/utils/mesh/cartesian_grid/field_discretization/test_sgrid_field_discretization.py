@@ -160,7 +160,7 @@ class TestEmptyLoadResult:
 
 
 # ---------------------------------------------------------------------------
-# 2. Static field — steady-state (xarray Dataset, no time dimension)
+# 2. Static field - steady-state (xarray Dataset, no time dimension)
 # ---------------------------------------------------------------------------
 
 
@@ -200,7 +200,7 @@ class TestStaticFieldSteady:
 
 
 # ---------------------------------------------------------------------------
-# 3. Time-varying field — transient (xarray with time dimension)
+# 3. Time-varying field - transient (xarray with time dimension)
 # ---------------------------------------------------------------------------
 
 
@@ -298,7 +298,7 @@ class TestTemporalFieldTransient:
 
 
 # ---------------------------------------------------------------------------
-# 4. GeoTIFF file reference — steady
+# 4. GeoTIFF file reference - steady
 # ---------------------------------------------------------------------------
 
 
@@ -352,7 +352,7 @@ class TestGeoTIFFDiscretization:
 
 
 # ---------------------------------------------------------------------------
-# 5. NetCDF file reference — steady (mean of time series)
+# 5. NetCDF file reference - steady (mean of time series)
 # ---------------------------------------------------------------------------
 
 
@@ -528,7 +528,7 @@ class TestSpatiallyVaryingField:
 
 
 # ---------------------------------------------------------------------------
-# 8. Multiple FieldRecords — averaging
+# 8. Multiple FieldRecords - averaging
 # ---------------------------------------------------------------------------
 
 

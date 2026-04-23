@@ -54,7 +54,7 @@ def compute_watertable_depth(
     dem_mask: np.ndarray,
 ) -> np.ndarray:
     """
-    Compute the depth to the water table (DEM − water table elevation).
+    Compute the depth to the water table (DEM - water table elevation).
 
     Parameters
     ----------
@@ -88,7 +88,7 @@ def compute_seepage_areas(
     """
     Identify seepage areas where the water table is at or above the DEM.
 
-    Returns a binary array: ``1`` where DEM − water table < 0 (seepage),
+    Returns a binary array: ``1`` where DEM - water table < 0 (seepage),
     ``0`` elsewhere, and ``NODATA`` for inactive cells.
 
     Parameters
@@ -113,7 +113,7 @@ def compute_seepage_areas(
 
 
 # ---------------------------------------------------------------------------
-# Drain outflow (vectorised — replaces double for-loop)
+# Drain outflow (vectorised - replaces double for-loop)
 # ---------------------------------------------------------------------------
 
 
@@ -281,7 +281,7 @@ def compute_groundwater_storage(
     """
     Estimate volumetric groundwater storage per cell.
 
-    Storage = (water-table elevation − bottom of aquifer) × cell area × mean Sy.
+    Storage = (water-table elevation - bottom of aquifer) × cell area × mean Sy.
     Cells where the DEM is below sea level (``dem < 0``) are excluded.
 
     Parameters

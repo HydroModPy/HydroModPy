@@ -100,7 +100,7 @@ class GeologySourceConfig(HydroModelBase):
             # file extension.
         if self.source in ("brgm_1m", "brgm_50k") and self.code_field is not None:
             raise ValueError(
-                f"'code_field' must not be set for '{self.source}' sources — "
+                f"'code_field' must not be set for '{self.source}' sources - "
                 "BRGM data always uses 'CODE_LEG'."
             )
         return self

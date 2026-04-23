@@ -75,12 +75,12 @@ dans le meme fichier. Strategie :
   concurrentes pendant les ecritures. Active par defaut.
 - **Retry on BUSY** : si une ecriture echoue (verrou exclusif deja pris),
   retry avec backoff exponentiel (3 tentatives, 100ms/200ms/400ms).
-  L'ecriture dans `simulation_registry` est une seule ligne INSERT —
+  L'ecriture dans `simulation_registry` est une seule ligne INSERT -
   la fenetre de conflit est de l'ordre de la milliseconde.
 - **Transactions courtes** : chaque ecriture dans `catalog.duckdb` est une
   transaction atomique independante. Pas de transaction longue qui
   bloquerait les autres writers.
-- **project.duckdb** : pas de probleme de concurrence — un seul projet
+- **project.duckdb** : pas de probleme de concurrence - un seul projet
   a la fois ecrit dans son propre fichier.
 
 ```python
@@ -133,7 +133,7 @@ par cell_id** avec connectivite explicite.
 ### Structures internes existantes
 
 ```python
-# Maillage 2D — hydromodpy/spatial/mesh/hydro_mesh.py
+# Maillage 2D - hydromodpy/spatial/mesh/hydro_mesh.py
 @dataclass(frozen=True)
 class HydroMesh:
     vertices: np.ndarray              # (n_nodes, 2|3) float64
@@ -147,7 +147,7 @@ class CellBlock:
     cell_type: CellType               # TRIANGLE | QUADRILATERAL | WEDGE | HEXAHEDRON
     connectivity: np.ndarray          # (n_cells, nodes_per_cell) int
 
-# Maillage 3D extrude — gmsh_grid/extruded_prism_mesh.py
+# Maillage 3D extrude - gmsh_grid/extruded_prism_mesh.py
 @dataclass(frozen=True)
 class ExtrudedPrismMeshData:
     points_xyz: np.ndarray            # (n_nodes, 3)
@@ -157,7 +157,7 @@ class ExtrudedPrismMeshData:
     layer_indices: np.ndarray         # (n_prisms,) couche par prisme
     source_cell_indices: np.ndarray   # (n_prisms,) cellule 2D source
 
-# Champs attaches — gmsh_grid/extruded_mesh_values.py
+# Champs attaches - gmsh_grid/extruded_mesh_values.py
 @dataclass(frozen=True)
 class ExtrudedPrismMeshWithValues:
     mesh: ExtrudedPrismMesh3D
@@ -169,7 +169,7 @@ class ExtrudedPrismMeshWithValues:
 
 ### Consequences pour le stockage
 
-- Les champs sont des numpy arrays `(nlay, n_cells_2d)` — pas de DataFrame
+- Les champs sont des numpy arrays `(nlay, n_cells_2d)` - pas de DataFrame
 - La connectivite est un array `(n_cells, max_nodes_per_face)` avec fill=-1
   pour les maillages mixtes tri/quad (convention UGRID)
 - Taille typique : 50k-500k cellules 2D x 1-10 couches x 365+ pas de temps
@@ -227,7 +227,7 @@ workspace/
 
 Le `simulation_registry` dans `catalog.duckdb` est un **annuaire leger**
 qui indexe toutes les simulations de tous les projets. Il ne duplique pas
-les donnees — il stocke juste assez de metadonnees pour la decouverte et
+les donnees - il stocke juste assez de metadonnees pour la decouverte et
 la recherche inter-projets. Les details complets restent dans chaque
 `project.duckdb`.
 
@@ -260,7 +260,7 @@ si les donnees source changent dans les data managers apres le run, on perd
 la trace de ce qui a reellement ete injecte dans le solveur.
 
 La solution : le ResultStore stocke un **fingerprint** leger (hash SHA-256 +
-statistiques) des donnees effectivement utilisees — pas les donnees elles-memes.
+statistiques) des donnees effectivement utilisees - pas les donnees elles-memes.
 Cela permet de detecter toute divergence sans dupliquer les forcages.
 
 ```python
@@ -345,14 +345,14 @@ project_results.zarr/
     +-- concentration                      # (ntimesteps, nlayers, ncells) float64
     |
     +-- derived/                           # Variables derivees (configurable)
-    |   +-- watertable_elevation           # (ntimesteps, ncells) float64 — 2D
-    |   +-- watertable_depth               # (ntimesteps, ncells) float64 — 2D
-    |   +-- seepage_areas                  # (ntimesteps, ncells) bool — 2D
+    |   +-- watertable_elevation           # (ntimesteps, ncells) float64 - 2D
+    |   +-- watertable_depth               # (ntimesteps, ncells) float64 - 2D
+    |   +-- seepage_areas                  # (ntimesteps, ncells) bool - 2D
     |   +-- groundwater_flux               # (ntimesteps, nlayers, ncells) float64
-    |   +-- accumulation_flux              # (ntimesteps, ncells) float64 — 2D
-    |   +-- concentration_seepage          # (ntimesteps, ncells) float64 — 2D
-    |   +-- mass_seepage                   # (ntimesteps, ncells) float64 — 2D
-    |   +-- mass_accumulated               # (ntimesteps, ncells) float64 — 2D
+    |   +-- accumulation_flux              # (ntimesteps, ncells) float64 - 2D
+    |   +-- concentration_seepage          # (ntimesteps, ncells) float64 - 2D
+    |   +-- mass_seepage                   # (ntimesteps, ncells) float64 - 2D
+    |   +-- mass_accumulated               # (ntimesteps, ncells) float64 - 2D
     |
     +-- budget/                            # Champs spatiaux par composante (optionnel)
     |   +-- drn                            # (ntimesteps, nlayers, ncells)
@@ -452,7 +452,7 @@ CREATE INDEX ix_registry_status ON simulation_registry(status);
 CREATE INDEX ix_registry_created ON simulation_registry(created_at);
 ```
 
-#### Champs du registre — justification
+#### Champs du registre - justification
 
 | Groupe | Champs | Pourquoi |
 |--------|--------|----------|
@@ -669,7 +669,7 @@ class ResultStore:
 
         En mode CLI (hmp simulation), workspace_path est toujours fourni
         par le SimulationRunner. En mode standalone (notebook, script),
-        il peut etre omis — on perd le registre inter-projets mais tout
+        il peut etre omis - on perd le registre inter-projets mais tout
         le reste fonctionne normalement.
         """
         # self._db : connexion DuckDB (project_path / "project.duckdb")
@@ -693,7 +693,7 @@ class ResultStore:
         ...
     def record_provenance(self, sim_id: UUID, variable: str, source_ref: str, data: np.ndarray, **meta) -> None:
         """Enregistre un fingerprint (hash + stats) des donnees d'entree.
-        Ne stocke PAS l'array — uniquement le hash SHA-256 et les statistiques."""
+        Ne stocke PAS l'array - uniquement le hash SHA-256 et les statistiques."""
         ...
     def finalize(self, sim_id: UUID, status: str = "completed") -> None:
         """Marque la simulation comme terminee.
@@ -796,7 +796,7 @@ OutputAdapter (par solveur)
 
 ### Deux phases dans chaque OutputAdapter
 
-**Phase 1 — Extraction brute (toujours executee)**
+**Phase 1 - Extraction brute (toujours executee)**
 
 Lecture des fichiers proprietaires et injection dans le ResultStore :
 
@@ -818,7 +818,7 @@ dans le CellBudgetFile (`cbb.get_unique_record_names()`) et extrait :
 Composantes MODFLOW typiques : DRN, RCH/RCHA, WEL, RIV, GHB, CHD, STO-SS,
 STO-SY, FLOW-JA-FACE.
 
-**Phase 2 — Variables derivees (configurable via TOML)**
+**Phase 2 - Variables derivees (configurable via TOML)**
 
 Calculees a partir des sorties brutes, stockees dans Zarr `derived/` :
 
@@ -834,7 +834,7 @@ Calculees a partir des sorties brutes, stockees dans Zarr `derived/` :
 | `mass_accumulated` | cumul temporel de mass_seepage | mass_seepage |
 
 Note : `watertable_depth` depend de `SolverMesh.top` (elevation de surface),
-qui est une donnee du maillage deja disponible dans l'OutputAdapter — pas
+qui est une donnee du maillage deja disponible dans l'OutputAdapter - pas
 besoin d'interroger les data managers.
 
 ### Suppression des fichiers solver
@@ -927,9 +927,9 @@ L'export produit des fichiers dans un dossier au choix de l'utilisateur.
 Le ResultStore n'est pas modifie par l'export.
 ```
 
-**4. Calibration (chemin chaud — tout en RAM)**
+**4. Calibration (chemin chaud - tout en RAM)**
 ```
-Boucle d'optimisation (x 10 000 – 50 000 iterations)
+Boucle d'optimisation (x 10 000 - 50 000 iterations)
   -> make_hot_simulator(run_fn) produit un callback
   -> callback(params) → np.ndarray en memoire (zero I/O disque)
   -> optimizer calcule objective(sim, obs) → scalar
@@ -979,7 +979,7 @@ mass_accumulated = false
 [simulation.results.budget]
 spatial_fields = false             # stocker les champs spatiaux par composante
                                    # de budget dans Zarr (DRN, RCH, WEL, ...)
-                                   # volumineux — desactive par defaut
+                                   # volumineux - desactive par defaut
                                    # les totaux agreges sont toujours dans DuckDB
 
 [simulation.results.export]
@@ -1018,7 +1018,7 @@ pathlines = false
 | Package | Raison |
 |---------|--------|
 | `sqlalchemy` | Remplace par DuckDB natif (API Python `duckdb.connect()`) |
-| `sqlite3` | Plus utilise — DuckDB couvre tous les besoins SQL |
+| `sqlite3` | Plus utilise - DuckDB couvre tous les besoins SQL |
 
 DuckDB fournit une API Python directe (`conn.execute()`, `conn.sql()`)
 sans besoin d'ORM. Le catalogue de donnees (ex-`DataCatalog` via SQLAlchemy)
@@ -1127,15 +1127,15 @@ tout en memoire, zero I/O               ResultStore (DuckDB + Zarr)
 Tout reste en RAM (numpy arrays). Seul le resultat final (meilleurs
 parametres, meilleur run) est persiste.
 
-Les numpy arrays **sont** le format en memoire — pas besoin de format
+Les numpy arrays **sont** le format en memoire - pas besoin de format
 temporaire intermediaire ni de "mini-store en RAM".
 
 ### Modele integre vs distribue en calibration
 
 | | Integre (GR4J) | Distribue (MODFLOW) |
 |---|---|---|
-| Iterations | 10 000 – 50 000 | 100 – 500 |
-| Temps par run | ~1 ms | 2 – 10 min |
+| Iterations | 10 000 - 50 000 | 100 - 500 |
+| Temps par run | ~1 ms | 2 - 10 min |
 | Overhead I/O store | Inacceptable (93% du temps) | Negligeable (<0.1% du temps) |
 | Strategie | **Chemin chaud** : tout en RAM | Chemin froid possible (optionnel) |
 | Persistence | Seulement le meilleur run | Chaque iteration si souhaite (debug) |
@@ -1171,11 +1171,11 @@ def persist_calibration_result(result_store, calibration_result, run_fn):
 
     result_store.register_simulation(sim_id, calibration_result.config)
     # ... write_mesh, write_field, write_timeseries selon le type de modele
-    
+
     # Enregistrer les metriques de calibration
     for station, metric_name, value in calibration_result.metrics:
         result_store.write_metric(sim_id, station, metric_name, value)
-    
+
     # Enregistrer les parametres optimaux
     result_store.write_calibration_params(sim_id, calibration_result.best_params)
 
@@ -1190,7 +1190,7 @@ def persist_calibration_result(result_store, calibration_result, run_fn):
 | Module calibration | Non | Non (callback opaque) |
 | `make_hot_simulator()` | Non | Oui (appelle run_fn) |
 | `persist_calibration_result()` | Oui | Non (recoit des arrays) |
-| ResultStore | — | Non |
+| ResultStore | - | Non |
 
 Le module calibration reste agnostique du stockage. Il recoit un callback,
 retourne des metriques. Le bridge fait le lien sans que les deux se connaissent.
@@ -1209,7 +1209,7 @@ L'approche chemin chaud a ete validee contre le module calibration existant
 - `CalibrationResults` est retourne en memoire, l'utilisateur decide de la
   persistence
 
-L'ajout du `persist_calibration_result()` est la seule piece manquante — un
+L'ajout du `persist_calibration_result()` est la seule piece manquante - un
 pont post-convergence vers le ResultStore. La boucle de calibration elle-meme
 n'est pas impactee.
 
@@ -1249,7 +1249,7 @@ Le code actuel de post-processing (`solver/modflow6/modflow6.py`) accumule
 dicts Python :
 
 ```python
-# Code actuel — accumule tout en RAM (probleme)
+# Code actuel - accumule tout en RAM (probleme)
 dict_watertable_depth = {}
 dict_seepage_areas = {}
 dict_outflow_drain = {}
@@ -1270,7 +1270,7 @@ for item, time in enumerate(times):
 Avec le ResultStore, chaque pas de temps est ecrit dans Zarr puis libere :
 
 ```python
-# Avec ResultStore — RAM constante (solution)
+# Avec ResultStore - RAM constante (solution)
 for item, time in enumerate(times):
     head = head_fpu.get_data(totim=time)          # ~40 Mo (1 timestep)
     wt = pp.get_water_table(head, -9999)
@@ -1309,7 +1309,7 @@ La migration se fait en trois phases sans casser l'existant.
 
 ### Phases de migration
 
-**Phase 1 — Coexistence (en cours de dev)**
+**Phase 1 - Coexistence (en cours de dev)**
 
 Le ResultStore est implemente et les nouveaux OutputAdapters ecrivent dedans.
 L'ancien code `analysis/postprocess/` continue de fonctionner en parallele.
@@ -1317,7 +1317,7 @@ Les deux systemes produisent les memes donnees.
 
 Objectif : valider que le ResultStore produit des resultats identiques.
 
-**Phase 2 — Bascule des consommateurs**
+**Phase 2 - Bascule des consommateurs**
 
 Les fonctions de display et de calibration sont modifiees pour lire depuis
 le ResultStore au lieu des fichiers .npy / CSV / NetCDF :
@@ -1331,10 +1331,10 @@ data = store.query_field(sim_id, "watertable_depth", timestep=180)
 ```
 
 Les fonctions de rendering (`render_discharge`, `render_piezometry`) ne
-changent pas — elles recoivent toujours des pd.Series/pd.DataFrame.
+changent pas - elles recoivent toujours des pd.Series/pd.DataFrame.
 Seule la source change.
 
-**Phase 3 — Nettoyage**
+**Phase 3 - Nettoyage**
 
 Suppression de :
 - `analysis/postprocess/flow/` (remplace par les adapters)
@@ -1409,7 +1409,7 @@ Suppression de :
   tombent en dehors du domaine simule) : retourne `None` + warning, pas
   d'exception. `scipy.KDTree` sur centroides ecarte (approximatif).
 
-- [x] **Listing file parser** : utilise les parsers FloPy existants —
+- [x] **Listing file parser** : utilise les parsers FloPy existants -
   `flopy.utils.MfListBudget` (NWT) et `flopy.utils.Mf6ListBudget` (MF6).
   Pas de parser custom. Les resultats (`total_in`, `total_out`,
   `percent_error` par stress period) vont dans la table `mass_balance_summary`.
