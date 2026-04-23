@@ -20,10 +20,10 @@ from hydromodpy.simulation.planning.plan import (
 )
 from hydromodpy.solver.base.registry import get_solver_adapter
 from hydromodpy.solver.boussinesq.adapters.flow import BoussinesqFlowAdapter
-from hydromodpy.solver.utils.mesh.gmsh_grid import GmshPlanarMesh2D
 from hydromodpy.spatial.field.core.field_spatial_weighted_discretization import (
     WeightedAverageFieldDiscretization,
 )
+from hydromodpy.spatial.mesh.gmsh_grid import GmshPlanarMesh2D
 
 
 def _write_csv(path: Path, header: str, rows: list[str]) -> None:

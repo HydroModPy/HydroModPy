@@ -58,7 +58,7 @@ from hydromodpy.solver.modflow_common.options import (
     ModflowPreprocessOptions,
     ModflowRunOptions,
 )
-from hydromodpy.solver.utils.mesh.cartesian_grid.sgrid_config import SolverSGridConfig
+from hydromodpy.spatial.mesh.cartesian_grid.sgrid_config import SolverSGridConfig
 
 from .diagnostics import check_water_flow_connectivity
 from .flow_to_modflow_adapter import FlowToModflowAdapter

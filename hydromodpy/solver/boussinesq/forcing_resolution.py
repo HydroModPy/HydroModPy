@@ -16,11 +16,11 @@ from hydromodpy.solver.boussinesq.forcing import (
     WellResolutionMixin,
 )
 from hydromodpy.solver.boussinesq.mesh import BoussinesqMesh
-from hydromodpy.solver.utils.mesh.gmsh_grid import load_planar_mesh
-from hydromodpy.solver.utils.mesh.gmsh_grid.catchment_mesh_bundle_reader import (
+from hydromodpy.spatial.mesh.gmsh_grid import load_planar_mesh
+from hydromodpy.spatial.mesh.gmsh_grid.catchment_mesh_bundle_reader import (
     CatchmentMeshBundle,
 )
-from hydromodpy.solver.utils.mesh.gmsh_grid.runtime_support import (
+from hydromodpy.spatial.mesh.gmsh_grid.runtime_support import (
     GmshSupportMetadata,
 )
 

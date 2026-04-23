@@ -22,12 +22,12 @@ from hydromodpy.solver.boussinesq.property_mapping import (
     resolve_flow_property_arrays,
     resolve_required_flow_properties,
 )
-from hydromodpy.solver.utils.mesh.gmsh_grid import load_planar_mesh
-from hydromodpy.solver.utils.mesh.gmsh_grid.catchment_mesh_bundle_reader import (
+from hydromodpy.spatial.geographic.core.derived_features import resolve_river_mesh_trace
+from hydromodpy.spatial.mesh.gmsh_grid import load_planar_mesh
+from hydromodpy.spatial.mesh.gmsh_grid.catchment_mesh_bundle_reader import (
     CatchmentMeshBundle,
     load_catchment_mesh_bundle,
 )
-from hydromodpy.spatial.geographic.core.derived_features import resolve_river_mesh_trace
 
 
 def _resolve_planar_mesh(setup_state: object):

@@ -1,0 +1,7 @@
+# This file is kept only as reference.
+#
+# Use this payload with:
+# hydromodpy.spatial.mesh.cartesian_grid.sgrid_from_config.build_sgrid_from_config
+
+[demo]
+description = "Reference TOML for build_sgrid_from_config."

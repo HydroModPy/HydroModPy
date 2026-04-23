@@ -43,7 +43,7 @@ def from_flopy_structured(sgrid) -> HydroMesh:
     ``yvertices`` (preferred), ``xyzvertices``, or ``delr`` / ``delc``.
     """
     # Reuse existing extraction logic
-    from hydromodpy.solver.utils.mesh.cartesian_grid.sgrid_mesh_adapter import (
+    from hydromodpy.spatial.mesh.cartesian_grid.sgrid_mesh_adapter import (
         extract_structured_vertices,
     )
 

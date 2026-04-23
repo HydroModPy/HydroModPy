@@ -7,7 +7,7 @@ from numbers import Real
 
 import numpy as np
 
-from hydromodpy.solver.utils.mesh.gmsh_grid.runtime_support import (
+from hydromodpy.spatial.mesh.gmsh_grid.runtime_support import (
     GmshSupportMetadata,
     build_gmsh_support_metadata,
 )

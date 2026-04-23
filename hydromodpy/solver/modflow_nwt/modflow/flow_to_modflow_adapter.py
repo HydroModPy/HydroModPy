@@ -131,7 +131,7 @@ def _discretize_heterogeneous_source(
     source_unit: str = "m/s",
 ) -> dict[int, np.ndarray]:
     """Dispatch heterogeneous discretization for fields or located points."""
-    from hydromodpy.solver.utils.mesh.cartesian_grid.sgrid_field_discretization import (
+    from hydromodpy.spatial.mesh.cartesian_grid.sgrid_field_discretization import (
         discretize_fields_on_sgrid,
         discretize_points_on_sgrid,
     )

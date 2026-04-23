@@ -20,11 +20,11 @@ from hydromodpy.physics.flow.initial_conditions import (
 from hydromodpy.physics.flow.sinks_sources import FlowRechargeConfig, FlowWellConfig
 from hydromodpy.solver.modflow6 import Modflow6
 from hydromodpy.solver.modflow_common.solver_mesh import SolverMesh
-from hydromodpy.solver.utils.mesh.gmsh_grid import (
+from hydromodpy.spatial.mesh import CellBlock, CellType, HydroMesh
+from hydromodpy.spatial.mesh.gmsh_grid import (
     GmshSupportMetadata,
     build_gmsh_support_metadata,
 )
-from hydromodpy.spatial.mesh import CellBlock, CellType, HydroMesh
 
 
 class _DummyGeographic:

@@ -1,0 +1,40 @@
+[mesh_case]
+constraints_mode = "geology_only"
+output_mesh = "outputs/reference_2d_geology_conformal.msh"
+output_summary_json = "outputs/reference_2d_geology_conformal_summary.json"
+output_figure = "outputs/reference_2d_geology_conformal.png"
+
+[mesh_case.domain]
+kind = "vector"
+path = "domain_window.geojson"
+id_field = "domain_id"
+selected_id = "main"
+
+[mesh_case.zone_meshing]
+algorithm = "delaunay"
+global_size = 250.0
+min_size = 125.0
+max_size = 400.0
+simplify_tolerance = 0.0
+heal_tolerance = 0.0
+min_polygon_area = 1.0
+refine_interfaces = true
+interface_size = 90.0
+interface_distance = 450.0
+interface_sampling = 96
+
+[mesh_case.geology]
+id = "field_geology"
+cell_samples_per_axis = 8
+
+[mesh_case.geology.source]
+path = "../../../../../../examples/data/geology/GEO1M_brittany.shp"
+kind = "vector"
+code_field = "CODE_LEG"
+reference_raster_path = "../../../cartesian_grid/examples/discretization/demo_top_bretagne_10km.tif"
+all_touched = false
+
+[mesh_case.geology.landsea]
+enabled = false
+sea_value = 0
+override_code = "1"

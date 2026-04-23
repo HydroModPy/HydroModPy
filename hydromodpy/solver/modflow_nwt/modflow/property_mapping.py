@@ -25,7 +25,7 @@ from hydromodpy.core.logging import get_logger
 from hydromodpy.solver.modflow_common.runtime_arrays import (
     resolve_flow_property_runtime_overrides,
 )
-from hydromodpy.solver.utils.mesh.cartesian_grid.sgrid_fieldparam_discretization import (
+from hydromodpy.spatial.mesh.cartesian_grid.sgrid_fieldparam_discretization import (
     discretize_fieldparam_on_sgrid,
 )
 

@@ -32,7 +32,7 @@ if str(REPO_ROOT) not in sys.path:
 from hydromodpy.core.config.toml_loader import merge_toml_payloads
 from hydromodpy.physics.flow import Flow
 from hydromodpy.solver.boussinesq import Boussinesq
-from hydromodpy.solver.utils.mesh.gmsh_grid.catchment_mesh_bundle_reader import (
+from hydromodpy.spatial.mesh.gmsh_grid.catchment_mesh_bundle_reader import (
     load_catchment_mesh_bundle,
 )
 from validation_cases.analytical.steady.boussinesq_piecewise import mm_day_to_m_s

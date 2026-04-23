@@ -6,7 +6,7 @@ from collections.abc import Mapping
 
 import numpy as np
 
-from hydromodpy.solver.utils.mesh.gmsh_grid.planar_forcing_discretization import (
+from hydromodpy.spatial.mesh.gmsh_grid.planar_forcing_discretization import (
     discretize_fields_on_planar_mesh,
     discretize_points_on_planar_mesh,
 )

@@ -56,11 +56,11 @@ from hydromodpy.solver.boussinesq.solver_contract import (
     BoussinesqSolverContract,
     resolve_solver_contract,
 )
-from hydromodpy.solver.utils.mesh.gmsh_grid import load_planar_mesh
-from hydromodpy.solver.utils.mesh.gmsh_grid.catchment_mesh_bundle_reader import (
+from hydromodpy.spatial.mesh.gmsh_grid import load_planar_mesh
+from hydromodpy.spatial.mesh.gmsh_grid.catchment_mesh_bundle_reader import (
     CatchmentMeshBundle,
 )
-from hydromodpy.solver.utils.mesh.gmsh_grid.planar_forcing_discretization import (
+from hydromodpy.spatial.mesh.gmsh_grid.planar_forcing_discretization import (
     discretize_fields_on_planar_mesh,
     discretize_points_on_planar_mesh,
 )

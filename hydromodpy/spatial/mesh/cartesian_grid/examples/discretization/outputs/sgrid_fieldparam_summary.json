@@ -1,0 +1,19 @@
+{
+  "shape": [
+    40,
+    40
+  ],
+  "shape_3d": [
+    5,
+    40,
+    40
+  ],
+  "nlay": 5,
+  "min": 2e-06,
+  "max": 7.205e-05,
+  "min_3d": 2e-06,
+  "max_3d": 7.205e-05,
+  "field_param_id": "K",
+  "field_param_kind": "heterogeneous",
+  "geology_field_id": "field_geology"
+}

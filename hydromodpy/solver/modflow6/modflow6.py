@@ -1209,19 +1209,19 @@ class Modflow6(Solver):
         source_unit = getattr(self, "_heterogeneous_source_unit", "mm/day")
         use_structured = bool(getattr(self.solver_mesh, "is_structured", False))
         if use_structured:
-            from hydromodpy.solver.utils.mesh.cartesian_grid.sgrid_field_discretization import (
+            from hydromodpy.spatial.mesh.cartesian_grid.sgrid_field_discretization import (
                 discretize_fields_on_sgrid,
                 discretize_points_on_sgrid,
             )
         else:
-            from hydromodpy.solver.utils.mesh.gmsh_grid.planar_forcing_discretization import (
+            from hydromodpy.spatial.mesh.gmsh_grid.planar_forcing_discretization import (
                 discretize_fields_on_planar_mesh,
                 discretize_points_on_planar_mesh,
             )
 
             planar_mesh = self.runtime_mesh_planar
             if planar_mesh is None:
-                from hydromodpy.solver.utils.mesh.gmsh_grid.gmsh_planar_mesh import (
+                from hydromodpy.spatial.mesh.gmsh_grid.gmsh_planar_mesh import (
                     GmshPlanarMesh2D,
                 )
 
