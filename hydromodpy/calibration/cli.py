@@ -1,37 +1,63 @@
-"""Thin CLI shell for ``hmp calibrate config.toml``.
+"""CLI entry point for ``hmp run <calibration.toml>``.
 
-Reads the TOML, builds a CalibrationEngine, runs the ask/tell loop, persists
-iterations into the workspace DuckDB, and optionally promotes the top-N
-best iterations into full simulations.
+Workflow:
 
-For now the default evaluator is an *analytical mock*: the caller must
-provide their own ``objective_fn`` in Python when running a real model. A
-follow-up phase will wire this to the solver Pipeline.
+1. Load the TOML and validate the ``[calibration]`` section into a
+   :class:`CalibrationConfig`.
+2. Prepare the downstream pipeline **once** via :func:`prepare_trials`,
+   reusing the earliest-affected-step optimisation so the setup phases
+   (geographic, mesh, data loading) do not re-run per trial.
+3. Drive the ask/tell loop through :class:`CalibrationEngine`, where
+   each evaluation forks the prepared context, runs the solver in
+   lightweight mode, and extracts the objective in RAM via
+   :func:`hydromodpy.calibration.metrics.build_metric_extractor`.
+4. Persist every iteration into the DuckDB ``calibration_iterations``
+   table (``sim_id`` left ``NULL`` by default).
+5. Honor ``save_runs`` — ``"best_n"`` / ``"all"`` replay the chosen
+   trials through :func:`promote_trial` and back-fill ``sim_id`` in the
+   iterations table. ``"none"`` (the default) leaves the trace-only.
+
+The ``objective`` argument is a Python escape hatch
+(``"module.path:fn"``) for users who need a custom scalar — the TOML
+``[calibration].objective`` + ``[calibration].variable`` pair already
+covers the standard NSE / KGE / RMSE cases.
 """
 
 from __future__ import annotations
 
 import importlib
+import logging
 import sys
 import time
+import tomllib
 import uuid
-from collections.abc import Callable
 from pathlib import Path
 
 from hydromodpy.calibration.cache import ParamsHashCache
 from hydromodpy.calibration.config import CalibrationConfig
 from hydromodpy.calibration.engine import CalibrationEngine
+from hydromodpy.calibration.metrics import build_metric_extractor
 from hydromodpy.calibration.optimizer import (
     EvaluationResult,
     ParamSuggestion,
     build_optimizer,
 )
 from hydromodpy.calibration.parameters import ParameterSpace
+from hydromodpy.simulation.execution.trial import (
+    TrialMetricFn,
+    prepare_trials,
+    promote_trial,
+)
+
+logger = logging.getLogger(__name__)
+
+
+# ---------------------------------------------------------------------------
+# TOML + ParameterSpace helpers
+# ---------------------------------------------------------------------------
 
 
 def _load_toml_calibration(path: Path) -> tuple[CalibrationConfig, dict]:
-    import tomllib
-
     with open(path, "rb") as f:
         raw = tomllib.load(f)
     if "calibration" not in raw:
@@ -46,38 +72,117 @@ def _space_from_config(cfg: CalibrationConfig) -> ParameterSpace:
     return ParameterSpace.from_toml_mapping(declarations)
 
 
-def _load_evaluator(objective_module: str) -> Callable[[ParamSuggestion], EvaluationResult]:
-    """Load a Python callable ``path.to.module:func``.
-
-    The callable must accept a ``ParamSuggestion`` and return an
-    ``EvaluationResult``. This is the hook a user writes to plug their own
-    simulation into the calibration loop.
-    """
-    if ":" not in objective_module:
+def _override_paths(cfg: CalibrationConfig) -> dict[str, str]:
+    """Return the ``{parameter_name: dotted_path}`` mapping for trial injection."""
+    out: dict[str, str] = {}
+    for name, decl in cfg.parameters.items():
+        if decl.path:
+            out[name] = decl.path
+    if not out:
         raise ValueError(
-            f"objective entry-point must be 'module.path:callable', got: {objective_module!r}"
+            "Calibration parameters must declare a 'path' (e.g. "
+            "'flow.param.K.field_homogeneous.value') so values can be injected "
+            "into the simulation config. None of the parameters have a path."
         )
-    mod_path, func_name = objective_module.split(":", 1)
+    return out
+
+
+# ---------------------------------------------------------------------------
+# Custom Python objective escape hatch
+# ---------------------------------------------------------------------------
+
+
+def _load_metric_fn_entry_point(spec: str) -> TrialMetricFn:
+    """Import a callable from ``module.path:fn`` for the escape-hatch path.
+
+    The callable must match the :data:`TrialMetricFn` signature:
+    ``(ctx, *, objective, variable) -> (primary_metric, dict[str, float])``.
+    """
+    if ":" not in spec:
+        raise ValueError(f"objective entry-point must be 'module.path:callable', got: {spec!r}")
+    mod_path, func_name = spec.split(":", 1)
     mod = importlib.import_module(mod_path)
     fn = getattr(mod, func_name)
     return fn
 
 
-def _default_evaluator(sugg: ParamSuggestion) -> EvaluationResult:
-    """Trivial analytical objective for smoke tests.
+# ---------------------------------------------------------------------------
+# Cache preload
+# ---------------------------------------------------------------------------
 
-    Minimum at values = midpoint of each bound.
+
+def _preload_hash_cache(catalog_conn, cache: ParamsHashCache) -> int:
+    """Populate ``cache`` from previously-promoted calibration iterations.
+
+    Wrapped by DuckDB's lock-retry decorator so concurrent `hmp` sessions
+    on the same workspace do not surface ``IOException``.
     """
-    total = 0.0
-    for _, v in sugg.values.items():
-        total += (v - 1.0) ** 2
-    return EvaluationResult(
-        trial_id=sugg.trial_id,
-        sim_id=None,
-        objective_value=float(total),
-        status="completed",
-        duration_s=0.0,
-    )
+    from hydromodpy.results._db_retry import with_lock_retry
+
+    @with_lock_retry()
+    def _run() -> list[tuple[str, str]]:
+        rows = catalog_conn.execute(
+            """
+            SELECT params_hash, sim_id
+              FROM calibration_iterations
+             WHERE params_hash IS NOT NULL
+               AND sim_id      IS NOT NULL
+               AND status      = 'completed'
+            """
+        ).fetchall()
+        return rows
+
+    rows = _run()
+    n_before = len(cache)
+    for params_hash, sim_id in rows:
+        if params_hash and sim_id is not None:
+            cache.put(str(params_hash), str(sim_id))
+    return len(cache) - n_before
+
+
+# ---------------------------------------------------------------------------
+# Sim ID back-fill helper
+# ---------------------------------------------------------------------------
+
+
+def _update_iter_sim_id(catalog, session_id: str, iteration: int, sim_id: str) -> None:
+    """Write the promoted ``sim_id`` into ``calibration_iterations``."""
+    from hydromodpy.results._db_retry import with_lock_retry
+
+    @with_lock_retry()
+    def _run() -> None:
+        sid = uuid.UUID(session_id) if len(session_id) == 32 else session_id
+        sim_uuid = uuid.UUID(sim_id) if len(sim_id) == 32 else sim_id
+        catalog.connection.execute(
+            """
+            UPDATE calibration_iterations
+               SET sim_id = ?
+             WHERE session_id = ? AND iteration = ?
+            """,
+            [sim_uuid, sid, int(iteration)],
+        )
+
+    _run()
+
+
+def _update_best_sim_id(catalog, session_id: str, sim_id: str) -> None:
+    from hydromodpy.results._db_retry import with_lock_retry
+
+    @with_lock_retry()
+    def _run() -> None:
+        sid = uuid.UUID(session_id) if len(session_id) == 32 else session_id
+        sim_uuid = uuid.UUID(sim_id) if len(sim_id) == 32 else sim_id
+        catalog.connection.execute(
+            "UPDATE calibration_sessions SET best_sim_id = ? WHERE session_id = ?",
+            [sim_uuid, sid],
+        )
+
+    _run()
+
+
+# ---------------------------------------------------------------------------
+# Public entry point
+# ---------------------------------------------------------------------------
 
 
 def run_calibration_cli(
@@ -86,48 +191,68 @@ def run_calibration_cli(
     objective: str | None = None,
     workspace: Path | str | None = None,
     project: str = "calibration",
+    metric_fn: TrialMetricFn | None = None,
 ) -> dict:
-    """Entry point dispatched from ``hmp run`` when ``workflow = "calibration"``.
+    """Run a calibration described by ``config_path``.
 
     Parameters
     ----------
     config_path
-        Path to a TOML file containing a ``[calibration]`` section.
+        Path to a TOML that declares ``[calibration]`` plus the full
+        ``[simulation]`` / ``[flow]`` / ``[data]`` blocks.
     objective
-        Python entry-point ``module.path:callable`` that returns an
-        EvaluationResult from a ParamSuggestion. When ``None`` a trivial
-        analytical objective is used (useful for smoke-testing).
+        Optional escape hatch: when set to ``"module.path:callable"`` the
+        named function is used as the RAM metric extractor. Takes
+        precedence over ``metric_fn``. Leave ``None`` to use the default
+        extractor built from the TOML ``[calibration].objective`` +
+        ``[calibration].variable`` pair.
     workspace
-        Override workspace directory (defaults to CWD).
+        Override the workspace root (defaults to the one resolved from
+        the TOML).
     project
-        Project label for the calibration_sessions row.
+        Project label written to ``calibration_sessions.project``.
+    metric_fn
+        Programmatic override for the metric extractor.
+        ``(ctx, *, objective, variable) -> (primary, {component: value})``.
     """
     cfg_path = Path(config_path).expanduser().resolve()
     cfg, _raw = _load_toml_calibration(cfg_path)
     space = _space_from_config(cfg)
+    override_paths = _override_paths(cfg)
 
-    if workspace:
-        ws = Path(workspace).expanduser().resolve()
+    # Prepare the pipeline once (steps [0..earliest) run here).
+    trial_ctx = prepare_trials(cfg_path, override_paths=override_paths)
+
+    # Resolve workspace.
+    if workspace is not None:
+        ws_root = Path(workspace).expanduser().resolve()
     else:
-        from hydromodpy.core.config.hydromodpy_config import HydroModPyConfig
+        ws_root = trial_ctx.workspace
 
-        full_cfg = HydroModPyConfig.from_toml(cfg_path)
-        ws = full_cfg.workspace.workspace_root
     from hydromodpy.calibration.persistence import CalibrationPersistence
     from hydromodpy.results.catalog import SimulationCatalog
 
-    catalog = SimulationCatalog(ws)
+    catalog = SimulationCatalog(ws_root)
     persistence = CalibrationPersistence(catalog)
 
-    evaluator = _load_evaluator(objective) if objective else _default_evaluator
+    engine_cache: ParamsHashCache | None = None
+    if cfg.use_cache:
+        engine_cache = ParamsHashCache()
+        try:
+            n_preloaded = _preload_hash_cache(catalog.connection, engine_cache)
+            if n_preloaded:
+                logger.info("Preloaded %d params_hash entries from DuckDB", n_preloaded)
+        except Exception:
+            logger.debug("Cache preload skipped (fresh catalog or schema mismatch)")
 
-    optimizer = build_optimizer(
-        cfg.method,
-        space,
-        seed=cfg.seed,
-        **cfg.optimizer_kwargs,
-    )
+    # Resolve the metric extractor.
+    if metric_fn is None:
+        if objective and ":" in objective:
+            metric_fn = _load_metric_fn_entry_point(objective)
+        else:
+            metric_fn = build_metric_extractor(cfg.variable, cfg.objective, trial_ctx.ctx)
 
+    # Start the session row.
     session_id = uuid.uuid4().hex
     persistence.start_session(
         session_id=session_id,
@@ -137,34 +262,45 @@ def run_calibration_cli(
         config=cfg.model_dump(),
     )
 
-    engine_cache = ParamsHashCache() if cfg.use_cache else None
+    optimizer = build_optimizer(
+        cfg.method,
+        space,
+        seed=cfg.seed,
+        **cfg.optimizer_kwargs,
+    )
 
     last_suggestion: dict[int, ParamSuggestion] = {}
 
     def wrapped_evaluator(sugg: ParamSuggestion) -> EvaluationResult:
         last_suggestion[sugg.trial_id] = sugg
-        t0 = time.perf_counter()
-        try:
-            result = evaluator(sugg)
-        except Exception as exc:  # pragma: no cover - user objective crash
-            return EvaluationResult(
-                trial_id=sugg.trial_id,
-                sim_id=None,
-                objective_value=float("inf"),
-                status="crashed",
-                duration_s=time.perf_counter() - t0,
-                metadata={"error": str(exc)},
-            )
-        return result
+        from hydromodpy.simulation.execution.trial import run_trial_light
+
+        result = run_trial_light(
+            trial_ctx,
+            sugg.values,
+            objective=cfg.objective,
+            variable=cfg.variable,
+            metric_fn=metric_fn,
+        )
+        return EvaluationResult(
+            trial_id=sugg.trial_id,
+            sim_id=None,
+            objective_value=result.primary_metric,
+            status=result.status,
+            duration_s=result.duration_s,
+            components=dict(result.metrics) if result.metrics else None,
+            metadata={"error": result.error} if result.error else {},
+        )
 
     def on_iteration(result: EvaluationResult) -> None:
         sugg = last_suggestion.get(result.trial_id)
         if sugg is None:
             return
         persistence.append_iteration(session_id, sugg, result)
+        obj = result.objective_value
+        obj_str = f"{obj:.6g}" if obj == obj else "nan"  # NaN-safe format
         print(
-            f"  iter {result.trial_id:>4d}  obj={result.objective_value:.6g} "
-            f"status={result.status}",
+            f"  iter {result.trial_id:>4d}  obj={obj_str:>10} status={result.status}",
             file=sys.stderr,
         )
 
@@ -184,38 +320,74 @@ def run_calibration_cli(
         f"max_iter={cfg.max_iter} save_runs={cfg.save_runs}",
         file=sys.stderr,
     )
+    t0 = time.perf_counter()
     session = engine.run()
+    elapsed = time.perf_counter() - t0
 
     best = session.best
+
+    # ----- Promotion step -----------------------------------------------
+    promotion_count = 0
+    best_sim_id: str | None = None
+
+    if cfg.save_runs != "none":
+        if cfg.save_runs == "best_n":
+            top = persistence.top_n(session_id, cfg.save_best_n)
+        else:  # "all"
+            top = [
+                row
+                for row in persistence.load_iterations(session_id)
+                if row["status"] == "completed" and row["objective_value"] is not None
+            ]
+        if top:
+            print(
+                f"Promoting {len(top)} iteration(s) as full simulations...",
+                file=sys.stderr,
+            )
+        best_obj = best.objective_value if best else None
+        for row in top:
+            values = {
+                name: float(row["parameters"][name])
+                for name in override_paths
+                if name in row["parameters"]
+            }
+            try:
+                sim_id = promote_trial(
+                    cfg_path,
+                    values,
+                    paths=override_paths,
+                    name=f"{cfg.method}_iter_{row['iteration']:04d}",
+                    session_id=session_id,
+                )
+            except Exception:
+                logger.exception(
+                    "Promotion failed for iteration %d; skipping.",
+                    row["iteration"],
+                )
+                continue
+            _update_iter_sim_id(catalog, session_id, row["iteration"], sim_id)
+            promotion_count += 1
+            if best_sim_id is None and best_obj is not None and row["objective_value"] == best_obj:
+                best_sim_id = sim_id
+
     persistence.finalize_session(
         session_id,
         best=best,
         n_iterations=len(session.history),
-        duration_s=session.duration_s,
+        duration_s=session.duration_s if session.duration_s else elapsed,
     )
-
-    # save_runs promotion hook: "best_n" and "all" promotion is expected to
-    # be handled by the evaluator itself (which decides whether to register
-    # a full simulation). At the CLI level we log the best iterations.
-    promotion_count = 0
-    if cfg.save_runs == "best_n":
-        top = persistence.top_n(session_id, cfg.save_best_n)
-        print(f"Top {len(top)} iterations (by objective):", file=sys.stderr)
-        for row in top:
-            print(
-                f"  iter={row['iteration']:>4d} obj={row['objective_value']:.6g} "
-                f"sim_id={row['sim_id']}",
-                file=sys.stderr,
-            )
-            promotion_count += 1 if row["sim_id"] else 0
+    # finalize_session sets best_sim_id from best.sim_id (None for trials),
+    # so we overwrite afterwards with the promoted sim_id when available.
+    if best_sim_id is not None:
+        _update_best_sim_id(catalog, session_id, best_sim_id)
 
     summary = {
         "session_id": session_id,
         "method": cfg.method,
         "n_iterations": len(session.history),
         "best_objective": best.objective_value if best else None,
-        "best_sim_id": best.sim_id if best else None,
-        "duration_s": round(session.duration_s, 3),
+        "best_sim_id": best_sim_id,
+        "duration_s": round(session.duration_s if session.duration_s else elapsed, 3),
         "save_runs": cfg.save_runs,
         "promoted": promotion_count,
     }
