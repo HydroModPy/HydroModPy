@@ -8,7 +8,10 @@ per-variable dispatch.
 
 from __future__ import annotations
 
+import importlib
 from collections.abc import Mapping
+from dataclasses import dataclass
+from datetime import datetime as dt
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
@@ -26,6 +29,127 @@ if TYPE_CHECKING:
 
 
 logger = get_logger(__name__)
+
+
+@dataclass(frozen=True, slots=True)
+class _VariableSpec:
+    """Declarative spec for a generic data variable.
+
+    The 14 station/flux + climatic variables share the same load shape:
+    read TOML section → validate config → resolve date period → set
+    geographic masks → instantiate manager → store result.
+
+    ``period_source`` picks how to resolve ``project_period``:
+    - ``"config"``: read ``cfg.date_start`` / ``cfg.date_end``.
+    - ``"simulation_or_overview"``: try the simulation window first, then
+      fall back to ``[overview]`` dates (water_quality).
+
+    ``export_stable_subdir`` triggers a post-load ``manager.export`` into
+    ``<workspace>/<PREPROCESSING_DIR>/<subdir>/`` (currently intermittency).
+    """
+
+    config_module: str
+    config_class: str
+    manager_module: str
+    manager_class: str
+    apply_simulation_window: bool = True
+    period_source: str = "config"
+    export_stable_subdir: str | None = None
+
+
+# Registry shared by ``load_all`` and ``load_variable``. Entries cover
+# every data variable that follows the standard "config + manager" shape.
+# DEM / Geology / Hydrography have unique side-effects (field building,
+# workspace paths) and stay in dedicated methods below.
+_GENERIC_VARIABLE_SPECS: dict[str, _VariableSpec] = {
+    "oceanic": _VariableSpec(
+        config_module="hydromodpy.data.variables.oceanic.config",
+        config_class="OceanicConfig",
+        manager_module="hydromodpy.data.variables.oceanic.manager",
+        manager_class="OceanicManager",
+    ),
+    "intermittency": _VariableSpec(
+        config_module="hydromodpy.data.variables.intermittency.config",
+        config_class="IntermittencyConfig",
+        manager_module="hydromodpy.data.variables.intermittency.manager",
+        manager_class="IntermittencyManager",
+        export_stable_subdir="intermittency",
+    ),
+    "hydrometry": _VariableSpec(
+        config_module="hydromodpy.data.variables.hydrometry.config",
+        config_class="HydrometryConfig",
+        manager_module="hydromodpy.data.variables.hydrometry.manager",
+        manager_class="HydrometryManager",
+    ),
+    "piezometry": _VariableSpec(
+        config_module="hydromodpy.data.variables.piezometry.config",
+        config_class="PiezometryConfig",
+        manager_module="hydromodpy.data.variables.piezometry.manager",
+        manager_class="PiezometryManager",
+    ),
+    "water_quality": _VariableSpec(
+        config_module="hydromodpy.data.variables.water_quality.config",
+        config_class="WaterQualityConfig",
+        manager_module="hydromodpy.data.variables.water_quality.manager",
+        manager_class="WaterQualityManager",
+        apply_simulation_window=False,
+        period_source="simulation_or_overview",
+    ),
+    "recharge": _VariableSpec(
+        config_module="hydromodpy.data.variables.recharge.config",
+        config_class="RechargeConfig",
+        manager_module="hydromodpy.data.variables.recharge.manager",
+        manager_class="RechargeManager",
+    ),
+    "runoff": _VariableSpec(
+        config_module="hydromodpy.data.variables.runoff.config",
+        config_class="RunoffConfig",
+        manager_module="hydromodpy.data.variables.runoff.manager",
+        manager_class="RunoffManager",
+    ),
+    "precipitation": _VariableSpec(
+        config_module="hydromodpy.data.variables.precipitation.config",
+        config_class="PrecipitationConfig",
+        manager_module="hydromodpy.data.variables.precipitation.manager",
+        manager_class="PrecipitationManager",
+    ),
+    "etp": _VariableSpec(
+        config_module="hydromodpy.data.variables.etp.config",
+        config_class="EtpConfig",
+        manager_module="hydromodpy.data.variables.etp.manager",
+        manager_class="EtpManager",
+    ),
+    "temperature": _VariableSpec(
+        config_module="hydromodpy.data.variables.temperature.config",
+        config_class="TemperatureConfig",
+        manager_module="hydromodpy.data.variables.temperature.manager",
+        manager_class="TemperatureManager",
+    ),
+    "wind": _VariableSpec(
+        config_module="hydromodpy.data.variables.wind.config",
+        config_class="WindConfig",
+        manager_module="hydromodpy.data.variables.wind.manager",
+        manager_class="WindManager",
+    ),
+    "humidity": _VariableSpec(
+        config_module="hydromodpy.data.variables.humidity.config",
+        config_class="HumidityConfig",
+        manager_module="hydromodpy.data.variables.humidity.manager",
+        manager_class="HumidityManager",
+    ),
+    "radiation": _VariableSpec(
+        config_module="hydromodpy.data.variables.radiation.config",
+        config_class="RadiationConfig",
+        manager_module="hydromodpy.data.variables.radiation.manager",
+        manager_class="RadiationManager",
+    ),
+    "soil_moisture": _VariableSpec(
+        config_module="hydromodpy.data.variables.soil_moisture.config",
+        config_class="SoilMoistureConfig",
+        manager_module="hydromodpy.data.variables.soil_moisture.manager",
+        manager_class="SoilMoistureManager",
+    ),
+}
 
 
 class DataManagersRuntimeLoader:
@@ -58,29 +182,22 @@ class DataManagersRuntimeLoader:
         d.mkdir(parents=True, exist_ok=True)
         return d
 
-    # Dispatch table: type_name -> loader method name (or "climatic" sentinel).
-    _LOADER_DISPATCH: dict[str, str] = {
+    # Variables with unique load side-effects keep a dedicated method. Every
+    # other entry falls through to the generic ``_load_generic_variable``
+    # branch driven by ``_GENERIC_VARIABLE_SPECS`` above.
+    _SPECIAL_LOADERS: dict[str, str] = {
         "dem": "_load_dem_data",
         "geology": "_load_geology_data",
-        "oceanic": "_load_oceanic_data",
         "hydrography": "_load_hydrography_data",
-        "intermittency": "_load_intermittency_data",
-        "hydrometry": "_load_hydrometry_data",
-        "piezometry": "_load_piezometry_data",
-        "water_quality": "_load_water_quality_data",
-        "recharge": "_load_recharge_data",
-        "runoff": "_load_runoff_data",
-        "precipitation": "_climatic",
-        "etp": "_climatic",
-        "temperature": "_climatic",
-        "wind": "_climatic",
-        "humidity": "_climatic",
-        "radiation": "_climatic",
-        "soil_moisture": "_climatic",
     }
 
     # Types that must be loaded sequentially (have dependencies on earlier loads).
     _SEQUENTIAL_TYPES = {"dem", "geology", "hydrography"}
+
+    @classmethod
+    def known_variables(cls) -> set[str]:
+        """Return every variable name the loader can dispatch."""
+        return set(cls._SPECIAL_LOADERS) | set(_GENERIC_VARIABLE_SPECS)
 
     def load_all(self, result: WorkflowContext) -> None:
         """Load active data-manager families into ``result``.
@@ -125,15 +242,107 @@ class DataManagersRuntimeLoader:
 
     def _load_single(self, result: WorkflowContext, type_name: str) -> None:
         """Load a single data-manager type."""
-        method_key = self._LOADER_DISPATCH.get(type_name)
-        if method_key is None:
-            logger.warning("Unsupported data type '%s' in plan.", type_name)
+        special = self._SPECIAL_LOADERS.get(type_name)
+        if special is not None:
+            with data_phase(type_name):
+                getattr(self, special)(result)
             return
-        with data_phase(type_name):
-            if method_key == "_climatic":
-                self._load_climatic_variable(result, type_name)
-            else:
-                getattr(self, method_key)(result)
+        if type_name in _GENERIC_VARIABLE_SPECS:
+            with data_phase(type_name):
+                self._load_generic_variable(result, type_name)
+            return
+        logger.warning("Unsupported data type '%s' in plan.", type_name)
+
+    def _load_generic_variable(self, result: WorkflowContext, variable: str) -> None:
+        """Generic load path for variables following the standard shape.
+
+        All variables in ``_GENERIC_VARIABLE_SPECS`` share this flow:
+
+        1. Fetch the ``[data.<variable>]`` section, bail out if absent.
+        2. Apply the simulation time window (unless the spec opts out).
+        3. Validate the config, resolve period/masks.
+        4. Instantiate the manager and stash the result on ``loaded_data``.
+        5. Run an optional post-load export hook (intermittency).
+        """
+        spec = _GENERIC_VARIABLE_SPECS[variable]
+
+        raw_section = self._get_data_section(result, variable)
+        if raw_section is None:
+            self._handle_missing_data_section(
+                result,
+                variable,
+                f"missing [data.{variable}] section",
+            )
+            return
+
+        if spec.apply_simulation_window:
+            self._apply_simulation_window_dates(raw_section, result, variable)
+
+        try:
+            config_cls = getattr(
+                importlib.import_module(spec.config_module),
+                spec.config_class,
+            )
+            manager_cls = getattr(
+                importlib.import_module(spec.manager_module),
+                spec.manager_class,
+            )
+
+            cfg = config_cls.model_validate(raw_section)
+            period = self._resolve_period_for_spec(cfg, spec, result)
+            self._apply_default_masks(cfg, result)
+
+            manager = manager_cls(
+                config=cfg,
+                catalog=self._catalog,
+                project_period=period,
+                project_extent=None,
+                data_dir=self._data_dir(variable),
+            )
+            load_result = manager.load()
+            setattr(result.loaded_data, variable, load_result)
+
+            if spec.export_stable_subdir:
+                workspace_paths = self._workspace_paths(result)
+                stable_dir = (
+                    workspace_paths.project_root / PREPROCESSING_DIR / spec.export_stable_subdir
+                )
+                manager.export(load_result, stable_dir)
+        except Exception as exc:
+            self._handle_data_loading_error(result, variable, exc)
+
+    @staticmethod
+    def _apply_default_masks(cfg: Any, result: WorkflowContext) -> None:
+        geographic = result.setup.geographic
+        if geographic is None:
+            return
+        for src in getattr(cfg, "sources", ()):
+            if not getattr(src, "mask_path", None):
+                src.mask_path = Path(geographic.watershed_shp)
+
+    def _resolve_period_for_spec(
+        self,
+        cfg: Any,
+        spec: _VariableSpec,
+        result: WorkflowContext,
+    ) -> tuple[dt, dt] | None:
+        if spec.period_source == "simulation_or_overview":
+            period = self._resolve_simulation_time_window_dates(result)
+            if period is not None:
+                start, end = period
+                return (dt.fromisoformat(start), dt.fromisoformat(end))
+            overview = getattr(result.cfg, "overview", None)
+            if overview is not None:
+                ds = getattr(overview, "date_start", None)
+                de = getattr(overview, "date_end", None)
+                if ds and de:
+                    return (dt.fromisoformat(ds), dt.fromisoformat(de))
+            return None
+        date_start = getattr(cfg, "date_start", None)
+        date_end = getattr(cfg, "date_end", None)
+        if date_start and date_end:
+            return (dt.fromisoformat(date_start), dt.fromisoformat(date_end))
+        return None
 
     def _load_dem_data(self, result: WorkflowContext) -> None:
         """Load DEM data via DemManager."""
@@ -186,7 +395,6 @@ class DataManagersRuntimeLoader:
         try:
             geology_cfg = GeologyConfig.model_validate(raw_section)
 
-            # Resolve mask from geographic if not set on sources
             for src in geology_cfg.sources:
                 if not src.mask_path and result.setup.geographic is not None:
                     src.mask_path = Path(result.setup.geographic.watershed_shp)
@@ -200,7 +408,6 @@ class DataManagersRuntimeLoader:
             )
             load_result = manager.load()
 
-            # Build GeologyField from loaded data
             if load_result.fields:
                 field_record = load_result.fields[0]
                 geology_field = self._build_geology_field_from_record(
@@ -247,8 +454,7 @@ class DataManagersRuntimeLoader:
         if source_name in ("brgm_1m", "brgm_50k"):
             code_field = "CODE_LEG"
         else:
-            # Find the matching source config to retrieve user-specified code_field.
-            code_field = "CODE_LEG"  # safe fallback for GeoPackages from BRGM
+            code_field = "CODE_LEG"
             for src in getattr(geology_cfg, "sources", []):
                 if getattr(src, "source", "") == "custom" and getattr(src, "code_field", None):
                     code_field = src.code_field
@@ -267,7 +473,6 @@ class DataManagersRuntimeLoader:
         }
 
         if raster_support is not None and source_kind == "vector":
-            # Add a dummy reference_raster_path for validation
             cfg_dict["source"]["reference_raster_path"] = data_path
             cfg = validate_geology_config_data(cfg_dict)
             loaded = load_geology_encoded_grid_on_raster_support(
@@ -276,7 +481,6 @@ class DataManagersRuntimeLoader:
             )
         else:
             if source_kind == "vector":
-                # Vector without raster support - needs reference raster
                 cfg_dict["source"]["reference_raster_path"] = data_path
             cfg = validate_geology_config_data(cfg_dict)
             loaded = load_geology_encoded_grid(cfg)
@@ -311,47 +515,6 @@ class DataManagersRuntimeLoader:
             return None
         return surface_topo.support
 
-    def _load_oceanic_data(self, result: WorkflowContext) -> None:
-        """Load oceanic data from ``data.oceanic`` payload."""
-        from datetime import datetime as dt
-
-        from hydromodpy.data.variables.oceanic.config import OceanicConfig
-        from hydromodpy.data.variables.oceanic.manager import OceanicManager
-
-        raw_section = self._get_data_section(result, "oceanic")
-        if raw_section is None:
-            self._handle_missing_data_section(
-                result,
-                "oceanic",
-                "missing [data.oceanic] section",
-            )
-            return
-
-        self._apply_simulation_window_dates(raw_section, result, "oceanic")
-
-        try:
-            oceanic_cfg = OceanicConfig.model_validate(raw_section)
-            period = None
-            if oceanic_cfg.date_start and oceanic_cfg.date_end:
-                period = (
-                    dt.fromisoformat(oceanic_cfg.date_start),
-                    dt.fromisoformat(oceanic_cfg.date_end),
-                )
-            for src in oceanic_cfg.sources:
-                if not src.mask_path and result.setup.geographic is not None:
-                    src.mask_path = Path(result.setup.geographic.watershed_shp)
-            manager = OceanicManager(
-                config=oceanic_cfg,
-                catalog=self._catalog,
-                project_period=period,
-                project_extent=None,
-                geographic=result.setup.geographic,
-                data_dir=self._data_dir("oceanic"),
-            )
-            result.loaded_data.oceanic = manager.load()
-        except Exception as exc:
-            self._handle_data_loading_error(result, "oceanic", exc)
-
     def _load_hydrography_data(self, result: WorkflowContext) -> None:
         """Load hydrography support datasets based on ``data.hydrography`` payload."""
         from hydromodpy.data.variables.hydrography.config import HydrographyConfig
@@ -381,351 +544,6 @@ class DataManagersRuntimeLoader:
         except Exception as exc:
             self._handle_data_loading_error(result, "hydrography", exc)
 
-    def _load_intermittency_data(self, result: WorkflowContext) -> None:
-        """Load ONDE-style intermittency observations via the variable manager."""
-        from datetime import datetime as dt
-
-        from hydromodpy.data.variables.intermittency.config import IntermittencyConfig
-        from hydromodpy.data.variables.intermittency.manager import IntermittencyManager
-
-        raw_section = self._get_data_section(result, "intermittency")
-        if raw_section is None:
-            self._handle_missing_data_section(
-                result,
-                "intermittency",
-                "missing [data.intermittency] section",
-            )
-            return
-
-        self._apply_simulation_window_dates(raw_section, result, "intermittency")
-
-        try:
-            intermittency_cfg = IntermittencyConfig.model_validate(raw_section)
-            period = None
-            if intermittency_cfg.date_start and intermittency_cfg.date_end:
-                period = (
-                    dt.fromisoformat(intermittency_cfg.date_start),
-                    dt.fromisoformat(intermittency_cfg.date_end),
-                )
-            for src in intermittency_cfg.sources:
-                if not src.mask_path and result.setup.geographic is not None:
-                    src.mask_path = Path(result.setup.geographic.watershed_shp)
-            manager = IntermittencyManager(
-                config=intermittency_cfg,
-                catalog=self._catalog,
-                project_period=period,
-                project_extent=None,
-                data_dir=self._data_dir("intermittency"),
-            )
-            load_result = manager.load()
-            result.loaded_data.intermittency = load_result
-
-            # Export to results_stable/intermittency/ (CSV chronicles).
-            workspace_paths = self._workspace_paths(result)
-            stable_dir = workspace_paths.project_root / PREPROCESSING_DIR / "intermittency"
-            manager.export(load_result, stable_dir)
-        except Exception as exc:
-            self._handle_data_loading_error(result, "intermittency", exc)
-
-    def _load_hydrometry_data(self, result: WorkflowContext) -> None:
-        """Load hydrometry records from ``data.hydrometry`` payload."""
-        from datetime import datetime as dt
-
-        from hydromodpy.data.variables.hydrometry.config import HydrometryConfig
-        from hydromodpy.data.variables.hydrometry.manager import HydrometryManager
-
-        raw_section = self._get_data_section(result, "hydrometry")
-        if raw_section is None:
-            self._handle_missing_data_section(
-                result,
-                "hydrometry",
-                "missing [data.hydrometry] section",
-            )
-            return
-
-        self._apply_simulation_window_dates(raw_section, result, "hydrometry")
-
-        try:
-            hydro_cfg = HydrometryConfig.model_validate(raw_section)
-            period = None
-            if hydro_cfg.date_start and hydro_cfg.date_end:
-                period = (
-                    dt.fromisoformat(hydro_cfg.date_start),
-                    dt.fromisoformat(hydro_cfg.date_end),
-                )
-            for src in hydro_cfg.sources:
-                if not src.mask_path and result.setup.geographic is not None:
-                    src.mask_path = Path(result.setup.geographic.watershed_shp)
-            manager = HydrometryManager(
-                config=hydro_cfg,
-                catalog=self._catalog,
-                project_period=period,
-                project_extent=None,
-                data_dir=self._data_dir("hydrometry"),
-            )
-            result.loaded_data.hydrometry = manager.load()
-        except Exception as exc:
-            self._handle_data_loading_error(result, "hydrometry", exc)
-
-    def _load_piezometry_data(self, result: WorkflowContext) -> None:
-        """Load piezometry records from ``data.piezometry`` payload."""
-        from datetime import datetime as dt
-
-        from hydromodpy.data.variables.piezometry.config import PiezometryConfig
-        from hydromodpy.data.variables.piezometry.manager import PiezometryManager
-
-        raw_section = self._get_data_section(result, "piezometry")
-        if raw_section is None:
-            self._handle_missing_data_section(
-                result,
-                "piezometry",
-                "missing [data.piezometry] section",
-            )
-            return
-
-        self._apply_simulation_window_dates(raw_section, result, "piezometry")
-
-        try:
-            piezo_cfg = PiezometryConfig.model_validate(raw_section)
-            period = None
-            if piezo_cfg.date_start and piezo_cfg.date_end:
-                period = (
-                    dt.fromisoformat(piezo_cfg.date_start),
-                    dt.fromisoformat(piezo_cfg.date_end),
-                )
-            for src in piezo_cfg.sources:
-                if not src.mask_path and result.setup.geographic is not None:
-                    src.mask_path = Path(result.setup.geographic.watershed_shp)
-            manager = PiezometryManager(
-                config=piezo_cfg,
-                catalog=self._catalog,
-                project_period=period,
-                project_extent=None,
-                data_dir=self._data_dir("piezometry"),
-            )
-            result.loaded_data.piezometry = manager.load()
-        except Exception as exc:
-            self._handle_data_loading_error(result, "piezometry", exc)
-
-    def _load_water_quality_data(self, result: WorkflowContext) -> None:
-        """Load water quality records from ``data.water_quality`` payload."""
-        from datetime import datetime as dt
-
-        from hydromodpy.data.variables.water_quality.config import WaterQualityConfig
-        from hydromodpy.data.variables.water_quality.manager import WaterQualityManager
-
-        raw_section = self._get_data_section(result, "water_quality")
-        if raw_section is None:
-            self._handle_missing_data_section(
-                result,
-                "water_quality",
-                "missing [data.water_quality] section",
-            )
-            return
-
-        try:
-            wq_cfg = WaterQualityConfig.model_validate(raw_section)
-            # WaterQualityConfig has no date fields - derive period from
-            # simulation window or overview dates on the proxy.
-            period = self._resolve_simulation_time_window_dates(result)
-            if period is None:
-                # Fallback: try overview dates (data-overview launcher).
-                overview = getattr(result.cfg, "overview", None)
-                if overview is not None:
-                    ds = getattr(overview, "date_start", None)
-                    de = getattr(overview, "date_end", None)
-                    if ds and de:
-                        period = (dt.fromisoformat(ds), dt.fromisoformat(de))
-            for src in wq_cfg.sources:
-                if not src.mask_path and result.setup.geographic is not None:
-                    src.mask_path = Path(result.setup.geographic.watershed_shp)
-            manager = WaterQualityManager(
-                config=wq_cfg,
-                catalog=self._catalog,
-                project_period=period,
-                project_extent=None,
-                data_dir=self._data_dir("water_quality"),
-            )
-            result.loaded_data.water_quality = manager.load()
-        except Exception as exc:
-            self._handle_data_loading_error(result, "water_quality", exc)
-
-    def _load_recharge_data(self, result: WorkflowContext) -> None:
-        """Load recharge data from ``data.recharge`` payload."""
-        from datetime import datetime as dt
-
-        from hydromodpy.data.variables.recharge.config import RechargeConfig
-        from hydromodpy.data.variables.recharge.manager import RechargeManager
-
-        raw_section = self._get_data_section(result, "recharge")
-        if raw_section is None:
-            self._handle_missing_data_section(
-                result,
-                "recharge",
-                "missing [data.recharge] section",
-            )
-            return
-
-        self._apply_simulation_window_dates(raw_section, result, "recharge")
-
-        try:
-            recharge_cfg = RechargeConfig.model_validate(raw_section)
-            period = None
-            if recharge_cfg.date_start and recharge_cfg.date_end:
-                period = (
-                    dt.fromisoformat(recharge_cfg.date_start),
-                    dt.fromisoformat(recharge_cfg.date_end),
-                )
-            for src in recharge_cfg.sources:
-                if not src.mask_path and result.setup.geographic is not None:
-                    src.mask_path = Path(result.setup.geographic.watershed_shp)
-            manager = RechargeManager(
-                config=recharge_cfg,
-                catalog=self._catalog,
-                project_period=period,
-                project_extent=None,
-                data_dir=self._data_dir("recharge"),
-            )
-            result.loaded_data.recharge = manager.load()
-        except Exception as exc:
-            self._handle_data_loading_error(result, "recharge", exc)
-
-    def _load_runoff_data(self, result: WorkflowContext) -> None:
-        """Load runoff data from ``data.runoff`` payload."""
-        from datetime import datetime as dt
-
-        from hydromodpy.data.variables.runoff.config import RunoffConfig
-        from hydromodpy.data.variables.runoff.manager import RunoffManager
-
-        raw_section = self._get_data_section(result, "runoff")
-        if raw_section is None:
-            self._handle_missing_data_section(
-                result,
-                "runoff",
-                "missing [data.runoff] section",
-            )
-            return
-
-        self._apply_simulation_window_dates(raw_section, result, "runoff")
-
-        try:
-            runoff_cfg = RunoffConfig.model_validate(raw_section)
-            period = None
-            if runoff_cfg.date_start and runoff_cfg.date_end:
-                period = (
-                    dt.fromisoformat(runoff_cfg.date_start),
-                    dt.fromisoformat(runoff_cfg.date_end),
-                )
-            for src in runoff_cfg.sources:
-                if not src.mask_path and result.setup.geographic is not None:
-                    src.mask_path = Path(result.setup.geographic.watershed_shp)
-            manager = RunoffManager(
-                config=runoff_cfg,
-                catalog=self._catalog,
-                project_period=period,
-                project_extent=None,
-                data_dir=self._data_dir("runoff"),
-            )
-            result.loaded_data.runoff = manager.load()
-        except Exception as exc:
-            self._handle_data_loading_error(result, "runoff", exc)
-
-    # -- Registry of climatic variable managers & configs -----------------
-    # Used by _load_climatic_variable() to avoid 7 identical methods.
-    _CLIMATIC_REGISTRY: dict[str, tuple[str, str]] = {
-        "precipitation": (
-            "hydromodpy.data.variables.precipitation.config",
-            "hydromodpy.data.variables.precipitation.manager",
-        ),
-        "etp": (
-            "hydromodpy.data.variables.etp.config",
-            "hydromodpy.data.variables.etp.manager",
-        ),
-        "temperature": (
-            "hydromodpy.data.variables.temperature.config",
-            "hydromodpy.data.variables.temperature.manager",
-        ),
-        "wind": (
-            "hydromodpy.data.variables.wind.config",
-            "hydromodpy.data.variables.wind.manager",
-        ),
-        "humidity": (
-            "hydromodpy.data.variables.humidity.config",
-            "hydromodpy.data.variables.humidity.manager",
-        ),
-        "radiation": (
-            "hydromodpy.data.variables.radiation.config",
-            "hydromodpy.data.variables.radiation.manager",
-        ),
-        "soil_moisture": (
-            "hydromodpy.data.variables.soil_moisture.config",
-            "hydromodpy.data.variables.soil_moisture.manager",
-        ),
-    }
-
-    def _load_climatic_variable(
-        self,
-        result: WorkflowContext,
-        variable: str,
-    ) -> None:
-        """Generic loader for climatic variables (precipitation, etp, etc.).
-
-        All 7 variables follow the same pattern: config with sources +
-        date_start/date_end, manager extending BaseFieldManager.
-        """
-        import importlib
-        from datetime import datetime as dt
-
-        entry = self._CLIMATIC_REGISTRY.get(variable)
-        if entry is None:
-            logger.warning("Unknown climatic variable '%s'.", variable)
-            return
-
-        config_module_path, manager_module_path = entry
-
-        raw_section = self._get_data_section(result, variable)
-        if raw_section is None:
-            self._handle_missing_data_section(
-                result,
-                variable,
-                f"missing [data.{variable}] section",
-            )
-            return
-
-        self._apply_simulation_window_dates(raw_section, result, variable)
-
-        try:
-            # Dynamic import of config and manager classes
-            config_mod = importlib.import_module(config_module_path)
-            manager_mod = importlib.import_module(manager_module_path)
-
-            # Config class is named {Variable}Config (e.g. PrecipitationConfig)
-            config_cls_name = variable.title().replace("_", "") + "Config"
-            config_cls = getattr(config_mod, config_cls_name)
-            # Manager class is named {Variable}Manager
-            manager_cls_name = variable.title().replace("_", "") + "Manager"
-            manager_cls = getattr(manager_mod, manager_cls_name)
-
-            cfg = config_cls.model_validate(raw_section)
-            period = None
-            if cfg.date_start and cfg.date_end:
-                period = (dt.fromisoformat(cfg.date_start), dt.fromisoformat(cfg.date_end))
-
-            for src in cfg.sources:
-                if not getattr(src, "mask_path", None) and result.setup.geographic is not None:
-                    src.mask_path = Path(result.setup.geographic.watershed_shp)
-
-            manager = manager_cls(
-                config=cfg,
-                catalog=self._catalog,
-                project_period=period,
-                project_extent=None,
-                data_dir=self._data_dir(variable),
-            )
-            setattr(result.loaded_data, variable, manager.load())
-        except Exception as exc:
-            self._handle_data_loading_error(result, variable, exc)
-
     def _handle_missing_data_section(
         self,
         result: WorkflowContext,
@@ -747,7 +565,6 @@ class DataManagersRuntimeLoader:
         if self._is_required_data_type(result, type_name):
             raise ValueError(message) from exc
         logger.warning("%s", message)
-        # Propagate warning to any existing LoadResult on the attribute
         existing = getattr(result.loaded_data, type_name, None)
         if existing is not None and hasattr(existing, "warnings"):
             existing.warnings.append(message)
@@ -920,8 +737,7 @@ def load_variable(
     the underlying loader method yields (typically a ``LoadResult`` or
     variable-specific object).
     """
-    method_name = DataManagersRuntimeLoader._LOADER_DISPATCH.get(variable_name)
-    if method_name is None:
+    if variable_name not in DataManagersRuntimeLoader.known_variables():
         raise KeyError(f"Unknown variable: {variable_name!r}")
 
     plan = DataLoadPlan()
@@ -930,5 +746,8 @@ def load_variable(
         data_plan=plan,
     )
     loader._catalog = catalog
-    method = getattr(loader, method_name)
-    return method(config=config, context=context)
+    special = DataManagersRuntimeLoader._SPECIAL_LOADERS.get(variable_name)
+    if special is not None:
+        method = getattr(loader, special)
+        return method(config=config, context=context)
+    return loader._load_generic_variable(context, variable_name)

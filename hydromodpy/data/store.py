@@ -27,18 +27,13 @@ from hydromodpy.data.registry.catalog_duckdb import DataCatalogDuckDB
 def _find_workspace_root(start_path: Path) -> Path | None:
     """Walk up from *start_path* looking for a workspace directory.
 
-    Recognises ``data/cache.duckdb`` and legacy ``catalog.duckdb`` / ``catalog.db``.
+    Recognises the canonical ``data/cache.duckdb`` layout.
     """
     current = start_path.resolve()
     if current.is_file():
         current = current.parent
     for _ in range(10):
-        has_catalog = (
-            (current / "data" / "cache.duckdb").exists()
-            or (current / "catalog.duckdb").exists()
-            or (current / "catalog.db").exists()
-        )
-        if has_catalog and (current / "data").is_dir():
+        if (current / "data" / "cache.duckdb").exists() and (current / "data").is_dir():
             return current
         parent = current.parent
         if parent == current:
