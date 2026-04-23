@@ -23,7 +23,7 @@ from hydromodpy.core.config.toml_loader import (
     load_toml_with_base_config,
     merge_toml_payloads,
 )
-from hydromodpy.solver.boussinesq.history_contract import (
+from hydromodpy.physics.flow.history_contract import (
     snapshot_elapsed_seconds_from_payload,
     step_end_elapsed_seconds_from_payload,
 )
@@ -103,10 +103,33 @@ class CellCentroidTable:
 
 
 def _candidate_solver_sections(solver_name: str | None = None) -> tuple[str, ...]:
+    """Return candidate TOML section names for a structured flow solver.
+
+    Sections are pulled from the solver registry filtered by the
+    ``distributed`` category — the only backends that expose a structured
+    ``(nrow, ncol)`` shape via their TOML config. ``solver_name``, when
+    given, is tried first.
+    """
+    from hydromodpy.solver.base.registry import (
+        get_extractor,
+        list_extractor_solvers,
+        pairs_for_process,
+    )
+
     sections: list[str] = []
     if solver_name:
         sections.append(str(solver_name).strip().lower())
-    sections.extend(("modflow6", "modflownwt"))
+
+    flow_solvers = {name for _, name in pairs_for_process("flow")}
+    for name in list_extractor_solvers():
+        if name not in flow_solvers:
+            continue
+        try:
+            if getattr(get_extractor(name), "category", None) == "distributed":
+                sections.append(name)
+        except KeyError:
+            continue
+
     return tuple(dict.fromkeys(section for section in sections if section))
 
 
@@ -1071,7 +1094,6 @@ def _load_boussinesq_surface_excess_total_series(
     cells = resolve_bundle_cells(
         run_folder,
         expected_size=int(values.shape[1]),
-        solver_name="boussinesq",
     )
     if cells is None or cells.area_m2 is None:
         raise ValueError("Cannot derive surface_excess_total_m3_s without bundle cell areas")
@@ -1319,7 +1341,6 @@ def _load_store_surface_excess_total_series(
     cells = resolve_bundle_cells(
         run_folder,
         expected_size=int(values.shape[1]),
-        solver_name="boussinesq",
     )
     if cells is None or cells.area_m2 is None:
         return None

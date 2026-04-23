@@ -189,18 +189,28 @@ def _payload_samples(payload: MapPayload) -> tuple[np.ndarray, np.ndarray, np.nd
 
 
 def _solver_color(solver: str) -> str:
+    """Return a stable color for ``solver``.
+
+    Colors are pulled from matplotlib's ``tab10`` cycle and indexed by a
+    deterministic hash of the solver name, so each name gets a consistent
+    color across plots without requiring a per-solver registry.
+    """
+    import hashlib
+
+    from matplotlib import colormaps
+
     key = str(solver).strip().lower()
-    palette = {
-        "modflow6": "#1f77b4",
-        "modflownwt": "#ff7f0e",
-        "boussinesq": "#2ca02c",
-        "modpath": "#9467bd",
-        "mt3dms": "#8c564b",
-    }
-    for token, color in palette.items():
-        if token in key:
-            return color
-    return palette.get(key, "#6b7280")
+    if not key:
+        return "#6b7280"
+    cmap = colormaps.get_cmap("tab10")
+    digest = hashlib.md5(key.encode("utf-8")).digest()
+    index = digest[0] % cmap.N
+    return _rgba_to_hex(cmap(index))
+
+
+def _rgba_to_hex(rgba: tuple[float, float, float, float]) -> str:
+    r, g, b = (int(round(c * 255)) for c in rgba[:3])
+    return f"#{r:02x}{g:02x}{b:02x}"
 
 
 def _is_flux_like_name(name: str) -> bool:

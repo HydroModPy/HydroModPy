@@ -580,10 +580,11 @@ def _load_boussinesq_budget_rows(
         0,
     )
     if n_cells > 0:
+        # Boussinesq has no structured-grid TOML section, so solver_name is
+        # dropped: the function falls back to the exchange-bundle path.
         cells = resolve_bundle_cells(
             run_folder,
             expected_size=n_cells,
-            solver_name="boussinesq",
         )
         if cells is not None:
             if cells.area_m2 is not None:
