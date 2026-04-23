@@ -12,7 +12,7 @@ from typing import Any
 
 import numpy as np
 
-from hydromodpy.calibration._legacy_launcher_shim import (
+from hydromodpy.calibration.benchmark import (
     ModelCalibrationLauncher,
     ModelCalibrationObjectiveEvaluator,
     actualize_candidate,
