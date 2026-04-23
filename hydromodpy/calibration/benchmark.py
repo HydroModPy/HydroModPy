@@ -1785,22 +1785,6 @@ def _detect_primary_solver(raw_simulation_toml: Mapping[str, Any]) -> str | None
     return None
 
 
-# ---------------------------------------------------------------------------
-# persist_to_catalog - stub used by the skipped catalog test.
-# ---------------------------------------------------------------------------
-
-
-def persist_to_catalog(session: Any, catalog: Any, *, best_sim_id: Any = None) -> None:
-    """Stub kept only so that ``tests/unit/simulation/test_catalog_import_export.py``
-    (which is ``@pytest.mark.skip``-ed) can import this function from the
-    new benchmark module without raising ``ImportError`` during collection.
-    """
-    raise NotImplementedError(
-        "persist_to_catalog is not implemented in the new architecture - the "
-        "calibration persistence now lives in hydromodpy.calibration.persistence."
-    )
-
-
 __all__ = (
     "CandidateEvaluation",
     "CandidateRunRequest",
@@ -1808,6 +1792,5 @@ __all__ = (
     "ModelCalibrationObjectiveEvaluator",
     "PreparedCalibrationSession",
     "actualize_candidate",
-    "persist_to_catalog",
     "select_candidate_outputs",
 )

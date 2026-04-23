@@ -59,7 +59,6 @@ class TestExportSimulation:
 
     def test_package_contains_sim_data(self, catalog, tmp_path):
         import io
-        import json
         import tarfile
 
         import zstandard as zstd
@@ -182,62 +181,3 @@ class TestImportSimulation:
         assert zarr_path == f"simulations/{basename}.zarr.zip"
         assert (ws2 / zarr_path).exists()
         cat2.close()
-
-
-class TestCalibrationPersist:
-    @pytest.mark.skip(reason="legacy persist_to_catalog superseded by P09 hydromodpy/calibration")
-    def test_persist_to_catalog(self, catalog, tmp_path):
-        sid = _sid()
-        _populate(catalog, sid)
-
-        manifest_path = tmp_path / "session_manifest.json"
-        history_path = tmp_path / "iteration_history.jsonl"
-
-        manifest = {
-            "method": "scipy_minimize",
-            "iteration_count": 3,
-            "cost_best": 0.15,
-            "wall_seconds": 120.5,
-            "core_settings": {"method": "scipy_minimize", "maxiter": 100},
-        }
-        manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
-
-        records = [
-            {"params": {"K": 1.0, "Sy": 0.05}, "cost": 0.5, "duration_s": 30.0},
-            {"params": {"K": 1.5, "Sy": 0.03}, "cost": 0.3, "duration_s": 35.0},
-            {"params": {"K": 1.8, "Sy": 0.04}, "cost": 0.15, "duration_s": 40.0},
-        ]
-        history_path.write_text(
-            "\n".join(json.dumps(r) for r in records),
-            encoding="utf-8",
-        )
-
-        from dataclasses import dataclass, field
-        from pathlib import Path
-
-        @dataclass(frozen=True)
-        class FakeSession:
-            session_manifest_path: Path
-            iteration_history_path: Path
-
-        fake = FakeSession(
-            session_manifest_path=manifest_path,
-            iteration_history_path=history_path,
-        )
-
-        from hydromodpy.calibration.benchmark import persist_to_catalog
-
-        persist_to_catalog(fake, catalog, best_sim_id=sid)
-
-        sessions = catalog.connection.execute(
-            "SELECT method, n_iterations, best_objective, best_sim_id FROM calibration_sessions"
-        ).fetchone()
-        assert sessions[0] == "scipy_minimize"
-        assert sessions[1] == 3
-        assert sessions[2] == pytest.approx(0.15)
-        assert str(sessions[3]) == sid
-
-        iterations = catalog.connection.execute(
-            "SELECT COUNT(*) FROM calibration_iterations"
-        ).fetchone()[0]
-        assert iterations == 3

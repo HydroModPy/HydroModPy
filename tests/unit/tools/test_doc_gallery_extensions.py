@@ -132,16 +132,20 @@ def test_generate_depth_property_case_smoke(tmp_path: Path) -> None:
 
 def test_generate_method_comparison_case_smoke(tmp_path: Path) -> None:
     spec = _spec_by_slug("example12_map_method_comparison")
-    run_folder = (
+    # Generation reuses committed comparison artifacts via
+    # ``_load_committed_method_comparison_payload`` - gate on those, not on
+    # the solver run folders (which are not checked in).
+    committed_root = (
         Path(__file__).resolve().parents[3]
-        / "examples"
+        / "examples_legacy_2"
         / "projects"
         / "launcher_simulation"
-        / "results_simulations"
-        / "example12_fast_mf6_mesh_catchment"
+        / "method_comparison"
+        / "example12_map_method_comparison"
     )
-    if not run_folder.exists():
-        pytest.skip("method comparison run folder not available on this branch")
+    required = ("comparison_manifest.json", "comparison_metrics.json", "observables.csv")
+    if not all((committed_root / name).exists() for name in required):
+        pytest.skip("committed method comparison artifacts not available on this branch")
 
     summary = _generate_case(spec, tmp_path)
 

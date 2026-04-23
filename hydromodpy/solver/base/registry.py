@@ -10,10 +10,16 @@ live in ``solver/compatibility`` (class-based) and ``simulation/adapters``
   :func:`get_solver_adapter`, which instantiates the registered class on
   demand. This matches the lifecycle intent of ``SolverRunner`` (one adapter
   = one run) while preserving the lightweight semantics of a static catalog.
+
+Built-in adapters shipped in-tree are declared as dotted paths in
+``_BUILTIN_PATHS`` and imported lazily on first lookup. That keeps
+``hydromodpy.simulation`` free of eager imports of ``hydromodpy.solver``
+concrete backends at package-load time.
 """
 
 from __future__ import annotations
 
+import importlib
 import logging
 from collections.abc import Iterable
 from importlib.metadata import entry_points
@@ -28,6 +34,45 @@ ENTRY_POINT_GROUP = "hydromodpy.solver"
 
 _REGISTRY: dict[AdapterKey, type] = {}
 _PLUGINS_LOADED = False
+
+# Dotted paths to in-tree adapter classes. Loaded lazily by :func:`get` on
+# first lookup so that importing this module (and therefore the whole
+# ``hydromodpy.simulation`` stack) does not pull every solver backend.
+# Format: ``"<module>:<class>"``.
+_BUILTIN_PATHS: dict[AdapterKey, str] = {
+    ("flow", "modflownwt"): "hydromodpy.simulation.adapters.flow.modflownwt:ModflowNwtFlowAdapter",
+    ("flow", "modflow6"): "hydromodpy.simulation.adapters.flow.modflow6:Modflow6FlowAdapter",
+    ("flow", "boussinesq"): "hydromodpy.simulation.adapters.flow.boussinesq:BoussinesqFlowAdapter",
+    (
+        "transport",
+        "modpath",
+    ): "hydromodpy.simulation.adapters.transport.modpath:ModpathTransportAdapter",
+    (
+        "transport",
+        "mt3dms",
+    ): "hydromodpy.simulation.adapters.transport.mt3dms:Mt3dmsTransportAdapter",
+    (
+        "transport",
+        "modflow6gwt",
+    ): "hydromodpy.simulation.adapters.transport.modflow6gwt:Modflow6GwtTransportAdapter",
+}
+
+
+def _load_builtin(key: AdapterKey) -> type | None:
+    """Import and register the built-in adapter for *key*, if any.
+
+    Returns the adapter class on success, ``None`` when *key* is not a
+    known built-in. Idempotent: a second call short-circuits via the main
+    ``_REGISTRY`` cache.
+    """
+    path = _BUILTIN_PATHS.get(key)
+    if path is None:
+        return None
+    module_path, _, class_name = path.partition(":")
+    module = importlib.import_module(module_path)
+    cls = getattr(module, class_name)
+    _REGISTRY[key] = cls
+    return cls
 
 
 def register(
@@ -49,14 +94,23 @@ def register(
 
 
 def get(process_type: str, solver_name: str) -> type:
-    """Return the adapter **class** registered for the given pair."""
+    """Return the adapter **class** registered for the given pair.
+
+    Explicit registrations (via :func:`register` or plugins) are served
+    from the cache. Unknown pairs fall back to lazy-loading the in-tree
+    ``_BUILTIN_PATHS`` entry, if any.
+    """
     key = (process_type, solver_name)
-    if key not in _REGISTRY:
-        raise KeyError(
-            f"No solver adapter registered for {process_type}/{solver_name}. "
-            f"Known pairs: {sorted(_REGISTRY)}."
-        )
-    return _REGISTRY[key]
+    cls = _REGISTRY.get(key)
+    if cls is not None:
+        return cls
+    cls = _load_builtin(key)
+    if cls is not None:
+        return cls
+    known = sorted(set(_REGISTRY) | set(_BUILTIN_PATHS))
+    raise KeyError(
+        f"No solver adapter registered for {process_type}/{solver_name}. Known pairs: {known}."
+    )
 
 
 def get_solver_adapter(process_type: str, solver_name: str) -> Any:
@@ -71,18 +125,31 @@ def get_solver_adapter(process_type: str, solver_name: str) -> Any:
 
 
 def unregister(process_type: str, solver_name: str) -> None:
-    """Remove an adapter entry (primarily for tests)."""
-    _REGISTRY.pop((process_type, solver_name), None)
+    """Remove an adapter entry (primarily for tests).
+
+    Also drops any matching entry from ``_BUILTIN_PATHS`` so a subsequent
+    ``get`` call does not silently lazy-reload the built-in. Callers that
+    remove a built-in are expected to re-register or restore the path
+    themselves (fixtures typically snapshot/restore both dicts).
+    """
+    key = (process_type, solver_name)
+    _REGISTRY.pop(key, None)
+    _BUILTIN_PATHS.pop(key, None)
 
 
 def list_pairs() -> list[AdapterKey]:
-    """Return the list of registered pairs, sorted for stable output."""
-    return sorted(_REGISTRY)
+    """Return all known pairs, sorted for stable output.
+
+    Includes both pairs explicitly registered (in-process or via plugins)
+    and in-tree built-ins declared in ``_BUILTIN_PATHS`` — even when the
+    latter have not been lazy-loaded yet.
+    """
+    return sorted(set(_REGISTRY) | set(_BUILTIN_PATHS))
 
 
 def pairs_for_process(process_type: str) -> Iterable[AdapterKey]:
-    """Yield all registered pairs whose process type matches."""
-    return (k for k in sorted(_REGISTRY) if k[0] == process_type)
+    """Yield all known pairs whose process type matches."""
+    return (k for k in list_pairs() if k[0] == process_type)
 
 
 def is_adapter(obj: object) -> bool:

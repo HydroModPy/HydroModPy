@@ -34,13 +34,20 @@ class AnotherFakeAdapter(FakeAdapter):
 
 @pytest.fixture(autouse=True)
 def _clean_registry():
-    """Snapshot the registry and restore it after each test."""
-    snapshot = dict(registry._REGISTRY)
+    """Snapshot the registry and restore it after each test.
+
+    Both the eager ``_REGISTRY`` cache and the lazy ``_BUILTIN_PATHS``
+    map are isolated so tests can mutate either without leaking state.
+    """
+    eager = dict(registry._REGISTRY)
+    lazy = dict(registry._BUILTIN_PATHS)
     try:
         yield
     finally:
         registry._REGISTRY.clear()
-        registry._REGISTRY.update(snapshot)
+        registry._REGISTRY.update(eager)
+        registry._BUILTIN_PATHS.clear()
+        registry._BUILTIN_PATHS.update(lazy)
 
 
 def test_register_and_get_returns_cls() -> None:
@@ -67,6 +74,7 @@ def test_get_unknown_raises_keyerror() -> None:
 
 def test_list_pairs_is_sorted() -> None:
     registry._REGISTRY.clear()
+    registry._BUILTIN_PATHS.clear()
     registry.register("flow", "b", FakeAdapter)
     registry.register("flow", "a", FakeAdapter)
     registry.register("transport", "c", FakeAdapter)
@@ -75,6 +83,7 @@ def test_list_pairs_is_sorted() -> None:
 
 def test_pairs_for_process_filters_by_type() -> None:
     registry._REGISTRY.clear()
+    registry._BUILTIN_PATHS.clear()
     registry.register("flow", "a", FakeAdapter)
     registry.register("transport", "b", FakeAdapter)
     assert list(registry.pairs_for_process("flow")) == [("flow", "a")]
