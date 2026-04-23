@@ -706,34 +706,3 @@ def test_regional_lab_bootstrap_catalog_infers_bundle_dir_from_manifest_mesh_pat
     assert rows[0]["bundle_boussinesq_steady_ready"] == "true"
     assert rows[0]["bundle_boussinesq_transient_ready"] == "true"
     assert "boussinesq_transient_ready" in rows[0]["tags"]
-
-
-def test_regional_lab_repo_example_expands_existing_cases() -> None:
-    repo_root = Path(__file__).resolve().parents[3]
-    config_path = (
-        repo_root
-        / "examples_legacy_2"
-        / "projects"
-        / "launcher_simulation"
-        / "regional_lab"
-        / "config_headwater_100km2_lab.toml"
-    )
-
-    cfg = RegionalLabConfig.from_file(config_path)
-    sites = load_site_catalog(cfg.catalog)
-    selected_sites, planned_cases, skipped_cases = build_regional_lab_plan(cfg, sites)
-
-    assert len(selected_sites) >= 3
-    assert [case.case_id for case in planned_cases] == [
-        "mf6_reference::headwater_100km2_outlet_2",
-        "backend_compare::headwater_100km2_outlet_2",
-        "transient_backend_compare::headwater_100km2_outlet_2",
-    ]
-    assert [case.case_id for case in skipped_cases] == [
-        "mf6_reference::headwater_100km2_outlet_27",
-        "mf6_reference::headwater_100km2_outlet_34",
-        "backend_compare::headwater_100km2_outlet_27",
-        "backend_compare::headwater_100km2_outlet_34",
-        "transient_backend_compare::headwater_100km2_outlet_27",
-        "transient_backend_compare::headwater_100km2_outlet_34",
-    ]

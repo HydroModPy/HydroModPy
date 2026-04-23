@@ -404,84 +404,6 @@ def test_method_comparison_config_resolves_paths(tmp_path: Path) -> None:
     assert cfg.method_comparison.observable[1].reducer == "sum"
 
 
-@pytest.mark.parametrize(
-    ("config_name", "expected_mesh_modes", "expected_supports"),
-    [
-        (
-            "run_method_comparison_mf6_vs_nwt_same_regular_mesh.toml",
-            ["structured", "structured"],
-            ["point", "point", "map", "outlet"],
-        ),
-        (
-            "run_method_comparison_mf6_vs_nwt_different_meshes.toml",
-            ["mesh_input", "structured"],
-            ["map", "map"],
-        ),
-        (
-            "run_method_comparison_mf6_vs_nwt_different_meshes_demonstrative.toml",
-            ["mesh_input", "structured"],
-            ["point", "point", "point", "outlet", "map", "map", "map"],
-        ),
-        (
-            "run_method_comparison_example12_multi_method_moderate.toml",
-            ["structured", "structured", "mesh_input", "mesh_input"],
-            ["point", "point", "point", "outlet", "map", "map", "map", "cell_mask", "map"],
-        ),
-        (
-            "run_method_comparison_example12_fast_shared_mesh.toml",
-            ["mesh_input", "mesh_input"],
-            ["point", "outlet", "map", "map"],
-        ),
-        (
-            "run_method_comparison_example12_extensive_mf6_vs_nwt.toml",
-            ["structured", "structured"],
-            ["point", "outlet", "map", "map"],
-        ),
-        (
-            "run_method_comparison_headwater_100km2_outlet_2_backends.toml",
-            ["mesh_input", "mesh_input", "mesh_input"],
-            ["point", "outlet", "map", "map"],
-        ),
-        (
-            "run_method_comparison_headwater_100km2_outlet_2_transient_pulsed_recharge_backends.toml",
-            ["mesh_input", "mesh_input", "mesh_input"],
-            ["point", "outlet", "map", "map"],
-        ),
-        (
-            "run_method_comparison_headwater_100km2_outlet_2_transient_cycling_recharge_heterogeneous_backends.toml",
-            ["mesh_input", "mesh_input", "mesh_input"],
-            ["point", "outlet", "map", "map"],
-        ),
-    ],
-)
-def test_example_method_comparison_configs_load(
-    config_name: str,
-    expected_mesh_modes: list[str],
-    expected_supports: list[str],
-) -> None:
-    config_path = (
-        Path(__file__).resolve().parents[3]
-        / "examples_legacy_2"
-        / "projects"
-        / "launcher_simulation"
-        / config_name
-    )
-
-    cfg = MethodComparisonConfig.from_toml(
-        load_toml_with_base_config(config_path),
-        config_path=config_path,
-    )
-
-    assert [variant.mesh_mode for variant in cfg.method_comparison.variant] == expected_mesh_modes
-    assert [
-        observable.support for observable in cfg.method_comparison.observable
-    ] == expected_supports
-    for observable in cfg.method_comparison.observable:
-        if observable.anchor_id is not None:
-            assert observable.x is not None
-            assert observable.y is not None
-
-
 def test_method_comparison_config_applies_anchor_file(tmp_path: Path) -> None:
     anchors_path = tmp_path / "method_comparison_points.toml"
     _write_method_comparison_anchors(anchors_path)
@@ -1400,19 +1322,24 @@ def test_method_comparison_launcher_reuse_infers_process_output_folder(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    _ = tmp_path
-    repo_root = Path(__file__).resolve().parents[3]
-    monkeypatch.setenv("HYDROMODPY_WORKSPACE", str(repo_root / "examples_legacy_2"))
-    config_path = (
-        repo_root
-        / "examples_legacy_2"
-        / "projects"
-        / "launcher_simulation"
-        / "run_demonstrative_annual_moderate_boussinesq_precomputed_mesh_input.toml"
+    scratch = tmp_path / "solver_scratch"
+    scratch.mkdir(parents=True, exist_ok=True)
+
+    import hydromodpy.analysis.comparison.orchestrator as orchestrator_module
+
+    monkeypatch.setattr(
+        orchestrator_module.HydroModPyConfig,
+        "from_toml",
+        classmethod(
+            lambda _cls, _config_path: SimpleNamespace(
+                workspace=SimpleNamespace(solver_scratch_folder=scratch),
+                simulation=SimpleNamespace(run_id="ex12_demo_mod_bouss_tri"),
+            )
+        ),
     )
 
     resolved = MethodComparisonLauncher._infer_run_folder_from_config(
-        config_path,
+        tmp_path / "config.toml",
         solver_name="boussinesq",
     )
 

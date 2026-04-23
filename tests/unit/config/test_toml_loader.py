@@ -119,7 +119,9 @@ def test_hydromodpy_config_from_toml_supports_base_config(tmp_path: Path) -> Non
 def test_launcher_simulation_example_config_inheritance_keeps_only_relevant_data_types() -> None:
     example_config = (
         Path(__file__).resolve().parents[3]
-        / "examples_legacy_2"
+        / "tests"
+        / "regression"
+        / "fixtures"
         / "projects"
         / "launcher_simulation"
         / "run_fast_mf6.toml"
@@ -137,7 +139,9 @@ def test_launcher_simulation_example_config_inheritance_keeps_only_relevant_data
 def test_launcher_simulation_mf6_precomputed_mesh_input_config_uses_runtime_mesh() -> None:
     example_config = (
         Path(__file__).resolve().parents[3]
-        / "examples_legacy_2"
+        / "tests"
+        / "regression"
+        / "fixtures"
         / "projects"
         / "launcher_simulation"
         / "run_fast_mf6_precomputed_mesh_input.toml"
@@ -155,7 +159,9 @@ def test_launcher_simulation_mf6_precomputed_mesh_input_config_uses_runtime_mesh
 def test_launcher_simulation_mf6_mesh_catchment_config_embeds_mesh_generation() -> None:
     example_config = (
         Path(__file__).resolve().parents[3]
-        / "examples_legacy_2"
+        / "tests"
+        / "regression"
+        / "fixtures"
         / "projects"
         / "launcher_simulation"
         / "run_fast_mf6_mesh_catchment.toml"
