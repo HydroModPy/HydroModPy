@@ -27,8 +27,8 @@ Case Setup
 ----------
 
 - Launcher family: `data-overview`, so the workflow stops after setup, domain assembly, and data loading.
-- Primary editable file: `examples/projects/data_overview/project.toml`.
-- Committed figures are mirrored under `examples/capability_gallery/geographic/` so the doc build stays reproducible without a local `results_stable` checkout.
+- Primary editable file: `examples/projects/04_data_overview/project.toml`.
+- Committed figures are mirrored under `examples/projects/09_capability_gallery/geographic/` so the doc build stays reproducible without a local `results_stable` checkout.
 
 What It Shows
 -------------
@@ -57,7 +57,7 @@ Run the underlying example or validation case with:
 
 .. code-block:: bash
 
-   python examples/projects/data_overview/run_data_overview.py
+   python -m hydromodpy run examples/projects/04_data_overview/project.toml
 
 Refresh the committed gallery artifacts with:
 
@@ -82,43 +82,43 @@ Selected Parameters
    * - ``[geographic] catch_def``
      - Watershed extraction mode used to derive the basin from the outlet definition.
      - from_outlet_coord
-     - ``examples/projects/data_overview/project.toml``
+     - ``examples/projects/04_data_overview/project.toml``
    * - ``[geographic] x_outlet``
      - Projected x coordinate of the outlet used by watershed extraction.
      - 127348
-     - ``examples/projects/data_overview/project.toml``
+     - ``examples/projects/04_data_overview/project.toml``
    * - ``[geographic] y_outlet``
      - Projected y coordinate of the outlet used by watershed extraction.
      - 6.8358e+06
-     - ``examples/projects/data_overview/project.toml``
+     - ``examples/projects/04_data_overview/project.toml``
    * - ``[geographic] snap_dist``
      - Maximum snapping distance used to align the requested outlet with the drainage network.
      - 150 m
-     - ``examples/projects/data_overview/project.toml``
+     - ``examples/projects/04_data_overview/project.toml``
    * - ``[geographic] buff_area``
      - Extra area kept around the watershed to preserve regional context in overview figures.
      - 20%
-     - ``examples/projects/data_overview/project.toml``
+     - ``examples/projects/04_data_overview/project.toml``
    * - ``[domain] zone_ids``
      - Domain layers kept on the spatial support before any meshing or solving stage.
      - geology
-     - ``examples/projects/data_overview/project.toml``
+     - ``examples/projects/04_data_overview/project.toml``
    * - ``[domain.depth_model] type``
      - Depth-model strategy used to define the vertical support of the basin.
      - constant_thickness
-     - ``examples/projects/data_overview/project.toml``
+     - ``examples/projects/04_data_overview/project.toml``
    * - ``[domain.depth_model] thickness``
      - Constant basin thickness assigned by the depth model when that mode is selected.
      - 50.0 m
-     - ``examples/projects/data_overview/project.toml``
+     - ``examples/projects/04_data_overview/project.toml``
    * - ``[data] types``
      - Families of data loaded during the data-overview workflow.
      - geology, hydrography, hydrometry, intermittency, oceanic
-     - ``examples/projects/data_overview/project.toml``
+     - ``examples/projects/04_data_overview/project.toml``
    * - ``[data] inference_mode``
      - Policy controlling how strictly the data-loading stage resolves requested layers.
      - strict
-     - ``examples/projects/data_overview/project.toml``
+     - ``examples/projects/04_data_overview/project.toml``
 
 Loaded Data Families
 ^^^^^^^^^^^^^^^^^^^^
@@ -134,27 +134,27 @@ Loaded Data Families
    * - ``[data] types``
      - Ordered list of data families requested by the overview case.
      - geology, hydrography, hydrometry, intermittency, oceanic
-     - ``examples/projects/data_overview/project.toml``
+     - ``examples/projects/04_data_overview/project.toml``
    * - ``[data.geology.sources]``
      - Configured providers used to load the `geology` family in this case.
      - brgm_1m
-     - ``examples/projects/data_overview/project.toml``
+     - ``examples/projects/04_data_overview/project.toml``
    * - ``[data.hydrography.sources]``
      - Configured providers used to load the `hydrography` family in this case.
      - custom
-     - ``examples/projects/data_overview/project.toml``
+     - ``examples/projects/04_data_overview/project.toml``
    * - ``[data.hydrometry.sources]``
      - Configured providers used to load the `hydrometry` family in this case.
      - hubeau
-     - ``examples/projects/data_overview/project.toml``
+     - ``examples/projects/04_data_overview/project.toml``
    * - ``[data.intermittency.sources]``
      - Configured providers used to load the `intermittency` family in this case.
      - hubeau
-     - ``examples/projects/data_overview/project.toml``
+     - ``examples/projects/04_data_overview/project.toml``
    * - ``[data.oceanic.sources]``
      - Configured providers used to load the `oceanic` family in this case.
      - shom
-     - ``examples/projects/data_overview/project.toml``
+     - ``examples/projects/04_data_overview/project.toml``
 
 Hydrography Source Options
 ^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -170,11 +170,11 @@ Hydrography Source Options
    * - ``[[data.hydrography.sources]] source``
      - Hydrography provider used for the displayed river network.
      - custom
-     - ``examples/projects/data_overview/project.toml``
+     - ``examples/projects/04_data_overview/project.toml``
    * - ``[[data.hydrography.sources]] rasterize_field``
      - Attribute used when rasterizing the clipped vector network to the watershed grid.
      - FID
-     - ``examples/projects/data_overview/project.toml``
+     - ``examples/projects/04_data_overview/project.toml``
 
 Observation Windows
 ^^^^^^^^^^^^^^^^^^^
@@ -190,37 +190,36 @@ Observation Windows
    * - ``[data.hydrometry] date_start``
      - Start date used when querying hydrometry observations for this case.
      - 2019-01-01
-     - ``examples/projects/data_overview/project.toml``
+     - ``examples/projects/04_data_overview/project.toml``
    * - ``[data.hydrometry] date_end``
      - End date used when querying hydrometry observations for this case.
      - 2025-12-31
-     - ``examples/projects/data_overview/project.toml``
+     - ``examples/projects/04_data_overview/project.toml``
    * - ``[data.intermittency] date_start``
      - Start date used when querying intermittency observations for this case.
      - 2019-01-01
-     - ``examples/projects/data_overview/project.toml``
+     - ``examples/projects/04_data_overview/project.toml``
    * - ``[data.intermittency] date_end``
      - End date used when querying intermittency observations for this case.
      - 2025-12-31
-     - ``examples/projects/data_overview/project.toml``
+     - ``examples/projects/04_data_overview/project.toml``
    * - ``[data.oceanic] date_start``
      - Start date used when querying oceanic observations for this case.
      - 2003-01-01
-     - ``examples/projects/data_overview/project.toml``
+     - ``examples/projects/04_data_overview/project.toml``
    * - ``[data.oceanic] date_end``
      - End date used when querying oceanic observations for this case.
      - 2003-01-30
-     - ``examples/projects/data_overview/project.toml``
+     - ``examples/projects/04_data_overview/project.toml``
 
 Source Pointers
 ---------------
 
 - ``tools/doc_gallery/manifests/geographic_cases.json``
-- ``examples/projects/data_overview/run_data_overview.py``
-- ``examples/projects/data_overview/project.toml``
-- ``examples/capability_gallery/geographic/README.md``
-- ``examples/capability_gallery/geographic/watershed_overview/geographic_watershed_dem.png``
-- ``examples/capability_gallery/geographic/watershed_overview/geographic_watershed_local.png``
+- ``examples/projects/04_data_overview/project.toml``
+- ``examples/projects/09_capability_gallery/geographic/README.md``
+- ``examples/projects/09_capability_gallery/geographic/watershed_overview/geographic_watershed_dem.png``
+- ``examples/projects/09_capability_gallery/geographic/watershed_overview/geographic_watershed_local.png``
 
 Artifacts
 ---------

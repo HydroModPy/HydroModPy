@@ -50,22 +50,22 @@
     "validation_cases/shared/boussinesq_uniform_strip.py"
   ],
   "source_hashes": {
-    "validation_cases/README.md": "28ee639cd0c843d89c06a5ff3b8adf655f5725e35392ebb9980f906513c17e6e",
+    "validation_cases/README.md": "634832ce341c47597143d5614d06c8d22bac809193447706294f5b43e38359c3",
     "validation_cases/analytical/steady/dupuit_uniform_recharge_1d/README.md": "6ac185d60659f416b0ad2c685f7166ab04b9a22880f591a1b1d93d49b95349b4",
-    "validation_cases/analytical/steady/dupuit_uniform_recharge_1d/reference.py": "43319f308d4fe6f48d436a4c50eff12d0e44e40b0b7af5e14b1852c2811905a3",
-    "validation_cases/analytical/steady/dupuit_uniform_recharge_1d/comparison.py": "92f6f2f04bcc25fafc892db6c1eeb4e35f8d6e0284ed6c8c4e0974c93d0ceb1e",
+    "validation_cases/analytical/steady/dupuit_uniform_recharge_1d/reference.py": "57ba602b730b954b1948abd726c2e3b19dac6446e2a21220c6a5123b6406a104",
+    "validation_cases/analytical/steady/dupuit_uniform_recharge_1d/comparison.py": "e631575490210eb36c0639a84270f9f5f4b45541991331690bcfb67c3e0eeaa0",
     "validation_cases/analytical/steady/dupuit_uniform_recharge_1d/plotting.py": "3c589e57b141c5aec2a64830cf3a9b56778532aa8607b6f16091863a1ab8321d",
-    "validation_cases/analytical/steady/dupuit_uniform_recharge_1d/run_case.py": "63be1093ad42c5e48da81da8b3b335079a8c39f2759976f7208252e596235db1",
-    "validation_cases/analytical/steady/dupuit_uniform_recharge_1d/metadata.toml": "5e2dccf841c5a47fb10c5b9cad6e8e7b827029c5c800531b2dfe281952efba73",
-    "validation_cases/analytical/steady/dupuit_uniform_recharge_1d/config_modflownwt.toml": "dd4e3068294fc8d19d1ca4b14b5a580c7f4ebfa1f49c476c91faa6d175def824",
-    "validation_cases/analytical/steady/dupuit_uniform_recharge_1d/runtime_boussinesq.py": "2c559f9c7fd15b37718784a4079453ff413ea126ce485184c2b8b125a52705be",
+    "validation_cases/analytical/steady/dupuit_uniform_recharge_1d/run_case.py": "45891f398b75540747cf0143db0ea99a09919f36344969176f1182cd08791010",
+    "validation_cases/analytical/steady/dupuit_uniform_recharge_1d/metadata.toml": "2805728c9d07ad7925c9ebe77c177d7adcdc626eabad2c16a4e03abca1eec6bf",
+    "validation_cases/analytical/steady/dupuit_uniform_recharge_1d/config_modflownwt.toml": "f189721c7182d2ab246bd8a8096d96e242eb30895a7b0809e374ccde7a74176f",
+    "validation_cases/analytical/steady/dupuit_uniform_recharge_1d/runtime_boussinesq.py": "4203d0d1e3ae26c4dbeaebdd8ee99e0ead242328f268daa3412cc72fe38a8925",
     "validation_cases/analytical/steady/dupuit_uniform_recharge_1d/tolerances.toml": "3c7cdd060951dd9c33b5084475beac18c7b981d342f9d63eca2583e1b9c2fec8",
     "validation_cases/analytical/steady/dupuit_uniform_recharge_1d/tolerances_modflow6.toml": "0edc932a6d863e79dfa07815f8fd8a04cf0734cbccf716bd8db22a27c7c0ebd5",
     "validation_cases/analytical/steady/dupuit_uniform_recharge_1d/tolerances_modflow6_irregular_tri.toml": "0f6cd57e911acf8fc3f512df1b7df704e60bbfdd4d034e7e9b1590a0633c7b44",
-    "validation_cases/analytical/steady/dupuit_uniform_recharge_1d/config_modflow6.toml": "e668647e68535e36fad07cfad44315d3cdf951c3667fbd299c05faadb166252d",
-    "validation_cases/analytical/steady/dupuit_uniform_recharge_1d/config_modflow6_irregular_tri.toml": "8dcf19eb3ada2f9cecb3812a48eaa6b3fca34581e170d5b058daa3be75cec248",
+    "validation_cases/analytical/steady/dupuit_uniform_recharge_1d/config_modflow6.toml": "9a3a68ee60db0f7b112d7ea579603eb52e71ff6e57a577a8cc3ce42627bad368",
+    "validation_cases/analytical/steady/dupuit_uniform_recharge_1d/config_modflow6_irregular_tri.toml": "44bbb1355e7c1998a05f8b4db0b9272fdf1a68761e6b4aab002102dcdf8d9048",
     "validation_cases/analytical/steady/dupuit_uniform_recharge_1d/config_boussinesq.toml": "bf9a68e7c1dca1d194187dc5584f7f51dc4243bfab5d762e437760d1a797434c",
-    "validation_cases/shared/boussinesq_uniform_strip.py": "30c6e0c6cec9aaece01246cc109d47043eed032725b0a496874d6f744c04901f"
+    "validation_cases/shared/boussinesq_uniform_strip.py": "4c7b6bc8f898f453c77f94c542591d3b1b4e8f7f0a785fe8a6bc7d4ed44d0473"
   },
   "docname": "cases/dupuit_uniform_recharge_1d",
   "images": [
@@ -288,8 +288,8 @@
       "expected_output": "Expected shape: 5 x 40",
       "command": "python -m validation_cases.analytical.steady.dupuit_uniform_recharge_1d.run_case --no-show --solver modflow6_irregular_tri",
       "metric_lines": [
-        "Head-profile RMSE: 0.2334 m",
-        "Head-profile max abs error: 0.3252 m",
+        "Head-profile RMSE: 0.2333 m",
+        "Head-profile max abs error: 0.3250 m",
         "Cross-row head spread: 0.00e+00 m"
       ],
       "image": {
@@ -468,6 +468,12 @@
       }
     ],
     "common_setup": [
+      {
+        "field": "workflow",
+        "meaning": "Case-specific configuration field `workflow` used by the validation benchmark.",
+        "value": "simulation",
+        "source": "validation_cases/analytical/steady/dupuit_uniform_recharge_1d/config_modflownwt.toml"
+      },
       {
         "field": "geographic.synthetic.grid.length_x",
         "meaning": "Synthetic-domain length along the x axis.",

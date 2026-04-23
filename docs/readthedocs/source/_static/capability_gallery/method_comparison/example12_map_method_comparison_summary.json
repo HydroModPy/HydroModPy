@@ -38,23 +38,23 @@
   "equations_rst": [],
   "walkthrough_doc": "getting_started/reading-results-pages",
   "walkthrough_title": "the gallery and validation reading guide",
-  "reproduction_command": "python -m launchers method-comparison run examples/projects/launcher_simulation/run_method_comparison_example12_map_existing.toml",
+  "reproduction_command": "python -m launchers method-comparison run examples_legacy_2/projects/launcher_simulation/run_method_comparison_example12_map_existing.toml",
   "gallery_update_command": "python -m tools.doc_gallery",
   "source_paths": [
-    "examples/projects/launcher_simulation/run_method_comparison_example12_map_existing.toml",
-    "examples/projects/launcher_simulation/run_fast_mf6_mesh_catchment.toml",
-    "examples/projects/launcher_simulation/run_fast_boussinesq_precomputed_mesh_input.toml",
-    "examples/projects/launcher_simulation/method_comparison/example12_map_method_comparison/comparison_manifest.json",
-    "examples/projects/launcher_simulation/method_comparison/example12_map_method_comparison/comparison_metrics.json",
-    "examples/projects/launcher_simulation/method_comparison/example12_map_method_comparison/observables.csv"
+    "examples_legacy_2/projects/launcher_simulation/run_method_comparison_example12_map_existing.toml",
+    "examples_legacy_2/projects/launcher_simulation/run_fast_mf6_mesh_catchment.toml",
+    "examples_legacy_2/projects/launcher_simulation/run_fast_boussinesq_precomputed_mesh_input.toml",
+    "examples_legacy_2/projects/launcher_simulation/method_comparison/example12_map_method_comparison/comparison_manifest.json",
+    "examples_legacy_2/projects/launcher_simulation/method_comparison/example12_map_method_comparison/comparison_metrics.json",
+    "examples_legacy_2/projects/launcher_simulation/method_comparison/example12_map_method_comparison/observables.csv"
   ],
   "source_hashes": {
-    "examples/projects/launcher_simulation/run_method_comparison_example12_map_existing.toml": "39ae554e3c852a46a15f0fa4d1013246a22046adfcff71d3fa1ca9daf659658a",
-    "examples/projects/launcher_simulation/run_fast_mf6_mesh_catchment.toml": "378b9b76eb0b265a16572b756e2d4ecf6c28ed6c3eaa96116423e5c037055e91",
-    "examples/projects/launcher_simulation/run_fast_boussinesq_precomputed_mesh_input.toml": "b82697270a0bd5c016d300f1419295680a0a8d46c348133a6eb5d66cba8619aa",
-    "examples/projects/launcher_simulation/method_comparison/example12_map_method_comparison/comparison_manifest.json": "3b0a3a2c450563894796d07a4e71bfb025945c7563732fdacad0e4c9f8121603",
-    "examples/projects/launcher_simulation/method_comparison/example12_map_method_comparison/comparison_metrics.json": "27cf40cf3190455044819c8ef16226cdb2daa12d9632883ad1021298d080c3c1",
-    "examples/projects/launcher_simulation/method_comparison/example12_map_method_comparison/observables.csv": "fc33ecdba3de3fad4cb64f0af80513f03167a0cd90731406a882debaf62df1a4"
+    "examples_legacy_2/projects/launcher_simulation/run_method_comparison_example12_map_existing.toml": "74142fde1e4348cf997279e291e8b3a8bf92cdcb76c22eb241d2a646438746df",
+    "examples_legacy_2/projects/launcher_simulation/run_fast_mf6_mesh_catchment.toml": "572decacd4b3d956fdf89312d61c415c485dc08acd435e351e33b63f25371186",
+    "examples_legacy_2/projects/launcher_simulation/run_fast_boussinesq_precomputed_mesh_input.toml": "121162ada7df8beb6b999d780badf28cf453457af2f1a7a853a389468b000465",
+    "examples_legacy_2/projects/launcher_simulation/method_comparison/example12_map_method_comparison/comparison_manifest.json": "4c31217f003df17f2f0acf312187ae24272d81babcd9c71f3ad4caceb2ffa587",
+    "examples_legacy_2/projects/launcher_simulation/method_comparison/example12_map_method_comparison/comparison_metrics.json": "1852e79338b2ae6405e180e3f09f461ca765b5706d1f5f0194efb137fc0f5ead",
+    "examples_legacy_2/projects/launcher_simulation/method_comparison/example12_map_method_comparison/observables.csv": "57881779db14d6f4b956aefc003e6f61bc5c59a6924aca40c6cfa204f6829f21"
   },
   "docname": "cases/example12_map_method_comparison",
   "images": [
@@ -129,7 +129,7 @@
     }
   ],
   "metadata": {
-    "comparison_config_path": "examples/projects/launcher_simulation/run_method_comparison_example12_map_existing.toml",
+    "comparison_config_path": "examples_legacy_2/projects/launcher_simulation/run_method_comparison_example12_map_existing.toml",
     "study_area": "Naizin catchment",
     "focus_variant_id": "boussinesq_reused_gmsh",
     "comparison_family_key": "shared_support_cross_solver",
@@ -178,19 +178,19 @@
             "field": "[method_comparison] comparison_id",
             "meaning": "Stable identifier used to collect outputs and summary artifacts for the comparison.",
             "value": "example12_map_method_comparison",
-            "source": "examples/projects/launcher_simulation/run_method_comparison_example12_map_existing.toml"
+            "source": "examples_legacy_2/projects/launcher_simulation/run_method_comparison_example12_map_existing.toml"
           },
           {
             "field": "[method_comparison] reference_variant",
             "meaning": "Variant used as the baseline when computing map-wise differences and error metrics.",
             "value": "mf6_gmsh_existing",
-            "source": "examples/projects/launcher_simulation/run_method_comparison_example12_map_existing.toml"
+            "source": "examples_legacy_2/projects/launcher_simulation/run_method_comparison_example12_map_existing.toml"
           },
           {
             "field": "[method_comparison] run_variants",
             "meaning": "Whether the launcher reruns the variants or only reuses committed run folders.",
             "value": "false",
-            "source": "examples/projects/launcher_simulation/run_method_comparison_example12_map_existing.toml"
+            "source": "examples_legacy_2/projects/launcher_simulation/run_method_comparison_example12_map_existing.toml"
           },
           {
             "field": "study_area",
@@ -207,13 +207,13 @@
             "field": "variant.mf6_gmsh_existing",
             "meaning": "Compared run folder and solver definition used by the method-comparison launcher.",
             "value": "MODFLOW 6 on generated Gmsh mesh; solver=modflow6; mesh_mode=mesh_catchment; run_folder=results_simulations/example12_fast_mf6_mesh_catchment",
-            "source": "examples/projects/launcher_simulation/run_method_comparison_example12_map_existing.toml"
+            "source": "examples_legacy_2/projects/launcher_simulation/run_method_comparison_example12_map_existing.toml"
           },
           {
             "field": "variant.boussinesq_reused_gmsh",
             "meaning": "Compared run folder and solver definition used by the method-comparison launcher.",
             "value": "Boussinesq on reused Gmsh mesh; solver=boussinesq; mesh_mode=mesh_input; run_folder=results_reused_real_meshes/example12_fast/results_simulations/flow_main__boussinesq",
-            "source": "examples/projects/launcher_simulation/run_method_comparison_example12_map_existing.toml"
+            "source": "examples_legacy_2/projects/launcher_simulation/run_method_comparison_example12_map_existing.toml"
           }
         ]
       },
@@ -224,31 +224,31 @@
             "field": "observable.head_outlet_lowland",
             "meaning": "Observable extracted from each run before parity plots and difference metrics are computed.",
             "value": "variable=watertable_elevation; support=point; time=all; unit=m",
-            "source": "examples/projects/launcher_simulation/run_method_comparison_example12_map_existing.toml"
+            "source": "examples_legacy_2/projects/launcher_simulation/run_method_comparison_example12_map_existing.toml"
           },
           {
             "field": "observable.head_mid_basin_response",
             "meaning": "Observable extracted from each run before parity plots and difference metrics are computed.",
             "value": "variable=watertable_elevation; support=point; time=all; unit=m",
-            "source": "examples/projects/launcher_simulation/run_method_comparison_example12_map_existing.toml"
+            "source": "examples_legacy_2/projects/launcher_simulation/run_method_comparison_example12_map_existing.toml"
           },
           {
             "field": "observable.head_upstream_ridge",
             "meaning": "Observable extracted from each run before parity plots and difference metrics are computed.",
             "value": "variable=watertable_elevation; support=point; time=all; unit=m",
-            "source": "examples/projects/launcher_simulation/run_method_comparison_example12_map_existing.toml"
+            "source": "examples_legacy_2/projects/launcher_simulation/run_method_comparison_example12_map_existing.toml"
           },
           {
             "field": "observable.watertable_elevation_map",
             "meaning": "Observable extracted from each run before parity plots and difference metrics are computed.",
             "value": "variable=watertable_elevation; support=map; time=last; unit=m",
-            "source": "examples/projects/launcher_simulation/run_method_comparison_example12_map_existing.toml"
+            "source": "examples_legacy_2/projects/launcher_simulation/run_method_comparison_example12_map_existing.toml"
           },
           {
             "field": "observable.watertable_depth_map",
             "meaning": "Observable extracted from each run before parity plots and difference metrics are computed.",
             "value": "variable=watertable_depth; support=map; time=last; unit=m",
-            "source": "examples/projects/launcher_simulation/run_method_comparison_example12_map_existing.toml"
+            "source": "examples_legacy_2/projects/launcher_simulation/run_method_comparison_example12_map_existing.toml"
           }
         ]
       }

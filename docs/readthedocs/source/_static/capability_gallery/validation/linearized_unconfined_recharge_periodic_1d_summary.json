@@ -51,21 +51,21 @@
     "validation_cases/analytical/transient/linearized_unconfined_1d.py"
   ],
   "source_hashes": {
-    "validation_cases/README.md": "28ee639cd0c843d89c06a5ff3b8adf655f5725e35392ebb9980f906513c17e6e",
+    "validation_cases/README.md": "634832ce341c47597143d5614d06c8d22bac809193447706294f5b43e38359c3",
     "validation_cases/analytical/transient/linearized_unconfined_recharge_periodic_1d/README.md": "6bab3c7b7c3c818637045e93918404018f95954ecc69f511b6946e60d1fe0a1d",
     "validation_cases/analytical/transient/linearized_unconfined_recharge_periodic_1d/reference.py": "b93972d2b0b9223efaa86f81bfe5c7f3e353057f8eef8ea429575a2300c1c8c6",
-    "validation_cases/analytical/transient/linearized_unconfined_recharge_periodic_1d/comparison.py": "f4765a3ab1255faf9e5e365c31dc29049ed403ebc31e54ec7dede70f9bd1e51e",
+    "validation_cases/analytical/transient/linearized_unconfined_recharge_periodic_1d/comparison.py": "3bde7d7440f35a730a284d2f73acae0e1530079b9a7463910a6cd82f2c68836f",
     "validation_cases/analytical/transient/linearized_unconfined_recharge_periodic_1d/plotting.py": "9d29990987a0c9bd4e694cae0a937ce123dbc8c599d32a95a5d0bb447317e6e7",
-    "validation_cases/analytical/transient/linearized_unconfined_recharge_periodic_1d/run_case.py": "720379ac53d68ea6ed8b30b35b4094ef45c28d2d268c80c306b6464975981b86",
-    "validation_cases/analytical/transient/linearized_unconfined_recharge_periodic_1d/metadata.toml": "ccceac56375326b34342e11e6d8f933d9ac32730ee9e21202da48ce544737123",
-    "validation_cases/analytical/transient/linearized_unconfined_recharge_periodic_1d/config_modflownwt.toml": "42925f1dcda9a960c0022033bc935ea79a08f12c6dadc9f5e2b84307c8665a2a",
-    "validation_cases/analytical/transient/linearized_unconfined_recharge_periodic_1d/runtime_boussinesq.py": "f6b9e640459a4cd2edd7fcc71038ca3f39ad891677c92bb22de2a51f3b6b79b9",
+    "validation_cases/analytical/transient/linearized_unconfined_recharge_periodic_1d/run_case.py": "8c833b0b689e345eaa6aadc097412f69582497394b4f1b7c0911a316aa0fdc77",
+    "validation_cases/analytical/transient/linearized_unconfined_recharge_periodic_1d/metadata.toml": "623dbea0b95b19d99e404e6d160c31caa347fc6b3a3508587f9314bf220702bf",
+    "validation_cases/analytical/transient/linearized_unconfined_recharge_periodic_1d/config_modflownwt.toml": "66aaffec92a5e325a9b43bff670dda9690b25f0986e6a3c4a7290a69ba57b503",
+    "validation_cases/analytical/transient/linearized_unconfined_recharge_periodic_1d/runtime_boussinesq.py": "e504fed43180e70dfa1ee239bd976d4f051f2bc2b5797ae5cabe61ffd94f69fe",
     "validation_cases/analytical/transient/linearized_unconfined_recharge_periodic_1d/tolerances.toml": "32b1e0a1c039cae537c6a4a1a25f78663882c27642cc21fd5092ce217dbe02e6",
     "validation_cases/analytical/transient/linearized_unconfined_recharge_periodic_1d/tolerances_modflow6.toml": "c2c6077d9fb01c6c226efbc96672482b509882109942eb0266be8efa154e1a1f",
-    "validation_cases/analytical/transient/linearized_unconfined_recharge_periodic_1d/config_modflow6.toml": "e39bd40d3d962745dc1d30349d41115a95f59f27f6bf2f907395e15a689fb526",
+    "validation_cases/analytical/transient/linearized_unconfined_recharge_periodic_1d/config_modflow6.toml": "5178d0ddd7e825c92998ab69a7ab05c4e9c300a82ea20cf81d199aec22050129",
     "validation_cases/analytical/transient/linearized_unconfined_recharge_periodic_1d/config_boussinesq.toml": "bf9a68e7c1dca1d194187dc5584f7f51dc4243bfab5d762e437760d1a797434c",
-    "validation_cases/shared/boussinesq_uniform_strip.py": "30c6e0c6cec9aaece01246cc109d47043eed032725b0a496874d6f744c04901f",
-    "validation_cases/analytical/transient/linearized_unconfined_1d.py": "87bd0c802ef3b86b88f5791b1ece5a70095f146920ffb3ad44aab32115921b00"
+    "validation_cases/shared/boussinesq_uniform_strip.py": "4c7b6bc8f898f453c77f94c542591d3b1b4e8f7f0a785fe8a6bc7d4ed44d0473",
+    "validation_cases/analytical/transient/linearized_unconfined_1d.py": "c8ccdde712d17a661edce5e50bcd81608a5ef00e53d9d3a0ef4dfc5632e5c42e"
   },
   "docname": "cases/linearized_unconfined_recharge_periodic_1d",
   "images": [
@@ -500,6 +500,12 @@
       }
     ],
     "common_setup": [
+      {
+        "field": "workflow",
+        "meaning": "Case-specific configuration field `workflow` used by the validation benchmark.",
+        "value": "simulation",
+        "source": "validation_cases/analytical/transient/linearized_unconfined_recharge_periodic_1d/config_modflownwt.toml"
+      },
       {
         "field": "simulation.time.start_datetime",
         "meaning": "Simulation start time used by the benchmark.",

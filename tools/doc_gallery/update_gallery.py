@@ -1191,7 +1191,7 @@ def _sanitize_regional_lab_artifact_payload(payload: Any) -> Any:
 
 
 def _generate_regional_lab_case(spec: GalleryCaseSpec, source_root: Path) -> dict[str, Any]:
-    from launchers.regional_lab.launcher import RegionalLabLauncher
+    from hydromodpy.analysis.batch.runtime import RegionalLabLauncher
 
     config_path = _repo_path(str(spec.metadata["regional_lab_config_path"]))
     with _temporary_gallery_dir(prefix="hydromodpy_doc_gallery_regional_lab_") as temp_dir:

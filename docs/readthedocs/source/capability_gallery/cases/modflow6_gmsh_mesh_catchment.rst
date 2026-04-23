@@ -34,7 +34,7 @@ Case Setup
 
 - Entry config: `run_fast_mf6_mesh_catchment.toml` overlays one shared base profile and adds the fast-run forcing, timeline, and solver choices.
 - Execution chain: geographic setup -> `mesh_catchment` -> runtime triangular mesh -> MODFLOW 6 flow -> MODFLOW 6 transport -> postprocess/display.
-- Only selected synthesis figures are republished into `examples/capability_gallery/`; the full run workspace stays outside the doc tree.
+- Only selected synthesis figures are republished into `examples/projects/09_capability_gallery/`; the full run workspace stays outside the doc tree.
 
 What It Shows
 -------------
@@ -64,7 +64,7 @@ Run the underlying example or validation case with:
 
 .. code-block:: bash
 
-   python -m hydromodpy run examples/projects/launcher_simulation/run_fast_mf6_mesh_catchment.toml
+   python -m hydromodpy run examples_legacy_2/projects/launcher_simulation/run_fast_mf6_mesh_catchment.toml
 
 Refresh the committed gallery artifacts with:
 
@@ -89,35 +89,35 @@ Selected Parameters
    * - ``[simulation.time] start_datetime``
      - Start of the simulated period used by the flow and transport run.
      - 2003-01-01 00:00:00
-     - ``examples/projects/launcher_simulation/run_fast_mf6_mesh_catchment.toml``
+     - ``examples_legacy_2/projects/launcher_simulation/run_fast_mf6_mesh_catchment.toml``
    * - ``[simulation.time] end_datetime``
      - End of the simulated period used by the flow and transport run.
      - 2003-03-31 00:00:00
-     - ``examples/projects/launcher_simulation/run_fast_mf6_mesh_catchment.toml``
+     - ``examples_legacy_2/projects/launcher_simulation/run_fast_mf6_mesh_catchment.toml``
    * - ``[simulation.time] step_value``
      - Nominal time step used to discretize the simulation period.
      - 10 day
-     - ``examples/projects/launcher_simulation/run_fast_mf6_mesh_catchment.toml``
+     - ``examples_legacy_2/projects/launcher_simulation/run_fast_mf6_mesh_catchment.toml``
    * - ``[data.recharge.sources] values``
      - Synthetic recharge sequence injected into the run over the configured time support.
      - 0.2, 6, 1, 0, 4.5, 8, 0.5, 0, 3.5
-     - ``examples/projects/launcher_simulation/run_fast_mf6_mesh_catchment.toml``
+     - ``examples_legacy_2/projects/launcher_simulation/run_fast_mf6_mesh_catchment.toml``
    * - ``[data.recharge.sources] freq``
      - Temporal frequency used to interpret the synthetic recharge sequence.
      - 10D
-     - ``examples/projects/launcher_simulation/run_fast_mf6_mesh_catchment.toml``
+     - ``examples_legacy_2/projects/launcher_simulation/run_fast_mf6_mesh_catchment.toml``
    * - ``[data.recharge.sources] runoff_ratio``
      - Fraction of recharge redirected to runoff rather than infiltration.
      - 0.1
-     - ``examples/projects/launcher_simulation/run_fast_mf6_mesh_catchment.toml``
+     - ``examples_legacy_2/projects/launcher_simulation/run_fast_mf6_mesh_catchment.toml``
    * - ``[flow.param.K.field_homogeneous] value``
      - Homogeneous hydraulic conductivity used by the flow model in this tutorial run.
      - 1e-5 m/s
-     - ``examples/projects/launcher_simulation/run_fast_mf6_mesh_catchment.toml``
+     - ``examples_legacy_2/projects/launcher_simulation/run_fast_mf6_mesh_catchment.toml``
    * - ``[flow.param.Sy.field_homogeneous] value``
      - Specific yield used to control the free-surface response of the aquifer.
      - 0.12 -
-     - ``examples/projects/launcher_simulation/run_fast_mf6_mesh_catchment.toml``
+     - ``examples_legacy_2/projects/launcher_simulation/run_fast_mf6_mesh_catchment.toml``
 
 Mesh and Output Selection
 ^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -133,31 +133,32 @@ Mesh and Output Selection
    * - ``[mesh_catchment] constraints_mode``
      - Constraint family activated when building the runtime Gmsh support.
      - geology_rivers
-     - ``examples/projects/launcher_simulation/config_mf6_mesh_catchment_common.toml``
+     - ``examples_legacy_2/projects/launcher_simulation/config_mf6_mesh_catchment_common.toml``
    * - ``[mesh_catchment.zone_meshing] global_size``
      - Target background edge size used by the conformal meshing policy.
      - 136
-     - ``examples/projects/launcher_simulation/config_mf6_mesh_catchment_common.toml``
+     - ``examples_legacy_2/projects/launcher_simulation/config_mf6_mesh_catchment_common.toml``
    * - ``[mesh_catchment.zone_meshing] min_size``
      - Lower bound applied to local mesh refinement.
      - 100
-     - ``examples/projects/launcher_simulation/config_mf6_mesh_catchment_common.toml``
+     - ``examples_legacy_2/projects/launcher_simulation/config_mf6_mesh_catchment_common.toml``
    * - ``[mesh_catchment.zone_meshing] max_size``
      - Upper bound applied to local mesh coarsening.
      - 200
-     - ``examples/projects/launcher_simulation/config_mf6_mesh_catchment_common.toml``
+     - ``examples_legacy_2/projects/launcher_simulation/config_mf6_mesh_catchment_common.toml``
    * - ``[capability_gallery] assets``
      - Subset of run outputs copied into the static documentation gallery.
      - flow_state_triptych.png, recharge_discharge_cumulative.png, watertable_elevation.png, watertable_depth.png, flow_support_overview.png
-     - ``examples/projects/launcher_simulation/run_fast_mf6_mesh_catchment.toml``
+     - ``examples_legacy_2/projects/launcher_simulation/run_fast_mf6_mesh_catchment.toml``
 
 Source Pointers
 ---------------
 
-- ``examples/projects/launcher_simulation/run_fast_mf6_mesh_catchment.toml``
-- ``examples/projects/launcher_simulation/config_mf6_mesh_catchment_common.toml``
-- ``examples/capability_gallery/launcher_simulation/modflow6_gmsh_mesh_catchment/manifest.json``
-- ``hydromodpy/analysis/display/figures/flow_synthesis.py``
+- ``examples_legacy_2/projects/launcher_simulation/run_fast_mf6_mesh_catchment.toml``
+- ``examples_legacy_2/projects/launcher_simulation/config_mf6_mesh_catchment_common.toml``
+- ``examples/projects/09_capability_gallery/launcher_simulation/modflow6_gmsh_mesh_catchment/manifest.json``
+- ``hydromodpy/display/__init__.py``
+- ``hydromodpy/display/figures/__init__.py``
 - ``hydromodpy/analysis/capability_gallery.py``
 
 Artifacts

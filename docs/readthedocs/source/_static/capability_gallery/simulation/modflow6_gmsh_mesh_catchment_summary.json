@@ -8,7 +8,7 @@
   "case_setup": [
     "Entry config: `run_fast_mf6_mesh_catchment.toml` overlays one shared base profile and adds the fast-run forcing, timeline, and solver choices.",
     "Execution chain: geographic setup -> `mesh_catchment` -> runtime triangular mesh -> MODFLOW 6 flow -> MODFLOW 6 transport -> postprocess/display.",
-    "Only selected synthesis figures are republished into `examples/capability_gallery/`; the full run workspace stays outside the doc tree."
+    "Only selected synthesis figures are republished into `examples/projects/09_capability_gallery/`; the full run workspace stays outside the doc tree."
   ],
   "key_parameters": [
     "`[simulation.time] step_value`, `start_datetime`, and `end_datetime` define the time support of the run and the interpretation of the recharge chronology.",
@@ -37,21 +37,23 @@
   "equations_rst": [],
   "walkthrough_doc": "getting_started/simulation-walkthrough",
   "walkthrough_title": "the Simulation walkthrough",
-  "reproduction_command": "python -m hydromodpy run examples/projects/launcher_simulation/run_fast_mf6_mesh_catchment.toml",
+  "reproduction_command": "python -m hydromodpy run examples_legacy_2/projects/launcher_simulation/run_fast_mf6_mesh_catchment.toml",
   "gallery_update_command": "python -m tools.doc_gallery",
   "source_paths": [
-    "examples/projects/launcher_simulation/run_fast_mf6_mesh_catchment.toml",
-    "examples/projects/launcher_simulation/config_mf6_mesh_catchment_common.toml",
-    "examples/capability_gallery/launcher_simulation/modflow6_gmsh_mesh_catchment/manifest.json",
-    "hydromodpy/analysis/display/figures/flow_synthesis.py",
+    "examples_legacy_2/projects/launcher_simulation/run_fast_mf6_mesh_catchment.toml",
+    "examples_legacy_2/projects/launcher_simulation/config_mf6_mesh_catchment_common.toml",
+    "examples/projects/09_capability_gallery/launcher_simulation/modflow6_gmsh_mesh_catchment/manifest.json",
+    "hydromodpy/display/__init__.py",
+    "hydromodpy/display/figures/__init__.py",
     "hydromodpy/analysis/capability_gallery.py"
   ],
   "source_hashes": {
-    "examples/projects/launcher_simulation/run_fast_mf6_mesh_catchment.toml": "17d15c8629d6fbc75c4b944eb612d539fa1633b682d0a10c1c9079b2d7fec87f",
-    "examples/projects/launcher_simulation/config_mf6_mesh_catchment_common.toml": "c94f850d4389bd98a68846dabdccdbd268163df92d763936ac59c67a9f6ad885",
-    "examples/capability_gallery/launcher_simulation/modflow6_gmsh_mesh_catchment/manifest.json": "3f45c9dca46471a91c4f219eccecac64c66698498fe49233a82f8ebbb6a814e1",
-    "hydromodpy/analysis/display/figures/flow_synthesis.py": "96aae5243fdb0051ab385a8ec129515e70931e27a2556b092c33ff6b27c48891",
-    "hydromodpy/analysis/capability_gallery.py": "eaf28e15cadf039b5e7e78bc62e9257b254507c43855607f5247a5473885a704"
+    "examples_legacy_2/projects/launcher_simulation/run_fast_mf6_mesh_catchment.toml": "572decacd4b3d956fdf89312d61c415c485dc08acd435e351e33b63f25371186",
+    "examples_legacy_2/projects/launcher_simulation/config_mf6_mesh_catchment_common.toml": "dbd2fed65dfc15b372ec3f565f1bdc485dab3704d2a88064e217d42631908df9",
+    "examples/projects/09_capability_gallery/launcher_simulation/modflow6_gmsh_mesh_catchment/manifest.json": "67824f0927444255b6d5bd8c02a4ee137361f8d54d74240e57c2b19bcb468c73",
+    "hydromodpy/display/__init__.py": "7b5e36ba66b417385f21e0965b47f9018c9ab7d03573d32da1d36dccb729facc",
+    "hydromodpy/display/figures/__init__.py": "9a064174ee7fca56b71a714b55ab6f411af66a372bd861d6a68511152960ff36",
+    "hydromodpy/analysis/capability_gallery.py": "77bf173e6ba84192cd0282da330c5069a675d9b2aee7cfaac29ed3365d2dbe38"
   },
   "docname": "cases/modflow6_gmsh_mesh_catchment",
   "images": [
@@ -107,15 +109,15 @@
     ],
     "copied_assets": [
       {
-        "source_path": "examples/capability_gallery/launcher_simulation/modflow6_gmsh_mesh_catchment/flow_state_triptych.png",
+        "source_path": "examples/projects/09_capability_gallery/launcher_simulation/modflow6_gmsh_mesh_catchment/flow_state_triptych.png",
         "copied_to": "docs/readthedocs/source/_static/capability_gallery/simulation/modflow6_gmsh_flow_state_triptych.png"
       },
       {
-        "source_path": "examples/capability_gallery/launcher_simulation/modflow6_gmsh_mesh_catchment/recharge_discharge_cumulative.png",
+        "source_path": "examples/projects/09_capability_gallery/launcher_simulation/modflow6_gmsh_mesh_catchment/recharge_discharge_cumulative.png",
         "copied_to": "docs/readthedocs/source/_static/capability_gallery/simulation/modflow6_gmsh_recharge_discharge_cumulative.png"
       },
       {
-        "source_path": "examples/capability_gallery/launcher_simulation/modflow6_gmsh_mesh_catchment/flow_support_overview.png",
+        "source_path": "examples/projects/09_capability_gallery/launcher_simulation/modflow6_gmsh_mesh_catchment/flow_support_overview.png",
         "copied_to": "docs/readthedocs/source/_static/capability_gallery/simulation/modflow6_gmsh_support_overview.png"
       }
     ]
@@ -138,49 +140,49 @@
             "field": "[simulation.time] start_datetime",
             "meaning": "Start of the simulated period used by the flow and transport run.",
             "value": "2003-01-01 00:00:00",
-            "source": "examples/projects/launcher_simulation/run_fast_mf6_mesh_catchment.toml"
+            "source": "examples_legacy_2/projects/launcher_simulation/run_fast_mf6_mesh_catchment.toml"
           },
           {
             "field": "[simulation.time] end_datetime",
             "meaning": "End of the simulated period used by the flow and transport run.",
             "value": "2003-03-31 00:00:00",
-            "source": "examples/projects/launcher_simulation/run_fast_mf6_mesh_catchment.toml"
+            "source": "examples_legacy_2/projects/launcher_simulation/run_fast_mf6_mesh_catchment.toml"
           },
           {
             "field": "[simulation.time] step_value",
             "meaning": "Nominal time step used to discretize the simulation period.",
             "value": "10 day",
-            "source": "examples/projects/launcher_simulation/run_fast_mf6_mesh_catchment.toml"
+            "source": "examples_legacy_2/projects/launcher_simulation/run_fast_mf6_mesh_catchment.toml"
           },
           {
             "field": "[data.recharge.sources] values",
             "meaning": "Synthetic recharge sequence injected into the run over the configured time support.",
             "value": "0.2, 6, 1, 0, 4.5, 8, 0.5, 0, 3.5",
-            "source": "examples/projects/launcher_simulation/run_fast_mf6_mesh_catchment.toml"
+            "source": "examples_legacy_2/projects/launcher_simulation/run_fast_mf6_mesh_catchment.toml"
           },
           {
             "field": "[data.recharge.sources] freq",
             "meaning": "Temporal frequency used to interpret the synthetic recharge sequence.",
             "value": "10D",
-            "source": "examples/projects/launcher_simulation/run_fast_mf6_mesh_catchment.toml"
+            "source": "examples_legacy_2/projects/launcher_simulation/run_fast_mf6_mesh_catchment.toml"
           },
           {
             "field": "[data.recharge.sources] runoff_ratio",
             "meaning": "Fraction of recharge redirected to runoff rather than infiltration.",
             "value": "0.1",
-            "source": "examples/projects/launcher_simulation/run_fast_mf6_mesh_catchment.toml"
+            "source": "examples_legacy_2/projects/launcher_simulation/run_fast_mf6_mesh_catchment.toml"
           },
           {
             "field": "[flow.param.K.field_homogeneous] value",
             "meaning": "Homogeneous hydraulic conductivity used by the flow model in this tutorial run.",
             "value": "1e-5 m/s",
-            "source": "examples/projects/launcher_simulation/run_fast_mf6_mesh_catchment.toml"
+            "source": "examples_legacy_2/projects/launcher_simulation/run_fast_mf6_mesh_catchment.toml"
           },
           {
             "field": "[flow.param.Sy.field_homogeneous] value",
             "meaning": "Specific yield used to control the free-surface response of the aquifer.",
             "value": "0.12 -",
-            "source": "examples/projects/launcher_simulation/run_fast_mf6_mesh_catchment.toml"
+            "source": "examples_legacy_2/projects/launcher_simulation/run_fast_mf6_mesh_catchment.toml"
           }
         ]
       },
@@ -191,31 +193,31 @@
             "field": "[mesh_catchment] constraints_mode",
             "meaning": "Constraint family activated when building the runtime Gmsh support.",
             "value": "geology_rivers",
-            "source": "examples/projects/launcher_simulation/config_mf6_mesh_catchment_common.toml"
+            "source": "examples_legacy_2/projects/launcher_simulation/config_mf6_mesh_catchment_common.toml"
           },
           {
             "field": "[mesh_catchment.zone_meshing] global_size",
             "meaning": "Target background edge size used by the conformal meshing policy.",
             "value": "136",
-            "source": "examples/projects/launcher_simulation/config_mf6_mesh_catchment_common.toml"
+            "source": "examples_legacy_2/projects/launcher_simulation/config_mf6_mesh_catchment_common.toml"
           },
           {
             "field": "[mesh_catchment.zone_meshing] min_size",
             "meaning": "Lower bound applied to local mesh refinement.",
             "value": "100",
-            "source": "examples/projects/launcher_simulation/config_mf6_mesh_catchment_common.toml"
+            "source": "examples_legacy_2/projects/launcher_simulation/config_mf6_mesh_catchment_common.toml"
           },
           {
             "field": "[mesh_catchment.zone_meshing] max_size",
             "meaning": "Upper bound applied to local mesh coarsening.",
             "value": "200",
-            "source": "examples/projects/launcher_simulation/config_mf6_mesh_catchment_common.toml"
+            "source": "examples_legacy_2/projects/launcher_simulation/config_mf6_mesh_catchment_common.toml"
           },
           {
             "field": "[capability_gallery] assets",
             "meaning": "Subset of run outputs copied into the static documentation gallery.",
             "value": "flow_state_triptych.png, recharge_discharge_cumulative.png, watertable_elevation.png, watertable_depth.png, flow_support_overview.png",
-            "source": "examples/projects/launcher_simulation/run_fast_mf6_mesh_catchment.toml"
+            "source": "examples_legacy_2/projects/launcher_simulation/run_fast_mf6_mesh_catchment.toml"
           }
         ]
       }

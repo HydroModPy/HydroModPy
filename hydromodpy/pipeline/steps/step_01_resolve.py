@@ -31,6 +31,7 @@ class ResolveStep:
     name = "resolve"
     tin: ClassVar[type] = ValidatedState
     tout: ClassVar[type] = ResolvedState
+    config_sections: ClassVar[tuple[str, ...]] = ("workspace", "simulation")
 
     def run(self, state: PipelineState) -> PipelineState:
         from hydromodpy.core.state.run_state import WorkflowContext

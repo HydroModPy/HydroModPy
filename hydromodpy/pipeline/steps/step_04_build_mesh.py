@@ -26,6 +26,7 @@ class BuildMeshStep:
     name = "build_mesh"
     tin: ClassVar[type] = MeshedState
     tout: ClassVar[type] = MeshedState
+    config_sections: ClassVar[tuple[str, ...]] = ("domain.supports",)
 
     def run(self, state: PipelineState) -> PipelineState:
         from hydromodpy.workflow.steps.mesh import step_mesh, step_mesh_input

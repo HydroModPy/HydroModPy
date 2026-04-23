@@ -29,6 +29,11 @@ class SetupProcessStep:
     name = "setup_process"
     tin: ClassVar[type] = MeshedState
     tout: ClassVar[type] = SetupState
+    config_sections: ClassVar[tuple[str, ...]] = (
+        "domain.depth_model",
+        "flow.ic",
+        "simulation",
+    )
 
     def run(self, state: PipelineState) -> PipelineState:
         from hydromodpy.simulation import ensure_flow, ensure_transport

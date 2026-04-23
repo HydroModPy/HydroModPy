@@ -21,7 +21,7 @@ Case Setup
 ----------
 
 - Launcher family: `data-overview`, stopped after setup, domain assembly, data loading, and figure rendering.
-- Primary editable file: `examples/projects/Nancon_data_overview/config_hydrography_only.toml`.
+- Primary editable file: `examples/projects/05_nancon_data_overview/config_hydrography_only.toml`.
 - Only one output figure is enabled: `[overview.panels] map_hydrography = true`.
 
 What It Shows
@@ -51,7 +51,7 @@ Run the underlying example or validation case with:
 
 .. code-block:: bash
 
-   python -m launchers data-overview run examples/projects/Nancon_data_overview/config_hydrography_only.toml
+   python -m hydromodpy run examples/projects/05_nancon_data_overview/config_hydrography_only.toml
 
 Refresh the committed gallery artifacts with:
 
@@ -76,27 +76,27 @@ Selected Parameters
    * - ``[geographic] catch_def``
      - Watershed extraction mode used to derive the basin from the outlet definition.
      - from_outlet_coord
-     - ``examples/projects/Nancon_data_overview/config_hydrography_only.toml``
+     - ``examples/projects/05_nancon_data_overview/config_hydrography_only.toml``
    * - ``[geographic] x_outlet``
      - Projected x coordinate of the outlet used by watershed extraction.
      - 389286
-     - ``examples/projects/Nancon_data_overview/config_hydrography_only.toml``
+     - ``examples/projects/05_nancon_data_overview/config_hydrography_only.toml``
    * - ``[geographic] y_outlet``
      - Projected y coordinate of the outlet used by watershed extraction.
      - 6.81652e+06
-     - ``examples/projects/Nancon_data_overview/config_hydrography_only.toml``
+     - ``examples/projects/05_nancon_data_overview/config_hydrography_only.toml``
    * - ``[geographic] snap_dist``
      - Maximum snapping distance used to align the requested outlet with the drainage network.
      - 150 m
-     - ``examples/projects/Nancon_data_overview/config_hydrography_only.toml``
+     - ``examples/projects/05_nancon_data_overview/config_hydrography_only.toml``
    * - ``[geographic] buff_area``
      - Extra area kept around the watershed to preserve regional context in overview figures.
      - 20%
-     - ``examples/projects/Nancon_data_overview/config_hydrography_only.toml``
+     - ``examples/projects/05_nancon_data_overview/config_hydrography_only.toml``
    * - ``[data] types``
      - Families of data loaded during the data-overview workflow.
      - hydrography
-     - ``examples/projects/Nancon_data_overview/config_hydrography_only.toml``
+     - ``examples/projects/05_nancon_data_overview/config_hydrography_only.toml``
 
 Loaded Data Families
 ^^^^^^^^^^^^^^^^^^^^
@@ -112,11 +112,11 @@ Loaded Data Families
    * - ``[data] types``
      - Ordered list of data families requested by the overview case.
      - hydrography
-     - ``examples/projects/Nancon_data_overview/config_hydrography_only.toml``
+     - ``examples/projects/05_nancon_data_overview/config_hydrography_only.toml``
    * - ``[data.hydrography.sources]``
      - Configured providers used to load the `hydrography` family in this case.
      - bdtopage
-     - ``examples/projects/Nancon_data_overview/config_hydrography_only.toml``
+     - ``examples/projects/05_nancon_data_overview/config_hydrography_only.toml``
 
 Hydrography Source Options
 ^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -132,19 +132,19 @@ Hydrography Source Options
    * - ``[[data.hydrography.sources]] source``
      - Hydrography provider used for the displayed river network.
      - bdtopage
-     - ``examples/projects/Nancon_data_overview/config_hydrography_only.toml``
+     - ``examples/projects/05_nancon_data_overview/config_hydrography_only.toml``
    * - ``[[data.hydrography.sources]] typename``
      - Optional WFS typename used when the hydrography source is BD Topage.
      - sa:CoursEau_FXX_Topage2025
-     - ``examples/projects/Nancon_data_overview/config_hydrography_only.toml``
+     - ``examples/projects/05_nancon_data_overview/config_hydrography_only.toml``
    * - ``[[data.hydrography.sources]] page_size``
      - Pagination size requested from the remote hydrography API when relevant.
      - 1000
-     - ``examples/projects/Nancon_data_overview/config_hydrography_only.toml``
+     - ``examples/projects/05_nancon_data_overview/config_hydrography_only.toml``
    * - ``[[data.hydrography.sources]] rasterize_field``
      - Attribute used when rasterizing the clipped vector network to the watershed grid.
      - FID
-     - ``examples/projects/Nancon_data_overview/config_hydrography_only.toml``
+     - ``examples/projects/05_nancon_data_overview/config_hydrography_only.toml``
 
 Overview Panels
 ^^^^^^^^^^^^^^^
@@ -160,35 +160,35 @@ Overview Panels
    * - ``[overview] name``
      - Title injected into the generated overview panels.
      - Canut
-     - ``examples/projects/Nancon_data_overview/config_hydrography_only.toml``
+     - ``examples/projects/05_nancon_data_overview/config_hydrography_only.toml``
    * - ``[overview.panels] enabled``
      - Panel toggles enabled for this overview run.
      - map_hydrography
-     - ``examples/projects/Nancon_data_overview/config_hydrography_only.toml``
+     - ``examples/projects/05_nancon_data_overview/config_hydrography_only.toml``
    * - ``[overview.panels] map_dem``
      - Whether the `map_dem` panel is rendered for this overview case.
      - false
-     - ``examples/projects/Nancon_data_overview/config_hydrography_only.toml``
+     - ``examples/projects/05_nancon_data_overview/config_hydrography_only.toml``
    * - ``[overview.panels] map_geology``
      - Whether the `map_geology` panel is rendered for this overview case.
      - false
-     - ``examples/projects/Nancon_data_overview/config_hydrography_only.toml``
+     - ``examples/projects/05_nancon_data_overview/config_hydrography_only.toml``
    * - ``[overview.panels] map_hydrography``
      - Whether the `map_hydrography` panel is rendered for this overview case.
      - true
-     - ``examples/projects/Nancon_data_overview/config_hydrography_only.toml``
+     - ``examples/projects/05_nancon_data_overview/config_hydrography_only.toml``
    * - ``[overview.panels] stats_card``
      - Whether the `stats_card` panel is rendered for this overview case.
      - false
-     - ``examples/projects/Nancon_data_overview/config_hydrography_only.toml``
+     - ``examples/projects/05_nancon_data_overview/config_hydrography_only.toml``
 
 Source Pointers
 ---------------
 
 - ``tools/doc_gallery/manifests/geographic_cases.json``
-- ``examples/projects/Nancon_data_overview/config_hydrography_only.toml``
-- ``examples/capability_gallery/geographic/README.md``
-- ``examples/capability_gallery/geographic/bdtopage_hydrography_overlay/geographic_bdtopage_hydrography_overlay.png``
+- ``examples/projects/05_nancon_data_overview/config_hydrography_only.toml``
+- ``examples/projects/09_capability_gallery/geographic/README.md``
+- ``examples/projects/09_capability_gallery/geographic/bdtopage_hydrography_overlay/geographic_bdtopage_hydrography_overlay.png``
 
 Artifacts
 ---------

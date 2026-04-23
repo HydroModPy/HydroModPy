@@ -67,7 +67,7 @@ Run the underlying example or validation case with:
 
 .. code-block:: bash
 
-   python -m launchers regional-lab run examples/projects/launcher_simulation/regional_lab/config_headwater_100km2_lab_backend_compare.toml
+   python -m hydromodpy run examples_legacy_2/projects/launcher_simulation/regional_lab/config_headwater_100km2_lab_backend_compare.toml
 
 Refresh the committed gallery artifacts with:
 
@@ -78,14 +78,14 @@ Refresh the committed gallery artifacts with:
 Source Pointers
 ---------------
 
-- ``examples/projects/launcher_simulation/regional_lab/config_headwater_100km2_lab_backend_compare.toml``
-- ``launchers/regional_lab/README.md``
-- ``launchers/regional_lab/config.py``
-- ``launchers/regional_lab/launcher.py``
-- ``examples/projects/launcher_simulation/regional_lab/README.md``
-- ``examples/projects/launcher_simulation/regional_lab/config_headwater_100km2_lab.toml``
-- ``examples/projects/launcher_simulation/regional_lab/site_catalog.csv``
-- ``examples/projects/launcher_simulation/run_method_comparison_headwater_100km2_outlet_2_backends.toml``
+- ``examples_legacy_2/projects/launcher_simulation/regional_lab/config_headwater_100km2_lab_backend_compare.toml``
+- ``hydromodpy/analysis/batch/__init__.py``
+- ``hydromodpy/analysis/batch/config.py``
+- ``hydromodpy/analysis/batch/runtime.py``
+- ``examples_legacy_2/projects/launcher_simulation/regional_lab/README.md``
+- ``examples_legacy_2/projects/launcher_simulation/regional_lab/config_headwater_100km2_lab.toml``
+- ``examples_legacy_2/projects/launcher_simulation/regional_lab/site_catalog.csv``
+- ``examples_legacy_2/projects/launcher_simulation/run_method_comparison_headwater_100km2_outlet_2_backends.toml``
 
 Artifacts
 ---------

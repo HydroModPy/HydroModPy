@@ -74,78 +74,17 @@ Solver Coverage
 
    .. tab-item:: MODFLOW 6
 
+      .. figure:: /_static/capability_gallery/validation/late_time_unconfined_pumping_2d__modflow6.png
+         :alt: Late-Time Unconfined Pumping 2D validation figure for MODFLOW 6
+         :width: 100%
+
+         Late-Time Unconfined Pumping 2D rendered with MODFLOW 6 for the analytical gallery.
+
       **Metrics**
-      - Gallery generation failed for this solver: AssertionError: launcher_simulation.py failed.
-
-        .. code-block:: text
-
-           Command: C:\Users\dreuzy\.conda\envs\hydromodpy\python.exe C:\codes\HydroModPy-GH\examples\projects\launcher_simulation\launcher_simulation.py C:\codes\HydroModPy-GH\validation_cases\analytical\transient\late_time_unconfined_pumping_2d\.__validation_runtime_config_modflow6_modflow6_127480.toml
-           Return code: 1
-           Stdout:
-
-           Stderr:
-           C:\Users\dreuzy\.conda\envs\hydromodpy\Lib\site-packages\xarray\backends\scipy_.py:39: UserWarning: A NumPy version >=1.23.5 and <2.3.0 is required for this version of SciPy (detected version 2.4.3)
-             from scipy.io import netcdf_file as netcdf_file_base
-           Traceback (most recent call last):
-             File "C:\codes\HydroModPy-GH\examples\projects\launcher_simulation\launcher_simulation.py", line 30, in <module>
-               from launchers import HydroModPyLauncher
-             File "<frozen importlib._bootstrap>", line 1412, in _handle_fromlist
-             File "C:\codes\HydroModPy-GH\launchers\__init__.py", line 37, in __getattr__
-               from launchers.process_simulation.launcher import HydroModPyLauncher
-             File "C:\codes\HydroModPy-GH\launchers\process_simulation\__init__.py", line 3, in <module>
-               from launchers.process_simulation.launcher import HydroModPyLauncher
-             File "C:\codes\HydroModPy-GH\launchers\process_simulation\launcher.py", line 54, in <module>
-               import hydromodpy as hmp
-             File "C:\codes\HydroModPy-GH\hydromodpy\__init__.py", line 242, in <module>
-               from hydromodpy.core.tools.log_manager import LogManager
-             File "C:\codes\HydroModPy-GH\hydromodpy\core\__init__.py", line 3, in <module>
-               from hydromodpy.core.config import HydroModPyConfig
-             File "<frozen importlib._bootstrap>", line 1412, in _handle_fromlist
-             File "C:\codes\HydroModPy-GH\hydromodpy\core\config\__init__.py", line 6, in __getattr__
-               from hydromodpy.core.config.hydromodpy_config import HydroModPyConfig
-             File "C:\codes\HydroModPy-GH\hydromodpy\core\config\hydromodpy_config.py", line 34, in <module>
-               from hydromodpy.analysis.display.options import DisplayConfig
-             File "C:\codes\HydroModPy-GH\hydromodpy\analysis\display\__init__.py", line 13, in <module>
-               from hydromodpy.analysis.display.orchestration import (
-               ...<4 lines>...
-               )
-             File "C:\codes\HydroModPy-GH\hydromodpy\analysis\display\orchestration.py", line 6, in <module>
-               from hydromodpy.analysis.display.suites import (
-               ...<4 lines>...
-               )
-             File "C:\codes\HydroModPy-GH\hydromodpy\analysis\display\suites.py", line 15, in <module>
-               from hydromodpy.solver.boussinesq.history_contract import (
-               ...<2 lines>...
-               )
-             File "C:\codes\HydroModPy-GH\hydromodpy\solver\boussinesq\__init__.py", line 22, in <module>
-               from hydromodpy.solver.boussinesq.boussinesq import Boussinesq
-             File "C:\codes\HydroModPy-GH\hydromodpy\solver\boussinesq\boussinesq.py", line 28, in <module>
-               from hydromodpy.solver.boussinesq.assembly import (
-                   saturated_thickness_from_head,
-               )
-             File "C:\codes\HydroModPy-GH\hydromodpy\solver\boussinesq\assembly.py", line 24, in <module>
-               @dataclass(frozen=True)
-                ~~~~~~~~~^^^^^^^^^^^^^
-             File "C:\Users\dreuzy\.conda\envs\hydromodpy\Lib\dataclasses.py", line 1295, in wrap
-               return _process_class(cls, init, repr, eq, order, unsafe_hash,
-                                     frozen, match_args, kw_only, slots,
-                                     weakref_slot)
-             File "C:\Users\dreuzy\.conda\envs\hydromodpy\Lib\dataclasses.py", line 1078, in _process_class
-               _init_fn(all_init_fields,
-               ~~~~~~~~^^^^^^^^^^^^^^^^^
-                        std_init_fields,
-                        ^^^^^^^^^^^^^^^^
-               ...<9 lines>...
-                        slots,
-                        ^^^^^^
-                        )
-                        ^
-             File "C:\Users\dreuzy\.conda\envs\hydromodpy\Lib\dataclasses.py", line 627, in _init_fn
-               raise TypeError(f'non-default argument {f.name!r} '
-                               f'follows default argument {seen_default.name!r}')
-           TypeError: non-default argument 'drainage_flux_m3_s' follows default argument 'boundary_edge_flux_m3_s'
-
-           Workspace resolution failed: Results folder not found: C:\results\HydromodPy\validation\run_case\late_time_unconfi_2a1898ea00_4738e042\results_simulations
+      - Space-time RMSE: 0.0114 m
+      - Space-time max abs error: 0.0623 m
+      - Final-time RMSE: 0.0057 m
+      - Azimuthal spread: 1.96e-07 m
 
       - Config file: ``validation_cases/analytical/transient/late_time_unconfined_pumping_2d/config_modflow6.toml``
       - Tolerances: ``validation_cases/analytical/transient/late_time_unconfined_pumping_2d/tolerances_modflow6.toml``
@@ -270,6 +209,10 @@ Common Numerical Setup
      - Meaning
      - Value
      - Source
+   * - ``workflow``
+     - Case-specific configuration field `workflow` used by the validation benchmark.
+     - simulation
+     - ``validation_cases/analytical/transient/late_time_unconfined_pumping_2d/config_modflownwt.toml``
    * - ``simulation.time.start_datetime``
      - Simulation start time used by the benchmark.
      - 2003-01-01 00:00:00
@@ -650,5 +593,6 @@ Artifacts
 ---------
 
 - ``docs/readthedocs/source/_static/capability_gallery/validation/late_time_unconfined_pumping_2d__modflownwt.png``
+- ``docs/readthedocs/source/_static/capability_gallery/validation/late_time_unconfined_pumping_2d__modflow6.png``
 - ``docs/readthedocs/source/_static/capability_gallery/validation/late_time_unconfined_pumping_2d__boussinesq.png``
 - ``docs/readthedocs/source/_static/capability_gallery/validation/late_time_unconfined_pumping_2d_summary.json`` stores the displayed metrics plus source hashes used by ``python -m tools.doc_gallery --check``.

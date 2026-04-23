@@ -225,7 +225,7 @@ class TestCalibrationPersist:
             iteration_history_path=history_path,
         )
 
-        from hydromodpy.analysis.calibration.engine.session import persist_to_catalog
+        from hydromodpy.calibration.benchmark import persist_to_catalog
 
         persist_to_catalog(fake, catalog, best_sim_id=sid)
 

@@ -12,8 +12,8 @@ pytest.skip(
 import math  # noqa: E402
 from pathlib import Path  # noqa: E402
 
-from hydromodpy.analysis.calibration.engine.launcher import ModelCalibrationLauncher  # noqa: E402
-from hydromodpy.analysis.calibration.engine.session import (  # noqa: E402
+from hydromodpy.calibration.benchmark import (  # noqa: E402
+    ModelCalibrationLauncher,
     actualize_candidate,
     select_candidate_outputs,
 )

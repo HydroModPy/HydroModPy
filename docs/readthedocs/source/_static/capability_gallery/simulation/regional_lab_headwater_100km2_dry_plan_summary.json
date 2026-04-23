@@ -35,23 +35,23 @@
   "equations_rst": [],
   "walkthrough_doc": "getting_started/simulation-walkthrough",
   "walkthrough_title": "the Simulation walkthrough",
-  "reproduction_command": "python -m launchers regional-lab run examples/projects/launcher_simulation/regional_lab/config_headwater_100km2_lab.toml",
+  "reproduction_command": "python -m hydromodpy run examples_legacy_2/projects/launcher_simulation/regional_lab/config_headwater_100km2_lab.toml",
   "gallery_update_command": "python -m tools.doc_gallery",
   "source_paths": [
-    "launchers/regional_lab/README.md",
-    "launchers/regional_lab/config.py",
-    "launchers/regional_lab/launcher.py",
-    "examples/projects/launcher_simulation/regional_lab/README.md",
-    "examples/projects/launcher_simulation/regional_lab/config_headwater_100km2_lab.toml",
-    "examples/projects/launcher_simulation/regional_lab/site_catalog.csv"
+    "hydromodpy/analysis/batch/__init__.py",
+    "hydromodpy/analysis/batch/config.py",
+    "hydromodpy/analysis/batch/runtime.py",
+    "examples_legacy_2/projects/launcher_simulation/regional_lab/README.md",
+    "examples_legacy_2/projects/launcher_simulation/regional_lab/config_headwater_100km2_lab.toml",
+    "examples_legacy_2/projects/launcher_simulation/regional_lab/site_catalog.csv"
   ],
   "source_hashes": {
-    "launchers/regional_lab/README.md": "ea3b1c694e890801aa4352c58bfeea6dc50ca61783cf23dd9133b6a2e089107c",
-    "launchers/regional_lab/config.py": "824b88b0e094d12730fcc91cf1b19ac4d71444dad765922d7c4a9a2243b03de0",
-    "launchers/regional_lab/launcher.py": "f9ea9b8fbe7210433ef3ca019bcd7bab63c40048784e19a646f41b43cf94b520",
-    "examples/projects/launcher_simulation/regional_lab/README.md": "2597c1c9ff2ec3924c6675b1c811749075bf669c9770c6a7b8fedb294100167a",
-    "examples/projects/launcher_simulation/regional_lab/config_headwater_100km2_lab.toml": "22ce1b90ad02fbc8693b3a1fed287a64ef649f0fdd7a6172db5f912cbae8c63d",
-    "examples/projects/launcher_simulation/regional_lab/site_catalog.csv": "6c0676f1e4f94cfc950a774f73eb863dd81ffb250eb1312c6379badfe4e3dda5"
+    "hydromodpy/analysis/batch/__init__.py": "a456178f0f80ef7fb8acc4b2e550aa776cbeb755d224f959fe7d5597d462849d",
+    "hydromodpy/analysis/batch/config.py": "143de773efb5875e2d9a07008d189e36fca510c1bb712da6240d536718264f8f",
+    "hydromodpy/analysis/batch/runtime.py": "f05dd267e80c383e2df1d46dd002c8b3fd5dbfbce00c715fc19756b8a10c53e8",
+    "examples_legacy_2/projects/launcher_simulation/regional_lab/README.md": "a1910134f58cd8c49abe41d4e1f51adfd502266eba56dfb7b055c0dd72255b25",
+    "examples_legacy_2/projects/launcher_simulation/regional_lab/config_headwater_100km2_lab.toml": "7832458061e2960886a245c39b4dab3fc05b47a5b45a79159736f1cd90f7a572",
+    "examples_legacy_2/projects/launcher_simulation/regional_lab/site_catalog.csv": "ea2ad802cf1325c4ddf0250fc415ef30252bab9f5afdb26f2a025fb9283375f8"
   },
   "docname": "cases/regional_lab_headwater_100km2_dry_plan",
   "images": [
@@ -90,7 +90,7 @@
     }
   ],
   "metadata": {
-    "regional_lab_config_path": "examples/projects/launcher_simulation/regional_lab/config_headwater_100km2_lab.toml",
+    "regional_lab_config_path": "examples_legacy_2/projects/launcher_simulation/regional_lab/config_headwater_100km2_lab.toml",
     "study_area": "Brittany regional laboratory",
     "process_families": [
       "planning",

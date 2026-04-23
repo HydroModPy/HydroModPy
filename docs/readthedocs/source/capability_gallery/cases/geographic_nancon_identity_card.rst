@@ -59,8 +59,8 @@ Case Setup
 ----------
 
 - Launcher family: `data-overview`, so the workflow stops after geographic setup, data loading, and overview rendering.
-- Primary editable file: `examples/projects/Nancon_data_overview/config_overview.toml`.
-- The committed identity-card figures are mirrored under `examples/capability_gallery/geographic/` so the gallery no longer depends on one local `results_stable` tree.
+- Primary editable file: `examples/projects/05_nancon_data_overview/config_overview.toml`.
+- The committed identity-card figures are mirrored under `examples/projects/09_capability_gallery/geographic/` so the gallery no longer depends on one local `results_stable` tree.
 
 What It Shows
 -------------
@@ -89,7 +89,7 @@ Run the underlying example or validation case with:
 
 .. code-block:: bash
 
-   python -m launchers data-overview run examples/projects/Nancon_data_overview/config_overview.toml
+   python -m hydromodpy run examples/projects/05_nancon_data_overview/config_overview.toml
 
 Refresh the committed gallery artifacts with:
 
@@ -114,27 +114,27 @@ Selected Parameters
    * - ``[geographic] catch_def``
      - Watershed extraction mode used to derive the basin from the outlet definition.
      - from_outlet_coord
-     - ``examples/projects/Nancon_data_overview/config_overview.toml``
+     - ``examples/projects/05_nancon_data_overview/config_overview.toml``
    * - ``[geographic] x_outlet``
      - Projected x coordinate of the outlet used by watershed extraction.
      - 389286
-     - ``examples/projects/Nancon_data_overview/config_overview.toml``
+     - ``examples/projects/05_nancon_data_overview/config_overview.toml``
    * - ``[geographic] y_outlet``
      - Projected y coordinate of the outlet used by watershed extraction.
      - 6.81652e+06
-     - ``examples/projects/Nancon_data_overview/config_overview.toml``
+     - ``examples/projects/05_nancon_data_overview/config_overview.toml``
    * - ``[geographic] snap_dist``
      - Maximum snapping distance used to align the requested outlet with the drainage network.
      - 150
-     - ``examples/projects/Nancon_data_overview/config_overview.toml``
+     - ``examples/projects/05_nancon_data_overview/config_overview.toml``
    * - ``[geographic] buff_area``
      - Extra area kept around the watershed to preserve regional context in overview figures.
      - 20
-     - ``examples/projects/Nancon_data_overview/config_overview.toml``
+     - ``examples/projects/05_nancon_data_overview/config_overview.toml``
    * - ``[data] types``
      - Families of data loaded during the data-overview workflow.
      - geology, hydrography, hydrometry, piezometry, intermittency, precipitation, etp, temperature, recharge, runoff, wind, humidity, radiation, soil_moisture, water_quality
-     - ``examples/projects/Nancon_data_overview/config_overview.toml``
+     - ``examples/projects/05_nancon_data_overview/config_overview.toml``
 
 Loaded Data Families
 ^^^^^^^^^^^^^^^^^^^^
@@ -150,71 +150,71 @@ Loaded Data Families
    * - ``[data] types``
      - Ordered list of data families requested by the overview case.
      - geology, hydrography, hydrometry, piezometry, intermittency, precipitation, etp, temperature, recharge, runoff, wind, humidity, radiation, soil_moisture, water_quality
-     - ``examples/projects/Nancon_data_overview/config_overview.toml``
+     - ``examples/projects/05_nancon_data_overview/config_overview.toml``
    * - ``[data.dem.sources]``
      - Configured providers used to load the `dem` family in this case.
      - ign_bdalti
-     - ``examples/projects/Nancon_data_overview/config_overview.toml``
+     - ``examples/projects/05_nancon_data_overview/config_overview.toml``
    * - ``[data.geology.sources]``
      - Configured providers used to load the `geology` family in this case.
      - brgm_1m
-     - ``examples/projects/Nancon_data_overview/config_overview.toml``
+     - ``examples/projects/05_nancon_data_overview/config_overview.toml``
    * - ``[data.hydrography.sources]``
      - Configured providers used to load the `hydrography` family in this case.
      - bdtopage
-     - ``examples/projects/Nancon_data_overview/config_overview.toml``
+     - ``examples/projects/05_nancon_data_overview/config_overview.toml``
    * - ``[data.hydrometry.sources]``
      - Configured providers used to load the `hydrometry` family in this case.
      - hubeau
-     - ``examples/projects/Nancon_data_overview/config_overview.toml``
+     - ``examples/projects/05_nancon_data_overview/config_overview.toml``
    * - ``[data.intermittency.sources]``
      - Configured providers used to load the `intermittency` family in this case.
      - hubeau
-     - ``examples/projects/Nancon_data_overview/config_overview.toml``
+     - ``examples/projects/05_nancon_data_overview/config_overview.toml``
    * - ``[data.piezometry.sources]``
      - Configured providers used to load the `piezometry` family in this case.
      - hubeau
-     - ``examples/projects/Nancon_data_overview/config_overview.toml``
+     - ``examples/projects/05_nancon_data_overview/config_overview.toml``
    * - ``[data.precipitation.sources]``
      - Configured providers used to load the `precipitation` family in this case.
      - sim2
-     - ``examples/projects/Nancon_data_overview/config_overview.toml``
+     - ``examples/projects/05_nancon_data_overview/config_overview.toml``
    * - ``[data.etp.sources]``
      - Configured providers used to load the `etp` family in this case.
      - sim2
-     - ``examples/projects/Nancon_data_overview/config_overview.toml``
+     - ``examples/projects/05_nancon_data_overview/config_overview.toml``
    * - ``[data.temperature.sources]``
      - Configured providers used to load the `temperature` family in this case.
      - sim2
-     - ``examples/projects/Nancon_data_overview/config_overview.toml``
+     - ``examples/projects/05_nancon_data_overview/config_overview.toml``
    * - ``[data.recharge.sources]``
      - Configured providers used to load the `recharge` family in this case.
      - sim2
-     - ``examples/projects/Nancon_data_overview/config_overview.toml``
+     - ``examples/projects/05_nancon_data_overview/config_overview.toml``
    * - ``[data.runoff.sources]``
      - Configured providers used to load the `runoff` family in this case.
      - sim2
-     - ``examples/projects/Nancon_data_overview/config_overview.toml``
+     - ``examples/projects/05_nancon_data_overview/config_overview.toml``
    * - ``[data.wind.sources]``
      - Configured providers used to load the `wind` family in this case.
      - sim2
-     - ``examples/projects/Nancon_data_overview/config_overview.toml``
+     - ``examples/projects/05_nancon_data_overview/config_overview.toml``
    * - ``[data.humidity.sources]``
      - Configured providers used to load the `humidity` family in this case.
      - sim2
-     - ``examples/projects/Nancon_data_overview/config_overview.toml``
+     - ``examples/projects/05_nancon_data_overview/config_overview.toml``
    * - ``[data.radiation.sources]``
      - Configured providers used to load the `radiation` family in this case.
      - sim2
-     - ``examples/projects/Nancon_data_overview/config_overview.toml``
+     - ``examples/projects/05_nancon_data_overview/config_overview.toml``
    * - ``[data.soil_moisture.sources]``
      - Configured providers used to load the `soil_moisture` family in this case.
      - sim2
-     - ``examples/projects/Nancon_data_overview/config_overview.toml``
+     - ``examples/projects/05_nancon_data_overview/config_overview.toml``
    * - ``[data.water_quality.sources]``
      - Configured providers used to load the `water_quality` family in this case.
      - hubeau
-     - ``examples/projects/Nancon_data_overview/config_overview.toml``
+     - ``examples/projects/05_nancon_data_overview/config_overview.toml``
 
 Hydrography Source Options
 ^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -230,7 +230,7 @@ Hydrography Source Options
    * - ``[[data.hydrography.sources]] source``
      - Hydrography provider used for the displayed river network.
      - bdtopage
-     - ``examples/projects/Nancon_data_overview/config_overview.toml``
+     - ``examples/projects/05_nancon_data_overview/config_overview.toml``
 
 Overview Panels
 ^^^^^^^^^^^^^^^
@@ -246,41 +246,41 @@ Overview Panels
    * - ``[overview] name``
      - Title injected into the generated overview panels.
      - Canut
-     - ``examples/projects/Nancon_data_overview/config_overview.toml``
+     - ``examples/projects/05_nancon_data_overview/config_overview.toml``
    * - ``[overview.panels] enabled``
      - Panel toggles enabled for this overview run.
      - map_dem, map_geology, map_hydrography, stats_card, timeseries_discharge, timeseries_piezometry, climatic_summary, station_inventory
-     - ``examples/projects/Nancon_data_overview/config_overview.toml``
+     - ``examples/projects/05_nancon_data_overview/config_overview.toml``
    * - ``[overview.panels] map_dem``
      - Whether the `map_dem` panel is rendered for this overview case.
      - true
-     - ``examples/projects/Nancon_data_overview/config_overview.toml``
+     - ``examples/projects/05_nancon_data_overview/config_overview.toml``
    * - ``[overview.panels] map_geology``
      - Whether the `map_geology` panel is rendered for this overview case.
      - true
-     - ``examples/projects/Nancon_data_overview/config_overview.toml``
+     - ``examples/projects/05_nancon_data_overview/config_overview.toml``
    * - ``[overview.panels] map_hydrography``
      - Whether the `map_hydrography` panel is rendered for this overview case.
      - true
-     - ``examples/projects/Nancon_data_overview/config_overview.toml``
+     - ``examples/projects/05_nancon_data_overview/config_overview.toml``
    * - ``[overview.panels] stats_card``
      - Whether the `stats_card` panel is rendered for this overview case.
      - true
-     - ``examples/projects/Nancon_data_overview/config_overview.toml``
+     - ``examples/projects/05_nancon_data_overview/config_overview.toml``
 
 Source Pointers
 ---------------
 
 - ``tools/doc_gallery/manifests/geographic_cases.json``
-- ``examples/projects/Nancon_data_overview/README.md``
-- ``examples/projects/Nancon_data_overview/config_overview.toml``
-- ``examples/capability_gallery/geographic/README.md``
-- ``examples/capability_gallery/geographic/nancon_identity_card/geographic_nancon_identity_card_map_dem.png``
-- ``examples/capability_gallery/geographic/nancon_identity_card/geographic_nancon_identity_card_map_geology.png``
-- ``examples/capability_gallery/geographic/nancon_identity_card/geographic_nancon_identity_card_map_hydrography.png``
-- ``examples/capability_gallery/geographic/nancon_identity_card/geographic_nancon_identity_card_climatic_summary.png``
-- ``examples/capability_gallery/geographic/nancon_identity_card/geographic_nancon_identity_card_station_inventory.png``
-- ``examples/capability_gallery/geographic/nancon_identity_card/geographic_nancon_identity_card_stats_card.png``
+- ``examples/projects/05_nancon_data_overview/README.md``
+- ``examples/projects/05_nancon_data_overview/config_overview.toml``
+- ``examples/projects/09_capability_gallery/geographic/README.md``
+- ``examples/projects/09_capability_gallery/geographic/nancon_identity_card/geographic_nancon_identity_card_map_dem.png``
+- ``examples/projects/09_capability_gallery/geographic/nancon_identity_card/geographic_nancon_identity_card_map_geology.png``
+- ``examples/projects/09_capability_gallery/geographic/nancon_identity_card/geographic_nancon_identity_card_map_hydrography.png``
+- ``examples/projects/09_capability_gallery/geographic/nancon_identity_card/geographic_nancon_identity_card_climatic_summary.png``
+- ``examples/projects/09_capability_gallery/geographic/nancon_identity_card/geographic_nancon_identity_card_station_inventory.png``
+- ``examples/projects/09_capability_gallery/geographic/nancon_identity_card/geographic_nancon_identity_card_stats_card.png``
 
 Artifacts
 ---------

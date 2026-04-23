@@ -12,27 +12,27 @@
     {
       "filename": "flow_state_triptych.png",
       "source_path": "C:/results/HydromodPy/profiles/mf6_mesh_e2e/results_simulations/example12_fast_mf6_mesh_catchment/_postprocess/_figures/flow_state_triptych.png",
-      "target_path": "examples/capability_gallery/launcher_simulation/modflow6_gmsh_mesh_catchment/flow_state_triptych.png"
+      "target_path": "examples/projects/09_capability_gallery/launcher_simulation/modflow6_gmsh_mesh_catchment/flow_state_triptych.png"
     },
     {
       "filename": "recharge_discharge_cumulative.png",
       "source_path": "C:/results/HydromodPy/profiles/mf6_mesh_e2e/results_simulations/example12_fast_mf6_mesh_catchment/_postprocess/_figures/recharge_discharge_cumulative.png",
-      "target_path": "examples/capability_gallery/launcher_simulation/modflow6_gmsh_mesh_catchment/recharge_discharge_cumulative.png"
+      "target_path": "examples/projects/09_capability_gallery/launcher_simulation/modflow6_gmsh_mesh_catchment/recharge_discharge_cumulative.png"
     },
     {
       "filename": "watertable_elevation.png",
       "source_path": "C:/results/HydromodPy/profiles/mf6_mesh_e2e/results_simulations/example12_fast_mf6_mesh_catchment/_postprocess/_figures/watertable_elevation.png",
-      "target_path": "examples/capability_gallery/launcher_simulation/modflow6_gmsh_mesh_catchment/watertable_elevation.png"
+      "target_path": "examples/projects/09_capability_gallery/launcher_simulation/modflow6_gmsh_mesh_catchment/watertable_elevation.png"
     },
     {
       "filename": "watertable_depth.png",
       "source_path": "C:/results/HydromodPy/profiles/mf6_mesh_e2e/results_simulations/example12_fast_mf6_mesh_catchment/_postprocess/_figures/watertable_depth.png",
-      "target_path": "examples/capability_gallery/launcher_simulation/modflow6_gmsh_mesh_catchment/watertable_depth.png"
+      "target_path": "examples/projects/09_capability_gallery/launcher_simulation/modflow6_gmsh_mesh_catchment/watertable_depth.png"
     },
     {
       "filename": "flow_support_overview.png",
       "source_path": "C:/results/HydromodPy/profiles/mf6_mesh_e2e/results_simulations/example12_fast_mf6_mesh_catchment/_postprocess/_figures/flow_support_overview.png",
-      "target_path": "examples/capability_gallery/launcher_simulation/modflow6_gmsh_mesh_catchment/flow_support_overview.png"
+      "target_path": "examples/projects/09_capability_gallery/launcher_simulation/modflow6_gmsh_mesh_catchment/flow_support_overview.png"
     }
   ],
   "missing_assets": []

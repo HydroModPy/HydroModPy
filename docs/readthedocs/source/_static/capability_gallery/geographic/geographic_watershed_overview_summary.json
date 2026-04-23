@@ -7,8 +7,8 @@
   "summary": "This pair of figures documents the pre-solver side of HydroModPy. It shows how one watershed is contextualized before any flow run: local framing, DEM, and overlay-ready geographic inputs.",
   "case_setup": [
     "Launcher family: `data-overview`, so the workflow stops after setup, domain assembly, and data loading.",
-    "Primary editable file: `examples/projects/data_overview/project.toml`.",
-    "Committed figures are mirrored under `examples/capability_gallery/geographic/` so the doc build stays reproducible without a local `results_stable` checkout."
+    "Primary editable file: `examples/projects/04_data_overview/project.toml`.",
+    "Committed figures are mirrored under `examples/projects/09_capability_gallery/geographic/` so the doc build stays reproducible without a local `results_stable` checkout."
   ],
   "key_parameters": [
     "`[geographic] catch_def`, `x_outlet`, and `y_outlet` decide where the watershed is extracted from.",
@@ -35,23 +35,21 @@
   "equations_rst": [],
   "walkthrough_doc": "getting_started/data-overview-walkthrough",
   "walkthrough_title": "the Data Overview walkthrough",
-  "reproduction_command": "python examples/projects/data_overview/run_data_overview.py",
+  "reproduction_command": "python -m hydromodpy run examples/projects/04_data_overview/project.toml",
   "gallery_update_command": "python -m tools.doc_gallery",
   "source_paths": [
     "tools/doc_gallery/manifests/geographic_cases.json",
-    "examples/projects/data_overview/run_data_overview.py",
-    "examples/projects/data_overview/project.toml",
-    "examples/capability_gallery/geographic/README.md",
-    "examples/capability_gallery/geographic/watershed_overview/geographic_watershed_dem.png",
-    "examples/capability_gallery/geographic/watershed_overview/geographic_watershed_local.png"
+    "examples/projects/04_data_overview/project.toml",
+    "examples/projects/09_capability_gallery/geographic/README.md",
+    "examples/projects/09_capability_gallery/geographic/watershed_overview/geographic_watershed_dem.png",
+    "examples/projects/09_capability_gallery/geographic/watershed_overview/geographic_watershed_local.png"
   ],
   "source_hashes": {
-    "tools/doc_gallery/manifests/geographic_cases.json": "bfa1457d98a6fd3a0b9fdeb7a93f6583273cd919168d5fb1d6261922680ee160",
-    "examples/projects/data_overview/run_data_overview.py": "1528b7545d24767061bc915fb7c445ef01d83e90c4071f20aa70b082dd428d02",
-    "examples/projects/data_overview/project.toml": "8a3ffdaab7cb5846a6fe6f5dcdac39256759c7a250652385d5c1a9c7e56be550",
-    "examples/capability_gallery/geographic/README.md": "fe6bc2eca9984e4b58baa744210d733ff348585fe5e499aa146a02b2f61a4dad",
-    "examples/capability_gallery/geographic/watershed_overview/geographic_watershed_dem.png": "e89a7527ccc0ce66f7c55f5acfcd4fa0c286ad83b78bcb04589a463c6c6d1979",
-    "examples/capability_gallery/geographic/watershed_overview/geographic_watershed_local.png": "851a58eea24b3710185702557b5d74e7505f5f656507b5d2236fb537570ae92d"
+    "tools/doc_gallery/manifests/geographic_cases.json": "87a228bb5a5c8c8b087dbeae7693efd258f71bab1739443c6cf211b1f90f7bfe",
+    "examples/projects/04_data_overview/project.toml": "6a4125b50e96b77e49f4fb86682e8e189a4a6cc8e2232b291c56ce615b5ad9c5",
+    "examples/projects/09_capability_gallery/geographic/README.md": "fe6bc2eca9984e4b58baa744210d733ff348585fe5e499aa146a02b2f61a4dad",
+    "examples/projects/09_capability_gallery/geographic/watershed_overview/geographic_watershed_dem.png": "e89a7527ccc0ce66f7c55f5acfcd4fa0c286ad83b78bcb04589a463c6c6d1979",
+    "examples/projects/09_capability_gallery/geographic/watershed_overview/geographic_watershed_local.png": "851a58eea24b3710185702557b5d74e7505f5f656507b5d2236fb537570ae92d"
   },
   "docname": "cases/geographic_watershed_overview",
   "images": [
@@ -89,11 +87,11 @@
     "reading_order": 10,
     "copied_assets": [
       {
-        "source_path": "examples/capability_gallery/geographic/watershed_overview/geographic_watershed_dem.png",
+        "source_path": "examples/projects/09_capability_gallery/geographic/watershed_overview/geographic_watershed_dem.png",
         "copied_to": "docs/readthedocs/source/_static/capability_gallery/geographic/geographic_watershed_dem.png"
       },
       {
-        "source_path": "examples/capability_gallery/geographic/watershed_overview/geographic_watershed_local.png",
+        "source_path": "examples/projects/09_capability_gallery/geographic/watershed_overview/geographic_watershed_local.png",
         "copied_to": "docs/readthedocs/source/_static/capability_gallery/geographic/geographic_watershed_local.png"
       }
     ]
@@ -115,61 +113,61 @@
             "field": "[geographic] catch_def",
             "meaning": "Watershed extraction mode used to derive the basin from the outlet definition.",
             "value": "from_outlet_coord",
-            "source": "examples/projects/data_overview/project.toml"
+            "source": "examples/projects/04_data_overview/project.toml"
           },
           {
             "field": "[geographic] x_outlet",
             "meaning": "Projected x coordinate of the outlet used by watershed extraction.",
             "value": "127348",
-            "source": "examples/projects/data_overview/project.toml"
+            "source": "examples/projects/04_data_overview/project.toml"
           },
           {
             "field": "[geographic] y_outlet",
             "meaning": "Projected y coordinate of the outlet used by watershed extraction.",
             "value": "6.8358e+06",
-            "source": "examples/projects/data_overview/project.toml"
+            "source": "examples/projects/04_data_overview/project.toml"
           },
           {
             "field": "[geographic] snap_dist",
             "meaning": "Maximum snapping distance used to align the requested outlet with the drainage network.",
             "value": "150 m",
-            "source": "examples/projects/data_overview/project.toml"
+            "source": "examples/projects/04_data_overview/project.toml"
           },
           {
             "field": "[geographic] buff_area",
             "meaning": "Extra area kept around the watershed to preserve regional context in overview figures.",
             "value": "20%",
-            "source": "examples/projects/data_overview/project.toml"
+            "source": "examples/projects/04_data_overview/project.toml"
           },
           {
             "field": "[domain] zone_ids",
             "meaning": "Domain layers kept on the spatial support before any meshing or solving stage.",
             "value": "geology",
-            "source": "examples/projects/data_overview/project.toml"
+            "source": "examples/projects/04_data_overview/project.toml"
           },
           {
             "field": "[domain.depth_model] type",
             "meaning": "Depth-model strategy used to define the vertical support of the basin.",
             "value": "constant_thickness",
-            "source": "examples/projects/data_overview/project.toml"
+            "source": "examples/projects/04_data_overview/project.toml"
           },
           {
             "field": "[domain.depth_model] thickness",
             "meaning": "Constant basin thickness assigned by the depth model when that mode is selected.",
             "value": "50.0 m",
-            "source": "examples/projects/data_overview/project.toml"
+            "source": "examples/projects/04_data_overview/project.toml"
           },
           {
             "field": "[data] types",
             "meaning": "Families of data loaded during the data-overview workflow.",
             "value": "geology, hydrography, hydrometry, intermittency, oceanic",
-            "source": "examples/projects/data_overview/project.toml"
+            "source": "examples/projects/04_data_overview/project.toml"
           },
           {
             "field": "[data] inference_mode",
             "meaning": "Policy controlling how strictly the data-loading stage resolves requested layers.",
             "value": "strict",
-            "source": "examples/projects/data_overview/project.toml"
+            "source": "examples/projects/04_data_overview/project.toml"
           }
         ]
       },
@@ -180,37 +178,37 @@
             "field": "[data] types",
             "meaning": "Ordered list of data families requested by the overview case.",
             "value": "geology, hydrography, hydrometry, intermittency, oceanic",
-            "source": "examples/projects/data_overview/project.toml"
+            "source": "examples/projects/04_data_overview/project.toml"
           },
           {
             "field": "[data.geology.sources]",
             "meaning": "Configured providers used to load the `geology` family in this case.",
             "value": "brgm_1m",
-            "source": "examples/projects/data_overview/project.toml"
+            "source": "examples/projects/04_data_overview/project.toml"
           },
           {
             "field": "[data.hydrography.sources]",
             "meaning": "Configured providers used to load the `hydrography` family in this case.",
             "value": "custom",
-            "source": "examples/projects/data_overview/project.toml"
+            "source": "examples/projects/04_data_overview/project.toml"
           },
           {
             "field": "[data.hydrometry.sources]",
             "meaning": "Configured providers used to load the `hydrometry` family in this case.",
             "value": "hubeau",
-            "source": "examples/projects/data_overview/project.toml"
+            "source": "examples/projects/04_data_overview/project.toml"
           },
           {
             "field": "[data.intermittency.sources]",
             "meaning": "Configured providers used to load the `intermittency` family in this case.",
             "value": "hubeau",
-            "source": "examples/projects/data_overview/project.toml"
+            "source": "examples/projects/04_data_overview/project.toml"
           },
           {
             "field": "[data.oceanic.sources]",
             "meaning": "Configured providers used to load the `oceanic` family in this case.",
             "value": "shom",
-            "source": "examples/projects/data_overview/project.toml"
+            "source": "examples/projects/04_data_overview/project.toml"
           }
         ]
       },
@@ -221,13 +219,13 @@
             "field": "[[data.hydrography.sources]] source",
             "meaning": "Hydrography provider used for the displayed river network.",
             "value": "custom",
-            "source": "examples/projects/data_overview/project.toml"
+            "source": "examples/projects/04_data_overview/project.toml"
           },
           {
             "field": "[[data.hydrography.sources]] rasterize_field",
             "meaning": "Attribute used when rasterizing the clipped vector network to the watershed grid.",
             "value": "FID",
-            "source": "examples/projects/data_overview/project.toml"
+            "source": "examples/projects/04_data_overview/project.toml"
           }
         ]
       },
@@ -238,37 +236,37 @@
             "field": "[data.hydrometry] date_start",
             "meaning": "Start date used when querying hydrometry observations for this case.",
             "value": "2019-01-01",
-            "source": "examples/projects/data_overview/project.toml"
+            "source": "examples/projects/04_data_overview/project.toml"
           },
           {
             "field": "[data.hydrometry] date_end",
             "meaning": "End date used when querying hydrometry observations for this case.",
             "value": "2025-12-31",
-            "source": "examples/projects/data_overview/project.toml"
+            "source": "examples/projects/04_data_overview/project.toml"
           },
           {
             "field": "[data.intermittency] date_start",
             "meaning": "Start date used when querying intermittency observations for this case.",
             "value": "2019-01-01",
-            "source": "examples/projects/data_overview/project.toml"
+            "source": "examples/projects/04_data_overview/project.toml"
           },
           {
             "field": "[data.intermittency] date_end",
             "meaning": "End date used when querying intermittency observations for this case.",
             "value": "2025-12-31",
-            "source": "examples/projects/data_overview/project.toml"
+            "source": "examples/projects/04_data_overview/project.toml"
           },
           {
             "field": "[data.oceanic] date_start",
             "meaning": "Start date used when querying oceanic observations for this case.",
             "value": "2003-01-01",
-            "source": "examples/projects/data_overview/project.toml"
+            "source": "examples/projects/04_data_overview/project.toml"
           },
           {
             "field": "[data.oceanic] date_end",
             "meaning": "End date used when querying oceanic observations for this case.",
             "value": "2003-01-30",
-            "source": "examples/projects/data_overview/project.toml"
+            "source": "examples/projects/04_data_overview/project.toml"
           }
         ]
       }

@@ -97,8 +97,8 @@ Solver Coverage
          Boussinesq Fixed-Head Piecewise-K 1D rendered with MODFLOW 6 irregular triangles for the analytical gallery.
 
       **Metrics**
-      - Head-profile RMSE: 0.0327 m
-      - Head-profile max abs error: 0.0944 m
+      - Head-profile RMSE: 0.0321 m
+      - Head-profile max abs error: 0.0897 m
       - Cross-row head spread: 8.88e-16 m
 
       - Config file: ``validation_cases/analytical/steady/boussinesq_fixed_head_piecewise_k_1d/config_modflow6_irregular_tri.toml``
@@ -203,6 +203,10 @@ Common Numerical Setup
      - Meaning
      - Value
      - Source
+   * - ``workflow``
+     - Case-specific configuration field `workflow` used by the validation benchmark.
+     - simulation
+     - ``validation_cases/analytical/steady/boussinesq_fixed_head_piecewise_k_1d/config_modflownwt.toml``
    * - ``geographic.synthetic.grid.length_x``
      - Synthetic-domain length along the x axis.
      - 400.0 m

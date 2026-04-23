@@ -236,7 +236,11 @@ class SimulationRunner:
         """Persist one completed run output back into the shared runtime state.
 
         ``execution.models_by_run_id`` is the canonical per-run registry used for future
-        dependency resolution.
+        dependency resolution. ``execution.output_dirs_by_run_id`` mirrors it with the
+        solver scratch directory so RAM-only metric extractors (calibration trials) can
+        locate the raw solver binaries without going through the catalog.
         """
 
         state.execution.models_by_run_id[run.id] = result.primary_model
+        if result.solver_output_dir is not None:
+            state.execution.output_dirs_by_run_id[run.id] = result.solver_output_dir

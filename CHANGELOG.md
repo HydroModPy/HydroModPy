@@ -45,16 +45,61 @@ Each release section includes the following standard categories:
   time (`connect_with_retry`) and execute time (`@with_lock_retry`) on
   every write path. Short-lived cross-process lock contention resolves
   transparently instead of surfacing as an error.
+- `hmp run <calibration.toml>` now drives real MODFLOW simulations through
+  the new trial primitive (no more analytical mock). Each trial runs in
+  `ExecutionRegistry.lightweight=True` mode, skipping Zarr/Parquet writes.
+  Only the top-N iterations (via `save_runs = "best_n"`) get promoted to
+  full simulations. See `docs/developers/calibration_guide.md`.
+- `make_hot_simulator` now returns `(calibration_vector, raw_results)` so
+  callers can persist selected series post-calibration without re-running
+  the solver. `persist_calibration_result` renamed to `promote_trial`
+  (deprecated alias kept for one release cycle).
 
 ### Added
-- `hmp migrate` subcommand: detects legacy workspaces with per-sim rows
-  still in DuckDB, moves them into Parquet files per `sim_id`, verifies
-  row counts, and drops the source tables. Idempotent, with `--dry-run`.
+- Calibration refactor — trial primitive plus step auto-invalidation:
+  - `hydromodpy.simulation.execution.trial` with `TrialContext`,
+    `prepare_trials`, `run_trial_light`, `promote_trial`.
+  - `hydromodpy.pipeline.dependencies.earliest_affected_step` computes
+    which pipeline step must re-run first from a set of override paths,
+    using longest-prefix match on the new `config_sections` class var
+    declared by each of the 12 pipeline steps.
+  - `hydromodpy.calibration.metrics.build_metric_extractor` — RAM-only
+    metric extractor for MODFLOW-NWT discharge (DRAIN budget aggregated)
+    and head at observation cells.
+  - `ExecutionRegistry.lightweight` flag gates Zarr / Parquet / catalog
+    writes in steps 06 and 07.
+  - `ParamsHashCache` preload from DuckDB at session start for
+    cross-session trial deduplication.
+- `hmp report <session_id>` — generates a self-contained HTML report
+  under `<workspace>/reports/<session_id>/report.html` embedding the
+  calibration session metadata plus the six calibration figures.
+- Six calibration figures registered in the Display registry:
+  `calibration_convergence`, `calibration_trace`, `calibration_landscape`,
+  `calibration_posterior`, `calibration_objective_surface`,
+  `calibration_pairplot`.
+- Analytical calibration cases ported under `hydromodpy.calibration.cases`:
+  `recession_brutsaert` (Brutsaert 1D recession) and `groundwater_1d`
+  (Dupuit 1D aquifer). Both ship with synthetic chronicle builders + a
+  `calibrate_<name>(method, ...)` dispatcher that hooks into
+  `CalibrationEngine`.
+- `hydromodpy.calibration.diagnostics` helpers (`convergence_rate`,
+  `parameter_correlation`, `iterations_to_dataframe`).
+- User guide: `docs/developers/calibration_guide.md` (replaces the two
+  refactor prompts under the same directory).
 - `hmp doctor` now reports the Parquet layout health (orphan directories,
   leftover legacy tables, per-sim Parquet counts).
-- Unit tests covering atomic Parquet writes, view semantics, 8-worker
-  concurrent writes, and the migration path
-  (`tests/unit/results/test_parquet_lakehouse.py`).
+- Unit tests covering atomic Parquet writes, view semantics, and 8-worker
+  concurrent writes (`tests/unit/results/test_parquet_lakehouse.py`).
+- ~130 new calibration tests across `tests/unit/calibration/`,
+  `tests/unit/test_calibration_cli.py`, and
+  `tests/regression/fast/calibration/` (including the Brutsaert golden
+  regression for four optimization methods).
+
+### Removed
+- `_default_evaluator` (analytical mock) from the user-facing calibration
+  path. Custom metrics are now supplied via the
+  `objective = "module.path:fn"` escape hatch.
+- `hmp migrate` subcommand (see commit `6857edb3`).
 
 ### Fixed
 - `SimulationCatalog.write_*` methods are now tolerant of the DuckDB

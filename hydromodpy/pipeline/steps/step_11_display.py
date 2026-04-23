@@ -36,6 +36,7 @@ class DisplayStep:
     name = "display"
     tin: ClassVar[type] = ExportedState
     tout: ClassVar[type] = ExportedState
+    config_sections: ClassVar[tuple[str, ...]] = ("display",)
 
     def run(self, state: PipelineState) -> PipelineState:
         from hydromodpy.results.catalog import SimulationCatalog

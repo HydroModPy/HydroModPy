@@ -51,21 +51,21 @@
     "validation_cases/analytical/transient/linearized_unconfined_1d.py"
   ],
   "source_hashes": {
-    "validation_cases/README.md": "28ee639cd0c843d89c06a5ff3b8adf655f5725e35392ebb9980f906513c17e6e",
+    "validation_cases/README.md": "634832ce341c47597143d5614d06c8d22bac809193447706294f5b43e38359c3",
     "validation_cases/analytical/transient/linearized_unconfined_recharge_step_1d/README.md": "be72db4012be14a64172131f7b7332e24821c19cd1a9ab51e095843c0f8e3c2f",
     "validation_cases/analytical/transient/linearized_unconfined_recharge_step_1d/reference.py": "c873aadd0e0168e7bd527a6a2b3d03505c18fc60b1fd37415b14833316f5fcc4",
-    "validation_cases/analytical/transient/linearized_unconfined_recharge_step_1d/comparison.py": "f0fa432658f003db48259f433d2f66ba0dd7cab0437e1b6f81a999c809611366",
+    "validation_cases/analytical/transient/linearized_unconfined_recharge_step_1d/comparison.py": "b047b1990612cb2c324a855acbeeb36bef003fb110ddebdaca2b270df52ad660",
     "validation_cases/analytical/transient/linearized_unconfined_recharge_step_1d/plotting.py": "9eb4a51eef80185994920ab478f715e99501034ff85f918b74a68705c7cdf80c",
-    "validation_cases/analytical/transient/linearized_unconfined_recharge_step_1d/run_case.py": "6698040237621a78d9f0ea4eab01e357048285237560959af159b04a619f7565",
-    "validation_cases/analytical/transient/linearized_unconfined_recharge_step_1d/metadata.toml": "587840fd78f8cd593ba0091d4056b74eb7ece3b63c4d88fcc8ae1abec7475aff",
-    "validation_cases/analytical/transient/linearized_unconfined_recharge_step_1d/config_modflownwt.toml": "aeffd1388b66d169877d3c8daec9815f202ed3ddcd5aac941f6d310308554da2",
-    "validation_cases/analytical/transient/linearized_unconfined_recharge_step_1d/runtime_boussinesq.py": "9b297dc1f2ab1e0e07141116f2e0487fd6f1b4ba2e2a3c71a6959c5eb5fa22c9",
+    "validation_cases/analytical/transient/linearized_unconfined_recharge_step_1d/run_case.py": "17458d53c43b11626b7270211c3f6d6f7df73443e8573fae3bb900a59bf54078",
+    "validation_cases/analytical/transient/linearized_unconfined_recharge_step_1d/metadata.toml": "5b54011c661a260236833b99cf71416e5ebd6a65ba60d27b237c07da66deba48",
+    "validation_cases/analytical/transient/linearized_unconfined_recharge_step_1d/config_modflownwt.toml": "6f661b5c2ad9c92ae6ba1c0ba550bab96c9e2efdf38f8e1a28cc5cb28972e5cc",
+    "validation_cases/analytical/transient/linearized_unconfined_recharge_step_1d/runtime_boussinesq.py": "1e687d6540af4f6317653ef0984d5526c23ca855ccf1e1a16a3a9b0a7a59d0b6",
     "validation_cases/analytical/transient/linearized_unconfined_recharge_step_1d/tolerances.toml": "32b1e0a1c039cae537c6a4a1a25f78663882c27642cc21fd5092ce217dbe02e6",
     "validation_cases/analytical/transient/linearized_unconfined_recharge_step_1d/tolerances_boussinesq.toml": "4a80b75eb9aa1349ab1d7e4e4818cf09239b4e14131dbea34deac21e9e3aeef8",
     "validation_cases/analytical/transient/linearized_unconfined_recharge_step_1d/tolerances_modflow6.toml": "752debc65edc2ba27a35c698ea740d15ebe3d0db947531dae038c1c8a40ce1f0",
-    "validation_cases/analytical/transient/linearized_unconfined_recharge_step_1d/config_modflow6.toml": "e39bd40d3d962745dc1d30349d41115a95f59f27f6bf2f907395e15a689fb526",
+    "validation_cases/analytical/transient/linearized_unconfined_recharge_step_1d/config_modflow6.toml": "5178d0ddd7e825c92998ab69a7ab05c4e9c300a82ea20cf81d199aec22050129",
     "validation_cases/analytical/transient/linearized_unconfined_recharge_step_1d/config_boussinesq.toml": "aaebad7805cda1a24b2ee2a9aefb95270df1b1e498044e123a4ad0e9be5f28e8",
-    "validation_cases/analytical/transient/linearized_unconfined_1d.py": "87bd0c802ef3b86b88f5791b1ece5a70095f146920ffb3ad44aab32115921b00"
+    "validation_cases/analytical/transient/linearized_unconfined_1d.py": "c8ccdde712d17a661edce5e50bcd81608a5ef00e53d9d3a0ef4dfc5632e5c42e"
   },
   "docname": "cases/linearized_unconfined_recharge_step_1d",
   "images": [
@@ -491,6 +491,12 @@
       }
     ],
     "common_setup": [
+      {
+        "field": "workflow",
+        "meaning": "Case-specific configuration field `workflow` used by the validation benchmark.",
+        "value": "simulation",
+        "source": "validation_cases/analytical/transient/linearized_unconfined_recharge_step_1d/config_modflownwt.toml"
+      },
       {
         "field": "simulation.time.start_datetime",
         "meaning": "Simulation start time used by the benchmark.",

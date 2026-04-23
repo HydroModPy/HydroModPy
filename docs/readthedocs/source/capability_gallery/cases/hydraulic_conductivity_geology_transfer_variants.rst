@@ -152,8 +152,8 @@ Source Pointers
 - ``hydromodpy/data/variables/geology/cases/run_geology_property_case.py``
 - ``hydromodpy/data/variables/geology/cases/gallery_geology_config_brittany.toml``
 - ``hydromodpy/data/variables/geology/cases/gallery_field_param_brittany.toml``
-- ``examples/mesh_gallery/10km2/mesh_s3_10km2_outlet_1_geology_rivers_buffer30/bundle/cells.csv``
-- ``examples/mesh_gallery/100km2/mesh_headwater_100km2_outlet_1_geology_rivers_buffer30/bundle/cells.csv``
+- ``examples/projects/07_mesh_gallery/10km2/mesh_s3_10km2_outlet_1_geology_rivers_buffer30/bundle/cells.csv``
+- ``examples/projects/07_mesh_gallery/100km2/mesh_headwater_100km2_outlet_1_geology_rivers_buffer30/bundle/cells.csv``
 - ``tools/doc_gallery/update_gallery.py``
 
 Artifacts

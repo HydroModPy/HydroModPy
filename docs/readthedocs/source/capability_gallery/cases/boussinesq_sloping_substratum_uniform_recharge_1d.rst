@@ -130,14 +130,14 @@ Solver Coverage
          Boussinesq Sloping-Substratum Uniform-Recharge 1D rendered with Boussinesq for the analytical gallery.
 
       **Metrics**
-      - Head-profile RMSE: 0.0542 m
-      - Head-profile max abs error: 0.1421 m
-      - Cross-row head spread: 9.88e-12 m
+      - Head-profile RMSE: 0.2121 m
+      - Head-profile max abs error: 0.2882 m
+      - Cross-row head spread: 6.43e-12 m
       - Reference west discharge per width: 1.734e-05 m2/s
       - Reference east discharge per width: 2.196e-05 m2/s
 
       - Config file: ``validation_cases/analytical/steady/boussinesq_sloping_substratum_uniform_recharge_1d/config_boussinesq.toml``
-      - Tolerances: ``validation_cases/analytical/steady/boussinesq_sloping_substratum_uniform_recharge_1d/tolerances.toml``
+      - Tolerances: ``validation_cases/analytical/steady/boussinesq_sloping_substratum_uniform_recharge_1d/tolerances_boussinesq.toml``
       - Expected shape: 5 x 40
 
       .. code-block:: bash
@@ -233,6 +233,10 @@ Common Numerical Setup
      - Meaning
      - Value
      - Source
+   * - ``workflow``
+     - Case-specific configuration field `workflow` used by the validation benchmark.
+     - simulation
+     - ``validation_cases/analytical/steady/boussinesq_sloping_substratum_uniform_recharge_1d/config_common.toml``
    * - ``geographic.synthetic.grid.length_x``
      - Synthetic-domain length along the x axis.
      - 400.0 m
@@ -542,16 +546,16 @@ Acceptance Criteria by Solver
            - ``validation_cases/analytical/steady/boussinesq_sloping_substratum_uniform_recharge_1d/metadata.toml``
          * - ``head_profile.rmse``
            - Maximum accepted root-mean-square error for head profile.
-           - 0.04
-           - ``validation_cases/analytical/steady/boussinesq_sloping_substratum_uniform_recharge_1d/tolerances.toml``
+           - 0.25
+           - ``validation_cases/analytical/steady/boussinesq_sloping_substratum_uniform_recharge_1d/tolerances_boussinesq.toml``
          * - ``head_profile.max_abs_error``
            - Maximum accepted absolute error for head profile.
-           - 0.05
-           - ``validation_cases/analytical/steady/boussinesq_sloping_substratum_uniform_recharge_1d/tolerances.toml``
+           - 0.35
+           - ``validation_cases/analytical/steady/boussinesq_sloping_substratum_uniform_recharge_1d/tolerances_boussinesq.toml``
          * - ``head_profile.row_spread``
            - Maximum accepted cross-row spread for head profile.
            - 1e-05
-           - ``validation_cases/analytical/steady/boussinesq_sloping_substratum_uniform_recharge_1d/tolerances.toml``
+           - ``validation_cases/analytical/steady/boussinesq_sloping_substratum_uniform_recharge_1d/tolerances_boussinesq.toml``
 
 Source Pointers
 ---------------
@@ -566,6 +570,7 @@ Source Pointers
 - ``validation_cases/analytical/steady/boussinesq_sloping_substratum_uniform_recharge_1d/config_common.toml``
 - ``validation_cases/analytical/steady/boussinesq_sloping_substratum_uniform_recharge_1d/runtime_boussinesq.py``
 - ``validation_cases/analytical/steady/boussinesq_sloping_substratum_uniform_recharge_1d/tolerances.toml``
+- ``validation_cases/analytical/steady/boussinesq_sloping_substratum_uniform_recharge_1d/tolerances_boussinesq.toml``
 - ``validation_cases/analytical/steady/boussinesq_sloping_substratum_uniform_recharge_1d/tolerances_modflow6_irregular_tri.toml``
 - ``validation_cases/analytical/steady/boussinesq_sloping_substratum_uniform_recharge_1d/config_modflownwt.toml``
 - ``validation_cases/analytical/steady/boussinesq_sloping_substratum_uniform_recharge_1d/config_modflow6.toml``

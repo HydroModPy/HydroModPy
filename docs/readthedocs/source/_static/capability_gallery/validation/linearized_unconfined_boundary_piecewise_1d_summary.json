@@ -50,21 +50,21 @@
     "validation_cases/analytical/transient/linearized_unconfined_1d.py"
   ],
   "source_hashes": {
-    "validation_cases/README.md": "28ee639cd0c843d89c06a5ff3b8adf655f5725e35392ebb9980f906513c17e6e",
+    "validation_cases/README.md": "634832ce341c47597143d5614d06c8d22bac809193447706294f5b43e38359c3",
     "validation_cases/analytical/transient/linearized_unconfined_boundary_piecewise_1d/README.md": "831999737d3e20e252187fb4305420248f719f0a8b64c9ba54197142ae541dad",
     "validation_cases/analytical/transient/linearized_unconfined_boundary_piecewise_1d/reference.py": "97f0786c76684977d2e605e313669bf7b2c8acdbe22de756dfdd11675e7b9bad",
-    "validation_cases/analytical/transient/linearized_unconfined_boundary_piecewise_1d/comparison.py": "c817230683c785d165afcd23d6848534cb6b79d960d50839ee72d42ff729e5cd",
+    "validation_cases/analytical/transient/linearized_unconfined_boundary_piecewise_1d/comparison.py": "cb232651b390a968bd584d01a9edb2a6ab789b1703b016043b6a912383f3f897",
     "validation_cases/analytical/transient/linearized_unconfined_boundary_piecewise_1d/plotting.py": "d9b07e6c36eb6ce893e25d03066a536191dcc5f0cbbc09f6cb435c1d4a47ac9c",
-    "validation_cases/analytical/transient/linearized_unconfined_boundary_piecewise_1d/run_case.py": "4de654a2ed5dbeadc84a0ff17039bc003036ba6d978383a5497ceffa87745c27",
-    "validation_cases/analytical/transient/linearized_unconfined_boundary_piecewise_1d/metadata.toml": "a16f9191adf820203e94017569bd9cbfbd21f36c111a5f9527bf1fb533c62996",
-    "validation_cases/analytical/transient/linearized_unconfined_boundary_piecewise_1d/config_modflownwt.toml": "9259ba93bb360aa3ae05b954be791c845b64a62829c1d626a159caba23bfda89",
-    "validation_cases/analytical/transient/linearized_unconfined_boundary_piecewise_1d/runtime_boussinesq.py": "a8314af5e2aee299463b1ad12d2f5200dced2185df97b8736e5da86e02c38cb8",
+    "validation_cases/analytical/transient/linearized_unconfined_boundary_piecewise_1d/run_case.py": "794ce66a5f78dfc6d75b1086e427db7295f7669e5b4e52bd8ee70d7f2f271825",
+    "validation_cases/analytical/transient/linearized_unconfined_boundary_piecewise_1d/metadata.toml": "9e02543c4f3da3a13de6fe9021b6e4d049eac4950f99a241e22986f99cd7ed3c",
+    "validation_cases/analytical/transient/linearized_unconfined_boundary_piecewise_1d/config_modflownwt.toml": "fc6b024cf07bcc820be10f09f878c7d3ae37a7dd82721116211599e8318bafdf",
+    "validation_cases/analytical/transient/linearized_unconfined_boundary_piecewise_1d/runtime_boussinesq.py": "1d0b49aebb96a0994358ad8bdeb2f1445ff60adc5fb7e6cf891554cde0105a48",
     "validation_cases/analytical/transient/linearized_unconfined_boundary_piecewise_1d/tolerances.toml": "85bfcd4993adb583eeb90d26ebebb4cdd9808162dacdcc699d873146e7ce78fe",
     "validation_cases/analytical/transient/linearized_unconfined_boundary_piecewise_1d/tolerances_modflow6.toml": "557f12784b1d694159daa5e05cf774ed466d8a01639d4a177f7e802673576771",
-    "validation_cases/analytical/transient/linearized_unconfined_boundary_piecewise_1d/config_modflow6.toml": "e39bd40d3d962745dc1d30349d41115a95f59f27f6bf2f907395e15a689fb526",
+    "validation_cases/analytical/transient/linearized_unconfined_boundary_piecewise_1d/config_modflow6.toml": "5178d0ddd7e825c92998ab69a7ab05c4e9c300a82ea20cf81d199aec22050129",
     "validation_cases/analytical/transient/linearized_unconfined_boundary_piecewise_1d/config_boussinesq.toml": "bf9a68e7c1dca1d194187dc5584f7f51dc4243bfab5d762e437760d1a797434c",
-    "validation_cases/shared/boussinesq_uniform_strip.py": "30c6e0c6cec9aaece01246cc109d47043eed032725b0a496874d6f744c04901f",
-    "validation_cases/analytical/transient/linearized_unconfined_1d.py": "87bd0c802ef3b86b88f5791b1ece5a70095f146920ffb3ad44aab32115921b00"
+    "validation_cases/shared/boussinesq_uniform_strip.py": "4c7b6bc8f898f453c77f94c542591d3b1b4e8f7f0a785fe8a6bc7d4ed44d0473",
+    "validation_cases/analytical/transient/linearized_unconfined_1d.py": "c8ccdde712d17a661edce5e50bcd81608a5ef00e53d9d3a0ef4dfc5632e5c42e"
   },
   "docname": "cases/linearized_unconfined_boundary_piecewise_1d",
   "images": [
@@ -550,6 +550,12 @@
       }
     ],
     "common_setup": [
+      {
+        "field": "workflow",
+        "meaning": "Case-specific configuration field `workflow` used by the validation benchmark.",
+        "value": "simulation",
+        "source": "validation_cases/analytical/transient/linearized_unconfined_boundary_piecewise_1d/config_modflownwt.toml"
+      },
       {
         "field": "simulation.time.start_datetime",
         "meaning": "Simulation start time used by the benchmark.",

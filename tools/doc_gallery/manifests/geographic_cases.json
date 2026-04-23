@@ -16,32 +16,31 @@
         "How HydroModPy distinguishes a local watershed view from a broader DEM-oriented overview.",
         "How versioned example outputs can feed static documentation without executing notebooks during the build."
       ],
-      "reproduction_command": "python examples/projects/data_overview/run_data_overview.py",
+      "reproduction_command": "python -m hydromodpy run examples/projects/04_data_overview/project.toml",
       "source_paths": [
-        "examples/projects/data_overview/run_data_overview.py",
-        "examples/projects/data_overview/project.toml",
-        "examples/capability_gallery/geographic/README.md",
-        "examples/capability_gallery/geographic/watershed_overview/geographic_watershed_dem.png",
-        "examples/capability_gallery/geographic/watershed_overview/geographic_watershed_local.png"
+        "examples/projects/04_data_overview/project.toml",
+        "examples/projects/09_capability_gallery/geographic/README.md",
+        "examples/projects/09_capability_gallery/geographic/watershed_overview/geographic_watershed_dem.png",
+        "examples/projects/09_capability_gallery/geographic/watershed_overview/geographic_watershed_local.png"
       ],
       "image_assets": [
         {
           "filename": "geographic_watershed_dem.png",
           "caption": "DEM-oriented watershed overview copied from versioned example outputs.",
           "alt_text": "Watershed DEM overview",
-          "source_path": "examples/capability_gallery/geographic/watershed_overview/geographic_watershed_dem.png"
+          "source_path": "examples/projects/09_capability_gallery/geographic/watershed_overview/geographic_watershed_dem.png"
         },
         {
           "filename": "geographic_watershed_local.png",
           "caption": "Local watershed framing copied from versioned example outputs.",
           "alt_text": "Watershed local overview",
-          "source_path": "examples/capability_gallery/geographic/watershed_overview/geographic_watershed_local.png"
+          "source_path": "examples/projects/09_capability_gallery/geographic/watershed_overview/geographic_watershed_local.png"
         }
       ],
       "case_setup": [
         "Launcher family: `data-overview`, so the workflow stops after setup, domain assembly, and data loading.",
-        "Primary editable file: `examples/projects/data_overview/project.toml`.",
-        "Committed figures are mirrored under `examples/capability_gallery/geographic/` so the doc build stays reproducible without a local `results_stable` checkout."
+        "Primary editable file: `examples/projects/04_data_overview/project.toml`.",
+        "Committed figures are mirrored under `examples/projects/09_capability_gallery/geographic/` so the doc build stays reproducible without a local `results_stable` checkout."
       ],
       "key_parameters": [
         "`[geographic] catch_def`, `x_outlet`, and `y_outlet` decide where the watershed is extracted from.",
@@ -87,23 +86,23 @@
         "Which files and panels matter for a hydrography-only audit before any solver or meshing stage.",
         "How a TOML can be reduced to one single figure when the goal is to audit the river-network input."
       ],
-      "reproduction_command": "python -m launchers data-overview run examples/projects/Nancon_data_overview/config_hydrography_only.toml",
+      "reproduction_command": "python -m hydromodpy run examples/projects/05_nancon_data_overview/config_hydrography_only.toml",
       "source_paths": [
-        "examples/projects/Nancon_data_overview/config_hydrography_only.toml",
-        "examples/capability_gallery/geographic/README.md",
-        "examples/capability_gallery/geographic/bdtopage_hydrography_overlay/geographic_bdtopage_hydrography_overlay.png"
+        "examples/projects/05_nancon_data_overview/config_hydrography_only.toml",
+        "examples/projects/09_capability_gallery/geographic/README.md",
+        "examples/projects/09_capability_gallery/geographic/bdtopage_hydrography_overlay/geographic_bdtopage_hydrography_overlay.png"
       ],
       "image_assets": [
         {
           "filename": "geographic_bdtopage_hydrography_overlay.png",
           "caption": "BD Topage streams clipped to the watershed and displayed over the DEM backdrop.",
           "alt_text": "BD Topage hydrography overlay on topography",
-          "source_path": "examples/capability_gallery/geographic/bdtopage_hydrography_overlay/geographic_bdtopage_hydrography_overlay.png"
+          "source_path": "examples/projects/09_capability_gallery/geographic/bdtopage_hydrography_overlay/geographic_bdtopage_hydrography_overlay.png"
         }
       ],
       "case_setup": [
         "Launcher family: `data-overview`, stopped after setup, domain assembly, data loading, and figure rendering.",
-        "Primary editable file: `examples/projects/Nancon_data_overview/config_hydrography_only.toml`.",
+        "Primary editable file: `examples/projects/05_nancon_data_overview/config_hydrography_only.toml`.",
         "Only one output figure is enabled: `[overview.panels] map_hydrography = true`."
       ],
       "key_parameters": [
@@ -148,60 +147,60 @@
         "How DEM, geology, hydrography, climate synthesis, and station inventory can live on one page without rerunning notebooks.",
         "How committed `data-overview` outputs can document which observations are available, not only where the watershed sits."
       ],
-      "reproduction_command": "python -m launchers data-overview run examples/projects/Nancon_data_overview/config_overview.toml",
+      "reproduction_command": "python -m hydromodpy run examples/projects/05_nancon_data_overview/config_overview.toml",
       "source_paths": [
-        "examples/projects/Nancon_data_overview/README.md",
-        "examples/projects/Nancon_data_overview/config_overview.toml",
-        "examples/capability_gallery/geographic/README.md",
-        "examples/capability_gallery/geographic/nancon_identity_card/geographic_nancon_identity_card_map_dem.png",
-        "examples/capability_gallery/geographic/nancon_identity_card/geographic_nancon_identity_card_map_geology.png",
-        "examples/capability_gallery/geographic/nancon_identity_card/geographic_nancon_identity_card_map_hydrography.png",
-        "examples/capability_gallery/geographic/nancon_identity_card/geographic_nancon_identity_card_climatic_summary.png",
-        "examples/capability_gallery/geographic/nancon_identity_card/geographic_nancon_identity_card_station_inventory.png",
-        "examples/capability_gallery/geographic/nancon_identity_card/geographic_nancon_identity_card_stats_card.png"
+        "examples/projects/05_nancon_data_overview/README.md",
+        "examples/projects/05_nancon_data_overview/config_overview.toml",
+        "examples/projects/09_capability_gallery/geographic/README.md",
+        "examples/projects/09_capability_gallery/geographic/nancon_identity_card/geographic_nancon_identity_card_map_dem.png",
+        "examples/projects/09_capability_gallery/geographic/nancon_identity_card/geographic_nancon_identity_card_map_geology.png",
+        "examples/projects/09_capability_gallery/geographic/nancon_identity_card/geographic_nancon_identity_card_map_hydrography.png",
+        "examples/projects/09_capability_gallery/geographic/nancon_identity_card/geographic_nancon_identity_card_climatic_summary.png",
+        "examples/projects/09_capability_gallery/geographic/nancon_identity_card/geographic_nancon_identity_card_station_inventory.png",
+        "examples/projects/09_capability_gallery/geographic/nancon_identity_card/geographic_nancon_identity_card_stats_card.png"
       ],
       "image_assets": [
         {
           "filename": "geographic_nancon_identity_card_map_dem.png",
           "caption": "DEM-based overview for the Nancon watershed.",
           "alt_text": "Nancon DEM overview",
-          "source_path": "examples/capability_gallery/geographic/nancon_identity_card/geographic_nancon_identity_card_map_dem.png"
+          "source_path": "examples/projects/09_capability_gallery/geographic/nancon_identity_card/geographic_nancon_identity_card_map_dem.png"
         },
         {
           "filename": "geographic_nancon_identity_card_map_hydrography.png",
           "caption": "Hydrography rendered on the Nancon basin support.",
           "alt_text": "Nancon hydrography overview",
-          "source_path": "examples/capability_gallery/geographic/nancon_identity_card/geographic_nancon_identity_card_map_hydrography.png"
+          "source_path": "examples/projects/09_capability_gallery/geographic/nancon_identity_card/geographic_nancon_identity_card_map_hydrography.png"
         },
         {
           "filename": "geographic_nancon_identity_card_map_geology.png",
           "caption": "Geology overlay for the same Nancon support.",
           "alt_text": "Nancon geology overview",
-          "source_path": "examples/capability_gallery/geographic/nancon_identity_card/geographic_nancon_identity_card_map_geology.png"
+          "source_path": "examples/projects/09_capability_gallery/geographic/nancon_identity_card/geographic_nancon_identity_card_map_geology.png"
         },
         {
           "filename": "geographic_nancon_identity_card_station_inventory.png",
           "caption": "Station inventory extracted by the Nancon data-overview workflow.",
           "alt_text": "Nancon station inventory",
-          "source_path": "examples/capability_gallery/geographic/nancon_identity_card/geographic_nancon_identity_card_station_inventory.png"
+          "source_path": "examples/projects/09_capability_gallery/geographic/nancon_identity_card/geographic_nancon_identity_card_station_inventory.png"
         },
         {
           "filename": "geographic_nancon_identity_card_stats_card.png",
           "caption": "Compact statistics card for the loaded Nancon observations.",
           "alt_text": "Nancon observation stats card",
-          "source_path": "examples/capability_gallery/geographic/nancon_identity_card/geographic_nancon_identity_card_stats_card.png"
+          "source_path": "examples/projects/09_capability_gallery/geographic/nancon_identity_card/geographic_nancon_identity_card_stats_card.png"
         },
         {
           "filename": "geographic_nancon_identity_card_climatic_summary.png",
           "caption": "Climatic synthesis panel from the Nancon identity-card run.",
           "alt_text": "Nancon climatic summary",
-          "source_path": "examples/capability_gallery/geographic/nancon_identity_card/geographic_nancon_identity_card_climatic_summary.png"
+          "source_path": "examples/projects/09_capability_gallery/geographic/nancon_identity_card/geographic_nancon_identity_card_climatic_summary.png"
         }
       ],
       "case_setup": [
         "Launcher family: `data-overview`, so the workflow stops after geographic setup, data loading, and overview rendering.",
-        "Primary editable file: `examples/projects/Nancon_data_overview/config_overview.toml`.",
-        "The committed identity-card figures are mirrored under `examples/capability_gallery/geographic/` so the gallery no longer depends on one local `results_stable` tree."
+        "Primary editable file: `examples/projects/05_nancon_data_overview/config_overview.toml`.",
+        "The committed identity-card figures are mirrored under `examples/projects/09_capability_gallery/geographic/` so the gallery no longer depends on one local `results_stable` tree."
       ],
       "key_parameters": [
         "`[data] types` drives the identity card more strongly here than the geographic section alone because it determines which observation families appear in the stats, inventory, climate, and map panels.",
@@ -281,44 +280,44 @@
         "How a data-overview page can move from basin framing to real temporal signals without touching any solver output.",
         "Which observation families are available for later validation, calibration, or qualitative scenario reading."
       ],
-      "reproduction_command": "python -m launchers data-overview run examples/projects/Nancon_data_overview/config_overview.toml",
+      "reproduction_command": "python -m hydromodpy run examples/projects/05_nancon_data_overview/config_overview.toml",
       "source_paths": [
-        "examples/projects/Nancon_data_overview/config_overview.toml",
-        "examples/capability_gallery/geographic/README.md",
-        "examples/capability_gallery/geographic/nancon_observed_timeseries/geographic_nancon_timeseries_discharge.png",
-        "examples/capability_gallery/geographic/nancon_observed_timeseries/geographic_nancon_timeseries_piezometry.png",
-        "examples/capability_gallery/geographic/nancon_observed_timeseries/geographic_nancon_timeseries_intermittency.png",
-        "examples/capability_gallery/geographic/nancon_observed_timeseries/geographic_nancon_timeseries_water_quality.png"
+        "examples/projects/05_nancon_data_overview/config_overview.toml",
+        "examples/projects/09_capability_gallery/geographic/README.md",
+        "examples/projects/09_capability_gallery/geographic/nancon_observed_timeseries/geographic_nancon_timeseries_discharge.png",
+        "examples/projects/09_capability_gallery/geographic/nancon_observed_timeseries/geographic_nancon_timeseries_piezometry.png",
+        "examples/projects/09_capability_gallery/geographic/nancon_observed_timeseries/geographic_nancon_timeseries_intermittency.png",
+        "examples/projects/09_capability_gallery/geographic/nancon_observed_timeseries/geographic_nancon_timeseries_water_quality.png"
       ],
       "image_assets": [
         {
           "filename": "geographic_nancon_timeseries_discharge.png",
           "caption": "Observed discharge chronicle extracted by the Nancon data-overview workflow.",
           "alt_text": "Nancon discharge time series",
-          "source_path": "examples/capability_gallery/geographic/nancon_observed_timeseries/geographic_nancon_timeseries_discharge.png"
+          "source_path": "examples/projects/09_capability_gallery/geographic/nancon_observed_timeseries/geographic_nancon_timeseries_discharge.png"
         },
         {
           "filename": "geographic_nancon_timeseries_piezometry.png",
           "caption": "Observed piezometric chronicle extracted by the Nancon data-overview workflow.",
           "alt_text": "Nancon piezometry time series",
-          "source_path": "examples/capability_gallery/geographic/nancon_observed_timeseries/geographic_nancon_timeseries_piezometry.png"
+          "source_path": "examples/projects/09_capability_gallery/geographic/nancon_observed_timeseries/geographic_nancon_timeseries_piezometry.png"
         },
         {
           "filename": "geographic_nancon_timeseries_intermittency.png",
           "caption": "Observed intermittency timeline extracted by the Nancon data-overview workflow.",
           "alt_text": "Nancon intermittency time series",
-          "source_path": "examples/capability_gallery/geographic/nancon_observed_timeseries/geographic_nancon_timeseries_intermittency.png"
+          "source_path": "examples/projects/09_capability_gallery/geographic/nancon_observed_timeseries/geographic_nancon_timeseries_intermittency.png"
         },
         {
           "filename": "geographic_nancon_timeseries_water_quality.png",
           "caption": "Observed water-quality chronicle extracted by the Nancon data-overview workflow.",
           "alt_text": "Nancon water quality time series",
-          "source_path": "examples/capability_gallery/geographic/nancon_observed_timeseries/geographic_nancon_timeseries_water_quality.png"
+          "source_path": "examples/projects/09_capability_gallery/geographic/nancon_observed_timeseries/geographic_nancon_timeseries_water_quality.png"
         }
       ],
       "case_setup": [
         "Same launcher family and base config as the Nancon identity-card case, but read here through the observation chronicle panels only.",
-        "The committed chronicle figures are mirrored under `examples/capability_gallery/geographic/` to keep the gallery self-contained.",
+        "The committed chronicle figures are mirrored under `examples/projects/09_capability_gallery/geographic/` to keep the gallery self-contained.",
         "The page remains pre-solver: it documents observed signals, not simulated response."
       ],
       "key_parameters": [

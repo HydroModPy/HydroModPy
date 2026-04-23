@@ -68,7 +68,7 @@ Bundle Inputs
    * - ``bundle_path``
      - Versioned bundle used to compute or display the mesh-focused figure.
      - bundle
-     - ``examples/mesh_gallery/10km2/mesh_s3_10km2_outlet_1_geology_rivers_buffer30/bundle``
+     - ``examples/projects/07_mesh_gallery/10km2/mesh_s3_10km2_outlet_1_geology_rivers_buffer30/bundle``
 
 Mesh Summary
 ^^^^^^^^^^^^
@@ -101,9 +101,9 @@ Mesh Summary
 Source Pointers
 ---------------
 
-- ``examples/mesh_gallery/10km2/mesh_s3_10km2_outlet_1_geology_rivers_buffer30/bundle/nodes.csv``
-- ``examples/mesh_gallery/10km2/mesh_s3_10km2_outlet_1_geology_rivers_buffer30/bundle/cells.csv``
-- ``examples/mesh_gallery/10km2/mesh_s3_10km2_outlet_1_geology_rivers_buffer30/bundle/mesh_summary.json``
+- ``examples/projects/07_mesh_gallery/10km2/mesh_s3_10km2_outlet_1_geology_rivers_buffer30/bundle/nodes.csv``
+- ``examples/projects/07_mesh_gallery/10km2/mesh_s3_10km2_outlet_1_geology_rivers_buffer30/bundle/cells.csv``
+- ``examples/projects/07_mesh_gallery/10km2/mesh_s3_10km2_outlet_1_geology_rivers_buffer30/bundle/mesh_summary.json``
 - ``tools/doc_gallery/update_gallery.py``
 
 Artifacts

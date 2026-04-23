@@ -97,8 +97,8 @@ Solver Coverage
          Linearized Unconfined Drainage 1D rendered with MODFLOW 6 irregular triangles for the analytical gallery.
 
       **Metrics**
-      - Head-profile RMSE: 0.0148 m
-      - Head-profile max abs error: 0.0233 m
+      - Head-profile RMSE: 0.0147 m
+      - Head-profile max abs error: 0.0235 m
       - Cross-row head spread: 0.00e+00 m
 
       - Config file: ``validation_cases/analytical/steady/linearized_unconfined_drainage_1d/config_modflow6_irregular_tri.toml``
@@ -194,6 +194,10 @@ Common Numerical Setup
      - Meaning
      - Value
      - Source
+   * - ``workflow``
+     - Case-specific configuration field `workflow` used by the validation benchmark.
+     - simulation
+     - ``validation_cases/analytical/steady/linearized_unconfined_drainage_1d/config_modflownwt.toml``
    * - ``geographic.synthetic.grid.length_x``
      - Synthetic-domain length along the x axis.
      - 100.0 m

@@ -52,7 +52,6 @@ Solver Coverage
       - Relative RMSE: 0.7527
       - Relative max abs error: 0.8255
       - Cross-row head spread: 4.97e-05 m
-      - MODFLOW-NWT rate budget max abs discrepancy: 200.00% (first bad stress period: 2)
 
       - Config file: ``validation_cases/analytical/transient/brutsaert_recession_linearized_deep_1d/config_modflownwt.toml``
       - Tolerances: ``validation_cases/analytical/transient/brutsaert_recession_linearized_deep_1d/tolerances_modflownwt.toml``
@@ -86,8 +85,19 @@ Solver Coverage
 
    .. tab-item:: Boussinesq
 
+      .. figure:: /_static/capability_gallery/validation/brutsaert_recession_linearized_deep_1d__boussinesq.png
+         :alt: Brutsaert Recession Validation: Deep Linearized Aquifer validation figure for Boussinesq
+         :width: 100%
+
+         Brutsaert Recession Validation: Deep Linearized Aquifer rendered with Boussinesq for the analytical gallery.
+
       **Metrics**
-      - Gallery generation failed for this solver: NameError: name 'period_lengths_seconds' is not defined
+      - Solution: exponential
+      - Initial discharge: 2.743452e-04 m3/s
+      - Characteristic time: 15.01 d
+      - Relative RMSE: 0.0194
+      - Relative max abs error: 0.0366
+      - Cross-row head spread: 6.48e-09 m
 
       - Config file: ``validation_cases/analytical/transient/brutsaert_recession_linearized_deep_1d/config_boussinesq.toml``
       - Tolerances: ``validation_cases/analytical/transient/brutsaert_recession_linearized_deep_1d/tolerances.toml``
@@ -181,6 +191,10 @@ Common Numerical Setup
      - Meaning
      - Value
      - Source
+   * - ``workflow``
+     - Case-specific configuration field `workflow` used by the validation benchmark.
+     - simulation
+     - ``validation_cases/analytical/transient/brutsaert_recession_linearized_deep_1d/config_common.toml``
    * - ``simulation.time.start_datetime``
      - Simulation start time used by the benchmark.
      - 2003-01-01 00:00:00
@@ -541,4 +555,5 @@ Artifacts
 
 - ``docs/readthedocs/source/_static/capability_gallery/validation/brutsaert_recession_linearized_deep_1d__modflownwt.png``
 - ``docs/readthedocs/source/_static/capability_gallery/validation/brutsaert_recession_linearized_deep_1d__modflow6.png``
+- ``docs/readthedocs/source/_static/capability_gallery/validation/brutsaert_recession_linearized_deep_1d__boussinesq.png``
 - ``docs/readthedocs/source/_static/capability_gallery/validation/brutsaert_recession_linearized_deep_1d_summary.json`` stores the displayed metrics plus source hashes used by ``python -m tools.doc_gallery --check``.

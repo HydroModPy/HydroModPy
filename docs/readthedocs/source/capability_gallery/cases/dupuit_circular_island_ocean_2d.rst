@@ -59,11 +59,11 @@ Solver Coverage
          Dupuit Circular-Island Ocean 2D rendered with MODFLOW-NWT for the analytical gallery.
 
       **Metrics**
-      - Radial head-profile RMSE: 0.0489 m
-      - Radial head-profile max abs error: 0.0918 m
-      - Azimuthal spread: 0.1120 m
+      - Radial head-profile RMSE: 2.6844 m
+      - Radial head-profile max abs error: 3.4429 m
+      - Azimuthal spread: 0.0000 m
       - Ocean head max abs error: 0.00e+00 m
-      - Minimum land freeboard: 0.7869 m
+      - Minimum land freeboard: 1.0392 m
 
       - Config file: ``validation_cases/analytical/steady/dupuit_circular_island_ocean_2d/config_modflownwt.toml``
       - Tolerances: ``validation_cases/analytical/steady/dupuit_circular_island_ocean_2d/tolerances.toml``
@@ -236,6 +236,10 @@ Common Numerical Setup
      - Meaning
      - Value
      - Source
+   * - ``workflow``
+     - Case-specific configuration field `workflow` used by the validation benchmark.
+     - simulation
+     - ``validation_cases/analytical/steady/dupuit_circular_island_ocean_2d/config_modflownwt.toml``
    * - ``simulation.time.start_datetime``
      - Simulation start time used by the benchmark.
      - 2003-01-01 00:00:00

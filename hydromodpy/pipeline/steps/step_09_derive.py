@@ -33,6 +33,7 @@ class DeriveStep:
     name = "derive"
     tin: ClassVar[type] = ExtractedState
     tout: ClassVar[type] = DerivedState
+    config_sections: ClassVar[tuple[str, ...]] = ("postprocess",)
 
     def __init__(self, registry=None) -> None:
         self._registry = registry if registry is not None else _default_registry

@@ -206,6 +206,10 @@ Common Numerical Setup
      - Meaning
      - Value
      - Source
+   * - ``workflow``
+     - Case-specific configuration field `workflow` used by the validation benchmark.
+     - simulation
+     - ``validation_cases/analytical/transient/linearized_unconfined_recharge_periodic_1d/config_modflownwt.toml``
    * - ``simulation.time.start_datetime``
      - Simulation start time used by the benchmark.
      - 2003-01-01 00:00:00

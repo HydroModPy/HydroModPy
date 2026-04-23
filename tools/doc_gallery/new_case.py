@@ -31,7 +31,7 @@ def build_parser() -> argparse.ArgumentParser:
         "--asset-dir",
         help=(
             "Repository-relative asset directory. Defaults to "
-            "`examples/capability_gallery/<category>/<slug>`."
+            "`examples/projects/09_capability_gallery/<category>/<slug>`."
         ),
     )
     parser.add_argument(

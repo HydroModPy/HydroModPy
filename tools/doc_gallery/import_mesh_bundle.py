@@ -40,7 +40,7 @@ def build_parser() -> argparse.ArgumentParser:
         "--scale",
         required=True,
         choices=("10km2", "100km2", "1000km2"),
-        help="Gallery scale bucket used under examples/mesh_gallery/.",
+        help="Gallery scale bucket used under examples/projects/07_mesh_gallery/.",
     )
     parser.add_argument(
         "--variant",

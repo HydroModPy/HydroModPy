@@ -88,12 +88,10 @@ Source Pointers
 - ``tools/investigate_surface_interaction_hillslope_transient.py``
 - ``tools/doc_gallery/generate_code_comparison_assets.py``
 - ``validation_cases/shared/boussinesq_budget.py``
-- ``out/sih_tx_4cmp_linux_no_seepage_20260415/timeseries.csv``
-- ``out/sih_tx_4cmp_linux_no_seepage_kx8_20260416/timeseries.csv``
-- ``examples/capability_gallery/code_comparison/surface_interaction_no_seepage/no_seepage_reference_k.png``
-- ``examples/capability_gallery/code_comparison/surface_interaction_no_seepage/no_seepage_reference_k.json``
-- ``examples/capability_gallery/code_comparison/surface_interaction_no_seepage/no_seepage_high_k.png``
-- ``examples/capability_gallery/code_comparison/surface_interaction_no_seepage/no_seepage_high_k.json``
+- ``examples/projects/09_capability_gallery/code_comparison/surface_interaction_no_seepage/no_seepage_reference_k.png``
+- ``examples/projects/09_capability_gallery/code_comparison/surface_interaction_no_seepage/no_seepage_reference_k.json``
+- ``examples/projects/09_capability_gallery/code_comparison/surface_interaction_no_seepage/no_seepage_high_k.png``
+- ``examples/projects/09_capability_gallery/code_comparison/surface_interaction_no_seepage/no_seepage_high_k.json``
 
 Artifacts
 ---------
