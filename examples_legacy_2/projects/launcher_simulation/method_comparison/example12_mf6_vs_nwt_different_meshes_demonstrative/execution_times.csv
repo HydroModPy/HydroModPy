@@ -1,3 +1,0 @@
-variant_id,variant_label,solver,mesh_mode,runtime_seconds,runtime_minutes,reference_variant,speedup_vs_reference
-mf6_demo_triangular,MF6 annual demonstrative on committed triangular mesh,modflow6,mesh_input,40.12,0.6686666666666666,mf6_demo_triangular,1.0
-nwt_demo_structured,NWT annual demonstrative on 60x60 structured grid,modflownwt,structured,29.19,0.48650000000000004,mf6_demo_triangular,1.3744433025008562
