@@ -238,16 +238,6 @@ def generate_toml_from_instances(
 # =====================================================================
 
 
-def _get_param_level(field_info: FieldInfo) -> str:
-    """Legacy helper - return the profile name as a string.
-
-    Prefer :func:`hydromodpy.core.config.pydantic_introspect.extract_profile`
-    which returns the :class:`Profile` enum directly. Kept here because some
-    external tooling (notebook snippets, docs) still imports this name.
-    """
-    return extract_profile(field_info).name.lower()
-
-
 def _fmt(val: Any) -> str:
     """Format a Python value as a TOML literal."""
     if val is None:
