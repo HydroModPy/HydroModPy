@@ -1,22 +1,22 @@
-# HydroModPy — core design patterns
+# Patterns de conception
 
-Every non-trivial feature in the codebase relies on one of the patterns
-below. Learn these ten and most of the surface area becomes predictable.
+La plupart des features non triviales du codebase reposent sur l'un des
+patterns ci-dessous. Les connaître rend le code prévisible.
 
-All examples use relative paths from the repository root
-(``hydromodpy/``). Line references are illustrative — check the code for
-up-to-date signatures.
+Liens : [glossary.md](glossary.md),
+[simulation_catalog_architecture.md](simulation_catalog_architecture.md),
+[frontend_hooks.md](frontend_hooks.md).
 
----
+## 1. Protocol SolverAdapter
 
-## 1. Protocol Solver
+Emplacement : `hydromodpy/simulation/adapters/base.py`, adapters concrets
+dans `hydromodpy/simulation/adapters/flow/` (`modflownwt.py`,
+`modflow6.py`, `boussinesq.py`, `modflow_common.py`).
 
-**Where**  `hydromodpy/simulation/adapters/base.py`, `solver/base/`.
-
-A ``SolverAdapter`` is a Protocol (duck-typed interface) that binds a
-``(process_type, solver_name)`` pair to a concrete solver. Each adapter
-takes a domain-level process (``Flow``, ``Transport``) and drives the
-underlying FloPy/Boussinesq/MODFLOW6 machinery.
+Un `SolverAdapter` est un Protocol qui lie une paire
+`(process_type, solver_name)` à un solveur concret. Il prend un process
+de domaine (`Flow`, `Transport`) et pilote la machinerie FloPy, PETSc ou
+scipy sous-jacente.
 
 ```python
 class SolverAdapter(Protocol):
@@ -25,113 +25,114 @@ class SolverAdapter(Protocol):
     def build(self, plan: ProcessRun, state: WorkflowContext) -> SolveResult: ...
 ```
 
-Register new adapters in ``simulation/adapters/registry.py``. The
-planner resolves the adapter at plan-build time; the runner only sees
-the protocol.
+Enregistrement dans `simulation/adapters/registry.py`. Le planner résout
+l'adapter au moment de la construction du plan ; le runner ne voit que
+le Protocol.
 
-**Why**  decouple the domain (Flow, Transport) from the solver specifics
-(MODFLOW-NWT vs MODFLOW 6 vs Boussinesq). Adding a new solver is one
-adapter class plus one registry entry.
-
----
+Raison : découple le domaine (Flow, Transport) des spécificités du
+solveur. Ajouter un solveur revient à écrire une classe d'adapter et une
+ligne dans le registre.
 
 ## 2. Pipeline Step
 
-**Where**  `hydromodpy/workflow/steps/`, `pipeline/`.
+Emplacement : `hydromodpy/workflow/steps/`, base dans
+`hydromodpy/pipeline/step.py`.
 
-A pipeline step is a pure function ``(WorkflowContext) -> WorkflowContext``
-(or a narrow sub-context). Each step updates exactly one scope of the
-context: setup, data-loading, mesh, solve, extract, derive, export.
+Un step est une fonction pure `(WorkflowContext) -> WorkflowContext` (ou
+un sous-contexte restreint). Chaque step met à jour exactement une scope
+du contexte : setup, data-loading, mesh, solve, extract, derive, export.
 
 ```python
 def resolve_support_configs(ctx: SetupContext) -> SetupContext:
     ...
 ```
 
-Steps live in small files named after their concern and never import
-``Project`` or the runner. The pipeline composition itself is declared
-elsewhere (``pipeline/``), keeping steps reusable in tests.
+Les steps vivent dans des fichiers courts, nommés selon leur concern, et
+n'importent jamais `Project` ni le runner. La composition du pipeline est
+déclarée ailleurs (`hydromodpy/workflow/pipelines/`), ce qui rend les
+steps réutilisables en test.
 
-**Why**  testability — each step is a pure function with explicit inputs
-and outputs. New workflows assemble steps without forking orchestration.
+Raison : testabilité. Chaque step est une fonction pure avec des entrées
+et sorties explicites. Un nouveau workflow assemble des steps sans
+forker l'orchestration.
 
----
+## 3. Figure (suites d'affichage)
 
-## 3. Figure (display suites)
+Emplacement : `hydromodpy/display/figure.py`, figures concrètes dans
+`hydromodpy/display/figures/`.
 
-**Where**  `hydromodpy/display/`.
-
-Each named plot implements the ``Figure`` protocol:
+Chaque figure nommée implémente le Protocol `Figure` :
 
 ```python
 class Figure(Protocol):
     name: ClassVar[str]
-    def plot(self, sim: Simulation, *, save_path: Path | None) -> None: ...
+    def plot(self, sim: Run, *, save_path: Path | None) -> None: ...
 ```
 
-Figures are registered by name. End users reach them via
-``sim.plot("watertable_map")`` or ``hmp.display.get("watertable_map")``.
-Saving is controlled by the caller; the display module never decides
-whether to show or save.
+Les figures sont enregistrées par nom. Côté utilisateur :
+`run.plot("watertable_map")` ou `hmp.display.get("watertable_map")`.
+L'appelant décide de l'affichage ou de l'écriture ; le module display ne
+l'impose pas.
 
-**Why**  rendering is on-demand, consistent across suites, and driven
-by configuration (``DisplayConfig`` in ``[display]``) rather than global
-environment variables.
+Raison : rendu à la demande, cohérent entre suites, piloté par la
+config `[display]` (`DisplayConfig` dans
+`hydromodpy/display/config.py`) plutôt que des variables d'environnement.
 
----
+## 4. Backend de délinéation
 
-## 4. Delineation Backend
+Emplacement : `hydromodpy/spatial/delineation/`.
 
-**Where**  `hydromodpy/spatial/delineation/`.
-
-Watershed delineation is backend-agnostic. ``WhiteboxBackend`` wraps the
-standalone binary; ``WhiteboxWorkflowsBackend`` wraps the pip-installed
-wheel. Both expose the same interface used by the flow-analysis steps:
+La délinéation est agnostique du backend. `WhiteboxCLIBackend`
+(`whitebox_cli_backend.py`) encapsule le binaire standalone ;
+`WhiteboxWorkflowsBackend` (`whitebox_workflows_backend.py`) encapsule le
+paquet pip. Les deux exposent le même Protocol `WhiteboxBackend`
+(`base.py`) consommé par les steps d'analyse de flux.
 
 ```python
 backend = get_whitebox_backend(preferred="wheel")
 backend.breach_depressions(input_dem, output_dem)
 ```
 
-**Why**  swap binaries at runtime (CI uses the wheel, production uses
-the binary). Downstream code never touches the binary path.
-
----
+Raison : permuter les binaires au runtime (CI sur wheel, prod sur
+binaire). Le code aval ne touche jamais au chemin du binaire.
 
 ## 5. Data Manager
 
-**Where**  `hydromodpy/data/common/base_manager.py`,
-`data/variables/<variable>/*.py`.
+Emplacement : `hydromodpy/data/base_manager.py`,
+`hydromodpy/data/variables/<variable>/`.
 
-Every input variable (hydrometry, piezometry, geology, hydrography…) has
-a subclass of ``BaseVariableManager``:
+Chaque variable d'entrée (hydrométrie, piézométrie, géologie,
+hydrographie, climat) dispose d'une sous-classe de
+`BaseVariableManager` :
 
 ```python
 class HydrometryManager(BaseVariableManager):
     def load(self) -> LoadResult: ...
 ```
 
-``LoadResult`` wraps the fetched data and a fingerprint used for
-provenance. The ``DataManagersPlanner`` resolves explicit configuration
-+ inferred requirements into an immutable ``DataLoadPlan``.
+`LoadResult` encapsule les données fetchées et un fingerprint utilisé
+pour la provenance. `DataManagersPlanner`
+(`hydromodpy/data/planner.py`) résout la config explicite et les besoins
+inférés en un `DataLoadPlan` immuable.
 
-**Why**  a uniform fetch/cache/verify story across heterogeneous
-sources (Hubeau, BD Topage, SIM2, synthetic, custom…). Adding a new
-variable is one manager class plus one entry in the registry.
+Raison : un récit uniforme fetch / cache / verify pour des sources
+hétérogènes (Hubeau, BD Topage, SIM2, synthétique, custom). Ajouter une
+variable revient à écrire un manager et l'enregistrer.
 
----
+## 6. Config Pydantic avec Annotated
 
-## 6. Config via Pydantic + Annotated
+Emplacement : `hydromodpy/core/config/` et chaque `*_config.py`.
 
-**Where**  `hydromodpy/core/config/` and every `*_config.py` file.
+Toute la configuration est exprimée en modèles Pydantic avec
+`ConfigDict(extra="forbid")`. Les champs porteurs de quantités physiques
+utilisent des alias `Annotated` de `hydromodpy/core/units/` :
+`Length`, `Time`, `FlowRate`, `HydraulicConductivity`, `SpecificStorage`,
+`SpecificYield`, `Area`, `Volume`, `Dimensionless`. L'utilisateur peut
+écrire `"50 m"` ou `"0.1 km"`.
 
-All configuration is expressed as Pydantic models with
-``ConfigDict(extra="forbid")``. Quantity-bearing fields use
-``Annotated`` aliases from ``core/units/`` so users can write
-``"50 m"`` or ``"0.1 km"``. ``Profile`` (``Profile.USER`` / ``Profile.DEV`` /
-``Profile.EXPERT`` — an ``IntEnum`` in ``core/config/profile.py``) controls
-which fields show up in generated TOML templates. The legacy
-``ParamLevel("user")`` tag still works as a v0.6-window shim.
+`Profile` (`core/config/profile.py`, un `IntEnum`) contrôle la visibilité
+des champs dans les TOML générés. Le shim legacy `ParamLevel("user")`
+reste fonctionnel en v0.6.
 
 ```python
 class DomainConfig(BaseModel):
@@ -140,55 +141,54 @@ class DomainConfig(BaseModel):
     depth_model: DepthModelConfig = Field(default_factory=...)
 ```
 
-**Why**  one parser for TOML, CLI, and Python dictionaries; automatic
-JSON schema export for frontend integration; units handled in one place.
+Raison : un parseur unique pour TOML, CLI et dictionnaires Python ;
+export JSON Schema automatique pour les frontaux ; unités gérées en un
+seul endroit.
 
----
+## 7. Adaptateurs de calibration
 
-## 7. Calibration Adapter
+Emplacement : `hydromodpy/calibration/adapters/`.
 
-**Where**  `hydromodpy/calibration/adapters/`.
+Un adapter de calibration branche un optimiseur concret sur le moteur.
+Les adapters disponibles :
 
-A calibration adapter bridges the ``Simulation`` façade and the
-``CalibrationEngine``. It exposes the subset of state the engine needs
-(parameters, metrics, caching key) without coupling the engine to the
+- `scipy_adapter.py` : routines scipy (Nelder-Mead, differential
+  evolution).
+- `optuna_adapter.py` : moteur Bayesian d'Optuna.
+- `grid_adapter.py` : balayage grille.
+- `gp_mapping_adapter.py` : surrogate GP, mapping paramètres.
+- `da_mh_gp_adapter.py` : data-assimilation Metropolis-Hastings sur GP.
+
+Chaque adapter expose une interface commune avec l'`engine` pour
+exposer paramètres, métriques et clé de cache sans coupler l'engine au
 runtime.
 
-```python
-class FlowCalibrationAdapter:
-    def evaluate(self, params: dict) -> Metrics: ...
-```
-
-**Why**  the engine stays generic (gradient-free, mostly), and each
-process type plugs in via a thin adapter.
-
----
+Raison : l'engine reste générique. Chaque stratégie d'optimisation se
+branche via un adapter fin.
 
 ## 8. Objective
 
-**Where**  `hydromodpy/calibration/objective.py`.
+Emplacement : `hydromodpy/calibration/objective.py`.
 
-An ``Objective`` aggregates one or more weighted ``Metric`` instances
-into a scalar loss. Objectives are declarative (configured from TOML)
-and stateless — they take a ``Metrics`` dict and return a float.
+Un `Objective` agrège une ou plusieurs `Metric` pondérées en une perte
+scalaire. Les objectifs sont déclaratifs (configurés depuis le TOML) et
+stateless : ils prennent un dict `Metrics` et retournent un float.
 
 ```python
 class Objective:
     def __call__(self, metrics: Metrics) -> float: ...
 ```
 
-**Why**  swap the calibration target (streamflow NSE, joint piezo/Q
-loss, multi-site average) without touching the engine.
-
----
+Raison : permuter la cible de calibration (NSE débit, perte jointe
+piézo-débit, moyenne multi-site) sans toucher à l'engine.
 
 ## 9. Metric
 
-**Where**  `hydromodpy/calibration/objective.py` (metric registry),
-`hydromodpy/results/metrics.py`.
+Emplacement : `hydromodpy/calibration/metrics.py` (registre),
+`hydromodpy/results/metrics.py` (persistance).
 
-A ``Metric`` is a callable that compares a simulated series against an
-observation series:
+Une `Metric` est un callable qui compare une série simulée à une série
+observée :
 
 ```python
 class Metric(Protocol):
@@ -196,36 +196,29 @@ class Metric(Protocol):
     def __call__(self, sim, obs) -> float: ...
 ```
 
-Canonical metrics: ``nse``, ``kge``, ``rmse``, ``mae``. Metrics are
-persisted to the ``metrics`` table in the catalog with PK
-``(sim_id, station_id, metric_name)``.
+Métriques canoniques : `nse`, `kge`, `rmse`, `mae`. Persistées dans la
+table `metrics` du catalogue avec la PK `(sim_id, station_id, metric_name)`.
 
-**Why**  one vocabulary for metric names across calibration, display,
-exports, and the catalog.
+Raison : vocabulaire unique de noms de métriques pour calibration,
+affichage, export et catalogue.
 
----
+## 10. Hooks frontaux via Pydantic + JSON Schema
 
-## 10. Figure Protocol (frontend hook)
+Emplacement : `hydromodpy/schema/`.
 
-**Where**  `hydromodpy/schema/`, consumed by external UIs.
+Tout objet destiné à piloter un widget d'UI (sélecteur de figures,
+formulaire de paramètres, panneau de métriques) expose un contrat
+JSON-compatible. Le paquet `schema` expose des helpers pour dumper les
+modèles Pydantic en JSON Schema (CLI `hmp schema export`) et valider
+partiellement un TOML édité, afin qu'un frontal puisse remonter des
+erreurs champ par champ sans lever d'exception dès la première faute.
 
-Any object meant to drive a UI widget (figure selector, parameter form,
-metric panel) exposes a JSON-compatible contract. The
-``hydromodpy/schema/`` package ships helpers to dump Pydantic models as
-JSON schema (``schema export`` CLI) and to partially validate
-user-edited TOML so a frontend can surface errors field-by-field
-instead of aborting on the first exception.
+Raison : le codebase sert aussi de backend à des frontaux externes.
+Garder le contrat déclaratif (Pydantic plus export schema) évite de
+dupliquer la structure côté UI.
 
-**Why**  the codebase doubles as a backend for external frontends;
-keeping the contract declarative (Pydantic + schema export) avoids
-duplicating structure in the UI layer.
+## Voir aussi
 
----
-
-## Further reading
-
-- ``docs/developers/simulation_catalog_architecture.md`` — storage layer.
-- ``docs/developers/frontend_hooks.md`` — how external UIs integrate.
-- ``docs/developers/glossary.md`` — canonical naming conventions.
-- ``architecture_cible/`` — target architecture specs (reference only;
-  implementation may have diverged).
+- [simulation_catalog_architecture.md](simulation_catalog_architecture.md) : couche de stockage.
+- [frontend_hooks.md](frontend_hooks.md) : intégration des frontaux externes.
+- [glossary.md](glossary.md) : conventions de nommage.

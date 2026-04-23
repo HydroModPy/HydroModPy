@@ -1,20 +1,30 @@
-# Maillages dans HydroModPy — Guide développeur
+# Architecture des maillages
+
+Liens : [glossary.md](glossary.md),
+[gmsh_mesh_integration_note.md](gmsh_mesh_integration_note.md),
+[gmsh_conformal_meshing.md](gmsh_conformal_meshing.md),
+[modflow_contracts.md](modflow_contracts.md),
+[modflow6_gmsh_disv_development_perspective.md](modflow6_gmsh_disv_development_perspective.md).
+
+Code : `hydromodpy/spatial/field/` (coeur maillage) et
+`hydromodpy/solver/utils/mesh/` (intégration gmsh vers solveurs).
 
 ## 1. Vue d'ensemble
 
-HydroModPy manipule plusieurs types de maillages 2D et 3D pour discrétiser
-des paramètres hydrogéologiques (conductivité, emmagasinement, recharge, etc.)
-et les transmettre aux solveurs (MODFLOW NWT, MODFLOW 6).
+HydroModPy manipule plusieurs types de maillages 2D et 3D pour
+discrétiser des paramètres hydrogéologiques (conductivité,
+emmagasinement, recharge) et les transmettre aux solveurs (MODFLOW-NWT,
+MODFLOW 6, Boussinesq).
 
 Ce document couvre :
 
-- La **hiérarchie de classes** de maillage (`BaseFieldMesh` et ses sous-classes)
-- Le **format pivot** `HydroMesh` qui unifie tous les types
-- Comment **poser des variables** sur un maillage (`FieldParam`, `FieldSpatial`)
-- L'**extrusion 3D** et les profils verticaux
-- Le **plotting unifié**, l'**I/O disque** (VTU), les **adaptateurs FloPy**
-- Le **pipeline forcing** (recharge, variables climatiques)
-- Les **limitations actuelles** et le périmètre du pivot
+- La hiérarchie de classes de maillage (`BaseFieldMesh` et ses sous-classes).
+- Le format pivot `HydroMesh` qui unifie tous les types.
+- La pose de variables sur un maillage (`FieldParam`, `FieldSpatial`).
+- L'extrusion 3D et les profils verticaux.
+- Le plotting unifié, l'I/O disque (VTU), les adaptateurs FloPy.
+- Le pipeline forcing (recharge, variables climatiques).
+- Les limitations actuelles et le périmètre du pivot.
 
 ---
 
@@ -23,14 +33,14 @@ Ce document couvre :
 ### 2.1 Hiérarchie de classes
 
 ```
-BaseFieldMesh (ABC)                      # hydromodpy/field/core/field_mesh.py
-├── StructuredFieldMesh                  # hydromodpy/field/meshes/structured_field_mesh.py
+BaseFieldMesh (ABC)                      # hydromodpy/spatial/field/core/field_mesh.py
+├── StructuredFieldMesh                  # hydromodpy/spatial/field/meshes/structured_field_mesh.py
 │     _kind = "structured"               # Quadrilatères sur grille régulière
-├── TriangularStructuredFieldMesh        # hydromodpy/field/meshes/triangular_field_mesh.py
+├── TriangularStructuredFieldMesh        # hydromodpy/spatial/field/meshes/triangular_field_mesh.py
 │     _kind = "triangular_structured"    # Triangles sur grille régulière
-├── TriangularUnstructuredFieldMesh      # hydromodpy/field/meshes/triangular_field_mesh.py
+├── TriangularUnstructuredFieldMesh      # hydromodpy/spatial/field/meshes/triangular_field_mesh.py
 │     _kind = "triangular_unstructured"  # Triangles Delaunay aléatoires
-├── GeologyStructuredMesh                # hydromodpy/field/geology/geology_mesh.py
+├── GeologyStructuredMesh                # hydromodpy/spatial/field/geology/geology_mesh.py
 │     _kind = "structured_rect"          # Quadrilatères en coordonnées réelles
 └── GmshPlanarMesh2D                     # hydromodpy/solver/utils/mesh/gmsh_grid/gmsh_planar_mesh.py
       _kind = "gmsh_2d"                  # Triangles ou quads depuis fichier .msh
@@ -57,7 +67,7 @@ Toutes les sous-classes implémentent :
 | `to_hydro_mesh()` | Conversion vers le format pivot `HydroMesh` |
 | `attach_cell_values(values, label)` | Retourne un `MeshWithValues` |
 
-### 2.3 `MeshCell` — une cellule individuelle
+### 2.3 `MeshCell`: une cellule individuelle
 
 ```python
 @dataclass(frozen=True)
@@ -69,7 +79,7 @@ class MeshCell:
     centroid: tuple[float, float]     # Centre de la cellule
 ```
 
-### 2.4 `MeshWithValues` — maillage + données
+### 2.4 `MeshWithValues`: maillage + données
 
 ```python
 @dataclass(frozen=True)
@@ -79,7 +89,7 @@ class MeshWithValues:
     label: str | None = None
 ```
 
-C'est le type de retour de `FieldParam.to_mesh_field()` — le résultat de la
+C'est le type de retour de `FieldParam.to_mesh_field()`: le résultat de la
 discrétisation d'un paramètre sur un maillage.
 
 ---
@@ -89,7 +99,7 @@ discrétisation d'un paramètre sur un maillage.
 ### 3.1 Grille structurée (carré unitaire)
 
 ```python
-from hydromodpy.field.cases.square.field_mesh_square import FieldMeshSquare
+from hydromodpy.spatial.field.cases.square.field_mesh_square import FieldMeshSquare
 
 # Grille quadrilatérale 20×20 = 400 cellules
 mesh = FieldMeshSquare.from_unit_square(
@@ -137,7 +147,7 @@ planar = GmshPlanarMesh2D.from_file("domain.msh")
 ### 3.5 Maillage géologique en coordonnées réelles
 
 ```python
-from hydromodpy.field.geology import GeologyStructuredMesh
+from hydromodpy.spatial.field.geology import GeologyStructuredMesh
 
 mesh = GeologyStructuredMesh.from_bounds(
     [xmin, ymin, xmax, ymax],
@@ -200,7 +210,7 @@ Le pipeline de discrétisation utilise trois objets :
 ### 4.1 Cas homogène (valeur unique)
 
 ```python
-from hydromodpy.field.core.field_param import FieldParam
+from hydromodpy.spatial.field.core.field_param import FieldParam
 
 K = FieldParam(
     identifier="K",
@@ -221,7 +231,7 @@ Trois étapes :
 
 ```python
 # 1) Définir la géométrie spatiale (zones)
-from hydromodpy.field.cases.square.field_spatial_square import FieldSquare
+from hydromodpy.spatial.field.cases.square.field_spatial_square import FieldSquare
 
 field = FieldSquare(
     line="diag_main",           # diag_main | diag_anti | axis_vertical | axis_horizontal
@@ -299,8 +309,8 @@ result = discretize_fieldparam_on_sgrid(
     field_param=K,           # FieldParam
     sgrid=model.modelgrid,   # flopy StructuredGrid (nrow, ncol, nlay)
 )
-# result.values_3d → (nlay, nrow, ncol)  — valeur par cellule avec profil vertical
-# result.values_2d → (nrow, ncol)        — valeur de référence en surface
+# result.values_3d → (nlay, nrow, ncol) : valeur par cellule avec profil vertical
+# result.values_2d → (nrow, ncol)       : valeur de référence en surface
 ```
 
 ### 4.5 Discrétisation 3D sur maillage extrudé (Gmsh)
@@ -342,7 +352,7 @@ depuis l'unité d'entrée est automatique à la construction :
 quel maillage 2D ou 3D de façon uniforme :
 
 ```python
-from hydromodpy.mesh import HydroMesh, CellBlock, CellType
+from hydromodpy.spatial.mesh import HydroMesh, CellBlock, CellType
 
 mesh = HydroMesh(
     vertices=points_xy,                              # ndarray (n_nodes, 2|3)
@@ -432,7 +442,7 @@ hm = mesh_3d.to_hydro_mesh()
 # → préserve cell_data["layer_index"] et cell_data["source_cell_index"]
 
 # Depuis flopy StructuredGrid :
-from hydromodpy.mesh.adapters import from_flopy_structured
+from hydromodpy.spatial.mesh.adapters import from_flopy_structured
 hm = from_flopy_structured(model.modelgrid)
 
 # Retour vers GmshPlanarMesh2D :
@@ -458,7 +468,7 @@ hm.structured_shape       # (20, 20)
 ### 6.1 Fonction unique
 
 ```python
-from hydromodpy.mesh.plotting import plot_cell_values
+from hydromodpy.spatial.mesh.plotting import plot_cell_values
 
 fig, ax = plt.subplots()
 mappable = plot_cell_values(ax, hydro_mesh, values, cmap="coolwarm")
@@ -485,7 +495,7 @@ au plotter unifié en interne :
 structured_mesh.plot_cell_values(ax, values)
 structured_mesh.to_hydro_mesh()  # → puis plot_cell_values(ax, hm, values)
 
-# L'interface publique ne change pas — le code appelant n'a rien à modifier.
+# L'interface publique ne change pas: le code appelant n'a rien à modifier.
 ```
 
 Classes concernées :
@@ -505,7 +515,7 @@ Classes concernées :
 VTU (VTK Unstructured Grid XML) est le format de sérialisation recommandé :
 
 ```python
-from hydromodpy.mesh.io import write_vtu, read_vtu
+from hydromodpy.spatial.mesh.io import write_vtu, read_vtu
 
 # Écriture :
 write_vtu("output.vtu", hydro_mesh)
@@ -550,7 +560,7 @@ from hydromodpy.solver.utils.mesh.gmsh_grid.exchange_api import (
 ### 7.4 Conversion meshio round-trip
 
 ```python
-from hydromodpy.mesh.adapters import from_meshio, to_meshio
+from hydromodpy.spatial.mesh.adapters import from_meshio, to_meshio
 
 # HydroMesh → meshio.Mesh :
 meshio_mesh = to_meshio(hydro_mesh)
@@ -566,7 +576,7 @@ hydro_mesh = from_meshio(meshio_mesh)
 ### 8.1 Import depuis flopy (DIS → HydroMesh)
 
 ```python
-from hydromodpy.mesh.adapters import from_flopy_structured
+from hydromodpy.spatial.mesh.adapters import from_flopy_structured
 
 sgrid = model.modelgrid  # flopy StructuredGrid
 hm = from_flopy_structured(sgrid)
@@ -578,7 +588,7 @@ hm = from_flopy_structured(sgrid)
 ### 8.2 Export vers MODFLOW 6 DISV
 
 ```python
-from hydromodpy.mesh.adapters import to_flopy_disv_args
+from hydromodpy.spatial.mesh.adapters import to_flopy_disv_args
 
 disv_kwargs = to_flopy_disv_args(
     hydro_mesh,
@@ -641,7 +651,7 @@ hydromodpy/mesh/
 ├── __init__.py              # Exports : CellType, CellBlock, HydroMesh
 ├── cell_types.py            # Enum CellType + aliases + propriétés
 ├── hydro_mesh.py            # CellBlock + HydroMesh (frozen dataclasses)
-├── plotting.py              # plot_cell_values() — dispatch unifié
+├── plotting.py              # plot_cell_values(): dispatch unifié
 ├── adapters/
 │   ├── __init__.py          # Re-exports de tous les adaptateurs
 │   ├── meshio_adapter.py    # from_meshio() / to_meshio()
@@ -716,7 +726,7 @@ Le cœur (`cell_types.py`, `hydro_mesh.py`) ne dépend que de **numpy**.
 ## 13. Relation avec les classes existantes
 
 Les classes existantes (`GmshPlanarMesh2D`, `StructuredFieldMesh`, etc.)
-**restent en place**. `HydroMesh` ne les remplace pas — il sert de format
+**restent en place**. `HydroMesh` ne les remplace pas: il sert de format
 d'échange entre elles.
 
 Chaque classe conserve sa logique métier (génération, validation,

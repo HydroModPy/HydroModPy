@@ -1,8 +1,13 @@
-# PETSc Boussinesq vs Marcais 2017
+# PETSc Boussinesq versus Marcais 2017
 
-## Scope
+Liens : [boussinesq_solver_architecture.md](boussinesq_solver_architecture.md),
+[boussinesq_linux_ci.md](boussinesq_linux_ci.md),
+[boussinesq_petsc_headwater_100km2_diagnostic.md](boussinesq_petsc_headwater_100km2_diagnostic.md).
 
-This note compares the current HydroModPy PETSc backend for the Boussinesq solver with:
+## Portée
+
+Cette note compare le backend PETSc courant du solveur Boussinesq
+HydroModPy avec :
 
 - `docs/developers/numerical_methods_references/Marcais_2017_dynamic_coupling_subsurface_and_seepage_flows.pdf`
 - the current implementation in:
@@ -11,9 +16,9 @@ This note compares the current HydroModPy PETSc backend for the Boussinesq solve
 
 The focus is the treatment of the interaction between groundwater and the land surface, especially the onset of seepage and saturation-excess outflow.
 
-## Executive View
+## Synthèse
 
-The article and the current PETSc backend target the same physical transition:
+L'article et le backend PETSc courant visent la même transition physique :
 
 - below saturation, flow remains subsurface,
 - once the water table reaches the surface, excess water must leave through a surface flux.

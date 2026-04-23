@@ -1,17 +1,22 @@
-# Diagnostic: real headwater 100 km2 case with Boussinesq PETSc regularized partition
+# Diagnostic : cas réel headwater 100 km² avec Boussinesq PETSc regularized_partition
 
-## Scope
+Liens :
+[boussinesq_solver_architecture.md](boussinesq_solver_architecture.md),
+[boussinesq_linux_ci.md](boussinesq_linux_ci.md),
+[boussinesq_petsc_vs_marcais_2017.md](boussinesq_petsc_vs_marcais_2017.md).
 
-This note describes one real unstructured-triangular catchment case that is
-used to test the new PETSc Boussinesq runtime with the
-`regularized_partition` surface-interaction model.
+## Portée
 
-The goal is to have one self-contained technical note that can be reused for:
+Cette note décrit un cas réel de bassin triangulé non structuré qui sert
+à tester le runtime PETSc Boussinesq avec le modèle d'interaction de
+surface `regularized_partition`.
 
-- external literature search,
-- PETSc / nonlinear-solver discussions,
-- future bug reports or benchmark tickets,
-- comparison against other groundwater solvers.
+Objectif : une note technique autonome réutilisable pour :
+
+- recherche bibliographique externe,
+- discussions PETSc ou solveurs nonlinéaires,
+- futurs bug reports ou tickets de benchmark,
+- comparaison avec d'autres solveurs d'eau souterraine.
 
 ## Reproduction
 

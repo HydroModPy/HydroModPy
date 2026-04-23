@@ -1,171 +1,145 @@
-# Boussinesq Linux CI
+# CI Linux pour Boussinesq
 
-## Purpose
+Liens : [boussinesq_solver_architecture.md](boussinesq_solver_architecture.md),
+[boussinesq_petsc_vs_marcais_2017.md](boussinesq_petsc_vs_marcais_2017.md),
+[boussinesq_petsc_headwater_100km2_diagnostic.md](boussinesq_petsc_headwater_100km2_diagnostic.md).
 
-The Boussinesq solver has two Linux-facing test levels:
+## Objectif
 
-- a standard Linux smoke suite for the `local`, `scipy`, and `scipy_sparse`
-  paths;
-- a PETSc smoke suite for the Linux-only `runtime_backend = "petsc"` paths.
+Le solveur Boussinesq dispose de deux niveaux de tests Linux :
 
-The PETSc job is intentionally separate from the default pull-request job
-because it needs a heavier PETSc/petsc4py environment.
+- Une suite smoke standard pour les chemins `local`, `scipy` et
+  `scipy_sparse`.
+- Une suite smoke PETSc pour les chemins `runtime_backend = "petsc"`,
+  disponibles uniquement sous Linux.
+
+Le job PETSc est volontairement séparé du job PR par défaut car il
+impose un environnement PETSc et petsc4py plus lourd.
 
 ## GitHub Actions
 
-The workflow lives at:
+Workflow :
 
-```text
+```
 .github/workflows/linux-boussinesq.yml
 ```
 
-It defines:
+Deux jobs :
 
-- `boussinesq-linux-smoke`: runs on pull requests and pushes touching the
-  Boussinesq, flow-adapter, validation, or CI files.
-- `boussinesq-petsc-smoke`: runs on the weekly schedule or manually through
-  `workflow_dispatch`.
+- `boussinesq-linux-smoke` : s'exécute sur les PR et les pushes qui
+  modifient Boussinesq, l'adapter flow, la validation ou les fichiers
+  CI.
+- `boussinesq-petsc-smoke` : s'exécute sur le schedule hebdomadaire ou
+  manuellement via `workflow_dispatch`.
 
-The standard job runs:
+Commandes correspondantes :
 
 ```bash
 bash tools/ci/run_boussinesq_linux_smoke.sh
-```
-
-The PETSc job runs:
-
-```bash
 bash tools/ci/run_boussinesq_petsc_smoke.sh
 ```
 
-The PETSc smoke suite validates the two current PETSc surface formulations on
-two focused benchmarks:
+La suite smoke PETSc valide les deux formulations de surface
+supportées :
 
-- `petsc_partition`: PETSc with `surface_interaction_model = "regularized_partition"`;
-- `petsc`: PETSc with `surface_interaction_model = "complementarity"`.
+- `petsc_partition` : PETSc avec
+  `surface_interaction_model = "regularized_partition"`.
+- `petsc` : PETSc avec `surface_interaction_model = "complementarity"`.
 
-Covered PETSc smoke cases:
+Cas couverts :
 
-- the small steady Dupuit fixed-head benchmark, used as a compact analytical
-  acceptance check;
-- the transient hillslope recharge-pulse overflow scenario, used to confirm
-  that both PETSc variants do activate the surface-threshold/overflow response
-  on a more nonlinear synthetic case;
-- the transient real `headwater_100km2_outlet_2` cycling-recharge scenario,
-  used to confirm that the mixed complementarity runtime resolves repeated
-  activation/deactivation windows on a committed natural mesh while the
-  regularized-partition path stays on its smoother always-active response.
+- Benchmark Dupuit analytique en régime permanent (sanity check).
+- Scénario transitoire hillslope recharge pulse overflow (vérifie
+  l'activation du seuil de surface).
+- Scénario transitoire réel `headwater_100km2_outlet_2` cycling recharge
+  (vérifie que la variante complementarity gère des cycles
+  activation/désactivation sur un maillage naturel).
 
-## Local WSL Usage
+## Usage local WSL
 
-This repository can be tested from WSL with the same scripts once a Linux
-environment has the needed packages installed.
+Le dépôt peut être testé depuis WSL avec les mêmes scripts, une fois un
+env Linux muni des dépendances.
 
-Current working local references on this machine:
+Références de travail actuelles (machine de référence) :
 
-```text
-WSL distro           : Ubuntu 22.04
-Linux repo path      : /mnt/c/codes/HydroModPy-GH
-Miniforge root       : /home/dreuzy/miniforge3
-Standard env         : /home/dreuzy/miniforge3/envs/hydromodpy-wsl
-PETSc env            : /home/dreuzy/miniforge3/envs/hydromodpy-petsc
+```
+WSL distro     : Ubuntu 22.04
+Linux repo     : /mnt/c/codes/HydroModPy-GH
+Miniforge root : /home/dreuzy/miniforge3
+Standard env   : /home/dreuzy/miniforge3/envs/hydromodpy-wsl
+PETSc env      : /home/dreuzy/miniforge3/envs/hydromodpy-petsc
 ```
 
-Quick checks:
+Checks rapides :
 
 ```bash
 /home/dreuzy/miniforge3/bin/conda env list
 /home/dreuzy/miniforge3/bin/conda run -n hydromodpy-petsc python -c "import petsc4py, whitebox_workflows, hydromodpy; print('ok')"
 ```
 
-System packages needed by the local WSL setup for `gmsh`-based benchmarks:
+Paquets système nécessaires aux benchmarks basés sur gmsh :
 
 ```bash
 apt-get install -y libxft2 libglu1-mesa libgl1 libxcursor1 libxinerama1 libxrandr2 libfreetype6 libfontconfig1
 ```
 
-Bootstrap a conda-forge PETSc environment from PowerShell:
+Bootstrap d'un env PETSc conda-forge depuis PowerShell :
 
 ```powershell
 wsl.exe bash -lc "source ~/miniforge3/etc/profile.d/conda.sh && mamba create -y -n hydromodpy-petsc -c conda-forge --strict-channel-priority python=3.12 pip petsc petsc4py mpi4py dask plotly numpy scipy pytest pytest-xdist pandas xarray pydantic matplotlib shapely pyproj geopandas rasterio rioxarray flopy h5py netcdf4 pint pyshp scikit-learn meshio imageio requests geopy selenium tqdm sqlalchemy"
 wsl.exe bash -lc "cd /mnt/c/codes/HydroModPy-GH && source ~/miniforge3/etc/profile.d/conda.sh && conda activate hydromodpy-petsc && python -m pip install pysheds tomli-w whitebox-workflows && python -m pip install -e . --no-deps"
 ```
 
-Minimal non-PETSc command from PowerShell:
+Commande smoke non-PETSc depuis PowerShell :
 
 ```powershell
 wsl.exe bash -lc "cd /mnt/c/codes/HydroModPy-GH && source ~/miniforge3/etc/profile.d/conda.sh && conda activate hydromodpy-petsc && bash tools/ci/run_boussinesq_linux_smoke.sh"
 ```
 
-PETSc command from PowerShell after activating a conda-forge environment that
-contains `petsc`, `petsc4py`, and the HydroModPy test dependencies:
+Commande PETSc :
 
 ```powershell
 wsl.exe bash -lc "cd /mnt/c/codes/HydroModPy-GH && source ~/miniforge3/etc/profile.d/conda.sh && conda activate hydromodpy-petsc && bash tools/ci/run_boussinesq_petsc_smoke.sh"
 ```
 
-Direct multi-method Boussinesq comparison already validated on Linux with the
-PETSc environment:
+## Benchmarks validés
+
+Comparaison multi-méthodes Boussinesq sur Linux avec env PETSc :
 
 ```powershell
 wsl.exe /home/dreuzy/miniforge3/bin/conda run -n hydromodpy-petsc python -m validation_cases.numerical.transient.boussinesq_hillslope_recharge_pulse_overflow_1d.run_multi_solver_case --solvers boussinesq petsc_partition petsc --forcing-preset strong --output-root /mnt/c/codes/HydroModPy-GH/out/boussinesq_hillslope_overflow_multi_linux_20260413
 ```
 
-Generated outputs:
-
-```text
-/mnt/c/codes/HydroModPy-GH/out/boussinesq_hillslope_overflow_multi_linux_20260413
-```
-
-Full cross-model transient benchmark on Linux with the same context as the
-Windows benchmark, including `MODFLOW-NWT`, `MODFLOW 6`, `MODFLOW 6 irregular
-triangles`, and `Boussinesq`:
+Benchmark transitoire cross-model sous Linux incluant MODFLOW-NWT,
+MODFLOW 6, MODFLOW 6 triangles irréguliers et Boussinesq :
 
 ```powershell
 wsl.exe /home/dreuzy/miniforge3/bin/conda run -n hydromodpy-petsc python -m tools.investigate_surface_interaction_hillslope_transient --output-root /mnt/c/codes/HydroModPy-GH/out/sih_tx_4cmp_linux_20260414
 ```
 
-Generated outputs:
-
-```text
-/mnt/c/codes/HydroModPy-GH/out/sih_tx_4cmp_linux_20260414
-```
-
-High-conductivity gallery benchmark on Linux using `MODFLOW 6` and
-`Boussinesq PETSc complementarity`:
+Benchmark gallery haute conductivité avec MODFLOW 6 et Boussinesq PETSc
+complementarity :
 
 ```powershell
 wsl.exe /home/dreuzy/miniforge3/bin/conda run -n hydromodpy-petsc python /mnt/c/codes/HydroModPy-GH/tools/investigate_surface_interaction_highk_linux.py
 ```
 
-Generated outputs:
-
-```text
-/mnt/c/codes/HydroModPy-GH/out/sih_tx_highk_linux_mf6_petsc_comp_20260416
-```
-
-Linux benchmark comparing `MODFLOW-NWT` with the three Boussinesq variants on
-one common `4 months up / 4 months down / 6 months dry` forcing:
+Benchmark comparant MODFLOW-NWT avec les trois variantes Boussinesq sur
+un même forçage `4 mois montée / 4 mois descente / 6 mois sec` :
 
 ```powershell
 wsl.exe /home/dreuzy/miniforge3/bin/conda run -n hydromodpy-petsc python -m tools.investigate_linux_nwt_boussinesq_transient --output-root /mnt/c/codes/HydroModPy-GH/out/linux_nwt_bouss_4m4m6m_20260414
 ```
 
-Generated outputs:
+## Cas réel 100 km²
 
-```text
-/mnt/c/codes/HydroModPy-GH/out/linux_nwt_bouss_4m4m6m_20260414
-```
-
-## Real 100 km2 Case
-
-The steady headwater 100 km2 PETSc replay remains a diagnostic/manual run, not
-a default CI test:
+Le replay permanent `headwater 100 km²` sous PETSc reste un run
+diagnostique manuel, pas un test CI par défaut :
 
 ```bash
 python -m hydromodpy run examples/projects/launcher_simulation/run_headwater_100km2_outlet_2_boussinesq_petsc_partition_mesh_input.toml
 ```
 
-It is larger, more nonlinear, and intended for focused solver diagnostics.
-The smoke CI keeps PETSc availability and the two formulations checked without
-turning every pull request into a long nonlinear benchmark.
+Cas plus gros et plus nonlinéaire, réservé aux diagnostics ciblés. La
+CI smoke préserve la disponibilité PETSc et les deux formulations sans
+transformer chaque PR en benchmark nonlinéaire long.

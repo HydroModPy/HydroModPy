@@ -1,4 +1,13 @@
-# Solveur Boussinesq 2D pour HydroModPy
+# Architecture du solveur Boussinesq 2D
+
+Liens : [glossary.md](glossary.md),
+[design_patterns.md](design_patterns.md),
+[boussinesq_linux_ci.md](boussinesq_linux_ci.md),
+[boussinesq_petsc_vs_marcais_2017.md](boussinesq_petsc_vs_marcais_2017.md),
+[boussinesq_petsc_headwater_100km2_diagnostic.md](boussinesq_petsc_headwater_100km2_diagnostic.md),
+[modflow_contracts.md](modflow_contracts.md).
+
+Code : `hydromodpy/solver/boussinesq/`.
 
 ## 1. Objectif
 

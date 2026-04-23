@@ -1,16 +1,22 @@
-# Frontend hooks
+# Hooks frontaux
 
-HydroModPy stays a pure-Python library: it ships **no HTTP server, no
-FastAPI, no WebSocket**. Instead, it publishes two stable integration
-points that any frontend — Streamlit, Angular, React, a Jupyter widget —
-can consume without importing the Python package:
+HydroModPy reste une bibliothèque Python pure : pas de serveur HTTP, pas
+de FastAPI, pas de WebSocket. Deux points d'intégration stables sont
+exposés pour tout frontal (Streamlit, Angular, React, widget Jupyter)
+qui n'a pas besoin d'importer le paquet Python.
 
-1. `hmp schema export --output ./schema/` produces three JSON files that
-   describe the configuration surface.
-2. `hmp schema validate-field <path> <value>` runs the partial validator
-   used for field-by-field form feedback (< 50 ms per call).
+Liens : [glossary.md](glossary.md),
+[design_patterns.md](design_patterns.md), [CLI.md](CLI.md).
 
-Both entry points are also reachable programmatically:
+## Points d'entrée
+
+1. `hmp schema export --output ./schema/` produit trois fichiers JSON
+   qui décrivent la surface de configuration.
+2. `hmp schema validate-field <path> <value>` exécute le validateur
+   partiel utilisé pour le retour champ par champ dans les formulaires
+   (moins de 50 ms par appel).
+
+Les deux sont aussi accessibles côté Python :
 
 ```python
 from hydromodpy.schema import export_full_schema, validate_field
@@ -20,22 +26,26 @@ result = validate_field("flow.flow_regime", "steady")
 assert result.valid is True
 ```
 
-## Files produced by `hmp schema export`
+Modules : `hydromodpy/schema/export.py` et
+`hydromodpy/schema/partial_validator.py`.
 
-| File                      | Purpose                                                      |
-|---------------------------|--------------------------------------------------------------|
-| `config.json`             | Full Pydantic JSON Schema of `HydroModPyConfig`.            |
-| `config_meta.json`        | Ordered list of TOML sections + UI groups.                   |
-| `field_validators.json`   | Flat `field_path -> validator_type` mapping.                 |
+## Fichiers produits par `hmp schema export`
 
-Each field in `config.json` preserves the `json_schema_extra` annotations
-that the Pydantic models carry (`widget_type`, `unit`, `display_name_fr`,
-`help_text_fr`, `display_min`, `display_max`). Those annotations are the
-contract between the Python models and the UI.
+| Fichier | Rôle |
+|---|---|
+| `config.json` | JSON Schema complet de `HydroModPyConfig` |
+| `config_meta.json` | Sections TOML ordonnées, groupes UI, titres |
+| `field_validators.json` | Mapping plat `field_path -> validator_type` |
+
+Chaque champ de `config.json` conserve les annotations
+`json_schema_extra` portées par les modèles Pydantic :
+`widget_type`, `unit`, `display_name_fr`, `help_text_fr`, `display_min`,
+`display_max`. Ces annotations constituent le contrat entre les modèles
+Python et l'UI.
 
 ## Streamlit (local, Python)
 
-A minimal Streamlit app can auto-generate a form from the schema:
+Exemple minimal d'auto-génération d'un formulaire depuis le schema :
 
 ```python
 import json
@@ -51,24 +61,20 @@ k = st.slider(
     max_value=flow["k_aquifer"]["display_max"],
     help=flow["k_aquifer"]["help_text_fr"],
 )
-st.caption(f"Unit: {flow['k_aquifer']['unit']}")
+st.caption(f"Unité : {flow['k_aquifer']['unit']}")
 ```
 
-See [`docs/examples/streamlit_app.py`](../examples/streamlit_app.py) for
-an end-to-end example that discovers sections dynamically.
+Voir `docs/examples/streamlit_app.py` pour un exemple de bout en bout
+qui découvre les sections dynamiquement.
 
-## Angular (external repo)
+## Angular (repo externe)
 
-Angular apps typically pair a JSON Schema with
-[`ngx-formly`](https://formly.dev/) or
-[`@rjsf/core`](https://rjsf-team.github.io/react-jsonschema-form/) (via a
-wrapper). Two steps:
+Les applications Angular couplent en général JSON Schema et
+`ngx-formly` ou `@rjsf/core`. Deux étapes :
 
 ```bash
-# 1. Produce the schema once per HydroModPy release.
+# 1. Produire le schema à chaque release de HydroModPy.
 hmp schema export --output ./src/app/api/schema/
-
-# 2. Load it in the Angular service.
 ```
 
 ```ts
@@ -91,13 +97,13 @@ export class SchemaService {
 }
 ```
 
-`ngx-formly` then consumes the schema to render the form; custom widgets
-can key on the `widget_type` annotation to pick sliders vs. text inputs.
+`ngx-formly` consomme ensuite le schema pour rendre le formulaire. Un
+widget custom peut utiliser l'annotation `widget_type` pour distinguer
+sliders et text inputs.
 
-## React (external repo)
+## React (repo externe)
 
 ```tsx
-// react: SchemaForm.tsx
 import Form from '@rjsf/core';
 import validator from '@rjsf/validator-ajv8';
 import schema from './schema/config.json';
@@ -119,11 +125,11 @@ export function SchemaForm() {
 }
 ```
 
-Field-level validation from the Python side is available through the CLI
-(subprocess) or any transport the integrator chooses to build; HydroModPy
-does not prescribe one.
+La validation champ par champ côté Python est accessible via la CLI
+(subprocess) ou tout transport choisi par l'intégrateur. HydroModPy n'en
+impose aucun.
 
-## Calling `validate_field` from Python
+## Appel de `validate_field` depuis Python
 
 ```python
 from hydromodpy.schema import validate_field
@@ -134,17 +140,17 @@ def on_change(path, value):
         show_error(result.error)
 ```
 
-The validator resolves the leaf field on the root `HydroModPyConfig`
-model, picks the matching `pydantic.TypeAdapter`, and returns a small
-`ValidationResult` dataclass. Look-ups are memoised, so repeated calls on
-the same path are free.
+Le validateur résout le champ sur le modèle racine `HydroModPyConfig`,
+sélectionne le `pydantic.TypeAdapter` correspondant et retourne un
+`ValidationResult` léger. Les lookups sont mémoïsés : les appels répétés
+sur le même path sont gratuits.
 
-## What HydroModPy deliberately does NOT ship
+## Ce que HydroModPy ne livre pas volontairement
 
-- No FastAPI / uvicorn / websockets dependency.
-- No OpenAPI endpoint generation; the exported JSON Schema is the
-  contract.
-- No live server-sent events; wire your own if you need streaming.
+- Pas de dépendance FastAPI, uvicorn ou websockets.
+- Pas de génération d'endpoint OpenAPI : le JSON Schema exporté est le
+  contrat.
+- Pas d'événements server-sent ; à brancher si un flux est nécessaire.
 
-Any HTTP layer a downstream project writes can build on top of these
-hooks without touching the core package.
+Toute couche HTTP écrite en aval peut s'appuyer sur ces hooks sans
+toucher au paquet core.

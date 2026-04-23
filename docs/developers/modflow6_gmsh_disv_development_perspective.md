@@ -1,10 +1,19 @@
-# Perspective de développement: MODFLOW 6 sur maillages Gmsh triangulaires (DISV)
+# Perspective MODFLOW 6 sur maillages gmsh triangulaires (DISV)
+
+Liens :
+[unified_mesh_pivot_architecture.md](unified_mesh_pivot_architecture.md),
+[gmsh_mesh_integration_note.md](gmsh_mesh_integration_note.md),
+[gmsh_conformal_meshing.md](gmsh_conformal_meshing.md),
+[modflow_contracts.md](modflow_contracts.md),
+[nwt_sunset_plan.md](nwt_sunset_plan.md),
+[glossary.md](glossary.md).
+
+Code : `hydromodpy/solver/modflow6/`, `hydromodpy/solver/utils/mesh/gmsh_grid/`.
 
 ## Objet du document
 
-Cette note a pour objectif de cadrer, de façon détaillée, l'intégration de
-MODFLOW 6 sur des maillages irréguliers triangulaires produits avec Gmsh dans
-HydroModPy.
+Cette note cadre en détail l'intégration de MODFLOW 6 sur des maillages
+irréguliers triangulaires produits avec gmsh dans HydroModPy.
 
 Le point important qui ressort de l'analyse du dépôt est le suivant:
 

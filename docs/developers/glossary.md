@@ -1,220 +1,206 @@
-# Glossary
+# Glossaire
 
-Canonical HydroModPy vocabulary. Extracted from
-`architecture_cible/13_coherence_globale.md` §3.1. Every other doc, module,
-and commit message must use the names on the left — the aliases on the
-right are forbidden in new code.
+Vocabulaire canonique HydroModPy. Ce document fait foi en cas de conflit
+de nommage. Les alias listés sont interdits dans du code nouveau.
 
-> This glossary is the tiebreaker. If a source file contradicts it, the
-> glossary wins and the file is queued for rename.
+Liens : [design_patterns.md](design_patterns.md),
+[simulation_catalog_architecture.md](simulation_catalog_architecture.md).
 
-## Objects
+## Objets principaux
 
 ### Workspace
 
-Root directory containing one `hydromodpy.duckdb`, one `data/` input cache,
-one `simulations/` tree of Zarr stores, and a `projects/` subdirectory. A
-workspace is mutable, locked at the process level via `WorkspaceLock` (a
-`filelock` on `hydromodpy.duckdb.lock`), and represented in code by
-`hydromodpy.core.workspace.Workspace`. Resolved from `[workspace] root`,
-`HYDROMODPY_WORKSPACE`, or the scaffold layout — see
-`docs/readthedocs/source/getting_started/workspace-layout.rst`.
+Répertoire racine contenant `hydromodpy.duckdb`, `data/`, `simulations/`
+et `projects/`. Un workspace est mutable, représenté par la classe
+`Workspace` (`hydromodpy.core.workspace.workspace.Workspace`). Résolu via
+`[workspace] root` dans le TOML, la variable `HYDROMODPY_WORKSPACE`, ou
+le layout scaffold.
 
-### Project (mutable façade, v0.6)
+### Project
 
-- **Canonical name:** `Project`
-- **Module:** `hydromodpy.project.Project` (exposed as `hmp.Project`).
-- **Role:** programmatic execution facade. Constructed from a config TOML,
-  executes via `.run(**overrides)`, writes into the catalog, and returns a
-  `Run` instance.
-- **Forbidden aliases:** `Simulation` (removed in v0.6), `SimulationRunner`,
-  `Launcher`, `Pipeline`.
+Nom canonique : `Project`. Module :
+`hydromodpy.project.Project`, exposé comme `hmp.Project`.
 
-### Run (immutable view, v0.6)
+Façade programmatique : construite depuis un TOML, exécute via
+`.run(**overrides)` et persiste le résultat dans le catalogue. Retourne
+un `Run`.
 
-- **Canonical name:** `Run`
-- **Module:** `hydromodpy.results.run.Run` (exposed as `hmp.Run`).
-- **Role:** read-only handle returned by `project.run(...)`,
-  `catalog[sim_id]`, `catalog.best(...)`, and `SimulationGroup` iteration.
-  Exposes fields, timeseries, metadata, and `.plot(...)`.
-- **Forbidden aliases:** `SimulationView` (removed in v0.6),
-  `SimulationResult`, `RunOutput`.
+Alias interdits : `Simulation`, `SimulationRunner`, `Launcher`,
+`Pipeline` (ce dernier désigne un autre objet, voir plus bas).
+
+### Run
+
+Nom canonique : `Run`. Module : `hydromodpy.results.run.Run`, exposé
+comme `hmp.Run`.
+
+Handle en lecture seule retourné par `project.run(...)`, `catalog[sim_id]`,
+`catalog.best(...)` ou l'itération sur `SimulationGroup`. Expose champs,
+séries temporelles, métadonnées et `.plot(...)`.
+
+Alias interdits : `SimulationView`, `SimulationResult`, `RunOutput`.
 
 ### Catalog
 
-Top-level term with two distinct roles — always disambiguate.
+Le terme recouvre deux rôles distincts. Toujours désambiguïser.
 
-- `SimulationCatalog` — **output** catalog, backed by
+- `SimulationCatalog` : catalogue de sortie adossé à
   `workspace/hydromodpy.duckdb`. Module
-  `hydromodpy.results.catalog.SimulationCatalog`. Forbidden aliases:
+  `hydromodpy.results.catalog.SimulationCatalog`. Alias interdits :
   `ResultsCatalog`, `Catalog`, `SimulationStore`.
-- `InputCatalog` — **input** cache, backed by
+- `DataCatalogDuckDB` : cache d'entrée adossé à
   `workspace/data/cache.duckdb`. Module
-  `hydromodpy.data.cache.InputCatalog`. Forbidden aliases: `DataCatalog`,
-  `CacheCatalog`.
+  `hydromodpy.data.registry.catalog_duckdb.DataCatalogDuckDB`. Alias
+  interdits : `DataCatalog`, `CacheCatalog`, `InputCatalog`.
 
-### Plan (immutable)
+### Plan (immuable)
 
-- `SimulationPlan` — resolved, frozen plan for one simulation. Module
-  `hydromodpy.simulation.planning.SimulationPlan`. Forbidden aliases:
+- `SimulationPlan` : plan gelé pour une simulation. Module
+  `hydromodpy.simulation.planning.plan.SimulationPlan`. Alias interdits :
   `RunPlan`, `ExecutionPlan`.
-- `DataLoadPlan` — resolved, frozen plan describing which data managers to
-  call. Module `hydromodpy.data.planner.DataLoadPlan`. Forbidden aliases:
+- `DataLoadPlan` : plan gelé décrivant les managers de données à invoquer.
+  Module `hydromodpy.data.plan.DataLoadPlan`. Alias interdits :
   `DataPlan`, `LoadPlan`.
-- `ProcessRun` — one entry inside a `SimulationPlan`. Forbidden aliases:
+- `ProcessRun` : entrée d'un `SimulationPlan`. Module
+  `hydromodpy.simulation.planning.plan.ProcessRun`. Alias interdits :
   `RunSpec`, `TaskSpec`.
 
-### Pipeline
+### Pipeline et Step
 
-- **Canonical name:** `Pipeline`
-- **Module:** `hydromodpy.simulation.pipeline.Pipeline`
-- **Role:** ordered sequence of `PipelineStep` instances, orchestrating
-  a simulation end to end. The word *workflow* is reserved for CLI
-  auto-dispatch (`SimulationWorkflow`, `OverviewWorkflow`, ...), not the
-  executor.
-- **Forbidden aliases:** `Workflow`, `Runner`, `Driver`.
+- `Pipeline` : séquence ordonnée de `PipelineStep`. Module
+  `hydromodpy.pipeline.pipeline.Pipeline`. Orchestration de bout en bout
+  d'une simulation. Alias interdits : `Workflow`, `Runner`, `Driver`.
+  Le mot *workflow* est réservé à l'auto-dispatch CLI
+  (voir [CLI.md](CLI.md)).
+- `PipelineStep` : unité exécutable du pipeline. Module
+  `hydromodpy.pipeline.step`. Protocol paramétré en entrée/sortie
+  (`PipelineStep[TIn, TOut]`). Un step n'est pas un process
+  (`Flow`, `Transport`) : c'est une étape comme `MeshBuildStep`,
+  `SolveStep`, `ExtractStep`.
 
-### Step
+### SolverAdapter
 
-- **Canonical name:** `PipelineStep`
-- **Module:** `hydromodpy.simulation.pipeline.step.PipelineStep`
-- **Shape:** Protocol `PipelineStep[TIn, TOut]`. Pure, frozen-dataclass
-  inputs and outputs.
-- A step is **not** a process (`Flow`, `Transport`): it is one executable
-  unit inside the pipeline (`MeshBuildStep`, `SolveStep`, `ExtractStep`).
-
-### Adapter (legacy)
-
-Old name for what is now called `SolverRunner`. In new code **do not use**
-`Adapter` for solver integration. The term is retained only in
-`simulation/adapters/` paths pending the P06 rename.
+Interface Protocol qui lie une paire `(process_type, solver_name)` à un
+solveur concret. Module : `hydromodpy.simulation.adapters.base`. Le
+renommage vers `SolverRunner` est planifié mais non effectué. Le nom
+`SolverAdapter` reste la référence courante.
 
 ### Backend
 
-Implementation-specific engine chosen at runtime. Used in two
-orthogonal senses — always qualify:
+Moteur d'implémentation choisi au runtime. Toujours qualifier :
 
-- *Solver backend* — concrete engine behind a `SolverRunner` (`flopy`,
-  `scipy`, `petsc`). Avoid using `Backend` on its own; prefer
-  `SolverPlugin` for the registered entry point and `SolverRunner` for the
-  Protocol.
-- *Display backend* — matplotlib/pyvista renderer selected by
-  `BackendManager.configure(backend=...)`.
+- Backend de solveur : moteur concret derrière un `SolverAdapter`
+  (flopy, scipy, petsc).
+- Backend de délinéation : `WhiteboxCLIBackend` versus
+  `WhiteboxWorkflowsBackend`. Module
+  `hydromodpy.spatial.delineation/`.
+- Backend d'affichage : matplotlib ou pyvista, sélectionné dans
+  `[display]`.
 
 ### Variable
 
-A named, typed input quantity (piezometry, hydrography, geology, climate
-timeseries, DEM, ...). Each variable has:
+Quantité d'entrée nommée et typée : piézométrie, hydrographie, géologie,
+climat, DEM. Chaque variable dispose :
 
-- a Pydantic config model `*_config.py`;
-- a manager `*_manager.py` subclassing `BaseVariableManager`, with a
-  `load() -> LoadResult` method.
+- d'un modèle Pydantic `*_config.py`,
+- d'un manager `*_manager.py` sous-classant `BaseVariableManager`, avec
+  une méthode `load() -> LoadResult`.
 
-Variables live under `hydromodpy/data/variables/`.
+Les variables vivent dans `hydromodpy/data/variables/`.
 
 ### Manager
 
-A `BaseVariableManager` subclass responsible for loading one variable from
-its configured `DataSource`s and producing a normalized `LoadResult`. One
-variable → one manager. Managers are stateless beyond their config and
-their (injected) `InputCatalog`.
+Sous-classe de `BaseVariableManager` responsable du chargement d'une
+variable depuis ses `DataSource` configurées et de la production d'un
+`LoadResult` normalisé. Une variable par manager. Les managers sont
+stateless au-delà de leur config et de l'`DataCatalogDuckDB` injecté.
 
 ### Source
 
-A `DataSource` Protocol implementation that fetches one kind of data from
-one provider (`HubEauPiezometrySource`, `SIM2Source`, `CustomFileSource`,
-...). Sources are registered via `@register_source(provider="...",
-variable="...")` in `hydromodpy/data/sources/`. A manager may query several
-sources; a source may feed several managers.
+Implémentation du Protocol `DataSource` qui récupère un type de donnée
+depuis un fournisseur : `HubEauPiezometrySource`, `SIM2Source`,
+`CustomFileSource`. Enregistrement via
+`@register_source(provider=..., variable=...)` dans
+`hydromodpy/data/sources/`. Un manager peut interroger plusieurs sources,
+une source peut nourrir plusieurs managers.
 
-## Identifiers
+## Identifiants
 
 ### sim_id
 
-Deterministic **UUID v5**,
-`uuid5(HYDROMODPY_NAMESPACE, run_fingerprint)`, where
+UUID v5 déterministe :
+`uuid5(HYDROMODPY_NAMESPACE, run_fingerprint)` où
 `run_fingerprint = sha256(canonical_config_json + inputs_fingerprints)`.
-Identical config + identical inputs → identical `sim_id` (enables
-deduplication). Phase 10's mention of UUID v4 is superseded.
+Config identique plus entrées identiques donnent le même `sim_id`, ce qui
+permet la déduplication.
 
 ### run_id
 
-**ULID**, 26 characters, lexicographically sortable, generated at
-submission. Multiple runs may share one `sim_id`.
+ULID de 26 caractères, triable lexicographiquement, généré à la
+soumission. Plusieurs runs peuvent partager un même `sim_id`.
 
-## Pipeline internals
+## Infrastructure pipeline
 
 ### PipelineState
 
-- **Canonical name:** `PipelineState`
-- **Module:** `hydromodpy.pipeline.state.PipelineState`
-- **Shape:** `@dataclass(frozen=True, slots=True)` carrying `run_id`,
-  `step_index`, `step_name`, `elapsed_ms`, and an untyped `data` mapping.
-- **Role:** the single value that flows between pipeline steps. Steps
-  never mutate; they produce a successor via `state.advance(...)`.
+Module : `hydromodpy.pipeline.state.PipelineState`. Dataclass frozen,
+slotted, porteuse de `run_id`, `step_index`, `step_name`, `elapsed_ms` et
+d'un mapping `data` non typé. C'est la seule valeur qui circule entre
+étapes. Les étapes ne mutent pas : elles produisent un successeur via
+`state.advance(...)`.
 
-### Checkpoint
+### CheckpointStore
 
-- **Canonical name:** `CheckpointStore`
-- **Module:** `hydromodpy.pipeline.checkpoint.CheckpointStore`
-- **Role:** persists `PipelineState` snapshots to
-  `<workspace>/.hmp/checkpoints/<run_id>/<step_index>_<step_name>.pkl.zst`
-  after each step, enabling resume-after-crash. Falls back to plain
-  pickle when `zstandard` is unavailable.
-- **Forbidden aliases:** `Snapshot`, `StateCheckpoint`.
+Module : `hydromodpy.pipeline.checkpoint.CheckpointStore`. Persiste les
+snapshots `PipelineState` à
+`<workspace>/.hmp/checkpoints/<run_id>/<step_index>_<step_name>.pkl.zst`,
+permettant la reprise après crash. Fallback pickle si `zstandard`
+indisponible. Alias interdits : `Snapshot`, `StateCheckpoint`.
 
-### Ledger
+### StepsLedger
 
-- **Canonical name:** `StepsLedger`
-- **Module:** `hydromodpy.pipeline.ledger.StepsLedger`
-- **Role:** DuckDB-backed log of pipeline step executions, one row per
-  `(run_id, step_index)` with status, timestamps, elapsed duration, and
-  failure message. Stored at
-  `<workspace>/.hmp/checkpoints/steps_ledger.duckdb`.
-- **Forbidden aliases:** `StepLog`, `ExecutionLog`.
+Module : `hydromodpy.pipeline.ledger.StepsLedger`. Journal DuckDB des
+exécutions d'étapes, une ligne par `(run_id, step_index)` avec statut,
+timestamps, durée, message d'échec. Stocké à
+`<workspace>/.hmp/checkpoints/steps_ledger.duckdb`. Alias interdits :
+`StepLog`, `ExecutionLog`.
 
 ### DerivedRegistry
 
-- **Canonical name:** `DerivedRegistry`
-- **Module:** `hydromodpy.pipeline.derived.DerivedRegistry`
-- **Role:** ordered registry of `DerivedComputation` entries evaluated
-  by `step_09_derive`. Resolves dependencies via `ordered_names()` so
-  downstream derived fields see their prerequisites already written.
+Module : `hydromodpy.pipeline.derived.DerivedRegistry`. Registre ordonné
+de `DerivedComputation` évalué par l'étape de dérivation. Résout les
+dépendances via `ordered_names()` pour que les champs dérivés aval voient
+leurs prérequis déjà écrits.
 
 ### ParamsHashCache
 
-- **Canonical name:** `ParamsHashCache`
-- **Module:** `hydromodpy.calibration.cache.ParamsHashCache`
-- **Role:** fingerprint-based memoisation used inside the calibration
-  loop to deduplicate evaluations of identical parameter vectors within
-  one session.
+Module : `hydromodpy.calibration.cache.ParamsHashCache`. Mémoïsation
+fingerprint pour dédupliquer l'évaluation de vecteurs de paramètres
+identiques au sein d'une session de calibration.
 
-## Config visibility
+## Visibilité de configuration
 
-### Profile (IntEnum)
+### Profile
 
-- **Canonical name:** `Profile`
-- **Module:** `hydromodpy.core.config.profile.Profile`
-- **Role:** visibility level for a Pydantic config field — one of
-  `Profile.USER` (1, physical/project fields), `Profile.DEV` (2,
-  tolerances/backends/cache), `Profile.EXPERT` (3, solver internals). A
-  field is included in a generated TOML when its profile is less than or
-  equal to the requested profile. Declared inside ``Annotated[T, Profile.X]``.
+Nom canonique : `Profile` (IntEnum). Module :
+`hydromodpy.core.config.profile.Profile`. Trois niveaux :
 
-### ParamLevel (legacy)
+- `Profile.USER` (1) : champs physiques et projet.
+- `Profile.DEV` (2) : tolérances, backends, cache.
+- `Profile.EXPERT` (3) : internes solveurs.
 
-- **Alias for:** `Profile`
-- **Module:** `hydromodpy.core.config.param_level.ParamLevel`
-- **Role:** legacy dataclass tag (`ParamLevel("user" | "dev" | "expert")`)
-  kept as a v0.6 shim so existing scripts keep working. New code must use
-  `Profile`. Slated for removal in v0.7.
+Un champ est inclus dans un TOML généré si son profil est inférieur ou
+égal au profil demandé. Déclaration via `Annotated[T, Profile.X]`.
 
-## Naming hygiene
+### ParamLevel (shim)
 
-- Do not introduce new aliases for concepts already in this glossary.
-- When you need a new name, add it here first with a one-line role
-  description, then use it in code.
-- Renames required by the migration (e.g. `SolverAdapter → SolverRunner`,
-  `Geographic → CatchmentDelineation`, `SinkSource → SourceTerm`,
-  `ParamSpace → ParameterSpace`, `DataManagersPlanner → DataPlanner`) are
-  tracked in `architecture_cible/13_coherence_globale.md` §3.2.
+Module : `hydromodpy.core.config.param_level.ParamLevel`. Alias dataclass
+legacy (`ParamLevel("user" | "dev" | "expert")`) maintenu en v0.6 pour la
+compatibilité. Nouveau code : `Profile`. Retrait prévu en v0.7.
+
+## Hygiène de nommage
+
+- Ne pas introduire de nouvel alias pour un concept déjà listé.
+- Tout nouveau nom doit d'abord figurer ici avec sa définition courte.
+- Les renommages connus en cours (par exemple `SolverAdapter`
+  vers `SolverRunner`) sont signalés dans cette section dès qu'ils sont
+  planifiés.
