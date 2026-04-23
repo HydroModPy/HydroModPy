@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING
 
 import numpy as np
 
-from hydromodpy.solver.boussinesq.history_contract import build_transient_time_axes
+from hydromodpy.physics.flow.history_contract import build_transient_time_axes
 
 if TYPE_CHECKING:
     from hydromodpy.solver.boussinesq.boussinesq import Boussinesq

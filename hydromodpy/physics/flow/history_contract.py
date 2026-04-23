@@ -1,13 +1,14 @@
-"""Shared temporal contract helpers for transient Boussinesq histories.
+"""Shared temporal contract helpers for transient flow histories.
 
-The transient runtime stores:
+Transient flow runtimes store:
 
 - snapshot histories on ``t0..tN`` for state-like variables,
 - one stress-period duration per accepted step on ``dt1..dtN``.
 
 Downstream code should avoid inferring this relationship ad hoc. These helpers
 make the intended alignment explicit and reusable across exports, diagnostics
-and validation tooling.
+and validation tooling. The contract is solver-agnostic: Boussinesq was the
+first backend to need it, but MODFLOW-family runtimes share the same shape.
 """
 
 from __future__ import annotations
@@ -20,8 +21,8 @@ import numpy as np
 
 
 @dataclass(frozen=True, slots=True)
-class BoussinesqTransientTimeAxes:
-    """Explicit time axes for one transient Boussinesq history payload."""
+class TransientTimeAxes:
+    """Explicit time axes for one transient history payload."""
 
     period_lengths_seconds: np.ndarray
     snapshot_elapsed_seconds: np.ndarray
@@ -47,7 +48,7 @@ def _as_history_matrix(values: np.ndarray | Any, *, name: str) -> tuple[np.ndarr
 
 def build_transient_time_axes(
     period_lengths_seconds: np.ndarray | tuple[float, ...] | list[float],
-) -> BoussinesqTransientTimeAxes:
+) -> TransientTimeAxes:
     """Return the canonical snapshot and step-end axes for one transient run."""
     periods = np.asarray(period_lengths_seconds, dtype=float).reshape(-1)
     if periods.size == 0:
@@ -61,7 +62,7 @@ def build_transient_time_axes(
                 step_end_elapsed_seconds,
             )
         )
-    return BoussinesqTransientTimeAxes(
+    return TransientTimeAxes(
         period_lengths_seconds=periods,
         snapshot_elapsed_seconds=np.asarray(snapshot_elapsed_seconds, dtype=float),
         step_end_elapsed_seconds=np.asarray(step_end_elapsed_seconds, dtype=float),
@@ -223,7 +224,7 @@ def snapshot_elapsed_seconds_from_payload(
 
 
 __all__ = [
-    "BoussinesqTransientTimeAxes",
+    "TransientTimeAxes",
     "build_transient_time_axes",
     "elapsed_seconds_for_time_keys",
     "snapshot_elapsed_seconds_from_payload",
