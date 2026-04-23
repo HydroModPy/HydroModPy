@@ -5,9 +5,6 @@ Subparsers:
   - ``hmp config check FILE.toml``    : validate a TOML against the Pydantic schema
   - ``hmp config schema ...``         : export the JSON Schema (alias of ``hmp schema``)
   - ``hmp config wizard``             : stdin-driven wizard
-
-v0.5 breaking change: the bare form ``hmp config FILE.toml`` has been
-retired in favour of the explicit ``hmp config template FILE.toml``.
 """
 
 from __future__ import annotations

@@ -136,8 +136,8 @@ class HydroModPyConfig(HydroModelBase):
         default_factory=lambda: SimulationConfig(),
         description=(
             "Optional simulation orchestration block loaded from [simulation] "
-            "and [[simulation.process]]. When absent, the launcher keeps its "
-            "legacy fixed phase order."
+            "and [[simulation.process]]. When absent, the launcher uses its "
+            "default fixed phase order."
         ),
     )
     solver: Annotated[SolverConfig, Profile.USER] = Field(

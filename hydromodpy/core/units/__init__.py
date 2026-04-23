@@ -2,12 +2,11 @@
 
 This package exposes two complementary layers:
 
-1. Legacy conversion helpers (``convert_to_m``, ``parse_to_m_per_s``, ...)
-   used throughout the existing codebase. They remain available and will be
-   migrated module-by-module to pint.
+1. Scalar conversion helpers (``convert_to_m``, ``parse_to_m_per_s``, ...) used
+   throughout the codebase for explicit magnitude-in/magnitude-out semantics.
 2. Pint-based annotated types for Pydantic models
    (:data:`HydraulicConductivity`, :data:`SpecificYield`, ...) sitting on top
-   of the shared registry :data:`UREG`. New code should prefer the pint types.
+   of the shared registry :data:`UREG`, used for typed field validation.
 """
 
 from hydromodpy.core.units.hydraulic_conductance import (
@@ -91,7 +90,7 @@ __all__ = [
     "SpecificYield",
     "Time",
     "Volume",
-    # Legacy conversion helpers
+    # Scalar conversion helpers
     "M3_PER_S_CANONICAL_UNITS",
     "M2_PER_S_CANONICAL_UNITS",
     "M_PER_S_CANONICAL_UNITS",

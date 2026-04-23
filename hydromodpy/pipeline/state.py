@@ -7,8 +7,8 @@ instance; instead they produce a successor via :meth:`PipelineState.advance`.
 The state is parameterised by the *payload* type ``T``. Concrete payloads are
 the typed dataclasses defined below (``ValidatedState``, ``ResolvedState``,
 ``LoadedState`` …), one per pipeline step transition. The generic parameter
-defaults to ``Mapping[str, Any]`` so legacy callers can keep using
-``state.data["key"]`` style access.
+defaults to ``Mapping[str, Any]`` for callers that prefer ``state.data["key"]``
+style access.
 
 Typed state hierarchy
 ---------------------
@@ -72,10 +72,10 @@ class PipelineState(Generic[T]):
     ) -> PipelineState[T]:
         """Return a successor state for the next step.
 
-        For the legacy ``Mapping[str, Any]`` payload, ``extra`` keyword
-        arguments are merged into a copy of the current ``data`` mapping
-        (existing keys are overwritten). For typed payloads, callers should
-        pass ``data=`` explicitly with the next-step payload.
+        For the ``Mapping[str, Any]`` payload, ``extra`` keyword arguments
+        are merged into a copy of the current ``data`` mapping (existing keys
+        are overwritten). For typed payloads, callers should pass ``data=``
+        explicitly with the next-step payload.
         """
         new_data: T
         if data is not None:

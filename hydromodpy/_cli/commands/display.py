@@ -8,7 +8,7 @@ Usage
 ``hmp display <config.toml> --all``            Every run of this TOML.
 ``hmp display <config.toml> --latest N``       N most recent runs of this TOML.
 ``hmp display <config.toml> --only a,b,c``     Restrict to figures a,b,c.
-``hmp display <sim_id> <figure>``              One figure for one sim (legacy).
+``hmp display <sim_id> <figure>``              One figure for one specific sim.
 ``hmp display --list [--all-projects]``        Browse runs in the workspace.
 
 Run selection filters by the ``config_source`` column (the absolute path of

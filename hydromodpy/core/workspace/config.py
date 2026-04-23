@@ -49,7 +49,7 @@ class WorkspaceConfig(HydroModelBase):
 
     Fields under ``[workspace]``:
 
-    ``project_root`` (required, legacy)
+    ``project_root`` (required)
         Directory of the project TOML. Usually auto-derived from the TOML
         location by the loader.
 

@@ -3,7 +3,7 @@
 Runtime entry points:
 
 - ``DelineationBackend`` - high-level Protocol (see :mod:`.base`).
-- ``WhiteboxBackend`` - low-level file-based Protocol (legacy contract).
+- ``WhiteboxBackend`` - low-level file-based Protocol.
 - ``get_backend(name)`` - resolve a registered backend by name with
   graceful fallback when an optional dependency is missing.
 - ``get_whitebox_backend()`` - shortcut returning the default

@@ -77,13 +77,13 @@ class FlowWellConfig(HydroModelBase):
 
     cell: Annotated[tuple[int, int, int] | None, Profile.USER] = Field(
         default=None,
-        description="Legacy cell indices as [lay, row, col] (0-based).",
+        description="Direct cell indices as [lay, row, col] (0-based).",
     )
     location_mode: Annotated[Literal["cell", "absolute_xy", "relative_xy"] | None, Profile.USER] = (
         Field(
             default=None,
             description=(
-                "Well location mode. Use 'cell' for legacy [lay,row,col], "
+                "Well location mode. Use 'cell' for direct [lay,row,col] indices, "
                 "'absolute_xy' for projected coordinates, or 'relative_xy' for "
                 "normalized horizontal coordinates in the domain extent."
             ),
