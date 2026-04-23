@@ -73,12 +73,24 @@ jobs:
               pth.unlink()
           "
 
-      - name: Run unit tests with coverage
+      # The whitebox_workflows native library segfaults under pytest-xdist.
+      # Run the rest of the unit tier in parallel, then the whitebox tests
+      # in a single process with coverage append.
+      - name: Run unit tests (parallel, without whitebox backend)
         run: |
           coverage run --rcfile=/dev/null \
             --include="hydromodpy/*" \
             --omit="hydromodpy/**/cases/*,hydromodpy/**/examples/*" \
-            -m pytest tests/unit/ -n auto --dist loadgroup -q
+            -m pytest tests/unit/ \
+              --ignore=tests/unit/backends/test_whitebox_workflows_backend.py \
+              -n auto --dist loadgroup -q
+
+      - name: Run whitebox backend tests (serial)
+        run: |
+          coverage run --rcfile=/dev/null --append \
+            --include="hydromodpy/*" \
+            --omit="hydromodpy/**/cases/*,hydromodpy/**/examples/*" \
+            -m pytest tests/unit/backends/test_whitebox_workflows_backend.py -q
 
       - name: Report coverage
         if: always()

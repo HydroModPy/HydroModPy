@@ -50,9 +50,18 @@ jobs:
           pip install --upgrade pip
           pip install -e ".[test]"
 
-      - name: Run unit tests
+      # Split whitebox backend out of the parallel run; the native library
+      # segfaults under pytest-xdist.
+      - name: Run unit tests (parallel, without whitebox backend)
         shell: bash
-        run: python -m pytest tests/unit/ -n auto --dist loadgroup -q
+        run: |
+          python -m pytest tests/unit/ \
+            --ignore=tests/unit/backends/test_whitebox_workflows_backend.py \
+            -n auto --dist loadgroup -q
+
+      - name: Run whitebox backend tests (serial)
+        shell: bash
+        run: python -m pytest tests/unit/backends/test_whitebox_workflows_backend.py -q
 
       - name: Run fast regression
         shell: bash

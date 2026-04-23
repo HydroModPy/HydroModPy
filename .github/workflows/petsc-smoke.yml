@@ -66,6 +66,9 @@ jobs:
           channel-priority: strict
           python-version: "3.12"
 
+      # Install binary-heavy packages from conda-forge (PETSc, MPI, gmsh,
+      # gdal-backed stack) and then let pip pull the remaining pure-Python
+      # deps from pyproject.toml.
       - name: Install PETSc test environment
         shell: bash -el {0}
         run: |
@@ -75,36 +78,24 @@ jobs:
             petsc \
             petsc4py \
             mpi4py \
-            dask \
-            plotly \
-            numpy \
-            scipy \
-            pytest \
-            pytest-xdist \
-            pandas \
-            xarray \
-            pydantic \
-            matplotlib \
-            shapely \
-            pyproj \
+            gmsh \
+            flopy \
             geopandas \
             rasterio \
             rioxarray \
-            flopy \
+            pyproj \
+            shapely \
             h5py \
             netcdf4 \
-            pint \
-            pyshp \
-            scikit-learn \
-            meshio \
-            imageio \
-            requests \
-            geopy \
-            selenium \
-            tqdm \
-            sqlalchemy
-          python -m pip install pysheds tomli-w whitebox-workflows
-          python -m pip install -e . --no-deps
+            numpy \
+            scipy \
+            pandas \
+            xarray \
+            matplotlib \
+            pytest \
+            pytest-xdist \
+            pytest-timeout
+          python -m pip install -e ".[test]"
 
       - name: Run PETSc smoke tests
         shell: bash -el {0}
