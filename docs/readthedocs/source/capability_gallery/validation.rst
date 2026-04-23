@@ -22,10 +22,7 @@ Current Coverage
 Latest Batch Reports
 --------------------
 
-- MODFLOW-NWT: 21/21 cases passed on 2026-04-16T08:54:11.565685+00:00 (432.6 s), report ``validation_cases/reports/latest/modflownwt_both.json``.
-- MODFLOW 6: 8/21 cases failed on 2026-04-16T09:01:01.585660+00:00 (401.6 s), report ``validation_cases/reports/latest/modflow6_both.json``.
-- MODFLOW 6 irregular triangles: 0/5 cases failed on 2026-04-16T09:02:40.473714+00:00 (92.3 s), report ``validation_cases/reports/latest/modflow6_irregular_tri_both.json``.
-- Boussinesq: 0/21 cases failed on 2026-04-16T09:08:13.759388+00:00 (327.5 s), report ``validation_cases/reports/latest/boussinesq_both.json``.
+- No committed validation batch reports yet.
 
 Grouped Benchmarks
 ------------------

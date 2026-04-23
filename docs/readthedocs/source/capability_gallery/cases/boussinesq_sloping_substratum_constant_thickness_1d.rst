@@ -228,6 +228,10 @@ Common Numerical Setup
      - Meaning
      - Value
      - Source
+   * - ``workflow``
+     - Case-specific configuration field `workflow` used by the validation benchmark.
+     - simulation
+     - ``validation_cases/analytical/steady/boussinesq_sloping_substratum_constant_thickness_1d/config_common.toml``
    * - ``geographic.synthetic.grid.length_x``
      - Synthetic-domain length along the x axis.
      - 400.0 m

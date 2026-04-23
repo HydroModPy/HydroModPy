@@ -85,8 +85,19 @@ Solver Coverage
 
    .. tab-item:: Boussinesq
 
+      .. figure:: /_static/capability_gallery/validation/brutsaert_recession_boussinesq_thin_1d__boussinesq.png
+         :alt: Brutsaert Recession Validation: Thin Nonlinear Aquifer validation figure for Boussinesq
+         :width: 100%
+
+         Brutsaert Recession Validation: Thin Nonlinear Aquifer rendered with Boussinesq for the analytical gallery.
+
       **Metrics**
-      - Gallery generation failed for this solver: NameError: name 'period_lengths_seconds' is not defined
+      - Solution: boussinesq
+      - Initial discharge: 3.428819e-05 m3/s
+      - Characteristic time: 29.09 d
+      - Relative RMSE: 0.2189
+      - Relative max abs error: 0.2353
+      - Cross-row head spread: 8.18e-16 m
 
       - Config file: ``validation_cases/analytical/transient/brutsaert_recession_boussinesq_thin_1d/config_boussinesq.toml``
       - Tolerances: ``validation_cases/analytical/transient/brutsaert_recession_boussinesq_thin_1d/tolerances_boussinesq.toml``
@@ -176,6 +187,10 @@ Common Numerical Setup
      - Meaning
      - Value
      - Source
+   * - ``workflow``
+     - Case-specific configuration field `workflow` used by the validation benchmark.
+     - simulation
+     - ``validation_cases/analytical/transient/brutsaert_recession_boussinesq_thin_1d/config_common.toml``
    * - ``simulation.time.start_datetime``
      - Simulation start time used by the benchmark.
      - 2003-01-01 00:00:00
@@ -538,4 +553,5 @@ Artifacts
 
 - ``docs/readthedocs/source/_static/capability_gallery/validation/brutsaert_recession_boussinesq_thin_1d__modflownwt.png``
 - ``docs/readthedocs/source/_static/capability_gallery/validation/brutsaert_recession_boussinesq_thin_1d__modflow6.png``
+- ``docs/readthedocs/source/_static/capability_gallery/validation/brutsaert_recession_boussinesq_thin_1d__boussinesq.png``
 - ``docs/readthedocs/source/_static/capability_gallery/validation/brutsaert_recession_boussinesq_thin_1d_summary.json`` stores the displayed metrics plus source hashes used by ``python -m tools.doc_gallery --check``.

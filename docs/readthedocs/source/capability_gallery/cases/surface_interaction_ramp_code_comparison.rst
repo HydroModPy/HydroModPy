@@ -98,12 +98,10 @@ Source Pointers
 - ``tools/investigate_surface_interaction_highk_linux.py``
 - ``tools/doc_gallery/generate_code_comparison_assets.py``
 - ``validation_cases/shared/boussinesq_budget.py``
-- ``out/sih_tx_6cmp_linux_ramp_dirichlet_cell_20260416/timeseries.csv``
-- ``out/sih_tx_highk_linux_mf6_petsc_comp_20260416/timeseries.csv``
-- ``examples/capability_gallery/code_comparison/surface_interaction_ramp/ramp_reference_k.png``
-- ``examples/capability_gallery/code_comparison/surface_interaction_ramp/ramp_reference_k.json``
-- ``examples/capability_gallery/code_comparison/surface_interaction_ramp/ramp_high_k.png``
-- ``examples/capability_gallery/code_comparison/surface_interaction_ramp/ramp_high_k.json``
+- ``examples/projects/09_capability_gallery/code_comparison/surface_interaction_ramp/ramp_reference_k.png``
+- ``examples/projects/09_capability_gallery/code_comparison/surface_interaction_ramp/ramp_reference_k.json``
+- ``examples/projects/09_capability_gallery/code_comparison/surface_interaction_ramp/ramp_high_k.png``
+- ``examples/projects/09_capability_gallery/code_comparison/surface_interaction_ramp/ramp_high_k.json``
 
 Artifacts
 ---------

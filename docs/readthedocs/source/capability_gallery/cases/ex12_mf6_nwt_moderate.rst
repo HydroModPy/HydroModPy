@@ -69,7 +69,7 @@ Run the underlying example or validation case with:
 
 .. code-block:: bash
 
-   python -m launchers method-comparison run examples/projects/launcher_simulation/run_method_comparison_mf6_vs_nwt_different_meshes_moderate.toml
+   python -m launchers method-comparison run examples_legacy_2/projects/launcher_simulation/run_method_comparison_mf6_vs_nwt_different_meshes_moderate.toml
 
 Refresh the committed gallery artifacts with:
 
@@ -94,15 +94,15 @@ Comparison Setup
    * - ``[method_comparison] comparison_id``
      - Stable identifier used to collect outputs and summary artifacts for the comparison.
      - ex12_mf6_nwt_moderate
-     - ``examples/projects/launcher_simulation/run_method_comparison_mf6_vs_nwt_different_meshes_moderate.toml``
+     - ``examples_legacy_2/projects/launcher_simulation/run_method_comparison_mf6_vs_nwt_different_meshes_moderate.toml``
    * - ``[method_comparison] reference_variant``
      - Variant used as the baseline when computing map-wise differences and error metrics.
      - mf6_mod_tri
-     - ``examples/projects/launcher_simulation/run_method_comparison_mf6_vs_nwt_different_meshes_moderate.toml``
+     - ``examples_legacy_2/projects/launcher_simulation/run_method_comparison_mf6_vs_nwt_different_meshes_moderate.toml``
    * - ``[method_comparison] run_variants``
      - Whether the launcher reruns the variants or only reuses committed run folders.
      - true
-     - ``examples/projects/launcher_simulation/run_method_comparison_mf6_vs_nwt_different_meshes_moderate.toml``
+     - ``examples_legacy_2/projects/launcher_simulation/run_method_comparison_mf6_vs_nwt_different_meshes_moderate.toml``
    * - ``study_area``
      - Study area summarized by the gallery page for this comparison case.
      - Example12 / Naizin
@@ -122,11 +122,11 @@ Compared Variants
    * - ``variant.mf6_mod_tri``
      - Compared run folder and solver definition used by the method-comparison launcher.
      - MF6 annual moderate on committed triangular mesh; solver=modflow6; mesh_mode=mesh_input; run_folder=None
-     - ``examples/projects/launcher_simulation/run_method_comparison_mf6_vs_nwt_different_meshes_moderate.toml``
+     - ``examples_legacy_2/projects/launcher_simulation/run_method_comparison_mf6_vs_nwt_different_meshes_moderate.toml``
    * - ``variant.nwt_mod_s60``
      - Compared run folder and solver definition used by the method-comparison launcher.
      - NWT annual moderate on 60x60 structured grid; solver=modflownwt; mesh_mode=structured; run_folder=None
-     - ``examples/projects/launcher_simulation/run_method_comparison_mf6_vs_nwt_different_meshes_moderate.toml``
+     - ``examples_legacy_2/projects/launcher_simulation/run_method_comparison_mf6_vs_nwt_different_meshes_moderate.toml``
 
 Compared Observables
 ^^^^^^^^^^^^^^^^^^^^
@@ -142,41 +142,41 @@ Compared Observables
    * - ``observable.head_outlet_lowland``
      - Observable extracted from each run before parity plots and difference metrics are computed.
      - variable=watertable_elevation; support=point; time=all; unit=m
-     - ``examples/projects/launcher_simulation/run_method_comparison_mf6_vs_nwt_different_meshes_moderate.toml``
+     - ``examples_legacy_2/projects/launcher_simulation/run_method_comparison_mf6_vs_nwt_different_meshes_moderate.toml``
    * - ``observable.head_mid_basin_response``
      - Observable extracted from each run before parity plots and difference metrics are computed.
      - variable=watertable_elevation; support=point; time=all; unit=m
-     - ``examples/projects/launcher_simulation/run_method_comparison_mf6_vs_nwt_different_meshes_moderate.toml``
+     - ``examples_legacy_2/projects/launcher_simulation/run_method_comparison_mf6_vs_nwt_different_meshes_moderate.toml``
    * - ``observable.head_upstream_ridge``
      - Observable extracted from each run before parity plots and difference metrics are computed.
      - variable=watertable_elevation; support=point; time=all; unit=m
-     - ``examples/projects/launcher_simulation/run_method_comparison_mf6_vs_nwt_different_meshes_moderate.toml``
+     - ``examples_legacy_2/projects/launcher_simulation/run_method_comparison_mf6_vs_nwt_different_meshes_moderate.toml``
    * - ``observable.outlet_flux_series``
      - Observable extracted from each run before parity plots and difference metrics are computed.
      - variable=outlet_flux; support=outlet; time=all; unit=m3/s
-     - ``examples/projects/launcher_simulation/run_method_comparison_mf6_vs_nwt_different_meshes_moderate.toml``
+     - ``examples_legacy_2/projects/launcher_simulation/run_method_comparison_mf6_vs_nwt_different_meshes_moderate.toml``
    * - ``observable.head_map_last``
      - Observable extracted from each run before parity plots and difference metrics are computed.
      - variable=watertable_elevation; support=map; time=last; unit=m
-     - ``examples/projects/launcher_simulation/run_method_comparison_mf6_vs_nwt_different_meshes_moderate.toml``
+     - ``examples_legacy_2/projects/launcher_simulation/run_method_comparison_mf6_vs_nwt_different_meshes_moderate.toml``
    * - ``observable.depth_map_last``
      - Observable extracted from each run before parity plots and difference metrics are computed.
      - variable=watertable_depth; support=map; time=last; unit=m
-     - ``examples/projects/launcher_simulation/run_method_comparison_mf6_vs_nwt_different_meshes_moderate.toml``
+     - ``examples_legacy_2/projects/launcher_simulation/run_method_comparison_mf6_vs_nwt_different_meshes_moderate.toml``
    * - ``observable.outflow_drain_map_last``
      - Observable extracted from each run before parity plots and difference metrics are computed.
      - variable=outflow_drain; support=map; time=last; unit=m/day
-     - ``examples/projects/launcher_simulation/run_method_comparison_mf6_vs_nwt_different_meshes_moderate.toml``
+     - ``examples_legacy_2/projects/launcher_simulation/run_method_comparison_mf6_vs_nwt_different_meshes_moderate.toml``
 
 Source Pointers
 ---------------
 
-- ``examples/projects/launcher_simulation/run_method_comparison_mf6_vs_nwt_different_meshes_moderate.toml``
-- ``examples/projects/launcher_simulation/run_demonstrative_annual_moderate_mf6_precomputed_mesh_input.toml``
-- ``examples/projects/launcher_simulation/run_demonstrative_annual_moderate_nwt.toml``
-- ``examples/projects/launcher_simulation/method_comparison/ex12_mf6_nwt_moderate/comparison_manifest.json``
-- ``examples/projects/launcher_simulation/method_comparison/ex12_mf6_nwt_moderate/comparison_metrics.json``
-- ``examples/projects/launcher_simulation/method_comparison/ex12_mf6_nwt_moderate/observables.csv``
+- ``examples_legacy_2/projects/launcher_simulation/run_method_comparison_mf6_vs_nwt_different_meshes_moderate.toml``
+- ``examples_legacy_2/projects/launcher_simulation/run_demonstrative_annual_moderate_mf6_precomputed_mesh_input.toml``
+- ``examples_legacy_2/projects/launcher_simulation/run_demonstrative_annual_moderate_nwt.toml``
+- ``examples_legacy_2/projects/launcher_simulation/method_comparison/ex12_mf6_nwt_moderate/comparison_manifest.json``
+- ``examples_legacy_2/projects/launcher_simulation/method_comparison/ex12_mf6_nwt_moderate/comparison_metrics.json``
+- ``examples_legacy_2/projects/launcher_simulation/method_comparison/ex12_mf6_nwt_moderate/observables.csv``
 
 Artifacts
 ---------

@@ -34,23 +34,25 @@
   "equations_rst": [],
   "walkthrough_doc": "getting_started/simulation-walkthrough",
   "walkthrough_title": "the Simulation walkthrough",
-  "reproduction_command": "python -m hydromodpy run examples/projects/launcher_simulation/run_headwater_100km2_outlet_2_mf6_transient_reference.toml",
+  "reproduction_command": "python -m hydromodpy run examples_legacy_2/projects/launcher_simulation/run_headwater_100km2_outlet_2_mf6_transient_reference.toml",
   "gallery_update_command": "python -m tools.doc_gallery",
   "source_paths": [
-    "examples/projects/launcher_simulation/run_headwater_100km2_outlet_2_mf6_transient_reference.toml",
-    "examples/projects/launcher_simulation/config_headwater_100km2_mf6_transient_common.toml",
-    "examples/projects/launcher_simulation/README.md",
-    "examples/capability_gallery/launcher_simulation/headwater_100km2_outlet_2_mf6_transient_reference/manifest.json",
-    "hydromodpy/analysis/display/figures/flow_synthesis.py",
+    "examples_legacy_2/projects/launcher_simulation/run_headwater_100km2_outlet_2_mf6_transient_reference.toml",
+    "examples_legacy_2/projects/launcher_simulation/config_headwater_100km2_mf6_transient_common.toml",
+    "examples_legacy_2/projects/launcher_simulation/README.md",
+    "examples/projects/09_capability_gallery/launcher_simulation/headwater_100km2_outlet_2_mf6_transient_reference/manifest.json",
+    "hydromodpy/display/__init__.py",
+    "hydromodpy/display/figures/__init__.py",
     "hydromodpy/analysis/capability_gallery.py"
   ],
   "source_hashes": {
-    "examples/projects/launcher_simulation/run_headwater_100km2_outlet_2_mf6_transient_reference.toml": "1aaffb62eba888f74a3cde8619d2c3c77934e3fa83f3a57f155fb9efbb521166",
-    "examples/projects/launcher_simulation/config_headwater_100km2_mf6_transient_common.toml": "f7dd1f339523d1c1ca67a6ca8f7faf4a300cd2407b638efaff3f7ef5f6e36148",
-    "examples/projects/launcher_simulation/README.md": "3445a86afd1f3871840e1b838d75bc798985014f62e207e1fa473773c1ed76ec",
-    "examples/capability_gallery/launcher_simulation/headwater_100km2_outlet_2_mf6_transient_reference/manifest.json": "28973a8ab229544c30019cdd759d1ee27534673159ea1aa77c3d8aeb5d960499",
-    "hydromodpy/analysis/display/figures/flow_synthesis.py": "12fc5411942a05f7c01004151e6c95f47eb2ae1c90d52a4641b514ba31df1c5f",
-    "hydromodpy/analysis/capability_gallery.py": "241f91b73970e4df00eed8266f4074a1dc0f06e1fa08bf0357e79af754ee3ccc"
+    "examples_legacy_2/projects/launcher_simulation/run_headwater_100km2_outlet_2_mf6_transient_reference.toml": "35464713f1c8e99fa9bf583f3ebfafb9fc543f19ac00255a10b371d8bae8f8bd",
+    "examples_legacy_2/projects/launcher_simulation/config_headwater_100km2_mf6_transient_common.toml": "72aa57f14d7ff85a0d2836a229b45c884e02b8d1e60b8ddc2cf228fe3f7018a5",
+    "examples_legacy_2/projects/launcher_simulation/README.md": "ecbaa8c0ed4b211588ef167ef0e8d0235d01b25464d23bcdf0e0726e77ebab6a",
+    "examples/projects/09_capability_gallery/launcher_simulation/headwater_100km2_outlet_2_mf6_transient_reference/manifest.json": "1c391e2c9e59981fd3b3673b428026ca9a2e6ab7aa5b6e61ed6994c5f4ae8e3e",
+    "hydromodpy/display/__init__.py": "7b5e36ba66b417385f21e0965b47f9018c9ab7d03573d32da1d36dccb729facc",
+    "hydromodpy/display/figures/__init__.py": "9a064174ee7fca56b71a714b55ab6f411af66a372bd861d6a68511152960ff36",
+    "hydromodpy/analysis/capability_gallery.py": "77bf173e6ba84192cd0282da330c5069a675d9b2aee7cfaac29ed3365d2dbe38"
   },
   "docname": "cases/headwater_100km2_outlet_2_mf6_transient_reference",
   "images": [
@@ -118,23 +120,23 @@
     ],
     "copied_assets": [
       {
-        "source_path": "examples/capability_gallery/launcher_simulation/headwater_100km2_outlet_2_mf6_transient_reference/flow_state_triptych.png",
+        "source_path": "examples/projects/09_capability_gallery/launcher_simulation/headwater_100km2_outlet_2_mf6_transient_reference/flow_state_triptych.png",
         "copied_to": "docs/readthedocs/source/_static/capability_gallery/simulation/headwater_100km2_outlet_2_mf6_transient_reference_flow_state_triptych.png"
       },
       {
-        "source_path": "examples/capability_gallery/launcher_simulation/headwater_100km2_outlet_2_mf6_transient_reference/recharge_discharge_cumulative.png",
+        "source_path": "examples/projects/09_capability_gallery/launcher_simulation/headwater_100km2_outlet_2_mf6_transient_reference/recharge_discharge_cumulative.png",
         "copied_to": "docs/readthedocs/source/_static/capability_gallery/simulation/headwater_100km2_outlet_2_mf6_transient_reference_recharge_discharge_cumulative.png"
       },
       {
-        "source_path": "examples/capability_gallery/launcher_simulation/headwater_100km2_outlet_2_mf6_transient_reference/watertable_elevation.png",
+        "source_path": "examples/projects/09_capability_gallery/launcher_simulation/headwater_100km2_outlet_2_mf6_transient_reference/watertable_elevation.png",
         "copied_to": "docs/readthedocs/source/_static/capability_gallery/simulation/headwater_100km2_outlet_2_mf6_transient_reference_watertable_elevation.png"
       },
       {
-        "source_path": "examples/capability_gallery/launcher_simulation/headwater_100km2_outlet_2_mf6_transient_reference/watertable_depth.png",
+        "source_path": "examples/projects/09_capability_gallery/launcher_simulation/headwater_100km2_outlet_2_mf6_transient_reference/watertable_depth.png",
         "copied_to": "docs/readthedocs/source/_static/capability_gallery/simulation/headwater_100km2_outlet_2_mf6_transient_reference_watertable_depth.png"
       },
       {
-        "source_path": "examples/capability_gallery/launcher_simulation/headwater_100km2_outlet_2_mf6_transient_reference/flow_support_overview.png",
+        "source_path": "examples/projects/09_capability_gallery/launcher_simulation/headwater_100km2_outlet_2_mf6_transient_reference/flow_support_overview.png",
         "copied_to": "docs/readthedocs/source/_static/capability_gallery/simulation/headwater_100km2_outlet_2_mf6_transient_reference_support_overview.png"
       }
     ]
@@ -159,49 +161,49 @@
             "field": "[simulation.time] start_datetime",
             "meaning": "Start of the simulated period used by the flow and transport run.",
             "value": "2003-01-01 00:00:00",
-            "source": "examples/projects/launcher_simulation/run_headwater_100km2_outlet_2_mf6_transient_reference.toml"
+            "source": "examples_legacy_2/projects/launcher_simulation/run_headwater_100km2_outlet_2_mf6_transient_reference.toml"
           },
           {
             "field": "[simulation.time] end_datetime",
             "meaning": "End of the simulated period used by the flow and transport run.",
             "value": "2005-12-31 00:00:00",
-            "source": "examples/projects/launcher_simulation/run_headwater_100km2_outlet_2_mf6_transient_reference.toml"
+            "source": "examples_legacy_2/projects/launcher_simulation/run_headwater_100km2_outlet_2_mf6_transient_reference.toml"
           },
           {
             "field": "[simulation.time] step_value",
             "meaning": "Nominal time step used to discretize the simulation period.",
             "value": "1 month",
-            "source": "examples/projects/launcher_simulation/run_headwater_100km2_outlet_2_mf6_transient_reference.toml"
+            "source": "examples_legacy_2/projects/launcher_simulation/run_headwater_100km2_outlet_2_mf6_transient_reference.toml"
           },
           {
             "field": "[data.recharge.sources] values",
             "meaning": "Synthetic recharge sequence injected into the run over the configured time support.",
             "value": "2.4, 2.2, 1.8, 1.2, 0.7, 0.2, -0.3, -0.5, 0.1, 0.9, 1.8, 2.3, 2.1, 1.9, 1.5, 1, 0.4, 0, -0.6, -0.8, -0.1, 0.7, 1.6, 2, 2.7, 2.4, 1.9, 1.3, 0.8, 0.3, -0.2, -0.4, 0.2, 1.1, 2, 2.6",
-            "source": "examples/projects/launcher_simulation/run_headwater_100km2_outlet_2_mf6_transient_reference.toml"
+            "source": "examples_legacy_2/projects/launcher_simulation/run_headwater_100km2_outlet_2_mf6_transient_reference.toml"
           },
           {
             "field": "[data.recharge.sources] freq",
             "meaning": "Temporal frequency used to interpret the synthetic recharge sequence.",
             "value": "MS",
-            "source": "examples/projects/launcher_simulation/run_headwater_100km2_outlet_2_mf6_transient_reference.toml"
+            "source": "examples_legacy_2/projects/launcher_simulation/run_headwater_100km2_outlet_2_mf6_transient_reference.toml"
           },
           {
             "field": "[data.recharge.sources] runoff_ratio",
             "meaning": "Fraction of recharge redirected to runoff rather than infiltration.",
             "value": "0.12",
-            "source": "examples/projects/launcher_simulation/run_headwater_100km2_outlet_2_mf6_transient_reference.toml"
+            "source": "examples_legacy_2/projects/launcher_simulation/run_headwater_100km2_outlet_2_mf6_transient_reference.toml"
           },
           {
             "field": "[flow.param.K.field_homogeneous] value",
             "meaning": "Homogeneous hydraulic conductivity used by the flow model in this tutorial run.",
             "value": "2.5e-05",
-            "source": "examples/projects/launcher_simulation/run_headwater_100km2_outlet_2_mf6_transient_reference.toml"
+            "source": "examples_legacy_2/projects/launcher_simulation/run_headwater_100km2_outlet_2_mf6_transient_reference.toml"
           },
           {
             "field": "[flow.param.Sy.field_homogeneous] value",
             "meaning": "Specific yield used to control the free-surface response of the aquifer.",
             "value": "0.1",
-            "source": "examples/projects/launcher_simulation/run_headwater_100km2_outlet_2_mf6_transient_reference.toml"
+            "source": "examples_legacy_2/projects/launcher_simulation/run_headwater_100km2_outlet_2_mf6_transient_reference.toml"
           }
         ]
       },
@@ -212,7 +214,7 @@
             "field": "[capability_gallery] assets",
             "meaning": "Subset of run outputs copied into the static documentation gallery.",
             "value": "flow_state_triptych.png, recharge_discharge_cumulative.png, watertable_elevation.png, watertable_depth.png, flow_support_overview.png",
-            "source": "examples/projects/launcher_simulation/run_headwater_100km2_outlet_2_mf6_transient_reference.toml"
+            "source": "examples_legacy_2/projects/launcher_simulation/run_headwater_100km2_outlet_2_mf6_transient_reference.toml"
           }
         ]
       }

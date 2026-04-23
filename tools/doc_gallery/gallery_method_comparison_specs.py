@@ -62,9 +62,7 @@ def _build_method_comparison_case_spec(
         deck=deck,
         summary=summary,
         what_it_shows=what_it_shows,
-        reproduction_command=(
-            f"python -m launchers method-comparison run {comparison_config_path}"
-        ),
+        reproduction_command=(f"python -m hydromodpy run {comparison_config_path}"),
         source_paths=_augment_method_comparison_source_paths(
             comparison_config_path,
             source_paths,
@@ -116,15 +114,15 @@ def build_method_comparison_specs() -> tuple[GalleryCaseSpec, ...]:
                 "How comparison figures can be regenerated from committed run folders without rerunning the solvers.",
             ),
             reproduction_command=(
-                "python -m launchers method-comparison run "
-                "examples/projects/launcher_simulation/run_method_comparison_example12_map_existing.toml"
+                "python -m hydromodpy run "
+                "examples_legacy_2/projects/launcher_simulation/run_method_comparison_example12_map_existing.toml"
             ),
             source_paths=_augment_method_comparison_source_paths(
-                "examples/projects/launcher_simulation/run_method_comparison_example12_map_existing.toml",
+                "examples_legacy_2/projects/launcher_simulation/run_method_comparison_example12_map_existing.toml",
                 (
-                    "examples/projects/launcher_simulation/run_fast_mf6_mesh_catchment.toml",
-                    "examples/projects/launcher_simulation/run_fast_boussinesq_precomputed_mesh_input.toml",
-                    "examples/projects/launcher_simulation/method_comparison/example12_map_method_comparison/comparison_manifest.json",
+                    "examples_legacy_2/projects/launcher_simulation/run_fast_mf6_mesh_catchment.toml",
+                    "examples_legacy_2/projects/launcher_simulation/run_fast_boussinesq_precomputed_mesh_input.toml",
+                    "examples_legacy_2/projects/launcher_simulation/method_comparison/example12_map_method_comparison/comparison_manifest.json",
                 ),
             ),
             generator="method_comparison_case",
@@ -164,7 +162,7 @@ def build_method_comparison_specs() -> tuple[GalleryCaseSpec, ...]:
             walkthrough_doc="getting_started/reading-results-pages",
             walkthrough_title="the gallery and validation reading guide",
             metadata={
-                "comparison_config_path": "examples/projects/launcher_simulation/run_method_comparison_example12_map_existing.toml",
+                "comparison_config_path": "examples_legacy_2/projects/launcher_simulation/run_method_comparison_example12_map_existing.toml",
                 "study_area": "Naizin catchment",
                 "focus_variant_id": "boussinesq_reused_gmsh",
                 "comparison_family_key": "shared_support_cross_solver",
@@ -197,11 +195,11 @@ def build_method_comparison_specs() -> tuple[GalleryCaseSpec, ...]:
                 "How point chronicles, outlet flux, map snapshots, and native flux panels complement one another on the same benchmark.",
                 "How execution-time bars look when the comparison does not mix structured and triangular supports.",
             ),
-            comparison_config_path="examples/projects/launcher_simulation/run_method_comparison_mf6_vs_nwt_same_regular_mesh_moderate.toml",
+            comparison_config_path="examples_legacy_2/projects/launcher_simulation/run_method_comparison_mf6_vs_nwt_same_regular_mesh_moderate.toml",
             source_paths=(
-                "examples/projects/launcher_simulation/run_demonstrative_annual_moderate_mf6_structured.toml",
-                "examples/projects/launcher_simulation/run_demonstrative_annual_moderate_nwt.toml",
-                "examples/projects/launcher_simulation/method_comparison/ex12_mf6_nwt_moderate_same_s60/comparison_manifest.json",
+                "examples_legacy_2/projects/launcher_simulation/run_demonstrative_annual_moderate_mf6_structured.toml",
+                "examples_legacy_2/projects/launcher_simulation/run_demonstrative_annual_moderate_nwt.toml",
+                "examples_legacy_2/projects/launcher_simulation/method_comparison/ex12_mf6_nwt_moderate_same_s60/comparison_manifest.json",
             ),
             case_setup=(
                 "Reference variant: MODFLOW 6 on the 60x60 structured grid.",
@@ -244,11 +242,11 @@ def build_method_comparison_specs() -> tuple[GalleryCaseSpec, ...]:
                 "How a fine common raster and an intersection extent make map comparisons possible across incompatible supports.",
                 "How point chronicles and outlet flux help decide whether disagreement is local, diffuse, or tied to basin export.",
             ),
-            comparison_config_path="examples/projects/launcher_simulation/run_method_comparison_mf6_vs_nwt_different_meshes_moderate.toml",
+            comparison_config_path="examples_legacy_2/projects/launcher_simulation/run_method_comparison_mf6_vs_nwt_different_meshes_moderate.toml",
             source_paths=(
-                "examples/projects/launcher_simulation/run_demonstrative_annual_moderate_mf6_precomputed_mesh_input.toml",
-                "examples/projects/launcher_simulation/run_demonstrative_annual_moderate_nwt.toml",
-                "examples/projects/launcher_simulation/method_comparison/ex12_mf6_nwt_moderate/comparison_manifest.json",
+                "examples_legacy_2/projects/launcher_simulation/run_demonstrative_annual_moderate_mf6_precomputed_mesh_input.toml",
+                "examples_legacy_2/projects/launcher_simulation/run_demonstrative_annual_moderate_nwt.toml",
+                "examples_legacy_2/projects/launcher_simulation/method_comparison/ex12_mf6_nwt_moderate/comparison_manifest.json",
             ),
             case_setup=(
                 "Reference variant: MODFLOW 6 on the committed triangular mesh.",
@@ -291,11 +289,11 @@ def build_method_comparison_specs() -> tuple[GalleryCaseSpec, ...]:
                 "How the same observable set can be reused across moderate and demonstrative regimes to separate regime effects from support effects.",
                 "How execution-time bars and flux panels behave on a more showcase-oriented scenario.",
             ),
-            comparison_config_path="examples/projects/launcher_simulation/run_method_comparison_mf6_vs_nwt_different_meshes_demonstrative.toml",
+            comparison_config_path="examples_legacy_2/projects/launcher_simulation/run_method_comparison_mf6_vs_nwt_different_meshes_demonstrative.toml",
             source_paths=(
-                "examples/projects/launcher_simulation/run_demonstrative_annual_mf6_precomputed_mesh_input.toml",
-                "examples/projects/launcher_simulation/run_demonstrative_annual_nwt.toml",
-                "examples/projects/launcher_simulation/method_comparison/example12_mf6_vs_nwt_different_meshes_demonstrative/comparison_manifest.json",
+                "examples_legacy_2/projects/launcher_simulation/run_demonstrative_annual_mf6_precomputed_mesh_input.toml",
+                "examples_legacy_2/projects/launcher_simulation/run_demonstrative_annual_nwt.toml",
+                "examples_legacy_2/projects/launcher_simulation/method_comparison/example12_mf6_vs_nwt_different_meshes_demonstrative/comparison_manifest.json",
             ),
             case_setup=(
                 "Reference variant: MODFLOW 6 on the committed triangular support.",
@@ -338,13 +336,13 @@ def build_method_comparison_specs() -> tuple[GalleryCaseSpec, ...]:
                 "How multi-variant map comparisons and point chronicles stay interpretable when one reference variant is kept explicit.",
                 "How outlet flux, native flux panels, and execution times complement the map-based metrics in a four-variant suite.",
             ),
-            comparison_config_path="examples/projects/launcher_simulation/run_method_comparison_example12_multi_method_moderate.toml",
+            comparison_config_path="examples_legacy_2/projects/launcher_simulation/run_method_comparison_example12_multi_method_moderate.toml",
             source_paths=(
-                "examples/projects/launcher_simulation/run_demonstrative_annual_moderate_mf6_structured.toml",
-                "examples/projects/launcher_simulation/run_demonstrative_annual_moderate_nwt.toml",
-                "examples/projects/launcher_simulation/run_demonstrative_annual_moderate_mf6_precomputed_mesh_input.toml",
-                "examples/projects/launcher_simulation/run_demonstrative_annual_moderate_boussinesq_precomputed_mesh_input.toml",
-                "examples/projects/launcher_simulation/method_comparison/ex12_multi_method_moderate/comparison_manifest.json",
+                "examples_legacy_2/projects/launcher_simulation/run_demonstrative_annual_moderate_mf6_structured.toml",
+                "examples_legacy_2/projects/launcher_simulation/run_demonstrative_annual_moderate_nwt.toml",
+                "examples_legacy_2/projects/launcher_simulation/run_demonstrative_annual_moderate_mf6_precomputed_mesh_input.toml",
+                "examples_legacy_2/projects/launcher_simulation/run_demonstrative_annual_moderate_boussinesq_precomputed_mesh_input.toml",
+                "examples_legacy_2/projects/launcher_simulation/method_comparison/ex12_multi_method_moderate/comparison_manifest.json",
             ),
             case_setup=(
                 "Reference variant: MODFLOW 6 on the 60x60 structured grid.",
@@ -388,11 +386,11 @@ def build_method_comparison_specs() -> tuple[GalleryCaseSpec, ...]:
                 "How Boussinesq-specific surface-excess and budget views help explain disagreements seen in the more generic four-method page.",
                 "How the same comparison backbone can support both a compact synthesis page and a more causal diagnostic page.",
             ),
-            comparison_config_path="examples/projects/launcher_simulation/.__runtime_method_comparison_example12_multi_method_moderate_causes.toml",
+            comparison_config_path="examples_legacy_2/projects/launcher_simulation/.__runtime_method_comparison_example12_multi_method_moderate_causes.toml",
             source_paths=(
-                "examples/projects/launcher_simulation/run_method_comparison_example12_multi_method_moderate.toml",
-                "examples/projects/launcher_simulation/.__runtime_method_comparison_example12_multi_method_moderate_causes.toml",
-                "examples/projects/launcher_simulation/method_comparison/ex12_multi_method_moderate_causes/comparison_manifest.json",
+                "examples_legacy_2/projects/launcher_simulation/run_method_comparison_example12_multi_method_moderate.toml",
+                "examples_legacy_2/projects/launcher_simulation/.__runtime_method_comparison_example12_multi_method_moderate_causes.toml",
+                "examples_legacy_2/projects/launcher_simulation/method_comparison/ex12_multi_method_moderate_causes/comparison_manifest.json",
             ),
             case_setup=(
                 "Base variants are identical to the four-method moderate suite: MF6 structured, NWT structured, MF6 triangular, and Boussinesq triangular.",

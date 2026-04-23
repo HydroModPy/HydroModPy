@@ -7,7 +7,7 @@
   "summary": "This case isolates one question: what HydroModPy actually displays when hydrography is loaded from BD Topage and only the hydrography panel is enabled. The figure is meant to document the loaded river network itself, without geology, stations, or time-series panels.",
   "case_setup": [
     "Launcher family: `data-overview`, stopped after setup, domain assembly, data loading, and figure rendering.",
-    "Primary editable file: `examples/projects/Nancon_data_overview/config_hydrography_only.toml`.",
+    "Primary editable file: `examples/projects/05_nancon_data_overview/config_hydrography_only.toml`.",
     "Only one output figure is enabled: `[overview.panels] map_hydrography = true`."
   ],
   "key_parameters": [
@@ -34,19 +34,19 @@
   "equations_rst": [],
   "walkthrough_doc": "getting_started/data-overview-walkthrough",
   "walkthrough_title": "the Data Overview walkthrough",
-  "reproduction_command": "python -m launchers data-overview run examples/projects/Nancon_data_overview/config_hydrography_only.toml",
+  "reproduction_command": "python -m hydromodpy run examples/projects/05_nancon_data_overview/config_hydrography_only.toml",
   "gallery_update_command": "python -m tools.doc_gallery",
   "source_paths": [
     "tools/doc_gallery/manifests/geographic_cases.json",
-    "examples/projects/Nancon_data_overview/config_hydrography_only.toml",
-    "examples/capability_gallery/geographic/README.md",
-    "examples/capability_gallery/geographic/bdtopage_hydrography_overlay/geographic_bdtopage_hydrography_overlay.png"
+    "examples/projects/05_nancon_data_overview/config_hydrography_only.toml",
+    "examples/projects/09_capability_gallery/geographic/README.md",
+    "examples/projects/09_capability_gallery/geographic/bdtopage_hydrography_overlay/geographic_bdtopage_hydrography_overlay.png"
   ],
   "source_hashes": {
-    "tools/doc_gallery/manifests/geographic_cases.json": "bfa1457d98a6fd3a0b9fdeb7a93f6583273cd919168d5fb1d6261922680ee160",
-    "examples/projects/Nancon_data_overview/config_hydrography_only.toml": "9ec84b6d904b9d5e2bd2b6556ef07098ce2fd9439c589d96bcbe5677cdda320b",
-    "examples/capability_gallery/geographic/README.md": "fe6bc2eca9984e4b58baa744210d733ff348585fe5e499aa146a02b2f61a4dad",
-    "examples/capability_gallery/geographic/bdtopage_hydrography_overlay/geographic_bdtopage_hydrography_overlay.png": "32f1ad36cb0879224f9288c7110e5a8efe4390a9eb74e7deb16d7a2115175b99"
+    "tools/doc_gallery/manifests/geographic_cases.json": "87a228bb5a5c8c8b087dbeae7693efd258f71bab1739443c6cf211b1f90f7bfe",
+    "examples/projects/05_nancon_data_overview/config_hydrography_only.toml": "0576841a43e936462d495fac5096ac6cbc344011d1f01d8e2a49b356bf513735",
+    "examples/projects/09_capability_gallery/geographic/README.md": "fe6bc2eca9984e4b58baa744210d733ff348585fe5e499aa146a02b2f61a4dad",
+    "examples/projects/09_capability_gallery/geographic/bdtopage_hydrography_overlay/geographic_bdtopage_hydrography_overlay.png": "32f1ad36cb0879224f9288c7110e5a8efe4390a9eb74e7deb16d7a2115175b99"
   },
   "docname": "cases/geographic_bdtopage_hydrography_overlay",
   "images": [
@@ -76,7 +76,7 @@
     "reading_order": 30,
     "copied_assets": [
       {
-        "source_path": "examples/capability_gallery/geographic/bdtopage_hydrography_overlay/geographic_bdtopage_hydrography_overlay.png",
+        "source_path": "examples/projects/09_capability_gallery/geographic/bdtopage_hydrography_overlay/geographic_bdtopage_hydrography_overlay.png",
         "copied_to": "docs/readthedocs/source/_static/capability_gallery/geographic/geographic_bdtopage_hydrography_overlay.png"
       }
     ]
@@ -97,37 +97,37 @@
             "field": "[geographic] catch_def",
             "meaning": "Watershed extraction mode used to derive the basin from the outlet definition.",
             "value": "from_outlet_coord",
-            "source": "examples/projects/Nancon_data_overview/config_hydrography_only.toml"
+            "source": "examples/projects/05_nancon_data_overview/config_hydrography_only.toml"
           },
           {
             "field": "[geographic] x_outlet",
             "meaning": "Projected x coordinate of the outlet used by watershed extraction.",
             "value": "389286",
-            "source": "examples/projects/Nancon_data_overview/config_hydrography_only.toml"
+            "source": "examples/projects/05_nancon_data_overview/config_hydrography_only.toml"
           },
           {
             "field": "[geographic] y_outlet",
             "meaning": "Projected y coordinate of the outlet used by watershed extraction.",
             "value": "6.81652e+06",
-            "source": "examples/projects/Nancon_data_overview/config_hydrography_only.toml"
+            "source": "examples/projects/05_nancon_data_overview/config_hydrography_only.toml"
           },
           {
             "field": "[geographic] snap_dist",
             "meaning": "Maximum snapping distance used to align the requested outlet with the drainage network.",
             "value": "150 m",
-            "source": "examples/projects/Nancon_data_overview/config_hydrography_only.toml"
+            "source": "examples/projects/05_nancon_data_overview/config_hydrography_only.toml"
           },
           {
             "field": "[geographic] buff_area",
             "meaning": "Extra area kept around the watershed to preserve regional context in overview figures.",
             "value": "20%",
-            "source": "examples/projects/Nancon_data_overview/config_hydrography_only.toml"
+            "source": "examples/projects/05_nancon_data_overview/config_hydrography_only.toml"
           },
           {
             "field": "[data] types",
             "meaning": "Families of data loaded during the data-overview workflow.",
             "value": "hydrography",
-            "source": "examples/projects/Nancon_data_overview/config_hydrography_only.toml"
+            "source": "examples/projects/05_nancon_data_overview/config_hydrography_only.toml"
           }
         ]
       },
@@ -138,13 +138,13 @@
             "field": "[data] types",
             "meaning": "Ordered list of data families requested by the overview case.",
             "value": "hydrography",
-            "source": "examples/projects/Nancon_data_overview/config_hydrography_only.toml"
+            "source": "examples/projects/05_nancon_data_overview/config_hydrography_only.toml"
           },
           {
             "field": "[data.hydrography.sources]",
             "meaning": "Configured providers used to load the `hydrography` family in this case.",
             "value": "bdtopage",
-            "source": "examples/projects/Nancon_data_overview/config_hydrography_only.toml"
+            "source": "examples/projects/05_nancon_data_overview/config_hydrography_only.toml"
           }
         ]
       },
@@ -155,25 +155,25 @@
             "field": "[[data.hydrography.sources]] source",
             "meaning": "Hydrography provider used for the displayed river network.",
             "value": "bdtopage",
-            "source": "examples/projects/Nancon_data_overview/config_hydrography_only.toml"
+            "source": "examples/projects/05_nancon_data_overview/config_hydrography_only.toml"
           },
           {
             "field": "[[data.hydrography.sources]] typename",
             "meaning": "Optional WFS typename used when the hydrography source is BD Topage.",
             "value": "sa:CoursEau_FXX_Topage2025",
-            "source": "examples/projects/Nancon_data_overview/config_hydrography_only.toml"
+            "source": "examples/projects/05_nancon_data_overview/config_hydrography_only.toml"
           },
           {
             "field": "[[data.hydrography.sources]] page_size",
             "meaning": "Pagination size requested from the remote hydrography API when relevant.",
             "value": "1000",
-            "source": "examples/projects/Nancon_data_overview/config_hydrography_only.toml"
+            "source": "examples/projects/05_nancon_data_overview/config_hydrography_only.toml"
           },
           {
             "field": "[[data.hydrography.sources]] rasterize_field",
             "meaning": "Attribute used when rasterizing the clipped vector network to the watershed grid.",
             "value": "FID",
-            "source": "examples/projects/Nancon_data_overview/config_hydrography_only.toml"
+            "source": "examples/projects/05_nancon_data_overview/config_hydrography_only.toml"
           }
         ]
       },
@@ -184,37 +184,37 @@
             "field": "[overview] name",
             "meaning": "Title injected into the generated overview panels.",
             "value": "Canut",
-            "source": "examples/projects/Nancon_data_overview/config_hydrography_only.toml"
+            "source": "examples/projects/05_nancon_data_overview/config_hydrography_only.toml"
           },
           {
             "field": "[overview.panels] enabled",
             "meaning": "Panel toggles enabled for this overview run.",
             "value": "map_hydrography",
-            "source": "examples/projects/Nancon_data_overview/config_hydrography_only.toml"
+            "source": "examples/projects/05_nancon_data_overview/config_hydrography_only.toml"
           },
           {
             "field": "[overview.panels] map_dem",
             "meaning": "Whether the `map_dem` panel is rendered for this overview case.",
             "value": "false",
-            "source": "examples/projects/Nancon_data_overview/config_hydrography_only.toml"
+            "source": "examples/projects/05_nancon_data_overview/config_hydrography_only.toml"
           },
           {
             "field": "[overview.panels] map_geology",
             "meaning": "Whether the `map_geology` panel is rendered for this overview case.",
             "value": "false",
-            "source": "examples/projects/Nancon_data_overview/config_hydrography_only.toml"
+            "source": "examples/projects/05_nancon_data_overview/config_hydrography_only.toml"
           },
           {
             "field": "[overview.panels] map_hydrography",
             "meaning": "Whether the `map_hydrography` panel is rendered for this overview case.",
             "value": "true",
-            "source": "examples/projects/Nancon_data_overview/config_hydrography_only.toml"
+            "source": "examples/projects/05_nancon_data_overview/config_hydrography_only.toml"
           },
           {
             "field": "[overview.panels] stats_card",
             "meaning": "Whether the `stats_card` panel is rendered for this overview case.",
             "value": "false",
-            "source": "examples/projects/Nancon_data_overview/config_hydrography_only.toml"
+            "source": "examples/projects/05_nancon_data_overview/config_hydrography_only.toml"
           }
         ]
       }

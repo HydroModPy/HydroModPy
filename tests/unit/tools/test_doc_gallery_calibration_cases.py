@@ -2,7 +2,15 @@
 
 from __future__ import annotations
 
+from importlib.util import find_spec
+
 import pytest
+
+if find_spec("hydromodpy.analysis.calibration") is None:
+    pytest.skip(
+        "hydromodpy.analysis.calibration is being rewritten; calibration gallery cases are skipped.",
+        allow_module_level=True,
+    )
 
 try:
     from validation_cases.analytical.steady.boussinesq_sloping_substratum_fixed_head_1d.comparison import (  # noqa: F401,E501

@@ -50,7 +50,7 @@ Run the underlying example or validation case with:
 
 .. code-block:: bash
 
-   python -m launchers mesh-catchment run launchers/mesh_catchment/scenarios/config_s3_10km2_outlet_1_rivers_only.toml
+   python -m launchers mesh-catchment run old/launchers/mesh_catchment/scenarios/config_s3_10km2_outlet_1_rivers_only.toml
 
 Refresh the committed gallery artifacts with:
 
@@ -75,39 +75,39 @@ Selected Parameters
    * - ``scale_label``
      - Scale bucket used to group repeated mesh gallery cases.
      - 10 km2
-     - ``examples/mesh_gallery/10km2/mesh_s3_10km2_outlet_1_rivers_only_buffer30/viewer_config.toml``
+     - ``examples/projects/07_mesh_gallery/10km2/mesh_s3_10km2_outlet_1_rivers_only_buffer30/viewer_config.toml``
    * - ``outlet_id``
      - Outlet identifier used by the source batch meshing run.
      - 1
-     - ``examples/mesh_gallery/10km2/mesh_s3_10km2_outlet_1_rivers_only_buffer30/viewer_config.toml``
+     - ``examples/projects/07_mesh_gallery/10km2/mesh_s3_10km2_outlet_1_rivers_only_buffer30/viewer_config.toml``
    * - ``variant_label``
      - Gallery variant describing the active constraints and buffering policy.
      - Rivers only, 30% buffer
-     - ``examples/mesh_gallery/10km2/mesh_s3_10km2_outlet_1_rivers_only_buffer30/viewer_config.toml``
+     - ``examples/projects/07_mesh_gallery/10km2/mesh_s3_10km2_outlet_1_rivers_only_buffer30/viewer_config.toml``
    * - ``constraints_mode``
      - Constraint family carried by the imported bundle or viewer config.
      - rivers_only
-     - ``examples/mesh_gallery/10km2/mesh_s3_10km2_outlet_1_rivers_only_buffer30/viewer_config.toml``
+     - ``examples/projects/07_mesh_gallery/10km2/mesh_s3_10km2_outlet_1_rivers_only_buffer30/viewer_config.toml``
    * - ``[mesh_distribution.plot] color_field``
      - Cell attribute used to color the mesh in the overview figure.
      - area_m2
-     - ``examples/mesh_gallery/10km2/mesh_s3_10km2_outlet_1_rivers_only_buffer30/viewer_config.toml``
+     - ``examples/projects/07_mesh_gallery/10km2/mesh_s3_10km2_outlet_1_rivers_only_buffer30/viewer_config.toml``
    * - ``[mesh_distribution.plot] show_topography_panel``
      - Whether a dedicated topography panel is shown alongside the mesh map.
      - true
-     - ``examples/mesh_gallery/10km2/mesh_s3_10km2_outlet_1_rivers_only_buffer30/viewer_config.toml``
+     - ``examples/projects/07_mesh_gallery/10km2/mesh_s3_10km2_outlet_1_rivers_only_buffer30/viewer_config.toml``
    * - ``[mesh_distribution.plot] topography_field``
      - Node or cell field used to render the topography panel when it is enabled.
      - z_top_mean
-     - ``examples/mesh_gallery/10km2/mesh_s3_10km2_outlet_1_rivers_only_buffer30/viewer_config.toml``
+     - ``examples/projects/07_mesh_gallery/10km2/mesh_s3_10km2_outlet_1_rivers_only_buffer30/viewer_config.toml``
    * - ``[mesh_distribution.plot] show_geology_interfaces``
      - Whether geology interfaces are explicitly highlighted in the viewer output.
      - true
-     - ``examples/mesh_gallery/10km2/mesh_s3_10km2_outlet_1_rivers_only_buffer30/viewer_config.toml``
+     - ``examples/projects/07_mesh_gallery/10km2/mesh_s3_10km2_outlet_1_rivers_only_buffer30/viewer_config.toml``
    * - ``[mesh_distribution.plot] show_river_edges``
      - Whether river-constrained edges are highlighted in the viewer output.
      - true
-     - ``examples/mesh_gallery/10km2/mesh_s3_10km2_outlet_1_rivers_only_buffer30/viewer_config.toml``
+     - ``examples/projects/07_mesh_gallery/10km2/mesh_s3_10km2_outlet_1_rivers_only_buffer30/viewer_config.toml``
 
 Mesh Summary
 ^^^^^^^^^^^^
@@ -156,20 +156,20 @@ Mesh Summary
 Source Pointers
 ---------------
 
-- ``launchers/mesh_catchment/scenarios/config_s3_10km2_outlet_1_rivers_only.toml``
-- ``examples/mesh_gallery/10km2/mesh_s3_10km2_outlet_1_rivers_only_buffer30/case.json``
-- ``examples/mesh_gallery/10km2/mesh_s3_10km2_outlet_1_rivers_only_buffer30/viewer_config.toml``
-- ``examples/mesh_gallery/10km2/mesh_s3_10km2_outlet_1_rivers_only_buffer30/README.md``
-- ``examples/mesh_gallery/10km2/mesh_s3_10km2_outlet_1_rivers_only_buffer30/bundle/mesh_2d.msh``
-- ``examples/mesh_gallery/10km2/mesh_s3_10km2_outlet_1_rivers_only_buffer30/bundle/nodes.csv``
-- ``examples/mesh_gallery/10km2/mesh_s3_10km2_outlet_1_rivers_only_buffer30/bundle/cells.csv``
-- ``examples/mesh_gallery/10km2/mesh_s3_10km2_outlet_1_rivers_only_buffer30/bundle/edges.csv``
-- ``examples/mesh_gallery/10km2/mesh_s3_10km2_outlet_1_rivers_only_buffer30/bundle/cell_geology_fractions.csv``
-- ``examples/mesh_gallery/10km2/mesh_s3_10km2_outlet_1_rivers_only_buffer30/bundle/metadata.json``
-- ``examples/mesh_gallery/10km2/mesh_s3_10km2_outlet_1_rivers_only_buffer30/bundle/mesh_summary.json``
-- ``examples/mesh_gallery/10km2/mesh_s3_10km2_outlet_1_rivers_only_buffer30/bundle/README.md``
-- ``examples/mesh_gallery/10km2/mesh_s3_10km2_outlet_1_rivers_only_buffer30/figures/mesh_overview.png``
-- ``examples/mesh_gallery/10km2/mesh_s3_10km2_outlet_1_rivers_only_buffer30/figures/mesh_regional.png``
+- ``old/launchers/mesh_catchment/scenarios/config_s3_10km2_outlet_1_rivers_only.toml``
+- ``examples/projects/07_mesh_gallery/10km2/mesh_s3_10km2_outlet_1_rivers_only_buffer30/case.json``
+- ``examples/projects/07_mesh_gallery/10km2/mesh_s3_10km2_outlet_1_rivers_only_buffer30/viewer_config.toml``
+- ``examples/projects/07_mesh_gallery/10km2/mesh_s3_10km2_outlet_1_rivers_only_buffer30/README.md``
+- ``examples/projects/07_mesh_gallery/10km2/mesh_s3_10km2_outlet_1_rivers_only_buffer30/bundle/mesh_2d.msh``
+- ``examples/projects/07_mesh_gallery/10km2/mesh_s3_10km2_outlet_1_rivers_only_buffer30/bundle/nodes.csv``
+- ``examples/projects/07_mesh_gallery/10km2/mesh_s3_10km2_outlet_1_rivers_only_buffer30/bundle/cells.csv``
+- ``examples/projects/07_mesh_gallery/10km2/mesh_s3_10km2_outlet_1_rivers_only_buffer30/bundle/edges.csv``
+- ``examples/projects/07_mesh_gallery/10km2/mesh_s3_10km2_outlet_1_rivers_only_buffer30/bundle/cell_geology_fractions.csv``
+- ``examples/projects/07_mesh_gallery/10km2/mesh_s3_10km2_outlet_1_rivers_only_buffer30/bundle/metadata.json``
+- ``examples/projects/07_mesh_gallery/10km2/mesh_s3_10km2_outlet_1_rivers_only_buffer30/bundle/mesh_summary.json``
+- ``examples/projects/07_mesh_gallery/10km2/mesh_s3_10km2_outlet_1_rivers_only_buffer30/bundle/README.md``
+- ``examples/projects/07_mesh_gallery/10km2/mesh_s3_10km2_outlet_1_rivers_only_buffer30/figures/mesh_overview.png``
+- ``examples/projects/07_mesh_gallery/10km2/mesh_s3_10km2_outlet_1_rivers_only_buffer30/figures/mesh_regional.png``
 
 Artifacts
 ---------

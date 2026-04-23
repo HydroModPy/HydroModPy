@@ -36,7 +36,7 @@ Run the underlying example or validation case with:
 
 .. code-block:: bash
 
-   python -m tools.mesh_bundle_viewer --config examples/mesh_viewer/config_example.toml
+   python -m tools.mesh_bundle_viewer --config examples/projects/08_mesh_viewer/config_example.toml
 
 Refresh the committed gallery artifacts with:
 
@@ -61,23 +61,23 @@ Selected Parameters
    * - ``[mesh_distribution.plot] color_field``
      - Cell attribute used to color the mesh in the overview figure.
      - geology_key
-     - ``examples/mesh_viewer/config_example.toml``
+     - ``examples/projects/08_mesh_viewer/config_example.toml``
    * - ``[mesh_distribution.plot] show_topography_panel``
      - Whether a dedicated topography panel is shown alongside the mesh map.
      - true
-     - ``examples/mesh_viewer/config_example.toml``
+     - ``examples/projects/08_mesh_viewer/config_example.toml``
    * - ``[mesh_distribution.plot] topography_field``
      - Node or cell field used to render the topography panel when it is enabled.
      - z_top_mean
-     - ``examples/mesh_viewer/config_example.toml``
+     - ``examples/projects/08_mesh_viewer/config_example.toml``
    * - ``[mesh_distribution.plot] show_geology_interfaces``
      - Whether geology interfaces are explicitly highlighted in the viewer output.
      - true
-     - ``examples/mesh_viewer/config_example.toml``
+     - ``examples/projects/08_mesh_viewer/config_example.toml``
    * - ``[mesh_distribution.plot] show_river_edges``
      - Whether river-constrained edges are highlighted in the viewer output.
      - true
-     - ``examples/mesh_viewer/config_example.toml``
+     - ``examples/projects/08_mesh_viewer/config_example.toml``
 
 Mesh Summary
 ^^^^^^^^^^^^
@@ -126,8 +126,8 @@ Mesh Summary
 Source Pointers
 ---------------
 
-- ``examples/mesh_viewer/config_example.toml``
-- ``examples/mesh_viewer/default_bundle/README.md``
+- ``examples/projects/08_mesh_viewer/config_example.toml``
+- ``examples/projects/08_mesh_viewer/default_bundle/README.md``
 - ``tools/mesh_bundle_viewer/README.md``
 - ``tools/mesh_bundle_viewer/runner/visualization_runner.py``
 - ``tools/mesh_bundle_viewer/display/figure.py``

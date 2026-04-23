@@ -40,7 +40,7 @@ FAMILY_SPECS: tuple[ManagedMeshFamilySpec, ...] = (
         label="10 km2, Strahler 3",
         scale="10km2",
         variant="geology_rivers_buffer30",
-        launcher_config_path="launchers/mesh_catchment/scenarios/config_s3_10km2.toml",
+        launcher_config_path="old/launchers/mesh_catchment/scenarios/config_s3_10km2.toml",
         results_subdir="s3_10km2",
         featured_outlet_ids=(1,),
         deck=(
@@ -63,7 +63,7 @@ FAMILY_SPECS: tuple[ManagedMeshFamilySpec, ...] = (
         label="100 km2, headwater",
         scale="100km2",
         variant="geology_rivers_buffer30",
-        launcher_config_path="launchers/mesh_catchment/scenarios/config_headwater_100km2.toml",
+        launcher_config_path="old/launchers/mesh_catchment/scenarios/config_headwater_100km2.toml",
         results_subdir="headwater_100km2",
         featured_outlet_ids=(27,),
         deck=(
@@ -85,7 +85,7 @@ FAMILY_SPECS: tuple[ManagedMeshFamilySpec, ...] = (
         label="100 km2, Strahler 3",
         scale="100km2",
         variant="geology_rivers_buffer30",
-        launcher_config_path="launchers/mesh_catchment/scenarios/config_s3_100km2.toml",
+        launcher_config_path="old/launchers/mesh_catchment/scenarios/config_s3_100km2.toml",
         results_subdir="s3_100km2",
         featured_outlet_ids=(2,),
         deck=(
@@ -107,7 +107,7 @@ FAMILY_SPECS: tuple[ManagedMeshFamilySpec, ...] = (
         label="1000 km2",
         scale="1000km2",
         variant="geology_rivers_buffer30",
-        launcher_config_path="launchers/mesh_catchment/scenarios/config_1000km2.toml",
+        launcher_config_path="old/launchers/mesh_catchment/scenarios/config_1000km2.toml",
         results_subdir="1000km2",
         featured_outlet_ids=(2,),
         deck=(
@@ -144,7 +144,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--repo-root",
         default=str(REPO_ROOT),
-        help="Repository root containing examples/mesh_gallery/.",
+        help="Repository root containing examples/projects/07_mesh_gallery/.",
     )
     parser.add_argument(
         "--count",
@@ -168,7 +168,7 @@ def build_parser() -> argparse.ArgumentParser:
         "--no-clean-destination",
         dest="clean_destination",
         action="store_false",
-        help="Do not clear existing imported case directories under examples/mesh_gallery/ before syncing.",
+        help="Do not clear existing imported case directories under examples/projects/07_mesh_gallery/ before syncing.",
     )
     parser.add_argument(
         "--update-gallery",

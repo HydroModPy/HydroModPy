@@ -58,24 +58,24 @@
     "validation_cases/shared/boussinesq_uniform_strip.py"
   ],
   "source_hashes": {
-    "validation_cases/README.md": "28ee639cd0c843d89c06a5ff3b8adf655f5725e35392ebb9980f906513c17e6e",
+    "validation_cases/README.md": "634832ce341c47597143d5614d06c8d22bac809193447706294f5b43e38359c3",
     "validation_cases/analytical/steady/boussinesq_sloping_substratum_fixed_head_1d/README.md": "36f85440db001f4604b66b655692df9b6109076b725790c9db44866a1771e340",
     "validation_cases/analytical/steady/boussinesq_sloping_substratum_fixed_head_1d/reference.py": "52994cee8b9c0dd0b3fb4309adec45bc757b5388ce6a1e668a73b014d205b5e5",
-    "validation_cases/analytical/steady/boussinesq_sloping_substratum_fixed_head_1d/comparison.py": "428fa710d1fee0f6f0df8ded096eb164f15c619f313480fb88c30319e14095e4",
+    "validation_cases/analytical/steady/boussinesq_sloping_substratum_fixed_head_1d/comparison.py": "d8d346138e9562c252098acfa50d36ce4278a6f5e823710ce06168188e53b455",
     "validation_cases/analytical/steady/boussinesq_sloping_substratum_fixed_head_1d/plotting.py": "1c4833b518b00282ef19b6434a75e4642739ed04599ef7aabc9da97c95c1ef43",
-    "validation_cases/analytical/steady/boussinesq_sloping_substratum_fixed_head_1d/run_case.py": "0dfbaf39a96c63378bcf8f9defbf57d9fdc42401121c060e69b08dc4ddf69ec9",
+    "validation_cases/analytical/steady/boussinesq_sloping_substratum_fixed_head_1d/run_case.py": "e7ddef3f06b96c4a92cc01a4e9ba008f07a41c15a69777008938dc3e3c0bff05",
     "validation_cases/analytical/steady/boussinesq_sloping_substratum_fixed_head_1d/metadata.toml": "301653c213a95830ca46e5bd69e8f8566bfe841ad7df13d6b05923912edfc4fe",
-    "validation_cases/analytical/steady/boussinesq_sloping_substratum_fixed_head_1d/config_common.toml": "b8b0f8c007da4a7bff17d561ebbc1c3dade6d9bbe6e424a230562f68082c93a5",
-    "validation_cases/analytical/steady/boussinesq_sloping_substratum_fixed_head_1d/runtime_boussinesq.py": "35bba319af17ff4cce90c983faa2f6577156a62128ec802342e1a3e358d37679",
+    "validation_cases/analytical/steady/boussinesq_sloping_substratum_fixed_head_1d/config_common.toml": "a1bf7f36b93249c7202cd0ccec0aca12775f1f365ad6e78f2ae1b04724cbed26",
+    "validation_cases/analytical/steady/boussinesq_sloping_substratum_fixed_head_1d/runtime_boussinesq.py": "546f0ce7cd2cfa732df5a1da744ff8acb8b47c911f8716098fcfd1cc6deba23a",
     "validation_cases/analytical/steady/boussinesq_sloping_substratum_fixed_head_1d/tolerances.toml": "76b84ede12e8712586ea3a61261f4ddaf88072c7d34ac1ec8eda137e3f82146e",
     "validation_cases/analytical/steady/boussinesq_sloping_substratum_fixed_head_1d/tolerances_modflow6.toml": "ab5335aeecf232ffa30a2776d33d00edb0b939d39664e09ad435591bf83b5415",
     "validation_cases/analytical/steady/boussinesq_sloping_substratum_fixed_head_1d/tolerances_modflow6_irregular_tri.toml": "4c969f05f8a467a23eb3e335c564b1436b79774d5352b1ae59cb24c9ae63b8f0",
     "validation_cases/analytical/steady/boussinesq_sloping_substratum_fixed_head_1d/config_modflownwt.toml": "775254b3896dc6631b7da639d8f266e6d2b030a6caf09bada6053ae920da6b23",
     "validation_cases/analytical/steady/boussinesq_sloping_substratum_fixed_head_1d/config_modflow6.toml": "500d12e78009034e6feee87309dc89f3c3f876bad33c2c66b9fd0cad6dfd8d15",
-    "validation_cases/analytical/steady/boussinesq_sloping_substratum_fixed_head_1d/config_modflow6_irregular_tri.toml": "674c82f0e5a2c0409b5b54b1e8d7f15317ba247773995ab15f0cfc29fbfc0bdf",
+    "validation_cases/analytical/steady/boussinesq_sloping_substratum_fixed_head_1d/config_modflow6_irregular_tri.toml": "2b98a973e5f68139217fb511eef9d75f924e04e02f0e77a5964275046c55687d",
     "validation_cases/analytical/steady/boussinesq_sloping_substratum_fixed_head_1d/config_boussinesq.toml": "bf9a68e7c1dca1d194187dc5584f7f51dc4243bfab5d762e437760d1a797434c",
-    "validation_cases/analytical/steady/boussinesq_sloping_substratum.py": "2c82812187cdae67defc2884467596a6198ca61a1d359fc166b8312ad706f777",
-    "validation_cases/shared/boussinesq_uniform_strip.py": "30c6e0c6cec9aaece01246cc109d47043eed032725b0a496874d6f744c04901f"
+    "validation_cases/analytical/steady/boussinesq_sloping_substratum.py": "7115b66a3efba827ab0acef3fa860712443102f4352cd1e6bfcadd450b7457dd",
+    "validation_cases/shared/boussinesq_uniform_strip.py": "4c7b6bc8f898f453c77f94c542591d3b1b4e8f7f0a785fe8a6bc7d4ed44d0473"
   },
   "docname": "cases/boussinesq_sloping_substratum_fixed_head_1d",
   "images": [
@@ -512,6 +512,12 @@
       }
     ],
     "common_setup": [
+      {
+        "field": "workflow",
+        "meaning": "Case-specific configuration field `workflow` used by the validation benchmark.",
+        "value": "simulation",
+        "source": "validation_cases/analytical/steady/boussinesq_sloping_substratum_fixed_head_1d/config_common.toml"
+      },
       {
         "field": "geographic.synthetic.grid.length_x",
         "meaning": "Synthetic-domain length along the x axis.",

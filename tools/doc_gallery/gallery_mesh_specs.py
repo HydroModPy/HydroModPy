@@ -64,11 +64,11 @@ def build_mesh_static_specs() -> tuple[GalleryCaseSpec, ...]:
                 "What one real exported bundle looks like when used as a reproducible documentation artifact.",
             ),
             reproduction_command=(
-                "python -m tools.mesh_bundle_viewer --config examples/mesh_viewer/config_example.toml"
+                "python -m tools.mesh_bundle_viewer --config examples/projects/08_mesh_viewer/config_example.toml"
             ),
             source_paths=(
-                "examples/mesh_viewer/config_example.toml",
-                "examples/mesh_viewer/default_bundle/README.md",
+                "examples/projects/08_mesh_viewer/config_example.toml",
+                "examples/projects/08_mesh_viewer/default_bundle/README.md",
                 "tools/mesh_bundle_viewer/README.md",
                 "tools/mesh_bundle_viewer/runner/visualization_runner.py",
                 "tools/mesh_bundle_viewer/display/figure.py",
@@ -85,7 +85,7 @@ def build_mesh_static_specs() -> tuple[GalleryCaseSpec, ...]:
                 ),
             ),
             metric_specs=MESH_GALLERY_METRIC_SPECS,
-            metadata={"config_path": "examples/mesh_viewer/config_example.toml"},
+            metadata={"config_path": "examples/projects/08_mesh_viewer/config_example.toml"},
         ),
         GalleryCaseSpec(
             slug="mesh_quality_diagnostics_naizin_10km2",
@@ -104,9 +104,9 @@ def build_mesh_static_specs() -> tuple[GalleryCaseSpec, ...]:
             ),
             reproduction_command="python -m tools.doc_gallery",
             source_paths=(
-                "examples/mesh_gallery/10km2/mesh_s3_10km2_outlet_1_geology_rivers_buffer30/bundle/nodes.csv",
-                "examples/mesh_gallery/10km2/mesh_s3_10km2_outlet_1_geology_rivers_buffer30/bundle/cells.csv",
-                "examples/mesh_gallery/10km2/mesh_s3_10km2_outlet_1_geology_rivers_buffer30/bundle/mesh_summary.json",
+                "examples/projects/07_mesh_gallery/10km2/mesh_s3_10km2_outlet_1_geology_rivers_buffer30/bundle/nodes.csv",
+                "examples/projects/07_mesh_gallery/10km2/mesh_s3_10km2_outlet_1_geology_rivers_buffer30/bundle/cells.csv",
+                "examples/projects/07_mesh_gallery/10km2/mesh_s3_10km2_outlet_1_geology_rivers_buffer30/bundle/mesh_summary.json",
                 "tools/doc_gallery/update_gallery.py",
             ),
             generator="mesh_diagnostics_case",
@@ -125,7 +125,7 @@ def build_mesh_static_specs() -> tuple[GalleryCaseSpec, ...]:
             ),
             metadata={
                 "bundle_path": (
-                    "examples/mesh_gallery/10km2/"
+                    "examples/projects/07_mesh_gallery/10km2/"
                     "mesh_s3_10km2_outlet_1_geology_rivers_buffer30/bundle"
                 )
             },
@@ -147,9 +147,9 @@ def build_mesh_static_specs() -> tuple[GalleryCaseSpec, ...]:
             ),
             reproduction_command="python -m tools.doc_gallery",
             source_paths=(
-                "examples/mesh_gallery/10km2/mesh_s3_10km2_outlet_1_geology_rivers_buffer30/bundle/mesh_summary.json",
-                "examples/mesh_gallery/100km2/mesh_headwater_100km2_outlet_1_geology_rivers_buffer30/bundle/mesh_summary.json",
-                "examples/mesh_gallery/1000km2/mesh_1000km2_outlet_2_geology_rivers_buffer30/bundle/mesh_summary.json",
+                "examples/projects/07_mesh_gallery/10km2/mesh_s3_10km2_outlet_1_geology_rivers_buffer30/bundle/mesh_summary.json",
+                "examples/projects/07_mesh_gallery/100km2/mesh_headwater_100km2_outlet_1_geology_rivers_buffer30/bundle/mesh_summary.json",
+                "examples/projects/07_mesh_gallery/1000km2/mesh_1000km2_outlet_2_geology_rivers_buffer30/bundle/mesh_summary.json",
                 "tools/doc_gallery/update_gallery.py",
             ),
             generator="mesh_constraint_balance_case",
@@ -171,21 +171,21 @@ def build_mesh_static_specs() -> tuple[GalleryCaseSpec, ...]:
                     {
                         "label": "10 km2 outlet 1",
                         "bundle_path": (
-                            "examples/mesh_gallery/10km2/"
+                            "examples/projects/07_mesh_gallery/10km2/"
                             "mesh_s3_10km2_outlet_1_geology_rivers_buffer30/bundle"
                         ),
                     },
                     {
                         "label": "100 km2 outlet 1",
                         "bundle_path": (
-                            "examples/mesh_gallery/100km2/"
+                            "examples/projects/07_mesh_gallery/100km2/"
                             "mesh_headwater_100km2_outlet_1_geology_rivers_buffer30/bundle"
                         ),
                     },
                     {
                         "label": "1000 km2 outlet 2",
                         "bundle_path": (
-                            "examples/mesh_gallery/1000km2/"
+                            "examples/projects/07_mesh_gallery/1000km2/"
                             "mesh_1000km2_outlet_2_geology_rivers_buffer30/bundle"
                         ),
                     },
@@ -208,9 +208,9 @@ def build_mesh_static_specs() -> tuple[GalleryCaseSpec, ...]:
             ),
             reproduction_command="python -m tools.doc_gallery",
             source_paths=(
-                "examples/mesh_gallery/10km2/mesh_s3_10km2_outlet_1_geology_rivers_buffer30/bundle/cells.csv",
-                "examples/mesh_gallery/100km2/mesh_headwater_100km2_outlet_1_geology_rivers_buffer30/bundle/cells.csv",
-                "examples/mesh_gallery/1000km2/mesh_1000km2_outlet_2_geology_rivers_buffer30/bundle/cells.csv",
+                "examples/projects/07_mesh_gallery/10km2/mesh_s3_10km2_outlet_1_geology_rivers_buffer30/bundle/cells.csv",
+                "examples/projects/07_mesh_gallery/100km2/mesh_headwater_100km2_outlet_1_geology_rivers_buffer30/bundle/cells.csv",
+                "examples/projects/07_mesh_gallery/1000km2/mesh_1000km2_outlet_2_geology_rivers_buffer30/bundle/cells.csv",
                 "tools/doc_gallery/update_gallery.py",
             ),
             generator="mesh_resolution_case",
@@ -232,21 +232,21 @@ def build_mesh_static_specs() -> tuple[GalleryCaseSpec, ...]:
                     {
                         "label": "10 km2 outlet 1",
                         "bundle_path": (
-                            "examples/mesh_gallery/10km2/"
+                            "examples/projects/07_mesh_gallery/10km2/"
                             "mesh_s3_10km2_outlet_1_geology_rivers_buffer30/bundle"
                         ),
                     },
                     {
                         "label": "100 km2 outlet 1",
                         "bundle_path": (
-                            "examples/mesh_gallery/100km2/"
+                            "examples/projects/07_mesh_gallery/100km2/"
                             "mesh_headwater_100km2_outlet_1_geology_rivers_buffer30/bundle"
                         ),
                     },
                     {
                         "label": "1000 km2 outlet 2",
                         "bundle_path": (
-                            "examples/mesh_gallery/1000km2/"
+                            "examples/projects/07_mesh_gallery/1000km2/"
                             "mesh_1000km2_outlet_2_geology_rivers_buffer30/bundle"
                         ),
                     },
@@ -270,9 +270,9 @@ def build_mesh_static_specs() -> tuple[GalleryCaseSpec, ...]:
             ),
             reproduction_command="python -m tools.doc_gallery",
             source_paths=(
-                "examples/mesh_gallery/10km2/mesh_s3_10km2_outlet_1_geology_rivers_buffer30/bundle/nodes.csv",
-                "examples/mesh_gallery/10km2/mesh_s3_10km2_outlet_1_geology_rivers_buffer30/bundle/cells.csv",
-                "examples/mesh_gallery/10km2/mesh_s3_10km2_outlet_1_geology_rivers_buffer30/bundle/edges.csv",
+                "examples/projects/07_mesh_gallery/10km2/mesh_s3_10km2_outlet_1_geology_rivers_buffer30/bundle/nodes.csv",
+                "examples/projects/07_mesh_gallery/10km2/mesh_s3_10km2_outlet_1_geology_rivers_buffer30/bundle/cells.csv",
+                "examples/projects/07_mesh_gallery/10km2/mesh_s3_10km2_outlet_1_geology_rivers_buffer30/bundle/edges.csv",
                 "tools/doc_gallery/update_gallery.py",
             ),
             generator="mesh_zoom_case",
@@ -291,7 +291,7 @@ def build_mesh_static_specs() -> tuple[GalleryCaseSpec, ...]:
             ),
             metadata={
                 "bundle_path": (
-                    "examples/mesh_gallery/10km2/"
+                    "examples/projects/07_mesh_gallery/10km2/"
                     "mesh_s3_10km2_outlet_1_geology_rivers_buffer30/bundle"
                 ),
                 "zoom_fraction": 0.22,

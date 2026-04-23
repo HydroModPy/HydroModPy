@@ -68,15 +68,15 @@ Bundle Inputs
    * - ``bundle.10 km2 outlet 1``
      - Committed bundle included in the cross-case mesh comparison.
      - bundle
-     - ``examples/mesh_gallery/10km2/mesh_s3_10km2_outlet_1_geology_rivers_buffer30/bundle``
+     - ``examples/projects/07_mesh_gallery/10km2/mesh_s3_10km2_outlet_1_geology_rivers_buffer30/bundle``
    * - ``bundle.100 km2 outlet 1``
      - Committed bundle included in the cross-case mesh comparison.
      - bundle
-     - ``examples/mesh_gallery/100km2/mesh_headwater_100km2_outlet_1_geology_rivers_buffer30/bundle``
+     - ``examples/projects/07_mesh_gallery/100km2/mesh_headwater_100km2_outlet_1_geology_rivers_buffer30/bundle``
    * - ``bundle.1000 km2 outlet 2``
      - Committed bundle included in the cross-case mesh comparison.
      - bundle
-     - ``examples/mesh_gallery/1000km2/mesh_1000km2_outlet_2_geology_rivers_buffer30/bundle``
+     - ``examples/projects/07_mesh_gallery/1000km2/mesh_1000km2_outlet_2_geology_rivers_buffer30/bundle``
 
 Mesh Summary
 ^^^^^^^^^^^^
@@ -109,9 +109,9 @@ Mesh Summary
 Source Pointers
 ---------------
 
-- ``examples/mesh_gallery/10km2/mesh_s3_10km2_outlet_1_geology_rivers_buffer30/bundle/cells.csv``
-- ``examples/mesh_gallery/100km2/mesh_headwater_100km2_outlet_1_geology_rivers_buffer30/bundle/cells.csv``
-- ``examples/mesh_gallery/1000km2/mesh_1000km2_outlet_2_geology_rivers_buffer30/bundle/cells.csv``
+- ``examples/projects/07_mesh_gallery/10km2/mesh_s3_10km2_outlet_1_geology_rivers_buffer30/bundle/cells.csv``
+- ``examples/projects/07_mesh_gallery/100km2/mesh_headwater_100km2_outlet_1_geology_rivers_buffer30/bundle/cells.csv``
+- ``examples/projects/07_mesh_gallery/1000km2/mesh_1000km2_outlet_2_geology_rivers_buffer30/bundle/cells.csv``
 - ``tools/doc_gallery/update_gallery.py``
 
 Artifacts

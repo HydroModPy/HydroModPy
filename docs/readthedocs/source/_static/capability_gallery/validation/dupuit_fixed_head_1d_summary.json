@@ -52,24 +52,24 @@
     "validation_cases/shared/boussinesq_uniform_strip.py"
   ],
   "source_hashes": {
-    "validation_cases/README.md": "28ee639cd0c843d89c06a5ff3b8adf655f5725e35392ebb9980f906513c17e6e",
+    "validation_cases/README.md": "634832ce341c47597143d5614d06c8d22bac809193447706294f5b43e38359c3",
     "validation_cases/analytical/steady/dupuit_fixed_head_1d/README.md": "3b5e1de21f97d888f5cd10866a246e50c6a1c1fea31c2cf245b08220cd9ecada",
     "validation_cases/analytical/steady/dupuit_fixed_head_1d/reference.py": "1aaa4f200c51669c4664e6266f892224855f63f9bd134ae3441069ad53c5383c",
-    "validation_cases/analytical/steady/dupuit_fixed_head_1d/comparison.py": "4b39df6bcf4cbc61bdd2e4868cfb47870b0a3e3d202e1b22b0997cf0f109f858",
+    "validation_cases/analytical/steady/dupuit_fixed_head_1d/comparison.py": "0bec812789d3edf8ca2eca5dba3082496e48fe5bb3266fcdc0b95b02f8c96e20",
     "validation_cases/analytical/steady/dupuit_fixed_head_1d/plotting.py": "03c726f8fff47defc3459665f89e7274e1c0ba43ed88defa97341388a927b861",
-    "validation_cases/analytical/steady/dupuit_fixed_head_1d/run_case.py": "c758f25e44acc2fd7716fe5ce4b4f4f72b719cc99c24a0c59ced85d3cc91b4b6",
-    "validation_cases/analytical/steady/dupuit_fixed_head_1d/metadata.toml": "ce159a73a953edcace8cc19856ea5dd6f15ace4f12c20e1fe3cf73767a6c64b1",
-    "validation_cases/analytical/steady/dupuit_fixed_head_1d/config_common.toml": "482843ea4f67e697406e3e1dab95cd0891627b55e0612f2fad4581592974df52",
-    "validation_cases/analytical/steady/dupuit_fixed_head_1d/runtime_boussinesq.py": "6a6a27ccbb8f77db1bf6d55f12bc9bdcab3fd968cbb84f6e3940f3b7fb16781c",
+    "validation_cases/analytical/steady/dupuit_fixed_head_1d/run_case.py": "e0ba83aebb0928c6a38e4853560529b38d87e200d18fd0bb68bd926446f6f5ad",
+    "validation_cases/analytical/steady/dupuit_fixed_head_1d/metadata.toml": "dc82e3504a08e46458458a5b8d03442c2bad707482283b993ce501e4a7a26d2a",
+    "validation_cases/analytical/steady/dupuit_fixed_head_1d/config_common.toml": "0396106a8e0a5de161318e76b372f284b76a681565e88c95bd310e97e2c91f0a",
+    "validation_cases/analytical/steady/dupuit_fixed_head_1d/runtime_boussinesq.py": "ad22922503f362b4249589d9f7ea8a1d080032535e7a2f765f175737a38c2d2c",
     "validation_cases/analytical/steady/dupuit_fixed_head_1d/tolerances.toml": "3c7cdd060951dd9c33b5084475beac18c7b981d342f9d63eca2583e1b9c2fec8",
     "validation_cases/analytical/steady/dupuit_fixed_head_1d/tolerances_modflow6.toml": "2416096ac36036afd72b2c681546cd6682bf59faa92ce2cbc1a79de39d9ab297",
     "validation_cases/analytical/steady/dupuit_fixed_head_1d/tolerances_petsc.toml": "a5cf7e99d56641043d3a522937dae684f3e3573c44a571765095473710ed69a8",
     "validation_cases/analytical/steady/dupuit_fixed_head_1d/tolerances_petsc_partition.toml": "a5cf7e99d56641043d3a522937dae684f3e3573c44a571765095473710ed69a8",
     "validation_cases/analytical/steady/dupuit_fixed_head_1d/config_modflownwt.toml": "775254b3896dc6631b7da639d8f266e6d2b030a6caf09bada6053ae920da6b23",
     "validation_cases/analytical/steady/dupuit_fixed_head_1d/config_modflow6.toml": "500d12e78009034e6feee87309dc89f3c3f876bad33c2c66b9fd0cad6dfd8d15",
-    "validation_cases/analytical/steady/dupuit_fixed_head_1d/config_modflow6_irregular_tri.toml": "674c82f0e5a2c0409b5b54b1e8d7f15317ba247773995ab15f0cfc29fbfc0bdf",
+    "validation_cases/analytical/steady/dupuit_fixed_head_1d/config_modflow6_irregular_tri.toml": "2b98a973e5f68139217fb511eef9d75f924e04e02f0e77a5964275046c55687d",
     "validation_cases/analytical/steady/dupuit_fixed_head_1d/config_boussinesq.toml": "bf9a68e7c1dca1d194187dc5584f7f51dc4243bfab5d762e437760d1a797434c",
-    "validation_cases/shared/boussinesq_uniform_strip.py": "30c6e0c6cec9aaece01246cc109d47043eed032725b0a496874d6f744c04901f"
+    "validation_cases/shared/boussinesq_uniform_strip.py": "4c7b6bc8f898f453c77f94c542591d3b1b4e8f7f0a785fe8a6bc7d4ed44d0473"
   },
   "docname": "cases/dupuit_fixed_head_1d",
   "images": [
@@ -290,8 +290,8 @@
       "expected_output": "Expected shape: 5 x 40",
       "command": "python -m validation_cases.analytical.steady.dupuit_fixed_head_1d.run_case --no-show --solver modflow6_irregular_tri",
       "metric_lines": [
-        "Head-profile RMSE: 0.0337 m",
-        "Head-profile max abs error: 0.0796 m",
+        "Head-profile RMSE: 0.0330 m",
+        "Head-profile max abs error: 0.0854 m",
         "Cross-row head spread: 8.88e-16 m"
       ],
       "image": {
@@ -462,6 +462,12 @@
       }
     ],
     "common_setup": [
+      {
+        "field": "workflow",
+        "meaning": "Case-specific configuration field `workflow` used by the validation benchmark.",
+        "value": "simulation",
+        "source": "validation_cases/analytical/steady/dupuit_fixed_head_1d/config_common.toml"
+      },
       {
         "field": "geographic.synthetic.grid.length_x",
         "meaning": "Synthetic-domain length along the x axis.",
