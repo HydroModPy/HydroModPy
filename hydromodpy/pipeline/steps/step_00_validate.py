@@ -29,6 +29,7 @@ class ValidateStep:
     name = "validate"
     tin: ClassVar[type | None] = None
     tout: ClassVar[type] = ValidatedState
+    config_sections: ClassVar[tuple[str, ...]] = ("workspace", "simulation")
 
     def run(self, state: PipelineState) -> PipelineState:
         from hydromodpy.core.config import HydroModPyConfig

@@ -27,6 +27,7 @@ class ExportStep:
     name = "export"
     tin: ClassVar[type] = DerivedState
     tout: ClassVar[type] = ExportedState
+    config_sections: ClassVar[tuple[str, ...]] = ()
 
     def run(self, state: PipelineState) -> PipelineState:
         from hydromodpy.workflow.steps.result_ingestion import step_save_run_artifacts

@@ -27,6 +27,7 @@ class BuildGeographicStep:
     name = "build_geographic"
     tin: ClassVar[type] = LoadedState
     tout: ClassVar[type] = MeshedState
+    config_sections: ClassVar[tuple[str, ...]] = ("geographic", "data.dem")
 
     def run(self, state: PipelineState) -> PipelineState:
         from hydromodpy.workflow.steps.setup import step_setup

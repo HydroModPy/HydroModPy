@@ -31,6 +31,13 @@ class RunSolverStep:
     name = "run_solver"
     tin: ClassVar[type] = OpenStoreState
     tout: ClassVar[type] = SolverRanState
+    config_sections: ClassVar[tuple[str, ...]] = (
+        "flow",
+        "transport",
+        "solver",
+        "modflownwt",
+        "modflow6",
+    )
 
     def run(self, state: PipelineState) -> PipelineState:
         from hydromodpy.simulation.execution.runner import (
@@ -47,13 +54,16 @@ class RunSolverStep:
         if plan is None:
             raise RuntimeError("run_solver step requires execution.simulation_plan to be set")
 
+        if ctx.execution.lightweight:
+            after_run = None
+        else:
+
+            def after_run(run, result, st):
+                step_ingest_run_results(ctx, run, result)
+
         callbacks = ProcessCallbacks(
             after_process=state.get("after_process"),
-            after_run=lambda run, result, st: step_ingest_run_results(
-                ctx,
-                run,
-                result,
-            ),
+            after_run=after_run,
         )
 
         t0 = time.monotonic()

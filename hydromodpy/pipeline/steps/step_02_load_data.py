@@ -25,6 +25,7 @@ class LoadDataStep:
     name = "load_data"
     tin: ClassVar[type] = ResolvedState
     tout: ClassVar[type] = LoadedState
+    config_sections: ClassVar[tuple[str, ...]] = ("data",)
 
     def run(self, state: PipelineState) -> PipelineState:
         from hydromodpy.workflow.steps.data_loading import step_data_loading

@@ -27,6 +27,13 @@ class PrepareSolverStep:
     name = "prepare_solver"
     tin: ClassVar[type] = SetupState
     tout: ClassVar[type] = OpenStoreState
+    config_sections: ClassVar[tuple[str, ...]] = (
+        "flow",
+        "transport",
+        "solver",
+        "modflownwt",
+        "modflow6",
+    )
 
     def run(self, state: PipelineState) -> PipelineState:
         from hydromodpy.simulation.planning.planner import SimulationPlanner
@@ -45,11 +52,12 @@ class PrepareSolverStep:
             if sim_cfg is not None:
                 ctx.execution.simulation_plan = SimulationPlanner().build(sim_cfg)
 
-        step_open_store(ctx)
+        if not ctx.execution.lightweight:
+            step_open_store(ctx)
 
-        if ctx.store is not None:
-            step_write_provenance(ctx)
-            step_persist_forcings(ctx)
+            if ctx.store is not None:
+                step_write_provenance(ctx)
+                step_persist_forcings(ctx)
 
         return state.advance(
             step_index=state.step_index + 1,

@@ -29,6 +29,7 @@ class ExtractStep:
     name = "extract"
     tin: ClassVar[type] = SolverRanState
     tout: ClassVar[type] = ExtractedState
+    config_sections: ClassVar[tuple[str, ...]] = ()
 
     def run(self, state: PipelineState) -> PipelineState:
         ctx = state.get("ctx")

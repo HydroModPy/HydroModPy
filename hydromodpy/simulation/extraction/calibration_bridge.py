@@ -7,15 +7,19 @@ result is persisted at the end.
 The bridge provides:
 
 - ``make_hot_simulator``: wraps a run function into a RAM-only callback
-  that returns a 1D numpy vector of simulated values aligned with
-  observations (the "calibration vector").
-- ``persist_calibration_result``: after calibration converges, stores
-  the best run into the SimulationCatalog for archival and comparison.
+  returning ``(calibration_vector, raw_results)`` so the calibration
+  engine can score against the observation plan while keeping the raw
+  solver output available for optional post-calibration persistence.
+- ``promote_trial``: after calibration converges, stores one run into
+  the SimulationCatalog for archival and comparison.
+  ``persist_calibration_result`` is kept as a deprecated alias for one
+  release cycle.
 """
 
 from __future__ import annotations
 
 import logging
+import warnings
 from collections.abc import Callable
 from typing import Any
 
@@ -28,7 +32,7 @@ logger = logging.getLogger(__name__)
 def make_hot_simulator(
     run_fn: Callable[..., dict[str, pd.Series]],
     observation_plan: list[tuple[str, str, list]],
-) -> Callable[..., np.ndarray]:
+) -> Callable[..., tuple[np.ndarray, dict[str, pd.Series]]]:
     """Wrap a solver run function into a RAM-only calibration callback.
 
     Parameters
@@ -45,12 +49,15 @@ def make_hot_simulator(
     Returns
     -------
     callable
-        A function ``simulator(**params) -> np.ndarray`` that returns a
-        1D vector of simulated values aligned with the observation plan.
+        A function ``simulator(**params) -> (np.ndarray, dict)``. The
+        first element is a 1D vector of simulated values aligned with
+        the observation plan (used to compute the objective); the second
+        is the raw ``run_fn`` output so the caller can persist selected
+        series post-calibration without re-running the solver.
         No disk I/O occurs — everything stays in RAM.
     """
 
-    def simulator(**params) -> np.ndarray:
+    def simulator(**params) -> tuple[np.ndarray, dict[str, pd.Series]]:
         results = run_fn(**params)
         parts = []
         for station_id, variable, timestamps in observation_plan:
@@ -63,12 +70,12 @@ def make_hot_simulator(
 
             ts_reindexed = ts.reindex(pd.DatetimeIndex(timestamps))
             parts.append(ts_reindexed.values)
-        return np.concatenate(parts)
+        return np.concatenate(parts), results
 
     return simulator
 
 
-def persist_calibration_result(
+def promote_trial(
     store: Any,
     sim_id: str,
     run_fn: Callable[..., dict[str, pd.Series]],
@@ -80,6 +87,11 @@ def persist_calibration_result(
     name: str | None = None,
     metrics: list[tuple[str, str, float]] | None = None,
 ) -> None:
+    """Persist one best-of-calibration run into the ``SimulationCatalog``.
+
+    Re-runs ``run_fn`` with ``best_params`` so the series written to the
+    catalog match the parameters recorded in the calibration trace.
+    """
     store.register_simulation(
         sim_id,
         project=project,
@@ -117,6 +129,20 @@ def persist_calibration_result(
 
     store.finalize(sim_id, status="completed")
     logger.info("Persisted calibration result for sim %s", sim_id)
+
+
+def persist_calibration_result(*args: Any, **kwargs: Any) -> None:
+    """Deprecated alias for :func:`promote_trial`.
+
+    Kept for one release cycle so downstream callers can migrate.
+    """
+    warnings.warn(
+        "persist_calibration_result has been renamed to promote_trial; "
+        "update imports before the next release.",
+        DeprecationWarning,
+        stacklevel=2,
+    )
+    return promote_trial(*args, **kwargs)
 
 
 def persist_calibration_summary_to_store(

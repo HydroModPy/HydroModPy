@@ -12,10 +12,18 @@ The protocol is generic over the input/output payload types ``TIn`` and
         name = "resolve"
         tin: ClassVar[type] = ValidatedState
         tout: ClassVar[type] = ResolvedState
+        config_sections: ClassVar[tuple[str, ...]] = ("workspace", "simulation")
 
         def run(
             self, state: PipelineState[ValidatedState]
         ) -> PipelineState[ResolvedState]: ...
+
+Steps may also declare a ``config_sections`` class variable listing the
+dotted TOML subtrees they read from. The attribute is *optional* on the
+``Step`` protocol (absent steps are treated as consuming nothing) and is
+consumed by :func:`hydromodpy.pipeline.dependencies.earliest_affected_step`
+to decide which steps must re-run when a calibration overrides a specific
+field.
 
 The protocol stays runtime-checkable on the structural shape (``name`` +
 ``run``); the type variables are erased at runtime.
@@ -23,7 +31,7 @@ The protocol stays runtime-checkable on the structural shape (``name`` +
 
 from __future__ import annotations
 
-from typing import Any, Protocol, TypeVar, runtime_checkable
+from typing import Any, ClassVar, Protocol, TypeVar, runtime_checkable
 
 from hydromodpy.pipeline.state import PipelineState
 
@@ -50,6 +58,7 @@ class _TypedStep:
 
     tin: type[Any] | None = None
     tout: type[Any] | None = None
+    config_sections: ClassVar[tuple[str, ...]] = ()
 
 
 __all__ = ("Step", "TIn", "TOut", "_TypedStep")
