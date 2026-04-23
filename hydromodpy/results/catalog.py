@@ -19,9 +19,11 @@ from hydromodpy.results._db_retry import connect_with_retry, with_lock_retry
 from hydromodpy.results.catalog_schema import (
     GLOBAL_ZONE,
     PER_SIM_TABLE_NAMES,
-    SOLVER_CATEGORIES,
     ensure_parquet_views,
     ensure_schema,
+)
+from hydromodpy.results.catalog_schema import (
+    solver_category as _resolve_solver_category,
 )
 from hydromodpy.results.provenance import fingerprint
 from hydromodpy.results.spatial_index import point_in_cell
@@ -389,7 +391,7 @@ class SimulationCatalog:
                     raise ValueError(f"Unknown on_collision mode: '{on_collision}'")
 
         if solver_category is None:
-            solver_category = SOLVER_CATEGORIES.get(solver)
+            solver_category = _resolve_solver_category(solver)
 
         config_json = json.dumps(config) if config else None
         snapshot_source = config_snapshot if config_snapshot is not None else config

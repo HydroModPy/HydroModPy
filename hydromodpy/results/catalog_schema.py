@@ -36,11 +36,23 @@ logger = logging.getLogger(__name__)
 GLOBAL_ZONE = "__global__"
 OUTLET_STATION = "__outlet__"
 
-SOLVER_CATEGORIES: dict[str, str] = {
-    "modflownwt": "distributed",
-    "modflow6": "distributed",
-    "boussinesq": "integrated",
-}
+
+def solver_category(solver_name: str) -> str | None:
+    """Return the physical category declared by a solver extractor.
+
+    Reads the ``category`` class attribute on the extractor registered for
+    ``solver_name`` (see :mod:`hydromodpy.solver.base.registry`). Unknown
+    solvers return ``None`` so the catalog column stays nullable rather than
+    invented.
+    """
+    from hydromodpy.solver.base.registry import get_extractor
+
+    try:
+        cls = get_extractor(solver_name)
+    except KeyError:
+        return None
+    return getattr(cls, "category", None)
+
 
 # ---------------------------------------------------------------------------
 #  Simulations root table
