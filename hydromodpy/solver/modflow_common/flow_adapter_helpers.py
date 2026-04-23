@@ -1,6 +1,6 @@
 """Shared helpers for MODFLOW-family flow adapters.
 
-This module intentionally contains only solver-agnostic flow logic:
+This module contains only MODFLOW-agnostic flow lifecycle logic:
 
 - derive stable model names from the resolved simulation plan,
 - build flow pre-processing options for solver backends,
@@ -10,7 +10,7 @@ Post-processing (derived variables, result extraction) is handled by
 the ``SimulationCatalog`` pipeline via ``post_run_results()``.
 
 Keeping that code here avoids duplicating the same lifecycle in both
-``modflownwt`` and ``modflow6`` adapters.
+``modflow_nwt`` and ``modflow6`` adapters.
 """
 
 from __future__ import annotations

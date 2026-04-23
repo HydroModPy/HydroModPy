@@ -4,9 +4,9 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from hydromodpy.simulation.adapters.transport.common import required_flow_model
+from hydromodpy.simulation.adapters.transport_helpers import required_flow_model
 from hydromodpy.simulation.planning.plan import RunContext, RunExecutionResult
-from hydromodpy.solver.modflow_nwt import Modpath
+from hydromodpy.solver.modflow_nwt.modpath import Modpath
 
 
 class ModpathTransportAdapter:

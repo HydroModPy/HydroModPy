@@ -450,13 +450,11 @@ def _run_grid_search(
     n_per_dim: int | list[int],
     log_scale_indices: list[int] | None,
 ) -> tuple[np.ndarray, float, int]:
-    """Legacy-compatible grid search over ``(K, Sy)``.
+    """Grid search over ``(K, Sy)`` with per-axis log/linear transform.
 
-    Wired through ``CalibrationEngine`` + ``GridAdapter`` when the
-    log/linear schedule matches the legacy layout (log K, linear Sy).
+    Wired through ``CalibrationEngine`` + ``GridAdapter`` with the
+    log/linear schedule (log K, linear Sy).
     """
-    # Build the parameter space using the transform indicated by
-    # ``log_scale_indices`` (mirrors the legacy axis-construction logic).
     log_idx = set() if log_scale_indices is None else set(log_scale_indices)
     params: list[CalibParameter] = []
     for i, name in enumerate(MODEL_PARAMETER_ORDER):
@@ -486,7 +484,6 @@ def _run_grid_search(
     if best is None:
         raise RuntimeError("grid search produced no result")
     history = [r for r in session.history if r.status == "completed"]
-    # Reconstruct ``x_best`` from the suggestion cache via ``metadata``.
     best_values = _lookup_values(session, best.trial_id)
     x_best = np.array([best_values[name] for name in MODEL_PARAMETER_ORDER], dtype=float)
     return x_best, float(best.objective_value), len(history)
@@ -502,10 +499,10 @@ def _run_random_search(
     seed: int,
     log_scale_indices: list[int] | None,
 ) -> tuple[np.ndarray, float, int]:
-    """Legacy-compatible random search with numpy default_rng.
+    """Random search with numpy ``default_rng``.
 
-    Implemented directly to reproduce the legacy golden under the 1e-10
-    tolerance. Optuna's random sampler uses a different RNG stream.
+    Uses the explicit numpy RNG stream so the golden output is stable
+    under a 1e-10 tolerance (Optuna's random sampler would diverge).
     """
     log_idx = set() if log_scale_indices is None else set(log_scale_indices)
     lower = np.array([bounds[name][0] for name in MODEL_PARAMETER_ORDER], dtype=float)
@@ -547,11 +544,11 @@ def _run_scipy_minimize(
     xtol: float = 1e-10,
     ftol: float = 1e-10,
 ) -> tuple[np.ndarray, float, int]:
-    """Legacy-compatible local optimisation.
+    """Local optimisation via Nelder-Mead or simplex with penalised bounds.
 
-    Reuses the legacy "penalized cost" wrapper so Nelder-Mead and the
-    classic simplex path stay within bounds without relying on a
-    potentially different SciPy bounded implementation.
+    Uses a penalised cost wrapper so the optimiser stays within bounds
+    without relying on a SciPy bounded implementation that could diverge
+    across versions.
     """
     from scipy import optimize as scipy_optimize
 
@@ -623,15 +620,12 @@ def _run_cma_es(
 ) -> tuple[np.ndarray, float, int]:
     """CMA-ES through Optuna's ``CmaEsSampler``.
 
-    The legacy CMA-ES relied on the ``cma`` package; the new architecture
-    uses Optuna. The two converge to different points but both land well
-    within the calibration basin, which is what the ``8e-3`` tolerance
-    accepts.
+    Optuna's sampler is used; tolerances on the ``8e-3`` level account for
+    convergence behaviour differing from the older ``cma`` package.
     """
-    # Normalize optimisation is achieved via the ``identity`` transform on
-    # the physical bounds - Optuna's CmaEsSampler handles bound scaling
-    # internally, so we pass bounds directly.
-    _ = normalize  # retained for signature compatibility with the legacy API
+    # Optuna's CmaEsSampler handles bound scaling internally, so we pass
+    # bounds directly without a pre-normalisation step.
+    _ = normalize  # reserved for explicit per-axis scaling overrides
     lower = np.array([bounds[name][0] for name in MODEL_PARAMETER_ORDER], dtype=float)
     upper = np.array([bounds[name][1] for name in MODEL_PARAMETER_ORDER], dtype=float)
     space = ParameterSpace(

@@ -19,7 +19,7 @@ from .boundary_conditions_config import normalize_boundary_condition_payload
 from .forcing import ConstantForcing, CsvForcing, Forcing, SyntheticForcing
 from .initial_conditions import InitialCondition
 from .initial_conditions_config import normalize_initial_condition_payload
-from .process_spatial import Process, ProcessSpatial, TInitialConditions
+from .process_spatial import ProcessSpatial, TInitialConditions
 from .process_spatial_config import ProcessSpatialConfig
 from .sinks_sources import SinkSource
 from .sinks_sources_config import normalize_sink_source_payload
@@ -38,5 +38,4 @@ __all__ = [
     "ProcessSpatialConfig",
     "TInitialConditions",
     "ProcessSpatial",
-    "Process",
 ]

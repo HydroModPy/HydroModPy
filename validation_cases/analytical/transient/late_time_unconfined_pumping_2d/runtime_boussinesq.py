@@ -10,12 +10,12 @@ import numpy as np
 
 from hydromodpy.physics.flow import Flow
 from hydromodpy.physics.flow.flow_config import FlowConfig
-from hydromodpy.simulation.adapters.flow.boussinesq import BoussinesqFlowAdapter
 from hydromodpy.simulation.planning.plan import (
     ProcessRun,
     RunContext,
     SimulationPlan,
 )
+from hydromodpy.solver.boussinesq.adapters.flow import BoussinesqFlowAdapter
 from validation_cases.shared import load_case_metadata
 from validation_cases.shared.loaders import merge_case_flow_section
 from validation_cases.shared.runtime import (

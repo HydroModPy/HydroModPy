@@ -36,5 +36,5 @@ class LoadResult:
 
     @property
     def all_records(self) -> list:
-        """Flat list of all records (backward compatibility)."""
+        """Flat list of all points and fields."""
         return self.points + self.fields

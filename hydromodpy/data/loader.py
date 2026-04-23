@@ -16,7 +16,7 @@ from pydantic import BaseModel
 
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.time import resolve_simulation_time_window_dates
-from hydromodpy.core.workspace.path_registry import LEGACY_STABLE_DIR, WorkspacePathRegistry
+from hydromodpy.core.workspace.path_registry import PREPROCESSING_DIR, WorkspacePathRegistry
 from hydromodpy.data.common.progress import data_phase
 from hydromodpy.data.plan import DataLoadPlan
 from hydromodpy.data.registry.catalog_duckdb import DataCatalogDuckDB
@@ -375,7 +375,7 @@ class DataManagersRuntimeLoader:
                 out_path=workspace_paths.project_root,
                 catalog=self._catalog,
                 data_dir=self._data_dir("hydrography"),
-                stable_folder=workspace_paths.project_root / LEGACY_STABLE_DIR,
+                stable_folder=workspace_paths.project_root / PREPROCESSING_DIR,
             )
             result.loaded_data.hydrography = manager.load()
         except Exception as exc:
@@ -422,7 +422,7 @@ class DataManagersRuntimeLoader:
 
             # Export to results_stable/intermittency/ (CSV chronicles).
             workspace_paths = self._workspace_paths(result)
-            stable_dir = workspace_paths.project_root / LEGACY_STABLE_DIR / "intermittency"
+            stable_dir = workspace_paths.project_root / PREPROCESSING_DIR / "intermittency"
             manager.export(load_result, stable_dir)
         except Exception as exc:
             self._handle_data_loading_error(result, "intermittency", exc)

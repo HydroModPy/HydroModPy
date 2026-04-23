@@ -1,7 +1,7 @@
 """Adapter for the ``flow/boussinesq`` solver pair.
 
-This adapter is intentionally independent from ``modflow_common``. The
-``boussinesq`` backend can now consume either:
+This adapter is intentionally independent from the MODFLOW helpers. The
+``boussinesq`` backend can consume either:
 
 - one gmsh-derived ``CatchmentMeshBundle`` (historical fallback), or
 - one runtime Gmsh planar mesh together with ``Flow``/``Domain`` property
@@ -16,7 +16,7 @@ from pathlib import Path
 import numpy as np
 
 from hydromodpy.simulation.planning.plan import RunContext, RunExecutionResult
-from hydromodpy.solver.boussinesq import Boussinesq
+from hydromodpy.solver.boussinesq.boussinesq import Boussinesq
 from hydromodpy.solver.boussinesq.mesh import BoussinesqMesh
 from hydromodpy.solver.boussinesq.property_mapping import (
     resolve_flow_property_arrays,

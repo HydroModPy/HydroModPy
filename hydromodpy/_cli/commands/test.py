@@ -50,7 +50,6 @@ def register(subparsers) -> argparse.ArgumentParser:
     parser.add_argument(
         "--slow", action="store_true", help="Run the slow subset for the selected suite"
     )
-    parser.add_argument("--normal", action="store_true", help="Deprecated alias for --fast")
     parser.add_argument(
         "--extensive", action="store_true", help="Only run extensive regression tests"
     )
@@ -88,7 +87,7 @@ def run(args: argparse.Namespace) -> None:
     basetemp_root, pytest_env = build_pytest_runtime_env()
     if not pytest_addopts_declares_basetemp(pytest_env.get("PYTEST_ADDOPTS", "")):
         pytest_args.extend(["--basetemp", str(basetemp_root)])
-    tiers = _selected_tiers(args.normal, args.extensive, args.fast)
+    tiers = _selected_tiers(args.extensive, args.fast)
 
     if args.suite == "unit":
         if args.list:
@@ -117,7 +116,7 @@ def run(args: argparse.Namespace) -> None:
         pytest_args.append(str(root / "tests" / "unit"))
         _append_unit_marker_filter(
             pytest_args,
-            fast=bool(args.fast or args.normal),
+            fast=bool(args.fast),
             slow=bool(args.slow),
         )
 
@@ -127,7 +126,6 @@ def run(args: argparse.Namespace) -> None:
         if args.list:
             _list_regression_tests(
                 regression_dir,
-                normal=args.normal,
                 extensive=args.extensive,
                 fast=args.fast,
             )
@@ -144,14 +142,12 @@ def run(args: argparse.Namespace) -> None:
             _append_regression_directory_selection(
                 pytest_args=pytest_args,
                 regression_dir=regression_dir,
-                normal=args.normal,
                 extensive=args.extensive,
                 fast=args.fast,
             )
 
         _append_marker_filter(
             pytest_args=pytest_args,
-            normal=args.normal,
             extensive=args.extensive,
             fast=args.fast,
             slow=args.slow,
@@ -182,7 +178,6 @@ def run(args: argparse.Namespace) -> None:
         pytest_args.append(str(root / "tests" / "validation"))
         _append_marker_filter(
             pytest_args=pytest_args,
-            normal=args.normal,
             extensive=args.extensive,
             fast=args.fast,
             slow=args.slow,
@@ -206,9 +201,9 @@ def run(args: argparse.Namespace) -> None:
 # ---------------------------------------------------------------------------
 
 
-def _selected_tiers(normal: bool, extensive: bool, fast: bool) -> list[str]:
+def _selected_tiers(extensive: bool, fast: bool) -> list[str]:
     tiers: list[str] = []
-    if normal or fast:
+    if fast:
         tiers.append("fast")
     if extensive:
         tiers.append("extensive")
@@ -217,7 +212,6 @@ def _selected_tiers(normal: bool, extensive: bool, fast: bool) -> list[str]:
 
 def _append_marker_filter(
     pytest_args: list[str],
-    normal: bool,
     extensive: bool,
     fast: bool,
     slow: bool,
@@ -238,9 +232,6 @@ def _append_marker_filter(
     if steady and transient:
         print("Cannot use --steady and --transient together.", file=sys.stderr)
         sys.exit(2)
-    if validation and normal:
-        print("Cannot use --normal with validation tests.", file=sys.stderr)
-        sys.exit(2)
     if validation and extensive:
         print("Cannot use --extensive with validation tests.", file=sys.stderr)
         sys.exit(2)
@@ -253,7 +244,7 @@ def _append_marker_filter(
         if slow:
             markers.append("slow")
     else:
-        selected_tiers = _selected_tiers(normal, extensive, fast)
+        selected_tiers = _selected_tiers(extensive, fast)
         if selected_tiers == ["fast"]:
             markers.append("fast")
         elif selected_tiers == ["extensive"]:
@@ -313,13 +304,12 @@ def _discover_regression_tests(
 def _list_regression_tests(
     regression_dir: Path,
     *,
-    normal: bool = False,
     extensive: bool = False,
     fast: bool = False,
 ) -> None:
     tests = _discover_regression_tests(
         regression_dir,
-        selected_tiers=_selected_tiers(normal, extensive, fast),
+        selected_tiers=_selected_tiers(extensive, fast),
     )
     if not tests:
         print("No regression tests found.", file=sys.stderr)
@@ -388,11 +378,10 @@ def _append_regression_directory_selection(
     *,
     pytest_args: list[str],
     regression_dir: Path,
-    normal: bool,
     extensive: bool,
     fast: bool,
 ) -> None:
-    tiers = _selected_tiers(normal, extensive, fast)
+    tiers = _selected_tiers(extensive, fast)
     selected = False
 
     for tier in tiers:

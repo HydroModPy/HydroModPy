@@ -1,35 +1,36 @@
-"""Adapter for the ``transport/modflow6gwt`` solver pair."""
+"""Adapter for the ``transport/mt3dms`` solver pair."""
 
 from __future__ import annotations
 
 from pathlib import Path
 
-from hydromodpy.simulation.adapters.transport.common import (
+from hydromodpy.simulation.adapters.transport_helpers import (
     required_flow_model,
     transport_output_suffix,
 )
 from hydromodpy.simulation.planning.plan import RunContext, RunExecutionResult
-from hydromodpy.solver.modflow6 import Modflow6Transport
+from hydromodpy.solver.modflow_nwt.mt3dms import Mt3dms
 
 
-class Modflow6GwtTransportAdapter:
-    """Adapter for ``transport/modflow6gwt`` runs."""
+class Mt3dmsTransportAdapter:
+    """Adapter for ``transport/mt3dms`` runs."""
 
     process_type = "transport"
-    solver_name = "modflow6gwt"
+    solver_name = "mt3dms"
 
     def execute(self, ctx: RunContext) -> RunExecutionResult:
-        """Instantiate and execute one MODFLOW 6 GWT concentration run."""
+        """Instantiate and execute one MT3DMS concentration transport run."""
 
         state = ctx.state
         flow_model = required_flow_model(ctx)
-        model_transport = Modflow6Transport(
+        model_transport = Mt3dms(
             state.setup.domain,
             state.setup.transport,
             flow_model,
             model_folder=state.setup.workspace.solver_scratch_folder,
             model_name=flow_model.model_name,
             suffix_name=transport_output_suffix(ctx.plan, ctx.run),
+            bin_path=state.setup.workspace.bin_path,
         )
         model_transport.pre_processing()
         success = model_transport.processing(write_model=True, run_model=True, verbose=True)

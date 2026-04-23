@@ -1,18 +1,19 @@
 """Adapter for the ``flow/modflownwt`` solver pair.
 
 This module contains only the MODFLOW-NWT-specific construction step. The
-shared execution lifecycle itself lives in ``flow.common``.
+shared execution lifecycle lives in
+``hydromodpy.solver.modflow_common.flow_adapter_helpers``.
 """
 
 from __future__ import annotations
 
-from hydromodpy.simulation.adapters.flow.modflow_common import (
+from hydromodpy.simulation.planning.plan import RunContext, RunExecutionResult
+from hydromodpy.solver.modflow_common.flow_adapter_helpers import (
     build_preprocess_options,
     resolve_run_model_name,
     run_flow_model,
 )
-from hydromodpy.simulation.planning.plan import RunContext, RunExecutionResult
-from hydromodpy.solver.modflow_nwt import Modflow
+from hydromodpy.solver.modflow_nwt.modflow import Modflow
 
 
 class ModflowNwtFlowAdapter:

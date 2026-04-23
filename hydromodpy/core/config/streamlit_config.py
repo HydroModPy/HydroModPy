@@ -9,7 +9,7 @@ Or via the CLI::
     hmp config --ui
 
 The interface is **entirely derived** from Pydantic model metadata (types,
-defaults, descriptions, ParamLevel, VisibleWhen).  Adding or modifying a
+defaults, descriptions, Profile, VisibleWhen).  Adding or modifying a
 field in a config model automatically updates the UI - no widget code to
 maintain.
 

@@ -40,21 +40,21 @@ _PLUGINS_LOADED = False
 # ``hydromodpy.simulation`` stack) does not pull every solver backend.
 # Format: ``"<module>:<class>"``.
 _BUILTIN_PATHS: dict[AdapterKey, str] = {
-    ("flow", "modflownwt"): "hydromodpy.simulation.adapters.flow.modflownwt:ModflowNwtFlowAdapter",
-    ("flow", "modflow6"): "hydromodpy.simulation.adapters.flow.modflow6:Modflow6FlowAdapter",
-    ("flow", "boussinesq"): "hydromodpy.simulation.adapters.flow.boussinesq:BoussinesqFlowAdapter",
+    ("flow", "modflownwt"): "hydromodpy.solver.modflow_nwt.adapters.flow:ModflowNwtFlowAdapter",
+    ("flow", "modflow6"): "hydromodpy.solver.modflow6.adapters.flow:Modflow6FlowAdapter",
+    ("flow", "boussinesq"): "hydromodpy.solver.boussinesq.adapters.flow:BoussinesqFlowAdapter",
     (
         "transport",
         "modpath",
-    ): "hydromodpy.simulation.adapters.transport.modpath:ModpathTransportAdapter",
+    ): "hydromodpy.solver.modflow_nwt.adapters.transport_modpath:ModpathTransportAdapter",
     (
         "transport",
         "mt3dms",
-    ): "hydromodpy.simulation.adapters.transport.mt3dms:Mt3dmsTransportAdapter",
+    ): "hydromodpy.solver.modflow_nwt.adapters.transport_mt3dms:Mt3dmsTransportAdapter",
     (
         "transport",
         "modflow6gwt",
-    ): "hydromodpy.simulation.adapters.transport.modflow6gwt:Modflow6GwtTransportAdapter",
+    ): "hydromodpy.solver.modflow6.adapters.transport:Modflow6GwtTransportAdapter",
 }
 
 

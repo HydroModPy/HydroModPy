@@ -129,9 +129,6 @@ class DaMhGpOptimizer:
         prior_mean: float | Sequence[float] | None = None,
         prior_std: float | Sequence[float] | None = None,
         seed: int | None = None,
-        # Legacy alias accepted for parity with the TOML schema:
-        n_samples: int | None = None,
-        proposal_scale: float | Sequence[float] | None = None,
     ):
         if not _SKLEARN_AVAILABLE:
             raise ImportError(
@@ -140,11 +137,6 @@ class DaMhGpOptimizer:
             )
         self.space = space
         self._dim = space.dim
-        # Legacy aliases take precedence when provided (TOML parity).
-        if n_samples is not None:
-            max_iter = int(n_samples)
-        if proposal_scale is not None:
-            proposal_sigma = proposal_scale
 
         self._max_iter = int(max_iter)
         self._burn_in = int(max(0, burn_in))

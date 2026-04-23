@@ -4,7 +4,7 @@ Covers:
 
 - Config validation (HydrographySourceConfig, HydrographyConfig)
   - All four source types: custom, osm, bdtopage, euhydro
-  - ParamLevel annotations on every field
+  - Profile annotations on every field
   - Field defaults, constraints, extra="forbid"
   - Model validator (custom requires path)
   - Serialization round-trips (model_dump / model_validate)
@@ -56,7 +56,6 @@ import pytest
 from pydantic import BaseModel, ValidationError
 from shapely.geometry import LineString, MultiLineString, Point, Polygon
 
-from hydromodpy.core.config.param_level import ParamLevel
 from hydromodpy.core.config.profile import Profile
 from hydromodpy.data.variables.hydrography.config import (
     HydrographyConfig,
@@ -236,13 +235,13 @@ class TestSourceConfigValidation:
 
 
 # =====================================================================
-# 2. Config - ParamLevel annotations
+# 2. Config - Profile annotations
 # =====================================================================
 
 
 @pytest.mark.fast
 class TestSourceConfigParamLevels:
-    """Every field must carry a ParamLevel annotation."""
+    """Every field must carry a Profile annotation."""
 
     @staticmethod
     def _get_param_level(model_cls: type[BaseModel], field_name: str) -> str | None:
@@ -250,8 +249,6 @@ class TestSourceConfigParamLevels:
         for meta in info.metadata:
             if isinstance(meta, Profile):
                 return meta.name.lower()
-            if isinstance(meta, ParamLevel):
-                return meta.level
         return None
 
     @pytest.mark.parametrize(
@@ -271,7 +268,7 @@ class TestSourceConfigParamLevels:
     def test_source_config_param_levels(self, field, expected_level):
         level = self._get_param_level(HydrographySourceConfig, field)
         assert level == expected_level, (
-            f"Field '{field}' expected ParamLevel('{expected_level}'), got '{level}'"
+            f"Field '{field}' expected Profile('{expected_level}'), got '{level}'"
         )
 
     def test_config_sources_field_is_user(self):
@@ -1706,9 +1703,6 @@ class TestForceRefreshConfig:
         for meta in info.metadata:
             if isinstance(meta, Profile):
                 assert meta == Profile.DEV
-                return
-            if isinstance(meta, ParamLevel):
-                assert meta.level == "dev"
                 return
         pytest.fail("force_refresh should have Profile.DEV")
 

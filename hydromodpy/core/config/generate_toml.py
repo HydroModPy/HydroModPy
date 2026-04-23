@@ -32,7 +32,6 @@ from typing import Any, get_args, get_origin
 from pydantic import BaseModel
 from pydantic.fields import FieldInfo
 
-from hydromodpy.core.config.param_level import ParamLevel
 from hydromodpy.core.config.profile import Profile
 from hydromodpy.core.config.pydantic_introspect import extract_profile, resolve_profile
 
@@ -307,7 +306,7 @@ def _constraints_from_field(field_info: FieldInfo) -> list[str]:
     """Extract constraint strings from FieldInfo metadata."""
     parts = []
     for meta in field_info.metadata:
-        if isinstance(meta, (Profile, ParamLevel)):
+        if isinstance(meta, Profile):
             continue
         # Pydantic annotated constraints (Gt, Ge, Lt, Le)
         cls_name = type(meta).__name__

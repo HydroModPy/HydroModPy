@@ -9,7 +9,7 @@ import pytest
 import rasterio
 from rasterio.transform import from_origin
 
-from hydromodpy.data.variables.geology.config_cases import validate_geology_config_data
+from hydromodpy.data.variables.geology.config import validate_geology_config_data
 from hydromodpy.spatial.field.cases.square.field_mesh_square import FieldMeshSquare
 from hydromodpy.spatial.field.core.field_param import FieldParam
 from hydromodpy.spatial.field.core.field_spatial_weighted_discretization import (

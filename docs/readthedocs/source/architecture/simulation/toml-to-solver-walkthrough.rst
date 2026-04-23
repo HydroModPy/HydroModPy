@@ -90,15 +90,15 @@ and concrete solver APIs.
 
 Examples:
 
-- ``simulation/adapters/flow/modflownwt.py``
-- ``simulation/adapters/flow/modflow6.py``
-- ``simulation/adapters/flow/boussinesq.py``
-- ``simulation/adapters/transport/mt3dms.py``
-- ``simulation/adapters/transport/modflow6gwt.py``
+- ``solver/modflow_nwt/adapters/flow.py``
+- ``solver/modflow6/adapters/flow.py``
+- ``solver/boussinesq/adapters/flow.py``
+- ``solver/modflow_nwt/adapters/transport_mt3dms.py``
+- ``solver/modflow6/adapters/transport.py``
 
 For MODFLOW-family flow runs, backend-specific adapters stay intentionally
 thin, while the shared execution lifecycle lives in
-``simulation/adapters/flow/modflow_common.py``.
+``solver/modflow_common/flow_adapter_helpers.py``.
 
 Step 6: concrete solver packages
 --------------------------------

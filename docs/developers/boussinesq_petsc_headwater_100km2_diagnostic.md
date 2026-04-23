@@ -245,7 +245,7 @@ Main code paths involved:
 - steady-guess / Jacobian-shift helpers:
   `hydromodpy/solver/boussinesq/runtimes/partition_utils.py`
 - bundle-to-solver-mesh adapter:
-  `hydromodpy/simulation/adapters/flow/boussinesq.py`
+  `hydromodpy/solver/boussinesq/adapters/flow.py`
 
 ### Unknown layout
 

@@ -1,20 +1,21 @@
 """Adapter for the ``flow/modflow6`` solver pair.
 
-This module contains only the MODFLOW 6-specific construction step. The shared
-flow execution lifecycle itself lives in ``flow.common``.
+This module contains only the MODFLOW 6-specific construction step. The
+shared flow execution lifecycle lives in
+``hydromodpy.solver.modflow_common.flow_adapter_helpers``.
 """
 
 from __future__ import annotations
 
 from collections.abc import Mapping
 
-from hydromodpy.simulation.adapters.flow.modflow_common import (
+from hydromodpy.simulation.planning.plan import RunContext, RunExecutionResult
+from hydromodpy.solver.modflow6.modflow6 import Modflow6
+from hydromodpy.solver.modflow_common.flow_adapter_helpers import (
     build_preprocess_options,
     resolve_run_model_name,
     run_flow_model,
 )
-from hydromodpy.simulation.planning.plan import RunContext, RunExecutionResult
-from hydromodpy.solver.modflow6 import Modflow6
 
 
 class Modflow6FlowAdapter:

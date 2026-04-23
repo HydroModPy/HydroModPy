@@ -1,18 +1,18 @@
 """Protocols for catchment delineation backends.
 
-This module defines the abstract contract used by `hydromodpy` to perform
+This module defines the abstract contracts used by `hydromodpy` to perform
 delineation on top of a digital elevation model. Concrete implementations
 live in `whitebox_cli_backend.py`, `whitebox_workflows_backend.py`,
 `pysheds_backend.py`, and `synthetic_backend.py`.
 
-Two protocols cohabit during the P05 migration:
+Two protocols cohabit at different abstraction levels:
 
 - `DelineationBackend` - high-level API expected by runtime code
   (flow accumulation, flow direction, stream network extraction and
   catchment delineation from an outlet point).
-- `WhiteboxBackend` - low-level, file-oriented contract kept for
-  backward compatibility with the existing Whitebox-based pipeline. It
-  will be narrowed or removed in a later phase.
+- `WhiteboxBackend` - low-level, file-oriented contract used by the
+  existing Whitebox-based pipeline; inputs and outputs are expressed as
+  paths with side effects on disk.
 """
 
 from __future__ import annotations
@@ -59,8 +59,7 @@ class DelineationBackend(Protocol):
 class WhiteboxBackend(Protocol):
     """Low-level file-based operations required from a Whitebox-like backend.
 
-    Kept for backward compatibility with the existing pipeline. The
-    contract is narrow: inputs and outputs are expressed as paths, all
+    The contract is narrow: inputs and outputs are expressed as paths, all
     methods perform side effects on disk and return ``None``.
     """
 

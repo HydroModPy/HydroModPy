@@ -10,8 +10,10 @@ Liens : [glossary.md](glossary.md),
 ## 1. Protocol SolverAdapter
 
 Emplacement : `hydromodpy/simulation/adapters/base.py`, adapters concrets
-dans `hydromodpy/simulation/adapters/flow/` (`modflownwt.py`,
-`modflow6.py`, `boussinesq.py`, `modflow_common.py`).
+à côté de chaque backend sous `hydromodpy/solver/<backend>/adapters/`
+(`solver/modflow_nwt/adapters/flow.py`, `solver/modflow6/adapters/flow.py`,
+`solver/boussinesq/adapters/flow.py`, helpers partagés dans
+`solver/modflow_common/flow_adapter_helpers.py`).
 
 Un `SolverAdapter` est un Protocol qui lie une paire
 `(process_type, solver_name)` à un solveur concret. Il prend un process
@@ -25,7 +27,7 @@ class SolverAdapter(Protocol):
     def build(self, plan: ProcessRun, state: WorkflowContext) -> SolveResult: ...
 ```
 
-Enregistrement dans `simulation/adapters/registry.py`. Le planner résout
+Enregistrement dans `solver/base/registry.py`. Le planner résout
 l'adapter au moment de la construction du plan ; le runner ne voit que
 le Protocol.
 

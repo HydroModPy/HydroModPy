@@ -13,9 +13,9 @@ Architecture role
 ``modflow6`` is the modern MODFLOW-family backend in HydroModPy:
 
 - it is planned as one ``("flow", "modflow6")`` run by the simulation layer,
-- it is dispatched through ``simulation.adapters.flow.modflow6``,
+- it is dispatched through ``solver.modflow6.adapters.flow``,
 - it reuses the shared MODFLOW-family execution lifecycle in
-  ``simulation.adapters.flow.modflow_common``,
+  ``solver.modflow_common.flow_adapter_helpers``,
 - it builds the concrete numerical model in ``hydromodpy.solver.modflow6``.
 
 Code path
@@ -26,17 +26,17 @@ The shortest code-reading path for one ``flow/modflow6`` run is:
 1. ``launchers/process_simulation/launcher.py``
 2. ``hydromodpy/simulation/planning/planner.py``
 3. ``hydromodpy/simulation/execution/runner.py``
-4. ``hydromodpy/simulation/adapters/flow/modflow6.py``
-5. ``hydromodpy/simulation/adapters/flow/modflow_common.py``
+4. ``hydromodpy/solver/modflow6/adapters/flow.py``
+5. ``hydromodpy/solver/modflow_common/flow_adapter_helpers.py``
 6. ``hydromodpy/solver/modflow6/modflow6.py``
 
 Main packages and responsibilities
 ----------------------------------
 
-- ``hydromodpy/simulation/adapters/flow/modflow6.py`` owns only the
+- ``hydromodpy/solver/modflow6/adapters/flow.py`` owns only the
   backend-specific bridge from one generic ``ProcessRun`` to one ``Modflow6``
   instance.
-- ``hydromodpy/simulation/adapters/flow/modflow_common.py`` owns the shared
+- ``hydromodpy/solver/modflow_common/flow_adapter_helpers.py`` owns the shared
   flow lifecycle once a concrete MODFLOW-family solver object exists:
   preprocessing, compatibility pickle, processing, and postprocessing.
 - ``hydromodpy/solver/modflow_common`` centralizes grid context, temporal

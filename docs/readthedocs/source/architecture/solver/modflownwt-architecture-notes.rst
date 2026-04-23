@@ -13,9 +13,9 @@ Architecture role
 ``modflownwt`` is the legacy MODFLOW-family flow backend in HydroModPy:
 
 - it is planned as one ``("flow", "modflownwt")`` run by the simulation layer,
-- it is dispatched through ``simulation.adapters.flow.modflownwt``,
+- it is dispatched through ``solver.modflow_nwt.adapters.flow``,
 - it reuses the shared MODFLOW-family execution lifecycle in
-  ``simulation.adapters.flow.modflow_common``,
+  ``solver.modflow_common.flow_adapter_helpers``,
 - it stays colocated with the ``MT3DMS`` and ``MODPATH`` ecosystem that depends
   on the same flow outputs.
 
@@ -27,17 +27,17 @@ The shortest code-reading path for one ``flow/modflownwt`` run is:
 1. ``launchers/process_simulation/launcher.py``
 2. ``hydromodpy/simulation/planning/planner.py``
 3. ``hydromodpy/simulation/execution/runner.py``
-4. ``hydromodpy/simulation/adapters/flow/modflownwt.py``
-5. ``hydromodpy/simulation/adapters/flow/modflow_common.py``
+4. ``hydromodpy/solver/modflow_nwt/adapters/flow.py``
+5. ``hydromodpy/solver/modflow_common/flow_adapter_helpers.py``
 6. ``hydromodpy/solver/modflow_nwt/modflow/nwt_solver.py``
 
 Main packages and responsibilities
 ----------------------------------
 
-- ``hydromodpy/simulation/adapters/flow/modflownwt.py`` owns only the
+- ``hydromodpy/solver/modflow_nwt/adapters/flow.py`` owns only the
   backend-specific bridge from one generic ``ProcessRun`` to one ``Modflow``
   instance.
-- ``hydromodpy/simulation/adapters/flow/modflow_common.py`` owns the shared
+- ``hydromodpy/solver/modflow_common/flow_adapter_helpers.py`` owns the shared
   MODFLOW-family execution lifecycle used by both ``modflownwt`` and
   ``modflow6``.
 - ``hydromodpy/solver/modflow_common`` centralizes grid context, temporal

@@ -13,7 +13,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 import hydromodpy as hmp
-from hydromodpy.core.workspace.path_registry import LEGACY_STABLE_DIR
+from hydromodpy.core.workspace.path_registry import PREPROCESSING_DIR
 from hydromodpy.simulation import ensure_flow, ensure_transport
 from hydromodpy.spatial.domain import Domain
 from hydromodpy.spatial.domain.spatial_support import SupportBuildContext
@@ -41,7 +41,7 @@ def build_geographic_runtime(cfg: object, workspace: object) -> object:
     if callable(uses_synthetic) and uses_synthetic():
         return build_synthetic_geographic(
             config=geographic_cfg.synthetic,
-            output_dir=Path(workspace.project_root) / LEGACY_STABLE_DIR / "geographic",
+            output_dir=Path(workspace.project_root) / PREPROCESSING_DIR / "geographic",
             workspace=workspace,
         )
     return hmp.CatchmentDelineation(geographic_cfg, workspace)

@@ -134,8 +134,8 @@ class TransportModflow6GwtConfig(HydroModelBase):
 class TransportConfig(ProcessSpatialConfig):
     """Transport-process configuration."""
 
-    # Keep shared ProcessSpatial schema inheritance, but keep these generic
-    # containers out of default transport serialization for backward compatibility.
+    # Keep shared ProcessSpatial schema inheritance, but exclude these generic
+    # containers from default transport serialization.
     param_list: Annotated[list[str], Profile.USER] = Field(default_factory=list, exclude=True)
     param: Annotated[dict[str, object], Profile.USER] = Field(default_factory=dict, exclude=True)
     ic: Annotated[object | None, Profile.USER] = Field(default=None, exclude=True)

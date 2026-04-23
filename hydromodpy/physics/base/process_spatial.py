@@ -162,10 +162,6 @@ class ProcessSpatial(ABC, Generic[TInitialConditions]):
         self.sinks_sources[sink_source.id] = sink_source
 
 
-# Backward-compatibility class alias; prefer ProcessSpatial in new code.
-Process = ProcessSpatial
-
-
 __all__ = [
     "InitialCondition",
     "BoundaryCondition",
@@ -173,5 +169,4 @@ __all__ = [
     "ProcessSpatialConfig",
     "TInitialConditions",
     "ProcessSpatial",
-    "Process",
 ]

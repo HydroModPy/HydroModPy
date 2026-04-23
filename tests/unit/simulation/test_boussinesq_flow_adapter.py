@@ -13,13 +13,13 @@ from hydromodpy.data.contracts.load_result import LoadResult
 from hydromodpy.data.contracts.spatial_field import FieldRecord
 from hydromodpy.physics.flow import Flow
 from hydromodpy.physics.flow.flow_config import FlowConfig
-from hydromodpy.simulation.adapters.flow.boussinesq import BoussinesqFlowAdapter
 from hydromodpy.simulation.planning.plan import (
     ProcessRun,
     RunContext,
     SimulationPlan,
 )
 from hydromodpy.solver.base.registry import get_solver_adapter
+from hydromodpy.solver.boussinesq.adapters.flow import BoussinesqFlowAdapter
 from hydromodpy.solver.utils.mesh.gmsh_grid import GmshPlanarMesh2D
 from hydromodpy.spatial.field.core.field_spatial_weighted_discretization import (
     WeightedAverageFieldDiscretization,

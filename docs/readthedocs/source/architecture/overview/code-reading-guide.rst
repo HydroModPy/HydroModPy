@@ -37,8 +37,8 @@ When the question is "how does one TOML turn into solver runs?":
 1. ``launchers/process_simulation/launcher.py``
 2. ``hydromodpy/simulation/planning/planner.py``
 3. ``hydromodpy/simulation/execution/runner.py``
-4. ``hydromodpy/simulation/adapters/registry.py``
-5. one adapter under ``hydromodpy/simulation/adapters/flow`` or ``transport``
+4. ``hydromodpy/solver/base/registry.py``
+5. one adapter under ``hydromodpy/solver/<backend>/adapters/``
 6. the concrete solver package under ``hydromodpy/solver``
 
 Catchment meshing
@@ -67,9 +67,9 @@ Flow solvers
 
 When the question is "where does backend-specific logic start?":
 
-1. ``hydromodpy/simulation/adapters/flow/modflow_common.py`` for the shared
+1. ``hydromodpy/solver/modflow_common/flow_adapter_helpers.py`` for the shared
    lifecycle,
-2. ``hydromodpy/simulation/adapters/flow/modflow6.py`` or
+2. ``hydromodpy/solver/modflow6/adapters/flow.py`` or
    ``modflownwt.py`` for backend selection,
 3. ``hydromodpy/solver/modflow_common/`` for shared MODFLOW support code,
 4. ``hydromodpy/solver/modflow6/`` or ``hydromodpy/solver/modflow_nwt/`` for

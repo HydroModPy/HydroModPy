@@ -7,12 +7,12 @@ from types import SimpleNamespace
 
 from hydromodpy.physics.flow import Flow
 from hydromodpy.physics.flow.flow_config import FlowConfig
-from hydromodpy.simulation.adapters.flow.boussinesq import BoussinesqFlowAdapter
 from hydromodpy.simulation.planning.plan import (
     ProcessRun,
     RunContext,
     SimulationPlan,
 )
+from hydromodpy.solver.boussinesq.adapters.flow import BoussinesqFlowAdapter
 from validation_cases.shared.boussinesq_piecewise_strip import (
     PIECEWISE_STRIP_HYDRAULIC_CONDUCTIVITY_M_S_BY_ZONE,
     PIECEWISE_STRIP_LENGTH_X_M,

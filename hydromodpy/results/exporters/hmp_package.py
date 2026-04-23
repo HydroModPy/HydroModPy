@@ -813,43 +813,6 @@ def import_hmp_package(
     return sid
 
 
-# Kept for backwards compatibility inside the same module, no longer used
-# from the catalog.
-def materialize_geographic_on_export(
-    workspace_path: Path | str,
-    fingerprint: str | None,
-    package_dir: Path | str,
-) -> Path | None:
-    """Deprecated helper from the pre-G05 folder-based ``.hmp``.
-
-    Left as a thin wrapper so scripts that imported the helper directly keep
-    working while the rest of the system migrates to
-    :func:`export_hmp_package`.
-    """
-    pkg = Path(package_dir)
-    pkg.mkdir(parents=True, exist_ok=True)
-    _materialise_geographic(Path(workspace_path), fingerprint, pkg)
-    return pkg / GEOGRAPHIC_SUBDIR if (pkg / GEOGRAPHIC_SUBDIR).is_dir() else None
-
-
-def dematerialize_geographic_on_import(
-    package_dir: Path | str,
-    workspace_path: Path | str,
-    fingerprint: str | None = None,
-    *,
-    overwrite: bool = False,
-) -> str | None:
-    """Deprecated helper from the pre-G05 folder-based ``.hmp``."""
-    pkg = Path(package_dir)
-    _dematerialise_geographic(
-        pkg,
-        Path(workspace_path),
-        fingerprint,
-        overwrite=overwrite,
-    )
-    return fingerprint
-
-
 __all__ = [
     "CACHE_DIRNAME",
     "GEOGRAPHIC_SUBDIR",
@@ -860,6 +823,4 @@ __all__ = [
     "MANIFEST_NAME",
     "export_hmp_package",
     "import_hmp_package",
-    "materialize_geographic_on_export",
-    "dematerialize_geographic_on_import",
 ]

@@ -29,7 +29,7 @@ Recommended reading path
 2. ``hydromodpy/process/prototype/__init__.py``
 3. ``hydromodpy/process/flow/__init__.py``
 4. ``hydromodpy/process/forcing/__init__.py``
-5. ``hydromodpy/simulation/adapters/registry.py``
+5. ``hydromodpy/solver/base/registry.py``
 
 Diagram source
 --------------

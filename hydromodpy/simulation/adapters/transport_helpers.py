@@ -1,4 +1,9 @@
-"""Shared helpers for transport-family solver adapters."""
+"""Generic helpers shared by transport-family solver adapters.
+
+These functions only read simulation-layer types (``RunContext``,
+``SimulationPlan``, ``ProcessRun``) and therefore stay in ``simulation/``
+rather than leaking into a specific solver backend.
+"""
 
 from __future__ import annotations
 

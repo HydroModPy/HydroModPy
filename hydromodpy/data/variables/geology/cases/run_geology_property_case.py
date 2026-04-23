@@ -23,7 +23,7 @@ from hydromodpy.data.variables.geology.cases.common import (
     resolve_output_path,
     save_figure,
 )
-from hydromodpy.data.variables.geology.config_cases import load_geology_toml
+from hydromodpy.data.variables.geology.config import load_geology_toml
 from hydromodpy.data.variables.geology.io import load_vector_geology_dataframe
 from hydromodpy.data.variables.geology.processing import (
     uniformize_sea_zone_on_dataframe,

@@ -9,7 +9,6 @@ from __future__ import annotations
 from hydromodpy.physics.base import (
     BoundaryCondition,
     InitialCondition,
-    Process,
     ProcessSpatial,
     ProcessSpatialConfig,
     SinkSource,
@@ -33,7 +32,6 @@ __all__ = [
     "FlowInitialCondition",
     "FlowInitialConditions",
     "InitialCondition",
-    "Process",
     "ProcessSpatial",
     "ProcessSpatialConfig",
     "SinkSource",

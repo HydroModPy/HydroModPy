@@ -47,9 +47,9 @@ def build_geographic_paths(
     if stable_folder is not None:
         stable = Path(stable_folder)
     else:
-        from hydromodpy.core.workspace.path_registry import LEGACY_STABLE_DIR
+        from hydromodpy.core.workspace.path_registry import PREPROCESSING_DIR
 
-        stable = out_dir / LEGACY_STABLE_DIR
+        stable = out_dir / PREPROCESSING_DIR
     geographic_path = stable / "geographic"
     correcflow_path = stable / "demcorrecflow"
 

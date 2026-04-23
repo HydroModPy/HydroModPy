@@ -13,26 +13,21 @@ from __future__ import annotations
 
 from typing import Any
 
-from hydromodpy.core.config.param_level import ParamLevel
 from hydromodpy.core.config.profile import Profile
 
-#: Fields without an explicit ``Profile`` / ``ParamLevel`` tag default to
-#: :attr:`Profile.USER` so they always appear in generated templates.
+#: Fields without an explicit ``Profile`` tag default to :attr:`Profile.USER`
+#: so they always appear in generated templates.
 DEFAULT_FIELD_PROFILE: Profile = Profile.USER
 
 
 def extract_profile(field_info: Any) -> Profile:
     """Return the :class:`Profile` declared on *field_info*.
 
-    Accepts both the new ``Profile`` enum tag and the legacy
-    :class:`ParamLevel` dataclass tag in ``Annotated[...]`` metadata.
     Falls back to :data:`DEFAULT_FIELD_PROFILE` when no tag is found.
     """
     for meta in getattr(field_info, "metadata", ()):
         if isinstance(meta, Profile):
             return meta
-        if isinstance(meta, ParamLevel):
-            return meta.as_profile()
     return DEFAULT_FIELD_PROFILE
 
 

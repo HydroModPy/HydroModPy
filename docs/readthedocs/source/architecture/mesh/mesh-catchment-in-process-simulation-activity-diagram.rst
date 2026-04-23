@@ -26,7 +26,7 @@ Code map
   mono-catchment mesh generation when ``[mesh_catchment]`` is active.
 - ``hydromodpy/simulation/execution/runner.py``:
   downstream orchestration once mesh resolution is complete.
-- ``hydromodpy/simulation/adapters/flow/modflow6.py`` and ``modflownwt.py``:
+- ``hydromodpy/solver/modflow6/adapters/flow.py`` and ``modflownwt.py``:
   backend boundary where mesh compatibility matters.
 
 Recommended reading path
@@ -35,7 +35,7 @@ Recommended reading path
 1. ``launchers/process_simulation/launcher.py``
 2. ``launchers/mesh_catchment/runtime.py``
 3. ``hydromodpy/simulation/execution/runner.py``
-4. one backend adapter such as ``hydromodpy/simulation/adapters/flow/modflow6.py``
+4. one backend adapter such as ``hydromodpy/solver/modflow6/adapters/flow.py``
 
 Diagram source
 --------------
