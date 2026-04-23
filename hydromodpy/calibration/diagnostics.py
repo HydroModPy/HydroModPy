@@ -3,7 +3,7 @@
 Consumes a list-of-dicts or a ``pd.DataFrame`` matching the
 ``calibration_iterations`` schema. Parameter columns may be flat (one
 column per parameter) or nested under a single ``parameters`` dict column.
-Only numpy + pandas; no dependency on any legacy ``CalibrationResults`` class.
+Depends only on numpy and pandas.
 """
 
 from __future__ import annotations
