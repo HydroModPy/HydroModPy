@@ -40,6 +40,9 @@ from hydromodpy.solver.boussinesq.drivers import (
     run_steady_runtime,
     run_transient_runtime,
 )
+from hydromodpy.solver.boussinesq.export_payload import (
+    build_state_history_export_payload,
+)
 from hydromodpy.solver.boussinesq.forcing_resolution import BoussinesqForcingResolver
 from hydromodpy.solver.boussinesq.mesh import BoussinesqMesh
 from hydromodpy.solver.boussinesq.methods import (
@@ -180,49 +183,7 @@ class Boussinesq(Solver):
             state_history_path = self.full_path / "_boussinesq_state_history.npz"
             np.savez(
                 state_history_path,
-                recharge_rate_history_m_s=self._as_export_array(
-                    self.state.recharge_rate_history_m_s
-                ),
-                well_flux_history_m3_s=self._as_export_array(self.state.well_flux_history_m3_s),
-                head_history_m=self._as_export_array(self.state.head_history_m),
-                saturated_thickness_history_m=self._as_export_array(
-                    self.state.saturated_thickness_history_m
-                ),
-                saturation_excess_history_m_s=self._as_export_array(
-                    self.state.saturation_excess_history_m_s
-                ),
-                final_head_m=np.asarray(self.state.head_m, dtype=float),
-                final_saturated_thickness_m=np.asarray(
-                    self.state.saturated_thickness_m,
-                    dtype=float,
-                ),
-                final_recharge_rate_m_s=self._as_export_array(self.state.recharge_rate_m_s),
-                final_well_flux_m3_s=self._as_export_array(self.state.well_flux_m3_s),
-                final_saturation_excess_rate_m_s=self._as_export_array(
-                    self.state.saturation_excess_rate_m_s
-                ),
-                internal_edge_flux_m3_s=self._as_export_array(self.state.internal_edge_flux_m3_s),
-                internal_edge_flux_history_m3_s=self._as_export_array(
-                    self.state.internal_edge_flux_history_m3_s
-                ),
-                boundary_edge_flux_m3_s=self._as_export_array(self.state.boundary_edge_flux_m3_s),
-                boundary_edge_flux_history_m3_s=self._as_export_array(
-                    self.state.boundary_edge_flux_history_m3_s
-                ),
-                prescribed_head_flux_m3_s=self._as_export_array(
-                    self.state.prescribed_head_flux_m3_s
-                ),
-                prescribed_head_flux_history_m3_s=self._as_export_array(
-                    self.state.prescribed_head_flux_history_m3_s
-                ),
-                drainage_flux_m3_s=self._as_export_array(self.state.drainage_flux_m3_s),
-                drainage_flux_history_m3_s=self._as_export_array(
-                    self.state.drainage_flux_history_m3_s
-                ),
-                period_lengths_seconds=np.asarray(
-                    self.state.period_lengths_seconds,
-                    dtype=float,
-                ),
+                **build_state_history_export_payload(self.state),
             )
             self._record_surface_threshold_summary()
 
@@ -1248,13 +1209,6 @@ class Boussinesq(Solver):
         """Return whether one boundary id is active in the current flow setup."""
         active = getattr(self.flow, "active_bc", ())
         return bc_id in active
-
-    @staticmethod
-    def _as_export_array(values: np.ndarray | None) -> np.ndarray:
-        """Normalize optional arrays before writing them to disk."""
-        if values is None:
-            return np.asarray([], dtype=float)
-        return np.asarray(values, dtype=float)
 
 
 __all__ = ["Boussinesq", "BoussinesqState"]
