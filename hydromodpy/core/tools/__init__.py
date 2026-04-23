@@ -8,7 +8,6 @@ Submodules
 filesystem  -- directory creation, CSV loading
 statistics  -- hydrological metrics (RMSE, NSE, KGE, etc.)
 display     -- matplotlib styling, ASCII banner
-io_utils    -- legacy watershed-era helpers (scheduled for removal)
 
 Logging and raster / vector / CRS I/O live in :mod:`hydromodpy.core.logging`
 and :mod:`hydromodpy.core.io` respectively.
