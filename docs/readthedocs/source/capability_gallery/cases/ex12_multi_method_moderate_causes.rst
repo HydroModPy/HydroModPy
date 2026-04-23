@@ -69,7 +69,7 @@ Run the underlying example or validation case with:
 
 .. code-block:: bash
 
-   python -m launchers method-comparison run examples_legacy_2/projects/launcher_simulation/.__runtime_method_comparison_example12_multi_method_moderate_causes.toml
+   python -m hydromodpy run examples_legacy_2/projects/launcher_simulation/.__runtime_method_comparison_example12_multi_method_moderate_causes.toml
 
 Refresh the committed gallery artifacts with:
 

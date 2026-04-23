@@ -2,8 +2,8 @@
   "schema_version": "regional_lab_plan_v2",
   "generated_at_utc": "<generated_at_utc>",
   "lab_id": "headwater_100km2_lab",
-  "config_path": "examples/projects/launcher_simulation/regional_lab/config_headwater_100km2_lab.toml",
-  "site_catalog_path": "examples/projects/launcher_simulation/regional_lab/site_catalog.csv",
+  "config_path": "examples_legacy_2/projects/launcher_simulation/regional_lab/config_headwater_100km2_lab.toml",
+  "site_catalog_path": "examples_legacy_2/projects/launcher_simulation/regional_lab/site_catalog.csv",
   "output_root": "<regional_lab_output_root>",
   "selected_site_count": 5,
   "planned_case_count": 3,
@@ -35,9 +35,9 @@
       ],
       "enabled": true,
       "resolved_paths": {
-        "simulation_reference_config": "examples/projects/launcher_simulation/run_headwater_100km2_outlet_2_mf6_transient_reference.toml",
-        "backend_comparison_config": "examples/projects/launcher_simulation/run_method_comparison_headwater_100km2_outlet_2_backends.toml",
-        "transient_backend_comparison_config": "examples/projects/launcher_simulation/run_method_comparison_headwater_100km2_outlet_2_transient_pulsed_recharge_backends.toml"
+        "simulation_reference_config": "examples_legacy_2/projects/launcher_simulation/run_headwater_100km2_outlet_2_mf6_transient_reference.toml",
+        "backend_comparison_config": "examples_legacy_2/projects/launcher_simulation/run_method_comparison_headwater_100km2_outlet_2_backends.toml",
+        "transient_backend_comparison_config": "examples_legacy_2/projects/launcher_simulation/run_method_comparison_headwater_100km2_outlet_2_transient_pulsed_recharge_backends.toml"
       },
       "raw": {
         "site_id": "headwater_100km2_outlet_2",
@@ -365,7 +365,7 @@
       "recipe_id": "mf6_reference",
       "recipe_label": "MF6 reference replay",
       "launcher": "simulation",
-      "config_path": "examples/projects/launcher_simulation/run_headwater_100km2_outlet_2_mf6_transient_reference.toml"
+      "config_path": "examples_legacy_2/projects/launcher_simulation/run_headwater_100km2_outlet_2_mf6_transient_reference.toml"
     },
     {
       "case_id": "backend_compare::headwater_100km2_outlet_2",
@@ -391,7 +391,7 @@
       "recipe_id": "backend_compare",
       "recipe_label": "Backend comparison",
       "launcher": "method-comparison",
-      "config_path": "examples/projects/launcher_simulation/run_method_comparison_headwater_100km2_outlet_2_backends.toml"
+      "config_path": "examples_legacy_2/projects/launcher_simulation/run_method_comparison_headwater_100km2_outlet_2_backends.toml"
     },
     {
       "case_id": "transient_backend_compare::headwater_100km2_outlet_2",
@@ -417,7 +417,7 @@
       "recipe_id": "transient_backend_compare",
       "recipe_label": "Transient backend comparison",
       "launcher": "method-comparison",
-      "config_path": "examples/projects/launcher_simulation/run_method_comparison_headwater_100km2_outlet_2_transient_pulsed_recharge_backends.toml"
+      "config_path": "examples_legacy_2/projects/launcher_simulation/run_method_comparison_headwater_100km2_outlet_2_transient_pulsed_recharge_backends.toml"
     }
   ],
   "skipped_cases": [

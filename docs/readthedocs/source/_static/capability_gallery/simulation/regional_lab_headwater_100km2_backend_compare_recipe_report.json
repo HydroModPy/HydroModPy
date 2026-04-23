@@ -1,10 +1,10 @@
 {
   "schema_version": "regional_lab_report_v2",
-  "generated_at_utc": "2026-04-16T19:01:36.286099+00:00",
+  "generated_at_utc": "<generated_at_utc>",
   "lab_id": "headwater_100km2_lab_backend_compare",
-  "config_path": "C:\\codes\\HydroModPy-GH\\examples\\projects\\launcher_simulation\\regional_lab\\config_headwater_100km2_lab_backend_compare.toml",
-  "site_catalog_path": "C:\\codes\\HydroModPy-GH\\examples\\projects\\launcher_simulation\\regional_lab\\site_catalog.csv",
-  "output_root": "C:\\Users\\dreuzy\\AppData\\Local\\Temp\\hydromodpy_doc_gallery_regional_lab_p6u2u04o\\regional_lab_outputs",
+  "config_path": "examples_legacy_2/projects/launcher_simulation/regional_lab/config_headwater_100km2_lab_backend_compare.toml",
+  "site_catalog_path": "examples_legacy_2/projects/launcher_simulation/regional_lab/site_catalog.csv",
+  "output_root": "<regional_lab_output_root>",
   "execute": false,
   "continue_on_error": true,
   "resume_from_report": false,
@@ -45,9 +45,9 @@
       ],
       "enabled": true,
       "resolved_paths": {
-        "simulation_reference_config": "C:\\codes\\HydroModPy-GH\\examples\\projects\\launcher_simulation\\run_headwater_100km2_outlet_2_mf6_transient_reference.toml",
-        "backend_comparison_config": "C:\\codes\\HydroModPy-GH\\examples\\projects\\launcher_simulation\\run_method_comparison_headwater_100km2_outlet_2_backends.toml",
-        "transient_backend_comparison_config": "C:\\codes\\HydroModPy-GH\\examples\\projects\\launcher_simulation\\run_method_comparison_headwater_100km2_outlet_2_transient_pulsed_recharge_backends.toml"
+        "simulation_reference_config": "examples_legacy_2/projects/launcher_simulation/run_headwater_100km2_outlet_2_mf6_transient_reference.toml",
+        "backend_comparison_config": "examples_legacy_2/projects/launcher_simulation/run_method_comparison_headwater_100km2_outlet_2_backends.toml",
+        "transient_backend_comparison_config": "examples_legacy_2/projects/launcher_simulation/run_method_comparison_headwater_100km2_outlet_2_transient_pulsed_recharge_backends.toml"
       },
       "raw": {
         "site_id": "headwater_100km2_outlet_2",
@@ -274,14 +274,14 @@
       "recipe_id": "backend_compare",
       "recipe_label": "Backend comparison",
       "launcher": "method-comparison",
-      "config_path": "C:\\codes\\HydroModPy-GH\\examples\\projects\\launcher_simulation\\run_method_comparison_headwater_100km2_outlet_2_backends.toml",
+      "config_path": "examples_legacy_2/projects/launcher_simulation/run_method_comparison_headwater_100km2_outlet_2_backends.toml",
       "command": [
-        "C:\\Users\\dreuzy\\.conda\\envs\\hydromodpy\\python.exe",
+        "/home/bb/miniforge3/envs/hmp_refact/bin/python",
         "-m",
         "launchers",
         "method-comparison",
         "run",
-        "C:\\codes\\HydroModPy-GH\\examples\\projects\\launcher_simulation\\run_method_comparison_headwater_100km2_outlet_2_backends.toml"
+        "/home/bb/Documents/01_Git_Repository/02-HydroModPy-dev/examples_legacy_2/projects/launcher_simulation/run_method_comparison_headwater_100km2_outlet_2_backends.toml"
       ],
       "status": "planned",
       "returncode": null,
@@ -343,14 +343,14 @@
     }
   ],
   "synthesis_paths": {
-    "site_inventory_csv": "C:\\Users\\dreuzy\\AppData\\Local\\Temp\\hydromodpy_doc_gallery_regional_lab_p6u2u04o\\regional_lab_outputs\\regional_lab_site_inventory.csv",
-    "case_matrix_csv": "C:\\Users\\dreuzy\\AppData\\Local\\Temp\\hydromodpy_doc_gallery_regional_lab_p6u2u04o\\regional_lab_outputs\\regional_lab_case_matrix.csv",
-    "execution_metrics_csv": "C:\\Users\\dreuzy\\AppData\\Local\\Temp\\hydromodpy_doc_gallery_regional_lab_p6u2u04o\\regional_lab_outputs\\regional_lab_execution_metrics.csv",
-    "recipe_summary_csv": "C:\\Users\\dreuzy\\AppData\\Local\\Temp\\hydromodpy_doc_gallery_regional_lab_p6u2u04o\\regional_lab_outputs\\regional_lab_recipe_summary.csv",
-    "cluster_summary_csv": "C:\\Users\\dreuzy\\AppData\\Local\\Temp\\hydromodpy_doc_gallery_regional_lab_p6u2u04o\\regional_lab_outputs\\regional_lab_cluster_summary.csv",
-    "region_summary_csv": "C:\\Users\\dreuzy\\AppData\\Local\\Temp\\hydromodpy_doc_gallery_regional_lab_p6u2u04o\\regional_lab_outputs\\regional_lab_region_summary.csv",
-    "family_summary_csv": "C:\\Users\\dreuzy\\AppData\\Local\\Temp\\hydromodpy_doc_gallery_regional_lab_p6u2u04o\\regional_lab_outputs\\regional_lab_family_summary.csv",
-    "scale_summary_csv": "C:\\Users\\dreuzy\\AppData\\Local\\Temp\\hydromodpy_doc_gallery_regional_lab_p6u2u04o\\regional_lab_outputs\\regional_lab_scale_summary.csv",
-    "summary_markdown": "C:\\Users\\dreuzy\\AppData\\Local\\Temp\\hydromodpy_doc_gallery_regional_lab_p6u2u04o\\regional_lab_outputs\\regional_lab_summary.md"
+    "site_inventory_csv": "regional_lab_outputs/regional_lab_site_inventory.csv",
+    "case_matrix_csv": "regional_lab_outputs/regional_lab_case_matrix.csv",
+    "execution_metrics_csv": "regional_lab_outputs/regional_lab_execution_metrics.csv",
+    "recipe_summary_csv": "regional_lab_outputs/regional_lab_recipe_summary.csv",
+    "cluster_summary_csv": "regional_lab_outputs/regional_lab_cluster_summary.csv",
+    "region_summary_csv": "regional_lab_outputs/regional_lab_region_summary.csv",
+    "family_summary_csv": "regional_lab_outputs/regional_lab_family_summary.csv",
+    "scale_summary_csv": "regional_lab_outputs/regional_lab_scale_summary.csv",
+    "summary_markdown": "regional_lab_outputs/regional_lab_summary.md"
   }
 }

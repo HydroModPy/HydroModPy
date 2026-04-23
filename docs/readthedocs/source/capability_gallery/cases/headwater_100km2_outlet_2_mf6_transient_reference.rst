@@ -153,8 +153,6 @@ Source Pointers
 - ``examples_legacy_2/projects/launcher_simulation/config_headwater_100km2_mf6_transient_common.toml``
 - ``examples_legacy_2/projects/launcher_simulation/README.md``
 - ``examples/projects/09_capability_gallery/launcher_simulation/headwater_100km2_outlet_2_mf6_transient_reference/manifest.json``
-- ``hydromodpy/display/__init__.py``
-- ``hydromodpy/display/figures/__init__.py``
 - ``hydromodpy/analysis/capability_gallery.py``
 
 Artifacts

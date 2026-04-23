@@ -1,10 +1,10 @@
 {
   "schema_version": "regional_lab_plan_v2",
-  "generated_at_utc": "2026-04-16T19:01:38.049488+00:00",
+  "generated_at_utc": "<generated_at_utc>",
   "lab_id": "headwater_100km2_lab_transient_backend_compare",
-  "config_path": "C:\\codes\\HydroModPy-GH\\examples\\projects\\launcher_simulation\\regional_lab\\config_headwater_100km2_lab_transient_backend_compare.toml",
-  "site_catalog_path": "C:\\codes\\HydroModPy-GH\\examples\\projects\\launcher_simulation\\regional_lab\\site_catalog.csv",
-  "output_root": "C:\\Users\\dreuzy\\AppData\\Local\\Temp\\hydromodpy_doc_gallery_regional_lab_hwrqn451\\regional_lab_outputs",
+  "config_path": "examples_legacy_2/projects/launcher_simulation/regional_lab/config_headwater_100km2_lab_transient_backend_compare.toml",
+  "site_catalog_path": "examples_legacy_2/projects/launcher_simulation/regional_lab/site_catalog.csv",
+  "output_root": "<regional_lab_output_root>",
   "selected_site_count": 5,
   "planned_case_count": 1,
   "skipped_case_count": 2,
@@ -35,9 +35,9 @@
       ],
       "enabled": true,
       "resolved_paths": {
-        "simulation_reference_config": "C:\\codes\\HydroModPy-GH\\examples\\projects\\launcher_simulation\\run_headwater_100km2_outlet_2_mf6_transient_reference.toml",
-        "backend_comparison_config": "C:\\codes\\HydroModPy-GH\\examples\\projects\\launcher_simulation\\run_method_comparison_headwater_100km2_outlet_2_backends.toml",
-        "transient_backend_comparison_config": "C:\\codes\\HydroModPy-GH\\examples\\projects\\launcher_simulation\\run_method_comparison_headwater_100km2_outlet_2_transient_pulsed_recharge_backends.toml"
+        "simulation_reference_config": "examples_legacy_2/projects/launcher_simulation/run_headwater_100km2_outlet_2_mf6_transient_reference.toml",
+        "backend_comparison_config": "examples_legacy_2/projects/launcher_simulation/run_method_comparison_headwater_100km2_outlet_2_backends.toml",
+        "transient_backend_comparison_config": "examples_legacy_2/projects/launcher_simulation/run_method_comparison_headwater_100km2_outlet_2_transient_pulsed_recharge_backends.toml"
       },
       "raw": {
         "site_id": "headwater_100km2_outlet_2",
@@ -365,7 +365,7 @@
       "recipe_id": "transient_backend_compare",
       "recipe_label": "Transient backend comparison",
       "launcher": "method-comparison",
-      "config_path": "C:\\codes\\HydroModPy-GH\\examples\\projects\\launcher_simulation\\run_method_comparison_headwater_100km2_outlet_2_transient_pulsed_recharge_backends.toml"
+      "config_path": "examples_legacy_2/projects/launcher_simulation/run_method_comparison_headwater_100km2_outlet_2_transient_pulsed_recharge_backends.toml"
     }
   ],
   "skipped_cases": [

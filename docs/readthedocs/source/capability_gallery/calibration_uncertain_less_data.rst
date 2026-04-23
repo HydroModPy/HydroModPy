@@ -91,77 +91,77 @@ Method Rows
      - random_search
      - best_fit_or_distribution
      - 1
-     - 0.585469
+     - 0.410218
      - 24
-     - 18.75 s
-     - 17.72 s
-     - 1.023 s
-     - 0.009253 s
-     - 0.03492 s
-     - 0.0002246 s
-     - 0.5014 s
-     - 0.2013 s
-     - 0.0004687 s
+     - 57.21 s
+     - 57.2 s
+     - 0.008057 s
+     -
+     -
+     -
+     - 2.313 s
+     -
+     -
    * - :doc:`Calibration Twin: Recharge-Step Flux-Only K+Sy 1D <cases/calibration_twin_linearized_recharge_step_flux_only_noisy_modflow6>`
      - cma_es
      - best_fit
      - 0
-     - 0.585584
-     - 60
-     - 45.06 s
-     - 42.42 s
-     - 2.635 s
-     - 0.009455 s
-     - 0.01322 s
-     - 0.0002221 s
-     - 0.473 s
-     - 0.2198 s
-     - 0.0005062 s
+     - 0.407795
+     - 56
+     - 146.7 s
+     - 146.7 s
+     - 0.03094 s
+     -
+     -
+     -
+     - 2.542 s
+     -
+     -
    * - :doc:`Calibration Twin: Recharge-Step Flux-Only K+Sy 1D <cases/calibration_twin_linearized_recharge_step_flux_only_noisy_modflow6>`
      - simplex
      - best_fit
      - 0
-     - 0.585538
-     - 32
-     - 21.38 s
-     - 20.1 s
-     - 1.275 s
-     - 0.009113 s
-     - 0.02621 s
-     - 0.0001708 s
-     - 0.4194 s
-     - 0.1817 s
-     - 0.0004145 s
+     - 0.408539
+     - 16
+     - 42.52 s
+     - 42.51 s
+     - 0.008306 s
+     -
+     -
+     -
+     - 2.58 s
+     -
+     -
    * - :doc:`Calibration Twin: Recharge-Step Flux-Only K+Sy 1D <cases/calibration_twin_linearized_recharge_step_flux_only_noisy_modflow6>`
      - gp_mapping
      - best_fit_or_distribution
      - 1
-     - 0.585517
+     - 0.40781
      - 20
-     - 14.05 s
-     - 13.2 s
-     - 0.8505 s
-     - 0.009881 s
-     - 0.03819 s
-     - 0.0002311 s
-     - 0.4414 s
-     - 0.1795 s
-     - 0.0004436 s
+     - 51.5 s
+     - 51.49 s
+     - 0.009931 s
+     -
+     -
+     -
+     - 2.499 s
+     -
+     -
    * - :doc:`Calibration Twin: Recharge-Step Flux-Only K+Sy 1D <cases/calibration_twin_linearized_recharge_step_flux_only_noisy_modflow6>`
      - da_mh_gp
      - best_fit_or_distribution
-     - 0
-     - 0.589153
-     - 12
-     - 10 s
-     - 9.475 s
-     - 0.5292 s
-     - 0.009857 s
-     - 0.07062 s
-     - 0.0002366 s
-     - 0.5024 s
-     - 0.2157 s
-     - 0.0004646 s
+     - 1
+     - 0.407762
+     - 140
+     - 364.1 s
+     - 364 s
+     - 0.08979 s
+     -
+     -
+     -
+     - 2.518 s
+     -
+     -
 
 Artifacts
 ---------

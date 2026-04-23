@@ -157,8 +157,6 @@ Source Pointers
 - ``examples_legacy_2/projects/launcher_simulation/run_fast_mf6_mesh_catchment.toml``
 - ``examples_legacy_2/projects/launcher_simulation/config_mf6_mesh_catchment_common.toml``
 - ``examples/projects/09_capability_gallery/launcher_simulation/modflow6_gmsh_mesh_catchment/manifest.json``
-- ``hydromodpy/display/__init__.py``
-- ``hydromodpy/display/figures/__init__.py``
 - ``hydromodpy/analysis/capability_gallery.py``
 
 Artifacts

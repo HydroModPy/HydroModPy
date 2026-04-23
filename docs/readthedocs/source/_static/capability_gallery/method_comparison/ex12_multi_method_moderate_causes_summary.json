@@ -33,7 +33,7 @@
   "equations_rst": [],
   "walkthrough_doc": "getting_started/reading-results-pages",
   "walkthrough_title": "the gallery and validation reading guide",
-  "reproduction_command": "python -m launchers method-comparison run examples_legacy_2/projects/launcher_simulation/.__runtime_method_comparison_example12_multi_method_moderate_causes.toml",
+  "reproduction_command": "python -m hydromodpy run examples_legacy_2/projects/launcher_simulation/.__runtime_method_comparison_example12_multi_method_moderate_causes.toml",
   "gallery_update_command": "python -m tools.doc_gallery",
   "source_paths": [
     "examples_legacy_2/projects/launcher_simulation/.__runtime_method_comparison_example12_multi_method_moderate_causes.toml",

@@ -283,9 +283,20 @@ def step_save_run_artifacts(
 
         plan = ctx.execution.simulation_plan
         solvers_used = {r.solver for r in plan.runs} if plan is not None else set()
+
+        run_wrapper = None
+        if ctx.store is not None and ctx.sim_id is not None:
+            try:
+                from hydromodpy.results.run import Run as _Run
+
+                run_wrapper = _Run(ctx.sim_id, ctx.store)
+            except Exception:
+                run_wrapper = None
+
         publish_run_to_capability_gallery(
             run_id=str(ctx.setup.run_id),
             run_folder=project_root,
             config=gallery_cfg,
             solvers=tuple(str(s) for s in solvers_used),
+            run=run_wrapper,
         )

@@ -69,7 +69,7 @@ Run the underlying example or validation case with:
 
 .. code-block:: bash
 
-   python -m launchers method-comparison run examples_legacy_2/projects/launcher_simulation/run_method_comparison_mf6_vs_nwt_same_regular_mesh_moderate.toml
+   python -m hydromodpy run examples_legacy_2/projects/launcher_simulation/run_method_comparison_mf6_vs_nwt_same_regular_mesh_moderate.toml
 
 Refresh the committed gallery artifacts with:
 

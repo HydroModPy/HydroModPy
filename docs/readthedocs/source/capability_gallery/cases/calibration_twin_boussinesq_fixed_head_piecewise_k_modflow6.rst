@@ -39,18 +39,13 @@ Same-solver twin benchmark on boussinesq_fixed_head_piecewise_k_1d with three zo
       - metric=distribution
       - target=True
       - best_fit=False
-      - cost=383826
+      - cost=
       - n_eval=48
       - distribution_samples=48
-      - calibration=12.2 s
-      - candidate runtime=10.11 s
-      - algorithm overhead=2.095 s
-      - actualize=0.009809 s
-      - launcher prep=0.02427 s
-      - runtime patch=0.0001552 s
-      - simulate=0.1509 s
-      - output select=0.0344 s
-      - objective score=0.0006227 s
+      - calibration=19.26 s
+      - candidate runtime=19.25 s
+      - algorithm overhead=0.01439 s
+      - simulate=0.3634 s
 
    .. tab-item:: random_search_seed029
 
@@ -73,20 +68,15 @@ Same-solver twin benchmark on boussinesq_fixed_head_piecewise_k_1d with three zo
          Objective trace for `random_search_seed029` on Calibration Twin: Piecewise-K 1D, showing the evaluated models in order.
 
       - metric=distribution
-      - target=True
+      - target=False
       - best_fit=False
-      - cost=319874
+      - cost=
       - n_eval=48
       - distribution_samples=48
-      - calibration=12.52 s
-      - candidate runtime=10.44 s
-      - algorithm overhead=2.085 s
-      - actualize=0.01 s
-      - launcher prep=0.02163 s
-      - runtime patch=0.0001592 s
-      - simulate=0.1525 s
-      - output select=0.04231 s
-      - objective score=0.0006286 s
+      - calibration=18.78 s
+      - candidate runtime=18.76 s
+      - algorithm overhead=0.01744 s
+      - simulate=0.3532 s
 
    .. tab-item:: cma_es
 
@@ -105,18 +95,13 @@ Same-solver twin benchmark on boussinesq_fixed_head_piecewise_k_1d with three zo
       - metric=best_fit
       - target=False
       - best_fit=False
-      - cost=347279
-      - n_eval=56
+      - cost=
+      - n_eval=14
       - distribution_samples=0
-      - calibration=13.61 s
-      - candidate runtime=11.11 s
-      - algorithm overhead=2.497 s
-      - actualize=0.009851 s
-      - launcher prep=0.01606 s
-      - runtime patch=0.0001894 s
-      - simulate=0.1471 s
-      - output select=0.03422 s
-      - objective score=0.0006528 s
+      - calibration=5.751 s
+      - candidate runtime=5.744 s
+      - algorithm overhead=0.006934 s
+      - simulate=0.3707 s
 
    .. tab-item:: simplex
 
@@ -135,18 +120,13 @@ Same-solver twin benchmark on boussinesq_fixed_head_piecewise_k_1d with three zo
       - metric=best_fit
       - target=False
       - best_fit=False
-      - cost=109811
+      - cost=
       - n_eval=48
       - distribution_samples=0
-      - calibration=11.69 s
-      - candidate runtime=9.528 s
-      - algorithm overhead=2.157 s
-      - actualize=0.01022 s
-      - launcher prep=0.01803 s
-      - runtime patch=0.0001634 s
-      - simulate=0.147 s
-      - output select=0.03245 s
-      - objective score=0.0006031 s
+      - calibration=19.73 s
+      - candidate runtime=19.71 s
+      - algorithm overhead=0.01701 s
+      - simulate=0.3706 s
 
 Case Setup
 ----------
@@ -178,18 +158,18 @@ Key Metrics
 - Methods: 4
 - Display method: random_search
 - Distribution samples: 48
-- Calibration total: 12.2 s
-- Session prep: 1.144 s
-- Candidate runtime: 10.11 s
-- Algorithm overhead: 2.095 s
-- Model total: 0.2105 s
-- Actualize: 0.009809 s
-- Launcher prep: 0.02427 s
-- Runtime patch: 0.0001552 s
-- Model prep: 0.03424 s
-- Model sim: 0.1509 s
-- Output select: 0.0344 s
-- Objective score: 0.0006227 s
+- Calibration total: 19.26 s
+- Session prep: 0 s
+- Candidate runtime: 19.25 s
+- Algorithm overhead: 0.01439 s
+- Model total: 0.401 s
+- Actualize:
+- Launcher prep:
+- Runtime patch:
+- Model prep: 0 s
+- Model sim: 0.3634 s
+- Output select:
+- Objective score:
 
 Next Steps
 ----------
@@ -284,19 +264,19 @@ Methods And Timing
      - Source
    * - ``random_search_seed017``
      - Method result summary including target status, evaluation count, total time, and mean per-model actualize / launcher / simulation / objective timings.
-     - target=true, cost=383826, n_eval=48, distribution_samples=48, calib_s=12.2011, candidate_runtime_s=10.1059, algorithm_overhead_s=2.09525, actualize_s=0.00980934, launcher_prep_s=0.0242721, runtime_patch_s=0.000155204, model_sim_s=0.15087, output_select_s=0.0343953, objective_score_s=0.000622652
+     - target=true, n_eval=48, distribution_samples=48, calib_s=19.2617, candidate_runtime_s=19.2473, algorithm_overhead_s=0.0143873, model_sim_s=0.363396
      - ``docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_boussinesq_fixed_head_piecewise_k_modflow6_summary.json``
    * - ``random_search_seed029``
      - Method result summary including target status, evaluation count, total time, and mean per-model actualize / launcher / simulation / objective timings.
-     - target=true, cost=319874, n_eval=48, distribution_samples=48, calib_s=12.522, candidate_runtime_s=10.4365, algorithm_overhead_s=2.08548, actualize_s=0.0100002, launcher_prep_s=0.0216294, runtime_patch_s=0.000159171, model_sim_s=0.152484, output_select_s=0.0423133, objective_score_s=0.000628602
+     - target=false, n_eval=48, distribution_samples=48, calib_s=18.7752, candidate_runtime_s=18.7577, algorithm_overhead_s=0.0174387, model_sim_s=0.353185
      - ``docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_boussinesq_fixed_head_piecewise_k_modflow6_summary.json``
    * - ``cma_es``
      - Method result summary including target status, evaluation count, total time, and mean per-model actualize / launcher / simulation / objective timings.
-     - target=false, cost=347279, n_eval=56, distribution_samples=0, calib_s=13.6068, candidate_runtime_s=11.1096, algorithm_overhead_s=2.49719, actualize_s=0.00985133, launcher_prep_s=0.0160563, runtime_patch_s=0.000189373, model_sim_s=0.147056, output_select_s=0.0342204, objective_score_s=0.0006528
+     - target=false, n_eval=14, distribution_samples=0, calib_s=5.75121, candidate_runtime_s=5.74428, algorithm_overhead_s=0.00693411, model_sim_s=0.370746
      - ``docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_boussinesq_fixed_head_piecewise_k_modflow6_summary.json``
    * - ``simplex``
      - Method result summary including target status, evaluation count, total time, and mean per-model actualize / launcher / simulation / objective timings.
-     - target=false, cost=109811, n_eval=48, distribution_samples=0, calib_s=11.6855, candidate_runtime_s=9.52824, algorithm_overhead_s=2.15722, actualize_s=0.0102165, launcher_prep_s=0.0180343, runtime_patch_s=0.000163417, model_sim_s=0.147041, output_select_s=0.0324487, objective_score_s=0.000603104
+     - target=false, n_eval=48, distribution_samples=0, calib_s=19.7287, candidate_runtime_s=19.7117, algorithm_overhead_s=0.0170106, model_sim_s=0.370587
      - ``docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_boussinesq_fixed_head_piecewise_k_modflow6_summary.json``
 
 Displayed Metrics
@@ -324,51 +304,31 @@ Displayed Metrics
      - ``docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_boussinesq_fixed_head_piecewise_k_modflow6_summary.json``
    * - ``calibration_time_seconds``
      - Metric surfaced on the gallery page for the selected display method.
-     - 12.2 s
+     - 19.26 s
      - ``docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_boussinesq_fixed_head_piecewise_k_modflow6_summary.json``
    * - ``session_prepare_time_seconds``
      - Metric surfaced on the gallery page for the selected display method.
-     - 1.144 s
+     - 0 s
      - ``docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_boussinesq_fixed_head_piecewise_k_modflow6_summary.json``
    * - ``estimated_candidate_runtime_seconds``
      - Metric surfaced on the gallery page for the selected display method.
-     - 10.11 s
+     - 19.25 s
      - ``docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_boussinesq_fixed_head_piecewise_k_modflow6_summary.json``
    * - ``algorithm_overhead_time_seconds``
      - Metric surfaced on the gallery page for the selected display method.
-     - 2.095 s
+     - 0.01439 s
      - ``docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_boussinesq_fixed_head_piecewise_k_modflow6_summary.json``
    * - ``mean_candidate_total_time_seconds``
      - Metric surfaced on the gallery page for the selected display method.
-     - 0.2105 s
-     - ``docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_boussinesq_fixed_head_piecewise_k_modflow6_summary.json``
-   * - ``mean_candidate_actualize_time_seconds``
-     - Metric surfaced on the gallery page for the selected display method.
-     - 0.009809 s
-     - ``docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_boussinesq_fixed_head_piecewise_k_modflow6_summary.json``
-   * - ``mean_candidate_launcher_prepare_time_seconds``
-     - Metric surfaced on the gallery page for the selected display method.
-     - 0.02427 s
-     - ``docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_boussinesq_fixed_head_piecewise_k_modflow6_summary.json``
-   * - ``mean_candidate_runtime_patch_time_seconds``
-     - Metric surfaced on the gallery page for the selected display method.
-     - 0.0001552 s
+     - 0.401 s
      - ``docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_boussinesq_fixed_head_piecewise_k_modflow6_summary.json``
    * - ``mean_candidate_preparation_time_seconds``
      - Metric surfaced on the gallery page for the selected display method.
-     - 0.03424 s
+     - 0 s
      - ``docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_boussinesq_fixed_head_piecewise_k_modflow6_summary.json``
    * - ``mean_candidate_simulation_time_seconds``
      - Metric surfaced on the gallery page for the selected display method.
-     - 0.1509 s
-     - ``docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_boussinesq_fixed_head_piecewise_k_modflow6_summary.json``
-   * - ``mean_candidate_output_selection_time_seconds``
-     - Metric surfaced on the gallery page for the selected display method.
-     - 0.0344 s
-     - ``docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_boussinesq_fixed_head_piecewise_k_modflow6_summary.json``
-   * - ``mean_candidate_objective_compute_time_seconds``
-     - Metric surfaced on the gallery page for the selected display method.
-     - 0.0006227 s
+     - 0.3634 s
      - ``docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_boussinesq_fixed_head_piecewise_k_modflow6_summary.json``
 
 Source Pointers
@@ -381,8 +341,8 @@ Source Pointers
 - ``validation_cases/calibration/shared/runtime.py``
 - ``validation_cases/calibration/twin/steady/boussinesq_fixed_head_piecewise_k_1d/run_case.py``
 - ``validation_cases/calibration/twin/steady/boussinesq_fixed_head_piecewise_k_1d/experiment.py``
-- ``launchers/model_calibration/launcher.py``
-- ``launchers/model_calibration/runtime.py``
+- ``hydromodpy/calibration/benchmark.py``
+- ``hydromodpy/calibration/engine.py``
 
 Artifacts
 ---------

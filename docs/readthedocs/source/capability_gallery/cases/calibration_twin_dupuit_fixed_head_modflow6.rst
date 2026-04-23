@@ -36,15 +36,10 @@ Same-solver twin benchmark on dupuit_fixed_head_1d with one scalar K value and o
       - cost=0
       - n_eval=11
       - distribution_samples=0
-      - calibration=3.277 s
-      - candidate runtime=2.879 s
-      - algorithm overhead=0.3981 s
-      - actualize=0.008216 s
-      - launcher prep=0.0785 s
-      - runtime patch=0.0001113 s
-      - simulate=0.1644 s
-      - output select=0.01807 s
-      - objective score=0.0004529 s
+      - calibration=3.391 s
+      - candidate runtime=3.388 s
+      - algorithm overhead=0.002949 s
+      - simulate=0.2826 s
 
    .. tab-item:: random_search
 
@@ -69,18 +64,13 @@ Same-solver twin benchmark on dupuit_fixed_head_1d with one scalar K value and o
       - metric=best_fit
       - target=True
       - best_fit=True
-      - cost=1.83963e+07
+      - cost=0.0382717
       - n_eval=24
       - distribution_samples=24
-      - calibration=6.02 s
-      - candidate runtime=5.068 s
-      - algorithm overhead=0.9519 s
-      - actualize=0.00895 s
-      - launcher prep=0.03957 s
-      - runtime patch=0.0001418 s
-      - simulate=0.15 s
-      - output select=0.02082 s
-      - objective score=0.0004318 s
+      - calibration=7.581 s
+      - candidate runtime=7.574 s
+      - algorithm overhead=0.00631 s
+      - simulate=0.289 s
 
    .. tab-item:: cma_es
 
@@ -97,20 +87,15 @@ Same-solver twin benchmark on dupuit_fixed_head_1d with one scalar K value and o
          Objective trace for `cma_es` on Calibration Twin: Dupuit Fixed-Head 1D, showing the evaluated models in order.
 
       - metric=best_fit
-      - target=True
-      - best_fit=True
-      - cost=2.54251e+06
-      - n_eval=28
+      - target=False
+      - best_fit=False
+      - cost=
+      - n_eval=8
       - distribution_samples=0
-      - calibration=6.858 s
-      - candidate runtime=6.684 s
-      - algorithm overhead=0.1743 s
-      - actualize=0.009431 s
-      - launcher prep=0.04025 s
-      - runtime patch=0.0001475 s
-      - simulate=0.1747 s
-      - output select=0.02285 s
-      - objective score=0.0005431 s
+      - calibration=2.59 s
+      - candidate runtime=2.568 s
+      - algorithm overhead=0.02226 s
+      - simulate=0.2939 s
 
    .. tab-item:: simplex
 
@@ -129,18 +114,13 @@ Same-solver twin benchmark on dupuit_fixed_head_1d with one scalar K value and o
       - metric=best_fit
       - target=True
       - best_fit=True
-      - cost=0
-      - n_eval=60
+      - cost=7.3242e-05
+      - n_eval=30
       - distribution_samples=0
-      - calibration=11.68 s
-      - candidate runtime=11.5 s
-      - algorithm overhead=0.1819 s
-      - actualize=0.009208 s
-      - launcher prep=0.01939 s
-      - runtime patch=0.0001587 s
-      - simulate=0.1507 s
-      - output select=0.02069 s
-      - objective score=0.0004707 s
+      - calibration=9.981 s
+      - candidate runtime=9.97 s
+      - algorithm overhead=0.01079 s
+      - simulate=0.3041 s
 
    .. tab-item:: nelder_mead
 
@@ -159,18 +139,13 @@ Same-solver twin benchmark on dupuit_fixed_head_1d with one scalar K value and o
       - metric=best_fit
       - target=True
       - best_fit=True
-      - cost=0
-      - n_eval=62
+      - cost=7.3242e-05
+      - n_eval=30
       - distribution_samples=0
-      - calibration=11.91 s
-      - candidate runtime=11.69 s
-      - algorithm overhead=0.2146 s
-      - actualize=0.008843 s
-      - launcher prep=0.01522 s
-      - runtime patch=0.0001525 s
-      - simulate=0.1511 s
-      - output select=0.02142 s
-      - objective score=0.0005001 s
+      - calibration=10.1 s
+      - candidate runtime=10.09 s
+      - algorithm overhead=0.01121 s
+      - simulate=0.3072 s
 
 Case Setup
 ----------
@@ -202,18 +177,18 @@ Key Metrics
 - Methods: 5
 - Display method: random_search
 - Distribution samples: 24
-- Calibration total: 6.02 s
-- Session prep: 0.863 s
-- Candidate runtime: 5.068 s
-- Algorithm overhead: 0.9519 s
-- Model total: 0.2112 s
-- Actualize: 0.00895 s
-- Launcher prep: 0.03957 s
-- Runtime patch: 0.0001418 s
-- Model prep: 0.04866 s
-- Model sim: 0.15 s
-- Output select: 0.02082 s
-- Objective score: 0.0004318 s
+- Calibration total: 7.581 s
+- Session prep: 0 s
+- Candidate runtime: 7.574 s
+- Algorithm overhead: 0.00631 s
+- Model total: 0.3156 s
+- Actualize:
+- Launcher prep:
+- Runtime patch:
+- Model prep: 0 s
+- Model sim: 0.289 s
+- Output select:
+- Objective score:
 
 Next Steps
 ----------
@@ -296,23 +271,23 @@ Methods And Timing
      - Source
    * - ``grid_search``
      - Method result summary including target status, evaluation count, total time, and mean per-model actualize / launcher / simulation / objective timings.
-     - target=true, cost=0, n_eval=11, distribution_samples=0, calib_s=3.27726, candidate_runtime_s=2.87914, algorithm_overhead_s=0.398114, actualize_s=0.00821566, launcher_prep_s=0.0785002, runtime_patch_s=0.000111291, model_sim_s=0.164385, output_select_s=0.0180746, objective_score_s=0.000452873
+     - target=true, cost=0, n_eval=11, distribution_samples=0, calib_s=3.39134, candidate_runtime_s=3.38839, algorithm_overhead_s=0.00294886, model_sim_s=0.282603
      - ``docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_dupuit_fixed_head_modflow6_summary.json``
    * - ``random_search``
      - Method result summary including target status, evaluation count, total time, and mean per-model actualize / launcher / simulation / objective timings.
-     - target=true, cost=1.83963e+07, n_eval=24, distribution_samples=24, calib_s=6.02036, candidate_runtime_s=5.06845, algorithm_overhead_s=0.951902, actualize_s=0.00895011, launcher_prep_s=0.0395662, runtime_patch_s=0.000141808, model_sim_s=0.15004, output_select_s=0.0208175, objective_score_s=0.000431783
+     - target=true, cost=0.0382717, n_eval=24, distribution_samples=24, calib_s=7.5806, candidate_runtime_s=7.57429, algorithm_overhead_s=0.00630982, model_sim_s=0.288989
      - ``docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_dupuit_fixed_head_modflow6_summary.json``
    * - ``cma_es``
      - Method result summary including target status, evaluation count, total time, and mean per-model actualize / launcher / simulation / objective timings.
-     - target=true, cost=2.54251e+06, n_eval=28, distribution_samples=0, calib_s=6.85838, candidate_runtime_s=6.68407, algorithm_overhead_s=0.174316, actualize_s=0.00943112, launcher_prep_s=0.0402468, runtime_patch_s=0.000147517, model_sim_s=0.174703, output_select_s=0.0228464, objective_score_s=0.000543142
+     - target=false, n_eval=8, distribution_samples=0, calib_s=2.59003, candidate_runtime_s=2.56777, algorithm_overhead_s=0.0222573, model_sim_s=0.2939
      - ``docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_dupuit_fixed_head_modflow6_summary.json``
    * - ``simplex``
      - Method result summary including target status, evaluation count, total time, and mean per-model actualize / launcher / simulation / objective timings.
-     - target=true, cost=0, n_eval=60, distribution_samples=0, calib_s=11.6797, candidate_runtime_s=11.4978, algorithm_overhead_s=0.18186, actualize_s=0.00920774, launcher_prep_s=0.019387, runtime_patch_s=0.000158654, model_sim_s=0.150723, output_select_s=0.0206876, objective_score_s=0.000470666
+     - target=true, cost=7.3242e-05, n_eval=30, distribution_samples=0, calib_s=9.98098, candidate_runtime_s=9.97019, algorithm_overhead_s=0.0107925, model_sim_s=0.304142
      - ``docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_dupuit_fixed_head_modflow6_summary.json``
    * - ``nelder_mead``
      - Method result summary including target status, evaluation count, total time, and mean per-model actualize / launcher / simulation / objective timings.
-     - target=true, cost=0, n_eval=62, distribution_samples=0, calib_s=11.9079, candidate_runtime_s=11.6933, algorithm_overhead_s=0.214558, actualize_s=0.00884257, launcher_prep_s=0.0152209, runtime_patch_s=0.000152506, model_sim_s=0.151103, output_select_s=0.0214211, objective_score_s=0.000500146
+     - target=true, cost=7.3242e-05, n_eval=30, distribution_samples=0, calib_s=10.1046, candidate_runtime_s=10.0933, algorithm_overhead_s=0.0112105, model_sim_s=0.307154
      - ``docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_dupuit_fixed_head_modflow6_summary.json``
 
 Displayed Metrics
@@ -340,51 +315,31 @@ Displayed Metrics
      - ``docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_dupuit_fixed_head_modflow6_summary.json``
    * - ``calibration_time_seconds``
      - Metric surfaced on the gallery page for the selected display method.
-     - 6.02 s
+     - 7.581 s
      - ``docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_dupuit_fixed_head_modflow6_summary.json``
    * - ``session_prepare_time_seconds``
      - Metric surfaced on the gallery page for the selected display method.
-     - 0.863 s
+     - 0 s
      - ``docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_dupuit_fixed_head_modflow6_summary.json``
    * - ``estimated_candidate_runtime_seconds``
      - Metric surfaced on the gallery page for the selected display method.
-     - 5.068 s
+     - 7.574 s
      - ``docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_dupuit_fixed_head_modflow6_summary.json``
    * - ``algorithm_overhead_time_seconds``
      - Metric surfaced on the gallery page for the selected display method.
-     - 0.9519 s
+     - 0.00631 s
      - ``docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_dupuit_fixed_head_modflow6_summary.json``
    * - ``mean_candidate_total_time_seconds``
      - Metric surfaced on the gallery page for the selected display method.
-     - 0.2112 s
-     - ``docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_dupuit_fixed_head_modflow6_summary.json``
-   * - ``mean_candidate_actualize_time_seconds``
-     - Metric surfaced on the gallery page for the selected display method.
-     - 0.00895 s
-     - ``docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_dupuit_fixed_head_modflow6_summary.json``
-   * - ``mean_candidate_launcher_prepare_time_seconds``
-     - Metric surfaced on the gallery page for the selected display method.
-     - 0.03957 s
-     - ``docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_dupuit_fixed_head_modflow6_summary.json``
-   * - ``mean_candidate_runtime_patch_time_seconds``
-     - Metric surfaced on the gallery page for the selected display method.
-     - 0.0001418 s
+     - 0.3156 s
      - ``docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_dupuit_fixed_head_modflow6_summary.json``
    * - ``mean_candidate_preparation_time_seconds``
      - Metric surfaced on the gallery page for the selected display method.
-     - 0.04866 s
+     - 0 s
      - ``docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_dupuit_fixed_head_modflow6_summary.json``
    * - ``mean_candidate_simulation_time_seconds``
      - Metric surfaced on the gallery page for the selected display method.
-     - 0.15 s
-     - ``docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_dupuit_fixed_head_modflow6_summary.json``
-   * - ``mean_candidate_output_selection_time_seconds``
-     - Metric surfaced on the gallery page for the selected display method.
-     - 0.02082 s
-     - ``docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_dupuit_fixed_head_modflow6_summary.json``
-   * - ``mean_candidate_objective_compute_time_seconds``
-     - Metric surfaced on the gallery page for the selected display method.
-     - 0.0004318 s
+     - 0.289 s
      - ``docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_dupuit_fixed_head_modflow6_summary.json``
 
 Source Pointers
@@ -397,8 +352,8 @@ Source Pointers
 - ``validation_cases/calibration/shared/runtime.py``
 - ``validation_cases/calibration/twin/steady/dupuit_fixed_head_1d/run_case.py``
 - ``validation_cases/calibration/twin/steady/dupuit_fixed_head_1d/experiment.py``
-- ``launchers/model_calibration/launcher.py``
-- ``launchers/model_calibration/runtime.py``
+- ``hydromodpy/calibration/benchmark.py``
+- ``hydromodpy/calibration/engine.py``
 
 Artifacts
 ---------
