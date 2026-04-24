@@ -14,6 +14,8 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 
+import numpy as np
+
 from hydromodpy.spatial.domain.depth_model_config import (
     ConstantThicknessDepthModel,
     FlatSubstratumDepthModel,
@@ -94,6 +96,31 @@ class Domain:
             self.substratum = self.surface_topo.flat_like(float(depth_model.substratum_elevation))
         else:
             raise TypeError(f"Unsupported depth_model payload: {type(depth_model)!r}")
+
+    @property
+    def z_interfaces(self) -> np.ndarray:
+        """Scalar layer interfaces derived from topography and depth model.
+
+        For a single-layer aquifer the returned array is ``[top, bottom]``
+        where both values are the mean elevation of the corresponding
+        surface. Raises if substratum has not been built or carries NaN
+        everywhere.
+        """
+        import numpy as np
+
+        if self.substratum is None:
+            raise ValueError(
+                "Domain.z_interfaces requires a substratum. "
+                "Build the Domain via its depth_model before reading this property."
+            )
+        top = float(np.nanmean(self.surface_topo.as_array()))
+        bottom = float(np.nanmean(self.substratum.as_array()))
+        if not np.isfinite(top) or not np.isfinite(bottom):
+            raise ValueError(
+                "Domain.z_interfaces cannot be computed: surface_topo or substratum "
+                "has no finite values."
+            )
+        return np.array([top, bottom], dtype=float)
 
     def set_zone(
         self,

@@ -518,30 +518,33 @@ class Project:
     # -- Private -----------------------------------------------------------
 
     def _detect_solver(self) -> str:
-        # Explicit solver in [[simulation.process]]
+        """Resolve the flow solver from the declared process list or solver block.
+
+        Walks cfg.simulation.process for the first flow process, then falls
+        back to cfg.solver.solver_engine (always set by Pydantic defaults).
+        No silent override beyond that.
+        """
         sim = self.cfg.simulation
         if sim.process:
             for proc in sim.process:
                 if proc.type == "flow" and proc.solvers:
                     return proc.solvers[0]
-        # Prefer the [solver] config block when present.
         solver_cfg = getattr(self.cfg, "solver", None)
         engine = getattr(solver_cfg, "solver_engine", None) if solver_cfg else None
         if engine:
             return str(engine)
-        # Infer from TOML sections present in the raw file (TOML-backed only).
-        if self._config_path is not None:
-            from hydromodpy.core.config.toml_loader import load_toml_with_base_config
-
-            raw = load_toml_with_base_config(self._config_path)
-            if "modflownwt" in raw:
-                return "modflownwt"
-            if "modflow6" in raw:
-                return "modflow6"
-        return "modflownwt"
+        raise ValueError(
+            "No flow solver declared. Add a [[simulation.process]] entry with "
+            "type='flow' or set [solver] solver_engine."
+        )
 
     def _ensure_simulation_block(self) -> None:
-        """Synthesize a [simulation] block if the TOML doesn't have one."""
+        """Synthesize [simulation] from [data.recharge] when it is absent.
+
+        Only used to accept TOMLs that declare data but no explicit orchestration.
+        The synthesized block uses the recharge date window, monthly steps and the
+        already-resolved solver. Errors out if date bounds are missing.
+        """
         if self.cfg.simulation.has_processes():
             return
 
@@ -550,8 +553,8 @@ class Project:
             SimulationProcessConfig,
             SimulationTimeConfig,
         )
+        from hydromodpy.workflow.steps.plan_building import DEFAULT_FLOW_PROCESS_ID
 
-        # Infer time window from recharge dates
         recharge_cfg = getattr(self.cfg.data, "recharge", None)
         start = getattr(recharge_cfg, "date_start", None) if recharge_cfg else None
         end = getattr(recharge_cfg, "date_end", None) if recharge_cfg else None
@@ -571,12 +574,10 @@ class Project:
             time=SimulationTimeConfig(
                 start_datetime=start,
                 end_datetime=end,
-                step_value="1 month",
-                coverage_policy="warn",
             ),
             process=[
                 SimulationProcessConfig(
-                    id="flow_main",
+                    id=DEFAULT_FLOW_PROCESS_ID,
                     type="flow",
                     solvers=[self._solver],
                 )

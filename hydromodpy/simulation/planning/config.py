@@ -102,7 +102,7 @@ class SimulationTimeConfig(HydroModelBase):
         ),
     )
     step_value: Annotated[int | float | str, Profile.USER] = Field(
-        default=1,
+        default="1 month",
         description=(
             "Forcing/stress-period time-step scalar or inline token '<value> <unit>' "
             "(for example '30 day'). "
