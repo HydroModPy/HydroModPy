@@ -8,14 +8,23 @@ Public surface:
     - build_optimizer: adapter registry lookup
 """
 
+from hydromodpy.calibration.config import (
+    CalibObjectiveBlockDecl,
+    CalibOutputDecl,
+    CalibParameterDecl,
+    CalibrationConfig,
+)
 from hydromodpy.calibration.engine import CalibrationEngine, CalibrationSession
+from hydromodpy.calibration.materialize import materialize_candidate
 from hydromodpy.calibration.objective import (
     CompositeObjective,
+    ConfigBlockObjective,
     Objective,
     ObjectiveValue,
     ObservationSet,
     ScalarObjective,
     SimulationOutput,
+    build_objective_from_config,
 )
 from hydromodpy.calibration.optimizer import (
     EvaluationResult,
@@ -28,12 +37,17 @@ from hydromodpy.calibration.parameters import (
     CalibParameter,
     Calibrable,
     ParameterSpace,
+    apply_parameter_to_config,
     discover_calibrable,
 )
 
 __all__ = [
     "CalibrationEngine",
     "CalibrationSession",
+    "CalibrationConfig",
+    "CalibParameterDecl",
+    "CalibOutputDecl",
+    "CalibObjectiveBlockDecl",
     "Optimizer",
     "Objective",
     "ObjectiveValue",
@@ -41,12 +55,16 @@ __all__ = [
     "SimulationOutput",
     "ScalarObjective",
     "CompositeObjective",
+    "ConfigBlockObjective",
+    "build_objective_from_config",
     "Calibrable",
     "CalibParameter",
     "ParameterSpace",
+    "apply_parameter_to_config",
     "ParamSuggestion",
     "EvaluationResult",
     "build_optimizer",
     "register_optimizer",
     "discover_calibrable",
+    "materialize_candidate",
 ]
