@@ -152,6 +152,44 @@ class GeologyConfig(HydroModelBase):
             raise ValueError("geology.id cannot be empty")
         return text
 
+    @classmethod
+    def brgm_1m(cls, **overrides) -> GeologyConfig:
+        """GeologyConfig backed by the BRGM 1:1M national map."""
+        return cls(sources=[GeologySourceConfig(source="brgm_1m")], **overrides)
+
+    @classmethod
+    def brgm_50k(cls, **overrides) -> GeologyConfig:
+        """GeologyConfig backed by the BRGM 1:50K departmental maps."""
+        return cls(sources=[GeologySourceConfig(source="brgm_50k")], **overrides)
+
+    @classmethod
+    def from_shapefile(
+        cls,
+        path: str | Path,
+        *,
+        code_field: str,
+        **overrides,
+    ) -> GeologyConfig:
+        """GeologyConfig from a custom polygon shapefile (SHP or GPKG)."""
+        return cls(
+            sources=[
+                GeologySourceConfig(
+                    source="custom",
+                    path=Path(path),
+                    code_field=code_field,
+                )
+            ],
+            **overrides,
+        )
+
+    @classmethod
+    def from_geotiff(cls, path: str | Path, **overrides) -> GeologyConfig:
+        """GeologyConfig from a pre-rasterized GeoTIFF."""
+        return cls(
+            sources=[GeologySourceConfig(source="custom", path=Path(path))],
+            **overrides,
+        )
+
 
 # ---------------------------------------------------------------------------
 # Standalone geology field schemas (used by GeologyField.from_dict/from_toml

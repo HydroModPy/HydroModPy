@@ -105,3 +105,59 @@ class HydrometryConfig(BaseVariableConfig):
     sources: Annotated[list[HydrometrySourceConfig], Profile.USER] = Field(
         ..., min_length=1, description="At least one data source."
     )
+
+    @classmethod
+    def hubeau(
+        cls,
+        *,
+        stations: list[str] | None = None,
+        product: str = "QmnJ",
+        start: str | None = None,
+        end: str | None = None,
+        extent: Literal["watershed", "study_area"] | None = None,
+        **overrides,
+    ) -> HydrometryConfig:
+        """HydrometryConfig reading discharge timeseries from the Hub'Eau API."""
+        source_kwargs: dict[str, object] = {"product": product}
+        if stations is not None:
+            source_kwargs["station_ids"] = list(stations)
+        if extent is not None:
+            source_kwargs["extent"] = extent
+        source_kwargs.update(overrides)
+        return cls(
+            date_start=start,
+            date_end=end,
+            sources=[HydrometrySourceConfig(source="hubeau", **source_kwargs)],
+        )
+
+    @classmethod
+    def from_csv_directory(
+        cls,
+        path: str | Path,
+        *,
+        start: str | None = None,
+        end: str | None = None,
+        col_id: str = "id",
+        col_x: str = "x",
+        col_y: str = "y",
+        col_datetime: str = "datetime",
+        col_value: str = "value",
+        **overrides,
+    ) -> HydrometryConfig:
+        """HydrometryConfig reading a directory of station CSVs."""
+        return cls(
+            date_start=start,
+            date_end=end,
+            sources=[
+                HydrometrySourceConfig(
+                    source="custom",
+                    path=Path(path),
+                    col_id=col_id,
+                    col_x=col_x,
+                    col_y=col_y,
+                    col_datetime=col_datetime,
+                    col_value=col_value,
+                    **overrides,
+                )
+            ],
+        )

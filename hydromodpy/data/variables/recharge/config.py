@@ -136,3 +136,124 @@ class RechargeConfig(BaseVariableConfig):
         min_length=1,
         description="At least one data source.",
     )
+
+    @classmethod
+    def sim2(
+        cls,
+        *,
+        start: str,
+        end: str,
+        extent: Literal["watershed", "study_area"] = "watershed",
+        **overrides,
+    ) -> RechargeConfig:
+        """RechargeConfig pulling from the SIM2 EDR service for a date window."""
+        return cls(
+            date_start=start,
+            date_end=end,
+            sources=[RechargeSourceConfig(source="sim2", extent=extent, **overrides)],
+        )
+
+    @classmethod
+    def synthetic(
+        cls,
+        *,
+        start: str,
+        end: str,
+        values: list[float] | float,
+        freq: str = "D",
+        **overrides,
+    ) -> RechargeConfig:
+        """RechargeConfig with a generated series (constant or sinusoidal)."""
+        return cls(
+            date_start=start,
+            date_end=end,
+            sources=[
+                RechargeSourceConfig(
+                    source="synthetic",
+                    start_date=start,
+                    values=[float(values)] if isinstance(values, (int, float)) else list(values),
+                    freq=freq,
+                    **overrides,
+                )
+            ],
+        )
+
+    @classmethod
+    def from_netcdf(
+        cls,
+        path: str | Path,
+        *,
+        start: str,
+        end: str,
+        source_unit: str | None = None,
+        **overrides,
+    ) -> RechargeConfig:
+        """RechargeConfig reading a user NetCDF file as custom gridded source."""
+        return cls(
+            date_start=start,
+            date_end=end,
+            sources=[
+                RechargeSourceConfig(
+                    source="custom",
+                    path=Path(path),
+                    source_unit=source_unit,
+                    **overrides,
+                )
+            ],
+        )
+
+    @classmethod
+    def from_geotiff(
+        cls,
+        path: str | Path,
+        *,
+        start: str,
+        end: str,
+        source_unit: str | None = None,
+        **overrides,
+    ) -> RechargeConfig:
+        """RechargeConfig reading a user GeoTIFF as custom gridded source."""
+        return cls(
+            date_start=start,
+            date_end=end,
+            sources=[
+                RechargeSourceConfig(
+                    source="custom",
+                    path=Path(path),
+                    source_unit=source_unit,
+                    **overrides,
+                )
+            ],
+        )
+
+    @classmethod
+    def from_csv_directory(
+        cls,
+        path: str | Path,
+        *,
+        start: str,
+        end: str,
+        col_id: str = "id",
+        col_x: str = "x",
+        col_y: str = "y",
+        col_datetime: str = "datetime",
+        col_value: str = "value",
+        **overrides,
+    ) -> RechargeConfig:
+        """RechargeConfig reading a directory of station CSVs."""
+        return cls(
+            date_start=start,
+            date_end=end,
+            sources=[
+                RechargeSourceConfig(
+                    source="custom",
+                    path=Path(path),
+                    col_id=col_id,
+                    col_x=col_x,
+                    col_y=col_y,
+                    col_datetime=col_datetime,
+                    col_value=col_value,
+                    **overrides,
+                )
+            ],
+        )
