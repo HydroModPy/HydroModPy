@@ -805,47 +805,254 @@ def select_candidate_outputs(
 ) -> dict[str, tuple[float, ...]]:
     """Extract configured simulated observables from a finished run state.
 
-    Best-effort implementation on top of the new architecture. It inspects
-    ``run_state.execution`` (populated by :class:`hydromodpy.Project.run`)
-    to locate the simulation output directory and the flow model name, then
-    reads the MODFLOW binary files (``.cbc`` / ``.hds``) for each output
-    declared in ``cfg.model_calibration.output``.
+    Reads through the workspace catalog (DuckDB + Zarr) so the extraction
+    is robust to post-``project.close()`` state changes. The ``sim_id`` of
+    the last flow run is resolved from ``run_state.execution`` and the
+    catalog path is recovered from ``run_state.setup.workspace``.
 
     Returns the legacy dict format ``{output_name: tuple[float, ...]}``.
     """
-    # Accept both our internal cfg + the launcher namespace shape.
     model_calibration = getattr(cfg, "model_calibration", None)
     if model_calibration is None:
         return {}
     outputs = tuple(getattr(model_calibration, "output", ()))
-    output_dir = _simulation_output_dir(run_state)
-    model_name = _model_name(run_state)
-    mesh = getattr(getattr(run_state, "setup", None), "mesh_planar", None)
+    if not outputs:
+        return {}
+
+    sim_id = _locate_latest_sim_id(run_state)
+    workspace_root = _locate_workspace_root(run_state)
+
+    mesh_fallback = getattr(getattr(run_state, "setup", None), "mesh_planar", None)
 
     selected: dict[str, tuple[float, ...]] = {}
-    for output_cfg in outputs:
-        variable = str(output_cfg.variable).strip().lower()
-        support = str(output_cfg.support).strip().lower()
-        values: np.ndarray | None = None
-        if output_dir is not None and model_name is not None:
-            if variable == "outlet_discharge" or support == "boundary":
-                values = _extract_outlet_discharge(output_dir, model_name)
-            elif variable in {"watertable_elevation", "head"} and support == "point":
-                values = _extract_head_timeseries(
-                    output_dir,
-                    model_name,
-                    x=float(output_cfg.x) if output_cfg.x is not None else 0.0,
-                    y=float(output_cfg.y) if output_cfg.y is not None else 0.0,
-                    mesh=mesh,
-                )
-        if values is None or values.size == 0:
-            # Fall back to observed values' length filled with NaNs so the
-            # evaluator still receives a vector of the right shape.
-            observed = output_cfg.observed_values
-            length = len(observed) if observed is not None else 1
-            values = np.full(length, np.nan, dtype=float)
-        selected[output_cfg.name] = tuple(float(value) for value in np.asarray(values).ravel())
+    catalog = None
+    run = None
+    if sim_id is not None and workspace_root is not None:
+        try:
+            from hydromodpy.results.catalog import SimulationCatalog
+
+            catalog = SimulationCatalog(workspace_root)
+            run = catalog[sim_id]
+        except Exception:
+            catalog = None
+            run = None
+
+    try:
+        for output_cfg in outputs:
+            variable = str(output_cfg.variable).strip().lower()
+            support = str(output_cfg.support).strip().lower()
+            values: np.ndarray | None = None
+            if run is not None:
+                if variable == "outlet_discharge" or support == "boundary":
+                    values = _extract_outlet_discharge_from_run(run, output_cfg.boundary_id)
+                elif variable in {"watertable_elevation", "head"} and support == "point":
+                    values = _extract_head_from_run(
+                        run,
+                        x=float(output_cfg.x) if output_cfg.x is not None else 0.0,
+                        y=float(output_cfg.y) if output_cfg.y is not None else 0.0,
+                        mesh_fallback=mesh_fallback,
+                    )
+            if values is None or values.size == 0:
+                observed = output_cfg.observed_values
+                length = len(observed) if observed is not None else 1
+                values = np.full(length, np.nan, dtype=float)
+            selected[output_cfg.name] = tuple(float(value) for value in np.asarray(values).ravel())
+    finally:
+        if catalog is not None:
+            try:
+                catalog.close()
+            except Exception:
+                pass
     return selected
+
+
+def _locate_latest_sim_id(run_state: Any) -> str | None:
+    """Return the last registered flow ``sim_id`` from a workflow context."""
+    registry = getattr(run_state, "execution", None)
+    if registry is None:
+        return None
+    # sim_ids_by_run_id (Dict[str, str]) is populated by the ingest step.
+    sim_ids = getattr(registry, "sim_ids_by_run_id", None) or {}
+    plan = getattr(registry, "simulation_plan", None)
+    if plan is not None:
+        for run in getattr(plan, "runs", ()):
+            if run.process_type == "flow" and run.id in sim_ids:
+                return str(sim_ids[run.id])
+    if sim_ids:
+        return str(next(iter(sim_ids.values())))
+    # Fallback: read from ctx.sim_id (set by older code paths).
+    sid = getattr(run_state, "sim_id", None)
+    return str(sid) if sid is not None else None
+
+
+def _locate_workspace_root(run_state: Any) -> Path | None:
+    """Return the workspace root path from a workflow context."""
+    setup = getattr(run_state, "setup", None)
+    if setup is None:
+        return None
+    workspace = getattr(setup, "workspace", None)
+    if workspace is None:
+        return None
+    root = getattr(workspace, "root", None)
+    return Path(root) if root is not None else None
+
+
+def _extract_outlet_discharge_from_run(run: Any, boundary_id: str | None) -> np.ndarray | None:
+    """Return a per-timestep outlet discharge series from a catalog Run.
+
+    The boundary family is inferred from the declared ``boundary_id`` (names
+    like ``"east_side"``, ``"outlet"`` map to the CHD package; ``"drain"``
+    family names map to DRN). Falls back to summing every declared boundary
+    component when the family cannot be resolved.
+    """
+    bud = run.budget()
+    if bud.empty:
+        return None
+    # Match legacy's ``_extract_outlet_discharge`` boundary precedence.
+    preferred: tuple[str, ...] = ("drn", "drain", "drains", "chd")
+    lowered = {str(c).strip().lower() for c in bud["component"].unique() if c is not None}
+    bid = (boundary_id or "").strip().lower()
+    resolved: str | None = None
+    if "drain" in bid or "drn" in bid:
+        for key in ("drn", "drain", "drains"):
+            if key in lowered:
+                resolved = key
+                break
+    if resolved is None:
+        for key in preferred:
+            if key in lowered:
+                resolved = key
+                break
+    if resolved is None:
+        return None
+    subset = bud[bud["component"].astype(str).str.strip().str.lower() == resolved]
+    if subset.empty:
+        return None
+    # Sum flux magnitudes across zones for each timestep; match legacy sign
+    # convention (absolute outflow).
+    grouped = subset.groupby("timestep", as_index=True)
+    # flux_out represents the flux leaving the model at this boundary.
+    flux = grouped["flux_out"].sum().sort_index()
+    return flux.to_numpy(dtype=float)
+
+
+def _extract_head_from_run(
+    run: Any,
+    *,
+    x: float,
+    y: float,
+    mesh_fallback: Any,
+) -> np.ndarray | None:
+    """Return a head time series at the cell closest to ``(x, y)``."""
+    flat_index = _resolve_flat_index(run, x=x, y=y, mesh_fallback=mesh_fallback)
+    if flat_index is None:
+        return None
+
+    n_ts = 1
+    try:
+        row = run._load_row() if hasattr(run, "_load_row") else {}
+        row_ts = row.get("n_timesteps") if row else None
+        if row_ts is not None:
+            n_ts = max(1, int(row_ts))
+    except Exception:
+        n_ts = 1
+
+    for variable in ("watertable_elevation", "head"):
+        values: list[float] = []
+        ok = True
+        for t in range(n_ts):
+            try:
+                frame = run.field(variable, timestep=t)
+            except Exception:
+                ok = False
+                break
+            arr = np.asarray(frame, dtype=float).ravel()
+            if flat_index >= arr.size:
+                values.append(float("nan"))
+            else:
+                values.append(float(arr[flat_index]))
+        if ok and values:
+            out = np.asarray(values, dtype=float)
+            out[np.abs(out) > 1e6] = np.nan
+            return out
+    return None
+
+
+def _resolve_flat_index(
+    run: Any,
+    *,
+    x: float,
+    y: float,
+    mesh_fallback: Any,
+) -> int | None:
+    """Return the flat cell index closest to ``(x, y)`` for ``run``.
+
+    Tries the catalog ``Grid`` first (regular planar meshes), then the
+    zarr mesh group (``vertices`` + ``face_node_connectivity`` when
+    written by disv/disu solvers), and finally the in-memory
+    ``mesh_fallback`` attached to the workflow context.
+    """
+    try:
+        grid = run.grid
+    except Exception:
+        grid = None
+    if grid is not None and getattr(grid, "cell_size", None) and getattr(grid, "extent", None):
+        try:
+            cell_size = float(grid.cell_size)
+            x_min, x_max, y_min, y_max = (float(v) for v in grid.extent)
+            n_rows, n_cols = (int(v) for v in grid.shape)
+            col = int(round((float(x) - x_min) / cell_size - 0.5))
+            row_from_bottom = int(round((float(y) - y_min) / cell_size - 0.5))
+            col = max(0, min(n_cols - 1, col))
+            row_from_bottom = max(0, min(n_rows - 1, row_from_bottom))
+            # MODFLOW row ordering is top-down: row 0 is northernmost.
+            row = n_rows - 1 - row_from_bottom
+            return int(row * n_cols + col)
+        except Exception:
+            pass
+
+    try:
+        mesh_payload = run.mesh
+    except Exception:
+        mesh_payload = None
+    if mesh_payload is not None:
+        vertices = np.asarray(mesh_payload.get("vertices", []), dtype=float)
+        connectivity = np.asarray(mesh_payload.get("face_node_connectivity", []), dtype=int)
+        if connectivity.size and vertices.size >= 2:
+            centroids = _centroids_from_mesh(vertices, connectivity)
+            if centroids is not None and centroids.size:
+                distances = np.hypot(
+                    centroids[:, 0] - float(x),
+                    centroids[:, 1] - float(y),
+                )
+                return int(np.argmin(distances))
+
+    cell = _nearest_cell_index(mesh_fallback, x=x, y=y)
+    if cell is not None:
+        _, _, flat = cell
+        return int(flat)
+    return None
+
+
+def _centroids_from_mesh(
+    vertices: np.ndarray,
+    face_node_connectivity: np.ndarray,
+) -> np.ndarray | None:
+    """Return per-cell 2D centroids from vertex + connectivity arrays."""
+    try:
+        if vertices.ndim != 2 or face_node_connectivity.ndim != 2:
+            return None
+        # Fill masked / -1 indices with NaN to avoid skewing the mean.
+        valid = face_node_connectivity >= 0
+        gathered = np.where(
+            valid[..., None],
+            vertices[np.where(valid, face_node_connectivity, 0)],
+            np.nan,
+        )
+        centroids = np.nanmean(gathered, axis=1)
+        return centroids[:, :2]
+    except Exception:
+        return None
 
 
 # ---------------------------------------------------------------------------
@@ -1167,6 +1374,12 @@ def _driver_cma_es(
         "maxfevals": max_evaluations,
         "bounds": bounds_t,
         "verbose": -9,
+        # Disable convergence criteria that cause premature stops on tiny
+        # 1-D problems. Only the evaluation budget should end the search.
+        "tolx": 1e-20,
+        "tolfun": 1e-20,
+        "tolfacupx": 1e20,
+        "tolflatfitness": max_evaluations,
     }
     if seed is not None:
         options["seed"] = int(seed)
@@ -1174,20 +1387,30 @@ def _driver_cma_es(
     best_cost = float("inf")
     best_vector: np.ndarray | None = None
     n_eval = 0
-    while not es.stop() and n_eval < max_evaluations:
+    while n_eval < max_evaluations:
+        if es.stop():
+            break
         xs = es.ask()
         costs: list[float] = []
+        physicals: list[np.ndarray] = []
         for x in xs:
+            if n_eval >= max_evaluations:
+                break
             physical = _to_physical(np.asarray(x, dtype=float))
+            physicals.append(physical)
             cost, _ = cost_fn(physical)
             costs.append(cost if math.isfinite(cost) else 1e12)
             n_eval += 1
             if math.isfinite(cost) and cost < best_cost:
                 best_cost = cost
                 best_vector = physical.copy()
-            if n_eval >= max_evaluations:
+        if costs:
+            try:
+                es.tell(xs[: len(costs)], costs)
+            except Exception:
+                # CMA may reject a batch with constant costs on a 1-D problem.
+                # Ignore the tell and keep iterating with the accumulated best.
                 break
-        es.tell(xs[: len(costs)], costs)
     if best_vector is None:
         best_vector = x0
     return best_vector, best_cost, int(n_eval)

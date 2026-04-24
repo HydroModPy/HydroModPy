@@ -677,18 +677,32 @@ def assert_required_executables(
 
     required_paths = []
     if require_modflow:
-        required_paths.append(mf_exe)
+        required_paths.append(("mfnwt", mf_exe))
     if require_modflow6:
-        required_paths.append(mf6_exe)
+        required_paths.append(("mf6", mf6_exe))
     if require_modpath:
-        required_paths.append(mp_exe)
+        required_paths.append(("mp6", mp_exe))
     if require_mt3dms:
-        required_paths.append(mt_exe)
+        required_paths.append(("mt3dusgs", mt_exe))
 
-    missing = [str(p) for p in required_paths if not p.exists()]
+    from hydromodpy.core.tools.cache import get_cache_bin_dir
+    from hydromodpy.solver.modflow_common.binaries import locate_solver_binary
+
+    resolved: list[Path] = []
+    missing: list[str] = []
+    cache_dir = get_cache_bin_dir()
+    for solver, path in required_paths:
+        if path.exists():
+            resolved.append(path)
+            continue
+        cached = locate_solver_binary(cache_dir, solver)
+        if cached is not None:
+            resolved.append(cached)
+            continue
+        missing.append(str(path))
     if missing:
         pytest.skip(f"Required executables are missing: {missing}")
-    for path in required_paths:
+    for path in resolved:
         ensure_platform_executable(path)
 
 
