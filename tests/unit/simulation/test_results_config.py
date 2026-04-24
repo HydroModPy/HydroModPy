@@ -22,8 +22,8 @@ class TestResultsConfigDefaults:
         assert cfg.derived.watertable_elevation is True
         assert cfg.derived.watertable_depth is True
         assert cfg.derived.seepage_areas is True
-        assert cfg.budget.spatial_fields is False
-        assert cfg.export.netcdf is True
+        assert cfg.budget.spatial_fields is True
+        assert cfg.export.netcdf is False
         assert cfg.export.csv_timeseries is True
 
     def test_from_dict(self):
@@ -57,9 +57,9 @@ class TestDerivedConfig:
         assert dump["watertable_elevation"] is False
         assert dump["watertable_depth"] is False
         assert dump["seepage_areas"] is False
-        # New variables default to False
         assert dump["groundwater_flux"] is False
-        assert dump["accumulation_flux"] is False
+        assert dump["accumulation_flux"] is True
+        assert dump["outflow_drain"] is True
         assert dump["concentration_seepage"] is False
         assert dump["mass_seepage"] is False
         assert dump["mass_accumulated"] is False
