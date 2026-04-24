@@ -32,11 +32,11 @@ class DerivedConfig(HydroModelBase):
         description="Magnitude of inter-cell flow (right/front/lower face). Volumetric.",
     )
     accumulation_flux: Annotated[bool, Profile.DEV] = Field(
-        default=False,
+        default=True,
         description="Drain flux routed on the drainage network.",
     )
     outflow_drain: Annotated[bool, Profile.DEV] = Field(
-        default=False,
+        default=True,
         description="Per-cell drain outflow preserving sign convention.",
     )
     concentration_seepage: Annotated[bool, Profile.DEV] = Field(
@@ -91,7 +91,7 @@ class ExportConfig(HydroModelBase):
     model_config = ConfigDict(extra="forbid")
 
     netcdf: Annotated[bool, Profile.USER] = Field(
-        default=True, description="Export to NetCDF-4/UGRID."
+        default=False, description="Export to NetCDF-4/UGRID."
     )
     csv_timeseries: Annotated[bool, Profile.USER] = Field(
         default=True, description="Export time series to CSV."
@@ -123,7 +123,7 @@ class BudgetConfig(HydroModelBase):
     model_config = ConfigDict(extra="forbid")
 
     spatial_fields: Annotated[bool, Profile.DEV] = Field(
-        default=False,
+        default=True,
         description="Extract per-cell budget fields (DRN, RCH, etc.) into Zarr.",
     )
 
