@@ -40,10 +40,12 @@ from hydromodpy.calibration.parameters import (
     apply_parameter_to_config,
     discover_calibrable,
 )
+from hydromodpy.calibration.report import CalibrationReport
 
 __all__ = [
     "CalibrationEngine",
     "CalibrationSession",
+    "CalibrationReport",
     "CalibrationConfig",
     "CalibParameterDecl",
     "CalibOutputDecl",

@@ -1,13 +1,21 @@
-"""HTML report renderer for one calibration session.
+"""HTML report renderer and :class:`CalibrationReport` dataclass.
 
-Reads every calibration figure registered under
-``hydromodpy.display.figures.calibration_*``, renders each one into a
-PNG under ``<workspace>/reports/<session_id>/figures/``, and assembles
-a self-contained ``report.html`` that embeds the PNGs + the session
-metadata table.
+Two concerns live here:
 
-The report is intentionally static - no JS, no external fonts, no CDN.
-It opens offline from the workspace directory.
+1. :class:`CalibrationReport` - structured return type of
+   :func:`hydromodpy.calibration.cli.run_calibration_cli` and
+   :meth:`hydromodpy.Project.calibrate`. Exposes session metadata plus
+   lazy accessors for iteration history, the best :class:`Run`, and
+   plotting.
+2. :func:`render_session_report` - the HTML rendering helper that reads
+   every calibration figure registered under
+   ``hydromodpy.display.figures.calibration_*``, renders each one into
+   a PNG under ``<workspace>/reports/<session_id>/figures/``, and
+   assembles a self-contained ``report.html`` that embeds the PNGs +
+   the session metadata table.
+
+The HTML report is intentionally static - no JS, no external fonts, no
+CDN. It opens offline from the workspace directory.
 """
 
 from __future__ import annotations
@@ -15,6 +23,7 @@ from __future__ import annotations
 import html
 import json
 import logging
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
@@ -22,6 +31,123 @@ if TYPE_CHECKING:
     from hydromodpy.results.catalog import SimulationCatalog
 
 logger = logging.getLogger(__name__)
+
+
+# ---------------------------------------------------------------------------
+# CalibrationReport dataclass
+# ---------------------------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class CalibrationReport:
+    """Structured summary of one calibration session.
+
+    Returned by :meth:`hydromodpy.Project.calibrate` and by the
+    :func:`run_calibration_cli` helper (both keep a ``to_dict`` shim so
+    existing callers keep working).
+
+    Attributes
+    ----------
+    session_id
+        UUID (hex) of the calibration session in the catalog.
+    method
+        Optimizer method name (e.g. ``"optuna"``).
+    n_iterations
+        Number of iterations actually run (could be < ``max_iter`` if
+        the optimizer converged).
+    best_objective
+        Best (minimum) objective value achieved.
+    best_sim_id
+        UUID of the promoted best run when ``save_runs != "none"``,
+        otherwise ``None``.
+    duration_s
+        Wall-clock duration of the calibration loop in seconds.
+    save_runs
+        The ``save_runs`` mode used (``"none"``, ``"best_n"`` or ``"all"``).
+    promoted
+        Count of iterations promoted to full simulations after the loop.
+    workspace
+        Workspace root the session was written to.
+    extra
+        Free-form metadata (callers may attach anything extra here).
+    """
+
+    session_id: str
+    method: str
+    n_iterations: int
+    best_objective: float | None
+    best_sim_id: str | None
+    duration_s: float
+    save_runs: str
+    promoted: int
+    workspace: Path | None = None
+    extra: dict[str, Any] = field(default_factory=dict)
+
+    # ------------------------------------------------------------------
+    # Lazy accessors
+    # ------------------------------------------------------------------
+
+    @property
+    def iterations(self):
+        """Return the iteration history as a :class:`pandas.DataFrame`.
+
+        Loads lazily via :class:`hydromodpy.results.catalog.SimulationCatalog`
+        using the workspace attached to the report.
+        """
+        import pandas as pd
+
+        if self.workspace is None:
+            return pd.DataFrame()
+        from hydromodpy.calibration.persistence import CalibrationPersistence
+        from hydromodpy.results.catalog import SimulationCatalog
+
+        with SimulationCatalog(self.workspace) as catalog:
+            rows = CalibrationPersistence(catalog).load_iterations(self.session_id)
+        return pd.DataFrame(rows)
+
+    @property
+    def best(self):
+        """Return the best promoted :class:`Run` or ``None``."""
+        if self.best_sim_id is None or self.workspace is None:
+            return None
+        from hydromodpy.results.catalog import SimulationCatalog
+
+        with SimulationCatalog(self.workspace) as catalog:
+            return catalog[self.best_sim_id]
+
+    def plot(self, name: str, **kwargs):
+        """Delegate to the registered figure by ``name``.
+
+        Equivalent to ``hmp.display.get(name).plot(self.best, **kwargs)``.
+        """
+        run = self.best
+        if run is None:
+            raise RuntimeError(
+                "CalibrationReport.plot() requires a promoted best run. "
+                "Re-run with save_runs='best_n' or 'all'."
+            )
+        from hydromodpy.display import get as get_figure
+
+        fig = get_figure(name)
+        return fig.plot(run, **kwargs)
+
+    def to_dict(self) -> dict[str, Any]:
+        """Return a JSON-friendly summary matching the legacy CLI output."""
+        payload: dict[str, Any] = {
+            "session_id": self.session_id,
+            "method": self.method,
+            "n_iterations": int(self.n_iterations),
+            "best_objective": self.best_objective,
+            "best_sim_id": self.best_sim_id,
+            "duration_s": round(float(self.duration_s), 3),
+            "save_runs": self.save_runs,
+            "promoted": int(self.promoted),
+        }
+        if self.workspace is not None:
+            payload["workspace"] = str(self.workspace)
+        if self.extra:
+            payload["extra"] = dict(self.extra)
+        return payload
 
 
 # ---------------------------------------------------------------------------

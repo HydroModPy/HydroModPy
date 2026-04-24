@@ -194,7 +194,8 @@ def run_calibration_cli(
     workspace: Path | str | None = None,
     project: str = "calibration",
     metric_fn: TrialMetricFn | None = None,
-) -> dict:
+    return_report: bool = False,
+) -> dict | object:
     """Run a calibration described by ``config_path``.
 
     Parameters
@@ -391,17 +392,22 @@ def run_calibration_cli(
     if best_sim_id is not None:
         _update_best_sim_id(catalog, session_id, best_sim_id)
 
-    summary = {
-        "session_id": session_id,
-        "method": cfg.method,
-        "n_iterations": len(session.history),
-        "best_objective": best.objective_value if best else None,
-        "best_sim_id": best_sim_id,
-        "duration_s": round(session.duration_s if session.duration_s else elapsed, 3),
-        "save_runs": cfg.save_runs,
-        "promoted": promotion_count,
-    }
-    return summary
+    from hydromodpy.calibration.report import CalibrationReport
+
+    report = CalibrationReport(
+        session_id=session_id,
+        method=cfg.method,
+        n_iterations=len(session.history),
+        best_objective=best.objective_value if best else None,
+        best_sim_id=best_sim_id,
+        duration_s=float(session.duration_s if session.duration_s else elapsed),
+        save_runs=cfg.save_runs,
+        promoted=promotion_count,
+        workspace=ws_root,
+    )
+    if return_report:
+        return report
+    return report.to_dict()
 
 
 __all__ = ["run_calibration_cli"]
