@@ -41,6 +41,11 @@ class ProcessRun:
     # Dependencies refer to concrete run ids (for example "flow_1::modflownwt").
     depends_on: tuple[str, ...] = field(default_factory=tuple)
 
+    @staticmethod
+    def build_id(process_id: str, solver: str) -> str:
+        """Canonical run-id format: ``"<process_id>::<solver>"``."""
+        return f"{process_id}::{solver}"
+
 
 @dataclass(frozen=True)
 class SimulationPlan:

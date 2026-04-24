@@ -27,12 +27,13 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 from uuid import uuid4
 
-import numpy as np
-
 if TYPE_CHECKING:
     from hydromodpy.results.run import Run
 
 logger = logging.getLogger(__name__)
+
+
+DEFAULT_RUN_NAME_TEMPLATE = "run_{counter:04d}"
 
 
 # =====================================================================
@@ -306,31 +307,37 @@ class Project:
             SimulationRunner,
         )
         from hydromodpy.simulation.extraction.post_run import post_run_results
-        from hydromodpy.spatial.geographic.store_ingestion import (
-            persist_geographic_to_store,
+        from hydromodpy.workflow.steps.cleanup import step_cleanup_scratch
+        from hydromodpy.workflow.steps.figures import step_render_figures
+        from hydromodpy.workflow.steps.observations import step_ingest_observations
+        from hydromodpy.workflow.steps.persistence import (
+            step_persist_geographic,
+            step_persist_mesh,
+            step_persist_params,
         )
+        from hydromodpy.workflow.steps.plan_building import step_build_plan
+        from hydromodpy.workflow.steps.registration import step_register_simulation
+        from hydromodpy.workflow.steps.result_ingestion import step_persist_forcings
+        from hydromodpy.workflow.steps.results_config import step_configure_results
 
         self._run_counter += 1
         sim_id = str(uuid4())
         if name is None:
-            name = f"run_{self._run_counter:04d}"
+            name = DEFAULT_RUN_NAME_TEMPLATE.format(counter=self._run_counter)
 
-        # Special overrides
         thickness = overrides.pop("thickness", None)
         first_clim = overrides.pop("first_clim", None)
         properties = overrides.pop("properties", None)
 
-        if overrides or thickness is not None or first_clim is not None:
-            plan = self._run_with_overrides(
-                name,
-                overrides,
-                thickness=thickness,
-                first_clim=first_clim,
-            )
-        else:
-            plan = self._run_from_plan(name)
+        plan = step_build_plan(
+            self._ctx,
+            name=name,
+            overrides=overrides,
+            thickness=thickness,
+            first_clim=first_clim,
+            solver=self._solver,
+        )
 
-        # Inject spatially varying property arrays (calibration use-case)
         if properties is not None:
             self._ctx.setup.flow_runtime_overrides = {
                 "source": "project_run",
@@ -339,124 +346,29 @@ class Project:
         else:
             self._ctx.setup.flow_runtime_overrides = None
 
-        # Register in catalog with enriched metadata
-        solvers = ",".join(r.solver for r in plan.runs)
-        reg_kwargs: dict = {
-            "flow_regime": self.cfg.flow.flow_regime,
-            "config_source": str(self._config_path) if self._config_path else "<in-memory>",
-        }
-        try:
-            reg_kwargs["config"] = self.cfg.model_dump(mode="json")
-        except Exception:
-            pass
-
-        mesh = self._ctx.setup.mesh_planar
-        if mesh is not None:
-            reg_kwargs["n_cells"] = mesh.n_cells
-            reg_kwargs["mesh_type"] = getattr(mesh, "cell_type", None)
-            reg_kwargs["cell_types"] = [getattr(mesh, "cell_type", "unknown")]
-            bbox = getattr(mesh, "bounds", None)
-            if bbox is not None:
-                reg_kwargs["bbox"] = list(bbox)
-            try:
-                import hashlib as _hashlib
-
-                mesh_bytes = mesh.points_xy.tobytes() + mesh.connectivity.tobytes()
-                reg_kwargs["mesh_hash"] = _hashlib.sha256(mesh_bytes).hexdigest()
-            except Exception:
-                pass
-
-        crs = getattr(self.cfg.geographic, "crs_project", None)
-        if crs is not None:
-            reg_kwargs["crs"] = str(crs)
-
-        tg = self._ctx.setup.time_grid
-        if tg is not None:
-            boundaries = getattr(tg, "boundaries", None)
-            if boundaries and len(boundaries) >= 2:
-                reg_kwargs["period_start"] = str(boundaries[0])
-                reg_kwargs["period_end"] = str(boundaries[-1])
-                reg_kwargs["n_timesteps"] = len(boundaries) - 1
-            time_cfg = getattr(self.cfg.simulation, "time", None)
-            if time_cfg is not None:
-                reg_kwargs["time_unit"] = getattr(time_cfg, "step_unit", None)
-
-        registration = self._store.register_simulation(
+        self._ctx.store = self._store
+        self._ctx.sim_id = sim_id
+        final_name = step_register_simulation(
+            self._ctx,
             sim_id,
-            project=self._project_name,
-            solver=solvers,
+            plan=plan,
+            project_name=self._project_name,
             name=name,
-            on_collision=self.cfg.simulation.on_collision,
-            **reg_kwargs,
         )
-        final_name = registration.name or name
-        replaced_sid = registration.replaced_sim_id
-
-        # Write hydraulic parameters
-        from hydromodpy.workflow.steps.store_lifecycle import _write_flow_parameters
+        self._ctx.setup.run_id = final_name
 
         if self._ctx.setup.flow is not None:
-            _write_flow_parameters(
+            step_persist_params(
                 self._store,
                 sim_id,
                 self._ctx.setup.flow,
                 domain=self.cfg.domain,
             )
+        step_persist_mesh(self._ctx, sim_id)
+        step_persist_geographic(self._ctx, sim_id)
+        step_persist_forcings(self._ctx)
 
-        # Write mesh topology into Zarr
-        if mesh is not None:
-            z_intf = None
-            domain = self._ctx.setup.domain
-            if domain is not None:
-                z_intf_attr = getattr(domain, "z_interfaces", None)
-                if z_intf_attr is not None:
-                    z_intf = np.asarray(z_intf_attr)
-            if z_intf is None:
-                z_intf = np.array([0.0, -10.0])
-            self._store.write_mesh(
-                sim_id,
-                vertices=mesh.points_xy,
-                face_node_connectivity=mesh.connectivity,
-                z_interfaces=z_intf,
-            )
-
-        # Persist geographic rasters into this simulation's Zarr
-        if self.geographic is not None:
-            persist_geographic_to_store(
-                self.geographic,
-                self._store,
-                sim_id=sim_id,
-            )
-
-        # Persist input forcings for reproducibility
-        from hydromodpy.workflow.steps.result_ingestion import step_persist_forcings
-
-        _tmp_ctx = type(
-            "_Ctx",
-            (),
-            {
-                "store": self._store,
-                "sim_id": sim_id,
-                "loaded_data": self._ctx.loaded_data,
-                "setup": self._ctx.setup,
-            },
-        )()
-        step_persist_forcings(_tmp_ctx)
-
-        # Execute - TOML drives everything except the two seepage derivatives
-        # whose meaning depends on whether a transport process is planned.
-        has_transport = any(r.process_type == "transport" for r in plan.runs)
-        user_cfg = self.cfg.simulation.results
-        results_cfg = user_cfg.model_copy(
-            update={
-                "derived": user_cfg.derived.model_copy(
-                    update={
-                        "concentration_seepage": has_transport,
-                        "mass_seepage": has_transport,
-                    }
-                ),
-            }
-        )
+        results_cfg = step_configure_results(self.cfg.simulation.results, plan)
 
         def _after_run(run, result, state):
             post_run_results(
@@ -471,9 +383,7 @@ class Project:
         original_domain = self._ctx.setup.domain
         try:
             SimulationRunner(
-                callbacks=ProcessCallbacks(
-                    after_run=_after_run,
-                ),
+                callbacks=ProcessCallbacks(after_run=_after_run),
             ).execute(plan, self._ctx)
         except Exception:
             self._store.finalize(sim_id, status="failed")
@@ -483,37 +393,21 @@ class Project:
             self._ctx.setup.flow_runtime_overrides = None
 
         self._store.finalize(sim_id, status="completed")
-
-        try:
-            from hydromodpy.simulation.extraction.extractors.observation_ingest import (
-                ingest_observations,
-            )
-
-            ingest_observations(sim_id, self._store, self._ctx.loaded_data)
-        except Exception:
-            logger.exception("Failed to ingest observations for sim %s", sim_id)
-
-        short = sim_id[:8]
-        if replaced_sid:
-            logger.info(
-                "Run '%s' stored [%s] (replaced %s)",
-                final_name,
-                short,
-                replaced_sid[:8],
-            )
-        else:
-            logger.info("Run '%s' stored [%s]", final_name, short)
+        step_ingest_observations(self._ctx, sim_id)
 
         run = self._store[sim_id]
-        self._render_figures_if_requested(run, sim_id=sim_id, run_name=final_name)
-
-        if not results_cfg.keep_solver_files:
-            import shutil
-
-            scratch = self._ctx.setup.workspace.solver_scratch_folder
-            if scratch.exists():
-                shutil.rmtree(scratch, ignore_errors=True)
-
+        step_render_figures(
+            self._ctx,
+            run,
+            sim_id=sim_id,
+            run_name=final_name,
+            headless=self._headless,
+            no_display=self._no_display,
+        )
+        step_cleanup_scratch(
+            self._ctx,
+            keep_solver_files=results_cfg.keep_solver_files,
+        )
         return run
 
     def simulate(
@@ -584,67 +478,6 @@ class Project:
             self.cfg.simulation.process = resolved
 
         return self.run(name=name, **overrides)
-
-    def _run_with_overrides(self, name, overrides, *, thickness=None, first_clim=None):
-        """Build a minimal plan with parameter overrides applied to a fresh Flow."""
-        from hydromodpy.physics.flow import Flow
-        from hydromodpy.physics.flow.structure_binders import (
-            apply_recharge_load_result_to_flow,
-        )
-        from hydromodpy.simulation.planning.plan import (
-            ProcessRun,
-            SimulationPlan,
-        )
-
-        flow = Flow(config=self.cfg.flow)
-        for key, value in overrides.items():
-            if key not in flow.parameters:
-                raise ValueError(
-                    f"Unknown parameter '{key}'. Available: {', '.join(sorted(flow.parameters))}"
-                )
-            flow.parameters[key].value = value
-
-        if first_clim is not None:
-            recharge_ss = getattr(flow, "sinks_sources", {})
-            if "recharge" in recharge_ss:
-                recharge_ss["recharge"].first_clim = first_clim
-
-        window = self._time_grid.window if self._time_grid else None
-        if window is not None and self._ctx.loaded_data.recharge is not None:
-            apply_recharge_load_result_to_flow(
-                flow=flow,
-                recharge_result=self._ctx.loaded_data.recharge,
-                simulation_window=window,
-            )
-
-        domain = self._ctx.setup.domain
-        if thickness is not None:
-            domain = self._rebuild_domain(thickness)
-
-        self._ctx.setup.flow = flow
-        self._ctx.setup.run_id = name
-        self._ctx.setup.domain = domain
-
-        run_entry = ProcessRun(
-            id=f"flow_main::{self._solver}",
-            process_id="flow_main",
-            process_type="flow",
-            solver=self._solver,
-        )
-        plan = SimulationPlan(name=name, description=name, runs=(run_entry,))
-        self._ctx.execution.simulation_plan = plan
-        self._ctx.execution.process_runs_by_id = {run_entry.id: run_entry}
-        return plan
-
-    def _run_from_plan(self, name):
-        """Build a full plan via SimulationPlanner (no overrides)."""
-        from hydromodpy.simulation import SimulationPlanner
-
-        plan = SimulationPlanner().build(self.cfg.simulation)
-        self._ctx.setup.run_id = name
-        self._ctx.execution.simulation_plan = plan
-        self._ctx.execution.process_runs_by_id = {r.id: r for r in plan.runs}
-        return plan
 
     # -- Lifecycle ---------------------------------------------------------
 
@@ -769,62 +602,3 @@ class Project:
                 )
             ],
         )
-
-    def _render_figures_if_requested(
-        self,
-        run: Run,
-        *,
-        sim_id: str,
-        run_name: str | None,
-    ) -> None:
-        """Auto-render the figures declared in ``[display].figures``.
-
-        No-op when the project is headless, ``display.enabled`` is false,
-        or ``display.figures`` is empty. Figures are saved under
-        ``<project_root>/<display.output_dir>/<run_name>/`` so that
-        successive runs don't overwrite each other.
-        """
-        if self._headless or self._no_display:
-            return
-        display_cfg = getattr(self.cfg, "display", None)
-        if display_cfg is None or not display_cfg.enabled or not display_cfg.figures:
-            return
-
-        from hydromodpy.results.display import (
-            render_figures_for_run,
-            resolve_run_output_dir,
-        )
-
-        project_root = self._ctx.setup.workspace.project_root
-        out_dir = resolve_run_output_dir(
-            display_cfg,
-            project_root=project_root,
-            run_name=run_name,
-            sim_id=sim_id,
-        )
-        try:
-            render_figures_for_run(run, display_cfg, output_dir=out_dir)
-        except Exception:
-            logger.exception("Auto-render of figures failed for sim %s", sim_id)
-
-    def _rebuild_domain(self, thickness: float):
-        from hydromodpy.spatial.domain import Domain
-        from hydromodpy.spatial.geographic.structure_binders import (
-            apply_catchment_zones_to_domain,
-            apply_geology_to_domain,
-        )
-
-        domain_cfg = self.cfg.domain.model_copy(deep=True)
-        domain_cfg.depth_model.thickness = thickness
-        surface_topo = self._ctx.setup.geographic_features.surface_topo
-        domain = Domain(config=domain_cfg, surface_topo=surface_topo)
-        apply_catchment_zones_to_domain(
-            domain=domain,
-            geographic=self._ctx.setup.domain_geographic,
-        )
-        if self._ctx.loaded_data.geology is not None:
-            apply_geology_to_domain(
-                domain=domain,
-                geology=self._ctx.loaded_data.geology,
-            )
-        return domain
