@@ -43,15 +43,17 @@ logger = logging.getLogger(__name__)
 class Project:
     """Setup-once, run-many interface for HydroModPy simulations.
 
-    Loads a project TOML, builds the geographic/domain/data context once,
-    then allows running multiple simulations with parameter overrides.
+    Builds the geographic/domain/data context once, then allows running
+    multiple simulations with parameter overrides.
 
     Parameters
     ----------
-    config_path : str or Path
-        Path to the project TOML file.
+    config : str, Path, or HydroModPyConfig
+        Either a path to a TOML file (``base_config`` inheritance is
+        supported) or a fully-built :class:`HydroModPyConfig` instance
+        for fully-Python workflows.
     solver : str, optional
-        Flow solver name.  Auto-detected from the TOML, defaults to
+        Flow solver name. Auto-detected from the config, defaults to
         ``"modflownwt"``.
     headless : bool, optional
         Disable display and postprocess runners (useful for calibration
@@ -59,31 +61,51 @@ class Project:
 
     Examples
     --------
-    ::
+    TOML-driven (the CLI path, but usable from Python too)::
 
         import hydromodpy as hmp
 
         project = hmp.Project("project.toml")
-
-        # Simple run
         r = project.run(Sy=0.05)
 
-        # Parameter sweep
-        for sy in [0.001, 0.05, 0.30]:
-            r = project.run(Sy=sy, name=f"sy_{sy:.4f}")
-            print(r.timeseries("discharge").mean())
+    Same TOML, orchestration from Python::
 
-        project.close()
+        project = hmp.Project("project.toml")
+        r = project.simulate(
+            time=("2000-01-01", "2005-12-31", "1 month"),
+            processes=[("flow", "modflownwt")],
+            Sy=0.05,
+        )
+
+    Full Python, no TOML — build the config with Pydantic directly::
+
+        from hydromodpy.core.config.hydromodpy_config import HydroModPyConfig
+
+        cfg = HydroModPyConfig(...)
+        project = hmp.Project(cfg)
+        r = project.simulate(
+            time=("2000-01-01", "2005-12-31", "1 month"),
+            processes=["flow"],
+            Sy=0.05,
+        )
     """
 
     def __init__(
         self,
-        config_path: str | Path,
+        config: str | Path | object,
         *,
         solver: str | None = None,
         headless: bool = False,
         no_display: bool = False,
     ) -> None:
+        """Build a Project from a TOML path or a HydroModPyConfig instance.
+
+        Parameters
+        ----------
+        config : str | Path | HydroModPyConfig
+            Either a path to a TOML file (supports ``base_config`` inheritance)
+            or a fully-built ``HydroModPyConfig`` for fully-Python workflows.
+        """
         from hydromodpy.core.config.hydromodpy_config import HydroModPyConfig
         from hydromodpy.core.config.toml_loader import load_toml_with_base_config
         from hydromodpy.core.time import (
@@ -110,11 +132,15 @@ class Project:
             support_provider_names,
         )
 
-        self._config_path = Path(config_path).resolve()
-
-        # Phase 1: config
-        self.cfg = HydroModPyConfig.from_toml(self._config_path)
-        raw_toml = load_toml_with_base_config(self._config_path)
+        # Phase 1: config — accept either a TOML path or a HydroModPyConfig.
+        if isinstance(config, HydroModPyConfig):
+            self._config_path = None
+            self.cfg = config
+            raw_toml: dict = {}
+        else:
+            self._config_path = Path(config).resolve()
+            self.cfg = HydroModPyConfig.from_toml(self._config_path)
+            raw_toml = load_toml_with_base_config(self._config_path)
 
         self._solver = solver or self._detect_solver()
         self._ensure_simulation_block()
@@ -123,12 +149,17 @@ class Project:
         apply_explicit_time_window_to_tgrids(self.cfg)
         self._time_grid = require_flow_simulation_time_grid(self.cfg)
 
-        # Phase 3: mesh section detection
-        self._mesh_section_data = resolve_optional_mesh_section(raw_toml)
-        self._external_mesh_input = resolve_optional_mesh_input(
-            raw_toml,
-            self._config_path,
-        )
+        # Phase 3: mesh section detection (only from TOML; skipped when
+        # building from an in-memory HydroModPyConfig).
+        if self._config_path is not None:
+            self._mesh_section_data = resolve_optional_mesh_section(raw_toml)
+            self._external_mesh_input = resolve_optional_mesh_input(
+                raw_toml,
+                self._config_path,
+            )
+        else:
+            self._mesh_section_data = None
+            self._external_mesh_input = None
         self._mesh_constraints_mode = None
         if self._mesh_section_data is not None and self._external_mesh_input is not None:
             raise ValueError(
@@ -180,10 +211,12 @@ class Project:
         log_data_plan(data_plan)
         self.cfg.data = self.cfg.data.with_resolved_types(data_plan.types)
 
-        # Phase 6: build workflow context + run preparation pipeline
+        # Phase 6: build workflow context + run preparation pipeline.
+        # In-memory configs use the current working directory as the
+        # anchor for resolving relative data paths.
         self._ctx = WorkflowContext(
             cfg=self.cfg,
-            config_path=self._config_path,
+            config_path=self._config_path or Path.cwd(),
             raw_toml=raw_toml,
         )
         self._ctx.data_plan = data_plan
@@ -211,7 +244,8 @@ class Project:
         self._project_name = ws.project_root.name
 
         self._run_counter = 0
-        logger.info("Project ready: %s", self._config_path.name)
+        source = self._config_path.name if self._config_path else "<in-memory config>"
+        logger.info("Project ready: %s", source)
 
     # -- Public properties -------------------------------------------------
 
@@ -267,12 +301,6 @@ class Project:
             lazy catchment metrics (``saturated_fraction``,
             ``drainage_density`` …), and ``plot``.
         """
-        from hydromodpy.results.config import (
-            BudgetConfig,
-            DerivedConfig,
-            ExportConfig,
-            ResultsConfig,
-        )
         from hydromodpy.simulation.execution.runner import (
             ProcessCallbacks,
             SimulationRunner,
@@ -315,7 +343,7 @@ class Project:
         solvers = ",".join(r.solver for r in plan.runs)
         reg_kwargs: dict = {
             "flow_regime": self.cfg.flow.flow_regime,
-            "config_source": str(self._config_path),
+            "config_source": str(self._config_path) if self._config_path else "<in-memory>",
         }
         try:
             reg_kwargs["config"] = self.cfg.model_dump(mode="json")
@@ -415,18 +443,19 @@ class Project:
         )()
         step_persist_forcings(_tmp_ctx)
 
-        # Execute
+        # Execute - TOML drives everything except the two seepage derivatives
+        # whose meaning depends on whether a transport process is planned.
         has_transport = any(r.process_type == "transport" for r in plan.runs)
-        results_cfg = ResultsConfig(
-            keep_solver_files=True,
-            budget=BudgetConfig(spatial_fields=True),
-            derived=DerivedConfig(
-                accumulation_flux=True,
-                outflow_drain=True,
-                concentration_seepage=has_transport,
-                mass_seepage=has_transport,
-            ),
-            export=ExportConfig(csv_timeseries=True, netcdf=False),
+        user_cfg = self.cfg.simulation.results
+        results_cfg = user_cfg.model_copy(
+            update={
+                "derived": user_cfg.derived.model_copy(
+                    update={
+                        "concentration_seepage": has_transport,
+                        "mass_seepage": has_transport,
+                    }
+                ),
+            }
         )
 
         def _after_run(run, result, state):
@@ -436,7 +465,6 @@ class Project:
                 solver_output_dir=result.solver_output_dir,
                 results_config=results_cfg,
                 store=self._store,
-                keep_solver_files=True,
                 run_id=final_name,
             )
 
@@ -478,7 +506,84 @@ class Project:
 
         run = self._store[sim_id]
         self._render_figures_if_requested(run, sim_id=sim_id, run_name=final_name)
+
+        if not results_cfg.keep_solver_files:
+            import shutil
+
+            scratch = self._ctx.setup.workspace.solver_scratch_folder
+            if scratch.exists():
+                shutil.rmtree(scratch, ignore_errors=True)
+
         return run
+
+    def simulate(
+        self,
+        *,
+        time: tuple | None = None,
+        processes: list | None = None,
+        name: str | None = None,
+        **overrides,
+    ) -> Run:
+        """Run one simulation with orchestration specified from Python.
+
+        Equivalent to ``run()`` but lets the caller override the time window
+        and the list of processes without touching the TOML. Useful when
+        driving HydroModPy from a script where orchestration belongs in the
+        Python code, not in the configuration file.
+
+        Parameters
+        ----------
+        time : tuple, optional
+            ``(start, end, step)`` triple, e.g. ``("2000-01-01",
+            "2005-12-31", "1 month")``. Patches ``cfg.simulation.time``.
+        processes : list, optional
+            List of processes to run. Each entry is either a string
+            (process type with the default solver) or a ``(type, solver)``
+            tuple. Patches ``cfg.simulation.process``.
+        name : str, optional
+            Run name. Auto-generated if absent.
+        **overrides
+            Flow parameter overrides forwarded to :meth:`run`.
+        """
+        from hydromodpy.simulation.planning.config import (
+            SimulationProcessConfig,
+            SimulationTimeConfig,
+        )
+
+        if time is not None:
+            start, end, step = time
+            self.cfg.simulation.time = SimulationTimeConfig(
+                start_datetime=start,
+                end_datetime=end,
+                step_value=step,
+                coverage_policy=getattr(self.cfg.simulation.time, "coverage_policy", "warn"),
+            )
+            from hydromodpy.core.time import (
+                apply_explicit_time_window_to_tgrids,
+                require_flow_simulation_time_grid,
+            )
+
+            apply_explicit_time_window_to_tgrids(self.cfg)
+            self._time_grid = require_flow_simulation_time_grid(self.cfg)
+            self._ctx.setup.time_grid = self._time_grid
+
+        if processes is not None:
+            resolved: list[SimulationProcessConfig] = []
+            for idx, entry in enumerate(processes):
+                if isinstance(entry, str):
+                    proc_type, solver_name = entry, self._solver
+                else:
+                    proc_type, solver_name = entry
+                resolved.append(
+                    SimulationProcessConfig(
+                        id=f"{proc_type}_{idx}",
+                        type=proc_type,
+                        solvers=[solver_name],
+                    )
+                )
+            self.cfg.simulation.process = resolved
+
+        return self.run(name=name, **overrides)
 
     def _run_with_overrides(self, name, overrides, *, thickness=None, first_clim=None):
         """Build a minimal plan with parameter overrides applied to a fresh Flow."""
@@ -561,15 +666,21 @@ class Project:
         self.close()
 
     def __repr__(self) -> str:
-        return f"Project({self._config_path.name!r})"
+        source = self._config_path.name if self._config_path else "<in-memory>"
+        return f"Project({source!r})"
 
     def _repr_html_(self) -> str:
-        project_name = self._config_path.parent.name
+        if self._config_path is not None:
+            source_label = self._config_path.name
+            project_name = self._config_path.parent.name
+        else:
+            source_label = "&lt;in-memory&gt;"
+            project_name = getattr(self, "_project_name", "") or "&mdash;"
         runs = getattr(self, "_run_history", []) or []
         n_runs = len(runs)
         last_run = runs[-1] if runs else None
         rows: list[tuple[str, str]] = [
-            ("config", f"<code>{self._config_path.name}</code>"),
+            ("config", f"<code>{source_label}</code>"),
             ("project", project_name),
             ("solver", str(getattr(self, "_solver", "") or "&mdash;")),
             ("headless", "yes" if getattr(self, "_headless", False) else "no"),
@@ -600,14 +711,20 @@ class Project:
             for proc in sim.process:
                 if proc.type == "flow" and proc.solvers:
                     return proc.solvers[0]
-        # Infer from TOML sections present in the raw file
-        from hydromodpy.core.config.toml_loader import load_toml_with_base_config
+        # Prefer the [solver] config block when present.
+        solver_cfg = getattr(self.cfg, "solver", None)
+        engine = getattr(solver_cfg, "solver_engine", None) if solver_cfg else None
+        if engine:
+            return str(engine)
+        # Infer from TOML sections present in the raw file (TOML-backed only).
+        if self._config_path is not None:
+            from hydromodpy.core.config.toml_loader import load_toml_with_base_config
 
-        raw = load_toml_with_base_config(self._config_path)
-        if "modflownwt" in raw:
-            return "modflownwt"
-        if "modflow6" in raw:
-            return "modflow6"
+            raw = load_toml_with_base_config(self._config_path)
+            if "modflownwt" in raw:
+                return "modflownwt"
+            if "modflow6" in raw:
+                return "modflow6"
         return "modflownwt"
 
     def _ensure_simulation_block(self) -> None:
@@ -631,8 +748,13 @@ class Project:
                 "date_start/date_end to define the simulation window."
             )
 
+        default_name = (
+            re.sub(r"^run_", "", self._config_path.stem)
+            if self._config_path is not None
+            else "simulation"
+        )
         self.cfg.simulation = SimulationConfig(
-            name=re.sub(r"^run_", "", self._config_path.stem),
+            name=default_name,
             time=SimulationTimeConfig(
                 start_datetime=start,
                 end_datetime=end,
