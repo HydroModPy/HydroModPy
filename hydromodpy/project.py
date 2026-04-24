@@ -556,6 +556,49 @@ class Project:
         self.cleanup(sim_id)
         return self._store[sim_id]
 
+    def sweep(
+        self,
+        parameters: dict[str, list[float] | dict],
+        *,
+        strategy: str = "enumerate",
+        name_template: str = "{param}_{value:.4g}",
+        parallel: int = 1,
+    ):
+        """Run N simulations from a parameter table.
+
+        Strategies: ``enumerate`` (one-dimensional iteration, one run per
+        value), ``grid`` (cartesian product). ``lhs`` and ``sobol`` are not
+        implemented yet.
+        """
+        from hydromodpy.results.simulation_group import SimulationGroup
+        from hydromodpy.workflow.parallel import run_sweep
+
+        if parallel != 1:
+            raise NotImplementedError("Parallel sweep requires worker pool setup")
+        sim_ids = run_sweep(
+            self,
+            parameters=parameters,
+            strategy=strategy,
+            name_template=name_template,
+        )
+        return SimulationGroup(self._store, sim_ids)
+
+    def calibrate(self, *, config_path: str | Path | None = None, **kwargs):
+        """Run a calibration campaign on this project.
+
+        For now delegates to :func:`hydromodpy.calibration.cli.run_calibration_cli`
+        when a ``config_path`` is supplied. Python-driven calibration that
+        builds the parameter space in memory is not wired yet.
+        """
+        if config_path is None:
+            raise NotImplementedError(
+                "Python-driven calibration is not yet implemented. "
+                "Provide config_path= pointing to a TOML with [calibration]."
+            )
+        from hydromodpy.calibration.cli import run_calibration_cli
+
+        return run_calibration_cli(Path(config_path).expanduser().resolve(), **kwargs)
+
     def simulate(
         self,
         *,
