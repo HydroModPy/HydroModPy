@@ -633,21 +633,127 @@ class Project:
             raise ValueError("project.batch() requires a TOML path for now")
         return RegionalLabLauncher(path).run(**kwargs)
 
-    def calibrate(self, *, config_path: str | Path | None = None, **kwargs):
+    def calibrate(
+        self,
+        *,
+        config_path: str | Path | None = None,
+        parameters: dict[str, dict] | None = None,
+        outputs: dict[str, dict] | None = None,
+        objective_blocks: list[dict] | None = None,
+        method: str | None = None,
+        max_iter: int | None = None,
+        save_runs: str | None = None,
+        seed: int | None = None,
+        **kwargs,
+    ):
         """Run a calibration campaign on this project.
 
-        For now delegates to :func:`hydromodpy.calibration.cli.run_calibration_cli`
-        when a ``config_path`` is supplied. Python-driven calibration that
-        builds the parameter space in memory is not wired yet.
-        """
-        if config_path is None:
-            raise NotImplementedError(
-                "Python-driven calibration is not yet implemented. "
-                "Provide config_path= pointing to a TOML with [calibration]."
-            )
-        from hydromodpy.calibration.cli import run_calibration_cli
+        Two modes are supported:
 
-        return run_calibration_cli(Path(config_path).expanduser().resolve(), **kwargs)
+        * **TOML mode** (``config_path`` supplied): delegate to
+          :func:`hydromodpy.calibration.cli.run_calibration_cli` with the
+          given TOML path. Extra ``**kwargs`` are forwarded.
+        * **Python mode** (``parameters`` supplied): build a
+          :class:`CalibrationConfig` in memory from the declarations
+          below and run the same loop. The project's own ``config_path``
+          becomes the simulation TOML, so the caller does not need to
+          point at a separate calibration TOML.
+
+        Parameters
+        ----------
+        config_path
+            Optional path to a calibration TOML. When omitted, the
+            ``parameters`` / ``outputs`` / ``objective_blocks`` arguments
+            describe the calibration in Python.
+        parameters
+            ``{name: decl}`` mapping; each decl is forwarded to
+            :class:`~hydromodpy.calibration.config.CalibParameterDecl`
+            (``bounds``, ``transform``, ``path``/``target``, ``mode``...).
+        outputs
+            ``{name: decl}`` mapping forwarded to
+            :class:`~hydromodpy.calibration.config.CalibOutputDecl`.
+        objective_blocks
+            List of dicts forwarded to
+            :class:`~hydromodpy.calibration.config.CalibObjectiveBlockDecl`.
+        method, max_iter, save_runs, seed
+            Top-level knobs on the Pydantic config.
+        **kwargs
+            Forwarded to the CLI in TOML mode, otherwise merged onto the
+            in-memory Pydantic config.
+
+        Returns
+        -------
+        CalibrationReport
+            Structured session summary when called in Python mode.
+            In TOML mode, returns whatever ``run_calibration_cli``
+            returns (a dict by default, or a ``CalibrationReport`` when
+            the caller passes ``return_report=True``).
+        """
+        if config_path is not None:
+            from hydromodpy.calibration.cli import run_calibration_cli
+
+            return run_calibration_cli(Path(config_path).expanduser().resolve(), **kwargs)
+
+        if not parameters:
+            raise ValueError(
+                "Project.calibrate() requires either config_path= or "
+                "parameters= (Python-mode declaration)."
+            )
+        if self._config_path is None:
+            raise ValueError(
+                "Python-mode calibrate requires Project to be loaded from a "
+                "TOML path (need the simulation TOML on disk)."
+            )
+
+        from hydromodpy.calibration.cli import run_calibration_cli
+        from hydromodpy.calibration.config import CalibrationConfig
+
+        payload: dict[str, object] = {}
+        if method is not None:
+            payload["method"] = method
+        if max_iter is not None:
+            payload["max_iter"] = max_iter
+        if save_runs is not None:
+            payload["save_runs"] = save_runs
+        if seed is not None:
+            payload["seed"] = seed
+        payload["parameters"] = dict(parameters)
+        if outputs is not None:
+            payload["outputs"] = dict(outputs)
+        if objective_blocks is not None:
+            payload["objective_blocks"] = list(objective_blocks)
+        payload.update(
+            {
+                key: value
+                for key, value in kwargs.items()
+                if key not in {"workspace", "project", "metric_fn", "objective", "return_report"}
+            }
+        )
+
+        cfg = CalibrationConfig.model_validate(payload)
+        # Materialise the in-memory calibration config to a temporary TOML next
+        # to the project's simulation TOML so run_calibration_cli can load it
+        # (it inherits the simulation context via ``base_config``).
+        import tempfile
+
+        from hydromodpy.calibration.materialize import _write_toml_payload
+
+        calib_payload = {
+            "base_config": str(self._config_path),
+            "calibration": cfg.model_dump(exclude_none=True, by_alias=True),
+        }
+        tmpdir = Path(tempfile.mkdtemp(prefix="hmp_calibrate_"))
+        tmp_path = tmpdir / "calibration.toml"
+        _write_toml_payload(tmp_path, calib_payload)
+
+        return run_calibration_cli(
+            tmp_path,
+            objective=kwargs.get("objective"),
+            workspace=kwargs.get("workspace"),
+            project=kwargs.get("project", "calibration"),
+            metric_fn=kwargs.get("metric_fn"),
+            return_report=True,
+        )
 
     def simulate(
         self,
