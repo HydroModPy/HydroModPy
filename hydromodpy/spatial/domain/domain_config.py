@@ -45,6 +45,21 @@ class DomainConfig(HydroModelBase):
         ),
     )
 
+    @classmethod
+    def with_thickness(
+        cls,
+        thickness: float,
+        *,
+        zone_ids: list[str] | None = None,
+        **overrides,
+    ) -> DomainConfig:
+        """DomainConfig with a constant aquifer thickness below topography."""
+        return cls(
+            depth_model=ConstantThicknessDepthModel(thickness=float(thickness)),
+            zone_ids=zone_ids or [],
+            **overrides,
+        )
+
     @field_validator("zone_ids", mode="before")
     @classmethod
     def _validate_zone_ids(cls, value):

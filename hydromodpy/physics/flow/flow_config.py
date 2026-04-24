@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 from pathlib import Path
-from typing import Annotated, Literal
+from typing import Annotated, ClassVar, Literal
 
 from pydantic import Field, field_validator, model_validator
 
@@ -456,6 +456,60 @@ class FlowConfig(ProcessSpatialConfig):
             tol_residual_inf=self.runtime_tol_residual_inf,
             tol_state_update_inf=self.runtime_tol_state_update_inf,
         )
+
+    _DEFAULT_PARAM_UNITS: ClassVar[dict[str, str]] = {
+        "K": "m/s",
+        "Kx": "m/s",
+        "Ky": "m/s",
+        "Kz": "m/s",
+        "Ss": "1/m",
+        "Sy": "-",
+        "porosity": "-",
+        "n": "-",
+    }
+
+    @classmethod
+    def _homogeneous_param_entry(cls, param_id: str, value: float) -> dict:
+        unit = cls._DEFAULT_PARAM_UNITS.get(param_id, "-")
+        return {
+            "field": {"id": param_id, "kind": "homogeneous", "unit": unit},
+            "field_homogeneous": {"value": float(value)},
+        }
+
+    @classmethod
+    def homogeneous(
+        cls,
+        *,
+        flow_regime: Literal["steady", "transient"] = "transient",
+        active_bc: list[str] | None = None,
+        active_sinks_sources: list[str] | None = None,
+        **parameters: float,
+    ) -> FlowConfig:
+        """Build a FlowConfig with homogeneous parameters.
+
+        Pass K, Sy, Ss, porosity etc. as keyword arguments. Each becomes a
+        homogeneous scalar parameter. Units are inferred from the canonical
+        names (K in m/s, Ss in 1/m, Sy dimensionless).
+        """
+        if not parameters:
+            raise ValueError("homogeneous() requires at least one parameter (e.g. K=5e-5)")
+        return cls(
+            flow_regime=flow_regime,
+            param_list=list(parameters),
+            param={pid: cls._homogeneous_param_entry(pid, v) for pid, v in parameters.items()},
+            active_bc=active_bc or [],
+            active_sinks_sources=active_sinks_sources or [],
+        )
+
+    @classmethod
+    def steady(cls, **parameters: float) -> FlowConfig:
+        """Shortcut for a steady-state FlowConfig with homogeneous parameters."""
+        return cls.homogeneous(flow_regime="steady", **parameters)
+
+    @classmethod
+    def transient(cls, **parameters: float) -> FlowConfig:
+        """Shortcut for a transient FlowConfig with homogeneous parameters."""
+        return cls.homogeneous(flow_regime="transient", **parameters)
 
     @classmethod
     def from_toml_section(

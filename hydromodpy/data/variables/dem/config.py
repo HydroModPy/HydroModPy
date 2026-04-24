@@ -88,3 +88,13 @@ class DemConfig(HydroModelBase):
         min_length=1,
         description="At least one DEM data source.",
     )
+
+    @classmethod
+    def from_geotiff(cls, path: str | Path, **overrides) -> DemConfig:
+        """DemConfig reading a user GeoTIFF (or ASC/NC) file."""
+        return cls(sources=[DemSourceConfig(source="custom", path=Path(path), **overrides)])
+
+    @classmethod
+    def ign_bdalti(cls, **overrides) -> DemConfig:
+        """DemConfig pulling from the IGN BD ALTI 25 m national DEM."""
+        return cls(sources=[DemSourceConfig(source="ign_bdalti", **overrides)])

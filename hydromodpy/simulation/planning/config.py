@@ -210,6 +210,58 @@ class SimulationConfig(HydroModelBase):
 
     model_config = ConfigDict(extra="forbid")
 
+    @classmethod
+    def transient(
+        cls,
+        *,
+        time: tuple[str, str, object],
+        flow: str = "modflownwt",
+        transport: str | None = None,
+        name: str = "",
+        **overrides,
+    ) -> SimulationConfig:
+        """SimulationConfig with a transient time window and declared solvers."""
+        start, end, step = time
+        processes = [SimulationProcessConfig(id="flow_main", type="flow", solvers=[flow])]
+        if transport is not None:
+            processes.append(
+                SimulationProcessConfig(
+                    id="transport_main",
+                    type="transport",
+                    solvers=[transport],
+                    depends_on=["flow_main"],
+                )
+            )
+        return cls(
+            name=name,
+            time=SimulationTimeConfig(
+                start_datetime=start,
+                end_datetime=end,
+                step_value=step,
+            ),
+            process=processes,
+            **overrides,
+        )
+
+    @classmethod
+    def steady(
+        cls,
+        *,
+        flow: str = "modflownwt",
+        start: str = "2000-01-01",
+        end: str = "2000-12-31",
+        step: object = "1 year",
+        name: str = "",
+        **overrides,
+    ) -> SimulationConfig:
+        """SimulationConfig for a steady-state single flow run."""
+        return cls.transient(
+            time=(start, end, step),
+            flow=flow,
+            name=name,
+            **overrides,
+        )
+
     name: Annotated[str, Profile.USER] = Field(
         default="", description="Human-readable simulation name."
     )

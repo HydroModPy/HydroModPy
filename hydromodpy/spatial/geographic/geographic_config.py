@@ -297,6 +297,74 @@ class GeographicConfig(HydroModelBase):
         """Return True when the analytical synthetic geographic mode is selected."""
         return str(self.source_mode).strip().lower() == "synthetic"
 
+    @classmethod
+    def from_outlet(
+        cls,
+        *,
+        x: float,
+        y: float,
+        dem: str | Path,
+        snap_dist: float | str = 150.0,
+        buff_area: float | str = 10.0,
+        crs_project: str | None = None,
+        **overrides,
+    ) -> GeographicConfig:
+        """Watershed delineated from an outlet coordinate and a DEM raster."""
+        return cls(
+            source_mode="standard",
+            catch_def="from_outlet_coord",
+            dem_init_path=Path(dem) if dem is not None else None,
+            x_outlet=float(x),
+            y_outlet=float(y),
+            snap_dist=snap_dist,
+            buff_area=buff_area,
+            crs_project=crs_project,
+            **overrides,
+        )
+
+    @classmethod
+    def from_dem(
+        cls,
+        dem: str | Path,
+        *,
+        crs_project: str | None = None,
+        **overrides,
+    ) -> GeographicConfig:
+        """Model domain driven entirely by a DEM raster."""
+        return cls(
+            source_mode="standard",
+            catch_def="dem",
+            dem_init_path=Path(dem),
+            crs_project=crs_project,
+            **overrides,
+        )
+
+    @classmethod
+    def from_polygon(
+        cls,
+        polygon: str | Path,
+        *,
+        dem: str | Path,
+        buff_area: float | str = 10.0,
+        crs_project: str | None = None,
+        **overrides,
+    ) -> GeographicConfig:
+        """Watershed delineated from a polygon shapefile plus a DEM."""
+        return cls(
+            source_mode="standard",
+            catch_def="from_polyg_shp",
+            dem_init_path=Path(dem),
+            polyg_shp_path=Path(polygon),
+            buff_area=buff_area,
+            crs_project=crs_project,
+            **overrides,
+        )
+
+    @classmethod
+    def synthetic_case(cls, **overrides) -> GeographicConfig:
+        """Analytical synthetic geographic support (bypasses DEM delineation)."""
+        return cls(source_mode="synthetic", **overrides)
+
     @field_validator("snap_dist", mode="before")
     @classmethod
     def _normalize_snap_dist(cls, value):
