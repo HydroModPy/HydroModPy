@@ -117,12 +117,15 @@ class TrialContext:
     workspace: Path
     cfg_path: Path
     raw_toml: Mapping[str, Any] = field(default_factory=dict)
+    parameter_space: Any = None
 
     def fork(self, values: Mapping[str, float]) -> TrialContext:
         """Return a new trial context isolated for one evaluation.
 
         - ``cfg`` is deep-copied and the calibration ``values`` are
-          injected via their dotted paths.
+          injected via the calibration parameter space (honours
+          ``mode="replace"`` / ``"scale"``) when the space is provided,
+          otherwise via raw dotted paths.
         - ``setup`` is shallow-copied into a fresh dataclass; the big
           prepared objects (``geographic``, ``mesh_planar``, ``domain``,
           ``workspace``, ``time_grid``, ...) stay shared by reference,
@@ -139,10 +142,18 @@ class TrialContext:
         from hydromodpy.core.state.run_state import WorkflowContext
 
         new_cfg = self.base_cfg.model_copy(deep=True)
-        for pname, pvalue in values.items():
-            path = self.override_paths.get(pname)
-            if path:
-                _set_by_path(new_cfg, path, pvalue)
+        if self.parameter_space is not None:
+            from hydromodpy.calibration.parameters import apply_parameter_to_config
+
+            for param in self.parameter_space:
+                if param.name not in values or param.effective_path is None:
+                    continue
+                apply_parameter_to_config(new_cfg, param, float(values[param.name]))
+        else:
+            for pname, pvalue in values.items():
+                path = self.override_paths.get(pname)
+                if path:
+                    _set_by_path(new_cfg, path, pvalue)
 
         new_setup = _copy.copy(self.ctx.setup)
         new_setup.flow = None
@@ -168,6 +179,7 @@ class TrialContext:
             workspace=self.workspace,
             cfg_path=self.cfg_path,
             raw_toml=self.raw_toml,
+            parameter_space=self.parameter_space,
         )
 
 
@@ -181,6 +193,7 @@ def prepare_trials(
     *,
     override_paths: Mapping[str, str] | Iterable[str],
     steps: Sequence[Step] | None = None,
+    parameter_space: Any = None,
 ) -> TrialContext:
     """Load TOML, run steps ``[0..earliest)`` once, return a fork-able context.
 
@@ -196,6 +209,11 @@ def prepare_trials(
     steps
         Pipeline steps to compose over. Defaults to
         :func:`hydromodpy.pipeline.steps.standard_steps`.
+    parameter_space
+        Optional :class:`~hydromodpy.calibration.parameters.ParameterSpace`.
+        When supplied, :meth:`TrialContext.fork` injects values through the
+        calibration helper (``mode="replace"``/``"scale"``). Otherwise, it
+        falls back to the raw dotted-path writer.
     """
     from hydromodpy.core.config.hydromodpy_config import HydroModPyConfig
     from hydromodpy.core.config.toml_loader import load_toml_with_base_config
@@ -267,6 +285,7 @@ def prepare_trials(
         workspace=workspace,
         cfg_path=cfg_path,
         raw_toml=raw_toml,
+        parameter_space=parameter_space,
     )
 
 
