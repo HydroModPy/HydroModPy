@@ -1,8 +1,9 @@
 """CMA-ES optimizer adapter backed by the `cma` package.
 
-Matches the numeric behaviour of the legacy ``_driver_cma_es`` (see
-``hydromodpy/calibration/benchmark.py``). The adapter runs the CMA-ES
-search in the transformed parameter space exposed by
+Matches the numeric behaviour of the legacy ``_driver_cma_es`` (the
+twin-benchmark bridge kept under ``validation_cases/calibration/shared/``
+for reproducibility of the scientific goldens). The adapter runs the
+CMA-ES search in the transformed parameter space exposed by
 :class:`~hydromodpy.calibration.parameters.ParameterSpace` and optionally
 normalises the search domain into the unit cube.
 
