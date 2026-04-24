@@ -49,6 +49,7 @@ from hydromodpy.solver.modflow_common import (
     build_spatial_discretization,
     build_temporal_discretization_from_time_grid,
     ensure_platform_executable,
+    ensure_solver_binary,
     masstransfer,
     write_grid_array_to_raster,
 )
@@ -113,21 +114,19 @@ class Modflow6(Solver):
         exe_name = getattr(runtime, "mf6_executable_name", None) or getattr(
             runtime, "executable_name", None
         )
-        if not exe_name:
-            if os.name == "nt":
-                exe_name = "mf6.exe"
-            else:
-                exe_name = "mf6"
-        if os.path.isabs(exe_name):
-            self.exe = exe_name
+        if exe_name and os.path.isabs(exe_name):
+            self.exe = str(ensure_platform_executable(exe_name))
+        elif not exe_name or exe_name in ("mf6", "mf6.exe"):
+            self.exe = str(ensure_solver_binary("mf6", bin_path))
         else:
             platform_dir = (
                 "win"
                 if os.name == "nt"
                 else ("mac" if os.uname().sysname.lower() == "darwin" else "linux")
             )
-            self.exe = os.path.join(bin_path, platform_dir, exe_name)
-        self.exe = str(ensure_platform_executable(self.exe))
+            self.exe = str(
+                ensure_platform_executable(os.path.join(bin_path, platform_dir, exe_name))
+            )
 
         self.resolution = geographic.dem_res
         self.xul = geographic.xmin

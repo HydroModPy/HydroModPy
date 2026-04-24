@@ -1,5 +1,16 @@
 """Shared MODFLOW helper utilities used across solver backends."""
 
+from .binaries import (
+    DEFAULT_RELEASE,
+    MANIFEST_FILENAME,
+    available_solvers,
+    download_solver_binaries,
+    ensure_solver_binary,
+    exe_filename,
+    is_managed_cache,
+    locate_solver_binary,
+    read_manifest,
+)
 from .binary_reader import (
     list_budget_records,
     open_cell_budget_file,
@@ -84,7 +95,16 @@ __all__ = [
     "build_temporal_discretization",
     "build_temporal_discretization_from_time_grid",
     "describe_grid",
+    "DEFAULT_RELEASE",
+    "MANIFEST_FILENAME",
+    "available_solvers",
+    "download_solver_binaries",
     "ensure_platform_executable",
+    "ensure_solver_binary",
+    "exe_filename",
+    "is_managed_cache",
+    "locate_solver_binary",
+    "read_manifest",
     "broadcast_to_stress_periods",
     "discretize_spatially_distributed_source",
     "has_spatially_distributed_source",

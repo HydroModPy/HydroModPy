@@ -11,9 +11,11 @@
 
 # %% LIBRARIES
 
+import os
 from pathlib import Path
 
 from hydromodpy.core.logging import get_logger, setup_simulation_log
+from hydromodpy.core.tools.cache import get_cache_bin_dir
 from hydromodpy.core.tools.filesystem import create_folder
 from hydromodpy.core.workspace.config import WorkspaceConfig
 from hydromodpy.core.workspace.path_registry import WorkspacePathRegistry
@@ -22,8 +24,32 @@ logger = get_logger(__name__)
 
 
 def _resolve_bin_path() -> str:
-    """Resolve the executable folder at ``<repo>/bin``."""
-    return str(Path(__file__).resolve().parents[3] / "bin")
+    """Resolve the folder that holds solver executables.
+
+    Resolution order:
+
+    1. ``HYDROMODPY_BIN`` env var, if set (explicit override; useful for
+       shared HPC deployments and CI).
+    2. ``<repo>/bin`` when running from a development checkout and at
+       least one platform subdirectory is populated. Kept for the
+       transition period so existing contributors don't need to
+       re-download right away.
+    3. The HydroModPy-managed cache (``~/.cache/hydromodpy/bin/`` and
+       platform equivalents). Solvers lazily populate it on first use
+       via :func:`hydromodpy.solver.modflow_common.ensure_solver_binary`.
+    """
+    env = os.environ.get("HYDROMODPY_BIN")
+    if env:
+        return str(Path(env).expanduser().resolve())
+
+    legacy = Path(__file__).resolve().parents[3] / "bin"
+    if legacy.is_dir():
+        for sub in ("linux", "win", "mac"):
+            sub_dir = legacy / sub
+            if sub_dir.is_dir() and any(sub_dir.iterdir()):
+                return str(legacy)
+
+    return str(get_cache_bin_dir())
 
 
 class Workspace:

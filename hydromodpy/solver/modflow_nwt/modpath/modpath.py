@@ -41,7 +41,7 @@ from hydromodpy.core.io.raster_io import export_tif
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.tools.display import plot_params
 from hydromodpy.core.tools.filesystem import create_folder
-from hydromodpy.solver.modflow_common import ensure_platform_executable
+from hydromodpy.solver.modflow_common import ensure_solver_binary
 from hydromodpy.spatial.delineation import get_whitebox_backend
 
 logger = get_logger(__name__)
@@ -137,13 +137,7 @@ class Modpath(Solver):
 
         if not os.path.isdir(self.full_path):
             raise FileNotFoundError(f"Directory not found: {self.full_path}")
-        if (sys.platform == "win32") or (sys.platform == "win64"):
-            self.exe = os.path.join(bin_path, "win", "mp6.exe")
-        if sys.platform == "linux":
-            self.exe = os.path.join(bin_path, "linux", "mp6")
-        if sys.platform == "darwin":
-            self.exe = os.path.join(bin_path, "mac", "mp6")
-        self.exe = str(ensure_platform_executable(self.exe))
+        self.exe = str(ensure_solver_binary("mp6", bin_path))
 
         # Parameters for the Modpath transport solver
         particle_params = {}

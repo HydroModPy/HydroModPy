@@ -10,7 +10,6 @@
 """
 
 import os
-import sys
 from collections.abc import Mapping
 
 import flopy
@@ -42,7 +41,7 @@ from hydromodpy.solver.modflow_common import (
     SolverGridContext,
     SolverRoutingContext,
     build_solver_routing_context,
-    ensure_platform_executable,
+    ensure_solver_binary,
     masstransfer,
     write_grid_array_to_raster,
 )
@@ -193,13 +192,7 @@ class Modflow(Solver):
 
         self.model_name = model_name
 
-        if (sys.platform == "win32") or (sys.platform == "win64"):
-            self.exe = os.path.join(bin_path, "win", "mfnwt.exe")
-        if sys.platform == "linux":
-            self.exe = os.path.join(bin_path, "linux", "mfnwt")
-        if sys.platform == "darwin":
-            self.exe = os.path.join(bin_path, "mac", "mfnwt")
-        self.exe = str(ensure_platform_executable(self.exe))
+        self.exe = str(ensure_solver_binary("mfnwt", bin_path))
 
         self.full_path = os.path.join(model_folder, model_name)  #'modraw'
 
