@@ -6,17 +6,20 @@ search in the transformed parameter space exposed by
 :class:`~hydromodpy.calibration.parameters.ParameterSpace` and optionally
 normalises the search domain into the unit cube.
 
-Driven via the engine's ask/tell loop, the adapter keeps a background
-thread running the push-style ``cma.CMAEvolutionStrategy.ask`` /
-``tell`` calls and exposes them as a pull-style queue, mirroring the
-pattern used by :mod:`hydromodpy.calibration.adapters.scipy_adapter`.
+The ask/tell contract:
+
+- ``ask(n)`` returns up to ``n`` points from the current CMA-ES batch
+  (next batch is drawn lazily when the previous one is fully scored).
+- ``tell(results)`` writes costs into the current-batch slot; once every
+  slot is filled, the adapter feeds the batch back to CMA and resets.
+
+This matches the exact legacy order: CMA generates ``popsize`` points,
+all points are scored, CMA updates, repeat.
 """
 
 from __future__ import annotations
 
 import math
-import queue
-import threading
 
 import numpy as np
 
@@ -62,7 +65,7 @@ class CmaEsAdapter:
         seed: int | None = None,
     ) -> None:
         try:
-            import cma  # noqa: F401  # surfaced only when the adapter is instantiated
+            import cma
         except ImportError as exc:  # pragma: no cover - optional dependency
             raise ImportError(
                 "The 'cma' package is required for the cma_es method; "
@@ -74,48 +77,24 @@ class CmaEsAdapter:
         self._popsize = int(popsize)
         self._max_evaluations = int(max_evaluations)
         self._normalize = bool(normalize)
-        self._seed = None if seed is None else int(seed)
 
         self._lower = np.asarray([p.lower_transformed for p in space.parameters], dtype=float)
         self._upper = np.asarray([p.upper_transformed for p in space.parameters], dtype=float)
 
-        self._in_q: queue.Queue[float | object] = queue.Queue()
-        self._out_q: queue.Queue[np.ndarray | None] = queue.Queue()
-        self._done = threading.Event()
-        self._history: list[EvaluationResult] = []
-        self._pending: list[tuple[int, np.ndarray]] = []
-        self._trial_id = 0
-        self._n_eval = 0
-        self._best: tuple[float, np.ndarray] | None = None
-        self._thread = threading.Thread(target=self._worker, daemon=True)
-        self._thread.start()
-
-    # ------------------------------------------------------------------
-    # Background worker
-    # ------------------------------------------------------------------
-
-    def _to_physical(self, x: np.ndarray) -> np.ndarray:
-        """Return the physical-space vector for a CMA-ES candidate."""
-        arr = np.asarray(x, dtype=float)
         if self._normalize:
             span = self._upper - self._lower
             span = np.where(span > 0.0, span, 1.0)
-            clipped = np.clip(arr, 0.0, 1.0)
-            return self._lower + clipped * span
-        return np.clip(arr, self._lower, self._upper)
-
-    def _worker(self) -> None:
-        import cma
-
-        if self._normalize:
-            span = self._upper - self._lower
-            span = np.where(span > 0.0, span, 1.0)
+            self._span = span
             x0_t = (0.5 * (self._lower + self._upper) - self._lower) / span
-            bounds = [np.zeros_like(self._lower).tolist(), np.ones_like(self._upper).tolist()]
-            x0 = x0_t
+            bounds = [
+                np.zeros_like(self._lower).tolist(),
+                np.ones_like(self._upper).tolist(),
+            ]
+            x0 = list(x0_t)
         else:
+            self._span = np.ones_like(self._upper)
             bounds = [self._lower.tolist(), self._upper.tolist()]
-            x0 = 0.5 * (self._lower + self._upper)
+            x0 = list(0.5 * (self._lower + self._upper))
 
         options: dict[str, object] = {
             "popsize": self._popsize,
@@ -123,27 +102,44 @@ class CmaEsAdapter:
             "bounds": bounds,
             "verbose": -9,
         }
-        if self._seed is not None:
-            options["seed"] = self._seed
+        if seed is not None:
+            options["seed"] = int(seed)
 
-        try:
-            es = cma.CMAEvolutionStrategy(list(x0), self._sigma0, options)
-            while not es.stop() and self._n_eval < self._max_evaluations:
-                xs = es.ask()
-                costs: list[float] = []
-                for x in xs:
-                    if self._n_eval >= self._max_evaluations:
-                        break
-                    self._out_q.put(np.asarray(x, dtype=float))
-                    cost = self._in_q.get()
-                    if cost is _STOP:
-                        return
-                    costs.append(float(cost))
-                if costs:
-                    es.tell(xs[: len(costs)], costs)
-        finally:
-            self._done.set()
-            self._out_q.put(None)
+        self._es = cma.CMAEvolutionStrategy(x0, self._sigma0, options)
+        self._history: list[EvaluationResult] = []
+        self._trial_id = 0
+        self._n_eval = 0
+        self._best_trial_id: int | None = None
+        self._best_cost = float("inf")
+
+        self._batch_xs: list[np.ndarray] = []
+        self._batch_trial_ids: list[int] = []
+        self._batch_costs: list[float | None] = []
+        self._done = False
+
+    # ------------------------------------------------------------------
+    # Helpers
+    # ------------------------------------------------------------------
+
+    def _to_physical(self, x: np.ndarray) -> np.ndarray:
+        arr = np.asarray(x, dtype=float)
+        if self._normalize:
+            clipped = np.clip(arr, 0.0, 1.0)
+            return self._lower + clipped * self._span
+        return np.clip(arr, self._lower, self._upper)
+
+    def _draw_batch_if_needed(self) -> None:
+        if self._batch_xs and None in self._batch_costs:
+            return  # current batch still needs telling
+        if self._done:
+            return
+        if self._es.stop() or self._n_eval >= self._max_evaluations:
+            self._done = True
+            return
+        xs = self._es.ask()
+        self._batch_xs = [np.asarray(x, dtype=float) for x in xs]
+        self._batch_trial_ids = []
+        self._batch_costs = [None] * len(self._batch_xs)
 
     # ------------------------------------------------------------------
     # Ask / tell
@@ -152,17 +148,25 @@ class CmaEsAdapter:
     def ask(self, n: int = 1) -> list[ParamSuggestion]:
         out: list[ParamSuggestion] = []
         for _ in range(n):
-            point = self._out_q.get()
-            if point is None:
+            self._draw_batch_if_needed()
+            if self._done:
                 break
+            next_slot = len(self._batch_trial_ids)
+            if next_slot >= len(self._batch_xs):
+                # Should never happen: all asked but not all told yet.
+                break
+            x = self._batch_xs[next_slot]
             self._trial_id += 1
-            physical = self._to_physical(point)
+            physical = self._to_physical(x)
             values = {
                 p.name: p.to_physical(float(physical[i]))
                 for i, p in enumerate(self.space.parameters)
             }
-            self._pending.append((self._trial_id, physical))
+            self._batch_trial_ids.append(self._trial_id)
             out.append(ParamSuggestion(trial_id=self._trial_id, values=values, source="ask"))
+            if self._n_eval + len(self._batch_trial_ids) >= self._max_evaluations:
+                # Stop enlarging this batch once budget runs out.
+                pass
         return out
 
     def suggest_next(self) -> ParamSuggestion:
@@ -173,21 +177,31 @@ class CmaEsAdapter:
 
     def tell(self, results: list[EvaluationResult]) -> None:
         for r in results:
-            for i, (tid, _pt) in enumerate(self._pending):
-                if tid == r.trial_id:
-                    _, physical = self._pending.pop(i)
-                    break
-            else:
+            if r.trial_id not in self._batch_trial_ids:
                 continue
+            idx = self._batch_trial_ids.index(r.trial_id)
             value = r.objective_value
-            if r.status != "completed" or not math.isfinite(value):
-                value = 1e12
-            self._in_q.put(float(value))
+            cost = float(value) if (r.status == "completed" and math.isfinite(value)) else 1e12
+            self._batch_costs[idx] = cost
             self._n_eval += 1
             self._history.append(r)
             if r.status == "completed" and math.isfinite(value):
-                if self._best is None or value < self._best[0]:
-                    self._best = (float(value), physical.copy())
+                if value < self._best_cost:
+                    self._best_cost = float(value)
+                    self._best_trial_id = r.trial_id
+
+        # When the current batch is fully scored, feed CMA and reset.
+        if (
+            self._batch_xs
+            and len(self._batch_trial_ids) == len(self._batch_xs)
+            and None not in self._batch_costs
+        ):
+            self._es.tell(self._batch_xs, list(self._batch_costs))
+            self._batch_xs = []
+            self._batch_trial_ids = []
+            self._batch_costs = []
+            if self._es.stop() or self._n_eval >= self._max_evaluations:
+                self._done = True
 
     def best(self) -> EvaluationResult | None:
         valid = [r for r in self._history if r.status == "completed"]
@@ -196,10 +210,7 @@ class CmaEsAdapter:
         return min(valid, key=lambda r: r.objective_value)
 
     def converged(self) -> bool:
-        return self._done.is_set() and not self._pending
-
-
-_STOP: object = object()
+        return self._done
 
 
 __all__ = ["CmaEsAdapter"]
