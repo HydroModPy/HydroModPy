@@ -19,8 +19,59 @@ from pydantic import ValidationError
 from hydromodpy.calibration.config import (
     CalibObjectiveBlockDecl,
     CalibOutputDecl,
+    CalibParameterDecl,
     CalibrationConfig,
 )
+
+# ---------------------------------------------------------------------------
+# CalibParameterDecl extended
+# ---------------------------------------------------------------------------
+
+
+class TestCalibParameterDeclExtensions:
+    def test_target_is_optional_and_defaults_to_none(self):
+        decl = CalibParameterDecl.model_validate({})
+        assert decl.target is None
+        assert decl.mode == "replace"
+        assert decl.parameterization == "global_value"
+        assert decl.property_name is None
+        assert decl.lithology_key is None
+
+    def test_target_alias_wins_over_path(self):
+        decl = CalibParameterDecl.model_validate(
+            {
+                "path": "flow.properties.k_aquifer",
+                "target": "flow.param.K.value",
+            }
+        )
+        assert decl.resolve_target() == "flow.param.K.value"
+
+    def test_path_used_when_target_absent(self):
+        decl = CalibParameterDecl.model_validate({"path": "flow.properties.k_aquifer"})
+        assert decl.resolve_target() == "flow.properties.k_aquifer"
+
+    @pytest.mark.parametrize("mode", ["replace", "scale"])
+    def test_accepts_supported_modes(self, mode: str):
+        decl = CalibParameterDecl.model_validate({"mode": mode})
+        assert decl.mode == mode
+
+    @pytest.mark.parametrize("mode", ["override", "multiply", "", "REPLACE"])
+    def test_rejects_unsupported_modes(self, mode: str):
+        with pytest.raises(ValidationError, match="mode"):
+            CalibParameterDecl.model_validate({"mode": mode})
+
+    def test_dev_fields_accept_strings(self):
+        decl = CalibParameterDecl.model_validate(
+            {
+                "parameterization": "lithology_based",
+                "property": "hydraulic_conductivity",
+                "lithology_key": "sand",
+            }
+        )
+        assert decl.parameterization == "lithology_based"
+        assert decl.property_name == "hydraulic_conductivity"
+        assert decl.lithology_key == "sand"
+
 
 # ---------------------------------------------------------------------------
 # CalibOutputDecl
@@ -242,7 +293,13 @@ class TestEnrichedTomlRoundTrip:
         [calibration.parameters.K_aquifer]
         bounds = [1e-6, 1e-3]
         transform = "log"
-        path = "flow.param.K.field_homogeneous.value"
+        target = "flow.param.K.field_homogeneous.value"
+        mode   = "replace"
+
+        [calibration.parameters.K_mult]
+        bounds = [0.1, 10.0]
+        target = "flow.param.K.field_homogeneous.value"
+        mode   = "scale"
 
         [calibration.outputs.head_A]
         variable = "head"
@@ -275,7 +332,9 @@ class TestEnrichedTomlRoundTrip:
         assert cfg.method == "cma_es"
         assert cfg.persist_iteration_detail == "full"
         assert cfg.materialize_candidates is True
-        assert cfg.parameters["K_aquifer"].path == "flow.param.K.field_homogeneous.value"
+        assert cfg.parameters["K_aquifer"].mode == "replace"
+        assert cfg.parameters["K_aquifer"].target == "flow.param.K.field_homogeneous.value"
+        assert cfg.parameters["K_mult"].mode == "scale"
         assert cfg.outputs["head_A"].x == 100.0
         assert cfg.outputs["outlet"].boundary_id == "outlet_drain"
         assert len(cfg.objective_blocks) == 2

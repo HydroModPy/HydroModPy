@@ -51,6 +51,7 @@ from hydromodpy.core.config.base import HydroModelBase
 from hydromodpy.core.config.profile import Profile
 
 SaveRunsMode = Literal["none", "best_n", "all"]
+ParameterMode = Literal["replace", "scale"]
 OutputSupport = Literal["point", "boundary", "cell"]
 OutputReducer = Literal["mean", "sum", "last", "none"]
 ObjectiveTransform = Literal["identity", "log", "inverse"]
@@ -93,9 +94,35 @@ class CalibParameterDecl(HydroModelBase):
         description="Dotted path into HydroModPyConfig. Optional: when omitted, "
         "the caller is responsible for injection.",
     )
+    target: Annotated[str | None, Profile.USER] = Field(
+        default=None,
+        description="Readable alias for 'path'. When both are set, 'target' wins.",
+    )
+    mode: Annotated[ParameterMode, Profile.USER] = Field(
+        default="replace",
+        description="'replace' writes the sampled value as-is; 'scale' multiplies "
+        "the base TOML value at the target path by the sample.",
+    )
+    parameterization: Annotated[str, Profile.DEV] = Field(
+        default="global_value",
+        description="Parameterization kind. 'global_value' applies the sample uniformly.",
+    )
+    property_name: Annotated[str | None, Profile.DEV] = Field(
+        default=None,
+        alias="property",
+        description="Associated physical property (used by non-global parameterizations).",
+    )
+    lithology_key: Annotated[str | None, Profile.DEV] = Field(
+        default=None,
+        description="Lithology key when the parameter targets a property map by lithology.",
+    )
     units: Annotated[str | None, Profile.USER] = Field(
         default=None, description="Parameter units label."
     )
+
+    def resolve_target(self) -> str | None:
+        """Return ``target`` when set, else ``path`` (read-only helper)."""
+        return self.target if self.target is not None else self.path
 
 
 class CalibOutputDecl(HydroModelBase):
@@ -287,6 +314,7 @@ __all__ = [
     "CalibOutputDecl",
     "CalibObjectiveBlockDecl",
     "SaveRunsMode",
+    "ParameterMode",
     "OutputSupport",
     "OutputReducer",
     "ObjectiveTransform",
