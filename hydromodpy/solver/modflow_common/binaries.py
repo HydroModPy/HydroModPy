@@ -14,13 +14,29 @@ Two ``bin_path`` layouts are recognised:
 2. **Flat cache layout** - ``<bin_path>/<exe>`` - the layout produced by
    ``flopy.utils.get_modflow`` when it extracts into the managed cache
    (``~/.cache/hydromodpy/bin/`` and platform-equivalents).
+
+Versioning policy
+-----------------
+
+Once a binary lands in the managed cache we never auto-refresh it: the
+same MODFLOW version stays in place for the lifetime of the cache, for
+reproducibility (a run started today must yield the same results a year
+from now unless the user opts in to an upgrade). A manifest written
+alongside the binaries (``.manifest.json``) records the download date
+and USGS release tag. To pull newer USGS binaries, the user runs::
+
+    hmp install-binaries --upgrade
+
+which forces a re-download and rewrites the manifest.
 """
 
 from __future__ import annotations
 
+import json
 import os
 import sys
 from collections.abc import Iterable
+from datetime import UTC, datetime
 from pathlib import Path
 
 from hydromodpy.core.logging import get_logger
@@ -28,6 +44,9 @@ from hydromodpy.core.tools.cache import get_cache_bin_dir
 from hydromodpy.solver.modflow_common.executables import ensure_platform_executable
 
 logger = get_logger(__name__)
+
+MANIFEST_FILENAME = ".manifest.json"
+DEFAULT_RELEASE = "latest"
 
 
 _SOLVER_FILENAMES: dict[str, dict[str, str]] = {
@@ -101,16 +120,54 @@ def locate_solver_binary(bin_path: str | os.PathLike[str], solver: str) -> Path 
     return None
 
 
+def _manifest_path(bindir: Path) -> Path:
+    return bindir / MANIFEST_FILENAME
+
+
+def read_manifest(bindir: str | os.PathLike[str] | None = None) -> dict | None:
+    """Return the cache manifest dict, or ``None`` if missing/unreadable."""
+    target = Path(bindir).expanduser() if bindir else get_cache_bin_dir()
+    path = _manifest_path(target)
+    if not path.is_file():
+        return None
+    try:
+        return json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return None
+
+
+def _write_manifest(bindir: Path, *, release: str, solvers: list[str], replace: bool) -> None:
+    path = _manifest_path(bindir)
+    existing = read_manifest(bindir) if not replace else None
+    merged_solvers = set(solvers)
+    if existing and isinstance(existing.get("solvers"), list):
+        merged_solvers.update(existing["solvers"])
+    manifest = {
+        "release": release,
+        "downloaded_at": datetime.now(UTC).isoformat(timespec="seconds"),
+        "solvers": sorted(merged_solvers),
+    }
+    try:
+        path.write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
+    except OSError as exc:
+        logger.warning("Failed to write cache manifest %s: %s", path, exc)
+
+
 def download_solver_binaries(
     bindir: str | os.PathLike[str] | None = None,
     subset: Iterable[str] | None = None,
     *,
     quiet: bool = False,
+    force: bool = False,
+    release: str = DEFAULT_RELEASE,
 ) -> Path:
     """Download solver binaries via ``flopy.utils.get_modflow``.
 
     ``bindir`` defaults to the managed cache. ``subset`` defaults to the
-    full set of solvers this module knows about.
+    full set of solvers this module knows about. When ``force`` is True
+    the download archive is re-fetched even if previously cached by
+    flopy. ``release`` pins the USGS release tag (``"latest"`` follows
+    the upstream moving target, otherwise e.g. ``"18.0"``).
     """
     target = Path(bindir).expanduser() if bindir else get_cache_bin_dir()
     target.mkdir(parents=True, exist_ok=True)
@@ -130,19 +187,31 @@ def download_solver_binaries(
             "Install it via `pip install flopy` or re-run `pip install -e .`."
         ) from exc
 
-    logger.info("Downloading solver binaries %s into %s", names, target)
-    get_modflow(str(target), subset=names, quiet=quiet)
+    logger.info("Downloading solver binaries %s (release=%s) into %s", names, release, target)
+    get_modflow(str(target), subset=names, quiet=quiet, force=force, release_id=release)
+    _write_manifest(target, release=release, solvers=names, replace=force)
     return target
 
 
 def ensure_solver_binary(solver: str, bin_path: str | os.PathLike[str] | None = None) -> Path:
     """Resolve the exe for ``solver`` under ``bin_path``, downloading if needed.
 
-    If ``bin_path`` is ``None`` or matches the managed cache and the
-    binary is missing, it is fetched via :func:`download_solver_binaries`.
-    For any other (user-supplied) ``bin_path``, a missing binary raises
-    :class:`FileNotFoundError` - we never download into an external
-    directory the user provided explicitly.
+    Behaviour matrix:
+
+    * ``bin_path`` is ``None`` or matches the managed cache **and** the
+      binary is present → return its path.
+    * ``bin_path`` is ``None`` or managed cache, binary missing → fetch
+      it via :func:`download_solver_binaries`, then return the path
+      (raises :class:`FileNotFoundError` if the download failed to
+      produce the expected file).
+    * ``bin_path`` is user-supplied and the binary is present → return
+      its path; we never touch an external directory with a download.
+    * ``bin_path`` is user-supplied and the binary is missing → log a
+      warning and return the *expected* path. Solver execution will
+      surface the missing-file error with its own diagnostics. This
+      preserves the permissive pre-v0.6 behaviour for callers that
+      instantiate solvers without running them (e.g. unit tests for
+      config validation).
     """
     target = Path(bin_path).expanduser() if bin_path else get_cache_bin_dir()
 
@@ -161,21 +230,26 @@ def ensure_solver_binary(solver: str, bin_path: str | os.PathLike[str] | None = 
         )
 
     legacy_dir = _LEGACY_PLATFORM_DIR.get(sys.platform, _platform_key())
-    raise FileNotFoundError(
-        f"Solver '{solver}' binary not found in {target}. "
-        f"Expected {target / legacy_dir / exe_filename(solver)} "
-        f"or {target / exe_filename(solver)}. "
-        f"Either populate this directory manually, unset HYDROMODPY_BIN / "
-        f"bin_path (to use the HydroModPy-managed cache), or run "
-        f"`hmp install-binaries`."
+    expected = target / legacy_dir / exe_filename(solver)
+    logger.warning(
+        "Solver '%s' not found at %s (bin_path=%s). Returning the expected path; "
+        "run `hmp install-binaries` or populate the directory to avoid a "
+        "runtime error when the solver executes.",
+        solver,
+        expected,
+        target,
     )
+    return expected
 
 
 __all__ = [
+    "DEFAULT_RELEASE",
+    "MANIFEST_FILENAME",
     "available_solvers",
     "download_solver_binaries",
     "ensure_solver_binary",
     "exe_filename",
     "is_managed_cache",
     "locate_solver_binary",
+    "read_manifest",
 ]

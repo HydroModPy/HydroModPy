@@ -30,6 +30,18 @@ def register(subparsers) -> argparse.ArgumentParser:
         help="Target directory (default: HydroModPy-managed cache).",
     )
     parser.add_argument(
+        "--release",
+        default=None,
+        help='USGS executables release tag (default: "latest"; pin e.g. "18.0" for reproducibility).',
+    )
+    parser.add_argument(
+        "--upgrade",
+        "--force",
+        dest="upgrade",
+        action="store_true",
+        help="Re-download even if the binaries are already cached.",
+    )
+    parser.add_argument(
         "--quiet",
         action="store_true",
         help="Reduce download progress output.",
@@ -40,8 +52,10 @@ def register(subparsers) -> argparse.ArgumentParser:
 
 def run(args: argparse.Namespace) -> None:
     from hydromodpy.solver.modflow_common.binaries import (
+        DEFAULT_RELEASE,
         available_solvers,
         download_solver_binaries,
+        read_manifest,
     )
 
     if args.subset:
@@ -58,11 +72,34 @@ def run(args: argparse.Namespace) -> None:
     else:
         subset = None
 
+    manifest = read_manifest(args.bindir)
+    if manifest and not args.upgrade:
+        already = set(manifest.get("solvers") or [])
+        requested = set(subset or available_solvers())
+        if requested.issubset(already):
+            print(
+                f"[install-binaries] Already cached (release={manifest.get('release')}, "
+                f"downloaded_at={manifest.get('downloaded_at')}). "
+                f"Use --upgrade to re-download."
+            )
+            sys.exit(EXIT_OK)
+
+    release = args.release or DEFAULT_RELEASE
     try:
-        target = download_solver_binaries(bindir=args.bindir, subset=subset, quiet=args.quiet)
+        target = download_solver_binaries(
+            bindir=args.bindir,
+            subset=subset,
+            quiet=args.quiet,
+            force=args.upgrade,
+            release=release,
+        )
     except RuntimeError as exc:
         print(f"[install-binaries] {exc}", file=sys.stderr)
         sys.exit(EXIT_CONFIG)
 
-    print(f"[install-binaries] Installed {subset or list(available_solvers())} into {target}")
+    action = "Upgraded" if args.upgrade else "Installed"
+    print(
+        f"[install-binaries] {action} {subset or list(available_solvers())} "
+        f"(release={release}) into {target}"
+    )
     sys.exit(EXIT_OK)

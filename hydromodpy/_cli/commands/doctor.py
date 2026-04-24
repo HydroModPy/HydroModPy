@@ -159,7 +159,10 @@ def _build_report(workspace_arg: str | None, *, toml: str | None = None) -> dict
 
     try:
         from hydromodpy.core.workspace.workspace import _resolve_bin_path
-        from hydromodpy.solver.modflow_common.binaries import locate_solver_binary
+        from hydromodpy.solver.modflow_common.binaries import (
+            locate_solver_binary,
+            read_manifest,
+        )
 
         effective_bin = Path(_resolve_bin_path())
     except Exception as exc:  # pragma: no cover - defensive
@@ -181,6 +184,19 @@ def _build_report(workspace_arg: str | None, *, toml: str | None = None) -> dict
                 "hint": None,
             }
         )
+        manifest = read_manifest(effective_bin)
+        if manifest:
+            checks.append(
+                {
+                    "name": "solver:cache_version",
+                    "status": "OK",
+                    "detail": (
+                        f"release={manifest.get('release')} "
+                        f"downloaded_at={manifest.get('downloaded_at')}"
+                    ),
+                    "hint": "Run 'hmp install-binaries --upgrade' to refresh.",
+                }
+            )
 
     for binary in _SOLVER_BINARIES:
         located = None
