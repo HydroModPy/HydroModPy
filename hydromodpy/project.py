@@ -414,6 +414,20 @@ class Project:
         """Set of data types already loaded for this project."""
         return set(self._data_loaded)
 
+    @property
+    def data(self) -> _ProjectDataAccessor:
+        """Accessor for the input-data cache scoped to this project."""
+        return _ProjectDataAccessor(self)
+
+    @property
+    def runs(self) -> _ProjectRunsAccessor:
+        """Accessor for the simulation catalog scoped to this project."""
+        return _ProjectRunsAccessor(self)
+
+    def __getitem__(self, sim_id: str):
+        """Return the Run view associated with ``sim_id``."""
+        return self._store[sim_id]
+
     # -- Public properties -------------------------------------------------
 
     @property
@@ -437,7 +451,7 @@ class Project:
         return self._time_grid
 
     @property
-    def data(self):
+    def loaded_data(self):
         """Loaded data context (recharge, geology, hydrometry, etc.)."""
         return self._ctx.loaded_data
 
@@ -828,3 +842,64 @@ class Project:
                 )
             ],
         )
+
+
+class _ProjectDataAccessor:
+    """Helper exposed as ``project.data``.
+
+    Lists input-data cache entries used by the project, locates a specific
+    :class:`~hydromodpy.data.entry.DataEntry`, and reports missing variables.
+    """
+
+    def __init__(self, project: Project) -> None:
+        self._project = project
+
+    def list(self, variable: str | None = None):
+        import pandas as pd
+
+        loaded = self._project.data_loaded
+        if variable is not None:
+            loaded = {v for v in loaded if v == variable}
+        return pd.DataFrame({"variable": sorted(loaded)})
+
+    def missing(self) -> list[str]:
+        plan_types = getattr(self._project._ctx.data_plan, "types", ()) or ()
+        loaded = self._project.data_loaded
+        return [t for t in plan_types if t not in loaded]
+
+
+class _ProjectRunsAccessor:
+    """Helper exposed as ``project.runs``.
+
+    Thin wrapper around :class:`~hydromodpy.results.catalog.SimulationCatalog`
+    that pre-filters queries by the current project name.
+    """
+
+    def __init__(self, project: Project) -> None:
+        self._project = project
+
+    def list(self):
+        store = self._project._store
+        if store is None:
+            import pandas as pd
+
+            return pd.DataFrame()
+        return store.list_simulations(project=self._project._project_name)
+
+    def find(self, **filters):
+        store = self._project._store
+        if store is None:
+            return []
+        return store.find(project=self._project._project_name, **filters)
+
+    def latest(self):
+        df = self.list()
+        if df.empty:
+            return None
+        return self._project._store[df.iloc[-1]["sim_id"]]
+
+    def best(self, metric: str):
+        store = self._project._store
+        if store is None:
+            return None
+        return store.best(self._project._project_name, metric=metric)
