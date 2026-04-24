@@ -1,0 +1,33 @@
+The two workspace databases
+===========================
+
+A HydroModPy workspace carries two DuckDB databases with symmetric APIs:
+
+Input cache - ``workspace/data/cache.duckdb``
+---------------------------------------------
+
+Tracks downloaded or custom datasets. Exposed through:
+
+- :class:`~hydromodpy.data.registry.catalog_duckdb.DataCatalogDuckDB` (low-level)
+- :class:`~hydromodpy.data.DataStore` (façade)
+- :class:`~hydromodpy.data.entry.DataEntry` (view on one row)
+- ``project.data`` / ``workspace.data`` accessors
+
+Output catalog - ``workspace/hydromodpy.duckdb``
+------------------------------------------------
+
+Holds the simulation metadata, parameters, metrics, provenance, and
+calibration history. Exposed through:
+
+- :class:`~hydromodpy.results.catalog.SimulationCatalog`
+- :class:`~hydromodpy.results.run.Run`
+- :class:`~hydromodpy.results.simulation_group.SimulationGroup`
+- ``project.runs`` / ``workspace.runs`` accessors
+
+Provenance bridge
+-----------------
+
+Each simulation records, in its ``provenance`` rows, which input-cache
+entries it consumed. ``run.input_entries()`` walks the bridge to list
+them, and ``entry.used_by()`` returns the simulations that referenced a
+given entry.
