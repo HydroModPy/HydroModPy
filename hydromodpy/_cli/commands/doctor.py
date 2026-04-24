@@ -31,7 +31,7 @@ _CORE_DEPS = (
 
 _OPTIONAL_DEPS = ("gmsh", "whitebox_workflows", "geopandas", "pyvista")
 
-_SOLVER_BINARIES = ("mf2005", "mfnwt", "mf6", "mp7")
+_SOLVER_BINARIES = ("mfnwt", "mf6", "mp6", "mp7", "mt3dusgs")
 
 
 def register(subparsers) -> argparse.ArgumentParser:
@@ -157,14 +157,54 @@ def _build_report(workspace_arg: str | None, *, toml: str | None = None) -> dict
             }
         )
 
+    try:
+        from hydromodpy.core.workspace.workspace import _resolve_bin_path
+        from hydromodpy.solver.modflow_common.binaries import locate_solver_binary
+
+        effective_bin = Path(_resolve_bin_path())
+    except Exception as exc:  # pragma: no cover - defensive
+        effective_bin = None
+        checks.append(
+            {
+                "name": "solver:bin_path",
+                "status": "KO",
+                "detail": f"bin path resolution failed: {exc}",
+                "hint": "Reinstall hydromodpy",
+            }
+        )
+    else:
+        checks.append(
+            {
+                "name": "solver:bin_path",
+                "status": "OK",
+                "detail": str(effective_bin),
+                "hint": None,
+            }
+        )
+
     for binary in _SOLVER_BINARIES:
-        location = shutil.which(binary)
-        if location:
+        located = None
+        if effective_bin is not None:
+            try:
+                located = locate_solver_binary(effective_bin, binary)
+            except Exception:
+                located = None
+        path_hit = shutil.which(binary)
+        if located:
             checks.append(
                 {
                     "name": f"solver:{binary}",
                     "status": "OK",
-                    "detail": location,
+                    "detail": str(located),
+                    "hint": None,
+                }
+            )
+        elif path_hit:
+            checks.append(
+                {
+                    "name": f"solver:{binary}",
+                    "status": "OK",
+                    "detail": f"{path_hit} (from PATH)",
                     "hint": None,
                 }
             )
@@ -173,8 +213,11 @@ def _build_report(workspace_arg: str | None, *, toml: str | None = None) -> dict
                 {
                     "name": f"solver:{binary}",
                     "status": "WARN",
-                    "detail": "not on PATH",
-                    "hint": "Install via conda or copy into ~/hydromodpy/bin/",
+                    "detail": "not cached, not on PATH",
+                    "hint": (
+                        f"Run 'hmp install-binaries --subset {binary}' "
+                        "(or let the first simulation trigger a lazy download)."
+                    ),
                 }
             )
 

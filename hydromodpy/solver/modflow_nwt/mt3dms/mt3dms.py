@@ -39,7 +39,10 @@ from hydromodpy.core.io.raster_io import export_tif
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.tools.display import plot_params
 from hydromodpy.core.tools.filesystem import create_folder
-from hydromodpy.solver.modflow_common import ensure_platform_executable, masstransfer
+from hydromodpy.solver.modflow_common import (
+    ensure_solver_binary,
+    masstransfer,
+)
 from hydromodpy.solver.modflow_common.runtime_arrays import (
     build_concentration_runtime_overrides,
 )
@@ -108,13 +111,7 @@ class Mt3dms:
 
         if not os.path.isdir(self.full_path):
             raise FileNotFoundError(f"Directory not found: {self.full_path}")
-        if (sys.platform == "win32") or (sys.platform == "win64"):
-            self.exe = os.path.join(bin_path, "win", "mt3d-usgs_1.1.0_64.exe")
-        if sys.platform == "linux":
-            self.exe = os.path.join(bin_path, "linux", "mt3dusgs")
-        if sys.platform == "darwin":
-            self.exe = os.path.join(bin_path, "mac", "mt3dusgs")
-        self.exe = str(ensure_platform_executable(self.exe))
+        self.exe = str(ensure_solver_binary("mt3dusgs", bin_path))
 
         conc_params = {}
         raw_params = getattr(transport.mt3dms, "parameters", None)
