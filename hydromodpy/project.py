@@ -583,6 +583,42 @@ class Project:
         )
         return SimulationGroup(self._store, sim_ids)
 
+    def overview(self, *, config_path: str | Path | None = None):
+        """Generate the watershed identity card (data-only rapport).
+
+        Today this delegates to :class:`DataOverviewLauncher`. The launcher
+        will be fully folded into this method in a follow-up pass; the
+        facade already gives programmatic callers a single entry point.
+        """
+        from hydromodpy.workflow.pipelines.overview import DataOverviewLauncher
+
+        path = config_path if config_path is not None else self._config_path
+        if path is None:
+            raise ValueError("project.overview() requires a TOML path for now")
+        return DataOverviewLauncher(path).run()
+
+    def compare(self, *, config_path: str | Path | None = None):
+        """Compare simulations as declared in a TOML config.
+
+        Delegates to :class:`MethodComparisonLauncher`. Pairwise ad-hoc comparison
+        stays available via the top-level :func:`hydromodpy.compare` shortcut.
+        """
+        from hydromodpy.analysis.comparison.orchestrator import MethodComparisonLauncher
+
+        path = config_path if config_path is not None else self._config_path
+        if path is None:
+            raise ValueError("project.compare() requires a TOML path for now")
+        return MethodComparisonLauncher(path).run()
+
+    def batch(self, *, config_path: str | Path | None = None, **kwargs):
+        """Run the regional-batch workflow. Delegates to :class:`RegionalLabLauncher`."""
+        from hydromodpy.analysis.batch.runtime import RegionalLabLauncher
+
+        path = config_path if config_path is not None else self._config_path
+        if path is None:
+            raise ValueError("project.batch() requires a TOML path for now")
+        return RegionalLabLauncher(path).run(**kwargs)
+
     def calibrate(self, *, config_path: str | Path | None = None, **kwargs):
         """Run a calibration campaign on this project.
 
