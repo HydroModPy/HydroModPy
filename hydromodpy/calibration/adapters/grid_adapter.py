@@ -16,8 +16,14 @@ from hydromodpy.calibration.parameters import ParameterSpace
 
 
 @register_optimizer("grid")
+@register_optimizer("grid_search")
 class GridAdapter:
-    """Regular grid over transformed bounds."""
+    """Regular grid over transformed bounds.
+
+    Registered under ``grid`` (default) and ``grid_search`` (legacy alias).
+    Accepts ``n_per_dim`` as a synonym of ``points_per_dim`` for parity with
+    the legacy ``_driver_grid_search``.
+    """
 
     name = "grid"
 
@@ -25,9 +31,12 @@ class GridAdapter:
         self,
         space: ParameterSpace,
         *,
-        points_per_dim: int | list[int] = 5,
+        points_per_dim: int | list[int] | None = None,
+        n_per_dim: int | None = None,
         seed: int | None = None,
     ):
+        if points_per_dim is None:
+            points_per_dim = n_per_dim if n_per_dim is not None else 5
         self.space = space
         if isinstance(points_per_dim, int):
             per_dim = [points_per_dim] * space.dim

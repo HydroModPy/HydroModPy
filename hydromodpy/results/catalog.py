@@ -1160,6 +1160,102 @@ class SimulationCatalog:
     def simulations(self) -> pd.DataFrame:
         return self._db.execute("SELECT * FROM simulations ORDER BY created_at DESC").fetchdf()
 
+    # -- Calibration session inspection -------------------------------------
+
+    @property
+    def calibration_sessions(self) -> pd.DataFrame:
+        """Return every calibration session row as a DataFrame."""
+        return self._db.execute(
+            "SELECT * FROM calibration_sessions ORDER BY started_at DESC"
+        ).fetchdf()
+
+    def calibration_iterations(self, session_id: str | UUID) -> pd.DataFrame:
+        """Return the iteration history for one session as a DataFrame."""
+        sid = UUID(str(session_id)) if len(str(session_id).replace("-", "")) == 32 else session_id
+        return self._db.execute(
+            """
+            SELECT iteration, sim_id, params_hash, parameters,
+                   objective_value, metrics, status, from_cache, duration_s
+              FROM calibration_iterations
+             WHERE session_id = ?
+             ORDER BY iteration
+            """,
+            [sid],
+        ).fetchdf()
+
+    def export_calibration_session(
+        self,
+        session_id: str | UUID,
+        out_dir: Path | str,
+    ) -> Path:
+        """Export one calibration session to the legacy JSONL + manifest shape.
+
+        Writes ``iteration_history.jsonl`` (one JSON per row) plus
+        ``session_manifest.json`` under ``out_dir``. Returns ``out_dir``.
+        """
+        import json
+
+        from hydromodpy.calibration.persistence import CalibrationPersistence
+
+        out = Path(out_dir).expanduser().resolve()
+        out.mkdir(parents=True, exist_ok=True)
+
+        sid_str = str(session_id)
+        sid = UUID(sid_str) if len(sid_str.replace("-", "")) == 32 else sid_str
+
+        session_row = self._db.execute(
+            """
+            SELECT session_id, project, method, objective_name,
+                   n_iterations, config, started_at, ended_at, status,
+                   best_sim_id, best_objective, duration_s
+              FROM calibration_sessions
+             WHERE session_id = ?
+            """,
+            [sid],
+        ).fetchone()
+        if session_row is None:
+            raise ValueError(f"Unknown calibration session {session_id!r}")
+        manifest_keys = (
+            "session_id",
+            "project",
+            "method",
+            "objective_name",
+            "n_iterations",
+            "config",
+            "started_at",
+            "ended_at",
+            "status",
+            "best_sim_id",
+            "best_objective",
+            "duration_s",
+        )
+        manifest: dict[str, Any] = {}
+        for key, value in zip(manifest_keys, session_row, strict=True):
+            if key in {"session_id", "best_sim_id"}:
+                manifest[key] = None if value is None else str(value)
+            elif key == "config":
+                if isinstance(value, str) and value:
+                    try:
+                        manifest[key] = json.loads(value)
+                    except json.JSONDecodeError:
+                        manifest[key] = value
+                else:
+                    manifest[key] = value
+            else:
+                manifest[key] = value
+        manifest_path = out / "session_manifest.json"
+        manifest_path.write_text(
+            json.dumps(manifest, default=str, indent=2) + "\n",
+            encoding="utf-8",
+        )
+
+        rows = CalibrationPersistence(self).load_iterations(str(session_id))
+        jsonl_path = out / "iteration_history.jsonl"
+        with open(jsonl_path, "w", encoding="utf-8") as fh:
+            for row in rows:
+                fh.write(json.dumps(row, default=str) + "\n")
+        return out
+
     def resolve(
         self,
         ref: str | UUID,

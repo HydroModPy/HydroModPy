@@ -98,6 +98,8 @@ class CalibParameter:
     transform: str = "identity"
     prior: str = "uniform"
     path: str | None = None  # dotted path into HydroModPyConfig (optional)
+    target: str | None = None  # readable alias for ``path`` (wins when set)
+    mode: str = "replace"  # "replace" writes the sample; "scale" multiplies the base
     units: str | None = None
 
     @property
@@ -113,6 +115,11 @@ class CalibParameter:
 
     def to_transformed(self, x: float) -> float:
         return _forward(self.transform, x)
+
+    @property
+    def effective_path(self) -> str | None:
+        """Return ``target`` when set, else ``path``."""
+        return self.target if self.target is not None else self.path
 
 
 class ParameterSpace:
@@ -178,6 +185,12 @@ class ParameterSpace:
             prior = decl.get("prior", ann.prior if ann else "uniform")
             units = decl.get("units", ann.units if ann else None)
             path = decl.get("path")
+            target = decl.get("target")
+            mode = str(decl.get("mode", "replace")).strip().lower()
+            if mode not in {"replace", "scale"}:
+                raise ValueError(
+                    f"Parameter {name!r}: mode must be 'replace' or 'scale', got {mode!r}"
+                )
             params.append(
                 CalibParameter(
                     name=name,
@@ -186,6 +199,8 @@ class ParameterSpace:
                     transform=transform,
                     prior=prior,
                     path=path,
+                    target=target,
+                    mode=mode,
                     units=units,
                 )
             )
@@ -273,26 +288,95 @@ def apply_values(
 ) -> BaseModel:
     """Return a deep copy of ``base_config`` with calibrated values injected.
 
-    Each CalibParameter with a ``path`` (dotted into the config tree) is set
-    from ``values[name]``. Parameters without a path are ignored (useful for
-    pure-Python calibration where the user handles injection manually).
+    Each CalibParameter with a resolved path (``target`` fallback ``path``) is
+    updated from ``values[name]`` via :func:`apply_parameter_to_config`.
+    Parameters without a path are ignored (useful for pure-Python calibration
+    where the user handles injection manually).
     """
     cfg = base_config.model_copy(deep=True)
     for p in space:
-        if p.path is None:
+        if p.effective_path is None:
             continue
         if p.name not in values:
             continue
-        _set_by_path(cfg, p.path, values[p.name])
+        apply_parameter_to_config(cfg, p, float(values[p.name]))
     return cfg
 
 
-def _set_by_path(cfg: BaseModel, path: str, value: float) -> None:
+def apply_parameter_to_config(
+    cfg: Any,
+    param: CalibParameter,
+    value: float,
+) -> None:
+    """Write ``value`` into ``cfg`` for ``param``, honouring ``param.mode``.
+
+    ``mode="replace"`` writes the candidate value as-is at ``param.effective_path``.
+    ``mode="scale"`` multiplies the existing value at that path by the candidate
+    (the base value must be numeric).
+    """
+    path = param.effective_path
+    if path is None:
+        raise ValueError(f"Parameter {param.name!r} has no target or path")
+    if param.mode == "replace":
+        _set_by_path(cfg, path, float(value))
+        return
+    if param.mode == "scale":
+        base = _get_by_path(cfg, path)
+        if base is None:
+            raise ValueError(
+                f"Parameter {param.name!r}: scale mode requires a numeric base "
+                f"value at {path!r}; resolved to None."
+            )
+        try:
+            base_f = float(base)
+        except (TypeError, ValueError) as exc:
+            raise ValueError(
+                f"Parameter {param.name!r}: scale mode requires a numeric base "
+                f"value at {path!r}; got {base!r}."
+            ) from exc
+        _set_by_path(cfg, path, base_f * float(value))
+        return
+    raise ValueError(
+        f"Parameter {param.name!r}: unsupported mode {param.mode!r} (expected 'replace' or 'scale')"
+    )
+
+
+def _set_by_path(cfg: Any, path: str, value: Any) -> None:
+    """Set ``value`` at ``path`` on ``cfg``. Accepts Pydantic and Mapping."""
     parts = path.split(".")
     target: Any = cfg
     for part in parts[:-1]:
-        target = getattr(target, part)
-    setattr(target, parts[-1], value)
+        if isinstance(target, Mapping):
+            if part not in target:
+                raise ValueError(f"Path segment {part!r} not found on {type(target).__name__}")
+            target = target[part]
+        else:
+            if not hasattr(target, part):
+                raise ValueError(f"Path segment {part!r} not found on {type(target).__name__}")
+            target = getattr(target, part)
+    leaf = parts[-1]
+    if isinstance(target, Mapping):
+        target[leaf] = value
+    else:
+        if not hasattr(target, leaf):
+            raise ValueError(f"Leaf segment {leaf!r} not found on {type(target).__name__}")
+        setattr(target, leaf, value)
+
+
+def _get_by_path(cfg: Any, path: str) -> Any:
+    """Return the value at dotted ``path`` on ``cfg`` or raise if missing."""
+    parts = path.split(".")
+    target: Any = cfg
+    for part in parts:
+        if isinstance(target, Mapping):
+            if part not in target:
+                raise ValueError(f"Path segment {part!r} not found on {type(target).__name__}")
+            target = target[part]
+        else:
+            if not hasattr(target, part):
+                raise ValueError(f"Path segment {part!r} not found on {type(target).__name__}")
+            target = getattr(target, part)
+    return target
 
 
 __all__ = [
@@ -301,4 +385,5 @@ __all__ = [
     "ParameterSpace",
     "discover_calibrable",
     "apply_values",
+    "apply_parameter_to_config",
 ]

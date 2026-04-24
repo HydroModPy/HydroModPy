@@ -12,7 +12,7 @@ from typing import Any
 
 import numpy as np
 
-from hydromodpy.calibration.benchmark import (
+from validation_cases.calibration.shared._twin_bridge import (
     ModelCalibrationLauncher,
     ModelCalibrationObjectiveEvaluator,
     actualize_candidate,

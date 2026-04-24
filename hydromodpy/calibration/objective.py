@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from collections.abc import Callable, Iterable, Mapping
 from dataclasses import dataclass, field
-from typing import Protocol, runtime_checkable
+from typing import Any, Protocol, runtime_checkable
 
 import numpy as np
 
@@ -325,6 +325,154 @@ class CompositeObjective:
         return ObjectiveValue(total=float(total), components=merged_components)
 
 
+class ConfigBlockObjective:
+    """Objective for one ``[[calibration.objective_blocks]]`` declaration.
+
+    Concatenates the observed vectors of the referenced outputs, receives
+    the simulated vectors at evaluation time via ``sim.values``
+    (``Mapping[output_name, Sequence[float]]``), computes the block metric
+    and applies the configured normalisation and transform.
+    """
+
+    def __init__(
+        self,
+        *,
+        name: str,
+        metric: str,
+        uses_outputs: Iterable[str],
+        observed_by_output: Mapping[str, Iterable[float]],
+        normalize_cost: bool = False,
+        transform: str = "identity",
+    ) -> None:
+        metric_key = str(metric).strip().lower()
+        if metric_key not in METRICS:
+            raise ValueError(
+                f"Block {name!r}: unknown metric {metric!r}. Choices: {sorted(METRICS)}"
+            )
+        outputs = tuple(str(output) for output in uses_outputs)
+        if not outputs:
+            raise ValueError(f"Block {name!r}: uses_outputs must not be empty")
+        observed_parts: list[np.ndarray] = []
+        for output_name in outputs:
+            values = observed_by_output.get(output_name)
+            if values is None:
+                raise ValueError(f"Block {name!r}: output {output_name!r} has no observed_values")
+            observed_parts.append(np.asarray(list(values), dtype=float).ravel())
+        observed = np.concatenate(observed_parts) if observed_parts else np.empty(0)
+        self.name = str(name)
+        self._metric = metric_key
+        self._metric_fn = METRICS[metric_key]
+        self._higher_is_better = metric_key in HIGHER_IS_BETTER
+        self._outputs = outputs
+        self._observed = observed
+        self._normalize_cost = bool(normalize_cost)
+        self._transform_name = str(transform).strip().lower() if transform else "identity"
+        self._transform_fn = _resolve_transform(self._transform_name)
+        self._reference_scale = self._compute_reference_scale(observed)
+
+    @staticmethod
+    def _compute_reference_scale(observed: np.ndarray) -> float:
+        if observed.size == 0:
+            return 1.0
+        std = float(np.nanstd(observed))
+        if std > 0.0 and np.isfinite(std):
+            return std
+        mean_abs = float(np.mean(np.abs(observed)))
+        return mean_abs if mean_abs > 0.0 else 1.0
+
+    @property
+    def metric(self) -> str:
+        return self._metric
+
+    @property
+    def uses_outputs(self) -> tuple[str, ...]:
+        return self._outputs
+
+    def evaluate(self, sim: SimulationOutput | Mapping[str, Iterable[float]]) -> ObjectiveValue:
+        if hasattr(sim, "values") and not isinstance(sim, Mapping):
+            sim_values = sim.values
+        else:
+            sim_values = sim
+        simulated_parts: list[np.ndarray] = []
+        for output_name in self._outputs:
+            part = sim_values.get(output_name) if isinstance(sim_values, Mapping) else None
+            if part is None:
+                return ObjectiveValue(
+                    total=float("inf"),
+                    components={f"{self.name}.missing": 1.0},
+                )
+            simulated_parts.append(np.asarray(list(part), dtype=float).ravel())
+        simulated = np.concatenate(simulated_parts) if simulated_parts else np.empty(0)
+        n = int(min(self._observed.size, simulated.size))
+        if n == 0:
+            return ObjectiveValue(total=float("inf"), components={})
+        observed = self._observed[:n]
+        simulated = simulated[:n]
+        raw = float(self._metric_fn(observed, simulated))
+        if not np.isfinite(raw):
+            return ObjectiveValue(
+                total=float("inf"),
+                components={f"{self.name}.raw_cost": float("inf")},
+            )
+        cost = (1.0 - raw) if self._higher_is_better else raw
+        normalized = cost / self._reference_scale if self._normalize_cost else cost
+        transformed = float(self._transform_fn(normalized))
+        components = {
+            f"{self.name}.raw_cost": float(cost),
+            f"{self.name}.normalized_cost": float(normalized),
+            f"{self.name}.reference_scale": float(self._reference_scale),
+            f"{self.name}.n_values": float(n),
+        }
+        return ObjectiveValue(total=float(transformed), components=components)
+
+
+def build_objective_from_config(cfg: Any) -> Objective:
+    """Assemble an :class:`Objective` from a :class:`CalibrationConfig`.
+
+    Each ``objective_block`` becomes one :class:`ConfigBlockObjective`
+    (metric + normalise + transform applied per block). When a single block
+    is declared, the block is returned directly; otherwise the blocks are
+    wrapped in a :class:`CompositeObjective` with normalised weights.
+    """
+    blocks = getattr(cfg, "objective_blocks", None) or []
+    outputs = getattr(cfg, "outputs", None) or {}
+    if not blocks:
+        raise ValueError(
+            "cfg.objective_blocks is empty; declare [[calibration.objective_blocks]] "
+            "or populate cfg.outputs so the implicit block can be synthesised."
+        )
+    observed_by_output: dict[str, tuple[float, ...]] = {}
+    for output_name, decl in outputs.items():
+        values = getattr(decl, "observed_values", None)
+        if values is not None:
+            observed_by_output[str(output_name)] = tuple(float(v) for v in values)
+    block_objectives: list[Objective] = []
+    for block in blocks:
+        name = str(block.name)
+        uses_outputs = tuple(block.uses_outputs)
+        metric = str(getattr(block, "metric", "rmse"))
+        normalize_cost = bool(getattr(block, "normalize_cost", False))
+        transform = str(getattr(block, "transform", "identity"))
+        block_objectives.append(
+            ConfigBlockObjective(
+                name=name,
+                metric=metric,
+                uses_outputs=uses_outputs,
+                observed_by_output=observed_by_output,
+                normalize_cost=normalize_cost,
+                transform=transform,
+            )
+        )
+    if len(block_objectives) == 1:
+        return block_objectives[0]
+    weights = [float(getattr(block, "weight", 1.0)) for block in blocks]
+    return CompositeObjective(
+        list(zip(block_objectives, weights, strict=True)),
+        name="config_composite",
+        transform="identity",
+    )
+
+
 __all__ = [
     "Objective",
     "ObjectiveValue",
@@ -332,6 +480,8 @@ __all__ = [
     "SimulationOutput",
     "ScalarObjective",
     "CompositeObjective",
+    "ConfigBlockObjective",
+    "build_objective_from_config",
     "METRICS",
     "HIGHER_IS_BETTER",
     "evaluate_objective",

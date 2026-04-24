@@ -67,7 +67,8 @@ def _load_toml_calibration(path: Path) -> tuple[CalibrationConfig, dict]:
 
 def _space_from_config(cfg: CalibrationConfig) -> ParameterSpace:
     declarations = {
-        name: decl.model_dump(exclude_none=True) for name, decl in cfg.parameters.items()
+        name: decl.model_dump(exclude_none=True, by_alias=True)
+        for name, decl in cfg.parameters.items()
     }
     return ParameterSpace.from_toml_mapping(declarations)
 
@@ -76,13 +77,14 @@ def _override_paths(cfg: CalibrationConfig) -> dict[str, str]:
     """Return the ``{parameter_name: dotted_path}`` mapping for trial injection."""
     out: dict[str, str] = {}
     for name, decl in cfg.parameters.items():
-        if decl.path:
-            out[name] = decl.path
+        dotted = decl.target if decl.target is not None else decl.path
+        if dotted:
+            out[name] = dotted
     if not out:
         raise ValueError(
-            "Calibration parameters must declare a 'path' (e.g. "
+            "Calibration parameters must declare a 'path' or 'target' (e.g. "
             "'flow.param.K.field_homogeneous.value') so values can be injected "
-            "into the simulation config. None of the parameters have a path."
+            "into the simulation config."
         )
     return out
 
@@ -192,7 +194,8 @@ def run_calibration_cli(
     workspace: Path | str | None = None,
     project: str = "calibration",
     metric_fn: TrialMetricFn | None = None,
-) -> dict:
+    return_report: bool = False,
+) -> dict | object:
     """Run a calibration described by ``config_path``.
 
     Parameters
@@ -221,7 +224,11 @@ def run_calibration_cli(
     override_paths = _override_paths(cfg)
 
     # Prepare the pipeline once (steps [0..earliest) run here).
-    trial_ctx = prepare_trials(cfg_path, override_paths=override_paths)
+    trial_ctx = prepare_trials(
+        cfg_path,
+        override_paths=override_paths,
+        parameter_space=space,
+    )
 
     # Resolve workspace.
     if workspace is not None:
@@ -385,17 +392,22 @@ def run_calibration_cli(
     if best_sim_id is not None:
         _update_best_sim_id(catalog, session_id, best_sim_id)
 
-    summary = {
-        "session_id": session_id,
-        "method": cfg.method,
-        "n_iterations": len(session.history),
-        "best_objective": best.objective_value if best else None,
-        "best_sim_id": best_sim_id,
-        "duration_s": round(session.duration_s if session.duration_s else elapsed, 3),
-        "save_runs": cfg.save_runs,
-        "promoted": promotion_count,
-    }
-    return summary
+    from hydromodpy.calibration.report import CalibrationReport
+
+    report = CalibrationReport(
+        session_id=session_id,
+        method=cfg.method,
+        n_iterations=len(session.history),
+        best_objective=best.objective_value if best else None,
+        best_sim_id=best_sim_id,
+        duration_s=float(session.duration_s if session.duration_s else elapsed),
+        save_runs=cfg.save_runs,
+        promoted=promotion_count,
+        workspace=ws_root,
+    )
+    if return_report:
+        return report
+    return report.to_dict()
 
 
 __all__ = ["run_calibration_cli"]

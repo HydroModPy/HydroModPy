@@ -97,12 +97,27 @@ class TestCalibrationConfigExtraForbidden:
 
 
 class TestCalibrationConfigMethodLiteral:
-    @pytest.mark.parametrize("method", ["optuna", "scipy_de", "scipy_nelder_mead", "grid"])
+    @pytest.mark.parametrize(
+        "method",
+        [
+            "optuna",
+            "scipy_de",
+            "scipy_nelder_mead",
+            "grid",
+            "grid_search",
+            "random_search",
+            "simplex",
+            "cma_es",
+            "nelder_mead",
+            "gp_mapping",
+            "da_mh_gp",
+        ],
+    )
     def test_accepts_all_supported_methods(self, method: str):
         cfg = CalibrationConfig.model_validate({"method": method})
         assert cfg.method == method
 
-    @pytest.mark.parametrize("method", ["da_mh_gp", "simplex", "random_search", "", "GRID"])
+    @pytest.mark.parametrize("method", ["bayesian", "genetic", "", "GRID"])
     def test_rejects_unsupported_method(self, method: str):
         with pytest.raises(ValidationError, match="method"):
             CalibrationConfig.model_validate({"method": method})

@@ -1,6 +1,6 @@
 """Pydantic model for the ``[calibration]`` TOML section.
 
-The TOML is deliberately minimal::
+Minimal TOML::
 
     [calibration]
     method       = "optuna"
@@ -13,18 +13,62 @@ The TOML is deliberately minimal::
     K_aquifer  = { bounds = [1e-6, 1e-3], transform = "log" }
     Sy_main    = { bounds = [0.02, 0.30] }
     drain_cond = { bounds = [1e-4, 1e-1], transform = "log" }
+
+Enriched TOML (twin-benchmark style)::
+
+    [calibration]
+    method = "cma_es"
+    max_iter = 80
+    seed = 42
+
+    [calibration.parameters.K_aquifer]
+    bounds = [1e-6, 1e-3]
+    target = "flow.param.K.field_homogeneous.value"
+    mode = "replace"
+
+    [calibration.outputs.head_A]
+    variable = "head"
+    support = "point"
+    x = 100.0
+    y = 0.0
+    observed_values = [42.1, 41.8, 41.5]
+
+    [[calibration.objective_blocks]]
+    name = "head_block"
+    metric = "rmse"
+    weight = 1.0
+    uses_outputs = ["head_A"]
 """
 
 from __future__ import annotations
 
+from pathlib import Path
 from typing import Annotated, Any, Literal
 
-from pydantic import ConfigDict, Field
+from pydantic import ConfigDict, Field, model_validator
 
 from hydromodpy.core.config.base import HydroModelBase
 from hydromodpy.core.config.profile import Profile
 
 SaveRunsMode = Literal["none", "best_n", "all"]
+ParameterMode = Literal["replace", "scale"]
+OutputSupport = Literal["point", "boundary", "cell"]
+OutputReducer = Literal["mean", "sum", "last", "none"]
+ObjectiveTransform = Literal["identity", "log", "inverse"]
+PersistIterationDetail = Literal["none", "summary", "full"]
+CalibrationMethod = Literal[
+    "optuna",
+    "scipy_de",
+    "scipy_nelder_mead",
+    "grid",
+    "grid_search",
+    "random_search",
+    "simplex",
+    "cma_es",
+    "nelder_mead",
+    "gp_mapping",
+    "da_mh_gp",
+]
 
 
 class CalibParameterDecl(HydroModelBase):
@@ -50,8 +94,105 @@ class CalibParameterDecl(HydroModelBase):
         description="Dotted path into HydroModPyConfig. Optional: when omitted, "
         "the caller is responsible for injection.",
     )
+    target: Annotated[str | None, Profile.USER] = Field(
+        default=None,
+        description="Readable alias for 'path'. When both are set, 'target' wins.",
+    )
+    mode: Annotated[ParameterMode, Profile.USER] = Field(
+        default="replace",
+        description="'replace' writes the sampled value as-is; 'scale' multiplies "
+        "the base TOML value at the target path by the sample.",
+    )
+    parameterization: Annotated[str, Profile.DEV] = Field(
+        default="global_value",
+        description="Parameterization kind. 'global_value' applies the sample uniformly.",
+    )
+    property_name: Annotated[str | None, Profile.DEV] = Field(
+        default=None,
+        alias="property",
+        description="Associated physical property (used by non-global parameterizations).",
+    )
+    lithology_key: Annotated[str | None, Profile.DEV] = Field(
+        default=None,
+        description="Lithology key when the parameter targets a property map by lithology.",
+    )
     units: Annotated[str | None, Profile.USER] = Field(
         default=None, description="Parameter units label."
+    )
+
+    def resolve_target(self) -> str | None:
+        """Return ``target`` when set, else ``path`` (read-only helper)."""
+        return self.target if self.target is not None else self.path
+
+
+class CalibOutputDecl(HydroModelBase):
+    """Declaration of one observable extracted from a calibration run."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    variable: Annotated[str, Profile.USER] = Field(
+        description="Simulated variable to extract (e.g. 'head', 'outlet_discharge').",
+    )
+    support: Annotated[OutputSupport, Profile.USER] = Field(
+        default="point",
+        description="'point' reads at (x, y); 'boundary' sums flux at boundary_id; "
+        "'cell' reads a single cell.",
+    )
+    x: Annotated[float | None, Profile.USER] = Field(
+        default=None,
+        description="X coordinate when support='point'.",
+    )
+    y: Annotated[float | None, Profile.USER] = Field(
+        default=None,
+        description="Y coordinate when support='point'.",
+    )
+    boundary_id: Annotated[str | None, Profile.USER] = Field(
+        default=None,
+        description="Boundary package identifier when support='boundary'.",
+    )
+    time: Annotated[Literal["all", "last", "first"] | list[str], Profile.USER] = Field(
+        default="all",
+        description="'all' keeps every time step; 'last' / 'first' selects one; "
+        "a list of ISO timestamps selects specific steps.",
+    )
+    reducer: Annotated[OutputReducer, Profile.USER] = Field(
+        default="none",
+        description="Aggregation over the retained time slice.",
+    )
+    observed_values: Annotated[list[float] | None, Profile.USER] = Field(
+        default=None,
+        description="Hard-coded observed values (used by twin-synthetic cases).",
+    )
+
+
+class CalibObjectiveBlockDecl(HydroModelBase):
+    """Declaration of one weighted block inside a composite objective."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    name: Annotated[str, Profile.USER] = Field(
+        description="Unique block identifier used in logs and persistence.",
+    )
+    metric: Annotated[str, Profile.USER] = Field(
+        default="rmse",
+        description="Metric key (rmse, nse, kge, mae).",
+    )
+    weight: Annotated[float, Profile.USER] = Field(
+        default=1.0,
+        gt=0.0,
+        description="Relative weight of this block in the composite sum.",
+    )
+    uses_outputs: Annotated[list[str], Profile.USER] = Field(
+        description="Outputs (by name) consumed by this block.",
+    )
+    normalize_cost: Annotated[bool, Profile.USER] = Field(
+        default=False,
+        description="When True, divide the block cost by a reference scale "
+        "(observed std fallback mean absolute value).",
+    )
+    transform: Annotated[ObjectiveTransform, Profile.USER] = Field(
+        default="identity",
+        description="Per-block cost transform applied before weighting.",
     )
 
 
@@ -60,10 +201,7 @@ class CalibrationConfig(HydroModelBase):
 
     model_config = ConfigDict(extra="forbid")
 
-    method: Annotated[
-        Literal["optuna", "scipy_de", "scipy_nelder_mead", "grid"],
-        Profile.USER,
-    ] = Field(
+    method: Annotated[CalibrationMethod, Profile.USER] = Field(
         default="optuna",
         description="Optimization method. 'optuna' is the recommended default.",
     )
@@ -115,6 +253,71 @@ class CalibrationConfig(HydroModelBase):
         default_factory=dict,
         description="Per-parameter declarations (bounds, transform, prior, path).",
     )
+    outputs: Annotated[dict[str, CalibOutputDecl], Profile.USER] = Field(
+        default_factory=dict,
+        description="Named observables extracted from each candidate run.",
+    )
+    objective_blocks: Annotated[list[CalibObjectiveBlockDecl], Profile.USER] = Field(
+        default_factory=list,
+        description="Weighted blocks making up a composite objective. When empty, "
+        "a single implicit block is built from 'objective' and 'variable'.",
+    )
+    persist_iteration_detail: Annotated[PersistIterationDetail, Profile.DEV] = Field(
+        default="summary",
+        description="'none' skips component metrics; 'summary' keeps block totals; "
+        "'full' also stores per-block raw and normalized costs.",
+    )
+    persist_model_distribution: Annotated[bool, Profile.DEV] = Field(
+        default=False,
+        description="Persist the candidate distribution alongside the session.",
+    )
+    resume_session: Annotated[str | None, Profile.DEV] = Field(
+        default=None,
+        description="Session id to resume. When set, prior iterations seed the loop.",
+    )
+    rerun_best_with_outputs: Annotated[bool, Profile.USER] = Field(
+        default=False,
+        description="Replay the best candidate with full outputs after the loop.",
+    )
+    materialize_candidates: Annotated[bool, Profile.DEV] = Field(
+        default=False,
+        description="Write a standalone override TOML for each candidate under "
+        "'candidates_root' so runs can be replayed later.",
+    )
+    candidates_root: Annotated[Path | None, Profile.DEV] = Field(
+        default=None,
+        description="Directory for per-candidate overlay TOMLs. "
+        "Required when materialize_candidates is True.",
+    )
+
+    @model_validator(mode="after")
+    def _ensure_implicit_objective_block(self) -> CalibrationConfig:
+        """Build an implicit block from (objective, variable) when none is declared."""
+        if not self.objective_blocks:
+            variable = self.variable
+            implicit_output = self.outputs.get(variable)
+            if implicit_output is None:
+                return self
+            implicit = CalibObjectiveBlockDecl(
+                name=f"{self.objective}_{variable}",
+                metric=self.objective,
+                weight=1.0,
+                uses_outputs=[variable],
+            )
+            self.objective_blocks = [implicit]
+        return self
 
 
-__all__ = ["CalibrationConfig", "CalibParameterDecl", "SaveRunsMode"]
+__all__ = [
+    "CalibrationConfig",
+    "CalibParameterDecl",
+    "CalibOutputDecl",
+    "CalibObjectiveBlockDecl",
+    "SaveRunsMode",
+    "ParameterMode",
+    "OutputSupport",
+    "OutputReducer",
+    "ObjectiveTransform",
+    "PersistIterationDetail",
+    "CalibrationMethod",
+]
