@@ -98,15 +98,64 @@ class Project:
         solver: str | None = None,
         headless: bool = False,
         no_display: bool = False,
+        _lazy: bool = False,
     ) -> None:
         """Build a Project from a TOML path or a HydroModPyConfig instance.
 
-        Parameters
-        ----------
-        config : str | Path | HydroModPyConfig
-            Either a path to a TOML file (supports ``base_config`` inheritance)
-            or a fully-built ``HydroModPyConfig`` for fully-Python workflows.
+        By default the model phase runs eagerly: workspace is created, geographic
+        is built, data is loaded, the mesh is generated. Use :meth:`Project.lazy`
+        to defer the model phase and drive each verb from Python.
         """
+        self._configure(
+            config,
+            solver=solver,
+            headless=headless,
+            no_display=no_display,
+        )
+        if not _lazy:
+            self.build_geographic()
+            self.load_data()
+            self.build_mesh()
+
+    @classmethod
+    def lazy(
+        cls,
+        config: str | Path | object,
+        *,
+        solver: str | None = None,
+        headless: bool = False,
+        no_display: bool = False,
+    ) -> Project:
+        """Validate ``config`` and build an empty context without running anything.
+
+        The caller drives :meth:`build_geographic`, :meth:`load_data`,
+        :meth:`build_mesh` (and optionally :meth:`setup_workspace`) manually.
+        """
+        return cls(
+            config,
+            solver=solver,
+            headless=headless,
+            no_display=no_display,
+            _lazy=True,
+        )
+
+    @classmethod
+    def from_json(cls, payload: dict, **kwargs) -> Project:
+        """Build a Project from a JSON payload validated against HydroModPyConfig."""
+        from hydromodpy.core.config.hydromodpy_config import HydroModPyConfig
+
+        cfg = HydroModPyConfig.model_validate(payload)
+        return cls(cfg, **kwargs)
+
+    def _configure(
+        self,
+        config: str | Path | object,
+        *,
+        solver: str | None,
+        headless: bool,
+        no_display: bool,
+    ) -> None:
+        """Resolve the config, time grid and data plan, then build an empty ctx."""
         from hydromodpy.core.config.hydromodpy_config import HydroModPyConfig
         from hydromodpy.core.config.toml_loader import load_toml_with_base_config
         from hydromodpy.core.time import (
@@ -114,12 +163,10 @@ class Project:
             require_flow_simulation_time_grid,
         )
         from hydromodpy.data import DataPlanner
-        from hydromodpy.results.catalog import SimulationCatalog
         from hydromodpy.spatial.domain.spatial_support import (
             build_default_spatial_support_provider_registry,
         )
         from hydromodpy.workflow.context import WorkflowContext
-        from hydromodpy.workflow.pipeline import prepare_runtime
         from hydromodpy.workflow.steps.data_loading import log_data_plan
         from hydromodpy.workflow.steps.mesh import (
             resolve_optional_mesh_input,
@@ -131,7 +178,6 @@ class Project:
             support_provider_names,
         )
 
-        # Phase 1: config — accept either a TOML path or a HydroModPyConfig.
         if isinstance(config, HydroModPyConfig):
             self._config_path = None
             self.cfg = config
@@ -144,12 +190,9 @@ class Project:
         self._solver = solver or self._detect_solver()
         self._ensure_simulation_block()
 
-        # Phase 2: time grid
         apply_explicit_time_window_to_tgrids(self.cfg)
         self._time_grid = require_flow_simulation_time_grid(self.cfg)
 
-        # Phase 3: mesh section detection (only from TOML; skipped when
-        # building from an in-memory HydroModPyConfig).
         if self._config_path is not None:
             self._mesh_section_data = resolve_optional_mesh_section(raw_toml)
             self._external_mesh_input = resolve_optional_mesh_input(
@@ -188,7 +231,6 @@ class Project:
                 section_name="mesh_input",
             )
 
-        # Phase 4: spatial supports
         self._spatial_support_registry = build_default_spatial_support_provider_registry()
         self._requested_support_ids = collect_requested_support_ids(self.cfg.flow)
         self._requested_domain_supports = resolve_support_configs(
@@ -196,7 +238,6 @@ class Project:
             self._requested_support_ids,
         )
 
-        # Phase 5: data plan (enriched with domain supports)
         data_plan = DataPlanner().build(
             self.cfg.data,
             domain_zone_ids=self.cfg.domain.zone_ids,
@@ -210,9 +251,6 @@ class Project:
         log_data_plan(data_plan)
         self.cfg.data = self.cfg.data.with_resolved_types(data_plan.types)
 
-        # Phase 6: build workflow context + run preparation pipeline.
-        # In-memory configs use the current working directory as the
-        # anchor for resolving relative data paths.
         self._ctx = WorkflowContext(
             cfg=self.cfg,
             config_path=self._config_path or Path.cwd(),
@@ -227,26 +265,154 @@ class Project:
             self.cfg.display.save = False
             self.cfg.display.show = False
 
-        prepare_runtime(
-            self._ctx,
-            mesh_section_data=self._mesh_section_data,
-            constraints_mode=self._mesh_constraints_mode,
-            external_mesh_input=self._external_mesh_input,
-            requested_domain_supports=self._requested_domain_supports,
-            spatial_support_registry=self._spatial_support_registry,
-            requested_spatial_support_ids=self._requested_support_ids,
-        )
-
-        # Open catalog (stays open for project lifetime)
-        ws = self._ctx.setup.workspace
-        self._store = SimulationCatalog(ws.root)
-        self._project_name = ws.project_root.name
-
+        self._store = None
+        self._project_name: str | None = None
         self._run_counter = 0
         self._active_runs: dict[str, str] = {}
         self._last_wall_seconds: dict[str, float] = {}
+        self._phase: str = "uninitialized"
+        self._data_loaded: set[str] = set()
         source = self._config_path.name if self._config_path else "<in-memory config>"
-        logger.info("Project ready: %s", source)
+        logger.info("Project configured: %s", source)
+
+    # -- Model-phase verbs -------------------------------------------------
+
+    def setup_workspace(self) -> None:
+        """Materialize the workspace and structural objects (Domain, Flow, Transport).
+
+        Idempotent: calling twice resets the structural objects. Opens the catalog
+        as a side effect so later run-phase methods can register simulations.
+        """
+        from hydromodpy.workflow.steps.setup import step_setup
+        from hydromodpy.workflow.steps.spatial_supports import step_spatial_supports
+
+        step_setup(
+            self._ctx,
+            requested_spatial_support_ids=self._requested_support_ids,
+            requested_domain_supports=self._requested_domain_supports,
+        )
+        step_spatial_supports(
+            self._ctx,
+            phase="setup",
+            requested_domain_supports=self._requested_domain_supports,
+            registry=self._spatial_support_registry,
+        )
+        self._phase = "workspace"
+        self._open_catalog()
+
+    def build_geographic(self, *, reuse_dem: bool = False) -> None:
+        """Build the geographic runtime (DEM, watershed, topography).
+
+        Runs setup_workspace first when it has not happened yet so the
+        geographic runtime has a workspace to live in. Invalidates mesh.
+        """
+        if self._phase == "uninitialized":
+            self.setup_workspace()
+        self._phase = "geographic"
+        self._data_loaded.clear()
+        self._ctx.setup.mesh_planar = None
+        self._ctx.setup.mesh_bundle = None
+
+    def load_data(self, *, types: list[str] | None = None) -> None:
+        """Load the external forcings declared in [data].
+
+        ``types=None`` loads every declared variable. Any subset filters the
+        loaded types and is tracked in :attr:`data_loaded`.
+        """
+        from hydromodpy.workflow.steps.data_loading import step_data_loading
+        from hydromodpy.workflow.steps.spatial_supports import step_spatial_supports
+
+        if self._phase == "uninitialized":
+            self.build_geographic()
+        step_data_loading(self._ctx)
+        step_spatial_supports(
+            self._ctx,
+            phase="data",
+            requested_domain_supports=self._requested_domain_supports,
+            registry=self._spatial_support_registry,
+        )
+        if types is None:
+            self._data_loaded = set(getattr(self._ctx.data_plan, "types", ()))
+        else:
+            self._data_loaded.update(types)
+        self._phase = "data"
+
+    def reload_data(self, *, types: list[str]) -> None:
+        """Reload a subset of data variables without touching the others.
+
+        Thin wrapper around :meth:`load_data` that makes intent explicit in
+        calibration or notebook loops.
+        """
+        self.load_data(types=list(types))
+
+    def rebuild_geographic(self, *, reuse_dem: bool = False) -> None:
+        """Rerun the geographic pipeline and invalidate the mesh."""
+        self.build_geographic(reuse_dem=reuse_dem)
+
+    def build_mesh(self, **overrides) -> None:
+        """Build the catchment mesh from the current geographic context.
+
+        ``overrides`` is accepted for future per-call mesh config patches but is
+        currently ignored: apply changes to ``project.cfg.mesh_catchment``
+        before calling this verb.
+        """
+        from hydromodpy.workflow.steps.mesh import step_mesh, step_mesh_input
+
+        if self._phase == "uninitialized":
+            self.load_data()
+        step_mesh(
+            self._ctx,
+            mesh_section_data=self._mesh_section_data,
+            constraints_mode=self._mesh_constraints_mode,
+        )
+        step_mesh_input(self._ctx, external_mesh_input=self._external_mesh_input)
+        self._phase = "ready"
+
+    def _open_catalog(self) -> None:
+        """Open the SimulationCatalog for this workspace (idempotent)."""
+        from hydromodpy.results.catalog import SimulationCatalog
+
+        if self._store is not None:
+            return
+        ws = self._ctx.setup.workspace
+        if ws is None:
+            return
+        self._store = SimulationCatalog(ws.root)
+        self._project_name = ws.project_root.name
+
+    # -- Inspection properties --------------------------------------------
+
+    @property
+    def phase(self) -> str:
+        """Current model-phase: uninitialized, workspace, geographic, data, mesh, ready."""
+        if self._phase == "data" and self._ctx.setup.mesh_planar is not None:
+            return "mesh"
+        return self._phase
+
+    @property
+    def has_workspace(self) -> bool:
+        return self._ctx.setup.workspace is not None
+
+    @property
+    def has_geographic(self) -> bool:
+        return self._ctx.setup.geographic is not None
+
+    @property
+    def has_data(self) -> bool:
+        return bool(self._data_loaded)
+
+    @property
+    def has_mesh(self) -> bool:
+        return self._ctx.setup.mesh_planar is not None
+
+    @property
+    def is_ready_for_run(self) -> bool:
+        return self.has_workspace and self.has_mesh and self._store is not None
+
+    @property
+    def data_loaded(self) -> set[str]:
+        """Set of data types already loaded for this project."""
+        return set(self._data_loaded)
 
     # -- Public properties -------------------------------------------------
 
