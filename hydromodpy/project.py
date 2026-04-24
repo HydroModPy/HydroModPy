@@ -119,9 +119,7 @@ class Project:
             build_default_spatial_support_provider_registry,
         )
         from hydromodpy.workflow.context import WorkflowContext
-        from hydromodpy.workflow.pipelines.simulation import (
-            prepare_simulation_runtime,
-        )
+        from hydromodpy.workflow.pipeline import prepare_runtime
         from hydromodpy.workflow.steps.data_loading import log_data_plan
         from hydromodpy.workflow.steps.mesh import (
             resolve_optional_mesh_input,
@@ -229,7 +227,7 @@ class Project:
             self.cfg.display.save = False
             self.cfg.display.show = False
 
-        prepare_simulation_runtime(
+        prepare_runtime(
             self._ctx,
             mesh_section_data=self._mesh_section_data,
             constraints_mode=self._mesh_constraints_mode,
@@ -245,6 +243,8 @@ class Project:
         self._project_name = ws.project_root.name
 
         self._run_counter = 0
+        self._active_runs: dict[str, str] = {}
+        self._last_wall_seconds: dict[str, float] = {}
         source = self._config_path.name if self._config_path else "<in-memory config>"
         logger.info("Project ready: %s", source)
 
@@ -277,48 +277,15 @@ class Project:
 
     # -- Run ---------------------------------------------------------------
 
-    def run(self, *, name: str | None = None, **overrides) -> Run:
-        """Execute one simulation with optional parameter overrides.
+    def prepare(self, *, name: str | None = None, **overrides) -> str:
+        """Reserve a sim_id, register the simulation and persist all inputs.
 
-        Without overrides, runs the TOML configuration as-is using the full
-        ``SimulationPlanner`` (supports multi-process plans).  With overrides,
-        builds a minimal single-flow plan and patches the Flow parameters.
-
-        Parameters
-        ----------
-        name : str, optional
-            Run name. Auto-generated if absent.
-        **overrides
-            Flow parameter overrides (``Sy``, ``K``, ``Ss``).
-            Special keys: ``thickness`` (domain depth), ``first_clim``
-            (recharge start mode), ``properties`` (dict of spatially
-            varying property arrays, e.g. from calibration).
-
-        Returns
-        -------
-        :class:`~hydromodpy.results.run.Run`
-            Ready-to-query view exposing ``sim_id``, ``name``,
-            ``timeseries``, ``parameters``, ``budget``, ``export``, the
-            lazy catchment metrics (``saturated_fraction``,
-            ``drainage_density`` …), and ``plot``.
+        Returns the sim_id. The caller can then execute, ingest, render and
+        cleanup explicitly, or let :meth:`run` chain them. ``overrides`` match
+        :meth:`run`: K/Sy/Ss (homogeneous flow params), ``thickness``,
+        ``first_clim``, ``properties``.
         """
-        from hydromodpy.simulation.execution.runner import (
-            ProcessCallbacks,
-            SimulationRunner,
-        )
-        from hydromodpy.simulation.extraction.post_run import post_run_results
-        from hydromodpy.workflow.steps.cleanup import step_cleanup_scratch
-        from hydromodpy.workflow.steps.figures import step_render_figures
-        from hydromodpy.workflow.steps.observations import step_ingest_observations
-        from hydromodpy.workflow.steps.persistence import (
-            step_persist_geographic,
-            step_persist_mesh,
-            step_persist_params,
-        )
-        from hydromodpy.workflow.steps.plan_building import step_build_plan
-        from hydromodpy.workflow.steps.registration import step_register_simulation
-        from hydromodpy.workflow.steps.result_ingestion import step_persist_forcings
-        from hydromodpy.workflow.steps.results_config import step_configure_results
+        from hydromodpy.workflow.pipeline import prepare_run
 
         self._run_counter += 1
         sim_id = str(uuid4())
@@ -329,86 +296,99 @@ class Project:
         first_clim = overrides.pop("first_clim", None)
         properties = overrides.pop("properties", None)
 
-        plan = step_build_plan(
+        self._ctx.store = self._store
+        final_name = prepare_run(
             self._ctx,
+            sim_id=sim_id,
             name=name,
+            project_name=self._project_name,
             overrides=overrides,
             thickness=thickness,
             first_clim=first_clim,
             solver=self._solver,
+            properties=properties,
         )
+        self._active_runs[sim_id] = final_name
+        return sim_id
 
-        if properties is not None:
-            self._ctx.setup.flow_runtime_overrides = {
-                "source": "project_run",
-                "properties": dict(properties),
-            }
-        else:
-            self._ctx.setup.flow_runtime_overrides = None
+    def execute(self, sim_id: str) -> float:
+        """Run the solver for a previously prepared simulation.
 
-        self._ctx.store = self._store
-        self._ctx.sim_id = sim_id
-        final_name = step_register_simulation(
-            self._ctx,
-            sim_id,
-            plan=plan,
-            project_name=self._project_name,
-            name=name,
-        )
-        self._ctx.setup.run_id = final_name
+        Returns wall-clock seconds for the run.
+        """
+        from hydromodpy.workflow.pipeline import execute_run
 
-        if self._ctx.setup.flow is not None:
-            step_persist_params(
-                self._store,
-                sim_id,
-                self._ctx.setup.flow,
-                domain=self.cfg.domain,
-            )
-        step_persist_mesh(self._ctx, sim_id)
-        step_persist_geographic(self._ctx, sim_id)
-        step_persist_forcings(self._ctx)
+        final_name = self._active_runs.get(sim_id, self._ctx.setup.run_id)
+        wall = execute_run(self._ctx, sim_id, final_name=final_name)
+        self._last_wall_seconds[sim_id] = wall
+        return wall
 
-        results_cfg = step_configure_results(self.cfg.simulation.results, plan)
+    def ingest(self, sim_id: str, *, extractors: list[str] | None = None) -> None:
+        """Ingest observations for a completed simulation."""
+        from hydromodpy.workflow.pipeline import ingest_run
 
-        def _after_run(run, result, state):
-            post_run_results(
-                sim_id=sim_id,
-                solver_name=run.solver,
-                solver_output_dir=result.solver_output_dir,
-                results_config=results_cfg,
-                store=self._store,
-                run_id=final_name,
-            )
+        ingest_run(self._ctx, sim_id, extractors=extractors)
 
-        original_domain = self._ctx.setup.domain
-        try:
-            SimulationRunner(
-                callbacks=ProcessCallbacks(after_run=_after_run),
-            ).execute(plan, self._ctx)
-        except Exception:
-            self._store.finalize(sim_id, status="failed")
-            raise
-        finally:
-            self._ctx.setup.domain = original_domain
-            self._ctx.setup.flow_runtime_overrides = None
-
-        self._store.finalize(sim_id, status="completed")
-        step_ingest_observations(self._ctx, sim_id)
+    def render(
+        self,
+        sim_id: str,
+        *,
+        figures: list[str] | None = None,
+    ) -> list[Path]:
+        """Render the display figures attached to this simulation."""
+        from hydromodpy.workflow.pipeline import render_run
 
         run = self._store[sim_id]
-        step_render_figures(
+        final_name = self._active_runs.get(sim_id, self._ctx.setup.run_id)
+        return render_run(
             self._ctx,
-            run,
-            sim_id=sim_id,
-            run_name=final_name,
+            sim_id,
+            run=run,
+            figures=figures,
             headless=self._headless,
             no_display=self._no_display,
+            run_name=final_name,
         )
-        step_cleanup_scratch(
+
+    def cleanup(
+        self,
+        sim_id: str,
+        *,
+        keep_solver_files: bool = False,
+        status: str = "completed",
+    ) -> None:
+        """Finalize the run status and remove the scratch directory."""
+        from hydromodpy.workflow.pipeline import cleanup_run
+
+        wall = self._last_wall_seconds.pop(sim_id, 0.0)
+        cleanup_run(
             self._ctx,
-            keep_solver_files=results_cfg.keep_solver_files,
+            sim_id,
+            keep_solver_files=keep_solver_files,
+            wall_seconds=wall,
+            save_artifacts=False,
+            close_store=False,
+            status=status,
         )
-        return run
+        self._active_runs.pop(sim_id, None)
+
+    def run(self, *, name: str | None = None, **overrides) -> Run:
+        """Prepare, execute, ingest, render and clean up in one call.
+
+        Flow parameter overrides (``Sy``, ``K``, ``Ss``) and the special keys
+        ``thickness``, ``first_clim``, ``properties`` are forwarded to
+        :meth:`prepare`. Returns the persisted :class:`Run` view.
+        """
+        sim_id = self.prepare(name=name, **overrides)
+        try:
+            self.execute(sim_id)
+            self.ingest(sim_id)
+            self.render(sim_id)
+        except Exception:
+            self.cleanup(sim_id, status="failed")
+            raise
+        self.cleanup(sim_id)
+        return self._store[sim_id]
 
     def simulate(
         self,

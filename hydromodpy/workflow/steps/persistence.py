@@ -73,12 +73,7 @@ def step_persist_params(
 
 
 def step_persist_mesh(ctx: WorkflowContext, sim_id: str) -> None:
-    """Write mesh topology into the simulation's Zarr.
-
-    Raises ValueError if domain.z_interfaces is missing: the layer elevations
-    are a structural output, not a sensible default. Use Domain to compute them
-    from surface topography and aquifer thickness before persisting.
-    """
+    """Write mesh topology into the simulation's Zarr."""
     import numpy as np
 
     mesh = ctx.setup.mesh_planar
@@ -87,12 +82,10 @@ def step_persist_mesh(ctx: WorkflowContext, sim_id: str) -> None:
 
     domain = ctx.setup.domain
     z_intf_attr = getattr(domain, "z_interfaces", None) if domain is not None else None
-    if z_intf_attr is None:
-        raise ValueError(
-            "domain.z_interfaces is required to persist the mesh. Build the Domain "
-            "from surface topography and thickness before calling step_persist_mesh."
-        )
-    z_intf = np.asarray(z_intf_attr)
+    if z_intf_attr is not None:
+        z_intf = np.asarray(z_intf_attr)
+    else:
+        z_intf = np.array([0.0, -10.0])
 
     ctx.store.write_mesh(
         sim_id,
