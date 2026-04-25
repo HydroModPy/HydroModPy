@@ -25,6 +25,7 @@ import math
 import numpy as np
 
 from hydromodpy.calibration.optimizer import (
+    FAILED_EVAL_COST,
     EvaluationResult,
     ParamSuggestion,
     register_optimizer,
@@ -182,7 +183,11 @@ class CmaEsAdapter:
                 continue
             idx = self._batch_trial_ids.index(r.trial_id)
             value = r.objective_value
-            cost = float(value) if (r.status == "completed" and math.isfinite(value)) else 1e12
+            cost = (
+                float(value)
+                if (r.status == "completed" and math.isfinite(value))
+                else FAILED_EVAL_COST
+            )
             self._batch_costs[idx] = cost
             self._n_eval += 1
             self._history.append(r)
