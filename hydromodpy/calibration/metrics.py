@@ -26,15 +26,20 @@ import logging
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from pathlib import Path
+from types import SimpleNamespace
 from typing import TYPE_CHECKING, Any
 
 import numpy as np
 import pandas as pd
 
-from hydromodpy.calibration.objective import HIGHER_IS_BETTER, METRICS
+from hydromodpy.calibration.objective import (
+    HIGHER_IS_BETTER,
+    METRICS,
+    build_objective_from_config,
+)
 
 if TYPE_CHECKING:
-    pass
+    from hydromodpy.calibration.config import CalibObjectiveBlockDecl, CalibOutputDecl
 
 logger = logging.getLogger(__name__)
 
@@ -294,9 +299,12 @@ def _score(observed: pd.Series, simulated: pd.Series, objective: str) -> float:
 
 
 def build_metric_extractor(
-    variable: str,
-    objective: str,
+    variable: str | None,
+    objective: str | None,
     ctx: Any,
+    *,
+    outputs: Mapping[str, CalibOutputDecl] | None = None,
+    objective_blocks: list[CalibObjectiveBlockDecl] | None = None,
 ) -> Callable[..., tuple[float, Mapping[str, float]]]:
     """Return a metric function closed over the loaded observations.
 
@@ -309,8 +317,18 @@ def build_metric_extractor(
     ``ctx`` passed at each call is the **trial context** (post-solver),
     while the ``ctx`` captured here is the **base context** (where the
     observations were loaded). They share ``loaded_data`` by reference.
+
+    When ``outputs`` and ``objective_blocks`` are both provided, the
+    extractor routes through :func:`build_objective_from_config`: it
+    extracts every declared output from the trial context, assembles a
+    ``simulated_by_output`` mapping, and the composite objective returns
+    the per-block totals as components. Otherwise the legacy single-metric
+    path runs against ``loaded_data`` (variable + objective).
     """
-    observed = _load_observed(ctx, variable)
+    if outputs and objective_blocks:
+        return _build_composite_metric_extractor(outputs, objective_blocks)
+
+    observed = _load_observed(ctx, variable) if variable else []
     if not observed:
         logger.warning(
             "No observations for variable=%r; metric extractor will return NaN.",
@@ -411,6 +429,191 @@ def _resolve_station_cells(
                     cells[obs_rec.station_id] = (layer, int(cell[0]), int(cell[1]))
                 break
     return cells
+
+
+# ---------------------------------------------------------------------------
+# Composite extractor: wire CalibrationConfig.outputs to build_objective_from_config
+# ---------------------------------------------------------------------------
+
+
+def _coerce_length_to_m(value: Any) -> float | None:
+    """Pull the magnitude in metres from a pint Quantity or bare number.
+
+    Returns ``None`` when ``value`` is None.
+    """
+    if value is None:
+        return None
+    to_m = getattr(value, "to", None)
+    if callable(to_m):
+        try:
+            return float(value.to("m").magnitude)
+        except Exception:  # pragma: no cover - defensive: unexpected pint state
+            pass
+    return float(value)
+
+
+def _slice_time(values: np.ndarray, time: Any, reducer: str) -> list[float]:
+    """Apply ``time`` selector and ``reducer`` to a 1D array of simulated values.
+
+    The current implementation honours the simple ``"all" / "first" / "last"``
+    selectors and ``"none" / "mean" / "sum" / "last"`` reducers. List-of-
+    timestamps selectors degrade to ``"all"`` at this level (the per-output
+    extractor would need a time index; left as a follow-up).
+    """
+    arr = np.asarray(values, dtype=float).ravel()
+    if arr.size == 0:
+        return []
+    if time == "first":
+        arr = arr[:1]
+    elif time == "last":
+        arr = arr[-1:]
+    if reducer == "mean":
+        return [float(np.nanmean(arr))]
+    if reducer == "sum":
+        return [float(np.nansum(arr))]
+    if reducer == "last":
+        return [float(arr[-1])]
+    return [float(v) for v in arr]
+
+
+def _extract_point(ctx: Any, output: CalibOutputDecl) -> list[float]:
+    """Extract a head time series at the (x, y) point declared on ``output``.
+
+    Resolves the closest cell in the structured MODFLOW-NWT grid (layer 0)
+    by searching the planar mesh centroids. When the trial context does
+    not expose a structured grid (MODFLOW 6 / unsupported solver) or the
+    ``.hds`` file is missing, returns ``[nan]`` so callers can keep
+    operating without crashing.
+    """
+    found = _find_flow_run(ctx)
+    if found is None:
+        return [float("nan")]
+    _run_id, model, output_dir = found
+    model_name = getattr(model, "model_name", None) or getattr(model, "name", None)
+    if model_name is None:
+        return [float("nan")]
+
+    x_m = _coerce_length_to_m(output.x)
+    y_m = _coerce_length_to_m(output.y)
+    if x_m is None or y_m is None:
+        return [float("nan")]
+
+    cell = _find_cell_at_point(ctx, x_m, y_m)
+    if cell is None:
+        return [float("nan")]
+    series = _extract_head_modflownwt(
+        output_dir,
+        model_name,
+        station_cells={"_pt": cell},
+        time_index=None,
+    )
+    sim = series.get("_pt")
+    if sim is None or sim.size == 0:
+        return [float("nan")]
+    return _slice_time(sim.values, output.time, output.reducer)
+
+
+def _extract_boundary(ctx: Any, output: CalibOutputDecl) -> list[float]:
+    """Extract a boundary time series filtered by ``boundary_id``.
+
+    The current implementation reuses the catchment-wide DRAIN summation
+    in :func:`_extract_discharge_modflownwt` and is solver-specific to
+    MODFLOW-NWT. Filtering by named boundary id requires a boundname-
+    aware reader; left as a follow-up. Returns ``[nan]`` when the CBC
+    file is absent.
+    """
+    found = _find_flow_run(ctx)
+    if found is None:
+        return [float("nan")]
+    _run_id, model, output_dir = found
+    model_name = getattr(model, "model_name", None) or getattr(model, "name", None)
+    if model_name is None:
+        return [float("nan")]
+
+    sim = _extract_discharge_modflownwt(output_dir, model_name, time_index=None)
+    if sim is None or sim.size == 0:
+        return [float("nan")]
+    return _slice_time(sim.values, output.time, output.reducer)
+
+
+def _extract_cell(ctx: Any, output: CalibOutputDecl) -> list[float]:
+    """Extract a head time series at a structured (row, col) cell.
+
+    The current schema does not expose ``row`` / ``col`` explicitly on
+    :class:`CalibOutputDecl` (twin benchmarks pass ``support="cell"`` to
+    bypass coordinate lookup). Returns ``[nan]`` until the schema gains
+    explicit indices; the API entry point is in place for callers that
+    pre-resolve a cell elsewhere.
+    """
+    del ctx, output
+    return [float("nan")]
+
+
+def _find_cell_at_point(ctx: Any, x: float, y: float) -> tuple[int, int, int] | None:
+    """Return the closest ``(layer, row, col)`` to ``(x, y)`` on layer 0.
+
+    Walks ``ctx.setup.mesh_planar`` cell centroids when available. Falls
+    back to ``None`` (caller emits NaN) when the mesh layout does not
+    expose structured indices (MODFLOW 6 / unsupported).
+    """
+    mesh = getattr(getattr(ctx, "setup", None), "mesh_planar", None)
+    if mesh is None:
+        return None
+    centroids = getattr(mesh, "cell_centroids", None) or getattr(mesh, "centroids", None)
+    if centroids is None:
+        return None
+    try:
+        arr = np.asarray(centroids, dtype=float)
+    except Exception:
+        return None
+    if arr.ndim != 2 or arr.shape[1] < 2:
+        return None
+    deltas = arr[:, :2] - np.array([x, y], dtype=float)
+    distances = np.einsum("ij,ij->i", deltas, deltas)
+    idx = int(np.argmin(distances))
+    nrow = int(getattr(mesh, "nrow", 0) or 0)
+    ncol = int(getattr(mesh, "ncol", 0) or 0)
+    if nrow > 0 and ncol > 0 and idx < nrow * ncol:
+        row = idx // ncol
+        col = idx % ncol
+        return (0, row, col)
+    return None
+
+
+def _build_composite_metric_extractor(
+    outputs: Mapping[str, CalibOutputDecl],
+    objective_blocks: list[CalibObjectiveBlockDecl],
+) -> Callable[..., tuple[float, Mapping[str, float]]]:
+    """Build a metric_fn that routes through ``build_objective_from_config``."""
+    cfg_subset = SimpleNamespace(outputs=dict(outputs), objective_blocks=list(objective_blocks))
+    composite = build_objective_from_config(cfg_subset)
+
+    def metric_fn(trial_ctx: Any, *, objective: str | None = None, variable: str | None = None):
+        del objective, variable
+        simulated_by_output: dict[str, list[float]] = {}
+        for name, decl in outputs.items():
+            try:
+                if decl.support == "point":
+                    simulated_by_output[name] = _extract_point(trial_ctx, decl)
+                elif decl.support == "boundary":
+                    simulated_by_output[name] = _extract_boundary(trial_ctx, decl)
+                else:
+                    simulated_by_output[name] = _extract_cell(trial_ctx, decl)
+            except Exception as exc:
+                logger.exception("Output %r extraction failed", name)
+                return float("nan"), {"__error__": f"{type(exc).__name__}: {exc}"}
+
+        try:
+            value = composite.evaluate(simulated_by_output)
+        except Exception as exc:
+            logger.exception("Composite objective evaluation failed")
+            return float("nan"), {"__error__": f"{type(exc).__name__}: {exc}"}
+
+        components = {key: float(val) for key, val in value.components.items()}
+        total = float(value.total)
+        return total, components
+
+    return metric_fn
 
 
 __all__ = ("build_metric_extractor", "ObservedSeries")

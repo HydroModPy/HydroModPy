@@ -78,6 +78,7 @@ dependencies = [
     "zarr>=3.0",
     "zstandard>=0.22",
     "tomlkit",
+    "tomli-w",
     "pytest",
     "pandera>=0.20",
 ]

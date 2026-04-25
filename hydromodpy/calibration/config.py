@@ -49,6 +49,7 @@ from pydantic import ConfigDict, Field, model_validator
 
 from hydromodpy.core.config.base import HydroModelBase
 from hydromodpy.core.config.profile import Profile
+from hydromodpy.core.units import Length
 
 SaveRunsMode = Literal["none", "best_n", "all"]
 ParameterMode = Literal["replace", "scale"]
@@ -56,6 +57,7 @@ OutputSupport = Literal["point", "boundary", "cell"]
 OutputReducer = Literal["mean", "sum", "last", "none"]
 ObjectiveTransform = Literal["identity", "log", "inverse"]
 PersistIterationDetail = Literal["none", "summary", "full"]
+MetricKind = Literal["rmse", "nse", "kge", "mae"]
 CalibrationMethod = Literal[
     "optuna",
     "scipy_de",
@@ -78,6 +80,8 @@ class CalibParameterDecl(HydroModelBase):
 
     bounds: Annotated[list[float] | None, Profile.USER] = Field(
         default=None,
+        min_length=2,
+        max_length=2,
         description="[low, high] physical bounds. Inherits from Pydantic annotation when omitted.",
     )
     transform: Annotated[Literal["identity", "log", "logit"], Profile.USER] = Field(
@@ -138,13 +142,15 @@ class CalibOutputDecl(HydroModelBase):
         description="'point' reads at (x, y); 'boundary' sums flux at boundary_id; "
         "'cell' reads a single cell.",
     )
-    x: Annotated[float | None, Profile.USER] = Field(
+    x: Annotated[Length | None, Profile.USER] = Field(
         default=None,
-        description="X coordinate when support='point'.",
+        description="X coordinate when support='point'. Accepts a bare number "
+        "(metres) or a pint string like '100 m'.",
     )
-    y: Annotated[float | None, Profile.USER] = Field(
+    y: Annotated[Length | None, Profile.USER] = Field(
         default=None,
-        description="Y coordinate when support='point'.",
+        description="Y coordinate when support='point'. Accepts a bare number "
+        "(metres) or a pint string like '100 m'.",
     )
     boundary_id: Annotated[str | None, Profile.USER] = Field(
         default=None,
@@ -164,6 +170,14 @@ class CalibOutputDecl(HydroModelBase):
         description="Hard-coded observed values (used by twin-synthetic cases).",
     )
 
+    @model_validator(mode="after")
+    def _check_support_required_fields(self) -> CalibOutputDecl:
+        if self.support == "point" and (self.x is None or self.y is None):
+            raise ValueError("support='point' requires both 'x' and 'y' to be set.")
+        if self.support == "boundary" and self.boundary_id is None:
+            raise ValueError("support='boundary' requires 'boundary_id' to be set.")
+        return self
+
 
 class CalibObjectiveBlockDecl(HydroModelBase):
     """Declaration of one weighted block inside a composite objective."""
@@ -173,9 +187,9 @@ class CalibObjectiveBlockDecl(HydroModelBase):
     name: Annotated[str, Profile.USER] = Field(
         description="Unique block identifier used in logs and persistence.",
     )
-    metric: Annotated[str, Profile.USER] = Field(
+    metric: Annotated[MetricKind, Profile.USER] = Field(
         default="rmse",
-        description="Metric key (rmse, nse, kge, mae).",
+        description="Metric key. One of rmse, nse, kge, mae.",
     )
     weight: Annotated[float, Profile.USER] = Field(
         default=1.0,
@@ -183,6 +197,7 @@ class CalibObjectiveBlockDecl(HydroModelBase):
         description="Relative weight of this block in the composite sum.",
     )
     uses_outputs: Annotated[list[str], Profile.USER] = Field(
+        min_length=1,
         description="Outputs (by name) consumed by this block.",
     )
     normalize_cost: Annotated[bool, Profile.USER] = Field(
@@ -307,6 +322,29 @@ class CalibrationConfig(HydroModelBase):
             self.objective_blocks = [implicit]
         return self
 
+    @model_validator(mode="after")
+    def _check_uses_outputs_reference_declared(self) -> CalibrationConfig:
+        if not self.objective_blocks:
+            return self
+        declared = set(self.outputs)
+        if not declared:
+            return self
+        for block in self.objective_blocks:
+            unknown = [name for name in block.uses_outputs if name not in declared]
+            if unknown:
+                raise ValueError(
+                    f"objective_block {block.name!r} uses_outputs={unknown!r} "
+                    f"but those names are not declared in [calibration.outputs]. "
+                    f"Declared outputs: {sorted(declared)}."
+                )
+        return self
+
+    @model_validator(mode="after")
+    def _check_candidates_root_required(self) -> CalibrationConfig:
+        if self.materialize_candidates and self.candidates_root is None:
+            raise ValueError("materialize_candidates=True requires candidates_root to be set.")
+        return self
+
 
 __all__ = [
     "CalibrationConfig",
@@ -320,4 +358,5 @@ __all__ = [
     "ObjectiveTransform",
     "PersistIterationDetail",
     "CalibrationMethod",
+    "MetricKind",
 ]

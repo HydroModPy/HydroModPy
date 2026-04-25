@@ -736,7 +736,7 @@ class Project:
         # (it inherits the simulation context via ``base_config``).
         import tempfile
 
-        from hydromodpy.calibration.materialize import _write_toml_payload
+        from hydromodpy.calibration.materialize import write_overlay_toml
 
         calib_payload = {
             "base_config": str(self._config_path),
@@ -744,7 +744,7 @@ class Project:
         }
         tmpdir = Path(tempfile.mkdtemp(prefix="hmp_calibrate_"))
         tmp_path = tmpdir / "calibration.toml"
-        _write_toml_payload(tmp_path, calib_payload)
+        write_overlay_toml(tmp_path, calib_payload)
 
         return run_calibration_cli(
             tmp_path,

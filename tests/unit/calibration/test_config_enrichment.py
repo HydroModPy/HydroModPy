@@ -80,9 +80,9 @@ class TestCalibParameterDeclExtensions:
 
 class TestCalibOutputDecl:
     def test_minimal_declaration_defaults(self):
-        decl = CalibOutputDecl.model_validate({"variable": "head"})
+        decl = CalibOutputDecl.model_validate({"variable": "head", "support": "cell"})
         assert decl.variable == "head"
-        assert decl.support == "point"
+        assert decl.support == "cell"
         assert decl.time == "all"
         assert decl.reducer == "none"
         assert decl.observed_values is None
@@ -98,20 +98,39 @@ class TestCalibOutputDecl:
             }
         )
         assert decl.observed_values == [42.1, 41.8, 41.5]
-        assert decl.x == 150.0
+        assert decl.x.to("m").magnitude == 150.0
+
+    def test_x_accepts_pint_string(self):
+        decl = CalibOutputDecl.model_validate(
+            {
+                "variable": "head",
+                "support": "point",
+                "x": "100 m",
+                "y": "0 m",
+            }
+        )
+        assert decl.x.to("m").magnitude == 100.0
 
     def test_time_accepts_list_of_timestamps(self):
         decl = CalibOutputDecl.model_validate(
             {
                 "variable": "head",
+                "support": "cell",
                 "time": ["2020-01-01", "2020-06-01"],
             }
         )
         assert decl.time == ["2020-01-01", "2020-06-01"]
 
-    @pytest.mark.parametrize("support", ["point", "boundary", "cell"])
-    def test_support_literal(self, support: str):
-        decl = CalibOutputDecl.model_validate({"variable": "head", "support": support})
+    @pytest.mark.parametrize(
+        "support, extra",
+        [
+            ("point", {"x": 0.0, "y": 0.0}),
+            ("boundary", {"boundary_id": "outlet"}),
+            ("cell", {}),
+        ],
+    )
+    def test_support_literal(self, support: str, extra: dict):
+        decl = CalibOutputDecl.model_validate({"variable": "head", "support": support, **extra})
         assert decl.support == support
 
     def test_rejects_unknown_support(self):
@@ -120,7 +139,19 @@ class TestCalibOutputDecl:
 
     def test_rejects_extra_keys(self):
         with pytest.raises(ValidationError, match="Extra inputs are not permitted"):
-            CalibOutputDecl.model_validate({"variable": "head", "legacy_hint": True})
+            CalibOutputDecl.model_validate(
+                {"variable": "head", "support": "cell", "legacy_hint": True}
+            )
+
+    def test_point_support_requires_xy(self):
+        with pytest.raises(ValidationError, match="support='point' requires"):
+            CalibOutputDecl.model_validate({"variable": "head", "support": "point"})
+        with pytest.raises(ValidationError, match="support='point' requires"):
+            CalibOutputDecl.model_validate({"variable": "head", "support": "point", "x": 1.0})
+
+    def test_boundary_support_requires_boundary_id(self):
+        with pytest.raises(ValidationError, match="support='boundary' requires"):
+            CalibOutputDecl.model_validate({"variable": "head", "support": "boundary"})
 
 
 # ---------------------------------------------------------------------------
@@ -257,7 +288,7 @@ class TestCalibrationConfigEnriched:
                 "objective": "nse",
                 "variable": "head",
                 "outputs": {
-                    "head": {"variable": "head"},
+                    "head": {"variable": "head", "support": "cell"},
                 },
                 "objective_blocks": [
                     {
@@ -335,7 +366,7 @@ class TestEnrichedTomlRoundTrip:
         assert cfg.parameters["K_aquifer"].mode == "replace"
         assert cfg.parameters["K_aquifer"].target == "flow.param.K.field_homogeneous.value"
         assert cfg.parameters["K_mult"].mode == "scale"
-        assert cfg.outputs["head_A"].x == 100.0
+        assert cfg.outputs["head_A"].x.to("m").magnitude == 100.0
         assert cfg.outputs["outlet"].boundary_id == "outlet_drain"
         assert len(cfg.objective_blocks) == 2
         assert cfg.objective_blocks[0].normalize_cost is True
@@ -352,3 +383,77 @@ class TestEnrichedTomlRoundTrip:
         }
         with pytest.raises(ValidationError, match="Extra inputs are not permitted"):
             CalibrationConfig.model_validate(payload)
+
+
+# ---------------------------------------------------------------------------
+# Tightening validators (Phase 3)
+# ---------------------------------------------------------------------------
+
+
+class TestParameterDeclTightenings:
+    def test_bounds_must_be_pair(self):
+        with pytest.raises(ValidationError, match="bounds"):
+            CalibParameterDecl.model_validate({"bounds": [1.0]})
+        with pytest.raises(ValidationError, match="bounds"):
+            CalibParameterDecl.model_validate({"bounds": [1.0, 2.0, 3.0]})
+
+    def test_bounds_pair_accepted(self):
+        decl = CalibParameterDecl.model_validate({"bounds": [1.0, 2.0]})
+        assert decl.bounds == [1.0, 2.0]
+
+
+class TestObjectiveBlockTightenings:
+    @pytest.mark.parametrize("metric", ["rmse", "nse", "kge", "mae"])
+    def test_metric_accepts_known_values(self, metric: str):
+        decl = CalibObjectiveBlockDecl.model_validate(
+            {"name": "b", "uses_outputs": ["x"], "metric": metric}
+        )
+        assert decl.metric == metric
+
+    def test_metric_must_be_literal(self):
+        with pytest.raises(ValidationError, match="metric"):
+            CalibObjectiveBlockDecl.model_validate(
+                {"name": "b", "uses_outputs": ["x"], "metric": "rsme"}
+            )
+
+    def test_uses_outputs_must_not_be_empty(self):
+        with pytest.raises(ValidationError, match="uses_outputs"):
+            CalibObjectiveBlockDecl.model_validate({"name": "b", "uses_outputs": []})
+
+
+class TestCalibrationConfigCrossFieldValidators:
+    def test_uses_outputs_must_reference_declared_output(self):
+        with pytest.raises(ValidationError, match="uses_outputs"):
+            CalibrationConfig.model_validate(
+                {
+                    "outputs": {
+                        "head_A": {
+                            "variable": "head",
+                            "support": "point",
+                            "x": 0.0,
+                            "y": 0.0,
+                        }
+                    },
+                    "objective_blocks": [
+                        {
+                            "name": "b",
+                            "metric": "rmse",
+                            "uses_outputs": ["unknown"],
+                        }
+                    ],
+                }
+            )
+
+    def test_candidates_root_required_when_materialize_true(self):
+        with pytest.raises(ValidationError, match="candidates_root"):
+            CalibrationConfig.model_validate({"materialize_candidates": True})
+
+    def test_candidates_root_satisfies_materialize_flag(self):
+        cfg = CalibrationConfig.model_validate(
+            {
+                "materialize_candidates": True,
+                "candidates_root": "/tmp/cand",
+            }
+        )
+        assert cfg.materialize_candidates is True
+        assert str(cfg.candidates_root) == "/tmp/cand"

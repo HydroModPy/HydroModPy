@@ -4,27 +4,31 @@ The overlay inherits the target simulation config via ``base_config`` and
 rewrites each configured parameter at its target dotted path (honouring
 ``mode="replace"`` or ``"scale"``). The resulting file can be loaded by
 :class:`hydromodpy.Project` and re-run independently of the calibration
-session, which makes it the natural hand-off for twin-benchmark cases
-and for exporting the best candidate of a session.
+session, which makes it the natural hand-off for sharing the best
+candidate of a session or replaying a single trial.
 
-Ported from the legacy ``actualize_candidate`` helper in
-``hydromodpy/calibration/benchmark.py``. The legacy helper used ad-hoc
-dataclasses; this version operates on the public
-:class:`~hydromodpy.calibration.parameters.ParameterSpace` and writes
-the overlay with :func:`tomli_w.dumps` so the output is valid TOML.
+The overlay is rendered with :func:`tomli_w.dumps` so the output is
+guaranteed to be valid TOML and round-trips through :mod:`tomllib`. The
+``base_config`` argument accepts either a path to a TOML file on disk
+or an in-memory :class:`~hydromodpy.core.config.HydroModPyConfig`
+instance; the latter is useful when the calibration loop is driven from
+Python code.
 """
 
 from __future__ import annotations
 
-import json
-import math
 import re
 import tomllib
 from collections.abc import Mapping, Sequence
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+import tomli_w
 
 from hydromodpy.calibration.parameters import ParameterSpace
+
+if TYPE_CHECKING:
+    from hydromodpy.core.config.hydromodpy_config import HydroModPyConfig
 
 
 def _sanitize_label(label: str) -> str:
@@ -60,57 +64,66 @@ def _assign_nested(payload: dict[str, Any], dotted: Sequence[str], value: Any) -
     cursor[dotted[-1]] = value
 
 
-def _dump_toml_value(value: Any) -> str:
-    if isinstance(value, bool):
-        return "true" if value else "false"
-    if isinstance(value, (int, float)):
-        if isinstance(value, float) and (math.isnan(value) or math.isinf(value)):
-            raise ValueError(f"Cannot serialise non-finite float to TOML: {value}")
-        return repr(value)
-    if isinstance(value, str):
-        return json.dumps(value, ensure_ascii=False)
-    if value is None:
-        return '""'
+def _coerce_for_toml(value: Any) -> Any:
+    """Recursively map a Python value into something tomli_w accepts.
+
+    - :class:`pathlib.Path` becomes its string form.
+    - :class:`pint.Quantity`-like objects become ``"<magnitude> <units>"``.
+    - Tuples become lists.
+    - ``None`` is dropped by callers (tomli_w refuses ``None``).
+    """
+    if isinstance(value, Path):
+        return str(value)
+    if hasattr(value, "magnitude") and hasattr(value, "units"):
+        return f"{value.magnitude} {value.units:~}"
     if isinstance(value, (list, tuple)):
-        return "[" + ", ".join(_dump_toml_value(item) for item in value) + "]"
+        return [_coerce_for_toml(v) for v in value if v is not None]
     if isinstance(value, Mapping):
-        inline = ", ".join(f"{key} = {_dump_toml_value(sub)}" for key, sub in value.items())
-        return "{ " + inline + " }"
-    raise TypeError(f"Unsupported TOML value: {value!r} ({type(value).__name__})")
+        out: dict[str, Any] = {}
+        for key, sub in value.items():
+            if sub is None:
+                continue
+            out[str(key)] = _coerce_for_toml(sub)
+        return out
+    return value
 
 
-def _write_toml_payload(path: Path, payload: Mapping[str, Any]) -> None:
+def write_overlay_toml(path: Path, payload: Mapping[str, Any]) -> None:
+    """Render *payload* to TOML at *path* using :mod:`tomli_w`.
+
+    Public helper kept so callers that need to drop a calibration overlay
+    next to a TOML file (for example the Python-mode of
+    :meth:`Project.calibrate`) can rely on a stable serialisation entry
+    point rather than reaching into a private symbol.
+    """
     path.parent.mkdir(parents=True, exist_ok=True)
-    lines: list[str] = []
+    coerced = _coerce_for_toml(payload)
+    if not isinstance(coerced, dict):
+        raise TypeError("write_overlay_toml expects a mapping payload")
+    with open(path, "wb") as fh:
+        tomli_w.dump(coerced, fh)
 
-    def _emit_block(section: str, block: Mapping[str, Any]) -> None:
-        scalars: list[tuple[str, Any]] = []
-        tables: list[tuple[str, Mapping[str, Any]]] = []
-        for key, value in block.items():
-            if isinstance(value, Mapping):
-                tables.append((key, value))
-            else:
-                scalars.append((key, value))
-        if section:
-            lines.append(f"[{section}]")
-        for key, value in scalars:
-            lines.append(f"{key} = {_dump_toml_value(value)}")
-        if section:
-            lines.append("")
-        for key, value in tables:
-            nested = f"{section}.{key}" if section else key
-            _emit_block(nested, value)
 
-    top_scalars = {k: v for k, v in payload.items() if not isinstance(v, Mapping)}
-    top_tables = {k: v for k, v in payload.items() if isinstance(v, Mapping)}
-    for key, value in top_scalars.items():
-        lines.append(f"{key} = {_dump_toml_value(value)}")
-    if top_scalars and top_tables:
-        lines.append("")
-    for key, value in top_tables.items():
-        _emit_block(key, value)
+def _load_base_payload(
+    base_config: Path | str | HydroModPyConfig,
+) -> tuple[dict[str, Any], Path | None]:
+    """Resolve ``base_config`` into a dict payload and an optional source path.
 
-    path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    A :class:`HydroModPyConfig` is dumped through ``model_dump`` (alias
+    aware) so the rendered overlay matches the TOML schema. A path is
+    parsed via :mod:`tomllib`. ``base_path`` is ``None`` when the caller
+    passed an in-memory config without a backing file.
+    """
+    from hydromodpy.core.config.hydromodpy_config import HydroModPyConfig
+
+    if isinstance(base_config, HydroModPyConfig):
+        payload = base_config.model_dump(mode="json", by_alias=True, exclude_none=True)
+        return payload, None
+    base_path = Path(base_config).expanduser().resolve()
+    if not base_path.is_file():
+        raise FileNotFoundError(f"base_config not found: {base_path}")
+    with open(base_path, "rb") as f:
+        return tomllib.load(f), base_path
 
 
 def _apply_parameter_mode(
@@ -138,8 +151,17 @@ def _apply_parameter_mode(
     )
 
 
+def _format_path_for_overlay(path: Path, base_dir: Path | None) -> str:
+    if base_dir is None:
+        return str(path)
+    try:
+        return str(path.relative_to(base_dir))
+    except ValueError:
+        return str(path)
+
+
 def materialize_candidate(
-    base_config: Path | str,
+    base_config: Path | str | HydroModPyConfig,
     params: Mapping[str, float],
     space: ParameterSpace,
     out_dir: Path | str,
@@ -149,14 +171,18 @@ def materialize_candidate(
     run_id: str | None = None,
     workspace_root: Path | str | None = None,
     extra_sections: Mapping[str, Mapping[str, Any]] | None = None,
+    base_dir: Path | None = None,
 ) -> Path:
     """Write a standalone override TOML for one calibration candidate.
 
     Parameters
     ----------
     base_config
-        Path to the target simulation TOML. The overlay inherits from it
-        via ``base_config = "<abs path>"``.
+        Path to the target simulation TOML or an in-memory
+        :class:`~hydromodpy.core.config.HydroModPyConfig` instance. When a
+        config object is passed, the overlay is built from
+        ``model_dump`` and ``base_config`` in the overlay falls back to
+        ``base_dir`` (when supplied) so the file remains rechargeable.
     params
         Candidate values keyed by parameter name (must cover every
         parameter in ``space`` that has a ``target`` or ``path``).
@@ -180,15 +206,18 @@ def materialize_candidate(
     extra_sections
         Optional mapping of additional TOML sections (e.g.
         ``{"display": {"enabled": False}}``) applied on top of the overlay.
+    base_dir
+        Reference directory for relative path rewriting. When supplied,
+        ``base_config`` and ``workspace.root`` paths inside the overlay
+        are emitted relative to this directory; otherwise absolute paths
+        are written (the historical behaviour).
 
     Returns
     -------
     Path
         Absolute path to the written overlay TOML.
     """
-    base_path = Path(base_config).expanduser().resolve()
-    if not base_path.is_file():
-        raise FileNotFoundError(f"base_config not found: {base_path}")
+    base_raw, base_path = _load_base_payload(base_config)
 
     out_dir_path = Path(out_dir).expanduser().resolve()
     if candidate_label is not None:
@@ -200,21 +229,30 @@ def materialize_candidate(
     candidate_dir = out_dir_path / iter_id
     overlay_path = candidate_dir / "candidate_override.toml"
 
-    with open(base_path, "rb") as f:
-        base_raw = tomllib.load(f)
+    base_dir_resolved = Path(base_dir).expanduser().resolve() if base_dir is not None else None
 
-    overlay: dict[str, Any] = {
-        "base_config": str(base_path),
-    }
+    overlay: dict[str, Any] = {}
+    if base_path is not None:
+        overlay["base_config"] = _format_path_for_overlay(base_path, base_dir_resolved)
+    elif base_dir_resolved is not None:
+        overlay["base_config"] = str(base_dir_resolved)
+
     if run_id is not None:
         overlay["simulation"] = {"run_id": str(run_id)}
 
     workspace_section: dict[str, Any] = dict(base_raw.get("workspace", {}))
     if workspace_root is not None:
-        workspace_section["root"] = str(Path(workspace_root).expanduser().resolve())
+        ws_path = Path(workspace_root).expanduser().resolve()
+        workspace_section["root"] = _format_path_for_overlay(ws_path, base_dir_resolved)
     elif not workspace_section.get("root"):
-        workspace_section["root"] = str(base_path.parent)
-    overlay["workspace"] = workspace_section
+        if base_path is not None:
+            workspace_section["root"] = _format_path_for_overlay(
+                base_path.parent, base_dir_resolved
+            )
+        elif base_dir_resolved is not None:
+            workspace_section["root"] = str(base_dir_resolved)
+    if workspace_section:
+        overlay["workspace"] = workspace_section
 
     for param in space:
         target = param.target if param.target is not None else param.path
@@ -236,8 +274,8 @@ def materialize_candidate(
         for section_name, section_payload in extra_sections.items():
             overlay[str(section_name)] = dict(section_payload)
 
-    _write_toml_payload(overlay_path, overlay)
+    write_overlay_toml(overlay_path, overlay)
     return overlay_path
 
 
-__all__ = ["materialize_candidate"]
+__all__ = ["materialize_candidate", "write_overlay_toml"]

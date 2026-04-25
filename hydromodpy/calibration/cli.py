@@ -58,8 +58,11 @@ logger = logging.getLogger(__name__)
 
 
 def _load_toml_calibration(path: Path) -> tuple[CalibrationConfig, dict]:
+    from hydromodpy._cli.legacy_calibration import normalize_legacy_calibration_section
+
     with open(path, "rb") as f:
         raw = tomllib.load(f)
+    raw = normalize_legacy_calibration_section(raw)
     if "calibration" not in raw:
         raise ValueError(f"No [calibration] section in {path}")
     return CalibrationConfig.model_validate(raw["calibration"]), raw
@@ -257,7 +260,13 @@ def run_calibration_cli(
         if objective and ":" in objective:
             metric_fn = _load_metric_fn_entry_point(objective)
         else:
-            metric_fn = build_metric_extractor(cfg.variable, cfg.objective, trial_ctx.ctx)
+            metric_fn = build_metric_extractor(
+                cfg.variable,
+                cfg.objective,
+                trial_ctx.ctx,
+                outputs=cfg.outputs or None,
+                objective_blocks=cfg.objective_blocks or None,
+            )
 
     # Start the session row.
     session_id = uuid.uuid4().hex
@@ -278,6 +287,16 @@ def run_calibration_cli(
 
     last_suggestion: dict[int, ParamSuggestion] = {}
 
+    materialize_root: Path | None = None
+    if cfg.materialize_candidates:
+        if cfg.candidates_root is None:
+            raise ValueError(
+                "calibration.materialize_candidates is True but "
+                "calibration.candidates_root is not set."
+            )
+        materialize_root = Path(cfg.candidates_root).expanduser().resolve()
+        materialize_root.mkdir(parents=True, exist_ok=True)
+
     def wrapped_evaluator(sugg: ParamSuggestion) -> EvaluationResult:
         last_suggestion[sugg.trial_id] = sugg
         from hydromodpy.simulation.execution.trial import run_trial_light
@@ -293,6 +312,29 @@ def run_calibration_cli(
         # {completed, diverged, timeout, crashed, cached} - map "failed"
         # (setup/metric errors) onto "crashed" for persistence.
         db_status = "crashed" if result.status == "failed" else result.status
+        meta: dict[str, object] = {}
+        if result.error:
+            meta["error"] = result.error
+        if cfg.persist_iteration_detail == "full":
+            meta["block_costs"] = dict(result.metrics) if result.metrics else {}
+        if materialize_root is not None:
+            from hydromodpy.calibration.materialize import materialize_candidate
+
+            try:
+                overlay_path = materialize_candidate(
+                    cfg_path,
+                    dict(sugg.values),
+                    space,
+                    materialize_root,
+                    iteration_index=sugg.trial_id,
+                )
+                meta["materialized_overlay"] = str(overlay_path)
+            except Exception as exc:
+                logger.warning(
+                    "Failed to materialize overlay for trial %d: %s",
+                    sugg.trial_id,
+                    exc,
+                )
         return EvaluationResult(
             trial_id=sugg.trial_id,
             sim_id=None,
@@ -300,14 +342,19 @@ def run_calibration_cli(
             status=db_status,
             duration_s=result.duration_s,
             components=dict(result.metrics) if result.metrics else None,
-            metadata={"error": result.error} if result.error else {},
+            metadata=meta,
         )
 
     def on_iteration(result: EvaluationResult) -> None:
         sugg = last_suggestion.get(result.trial_id)
         if sugg is None:
             return
-        persistence.append_iteration(session_id, sugg, result)
+        persistence.append_iteration(
+            session_id,
+            sugg,
+            result,
+            detail=cfg.persist_iteration_detail,
+        )
         obj = result.objective_value
         obj_str = f"{obj:.6g}" if obj == obj else "nan"  # NaN-safe format
         print(
