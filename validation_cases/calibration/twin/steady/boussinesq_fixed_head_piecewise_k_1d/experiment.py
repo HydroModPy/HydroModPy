@@ -8,6 +8,9 @@ from typing import Any
 from validation_cases.calibration.shared.definitions import (
     CalibrationMethodProfile,
     TwinCalibrationCaseDefinition,
+    TwinObjectiveBlockSpec,
+    TwinOutputSpec,
+    TwinParameterTarget,
 )
 from validation_cases.shared.runtime import _merge_toml_payloads, _read_toml
 
@@ -168,6 +171,81 @@ def _cma_es_profile(*, seed: int = 17) -> CalibrationMethodProfile:
     )
 
 
+_PIECEWISE_K_PARAMETER_TARGETS = {
+    # The legacy bridge writes via the unresolved
+    # ``flow.param.K.values_by_key.<zone>`` grammar; the v0.6 path forks
+    # the validated Pydantic config where the heterogeneous values live
+    # at ``flow.param.K.values.<zone>`` (the parent ``K`` entry is a dict
+    # produced by ``HydroModPyConfig.from_toml``).
+    "K_west": TwinParameterTarget(
+        target="flow.param.K.values.west_zone",
+        mode="replace",
+        property_name="K",
+        parameterization="lithology_value",
+        lithology_key="west_zone",
+    ),
+    "K_middle": TwinParameterTarget(
+        target="flow.param.K.values.middle_zone",
+        mode="replace",
+        property_name="K",
+        parameterization="lithology_value",
+        lithology_key="middle_zone",
+    ),
+    "K_east": TwinParameterTarget(
+        target="flow.param.K.values.east_zone",
+        mode="replace",
+        property_name="K",
+        parameterization="lithology_value",
+        lithology_key="east_zone",
+    ),
+}
+_PIECEWISE_K_OUTPUT_SPECS = {
+    "head_west": TwinOutputSpec(
+        variable="watertable_elevation",
+        support="point",
+        x=60.0,
+        y=25.0,
+        time="all",
+    ),
+    "head_middle": TwinOutputSpec(
+        variable="watertable_elevation",
+        support="point",
+        x=200.0,
+        y=25.0,
+        time="all",
+    ),
+    "head_east": TwinOutputSpec(
+        variable="watertable_elevation",
+        support="point",
+        x=340.0,
+        y=25.0,
+        time="all",
+    ),
+    "q_east": TwinOutputSpec(
+        variable="outlet_discharge",
+        support="boundary",
+        boundary_id="east_side",
+        time="all",
+    ),
+}
+_PIECEWISE_K_OBJECTIVE_BLOCK_SPECS = (
+    TwinObjectiveBlockSpec(
+        name="heads",
+        metric="rmse",
+        weight=1.0,
+        uses_outputs=("head_west", "head_middle", "head_east"),
+        normalize_cost=True,
+    ),
+    TwinObjectiveBlockSpec(
+        name="flux",
+        metric="rmse",
+        weight=1.0,
+        uses_outputs=("q_east",),
+        normalize_cost=True,
+    ),
+)
+
+
 PIECEWISE_K_TWIN_CASE = TwinCalibrationCaseDefinition(
     case_id="calibration_twin_boussinesq_fixed_head_piecewise_k_modflow6",
     solver_name="modflow6",
@@ -214,4 +292,7 @@ PIECEWISE_K_TWIN_CASE = TwinCalibrationCaseDefinition(
     reference_objective_seed=17,
     build_simulation_config=build_simulation_config,
     build_calibration_payload=build_calibration_payload,
+    parameter_targets=_PIECEWISE_K_PARAMETER_TARGETS,
+    output_specs=_PIECEWISE_K_OUTPUT_SPECS,
+    objective_block_specs=_PIECEWISE_K_OBJECTIVE_BLOCK_SPECS,
 )
