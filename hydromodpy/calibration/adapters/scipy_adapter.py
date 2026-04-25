@@ -210,6 +210,15 @@ class ScipyNelderMead(_ScipyAdapterBase):
         lower = np.array([b[0] for b in bounds], dtype=float)
         upper = np.array([b[1] for b in bounds], dtype=float)
         x0 = 0.5 * (lower + upper)
+        # Bound-scaled initial simplex (10 % of range per axis) gives
+        # Nelder-Mead a wider starting spread than scipy's 5 %-of-x0
+        # default, reducing the iter count needed to reach a tight
+        # tolerance on tight log-scale parameters.
+        n = x0.size
+        delta = 0.1 * (upper - lower)
+        initial_simplex = np.tile(x0, (n + 1, 1))
+        for i in range(n):
+            initial_simplex[i + 1, i] = float(np.clip(x0[i] + delta[i], lower[i], upper[i]))
 
         def run(obj: Callable[[np.ndarray], float]) -> object:
             def clipped(x: np.ndarray) -> float:
@@ -225,6 +234,7 @@ class ScipyNelderMead(_ScipyAdapterBase):
                     "xatol": self._xatol,
                     "fatol": self._fatol,
                     "adaptive": True,
+                    "initial_simplex": initial_simplex,
                 },
             )
 
