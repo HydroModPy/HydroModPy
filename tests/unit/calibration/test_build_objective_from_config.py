@@ -44,6 +44,7 @@ def _cfg_one_block() -> CalibrationConfig:
             "outputs": {
                 "head_A": {
                     "variable": "head",
+                    "support": "cell",
                     "observed_values": [1.0, 2.0, 3.0],
                 }
             },
@@ -66,6 +67,7 @@ def _cfg_two_blocks_weighted() -> CalibrationConfig:
             "outputs": {
                 "head_A": {
                     "variable": "head",
+                    "support": "cell",
                     "observed_values": [1.0, 2.0, 3.0],
                 },
                 "outlet": {
@@ -125,7 +127,13 @@ class TestSingleBlock:
     def test_nse_is_flipped_into_cost(self):
         cfg = CalibrationConfig.model_validate(
             {
-                "outputs": {"head_A": {"variable": "head", "observed_values": [1.0, 2.0, 3.0]}},
+                "outputs": {
+                    "head_A": {
+                        "variable": "head",
+                        "support": "cell",
+                        "observed_values": [1.0, 2.0, 3.0],
+                    }
+                },
                 "objective_blocks": [
                     {
                         "name": "nse_head",
@@ -176,6 +184,7 @@ class TestNormalizeCost:
                 "outputs": {
                     "head_A": {
                         "variable": "head",
+                        "support": "cell",
                         "observed_values": [1.0, 2.0, 3.0],
                     }
                 },
@@ -205,6 +214,7 @@ class TestTransform:
                 "outputs": {
                     "head_A": {
                         "variable": "head",
+                        "support": "cell",
                         "observed_values": [1.0, 2.0, 3.0],
                     }
                 },
@@ -229,6 +239,7 @@ class TestTransform:
                 "outputs": {
                     "head_A": {
                         "variable": "head",
+                        "support": "cell",
                         "observed_values": [1.0, 2.0, 3.0],
                     }
                 },
@@ -257,7 +268,7 @@ class TestErrors:
         cfg = CalibrationConfig.model_validate(
             {
                 "outputs": {
-                    "head_A": {"variable": "head"},
+                    "head_A": {"variable": "head", "support": "cell"},
                 },
                 "objective_blocks": [
                     {"name": "b", "uses_outputs": ["head_A"]},
