@@ -1380,6 +1380,7 @@ def _extract_outputs_from_trial_ctx(
                         model_name,
                         x=float(_quantity_magnitude(getattr(decl, "x", None)) or 0.0),
                         y=float(_quantity_magnitude(getattr(decl, "y", None)) or 0.0),
+                        model=model,
                         mesh_planar=mesh_planar,
                     )
             except Exception:
@@ -1443,9 +1444,18 @@ def _extract_head_at_point_from_dir(
     *,
     x: float,
     y: float,
-    mesh_planar: Any,
+    model: Any = None,
+    mesh_planar: Any = None,
 ) -> np.ndarray | None:
-    """Read a head time series at the cell closest to ``(x, y)`` from an HDS file."""
+    """Read a head time series at the cell closest to ``(x, y)`` from an HDS file.
+
+    Resolves ``(layer, row, col)`` from the solver model's mesh first - the
+    lightweight v0.6 trial pipeline never populates ``setup.mesh_planar`` for
+    ``sgrid`` simulations, so the registered solver model is the only place
+    where the structured grid layout is exposed at trial time. Falls back to
+    ``mesh_planar`` for legacy callers (catchment-scale runs) and finally to
+    a flat index when the layout is opaque.
+    """
     try:
         import flopy.utils.binaryfile as bf
     except Exception:
@@ -1453,7 +1463,9 @@ def _extract_head_at_point_from_dir(
     hds_path = output_dir / f"{model_name}.hds"
     if not hds_path.exists():
         return None
-    cell_index = _nearest_cell_index_legacy(mesh_planar, x=x, y=y)
+    cell_index = _resolve_cell_index_from_model(model, x=x, y=y)
+    if cell_index is None:
+        cell_index = _nearest_cell_index_legacy(mesh_planar, x=x, y=y)
     if cell_index is None:
         return None
     k, i, j = cell_index
@@ -1473,6 +1485,64 @@ def _extract_head_at_point_from_dir(
     return values
 
 
+def _resolve_cell_index_from_model(
+    model: Any,
+    *,
+    x: float,
+    y: float,
+) -> tuple[int, int, int] | None:
+    """Return ``(layer, row, col)`` for a registered solver model.
+
+    Reads the structured layout (``nrow`` / ``ncol``) and the cell centroids
+    from the solver model registered in ``execution.models_by_run_id``. Works
+    for MODFLOW 6 (``solver_mesh.cell_centroids()``) and MODFLOW-NWT
+    (``runtime_mesh_planar`` / direct ``cell_centroids``).
+    """
+    if model is None:
+        return None
+    centroids = _model_cell_centroids(model)
+    if centroids is None:
+        return None
+    arr = np.asarray(centroids, dtype=float).reshape(-1, 2)
+    if arr.size == 0:
+        return None
+    distances = np.hypot(arr[:, 0] - float(x), arr[:, 1] - float(y))
+    flat_index = int(np.argmin(distances))
+    nrow = int(getattr(model, "nrow", 0) or 0)
+    ncol = int(getattr(model, "ncol", 0) or 0)
+    if nrow > 0 and ncol > 0 and flat_index < nrow * ncol:
+        return (0, flat_index // ncol, flat_index % ncol)
+    return (0, 0, flat_index)
+
+
+def _model_cell_centroids(model: Any) -> np.ndarray | None:
+    """Return cell centroids ``(n_cells, 2)`` from a solver model, if exposed."""
+    solver_mesh = getattr(model, "solver_mesh", None)
+    if solver_mesh is not None:
+        accessor = getattr(solver_mesh, "cell_centroids", None)
+        if callable(accessor):
+            try:
+                return np.asarray(accessor(), dtype=float)
+            except Exception:
+                return None
+        if accessor is not None:
+            try:
+                return np.asarray(accessor, dtype=float)
+            except Exception:
+                return None
+    runtime_planar = getattr(model, "runtime_mesh_planar", None)
+    if runtime_planar is not None:
+        legacy = getattr(runtime_planar, "cell_centroids", None) or getattr(
+            runtime_planar, "centroids", None
+        )
+        if legacy is not None:
+            try:
+                return np.asarray(legacy, dtype=float)
+            except Exception:
+                return None
+    return None
+
+
 def _nearest_cell_index_legacy(
     mesh: Any,
     *,
@@ -1480,6 +1550,8 @@ def _nearest_cell_index_legacy(
     y: float,
 ) -> tuple[int, int, int] | None:
     """Return ``(layer, row, col)`` of the cell closest to ``(x, y)`` on mesh."""
+    if mesh is None:
+        return None
     centroids = getattr(mesh, "cell_centroids", None) or getattr(mesh, "centroids", None)
     if centroids is None:
         return None
