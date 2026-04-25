@@ -206,17 +206,19 @@ class ScipyNelderMead(_ScipyAdapterBase):
     def _make_method(self) -> Callable[[Callable], object]:
         from scipy.optimize import minimize
 
-        x0 = np.array(
-            [0.5 * (p.lower_transformed + p.upper_transformed) for p in self.space.parameters]
-        )
         bounds = self._bounds_transformed()
+        lower = np.array([b[0] for b in bounds], dtype=float)
+        upper = np.array([b[1] for b in bounds], dtype=float)
+        x0 = 0.5 * (lower + upper)
 
         def run(obj: Callable[[np.ndarray], float]) -> object:
+            def clipped(x: np.ndarray) -> float:
+                return obj(np.clip(np.asarray(x, dtype=float), lower, upper))
+
             return minimize(
-                obj,
+                clipped,
                 x0,
                 method="Nelder-Mead",
-                bounds=bounds,
                 options={
                     "maxiter": self._maxiter,
                     "maxfev": self._maxfev,
