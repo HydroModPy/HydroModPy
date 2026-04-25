@@ -296,6 +296,11 @@ def run_calibration_cli(
         # {completed, diverged, timeout, crashed, cached} - map "failed"
         # (setup/metric errors) onto "crashed" for persistence.
         db_status = "crashed" if result.status == "failed" else result.status
+        meta: dict[str, object] = {}
+        if result.error:
+            meta["error"] = result.error
+        if cfg.persist_iteration_detail == "full":
+            meta["block_costs"] = dict(result.metrics) if result.metrics else {}
         return EvaluationResult(
             trial_id=sugg.trial_id,
             sim_id=None,
@@ -303,14 +308,19 @@ def run_calibration_cli(
             status=db_status,
             duration_s=result.duration_s,
             components=dict(result.metrics) if result.metrics else None,
-            metadata={"error": result.error} if result.error else {},
+            metadata=meta,
         )
 
     def on_iteration(result: EvaluationResult) -> None:
         sugg = last_suggestion.get(result.trial_id)
         if sugg is None:
             return
-        persistence.append_iteration(session_id, sugg, result)
+        persistence.append_iteration(
+            session_id,
+            sugg,
+            result,
+            detail=cfg.persist_iteration_detail,
+        )
         obj = result.objective_value
         obj_str = f"{obj:.6g}" if obj == obj else "nan"  # NaN-safe format
         print(

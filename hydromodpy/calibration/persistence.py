@@ -10,12 +10,15 @@ from __future__ import annotations
 import json
 import uuid
 from datetime import UTC, datetime
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Literal
 
 from hydromodpy.calibration.optimizer import EvaluationResult, ParamSuggestion
 
 if TYPE_CHECKING:
     from hydromodpy.results.catalog import SimulationCatalog
+
+
+PersistDetail = Literal["none", "summary", "full"]
 
 
 class CalibrationPersistence:
@@ -55,11 +58,13 @@ class CalibrationPersistence:
         session_id: str,
         suggestion: ParamSuggestion,
         result: EvaluationResult,
+        *,
+        detail: PersistDetail = "summary",
     ) -> None:
         params_json = json.dumps(dict(suggestion.values))
-        metrics_json = json.dumps(dict(result.components)) if result.components else None
         metadata = result.metadata or {}
         params_hash = metadata.get("params_hash")
+        metrics_json = _build_metrics_json(result, metadata, detail)
         sid = uuid.UUID(session_id) if len(session_id) == 32 else session_id
         sim_uuid = None
         if result.sim_id:
@@ -211,4 +216,23 @@ class CalibrationPersistence:
         return out
 
 
-__all__ = ["CalibrationPersistence"]
+def _build_metrics_json(
+    result: EvaluationResult,
+    metadata: dict,
+    detail: PersistDetail,
+) -> str | None:
+    if detail == "none":
+        return None
+    payload: dict[str, object] = {}
+    if result.components:
+        payload.update({str(k): v for k, v in dict(result.components).items()})
+    if detail == "full":
+        block_costs = metadata.get("block_costs")
+        if isinstance(block_costs, dict) and block_costs:
+            payload["block_costs"] = {str(k): v for k, v in block_costs.items()}
+    if not payload:
+        return None
+    return json.dumps(payload, default=str)
+
+
+__all__ = ["CalibrationPersistence", "PersistDetail"]
