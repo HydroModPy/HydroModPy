@@ -388,6 +388,39 @@ STEADY_DUPUIT_POSTERIOR_TWIN_CASE = TwinCalibrationCaseDefinition(
 )
 
 
+_STEADY_DUPUIT_MESH_PERTURBED_OUTPUT_SPECS = {
+    "head_mid": TwinOutputSpec(
+        variable="watertable_elevation",
+        support="point",
+        x=200.0,
+        y=25.0,
+        time="all",
+    ),
+    "q_east": TwinOutputSpec(
+        variable="outlet_discharge",
+        support="boundary",
+        boundary_id="east_side",
+        time="all",
+    ),
+}
+_STEADY_DUPUIT_MESH_PERTURBED_OBJECTIVE_BLOCK_SPECS = (
+    TwinObjectiveBlockSpec(
+        name="heads",
+        metric="rmse",
+        weight=1.0,
+        uses_outputs=("head_mid",),
+        normalize_cost=True,
+    ),
+    TwinObjectiveBlockSpec(
+        name="flux",
+        metric="rmse",
+        weight=1.0,
+        uses_outputs=("q_east",),
+        normalize_cost=True,
+    ),
+)
+
+
 STEADY_DUPUIT_MESH_PERTURBED_TWIN_CASE = TwinCalibrationCaseDefinition(
     case_id="calibration_twin_dupuit_fixed_head_mesh_perturbed_modflow6",
     solver_name="modflow6",
@@ -431,6 +464,9 @@ STEADY_DUPUIT_MESH_PERTURBED_TWIN_CASE = TwinCalibrationCaseDefinition(
     build_simulation_config=build_simulation_config,
     build_truth_simulation_config=build_truth_simulation_config_refined,
     build_calibration_payload=build_mesh_perturbed_calibration_payload,
+    parameter_targets=_STEADY_DUPUIT_PARAMETER_TARGETS,
+    output_specs=_STEADY_DUPUIT_MESH_PERTURBED_OUTPUT_SPECS,
+    objective_block_specs=_STEADY_DUPUIT_MESH_PERTURBED_OBJECTIVE_BLOCK_SPECS,
 )
 
 
