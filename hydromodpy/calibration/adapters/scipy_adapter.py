@@ -224,6 +224,7 @@ class ScipyNelderMead(_ScipyAdapterBase):
                     "maxfev": self._maxfev,
                     "xatol": self._xatol,
                     "fatol": self._fatol,
+                    "adaptive": True,
                 },
             )
 
