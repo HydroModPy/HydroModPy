@@ -11,7 +11,6 @@ from hydromodpy.calibration.parameters import (
     CalibParameter,
     Calibrable,
     ParameterSpace,
-    apply_values,
     discover_calibrable,
 )
 
@@ -128,26 +127,3 @@ class TestAutoDiscovery:
     def test_accepts_dict_hint(self):
         found = discover_calibrable(_Root)
         assert found["other"].transform == "identity"
-
-    def test_apply_values_deep_copies(self):
-        root = _Root()
-        space = ParameterSpace(
-            [
-                CalibParameter(
-                    name="K",
-                    lower=1e-7,
-                    upper=1e-2,
-                    transform="log",
-                    path="leaf.k_aquifer",
-                )
-            ]
-        )
-        new_root = apply_values(root, {"K": 5e-4}, space)
-        assert new_root.leaf.k_aquifer == 5e-4
-        assert root.leaf.k_aquifer == 1e-4  # unchanged
-
-    def test_apply_values_ignores_params_without_path(self):
-        root = _Root()
-        space = ParameterSpace([CalibParameter(name="K", lower=0.0, upper=1.0, path=None)])
-        new_root = apply_values(root, {"K": 0.5}, space)
-        assert new_root.leaf.k_aquifer == 1e-4
