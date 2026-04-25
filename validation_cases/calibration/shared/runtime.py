@@ -1263,17 +1263,17 @@ def _extract_head_at_point_from_run(run: Any, *, x: float, y: float) -> np.ndarr
 
 def _build_twin_metric_fn(
     *,
-    output_decls: tuple[Any, ...],
+    output_decls: tuple[tuple[str, Any], ...],
     objective_blocks: tuple[Any, ...],
 ):
-    """Build a custom ``metric_fn`` that uses bridge-style extraction.
+    """Build a custom ``metric_fn`` that uses filesystem-based extraction.
 
     The default :func:`hydromodpy.calibration.metrics.build_metric_extractor`
-    pipeline is MODFLOW-NWT specific for ``outlet_discharge`` /
-    ``watertable_elevation`` outputs; the twin benchmarks target
-    MODFLOW 6, so we plug in :func:`select_candidate_outputs` (which is
-    solver-agnostic via the catalog Run) and the v0.6
-    :class:`ConfigBlockObjective` to reproduce the legacy composite cost.
+    is MODFLOW-NWT specific; the twin benchmarks target MODFLOW 6 in
+    lightweight trial mode (no catalog ingest), so we read the CBC
+    budget and head-save (HDS) files directly from the trial's
+    ``output_dirs_by_run_id`` and assemble the composite via
+    :class:`ConfigBlockObjective`.
     """
     from hydromodpy.calibration.objective import ConfigBlockObjective
 
@@ -1306,23 +1306,10 @@ def _build_twin_metric_fn(
 
     def metric_fn(trial_ctx: Any, *, objective: str | None = None, variable: str | None = None):
         del objective, variable
-        # Bridge extraction works on the post-solver workflow context.
-        cfg_namespace = type(
-            "_OutputsNS",
-            (),
-            {
-                "model_calibration": type(
-                    "_MC",
-                    (),
-                    {"output": [decl for _, decl in output_decls]},
-                )()
-            },
-        )()
         try:
-            selected = select_candidate_outputs(
-                cfg=cfg_namespace,
-                run_state=trial_ctx,
-                session=None,
+            selected = _extract_outputs_from_trial_ctx(
+                trial_ctx=trial_ctx,
+                output_decls=output_decls,
             )
         except Exception as exc:
             return float("nan"), {"__error__": f"{type(exc).__name__}: {exc}"}
@@ -1344,6 +1331,171 @@ def _build_twin_metric_fn(
         return total, components
 
     return metric_fn
+
+
+def _extract_outputs_from_trial_ctx(
+    *,
+    trial_ctx: Any,
+    output_decls: tuple[tuple[str, Any], ...],
+) -> dict[str, list[float]]:
+    """Read configured outputs from the trial's solver output directory."""
+    registry = getattr(trial_ctx, "execution", None)
+    output_dirs = getattr(registry, "output_dirs_by_run_id", None) or {}
+    models = getattr(registry, "models_by_run_id", None) or {}
+    plan = getattr(registry, "simulation_plan", None)
+    flow_run_id: str | None = None
+    if plan is not None:
+        for run in getattr(plan, "runs", ()):
+            if run.process_type == "flow" and run.id in output_dirs:
+                flow_run_id = run.id
+                break
+    if flow_run_id is None and output_dirs:
+        flow_run_id = next(iter(output_dirs.keys()))
+    if flow_run_id is None:
+        return {name: [float("nan")] for name, _ in output_decls}
+    output_dir = Path(output_dirs[flow_run_id])
+    model = models.get(flow_run_id)
+    model_name = (
+        getattr(model, "model_name", None) or getattr(model, "name", None) if model else None
+    )
+    mesh_planar = getattr(getattr(trial_ctx, "setup", None), "mesh_planar", None)
+
+    selected: dict[str, list[float]] = {}
+    for name, decl in output_decls:
+        variable = str(getattr(decl, "variable", "")).strip().lower()
+        support = str(getattr(decl, "support", "point")).strip().lower()
+        observed = getattr(decl, "observed_values", None)
+        expected_len = len(observed) if observed is not None else 1
+        values: np.ndarray | None = None
+        if model_name is not None:
+            try:
+                if variable == "outlet_discharge" or support == "boundary":
+                    values = _extract_outlet_discharge_from_dir(
+                        output_dir,
+                        model_name,
+                    )
+                elif variable in {"watertable_elevation", "head"} and support == "point":
+                    values = _extract_head_at_point_from_dir(
+                        output_dir,
+                        model_name,
+                        x=float(_quantity_magnitude(getattr(decl, "x", None)) or 0.0),
+                        y=float(_quantity_magnitude(getattr(decl, "y", None)) or 0.0),
+                        mesh_planar=mesh_planar,
+                    )
+            except Exception:
+                values = None
+        if values is None or values.size == 0:
+            values = np.full(expected_len, np.nan, dtype=float)
+        selected[str(name)] = [float(v) for v in np.asarray(values).ravel()]
+    return selected
+
+
+def _extract_outlet_discharge_from_dir(
+    output_dir: Path,
+    model_name: str,
+) -> np.ndarray | None:
+    """Sum boundary flux per timestep from a CBC budget file in ``output_dir``."""
+    try:
+        import flopy.utils.binaryfile as bf
+    except Exception:
+        return None
+    cbc_path: Path | None = None
+    for extension in ("cbc", "cbb"):
+        candidate = output_dir / f"{model_name}.{extension}"
+        if candidate.exists():
+            cbc_path = candidate
+            break
+    if cbc_path is None:
+        return None
+    cbb = bf.CellBudgetFile(str(cbc_path))
+    try:
+        record_names = [r.decode().strip().lower() for r in cbb.get_unique_record_names()]
+        record_name: str | None = None
+        for key in ("drn", "drain", "drains", "chd"):
+            for rec in record_names:
+                if key in rec:
+                    record_name = rec
+                    break
+            if record_name is not None:
+                break
+        if record_name is None:
+            return None
+        times = cbb.get_times()
+        kstpkpers = cbb.get_kstpkper()
+        values = np.zeros(len(times), dtype=float)
+        for t, (totim, ksk) in enumerate(zip(times, kstpkpers, strict=False)):
+            try:
+                data = cbb.get_data(text=record_name, kstpkper=ksk, totim=totim, full3D=True)
+            except Exception:
+                continue
+            if not data:
+                continue
+            arr = np.asarray(data[0], dtype=float)
+            values[t] = float(np.abs(np.minimum(arr, 0.0)).sum())
+    finally:
+        cbb.close()
+    return values
+
+
+def _extract_head_at_point_from_dir(
+    output_dir: Path,
+    model_name: str,
+    *,
+    x: float,
+    y: float,
+    mesh_planar: Any,
+) -> np.ndarray | None:
+    """Read a head time series at the cell closest to ``(x, y)`` from an HDS file."""
+    try:
+        import flopy.utils.binaryfile as bf
+    except Exception:
+        return None
+    hds_path = output_dir / f"{model_name}.hds"
+    if not hds_path.exists():
+        return None
+    cell_index = _nearest_cell_index_legacy(mesh_planar, x=x, y=y)
+    if cell_index is None:
+        return None
+    k, i, j = cell_index
+    hf = bf.HeadFile(str(hds_path))
+    try:
+        times = hf.get_times()
+        values = np.full(len(times), np.nan, dtype=float)
+        for t, totim in enumerate(times):
+            try:
+                head = hf.get_data(totim=totim)
+                values[t] = float(head[k, i, j])
+            except Exception:
+                pass
+        values[np.abs(values) > 1e6] = np.nan
+    finally:
+        hf.close()
+    return values
+
+
+def _nearest_cell_index_legacy(
+    mesh: Any,
+    *,
+    x: float,
+    y: float,
+) -> tuple[int, int, int] | None:
+    """Return ``(layer, row, col)`` of the cell closest to ``(x, y)`` on mesh."""
+    centroids = getattr(mesh, "cell_centroids", None) or getattr(mesh, "centroids", None)
+    if centroids is None:
+        return None
+    arr = np.asarray(centroids, dtype=float)
+    if arr.ndim != 2 or arr.shape[1] < 2:
+        return None
+    distances = np.hypot(arr[:, 0] - float(x), arr[:, 1] - float(y))
+    flat_index = int(np.argmin(distances))
+    shape = getattr(mesh, "shape", None)
+    if shape is None or len(shape) < 2:
+        return (0, 0, flat_index)
+    _, n_rows, n_cols = shape if len(shape) == 3 else (1, *shape)
+    layer = 0
+    row = flat_index // n_cols
+    col = flat_index % n_cols
+    return (layer, int(row), int(col))
 
 
 def _make_instrumented_run_trial_light(
@@ -1375,11 +1527,23 @@ def _make_instrumented_run_trial_light(
 
 def _normalise_outputs_for_extraction(
     outputs_cfg: Any,
+    *,
+    observed_values: dict[str, tuple[float, ...]] | None = None,
 ) -> tuple[tuple[str, Any], ...]:
-    """Return ``[(name, decl)]`` pairs accepted by the bridge extractor."""
+    """Return ``[(name, decl)]`` pairs accepted by the bridge extractor.
+
+    The optional ``observed_values`` mapping overrides each declaration's
+    ``observed_values`` attribute - used to inject the truth-synthesis
+    output before passing the decls to :func:`_build_twin_metric_fn`.
+    """
     if hasattr(outputs_cfg, "items"):
         out: list[tuple[str, Any]] = []
         for name, decl in outputs_cfg.items():
+            obs = (
+                tuple(float(value) for value in observed_values[str(name)])
+                if observed_values is not None and str(name) in observed_values
+                else getattr(decl, "observed_values", None)
+            )
             wrapper = type(
                 "_DeclShim",
                 (),
@@ -1392,7 +1556,7 @@ def _normalise_outputs_for_extraction(
                     "boundary_id": getattr(decl, "boundary_id", None),
                     "time": getattr(decl, "time", "all"),
                     "reducer": getattr(decl, "reducer", None),
-                    "observed_values": getattr(decl, "observed_values", None),
+                    "observed_values": obs,
                 },
             )()
             out.append((str(name), wrapper))
@@ -1406,11 +1570,13 @@ def _write_calibration_toml_for_project(
     method_instance_name: str,
     payload: dict[str, Any],
     simulation_config_name: str,
+    workspace_root: Path,
 ) -> Path:
     """Materialise the v0.6 calibration TOML on disk next to the simulation."""
     calibration_path = benchmark_root / f"calibration_v06_{method_instance_name}.toml"
     rendered: dict[str, Any] = {
         "base_config": str(simulation_config_name),
+        "workspace": {"root": str(workspace_root)},
         "calibration": payload["calibration"],
     }
     _write_toml(calibration_path, rendered)
@@ -1795,11 +1961,14 @@ def synthesize_truth_observations_via_project_api(
     project = _Project(overlay_path, headless=True)
     try:
         run = project.run()
+        # Extract observations BEFORE closing the project: closing the
+        # project shuts down the catalog connection that ``Run.budget``
+        # relies on for DuckDB queries.
+        selected = extract_outputs(run, definition.output_specs)
     finally:
         project.close()
 
     output_decls = _normalise_outputs_for_extraction(definition.output_specs)
-    selected = extract_outputs(run, definition.output_specs)
     clean_observations = {
         str(name): tuple(float(value) for value in values) for name, values in selected.items()
     }
@@ -1947,12 +2116,16 @@ def run_twin_via_project_api(
             method_instance_name=method_instance_name,
             payload=payload,
             simulation_config_name=simulation_config_path.name,
+            workspace_root=benchmark_root / "project",
         )
 
         candidate_timing_values: list[dict[str, float]] = []
         candidate_run_state: dict[str, float] = {"t_start": 0.0, "t_run_start": 0.0}
 
-        output_decls = _normalise_outputs_for_extraction(definition.output_specs)
+        output_decls = _normalise_outputs_for_extraction(
+            definition.output_specs,
+            observed_values=observations_used,
+        )
         custom_metric_fn = _build_twin_metric_fn(
             output_decls=output_decls,
             objective_blocks=tuple(definition.objective_block_specs),
@@ -2005,25 +2178,21 @@ def run_twin_via_project_api(
             candidate_run_state,
         )
 
-        from hydromodpy.project import Project
+        from hydromodpy.calibration.cli import run_calibration_cli
 
-        project = Project(simulation_config_path, headless=True)
+        session_prepare_t0 = time.perf_counter()
         try:
-            session_prepare_t0 = time.perf_counter()
-            try:
-                _trial_mod.run_trial_light = instrumented_run_trial_light
-                report = project.calibrate(
-                    config_path=calibration_path,
-                    metric_fn=timing_metric_fn,
-                    workspace=benchmark_root / "project",
-                    project=str(definition.case_id),
-                    return_report=True,
-                )
-            finally:
-                _trial_mod.run_trial_light = original_run_trial_light
-            session_prepare_time_seconds = float(time.perf_counter() - session_prepare_t0)
+            _trial_mod.run_trial_light = instrumented_run_trial_light
+            report = run_calibration_cli(
+                calibration_path,
+                metric_fn=timing_metric_fn,
+                workspace=benchmark_root / "project",
+                project=str(definition.case_id),
+                return_report=True,
+            )
         finally:
-            project.close()
+            _trial_mod.run_trial_light = original_run_trial_light
+        session_prepare_time_seconds = float(time.perf_counter() - session_prepare_t0)
 
         from hydromodpy.results.catalog import SimulationCatalog
 

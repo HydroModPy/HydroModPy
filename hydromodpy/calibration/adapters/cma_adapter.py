@@ -103,6 +103,21 @@ class CmaEsAdapter:
             "maxfevals": self._max_evaluations,
             "bounds": bounds,
             "verbose": -9,
+            # Disable convergence criteria that cause premature stops or
+            # internal cma library failures (``set_i`` "dimension needed")
+            # on tiny 1-D problems. Mirrors the legacy ``_driver_cma_es``
+            # safe defaults so the evaluation budget is the only stop.
+            "tolx": 1e-20,
+            "tolfun": 1e-20,
+            "tolfacupx": 1e20,
+            "tolflatfitness": self._max_evaluations,
+            # Disable the implicit maxstd-from-bounds behaviour that fires
+            # the ``_stds_into_limits`` path on 1-D bounded problems and
+            # raises ``set_i`` "dimension needed" before sigma_vec has
+            # been lazily initialised. Setting maxstd_boundrange to a
+            # very large value keeps the inferred maxstd well above the
+            # actual sigma range so the limiter never engages.
+            "maxstd_boundrange": 1e20,
         }
         if seed is not None:
             options["seed"] = int(seed)

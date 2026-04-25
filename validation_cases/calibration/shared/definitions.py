@@ -136,8 +136,16 @@ def build_payload(
         )
 
     method_kwargs = dict(method_profile.method_kwargs)
-    seed_value = method_kwargs.get(method_profile.seed_kwarg_name)
-    max_iter = _resolve_max_iter_from_kwargs(method_profile.name, method_kwargs)
+    # Hoist seed to the top-level [calibration].seed knob so build_optimizer
+    # receives it once via its dedicated kwarg rather than twice (the CLI
+    # forwards both cfg.seed and **optimizer_kwargs which would clash).
+    seed_value = method_kwargs.pop(method_profile.seed_kwarg_name, None)
+    n_parameters = max(1, len(parameters))
+    max_iter = _resolve_max_iter_from_kwargs(
+        method_profile.name,
+        method_kwargs,
+        n_parameters=n_parameters,
+    )
 
     calibration_section: dict[str, Any] = {
         "method": str(method_profile.name),
@@ -164,12 +172,17 @@ def build_payload(
     }
 
 
-def _resolve_max_iter_from_kwargs(method: str, kwargs: Mapping[str, Any]) -> int:
+def _resolve_max_iter_from_kwargs(
+    method: str,
+    kwargs: Mapping[str, Any],
+    *,
+    n_parameters: int = 1,
+) -> int:
     """Estimate a reasonable ``max_iter`` upper bound from method kwargs."""
     method_key = str(method).strip().lower()
     if method_key == "grid_search":
         n_per_dim = int(kwargs.get("n_per_dim", 5))
-        return max(1, n_per_dim**6)
+        return max(1, n_per_dim ** max(1, int(n_parameters)))
     if method_key == "random_search":
         return max(1, int(kwargs.get("n_samples", 20)))
     if method_key == "cma_es":

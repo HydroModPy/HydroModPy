@@ -9,6 +9,9 @@ from validation_cases.calibration.shared.definitions import (
     CalibrationMethodProfile,
     ObservationNoiseSpec,
     TwinCalibrationCaseDefinition,
+    TwinObjectiveBlockSpec,
+    TwinOutputSpec,
+    TwinParameterTarget,
 )
 from validation_cases.shared.runtime import _merge_toml_payloads, _read_toml
 
@@ -275,6 +278,37 @@ def _da_mh_gp_profile(*, seed: int = 7) -> CalibrationMethodProfile:
     )
 
 
+_STEADY_DUPUIT_PARAMETER_TARGETS = {
+    # The legacy bridge writes via raw TOML so it can target the unresolved
+    # ``flow.param.K.field_homogeneous.value`` section grammar; the v0.6
+    # path forks the validated Pydantic config where ``field_homogeneous``
+    # has been collapsed into the parent ``param.K.value`` key.
+    "K_global": TwinParameterTarget(
+        target="flow.param.K.value",
+        mode="replace",
+        property_name="K",
+        parameterization="global_value",
+    ),
+}
+_STEADY_DUPUIT_OUTPUT_SPECS = {
+    "q_east": TwinOutputSpec(
+        variable="outlet_discharge",
+        support="boundary",
+        boundary_id="east_side",
+        time="all",
+    ),
+}
+_STEADY_DUPUIT_OBJECTIVE_BLOCK_SPECS = (
+    TwinObjectiveBlockSpec(
+        name="flux",
+        metric="rmse",
+        weight=1.0,
+        uses_outputs=("q_east",),
+        normalize_cost=True,
+    ),
+)
+
+
 STEADY_DUPUIT_TWIN_CASE = TwinCalibrationCaseDefinition(
     case_id="calibration_twin_dupuit_fixed_head_modflow6",
     solver_name="modflow6",
@@ -316,6 +350,9 @@ STEADY_DUPUIT_TWIN_CASE = TwinCalibrationCaseDefinition(
     reference_objective_seed=7,
     build_simulation_config=build_simulation_config,
     build_calibration_payload=build_calibration_payload,
+    parameter_targets=_STEADY_DUPUIT_PARAMETER_TARGETS,
+    output_specs=_STEADY_DUPUIT_OUTPUT_SPECS,
+    objective_block_specs=_STEADY_DUPUIT_OBJECTIVE_BLOCK_SPECS,
 )
 
 
