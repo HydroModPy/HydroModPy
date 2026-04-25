@@ -58,8 +58,11 @@ logger = logging.getLogger(__name__)
 
 
 def _load_toml_calibration(path: Path) -> tuple[CalibrationConfig, dict]:
+    from hydromodpy._cli.legacy_calibration import normalize_legacy_calibration_section
+
     with open(path, "rb") as f:
         raw = tomllib.load(f)
+    raw = normalize_legacy_calibration_section(raw)
     if "calibration" not in raw:
         raise ValueError(f"No [calibration] section in {path}")
     return CalibrationConfig.model_validate(raw["calibration"]), raw
