@@ -9,6 +9,9 @@ from validation_cases.calibration.shared.definitions import (
     CalibrationMethodProfile,
     ObservationNoiseSpec,
     TwinCalibrationCaseDefinition,
+    TwinObjectiveBlockSpec,
+    TwinOutputSpec,
+    TwinParameterTarget,
 )
 from validation_cases.shared.runtime import _merge_toml_payloads, _read_toml
 
@@ -237,6 +240,39 @@ def _cma_es_profile(*, seed: int = 13) -> CalibrationMethodProfile:
     )
 
 
+_TRANSIENT_PARAMETER_TARGETS = {
+    "K_global": TwinParameterTarget(
+        target="flow.param.K.value",
+        mode="replace",
+        property_name="K",
+        parameterization="global_value",
+    ),
+    "Sy_global": TwinParameterTarget(
+        target="flow.param.Sy.value",
+        mode="replace",
+        property_name="Sy",
+        parameterization="global_value",
+    ),
+}
+_TRANSIENT_FLUX_ONLY_OUTPUT_SPECS = {
+    "q_east": TwinOutputSpec(
+        variable="outlet_discharge",
+        support="boundary",
+        boundary_id="east_side",
+        time="all",
+    ),
+}
+_TRANSIENT_FLUX_ONLY_OBJECTIVE_BLOCK_SPECS = (
+    TwinObjectiveBlockSpec(
+        name="flux",
+        metric="rmse",
+        weight=1.0,
+        uses_outputs=("q_east",),
+        normalize_cost=True,
+    ),
+)
+
+
 def _da_mh_gp_profile(*, seed: int = 13) -> CalibrationMethodProfile:
     """Return one compact delayed-acceptance GP-MH profile for transient K+Sy."""
     return CalibrationMethodProfile(
@@ -445,4 +481,7 @@ TRANSIENT_RECHARGE_STEP_FLUX_ONLY_NOISY_TWIN_CASE = TwinCalibrationCaseDefinitio
     reference_objective_seed=31,
     build_simulation_config=build_simulation_config,
     build_calibration_payload=build_flux_only_calibration_payload,
+    parameter_targets=_TRANSIENT_PARAMETER_TARGETS,
+    output_specs=_TRANSIENT_FLUX_ONLY_OUTPUT_SPECS,
+    objective_block_specs=_TRANSIENT_FLUX_ONLY_OBJECTIVE_BLOCK_SPECS,
 )
