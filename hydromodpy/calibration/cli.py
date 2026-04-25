@@ -32,6 +32,7 @@ import time
 import tomllib
 import uuid
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from hydromodpy.calibration.cache import ParamsHashCache
 from hydromodpy.calibration.config import CalibrationConfig
@@ -48,6 +49,10 @@ from hydromodpy.simulation.execution.trial import (
     prepare_trials,
     promote_trial,
 )
+
+if TYPE_CHECKING:
+    from hydromodpy.calibration.report import CalibrationReport
+    from hydromodpy.simulation.execution.trial import TrialContext
 
 logger = logging.getLogger(__name__)
 
@@ -186,63 +191,61 @@ def _update_best_sim_id(catalog, session_id: str, sim_id: str) -> None:
 
 
 # ---------------------------------------------------------------------------
-# Public entry point
+# Core loop (caller-agnostic)
 # ---------------------------------------------------------------------------
 
 
-def run_calibration_cli(
-    config_path: Path | str,
+def _run_calibration(
+    cfg: CalibrationConfig,
+    trial_ctx: TrialContext,
     *,
-    objective: str | None = None,
-    workspace: Path | str | None = None,
-    project: str = "calibration",
+    workspace: Path,
+    space: ParameterSpace,
+    project_label: str = "calibration",
+    cfg_path: Path | None = None,
     metric_fn: TrialMetricFn | None = None,
-    return_report: bool = False,
-) -> dict | object:
-    """Run a calibration described by ``config_path``.
+    objective: str | None = None,
+) -> CalibrationReport:
+    """Heart of the calibration loop. Caller-agnostic.
+
+    The caller is responsible for:
+
+    - building a :class:`TrialContext` (via :func:`prepare_trials` with the
+      appropriate ``parameter_space`` and ``override_paths``),
+    - resolving the workspace,
+    - building the :class:`ParameterSpace`,
+    - providing ``cfg_path`` when ``cfg.materialize_candidates`` is True
+      (overlays are derived from the on-disk TOML).
 
     Parameters
     ----------
-    config_path
-        Path to a TOML that declares ``[calibration]`` plus the full
-        ``[simulation]`` / ``[flow]`` / ``[data]`` blocks.
-    objective
-        Optional escape hatch: when set to ``"module.path:callable"`` the
-        named function is used as the RAM metric extractor. Takes
-        precedence over ``metric_fn``. Leave ``None`` to use the default
-        extractor built from the TOML ``[calibration].objective`` +
-        ``[calibration].variable`` pair.
+    cfg
+        Validated calibration configuration.
+    trial_ctx
+        Prepared trial context used by every evaluation.
     workspace
-        Override the workspace root (defaults to the one resolved from
-        the TOML).
-    project
-        Project label written to ``calibration_sessions.project``.
+        Workspace root where the catalog DB lives.
+    space
+        Parameter space the optimizer samples from.
+    project_label
+        Label written to ``calibration_sessions.project``.
+    cfg_path
+        Optional path to the source TOML. Required when
+        ``cfg.materialize_candidates`` is True.
     metric_fn
-        Programmatic override for the metric extractor.
-        ``(ctx, *, objective, variable) -> (primary, {component: value})``.
+        Optional RAM-only metric extractor. When ``None`` the default
+        extractor is built from ``cfg.outputs`` + ``cfg.objective_blocks``.
+    objective
+        Optional ``"module.path:callable"`` escape hatch. Takes
+        precedence over ``metric_fn``.
     """
-    cfg_path = Path(config_path).expanduser().resolve()
-    cfg, _raw = _load_toml_calibration(cfg_path)
-    space = _space_from_config(cfg)
-    override_paths = _override_paths(cfg)
-
-    # Prepare the pipeline once (steps [0..earliest) run here).
-    trial_ctx = prepare_trials(
-        cfg_path,
-        override_paths=override_paths,
-        parameter_space=space,
-    )
-
-    # Resolve workspace.
-    if workspace is not None:
-        ws_root = Path(workspace).expanduser().resolve()
-    else:
-        ws_root = trial_ctx.workspace
-
     from hydromodpy.calibration.persistence import CalibrationPersistence
+    from hydromodpy.calibration.report import CalibrationReport
     from hydromodpy.results.catalog import SimulationCatalog
 
-    catalog = SimulationCatalog(ws_root)
+    override_paths = _override_paths(cfg)
+
+    catalog = SimulationCatalog(workspace)
     persistence = CalibrationPersistence(catalog)
 
     engine_cache: ParamsHashCache | None = None
@@ -255,7 +258,6 @@ def run_calibration_cli(
         except Exception:
             logger.debug("Cache preload skipped (fresh catalog or schema mismatch)")
 
-    # Resolve the metric extractor.
     if metric_fn is None:
         if objective and ":" in objective:
             metric_fn = _load_metric_fn_entry_point(objective)
@@ -268,11 +270,10 @@ def run_calibration_cli(
                 objective_blocks=cfg.objective_blocks or None,
             )
 
-    # Start the session row.
     session_id = uuid.uuid4().hex
     persistence.start_session(
         session_id=session_id,
-        project=project,
+        project=project_label,
         method=cfg.method,
         objective_name=cfg.objective,
         config=cfg.model_dump(),
@@ -293,6 +294,11 @@ def run_calibration_cli(
             raise ValueError(
                 "calibration.materialize_candidates is True but "
                 "calibration.candidates_root is not set."
+            )
+        if cfg_path is None:
+            raise ValueError(
+                "calibration.materialize_candidates is True but no source TOML "
+                "is available. Provide cfg_path or run from a TOML-loaded Project."
             )
         materialize_root = Path(cfg.candidates_root).expanduser().resolve()
         materialize_root.mkdir(parents=True, exist_ok=True)
@@ -317,7 +323,7 @@ def run_calibration_cli(
             meta["error"] = result.error
         if cfg.persist_iteration_detail == "full":
             meta["block_costs"] = dict(result.metrics) if result.metrics else {}
-        if materialize_root is not None:
+        if materialize_root is not None and cfg_path is not None:
             from hydromodpy.calibration.materialize import materialize_candidate
 
             try:
@@ -384,14 +390,19 @@ def run_calibration_cli(
 
     best = session.best
 
-    # ----- Promotion step -----------------------------------------------
     promotion_count = 0
     best_sim_id: str | None = None
 
     if cfg.save_runs != "none":
+        if cfg_path is None:
+            raise ValueError(
+                f"calibration.save_runs={cfg.save_runs!r} requires a source TOML "
+                "(promotion replays the full pipeline). Provide cfg_path or set "
+                "save_runs='none' for trace-only sessions."
+            )
         if cfg.save_runs == "best_n":
             top = persistence.top_n(session_id, cfg.save_best_n)
-        else:  # "all"
+        else:
             top = [
                 row
                 for row in persistence.load_iterations(session_id)
@@ -434,14 +445,10 @@ def run_calibration_cli(
         n_iterations=len(session.history),
         duration_s=session.duration_s if session.duration_s else elapsed,
     )
-    # finalize_session sets best_sim_id from best.sim_id (None for trials),
-    # so we overwrite afterwards with the promoted sim_id when available.
     if best_sim_id is not None:
         _update_best_sim_id(catalog, session_id, best_sim_id)
 
-    from hydromodpy.calibration.report import CalibrationReport
-
-    report = CalibrationReport(
+    return CalibrationReport(
         session_id=session_id,
         method=cfg.method,
         n_iterations=len(session.history),
@@ -450,11 +457,79 @@ def run_calibration_cli(
         duration_s=float(session.duration_s if session.duration_s else elapsed),
         save_runs=cfg.save_runs,
         promoted=promotion_count,
+        workspace=workspace,
+    )
+
+
+# ---------------------------------------------------------------------------
+# Public entry point
+# ---------------------------------------------------------------------------
+
+
+def run_calibration_cli(
+    config_path: Path | str,
+    *,
+    objective: str | None = None,
+    workspace: Path | str | None = None,
+    project: str = "calibration",
+    metric_fn: TrialMetricFn | None = None,
+    return_report: bool = False,
+) -> dict | object:
+    """Run a calibration described by ``config_path``.
+
+    Parameters
+    ----------
+    config_path
+        Path to a TOML that declares ``[calibration]`` plus the full
+        ``[simulation]`` / ``[flow]`` / ``[data]`` blocks.
+    objective
+        Optional escape hatch: when set to ``"module.path:callable"`` the
+        named function is used as the RAM metric extractor. Takes
+        precedence over ``metric_fn``. Leave ``None`` to use the default
+        extractor built from the TOML ``[calibration].objective`` +
+        ``[calibration].variable`` pair.
+    workspace
+        Override the workspace root (defaults to the one resolved from
+        the TOML).
+    project
+        Project label written to ``calibration_sessions.project``.
+    metric_fn
+        Programmatic override for the metric extractor.
+        ``(ctx, *, objective, variable) -> (primary, {component: value})``.
+    return_report
+        When True, return the structured :class:`CalibrationReport`
+        instead of its ``to_dict()`` payload. Defaults to False to
+        preserve the legacy CLI signature.
+    """
+    cfg_path = Path(config_path).expanduser().resolve()
+    cfg, _raw = _load_toml_calibration(cfg_path)
+    space = _space_from_config(cfg)
+    override_paths = _override_paths(cfg)
+
+    trial_ctx = prepare_trials(
+        cfg_path,
+        override_paths=override_paths,
+        parameter_space=space,
+    )
+
+    if workspace is not None:
+        ws_root = Path(workspace).expanduser().resolve()
+    else:
+        ws_root = trial_ctx.workspace
+
+    report = _run_calibration(
+        cfg,
+        trial_ctx,
         workspace=ws_root,
+        space=space,
+        project_label=project,
+        cfg_path=cfg_path,
+        metric_fn=metric_fn,
+        objective=objective,
     )
     if return_report:
         return report
     return report.to_dict()
 
 
-__all__ = ["run_calibration_cli"]
+__all__ = ["run_calibration_cli", "_run_calibration"]
