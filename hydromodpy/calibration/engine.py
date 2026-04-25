@@ -25,7 +25,6 @@ from hydromodpy.calibration.optimizer import (
     EvaluationResult,
     Optimizer,
     ParamSuggestion,
-    build_optimizer,
 )
 from hydromodpy.calibration.parameters import ParameterSpace
 
@@ -148,37 +147,8 @@ class CalibrationEngine:
         )
 
 
-# ---------------------------------------------------------------------------
-# Convenience constructors
-# ---------------------------------------------------------------------------
-
-
-def build_from_config(
-    *,
-    space: ParameterSpace,
-    method: str,
-    evaluator: EvaluatorFn,
-    max_iter: int = 100,
-    seed: int | None = None,
-    batch_size: int = 1,
-    optimizer_kwargs: dict | None = None,
-    use_cache: bool = True,
-) -> CalibrationEngine:
-    """Build a CalibrationEngine from a TOML-derived description."""
-    optimizer = build_optimizer(method, space, seed=seed, **(optimizer_kwargs or {}))
-    return CalibrationEngine(
-        space=space,
-        optimizer=optimizer,
-        evaluator=evaluator,
-        max_iter=max_iter,
-        batch_size=batch_size,
-        cache=ParamsHashCache() if use_cache else None,
-    )
-
-
 __all__ = [
     "CalibrationEngine",
     "CalibrationSession",
     "EvaluatorFn",
-    "build_from_config",
 ]

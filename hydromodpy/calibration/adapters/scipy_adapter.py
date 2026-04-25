@@ -19,6 +19,7 @@ from collections.abc import Callable
 import numpy as np
 
 from hydromodpy.calibration.optimizer import (
+    FAILED_EVAL_COST,
     EvaluationResult,
     ParamSuggestion,
     register_optimizer,
@@ -111,7 +112,7 @@ class _ScipyAdapterBase:
                     break
             value = r.objective_value
             if r.status != "completed" or not np.isfinite(value):
-                value = 1e12
+                value = FAILED_EVAL_COST
             self._bridge.feed(float(value))
             self._history.append(r)
 

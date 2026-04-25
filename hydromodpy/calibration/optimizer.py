@@ -12,6 +12,13 @@ from dataclasses import dataclass, field
 from importlib.metadata import entry_points
 from typing import Protocol, runtime_checkable
 
+FAILED_EVAL_COST: float = 1e12
+"""Sentinel cost used when an evaluation fails or returns NaN.
+
+A large finite penalty propagates safely through CMA-ES, scipy and DA-MH-GP
+adapters; NaN would poison their internal updates.
+"""
+
 
 @dataclass(frozen=True, slots=True)
 class ParamSuggestion:

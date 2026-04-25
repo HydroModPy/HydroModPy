@@ -705,7 +705,7 @@ class Project:
                 "TOML path (need the simulation TOML on disk)."
             )
 
-        from hydromodpy.calibration.cli import run_calibration_cli
+        from hydromodpy.calibration.cli import run_calibration_programmatic
         from hydromodpy.calibration.config import CalibrationConfig
 
         payload: dict[str, object] = {}
@@ -726,33 +726,27 @@ class Project:
             {
                 key: value
                 for key, value in kwargs.items()
-                if key not in {"workspace", "project", "metric_fn", "objective", "return_report"}
+                if key
+                not in {
+                    "workspace",
+                    "project",
+                    "project_label",
+                    "metric_fn",
+                    "objective",
+                    "return_report",
+                }
             }
         )
 
         cfg = CalibrationConfig.model_validate(payload)
-        # Materialise the in-memory calibration config to a temporary TOML next
-        # to the project's simulation TOML so run_calibration_cli can load it
-        # (it inherits the simulation context via ``base_config``).
-        import tempfile
-
-        from hydromodpy.calibration.materialize import write_overlay_toml
-
-        calib_payload = {
-            "base_config": str(self._config_path),
-            "calibration": cfg.model_dump(exclude_none=True, by_alias=True),
-        }
-        tmpdir = Path(tempfile.mkdtemp(prefix="hmp_calibrate_"))
-        tmp_path = tmpdir / "calibration.toml"
-        write_overlay_toml(tmp_path, calib_payload)
-
-        return run_calibration_cli(
-            tmp_path,
-            objective=kwargs.get("objective"),
+        return run_calibration_programmatic(
+            cfg,
+            project=self,
             workspace=kwargs.get("workspace"),
-            project=kwargs.get("project", "calibration"),
+            project_label=kwargs.get("project_label", kwargs.get("project", "calibration")),
             metric_fn=kwargs.get("metric_fn"),
-            return_report=True,
+            objective=kwargs.get("objective"),
+            return_report=kwargs.get("return_report", True),
         )
 
     def simulate(

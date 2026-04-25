@@ -281,28 +281,6 @@ def _resolve_submodel(annotation: Any) -> type[BaseModel] | None:
 # ---------------------------------------------------------------------------
 
 
-def apply_values(
-    base_config: BaseModel,
-    values: Mapping[str, float],
-    space: ParameterSpace,
-) -> BaseModel:
-    """Return a deep copy of ``base_config`` with calibrated values injected.
-
-    Each CalibParameter with a resolved path (``target`` fallback ``path``) is
-    updated from ``values[name]`` via :func:`apply_parameter_to_config`.
-    Parameters without a path are ignored (useful for pure-Python calibration
-    where the user handles injection manually).
-    """
-    cfg = base_config.model_copy(deep=True)
-    for p in space:
-        if p.effective_path is None:
-            continue
-        if p.name not in values:
-            continue
-        apply_parameter_to_config(cfg, p, float(values[p.name]))
-    return cfg
-
-
 def apply_parameter_to_config(
     cfg: Any,
     param: CalibParameter,
@@ -384,6 +362,5 @@ __all__ = [
     "CalibParameter",
     "ParameterSpace",
     "discover_calibrable",
-    "apply_values",
     "apply_parameter_to_config",
 ]

@@ -103,7 +103,7 @@ def fake_pipeline(monkeypatch, tmp_path):
             self.execution = ExecutionRegistry()
             self.store = None
 
-    def _fake_prepare(cfg_path, *, override_paths, steps=None):
+    def _fake_prepare(cfg_path, *, override_paths, steps=None, parameter_space=None):
         import tomllib
 
         with open(cfg_path, "rb") as f:
