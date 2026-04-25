@@ -5,10 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
-from validation_cases.calibration.shared.runtime import (
-    run_twin_benchmark_case,
-    run_twin_via_project_api,
-)
+from validation_cases.calibration.shared.runtime import run_twin_benchmark_case
 
 
 def run_lightweight_twin_benchmark_case(
@@ -17,31 +14,13 @@ def run_lightweight_twin_benchmark_case(
     caller_file: str | Path,
     **kwargs: Any,
 ):
-    """Run one twin benchmark with expensive case figures disabled for pytest.
-
-    Cases that declare ``parameter_targets`` / ``output_specs`` /
-    ``objective_block_specs`` route through the v0.6 ``Project.calibrate``
-    API; older cases keep using the legacy ``ModelCalibrationLauncher``
-    bridge until they are ported.
-    """
-    if (
-        getattr(definition, "parameter_targets", None) is not None
-        and getattr(definition, "output_specs", None) is not None
-        and getattr(definition, "objective_block_specs", None) is not None
-    ):
-        benchmark = run_twin_via_project_api(
-            definition,
-            caller_file=caller_file,
-            case_figures=False,
-            **kwargs,
-        )
-    else:
-        benchmark = run_twin_benchmark_case(
-            definition,
-            caller_file=caller_file,
-            case_figures=False,
-            **kwargs,
-        )
+    """Run one twin benchmark via the v0.6 :meth:`Project.calibrate` API."""
+    benchmark = run_twin_benchmark_case(
+        definition,
+        caller_file=caller_file,
+        case_figures=False,
+        **kwargs,
+    )
     assert benchmark.summary_path.is_file()
     assert benchmark.configuration_figure is None
     assert benchmark.reference_objective_path is None
@@ -55,8 +34,8 @@ def run_lightweight_twin_benchmark_case_v06(
     caller_file: str | Path,
     **kwargs: Any,
 ):
-    """Run one twin benchmark via the v0.6 ``Project.calibrate`` API."""
-    benchmark = run_twin_via_project_api(
+    """Alias kept for callers that prefer the explicit v0.6 helper name."""
+    benchmark = run_twin_benchmark_case(
         definition,
         caller_file=caller_file,
         case_figures=False,

@@ -13,12 +13,6 @@ from typing import Any
 
 import numpy as np
 
-from validation_cases.calibration.shared._twin_bridge import (
-    ModelCalibrationLauncher,
-    ModelCalibrationObjectiveEvaluator,
-    actualize_candidate,
-    select_candidate_outputs,
-)
 from validation_cases.calibration.shared.definitions import (
     CalibrationMethodProfile,
     ObservationNoiseSpec,
@@ -260,101 +254,6 @@ def _reference_objective_samples(
     return parameter_names, np.asarray(points, dtype=float)
 
 
-def _write_reference_objective_payload(
-    *,
-    benchmark_root: Path,
-    definition: TwinCalibrationCaseDefinition,
-    observations_used: dict[str, tuple[float, ...]],
-    launcher_factory: Any,
-) -> Path:
-    """Evaluate one non-regular shared reference-objective sample for a case."""
-    parameter_names, reference_points = _reference_objective_samples(
-        definition=definition,
-    )
-    if reference_points.size == 0:
-        raise ValueError("reference objective sampling requires at least one point")
-
-    method_profile = CalibrationMethodProfile(
-        name="random_search",
-        method_kwargs={"n_samples": 1, "seed": 0},
-        persist_model_distribution=False,
-    )
-    calibration_id = _compact_calibration_id(definition, "objective_reference")
-    calibration_path = benchmark_root / "objective_reference.toml"
-    payload = definition.build_calibration_payload(
-        "simulation.toml",
-        calibration_id,
-        observations_used,
-        method_profile,
-    )
-    _write_toml(calibration_path, payload)
-
-    launcher = ModelCalibrationLauncher(calibration_path)
-    session = launcher.prepare()
-    evaluator = ModelCalibrationObjectiveEvaluator(
-        session=session,
-        cfg=launcher.cfg,
-        iteration_start=1,
-        record_callback=None,
-    )
-
-    serialized_points: list[dict[str, Any]] = []
-
-    try:
-        for point_index, point_values in enumerate(reference_points, start=1):
-            params_named = {
-                name: float(value)
-                for name, value in zip(parameter_names, point_values, strict=True)
-            }
-            evaluation = evaluator.evaluate(params_named)
-            total_cost = getattr(evaluation, "total_cost", None)
-            try:
-                objective_total = (
-                    None
-                    if total_cost is None or not math.isfinite(float(total_cost))
-                    else float(total_cost)
-                )
-            except (TypeError, ValueError):
-                objective_total = None
-            serialized_points.append(
-                {
-                    "point_id": f"reference_{point_index:04d}",
-                    "params_named": params_named,
-                    "objective_total": objective_total,
-                    "block_costs": _block_normalized_cost_mapping(evaluation),
-                    "status": str(getattr(evaluation, "status", "objective_evaluated")),
-                    "failure_reason": getattr(evaluation, "failure_reason", None),
-                }
-            )
-    finally:
-        calibration_root = session.calibration_root
-        if calibration_root.is_dir():
-            shutil.rmtree(calibration_root, ignore_errors=True)
-
-    reference_path = _reference_objective_path(benchmark_root)
-    reference_path.write_text(
-        json.dumps(
-            {
-                "role": "calibration_reference_objective",
-                "case_id": definition.case_id,
-                "parameter_names": list(parameter_names),
-                "sampling": str(definition.reference_objective_sampling),
-                "sample_count": int(reference_points.shape[0]),
-                "seed": int(definition.reference_objective_seed),
-                "truth_params": {
-                    str(name): float(value) for name, value in definition.truth_params.items()
-                },
-                "points": serialized_points,
-            },
-            indent=2,
-            ensure_ascii=True,
-        )
-        + "\n",
-        encoding="utf-8",
-    )
-    return reference_path
-
-
 def _apply_observation_noise(
     observations: dict[str, tuple[float, ...]],
     *,
@@ -494,101 +393,6 @@ def _iter_selected_method_runs(
             }
 
 
-def synthesize_truth_observations(
-    *,
-    definition: TwinCalibrationCaseDefinition,
-    truth_simulation_config_path: Path,
-    benchmark_root: Path,
-    launcher_factory: Any = None,
-) -> dict[str, dict[str, tuple[float, ...]]]:
-    """Run the truth candidate once and extract the synthetic observations."""
-    if definition.build_calibration_payload is None:
-        raise ValueError("Twin calibration case is missing build_calibration_payload")
-    truth_method = CalibrationMethodProfile(
-        name="random_search",
-        method_kwargs={"n_samples": 1, "seed": 7},
-        persist_model_distribution=False,
-    )
-    truth_calibration_path = benchmark_root / "truth_calibration.toml"
-    truth_payload = definition.build_calibration_payload(
-        truth_simulation_config_path.name,
-        _compact_calibration_id(definition, "truth"),
-        _placeholder_observations(definition),
-        truth_method,
-    )
-    _write_toml(truth_calibration_path, truth_payload)
-
-    launcher = ModelCalibrationLauncher(truth_calibration_path)
-    request = actualize_candidate(
-        session=launcher.prepare(),
-        cfg=launcher.cfg,
-        params=dict(definition.truth_params),
-        candidate_label="truth",
-        disable_postprocess=False,
-    )
-    from hydromodpy.project import Project as _Project
-
-    project = _Project(request.candidate_config_path, headless=True)
-    project.run()
-    run_state = project._ctx
-    project.close()
-    selected = select_candidate_outputs(
-        cfg=launcher.cfg,
-        run_state=run_state,
-        session=request.session,
-    )
-    clean_observations = _normalize_selected_outputs(selected)
-    used_observations = _apply_observation_noise(
-        clean_observations,
-        noise=definition.observation_noise,
-    )
-    truth_output_path = benchmark_root / "truth_observations.json"
-    truth_output_path.write_text(
-        json.dumps(
-            {
-                "role": "synthetic_truth_observations",
-                "case_id": definition.case_id,
-                "solver_name": definition.solver_name,
-                "truth_simulation_config_path": str(truth_simulation_config_path),
-                "truth_params": {
-                    str(name): float(value) for name, value in definition.truth_params.items()
-                },
-                "observations_truth": {
-                    str(name): [float(value) for value in values]
-                    for name, values in clean_observations.items()
-                },
-                "observations_used": {
-                    str(name): [float(value) for value in values]
-                    for name, values in used_observations.items()
-                },
-                "observation_noise": (
-                    None
-                    if definition.observation_noise is None
-                    else {
-                        "absolute_sigma_by_output": {
-                            str(name): float(value)
-                            for name, value in definition.observation_noise.absolute_sigma_by_output.items()
-                        },
-                        "relative_sigma_by_output": {
-                            str(name): float(value)
-                            for name, value in definition.observation_noise.relative_sigma_by_output.items()
-                        },
-                        "seed": int(definition.observation_noise.seed),
-                    }
-                ),
-            },
-            indent=2,
-            ensure_ascii=True,
-        )
-        + "\n",
-        encoding="utf-8",
-    )
-    return {
-        "truth": clean_observations,
-        "used": used_observations,
-    }
-
-
 def _param_abs_error(
     *,
     truth_params: dict[str, float],
@@ -677,422 +481,18 @@ def _algorithm_overhead_time_seconds(
     return max(0.0, raw)
 
 
-def _assess_method_result(
-    *,
-    definition: TwinCalibrationCaseDefinition,
-    method_profile: CalibrationMethodProfile,
-    method_instance_name: str,
-    repeat_index: int,
-    seed: int | None,
-    effective_method_kwargs: dict[str, Any],
-    requested_evaluation_budget: int | None,
-    summary: dict[str, Any],
-) -> TwinMethodBenchmarkResult:
-    """Convert one launcher summary to benchmark metrics."""
-    truth_params = {str(name): float(value) for name, value in definition.truth_params.items()}
-    abs_tolerances = {
-        str(name): float(value) for name, value in definition.parameter_abs_tolerances.items()
-    }
-    params_best = {
-        str(name): float(value) for name, value in dict(summary.get("params_best", {})).items()
-    }
-    param_abs_error = _param_abs_error(
-        truth_params=truth_params,
-        params_best=params_best,
-    )
-    recovered_truth = bool(
-        summary.get("status") == "calibrated"
-        and summary.get("cost_best") is not None
-        and math.isfinite(float(summary["cost_best"]))
-        and all(
-            math.isfinite(param_abs_error[name]) and param_abs_error[name] <= abs_tolerances[name]
-            for name in truth_params
-        )
-    )
-
-    distribution_summary = summary.get("model_distribution")
-    distribution_path = None
-    if isinstance(distribution_summary, dict) and distribution_summary.get("path"):
-        distribution_path = Path(str(distribution_summary["path"]))
-    iteration_history_path = calibration_root = Path(str(summary["calibration_root"]))
-    iteration_history_path = calibration_root / "iteration_history.jsonl"
-    if not iteration_history_path.is_file():
-        iteration_history_path = None
-    result_payload = {}
-    result_path = None if summary.get("result_path") is None else Path(str(summary["result_path"]))
-    if result_path is not None and result_path.is_file():
-        result_payload = json.loads(result_path.read_text(encoding="utf-8"))
-    calibration_time_seconds = None
-    time_per_evaluation_seconds = None
-    session_prepare_time_seconds = None
-    mean_candidate_total_time_seconds = None
-    mean_candidate_preparation_time_seconds = None
-    mean_candidate_simulation_time_seconds = None
-    mean_candidate_actualize_time_seconds = None
-    mean_candidate_launcher_prepare_time_seconds = None
-    mean_candidate_runtime_patch_time_seconds = None
-    mean_candidate_output_selection_time_seconds = None
-    mean_candidate_objective_build_time_seconds = None
-    mean_candidate_objective_compute_time_seconds = None
-    mean_candidate_objective_time_seconds = None
-    block_raw_cost_best: dict[str, float] = {}
-    block_normalized_cost_best: dict[str, float] = {}
-    block_reference_scale: dict[str, float] = {}
-    block_n_values: dict[str, int] = {}
-    metadata = result_payload.get("metadata", {})
-    if isinstance(metadata, dict) and metadata.get("calibration_time_seconds") is not None:
-        calibration_time_seconds = float(metadata["calibration_time_seconds"])
-    if isinstance(metadata, dict) and metadata.get("session_prepare_time_seconds") is not None:
-        session_prepare_time_seconds = float(metadata["session_prepare_time_seconds"])
-    candidate_timing_summary = {}
-    if isinstance(metadata, dict):
-        raw_candidate_timing_summary = metadata.get("candidate_timing_summary", {})
-        if isinstance(raw_candidate_timing_summary, dict):
-            candidate_timing_summary = raw_candidate_timing_summary
-    if isinstance(candidate_timing_summary.get("total_time_seconds"), dict):
-        raw_value = candidate_timing_summary["total_time_seconds"].get("mean")
-        if raw_value is not None:
-            mean_candidate_total_time_seconds = float(raw_value)
-    if isinstance(candidate_timing_summary.get("prepare_time_seconds"), dict):
-        raw_value = candidate_timing_summary["prepare_time_seconds"].get("mean")
-        if raw_value is not None:
-            mean_candidate_preparation_time_seconds = float(raw_value)
-    if isinstance(candidate_timing_summary.get("simulation_time_seconds"), dict):
-        raw_value = candidate_timing_summary["simulation_time_seconds"].get("mean")
-        if raw_value is not None:
-            mean_candidate_simulation_time_seconds = float(raw_value)
-    if isinstance(candidate_timing_summary.get("actualize_time_seconds"), dict):
-        raw_value = candidate_timing_summary["actualize_time_seconds"].get("mean")
-        if raw_value is not None:
-            mean_candidate_actualize_time_seconds = float(raw_value)
-    if isinstance(candidate_timing_summary.get("launcher_prepare_time_seconds"), dict):
-        raw_value = candidate_timing_summary["launcher_prepare_time_seconds"].get("mean")
-        if raw_value is not None:
-            mean_candidate_launcher_prepare_time_seconds = float(raw_value)
-    if isinstance(candidate_timing_summary.get("runtime_patch_time_seconds"), dict):
-        raw_value = candidate_timing_summary["runtime_patch_time_seconds"].get("mean")
-        if raw_value is not None:
-            mean_candidate_runtime_patch_time_seconds = float(raw_value)
-    if isinstance(candidate_timing_summary.get("output_selection_time_seconds"), dict):
-        raw_value = candidate_timing_summary["output_selection_time_seconds"].get("mean")
-        if raw_value is not None:
-            mean_candidate_output_selection_time_seconds = float(raw_value)
-    if isinstance(candidate_timing_summary.get("objective_build_time_seconds"), dict):
-        raw_value = candidate_timing_summary["objective_build_time_seconds"].get("mean")
-        if raw_value is not None:
-            mean_candidate_objective_build_time_seconds = float(raw_value)
-    if isinstance(candidate_timing_summary.get("objective_compute_time_seconds"), dict):
-        raw_value = candidate_timing_summary["objective_compute_time_seconds"].get("mean")
-        if raw_value is not None:
-            mean_candidate_objective_compute_time_seconds = float(raw_value)
-    if isinstance(candidate_timing_summary.get("objective_time_seconds"), dict):
-        raw_value = candidate_timing_summary["objective_time_seconds"].get("mean")
-        if raw_value is not None:
-            mean_candidate_objective_time_seconds = float(raw_value)
-    if calibration_time_seconds is not None and int(summary.get("n_evaluations", 0)) > 0:
-        time_per_evaluation_seconds = float(calibration_time_seconds) / float(
-            int(summary["n_evaluations"])
-        )
-    objective_evaluation = metadata.get("objective_evaluation", {})
-    if isinstance(objective_evaluation, dict):
-        blocks = objective_evaluation.get("blocks", [])
-        if isinstance(blocks, list):
-            for block in blocks:
-                if not isinstance(block, dict) or block.get("name") is None:
-                    continue
-                block_name = str(block["name"])
-                if block.get("raw_cost") is not None:
-                    block_raw_cost_best[block_name] = float(block["raw_cost"])
-                if block.get("normalized_cost") is not None:
-                    block_normalized_cost_best[block_name] = float(block["normalized_cost"])
-                if block.get("reference_scale") is not None:
-                    block_reference_scale[block_name] = float(block["reference_scale"])
-                if block.get("n_values") is not None:
-                    block_n_values[block_name] = int(block["n_values"])
-    failed_iteration_count = 0
-    candidate_run_count = 0
-    objective_cache_hit_count = 0
-    objective_cache_hit_rate = None
-    calibration_report = summary.get("calibration_report")
-    if isinstance(calibration_report, dict) and calibration_report.get("failed_count") is not None:
-        failed_iteration_count = int(calibration_report["failed_count"])
-    if isinstance(calibration_report, dict):
-        runtime_report = calibration_report.get("runtime", {})
-        if isinstance(runtime_report, dict):
-            if runtime_report.get("candidate_run_count") is not None:
-                candidate_run_count = int(runtime_report["candidate_run_count"])
-            if runtime_report.get("objective_cache_hit_count") is not None:
-                objective_cache_hit_count = int(runtime_report["objective_cache_hit_count"])
-            if candidate_run_count > 0:
-                objective_cache_hit_rate = float(objective_cache_hit_count) / float(
-                    candidate_run_count
-                )
-    estimated_candidate_runtime_seconds = _estimate_candidate_runtime_seconds(
-        mean_candidate_total_time_seconds=mean_candidate_total_time_seconds,
-        candidate_run_count=candidate_run_count,
-        n_evaluations=int(summary.get("n_evaluations", 0)),
-    )
-    algorithm_overhead_time_seconds = _algorithm_overhead_time_seconds(
-        calibration_time_seconds=calibration_time_seconds,
-        estimated_candidate_runtime_seconds=estimated_candidate_runtime_seconds,
-    )
-    distribution_sample_count, truth_in_distribution, min_distribution_error = (
-        _distribution_truth_metrics(
-            model_distribution_path=distribution_path,
-            truth_params=truth_params,
-            abs_tolerances=abs_tolerances,
-        )
-    )
-    success_metric = str(method_profile.success_metric).strip().lower()
-    if success_metric == "best_fit":
-        meets_success_target = recovered_truth
-    elif success_metric == "distribution":
-        meets_success_target = truth_in_distribution is True
-    elif success_metric == "best_fit_or_distribution":
-        meets_success_target = recovered_truth or truth_in_distribution is True
-    else:
-        raise ValueError(
-            f"Unsupported calibration benchmark success_metric '{method_profile.success_metric}'."
-        )
-    return TwinMethodBenchmarkResult(
-        method_name=method_profile.name,
-        method_instance_name=method_instance_name,
-        success_metric=success_metric,
-        effective_method_kwargs={
-            str(name): value for name, value in effective_method_kwargs.items()
-        },
-        requested_evaluation_budget=requested_evaluation_budget,
-        calibration_id=str(summary["calibration_id"]),
-        calibration_root=calibration_root,
-        result_path=result_path,
-        cost_best=(None if summary.get("cost_best") is None else float(summary["cost_best"])),
-        iteration_count=int(summary.get("iteration_count", 0)),
-        n_evaluations=int(summary.get("n_evaluations", 0)),
-        params_best=params_best,
-        param_abs_error=param_abs_error,
-        recovered_truth=recovered_truth,
-        repeat_index=int(repeat_index),
-        seed=seed,
-        calibration_time_seconds=calibration_time_seconds,
-        time_per_evaluation_seconds=time_per_evaluation_seconds,
-        session_prepare_time_seconds=session_prepare_time_seconds,
-        estimated_candidate_runtime_seconds=estimated_candidate_runtime_seconds,
-        algorithm_overhead_time_seconds=algorithm_overhead_time_seconds,
-        mean_candidate_total_time_seconds=mean_candidate_total_time_seconds,
-        mean_candidate_preparation_time_seconds=(mean_candidate_preparation_time_seconds),
-        mean_candidate_simulation_time_seconds=(mean_candidate_simulation_time_seconds),
-        mean_candidate_actualize_time_seconds=(mean_candidate_actualize_time_seconds),
-        mean_candidate_launcher_prepare_time_seconds=(mean_candidate_launcher_prepare_time_seconds),
-        mean_candidate_runtime_patch_time_seconds=(mean_candidate_runtime_patch_time_seconds),
-        mean_candidate_output_selection_time_seconds=(mean_candidate_output_selection_time_seconds),
-        mean_candidate_objective_build_time_seconds=(mean_candidate_objective_build_time_seconds),
-        mean_candidate_objective_compute_time_seconds=(
-            mean_candidate_objective_compute_time_seconds
-        ),
-        mean_candidate_objective_time_seconds=(mean_candidate_objective_time_seconds),
-        failed_iteration_count=failed_iteration_count,
-        meets_success_target=bool(meets_success_target),
-        candidate_run_count=candidate_run_count,
-        objective_cache_hit_count=objective_cache_hit_count,
-        objective_cache_hit_rate=objective_cache_hit_rate,
-        block_raw_cost_best=block_raw_cost_best,
-        block_normalized_cost_best=block_normalized_cost_best,
-        block_reference_scale=block_reference_scale,
-        block_n_values=block_n_values,
-        iteration_history_path=iteration_history_path,
-        model_distribution_path=distribution_path,
-        model_distribution_sample_count=int(distribution_sample_count),
-        truth_in_distribution=truth_in_distribution,
-        truth_distribution_min_abs_error={
-            str(name): float(value)
-            for name, value in min_distribution_error.items()
-            if value is not None
-        },
-    )
-
-
-def run_twin_benchmark_case(
-    definition: TwinCalibrationCaseDefinition,
-    *,
-    caller_file: str | Path,
-    launcher_factory: Any = None,
-    method_names: tuple[str, ...] | None = None,
-    evaluation_budget: int | None = None,
-    artifact_retention: str | None = None,
-    case_figures: bool | None = None,
-    figure_format: str = "png",
-) -> TwinCalibrationBenchmarkResult:
-    """Run one same-solver twin benchmark and assess each configured method."""
-    del caller_file
-    if definition.build_simulation_config is None:
-        raise ValueError("Twin calibration case is missing build_simulation_config")
-    if definition.build_calibration_payload is None:
-        raise ValueError("Twin calibration case is missing build_calibration_payload")
-
-    benchmark_root = _resolve_twin_benchmark_root(definition)
-    benchmark_root.mkdir(parents=True, exist_ok=True)
-    simulation_config_path = benchmark_root / "simulation.toml"
-    definition.build_simulation_config(
-        simulation_config_path,
-        benchmark_root / "project",
-    )
-    truth_builder = definition.build_truth_simulation_config
-    if truth_builder is None:
-        truth_simulation_config_path = simulation_config_path
-    else:
-        truth_simulation_config_path = benchmark_root / "truth_simulation.toml"
-        truth_builder(
-            truth_simulation_config_path,
-            benchmark_root / "project_truth",
-        )
-    synthesized_observations = synthesize_truth_observations(
-        definition=definition,
-        truth_simulation_config_path=truth_simulation_config_path,
-        benchmark_root=benchmark_root,
-        launcher_factory=launcher_factory,
-    )
-    observations_truth = synthesized_observations["truth"]
-    observations_used = synthesized_observations["used"]
-
-    selected_profiles = tuple(definition.method_profiles)
-    if method_names is not None:
-        requested = {str(name).strip().lower() for name in method_names}
-        selected_profiles = tuple(
-            profile
-            for profile in selected_profiles
-            if str(profile.name).strip().lower() in requested
-        )
-    if not selected_profiles:
-        raise ValueError(f"No method profile selected for benchmark '{definition.case_id}'.")
-
-    configuration_figure = None
-    reference_objective_path = None
-    generate_case_figures = (
-        definition.generate_case_figures if case_figures is None else bool(case_figures)
-    )
-    retained_mode = (
-        str(definition.artifact_retention)
-        if artifact_retention is None
-        else str(artifact_retention)
-    )
-    if generate_case_figures:
-        from validation_cases.calibration.plotting import (
-            write_case_configuration_figure,
-        )
-
-        configuration_figure = write_case_configuration_figure(
-            benchmark_root=benchmark_root,
-            definition=definition,
-            simulation_config_path=simulation_config_path,
-            truth_simulation_config_path=truth_simulation_config_path,
-            artifact_retention=retained_mode,
-            figure_format=figure_format,
-        )
-        if _reference_objective_enabled(
-            definition=definition,
-        ):
-            reference_objective_path = _write_reference_objective_payload(
-                benchmark_root=benchmark_root,
-                definition=definition,
-                observations_used=observations_used,
-                launcher_factory=launcher_factory,
-            )
-
-    method_results: list[TwinMethodBenchmarkResult] = []
-    for method_run in _iter_selected_method_runs(selected_profiles):
-        method_profile = method_run["profile"]
-        effective_profile = _apply_evaluation_budget(
-            method_run["effective_profile"],
-            n_parameters=len(definition.truth_params),
-            evaluation_budget=evaluation_budget,
-        )
-        method_instance_name = str(method_run["instance_name"])
-        repeat_index = int(method_run["repeat_index"])
-        seed = method_run["seed"]
-        calibration_id = _compact_calibration_id(
-            definition,
-            method_instance_name,
-        )
-        calibration_path = benchmark_root / f"calibration_{method_instance_name}.toml"
-        payload = definition.build_calibration_payload(
-            simulation_config_path.name,
-            calibration_id,
-            observations_used,
-            effective_profile,
-        )
-        _write_toml(calibration_path, payload)
-        summary = ModelCalibrationLauncher(calibration_path).calibrate()
-        assessed_result = _assess_method_result(
-            definition=definition,
-            method_profile=method_profile,
-            method_instance_name=method_instance_name,
-            repeat_index=repeat_index,
-            seed=seed,
-            effective_method_kwargs=dict(effective_profile.method_kwargs),
-            requested_evaluation_budget=evaluation_budget,
-            summary=summary,
-        )
-        if generate_case_figures:
-            from validation_cases.calibration.plotting import write_case_method_figures
-
-            figure_paths = write_case_method_figures(
-                benchmark_root=benchmark_root,
-                definition=definition,
-                result=assessed_result,
-                figure_format=figure_format,
-            )
-            assessed_result = replace(
-                assessed_result,
-                objective_trace_figure=figure_paths.get("objective_trace"),
-                objective_landscape_figure=figure_paths.get("objective_landscape"),
-                posterior_distribution_figure=figure_paths.get("posterior_distribution"),
-            )
-        method_results.append(assessed_result)
-
-    pruned_artifacts = _prune_benchmark_artifacts(
-        benchmark_root=benchmark_root,
-        retention=retained_mode,
-    )
-
-    benchmark = TwinCalibrationBenchmarkResult(
-        definition=definition,
-        benchmark_root=benchmark_root,
-        simulation_config_path=simulation_config_path,
-        truth_simulation_config_path=truth_simulation_config_path,
-        observations_truth=observations_truth,
-        observations_used=observations_used,
-        method_results=tuple(method_results),
-        summary_path=benchmark_root / "benchmark_summary.json",
-        artifact_retention=retained_mode,
-        configuration_figure=configuration_figure,
-        reference_objective_path=reference_objective_path,
-        pruned_artifacts=pruned_artifacts,
-    )
-    benchmark.summary_path.write_text(
-        json.dumps(benchmark.to_mapping(), indent=2, ensure_ascii=True) + "\n",
-        encoding="utf-8",
-    )
-    return benchmark
-
-
-# ---------------------------------------------------------------------------
-# v0.6 Project.calibrate-based pathway (Phase 9 port)
-# ---------------------------------------------------------------------------
-
-
 def extract_outputs(
     run: Any,
     outputs_cfg: Any,
 ) -> dict[str, tuple[float, ...]]:
     """Extract simulated observables from a finished :class:`Run`.
 
-    Replaces the legacy ``select_candidate_outputs`` helper used by
-    benchmark glue code: each declared output is read from the catalog
-    via :meth:`Run.timeseries`, :meth:`Run.budget` or :meth:`Run.field`
-    and returned as a stable float tuple. Outputs unavailable in the
-    catalog (e.g. solver-specific budget components missing for a given
-    package) collapse to a NaN-padded vector of the expected length so
-    the calling objective machinery can still produce a finite cost.
+    Each declared output is read from the catalog via
+    :meth:`Run.timeseries`, :meth:`Run.budget` or :meth:`Run.field` and
+    returned as a stable float tuple. Outputs unavailable in the catalog
+    (e.g. solver-specific budget components missing for a given package)
+    collapse to a NaN-padded vector of the expected length so the calling
+    objective machinery can still produce a finite cost.
 
     Parameters
     ----------
@@ -2043,10 +1443,10 @@ def synthesize_truth_observations_via_project_api(
 ) -> dict[str, dict[str, tuple[float, ...]]]:
     """Run the truth candidate via :class:`hydromodpy.Project` and extract observables.
 
-    Equivalent to :func:`synthesize_truth_observations` but uses
-    :func:`hydromodpy.calibration.materialize.materialize_candidate` and
-    :class:`hydromodpy.Project` directly instead of the legacy
-    ``ModelCalibrationLauncher`` + ``actualize_candidate`` pair.
+    Materializes the truth K via
+    :func:`hydromodpy.calibration.materialize.materialize_candidate`,
+    runs :class:`hydromodpy.Project` on the resulting overlay, and pulls
+    each observable through :func:`extract_outputs`.
     """
     from hydromodpy.calibration.materialize import materialize_candidate
     from hydromodpy.calibration.parameters import ParameterSpace
@@ -2137,7 +1537,7 @@ def synthesize_truth_observations_via_project_api(
     return {"truth": clean_observations, "used": used_observations}
 
 
-def run_twin_via_project_api(
+def run_twin_benchmark_case(
     definition: TwinCalibrationCaseDefinition,
     *,
     caller_file: str | Path,
@@ -2147,25 +1547,24 @@ def run_twin_via_project_api(
     case_figures: bool | None = None,
     figure_format: str = "png",
 ) -> TwinCalibrationBenchmarkResult:
-    """Run one twin benchmark using the v0.6 :meth:`Project.calibrate` API.
+    """Run one twin benchmark via the :meth:`Project.calibrate` API.
 
-    Mirrors :func:`run_twin_benchmark_case` but routes through the new
-    ``[calibration]`` schema + :class:`hydromodpy.Project`. The case
-    definition must declare ``parameter_targets``, ``output_specs`` and
-    ``objective_block_specs`` so :func:`build_payload` can emit the
-    enriched TOML.
+    Routes through the v0.6 ``[calibration]`` schema +
+    :class:`hydromodpy.Project`. The case definition must declare
+    ``parameter_targets``, ``output_specs`` and ``objective_block_specs``
+    so :func:`build_payload` can emit the enriched TOML.
     """
     del caller_file
     if definition.build_simulation_config is None:
         raise ValueError("Twin calibration case is missing build_simulation_config")
     if definition.parameter_targets is None or definition.output_specs is None:
         raise ValueError(
-            f"run_twin_via_project_api requires parameter_targets/output_specs on "
+            f"run_twin_benchmark_case requires parameter_targets/output_specs on "
             f"{definition.case_id!r}."
         )
     if definition.objective_block_specs is None:
         raise ValueError(
-            f"run_twin_via_project_api requires objective_block_specs on {definition.case_id!r}."
+            f"run_twin_benchmark_case requires objective_block_specs on {definition.case_id!r}."
         )
 
     benchmark_root = _resolve_twin_benchmark_root(definition)
