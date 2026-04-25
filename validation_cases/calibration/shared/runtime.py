@@ -845,6 +845,12 @@ def _extract_head_at_point_from_dir(
 ) -> np.ndarray | None:
     """Read a head time series at the cell closest to ``(x, y)`` from an HDS file.
 
+    Returns the watertable elevation (raw head clipped to the per-cell top).
+    Truth synthesis goes through ``Run.field('watertable_elevation')`` which
+    applies the same clip; clipping here keeps the calibration cost surface
+    bit-identical to the truth observations when the unconfined head reaches
+    the ground surface.
+
     Resolves the cell index from the solver model's mesh first - the
     lightweight v0.6 trial pipeline never populates ``setup.mesh_planar`` for
     ``sgrid`` simulations, so the registered solver model is the only place
@@ -870,6 +876,7 @@ def _extract_head_at_point_from_dir(
         return None
     k, i, j, flat = cell_index
     ncol_hint = int(getattr(model, "ncol", 0) or 0) if model is not None else 0
+    cell_top = _resolve_cell_top_from_dir(output_dir, model_name, flat_index=flat)
     hf = bf.HeadFile(str(hds_path))
     try:
         times = hf.get_times()
@@ -888,9 +895,45 @@ def _extract_head_at_point_from_dir(
             except Exception:
                 pass
         values[np.abs(values) > 1e6] = np.nan
+        if cell_top is not None and np.isfinite(cell_top):
+            values = np.minimum(values, float(cell_top))
     finally:
         hf.close()
     return values
+
+
+def _resolve_cell_top_from_dir(
+    output_dir: Path, model_name: str, *, flat_index: int
+) -> float | None:
+    """Return the surface elevation (top) at one cell, read from the GRB file.
+
+    Mirrors :func:`hydromodpy.solver.modflow6.extractors.flow._write_surface_elevation`:
+    the GRB grid metadata exposes ``top1d`` (DISV) or ``top`` (DIS) which
+    feed :func:`hydromodpy.results.derived.watertable_elevation`. Returning
+    a finite value here lets the trial-time HDS reader apply the same
+    ``min(head, top)`` clip the catalog applies.
+    """
+    grb_files = list(output_dir.glob(f"{model_name}.dis.grb")) + list(
+        output_dir.glob(f"{model_name}.disv.grb")
+    )
+    if not grb_files:
+        return None
+    try:
+        try:
+            from flopy.mf6.utils import MfGrdFile
+        except ImportError:
+            from flopy.utils import MfGrdFile
+
+        grd = MfGrdFile(str(grb_files[0]))
+        top_raw = getattr(grd, "top1d", None)
+        if top_raw is None:
+            top_raw = grd.top
+        top = np.asarray(top_raw, dtype="float64").ravel()
+    except Exception:
+        return None
+    if top.size == 0 or flat_index < 0 or flat_index >= top.size:
+        return None
+    return float(top[flat_index])
 
 
 def _read_head_at_cell(
