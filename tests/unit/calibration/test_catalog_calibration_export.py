@@ -136,3 +136,156 @@ class TestExportCalibrationSession:
     def test_unknown_session_raises(self, catalog: SimulationCatalog, tmp_path: Path):
         with pytest.raises(ValueError, match="Unknown calibration session"):
             catalog.export_calibration_session(uuid.uuid4().hex, tmp_path / "x")
+
+    def test_jsonl_uses_legacy_keys(
+        self,
+        catalog: SimulationCatalog,
+        seeded_session: str,
+        tmp_path: Path,
+    ):
+        out = tmp_path / "legacy_export"
+        catalog.export_calibration_session(seeded_session, out)
+        lines = (out / "iteration_history.jsonl").read_text(encoding="utf-8").splitlines()
+        assert len(lines) == 3
+        for line in lines:
+            payload = json.loads(line)
+            for legacy_key in (
+                "iteration_id",
+                "params_named",
+                "params_vector",
+                "objective_total",
+                "block_costs",
+                "failure_reason",
+            ):
+                assert legacy_key in payload, f"missing legacy key {legacy_key!r}"
+            assert isinstance(payload["params_named"], dict)
+            assert isinstance(payload["params_vector"], list)
+            assert payload["status"] == "completed"
+            assert payload["failure_reason"] is None
+
+
+class TestModelDistribution:
+    def _seed_with_flag(self, catalog: SimulationCatalog, flag: bool) -> str:
+        persistence = CalibrationPersistence(catalog)
+        sid = uuid.uuid4().hex
+        persistence.start_session(
+            session_id=sid,
+            project="dist_test",
+            method="optuna",
+            objective_name="rmse",
+            config={"max_iter": 3, "persist_model_distribution": flag},
+        )
+        for i in range(3):
+            sugg = ParamSuggestion(
+                trial_id=i,
+                values={"K": 1e-4 * (i + 1), "Sy": 0.05 + 0.01 * i},
+            )
+            result = EvaluationResult(
+                trial_id=i,
+                sim_id=None,
+                objective_value=0.4 - 0.1 * i,
+                status="completed",
+                duration_s=0.1,
+                components={"rmse": 0.4 - 0.1 * i},
+            )
+            persistence.append_iteration(sid, sugg, result)
+        persistence.finalize_session(
+            sid,
+            best=EvaluationResult(
+                trial_id=2,
+                sim_id=None,
+                objective_value=0.2,
+                status="completed",
+            ),
+            n_iterations=3,
+            duration_s=0.3,
+        )
+        return sid
+
+    def test_model_distribution_written_when_flag_true(
+        self,
+        catalog: SimulationCatalog,
+        tmp_path: Path,
+    ):
+        sid = self._seed_with_flag(catalog, flag=True)
+        out = tmp_path / "with_dist"
+        catalog.export_calibration_session(sid, out)
+        dist_path = out / "model_distribution.json"
+        assert dist_path.is_file()
+        payload = json.loads(dist_path.read_text(encoding="utf-8"))
+        assert set(payload.keys()) == {"K", "Sy"}
+        for stats in payload.values():
+            for stat_key in ("min", "max", "mean", "std", "best", "n"):
+                assert stat_key in stats
+        assert payload["K"]["n"] == 3
+        assert payload["K"]["min"] <= payload["K"]["mean"] <= payload["K"]["max"]
+        # The smallest objective is at iteration 2 (K = 3e-4).
+        assert abs(payload["K"]["best"] - 3e-4) < 1e-12
+
+    def test_model_distribution_skipped_when_flag_false(
+        self,
+        catalog: SimulationCatalog,
+        tmp_path: Path,
+    ):
+        sid = self._seed_with_flag(catalog, flag=False)
+        out = tmp_path / "without_dist"
+        catalog.export_calibration_session(sid, out)
+        assert not (out / "model_distribution.json").exists()
+
+
+class TestPersistIterationDetail:
+    def _seed_session(self, catalog: SimulationCatalog) -> str:
+        persistence = CalibrationPersistence(catalog)
+        sid = uuid.uuid4().hex
+        persistence.start_session(
+            session_id=sid,
+            project="detail_test",
+            method="optuna",
+            objective_name="rmse",
+            config={"max_iter": 1},
+        )
+        return sid
+
+    def test_persist_iteration_detail_full_writes_block_costs(
+        self,
+        catalog: SimulationCatalog,
+    ):
+        sid = self._seed_session(catalog)
+        persistence = CalibrationPersistence(catalog)
+        sugg = ParamSuggestion(trial_id=0, values={"K": 1e-4})
+        result = EvaluationResult(
+            trial_id=0,
+            sim_id=None,
+            objective_value=0.42,
+            status="completed",
+            duration_s=0.1,
+            components={"rmse": 0.42},
+            metadata={"block_costs": {"head": 0.5, "discharge": 0.3}},
+        )
+        persistence.append_iteration(sid, sugg, result, detail="full")
+        rows = persistence.load_iterations(sid)
+        assert len(rows) == 1
+        metrics = rows[0]["metrics"]
+        assert metrics is not None
+        assert "block_costs" in metrics
+        assert metrics["block_costs"] == {"head": 0.5, "discharge": 0.3}
+
+    def test_persist_iteration_detail_none_clears_metrics(
+        self,
+        catalog: SimulationCatalog,
+    ):
+        sid = self._seed_session(catalog)
+        persistence = CalibrationPersistence(catalog)
+        sugg = ParamSuggestion(trial_id=0, values={"K": 1e-4})
+        result = EvaluationResult(
+            trial_id=0,
+            sim_id=None,
+            objective_value=0.42,
+            status="completed",
+            duration_s=0.1,
+            components={"rmse": 0.42},
+        )
+        persistence.append_iteration(sid, sugg, result, detail="none")
+        rows = persistence.load_iterations(sid)
+        assert len(rows) == 1
+        assert rows[0]["metrics"] is None
