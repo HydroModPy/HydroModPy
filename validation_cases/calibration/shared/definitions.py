@@ -94,12 +94,6 @@ def build_payload(
         }
         if target.transform is not None:
             parameter_decl["transform"] = str(target.transform)
-        if target.parameterization != "global_value":
-            parameter_decl["parameterization"] = str(target.parameterization)
-        if target.property_name is not None:
-            parameter_decl["property"] = str(target.property_name)
-        if target.lithology_key is not None:
-            parameter_decl["lithology_key"] = str(target.lithology_key)
         parameters[str(name)] = parameter_decl
 
     outputs: dict[str, dict[str, Any]] = {}
@@ -206,9 +200,6 @@ class TwinParameterTarget:
     target: str
     mode: str = "replace"
     transform: str | None = None
-    parameterization: str = "global_value"
-    property_name: str | None = None
-    lithology_key: str | None = None
 
 
 @dataclass(frozen=True, slots=True)

@@ -2,7 +2,7 @@
 
 Covers the Phase 1 additions to :mod:`hydromodpy.calibration.config`:
 
-- CalibParameterDecl gains target / mode / parameterization / property / lithology_key.
+- CalibParameterDecl gains target / mode.
 - CalibOutputDecl and CalibObjectiveBlockDecl are new Pydantic models.
 - CalibrationConfig grows outputs, objective_blocks, persist_* and
   materialize_* fields.
@@ -33,9 +33,6 @@ class TestCalibParameterDeclExtensions:
         decl = CalibParameterDecl.model_validate({})
         assert decl.target is None
         assert decl.mode == "replace"
-        assert decl.parameterization == "global_value"
-        assert decl.property_name is None
-        assert decl.lithology_key is None
 
     def test_target_alias_wins_over_path(self):
         decl = CalibParameterDecl.model_validate(
@@ -59,18 +56,6 @@ class TestCalibParameterDeclExtensions:
     def test_rejects_unsupported_modes(self, mode: str):
         with pytest.raises(ValidationError, match="mode"):
             CalibParameterDecl.model_validate({"mode": mode})
-
-    def test_dev_fields_accept_strings(self):
-        decl = CalibParameterDecl.model_validate(
-            {
-                "parameterization": "lithology_based",
-                "property": "hydraulic_conductivity",
-                "lithology_key": "sand",
-            }
-        )
-        assert decl.parameterization == "lithology_based"
-        assert decl.property_name == "hydraulic_conductivity"
-        assert decl.lithology_key == "sand"
 
 
 # ---------------------------------------------------------------------------

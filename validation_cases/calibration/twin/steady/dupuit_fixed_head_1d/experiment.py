@@ -286,8 +286,6 @@ _STEADY_DUPUIT_PARAMETER_TARGETS = {
     "K_global": TwinParameterTarget(
         target="flow.param.K.value",
         mode="replace",
-        property_name="K",
-        parameterization="global_value",
     ),
 }
 _STEADY_DUPUIT_OUTPUT_SPECS = {

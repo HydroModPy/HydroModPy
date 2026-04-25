@@ -244,14 +244,10 @@ _TRANSIENT_PARAMETER_TARGETS = {
     "K_global": TwinParameterTarget(
         target="flow.param.K.value",
         mode="replace",
-        property_name="K",
-        parameterization="global_value",
     ),
     "Sy_global": TwinParameterTarget(
         target="flow.param.Sy.value",
         mode="replace",
-        property_name="Sy",
-        parameterization="global_value",
     ),
 }
 _TRANSIENT_FLUX_ONLY_OUTPUT_SPECS = {
