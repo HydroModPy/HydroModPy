@@ -1454,12 +1454,16 @@ def _extract_head_at_point_from_dir(
 ) -> np.ndarray | None:
     """Read a head time series at the cell closest to ``(x, y)`` from an HDS file.
 
-    Resolves ``(layer, row, col)`` from the solver model's mesh first - the
+    Resolves the cell index from the solver model's mesh first - the
     lightweight v0.6 trial pipeline never populates ``setup.mesh_planar`` for
     ``sgrid`` simulations, so the registered solver model is the only place
-    where the structured grid layout is exposed at trial time. Falls back to
-    ``mesh_planar`` for legacy callers (catchment-scale runs) and finally to
-    a flat index when the layout is opaque.
+    where the grid layout is exposed at trial time. Falls back to
+    ``mesh_planar`` for legacy callers (catchment-scale runs).
+
+    Indexes the head array by inspecting its shape: structured DIS arrays
+    are ``(nlay, nrow, ncol)`` while DISV arrays come back as
+    ``(nlay, 1, ncpl)`` from flopy, so the row / col split must collapse to
+    a flat ncpl index when the middle axis is degenerate.
     """
     try:
         import flopy.utils.binaryfile as bf
@@ -1473,7 +1477,8 @@ def _extract_head_at_point_from_dir(
         cell_index = _nearest_cell_index_legacy(mesh_planar, x=x, y=y)
     if cell_index is None:
         return None
-    k, i, j = cell_index
+    k, i, j, flat = cell_index
+    ncol_hint = int(getattr(model, "ncol", 0) or 0) if model is not None else 0
     hf = bf.HeadFile(str(hds_path))
     try:
         times = hf.get_times()
@@ -1481,7 +1486,14 @@ def _extract_head_at_point_from_dir(
         for t, totim in enumerate(times):
             try:
                 head = hf.get_data(totim=totim)
-                values[t] = float(head[k, i, j])
+                values[t] = _read_head_at_cell(
+                    head,
+                    layer=k,
+                    row=i,
+                    col=j,
+                    flat_index=flat,
+                    ncol_hint=ncol_hint,
+                )
             except Exception:
                 pass
         values[np.abs(values) > 1e6] = np.nan
@@ -1490,18 +1502,46 @@ def _extract_head_at_point_from_dir(
     return values
 
 
+def _read_head_at_cell(
+    head: np.ndarray,
+    *,
+    layer: int,
+    row: int,
+    col: int,
+    flat_index: int,
+    ncol_hint: int,
+) -> float:
+    """Index a head array using a structured ``(layer, row, col)`` plus a flat fallback.
+
+    Flopy returns DIS heads as ``(nlay, nrow, ncol)`` but DISV heads as
+    ``(nlay, 1, ncpl)``. When the middle axis is degenerate the structured
+    ``(row, col)`` decomposition collapses to ``flat_index`` along the ncpl
+    axis. The 2D / 1D shapes are kept as a defensive fallback.
+    """
+    arr = np.asarray(head)
+    if arr.ndim == 3:
+        if arr.shape[1] == 1 and flat_index < arr.shape[2]:
+            return float(arr[layer, 0, flat_index])
+        return float(arr[layer, row, col])
+    if arr.ndim == 2:
+        return float(arr[layer, flat_index])
+    return float(arr.ravel()[flat_index])
+
+
 def _resolve_cell_index_from_model(
     model: Any,
     *,
     x: float,
     y: float,
-) -> tuple[int, int, int] | None:
-    """Return ``(layer, row, col)`` for a registered solver model.
+) -> tuple[int, int, int, int] | None:
+    """Return ``(layer, row, col, flat_index)`` for a registered solver model.
 
     Reads the structured layout (``nrow`` / ``ncol``) and the cell centroids
     from the solver model registered in ``execution.models_by_run_id``. Works
     for MODFLOW 6 (``solver_mesh.cell_centroids()``) and MODFLOW-NWT
-    (``runtime_mesh_planar`` / direct ``cell_centroids``).
+    (``runtime_mesh_planar`` / direct ``cell_centroids``). The ``flat_index``
+    is the cell rank in ``cell_centroids`` and is the right axis-2 offset for
+    DISV heads.
     """
     if model is None:
         return None
@@ -1516,8 +1556,8 @@ def _resolve_cell_index_from_model(
     nrow = int(getattr(model, "nrow", 0) or 0)
     ncol = int(getattr(model, "ncol", 0) or 0)
     if nrow > 0 and ncol > 0 and flat_index < nrow * ncol:
-        return (0, flat_index // ncol, flat_index % ncol)
-    return (0, 0, flat_index)
+        return (0, flat_index // ncol, flat_index % ncol, flat_index)
+    return (0, 0, flat_index, flat_index)
 
 
 def _model_cell_centroids(model: Any) -> np.ndarray | None:
@@ -1553,8 +1593,8 @@ def _nearest_cell_index_legacy(
     *,
     x: float,
     y: float,
-) -> tuple[int, int, int] | None:
-    """Return ``(layer, row, col)`` of the cell closest to ``(x, y)`` on mesh."""
+) -> tuple[int, int, int, int] | None:
+    """Return ``(layer, row, col, flat_index)`` of the cell closest to ``(x, y)``."""
     if mesh is None:
         return None
     centroids = getattr(mesh, "cell_centroids", None)
@@ -1569,12 +1609,12 @@ def _nearest_cell_index_legacy(
     flat_index = int(np.argmin(distances))
     shape = getattr(mesh, "shape", None)
     if shape is None or len(shape) < 2:
-        return (0, 0, flat_index)
+        return (0, 0, flat_index, flat_index)
     _, n_rows, n_cols = shape if len(shape) == 3 else (1, *shape)
     layer = 0
     row = flat_index // n_cols
     col = flat_index % n_cols
-    return (layer, int(row), int(col))
+    return (layer, int(row), int(col), flat_index)
 
 
 def _make_instrumented_run_trial_light(

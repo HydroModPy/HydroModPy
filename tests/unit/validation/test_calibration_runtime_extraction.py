@@ -67,9 +67,9 @@ class TestResolveCellIndexFromModel:
             nrow=nrow,
             ncol=ncol,
         )
-        # Cell (row=1, col=2) centroid is (25.0, 7.5). Aim near it.
+        # Cell (row=1, col=2) centroid is (25.0, 7.5), flat index 5.
         cell = _resolve_cell_index_from_model(model, x=24.0, y=8.0)
-        assert cell == (0, 1, 2)
+        assert cell == (0, 1, 2, 5)
 
     def test_returns_none_for_missing_model(self):
         assert _resolve_cell_index_from_model(None, x=0.0, y=0.0) is None
@@ -80,7 +80,7 @@ class TestResolveCellIndexFromModel:
             solver_mesh=SimpleNamespace(cell_centroids=lambda: centroids),
         )
         cell = _resolve_cell_index_from_model(model, x=25.0, y=2.5)
-        assert cell == (0, 0, 2)
+        assert cell == (0, 0, 2, 2)
 
 
 class TestNearestCellIndexLegacy:
@@ -92,7 +92,30 @@ class TestNearestCellIndexLegacy:
         centroids = _make_structured_centroids(nrow, ncol, dx=10.0, dy=5.0)
         mesh = SimpleNamespace(cell_centroids=centroids, shape=(1, nrow, ncol))
         cell = _nearest_cell_index_legacy(mesh, x=14.0, y=2.0)
-        assert cell == (0, 0, 1)
+        assert cell == (0, 0, 1, 1)
+
+
+class TestReadHeadAtCell:
+    def test_reads_dis_3d_head(self):
+        from validation_cases.calibration.shared.runtime import _read_head_at_cell
+
+        head = np.arange(2 * 3 * 4, dtype=float).reshape(2, 3, 4)
+        # head[1, 2, 3] == 23.0; flat_index irrelevant for DIS arrays.
+        assert _read_head_at_cell(head, layer=1, row=2, col=3, flat_index=0, ncol_hint=4) == 23.0
+
+    def test_reads_disv_3d_head_via_flat_index(self):
+        from validation_cases.calibration.shared.runtime import _read_head_at_cell
+
+        # DISV: shape (nlay, 1, ncpl). Row/col split must collapse to flat.
+        head = np.arange(1 * 1 * 12, dtype=float).reshape(1, 1, 12)
+        # Cell (row=2, col=3) on a 3x4 grid -> flat 11.
+        assert _read_head_at_cell(head, layer=0, row=2, col=3, flat_index=11, ncol_hint=4) == 11.0
+
+    def test_falls_back_to_2d(self):
+        from validation_cases.calibration.shared.runtime import _read_head_at_cell
+
+        head = np.arange(1 * 12, dtype=float).reshape(1, 12)
+        assert _read_head_at_cell(head, layer=0, row=0, col=0, flat_index=7, ncol_hint=4) == 7.0
 
 
 class TestExtractOutputsFromTrialCtx:
