@@ -5,7 +5,7 @@ Covers Phase 4 of the calibration integration:
 - ``grid`` and ``grid_search`` resolve to the same GridAdapter class.
 - ``simplex`` / ``nelder_mead`` / ``scipy_nelder_mead`` all resolve to the
   scipy Nelder-Mead adapter.
-- ``random_search`` is an Optuna RandomSampler alias.
+- ``random_search`` matches the legacy numpy default_rng sampling path.
 - ``cma_es`` instantiates cleanly and respects ``seed`` reproducibility.
 - Adapters return suggestions whose parameter values fall within
   transformed bounds.
@@ -45,7 +45,7 @@ class TestAdapterAliases:
         opt = build_optimizer(alias, _two_dim_space())
         assert opt.name == "scipy_nelder_mead"
 
-    def test_random_search_alias_resolves_to_optuna(self):
+    def test_random_search_resolves(self):
         opt = build_optimizer("random_search", _two_dim_space(), seed=0)
         assert opt.name == "random_search"
 
@@ -184,3 +184,54 @@ class TestScipyLegacyKwargs:
         # Just confirm construction does not raise and first ask works.
         sugg = opt.ask(n=1)
         assert sugg
+
+
+# ---------------------------------------------------------------------------
+# CMA-ES legacy ``restarts`` kwarg
+# ---------------------------------------------------------------------------
+
+
+class TestCmaRestarts:
+    def test_cma_adapter_accepts_restarts_kwarg(self):
+        opt = build_optimizer(
+            "cma_es",
+            _two_dim_space(),
+            sigma0=0.25,
+            popsize=4,
+            max_evaluations=8,
+            seed=1,
+            restarts=2,
+        )
+        assert opt.name == "cma_es"
+        sugg = opt.ask(n=1)
+        assert sugg
+
+    def test_cma_adapter_restarts_actually_restarts(self):
+        """A restart must re-instantiate the strategy when CMA stops early."""
+        space = _two_dim_space()
+        opt = build_optimizer(
+            "cma_es",
+            space,
+            sigma0=0.25,
+            popsize=4,
+            max_evaluations=12,
+            seed=2,
+            restarts=1,
+        )
+        first_es_id = id(opt._es)
+        # Force an early stop on the active strategy without exhausting the
+        # evaluation budget. The next ask() must trigger a restart and swap
+        # the underlying strategy instance.
+        original_stop = opt._es.stop
+        forced_stops = {"count": 0}
+
+        def _fake_stop():
+            if forced_stops["count"] < 1:
+                forced_stops["count"] += 1
+                return {"forced": True}
+            return original_stop()
+
+        opt._es.stop = _fake_stop
+        opt.ask(n=1)
+        assert opt._restarts_used == 1
+        assert id(opt._es) != first_es_id
