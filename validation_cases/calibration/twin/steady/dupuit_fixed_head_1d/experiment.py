@@ -476,4 +476,7 @@ STEADY_DUPUIT_NOISY_TWIN_CASE = TwinCalibrationCaseDefinition(
     reference_objective_seed=21,
     build_simulation_config=build_simulation_config,
     build_calibration_payload=build_calibration_payload,
+    parameter_targets=_STEADY_DUPUIT_PARAMETER_TARGETS,
+    output_specs=_STEADY_DUPUIT_OUTPUT_SPECS,
+    objective_block_specs=_STEADY_DUPUIT_OBJECTIVE_BLOCK_SPECS,
 )
