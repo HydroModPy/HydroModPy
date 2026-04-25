@@ -167,8 +167,7 @@ class CmaEsAdapter:
             self._batch_trial_ids.append(self._trial_id)
             out.append(ParamSuggestion(trial_id=self._trial_id, values=values, source="ask"))
             if self._n_eval + len(self._batch_trial_ids) >= self._max_evaluations:
-                # Stop enlarging this batch once budget runs out.
-                pass
+                break
         return out
 
     def suggest_next(self) -> ParamSuggestion:
