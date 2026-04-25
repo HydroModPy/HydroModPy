@@ -42,6 +42,186 @@ class ObservationNoiseSpec:
     seed: int = 0
 
 
+def build_payload(
+    definition: TwinCalibrationCaseDefinition,
+    *,
+    simulation_config_name: str,
+    calibration_id: str,
+    observed_values: Mapping[str, tuple[float, ...]],
+    method_profile: CalibrationMethodProfile,
+) -> dict[str, Any]:
+    """Build one v0.6-shaped ``[calibration]`` payload for a twin definition.
+
+    Emits the enriched schema consumed by
+    :class:`hydromodpy.calibration.config.CalibrationConfig`:
+
+    - ``[calibration]`` carries top-level knobs (``method``, ``max_iter``,
+      ``seed``, ``save_runs`` defaulting to ``"none"``).
+    - ``[calibration.parameters.<name>]`` collects bounds, target,
+      transform, and mode.
+    - ``[calibration.outputs.<name>]`` mirrors the legacy output blocks
+      with ``observed_values`` injected from the truth synthesis.
+    - ``[calibration.objective_blocks]`` lists the weighted blocks.
+    - ``[calibration.optimizer_kwargs]`` forwards method kwargs.
+
+    The returned dict is deep-mergeable with a base simulation TOML via
+    ``base_config = ...`` so the caller can write it next to the
+    simulation config and load it through :class:`hydromodpy.Project`.
+    """
+    if definition.parameter_targets is None:
+        raise ValueError(
+            f"build_payload requires definition.parameter_targets for {definition.case_id!r}; "
+            "add a `parameter_targets` mapping to the case definition."
+        )
+    if definition.output_specs is None:
+        raise ValueError(
+            f"build_payload requires definition.output_specs for {definition.case_id!r}; "
+            "add an `output_specs` mapping to the case definition."
+        )
+    if definition.objective_block_specs is None:
+        raise ValueError(
+            f"build_payload requires definition.objective_block_specs for {definition.case_id!r}; "
+            "add an `objective_block_specs` tuple to the case definition."
+        )
+
+    parameters: dict[str, dict[str, Any]] = {}
+    for name, target in definition.parameter_targets.items():
+        low, high = definition.bounds[name]
+        parameter_decl: dict[str, Any] = {
+            "bounds": [float(low), float(high)],
+            "target": str(target.target),
+            "mode": str(target.mode),
+        }
+        if target.transform is not None:
+            parameter_decl["transform"] = str(target.transform)
+        if target.parameterization != "global_value":
+            parameter_decl["parameterization"] = str(target.parameterization)
+        if target.property_name is not None:
+            parameter_decl["property"] = str(target.property_name)
+        if target.lithology_key is not None:
+            parameter_decl["lithology_key"] = str(target.lithology_key)
+        parameters[str(name)] = parameter_decl
+
+    outputs: dict[str, dict[str, Any]] = {}
+    for name, spec in definition.output_specs.items():
+        observed = observed_values.get(name)
+        output_decl: dict[str, Any] = {
+            "variable": str(spec.variable),
+            "support": str(spec.support),
+        }
+        if spec.x is not None:
+            output_decl["x"] = float(spec.x)
+        if spec.y is not None:
+            output_decl["y"] = float(spec.y)
+        if spec.boundary_id is not None:
+            output_decl["boundary_id"] = str(spec.boundary_id)
+        if spec.time is not None:
+            output_decl["time"] = spec.time
+        if spec.reducer is not None:
+            output_decl["reducer"] = str(spec.reducer)
+        if observed is not None:
+            output_decl["observed_values"] = [float(value) for value in observed]
+        outputs[str(name)] = output_decl
+
+    objective_blocks: list[dict[str, Any]] = []
+    for block in definition.objective_block_specs:
+        objective_blocks.append(
+            {
+                "name": str(block.name),
+                "metric": str(block.metric),
+                "weight": float(block.weight),
+                "uses_outputs": [str(item) for item in block.uses_outputs],
+                "normalize_cost": bool(block.normalize_cost),
+            }
+        )
+
+    method_kwargs = dict(method_profile.method_kwargs)
+    seed_value = method_kwargs.get(method_profile.seed_kwarg_name)
+    max_iter = _resolve_max_iter_from_kwargs(method_profile.name, method_kwargs)
+
+    calibration_section: dict[str, Any] = {
+        "method": str(method_profile.name),
+        "max_iter": int(max_iter),
+        "save_runs": "none",
+        "use_cache": False,
+        "parameters": parameters,
+        "outputs": outputs,
+        "objective_blocks": objective_blocks,
+        "optimizer_kwargs": method_kwargs,
+        "persist_iteration_detail": "full",
+        "persist_model_distribution": bool(method_profile.persist_model_distribution),
+    }
+    if seed_value is not None:
+        try:
+            calibration_section["seed"] = int(seed_value)
+        except (TypeError, ValueError):
+            pass
+
+    return {
+        "_calibration_id": str(calibration_id),
+        "_simulation_config": str(simulation_config_name),
+        "calibration": calibration_section,
+    }
+
+
+def _resolve_max_iter_from_kwargs(method: str, kwargs: Mapping[str, Any]) -> int:
+    """Estimate a reasonable ``max_iter`` upper bound from method kwargs."""
+    method_key = str(method).strip().lower()
+    if method_key == "grid_search":
+        n_per_dim = int(kwargs.get("n_per_dim", 5))
+        return max(1, n_per_dim**6)
+    if method_key == "random_search":
+        return max(1, int(kwargs.get("n_samples", 20)))
+    if method_key == "cma_es":
+        return max(1, int(kwargs.get("max_evaluations", 30)))
+    if method_key in {"simplex", "nelder_mead", "scipy_nelder_mead"}:
+        return max(1, int(kwargs.get("max_iter", 30)))
+    if method_key == "gp_mapping":
+        n_init = int(kwargs.get("n_init", 8))
+        n_refine = int(kwargs.get("n_refine", 3))
+        batch = int(kwargs.get("batch_size", 1))
+        return max(1, n_init + n_refine * batch)
+    if method_key == "da_mh_gp":
+        return max(1, int(kwargs.get("n_init", 8)) + int(kwargs.get("n_samples", 32)))
+    return max(1, int(kwargs.get("max_iter", kwargs.get("max_evaluations", 50))))
+
+
+@dataclass(frozen=True, slots=True)
+class TwinParameterTarget:
+    """One v0.6-shaped parameter declaration shared by twin cases."""
+
+    target: str
+    mode: str = "replace"
+    transform: str | None = None
+    parameterization: str = "global_value"
+    property_name: str | None = None
+    lithology_key: str | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class TwinOutputSpec:
+    """One v0.6-shaped output declaration shared by twin cases."""
+
+    variable: str
+    support: str = "point"
+    x: float | None = None
+    y: float | None = None
+    boundary_id: str | None = None
+    time: str | list[str] | None = "all"
+    reducer: str | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class TwinObjectiveBlockSpec:
+    """One v0.6-shaped objective block declaration shared by twin cases."""
+
+    name: str
+    metric: str = "rmse"
+    weight: float = 1.0
+    uses_outputs: tuple[str, ...] = ()
+    normalize_cost: bool = True
+
+
 @dataclass(frozen=True, slots=True)
 class TwinCalibrationCaseDefinition:
     """Definition of one same-solver twin calibration experiment."""
@@ -72,6 +252,9 @@ class TwinCalibrationCaseDefinition:
         ]
         | None
     ) = None
+    parameter_targets: Mapping[str, TwinParameterTarget] | None = None
+    output_specs: Mapping[str, TwinOutputSpec] | None = None
+    objective_block_specs: tuple[TwinObjectiveBlockSpec, ...] | None = None
 
 
 @dataclass(frozen=True, slots=True)
