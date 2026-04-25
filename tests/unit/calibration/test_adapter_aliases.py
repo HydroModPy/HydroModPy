@@ -184,3 +184,54 @@ class TestScipyLegacyKwargs:
         # Just confirm construction does not raise and first ask works.
         sugg = opt.ask(n=1)
         assert sugg
+
+
+# ---------------------------------------------------------------------------
+# CMA-ES legacy ``restarts`` kwarg
+# ---------------------------------------------------------------------------
+
+
+class TestCmaRestarts:
+    def test_cma_adapter_accepts_restarts_kwarg(self):
+        opt = build_optimizer(
+            "cma_es",
+            _two_dim_space(),
+            sigma0=0.25,
+            popsize=4,
+            max_evaluations=8,
+            seed=1,
+            restarts=2,
+        )
+        assert opt.name == "cma_es"
+        sugg = opt.ask(n=1)
+        assert sugg
+
+    def test_cma_adapter_restarts_actually_restarts(self):
+        """A restart must re-instantiate the strategy when CMA stops early."""
+        space = _two_dim_space()
+        opt = build_optimizer(
+            "cma_es",
+            space,
+            sigma0=0.25,
+            popsize=4,
+            max_evaluations=12,
+            seed=2,
+            restarts=1,
+        )
+        first_es_id = id(opt._es)
+        # Force an early stop on the active strategy without exhausting the
+        # evaluation budget. The next ask() must trigger a restart and swap
+        # the underlying strategy instance.
+        original_stop = opt._es.stop
+        forced_stops = {"count": 0}
+
+        def _fake_stop():
+            if forced_stops["count"] < 1:
+                forced_stops["count"] += 1
+                return {"forced": True}
+            return original_stop()
+
+        opt._es.stop = _fake_stop
+        opt.ask(n=1)
+        assert opt._restarts_used == 1
+        assert id(opt._es) != first_es_id
