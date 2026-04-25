@@ -99,6 +99,50 @@ class GPMappingOptimizer:
         Exploration-exploitation tradeoff constant (default ``0.0``).
     n_restarts
         Number of restarts for the EI maximiser (``scipy.optimize.minimize``).
+    n_refine
+        Legacy hyperparameter. Number of refinement rounds beyond the
+        initial Latin-hypercube design. When provided, the effective budget
+        becomes ``max(max_iter, n_init + n_refine * batch_size)`` so callers
+        used to the legacy semantics get the requested refinement passes.
+    batch_size
+        Legacy hyperparameter. Number of EI candidates returned per
+        refinement round. Default ``1``. When ``> 1`` the adapter caches
+        ``batch_size`` distinct EI maximisers (top-``batch_size`` of the
+        random multi-start pool) and serves them sequentially before fitting
+        the GP again.
+    n_candidates
+        Legacy hyperparameter. Number of random multi-starts used when
+        maximising EI. Maps to ``n_restarts`` (the larger of the two wins
+        so explicit values keep their meaning).
+    kappa
+        Legacy hyperparameter. UCB-style exploration constant. When
+        non-zero the acquisition switches from Expected Improvement to
+        Lower Confidence Bound ``mu - kappa * sigma`` (minimisation).
+        Default ``0.0`` keeps the EI behaviour.
+    alpha
+        Legacy hyperparameter. Noise floor of the GP regressor (passed
+        directly to :class:`sklearn.gaussian_process.GaussianProcessRegressor`).
+        Default ``1e-6`` matches the previous hard-coded value.
+    jitter
+        Legacy hyperparameter. Additive Cholesky jitter. The effective GP
+        nugget is ``alpha + jitter``. Default ``0.0``.
+    log_transform
+        Legacy hyperparameter. Hint that parameters should be searched in
+        log space. The new ``ParameterSpace`` exposes per-parameter
+        transforms (``Calibrable(transform="log")``); this flag is accepted
+        for back-compat. When ``True`` and **no** parameter declares a
+        non-identity transform, a ``RuntimeWarning`` is emitted because the
+        adapter cannot retroactively apply log-scaling without re-resolving
+        the parameter space. Set transforms on the parameters themselves
+        for the actual scaling.
+    n_posterior_pool, n_posterior_samples
+        Legacy hyperparameters. Sizes used by the legacy ``gp_mapping``
+        post-processing step that drew posterior samples from the fitted
+        GP for ``model_distribution`` exports. The adapter records these
+        on the instance (``self._n_posterior_pool``,
+        ``self._n_posterior_samples``) so downstream consumers (the
+        calibration distribution writer) can read them, but they do not
+        steer the EI search. Accepted as no-op for the optimiser proper.
     """
 
     name = "gp_mapping"
@@ -114,6 +158,15 @@ class GPMappingOptimizer:
         ei_patience: int = 3,
         xi: float = 0.0,
         n_restarts: int = 5,
+        n_refine: int | None = None,
+        batch_size: int = 1,
+        n_candidates: int | None = None,
+        kappa: float = 0.0,
+        alpha: float = 1e-6,
+        jitter: float = 0.0,
+        log_transform: bool = False,
+        n_posterior_pool: int = 0,
+        n_posterior_samples: int = 0,
     ):
         if not _SKLEARN_AVAILABLE:
             raise ImportError(
@@ -121,13 +174,44 @@ class GPMappingOptimizer:
                 "Install it via `pip install scikit-learn`."
             )
         self.space = space
-        self._max_iter = int(max_iter)
-        self._n_init = max(1, min(int(n_init), self._max_iter))
+        self._batch_size = max(1, int(batch_size))
+        n_init_clamped = max(1, int(n_init))
+        if n_refine is not None:
+            requested_budget = n_init_clamped + max(0, int(n_refine)) * self._batch_size
+            self._max_iter = max(int(max_iter), requested_budget)
+        else:
+            self._max_iter = int(max_iter)
+        self._n_init = max(1, min(n_init_clamped, self._max_iter))
         self._seed = seed
         self._ei_tol = float(ei_tol)
         self._ei_patience = max(1, int(ei_patience))
         self._xi = float(xi)
-        self._n_restarts = max(1, int(n_restarts))
+        # ``n_candidates`` is the legacy synonym for ``n_restarts``; honour
+        # whichever is larger so explicit user intent is never silently
+        # downgraded.
+        n_restarts_eff = int(n_restarts)
+        if n_candidates is not None:
+            n_restarts_eff = max(n_restarts_eff, int(n_candidates))
+        self._n_restarts = max(1, n_restarts_eff)
+        self._kappa = float(kappa)
+        self._alpha = float(alpha)
+        self._jitter = float(jitter)
+        self._alpha_eff = float(alpha) + max(0.0, float(jitter))
+        self._n_posterior_pool = max(0, int(n_posterior_pool))
+        self._n_posterior_samples = max(0, int(n_posterior_samples))
+        if log_transform and not any(
+            getattr(p, "transform", "identity") != "identity" for p in space.parameters
+        ):
+            warnings.warn(
+                "gp_mapping received log_transform=True but no parameter in the "
+                "space declares a non-identity transform; set transform='log' on "
+                "the relevant CalibParameter entries instead.",
+                RuntimeWarning,
+                stacklevel=2,
+            )
+        self._log_transform_hint = bool(log_transform)
+        # Cached batch of EI candidates served sequentially when batch_size > 1.
+        self._batch_queue: list[np.ndarray] = []
 
         self._rng = np.random.default_rng(seed)
         self._dim = space.dim
@@ -222,7 +306,12 @@ class GPMappingOptimizer:
         if n_served < self._n_init:
             return self._initial_points[n_served]
 
-        # Fit the GP on observed (x, y) pairs, then maximise EI.
+        # Serve a queued candidate from the previously fitted batch before
+        # retraining the GP - this preserves the legacy "batch_size" semantics.
+        if self._batch_queue:
+            return self._batch_queue.pop(0)
+
+        # Fit the GP on observed (x, y) pairs, then maximise the acquisition.
         x_train = np.asarray(self._x_history, dtype=float)
         y_train = np.asarray(self._y_history, dtype=float)
         gp = self._fit_gp(x_train, y_train)
@@ -233,12 +322,16 @@ class GPMappingOptimizer:
             return self._rng.uniform(lower, upper)
 
         y_best = float(np.min(y_train))
-        x_next, ei_next = self._maximise_ei(gp, y_best)
+        candidates = self._maximise_acquisition(gp, y_best)
+        x_next, ei_next = candidates[0]
         self._last_ei = float(ei_next)
         if self._last_ei < self._ei_tol:
             self._low_ei_streak += 1
         else:
             self._low_ei_streak = 0
+        # Stash extra candidates for the next ``ask`` calls when batch_size > 1.
+        if self._batch_size > 1:
+            self._batch_queue = [c[0] for c in candidates[1 : self._batch_size]]
         return x_next
 
     def _fit_gp(
@@ -254,7 +347,7 @@ class GPMappingOptimizer:
         )
         gp = GaussianProcessRegressor(
             kernel=kernel,
-            alpha=1e-6,
+            alpha=self._alpha_eff,
             normalize_y=True,
             random_state=(self._seed if self._seed is not None else 0),
             n_restarts_optimizer=2,
@@ -275,44 +368,67 @@ class GPMappingOptimizer:
             return None
         return gp
 
-    def _maximise_ei(
+    def _acquisition(
+        self,
+        x: np.ndarray,
+        gp: GaussianProcessRegressor,
+        y_best: float,
+    ) -> np.ndarray:
+        """Return the acquisition values at ``x`` (higher = better)."""
+        if self._kappa != 0.0:
+            # Lower Confidence Bound for minimisation: pick the smallest
+            # ``mu - kappa * sigma``. Return its negation so the caller
+            # always maximises.
+            x = np.atleast_2d(np.asarray(x, dtype=float))
+            mu, sigma = gp.predict(x, return_std=True)
+            sigma = np.clip(np.asarray(sigma, dtype=float), 0.0, None)
+            lcb = mu - float(self._kappa) * sigma
+            return -lcb
+        return _expected_improvement(x, gp, y_best, xi=self._xi)
+
+    def _maximise_acquisition(
         self,
         gp: GaussianProcessRegressor,
         y_best: float,
-    ) -> tuple[np.ndarray, float]:
-        """Return ``(x_star, ei_star)`` maximising Expected Improvement."""
+    ) -> list[tuple[np.ndarray, float]]:
+        """Return up to ``batch_size`` ``(x, score)`` pairs sorted by score (desc)."""
         lower = self._bounds_t[:, 0]
         upper = self._bounds_t[:, 1]
         bounds_scipy = list(zip(lower, upper, strict=True))
 
-        def _neg_ei(x: np.ndarray) -> float:
-            return -float(_expected_improvement(x, gp, y_best, xi=self._xi)[0])
+        def _neg_score(x: np.ndarray) -> float:
+            return -float(self._acquisition(x, gp, y_best)[0])
 
-        best_x = None
-        best_neg = np.inf
         starts = self._rng.uniform(lower, upper, size=(self._n_restarts, self._dim))
+        candidates: list[tuple[np.ndarray, float]] = []
         for start in starts:
             try:
                 res = _scipy_minimize(
-                    _neg_ei,
+                    _neg_score,
                     start,
                     method="L-BFGS-B",
                     bounds=bounds_scipy,
                 )
             except Exception:  # pragma: no cover - defensive
                 continue
-            if res.fun < best_neg:
-                best_neg = float(res.fun)
-                best_x = np.asarray(res.x, dtype=float)
+            x_clipped = np.clip(np.asarray(res.x, dtype=float), lower, upper)
+            candidates.append((x_clipped, float(-res.fun)))
 
-        if best_x is None:
-            # Deterministic fallback: pick the best random start.
-            ei_vals = _expected_improvement(starts, gp, y_best, xi=self._xi)
-            idx = int(np.argmax(ei_vals))
-            return np.clip(starts[idx], lower, upper), float(ei_vals[idx])
+        if not candidates:
+            # Deterministic fallback: rank random starts by acquisition.
+            scores = self._acquisition(starts, gp, y_best)
+            order = np.argsort(-np.asarray(scores, dtype=float))
+            return [(np.clip(starts[i], lower, upper), float(scores[i])) for i in order]
 
-        best_x = np.clip(best_x, lower, upper)
-        return best_x, float(-best_neg)
+        candidates.sort(key=lambda pair: pair[1], reverse=True)
+        # Deduplicate near-identical optima so batch_size > 1 actually serves
+        # diverse points; tolerance is a fraction of the bounds span.
+        span = np.maximum(upper - lower, 1e-12)
+        deduped: list[tuple[np.ndarray, float]] = []
+        for x, score in candidates:
+            if all(np.linalg.norm((x - d[0]) / span) > 1e-3 for d in deduped):
+                deduped.append((x, score))
+        return deduped or candidates
 
 
 __all__ = ["GPMappingOptimizer"]
