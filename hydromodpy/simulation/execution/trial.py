@@ -219,6 +219,13 @@ def prepare_trials(
     from hydromodpy.core.config.toml_loader import load_toml_with_base_config
     from hydromodpy.pipeline.pipeline import Pipeline
     from hydromodpy.pipeline.steps import standard_steps
+    from hydromodpy.spatial.domain.spatial_support import (
+        build_default_spatial_support_provider_registry,
+    )
+    from hydromodpy.workflow.steps.setup import (
+        collect_requested_support_ids,
+        resolve_support_configs,
+    )
 
     cfg_path = Path(cfg_path).expanduser().resolve()
     raw_toml = load_toml_with_base_config(cfg_path)
@@ -233,6 +240,18 @@ def prepare_trials(
         path_set = {str(p) for p in override_paths}
         path_map = {p: p for p in path_set}
 
+    # Mirror Project._configure: discover the spatial supports referenced by
+    # heterogeneous flow parameters so step_03 (build_geographic) can validate
+    # the contract. Without this the pipeline crashes on multi-zone configs
+    # (e.g. piecewise-K calibration) because requested_domain_supports stays
+    # empty in the pipeline state.
+    requested_support_ids = collect_requested_support_ids(cfg.flow)
+    requested_domain_supports = resolve_support_configs(
+        cfg.domain,
+        requested_support_ids,
+    )
+    spatial_support_registry = build_default_spatial_support_provider_registry()
+
     pipeline_steps = tuple(steps if steps is not None else standard_steps())
     # Cap at 9 (extract) - the trial primitive never runs derive/export/display.
     max_downstream = 9
@@ -246,6 +265,9 @@ def prepare_trials(
             "cfg": cfg,
             "config_path": cfg_path,
             "raw_toml": raw_toml,
+            "requested_spatial_support_ids": requested_support_ids,
+            "requested_domain_supports": requested_domain_supports,
+            "spatial_support_registry": spatial_support_registry,
         },
     )
     if prep_slice:
