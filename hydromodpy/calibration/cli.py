@@ -260,7 +260,13 @@ def run_calibration_cli(
         if objective and ":" in objective:
             metric_fn = _load_metric_fn_entry_point(objective)
         else:
-            metric_fn = build_metric_extractor(cfg.variable, cfg.objective, trial_ctx.ctx)
+            metric_fn = build_metric_extractor(
+                cfg.variable,
+                cfg.objective,
+                trial_ctx.ctx,
+                outputs=cfg.outputs or None,
+                objective_blocks=cfg.objective_blocks or None,
+            )
 
     # Start the session row.
     session_id = uuid.uuid4().hex
