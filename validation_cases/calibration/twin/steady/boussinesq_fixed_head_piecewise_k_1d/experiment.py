@@ -175,23 +175,14 @@ _PIECEWISE_K_PARAMETER_TARGETS = {
     "K_west": TwinParameterTarget(
         target="flow.param.K.values.west_zone",
         mode="replace",
-        property_name="K",
-        parameterization="lithology_value",
-        lithology_key="west_zone",
     ),
     "K_middle": TwinParameterTarget(
         target="flow.param.K.values.middle_zone",
         mode="replace",
-        property_name="K",
-        parameterization="lithology_value",
-        lithology_key="middle_zone",
     ),
     "K_east": TwinParameterTarget(
         target="flow.param.K.values.east_zone",
         mode="replace",
-        property_name="K",
-        parameterization="lithology_value",
-        lithology_key="east_zone",
     ),
 }
 _PIECEWISE_K_OUTPUT_SPECS = {

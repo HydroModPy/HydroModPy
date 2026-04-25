@@ -28,23 +28,6 @@ def run_lightweight_twin_benchmark_case(
     return benchmark
 
 
-def run_lightweight_twin_benchmark_case_v06(
-    definition: Any,
-    *,
-    caller_file: str | Path,
-    **kwargs: Any,
-):
-    """Alias kept for callers that prefer the explicit v0.6 helper name."""
-    benchmark = run_twin_benchmark_case(
-        definition,
-        caller_file=caller_file,
-        case_figures=False,
-        **kwargs,
-    )
-    assert benchmark.summary_path.is_file()
-    return benchmark
-
-
 def assert_lightweight_method_result(result: Any) -> None:
     """Assert that one lightweight pytest benchmark skipped figure generation."""
     assert result.objective_trace_figure is None

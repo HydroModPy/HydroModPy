@@ -107,19 +107,6 @@ class CalibParameterDecl(HydroModelBase):
         description="'replace' writes the sampled value as-is; 'scale' multiplies "
         "the base TOML value at the target path by the sample.",
     )
-    parameterization: Annotated[str, Profile.DEV] = Field(
-        default="global_value",
-        description="Parameterization kind. 'global_value' applies the sample uniformly.",
-    )
-    property_name: Annotated[str | None, Profile.DEV] = Field(
-        default=None,
-        alias="property",
-        description="Associated physical property (used by non-global parameterizations).",
-    )
-    lithology_key: Annotated[str | None, Profile.DEV] = Field(
-        default=None,
-        description="Lithology key when the parameter targets a property map by lithology.",
-    )
     units: Annotated[str | None, Profile.USER] = Field(
         default=None, description="Parameter units label."
     )

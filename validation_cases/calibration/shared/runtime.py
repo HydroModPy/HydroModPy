@@ -76,15 +76,6 @@ def _resolve_twin_benchmark_root(
     )
 
 
-def _normalize_selected_outputs(selected: dict[str, Any]) -> dict[str, tuple[float, ...]]:
-    """Convert selected observables to stable float tuples."""
-    normalized: dict[str, tuple[float, ...]] = {}
-    for name, values in selected.items():
-        arr = np.asarray(values, dtype=float).reshape(-1)
-        normalized[str(name)] = tuple(float(value) for value in arr)
-    return normalized
-
-
 def _remove_artifact_path(path: Path, *, removed: list[str]) -> None:
     """Remove one heavy artifact path when it exists."""
     try:
