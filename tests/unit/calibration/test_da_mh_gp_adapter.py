@@ -213,3 +213,99 @@ class TestDaMhGpValidation:
         space = _quadratic_space()
         with pytest.raises(ValueError, match="proposal_sigma"):
             build_optimizer("da_mh_gp", space, proposal_sigma=0.0)
+
+
+class TestDaMhGpLegacyKwargs:
+    def test_accepts_full_legacy_kwargs(self):
+        """Adapter must construct with proposal_scale / n_samples / thin / gp_noise / cache_decimals."""
+        space = _quadratic_space()
+        opt = build_optimizer(
+            "da_mh_gp",
+            space,
+            sigma_noise=0.1,
+            n_init=4,
+            max_iter=32,
+            n_samples=64,
+            burn_in=10,
+            thin=2,
+            proposal_scale=0.05,
+            retrain_interval=5,
+            gp_noise=1.0e-6,
+            full_mh_prob=0.05,
+            seed=13,
+            cache_decimals=10,
+        )
+        assert opt.name == "da_mh_gp"
+        # n_samples wins when larger than the explicit max_iter.
+        assert opt._max_iter == 64
+        # proposal_scale converted to absolute std on the bounds span (8.0 wide).
+        assert opt._proposal_std[0] == pytest.approx(0.05 * 8.0)
+        assert opt._gp_alpha == pytest.approx(1.0e-6)
+        assert opt._thin == 2
+        assert opt._cache_decimals == 10
+
+    def test_proposal_scale_alternative_to_proposal_sigma(self):
+        """proposal_scale must override proposal_sigma when provided."""
+        space = _quadratic_space()
+        opt = build_optimizer(
+            "da_mh_gp",
+            space,
+            n_init=2,
+            max_iter=4,
+            proposal_scale=0.1,
+            proposal_sigma=999.0,  # would be invalid as a raw std; ignored.
+            sigma_noise=0.5,
+            seed=0,
+        )
+        # 8.0 wide bounds span * 0.1 = 0.8.
+        assert opt._proposal_std[0] == pytest.approx(0.8)
+
+    def test_thin_reduces_posterior_sample_count(self):
+        """thin>1 must reduce posterior_samples length proportionally."""
+        space = _quadratic_space()
+        max_iter = 30
+        burn_in = 6
+        thin = 3
+        opt = build_optimizer(
+            "da_mh_gp",
+            space,
+            max_iter=max_iter,
+            n_init=4,
+            burn_in=burn_in,
+            proposal_sigma=0.3,
+            seed=0,
+            sigma_noise=0.3,
+            thin=thin,
+        )
+        engine = CalibrationEngine(
+            space=space,
+            optimizer=opt,
+            evaluator=_make_quadratic_evaluator(),
+            max_iter=200,
+        )
+        engine.run()
+        samples = opt.posterior_samples
+        expected_len = int(np.ceil((max_iter - burn_in) / thin))
+        assert samples.shape == (expected_len, 2)
+
+    def test_cache_decimals_dedupes_repeated_proposals(self):
+        """A re-evaluation at the same rounded location must hit the cache."""
+        space = _quadratic_space()
+        opt = build_optimizer(
+            "da_mh_gp",
+            space,
+            max_iter=4,
+            n_init=2,
+            proposal_sigma=0.1,
+            sigma_noise=0.5,
+            seed=0,
+            cache_decimals=3,
+        )
+        x = np.array([0.123456, -0.654321], dtype=float)
+        # Pre-fill the cache directly to avoid spinning up the engine.
+        key = opt._cache_key(x)
+        opt._eval_cache[key] = -1.234
+        # A second probe at the *same rounded* location returns the cached value
+        # without going through the bridge (which would block the test thread).
+        cached = opt._eval_cache[opt._cache_key(x + 1e-6)]
+        assert cached == pytest.approx(-1.234)

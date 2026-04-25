@@ -130,7 +130,35 @@ class DaMhGpOptimizer:
         prior_mean: float | Sequence[float] | None = None,
         prior_std: float | Sequence[float] | None = None,
         seed: int | None = None,
+        proposal_scale: float | Sequence[float] | None = None,
+        n_samples: int | None = None,
+        thin: int = 1,
+        gp_noise: float = 1e-8,
+        cache_decimals: int | None = None,
     ):
+        """Construct the DA-MH-GP optimizer.
+
+        Legacy-compatibility kwargs (in addition to the documented ones):
+
+        - ``proposal_scale`` : random-walk std expressed as a **fraction of
+          the transformed bounds span**. When provided, ``proposal_sigma``
+          is computed internally as ``proposal_scale * (upper - lower)``;
+          ``proposal_sigma`` is then ignored (a warning is emitted only if
+          the caller passed both with conflicting values).
+        - ``n_samples`` : synonym for ``max_iter``. The larger of the two
+          values wins so explicit user intent is never silently downgraded.
+        - ``thin`` : thinning interval applied to ``posterior_samples``.
+          Keeps every ``thin``-th post-burn-in sample. Default ``1`` keeps
+          all samples (matches the previous behaviour).
+        - ``gp_noise`` : GP noise floor passed as ``alpha`` to the
+          :class:`sklearn.gaussian_process.GaussianProcessRegressor`. Default
+          ``1e-8`` matches the previous hard-coded value.
+        - ``cache_decimals`` : rounding precision (number of decimals) used
+          to dedupe full-model evaluations in the surrogate's training
+          cache. When set, repeated proposals at the same rounded location
+          reuse the cached log-posterior instead of re-submitting the
+          evaluation. ``None`` (default) disables caching.
+        """
         if not _SKLEARN_AVAILABLE:
             raise ImportError(
                 "scikit-learn is required for the 'da_mh_gp' optimizer. "
@@ -139,7 +167,10 @@ class DaMhGpOptimizer:
         self.space = space
         self._dim = space.dim
 
-        self._max_iter = int(max_iter)
+        max_iter_eff = int(max_iter)
+        if n_samples is not None:
+            max_iter_eff = max(max_iter_eff, int(n_samples))
+        self._max_iter = max_iter_eff
         self._burn_in = int(max(0, burn_in))
         self._n_init = max(2, int(n_init))
         self._retrain_interval = max(1, int(retrain_interval))
@@ -150,6 +181,12 @@ class DaMhGpOptimizer:
         if not (0.0 <= self._full_mh_prob <= 1.0):
             raise ValueError("full_mh_prob must be in [0, 1]")
         self._seed = 0 if seed is None else int(seed)
+        self._thin = max(1, int(thin))
+        self._gp_alpha = float(gp_noise)
+        if self._gp_alpha <= 0.0:
+            raise ValueError("gp_noise must be > 0")
+        self._cache_decimals = None if cache_decimals is None else int(cache_decimals)
+        self._eval_cache: dict[tuple, float] = {}
 
         self._bounds_t = np.array(
             [(p.lower_transformed, p.upper_transformed) for p in space.parameters],
@@ -157,7 +194,14 @@ class DaMhGpOptimizer:
         )
         self._lower = self._bounds_t[:, 0]
         self._upper = self._bounds_t[:, 1]
-        self._proposal_std = _as_vector(proposal_sigma, "proposal_sigma", self._dim)
+        if proposal_scale is not None:
+            scale = _as_vector(proposal_scale, "proposal_scale", self._dim)
+            if np.any(scale <= 0.0):
+                raise ValueError("proposal_scale must be > 0")
+            span = np.maximum(self._upper - self._lower, 1e-12)
+            self._proposal_std = scale * span
+        else:
+            self._proposal_std = _as_vector(proposal_sigma, "proposal_sigma", self._dim)
         if np.any(self._proposal_std <= 0.0):
             raise ValueError("proposal_sigma must be > 0")
 
@@ -204,15 +248,30 @@ class DaMhGpOptimizer:
         loglik = -0.5 * (rmse / self._sigma_noise) ** 2
         return float(loglik + self._log_prior(x))
 
+    def _cache_key(self, x_t: np.ndarray) -> tuple | None:
+        if self._cache_decimals is None:
+            return None
+        return tuple(np.round(np.asarray(x_t, dtype=float), self._cache_decimals).tolist())
+
     def _evaluate_true(self, x_t: np.ndarray) -> float:
-        """Fetch the true RMSE from the engine and convert it to a log-posterior."""
+        """Fetch the true RMSE from the engine and convert it to a log-posterior.
+
+        When ``cache_decimals`` is set, identical proposals (after rounding)
+        reuse the previously computed log-posterior instead of re-submitting
+        the evaluation through the engine bridge.
+        """
         if not self._in_bounds(x_t):
             return -np.inf
+        key = self._cache_key(x_t)
+        if key is not None and key in self._eval_cache:
+            return self._eval_cache[key]
         rmse = self._bridge.submit(x_t)
         logpost = self._rmse_to_logpost(x_t, rmse)
         if np.isfinite(logpost):
             self._x_train.append(np.asarray(x_t, dtype=float).copy())
             self._y_train.append(logpost)
+        if key is not None:
+            self._eval_cache[key] = logpost
         return logpost
 
     # ------------------------------------------------------------------
@@ -230,7 +289,7 @@ class DaMhGpOptimizer:
         ) + WhiteKernel(noise_level=1e-6, noise_level_bounds=(1e-10, 1e-2))
         gp = GaussianProcessRegressor(
             kernel=kernel,
-            alpha=1e-8,
+            alpha=self._gp_alpha,
             normalize_y=True,
             random_state=self._seed,
             n_restarts_optimizer=0,
@@ -406,12 +465,15 @@ class DaMhGpOptimizer:
 
     @property
     def posterior_samples(self) -> np.ndarray:
-        """Chain in **physical** space with burn-in removed, shape ``(n-b, d)``."""
+        """Chain in **physical** space with burn-in removed and optional thinning.
+
+        Shape ``(n_kept, d)`` where ``n_kept = ceil((n - burn_in) / thin)``.
+        """
         arr = self.chain
         if arr.size == 0:
             return arr
         burn = min(self._burn_in, arr.shape[0])
-        sliced = arr[burn:]
+        sliced = arr[burn :: self._thin]
         out = np.empty_like(sliced)
         for i, p in enumerate(self.space.parameters):
             out[:, i] = np.array([p.to_physical(float(v)) for v in sliced[:, i]])
