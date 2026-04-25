@@ -1240,7 +1240,7 @@ def _extract_head_at_point_from_run(run: Any, *, x: float, y: float) -> np.ndarr
     except Exception:
         n_ts = 1
 
-    for variable in ("watertable_elevation", "head"):
+    for variable in ("head", "watertable_elevation"):
         values: list[float] = []
         ok = True
         for t in range(n_ts):
@@ -1551,10 +1551,25 @@ def _resolve_cell_index_from_model(
     arr = np.asarray(centroids, dtype=float).reshape(-1, 2)
     if arr.size == 0:
         return None
-    distances = np.hypot(arr[:, 0] - float(x), arr[:, 1] - float(y))
-    flat_index = int(np.argmin(distances))
     nrow = int(getattr(model, "nrow", 0) or 0)
     ncol = int(getattr(model, "ncol", 0) or 0)
+    if nrow > 0 and ncol > 0 and arr.shape[0] == nrow * ncol:
+        x_unique = np.unique(arr[:, 0])
+        y_unique = np.unique(arr[:, 1])
+        if x_unique.size == ncol and y_unique.size == nrow:
+            cell_dx = float(x_unique[1] - x_unique[0]) if ncol > 1 else 1.0
+            cell_dy = float(y_unique[1] - y_unique[0]) if nrow > 1 else 1.0
+            x_min = float(x_unique[0] - cell_dx / 2.0)
+            y_min = float(y_unique[0] - cell_dy / 2.0)
+            col = int(round((float(x) - x_min) / cell_dx - 0.5))
+            row_from_bottom = int(round((float(y) - y_min) / cell_dy - 0.5))
+            col = max(0, min(ncol - 1, col))
+            row_from_bottom = max(0, min(nrow - 1, row_from_bottom))
+            row = nrow - 1 - row_from_bottom
+            flat = row * ncol + col
+            return (0, row, col, flat)
+    distances = np.hypot(arr[:, 0] - float(x), arr[:, 1] - float(y))
+    flat_index = int(np.argmin(distances))
     if nrow > 0 and ncol > 0 and flat_index < nrow * ncol:
         return (0, flat_index // ncol, flat_index % ncol, flat_index)
     return (0, 0, flat_index, flat_index)
