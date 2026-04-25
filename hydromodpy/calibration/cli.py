@@ -532,4 +532,97 @@ def run_calibration_cli(
     return report.to_dict()
 
 
-__all__ = ["run_calibration_cli", "_run_calibration"]
+# ---------------------------------------------------------------------------
+# Programmatic shell
+# ---------------------------------------------------------------------------
+
+
+def run_calibration_programmatic(
+    cfg: CalibrationConfig,
+    *,
+    project,
+    workspace: Path | str | None = None,
+    project_label: str = "calibration",
+    metric_fn: TrialMetricFn | None = None,
+    objective: str | None = None,
+    return_report: bool = True,
+) -> CalibrationReport | dict:
+    """Run calibration without a calibration TOML file.
+
+    The :class:`hydromodpy.Project` instance carries the simulation
+    config; ``cfg.parameters`` declares the calibratable knobs. The
+    project's source TOML is reused as ``cfg_path`` for
+    :func:`prepare_trials` and (when applicable) for the
+    ``materialize_candidates`` and ``save_runs`` hooks. Pure in-memory
+    Projects (no source TOML) are not yet supported in programmatic mode
+    because both the trial pipeline and the promotion step expect a path.
+
+    Parameters
+    ----------
+    cfg
+        In-memory calibration configuration.
+    project
+        :class:`hydromodpy.Project` whose simulation TOML drives the
+        trial loop.
+    workspace
+        Override the workspace root. Defaults to ``project.workspace``
+        when available.
+    project_label
+        Label written to ``calibration_sessions.project``.
+    metric_fn
+        Optional RAM-only metric extractor.
+    objective
+        Optional ``"module.path:callable"`` escape hatch.
+    return_report
+        When True (the default), return the :class:`CalibrationReport`;
+        otherwise return its ``to_dict()`` payload.
+    """
+    src_path = getattr(project, "_config_path", None)
+    if src_path is None:
+        raise ValueError(
+            "run_calibration_programmatic requires a Project loaded from a "
+            "TOML file (the source path is needed for prepare_trials and "
+            "promotion). Build the Project from a path before calibrating."
+        )
+    cfg_path = Path(src_path).expanduser().resolve()
+
+    declarations = {
+        name: decl.model_dump(exclude_none=True, by_alias=True)
+        for name, decl in cfg.parameters.items()
+    }
+    space = ParameterSpace.from_toml_mapping(declarations)
+    override_paths = _override_paths(cfg)
+
+    trial_ctx = prepare_trials(
+        cfg_path,
+        override_paths=override_paths,
+        parameter_space=space,
+    )
+
+    if workspace is not None:
+        ws_root = Path(workspace).expanduser().resolve()
+    else:
+        ws_obj = getattr(project, "_ctx", None)
+        ws_setup = getattr(ws_obj, "setup", None) if ws_obj is not None else None
+        ws_root_obj = getattr(ws_setup, "workspace", None) if ws_setup is not None else None
+        if ws_root_obj is not None:
+            ws_root = Path(ws_root_obj.root)
+        else:
+            ws_root = trial_ctx.workspace
+
+    report = _run_calibration(
+        cfg,
+        trial_ctx,
+        workspace=ws_root,
+        space=space,
+        project_label=project_label,
+        cfg_path=cfg_path,
+        metric_fn=metric_fn,
+        objective=objective,
+    )
+    if return_report:
+        return report
+    return report.to_dict()
+
+
+__all__ = ["run_calibration_cli", "run_calibration_programmatic", "_run_calibration"]
