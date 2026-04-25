@@ -287,6 +287,16 @@ def run_calibration_cli(
 
     last_suggestion: dict[int, ParamSuggestion] = {}
 
+    materialize_root: Path | None = None
+    if cfg.materialize_candidates:
+        if cfg.candidates_root is None:
+            raise ValueError(
+                "calibration.materialize_candidates is True but "
+                "calibration.candidates_root is not set."
+            )
+        materialize_root = Path(cfg.candidates_root).expanduser().resolve()
+        materialize_root.mkdir(parents=True, exist_ok=True)
+
     def wrapped_evaluator(sugg: ParamSuggestion) -> EvaluationResult:
         last_suggestion[sugg.trial_id] = sugg
         from hydromodpy.simulation.execution.trial import run_trial_light
@@ -307,6 +317,24 @@ def run_calibration_cli(
             meta["error"] = result.error
         if cfg.persist_iteration_detail == "full":
             meta["block_costs"] = dict(result.metrics) if result.metrics else {}
+        if materialize_root is not None:
+            from hydromodpy.calibration.materialize import materialize_candidate
+
+            try:
+                overlay_path = materialize_candidate(
+                    cfg_path,
+                    dict(sugg.values),
+                    space,
+                    materialize_root,
+                    iteration_index=sugg.trial_id,
+                )
+                meta["materialized_overlay"] = str(overlay_path)
+            except Exception as exc:
+                logger.warning(
+                    "Failed to materialize overlay for trial %d: %s",
+                    sugg.trial_id,
+                    exc,
+                )
         return EvaluationResult(
             trial_id=sugg.trial_id,
             sim_id=None,
