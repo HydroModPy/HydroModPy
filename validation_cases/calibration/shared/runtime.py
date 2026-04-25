@@ -1352,7 +1352,12 @@ def _extract_outputs_from_trial_ctx(
     if flow_run_id is None and output_dirs:
         flow_run_id = next(iter(output_dirs.keys()))
     if flow_run_id is None:
-        return {name: [float("nan")] for name, _ in output_decls}
+        out: dict[str, list[float]] = {}
+        for name, decl in output_decls:
+            observed = getattr(decl, "observed_values", None)
+            length = len(observed) if observed is not None else 1
+            out[str(name)] = [float("nan")] * length
+        return out
     output_dir = Path(output_dirs[flow_run_id])
     model = models.get(flow_run_id)
     model_name = (
@@ -1532,9 +1537,9 @@ def _model_cell_centroids(model: Any) -> np.ndarray | None:
                 return None
     runtime_planar = getattr(model, "runtime_mesh_planar", None)
     if runtime_planar is not None:
-        legacy = getattr(runtime_planar, "cell_centroids", None) or getattr(
-            runtime_planar, "centroids", None
-        )
+        legacy = getattr(runtime_planar, "cell_centroids", None)
+        if legacy is None:
+            legacy = getattr(runtime_planar, "centroids", None)
         if legacy is not None:
             try:
                 return np.asarray(legacy, dtype=float)
@@ -1552,7 +1557,9 @@ def _nearest_cell_index_legacy(
     """Return ``(layer, row, col)`` of the cell closest to ``(x, y)`` on mesh."""
     if mesh is None:
         return None
-    centroids = getattr(mesh, "cell_centroids", None) or getattr(mesh, "centroids", None)
+    centroids = getattr(mesh, "cell_centroids", None)
+    if centroids is None:
+        centroids = getattr(mesh, "centroids", None)
     if centroids is None:
         return None
     arr = np.asarray(centroids, dtype=float)
