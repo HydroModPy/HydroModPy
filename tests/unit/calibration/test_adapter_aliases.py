@@ -5,7 +5,7 @@ Covers Phase 4 of the calibration integration:
 - ``grid`` and ``grid_search`` resolve to the same GridAdapter class.
 - ``simplex`` / ``nelder_mead`` / ``scipy_nelder_mead`` all resolve to the
   scipy Nelder-Mead adapter.
-- ``random_search`` is an Optuna RandomSampler alias.
+- ``random_search`` matches the legacy numpy default_rng sampling path.
 - ``cma_es`` instantiates cleanly and respects ``seed`` reproducibility.
 - Adapters return suggestions whose parameter values fall within
   transformed bounds.
@@ -45,7 +45,7 @@ class TestAdapterAliases:
         opt = build_optimizer(alias, _two_dim_space())
         assert opt.name == "scipy_nelder_mead"
 
-    def test_random_search_alias_resolves_to_optuna(self):
+    def test_random_search_resolves(self):
         opt = build_optimizer("random_search", _two_dim_space(), seed=0)
         assert opt.name == "random_search"
 
