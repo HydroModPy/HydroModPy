@@ -74,6 +74,10 @@ def step_open_store(ctx: WorkflowContext) -> None:
     )
     if registration.name and registration.name != ctx.setup.run_id:
         ctx.setup.run_id = registration.name
+    # ``step_open_store`` only needs the simulation row / on-disk store to
+    # exist; keep no extra bootstrap handle open across subsequent writes.
+    if registration.zarr is not None:
+        registration.zarr.close()
 
     _register_tracked_input_files(ctx)
 
