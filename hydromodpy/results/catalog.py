@@ -297,8 +297,15 @@ class SimulationCatalog:
         ensure_schema(self._db, self._workspace)
 
     def _track_zarr_handle(self, handle: SimulationZarr) -> SimulationZarr:
+        handle._on_close = self._untrack_zarr_handle
         self._open_zarr_handles.append(handle)
         return handle
+
+    def _untrack_zarr_handle(self, handle: SimulationZarr) -> None:
+        try:
+            self._open_zarr_handles.remove(handle)
+        except ValueError:
+            pass
 
     def _close_open_zarr_handles(self) -> None:
         if not self._open_zarr_handles:
@@ -872,20 +879,23 @@ class SimulationCatalog:
     ) -> None:
         sid = str(sim_id)
         sz = self.open_zarr(sim_id)
-        mesh = sz.root["mesh"]
-        vertices = mesh["vertices"][:]
-        connectivity = mesh["face_node_connectivity"][:]
+        try:
+            mesh = sz.root["mesh"]
+            vertices = mesh["vertices"][:]
+            connectivity = mesh["face_node_connectivity"][:]
 
-        _ = variable
-        mapping = point_in_cell(vertices, connectivity, points)
-        for station_id, (x, y) in points.items():
-            cell_id = mapping[station_id]
-            self._db.execute(
-                """INSERT OR REPLACE INTO observation_points
-                   (sim_id, station_id, x, y, cell_id, layer)
-                   VALUES (?, ?, ?, ?, ?, ?)""",
-                [sid, station_id, x, y, cell_id, layer],
-            )
+            _ = variable
+            mapping = point_in_cell(vertices, connectivity, points)
+            for station_id, (x, y) in points.items():
+                cell_id = mapping[station_id]
+                self._db.execute(
+                    """INSERT OR REPLACE INTO observation_points
+                       (sim_id, station_id, x, y, cell_id, layer)
+                       VALUES (?, ?, ?, ?, ?, ?)""",
+                    [sid, station_id, x, y, cell_id, layer],
+                )
+        finally:
+            sz.close()
 
     # -- Tracked input files --------------------------------------------------
 
@@ -1051,7 +1061,10 @@ class SimulationCatalog:
         nodata: float = -99999.0,
     ) -> None:
         sz = self.open_zarr(sim_id)
-        sz.write_geographic_raster(name, data, transform=transform, crs=crs, nodata=nodata)
+        try:
+            sz.write_geographic_raster(name, data, transform=transform, crs=crs, nodata=nodata)
+        finally:
+            sz.close()
 
     # -- Zarr access ---------------------------------------------------------
 
@@ -1078,7 +1091,10 @@ class SimulationCatalog:
         subgroup: str | None = None,
     ) -> None:
         sz = self.open_zarr(sim_id)
-        sz.write_field(variable, timestep, values, n_timesteps=n_timesteps, subgroup=subgroup)
+        try:
+            sz.write_field(variable, timestep, values, n_timesteps=n_timesteps, subgroup=subgroup)
+        finally:
+            sz.close()
 
     def write_mesh(
         self,
@@ -1090,13 +1106,16 @@ class SimulationCatalog:
         source_cell_indices: np.ndarray | None = None,
     ) -> None:
         sz = self.open_zarr(sim_id)
-        sz.write_mesh(
-            vertices,
-            face_node_connectivity,
-            z_interfaces,
-            layer_indices=layer_indices,
-            source_cell_indices=source_cell_indices,
-        )
+        try:
+            sz.write_mesh(
+                vertices,
+                face_node_connectivity,
+                z_interfaces,
+                layer_indices=layer_indices,
+                source_cell_indices=source_cell_indices,
+            )
+        finally:
+            sz.close()
 
     def query_field(
         self,
@@ -1117,6 +1136,8 @@ class SimulationCatalog:
                     return result[layer]
                 return result
             raise KeyError(f"Variable '{variable}' not found for sim={sim_id}") from None
+        finally:
+            sz.close()
 
     # -- Tabular queries -----------------------------------------------------
 
@@ -1223,7 +1244,7 @@ class SimulationCatalog:
     ) -> Path:
         sid = str(sim_id)
         path = Path(path)
-        zarr_path = str(self.open_zarr(sim_id).path)
+        zarr_path = str(self.zarr_path_for(sim_id))
 
         if fmt == "netcdf":
             from hydromodpy.results.exporters.netcdf import export_netcdf

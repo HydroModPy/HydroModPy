@@ -30,10 +30,10 @@ def _resolve_bin_path() -> str:
 
     1. ``HYDROMODPY_BIN`` env var, if set (explicit override; useful for
        shared HPC deployments and CI).
-    2. ``<repo>/bin`` when running from a development checkout and at
-       least one platform subdirectory is populated. Kept for the
-       transition period so existing contributors don't need to
-       re-download right away.
+    2. ``<repo>/bin`` when running from a development checkout. Kept for
+       the transition period so existing contributors and regression
+       helpers keep using the repo-local layout even before the folder is
+       populated locally.
     3. The HydroModPy-managed cache (``~/.cache/hydromodpy/bin/`` and
        platform equivalents). Solvers lazily populate it on first use
        via :func:`hydromodpy.solver.modflow_common.ensure_solver_binary`.
@@ -42,12 +42,9 @@ def _resolve_bin_path() -> str:
     if env:
         return str(Path(env).expanduser().resolve())
 
-    legacy = Path(__file__).resolve().parents[3] / "bin"
-    if legacy.is_dir():
-        for sub in ("linux", "win", "mac"):
-            sub_dir = legacy / sub
-            if sub_dir.is_dir() and any(sub_dir.iterdir()):
-                return str(legacy)
+    repo_root = Path(__file__).resolve().parents[3]
+    if (repo_root / ".git").exists() and (repo_root / "pyproject.toml").is_file():
+        return str((repo_root / "bin").resolve())
 
     return str(get_cache_bin_dir())
 

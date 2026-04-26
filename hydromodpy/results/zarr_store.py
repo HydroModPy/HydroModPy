@@ -3,7 +3,9 @@ from __future__ import annotations
 import logging
 import shutil
 import zipfile
+from collections.abc import Callable
 from pathlib import Path
+from typing import Any
 
 import numpy as np
 import zarr
@@ -81,10 +83,18 @@ def _field_name_from_target(target: zarr.Group, variable: str) -> str:
     return ""
 
 
+def _update_attrs(node: Any, attrs: dict[str, object]) -> Any:
+    """Apply one merged metadata write to a Zarr group/array."""
+    if not attrs:
+        return node
+    return node.update_attributes(attrs)
+
+
 class SimulationZarr:
     def __init__(self, path: Path | str, *, balanced: bool = False) -> None:
         self._path = Path(path)
         self._balanced = bool(balanced)
+        self._on_close: Callable[[SimulationZarr], None] | None = None
         if self._path.suffix == ".zip" or str(self._path).endswith(".zarr.zip"):
             self._store = zarr.storage.ZipStore(str(self._path), mode="r")
             self._root = zarr.open_group(self._store, mode="r")
@@ -106,14 +116,18 @@ class SimulationZarr:
         path = Path(path)
         store = zarr.storage.LocalStore(str(path))
         root = zarr.open_group(store, mode="w")
-
-        root.attrs["Conventions"] = CF_CONVENTIONS
-        root.attrs["n_cells"] = n_cells
-        root.attrs["n_layers"] = n_layers
+        root_attrs: dict[str, object] = {
+            "Conventions": CF_CONVENTIONS,
+            "n_cells": n_cells,
+            "n_layers": n_layers,
+        }
         if cell_types is not None:
-            root.attrs["cell_types"] = cell_types
+            root_attrs["cell_types"] = cell_types
         if geographic_fingerprint is not None:
-            root.attrs["geographic_fingerprint"] = geographic_fingerprint
+            root_attrs["geographic_fingerprint"] = geographic_fingerprint
+        if balanced:
+            root_attrs["chunking"] = "balanced"
+        root = _update_attrs(root, root_attrs)
 
         # ``geographic`` is intentionally omitted: rasters now live in the
         # workspace-level content-addressable cache
@@ -127,8 +141,7 @@ class SimulationZarr:
         instance._store = store
         instance._root = root
         instance._balanced = bool(balanced)
-        if balanced:
-            root.attrs["chunking"] = "balanced"
+        instance._on_close = None
         return instance
 
     @property
@@ -192,28 +205,43 @@ class SimulationZarr:
             data=vertices.astype("float64"),
             overwrite=True,
         )
-        vertices_arr.attrs["long_name"] = "Mesh node coordinates (x, y, z)"
-        vertices_arr.attrs["units"] = "m"
-        vertices_arr.attrs["cf_role"] = "mesh_node_coordinates"
+        vertices_arr = _update_attrs(
+            vertices_arr,
+            {
+                "long_name": "Mesh node coordinates (x, y, z)",
+                "units": "m",
+                "cf_role": "mesh_node_coordinates",
+            },
+        )
 
         fnc = mesh.create_array(
             "face_node_connectivity",
             data=face_node_connectivity.astype("int32"),
             overwrite=True,
         )
-        fnc.attrs["cf_role"] = "face_node_connectivity"
-        fnc.attrs["long_name"] = "Mapping from every face to its corner nodes"
-        fnc.attrs["start_index"] = start_index
+        fnc = _update_attrs(
+            fnc,
+            {
+                "cf_role": "face_node_connectivity",
+                "long_name": "Mapping from every face to its corner nodes",
+                "start_index": start_index,
+            },
+        )
 
         z_arr = mesh.create_array(
             "z_interfaces",
             data=z_interfaces.astype("float64"),
             overwrite=True,
         )
-        z_arr.attrs["long_name"] = "Altitude of layer interfaces"
-        z_arr.attrs["units"] = "m"
-        z_arr.attrs["standard_name"] = "altitude"
-        z_arr.attrs["positive"] = "up"
+        z_arr = _update_attrs(
+            z_arr,
+            {
+                "long_name": "Altitude of layer interfaces",
+                "units": "m",
+                "standard_name": "altitude",
+                "positive": "up",
+            },
+        )
 
         if layer_indices is not None:
             mesh.create_array(
@@ -228,10 +256,15 @@ class SimulationZarr:
                 overwrite=True,
             )
 
-        mesh.attrs["start_index"] = start_index
-        mesh.attrs["n_nodes"] = vertices.shape[0]
-        mesh.attrs["n_cells"] = face_node_connectivity.shape[0]
-        mesh.attrs["n_layers"] = len(z_interfaces) - 1
+        mesh = _update_attrs(
+            mesh,
+            {
+                "start_index": start_index,
+                "n_nodes": vertices.shape[0],
+                "n_cells": face_node_connectivity.shape[0],
+                "n_layers": len(z_interfaces) - 1,
+            },
+        )
 
         # UGRID-1.0 topology: create a scalar "mesh" array (value 0) that
         # carries the topology attributes. Downstream xarray readers resolve
@@ -241,11 +274,16 @@ class SimulationZarr:
             data=np.zeros((), dtype="int32"),
             overwrite=True,
         )
-        topo.attrs["cf_role"] = "mesh_topology"
-        topo.attrs["long_name"] = "UGRID 2D topology of the simulation mesh"
-        topo.attrs["topology_dimension"] = 2
-        topo.attrs["node_coordinates"] = "vertices"
-        topo.attrs["face_node_connectivity"] = "face_node_connectivity"
+        _update_attrs(
+            topo,
+            {
+                "cf_role": "mesh_topology",
+                "long_name": "UGRID 2D topology of the simulation mesh",
+                "topology_dimension": 2,
+                "node_coordinates": "vertices",
+                "face_node_connectivity": "face_node_connectivity",
+            },
+        )
 
     # -- Time / CRS metadata --------------------------------------------------
 
@@ -268,12 +306,17 @@ class SimulationZarr:
             data=np.asarray(values, dtype="int64"),
             overwrite=True,
         )
-        time_arr.attrs["units"] = units
-        time_arr.attrs["calendar"] = calendar
-        time_arr.attrs["standard_name"] = "time"
-        time_arr.attrs["long_name"] = "Simulation time"
-        time_arr.attrs["axis"] = "T"
-        self._root.attrs["time_epoch"] = epoch
+        _update_attrs(
+            time_arr,
+            {
+                "units": units,
+                "calendar": calendar,
+                "standard_name": "time",
+                "long_name": "Simulation time",
+                "axis": "T",
+            },
+        )
+        self._root = _update_attrs(self._root, {"time_epoch": epoch})
 
     def write_crs(
         self,
@@ -295,15 +338,16 @@ class SimulationZarr:
             data=np.zeros((), dtype="int32"),
             overwrite=True,
         )
-        crs_arr.attrs["grid_mapping_name"] = grid_mapping_name
+        attrs: dict[str, object] = {"grid_mapping_name": grid_mapping_name}
         if crs_wkt:
-            crs_arr.attrs["crs_wkt"] = crs_wkt
+            attrs["crs_wkt"] = crs_wkt
         if epsg_code is not None:
-            crs_arr.attrs["epsg_code"] = int(epsg_code)
+            attrs["epsg_code"] = int(epsg_code)
         if semi_major_axis is not None:
-            crs_arr.attrs["semi_major_axis"] = float(semi_major_axis)
+            attrs["semi_major_axis"] = float(semi_major_axis)
         if inverse_flattening is not None:
-            crs_arr.attrs["inverse_flattening"] = float(inverse_flattening)
+            attrs["inverse_flattening"] = float(inverse_flattening)
+        _update_attrs(crs_arr, attrs)
 
     # -- Fields --------------------------------------------------------------
 
@@ -386,8 +430,7 @@ class SimulationZarr:
         except KeyError:
             return
         arr = target[variable]
-        for key, value in attrs.items():
-            arr.attrs[key] = value
+        _update_attrs(arr, attrs)
 
     def read_field(
         self,
@@ -434,10 +477,15 @@ class SimulationZarr:
             overwrite=True,
         )
         arr = geo[name]
-        arr.attrs["transform"] = list(transform)
-        arr.attrs["crs"] = crs
-        arr.attrs["nodata"] = nodata
-        arr.attrs["shape"] = list(data.shape)
+        _update_attrs(
+            arr,
+            {
+                "transform": list(transform),
+                "crs": crs,
+                "nodata": nodata,
+                "shape": list(data.shape),
+            },
+        )
 
     def read_geographic_raster(self, name: str) -> tuple[np.ndarray, dict]:
         geo = self._root.get("geographic")
@@ -473,9 +521,14 @@ class SimulationZarr:
         ts_bytes = np.asarray(timestamps, dtype="datetime64[ns]").view("int64")
         sta_grp.create_array("timestamps", data=ts_bytes, overwrite=True)
         sta_grp.create_array("values", data=np.asarray(values, dtype="float64"), overwrite=True)
-        sta_grp.attrs["unit"] = unit
-        sta_grp.attrs["source"] = source
-        sta_grp.attrs["n_records"] = int(len(values))
+        _update_attrs(
+            sta_grp,
+            {
+                "unit": unit,
+                "source": source,
+                "n_records": int(len(values)),
+            },
+        )
 
     def write_forcing_field(
         self,
@@ -493,8 +546,7 @@ class SimulationZarr:
             compressors=BLOSC_ZSTD,
             overwrite=True,
         )
-        forcing[variable].attrs["unit"] = unit
-        forcing[variable].attrs["source"] = source
+        _update_attrs(forcing[variable], {"unit": unit, "source": source})
 
     def read_forcing_timeseries(
         self,
@@ -636,6 +688,10 @@ class SimulationZarr:
             if hasattr(self._store, "close"):
                 self._store.close()
             self._store = None
+        if self._on_close is not None:
+            callback = self._on_close
+            self._on_close = None
+            callback(self)
 
     def __enter__(self):
         return self

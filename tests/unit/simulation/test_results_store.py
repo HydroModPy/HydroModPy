@@ -112,6 +112,35 @@ class TestFullCycle:
         finally:
             sz.close()
 
+    def test_transient_zarr_handles_are_untracked_after_close(self, catalog):
+        sid = str(uuid4())
+        reg = catalog.register_simulation(
+            sid,
+            project="test",
+            solver="modflownwt",
+            name="transient_handles",
+            n_cells=4,
+            n_layers=2,
+            n_timesteps=1,
+        )
+        assert reg.zarr is not None
+        assert len(catalog._open_zarr_handles) == 1
+
+        reg.zarr.close()
+        assert catalog._open_zarr_handles == []
+
+        verts, conn, z = _make_mesh()
+        catalog.write_mesh(sid, verts, conn, z)
+        assert catalog._open_zarr_handles == []
+
+        values = np.ones((2, 4), dtype="float64")
+        catalog.write_field(sid, "head", 0, values, n_timesteps=1)
+        assert catalog._open_zarr_handles == []
+
+        result = catalog.query_field(sid, "head", 0)
+        np.testing.assert_array_equal(result, values)
+        assert catalog._open_zarr_handles == []
+
     def test_list_simulations(self, catalog):
         sid = str(uuid4())
         catalog.register_simulation(sid, project="test", solver="modflow6", name="run_A")
