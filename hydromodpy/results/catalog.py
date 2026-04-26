@@ -292,8 +292,23 @@ class SimulationCatalog:
         self._simulations_dir = self._workspace / "simulations"
         self._simulations_dir.mkdir(exist_ok=True)
         self._basename_cache: dict[str, str] = {}
+        self._open_zarr_handles: list[SimulationZarr] = []
 
         ensure_schema(self._db, self._workspace)
+
+    def _track_zarr_handle(self, handle: SimulationZarr) -> SimulationZarr:
+        self._open_zarr_handles.append(handle)
+        return handle
+
+    def _close_open_zarr_handles(self) -> None:
+        if not self._open_zarr_handles:
+            return
+        while self._open_zarr_handles:
+            handle = self._open_zarr_handles.pop()
+            try:
+                handle.close()
+            except Exception:
+                logger.debug("Could not close SimulationZarr handle", exc_info=True)
 
     def _storage_basename_for(self, sim_id: str | UUID) -> str:
         """Return the on-disk basename for ``sim_id``.
@@ -556,12 +571,14 @@ class SimulationCatalog:
         zarr_obj: SimulationZarr | None = None
         if n_cells is not None and n_layers is not None:
             zarr_abs = self._workspace / zarr_path
-            zarr_obj = SimulationZarr.create(
-                zarr_abs,
-                n_cells=n_cells,
-                n_layers=n_layers,
-                cell_types=cell_types,
-                geographic_fingerprint=geographic_fingerprint,
+            zarr_obj = self._track_zarr_handle(
+                SimulationZarr.create(
+                    zarr_abs,
+                    n_cells=n_cells,
+                    n_layers=n_layers,
+                    cell_types=cell_types,
+                    geographic_fingerprint=geographic_fingerprint,
+                )
             )
         return RegistrationResult(
             sim_id=sid,
@@ -1042,8 +1059,8 @@ class SimulationCatalog:
         basename = self._storage_basename_for(sim_id)
         zarr_zip = self._simulations_dir / f"{basename}.zarr.zip"
         if zarr_zip.exists():
-            return SimulationZarr(zarr_zip)
-        return SimulationZarr(self._simulations_dir / f"{basename}.zarr")
+            return self._track_zarr_handle(SimulationZarr(zarr_zip))
+        return self._track_zarr_handle(SimulationZarr(self._simulations_dir / f"{basename}.zarr"))
 
     def open_zarr_group(self, sim_id: str | UUID, *, mode: str = "r"):
         return self.open_zarr(sim_id).root
@@ -1649,14 +1666,18 @@ class SimulationCatalog:
             zarr_dir = self._simulations_dir / f"{basename}.zarr"
             if zarr_dir.is_dir():
                 try:
+                    self._close_open_zarr_handles()
                     sz = SimulationZarr(zarr_dir)
-                    sz.consolidate_metadata()
-                    zip_path = sz.pack_to_zip()
-                    rel = f"simulations/{zip_path.name}"
-                    self._db.execute(
-                        "UPDATE simulations SET zarr_path = ? WHERE sim_id = ?",
-                        [rel, sid],
-                    )
+                    try:
+                        sz.consolidate_metadata()
+                        zip_path = sz.pack_to_zip()
+                        rel = f"simulations/{zip_path.name}"
+                        self._db.execute(
+                            "UPDATE simulations SET zarr_path = ? WHERE sim_id = ?",
+                            [rel, sid],
+                        )
+                    finally:
+                        sz.close()
                 except Exception:
                     logger.debug("Could not pack zarr to zip for sim %s", sid)
 
@@ -1696,6 +1717,7 @@ class SimulationCatalog:
                 shutil.rmtree(zarr_abs, ignore_errors=True)
 
     def close(self) -> None:
+        self._close_open_zarr_handles()
         self._db.close()
 
     def __enter__(self):

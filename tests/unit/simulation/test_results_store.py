@@ -77,6 +77,41 @@ class TestFullCycle:
         result_layer = catalog.query_field(sid, "head", 2, layer=0)
         np.testing.assert_array_almost_equal(result_layer, all_vals[2, 0])
 
+    def test_finalize_flushes_open_zarr_handles(self, catalog):
+        sid = str(uuid4())
+        reg = catalog.register_simulation(
+            sid,
+            project="test",
+            solver="boussinesq",
+            name="open_handles",
+            n_cells=4,
+            n_layers=1,
+            n_timesteps=1,
+        )
+        assert reg.zarr is not None
+
+        grp = catalog.open_zarr_group(sid, mode="a")
+        mesh = grp["mesh"]
+        mesh.create_array("surface_top", data=np.array([10.0, 10.0, 10.0, 10.0]), overwrite=True)
+
+        values = np.array([[1.0, 2.0, 3.0, 4.0]], dtype="float64")
+        catalog.write_field(sid, "head", 0, values, n_timesteps=1)
+
+        catalog.finalize(sid, status="completed", duration_s=1.0)
+
+        zarr_path = catalog.zarr_path_for(sid)
+        assert zarr_path.suffix == ".zip"
+
+        sz = catalog.open_zarr(sid)
+        try:
+            np.testing.assert_array_equal(
+                sz.root["mesh"]["surface_top"][:],
+                [10.0, 10.0, 10.0, 10.0],
+            )
+            np.testing.assert_array_equal(sz.read_field("head", 0), values)
+        finally:
+            sz.close()
+
     def test_list_simulations(self, catalog):
         sid = str(uuid4())
         catalog.register_simulation(sid, project="test", solver="modflow6", name="run_A")

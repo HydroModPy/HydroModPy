@@ -90,4 +90,9 @@ def step_register_simulation(
         logger.info("Run '%s' stored [%s] (replaced %s)", final_name, short, replaced[:8])
     else:
         logger.info("Run '%s' stored [%s]", final_name, short)
+    # The workflow does not reuse the bootstrap Zarr handle returned by
+    # ``register_simulation``; close it now so Windows can reopen the store
+    # for mesh / field persistence without transient metadata rename failures.
+    if registration.zarr is not None:
+        registration.zarr.close()
     return final_name
