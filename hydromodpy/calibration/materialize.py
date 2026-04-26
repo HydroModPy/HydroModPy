@@ -7,12 +7,13 @@ rewrites each configured parameter at its target dotted path (honouring
 session, which makes it the natural hand-off for sharing the best
 candidate of a session or replaying a single trial.
 
-The overlay is rendered with :func:`tomli_w.dumps` so the output is
-guaranteed to be valid TOML and round-trips through :mod:`tomllib`. The
-``base_config`` argument accepts either a path to a TOML file on disk
-or an in-memory :class:`~hydromodpy.core.config.HydroModPyConfig`
-instance; the latter is useful when the calibration loop is driven from
-Python code.
+The overlay is rendered through :mod:`hydromodpy.core.config.toml_write`
+so the output remains valid TOML and round-trips through :mod:`tomllib`
+even in lightweight environments where external TOML writer packages are
+not installed. The ``base_config`` argument accepts either a path to a
+TOML file on disk or an in-memory
+:class:`~hydromodpy.core.config.HydroModPyConfig` instance; the latter is
+useful when the calibration loop is driven from Python code.
 """
 
 from __future__ import annotations
@@ -23,9 +24,8 @@ from collections.abc import Mapping, Sequence
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
-import tomli_w
-
 from hydromodpy.calibration.parameters import ParameterSpace
+from hydromodpy.core.config.toml_write import dump as dump_toml
 
 if TYPE_CHECKING:
     from hydromodpy.core.config.hydromodpy_config import HydroModPyConfig
@@ -65,12 +65,12 @@ def _assign_nested(payload: dict[str, Any], dotted: Sequence[str], value: Any) -
 
 
 def _coerce_for_toml(value: Any) -> Any:
-    """Recursively map a Python value into something tomli_w accepts.
+    """Recursively map a Python value into TOML-writer-friendly values.
 
     - :class:`pathlib.Path` becomes its string form.
     - :class:`pint.Quantity`-like objects become ``"<magnitude> <units>"``.
     - Tuples become lists.
-    - ``None`` is dropped by callers (tomli_w refuses ``None``).
+    - ``None`` is dropped by callers.
     """
     if isinstance(value, Path):
         return str(value)
@@ -89,7 +89,7 @@ def _coerce_for_toml(value: Any) -> Any:
 
 
 def write_overlay_toml(path: Path, payload: Mapping[str, Any]) -> None:
-    """Render *payload* to TOML at *path* using :mod:`tomli_w`.
+    """Render *payload* to TOML at *path*.
 
     Public helper kept so callers that need to drop a calibration overlay
     next to a TOML file (for example the Python-mode of
@@ -101,7 +101,7 @@ def write_overlay_toml(path: Path, payload: Mapping[str, Any]) -> None:
     if not isinstance(coerced, dict):
         raise TypeError("write_overlay_toml expects a mapping payload")
     with open(path, "wb") as fh:
-        tomli_w.dump(coerced, fh)
+        dump_toml(coerced, fh)
 
 
 def _load_base_payload(
