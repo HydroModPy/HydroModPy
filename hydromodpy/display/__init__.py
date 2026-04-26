@@ -13,8 +13,6 @@ Public API:
 
 from __future__ import annotations
 
-# Trigger figure registration on package import.
-from hydromodpy.display import figures as _figures  # noqa: F401
 from hydromodpy.display.catalog import get, list_figures, names, register
 from hydromodpy.display.figure import BaseFigure, Figure, FigureSpec
 

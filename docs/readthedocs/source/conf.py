@@ -14,7 +14,10 @@
 import os
 import shutil
 import sys
+import types
+from importlib.util import find_spec
 from pathlib import Path
+from unittest.mock import MagicMock
 
 from docutils import nodes
 from sphinx.builders.html import StandaloneHTMLBuilder
@@ -69,6 +72,61 @@ if _vendor_graphviz_dot is not None:
 # Make the editable install (or cloned repo) importable without relying on src/
 sys.path.insert(0, str(package_path))
 sys.path.insert(0, str(package_path / "hydromodpy"))
+
+_DOC_OPTIONAL_IMPORTS = [
+    "pint",
+    "pydantic_pint",
+    "duckdb",
+    "flopy",
+    "geopandas",
+    "geopy",
+    "gmsh",
+    "h5py",
+    "imageio",
+    "meshio",
+    "netCDF4",
+    "plotly",
+    "pyproj",
+    "pysheds",
+    "rasterio",
+    "rioxarray",
+    "sklearn",
+    "cma",
+    "optuna",
+    "selenium",
+    "ultraplot",
+    "vedo",
+    "whitebox_workflows",
+    "xarray",
+    "dask",
+    "sqlalchemy",
+    "zarr",
+    "zstandard",
+    "pandera",
+    "contextily",
+    "matplotlib_scalebar",
+    "colormap",
+]
+autodoc_mock_imports = [name for name in _DOC_OPTIONAL_IMPORTS if find_spec(name) is None]
+
+
+def _install_module_stub(module_name: str) -> None:
+    if module_name in sys.modules or find_spec(module_name) is not None:
+        return
+
+    module = types.ModuleType(module_name)
+
+    def __getattr__(name: str):
+        value = MagicMock(name=f"{module_name}.{name}")
+        setattr(module, name, value)
+        return value
+
+    module.__getattr__ = __getattr__  # type: ignore[attr-defined]
+    sys.modules[module_name] = module
+
+
+for _module_name in ("pint", "pydantic_pint", "duckdb"):
+    _install_module_stub(_module_name)
 
 
 try:

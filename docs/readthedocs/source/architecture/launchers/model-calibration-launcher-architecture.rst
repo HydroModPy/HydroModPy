@@ -12,7 +12,7 @@ Model Calibration - superseded
 For the current architecture, user guide, TOML reference, optimizer
 catalogue, reporting commands, and Python API, see:
 
-- :doc:`/../../developers/calibration_guide` - end-to-end user guide.
+- ``docs/developers/calibration_guide.md`` - end-to-end user guide.
 - :mod:`hydromodpy.calibration` - the calibration package (engine,
   parameters, objective, optimizer registry, diagnostics, cases).
 - :mod:`hydromodpy.simulation.execution.trial` - the prepare-once /

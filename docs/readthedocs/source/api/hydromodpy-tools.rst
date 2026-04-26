@@ -11,15 +11,15 @@ Toolbox overview
    :nosignatures:
    :toctree: generated/tools
 
-   ~hydromodpy.core.tools.toolbox.create_folder
-   ~hydromodpy.core.tools.toolbox.efficiency_criteria
-   ~hydromodpy.core.tools.toolbox.date_range
-   ~hydromodpy.core.tools.toolbox.export_tif
-   ~hydromodpy.core.tools.toolbox.reproject_tif
-   ~hydromodpy.core.tools.toolbox.reproject_coord
-   ~hydromodpy.core.tools.toolbox.reproject_shp
-   ~hydromodpy.core.tools.toolbox.basin_area
-   ~hydromodpy.core.tools.toolbox.clip_tif
-   ~hydromodpy.core.tools.toolbox.mask_by_dem
-   ~hydromodpy.core.tools.toolbox.plot_params
+   ~hydromodpy.core.tools.filesystem.create_folder
+   ~hydromodpy.core.tools.statistics.efficiency_criteria
+   ~hydromodpy.core.tools.statistics.date_range
+   ~hydromodpy.core.tools.display.plot_params
+
+I/O note
+--------
+
+Raster and CRS helpers now live under ``hydromodpy.core.io``. They are kept
+out of this autosummary page because their import chain depends on the wider
+runtime stack used by the documentation build.
 

@@ -1,8 +1,7 @@
-hydromodpy.analysis.display
-===========================
+hydromodpy.display
+==================
 
-Visualization helpers for watershed descriptors, MODFLOW/MODPATH outputs, and
-3D exports.
+Solver-agnostic display helpers for HydroModPy simulations.
 
 Overview
 --------
@@ -11,6 +10,10 @@ Overview
    :nosignatures:
    :toctree: generated/display
 
-   ~hydromodpy.analysis.display.visualization_watershed
-   ~hydromodpy.analysis.display.visualization_results
-   ~hydromodpy.analysis.display.export_vtuvtk.VTK
+   ~hydromodpy.display.get
+   ~hydromodpy.display.list_figures
+   ~hydromodpy.display.names
+   ~hydromodpy.display.register
+   ~hydromodpy.display.BaseFigure
+   ~hydromodpy.display.Figure
+   ~hydromodpy.display.FigureSpec

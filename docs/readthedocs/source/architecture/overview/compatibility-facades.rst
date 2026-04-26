@@ -14,8 +14,8 @@ Code map
   legacy import facade for historical modeling entry points.
 - ``hydromodpy/spatial/geographic/__init__.py``:
   compatibility surface over the current geographic runtime package.
-- ``hydromodpy/analysis/display/orchestration.py``:
-  stable plotting facade over reorganized display suites.
+- ``hydromodpy/display/__init__.py``:
+  stable public display facade over the registered figure catalog.
 - ``hydromodpy/solver/compatibility.py``:
   planner-facing capability compatibility matrix rather than an import shim.
 
@@ -24,7 +24,7 @@ Recommended reading path
 
 1. ``hydromodpy/modeling/__init__.py``
 2. ``hydromodpy/spatial/geographic/__init__.py``
-3. ``hydromodpy/analysis/display/orchestration.py``
+3. ``hydromodpy/display/__init__.py``
 4. ``hydromodpy/solver/compatibility.py``
 
 These facades are not meant to become permanent abstraction layers. Their job
@@ -58,8 +58,9 @@ Stable public-package facades
 Some compatibility modules exist because the public API wants one stable entry
 point even though the implementation moved:
 
-- ``hydromodpy.analysis.display.orchestration`` now republishes plotting suites
-  that live in ``hydromodpy.analysis.display.suites``.
+- ``hydromodpy.display`` exposes the public figure catalog and rendering
+  contracts while the implementations live in figure modules under
+  ``hydromodpy.display.figures``.
 
 In this pattern, the compatibility surface is part of the intended package API,
 not only a temporary migration shim.

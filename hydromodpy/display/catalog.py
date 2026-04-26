@@ -6,11 +6,21 @@ registry is consumed by ``hmp display`` and by the comparison helpers.
 
 from __future__ import annotations
 
+import importlib
 from collections.abc import Iterable
 
 from hydromodpy.display.figure import BaseFigure, FigureSpec
 
 _REGISTRY: dict[str, type[BaseFigure]] = {}
+_FIGURES_REGISTERED = False
+
+
+def _ensure_figures_registered() -> None:
+    global _FIGURES_REGISTERED
+    if _FIGURES_REGISTERED:
+        return
+    importlib.import_module("hydromodpy.display.figures")
+    _FIGURES_REGISTERED = True
 
 
 def register(cls: type[BaseFigure]) -> type[BaseFigure]:
@@ -24,6 +34,7 @@ def register(cls: type[BaseFigure]) -> type[BaseFigure]:
 
 def get(name: str) -> BaseFigure:
     """Return a fresh instance of the registered figure ``name``."""
+    _ensure_figures_registered()
     try:
         cls = _REGISTRY[name]
     except KeyError as exc:
@@ -34,9 +45,11 @@ def get(name: str) -> BaseFigure:
 
 def list_figures() -> list[FigureSpec]:
     """Return the list of all registered figure specs, sorted by name."""
+    _ensure_figures_registered()
     return [cls.spec for _, cls in sorted(_REGISTRY.items())]
 
 
 def names() -> Iterable[str]:
     """Iterate over the names of registered figures."""
+    _ensure_figures_registered()
     return sorted(_REGISTRY)

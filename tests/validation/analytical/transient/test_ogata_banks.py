@@ -35,7 +35,10 @@ import numpy as np
 import pytest
 from scipy.special import erfc
 
-from tests.regression.golden_utils import assert_required_executables
+from tests.regression.golden_utils import (
+    assert_required_executables,
+    resolve_bundled_executable,
+)
 
 COLUMN_LENGTH_M = 50.0
 N_CELLS = 500
@@ -89,7 +92,7 @@ def _build_and_run_ogata_banks_model(
     import flopy
 
     repo_root = Path(__file__).resolve().parents[4]
-    mf6_exe = repo_root / "bin" / "linux" / "mf6"
+    mf6_exe = resolve_bundled_executable("mf6", repo_root=repo_root)
 
     # Aquifer geometry - unit cross-section, uniform cells.
     aquifer_top = 1.0

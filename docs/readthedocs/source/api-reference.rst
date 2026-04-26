@@ -18,8 +18,8 @@ Module overview
 - :doc:`numerical engines and postprocess <api/hydromodpy-modeling>` - solver
   engines, transport helpers, and post-processing utilities grouped under the
   compatibility surface exposed by :mod:`hydromodpy.modeling`.
-- :doc:`hydromodpy.analysis.display <api/hydromodpy-display>` - visualisation routines
-  for descriptors and simulation results plus VTU/VTK exporters.
+- :doc:`hydromodpy.display <api/hydromodpy-display>` - figure catalog, rendering
+  contracts, and solver-agnostic display entry points.
 - :doc:`hydromodpy.physics.hydrology.pyhelp <api/hydromodpy-pyhelp>` - coupling layer with the HELP
   land-surface model, NetCDF conversion tools, rainfall-runoff post-processing,
   and CLI entry points.
