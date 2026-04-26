@@ -263,14 +263,14 @@ def step_save_run_artifacts(
     wall_seconds: float,
 ) -> None:
     """Save config snapshot and optional capability gallery."""
+    from hydromodpy.core.config.toml_write import dumps as dump_toml_text
+
     project_root = ctx.setup.workspace.project_root
 
     # Config snapshot
     snapshot_path = project_root / "_config_snapshot.toml"
     try:
-        import tomli_w
-
-        snapshot_path.write_bytes(tomli_w.dumps(ctx.raw_toml).encode())
+        snapshot_path.write_text(dump_toml_text(ctx.raw_toml), encoding="utf-8")
     except Exception:
         pass
 
