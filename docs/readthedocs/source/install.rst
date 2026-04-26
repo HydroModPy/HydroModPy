@@ -274,10 +274,11 @@ Check the installation
    from hydromodpy.core.config import HydroModPyConfig
    from hydromodpy.spatial.geographic import CatchmentDelineation
    # Examples of submodule imports
-   from hydromodpy.analysis.display import visualization_watershed, visualization_results
-   from hydromodpy.core.tools import toolbox
+   from hydromodpy.display import get, list_figures
+   from hydromodpy.core.tools.display import plot_params
 
-   font_sizes = toolbox.plot_params(8, 15, 18, 20)  # small, medium, intermediate, large
+   font_sizes = plot_params(8, 15, 18, 20)  # small, medium, intermediate, large
+   print([spec.name for spec in list_figures()[:3]])
    print(hydromodpy.__version__)
 
 Refer to :doc:`getting_started/index` for a guided first workflow once the

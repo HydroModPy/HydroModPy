@@ -370,8 +370,8 @@ class HydroModPyConfig(HydroModelBase):
         ----------
         snapshot : dict
             The ``config_toml`` JSON snapshot stored in DuckDB.
-        **overrides
-            Key-value overrides merged into the snapshot before
+        overrides
+            Keyword overrides merged into the snapshot before
             validation.  Nested dicts are merged recursively.
 
         Returns

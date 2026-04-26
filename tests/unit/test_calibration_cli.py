@@ -71,7 +71,10 @@ def calib_toml(tmp_path: Path) -> Path:
     ws = tmp_path / "ws"
     ws.mkdir()
     toml = tmp_path / "run_calibration_k.toml"
-    toml.write_text(TOML_TEMPLATE.format(workspace=str(ws).replace("\\", "/"), save_runs="best_n"))
+    toml.write_text(
+        TOML_TEMPLATE.format(workspace=str(ws).replace("\\", "/"), save_runs="best_n"),
+        encoding="utf-8",
+    )
     return toml
 
 
@@ -202,7 +205,8 @@ class TestRunCalibrationCli:
         ws.mkdir()
         toml = tmp_path / "run.toml"
         toml.write_text(
-            TOML_TEMPLATE.format(workspace=str(ws).replace("\\", "/"), save_runs="none")
+            TOML_TEMPLATE.format(workspace=str(ws).replace("\\", "/"), save_runs="none"),
+            encoding="utf-8",
         )
         summary = run_calibration_cli(toml, metric_fn=quadratic_metric)
         assert summary["save_runs"] == "none"
@@ -215,7 +219,10 @@ class TestRunCalibrationCli:
         ws = tmp_path / "ws"
         ws.mkdir()
         toml = tmp_path / "run.toml"
-        toml.write_text(TOML_TEMPLATE.format(workspace=str(ws).replace("\\", "/"), save_runs="all"))
+        toml.write_text(
+            TOML_TEMPLATE.format(workspace=str(ws).replace("\\", "/"), save_runs="all"),
+            encoding="utf-8",
+        )
         summary = run_calibration_cli(toml, metric_fn=quadratic_metric)
         assert summary["save_runs"] == "all"
         # grid with max_iter=5 → 5 trials, each one promoted
@@ -260,7 +267,7 @@ class TestRunCalibrationCli:
 
     def test_missing_calibration_section_raises(self, tmp_path, fake_pipeline):
         toml = tmp_path / "bad.toml"
-        toml.write_text("[simulation]\nname = 'nope'\n")
+        toml.write_text("[simulation]\nname = 'nope'\n", encoding="utf-8")
         with pytest.raises(ValueError, match="No \\[calibration\\] section"):
             run_calibration_cli(toml)
 
@@ -277,7 +284,8 @@ variable = "discharge"
 [calibration.parameters.K]
 bounds = [1e-6, 1e-3]
 # no path → cannot inject into simulation config
-"""
+""",
+            encoding="utf-8",
         )
         with pytest.raises(ValueError, match="must declare a 'path'"):
             run_calibration_cli(toml)

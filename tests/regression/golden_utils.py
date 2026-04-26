@@ -63,6 +63,29 @@ DEFAULT_MODFLOW_OUTPUT_NAMES = [
     "accumulation_flux",
 ]
 
+_BUNDLED_EXECUTABLES = {
+    "mfnwt": {
+        "Windows": ("win", "mfnwt.exe"),
+        "Linux": ("linux", "mfnwt"),
+        "Darwin": ("mac", "mfnwt"),
+    },
+    "mf6": {
+        "Windows": ("win", "mf6.exe"),
+        "Linux": ("linux", "mf6"),
+        "Darwin": ("mac", "mf6"),
+    },
+    "mp6": {
+        "Windows": ("win", "mp6.exe"),
+        "Linux": ("linux", "mp6"),
+        "Darwin": ("mac", "mp6"),
+    },
+    "mt3dms": {
+        "Windows": ("win", "mt3d-usgs_1.1.0_64.exe"),
+        "Linux": ("linux", "mt3dusgs"),
+        "Darwin": ("mac", "mt3dusgs"),
+    },
+}
+
 
 def _rmtree_onerror(func, path, exc_info) -> None:
     """Retry one failed ``rmtree`` step after clearing a read-only bit.
@@ -123,6 +146,22 @@ def remove_tree_with_retry(
 
     if last_error is not None:
         raise last_error
+
+
+def resolve_bundled_executable(
+    executable: str,
+    *,
+    repo_root: Path = REPO_ROOT,
+) -> Path:
+    """Return one bundled solver executable path for the current platform."""
+    platform_name = platform.system()
+    try:
+        platform_dir, executable_name = _BUNDLED_EXECUTABLES[executable][platform_name]
+    except KeyError as exc:
+        if executable not in _BUNDLED_EXECUTABLES:
+            raise ValueError(f"Unknown bundled executable '{executable}'.") from exc
+        pytest.skip(f"Unsupported platform for bundled executables: {platform_name}")
+    return repo_root / "bin" / platform_dir / executable_name
 
 
 def load_golden_reference(path: Path) -> dict:
@@ -656,24 +695,10 @@ def assert_required_executables(
     missing, because this is an environment issue, not a model-regression
     issue.
     """
-    # Resolve executable names from OS-specific bundled folders.
-    if platform.system() == "Windows":
-        mf_exe = repo_root / "bin" / "win" / "mfnwt.exe"
-        mf6_exe = repo_root / "bin" / "win" / "mf6.exe"
-        mp_exe = repo_root / "bin" / "win" / "mp6.exe"
-        mt_exe = repo_root / "bin" / "win" / "mt3d-usgs_1.1.0_64.exe"
-    elif platform.system() == "Linux":
-        mf_exe = repo_root / "bin" / "linux" / "mfnwt"
-        mf6_exe = repo_root / "bin" / "linux" / "mf6"
-        mp_exe = repo_root / "bin" / "linux" / "mp6"
-        mt_exe = repo_root / "bin" / "linux" / "mt3dusgs"
-    elif platform.system() == "Darwin":
-        mf_exe = repo_root / "bin" / "mac" / "mfnwt"
-        mf6_exe = repo_root / "bin" / "mac" / "mf6"
-        mp_exe = repo_root / "bin" / "mac" / "mp6"
-        mt_exe = repo_root / "bin" / "mac" / "mt3dusgs"
-    else:
-        pytest.skip(f"Unsupported platform for bundled executables: {platform.system()}")
+    mf_exe = resolve_bundled_executable("mfnwt", repo_root=repo_root)
+    mf6_exe = resolve_bundled_executable("mf6", repo_root=repo_root)
+    mp_exe = resolve_bundled_executable("mp6", repo_root=repo_root)
+    mt_exe = resolve_bundled_executable("mt3dms", repo_root=repo_root)
 
     required_paths = []
     if require_modflow:

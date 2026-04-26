@@ -102,20 +102,36 @@ def _prune_benchmark_artifacts(
         raise ValueError(f"Unsupported calibration benchmark artifact_retention '{retention}'.")
 
     removed: list[str] = []
+    for top_level_path in (
+        benchmark_root / "simulations",
+        benchmark_root / "exports",
+        benchmark_root / "hydromodpy.duckdb",
+        benchmark_root / "hydromodpy.duckdb.wal",
+    ):
+        _remove_artifact_path(top_level_path, removed=removed)
+
+    data_root = benchmark_root / "data"
+    for data_artifact in (
+        data_root / "cache.duckdb",
+        data_root / "cache.duckdb.wal",
+    ):
+        _remove_artifact_path(data_artifact, removed=removed)
+    if data_root.is_dir() and not any(data_root.iterdir()):
+        _remove_artifact_path(data_root, removed=removed)
+
     for project_name in ("project", "project_truth"):
         project_root = benchmark_root / project_name
-        _remove_artifact_path(
+        for project_artifact in (
             project_root / "results_simulations",
-            removed=removed,
-        )
-        _remove_artifact_path(
             project_root / "results_stable",
-            removed=removed,
-        )
-        _remove_artifact_path(
             project_root / "hydromodpy_debug.log",
-            removed=removed,
-        )
+            project_root / ".solver_scratch",
+        ):
+            _remove_artifact_path(project_artifact, removed=removed)
+        calibration_roots = project_root / "calibrations"
+        if calibration_roots.is_dir():
+            for runtime_candidates in calibration_roots.glob("*/runtime_candidates"):
+                _remove_artifact_path(runtime_candidates, removed=removed)
         if project_root.is_dir() and not any(project_root.iterdir()):
             _remove_artifact_path(project_root, removed=removed)
     return tuple(removed)

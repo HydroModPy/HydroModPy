@@ -14,8 +14,12 @@ from __future__ import annotations
 
 import numpy as np
 import xarray as xr
+from typing import TYPE_CHECKING, Any
 
-ArrayLike = np.ndarray | xr.DataArray
+if TYPE_CHECKING:
+    ArrayLike = np.ndarray | xr.DataArray
+else:
+    ArrayLike = Any
 
 __all__ = [
     "fluxes_from_budget",
@@ -31,7 +35,7 @@ def watertable_elevation(head: ArrayLike, top: ArrayLike) -> ArrayLike:
     ``head`` is an N-D array shaped ``(..., n_cells)`` (or ``(n_layers, n_cells)``
     for multilayer models). ``top`` is a per-cell surface array.
     """
-    if isinstance(head, xr.DataArray):
+    if _is_data_array(head):
         wt = head.where(head <= top, top)
         wt.attrs.update(units="m", long_name="Water-table elevation")
         return wt
@@ -49,7 +53,7 @@ def watertable_elevation(head: ArrayLike, top: ArrayLike) -> ArrayLike:
 
 def watertable_depth(head: ArrayLike, top: ArrayLike) -> ArrayLike:
     """Depth from surface to water table, clipped to ≥ 0."""
-    if isinstance(head, xr.DataArray):
+    if _is_data_array(head):
         depth = (top - head).where((top - head) >= 0, 0.0)
         depth.attrs.update(units="m", long_name="Depth to water table")
         return depth
@@ -60,7 +64,7 @@ def watertable_depth(head: ArrayLike, top: ArrayLike) -> ArrayLike:
 
 def seepage_mask(head: ArrayLike, top: ArrayLike) -> ArrayLike:
     """Boolean cells where the water table reaches or exceeds the surface."""
-    if isinstance(head, xr.DataArray):
+    if _is_data_array(head):
         return (head >= top).astype("int8")
     wt = watertable_elevation(head, top)
     return (np.asarray(wt) >= np.asarray(top)).astype("int8")
@@ -75,7 +79,7 @@ def fluxes_from_budget(
     Negative values are out-of-aquifer fluxes (e.g. drains); positive values
     are inflow. Cells with zero area pass through as NaN.
     """
-    if isinstance(component_field, xr.DataArray):
+    if _is_data_array(component_field):
         area = xr.DataArray(np.asarray(cell_area, dtype=float))
         flux = component_field / area.where(area > 0)
         flux.attrs.update(units="m d-1", long_name="Cell-averaged flux")
@@ -86,3 +90,10 @@ def fluxes_from_budget(
     valid = area > 0
     out[..., valid] = field[..., valid] / area[valid]
     return out
+
+
+def _is_data_array(value: object) -> bool:
+    data_array_type = getattr(xr, "DataArray", None)
+    if not isinstance(data_array_type, type):
+        return False
+    return isinstance(value, data_array_type)

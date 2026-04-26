@@ -376,9 +376,10 @@ class Run:
 
         Parameters
         ----------
-        **overrides
-            Nested config overrides merged recursively into the snapshot.
-            For example: ``run.rerun(flow={"param": {"K": {"value": 2.0}}})``.
+        overrides
+            Keyword overrides merged recursively into the stored config
+            snapshot. For example:
+            ``run.rerun(flow={"param": {"K": {"value": 2.0}}})``.
 
         Returns
         -------

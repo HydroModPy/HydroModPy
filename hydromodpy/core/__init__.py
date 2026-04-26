@@ -1,14 +1,12 @@
-"""Core infrastructure layer for HydroModPy."""
+"""Core infrastructure layer for HydroModPy.
 
-from hydromodpy.core.config import HydroModPyConfig
-from hydromodpy.core.state import (
-    ExecutionRegistry,
-    LoadedDataContext,
-    SetupContext,
-    WorkflowContext,
-)
-from hydromodpy.core.time import ResolvedSimulationTimeWindow
-from hydromodpy.core.workspace import Workspace, WorkspaceConfig, WorkspacePathRegistry
+Keep this package-level module lightweight: importing ``hydromodpy.core``
+should not eagerly pull the full configuration and data-loading stack.
+"""
+
+from __future__ import annotations
+
+from importlib import import_module
 
 __all__ = [
     "HydroModPyConfig",
@@ -26,26 +24,31 @@ __all__ = [
     "get_whitebox_backend",
 ]
 
+_LAZY_IMPORTS = {
+    "HydroModPyConfig": "hydromodpy.core.config:HydroModPyConfig",
+    "Workspace": "hydromodpy.core.workspace:Workspace",
+    "WorkspaceConfig": "hydromodpy.core.workspace:WorkspaceConfig",
+    "WorkspacePathRegistry": "hydromodpy.core.workspace:WorkspacePathRegistry",
+    "ExecutionRegistry": "hydromodpy.core.state:ExecutionRegistry",
+    "WorkflowContext": "hydromodpy.core.state:WorkflowContext",
+    "LoadedDataContext": "hydromodpy.core.state:LoadedDataContext",
+    "SetupContext": "hydromodpy.core.state:SetupContext",
+    "ResolvedSimulationTimeWindow": "hydromodpy.core.time:ResolvedSimulationTimeWindow",
+    "WhiteboxBackend": "hydromodpy.spatial.delineation:WhiteboxBackend",
+    "WhiteboxWorkflowsBackend": "hydromodpy.spatial.delineation:WhiteboxWorkflowsBackend",
+    "clear_whitebox_backend_cache": "hydromodpy.spatial.delineation:clear_whitebox_backend_cache",
+    "get_whitebox_backend": "hydromodpy.spatial.delineation:get_whitebox_backend",
+}
+
 
 def __getattr__(name: str):
-    if name in {
-        "WhiteboxBackend",
-        "WhiteboxWorkflowsBackend",
-        "clear_whitebox_backend_cache",
-        "get_whitebox_backend",
-    }:
-        from hydromodpy.spatial.delineation import (
-            WhiteboxBackend,
-            WhiteboxWorkflowsBackend,
-            clear_whitebox_backend_cache,
-            get_whitebox_backend,
-        )
+    try:
+        target = _LAZY_IMPORTS[name]
+    except KeyError as exc:
+        raise AttributeError(f"module {__name__!r} has no attribute {name!r}") from exc
 
-        mapping = {
-            "WhiteboxBackend": WhiteboxBackend,
-            "WhiteboxWorkflowsBackend": WhiteboxWorkflowsBackend,
-            "clear_whitebox_backend_cache": clear_whitebox_backend_cache,
-            "get_whitebox_backend": get_whitebox_backend,
-        }
-        return mapping[name]
-    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+    module_path, attr_name = target.split(":", 1)
+    module = import_module(module_path)
+    attr = getattr(module, attr_name)
+    globals()[name] = attr
+    return attr

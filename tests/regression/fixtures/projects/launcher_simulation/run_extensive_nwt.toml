@@ -1,0 +1,46 @@
+# Canonical NWT / MODPATH / MT3DMS launcher baseline for example12.
+base_config = "config_extensive_common.toml"
+
+workflow = "simulation"
+
+[[simulation.process]]
+id = "flow_main"
+type = "flow"
+solvers = ["modflownwt"]
+
+[[simulation.process]]
+id = "transport_main"
+type = "transport"
+solvers = ["modpath", "mt3dms"]
+
+[transport.modpath.parameters]
+zone_partic = "seepage_clip"
+track_dir = "backward"
+
+[transport.mt3dms.parameters]
+spc_name = "NO3"
+sconc_init = 0.1
+sconc_input = 0.05
+diffu_coeff = 8.64e-06
+react_order = 1
+rate_decay = 0.00136986301369863
+
+[simulation.results]
+keep_solver_files = true
+
+[simulation.results.derived]
+accumulation_flux = true
+outflow_drain = true
+concentration_seepage = true
+mass_seepage = true
+
+[simulation.results.budget]
+spatial_fields = true
+
+[modflownwt.runtime]
+dis_itmuni = 1
+
+[modflownwt.sgrid.vertical]
+genmtd_lay = "decay"
+nlay = 10
+lay_decay = 1.2

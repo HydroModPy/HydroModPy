@@ -1,0 +1,14 @@
+# Shared base config for extensive regression tests.
+# Extends the moderate annual showcase with transport support.
+
+base_config = "config_demonstrative_annual_moderate_common.toml"
+
+workflow = "simulation"
+
+[postprocess.transport]
+enabled = true
+
+[postprocess.transport.timeseries]
+enabled = true
+concentration_seepage = true
+mass_accumulated = false

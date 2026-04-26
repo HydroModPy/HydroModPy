@@ -44,7 +44,10 @@ import numpy as np
 import pytest
 from scipy.integrate import quad
 
-from tests.regression.golden_utils import assert_required_executables
+from tests.regression.golden_utils import (
+    assert_required_executables,
+    resolve_bundled_executable,
+)
 
 PUMPING_RATE_M3_PER_DAY = 100.0
 TRANSMISSIVITY_M2_PER_DAY = 100.0
@@ -126,7 +129,7 @@ def _build_and_run_hantush_model(workspace: Path) -> tuple[list[float], list[flo
     import flopy
 
     repo_root = Path(__file__).resolve().parents[4]
-    mf6_exe = repo_root / "bin" / "linux" / "mf6"
+    mf6_exe = resolve_bundled_executable("mf6", repo_root=repo_root)
 
     delr = _build_telescoping_axis()
     delc = delr.copy()
