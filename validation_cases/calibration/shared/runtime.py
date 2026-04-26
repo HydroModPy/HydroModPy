@@ -1012,10 +1012,9 @@ def _resolve_cell_index_from_model(
             x_min = float(x_unique[0] - cell_dx / 2.0)
             y_min = float(y_unique[0] - cell_dy / 2.0)
             col = int(round((float(x) - x_min) / cell_dx - 0.5))
-            row_from_bottom = int(round((float(y) - y_min) / cell_dy - 0.5))
+            row = int(round((float(y) - y_min) / cell_dy - 0.5))
             col = max(0, min(ncol - 1, col))
-            row_from_bottom = max(0, min(nrow - 1, row_from_bottom))
-            row = nrow - 1 - row_from_bottom
+            row = max(0, min(nrow - 1, row))
             flat = row * ncol + col
             return (0, row, col, flat)
     distances = np.hypot(arr[:, 0] - float(x), arr[:, 1] - float(y))
