@@ -42,10 +42,10 @@ Enriched TOML (twin-benchmark style)::
 
 from __future__ import annotations
 
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 from typing import Annotated, Any, Literal
 
-from pydantic import ConfigDict, Field, model_validator
+from pydantic import ConfigDict, Field, field_validator, model_validator
 
 from hydromodpy.core.config.base import HydroModelBase
 from hydromodpy.core.config.profile import Profile
@@ -286,11 +286,23 @@ class CalibrationConfig(HydroModelBase):
         description="Write a standalone override TOML for each candidate under "
         "'candidates_root' so runs can be replayed later.",
     )
-    candidates_root: Annotated[Path | None, Profile.DEV] = Field(
+    candidates_root: Annotated[PurePosixPath | None, Profile.DEV] = Field(
         default=None,
         description="Directory for per-candidate overlay TOMLs. "
         "Required when materialize_candidates is True.",
     )
+
+    @field_validator("candidates_root", mode="before")
+    @classmethod
+    def _normalize_candidates_root(cls, value: Any) -> PurePosixPath | None:
+        """Keep user-provided TOML paths stable across host OS path flavors."""
+        if value is None:
+            return None
+        if isinstance(value, PurePosixPath):
+            return value
+        if isinstance(value, Path):
+            return PurePosixPath(value.as_posix())
+        return PurePosixPath(str(value).replace("\\", "/"))
 
     @model_validator(mode="after")
     def _ensure_implicit_objective_block(self) -> CalibrationConfig:
