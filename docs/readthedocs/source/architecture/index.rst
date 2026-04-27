@@ -80,7 +80,6 @@ must not import from them.
    :maxdepth: 2
 
    overview/index
-   launchers/index
    data_loading/index
    spatial_support/index
    field/index
