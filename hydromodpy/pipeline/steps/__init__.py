@@ -25,12 +25,18 @@ from hydromodpy.pipeline.steps.step_11_display import DisplayStep
 
 
 def standard_steps() -> tuple:
-    """Return the canonical ordered tuple of simulation pipeline steps."""
+    """Return the canonical ordered tuple of simulation pipeline steps.
+
+    Order matches the ``Project`` model phase: build the geographic
+    runtime (which populates ``setup.domain``), load the external
+    forcings (which need ``setup.domain``), then build the mesh and the
+    process objects, then prepare and run the solver.
+    """
     return (
         ValidateStep(),
         ResolveStep(),
-        LoadDataStep(),
         BuildGeographicStep(),
+        LoadDataStep(),
         BuildMeshStep(),
         SetupProcessStep(),
         PrepareSolverStep(),

@@ -23,7 +23,7 @@ Enriched TOML (twin-benchmark style)::
 
     [calibration.parameters.K_aquifer]
     bounds = [1e-6, 1e-3]
-    target = "flow.param.K.field_homogeneous.value"
+    target = "flow.param.K.value"
     mode = "replace"
 
     [calibration.outputs.head_A]
