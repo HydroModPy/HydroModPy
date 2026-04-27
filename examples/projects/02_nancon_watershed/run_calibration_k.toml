@@ -1,43 +1,51 @@
 # ======================================================================
-# Nançon - calibration de K sur le débit observé
+# Nançon - calibration of K against observed discharge
 # ----------------------------------------------------------------------
-# Overlay qui hérite de `project.toml`. Optimise log10(K) par Optuna
-# pour maximiser le NSE entre le débit simulé (outflow drain, cumulé
-# mensuel en mm/mois) et la chronique observée de la station Nançon.
+# Overlay TOML. Inherits the project base config and runs an Optuna
+# campaign that searches log10(K) to maximise NSE between the simulated
+# drain discharge and the observed Nançon hydrograph.
 #
-# Sy, Ss et l'épaisseur d'aquifère sont gelés à leur valeur baseline.
+# Sy, Ss and aquifer thickness are frozen at their baseline value.
 #
-# `hmp run` détecte `workflow = "calibration"` et dispatche vers la
-# boucle ask/tell (voir `hydromodpy/calibration/cli.py`). Chaque
-# itération forke le contexte préparé et lance une vraie simulation
-# MODFLOW-NWT en mode lightweight (pas de Zarr/Parquet par itération).
-# `save_runs = "best_n"` promeut les 5 meilleures itérations en fin
-# de campagne et back-fille leur `sim_id` dans
-# `calibration_iterations`.
+# `hmp run` reads `workflow = "calibration"` and dispatches to the
+# calibration ask/tell loop. Each iteration forks the prepared context
+# and runs a real MODFLOW-NWT simulation in lightweight mode (no per
+# iteration Zarr / Parquet by default).
 #
-# Lancement :
-#   uv run hmp run examples/projects/02_nancon_watershed/run_calibration_k.toml
+# `save_runs = "best_n"` keeps full simulation outputs for the top N
+# iterations after the campaign and back-fills their `sim_id` into the
+# `calibration_iterations` table.
+#
+# Launch:
+#   hmp run examples/projects/02_nancon_watershed/run_calibration_k.toml
 # ======================================================================
+
+
+# ---- Orchestration ---------------------------------------------------
 base_config = "project.toml"
 
+# `calibration` switches the dispatcher to the ask/tell loop instead of
+# the single-run pipeline. Required: a [calibration] block (below).
 workflow = "calibration"
+
 
 [simulation]
 name = "nancon_calibration_k"
-description = "Calibration Optuna de K sur NSE(discharge), Sy/Ss fixés."
+description = "Optuna calibration of K vs NSE(discharge), Sy/Ss frozen."
 
 [simulation.time]
+# Same three-year window as the transient run.
 start_datetime = "2000-01-01"
 end_datetime = "2002-12-31"
 step_value = "1 month"
-coverage_policy = "warn"
 
 [[simulation.process]]
 id = "flow_main"
 type = "flow"
 solvers = ["modflownwt"]
 
-# --- Paramètres gelés (non calibrés) ---------------------------------
+
+# ---- Frozen parameters (not calibrated) -----------------------------
 
 [domain.depth_model]
 thickness = 30.0
@@ -48,35 +56,41 @@ value = 0.05
 [flow.param.Ss.field_homogeneous]
 value = 1e-5
 
-[flow.sinks_sources.recharge]
-first_clim = "first"
 
-# --- Calibration -----------------------------------------------------
-#
-# La présence de [calibration] (+ `workflow = "calibration"`) bascule
-# `hmp run` sur la boucle ask/tell - cf. `hydromodpy/_cli/workflows.py`.
-#
-# Chaque paramètre déclare :
-#   bounds     : [low, high] dans l'espace physique
-#   transform  : 'log' pour K (strictement positif, multi-ordres de
-#                magnitude - sampling uniforme en log10)
-#   path       : chemin dotté dans HydroModPyConfig injecté à chaque run
-#   units      : label informatif
+# ---- Calibration -----------------------------------------------------
+# The mere presence of [calibration] (with `workflow = "calibration"`)
+# triggers the calibration workflow. Each parameter declares:
+#   bounds     : [low, high] in the physical space
+#   transform  : 'log' for K (strictly positive, multi-decade range)
+#   prior      : sampling prior used by Bayesian optimisers
+#   path       : dotted path into HydroModPyConfig - written at each ask
+#   units      : informative label
 
 [calibration]
+# Optuna is the recommended sampler (Tree-structured Parzen Estimator).
 method = "optuna"
+# 40 trials is a small budget; bump it for production runs.
 max_iter = 40
+# One trial per ask (sequential). Increase for parallel optimisers.
 batch_size = 1
+# `best_n` promotes the top iterations to full simulations after the
+# loop, with Zarr + figures. Cheaper than `all` for large campaigns.
 save_runs = "best_n"
 save_best_n = 5
+# Fixed seed for reproducibility.
 seed = 42
+# Objective metric on the observed discharge time-series.
 objective = "nse"
-variable = "discharge"        # série observée dans [data.hydrometry]
+variable = "discharge"
+# Memoise duplicate parameter samples through a content-addressed cache.
 use_cache = true
 
 [calibration.parameters.K]
+# K spans many orders of magnitude. We sample uniformly in log10 space.
 bounds = [1e-6, 1e-3]
 transform = "log"
 prior = "log_uniform"
+# Dotted path written at each iteration. Matches the homogeneous-field
+# entry in [flow.param.K.field_homogeneous].
 path = "flow.param.K.value"
 units = "m/s"
