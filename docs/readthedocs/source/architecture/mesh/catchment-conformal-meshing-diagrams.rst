@@ -6,8 +6,8 @@ Scope
 
 These diagrams document the 2D catchment meshing workflow built around:
 
-- ``launchers.mesh_catchment``,
-- ``launchers.mesh_catchment.runtime``,
+- ``hydromodpy.spatial.mesh``,
+- ``hydromodpy.spatial.mesh.runtime``,
 - ``build_domain_geographic_context(...)``,
 - ``run_reference_2d_zone_conformal_case_from_toml(...)``,
 - the Gmsh zone-conformal meshing core.
@@ -19,10 +19,10 @@ and one optional exchange bundle.
 Code map
 --------
 
-- ``launchers/mesh_catchment/runtime.py``:
+- ``hydromodpy/spatial/mesh/runtime.py``:
   public mono-catchment entry point.
-- ``launchers/mesh_catchment/runtime_single_run.py``:
-  concrete runtime path behind the public facade.
+- ``hydromodpy/spatial/mesh/hydro_mesh.py``:
+  concrete runtime object behind the public facade.
 - ``hydromodpy/spatial/geographic`` and related domain helpers:
   geographic context preparation before meshing.
 - ``hydromodpy/spatial/mesh/gmsh_grid/zone_meshing/``:
@@ -31,12 +31,12 @@ Code map
 Recommended reading path
 ------------------------
 
-1. ``launchers/mesh_catchment/runtime.py``
-2. ``launchers/mesh_catchment/runtime_single_run.py``
+1. ``hydromodpy/spatial/mesh/runtime.py``
+2. ``hydromodpy/spatial/mesh/hydro_mesh.py``
 3. ``hydromodpy/spatial/mesh/gmsh_grid/runtime_support.py``
 4. ``hydromodpy/spatial/mesh/gmsh_grid/zone_meshing/conformal.py``
-5. the surrounding files under ``zone_meshing/`` when a lower-level geometry
-   question appears
+5. the surrounding files under ``zone_meshing/`` when a lower-level
+   geometry question appears
 
 Recommended UML Views
 ---------------------
@@ -46,9 +46,9 @@ The chosen UML set is intentionally narrow:
 - Activity diagram: best to explain the branching logic driven by
   ``constraints_mode`` and by the availability of geology and river
   constraints.
-- Sequence diagram: best to explain the concrete runtime handoff between
-  launchers, shared runtime helpers, geographic context building, the
-  conformal case, and exports.
+- Sequence diagram: best to explain the concrete runtime handoff
+  between the public mesh facade, shared runtime helpers, geographic
+  context building, the conformal case, and exports.
 - Component diagram: best to document the stable architectural boundaries
   between orchestration, domain/context preparation, constraint sources,
   meshing core, and output exporters.
@@ -66,8 +66,8 @@ Conformal Meshing Activity
    :language: text
    :caption: PlantUML (.wsd) source - catchment conformal meshing activity
 
-Launcher To Gmsh Sequence
--------------------------
+Mesh Facade To Gmsh Sequence
+----------------------------
 
 .. uml:: diagrams/catchment_conformal_meshing_sequence.wsd
 

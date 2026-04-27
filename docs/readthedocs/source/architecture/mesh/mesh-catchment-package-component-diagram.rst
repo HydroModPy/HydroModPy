@@ -4,58 +4,59 @@ Mesh Catchment Package Components
 Scope
 -----
 
-This diagram documents the internal package layout of the dedicated
-``mesh_catchment`` workflow.
+This diagram documents the internal package layout of the
+``hydromodpy.spatial.mesh`` package, which owns the catchment-mesh
+generation workflow.
 
 It focuses on:
 
-- public launcher entry points,
-- separation between the public runtime facade and the concrete mono-run path,
+- public runtime entry points used by ``Project.build_mesh()``,
+- the runtime facade and the concrete mono-run execution path,
 - batch-specific IO and reporting helpers,
-- versioned scenarios and operational tools that live next to the runtime code.
+- the configuration objects that describe a meshing case.
 
 Code map
 --------
 
-- ``launchers/mesh_catchment/runtime.py``:
-  public runtime facade.
-- ``launchers/mesh_catchment/runtime_single_run.py``:
-  concrete mono-run execution path.
-- ``launchers/mesh_catchment/batch.py``:
+- ``hydromodpy/spatial/mesh/runtime.py``:
+  public runtime facade. Called by ``Project.build_mesh()``.
+- ``hydromodpy/spatial/mesh/hydro_mesh.py``:
+  concrete ``HydroMesh`` runtime object.
+- ``hydromodpy/spatial/mesh/batch.py``:
   batch orchestration and manifest handling.
-- ``launchers/mesh_catchment/scenarios`` and ``tools``:
-  versioned operational assets next to the runtime core.
+- ``hydromodpy/spatial/mesh/batch_io.py`` and
+  ``hydromodpy/spatial/mesh/batch_reporting.py``:
+  IO and reporting helpers used by ``batch.py``.
+- ``hydromodpy/spatial/mesh/config.py``:
+  Pydantic configuration schema (``[mesh_catchment]`` block).
 
 Recommended reading path
 ------------------------
 
-1. ``launchers/mesh_catchment/runtime.py``
-2. ``launchers/mesh_catchment/runtime_single_run.py``
-3. ``launchers/mesh_catchment/batch.py``
-4. one scenario or tool file only if the question is operational rather than
-   architectural
+1. ``hydromodpy/spatial/mesh/runtime.py``
+2. ``hydromodpy/spatial/mesh/hydro_mesh.py``
+3. ``hydromodpy/spatial/mesh/batch.py``
+4. ``hydromodpy/spatial/mesh/config.py``
 
 Diagram source
 --------------
 
-.. uml:: ../launchers/diagrams/mesh_catchment_package_components.wsd
+.. uml:: diagrams/mesh_catchment_package_components.wsd
 
-.. literalinclude:: ../launchers/diagrams/mesh_catchment_package_components.wsd
+.. literalinclude:: diagrams/mesh_catchment_package_components.wsd
    :language: text
    :caption: PlantUML (.wsd) source - mesh-catchment package components
 
 Notes
 -----
 
-- ``runtime.py`` is intentionally thin. It validates the public launcher
-  payloads and delegates the concrete mono-run path to
-  ``runtime_single_run.py``.
-- ``batch.py`` does not implement a second meshing engine. It derives one
-  outlet-specific child runtime, then reuses the same mono-catchment callback.
-- ``scenarios/`` and ``tools/`` are part of the package discoverability story,
-  but they are versioned operational assets rather than the runtime core.
-- For launcher-level simulation orchestration around those mesh artifacts, see
-  :doc:`../launchers/launcher-simulation-sequence-diagram`.
+- ``runtime.py`` is intentionally thin. It validates the public payload
+  and delegates the concrete execution path to ``hydro_mesh.py``.
+- ``batch.py`` does not implement a second meshing engine. It derives
+  one outlet-specific child runtime, then reuses the same
+  mono-catchment callback.
+- For higher-level simulation orchestration around mesh artifacts,
+  see :doc:`../simulation/simulation-orchestration-class-diagram`.
 
 Related diagrams
 ----------------

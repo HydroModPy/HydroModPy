@@ -1,5 +1,5 @@
 @startuml
-title Catchment Mesh - Launcher To Gmsh Sequence
+title Catchment Mesh - Mesh Facade To Gmsh Sequence
 autonumber
 hide footbox
 skinparam sequenceMessageAlign center
@@ -74,12 +74,12 @@ end
 Runtime --> Caller: summary + optional exchange bundle
 
 note right of Caller
-Caller is usually one of:
-- MeshCatchmentLauncher
-- ProcessSimulationLauncher
+Caller is usually:
+- hydromodpy.spatial.mesh.runtime
+- hydromodpy.Project.build_mesh()
 
-Batch mode is not a separate sequence:
-it repeats this mono-catchment path
+Batch mode is not a separate sequence.
+It repeats this mono-catchment path
 once per outlet.
 end note
 @enduml

@@ -18,34 +18,35 @@ It focuses on:
 Code map
 --------
 
-- ``launchers/mesh_catchment/batch.py``:
+- ``hydromodpy/spatial/mesh/batch.py``:
   batch loop, child-workspace derivation, and manifest updates.
-- ``launchers/mesh_catchment/runtime.py``:
+- ``hydromodpy/spatial/mesh/runtime.py``:
   reused mono-run entry point.
-- ``launchers/mesh_catchment/reporting`` or batch-side output helpers:
+- ``hydromodpy/spatial/mesh/batch_io.py`` and
+  ``hydromodpy/spatial/mesh/batch_reporting.py``:
   persisted progress and summary artifacts.
 
 Recommended reading path
 ------------------------
 
-1. ``launchers/mesh_catchment/batch.py``
-2. ``launchers/mesh_catchment/runtime.py``
-3. the batch reporting/output helpers referenced by ``batch.py``
+1. ``hydromodpy/spatial/mesh/batch.py``
+2. ``hydromodpy/spatial/mesh/runtime.py``
+3. ``hydromodpy/spatial/mesh/batch_io.py`` and ``batch_reporting.py``
 
 Diagram source
 --------------
 
-.. uml:: ../launchers/diagrams/mesh_catchment_batch_activity.wsd
+.. uml:: diagrams/mesh_catchment_batch_activity.wsd
 
-.. literalinclude:: ../launchers/diagrams/mesh_catchment_batch_activity.wsd
+.. literalinclude:: diagrams/mesh_catchment_batch_activity.wsd
    :language: text
    :caption: PlantUML (.wsd) source - mesh-catchment batch activity
 
 Notes
 -----
 
-- The batch loop reuses the same mono-catchment callback as the dedicated
-  launcher. There is no separate batch-only meshing engine.
+- The batch loop reuses the same mono-catchment callback as the public
+  runtime entry point. There is no separate batch-only meshing engine.
 - The manifest CSV is rewritten after each outlet so progress remains visible
   even when the batch stops early.
 - A summary that returns without a written mesh file is treated as a failure.

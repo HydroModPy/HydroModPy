@@ -3,12 +3,12 @@ title Catchment Mesh - Conformal Component Diagram
 left to right direction
 
 package "Orchestration Layer" {
-  component "MeshCatchmentLauncher" as MeshLauncher
-  component "ProcessSimulationLauncher\n(optional embedded mesh phase)" as SimulationLauncher
+  component "hmp run mesh.toml\nProject.build_mesh()" as MeshFacade
+  component "Embedded mesh phase\n(simulation workflow)" as SimulationPhase
 }
 
 package "Shared Mesh Runtime" {
-  component "mesh_catchment.runtime\nrequire_mesh_section()\nprepare_geographic_config_for_meshing()\nrun_single_mesh_catchment_workflow()" as Runtime
+  component "spatial.mesh.runtime\nrequire_mesh_section()\nprepare_geographic_config_for_meshing()\nrun_single_mesh_catchment_workflow()" as Runtime
 }
 
 package "Geographic Context Layer" {
@@ -40,8 +40,8 @@ package "Output Layer" {
   component "CatchmentMeshBundle" as Bundle
 }
 
-MeshLauncher --> Runtime
-SimulationLauncher --> Runtime
+MeshFacade --> Runtime
+SimulationPhase --> Runtime
 
 Runtime --> Workspace
 Runtime --> DomainPipeline
@@ -66,7 +66,7 @@ BundleExporter --> Bundle
 
 note bottom of Runtime
 This runtime is the architectural pivot.
-Mono-catchment launcher and embedded
+The dedicated mesh facade and the embedded
 simulation mesh phase reuse the exact
 same mesh execution path.
 end note

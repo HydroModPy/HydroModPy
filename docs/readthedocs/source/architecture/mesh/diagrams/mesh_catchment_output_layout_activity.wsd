@@ -1,11 +1,11 @@
 @startuml
-title Launcher - MeshCatchment Output Layout Activity
+title MeshCatchment Output Layout Activity
 
 start
 
 :Resolve output paths from\nsection config + optional overrides;
 
-if (Dedicated launcher output_layout == flat?) then (yes)
+if (Dedicated mesh output_layout == flat?) then (yes)
   :Create temporary runtime workspace\nunder _mesh_runtime/<catch_name>;
   :Write final mesh artifacts directly under\nworkspace.project_root;
 else (standard)
@@ -23,7 +23,7 @@ if (Mesh file exists?) then (yes)
   :Export exchange bundle next to\nfinal mesh outputs;
 endif
 
-if (Dedicated launcher geographic_outputs_mode == cleanup?) then (yes)
+if (Dedicated mesh geographic_outputs_mode == cleanup?) then (yes)
   :Delete results_stable/geographic\nand results_stable/demcorrecflow;
 else (keep)
   :Preserve geographic intermediates;
@@ -41,8 +41,8 @@ endif
 stop
 
 note right
-process_simulation keeps the standard
-workspace layout and does not apply the
-dedicated-launcher cleanup branch.
+The full simulation workflow keeps the
+standard workspace layout and does not
+apply the dedicated mesh cleanup branch.
 end note
 @enduml
