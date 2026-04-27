@@ -41,6 +41,55 @@ Install with pip
 Full pip packaging is available from v0.3.0 onward. Users pinned to older
 releases should rely on the conda environment and the ``v0.2.0`` tag.
 
+Optional extras
+---------------
+
+HydroModPy ships several optional extras. Add only what you need. Combine
+them inside one ``pip install`` command, for example
+``pip install "hydromodpy[ide,viewer3d]"``.
+
+.. list-table::
+   :header-rows: 1
+   :widths: 18 60
+
+   * - Extra
+     - Provides
+   * - ``[test]``
+     - ``pytest``, ``pytest-xdist``, ``pytest-timeout``, ``coverage`` for
+       running the test tiers.
+   * - ``[dev]``
+     - ``ruff`` and ``pre-commit`` for linting and Git hooks. Required
+       only for contributors.
+   * - ``[docs]``
+     - Sphinx, the RTD theme, ``myst-parser``, ``nbsphinx``, plus the
+       extensions used to build this documentation.
+   * - ``[ide]``
+     - ``ipykernel``, ``jupyterlab``, Spyder, and PySide6.
+   * - ``[ugrid]``
+     - ``xugrid`` for unstructured mesh handling.
+   * - ``[viewer3d]``
+     - ``pyvista`` for 3D mesh visualization.
+
+Developer install
+-----------------
+
+Contributors should clone the repository, install in editable mode with
+the ``[dev,test,docs]`` extras, and register the pre-commit hook:
+
+.. code-block:: bash
+
+   git clone https://github.com/HydroModPy/HydroModPy.git
+   cd HydroModPy
+   conda create -n hmp-dev python=3.12 -y
+   conda activate hmp-dev
+   pip install -e ".[dev,test,docs]"
+   pre-commit install
+
+The ``pre-commit install`` step registers the Git hook that runs ``ruff``
+before each commit. See :doc:`contribute` for the full contributor
+workflow (issue filing, coding style, test tiers, doc build, pull request
+conventions).
+
 Install with conda
 ------------------
 

@@ -206,6 +206,7 @@ For any question or collaboration request, contact:
    news
    install
    getting_started/index
+   seven-modes
    examples
    capability_gallery/index
    scientific/index

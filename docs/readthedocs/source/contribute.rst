@@ -1,89 +1,185 @@
 Contribute
 ==========
 
-HydroModPy welcomes contributions for bug fixes, new workflows, documentation,
-and example notebooks. This page summarises the expected workflow.
+HydroModPy is open to bug reports, new features, documentation work, and
+example notebooks. This page describes the practical steps. The deep
+reference for the configuration system, the data managers, and the TOML
+inheritance rules is kept in ``CONTRIBUTING.md`` at the repository root.
 
-Set up the environment
-----------------------
+Open an issue
+-------------
+
+The fastest way to help the project is to open an issue at
+https://github.com/HydroModPy/HydroModPy/issues, even without writing
+code. Useful issue types:
+
+- **Bug report.** Describe what happened, what you expected, and the
+  steps to reproduce. Attach the TOML config (or a minimal version) and
+  the full traceback.
+- **Feature request.** Describe what you need and why. If the feature is
+  a new data source, attach the API endpoint, the response format, the
+  variable units, the spatial and temporal resolution, and any rate
+  limit.
+- **New variable or format.** Specify the variable name, the physical
+  unit, the temporal resolution, the spatial coverage (point or
+  gridded), and the file format or API.
+- **Question.** Open an issue if the documentation does not cover your
+  case. The thread also helps other users with the same question.
+
+Set up a development environment
+--------------------------------
+
+Use an editable install in a fresh Python environment. Pick conda or
+``venv``, then add the extras you need.
 
 .. code-block:: bash
 
    git clone https://github.com/HydroModPy/HydroModPy.git
    cd HydroModPy
-   pip install -e '.[docs]'
-   python tools/setup_plantuml.py
+   conda create -n hmp-dev python=3.12 -y
+   conda activate hmp-dev
+   pip install -e ".[dev,test,docs]"
+   pre-commit install
 
-``python tools/setup_plantuml.py`` downloads a pinned PlantUML jar with SHA256
-verification. On Windows it can also install a repo-local Graphviz bundle; on
-other platforms it validates the system ``dot`` command unless you pass
-``--skip-graphviz``.
+The ``-e`` flag (editable) links the installed package to the local
+source tree. Edits to ``.py`` files take effect on the next import
+without a reinstall. The ``pre-commit install`` step registers the Git
+hook that runs ``ruff`` before each commit.
 
-Run tests before submitting (if you modify modelling code) and rebuild the docs
-to check for warnings:
+Available extras
+~~~~~~~~~~~~~~~~
+
+Add only the extras you need. They can be combined inside the same
+``pip install`` command, for example ``pip install -e ".[dev,test]"``.
+
+.. list-table::
+   :header-rows: 1
+   :widths: 18 60
+
+   * - Extra
+     - Provides
+   * - ``[test]``
+     - ``pytest``, ``pytest-xdist``, ``pytest-timeout``, ``coverage``.
+   * - ``[dev]``
+     - ``ruff`` and ``pre-commit`` for linting and Git hooks.
+   * - ``[docs]``
+     - Sphinx, the RTD theme, ``myst-parser``, ``nbsphinx``, plus all
+       extensions used to build this documentation.
+   * - ``[ide]``
+     - ``ipykernel``, ``jupyterlab``, Spyder, and PySide6.
+   * - ``[ugrid]``
+     - ``xugrid`` for unstructured mesh handling.
+   * - ``[viewer3d]``
+     - ``pyvista`` for 3D mesh visualization.
+
+After install, two CLI commands become available: ``hmp`` and
+``hydromodpy``. They are aliases. Run ``hmp --help`` to list the
+subcommands.
+
+Coding style
+------------
+
+- Target Python 3.11 or newer. Type hints are encouraged on public
+  signatures.
+- Format and lint with ``ruff``. The repository ships a pinned
+  configuration in ``pyproject.toml``:
+
+  .. code-block:: bash
+
+     ruff check .
+     ruff format .
+
+- The pre-commit hook runs ``ruff`` automatically on staged files. If
+  the hook reports issues, fix them and stage the files again before
+  retrying the commit.
+- Add a docstring on every public method and class. Keep parameter
+  names consistent with the existing modules.
+- Reuse helpers from ``hydromodpy/core/tools/`` rather than duplicating
+  raster, folder, or path logic.
+
+Run the tests
+-------------
+
+The test suite is split in three tiers:
+
+- ``tests/unit/`` covers API and behaviour checks on isolated
+  components.
+- ``tests/regression/`` checks reference outputs and full workflows.
+- ``tests/validation/`` runs scientific benchmarks against analytical or
+  trusted physical references.
+
+Typical commands:
 
 .. code-block:: bash
 
-   pytest
-   python -m tools.doc_gallery --check
+   pytest tests/unit -q
+   pytest tests/regression -q
+   pytest tests/validation -q
+   hmp test unit
+   hmp test regression --fast -j 2
+   hmp test validation --fast
+
+The PETSc Boussinesq backend is Linux only. Tests tagged
+``pytest.mark.petsc`` are skipped on Windows by design.
+
+Build the documentation
+-----------------------
+
+The Sphinx project lives in ``docs/readthedocs``. The ``[docs]`` extra
+ships every required extension.
+
+.. code-block:: bash
+
+   pip install -e ".[docs]"
+   python tools/setup_plantuml.py
    cd docs/readthedocs
    python -m sphinx -E -a -W -b html source _build/html
 
-Coding guidelines
------------------
+``tools/setup_plantuml.py`` downloads a pinned PlantUML jar with SHA256
+verification and installs the local Graphviz bundle on Windows. Pass
+``--skip-graphviz`` if the system already provides the ``dot`` command.
 
-- Target Python 3.11+ and keep type hints where practical.
-- Prefer ``toolbox`` helpers over duplicating raster or folder logic.
-- Add docstrings for public methods/classes and keep parameter names consistent
-  with existing modules.
+For live preview during edits:
 
-Documentation workflow
-----------------------
+.. code-block:: bash
 
-1. Work in a feature branch derived from ``dev``.
-2. Update the relevant ``.rst`` pages plus the notebooks or scripts you touched.
-3. If the change affects the illustrated capability gallery, refresh the generated artifacts:
+   sphinx-autobuild -E -a docs/readthedocs/source docs/readthedocs/_build/html
 
-   .. code-block:: bash
+If the change touches the capability gallery, refresh the generated
+artifacts before committing:
 
-      python -m tools.doc_gallery
+.. code-block:: bash
 
-   This rewrites:
+   python -m tools.doc_gallery
+   python -m tools.doc_gallery --check
 
-   - ``docs/readthedocs/source/capability_gallery/``
-   - ``docs/readthedocs/source/_static/capability_gallery/``
-   - according to the manifest in ``tools/doc_gallery/gallery_manifest.py``
+Submit a pull request
+---------------------
 
-   The generator itself is documented in ``tools/doc_gallery/README.md``.
-   For future mesh-gallery cases imported from ``C:/results/...``, keep the
-   canonical repo tree under ``examples/mesh_gallery/`` and use:
+1. Branch from ``dev`` (not ``master``). Use a short descriptive name,
+   for example ``feature/add-bdtopage-loader`` or
+   ``fix/calib-cell-resolve``.
+2. Group related changes in one focused commit. Follow the repository
+   commit format ``[scope] - short summary in lowercase``. Examples:
+   ``[docs] - update install extras for v0.5``,
+   ``[calibration] - fix structured cell resolution``.
+3. Push the branch and open a pull request against ``dev``. Reference
+   the related issue (``Closes #123``) when applicable.
+4. Mention reviewers if the change affects modelling outputs, the
+   public API, or any user-visible workflow.
 
-   .. code-block:: bash
+Releases move from ``dev`` to ``master`` once the notebooks run without
+warnings, the changelog is updated, and a tag is pushed.
 
-      python -m tools.doc_gallery.import_mesh_bundle --help
-
-4. Preview locally with ``sphinx-autobuild -E -a source _build/html``.
-5. Run ``python -m tools.doc_gallery --check`` before submitting if you touched
-   gallery sources or generated outputs.
-6. Keep PlantUML tooling available with ``python tools/setup_plantuml.py`` if
-   you work on UML-based architecture pages.
-7. Refresh committed validation batch reports with ``python -m validation_cases.update_reports --no-show``
-   if you changed analytical solver coverage shown on the validation gallery landing page.
-8. Run ``pip install -e '.[docs]'`` after changing the doc extras.
-
-Submitting changes
+Where to look next
 ------------------
 
-1. Ensure ``git status`` contains only the files related to your change.
-2. Push the branch to GitHub and open a pull request against ``dev``.
-3. Mention reviewers if the change affects modelling outputs or user-visible
-   workflows.
-
-Releases
---------
-
-Stable releases advance from ``dev`` to ``latest`` once:
-
-- Notebooks run without warnings.
-- The changelog and :doc:`news` page mention the key updates.
-- Tags are created (``git tag v0.3.0``) and pushed (``git push --tags``).
+- ``CONTRIBUTING.md`` (repository root) holds the deep reference for
+  the CLI subcommands, the workspace layout, the TOML inheritance
+  rules, the data managers, and the Pydantic config-system internals
+  (``ParamLevel``, ``VisibleWhen``, validators, declaring a new config
+  field).
+- :doc:`architecture/index` documents the package layout and the
+  runtime handoff between modules.
+- :doc:`seven-modes` lists the supported user APIs (CLI, TOML, Python,
+  notebook).
