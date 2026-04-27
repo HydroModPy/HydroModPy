@@ -14,7 +14,11 @@ from hydromodpy.core.units.volumetric_flow import (
     convert_to_m3_per_s,
     normalize_m3_per_s_unit,
 )
-from hydromodpy.physics.flow.sinks_sources import FlowRechargeConfig, FlowSinksSourcesConfig
+from hydromodpy.physics.flow.sinks_sources import (
+    FlowEtpConfig,
+    FlowRechargeConfig,
+    FlowSinksSourcesConfig,
+)
 from hydromodpy.physics.flow.time_forcing import (
     resolve_period_values_from_forcing,
 )
@@ -111,6 +115,76 @@ def apply_recharge_load_result_to_flow(
             heterogeneous_source=resolved.heterogeneous_source,
             spatial_mode=resolved.spatial_mode,
             interpolation_method=resolved.interpolation_method,
+        )
+    )
+    return True
+
+
+def apply_etp_load_result_to_flow(
+    *,
+    flow: Flow,
+    etp_result: LoadResult | None,
+    simulation_window: ResolvedSimulationTimeWindow | None = None,
+) -> bool:
+    """Inject ETP from a data-manager LoadResult into flow.
+
+    Mirrors :func:`apply_recharge_load_result_to_flow` for the ETP
+    forcing. Reuses :func:`forcing_bridge.resolve_forcing` for spatial
+    mode dispatch and the same ``mm/day → m/s`` conversion path.
+
+    The runtime keeps any user-defined ETP policy (``surface_offset``,
+    ``extinction_depth``, ``first_clim``, ``spatial_mode``, etc.) when
+    a base ``flow.sinks_sources['etp']`` already exists; otherwise the
+    typed config is created from scratch with sensible defaults that
+    reproduce the legacy behaviour (``DEM - 2 m`` ET surface, 1 m
+    extinction depth).
+
+    Returns True if ETP was successfully injected, False otherwise.
+    """
+    if etp_result is None:
+        return False
+
+    from hydromodpy.core.units.hydraulic_conductivity import factor_to_m_per_s
+    from hydromodpy.physics.forcing.forcing_bridge import resolve_forcing
+
+    sinks_sources = getattr(flow, "sinks_sources", {})
+    etp_cfg = sinks_sources.get("etp") if isinstance(sinks_sources, dict) else None
+
+    first_clim = "mean"
+    spatial_mode = "auto"
+    interpolation_method = "nearest"
+    surface_offset = 2.0
+    extinction_depth = 1.0
+    if etp_cfg is not None:
+        first_clim = getattr(etp_cfg, "first_clim", first_clim)
+        spatial_mode = getattr(etp_cfg, "spatial_mode", spatial_mode)
+        interpolation_method = getattr(etp_cfg, "interpolation_method", interpolation_method)
+        surface_offset = float(getattr(etp_cfg, "surface_offset", surface_offset))
+        extinction_depth = float(getattr(etp_cfg, "extinction_depth", extinction_depth))
+
+    unit_conversion_factor = factor_to_m_per_s("mm/day")
+
+    resolved = resolve_forcing(
+        etp_result,
+        unit_conversion_factor=unit_conversion_factor,
+        simulation_window=simulation_window,
+        spatial_mode=spatial_mode,
+        interpolation_method=interpolation_method,
+        label="etp",
+    )
+    if resolved is None:
+        return False
+
+    flow.set_etp(
+        FlowEtpConfig(
+            values=resolved.series if resolved.series is not None else 0.0,
+            first_clim=first_clim,
+            units="m/s",
+            heterogeneous_source=resolved.heterogeneous_source,
+            spatial_mode=resolved.spatial_mode,
+            interpolation_method=resolved.interpolation_method,
+            surface_offset=surface_offset,
+            extinction_depth=extinction_depth,
         )
     )
     return True

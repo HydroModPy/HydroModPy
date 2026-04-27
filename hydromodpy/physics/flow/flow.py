@@ -89,7 +89,11 @@ from hydromodpy.physics.flow.initial_conditions import (
 from hydromodpy.physics.flow.initial_conditions_config import (
     normalize_flow_initial_conditions,
 )
-from hydromodpy.physics.flow.sinks_sources import FlowRechargeConfig, FlowSinksSourcesConfig
+from hydromodpy.physics.flow.sinks_sources import (
+    FlowEtpConfig,
+    FlowRechargeConfig,
+    FlowSinksSourcesConfig,
+)
 
 
 class Flow(ProcessSpatial):
@@ -411,6 +415,10 @@ class Flow(ProcessSpatial):
             sinks_sources.recharge,
             location_prefix="flow.sinks_sources.recharge",
         )
+        self.sinks_sources["etp"] = self._normalize_etp_config(
+            getattr(sinks_sources, "etp", None),
+            location_prefix="flow.sinks_sources.etp",
+        )
 
     @staticmethod
     def _normalize_recharge_config(
@@ -452,6 +460,37 @@ class Flow(ProcessSpatial):
         self.sinks_sources["recharge"] = self._normalize_recharge_config(
             recharge,
             location_prefix="flow.sinks_sources.recharge",
+        )
+
+    @staticmethod
+    def _normalize_etp_config(
+        etp: FlowEtpConfig | None,
+        *,
+        location_prefix: str,
+    ) -> FlowEtpConfig | None:
+        if etp is None:
+            return None
+        raw_units = getattr(etp, "units", "m/s")
+        try:
+            canonical_units = normalize_m_per_s_unit(raw_units)
+        except ValueError as exc:
+            raise ValueError(
+                f"{location_prefix}.units must be compatible with m/s "
+                f"(for example mm/day, m/day, m/s). Got: {raw_units!r}"
+            ) from exc
+
+        values_si = convert_payload_to_m_per_s(
+            getattr(etp, "values", 0.0),
+            unit=canonical_units,
+            label=f"{location_prefix}.values",
+        )
+        return etp.model_copy(update={"values": values_si, "units": "m/s"})
+
+    def set_etp(self, etp: FlowEtpConfig | None) -> None:
+        """Inject or replace the ETP payload at runtime."""
+        self.sinks_sources["etp"] = self._normalize_etp_config(
+            etp,
+            location_prefix="flow.sinks_sources.etp",
         )
 
 

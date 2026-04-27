@@ -381,11 +381,11 @@ class FlowConfig(ProcessSpatialConfig):
         """
         Validate that ``active_sinks_sources`` only contains allowed values.
 
-        For ``Flow``, the only permitted sink/source identifiers are
-        ``'recharge'`` and ``'wells'``.  Any other value is an error.
-        Duplicates are rejected to keep the list unambiguous.
+        For ``Flow``, the permitted sink/source identifiers are
+        ``'recharge'``, ``'wells'`` and ``'etp'``. Any other value is an
+        error. Duplicates are rejected to keep the list unambiguous.
         """
-        _ALLOWED = {"recharge", "wells"}
+        _ALLOWED = {"recharge", "wells", "etp"}
         if value is None:
             return []
         if not isinstance(value, (list, tuple)):
