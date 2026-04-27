@@ -1,0 +1,294 @@
+# ======================================================================
+# Nancon - workflow overview / API-only showcase (DEM aside)
+# ----------------------------------------------------------------------
+# Standalone overview TOML (no `base_config`) on purpose: the goal is to
+# exercise the full data-loading pipeline end-to-end, *exclusively from
+# remote APIs except for the DEM*, and render one figure per
+# downloaded variable.
+#
+# What this TOML demonstrates:
+#   * Every public API wired into HydroModPy is hit at least once:
+#       - BRGM 1:1M and 1:50K (geology)
+#       - BD TOPAGE, EU-Hydro and OSM (hydrography - 3 alternatives)
+#       - Hub'Eau (hydrometry, piezometry, intermittency, water_quality)
+#       - Meteo-France SIM2 EDR (precipitation, ETP, recharge)
+#   * The DEM is loaded from the local raster bundled with the repo
+#     because the IGN BD ALTI WCS endpoint is currently returning HTTP
+#     403; everything else flows through APIs.
+#   * The [overview] block enables every panel so each loaded variable
+#     gets at least one PNG under figures/overview/.
+#
+# Outputs (under <project_root>/figures/overview/):
+#   map_dem.png, map_geology.png, map_hydrography.png,
+#   stats_card.png, station_inventory.png, climatic_summary.png,
+#   timeseries_discharge.png, timeseries_piezometry.png
+# Note: timeseries_intermittency / timeseries_water_quality panels are
+# declared in the schema but not rendered yet by the overview report;
+# the data is still fetched (visible in the station inventory).
+#
+# Launch:
+#   hmp run examples/projects/02_nancon_watershed/run_overview_all_apis.toml
+#
+# WARNING: the API calls can take several minutes the first time
+# (downloads are cached under examples/data/). Internet access is
+# required for IGN, BRGM, BD TOPAGE, EU-Hydro, OSM, Hub'Eau and SIM2.
+# ======================================================================
+
+
+workflow = "overview"
+
+
+# ----------------------------------------------------------------------
+# Workspace
+# ----------------------------------------------------------------------
+
+[workspace]
+# Project root resolved relative to this TOML.
+project_root = "."
+
+
+# ----------------------------------------------------------------------
+# Geographic - watershed delineation (same outlet as project.toml)
+# ----------------------------------------------------------------------
+
+[geographic]
+source_mode = "standard"
+catch_def = "from_outlet_coord"
+# Regional DEM used only for flow accumulation / outlet snapping. There
+# is no API alternative for this step in the current pipeline; the
+# watershed cannot be delineated without a local DEM here.
+dem_init_path = "../../data/dem/DEM_armorican_massif.tif"
+x_outlet = 389285.91
+y_outlet = 6816518.749
+snap_dist = "150 m"
+buff_area = "10%"
+crs_project = "EPSG:2154"
+dem_correc_type = "breach"
+reuse_existing_outputs = false
+
+
+# ----------------------------------------------------------------------
+# Data - one entry per variable type (API sources only)
+# ----------------------------------------------------------------------
+
+[data]
+project_crs = "EPSG:2154"
+
+# Variable families exercised in this overview.
+# Only variables that the overview report can actually render are kept
+# active. SIM2 families without a panel (temperature, humidity, wind,
+# radiation, soil_moisture, runoff) are commented out: they download
+# fine on a small bbox but chained fresh downloads of many variables in
+# the same run hit a native-code crash inside the xarray/netCDF4 stack
+# used by sim2_edr.py.
+types = [
+    "dem",
+    "geology",
+    "hydrography",
+    "hydrometry",
+    "piezometry",
+    "intermittency",
+    "water_quality",
+    "precipitation",  # rendered in climatic_summary panel
+    "etp",            # rendered in climatic_summary panel
+    "recharge",
+    # "temperature",
+    # "humidity",
+    # "wind",
+    # "radiation",
+    # "soil_moisture",
+    # "runoff",
+]
+
+
+# ---- DEM (custom local raster) --------------------------------------
+# The IGN BD ALTI WCS endpoint is currently returning HTTP 403, so the
+# DEM is the one variable kept on a local file. Uncomment the
+# `ign_bdalti` block once IGN access is restored.
+[[data.dem.sources]]
+source = "custom"
+path = "../../data/dem/DEM_armorican_massif.tif"
+
+# [[data.dem.sources]]
+# source = "ign_bdalti"
+# extent = "watershed"
+
+
+# ---- Geology --------------------------------------------------------
+# BRGM national 1:1M (default zonation) plus the higher-resolution
+# 1:50K departmental tiling. Both are pulled from the BRGM WFS.
+# [[data.geology.sources]]
+# source = "brgm_1m"
+# extent = "watershed"
+
+[[data.geology.sources]]
+source = "brgm_50k"
+extent = "watershed"
+
+
+# ---- Hydrography ----------------------------------------------------
+# Three independent providers for the same stream network so the
+# overview map can be regenerated against any of them.
+[[data.hydrography.sources]]
+source = "bdtopage"
+rasterize_field = "FID"
+
+[[data.hydrography.sources]]
+source = "euhydro"
+
+[[data.hydrography.sources]]
+source = "osm"
+
+
+# ---- Hydrometry (discharge) -----------------------------------------
+[data.hydrometry]
+date_start = "2018-01-01"
+date_end = "2020-12-31"
+
+# Hub'Eau station discovery via watershed bbox - daily mean discharge.
+[[data.hydrometry.sources]]
+source = "hubeau"
+product = "QmnJ"
+extent = "watershed"
+require_observations = true
+fallback_search_radius_km = 20.0
+
+
+# ---- Piezometry (groundwater levels) --------------------------------
+[data.piezometry]
+date_start = "2018-01-01"
+date_end = "2020-12-31"
+
+[[data.piezometry.sources]]
+source = "hubeau"
+product = "level"
+extent = "watershed"
+nearest = true
+require_observations = true
+fallback_search_radius_km = 25.0
+
+
+# ---- Intermittency (ONDE network) -----------------------------------
+[data.intermittency]
+date_start = "2018-01-01"
+date_end = "2020-12-31"
+
+[[data.intermittency.sources]]
+source = "hubeau"
+extent = "watershed"
+
+
+# ---- Water quality (physico-chemistry) ------------------------------
+[[data.water_quality.sources]]
+source = "hubeau"
+site_type = "river"
+extent = "watershed"
+parameters = ["Temperature", "pH", "Nitrates"]
+
+
+# ---- Precipitation (SIM2 Meteo-France) ------------------------------
+[data.precipitation]
+date_start = "2018-01-01"
+date_end = "2020-12-31"
+
+[[data.precipitation.sources]]
+source = "sim2"
+components = ["liquid", "solid", "total"]
+extent = "watershed"
+
+
+# ---- ETP ------------------------------------------------------------
+[data.etp]
+date_start = "2018-01-01"
+date_end = "2020-12-31"
+
+[[data.etp.sources]]
+source = "sim2"
+extent = "watershed"
+
+
+# ---- SIM2 variables without a dedicated overview panel -------------
+# Disabled by default - see the comment on `types` at the top of the
+# file. Re-enable one at a time once the native SIM2/netCDF crash is
+# fixed.
+#
+# [data.temperature]
+# date_start = "2018-01-01"
+# date_end = "2020-12-31"
+# [[data.temperature.sources]]
+# source = "sim2"
+# extent = "watershed"
+#
+# [data.humidity]
+# date_start = "2018-01-01"
+# date_end = "2020-12-31"
+# [[data.humidity.sources]]
+# source = "sim2"
+# extent = "watershed"
+#
+# [data.wind]
+# date_start = "2018-01-01"
+# date_end = "2020-12-31"
+# [[data.wind.sources]]
+# source = "sim2"
+# extent = "watershed"
+#
+# [data.radiation]
+# date_start = "2018-01-01"
+# date_end = "2020-12-31"
+# [[data.radiation.sources]]
+# source = "sim2"
+# components = ["atmospheric", "visible"]
+# extent = "watershed"
+#
+# [data.soil_moisture]
+# date_start = "2018-01-01"
+# date_end = "2020-12-31"
+# [[data.soil_moisture.sources]]
+# source = "sim2"
+# extent = "watershed"
+#
+# [data.runoff]
+# date_start = "2018-01-01"
+# date_end = "2020-12-31"
+# [[data.runoff.sources]]
+# source = "sim2"
+# extent = "watershed"
+
+
+# ---- Recharge (SIM2 grid) -------------------------------------------
+[data.recharge]
+date_start = "2018-01-01"
+date_end = "2020-12-31"
+
+[[data.recharge.sources]]
+source = "sim2"
+extent = "watershed"
+
+
+# ----------------------------------------------------------------------
+# Overview - one PNG per panel, dropped under figures/overview/
+# ----------------------------------------------------------------------
+
+[overview]
+name = "Nancon"
+date_start = "2018-01-01"
+date_end = "2020-12-31"
+
+[overview.panels]
+# Spatial panels: DEM, geology, river network.
+map_dem = true
+map_geology = true
+map_hydrography = true
+# Tabular panels: catchment summary metrics + station inventory.
+stats_card = true
+station_inventory = true
+# Climatology bars from precipitation + ETP monthly means.
+climatic_summary = true
+# Discharge / piezometry / intermittency / water-quality timeseries.
+# (intermittency + water_quality toggles are accepted by the schema but
+# their rendering is not implemented yet in the overview report.)
+timeseries_discharge = true
+timeseries_piezometry = true
+timeseries_intermittency = true
+timeseries_water_quality = true
