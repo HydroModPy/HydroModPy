@@ -4,14 +4,14 @@ Simulation Time Cycle Diagrams
 Scope
 -----
 
-These diagrams document the canonical time cycle driven by ``[simulation.time]``
-in launcher workflows.
+These diagrams document the canonical time cycle driven by
+``[simulation.time]`` inside the simulation orchestration layer.
 
 They focus on:
 
 - normalization and validation of the simulation window,
 - canonical stress-period grid construction,
-- strict launcher enforcement for flow-process time grids,
+- strict orchestration-level enforcement for flow-process time grids,
 - typed validation of ``[recharge_chronicle]`` payloads before runtime use,
 - propagation toward forcing preparation and flow solvers,
 - generator-based forcing built at fine resolution then aggregated to stress periods,
@@ -81,5 +81,5 @@ Activity Diagram
 Related diagrams
 ----------------
 
-- :doc:`launcher-simulation-class-diagram`
+- :doc:`simulation-orchestration-class-diagram`
 - :doc:`toml-to-solver-walkthrough`

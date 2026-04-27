@@ -1,13 +1,17 @@
 @startuml
-title Launcher - Simulation Orchestration Class Diagram
+title Simulation Orchestration Class Diagram
 
-package "launchers" {
-  class HydroModPyLauncher {
+package "hydromodpy" {
+  class Project {
     +cfg: HydroModPyConfig
     +run()
-    +_create_simulation_plan()
-    +_run_setup()
-    +_run_data()
+    +prepare(**overrides) : sim_id
+    +execute(sim_id) : runtime
+    +ingest(sim_id)
+    +render(sim_id)
+    +build_geographic()
+    +load_data()
+    +build_mesh()
   }
 }
 
@@ -41,28 +45,29 @@ package "hydromodpy.physics" {
 }
 
 package "hydromodpy.solver" {
-  interface "Flow Solver Wrapper" as FlowSolver
+  interface "Flow Solver Adapter" as FlowSolver
   class Modflow
   class Modflow6
+  class Boussinesq
 
-  interface "Transport Solver Wrapper" as TransportSolver
+  interface "Transport Solver Adapter" as TransportSolver
   class Modpath
   class Mt3dms
   class Modflow6Transport
 }
 
-HydroModPyLauncher --> SimulationPlanner : builds
-HydroModPyLauncher --> SimulationRunner : delegates execution
+Project --> SimulationPlanner : builds
+Project --> SimulationRunner : delegates execution
 
 SimulationPlanner ..> SimulationPlan : returns
 SimulationPlanner ..> ProcessRun : produces
 
 SimulationPlan *-- "0..*" ProcessRun : runs
 
-HydroModPyLauncher --> SimulationPlan : stores active plan
-HydroModPyLauncher --> ProcessRun : indexes runs by id
-HydroModPyLauncher --> Flow : prepares runtime process
-HydroModPyLauncher --> Transport : prepares runtime process
+Project --> SimulationPlan : stores active plan
+Project --> ProcessRun : indexes runs by id
+Project --> Flow : prepares runtime process
+Project --> Transport : prepares runtime process
 
 SimulationRunner ..> SimulationPlan : consumes ordered runs
 SimulationRunner ..> ProcessRun : dispatches
@@ -73,6 +78,7 @@ SimulationRunner ..> TransportSolver : instantiates from run.solver
 
 FlowSolver <|.. Modflow
 FlowSolver <|.. Modflow6
+FlowSolver <|.. Boussinesq
 
 TransportSolver <|.. Modpath
 TransportSolver <|.. Mt3dms

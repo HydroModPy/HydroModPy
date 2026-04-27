@@ -59,5 +59,5 @@ Related diagrams
 ----------------
 
 - :doc:`process-runtime-class-diagram`
-- :doc:`../simulation/launcher-simulation-class-diagram`
+- :doc:`../simulation/simulation-orchestration-class-diagram`
 - :doc:`../solver/index`

@@ -4,7 +4,7 @@ title Simulation Time Cycle - Activity
 start
 
 :Load TOML and build HydroModPyConfig;
-:Initialize launcher state;
+:Initialize Project runtime state;
 
 if (Has [simulation.time]?) then (yes)
   :resolve_simulation_time_window();
