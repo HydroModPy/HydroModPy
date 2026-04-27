@@ -158,7 +158,7 @@ class Modflow(Solver):
         # Worflow settings
         model_folder: str = "HydroModPy_outputs",
         model_name: str = "Default",
-        bin_path: str = "bin",
+        bin_path: str | None = None,
         preprocess_options: ModflowPreprocessOptions | None = None,
     ):
         """
@@ -172,8 +172,10 @@ class Modflow(Solver):
             Path where the model will be store. The default is 'HydroModPy_outputs'.
         model_name : str, optional
             Name of the model. The default is 'Default'.
-        bin_path : str, optional
-            Location folder of the modflow executables. The default is 'bin'.
+        bin_path : str or None, optional
+            Folder that holds the MODFLOW executables. When None, the
+            HydroModPy-managed cache (~/.cache/hydromodpy/bin) is used
+            and missing binaries are downloaded on first use.
         modflow_config : ModflowConfig | Mapping | None, optional
             Expert MODFLOW-NWT package parameters loaded from
             `[modflownwt.runtime]`, `[modflownwt.process_specific]`,

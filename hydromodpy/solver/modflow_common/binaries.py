@@ -6,14 +6,14 @@ an executable by its canonical name (``"mf6"``, ``"mfnwt"``, ``"mp6"``,
 and, when ``bin_path`` is the HydroModPy-managed cache, downloads it via
 ``flopy.utils.get_modflow`` if missing.
 
-Two ``bin_path`` layouts are recognised:
+Layout
+------
 
-1. **Legacy repo layout** - ``<bin_path>/{linux,win,mac}/<exe>``, shipped
-   for years inside ``<repo>/bin``. Auto-download never fires here; we
-   just locate the bundled file.
-2. **Flat cache layout** - ``<bin_path>/<exe>`` - the layout produced by
-   ``flopy.utils.get_modflow`` when it extracts into the managed cache
-   (``~/.cache/hydromodpy/bin/`` and platform-equivalents).
+Solvers are looked up under ``<bin_path>/<exe>`` (flat layout produced
+by ``flopy.utils.get_modflow``). The managed cache lives at
+``~/.cache/hydromodpy/bin/`` (or the platform equivalent) and a custom
+directory may be passed via the ``HYDROMODPY_BIN`` env var or the
+``--bindir`` flag of ``hmp install-binaries``.
 
 Versioning policy
 -----------------
@@ -57,13 +57,6 @@ _SOLVER_FILENAMES: dict[str, dict[str, str]] = {
     "mt3dusgs": {"win": "mt3dusgs.exe", "linux": "mt3dusgs", "darwin": "mt3dusgs"},
 }
 
-_LEGACY_PLATFORM_DIR = {"win32": "win", "win64": "win", "linux": "linux", "darwin": "mac"}
-
-# Windows MT3D-USGS shipped historically under the versioned filename
-_LEGACY_ALIASES: dict[str, dict[str, tuple[str, ...]]] = {
-    "mt3dusgs": {"win": ("mt3d-usgs_1.1.0_64.exe",)},
-}
-
 
 def available_solvers() -> tuple[str, ...]:
     """Return the canonical names of solvers this module can fetch."""
@@ -98,26 +91,12 @@ def is_managed_cache(bin_path: str | os.PathLike[str]) -> bool:
 def locate_solver_binary(bin_path: str | os.PathLike[str], solver: str) -> Path | None:
     """Return the exe path under ``bin_path`` or ``None`` if missing.
 
-    Checks the legacy ``<bin_path>/<os>/<exe>`` layout first, then the
-    flat ``<bin_path>/<exe>`` layout, then any legacy filename aliases.
+    Looks up the flat ``<bin_path>/<exe>`` layout produced by
+    ``flopy.utils.get_modflow``.
     """
     bin_dir = Path(bin_path).expanduser()
-    plat_key = _platform_key()
-    exe = exe_filename(solver)
-    legacy_dir = _LEGACY_PLATFORM_DIR.get(sys.platform, plat_key)
-
-    candidates: list[Path] = [
-        bin_dir / legacy_dir / exe,
-        bin_dir / exe,
-    ]
-    for alias in _LEGACY_ALIASES.get(solver, {}).get(plat_key, ()):
-        candidates.append(bin_dir / legacy_dir / alias)
-        candidates.append(bin_dir / alias)
-
-    for candidate in candidates:
-        if candidate.is_file():
-            return candidate
-    return None
+    candidate = bin_dir / exe_filename(solver)
+    return candidate if candidate.is_file() else None
 
 
 def _manifest_path(bindir: Path) -> Path:
@@ -229,8 +208,7 @@ def ensure_solver_binary(solver: str, bin_path: str | os.PathLike[str] | None = 
             f"Expected file: {target / exe_filename(solver)}."
         )
 
-    legacy_dir = _LEGACY_PLATFORM_DIR.get(sys.platform, _platform_key())
-    expected = target / legacy_dir / exe_filename(solver)
+    expected = target / exe_filename(solver)
     logger.warning(
         "Solver '%s' not found at %s (bin_path=%s). Returning the expected path; "
         "run `hmp install-binaries` or populate the directory to avoid a "

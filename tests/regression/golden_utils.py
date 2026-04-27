@@ -27,7 +27,6 @@ from __future__ import annotations
 import gc
 import json
 import os
-import platform
 import shutil
 import stat
 import subprocess
@@ -62,29 +61,6 @@ DEFAULT_MODFLOW_OUTPUT_NAMES = [
     "groundwater_storage",
     "accumulation_flux",
 ]
-
-_BUNDLED_EXECUTABLES = {
-    "mfnwt": {
-        "Windows": ("win", "mfnwt.exe"),
-        "Linux": ("linux", "mfnwt"),
-        "Darwin": ("mac", "mfnwt"),
-    },
-    "mf6": {
-        "Windows": ("win", "mf6.exe"),
-        "Linux": ("linux", "mf6"),
-        "Darwin": ("mac", "mf6"),
-    },
-    "mp6": {
-        "Windows": ("win", "mp6.exe"),
-        "Linux": ("linux", "mp6"),
-        "Darwin": ("mac", "mp6"),
-    },
-    "mt3dms": {
-        "Windows": ("win", "mt3d-usgs_1.1.0_64.exe"),
-        "Linux": ("linux", "mt3dusgs"),
-        "Darwin": ("mac", "mt3dusgs"),
-    },
-}
 
 
 def _rmtree_onerror(func, path, exc_info) -> None:
@@ -148,20 +124,26 @@ def remove_tree_with_retry(
         raise last_error
 
 
-def resolve_bundled_executable(
-    executable: str,
-    *,
-    repo_root: Path = REPO_ROOT,
-) -> Path:
-    """Return one bundled solver executable path for the current platform."""
-    platform_name = platform.system()
-    try:
-        platform_dir, executable_name = _BUNDLED_EXECUTABLES[executable][platform_name]
-    except KeyError as exc:
-        if executable not in _BUNDLED_EXECUTABLES:
-            raise ValueError(f"Unknown bundled executable '{executable}'.") from exc
-        pytest.skip(f"Unsupported platform for bundled executables: {platform_name}")
-    return repo_root / "bin" / platform_dir / executable_name
+def resolve_bundled_executable(executable: str) -> Path:
+    """Return the expected solver executable path for the current platform.
+
+    Looks under the HydroModPy-managed cache, or under ``HYDROMODPY_BIN``
+    when that environment variable is set. ``executable`` must be one of
+    the canonical solver names handled by
+    :mod:`hydromodpy.solver.modflow_common.binaries` (``mfnwt``, ``mf6``,
+    ``mp6``, ``mp7``, ``mt3dusgs``).
+    """
+    from hydromodpy.core.workspace.workspace import _resolve_bin_path
+    from hydromodpy.solver.modflow_common.binaries import (
+        available_solvers,
+        exe_filename,
+    )
+
+    if executable not in available_solvers():
+        raise ValueError(
+            f"Unknown solver '{executable}'. Expected one of: {', '.join(available_solvers())}."
+        )
+    return Path(_resolve_bin_path()) / exe_filename(executable)
 
 
 def load_golden_reference(path: Path) -> dict:
@@ -681,7 +663,6 @@ def assert_json_signatures(
 
 
 def assert_required_executables(
-    repo_root: Path = REPO_ROOT,
     *,
     require_modflow: bool = True,
     require_modflow6: bool = False,
@@ -689,44 +670,40 @@ def assert_required_executables(
     require_mt3dms: bool = False,
 ) -> None:
     """
-    Ensure bundled solver executables are available for this platform.
+    Ensure the requested solver executables are available.
 
-    The function *skips* the test (instead of failing) when binaries are
-    missing, because this is an environment issue, not a model-regression
-    issue.
+    Looks under the resolved bin path (``HYDROMODPY_BIN`` or the
+    HydroModPy-managed cache). Skips the test instead of failing when a
+    binary is missing, because that is an environment issue, not a
+    model-regression issue.
     """
-    mf_exe = resolve_bundled_executable("mfnwt", repo_root=repo_root)
-    mf6_exe = resolve_bundled_executable("mf6", repo_root=repo_root)
-    mp_exe = resolve_bundled_executable("mp6", repo_root=repo_root)
-    mt_exe = resolve_bundled_executable("mt3dms", repo_root=repo_root)
-
-    required_paths = []
-    if require_modflow:
-        required_paths.append(("mfnwt", mf_exe))
-    if require_modflow6:
-        required_paths.append(("mf6", mf6_exe))
-    if require_modpath:
-        required_paths.append(("mp6", mp_exe))
-    if require_mt3dms:
-        required_paths.append(("mt3dusgs", mt_exe))
-
-    from hydromodpy.core.tools.cache import get_cache_bin_dir
+    from hydromodpy.core.workspace.workspace import _resolve_bin_path
     from hydromodpy.solver.modflow_common.binaries import locate_solver_binary
 
+    required: list[str] = []
+    if require_modflow:
+        required.append("mfnwt")
+    if require_modflow6:
+        required.append("mf6")
+    if require_modpath:
+        required.append("mp6")
+    if require_mt3dms:
+        required.append("mt3dusgs")
+
+    bin_dir = Path(_resolve_bin_path())
     resolved: list[Path] = []
     missing: list[str] = []
-    cache_dir = get_cache_bin_dir()
-    for solver, path in required_paths:
-        if path.exists():
-            resolved.append(path)
-            continue
-        cached = locate_solver_binary(cache_dir, solver)
-        if cached is not None:
-            resolved.append(cached)
-            continue
-        missing.append(str(path))
+    for solver in required:
+        located = locate_solver_binary(bin_dir, solver)
+        if located is None:
+            missing.append(solver)
+        else:
+            resolved.append(located)
+
     if missing:
-        pytest.skip(f"Required executables are missing: {missing}")
+        pytest.skip(
+            f"Required executables are missing: {missing}. Run `hmp install-binaries` first."
+        )
     for path in resolved:
         ensure_platform_executable(path)
 

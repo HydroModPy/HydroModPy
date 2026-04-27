@@ -128,8 +128,7 @@ def _hantush_drawdown(radius_m: float, elapsed_d: float) -> float:
 def _build_and_run_hantush_model(workspace: Path) -> tuple[list[float], list[float]]:
     import flopy
 
-    repo_root = Path(__file__).resolve().parents[4]
-    mf6_exe = resolve_bundled_executable("mf6", repo_root=repo_root)
+    mf6_exe = resolve_bundled_executable("mf6")
 
     delr = _build_telescoping_axis()
     delc = delr.copy()

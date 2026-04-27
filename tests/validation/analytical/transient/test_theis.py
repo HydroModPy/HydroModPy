@@ -102,8 +102,7 @@ def _build_and_run_theis_model(workspace: Path) -> tuple[list[float], list[float
     """
     import flopy  # local import - heavy dependency
 
-    repo_root = Path(__file__).resolve().parents[4]
-    mf6_exe = resolve_bundled_executable("mf6", repo_root=repo_root)
+    mf6_exe = resolve_bundled_executable("mf6")
 
     delr = _build_telescoping_axis()
     delc = delr.copy()

@@ -67,7 +67,7 @@ class Modpath(Solver):
         # Worflow settings
         model_folder: str = "HydroModPy_outputs",
         model_name: str = "Default_modpath",
-        bin_path: str = os.path.join(os.getcwd(), "bin"),
+        bin_path: str | None = None,
         # Specific settings
         zone_partic: str | None = None,
         track_dir: str | None = None,
@@ -92,8 +92,9 @@ class Modpath(Solver):
             Name of the folder. The default is 'HydroModPy_outputs'.
         model_name : str, optional
             Name of the model. The default is 'Default'.
-        bin_path : str, optional
-            Location folder of the modflow executables. The default is 'bin'.
+        bin_path : str or None, optional
+            Folder that holds the MODFLOW/MODPATH executables. When None,
+            the HydroModPy-managed cache (~/.cache/hydromodpy/bin) is used.
         zone_partic : str, optional
             Path of the raster used to inject particles: where value > 0.
             The default is 'domain', so the particles are injected where the model domain area > 0m.
