@@ -6,8 +6,8 @@ Welcome to HydroModPy
 HydroModPy was initiated in 2018 to streamline the deployment of hydrological
 models in catchments across the crystalline basement regions of Normandy and
 Brittany, France. The platform integrates a wide range of open-source packages
-(FloPy, WhiteBoxTools, etc.), making them easily accessible and shareable among
-scientific communities.
+(FloPy, whitebox-workflows, etc.), making them easily accessible and shareable
+among scientific communities.
 
 The development of HydroModPy was driven by two primary objectives:
 
@@ -60,15 +60,6 @@ Documentation map
 
    .. grid-item-card::
       :class-card: sd-shadow-sm sd-rounded-3 sd-p-4
-      :link: news
-      :link-type: doc
-
-      **News & timeline**
-      ^^^
-      Breaking changes, release notes, and conference highlights.
-
-   .. grid-item-card::
-      :class-card: sd-shadow-sm sd-rounded-3 sd-p-4
       :link: install
       :link-type: doc
 
@@ -113,7 +104,7 @@ Documentation map
 
       **API reference**
       ^^^
-      Browse the package tree exactly as in ``hydromodpy/`` (spatial, modeling,
+      Browse the package tree exactly as in ``hydromodpy/`` (spatial, solver,
       display, pyhelp, and tooling APIs).
 
    .. grid-item-card::
@@ -203,7 +194,6 @@ For any question or collaboration request, contact:
    :titlesonly:
 
    Home <self>
-   news
    install
    getting_started/index
    seven-modes

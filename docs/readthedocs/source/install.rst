@@ -4,10 +4,31 @@ Install
 Requirements
 ------------
 
-- Python 3.11 or newer (HydroModPy v0.3.0 dropped support for older versions; see :doc:`news/v0_3_0`).
+- Python 3.11, 3.12, or 3.13.
 - Git (only needed if you install from the repository).
-- MODFLOW, MODPATH and MT3DMS binaries are included with every installation (PyPI and repository installs).
-- The PyHELP binary downloads itself on the first call to the helper module.
+- MODFLOW, MODPATH, and MT3D-USGS binaries are downloaded on demand by
+  ``flopy.utils.get_modflow`` the first time a solver runs. The cache
+  lives at ``~/.cache/hydromodpy/bin/`` (or the platform equivalent) and
+  the location can be overridden with the ``HYDROMODPY_BIN`` environment
+  variable. The same set of binaries can be fetched eagerly with
+  ``hmp install-binaries``.
+- The PyHELP binary also downloads itself on the first call to the
+  helper module.
+
+Solver binaries
+~~~~~~~~~~~~~~~
+
+The lazy download keeps the installed package small and avoids shipping
+platform-specific executables in the wheel. Once a binary is in the
+cache it is never auto-refreshed, so a run started today produces the
+same result a year from now. Use the explicit command if you need to
+control when binaries arrive on disk:
+
+.. code-block:: bash
+
+   hmp install-binaries                # fetch everything now
+   hmp install-binaries --bindir <dir>  # fetch into a custom directory
+   hmp install-binaries --upgrade       # force re-download (rare)
 
 Install with pip
 ----------------

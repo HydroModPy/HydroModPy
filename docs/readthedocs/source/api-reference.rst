@@ -12,12 +12,13 @@ Module overview
   :class:`~hydromodpy.core.workspace.config.WorkspaceConfig`,
   :class:`~hydromodpy.spatial.geographic.geographic_config.GeographicConfig`)
   with validated fields, type constraints, and cross-field rules.
-- :doc:`hydromodpy.spatial.geographic <api/hydromodpy-geographic>` - catchment delineation,
-  DEM-derived supports, geographic runtime payloads, and the compatibility
-  ``Geographic`` facade used by existing orchestration code.
+- :doc:`hydromodpy.spatial.geographic <api/hydromodpy-geographic>` - catchment
+  delineation, DEM-derived supports, and the geographic runtime payloads
+  consumed by the simulation pipeline.
 - :doc:`numerical engines and postprocess <api/hydromodpy-modeling>` - solver
-  engines, transport helpers, and post-processing utilities grouped under the
-  compatibility surface exposed by :mod:`hydromodpy.modeling`.
+  engines (MODFLOW-NWT, MODFLOW 6, Boussinesq), transport helpers, and the
+  postprocess surfaces under :mod:`hydromodpy.solver` and
+  :mod:`hydromodpy.results`.
 - :doc:`hydromodpy.display <api/hydromodpy-display>` - figure catalog, rendering
   contracts, and solver-agnostic display entry points.
 - :doc:`hydromodpy.physics.hydrology.pyhelp <api/hydromodpy-pyhelp>` - coupling layer with the HELP
@@ -30,11 +31,10 @@ Module overview
 Key entry points
 ----------------
 
-- :class:`hydromodpy.core.config.HydroModPyConfig` - top-level Pydantic config loaded
-  from a TOML file.
-- :class:`hydromodpy.spatial.geographic.Geographic` - geographic compatibility
-  facade that exposes the watershed-preprocessing outputs consumed by existing
-  runtimes.
+- :class:`hydromodpy.core.config.HydroModPyConfig` - top-level Pydantic config
+  loaded from a TOML file.
+- :class:`hydromodpy.spatial.geographic.CatchmentDelineation` - catchment
+  delineation runtime, exposed by the geographic preprocessing pipeline.
 
 Detailed documentation
 ----------------------
@@ -48,5 +48,3 @@ Detailed documentation
    api/hydromodpy-display
    api/hydromodpy-pyhelp
    api/hydromodpy-tools
-
-

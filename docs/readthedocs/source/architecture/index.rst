@@ -56,7 +56,6 @@ Repository folders outside the package:
 .. code-block:: text
 
    HydroModPy/
-   |-- bin/                   Bundled MODFLOW, MODPATH, MT3DMS binaries
    |-- docs/readthedocs/      Sphinx documentation source (this site)
    |-- examples/              Runnable example projects (TOML + Python)
    |-- hydromodpy/            Python package (see layout above)
@@ -66,6 +65,12 @@ Repository folders outside the package:
    |-- tests/                 Unit, regression, and validation tiers
    |-- tools/                 Doc gallery, PlantUML setup, CI helpers
    `-- validation_cases/      Analytical and numerical reference cases
+
+MODFLOW, MODPATH, and MT3D-USGS binaries are no longer shipped with the
+repository. They are downloaded on first use into a managed cache
+(``~/.cache/hydromodpy/bin/`` by default) by
+``hydromodpy.solver.modflow_common.binaries``. See :doc:`../install`
+for the ``hmp install-binaries`` command.
 
 The dependency direction is one-way: ``hydromodpy_annex`` and tooling
 under ``tools/`` may import the core package, but the package itself

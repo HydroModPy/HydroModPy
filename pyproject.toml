@@ -125,9 +125,9 @@ hmp = "hydromodpy._cli:main"
 hydromodpy = "hydromodpy._cli:main"
 
 [project.entry-points."hydromodpy.solver"]
-flow_modflownwt = "hydromodpy.simulation.adapters.flow.modflownwt:ModflowNwtFlowAdapter"
-flow_modflow6 = "hydromodpy.simulation.adapters.flow.modflow6:Modflow6FlowAdapter"
-flow_boussinesq = "hydromodpy.simulation.adapters.flow.boussinesq:BoussinesqFlowAdapter"
+flow_modflownwt = "hydromodpy.solver.modflow_nwt.adapters.flow:ModflowNwtFlowAdapter"
+flow_modflow6 = "hydromodpy.solver.modflow6.adapters.flow:Modflow6FlowAdapter"
+flow_boussinesq = "hydromodpy.solver.boussinesq.adapters.flow:BoussinesqFlowAdapter"
 
 [project.urls]
 Homepage = "https://hydromodpy-docs.readthedocs.io/en/latest/"
@@ -143,7 +143,7 @@ include-package-data = true
 include = ["hydromodpy*"]
 
 [tool.setuptools.package-data]
-hydromodpy = ["../bin/**/*", "py.typed"]
+hydromodpy = ["py.typed"]
 "hydromodpy.physics.hydrology.pyhelp" = ["*.FOR"]
 "hydromodpy.data.common.administrative" = ["*.gpkg"]
 
