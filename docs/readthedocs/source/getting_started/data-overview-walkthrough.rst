@@ -20,28 +20,30 @@ What this workflow teaches
 Run it
 ------
 
-Canonical launcher command:
+The TOML declares ``workflow = "overview"`` so the same ``hmp run`` entry
+point dispatches to the data-only pipeline:
 
 .. code-block:: bash
 
-   python -m launchers data-overview run examples/projects/data_overview/project.toml
+   hmp run examples/projects/04_data_overview/project.toml
 
-Repository wrapper script:
+A second variant uses the Nançon catchment with two configs (full
+overview and a hydrography-only slice):
 
 .. code-block:: bash
 
-   python examples/projects/data_overview/run_data_overview.py
+   hmp run examples/projects/05_nancon_data_overview/config_overview.toml
+   hmp run examples/projects/05_nancon_data_overview/config_hydrography_only.toml
 
 How the files relate
 --------------------
 
-- ``examples/projects/data_overview/run_data_overview.py`` is only a thin
-  wrapper around the launcher CLI.
-- ``examples/projects/data_overview/project.toml`` is the actual case
-  definition.
+- ``examples/projects/04_data_overview/project.toml`` is the case
+  definition. It declares ``workflow = "overview"`` at the top level, so
+  ``hmp run`` dispatches to the data-only pipeline (no solver, no mesh).
 - The gallery page
-  :doc:`../capability_gallery/cases/geographic_watershed_overview` republishes
-  stable figures generated from this workflow.
+  :doc:`../capability_gallery/cases/geographic_watershed_overview`
+  republishes stable figures generated from this workflow.
 - The focused hydrography page
   :doc:`../capability_gallery/cases/geographic_bdtopage_hydrography_overlay`
   republishes the minimal `BD Topage only` variant when you want to inspect the

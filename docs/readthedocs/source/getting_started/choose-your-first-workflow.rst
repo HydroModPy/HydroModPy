@@ -24,15 +24,15 @@ Match your goal to a first page
    * - Inspect one basin before any solve
      - :doc:`data-overview-walkthrough`
      - You only work with watershed extraction, domain setup, and data loading.
-     - ``python -m launchers data-overview run examples/projects/data_overview/project.toml``
+     - ``hmp run examples/projects/04_data_overview/project.toml``
    * - Run one complete example end to end
      - :doc:`simulation-walkthrough`
-     - You see how geographic setup, meshing, flow, transport, and display fit together.
-     - ``python -m hydromodpy run examples/projects/launcher_simulation/run_fast_mf6_mesh_catchment.toml``
+     - You see how geographic setup, meshing, and flow fit together.
+     - ``hmp run examples/projects/06_vire_selune/run_vire_mf6_irregular.toml``
    * - Compare two numerical methods on the same support
      - :doc:`reading-results-pages`
      - You need to read solver-to-solver discrepancies without confusing them with validation.
-     - ``python -m launchers method-comparison run examples/projects/launcher_simulation/run_method_comparison_example12_map_existing.toml``
+     - ``hmp compare <sim_a> <sim_b>``
    * - Check numerical credibility against a reference
      - :doc:`reading-results-pages`
      - Validation pages explain analytical targets, solver coverage, and tolerance-based metrics.

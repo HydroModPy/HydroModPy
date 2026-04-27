@@ -26,7 +26,7 @@ Run it
 
 .. code-block:: bash
 
-   python -m hydromodpy run examples/projects/launcher_simulation/run_fast_mf6_mesh_catchment.toml
+   hmp run examples/projects/06_vire_selune/run_vire_mf6_irregular.toml
 
 The matching static gallery page is
 :doc:`../capability_gallery/cases/modflow6_gmsh_mesh_catchment`.
@@ -34,12 +34,16 @@ The matching static gallery page is
 How the files relate
 --------------------
 
-- ``run_fast_mf6_mesh_catchment.toml`` contains the fast-run overlay:
-  solver list, timeline, forcing, and a few physics overrides.
-- ``config_mf6_mesh_catchment_common.toml`` contains the shared geographic,
-  meshing, property-transfer, display, and postprocess setup.
-- The ``[capability_gallery]`` block selects which generated figures are copied
-  into the versioned documentation assets.
+- ``examples/projects/06_vire_selune/run_vire_mf6_irregular.toml``
+  contains the run overlay: solver list, timeline, mesh-catchment
+  refinement policy, and a few physics overrides.
+- ``examples/projects/06_vire_selune/project_simulation.toml`` contains
+  the shared geographic, domain, depth-model, data, and base flow
+  setup. The run overlay inherits from it through ``base_config``.
+- The ``[mesh_catchment]`` and ``[mesh_catchment.zone_meshing]`` blocks
+  in the run overlay drive the Gmsh-backed irregular mesh. Switch to
+  ``run_vire_mf6_regular.toml`` for a structured grid baseline on the
+  same project.
 
 Read the config in this order
 -----------------------------
@@ -52,11 +56,14 @@ Read the config in this order
    this is the first forcing block to read for this case.
 4. ``[flow.param.*]``:
    start with ``K`` and ``Sy`` before touching more specialized options.
-5. ``[mesh_catchment]`` and ``[mesh_catchment.zone_meshing]`` in the common
-   config:
+5. ``[mesh_catchment]`` and ``[mesh_catchment.zone_meshing]`` in the run
+   overlay:
    these explain the support actually consumed by the solver.
-6. ``[display]`` and ``[postprocess]``:
-   these tell you which synthesis figures and exports should exist after the run.
+6. ``[display]``:
+   this tells you which synthesis figures should exist after the run.
+7. ``[flow.bc.cauchy.drainage]`` and ``[flow.sinks_sources.recharge]``:
+   these are the active boundary conditions and the recharge forcing
+   wired into the run.
 
 Map config sections to the displayed figures
 --------------------------------------------
@@ -75,7 +82,7 @@ Map config sections to the displayed figures
      - ``[flow.ic]``, ``[flow.param.K]``, ``[flow.param.Sy]``, ``[modflow6.sgrid.vertical]``
      - How topography, head, and water-table depth react together on the same support
    * - Cumulative recharge/discharge
-     - ``[simulation.time]``, ``[data.recharge.sources]``, ``[flow.active_bc]``
+     - ``[simulation.time]``, ``[data.recharge.sources]``, ``[flow.sinks_sources.recharge]``, ``[flow.bc.cauchy.drainage]``
      - Whether the forcing chronology and discharge response are coherent over the selected time window
 
 Parameters to look at first
