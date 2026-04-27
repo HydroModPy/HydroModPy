@@ -89,7 +89,7 @@ class Modflow6(Solver):
         modflow_config: Modflow6Config | Mapping[str, object] | None = None,
         model_folder: str = "HydroModPy_outputs",
         model_name: str = "Default",
-        bin_path: str = "bin",
+        bin_path: str | None = None,
         preprocess_options: ModflowPreprocessOptions | None = None,
     ):
         self.model_folder = model_folder
@@ -119,14 +119,7 @@ class Modflow6(Solver):
         elif not exe_name or exe_name in ("mf6", "mf6.exe"):
             self.exe = str(ensure_solver_binary("mf6", bin_path))
         else:
-            platform_dir = (
-                "win"
-                if os.name == "nt"
-                else ("mac" if os.uname().sysname.lower() == "darwin" else "linux")
-            )
-            self.exe = str(
-                ensure_platform_executable(os.path.join(bin_path, platform_dir, exe_name))
-            )
+            self.exe = str(ensure_platform_executable(os.path.join(bin_path, exe_name)))
 
         self.resolution = geographic.dem_res
         self.xul = geographic.xmin
@@ -2688,7 +2681,7 @@ class Modflow6Transport:
         model_folder: str = "HydroModPy_outputs",
         model_name: str = "Default_modflow6",
         suffix_name: str = "_gwt",
-        bin_path: str = "bin",
+        bin_path: str | None = None,
         **kwargs,
     ):
         self.domain = domain

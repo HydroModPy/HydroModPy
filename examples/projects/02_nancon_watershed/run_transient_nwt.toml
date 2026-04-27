@@ -1,46 +1,61 @@
 # ======================================================================
-# Nançon - run transitoire MODFLOW-NWT
+# Nançon - transient run with MODFLOW-NWT
 # ----------------------------------------------------------------------
-# Overlay qui hérite de `project.toml` (via base_config) puis écrase
-# uniquement les valeurs calibrables et l'orchestration propre à ce run.
+# Overlay TOML. Inherits the full project.toml (data, geographic, flow
+# defaults) and only redefines the orchestration block plus the
+# parameter values used for this single run.
 #
-# Lancement :
-#   uv run hmp run examples/02_nancon_watershed/run_transient_nwt.toml
+# Launch:
+#   hmp run examples/projects/02_nancon_watershed/run_transient_nwt.toml
 # ======================================================================
+
+
+# ---- Orchestration ---------------------------------------------------
+# `base_config` enables overlay mode: anything you do not redefine here
+# is taken from project.toml. Relative paths are resolved from this
+# file's location.
 base_config = "project.toml"
 
-# --- Orchestration ---------------------------------------------------
-
+# `simulation` is the standard "compute one MODFLOW run" workflow.
+# We keep it explicit so anybody reading the file knows the dispatcher.
 workflow = "simulation"
 
+
 [simulation]
+# Run name. Used as the catalog entry and as the figure subfolder.
 name = "nancon_transient_nwt"
-description = "Bassin du Nançon - transitoire mensuel, MODFLOW-NWT."
+description = "Nançon - monthly transient run with MODFLOW-NWT."
 
 [simulation.time]
+# Three-year simulation window. Same as the data coverage.
 start_datetime = "2000-01-01"
 end_datetime = "2002-12-31"
+# Monthly stress periods; matches the recharge sampling.
 step_value = "1 month"
-coverage_policy = "warn"
 
+# One groundwater-flow process, solved by MODFLOW-NWT.
 [[simulation.process]]
 id = "flow_main"
 type = "flow"
 solvers = ["modflownwt"]
 
-# --- Paramètres calibrables ------------------------------------------
+
+# ---- Calibratable parameters ----------------------------------------
+# These values override the baseline from project.toml. Keep them in
+# sync with the homogeneous-field schema (one block per parameter).
 
 [domain.depth_model]
+# Aquifer thickness. 30 m matches the project default.
 thickness = 30.0
 
 [flow.param.K.field_homogeneous]
+# Hydraulic conductivity in m/s. Baseline value for the Nançon basin.
 value = 5e-5
 
 [flow.param.Sy.field_homogeneous]
+# Specific yield (dimensionless).
 value = 0.05
 
 [flow.param.Ss.field_homogeneous]
+# Specific storage in 1/m.
 value = 1e-5
-
-[flow.sinks_sources.recharge]
-first_clim = "first"

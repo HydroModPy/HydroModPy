@@ -20,13 +20,30 @@ def _scaffold(workspace_dir: Path, project: str = "demo") -> Path:
     return project_dir
 
 
-def test_workspace_bin_path_resolves_repo_bin(tmp_path) -> None:
+def test_workspace_bin_path_defaults_to_managed_cache(tmp_path, monkeypatch) -> None:
+    """Without HYDROMODPY_BIN, bin_path resolves to the managed cache."""
+    monkeypatch.delenv("HYDROMODPY_BIN", raising=False)
+
+    from hydromodpy.core.tools.cache import get_cache_bin_dir
+
     project = _scaffold(tmp_path / "ws")
     cfg = WorkspaceConfig(project_root=project)
     workspace = Workspace(config=cfg)
 
-    expected = (Path(__file__).resolve().parents[3] / "bin").resolve()
-    assert Path(workspace.bin_path).resolve() == expected
+    assert Path(workspace.bin_path).resolve() == get_cache_bin_dir().resolve()
+
+
+def test_workspace_bin_path_honours_env_override(tmp_path, monkeypatch) -> None:
+    """HYDROMODPY_BIN overrides the cache when set."""
+    custom_bin = tmp_path / "custom_bin"
+    custom_bin.mkdir()
+    monkeypatch.setenv("HYDROMODPY_BIN", str(custom_bin))
+
+    project = _scaffold(tmp_path / "ws")
+    cfg = WorkspaceConfig(project_root=project)
+    workspace = Workspace(config=cfg)
+
+    assert Path(workspace.bin_path).resolve() == custom_bin.resolve()
 
 
 def test_workspace_exposes_canonical_path_registry(tmp_path) -> None:

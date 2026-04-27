@@ -91,8 +91,7 @@ def _build_and_run_ogata_banks_model(
     """
     import flopy
 
-    repo_root = Path(__file__).resolve().parents[4]
-    mf6_exe = resolve_bundled_executable("mf6", repo_root=repo_root)
+    mf6_exe = resolve_bundled_executable("mf6")
 
     # Aquifer geometry - unit cross-section, uniform cells.
     aquifer_top = 1.0
