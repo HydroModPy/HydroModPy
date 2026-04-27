@@ -43,8 +43,10 @@ source_mode = "standard"
 # accumulation; the outlet is snapped to the nearest stream cell.
 catch_def = "from_outlet_coord"
 
-# Regional DEM used for flow analysis (relative to the project root).
-dem_init_path = "../../data/dem/DEM_armorican_massif.tif"
+# Regional DEM used for flow analysis. The bare filename is
+# auto-resolved against `<workspace>/data/dem/` (convention over
+# configuration); absolute or `../`-paths are accepted too.
+dem_init_path = "DEM_armorican_massif.tif"
 
 # Outlet coordinates of the Nançon gauging station, in EPSG:2154.
 x_outlet = 389285.91
@@ -105,13 +107,23 @@ project_crs = "EPSG:2154"
 #   hydrography  : reference stream network (only used for figures)
 #   hydrometry   : observed discharge (used for calibration / plots)
 #   recharge     : drainage forcing on the aquifer top
-types = ["dem", "geology", "hydrography", "hydrometry", "recharge"]
+#   runoff       : surface-runoff forcing added to the simulated DRN
+#                  baseflow before comparing against streamflow obs.
+#   etp          : potential evapotranspiration. Loaded as input data
+#                  (catalog + figures); not yet wired to a flow EVT
+#                  package, so it does not feed back into the solver
+#                  budget. Available for future calibration of an
+#                  evapotranspiration sink.
+types = ["dem", "geology", "hydrography", "hydrometry", "recharge", "runoff", "etp"]
 
 
-# DEM source. `custom` points to the same file as [geographic].
+# DEM source. `custom` points to the same file as [geographic]. The
+# bare filename below is auto-resolved against `<workspace>/data/dem/`,
+# i.e. `examples/data/dem/` for this project. Absolute or
+# `../`-prefixed paths still work and override the lookup.
 [[data.dem.sources]]
 source = "custom"
-path = "../../data/dem/DEM_armorican_massif.tif"
+path = "DEM_armorican_massif.tif"
 
 
 # Geology source. BRGM 1:1M is the national French geological map.
@@ -134,7 +146,8 @@ date_end = "2002-12-31"
 
 [[data.hydrometry.sources]]
 source = "custom"
-path = "../../data/hydrometry"
+# Bare folder name resolved under `<workspace>/data/hydrometry`.
+path = "hydrometry"
 # `extent = "watershed"` filters stations with the catchment polygon.
 extent = "watershed"
 station_ids = []
@@ -147,9 +160,39 @@ date_end = "2002-12-31"
 
 [[data.recharge.sources]]
 source = "custom"
-path = "../../data/recharge"
+# Bare folder name resolved under `<workspace>/data/recharge`.
+path = "recharge"
 # `EX04` is the Nançon-area sample station shipped with the examples.
 station_ids = ["EX04"]
+
+
+# Runoff time-series. Read by the catalog aggregation and the
+# calibration metric to add the surface component to the simulated
+# DRN baseflow (`discharge = DRN + runoff`). Skipping this block emits
+# a runtime warning and falls back to baseflow-only comparison.
+[data.runoff]
+date_start = "2000-01-01"
+date_end = "2002-12-31"
+
+[[data.runoff.sources]]
+source = "custom"
+# Bare folder name resolved under `<workspace>/data/runoff`.
+path = "runoff"
+station_ids = ["EX04"]
+
+
+# ETP time-series (potential evapotranspiration). Read from the
+# example SIM2 NetCDF shipped with the repo so the runs stay offline.
+# Consumed by the catalog AND fed into the MODFLOW-NWT EVT package
+# (legacy behaviour) when 'etp' is listed in flow.active_sinks_sources.
+[data.etp]
+date_start = "2000-01-01"
+date_end = "2002-12-31"
+
+[[data.etp.sources]]
+source = "custom"
+# Bare filename resolved under `<workspace>/data/etp/`.
+path = "etp_sim2_5347fa22_20000101_20251231.nc"
 
 
 # ----------------------------------------------------------------------
@@ -162,8 +205,10 @@ station_ids = ["EX04"]
 # the base TOML keeps a sensible default.
 param_list = ["K", "Sy", "Ss"]
 
-# Diffuse recharge applied at the top of the aquifer.
-active_sinks_sources = ["recharge"]
+# Diffuse recharge applied at the top of the aquifer; ETP applied
+# as an EVT package (legacy behaviour, restored under the new
+# typed-config pipeline). Drop "etp" here to disable EVT entirely.
+active_sinks_sources = ["recharge", "etp"]
 
 # `drainage` lets water leave the aquifer when the watertable reaches
 # the surface (Cauchy boundary on the top face).
