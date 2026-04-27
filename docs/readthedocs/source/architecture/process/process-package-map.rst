@@ -52,7 +52,7 @@ When the question is "what is the shared contract behind process objects?":
 Flow process
 ^^^^^^^^^^^^
 
-When the question is "what does the launcher materialize before a flow solve?":
+When the question is "what does the project materialize before a flow solve?":
 
 1. ``hydromodpy/process/flow/__init__.py``
 2. ``hydromodpy/process/flow/flow.py``
@@ -80,10 +80,10 @@ Runtime role in the full stack
 
 The process layer is intentionally between two other layers:
 
-- launchers and the simulation runner materialize and carry ``Flow`` and
-  ``Transport`` objects,
-- solver adapters read those process objects and translate them into concrete
-  backend calls.
+- the project facade and the simulation runner materialize and carry
+  ``Flow`` and ``Transport`` objects,
+- solver adapters read those process objects and translate them into
+  concrete backend calls.
 
 In other words:
 

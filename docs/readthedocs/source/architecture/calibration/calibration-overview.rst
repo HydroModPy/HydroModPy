@@ -8,52 +8,54 @@ This page is the code-oriented entry point for the calibration stack.
 
 It is useful when you want to answer:
 
-- which package owns launcher orchestration versus generic calibration logic,
-- where prepared runtime support comes from before optimization starts,
+- which package owns the calibration entry point versus the generic
+  calibration logic,
+- where prepared runtime support comes from before optimization
+  starts,
 - where runnable cases stop and reusable calibration-core code starts.
 
 Architecture map
 ----------------
 
-The current calibration stack is split into five layers:
+The current calibration stack is split into four layers:
 
-- ``launchers/model_calibration`` owns launcher-facing orchestration:
-  validation, candidate actualization, reruns, manifests, reports, and output
-  selection.
-- ``launchers/process_simulation/model_calibration_support.py`` exposes the
-  public bridge from a prepared simulation runtime to reusable hydraulic
-  support.
-- ``hydromodpy/simulation/model_calibration_support.py`` owns the shared
-  support contract used between prepared simulation state and calibration
-  runtime helpers.
-- ``hydromodpy/analysis/calibration/core`` owns the reusable calibration
-  engine, parameter sets, objective handling, method dispatch, and canonical
-  results.
-- ``hydromodpy/analysis/calibration/cases`` and ``devkit`` own runnable
-  scientific cases plus scaffolding and maintenance helpers for new cases.
+- ``hydromodpy/calibration/cli.py`` owns the ``hmp run
+  <calibration.toml>`` workflow entry point. It validates the config,
+  builds the engine, runs the optimizer, and writes the report.
+- ``hydromodpy/simulation/execution/trial.py`` owns the prepare-once,
+  evaluate-many primitive used by every trial inside the ask/tell loop.
+- ``hydromodpy/calibration/`` (engine, parameters, objective,
+  optimizer, diagnostics, persistence) owns the reusable calibration
+  engine, parameter sets, objective handling, method dispatch, and
+  canonical results.
+- ``hydromodpy/calibration/cases/`` owns runnable scientific cases that
+  exercise the full calibration loop end to end.
 
 Recommended reading path
 ------------------------
 
-When reading the code from the published docs, the shortest useful path is:
+When reading the code from the published docs, the shortest useful
+path is:
 
-1. ``launchers/model_calibration/launcher.py``
-2. ``launchers/model_calibration/runtime.py``
-3. ``hydromodpy/simulation/model_calibration_support.py``
-4. ``hydromodpy/analysis/calibration/core/``
-5. one package under ``hydromodpy/analysis/calibration/cases/``
+1. ``hydromodpy/_cli/commands/run.py`` (workflow = "calibration"
+   dispatch)
+2. ``hydromodpy/calibration/cli.py``
+3. ``hydromodpy/calibration/engine.py``
+4. ``hydromodpy/simulation/execution/trial.py``
+5. one case under ``hydromodpy/calibration/cases/``
 
 Related code-oriented docs
 --------------------------
 
-Several useful prose documents already exist in the repository even though
-they were not previously surfaced from the architecture section:
+Several useful prose documents already exist in the repository even
+though they were not previously surfaced from the architecture
+section:
 
-- ``hydromodpy/analysis/calibration/README.md`` for the package map,
-- ``hydromodpy/analysis/calibration/docs/case_cookbook.md`` for case authoring,
-- ``hydromodpy/analysis/calibration/docs/config_reference.md`` for config
-  conventions,
-- case-local ``README.md`` files under ``cases/`` for runnable examples.
+- ``hydromodpy/calibration/README.md`` for the package map,
+- ``docs/developers/calibration_guide.md`` for the end-to-end user
+  guide,
+- case-local docstrings under ``hydromodpy/calibration/cases/`` for
+  runnable examples.
 
 See also
 --------

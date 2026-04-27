@@ -71,7 +71,7 @@ force noisy import churn across:
 - user scripts,
 - notebooks,
 - generated examples,
-- launcher code,
+- project facade and CLI code,
 - transitional internal packages.
 
 Facade modules localize that churn. Implementation packages can move

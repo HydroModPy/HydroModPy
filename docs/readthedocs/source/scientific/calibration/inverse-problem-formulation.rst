@@ -75,7 +75,7 @@ observable blocks from it, for example:
 - heads at a monitoring location,
 - outlet discharge,
 - seepage along a support,
-- or any other block selected by the launcher workflow.
+- or any other block selected by the calibration TOML.
 
 Each block gets its own metric and weight before everything is merged into one
 final scalar objective.
@@ -124,7 +124,7 @@ Two practical reminders are worth keeping in mind:
 Combining Several Observation Blocks
 ------------------------------------
 
-In the launcher-based calibration path, HydroModPy can combine several
+In the calibration workflow, HydroModPy can combine several
 observation blocks into one weighted objective:
 
 .. math::

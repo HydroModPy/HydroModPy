@@ -1,7 +1,7 @@
 @startuml
 title Boussinesq Solver - Process To Backend Sequence
 
-actor Launcher
+actor Project
 participant Flow
 participant "Boussinesq" as Solver
 participant "BoussinesqSolverContract" as Contract
@@ -10,7 +10,7 @@ participant "Resolved Backend" as Backend
 participant "assembly.py" as Assembly
 participant "BoussinesqState" as State
 
-Launcher -> Solver : processing(run_model=True)
+Project -> Solver : processing(run_model=True)
 Solver -> Solver : _build_initial_state()
 Solver -> Contract : _resolve_solver_contract(flow)
 Contract -> Selection : resolve_runtime_backend(...)

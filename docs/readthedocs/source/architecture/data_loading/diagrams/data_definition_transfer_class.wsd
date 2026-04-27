@@ -1,19 +1,20 @@
 @startuml
 title Data Definition And Transfer - Class Diagram
 
-package "launchers" {
-  class HydroModPyLauncher {
+package "hydromodpy" {
+  class Project {
     +cfg: HydroModPyConfig
     +data_plan: DataLoadPlan
-    +run_state: LauncherRunState
-    +_run_setup()
-    +_run_data()
+    +run_state: ProjectRunState
+    +setup_workspace()
+    +build_geographic()
+    +load_data()
     +_apply_structural_updates_from_data()
   }
 }
 
 package "hydromodpy.core.state" {
-  class LauncherRunState {
+  class ProjectRunState {
     +raw_toml: dict
     +data_plan: DataLoadPlan
     +setup: SetupContext
@@ -78,18 +79,18 @@ package "hydromodpy.physics.flow" {
   }
 }
 
-HydroModPyLauncher --> DataManagersPlanner : build(...)
+Project --> DataManagersPlanner : build(...)
 DataManagersPlanner ..> DataLoadPlan : returns
-HydroModPyLauncher --> LauncherRunState : stores raw_toml\nand data_plan
-HydroModPyLauncher --> DataManagersRuntimeLoader : load_all(run_state)
-DataManagersRuntimeLoader --> LauncherRunState : fills loaded_data
+Project --> ProjectRunState : stores raw_toml\nand data_plan
+Project --> DataManagersRuntimeLoader : load_all(run_state)
+DataManagersRuntimeLoader --> ProjectRunState : fills loaded_data
 
 DataManagersRuntimeLoader ..> GeologyField : builds if geology active
 DataManagersRuntimeLoader ..> StationSet : builds if hydrometry active
 
-HydroModPyLauncher --> DomainBinders : apply_geology_to_domain(...)
+Project --> DomainBinders : apply_geology_to_domain(...)
 DomainBinders --> Domain : set_zone("geology", geology)
-HydroModPyLauncher --> FlowBinders : apply_oceanic/climatic(...)
+Project --> FlowBinders : apply_oceanic/climatic(...)
 
-LauncherRunState ..> DataLoadPlan : resolved activation trace
+ProjectRunState ..> DataLoadPlan : resolved activation trace
 @enduml

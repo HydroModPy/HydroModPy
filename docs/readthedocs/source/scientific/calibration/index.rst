@@ -11,12 +11,11 @@ It complements the architecture pages by answering different questions:
 - how to interpret a best-fit result versus a distribution of models.
 
 The scope here is the calibration stack implemented in
-``hydromodpy.analysis.calibration.core`` and reused by the launcher-based
-workflow in ``launchers/model_calibration``.
+``hydromodpy.calibration``, exposed through the ``hmp run
+<calibration.toml>`` CLI workflow.
 
 .. toctree::
    :maxdepth: 2
 
    inverse-problem-formulation
    calibration-methods
-

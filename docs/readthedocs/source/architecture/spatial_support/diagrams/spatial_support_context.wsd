@@ -3,7 +3,7 @@ title Spatial Support - Context Diagram
 
 component "DomainConfig\nzone_ids, supports" as DomainConfig
 component "DomainSupportConfig\nprovider-specific declarations" as SupportConfig
-component "HydroModPyLauncher" as Launcher
+component "Project" as Project
 component "DataManagersPlanner" as Planner
 component "DataManagersRuntimeLoader" as Loader
 component "Structure binders\napply_catchment_zones_to_domain\napply_geology_to_domain" as Binders
@@ -17,12 +17,12 @@ component "resolve_flow_property_arrays" as PropertyMapping
 component "Solver property arrays\nhk / sy / ss" as SolverArrays
 
 DomainConfig --> SupportConfig : declares named supports
-Launcher --> Planner : infer required data types
+Project --> Planner : infer required data types
 Planner --> Loader : geology when required
-Launcher --> Domain : build runtime domain
-Launcher --> Binders : attach domain-side zone sources
+Project --> Domain : build runtime domain
+Project --> Binders : attach domain-side zone sources
 Binders --> Domain : set_zone(...)
-Launcher --> Registry : resolve providers
+Project --> Registry : resolve providers
 Registry --> Providers : get(provider_name)
 Providers --> Field : build support objects\ncompatible with Field
 Providers --> Domain : register supports as zones

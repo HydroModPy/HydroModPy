@@ -10,10 +10,13 @@ consumed.
 
 It focuses on:
 
-- data-type inference and normalization (`DataManagersPlanner` -> `DataLoadPlan`),
-- transfer of resolved data types into the launcher config and runtime state,
-- setup-time transfer for geology (`GeologyField` -> `Domain.set_zone`),
-- data-phase transfer for hydrometry (`StationSet` -> `LauncherRunState.loaded_data.hydrometry`).
+- data-type inference and normalization (`DataManagersPlanner` ->
+  `DataLoadPlan`),
+- transfer of resolved data types into the project runtime state,
+- setup-time transfer for geology (`GeologyField` ->
+  `Domain.set_zone`),
+- data-phase transfer for hydrometry (`StationSet` ->
+  `Project.loaded_data.hydrometry`).
 
 Code map
 --------
@@ -21,10 +24,10 @@ Code map
 - ``hydromodpy/data/planner.py`` and ``plan.py``:
   activation inference and immutable plan creation.
 - ``hydromodpy/data/runtime_loader.py``:
-  data-family dispatch during launcher execution.
+  data-family dispatch during ``Project.load_data()``.
 - ``hydromodpy/data/data_managers.py``:
   loaded-data container published to runtime state.
-- ``launchers/process_simulation/launcher.py``:
+- ``hydromodpy/project.py``:
   setup and data phases where transfers are triggered.
 
 Recommended reading path
@@ -33,7 +36,7 @@ Recommended reading path
 1. ``hydromodpy/data/data_managers_config.py``
 2. ``hydromodpy/data/planner.py``
 3. ``hydromodpy/data/runtime_loader.py``
-4. ``launchers/process_simulation/launcher.py``
+4. ``hydromodpy/project.py``
 
 Diagram source
 --------------
@@ -51,7 +54,8 @@ Notes
 - `_run_setup`, `DataManagersRuntimeLoader`, and binders define **where**
   corresponding objects are stored.
 - Geology is transferred into `Domain` as a zone used by process solvers.
-- Hydrometry is transferred into launcher loaded-data state for diagnostics and downstream use.
+- Hydrometry is transferred into the ``Project`` loaded-data state for
+  diagnostics and downstream use.
 
 Related diagrams
 ----------------

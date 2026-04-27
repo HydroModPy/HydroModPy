@@ -4,8 +4,8 @@ MODFLOW-NWT Architecture
 Scope
 -----
 
-This page documents the software architecture of the ``modflownwt`` flow
-backend as it is used from the launcher and simulation layers.
+This page documents the software architecture of the ``modflownwt``
+flow backend as it is used from the project and simulation layers.
 
 Architecture role
 -----------------
@@ -24,7 +24,7 @@ Code path
 
 The shortest code-reading path for one ``flow/modflownwt`` run is:
 
-1. ``launchers/process_simulation/launcher.py``
+1. ``hydromodpy/project.py``
 2. ``hydromodpy/simulation/planning/planner.py``
 3. ``hydromodpy/simulation/execution/runner.py``
 4. ``hydromodpy/solver/modflow_nwt/adapters/flow.py``

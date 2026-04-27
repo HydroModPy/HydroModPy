@@ -11,9 +11,10 @@ loading. It answers three questions before solver work begins:
 - which manager loads each family,
 - which external providers or local inputs those managers depend on.
 
-This architecture is intentionally centralized under ``hydromodpy.data`` so the
-launcher does not need to duplicate activation rules or provider-specific
-loading logic.
+This architecture is intentionally centralized under
+``hydromodpy.data`` so the project facade and the simulation runner do
+not need to duplicate activation rules or provider-specific loading
+logic.
 
 Code map
 --------
@@ -25,7 +26,8 @@ Code map
 - ``hydromodpy/data/runtime_loader.py``:
   runtime dispatch from activated data types to concrete managers.
 - ``hydromodpy/data/data_managers.py``:
-  lightweight loaded-data container consumed by launchers and binders.
+  lightweight loaded-data container consumed by the project facade and
+  the structure binders.
 - ``hydromodpy/data/variables/*``:
   provider-specific packages that own typed config, manager logic, and IO.
 
@@ -51,8 +53,9 @@ The root files under ``hydromodpy/data/`` split responsibilities as follows:
 - ``data_managers.py`` exposes the lightweight runtime container consumed by
   orchestration layers.
 
-This means the launcher can stay focused on execution order while the data layer
-owns activation, validation, and loading dispatch.
+This means the project facade can stay focused on execution order
+while the data layer owns activation, validation, and loading
+dispatch.
 
 Activation And Inference
 ------------------------
