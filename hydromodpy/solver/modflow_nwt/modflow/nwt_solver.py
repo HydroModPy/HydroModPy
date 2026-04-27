@@ -92,6 +92,25 @@ _SOLVING_RE = _re.compile(
 )
 
 
+def _scale_rate_payload(payload: object, factor: float) -> object:
+    """Scale a recharge / EVT rate payload by ``factor``.
+
+    Handles the three shapes produced by
+    ``hydromodpy.solver.modflow_nwt.modflow.flow_to_modflow_adapter``:
+    a scalar (steady-state), a 2D ndarray (one map for the whole run),
+    or a ``{kper: scalar | ndarray}`` mapping (one entry per stress
+    period). Returns ``None`` unchanged so the caller can keep its
+    existing skip logic.
+    """
+    if payload is None:
+        return None
+    if isinstance(payload, Mapping):
+        return {kper: _scale_rate_payload(value, factor) for kper, value in payload.items()}
+    if isinstance(payload, np.ndarray):
+        return payload * factor
+    return float(payload) * factor
+
+
 def _run_model_with_progress(
     mf_model,
     nper: int,
@@ -555,28 +574,41 @@ class Modflow(Solver):
 
         # %% Source terms
 
-        if flow_inputs.evt_spd is not None:
+        # Recharge / EVT rates arrive in SI (m/s) but MODFLOW interprets
+        # them according to itmuni. Apply the same SI-to-solver-time
+        # conversion already used for K and drain conductance above.
+        rch_data_solver = _scale_rate_payload(flow_inputs.rch_data, _si_to_solver)
+        evt_spd_solver = _scale_rate_payload(flow_inputs.evt_spd, _si_to_solver)
+
+        if evt_spd_solver is not None:
+            # Position the EVT extraction surface a configurable distance
+            # below topography (legacy default = top - 2 m) and let the
+            # extinction depth come from the FlowEtpConfig too. When only
+            # the negative-recharge fallback is active, the adapter passes
+            # the legacy defaults via FlowModflowInputs.
+            surf_offset = float(getattr(flow_inputs, "evt_surface_offset", 2.0))
+            exdp = float(getattr(flow_inputs, "evt_extinction_depth", 1.0))
             self.evt = flopy.modflow.ModflowEvt(
                 self.mf,
-                evtr=flow_inputs.evt_spd,
-                surf=self.top_elevation,
+                evtr=evt_spd_solver,
+                surf=self.top_elevation - surf_offset,
                 nevtop=self._params.runtime.evt_nevtop,
-                exdp=self._params.process_specific.exdp,
+                exdp=exdp,
                 ievt=self._params.runtime.evt_ievt,
                 ipakcb=self._params.runtime.evt_ipakcb,
             )
 
         # ---- flopy.modflow.ModflowRch
-        if flow_inputs.rch_data is not None:
-            self.rch = flopy.modflow.ModflowRch(self.mf, rech=flow_inputs.rch_data)
+        if rch_data_solver is not None:
+            self.rch = flopy.modflow.ModflowRch(self.mf, rech=rch_data_solver)
         # Store the RCH schedule as an instance attribute so that post-processing
         # consumers (e.g. Timeseries) can read it without going back to the flow
         # object.  This is the *processed* schedule: first_clim has been applied
         # to period 0 and, when negative_to_evt=True, negative values have already
         # been clipped to 0 (their absolute values were routed to the EVT package
-        # above).  Format: dict {kper: rate [L/T]} - one entry per stress period.
-        # None when recharge is not in active_sinks_sources.
-        self.recharge = flow_inputs.rch_data
+        # above).  Format: dict {kper: rate [L/T]} in solver time units, mirroring
+        # what was actually fed to ModflowRch. None when recharge is not active.
+        self.recharge = rch_data_solver
 
         # %% Drain package
 
@@ -594,10 +626,16 @@ class Modflow(Solver):
         # %% Well package
 
         if flow_inputs.wel_spd:
+            # Well flux is built in SI (m3/s); MODFLOW expects volume per
+            # solver time-step. Scale the 4th column (flux) per row.
+            wel_spd_solver = {
+                kper: [list(row[:3]) + [float(row[3]) * _si_to_solver] for row in rows]
+                for kper, rows in flow_inputs.wel_spd.items()
+            }
             self.wel = flopy.modflow.ModflowWel(
                 self.mf,
                 ipakcb=self._params.runtime.wel_ipakcb,
-                stress_period_data=flow_inputs.wel_spd,
+                stress_period_data=wel_spd_solver,
             )
 
         # %% Output control

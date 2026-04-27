@@ -14,7 +14,7 @@ _CATCHMENT_STATION = "_catchment"
 
 VARIABLE_UNITS: dict[str, str] = {
     "discharge": "m3/s",
-    "well_pumping": "m3/d",
+    "well_pumping": "m3/s",
 }
 
 # (source_variable, output_variable, reducer)
@@ -27,10 +27,10 @@ VARIABLE_UNITS: dict[str, str] = {
 # ``hydromodpy.results.metrics`` / ``Run`` methods, so the
 # catalog stays focused on observation-comparable point series.
 _AGGREGATION_SPEC: list[tuple[str, str, str]] = [
-    # Outlet discharge (m3/s) - consumed by hydrograph, watershed_id_card,
-    # calibration.
-    ("drains|drn|drain", "discharge", "qspe"),
-    # Well pumping total (m3/d).
+    # Outlet discharge (m3/s) - sum of |drain flux| over the catchment,
+    # consumed by hydrograph, watershed_id_card, calibration.
+    ("drains|drn|drain", "discharge", "abs_sum"),
+    # Well pumping total (m3/s).
     ("wells|wel", "well_pumping", "sum"),
 ]
 
@@ -77,12 +77,101 @@ def aggregate_catchment_timeseries(
             continue
 
         ts = pd.Series(values, index=ts_index, name=output_var, dtype="float64")
+        if output_var == "discharge":
+            ts = _add_runoff_to_discharge_series(ts, sim_id, store, grp)
         unit = VARIABLE_UNITS.get(output_var, "")
         store.write_timeseries(sim_id, _CATCHMENT_STATION, output_var, ts, unit=unit)
         written += 1
 
     if written:
         logger.info("Wrote %d catchment-aggregated timeseries for sim %s", written, sim_id)
+
+
+def _add_runoff_to_discharge_series(
+    discharge: pd.Series,
+    sim_id: str,
+    store: Any,
+    grp: Any,
+) -> pd.Series:
+    """Add the surface-runoff forcing (m³/s) to a baseflow series.
+
+    The forcing is read from the Zarr ``forcing/runoff/<station>/values``
+    arrays persisted by ``step_persist_forcings``. Stations are averaged
+    in mm/day, resampled to the simulation index, then converted to m³/s
+    using the catchment area read from ``geographic_metadata``. When no
+    runoff forcing is found, a one-shot warning is emitted and the
+    baseflow is returned unchanged.
+    """
+    runoff_grp = None
+    forcing = grp.get("forcing")
+    if forcing is not None and "runoff" in forcing:
+        runoff_grp = forcing["runoff"]
+    if runoff_grp is None:
+        if sim_id not in _RUNOFF_WARNING_EMITTED:
+            logger.warning(
+                "catchment discharge: no runoff forcing in Zarr for sim %s — "
+                "writing DRN baseflow only (mismatch with total streamflow obs).",
+                sim_id,
+            )
+            _RUNOFF_WARNING_EMITTED.add(sim_id)
+        return discharge
+
+    catch_area_m2 = _read_catchment_area_m2(store, sim_id)
+    if catch_area_m2 <= 0.0:
+        logger.warning(
+            "catchment discharge: catchment area unavailable for sim %s — "
+            "skipping runoff addition.",
+            sim_id,
+        )
+        return discharge
+
+    series_list: list[pd.Series] = []
+    for station_key in list(runoff_grp.array_keys()) + list(runoff_grp.group_keys()):
+        node = runoff_grp[station_key]
+        if hasattr(node, "shape"):
+            # Flat array case (older layout); skip without timestamps.
+            continue
+        if "values" not in node or "timestamps" not in node:
+            continue
+        values_arr = np.asarray(node["values"][:], dtype="float64")
+        timestamps_arr = np.asarray(node["timestamps"][:])
+        if values_arr.size == 0:
+            continue
+        idx = pd.DatetimeIndex(pd.to_datetime(timestamps_arr))
+        series_list.append(pd.Series(values_arr, index=idx))
+    if not series_list:
+        return discharge
+
+    runoff_mm_per_d = pd.concat(series_list, axis=1).mean(axis=1)
+    target_index = discharge.index
+    runoff_index = runoff_mm_per_d.index
+    if runoff_index.tz is None and target_index.tz is not None:
+        runoff_mm_per_d = runoff_mm_per_d.tz_localize(target_index.tz)
+    elif runoff_index.tz is not None and target_index.tz is None:
+        runoff_mm_per_d = runoff_mm_per_d.tz_localize(None)
+    elif runoff_index.tz is not None and target_index.tz is not None:
+        runoff_mm_per_d = runoff_mm_per_d.tz_convert(target_index.tz)
+    aligned = runoff_mm_per_d.reindex(target_index, method="nearest")
+    runoff_m3_per_s = aligned * 1e-3 * catch_area_m2 / 86400.0
+    return discharge.add(runoff_m3_per_s, fill_value=0.0)
+
+
+_RUNOFF_WARNING_EMITTED: set[str] = set()
+
+
+def _read_catchment_area_m2(store: Any, sim_id: str) -> float:
+    """Return the catchment area in m² from ``geographic_metadata``."""
+    try:
+        conn = getattr(store, "connection", None) or store._db
+        row = conn.execute(
+            "SELECT value FROM geographic_metadata WHERE sim_id = ? AND key = 'catch_area'",
+            [str(sim_id)],
+        ).fetchone()
+        if row is not None and row[0] is not None:
+            return float(row[0]) * 1e6
+    except Exception:
+        return 0.0
+    return 0.0
 
 
 def _aggregate_variable(
@@ -176,7 +265,7 @@ def _reduce(field: np.ndarray, mask: np.ndarray | None, reducer: str) -> float:
     """Reduce a spatial field to a single scalar."""
     # Flatten multi-layer fields to single layer
     if field.ndim == 2:
-        field = field.sum(axis=0) if reducer == "qspe" else field[0]
+        field = field.sum(axis=0) if reducer in ("abs_sum", "sum") else field[0]
     field = field.ravel().astype("float64")
 
     if mask is not None and mask.size == field.size:
@@ -193,8 +282,8 @@ def _reduce(field: np.ndarray, mask: np.ndarray | None, reducer: str) -> float:
     elif reducer == "percent_positive":
         n_positive = np.count_nonzero(valid > 0)
         return float(n_positive / valid.size * 100)
-    elif reducer == "qspe":
-        return float(np.nansum(np.abs(valid)) / valid.size)
+    elif reducer == "abs_sum":
+        return float(np.nansum(np.abs(valid)))
     elif reducer == "max":
         return float(np.nanmax(valid))
     elif reducer == "sum":

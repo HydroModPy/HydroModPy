@@ -217,28 +217,22 @@ class DataManagersRuntimeLoader:
             else:
                 parallel.append(type_name)
 
-        # Phase 1: sequential types (dependency order preserved)
+        # Phase 1: sequential types (dependency order preserved).
         for type_name in sequential:
             self._load_single(result, type_name)
 
-        # Phase 2: independent types in parallel
-        if len(parallel) <= 1:
-            for type_name in parallel:
+        # Phase 2: independent types. The shared DuckDB catalog connection
+        # is not thread-safe (single internal cursor); concurrent loaders
+        # corrupt one another's result sets, e.g. dropping the runoff
+        # series mid-fetch with "Invalid Input Error: No open result set".
+        # Loading the rest sequentially is the simplest correct fix and
+        # the speed cost is negligible (only a handful of data managers
+        # per project, each < 1 s).
+        for type_name in parallel:
+            try:
                 self._load_single(result, type_name)
-        else:
-            from concurrent.futures import ThreadPoolExecutor, as_completed
-
-            errors: list[tuple[str, Exception]] = []
-            with ThreadPoolExecutor(max_workers=min(4, len(parallel))) as pool:
-                futures = {pool.submit(self._load_single, result, t): t for t in parallel}
-                for future in as_completed(futures):
-                    t = futures[future]
-                    exc = future.exception()
-                    if exc is not None:
-                        errors.append((t, exc))
-
-            for type_name, exc in errors:
-                logger.error("Parallel load of '%s' failed: %s", type_name, exc)
+            except Exception as exc:
+                logger.error("Load of '%s' failed: %s", type_name, exc)
 
     def _load_single(self, result: WorkflowContext, type_name: str) -> None:
         """Load a single data-manager type."""
@@ -485,7 +479,7 @@ class DataManagersRuntimeLoader:
             cfg = validate_geology_config_data(cfg_dict)
             loaded = load_geology_encoded_grid(cfg)
 
-        return GeologyField(
+        field = GeologyField(
             identifier=str(geology_cfg.id),
             encoded_codes=loaded["encoded_codes"],
             encoded_to_zone=loaded["encoded_to_zone"],
@@ -494,6 +488,11 @@ class DataManagersRuntimeLoader:
             source_kind=str(loaded["source_kind"]),
             default_cell_samples_per_axis=int(geology_cfg.cell_samples_per_axis),
         )
+        # Expose the cached source path so the overview report can re-open
+        # the original vector file for map rendering. The overview panel
+        # looks for one of `source_path`, `geol_file`, `vector_source`.
+        field.source_path = data_path
+        return field
 
     @staticmethod
     def _resolve_geology_raster_support(result: WorkflowContext) -> Any:

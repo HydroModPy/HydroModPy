@@ -684,7 +684,7 @@ class SimulationCatalog:
         component: str,
         flux_in: float,
         flux_out: float,
-        unit: str = "m3/d",
+        unit: str = "m3/s",
     ) -> None:
         # Single-row convenience wrapper over the batched method so both
         # entry points share a single Parquet write path.
@@ -718,7 +718,7 @@ class SimulationCatalog:
         else:
             insert_df["zone_id"] = insert_df["zone_id"].fillna(GLOBAL_ZONE)
         if "unit" not in insert_df.columns:
-            insert_df["unit"] = "m3/d"
+            insert_df["unit"] = "m3/s"
         select_sql = (
             "SELECT "
             "CAST(sim_id AS UUID) AS sim_id, "
@@ -777,7 +777,7 @@ class SimulationCatalog:
         insert_df = pd.DataFrame(records)
         insert_df["sim_id"] = sid
         if "unit" not in insert_df.columns:
-            insert_df["unit"] = "m3/d"
+            insert_df["unit"] = "m3/s"
         if "storage_in" not in insert_df.columns:
             insert_df["storage_in"] = 0.0
         if "storage_out" not in insert_df.columns:
