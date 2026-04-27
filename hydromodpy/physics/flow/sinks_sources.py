@@ -607,22 +607,149 @@ class FlowRechargeConfig(HydroModelBase):
         return float(value)
 
 
+class FlowEtpConfig(HydroModelBase):
+    """
+    Typed payload for diffuse evapotranspiration over the model domain.
+
+    Drives the MODFLOW EVT package independently from recharge. Conceptually
+    parallel to :class:`FlowRechargeConfig`: scalar / list / mapping /
+    runtime-series payloads are accepted and converted to SI ``m/s`` at
+    runtime via ``apply_etp_load_result_to_flow``. The actual conversion
+    to a stress-period dictionary is handled by
+    :class:`FlowToModflowAdapter._build_etp_payload`.
+
+    Restoring the legacy "ETP feeds the EVT package" behaviour with the
+    new architecture: data manager → typed payload → adapter → solver.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    values: Annotated[Any, Profile.USER] = Field(
+        default=0.0,
+        description=(
+            "ETP payload: scalar, list (one per stress period), "
+            "mapping {kper: value}, or runtime series. Values must be "
+            "non-negative; the EVT package treats them as outflow rates."
+        ),
+    )
+    heterogeneous_source: Annotated[Any, Profile.DEV] = Field(
+        default=None,
+        description=(
+            "Optional raw data source for heterogeneous (2D per-cell) ETP. "
+            "When set, the solver adapter discretizes FieldRecords onto the "
+            "MODFLOW grid instead of using the scalar 'values' field. "
+            "Expected: LoadResult with FieldRecords."
+        ),
+    )
+    first_clim: Annotated[str | float, Profile.DEV] = Field(
+        default="mean",
+        description=(
+            "Period-0 policy when values is a sequence: "
+            "'mean' (series average), 'first' (first element), or a numeric scalar."
+        ),
+    )
+    units: Annotated[str, Profile.DEV] = Field(
+        default="mm/day",
+        description=(
+            "Units of the ETP data source. Data-manager outputs use mm/day "
+            "by convention; converted to m/s at runtime."
+        ),
+    )
+    surface_offset: Annotated[float, Profile.DEV] = Field(
+        default=2.0,
+        description=(
+            "Distance below the topographic surface (m) where the EVT "
+            "extraction surface sits. MODFLOW EVT extracts water linearly "
+            "between this surface and surface - extinction_depth. Legacy "
+            "default was DEM - 2 m."
+        ),
+    )
+    extinction_depth: Annotated[float, Profile.DEV] = Field(
+        default=1.0,
+        description=(
+            "EVT extinction depth (m): below surface_offset + extinction_depth, "
+            "evapotranspiration is zero. Legacy default was 1 m."
+        ),
+    )
+    spatial_mode: Annotated[str, Profile.DEV] = Field(
+        default="auto",
+        description=(
+            "How to interpret spatial data: 'auto' (points→homogeneous, "
+            "fields→heterogeneous), 'homogeneous', or 'heterogeneous'."
+        ),
+    )
+    interpolation_method: Annotated[str, Profile.DEV] = Field(
+        default="nearest",
+        description=(
+            "Spatial interpolation method for gridded/point data onto the "
+            "MODFLOW grid. Options: 'nearest', 'linear', 'idw'."
+        ),
+    )
+
+    @field_validator("spatial_mode", mode="before")
+    @classmethod
+    def _validate_spatial_mode(cls, value):
+        v = str(value).strip().lower()
+        if v not in {"auto", "homogeneous", "heterogeneous"}:
+            raise ValueError("spatial_mode must be 'auto', 'homogeneous', or 'heterogeneous'.")
+        return v
+
+    @field_validator("interpolation_method", mode="before")
+    @classmethod
+    def _validate_interpolation_method(cls, value):
+        v = str(value).strip().lower()
+        if v not in {"nearest", "linear", "idw"}:
+            raise ValueError("interpolation_method must be 'nearest', 'linear', or 'idw'.")
+        return v
+
+    @field_validator("first_clim", mode="before")
+    @classmethod
+    def _validate_first_clim(cls, value):
+        if isinstance(value, str):
+            normalized = value.strip().lower()
+            if normalized not in {"mean", "first"}:
+                raise ValueError("first_clim must be 'mean', 'first', or a numeric value.")
+            return normalized
+        if isinstance(value, bool) or not isinstance(value, Real):
+            raise TypeError("first_clim must be 'mean', 'first', or a numeric value.")
+        return float(value)
+
+    @field_validator("surface_offset", mode="before")
+    @classmethod
+    def _validate_surface_offset(cls, value):
+        v = float(value)
+        if v < 0.0:
+            raise ValueError("surface_offset must be >= 0 (depth below topography).")
+        return v
+
+    @field_validator("extinction_depth", mode="before")
+    @classmethod
+    def _validate_extinction_depth(cls, value):
+        v = float(value)
+        if v <= 0.0:
+            raise ValueError("extinction_depth must be > 0.")
+        return v
+
+
 class FlowSinksSourcesConfig(HydroModelBase):
     """
     Top-level container for all sink/source elements of the flow process.
 
-    Maps directly to the ``[flow.sinks_sources]`` TOML section.  Both fields
-    are optional so that a minimal ``FlowSinksSourcesConfig()`` (no wells, no
-    recharge) is always valid and represents a passive model with zero recharge.
+    Maps directly to the ``[flow.sinks_sources]`` TOML section. All fields
+    are optional so that a minimal ``FlowSinksSourcesConfig()`` (no wells,
+    no recharge, no etp) is always valid and represents a passive model.
 
     Fields
     ------
     wells : dict[str, FlowWellConfig]
         Pumping/injection wells keyed by a user-defined string id.
-        An empty dict means no wells are active.
     recharge : FlowRechargeConfig | None
-        Diffuse recharge configuration.  ``None`` means no recharge is
-        configured; the adapter will default to zero recharge for all periods.
+        Diffuse recharge configuration. ``None`` means no recharge.
+    etp : FlowEtpConfig | None
+        Diffuse evapotranspiration configuration. ``None`` means no
+        EVT package is built from a dedicated ETP source. The legacy
+        ``recharge.negative_to_evt`` path is independent and stays as a
+        fallback when ETP is not configured.
     """
 
     model_config = ConfigDict(extra="forbid")
@@ -636,6 +763,13 @@ class FlowSinksSourcesConfig(HydroModelBase):
         description=(
             "Diffuse recharge (and optional EVT) configuration. "
             "None = zero recharge for all periods."
+        ),
+    )
+    etp: Annotated[FlowEtpConfig | None, Profile.USER] = Field(
+        default=None,
+        description=(
+            "Diffuse evapotranspiration configuration. None = no dedicated "
+            "ETP source (legacy recharge.negative_to_evt may still apply)."
         ),
     )
 

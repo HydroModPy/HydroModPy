@@ -10,6 +10,54 @@ import numpy as np
 
 logger = logging.getLogger(__name__)
 
+# Map MODFLOW ITMUNI codes to the canonical volumetric-flux unit label
+# the extractor writes to the catalog. Codes follow the MODFLOW
+# discretization-package convention (0 = undefined, 1 = seconds, …).
+_ITMUNI_FLUX_UNIT: dict[int, str] = {
+    0: "m3/s",
+    1: "m3/s",
+    2: "m3/min",
+    3: "m3/h",
+    4: "m3/d",
+    5: "m3/yr",
+}
+
+
+def _read_itmuni(dis_path: Path) -> int:
+    """Return the ITMUNI integer declared in a MODFLOW DIS file.
+
+    The DIS header is two free-format integer lines: the first carries
+    NLAY/NROW/NCOL/NPER, the second NSTP-related and ITMUNI/LENUNI. We
+    parse only what we need and fall back to ``1`` (seconds) when the
+    file is missing or malformed.
+    """
+    if not dis_path.is_file():
+        return 1
+    try:
+        with dis_path.open("r", encoding="utf-8") as fh:
+            header_lines: list[str] = []
+            for raw in fh:
+                stripped = raw.strip()
+                if not stripped or stripped.startswith("#"):
+                    continue
+                header_lines.append(stripped)
+                if len(header_lines) >= 2:
+                    break
+        if len(header_lines) < 2:
+            return 1
+        tokens = header_lines[1].split()
+        # Layout: NSTP_or_dummy ITMUNI LENUNI ... (free format).
+        if len(tokens) >= 2:
+            return int(tokens[1])
+    except (OSError, ValueError):
+        return 1
+    return 1
+
+
+def _flux_unit_for(itmuni: int) -> str:
+    """Return the volumetric-flux unit label matching ``itmuni``."""
+    return _ITMUNI_FLUX_UNIT.get(itmuni, "m3/s")
+
 
 class ModflowNwtOutputAdapter:
     """Read MODFLOW-NWT binary outputs and inject them into a SimulationCatalog.
@@ -77,6 +125,7 @@ class ModflowNwtOutputAdapter:
             )
 
         if cbc_path.exists():
+            itmuni = _read_itmuni(solver_output_dir / f"{model_name}.dis")
             self._extract_budget(
                 sim_id,
                 store,
@@ -87,6 +136,7 @@ class ModflowNwtOutputAdapter:
                 nrow,
                 ncol,
                 spatial_fields=budget_spatial_fields,
+                flux_unit=_flux_unit_for(itmuni),
             )
 
         lst_path = solver_output_dir / f"{model_name}.lst"
@@ -111,6 +161,7 @@ class ModflowNwtOutputAdapter:
         ncol: int,
         *,
         spatial_fields: bool = False,
+        flux_unit: str = "m3/s",
     ) -> None:
         """Extract cell budget data from .cbc file."""
         import flopy.utils.binaryfile as bf
@@ -153,7 +204,7 @@ class ModflowNwtOutputAdapter:
                         "component": component.lower().strip(),
                         "flux_in": flux_in,
                         "flux_out": abs(flux_out),
-                        "unit": "m3/d",
+                        "unit": flux_unit,
                     }
                 )
                 if spatial_fields and arr.ndim >= 2:

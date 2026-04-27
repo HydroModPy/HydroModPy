@@ -70,9 +70,9 @@ value = 1e-5
 # Optuna is the recommended sampler (Tree-structured Parzen Estimator).
 method = "optuna"
 # 40 trials is a small budget; bump it for production runs.
-max_iter = 40
+max_iter = 20
 # One trial per ask (sequential). Increase for parallel optimisers.
-batch_size = 1
+batch_size = 4
 # `best_n` promotes the top iterations to full simulations after the
 # loop, with Zarr + figures. Cheaper than `all` for large campaigns.
 save_runs = "best_n"
@@ -80,7 +80,12 @@ save_best_n = 5
 # Fixed seed for reproducibility.
 seed = 42
 # Objective metric on the observed discharge time-series.
-objective = "nse"
+# KGE (Kling-Gupta Efficiency) is the standard for streamflow
+# calibration: it decomposes the fit into correlation, bias and
+# variability, so a poor amplitude is not hidden by a good mean.
+# Other choices: 'rmse' / 'mae' (scale-dependent error), 'nse'
+# (penalises mean bias only).
+objective = "kge"
 variable = "discharge"
 # Memoise duplicate parameter samples through a content-addressed cache.
 use_cache = true
@@ -90,7 +95,9 @@ use_cache = true
 bounds = [1e-6, 1e-3]
 transform = "log"
 prior = "log_uniform"
-# Dotted path written at each iteration. Matches the homogeneous-field
-# entry in [flow.param.K.field_homogeneous].
+# Dotted path written at each iteration. Pydantic flattens the
+# [flow.param.K.field_homogeneous] subsection into a flat dict at
+# validation time, so the runtime key is `flow.param.K.value` (not
+# `flow.param.K.field_homogeneous.value` as on disk).
 path = "flow.param.K.value"
 units = "m/s"

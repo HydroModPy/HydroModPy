@@ -12,6 +12,7 @@ from typing import TYPE_CHECKING
 
 from hydromodpy.core.time import resolve_simulation_time_window
 from hydromodpy.physics.flow.structure_binders import (
+    apply_etp_load_result_to_flow,
     apply_oceanic_to_flow,
     apply_recharge_load_result_to_flow,
 )
@@ -115,6 +116,11 @@ def apply_structural_updates_from_data(
     apply_recharge_load_result_to_flow(
         flow=setup_state.flow,
         recharge_result=data_state.recharge,
+        simulation_window=window,
+    )
+    apply_etp_load_result_to_flow(
+        flow=setup_state.flow,
+        etp_result=getattr(data_state, "etp", None),
         simulation_window=window,
     )
 

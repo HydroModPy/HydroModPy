@@ -34,11 +34,7 @@ class LoadDataStep:
         if ctx is None:
             raise ValueError("LoadDataStep requires 'ctx' in state.data")
 
-        # Only call the underlying loader if setup has produced a domain;
-        # otherwise leave the step as a no-op so the pipeline can be run
-        # on partially configured contexts (e.g. unit tests).
-        if getattr(ctx.setup, "domain", None) is not None:
-            step_data_loading(ctx)
+        step_data_loading(ctx)
 
         return state.advance(
             step_index=state.step_index + 1,

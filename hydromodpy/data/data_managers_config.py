@@ -249,6 +249,7 @@ class DataManagersConfig(HydroModelBase):
         section_data: Any,
         *,
         base_dir: Path,
+        workspace_data_dir: Path | None = None,
     ) -> DataManagersConfig:
         """
         Load one `[data]` TOML section and validate nested active sub-sections.
@@ -322,7 +323,13 @@ class DataManagersConfig(HydroModelBase):
             model_cls = _TYPED_SECTIONS.get(type_name)
 
             if model_cls is not None:
-                _resolve_section_paths(section_dict, model_cls, base_dir)
+                _resolve_section_paths(
+                    section_dict,
+                    model_cls,
+                    base_dir,
+                    workspace_data_dir=workspace_data_dir,
+                    role_hint=type_name,
+                )
                 payload[type_name] = model_cls.model_validate(section_dict)
             else:
                 payload[type_name] = section_dict
@@ -337,7 +344,13 @@ class DataManagersConfig(HydroModelBase):
                 continue
             if isinstance(section_payload, Mapping):
                 section_dict = dict(section_payload)
-                _resolve_section_paths(section_dict, model_cls, base_dir)
+                _resolve_section_paths(
+                    section_dict,
+                    model_cls,
+                    base_dir,
+                    workspace_data_dir=workspace_data_dir,
+                    role_hint=type_name,
+                )
                 payload[type_name] = model_cls.model_validate(section_dict)
 
         return cls.model_validate(payload)
@@ -404,24 +417,50 @@ def _inner_model_type(annotation) -> type[BaseModel] | None:
     return None
 
 
+def _input_file_role_local(field_info: Any) -> str | None:
+    """Return the ``InputFile.role`` annotation attached to a field, if any."""
+    from hydromodpy.core.tracking.input_file import InputFile
+
+    for meta in getattr(field_info, "metadata", None) or ():
+        if isinstance(meta, InputFile):
+            return meta.role
+    return None
+
+
 def _resolve_section_paths(
     data: dict[str, Any],
     model_cls: type[BaseModel],
     base: Path,
+    *,
+    workspace_data_dir: Path | None = None,
+    role_hint: str | None = None,
 ) -> None:
-    """Resolve relative paths and `~` in one config section dict (in-place).
+    """Resolve relative paths and ``~`` in one config section dict (in-place).
 
     Recurses into ``list[BaseModel]`` fields to resolve paths in nested
     sub-models (e.g. ``sources`` lists containing ``path`` fields).
+
+    When the field carries an ``InputFile`` annotation and the path is a
+    bare filename, the lookup also tries ``<workspace>/data/<role>/<file>``
+    so users can write ``path = "etp_sim2.nc"`` instead of the verbose
+    ``path = "../../data/etp/etp_sim2.nc"``.
     """
+    from hydromodpy.core.config.path_resolution import resolve_declared_path
+
     for field_name, field_info in model_cls.model_fields.items():
         value = data.get(field_name)
         if _is_path_field(field_info.annotation):
             if isinstance(value, str) and value:
-                p = Path(value).expanduser()
-                if not p.is_absolute():
-                    p = (base / p).resolve()
-                data[field_name] = str(p)
+                role = _input_file_role_local(field_info) or role_hint
+                fallback_dirs: list[Path] | None = None
+                if workspace_data_dir is not None:
+                    fallback_dirs = []
+                    if role:
+                        fallback_dirs.append(workspace_data_dir / role)
+                    fallback_dirs.append(workspace_data_dir)
+                data[field_name] = str(
+                    resolve_declared_path(value, base_dir=base, fallback_dirs=fallback_dirs)
+                )
             continue
 
         # Recurse into list[BaseModel] fields (e.g. sources).
@@ -429,4 +468,10 @@ def _resolve_section_paths(
         if inner_cls is not None and isinstance(value, list):
             for item in value:
                 if isinstance(item, dict):
-                    _resolve_section_paths(item, inner_cls, base)
+                    _resolve_section_paths(
+                        item,
+                        inner_cls,
+                        base,
+                        workspace_data_dir=workspace_data_dir,
+                        role_hint=role_hint,
+                    )

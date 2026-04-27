@@ -305,43 +305,39 @@ class HydroModPyConfig(HydroModelBase):
             if has_dem_source or ("overview" in raw and "dem" in data_section.get("types", [])):
                 geographic_override["dem_init_path"] = "__DEM_API_BOOTSTRAP__"
 
+        # Workspace must be parsed first so we can derive the shared data
+        # directory and pass it to every other section loader. This lets
+        # bare filenames in [data.*.sources].path resolve against
+        # <workspace>/data/<role>/ instead of forcing the user to write
+        # ../../data/<role>/<file>.
+        parsed_workspace = _load_standard_section(workspace_section, WorkspaceConfig, base)
+        workspace_data_dir = getattr(parsed_workspace, "data_dir", None)
+
+        def _std(model_cls):
+            return lambda data, b: _load_standard_section(
+                data, model_cls, b, workspace_data_dir=workspace_data_dir
+            )
+
         section_loaders: dict[str, tuple[Any, Callable[[Any, Path], Any]]] = {
-            "workspace": (
-                workspace_section,
-                lambda data, b: _load_standard_section(data, WorkspaceConfig, b),
+            "geographic": (geographic_override, _std(GeographicConfig)),
+            "domain": ({}, _std(DomainConfig)),
+            "data": (
+                {},
+                lambda data, b: _load_data_section(data, b, workspace_data_dir=workspace_data_dir),
             ),
-            "geographic": (
-                geographic_override,
-                lambda data, b: _load_standard_section(data, GeographicConfig, b),
-            ),
-            "domain": ({}, lambda data, b: _load_standard_section(data, DomainConfig, b)),
-            "data": ({}, _load_data_section),
             "flow": ({}, _load_flow_section),
-            "transport": (
-                {},
-                lambda data, b: _load_standard_section(data, TransportConfig, b),
-            ),
-            "simulation": (
-                {},
-                lambda data, b: _load_standard_section(data, SimulationConfig, b),
-            ),
-            "solver": ({}, lambda data, b: _load_standard_section(data, SolverConfig, b)),
-            "modflownwt": ({}, lambda data, b: _load_standard_section(data, ModflowConfig, b)),
-            "modflow6": ({}, lambda data, b: _load_standard_section(data, Modflow6Config, b)),
-            "display": ({}, lambda data, b: _load_standard_section(data, DisplayConfig, b)),
-            "capability_gallery": (
-                {},
-                lambda data, b: _load_standard_section(
-                    data,
-                    CapabilityGalleryConfig,
-                    b,
-                ),
-            ),
+            "transport": ({}, _std(TransportConfig)),
+            "simulation": ({}, _std(SimulationConfig)),
+            "solver": ({}, _std(SolverConfig)),
+            "modflownwt": ({}, _std(ModflowConfig)),
+            "modflow6": ({}, _std(Modflow6Config)),
+            "display": ({}, _std(DisplayConfig)),
+            "capability_gallery": ({}, _std(CapabilityGalleryConfig)),
             "overview": (None, _load_optional_overview_section),
             "mesh_catchment": (None, _load_optional_mesh_catchment_section),
         }
 
-        parsed_sections: dict[str, Any] = {}
+        parsed_sections: dict[str, Any] = {"workspace": parsed_workspace}
         for section_name, (default_value, loader) in section_loaders.items():
             section_data = raw.get(section_name, default_value)
             parsed_sections[section_name] = loader(section_data, base)
@@ -403,22 +399,75 @@ def _is_path_field(field_info: FieldInfo) -> bool:
     return Path in getattr(annotation, "__args__", ())
 
 
-def _resolve_section_paths(data: dict, model_cls: type[BaseModel], base: Path) -> None:
+def _input_file_role(field_info: FieldInfo) -> str | None:
+    """Return the ``InputFile.role`` annotation attached to a field, if any."""
+    from hydromodpy.core.tracking.input_file import InputFile
+
+    for meta in field_info.metadata or ():
+        if isinstance(meta, InputFile):
+            return meta.role
+    return None
+
+
+def _build_path_fallback_dirs(
+    role: str | None,
+    workspace_data_dir: Path | None,
+) -> list[Path] | None:
+    """Build the search path used when a config field is a bare filename.
+
+    Order of fallbacks (each tried only when the bare filename does not
+    resolve under the TOML directory):
+
+    1. ``<workspace>/data/<role>/`` - convention-over-configuration:
+       data files for variable ``<role>`` live here.
+    2. ``<workspace>/data/`` - flat fallback for cross-cutting files.
+    """
+    if workspace_data_dir is None:
+        return None
+    fallback: list[Path] = []
+    if role:
+        fallback.append(workspace_data_dir / role)
+    fallback.append(workspace_data_dir)
+    return fallback
+
+
+def _resolve_section_paths(
+    data: dict,
+    model_cls: type[BaseModel],
+    base: Path,
+    *,
+    workspace_data_dir: Path | None = None,
+) -> None:
     """
     Resolve relative paths and ``~`` in a config section dict (in-place).
+
+    Bare filenames (no separator, no ``..``) get the convention-driven
+    lookup under ``<workspace>/data/<role>/`` when the field carries an
+    ``InputFile`` annotation, so users can write
+    ``path = "etp_sim2.nc"`` instead of ``../../data/etp/etp_sim2.nc``.
     """
     for field_name, field_info in model_cls.model_fields.items():
         if not _is_path_field(field_info):
             continue
         value = data.get(field_name)
         if isinstance(value, str) and value:
-            data[field_name] = str(resolve_declared_path(value, base_dir=base))
+            role = _input_file_role(field_info)
+            fallback_dirs = _build_path_fallback_dirs(role, workspace_data_dir)
+            data[field_name] = str(
+                resolve_declared_path(
+                    value,
+                    base_dir=base,
+                    fallback_dirs=fallback_dirs,
+                )
+            )
 
 
 def _load_standard_section(
     section_data: Any,
     model_cls: type[BaseModel],
     base: Path,
+    *,
+    workspace_data_dir: Path | None = None,
 ) -> BaseModel:
     """Load one regular section by validating against a Pydantic model class."""
     if section_data is None:
@@ -427,7 +476,7 @@ def _load_standard_section(
         raise ValueError(f"TOML section must be a mapping for {model_cls.__name__}")
 
     payload = dict(section_data)
-    _resolve_section_paths(payload, model_cls, base)
+    _resolve_section_paths(payload, model_cls, base, workspace_data_dir=workspace_data_dir)
     return model_cls(**payload)
 
 
@@ -438,9 +487,18 @@ def _load_flow_section(section_data: Any, base: Path) -> FlowConfig:
     return FlowConfig.from_toml_section(section_data, base_dir=base)
 
 
-def _load_data_section(section_data: Any, base: Path) -> DataManagersConfig:
+def _load_data_section(
+    section_data: Any,
+    base: Path,
+    *,
+    workspace_data_dir: Path | None = None,
+) -> DataManagersConfig:
     """Load the data section with dynamic validation by enabled data types."""
-    return DataManagersConfig.from_toml_section(section_data, base_dir=base)
+    return DataManagersConfig.from_toml_section(
+        section_data,
+        base_dir=base,
+        workspace_data_dir=workspace_data_dir,
+    )
 
 
 def _load_optional_overview_section(

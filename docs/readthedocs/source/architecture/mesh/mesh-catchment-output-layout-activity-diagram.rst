@@ -18,9 +18,9 @@ It focuses on:
 Code map
 --------
 
-- ``launchers/mesh_catchment/runtime_single_run.py``:
+- ``hydromodpy/spatial/mesh/runtime.py``:
   resolution of final artifacts for one mono-run execution.
-- batch-side helpers under ``launchers/mesh_catchment/batch.py``:
+- ``hydromodpy/spatial/mesh/batch.py``:
   outlet-specific naming and manifest rules.
 - ``hydromodpy/spatial/mesh/gmsh_grid`` exporters:
   mesh, figure, sidecar, and exchange-bundle persistence.
@@ -28,29 +28,30 @@ Code map
 Recommended reading path
 ------------------------
 
-1. ``launchers/mesh_catchment/runtime_single_run.py``
-2. ``launchers/mesh_catchment/batch.py`` when batch naming matters
+1. ``hydromodpy/spatial/mesh/runtime.py``
+2. ``hydromodpy/spatial/mesh/batch.py`` when batch naming matters
 3. the exporter helpers under ``hydromodpy/spatial/mesh/gmsh_grid/``
 
 Diagram source
 --------------
 
-.. uml:: ../launchers/diagrams/mesh_catchment_output_layout_activity.wsd
+.. uml:: diagrams/mesh_catchment_output_layout_activity.wsd
 
-.. literalinclude:: ../launchers/diagrams/mesh_catchment_output_layout_activity.wsd
+.. literalinclude:: diagrams/mesh_catchment_output_layout_activity.wsd
    :language: text
    :caption: PlantUML (.wsd) source - mesh-catchment output layout activity
 
 Notes
 -----
 
-- ``flat`` layout is a dedicated-launcher convenience. It writes the final mesh
-  artifacts directly under ``workspace.project_root`` while the intermediate
-  runtime workspace lives elsewhere and can be deleted afterwards.
-- ``process_simulation`` keeps the standard workspace structure because the
-  simulation workflow still needs its runtime folders.
-- Batch mode adds per-outlet filename patterns and one manifest CSV, but it
-  still reuses the same mono-catchment output-resolution rules.
+- ``flat`` layout is a convenience for the dedicated mesh workflow. It
+  writes the final mesh artifacts directly under
+  ``workspace.project_root`` while the intermediate runtime workspace
+  lives elsewhere and can be deleted afterwards.
+- The full simulation workflow keeps the standard workspace structure
+  because it still needs its runtime folders.
+- Batch mode adds per-outlet filename patterns and one manifest CSV,
+  but it still reuses the same mono-catchment output-resolution rules.
 
 Related diagrams
 ----------------

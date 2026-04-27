@@ -41,12 +41,12 @@ package "hydromodpy.core.time.window" {
   }
 }
 
-package "launchers.process_simulation" {
-  class HydroModPyLauncher {
+package "hydromodpy" {
+  class Project {
     +cfg: HydroModPyConfig
     +time_grid: ResolvedSimulationTimeGrid?
     +run()
-    +_run_data()
+    +load_data()
     +_apply_recharge_chronicle_from_toml()
   }
 }
@@ -138,10 +138,10 @@ SimulationTimeConfig --> TimeWindowServices : input section
 TimeWindowServices ..> ResolvedSimulationTimeWindow : creates
 TimeWindowServices ..> ResolvedSimulationTimeGrid : creates
 
-HydroModPyLauncher --> TimeWindowServices : require_flow_time_grid/apply
-HydroModPyLauncher --> ResolvedSimulationTimeGrid : stores on launcher state
+Project --> TimeWindowServices : require_flow_time_grid/apply
+Project --> ResolvedSimulationTimeGrid : stores on project state
 
-HydroModPyLauncher --> RechargeServices : passes simulation_window
+Project --> RechargeServices : passes simulation_window
 RechargeServices --> RechargeValidation : validates raw section
 RechargeValidation ..> RechargeChronicleConfig : returns
 RechargeServices ..> ResolvedSimulationTimeWindow : aligns forcing series
@@ -155,8 +155,8 @@ SyntheticGeneratedRechargeChronicleConfig *-- SeasonalStepRechargeChronicleConfi
 
 DataManagersRuntimeLoader --> TimeWindowServices : date bounds lookup
 
-HydroModPyLauncher --> Modflow : passes required preprocess options.time_grid
-HydroModPyLauncher --> Modflow6 : passes required preprocess options.time_grid
+Project --> Modflow : passes required preprocess options.time_grid
+Project --> Modflow6 : passes required preprocess options.time_grid
 Modflow ..> ResolvedSimulationTimeGrid : consumes nper/perlen
 Modflow6 ..> ResolvedSimulationTimeGrid : consumes nper/perlen
 @enduml

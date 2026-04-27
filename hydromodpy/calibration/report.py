@@ -181,6 +181,16 @@ def render_session_report(
         figures_dir=figures_dir,
     )
 
+    best_sim_id = _pick_report_sim_id(session_row, iterations)
+    if best_sim_id is not None:
+        obs_vs_sim_path = _render_best_obs_vs_sim(
+            catalog=catalog,
+            sim_id=best_sim_id,
+            figures_dir=figures_dir,
+        )
+        if obs_vs_sim_path is not None:
+            rendered.append(("best_obs_vs_sim", obs_vs_sim_path))
+
     html_path = out_dir / "report.html"
     html_path.write_text(
         _render_html(session_row, iterations, rendered),
@@ -275,6 +285,158 @@ class _SessionRunStub:
         values = [row["objective_value"] for row in self._iterations]
         idx = pd.RangeIndex(len(values), name="iteration")
         return pd.DataFrame({variable: values}, index=idx)
+
+
+def _pick_report_sim_id(session_row: dict, iterations: list[dict]) -> str | None:
+    """Return the sim_id used by the obs-vs-sim figure.
+
+    Prefers the session-level ``best_sim_id`` (promoted run); falls back
+    to the lowest-cost iteration whose ``sim_id`` is set when the session
+    field is empty (e.g. failed promotion of the top iteration).
+    """
+    sid = session_row.get("best_sim_id")
+    if sid is not None:
+        return _hex(sid)
+    for row in sorted(
+        (r for r in iterations if r.get("sim_id") and r.get("objective_value") is not None),
+        key=lambda r: r["objective_value"],
+    ):
+        return _hex(row["sim_id"])
+    return None
+
+
+def _render_best_obs_vs_sim(
+    *,
+    catalog: SimulationCatalog,
+    sim_id: str,
+    figures_dir: Path,
+) -> Path | None:
+    """Plot observed vs simulated discharge for the best promoted run.
+
+    Reads ``timeseries`` rows directly from the catalog (the simulated
+    column already includes the ``DRN + runoff`` aggregation). The
+    figure shows a time-series panel and a 1:1 scatter side by side, in
+    m³/s, restricted to the simulation window.
+    """
+    import matplotlib
+
+    matplotlib.use("Agg")
+    import matplotlib.dates as mdates
+    import matplotlib.pyplot as plt
+    import pandas as pd
+
+    try:
+        sim_df = catalog.connection.execute(
+            "SELECT datetime, value FROM timeseries "
+            "WHERE sim_id = ? AND variable = 'discharge' AND station_id = '_catchment' "
+            "ORDER BY datetime",
+            [sim_id],
+        ).fetchdf()
+        obs_df = catalog.connection.execute(
+            "SELECT datetime, value FROM timeseries "
+            "WHERE sim_id = ? AND variable = 'discharge_obs' "
+            "ORDER BY datetime",
+            [sim_id],
+        ).fetchdf()
+    except Exception as exc:
+        logger.warning("best_obs_vs_sim: catalog query failed: %s", exc)
+        return None
+
+    if sim_df.empty:
+        logger.warning("best_obs_vs_sim: no simulated discharge for sim %s", sim_id)
+        return None
+    if obs_df.empty:
+        logger.warning("best_obs_vs_sim: no observed discharge for sim %s", sim_id)
+        return None
+
+    sim = pd.Series(sim_df["value"].values, index=pd.DatetimeIndex(sim_df["datetime"]))
+    obs = pd.Series(obs_df["value"].values, index=pd.DatetimeIndex(obs_df["datetime"]))
+    if sim.index.tz is not None:
+        sim = sim.tz_localize(None)
+    if obs.index.tz is not None:
+        obs = obs.tz_localize(None)
+
+    sim = sim.sort_index()
+    obs = obs.sort_index()
+    obs_daily = obs.loc[sim.index.min() : sim.index.max()]
+
+    # Aggregate the daily observation to the simulation stress-period
+    # bins so the time-series and the scatter compare apples to apples.
+    obs_binned = _bin_obs_to_sim_index(obs_daily, sim.index)
+
+    out_path = figures_dir / "best_obs_vs_sim.png"
+    fig, (ax_ts, ax_sc) = plt.subplots(
+        1, 2, figsize=(11, 4), dpi=150, gridspec_kw={"width_ratios": [3, 1]}
+    )
+
+    if not obs_daily.empty:
+        ax_ts.plot(
+            obs_daily.index,
+            obs_daily.values,
+            color="lightgray",
+            lw=0.6,
+            label="Observed (daily)",
+        )
+    if not obs_binned.empty:
+        ax_ts.plot(
+            obs_binned.index,
+            obs_binned.values,
+            color="black",
+            lw=1.6,
+            label="Observed (mean over stress period)",
+        )
+    ax_ts.plot(sim.index, sim.values, color="firebrick", lw=1.6, label="Simulated (DRN+runoff)")
+    ax_ts.set_ylabel("Discharge [m³/s]")
+    ax_ts.set_title(f"Best run vs observation - sim_id={sim_id[:8]}")
+    ax_ts.xaxis.set_major_formatter(mdates.DateFormatter("%Y-%m"))
+    ax_ts.legend(fontsize=9)
+    ax_ts.grid(alpha=0.3)
+
+    paired = pd.concat([obs_binned.rename("obs"), sim.rename("sim")], axis=1).dropna()
+    if not paired.empty:
+        ax_sc.scatter(
+            paired["obs"], paired["sim"], s=18, alpha=0.7, color="forestgreen", edgecolor="none"
+        )
+        lo = float(min(paired["obs"].min(), paired["sim"].min()))
+        hi = float(max(paired["obs"].max(), paired["sim"].max()))
+        ax_sc.plot([lo, hi], [lo, hi], color="grey", lw=0.8, zorder=-1)
+        ax_sc.set_xlabel("Obs [m³/s]")
+        ax_sc.set_ylabel("Sim [m³/s]")
+        ax_sc.set_title("1:1 (period-mean obs vs sim)")
+        ax_sc.grid(alpha=0.3)
+    else:
+        ax_sc.set_axis_off()
+
+    fig.tight_layout()
+    fig.savefig(out_path, bbox_inches="tight")
+    plt.close(fig)
+    return out_path
+
+
+def _bin_obs_to_sim_index(obs, sim_index):
+    """Average daily observations into bins centered on simulation timestamps.
+
+    Each simulation timestamp ``t`` covers ``[t - dt/2, t + dt/2)`` where
+    ``dt`` is the median sim step. Falls back to a nearest-reindex when
+    the obs sampling is not finer than the sim sampling.
+    """
+    import pandas as pd
+
+    if obs.empty or len(sim_index) < 2:
+        return obs.copy()
+
+    sim_index = sim_index.sort_values()
+    sim_step = pd.Timedelta(sim_index.to_series().diff().dropna().median())
+    obs_step = pd.Timedelta(obs.index.to_series().diff().dropna().median())
+    if sim_step <= obs_step:
+        return obs.reindex(sim_index, method="nearest", tolerance=sim_step)
+
+    half = sim_step / 2
+    bin_edges = pd.DatetimeIndex([sim_index[0] - half] + [t + half for t in sim_index])
+    binned_keys = pd.cut(obs.index, bins=bin_edges, right=False)
+    obs_aligned = obs.groupby(binned_keys, observed=True).mean()
+    obs_aligned.index = sim_index[: len(obs_aligned)]
+    return obs_aligned
 
 
 def _render_figures(

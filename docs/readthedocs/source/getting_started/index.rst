@@ -38,6 +38,16 @@ Recommended entry points
 
    .. grid-item-card::
       :class-card: sd-shadow-sm sd-rounded-3 sd-p-4
+      :link: cli-quickstart
+      :link-type: doc
+
+      **CLI quickstart**
+      ^^^
+      Scaffold a workspace, create a project, generate a config template,
+      and run a simulation from the command line in five steps.
+
+   .. grid-item-card::
+      :class-card: sd-shadow-sm sd-rounded-3 sd-p-4
       :link: data-overview-walkthrough
       :link-type: doc
 
@@ -70,10 +80,12 @@ Default path
 ------------
 
 1. Read :doc:`choose-your-first-workflow`.
-2. Run :doc:`data-overview-walkthrough` if you want to understand basin setup
+2. Follow :doc:`cli-quickstart` to scaffold a workspace, create a project,
+   and run a first simulation from the command line.
+3. Run :doc:`data-overview-walkthrough` if you want to understand basin setup
    before touching any solver.
-3. Continue with :doc:`simulation-walkthrough` for a complete end-to-end case.
-4. Use :doc:`reading-results-pages` when you start comparing methods or reading
+4. Continue with :doc:`simulation-walkthrough` for a complete end-to-end case.
+5. Use :doc:`reading-results-pages` when you start comparing methods or reading
    validation metrics.
 
 Related sections
@@ -88,6 +100,7 @@ Related sections
    :maxdepth: 1
 
    choose-your-first-workflow
+   cli-quickstart
    workspace-layout
    project-vs-run
    data-overview-walkthrough

@@ -3,7 +3,7 @@ title Data Definition And Transfer - Activity
 
 start
 
-:HydroModPyLauncher.__init__();
+:Project.__init__();
 :Load validated cfg and raw TOML;
 
 :DataManagersPlanner.build(..., raw_toml, domain_zone_ids, flow_active_bc);
@@ -11,12 +11,13 @@ if (domain.zone_ids contains geology?) then (yes)
   :Activate geology (explicit or inferred);
 endif
 :Apply resolved data types into cfg.data;
-:Store data_plan in LauncherRunState;
+:Store data_plan in Project runtime state;
 
-:Launcher.run();
-:_run_setup();
+:Project.run();
+:setup_workspace();
+:build_geographic();
 
-:_run_data();
+:load_data();
 :DataManagersRuntimeLoader.load_all(run_state);
 :Transfer loaded_data.geology/hydrometry/oceanic/climatic;
 

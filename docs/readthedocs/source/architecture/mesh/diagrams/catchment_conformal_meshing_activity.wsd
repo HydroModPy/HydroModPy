@@ -3,7 +3,7 @@ title Catchment Mesh - Conformal Activity Flow
 
 start
 
-:Load launcher TOML;
+:Load mesh TOML;
 :Validate [mesh_catchment];
 :Resolve constraints_mode;
 

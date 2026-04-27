@@ -11,8 +11,10 @@ It focuses on:
 
 - planning-time activation (`DataManagersPlanner.build`),
 - setup-time geology transfer to `Domain`,
-- data-phase transfer of hydrometry to launcher loaded-data state,
-- continuation into simulation execution after data placement is complete.
+- data-phase transfer of hydrometry to the ``Project`` runtime
+  loaded-data state,
+- continuation into simulation execution after data placement is
+  complete.
 
 Code map
 --------
@@ -21,16 +23,17 @@ Code map
   activation inference before execution starts.
 - ``hydromodpy/data/runtime_loader.py``:
   concrete data-loading dispatch during the runtime phase.
-- ``launchers/process_simulation/launcher.py``:
-  orchestration of ``_run_setup()`` and ``_run_data()``.
-- ``hydromodpy/process/flow/structure_binders.py``:
+- ``hydromodpy/project.py``:
+  orchestration of ``setup_workspace`` / ``build_geographic`` /
+  ``load_data``.
+- ``hydromodpy/physics/flow/structure_binders.py``:
   example of downstream consumers that expect transferred structures.
 
 Recommended reading path
 ------------------------
 
 1. ``hydromodpy/data/planner.py``
-2. ``launchers/process_simulation/launcher.py``
+2. ``hydromodpy/project.py``
 3. ``hydromodpy/data/runtime_loader.py``
 4. one bound family such as ``hydromodpy/data/variables/geology/`` or
    ``hydromodpy/data/variables/hydrometry/``
@@ -49,12 +52,13 @@ Notes
 
 - The same raw TOML can influence both activation inference and data payloads.
 - Geology transfer is driven by resolved data types at setup time.
-- Hydrometry transfer is implemented by `DataManagersRuntimeLoader` during `_run_data()`.
-- Missing/invalid hydrometry configuration can be downgraded to warnings in
-  `data.inference_mode = "warn"` mode.
+- Hydrometry transfer is implemented by `DataManagersRuntimeLoader`
+  during ``Project.load_data()``.
+- Missing or invalid hydrometry configuration can be downgraded to
+  warnings in `data.inference_mode = "warn"` mode.
 
 Related diagrams
 ----------------
 
 - :doc:`data-definition-transfer-class-diagram`
-- :doc:`../launchers/launcher-simulation-activity-diagram`
+- :doc:`../simulation/simulation-orchestration-class-diagram`

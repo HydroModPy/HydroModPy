@@ -484,7 +484,7 @@ Today:
 
 - committed real unstructured meshes are now exercised in addition to the
   small analytical and numerical validation strips.
-- committed mesh bundles can receive explicit launcher-side overrides of
+- committed mesh bundles can receive explicit project-side overrides of
   :math:`K` and :math:`S_y`, including heterogeneous mappings through domain
   supports, without requiring a separate remeshing workflow.
 

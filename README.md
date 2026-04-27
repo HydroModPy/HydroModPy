@@ -2,17 +2,17 @@
 
 HydroModPy: A Python toolbox for deploying catchment-scale shallow groundwater models.
 
-<!-- Continuous integration -->
-[![CI Fast](https://github.com/HydroModPy/HydroModPy/actions/workflows/ci-fast.yml/badge.svg)](https://github.com/HydroModPy/HydroModPy/actions/workflows/ci-fast.yml)
-[![CI Nightly](https://github.com/HydroModPy/HydroModPy/actions/workflows/ci-nightly.yml/badge.svg)](https://github.com/HydroModPy/HydroModPy/actions/workflows/ci-nightly.yml)
-[![CI Weekly](https://github.com/HydroModPy/HydroModPy/actions/workflows/ci-weekly.yml/badge.svg)](https://github.com/HydroModPy/HydroModPy/actions/workflows/ci-weekly.yml)
-[![PETSc Smoke](https://github.com/HydroModPy/HydroModPy/actions/workflows/petsc-smoke.yml/badge.svg)](https://github.com/HydroModPy/HydroModPy/actions/workflows/petsc-smoke.yml)
-[![Docs Gallery](https://github.com/HydroModPy/HydroModPy/actions/workflows/docs-gallery-check.yml/badge.svg)](https://github.com/HydroModPy/HydroModPy/actions/workflows/docs-gallery-check.yml)
+<!-- Continuous integration (dev branch) -->
+[![CI Fast](https://github.com/HydroModPy/HydroModPy/actions/workflows/ci-fast.yml/badge.svg?branch=dev)](https://github.com/HydroModPy/HydroModPy/actions/workflows/ci-fast.yml?query=branch%3Adev)
+[![CI Nightly](https://github.com/HydroModPy/HydroModPy/actions/workflows/ci-nightly.yml/badge.svg?branch=dev)](https://github.com/HydroModPy/HydroModPy/actions/workflows/ci-nightly.yml?query=branch%3Adev)
+[![CI Weekly](https://github.com/HydroModPy/HydroModPy/actions/workflows/ci-weekly.yml/badge.svg?branch=dev)](https://github.com/HydroModPy/HydroModPy/actions/workflows/ci-weekly.yml?query=branch%3Adev)
+[![PETSc Smoke](https://github.com/HydroModPy/HydroModPy/actions/workflows/petsc-smoke.yml/badge.svg?branch=dev)](https://github.com/HydroModPy/HydroModPy/actions/workflows/petsc-smoke.yml?query=branch%3Adev)
+[![Docs Gallery Check](https://github.com/HydroModPy/HydroModPy/actions/workflows/docs-gallery-check.yml/badge.svg?branch=dev)](https://github.com/HydroModPy/HydroModPy/actions/workflows/docs-gallery-check.yml?query=branch%3Adev)
 
-<!-- Code quality -->
+<!-- Code quality (dev branch) -->
 [![Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
-[![Codecov](https://codecov.io/gh/HydroModPy/HydroModPy/graph/badge.svg)](https://codecov.io/gh/HydroModPy/HydroModPy)
-[![Documentation](https://readthedocs.org/projects/hydromodpy-docs/badge/?version=latest)](https://hydromodpy-docs.readthedocs.io/en/latest/)
+[![Codecov](https://codecov.io/gh/HydroModPy/HydroModPy/branch/dev/graph/badge.svg)](https://codecov.io/gh/HydroModPy/HydroModPy/tree/dev)
+[![Documentation](https://readthedocs.org/projects/hydromodpy-docs/badge/?version=dev)](https://hydromodpy-docs.readthedocs.io/en/dev/)
 
 <!-- Project info -->
 [![PyPI](https://img.shields.io/pypi/v/hydromodpy.svg)](https://pypi.org/project/hydromodpy/)
@@ -46,9 +46,10 @@ Alexandre Gauvain [1,2], Ronan Abhervé [1,3,9],  Alexandre Coche [1], Martin Le
 ## Links
 
 - GitHub Project: https://github.com/HydroModPy/HydroModPy
-- Documentation: https://hydromodpy-docs.readthedocs.io/en/latest/
-- Technical documentation and UMLs (`Architecture` tab): https://hydromodpy-docs.readthedocs.io/en/latest/architecture/
-- Scientific documentation (`Scientific documentation` tab): https://hydromodpy-docs.readthedocs.io/en/latest/scientific/
+- Documentation (dev branch): https://hydromodpy-docs.readthedocs.io/en/dev/
+- Stable documentation: https://hydromodpy-docs.readthedocs.io/en/latest/
+- Technical documentation and UMLs (`Architecture` tab): https://hydromodpy-docs.readthedocs.io/en/dev/architecture/
+- Scientific documentation (`Scientific documentation` tab): https://hydromodpy-docs.readthedocs.io/en/dev/scientific/
 - Google Drive: https://docs.google.com/document/d/11BA4ufhYWbydBvfjQufohoPIc0SaF9pKcyj_KNJ2VQM/edit?usp=sharing
 - Forum Group: https://groups.google.com/g/hydromodpy
 

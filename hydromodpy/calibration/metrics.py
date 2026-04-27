@@ -145,6 +145,113 @@ def _find_flow_run(ctx: Any) -> tuple[str, Any, Path] | None:
     return flow_run_id, model, Path(output_dir)
 
 
+# MODFLOW ITMUNI codes -> seconds per native time unit. Used to convert
+# the CBC native flux unit (e.g. m³/d when itmuni=4) into m³/s before
+# comparing against observations stored in m³/s.
+_ITMUNI_TO_SECONDS: dict[int, float] = {
+    0: 1.0,  # undefined -> treat as seconds
+    1: 1.0,  # seconds
+    2: 60.0,  # minutes
+    3: 3600.0,  # hours
+    4: 86400.0,  # days
+    5: 31557600.0,  # years (365.25 days)
+}
+
+
+def _read_itmuni_from_dis(dis_path: Path) -> int:
+    """Return the ITMUNI integer declared in a MODFLOW DIS file.
+
+    Falls back to ``1`` (seconds) when the file is missing or the second
+    header line cannot be parsed.
+    """
+    if not dis_path.is_file():
+        return 1
+    try:
+        with dis_path.open("r", encoding="utf-8") as fh:
+            header_lines: list[str] = []
+            for raw in fh:
+                stripped = raw.strip()
+                if not stripped or stripped.startswith("#"):
+                    continue
+                header_lines.append(stripped)
+                if len(header_lines) >= 2:
+                    break
+        if len(header_lines) < 2:
+            return 1
+        tokens = header_lines[1].split()
+        if len(tokens) >= 2:
+            return int(tokens[1])
+    except (OSError, ValueError):
+        return 1
+    return 1
+
+
+_RUNOFF_WARNING_EMITTED: set[int] = set()
+
+
+def _add_runoff_to_discharge(
+    simulated: pd.Series,
+    ctx: Any,
+) -> pd.Series:
+    """Add the surface-runoff forcing to a baseflow series in m³/s.
+
+    The runoff data manager exposes one or more station time-series in
+    ``mm/day`` (per :class:`RunoffConfig` convention). We average the
+    stations, resample to the simulated stress-period index, and convert
+    to ``m³/s`` using the catchment area read from the geographic
+    runtime. When no runoff is loaded, a one-shot warning is emitted and
+    the baseflow is returned unchanged.
+    """
+    runoff = getattr(getattr(ctx, "loaded_data", None), "runoff", None)
+    points = getattr(runoff, "points", None) if runoff is not None else None
+    if not points:
+        ctx_id = id(getattr(ctx, "loaded_data", None))
+        if ctx_id not in _RUNOFF_WARNING_EMITTED:
+            logger.warning(
+                "calibration discharge: no runoff data loaded — comparing "
+                "DRN baseflow only against total streamflow observations. "
+                "Add 'runoff' to [data.types] for an apples-to-apples fit."
+            )
+            _RUNOFF_WARNING_EMITTED.add(ctx_id)
+        return simulated
+
+    geo = getattr(getattr(ctx, "setup", None), "geographic", None)
+    catch_area_km2 = float(getattr(geo, "catch_area", 0.0) or 0.0)
+    if catch_area_km2 <= 0.0:
+        logger.warning(
+            "calibration discharge: catchment area unavailable in setup.geographic; "
+            "skipping runoff addition."
+        )
+        return simulated
+    catch_area_m2 = catch_area_km2 * 1e6
+
+    series_list: list[pd.Series] = []
+    for rec in points:
+        df = getattr(rec, "data", None)
+        if df is None or getattr(df, "empty", True):
+            continue
+        idx = pd.to_datetime(df["datetime"])
+        if getattr(idx, "dt", None) is not None and idx.dt.tz is not None:
+            idx = idx.dt.tz_localize(None)
+        s = pd.Series(df["value"].astype("float64").values, index=pd.DatetimeIndex(idx))
+        series_list.append(s)
+    if not series_list:
+        return simulated
+
+    runoff_mm_per_d = pd.concat(series_list, axis=1).mean(axis=1)
+    target_index = simulated.index
+    runoff_index = runoff_mm_per_d.index
+    if runoff_index.tz is None and target_index.tz is not None:
+        runoff_mm_per_d = runoff_mm_per_d.tz_localize(target_index.tz)
+    elif runoff_index.tz is not None and target_index.tz is None:
+        runoff_mm_per_d = runoff_mm_per_d.tz_localize(None)
+    elif runoff_index.tz is not None and target_index.tz is not None:
+        runoff_mm_per_d = runoff_mm_per_d.tz_convert(target_index.tz)
+    aligned = runoff_mm_per_d.reindex(target_index, method="nearest")
+    runoff_m3_per_s = aligned * 1e-3 * catch_area_m2 / 86400.0
+    return simulated.add(runoff_m3_per_s, fill_value=0.0)
+
+
 def _extract_discharge_modflownwt(
     output_dir: Path,
     model_name: str,
@@ -154,8 +261,9 @@ def _extract_discharge_modflownwt(
 
     MODFLOW-NWT writes DRN outflow as negative values in the CBC file;
     we sum their absolute values cell-wise, layer-wise, per timestep,
-    giving the catchment-outlet discharge in the native MODFLOW volume-
-    per-time units (m³/d on a metric-day grid).
+    then convert from the run's native time unit (per ITMUNI in the DIS
+    file) to ``m³/s`` so the result is directly comparable to the
+    hydrometry observations (which are always normalised to m³/s).
     """
     import flopy.utils.binaryfile as bf
 
@@ -166,6 +274,9 @@ def _extract_discharge_modflownwt(
     if not cbc_path.exists():
         logger.debug("CBC file not found in %s", output_dir)
         return None
+
+    itmuni = _read_itmuni_from_dis(output_dir / f"{model_name}.dis")
+    seconds_per_unit = _ITMUNI_TO_SECONDS.get(itmuni, 1.0)
 
     cbb = bf.CellBudgetFile(str(cbc_path))
     try:
@@ -193,6 +304,10 @@ def _extract_discharge_modflownwt(
             values[t] = float(np.abs(np.minimum(arr, 0.0)).sum())
     finally:
         cbb.close()
+
+    # Native MODFLOW flux is volume / itmuni-time-unit. Divide by the
+    # number of seconds in that unit to obtain m³/s.
+    values = values / seconds_per_unit
 
     if time_index is not None and len(time_index) == n_timesteps:
         return pd.Series(values, index=time_index, name="discharge")
@@ -244,11 +359,14 @@ def _extract_head_modflownwt(
 # ---------------------------------------------------------------------------
 
 
-def _resolve_time_index(ctx: Any, n_timesteps: int) -> pd.DatetimeIndex | None:
+def _resolve_time_index(ctx: Any, n_timesteps: int = 0) -> pd.DatetimeIndex | None:
     """Build a ``DatetimeIndex`` matching the simulation time grid.
 
-    Falls back to ``None`` when the simulation's time boundaries are not
-    available (callers then receive a positional series).
+    Returns the stress-period end timestamps. ``n_timesteps`` is kept as
+    a hint - when ``> 0`` the index is truncated to that length, otherwise
+    the full timeline (``boundaries[1:]``) is returned. ``None`` is
+    returned when the simulation's time boundaries are not available so
+    callers fall back to a positional series.
     """
     time_grid = getattr(ctx.setup, "time_grid", None)
     if time_grid is None:
@@ -256,11 +374,11 @@ def _resolve_time_index(ctx: Any, n_timesteps: int) -> pd.DatetimeIndex | None:
     boundaries = getattr(time_grid, "boundaries", None)
     if not boundaries or len(boundaries) < 2:
         return None
-    # Time grid boundaries are the stress-period edges; MODFLOW-NWT writes
-    # one value per stress-period end by default.
     try:
-        # Use the interior endpoints (first boundary is t=0 / pre-simulation).
-        return pd.DatetimeIndex(pd.to_datetime(list(boundaries[1 : n_timesteps + 1])))
+        end_stamps = list(boundaries[1:])
+        if n_timesteps > 0:
+            end_stamps = end_stamps[:n_timesteps]
+        return pd.DatetimeIndex(pd.to_datetime(end_stamps))
     except Exception:
         return None
 
@@ -270,8 +388,57 @@ def _resolve_time_index(ctx: Any, n_timesteps: int) -> pd.DatetimeIndex | None:
 # ---------------------------------------------------------------------------
 
 
+def _median_step(index: pd.DatetimeIndex) -> pd.Timedelta | None:
+    """Return the median spacing of a datetime index, or ``None`` when undefined."""
+    if len(index) < 2:
+        return None
+    deltas = index.to_series().diff().dropna()
+    if deltas.empty:
+        return None
+    return pd.Timedelta(deltas.median())
+
+
+def _align_to_simulation_step(obs: pd.Series, sim: pd.Series) -> tuple[pd.Series, pd.Series]:
+    """Match obs and sim on the simulation stress-period index.
+
+    The observed series is typically daily while the simulated series is
+    one value per stress period (e.g. monthly). Comparing them at the
+    daily index would broadcast each monthly sim value 30 times and bias
+    every metric. Instead we group obs into bins centered on the sim
+    timestamps and take the mean of every observation falling in the
+    bin. The simulated series stays at its native sampling.
+    """
+    if sim.empty or obs.empty:
+        return obs, sim
+
+    sim = sim.sort_index()
+    obs = obs.sort_index()
+
+    # Restrict obs to the simulated window.
+    obs = obs.loc[sim.index.min() : sim.index.max()]
+    if obs.empty:
+        return obs, sim
+
+    sim_step = _median_step(sim.index)
+    obs_step = _median_step(obs.index)
+    if sim_step is None or obs_step is None or sim_step <= obs_step:
+        # Nothing to bin (irregular index or sim is not coarser than obs).
+        sim_aligned = sim.reindex(obs.index, method="nearest", tolerance=sim_step)
+        return obs, sim_aligned
+
+    # Bin obs around each sim timestamp. Each sim point t covers
+    # [t - sim_step/2, t + sim_step/2). Use ``cut`` over the half-step
+    # boundaries derived from the simulation index.
+    half = sim_step / 2
+    bin_edges = pd.DatetimeIndex([sim.index[0] - half] + [t + half for t in sim.index])
+    binned = pd.cut(obs.index, bins=bin_edges, right=False)
+    obs_aligned = obs.groupby(binned, observed=True).mean()
+    obs_aligned.index = sim.index[: len(obs_aligned)]
+    return obs_aligned, sim.loc[obs_aligned.index]
+
+
 def _score(observed: pd.Series, simulated: pd.Series, objective: str) -> float:
-    """Align two series on the observed index and compute the scalar metric.
+    """Align both series at the simulation frequency, compute the scalar metric.
 
     Returns the *cost* (lower is better) - higher-is-better metrics like
     NSE / KGE are flipped into ``1 - value`` so the optimizer always
@@ -285,9 +452,11 @@ def _score(observed: pd.Series, simulated: pd.Series, objective: str) -> float:
         )
     obs = observed.astype(float)
     sim = simulated.astype(float)
-    # Align to the observed index - MODFLOW may emit at different stamps.
-    sim_aligned = sim.reindex(obs.index, method="nearest", tolerance=pd.Timedelta(days=31))
-    value = float(metric(obs.values, sim_aligned.values))
+    obs_aligned, sim_aligned = _align_to_simulation_step(obs, sim)
+    paired = pd.concat([obs_aligned.rename("obs"), sim_aligned.rename("sim")], axis=1).dropna()
+    if paired.empty:
+        return float("nan")
+    value = float(metric(paired["obs"].values, paired["sim"].values))
     if np.isnan(value):
         return float("nan")
     return (1.0 - value) if objective.lower() in HIGHER_IS_BETTER else value
@@ -350,6 +519,11 @@ def build_metric_extractor(
                 simulated = _extract_discharge_modflownwt(output_dir, model_name, time_idx)
                 if simulated is None:
                     return float("nan"), {}
+                # Add the surface runoff forcing (data layer) to the
+                # baseflow component drained by MODFLOW so the simulated
+                # signal matches the total streamflow recorded by the
+                # observation station.
+                simulated = _add_runoff_to_discharge(simulated, trial_ctx)
                 components: dict[str, float] = {}
                 costs: list[float] = []
                 for obs_rec in observed:

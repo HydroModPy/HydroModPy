@@ -75,8 +75,8 @@ behavior and data dependencies.
 Support-Build Sequence Diagram
 ------------------------------
 
-Use this diagram to describe how the launcher builds and registers support
-objects during setup and data phases.
+Use this diagram to describe how the project facade builds and
+registers support objects during setup and data phases.
 
 .. uml:: diagrams/spatial_support_build_sequence.wsd
 

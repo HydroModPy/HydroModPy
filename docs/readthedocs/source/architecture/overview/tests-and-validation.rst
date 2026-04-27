@@ -52,7 +52,7 @@ benchmark inventory.
 Typical responsibilities in ``validation_cases/`` are:
 
 - analytical references and literature-facing assumptions,
-- deterministic launcher or runtime configuration for one benchmark,
+- deterministic project or runtime configuration for one benchmark,
 - case metadata in ``metadata.toml`` and accepted thresholds in
   ``tolerances.toml``,
 - reusable comparison functions consumed by pytest,
@@ -75,7 +75,7 @@ In short:
 Execution Paths
 ---------------
 
-One launcher-backed validation case usually follows this lifecycle:
+One pipeline-backed validation case usually follows this lifecycle:
 
 1. pytest imports one comparison function from ``validation_cases/.../comparison.py``,
 2. the shared runtime executes the deterministic configuration,

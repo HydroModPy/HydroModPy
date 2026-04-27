@@ -164,6 +164,35 @@ def _discretize_heterogeneous_source(
     return {kper: np.zeros((nrow, ncol), dtype=float) for kper in range(nper)}
 
 
+def _merge_evt_payloads(
+    primary: dict[int, object] | None,
+    secondary: dict[int, object] | None,
+) -> dict[int, object] | None:
+    """Sum two per-period EVT payloads into one stress-period dict.
+
+    Either argument may be ``None``. Scalars and ndarrays are added
+    element-wise; mismatched shapes fall back to numpy broadcasting and
+    raise the underlying error. Returns ``None`` only when both inputs
+    are ``None``.
+    """
+    if primary is None:
+        return secondary
+    if secondary is None:
+        return primary
+
+    merged: dict[int, object] = dict(primary)
+    for kper, value in secondary.items():
+        if kper not in merged:
+            merged[kper] = value
+            continue
+        a = merged[kper]
+        if isinstance(a, np.ndarray) or isinstance(value, np.ndarray):
+            merged[kper] = np.asarray(a, dtype=float) + np.asarray(value, dtype=float)
+        else:
+            merged[kper] = float(a) + float(value)
+    return merged
+
+
 @dataclass(slots=True)
 class FlowModflowInputs:
     """
@@ -215,6 +244,8 @@ class FlowModflowInputs:
     wel_spd: dict[int, list[list[float]]]
     rch_data: object | None
     evt_spd: dict[int, object] | None
+    evt_surface_offset: float = 2.0
+    evt_extinction_depth: float = 1.0
 
 
 class FlowToModflowAdapter:
@@ -1081,6 +1112,93 @@ class FlowToModflowAdapter:
         )
         return rch_data, evt_spd
 
+    def _build_etp_payload(self) -> tuple[dict[int, object] | None, float, float]:
+        """Build the EVT payload from ``flow.sinks_sources["etp"]``.
+
+        Returns ``(evt_spd, surface_offset, extinction_depth)`` where the
+        first item is the per-period rate dict consumed by
+        ``ModflowEvt(evtr=...)`` (in m/s native SI; the solver converts to
+        MODFLOW time units). Both depths default to the legacy values
+        (``2 m`` / ``1 m``) when ETP is not active.
+        """
+        active = getattr(self.flow, "active_sinks_sources", [])
+        if "etp" not in active:
+            return None, 2.0, 1.0
+
+        sinks_sources = getattr(self.flow, "sinks_sources", {})
+        etp_cfg = sinks_sources.get("etp") if isinstance(sinks_sources, Mapping) else None
+        if etp_cfg is None:
+            return None, 2.0, 1.0
+
+        surface_offset = float(getattr(etp_cfg, "surface_offset", 2.0))
+        extinction_depth = float(getattr(etp_cfg, "extinction_depth", 1.0))
+
+        het_source = getattr(etp_cfg, "heterogeneous_source", None)
+        if het_source is not None and (
+            getattr(het_source, "has_fields", False) or getattr(het_source, "has_points", False)
+        ):
+            return (
+                self._build_heterogeneous_etp_payload(etp_cfg),
+                surface_offset,
+                extinction_depth,
+            )
+
+        # Homogeneous path: scalar / list / mapping / runtime series.
+        etp_payload = self._copy_payload(etp_cfg.values)
+        etp_payload = convert_payload_to_m_per_s(
+            etp_payload,
+            unit=str(getattr(etp_cfg, "units", "mm/day")),
+            label="flow.sinks_sources.etp.values",
+        )
+        # ETP rates must be non-negative (water leaves the aquifer).
+        etp_payload = self._clip_etp_to_non_negative(etp_payload)
+        evt_spd = self._assemble_rch_data(
+            etp_payload, etp_cfg.first_clim, self._resolve_flow_regime()
+        )
+        if not isinstance(evt_spd, Mapping):
+            # Steady-state path returns a scalar; promote to a dict so
+            # the consumer is uniform with the transient case.
+            evt_spd = {0: float(evt_spd)}
+        return evt_spd, surface_offset, extinction_depth
+
+    def _build_heterogeneous_etp_payload(self, etp_cfg: object) -> dict[int, np.ndarray]:
+        """Discretize gridded FieldRecords / points onto the MODFLOW grid."""
+        het_source = etp_cfg.heterogeneous_source
+        interp_method = getattr(etp_cfg, "interpolation_method", "nearest")
+        # Data-managers always emit mm/day; etp_cfg.units is normalised to m/s
+        # by the runtime, so the underlying source unit is mm/day.
+        raw_arrays = _discretize_heterogeneous_source(
+            het_source,
+            solver_mesh=self.solver_mesh,
+            nper=self.nper,
+            simulation_window=self.simulation_window,
+            method=interp_method,
+            source_unit="mm/day",
+        )
+        # Apply first_clim policy and clip negatives to zero so the EVT
+        # package receives only outflow rates.
+        rate_arrays = self._apply_first_clim_2d(
+            raw_arrays,
+            getattr(etp_cfg, "first_clim", "mean"),
+            self._resolve_flow_regime(),
+        )
+        return {
+            kper: np.maximum(np.asarray(arr, dtype=float), 0.0) for kper, arr in rate_arrays.items()
+        }
+
+    @staticmethod
+    def _clip_etp_to_non_negative(payload: object) -> object:
+        """Clip a homogeneous ETP payload to non-negative values in place."""
+        if isinstance(payload, Mapping):
+            return {k: max(0.0, float(v)) for k, v in payload.items()}
+        if hasattr(payload, "clip"):
+            return payload.clip(lower=0.0)
+        if isinstance(payload, np.ndarray):
+            return np.maximum(payload, 0.0)
+        if isinstance(payload, list):
+            return [max(0.0, float(v)) for v in payload]
+        return max(0.0, float(payload))
+
     def _build_heterogeneous_recharge_payload(
         self,
         recharge_cfg: object,
@@ -1378,7 +1496,15 @@ class FlowToModflowAdapter:
         wel_spd = self._build_well_stress_period_data()
 
         # Stage 6: recharge and EVT payloads from flow.sinks_sources.recharge.
-        rch_data, evt_spd = self._build_recharge_payload()
+        rch_data, evt_spd_from_recharge = self._build_recharge_payload()
+
+        # Stage 7: dedicated ETP payload from flow.sinks_sources.etp. When
+        # both the negative-recharge fallback and a real ETP source are
+        # active, the per-period rates are summed before reaching the EVT
+        # package so the user can keep the legacy behaviour while adding
+        # an explicit ETP forcing.
+        evt_from_etp, evt_surface_offset, evt_extinction_depth = self._build_etp_payload()
+        evt_spd = _merge_evt_payloads(evt_spd_from_recharge, evt_from_etp)
 
         # Final packaging of all solver-ready arrays and SPD payloads.
         return FlowModflowInputs(
@@ -1396,4 +1522,6 @@ class FlowToModflowAdapter:
             wel_spd=wel_spd,
             rch_data=rch_data,
             evt_spd=evt_spd,
+            evt_surface_offset=evt_surface_offset,
+            evt_extinction_depth=evt_extinction_depth,
         )

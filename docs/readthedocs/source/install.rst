@@ -4,10 +4,31 @@ Install
 Requirements
 ------------
 
-- Python 3.11 or newer (HydroModPy v0.3.0 dropped support for older versions; see :doc:`news/v0_3_0`).
+- Python 3.11, 3.12, or 3.13.
 - Git (only needed if you install from the repository).
-- MODFLOW, MODPATH and MT3DMS binaries are included with every installation (PyPI and repository installs).
-- The PyHELP binary downloads itself on the first call to the helper module.
+- MODFLOW, MODPATH, and MT3D-USGS binaries are downloaded on demand by
+  ``flopy.utils.get_modflow`` the first time a solver runs. The cache
+  lives at ``~/.cache/hydromodpy/bin/`` (or the platform equivalent) and
+  the location can be overridden with the ``HYDROMODPY_BIN`` environment
+  variable. The same set of binaries can be fetched eagerly with
+  ``hmp install-binaries``.
+- The PyHELP binary also downloads itself on the first call to the
+  helper module.
+
+Solver binaries
+~~~~~~~~~~~~~~~
+
+The lazy download keeps the installed package small and avoids shipping
+platform-specific executables in the wheel. Once a binary is in the
+cache it is never auto-refreshed, so a run started today produces the
+same result a year from now. Use the explicit command if you need to
+control when binaries arrive on disk:
+
+.. code-block:: bash
+
+   hmp install-binaries                # fetch everything now
+   hmp install-binaries --bindir <dir>  # fetch into a custom directory
+   hmp install-binaries --upgrade       # force re-download (rare)
 
 Install with pip
 ----------------
@@ -40,6 +61,55 @@ Install with pip
 
 Full pip packaging is available from v0.3.0 onward. Users pinned to older
 releases should rely on the conda environment and the ``v0.2.0`` tag.
+
+Optional extras
+---------------
+
+HydroModPy ships several optional extras. Add only what you need. Combine
+them inside one ``pip install`` command, for example
+``pip install "hydromodpy[ide,viewer3d]"``.
+
+.. list-table::
+   :header-rows: 1
+   :widths: 18 60
+
+   * - Extra
+     - Provides
+   * - ``[test]``
+     - ``pytest``, ``pytest-xdist``, ``pytest-timeout``, ``coverage`` for
+       running the test tiers.
+   * - ``[dev]``
+     - ``ruff`` and ``pre-commit`` for linting and Git hooks. Required
+       only for contributors.
+   * - ``[docs]``
+     - Sphinx, the RTD theme, ``myst-parser``, ``nbsphinx``, plus the
+       extensions used to build this documentation.
+   * - ``[ide]``
+     - ``ipykernel``, ``jupyterlab``, Spyder, and PySide6.
+   * - ``[ugrid]``
+     - ``xugrid`` for unstructured mesh handling.
+   * - ``[viewer3d]``
+     - ``pyvista`` for 3D mesh visualization.
+
+Developer install
+-----------------
+
+Contributors should clone the repository, install in editable mode with
+the ``[dev,test,docs]`` extras, and register the pre-commit hook:
+
+.. code-block:: bash
+
+   git clone https://github.com/HydroModPy/HydroModPy.git
+   cd HydroModPy
+   conda create -n hmp-dev python=3.12 -y
+   conda activate hmp-dev
+   pip install -e ".[dev,test,docs]"
+   pre-commit install
+
+The ``pre-commit install`` step registers the Git hook that runs ``ruff``
+before each commit. See :doc:`contribute` for the full contributor
+workflow (issue filing, coding style, test tiers, doc build, pull request
+conventions).
 
 Install with conda
 ------------------

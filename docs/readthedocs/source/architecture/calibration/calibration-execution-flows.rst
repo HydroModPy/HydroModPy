@@ -10,15 +10,16 @@ than their static class structure.
 Open this page when you want:
 
 - the high-level activity of one calibration session,
-- the main sequence between launcher, runtime preparation, and engine,
+- the main sequence between the CLI entry, runtime preparation, and
+  engine,
 - one concrete case-level runtime example,
 - the devkit flow used to scaffold and validate new cases.
 
 Calibration Activity
 --------------------
 
-This activity view is the best entry point for the launcher-managed control
-flow of one calibration session.
+This activity view is the best entry point for the control flow of
+one calibration session driven by ``hmp run``.
 
 .. uml:: diagrams/calibration_activity.wsd
 
@@ -29,8 +30,8 @@ flow of one calibration session.
 Calibration Sequence
 --------------------
 
-This sequence view focuses on the handoff between launcher logic and the
-generic calibration engine.
+This sequence view focuses on the handoff between the CLI entry
+point and the generic calibration engine.
 
 .. uml:: diagrams/calibration_sequence.wsd
 

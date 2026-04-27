@@ -2,11 +2,9 @@ Simulation Architecture
 =======================
 
 This section documents the simulation orchestration layer implemented in
-``hydromodpy.simulation``.
-
-For runtime views that include the top-level launcher, see
-:doc:`../launchers/launcher-simulation-sequence-diagram` and
-:doc:`../launchers/launcher-simulation-activity-diagram`.
+``hydromodpy.simulation``. The public entry point is the ``Project``
+facade in ``hydromodpy/project.py``, instantiated by the CLI command
+``hmp run`` or by user Python code.
 
 Use this section when you want:
 
@@ -18,5 +16,5 @@ Use this section when you want:
    :maxdepth: 2
 
    toml-to-solver-walkthrough
-   launcher-simulation-class-diagram
+   simulation-orchestration-class-diagram
    simulation-time-cycle-diagrams

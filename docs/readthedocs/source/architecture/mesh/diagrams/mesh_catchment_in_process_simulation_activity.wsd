@@ -1,5 +1,5 @@
 @startuml
-title Launcher - Runtime Mesh Integration In ProcessSimulation
+title Runtime Mesh Integration In Simulation Workflow
 
 start
 

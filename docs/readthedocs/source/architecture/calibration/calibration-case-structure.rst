@@ -25,9 +25,9 @@ Case/Core Structure
 Notes
 -----
 
-- Case packages under ``hydromodpy/analysis/calibration/cases`` are expected
-  to stay thin adapters around the shared engine.
-- New case scaffolding belongs to ``hydromodpy/analysis/calibration/devkit``,
-  not to the launcher package.
-- Launcher-specific concerns such as manifests, reruns, and report persistence
-  stay under ``launchers/model_calibration``.
+- Case packages under ``hydromodpy/calibration/cases`` are expected to
+  stay thin adapters around the shared engine.
+- CLI-specific concerns such as manifests, reruns, and report
+  persistence are owned by ``hydromodpy/calibration/cli.py`` and the
+  reporting helpers in ``hydromodpy/calibration/persistence.py`` and
+  ``report.py``.

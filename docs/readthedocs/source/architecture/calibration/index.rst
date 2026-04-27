@@ -5,7 +5,8 @@ This section documents the software architecture of the calibration stack.
 
 It separates four complementary views:
 
-- where launcher-managed calibration orchestration lives,
+- where the calibration entry point and orchestration live in the
+  package,
 - how one calibration session executes and records candidate runs,
 - which core classes stay reusable across cases and methods,
 - how runnable case packages are organized around the shared core.
@@ -19,8 +20,8 @@ It separates four complementary views:
 
    .. tab-item:: Execution Flows
 
-      Open :doc:`calibration-execution-flows` for activity and sequence views
-      of launcher-managed calibration runs.
+      Open :doc:`calibration-execution-flows` for activity and
+      sequence views of one calibration session.
 
    .. tab-item:: Core Classes
 

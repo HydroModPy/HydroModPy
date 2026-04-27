@@ -15,9 +15,10 @@ It focuses on:
 - adapter layers that bridge solver grids to field meshes,
 - discretization workflows that turn field parameters into solver-ready arrays.
 
-For higher-level runtime handoffs from process objects to solver wrappers, see
+For higher-level runtime handoffs from process objects to solver
+adapters, see
 :doc:`../process/process-runtime-to-solver-sequence-diagram` and
-:doc:`../simulation/launcher-simulation-class-diagram`.
+:doc:`../simulation/simulation-orchestration-class-diagram`.
 
 .. toctree::
    :maxdepth: 2

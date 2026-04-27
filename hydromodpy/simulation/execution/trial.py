@@ -170,6 +170,21 @@ class TrialContext:
         new_ctx.loaded_data = self.ctx.loaded_data
         new_ctx.execution = ExecutionRegistry(lightweight=True)
 
+        # Rebuild flow / transport from the patched cfg and re-bind the
+        # loaded forcings (recharge, oceanic) to the fresh objects. Without
+        # this, the trial solver runs on a Flow with zero recharge. The
+        # rebuild is skipped when ``loaded_data`` has no real forcings
+        # attached (e.g. unit tests using stub contexts).
+        if (
+            hasattr(new_ctx.loaded_data, "recharge")
+            and getattr(new_setup, "domain", None) is not None
+        ):
+            from hydromodpy.workflow.steps.data_loading import (
+                apply_structural_updates_from_data,
+            )
+
+            apply_structural_updates_from_data(new_ctx)
+
         return TrialContext(
             base_cfg=self.base_cfg,
             ctx=new_ctx,
