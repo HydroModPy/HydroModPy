@@ -108,4 +108,4 @@ nlay = 1
 # --- Affichage (headless par défaut) --------------------------------
 
 [display]
-enabled = false
+enabled = true

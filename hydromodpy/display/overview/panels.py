@@ -7,7 +7,7 @@ keeps the rendering decoupled from any state dataclass.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
 
@@ -57,10 +57,14 @@ def render_dem_map(
         _plot_watershed_outline(ax, watershed_shp)
 
     if streams_gdf is not None and not streams_gdf.empty:
-        streams_gdf.plot(ax=ax, color="steelblue", linewidth=0.6, alpha=0.8)
+        # The 'terrain' colormap renders valley bottoms in blue, which would
+        # camouflage a steelblue stream layer; use a high-contrast colour
+        # that stands out against the entire elevation palette.
+        streams_gdf.plot(ax=ax, color="navy", linewidth=0.8, alpha=0.95)
 
     if station_points:
-        _plot_station_points(ax, station_points)
+        target_crs = _read_raster_crs(dem_path)
+        _plot_station_points(ax, station_points, target_crs=target_crs)
 
     ax.set_xlim(extent[0], extent[1])
     ax.set_ylim(extent[2], extent[3])
@@ -109,13 +113,20 @@ def render_hydrography_map(
             streams_gdf,
             ("STRAHLER", "strahler", "strahler_order", "order"),
         )
+        # Sources like BD TOPAGE leave Strahler order empty for many tributaries
+        # and reserve it for EU-Hydro-tagged reaches. Falling back to per-row
+        # `linewidth=NaN` made those reaches invisible. Compute a clean width
+        # column with a visible default (Strahler 1) when the order is missing.
         if lw_field is not None:
-            for _, row in streams_gdf.iterrows():
-                w = 0.4 + 0.4 * float(row.get(lw_field, 1) or 1)
+            import pandas as pd
+
+            order = pd.to_numeric(streams_gdf[lw_field], errors="coerce").fillna(1.0)
+            widths = 0.4 + 0.4 * order.clip(lower=1.0)
+            for (_, row), width in zip(streams_gdf.iterrows(), widths, strict=False):
                 streams_gdf.iloc[[row.name]].plot(
                     ax=ax,
                     color="steelblue",
-                    linewidth=w,
+                    linewidth=float(width),
                 )
         else:
             streams_gdf.plot(ax=ax, color="steelblue", linewidth=0.8)
@@ -220,8 +231,23 @@ def render_timeseries_multi(
     ylabel: str,
     title: str,
     unit: str = "",
+    date_start=None,
+    date_end=None,
+    hlines: list[dict] | None = None,
 ) -> Axes:
-    """Render a multi-station time series panel (one line per column)."""
+    """Render a multi-station time series panel (one line per column).
+
+    Parameters
+    ----------
+    date_start, date_end
+        Optional bounds applied via :meth:`Axes.set_xlim` so the panel honours
+        the requested time window even when the underlying records span a
+        wider period.
+    hlines
+        Optional list of horizontal reference lines, each described by a dict
+        with keys ``y`` (float), ``label`` (str), and optional ``color`` /
+        ``linestyle``. Used to overlay e.g. the piezometer surface altitude.
+    """
     if df is None or df.empty:
         ax.text(
             0.5,
@@ -244,13 +270,189 @@ def render_timeseries_multi(
         ax.plot(serie.index, serie.values, linewidth=0.6, alpha=0.8, label=station)
         plotted += 1
 
+    if hlines:
+        for line in hlines:
+            y = line.get("y")
+            if y is None:
+                continue
+            ax.axhline(
+                float(y),
+                color=line.get("color", "darkred"),
+                linestyle=line.get("linestyle", "--"),
+                linewidth=0.8,
+                alpha=0.85,
+                label=line.get("label"),
+            )
+
+    if date_start is not None or date_end is not None:
+        import pandas as pd
+
+        lo = pd.to_datetime(date_start) if date_start is not None else None
+        hi = pd.to_datetime(date_end) if date_end is not None else None
+        ax.set_xlim(lo, hi)
+
     ax.set_title(title, fontsize=10)
     ax.set_ylabel(f"{ylabel} ({unit})" if unit else ylabel, fontsize=8)
     ax.set_xlabel("Date", fontsize=8)
     ax.grid(True, ls=":", lw=0.4, alpha=0.6)
     ax.tick_params(labelsize=7)
+    legend_entries = plotted + (len(hlines) if hlines else 0)
+    if 0 < legend_entries <= 12:
+        ax.legend(fontsize=6, loc="best", ncol=min(3, legend_entries))
+    if plotted == 0:
+        ax.text(
+            0.5,
+            0.5,
+            "No valid records",
+            ha="center",
+            va="center",
+            transform=ax.transAxes,
+            fontsize=9,
+            color="grey",
+        )
+    return ax
+
+
+def render_intermittency(
+    ax: Axes,
+    *,
+    df,
+    title: str,
+    date_start=None,
+    date_end=None,
+) -> Axes:
+    """Render ONDE flow-state observations as a step plot per station.
+
+    The ordinal flow code (1 = dry, 5 = visible flow) is plotted with
+    discrete y-axis ticks. Sparse observations (Hub'Eau ONDE is monthly at
+    best) are connected with steps to ease readability.
+    """
+    if df is None or df.empty:
+        ax.text(
+            0.5,
+            0.5,
+            "No records",
+            ha="center",
+            va="center",
+            transform=ax.transAxes,
+            fontsize=9,
+            color="grey",
+        )
+        ax.set_title(title, fontsize=10)
+        return ax
+
+    plotted = 0
+    for station in df.columns:
+        serie = df[station].dropna()
+        if serie.empty:
+            continue
+        ax.step(
+            serie.index,
+            serie.values,
+            where="post",
+            linewidth=0.9,
+            alpha=0.85,
+            marker="o",
+            markersize=3,
+            label=station,
+        )
+        plotted += 1
+
+    if date_start is not None or date_end is not None:
+        import pandas as pd
+
+        lo = pd.to_datetime(date_start) if date_start is not None else None
+        hi = pd.to_datetime(date_end) if date_end is not None else None
+        ax.set_xlim(lo, hi)
+
+    ax.set_yticks([1, 2, 3, 4, 5])
+    ax.set_yticklabels(
+        ["1: Dry", "2: Non-visible", "3: Weak", "4: Acceptable", "5: Visible"],
+        fontsize=7,
+    )
+    ax.set_ylim(0.5, 5.5)
+    ax.set_title(title, fontsize=10)
+    ax.set_xlabel("Date", fontsize=8)
+    ax.grid(True, ls=":", lw=0.4, alpha=0.6)
+    ax.tick_params(axis="x", labelsize=7)
     if 0 < plotted <= 10:
         ax.legend(fontsize=6, loc="best", ncol=min(3, plotted))
+    if plotted == 0:
+        ax.text(
+            0.5,
+            0.5,
+            "No valid records",
+            ha="center",
+            va="center",
+            transform=ax.transAxes,
+            fontsize=9,
+            color="grey",
+        )
+    return ax
+
+
+def render_water_quality(
+    ax: Axes,
+    *,
+    series_by_param: dict,
+    title: str,
+    date_start=None,
+    date_end=None,
+) -> Axes:
+    """Render water-quality observations grouped by parameter.
+
+    ``series_by_param`` maps parameter name to a dict of station_id -> Series.
+    Each parameter is plotted on its own twin y-axis (up to 3 parameters);
+    additional parameters are folded into the leftmost axis. The dataset is
+    typically sparse (a few analyses per year), so points are emphasised.
+    """
+    import pandas as pd  # noqa: F401  (only needed for date conversion below)
+
+    if not series_by_param:
+        ax.text(
+            0.5,
+            0.5,
+            "No records",
+            ha="center",
+            va="center",
+            transform=ax.transAxes,
+            fontsize=9,
+            color="grey",
+        )
+        ax.set_title(title, fontsize=10)
+        return ax
+
+    palette = ["tab:blue", "tab:orange", "tab:green", "tab:red", "tab:purple"]
+    plotted = 0
+    for color_idx, (param, station_series) in enumerate(series_by_param.items()):
+        color = palette[color_idx % len(palette)]
+        for station, serie in station_series.items():
+            if serie.empty:
+                continue
+            ax.plot(
+                serie.index,
+                serie.values,
+                linewidth=0.6,
+                alpha=0.7,
+                color=color,
+                marker="o",
+                markersize=3,
+                label=f"{param} ({station})",
+            )
+            plotted += 1
+
+    if date_start is not None or date_end is not None:
+        lo = pd.to_datetime(date_start) if date_start is not None else None
+        hi = pd.to_datetime(date_end) if date_end is not None else None
+        ax.set_xlim(lo, hi)
+
+    ax.set_title(title, fontsize=10)
+    ax.set_xlabel("Date", fontsize=8)
+    ax.set_ylabel("Concentration / value", fontsize=8)
+    ax.grid(True, ls=":", lw=0.4, alpha=0.6)
+    ax.tick_params(labelsize=7)
+    if 0 < plotted <= 10:
+        ax.legend(fontsize=6, loc="best", ncol=min(2, plotted))
     if plotted == 0:
         ax.text(
             0.5,
@@ -432,13 +634,18 @@ def _plot_watershed_outline(ax, watershed_shp) -> None:
         pass
 
 
-def _plot_station_points(ax, points: list[dict]) -> None:
+def _plot_station_points(ax, points: list[dict], target_crs=None) -> None:
+    """Scatter station markers, reprojecting their coords to ``target_crs``.
+
+    Hub'Eau locations come in EPSG:4326 (lon/lat) while map panels render in
+    the project CRS (typically EPSG:2154). Without reprojection the markers
+    would land far outside the visible bbox and only the legend would show.
+    """
     groups: dict[str, list[dict]] = {}
     for pt in points:
         groups.setdefault(pt.get("group", "stations"), []).append(pt)
     for group, items in groups.items():
-        xs = [p["x"] for p in items]
-        ys = [p["y"] for p in items]
+        xs, ys = _reproject_points_xy(items, target_crs)
         first = items[0]
         ax.scatter(
             xs,
@@ -453,6 +660,52 @@ def _plot_station_points(ax, points: list[dict]) -> None:
         )
     if groups:
         ax.legend(loc="upper right", fontsize=7, markerscale=0.8)
+
+
+def _reproject_points_xy(items: list[dict], target_crs) -> tuple[list[float], list[float]]:
+    """Reproject ``items`` (each with ``x``, ``y``, optional ``crs``) to ``target_crs``."""
+    if target_crs is None:
+        return [p["x"] for p in items], [p["y"] for p in items]
+    try:
+        from pyproj import Transformer
+    except ImportError:
+        return [p["x"] for p in items], [p["y"] for p in items]
+
+    cache: dict[str, Any] = {}
+    xs: list[float] = []
+    ys: list[float] = []
+    target_str = str(target_crs)
+    for p in items:
+        src_crs = p.get("crs") or "EPSG:4326"
+        src_str = str(src_crs)
+        if src_str == target_str:
+            xs.append(float(p["x"]))
+            ys.append(float(p["y"]))
+            continue
+        transformer = cache.get(src_str)
+        if transformer is None:
+            try:
+                transformer = Transformer.from_crs(src_str, target_str, always_xy=True)
+            except Exception:
+                xs.append(float(p["x"]))
+                ys.append(float(p["y"]))
+                continue
+            cache[src_str] = transformer
+        x2, y2 = transformer.transform(float(p["x"]), float(p["y"]))
+        xs.append(x2)
+        ys.append(y2)
+    return xs, ys
+
+
+def _read_raster_crs(path: str):
+    """Return the CRS of a raster file, or None on failure."""
+    try:
+        import rasterio
+
+        with rasterio.open(path) as src:
+            return src.crs
+    except Exception:
+        return None
 
 
 def _pick_field(gdf, candidates: tuple[str, ...]) -> str | None:

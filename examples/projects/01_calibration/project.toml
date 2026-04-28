@@ -1,18 +1,24 @@
 # ======================================================================
-# HydroModPy - exemple 01 : calibration
+# HydroModPy - example 01 : calibration (twin-synthetic Dupuit)
 # ======================================================================
-# Aquifère Dupuit synthétique (identique à 00_getting_started) + boucle
-# de calibration Optuna sur la conductivité hydraulique K.
+# Same synthetic Dupuit aquifer as 00_getting_started + an Optuna
+# calibration loop that recovers the hydraulic conductivity K.
 #
-# Lancement (seul point d'entrée - pas de `hmp calibrate` séparé) :
+# Twin-synthetic pattern: the "observation" is the analytical Dupuit
+# head h(L/2) computed for the truth K = 1e-4 m/s. Optuna searches K
+# in [1e-6, 1e-3] m/s and minimises RMSE between the simulated head
+# at the midpoint cell and that single hard-coded target. No external
+# data, no piezometry source needed.
+#
+# Analytical truth (steady, symmetric Dirichlet h_b = 5 m, uniform
+# recharge R, length L, conductivity K):
+#     h(x)^2 = h_b^2 + R * x * (L - x) / K
+#     h(L/2) = sqrt( 25 + R * L^2 / (4 K) )
+# With R = 3 mm/day = 3.47e-8 m/s, L = 400 m, K_true = 1e-4 m/s:
+#     h(L/2) ~= 6.235 m
+#
+# Run:
 #   hmp run examples/projects/01_calibration/project.toml
-#
-# NOTE (état actuel, à retirer après le refactor décrit dans
-# `docs/developers/calibration_sweep_refactor_prompt.md`) : le CLI
-# utilise aujourd'hui un mock analytique ; chaque itération renvoie
-# sim_id=None et aucune simulation réelle n'est enregistrée. Après
-# refactor, `hmp run` lancera le solveur déclaré dans [solver] et
-# persistera les itérations + le best_sim_id.
 # ======================================================================
 
 workflow = "calibration"
@@ -110,16 +116,18 @@ nlay = 1
 enabled = false
 
 # --- Calibration ----------------------------------------------------
-# La présence de [calibration] déclenche le workflow "calibration" via
-# detect_workflow() ; [simulation] plus haut fournit le plan rejoué
-# par l'évaluateur à chaque itération.
+# `workflow = "calibration"` plus the [calibration] block below trigger
+# the ask/tell loop. The [simulation] section above is the plan replayed
+# by the evaluator at each iteration.
 #
-# Chaque paramètre déclare :
-#   bounds     : [low, high] dans l'espace physique
-#   transform  : 'log' pour quantités positives multi-ordres de magnitude
-#   path       : chemin pointé dans HydroModPyConfig où la valeur est
-#                injectée avant chaque run
-#   units      : label (optionnel, purement informatif)
+# Twin-synthetic wiring:
+#   [calibration.parameters.K_aquifer]   parameter searched by Optuna
+#   [calibration.outputs.head]           simulated observable at (x, y)
+#   observed_values                      hard-coded analytical target
+#
+# When `objective_blocks` is omitted, an implicit block is built from
+# (objective, variable): the output whose dict key matches `variable`
+# is paired with the `objective` metric.
 
 [calibration]
 method = "optuna"
@@ -127,11 +135,29 @@ max_iter = 20
 save_runs = "best_n"
 save_best_n = 3
 seed = 42
-objective = "nse"
+# Single-point / single-time observation: NSE is undefined (zero
+# variance) so we use RMSE which is well defined for a 1-element
+# series and minimised at the truth.
+objective = "rmse"
 variable = "head"
 
 [calibration.parameters.K_aquifer]
 bounds = [1e-6, 1e-3]
 transform = "log"
-path = "flow.param.K.field_homogeneous.value"
+# Pydantic flattens the [flow.param.K.field_homogeneous] subsection
+# into a flat dict at validation time, so the runtime injection key
+# is `flow.param.K.value` (not `...field_homogeneous.value`).
+path = "flow.param.K.value"
 units = "m/s"
+
+# Observable at the centre cell (x = L/2, y = W/2). The dict key 'head'
+# matches `variable` above, so the implicit objective block is built
+# automatically.
+[calibration.outputs.head]
+variable = "head"
+support = "point"
+x = "200 m"
+y = "25 m"
+time = "last"
+# Analytical Dupuit head for K_true = 1e-4 m/s (see header).
+observed_values = [6.235]

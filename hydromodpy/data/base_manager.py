@@ -129,6 +129,12 @@ class BaseVariableManager(ABC):
         """Filter records by spatial mask (reprojected to WGS84)."""
         if not source_cfg.mask_path:
             return records
+        # `nearest=True` explicitly asks for the closest station even when it
+        # lies outside the watershed mask (typical for piezometers). The mask
+        # is still used by `_resolve_bbox` for API discovery, but we keep the
+        # fallback record instead of stripping it here.
+        if getattr(source_cfg, "nearest", False):
+            return records
         from hydromodpy.data.common.geo_helpers import (
             filter_locations_by_geometry,
             load_mask_geometry_wgs84,

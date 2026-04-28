@@ -17,9 +17,11 @@ from hydromodpy.display.overview.panels import (
     render_dem_map,
     render_geology_map,
     render_hydrography_map,
+    render_intermittency,
     render_station_inventory,
     render_stats_card,
     render_timeseries_multi,
+    render_water_quality,
 )
 from hydromodpy.display.overview.summary import compute_overview_summary
 
@@ -51,6 +53,9 @@ def generate_overview_report(state: DataOverviewState) -> list[Path]:
     watershed_shp = getattr(dg, "watershed_shp", None) if dg else None
     streams_gdf = _load_streams_gdf(ld.hydrography)
     title = summary.watershed_name or "Watershed"
+    overview_cfg = state.cfg.overview
+    date_start = getattr(overview_cfg, "date_start", None)
+    date_end = getattr(overview_cfg, "date_end", None)
 
     paths: list[Path] = []
 
@@ -113,12 +118,15 @@ def generate_overview_report(state: DataOverviewState) -> list[Path]:
                 ylabel="Discharge",
                 unit="m³/s",
                 title=f"{title} - Observed discharge",
+                date_start=date_start,
+                date_end=date_end,
             )
         )
 
     if panels_cfg.timeseries_piezometry:
         piezo_records = ld.piezometry.points if ld.piezometry else None
         obs_df = _records_to_timeseries_df(piezo_records)
+        piezo_hlines = _piezo_altitude_hlines(piezo_records)
         paths.append(
             _render_panel(
                 output_dir / "timeseries_piezometry.png",
@@ -128,6 +136,39 @@ def generate_overview_report(state: DataOverviewState) -> list[Path]:
                 ylabel="Piezometric level",
                 unit="m",
                 title=f"{title} - Piezometry",
+                date_start=date_start,
+                date_end=date_end,
+                hlines=piezo_hlines,
+            )
+        )
+
+    if panels_cfg.timeseries_intermittency:
+        onde_records = ld.intermittency.points if ld.intermittency else None
+        onde_df = _records_to_timeseries_df(onde_records)
+        paths.append(
+            _render_panel(
+                output_dir / "timeseries_intermittency.png",
+                figsize=(10, 4),
+                render_fn=render_intermittency,
+                df=onde_df,
+                title=f"{title} - ONDE flow state",
+                date_start=date_start,
+                date_end=date_end,
+            )
+        )
+
+    if panels_cfg.timeseries_water_quality:
+        wq_records = ld.water_quality.points if ld.water_quality else None
+        series_by_param = _wq_series_by_parameter(wq_records)
+        paths.append(
+            _render_panel(
+                output_dir / "timeseries_water_quality.png",
+                figsize=(10, 4),
+                render_fn=render_water_quality,
+                series_by_param=series_by_param,
+                title=f"{title} - Water quality",
+                date_start=date_start,
+                date_end=date_end,
             )
         )
 
@@ -256,6 +297,58 @@ def _records_to_timeseries_df(records):
     return pd.DataFrame(frames) if frames else None
 
 
+def _piezo_altitude_hlines(records) -> list[dict] | None:
+    """Build horizontal-line specs for the piezometer surface altitudes.
+
+    Hub'Eau exposes ``altitude_station`` (ground level in metres NGF) in the
+    station metadata, attached to ``location.metadata['altitude']``. We turn
+    that into one dashed reference line per station so the piezometric chart
+    immediately shows the depth of the watertable below the surface.
+    """
+    if not records:
+        return None
+    palette = ["darkred", "saddlebrown", "darkolivegreen", "indigo"]
+    hlines: list[dict] = []
+    for idx, rec in enumerate(records):
+        loc = rec.location
+        if loc is None:
+            continue
+        altitude = loc.metadata.get("altitude") if isinstance(loc.metadata, dict) else None
+        if altitude is None:
+            continue
+        try:
+            alt_value = float(altitude)
+        except (TypeError, ValueError):
+            continue
+        hlines.append(
+            {
+                "y": alt_value,
+                "label": f"{rec.station_id} ground ({alt_value:.1f} m)",
+                "color": palette[idx % len(palette)],
+                "linestyle": "--",
+            }
+        )
+    return hlines or None
+
+
+def _wq_series_by_parameter(records) -> dict:
+    """Group water-quality PointRecords by parameter -> {station_id: Series}."""
+    if not records:
+        return {}
+
+    out: dict[str, dict[str, Any]] = {}
+    for rec in records:
+        if rec.data is None or rec.data.empty:
+            continue
+        df = rec.data.copy().set_index("datetime").sort_index()
+        if "value" not in df.columns:
+            continue
+        param = str(rec.variable or "value")
+        out.setdefault(param, {})[rec.station_id] = df["value"]
+    out = {k: v for k, v in out.items() if v}
+    return out
+
+
 def _monthly_mean_from_result(lr) -> np.ndarray | None:
     """Return a 12-element array with mean monthly values across all stations / fields."""
     if lr is None:
@@ -366,6 +459,7 @@ def _build_station_points(ld) -> list[dict] | None:
                 {
                     "x": float(loc.x),
                     "y": float(loc.y),
+                    "crs": loc.crs,
                     "label": rec.station_id,
                     "marker": marker,
                     "color": color,
