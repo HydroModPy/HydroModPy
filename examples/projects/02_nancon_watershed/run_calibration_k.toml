@@ -70,13 +70,13 @@ value = 1e-5
 # Optuna is the recommended sampler (Tree-structured Parzen Estimator).
 method = "optuna"
 # 40 trials is a small budget; bump it for production runs.
-max_iter = 20
+max_iter = 5
 # One trial per ask (sequential). Increase for parallel optimisers.
-batch_size = 4
+batch_size = 1
 # `best_n` promotes the top iterations to full simulations after the
 # loop, with Zarr + figures. Cheaper than `all` for large campaigns.
 save_runs = "best_n"
-save_best_n = 5
+save_best_n = 1
 # Fixed seed for reproducibility.
 seed = 42
 # Objective metric on the observed discharge time-series.

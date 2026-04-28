@@ -1,8 +1,20 @@
-"""``hmp list`` - list projects or runs in a workspace."""
+"""``hmp list`` - list projects or runs in a workspace.
+
+Workspace discovery mirrors ``hmp display --list``:
+
+1. ``--workspace`` flag, if provided.
+2. ``HYDROMODPY_WORKSPACE`` environment variable.
+3. Walk up from the current directory looking for ``hydromodpy.duckdb``.
+4. Fall back to :data:`hydromodpy.data.scaffold.DEFAULT_ROOT` (``~/hydromodpy``).
+
+This way a run registered by ``hmp run`` (which uses the same walk-up rule)
+is always visible to ``hmp list`` from anywhere inside the project tree.
+"""
 
 from __future__ import annotations
 
 import argparse
+import os
 import sys
 from pathlib import Path
 
@@ -22,43 +34,50 @@ def register(subparsers) -> argparse.ArgumentParser:
     parser.add_argument(
         "--workspace",
         default=None,
-        help="Workspace root (default: ~/hydromodpy/)",
+        help="Workspace root (default: walk up from cwd, fallback ~/hydromodpy/)",
     )
     parser.set_defaults(_handler=run)
     return parser
 
 
-def run(args: argparse.Namespace) -> None:
+def _resolve_workspace(workspace_arg: str | None) -> Path:
+    """Resolve the workspace root the same way ``hmp display --list`` does."""
     from hydromodpy.data.scaffold import DEFAULT_ROOT
 
-    workspace_root = Path(args.workspace or DEFAULT_ROOT).expanduser().resolve()
-    projects_dir = workspace_root / "projects"
+    if workspace_arg:
+        return Path(workspace_arg).expanduser().resolve()
 
-    if not projects_dir.is_dir():
-        print(f"No projects/ directory found in {workspace_root}", file=sys.stderr)
-        sys.exit(EXIT_NOT_FOUND)
+    ws_override = os.environ.get("HYDROMODPY_WORKSPACE")
+    start = Path(ws_override).expanduser().resolve() if ws_override else Path.cwd()
+    found = find_workspace_root(start)
+    if (found / "hydromodpy.duckdb").exists():
+        return found
+    return Path(DEFAULT_ROOT).expanduser().resolve()
+
+
+def run(args: argparse.Namespace) -> None:
+    workspace_root = _resolve_workspace(args.workspace)
+    projects_dir = workspace_root / "projects"
+    db_path = workspace_root / "hydromodpy.duckdb"
 
     if args.project:
-        project_dir = projects_dir / args.project
-        if not project_dir.is_dir():
-            print(f"Project not found: {args.project}", file=sys.stderr)
-            sys.exit(EXIT_NOT_FOUND)
-        workspace_root = find_workspace_root(project_dir)
-        db_path = workspace_root / "hydromodpy.duckdb"
         if not db_path.exists():
-            print(f"No hydromodpy.duckdb in {workspace_root}")
-            return
+            print(f"No hydromodpy.duckdb in {workspace_root}", file=sys.stderr)
+            sys.exit(EXIT_NOT_FOUND)
         try:
             from hydromodpy.results.catalog import (
                 SimulationCatalog,
                 short_id,
             )
 
-            catalog = SimulationCatalog(workspace_root)
-            sims = catalog.list_simulations(project=args.project)
-            if sims.empty:
-                print(f"  No simulations recorded in {args.project}")
-            else:
+            with SimulationCatalog(workspace_root) as catalog:
+                sims = catalog.list_simulations(
+                    project=args.project,
+                    order_by="created_at DESC",
+                )
+                if sims.empty:
+                    print(f"  No simulations recorded in {args.project}")
+                    return
                 for _, row in sims.iterrows():
                     sim_id = str(row["sim_id"])
                     name = row.get("name", "")
@@ -71,13 +90,18 @@ def run(args: argparse.Namespace) -> None:
                         f"  {label}  [{short_id(sim_id)}]  "
                         f"solver={solver}  status={status}{dur_str}"
                     )
-            catalog.close()
         except Exception as exc:
             print(f"  Error reading hydromodpy.duckdb: {exc}", file=sys.stderr)
         return
 
-    for project_dir in sorted(projects_dir.iterdir()):
-        if project_dir.is_dir():
+    # No project arg: list project directories, then runs from the catalog.
+    print(f"# workspace: {workspace_root}")
+
+    if projects_dir.is_dir():
+        print("# projects/ (filesystem):")
+        for project_dir in sorted(projects_dir.iterdir()):
+            if not project_dir.is_dir():
+                continue
             has_project_toml = (project_dir / "project.toml").exists()
             run_tomls = list(project_dir.glob("run_*.toml"))
             details = []
@@ -87,3 +111,31 @@ def run(args: argparse.Namespace) -> None:
                 details.append(f"{len(run_tomls)} run(s)")
             suffix = f"  [{', '.join(details)}]" if details else ""
             print(f"  {project_dir.name}{suffix}")
+
+    if db_path.exists():
+        try:
+            from hydromodpy.results.catalog import SimulationCatalog
+
+            with SimulationCatalog(workspace_root) as catalog:
+                sims = catalog.list_simulations(order_by="created_at DESC")
+            if sims.empty:
+                print("# catalog: (no simulations recorded)")
+            else:
+                projects = (
+                    sims["project"].dropna().value_counts().sort_index()
+                    if "project" in sims.columns
+                    else {}
+                )
+                print(f"# catalog: {len(sims)} run(s) across {len(projects)} project(s)")
+                for project_name, count in projects.items():
+                    print(f"  {project_name}  [{count} run(s)]")
+        except Exception as exc:
+            print(f"  Error reading hydromodpy.duckdb: {exc}", file=sys.stderr)
+        return
+
+    if not projects_dir.is_dir():
+        print(
+            f"No projects/ directory and no hydromodpy.duckdb found in {workspace_root}",
+            file=sys.stderr,
+        )
+        sys.exit(EXIT_NOT_FOUND)

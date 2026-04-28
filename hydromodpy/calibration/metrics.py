@@ -726,32 +726,66 @@ def _extract_cell(ctx: Any, output: CalibOutputDecl) -> list[float]:
 def _find_cell_at_point(ctx: Any, x: float, y: float) -> tuple[int, int, int] | None:
     """Return the closest ``(layer, row, col)`` to ``(x, y)`` on layer 0.
 
-    Walks ``ctx.setup.mesh_planar`` cell centroids when available. Falls
-    back to ``None`` (caller emits NaN) when the mesh layout does not
-    expose structured indices (MODFLOW 6 / unsupported).
+    Tries two sources, in order:
+
+    1. ``ctx.setup.mesh_planar`` cell centroids (catchment-meshed runs).
+    2. The MODFLOW-NWT structured grid (``model.mf.modelgrid``) — this
+       fallback covers synthetic grids and any project that goes
+       straight from ``[modflownwt.sgrid.planar]`` to the solver
+       without building a planar mesh.
+
+    Returns ``None`` (caller emits NaN) when neither source resolves a
+    cell — typically MODFLOW 6 / unsupported grids.
     """
     mesh = getattr(getattr(ctx, "setup", None), "mesh_planar", None)
-    if mesh is None:
+    if mesh is not None:
+        centroids = getattr(mesh, "cell_centroids", None) or getattr(mesh, "centroids", None)
+        if centroids is not None:
+            try:
+                arr = np.asarray(centroids, dtype=float)
+            except Exception:
+                arr = None
+            if arr is not None and arr.ndim == 2 and arr.shape[1] >= 2:
+                deltas = arr[:, :2] - np.array([x, y], dtype=float)
+                distances = np.einsum("ij,ij->i", deltas, deltas)
+                idx = int(np.argmin(distances))
+                nrow = int(getattr(mesh, "nrow", 0) or 0)
+                ncol = int(getattr(mesh, "ncol", 0) or 0)
+                if nrow > 0 and ncol > 0 and idx < nrow * ncol:
+                    return (0, idx // ncol, idx % ncol)
+
+    return _find_cell_in_modflow_grid(ctx, x, y)
+
+
+def _find_cell_in_modflow_grid(ctx: Any, x: float, y: float) -> tuple[int, int, int] | None:
+    """Locate ``(0, row, col)`` on a MODFLOW-NWT structured grid.
+
+    Reads cell-centre coordinates from ``model.mf.modelgrid`` (Flopy's
+    ``StructuredGrid``). Returns ``None`` if no MODFLOW-NWT model is
+    attached or the grid does not expose ``xcellcenters`` / ``ycellcenters``.
+    """
+    found = _find_flow_run(ctx)
+    if found is None:
         return None
-    centroids = getattr(mesh, "cell_centroids", None) or getattr(mesh, "centroids", None)
-    if centroids is None:
+    _run_id, model, _output_dir = found
+    modelgrid = getattr(getattr(model, "mf", None), "modelgrid", None)
+    if modelgrid is None:
+        return None
+    xc = getattr(modelgrid, "xcellcenters", None)
+    yc = getattr(modelgrid, "ycellcenters", None)
+    if xc is None or yc is None:
         return None
     try:
-        arr = np.asarray(centroids, dtype=float)
+        xc_arr = np.asarray(xc, dtype=float)
+        yc_arr = np.asarray(yc, dtype=float)
     except Exception:
         return None
-    if arr.ndim != 2 or arr.shape[1] < 2:
+    if xc_arr.shape != yc_arr.shape or xc_arr.ndim != 2:
         return None
-    deltas = arr[:, :2] - np.array([x, y], dtype=float)
-    distances = np.einsum("ij,ij->i", deltas, deltas)
-    idx = int(np.argmin(distances))
-    nrow = int(getattr(mesh, "nrow", 0) or 0)
-    ncol = int(getattr(mesh, "ncol", 0) or 0)
-    if nrow > 0 and ncol > 0 and idx < nrow * ncol:
-        row = idx // ncol
-        col = idx % ncol
-        return (0, row, col)
-    return None
+    distances = (xc_arr - x) ** 2 + (yc_arr - y) ** 2
+    flat_idx = int(np.argmin(distances))
+    nrow, ncol = xc_arr.shape
+    return (0, flat_idx // ncol, flat_idx % ncol)
 
 
 def _build_composite_metric_extractor(
