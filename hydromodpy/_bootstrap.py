@@ -18,6 +18,7 @@ def _rebuild_forward_refs() -> None:
     lookup against the defining module's globals, so the sibling classes are
     written into ``hydromodpy.core.config.hydromodpy_config.__dict__``.
     """
+    from hydromodpy.analysis.batch.config import RegionalLabConfig
     from hydromodpy.analysis.capability_gallery import CapabilityGalleryConfig
     from hydromodpy.calibration.config import CalibrationConfig
     from hydromodpy.core.config import hydromodpy_config as cfg_module
@@ -35,6 +36,7 @@ def _rebuild_forward_refs() -> None:
     from hydromodpy.spatial.mesh.config import MeshCatchmentConfig
 
     cfg_module.__dict__.update(
+        RegionalLabConfig=RegionalLabConfig,
         CapabilityGalleryConfig=CapabilityGalleryConfig,
         CalibrationConfig=CalibrationConfig,
         DataManagersConfig=DataManagersConfig,

@@ -39,6 +39,7 @@ from hydromodpy.core.config.toml_loader import load_toml_with_base_config
 from hydromodpy.core.workspace.config import WorkspaceConfig
 
 if TYPE_CHECKING:
+    from hydromodpy.analysis.batch.config import RegionalLabConfig
     from hydromodpy.analysis.capability_gallery import CapabilityGalleryConfig
     from hydromodpy.calibration.config import CalibrationConfig
     from hydromodpy.data.data_managers_config import DataManagersConfig
@@ -192,6 +193,13 @@ class HydroModPyConfig(HydroModelBase):
         description=(
             "Optional calibration settings loaded from the [calibration] "
             "section.  When present, triggers the calibration workflow."
+        ),
+    )
+    batch: Annotated[RegionalLabConfig | None, Profile.USER] = Field(
+        default=None,
+        description=(
+            "Optional regional-lab batch settings. When loaded standalone "
+            "via `RegionalLabLauncher`, the section name is `[regional_lab]`."
         ),
     )
 

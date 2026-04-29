@@ -3,10 +3,13 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
-from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from typing import Annotated, Any, Literal
 
+from pydantic import ConfigDict, Field
+
+from hydromodpy.core.config.base import HydroModelBase
+from hydromodpy.core.config.profile import Profile
 from hydromodpy.core.config.toml_loader import load_toml_with_base_config
 
 
@@ -117,98 +120,129 @@ def _validate_optional_int(value: object, *, label: str) -> int | None:
     return out
 
 
-@dataclass(frozen=True)
-class RegionalLabCatalogConfig:
+class RegionalLabCatalogConfig(HydroModelBase):
     """Normalized catalog-loading contract."""
 
-    path: Path
-    format: str
-    site_id_field: str
-    site_label_field: str | None
-    cluster_id_field: str | None
-    cluster_label_field: str | None
-    cluster_family_field: str | None
-    cluster_scale_field: str | None
-    region_field: str | None
-    source_selection_field: str | None
-    status_field: str | None
-    maturity_field: str | None
-    x_field: str | None
-    y_field: str | None
-    area_km2_field: str | None
-    tags_field: str | None
-    enabled_field: str | None
-    required_fields: tuple[str, ...]
-    path_fields: tuple[str, ...]
-    tag_separator: str
+    model_config = ConfigDict(extra="forbid", arbitrary_types_allowed=True)
+
+    path: Annotated[Path, Profile.USER] = Field(
+        description="Resolved path to the site catalog (CSV or JSONL)."
+    )
+    format: Annotated[Literal["auto", "csv", "jsonl"], Profile.USER] = Field(
+        default="auto",
+        description="Catalog format. 'auto' infers from suffix.",
+    )
+    site_id_field: Annotated[str, Profile.USER] = Field(
+        default="site_id",
+        description="Catalog column carrying the site identifier.",
+    )
+    site_label_field: Annotated[str | None, Profile.USER] = Field(default="site_label")
+    cluster_id_field: Annotated[str | None, Profile.USER] = Field(default="cluster_id")
+    cluster_label_field: Annotated[str | None, Profile.USER] = Field(default="cluster_label")
+    cluster_family_field: Annotated[str | None, Profile.USER] = Field(default="cluster_family")
+    cluster_scale_field: Annotated[str | None, Profile.USER] = Field(default="cluster_scale")
+    region_field: Annotated[str | None, Profile.USER] = Field(default="region_id")
+    source_selection_field: Annotated[str | None, Profile.USER] = Field(
+        default="source_selection_id"
+    )
+    status_field: Annotated[str | None, Profile.USER] = Field(default="site_status")
+    maturity_field: Annotated[str | None, Profile.USER] = Field(default="maturity")
+    x_field: Annotated[str | None, Profile.USER] = Field(default="x")
+    y_field: Annotated[str | None, Profile.USER] = Field(default="y")
+    area_km2_field: Annotated[str | None, Profile.USER] = Field(default="area_km2")
+    tags_field: Annotated[str | None, Profile.USER] = Field(default="tags")
+    enabled_field: Annotated[str | None, Profile.USER] = Field(default="enabled")
+    required_fields: Annotated[tuple[str, ...], Profile.USER] = Field(default=())
+    path_fields: Annotated[tuple[str, ...], Profile.USER] = Field(default=())
+    tag_separator: Annotated[str, Profile.USER] = Field(default=";")
 
 
-@dataclass(frozen=True)
-class RegionalLabSelectionConfig:
+class RegionalLabSelectionConfig(HydroModelBase):
     """Top-level site selection filters."""
 
-    site_ids: tuple[str, ...]
-    cluster_ids: tuple[str, ...]
-    regions: tuple[str, ...]
-    families: tuple[str, ...]
-    scales: tuple[str, ...]
-    statuses: tuple[str, ...]
-    maturity_levels: tuple[str, ...]
-    tags: tuple[str, ...]
-    limit: int | None
-    include_disabled: bool
+    model_config = ConfigDict(extra="forbid", arbitrary_types_allowed=True)
+
+    site_ids: Annotated[tuple[str, ...], Profile.USER] = Field(default=())
+    cluster_ids: Annotated[tuple[str, ...], Profile.USER] = Field(default=())
+    regions: Annotated[tuple[str, ...], Profile.USER] = Field(default=())
+    families: Annotated[tuple[str, ...], Profile.USER] = Field(default=())
+    scales: Annotated[tuple[str, ...], Profile.USER] = Field(default=())
+    statuses: Annotated[tuple[str, ...], Profile.USER] = Field(default=())
+    maturity_levels: Annotated[tuple[str, ...], Profile.USER] = Field(default=())
+    tags: Annotated[tuple[str, ...], Profile.USER] = Field(default=())
+    limit: Annotated[int | None, Profile.USER] = Field(default=None)
+    include_disabled: Annotated[bool, Profile.USER] = Field(default=False)
 
 
-@dataclass(frozen=True)
-class RegionalLabClusterRuleConfig:
+class RegionalLabClusterRuleConfig(HydroModelBase):
     """One explicit cluster enrichment rule applied on top of the site catalog."""
 
-    id: str
-    label: str
-    enabled: bool
-    priority: int
-    selection: RegionalLabSelectionConfig
-    field_equals: tuple[tuple[str, str], ...]
-    set_cluster_id: str | None
-    set_cluster_label: str | None
-    set_cluster_family: str | None
-    set_cluster_scale: str | None
-    cluster_tags: tuple[str, ...]
-    override_existing_cluster: bool
+    model_config = ConfigDict(extra="forbid", arbitrary_types_allowed=True)
+
+    id: Annotated[str, Profile.USER] = Field(description="Unique rule identifier.")
+    label: Annotated[str, Profile.USER] = Field(description="Human-readable rule label.")
+    enabled: Annotated[bool, Profile.USER] = Field(default=True)
+    priority: Annotated[int, Profile.USER] = Field(default=100)
+    selection: Annotated[RegionalLabSelectionConfig, Profile.USER]
+    field_equals: Annotated[tuple[tuple[str, str], ...], Profile.USER] = Field(default=())
+    set_cluster_id: Annotated[str | None, Profile.USER] = Field(default=None)
+    set_cluster_label: Annotated[str | None, Profile.USER] = Field(default=None)
+    set_cluster_family: Annotated[str | None, Profile.USER] = Field(default=None)
+    set_cluster_scale: Annotated[str | None, Profile.USER] = Field(default=None)
+    cluster_tags: Annotated[tuple[str, ...], Profile.USER] = Field(default=())
+    override_existing_cluster: Annotated[bool, Profile.USER] = Field(default=False)
 
 
-@dataclass(frozen=True)
-class RegionalLabRecipeConfig:
+class RegionalLabRecipeConfig(HydroModelBase):
     """One recipe expanded across selected sites."""
 
-    id: str
-    label: str
-    launcher: str
-    config_path_template: str
-    enabled: bool
-    selection: RegionalLabSelectionConfig
-    required_fields: tuple[str, ...]
-    allowed_platforms: tuple[str, ...]
+    model_config = ConfigDict(extra="forbid", arbitrary_types_allowed=True)
+
+    id: Annotated[str, Profile.USER] = Field(description="Unique recipe identifier.")
+    label: Annotated[str, Profile.USER] = Field(description="Human-readable recipe label.")
+    launcher: Annotated[Literal["simulation", "method-comparison"], Profile.USER] = Field(
+        description="Child launcher dispatched per site."
+    )
+    config_path_template: Annotated[str, Profile.USER] = Field(
+        description="Template producing the child config path from a site context."
+    )
+    enabled: Annotated[bool, Profile.USER] = Field(default=True)
+    selection: Annotated[RegionalLabSelectionConfig, Profile.USER]
+    required_fields: Annotated[tuple[str, ...], Profile.USER] = Field(default=())
+    allowed_platforms: Annotated[tuple[str, ...], Profile.USER] = Field(default=())
 
 
-@dataclass(frozen=True)
-class RegionalLabConfig:
+class RegionalLabConfig(HydroModelBase):
     """Validated top-level configuration for one regional-lab run."""
 
-    config_path: Path
-    base_dir: Path
-    lab_id: str
-    output_root: Path
-    execute: bool
-    continue_on_error: bool
-    validate_config_paths: bool
-    resume_from_report: bool
-    skip_completed_cases: bool
-    python_executable: Path | None
-    catalog: RegionalLabCatalogConfig
-    selection: RegionalLabSelectionConfig
-    cluster_rules: tuple[RegionalLabClusterRuleConfig, ...]
-    recipes: tuple[RegionalLabRecipeConfig, ...]
+    model_config = ConfigDict(extra="forbid", arbitrary_types_allowed=True)
+
+    config_path: Annotated[Path, Profile.USER] = Field(
+        description="Resolved path to the source TOML file."
+    )
+    base_dir: Annotated[Path, Profile.USER] = Field(
+        description="Directory used to resolve relative paths."
+    )
+    lab_id: Annotated[str, Profile.USER] = Field(description="Regional-lab identifier.")
+    output_root: Annotated[Path, Profile.USER] = Field(
+        description="Directory where lab artifacts are written."
+    )
+    execute: Annotated[bool, Profile.USER] = Field(default=True)
+    continue_on_error: Annotated[bool, Profile.USER] = Field(default=True)
+    validate_config_paths: Annotated[bool, Profile.USER] = Field(default=True)
+    resume_from_report: Annotated[bool, Profile.USER] = Field(default=True)
+    skip_completed_cases: Annotated[bool, Profile.USER] = Field(default=True)
+    child_timeout_s: Annotated[int | None, Profile.USER] = Field(
+        default=3600,
+        description="Per-child subprocess timeout in seconds. Use null to disable.",
+    )
+    python_executable: Annotated[Path | None, Profile.USER] = Field(default=None)
+    catalog: Annotated[RegionalLabCatalogConfig, Profile.USER]
+    selection: Annotated[RegionalLabSelectionConfig, Profile.USER]
+    cluster_rules: Annotated[tuple[RegionalLabClusterRuleConfig, ...], Profile.USER] = Field(
+        default=()
+    )
+    recipes: Annotated[tuple[RegionalLabRecipeConfig, ...], Profile.USER]
 
     @classmethod
     def from_toml(
@@ -233,14 +267,13 @@ class RegionalLabConfig:
             raw_value=raw_section.get("output_root"),
             lab_id=lab_id,
         )
-        execute = bool(raw_section.get("execute", True))
-        continue_on_error = bool(raw_section.get("continue_on_error", True))
-        validate_config_paths = bool(raw_section.get("validate_config_paths", True))
-        resume_from_report = bool(raw_section.get("resume_from_report", True))
-        skip_completed_cases = bool(raw_section.get("skip_completed_cases", True))
         python_executable = _resolve_optional_path(
             base_dir,
             raw_section.get("python_executable"),
+        )
+        child_timeout_s = _validate_optional_int(
+            raw_section.get("child_timeout_s", 3600),
+            label="regional_lab.child_timeout_s",
         )
 
         raw_catalog = _require_mapping(
@@ -416,11 +449,12 @@ class RegionalLabConfig:
             base_dir=base_dir,
             lab_id=lab_id,
             output_root=output_root,
-            execute=execute,
-            continue_on_error=continue_on_error,
-            validate_config_paths=validate_config_paths,
-            resume_from_report=resume_from_report,
-            skip_completed_cases=skip_completed_cases,
+            execute=bool(raw_section.get("execute", True)),
+            continue_on_error=bool(raw_section.get("continue_on_error", True)),
+            validate_config_paths=bool(raw_section.get("validate_config_paths", True)),
+            resume_from_report=bool(raw_section.get("resume_from_report", True)),
+            skip_completed_cases=bool(raw_section.get("skip_completed_cases", True)),
+            child_timeout_s=child_timeout_s,
             python_executable=python_executable,
             catalog=catalog,
             selection=selection,
