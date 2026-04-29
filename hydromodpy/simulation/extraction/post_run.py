@@ -11,7 +11,7 @@ import logging
 from pathlib import Path
 from typing import Any
 
-from hydromodpy.results.config import ResultsConfig
+from hydromodpy.core.config.results_config import ResultsConfig
 from hydromodpy.solver.base.registry import get_extractor_instance
 
 logger = logging.getLogger(__name__)
