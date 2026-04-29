@@ -1271,7 +1271,7 @@ def test_method_comparison_launcher_prefers_model_full_path_for_completed_runs(
     class _FakeProject:
         def __init__(self, config_path: Path, **kwargs) -> None:
             self.config_path = config_path
-            self._ctx = SimpleNamespace(
+            self.workflow_context = SimpleNamespace(
                 setup=SimpleNamespace(
                     workspace=SimpleNamespace(simulations_folder=tmp_path / "results_simulations"),
                     run_id="demo_run",

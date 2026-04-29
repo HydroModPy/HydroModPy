@@ -371,13 +371,18 @@ def calibrate(config, **kwargs):
     return run_calibration_cli(Path(config).expanduser().resolve(), **kwargs)
 
 
-def compare(sim_a, sim_b, **kwargs):
-    """Compare two simulations (by object or sim_id)."""
-    from hydromodpy.analysis.comparison.orchestrator import (
-        MethodComparisonLauncher,
-    )
+def compare_pair(sim_a, sim_b, *, workspace=None):
+    """Pivot two simulations' metrics side-by-side as a DataFrame."""
+    from hydromodpy.analysis.comparison.pairwise import compare_pair as _compare_pair
 
-    return MethodComparisonLauncher.pairwise(sim_a, sim_b, **kwargs)
+    return _compare_pair(sim_a, sim_b, workspace=workspace)
+
+
+def compare_methods(toml_path):
+    """Run a TOML-driven multi-variant method comparison."""
+    from hydromodpy.analysis.comparison.orchestrator import MethodComparisonLauncher
+
+    return MethodComparisonLauncher(toml_path).run()
 
 
 __all__ = [
@@ -385,7 +390,8 @@ __all__ = [
     "open",
     "run",
     "calibrate",
-    "compare",
+    "compare_pair",
+    "compare_methods",
     "doctor",
     # Core infrastructure
     "Workspace",

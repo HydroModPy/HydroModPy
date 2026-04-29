@@ -271,7 +271,7 @@ class MethodComparisonLauncher:
                 project.run()
                 wall_seconds = round(time.monotonic() - start, 2)
                 run_folder = self._resolve_completed_run_folder(
-                    run_state=project._ctx,
+                    run_state=project.workflow_context,
                     solver_name=str(variant.solver),
                 )
                 project.close()
