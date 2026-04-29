@@ -55,7 +55,7 @@ import duckdb
 import numpy as np
 import pandas as pd
 
-from hydromodpy.results._db_retry import connect_with_retry, with_lock_retry
+from hydromodpy.core.io.db_retry import connect_with_retry, with_lock_retry
 from hydromodpy.results.catalog_schema import (
     GLOBAL_ZONE,
     PER_SIM_TABLE_NAMES,

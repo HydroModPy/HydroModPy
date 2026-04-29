@@ -124,7 +124,7 @@ def _preload_hash_cache(catalog_conn, cache: ParamsHashCache) -> int:
     Wrapped by DuckDB's lock-retry decorator so concurrent `hmp` sessions
     on the same workspace do not surface ``IOException``.
     """
-    from hydromodpy.results._db_retry import with_lock_retry
+    from hydromodpy.core.io.db_retry import with_lock_retry
 
     @with_lock_retry()
     def _run() -> list[tuple[str, str]]:
@@ -154,7 +154,7 @@ def _preload_hash_cache(catalog_conn, cache: ParamsHashCache) -> int:
 
 def _update_iter_sim_id(catalog, session_id: str, iteration: int, sim_id: str) -> None:
     """Write the promoted ``sim_id`` into ``calibration_iterations``."""
-    from hydromodpy.results._db_retry import with_lock_retry
+    from hydromodpy.core.io.db_retry import with_lock_retry
 
     @with_lock_retry()
     def _run() -> None:
@@ -173,7 +173,7 @@ def _update_iter_sim_id(catalog, session_id: str, iteration: int, sim_id: str) -
 
 
 def _update_best_sim_id(catalog, session_id: str, sim_id: str) -> None:
-    from hydromodpy.results._db_retry import with_lock_retry
+    from hydromodpy.core.io.db_retry import with_lock_retry
 
     @with_lock_retry()
     def _run() -> None:
