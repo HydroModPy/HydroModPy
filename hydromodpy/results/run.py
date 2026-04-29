@@ -51,6 +51,7 @@ logger = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
     import geopandas as gpd
+    import xugrid as xu
 
     from hydromodpy.results.catalog import SimulationCatalog
     from hydromodpy.results.grid import Grid
@@ -331,6 +332,82 @@ class Run:
         if nodata is not None:
             arr[arr == float(nodata)] = np.nan
         return arr
+
+    def dataset(self, variable: str | None = None) -> xu.UgridDataset:
+        """Return a :class:`xugrid.UgridDataset` over the simulation's mesh.
+
+        Single entry point for figures: same UGRID topology and dimension
+        names regardless of the underlying solver layout (DIS, DISV, or
+        triangle / DISU). Pass ``variable=None`` to load every face-aligned
+        field present in the store; pass a name to load only that one.
+        Variable attributes follow CF-1.11 from
+        :mod:`hydromodpy.results.field_registry`.
+        """
+        import xarray as xr
+        import xugrid as xu
+
+        from hydromodpy.results import field_registry
+
+        mesh = self.mesh
+        verts = np.asarray(mesh.vertices, dtype=float)
+        fnc = np.asarray(mesh.face_node_connectivity, dtype=int)
+        grid = xu.Ugrid2d(
+            node_x=verts[:, 0],
+            node_y=verts[:, 1],
+            fill_value=-1,
+            face_node_connectivity=fnc,
+        )
+        face_dim = grid.face_dimension
+
+        face_shapes = {
+            field_registry.SHAPE_FACE: (face_dim,),
+            field_registry.SHAPE_LAYER_FACE: ("layer", face_dim),
+            field_registry.SHAPE_TIME_FACE: ("time", face_dim),
+            field_registry.SHAPE_TIME_LAYER_FACE: ("time", "layer", face_dim),
+        }
+
+        sz = self._catalog.open_zarr(self._sim_id)
+
+        def _lookup(zarr_path: str):
+            if "/" in zarr_path:
+                grp_name, var_name = zarr_path.split("/", 1)
+                grp = sz.root.get(grp_name)
+                if grp is None or var_name not in grp:
+                    return None
+                return grp[var_name]
+            if zarr_path not in sz.root:
+                return None
+            return sz.root[zarr_path]
+
+        if variable is None:
+            names = [
+                n
+                for n, d in field_registry.FIELD_REGISTRY.items()
+                if d.shape in face_shapes and _lookup(d.zarr_path) is not None
+            ]
+        else:
+            desc = field_registry.get(variable)
+            if desc.shape not in face_shapes:
+                raise ValueError(f"Field '{variable}' has shape '{desc.shape}', not face-aligned")
+            if _lookup(desc.zarr_path) is None:
+                raise KeyError(f"Field '{variable}' not found in simulation '{self._sim_id}'")
+            names = [variable]
+
+        data_vars: dict[str, xr.DataArray] = {}
+        for name in names:
+            desc = field_registry.get(name)
+            arr = _lookup(desc.zarr_path)
+            values = np.asarray(arr[:])
+            dims = face_shapes[desc.shape]
+            if len(dims) != values.ndim:
+                continue
+            data_vars[name] = xr.DataArray(
+                values,
+                dims=dims,
+                attrs=field_registry.cf_attrs(name),
+            )
+
+        return xu.UgridDataset(xr.Dataset(data_vars), grids=[grid])
 
     def fields(self, variable: str) -> Stack | UGridStack:
         """Stack per-timestep arrays of ``variable``.
