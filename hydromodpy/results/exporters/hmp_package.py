@@ -764,7 +764,7 @@ def import_hmp_package(
             _rewrite_snapshot_project(snap_path, as_project)
         _rewrite_snapshot_paths(snap_path, rewrites)
 
-        from hydromodpy.results.storage_naming import build_storage_basename
+        from hydromodpy.results.catalog.storage_paths import build_storage_basename
 
         catalog.connection.begin()
         try:
