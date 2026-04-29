@@ -131,16 +131,16 @@ class BoussinesqOutputAdapter:
         store: Any,
         config: dict | None = None,
     ) -> None:
-        """Compute watertable_elevation and watertable_depth from head.
+        """Compute solver-adjacent derived fields (seepage areas, etc.).
 
-        Boussinesq is a single-layer model so watertable_elevation == head.
+        Watertable elevation/depth are produced by the workflow registry
+        (:class:`DeriveStep`); this hook only handles fields that the
+        registry does not own.
         """
         from hydromodpy.simulation.extraction.extractors.derived import compute_derived
 
         cfg = config or {}
         boussinesq_cfg = {
-            "watertable_elevation": cfg.get("watertable_elevation", True),
-            "watertable_depth": cfg.get("watertable_depth", True),
             "seepage_areas": cfg.get("seepage_areas", False),
             "groundwater_flux": False,
             "accumulation_flux": False,

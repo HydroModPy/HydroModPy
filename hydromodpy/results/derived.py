@@ -31,25 +31,27 @@ __all__ = [
 
 
 def watertable_elevation(head: ArrayLike, top: ArrayLike) -> ArrayLike:
-    """Water-table elevation - head clipped to the surface elevation.
+    """Water-table elevation - head at the uppermost saturated layer.
 
     ``head`` is an N-D array shaped ``(..., n_cells)`` (or ``(n_layers, n_cells)``
-    for multilayer models). ``top`` is a per-cell surface array.
+    for multilayer models). ``top`` is accepted for API symmetry with
+    :func:`watertable_depth` and :func:`seepage_mask` but is not used: the
+    water table is the head itself, never clipped to the surface. Cells where
+    head exceeds the surface are flagged separately by :func:`seepage_mask`.
     """
+    del top  # accepted for API symmetry, unused
     if _is_data_array(head):
-        wt = head.where(head <= top, top)
+        wt = head.copy()
         wt.attrs.update(units="m", long_name="Water-table elevation")
         return wt
     head_arr = np.asarray(head, dtype=float)
-    top_arr = np.asarray(top, dtype=float)
-    if head_arr.ndim == 2 and head_arr.shape[1] == top_arr.size:
-        # Multilayer: pick uppermost saturated head per cell.
+    if head_arr.ndim == 2:
         wt = np.full(head_arr.shape[1], np.nan, dtype=float)
         for layer in range(head_arr.shape[0]):
             mask = np.isfinite(head_arr[layer]) & np.isnan(wt)
             wt[mask] = head_arr[layer, mask]
-        return np.minimum(wt, top_arr)
-    return np.minimum(head_arr, top_arr)
+        return wt
+    return head_arr
 
 
 def watertable_depth(head: ArrayLike, top: ArrayLike) -> ArrayLike:

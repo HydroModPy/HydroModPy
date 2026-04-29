@@ -34,10 +34,11 @@ def _write_bare_tif(path: str, data: np.ndarray, nodata: float = -99999.0) -> No
         dst.write(data, 1)
 
 
-# Configurable derived variables and their default state.
+# Configurable derived variables and their default state. Watertable
+# elevation/depth are written by the workflow ``DeriveStep`` registry
+# (single canonical writer); this module only handles solver-adjacent or
+# transport-specific derivations.
 DERIVED_VARIABLES = {
-    "watertable_elevation": True,
-    "watertable_depth": True,
     "seepage_areas": True,
     "groundwater_flux": False,
     "accumulation_flux": False,
@@ -81,12 +82,6 @@ def compute_derived(
         logger.debug("Cannot read head field for sim %s", sim_id)
         return
 
-    if flags.get("watertable_elevation"):
-        _compute_watertable_elevation(sim_id, store, head_arr, n_timesteps, n_layers, n_cells)
-
-    if flags.get("watertable_depth"):
-        _compute_watertable_depth(sim_id, store, head_arr, n_timesteps, n_layers, n_cells)
-
     if flags.get("seepage_areas"):
         _compute_seepage_areas(sim_id, store, n_timesteps, n_cells)
 
@@ -107,116 +102,6 @@ def compute_derived(
 
     if flags.get("mass_accumulated"):
         _compute_mass_accumulated(sim_id, store, n_timesteps, n_cells)
-
-
-def _uppermost_saturated_head(heads: np.ndarray) -> np.ndarray:
-    """Return the head of the uppermost saturated layer for each cell.
-
-    ``heads`` has shape ``(n_layers, n_cells)``. Cells where every layer is
-    NaN map to NaN. Layer 0 is the top.
-    """
-    finite = np.isfinite(heads)
-    has_any = finite.any(axis=0)
-    first_idx = finite.argmax(axis=0)
-    wt = np.take_along_axis(heads, first_idx[np.newaxis, :], axis=0)[0]
-    return np.where(has_any, wt, np.nan)
-
-
-def _compute_watertable_elevation(
-    sim_id: str,
-    store: Any,
-    head_arr,
-    n_timesteps: int,
-    n_layers: int,
-    n_cells: int,
-) -> None:
-    """Water table elevation = head at the uppermost saturated layer."""
-    # Sentinels (HDRY/HNOFLO) should already be NaN from the extraction
-    # phase. Safety net: if heads still contain non-NaN negatives far below
-    # any realistic elevation, treat them as sentinels too.
-    _SENTINEL_THRESHOLD = -50.0
-    head_sample = head_arr[:].ravel()
-    finite_heads = head_sample[np.isfinite(head_sample)]
-    if finite_heads.size > 0:
-        p01 = (
-            float(np.nanpercentile(finite_heads[finite_heads > _SENTINEL_THRESHOLD], 1))
-            if np.any(finite_heads > _SENTINEL_THRESHOLD)
-            else 0.0
-        )
-        sentinel_floor = min(_SENTINEL_THRESHOLD, p01 - 200.0)
-    else:
-        sentinel_floor = _SENTINEL_THRESHOLD
-
-    for t in range(n_timesteps):
-        head = head_arr[t]
-        if n_layers == 1:
-            wt = head[0].copy() if head.ndim == 2 else head.copy()
-        else:
-            wt = _uppermost_saturated_head(head.reshape(n_layers, n_cells))
-        # Mask any remaining sentinel-like values (stores without NaN
-        # masking, or MF6 outputs with different sentinel values).
-        wt = np.where(np.isfinite(wt) & (wt < sentinel_floor), np.nan, wt)
-        store.write_field(
-            sim_id,
-            "watertable_elevation",
-            t,
-            wt.astype("float64"),
-            n_timesteps=n_timesteps if t == 0 else None,
-            subgroup="derived",
-        )
-
-    logger.debug("Derived watertable_elevation for sim %s", sim_id)
-
-
-def _compute_watertable_depth(
-    sim_id: str,
-    store: Any,
-    head_arr,
-    n_timesteps: int,
-    n_layers: int,
-    n_cells: int,
-) -> None:
-    """Water table depth = mesh top elevation - watertable elevation.
-
-    Requires ``watertable_elevation`` already computed and mesh ``z_interfaces``
-    in the store. Falls back to a simple top-layer-head approach if mesh data
-    is unavailable.
-    """
-    grp = store._open_zarr_group(sim_id, mode="r")
-
-    # Try to read surface elevation (per-cell top array preferred).
-    top_elev = None
-    if "mesh" in grp:
-        mesh = grp["mesh"]
-        if "surface_top" in mesh:
-            top_elev = np.asarray(mesh["surface_top"][:], dtype="float64").ravel()[:n_cells]
-        elif "z_interfaces" in mesh:
-            z_intf = mesh["z_interfaces"][:]
-            top_elev = np.full(n_cells, float(z_intf[0]))
-
-    for t in range(n_timesteps):
-        try:
-            wt = store.query_field(sim_id, "watertable_elevation", t)
-        except KeyError:
-            head = head_arr[t]
-            wt = head[0] if head.ndim == 2 else head
-
-        if top_elev is not None:
-            depth = np.maximum(top_elev - wt, 0.0)
-        else:
-            logger.debug("No surface elevation for watertable_depth at sim %s", sim_id)
-            return
-
-        store.write_field(
-            sim_id,
-            "watertable_depth",
-            t,
-            depth.astype("float64"),
-            n_timesteps=n_timesteps if t == 0 else None,
-            subgroup="derived",
-        )
-
-    logger.debug("Derived watertable_depth for sim %s", sim_id)
 
 
 def _compute_seepage_areas(
