@@ -32,6 +32,230 @@ Each release section includes the following standard categories:
 
 ## [Unreleased]
 
+---
+
+## [v1.0.0] - 2026-04-29
+
+First stable release. Closes the v0.6 architecture rupture started in
+v0.5.0 (S01..S05) and lands the security / release-engineering hardening
+of S06 plus the final naming sweep of S07. All `[Unreleased]` content
+since v0.5.0 lands here. No alias, no shim, no deprecation path.
+
+### Breaking
+
+#### Module / class renames (S07)
+- `hydromodpy._cli` → `hydromodpy.cli` (S07-01). The CLI is a public
+  surface; the leading underscore was misleading. Update any external
+  import (`from hydromodpy._cli...` → `from hydromodpy.cli...`). Entry
+  points `hmp` and `hydromodpy` are unchanged.
+- `hydromodpy/solver/modflow_nwt/modflow/` → `hydromodpy/solver/modflow_nwt/nwt/`
+  and class `Modflow` → `ModflowNwt` (S07-02). Both backends are
+  MODFLOW; the `modflow/` segment was ambiguous. Update imports
+  (`from hydromodpy.solver.modflow_nwt.modflow ...` →
+  `from hydromodpy.solver.modflow_nwt.nwt ...`) and references to the
+  class (`Modflow` → `ModflowNwt`). Top-level export
+  `hydromodpy.Modflow` is now `hydromodpy.ModflowNwt`.
+- `hydromodpy/solver/boussinesq/extractors/output.py` → `flow.py` and
+  `hydromodpy/solver/gr4j/extractors/output.py` → `flow.py` (S07-03).
+  Symmetry with the MODFLOW family: every flow extractor is now named
+  `flow.py`. The classes `BoussinesqOutputAdapter` and
+  `GR4JOutputAdapter` are unchanged; only the module path moved.
+- `hydromodpy/calibration/cli.py` → `hydromodpy/calibration/runner.py`
+  (S07-04). The module is reached through `hydromodpy.cli`, not as a
+  CLI itself; `runner` reflects its real role. Update imports
+  (`from hydromodpy.calibration.cli ...` →
+  `from hydromodpy.calibration.runner ...`).
+- `hydromodpy/data/lockfile.py` → `hydromodpy/data/data_freeze.py` and
+  `hydromodpy/results/provenance.py` → `hydromodpy/results/array_fingerprint.py`
+  (S07-05). The module names now reflect their concrete role
+  (input-data freeze; per-array fingerprint). Internal symbols
+  (`LockedArtifact`, `LOCKFILE_NAME`, `archive_lockfile`,
+  `read_lockfile`, `write_lockfile`, …) are unchanged: they still
+  describe the on-disk `.lock` artifact.
+
+#### Serialization / security (S06)
+- User-controlled `pickle.load` paths replaced with HMAC-signed pickle
+  for trusted internal artefacts and JSON for untrusted boundaries
+  (S06-06). Loading a pre-v1.0 unsigned pickle now raises. Re-run the
+  pipeline once to regenerate the artefact under the new format.
+- `[hmac]` workspace section is required for signed-pickle paths; the
+  key is generated on first run and stored in the workspace.
+
+#### Packaging / runtime
+- Solver binaries are no longer bundled in the wheel (S06-02). They
+  download lazily into `~/.cache/hydromodpy/bin/` on first solver run.
+  CI / offline setups must call `hmp install-binaries` upfront.
+- Runtime dependencies now carry explicit upper bounds (S06-03).
+  Editable installs that previously pulled the latest minor of every
+  dep will resolve to the pinned ranges; bump the pin in
+  `pyproject.toml` if a newer version is required.
+- `pytest` was dropped from the runtime `dependencies` list (S06-03);
+  install it via the `test` extra (`pip install hydromodpy[test]`).
+
+### Added
+- `SECURITY.md` with a single-tenant scientific-desktop threat model
+  and a coordinated-disclosure address (S06-05).
+- `RELEASE_POLICY.md` describing the OIDC-backed PyPI publish flow
+  (S06-07). `publish.yml` now uses Trusted Publishers (no long-lived
+  PyPI token).
+- Multi-stage Dockerfile + `docker-build` GitHub Actions workflow
+  (S06-04). The previous Dockerfile was non-functional.
+- `dependabot.yml` (weekly) plus `pip-audit` lint gate and `gitleaks`
+  pre-commit + CI hooks (S06-08).
+- Wheel-smoke job, baseline `mypy` type-check, and CycloneDX SBOM
+  generation in CI (S06-09).
+- CI lint gate asserting `__all__` matches `_LAZY_IMPORTS ∪ _MODULE_EXPORTS`
+  in the public top-level package (S06-12).
+- CI lint gate sealing the CLI boundary: only `_cli` may import the
+  CLI subsystem outside `__main__` (S06-13).
+
+### Changed
+- HMAC-signed pickle is now the canonical in-process serialization
+  format for trusted artefacts (S06-06); JSON is used at every
+  untrusted boundary.
+- Tests sweep (S06-10): 18 hollow assertions strengthened, 3 stale
+  doc-gallery skips dropped, mock backends replaced with the real
+  `WhiteboxStubBackend`. 14 `gmsh_grid` tests migrated to `tmp_path`
+  and the root `scratch_tests/` directory deleted (S06-11).
+
+### Removed
+- `scratch_tests/` directory at the repo root (S06-11). Stray fixtures
+  now live under `tests/.../tmp_path` parametrisation.
+
+### Migration guide
+
+Apply these search/replace rules to a checkout pinned at v0.5.0 to
+move forward to v1.0.0:
+
+| Old import / name                                            | New import / name                                     |
+|--------------------------------------------------------------|-------------------------------------------------------|
+| `from hydromodpy._cli ...`                                   | `from hydromodpy.cli ...`                             |
+| `from hydromodpy.solver.modflow_nwt.modflow ...`             | `from hydromodpy.solver.modflow_nwt.nwt ...`          |
+| `hydromodpy.solver.modflow_nwt.nwt.Modflow`                  | `hydromodpy.solver.modflow_nwt.nwt.ModflowNwt`        |
+| `hydromodpy.Modflow`                                         | `hydromodpy.ModflowNwt`                               |
+| `from hydromodpy.solver.boussinesq.extractors.output ...`    | `... .extractors.flow ...`                            |
+| `from hydromodpy.solver.gr4j.extractors.output ...`          | `... .extractors.flow ...`                            |
+| `from hydromodpy.calibration.cli ...`                        | `from hydromodpy.calibration.runner ...`              |
+| `from hydromodpy.data.lockfile ...`                          | `from hydromodpy.data.data_freeze ...`                |
+| `from hydromodpy.results.provenance ...`                     | `from hydromodpy.results.array_fingerprint ...`       |
+
+Other actions:
+
+- Re-run any pipeline that produced pre-v1.0 pickle artefacts: legacy
+  unsigned pickles no longer load (S06-06). The first run regenerates
+  them under the HMAC-signed format.
+- Install solver binaries explicitly in offline / CI environments:
+  `hmp install-binaries` (the wheel no longer bundles them, S06-02).
+- If your environment relied on the implicit `pytest` runtime
+  dependency, install it via the `test` extra:
+  `pip install hydromodpy[test]` (S06-03).
+- Bump pinned ranges in `pyproject.toml` if a newer minor of a
+  runtime dep is required (S06-03 added explicit upper bounds).
+
+---
+
+## [v0.5.0] - 2026-04-29
+
+This release lands the v0.6 architecture rupture: a strictly layered
+DAG, no aliases, no legacy shims. Sessions S01..S05 of the
+`unified_architecture/PLAN_ACTION.md` plan.
+
+### Breaking
+- Cross-package imports of `_<name>` modules / sub-packages are now
+  forbidden by lint and CI; private helpers live behind their package.
+- `core/` is the kernel leaf: it no longer imports any sibling layer
+  (not even under `TYPE_CHECKING`).
+- Solver backends are independent: `solver/modflow6/` and
+  `solver/modflow_nwt/` no longer cross-import. The shared surface
+  moved to `solver/modflow_common/` (S01-14, S01-15).
+- `pipeline/` is being absorbed into `workflow/`. New files in
+  `pipeline/` are forbidden.
+- Top-level `hmp.*` no longer re-exports internal modules upward
+  (S00-03). Use the canonical import path.
+- Project, SimulationCatalog, MF6 backend, analysis batch/comparison,
+  mesh bundle, results catalog, and field_param helpers were split
+  into sub-packages. Direct imports of removed god-class symbols
+  break (S03-01..S03-13).
+- `SolverRunner` triple-protocol collapsed into a single
+  `SolverAdapter` (S05-04).
+- Twelve short Pydantic aliases dropped along with `Modpath7` from the
+  public API (S05-01).
+- Twelve Pydantic validators retyped to `Literal` / `Field(ge, le)`,
+  removing hand-written `_validate_*` callbacks (S05-08, S05-09,
+  S05-12).
+- `Length` / `FlowRate` Pydantic fields now declared via
+  `pydantic-pint`; bespoke validators dropped (S05-08).
+- `extra="forbid"` enforced everywhere on `BaseModel`; passing an
+  unknown TOML / kwarg key now raises (S05-07).
+- `logging.getLogger` banned via `TID251`; every module-level logger
+  goes through `hydromodpy.core.logging.get_logger` (S05-06).
+- Workflow + solver adapters now raise typed `HMPY*Error` exceptions
+  in place of vanilla `raise` / `RuntimeError` (S05-05).
+- `workflow/orchestrator.execute_simulation` removed; orchestration
+  goes through `Project.run` and `Pipeline` (S02-07, S02-08).
+- `pipeline.pipeline` renamed to `workflow.runner`,
+  `workflow.pipeline` renamed to `workflow.orchestrator` (S02-03).
+
+### Added
+- `Project.mesh()`, `Project.report()`, top-level `hmp.mesh()` /
+  `hmp.report()` shortcuts (S05-11).
+- `from_toml` / `from_json` / `from_dict` factories on `Project`,
+  `SimulationCatalog`, `Run`. The `[calibration]` TOML section now
+  loads through this path (S05-10).
+- `FlowWellForcingConfig` discriminated union (S05-12).
+- ML access pattern: `runs_environment` and `Catalog.training_split`
+  (S04-16).
+- `Run.summary(json=False)` for compact metadata snapshot (S04-14).
+- `Run.dataset(variable=None)` returning a `xugrid.UgridDataset`
+  (S04-07).
+- `Catalog.worst` / `Catalog.rank`; `hmp best` / `hmp worst` collapsed
+  into `hmp rank` (S04-13).
+- `Catalog.delete(remove_storage=True)` cascade (S04-12).
+- CSV / NetCDF / Zarr field importers (S04-10).
+- `Grid` protocol + topology-aware grid wrappers (S04-08).
+- `field_registry` boundary validation with `UnknownFieldError`
+  (S04-09).
+- Layer-matrix CI gate in xfail mode (`tests/unit/architecture/`,
+  S00-02).
+
+### Changed
+- `Project` god-class split into `project/phases` + `project/accessors`
+  modules (S03-03).
+- `hydromodpy.core.io` now hosts the PROJ bootstrap (opt-in) and the
+  DuckDB retry helper, replacing the `tools/` and `results/_db_retry`
+  copies (S05-02, S01-02).
+- Root sections are single-sourced from `HydroModPyConfig.model_fields`
+  (S05-03).
+- Metrics canonicalised around `results/metrics.py`, dropping
+  duplicates across `core/tools` and `analysis` (S04-15).
+- Run / catalog typing strengthened via `results/contracts` (S04-06).
+- `core/grid_reference.GridReference` lifted out of `spatial` (S01-06).
+- `ResultsConfig` moved to `core/config/results_config` (S01-04).
+- `overview_config` split into `display/overview/config` and
+  `core/contracts/overview` (S01-03).
+- `compare` split into `compare_pair`, `compare_methods`, and
+  `workflow_context` (S04-05).
+
+### Removed
+- `LocalStepSolveResult` and four boussinesq formulation aliases
+  (S00-05).
+- Empty `hmp migrate` stub kept around for nostalgia.
+- `core/tools/statistics.py` (use `calibration.metrics`).
+- Five `try: import tomllib except: import tomli` blocks plus three
+  bare-name script-mode shims in `spatial/field/core/`. Python &lt; 3.11
+  is no longer supported (S00-05).
+
+### Fixed
+- Calibration `engine.run` now wrapped in `try / except / finally`
+  so partial sessions still flush their cache (S04-01).
+
+---
+
+## [v0.4.0] - 2026-04-28
+
+First release of the parquet lakehouse + calibration trial primitive.
+Picks up the `[Unreleased]` backlog accumulated since `v0.3.4`.
+
 ### Breaking (S00-05 hard-cut legacy)
 - Removed `hydromodpy/_cli/legacy_calibration.py`; the deprecated
   `[model_calibration]` TOML section is no longer auto-renamed to
@@ -86,8 +310,7 @@ Each release section includes the following standard categories:
   full simulations. See `docs/developers/calibration_guide.md`.
 - `make_hot_simulator` now returns `(calibration_vector, raw_results)` so
   callers can persist selected series post-calibration without re-running
-  the solver. `persist_calibration_result` renamed to `promote_trial`
-  (deprecated alias kept for one release cycle).
+  the solver. `persist_calibration_result` renamed to `promote_trial`.
 
 ### Added
 - Calibration refactor - trial primitive plus step auto-invalidation:
@@ -133,7 +356,7 @@ Each release section includes the following standard categories:
 - `_default_evaluator` (analytical mock) from the user-facing calibration
   path. Custom metrics are now supplied via the
   `objective = "module.path:fn"` escape hatch.
-- `hmp migrate` subcommand (see commit `6857edb3`).
+- `hmp migrate` subcommand.
 
 ### Fixed
 - `SimulationCatalog.write_*` methods are now tolerant of the DuckDB
@@ -258,7 +481,9 @@ Each release section includes the following standard categories:
 
 ---
 
-[Unreleased]: https://github.com/HydroModPy/HydroModPy/compare/v0.4.0...dev
+[Unreleased]: https://github.com/HydroModPy/HydroModPy/compare/v1.0.0...dev
+[v1.0.0]: https://github.com/HydroModPy/HydroModPy/compare/v0.5.0...v1.0.0
+[v0.5.0]: https://github.com/HydroModPy/HydroModPy/compare/v0.4.0...v0.5.0
 [v0.4.0]: https://github.com/HydroModPy/HydroModPy/compare/v0.3.4...v0.4.0
 [v0.3.4]: https://github.com/HydroModPy/HydroModPy/compare/v0.3.3...v0.3.4
 [v0.3.2]: https://github.com/HydroModPy/HydroModPy/compare/v0.3.1...v0.3.2

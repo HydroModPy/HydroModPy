@@ -1,6 +1,6 @@
 """Every subcommand in ``hmp`` must expose a working ``--help``.
 
-The tests drive :func:`hydromodpy._cli.main.main` directly so we catch
+The tests drive :func:`hydromodpy.cli.main.main` directly so we catch
 regressions in the argparse wiring without spawning a subprocess per case.
 """
 
@@ -13,7 +13,7 @@ import pytest
 
 
 def _load_module():
-    return importlib.import_module("hydromodpy._cli.main")
+    return importlib.import_module("hydromodpy.cli.main")
 
 
 SUBCOMMANDS = [

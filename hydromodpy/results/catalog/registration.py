@@ -12,7 +12,6 @@ from __future__ import annotations
 
 import hashlib
 import json
-import logging
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Literal
@@ -21,13 +20,14 @@ from uuid import UUID
 import duckdb
 
 from hydromodpy.core.io.db_retry import with_lock_retry
+from hydromodpy.core.logging import get_logger
 from hydromodpy.results.catalog.storage_paths import build_storage_basename
 from hydromodpy.results.catalog_schema import (
     solver_category as _resolve_solver_category,
 )
 from hydromodpy.results.zarr_store import SimulationZarr
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 OnCollisionMode = Literal["replace", "fail", "version"]
 

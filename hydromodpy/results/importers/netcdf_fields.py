@@ -7,15 +7,15 @@ read so unknown fields fail fast with :class:`UnknownFieldError`.
 
 from __future__ import annotations
 
-import logging
 from pathlib import Path
 
 import numpy as np
 import xarray as xr
 
+from hydromodpy.core.logging import get_logger
 from hydromodpy.results import field_registry
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 def import_netcdf_fields(

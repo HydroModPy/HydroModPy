@@ -10,14 +10,15 @@ Orchestrates four phases:
 
 from __future__ import annotations
 
-import logging
 from pathlib import Path
 from typing import Any
 
 from hydromodpy.core.config import HydroModPyConfig
 from hydromodpy.core.contracts.overview import DataOverviewState
+from hydromodpy.core.exceptions import ConfigError, ConfigMissingError
+from hydromodpy.core.logging import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class DataOverviewLauncher:
@@ -101,7 +102,7 @@ class DataOverviewLauncher:
             cache_dir=cache_dir,
         )
         if resolved is None:
-            raise ValueError(
+            raise ConfigMissingError(
                 "No dem_init_path and no [data.dem] source configured. "
                 "Either set geographic.dem_init_path or add:\n"
                 '  [data]\n  types = [..., "dem"]\n'
@@ -130,7 +131,7 @@ class DataOverviewLauncher:
             geographic=geographic,
         )
         if geographic_features is None:
-            raise ValueError(
+            raise ConfigError(
                 "Could not resolve geographic derived features from the overview geographic runtime."
             )
         state.geographic_features = geographic_features

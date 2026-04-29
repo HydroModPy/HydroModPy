@@ -18,6 +18,7 @@ from __future__ import annotations
 
 from typing import ClassVar
 
+from hydromodpy.core.exceptions import ConfigError
 from hydromodpy.workflow.internals.state import DerivedState, ExportedState, PipelineState
 
 
@@ -35,7 +36,7 @@ class ExportStep:
 
         ctx = state.get("ctx")
         if ctx is None:
-            raise ValueError("ExportStep requires 'ctx' in state.data")
+            raise ConfigError("ExportStep requires 'ctx' in state.data")
 
         wall_seconds = float(state.get("wall_seconds", 0.0) or 0.0)
 

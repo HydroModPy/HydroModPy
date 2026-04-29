@@ -10,6 +10,7 @@ from __future__ import annotations
 from collections.abc import Mapping
 
 from hydromodpy.simulation.planning.plan import RunContext, RunExecutionResult
+from hydromodpy.solver.base.cleanup import cleanup_solver_files
 from hydromodpy.solver.modflow6.modflow6 import Modflow6
 from hydromodpy.solver.modflow_common.flow_adapter_helpers import (
     build_preprocess_options,
@@ -24,6 +25,15 @@ class Modflow6FlowAdapter:
     process_type = "flow"
     solver_name = "modflow6"
     requires: tuple[tuple[str, str], ...] = ()
+
+    def validate(self, ctx: RunContext) -> None:
+        """No precondition checks for MODFLOW 6 flow runs."""
+
+    def cleanup(self, ctx: RunContext) -> None:
+        """Remove the scratch directory written by this run, if any."""
+        solver_output_dir = ctx.state.execution.output_dirs_by_run_id.get(ctx.run.id)
+        if solver_output_dir is not None:
+            cleanup_solver_files(solver_output_dir)
 
     @staticmethod
     def _solver_runtime_cache(state) -> dict[tuple[str, str, str], Modflow6]:

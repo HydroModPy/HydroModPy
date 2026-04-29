@@ -29,7 +29,6 @@ from __future__ import annotations
 import hashlib
 import io
 import json
-import logging
 import shutil
 import tarfile
 import tempfile
@@ -38,6 +37,7 @@ from importlib import metadata as _importlib_metadata
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
+from hydromodpy.core.logging import get_logger
 from hydromodpy.results.geographic_cache import (
     CACHE_DIRNAME,
     MANIFEST_FILENAME,
@@ -47,7 +47,7 @@ from hydromodpy.results.geographic_cache import (
 if TYPE_CHECKING:
     import duckdb
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 MANIFEST_NAME = "manifest.json"
 README_NAME = "README.md"

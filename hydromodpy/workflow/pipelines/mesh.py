@@ -26,6 +26,7 @@ from typing import Any
 
 from hydromodpy.core.config.hydromodpy_config import _load_standard_section
 from hydromodpy.core.config.toml_loader import load_toml_with_base_config
+from hydromodpy.core.exceptions import PipelineError
 from hydromodpy.core.workspace.config import WorkspaceConfig
 from hydromodpy.spatial.domain.domain_config import DomainConfig
 from hydromodpy.spatial.geographic.geographic_config import GeographicConfig
@@ -133,7 +134,7 @@ class MeshCatchmentLauncher:
         """Execute the launcher and return the final summary payload."""
         if self.batch_cfg is not None:
             if self.batch_runner is None:  # pragma: no cover - defensive only
-                raise RuntimeError("Batch runner was not initialized.")
+                raise PipelineError("Batch runner was not initialized.")
             return self.batch_runner.run(self.batch_cfg)
         return self._run_single_workflow(
             workspace_cfg=self.workspace_cfg,

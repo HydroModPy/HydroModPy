@@ -11,6 +11,7 @@ from typing import ClassVar
 
 import pytest
 
+from hydromodpy.core.exceptions import ConfigError
 from hydromodpy.workflow.internals.dependencies import earliest_affected_step
 from hydromodpy.workflow.orchestrator import standard_steps
 
@@ -98,7 +99,7 @@ class TestEarliestAffectedStep:
 
     def test_empty_override_paths_raises(self) -> None:
         steps = _toy_pipeline()
-        with pytest.raises(ValueError, match="at least one override path"):
+        with pytest.raises(ConfigError, match="at least one override path"):
             earliest_affected_step(set(), steps)
 
 

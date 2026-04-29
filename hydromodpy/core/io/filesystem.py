@@ -2,12 +2,13 @@
 
 from __future__ import annotations
 
-import logging
 import os
 
 import pandas as pd
 
-logger = logging.getLogger(__name__)
+from hydromodpy.core.logging import get_logger
+
+logger = get_logger(__name__)
 
 
 def create_folder(path) -> None:

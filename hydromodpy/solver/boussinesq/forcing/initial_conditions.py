@@ -31,7 +31,8 @@ class InitialConditionResolutionMixin:
         if ic_type == "custom":
             if head_ic.value is None:
                 raise ValueError("flow.ic.value is required when flow.ic.type='custom'.")
-            return np.full(self.mesh.n_cells, float(head_ic.value), dtype=float)
+            head_magnitude = getattr(head_ic.value, "magnitude", head_ic.value)
+            return np.full(self.mesh.n_cells, float(head_magnitude), dtype=float)
         raise ValueError(f"Unsupported flow.ic.type for boussinesq: '{head_ic.type}'.")
 
 

@@ -14,7 +14,7 @@ Usage
 -----
 Python API::
 
-    from hydromodpy.core.config.schema_export import export_schema, ROOT_SECTIONS
+    from hydromodpy.core.config.schema_export import export_schema
     from hydromodpy.physics.flow.flow_config import FlowConfig
 
     schema = export_schema(FlowConfig)
@@ -37,58 +37,12 @@ import json
 from pathlib import Path
 from typing import Any
 
-
-def _root_sections() -> dict[str, type]:
-    """Return the map of root-level TOML sections to Pydantic model classes.
-
-    Imported lazily to avoid circular imports and to keep module load cheap.
-    Returns a fresh dict so callers can safely mutate it.
-    """
-    from hydromodpy.analysis.capability_gallery import CapabilityGalleryConfig
-    from hydromodpy.core.workspace.config import WorkspaceConfig
-    from hydromodpy.data.data_managers_config import DataManagersConfig
-    from hydromodpy.display.config import DisplayConfig
-    from hydromodpy.display.overview.config import OverviewSection
-    from hydromodpy.physics.flow.flow_config import FlowConfig
-    from hydromodpy.physics.flow.physical_properties import FlowPhysicalProperties
-    from hydromodpy.physics.transport.transport_config import TransportConfig
-    from hydromodpy.simulation.planning.config import SimulationConfig
-    from hydromodpy.solver.base.solver_config import SolverConfig
-    from hydromodpy.solver.modflow6.modflow6_config import Modflow6Config
-    from hydromodpy.solver.modflow_nwt.modflow import ModflowConfig
-    from hydromodpy.spatial.domain.domain_config import DomainConfig
-    from hydromodpy.spatial.geographic.geographic_config import GeographicConfig
-    from hydromodpy.spatial.mesh.config import MeshCatchmentConfig
-
-    return {
-        "workspace": WorkspaceConfig,
-        "geographic": GeographicConfig,
-        "domain": DomainConfig,
-        "data": DataManagersConfig,
-        "flow": FlowConfig,
-        "flow_physical_properties": FlowPhysicalProperties,
-        "transport": TransportConfig,
-        "simulation": SimulationConfig,
-        "solver": SolverConfig,
-        "modflownwt": ModflowConfig,
-        "modflow6": Modflow6Config,
-        "display": DisplayConfig,
-        "overview": OverviewSection,
-        "mesh_catchment": MeshCatchmentConfig,
-        "capability_gallery": CapabilityGalleryConfig,
-    }
-
-
-#: Public map of root-level TOML section names to model classes.
-#: Lazily evaluated on first access via :func:`_root_sections`.
-ROOT_SECTIONS: dict[str, type] | None = None
+from hydromodpy.core.config._registry import root_sections as _root_sections
 
 
 def _ensure_root_sections() -> dict[str, type]:
-    global ROOT_SECTIONS
-    if ROOT_SECTIONS is None:
-        ROOT_SECTIONS = _root_sections()
-    return ROOT_SECTIONS
+    """Return the map of root-level TOML sections to Pydantic model classes."""
+    return _root_sections()
 
 
 def export_schema(
@@ -104,8 +58,8 @@ def export_schema(
         A Pydantic ``BaseModel`` subclass. If ``None``, the root
         ``HydroModPyConfig`` model is used.
     section
-        Name of a root TOML section (see :data:`ROOT_SECTIONS`). When given,
-        overrides ``model_cls``.
+        Name of a root TOML section (see :func:`_ensure_root_sections`). When
+        given, overrides ``model_cls``.
 
     Returns
     -------
@@ -152,4 +106,4 @@ def write_schema(
     return out_path
 
 
-__all__ = ["export_schema", "write_schema", "ROOT_SECTIONS"]
+__all__ = ["export_schema", "write_schema"]

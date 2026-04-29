@@ -2,8 +2,8 @@
 
 Après `pip install -e .`, deux commandes équivalentes sont disponibles :
 `hmp` et `hydromodpy`. Le dispatch principal est dans
-`hydromodpy/_cli/main.py`, les sous-commandes dans
-`hydromodpy/_cli/commands/`.
+`hydromodpy/cli/main.py`, les sous-commandes dans
+`hydromodpy/cli/commands/`.
 
 Liens : [glossary.md](glossary.md),
 [frontend_hooks.md](frontend_hooks.md),
@@ -18,7 +18,7 @@ hmp run chemin/vers/project.toml
 ```
 
 Le TOML doit déclarer un champ `workflow = "..."` au premier niveau.
-Valeurs reconnues (voir `hydromodpy/_cli/workflows.py`, constante
+Valeurs reconnues (voir `hydromodpy/cli/workflows.py`, constante
 `KNOWN_WORKFLOWS`) :
 
 | Valeur | Rôle |

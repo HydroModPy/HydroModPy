@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import logging
 import numbers
 from collections.abc import Mapping
 from dataclasses import dataclass
@@ -16,6 +15,7 @@ from hydromodpy.analysis.comparison.runtime_physics import (
     _variable_candidates,
     is_nodata_value,
 )
+from hydromodpy.core.logging import get_logger
 from hydromodpy.physics.flow.history_contract import (
     snapshot_elapsed_seconds_from_payload,
     step_end_elapsed_seconds_from_payload,
@@ -24,7 +24,7 @@ from hydromodpy.physics.flow.history_contract import (
 if TYPE_CHECKING:
     from hydromodpy.results.catalog import SimulationCatalog
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 @dataclass(frozen=True, slots=True)

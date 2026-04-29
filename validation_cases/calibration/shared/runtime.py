@@ -1757,7 +1757,7 @@ def run_twin_benchmark_case(
             candidate_run_state,
         )
 
-        from hydromodpy.calibration.cli import run_calibration_cli
+        from hydromodpy.calibration.runner import run_calibration_cli
 
         session_prepare_t0 = time.perf_counter()
         try:

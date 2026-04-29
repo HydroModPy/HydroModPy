@@ -15,10 +15,10 @@ from __future__ import annotations
 
 import html
 import json
-import logging
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
+from hydromodpy.core.logging import get_logger
 from hydromodpy.display.catalog import get as _get_figure
 from hydromodpy.display.catalog import names as _figure_names
 
@@ -27,7 +27,7 @@ if TYPE_CHECKING:
 
     from hydromodpy.calibration.report import SessionReportData
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 _DEFAULT_FIGURE_NAMES: tuple[str, ...] = (

@@ -7,19 +7,19 @@ guarantees no leaked file descriptors at workspace shutdown.
 
 from __future__ import annotations
 
-import logging
 import shutil
 from typing import TYPE_CHECKING
 from uuid import UUID
 
 from hydromodpy.core.io.db_retry import with_lock_retry
+from hydromodpy.core.logging import get_logger
 from hydromodpy.results.catalog_schema import PER_SIM_TABLE_NAMES, ensure_parquet_views
 from hydromodpy.results.zarr_store import SimulationZarr
 
 if TYPE_CHECKING:
     pass
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class LifecycleMixin:

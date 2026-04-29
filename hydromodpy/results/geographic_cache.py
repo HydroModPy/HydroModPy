@@ -27,14 +27,15 @@ from __future__ import annotations
 
 import hashlib
 import json
-import logging
 import shutil
 from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-logger = logging.getLogger(__name__)
+from hydromodpy.core.logging import get_logger
+
+logger = get_logger(__name__)
 
 #: Sub-directory under ``workspace/`` that hosts the shared cache.
 CACHE_DIRNAME = "geographic"

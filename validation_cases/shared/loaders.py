@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import logging
 import tomllib
 from collections.abc import Mapping
 from pathlib import Path
@@ -11,11 +10,12 @@ from typing import TYPE_CHECKING, Any
 import numpy as np
 
 from hydromodpy.core.config.toml_loader import load_toml_with_base_config, merge_toml_payloads
+from hydromodpy.core.logging import get_logger
 
 if TYPE_CHECKING:
     from hydromodpy.results.store import ResultStore
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 def _aggregate_triangles_to_grid(

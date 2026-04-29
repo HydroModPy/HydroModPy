@@ -32,63 +32,14 @@ from typing import Any, get_args, get_origin
 from pydantic import BaseModel
 from pydantic.fields import FieldInfo
 
+from hydromodpy.core.config._registry import root_sections
 from hydromodpy.core.config.profile import Profile
 from hydromodpy.core.config.pydantic_introspect import extract_profile, resolve_profile
-
-# Registry of available config modules.
-# Each entry maps a TOML section name to its Pydantic model class.
-_MODULE_REGISTRY: dict[str, type[BaseModel]] | None = None
-
-
-def _get_registry() -> dict[str, type[BaseModel]]:
-    """Lazy-load the module registry to avoid circular imports."""
-    global _MODULE_REGISTRY
-    if _MODULE_REGISTRY is None:
-        from hydromodpy.core.workspace.config import WorkspaceConfig
-        from hydromodpy.data.data_managers_config import DataManagersConfig
-        from hydromodpy.display.config import DisplayConfig
-        from hydromodpy.display.overview.config import OverviewSection
-        from hydromodpy.physics.flow.flow_config import FlowConfig
-        from hydromodpy.physics.transport.transport_config import TransportConfig
-        from hydromodpy.simulation.planning.config import SimulationConfig
-        from hydromodpy.solver.base.solver_config import SolverConfig
-        from hydromodpy.solver.modflow6.modflow6_config import Modflow6Config
-        from hydromodpy.solver.modflow_nwt.modflow import ModflowConfig
-        from hydromodpy.spatial.domain.domain_config import DomainConfig
-        from hydromodpy.spatial.geographic.geographic_config import GeographicConfig
-        from hydromodpy.spatial.mesh.config import (
-            MeshCatchmentBatchSection,
-            MeshCatchmentConfig,
-        )
-
-        _MODULE_REGISTRY = {
-            "workspace": WorkspaceConfig,
-            "geographic": GeographicConfig,
-            "domain": DomainConfig,
-            "data": DataManagersConfig,
-            "flow": FlowConfig,
-            "transport": TransportConfig,
-            "solver": SolverConfig,
-            "modflownwt": ModflowConfig,
-            "modflow6": Modflow6Config,
-            # ``mesh_catchment`` / ``mesh_catchment_batch`` are optional at
-            # the aggregator level and their inner schemas pull in additional
-            # required sections (geology, rivers) as soon as they are emitted.
-            # They are only used for the mesh-only workflow, so we leave them
-            # out of the default template; users can request them explicitly
-            # via ``--modules mesh_catchment[_batch]``.
-            "mesh_catchment": MeshCatchmentConfig,
-            "mesh_catchment_batch": MeshCatchmentBatchSection,
-            "overview": OverviewSection,
-            "simulation": SimulationConfig,
-            "display": DisplayConfig,
-        }
-    return _MODULE_REGISTRY
 
 
 def available_modules() -> list[str]:
     """Return the list of registered config module names."""
-    return list(_get_registry().keys())
+    return list(root_sections().keys())
 
 
 def generate_toml(
@@ -122,13 +73,13 @@ def generate_toml(
     """
     threshold = resolve_profile(profile)
 
-    registry = _get_registry()
+    registry = root_sections()
 
     if modules is None:
         # Default auto-selection: drop opt-in workflow-only sections that are
         # Optional at the aggregator level and would require more targeted
-        # inputs to validate out-of-the-box (e.g. mesh-only workflow).
-        _OPT_IN = {"mesh_catchment", "mesh_catchment_batch"}
+        # inputs to validate out-of-the-box (mesh-only, calibration, batch).
+        _OPT_IN = {"mesh_catchment", "calibration", "batch"}
         selected = {k: v for k, v in registry.items() if k not in _OPT_IN}
     else:
         unknown = set(modules) - set(registry)

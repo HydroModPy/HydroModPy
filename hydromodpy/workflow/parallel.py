@@ -11,6 +11,8 @@ from __future__ import annotations
 import itertools
 from typing import TYPE_CHECKING
 
+from hydromodpy.core.exceptions import ConfigError
+
 if TYPE_CHECKING:
     from hydromodpy.project import Project
 
@@ -22,17 +24,17 @@ def expand_parameters(
     """Return the list of {param: value} dicts that feed one run each."""
     if strategy == "enumerate":
         if len(parameters) != 1:
-            raise ValueError("strategy='enumerate' expects exactly one parameter")
+            raise ConfigError("strategy='enumerate' expects exactly one parameter")
         ((name, values),) = parameters.items()
         if isinstance(values, dict):
-            raise ValueError("strategy='enumerate' expects a list of values, not a spec")
+            raise ConfigError("strategy='enumerate' expects a list of values, not a spec")
         return [{name: float(v)} for v in values]
 
     if strategy == "grid":
         axes = []
         for name, values in parameters.items():
             if isinstance(values, dict):
-                raise ValueError("strategy='grid' expects lists of values, not specs")
+                raise ConfigError("strategy='grid' expects lists of values, not specs")
             axes.append([(name, float(v)) for v in values])
         return [dict(combo) for combo in itertools.product(*axes)]
 

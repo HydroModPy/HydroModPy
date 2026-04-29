@@ -12,7 +12,7 @@ import sys
 
 import pytest
 
-from hydromodpy._cli.main import main
+from hydromodpy.cli.main import main
 
 SUBCOMMANDS = (
     "init",

@@ -103,12 +103,12 @@ def _ensure_builtins_loaded() -> None:
         return
 
     import importlib
-    import logging
     import pkgutil
 
     from hydromodpy.calibration import adapters
+    from hydromodpy.core.logging import get_logger
 
-    logger = logging.getLogger(__name__)
+    logger = get_logger(__name__)
     for module_info in pkgutil.iter_modules(adapters.__path__):
         name = module_info.name
         if name.startswith("_"):

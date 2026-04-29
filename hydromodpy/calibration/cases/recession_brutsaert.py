@@ -413,7 +413,7 @@ _DEFAULT_METHOD_KWARGS: dict[str, dict[str, Any]] = {
     "grid_search": {"n_per_dim": 5, "log_scale_indices": [0]},
     "random_search": {"n_samples": 80, "seed": 7, "log_scale_indices": [0]},
     "nelder_mead": {"max_iter": 60},
-    "simplex": {"max_iter": 60, "max_fun": 120, "xtol": 1e-10, "ftol": 1e-10},
+    "simplex": {"max_iter": 60, "max_fun": 120},
     "cma_es": {"sigma0": 0.2, "max_evaluations": 36, "seed": 7, "normalize": True},
     "gp_mapping": {
         "max_iter": 15,
@@ -539,8 +539,6 @@ def _run_scipy_minimize(
     method_name: str,
     max_iter: int,
     max_fun: int | None = None,
-    xtol: float = 1e-10,
-    ftol: float = 1e-10,
 ) -> tuple[np.ndarray, float, int]:
     """Local optimisation via Nelder-Mead or simplex with penalised bounds.
 
@@ -576,7 +574,7 @@ def _run_scipy_minimize(
             _cost,
             x0,
             method="Nelder-Mead",
-            options={"maxiter": int(max_iter), "xatol": float(xtol), "fatol": float(ftol)},
+            options={"maxiter": int(max_iter)},
         )
         x_best = _clip(np.asarray(result.x, dtype=float))
         sim_best = simulator(float(x_best[0]), float(x_best[1]))
@@ -587,8 +585,6 @@ def _run_scipy_minimize(
         fmin_kwargs: dict[str, Any] = {
             "func": _cost,
             "x0": x0,
-            "xtol": float(xtol),
-            "ftol": float(ftol),
             "maxiter": int(max_iter),
             "full_output": True,
             "disp": False,
@@ -949,8 +945,6 @@ def calibrate_brutsaert(
             method_name=method_name,
             max_iter=int(kwargs.get("max_iter", 60)),
             max_fun=kwargs.get("max_fun"),
-            xtol=float(kwargs.get("xtol", 1e-10)),
-            ftol=float(kwargs.get("ftol", 1e-10)),
         )
     elif method_name == "cma_es":
         x_best, cost_best, n_eval = _run_cma_es(

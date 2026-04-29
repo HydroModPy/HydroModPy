@@ -7,17 +7,17 @@ Bridges :class:`~hydromodpy.results.run.Run` and the figure registry in
 
 from __future__ import annotations
 
-import logging
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+from hydromodpy.core.logging import get_logger
 from hydromodpy.display import get as _get_figure
 
 if TYPE_CHECKING:
     from hydromodpy.display.config import DisplayConfig
     from hydromodpy.results.run import Run
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 def render_figure(

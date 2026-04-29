@@ -21,7 +21,7 @@ from pathlib import Path
 
 import pytest
 
-from hydromodpy._cli.main import main
+from hydromodpy.cli.main import main
 
 
 def _run_cli(monkeypatch, argv: list[str], *, expect_exit: bool = False) -> int:

@@ -21,12 +21,12 @@ Example
 
 from __future__ import annotations
 
-import logging
 from pathlib import Path
 from typing import TYPE_CHECKING
 from uuid import uuid4
 
-from hydromodpy.core.exceptions import ConfigMissingError
+from hydromodpy.core.exceptions import ConfigError, ConfigMissingError, ResumeError
+from hydromodpy.core.logging import get_logger
 from hydromodpy.project_accessors import ProjectDataAccessor, ProjectRunsAccessor
 
 if TYPE_CHECKING:
@@ -43,7 +43,7 @@ if TYPE_CHECKING:
         CatchmentDelineation,
     )
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 DEFAULT_RUN_NAME_TEMPLATE = "run_{counter:04d}"
@@ -71,7 +71,7 @@ def _resolve_step_index(step: str | int, steps: tuple) -> int:
         if candidate == flat:
             return idx
     known = ", ".join(type(s).__name__ for s in steps)
-    raise ValueError(f"Unknown pipeline step: {step!r}. Known steps: {known}")
+    raise ConfigError(f"Unknown pipeline step: {step!r}. Known steps: {known}")
 
 
 def _resolve_resume_step_index(workspace: Path, run_id: str) -> int:
@@ -82,7 +82,7 @@ def _resolve_resume_step_index(workspace: Path, run_id: str) -> int:
     cp = CheckpointStore(workspace, run_id)
     last = cp.latest()
     if last is None:
-        raise RuntimeError(
+        raise ResumeError(
             f"No checkpoints found for run_id '{run_id}' in {cp.dir}. "
             "Start a fresh run instead of using resume."
         )
@@ -220,8 +220,21 @@ class Project:
         )
 
     @classmethod
-    def from_json(cls, payload: dict, **kwargs) -> Project:
-        """Build a Project from a JSON payload validated against HydroModPyConfig."""
+    def from_toml(cls, toml_path: str | Path, **kwargs) -> Project:
+        """Build a Project from a TOML configuration file."""
+        return cls(toml_path, **kwargs)
+
+    @classmethod
+    def from_json(cls, payload: str | bytes, **kwargs) -> Project:
+        """Build a Project from a JSON string validated against HydroModPyConfig."""
+        from hydromodpy.core.config.hydromodpy_config import HydroModPyConfig
+
+        cfg = HydroModPyConfig.model_validate_json(payload)
+        return cls(cfg, **kwargs)
+
+    @classmethod
+    def from_dict(cls, payload: dict, **kwargs) -> Project:
+        """Build a Project from a dict payload validated against HydroModPyConfig."""
         from hydromodpy.core.config.hydromodpy_config import HydroModPyConfig
 
         cfg = HydroModPyConfig.model_validate(payload)
@@ -462,7 +475,7 @@ class Project:
         from hydromodpy.workflow.steps.plan_building import step_build_plan
 
         if frozen:
-            from hydromodpy.data.lockfile import set_frozen_mode
+            from hydromodpy.data.data_freeze import set_frozen_mode
 
             set_frozen_mode(True)
 
@@ -618,14 +631,14 @@ class Project:
         Two modes are supported:
 
         * **TOML mode** (``config_path`` supplied): delegate to
-          :func:`hydromodpy.calibration.cli.run_calibration_cli` with the
+          :func:`hydromodpy.calibration.runner.run_calibration_cli` with the
           given TOML path.
         * **Python mode** (``parameters`` supplied): build a
           :class:`CalibrationConfig` in memory from the declarations and
           run the same loop.
         """
         if config_path is not None:
-            from hydromodpy.calibration.cli import run_calibration_cli
+            from hydromodpy.calibration.runner import run_calibration_cli
 
             return run_calibration_cli(Path(config_path).expanduser().resolve(), **kwargs)
 
@@ -640,8 +653,8 @@ class Project:
                 "TOML path (need the simulation TOML on disk)."
             )
 
-        from hydromodpy.calibration.cli import run_calibration_programmatic
         from hydromodpy.calibration.config import CalibrationConfig
+        from hydromodpy.calibration.runner import run_calibration_programmatic
 
         payload: dict[str, object] = {}
         if method is not None:
@@ -683,6 +696,51 @@ class Project:
             objective=kwargs.get("objective"),
             return_report=kwargs.get("return_report", True),
         )
+
+    def mesh(self) -> dict:
+        """Run the standalone mesh-only workflow defined by this project's TOML.
+
+        Symmetric counterpart of :func:`hydromodpy.mesh`. Requires a
+        TOML-loaded Project: the launcher consumes the source TOML directly
+        to build its own runtime configs.
+        """
+        if self._config_path is None:
+            raise ConfigMissingError(
+                "Project.mesh() requires Project to be loaded from a TOML "
+                "path (the mesh launcher needs the source TOML on disk)."
+            )
+        from hydromodpy.workflow.pipelines.mesh import MeshCatchmentLauncher
+
+        return MeshCatchmentLauncher(self._config_path).run()
+
+    def report(self, session_id: str | None = None) -> Path:
+        """Render the HTML report for a calibration session.
+
+        ``session_id`` accepts a full UUID, a unique hex prefix, or
+        ``None`` to fall back to the most recently started session
+        recorded in the project's catalog.
+        """
+        from hydromodpy.calibration.report import resolve_calibration_session_id
+        from hydromodpy.results.catalog import SimulationCatalog
+        from hydromodpy.workflow.steps.calibration_report import (
+            step_render_calibration_report,
+        )
+
+        workspace_root = self._resolve_workspace_path()
+        catalog = self._store
+        owns_catalog = catalog is None
+        if owns_catalog:
+            catalog = SimulationCatalog(workspace_root)
+        try:
+            full_id = resolve_calibration_session_id(catalog, session_id)
+            return step_render_calibration_report(
+                catalog=catalog,
+                session_id=full_id,
+                workspace_root=workspace_root,
+            )
+        finally:
+            if owns_catalog:
+                catalog.close()
 
     def simulate(
         self,

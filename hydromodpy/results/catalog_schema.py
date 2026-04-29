@@ -26,12 +26,13 @@ which gives equivalent semantics without the engine bug.
 
 from __future__ import annotations
 
-import logging
 from pathlib import Path
 
 import duckdb
 
-logger = logging.getLogger(__name__)
+from hydromodpy.core.logging import get_logger
+
+logger = get_logger(__name__)
 
 GLOBAL_ZONE = "__global__"
 OUTLET_STATION = "__outlet__"

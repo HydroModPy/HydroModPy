@@ -30,3 +30,9 @@ repos:
       - id: check-toml
       - id: check-added-large-files
         args: [--maxkb=1000]
+
+  # Secret scanning. Same engine as the CI gitleaks job, but on staged diff.
+  - repo: https://github.com/gitleaks/gitleaks
+    rev: v8.21.2
+    hooks:
+      - id: gitleaks

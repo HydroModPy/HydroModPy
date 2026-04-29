@@ -37,7 +37,6 @@ Cross-refs
 from __future__ import annotations
 
 import json as _json
-import logging
 from functools import cached_property
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -45,9 +44,10 @@ from typing import TYPE_CHECKING
 import numpy as np
 import pandas as pd
 
+from hydromodpy.core.logging import get_logger
 from hydromodpy.results.contracts import Mesh, RasterField, Stack
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 if TYPE_CHECKING:
     import geopandas as gpd
@@ -63,6 +63,27 @@ class Run:
         self._sim_id = sim_id
         self._catalog = catalog
         self._row: dict | None = None
+
+    @classmethod
+    def from_toml(cls, toml_path: str | Path, sim_id: str) -> Run:
+        """Return the Run view for ``sim_id`` in the workspace declared by a TOML."""
+        from hydromodpy.results.catalog import SimulationCatalog
+
+        return cls(sim_id, SimulationCatalog.from_toml(toml_path))
+
+    @classmethod
+    def from_json(cls, payload: str | bytes, sim_id: str) -> Run:
+        """Return the Run view for ``sim_id`` in the workspace declared by a JSON config."""
+        from hydromodpy.results.catalog import SimulationCatalog
+
+        return cls(sim_id, SimulationCatalog.from_json(payload))
+
+    @classmethod
+    def from_dict(cls, payload: dict, sim_id: str) -> Run:
+        """Return the Run view for ``sim_id`` in the workspace declared by a dict config."""
+        from hydromodpy.results.catalog import SimulationCatalog
+
+        return cls(sim_id, SimulationCatalog.from_dict(payload))
 
     def _load_row(self) -> dict:
         if self._row is None:

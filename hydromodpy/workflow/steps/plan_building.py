@@ -2,15 +2,17 @@
 
 from __future__ import annotations
 
-import logging
 from typing import TYPE_CHECKING, Any
+
+from hydromodpy.core.exceptions import ConfigError
+from hydromodpy.core.logging import get_logger
 
 if TYPE_CHECKING:
     from hydromodpy.simulation.planning.plan import SimulationPlan
     from hydromodpy.spatial.domain import Domain
     from hydromodpy.workflow.context import WorkflowContext
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 DEFAULT_FLOW_PROCESS_ID = "flow_main"
@@ -116,7 +118,7 @@ def step_apply_flow_overrides(flow, overrides: dict[str, Any]) -> None:
     for key, value in overrides.items():
         if key not in flow.parameters:
             available = ", ".join(sorted(flow.parameters))
-            raise ValueError(f"Unknown parameter '{key}'. Available: {available}")
+            raise ConfigError(f"Unknown parameter '{key}'. Available: {available}")
         flow.parameters[key].value = value
 
 
@@ -157,4 +159,4 @@ def _default_flow_solver(ctx: WorkflowContext) -> str:
     engine = getattr(getattr(ctx.cfg, "solver", None), "solver_engine", None)
     if engine:
         return str(engine)
-    raise ValueError("No flow solver declared in simulation.process or solver.solver_engine")
+    raise ConfigError("No flow solver declared in simulation.process or solver.solver_engine")

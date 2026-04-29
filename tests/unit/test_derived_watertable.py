@@ -18,6 +18,7 @@ def test_watertable_elevation_clipped_to_top():
     top = np.array([10.0, 10.0, 10.0])
     head = np.array([8.0, 11.0, 9.5])
     out = watertable_elevation(head, top)
+    assert (out <= top).all()
     np.testing.assert_array_equal(out, [8.0, 10.0, 9.5])
 
 
@@ -30,6 +31,7 @@ def test_watertable_elevation_picks_uppermost_saturated_layer():
         ]
     )
     out = watertable_elevation(head, top)
+    assert out.shape == (2,)
     np.testing.assert_array_equal(out, [3.0, 5.0])
 
 
@@ -37,6 +39,7 @@ def test_watertable_depth_non_negative():
     top = np.array([10.0, 10.0, 10.0])
     head = np.array([8.0, 11.0, 9.5])
     out = watertable_depth(head, top)
+    assert (out >= 0).all()
     np.testing.assert_array_equal(out, [2.0, 0.0, 0.5])
 
 
@@ -44,6 +47,7 @@ def test_seepage_mask_marks_overflowing_cells():
     top = np.array([10.0, 10.0, 10.0])
     head = np.array([9.9, 10.0, 10.5])
     out = seepage_mask(head, top)
+    assert int(out.sum()) == 2
     np.testing.assert_array_equal(out, [0, 1, 1])
 
 
@@ -51,6 +55,7 @@ def test_fluxes_from_budget_per_unit_area():
     flux = np.array([100.0, 0.0, -50.0])
     area = np.array([10.0, 10.0, 10.0])
     out = fluxes_from_budget(flux, area)
+    assert out[2] < 0
     np.testing.assert_array_almost_equal(out, [10.0, 0.0, -5.0])
 
 

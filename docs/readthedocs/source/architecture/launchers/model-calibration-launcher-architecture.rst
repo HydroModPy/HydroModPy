@@ -9,7 +9,7 @@ Model Calibration - superseded
    been retired. HydroModPy's calibration now runs through the unified
    ``hmp run <calibration.toml>`` dispatcher, backed by the trial primitive
    in :mod:`hydromodpy.simulation.execution.trial` and the CLI in
-   :mod:`hydromodpy.calibration.cli`.
+   :mod:`hydromodpy.calibration.runner`.
 
 For the current architecture, user guide, TOML reference, optimizer
 catalogue, reporting commands, and Python API, see:

@@ -7,14 +7,14 @@ cleanup → provenance.
 
 from __future__ import annotations
 
-import logging
 from pathlib import Path
 from typing import Any
 
 from hydromodpy.core.config.results_config import ResultsConfig
+from hydromodpy.core.logging import get_logger
 from hydromodpy.solver.base.registry import get_extractor_instance
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 def post_run_results(
@@ -96,7 +96,7 @@ def post_run_results(
         keep_solver_files if keep_solver_files is not None else results_config.keep_solver_files
     )
     if not do_keep and solver_output_dir is not None:
-        from hydromodpy.simulation.extraction.extractors.base import cleanup_solver_files
+        from hydromodpy.solver.base.cleanup import cleanup_solver_files
 
         try:
             cleanup_solver_files(solver_output_dir)

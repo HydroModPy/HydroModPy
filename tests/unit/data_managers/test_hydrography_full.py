@@ -146,6 +146,50 @@ def _write_dummy_tif(path, crs="EPSG:2154", shape=(100, 100)):
         ds.write(np.ones(shape, dtype=np.float32), 1)
 
 
+class WhiteboxStubBackend:
+    """Deterministic in-test substitute for the Whitebox backend.
+
+    Records each call and produces real synthetic raster/vector outputs so
+    the manager pipeline can be exercised end-to-end without the real
+    Whitebox runtime. Tests probe ``calls`` to verify dispatch decisions
+    instead of relying on tautological MagicMock ``assert_called_once``.
+    """
+
+    def __init__(self) -> None:
+        self.calls: list[tuple] = []
+
+    def vector_lines_to_raster(self, shp: str, tif: str, *, field: str, base: str) -> None:
+        self.calls.append(("vector_lines_to_raster", shp, tif, field))
+        _write_dummy_tif(tif)
+
+    def vector_polygons_to_raster(self, shp: str, tif: str, *, field: str, base: str) -> None:
+        self.calls.append(("vector_polygons_to_raster", shp, tif, field))
+        _write_dummy_tif(tif)
+
+    def vector_points_to_raster(self, shp: str, tif: str, *, field: str, base: str) -> None:
+        self.calls.append(("vector_points_to_raster", shp, tif, field))
+        _write_dummy_tif(tif)
+
+    def set_nodata_value(self, src: str, dst: str, *, back_value: float) -> None:
+        import shutil
+
+        self.calls.append(("set_nodata_value", src, dst, back_value))
+        if str(src) != str(dst):
+            shutil.copy(src, dst)
+
+    def raster_to_vector_points(self, tif: str, out_shp: str) -> None:
+        self.calls.append(("raster_to_vector_points", tif, out_shp))
+        Path(out_shp).parent.mkdir(parents=True, exist_ok=True)
+        gpd.GeoDataFrame(
+            {"id": [1]},
+            geometry=[Point(350000, 6750000)],
+            crs="EPSG:2154",
+        ).to_file(out_shp)
+
+    def method_names(self) -> list[str]:
+        return [c[0] for c in self.calls]
+
+
 # =====================================================================
 # 1. Config - HydrographySourceConfig
 # =====================================================================
@@ -855,7 +899,7 @@ class TestHydrographyManager:
     @patch("hydromodpy.data.variables.hydrography.manager.HydrographyManager._fetch_from_source")
     @patch("hydromodpy.data.variables.hydrography.manager.get_whitebox_backend")
     def test_load_pipeline_line_geometry(self, mock_backend_factory, mock_fetch, tmp_path):
-        """Full pipeline with LineString data and mocked backend."""
+        """Full pipeline with LineString data and stub backend."""
         from hydromodpy.data.variables.hydrography.manager import HydrographyManager
 
         # Prepare fetched data in project CRS
@@ -866,17 +910,12 @@ class TestHydrographyManager:
         ]
         mock_fetch.return_value = lines_gdf
 
-        # Mock backend
-        backend = MagicMock()
+        backend = WhiteboxStubBackend()
         mock_backend_factory.return_value = backend
 
         geo = _fake_geographic(tmp_path)
         cfg = HydrographyConfig(sources=[{"source": "osm"}])
         mgr = HydrographyManager(config=cfg, geographic=geo, out_path=tmp_path)
-
-        # Write a fake TIF for _read_tif_array
-        tif_path = tmp_path / ".solver_scratch/_preprocessing" / "hydrography" / "streams.tif"
-        _write_dummy_tif(tif_path)
 
         result = mgr.load()
 
@@ -885,8 +924,11 @@ class TestHydrographyManager:
         assert result.tif_streams.endswith("streams.tif")
         assert isinstance(result.streams_array, np.ndarray)
 
-        # Backend was called with vector_lines_to_raster
-        backend.vector_lines_to_raster.assert_called_once()
+        # Stub backend dispatched to the line rasteriser, not polygon/point.
+        method_names = backend.method_names()
+        assert "vector_lines_to_raster" in method_names
+        assert "vector_polygons_to_raster" not in method_names
+        assert "vector_points_to_raster" not in method_names
 
     @patch("hydromodpy.data.variables.hydrography.manager.HydrographyManager._fetch_from_source")
     @patch("hydromodpy.data.variables.hydrography.manager.get_whitebox_backend")
@@ -909,18 +951,18 @@ class TestHydrographyManager:
         )
         mock_fetch.return_value = poly_gdf
 
-        backend = MagicMock()
+        backend = WhiteboxStubBackend()
         mock_backend_factory.return_value = backend
 
         geo = _fake_geographic(tmp_path)
         cfg = HydrographyConfig(sources=[{"source": "osm"}])
         mgr = HydrographyManager(config=cfg, geographic=geo, out_path=tmp_path)
 
-        tif_path = tmp_path / ".solver_scratch/_preprocessing" / "hydrography" / "streams.tif"
-        _write_dummy_tif(tif_path)
-
-        mgr.load()
-        backend.vector_polygons_to_raster.assert_called_once()
+        result = mgr.load()
+        method_names = backend.method_names()
+        assert "vector_polygons_to_raster" in method_names
+        assert "vector_lines_to_raster" not in method_names
+        assert isinstance(result, HydrographyResult)
 
     @patch("hydromodpy.data.variables.hydrography.manager.HydrographyManager._fetch_from_source")
     @patch("hydromodpy.data.variables.hydrography.manager.get_whitebox_backend")
@@ -934,18 +976,18 @@ class TestHydrographyManager:
         )
         mock_fetch.return_value = pt_gdf
 
-        backend = MagicMock()
+        backend = WhiteboxStubBackend()
         mock_backend_factory.return_value = backend
 
         geo = _fake_geographic(tmp_path)
         cfg = HydrographyConfig(sources=[{"source": "osm"}])
         mgr = HydrographyManager(config=cfg, geographic=geo, out_path=tmp_path)
 
-        tif_path = tmp_path / ".solver_scratch/_preprocessing" / "hydrography" / "streams.tif"
-        _write_dummy_tif(tif_path)
-
-        mgr.load()
-        backend.vector_points_to_raster.assert_called_once()
+        result = mgr.load()
+        method_names = backend.method_names()
+        assert "vector_points_to_raster" in method_names
+        assert "vector_lines_to_raster" not in method_names
+        assert isinstance(result, HydrographyResult)
 
     @patch("hydromodpy.data.variables.hydrography.manager.HydrographyManager._fetch_from_source")
     @patch("hydromodpy.data.variables.hydrography.manager.get_whitebox_backend")
@@ -963,15 +1005,12 @@ class TestHydrographyManager:
         )
         mock_fetch.return_value = gdf
 
-        backend = MagicMock()
+        backend = WhiteboxStubBackend()
         mock_backend_factory.return_value = backend
 
         geo = _fake_geographic(tmp_path)
         cfg = HydrographyConfig(sources=[{"source": "bdtopage"}])
         mgr = HydrographyManager(config=cfg, geographic=geo, out_path=tmp_path)
-
-        tif_path = tmp_path / ".solver_scratch/_preprocessing" / "hydrography" / "streams.tif"
-        _write_dummy_tif(tif_path)
 
         mgr.load()
 
@@ -1022,15 +1061,12 @@ class TestHydrographyManager:
         )
         mock_fetch.return_value = gdf_4326
 
-        backend = MagicMock()
+        backend = WhiteboxStubBackend()
         mock_backend_factory.return_value = backend
 
         geo = _fake_geographic(tmp_path, crs="EPSG:2154")
         cfg = HydrographyConfig(sources=[{"source": "osm"}])
         mgr = HydrographyManager(config=cfg, geographic=geo, out_path=tmp_path)
-
-        tif_path = tmp_path / ".solver_scratch/_preprocessing" / "hydrography" / "streams.tif"
-        _write_dummy_tif(tif_path)
 
         result = mgr.load()
 

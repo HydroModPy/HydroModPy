@@ -20,6 +20,7 @@ import tomllib
 from pathlib import Path
 from typing import ClassVar
 
+from hydromodpy.core.exceptions import ConfigError
 from hydromodpy.workflow.internals.state import PipelineState, ValidatedState
 
 
@@ -39,7 +40,7 @@ class ValidateStep:
 
         if cfg is None:
             if config_path is None:
-                raise ValueError("ValidateStep requires 'cfg' or 'config_path' in state.data")
+                raise ConfigError("ValidateStep requires 'cfg' or 'config_path' in state.data")
             path = Path(config_path).expanduser().resolve()
             with open(path, "rb") as fh:
                 raw = tomllib.load(fh)

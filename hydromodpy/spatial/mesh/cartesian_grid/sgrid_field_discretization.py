@@ -13,13 +13,13 @@ Design follows :mod:`sgrid_fieldparam_discretization` patterns but produces
 
 from __future__ import annotations
 
-import logging
 from pathlib import Path
 from typing import TYPE_CHECKING, Literal
 
 import numpy as np
 import pandas as pd
 
+from hydromodpy.core.logging import get_logger
 from hydromodpy.core.units import factor_to_m_per_s
 
 if TYPE_CHECKING:
@@ -30,7 +30,7 @@ if TYPE_CHECKING:
     from hydromodpy.data.contracts.spatial_field import FieldRecord
     from hydromodpy.data.contracts.timeseries import PointRecord
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 InterpolationMethod = Literal["nearest", "linear", "idw"]
 

@@ -10,8 +10,8 @@ from pathlib import Path
 
 import pytest
 
-from hydromodpy._cli import main
-from hydromodpy._cli.helpers import EXIT_CONFIG, EXIT_NOT_FOUND
+from hydromodpy.cli import main
+from hydromodpy.cli.helpers import EXIT_CONFIG, EXIT_NOT_FOUND
 
 
 def _write_toml(path: Path, content: str) -> Path:
@@ -34,7 +34,7 @@ def test_hmp_run_dispatches_simulation_workflow(monkeypatch, tmp_path) -> None:
         captured["kwargs"] = kwargs
         return {"name": "test", "sim_id": "abc"}
 
-    monkeypatch.setattr("hydromodpy._cli.workflows.run_simulation", fake_run)
+    monkeypatch.setattr("hydromodpy.cli.workflows.run_simulation", fake_run)
     monkeypatch.setattr("sys.argv", ["hmp", "run", str(config)])
 
     main()
@@ -58,7 +58,7 @@ def test_hmp_run_forwards_no_display_flag(monkeypatch, tmp_path) -> None:
         captured["kwargs"] = kwargs
         return {"name": "test", "sim_id": "abc"}
 
-    monkeypatch.setattr("hydromodpy._cli.workflows.run_simulation", fake_run)
+    monkeypatch.setattr("hydromodpy.cli.workflows.run_simulation", fake_run)
     monkeypatch.setattr("sys.argv", ["hmp", "run", str(config), "--no-display"])
 
     main()
@@ -80,7 +80,7 @@ def test_hmp_run_dispatches_overview_workflow(monkeypatch, tmp_path) -> None:
         captured["run_called"] = True
         return {"mode": "data_overview"}
 
-    monkeypatch.setattr("hydromodpy._cli.workflows.run_overview", fake_run)
+    monkeypatch.setattr("hydromodpy.cli.workflows.run_overview", fake_run)
     monkeypatch.setattr("sys.argv", ["hmp", "run", str(config)])
 
     main()
@@ -105,7 +105,7 @@ def test_hmp_run_dispatches_mesh_workflow(monkeypatch, tmp_path) -> None:
         captured["run_called"] = True
         return {"mode": "mesh"}
 
-    monkeypatch.setattr("hydromodpy._cli.workflows.run_mesh", fake_run)
+    monkeypatch.setattr("hydromodpy.cli.workflows.run_mesh", fake_run)
     monkeypatch.setattr("sys.argv", ["hmp", "run", str(config)])
 
     main()
@@ -128,7 +128,7 @@ def test_hmp_run_dispatches_calibration_workflow(monkeypatch, tmp_path) -> None:
         captured["run_called"] = True
         return {"mode": "calibration"}
 
-    monkeypatch.setattr("hydromodpy._cli.workflows.run_calibration", fake_run)
+    monkeypatch.setattr("hydromodpy.cli.workflows.run_calibration", fake_run)
     monkeypatch.setattr("sys.argv", ["hmp", "run", str(config)])
 
     main()
@@ -151,7 +151,7 @@ def test_hmp_run_dispatches_batch_workflow(monkeypatch, tmp_path) -> None:
         captured["run_called"] = True
         return {"mode": "batch"}
 
-    monkeypatch.setattr("hydromodpy._cli.workflows.run_batch", fake_run)
+    monkeypatch.setattr("hydromodpy.cli.workflows.run_batch", fake_run)
     monkeypatch.setattr("sys.argv", ["hmp", "run", str(config)])
 
     main()

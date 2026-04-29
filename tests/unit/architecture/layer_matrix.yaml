@@ -3,7 +3,6 @@
 # Each row lists the set of packages a source layer is allowed to import.
 # A package always implicitly allows imports targeting itself.
 # Packages absent from the row's list are forbidden (CI flags them).
-# `_cli` is the actual on-disk name of the CLI top-level package (matrix uses cli).
 
 allowed:
   core:        [core]
@@ -19,7 +18,7 @@ allowed:
   analysis:    [core, schema, data, results, analysis]
   pipeline:    [core, schema, physics, data, spatial, solver, simulation, calibration, results, pipeline]
   workflow:    [core, schema, physics, data, spatial, simulation, solver, calibration, results, display, analysis, pipeline, workflow]
-  _cli:        [core, schema, physics, data, spatial, simulation, solver, calibration, results, display, analysis, pipeline, workflow, _cli]
+  cli:         [core, schema, physics, data, spatial, simulation, solver, calibration, results, display, analysis, pipeline, workflow, cli]
 
 # Cross-edges tolerated for now. Each tolerance must point at a documented
 # rationale. Empty until R0 lands. Tighten over time.

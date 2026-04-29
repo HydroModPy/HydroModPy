@@ -21,6 +21,7 @@ from __future__ import annotations
 import time
 from typing import ClassVar
 
+from hydromodpy.core.exceptions import ConfigError
 from hydromodpy.workflow.internals.state import OpenStoreState, PipelineState, SolverRanState
 
 
@@ -47,11 +48,11 @@ class RunSolverStep:
 
         ctx = state.get("ctx")
         if ctx is None:
-            raise ValueError("RunSolverStep requires 'ctx' in state.data")
+            raise ConfigError("RunSolverStep requires 'ctx' in state.data")
 
         plan = ctx.execution.simulation_plan
         if plan is None:
-            raise RuntimeError("run_solver step requires execution.simulation_plan to be set")
+            raise ConfigError("run_solver step requires execution.simulation_plan to be set")
 
         if ctx.execution.lightweight:
             after_run = None

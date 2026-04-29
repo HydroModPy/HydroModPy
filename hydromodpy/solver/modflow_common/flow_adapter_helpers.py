@@ -18,6 +18,7 @@ from __future__ import annotations
 from collections.abc import Mapping
 from pathlib import Path
 
+from hydromodpy.core.exceptions import SolverDivergedError, SolverInputError
 from hydromodpy.simulation.planning.plan import (
     ProcessRun,
     RunContext,
@@ -56,7 +57,9 @@ def _run_label(plan: SimulationPlan, run: ProcessRun) -> str:
             }.get(run.process_type, "r")
             return f"{prefix}{index}"
 
-    raise ValueError(f"Process run '{run.id}' is not present in the provided simulation plan.")
+    raise SolverInputError(
+        f"[HMPY.E405] Process run '{run.id}' is not present in the provided simulation plan."
+    )
 
 
 def flow_model_name(plan: SimulationPlan, base_name: str, run: ProcessRun) -> str:
@@ -143,9 +146,10 @@ def run_flow_model(ctx: RunContext, model_modflow, preprocess_options) -> RunExe
         diagnostics_path = Path(getattr(model_modflow, "full_path", "")).resolve()
         if ctx.run.solver == "modflow6":
             diagnostics_path = diagnostics_path / "mfsim.lst"
-        raise RuntimeError(
-            f"Flow solver '{ctx.run.solver}' failed for run '{ctx.run.id}'. "
-            f"See {diagnostics_path} for diagnostics."
+        raise SolverDivergedError(
+            f"[HMPY.E401] Flow solver '{ctx.run.solver}' failed for run '{ctx.run.id}'. "
+            f"See {diagnostics_path} for diagnostics.",
+            run_id=ctx.run.id,
         )
     return RunExecutionResult(
         primary_model=model_modflow,

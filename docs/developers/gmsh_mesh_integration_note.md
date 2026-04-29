@@ -77,7 +77,7 @@ solveur structure :
 - `sgrid_generation.py` construit un `flopy.discretization.StructuredGrid`
 - `sgrid_fieldparam_discretization.py` suppose une sortie structuree
   `(nlay, nrow, ncol)`
-- `solver/modflow_nwt/modflow/property_mapping.py` consomme ce chemin structure
+- `solver/modflow_nwt/nwt/property_mapping.py` consomme ce chemin structure
 
 Cela fait de `cartesian_grid` un mauvais emplacement pour une interface commune
 hors solveur.

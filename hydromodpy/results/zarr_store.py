@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import logging
 import shutil
 import zipfile
 from collections.abc import Callable
@@ -11,9 +10,10 @@ import numpy as np
 import zarr
 import zarr.codecs
 
+from hydromodpy.core.logging import get_logger
 from hydromodpy.results import field_registry
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 BLOSC_ZSTD = zarr.codecs.BloscCodec(cname="zstd", clevel=3)
 

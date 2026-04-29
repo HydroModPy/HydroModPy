@@ -28,9 +28,9 @@ from unittest.mock import patch
 import pytest
 
 from hydromodpy.calibration import CalibrationReport
-from hydromodpy.calibration import cli as cli_module
-from hydromodpy.calibration.cli import run_calibration_programmatic
+from hydromodpy.calibration import runner as runner_module
 from hydromodpy.calibration.config import CalibrationConfig
+from hydromodpy.calibration.runner import run_calibration_programmatic
 
 # ---------------------------------------------------------------------------
 # Fixtures
@@ -160,8 +160,8 @@ def fake_pipeline(monkeypatch, tmp_path):
         )
         return sim_id
 
-    monkeypatch.setattr(cli_module, "prepare_trials", _fake_prepare)
-    monkeypatch.setattr(cli_module, "promote_trial", _fake_promote)
+    monkeypatch.setattr(runner_module, "prepare_trials", _fake_prepare)
+    monkeypatch.setattr(runner_module, "promote_trial", _fake_promote)
     return promoted
 
 
@@ -312,7 +312,7 @@ path = "flow.param.K.field_homogeneous.value"
 
         from hydromodpy.project import Project
 
-        with patch.object(cli_module, "run_calibration_cli") as mocked:
+        with patch.object(runner_module, "run_calibration_cli") as mocked:
             mocked.return_value = {"session_id": "abc", "method": "grid"}
             Project.calibrate(proj, config_path=toml_calib)
             assert mocked.call_count == 1
@@ -338,7 +338,7 @@ class TestProjectCalibratePythonModeDispatch:
             promoted=0,
         )
         with patch(
-            "hydromodpy.calibration.cli.run_calibration_programmatic",
+            "hydromodpy.calibration.runner.run_calibration_programmatic",
             return_value=sentinel,
         ) as mocked:
             result = Project.calibrate(

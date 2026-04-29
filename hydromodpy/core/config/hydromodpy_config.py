@@ -50,7 +50,7 @@ if TYPE_CHECKING:
     from hydromodpy.simulation.planning.config import SimulationConfig
     from hydromodpy.solver.base.solver_config import SolverConfig
     from hydromodpy.solver.modflow6.modflow6_config import Modflow6Config
-    from hydromodpy.solver.modflow_nwt.modflow import ModflowConfig
+    from hydromodpy.solver.modflow_nwt.nwt import ModflowConfig
     from hydromodpy.spatial.domain.domain_config import DomainConfig
     from hydromodpy.spatial.geographic.geographic_config import GeographicConfig
     from hydromodpy.spatial.mesh.config import MeshCatchmentConfig
@@ -339,6 +339,7 @@ class HydroModPyConfig(HydroModelBase):
             "capability_gallery": ({}, _std(CapabilityGalleryConfig)),
             "overview": (None, _load_optional_overview_section),
             "mesh_catchment": (None, _load_optional_mesh_catchment_section),
+            "calibration": (None, _load_optional_calibration_section),
         }
 
         parsed_sections: dict[str, Any] = {"workspace": parsed_workspace}
@@ -525,3 +526,13 @@ def _load_optional_mesh_catchment_section(
     from hydromodpy.spatial.mesh.config import parse_mesh_catchment_config_data
 
     return parse_mesh_catchment_config_data(section_data)
+
+
+def _load_optional_calibration_section(
+    section_data: Any,
+    base: Path,
+) -> CalibrationConfig | None:
+    """Load the optional ``[calibration]`` section."""
+    if section_data is None:
+        return None
+    return _load_standard_section(section_data, CalibrationConfig, base)

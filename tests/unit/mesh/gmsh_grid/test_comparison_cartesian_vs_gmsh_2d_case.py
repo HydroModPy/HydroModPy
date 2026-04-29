@@ -77,8 +77,10 @@ def _assert_nested_close(actual, expected, *, rtol: float = 2.0e-4, atol: float 
     assert actual == expected
 
 
-def test_comparison_cartesian_vs_gmsh_2d_non_regression(update_goldens: bool) -> None:
-    output_dir = Path.cwd() / "scratch_tests" / "comparison_cartesian_vs_gmsh_2d" / "runtime"
+def test_comparison_cartesian_vs_gmsh_2d_non_regression(
+    update_goldens: bool, tmp_path: Path
+) -> None:
+    output_dir = tmp_path / "runtime"
     output_dir.mkdir(parents=True, exist_ok=True)
 
     payload = run_comparison_case(
@@ -104,8 +106,9 @@ def test_comparison_cartesian_vs_gmsh_2d_non_regression(update_goldens: bool) ->
 
 def test_comparison_case_ensures_interactive_backend_before_show_build(
     monkeypatch,
+    tmp_path: Path,
 ) -> None:
-    output_dir = Path.cwd() / "scratch_tests" / "comparison_cartesian_vs_gmsh_2d_show" / "runtime"
+    output_dir = tmp_path / "runtime"
     output_dir.mkdir(parents=True, exist_ok=True)
 
     ensured = {"done": False}

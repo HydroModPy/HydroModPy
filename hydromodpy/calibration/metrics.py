@@ -22,7 +22,6 @@ the optimizer naturally skips it.
 
 from __future__ import annotations
 
-import logging
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from pathlib import Path
@@ -37,11 +36,12 @@ from hydromodpy.calibration.objective import (
     METRICS,
     build_objective_from_config,
 )
+from hydromodpy.core.logging import get_logger
 
 if TYPE_CHECKING:
     from hydromodpy.calibration.config import CalibObjectiveBlockDecl, CalibOutputDecl
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 # ---------------------------------------------------------------------------

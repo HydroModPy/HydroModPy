@@ -13,6 +13,7 @@ from dataclasses import dataclass
 import numpy as np
 import pytest
 
+from hydromodpy.core.exceptions import ConfigError
 from hydromodpy.results.zarr_store import SimulationZarr
 from hydromodpy.workflow.internals.derived import (
     DerivedComputation,
@@ -113,7 +114,7 @@ def test_default_registry_has_canonical_entries():
 def test_registry_register_duplicate_raises():
     reg = DerivedRegistry()
     reg.register(_Fake("a"))
-    with pytest.raises(ValueError):
+    with pytest.raises(ConfigError):
         reg.register(_Fake("a"))
     reg.register(_Fake("a"), overwrite=True)  # allowed
 
@@ -131,7 +132,7 @@ def test_registry_cycle_raises():
     reg = DerivedRegistry()
     reg.register(_Fake("a", required_derived=("b",)))
     reg.register(_Fake("b", required_derived=("a",)))
-    with pytest.raises(ValueError, match="Cycle"):
+    with pytest.raises(ConfigError, match="Cycle"):
         reg.ordered_names()
 
 
@@ -186,6 +187,7 @@ def test_watertable_depth_after_elevation(tmp_path):
     # Apply in registered topological order: elevation then depth.
     registry.apply(sz, names=["watertable_elevation", "watertable_depth"])
     depth = np.asarray(sz.root["derived"]["watertable_depth"][:])
+    assert (depth >= 0).all()
     np.testing.assert_array_equal(depth[0], [5.0, 0.0, 1.0, 0.0])
     np.testing.assert_array_equal(depth[1], [4.0, 3.0, 2.0, 1.0])
 
@@ -200,6 +202,7 @@ def test_seepage_mask_flags_overflowing_cells(tmp_path):
         names=["watertable_elevation", "seepage_mask"],
     )
     mask = np.asarray(sz.root["derived"]["seepage_mask"][:])
+    assert set(np.unique(mask)).issubset({0.0, 1.0})
     # Expect 1 where wt_elev >= top (10.0), 0 otherwise.
     np.testing.assert_array_equal(mask[0], [0.0, 1.0, 1.0, 0.0])
     np.testing.assert_array_equal(mask[1], [0.0, 1.0, 1.0, 1.0])
@@ -277,7 +280,7 @@ def test_derive_step_runs_registry(tmp_path):
 
 def test_derive_step_without_ctx_raises():
     state = PipelineState(run_id="r", data={})
-    with pytest.raises(ValueError, match="'ctx'"):
+    with pytest.raises(ConfigError, match="'ctx'"):
         DeriveStep().run(state)
 
 

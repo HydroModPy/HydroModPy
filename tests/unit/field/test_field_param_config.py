@@ -263,6 +263,8 @@ def test_load_field_param_toml_accepts_vertical_profile_exponential(tmp_path: Pa
             [field]
             id = "K"
             kind = "homogeneous"
+
+            [field_homogeneous]
             value = 10.0
 
             [field_vertical_profile]
@@ -287,6 +289,8 @@ def test_load_field_param_toml_accepts_vertical_profile_exponential_with_min_fac
             [field]
             id = "K"
             kind = "homogeneous"
+
+            [field_homogeneous]
             value = 10.0
 
             [field_vertical_profile]
@@ -313,6 +317,8 @@ def test_load_field_param_toml_accepts_vertical_profile_exponential_characterist
             [field]
             id = "K"
             kind = "homogeneous"
+
+            [field_homogeneous]
             value = 10.0
 
             [field_vertical_profile]
@@ -337,6 +343,8 @@ def test_load_field_param_toml_rejects_vertical_profile_exponential_with_invalid
             [field]
             id = "K"
             kind = "homogeneous"
+
+            [field_homogeneous]
             value = 10.0
 
             [field_vertical_profile]
@@ -360,6 +368,8 @@ def test_load_field_param_toml_rejects_vertical_profile_exponential_without_dept
             [field]
             id = "K"
             kind = "homogeneous"
+
+            [field_homogeneous]
             value = 10.0
 
             [field_vertical_profile]

@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from hydromodpy.data.lockfile import (
+from hydromodpy.data.data_freeze import (
     LOCKFILE_NAME,
     archive_lockfile,
     read_lockfile,

@@ -9,6 +9,7 @@ from types import SimpleNamespace
 
 import pytest
 
+from hydromodpy.core.exceptions import ConfigError
 from hydromodpy.core.state.run_state import WorkflowContext
 from hydromodpy.workflow.steps.mesh import step_mesh_input
 from hydromodpy.workflow.steps.setup import step_setup
@@ -235,7 +236,7 @@ def test_run_setup_builds_synthetic_geographic_when_requested(monkeypatch) -> No
 def test_process_launcher_rejects_embedded_mesh_catchment_batch_section() -> None:
     from hydromodpy.workflow.steps.mesh import resolve_optional_mesh_section
 
-    with pytest.raises(ValueError, match="Embedded \\[mesh_catchment_batch\\] is not supported"):
+    with pytest.raises(ConfigError, match="Embedded \\[mesh_catchment_batch\\] is not supported"):
         resolve_optional_mesh_section(
             {
                 "mesh_catchment": {"constraints_mode": "rivers_only"},
@@ -423,7 +424,7 @@ def test_run_setup_rejects_heterogeneous_flow_when_support_is_undeclared(monkeyp
         lambda state: None,
     )
 
-    with pytest.raises(ValueError, match="domain.supports"):
+    with pytest.raises(ConfigError, match="domain.supports"):
         step_setup(
             run_state,
             requested_spatial_support_ids=("field_geology",),

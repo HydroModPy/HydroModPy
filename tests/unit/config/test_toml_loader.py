@@ -220,3 +220,67 @@ def test_hydromodpy_config_loads_profiling_shortcuts(tmp_path: Path) -> None:
     cfg = HydroModPyConfig.from_toml(config_path)
 
     assert cfg.geographic.reuse_existing_outputs is True
+
+
+def test_hydromodpy_config_loads_calibration_section(tmp_path: Path) -> None:
+    """[calibration] in TOML must populate cfg.calibration via the section loader."""
+    config_path = tmp_path / "calib.toml"
+    config_path.write_text(
+        "\n".join(
+            [
+                'workflow = "calibration"',
+                "[workspace]",
+                f'root = "{tmp_path}"',
+                f'project_root = "{tmp_path}"',
+                "",
+                "[geographic]",
+                'source_mode = "synthetic"',
+                "",
+                "[flow]",
+                'param_list = ["K"]',
+                "",
+                "[flow.param.K.field]",
+                'kind = "homogeneous"',
+                "",
+                "[flow.param.K.field_homogeneous]",
+                'value = "1.0e-4 m/s"',
+                "",
+                "[calibration]",
+                'method = "optuna"',
+                "max_iter = 7",
+                "",
+                "[calibration.parameters.K]",
+                "bounds = [1.0e-6, 1.0e-3]",
+                'target = "flow.param.K.field_homogeneous.value"',
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    cfg = HydroModPyConfig.from_toml(config_path)
+
+    assert cfg.calibration is not None
+    assert cfg.calibration.method == "optuna"
+    assert cfg.calibration.max_iter == 7
+    assert "K" in cfg.calibration.parameters
+
+
+def test_hydromodpy_config_calibration_absent_yields_none(tmp_path: Path) -> None:
+    config_path = tmp_path / "no_calib.toml"
+    config_path.write_text(
+        "\n".join(
+            [
+                'workflow = "simulation"',
+                "[workspace]",
+                f'root = "{tmp_path}"',
+                "",
+                "[geographic]",
+                'source_mode = "synthetic"',
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    cfg = HydroModPyConfig.from_toml(config_path)
+
+    assert cfg.calibration is None

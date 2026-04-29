@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import logging
 from collections.abc import Mapping
 from datetime import datetime
 from math import asin, cos, radians, sin, sqrt
@@ -13,8 +12,9 @@ import pandas as pd
 import requests
 
 from hydromodpy.core.io.http_client import get_default_client
+from hydromodpy.core.logging import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 try:
     from hydromodpy.core.units import parse_length_to_m

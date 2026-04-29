@@ -3,7 +3,7 @@ from __future__ import annotations
 import pytest
 
 from hydromodpy.physics.flow.sinks_sources import FlowRechargeConfig
-from hydromodpy.solver.modflow_nwt.modflow import (
+from hydromodpy.solver.modflow_nwt.nwt import (
     ModflowPostprocessOptions,
     ModflowPreprocessOptions,
     ModflowRunOptions,

@@ -31,6 +31,7 @@ def test_validate_field_unknown_path() -> None:
     result = validate_field("flow.does_not_exist", 42)
     assert result.valid is False
     assert result.error is not None
+    assert "does_not_exist" in result.error or "unknown" in result.error.lower()
 
 
 def test_validate_field_empty_path() -> None:

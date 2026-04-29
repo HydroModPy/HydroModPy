@@ -6,7 +6,6 @@ work without changes.
 
 from __future__ import annotations
 
-import logging
 import time
 from datetime import datetime
 from pathlib import Path
@@ -14,9 +13,10 @@ from pathlib import Path
 import duckdb
 import pandas as pd
 
+from hydromodpy.core.logging import get_logger
 from hydromodpy.data.registry.constants import SENTINEL_CUSTOM, SENTINEL_EMPTY
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 _RETRY = 8
 _BACKOFF = 0.05

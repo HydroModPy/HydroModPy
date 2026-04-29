@@ -3,7 +3,7 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-from hydromodpy.solver.modflow_nwt.modflow.postprocess import (
+from hydromodpy.solver.modflow_nwt.nwt.postprocess import (
     compute_outlet_discharge_east_side_m3_s,
 )
 

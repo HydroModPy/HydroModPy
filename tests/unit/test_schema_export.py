@@ -87,7 +87,7 @@ def test_schema_cli_export_produces_files(tmp_path: Path) -> None:
     """
     import argparse
 
-    from hydromodpy._cli.commands.schema import _cmd_export
+    from hydromodpy.cli.commands.schema import _cmd_export
 
     out = tmp_path / "cli_out"
     args = argparse.Namespace(output=str(out))

@@ -893,7 +893,7 @@ SimulationRunner
   -> forcing/ prepare les entrees (recharge, CL, parametres spatiaux)
   -> ResultStore.record_provenance()   # hash + stats des forcages injectes
                                        # (ne stocke PAS les arrays de forcage)
-  -> SolverRunner execute le solver
+  -> SolverAdapter execute le solver
   -> le solver ecrit ses fichiers proprietaires (.hds, .cbc, .ucn, ...)
   -> OutputAdapter lit ces fichiers via FloPy (ou en memoire pour GR4J)
   -> ResultStore.write_mesh()          # topologie du maillage (1 seule fois)

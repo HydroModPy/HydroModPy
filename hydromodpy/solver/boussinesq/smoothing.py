@@ -5,38 +5,11 @@ makes the Newton Jacobian continuous and improves solver convergence on fine
 meshes where stiff ill-conditioned systems expose the non-differentiability.
 
 All operators converge to their piecewise limits as ε → 0.
-
-Default smoothing radii
------------------------
-``_EPS_THICKNESS_M``
-    5 cm rounding radius at the aquifer floor and ceiling.  For a 10-50 m
-    aquifer the relative bias is < 0.5 %.
-
-``_EPS_DRAINAGE_M``
-    1 cm rounding radius at the drainage activation level.
-
-``_EPS_QEX_M_S``
-    1e-8 m/s rounding radius for saturation-excess terms - same order as
-    typical recharge rates so the kink is smoothed at physically relevant
-    scales.
-
-``_EPS_SIGMA``
-    1 % rounding radius in the dimensionless saturation-ratio domain.
 """
 
 from __future__ import annotations
 
 import numpy as np
-
-# ---------------------------------------------------------------------------
-# Default ε values
-# ---------------------------------------------------------------------------
-
-_EPS_THICKNESS_M: float = 5.0e-3  # 5 mm - keeps bias < 0.1 % on a 5+ m aquifer
-_EPS_DRAINAGE_M: float = 0.01  # metres
-_EPS_QEX_M_S: float = 1.0e-8  # m/s
-_EPS_SIGMA: float = 1.0e-4  # dimensionless - bias < eps/(2r) ≈ 0.1 % for r=0.05
-
 
 # ---------------------------------------------------------------------------
 # Core smooth operators
@@ -158,10 +131,6 @@ def smooth_clip_01(x: np.ndarray, eps: float) -> np.ndarray:
 
 
 __all__ = [
-    "_EPS_DRAINAGE_M",
-    "_EPS_QEX_M_S",
-    "_EPS_SIGMA",
-    "_EPS_THICKNESS_M",
     "dsmooth_positive_part",
     "dsmooth_positive_thickness_dh",
     "smooth_clip_01",

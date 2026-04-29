@@ -156,8 +156,12 @@ def apply_etp_load_result_to_flow(
         first_clim = getattr(etp_cfg, "first_clim", first_clim)
         spatial_mode = getattr(etp_cfg, "spatial_mode", spatial_mode)
         interpolation_method = getattr(etp_cfg, "interpolation_method", interpolation_method)
-        surface_offset = float(getattr(etp_cfg, "surface_offset", surface_offset))
-        extinction_depth = float(getattr(etp_cfg, "extinction_depth", extinction_depth))
+        surface_offset_q = getattr(etp_cfg, "surface_offset", None)
+        if surface_offset_q is not None:
+            surface_offset = float(surface_offset_q.to("m").magnitude)
+        extinction_depth_q = getattr(etp_cfg, "extinction_depth", None)
+        if extinction_depth_q is not None:
+            extinction_depth = float(extinction_depth_q.to("m").magnitude)
 
     unit_conversion_factor = factor_to_m_per_s("mm/day")
 

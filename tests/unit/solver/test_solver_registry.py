@@ -5,26 +5,20 @@ from __future__ import annotations
 import pytest
 
 from hydromodpy.solver.base import registry
-from hydromodpy.solver.base.protocol import RunResult
 
 
 class FakeAdapter:
     process_type = "flow"
     solver_name = "fake"
+    requires: tuple[tuple[str, str], ...] = ()
 
-    def setup(self, config):
+    def validate(self, ctx):
         pass
 
-    def build(self, plan):
-        pass
+    def execute(self, ctx):
+        return None
 
-    def run(self):
-        return RunResult(converged=True)
-
-    def extract(self, store):
-        pass
-
-    def cleanup(self):
+    def cleanup(self, ctx):
         pass
 
 

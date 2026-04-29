@@ -11,7 +11,9 @@ from __future__ import annotations
 from dataclasses import replace
 from pathlib import Path
 
+from hydromodpy.core.exceptions import SolverDivergedError
 from hydromodpy.simulation.planning.plan import RunContext, RunExecutionResult
+from hydromodpy.solver.base.cleanup import cleanup_solver_files
 from hydromodpy.solver.boussinesq.boussinesq import Boussinesq
 from hydromodpy.solver.boussinesq.flow_to_boussinesq_adapter import (
     resolve_bundle_solver_mesh,
@@ -26,6 +28,15 @@ class BoussinesqFlowAdapter:
     process_type = "flow"
     solver_name = "boussinesq"
     requires: tuple[tuple[str, str], ...] = ()
+
+    def validate(self, ctx: RunContext) -> None:
+        """No precondition checks for Boussinesq flow runs."""
+
+    def cleanup(self, ctx: RunContext) -> None:
+        """Remove the scratch directory written by this run, if any."""
+        solver_output_dir = ctx.state.execution.output_dirs_by_run_id.get(ctx.run.id)
+        if solver_output_dir is not None:
+            cleanup_solver_files(solver_output_dir)
 
     def execute(self, ctx: RunContext) -> RunExecutionResult:
         """Instantiate and execute one Boussinesq flow run."""
@@ -66,9 +77,10 @@ class BoussinesqFlowAdapter:
         model.pre_processing()
         success = model.processing(write_model=True, run_model=True)
         if not success:
-            raise RuntimeError(
-                f"Flow solver 'boussinesq' failed for run '{ctx.run.id}'. "
-                f"See {getattr(model, 'full_path', '<unknown>')} for diagnostics."
+            raise SolverDivergedError(
+                f"[HMPY.E401] Flow solver 'boussinesq' failed for run '{ctx.run.id}'. "
+                f"See {getattr(model, 'full_path', '<unknown>')} for diagnostics.",
+                run_id=ctx.run.id,
             )
 
         return RunExecutionResult(

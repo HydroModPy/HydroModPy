@@ -21,7 +21,7 @@ from hydromodpy.physics.flow import Flow
 from hydromodpy.project import Project
 from hydromodpy.solver.modflow6 import Modflow6
 from hydromodpy.solver.modflow_nwt import (
-    Modflow,
+    ModflowNwt,
     ModflowPostprocessOptions,
     ModflowPreprocessOptions,
     ModflowRunOptions,
@@ -311,7 +311,7 @@ def _run_nwt_probe(
 ) -> tuple[ProbeResult, np.ndarray | None]:
     """Run one direct MODFLOW-NWT probe and return its summary plus final head."""
     preprocess_options = ModflowPreprocessOptions(time_grid=time_grid)
-    model = Modflow(
+    model = ModflowNwt(
         geographic,
         model_folder=str(model_folder),
         model_name=probe_id,

@@ -14,12 +14,12 @@ dense prototypes and a later fully analytic or PETSc-based backend.
 
 from __future__ import annotations
 
-import logging
 import warnings
 from collections.abc import Callable
 
 import numpy as np
 
+from hydromodpy.core.logging import get_logger
 from hydromodpy.solver.boussinesq.assembly import (
     BoussinesqAssembly,
 )
@@ -49,7 +49,7 @@ from hydromodpy.solver.boussinesq.runtimes.partition_utils import (
     regularized_partition_jacobian_shift,
 )
 
-_log = logging.getLogger(__name__)
+_log = get_logger(__name__)
 
 
 def _require_scipy_sparse():

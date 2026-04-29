@@ -2,15 +2,17 @@
 
 from __future__ import annotations
 
-import logging
 from typing import TYPE_CHECKING
+
+from hydromodpy.core.exceptions import MeshError
+from hydromodpy.core.logging import get_logger
 
 if TYPE_CHECKING:
     from hydromodpy.physics.flow import Flow
     from hydromodpy.spatial.domain import Domain
     from hydromodpy.workflow.context import WorkflowContext
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 def step_persist_params(
@@ -101,7 +103,7 @@ def step_persist_mesh(ctx: WorkflowContext, sim_id: str) -> None:
 
         support = getattr(domain.surface_topo, "support", None)
         if support is None or support.nrows is None or support.ncols is None:
-            raise ValueError(
+            raise MeshError(
                 "step_persist_mesh: no Gmsh planar mesh and no raster support "
                 "on domain.surface_topo - cannot materialise a HydroMesh"
             )

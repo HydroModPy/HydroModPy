@@ -2,17 +2,14 @@
 
 from __future__ import annotations
 
-from typing import Annotated, Any
+from typing import Annotated, Any, Literal
 
 from pydantic import ConfigDict, Field, field_validator
 
 from hydromodpy.core.config.base import HydroModelBase
 from hydromodpy.core.config.profile import Profile
-from hydromodpy.physics.flow.sinks_sources._units import (
-    normalize_first_clim,
-    normalize_interpolation_method,
-    normalize_spatial_mode,
-)
+from hydromodpy.core.units import Length
+from hydromodpy.physics.flow.sinks_sources._units import normalize_first_clim
 
 
 class FlowEtpConfig(HydroModelBase):
@@ -61,8 +58,9 @@ class FlowEtpConfig(HydroModelBase):
             "by convention; converted to m/s at runtime."
         ),
     )
-    surface_offset: Annotated[float, Profile.DEV] = Field(
+    surface_offset: Annotated[Length, Profile.DEV] = Field(
         default=2.0,
+        ge=0.0,
         description=(
             "Distance below the topographic surface (m) where the EVT "
             "extraction surface sits. MODFLOW EVT extracts water linearly "
@@ -70,21 +68,22 @@ class FlowEtpConfig(HydroModelBase):
             "default was DEM - 2 m."
         ),
     )
-    extinction_depth: Annotated[float, Profile.DEV] = Field(
+    extinction_depth: Annotated[Length, Profile.DEV] = Field(
         default=1.0,
+        gt=0.0,
         description=(
             "EVT extinction depth (m): below surface_offset + extinction_depth, "
             "evapotranspiration is zero. Legacy default was 1 m."
         ),
     )
-    spatial_mode: Annotated[str, Profile.DEV] = Field(
+    spatial_mode: Annotated[Literal["auto", "homogeneous", "heterogeneous"], Profile.DEV] = Field(
         default="auto",
         description=(
             "How to interpret spatial data: 'auto' (points->homogeneous, "
             "fields->heterogeneous), 'homogeneous', or 'heterogeneous'."
         ),
     )
-    interpolation_method: Annotated[str, Profile.DEV] = Field(
+    interpolation_method: Annotated[Literal["nearest", "linear", "idw"], Profile.DEV] = Field(
         default="nearest",
         description=(
             "Spatial interpolation method for gridded/point data onto the "
@@ -92,33 +91,7 @@ class FlowEtpConfig(HydroModelBase):
         ),
     )
 
-    @field_validator("spatial_mode", mode="before")
-    @classmethod
-    def _validate_spatial_mode(cls, value):
-        return normalize_spatial_mode(value)
-
-    @field_validator("interpolation_method", mode="before")
-    @classmethod
-    def _validate_interpolation_method(cls, value):
-        return normalize_interpolation_method(value)
-
     @field_validator("first_clim", mode="before")
     @classmethod
     def _validate_first_clim(cls, value):
         return normalize_first_clim(value)
-
-    @field_validator("surface_offset", mode="before")
-    @classmethod
-    def _validate_surface_offset(cls, value):
-        v = float(value)
-        if v < 0.0:
-            raise ValueError("surface_offset must be >= 0 (depth below topography).")
-        return v
-
-    @field_validator("extinction_depth", mode="before")
-    @classmethod
-    def _validate_extinction_depth(cls, value):
-        v = float(value)
-        if v <= 0.0:
-            raise ValueError("extinction_depth must be > 0.")
-        return v
