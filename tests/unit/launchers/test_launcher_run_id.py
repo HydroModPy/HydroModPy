@@ -524,7 +524,11 @@ def test_prepare_runtime_executes_embedded_mesh_phase_and_records_metrics(
         data=SimpleNamespace(types=()),
         flow=SimpleNamespace(active_bc=(), param={}),
         simulation=SimpleNamespace(
-            run_id="mesh_run", results=SimpleNamespace(store=False, keep_solver_files=False)
+            run_id="mesh_run",
+            results=SimpleNamespace(
+                persistence=SimpleNamespace(save_catalog=False),
+                keep_solver_files=False,
+            ),
         ),
     )
     mesh_section_data = parse_mesh_catchment_config_data({"constraints_mode": "rivers_only"})
@@ -639,7 +643,11 @@ def test_prepare_runtime_uses_external_mesh_input_and_skips_embedded_workflow(
         data=SimpleNamespace(types=()),
         flow=SimpleNamespace(active_bc=(), param={}),
         simulation=SimpleNamespace(
-            run_id="mesh_input_run", results=SimpleNamespace(store=False, keep_solver_files=False)
+            run_id="mesh_input_run",
+            results=SimpleNamespace(
+                persistence=SimpleNamespace(save_catalog=False),
+                keep_solver_files=False,
+            ),
         ),
     )
     external_mesh_input = {"mesh_path": str(external_mesh_path)}

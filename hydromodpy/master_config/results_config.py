@@ -7,6 +7,7 @@ from typing import Annotated
 from pydantic import ConfigDict, Field
 
 from hydromodpy.master_config.base import HydroModelBase
+from hydromodpy.master_config.persistence import PersistenceConfig
 from hydromodpy.master_config.profile import Profile
 
 
@@ -138,9 +139,10 @@ class ResultsConfig(HydroModelBase):
 
     model_config = ConfigDict(extra="forbid")
 
-    store: Annotated[bool, Profile.USER] = Field(
-        default=True,
-        description="Store simulation outputs in the SimulationCatalog (DuckDB + Zarr).",
+    persistence: Annotated[PersistenceConfig, Profile.USER] = Field(
+        default_factory=PersistenceConfig,
+        description="Single switch governing every persistence sink "
+        "(catalog, Zarr, Parquet, lockfile).",
     )
     keep_solver_files: Annotated[bool, Profile.DEV] = Field(
         default=False,

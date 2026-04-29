@@ -42,11 +42,11 @@ def _register_tracked_input_files(ctx: WorkflowContext) -> None:
 def step_open_store(ctx: WorkflowContext) -> None:
     """Open a ``SimulationCatalog`` and register the current simulation.
 
-    Does nothing when ``cfg.simulation.results.store`` is disabled.
-    After this step ``ctx.store`` and ``ctx.sim_id`` are set.
+    Does nothing when ``cfg.simulation.results.persistence.save_catalog``
+    is disabled. After this step ``ctx.store`` and ``ctx.sim_id`` are set.
     """
     results_cfg = ctx.cfg.simulation.results
-    if not results_cfg.store:
+    if not results_cfg.persistence.save_catalog:
         return
 
     from uuid import uuid4
@@ -54,7 +54,7 @@ def step_open_store(ctx: WorkflowContext) -> None:
     from hydromodpy.results.catalog import SimulationCatalog
 
     workspace = ctx.setup.workspace
-    ctx.store = SimulationCatalog(workspace.root)
+    ctx.store = SimulationCatalog(workspace.root, persistence=results_cfg.persistence)
     ctx.sim_id = str(uuid4())
 
     project_name = workspace.project_root.name

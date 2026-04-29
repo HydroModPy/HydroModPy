@@ -55,8 +55,9 @@ def test_step_open_store_closes_unused_bootstrap_zarr(monkeypatch, tmp_path: Pat
     registration = SimpleNamespace(name="run_0002", replaced_sim_id=None, zarr=fake_zarr)
 
     class FakeCatalog:
-        def __init__(self, workspace_root) -> None:
+        def __init__(self, workspace_root, *, persistence=None) -> None:
             self.workspace_root = workspace_root
+            self.persistence = persistence
 
         def register_simulation(self, *args, **kwargs):
             return registration
@@ -67,7 +68,7 @@ def test_step_open_store_closes_unused_bootstrap_zarr(monkeypatch, tmp_path: Pat
         sim_id=None,
         cfg=SimpleNamespace(
             simulation=SimpleNamespace(
-                results=SimpleNamespace(store=True),
+                results=SimpleNamespace(persistence=SimpleNamespace(save_catalog=True)),
                 on_collision="replace",
             ),
             domain=None,

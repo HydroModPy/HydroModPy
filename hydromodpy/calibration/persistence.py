@@ -13,6 +13,7 @@ from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Literal
 
 from hydromodpy.calibration.optimizer import EvaluationResult, ParamSuggestion
+from hydromodpy.master_config.persistence import PersistenceConfig
 
 if TYPE_CHECKING:
     from hydromodpy.results.catalog import SimulationCatalog
@@ -22,10 +23,20 @@ PersistDetail = Literal["none", "summary", "full"]
 
 
 class CalibrationPersistence:
-    """Idempotent writer for calibration rows."""
+    """Idempotent writer for calibration rows.
 
-    def __init__(self, catalog: SimulationCatalog):
+    The shared :class:`PersistenceConfig` gates every DuckDB write. When
+    ``persistence.save_catalog`` is False, every method becomes a no-op,
+    so calibration sessions can run fully in-memory.
+    """
+
+    def __init__(
+        self,
+        catalog: SimulationCatalog,
+        persistence: PersistenceConfig | None = None,
+    ):
         self._conn = catalog._connection
+        self._persistence = persistence or PersistenceConfig()
 
     def start_session(
         self,
@@ -36,6 +47,8 @@ class CalibrationPersistence:
         objective_name: str,
         config: dict,
     ) -> None:
+        if not self._persistence.save_catalog:
+            return
         self._conn.execute(
             """
             INSERT INTO calibration_sessions
@@ -61,6 +74,8 @@ class CalibrationPersistence:
         *,
         detail: PersistDetail = "summary",
     ) -> None:
+        if not self._persistence.save_catalog:
+            return
         params_json = json.dumps(dict(suggestion.values))
         metadata = result.metadata or {}
         params_hash = metadata.get("params_hash")
@@ -117,6 +132,8 @@ class CalibrationPersistence:
         status: str = "completed",
         error: str | None = None,
     ) -> None:
+        if not self._persistence.save_catalog:
+            return
         sid = uuid.UUID(session_id) if len(session_id) == 32 else session_id
         best_sim_uuid = None
         if best and best.sim_id:

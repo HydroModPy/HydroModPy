@@ -45,7 +45,7 @@ def post_run_results(
         Human-readable run identifier used to name export subdirectories.
         Falls back to the first 8 characters of *sim_id* when absent.
     """
-    if not results_config.store:
+    if not results_config.persistence.save_catalog:
         return
 
     solver_name = ctx.run.solver

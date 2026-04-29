@@ -15,6 +15,7 @@ from typing import TYPE_CHECKING
 import duckdb
 
 from hydromodpy.core.io.db_retry import connect_with_retry
+from hydromodpy.master_config.persistence import PersistenceConfig
 from hydromodpy.results.catalog.discovery import DiscoveryMixin
 from hydromodpy.results.catalog.lifecycle import LifecycleMixin
 from hydromodpy.results.catalog.package_io import PackageIOMixin
@@ -53,9 +54,15 @@ class SimulationCatalog(
       so ``finalize`` and ``close`` can release them deterministically.
     """
 
-    def __init__(self, workspace_path: Path | str) -> None:
+    def __init__(
+        self,
+        workspace_path: Path | str,
+        *,
+        persistence: PersistenceConfig | None = None,
+    ) -> None:
         self._workspace = Path(workspace_path)
         self._workspace.mkdir(parents=True, exist_ok=True)
+        self._persistence = persistence or PersistenceConfig()
 
         self._db_path = self._workspace / "hydromodpy.duckdb"
         self._db = connect_with_retry(str(self._db_path))

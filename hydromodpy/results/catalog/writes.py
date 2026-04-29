@@ -81,8 +81,11 @@ class WritesMixin:
     """Mutating operations for :class:`SimulationCatalog`.
 
     Relies on attributes provided by the facade: ``self._db``,
-    ``self._workspace``, ``self._paths`` (StoragePathResolver), and
-    ``self.open_zarr`` (LifecycleMixin).
+    ``self._workspace``, ``self._paths`` (StoragePathResolver),
+    ``self._persistence`` (PersistenceConfig), and ``self.open_zarr``
+    (LifecycleMixin). Each write method early-returns when the relevant
+    ``PersistenceConfig`` flag is False, so a single switch governs all
+    sinks (DuckDB, Parquet, Zarr).
     """
 
     @with_lock_retry()
@@ -91,6 +94,8 @@ class WritesMixin:
         sim_id: str | UUID,
         params: list[dict],
     ) -> None:
+        if not self._persistence.save_catalog:
+            return
         sid = str(sim_id)
         for p in params:
             zone = p.get("zone_id")
@@ -118,6 +123,8 @@ class WritesMixin:
         ts: pd.Series,
         unit: str = "",
     ) -> None:
+        if not self._persistence.save_parquet:
+            return
         n = len(ts)
         if n == 0:
             return
@@ -194,6 +201,8 @@ class WritesMixin:
         sim_id: str | UUID,
         records: list[dict],
     ) -> None:
+        if not self._persistence.save_parquet:
+            return
         if not records:
             return
         sid = str(sim_id)
@@ -256,6 +265,8 @@ class WritesMixin:
         sim_id: str | UUID,
         records: list[dict],
     ) -> None:
+        if not self._persistence.save_parquet:
+            return
         if not records:
             return
         sid = str(sim_id)
@@ -302,6 +313,8 @@ class WritesMixin:
         steps (``pip list``, ``cpuinfo``) tolerate failures and fall back
         to partial values rather than raising.
         """
+        if not self._persistence.save_catalog:
+            return
         from hydromodpy.results.run_environment import capture_environment
 
         snap = capture_environment(
@@ -349,6 +362,8 @@ class WritesMixin:
         :meth:`SimulationCatalog.training_split`. The other fields are free
         annotations for citation, geographic context, and contact lookup.
         """
+        if not self._persistence.save_catalog:
+            return
         if not objective or not str(objective).strip():
             raise ValueError("scientific_objective must be a non-empty string")
         self._db.execute(
@@ -383,6 +398,8 @@ class WritesMixin:
         *,
         variable: str = "head",
     ) -> None:
+        if not self._persistence.save_catalog:
+            return
         self._db.execute(
             """INSERT OR REPLACE INTO metrics
                (sim_id, station_id, variable, metric_name, value)
@@ -402,6 +419,8 @@ class WritesMixin:
         period_start: Any = None,
         period_end: Any = None,
     ) -> None:
+        if not self._persistence.save_catalog:
+            return
         fp = fingerprint(data)
         source_type_value = (
             source_type
@@ -442,6 +461,8 @@ class WritesMixin:
         variable: str = "head",
         layer: int = 0,
     ) -> None:
+        if not self._persistence.save_catalog:
+            return
         sid = str(sim_id)
         sz = self.open_zarr(sim_id)
         try:
@@ -477,6 +498,8 @@ class WritesMixin:
         disappeared between walker-resolution and this call are skipped
         with a logger warning to keep the setup step non-fatal.
         """
+        if not self._persistence.save_catalog:
+            return 0
         sid = str(sim_id)
         written = 0
         for entry in entries:
@@ -518,6 +541,8 @@ class WritesMixin:
         *,
         geoparquet_path: str | None = None,
     ) -> None:
+        if not self._persistence.save_catalog:
+            return
         if gdf.empty:
             return
         from shapely.ops import unary_union
@@ -550,6 +575,8 @@ class WritesMixin:
         sim_id: str | UUID,
         metadata: dict[str, object],
     ) -> None:
+        if not self._persistence.save_catalog:
+            return
         sid = str(sim_id)
         for key, value in metadata.items():
             value_type = _python_value_type(value)
@@ -570,6 +597,8 @@ class WritesMixin:
         crs: str,
         nodata: float = -99999.0,
     ) -> None:
+        if not self._persistence.save_zarr:
+            return
         sz = self.open_zarr(sim_id)
         try:
             sz.write_geographic_raster(name, data, transform=transform, crs=crs, nodata=nodata)
@@ -586,6 +615,8 @@ class WritesMixin:
         n_timesteps: int | None = None,
         subgroup: str | None = None,
     ) -> None:
+        if not self._persistence.save_zarr:
+            return
         sz = self.open_zarr(sim_id)
         try:
             sz.write_field(variable, timestep, values, n_timesteps=n_timesteps, subgroup=subgroup)
@@ -601,6 +632,8 @@ class WritesMixin:
         layer_indices: np.ndarray | None = None,
         source_cell_indices: np.ndarray | None = None,
     ) -> None:
+        if not self._persistence.save_zarr:
+            return
         sz = self.open_zarr(sim_id)
         try:
             sz.write_mesh(

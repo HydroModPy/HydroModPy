@@ -243,8 +243,8 @@ def _run_calibration(
 
     override_paths = _override_paths(cfg)
 
-    catalog = SimulationCatalog(workspace)
-    persistence = CalibrationPersistence(catalog)
+    catalog = SimulationCatalog(workspace, persistence=cfg.persistence)
+    persistence = CalibrationPersistence(catalog, persistence=cfg.persistence)
 
     engine_cache: ParamsHashCache | None = None
     if cfg.use_cache:
