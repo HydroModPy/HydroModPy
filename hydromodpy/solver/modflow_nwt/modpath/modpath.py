@@ -13,8 +13,8 @@
 
 # Python
 import io
+import json
 import os
-import pickle
 import random
 import sys
 import warnings
@@ -731,10 +731,10 @@ class Modpath(Solver):
                 keep_id = shp_endpoint.particleid
                 keep_id = keep_id.tolist()
 
-                # if not os.path.exists(self.particles_file+'/_random_id.data'):
+                # if not os.path.exists(self.particles_file+'/_random_id.json'):
                 id_random_particles = random.sample(keep_id[:-1], random_id)
-                with open(self.particles_file + "/_random_id.data", "wb") as f:
-                    pickle.dump(id_random_particles, f)
+                with open(self.particles_file + "/_random_id.json", "w") as f:
+                    json.dump([int(x) for x in id_random_particles], f)
 
                 pth_data_save = []
                 for o, i in enumerate(id_random_particles):
@@ -988,15 +988,15 @@ class Modpath(Solver):
                     )
                 pathlines_up = update_time(pathlines_process, filt_time)
                 pathlines_up = pathlines_up[pathlines_up["particleid"].isin(keep_particles)]
-                random_data_file = os.path.join(self.model_folder, "_id_particles_random.data")
+                random_data_file = os.path.join(self.model_folder, "_id_particles_random.json")
                 if random_id is not None:
                     if not os.path.exists(random_data_file):
                         id_particles_random = random.sample(pathlines_up[:-1], random_id)
-                        with open(random_data_file, "wb") as f:
-                            pickle.dump(id_particles_random, f)
+                        with open(random_data_file, "w") as f:
+                            json.dump([int(x) for x in id_particles_random], f)
                     else:
-                        with open(random_data_file, "rb") as f:
-                            id_particles_random = pickle.load(f)
+                        with open(random_data_file) as f:
+                            id_particles_random = json.load(f)
                     pathlines_up = pathlines_up[
                         pathlines_up["particleid"].isin(id_particles_random)
                     ]
@@ -1024,15 +1024,15 @@ class Modpath(Solver):
                     )
                 )
                 particles_up = update_time(particles_process, filt_time)
-                random_data_file = os.path.join(self.model_folder, "_id_particles_random.data")
+                random_data_file = os.path.join(self.model_folder, "_id_particles_random.json")
                 if random_id is not None:
                     if not os.path.exists(random_data_file):
                         id_particles_random = random.sample(particles_up[:-1], random_id)
-                        with open(random_data_file, "wb") as f:
-                            pickle.dump(id_particles_random, f)
+                        with open(random_data_file, "w") as f:
+                            json.dump([int(x) for x in id_particles_random], f)
                     else:
-                        with open(random_data_file, "rb") as f:
-                            id_particles_random = pickle.load(f)
+                        with open(random_data_file) as f:
+                            id_particles_random = json.load(f)
                     particles_up = particles_up[
                         particles_up["particleid"].isin(id_particles_random)
                     ]

@@ -5,6 +5,11 @@ State is persisted between steps at
 Compression uses zstandard when available; otherwise the fallback is
 plain pickle (``.pkl``) so the pipeline remains usable without the
 optional dependency.
+
+Pickle blobs are HMAC-SHA256 signed with a per-workspace key stored at
+``<workspace>/.hmp/checkpoints/.signing_key``. ``restore`` rejects any
+blob whose tag does not verify before invoking :func:`pickle.loads`,
+which makes the on-disk checkpoints safe against tampering.
 """
 
 from __future__ import annotations
@@ -16,6 +21,11 @@ from dataclasses import replace
 from pathlib import Path
 from typing import Any
 
+from hydromodpy.core.io.signed_pickle import (
+    dumps_signed,
+    load_or_create_key,
+    loads_signed,
+)
 from hydromodpy.core.logging import get_logger
 from hydromodpy.workflow.internals.state import PipelineState, UnpicklableMarker
 
@@ -32,6 +42,7 @@ except ImportError:  # pragma: no cover - optional dep
 
 
 _FILENAME_RE = re.compile(r"^(?P<idx>\d+)_(?P<name>.+)\.pkl(?:\.zst)?$")
+_KEY_FILENAME = ".signing_key"
 
 
 def _sanitize_name(name: str) -> str:
@@ -46,6 +57,7 @@ class CheckpointStore:
         self.run_id = run_id
         self.dir = self.workspace / ".hmp" / "checkpoints" / run_id
         self.dir.mkdir(parents=True, exist_ok=True)
+        self._key_path = self.workspace / ".hmp" / "checkpoints" / _KEY_FILENAME
 
     # ------------------------------------------------------------------
     # Persistence
@@ -54,7 +66,8 @@ class CheckpointStore:
     def persist(self, state: PipelineState) -> Path:
         """Write ``state`` to disk and return the written path."""
         stripped = _strip_unpicklable(state)
-        blob = pickle.dumps(stripped, protocol=pickle.HIGHEST_PROTOCOL)
+        key = load_or_create_key(self._key_path)
+        blob = dumps_signed(stripped, key)
         path = self._path_for(state.step_index, state.step_name)
         if _HAS_ZSTD:
             cctx = _zstd.ZstdCompressor(level=3)
@@ -64,7 +77,12 @@ class CheckpointStore:
         return path
 
     def restore(self, step_index: int) -> PipelineState:
-        """Load the state saved at the end of step ``step_index``."""
+        """Load the state saved at the end of step ``step_index``.
+
+        The on-disk blob is HMAC-verified before :func:`pickle.loads` runs,
+        so a tampered checkpoint raises rather than executing arbitrary
+        code.
+        """
         path = self._find_path(step_index)
         if path is None:
             raise FileNotFoundError(f"no checkpoint for step {step_index} in {self.dir}")
@@ -72,7 +90,8 @@ class CheckpointStore:
         if path.suffix == ".zst" and _HAS_ZSTD:
             dctx = _zstd.ZstdDecompressor()
             raw = dctx.decompress(raw)
-        return pickle.loads(raw)
+        key = load_or_create_key(self._key_path)
+        return loads_signed(raw, key)
 
     # ------------------------------------------------------------------
     # Discovery
