@@ -29,6 +29,7 @@ from hydromodpy.data.variables.geology.processing import (
     uniformize_sea_zone_on_dataframe,
 )
 from hydromodpy.spatial.field.core.field_param import FieldParam
+from hydromodpy.spatial.field.core.field_param_io import field_param_from_toml
 from hydromodpy.spatial.field.geology.geology_field import GeologyField
 from hydromodpy.spatial.field.geology.geology_mesh import GeologyStructuredMesh
 
@@ -184,7 +185,7 @@ def _load_display_geology(args, geology_config_path):
 
 
 def _load_and_validate_field_param(args, field_param_path, *, expected_field_id: str):
-    field_param = FieldParam.from_toml(field_param_path, section=args.field_param_section)
+    field_param = field_param_from_toml(field_param_path, section=args.field_param_section)
     if field_param.is_homogeneous:
         raise ValueError("This demo expects a heterogeneous FieldParam (kind='heterogeneous').")
     if str(field_param.field_spatial_id) != str(expected_field_id):

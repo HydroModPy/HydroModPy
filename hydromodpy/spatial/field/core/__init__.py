@@ -13,6 +13,7 @@ from hydromodpy.spatial.field.core.field_param_config import (
     validate_field_param_toml_data,
     validate_resolved_field_param_data,
 )
+from hydromodpy.spatial.field.core.field_param_io import field_param_from_toml
 from hydromodpy.spatial.field.core.field_spatial import Field, FieldDiscretization
 from hydromodpy.spatial.field.core.field_spatial_weighted_discretization import (
     WeightedAverageFieldDiscretization,
@@ -20,6 +21,7 @@ from hydromodpy.spatial.field.core.field_spatial_weighted_discretization import 
 
 __all__ = (
     "FieldParam",
+    "field_param_from_toml",
     "load_field_param_toml",
     "resolve_field_param_config_payload",
     "validate_field_param_toml_data",
