@@ -18,6 +18,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from hydromodpy.core.exceptions import UnknownFieldError
+
 # Supported shape literals, exposed as constants so callers don't have to
 # remember the exact strings. These are CF / UGRID shape signatures.
 SHAPE_TIME_LAYER_FACE = "time_layer_face"
@@ -281,14 +283,14 @@ FIELD_REGISTRY: dict[str, FieldDescriptor] = {
 def get(name: str) -> FieldDescriptor:
     """Return the :class:`FieldDescriptor` registered under ``name``.
 
-    Raises :class:`KeyError` with the full list of available names when the
-    lookup fails, which makes typos immediately actionable.
+    Raises :class:`~hydromodpy.core.exceptions.UnknownFieldError` carrying the
+    full list of available names when the lookup fails, which makes typos
+    immediately actionable.
     """
     try:
         return FIELD_REGISTRY[name]
     except KeyError:
-        available = ", ".join(sorted(FIELD_REGISTRY))
-        raise KeyError(f"Field '{name}' is not registered. Available fields: {available}") from None
+        raise UnknownFieldError(name, FIELD_REGISTRY.keys()) from None
 
 
 def has(name: str) -> bool:

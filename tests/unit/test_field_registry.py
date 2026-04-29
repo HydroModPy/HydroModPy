@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import pytest
 
+from hydromodpy.core.exceptions import UnknownFieldError
 from hydromodpy.results import field_registry
 from hydromodpy.results.field_registry import (
     FIELD_REGISTRY,
@@ -77,9 +78,13 @@ class TestFieldDescriptor:
 
 
 class TestPublicAPI:
-    def test_get_unknown_raises_keyerror_with_available_names(self):
-        with pytest.raises(KeyError, match="not registered"):
+    def test_get_unknown_raises_unknownfielderror_with_available_names(self):
+        with pytest.raises(UnknownFieldError) as exc_info:
             get("unknown_field_xyz")
+        err = exc_info.value
+        assert err.name == "unknown_field_xyz"
+        assert "head" in err.available
+        assert "not registered" in err.message
 
     def test_has(self):
         assert has("head") is True
