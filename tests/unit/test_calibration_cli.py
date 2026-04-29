@@ -81,7 +81,7 @@ def calib_toml(tmp_path: Path) -> Path:
 @pytest.fixture
 def fake_pipeline(monkeypatch, tmp_path):
     """Monkey-patch prepare_trials + promote_trial so the CLI runs in seconds."""
-    from hydromodpy.simulation.execution.trial import TrialContext
+    from hydromodpy.calibration.runners.trial import TrialContext
 
     promoted: list[dict] = []
 

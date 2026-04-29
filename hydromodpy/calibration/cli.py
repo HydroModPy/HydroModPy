@@ -44,7 +44,7 @@ from hydromodpy.calibration.optimizer import (
     build_optimizer,
 )
 from hydromodpy.calibration.parameters import ParameterSpace
-from hydromodpy.simulation.execution.trial import (
+from hydromodpy.calibration.runners.trial import (
     TrialMetricFn,
     prepare_trials,
     promote_trial,
@@ -52,7 +52,7 @@ from hydromodpy.simulation.execution.trial import (
 
 if TYPE_CHECKING:
     from hydromodpy.calibration.report import CalibrationReport
-    from hydromodpy.simulation.execution.trial import TrialContext
+    from hydromodpy.calibration.runners.trial import TrialContext
 
 logger = logging.getLogger(__name__)
 
@@ -302,7 +302,7 @@ def _run_calibration(
 
     def wrapped_evaluator(sugg: ParamSuggestion) -> EvaluationResult:
         last_suggestion[sugg.trial_id] = sugg
-        from hydromodpy.simulation.execution.trial import run_trial_light
+        from hydromodpy.calibration.runners.trial import run_trial_light
 
         result = run_trial_light(
             trial_ctx,
