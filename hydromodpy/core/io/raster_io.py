@@ -23,11 +23,9 @@ from shapely.geometry import Point
 logger = logging.getLogger(__name__)
 
 
-def clip_tif(tif_path, shp_path, out_path, maintain_dimensions):
-    """Clip a raster by a shapefile polygon via Whitebox."""
-    from hydromodpy.spatial.delineation import get_whitebox_backend
-
-    get_whitebox_backend().clip_raster_to_polygon(
+def clip_tif(tif_path, shp_path, out_path, maintain_dimensions, *, backend):
+    """Clip a raster by a shapefile polygon using the supplied Whitebox backend."""
+    backend.clip_raster_to_polygon(
         tif_path,
         shp_path,
         out_path,

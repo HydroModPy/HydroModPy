@@ -12,11 +12,12 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-import hydromodpy as hmp
+from hydromodpy.core.workspace import Workspace
 from hydromodpy.core.workspace.path_registry import PREPROCESSING_DIR
 from hydromodpy.simulation import ensure_flow, ensure_transport
 from hydromodpy.spatial.domain import Domain
 from hydromodpy.spatial.domain.spatial_support import SupportBuildContext
+from hydromodpy.spatial.geographic.catchment_delineation import CatchmentDelineation
 from hydromodpy.spatial.geographic.core.derived_features import (
     coerce_geographic_derived_features,
 )
@@ -44,7 +45,7 @@ def build_geographic_runtime(cfg: object, workspace: object) -> object:
             output_dir=Path(workspace.project_root) / PREPROCESSING_DIR / "geographic",
             workspace=workspace,
         )
-    return hmp.CatchmentDelineation(geographic_cfg, workspace)
+    return CatchmentDelineation(geographic_cfg, workspace)
 
 
 def resolve_dem_init_path(cfg: object, run_state: WorkflowContext) -> None:
@@ -320,7 +321,7 @@ def run_setup(
 
     setup_state = run_state.setup
 
-    setup_state.workspace = hmp.Workspace(config=cfg.workspace)
+    setup_state.workspace = Workspace(config=cfg.workspace)
     resolve_dem_init_path(cfg, run_state)
     setup_state.geographic = build_geographic_fn(cfg, setup_state.workspace)
     setup_state.geographic_features = coerce_geographic_derived_features(
