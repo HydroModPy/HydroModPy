@@ -135,16 +135,28 @@ def run_simulation(
     config_path: str | Path,
     *,
     resume: str | None = None,
+    from_step: str | int | None = None,
+    until_step: str | int | None = None,
+    no_checkpoint: bool = False,
     no_display: bool = False,
+    frozen: bool = False,
+    dry_run: bool = False,
 ) -> dict:
-    """Execute a single simulation from a TOML file."""
-    if resume is not None:
-        return _run_resume(Path(config_path), resume, no_display=no_display)
-
+    """Execute a single simulation from a TOML file via ``Project.run``."""
     from hydromodpy.project import Project
 
     with Project(config_path, no_display=no_display) as project:
-        result = project.run()
+        result = project.run(
+            checkpoint=not no_checkpoint,
+            resume=resume,
+            from_step=from_step,
+            until_step=until_step,
+            dry_run=dry_run,
+            frozen=frozen,
+            no_display=no_display,
+        )
+        if result is None:
+            return {}
         return {
             "name": result.name,
             "sim_id": result.sim_id,
@@ -192,56 +204,6 @@ def dispatch_workflow(workflow: str, config_path: Path, **kwargs) -> dict:
     """Dispatch to the ``run_*`` adapter for a resolved workflow name."""
     runner = DISPATCH[workflow]
     return runner(config_path, **kwargs)
-
-
-def _run_resume(config_path: Path, run_id: str, *, no_display: bool = False) -> dict:
-    """Resume a previously interrupted simulation via the new Pipeline."""
-    from hydromodpy.workflow.internals.checkpoint import CheckpointStore
-    from hydromodpy.workflow.internals.ledger import StepsLedger
-    from hydromodpy.workflow.internals.state import PipelineState
-    from hydromodpy.workflow.orchestrator import standard_steps
-    from hydromodpy.workflow.runner import Pipeline
-
-    workspace = _resolve_workspace_for_resume(config_path)
-    cp = CheckpointStore(workspace, run_id)
-    last = cp.latest()
-    if last is None:
-        raise RuntimeError(
-            f"No checkpoints found for run_id '{run_id}' in {cp.dir}. "
-            "Start a fresh run instead of using --resume."
-        )
-    resume_from = last + 1
-
-    ledger = StepsLedger(workspace)
-    last_completed = ledger.last_completed(run_id)
-    ledger.close()
-    if last_completed is not None:
-        resume_from = max(resume_from, last_completed + 1)
-
-    initial = PipelineState(
-        run_id=run_id,
-        data={"config_path": config_path, "skip_display": no_display},
-    )
-    pipeline = Pipeline(
-        standard_steps(),
-        workspace=workspace,
-        checkpoint=True,
-    )
-    final = pipeline.run(initial, resume_from=resume_from)
-    ctx = final.get("ctx")
-    return {
-        "run_id": run_id,
-        "resumed_from": resume_from,
-        "sim_id": getattr(ctx, "sim_id", None) if ctx is not None else None,
-    }
-
-
-def _resolve_workspace_for_resume(config_path: Path) -> Path:
-    """Walk up from ``config_path`` to find a workspace root."""
-    for parent in [config_path.parent, *config_path.parents]:
-        if (parent / "hydromodpy.duckdb").exists() or (parent / ".hmp").is_dir():
-            return parent
-    return config_path.parent
 
 
 __all__ = (

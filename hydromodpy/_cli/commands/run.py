@@ -159,6 +159,7 @@ def _run_toml(config_path: Path, *, args: argparse.Namespace) -> None:
     until_step = getattr(args, "until_step", None)
     no_checkpoint = bool(getattr(args, "no_checkpoint", False))
     no_display = bool(getattr(args, "no_display", False))
+    frozen = bool(getattr(args, "frozen", False))
 
     if dry_run:
         _print_dry_run(
@@ -200,19 +201,16 @@ def _run_toml(config_path: Path, *, args: argparse.Namespace) -> None:
     runner = dispatch[workflow]
 
     try:
-        if workflow == "simulation" and (
-            resume is not None or from_step is not None or until_step is not None or no_checkpoint
-        ):
-            summary = _run_simulation_pipeline(
+        if workflow == "simulation":
+            summary = runner(
                 config_path,
                 resume=resume,
                 from_step=from_step,
                 until_step=until_step,
                 no_checkpoint=no_checkpoint,
                 no_display=no_display,
+                frozen=frozen,
             )
-        elif workflow == "simulation":
-            summary = runner(config_path, no_display=no_display)
         else:
             summary = runner(config_path)
     except KeyboardInterrupt:
@@ -231,84 +229,6 @@ def _run_toml(config_path: Path, *, args: argparse.Namespace) -> None:
     if summary:
         for key, value in summary.items():
             print(f"  {key}: {value}", file=sys.stderr)
-
-
-def _run_simulation_pipeline(
-    config_path: Path,
-    *,
-    resume: str | None,
-    from_step: str | None,
-    until_step: str | None,
-    no_checkpoint: bool,
-    no_display: bool = False,
-) -> dict:
-    """Run the simulation workflow through the explicit Pipeline orchestrator.
-
-    Needed to support the --from / --until / --no-checkpoint flags without
-    going through the ``Simulation`` façade.
-    """
-    from hydromodpy._cli.workflows import run_simulation
-
-    if from_step is None and until_step is None and not no_checkpoint:
-        # Only --resume triggers the pipeline path directly.
-        return run_simulation(config_path, resume=resume, no_display=no_display)
-
-    from hydromodpy.workflow.internals.state import PipelineState
-    from hydromodpy.workflow.orchestrator import standard_steps
-    from hydromodpy.workflow.runner import Pipeline
-
-    steps = standard_steps()
-    resume_from = _resolve_step_index(from_step, steps)
-    until_index = _resolve_step_index(until_step, steps)
-
-    if until_index is not None:
-        steps = tuple(steps[: until_index + 1])
-
-    workspace = _resolve_workspace_for_run(config_path)
-    run_id = resume or config_path.stem
-    pipeline = Pipeline(
-        steps,
-        workspace=workspace,
-        checkpoint=not no_checkpoint,
-    )
-    initial = PipelineState(
-        run_id=run_id,
-        data={"config_path": config_path, "skip_display": no_display},
-    )
-    final = pipeline.run(
-        initial,
-        resume_from=resume_from,
-    )
-    ctx = final.get("ctx")
-    return {
-        "run_id": run_id,
-        "resumed_from": resume_from,
-        "sim_id": getattr(ctx, "sim_id", None) if ctx is not None else None,
-    }
-
-
-def _resolve_step_index(step: str | None, steps) -> int | None:
-    """Resolve a step name (or digit) to the tuple index."""
-    if step is None:
-        return None
-    if step.isdigit():
-        return int(step)
-    target = step.lower().removesuffix("step").rstrip("_")
-    for idx, obj in enumerate(steps):
-        name = type(obj).__name__.lower().removesuffix("step").rstrip("_")
-        if name == target:
-            return idx
-    raise SystemExit(
-        f"Unknown pipeline step: {step!r}. "
-        f"Known steps: {', '.join(type(s).__name__ for s in steps)}"
-    )
-
-
-def _resolve_workspace_for_run(config_path: Path) -> Path:
-    for parent in [config_path.parent, *config_path.parents]:
-        if (parent / "hydromodpy.duckdb").exists() or (parent / ".hmp").is_dir():
-            return parent
-    return config_path.parent
 
 
 def _run_script(script_path: Path, extra_args: list[str]) -> None:

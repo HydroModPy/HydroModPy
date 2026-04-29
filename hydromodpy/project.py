@@ -36,6 +36,70 @@ logger = logging.getLogger(__name__)
 DEFAULT_RUN_NAME_TEMPLATE = "run_{counter:04d}"
 
 
+def _resolve_step_index(step: str | int, steps: tuple) -> int:
+    """Resolve a step name (or integer/digit string) to a tuple index.
+
+    Accepts either the ``step.name`` attribute (snake_case, e.g.
+    ``"setup_process"``), the class name (``"SetupProcessStep"``), the
+    class-name prefix (``"setupprocess"``), or a numeric index.
+    """
+    if isinstance(step, int):
+        return step
+    text = str(step)
+    if text.isdigit():
+        return int(text)
+    lower = text.lower()
+    target = lower.removesuffix("step").rstrip("_")
+    flat = target.replace("_", "")
+    for idx, obj in enumerate(steps):
+        if getattr(obj, "name", None) == lower:
+            return idx
+        candidate = type(obj).__name__.lower().removesuffix("step").rstrip("_")
+        if candidate == flat:
+            return idx
+    known = ", ".join(type(s).__name__ for s in steps)
+    raise ValueError(f"Unknown pipeline step: {step!r}. Known steps: {known}")
+
+
+def _resolve_resume_step_index(workspace: Path, run_id: str) -> int:
+    """Locate the next step index to execute for a previously interrupted run."""
+    from hydromodpy.workflow.internals.checkpoint import CheckpointStore
+    from hydromodpy.workflow.internals.ledger import StepsLedger
+
+    cp = CheckpointStore(workspace, run_id)
+    last = cp.latest()
+    if last is None:
+        raise RuntimeError(
+            f"No checkpoints found for run_id '{run_id}' in {cp.dir}. "
+            "Start a fresh run instead of using resume."
+        )
+    resume_from = last + 1
+
+    ledger = StepsLedger(workspace)
+    last_completed = ledger.last_completed(run_id)
+    ledger.close()
+    if last_completed is not None:
+        resume_from = max(resume_from, last_completed + 1)
+    return resume_from
+
+
+def _print_dry_run_plan(
+    *,
+    run_id: str,
+    steps: tuple,
+    resume_from: int | None,
+    checkpoint: bool,
+) -> None:
+    """Emit the resolved Pipeline plan without executing any step."""
+    print(f"[dry-run] run_id    : {run_id}")
+    print(f"[dry-run] checkpoint: {'enabled' if checkpoint else 'disabled'}")
+    if resume_from is not None:
+        print(f"[dry-run] resume_from: {resume_from}")
+    print("[dry-run] steps     :")
+    for idx, step in enumerate(steps):
+        print(f"  {idx:02d}  {type(step).__name__}")
+
+
 # =====================================================================
 # Project
 # =====================================================================
@@ -552,23 +616,179 @@ class Project:
         )
         self._active_runs.pop(sim_id, None)
 
-    def run(self, *, name: str | None = None, **overrides) -> Run:
-        """Prepare, execute, ingest, render and clean up in one call.
+    def run(
+        self,
+        *,
+        name: str | None = None,
+        checkpoint: bool = True,
+        resume: str | None = None,
+        from_step: str | int | None = None,
+        until_step: str | int | None = None,
+        dry_run: bool = False,
+        frozen: bool = False,
+        no_display: bool = False,
+        **overrides,
+    ) -> Run | None:
+        """Run the simulation through the canonical workflow Pipeline.
 
-        Flow parameter overrides (``Sy``, ``K``, ``Ss``) and the special keys
-        ``thickness``, ``first_clim``, ``properties`` are forwarded to
-        :meth:`prepare`. Returns the persisted :class:`Run` view.
+        Single entry point that unifies the interactive Python flow and the
+        ``hmp run`` CLI. Flow parameter overrides (``Sy``, ``K``, ``Ss``) and
+        the special keys ``thickness``, ``first_clim``, ``properties`` are
+        applied to the plan before the Pipeline runs.
+
+        Parameters
+        ----------
+        name
+            Run label. Auto-generated when omitted.
+        checkpoint
+            Persist a checkpoint after each step.
+        resume
+            Resume the run with this id from its last successful checkpoint.
+        from_step
+            Start from a specific step (name or index). Mutually exclusive
+            with ``resume``: ``resume`` infers the index from the checkpoint
+            store, ``from_step`` sets it explicitly.
+        until_step
+            Stop after the specified step (name or index).
+        dry_run
+            Print the resolved step plan and return ``None`` without
+            executing.
+        frozen
+            Toggle process-wide frozen mode (no fresh data downloads).
+        no_display
+            Skip the auto-rendering DisplayStep at pipeline end.
+        **overrides
+            Flow parameter overrides forwarded to ``step_build_plan``.
+
+        Returns
+        -------
+        Run or None
+            The persisted Run view, or ``None`` for ``dry_run=True``.
         """
-        sim_id = self.prepare(name=name, **overrides)
+        from hydromodpy.workflow.internals.state import PipelineState
+        from hydromodpy.workflow.orchestrator import standard_steps
+        from hydromodpy.workflow.runner import Pipeline
+        from hydromodpy.workflow.steps.plan_building import step_build_plan
+
+        if frozen:
+            from hydromodpy.data.lockfile import set_frozen_mode
+
+            set_frozen_mode(True)
+
+        skip_display = bool(self._no_display) or bool(no_display)
+
+        thickness = overrides.pop("thickness", None)
+        first_clim = overrides.pop("first_clim", None)
+        properties = overrides.pop("properties", None)
+
+        if name is None:
+            self._run_counter += 1
+            name = DEFAULT_RUN_NAME_TEMPLATE.format(counter=self._run_counter)
+
+        all_steps = standard_steps()
+        steps = all_steps
+        if until_step is not None:
+            until_idx = _resolve_step_index(until_step, all_steps)
+            steps = tuple(all_steps[: until_idx + 1])
+
+        workspace_path = self._resolve_workspace_path()
+
+        if from_step is not None:
+            resume_from: int | None = _resolve_step_index(from_step, all_steps)
+            run_id = resume or name
+        elif resume is not None:
+            resume_from = _resolve_resume_step_index(workspace_path, resume)
+            run_id = resume
+        elif self._is_model_phase_ready():
+            # Project's eager init already produced the workspace, geographic
+            # runtime, domain and mesh. Skip those steps to keep behaviour
+            # identical to the legacy verb-by-verb path.
+            resume_from = _resolve_step_index("setup_process", all_steps)
+            run_id = name
+        else:
+            resume_from = None
+            run_id = name
+
+        if dry_run:
+            _print_dry_run_plan(
+                run_id=run_id,
+                steps=steps,
+                resume_from=resume_from,
+                checkpoint=checkpoint,
+            )
+            return None
+
+        # Always rebuild the plan so each call picks up cfg edits and gets a
+        # fresh ``execution.process_runs_by_id`` mapping.
+        step_build_plan(
+            self._ctx,
+            name=name,
+            overrides=overrides or {},
+            thickness=thickness,
+            first_clim=first_clim,
+            solver=self._solver,
+        )
+
+        if properties is not None:
+            self._ctx.setup.flow_runtime_overrides = {
+                "source": "project_run",
+                "properties": dict(properties),
+            }
+        else:
+            self._ctx.setup.flow_runtime_overrides = None
+
+        self._ctx.setup.run_id = name
+
+        # Release Project's catalog handle so step_open_store can take exclusive
+        # ownership of the DuckDB. Reopened lazily after the Pipeline returns.
+        if self._store is not None:
+            self._store.close()
+            self._store = None
+        self._ctx.store = None
+
+        initial = PipelineState(
+            run_id=run_id,
+            data={
+                "ctx": self._ctx,
+                "cfg": self.cfg,
+                "config_path": self._config_path,
+                "raw_toml": getattr(self._ctx, "raw_toml", {}) or {},
+                "skip_display": skip_display,
+                "spatial_support_registry": self._spatial_support_registry,
+                "requested_spatial_support_ids": self._requested_support_ids,
+                "requested_domain_supports": self._requested_domain_supports,
+            },
+        )
+
+        pipeline = Pipeline(steps, workspace=workspace_path, checkpoint=checkpoint)
         try:
-            self.execute(sim_id)
-            self.ingest(sim_id)
-            self.render(sim_id)
-        except Exception:
-            self.cleanup(sim_id, status="failed")
-            raise
-        self.cleanup(sim_id)
+            final = pipeline.run(initial, resume_from=resume_from)
+        finally:
+            self._open_catalog()
+
+        final_ctx = final.get("ctx") if final is not None else None
+        sim_id = getattr(final_ctx, "sim_id", None) if final_ctx is not None else None
+        if sim_id is None or self._store is None:
+            return None
         return self._store[sim_id]
+
+    def _is_model_phase_ready(self) -> bool:
+        """Return True when Project's eager init has produced the runtime objects."""
+        setup = self._ctx.setup
+        return (
+            setup.workspace is not None
+            and setup.geographic is not None
+            and setup.domain is not None
+        )
+
+    def _resolve_workspace_path(self) -> Path:
+        """Return the workspace root used to persist checkpoints and ledger."""
+        workspace = self._ctx.setup.workspace
+        if workspace is not None:
+            return Path(workspace.root)
+        if self._config_path is not None:
+            return self._config_path.parent
+        return Path.cwd()
 
     def sweep(
         self,
