@@ -24,8 +24,6 @@ au code, mainteneurs, intégrateurs frontaux. Pour l'usage utilisateur voir
   disposition disque des séries temporelles, budgets, bilans de masse.
 - [parquet_lakehouse_concurrency.md](parquet_lakehouse_concurrency.md) :
   verrous DuckDB, écriture atomique, retries.
-- [parquet_lakehouse_migration_guide.md](parquet_lakehouse_migration_guide.md) :
-  migration d'un workspace v0.5 vers le lakehouse v0.6.
 - [schema_evolution.md](schema_evolution.md) : règles d'évolution des
   schémas DuckDB et Zarr.
 

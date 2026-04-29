@@ -243,17 +243,12 @@ solvers = ["modflownwt"]
 """
 
 
-def scaffold(
-    root_dir: str | Path | None = None,
-    *,
-    force: bool = False,
-) -> Path:
-    """Create the HydroModPy workspace.
+def scaffold(root_dir: str | Path | None = None) -> Path:
+    """Create the HydroModPy workspace folder layout.
 
     Layout::
 
         <workspace>/
-        |-- hydromodpy.duckdb               (simulation catalog)
         |-- data/
         |   |-- cache.duckdb                (input cache, created on first run)
         |-- simulations/                    (empty, populated per run)
@@ -270,25 +265,16 @@ def scaffold(
         |-- projects/                       (empty, ready for hmp new)
 
     Idempotent for user-authored files (custom locations, chronicles,
-    READMEs) - they are never overwritten. When ``force=True`` the
-    simulation catalog is recreated; otherwise an existing catalog is
-    left intact.
+    READMEs) - they are never overwritten. The simulation catalog
+    (``hydromodpy.duckdb``) is created by ``hmp init``, not here, so the
+    ``data`` layer never reaches into ``results``.
     """
     root = Path(root_dir).expanduser().resolve() if root_dir else DEFAULT_ROOT
     root.mkdir(parents=True, exist_ok=True)
 
-    catalog_path = root / "hydromodpy.duckdb"
     (root / "data").mkdir(parents=True, exist_ok=True)
     (root / "projects").mkdir(parents=True, exist_ok=True)
     (root / "simulations").mkdir(parents=True, exist_ok=True)
-
-    from hydromodpy.results.catalog import SimulationCatalog
-
-    if force and catalog_path.exists():
-        catalog_path.unlink()
-    if not catalog_path.exists():
-        with SimulationCatalog(root):
-            pass
 
     for spec in VARIABLES:
         var_dir = root / f"{spec.name}_custom"

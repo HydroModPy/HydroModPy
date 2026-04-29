@@ -17,7 +17,7 @@ from hydromodpy.core.config.profile import Profile
 
 
 def _load_toml(path: Path) -> dict:
-    """Load a TOML file, with Python 3.10 fallback to ``tomli``."""
+    """Load a TOML file."""
     import tomllib
 
     with open(path, "rb") as f:

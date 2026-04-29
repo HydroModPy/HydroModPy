@@ -788,17 +788,6 @@ def resolve_model_workspace(
     )
 
 
-def resolve_first_model_workspace(
-    out_path: Path,
-    *,
-    results_folder_name: str = "results_simulations",
-) -> tuple[Path, Path, Path]:
-    """
-    Backward-compatible wrapper that selects first watershed/model folders.
-    """
-    return resolve_model_workspace(out_path, results_folder_name=results_folder_name)
-
-
 def update_or_assert_goldens(
     *,
     actual: dict,

@@ -21,6 +21,7 @@ from typing import Annotated, Any, Literal
 from pydantic import ConfigDict, Field, ValidationError, field_validator, model_validator
 
 from hydromodpy.core.config.base import HydroModelBase
+from hydromodpy.core.config.path_helpers import resolve_path
 from hydromodpy.core.config.profile import Profile
 
 
@@ -386,15 +387,10 @@ class SGridConfig(HydroModelBase):
 
         cfg = dict(payload["sgrid"])
         base = path.parent
-        cfg["top_path"] = _resolve_path(cfg["top_path"], base)
+        cfg["top_path"] = resolve_path(cfg["top_path"], base)
         if cfg.get("bot_path") is not None:
-            cfg["bot_path"] = _resolve_path(cfg["bot_path"], base)
+            cfg["bot_path"] = resolve_path(cfg["bot_path"], base)
         return cls.model_validate(cfg)
-
-
-from hydromodpy.solver.utils._config_helpers import (  # noqa: E402 - late import to avoid circular dependency
-    resolve_path as _resolve_path,
-)
 
 
 def validate_sgrid_config_data(config_data: Mapping[str, Any]) -> dict[str, Any]:

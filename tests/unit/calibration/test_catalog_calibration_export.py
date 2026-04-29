@@ -6,7 +6,7 @@ Covers Phase 8 of the calibration integration:
   session.
 - ``catalog.calibration_iterations(session_id)`` returns the iteration
   history as a DataFrame.
-- ``catalog.export_calibration_session`` writes
+- ``hydromodpy.calibration.export.export_session`` writes
   ``session_manifest.json`` and ``iteration_history.jsonl`` in the
   legacy layout.
 """
@@ -20,6 +20,7 @@ from pathlib import Path
 import pandas as pd
 import pytest
 
+from hydromodpy.calibration.export import export_session
 from hydromodpy.calibration.optimizer import EvaluationResult, ParamSuggestion
 from hydromodpy.calibration.persistence import CalibrationPersistence
 from hydromodpy.results.catalog import SimulationCatalog
@@ -113,7 +114,7 @@ class TestExportCalibrationSession:
         tmp_path: Path,
     ):
         out = tmp_path / "export"
-        returned = catalog.export_calibration_session(seeded_session, out)
+        returned = export_session(catalog, seeded_session, out)
         assert returned == out
         manifest_path = out / "session_manifest.json"
         jsonl_path = out / "iteration_history.jsonl"
@@ -135,7 +136,7 @@ class TestExportCalibrationSession:
 
     def test_unknown_session_raises(self, catalog: SimulationCatalog, tmp_path: Path):
         with pytest.raises(ValueError, match="Unknown calibration session"):
-            catalog.export_calibration_session(uuid.uuid4().hex, tmp_path / "x")
+            export_session(catalog, uuid.uuid4().hex, tmp_path / "x")
 
     def test_jsonl_uses_legacy_keys(
         self,
@@ -144,7 +145,7 @@ class TestExportCalibrationSession:
         tmp_path: Path,
     ):
         out = tmp_path / "legacy_export"
-        catalog.export_calibration_session(seeded_session, out)
+        export_session(catalog, seeded_session, out)
         lines = (out / "iteration_history.jsonl").read_text(encoding="utf-8").splitlines()
         assert len(lines) == 3
         for line in lines:
@@ -209,7 +210,7 @@ class TestModelDistribution:
     ):
         sid = self._seed_with_flag(catalog, flag=True)
         out = tmp_path / "with_dist"
-        catalog.export_calibration_session(sid, out)
+        export_session(catalog, sid, out)
         dist_path = out / "model_distribution.json"
         assert dist_path.is_file()
         payload = json.loads(dist_path.read_text(encoding="utf-8"))
@@ -229,7 +230,7 @@ class TestModelDistribution:
     ):
         sid = self._seed_with_flag(catalog, flag=False)
         out = tmp_path / "without_dist"
-        catalog.export_calibration_session(sid, out)
+        export_session(catalog, sid, out)
         assert not (out / "model_distribution.json").exists()
 
 

@@ -6,7 +6,7 @@ from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
 
-from hydromodpy.solver.utils._config_helpers import resolve_path
+from hydromodpy.core.config.path_helpers import resolve_path
 from hydromodpy.spatial.field.core.field_param import FieldParam
 from hydromodpy.spatial.mesh.gmsh_grid.cases._common import (
     load_case_section,
@@ -23,7 +23,7 @@ def resolve_reference_3d_fieldparam_config_path(raw_config: str | Path) -> Path:
 def _optional_nested_section(
     payload: Mapping[str, Any], dotted_path: str
 ) -> Mapping[str, Any] | None:
-    from hydromodpy.solver.utils._config_helpers import get_nested_section
+    from hydromodpy.core.config.path_helpers import get_nested_section
 
     try:
         return get_nested_section(payload, dotted_path)

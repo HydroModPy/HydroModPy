@@ -51,16 +51,9 @@ class WorkflowMismatchError(WorkflowError):
 
 
 def load_raw_toml(config_path: Path) -> dict:
-    """Parse ``config_path`` as TOML, return raw dict.
-
-    Also auto-converts the deprecated ``[model_calibration]`` section to
-    ``[calibration]`` so every downstream caller sees the canonical name.
-    """
-    from hydromodpy._cli.legacy_calibration import normalize_legacy_calibration_section
-
+    """Parse ``config_path`` as TOML, return raw dict."""
     with open(config_path, "rb") as fh:
-        raw = tomllib.load(fh)
-    return normalize_legacy_calibration_section(raw)
+        return tomllib.load(fh)
 
 
 def extract_workflow_field(raw_toml: dict) -> str | None:

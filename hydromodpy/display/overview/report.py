@@ -28,7 +28,7 @@ from hydromodpy.display.overview.summary import compute_overview_summary
 logger = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
-    from hydromodpy.workflow.pipelines.overview_config import DataOverviewState
+    from hydromodpy.core.contracts.overview import DataOverviewState
 
 
 def generate_overview_report(state: DataOverviewState) -> list[Path]:

@@ -47,6 +47,7 @@ def _get_registry() -> dict[str, type[BaseModel]]:
         from hydromodpy.core.workspace.config import WorkspaceConfig
         from hydromodpy.data.data_managers_config import DataManagersConfig
         from hydromodpy.display.config import DisplayConfig
+        from hydromodpy.display.overview.config import OverviewSection
         from hydromodpy.physics.flow.flow_config import FlowConfig
         from hydromodpy.physics.transport.transport_config import TransportConfig
         from hydromodpy.simulation.planning.config import SimulationConfig
@@ -59,7 +60,6 @@ def _get_registry() -> dict[str, type[BaseModel]]:
             MeshCatchmentBatchSection,
             MeshCatchmentConfig,
         )
-        from hydromodpy.workflow.pipelines.overview_config import OverviewSection
 
         _MODULE_REGISTRY = {
             "workspace": WorkspaceConfig,

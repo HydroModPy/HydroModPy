@@ -114,7 +114,7 @@ methods exposed at the top level (``hmp.Config``, ``hmp.Geographic``,
 
    from pathlib import Path
    import hydromodpy as hmp
-   from hydromodpy.core import WorkspaceConfig
+   from hydromodpy.core.workspace import WorkspaceConfig
 
    HERE = Path(__file__).parent
 

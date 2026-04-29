@@ -25,7 +25,7 @@ def test_timeseries_valid():
         }
     )
     out = validate_timeseries(df)
-    assert list(out.columns) >= ["date", "value"]
+    assert {"date", "value"}.issubset(out.columns)
 
 
 def test_timeseries_duplicate_date_fails():

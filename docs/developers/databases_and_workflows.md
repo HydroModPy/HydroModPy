@@ -9,7 +9,6 @@ Liens :
 [simulation_catalog_architecture.md](simulation_catalog_architecture.md),
 [parquet_lakehouse_architecture.md](parquet_lakehouse_architecture.md),
 [parquet_lakehouse_concurrency.md](parquet_lakehouse_concurrency.md),
-[parquet_lakehouse_migration_guide.md](parquet_lakehouse_migration_guide.md),
 [schema_evolution.md](schema_evolution.md),
 [calibration_guide.md](calibration_guide.md),
 [CLI.md](CLI.md),
@@ -540,8 +539,6 @@ Voir §2.5 pour le détail.
   - Vérification du workspace DuckDB (schéma, simulations).
   - Présence des binaires.
   - Détection des orphelins Parquet.
-- `hmp migrate --workspace PATH [--dry-run]` : migration v0.5 vers v0.6
-  (voir [parquet_lakehouse_migration_guide.md](parquet_lakehouse_migration_guide.md)).
 
 ## 6. Lecture côté Python
 

@@ -239,7 +239,3 @@ class CatchmentIdentificationConfig:
             figures_dir_name=figures_dir_name,
             keep_intermediate=keep_intermediate,
         )
-
-
-# Backward-compatible alias.
-WatershedThresholdScanConfig = CatchmentIdentificationConfig

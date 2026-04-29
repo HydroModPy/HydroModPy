@@ -37,6 +37,7 @@ def register(subparsers) -> argparse.ArgumentParser:
 
 def run(args: argparse.Namespace) -> None:
     from hydromodpy.data.scaffold import DEFAULT_ROOT, scaffold
+    from hydromodpy.results.catalog import SimulationCatalog
 
     resolved_path = args.path or getattr(args, "path_opt", None)
     target = Path(resolved_path).expanduser().resolve() if resolved_path else DEFAULT_ROOT
@@ -49,7 +50,13 @@ def run(args: argparse.Namespace) -> None:
         )
         sys.exit(EXIT_CONFIG)
 
-    result = scaffold(target, force=args.force)
+    result = scaffold(target)
+
+    if args.force and catalog.exists():
+        catalog.unlink()
+    if not catalog.exists():
+        with SimulationCatalog(result):
+            pass
 
     print(f"Workspace: {result}")
     print(f"Scaffolded at {result}/. Create projects with `hmp new <name> --workspace {result}`.")

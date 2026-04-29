@@ -10,7 +10,7 @@ from typing import Any
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator, model_validator
 
 from hydromodpy.core.config.base import HydroModelBase
-from hydromodpy.solver.utils._config_helpers import get_nested_section, resolve_path
+from hydromodpy.core.config.path_helpers import get_nested_section, resolve_path
 from hydromodpy.solver.utils.temporal.tmesh_config import TMeshConfig
 
 

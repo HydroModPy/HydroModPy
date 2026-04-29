@@ -99,14 +99,14 @@ def run(args: argparse.Namespace) -> None:
     from hydromodpy.display import get as get_figure
     from hydromodpy.display import names as figure_names
     from hydromodpy.display.config import DisplayConfig
+    from hydromodpy.display.runs import (
+        render_figures_for_run,
+        resolve_run_output_dir,
+    )
     from hydromodpy.results.catalog import (
         AmbiguousReferenceError,
         SimulationCatalog,
         SimulationNotFoundError,
-    )
-    from hydromodpy.results.display import (
-        render_figures_for_run,
-        resolve_run_output_dir,
     )
 
     target = getattr(args, "config_or_subcommand", None)

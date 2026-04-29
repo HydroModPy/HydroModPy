@@ -48,13 +48,13 @@ def register(subparsers) -> argparse.ArgumentParser:
 
 
 def run(args: argparse.Namespace) -> None:
-    from hydromodpy.calibration.report import render_session_report
     from hydromodpy.results.catalog import SimulationCatalog
+    from hydromodpy.workflow.steps.calibration_report import step_render_calibration_report
 
     workspace_root = args.workspace or find_workspace_root(Path.cwd())
     with SimulationCatalog(workspace_root) as catalog:
         session_id = _resolve_session_id(catalog, args.session_id)
-        out_path = render_session_report(
+        out_path = step_render_calibration_report(
             catalog=catalog,
             session_id=session_id,
             workspace_root=workspace_root,

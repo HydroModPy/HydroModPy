@@ -15,6 +15,7 @@ heavier bootstrap side effects.
 
 from __future__ import annotations
 
+import tomllib
 from importlib import metadata
 from pathlib import Path
 
@@ -25,11 +26,6 @@ def _read_version() -> str:
     try:
         return metadata.version("hydromodpy")
     except metadata.PackageNotFoundError:
-        try:
-            import tomllib
-        except ModuleNotFoundError:  # Python < 3.11
-            return _FALLBACK_VERSION
-
         pyproject = Path(__file__).resolve().parents[2] / "pyproject.toml"
         if not pyproject.exists():
             return _FALLBACK_VERSION

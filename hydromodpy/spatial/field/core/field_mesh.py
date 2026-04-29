@@ -11,6 +11,7 @@ Concrete square-domain implementations are provided in
 
 from __future__ import annotations
 
+import tomllib
 from abc import ABC, abstractmethod
 from collections.abc import Mapping
 from dataclasses import dataclass
@@ -18,11 +19,6 @@ from pathlib import Path
 from typing import Any
 
 import numpy as np
-
-try:  # Python 3.11+
-    import tomllib
-except ModuleNotFoundError:  # pragma: no cover - fallback for older Python
-    import tomli as tomllib  # type: ignore[no-redef]
 
 
 @dataclass(frozen=True)

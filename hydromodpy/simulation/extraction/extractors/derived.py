@@ -108,6 +108,19 @@ def compute_derived(
         _compute_mass_accumulated(sim_id, store, n_timesteps, n_cells)
 
 
+def _uppermost_saturated_head(heads: np.ndarray) -> np.ndarray:
+    """Return the head of the uppermost saturated layer for each cell.
+
+    ``heads`` has shape ``(n_layers, n_cells)``. Cells where every layer is
+    NaN map to NaN. Layer 0 is the top.
+    """
+    finite = np.isfinite(heads)
+    has_any = finite.any(axis=0)
+    first_idx = finite.argmax(axis=0)
+    wt = np.take_along_axis(heads, first_idx[np.newaxis, :], axis=0)[0]
+    return np.where(has_any, wt, np.nan)
+
+
 def _compute_watertable_elevation(
     sim_id: str,
     store: Any,
@@ -117,15 +130,9 @@ def _compute_watertable_elevation(
     n_cells: int,
 ) -> None:
     """Water table elevation = head at the uppermost saturated layer."""
-    try:
-        from flopy.utils.postprocessing import get_water_table
-    except ImportError:
-        get_water_table = None
-
     # Sentinels (HDRY/HNOFLO) should already be NaN from the extraction
-    # phase.  Use NaN as the nodata marker for flopy's get_water_table.
-    # Safety net: if heads still contain non-NaN negatives far below any
-    # realistic elevation, treat them as sentinels too.
+    # phase. Safety net: if heads still contain non-NaN negatives far below
+    # any realistic elevation, treat them as sentinels too.
     _SENTINEL_THRESHOLD = -50.0
     head_sample = head_arr[:].ravel()
     finite_heads = head_sample[np.isfinite(head_sample)]
@@ -143,18 +150,8 @@ def _compute_watertable_elevation(
         head = head_arr[t]
         if n_layers == 1:
             wt = head[0].copy() if head.ndim == 2 else head.copy()
-        elif get_water_table is not None:
-            # Replace NaN with a dummy sentinel for flopy (NaN != NaN
-            # breaks its internal comparison).  Restore NaN afterwards.
-            _DUMMY_HDRY = -1.0e30
-            head_clean = head.reshape(n_layers, -1, 1).squeeze().copy()
-            nan_mask_3d = ~np.isfinite(head_clean)
-            head_clean[nan_mask_3d] = _DUMMY_HDRY
-            wt = get_water_table(head_clean, hdry=_DUMMY_HDRY)
-            wt = wt.ravel()[:n_cells]
-            wt[np.isclose(wt, _DUMMY_HDRY)] = np.nan
         else:
-            wt = head[0].copy() if head.ndim == 2 else head.copy()
+            wt = _uppermost_saturated_head(head.reshape(n_layers, n_cells))
         # Mask any remaining sentinel-like values (stores without NaN
         # masking, or MF6 outputs with different sentinel values).
         wt = np.where(np.isfinite(wt) & (wt < sentinel_floor), np.nan, wt)

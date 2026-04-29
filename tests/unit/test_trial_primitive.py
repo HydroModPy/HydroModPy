@@ -1,4 +1,4 @@
-"""Unit tests for :mod:`hydromodpy.simulation.execution.trial`.
+"""Unit tests for :mod:`hydromodpy.calibration.runners.trial`.
 
 Phase 1 introduces the lightweight trial primitive that the
 calibration loop forks from. The surface tested here is intentionally
@@ -25,15 +25,15 @@ from typing import Any, ClassVar
 
 import pytest
 
-from hydromodpy.core.state.execution import ExecutionRegistry
-from hydromodpy.pipeline.state import PipelineState
-from hydromodpy.pipeline.step import Step  # noqa: F401
-from hydromodpy.simulation.execution.trial import (
+from hydromodpy.calibration.runners.trial import (
     TrialContext,
     TrialResult,
     _set_by_path,
     run_trial_light,
 )
+from hydromodpy.core.state.execution import ExecutionRegistry
+from hydromodpy.pipeline.state import PipelineState
+from hydromodpy.pipeline.step import Step  # noqa: F401
 
 # ---------------------------------------------------------------------------
 # Tiny cfg/ctx doubles that look enough like the real thing for the tests

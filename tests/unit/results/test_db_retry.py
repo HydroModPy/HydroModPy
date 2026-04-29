@@ -3,7 +3,7 @@ from __future__ import annotations
 import duckdb
 import pytest
 
-import hydromodpy.results._db_retry as db_retry
+import hydromodpy.core.io.db_retry as db_retry
 
 
 def test_connect_with_retry_retries_lock_contention_until_success(monkeypatch):

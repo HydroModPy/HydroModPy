@@ -44,7 +44,7 @@ from hydromodpy.calibration.optimizer import (
     build_optimizer,
 )
 from hydromodpy.calibration.parameters import ParameterSpace
-from hydromodpy.simulation.execution.trial import (
+from hydromodpy.calibration.runners.trial import (
     TrialMetricFn,
     prepare_trials,
     promote_trial,
@@ -52,7 +52,7 @@ from hydromodpy.simulation.execution.trial import (
 
 if TYPE_CHECKING:
     from hydromodpy.calibration.report import CalibrationReport
-    from hydromodpy.simulation.execution.trial import TrialContext
+    from hydromodpy.calibration.runners.trial import TrialContext
 
 logger = logging.getLogger(__name__)
 
@@ -63,11 +63,8 @@ logger = logging.getLogger(__name__)
 
 
 def _load_toml_calibration(path: Path) -> tuple[CalibrationConfig, dict]:
-    from hydromodpy._cli.legacy_calibration import normalize_legacy_calibration_section
-
     with open(path, "rb") as f:
         raw = tomllib.load(f)
-    raw = normalize_legacy_calibration_section(raw)
     if "calibration" not in raw:
         raise ValueError(f"No [calibration] section in {path}")
     return CalibrationConfig.model_validate(raw["calibration"]), raw
@@ -127,7 +124,7 @@ def _preload_hash_cache(catalog_conn, cache: ParamsHashCache) -> int:
     Wrapped by DuckDB's lock-retry decorator so concurrent `hmp` sessions
     on the same workspace do not surface ``IOException``.
     """
-    from hydromodpy.results._db_retry import with_lock_retry
+    from hydromodpy.core.io.db_retry import with_lock_retry
 
     @with_lock_retry()
     def _run() -> list[tuple[str, str]]:
@@ -157,7 +154,7 @@ def _preload_hash_cache(catalog_conn, cache: ParamsHashCache) -> int:
 
 def _update_iter_sim_id(catalog, session_id: str, iteration: int, sim_id: str) -> None:
     """Write the promoted ``sim_id`` into ``calibration_iterations``."""
-    from hydromodpy.results._db_retry import with_lock_retry
+    from hydromodpy.core.io.db_retry import with_lock_retry
 
     @with_lock_retry()
     def _run() -> None:
@@ -176,7 +173,7 @@ def _update_iter_sim_id(catalog, session_id: str, iteration: int, sim_id: str) -
 
 
 def _update_best_sim_id(catalog, session_id: str, sim_id: str) -> None:
-    from hydromodpy.results._db_retry import with_lock_retry
+    from hydromodpy.core.io.db_retry import with_lock_retry
 
     @with_lock_retry()
     def _run() -> None:
@@ -305,7 +302,7 @@ def _run_calibration(
 
     def wrapped_evaluator(sugg: ParamSuggestion) -> EvaluationResult:
         last_suggestion[sugg.trial_id] = sugg
-        from hydromodpy.simulation.execution.trial import run_trial_light
+        from hydromodpy.calibration.runners.trial import run_trial_light
 
         result = run_trial_light(
             trial_ctx,

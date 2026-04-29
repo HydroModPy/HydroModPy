@@ -18,8 +18,8 @@ from hydromodpy.data.registry.constants import SENTINEL_CUSTOM, SENTINEL_EMPTY
 
 logger = logging.getLogger(__name__)
 
-_RETRY = 3
-_BACKOFF = 0.1
+_RETRY = 8
+_BACKOFF = 0.05
 
 _ENTRIES_DDL = """
 CREATE TABLE IF NOT EXISTS entries (

@@ -50,7 +50,7 @@ def test_display_step_skips_when_flag_set(monkeypatch, tmp_path):
         DisplayStep,
     )
     monkeypatch.setattr(
-        "hydromodpy.results.display.render_figures_for_run",
+        "hydromodpy.display.runs.render_figures_for_run",
         renderer,
     )
     final = DisplayStep().run(state)
@@ -64,7 +64,7 @@ def test_display_step_skips_when_disabled(monkeypatch, tmp_path):
 
     renderer = MagicMock()
     monkeypatch.setattr(
-        "hydromodpy.results.display.render_figures_for_run",
+        "hydromodpy.display.runs.render_figures_for_run",
         renderer,
     )
     final = DisplayStep().run(state)
@@ -78,7 +78,7 @@ def test_display_step_skips_when_empty_figure_list(monkeypatch, tmp_path):
 
     renderer = MagicMock()
     monkeypatch.setattr(
-        "hydromodpy.results.display.render_figures_for_run",
+        "hydromodpy.display.runs.render_figures_for_run",
         renderer,
     )
     final = DisplayStep().run(state)
@@ -103,7 +103,7 @@ def test_display_step_invokes_renderer_when_enabled(monkeypatch, tmp_path):
     )
     renderer = MagicMock(return_value=[tmp_path / "figures" / "baseline" / "piezometric_map.png"])
     monkeypatch.setattr(
-        "hydromodpy.results.display.render_figures_for_run",
+        "hydromodpy.display.runs.render_figures_for_run",
         renderer,
     )
 

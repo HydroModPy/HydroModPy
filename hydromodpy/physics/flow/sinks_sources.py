@@ -52,7 +52,7 @@ from hydromodpy.core.config.profile import Profile
 from hydromodpy.core.units.volumetric_flow import normalize_m3_per_s_unit
 
 if TYPE_CHECKING:
-    from hydromodpy.solver.modflow_common.grid_context import GridReference
+    from hydromodpy.core.grid_reference import GridReference
 
 
 class FlowWellConfig(HydroModelBase):

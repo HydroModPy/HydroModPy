@@ -29,6 +29,7 @@ configuration system works, and how to contribute code or report issues.
   - [Validators](#validators)
   - [Adding a new config section](#adding-a-new-config-section)
 - [Running tests](#running-tests)
+- [Architecture (layer matrix)](#architecture-layer-matrix)
 - [Pull requests](#pull-requests)
 
 ---
@@ -753,6 +754,48 @@ hmp test regression --mf6
 # Update golden references (overwrites expected outputs)
 hmp test regression --update-goldens
 ```
+
+---
+
+## Architecture (layer matrix)
+
+HydroModPy enforces a strict layered DAG between top-level packages.
+The full 14x14 contract lives in
+[`unified_architecture/20_ENCAPSULATION_AND_COUPLING.md`](unified_architecture/20_ENCAPSULATION_AND_COUPLING.md)
+§2 and is mirrored as YAML in
+[`tests/unit/architecture/layer_matrix.yaml`](tests/unit/architecture/layer_matrix.yaml).
+
+| src \ tgt    | allowed targets |
+|--------------|-----------------|
+| core         | core |
+| schema       | core, schema |
+| physics      | core, schema, physics |
+| data         | core, schema, data |
+| spatial      | core, schema, spatial |
+| simulation   | core, schema, physics, spatial, data, simulation |
+| solver       | core, schema, physics, spatial, solver, simulation |
+| calibration  | core, schema, physics, data, spatial, solver, simulation, calibration |
+| results      | core, schema, results |
+| display      | core, schema, results, display |
+| analysis     | core, schema, data, results, analysis |
+| pipeline     | core, schema, physics, data, spatial, solver, simulation, calibration, results, pipeline |
+| workflow     | everything except `_cli` |
+| `_cli`       | everything |
+
+The contract is checked by `tests/unit/architecture/test_layer_matrix.py`
+on every pytest run:
+
+```bash
+pytest tests/unit/architecture/test_layer_matrix.py -v
+```
+
+The test currently runs in `xfail` mode while R0..R4 (see
+`unified_architecture/PLAN_ACTION.md`) clear the legacy violations. The
+reported xfail count is the number of forbidden cross-layer imports
+remaining; it must trend down with every refactor session.
+
+`test_annex_one_way` runs strict: `hydromodpy/` must never import from
+`hydromodpy_annex/`. Adding such an import is a CI failure.
 
 ---
 

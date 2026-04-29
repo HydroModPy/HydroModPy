@@ -39,6 +39,7 @@ from typing import Any
 import numpy as np
 from rasterio.transform import rowcol
 
+from hydromodpy.spatial._protocols import get_geology_data_source
 from hydromodpy.spatial.field.core.field_mesh import BaseFieldMesh
 from hydromodpy.spatial.field.core.field_spatial import Field
 from hydromodpy.spatial.field.core.field_spatial_weighted_discretization import (
@@ -384,15 +385,9 @@ class GeologyField(Field):
     @classmethod
     def from_dict(cls, config: Mapping[str, Any]) -> GeologyField:
         """Build field from validated geology config mapping (standalone use)."""
-        from hydromodpy.data.variables.geology.config import (
-            validate_geology_config_data,
-        )
-        from hydromodpy.data.variables.geology.io import (
-            load_geology_encoded_grid,
-        )
-
-        cfg = validate_geology_config_data(config)
-        loaded = load_geology_encoded_grid(cfg)
+        data_source = get_geology_data_source()
+        cfg = data_source.validate_config(config)
+        loaded = data_source.load_encoded_grid(cfg)
         return cls(
             identifier=str(cfg["id"]),
             encoded_codes=loaded["encoded_codes"],
@@ -406,9 +401,5 @@ class GeologyField(Field):
     @classmethod
     def from_toml(cls, toml_path: str | Path, section: str = "geology") -> GeologyField:
         """Build field directly from one TOML section (standalone use)."""
-        from hydromodpy.data.variables.geology.config import (
-            load_geology_toml,
-        )
-
-        cfg = load_geology_toml(toml_path, section=section)
+        cfg = get_geology_data_source().load_toml(toml_path, section=section)
         return cls.from_dict(cfg)

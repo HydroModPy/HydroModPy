@@ -38,7 +38,7 @@ def step_render_figures(
     if not requested:
         return []
 
-    from hydromodpy.results.display import (
+    from hydromodpy.display.runs import (
         render_figures_for_run,
         resolve_run_output_dir,
     )

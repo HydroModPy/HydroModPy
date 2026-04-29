@@ -11,8 +11,8 @@ import pandas as pd
 from pydantic import ConfigDict, Field, ValidationError, field_validator, model_validator
 
 from hydromodpy.core.config.base import HydroModelBase
+from hydromodpy.core.config.path_helpers import get_nested_section, resolve_path
 from hydromodpy.core.config.profile import Profile
-from hydromodpy.solver.utils._config_helpers import get_nested_section, resolve_path
 
 
 class TMeshConfig(HydroModelBase):

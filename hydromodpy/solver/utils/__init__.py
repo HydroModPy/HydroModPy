@@ -10,6 +10,7 @@ from __future__ import annotations
 from importlib import import_module
 
 _TEMPORAL_EXPORTS = {
+    "TimeGrid",
     "TMeshConfig",
     "TMesh_Generation",
     "load_tmesh_toml",
@@ -17,6 +18,7 @@ _TEMPORAL_EXPORTS = {
 }
 
 __all__ = [
+    "TimeGrid",
     "TMeshConfig",
     "TMesh_Generation",
     "load_tmesh_toml",

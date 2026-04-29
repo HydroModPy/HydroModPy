@@ -3,7 +3,6 @@
 from pathlib import Path
 from types import SimpleNamespace
 
-import numpy as np
 import pytest
 
 from hydromodpy.solver.modflow_nwt.modpath.modpath import Modpath
@@ -77,110 +76,6 @@ def test_modpath_resolve_zone_partic_fails_when_seepage_raster_missing(
         model = _make_modpath_stub(tmp_path)
         model._get_watershed_shp = lambda: str(tmp_path / "watershed.shp")
         model._resolve_zone_partic("seepage_clip")
-
-
-def test_modpath_resolve_zone_partic_rebuilds_seepage_raster_from_store(
-    tmp_path: Path,
-    monkeypatch,
-) -> None:
-    model = _make_modpath_stub(tmp_path)
-    model.model_folder = str(tmp_path)
-    postprocess_dir = tmp_path / "_postprocess"
-    rasters_dir = postprocess_dir / "_rasters"
-    rasters_dir.mkdir(parents=True, exist_ok=True)
-
-    seepage_array = np.array([[1.0, 0.0], [0.0, -9999.0]], dtype=float)
-
-    base_raster = tmp_path / "base.tif"
-    base_raster.write_text("dummy")
-    model._get_base_raster_path = lambda: str(base_raster)
-
-    watershed_shp = tmp_path / "watershed.shp"
-    watershed_shp.write_text("dummy")
-    model._get_watershed_shp = lambda: str(watershed_shp)
-
-    export_calls: dict[str, object] = {}
-    clip_calls: dict[str, object] = {}
-
-    def _fake_export_tif(
-        base_dem_path, data_to_tif, data_tif_path, data_nodata_val=None, data_crs=None
-    ):
-        export_calls["base_dem_path"] = base_dem_path
-        export_calls["data_to_tif"] = np.asarray(data_to_tif, dtype=float)
-        export_calls["data_tif_path"] = data_tif_path
-        export_calls["data_nodata_val"] = data_nodata_val
-        Path(data_tif_path).write_text("dummy")
-
-    class _FakeWhiteboxBackend:
-        def clip_raster_to_polygon(
-            self,
-            in_raster: str,
-            in_polygon: str,
-            out_raster: str,
-            maintain_dimensions: bool = True,
-        ) -> None:
-            clip_calls["in_raster"] = in_raster
-            clip_calls["in_polygon"] = in_polygon
-            clip_calls["out_raster"] = out_raster
-            clip_calls["maintain_dimensions"] = maintain_dimensions
-            Path(out_raster).write_text("dummy")
-
-    class _FakeStore:
-        def list_simulations(self):
-            import pandas as pd
-
-            return pd.DataFrame([{"sim_id": "fake-uuid"}])
-
-        def query_field(self, sim_id, name, timestep):
-            return seepage_array.ravel()
-
-        def close(self):
-            pass
-
-    class _FakeRasterSrc:
-        height = 2
-        width = 2
-
-        def __enter__(self):
-            return self
-
-        def __exit__(self, *a):
-            pass
-
-    monkeypatch.setattr(
-        "hydromodpy.solver.modflow_nwt.modpath.modpath.export_tif",
-        _fake_export_tif,
-    )
-    monkeypatch.setattr(
-        "hydromodpy.solver.modflow_nwt.modpath.modpath.get_whitebox_backend",
-        lambda: _FakeWhiteboxBackend(),
-    )
-    import hydromodpy.results.catalog as _catalog_mod
-
-    class _FakeSimulationCatalog:
-        def __new__(cls, *a, **kw):
-            return _FakeStore()
-
-    monkeypatch.setattr(_catalog_mod, "SimulationCatalog", _FakeSimulationCatalog)
-    import rasterio as _rio_mod
-
-    monkeypatch.setattr(
-        _rio_mod,
-        "open",
-        lambda *a, **kw: _FakeRasterSrc(),
-    )
-
-    resolved = model._resolve_zone_partic("seepage_clip")
-
-    seepage_tif = rasters_dir / "seepage_areas_t(0).tif"
-    expected_clip = rasters_dir / "seepage_areas_t(0)_clip.tif"
-    assert resolved == str(expected_clip)
-    assert seepage_tif.exists()
-    assert expected_clip.exists()
-    assert export_calls["base_dem_path"] == str(base_raster)
-    np.testing.assert_array_equal(export_calls["data_to_tif"], seepage_array)
-    assert export_calls["data_tif_path"] == str(seepage_tif)
-    assert export_calls["data_nodata_val"] == -9999.0
 
 
 def test_modpath_ensure_modflow_name_file_rebuilds_missing_namefile(

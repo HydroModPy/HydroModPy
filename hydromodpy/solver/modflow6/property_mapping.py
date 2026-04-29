@@ -7,14 +7,14 @@ from collections.abc import Mapping
 import numpy as np
 
 from hydromodpy.core.logging import get_logger
-from hydromodpy.solver.modflow_common.runtime_arrays import (
-    resolve_flow_property_runtime_overrides,
-)
-from hydromodpy.solver.modflow_nwt.modflow.property_mapping import (
+from hydromodpy.solver.modflow_common.property_mapping import (
     resolve_flow_property_arrays as resolve_structured_flow_property_arrays,
 )
-from hydromodpy.solver.modflow_nwt.modflow.property_mapping import (
+from hydromodpy.solver.modflow_common.property_mapping import (
     resolve_required_flow_properties,
+)
+from hydromodpy.solver.modflow_common.runtime_arrays import (
+    resolve_flow_property_runtime_overrides,
 )
 from hydromodpy.spatial.mesh.gmsh_grid.gmsh_planar_mesh import GmshPlanarMesh2D
 

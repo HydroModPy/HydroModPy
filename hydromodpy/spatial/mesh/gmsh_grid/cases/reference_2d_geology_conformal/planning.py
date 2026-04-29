@@ -18,7 +18,7 @@ from types import SimpleNamespace
 import geopandas as gpd
 from shapely.ops import unary_union
 
-from hydromodpy.data.variables.geology.io import load_vector_geology_dataframe
+from hydromodpy.spatial._protocols import get_geology_data_source
 from hydromodpy.spatial.geographic.core.river_mesh_trace import (
     build_river_mesh_trace_from_vector,
 )
@@ -180,7 +180,7 @@ def _load_geology_dataframe(
 ) -> tuple[ZoneConformalSourcePayload, gpd.GeoDataFrame]:
     payload = loaded_payload
     if payload is None:
-        payload = load_vector_geology_dataframe(
+        payload = get_geology_data_source().load_vector_dataframe(
             geology_cfg.to_mapping(),
             config_path=config_path,
             zone_key_column="zone_key",
@@ -771,7 +771,7 @@ def _build_zone_source_inputs(
     gpd.GeoDataFrame,
 ]:
     if cfg.geology is not None:
-        source_payload_raw = load_vector_geology_dataframe(
+        source_payload_raw = get_geology_data_source().load_vector_dataframe(
             cfg.geology.to_mapping(),
             config_path=config_path,
             zone_key_column="zone_key",

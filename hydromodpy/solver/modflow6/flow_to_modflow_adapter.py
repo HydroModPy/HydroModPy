@@ -16,7 +16,7 @@ from hydromodpy.core.units.volumetric_flow import (
     normalize_m3_per_s_unit,
 )
 from hydromodpy.physics.flow.time_forcing import resolve_period_values_from_forcing
-from hydromodpy.solver.modflow_common.forcing_discretization import (
+from hydromodpy.solver.modflow6.common.forcing_discretization import (
     discretize_spatially_distributed_source,
     has_spatially_distributed_source,
 )

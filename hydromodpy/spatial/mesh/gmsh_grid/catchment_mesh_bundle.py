@@ -25,11 +25,7 @@ from shapely.geometry import LineString, Point
 from shapely.ops import unary_union
 
 from hydromodpy.core.units.hydraulic_conductivity import parse_to_m_per_s
-from hydromodpy.data.variables.geology.io import (
-    load_geology_encoded_grid_on_raster_support,
-    resolve_data_path,
-)
-from hydromodpy.data.variables.geology.processing import normalize_zone_key
+from hydromodpy.spatial._protocols import get_geology_data_source
 from hydromodpy.spatial.domain.depth_model_config import (
     ConstantThicknessDepthModel,
     FlatSubstratumDepthModel,
@@ -139,7 +135,7 @@ def _load_zone_value_mapping_csv(
 
         values: dict[str, float] = {}
         for line_number, row in enumerate(reader, start=2):
-            key = normalize_zone_key(row.get(key_col, ""))
+            key = get_geology_data_source().normalize_zone_key(row.get(key_col, ""))
             if key == "":
                 continue
             if key in values:
@@ -182,7 +178,7 @@ def _normalize_property_mapping_values(
     """Normalize one inline or CSV-derived mapping keyed by geology zone."""
     out: dict[str, float] = {}
     for raw_key, raw_value in dict(raw_values).items():
-        key = normalize_zone_key(raw_key)
+        key = get_geology_data_source().normalize_zone_key(raw_key)
         if key == "":
             raise ValueError(f"{label_prefix} contains one empty geology key.")
         if key in out:
@@ -255,7 +251,7 @@ def _build_fractions_by_cell(
     out: dict[int, list[tuple[str, float]]] = {}
     for row in fraction_rows:
         cell_id = int(row.cell_id)
-        zone_key = normalize_zone_key(row.geology_key)
+        zone_key = get_geology_data_source().normalize_zone_key(row.geology_key)
         fraction = float(row.fraction)
         if zone_key == "" or fraction <= 0.0:
             continue
@@ -275,7 +271,7 @@ def _compute_weighted_cell_property_values(
         return tuple(None for _ in range(int(n_cells))), []
 
     values_by_zone_key = {
-        normalize_zone_key(key): float(value)
+        get_geology_data_source().normalize_zone_key(key): float(value)
         for key, value in dict(property_payload.values_by_zone_key).items()
     }
     default_value = property_payload.default_value
@@ -290,7 +286,7 @@ def _compute_weighted_cell_property_values(
             dominant_key = (
                 ""
                 if cell_idx >= len(cell_zone_keys)
-                else normalize_zone_key(cell_zone_keys[cell_idx])
+                else get_geology_data_source().normalize_zone_key(cell_zone_keys[cell_idx])
             )
             fractions = [] if dominant_key == "" else [(dominant_key, 1.0)]
 
@@ -485,13 +481,13 @@ def _resolve_geology_config_paths(
         source_cfg["code_field"] = geology_cfg.source.code_field
     if geology_cfg.source.reference_raster_path is not None:
         source_cfg["reference_raster_path"] = geology_cfg.source.reference_raster_path
-    source_cfg["path"] = resolve_data_path(
+    source_cfg["path"] = get_geology_data_source().resolve_data_path(
         str(source_cfg["path"]),
         config_path=config_path,
     )
     reference_raster_path = source_cfg.get("reference_raster_path")
     if reference_raster_path is not None:
-        source_cfg["reference_raster_path"] = resolve_data_path(
+        source_cfg["reference_raster_path"] = get_geology_data_source().resolve_data_path(
             str(reference_raster_path),
             config_path=config_path,
         )
@@ -499,7 +495,7 @@ def _resolve_geology_config_paths(
 
     clip_polygon_path = cfg.get("clip_polygon_path")
     if clip_polygon_path:
-        cfg["clip_polygon_path"] = resolve_data_path(
+        cfg["clip_polygon_path"] = get_geology_data_source().resolve_data_path(
             str(clip_polygon_path),
             config_path=config_path,
         )
@@ -507,7 +503,7 @@ def _resolve_geology_config_paths(
     landsea_cfg = dict(cfg.get("landsea", {}))
     landsea_path = landsea_cfg.get("path")
     if landsea_path:
-        landsea_cfg["path"] = resolve_data_path(
+        landsea_cfg["path"] = get_geology_data_source().resolve_data_path(
             str(landsea_path),
             config_path=config_path,
         )
@@ -535,7 +531,7 @@ def _compute_geology_payload(
         raise ValueError("surface_topo.support is required to project geology on mesh")
 
     resolved_cfg = _resolve_geology_config_paths(geology_cfg, config_path=config_path)
-    loaded = load_geology_encoded_grid_on_raster_support(
+    loaded = get_geology_data_source().load_encoded_grid_on_raster_support(
         resolved_cfg,
         raster_support=support,
     )

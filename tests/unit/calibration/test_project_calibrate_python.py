@@ -83,7 +83,7 @@ class _FakeProject:
 @pytest.fixture
 def fake_pipeline(monkeypatch, tmp_path):
     """Monkey-patch prepare_trials + promote_trial so calls run in seconds."""
-    from hydromodpy.simulation.execution.trial import TrialContext
+    from hydromodpy.calibration.runners.trial import TrialContext
 
     promoted: list[dict] = []
 

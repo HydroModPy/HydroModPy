@@ -1,10 +1,10 @@
 """
-Surface-driven structured-grid generation for FloPy.
+Surface-driven structured-grid generation.
 
 Overview
 --------
-This module builds a FloPy ``StructuredGrid`` from two absolute-elevation
-surfaces:
+This module builds a HydroModPy-native ``StructuredGridSpec`` from two
+absolute-elevation surfaces:
 - one topographic surface (`top_surface`),
 - one bottom surface (`bottom_surface`).
 
@@ -15,30 +15,57 @@ Design responsibilities
 - This builder handles only:
   - geometric consistency checks for vertical construction,
   - vertical layering (`constant`, `decay`, `list`),
-  - assembly of FloPy `StructuredGrid`.
+  - assembly of a `StructuredGridSpec` POPO.
 
 Important convention
 --------------------
 `top_surface` and `bottom_surface` are absolute altitudes in the same datum.
 No additive combination is done between the two surfaces.
 HydroModPy assumes metric geometry throughout this workflow.
+
+FloPy is intentionally not imported here. Translation to a
+``flopy.discretization.StructuredGrid`` is performed at the solver boundary by
+``hydromodpy.solver.modflow_common.sgrid_to_flopy.translate``.
 """
 
 from __future__ import annotations
 
 from collections.abc import Mapping
+from dataclasses import dataclass
+from typing import Any
 
 import numpy as np
-from flopy.discretization import StructuredGrid
 
 from hydromodpy.spatial.surface import Surface
 
 from .sgrid_config import VerticalGridConfig
 
 
+@dataclass(frozen=True)
+class StructuredGridSpec:
+    """HydroModPy-native structured-grid descriptor (no FloPy dependency).
+
+    ``xvertices`` and ``yvertices`` follow the MODFLOW convention: row 0 is
+    the top of the grid (largest y), row ``nrow`` is the bottom (``yoff``).
+    """
+
+    delc: np.ndarray
+    delr: np.ndarray
+    top: np.ndarray
+    botm: np.ndarray
+    xoff: float
+    yoff: float
+    nlay: int
+    nrow: int
+    ncol: int
+    xvertices: np.ndarray
+    yvertices: np.ndarray
+    crs: Any = None
+
+
 class StructuredGridBuilder:
     """
-    Build FloPy `StructuredGrid` objects from explicit top/bottom surfaces.
+    Build `StructuredGridSpec` objects from explicit top/bottom surfaces.
     """
 
     def __init__(self):
@@ -50,14 +77,14 @@ class StructuredGridBuilder:
         top_surface: Surface,
         bottom_surface: Surface,
         vertical_config: VerticalGridConfig | Mapping[str, object] | None = None,
-    ) -> StructuredGrid:
+    ) -> StructuredGridSpec:
         """
         Build one structured grid from two absolute-elevation surfaces.
 
         The method intentionally separates three steps:
         1. Validate horizontal/geometric compatibility of inputs.
         2. Compute vertical layer proportions.
-        3. Build `botm` and return a FloPy `StructuredGrid`.
+        3. Build `botm` and return a `StructuredGridSpec`.
         """
         cfg = _coerce_vertical_config(vertical_config)
 
@@ -98,7 +125,7 @@ class StructuredGridBuilder:
             lay_proportions=cfg.lay_proportions,
         )
 
-        # 3) Build layer bottoms and FloPy grid.
+        # 3) Build layer bottoms and assemble the StructuredGridSpec.
         botm = self._build_botm(top=top, bot=bot, nodata=nodata, allp=allp)
 
         nrow = int(support.nrows)
@@ -115,17 +142,20 @@ class StructuredGridBuilder:
 
         delr = np.full(ncol, dx, dtype=float)
         delc = np.full(nrow, dy, dtype=float)
+        xvertices, yvertices = _structured_vertices(delr=delr, delc=delc, xoff=xmin, yoff=ymin)
 
-        return StructuredGrid(
+        return StructuredGridSpec(
             delc=delc,
             delr=delr,
             top=top,
             botm=botm,
             xoff=xmin,
             yoff=ymin,
-            nlay=nlay,
+            nlay=int(nlay),
             nrow=nrow,
             ncol=ncol,
+            xvertices=xvertices,
+            yvertices=yvertices,
             crs=support.crs,
         )
 
@@ -236,3 +266,24 @@ def _coerce_vertical_config(
     if isinstance(vertical_config, Mapping):
         return VerticalGridConfig.from_mapping(vertical_config)
     raise TypeError("vertical_config must be None, VerticalGridConfig, or a mapping of values.")
+
+
+def _structured_vertices(
+    *,
+    delr: np.ndarray,
+    delc: np.ndarray,
+    xoff: float,
+    yoff: float,
+) -> tuple[np.ndarray, np.ndarray]:
+    """Build (xvertices, yvertices) following the MODFLOW convention.
+
+    Row 0 of ``yvertices`` carries the top of the grid (largest y); row
+    ``nrow`` carries ``yoff``. Shapes are (nrow + 1, ncol + 1).
+    """
+    delr_arr = np.asarray(delr, dtype=float).reshape(-1)
+    delc_arr = np.asarray(delc, dtype=float).reshape(-1)
+    x_edges = float(xoff) + np.concatenate(([0.0], np.cumsum(delr_arr)))
+    total_dy = float(np.sum(delc_arr))
+    y_edges = (float(yoff) + total_dy) - np.concatenate(([0.0], np.cumsum(delc_arr)))
+    xvertices, yvertices = np.meshgrid(x_edges, y_edges, indexing="xy")
+    return np.asarray(xvertices, dtype=float), np.asarray(yvertices, dtype=float)
