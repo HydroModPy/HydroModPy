@@ -1,37 +1,21 @@
-"""Recharge manager: orchestrates custom, SIM2 API, and synthetic loading."""
+"""Recharge manager: custom, SIM2 EDR, and synthetic generation."""
 
 from __future__ import annotations
 
-from hydromodpy.data.base_manager_field import BaseFieldManager
-from hydromodpy.data.variables.recharge.config import RechargeSourceConfig
+from typing import Any
+
+from hydromodpy.data.contracts.spatial_field import FieldRecord
+from hydromodpy.data.contracts.timeseries import PointRecord
+from hydromodpy.data.variables._sim2_field_manager import Sim2BackedFieldManager
 
 
-class RechargeManager(BaseFieldManager):
-    """Multi-source recharge manager.
-
-    Loads recharge data from custom CSV, SIM2 EDR API, or synthetic generation.
-    Returns PointRecord for point/mean data, FieldRecord for gridded.
-    """
-
+class RechargeManager(Sim2BackedFieldManager):
     VARIABLE_NAME = "recharge"
     INTERNAL_UNIT = "mm/day"
 
-    def _fetch_from_source(self, source_cfg: RechargeSourceConfig):
-        if source_cfg.source == "custom":
-            from hydromodpy.data.variables.recharge.custom import load_custom
-
-            records = load_custom(
-                source_cfg,
-                project_period=self.project_period,
-                internal_unit=self.INTERNAL_UNIT,
-            )
-            return self._handle_custom_results(records, source_cfg)
-        elif source_cfg.source == "sim2":
-            from hydromodpy.data.variables.recharge.apis.sim2 import fetch
-
-            return self._load_or_fetch_fields(source_cfg, "sim2", fetch)
-        elif source_cfg.source == "synthetic":
+    def _fetch_from_source(self, source_cfg: Any) -> list[FieldRecord | PointRecord]:
+        if source_cfg.source == "synthetic":
             from hydromodpy.data.variables.recharge.synthetic import generate
 
             return generate(source_cfg, project_period=self.project_period)
-        raise ValueError(f"Unknown recharge source: {source_cfg.source}")
+        return super()._fetch_from_source(source_cfg)
