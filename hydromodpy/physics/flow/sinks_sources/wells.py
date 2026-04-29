@@ -16,6 +16,7 @@ from pydantic import ConfigDict, Field, field_validator, model_validator
 
 from hydromodpy.core.config.base import HydroModelBase
 from hydromodpy.core.config.profile import Profile
+from hydromodpy.core.units import FlowRate
 from hydromodpy.core.units.volumetric_flow import normalize_m3_per_s_unit
 
 if TYPE_CHECKING:
@@ -27,17 +28,10 @@ class FlowWellForcingConstantConfig(HydroModelBase):
 
     model_config = ConfigDict(extra="forbid")
 
-    value: Annotated[float, Profile.USER] = Field(
+    value: Annotated[FlowRate, Profile.USER] = Field(
         ...,
         description="Constant well rate in the same units as the parent well.",
     )
-
-    @field_validator("value", mode="before")
-    @classmethod
-    def _validate_value(cls, value):
-        if isinstance(value, bool) or not isinstance(value, Real):
-            raise TypeError("well.forcing.value must be numeric")
-        return float(value)
 
 
 class FlowWellForcingCsvConfig(HydroModelBase):

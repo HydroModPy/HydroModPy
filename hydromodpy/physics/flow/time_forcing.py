@@ -89,7 +89,9 @@ def resolve_period_values_from_forcing(
 
     mode = getattr(forcing, "mode", None)
     if mode == "constant":
-        return [float(forcing.as_constant().value)] * int(nper)
+        constant_value = forcing.as_constant().value
+        magnitude = getattr(constant_value, "magnitude", constant_value)
+        return [float(magnitude)] * int(nper)
 
     if simulation_window is None:
         raise ValueError(f"{label}: simulation.time is required to resolve non-constant forcing.")

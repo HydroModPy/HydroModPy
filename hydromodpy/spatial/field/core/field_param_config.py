@@ -26,11 +26,11 @@ from pydantic import (
 
 from hydromodpy.core.config.base import HydroModelBase
 from hydromodpy.core.config.profile import Profile
+from hydromodpy.core.units import Length
 from hydromodpy.core.units.hydraulic_conductivity import (
     M_PER_S_CANONICAL_UNITS,
     normalize_m_per_s_unit,
 )
-from hydromodpy.core.units.length import parse_length_to_m
 
 SUPPORTED_FIELD_KINDS = ("homogeneous", "heterogeneous")
 SUPPORTED_HETEROGENEOUS_VALUE_SOURCES = ("inline", "csv")
@@ -309,8 +309,9 @@ class FieldVerticalProfileSection(HydroModelBase):
             "Allowed values: 'none', 'exponential', 'tabulated'."
         ),
     )
-    characteristic_depth: Annotated[float | None, Profile.DEV] = Field(
+    characteristic_depth: Annotated[Length | None, Profile.DEV] = Field(
         default=None,
+        gt=0.0,
         description=(
             "Characteristic depth for exponential mode. "
             "Vertical factor is exp(-depth/characteristic_depth)."
@@ -351,20 +352,6 @@ class FieldVerticalProfileSection(HydroModelBase):
                 f"Unsupported field_vertical_profile.mode '{value}'. Allowed: {allowed}"
             )
         return key
-
-    @field_validator("characteristic_depth", mode="before")
-    @classmethod
-    def _validate_characteristic_depth(cls, value):
-        if value is None:
-            return None
-        numeric = parse_length_to_m(
-            value,
-            default_unit="m",
-            label="field_vertical_profile.characteristic_depth",
-        )
-        if numeric <= 0.0:
-            raise ValueError("field_vertical_profile.characteristic_depth must be > 0")
-        return numeric
 
     @field_validator("min_factor")
     @classmethod

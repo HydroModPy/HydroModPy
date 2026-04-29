@@ -352,9 +352,9 @@ class FlowToModflowAdapter:
         elif initial_type == "bottom":
             strt = np.ones((self.nlay, self.nrow, self.ncol), dtype=float) * self.bottom_layer
         elif initial_type == "custom":
-            strt = np.ones((self.nlay, self.nrow, self.ncol), dtype=float) * float(
-                initial_condition.value
-            )
+            head_value = initial_condition.value
+            head_magnitude = getattr(head_value, "magnitude", head_value)
+            strt = np.ones((self.nlay, self.nrow, self.ncol), dtype=float) * float(head_magnitude)
         else:
             raise ValueError("flow.initial_conditions.h.type must be one of: top, bottom, custom")
 
@@ -429,9 +429,11 @@ class FlowToModflowAdapter:
         if getattr(forcing, "mode", None) != "constant":
             return False
         try:
-            return self._is_scalar_number(forcing.as_constant().value)
+            constant_value = forcing.as_constant().value
         except Exception:
             return False
+        magnitude = getattr(constant_value, "magnitude", constant_value)
+        return self._is_scalar_number(magnitude)
 
     def _normalize_boundary_series(
         self,
@@ -1099,8 +1101,14 @@ class FlowToModflowAdapter:
         if etp_cfg is None:
             return None, 2.0, 1.0
 
-        surface_offset = float(getattr(etp_cfg, "surface_offset", 2.0))
-        extinction_depth = float(getattr(etp_cfg, "extinction_depth", 1.0))
+        surface_offset_q = getattr(etp_cfg, "surface_offset", None)
+        surface_offset = (
+            2.0 if surface_offset_q is None else float(surface_offset_q.to("m").magnitude)
+        )
+        extinction_depth_q = getattr(etp_cfg, "extinction_depth", None)
+        extinction_depth = (
+            1.0 if extinction_depth_q is None else float(extinction_depth_q.to("m").magnitude)
+        )
 
         het_source = getattr(etp_cfg, "heterogeneous_source", None)
         if het_source is not None and (

@@ -25,7 +25,7 @@ from pydantic import ConfigDict, Field, model_validator
 
 from hydromodpy.core.config.base import HydroModelBase
 from hydromodpy.core.config.profile import Profile
-from hydromodpy.core.units import check_unit_compatible
+from hydromodpy.core.units import Length, check_unit_compatible
 from hydromodpy.physics.base import InitialCondition as BaseInitialCondition
 
 
@@ -54,7 +54,7 @@ class FlowInitialCondition(BaseInitialCondition):
             "'top' means a full aquifer, 'bottom' means an empty aquifer."
         ),
     )
-    value: Annotated[float | None, Profile.USER] = Field(
+    value: Annotated[Length | None, Profile.USER] = Field(
         None,
         description="Initial hydraulic-head value. Required when type='custom'.",
     )

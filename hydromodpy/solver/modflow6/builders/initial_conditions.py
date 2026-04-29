@@ -54,9 +54,11 @@ def build_start_heads(model, solver_mesh) -> np.ndarray:
     elif initial_type in {"bot", "bottom"}:
         strt = np.tile(botm_flat[-1], (model.nlay, 1))
     elif initial_type == "custom":
+        head_value = initial_condition_field(h_ic, "value")
+        head_magnitude = getattr(head_value, "magnitude", head_value)
         strt = np.full(
             (model.nlay, ncpl),
-            float(initial_condition_field(h_ic, "value")),
+            float(head_magnitude),
             dtype=float,
         )
     else:

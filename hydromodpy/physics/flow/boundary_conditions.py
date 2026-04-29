@@ -32,7 +32,7 @@ from pydantic import ConfigDict, Field, field_validator, model_validator
 
 from hydromodpy.core.config.base import HydroModelBase
 from hydromodpy.core.config.profile import Profile
-from hydromodpy.core.units import canonical_unit_short_form, check_unit_compatible
+from hydromodpy.core.units import Length, canonical_unit_short_form, check_unit_compatible
 
 ALLOWED_BC_APPLICATION_DOMAINS = {
     "top",
@@ -80,17 +80,10 @@ class FlowBoundaryForcingConstantConfig(HydroModelBase):
 
     model_config = ConfigDict(extra="forbid")
 
-    value: Annotated[float, Profile.USER] = Field(
+    value: Annotated[Length, Profile.USER] = Field(
         ...,
         description="Constant boundary head in the same units as the parent boundary.",
     )
-
-    @field_validator("value", mode="before")
-    @classmethod
-    def _validate_value(cls, value):
-        if isinstance(value, bool) or not isinstance(value, Real):
-            raise TypeError("boundary.forcing.value must be numeric")
-        return float(value)
 
 
 class FlowBoundaryForcingCsvConfig(HydroModelBase):

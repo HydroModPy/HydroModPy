@@ -25,7 +25,7 @@ def test_normalize_flow_initial_conditions_accepts_inline_unit() -> None:
         }
     )
     assert initial_conditions is not None
-    assert initial_conditions.h.value == pytest.approx(1.25)
+    assert initial_conditions.h.value.to("m").magnitude == pytest.approx(1.25)
     assert initial_conditions.h.units == "m"
 
 

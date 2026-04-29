@@ -18,6 +18,7 @@ from pydantic import ConfigDict, Field, ValidationError, field_validator, model_
 
 from hydromodpy.core.config.base import HydroModelBase
 from hydromodpy.core.config.profile import Profile
+from hydromodpy.core.units import Length
 from hydromodpy.data.variables.geology.config import GeologyConfigBlock
 from hydromodpy.spatial.mesh.gmsh_grid.zone_meshing.config import (
     ZoneMeshingSettingsSchema,
@@ -75,7 +76,7 @@ class MeshCatchmentRiversConfig(HydroModelBase):
             "the chosen domain or scope."
         ),
     )
-    min_segment_length: Annotated[float, Profile.USER] = Field(
+    min_segment_length: Annotated[Length, Profile.USER] = Field(
         default=0.0,
         ge=0.0,
         description=(
@@ -84,7 +85,7 @@ class MeshCatchmentRiversConfig(HydroModelBase):
             "that would only add mesh complexity without hydraulic meaning."
         ),
     )
-    snap_tolerance: Annotated[float, Profile.USER] = Field(
+    snap_tolerance: Annotated[Length, Profile.USER] = Field(
         default=0.0,
         ge=0.0,
         description=(
@@ -130,7 +131,7 @@ class MeshCatchmentWatershedBoundarySmoothingConfig(HydroModelBase):
             "If true, apply the smoothing controls below before converting the watershed boundary into one linear constraint."
         ),
     )
-    distance: Annotated[float | None, Profile.DEV] = Field(
+    distance: Annotated[Length | None, Profile.DEV] = Field(
         default=None,
         ge=0.0,
         description=(
@@ -139,7 +140,7 @@ class MeshCatchmentWatershedBoundarySmoothingConfig(HydroModelBase):
             "When omitted, the mesher reuses zone_meshing.global_size."
         ),
     )
-    river_buffer_distance: Annotated[float | None, Profile.DEV] = Field(
+    river_buffer_distance: Annotated[Length | None, Profile.DEV] = Field(
         default=None,
         ge=0.0,
         description=(
@@ -147,7 +148,7 @@ class MeshCatchmentWatershedBoundarySmoothingConfig(HydroModelBase):
             "polygon before smoothing so the final watershed boundary stays slightly outside river corridors near the basin edge."
         ),
     )
-    outer_bias_distance: Annotated[float | None, Profile.DEV] = Field(
+    outer_bias_distance: Annotated[Length | None, Profile.DEV] = Field(
         default=None,
         ge=0.0,
         description=(
@@ -177,7 +178,7 @@ class MeshCatchmentWatershedOutsideCoarseningConfig(HydroModelBase):
             "Use 2.0 for an outside background roughly twice as coarse as the internal baseline."
         ),
     )
-    transition_distance: Annotated[float | None, Profile.DEV] = Field(
+    transition_distance: Annotated[Length | None, Profile.DEV] = Field(
         default=None,
         ge=0.0,
         description=(
@@ -185,7 +186,7 @@ class MeshCatchmentWatershedOutsideCoarseningConfig(HydroModelBase):
             "to the coarser outside size away from the watershed boundary."
         ),
     )
-    grid_resolution: Annotated[float | None, Profile.DEV] = Field(
+    grid_resolution: Annotated[Length | None, Profile.DEV] = Field(
         default=None,
         gt=0.0,
         description=(
@@ -209,7 +210,7 @@ class MeshCatchmentWatershedGeologyConformityConfig(HydroModelBase):
             "without creating one strict partition boundary on that envelope."
         ),
     )
-    buffer_distance: Annotated[float | None, Profile.DEV] = Field(
+    buffer_distance: Annotated[Length | None, Profile.DEV] = Field(
         default=None,
         ge=0.0,
         description=(
@@ -241,7 +242,7 @@ class MeshCatchmentWatershedBoundaryConfig(HydroModelBase):
             "and/or river constraints."
         ),
     )
-    boundary_refinement_distance: Annotated[float | None, Profile.DEV] = Field(
+    boundary_refinement_distance: Annotated[Length | None, Profile.DEV] = Field(
         default=None,
         ge=0.0,
         description=(
@@ -412,19 +413,12 @@ class MeshCatchmentHydraulicConductivity(MeshCatchmentHydraulicPropertyMapping):
 
     unit: Annotated[str, Profile.DEV] = Field(
         default="m/s",
+        min_length=1,
         description=(
             "Input unit used by conductivity values. "
             "Exported bundle values are always converted to `m/s`."
         ),
     )
-
-    @field_validator("unit")
-    @classmethod
-    def _validate_unit(cls, value: object) -> str:
-        text = str(value).strip()
-        if text == "":
-            raise ValueError("conductivity.unit cannot be empty.")
-        return text
 
 
 class MeshCatchmentStorageCoefficient(MeshCatchmentHydraulicPropertyMapping):
