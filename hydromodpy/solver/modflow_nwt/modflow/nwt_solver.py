@@ -17,7 +17,7 @@ import numpy as np
 import rasterio
 from tqdm import tqdm
 
-from hydromodpy.solver.modflow_common.binary_reader import (
+from hydromodpy.solver.modflow_nwt.common.binary_reader import (
     open_cell_budget_file,
     open_head_file,
 )

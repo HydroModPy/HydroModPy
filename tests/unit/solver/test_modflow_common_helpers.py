@@ -5,6 +5,10 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
+from hydromodpy.solver.modflow6.common.forcing_discretization import (
+    broadcast_to_stress_periods,
+    stress_period_axes,
+)
 from hydromodpy.solver.modflow_common.boundary_packages import (
     BoundaryCell,
     DisvBoundaryCell,
@@ -18,10 +22,6 @@ from hydromodpy.solver.modflow_common.flow_translator import (
     BoundaryKind,
     resolve_package,
     resolve_packages,
-)
-from hydromodpy.solver.modflow_common.forcing_discretization import (
-    broadcast_to_stress_periods,
-    stress_period_axes,
 )
 
 
