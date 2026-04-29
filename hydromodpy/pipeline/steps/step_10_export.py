@@ -18,7 +18,7 @@ from __future__ import annotations
 
 from typing import ClassVar
 
-from hydromodpy.pipeline.state import DerivedState, ExportedState, PipelineState
+from hydromodpy.workflow.internals.state import DerivedState, ExportedState, PipelineState
 
 
 class ExportStep:

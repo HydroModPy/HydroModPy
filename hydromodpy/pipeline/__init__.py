@@ -11,10 +11,10 @@ The pipeline writes a DuckDB ``steps`` ledger and optionally serializes
 
 from __future__ import annotations
 
-from hydromodpy.pipeline import derived
-from hydromodpy.pipeline.derived import DerivedRegistry
 from hydromodpy.pipeline.pipeline import Pipeline
-from hydromodpy.pipeline.state import (
+from hydromodpy.workflow.internals import derived
+from hydromodpy.workflow.internals.derived import DerivedRegistry
+from hydromodpy.workflow.internals.state import (
     DerivedState,
     ExportedState,
     ExtractedState,
@@ -27,7 +27,7 @@ from hydromodpy.pipeline.state import (
     SolverRanState,
     ValidatedState,
 )
-from hydromodpy.pipeline.step import Step
+from hydromodpy.workflow.internals.step import Step
 
 __all__ = (
     "DerivedRegistry",

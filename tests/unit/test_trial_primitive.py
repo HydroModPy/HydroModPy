@@ -32,8 +32,8 @@ from hydromodpy.calibration.runners.trial import (
     run_trial_light,
 )
 from hydromodpy.core.state.execution import ExecutionRegistry
-from hydromodpy.pipeline.state import PipelineState
-from hydromodpy.pipeline.step import Step  # noqa: F401
+from hydromodpy.workflow.internals.state import PipelineState
+from hydromodpy.workflow.internals.step import Step  # noqa: F401
 
 # ---------------------------------------------------------------------------
 # Tiny cfg/ctx doubles that look enough like the real thing for the tests

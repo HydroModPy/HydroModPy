@@ -21,8 +21,8 @@ from __future__ import annotations
 import logging
 from typing import ClassVar
 
-from hydromodpy.pipeline.derived import registry as _default_registry
-from hydromodpy.pipeline.state import DerivedState, ExtractedState, PipelineState
+from hydromodpy.workflow.internals.derived import registry as _default_registry
+from hydromodpy.workflow.internals.state import DerivedState, ExtractedState, PipelineState
 
 logger = logging.getLogger(__name__)
 

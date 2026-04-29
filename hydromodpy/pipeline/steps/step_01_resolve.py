@@ -23,7 +23,7 @@ import tomllib
 from pathlib import Path
 from typing import ClassVar
 
-from hydromodpy.pipeline.state import PipelineState, ResolvedState, ValidatedState
+from hydromodpy.workflow.internals.state import PipelineState, ResolvedState, ValidatedState
 
 
 class ResolveStep:

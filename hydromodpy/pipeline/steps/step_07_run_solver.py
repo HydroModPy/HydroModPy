@@ -22,7 +22,7 @@ from __future__ import annotations
 import time
 from typing import ClassVar
 
-from hydromodpy.pipeline.state import OpenStoreState, PipelineState, SolverRanState
+from hydromodpy.workflow.internals.state import OpenStoreState, PipelineState, SolverRanState
 
 
 class RunSolverStep:

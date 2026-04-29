@@ -13,15 +13,15 @@ from dataclasses import dataclass
 import numpy as np
 import pytest
 
-from hydromodpy.pipeline.derived import (
+from hydromodpy.pipeline.steps.step_09_derive import DeriveStep
+from hydromodpy.results.zarr_store import SimulationZarr
+from hydromodpy.workflow.internals.derived import (
     DerivedComputation,
     DerivedRegistry,
     DerivedResult,
     registry,
 )
-from hydromodpy.pipeline.state import PipelineState
-from hydromodpy.pipeline.steps.step_09_derive import DeriveStep
-from hydromodpy.results.zarr_store import SimulationZarr
+from hydromodpy.workflow.internals.state import PipelineState
 
 # ---------------------------------------------------------------------------
 # Helpers

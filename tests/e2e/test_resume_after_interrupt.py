@@ -14,7 +14,7 @@ from pathlib import Path
 from typing import Any
 
 from hydromodpy.pipeline.pipeline import Pipeline
-from hydromodpy.pipeline.state import PipelineState
+from hydromodpy.workflow.internals.state import PipelineState
 
 
 @dataclass

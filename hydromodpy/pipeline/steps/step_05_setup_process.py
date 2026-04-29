@@ -20,7 +20,7 @@ from __future__ import annotations
 
 from typing import ClassVar
 
-from hydromodpy.pipeline.state import MeshedState, PipelineState, SetupState
+from hydromodpy.workflow.internals.state import MeshedState, PipelineState, SetupState
 
 
 class SetupProcessStep:

@@ -20,7 +20,7 @@ from __future__ import annotations
 
 from typing import ClassVar
 
-from hydromodpy.pipeline.state import ExtractedState, PipelineState, SolverRanState
+from hydromodpy.workflow.internals.state import ExtractedState, PipelineState, SolverRanState
 
 
 class ExtractStep:

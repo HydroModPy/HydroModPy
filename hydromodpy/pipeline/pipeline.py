@@ -22,12 +22,12 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from hydromodpy.core.exceptions import StepError
-from hydromodpy.pipeline.state import PipelineState
-from hydromodpy.pipeline.step import Step
+from hydromodpy.workflow.internals.state import PipelineState
+from hydromodpy.workflow.internals.step import Step
 
 if TYPE_CHECKING:
-    from hydromodpy.pipeline.checkpoint import CheckpointStore
-    from hydromodpy.pipeline.ledger import StepsLedger
+    from hydromodpy.workflow.internals.checkpoint import CheckpointStore
+    from hydromodpy.workflow.internals.ledger import StepsLedger
 
 logger = logging.getLogger(__name__)
 
@@ -57,9 +57,9 @@ class Pipeline:
         resume_from: int | None = None,
     ) -> PipelineState:
         """Execute steps sequentially from ``resume_from`` (default 0)."""
-        from hydromodpy.pipeline.checkpoint import CheckpointStore
-        from hydromodpy.pipeline.ledger import StepsLedger
         from hydromodpy.solver.base import registry as solver_registry
+        from hydromodpy.workflow.internals.checkpoint import CheckpointStore
+        from hydromodpy.workflow.internals.ledger import StepsLedger
 
         # Load any third-party solver adapters declared via the
         # ``hydromodpy.solver`` entry-points group. Idempotent: calling this

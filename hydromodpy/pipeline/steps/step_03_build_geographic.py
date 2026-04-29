@@ -18,7 +18,7 @@ from __future__ import annotations
 
 from typing import ClassVar
 
-from hydromodpy.pipeline.state import LoadedState, MeshedState, PipelineState
+from hydromodpy.workflow.internals.state import LoadedState, MeshedState, PipelineState
 
 
 class BuildGeographicStep:

@@ -25,7 +25,7 @@ from __future__ import annotations
 import logging
 from typing import ClassVar
 
-from hydromodpy.pipeline.state import ExportedState, PipelineState
+from hydromodpy.workflow.internals.state import ExportedState, PipelineState
 
 logger = logging.getLogger(__name__)
 

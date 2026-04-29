@@ -16,7 +16,7 @@ from __future__ import annotations
 
 from typing import ClassVar
 
-from hydromodpy.pipeline.state import LoadedState, PipelineState, ResolvedState
+from hydromodpy.workflow.internals.state import LoadedState, PipelineState, ResolvedState
 
 
 class LoadDataStep:

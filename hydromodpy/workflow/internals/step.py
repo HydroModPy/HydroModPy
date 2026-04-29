@@ -1,7 +1,7 @@
 """Pipeline step protocol.
 
 A step is a callable with a stable ``name`` that transforms an input
-:class:`~hydromodpy.pipeline.state.PipelineState` into an output state.
+:class:`~hydromodpy.workflow.internals.state.PipelineState` into an output state.
 
 The protocol is generic over the input/output payload types ``TIn`` and
 ``TOut`` so that statically-checked steps can declare:
@@ -21,7 +21,7 @@ The protocol is generic over the input/output payload types ``TIn`` and
 Steps may also declare a ``config_sections`` class variable listing the
 dotted TOML subtrees they read from. The attribute is *optional* on the
 ``Step`` protocol (absent steps are treated as consuming nothing) and is
-consumed by :func:`hydromodpy.pipeline.dependencies.earliest_affected_step`
+consumed by :func:`hydromodpy.workflow.internals.dependencies.earliest_affected_step`
 to decide which steps must re-run when a calibration overrides a specific
 field.
 
@@ -33,7 +33,7 @@ from __future__ import annotations
 
 from typing import Any, ClassVar, Protocol, TypeVar, runtime_checkable
 
-from hydromodpy.pipeline.state import PipelineState
+from hydromodpy.workflow.internals.state import PipelineState
 
 TIn = TypeVar("TIn", contravariant=True)
 TOut = TypeVar("TOut", covariant=True)

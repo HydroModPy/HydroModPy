@@ -21,8 +21,8 @@ import pytest
 
 from hydromodpy.core.exceptions import StepError
 from hydromodpy.pipeline import Pipeline, PipelineState
-from hydromodpy.pipeline.checkpoint import CheckpointStore
-from hydromodpy.pipeline.ledger import StepsLedger
+from hydromodpy.workflow.internals.checkpoint import CheckpointStore
+from hydromodpy.workflow.internals.ledger import StepsLedger
 
 # ---------------------------------------------------------------------------
 # Synthetic 11-step workflow mirroring the canonical names of the real

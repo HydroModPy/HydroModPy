@@ -11,8 +11,8 @@ from typing import ClassVar
 
 import pytest
 
-from hydromodpy.pipeline.dependencies import earliest_affected_step
 from hydromodpy.pipeline.steps import standard_steps
+from hydromodpy.workflow.internals.dependencies import earliest_affected_step
 
 
 class _StubStep:

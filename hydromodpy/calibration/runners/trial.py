@@ -35,13 +35,13 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any, Literal
 
 from hydromodpy.core.state.execution import ExecutionRegistry
-from hydromodpy.pipeline.dependencies import earliest_affected_step
-from hydromodpy.pipeline.state import PipelineState
+from hydromodpy.workflow.internals.dependencies import earliest_affected_step
+from hydromodpy.workflow.internals.state import PipelineState
 
 if TYPE_CHECKING:
     from hydromodpy.core.config.hydromodpy_config import HydroModPyConfig
     from hydromodpy.core.state.run_state import WorkflowContext
-    from hydromodpy.pipeline.step import Step
+    from hydromodpy.workflow.internals.step import Step
 
 logger = logging.getLogger(__name__)
 

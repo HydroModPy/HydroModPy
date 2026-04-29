@@ -16,7 +16,7 @@ from dataclasses import replace
 from pathlib import Path
 from typing import Any
 
-from hydromodpy.pipeline.state import PipelineState
+from hydromodpy.workflow.internals.state import PipelineState
 
 logger = logging.getLogger(__name__)
 

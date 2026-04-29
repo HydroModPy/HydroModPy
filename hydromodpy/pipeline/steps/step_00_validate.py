@@ -20,7 +20,7 @@ import tomllib
 from pathlib import Path
 from typing import ClassVar
 
-from hydromodpy.pipeline.state import PipelineState, ValidatedState
+from hydromodpy.workflow.internals.state import PipelineState, ValidatedState
 
 
 class ValidateStep:

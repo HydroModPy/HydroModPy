@@ -18,7 +18,7 @@ from __future__ import annotations
 
 from typing import ClassVar
 
-from hydromodpy.pipeline.state import OpenStoreState, PipelineState, SetupState
+from hydromodpy.workflow.internals.state import OpenStoreState, PipelineState, SetupState
 
 
 class PrepareSolverStep:

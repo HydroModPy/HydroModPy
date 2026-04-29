@@ -15,8 +15,8 @@ from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import MagicMock
 
-from hydromodpy.pipeline.state import PipelineState
 from hydromodpy.pipeline.steps.step_11_display import DisplayStep
+from hydromodpy.workflow.internals.state import PipelineState
 
 
 def _make_ctx(*, enabled: bool, figures: list[str], project_root: Path) -> SimpleNamespace:
