@@ -10,6 +10,7 @@ from hydromodpy.solver.modflow_common.grid_context import (
     SolverGridContext,
     grid_reference_from_solver_mesh,
 )
+from hydromodpy.solver.modflow_common.sgrid_to_flopy import translate as sgrid_spec_to_flopy
 from hydromodpy.solver.modflow_common.solver_mesh import SolverMesh
 from hydromodpy.spatial.mesh.cartesian_grid.sgrid_config import (
     PlanarGridConfig,
@@ -207,11 +208,12 @@ def build_spatial_discretization(
         )
         top = np.asarray(top_surface.as_array(), dtype=float)
         bottom = np.asarray(bottom_surface.as_array(), dtype=float)
-        sgrid = StructuredGridBuilder().build_from_surfaces(
+        sgrid_spec = StructuredGridBuilder().build_from_surfaces(
             top_surface=top_surface,
             bottom_surface=bottom_surface,
             vertical_config=vertical_config,
         )
+        sgrid = sgrid_spec_to_flopy(sgrid_spec)
         zbot = np.asarray(sgrid.botm, dtype=float)
         inactive_mask = (
             ~np.isfinite(top) | ~np.isfinite(bottom) | (top <= nodata) | (bottom <= nodata)
