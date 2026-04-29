@@ -34,6 +34,11 @@ _SHAPE_TO_COORDINATES = {
     SHAPE_PARTICLES: "time particle",
 }
 
+# Face-aligned shapes also carry UGRID-1.0 ``mesh`` and ``location`` attrs
+# pointing at the simulation's mesh topology variable.
+_FACE_SHAPES = frozenset({SHAPE_TIME_LAYER_FACE, SHAPE_TIME_FACE, SHAPE_LAYER_FACE, SHAPE_FACE})
+UGRID_MESH_VARIABLE = "mesh/topology"
+
 
 @dataclass(frozen=True, slots=True)
 class FieldDescriptor:
@@ -302,13 +307,16 @@ def all_zarr_paths() -> list[str]:
 
 
 def cf_attrs(name: str) -> dict[str, str]:
-    """Return a dict of CF-1.11 attributes for the given public name.
+    """Return a dict of CF-1.11 + UGRID-1.0 attributes for the given public name.
 
-    The resulting mapping is suitable for ``zarr.Array.attrs.update(...)``
-    or as an xarray ``attrs=`` argument when exporting.
+    Face-aligned variables additionally receive ``mesh`` and ``location``
+    UGRID attributes so that xugrid / xarray readers can resolve the
+    simulation topology automatically. The resulting mapping is suitable
+    for ``zarr.Array.attrs.update(...)`` or as an xarray ``attrs=``
+    argument when exporting.
     """
     desc = get(name)
-    return {
+    attrs: dict[str, str] = {
         "standard_name": desc.standard_name,
         "long_name": desc.long_name,
         "units": desc.units,
@@ -316,6 +324,10 @@ def cf_attrs(name: str) -> dict[str, str]:
         "grid_mapping": desc.grid_mapping,
         "coordinates": desc.coordinates,
     }
+    if desc.shape in _FACE_SHAPES:
+        attrs["mesh"] = UGRID_MESH_VARIABLE
+        attrs["location"] = "face"
+    return attrs
 
 
 __all__ = [
@@ -324,6 +336,7 @@ __all__ = [
     "SHAPE_LAYER_FACE",
     "SHAPE_FACE",
     "SHAPE_PARTICLES",
+    "UGRID_MESH_VARIABLE",
     "FieldDescriptor",
     "FIELD_REGISTRY",
     "get",

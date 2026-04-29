@@ -45,7 +45,7 @@ from typing import TYPE_CHECKING
 import numpy as np
 import pandas as pd
 
-from hydromodpy.results.contracts import Mesh, RasterField, Stack, UGridStack
+from hydromodpy.results.contracts import Mesh, RasterField, Stack
 
 logger = logging.getLogger(__name__)
 
@@ -271,6 +271,8 @@ class Run:
 
     @property
     def mesh(self) -> Mesh:
+        if self._load_row().get("solver_category") == "lumped":
+            raise RuntimeError("lumped simulation has no spatial grid")
         sz = self._catalog.open_zarr(self._sim_id)
         mesh_grp = sz.root["mesh"]
         return Mesh(
@@ -299,9 +301,9 @@ class Run:
     def grid(self) -> Grid:
         """Scalar grid metadata: cell_size, shape, extent, CRS, area.
 
-        Raises ``RuntimeError`` for unstructured (``disu``) meshes -
-        use ``run.mesh`` vertices + ``run.field(...)`` in that case -
-        or when geographic metadata has not been ingested.
+        Raises ``RuntimeError`` for lumped simulations (``solver_category``
+        ``"lumped"``) which have no spatial discretisation, or when
+        geographic metadata has not been ingested.
         """
         from hydromodpy.results.grid import build_grid
 
@@ -409,22 +411,19 @@ class Run:
 
         return xu.UgridDataset(xr.Dataset(data_vars), grids=[grid])
 
-    def fields(self, variable: str) -> Stack | UGridStack:
+    def fields(self, variable: str) -> Stack:
         """Stack per-timestep arrays of ``variable``.
 
-        For regular-in-plan meshes (``dis`` / ``disv``), reshapes each
+        For regular-in-plan meshes (``dis`` / ``disv``) reshapes each
         flat cell array to the DEM grid and returns a :class:`Stack`
-        with ``data`` shaped ``(n_t, nrow, ncol)``. For unstructured
-        meshes (``disu``) returns a :class:`UGridStack` carrying the
-        raw ``(n_t, n_cells)`` array together with the underlying mesh.
-        Values are returned raw (no masking or NaN substitution) -
-        combine with ``run.catchment_mask`` to mask inactive cells.
+        with ``data`` shaped ``(n_t, nrow, ncol)``. Values are returned
+        raw (no masking or NaN substitution); combine with
+        ``run.catchment_mask`` to mask inactive cells. Raises
+        ``RuntimeError`` for lumped simulations.
         """
+        if self._load_row().get("solver_category") == "lumped":
+            raise RuntimeError("lumped simulation has no spatial grid")
         n = self.n_timesteps or 1
-        topology = self._load_row().get("mesh_topology")
-        if topology == "disu":
-            data = np.stack([np.asarray(self.field(variable, timestep=t)) for t in range(n)])
-            return UGridStack(data=data, variable=variable, mesh=self.mesh)
         grid = self.grid
         data = np.stack(
             [np.asarray(self.field(variable, timestep=t)).reshape(grid.shape) for t in range(n)]

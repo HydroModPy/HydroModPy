@@ -109,10 +109,18 @@ class TestGrid:
         run = Run(sid, catalog)
         assert run.grid is run.grid
 
-    def test_grid_raises_on_disu(self, catalog):
-        sid = _register_sim(catalog, mesh_topology="disu")
+    def test_grid_raises_on_lumped(self, catalog):
+        sid = str(uuid.uuid4())
+        catalog.register_simulation(
+            sid,
+            project="grid_test",
+            solver="gr4j",
+            solver_category="lumped",
+            n_cells=1,
+            n_layers=1,
+        )
         run = Run(sid, catalog)
-        with pytest.raises(RuntimeError, match="unstructured mesh"):
+        with pytest.raises(RuntimeError, match="lumped simulation has no spatial grid"):
             _ = run.grid
 
     def test_grid_raises_on_missing_metadata(self, catalog):

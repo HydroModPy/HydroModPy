@@ -75,28 +75,52 @@ def step_persist_params(
 def step_persist_mesh(ctx: WorkflowContext, sim_id: str) -> None:
     """Write mesh topology into the simulation's Zarr.
 
-    The layer interfaces come from ``Domain.z_interfaces``, which derives
-    them from the topographic surface and the configured depth model. The
-    step raises when a Domain is absent - any z_interfaces default would
-    silently misreport the real aquifer geometry.
+    The mesh is always materialised as a :class:`HydroMesh`: an explicit
+    Gmsh planar mesh when one is loaded, or a structured-from-DEM mesh
+    derived from ``domain.surface_topo.support`` otherwise. Lumped
+    simulations (no Domain attached, e.g. GR4J) are skipped: there is no
+    spatial discretisation to persist.
+
+    Layer interfaces come from ``Domain.z_interfaces``, derived from the
+    topographic surface and the configured depth model.
     """
     import numpy as np
 
-    mesh = ctx.setup.mesh_planar
-    if mesh is None:
-        return
-
     domain = ctx.setup.domain
     if domain is None:
-        raise ValueError(
-            "step_persist_mesh requires a Domain on ctx.setup.domain to read z_interfaces"
-        )
+        return
+
     z_intf = np.asarray(domain.z_interfaces, dtype=float)
+
+    mesh_planar = ctx.setup.mesh_planar
+    if mesh_planar is not None:
+        vertices = mesh_planar.points_xy
+        connectivity = mesh_planar.connectivity
+    else:
+        from hydromodpy.spatial.mesh.grid_wrappers import RegularGrid
+
+        support = getattr(domain.surface_topo, "support", None)
+        if support is None or support.nrows is None or support.ncols is None:
+            raise ValueError(
+                "step_persist_mesh: no Gmsh planar mesh and no raster support "
+                "on domain.surface_topo - cannot materialise a HydroMesh"
+            )
+        regular = RegularGrid(
+            shape=(int(support.nrows), int(support.ncols)),
+            dx=float(support.dx),
+            dy=float(support.dy),
+            origin=(float(support.xmin), float(support.ymax)),
+            n_layers=max(int(z_intf.size) - 1, 1),
+            crs=str(support.crs) if support.crs is not None else None,
+        )
+        hydro_mesh = regular.to_hydro_mesh()
+        vertices = hydro_mesh.vertices
+        connectivity = hydro_mesh.flat_connectivity
 
     ctx.store.write_mesh(
         sim_id,
-        vertices=mesh.points_xy,
-        face_node_connectivity=mesh.connectivity,
+        vertices=vertices,
+        face_node_connectivity=connectivity,
         z_interfaces=z_intf,
     )
 
