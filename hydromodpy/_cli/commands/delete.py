@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import argparse
-import shutil
 import sys
 from pathlib import Path
 
@@ -26,6 +25,11 @@ def register(subparsers) -> argparse.ArgumentParser:
     )
     parser.add_argument("--workspace", default=None, help="Workspace root (default: auto-detect)")
     parser.add_argument("-y", "--yes", action="store_true", help="Skip the confirmation prompt")
+    parser.add_argument(
+        "--keep-storage",
+        action="store_true",
+        help="Drop catalog rows but keep the Zarr store and Parquet directory on disk",
+    )
     parser.set_defaults(_handler=run)
     return parser
 
@@ -65,47 +69,5 @@ def run(args: argparse.Namespace) -> None:
                 print("Aborted.", file=sys.stderr)
                 sys.exit(EXIT_USER_ABORT)
 
-        zarr_path = catalog.zarr_path_for(sid)
-        parquet_dir = catalog.parquet_dir_for(sid)
-        _delete_from_catalog(catalog, sid)
-        if zarr_path.exists():
-            if zarr_path.is_dir():
-                shutil.rmtree(zarr_path, ignore_errors=True)
-            else:
-                zarr_path.unlink(missing_ok=True)
-            print(f"  removed zarr: {zarr_path}")
-        if parquet_dir.exists():
-            shutil.rmtree(parquet_dir, ignore_errors=True)
-            print(f"  removed parquet: {parquet_dir}")
+        catalog.delete(sid, remove_storage=not args.keep_storage)
         print(f"Deleted simulation {label}")
-
-
-def _delete_from_catalog(catalog, sid: str) -> None:
-    """Delete a simulation and all related rows via the catalog connection.
-
-    The schema uses ``(sim_id)`` as the natural key across every table that
-    carries simulation-scoped data, so a flat delete loop is sufficient.
-    """
-    conn = catalog._connection
-    tables = (
-        "parameters",
-        "timeseries",
-        "budgets",
-        "mass_balance",
-        "metrics",
-        "observation_points",
-        "provenance",
-        "calibration_iterations",
-        "calibration_sessions",
-        "geographic_features",
-        "geographic_metadata",
-        "tags",
-        "runs_environment",
-    )
-    for table in tables:
-        try:
-            conn.execute(f"DELETE FROM {table} WHERE sim_id = ?", [sid])
-        except Exception:
-            # Skip tables that may not exist in older workspaces.
-            pass
-    conn.execute("DELETE FROM simulations WHERE sim_id = ?", [sid])

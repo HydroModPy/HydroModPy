@@ -73,3 +73,10 @@ class ProjectRunsAccessor:
         if store is None:
             return None
         return store.best(self._project._project_name, metric=metric)
+
+    def delete(self, sim_id: str, *, remove_storage: bool = True) -> None:
+        """Delete a simulation from the catalog (and optionally its artefacts)."""
+        store = self._project._store
+        if store is None:
+            return
+        store.delete(sim_id, remove_storage=remove_storage)
