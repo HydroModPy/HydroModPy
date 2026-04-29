@@ -21,7 +21,6 @@ import warnings
 from collections.abc import Mapping
 from contextlib import redirect_stdout
 from os.path import abspath, dirname
-from pathlib import Path
 
 import flopy
 import flopy.utils.binaryfile as fpu
@@ -233,56 +232,6 @@ class Modpath(Solver):
             )
         return raster_path
 
-    def _get_base_raster_path(self):
-        """Resolve the raster template used to export seepage products."""
-        model_modflow = getattr(self, "model_modflow", None)
-        base_raster = getattr(model_modflow, "dem_watershed_path", None)
-        if base_raster is not None:
-            return base_raster
-
-        geo = self._get_geographic()
-        if geo is None:
-            return None
-        for attr_name in ("watershed_dem", "watershed_box_buff_dem", "watershed_buff_dem"):
-            candidate = getattr(geo, attr_name, None)
-            if candidate is not None:
-                return candidate
-        return None
-
-    def _restore_seepage_raster_from_store(self, seepage_tif: str) -> bool:
-        """Rebuild the seepage GeoTIFF from the SimulationCatalog."""
-        base_raster = self._get_base_raster_path()
-        if base_raster is None or not os.path.isfile(base_raster):
-            return False
-
-        try:
-            from hydromodpy.core.workspace.resolve import locate_workspace_root
-            from hydromodpy.results.catalog import SimulationCatalog
-
-            # model_folder is .solver_scratch/ - project root is its parent.
-            mf = Path(self.model_folder)
-            project_root = mf.parent if mf.name == ".solver_scratch" else mf
-            workspace_root = locate_workspace_root(project_root) or project_root
-            catalog = SimulationCatalog(workspace_root)
-            sims = catalog.list_simulations()
-            if not sims.empty:
-                sim_id = str(sims.iloc[-1]["sim_id"])
-                arr = catalog.query_field(sim_id, "seepage_areas", 0)
-                seepage_flat = np.asarray(arr, dtype=float).ravel()
-                import rasterio as _rio
-
-                with _rio.open(base_raster) as _src:
-                    seepage_array = seepage_flat.reshape(_src.height, _src.width)
-                os.makedirs(os.path.dirname(seepage_tif), exist_ok=True)
-                export_tif(base_raster, seepage_array, seepage_tif, -9999.0)
-            catalog.close()
-            if os.path.isfile(seepage_tif):
-                return True
-        except Exception as exc:
-            logger.debug("Failed to rebuild seepage from SimulationCatalog: %s", exc)
-
-        return False
-
     def _resolve_seepage_clip_raster(self):
         """Build and return clipped seepage raster path for particle injection."""
         seepage_tif = os.path.join(
@@ -292,12 +241,9 @@ class Modpath(Solver):
             "seepage_areas_t(0).tif",
         )
         if not os.path.isfile(seepage_tif):
-            rebuilt = self._restore_seepage_raster_from_store(seepage_tif)
-            if not rebuilt:
-                raise FileNotFoundError(
-                    "zone_partic='seepage_clip' requested but missing seepage raster at "
-                    f"{seepage_tif}."
-                )
+            raise FileNotFoundError(
+                f"zone_partic='seepage_clip' requested but missing seepage raster at {seepage_tif}."
+            )
 
         watershed_shp = self._get_watershed_shp()
         if watershed_shp is None:
