@@ -7,7 +7,6 @@ import numpy as np
 import pandas as pd
 import pytest
 
-import hydromodpy.solver.modflow6.flow_to_modflow_adapter as mf6_flow_adapter
 from hydromodpy.core.time import ResolvedSimulationTimeWindow
 from hydromodpy.data.contracts.load_result import LoadResult
 from hydromodpy.data.contracts.location import StationLocation
@@ -19,6 +18,19 @@ from hydromodpy.physics.flow.initial_conditions import (
 )
 from hydromodpy.physics.flow.sinks_sources import FlowRechargeConfig, FlowWellConfig
 from hydromodpy.solver.modflow6 import Modflow6
+from hydromodpy.solver.modflow6.builders import (
+    apply_side_boundary_start_heads,
+    bind_recharge_from_flow,
+    build_evt_stress_period_data,
+    build_side_boundary_chd_spd,
+    build_start_heads,
+    build_stream_boundary_chd_spd,
+    build_well_stress_period_data,
+    extract_evt_payload_2d,
+    recharge_to_spd,
+    resolve_deferred_heterogeneous_recharge,
+    resolve_rewet_npf_options,
+)
 from hydromodpy.solver.modflow_common.solver_mesh import SolverMesh
 from hydromodpy.spatial.mesh import CellBlock, CellType, HydroMesh
 from hydromodpy.spatial.mesh.gmsh_grid import (
@@ -262,7 +274,7 @@ def test_modflow6_builds_chd_from_scalar_and_transient_side_boundaries() -> None
         active_bc=["west_side", "east_side"],
     )
 
-    chd_spd = model._build_side_boundary_chd_spd()
+    chd_spd = build_side_boundary_chd_spd(model)
 
     # DISV format: [lay, cell_id, head]
     # west_side cells: row0*3+0=0, row1*3+0=3
@@ -283,7 +295,7 @@ def test_modflow6_applies_first_boundary_value_to_start_heads() -> None:
     # strt is now flat (nlay, ncpl)
     strt = np.zeros((1, 6), dtype=float)
 
-    updated = model._apply_side_boundary_start_heads(strt)
+    updated = apply_side_boundary_start_heads(model, strt)
 
     # North side cell_ids for 2x3 grid: 0, 1, 2
     assert np.all(updated[:, :3] == 7.0)
@@ -305,7 +317,7 @@ def test_modflow6_resolves_boundary_forcing_without_runtime_binding() -> None:
         active_bc=["east_side"],
     )
 
-    chd_spd = model._build_side_boundary_chd_spd()
+    chd_spd = build_side_boundary_chd_spd(model)
 
     # DISV: [lay, cell_id, head] - east_side last cell_id=5
     assert chd_spd[0][-1] == [0, 5, pytest.approx(0.2)]
@@ -328,7 +340,7 @@ def test_modflow6_resolves_well_forcing_without_runtime_binding() -> None:
         active_sinks_sources=["wells"],
     )
 
-    wel_spd = model._build_well_stress_period_data(2)
+    wel_spd = build_well_stress_period_data(model, 2)
 
     # DISV: [lay, cell_id, flux] - cell (0,0,0) → cell_id=0
     assert wel_spd[0] == [[0, 0, pytest.approx(-1.0)]]
@@ -352,7 +364,7 @@ def test_modflow6_resolves_absolute_xy_well_on_unstructured_runtime_mesh() -> No
         active_sinks_sources=["wells"],
     )
 
-    wel_spd = model._build_well_stress_period_data(2)
+    wel_spd = build_well_stress_period_data(model, 2)
 
     assert wel_spd[0] == [[0, 0, pytest.approx(-1.0)]]
     assert wel_spd[1] == [[0, 0, pytest.approx(-1.0)]]
@@ -368,7 +380,7 @@ def test_modflow6_builds_side_boundary_chd_on_unstructured_runtime_mesh() -> Non
         active_bc=["west_side", "east_side"],
     )
 
-    chd_spd = model._build_side_boundary_chd_spd()
+    chd_spd = build_side_boundary_chd_spd(model)
 
     period0 = sorted(chd_spd[0], key=lambda item: item[1])
     period1 = sorted(chd_spd[1], key=lambda item: item[1])
@@ -386,7 +398,7 @@ def test_modflow6_applies_side_boundary_start_heads_on_unstructured_runtime_mesh
     )
     strt = np.zeros((1, 2), dtype=float)
 
-    updated = model._apply_side_boundary_start_heads(strt)
+    updated = apply_side_boundary_start_heads(model, strt)
 
     assert updated[0, 0] == pytest.approx(0.0)
     assert updated[0, 1] == pytest.approx(7.0)
@@ -401,7 +413,7 @@ def test_modflow6_builds_stream_boundary_chd_on_unstructured_runtime_mesh() -> N
         active_bc=["stream"],
     )
 
-    chd_spd, stream_mask = model._build_stream_boundary_chd_spd()
+    chd_spd, stream_mask = build_stream_boundary_chd_spd(model)
 
     assert stream_mask.tolist() == [True, True]
     assert chd_spd[0] == [[0, 0, pytest.approx(7.0)], [0, 1, pytest.approx(7.0)]]
@@ -420,7 +432,7 @@ def test_modflow6_applies_stream_start_heads_on_unstructured_runtime_mesh() -> N
         active_bc=["stream"],
     )
 
-    strt = model._build_start_heads(model.solver_mesh)
+    strt = build_start_heads(model, model.solver_mesh)
 
     assert np.allclose(strt[0], [7.0, 7.0])
 
@@ -442,7 +454,7 @@ def test_modflow6_uses_support_label_for_side_boundary_on_unstructured_runtime_m
         active_bc=["east_side"],
     )
 
-    chd_spd = model._build_side_boundary_chd_spd()
+    chd_spd = build_side_boundary_chd_spd(model)
 
     assert chd_spd[0] == [[0, 0, pytest.approx(6.0)]]
     assert chd_spd[1] == [[0, 0, pytest.approx(6.0)]]
@@ -464,7 +476,7 @@ def test_modflow6_uses_support_label_for_stream_boundary_on_unstructured_runtime
         active_bc=["stream"],
     )
 
-    chd_spd, stream_mask = model._build_stream_boundary_chd_spd()
+    chd_spd, stream_mask = build_stream_boundary_chd_spd(model)
 
     assert stream_mask.tolist() == [True, False]
     assert chd_spd[0] == [[0, 0, pytest.approx(5.0)]]
@@ -487,7 +499,7 @@ def test_modflow6_builds_start_heads_from_typed_initial_conditions() -> None:
         botm=np.stack([botm_2d]),
     )
 
-    strt = model._build_start_heads(solver_mesh)
+    strt = build_start_heads(model, solver_mesh)
 
     # DISV: strt shape is (nlay, ncpl)
     assert strt.shape == (1, 6)
@@ -511,7 +523,7 @@ def test_modflow6_accepts_bottom_initial_condition_name() -> None:
         botm=np.stack([botm_layer1, botm_layer2]),
     )
 
-    strt = model._build_start_heads(solver_mesh)
+    strt = build_start_heads(model, solver_mesh)
 
     # DISV: strt shape is (nlay, ncpl) - all layers start at deepest botm
     assert np.allclose(strt[0], botm_layer2.ravel())
@@ -530,8 +542,8 @@ def test_modflow6_binds_recharge_from_flow_sinks_sources() -> None:
         active_sinks_sources=["recharge"],
     )
 
-    model._bind_recharge_from_flow()
-    spd = model._recharge_to_spd()
+    bind_recharge_from_flow(model)
+    spd = recharge_to_spd(model)
 
     # DISV: recharge arrays are flat (ncpl,)
     assert spd[0].shape == (6,)
@@ -553,8 +565,8 @@ def test_modflow6_routes_negative_recharge_to_evt_payload() -> None:
         active_sinks_sources=["recharge"],
     )
 
-    model._bind_recharge_from_flow()
-    spd = model._recharge_to_spd()
+    bind_recharge_from_flow(model)
+    spd = recharge_to_spd(model)
 
     assert np.allclose(spd[0], 0.5e-3 / 86400.0)
     assert np.allclose(spd[1], 0.0)
@@ -592,8 +604,8 @@ def test_modflow6_resolves_point_recharge_and_routes_negative_periods_to_evt() -
         active_sinks_sources=["recharge"],
     )
 
-    model._bind_recharge_from_flow()
-    mf6_flow_adapter.resolve_deferred_heterogeneous_recharge(model)
+    bind_recharge_from_flow(model)
+    resolve_deferred_heterogeneous_recharge(model)
 
     january_expected = 8.0e-3 / 86400.0
     february_evt_expected = 4.0e-3 / 86400.0
@@ -632,8 +644,8 @@ def test_modflow6_resolves_point_recharge_on_unstructured_runtime_mesh() -> None
         active_sinks_sources=["recharge"],
     )
 
-    model._bind_recharge_from_flow()
-    mf6_flow_adapter.resolve_deferred_heterogeneous_recharge(model)
+    bind_recharge_from_flow(model)
+    resolve_deferred_heterogeneous_recharge(model)
 
     expected = 8.0e-3 / 86400.0
     np.testing.assert_allclose(
@@ -649,7 +661,7 @@ def test_modflow6_resolves_point_recharge_on_unstructured_runtime_mesh() -> None
 def test_modflow6_extracts_evt_payload_from_negative_2d_recharge() -> None:
     model = _build_model()
 
-    clipped_rch, evt_data = model._extract_evt_payload_2d(
+    clipped_rch, evt_data = extract_evt_payload_2d(
         {
             0: np.array([1.0e-6, -2.0e-6], dtype=float),
             1: np.array([-3.0e-6, 4.0e-6], dtype=float),
@@ -677,7 +689,8 @@ def test_modflow6_builds_evt_stress_period_data_from_routed_payload() -> None:
         botm=np.stack([botm_2d]),
     )
 
-    evt_spd = model._build_evt_stress_period_data(
+    evt_spd = build_evt_stress_period_data(
+        model,
         solver_mesh,
         ocean_support_mask=np.zeros(6, dtype=bool),
         stream_support_mask=np.zeros(6, dtype=bool),
@@ -701,7 +714,7 @@ def test_modflow6_keeps_rewet_disabled_by_default() -> None:
         botm=np.stack([botm_2d]),
     )
 
-    rewet_record, wetdry = model._resolve_rewet_npf_options(solver_mesh)
+    rewet_record, wetdry = resolve_rewet_npf_options(model, solver_mesh)
 
     assert rewet_record is None
     assert wetdry is None
@@ -724,7 +737,7 @@ def test_modflow6_enables_rewet_when_requested() -> None:
         botm=np.stack([botm_2d]),
     )
 
-    rewet_record, wetdry = model._resolve_rewet_npf_options(solver_mesh)
+    rewet_record, wetdry = resolve_rewet_npf_options(model, solver_mesh)
 
     assert rewet_record == [
         "WETFCT",
@@ -744,8 +757,8 @@ def test_modflow6_defaults_to_zero_recharge_when_inactive() -> None:
         active_sinks_sources=[],
     )
 
-    model._bind_recharge_from_flow()
-    spd = model._recharge_to_spd()
+    bind_recharge_from_flow(model)
+    spd = recharge_to_spd(model)
 
     assert spd[0].shape == (6,)
     assert np.allclose(spd[0], 0.0)
@@ -768,14 +781,14 @@ def test_modflow6_flow_adapter_builds_wells_from_forcing_payload() -> None:
         active_sinks_sources=["wells"],
     )
 
-    wel_spd = mf6_flow_adapter.build_well_stress_period_data(model, 2)
+    wel_spd = build_well_stress_period_data(model, 2)
 
     assert wel_spd[0] == [[0, 0, pytest.approx(-1.0)]]
     assert wel_spd[1] == [[0, 0, pytest.approx(-1.0)]]
 
 
 def test_modflow6_flow_adapter_extracts_evt_payload_from_negative_2d_recharge() -> None:
-    clipped, evt = mf6_flow_adapter.extract_evt_payload_2d(
+    clipped, evt = extract_evt_payload_2d(
         {
             0: np.asarray([1.0, -2.0], dtype=float),
             1: np.asarray([-3.0, 4.0], dtype=float),

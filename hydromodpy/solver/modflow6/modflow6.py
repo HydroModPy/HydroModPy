@@ -5,37 +5,45 @@ from __future__ import annotations
 import hashlib
 import os
 from collections.abc import Mapping
-from dataclasses import dataclass, replace
-from numbers import Real
+from dataclasses import dataclass
 
 import flopy
 import numpy as np
 
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.tools.filesystem import create_folder
-from hydromodpy.core.units import (
-    convert_payload_to_m,
-    convert_payload_to_m_per_s,
-    factor_to_m2_per_s,
-    normalize_length_unit,
-)
-from hydromodpy.core.units.volumetric_flow import (
-    convert_to_m3_per_s,
-    normalize_m3_per_s_unit,
-)
-from hydromodpy.physics.flow.time_forcing import resolve_period_values_from_forcing
 from hydromodpy.solver import Solver
+from hydromodpy.solver.modflow6.builders import (
+    bind_recharge_from_flow,
+    build_drain_stress_period_data,
+    build_evt_stress_period_data,
+    build_ocean_boundary_chd_spd,
+    build_side_boundary_chd_spd,
+    build_start_heads,
+    build_stream_boundary_chd_spd,
+    build_well_stress_period_data,
+    empty_recharge_aux,
+    finalize_pending_recharge_evt,
+    recharge_to_spd,
+    resolve_deferred_heterogeneous_recharge,
+    resolve_drainage_conductance_series,
+    resolve_rewet_npf_options,
+)
 from hydromodpy.solver.modflow6.modflow6_config import (
     Modflow6Config,
     _coerce_modflow6_config,
 )
 from hydromodpy.solver.modflow6.postprocess import (
     run_flow_post_processing,
-    run_transport_post_processing,
 )
 from hydromodpy.solver.modflow6.property_mapping import (
     resolve_flow_property_arrays,
     resolve_required_flow_properties,
+)
+from hydromodpy.solver.modflow6.runtime_reuse import (
+    can_refresh_runtime_reuse,
+    refresh_reused_runtime_property_packages,
+    runtime_reuse_signature,
 )
 from hydromodpy.solver.modflow_common import (
     ModflowPostprocessOptions,
@@ -43,7 +51,6 @@ from hydromodpy.solver.modflow_common import (
     ModflowRunOptions,
     SolverGridContext,
     SolverRoutingContext,
-    build_concentration_runtime_overrides,
     build_solver_routing_context,
     build_spatial_discretization,
     build_temporal_discretization_from_time_grid,
@@ -222,1212 +229,6 @@ class Modflow6(Solver):
                 "derived from [simulation.time] for transient flow runs. Solver tgrid fallback is no longer supported."
             )
 
-    def _well_cell_to_disv(self, lay: int, row: int, col: int) -> tuple[int, int]:
-        """Convert (lay, row, col) well address to DISV (lay, cell_id)."""
-        return (lay, row * int(self.ncol) + col)
-
-    def _require_runtime_mesh_support(self, *, label: str) -> object:
-        """Return runtime gmsh support metadata or raise a clear error."""
-        support = getattr(self, "runtime_mesh_support", None)
-        if support is None:
-            raise ValueError(
-                f"{label} requires runtime gmsh support metadata but mesh_support is unavailable."
-            )
-        return support
-
-    def _resolve_well_disv_cell(
-        self, *, well_id: str, well_cfg: object, grid: object | None
-    ) -> tuple[int, int]:
-        """Resolve one well payload to one DISV (layer, cell_id) tuple."""
-
-        def _value(name: str, default=None):
-            if isinstance(well_cfg, Mapping):
-                return well_cfg.get(name, default)
-            return getattr(well_cfg, name, default)
-
-        cell_payload = _value("cell")
-        location_mode = str(_value("location_mode", "") or "").strip().lower()
-        solver_mesh = getattr(self, "solver_mesh", None)
-
-        if cell_payload is not None:
-            cell_seq = list(cell_payload)
-            if len(cell_seq) != 3:
-                raise ValueError(
-                    f"flow.sinks_sources.wells.{well_id}.cell must contain [lay, row, col]."
-                )
-            return self._well_cell_to_disv(
-                int(cell_seq[0]),
-                int(cell_seq[1]),
-                int(cell_seq[2]),
-            )
-
-        if location_mode in {"", "cell"}:
-            raise ValueError(
-                f"flow.sinks_sources.wells.{well_id} requires either cell=[lay,row,col] "
-                "or coordinate-based location fields."
-            )
-
-        if solver_mesh is None or getattr(solver_mesh, "is_structured", False):
-            if grid is None:
-                raise ValueError(
-                    f"flow.sinks_sources.wells.{well_id} cannot resolve coordinate-based addressing "
-                    "without one structured solver grid."
-                )
-            if hasattr(well_cfg, "resolve_cell"):
-                lay, row, col = well_cfg.resolve_cell(grid)
-            else:
-                layer = int(_value("layer", 0) or 0)
-                if location_mode == "absolute_xy":
-                    x_m = float(_value("x"))
-                    y_m = float(_value("y"))
-                elif location_mode == "relative_xy":
-                    x_m = float(grid.xmin) + float(_value("x_rel")) * (
-                        float(grid.xmax) - float(grid.xmin)
-                    )
-                    y_m = float(grid.ymin) + float(_value("y_rel")) * (
-                        float(grid.ymax) - float(grid.ymin)
-                    )
-                else:
-                    raise ValueError(
-                        f"Unsupported well location mode for flow.sinks_sources.wells.{well_id}: {location_mode!r}."
-                    )
-                col = int((x_m - float(grid.xmin)) / float(grid.dx))
-                row = int((float(grid.ymax) - y_m) / float(grid.dy))
-                col = min(max(col, 0), int(grid.ncol) - 1)
-                row = min(max(row, 0), int(grid.nrow) - 1)
-                lay = layer
-            return self._well_cell_to_disv(int(lay), int(row), int(col))
-
-        support = self._require_runtime_mesh_support(
-            label=f"flow.sinks_sources.wells.{well_id}",
-        )
-        layer = int(_value("layer", 0) or 0)
-        if location_mode == "absolute_xy":
-            x_m = float(_value("x"))
-            y_m = float(_value("y"))
-        elif location_mode == "relative_xy":
-            x_rel = float(_value("x_rel"))
-            y_rel = float(_value("y_rel"))
-            x_m = float(support.x_min_m) + x_rel * (float(support.x_max_m) - float(support.x_min_m))
-            y_m = float(support.y_min_m) + y_rel * (float(support.y_max_m) - float(support.y_min_m))
-        else:
-            raise ValueError(
-                f"Unsupported well location mode for flow.sinks_sources.wells.{well_id}: {location_mode!r}."
-            )
-        cell_id = int(support.locate_cell_index_for_point(x_m, y_m, allow_nearest=True))
-        return (layer, cell_id)
-
-    def _build_well_stress_period_data(self, n_stress_periods: int) -> dict[int, list[list[float]]]:
-        if n_stress_periods <= 0 or self.flow is None:
-            return {}
-
-        active = getattr(self.flow, "active_sinks_sources", [])
-        if "wells" not in active:
-            return {}
-
-        sinks_sources = getattr(self.flow, "sinks_sources", {})
-        if not isinstance(sinks_sources, Mapping):
-            return {}
-
-        wells = sinks_sources.get("wells", {})
-        if wells is None:
-            return {}
-        if not isinstance(wells, Mapping):
-            raise TypeError(
-                "flow.sinks_sources['wells'] must be a mapping of well ids to payloads."
-            )
-        if len(wells) == 0:
-            return {}
-        grid = None if self.grid_ctx is None else self.grid_ctx.grid
-
-        normalized_wells: list[tuple[tuple[int, int], np.ndarray]] = []
-        for well_id, raw_well_payload in wells.items():
-            flux_payload = getattr(raw_well_payload, "flux", None)
-            forcing_payload = getattr(raw_well_payload, "forcing", None)
-            if isinstance(raw_well_payload, Mapping):
-                flux_payload = raw_well_payload.get("flux")
-                forcing_payload = raw_well_payload.get("forcing")
-            if flux_payload is None and forcing_payload is None:
-                continue
-
-            cell = self._resolve_well_disv_cell(
-                well_id=well_id,
-                well_cfg=raw_well_payload,
-                grid=grid,
-            )
-
-            if forcing_payload is not None:
-                raw_values = resolve_period_values_from_forcing(
-                    forcing=forcing_payload,
-                    simulation_window=None if self.time_grid is None else self.time_grid.window,
-                    nper=int(n_stress_periods),
-                    label=f"flow.sinks_sources.wells.{well_id}.forcing",
-                )
-                fallback_units = (
-                    raw_well_payload.get("units", "m3/s")
-                    if isinstance(raw_well_payload, Mapping)
-                    else getattr(raw_well_payload, "units", "m3/s")
-                )
-                canonical_units = normalize_m3_per_s_unit(
-                    self._forcing_units(
-                        forcing_payload,
-                        fallback=fallback_units,
-                    )
-                )
-                flux_vector = np.asarray(
-                    [
-                        convert_to_m3_per_s(
-                            value,
-                            unit=canonical_units,
-                            label=f"flow.sinks_sources.wells.{well_id}.forcing[{idx}]",
-                        )
-                        for idx, value in enumerate(raw_values)
-                    ],
-                    dtype=float,
-                )
-            elif isinstance(flux_payload, Real) and not isinstance(flux_payload, bool):
-                flux_vector = np.full((n_stress_periods,), float(flux_payload), dtype=float)
-            else:
-                raw_flux_seq = list(flux_payload)
-                parsed = np.asarray(raw_flux_seq, dtype=float)
-                if parsed.size == 1:
-                    flux_vector = np.full((n_stress_periods,), float(parsed[0]), dtype=float)
-                elif parsed.size >= n_stress_periods:
-                    flux_vector = parsed[:n_stress_periods].astype(float)
-                else:
-                    flux_vector = np.full((n_stress_periods,), float(parsed[-1]), dtype=float)
-                    flux_vector[: parsed.size] = parsed
-            normalized_wells.append((cell, flux_vector))
-
-        spd: dict[int, list[list[float]]] = {}
-        for t in range(n_stress_periods):
-            spd[t] = [
-                [cell[0], cell[1], float(flux_vector[t])] for cell, flux_vector in normalized_wells
-            ]
-        return spd
-
-    @staticmethod
-    def _is_scalar_number(value: object) -> bool:
-        return isinstance(value, (int, float, np.integer, np.floating)) and not isinstance(
-            value, bool
-        )
-
-    def _boundary_conditions_mapping(self) -> Mapping[str, object]:
-        boundary_conditions = getattr(self.flow, "boundary_conditions", {})
-        if not isinstance(boundary_conditions, Mapping):
-            raise TypeError("flow.boundary_conditions must be a mapping")
-        return boundary_conditions
-
-    @staticmethod
-    def _boundary_attr(boundary: object, name: str, default=None):
-        """Read one boundary attribute from either a mapping or a typed payload."""
-        if isinstance(boundary, Mapping):
-            return boundary.get(name, default)
-        return getattr(boundary, name, default)
-
-    def _is_bc_active(self, bc_id: str) -> bool:
-        active = getattr(self.flow, "active_bc", [])
-        return bc_id in active
-
-    def _boundary_period_series(self, *, value: object, label: str) -> np.ndarray:
-        if self._is_scalar_number(value):
-            return np.full((int(self.nper),), float(value), dtype=float)
-        if not isinstance(value, (np.ndarray, list, tuple)):
-            raise TypeError(f"{label} must be numeric or a sequence of numeric values")
-        series = np.asarray(value, dtype=float).reshape(-1)
-        if series.size == 0:
-            raise ValueError(f"{label} cannot be empty when using time series")
-        if series.size == 1:
-            return np.full((int(self.nper),), float(series[0]), dtype=float)
-        if series.size != int(self.nper):
-            raise ValueError(
-                f"{label} length ({series.size}) must be 1 or match nper ({int(self.nper)})"
-            )
-        return series.astype(float)
-
-    def _coerce_length_series_to_m(
-        self, *, values: object, units: object, label: str
-    ) -> np.ndarray:
-        source_units = normalize_length_unit(str(units).strip() or "m")
-        return np.asarray(
-            convert_payload_to_m(values, unit=source_units, label=label),
-            dtype=float,
-        )
-
-    @staticmethod
-    def _forcing_units(forcing: object, *, fallback: object) -> object:
-        if isinstance(forcing, Mapping):
-            return forcing.get("units", fallback)
-        return getattr(forcing, "units", fallback)
-
-    def _coerce_conductance_series_to_m2_per_s(
-        self,
-        *,
-        values: object,
-        units: object,
-        label: str,
-    ) -> np.ndarray:
-        factor = factor_to_m2_per_s(str(units).strip() or "m2/s")
-        return np.asarray(values, dtype=float) * float(factor)
-
-    def _boundary_start_value(self, *, value: object, label: str) -> float:
-        return float(self._boundary_period_series(value=value, label=label)[0])
-
-    def _resolve_side_boundary_series(self, *, boundary: object, bc_id: str) -> np.ndarray:
-        forcing = self._boundary_attr(boundary, "forcing", None)
-        if forcing is not None:
-            raw_values = resolve_period_values_from_forcing(
-                forcing=forcing,
-                simulation_window=None if self.time_grid is None else self.time_grid.window,
-                nper=int(self.nper),
-                label=f"flow.bc.{bc_id}.forcing",
-            )
-            return self._coerce_length_series_to_m(
-                values=raw_values,
-                units=self._forcing_units(
-                    forcing,
-                    fallback=self._boundary_attr(boundary, "units", "m"),
-                ),
-                label=f"flow.bc.{bc_id}.forcing",
-            )
-        return self._coerce_length_series_to_m(
-            values=self._boundary_period_series(
-                value=self._boundary_attr(boundary, "value", None),
-                label=f"flow.bc.{bc_id}.value",
-            ),
-            units=self._boundary_attr(boundary, "units", "m"),
-            label=f"flow.bc.{bc_id}.value",
-        )
-
-    def _boundary_support_cell_ids(self, *, boundary: object, bc_id: str) -> list[int]:
-        """Return flat cell ids selected by one BC support definition."""
-        solver_mesh = getattr(self, "solver_mesh", None)
-        support_label = self._boundary_attr(boundary, "support_label", None)
-        if support_label is not None and not (
-            solver_mesh is None or getattr(solver_mesh, "is_structured", False)
-        ):
-            support = self._require_runtime_mesh_support(label=f"flow.bc.{bc_id}")
-            cell_ids = support.cell_indices_for_label(str(support_label))
-            if cell_ids.size == 0:
-                raise ValueError(
-                    f"flow.bc.{bc_id}.support_label='{support_label}' did not match any runtime mesh support."
-                )
-            return [int(cell_id) for cell_id in cell_ids.tolist()]
-        return self._side_boundary_cell_ids(bc_id)
-
-    def _side_boundary_cell_ids(self, bc_id: str) -> list[int]:
-        """Return flat cell IDs touched by one side boundary."""
-        solver_mesh = getattr(self, "solver_mesh", None)
-        if solver_mesh is None or getattr(solver_mesh, "is_structured", False):
-            nrow, ncol = int(self.nrow), int(self.ncol)
-            if bc_id == "west_side":
-                return [i * ncol for i in range(nrow)]
-            if bc_id == "east_side":
-                return [i * ncol + (ncol - 1) for i in range(nrow)]
-            if bc_id == "north_side":
-                return list(range(ncol))
-            if bc_id == "south_side":
-                return list(range((nrow - 1) * ncol, nrow * ncol))
-            raise ValueError(f"Unsupported side boundary id: {bc_id}")
-
-        support = self._require_runtime_mesh_support(label=f"flow.bc.{bc_id}")
-        return [int(cell_id) for cell_id in support.boundary_cell_indices_for_side(bc_id).tolist()]
-
-    def _iter_side_boundary_cells(self, bc_id: str):
-        """Yield (lay, cell_id) tuples for DISV boundary cells."""
-        cell_ids = self._side_boundary_cell_ids(bc_id)
-        for ilay in range(int(self.nlay)):
-            for cid in cell_ids:
-                yield ilay, cid
-
-    def _apply_side_boundary_start_heads(self, strt: np.ndarray) -> np.ndarray:
-        """Apply side boundary start heads on flat (nlay, ncpl) strt array."""
-        bc = self._boundary_conditions_mapping()
-        for bc_id in ("west_side", "east_side", "north_side", "south_side"):
-            if not self._is_bc_active(bc_id):
-                continue
-            boundary = bc.get(bc_id)
-            if boundary is None:
-                continue
-            start_value = float(
-                self._resolve_side_boundary_series(boundary=boundary, bc_id=bc_id)[0]
-            )
-            cell_ids = self._boundary_support_cell_ids(boundary=boundary, bc_id=bc_id)
-            for ilay in range(strt.shape[0]):
-                strt[ilay, cell_ids] = start_value
-        return strt
-
-    def _resolve_head_initial_condition(self):
-        """Return the head initial-condition payload from the flow configuration."""
-        initial_conditions = getattr(self.flow, "initial_conditions", None)
-        if initial_conditions is None:
-            return None
-        if isinstance(initial_conditions, Mapping):
-            return initial_conditions.get("h")
-        return getattr(initial_conditions, "h", None)
-
-    @staticmethod
-    def _initial_condition_field(initial_condition, field_name: str, default=None):
-        """Read one field from either a mapping payload or a typed IC object."""
-        if isinstance(initial_condition, Mapping):
-            return initial_condition.get(field_name, default)
-        return getattr(initial_condition, field_name, default)
-
-    def _rewet_is_enabled(self) -> bool:
-        """Return whether MF6 rewetting is enabled for the current run."""
-        runtime = getattr(self.modflow_config, "runtime", None)
-        enable_rewet = getattr(runtime, "mf6_enable_rewet", None)
-        return bool(enable_rewet) if enable_rewet is not None else False
-
-    def _build_start_heads(self, solver_mesh) -> np.ndarray:
-        """Build MF6 starting heads as flat (nlay, ncpl) for DISV."""
-        h_ic = self._resolve_head_initial_condition()
-        if h_ic is None:
-            raise ValueError("flow.initial_conditions.h is required for Modflow6 pre_processing")
-
-        ncpl = solver_mesh.n_cells
-        top_flat = solver_mesh.top  # (ncpl,)
-        botm_flat = solver_mesh.botm  # (nlay, ncpl)
-        initial_type = str(self._initial_condition_field(h_ic, "type", "")).strip().lower()
-        if initial_type == "top":
-            strt = np.tile(top_flat, (self.nlay, 1))
-        elif initial_type in {"bot", "bottom"}:
-            strt = np.tile(botm_flat[-1], (self.nlay, 1))
-        elif initial_type == "custom":
-            strt = np.full(
-                (self.nlay, ncpl),
-                float(self._initial_condition_field(h_ic, "value")),
-                dtype=float,
-            )
-        else:
-            raise ValueError("flow.initial_conditions.h.type must be one of: top, bottom, custom")
-        ocean_series = self._resolve_ocean_boundary_series()
-        ocean_support_mask = self._ocean_chd_support_mask(ocean_series)
-        if np.any(ocean_support_mask):
-            for ilay in range(int(self.nlay)):
-                strt[ilay][ocean_support_mask] = float(ocean_series[0])
-        stream_series = self._resolve_stream_boundary_series()
-        stream_support_mask = self._stream_chd_support_mask(stream_series)
-        if np.any(stream_support_mask):
-            for ilay in range(int(self.nlay)):
-                strt[ilay][stream_support_mask] = float(stream_series[0])
-        return self._apply_side_boundary_start_heads(strt)
-
-    def _resolve_ocean_boundary_series(self) -> np.ndarray | None:
-        if not self._is_bc_active("ocean"):
-            return None
-        boundary = self._boundary_conditions_mapping().get("ocean")
-        if boundary is None:
-            return None
-        forcing = self._boundary_attr(boundary, "forcing", None)
-        if forcing is not None:
-            raw_values = resolve_period_values_from_forcing(
-                forcing=forcing,
-                simulation_window=None if self.time_grid is None else self.time_grid.window,
-                nper=int(self.nper),
-                label="flow.bc.ocean.forcing",
-            )
-            return self._coerce_length_series_to_m(
-                values=raw_values,
-                units=self._forcing_units(
-                    forcing,
-                    fallback=self._boundary_attr(boundary, "units", "m"),
-                ),
-                label="flow.bc.ocean.forcing",
-            )
-        return self._coerce_length_series_to_m(
-            values=self._boundary_period_series(
-                value=self._boundary_attr(boundary, "value", None),
-                label="flow.bc.ocean.value",
-            ),
-            units=self._boundary_attr(boundary, "units", "m"),
-            label="flow.bc.ocean.value",
-        )
-
-    def _resolve_stream_boundary_series(self) -> np.ndarray | None:
-        if not self._is_bc_active("stream"):
-            return None
-        boundary = self._boundary_conditions_mapping().get("stream")
-        if boundary is None:
-            return None
-        forcing = self._boundary_attr(boundary, "forcing", None)
-        if forcing is not None:
-            raw_values = resolve_period_values_from_forcing(
-                forcing=forcing,
-                simulation_window=None if self.time_grid is None else self.time_grid.window,
-                nper=int(self.nper),
-                label="flow.bc.stream.forcing",
-            )
-            return self._coerce_length_series_to_m(
-                values=raw_values,
-                units=self._forcing_units(
-                    forcing,
-                    fallback=self._boundary_attr(boundary, "units", "m"),
-                ),
-                label="flow.bc.stream.forcing",
-            )
-        return self._coerce_length_series_to_m(
-            values=self._boundary_period_series(
-                value=self._boundary_attr(boundary, "value", None),
-                label="flow.bc.stream.value",
-            ),
-            units=self._boundary_attr(boundary, "units", "m"),
-            label="flow.bc.stream.value",
-        )
-
-    def _ocean_chd_support_mask(self, ocean_series: np.ndarray | None) -> np.ndarray:
-        """Return flat (ncpl,) boolean mask for ocean CHD cells."""
-        if ocean_series is None or np.asarray(ocean_series, dtype=float).size == 0:
-            return np.zeros(int(self.ncpl), dtype=bool)
-        sea_threshold = float(np.max(np.asarray(ocean_series, dtype=float)))
-        dem_flat = np.asarray(self.dem, dtype=float).reshape(-1)
-        mask_flat = np.asarray(self.dem_mask, dtype=bool).reshape(-1)
-        return (~mask_flat) & (dem_flat <= sea_threshold)
-
-    def _build_ocean_boundary_chd_spd(self) -> tuple[dict[int, list[list[float]]], np.ndarray]:
-        ocean_series = self._resolve_ocean_boundary_series()
-        ocean_support_mask = self._ocean_chd_support_mask(ocean_series)
-        spd = {kper: [] for kper in range(int(self.nper))}
-        if ocean_series is None or not np.any(ocean_support_mask):
-            return spd, ocean_support_mask
-
-        cell_ids = np.where(ocean_support_mask)[0]
-        for kper, head in enumerate(np.asarray(ocean_series, dtype=float)):
-            period_cells: list[list[float]] = []
-            for ilay in range(int(self.nlay)):
-                for cid in cell_ids.tolist():
-                    period_cells.append([ilay, cid, float(head)])
-            spd[kper] = period_cells
-        return spd, ocean_support_mask
-
-    def _stream_chd_support_mask(self, stream_series: np.ndarray | None) -> np.ndarray:
-        """Return flat (ncpl,) boolean mask for stream CHD cells."""
-        if stream_series is None or np.asarray(stream_series, dtype=float).size == 0:
-            return np.zeros(int(self.ncpl), dtype=bool)
-        boundary = self._boundary_conditions_mapping().get("stream")
-        support = self._require_runtime_mesh_support(label="flow.bc.stream")
-        support_label = (
-            None if boundary is None else self._boundary_attr(boundary, "support_label", None)
-        )
-        if support_label is None:
-            cell_ids = np.asarray(support.river_cell_indices(), dtype=int).reshape(-1)
-        else:
-            cell_ids = np.asarray(
-                support.cell_indices_for_label(str(support_label)), dtype=int
-            ).reshape(-1)
-        if cell_ids.size == 0:
-            raise ValueError(
-                "Boundary 'stream' is active but its selected runtime mesh support is empty."
-            )
-        mask = np.zeros(int(self.ncpl), dtype=bool)
-        mask[cell_ids] = True
-        return mask
-
-    def _build_stream_boundary_chd_spd(self) -> tuple[dict[int, list[list[float]]], np.ndarray]:
-        stream_series = self._resolve_stream_boundary_series()
-        stream_support_mask = self._stream_chd_support_mask(stream_series)
-        spd = {kper: [] for kper in range(int(self.nper))}
-        if stream_series is None or not np.any(stream_support_mask):
-            return spd, stream_support_mask
-
-        cell_ids = np.where(stream_support_mask)[0]
-        for kper, head in enumerate(np.asarray(stream_series, dtype=float)):
-            period_cells: list[list[float]] = []
-            for ilay in range(int(self.nlay)):
-                for cid in cell_ids.tolist():
-                    period_cells.append([ilay, cid, float(head)])
-            spd[kper] = period_cells
-        return spd, stream_support_mask
-
-    def _build_side_boundary_chd_spd(self) -> dict[int, list[list[float]]]:
-        bc = self._boundary_conditions_mapping()
-        dem_mask_flat = np.asarray(self.dem_mask, dtype=bool).reshape(-1)
-        spd = {kper: {} for kper in range(int(self.nper))}
-        for bc_id in ("west_side", "east_side", "north_side", "south_side"):
-            if not self._is_bc_active(bc_id):
-                continue
-            boundary = bc.get(bc_id)
-            if boundary is None:
-                continue
-            series = self._resolve_side_boundary_series(boundary=boundary, bc_id=bc_id)
-            for kper, head in enumerate(series):
-                for ilay in range(int(self.nlay)):
-                    for cid in self._boundary_support_cell_ids(boundary=boundary, bc_id=bc_id):
-                        if bool(dem_mask_flat[cid]):
-                            continue
-                        spd[kper][(ilay, cid)] = [ilay, cid, float(head)]
-        return {kper: list(period_map.values()) for kper, period_map in spd.items()}
-
-    def _resolve_drainage_conductance_series(self) -> np.ndarray | None:
-        if not self._is_bc_active("drainage"):
-            return None
-        boundary = self._boundary_conditions_mapping().get("drainage")
-        if boundary is None:
-            return None
-        forcing = getattr(boundary, "forcing", None)
-        if forcing is not None:
-            raw_values = resolve_period_values_from_forcing(
-                forcing=forcing,
-                simulation_window=None if self.time_grid is None else self.time_grid.window,
-                nper=int(self.nper),
-                label="flow.bc.drainage.forcing",
-            )
-            return self._coerce_conductance_series_to_m2_per_s(
-                values=raw_values,
-                units=self._forcing_units(
-                    forcing,
-                    fallback=getattr(boundary, "units", "m2/s"),
-                ),
-                label="flow.bc.drainage.forcing",
-            )
-        return self._coerce_conductance_series_to_m2_per_s(
-            values=self._boundary_period_series(
-                value=getattr(boundary, "value", None),
-                label="flow.bc.drainage.value",
-            ),
-            units=getattr(boundary, "units", "m2/s"),
-            label="flow.bc.drainage.value",
-        )
-
-    @staticmethod
-    def _copy_runtime_payload(payload: object) -> object:
-        """Return a detached copy of one runtime payload when possible."""
-        if isinstance(payload, Mapping):
-            return {key: Modflow6._copy_runtime_payload(value) for key, value in payload.items()}
-        if hasattr(payload, "copy"):
-            try:
-                return payload.copy()
-            except Exception:
-                pass
-        return payload
-
-    @staticmethod
-    def _calibration_runtime_reuse_enabled(
-        flow_runtime_overrides: Mapping[str, object] | None,
-    ) -> bool:
-        """Return ``True`` when calibration asks for one reusable MF6 runtime."""
-        return bool(
-            isinstance(flow_runtime_overrides, Mapping)
-            and flow_runtime_overrides.get("reuse_solver_model", False)
-        )
-
-    def _runtime_reuse_signature(
-        self,
-        *,
-        flow: object,
-        domain: object,
-        options: ModflowPreprocessOptions,
-        mesh_planar: object | None,
-        mesh_support: object | None,
-    ) -> tuple[object, ...]:
-        """Capture the static runtime structure that must remain stable."""
-        time_grid = getattr(options, "time_grid", None)
-        return (
-            id(flow),
-            id(domain),
-            id(mesh_planar),
-            id(mesh_support),
-            id(time_grid),
-            str(self.flow_regime or ""),
-        )
-
-    def _can_refresh_runtime_reuse(
-        self,
-        *,
-        flow: object,
-        domain: object,
-        options: ModflowPreprocessOptions,
-        mesh_planar: object | None,
-        mesh_support: object | None,
-        flow_runtime_overrides: Mapping[str, object] | None,
-    ) -> bool:
-        """Return ``True`` when a cached runtime can be refreshed in place."""
-        if not self._calibration_runtime_reuse_enabled(flow_runtime_overrides):
-            return False
-        if getattr(self, "sim", None) is None or getattr(self, "gwf", None) is None:
-            return False
-        signature = self._runtime_reuse_signature(
-            flow=flow,
-            domain=domain,
-            options=options,
-            mesh_planar=mesh_planar,
-            mesh_support=mesh_support,
-        )
-        return signature == getattr(self, "_calibration_runtime_reuse_signature", None)
-
-    def _build_drain_stress_period_data(
-        self,
-        *,
-        solver_mesh,
-        drainage_cond_series: np.ndarray,
-        ocean_support_mask: np.ndarray,
-        stream_support_mask: np.ndarray,
-    ) -> dict[int, list[list[float]]]:
-        """Build DRN stress-period data, including hk-scaled fallback conductance."""
-        drn_spd = {}
-        top_flat = solver_mesh.top
-        dem_mask_flat = np.asarray(self.dem_mask, dtype=bool).reshape(-1)
-        ocean_mask_flat = np.asarray(ocean_support_mask, dtype=bool).reshape(-1)
-        stream_mask_flat = np.asarray(stream_support_mask, dtype=bool).reshape(-1)
-        cell_areas = solver_mesh.cell_areas()
-        for kper in range(int(self.nper)):
-            period_cells = []
-            configured_cond_value = float(drainage_cond_series[kper])
-            for cid in range(int(self.ncpl)):
-                if dem_mask_flat[cid] or ocean_mask_flat[cid] or stream_mask_flat[cid]:
-                    continue
-                if configured_cond_value > 0.0:
-                    cond_value = max(configured_cond_value, 1e-12)
-                else:
-                    cond_value = max(float(self.hk[0, cid]) * float(cell_areas[cid]), 1e-12)
-                period_cells.append([0, cid, float(top_flat[cid]), cond_value])
-            drn_spd[kper] = period_cells
-        return drn_spd
-
-    def _refresh_reused_runtime_property_packages(
-        self,
-        *,
-        flow_runtime_overrides: Mapping[str, object] | None,
-    ) -> tuple[str, ...]:
-        """Update only runtime-varying hydraulic packages on a reused MF6 object."""
-        flow_params = resolve_flow_property_arrays(
-            flow=self.flow,
-            domain=self.domain,
-            solver_mesh=self.solver_mesh,
-            planar_mesh=self.runtime_mesh_planar,
-            required_properties=resolve_required_flow_properties(flow_regime=self.flow_regime),
-            optional_fill_values={"Sy": 0.0, "Ss": 0.0},
-            runtime_property_overrides=flow_runtime_overrides,
-        )
-        self.hk = self.solver_mesh.flatten_from_grid(flow_params["hk"])
-        self.sy = self.solver_mesh.flatten_from_grid(flow_params["sy"])
-        self.ss = self.solver_mesh.flatten_from_grid(flow_params["ss"])
-
-        updated_packages: list[str] = []
-        if getattr(self, "npf", None) is not None:
-            self.npf.k.set_data(self.hk)
-            self.npf.k33.set_data(
-                self.hk
-                / max(
-                    float(
-                        getattr(
-                            getattr(self.modflow_config, "process_specific", object()),
-                            "vka",
-                            1.0,
-                        )
-                    ),
-                    1e-12,
-                )
-            )
-            updated_packages.append("npf")
-        if getattr(self, "sto", None) is not None:
-            self.sto.sy.set_data(self.sy)
-            self.sto.ss.set_data(self.ss)
-            updated_packages.append("sto")
-
-        drainage_cond_series = getattr(self, "_drainage_cond_series", None)
-        if (
-            getattr(self, "drn", None) is not None
-            and drainage_cond_series is not None
-            and bool(getattr(self, "_drainage_uses_hk", False))
-        ):
-            drn_spd = self._build_drain_stress_period_data(
-                solver_mesh=self.solver_mesh,
-                drainage_cond_series=drainage_cond_series,
-                ocean_support_mask=np.asarray(
-                    getattr(self, "_ocean_support_mask", np.zeros(int(self.ncpl), dtype=bool)),
-                    dtype=bool,
-                ),
-                stream_support_mask=np.asarray(
-                    getattr(self, "_stream_support_mask", np.zeros(int(self.ncpl), dtype=bool)),
-                    dtype=bool,
-                ),
-            )
-            self.drn.stress_period_data.set_data(drn_spd)
-            updated_packages.append("drn")
-
-        return tuple(updated_packages)
-
-    @staticmethod
-    def _sanitize_numeric_payload(payload: object) -> object:
-        """Replace unsupported/invalid numeric payload values by finite MF6-safe values."""
-        if payload is None:
-            return 0.0
-        if isinstance(payload, Mapping):
-            return {
-                key: Modflow6._sanitize_numeric_payload(value) for key, value in payload.items()
-            }
-        if isinstance(payload, Real) and not isinstance(payload, bool):
-            scalar = float(payload)
-            return 0.0 if not np.isfinite(scalar) else scalar
-        if hasattr(payload, "replace") and hasattr(payload, "fillna"):
-            series = payload.copy()
-            series = series.astype(float)
-            return series.replace([np.inf, -np.inf], np.nan).fillna(0.0)
-
-        arr = np.asarray(payload, dtype=float)
-        if arr.ndim == 0:
-            scalar = float(arr)
-            return 0.0 if not np.isfinite(scalar) else scalar
-        return np.nan_to_num(arr.astype(float, copy=False), nan=0.0, posinf=0.0, neginf=0.0)
-
-    @staticmethod
-    def _payload_has_negative_values(payload: object) -> bool:
-        """Return True when a recharge payload contains at least one negative value."""
-        if isinstance(payload, Mapping):
-            return any(Modflow6._payload_has_negative_values(value) for value in payload.values())
-        if isinstance(payload, Real) and not isinstance(payload, bool):
-            return float(payload) < 0.0
-        arr = np.asarray(payload, dtype=float)
-        return bool(np.any(arr < 0.0))
-
-    @staticmethod
-    def _clip_negative_payload(payload: object) -> object:
-        """Clip negative recharge values to zero for MF6 RCH compatibility."""
-        if isinstance(payload, Mapping):
-            return {key: Modflow6._clip_negative_payload(value) for key, value in payload.items()}
-        if isinstance(payload, Real) and not isinstance(payload, bool):
-            return max(float(payload), 0.0)
-        if hasattr(payload, "clip"):
-            try:
-                return payload.clip(lower=0.0)
-            except TypeError:
-                pass
-
-        arr = np.asarray(payload, dtype=float)
-        if arr.ndim == 0:
-            return max(float(arr), 0.0)
-        return np.maximum(arr, 0.0)
-
-    def _extract_evt_payload_2d(
-        self,
-        rch_data: Mapping[int, object],
-        negative_to_evt: bool,
-    ) -> tuple[dict[int, np.ndarray], dict[int, np.ndarray] | None]:
-        """Route negative recharge arrays to EVT and clip RCH to non-negative values."""
-        normalized_rch = {
-            int(kper): np.asarray(value, dtype=float) for kper, value in rch_data.items()
-        }
-        if not negative_to_evt:
-            return normalized_rch, None
-
-        has_negative = any(np.any(arr < 0.0) for arr in normalized_rch.values())
-        if not has_negative:
-            return normalized_rch, None
-
-        evt_data: dict[int, np.ndarray] = {}
-        clipped_rch: dict[int, np.ndarray] = {}
-        for kper, arr in normalized_rch.items():
-            if int(kper) == 0:
-                evt_data[int(kper)] = np.zeros_like(arr, dtype=float)
-            else:
-                evt_data[int(kper)] = np.abs(np.minimum(arr, 0.0)).astype(float, copy=False)
-            clipped_rch[int(kper)] = np.maximum(arr, 0.0).astype(float, copy=False)
-        return clipped_rch, evt_data
-
-    def _series_payload_value(self, payload: object, kper: int, *, first_clim: object) -> float:
-        """Resolve one scalar climate value from a scalar/sequence payload."""
-        if kper == 0:
-            if first_clim == "mean":
-                arr = np.asarray(payload, dtype=float)
-                return float(np.nanmean(arr))
-            if first_clim == "first":
-                if hasattr(payload, "iloc"):
-                    first = payload.iloc[0]
-                    if isinstance(first, Real) and not isinstance(first, bool):
-                        return float(first)
-                    first_arr = np.asarray(first, dtype=float).ravel()
-                    return float(first_arr[0]) if first_arr.size else 0.0
-                arr = np.asarray(payload, dtype=float).ravel()
-                return float(arr[0]) if arr.size else 0.0
-            if isinstance(first_clim, Real) and not isinstance(first_clim, bool):
-                return float(first_clim)
-
-        if hasattr(payload, "iloc"):
-            idx = min(max(int(kper), 0), len(payload) - 1)
-            value = payload.iloc[idx]
-            if isinstance(value, Real) and not isinstance(value, bool):
-                return float(value)
-            value_arr = np.asarray(value, dtype=float).ravel()
-            if value_arr.size:
-                return float(value_arr[0])
-            return 0.0
-
-        arr = np.asarray(payload, dtype=float).ravel()
-        if arr.size == 0:
-            return 0.0
-        idx = min(max(int(kper), 0), int(arr.size) - 1)
-        return float(arr[idx])
-
-    def _extract_evt_payload(
-        self,
-        payload: object,
-        negative_to_evt: bool,
-    ) -> tuple[object, dict[int, object] | None]:
-        """Route negative recharge values to EVT and keep RCH non-negative."""
-        if not negative_to_evt or not self._payload_has_negative_values(payload):
-            return payload, None
-
-        if isinstance(payload, Mapping):
-            return self._extract_evt_payload_2d(payload, True)
-
-        payload_for_rch = self._copy_runtime_payload(payload)
-        evt_payload = self._copy_runtime_payload(payload)
-
-        if isinstance(payload_for_rch, list):
-            payload_for_rch = np.asarray(payload_for_rch, dtype=float)
-        if isinstance(evt_payload, list):
-            evt_payload = np.asarray(evt_payload, dtype=float)
-
-        if hasattr(evt_payload, "clip"):
-            try:
-                payload_for_rch = evt_payload.clip(lower=0.0)
-            except TypeError:
-                payload_for_rch = self._clip_negative_payload(payload_for_rch)
-        else:
-            payload_for_rch = self._clip_negative_payload(payload_for_rch)
-
-        evt_negative = np.asarray(evt_payload, dtype=float)
-        evt_negative[evt_negative >= 0.0] = 0.0
-        evt_negative = np.abs(evt_negative)
-
-        first_clim = self.first_clim if self.first_clim is not None else "mean"
-        evt_spd: dict[int, object] = {
-            kper: (
-                0.0
-                if kper == 0
-                else self._series_payload_value(
-                    evt_negative,
-                    kper,
-                    first_clim=first_clim,
-                )
-            )
-            for kper in range(int(self.nper))
-        }
-        return payload_for_rch, evt_spd
-
-    def _bind_recharge_from_flow(self) -> None:
-        """Resolve recharge inputs from the canonical flow recharge configuration."""
-        self._evt_rate_payload = None
-        self._pending_negative_to_evt = False
-        if self.recharge is not None:
-            self.recharge = self._sanitize_numeric_payload(self.recharge)
-            if self.first_clim is None:
-                self.first_clim = "mean"
-            return
-
-        active = getattr(self.flow, "active_sinks_sources", [])
-        if "recharge" not in active:
-            self.recharge = 0.0
-            if self.first_clim is None:
-                self.first_clim = "mean"
-            return
-
-        sinks_sources = getattr(self.flow, "sinks_sources", {})
-        recharge_cfg = sinks_sources.get("recharge") if isinstance(sinks_sources, Mapping) else None
-        if recharge_cfg is None:
-            self.recharge = 0.0
-            if self.first_clim is None:
-                self.first_clim = "mean"
-            return
-
-        # Heterogeneous path: gridded FieldRecords or located PointRecords
-        # from data managers. Both get discretized onto the solver grid by
-        # ``_resolve_deferred_heterogeneous_recharge`` once ``solver_mesh``
-        # is available.
-        het_source = getattr(recharge_cfg, "heterogeneous_source", None)
-        if het_source is not None and (
-            getattr(het_source, "has_fields", False) or getattr(het_source, "has_points", False)
-        ):
-            self._bind_heterogeneous_recharge(recharge_cfg)
-            return
-
-        payload = self._copy_runtime_payload(getattr(recharge_cfg, "values", 0.0))
-        payload = convert_payload_to_m_per_s(
-            payload,
-            unit=str(getattr(recharge_cfg, "units", "mm/day")),
-            label="flow.sinks_sources.recharge.values",
-        )
-        payload = self._sanitize_numeric_payload(payload)
-        negative_to_evt = bool(getattr(recharge_cfg, "negative_to_evt", False))
-        if hasattr(self, "nper"):
-            payload, evt_payload = self._extract_evt_payload(
-                payload,
-                negative_to_evt,
-            )
-            self._evt_rate_payload = evt_payload
-        else:
-            self._pending_negative_to_evt = negative_to_evt
-
-        self.recharge = payload
-        self.first_clim = getattr(
-            recharge_cfg,
-            "first_clim",
-            self.first_clim if self.first_clim is not None else "mean",
-        )
-
-    def _bind_heterogeneous_recharge(self, recharge_cfg: object) -> None:
-        """Store heterogeneous source for deferred discretization.
-
-        The actual discretization is performed in
-        :meth:`_resolve_deferred_heterogeneous_recharge` after the
-        structured grid is built.
-        """
-        self._heterogeneous_recharge_source = recharge_cfg.heterogeneous_source
-        self._heterogeneous_negative_to_evt = bool(getattr(recharge_cfg, "negative_to_evt", False))
-        self._heterogeneous_interpolation_method = getattr(
-            recharge_cfg, "interpolation_method", "nearest"
-        )
-        # Heterogeneous data comes from data-managers (always mm/day).
-        # recharge_cfg.units has been normalized to "m/s" by Flow init.
-        self._heterogeneous_source_unit = "mm/day"
-        self.recharge = 0.0  # placeholder; replaced after solver_mesh construction
-        self.first_clim = getattr(
-            recharge_cfg,
-            "first_clim",
-            self.first_clim if self.first_clim is not None else "mean",
-        )
-
-    def _resolve_deferred_heterogeneous_recharge(self) -> None:
-        """Discretize stored heterogeneous recharge after solver_mesh is available."""
-        het_source = getattr(self, "_heterogeneous_recharge_source", None)
-        if het_source is None:
-            return
-
-        sim_window = self.time_grid.window if self.time_grid is not None else None
-        interp_method = getattr(self, "_heterogeneous_interpolation_method", "nearest")
-        source_unit = getattr(self, "_heterogeneous_source_unit", "mm/day")
-        use_structured = bool(getattr(self.solver_mesh, "is_structured", False))
-        if use_structured:
-            from hydromodpy.spatial.mesh.cartesian_grid.sgrid_field_discretization import (
-                discretize_fields_on_sgrid,
-                discretize_points_on_sgrid,
-            )
-        else:
-            from hydromodpy.spatial.mesh.gmsh_grid.planar_forcing_discretization import (
-                discretize_fields_on_planar_mesh,
-                discretize_points_on_planar_mesh,
-            )
-
-            planar_mesh = self.runtime_mesh_planar
-            if planar_mesh is None:
-                from hydromodpy.spatial.mesh.gmsh_grid.gmsh_planar_mesh import (
-                    GmshPlanarMesh2D,
-                )
-
-                planar_mesh = GmshPlanarMesh2D.from_hydro_mesh(self.solver_mesh.planar_mesh)
-
-        # Prefer fields; fall back to located points.
-        if getattr(het_source, "has_fields", False):
-            if use_structured:
-                raw_arrays = discretize_fields_on_sgrid(
-                    load_result=het_source,
-                    sgrid=self.solver_mesh,
-                    nper=int(self.nper),
-                    simulation_window=sim_window,
-                    method=interp_method,
-                )
-            else:
-                raw_arrays = discretize_fields_on_planar_mesh(
-                    load_result=het_source,
-                    planar_mesh=planar_mesh,
-                    nper=int(self.nper),
-                    simulation_window=sim_window,
-                    method=interp_method,
-                )
-        elif getattr(het_source, "has_points", False):
-            if use_structured:
-                raw_arrays = discretize_points_on_sgrid(
-                    load_result=het_source,
-                    sgrid=self.solver_mesh,
-                    nper=int(self.nper),
-                    simulation_window=sim_window,
-                    method=interp_method,
-                    source_unit=source_unit,
-                )
-            else:
-                raw_arrays = discretize_points_on_planar_mesh(
-                    load_result=het_source,
-                    planar_mesh=planar_mesh,
-                    nper=int(self.nper),
-                    simulation_window=sim_window,
-                    method=interp_method,
-                    source_unit=source_unit,
-                )
-        else:
-            self._heterogeneous_recharge_source = None
-            return
-
-        raw_arrays, evt_payload = self._extract_evt_payload_2d(
-            raw_arrays,
-            getattr(self, "_heterogeneous_negative_to_evt", False),
-        )
-
-        # _recharge_to_spd handles Mapping {kper: ndarray(ncpl,)}.
-        self.recharge = raw_arrays
-        self._evt_rate_payload = evt_payload
-        self._heterogeneous_recharge_source = None
-
-    def _scalar_to_flat(self, value: float) -> np.ndarray:
-        """Return flat (ncpl,) array filled with one scalar."""
-        return np.full(int(self.ncpl), float(value), dtype=float)
-
-    def _as_recharge_flat(self, value: object, *, kper: int | None = None) -> np.ndarray:
-        """Coerce one recharge value to a flat (ncpl,) array."""
-        if isinstance(value, Real) and not isinstance(value, bool):
-            return self._scalar_to_flat(float(value))
-
-        arr = np.asarray(value, dtype=float)
-        if arr.ndim == 0:
-            return self._scalar_to_flat(float(arr))
-        if arr.ndim == 1:
-            if arr.size == 0:
-                return np.zeros(int(self.ncpl), dtype=float)
-            if arr.size == int(self.ncpl):
-                return arr.astype(float)
-            if kper is None:
-                return self._scalar_to_flat(float(arr[-1]))
-            idx = min(max(int(kper), 0), int(arr.size) - 1)
-            return self._scalar_to_flat(float(arr[idx]))
-        if arr.ndim == 2:
-            flat = arr.ravel()
-            if flat.size == int(self.ncpl):
-                return flat.astype(float)
-            if flat.size == 0:
-                return np.zeros(int(self.ncpl), dtype=float)
-            return self._scalar_to_flat(float(flat[-1]))
-        if arr.ndim >= 3:
-            if kper is None:
-                kper = 0
-            idx = min(max(int(kper), 0), int(arr.shape[0]) - 1)
-            flat = np.asarray(arr[idx], dtype=float).ravel()
-            if flat.size == int(self.ncpl):
-                return flat
-            if flat.size == 0:
-                return np.zeros(int(self.ncpl), dtype=float)
-            return self._scalar_to_flat(float(flat[-1]))
-
-        return np.zeros(int(self.ncpl), dtype=float)
-
-    def _series_like_to_scalar(self, kper: int) -> float:
-        return self._series_payload_value(
-            self.recharge,
-            kper,
-            first_clim=self.first_clim,
-        )
-
-    def _recharge_to_spd(self) -> dict[int, np.ndarray]:
-        spd: dict[int, np.ndarray] = {}
-        if isinstance(self.recharge, Mapping):
-            for kper in range(self.nper):
-                arr = self.recharge.get(kper)
-                if arr is None:
-                    arr = 0.0
-                spd[kper] = self._as_recharge_flat(arr, kper=kper)
-            return spd
-
-        if isinstance(self.recharge, Real) and not isinstance(self.recharge, bool):
-            scalar = float(self.recharge)
-            for kper in range(self.nper):
-                spd[kper] = self._scalar_to_flat(scalar)
-            return spd
-
-        for kper in range(self.nper):
-            scalar = self._series_like_to_scalar(kper)
-            spd[kper] = self._scalar_to_flat(scalar)
-        return spd
-
-    def _empty_recharge_aux(self) -> dict[int, list[np.ndarray]]:
-        return {k: [np.zeros(int(self.ncpl), dtype=float)] for k in range(int(self.nper))}
-
-    def _finalize_pending_recharge_evt(self) -> None:
-        """Apply deferred negative-recharge routing once ``nper`` is known."""
-        if not getattr(self, "_pending_negative_to_evt", False):
-            return
-        self.recharge, self._evt_rate_payload = self._extract_evt_payload(
-            self.recharge,
-            True,
-        )
-        self._pending_negative_to_evt = False
-
-    def _resolve_rewet_npf_options(
-        self,
-        solver_mesh,
-    ) -> tuple[list[object] | None, np.ndarray | None]:
-        """Return MF6 NPF rewet options and the matching WETDRY array."""
-        runtime = getattr(self.modflow_config, "runtime", None)
-        if not self._rewet_is_enabled():
-            return None, None
-
-        wetdry_value = abs(float(getattr(runtime, "mf6_rewet_wetdry", 0.1)))
-        if wetdry_value <= 0.0:
-            raise ValueError(
-                "modflow6.runtime.mf6_rewet_wetdry must be > 0 when rewetting is enabled."
-            )
-
-        # FloPy injects the REWET keyword itself and expects only the labeled payload.
-        rewet_record = [
-            "WETFCT",
-            float(getattr(runtime, "mf6_rewet_wetfct", 0.1)),
-            "IWETIT",
-            int(getattr(runtime, "mf6_rewet_iwetit", 1)),
-            "IHDWET",
-            int(getattr(runtime, "mf6_rewet_ihdwet", 0)),
-        ]
-        wetdry = np.where(
-            np.asarray(solver_mesh.inactive_mask, dtype=bool),
-            0.0,
-            wetdry_value,
-        ).astype(float)
-        return rewet_record, wetdry
-
-    def _build_evt_stress_period_data(
-        self,
-        solver_mesh,
-        *,
-        ocean_support_mask: np.ndarray,
-        stream_support_mask: np.ndarray,
-    ) -> dict[int, list[list[float]]] | None:
-        """Build MF6 EVT stress-period data from recharge negatives routed to EVT."""
-        evt_payload = getattr(self, "_evt_rate_payload", None)
-        if evt_payload is None:
-            return None
-
-        top_flat = np.asarray(solver_mesh.top, dtype=float).reshape(-1)
-        dem_mask_flat = np.asarray(self.dem_mask, dtype=bool).reshape(-1)
-        ocean_mask_flat = np.asarray(ocean_support_mask, dtype=bool).reshape(-1)
-        stream_mask_flat = np.asarray(stream_support_mask, dtype=bool).reshape(-1)
-        evt_depth = max(
-            float(
-                getattr(
-                    getattr(self.modflow_config, "process_specific", object()),
-                    "evt_extinction_depth",
-                    1.0,
-                )
-            ),
-            1e-6,
-        )
-
-        evt_spd: dict[int, list[list[float]]] = {}
-        for kper in range(int(self.nper)):
-            raw_value = (
-                evt_payload.get(kper, 0.0) if isinstance(evt_payload, Mapping) else evt_payload
-            )
-            rate_flat = self._as_recharge_flat(raw_value, kper=kper)
-            period_cells: list[list[float]] = []
-            for cid in range(int(self.ncpl)):
-                if dem_mask_flat[cid] or ocean_mask_flat[cid] or stream_mask_flat[cid]:
-                    continue
-                rate_value = float(rate_flat[cid])
-                if rate_value <= 0.0:
-                    continue
-                period_cells.append([0, cid, float(top_flat[cid]), rate_value, evt_depth])
-            evt_spd[kper] = period_cells
-
-        if any(len(v) > 0 for v in evt_spd.values()):
-            return evt_spd
-        return None
-
     def pre_processing(
         self,
         flow: object,
@@ -1445,18 +246,20 @@ class Modflow6(Solver):
         active_options = self.preprocess_options if options is None else options
         self._apply_preprocess_options(active_options)
         self._validate_pre_processing_inputs()
-        self._bind_recharge_from_flow()
+        bind_recharge_from_flow(self)
         self._calibration_raw_output_payload_cache = {}
 
         self.flow_regime = self._resolve_flow_regime() or "transient"
-        runtime_reuse_signature = self._runtime_reuse_signature(
+        reuse_signature = runtime_reuse_signature(
+            self,
             flow=flow,
             domain=domain,
             options=active_options,
             mesh_planar=mesh_planar,
             mesh_support=mesh_support,
         )
-        if self._can_refresh_runtime_reuse(
+        if can_refresh_runtime_reuse(
+            self,
             flow=flow,
             domain=domain,
             options=active_options,
@@ -1464,10 +267,11 @@ class Modflow6(Solver):
             mesh_support=mesh_support,
             flow_runtime_overrides=flow_runtime_overrides,
         ):
-            self._runtime_dirty_packages = self._refresh_reused_runtime_property_packages(
+            self._runtime_dirty_packages = refresh_reused_runtime_property_packages(
+                self,
                 flow_runtime_overrides=flow_runtime_overrides,
             )
-            self._calibration_runtime_reuse_signature = runtime_reuse_signature
+            self._calibration_runtime_reuse_signature = reuse_signature
             return
         launcher_time_grid = self.time_grid
         temporal = build_temporal_discretization_from_time_grid(
@@ -1482,7 +286,7 @@ class Modflow6(Solver):
         self.nstp = temporal.nstp
         self.steady = temporal.steady
         time_units = "seconds"
-        self._finalize_pending_recharge_evt()
+        finalize_pending_recharge_evt(self)
 
         self.grid_ctx = build_spatial_discretization(
             domain=self.domain,
@@ -1506,7 +310,7 @@ class Modflow6(Solver):
         self.dem_watershed_path = self._write_solver_grid_template()
 
         # Deferred heterogeneous recharge: discretize now that solver_mesh is built.
-        self._resolve_deferred_heterogeneous_recharge()
+        resolve_deferred_heterogeneous_recharge(self)
 
         flow_params = resolve_flow_property_arrays(
             flow=self.flow,
@@ -1573,13 +377,13 @@ class Modflow6(Solver):
             length_units="METERS",
         )
 
-        strt = self._build_start_heads(solver_mesh)
+        strt = build_start_heads(self, solver_mesh)
         self.ic = flopy.mf6.ModflowGwfic(self.gwf, strt=strt)
-        ocean_chd_spd, ocean_support_mask = self._build_ocean_boundary_chd_spd()
-        stream_chd_spd, stream_support_mask = self._build_stream_boundary_chd_spd()
+        ocean_chd_spd, ocean_support_mask = build_ocean_boundary_chd_spd(self)
+        stream_chd_spd, stream_support_mask = build_stream_boundary_chd_spd(self)
         self._ocean_support_mask = np.asarray(ocean_support_mask, dtype=bool).copy()
         self._stream_support_mask = np.asarray(stream_support_mask, dtype=bool).copy()
-        rewet_record, wetdry = self._resolve_rewet_npf_options(solver_mesh)
+        rewet_record, wetdry = resolve_rewet_npf_options(self, solver_mesh)
 
         self.npf = flopy.mf6.ModflowGwfnpf(
             self.gwf,
@@ -1606,15 +410,16 @@ class Modflow6(Solver):
             transient={i: not bool(self.steady[i]) for i in range(int(self.nper))},
         )
 
-        self.rch_spd = self._recharge_to_spd()
+        self.rch_spd = recharge_to_spd(self)
         self.rch = flopy.mf6.ModflowGwfrcha(
             self.gwf,
             recharge=self.rch_spd,
             auxiliary=["CONCENTRATION"],
-            aux=self._empty_recharge_aux(),
+            aux=empty_recharge_aux(self),
             pname="RCHA",
         )
-        evt_spd = self._build_evt_stress_period_data(
+        evt_spd = build_evt_stress_period_data(
+            self,
             solver_mesh,
             ocean_support_mask=ocean_support_mask,
             stream_support_mask=stream_support_mask,
@@ -1628,7 +433,7 @@ class Modflow6(Solver):
                 save_flows=True,
             )
 
-        drainage_cond_series = self._resolve_drainage_conductance_series()
+        drainage_cond_series = resolve_drainage_conductance_series(self)
         self._drainage_cond_series = (
             None
             if drainage_cond_series is None
@@ -1639,7 +444,8 @@ class Modflow6(Solver):
             and np.any(np.asarray(drainage_cond_series, dtype=float) <= 0.0)
         )
         if drainage_cond_series is not None:
-            drn_spd = self._build_drain_stress_period_data(
+            drn_spd = build_drain_stress_period_data(
+                self,
                 solver_mesh=solver_mesh,
                 drainage_cond_series=np.asarray(drainage_cond_series, dtype=float),
                 ocean_support_mask=np.asarray(ocean_support_mask, dtype=bool),
@@ -1649,7 +455,7 @@ class Modflow6(Solver):
                 self.gwf, stress_period_data=drn_spd, save_flows=True
             )
 
-        side_chd_spd = self._build_side_boundary_chd_spd()
+        side_chd_spd = build_side_boundary_chd_spd(self)
         chd_spd = {}
         for kper in range(int(self.nper)):
             period_map: dict[tuple[int, int], list[float]] = {}
@@ -1665,7 +471,7 @@ class Modflow6(Solver):
                 self.gwf, stress_period_data=chd_spd, save_flows=True
             )
 
-        wel_spd = self._build_well_stress_period_data(int(self.nper))
+        wel_spd = build_well_stress_period_data(self, int(self.nper))
         if any(len(v) > 0 for v in wel_spd.values()):
             self.wel = flopy.mf6.ModflowGwfwel(
                 self.gwf, stress_period_data=wel_spd, save_flows=True
@@ -1679,7 +485,7 @@ class Modflow6(Solver):
             printrecord=[("HEAD", "LAST")],
         )
         self._runtime_dirty_packages = ()
-        self._calibration_runtime_reuse_signature = runtime_reuse_signature
+        self._calibration_runtime_reuse_signature = reuse_signature
 
     def processing(self, options: ModflowRunOptions | None = None):
         if options is None:
@@ -1706,181 +512,3 @@ class Modflow6(Solver):
 
     def post_processing(self, options: ModflowPostprocessOptions | None = None) -> None:
         run_flow_post_processing(self, options)
-
-
-class Modflow6Transport:
-    """Transport solver based on MODFLOW 6 GWT and `transport.modflow6gwt.parameters`."""
-
-    def __init__(
-        self,
-        domain: object,
-        transport: object,
-        model_modflow: object,
-        model_folder: str = "HydroModPy_outputs",
-        model_name: str = "Default_modflow6",
-        suffix_name: str = "_gwt",
-        bin_path: str | None = None,
-        **kwargs,
-    ):
-        self.domain = domain
-        self.transport = transport
-        self.model_modflow = model_modflow
-        self.model_folder = model_folder
-        self.model_name = model_name
-        self.suffix_name = suffix_name
-        self.model_name_mt = model_name + suffix_name
-        self.model_name_mt_mf6 = _mf6_safe_name(self.model_name_mt)
-        self.full_path = os.path.join(model_folder, model_name)
-        self.exe = getattr(model_modflow, "exe", "mf6")
-
-        conc_params = {}
-        comp = transport.modflow6gwt
-        if isinstance(getattr(comp, "parameters", None), Mapping):
-            conc_params = dict(comp.parameters)
-        conc_params.update(kwargs)
-        conc_params.update(
-            build_concentration_runtime_overrides(
-                conc_params,
-                model_modflow,
-            )
-        )
-
-        self.spc_name = conc_params.get("spc_name", "NO3")
-        self.sconc_init = conc_params.get("sconc_init", 0.0)
-        self.sconc_input = conc_params.get("sconc_input", 0.0)
-        self.disp_long = float(conc_params.get("disp_long", 0.0))
-        self.disp_transh = float(conc_params.get("disp_transh", 0.0))
-        self.disp_transv = float(conc_params.get("disp_transv", 0.0))
-        self.diffu_coeff = float(conc_params.get("diffu_coeff", 0.0))
-        self.react_order = conc_params.get("react_order", None)
-        self.rate_decay = conc_params.get("rate_decay", 0.0)
-        self.plot_conc = bool(conc_params.get("plot_conc", True))
-
-    def _build_crch(self) -> dict[int, np.ndarray]:
-        nper = int(self.model_modflow.nper)
-        ncpl = int(self.model_modflow.ncpl)
-        if isinstance(self.sconc_input, dict):
-            out = {}
-            for k in range(nper):
-                arr = self.sconc_input.get(k)
-                if arr is None:
-                    arr = np.zeros(ncpl, dtype=float)
-                out[k] = np.asarray(arr, dtype=float).reshape(-1)
-            return out
-        val = float(self.sconc_input)
-        return {k: np.full(ncpl, val, dtype=float) for k in range(nper)}
-
-    def _build_crch_aux(self) -> dict[int, list[np.ndarray]]:
-        crch = self._build_crch()
-        return {k: [np.asarray(v, dtype=float)] for k, v in crch.items()}
-
-    def pre_processing(self):
-        sim = self.model_modflow.sim
-        self.gwf = self.model_modflow.gwf
-        self.ims = flopy.mf6.ModflowIms(
-            sim,
-            print_option="SUMMARY",
-            complexity="COMPLEX",
-            filename=f"{self.model_name_mt_mf6}.ims",
-            pname="IMS_GWT",
-        )
-        self.gwt = flopy.mf6.ModflowGwt(sim, modelname=self.model_name_mt_mf6, save_flows=True)
-        sim.register_ims_package(self.ims, [self.gwt.name])
-        if hasattr(self.model_modflow, "ims") and self.model_modflow.ims is not None:
-            sim.name_file.solutiongroup.set_data(
-                [
-                    ("ims6", self.model_modflow.ims.filename, self.gwf.name),
-                    ("ims6", self.ims.filename, self.gwt.name),
-                ],
-                key=0,
-            )
-
-        disv_kwargs = self.model_modflow.solver_mesh.to_disv_kwargs()
-        self.gwtdis = flopy.mf6.ModflowGwtdisv(
-            self.gwt,
-            nlay=self.model_modflow.nlay,
-            **disv_kwargs,
-        )
-        self.gwtic = flopy.mf6.ModflowGwtic(self.gwt, strt=self.sconc_init)
-        self.adv = flopy.mf6.ModflowGwtadv(self.gwt, scheme="upstream")
-        self.dsp = flopy.mf6.ModflowGwtdsp(
-            self.gwt,
-            alh=self.disp_long,
-            ath1=self.disp_long * self.disp_transh,
-            atv=self.disp_long * self.disp_transv,
-            diffc=self.diffu_coeff,
-        )
-
-        decay = self.rate_decay if self.react_order in {0, 1} else None
-        self.mst = flopy.mf6.ModflowGwtmst(
-            self.gwt,
-            porosity=self.model_modflow.sy,
-            first_order_decay=bool(self.react_order == 1),
-            decay=decay,
-        )
-
-        if not hasattr(self.model_modflow, "rch") or self.model_modflow.rch is None:
-            raise RuntimeError("Modflow6Transport requires an existing GWF recharge package.")
-        self.model_modflow.rch.aux.set_data(self._build_crch_aux())
-        self.ssm = flopy.mf6.ModflowGwtssm(self.gwt, sources=[("RCHA", "AUX", "CONCENTRATION")])
-
-        self.gwfgwt = flopy.mf6.ModflowGwfgwt(
-            sim,
-            exgtype="GWF6-GWT6",
-            exgmnamea=self.gwf.name,
-            exgmnameb=self.gwt.name,
-        )
-        self.oc = flopy.mf6.ModflowGwtoc(
-            self.gwt,
-            concentration_filerecord=f"{self.model_name_mt}.ucn",
-            budget_filerecord=f"{self.model_name_mt}.cbc",
-            saverecord=[("CONCENTRATION", "ALL"), ("BUDGET", "ALL")],
-        )
-
-    def processing(self, write_model: bool = True, run_model: bool = False, verbose: bool = True):
-        if write_model:
-            self.model_modflow.sim.write_simulation(silent=not verbose)
-        success = False
-        if run_model:
-            success, _ = self.model_modflow.sim.run_simulation(silent=not verbose)
-        return success
-
-    def _resolve_postprocess_options(
-        self,
-        *,
-        export_all_tif: bool,
-        options: ModflowPostprocessOptions | None,
-    ) -> ModflowPostprocessOptions:
-        """Resolve transport post-processing options from explicit or inherited flow settings."""
-        if options is not None and not isinstance(options, ModflowPostprocessOptions):
-            raise TypeError("transport post_processing options must be ModflowPostprocessOptions")
-
-        resolved = options
-        if resolved is None:
-            inherited = getattr(self.model_modflow, "last_postprocess_options", None)
-            if isinstance(inherited, ModflowPostprocessOptions):
-                resolved = inherited
-        if resolved is None:
-            return ModflowPostprocessOptions(export_all_tif=bool(export_all_tif))
-        if bool(getattr(resolved, "export_all_tif", False)) == bool(export_all_tif):
-            return resolved
-        return replace(resolved, export_all_tif=bool(export_all_tif))
-
-    def post_processing(
-        self,
-        model_mt3dms: object,
-        concentration_seepage: bool = True,
-        mass_seepage: bool = True,
-        mass_accumulated: bool = False,
-        export_all_tif: bool = False,
-        options: ModflowPostprocessOptions | None = None,
-    ) -> None:
-        run_transport_post_processing(
-            self,
-            model_mt3dms,
-            concentration_seepage=concentration_seepage,
-            mass_seepage=mass_seepage,
-            mass_accumulated=mass_accumulated,
-            export_all_tif=export_all_tif,
-            options=options,
-        )

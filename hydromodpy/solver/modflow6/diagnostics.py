@@ -9,6 +9,17 @@ from typing import Protocol
 import numpy as np
 
 from hydromodpy.core.tools import filesystem
+from hydromodpy.solver.modflow6.builders.boundary_conditions import (
+    boundary_attr,
+    boundary_conditions_mapping,
+    boundary_support_cell_ids,
+    is_bc_active,
+    ocean_chd_support_mask,
+    resolve_ocean_boundary_series,
+    resolve_stream_boundary_series,
+    stream_chd_support_mask,
+)
+from hydromodpy.solver.modflow6.builders.wells import resolve_well_disv_cell
 from hydromodpy.solver.modflow_common.options import ModflowPostprocessOptions
 
 
@@ -134,28 +145,28 @@ def build_support_overlay_specs(
         "stream": "#17becf",
         "ocean": "#2ca02c",
     }
-    boundary_conditions = model._boundary_conditions_mapping()
+    boundary_conditions = boundary_conditions_mapping(model)
     for bc_id in ("west_side", "east_side", "north_side", "south_side"):
-        if not model._is_bc_active(bc_id):
+        if not is_bc_active(model, bc_id):
             continue
         boundary = boundary_conditions.get(bc_id)
         if boundary is None:
             continue
         cell_ids = np.asarray(
-            model._boundary_support_cell_ids(boundary=boundary, bc_id=bc_id),
+            boundary_support_cell_ids(model, boundary=boundary, bc_id=bc_id),
             dtype=int,
         ).reshape(-1)
         if cell_ids.size == 0:
             continue
-        support_label = model._boundary_attr(boundary, "support_label", None)
+        support_label = boundary_attr(boundary, "support_label", None)
         label = str(bc_id)
         if support_label is not None:
             label = f"{bc_id} [{str(support_label)}]"
         overlays.append((label, cell_ids, color_by_bc[bc_id]))
 
-    if model._is_bc_active("stream"):
-        stream_series = model._resolve_stream_boundary_series()
-        stream_mask = model._stream_chd_support_mask(stream_series)
+    if is_bc_active(model, "stream"):
+        stream_series = resolve_stream_boundary_series(model)
+        stream_mask = stream_chd_support_mask(model, stream_series)
         stream_cell_ids = np.flatnonzero(np.asarray(stream_mask, dtype=bool)).astype(
             int, copy=False
         )
@@ -164,7 +175,7 @@ def build_support_overlay_specs(
             support_label = (
                 None
                 if stream_boundary is None
-                else model._boundary_attr(
+                else boundary_attr(
                     stream_boundary,
                     "support_label",
                     None,
@@ -175,9 +186,9 @@ def build_support_overlay_specs(
                 label = f"stream [{str(support_label)}]"
             overlays.append((label, stream_cell_ids, color_by_bc["stream"]))
 
-    if model._is_bc_active("ocean"):
-        ocean_series = model._resolve_ocean_boundary_series()
-        ocean_mask = model._ocean_chd_support_mask(ocean_series)
+    if is_bc_active(model, "ocean"):
+        ocean_series = resolve_ocean_boundary_series(model)
+        ocean_mask = ocean_chd_support_mask(model, ocean_series)
         ocean_cell_ids = np.flatnonzero(np.asarray(ocean_mask, dtype=bool)).astype(int, copy=False)
         if ocean_cell_ids.size > 0:
             overlays.append(("ocean", ocean_cell_ids, color_by_bc["ocean"]))
@@ -205,7 +216,8 @@ def build_well_overlay_specs(model: RuntimeSupportOverviewModel) -> list[dict[st
     items: list[dict[str, object]] = []
     for well_id, well_cfg in wells.items():
         try:
-            _, cell_id = model._resolve_well_disv_cell(
+            _, cell_id = resolve_well_disv_cell(
+                model,
                 well_id=str(well_id),
                 well_cfg=well_cfg,
                 grid=grid,

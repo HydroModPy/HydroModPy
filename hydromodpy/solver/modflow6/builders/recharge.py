@@ -1,7 +1,4 @@
-# Intentional duplication with the NWT flow_to_modflow_adapter: MODFLOW-NWT is
-# scheduled for removal after the Lake (LAK) module lands on the MF6 side - not
-# worth factoring the payload builders out. See docs/developers/nwt_sunset_plan.md.
-"""Flow-to-MODFLOW 6 adaptation helpers for wells, recharge, and EVT."""
+"""MF6 recharge / EVT stress-period data builders."""
 
 from __future__ import annotations
 
@@ -11,119 +8,6 @@ from numbers import Real
 import numpy as np
 
 from hydromodpy.core.units import convert_payload_to_m_per_s
-from hydromodpy.core.units.volumetric_flow import (
-    convert_to_m3_per_s,
-    normalize_m3_per_s_unit,
-)
-from hydromodpy.physics.flow.time_forcing import resolve_period_values_from_forcing
-from hydromodpy.solver.modflow6.common.forcing_discretization import (
-    discretize_spatially_distributed_source,
-    has_spatially_distributed_source,
-)
-
-
-def copy_runtime_payload(payload: object) -> object:
-    """Return a detached copy of one runtime payload when possible."""
-    if isinstance(payload, Mapping):
-        return {key: copy_runtime_payload(value) for key, value in payload.items()}
-    if hasattr(payload, "copy"):
-        try:
-            return payload.copy()
-        except Exception:
-            pass
-    return payload
-
-
-def build_well_stress_period_data(
-    model: object,
-    n_stress_periods: int,
-) -> dict[int, list[list[float]]]:
-    """Build MF6 WEL stress-period data from the canonical flow wells config."""
-    if n_stress_periods <= 0 or model.flow is None:
-        return {}
-
-    active = getattr(model.flow, "active_sinks_sources", [])
-    if "wells" not in active:
-        return {}
-
-    sinks_sources = getattr(model.flow, "sinks_sources", {})
-    if not isinstance(sinks_sources, Mapping):
-        return {}
-
-    wells = sinks_sources.get("wells", {})
-    if wells is None:
-        return {}
-    if not isinstance(wells, Mapping):
-        raise TypeError("flow.sinks_sources['wells'] must be a mapping of well ids to payloads.")
-    if len(wells) == 0:
-        return {}
-    grid = None if model.grid_ctx is None else model.grid_ctx.grid
-
-    normalized_wells: list[tuple[tuple[int, int], np.ndarray]] = []
-    for well_id, raw_well_payload in wells.items():
-        flux_payload = getattr(raw_well_payload, "flux", None)
-        forcing_payload = getattr(raw_well_payload, "forcing", None)
-        if isinstance(raw_well_payload, Mapping):
-            flux_payload = raw_well_payload.get("flux")
-            forcing_payload = raw_well_payload.get("forcing")
-        if flux_payload is None and forcing_payload is None:
-            continue
-
-        cell = model._resolve_well_disv_cell(
-            well_id=well_id,
-            well_cfg=raw_well_payload,
-            grid=grid,
-        )
-
-        if forcing_payload is not None:
-            raw_values = resolve_period_values_from_forcing(
-                forcing=forcing_payload,
-                simulation_window=None if model.time_grid is None else model.time_grid.window,
-                nper=int(n_stress_periods),
-                label=f"flow.sinks_sources.wells.{well_id}.forcing",
-            )
-            fallback_units = (
-                raw_well_payload.get("units", "m3/s")
-                if isinstance(raw_well_payload, Mapping)
-                else getattr(raw_well_payload, "units", "m3/s")
-            )
-            canonical_units = normalize_m3_per_s_unit(
-                model._forcing_units(
-                    forcing_payload,
-                    fallback=fallback_units,
-                )
-            )
-            flux_vector = np.asarray(
-                [
-                    convert_to_m3_per_s(
-                        value,
-                        unit=canonical_units,
-                        label=f"flow.sinks_sources.wells.{well_id}.forcing[{idx}]",
-                    )
-                    for idx, value in enumerate(raw_values)
-                ],
-                dtype=float,
-            )
-        elif isinstance(flux_payload, Real) and not isinstance(flux_payload, bool):
-            flux_vector = np.full((n_stress_periods,), float(flux_payload), dtype=float)
-        else:
-            raw_flux_seq = list(flux_payload)
-            parsed = np.asarray(raw_flux_seq, dtype=float)
-            if parsed.size == 1:
-                flux_vector = np.full((n_stress_periods,), float(parsed[0]), dtype=float)
-            elif parsed.size >= n_stress_periods:
-                flux_vector = parsed[:n_stress_periods].astype(float)
-            else:
-                flux_vector = np.full((n_stress_periods,), float(parsed[-1]), dtype=float)
-                flux_vector[: parsed.size] = parsed
-        normalized_wells.append((cell, flux_vector))
-
-    spd: dict[int, list[list[float]]] = {}
-    for t in range(n_stress_periods):
-        spd[t] = [
-            [cell[0], cell[1], float(flux_vector[t])] for cell, flux_vector in normalized_wells
-        ]
-    return spd
 
 
 def sanitize_numeric_payload(payload: object) -> object:
@@ -173,6 +57,18 @@ def clip_negative_payload(payload: object) -> object:
     if arr.ndim == 0:
         return max(float(arr), 0.0)
     return np.maximum(arr, 0.0)
+
+
+def copy_runtime_payload(payload: object) -> object:
+    """Return a detached copy of one runtime payload when possible."""
+    if isinstance(payload, Mapping):
+        return {key: copy_runtime_payload(value) for key, value in payload.items()}
+    if hasattr(payload, "copy"):
+        try:
+            return payload.copy()
+        except Exception:
+            pass
+    return payload
 
 
 def extract_evt_payload_2d(
@@ -235,7 +131,7 @@ def series_payload_value(payload: object, kper: int, *, first_clim: object) -> f
 
 
 def extract_evt_payload(
-    model: object,
+    model,
     payload: object,
     negative_to_evt: bool,
 ) -> tuple[object, dict[int, object] | None]:
@@ -269,20 +165,14 @@ def extract_evt_payload(
     first_clim = model.first_clim if model.first_clim is not None else "mean"
     evt_spd: dict[int, object] = {
         kper: (
-            0.0
-            if kper == 0
-            else series_payload_value(
-                evt_negative,
-                kper,
-                first_clim=first_clim,
-            )
+            0.0 if kper == 0 else series_payload_value(evt_negative, kper, first_clim=first_clim)
         )
         for kper in range(int(model.nper))
     }
     return payload_for_rch, evt_spd
 
 
-def bind_recharge_from_flow(model: object) -> None:
+def bind_recharge_from_flow(model) -> None:
     """Resolve recharge inputs from the canonical flow recharge configuration."""
     model._evt_rate_payload = None
     model._pending_negative_to_evt = False
@@ -307,25 +197,26 @@ def bind_recharge_from_flow(model: object) -> None:
             model.first_clim = "mean"
         return
 
+    # Heterogeneous path: gridded FieldRecords or located PointRecords from data
+    # managers. Both get discretized onto the solver grid by
+    # `resolve_deferred_heterogeneous_recharge` once `solver_mesh` is available.
     het_source = getattr(recharge_cfg, "heterogeneous_source", None)
-    if has_spatially_distributed_source(het_source):
+    if het_source is not None and (
+        getattr(het_source, "has_fields", False) or getattr(het_source, "has_points", False)
+    ):
         bind_heterogeneous_recharge(model, recharge_cfg)
         return
 
     payload = copy_runtime_payload(getattr(recharge_cfg, "values", 0.0))
     payload = convert_payload_to_m_per_s(
         payload,
-        unit=str(getattr(recharge_cfg, "units", "m/s")),
+        unit=str(getattr(recharge_cfg, "units", "mm/day")),
         label="flow.sinks_sources.recharge.values",
     )
     payload = sanitize_numeric_payload(payload)
     negative_to_evt = bool(getattr(recharge_cfg, "negative_to_evt", False))
     if hasattr(model, "nper"):
-        payload, evt_payload = extract_evt_payload(
-            model,
-            payload,
-            negative_to_evt,
-        )
+        payload, evt_payload = extract_evt_payload(model, payload, negative_to_evt)
         model._evt_rate_payload = evt_payload
     else:
         model._pending_negative_to_evt = negative_to_evt
@@ -338,14 +229,17 @@ def bind_recharge_from_flow(model: object) -> None:
     )
 
 
-def bind_heterogeneous_recharge(model: object, recharge_cfg: object) -> None:
+def bind_heterogeneous_recharge(model, recharge_cfg: object) -> None:
     """Store heterogeneous source for deferred discretization."""
     model._heterogeneous_recharge_source = recharge_cfg.heterogeneous_source
     model._heterogeneous_negative_to_evt = bool(getattr(recharge_cfg, "negative_to_evt", False))
     model._heterogeneous_interpolation_method = getattr(
         recharge_cfg, "interpolation_method", "nearest"
     )
-    model.recharge = 0.0
+    # Heterogeneous data comes from data-managers (always mm/day).
+    # recharge_cfg.units has been normalized to "m/s" by Flow init.
+    model._heterogeneous_source_unit = "mm/day"
+    model.recharge = 0.0  # placeholder; replaced after solver_mesh construction
     model.first_clim = getattr(
         recharge_cfg,
         "first_clim",
@@ -353,7 +247,7 @@ def bind_heterogeneous_recharge(model: object, recharge_cfg: object) -> None:
     )
 
 
-def resolve_deferred_heterogeneous_recharge(model: object) -> None:
+def resolve_deferred_heterogeneous_recharge(model) -> None:
     """Discretize stored heterogeneous recharge after solver_mesh is available."""
     het_source = getattr(model, "_heterogeneous_recharge_source", None)
     if het_source is None:
@@ -361,34 +255,84 @@ def resolve_deferred_heterogeneous_recharge(model: object) -> None:
 
     sim_window = model.time_grid.window if model.time_grid is not None else None
     interp_method = getattr(model, "_heterogeneous_interpolation_method", "nearest")
-    if not has_spatially_distributed_source(het_source):
+    source_unit = getattr(model, "_heterogeneous_source_unit", "mm/day")
+    use_structured = bool(getattr(model.solver_mesh, "is_structured", False))
+    if use_structured:
+        from hydromodpy.spatial.mesh.cartesian_grid.sgrid_field_discretization import (
+            discretize_fields_on_sgrid,
+            discretize_points_on_sgrid,
+        )
+    else:
+        from hydromodpy.spatial.mesh.gmsh_grid.planar_forcing_discretization import (
+            discretize_fields_on_planar_mesh,
+            discretize_points_on_planar_mesh,
+        )
+
+        planar_mesh = getattr(model, "runtime_mesh_planar", None)
+        if planar_mesh is None:
+            from hydromodpy.spatial.mesh.gmsh_grid.gmsh_planar_mesh import GmshPlanarMesh2D
+
+            planar_mesh = GmshPlanarMesh2D.from_hydro_mesh(model.solver_mesh.planar_mesh)
+
+    # Prefer fields; fall back to located points.
+    if getattr(het_source, "has_fields", False):
+        if use_structured:
+            raw_arrays = discretize_fields_on_sgrid(
+                load_result=het_source,
+                sgrid=model.solver_mesh,
+                nper=int(model.nper),
+                simulation_window=sim_window,
+                method=interp_method,
+            )
+        else:
+            raw_arrays = discretize_fields_on_planar_mesh(
+                load_result=het_source,
+                planar_mesh=planar_mesh,
+                nper=int(model.nper),
+                simulation_window=sim_window,
+                method=interp_method,
+            )
+    elif getattr(het_source, "has_points", False):
+        if use_structured:
+            raw_arrays = discretize_points_on_sgrid(
+                load_result=het_source,
+                sgrid=model.solver_mesh,
+                nper=int(model.nper),
+                simulation_window=sim_window,
+                method=interp_method,
+                source_unit=source_unit,
+            )
+        else:
+            raw_arrays = discretize_points_on_planar_mesh(
+                load_result=het_source,
+                planar_mesh=planar_mesh,
+                nper=int(model.nper),
+                simulation_window=sim_window,
+                method=interp_method,
+                source_unit=source_unit,
+            )
+    else:
         model._heterogeneous_recharge_source = None
         return
-    raw_arrays = discretize_spatially_distributed_source(
-        het_source,
-        solver_mesh=model.solver_mesh,
-        nper=int(model.nper),
-        simulation_window=sim_window,
-        method=interp_method,
-        planar_mesh=getattr(model, "runtime_mesh_planar", None),
-    )
 
     raw_arrays, evt_payload = extract_evt_payload_2d(
         raw_arrays,
         getattr(model, "_heterogeneous_negative_to_evt", False),
     )
+
+    # `recharge_to_spd` handles Mapping {kper: ndarray(ncpl,)}.
     model.recharge = raw_arrays
     model._evt_rate_payload = evt_payload
     model._heterogeneous_recharge_source = None
 
 
-def scalar_to_flat(model: object, value: float) -> np.ndarray:
-    """Return flat `(ncpl,)` array filled with one scalar."""
+def scalar_to_flat(model, value: float) -> np.ndarray:
+    """Return flat (ncpl,) array filled with one scalar."""
     return np.full(int(model.ncpl), float(value), dtype=float)
 
 
-def as_recharge_flat(model: object, value: object, *, kper: int | None = None) -> np.ndarray:
-    """Coerce one recharge value to a flat `(ncpl,)` array."""
+def as_recharge_flat(model, value: object, *, kper: int | None = None) -> np.ndarray:
+    """Coerce one recharge value to a flat (ncpl,) array."""
     if isinstance(value, Real) and not isinstance(value, bool):
         return scalar_to_flat(model, float(value))
 
@@ -425,15 +369,11 @@ def as_recharge_flat(model: object, value: object, *, kper: int | None = None) -
     return np.zeros(int(model.ncpl), dtype=float)
 
 
-def series_like_to_scalar(model: object, kper: int) -> float:
-    return series_payload_value(
-        model.recharge,
-        kper,
-        first_clim=model.first_clim,
-    )
+def series_like_to_scalar(model, kper: int) -> float:
+    return series_payload_value(model.recharge, kper, first_clim=model.first_clim)
 
 
-def recharge_to_spd(model: object) -> dict[int, np.ndarray]:
+def recharge_to_spd(model) -> dict[int, np.ndarray]:
     spd: dict[int, np.ndarray] = {}
     if isinstance(model.recharge, Mapping):
         for kper in range(model.nper):
@@ -455,53 +395,20 @@ def recharge_to_spd(model: object) -> dict[int, np.ndarray]:
     return spd
 
 
-def empty_recharge_aux(model: object) -> dict[int, list[np.ndarray]]:
+def empty_recharge_aux(model) -> dict[int, list[np.ndarray]]:
     return {k: [np.zeros(int(model.ncpl), dtype=float)] for k in range(int(model.nper))}
 
 
-def finalize_pending_recharge_evt(model: object) -> None:
+def finalize_pending_recharge_evt(model) -> None:
     """Apply deferred negative-recharge routing once `nper` is known."""
     if not getattr(model, "_pending_negative_to_evt", False):
         return
-    model.recharge, model._evt_rate_payload = extract_evt_payload(
-        model,
-        model.recharge,
-        True,
-    )
+    model.recharge, model._evt_rate_payload = extract_evt_payload(model, model.recharge, True)
     model._pending_negative_to_evt = False
 
 
-def resolve_rewet_npf_options(
-    model: object,
-    solver_mesh,
-) -> tuple[list[object] | None, np.ndarray | None]:
-    """Return MF6 NPF rewet options and the matching WETDRY array."""
-    runtime = getattr(model.modflow_config, "runtime", None)
-    if not model._rewet_is_enabled():
-        return None, None
-
-    wetdry_value = abs(float(getattr(runtime, "mf6_rewet_wetdry", 0.1)))
-    if wetdry_value <= 0.0:
-        raise ValueError("modflow6.runtime.mf6_rewet_wetdry must be > 0 when rewetting is enabled.")
-
-    rewet_record = [
-        "WETFCT",
-        float(getattr(runtime, "mf6_rewet_wetfct", 0.1)),
-        "IWETIT",
-        int(getattr(runtime, "mf6_rewet_iwetit", 1)),
-        "IHDWET",
-        int(getattr(runtime, "mf6_rewet_ihdwet", 0)),
-    ]
-    wetdry = np.where(
-        np.asarray(solver_mesh.inactive_mask, dtype=bool),
-        0.0,
-        wetdry_value,
-    ).astype(float)
-    return rewet_record, wetdry
-
-
 def build_evt_stress_period_data(
-    model: object,
+    model,
     solver_mesh,
     *,
     ocean_support_mask: np.ndarray,
@@ -551,7 +458,6 @@ __all__ = [
     "bind_heterogeneous_recharge",
     "bind_recharge_from_flow",
     "build_evt_stress_period_data",
-    "build_well_stress_period_data",
     "clip_negative_payload",
     "copy_runtime_payload",
     "empty_recharge_aux",
@@ -561,7 +467,6 @@ __all__ = [
     "payload_has_negative_values",
     "recharge_to_spd",
     "resolve_deferred_heterogeneous_recharge",
-    "resolve_rewet_npf_options",
     "sanitize_numeric_payload",
     "scalar_to_flat",
     "series_like_to_scalar",

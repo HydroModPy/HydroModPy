@@ -9,7 +9,7 @@ from hydromodpy.simulation.adapters.transport_helpers import (
     transport_output_suffix,
 )
 from hydromodpy.simulation.planning.plan import RunContext, RunExecutionResult
-from hydromodpy.solver.modflow6.modflow6 import Modflow6Transport
+from hydromodpy.solver.modflow6.transport import Modflow6Transport
 
 
 class Modflow6GwtTransportAdapter:
