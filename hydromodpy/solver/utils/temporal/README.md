@@ -3,9 +3,9 @@
 `hydromodpy/solver/utils/temporal/` contains the time-discretization layer used
 to build solver stress periods.
 
-- `tmesh_generation.py`: temporal mesh/grid generation class (`TMesh_Generation`).
+- `tmesh_generation.py`: temporal mesh/grid generation class (`TmeshGenerator`).
 - `tmesh_config.py`: Pydantic model (`TMeshConfig`) + TOML helpers.
-- `tmesh_config.toml`: minimal template with all `TMesh_Generation` entries.
+- `tmesh_config.toml`: minimal template with all `TmeshGenerator` entries.
 - `cases/`: runnable demo cases (`run_tmesh_case.py`) and sample TOML.
 
 ## Launcher Time-Scale Diagnostic

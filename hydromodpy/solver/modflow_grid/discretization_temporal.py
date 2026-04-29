@@ -97,11 +97,11 @@ def build_temporal_discretization(
     default_itmuni: int,
 ) -> TemporalDiscretizationResult:
     """Build normalized temporal discretization from typed ``tgrid`` config."""
-    from hydromodpy.solver.utils.temporal.tmesh_generation import TMesh_Generation
+    from hydromodpy.solver.utils.temporal.tmesh_generation import TmeshGenerator
 
     builder_kwargs = tgrid_config.to_builder_kwargs()
     builder_kwargs["flow_regime"] = flow_regime
-    builder = TMesh_Generation(**builder_kwargs)
+    builder = TmeshGenerator(**builder_kwargs)
     tgrid = builder.run()
 
     dis_itmuni = _coerce_itmuni(

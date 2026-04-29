@@ -36,7 +36,7 @@ def test_synthetic_regular_builds_expected_arrays():
         ntsp=2,
         tsmult=1.5,
     )
-    builder = mod.TMesh_Generation.from_config(cfg)
+    builder = mod.TmeshGenerator.from_config(cfg)
     tmesh = builder.run()
 
     assert np.allclose(tmesh.perlen, np.array([2.0, 2.0, 2.0]))
@@ -58,7 +58,7 @@ def test_synthetic_regular_with_seconds_itmuni_keeps_second_lengths():
         ntsp=1,
         tsmult=1.0,
     )
-    builder = mod.TMesh_Generation.from_config(cfg)
+    builder = mod.TmeshGenerator.from_config(cfg)
     tmesh = builder.run()
 
     assert np.allclose(tmesh.perlen, np.array([3600.0, 3600.0]))
@@ -73,7 +73,7 @@ def test_from_chron_parses_dates_and_computes_perlen(tmp_path: Path):
         encoding="utf-8",
     )
 
-    builder = mod.TMesh_Generation(
+    builder = mod.TmeshGenerator(
         config=mod.TMeshConfig(
             genmtd="from_chron",
             chron_path=str(chron_path),
@@ -90,7 +90,7 @@ def test_from_chron_parses_dates_and_computes_perlen(tmp_path: Path):
 def test_synthetic_regular_checks_start_end_window_consistency():
     mod = _load_tmesh_module()
 
-    builder = mod.TMesh_Generation(
+    builder = mod.TmeshGenerator(
         config=mod.TMeshConfig(
             genmtd="synthetic_regular",
             flow_regime="transient",
@@ -109,7 +109,7 @@ def test_synthetic_regular_checks_start_end_window_consistency():
 def test_synthetic_regular_rejects_inconsistent_end_datetime():
     mod = _load_tmesh_module()
 
-    builder = mod.TMesh_Generation(
+    builder = mod.TmeshGenerator(
         config=mod.TMeshConfig(
             genmtd="synthetic_regular",
             flow_regime="transient",
@@ -137,7 +137,7 @@ def test_from_chron_respects_explicit_start_end_window(tmp_path: Path):
         encoding="utf-8",
     )
 
-    builder = mod.TMesh_Generation(
+    builder = mod.TmeshGenerator(
         config=mod.TMeshConfig(
             genmtd="from_chron",
             chron_path=str(chron_path),
@@ -160,7 +160,7 @@ def test_from_chron_requires_exact_window_bounds_in_chronicle(tmp_path: Path):
         encoding="utf-8",
     )
 
-    builder = mod.TMesh_Generation(
+    builder = mod.TmeshGenerator(
         config=mod.TMeshConfig(
             genmtd="from_chron",
             chron_path=str(chron_path),
@@ -176,25 +176,25 @@ def test_from_chron_requires_exact_window_bounds_in_chronicle(tmp_path: Path):
 def test_invalid_genmtd_raises():
     mod = _load_tmesh_module()
     with pytest.raises(ValueError, match="synthetic_regular.*from_chron"):
-        _ = mod.TMesh_Generation(config=mod.TMeshConfig(genmtd="unknown"))
+        _ = mod.TmeshGenerator(config=mod.TMeshConfig(genmtd="unknown"))
 
 
 def test_invalid_flow_regime_raises():
     mod = _load_tmesh_module()
     with pytest.raises(ValueError, match="steady.*transient"):
-        _ = mod.TMesh_Generation(config=mod.TMeshConfig(flow_regime="unknown"))
+        _ = mod.TmeshGenerator(config=mod.TMeshConfig(flow_regime="unknown"))
 
 
 def test_invalid_nper_raises():
     mod = _load_tmesh_module()
     with pytest.raises(ValueError, match="nper must be > 0"):
-        _ = mod.TMesh_Generation(config=mod.TMeshConfig(nper=0))
+        _ = mod.TmeshGenerator(config=mod.TMeshConfig(nper=0))
 
 
 def test_from_chron_requires_path():
     mod = _load_tmesh_module()
     with pytest.raises(ValueError, match="chron_path is required"):
-        _ = mod.TMesh_Generation(config=mod.TMeshConfig(genmtd="from_chron"))
+        _ = mod.TmeshGenerator(config=mod.TMeshConfig(genmtd="from_chron"))
 
 
 def test_from_chron_requires_strictly_increasing_dates(tmp_path: Path):
@@ -205,7 +205,7 @@ def test_from_chron_requires_strictly_increasing_dates(tmp_path: Path):
         "Date\tvalue\n2020-01-01 00:00:00\t1\n2020-01-01 00:00:00\t2\n",
         encoding="utf-8",
     )
-    builder = mod.TMesh_Generation(
+    builder = mod.TmeshGenerator(
         config=mod.TMeshConfig(genmtd="from_chron", chron_path=str(chron_path))
     )
 
@@ -221,7 +221,7 @@ def test_from_chron_requires_time_column(tmp_path: Path):
         "Other\tvalue\n2020-01-01 00:00:00\t1\n2020-01-02 00:00:00\t2\n",
         encoding="utf-8",
     )
-    builder = mod.TMesh_Generation(
+    builder = mod.TmeshGenerator(
         config=mod.TMeshConfig(genmtd="from_chron", chron_path=str(chron_path))
     )
 
@@ -237,7 +237,7 @@ def test_from_chron_invalid_date_format_raises(tmp_path: Path):
         "Date\tvalue\n01/31/2020\t1\n02/01/2020\t2\n",
         encoding="utf-8",
     )
-    builder = mod.TMesh_Generation(
+    builder = mod.TmeshGenerator(
         config=mod.TMeshConfig(
             genmtd="from_chron",
             chron_path=str(chron_path),
@@ -252,7 +252,7 @@ def test_from_chron_invalid_date_format_raises(tmp_path: Path):
 def test_ntsp_length_mismatch_raises():
     mod = _load_tmesh_module()
 
-    builder = mod.TMesh_Generation(
+    builder = mod.TmeshGenerator(
         config=mod.TMeshConfig(genmtd="synthetic_regular", nper=3, ntsp=[1, 1])
     )
     with pytest.raises(ValueError, match="ntsp length mismatch"):
@@ -263,7 +263,7 @@ def test_tsmult_must_be_positive():
     mod = _load_tmesh_module()
 
     with pytest.raises(ValueError, match="tsmult values must be > 0"):
-        mod.TMesh_Generation(
+        mod.TmeshGenerator(
             config=mod.TMeshConfig(genmtd="synthetic_regular", nper=2, tsmult=[1.0, 0.0])
         )
 
@@ -271,7 +271,7 @@ def test_tsmult_must_be_positive():
 def test_changing_property_invalidates_cached_mesh():
     mod = _load_tmesh_module()
 
-    builder = mod.TMesh_Generation(config=mod.TMeshConfig(nper=2))
+    builder = mod.TmeshGenerator(config=mod.TMeshConfig(nper=2))
     first = builder.run()
     builder.lenper = 3
 
@@ -295,7 +295,7 @@ def test_run_returns_native_time_grid_with_derived_vectors():
         start_datetime="2020-01-01 00:00:00",
         end_datetime="2020-01-07 00:00:00",
     )
-    builder = mod.TMesh_Generation.from_config(cfg)
+    builder = mod.TmeshGenerator.from_config(cfg)
     tmesh = builder.run()
 
     assert isinstance(tmesh, mod.TimeGrid)
