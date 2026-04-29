@@ -87,7 +87,7 @@ Node by node:
   `[solver]`) is exactly what you would write for a single run.
 - **`hmp run`**: the unified CLI entry point. It reads `workflow =
   "calibration"` and dispatches to
-  `hydromodpy.calibration.cli.run_calibration_cli`. There is no
+  `hydromodpy.calibration.runner.run_calibration_cli`. There is no
   separate `hmp calibrate` command.
 - **`prepare_trials`**: runs pipeline steps `[0..earliest)` exactly
   once. `earliest` is computed from the dotted paths declared by
@@ -606,7 +606,7 @@ Disable the cache (`use_cache = false`) when:
 Programmatic entry point (no CLI needed):
 
 ```python
-from hydromodpy.calibration.cli import run_calibration_cli
+from hydromodpy.calibration.runner import run_calibration_cli
 
 summary = run_calibration_cli(
     "run_calibration_k.toml",

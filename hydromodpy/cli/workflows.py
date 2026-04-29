@@ -179,7 +179,7 @@ def run_mesh(config_path: str | Path) -> dict:
 
 def run_calibration(config_path: str | Path) -> dict:
     """Run a parameter calibration campaign from a TOML file."""
-    from hydromodpy.calibration.cli import run_calibration_cli
+    from hydromodpy.calibration.runner import run_calibration_cli
 
     return run_calibration_cli(config_path)
 

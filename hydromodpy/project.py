@@ -631,14 +631,14 @@ class Project:
         Two modes are supported:
 
         * **TOML mode** (``config_path`` supplied): delegate to
-          :func:`hydromodpy.calibration.cli.run_calibration_cli` with the
+          :func:`hydromodpy.calibration.runner.run_calibration_cli` with the
           given TOML path.
         * **Python mode** (``parameters`` supplied): build a
           :class:`CalibrationConfig` in memory from the declarations and
           run the same loop.
         """
         if config_path is not None:
-            from hydromodpy.calibration.cli import run_calibration_cli
+            from hydromodpy.calibration.runner import run_calibration_cli
 
             return run_calibration_cli(Path(config_path).expanduser().resolve(), **kwargs)
 
@@ -653,8 +653,8 @@ class Project:
                 "TOML path (need the simulation TOML on disk)."
             )
 
-        from hydromodpy.calibration.cli import run_calibration_programmatic
         from hydromodpy.calibration.config import CalibrationConfig
+        from hydromodpy.calibration.runner import run_calibration_programmatic
 
         payload: dict[str, object] = {}
         if method is not None:

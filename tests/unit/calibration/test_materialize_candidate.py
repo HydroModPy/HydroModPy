@@ -317,7 +317,7 @@ class TestMaterializeHookFromCli:
         """Smoke-test the ``materialize_candidates`` hook in isolation.
 
         We rebuild a minimal evaluator that mirrors the structure used by
-        :mod:`hydromodpy.calibration.cli` so the test exercises the same
+        :mod:`hydromodpy.calibration.runner` so the test exercises the same
         materialize call path without needing a full DuckDB / solver run.
         """
         from hydromodpy.calibration.materialize import materialize_candidate

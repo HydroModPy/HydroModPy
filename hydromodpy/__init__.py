@@ -129,7 +129,7 @@ def calibrate(config, **kwargs):
     """Functional façade for a calibration session driven by a TOML config."""
     from pathlib import Path
 
-    from hydromodpy.calibration.cli import run_calibration_cli
+    from hydromodpy.calibration.runner import run_calibration_cli
 
     return run_calibration_cli(Path(config).expanduser().resolve(), **kwargs)
 

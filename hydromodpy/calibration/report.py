@@ -3,7 +3,7 @@
 Two concerns live here, both purely data-side:
 
 1. :class:`CalibrationReport` - structured return type of
-   :func:`hydromodpy.calibration.cli.run_calibration_cli` and
+   :func:`hydromodpy.calibration.runner.run_calibration_cli` and
    :meth:`hydromodpy.Project.calibrate`. Exposes session metadata plus
    lazy accessors for the iteration history and the best :class:`Run`.
 2. :class:`SessionReportData` + :func:`load_session_report_data` - read

@@ -19,7 +19,7 @@ Architecture map
 
 The current calibration stack is split into four layers:
 
-- ``hydromodpy/calibration/cli.py`` owns the ``hmp run
+- ``hydromodpy/calibration/runner.py`` owns the ``hmp run
   <calibration.toml>`` workflow entry point. It validates the config,
   builds the engine, runs the optimizer, and writes the report.
 - ``hydromodpy/simulation/execution/trial.py`` owns the prepare-once,
@@ -39,7 +39,7 @@ path is:
 
 1. ``hydromodpy/cli/commands/run.py`` (workflow = "calibration"
    dispatch)
-2. ``hydromodpy/calibration/cli.py``
+2. ``hydromodpy/calibration/runner.py``
 3. ``hydromodpy/calibration/engine.py``
 4. ``hydromodpy/simulation/execution/trial.py``
 5. one case under ``hydromodpy/calibration/cases/``
