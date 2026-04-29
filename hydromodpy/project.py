@@ -26,7 +26,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 from uuid import uuid4
 
-from hydromodpy.core.exceptions import ConfigMissingError
+from hydromodpy.core.exceptions import ConfigError, ConfigMissingError, ResumeError
 from hydromodpy.project_accessors import ProjectDataAccessor, ProjectRunsAccessor
 
 if TYPE_CHECKING:
@@ -71,7 +71,7 @@ def _resolve_step_index(step: str | int, steps: tuple) -> int:
         if candidate == flat:
             return idx
     known = ", ".join(type(s).__name__ for s in steps)
-    raise ValueError(f"Unknown pipeline step: {step!r}. Known steps: {known}")
+    raise ConfigError(f"Unknown pipeline step: {step!r}. Known steps: {known}")
 
 
 def _resolve_resume_step_index(workspace: Path, run_id: str) -> int:
@@ -82,7 +82,7 @@ def _resolve_resume_step_index(workspace: Path, run_id: str) -> int:
     cp = CheckpointStore(workspace, run_id)
     last = cp.latest()
     if last is None:
-        raise RuntimeError(
+        raise ResumeError(
             f"No checkpoints found for run_id '{run_id}' in {cp.dir}. "
             "Start a fresh run instead of using resume."
         )

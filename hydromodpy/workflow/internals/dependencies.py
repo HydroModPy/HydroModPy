@@ -20,6 +20,8 @@ from __future__ import annotations
 from collections.abc import Iterable, Sequence
 from typing import Any
 
+from hydromodpy.core.exceptions import ConfigError
+
 
 def _matches(path: str, section: str) -> bool:
     """Return True if ``path`` is ``section`` or a descendant of it.
@@ -60,13 +62,13 @@ def earliest_affected_step(
 
     Raises
     ------
-    ValueError
+    ConfigError
         When ``override_paths`` is empty or any step has a falsy
         ``config_sections`` tuple entry.
     """
     paths = [p for p in override_paths if p]
     if not paths:
-        raise ValueError("earliest_affected_step requires at least one override path")
+        raise ConfigError("earliest_affected_step requires at least one override path")
 
     earliest = len(steps)
     for path in paths:

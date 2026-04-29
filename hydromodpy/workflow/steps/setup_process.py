@@ -20,6 +20,7 @@ from __future__ import annotations
 
 from typing import ClassVar
 
+from hydromodpy.core.exceptions import ConfigError
 from hydromodpy.workflow.internals.state import MeshedState, PipelineState, SetupState
 
 
@@ -40,7 +41,7 @@ class SetupProcessStep:
 
         ctx = state.get("ctx")
         if ctx is None:
-            raise ValueError("SetupProcessStep requires 'ctx' in state.data")
+            raise ConfigError("SetupProcessStep requires 'ctx' in state.data")
 
         if getattr(ctx.setup, "domain", None) is not None:
             flow_cfg = getattr(ctx.cfg, "flow", None)

@@ -13,6 +13,7 @@ from dataclasses import dataclass
 import numpy as np
 import pytest
 
+from hydromodpy.core.exceptions import ConfigError
 from hydromodpy.results.zarr_store import SimulationZarr
 from hydromodpy.workflow.internals.derived import (
     DerivedComputation,
@@ -113,7 +114,7 @@ def test_default_registry_has_canonical_entries():
 def test_registry_register_duplicate_raises():
     reg = DerivedRegistry()
     reg.register(_Fake("a"))
-    with pytest.raises(ValueError):
+    with pytest.raises(ConfigError):
         reg.register(_Fake("a"))
     reg.register(_Fake("a"), overwrite=True)  # allowed
 
@@ -131,7 +132,7 @@ def test_registry_cycle_raises():
     reg = DerivedRegistry()
     reg.register(_Fake("a", required_derived=("b",)))
     reg.register(_Fake("b", required_derived=("a",)))
-    with pytest.raises(ValueError, match="Cycle"):
+    with pytest.raises(ConfigError, match="Cycle"):
         reg.ordered_names()
 
 
@@ -277,7 +278,7 @@ def test_derive_step_runs_registry(tmp_path):
 
 def test_derive_step_without_ctx_raises():
     state = PipelineState(run_id="r", data={})
-    with pytest.raises(ValueError, match="'ctx'"):
+    with pytest.raises(ConfigError, match="'ctx'"):
         DeriveStep().run(state)
 
 

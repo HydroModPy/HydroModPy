@@ -18,6 +18,7 @@ from __future__ import annotations
 
 from typing import ClassVar
 
+from hydromodpy.core.exceptions import ConfigError
 from hydromodpy.workflow.internals.state import OpenStoreState, PipelineState, SetupState
 
 
@@ -45,7 +46,7 @@ class PrepareSolverStep:
 
         ctx = state.get("ctx")
         if ctx is None:
-            raise ValueError("PrepareSolverStep requires 'ctx' in state.data")
+            raise ConfigError("PrepareSolverStep requires 'ctx' in state.data")
 
         if ctx.execution.simulation_plan is None:
             sim_cfg = getattr(ctx.cfg, "simulation", None)

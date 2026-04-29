@@ -25,6 +25,7 @@ from __future__ import annotations
 import logging
 from typing import ClassVar
 
+from hydromodpy.core.exceptions import ConfigError
 from hydromodpy.workflow.internals.state import ExportedState, PipelineState
 
 logger = logging.getLogger(__name__)
@@ -47,7 +48,7 @@ class DisplayStep:
 
         ctx = state.get("ctx")
         if ctx is None:
-            raise ValueError("DisplayStep requires 'ctx' in state.data")
+            raise ConfigError("DisplayStep requires 'ctx' in state.data")
 
         rendered: list = []
 

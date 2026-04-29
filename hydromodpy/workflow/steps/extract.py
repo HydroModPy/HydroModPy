@@ -20,6 +20,7 @@ from __future__ import annotations
 
 from typing import ClassVar
 
+from hydromodpy.core.exceptions import ConfigError
 from hydromodpy.workflow.internals.state import ExtractedState, PipelineState, SolverRanState
 
 
@@ -34,7 +35,7 @@ class ExtractStep:
     def run(self, state: PipelineState) -> PipelineState:
         ctx = state.get("ctx")
         if ctx is None:
-            raise ValueError("ExtractStep requires 'ctx' in state.data")
+            raise ConfigError("ExtractStep requires 'ctx' in state.data")
         return state.advance(
             step_index=state.step_index + 1,
             step_name=self.name,

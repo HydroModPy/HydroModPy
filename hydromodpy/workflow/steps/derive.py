@@ -21,6 +21,7 @@ from __future__ import annotations
 import logging
 from typing import ClassVar
 
+from hydromodpy.core.exceptions import ConfigError
 from hydromodpy.workflow.internals.derived import registry as _default_registry
 from hydromodpy.workflow.internals.state import DerivedState, ExtractedState, PipelineState
 
@@ -41,7 +42,7 @@ class DeriveStep:
     def run(self, state: PipelineState) -> PipelineState:
         ctx = state.get("ctx")
         if ctx is None:
-            raise ValueError("DeriveStep requires 'ctx' in state.data")
+            raise ConfigError("DeriveStep requires 'ctx' in state.data")
 
         store = getattr(ctx, "store", None)
         sim_id = getattr(ctx, "sim_id", None)

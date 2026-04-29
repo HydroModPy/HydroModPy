@@ -12,6 +12,7 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+from hydromodpy.core.exceptions import ConfigError
 from hydromodpy.core.workspace import Workspace
 from hydromodpy.core.workspace.path_registry import PREPROCESSING_DIR
 from hydromodpy.simulation import ensure_flow, ensure_transport
@@ -111,7 +112,7 @@ def collect_requested_support_ids(flow_cfg: object) -> tuple[str, ...]:
             continue
         support_id = str(param_cfg.get("field_spatial_id", "")).strip()
         if support_id == "":
-            raise ValueError("Heterogeneous flow parameters require a non-empty field_spatial_id.")
+            raise ConfigError("Heterogeneous flow parameters require a non-empty field_spatial_id.")
         normalized = support_id.lower()
         if normalized in seen:
             continue
@@ -158,7 +159,7 @@ def resolve_support_configs(
         if support_cfg is not None:
             resolved[support_id] = support_cfg
             continue
-        raise ValueError(
+        raise ConfigError(
             f"Missing domain support declaration for '{support_id}'. "
             "Declare [domain.supports.<id>] with an explicit provider."
         )
@@ -227,7 +228,7 @@ def validate_domain_support_contract(
             continue
         support_id = str(getattr(param, "field_spatial_id", "")).strip()
         if support_id == "":
-            raise ValueError("Heterogeneous flow parameters require a non-empty field_spatial_id.")
+            raise ConfigError("Heterogeneous flow parameters require a non-empty field_spatial_id.")
         normalized_support_id = support_id.lower()
         if normalized_support_id in declared_supports or normalized_support_id in seen:
             continue
@@ -235,7 +236,7 @@ def validate_domain_support_contract(
         missing_supports.append(support_id)
 
     if missing_supports:
-        raise ValueError(
+        raise ConfigError(
             "Heterogeneous flow parameters require explicit "
             "[domain.supports.<id>] declarations for: " + ", ".join(missing_supports) + "."
         )
@@ -328,7 +329,7 @@ def run_setup(
         geographic=setup_state.geographic,
     )
     if setup_state.geographic_features is None:
-        raise ValueError(
+        raise ConfigError(
             "Could not resolve geographic derived features from the runtime geographic object."
         )
     setup_state.domain_geographic = setup_state.geographic_features.to_domain_geographic_context()

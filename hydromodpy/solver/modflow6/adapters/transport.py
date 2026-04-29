@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from hydromodpy.core.exceptions import SolverDivergedError
 from hydromodpy.simulation.adapters.transport_helpers import (
     required_flow_model,
     transport_output_suffix,
@@ -46,9 +47,10 @@ class Modflow6GwtTransportAdapter:
         model_transport.pre_processing()
         success = model_transport.processing(write_model=True, run_model=True, verbose=True)
         if not success:
-            raise RuntimeError(
-                f"Transport solver '{ctx.run.solver}' failed for run '{ctx.run.id}'. "
-                f"See {getattr(model_transport, 'full_path', '<unknown>')} for diagnostics."
+            raise SolverDivergedError(
+                f"[HMPY.E401] Transport solver '{ctx.run.solver}' failed for run '{ctx.run.id}'. "
+                f"See {getattr(model_transport, 'full_path', '<unknown>')} for diagnostics.",
+                run_id=ctx.run.id,
             )
         return RunExecutionResult(
             primary_model=model_transport,

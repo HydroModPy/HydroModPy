@@ -11,6 +11,7 @@ from collections.abc import Mapping
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+from hydromodpy.core.exceptions import ConfigError, MeshError
 from hydromodpy.spatial.mesh.gmsh_grid import load_planar_mesh
 from hydromodpy.spatial.mesh.gmsh_grid.catchment_mesh_bundle_reader import (
     load_catchment_mesh_bundle,
@@ -44,7 +45,7 @@ def resolve_optional_mesh_section(
         return section
     batch_cfg = parse_mesh_catchment_batch_config_data(batch_section)
     if batch_cfg.enabled:
-        raise ValueError(
+        raise ConfigError(
             "Embedded [mesh_catchment_batch] is not supported in process_simulation. "
             "Use the dedicated mesh-catchment launcher for batch runs."
         )
@@ -60,7 +61,7 @@ def resolve_optional_mesh_input(
     if section is None:
         return None
     if not isinstance(section, Mapping):
-        raise ValueError("[mesh_input] configuration must be a mapping when provided.")
+        raise ConfigError("[mesh_input] configuration must be a mapping when provided.")
 
     config_path = Path(config_path)
 
@@ -76,7 +77,7 @@ def resolve_optional_mesh_input(
     mesh_path = _resolve_optional_path(section.get("mesh_path"))
     bundle_dir = _resolve_optional_path(section.get("bundle_dir"))
     if mesh_path == "" and bundle_dir == "":
-        raise ValueError("[mesh_input] requires at least one of 'mesh_path' or 'bundle_dir'.")
+        raise ConfigError("[mesh_input] requires at least one of 'mesh_path' or 'bundle_dir'.")
     return {
         "mesh_path": mesh_path,
         "bundle_dir": bundle_dir,
@@ -162,7 +163,7 @@ def load_mesh_artifacts_from_summary(
     mesh_summary = setup_state.mesh_summary
     if not isinstance(mesh_summary, Mapping):
         if strict:
-            raise ValueError("Mesh loading requires setup.mesh_summary to be a mapping.")
+            raise MeshError("Mesh loading requires setup.mesh_summary to be a mapping.")
         return
 
     bundle_dir = str(mesh_summary.get("output_exchange_bundle_dir", "")).strip()
@@ -177,7 +178,7 @@ def load_mesh_artifacts_from_summary(
     mesh_path = str(mesh_summary.get("output_mesh", "")).strip()
     if mesh_path == "":
         if strict and setup_state.mesh_bundle is None and setup_state.mesh_planar is None:
-            raise ValueError(
+            raise MeshError(
                 "Mesh loading requires one 'output_mesh' path or "
                 "'output_exchange_bundle_dir' in setup.mesh_summary."
             )

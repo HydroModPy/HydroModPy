@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from hydromodpy.core.exceptions import SolverDivergedError
 from hydromodpy.simulation.adapters.transport_helpers import required_flow_model
 from hydromodpy.simulation.planning.plan import RunContext, RunExecutionResult
 from hydromodpy.solver.base.cleanup import cleanup_solver_files
@@ -42,9 +43,10 @@ class ModpathTransportAdapter:
         model_modpath.pre_processing()
         success = model_modpath.processing(write_model=True, run_model=True)
         if not success:
-            raise RuntimeError(
-                f"Transport solver '{ctx.run.solver}' failed for run '{ctx.run.id}'. "
-                f"See {getattr(model_modpath, 'full_path', '<unknown>')} for diagnostics."
+            raise SolverDivergedError(
+                f"[HMPY.E401] Transport solver '{ctx.run.solver}' failed for run '{ctx.run.id}'. "
+                f"See {getattr(model_modpath, 'full_path', '<unknown>')} for diagnostics.",
+                run_id=ctx.run.id,
             )
         # Legacy post_processing / filt_processing skipped:
         # ModpathOutputAdapter.extract() reads pathlines/endpoints into

@@ -23,6 +23,7 @@ import tomllib
 from pathlib import Path
 from typing import ClassVar
 
+from hydromodpy.core.exceptions import ConfigError
 from hydromodpy.workflow.internals.state import PipelineState, ResolvedState, ValidatedState
 
 
@@ -44,11 +45,11 @@ class ResolveStep:
         if ctx is None:
             cfg = state.get("cfg")
             if cfg is None:
-                raise ValueError("ResolveStep requires 'cfg' in state.data")
+                raise ConfigError("ResolveStep requires 'cfg' in state.data")
 
             config_path = state.get("config_path")
             if config_path is None:
-                raise ValueError("ResolveStep requires 'config_path' (or a pre-built 'ctx')")
+                raise ConfigError("ResolveStep requires 'config_path' (or a pre-built 'ctx')")
             config_path = Path(config_path).expanduser().resolve()
 
             raw_toml = state.get("raw_toml")

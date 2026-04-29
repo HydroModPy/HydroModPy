@@ -11,6 +11,7 @@ from __future__ import annotations
 from dataclasses import replace
 from pathlib import Path
 
+from hydromodpy.core.exceptions import SolverDivergedError
 from hydromodpy.simulation.planning.plan import RunContext, RunExecutionResult
 from hydromodpy.solver.base.cleanup import cleanup_solver_files
 from hydromodpy.solver.boussinesq.boussinesq import Boussinesq
@@ -76,9 +77,10 @@ class BoussinesqFlowAdapter:
         model.pre_processing()
         success = model.processing(write_model=True, run_model=True)
         if not success:
-            raise RuntimeError(
-                f"Flow solver 'boussinesq' failed for run '{ctx.run.id}'. "
-                f"See {getattr(model, 'full_path', '<unknown>')} for diagnostics."
+            raise SolverDivergedError(
+                f"[HMPY.E401] Flow solver 'boussinesq' failed for run '{ctx.run.id}'. "
+                f"See {getattr(model, 'full_path', '<unknown>')} for diagnostics.",
+                run_id=ctx.run.id,
             )
 
         return RunExecutionResult(

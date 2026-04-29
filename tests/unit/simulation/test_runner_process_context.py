@@ -4,6 +4,7 @@ from types import SimpleNamespace
 
 import pytest
 
+from hydromodpy.core.exceptions import SolverDivergedError
 from hydromodpy.physics.flow.flow_config import FlowConfig
 from hydromodpy.physics.transport.transport_config import TransportConfig
 from hydromodpy.simulation.execution.runner import ProcessCallbacks, SimulationRunner
@@ -156,7 +157,7 @@ def test_run_flow_model_raises_when_solver_fails() -> None:
 
     model = _FailingFlowModel()
 
-    with pytest.raises(RuntimeError, match="Flow solver 'modflow6' failed"):
+    with pytest.raises(SolverDivergedError, match="Flow solver 'modflow6' failed"):
         run_flow_model(
             RunContext(plan=plan, run=plan.runs[0], state=state),
             model,

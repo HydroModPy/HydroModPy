@@ -16,6 +16,7 @@ from typing import Any
 
 from hydromodpy.core.config import HydroModPyConfig
 from hydromodpy.core.contracts.overview import DataOverviewState
+from hydromodpy.core.exceptions import ConfigError, ConfigMissingError
 
 logger = logging.getLogger(__name__)
 
@@ -101,7 +102,7 @@ class DataOverviewLauncher:
             cache_dir=cache_dir,
         )
         if resolved is None:
-            raise ValueError(
+            raise ConfigMissingError(
                 "No dem_init_path and no [data.dem] source configured. "
                 "Either set geographic.dem_init_path or add:\n"
                 '  [data]\n  types = [..., "dem"]\n'
@@ -130,7 +131,7 @@ class DataOverviewLauncher:
             geographic=geographic,
         )
         if geographic_features is None:
-            raise ValueError(
+            raise ConfigError(
                 "Could not resolve geographic derived features from the overview geographic runtime."
             )
         state.geographic_features = geographic_features

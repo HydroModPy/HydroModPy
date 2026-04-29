@@ -31,6 +31,7 @@ from typing import Any, Protocol, runtime_checkable
 
 import numpy as np
 
+from hydromodpy.core.exceptions import ConfigError
 from hydromodpy.results import derived as _pure
 from hydromodpy.results.zarr_store import SimulationZarr
 
@@ -313,7 +314,7 @@ class DerivedRegistry:
 
     def register(self, comp: DerivedComputation, *, overwrite: bool = False) -> None:
         if comp.name in self._entries and not overwrite:
-            raise ValueError(f"DerivedComputation '{comp.name}' already registered")
+            raise ConfigError(f"DerivedComputation '{comp.name}' already registered")
         self._entries[comp.name] = comp
 
     def get(self, name: str) -> DerivedComputation:
@@ -332,7 +333,7 @@ class DerivedRegistry:
         """Return registered names in a dependency-respecting order.
 
         Falls back to insertion order for independent entries and raises
-        ``ValueError`` if a cycle is detected.
+        :class:`ConfigError` if a cycle is detected.
         """
         resolved: list[str] = []
         seen: set[str] = set()
@@ -342,7 +343,7 @@ class DerivedRegistry:
             if name in seen:
                 return
             if name in temp:
-                raise ValueError(f"Cycle in derived registry at '{name}'")
+                raise ConfigError(f"Cycle in derived registry at '{name}'")
             temp.add(name)
             comp = self._entries[name]
             for dep in comp.required_derived:

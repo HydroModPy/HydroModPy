@@ -17,6 +17,7 @@ from __future__ import annotations
 
 from typing import ClassVar
 
+from hydromodpy.core.exceptions import ConfigError
 from hydromodpy.workflow.internals.state import MeshedState, PipelineState
 
 
@@ -34,7 +35,7 @@ class BuildMeshStep:
 
         ctx = state.get("ctx")
         if ctx is None:
-            raise ValueError("BuildMeshStep requires 'ctx' in state.data")
+            raise ConfigError("BuildMeshStep requires 'ctx' in state.data")
 
         requested_supports = state.get("requested_domain_supports") or {}
         registry = state.get("spatial_support_registry")
