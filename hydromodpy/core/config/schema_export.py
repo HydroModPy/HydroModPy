@@ -48,6 +48,7 @@ def _root_sections() -> dict[str, type]:
     from hydromodpy.core.workspace.config import WorkspaceConfig
     from hydromodpy.data.data_managers_config import DataManagersConfig
     from hydromodpy.display.config import DisplayConfig
+    from hydromodpy.display.overview.config import OverviewSection
     from hydromodpy.physics.flow.flow_config import FlowConfig
     from hydromodpy.physics.flow.physical_properties import FlowPhysicalProperties
     from hydromodpy.physics.transport.transport_config import TransportConfig
@@ -58,7 +59,6 @@ def _root_sections() -> dict[str, type]:
     from hydromodpy.spatial.domain.domain_config import DomainConfig
     from hydromodpy.spatial.geographic.geographic_config import GeographicConfig
     from hydromodpy.spatial.mesh.config import MeshCatchmentConfig
-    from hydromodpy.workflow.pipelines.overview_config import OverviewSection
 
     return {
         "workspace": WorkspaceConfig,

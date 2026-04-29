@@ -1,26 +1,13 @@
-"""Pydantic schema and runtime state for the data-overview pipeline."""
+"""Pydantic configuration for the data-overview report (display layer)."""
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Annotated
+from typing import Annotated
 
 from pydantic import ConfigDict, Field
 
 from hydromodpy.core.config.base import HydroModelBase
 from hydromodpy.core.config.profile import Profile
-from hydromodpy.core.state.data import LoadedDataContext
-
-if TYPE_CHECKING:
-    from hydromodpy.core.config import HydroModPyConfig
-    from hydromodpy.core.workspace.workspace import Workspace
-    from hydromodpy.spatial.geographic.catchment_delineation import CatchmentDelineation
-    from hydromodpy.spatial.geographic.core.derived_features import (
-        GeographicDerivedFeatures,
-    )
-    from hydromodpy.spatial.geographic.core.domain_geographic_pipeline import (
-        DomainGeographicContext,
-    )
 
 
 class OverviewPanelsConfig(HydroModelBase):
@@ -66,15 +53,3 @@ class OverviewSection(HydroModelBase):
         default_factory=OverviewPanelsConfig,
         description="Panel toggles.",
     )
-
-
-@dataclass
-class DataOverviewState:
-    """Runtime state threaded through the overview pipeline phases."""
-
-    cfg: HydroModPyConfig
-    workspace: Workspace | None = None
-    geographic: CatchmentDelineation | None = None
-    geographic_features: GeographicDerivedFeatures | None = None
-    domain_geographic: DomainGeographicContext | None = None
-    loaded_data: LoadedDataContext = field(default_factory=LoadedDataContext)

@@ -43,6 +43,7 @@ if TYPE_CHECKING:
     from hydromodpy.calibration.config import CalibrationConfig
     from hydromodpy.data.data_managers_config import DataManagersConfig
     from hydromodpy.display.config import DisplayConfig
+    from hydromodpy.display.overview.config import OverviewSection
     from hydromodpy.physics.flow.flow_config import FlowConfig
     from hydromodpy.physics.transport.transport_config import TransportConfig
     from hydromodpy.simulation.planning.config import SimulationConfig
@@ -52,7 +53,6 @@ if TYPE_CHECKING:
     from hydromodpy.spatial.domain.domain_config import DomainConfig
     from hydromodpy.spatial.geographic.geographic_config import GeographicConfig
     from hydromodpy.spatial.mesh.config import MeshCatchmentConfig
-    from hydromodpy.workflow.pipelines.overview_config import OverviewSection
 
 
 def _derive_run_id_from_filename(toml_path: Path) -> str:
