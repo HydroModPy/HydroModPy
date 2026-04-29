@@ -27,6 +27,10 @@ keywords = [
     "watershed",
     "modeling",
     "catchment",
+    "machine-learning",
+    "ml-friendly-storage",
+    "queryable-results",
+    "reproducible-ml",
 ]
 classifiers = [
     "Development Status :: 4 - Beta",
