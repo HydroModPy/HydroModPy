@@ -1,5 +1,5 @@
 """
-Property mapping helpers for MODFLOW solvers (NWT and MF6 interoperability).
+Property mapping helpers shared by MODFLOW solver backends (NWT and MF6).
 
 This module translates process-level hydraulic properties carried by
 ``Flow``/``Domain`` objects into solver-ready arrays on a structured grid.

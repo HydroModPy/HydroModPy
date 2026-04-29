@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import pytest
 
-from hydromodpy.solver.modflow_nwt.modflow.property_mapping import (
+from hydromodpy.solver.modflow_common.property_mapping import (
     resolve_required_flow_properties,
 )
 
