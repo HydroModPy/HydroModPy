@@ -19,7 +19,7 @@ from shapely.ops import unary_union
 
 from hydromodpy.spatial._protocols import get_geology_data_source
 from hydromodpy.spatial.mesh.gmsh_grid._deps import require_gmsh as _require_gmsh
-from hydromodpy.spatial.mesh.gmsh_grid._trace import trace_mesh_stage
+from hydromodpy.spatial.mesh.gmsh_grid.trace import trace_mesh_stage
 from hydromodpy.spatial.mesh.gmsh_grid.zone_meshing._build_context import (
     compute_effective_max_size,
     initialize_build_state,

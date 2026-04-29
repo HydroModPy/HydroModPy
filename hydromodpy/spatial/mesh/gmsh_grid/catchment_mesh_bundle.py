@@ -30,14 +30,6 @@ from hydromodpy.spatial.domain.depth_model_config import (
     FlatSubstratumDepthModel,
 )
 from hydromodpy.spatial.domain.domain import Domain
-from hydromodpy.spatial.mesh.gmsh_grid._bundle_export_contracts import (
-    CatchmentBundleGeologyExportConfig,
-    CatchmentBundleHydraulicPropertiesConfig,
-    CatchmentBundleMetadata,
-    CatchmentBundleSummaryReference,
-    GeologyProjectionPayload,
-    HydraulicPropertiesPayload,
-)
 from hydromodpy.spatial.mesh.gmsh_grid._geology_bundle_export import _compute_geology_payload
 from hydromodpy.spatial.mesh.gmsh_grid._hydraulic_properties_bundle_export import (
     _build_hydraulic_properties_payload,
@@ -46,6 +38,14 @@ from hydromodpy.spatial.mesh.gmsh_grid._river_bundle_export import (
     _build_river_linework,
     _build_river_matcher,
     _segment_matches_river,
+)
+from hydromodpy.spatial.mesh.gmsh_grid.bundle_export_contracts import (
+    CatchmentBundleGeologyExportConfig,
+    CatchmentBundleHydraulicPropertiesConfig,
+    CatchmentBundleMetadata,
+    CatchmentBundleSummaryReference,
+    GeologyProjectionPayload,
+    HydraulicPropertiesPayload,
 )
 from hydromodpy.spatial.mesh.gmsh_grid.catchment_mesh_bundle_reader import (
     CatchmentMeshBundle,
