@@ -51,6 +51,7 @@ logger = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
     import geopandas as gpd
+    import xarray as xr
     import xugrid as xu
 
     from hydromodpy.results.catalog import SimulationCatalog
@@ -442,6 +443,62 @@ class Run:
             )
 
         return xu.UgridDataset(xr.Dataset(data_vars), grids=[grid])
+
+    def to_xarray_batch(
+        self,
+        variables: tuple[str, ...] = ("head",),
+        *,
+        time_slice: slice | None = None,
+    ) -> xr.Dataset:
+        """Return a lazy :class:`xarray.Dataset` over selected variables.
+
+        Single entry point for ML pipelines that prefer ``xarray`` /
+        ``xugrid`` over raw NumPy. Backed by the simulation's Zarr store
+        (no copy on read). ``variables`` lists field-registry names to
+        include; missing fields raise ``KeyError``. ``time_slice`` is an
+        optional ``slice`` object applied to the time dimension.
+        """
+        import xarray as xr
+
+        from hydromodpy.results import field_registry
+
+        sz = self._catalog.open_zarr(self._sim_id)
+
+        def _lookup(zarr_path: str):
+            if "/" in zarr_path:
+                grp_name, var_name = zarr_path.split("/", 1)
+                grp = sz.root.get(grp_name)
+                if grp is None or var_name not in grp:
+                    return None
+                return grp[var_name]
+            return sz.root.get(zarr_path)
+
+        data_vars: dict[str, xr.DataArray] = {}
+        for name in variables:
+            desc = field_registry.get(name)
+            arr = _lookup(desc.zarr_path)
+            if arr is None:
+                raise KeyError(f"Field '{name}' not found in simulation '{self._sim_id}'")
+            shape = desc.shape
+            if shape == field_registry.SHAPE_TIME_FACE:
+                dims = ("time", "cell")
+            elif shape == field_registry.SHAPE_TIME_LAYER_FACE:
+                dims = ("time", "layer", "cell")
+            elif shape == field_registry.SHAPE_LAYER_FACE:
+                dims = ("layer", "cell")
+            elif shape == field_registry.SHAPE_FACE:
+                dims = ("cell",)
+            else:
+                dims = tuple(f"d{i}" for i in range(np.asarray(arr).ndim))
+            values = np.asarray(arr[:])
+            if time_slice is not None and dims and dims[0] == "time":
+                values = values[time_slice]
+            data_vars[name] = xr.DataArray(
+                values,
+                dims=dims,
+                attrs=field_registry.cf_attrs(name),
+            )
+        return xr.Dataset(data_vars)
 
     def fields(self, variable: str) -> Stack:
         """Stack per-timestep arrays of ``variable``.

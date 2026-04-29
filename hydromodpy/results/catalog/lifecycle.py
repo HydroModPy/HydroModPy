@@ -94,6 +94,21 @@ class LifecycleMixin:
         )
 
         if status == "completed":
+            existing = self._db.execute(
+                "SELECT scientific_objective FROM simulations WHERE sim_id = ?",
+                [sid],
+            ).fetchone()
+            if existing is not None and not existing[0]:
+                logger.warning(
+                    "Simulation %s completed without a scientific_objective; "
+                    "defaulting to 'unspecified'. Set one with "
+                    "Catalog.write_scientific_objective() to enable ML stratification.",
+                    sid[:8],
+                )
+                self._db.execute(
+                    "UPDATE simulations SET scientific_objective = 'unspecified' WHERE sim_id = ?",
+                    [sid],
+                )
             basename = self._paths.basename_for(sid)
             zarr_dir = self._simulations_dir / f"{basename}.zarr"
             if zarr_dir.is_dir():

@@ -104,6 +104,13 @@ CREATE TABLE IF NOT EXISTS simulations (
     updated_at              TIMESTAMPTZ NOT NULL DEFAULT current_timestamp,
     tags                    VARCHAR[],
     notes                   VARCHAR,
+    description             VARCHAR,
+    scientific_objective    VARCHAR,
+    contact_email           VARCHAR,
+    doi                     VARCHAR,
+    study_area_name         VARCHAR,
+    outlet_x                DOUBLE,
+    outlet_y                DOUBLE,
     CHECK (period_end IS NULL OR period_start IS NULL OR
            period_end >= period_start),
     CHECK (bbox_xmin IS NULL OR bbox_xmax IS NULL OR bbox_xmax >= bbox_xmin),
@@ -256,6 +263,8 @@ CREATE TABLE IF NOT EXISTS runs_environment (
     cpu_info            JSON,
     memory_gb           DOUBLE,
     git_commit          VARCHAR,
+    project_git_commit  VARCHAR,
+    mf6_binary_sha256   VARCHAR,
     env_packages        JSON,
     recorded_at         TIMESTAMPTZ NOT NULL DEFAULT current_timestamp,
     PRIMARY KEY (sim_id)
@@ -634,6 +643,19 @@ def ensure_parquet_views(conn: duckdb.DuckDBPyConnection, workspace_path: Path) 
 _SIMULATIONS_ADDITIVE_COLUMNS: tuple[tuple[str, str], ...] = (
     ("config_source", "VARCHAR"),
     ("storage_basename", "VARCHAR"),
+    ("description", "VARCHAR"),
+    ("scientific_objective", "VARCHAR"),
+    ("contact_email", "VARCHAR"),
+    ("doi", "VARCHAR"),
+    ("study_area_name", "VARCHAR"),
+    ("outlet_x", "DOUBLE"),
+    ("outlet_y", "DOUBLE"),
+)
+
+
+_RUNS_ENVIRONMENT_ADDITIVE_COLUMNS: tuple[tuple[str, str], ...] = (
+    ("project_git_commit", "VARCHAR"),
+    ("mf6_binary_sha256", "VARCHAR"),
 )
 
 
@@ -649,6 +671,21 @@ def _apply_simulations_additive_columns(conn: duckdb.DuckDBPyConnection) -> None
         if name not in existing:
             conn.execute(f"ALTER TABLE simulations ADD COLUMN {name} {sql_type}")
             logger.info("DuckDB schema upgrade: added simulations.%s", name)
+
+
+def _apply_runs_environment_additive_columns(conn: duckdb.DuckDBPyConnection) -> None:
+    """Add missing columns to ``runs_environment`` without touching existing rows."""
+    existing = {
+        row[0]
+        for row in conn.execute(
+            "SELECT column_name FROM information_schema.columns "
+            "WHERE table_name = 'runs_environment'"
+        ).fetchall()
+    }
+    for name, sql_type in _RUNS_ENVIRONMENT_ADDITIVE_COLUMNS:
+        if name not in existing:
+            conn.execute(f"ALTER TABLE runs_environment ADD COLUMN {name} {sql_type}")
+            logger.info("DuckDB schema upgrade: added runs_environment.%s", name)
 
 
 def ensure_schema(
@@ -678,6 +715,7 @@ def ensure_schema(
 
     # Phase 2: migrate pre-existing tables to the current column set.
     _apply_simulations_additive_columns(conn)
+    _apply_runs_environment_additive_columns(conn)
     _drop_legacy_parquet_tables(conn)
 
     # Phase 3: (re-)create indexes now that every referenced column exists.

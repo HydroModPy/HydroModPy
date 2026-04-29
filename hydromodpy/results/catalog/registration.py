@@ -153,6 +153,13 @@ class RegistrationMixin:
         tags: list[str] | None = None,
         notes: str | None = None,
         config_source: str | Path | None = None,
+        description: str | None = None,
+        scientific_objective: str | None = None,
+        contact_email: str | None = None,
+        doi: str | None = None,
+        study_area_name: str | None = None,
+        outlet_x: float | None = None,
+        outlet_y: float | None = None,
     ) -> RegistrationResult:
         sid = str(sim_id)
         replaced_sid: str | None = None
@@ -230,9 +237,12 @@ class RegistrationMixin:
                 period_start, period_end, time_unit,
                 config_toml, config_snapshot, config_hash, config_source,
                 zarr_path, storage_basename, parent_sim_id, mesh_hash, mesh_topology,
-                geographic_fingerprint, tags, notes)
+                geographic_fingerprint, tags, notes,
+                description, scientific_objective, contact_email, doi,
+                study_area_name, outlet_x, outlet_y)
                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
-                       ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                       ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
+                       ?, ?, ?, ?, ?, ?, ?)""",
             [
                 sid,
                 final_name,
@@ -264,6 +274,13 @@ class RegistrationMixin:
                 geographic_fingerprint,
                 tags,
                 notes,
+                description,
+                scientific_objective,
+                contact_email,
+                doi,
+                study_area_name,
+                outlet_x,
+                outlet_y,
             ],
         )
 

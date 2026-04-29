@@ -13,6 +13,7 @@ import hashlib
 import json
 import logging
 import os
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 from uuid import UUID
@@ -21,9 +22,12 @@ import numpy as np
 import pandas as pd
 
 from hydromodpy.core.io.db_retry import with_lock_retry
+from hydromodpy.core.version import __version__ as _HMP_VERSION
 from hydromodpy.results.catalog_schema import GLOBAL_ZONE, ensure_parquet_views
 from hydromodpy.results.provenance import fingerprint
 from hydromodpy.results.spatial_index import point_in_cell
+
+PARQUET_SCHEMA_VERSION = "v1.0"
 
 if TYPE_CHECKING:
     import geopandas as gpd
@@ -155,6 +159,7 @@ class WritesMixin:
             insert_df,
             select_sql,
             pk_cols=("sim_id", "station_id", "variable", "datetime"),
+            kv_metadata=self._kv_metadata_for_sim(sid),
         )
 
     def write_budget(
@@ -217,6 +222,7 @@ class WritesMixin:
             insert_df,
             select_sql,
             pk_cols=("sim_id", "timestep", "zone_id", "component"),
+            kv_metadata=self._kv_metadata_for_sim(sid),
         )
 
     def write_mass_balance(
@@ -279,6 +285,92 @@ class WritesMixin:
             insert_df,
             select_sql,
             pk_cols=("sim_id", "timestep"),
+            kv_metadata=self._kv_metadata_for_sim(sid),
+        )
+
+    @with_lock_retry()
+    def write_run_environment(
+        self,
+        sim_id: str | UUID,
+        *,
+        project_root: Path | str | None = None,
+        mf6_binary_path: Path | str | None = None,
+    ) -> None:
+        """Capture and persist the host environment snapshot for ``sim_id``.
+
+        Idempotent: re-calling overwrites the previous row. Heavy collection
+        steps (``pip list``, ``cpuinfo``) tolerate failures and fall back
+        to partial values rather than raising.
+        """
+        from hydromodpy.results.run_environment import capture_environment
+
+        snap = capture_environment(
+            project_root=project_root,
+            mf6_binary_path=mf6_binary_path,
+        )
+        self._db.execute(
+            """INSERT OR REPLACE INTO runs_environment
+               (sim_id, python_version, hydromodpy_version, platform,
+                hostname, user_name, cpu_info, memory_gb,
+                git_commit, project_git_commit, mf6_binary_sha256, env_packages)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+            [
+                str(sim_id),
+                snap.get("python_version"),
+                snap.get("hydromodpy_version"),
+                snap.get("platform"),
+                snap.get("hostname"),
+                snap.get("user_name"),
+                json.dumps(snap.get("cpu_info") or {}),
+                snap.get("memory_gb"),
+                snap.get("git_commit"),
+                snap.get("project_git_commit"),
+                snap.get("mf6_binary_sha256"),
+                json.dumps(snap.get("env_packages") or []),
+            ],
+        )
+
+    @with_lock_retry()
+    def write_scientific_objective(
+        self,
+        sim_id: str | UUID,
+        objective: str,
+        *,
+        description: str | None = None,
+        contact_email: str | None = None,
+        doi: str | None = None,
+        study_area_name: str | None = None,
+        outlet_x: float | None = None,
+        outlet_y: float | None = None,
+    ) -> None:
+        """Record the scientific objective and related metadata for ``sim_id``.
+
+        ``objective`` is the canonical stratification key used by
+        :meth:`SimulationCatalog.training_split`. The other fields are free
+        annotations for citation, geographic context, and contact lookup.
+        """
+        if not objective or not str(objective).strip():
+            raise ValueError("scientific_objective must be a non-empty string")
+        self._db.execute(
+            """UPDATE simulations SET
+                   scientific_objective = ?,
+                   description = COALESCE(?, description),
+                   contact_email = COALESCE(?, contact_email),
+                   doi = COALESCE(?, doi),
+                   study_area_name = COALESCE(?, study_area_name),
+                   outlet_x = COALESCE(?, outlet_x),
+                   outlet_y = COALESCE(?, outlet_y)
+               WHERE sim_id = ?""",
+            [
+                str(objective),
+                description,
+                contact_email,
+                doi,
+                study_area_name,
+                outlet_x,
+                outlet_y,
+                str(sim_id),
+            ],
         )
 
     @with_lock_retry()
@@ -529,12 +621,34 @@ class WritesMixin:
         """
         ensure_parquet_views(self._db, self._workspace)
 
+    def _kv_metadata_for_sim(self, sim_id: str) -> dict[str, str]:
+        """Return Parquet KV metadata keys per the ML-access spec.
+
+        Pulled from the ``simulations`` row plus the package version. Missing
+        columns map to empty strings so the layout is stable across runs.
+        """
+        row = self._db.execute(
+            "SELECT project, name, scientific_objective FROM simulations WHERE sim_id = ?",
+            [sim_id],
+        ).fetchone()
+        project, name, objective = row or (None, None, None)
+        return {
+            "sim_id": sim_id,
+            "project": str(project) if project is not None else "",
+            "name": str(name) if name is not None else "",
+            "hydromodpy_version": _HMP_VERSION,
+            "schema_version": PARQUET_SCHEMA_VERSION,
+            "written_at": datetime.now(UTC).isoformat(),
+            "scientific_objective": str(objective) if objective is not None else "",
+        }
+
     def _atomic_write_parquet(
         self,
         target: Path,
         insert_df: pd.DataFrame,
         select_sql: str,
         pk_cols: tuple[str, ...] | None = None,
+        kv_metadata: dict[str, str] | None = None,
     ) -> None:
         """Write ``insert_df`` into ``target`` atomically, via ``select_sql``.
 
@@ -554,6 +668,7 @@ class WritesMixin:
         target.parent.mkdir(parents=True, exist_ok=True)
         tmp = target.with_name(target.name + ".tmp")
         existing = target.exists()
+        kv_clause = _format_kv_clause(kv_metadata)
         self._db.register("_hmp_insert", insert_df)
         try:
             if existing and pk_cols:
@@ -569,12 +684,27 @@ class WritesMixin:
                     f"QUALIFY ROW_NUMBER() OVER "
                     f"(PARTITION BY {pk_list} ORDER BY _prio DESC) = 1"
                 )
-                copy_sql = f"COPY ({merge_sql}) TO '{tmp}' (FORMAT PARQUET)"
+                copy_sql = f"COPY ({merge_sql}) TO '{tmp}' (FORMAT PARQUET{kv_clause})"
             else:
-                copy_sql = f"COPY ({select_sql}) TO '{tmp}' (FORMAT PARQUET)"
+                copy_sql = f"COPY ({select_sql}) TO '{tmp}' (FORMAT PARQUET{kv_clause})"
             self._db.execute(copy_sql)
         finally:
             self._db.unregister("_hmp_insert")
         os.replace(tmp, target)
         if not existing:
             self._refresh_parquet_view(target.stem)
+
+
+def _format_kv_clause(kv: dict[str, str] | None) -> str:
+    """Render ``KV_METADATA {{...}}`` as a DuckDB ``COPY`` option suffix.
+
+    Returns an empty string when ``kv`` is empty / None. Values must be
+    plain strings; embedded single quotes are escaped by doubling them.
+    """
+    if not kv:
+        return ""
+    pairs = []
+    for key, val in sorted(kv.items()):
+        safe_val = str(val).replace("'", "''")
+        pairs.append(f"{key}: '{safe_val}'")
+    return f", KV_METADATA {{{', '.join(pairs)}}}"
