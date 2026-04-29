@@ -456,7 +456,7 @@ def _score(observed: pd.Series, simulated: pd.Series, objective: str) -> float:
     paired = pd.concat([obs_aligned.rename("obs"), sim_aligned.rename("sim")], axis=1).dropna()
     if paired.empty:
         return float("nan")
-    value = float(metric(paired["obs"].values, paired["sim"].values))
+    value = float(metric(paired["sim"].values, paired["obs"].values))
     if np.isnan(value):
         return float("nan")
     return (1.0 - value) if objective.lower() in HIGHER_IS_BETTER else value

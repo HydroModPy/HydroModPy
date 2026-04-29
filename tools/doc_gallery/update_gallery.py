@@ -2001,7 +2001,7 @@ def _build_method_comparison_payload(
     config_path: Path,
 ) -> tuple[dict[str, Any], dict[str, Any], list[dict[str, Any]]]:
     from hydromodpy.analysis.comparison.config import MethodComparisonConfig
-    from hydromodpy.analysis.comparison.metrics import build_comparison_metrics
+    from hydromodpy.analysis.comparison.metric_diff import build_comparison_metrics
     from hydromodpy.analysis.comparison.runtime_metadata import (
         compact_run_metrics,
         read_json_file,
@@ -3738,7 +3738,7 @@ def _generate_geometry_case(
 
 
 def _generate_method_comparison_case(spec: GalleryCaseSpec, source_root: Path) -> dict[str, Any]:
-    from hydromodpy.analysis.comparison.metrics import (
+    from hydromodpy.analysis.comparison.metric_diff import (
         DETAIL_METRIC_FIELDS,
         SUMMARY_METRIC_FIELDS,
         write_metrics_csv,

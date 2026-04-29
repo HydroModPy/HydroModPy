@@ -19,7 +19,7 @@ from hydromodpy.analysis.comparison.exports import (
     write_native_timeseries_exports,
     write_observable_chronicle_exports,
 )
-from hydromodpy.analysis.comparison.metrics import (
+from hydromodpy.analysis.comparison.metric_diff import (
     DETAIL_METRIC_FIELDS,
     SUMMARY_METRIC_FIELDS,
     build_comparison_metrics,

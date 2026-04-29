@@ -12,7 +12,7 @@ import pytest
 
 from hydromodpy.analysis.comparison.config import MethodComparisonConfig
 from hydromodpy.analysis.comparison.exports import write_budget_exports
-from hydromodpy.analysis.comparison.metrics import (
+from hydromodpy.analysis.comparison.metric_diff import (
     build_comparison_metrics,
     build_unmatched_groups,
 )
