@@ -32,6 +32,110 @@ Each release section includes the following standard categories:
 
 ## [Unreleased]
 
+---
+
+## [v0.5.0] - 2026-04-29
+
+This release lands the v0.6 architecture rupture: a strictly layered
+DAG, no aliases, no legacy shims. Sessions S01..S05 of the
+`unified_architecture/PLAN_ACTION.md` plan.
+
+### Breaking
+- Cross-package imports of `_<name>` modules / sub-packages are now
+  forbidden by lint and CI; private helpers live behind their package.
+- `core/` is the kernel leaf: it no longer imports any sibling layer
+  (not even under `TYPE_CHECKING`).
+- Solver backends are independent: `solver/modflow6/` and
+  `solver/modflow_nwt/` no longer cross-import. The shared surface
+  moved to `solver/modflow_common/` (S01-14, S01-15).
+- `pipeline/` is being absorbed into `workflow/`. New files in
+  `pipeline/` are forbidden.
+- Top-level `hmp.*` no longer re-exports internal modules upward
+  (S00-03). Use the canonical import path.
+- Project, SimulationCatalog, MF6 backend, analysis batch/comparison,
+  mesh bundle, results catalog, and field_param helpers were split
+  into sub-packages. Direct imports of removed god-class symbols
+  break (S03-01..S03-13).
+- `SolverRunner` triple-protocol collapsed into a single
+  `SolverAdapter` (S05-04).
+- Twelve short Pydantic aliases dropped along with `Modpath7` from the
+  public API (S05-01).
+- Twelve Pydantic validators retyped to `Literal` / `Field(ge, le)`,
+  removing hand-written `_validate_*` callbacks (S05-08, S05-09,
+  S05-12).
+- `Length` / `FlowRate` Pydantic fields now declared via
+  `pydantic-pint`; bespoke validators dropped (S05-08).
+- `extra="forbid"` enforced everywhere on `BaseModel`; passing an
+  unknown TOML / kwarg key now raises (S05-07).
+- `logging.getLogger` banned via `TID251`; every module-level logger
+  goes through `hydromodpy.core.logging.get_logger` (S05-06).
+- Workflow + solver adapters now raise typed `HMPY*Error` exceptions
+  in place of vanilla `raise` / `RuntimeError` (S05-05).
+- `workflow/orchestrator.execute_simulation` removed; orchestration
+  goes through `Project.run` and `Pipeline` (S02-07, S02-08).
+- `pipeline.pipeline` renamed to `workflow.runner`,
+  `workflow.pipeline` renamed to `workflow.orchestrator` (S02-03).
+
+### Added
+- `Project.mesh()`, `Project.report()`, top-level `hmp.mesh()` /
+  `hmp.report()` shortcuts (S05-11).
+- `from_toml` / `from_json` / `from_dict` factories on `Project`,
+  `SimulationCatalog`, `Run`. The `[calibration]` TOML section now
+  loads through this path (S05-10).
+- `FlowWellForcingConfig` discriminated union (S05-12).
+- ML access pattern: `runs_environment` and `Catalog.training_split`
+  (S04-16).
+- `Run.summary(json=False)` for compact metadata snapshot (S04-14).
+- `Run.dataset(variable=None)` returning a `xugrid.UgridDataset`
+  (S04-07).
+- `Catalog.worst` / `Catalog.rank`; `hmp best` / `hmp worst` collapsed
+  into `hmp rank` (S04-13).
+- `Catalog.delete(remove_storage=True)` cascade (S04-12).
+- CSV / NetCDF / Zarr field importers (S04-10).
+- `Grid` protocol + topology-aware grid wrappers (S04-08).
+- `field_registry` boundary validation with `UnknownFieldError`
+  (S04-09).
+- Layer-matrix CI gate in xfail mode (`tests/unit/architecture/`,
+  S00-02).
+
+### Changed
+- `Project` god-class split into `project/phases` + `project/accessors`
+  modules (S03-03).
+- `hydromodpy.core.io` now hosts the PROJ bootstrap (opt-in) and the
+  DuckDB retry helper, replacing the `tools/` and `results/_db_retry`
+  copies (S05-02, S01-02).
+- Root sections are single-sourced from `HydroModPyConfig.model_fields`
+  (S05-03).
+- Metrics canonicalised around `results/metrics.py`, dropping
+  duplicates across `core/tools` and `analysis` (S04-15).
+- Run / catalog typing strengthened via `results/contracts` (S04-06).
+- `core/grid_reference.GridReference` lifted out of `spatial` (S01-06).
+- `ResultsConfig` moved to `core/config/results_config` (S01-04).
+- `overview_config` split into `display/overview/config` and
+  `core/contracts/overview` (S01-03).
+- `compare` split into `compare_pair`, `compare_methods`, and
+  `workflow_context` (S04-05).
+
+### Removed
+- `LocalStepSolveResult` and four boussinesq formulation aliases
+  (S00-05).
+- Empty `hmp migrate` stub kept around for nostalgia.
+- `core/tools/statistics.py` (use `calibration.metrics`).
+- Five `try: import tomllib except: import tomli` blocks plus three
+  bare-name script-mode shims in `spatial/field/core/`. Python &lt; 3.11
+  is no longer supported (S00-05).
+
+### Fixed
+- Calibration `engine.run` now wrapped in `try / except / finally`
+  so partial sessions still flush their cache (S04-01).
+
+---
+
+## [v0.4.0] - 2026-04-28
+
+First release of the parquet lakehouse + calibration trial primitive.
+Picks up the `[Unreleased]` backlog accumulated since `v0.3.4`.
+
 ### Breaking (S00-05 hard-cut legacy)
 - Removed `hydromodpy/_cli/legacy_calibration.py`; the deprecated
   `[model_calibration]` TOML section is no longer auto-renamed to
@@ -86,8 +190,7 @@ Each release section includes the following standard categories:
   full simulations. See `docs/developers/calibration_guide.md`.
 - `make_hot_simulator` now returns `(calibration_vector, raw_results)` so
   callers can persist selected series post-calibration without re-running
-  the solver. `persist_calibration_result` renamed to `promote_trial`
-  (deprecated alias kept for one release cycle).
+  the solver. `persist_calibration_result` renamed to `promote_trial`.
 
 ### Added
 - Calibration refactor - trial primitive plus step auto-invalidation:
@@ -133,7 +236,7 @@ Each release section includes the following standard categories:
 - `_default_evaluator` (analytical mock) from the user-facing calibration
   path. Custom metrics are now supplied via the
   `objective = "module.path:fn"` escape hatch.
-- `hmp migrate` subcommand (see commit `6857edb3`).
+- `hmp migrate` subcommand.
 
 ### Fixed
 - `SimulationCatalog.write_*` methods are now tolerant of the DuckDB
@@ -258,7 +361,8 @@ Each release section includes the following standard categories:
 
 ---
 
-[Unreleased]: https://github.com/HydroModPy/HydroModPy/compare/v0.4.0...dev
+[Unreleased]: https://github.com/HydroModPy/HydroModPy/compare/v0.5.0...dev
+[v0.5.0]: https://github.com/HydroModPy/HydroModPy/compare/v0.4.0...v0.5.0
 [v0.4.0]: https://github.com/HydroModPy/HydroModPy/compare/v0.3.4...v0.4.0
 [v0.3.4]: https://github.com/HydroModPy/HydroModPy/compare/v0.3.3...v0.3.4
 [v0.3.2]: https://github.com/HydroModPy/HydroModPy/compare/v0.3.1...v0.3.2
