@@ -1,3 +1,33 @@
+"""Multi-simulation view on the results catalog.
+
+What
+----
+Iterable, filterable view over a list of ``sim_id`` resolved against a single
+``SimulationCatalog``. Builds pivoted ``parameters`` and ``metrics`` frames,
+ranks runs (``best``, ``worst``, ``sort_by``), compares scalar metrics across
+simulations (``compare``), exports tabular bundles (``to_dataframe``,
+``to_csv``), stacks field arrays into an ``xarray.DataArray``
+(``to_xarray``), and narrows the set with ``filter(**criteria)``.
+
+Why
+---
+Calibration ensembles, gallery sweeps, and ad hoc cohorts share the same
+"list of runs" abstraction. Centralising it here keeps the per-run loop logic
+(sort, pivot, compare) in one place rather than duplicated across notebooks.
+
+Public API
+----------
+- ``SimulationGroup``: returned by ``SimulationCatalog.find`` and similar
+  multi-result entry points. Iteration yields ``Run`` instances; indexing,
+  ``len()``, and HTML repr are supported.
+
+Cross-refs
+----------
+- ``hydromodpy.results.catalog.SimulationCatalog`` is the upstream owner.
+- ``hydromodpy.results.run.Run`` is the unit element of the group.
+- ``to_xarray`` defers to per-run ``Run.field`` reads.
+"""
+
 from __future__ import annotations
 
 from typing import TYPE_CHECKING

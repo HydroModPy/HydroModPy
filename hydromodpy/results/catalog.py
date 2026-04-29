@@ -1,3 +1,43 @@
+"""Catalog facade for the results layer.
+
+What
+----
+Central registry for finished simulations. Backed by DuckDB for tabular state
+(simulations, parameters, metrics, provenance, calibration sessions) and by
+Zarr / Parquet for field arrays and timeseries written under the workspace.
+
+Why
+---
+Solver outputs land in heterogeneous formats (binary heads, CSV budgets, mesh
+files). The catalog keeps one durable index keyed by ``sim_id`` so downstream
+``Run`` and ``SimulationGroup`` views can resolve, filter, and read results
+without each caller re-implementing storage paths.
+
+Public API
+----------
+- ``SimulationCatalog``: connection-managed entry point. Methods cover
+  registration (``register_simulation``), per-simulation writers
+  (``write_parameters``, ``write_timeseries``, ``write_budget``,
+  ``write_field``, ``write_mesh`` ...), readers / queries (``query_field``,
+  ``query_timeseries``, ``list_simulations``, ``sql``), reference resolution
+  (``resolve``, ``__getitem__``, ``find``, ``latest``, ``best``), and lifecycle
+  helpers (``finalize``, ``cleanup``, ``export_package``, ``import_package``,
+  ``delete``).
+- ``RegistrationResult``: dataclass returned by ``register_simulation``.
+- Errors: ``SimulationNotFoundError``, ``AmbiguousReferenceError``,
+  ``DuplicateSimulationNameError``.
+
+Cross-refs
+----------
+- ``hydromodpy.results.run.Run`` and
+  ``hydromodpy.results.simulation_group.SimulationGroup`` consume this facade.
+- ``hydromodpy.results.catalog_schema`` defines the DuckDB schema and parquet
+  view bindings.
+- ``hydromodpy.results.zarr_store.SimulationZarr`` owns field-array storage.
+- ``hydromodpy.results.storage_naming`` and
+  ``hydromodpy.results.provenance`` build canonical paths and fingerprints.
+"""
+
 from __future__ import annotations
 
 import hashlib

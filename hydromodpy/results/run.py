@@ -1,3 +1,39 @@
+"""Single-simulation view on the results catalog.
+
+What
+----
+Read-only facade over one row of the ``simulations`` table. ``Run`` lazy-loads
+its catalog row on first access and exposes typed properties (``solver``,
+``status``, ``n_layers`` ...), tabular accessors (``parameters``, ``metrics``,
+``timeseries``, ``budget``, ``mass_balance``, ``provenance``), field-array
+readers (``field``, ``mesh``, ``geographic``, ``geographic_raster``), spatial
+helpers (``grid``, ``catchment_mask``, ``dem``, ``outlet``), derived metrics
+(``saturated_fraction``, ``drainage_density``, ``persistence``,
+``catchment_mean``, ``recharge_forcing``), and display hooks
+(``display_capabilities``, ``plot``, ``plot_all``).
+
+Why
+---
+Notebook and script users need a stable per-simulation handle that hides the
+DuckDB / Zarr split. Caching is per-instance to avoid repeated catalog hits
+inside a session; cross-process freshness is handled by the catalog itself.
+
+Public API
+----------
+- ``Run``: instantiated by ``SimulationCatalog`` resolution methods. Also
+  exposes ``rerun(**overrides)`` to spawn a derived simulation, ``to_csv``
+  and ``export`` for archival, plus ``at(timestep, layer)`` returning an
+  ``_AtAccessor`` view (private; reachable only via ``Run.at``).
+
+Cross-refs
+----------
+- ``hydromodpy.results.catalog.SimulationCatalog`` owns this object's data.
+- ``hydromodpy.results.simulation_group.SimulationGroup`` iterates over
+  ``Run`` instances.
+- ``hydromodpy.results.grid.Grid`` backs the spatial helpers.
+- ``hydromodpy.results.derived`` provides the derived-metric implementations.
+"""
+
 from __future__ import annotations
 
 import json
