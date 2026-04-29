@@ -21,9 +21,13 @@ inside a session; cross-process freshness is handled by the catalog itself.
 Public API
 ----------
 - ``Run``: instantiated by ``SimulationCatalog`` resolution methods. Also
-  exposes ``rerun(**overrides)`` to spawn a derived simulation, ``to_csv``
-  and ``export`` for archival, plus ``at(timestep, layer)`` returning an
-  ``_AtAccessor`` view (private; reachable only via ``Run.at``).
+  exposes ``rerun(**overrides)`` to spawn a derived simulation, plus
+  ``at(timestep, layer)`` returning an ``_AtAccessor`` view (private;
+  reachable only via ``Run.at``).
+- :class:`hydromodpy.results.run_loader.RunLoaderAdapter` builds a ``Run``
+  from a TOML / JSON / dict config payload.
+- :class:`hydromodpy.results.run_export.RunExportAdapter` writes per-run
+  archives (``to_csv``, ``export``).
 
 Cross-refs
 ----------
@@ -63,27 +67,6 @@ class Run:
         self._sim_id = sim_id
         self._catalog = catalog
         self._row: dict | None = None
-
-    @classmethod
-    def from_toml(cls, toml_path: str | Path, sim_id: str) -> Run:
-        """Return the Run view for ``sim_id`` in the workspace declared by a TOML."""
-        from hydromodpy.results.catalog import SimulationCatalog
-
-        return cls(sim_id, SimulationCatalog.from_toml(toml_path))
-
-    @classmethod
-    def from_json(cls, payload: str | bytes, sim_id: str) -> Run:
-        """Return the Run view for ``sim_id`` in the workspace declared by a JSON config."""
-        from hydromodpy.results.catalog import SimulationCatalog
-
-        return cls(sim_id, SimulationCatalog.from_json(payload))
-
-    @classmethod
-    def from_dict(cls, payload: dict, sim_id: str) -> Run:
-        """Return the Run view for ``sim_id`` in the workspace declared by a dict config."""
-        from hydromodpy.results.catalog import SimulationCatalog
-
-        return cls(sim_id, SimulationCatalog.from_dict(payload))
 
     def _load_row(self) -> dict:
         if self._row is None:
@@ -640,54 +623,6 @@ class Run:
             "Use HydroModPyConfig.from_snapshot() to reconstruct the config "
             "and run it manually via Project or hmp run."
         )
-
-    # -- Export convenience --------------------------------------------------
-
-    def to_csv(self, path: Path | str | None = None) -> pd.DataFrame:
-        df = self._catalog._connection.execute(
-            "SELECT station_id, variable, datetime, value, unit "
-            "FROM timeseries WHERE sim_id = ? "
-            "ORDER BY station_id, variable, datetime",
-            [self._sim_id],
-        ).fetchdf()
-        if path is not None:
-            df.to_csv(str(path), index=False)
-        return df
-
-    # -- Export --------------------------------------------------------------
-
-    def export(
-        self,
-        variable: str = "*",
-        fmt: str = "csv",
-        path: str | Path | None = None,
-        **kwargs,
-    ) -> None:
-        """Export results to a file.
-
-        Parameters
-        ----------
-        variable : str
-            Variable name or ``"*"`` for all timeseries.
-        fmt : str
-            ``"csv"``, ``"netcdf"``, ``"geotiff"``, ``"vtu"``, ``"shapefile"``.
-        path : Path, optional
-            Output file path. Defaults to
-            ``<workspace>/exports/<name>/<variable>.<ext>``.
-        """
-        if path is None:
-            ext_map = {
-                "csv": "csv",
-                "netcdf": "nc",
-                "vtu": "vtu",
-                "geotiff": "tif",
-                "shapefile": "shp",
-            }
-            ext = ext_map.get(fmt, fmt)
-            out_dir = self._catalog.project_path / "exports" / (self.name or self._sim_id)
-            out_dir.mkdir(parents=True, exist_ok=True)
-            path = out_dir / (f"{variable}.{ext}" if variable != "*" else f"timeseries.{ext}")
-        self._catalog.export(self._sim_id, variable, fmt, path, **kwargs)
 
     # -- Lazy catchment views (delegate to hydromodpy.results.views) ---------
 
