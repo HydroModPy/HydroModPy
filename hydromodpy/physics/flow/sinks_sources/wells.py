@@ -1,8 +1,8 @@
 """Pumping/injection well payloads for the flow process.
 
-Defines :class:`FlowWellConfig` and the optional runtime forcing payloads
-(:class:`FlowWellForcingConfig`, :class:`FlowWellForcingConstantConfig`,
-:class:`FlowWellForcingCsvConfig`).
+Defines :class:`FlowWellConfig` and the runtime forcing variants
+(:class:`FlowWellForcingConstantConfig`, :class:`FlowWellForcingCsvConfig`)
+unified as the discriminated union :data:`FlowWellForcingConfig`.
 """
 
 from __future__ import annotations
@@ -28,9 +28,17 @@ class FlowWellForcingConstantConfig(HydroModelBase):
 
     model_config = ConfigDict(extra="forbid")
 
+    mode: Annotated[Literal["constant"], Profile.USER] = Field(
+        default="constant",
+        description="Discriminator tag for the constant well-forcing variant.",
+    )
     value: Annotated[FlowRate, Profile.USER] = Field(
         ...,
         description="Constant well rate in the same units as the parent well.",
+    )
+    units: Annotated[str | None, Profile.DEV] = Field(
+        default=None,
+        description="Source units of the constant value before runtime conversion.",
     )
 
 
@@ -39,6 +47,10 @@ class FlowWellForcingCsvConfig(HydroModelBase):
 
     model_config = ConfigDict(extra="forbid")
 
+    mode: Annotated[Literal["csv"], Profile.USER] = Field(
+        default="csv",
+        description="Discriminator tag for the CSV-backed well-forcing variant.",
+    )
     path_file: Annotated[Path, Profile.DEV] = Field(
         ..., description="Path to the CSV chronicle file."
     )
@@ -61,6 +73,10 @@ class FlowWellForcingCsvConfig(HydroModelBase):
         default="mean",
         description="Stress-period aggregation method.",
     )
+    units: Annotated[str | None, Profile.DEV] = Field(
+        default=None,
+        description="Source units of CSV values before runtime conversion.",
+    )
 
     @field_validator("sep", "date_column", "value_column", mode="before")
     @classmethod
@@ -71,55 +87,11 @@ class FlowWellForcingCsvConfig(HydroModelBase):
         return text
 
 
-class FlowWellForcingConfig(HydroModelBase):
-    """Launcher-facing well forcing declaration."""
-
-    model_config = ConfigDict(extra="forbid")
-
-    mode: Annotated[Literal["constant", "csv"], Profile.USER] = Field(
-        ...,
-        description="Well forcing mode consumed by launcher runtime.",
-    )
-    units: Annotated[str | None, Profile.DEV] = Field(
-        default=None,
-        description="Source units of forcing values before runtime conversion.",
-    )
-    value: Annotated[float | None, Profile.USER] = Field(default=None)
-    path_file: Annotated[Path | None, Profile.DEV] = Field(default=None)
-    sep: Annotated[str, Profile.DEV] = Field(default=",")
-    date_column: Annotated[str, Profile.DEV] = Field(default="date")
-    date_format: Annotated[str | None, Profile.DEV] = Field(default=None)
-    value_column: Annotated[str, Profile.DEV] = Field(default="value")
-    fill_method: Annotated[Literal["ffill", "bfill"], Profile.DEV] = Field(default="ffill")
-    aggregate: Annotated[Literal["mean", "last"], Profile.DEV] = Field(default="mean")
-
-    @model_validator(mode="after")
-    def _validate_mode_payload(self):
-        if self.mode == "constant":
-            if self.value is None:
-                raise ValueError("well.forcing.mode='constant' requires value")
-            return self
-        if self.path_file is None:
-            raise ValueError("well.forcing.mode='csv' requires path_file")
-        return self
-
-    def as_constant(self) -> FlowWellForcingConstantConfig:
-        if self.mode != "constant":
-            raise ValueError("well forcing is not in constant mode")
-        return FlowWellForcingConstantConfig(value=self.value)
-
-    def as_csv(self) -> FlowWellForcingCsvConfig:
-        if self.mode != "csv":
-            raise ValueError("well forcing is not in csv mode")
-        return FlowWellForcingCsvConfig(
-            path_file=self.path_file,
-            sep=self.sep,
-            date_column=self.date_column,
-            date_format=self.date_format,
-            value_column=self.value_column,
-            fill_method=self.fill_method,
-            aggregate=self.aggregate,
-        )
+FlowWellForcingConfig = Annotated[
+    FlowWellForcingConstantConfig | FlowWellForcingCsvConfig,
+    Field(discriminator="mode"),
+]
+"""Discriminated union of well-forcing payloads (mode = "constant" | "csv")."""
 
 
 class FlowWellConfig(HydroModelBase):

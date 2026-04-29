@@ -428,9 +428,8 @@ class FlowToModflowAdapter:
             return False
         if getattr(forcing, "mode", None) != "constant":
             return False
-        try:
-            constant_value = forcing.as_constant().value
-        except Exception:
+        constant_value = getattr(forcing, "value", None)
+        if constant_value is None:
             return False
         magnitude = getattr(constant_value, "magnitude", constant_value)
         return self._is_scalar_number(magnitude)

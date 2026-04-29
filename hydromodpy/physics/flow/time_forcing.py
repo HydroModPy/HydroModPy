@@ -89,7 +89,7 @@ def resolve_period_values_from_forcing(
 
     mode = getattr(forcing, "mode", None)
     if mode == "constant":
-        constant_value = forcing.as_constant().value
+        constant_value = forcing.value
         magnitude = getattr(constant_value, "magnitude", constant_value)
         return [float(magnitude)] * int(nper)
 
@@ -97,20 +97,19 @@ def resolve_period_values_from_forcing(
         raise ValueError(f"{label}: simulation.time is required to resolve non-constant forcing.")
 
     if mode == "csv":
-        csv_cfg = forcing.as_csv()
         series = load_forcing_csv_series(
-            path_file=csv_cfg.path_file,
-            sep=csv_cfg.sep,
-            date_column=csv_cfg.date_column,
-            date_format=csv_cfg.date_format,
-            value_column=csv_cfg.value_column,
+            path_file=forcing.path_file,
+            sep=forcing.sep,
+            date_column=forcing.date_column,
+            date_format=forcing.date_format,
+            value_column=forcing.value_column,
             label=label,
         )
         values = aggregate_forcing_series(
             series,
             simulation_window=simulation_window,
             label=label,
-            aggregate=csv_cfg.aggregate,
+            aggregate=forcing.aggregate,
         )
         expected_nper = len(build_simulation_time_boundaries(simulation_window)) - 1
         if len(values) != expected_nper:
