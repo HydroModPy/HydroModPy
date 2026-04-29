@@ -394,3 +394,80 @@ class TestConfigOverridePaths:
         )
         with pytest.raises(ValueError, match="must declare a 'path'"):
             cli_module._override_paths(cfg)
+
+
+class TestSessionLifecycle:
+    """No zombie ``status='running'`` rows: failures and aborts must finalize."""
+
+    def _read_session(self, workspace_root, session_id):
+        from hydromodpy.results.catalog import SimulationCatalog
+
+        with SimulationCatalog(workspace_root) as catalog:
+            return catalog.connection.execute(
+                "SELECT status, error_message, n_iterations "
+                "FROM calibration_sessions WHERE session_id = ?",
+                [uuid.UUID(session_id)],
+            ).fetchone()
+
+    def test_engine_failure_marks_session_failed(self, calib_toml, fake_pipeline, monkeypatch):
+        from hydromodpy.calibration import engine as engine_mod
+
+        def boom(self):
+            raise RuntimeError("boom from engine")
+
+        monkeypatch.setattr(engine_mod.CalibrationEngine, "run", boom)
+
+        from hydromodpy.calibration.persistence import CalibrationPersistence
+
+        captured: list[str] = []
+        real_start = CalibrationPersistence.start_session
+
+        def spy_start(self, *, session_id, **kw):
+            captured.append(session_id)
+            return real_start(self, session_id=session_id, **kw)
+
+        monkeypatch.setattr(CalibrationPersistence, "start_session", spy_start)
+
+        with pytest.raises(RuntimeError, match="boom from engine"):
+            run_calibration_cli(calib_toml)
+
+        assert captured, "start_session should have been invoked"
+        row = self._read_session(calib_toml.parent / "ws", captured[-1])
+        assert row[0] == "failed"
+        assert row[1] == "boom from engine"
+        assert row[2] == 0
+
+    def test_keyboard_interrupt_marks_session_aborted(self, calib_toml, fake_pipeline, monkeypatch):
+        from hydromodpy.calibration import engine as engine_mod
+
+        def boom(self):
+            raise KeyboardInterrupt
+
+        monkeypatch.setattr(engine_mod.CalibrationEngine, "run", boom)
+
+        from hydromodpy.calibration.persistence import CalibrationPersistence
+
+        captured: list[str] = []
+        real_start = CalibrationPersistence.start_session
+
+        def spy_start(self, *, session_id, **kw):
+            captured.append(session_id)
+            return real_start(self, session_id=session_id, **kw)
+
+        monkeypatch.setattr(CalibrationPersistence, "start_session", spy_start)
+
+        with pytest.raises(KeyboardInterrupt):
+            run_calibration_cli(calib_toml)
+
+        row = self._read_session(calib_toml.parent / "ws", captured[-1])
+        assert row[0] == "aborted"
+        assert row[1] == "SIGINT"
+
+    def test_all_iterations_crashed_marks_failed(self, calib_toml, fake_pipeline):
+        def crashing_metric(ctx, *, objective, variable):
+            raise RuntimeError("metric blew up")
+
+        summary = run_calibration_cli(calib_toml, metric_fn=crashing_metric)
+        row = self._read_session(calib_toml.parent / "ws", summary["session_id"])
+        assert row[0] == "failed"
+        assert row[2] == 5

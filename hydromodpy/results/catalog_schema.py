@@ -211,8 +211,9 @@ CREATE TABLE IF NOT EXISTS calibration_sessions (
     ended_at       TIMESTAMPTZ,
     duration_s     DOUBLE,
     status         VARCHAR DEFAULT 'pending'
-        CHECK (status IN ('pending', 'running', 'completed',
+        CHECK (status IN ('pending', 'running', 'completed', 'partial',
                           'failed', 'aborted')),
+    error_message  VARCHAR,
     created_at     TIMESTAMPTZ NOT NULL DEFAULT current_timestamp
 );
 CREATE INDEX IF NOT EXISTS ix_cal_project ON calibration_sessions(project);

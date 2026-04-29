@@ -51,6 +51,7 @@ from hydromodpy.calibration.runners.trial import (
 )
 
 if TYPE_CHECKING:
+    from hydromodpy.calibration.engine import CalibrationSession
     from hydromodpy.calibration.report import CalibrationReport
     from hydromodpy.calibration.runners.trial import TrialContext
 
@@ -381,69 +382,101 @@ def _run_calibration(
         f"max_iter={cfg.max_iter} save_runs={cfg.save_runs}",
         file=sys.stderr,
     )
+
     t0 = time.perf_counter()
-    session = engine.run()
-    elapsed = time.perf_counter() - t0
-
-    best = session.best
-
+    session: CalibrationSession | None = None
+    final_status = "failed"
+    final_error: str | None = None
     promotion_count = 0
     best_sim_id: str | None = None
+    best: EvaluationResult | None = None
 
-    if cfg.save_runs != "none":
-        if cfg_path is None:
-            raise ValueError(
-                f"calibration.save_runs={cfg.save_runs!r} requires a source TOML "
-                "(promotion replays the full pipeline). Provide cfg_path or set "
-                "save_runs='none' for trace-only sessions."
-            )
-        if cfg.save_runs == "best_n":
-            top = persistence.top_n(session_id, cfg.save_best_n)
+    try:
+        session = engine.run()
+        best = session.best
+
+        if cfg.save_runs != "none":
+            if cfg_path is None:
+                raise ValueError(
+                    f"calibration.save_runs={cfg.save_runs!r} requires a source TOML "
+                    "(promotion replays the full pipeline). Provide cfg_path or set "
+                    "save_runs='none' for trace-only sessions."
+                )
+            if cfg.save_runs == "best_n":
+                top = persistence.top_n(session_id, cfg.save_best_n)
+            else:
+                top = [
+                    row
+                    for row in persistence.load_iterations(session_id)
+                    if row["status"] == "completed" and row["objective_value"] is not None
+                ]
+            if top:
+                print(
+                    f"Promoting {len(top)} iteration(s) as full simulations...",
+                    file=sys.stderr,
+                )
+            best_obj = best.objective_value if best else None
+            for row in top:
+                values = {
+                    name: float(row["parameters"][name])
+                    for name in override_paths
+                    if name in row["parameters"]
+                }
+                try:
+                    sim_id = promote_trial(
+                        cfg_path,
+                        values,
+                        paths=override_paths,
+                        name=f"{cfg.method}_iter_{row['iteration']:04d}",
+                        session_id=session_id,
+                    )
+                except Exception:
+                    logger.exception(
+                        "Promotion failed for iteration %d; skipping.",
+                        row["iteration"],
+                    )
+                    continue
+                _update_iter_sim_id(catalog, session_id, row["iteration"], sim_id)
+                promotion_count += 1
+                if (
+                    best_sim_id is None
+                    and best_obj is not None
+                    and row["objective_value"] == best_obj
+                ):
+                    best_sim_id = sim_id
+
+        n_total = len(session.history)
+        n_ok = sum(1 for h in session.history if h.status in ("completed", "cached"))
+        if n_total > 0 and n_ok == n_total:
+            final_status = "completed"
+        elif n_ok > 0:
+            final_status = "partial"
         else:
-            top = [
-                row
-                for row in persistence.load_iterations(session_id)
-                if row["status"] == "completed" and row["objective_value"] is not None
-            ]
-        if top:
-            print(
-                f"Promoting {len(top)} iteration(s) as full simulations...",
-                file=sys.stderr,
-            )
-        best_obj = best.objective_value if best else None
-        for row in top:
-            values = {
-                name: float(row["parameters"][name])
-                for name in override_paths
-                if name in row["parameters"]
-            }
-            try:
-                sim_id = promote_trial(
-                    cfg_path,
-                    values,
-                    paths=override_paths,
-                    name=f"{cfg.method}_iter_{row['iteration']:04d}",
-                    session_id=session_id,
-                )
-            except Exception:
-                logger.exception(
-                    "Promotion failed for iteration %d; skipping.",
-                    row["iteration"],
-                )
-                continue
-            _update_iter_sim_id(catalog, session_id, row["iteration"], sim_id)
-            promotion_count += 1
-            if best_sim_id is None and best_obj is not None and row["objective_value"] == best_obj:
-                best_sim_id = sim_id
-
-    persistence.finalize_session(
-        session_id,
-        best=best,
-        n_iterations=len(session.history),
-        duration_s=session.duration_s if session.duration_s else elapsed,
-    )
-    if best_sim_id is not None:
-        _update_best_sim_id(catalog, session_id, best_sim_id)
+            final_status = "failed"
+            if n_total == 0:
+                final_error = "no iterations completed"
+    except KeyboardInterrupt:
+        final_status = "aborted"
+        final_error = "SIGINT"
+        raise
+    except Exception as exc:
+        final_status = "failed"
+        final_error = str(exc)
+        raise
+    finally:
+        elapsed = time.perf_counter() - t0
+        n_iter = len(session.history) if session is not None else 0
+        duration = session.duration_s if session is not None and session.duration_s else elapsed
+        persistence.finalize_session(
+            session_id,
+            best=best,
+            n_iterations=n_iter,
+            duration_s=duration,
+            status=final_status,
+            error=final_error,
+        )
+        if best_sim_id is not None:
+            _update_best_sim_id(catalog, session_id, best_sim_id)
 
     return CalibrationReport(
         session_id=session_id,
