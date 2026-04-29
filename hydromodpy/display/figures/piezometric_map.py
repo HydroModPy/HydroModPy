@@ -47,7 +47,7 @@ class PiezometricMap(BaseFigure):
             cmap=cmap,
             vmin=vmin,
             vmax=vmax,
-            cbar_label="Head (m)",
+            cbar_label=self.axis_label_for("watertable_elevation"),
         )
         overlay_watershed_contour(ax, sim)
         style_map_axes(ax)

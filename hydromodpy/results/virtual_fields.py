@@ -17,7 +17,7 @@ logger = logging.getLogger(__name__)
 
 def _get_surface_top(store: Any, sim_id: str) -> np.ndarray:
     """Read per-cell surface elevation from mesh group."""
-    grp = store.open_zarr_group(sim_id)
+    grp = store._open_zarr_group(sim_id)
     mesh = grp["mesh"]
     if "surface_top" in mesh:
         return np.asarray(mesh["surface_top"][:], dtype="float64")
@@ -57,7 +57,7 @@ def _seepage_areas(store: Any, sim_id: str, timestep: int) -> np.ndarray:
 
 def _drn_budget_field(store: Any, sim_id: str, timestep: int) -> np.ndarray:
     """Read raw DRN budget spatial field, raise KeyError if absent."""
-    grp = store.open_zarr_group(sim_id)
+    grp = store._open_zarr_group(sim_id)
     budget = grp.get("budget")
     if budget is None:
         raise KeyError("No budget spatial fields stored - enable budget.spatial_fields")

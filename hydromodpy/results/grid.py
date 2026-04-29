@@ -4,10 +4,8 @@ Exposed as :attr:`hydromodpy.results.run.Run.grid`. Provides the
 scalars typically needed when post-processing or plotting a
 distributed simulation without reaching for the raw DEM transform.
 
-Only applies to simulations whose mesh is regular in plan - the
-MODFLOW ``dis`` and ``disv`` topologies. For ``disu`` (unstructured)
-the builder raises: no uniform ``cell_size`` applies, and the caller
-should use :attr:`~hydromodpy.results.run.Run.mesh` vertices instead.
+Lumped simulations (e.g. GR4J, ``solver_category == "lumped"``) raise
+``RuntimeError`` because they have no spatial discretisation.
 """
 
 from __future__ import annotations
@@ -57,18 +55,12 @@ def build_grid(run: Run) -> Grid:
     Raises
     ------
     RuntimeError
-        If the simulation uses an unstructured (``disu``) mesh, or if
-        the required entries (``dem_res``, ``nrow``, ``ncol``) are
-        missing from ``geographic_metadata``.
+        If the simulation is lumped (no spatial grid), or if the required
+        entries (``dem_res``, ``nrow``, ``ncol``) are missing from
+        ``geographic_metadata``.
     """
-    topology = run._load_row().get("mesh_topology")
-    if topology == "disu":
-        raise RuntimeError(
-            f"Simulation '{run._sim_id}' uses an unstructured mesh "
-            "('disu'): no uniform cell_size applies. Use run.mesh "
-            "(vertices + face_node_connectivity) together with "
-            "run.field(...) for spatial access."
-        )
+    if run._load_row().get("solver_category") == "lumped":
+        raise RuntimeError("lumped simulation has no spatial grid")
 
     meta = run._catalog.read_geographic_metadata(run._sim_id)
     missing = [k for k in ("dem_res", "nrow", "ncol") if k not in meta]
@@ -84,8 +76,8 @@ def build_grid(run: Run) -> Grid:
     crs = meta.get("crs_proj")
     catchment_area_m2 = float(meta["catch_area"]) * 1e6 if "catch_area" in meta else 0.0
 
-    _, dem_meta = run.geographic_raster("watershed_dem")
-    t = dem_meta["transform"]
+    raster = run.geographic_raster("watershed_dem")
+    t = raster.transform
     nrow, ncol = shape
     xmin, ymax = float(t[2]), float(t[5])
     extent = (

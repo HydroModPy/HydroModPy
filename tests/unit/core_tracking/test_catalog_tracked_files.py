@@ -25,7 +25,7 @@ def _make_catalog(tmp_path: Path) -> SimulationCatalog:
 
 def test_tracked_files_table_exists(tmp_path: Path) -> None:
     with _make_catalog(tmp_path) as catalog:
-        rows = catalog.connection.execute(
+        rows = catalog._connection.execute(
             "SELECT table_name FROM information_schema.tables WHERE table_name = 'tracked_files'"
         ).fetchall()
     assert len(rows) == 1
@@ -136,7 +136,7 @@ def test_sha256_is_deterministic(tmp_path: Path) -> None:
                 )
             ],
         )
-        row = catalog.connection.execute(
+        row = catalog._connection.execute(
             "SELECT sha256 FROM tracked_files WHERE sim_id = ?",
             [sid],
         ).fetchone()

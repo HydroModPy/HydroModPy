@@ -68,7 +68,7 @@ def run(args: argparse.Namespace) -> None:
         rasters: list[str] = []
         if not sims.empty:
             latest_sid = str(sims.iloc[-1]["sim_id"])
-            geo_grp = catalog.open_zarr_group(latest_sid).get("geographic")
+            geo_grp = catalog._open_zarr_group(latest_sid).get("geographic")
             rasters = list(geo_grp.keys()) if geo_grp is not None else []
         features = catalog.list_geographic_features(latest_sid) if latest_sid else []
         print("Geographic rasters:", file=sys.stderr)
@@ -165,7 +165,7 @@ def run(args: argparse.Namespace) -> None:
             print(str(exc), file=sys.stderr)
             catalog.close()
             sys.exit(EXIT_NOT_FOUND)
-        row = catalog.connection.execute(
+        row = catalog._connection.execute(
             "SELECT name FROM simulations WHERE CAST(sim_id AS VARCHAR) = ?",
             [sim_id],
         ).fetchone()
@@ -194,7 +194,7 @@ def run(args: argparse.Namespace) -> None:
                 print(f"  NetCDF export failed: {exc}", file=sys.stderr)
 
         if args.geotiff:
-            grp = catalog.open_zarr_group(sim_id, mode="r")
+            grp = catalog._open_zarr_group(sim_id, mode="r")
             for var in list(grp.keys()) + list((grp.get("derived") or {}).keys()):
                 if var in ("mesh", "budget", "derived", "pathlines"):
                     continue

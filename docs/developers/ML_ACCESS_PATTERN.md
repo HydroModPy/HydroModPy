@@ -129,7 +129,9 @@ loader = DataLoader(HydroModPyDataset(paths), batch_size=4, num_workers=2)
 ## 4. Provenance: the `runs_environment` table
 
 Every run records the host environment so an experiment can be reproduced or
-filtered out post-hoc. Schema:
+filtered out post-hoc. The workflow populates the table at registration time
+via `SimulationCatalog.write_run_environment(sim_id)` (see
+`hydromodpy/results/run_environment.py`). Schema:
 
 | Column               | Type         | Meaning                                |
 |----------------------|--------------|----------------------------------------|
@@ -141,7 +143,9 @@ filtered out post-hoc. Schema:
 | `user_name`          | VARCHAR      | OS user                                |
 | `cpu_info`           | JSON         | CPU model, core count, frequency       |
 | `memory_gb`          | DOUBLE       | Total RAM available at run time        |
-| `git_commit`         | VARCHAR      | Repository commit (when known)         |
+| `git_commit`         | VARCHAR      | HydroModPy repository commit           |
+| `project_git_commit` | VARCHAR      | User project repository commit         |
+| `mf6_binary_sha256`  | VARCHAR      | SHA-256 of the active MODFLOW binary   |
 | `env_packages`       | JSON         | `pip freeze`-style package manifest    |
 | `recorded_at`        | TIMESTAMPTZ  | Insertion timestamp                    |
 
@@ -161,26 +165,90 @@ clean = con.sql(
 
 ## 5. Train / validation / test splits
 
-The recommended split key is `simulations.scientific_objective` (a forthcoming
-column tracked under S04-16). Until it ships, group by `simulations.project`
-or `simulations.tags` to isolate held-out catchments:
+`SimulationCatalog.training_split` returns three lists of `sim_id`s, split
+deterministically with optional stratification:
 
 ```python
-import numpy as np
+from hydromodpy.results.catalog import SimulationCatalog
 
-projects = features["project"].unique()
-rng = np.random.default_rng(seed=42)
-rng.shuffle(projects)
-
-train_projects = projects[: int(0.7 * len(projects))]
-val_projects = projects[int(0.7 * len(projects)) : int(0.85 * len(projects))]
-test_projects = projects[int(0.85 * len(projects)) :]
-
-train = features[features["project"].isin(train_projects)]
-val = features[features["project"].isin(val_projects)]
-test = features[features["project"].isin(test_projects)]
+catalog = SimulationCatalog("workspace/")
+train, val, test = catalog.training_split(
+    test_size=0.2,
+    val_size=0.1,
+    stratify_by="scientific_objective",
+    random_state=42,
+)
 ```
 
-Splitting by `project` (or by `scientific_objective` once available) avoids
-leakage across catchments that share a regional aquifer or a calibration
-period.
+Allowed values for `stratify_by`: `scientific_objective`, `project`, `solver`,
+`solver_category`, `flow_regime`, `study_area_name`. Pass `None` to disable
+stratification. Stratification falls back to `None` automatically when at
+least one class has fewer than 2 members; the function never raises in that
+case.
+
+The function requires `scikit-learn` (optional dependency). It raises
+`hydromodpy.results.catalog.discovery.MissingMLDependencyError` with an
+install hint if the import fails.
+
+To label simulations with a scientific objective, either pass it at
+registration time:
+
+```python
+catalog.register_simulation(sid, project="bv_morbihan", solver="modflow6",
+                            scientific_objective="calibration_recharge")
+```
+
+or update an existing row:
+
+```python
+catalog.write_scientific_objective(
+    sid,
+    "calibration_recharge",
+    description="Recharge sensitivity sweep over 12 catchments",
+    contact_email="hydro@example.org",
+    doi="10.5281/zenodo.0",
+    study_area_name="Morbihan",
+    outlet_x=247_500.0,
+    outlet_y=6_770_000.0,
+)
+```
+
+A run that finalises without a `scientific_objective` is auto-tagged as
+`unspecified` (with a warning). Splitting by objective then merges those into
+the same stratum, so prefer setting an explicit value before training.
+
+## 6. PyTorch DataLoader pattern
+
+`Run.to_xarray_batch(variables=...)` returns a lazy `xarray.Dataset` ready
+to feed a tensor pipeline. Combined with the `training_split` helper:
+
+```python
+import torch
+from torch.utils.data import Dataset, DataLoader
+
+from hydromodpy.results.catalog import SimulationCatalog
+
+
+class HydroModPyDataset(Dataset):
+    def __init__(self, catalog: SimulationCatalog,
+                 sim_ids: list[str], variables: tuple[str, ...]) -> None:
+        self.catalog = catalog
+        self.sim_ids = sim_ids
+        self.variables = variables
+
+    def __len__(self) -> int:
+        return len(self.sim_ids)
+
+    def __getitem__(self, i: int) -> torch.Tensor:
+        run = self.catalog[self.sim_ids[i]]
+        ds = run.to_xarray_batch(self.variables)
+        return torch.from_numpy(ds.to_array().values)
+
+
+catalog = SimulationCatalog("workspace/")
+train_ids, val_ids, test_ids = catalog.training_split()
+loader = DataLoader(
+    HydroModPyDataset(catalog, train_ids, ("head", "concentration")),
+    batch_size=4,
+)
+```

@@ -41,8 +41,8 @@ from hydromodpy.calibration.diagnostics import (  # noqa: E402
     iterations_to_dataframe,
     parameter_correlation,
 )
-from hydromodpy.calibration.objective import kge as _kge_metric  # noqa: E402
 from hydromodpy.display import get as get_figure  # noqa: E402
+from hydromodpy.results.metrics import kge as _kge_metric  # noqa: E402
 
 GOLDEN_FILE = (
     Path(__file__).resolve().parent / "golden" / "calibration_brutsaert_methods_golden.json"
@@ -64,7 +64,7 @@ _FIGURE_KWARGS: dict[str, dict] = {"calibration_pairplot": {"parameters": ["K", 
 
 def _kge_cost(observed: np.ndarray, simulated: np.ndarray) -> float:
     """Mirror ``calibrate_brutsaert`` which minimises ``1 - KGE``."""
-    return 1.0 - float(_kge_metric(observed, simulated))
+    return 1.0 - float(_kge_metric(simulated, observed)["kge"])
 
 
 @pytest.fixture(scope="module")

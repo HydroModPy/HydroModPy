@@ -57,7 +57,7 @@ class LifecycleMixin:
             return self._track_zarr_handle(SimulationZarr(zarr_zip))
         return self._track_zarr_handle(SimulationZarr(self._simulations_dir / f"{basename}.zarr"))
 
-    def open_zarr_group(self, sim_id: str | UUID, *, mode: str = "r"):
+    def _open_zarr_group(self, sim_id: str | UUID, *, mode: str = "r"):
         return self.open_zarr(sim_id).root
 
     def cleanup(
@@ -94,6 +94,21 @@ class LifecycleMixin:
         )
 
         if status == "completed":
+            existing = self._db.execute(
+                "SELECT scientific_objective FROM simulations WHERE sim_id = ?",
+                [sid],
+            ).fetchone()
+            if existing is not None and not existing[0]:
+                logger.warning(
+                    "Simulation %s completed without a scientific_objective; "
+                    "defaulting to 'unspecified'. Set one with "
+                    "Catalog.write_scientific_objective() to enable ML stratification.",
+                    sid[:8],
+                )
+                self._db.execute(
+                    "UPDATE simulations SET scientific_objective = 'unspecified' WHERE sim_id = ?",
+                    [sid],
+                )
             basename = self._paths.basename_for(sid)
             zarr_dir = self._simulations_dir / f"{basename}.zarr"
             if zarr_dir.is_dir():
@@ -114,7 +129,18 @@ class LifecycleMixin:
                     logger.debug("Could not pack zarr to zip for sim %s", sid)
 
     @with_lock_retry()
-    def delete(self, sim_id: str | UUID) -> None:
+    def delete(
+        self,
+        sim_id: str | UUID,
+        *,
+        remove_storage: bool = True,
+    ) -> None:
+        """Delete a simulation row and (optionally) its on-disk artefacts.
+
+        Cascades the delete across every per-sim DuckDB table and removes
+        the per-sim Parquet directory and Zarr store when
+        ``remove_storage`` is true.
+        """
         sid = str(sim_id)
 
         row = self._db.execute(
@@ -124,7 +150,8 @@ class LifecycleMixin:
         # Resolve artefact paths while the row still exists so basename lookup
         # works; clearing the cache and deleting the row first would push
         # resolution onto the raw-UUID fallback and miss the real folder.
-        parquet_dir = self._paths.parquet_dir_for(sid)
+        parquet_dir = self._paths.parquet_dir_for(sid) if remove_storage else None
+        zarr_abs = self._workspace / row[0] if remove_storage and row and row[0] else None
         self._paths.forget(sid)
 
         for table in PER_SIM_TABLE_NAMES:
@@ -135,14 +162,13 @@ class LifecycleMixin:
         )
         self._db.execute("DELETE FROM simulations WHERE sim_id = ?", [sid])
 
-        if parquet_dir.is_dir():
+        if parquet_dir is not None and parquet_dir.is_dir():
             shutil.rmtree(parquet_dir, ignore_errors=True)
             # Refresh views so a workspace whose last per-sim Parquet file
             # was just removed drops back to the empty-typed view form.
             ensure_parquet_views(self._db, self._workspace)
 
-        if row and row[0]:
-            zarr_abs = self._workspace / row[0]
+        if zarr_abs is not None:
             if zarr_abs.is_file():
                 zarr_abs.unlink(missing_ok=True)
             elif zarr_abs.is_dir():

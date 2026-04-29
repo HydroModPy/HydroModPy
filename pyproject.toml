@@ -74,6 +74,7 @@ dependencies = [
     "vedo",
     "whitebox-workflows",
     "xarray",
+    "xugrid",
     "pydantic>=2.0",
     "duckdb",
     "dask",
@@ -117,7 +118,6 @@ ide = [
     "spyder>=6.0",
     "spyder-kernels",
 ]
-ugrid = ["xugrid"]
 viewer3d = ["pyvista"]
 dev = [
     "ruff>=0.15",

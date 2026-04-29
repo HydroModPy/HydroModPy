@@ -319,7 +319,7 @@ class ModflowNwtOutputAdapter:
                     n0 = r * nc + c
                     fnc[i] = (n0, n0 + 1, n0 + nc + 1, n0 + nc)
 
-            grp = store.open_zarr_group(sim_id)
+            grp = store._open_zarr_group(sim_id)
             if "mesh" not in grp:
                 grp.create_group("mesh")
             mesh = grp["mesh"]

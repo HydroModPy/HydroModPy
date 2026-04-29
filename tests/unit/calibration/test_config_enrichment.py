@@ -226,7 +226,6 @@ class TestCalibrationConfigEnriched:
             {
                 "persist_iteration_detail": "full",
                 "persist_model_distribution": True,
-                "resume_session": "abcdef01",
                 "rerun_best_with_outputs": True,
                 "materialize_candidates": True,
                 "candidates_root": "/tmp/candidates",
@@ -234,10 +233,13 @@ class TestCalibrationConfigEnriched:
         )
         assert cfg.persist_iteration_detail == "full"
         assert cfg.persist_model_distribution is True
-        assert cfg.resume_session == "abcdef01"
         assert cfg.rerun_best_with_outputs is True
         assert cfg.materialize_candidates is True
         assert str(cfg.candidates_root) == "/tmp/candidates"
+
+    def test_resume_session_field_is_rejected(self):
+        with pytest.raises(ValidationError):
+            CalibrationConfig.model_validate({"resume_session": "abcdef01"})
 
     def test_implicit_objective_block_built_from_objective_variable(self):
         cfg = CalibrationConfig.model_validate(

@@ -31,6 +31,7 @@ from hydromodpy.project_accessors import ProjectDataAccessor, ProjectRunsAccesso
 
 if TYPE_CHECKING:
     from hydromodpy.core.state.data import LoadedDataContext
+    from hydromodpy.core.state.run_state import WorkflowContext
     from hydromodpy.core.time.window import (
         ResolvedSimulationTimeGrid,
         ResolvedSteadySimulationTimeGrid,
@@ -341,6 +342,11 @@ class Project:
     def loaded_data(self) -> LoadedDataContext:
         """Loaded data context (recharge, geology, hydrometry, etc.)."""
         return self._ctx.loaded_data
+
+    @property
+    def workflow_context(self) -> WorkflowContext:
+        """Mutable workflow runtime state threaded through workflow steps."""
+        return self._ctx
 
     # -- Run ---------------------------------------------------------------
 

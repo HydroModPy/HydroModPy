@@ -5,7 +5,7 @@ from __future__ import annotations
 from collections.abc import Iterable, Mapping
 from typing import Any
 
-from hydromodpy.analysis.comparison.metrics import build_unmatched_groups
+from hydromodpy.analysis.comparison.metric_diff import build_unmatched_groups
 
 
 def _format_number(value: Any) -> str:

@@ -109,10 +109,18 @@ class TestGrid:
         run = Run(sid, catalog)
         assert run.grid is run.grid
 
-    def test_grid_raises_on_disu(self, catalog):
-        sid = _register_sim(catalog, mesh_topology="disu")
+    def test_grid_raises_on_lumped(self, catalog):
+        sid = str(uuid.uuid4())
+        catalog.register_simulation(
+            sid,
+            project="grid_test",
+            solver="gr4j",
+            solver_category="lumped",
+            n_cells=1,
+            n_layers=1,
+        )
         run = Run(sid, catalog)
-        with pytest.raises(RuntimeError, match="unstructured mesh"):
+        with pytest.raises(RuntimeError, match="lumped simulation has no spatial grid"):
             _ = run.grid
 
     def test_grid_raises_on_missing_metadata(self, catalog):
@@ -165,8 +173,8 @@ class TestDem:
         sid = _register_sim(catalog)
         run = Run(sid, catalog)
         _ = run.dem
-        raw, _ = run.geographic_raster("watershed_dem")
-        assert raw[0, 0] == -9999.0
+        raster = run.geographic_raster("watershed_dem")
+        assert raster.data[0, 0] == -9999.0
 
     def test_dem_is_cached(self, catalog):
         sid = _register_sim(catalog)
@@ -202,10 +210,14 @@ class TestFields:
         return sid
 
     def test_fields_stack_shape(self, catalog):
+        from hydromodpy.results.contracts import Stack
+
         sid = self._register_with_fields(catalog, nrow=5, ncol=4, n_timesteps=3)
         run = Run(sid, catalog)
         stack = run.fields("head")
-        assert stack.shape == (3, 5, 4)
+        assert isinstance(stack, Stack)
+        assert stack.variable == "head"
+        assert stack.data.shape == (3, 5, 4)
 
     def test_fields_values_match_field(self, catalog):
         sid = self._register_with_fields(catalog, nrow=5, ncol=4, n_timesteps=3)
@@ -213,13 +225,7 @@ class TestFields:
         stack = run.fields("head")
         for t in range(3):
             frame = np.asarray(run.field("head", timestep=t)).reshape(5, 4)
-            np.testing.assert_array_equal(stack[t], frame)
-
-    def test_fields_raises_on_disu(self, catalog):
-        sid = _register_sim(catalog, mesh_topology="disu")
-        run = Run(sid, catalog)
-        with pytest.raises(RuntimeError, match="unstructured mesh"):
-            run.fields("head")
+            np.testing.assert_array_equal(stack.data[t], frame)
 
 
 class TestTimeIndex:
@@ -257,7 +263,7 @@ class TestTimeIndex:
 class TestParams:
     def test_params_returns_global_scalars(self, catalog):
         sid = _register_sim(catalog)
-        catalog.connection.execute(
+        catalog._connection.execute(
             "INSERT INTO parameters (sim_id, param_name, zone_id, value) "
             "VALUES (?, 'K', '__global__', 5e-5), "
             "       (?, 'Sy', '__global__', 0.05)",
@@ -268,7 +274,7 @@ class TestParams:
 
     def test_params_excludes_zonal_rows(self, catalog):
         sid = _register_sim(catalog)
-        catalog.connection.execute(
+        catalog._connection.execute(
             "INSERT INTO parameters (sim_id, param_name, zone_id, value) "
             "VALUES (?, 'thickness', '__global__', 30.0), "
             "       (?, 'K', 'zone_1', 1e-4), "

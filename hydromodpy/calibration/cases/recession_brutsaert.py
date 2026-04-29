@@ -33,7 +33,7 @@ from hydromodpy.calibration import (
     ParamSuggestion,
     build_optimizer,
 )
-from hydromodpy.calibration.objective import kge as _kge_metric
+from hydromodpy.results.metrics import kge as _kge_metric
 
 # ---------------------------------------------------------------------------
 # Fixed physical context
@@ -364,10 +364,8 @@ def _compute_metrics(obs: np.ndarray, sim: np.ndarray) -> dict[str, float]:
 
 
 def _kge_cost(obs: np.ndarray, sim: np.ndarray) -> float:
-    """``1 - KGE`` (minimization). Note: KGE ratios are ddof-invariant, so
-    using the new ``objective.kge`` yields the same ranking as the legacy
-    ddof=1 form."""
-    value = _kge_metric(obs, sim)
+    """``1 - KGE`` (minimization)."""
+    value = _kge_metric(sim, obs)["kge"]
     if not np.isfinite(value):
         return 1e12
     return 1.0 - float(value)

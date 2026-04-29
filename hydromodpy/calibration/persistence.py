@@ -25,7 +25,7 @@ class CalibrationPersistence:
     """Idempotent writer for calibration rows."""
 
     def __init__(self, catalog: SimulationCatalog):
-        self._conn = catalog.connection
+        self._conn = catalog._connection
 
     def start_session(
         self,
@@ -115,6 +115,7 @@ class CalibrationPersistence:
         n_iterations: int,
         duration_s: float,
         status: str = "completed",
+        error: str | None = None,
     ) -> None:
         sid = uuid.UUID(session_id) if len(session_id) == 32 else session_id
         best_sim_uuid = None
@@ -131,7 +132,8 @@ class CalibrationPersistence:
                    best_objective = ?,
                    ended_at = ?,
                    duration_s = ?,
-                   status = ?
+                   status = ?,
+                   error_message = ?
              WHERE session_id = ?
             """,
             [
@@ -141,6 +143,7 @@ class CalibrationPersistence:
                 datetime.now(UTC),
                 duration_s,
                 status,
+                error,
                 sid,
             ],
         )

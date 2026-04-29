@@ -6,7 +6,6 @@ from typing import TYPE_CHECKING
 
 import numpy as np
 
-from hydromodpy.core.units.labels import axis_label
 from hydromodpy.display._ugrid import last_timestep, render_face_field
 from hydromodpy.display.catalog import register
 from hydromodpy.display.figure import BaseFigure, FigureSpec
@@ -43,6 +42,7 @@ class SideBySideMapFigure(BaseFigure):
         if reference is None:
             raise ValueError("side_by_side: 'reference' simulation required")
         ts = last_timestep(sim) if timestep is None else timestep
+        cbar_label = self.axis_label_for(field)
         a = np.asarray(sim.field(field, timestep=ts)).ravel()
         b = np.asarray(reference.field(field, timestep=ts)).ravel()
         vmin = float(np.nanmin([a.min(), b.min()]))
@@ -54,7 +54,7 @@ class SideBySideMapFigure(BaseFigure):
             cmap=cmap,
             vmin=vmin,
             vmax=vmax,
-            cbar_label=axis_label(field),
+            cbar_label=cbar_label,
         )
         ax.set_title(sim.name or sim.sim_id)
         return ax
@@ -85,6 +85,8 @@ class SideBySideMapFigure(BaseFigure):
             constrained_layout=True,
         )
         ts = last_timestep(sim) if timestep is None else timestep
+        descriptor = self.field_descriptor_for(field)
+        cbar_label = f"{descriptor.long_name} ({descriptor.units})"
         a = np.asarray(sim.field(field, timestep=ts)).ravel()
         b = np.asarray(reference.field(field, timestep=ts)).ravel()
         vmin = float(np.nanmin([a.min(), b.min()]))
@@ -96,7 +98,7 @@ class SideBySideMapFigure(BaseFigure):
             cmap=cmap,
             vmin=vmin,
             vmax=vmax,
-            cbar_label=axis_label(field),
+            cbar_label=cbar_label,
         )
         axes[0].set_title(sim.name or sim.sim_id)
         render_face_field(
@@ -106,10 +108,10 @@ class SideBySideMapFigure(BaseFigure):
             cmap=cmap,
             vmin=vmin,
             vmax=vmax,
-            cbar_label=axis_label(field),
+            cbar_label=cbar_label,
         )
         axes[1].set_title(reference.name or reference.id)
-        fig.suptitle(f"Side-by-side {field}")
+        fig.suptitle(f"Side-by-side {descriptor.long_name}")
         if save_path is not None:
             from pathlib import Path
 

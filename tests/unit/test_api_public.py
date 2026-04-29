@@ -18,7 +18,8 @@ EXPECTED_TOP_LEVEL = [
     "open",
     "run",
     "calibrate",
-    "compare",
+    "compare_pair",
+    "compare_methods",
     "doctor",
     # Project / run / catalog API
     "Project",

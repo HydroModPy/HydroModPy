@@ -77,7 +77,7 @@ class ModpathOutputAdapter:
             z[i, :n] = particle["z"]
             t[i, :n] = particle["time"]
 
-        grp = store.open_zarr_group(sim_id, mode="a")
+        grp = store._open_zarr_group(sim_id, mode="a")
         pathlines_grp = grp.require_group("pathlines")
         for name, arr in [("x", x), ("y", y), ("z", z), ("time", t)]:
             pathlines_grp.create_array(
@@ -109,7 +109,7 @@ class ModpathOutputAdapter:
             logger.debug("Empty endpoint file %s", ept_path)
             return
 
-        grp = store.open_zarr_group(sim_id, mode="a")
+        grp = store._open_zarr_group(sim_id, mode="a")
         pathlines_grp = grp.require_group("pathlines")
 
         pathlines_grp.create_array(

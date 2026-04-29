@@ -79,6 +79,13 @@ def step_open_store(ctx: WorkflowContext) -> None:
     if registration.zarr is not None:
         registration.zarr.close()
 
+    # Capture host environment for ML reproducibility filtering.
+    try:
+        project_root = getattr(workspace, "project_root", None)
+        ctx.store.write_run_environment(ctx.sim_id, project_root=project_root)
+    except Exception:
+        logger.exception("Failed to capture run environment for sim %s", ctx.sim_id[:8])
+
     _register_tracked_input_files(ctx)
 
     if ctx.setup.flow is not None:

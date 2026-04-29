@@ -18,6 +18,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from hydromodpy.core.exceptions import UnknownFieldError
+
 # Supported shape literals, exposed as constants so callers don't have to
 # remember the exact strings. These are CF / UGRID shape signatures.
 SHAPE_TIME_LAYER_FACE = "time_layer_face"
@@ -33,6 +35,11 @@ _SHAPE_TO_COORDINATES = {
     SHAPE_FACE: "face",
     SHAPE_PARTICLES: "time particle",
 }
+
+# Face-aligned shapes also carry UGRID-1.0 ``mesh`` and ``location`` attrs
+# pointing at the simulation's mesh topology variable.
+_FACE_SHAPES = frozenset({SHAPE_TIME_LAYER_FACE, SHAPE_TIME_FACE, SHAPE_LAYER_FACE, SHAPE_FACE})
+UGRID_MESH_VARIABLE = "mesh/topology"
 
 
 @dataclass(frozen=True, slots=True)
@@ -276,14 +283,14 @@ FIELD_REGISTRY: dict[str, FieldDescriptor] = {
 def get(name: str) -> FieldDescriptor:
     """Return the :class:`FieldDescriptor` registered under ``name``.
 
-    Raises :class:`KeyError` with the full list of available names when the
-    lookup fails, which makes typos immediately actionable.
+    Raises :class:`~hydromodpy.core.exceptions.UnknownFieldError` carrying the
+    full list of available names when the lookup fails, which makes typos
+    immediately actionable.
     """
     try:
         return FIELD_REGISTRY[name]
     except KeyError:
-        available = ", ".join(sorted(FIELD_REGISTRY))
-        raise KeyError(f"Field '{name}' is not registered. Available fields: {available}") from None
+        raise UnknownFieldError(name, FIELD_REGISTRY.keys()) from None
 
 
 def has(name: str) -> bool:
@@ -302,13 +309,16 @@ def all_zarr_paths() -> list[str]:
 
 
 def cf_attrs(name: str) -> dict[str, str]:
-    """Return a dict of CF-1.11 attributes for the given public name.
+    """Return a dict of CF-1.11 + UGRID-1.0 attributes for the given public name.
 
-    The resulting mapping is suitable for ``zarr.Array.attrs.update(...)``
-    or as an xarray ``attrs=`` argument when exporting.
+    Face-aligned variables additionally receive ``mesh`` and ``location``
+    UGRID attributes so that xugrid / xarray readers can resolve the
+    simulation topology automatically. The resulting mapping is suitable
+    for ``zarr.Array.attrs.update(...)`` or as an xarray ``attrs=``
+    argument when exporting.
     """
     desc = get(name)
-    return {
+    attrs: dict[str, str] = {
         "standard_name": desc.standard_name,
         "long_name": desc.long_name,
         "units": desc.units,
@@ -316,6 +326,10 @@ def cf_attrs(name: str) -> dict[str, str]:
         "grid_mapping": desc.grid_mapping,
         "coordinates": desc.coordinates,
     }
+    if desc.shape in _FACE_SHAPES:
+        attrs["mesh"] = UGRID_MESH_VARIABLE
+        attrs["location"] = "face"
+    return attrs
 
 
 __all__ = [
@@ -324,6 +338,7 @@ __all__ = [
     "SHAPE_LAYER_FACE",
     "SHAPE_FACE",
     "SHAPE_PARTICLES",
+    "UGRID_MESH_VARIABLE",
     "FieldDescriptor",
     "FIELD_REGISTRY",
     "get",

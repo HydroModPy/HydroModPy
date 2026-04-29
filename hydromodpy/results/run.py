@@ -36,7 +36,7 @@ Cross-refs
 
 from __future__ import annotations
 
-import json
+import json as _json
 import logging
 from functools import cached_property
 from pathlib import Path
@@ -45,10 +45,14 @@ from typing import TYPE_CHECKING
 import numpy as np
 import pandas as pd
 
+from hydromodpy.results.contracts import Mesh, RasterField, Stack
+
 logger = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
     import geopandas as gpd
+    import xarray as xr
+    import xugrid as xu
 
     from hydromodpy.results.catalog import SimulationCatalog
     from hydromodpy.results.grid import Grid
@@ -62,13 +66,13 @@ class Run:
 
     def _load_row(self) -> dict:
         if self._row is None:
-            row = self._catalog.connection.execute(
+            row = self._catalog._connection.execute(
                 "SELECT * FROM simulations WHERE sim_id = ?",
                 [self._sim_id],
             ).fetchone()
             if row is None:
                 raise KeyError(f"Simulation '{self._sim_id}' not found")
-            cols = [d[0] for d in self._catalog.connection.description]
+            cols = [d[0] for d in self._catalog._connection.description]
             self._row = dict(zip(cols, row, strict=False))
         return self._row
 
@@ -121,7 +125,7 @@ class Run:
         if val is None:
             return None
         if isinstance(val, str):
-            return json.loads(val)
+            return _json.loads(val)
         return val
 
     @property
@@ -140,6 +144,38 @@ class Run:
     def n_timesteps(self) -> int | None:
         return self._load_row().get("n_timesteps")
 
+    # -- Summary -------------------------------------------------------------
+
+    def summary(self, json: bool = False) -> dict | str:
+        """Return a compact metadata snapshot of this run.
+
+        Picks the headline catalog fields (identity, solver, status,
+        timing, mesh sizes, tags). Datetime values are kept as Python
+        objects in dict form; with ``json=True`` they are stringified
+        and the whole payload is returned as a JSON string.
+        """
+        row = self._load_row()
+        keys = (
+            "name",
+            "project",
+            "solver",
+            "solver_category",
+            "flow_regime",
+            "status",
+            "created_at",
+            "duration_s",
+            "n_layers",
+            "n_cells",
+            "n_timesteps",
+            "tags",
+        )
+        data: dict = {"sim_id": self._sim_id}
+        for key in keys:
+            data[key] = row.get(key)
+        if json:
+            return _json.dumps(data, default=str, indent=2, sort_keys=False)
+        return data
+
     # -- Tabular data properties ---------------------------------------------
 
     @property
@@ -152,7 +188,7 @@ class Run:
         scalars are trivially looked up via
         ``sim.parameters.loc["thickness", "value"]``.
         """
-        df = self._catalog.connection.execute(
+        df = self._catalog._connection.execute(
             "SELECT param_name, zone_id, value, unit, parameterization "
             "FROM parameters WHERE sim_id = ? ORDER BY param_name, zone_id",
             [self._sim_id],
@@ -170,7 +206,7 @@ class Run:
 
     @property
     def metrics(self) -> pd.DataFrame:
-        return self._catalog.connection.execute(
+        return self._catalog._connection.execute(
             "SELECT station_id, metric_name, value "
             "FROM metrics WHERE sim_id = ? ORDER BY station_id, metric_name",
             [self._sim_id],
@@ -178,7 +214,7 @@ class Run:
 
     @property
     def provenance(self) -> pd.DataFrame:
-        return self._catalog.connection.execute(
+        return self._catalog._connection.execute(
             "SELECT variable, source_type, source_ref, "
             "payload_sha256 AS checksum, "
             "period_start, period_end, n_records "
@@ -203,7 +239,7 @@ class Run:
             query += " AND datetime >= ? AND datetime <= ?"
             params.extend([period[0], period[1]])
         query += " ORDER BY datetime"
-        result = self._catalog.connection.execute(query, params).fetchdf()
+        result = self._catalog._connection.execute(query, params).fetchdf()
         if result.empty:
             raise KeyError(
                 f"No timeseries for sim={self._sim_id}, station={station}, var={variable}"
@@ -236,11 +272,11 @@ class Run:
         if period is not None:
             query += " AND timestep >= ? AND timestep <= ?"
             params.extend(period)
-        return self._catalog.connection.execute(query, params).fetchdf()
+        return self._catalog._connection.execute(query, params).fetchdf()
 
     @property
     def mass_balance(self) -> pd.DataFrame:
-        return self._catalog.connection.execute(
+        return self._catalog._connection.execute(
             "SELECT * FROM mass_balance WHERE sim_id = ? ORDER BY timestep",
             [self._sim_id],
         ).fetchdf()
@@ -267,31 +303,40 @@ class Run:
         return _AtAccessor(self, timestep=timestep, layer=layer)
 
     @property
-    def mesh(self) -> dict:
+    def mesh(self) -> Mesh:
+        if self._load_row().get("solver_category") == "lumped":
+            raise RuntimeError("lumped simulation has no spatial grid")
         sz = self._catalog.open_zarr(self._sim_id)
         mesh_grp = sz.root["mesh"]
-        return {
-            "vertices": mesh_grp["vertices"][:],
-            "face_node_connectivity": mesh_grp["face_node_connectivity"][:],
-            "z_interfaces": mesh_grp["z_interfaces"][:],
-        }
+        return Mesh(
+            vertices=mesh_grp["vertices"][:],
+            face_node_connectivity=mesh_grp["face_node_connectivity"][:],
+            z_interfaces=mesh_grp["z_interfaces"][:],
+        )
 
     # -- Geographic ----------------------------------------------------------
 
     def geographic(self, feature_name: str) -> gpd.GeoDataFrame:
         return self._catalog.read_geographic_feature(self._sim_id, feature_name)
 
-    def geographic_raster(self, name: str) -> tuple[np.ndarray, dict]:
+    def geographic_raster(self, name: str) -> RasterField:
         sz = self._catalog.open_zarr(self._sim_id)
-        return sz.read_geographic_raster(name)
+        data, meta = sz.read_geographic_raster(name)
+        return RasterField(
+            data=data,
+            transform=tuple(meta["transform"]),
+            crs=str(meta["crs"]),
+            nodata=float(meta["nodata"]),
+            shape=tuple(meta["shape"]),
+        )
 
     @cached_property
     def grid(self) -> Grid:
         """Scalar grid metadata: cell_size, shape, extent, CRS, area.
 
-        Raises ``RuntimeError`` for unstructured (``disu``) meshes -
-        use ``run.mesh`` vertices + ``run.field(...)`` in that case -
-        or when geographic metadata has not been ingested.
+        Raises ``RuntimeError`` for lumped simulations (``solver_category``
+        ``"lumped"``) which have no spatial discretisation, or when
+        geographic metadata has not been ingested.
         """
         from hydromodpy.results.grid import build_grid
 
@@ -304,8 +349,8 @@ class Run:
         Shape matches ``run.grid.shape``. ``True`` where the DEM has a
         valid positive elevation. Cached on first access.
         """
-        dem, _ = self.geographic_raster("watershed_dem")
-        dem = dem.astype(float)
+        raster = self.geographic_raster("watershed_dem")
+        dem = raster.data.astype(float)
         return np.isfinite(dem) & (dem > 0)
 
     @cached_property
@@ -314,29 +359,165 @@ class Run:
 
         Use this when plotting or applying NaN-aware reductions. For a
         bit-for-bit copy of the stored raster (native dtype, sentinel
-        preserved), use ``run.geographic_raster("watershed_dem")``.
+        preserved), use ``run.geographic_raster("watershed_dem").data``.
         """
-        raw, meta = self.geographic_raster("watershed_dem")
-        arr = raw.astype("float64", copy=True)
-        nodata = meta.get("nodata")
+        raster = self.geographic_raster("watershed_dem")
+        arr = raster.data.astype("float64", copy=True)
+        nodata = raster.nodata
         if nodata is not None:
             arr[arr == float(nodata)] = np.nan
         return arr
 
-    def fields(self, variable: str) -> np.ndarray:
-        """Stack per-timestep rasters of ``variable`` as ``(n_t, nrow, ncol)``.
+    def dataset(self, variable: str | None = None) -> xu.UgridDataset:
+        """Return a :class:`xugrid.UgridDataset` over the simulation's mesh.
 
-        Reshapes each flat cell array to the DEM grid and stacks the
-        ``n_timesteps`` frames. Only defined for regular-in-plan meshes
-        (``dis`` / ``disv``); raises for ``disu`` via ``run.grid``.
-        Values are returned raw (no masking or NaN substitution) -
-        combine with ``run.catchment_mask`` to mask inactive cells.
+        Single entry point for figures: same UGRID topology and dimension
+        names regardless of the underlying solver layout (DIS, DISV, or
+        triangle / DISU). Pass ``variable=None`` to load every face-aligned
+        field present in the store; pass a name to load only that one.
+        Variable attributes follow CF-1.11 from
+        :mod:`hydromodpy.results.field_registry`.
         """
-        grid = self.grid
+        import xarray as xr
+        import xugrid as xu
+
+        from hydromodpy.results import field_registry
+
+        mesh = self.mesh
+        verts = np.asarray(mesh.vertices, dtype=float)
+        fnc = np.asarray(mesh.face_node_connectivity, dtype=int)
+        grid = xu.Ugrid2d(
+            node_x=verts[:, 0],
+            node_y=verts[:, 1],
+            fill_value=-1,
+            face_node_connectivity=fnc,
+        )
+        face_dim = grid.face_dimension
+
+        face_shapes = {
+            field_registry.SHAPE_FACE: (face_dim,),
+            field_registry.SHAPE_LAYER_FACE: ("layer", face_dim),
+            field_registry.SHAPE_TIME_FACE: ("time", face_dim),
+            field_registry.SHAPE_TIME_LAYER_FACE: ("time", "layer", face_dim),
+        }
+
+        sz = self._catalog.open_zarr(self._sim_id)
+
+        def _lookup(zarr_path: str):
+            if "/" in zarr_path:
+                grp_name, var_name = zarr_path.split("/", 1)
+                grp = sz.root.get(grp_name)
+                if grp is None or var_name not in grp:
+                    return None
+                return grp[var_name]
+            if zarr_path not in sz.root:
+                return None
+            return sz.root[zarr_path]
+
+        if variable is None:
+            names = [
+                n
+                for n, d in field_registry.FIELD_REGISTRY.items()
+                if d.shape in face_shapes and _lookup(d.zarr_path) is not None
+            ]
+        else:
+            desc = field_registry.get(variable)
+            if desc.shape not in face_shapes:
+                raise ValueError(f"Field '{variable}' has shape '{desc.shape}', not face-aligned")
+            if _lookup(desc.zarr_path) is None:
+                raise KeyError(f"Field '{variable}' not found in simulation '{self._sim_id}'")
+            names = [variable]
+
+        data_vars: dict[str, xr.DataArray] = {}
+        for name in names:
+            desc = field_registry.get(name)
+            arr = _lookup(desc.zarr_path)
+            values = np.asarray(arr[:])
+            dims = face_shapes[desc.shape]
+            if len(dims) != values.ndim:
+                continue
+            data_vars[name] = xr.DataArray(
+                values,
+                dims=dims,
+                attrs=field_registry.cf_attrs(name),
+            )
+
+        return xu.UgridDataset(xr.Dataset(data_vars), grids=[grid])
+
+    def to_xarray_batch(
+        self,
+        variables: tuple[str, ...] = ("head",),
+        *,
+        time_slice: slice | None = None,
+    ) -> xr.Dataset:
+        """Return a lazy :class:`xarray.Dataset` over selected variables.
+
+        Single entry point for ML pipelines that prefer ``xarray`` /
+        ``xugrid`` over raw NumPy. Backed by the simulation's Zarr store
+        (no copy on read). ``variables`` lists field-registry names to
+        include; missing fields raise ``KeyError``. ``time_slice`` is an
+        optional ``slice`` object applied to the time dimension.
+        """
+        import xarray as xr
+
+        from hydromodpy.results import field_registry
+
+        sz = self._catalog.open_zarr(self._sim_id)
+
+        def _lookup(zarr_path: str):
+            if "/" in zarr_path:
+                grp_name, var_name = zarr_path.split("/", 1)
+                grp = sz.root.get(grp_name)
+                if grp is None or var_name not in grp:
+                    return None
+                return grp[var_name]
+            return sz.root.get(zarr_path)
+
+        data_vars: dict[str, xr.DataArray] = {}
+        for name in variables:
+            desc = field_registry.get(name)
+            arr = _lookup(desc.zarr_path)
+            if arr is None:
+                raise KeyError(f"Field '{name}' not found in simulation '{self._sim_id}'")
+            shape = desc.shape
+            if shape == field_registry.SHAPE_TIME_FACE:
+                dims = ("time", "cell")
+            elif shape == field_registry.SHAPE_TIME_LAYER_FACE:
+                dims = ("time", "layer", "cell")
+            elif shape == field_registry.SHAPE_LAYER_FACE:
+                dims = ("layer", "cell")
+            elif shape == field_registry.SHAPE_FACE:
+                dims = ("cell",)
+            else:
+                dims = tuple(f"d{i}" for i in range(np.asarray(arr).ndim))
+            values = np.asarray(arr[:])
+            if time_slice is not None and dims and dims[0] == "time":
+                values = values[time_slice]
+            data_vars[name] = xr.DataArray(
+                values,
+                dims=dims,
+                attrs=field_registry.cf_attrs(name),
+            )
+        return xr.Dataset(data_vars)
+
+    def fields(self, variable: str) -> Stack:
+        """Stack per-timestep arrays of ``variable``.
+
+        For regular-in-plan meshes (``dis`` / ``disv``) reshapes each
+        flat cell array to the DEM grid and returns a :class:`Stack`
+        with ``data`` shaped ``(n_t, nrow, ncol)``. Values are returned
+        raw (no masking or NaN substitution); combine with
+        ``run.catchment_mask`` to mask inactive cells. Raises
+        ``RuntimeError`` for lumped simulations.
+        """
+        if self._load_row().get("solver_category") == "lumped":
+            raise RuntimeError("lumped simulation has no spatial grid")
         n = self.n_timesteps or 1
-        return np.stack(
+        grid = self.grid
+        data = np.stack(
             [np.asarray(self.field(variable, timestep=t)).reshape(grid.shape) for t in range(n)]
         )
+        return Stack(data=data, variable=variable)
 
     @cached_property
     def time_index(self) -> pd.DatetimeIndex:
@@ -371,7 +552,7 @@ class Run:
         ``run.parameters`` DataFrame (MultiIndex on ``param_name`` and
         ``zone_id``).
         """
-        rows = self._catalog.connection.execute(
+        rows = self._catalog._connection.execute(
             "SELECT param_name, value FROM parameters "
             "WHERE sim_id = ? AND (zone_id IS NULL OR zone_id = ?)",
             [self._sim_id, "__global__"],
@@ -442,7 +623,7 @@ class Run:
     # -- Export convenience --------------------------------------------------
 
     def to_csv(self, path: Path | str | None = None) -> pd.DataFrame:
-        df = self._catalog.connection.execute(
+        df = self._catalog._connection.execute(
             "SELECT station_id, variable, datetime, value, unit "
             "FROM timeseries WHERE sim_id = ? "
             "ORDER BY station_id, variable, datetime",

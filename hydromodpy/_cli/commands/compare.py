@@ -6,11 +6,7 @@ import argparse
 import sys
 from pathlib import Path
 
-from hydromodpy._cli.helpers import (
-    EXIT_NOT_FOUND,
-    find_workspace_root,
-    resolve_sim_id,
-)
+from hydromodpy._cli.helpers import EXIT_NOT_FOUND, find_workspace_root
 
 NAME = "compare"
 HELP = "Compare two simulations by sim_id, prefix, or name"
@@ -26,7 +22,11 @@ def register(subparsers) -> argparse.ArgumentParser:
 
 
 def run(args: argparse.Namespace) -> None:
-    from hydromodpy.results.catalog import SimulationCatalog
+    from hydromodpy.analysis.comparison.pairwise import compare_pair
+    from hydromodpy.results.catalog import (
+        AmbiguousReferenceError,
+        SimulationNotFoundError,
+    )
 
     workspace_root = find_workspace_root(
         Path(getattr(args, "workspace", None) or Path.cwd()).expanduser().resolve()
@@ -35,29 +35,13 @@ def run(args: argparse.Namespace) -> None:
         print(f"No catalog at {workspace_root}", file=sys.stderr)
         sys.exit(EXIT_NOT_FOUND)
 
-    with SimulationCatalog(workspace_root) as catalog:
-        sid_a = resolve_sim_id(catalog, args.sim_a)
-        sid_b = resolve_sim_id(catalog, args.sim_b)
-        sim_a = catalog[sid_a]
-        sim_b = catalog[sid_b]
-        print(f"A: {sim_a.name or sid_a[:8]}  (solver={sim_a.solver})")
-        print(f"B: {sim_b.name or sid_b[:8]}  (solver={sim_b.solver})")
-        placeholders = "(?, ?)"
-        df = catalog.connection.execute(
-            "SELECT sim_id, station_id, metric_name, value "
-            f"FROM metrics WHERE sim_id IN {placeholders} "
-            "ORDER BY metric_name, station_id",
-            [sid_a, sid_b],
-        ).fetchdf()
-        if df.empty:
-            print("(no metrics recorded for either simulation)")
-            return
-        pivot = df.pivot_table(
-            index=["metric_name", "station_id"],
-            columns="sim_id",
-            values="value",
-            aggfunc="first",
-        )
-        rename = {sid_a: "A", sid_b: "B"}
-        pivot = pivot.rename(columns=rename)
-        print(pivot.to_string())
+    try:
+        df = compare_pair(args.sim_a, args.sim_b, workspace=workspace_root)
+    except (AmbiguousReferenceError, SimulationNotFoundError) as exc:
+        print(str(exc), file=sys.stderr)
+        sys.exit(EXIT_NOT_FOUND)
+
+    if df.empty:
+        print("(no metrics recorded for either simulation)")
+        return
+    print(df.to_string())

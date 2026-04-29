@@ -273,10 +273,6 @@ class CalibrationConfig(HydroModelBase):
         default=False,
         description="Persist the candidate distribution alongside the session.",
     )
-    resume_session: Annotated[str | None, Profile.DEV] = Field(
-        default=None,
-        description="Session id to resume. When set, prior iterations seed the loop.",
-    )
     rerun_best_with_outputs: Annotated[bool, Profile.USER] = Field(
         default=False,
         description="Replay the best candidate with full outputs after the loop.",

@@ -40,7 +40,6 @@ from typing import Any
 import numpy as np
 
 from hydromodpy.calibration.engine import CalibrationEngine
-from hydromodpy.calibration.objective import rmse
 from hydromodpy.calibration.optimizer import (
     EvaluationResult,
     ParamSuggestion,
@@ -52,6 +51,7 @@ from hydromodpy.physics.hydrology.synthetic.forcing import (
     build_hydrological_year_dates,
     build_recharge_from_reservoir_chronicle,
 )
+from hydromodpy.results.metrics import rmse
 
 LINEARIZED_FORMULATION = "linearized"
 BOUSSINESQ_FORMULATION = "boussinesq"
@@ -666,7 +666,7 @@ def _make_tracking_evaluator(
                 status="crashed",
                 metadata={"error": repr(exc)},
             )
-        cost = float(rmse(observed, np.asarray(simulated, dtype=float)))
+        cost = float(rmse(np.asarray(simulated, dtype=float), observed))
         if not np.isfinite(cost):
             return EvaluationResult(
                 trial_id=sugg.trial_id,

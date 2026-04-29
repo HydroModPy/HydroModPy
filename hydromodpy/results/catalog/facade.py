@@ -68,7 +68,7 @@ class SimulationCatalog(
         ensure_schema(self._db, self._workspace)
 
     @property
-    def connection(self) -> duckdb.DuckDBPyConnection:
+    def _connection(self) -> duckdb.DuckDBPyConnection:
         return self._db
 
     @property

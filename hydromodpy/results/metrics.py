@@ -21,6 +21,7 @@ __all__ = [
     "correlation",
     "kge",
     "log_nse",
+    "mae",
     "nse",
     "pbias",
     "rmse",
@@ -101,6 +102,14 @@ def rmse(sim, obs) -> float:
     if s.size == 0:
         return float("nan")
     return float(np.sqrt(np.mean((s - o) ** 2)))
+
+
+def mae(sim, obs) -> float:
+    """Mean absolute error."""
+    s, o = align(sim, obs)
+    if s.size == 0:
+        return float("nan")
+    return float(np.mean(np.abs(s - o)))
 
 
 def bias(sim, obs) -> float:

@@ -335,7 +335,7 @@ def _load_store_series(
         return None
 
     try:
-        grp = store.open_zarr_group(sim_id)
+        grp = store._open_zarr_group(sim_id)
     except (KeyError, Exception):
         return None
 
@@ -398,7 +398,7 @@ def _load_store_boussinesq_state_series(
     the on-disk ``.npz`` file.
     """
     try:
-        grp = store.open_zarr_group(sim_id)
+        grp = store._open_zarr_group(sim_id)
     except (KeyError, Exception):
         return None
 
@@ -466,7 +466,7 @@ def _load_store_surface_excess_total_series(
     ``boussinesq_state`` group.
     """
     try:
-        grp = store.open_zarr_group(sim_id)
+        grp = store._open_zarr_group(sim_id)
     except (KeyError, Exception):
         return None
 

@@ -494,7 +494,7 @@ def _load_boussinesq_state_from_store(
     interface as ``np.load(...)``), or ``None`` if unavailable.
     """
     try:
-        grp = store.open_zarr_group(sim_id)
+        grp = store._open_zarr_group(sim_id)
     except (KeyError, Exception):
         return None
 

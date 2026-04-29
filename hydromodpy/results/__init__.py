@@ -1,10 +1,17 @@
-"""Result storage for HydroModPy simulations (DuckDB + Zarr)."""
+"""Result storage for HydroModPy simulations (DuckDB + Zarr).
+
+Hydrological metrics live in :mod:`hydromodpy.results.metrics` (canonical
+location for ``nse``, ``rmse``, ``mae``, ``kge``, ``log_nse``, ``bias``,
+``pbias``, ``correlation``).
+"""
 
 from __future__ import annotations
 
 from importlib import import_module
 
-__all__ = ["SimulationCatalog"]
+from hydromodpy.results import metrics
+
+__all__ = ["SimulationCatalog", "metrics"]
 
 _LAZY_IMPORTS = {
     "SimulationCatalog": "hydromodpy.results.catalog:SimulationCatalog",

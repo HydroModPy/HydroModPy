@@ -32,7 +32,7 @@ def _register(catalog, sim_id=None, **kwargs):
 class TestRegisterAndFinalize:
     def test_register_creates_row(self, catalog):
         sid, _ = _register(catalog)
-        row = catalog.connection.execute(
+        row = catalog._connection.execute(
             "SELECT project, solver, status FROM simulations WHERE sim_id = ?",
             [sid],
         ).fetchone()
@@ -52,7 +52,7 @@ class TestRegisterAndFinalize:
 
     def test_solver_category_auto_distributed(self, catalog):
         sid, _ = _register(catalog, solver="modflownwt")
-        row = catalog.connection.execute(
+        row = catalog._connection.execute(
             "SELECT solver_category FROM simulations WHERE sim_id = ?",
             [sid],
         ).fetchone()
@@ -60,7 +60,7 @@ class TestRegisterAndFinalize:
 
     def test_solver_category_auto_integrated(self, catalog):
         sid, _ = _register(catalog, solver="boussinesq")
-        row = catalog.connection.execute(
+        row = catalog._connection.execute(
             "SELECT solver_category FROM simulations WHERE sim_id = ?",
             [sid],
         ).fetchone()
@@ -68,7 +68,7 @@ class TestRegisterAndFinalize:
 
     def test_solver_category_unknown(self, catalog):
         sid, _ = _register(catalog, solver="exotic_solver")
-        row = catalog.connection.execute(
+        row = catalog._connection.execute(
             "SELECT solver_category FROM simulations WHERE sim_id = ?",
             [sid],
         ).fetchone()
@@ -77,7 +77,7 @@ class TestRegisterAndFinalize:
     def test_finalize_updates(self, catalog):
         sid, _ = _register(catalog)
         catalog.finalize(sid, status="completed", duration_s=42.5)
-        row = catalog.connection.execute(
+        row = catalog._connection.execute(
             "SELECT status, duration_s FROM simulations WHERE sim_id = ?",
             [sid],
         ).fetchone()
@@ -85,7 +85,7 @@ class TestRegisterAndFinalize:
 
     def test_config_hash_computed(self, catalog):
         sid, _ = _register(catalog, config={"flow": {"K": 1.5}})
-        row = catalog.connection.execute(
+        row = catalog._connection.execute(
             "SELECT config_hash FROM simulations WHERE sim_id = ?",
             [sid],
         ).fetchone()
@@ -100,15 +100,15 @@ class TestRegisterAndFinalize:
         """
         sid1, _ = _register(catalog, name="r1", n_cells=10, n_layers=1)
         sid2, _ = _register(catalog, name="r1", n_cells=10, n_layers=1)
-        count = catalog.connection.execute("SELECT COUNT(*) FROM simulations").fetchone()[0]
+        count = catalog._connection.execute("SELECT COUNT(*) FROM simulations").fetchone()[0]
         assert count == 2
-        current = catalog.connection.execute(
+        current = catalog._connection.execute(
             "SELECT CAST(sim_id AS VARCHAR) FROM simulations WHERE name = ?",
             ["r1"],
         ).fetchone()
         assert current is not None
         assert current[0] == sid2
-        orphan_name = catalog.connection.execute(
+        orphan_name = catalog._connection.execute(
             "SELECT name FROM simulations WHERE CAST(sim_id AS VARCHAR) = ?",
             [sid1],
         ).fetchone()
@@ -117,7 +117,7 @@ class TestRegisterAndFinalize:
     def test_parent_sim_id(self, catalog):
         sid1, _ = _register(catalog)
         sid2, _ = _register(catalog, parent_sim_id=sid1)
-        row = catalog.connection.execute(
+        row = catalog._connection.execute(
             "SELECT parent_sim_id FROM simulations WHERE sim_id = ?",
             [sid2],
         ).fetchone()
@@ -146,7 +146,7 @@ class TestWriteMethods:
                 },
             ],
         )
-        count = catalog.connection.execute(
+        count = catalog._connection.execute(
             "SELECT COUNT(*) FROM parameters WHERE sim_id = ?", [sid]
         ).fetchone()[0]
         assert count == 3
@@ -159,7 +159,7 @@ class TestWriteMethods:
                 {"param_name": "K", "value": 1.0},
             ],
         )
-        row = catalog.connection.execute(
+        row = catalog._connection.execute(
             "SELECT zone_id FROM parameters WHERE sim_id = ? AND param_name = 'K'",
             [sid],
         ).fetchone()
@@ -170,7 +170,7 @@ class TestWriteMethods:
         idx = pd.date_range("2020-01-01", periods=30, freq="D")
         ts = pd.Series(np.arange(30, dtype="float64"), index=idx, name="head")
         catalog.write_timeseries(sid, "P01", "head", ts, unit="m")
-        count = catalog.connection.execute(
+        count = catalog._connection.execute(
             "SELECT COUNT(*) FROM timeseries WHERE sim_id = ?", [sid]
         ).fetchone()[0]
         assert count == 30
@@ -179,7 +179,7 @@ class TestWriteMethods:
         sid, _ = _register(catalog)
         ts = pd.Series(dtype="float64")
         catalog.write_timeseries(sid, "P01", "head", ts)
-        count = catalog.connection.execute(
+        count = catalog._connection.execute(
             "SELECT COUNT(*) FROM timeseries WHERE sim_id = ?", [sid]
         ).fetchone()[0]
         assert count == 0
@@ -188,7 +188,7 @@ class TestWriteMethods:
         sid, _ = _register(catalog)
         catalog.write_budget(sid, 0, "zone_1", "recharge", 100.0, 0.0)
         catalog.write_budget(sid, 0, "zone_1", "drain", 0.0, 80.0)
-        count = catalog.connection.execute(
+        count = catalog._connection.execute(
             "SELECT COUNT(*) FROM budgets WHERE sim_id = ?", [sid]
         ).fetchone()[0]
         assert count == 2
@@ -197,7 +197,7 @@ class TestWriteMethods:
         sid, _ = _register(catalog)
         catalog.write_mass_balance(sid, 0, 100.0, 95.0, 5.0)
         catalog.write_mass_balance(sid, 1, 110.0, 108.0, 1.8)
-        rows = catalog.connection.execute(
+        rows = catalog._connection.execute(
             "SELECT timestep, percent_error FROM mass_balance WHERE sim_id = ? ORDER BY timestep",
             [sid],
         ).fetchall()
@@ -208,11 +208,11 @@ class TestWriteMethods:
         sid, _ = _register(catalog)
         catalog.write_metric(sid, "P01", "nse", 0.7)
         catalog.write_metric(sid, "P01", "nse", 0.85)
-        count = catalog.connection.execute(
+        count = catalog._connection.execute(
             "SELECT COUNT(*) FROM metrics WHERE sim_id = ?", [sid]
         ).fetchone()[0]
         assert count == 1
-        val = catalog.connection.execute(
+        val = catalog._connection.execute(
             "SELECT value FROM metrics WHERE sim_id = ? AND metric_name = 'nse'",
             [sid],
         ).fetchone()[0]
@@ -222,7 +222,7 @@ class TestWriteMethods:
         sid, _ = _register(catalog)
         data = np.random.default_rng(0).random(100)
         catalog.write_provenance(sid, "recharge", "/data/recharge.nc", data)
-        row = catalog.connection.execute(
+        row = catalog._connection.execute(
             "SELECT payload_sha256, n_records FROM provenance WHERE sim_id = ?",
             [sid],
         ).fetchone()
@@ -257,7 +257,7 @@ class TestDelete:
             "metrics",
             "provenance",
         ):
-            count = catalog.connection.execute(
+            count = catalog._connection.execute(
                 f"SELECT COUNT(*) FROM {table} WHERE sim_id = ?", [sid]
             ).fetchone()[0]
             assert count == 0, f"Rows remaining in {table}"
@@ -269,7 +269,7 @@ class TestContextManager:
     def test_enter_exit(self, tmp_path):
         with SimulationCatalog(tmp_path / "ws") as cat:
             sid, _ = _register(cat)
-            row = cat.connection.execute("SELECT COUNT(*) FROM simulations").fetchone()
+            row = cat._connection.execute("SELECT COUNT(*) FROM simulations").fetchone()
             assert row[0] == 1
 
 
@@ -277,9 +277,9 @@ class TestMultipleProjects:
     def test_two_projects_same_db(self, catalog):
         sid1, _ = _register(catalog, project="canut")
         sid2, _ = _register(catalog, project="nancon")
-        count = catalog.connection.execute("SELECT COUNT(*) FROM simulations").fetchone()[0]
+        count = catalog._connection.execute("SELECT COUNT(*) FROM simulations").fetchone()[0]
         assert count == 2
-        projects = catalog.connection.execute(
+        projects = catalog._connection.execute(
             "SELECT DISTINCT project FROM simulations ORDER BY project"
         ).fetchall()
         assert [r[0] for r in projects] == ["canut", "nancon"]

@@ -60,7 +60,7 @@ def _point_record(station_id: str, variable: str, n_points: int = 5) -> _StubPoi
 
 
 def _query(catalog: SimulationCatalog, sim_id: str) -> pd.DataFrame:
-    return catalog.connection.execute(
+    return catalog._connection.execute(
         "SELECT station_id, variable, datetime, value, unit "
         "FROM timeseries WHERE sim_id = ? ORDER BY station_id, variable, datetime",
         [sim_id],

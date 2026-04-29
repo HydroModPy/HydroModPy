@@ -95,4 +95,12 @@ def step_register_simulation(
     # for mesh / field persistence without transient metadata rename failures.
     if registration.zarr is not None:
         registration.zarr.close()
+
+    # Capture the host environment snapshot so ML pipelines can stratify by
+    # hardware / version. Failures here must not abort the simulation.
+    try:
+        project_root = getattr(getattr(ctx.setup, "workspace", None), "project_root", None)
+        ctx.store.write_run_environment(sim_id, project_root=project_root)
+    except Exception:
+        logger.exception("Failed to capture run environment for sim %s", short)
     return final_name

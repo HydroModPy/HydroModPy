@@ -43,14 +43,14 @@ def test_open_register_query_roundtrip(e2e_workspace: Path) -> None:
         assert len(sims) == 1
         assert sims.iloc[0]["solver"] == "modflow_nwt"
 
-        metrics = catalog2.connection.execute(
+        metrics = catalog2._connection.execute(
             "SELECT metric_name, value FROM metrics WHERE sim_id = ?",
             [sim_id],
         ).fetchdf()
         assert list(metrics["metric_name"]) == ["nse"]
         assert float(metrics["value"].iloc[0]) == pytest.approx(0.82)
 
-        params = catalog2.connection.execute(
+        params = catalog2._connection.execute(
             "SELECT param_name, value FROM parameters WHERE sim_id = ?",
             [sim_id],
         ).fetchdf()

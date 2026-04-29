@@ -77,7 +77,7 @@ def _resolve_session_id(catalog, raw: str) -> str:
         except ValueError:
             pass
 
-    rows = catalog.connection.execute(
+    rows = catalog._connection.execute(
         "SELECT session_id FROM calibration_sessions",
     ).fetchall()
     candidates = [r[0].hex if hasattr(r[0], "hex") else str(r[0]).replace("-", "") for r in rows]

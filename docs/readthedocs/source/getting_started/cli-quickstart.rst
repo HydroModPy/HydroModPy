@@ -127,8 +127,8 @@ The simulation catalog is queryable from the same CLI:
    hmp list --project my_basin                 # all runs of one project
    hmp show <sim_id>                           # metadata, metrics, params
    hmp inspect <sim_id>                        # files, mesh, status
-   hmp best my_basin --metric nse              # top-ranked run
-   hmp worst my_basin --metric nse             # bottom-ranked run
+   hmp rank my_basin --metric nse --top 1      # top-ranked run
+   hmp rank my_basin --metric nse --bottom 1   # bottom-ranked run
    hmp compare <sim_a> <sim_b>                 # side-by-side comparison
    hmp display <sim_id>                        # render figures
 
