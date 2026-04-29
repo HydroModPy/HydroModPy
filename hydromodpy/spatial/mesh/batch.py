@@ -15,12 +15,12 @@ The supporting pieces are intentionally split by concern:
 
 from __future__ import annotations
 
-import logging
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+from hydromodpy.core.logging import get_logger
 from hydromodpy.core.workspace.path_registry import PREPROCESSING_DIR
 from hydromodpy.spatial.mesh.batch_io import (
     MeshCatchmentOutletRecord,
@@ -39,7 +39,7 @@ from hydromodpy.spatial.mesh.config import (
 )
 from hydromodpy.spatial.mesh.runtime_single_run import clone_config_like
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 @dataclass(frozen=True)

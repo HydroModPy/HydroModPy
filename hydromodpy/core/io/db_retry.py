@@ -12,7 +12,6 @@ Only ``duckdb.IOException`` is retried. Other exceptions propagate.
 from __future__ import annotations
 
 import functools
-import logging
 import random
 import time
 from collections.abc import Callable
@@ -20,7 +19,9 @@ from typing import TypeVar
 
 import duckdb
 
-logger = logging.getLogger(__name__)
+from hydromodpy.core.logging import get_logger
+
+logger = get_logger(__name__)
 
 _DEFAULT_RETRIES = 48
 _DEFAULT_BACKOFF = 0.05

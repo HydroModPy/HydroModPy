@@ -9,7 +9,6 @@ optional dependency.
 
 from __future__ import annotations
 
-import logging
 import pickle
 import re
 from collections.abc import Mapping
@@ -17,9 +16,10 @@ from dataclasses import replace
 from pathlib import Path
 from typing import Any
 
+from hydromodpy.core.logging import get_logger
 from hydromodpy.workflow.internals.state import PipelineState, UnpicklableMarker
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 try:

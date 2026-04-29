@@ -37,7 +37,6 @@ Cross-refs
 from __future__ import annotations
 
 import json as _json
-import logging
 from functools import cached_property
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -45,9 +44,10 @@ from typing import TYPE_CHECKING
 import numpy as np
 import pandas as pd
 
+from hydromodpy.core.logging import get_logger
 from hydromodpy.results.contracts import Mesh, RasterField, Stack
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 if TYPE_CHECKING:
     import geopandas as gpd

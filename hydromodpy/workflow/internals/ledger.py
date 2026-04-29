@@ -12,17 +12,18 @@ without introspection.
 
 from __future__ import annotations
 
-import logging
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Literal
+
+from hydromodpy.core.logging import get_logger
 
 
 def _now() -> datetime:
     return datetime.now(UTC)
 
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 Status = Literal["pending", "running", "completed", "failed", "skipped"]
 

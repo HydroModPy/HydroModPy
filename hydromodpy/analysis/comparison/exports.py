@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import csv
-import logging
 import math
 from collections.abc import Iterable, Mapping
 from pathlib import Path
@@ -12,11 +11,12 @@ from typing import TYPE_CHECKING, Any
 import numpy as np
 
 from hydromodpy.analysis.comparison.runtime_mesh import resolve_bundle_cells
+from hydromodpy.core.logging import get_logger
 
 if TYPE_CHECKING:
     from hydromodpy.results.catalog import SimulationCatalog
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 def _as_float(value: Any) -> float | None:

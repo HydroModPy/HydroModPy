@@ -8,11 +8,12 @@ so that downstream consumers can read from the store directly.
 
 from __future__ import annotations
 
-import logging
 from pathlib import Path
 from typing import Any
 
-logger = logging.getLogger(__name__)
+from hydromodpy.core.logging import get_logger
+
+logger = get_logger(__name__)
 
 # Only persist final rasters needed for display and derived variables.
 # Intermediate WhiteboxTools outputs (buff_direc, buff_dem, etc.) stay

@@ -6,16 +6,16 @@ tool that understands the UGRID-1.0 convention.
 
 from __future__ import annotations
 
-import logging
 from pathlib import Path
 
 import numpy as np
 import xarray as xr
 import zarr
 
+from hydromodpy.core.logging import get_logger
 from hydromodpy.results import field_registry
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 def export_netcdf(

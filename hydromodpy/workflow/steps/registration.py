@@ -3,14 +3,15 @@
 from __future__ import annotations
 
 import hashlib
-import logging
 from typing import TYPE_CHECKING
+
+from hydromodpy.core.logging import get_logger
 
 if TYPE_CHECKING:
     from hydromodpy.simulation.planning.plan import SimulationPlan
     from hydromodpy.workflow.context import WorkflowContext
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 def collect_registration_kwargs(ctx: WorkflowContext) -> dict:

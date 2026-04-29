@@ -8,8 +8,6 @@ directly. The PROJ database bootstrap that used to live inline in
 
 from __future__ import annotations
 
-import logging
-
 import geopandas as gpd
 import numpy as np
 import rasterio as rio
@@ -20,8 +18,9 @@ from pyproj.database import query_utm_crs_info
 from shapely.geometry import Point
 
 from hydromodpy.core.io.vector_io import load_shapefile
+from hydromodpy.core.logging import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 def reproject_coord(x_wgs: float, y_wgs: float) -> tuple[str, float, float]:

@@ -25,14 +25,14 @@ concrete backends at package-load time.
 from __future__ import annotations
 
 import importlib
-import logging
 from collections.abc import Iterable
 from importlib.metadata import entry_points
 from typing import Any
 
+from hydromodpy.core.logging import get_logger
 from hydromodpy.solver.base.protocol import SolverAdapter
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 AdapterKey = tuple[str, str]
 ENTRY_POINT_GROUP = "hydromodpy.solver"

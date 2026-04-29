@@ -9,14 +9,15 @@ candidate when the layout version is too old. This is opt-in: call
 
 from __future__ import annotations
 
-import logging
 import os
 import re
 import sys
 from importlib.util import find_spec
 from pathlib import Path
 
-_logger = logging.getLogger("hydromodpy")
+from hydromodpy.core.logging import get_logger
+
+_logger = get_logger("hydromodpy")
 _MIN_PROJ_LAYOUT_MINOR = 6
 _PROJ_DB_NAME = "proj.db"
 _PROJ_LAYOUT_RE = re.compile(

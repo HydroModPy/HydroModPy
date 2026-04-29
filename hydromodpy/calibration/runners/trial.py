@@ -27,13 +27,13 @@ disk. Only ``promote_trial`` creates simulation artefacts.
 from __future__ import annotations
 
 import copy as _copy
-import logging
 import time
 from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Literal
 
+from hydromodpy.core.logging import get_logger
 from hydromodpy.core.state.execution import ExecutionRegistry
 from hydromodpy.workflow.internals.dependencies import earliest_affected_step
 from hydromodpy.workflow.internals.state import PipelineState
@@ -43,7 +43,7 @@ if TYPE_CHECKING:
     from hydromodpy.core.state.run_state import WorkflowContext
     from hydromodpy.workflow.internals.step import Step
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 # ---------------------------------------------------------------------------

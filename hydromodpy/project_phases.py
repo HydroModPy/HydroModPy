@@ -9,17 +9,17 @@ methods.
 
 from __future__ import annotations
 
-import logging
 import re
 from pathlib import Path
 from typing import TYPE_CHECKING
 
 from hydromodpy.core.exceptions import ConfigError, ConfigMissingError
+from hydromodpy.core.logging import get_logger
 
 if TYPE_CHECKING:
     from hydromodpy.project import Project
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 def configure(

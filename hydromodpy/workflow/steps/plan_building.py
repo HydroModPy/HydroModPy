@@ -2,17 +2,17 @@
 
 from __future__ import annotations
 
-import logging
 from typing import TYPE_CHECKING, Any
 
 from hydromodpy.core.exceptions import ConfigError
+from hydromodpy.core.logging import get_logger
 
 if TYPE_CHECKING:
     from hydromodpy.simulation.planning.plan import SimulationPlan
     from hydromodpy.spatial.domain import Domain
     from hydromodpy.workflow.context import WorkflowContext
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 DEFAULT_FLOW_PROCESS_ID = "flow_main"

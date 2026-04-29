@@ -6,12 +6,12 @@ the workspace ``figures/overview/`` directory.
 
 from __future__ import annotations
 
-import logging
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 import numpy as np
 
+from hydromodpy.core.logging import get_logger
 from hydromodpy.display.overview.panels import (
     render_climatic_summary,
     render_dem_map,
@@ -25,7 +25,7 @@ from hydromodpy.display.overview.panels import (
 )
 from hydromodpy.display.overview.summary import compute_overview_summary
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 if TYPE_CHECKING:
     from hydromodpy.core.contracts.overview import DataOverviewState

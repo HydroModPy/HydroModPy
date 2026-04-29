@@ -18,7 +18,6 @@ data is reproducible weeks later.
 from __future__ import annotations
 
 import hashlib
-import logging
 import os
 import platform as _platform
 import socket
@@ -27,7 +26,9 @@ import sys
 from pathlib import Path
 from typing import TypedDict
 
-logger = logging.getLogger(__name__)
+from hydromodpy.core.logging import get_logger
+
+logger = get_logger(__name__)
 
 
 class EnvironmentSnapshot(TypedDict, total=False):

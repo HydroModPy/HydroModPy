@@ -8,7 +8,6 @@ runs. Centralising this here keeps the ``solver`` layer free of any
 
 from __future__ import annotations
 
-import logging
 import os
 from pathlib import Path
 
@@ -16,10 +15,11 @@ import numpy as np
 import rasterio
 
 from hydromodpy.core.io.raster_io import export_tif
+from hydromodpy.core.logging import get_logger
 from hydromodpy.core.workspace.resolve import locate_workspace_root
 from hydromodpy.results.catalog import SimulationCatalog
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 def restore_seepage_raster_from_store(

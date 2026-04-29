@@ -6,10 +6,10 @@ loaded data objects to runtime structures.
 
 from __future__ import annotations
 
-import logging
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+from hydromodpy.core.logging import get_logger
 from hydromodpy.core.time import resolve_simulation_time_window
 from hydromodpy.physics.flow.structure_binders import (
     apply_etp_load_result_to_flow,
@@ -23,7 +23,7 @@ if TYPE_CHECKING:
     from hydromodpy.core.state.run_state import WorkflowContext
     from hydromodpy.data import DataLoadPlan
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 # ---------------------------------------------------------------------------

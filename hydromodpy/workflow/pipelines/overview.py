@@ -10,15 +10,15 @@ Orchestrates four phases:
 
 from __future__ import annotations
 
-import logging
 from pathlib import Path
 from typing import Any
 
 from hydromodpy.core.config import HydroModPyConfig
 from hydromodpy.core.contracts.overview import DataOverviewState
 from hydromodpy.core.exceptions import ConfigError, ConfigMissingError
+from hydromodpy.core.logging import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class DataOverviewLauncher:

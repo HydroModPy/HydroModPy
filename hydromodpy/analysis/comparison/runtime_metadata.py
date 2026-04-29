@@ -3,14 +3,14 @@
 from __future__ import annotations
 
 import json
-import logging
 from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
 
 from hydromodpy.core.config.toml_loader import load_toml_with_base_config
+from hydromodpy.core.logging import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 def read_json_file(path: Path) -> dict[str, Any]:

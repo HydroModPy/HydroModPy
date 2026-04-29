@@ -7,12 +7,12 @@ later process runs.
 
 from __future__ import annotations
 
-import logging
 from collections.abc import Callable
 from pathlib import Path
 from typing import TYPE_CHECKING
 
 from hydromodpy.core.exceptions import ConfigError
+from hydromodpy.core.logging import get_logger
 from hydromodpy.core.workspace import Workspace
 from hydromodpy.core.workspace.path_registry import PREPROCESSING_DIR
 from hydromodpy.simulation import ensure_flow, ensure_transport
@@ -28,7 +28,7 @@ from hydromodpy.spatial.geographic.synthetic import build_synthetic_geographic
 if TYPE_CHECKING:
     from hydromodpy.core.state.run_state import WorkflowContext
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 # ---------------------------------------------------------------------------

@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
-import logging
 from typing import TYPE_CHECKING
 
+from hydromodpy.core.logging import get_logger
 from hydromodpy.workflow.steps.persistence import (
     step_persist_geographic,
     step_persist_mesh,
@@ -15,7 +15,7 @@ from hydromodpy.workflow.steps.registration import collect_registration_kwargs
 if TYPE_CHECKING:
     from hydromodpy.workflow.context import WorkflowContext
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 def _register_tracked_input_files(ctx: WorkflowContext) -> None:

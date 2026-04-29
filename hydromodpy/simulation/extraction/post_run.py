@@ -7,14 +7,14 @@ cleanup → provenance.
 
 from __future__ import annotations
 
-import logging
 from pathlib import Path
 from typing import Any
 
 from hydromodpy.core.config.results_config import ResultsConfig
+from hydromodpy.core.logging import get_logger
 from hydromodpy.solver.base.registry import get_extractor_instance
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 def post_run_results(

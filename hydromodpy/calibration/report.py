@@ -16,17 +16,18 @@ Two concerns live here, both purely data-side:
 
 from __future__ import annotations
 
-import logging
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
+
+from hydromodpy.core.logging import get_logger
 
 if TYPE_CHECKING:
     import pandas as pd
 
     from hydromodpy.results.catalog import SimulationCatalog
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 # ---------------------------------------------------------------------------

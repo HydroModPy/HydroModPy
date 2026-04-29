@@ -24,7 +24,6 @@ provides the portable, pure-Python derivations that the canonical
 
 from __future__ import annotations
 
-import logging
 from collections.abc import Callable, Iterable
 from dataclasses import dataclass, field
 from typing import Any, Protocol, runtime_checkable
@@ -32,10 +31,11 @@ from typing import Any, Protocol, runtime_checkable
 import numpy as np
 
 from hydromodpy.core.exceptions import ConfigError
+from hydromodpy.core.logging import get_logger
 from hydromodpy.results import derived as _pure
 from hydromodpy.results.zarr_store import SimulationZarr
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 __all__ = (
     "DerivedComputation",

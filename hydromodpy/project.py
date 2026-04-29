@@ -21,12 +21,12 @@ Example
 
 from __future__ import annotations
 
-import logging
 from pathlib import Path
 from typing import TYPE_CHECKING
 from uuid import uuid4
 
 from hydromodpy.core.exceptions import ConfigError, ConfigMissingError, ResumeError
+from hydromodpy.core.logging import get_logger
 from hydromodpy.project_accessors import ProjectDataAccessor, ProjectRunsAccessor
 
 if TYPE_CHECKING:
@@ -43,7 +43,7 @@ if TYPE_CHECKING:
         CatchmentDelineation,
     )
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 DEFAULT_RUN_NAME_TEMPLATE = "run_{counter:04d}"

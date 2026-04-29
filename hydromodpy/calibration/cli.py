@@ -26,7 +26,6 @@ covers the standard NSE / KGE / RMSE cases.
 from __future__ import annotations
 
 import importlib
-import logging
 import sys
 import time
 import tomllib
@@ -49,13 +48,14 @@ from hydromodpy.calibration.runners.trial import (
     prepare_trials,
     promote_trial,
 )
+from hydromodpy.core.logging import get_logger
 
 if TYPE_CHECKING:
     from hydromodpy.calibration.engine import CalibrationSession
     from hydromodpy.calibration.report import CalibrationReport
     from hydromodpy.calibration.runners.trial import TrialContext
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 # ---------------------------------------------------------------------------

@@ -11,7 +11,6 @@ from __future__ import annotations
 
 import hashlib
 import json
-import logging
 import os
 from datetime import UTC, datetime
 from pathlib import Path
@@ -22,6 +21,7 @@ import numpy as np
 import pandas as pd
 
 from hydromodpy.core.io.db_retry import with_lock_retry
+from hydromodpy.core.logging import get_logger
 from hydromodpy.core.version import __version__ as _HMP_VERSION
 from hydromodpy.results.catalog_schema import GLOBAL_ZONE, ensure_parquet_views
 from hydromodpy.results.provenance import fingerprint
@@ -32,7 +32,7 @@ PARQUET_SCHEMA_VERSION = "v1.0"
 if TYPE_CHECKING:
     import geopandas as gpd
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 def _sha256_streaming(path: Path, chunk_size: int = 65536) -> str:

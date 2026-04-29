@@ -6,12 +6,12 @@ phase, including both embedded mesh generation and external mesh loading.
 
 from __future__ import annotations
 
-import logging
 from collections.abc import Mapping
 from pathlib import Path
 from typing import TYPE_CHECKING
 
 from hydromodpy.core.exceptions import ConfigError, MeshError
+from hydromodpy.core.logging import get_logger
 from hydromodpy.spatial.mesh.gmsh_grid import load_planar_mesh
 from hydromodpy.spatial.mesh.gmsh_grid.catchment_mesh_bundle_reader import (
     load_catchment_mesh_bundle,
@@ -24,7 +24,7 @@ if TYPE_CHECKING:
     from hydromodpy.core.state.run_state import WorkflowContext
     from hydromodpy.spatial.mesh.config import MeshCatchmentConfig
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 # ---------------------------------------------------------------------------

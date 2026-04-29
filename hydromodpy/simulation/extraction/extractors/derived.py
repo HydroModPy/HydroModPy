@@ -2,12 +2,13 @@
 
 from __future__ import annotations
 
-import logging
 from typing import Any
 
 import numpy as np
 
-logger = logging.getLogger(__name__)
+from hydromodpy.core.logging import get_logger
+
+logger = get_logger(__name__)
 
 
 def _write_bare_tif(path: str, data: np.ndarray, nodata: float = -99999.0) -> None:

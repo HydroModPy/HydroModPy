@@ -3,13 +3,14 @@
 from __future__ import annotations
 
 import hashlib
-import logging
 import shutil
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-logger = logging.getLogger(__name__)
+from hydromodpy.core.logging import get_logger
+
+logger = get_logger(__name__)
 
 
 class InputCollisionError(RuntimeError):
