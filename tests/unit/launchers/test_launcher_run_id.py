@@ -484,20 +484,16 @@ def test_prepare_runtime_executes_embedded_mesh_phase_and_records_metrics(
     monkeypatch.setattr("hydromodpy.workflow.steps.setup.CatchmentDelineation", _DummyRunGeographic)
     monkeypatch.setattr("hydromodpy.workflow.steps.setup.Domain", _DummyRunDomain)
     monkeypatch.setattr(
-        "hydromodpy.workflow.steps.data_loading._build_data_runtime_loader",
+        "hydromodpy.workflow.steps.data._build_data_runtime_loader",
         lambda *a, **kw: _DummyRuntimeLoader(),
     )
+    monkeypatch.setattr("hydromodpy.workflow.steps.data.apply_geology_to_domain", lambda **kw: None)
+    monkeypatch.setattr("hydromodpy.workflow.steps.data.apply_oceanic_to_flow", lambda **kw: None)
     monkeypatch.setattr(
-        "hydromodpy.workflow.steps.data_loading.apply_geology_to_domain", lambda **kw: None
-    )
-    monkeypatch.setattr(
-        "hydromodpy.workflow.steps.data_loading.apply_oceanic_to_flow", lambda **kw: None
-    )
-    monkeypatch.setattr(
-        "hydromodpy.workflow.steps.data_loading.apply_recharge_load_result_to_flow",
+        "hydromodpy.workflow.steps.data.apply_recharge_load_result_to_flow",
         lambda **kw: None,
     )
-    monkeypatch.setattr("hydromodpy.workflow.steps.data_loading.ensure_flow", _noop_ensure)
+    monkeypatch.setattr("hydromodpy.workflow.steps.data.ensure_flow", _noop_ensure)
     monkeypatch.setattr(
         "hydromodpy.spatial.mesh.runtime.run_single_mesh_catchment_workflow_with_runtime_artifacts",
         _fake_mesh_workflow,
@@ -604,20 +600,16 @@ def test_prepare_runtime_uses_external_mesh_input_and_skips_embedded_workflow(
     monkeypatch.setattr("hydromodpy.workflow.steps.setup.CatchmentDelineation", _DummyRunGeographic)
     monkeypatch.setattr("hydromodpy.workflow.steps.setup.Domain", _DummyRunDomain)
     monkeypatch.setattr(
-        "hydromodpy.workflow.steps.data_loading._build_data_runtime_loader",
+        "hydromodpy.workflow.steps.data._build_data_runtime_loader",
         lambda *a, **kw: _DummyRuntimeLoader(),
     )
+    monkeypatch.setattr("hydromodpy.workflow.steps.data.apply_geology_to_domain", lambda **kw: None)
+    monkeypatch.setattr("hydromodpy.workflow.steps.data.apply_oceanic_to_flow", lambda **kw: None)
     monkeypatch.setattr(
-        "hydromodpy.workflow.steps.data_loading.apply_geology_to_domain", lambda **kw: None
-    )
-    monkeypatch.setattr(
-        "hydromodpy.workflow.steps.data_loading.apply_oceanic_to_flow", lambda **kw: None
-    )
-    monkeypatch.setattr(
-        "hydromodpy.workflow.steps.data_loading.apply_recharge_load_result_to_flow",
+        "hydromodpy.workflow.steps.data.apply_recharge_load_result_to_flow",
         lambda **kw: None,
     )
-    monkeypatch.setattr("hydromodpy.workflow.steps.data_loading.ensure_flow", _noop_ensure)
+    monkeypatch.setattr("hydromodpy.workflow.steps.data.ensure_flow", _noop_ensure)
     monkeypatch.setattr(
         "hydromodpy.spatial.mesh.runtime.run_single_mesh_catchment_workflow_with_runtime_artifacts",
         lambda **kw: (_ for _ in ()).throw(AssertionError("embedded mesh workflow should not run")),

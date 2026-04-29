@@ -98,7 +98,7 @@ def _register_calibration_contracts() -> None:
     structural binders through ``TrialPipelineProvider`` so the
     calibration package never imports the workflow package.
     """
-    from hydromodpy.workflow.steps.calibration_trial import (
+    from hydromodpy.workflow.steps.calibration import (
         register_default_trial_pipeline_provider,
     )
 

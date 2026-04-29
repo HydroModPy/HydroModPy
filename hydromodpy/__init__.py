@@ -174,7 +174,7 @@ def report(session_id_or_prefix=None, *, workspace=None):
 
     from hydromodpy.calibration.report import resolve_calibration_session_id
     from hydromodpy.results.catalog import SimulationCatalog
-    from hydromodpy.workflow.steps.calibration_report import (
+    from hydromodpy.workflow.steps.calibration import (
         step_render_calibration_report,
     )
 

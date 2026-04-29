@@ -3,8 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 from types import SimpleNamespace
 
-from hydromodpy.workflow.steps import registration as registration_module
-from hydromodpy.workflow.steps import store_lifecycle as store_lifecycle_module
+from hydromodpy.workflow.steps import prepare_solver as prepare_solver_module
 
 
 class _FakeZarr:
@@ -36,9 +35,9 @@ def test_step_register_simulation_closes_unused_bootstrap_zarr(monkeypatch) -> N
     )
     plan = SimpleNamespace(runs=[SimpleNamespace(solver="boussinesq")])
 
-    monkeypatch.setattr(registration_module, "collect_registration_kwargs", lambda ctx: {})
+    monkeypatch.setattr(prepare_solver_module, "collect_registration_kwargs", lambda ctx: {})
 
-    final_name = registration_module.step_register_simulation(
+    final_name = prepare_solver_module.step_register_simulation(
         ctx,
         "sim-123",
         plan=plan,
@@ -89,15 +88,15 @@ def test_step_open_store_closes_unused_bootstrap_zarr(monkeypatch, tmp_path: Pat
     import hydromodpy.results.catalog as catalog_module
 
     monkeypatch.setattr(catalog_module, "SimulationCatalog", FakeCatalog)
-    monkeypatch.setattr(store_lifecycle_module, "collect_registration_kwargs", lambda ctx: {})
-    monkeypatch.setattr(store_lifecycle_module, "_register_tracked_input_files", lambda ctx: None)
-    monkeypatch.setattr(store_lifecycle_module, "step_persist_params", lambda *args, **kwargs: None)
-    monkeypatch.setattr(store_lifecycle_module, "step_persist_mesh", lambda *args, **kwargs: None)
+    monkeypatch.setattr(prepare_solver_module, "collect_registration_kwargs", lambda ctx: {})
+    monkeypatch.setattr(prepare_solver_module, "_register_tracked_input_files", lambda ctx: None)
+    monkeypatch.setattr(prepare_solver_module, "step_persist_params", lambda *args, **kwargs: None)
+    monkeypatch.setattr(prepare_solver_module, "step_persist_mesh", lambda *args, **kwargs: None)
     monkeypatch.setattr(
-        store_lifecycle_module, "step_persist_geographic", lambda *args, **kwargs: None
+        prepare_solver_module, "step_persist_geographic", lambda *args, **kwargs: None
     )
 
-    store_lifecycle_module.step_open_store(ctx)
+    prepare_solver_module.step_open_store(ctx)
 
     assert ctx.store is not None
     assert ctx.sim_id is not None

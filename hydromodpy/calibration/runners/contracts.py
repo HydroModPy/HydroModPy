@@ -13,7 +13,7 @@ This module defines:
 - a registration pair (:func:`register_trial_pipeline_provider` /
   :func:`get_trial_pipeline_provider`) the bootstrap wires up at import time.
 
-The concrete provider is instantiated by ``hydromodpy.workflow.steps.calibration_trial``
+The concrete provider is instantiated by ``hydromodpy.workflow.steps.calibration``
 and registered from ``hydromodpy._bootstrap``.
 """
 

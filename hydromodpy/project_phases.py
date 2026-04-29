@@ -42,7 +42,7 @@ def configure(
         build_default_spatial_support_provider_registry,
     )
     from hydromodpy.workflow.context import WorkflowContext
-    from hydromodpy.workflow.steps.data_loading import log_data_plan
+    from hydromodpy.workflow.steps.data import log_data_plan
     from hydromodpy.workflow.steps.mesh import (
         resolve_optional_mesh_input,
         resolve_optional_mesh_section,
@@ -158,8 +158,7 @@ def setup_workspace(project: Project) -> None:
     Idempotent: calling twice resets the structural objects. Opens the catalog
     as a side effect so later run-phase methods can register simulations.
     """
-    from hydromodpy.workflow.steps.setup import step_setup
-    from hydromodpy.workflow.steps.spatial_supports import step_spatial_supports
+    from hydromodpy.workflow.steps.setup import step_setup, step_spatial_supports
 
     step_setup(
         project._ctx,
@@ -192,8 +191,8 @@ def build_geographic(project: Project, *, reuse_dem: bool = False) -> None:
 
 def load_data(project: Project, *, types: list[str] | None = None) -> None:
     """Load the external forcings declared in [data]."""
-    from hydromodpy.workflow.steps.data_loading import step_data_loading
-    from hydromodpy.workflow.steps.spatial_supports import step_spatial_supports
+    from hydromodpy.workflow.steps.data import step_data_loading
+    from hydromodpy.workflow.steps.setup import step_spatial_supports
 
     if project._phase == "uninitialized":
         build_geographic(project)
@@ -287,7 +286,7 @@ def ensure_simulation_block(project: Project) -> None:
         SimulationProcessConfig,
         SimulationTimeConfig,
     )
-    from hydromodpy.workflow.steps.plan_building import DEFAULT_FLOW_PROCESS_ID
+    from hydromodpy.workflow.steps.planning import DEFAULT_FLOW_PROCESS_ID
 
     recharge_cfg = getattr(project.cfg.data, "recharge", None)
     start = getattr(recharge_cfg, "date_start", None) if recharge_cfg else None

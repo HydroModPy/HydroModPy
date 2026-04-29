@@ -1,11 +1,11 @@
-"""Atomic workflow steps.
+"""Workflow steps - one module per pipeline concern.
 
-Two coexisting layers live here:
+Each module exposes both:
 
-* function-based steps that take a ``WorkflowContext`` and mutate it
-  (used directly by ``workflow.orchestrator`` verbs and ``Project``);
-* ``*Step`` classes that adapt those functions to the
-  :class:`~hydromodpy.workflow.internals.step.Step` protocol so they can
+* function-based ``step_*`` helpers consumed by ``workflow.orchestrator`` verbs
+  and by ``Project``;
+* a single ``*Step`` class adapting those helpers to the
+  :class:`~hydromodpy.workflow.internals.step.Step` protocol so the steps can
   be composed by ``workflow.runner.Pipeline``.
 
 The canonical ordered tuple of pipeline-grade steps is
@@ -14,17 +14,16 @@ The canonical ordered tuple of pipeline-grade steps is
 
 from __future__ import annotations
 
-from hydromodpy.workflow.steps.build_geographic import BuildGeographicStep
-from hydromodpy.workflow.steps.build_mesh import BuildMeshStep
+from hydromodpy.workflow.steps.data import LoadDataStep
 from hydromodpy.workflow.steps.derive import DeriveStep
 from hydromodpy.workflow.steps.display import DisplayStep
 from hydromodpy.workflow.steps.export import ExportStep
 from hydromodpy.workflow.steps.extract import ExtractStep
-from hydromodpy.workflow.steps.load_data import LoadDataStep
+from hydromodpy.workflow.steps.mesh import BuildMeshStep
 from hydromodpy.workflow.steps.prepare_solver import PrepareSolverStep
 from hydromodpy.workflow.steps.resolve import ResolveStep
 from hydromodpy.workflow.steps.run_solver import RunSolverStep
-from hydromodpy.workflow.steps.setup_process import SetupProcessStep
+from hydromodpy.workflow.steps.setup import BuildGeographicStep, SetupProcessStep
 from hydromodpy.workflow.steps.validate import ValidateStep
 
 __all__ = (

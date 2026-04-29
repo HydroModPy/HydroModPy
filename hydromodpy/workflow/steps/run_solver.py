@@ -1,28 +1,43 @@
-"""Step 7 - run the simulation plan via ``SimulationRunner``.
-
-Executes every ``ProcessRun`` of the plan via its solver adapter. After
-each run, :func:`step_ingest_run_results` is invoked to post-process
-the solver output into the store.
-
-Inputs
-------
-``ctx`` : WorkflowContext (with ``execution.simulation_plan`` set and
-``store`` opened)
-
-Outputs
--------
-``ctx`` : same context with each ``ProcessRun`` result stored in
-``ctx.execution.models_by_run_id``.
-``wall_seconds`` : float (elapsed solver time)
-"""
+"""Run-solver step - execute the plan and ingest run results into the store."""
 
 from __future__ import annotations
 
 import time
-from typing import ClassVar
+from typing import TYPE_CHECKING, ClassVar
 
 from hydromodpy.core.exceptions import ConfigError
+from hydromodpy.core.logging import get_logger
 from hydromodpy.workflow.internals.state import OpenStoreState, PipelineState, SolverRanState
+
+if TYPE_CHECKING:
+    from hydromodpy.simulation.planning.plan import ProcessRun, RunExecutionResult
+    from hydromodpy.workflow.context import WorkflowContext
+
+logger = get_logger(__name__)
+
+
+def step_ingest_run_results(
+    ctx: WorkflowContext,
+    run: ProcessRun,
+    result: RunExecutionResult,
+) -> None:
+    """Ingest solver outputs into ``ctx.store`` after one run completes."""
+    if ctx.store is None:
+        return
+
+    from hydromodpy.simulation.extraction.post_run import post_run_results
+    from hydromodpy.simulation.planning.plan import RunContext
+
+    plan = ctx.execution.simulation_plan
+    results_cfg = ctx.cfg.simulation.results
+    post_run_results(
+        ctx=RunContext(plan=plan, run=run, state=ctx),
+        sim_id=ctx.sim_id,
+        results_config=results_cfg,
+        store=ctx.store,
+        keep_solver_files=True,
+        run_id=ctx.setup.run_id,
+    )
 
 
 class RunSolverStep:
@@ -44,7 +59,6 @@ class RunSolverStep:
             ProcessCallbacks,
             SimulationRunner,
         )
-        from hydromodpy.workflow.steps.result_ingestion import step_ingest_run_results
 
         ctx = state.get("ctx")
         if ctx is None:
