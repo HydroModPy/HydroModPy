@@ -196,10 +196,11 @@ def dispatch_workflow(workflow: str, config_path: Path, **kwargs) -> dict:
 
 def _run_resume(config_path: Path, run_id: str, *, no_display: bool = False) -> dict:
     """Resume a previously interrupted simulation via the new Pipeline."""
-    from hydromodpy.pipeline import Pipeline, PipelineState
-    from hydromodpy.pipeline.steps import standard_steps
     from hydromodpy.workflow.internals.checkpoint import CheckpointStore
     from hydromodpy.workflow.internals.ledger import StepsLedger
+    from hydromodpy.workflow.internals.state import PipelineState
+    from hydromodpy.workflow.orchestrator import standard_steps
+    from hydromodpy.workflow.runner import Pipeline
 
     workspace = _resolve_workspace_for_resume(config_path)
     cp = CheckpointStore(workspace, run_id)

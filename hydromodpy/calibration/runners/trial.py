@@ -223,7 +223,7 @@ def prepare_trials(
         :meth:`TrialContext.fork` uses it to inject values by name.
     steps
         Pipeline steps to compose over. Defaults to
-        :func:`hydromodpy.pipeline.steps.standard_steps`.
+        :func:`hydromodpy.workflow.orchestrator.standard_steps`.
     parameter_space
         Optional :class:`~hydromodpy.calibration.parameters.ParameterSpace`.
         When supplied, :meth:`TrialContext.fork` injects values through the
@@ -232,10 +232,10 @@ def prepare_trials(
     """
     from hydromodpy.core.config.hydromodpy_config import HydroModPyConfig
     from hydromodpy.core.config.toml_loader import load_toml_with_base_config
-    from hydromodpy.pipeline.steps import standard_steps
     from hydromodpy.spatial.domain.spatial_support import (
         build_default_spatial_support_provider_registry,
     )
+    from hydromodpy.workflow.orchestrator import standard_steps
     from hydromodpy.workflow.runner import Pipeline
     from hydromodpy.workflow.steps.setup import (
         collect_requested_support_ids,

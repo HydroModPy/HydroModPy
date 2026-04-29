@@ -1,4 +1,4 @@
-"""Unit tests for :mod:`hydromodpy.pipeline.dependencies`.
+"""Unit tests for :mod:`hydromodpy.workflow.internals.dependencies`.
 
 Covers the longest-prefix matcher used by calibration to decide which
 step must re-run first when a parameter override lands deep in the
@@ -11,8 +11,8 @@ from typing import ClassVar
 
 import pytest
 
-from hydromodpy.pipeline.steps import standard_steps
 from hydromodpy.workflow.internals.dependencies import earliest_affected_step
+from hydromodpy.workflow.orchestrator import standard_steps
 
 
 class _StubStep:

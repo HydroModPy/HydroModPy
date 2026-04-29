@@ -253,8 +253,9 @@ def _run_simulation_pipeline(
         # Only --resume triggers the pipeline path directly.
         return run_simulation(config_path, resume=resume, no_display=no_display)
 
-    from hydromodpy.pipeline import Pipeline, PipelineState
-    from hydromodpy.pipeline.steps import standard_steps
+    from hydromodpy.workflow.internals.state import PipelineState
+    from hydromodpy.workflow.orchestrator import standard_steps
+    from hydromodpy.workflow.runner import Pipeline
 
     steps = standard_steps()
     resume_from = _resolve_step_index(from_step, steps)
@@ -362,7 +363,7 @@ def _print_dry_run(
         print("[dry-run] checkpoint: disabled")
     if workflow == "simulation":
         try:
-            from hydromodpy.pipeline.steps import standard_steps
+            from hydromodpy.workflow.orchestrator import standard_steps
 
             print("[dry-run] steps   :")
             for i, s in enumerate(standard_steps()):

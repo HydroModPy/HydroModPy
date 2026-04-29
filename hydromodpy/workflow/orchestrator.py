@@ -351,6 +351,45 @@ def execute_simulation(
         raise
 
 
+def standard_steps() -> tuple:
+    """Return the canonical ordered tuple of simulation pipeline steps.
+
+    Order matches the ``Project`` model phase: build the geographic
+    runtime (which populates ``setup.domain``), load the external
+    forcings (which need ``setup.domain``), then build the mesh and the
+    process objects, then prepare and run the solver.
+    """
+    from hydromodpy.workflow.steps import (
+        BuildGeographicStep,
+        BuildMeshStep,
+        DeriveStep,
+        DisplayStep,
+        ExportStep,
+        ExtractStep,
+        LoadDataStep,
+        PrepareSolverStep,
+        ResolveStep,
+        RunSolverStep,
+        SetupProcessStep,
+        ValidateStep,
+    )
+
+    return (
+        ValidateStep(),
+        ResolveStep(),
+        BuildGeographicStep(),
+        LoadDataStep(),
+        BuildMeshStep(),
+        SetupProcessStep(),
+        PrepareSolverStep(),
+        RunSolverStep(),
+        ExtractStep(),
+        DeriveStep(),
+        ExportStep(),
+        DisplayStep(),
+    )
+
+
 __all__ = (
     "prepare_runtime",
     "prepare_run",
@@ -359,4 +398,5 @@ __all__ = (
     "render_run",
     "cleanup_run",
     "execute_simulation",
+    "standard_steps",
 )

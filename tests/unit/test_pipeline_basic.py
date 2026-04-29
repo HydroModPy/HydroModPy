@@ -1,4 +1,4 @@
-"""Unit tests for the :class:`hydromodpy.pipeline.Pipeline` orchestrator.
+"""Unit tests for the :class:`hydromodpy.workflow.runner.Pipeline` orchestrator.
 
 Covers the linear execution contract: state flows between steps, step
 metadata (index, name, elapsed) is populated, and the final state is
@@ -10,7 +10,9 @@ from __future__ import annotations
 import pytest
 
 from hydromodpy.core.exceptions import StepError
-from hydromodpy.pipeline import Pipeline, PipelineState, Step
+from hydromodpy.workflow.internals.state import PipelineState
+from hydromodpy.workflow.internals.step import Step
+from hydromodpy.workflow.runner import Pipeline
 
 
 class _AddOne:

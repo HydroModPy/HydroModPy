@@ -20,9 +20,10 @@ from pathlib import Path
 import pytest
 
 from hydromodpy.core.exceptions import StepError
-from hydromodpy.pipeline import Pipeline, PipelineState
 from hydromodpy.workflow.internals.checkpoint import CheckpointStore
 from hydromodpy.workflow.internals.ledger import StepsLedger
+from hydromodpy.workflow.internals.state import PipelineState
+from hydromodpy.workflow.runner import Pipeline
 
 # ---------------------------------------------------------------------------
 # Synthetic 11-step workflow mirroring the canonical names of the real

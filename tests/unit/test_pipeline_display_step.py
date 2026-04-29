@@ -15,8 +15,8 @@ from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import MagicMock
 
-from hydromodpy.pipeline.steps.step_11_display import DisplayStep
 from hydromodpy.workflow.internals.state import PipelineState
+from hydromodpy.workflow.steps.display import DisplayStep
 
 
 def _make_ctx(*, enabled: bool, figures: list[str], project_root: Path) -> SimpleNamespace:
@@ -46,7 +46,7 @@ def test_display_step_skips_when_flag_set(monkeypatch, tmp_path):
 
     renderer = MagicMock()
     monkeypatch.setattr(
-        "hydromodpy.pipeline.steps.step_11_display.DisplayStep",
+        "hydromodpy.workflow.steps.display.DisplayStep",
         DisplayStep,
     )
     monkeypatch.setattr(
@@ -117,7 +117,7 @@ def test_display_step_invokes_renderer_when_enabled(monkeypatch, tmp_path):
 
 
 def test_display_step_standard_pipeline_contains_it():
-    from hydromodpy.pipeline.steps import standard_steps
+    from hydromodpy.workflow.orchestrator import standard_steps
 
     names = [type(s).__name__ for s in standard_steps()]
     assert names[-1] == "DisplayStep"

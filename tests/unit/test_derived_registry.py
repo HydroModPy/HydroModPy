@@ -1,4 +1,4 @@
-"""Unit tests for :mod:`hydromodpy.pipeline.derived`.
+"""Unit tests for :mod:`hydromodpy.workflow.internals.derived`.
 
 Covers the registry API (register / get / list / ordered_names / apply),
 the canonical default derivations (watertable_elevation, watertable_depth,
@@ -13,7 +13,6 @@ from dataclasses import dataclass
 import numpy as np
 import pytest
 
-from hydromodpy.pipeline.steps.step_09_derive import DeriveStep
 from hydromodpy.results.zarr_store import SimulationZarr
 from hydromodpy.workflow.internals.derived import (
     DerivedComputation,
@@ -22,6 +21,7 @@ from hydromodpy.workflow.internals.derived import (
     registry,
 )
 from hydromodpy.workflow.internals.state import PipelineState
+from hydromodpy.workflow.steps.derive import DeriveStep
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -308,6 +308,6 @@ def test_derive_step_without_head_is_noop(tmp_path):
 
 
 def test_registry_accessible_via_public_api():
-    import hydromodpy.pipeline as pipeline_pkg
+    from hydromodpy.workflow.internals import derived as derived_pkg
 
-    assert "watertable_elevation" in pipeline_pkg.derived.registry.list()
+    assert "watertable_elevation" in derived_pkg.registry.list()
