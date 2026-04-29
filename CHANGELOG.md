@@ -32,19 +32,125 @@ Each release section includes the following standard categories:
 
 ## [Unreleased]
 
+---
+
+## [v1.0.0] - 2026-04-29
+
+First stable release. Closes the v0.6 architecture rupture started in
+v0.5.0 (S01..S05) and lands the security / release-engineering hardening
+of S06 plus the final naming sweep of S07. All `[Unreleased]` content
+since v0.5.0 lands here. No alias, no shim, no deprecation path.
+
 ### Breaking
-- Renamed `hydromodpy._cli` to `hydromodpy.cli` (S07-01). The CLI is a
-  public surface; the leading underscore was misleading. Update any
-  external import (`from hydromodpy._cli...` → `from hydromodpy.cli...`).
-  Entry points `hmp` and `hydromodpy` are unchanged.
-- Renamed `hydromodpy/solver/modflow_nwt/modflow/` to
-  `hydromodpy/solver/modflow_nwt/nwt/` and the NWT solver class
-  `Modflow` to `ModflowNwt` (S07-02). Both backends are MODFLOW; the
-  `modflow/` segment was ambiguous. Update imports
+
+#### Module / class renames (S07)
+- `hydromodpy._cli` → `hydromodpy.cli` (S07-01). The CLI is a public
+  surface; the leading underscore was misleading. Update any external
+  import (`from hydromodpy._cli...` → `from hydromodpy.cli...`). Entry
+  points `hmp` and `hydromodpy` are unchanged.
+- `hydromodpy/solver/modflow_nwt/modflow/` → `hydromodpy/solver/modflow_nwt/nwt/`
+  and class `Modflow` → `ModflowNwt` (S07-02). Both backends are
+  MODFLOW; the `modflow/` segment was ambiguous. Update imports
   (`from hydromodpy.solver.modflow_nwt.modflow ...` →
   `from hydromodpy.solver.modflow_nwt.nwt ...`) and references to the
   class (`Modflow` → `ModflowNwt`). Top-level export
-  `hydromodpy.Modflow` is now `hydromodpy.ModflowNwt`. No alias.
+  `hydromodpy.Modflow` is now `hydromodpy.ModflowNwt`.
+- `hydromodpy/solver/boussinesq/extractors/output.py` → `flow.py` and
+  `hydromodpy/solver/gr4j/extractors/output.py` → `flow.py` (S07-03).
+  Symmetry with the MODFLOW family: every flow extractor is now named
+  `flow.py`. The classes `BoussinesqOutputAdapter` and
+  `GR4JOutputAdapter` are unchanged; only the module path moved.
+- `hydromodpy/calibration/cli.py` → `hydromodpy/calibration/runner.py`
+  (S07-04). The module is reached through `hydromodpy.cli`, not as a
+  CLI itself; `runner` reflects its real role. Update imports
+  (`from hydromodpy.calibration.cli ...` →
+  `from hydromodpy.calibration.runner ...`).
+- `hydromodpy/data/lockfile.py` → `hydromodpy/data/data_freeze.py` and
+  `hydromodpy/results/provenance.py` → `hydromodpy/results/array_fingerprint.py`
+  (S07-05). The module names now reflect their concrete role
+  (input-data freeze; per-array fingerprint). Internal symbols
+  (`LockedArtifact`, `LOCKFILE_NAME`, `archive_lockfile`,
+  `read_lockfile`, `write_lockfile`, …) are unchanged: they still
+  describe the on-disk `.lock` artifact.
+
+#### Serialization / security (S06)
+- User-controlled `pickle.load` paths replaced with HMAC-signed pickle
+  for trusted internal artefacts and JSON for untrusted boundaries
+  (S06-06). Loading a pre-v1.0 unsigned pickle now raises. Re-run the
+  pipeline once to regenerate the artefact under the new format.
+- `[hmac]` workspace section is required for signed-pickle paths; the
+  key is generated on first run and stored in the workspace.
+
+#### Packaging / runtime
+- Solver binaries are no longer bundled in the wheel (S06-02). They
+  download lazily into `~/.cache/hydromodpy/bin/` on first solver run.
+  CI / offline setups must call `hmp install-binaries` upfront.
+- Runtime dependencies now carry explicit upper bounds (S06-03).
+  Editable installs that previously pulled the latest minor of every
+  dep will resolve to the pinned ranges; bump the pin in
+  `pyproject.toml` if a newer version is required.
+- `pytest` was dropped from the runtime `dependencies` list (S06-03);
+  install it via the `test` extra (`pip install hydromodpy[test]`).
+
+### Added
+- `SECURITY.md` with a single-tenant scientific-desktop threat model
+  and a coordinated-disclosure address (S06-05).
+- `RELEASE_POLICY.md` describing the OIDC-backed PyPI publish flow
+  (S06-07). `publish.yml` now uses Trusted Publishers (no long-lived
+  PyPI token).
+- Multi-stage Dockerfile + `docker-build` GitHub Actions workflow
+  (S06-04). The previous Dockerfile was non-functional.
+- `dependabot.yml` (weekly) plus `pip-audit` lint gate and `gitleaks`
+  pre-commit + CI hooks (S06-08).
+- Wheel-smoke job, baseline `mypy` type-check, and CycloneDX SBOM
+  generation in CI (S06-09).
+- CI lint gate asserting `__all__` matches `_LAZY_IMPORTS ∪ _MODULE_EXPORTS`
+  in the public top-level package (S06-12).
+- CI lint gate sealing the CLI boundary: only `_cli` may import the
+  CLI subsystem outside `__main__` (S06-13).
+
+### Changed
+- HMAC-signed pickle is now the canonical in-process serialization
+  format for trusted artefacts (S06-06); JSON is used at every
+  untrusted boundary.
+- Tests sweep (S06-10): 18 hollow assertions strengthened, 3 stale
+  doc-gallery skips dropped, mock backends replaced with the real
+  `WhiteboxStubBackend`. 14 `gmsh_grid` tests migrated to `tmp_path`
+  and the root `scratch_tests/` directory deleted (S06-11).
+
+### Removed
+- `scratch_tests/` directory at the repo root (S06-11). Stray fixtures
+  now live under `tests/.../tmp_path` parametrisation.
+
+### Migration guide
+
+Apply these search/replace rules to a checkout pinned at v0.5.0 to
+move forward to v1.0.0:
+
+| Old import / name                                            | New import / name                                     |
+|--------------------------------------------------------------|-------------------------------------------------------|
+| `from hydromodpy._cli ...`                                   | `from hydromodpy.cli ...`                             |
+| `from hydromodpy.solver.modflow_nwt.modflow ...`             | `from hydromodpy.solver.modflow_nwt.nwt ...`          |
+| `hydromodpy.solver.modflow_nwt.nwt.Modflow`                  | `hydromodpy.solver.modflow_nwt.nwt.ModflowNwt`        |
+| `hydromodpy.Modflow`                                         | `hydromodpy.ModflowNwt`                               |
+| `from hydromodpy.solver.boussinesq.extractors.output ...`    | `... .extractors.flow ...`                            |
+| `from hydromodpy.solver.gr4j.extractors.output ...`          | `... .extractors.flow ...`                            |
+| `from hydromodpy.calibration.cli ...`                        | `from hydromodpy.calibration.runner ...`              |
+| `from hydromodpy.data.lockfile ...`                          | `from hydromodpy.data.data_freeze ...`                |
+| `from hydromodpy.results.provenance ...`                     | `from hydromodpy.results.array_fingerprint ...`       |
+
+Other actions:
+
+- Re-run any pipeline that produced pre-v1.0 pickle artefacts: legacy
+  unsigned pickles no longer load (S06-06). The first run regenerates
+  them under the HMAC-signed format.
+- Install solver binaries explicitly in offline / CI environments:
+  `hmp install-binaries` (the wheel no longer bundles them, S06-02).
+- If your environment relied on the implicit `pytest` runtime
+  dependency, install it via the `test` extra:
+  `pip install hydromodpy[test]` (S06-03).
+- Bump pinned ranges in `pyproject.toml` if a newer minor of a
+  runtime dep is required (S06-03 added explicit upper bounds).
 
 ---
 
@@ -375,7 +481,8 @@ Picks up the `[Unreleased]` backlog accumulated since `v0.3.4`.
 
 ---
 
-[Unreleased]: https://github.com/HydroModPy/HydroModPy/compare/v0.5.0...dev
+[Unreleased]: https://github.com/HydroModPy/HydroModPy/compare/v1.0.0...dev
+[v1.0.0]: https://github.com/HydroModPy/HydroModPy/compare/v0.5.0...v1.0.0
 [v0.5.0]: https://github.com/HydroModPy/HydroModPy/compare/v0.4.0...v0.5.0
 [v0.4.0]: https://github.com/HydroModPy/HydroModPy/compare/v0.3.4...v0.4.0
 [v0.3.4]: https://github.com/HydroModPy/HydroModPy/compare/v0.3.3...v0.3.4
