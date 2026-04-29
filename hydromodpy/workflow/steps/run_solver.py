@@ -2,8 +2,7 @@
 
 Executes every ``ProcessRun`` of the plan via its solver adapter. After
 each run, :func:`step_ingest_run_results` is invoked to post-process
-the solver output into the store (this mirrors the callback chain used
-by :func:`execute_simulation`).
+the solver output into the store.
 
 Inputs
 ------

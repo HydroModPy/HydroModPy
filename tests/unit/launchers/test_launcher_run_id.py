@@ -437,10 +437,7 @@ def test_prepare_runtime_executes_embedded_mesh_phase_and_records_metrics(
 ) -> None:
     """Verify prepare_runtime calls the mesh workflow with correct args."""
     from hydromodpy.spatial.mesh.config import parse_mesh_catchment_config_data
-    from hydromodpy.workflow.orchestrator import (
-        execute_simulation,
-        prepare_runtime,
-    )
+    from hydromodpy.workflow.orchestrator import prepare_runtime
 
     workspace_root = _make_launcher_test_workspace_root(
         hydromodpy_test_scratch_root,
@@ -473,17 +470,8 @@ def test_prepare_runtime_executes_embedded_mesh_phase_and_records_metrics(
         def load_all(self, run_state) -> None:
             pass
 
-    executed: dict[str, object] = {}
-    captured_artifacts: dict[str, object] = {}
     captured_mesh: dict[str, object] = {}
     mesh_sentinel = object()
-
-    class _DummySimulationRunner:
-        def __init__(self, callbacks) -> None:
-            executed["callbacks"] = callbacks
-
-        def execute(self, plan, run_state) -> None:
-            executed["run_state"] = run_state
 
     def _fake_mesh_workflow(**kwargs):
         captured_mesh.update(kwargs)
@@ -517,7 +505,6 @@ def test_prepare_runtime_executes_embedded_mesh_phase_and_records_metrics(
         lambda **kw: None,
     )
     monkeypatch.setattr("hydromodpy.workflow.steps.data_loading.ensure_flow", _noop_ensure)
-    monkeypatch.setattr("hydromodpy.workflow.pipeline.SimulationRunner", _DummySimulationRunner)
     monkeypatch.setattr(
         "hydromodpy.spatial.mesh.runtime.run_single_mesh_catchment_workflow_with_runtime_artifacts",
         _fake_mesh_workflow,
@@ -525,12 +512,6 @@ def test_prepare_runtime_executes_embedded_mesh_phase_and_records_metrics(
     monkeypatch.setattr(
         "hydromodpy.workflow.steps.mesh.load_planar_mesh",
         lambda path: (_ for _ in ()).throw(AssertionError("should keep mesh in memory")),
-    )
-    monkeypatch.setattr(
-        "hydromodpy.workflow.pipeline.step_save_run_artifacts",
-        lambda ctx, wall_seconds: captured_artifacts.update(
-            {"mesh_summary": ctx.setup.mesh_summary}
-        ),
     )
 
     cfg = SimpleNamespace(
@@ -561,16 +542,14 @@ def test_prepare_runtime_executes_embedded_mesh_phase_and_records_metrics(
             mesh_section_data=mesh_section_data,
             constraints_mode="rivers_only",
         )
-        execute_simulation(ctx)
 
-        assert executed["run_state"] is ctx
         assert captured_mesh["constraints_mode"] == "rivers_only"
         assert captured_mesh["workspace"] is ctx.setup.workspace
         assert captured_mesh["domain_geographic"] is ctx.setup.domain_geographic
         assert ctx.setup.mesh_planar is mesh_sentinel
         assert ctx.setup.mesh_summary is not None
         assert (
-            captured_artifacts["mesh_summary"]["output_mesh"]
+            ctx.setup.mesh_summary["output_mesh"]
             == "workspace/results_stable/mesh/mesh_catchment.msh"
         )
     finally:
@@ -582,10 +561,7 @@ def test_prepare_runtime_uses_external_mesh_input_and_skips_embedded_workflow(
     hydromodpy_test_scratch_root: Path,
 ) -> None:
     """Verify prepare_runtime loads external mesh and skips embedded."""
-    from hydromodpy.workflow.orchestrator import (
-        execute_simulation,
-        prepare_runtime,
-    )
+    from hydromodpy.workflow.orchestrator import prepare_runtime
 
     workspace_root = _make_launcher_test_workspace_root(
         hydromodpy_test_scratch_root,
@@ -619,16 +595,8 @@ def test_prepare_runtime_uses_external_mesh_input_and_skips_embedded_workflow(
         def load_all(self, run_state) -> None:
             pass
 
-    executed: dict[str, object] = {}
     mesh_load: dict[str, object] = {}
     mesh_sentinel = object()
-
-    class _DummySimulationRunner:
-        def __init__(self, callbacks) -> None:
-            executed["callbacks"] = callbacks
-
-        def execute(self, plan, run_state) -> None:
-            executed["run_state"] = run_state
 
     def _fake_load_planar_mesh(path):
         mesh_load["path"] = Path(path).resolve()
@@ -655,7 +623,6 @@ def test_prepare_runtime_uses_external_mesh_input_and_skips_embedded_workflow(
         lambda **kw: None,
     )
     monkeypatch.setattr("hydromodpy.workflow.steps.data_loading.ensure_flow", _noop_ensure)
-    monkeypatch.setattr("hydromodpy.workflow.pipeline.SimulationRunner", _DummySimulationRunner)
     monkeypatch.setattr(
         "hydromodpy.spatial.mesh.runtime.run_single_mesh_catchment_workflow_with_runtime_artifacts",
         lambda **kw: (_ for _ in ()).throw(AssertionError("embedded mesh workflow should not run")),
@@ -686,9 +653,7 @@ def test_prepare_runtime_uses_external_mesh_input_and_skips_embedded_workflow(
 
     try:
         prepare_runtime(ctx, external_mesh_input=external_mesh_input)
-        execute_simulation(ctx)
 
-        assert executed["run_state"] is ctx
         assert ctx.setup.mesh_bundle is None
         assert ctx.setup.mesh_planar is mesh_sentinel
         assert ctx.setup.mesh_summary is not None
