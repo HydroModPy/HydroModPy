@@ -122,8 +122,13 @@ out/
 examples/results/
 catalog.db
 hydromodpy_debug.log
-hydromodpy/data_managers/*/cases/outputs/**
-!hydromodpy/data_managers/*/cases/outputs/.gitkeep
+hydromodpy/data/variables/*/cases/outputs/**
+hydromodpy/data/variables/*/outputs/**
+hydromodpy/spatial/**/cases/outputs/**
+hydromodpy/spatial/**/outputs/**
+hydromodpy/solver/**/cases/outputs/**
+**/.ipynb_checkpoints/
+examples/*.duckdb
 hydromodpy_annex/preprocess/catchment_identification_scan/outputs/
 
 # Generated images from output directories
