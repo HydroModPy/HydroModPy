@@ -33,10 +33,10 @@ inheritance chain so a step that consumes ``ResolvedState`` will also accept a
 
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field, replace
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Generic, TypeVar
+from typing import TYPE_CHECKING, Any, ClassVar, Generic, TypeVar
 
 if TYPE_CHECKING:
     from hydromodpy.core.config.hydromodpy_config import HydroModPyConfig
@@ -52,6 +52,21 @@ T = TypeVar("T")
 
 
 @dataclass(frozen=True, slots=True)
+class UnpicklableMarker:
+    """Sentinel left by the checkpoint store for values it could not pickle.
+
+    A marker carries the original value's type name for diagnostics. The
+    runner replaces markers via :data:`PipelineState._rebuild_factories`
+    before each step executes, so steps observe a live object again.
+    """
+
+    type_name: str
+
+
+RebuildFactory = Callable[[Path | None, "PipelineState[Any]"], Any]
+
+
+@dataclass(frozen=True, slots=True)
 class PipelineState(Generic[T]):
     """State traversing the pipeline, immutable between steps."""
 
@@ -60,6 +75,21 @@ class PipelineState(Generic[T]):
     step_name: str = ""
     elapsed_ms: float = 0.0
     data: T = field(default_factory=dict)  # type: ignore[assignment]
+
+    _rebuild_factories: ClassVar[dict[str, RebuildFactory]] = {}
+
+    @classmethod
+    def register_rebuild(cls, key: str, factory: RebuildFactory) -> None:
+        """Register a factory used to rebuild ``data[key]`` after a resume."""
+        cls._rebuild_factories[key] = factory
+
+    @classmethod
+    def unregister_rebuild(cls, key: str) -> None:
+        cls._rebuild_factories.pop(key, None)
+
+    @classmethod
+    def get_rebuild_factory(cls, key: str) -> RebuildFactory | None:
+        return cls._rebuild_factories.get(key)
 
     def advance(
         self,
@@ -204,15 +234,17 @@ class ExportedState(DerivedState):
 
 
 __all__ = (
-    "PipelineState",
-    "ValidatedState",
-    "ResolvedState",
-    "LoadedState",
-    "MeshedState",
-    "SetupState",
-    "OpenStoreState",
-    "SolverRanState",
-    "ExtractedState",
     "DerivedState",
     "ExportedState",
+    "ExtractedState",
+    "LoadedState",
+    "MeshedState",
+    "OpenStoreState",
+    "PipelineState",
+    "RebuildFactory",
+    "ResolvedState",
+    "SetupState",
+    "SolverRanState",
+    "UnpicklableMarker",
+    "ValidatedState",
 )

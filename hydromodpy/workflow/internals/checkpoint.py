@@ -12,11 +12,12 @@ from __future__ import annotations
 import logging
 import pickle
 import re
+from collections.abc import Mapping
 from dataclasses import replace
 from pathlib import Path
 from typing import Any
 
-from hydromodpy.workflow.internals.state import PipelineState
+from hydromodpy.workflow.internals.state import PipelineState, UnpicklableMarker
 
 logger = logging.getLogger(__name__)
 
@@ -115,20 +116,46 @@ class CheckpointStore:
 def _strip_unpicklable(state: PipelineState) -> PipelineState:
     """Return ``state`` with non-picklable ``data`` entries replaced by markers.
 
-    Entries whose value cannot be pickled are replaced by a sentinel string
-    ``"<unpicklable:<type>>"``. This allows pipelines that carry live
-    resources (DuckDB connections, open files, …) to still checkpoint the
-    serializable parts of their state.
+    Entries whose value cannot be pickled are replaced by an
+    :class:`UnpicklableMarker` carrying the original type name. This lets
+    pipelines that carry live resources (DuckDB connections, Zarr groups,
+    …) still checkpoint the serializable parts of their state. The markers
+    are restored to live objects on resume by :func:`_rebind_unpicklables`.
     """
+    if not isinstance(state.data, Mapping):
+        return state
     cleaned: dict[str, Any] = {}
     for key, value in state.data.items():
         try:
             pickle.dumps(value)
         except Exception:
-            cleaned[key] = f"<unpicklable:{type(value).__name__}>"
+            cleaned[key] = UnpicklableMarker(type_name=type(value).__name__)
         else:
             cleaned[key] = value
     return replace(state, data=cleaned)
+
+
+def _rebind_unpicklables(state: PipelineState, workspace: Path | None) -> PipelineState:
+    """Replace :class:`UnpicklableMarker` entries with live rebuilt objects.
+
+    For each ``data[key]`` that is a marker, looks up the factory registered
+    on :class:`PipelineState` and calls ``factory(workspace, state)``. Keys
+    without a registered factory keep their marker so a downstream step
+    that needs the value fails loudly instead of crashing on ``None``.
+    """
+    if not isinstance(state.data, Mapping):
+        return state
+    if not any(isinstance(v, UnpicklableMarker) for v in state.data.values()):
+        return state
+    rebound: dict[str, Any] = dict(state.data)
+    for key, value in state.data.items():
+        if not isinstance(value, UnpicklableMarker):
+            continue
+        factory = PipelineState.get_rebuild_factory(key)
+        if factory is None:
+            continue
+        rebound[key] = factory(workspace, state)
+    return replace(state, data=rebound)
 
 
 __all__ = ("CheckpointStore",)

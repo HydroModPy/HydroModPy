@@ -104,7 +104,10 @@ class Pipeline:
         ledger: StepsLedger | None,
         cp_store: CheckpointStore | None,
     ) -> PipelineState:
+        from hydromodpy.workflow.internals.checkpoint import _rebind_unpicklables
+
         name = getattr(step, "name", step.__class__.__name__)
+        state = _rebind_unpicklables(state, self.workspace)
         t0 = time.monotonic()
         if ledger is not None:
             ledger.start(state.run_id, index, name)
