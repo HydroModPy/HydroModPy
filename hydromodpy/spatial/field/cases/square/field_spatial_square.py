@@ -8,6 +8,7 @@ one side assignment (`zone1_side`).
 
 from __future__ import annotations
 
+import tomllib
 from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
@@ -19,12 +20,6 @@ from hydromodpy.spatial.field.core.field_spatial import Field, _get_nested_secti
 from hydromodpy.spatial.field.core.field_spatial_weighted_discretization import (
     WeightedAverageFieldDiscretization,
 )
-
-try:  # Python 3.11+
-    import tomllib
-except ModuleNotFoundError:  # pragma: no cover - fallback for older Python
-    import tomli as tomllib  # type: ignore[no-redef]
-
 
 SUPPORTED_LINES = (
     "diag_main",

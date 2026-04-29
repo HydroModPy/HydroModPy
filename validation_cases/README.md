@@ -71,12 +71,6 @@ python -m validation_cases.run_cases --solver modflow6 --regime both --no-show
 python -m validation_cases.run_cases --solver boussinesq --regime both --no-show
 ```
 
-Refresh the committed JSON batch reports consumed by the documentation gallery:
-
-```powershell
-python -m validation_cases.update_reports --no-show
-```
-
 Run with figures enabled:
 
 ```powershell

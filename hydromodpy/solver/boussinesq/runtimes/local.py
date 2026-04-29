@@ -200,10 +200,7 @@ def _solve_nonlinear_system(
     )
 
 
-LocalStepSolveResult = RuntimeSolveResult
-
 __all__ = [
-    "LocalStepSolveResult",
     "solve_backward_euler_step",
     "solve_steady_problem",
     "solve_steady_state",

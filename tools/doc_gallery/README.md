@@ -66,12 +66,6 @@ python -m tools.doc_gallery.new_case \
   --title "Example Geographic Case"
 ```
 
-Generate versioned batch reports for the analytical validation suites:
-
-```bash
-python -m validation_cases.update_reports --no-show
-```
-
 Import one local mesh bundle into the canonical repository layout used by the
 gallery:
 
@@ -150,7 +144,6 @@ Analytical validation cases are discovered automatically from
   tabs when a case exposes more than one backend
 - the validation landing page also reads committed batch reports from
   `validation_cases/reports/latest/*.json`
-  refreshed through `python -m validation_cases.update_reports`
 
 ## How To Add One Case
 

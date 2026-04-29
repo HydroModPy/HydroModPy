@@ -12,10 +12,7 @@ from dataclasses import dataclass
 
 import numpy as np
 
-try:
-    from hydromodpy.spatial.field.core.field_spatial import FieldDiscretization
-except ModuleNotFoundError:  # pragma: no cover - direct script fallback
-    from field_spatial import FieldDiscretization  # type: ignore
+from hydromodpy.spatial.field.core.field_spatial import FieldDiscretization
 
 
 @dataclass(frozen=True)

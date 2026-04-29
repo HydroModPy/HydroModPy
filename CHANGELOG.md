@@ -32,6 +32,40 @@ Each release section includes the following standard categories:
 
 ## [Unreleased]
 
+### Breaking (S00-05 hard-cut legacy)
+- Removed `hydromodpy/_cli/legacy_calibration.py`; the deprecated
+  `[model_calibration]` TOML section is no longer auto-renamed to
+  `[calibration]`. Rename the section by hand.
+- Removed the empty `hmp migrate` stub
+  (`hydromodpy/_cli/commands/migrate.py`) and the
+  `docs/developers/parquet_lakehouse_migration_guide.md` guide. Old
+  workspaces (pre-v0.6) are no longer migrated; regenerate them.
+- Removed `hydromodpy/core/tools/statistics.py` (RMSE/NSE/KGE helpers).
+  Equivalent metrics live in `hydromodpy.calibration.metrics` and
+  `objective_mapping`.
+- Removed `tools/investigate_sloping_substratum_transient.py` (zero
+  callers) and `validation_cases/update_reports.py` (with its dedicated
+  unit test).
+- Removed `hydromodpy_annex/distribution/` (re-export shim of
+  `tools.mesh_bundle_viewer`).
+- Removed `docs/readthedocs/source/architecture/overview/compatibility-facades.rst`
+  (described modules that no longer exist).
+- Removed dead aliases: `LocalStepSolveResult`, four boussinesq
+  formulation aliases (`assemble_steady_mixed_complementarity`,
+  `assemble_transient_mixed_complementarity`,
+  `assemble_steady_head_only_regularized_partition`,
+  `assemble_transient_head_only_regularized_partition`),
+  `WatershedThresholdScanConfig`, three `*Schema` aliases in
+  `gmsh_grid/zone_meshing/config.py`
+  (`ZoneMeshingRefinementFamilySettingsSchema`,
+  `ZoneMeshingRefinementHotspotSettingsSchema`,
+  `ZoneMeshingRefinementGridSettingsSchema`), and
+  `tests.regression.golden_utils.resolve_first_model_workspace`.
+- Removed Python <3.11 fallbacks: five `try: import tomllib except: import tomli`
+  blocks and three `except ModuleNotFoundError: from <bare_name> import …`
+  script-mode shims in `spatial/field/core/`.
+- Removed self-ignore line `.gitignore` from `.gitignore`.
+
 ### Changed
 - Per-simulation `timeseries`, `budgets`, and `mass_balance` rows now live as
   Parquet files under `simulations/<uuid>.parquet/` instead of DuckDB tables

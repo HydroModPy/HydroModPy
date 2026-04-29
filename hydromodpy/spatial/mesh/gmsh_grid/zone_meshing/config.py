@@ -67,9 +67,6 @@ class ZoneMeshingRefinementFamilySettings(HydroModelBase):
         return self.model_dump(mode="python")
 
 
-ZoneMeshingRefinementFamilySettingsSchema = ZoneMeshingRefinementFamilySettings
-
-
 class ZoneMeshingRefinementFamilies(HydroModelBase):
     """Validated family-specific refinement policy settings."""
 
@@ -135,9 +132,6 @@ class ZoneMeshingRefinementHotspotSettings(HydroModelBase):
         return self.model_dump(mode="python")
 
 
-ZoneMeshingRefinementHotspotSettingsSchema = ZoneMeshingRefinementHotspotSettings
-
-
 class ZoneMeshingRefinementGridSettings(HydroModelBase):
     """Validated grid settings for one locality-first refinement policy."""
 
@@ -168,9 +162,6 @@ class ZoneMeshingRefinementGridSettings(HydroModelBase):
 
     def to_mapping(self) -> dict[str, Any]:
         return self.model_dump(mode="python")
-
-
-ZoneMeshingRefinementGridSettingsSchema = ZoneMeshingRefinementGridSettings
 
 
 _FAMILY_DEFAULTS: dict[str, dict[str, Any]] = {
@@ -509,11 +500,8 @@ __all__ = [
     "parse_zone_meshing_settings",
     "ZoneMeshingRefinementFamilies",
     "ZoneMeshingRefinementFamilySettings",
-    "ZoneMeshingRefinementFamilySettingsSchema",
     "ZoneMeshingRefinementGridSettings",
-    "ZoneMeshingRefinementGridSettingsSchema",
     "ZoneMeshingRefinementHotspotSettings",
-    "ZoneMeshingRefinementHotspotSettingsSchema",
     "ZoneMeshingRefinementPolicy",
     "ZoneMeshingRefinementPolicySchema",
     "ZoneMeshingSettings",

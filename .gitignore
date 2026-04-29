@@ -215,7 +215,6 @@ lib64/
 parts/
 var/
 examples/Exemple_11_Imene/11_for run from scratch without plots/data/regional dem 2.tif
-.gitignore
 examples/Exemple_11_Imene/11_for run from scratch without plots/data/regional dem 2.tif.aux.xml
 examples/Exemple_11_Imene/11_for run from scratch without plots/data/regional dem.tif
 examples/Exemple_11_Imene/11_for run from scratch without plots/data/regional dem.tif.aux.xml

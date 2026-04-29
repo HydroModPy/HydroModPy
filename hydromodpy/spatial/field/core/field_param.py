@@ -22,6 +22,7 @@ A field can be described in two ways:
 from __future__ import annotations
 
 import csv
+import tomllib
 from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
@@ -35,23 +36,10 @@ from hydromodpy.core.units.hydraulic_conductivity import (
 )
 from hydromodpy.core.units.length import parse_length_to_m
 from hydromodpy.core.units.scalar import parse_scalar_and_unit
-
-try:
-    from hydromodpy.spatial.field.core.field_param_config import (
-        validate_field_param_toml_data,
-        validate_resolved_field_param_data,
-    )
-except ModuleNotFoundError:  # pragma: no cover - direct script fallback
-    from field_param_config import (  # type: ignore
-        validate_field_param_toml_data,
-        validate_resolved_field_param_data,
-    )
-
-try:  # Python 3.11+
-    import tomllib
-except ModuleNotFoundError:  # pragma: no cover - fallback for older Python
-    import tomli as tomllib  # type: ignore[no-redef]
-
+from hydromodpy.spatial.field.core.field_param_config import (
+    validate_field_param_toml_data,
+    validate_resolved_field_param_data,
+)
 
 SUPPORTED_KINDS = ("homogeneous", "heterogeneous")
 SUPPORTED_VERTICAL_PROFILE_MODES = ("none", "exponential", "tabulated")

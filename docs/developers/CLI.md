@@ -159,7 +159,6 @@ La cible `validation` ajoute automatiquement le marqueur pytest
 | `hmp export <sim_id>` | Export vers un format externe ou un `.hmp` |
 | `hmp import <package.hmp>` | Import d'un `.hmp` dans le workspace |
 | `hmp delete <sim_id>` | Suppression d'un run |
-| `hmp migrate` | Migration v0.5 vers v0.6 (voir [parquet_lakehouse_migration_guide.md](parquet_lakehouse_migration_guide.md)) |
 | `hmp schema export` | Export JSON Schema (voir [frontend_hooks.md](frontend_hooks.md)) |
 | `hmp schema validate-field` | Validation partielle d'un champ |
 | `hmp lock` | Verrou workspace |

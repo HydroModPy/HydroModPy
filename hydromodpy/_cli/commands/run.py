@@ -327,9 +327,6 @@ def _infer_workflow_from_sections(raw_toml: dict) -> str:
     only when ``--dry-run`` is set and the user has not declared
     ``workflow = "..."`` at the top level.
     """
-    from hydromodpy._cli.legacy_calibration import normalize_legacy_calibration_section
-
-    raw_toml = normalize_legacy_calibration_section(raw_toml)
     if "calibration" in raw_toml:
         return "calibration"
     if "batch" in raw_toml:

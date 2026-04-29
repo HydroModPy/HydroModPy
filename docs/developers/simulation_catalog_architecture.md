@@ -10,7 +10,6 @@ toutes les simulations du workspace.
 Liens : [glossary.md](glossary.md),
 [parquet_lakehouse_architecture.md](parquet_lakehouse_architecture.md),
 [parquet_lakehouse_concurrency.md](parquet_lakehouse_concurrency.md),
-[parquet_lakehouse_migration_guide.md](parquet_lakehouse_migration_guide.md),
 [schema_evolution.md](schema_evolution.md),
 [calibration_guide.md](calibration_guide.md).
 

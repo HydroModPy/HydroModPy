@@ -8,6 +8,7 @@ Generic field interface and shared discretization structure.
 
 from __future__ import annotations
 
+import tomllib
 from abc import ABC, abstractmethod
 from collections.abc import Mapping
 from dataclasses import dataclass
@@ -16,15 +17,7 @@ from typing import Any
 
 import numpy as np
 
-try:
-    from hydromodpy.spatial.field.core.field_mesh import BaseFieldMesh
-except ModuleNotFoundError:  # pragma: no cover - direct script fallback
-    from field_mesh import BaseFieldMesh  # type: ignore
-
-try:  # Python 3.11+
-    import tomllib
-except ModuleNotFoundError:  # pragma: no cover - fallback for older Python
-    import tomli as tomllib  # type: ignore[no-redef]
+from hydromodpy.spatial.field.core.field_mesh import BaseFieldMesh
 
 
 def _get_nested_section(payload: Mapping[str, Any], dotted_path: str) -> Mapping[str, Any]:
