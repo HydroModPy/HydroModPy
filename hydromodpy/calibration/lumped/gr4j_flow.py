@@ -1,4 +1,9 @@
-"""Output adapter for GR4J lumped model results."""
+"""Output extractor for GR4J lumped model results.
+
+GR4J is a lumped catchment model: results are already in memory as pandas
+Series (no binary files to parse). This extractor forwards them to the
+``SimulationCatalog`` DuckDB tables.
+"""
 
 from __future__ import annotations
 
@@ -12,13 +17,8 @@ from hydromodpy.core.logging import get_logger
 logger = get_logger(__name__)
 
 
-class GR4JOutputAdapter:
-    """Inject GR4J in-memory results into a SimulationCatalog.
-
-    GR4J is a lumped catchment model - results are already in memory
-    as pandas Series (no binary files to parse). This adapter simply
-    forwards them to the store's DuckDB tables.
-    """
+class Gr4jFlowExtractor:
+    """Inject GR4J in-memory results into a ``SimulationCatalog``."""
 
     solver_name = "gr4j"
     category = "lumped"
@@ -29,7 +29,7 @@ class GR4JOutputAdapter:
         solver_output_dir: Path,
         store: Any,
     ) -> None:
-        """No-op: GR4J results are injected via extract_from_memory."""
+        """No-op: GR4J results are injected via ``extract_from_memory``."""
         pass
 
     def extract_from_memory(
@@ -77,3 +77,6 @@ class GR4JOutputAdapter:
     ) -> None:
         """No derived variables for lumped models."""
         pass
+
+
+__all__ = ["Gr4jFlowExtractor"]

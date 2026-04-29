@@ -34,11 +34,11 @@ def test_registered_adapter_advertises_pair(pair: tuple[str, str]) -> None:
 
 @pytest.mark.parametrize(
     "pair",
-    [("flow", "modflownwt"), ("flow", "modflow6"), ("flow", "boussinesq"), ("flow", "gr4j")],
+    [("flow", "modflownwt"), ("flow", "modflow6"), ("flow", "boussinesq")],
     ids=lambda p: f"{p[0]}/{p[1]}",
 )
 def test_flow_adapter_exposes_extract_calibration_series(pair: tuple[str, str]) -> None:
-    """The 4 flow backends must each expose ``extract_calibration_series``."""
+    """The 3 flow backends must each expose ``extract_calibration_series``."""
     adapter = registry.get_solver_adapter(*pair)
     method = getattr(adapter, "extract_calibration_series", None)
     assert callable(method), f"{pair} must define extract_calibration_series"

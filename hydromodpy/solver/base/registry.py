@@ -51,7 +51,6 @@ _BUILTIN_PATHS: dict[AdapterKey, str] = {
     ("flow", "modflownwt"): "hydromodpy.solver.modflow_nwt.adapters.flow:ModflowNwtFlowAdapter",
     ("flow", "modflow6"): "hydromodpy.solver.modflow6.adapters.flow:Modflow6FlowAdapter",
     ("flow", "boussinesq"): "hydromodpy.solver.boussinesq.adapters.flow:BoussinesqFlowAdapter",
-    ("flow", "gr4j"): "hydromodpy.solver.gr4j.adapters.flow:GR4JFlowAdapter",
     (
         "transport",
         "modpath",
@@ -90,7 +89,6 @@ _BUILTIN_EXTRACTOR_PATHS: dict[str, str] = {
     "modflownwt": "hydromodpy.solver.modflow_nwt.extractors.flow:ModflowNwtOutputAdapter",
     "modflow6": "hydromodpy.solver.modflow6.extractors.flow:Modflow6OutputAdapter",
     "boussinesq": "hydromodpy.solver.boussinesq.extractors.flow:BoussinesqOutputAdapter",
-    "gr4j": "hydromodpy.solver.gr4j.extractors.flow:GR4JOutputAdapter",
     "mt3dms": "hydromodpy.solver.modflow_nwt.extractors.mt3dms:Mt3dmsOutputAdapter",
     "modflow6gwt": "hydromodpy.solver.modflow6.extractors.transport:Modflow6GwtOutputAdapter",
     "modpath": "hydromodpy.solver.modflow_nwt.extractors.modpath:ModpathOutputAdapter",

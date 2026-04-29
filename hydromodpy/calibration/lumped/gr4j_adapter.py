@@ -1,12 +1,11 @@
-"""Adapter for the ``flow/gr4j`` solver pair.
+"""Calibration-side adapter for the lumped GR4J catchment model.
 
-GR4J is a lumped catchment model run in-memory through
-``simulation.extraction.calibration_bridge``: it never writes solver binaries,
-and ``execute`` is therefore not wired into the staged flow runner. The class
-exists so calibration can route through the same ``SolverAdapter`` Protocol
-as MODFLOW backends (specifically ``extract_calibration_series``), which reads
-the catalogued series back from the cold-path ``store`` after
-``promote_trial`` has persisted the best run.
+GR4J runs in-memory through ``simulation.extraction.calibration_bridge``: it
+never writes solver binaries, and ``execute`` is therefore not wired into the
+staged flow runner. The class exposes ``extract_calibration_series`` so the
+calibration engine can read the catalogued series back from the cold-path
+``store`` after ``promote_trial`` has persisted the best run, using the same
+shape as the MODFLOW backend adapters.
 """
 
 from __future__ import annotations
@@ -19,8 +18,8 @@ import pandas as pd
 from hydromodpy.simulation.planning.plan import RunContext, RunExecutionResult
 
 
-class GR4JFlowAdapter:
-    """GR4J flow adapter — calibration-only entry point."""
+class Gr4jAdapter:
+    """GR4J calibration adapter (lumped model, no solver binary)."""
 
     process_type = "flow"
     solver_name = "gr4j"
@@ -36,12 +35,12 @@ class GR4JFlowAdapter:
         ``promote_trial`` instead of the ``ProcessRun`` lifecycle.
         """
         raise NotImplementedError(
-            "GR4JFlowAdapter does not implement execute(); GR4J is driven by "
+            "Gr4jAdapter does not implement execute(); GR4J is driven by "
             "simulation.extraction.calibration_bridge.make_hot_simulator."
         )
 
     def cleanup(self, ctx: RunContext) -> None:
-        """No scratch files to clean — GR4J keeps everything in RAM."""
+        """No scratch files to clean: GR4J keeps everything in RAM."""
 
     def extract_calibration_series(
         self,
@@ -57,8 +56,8 @@ class GR4JFlowAdapter:
         After calibration converges, ``promote_trial`` writes the best GR4J
         trial to the catalog under ``station_id="outlet"`` (or the station id
         provided via ``station_cells``). This method queries that timeseries
-        back so downstream metric computation goes through the same Protocol
-        as MODFLOW backends.
+        back so downstream metric computation goes through the same shape as
+        MODFLOW backends.
         """
         del ctx
         if store is None:
@@ -100,4 +99,4 @@ class GR4JFlowAdapter:
             return None
 
 
-__all__ = ["GR4JFlowAdapter"]
+__all__ = ["Gr4jAdapter"]
