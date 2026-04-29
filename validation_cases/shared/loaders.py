@@ -148,7 +148,7 @@ def _load_last_array_from_store_or_npy(
     """
     if store is not None and sim_id is not None:
         try:
-            grp = store.open_zarr_group(sim_id)
+            grp = store._open_zarr_group(sim_id)
             arr = None
             for loc in (grp, grp.get("derived"), grp.get("budget")):
                 if loc is not None and observable_name in loc:
@@ -350,7 +350,7 @@ def load_field(
             resolved_ts = timestep
             if timestep < 0:
                 try:
-                    grp = store.open_zarr_group(sim_id)
+                    grp = store._open_zarr_group(sim_id)
                     for loc in (grp, grp.get("derived"), grp.get("budget")):
                         if loc is not None and observable_name in loc:
                             n_ts = loc[observable_name].shape[0]
@@ -419,7 +419,7 @@ def load_time_series_fields(
     """
     if store is not None and sim_id is not None:
         try:
-            grp = store.open_zarr_group(sim_id)
+            grp = store._open_zarr_group(sim_id)
             arr = None
             for loc in (grp, grp.get("derived"), grp.get("budget")):
                 if loc is not None and observable_name in loc:

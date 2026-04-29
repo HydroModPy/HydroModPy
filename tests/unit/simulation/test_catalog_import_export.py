@@ -109,10 +109,10 @@ class TestImportSimulation:
         imported_sid = cat2.import_package(pkg)
         assert imported_sid == sid
 
-        count = cat2.connection.execute("SELECT COUNT(*) FROM simulations").fetchone()[0]
+        count = cat2._connection.execute("SELECT COUNT(*) FROM simulations").fetchone()[0]
         assert count == 1
 
-        params = cat2.connection.execute(
+        params = cat2._connection.execute(
             "SELECT COUNT(*) FROM parameters WHERE sim_id = ?", [sid]
         ).fetchone()[0]
         assert params == 1
@@ -156,7 +156,7 @@ class TestImportSimulation:
 
         imported = catalog.import_package(produced, force=True)
         assert imported == sid
-        count = catalog.connection.execute(
+        count = catalog._connection.execute(
             "SELECT COUNT(*) FROM simulations WHERE sim_id = ?", [sid]
         ).fetchone()[0]
         assert count == 1
@@ -173,7 +173,7 @@ class TestImportSimulation:
 
         cat2 = SimulationCatalog(ws2)
         cat2.import_package(pkg)
-        zarr_path, basename = cat2.connection.execute(
+        zarr_path, basename = cat2._connection.execute(
             "SELECT zarr_path, storage_basename FROM simulations WHERE sim_id = ?",
             [sid],
         ).fetchone()

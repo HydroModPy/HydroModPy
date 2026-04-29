@@ -46,7 +46,7 @@ def _rank_and_print(args: argparse.Namespace, *, mode: str) -> None:
         order = "ASC" if higher_is_better else "DESC"
 
     with SimulationCatalog(workspace_root) as catalog:
-        conn = catalog.connection
+        conn = catalog._connection
         row = conn.execute(
             f"""
             SELECT s.sim_id, s.name, s.solver, s.status, m.value

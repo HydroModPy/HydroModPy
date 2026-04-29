@@ -218,7 +218,7 @@ def _load_session(catalog: SimulationCatalog, session_id: str) -> dict:
     import uuid
 
     sid = uuid.UUID(session_id) if len(session_id) == 32 else session_id
-    row = catalog.connection.execute(
+    row = catalog._connection.execute(
         """
         SELECT session_id, project, method, objective_name,
                n_iterations, config, started_at, ended_at, status,
@@ -263,13 +263,13 @@ def _load_best_discharge(
     obs-vs-sim figure in that case.
     """
     try:
-        sim_df = catalog.connection.execute(
+        sim_df = catalog._connection.execute(
             "SELECT datetime, value FROM timeseries "
             "WHERE sim_id = ? AND variable = 'discharge' AND station_id = '_catchment' "
             "ORDER BY datetime",
             [sim_id],
         ).fetchdf()
-        obs_df = catalog.connection.execute(
+        obs_df = catalog._connection.execute(
             "SELECT datetime, value FROM timeseries "
             "WHERE sim_id = ? AND variable = 'discharge_obs' "
             "ORDER BY datetime",

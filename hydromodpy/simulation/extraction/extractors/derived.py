@@ -68,7 +68,7 @@ def compute_derived(
 
     # Determine how many timesteps the head field has
     try:
-        grp = store.open_zarr_group(sim_id, mode="r")
+        grp = store._open_zarr_group(sim_id, mode="r")
         if "head" not in grp:
             logger.debug("No head field stored for sim %s, skipping derived", sim_id)
             return
@@ -181,7 +181,7 @@ def _compute_watertable_depth(
     in the store. Falls back to a simple top-layer-head approach if mesh data
     is unavailable.
     """
-    grp = store.open_zarr_group(sim_id, mode="r")
+    grp = store._open_zarr_group(sim_id, mode="r")
 
     # Try to read surface elevation (per-cell top array preferred).
     top_elev = None
@@ -228,7 +228,7 @@ def _compute_seepage_areas(
 
     Requires both ``watertable_elevation`` and ``z_interfaces``.
     """
-    grp = store.open_zarr_group(sim_id, mode="r")
+    grp = store._open_zarr_group(sim_id, mode="r")
 
     if "mesh" not in grp:
         logger.debug("No mesh data, skipping seepage_areas for sim %s", sim_id)
@@ -276,7 +276,7 @@ def _compute_groundwater_flux(
     Reads right-face, front-face, and lower-face flow from the budget
     Zarr subgroup and computes the vector magnitude per cell.
     """
-    grp = store.open_zarr_group(sim_id, mode="r")
+    grp = store._open_zarr_group(sim_id, mode="r")
     budget_grp = grp.get("budget")
     if budget_grp is None:
         logger.debug("No budget fields, skipping groundwater_flux for sim %s", sim_id)
@@ -328,7 +328,7 @@ def _compute_accumulation_flux(
     from the store (produces a connected stream network). Falls back to
     simple ``abs(drn)`` per cell if geographic data or whitebox is unavailable.
     """
-    grp = store.open_zarr_group(sim_id, mode="r")
+    grp = store._open_zarr_group(sim_id, mode="r")
     budget_grp = grp.get("budget")
     if budget_grp is None:
         logger.debug("No budget fields, skipping accumulation_flux for sim %s", sim_id)
@@ -403,7 +403,7 @@ def _accumulation_flux_routed(
     from hydromodpy.spatial.delineation import get_whitebox_backend
 
     # Read surface_top from mesh (solver resolution) and infer 2D shape.
-    grp = store.open_zarr_group(sim_id, mode="r")
+    grp = store._open_zarr_group(sim_id, mode="r")
     mesh = grp.get("mesh")
     if mesh is None or "surface_top" not in mesh:
         raise KeyError("No mesh/surface_top for routing")
@@ -477,7 +477,7 @@ def _compute_outflow_drain(
 
     Like accumulation_flux but keeps the physical sign (negative = outflow).
     """
-    grp = store.open_zarr_group(sim_id, mode="r")
+    grp = store._open_zarr_group(sim_id, mode="r")
     budget_grp = grp.get("budget")
     if budget_grp is None:
         logger.debug("No budget fields, skipping outflow_drain for sim %s", sim_id)
@@ -518,7 +518,7 @@ def _compute_concentration_seepage(
     n_cells: int,
 ) -> None:
     """Concentration at seepage cells only. Zero elsewhere."""
-    grp = store.open_zarr_group(sim_id, mode="r")
+    grp = store._open_zarr_group(sim_id, mode="r")
     grp.get("derived")
 
     if "concentration" not in grp:
@@ -557,7 +557,7 @@ def _compute_mass_seepage(
     n_cells: int,
 ) -> None:
     """Mass flux at seepage cells = concentration_seepage * drain outflow."""
-    grp = store.open_zarr_group(sim_id, mode="r")
+    grp = store._open_zarr_group(sim_id, mode="r")
     budget_grp = grp.get("budget")
 
     if budget_grp is None:

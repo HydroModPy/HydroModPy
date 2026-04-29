@@ -57,7 +57,7 @@ def export_session(
     sid_str = str(session_id)
     sid = UUID(sid_str) if len(sid_str.replace("-", "")) == 32 else sid_str
 
-    session_row = catalog.connection.execute(
+    session_row = catalog._connection.execute(
         """
         SELECT session_id, project, method, objective_name,
                n_iterations, config, started_at, ended_at, status,

@@ -86,7 +86,7 @@ def _delete_from_catalog(catalog, sid: str) -> None:
     The schema uses ``(sim_id)`` as the natural key across every table that
     carries simulation-scoped data, so a flat delete loop is sufficient.
     """
-    conn = catalog.connection
+    conn = catalog._connection
     tables = (
         "parameters",
         "timeseries",

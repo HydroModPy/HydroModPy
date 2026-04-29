@@ -376,7 +376,7 @@ def collect_store_modpath_signatures(store, sim_id: str) -> dict:
     """Collect MODPATH signatures from the SimulationCatalog pathlines group."""
     result = {}
     try:
-        grp = store.open_zarr_group(sim_id)
+        grp = store._open_zarr_group(sim_id)
         pathlines_grp = grp.get("pathlines")
         if pathlines_grp is None:
             return result

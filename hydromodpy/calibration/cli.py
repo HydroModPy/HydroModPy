@@ -161,7 +161,7 @@ def _update_iter_sim_id(catalog, session_id: str, iteration: int, sim_id: str) -
     def _run() -> None:
         sid = uuid.UUID(session_id) if len(session_id) == 32 else session_id
         sim_uuid = uuid.UUID(sim_id) if len(sim_id) == 32 else sim_id
-        catalog.connection.execute(
+        catalog._connection.execute(
             """
             UPDATE calibration_iterations
                SET sim_id = ?
@@ -180,7 +180,7 @@ def _update_best_sim_id(catalog, session_id: str, sim_id: str) -> None:
     def _run() -> None:
         sid = uuid.UUID(session_id) if len(session_id) == 32 else session_id
         sim_uuid = uuid.UUID(sim_id) if len(sim_id) == 32 else sim_id
-        catalog.connection.execute(
+        catalog._connection.execute(
             "UPDATE calibration_sessions SET best_sim_id = ? WHERE session_id = ?",
             [sim_uuid, sid],
         )
@@ -250,7 +250,7 @@ def _run_calibration(
     if cfg.use_cache:
         engine_cache = ParamsHashCache()
         try:
-            n_preloaded = _preload_hash_cache(catalog.connection, engine_cache)
+            n_preloaded = _preload_hash_cache(catalog._connection, engine_cache)
             if n_preloaded:
                 logger.info("Preloaded %d params_hash entries from DuckDB", n_preloaded)
         except Exception:

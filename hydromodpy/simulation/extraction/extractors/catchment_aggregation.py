@@ -52,7 +52,7 @@ def aggregate_catchment_timeseries(
     time_index : pd.DatetimeIndex, optional
         Datetime labels for each timestep. When None, integer indices are used.
     """
-    grp = store.open_zarr_group(sim_id, mode="r")
+    grp = store._open_zarr_group(sim_id, mode="r")
 
     n_timesteps = _detect_n_timesteps(grp)
     if n_timesteps == 0:

@@ -288,7 +288,7 @@ class Modflow6OutputAdapter:
             else:
                 return
 
-            grp = store.open_zarr_group(sim_id)
+            grp = store._open_zarr_group(sim_id)
             if "mesh" not in grp:
                 grp.create_group("mesh")
             mesh = grp["mesh"]

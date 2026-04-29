@@ -40,7 +40,7 @@ def compare_pair(
     with SimulationCatalog(workspace_root) as catalog:
         sid_a = catalog.resolve(sim_a)
         sid_b = catalog.resolve(sim_b)
-        df = catalog.connection.execute(
+        df = catalog._connection.execute(
             "SELECT sim_id, station_id, metric_name, value "
             "FROM metrics WHERE sim_id IN (?, ?) "
             "ORDER BY metric_name, station_id",

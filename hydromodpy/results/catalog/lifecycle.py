@@ -57,7 +57,7 @@ class LifecycleMixin:
             return self._track_zarr_handle(SimulationZarr(zarr_zip))
         return self._track_zarr_handle(SimulationZarr(self._simulations_dir / f"{basename}.zarr"))
 
-    def open_zarr_group(self, sim_id: str | UUID, *, mode: str = "r"):
+    def _open_zarr_group(self, sim_id: str | UUID, *, mode: str = "r"):
         return self.open_zarr(sim_id).root
 
     def cleanup(

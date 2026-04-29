@@ -170,7 +170,7 @@ class TestRegisterAndRead:
     def test_register_creates_row(self, catalog):
         sid = _sim_id()
         catalog.register_simulation(sid, project="p1", solver="modflow6")
-        row = catalog.connection.execute(
+        row = catalog._connection.execute(
             "SELECT project, solver, status FROM simulations WHERE sim_id=?",
             [sid],
         ).fetchone()
@@ -185,7 +185,7 @@ class TestRegisterAndRead:
             solver="modflow6",
             config_snapshot=snapshot,
         )
-        raw = catalog.connection.execute(
+        raw = catalog._connection.execute(
             "SELECT config_snapshot FROM simulations WHERE sim_id=?",
             [sid],
         ).fetchone()[0]
@@ -200,7 +200,7 @@ class TestRegisterAndRead:
             solver="modflow6",
             config=config,
         )
-        raw = catalog.connection.execute(
+        raw = catalog._connection.execute(
             "SELECT config_snapshot FROM simulations WHERE sim_id=?",
             [sid],
         ).fetchone()[0]
@@ -215,7 +215,7 @@ class TestRegisterAndRead:
             bbox=[1.0, 2.0, 3.0, 4.0],
             crs="EPSG:2154",
         )
-        row = catalog.connection.execute(
+        row = catalog._connection.execute(
             "SELECT bbox_xmin, bbox_ymin, bbox_xmax, bbox_ymax, "
             "       crs_wkt, crs_epsg "
             "FROM simulations WHERE sim_id=?",
@@ -232,7 +232,7 @@ class TestRegisterAndRead:
             solver="modflow6",
             geographic_fingerprint=fp,
         )
-        row = catalog.connection.execute(
+        row = catalog._connection.execute(
             "SELECT geographic_fingerprint FROM simulations WHERE sim_id=?",
             [sid],
         ).fetchone()
@@ -381,7 +381,7 @@ class TestChecks:
                 }
             ],
         )
-        count = catalog.connection.execute(
+        count = catalog._connection.execute(
             "SELECT COUNT(*) FROM budgets WHERE sim_id = ?", [sid]
         ).fetchone()[0]
         assert count == 1
@@ -664,7 +664,7 @@ class TestConfigSourceAndOrderBy:
             solver="s",
             config_source="/tmp/run_transient.toml",
         )
-        row = catalog.connection.execute(
+        row = catalog._connection.execute(
             "SELECT config_source FROM simulations WHERE sim_id = ?",
             [sid],
         ).fetchone()

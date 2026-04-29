@@ -217,6 +217,12 @@ class ReadsMixin:
         ).fetchdf()
 
     def sql(self, query: str, params: list | None = None) -> pd.DataFrame:
+        """Run an arbitrary SQL query against the catalog DuckDB store.
+
+        Documented escape hatch for callers that need ad-hoc analytical
+        queries beyond the typed catalog API. Returns the result as a
+        :class:`pandas.DataFrame`.
+        """
         if params:
             return self._db.execute(query, params).fetchdf()
         return self._db.execute(query).fetchdf()

@@ -65,13 +65,13 @@ class Run:
 
     def _load_row(self) -> dict:
         if self._row is None:
-            row = self._catalog.connection.execute(
+            row = self._catalog._connection.execute(
                 "SELECT * FROM simulations WHERE sim_id = ?",
                 [self._sim_id],
             ).fetchone()
             if row is None:
                 raise KeyError(f"Simulation '{self._sim_id}' not found")
-            cols = [d[0] for d in self._catalog.connection.description]
+            cols = [d[0] for d in self._catalog._connection.description]
             self._row = dict(zip(cols, row, strict=False))
         return self._row
 
@@ -155,7 +155,7 @@ class Run:
         scalars are trivially looked up via
         ``sim.parameters.loc["thickness", "value"]``.
         """
-        df = self._catalog.connection.execute(
+        df = self._catalog._connection.execute(
             "SELECT param_name, zone_id, value, unit, parameterization "
             "FROM parameters WHERE sim_id = ? ORDER BY param_name, zone_id",
             [self._sim_id],
@@ -173,7 +173,7 @@ class Run:
 
     @property
     def metrics(self) -> pd.DataFrame:
-        return self._catalog.connection.execute(
+        return self._catalog._connection.execute(
             "SELECT station_id, metric_name, value "
             "FROM metrics WHERE sim_id = ? ORDER BY station_id, metric_name",
             [self._sim_id],
@@ -181,7 +181,7 @@ class Run:
 
     @property
     def provenance(self) -> pd.DataFrame:
-        return self._catalog.connection.execute(
+        return self._catalog._connection.execute(
             "SELECT variable, source_type, source_ref, "
             "payload_sha256 AS checksum, "
             "period_start, period_end, n_records "
@@ -206,7 +206,7 @@ class Run:
             query += " AND datetime >= ? AND datetime <= ?"
             params.extend([period[0], period[1]])
         query += " ORDER BY datetime"
-        result = self._catalog.connection.execute(query, params).fetchdf()
+        result = self._catalog._connection.execute(query, params).fetchdf()
         if result.empty:
             raise KeyError(
                 f"No timeseries for sim={self._sim_id}, station={station}, var={variable}"
@@ -239,11 +239,11 @@ class Run:
         if period is not None:
             query += " AND timestep >= ? AND timestep <= ?"
             params.extend(period)
-        return self._catalog.connection.execute(query, params).fetchdf()
+        return self._catalog._connection.execute(query, params).fetchdf()
 
     @property
     def mass_balance(self) -> pd.DataFrame:
-        return self._catalog.connection.execute(
+        return self._catalog._connection.execute(
             "SELECT * FROM mass_balance WHERE sim_id = ? ORDER BY timestep",
             [self._sim_id],
         ).fetchdf()
@@ -463,7 +463,7 @@ class Run:
         ``run.parameters`` DataFrame (MultiIndex on ``param_name`` and
         ``zone_id``).
         """
-        rows = self._catalog.connection.execute(
+        rows = self._catalog._connection.execute(
             "SELECT param_name, value FROM parameters "
             "WHERE sim_id = ? AND (zone_id IS NULL OR zone_id = ?)",
             [self._sim_id, "__global__"],
@@ -534,7 +534,7 @@ class Run:
     # -- Export convenience --------------------------------------------------
 
     def to_csv(self, path: Path | str | None = None) -> pd.DataFrame:
-        df = self._catalog.connection.execute(
+        df = self._catalog._connection.execute(
             "SELECT station_id, variable, datetime, value, unit "
             "FROM timeseries WHERE sim_id = ? "
             "ORDER BY station_id, variable, datetime",

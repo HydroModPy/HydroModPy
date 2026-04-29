@@ -90,7 +90,7 @@ class TestFullCycle:
         )
         assert reg.zarr is not None
 
-        grp = catalog.open_zarr_group(sid, mode="a")
+        grp = catalog._open_zarr_group(sid, mode="a")
         mesh = grp["mesh"]
         mesh.create_array("surface_top", data=np.array([10.0, 10.0, 10.0, 10.0]), overwrite=True)
 

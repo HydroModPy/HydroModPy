@@ -25,7 +25,7 @@ class CalibrationPersistence:
     """Idempotent writer for calibration rows."""
 
     def __init__(self, catalog: SimulationCatalog):
-        self._conn = catalog.connection
+        self._conn = catalog._connection
 
     def start_session(
         self,
