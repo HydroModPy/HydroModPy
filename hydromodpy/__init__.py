@@ -217,7 +217,9 @@ __all__ = [
     "DomainConfig",
     "Subbasin",
     "FlowConfig",
+    "FlowProcess",
     "TransportConfig",
+    "TransportProcess",
     # Solvers
     "Modflow",
     "Modflow6",
@@ -227,13 +229,18 @@ __all__ = [
     # Project / run / catalog API
     "Project",
     "Run",
+    "SimulationConfig",
     "SimulationPlan",
     "Catalog",
     "SimulationCatalog",
     "SimulationGroup",
     # Data variables
+    "DataManagersConfig",
+    "DemConfig",
+    "GeologyConfig",
     "HydrometryConfig",
     "PiezometryConfig",
+    "RechargeConfig",
     "HydrographyConfig",
     "HydrographyManager",
     "HydrographyResult",
