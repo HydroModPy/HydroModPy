@@ -5,7 +5,7 @@ from types import SimpleNamespace
 import numpy as np
 import pytest
 
-from hydromodpy.solver.modflow_common import (
+from hydromodpy.solver.modflow_grid import (
     build_spatial_discretization,
 )
 from hydromodpy.solver.modflow_nwt.nwt import ModflowNwt

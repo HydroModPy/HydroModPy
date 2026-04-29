@@ -7,7 +7,7 @@ from dataclasses import dataclass
 import numpy as np
 
 from hydromodpy.core.grid_reference import GridReference
-from hydromodpy.solver.modflow_common.solver_mesh import SolverMesh
+from hydromodpy.solver.modflow_grid.solver_mesh import SolverMesh
 from hydromodpy.spatial.surface import Surface
 
 

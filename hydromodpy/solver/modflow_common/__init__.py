@@ -1,4 +1,9 @@
-"""Shared MODFLOW helper utilities used across solver backends."""
+"""Shared MODFLOW helper utilities used across solver backends.
+
+Grid-related primitives (``SolverMesh``, ``SolverGridContext``,
+spatial / temporal discretization, DIS / DISV descriptors) live in
+``hydromodpy.solver.modflow_grid``; import them from there.
+"""
 
 from .binaries import (
     DEFAULT_RELEASE,
@@ -19,16 +24,6 @@ from .boundary_packages import (
     package_attr_names,
     validate_attrs,
 )
-from .discretization_spatial import (
-    build_spatial_discretization,
-    project_surfaces_to_planar_grid,
-    resolve_domain_surfaces,
-)
-from .discretization_temporal import (
-    TemporalDiscretizationResult,
-    build_temporal_discretization,
-    build_temporal_discretization_from_time_grid,
-)
 from .executables import ensure_platform_executable
 from .flow_translator import (
     MF6_PACKAGES,
@@ -36,13 +31,6 @@ from .flow_translator import (
     BoundaryKind,
     resolve_package,
     resolve_packages,
-)
-from .grid_context import SolverGridContext
-from .grid_mapping import (
-    DiscretizationKind,
-    DisDescriptor,
-    DisvDescriptor,
-    describe_grid,
 )
 from .masstransfer import Masstransfer
 from .options import (
@@ -57,32 +45,19 @@ from .runtime_arrays import (
     flow_grid_shape,
     resolve_flow_property_runtime_overrides,
 )
-from .solver_mesh import SolverMesh
 
 __all__ = [
     "BoundaryCell",
     "BoundaryKind",
-    "DiscretizationKind",
-    "DisDescriptor",
-    "DisvDescriptor",
     "DisvBoundaryCell",
     "MF6_PACKAGES",
     "NWT_PACKAGES",
     "PACKAGE_ATTRS",
     "PackageKind",
-    "SolverGridContext",
-    "SolverMesh",
     "SolverRoutingContext",
     "ModflowPreprocessOptions",
     "ModflowRunOptions",
     "ModflowPostprocessOptions",
-    "TemporalDiscretizationResult",
-    "build_spatial_discretization",
-    "resolve_domain_surfaces",
-    "project_surfaces_to_planar_grid",
-    "build_temporal_discretization",
-    "build_temporal_discretization_from_time_grid",
-    "describe_grid",
     "DEFAULT_RELEASE",
     "MANIFEST_FILENAME",
     "available_solvers",

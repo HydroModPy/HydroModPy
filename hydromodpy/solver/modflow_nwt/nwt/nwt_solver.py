@@ -38,24 +38,22 @@ from hydromodpy.core.io.raster_io import export_tif
 from hydromodpy.core.logging import get_logger
 from hydromodpy.solver.contracts import Solver
 from hydromodpy.solver.modflow_common import (
-    SolverGridContext,
     SolverRoutingContext,
     build_solver_routing_context,
     ensure_solver_binary,
     masstransfer,
     write_grid_array_to_raster,
 )
-from hydromodpy.solver.modflow_common.discretization_spatial import (
-    build_spatial_discretization,
-    resolve_domain_surfaces,
-)
-from hydromodpy.solver.modflow_common.discretization_temporal import (
-    build_temporal_discretization_from_time_grid,
-)
 from hydromodpy.solver.modflow_common.options import (
     ModflowPostprocessOptions,
     ModflowPreprocessOptions,
     ModflowRunOptions,
+)
+from hydromodpy.solver.modflow_grid import (
+    SolverGridContext,
+    build_spatial_discretization,
+    build_temporal_discretization_from_time_grid,
+    resolve_domain_surfaces,
 )
 from hydromodpy.spatial.mesh.cartesian_grid.sgrid_config import SolverSGridConfig
 

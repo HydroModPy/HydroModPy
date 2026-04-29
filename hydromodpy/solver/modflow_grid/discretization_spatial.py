@@ -6,12 +6,12 @@ from collections.abc import Mapping
 
 import numpy as np
 
-from hydromodpy.solver.modflow_common.grid_context import (
+from hydromodpy.solver.modflow_common.sgrid_to_flopy import translate as sgrid_spec_to_flopy
+from hydromodpy.solver.modflow_grid.grid_context import (
     SolverGridContext,
     grid_reference_from_solver_mesh,
 )
-from hydromodpy.solver.modflow_common.sgrid_to_flopy import translate as sgrid_spec_to_flopy
-from hydromodpy.solver.modflow_common.solver_mesh import SolverMesh
+from hydromodpy.solver.modflow_grid.solver_mesh import SolverMesh
 from hydromodpy.spatial.mesh.cartesian_grid.sgrid_config import (
     PlanarGridConfig,
     SolverSGridConfig,

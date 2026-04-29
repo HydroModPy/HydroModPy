@@ -17,7 +17,7 @@ from typing import Literal
 
 import numpy as np
 
-from hydromodpy.solver.modflow_common.solver_mesh import SolverMesh
+from hydromodpy.solver.modflow_grid.solver_mesh import SolverMesh
 
 DiscretizationKind = Literal["dis", "disv"]
 

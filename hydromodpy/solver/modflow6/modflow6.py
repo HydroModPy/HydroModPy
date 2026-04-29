@@ -49,14 +49,16 @@ from hydromodpy.solver.modflow_common import (
     ModflowPostprocessOptions,
     ModflowPreprocessOptions,
     ModflowRunOptions,
-    SolverGridContext,
     SolverRoutingContext,
     build_solver_routing_context,
-    build_spatial_discretization,
-    build_temporal_discretization_from_time_grid,
     ensure_platform_executable,
     ensure_solver_binary,
     write_grid_array_to_raster,
+)
+from hydromodpy.solver.modflow_grid import (
+    SolverGridContext,
+    build_spatial_discretization,
+    build_temporal_discretization_from_time_grid,
 )
 
 logger = get_logger(__name__)
