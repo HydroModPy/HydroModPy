@@ -7,6 +7,11 @@ Concrete implementations will wrap the existing ``postprocess/`` modules
 
 from __future__ import annotations
 
+from collections.abc import Mapping
+from typing import Any
+
+import pandas as pd
+
 from hydromodpy.simulation.planning.plan import RunContext, RunExecutionResult
 
 
@@ -29,6 +34,19 @@ class TimeseriesPostprocessAdapter:
             "Implement by wrapping FlowTimeseriesPostprocess / TransportTimeseriesPostprocess."
         )
 
+    def extract_calibration_series(
+        self,
+        ctx: RunContext,
+        store: Any,
+        *,
+        variable: str,
+        station_cells: Mapping[str, tuple[int, int, int]] | None = None,
+        time_index: pd.DatetimeIndex | None = None,
+    ) -> pd.Series:
+        """Postprocess runs are not calibration targets; return empty series."""
+        del ctx, store, station_cells, time_index
+        return pd.Series(dtype=float, name=variable)
+
 
 class NetcdfPostprocessAdapter:
     """Adapter for ``postprocess/netcdf`` runs (stub)."""
@@ -48,3 +66,16 @@ class NetcdfPostprocessAdapter:
             "NetcdfPostprocessAdapter is a stub. "
             "Implement by wrapping FlowNetcdfPostprocess / TransportNetcdfPostprocess."
         )
+
+    def extract_calibration_series(
+        self,
+        ctx: RunContext,
+        store: Any,
+        *,
+        variable: str,
+        station_cells: Mapping[str, tuple[int, int, int]] | None = None,
+        time_index: pd.DatetimeIndex | None = None,
+    ) -> pd.Series:
+        """Postprocess runs are not calibration targets; return empty series."""
+        del ctx, store, station_cells, time_index
+        return pd.Series(dtype=float, name=variable)

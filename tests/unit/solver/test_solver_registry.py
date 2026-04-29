@@ -21,6 +21,11 @@ class FakeAdapter:
     def cleanup(self, ctx):
         pass
 
+    def extract_calibration_series(self, ctx, store, **kwargs):
+        import pandas as pd
+
+        return pd.Series(dtype=float)
+
 
 class AnotherFakeAdapter(FakeAdapter):
     pass

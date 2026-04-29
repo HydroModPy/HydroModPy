@@ -4,27 +4,23 @@ During a calibration loop, each trial runs in ``lightweight`` mode: the
 solver still writes its binary output (``.hds``, ``.cbc``, ...) to the
 workspace scratch folder, but no Zarr / Parquet / catalog rows are
 created. The optimizer only needs a scalar objective value to drive the
-ask/tell loop - the metric extractor in this module reads the solver
-binaries directly, aligns the simulated series with the observations
-that were loaded once during ``prepare_trials``, and returns a
-``(primary_metric, per_component_metrics)`` tuple.
+ask/tell loop. This module loads observations once, then for every trial
+asks the run's :class:`SolverAdapter` to produce the simulated series via
+``extract_calibration_series`` and scores it against the observations.
 
-Current coverage:
-
-- **MODFLOW-NWT** - discharge (DRAIN budget summed over the catchment)
-  and head at observation points (read from the ``.hds`` file).
-
-MODFLOW-6 and other solvers are scheduled for a follow-up: the
-extractor returns ``(nan, {})`` for unsupported solvers so the trial
-reports ``status="completed"`` but its objective becomes ``nan`` and
-the optimizer naturally skips it.
+Solver coverage is owned by the adapters: the lightweight reader for
+MODFLOW-NWT and MODFLOW 6 lives in
+``hydromodpy.solver.modflow_common.calibration_extractors``; Boussinesq
+and GR4J have stub implementations that return an empty series until the
+follow-up extractor wiring lands. When an adapter returns an empty
+series, the trial reports ``status="completed"`` but its objective
+becomes ``nan`` and the optimizer naturally skips it.
 """
 
 from __future__ import annotations
 
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
-from pathlib import Path
 from types import SimpleNamespace
 from typing import TYPE_CHECKING, Any
 
@@ -37,6 +33,8 @@ from hydromodpy.calibration.objective import (
     build_objective_from_config,
 )
 from hydromodpy.core.logging import get_logger
+from hydromodpy.simulation.planning.plan import RunContext
+from hydromodpy.solver.base.registry import get_solver_adapter
 
 if TYPE_CHECKING:
     from hydromodpy.calibration.config import CalibObjectiveBlockDecl, CalibOutputDecl
@@ -103,87 +101,42 @@ def _load_observed(
 
 
 # ---------------------------------------------------------------------------
-# Simulated series extraction (solver-specific)
+# Adapter resolution: pick the active flow run and its SolverAdapter
 # ---------------------------------------------------------------------------
 
 
-def _find_flow_run(ctx: Any) -> tuple[str, Any, Path] | None:
-    """Return ``(run_id, model, output_dir)`` for the first flow run, else None.
+def _resolve_flow_adapter(trial_ctx: Any) -> tuple[Any, RunContext] | None:
+    """Return ``(adapter, run_ctx)`` for the active flow run, or ``None``.
 
-    The calibration trial runs one flow process by design, so we return
-    the earliest entry in ``models_by_run_id``. ``output_dir`` is pulled
-    from ``output_dirs_by_run_id`` (populated by ``SimulationRunner``)
-    and falls back to the model's ``full_path`` attribute when absent.
+    A calibration trial runs exactly one flow process by design; this helper
+    returns the first such ``ProcessRun`` it finds along with a freshly
+    instantiated ``SolverAdapter`` and a ``RunContext`` whose ``state`` is the
+    trial context itself (the adapter reads ``state.execution`` directly).
     """
-    registry = getattr(ctx, "execution", None)
-    if registry is None:
+    registry_state = getattr(trial_ctx, "execution", None)
+    if registry_state is None:
         return None
-    models = registry.models_by_run_id or {}
-    output_dirs = getattr(registry, "output_dirs_by_run_id", {}) or {}
+    models = registry_state.models_by_run_id or {}
     if not models:
         return None
-
-    # Pick the first flow run (process_type == "flow").
-    plan = registry.simulation_plan
-    flow_run_id = None
-    if plan is not None:
-        for run in plan.runs:
-            if run.process_type == "flow" and run.id in models:
-                flow_run_id = run.id
-                break
-    if flow_run_id is None:
-        flow_run_id = next(iter(models))
-
-    model = models[flow_run_id]
-    output_dir = output_dirs.get(flow_run_id)
-    if output_dir is None:
-        full_path = getattr(model, "full_path", None)
-        if full_path is not None:
-            output_dir = Path(full_path)
-    if output_dir is None:
+    plan = getattr(registry_state, "simulation_plan", None)
+    if plan is None:
         return None
-    return flow_run_id, model, Path(output_dir)
 
+    flow_run = None
+    for run in plan.runs:
+        if run.process_type == "flow" and run.id in models:
+            flow_run = run
+            break
+    if flow_run is None:
+        return None
 
-# MODFLOW ITMUNI codes -> seconds per native time unit. Used to convert
-# the CBC native flux unit (e.g. m³/d when itmuni=4) into m³/s before
-# comparing against observations stored in m³/s.
-_ITMUNI_TO_SECONDS: dict[int, float] = {
-    0: 1.0,  # undefined -> treat as seconds
-    1: 1.0,  # seconds
-    2: 60.0,  # minutes
-    3: 3600.0,  # hours
-    4: 86400.0,  # days
-    5: 31557600.0,  # years (365.25 days)
-}
-
-
-def _read_itmuni_from_dis(dis_path: Path) -> int:
-    """Return the ITMUNI integer declared in a MODFLOW DIS file.
-
-    Falls back to ``1`` (seconds) when the file is missing or the second
-    header line cannot be parsed.
-    """
-    if not dis_path.is_file():
-        return 1
     try:
-        with dis_path.open("r", encoding="utf-8") as fh:
-            header_lines: list[str] = []
-            for raw in fh:
-                stripped = raw.strip()
-                if not stripped or stripped.startswith("#"):
-                    continue
-                header_lines.append(stripped)
-                if len(header_lines) >= 2:
-                    break
-        if len(header_lines) < 2:
-            return 1
-        tokens = header_lines[1].split()
-        if len(tokens) >= 2:
-            return int(tokens[1])
-    except (OSError, ValueError):
-        return 1
-    return 1
+        adapter = get_solver_adapter(flow_run.process_type, flow_run.solver)
+    except KeyError:
+        return None
+    run_ctx = RunContext(plan=plan, run=flow_run, state=trial_ctx)
+    return adapter, run_ctx
 
 
 _RUNOFF_WARNING_EMITTED: set[int] = set()
@@ -250,108 +203,6 @@ def _add_runoff_to_discharge(
     aligned = runoff_mm_per_d.reindex(target_index, method="nearest")
     runoff_m3_per_s = aligned * 1e-3 * catch_area_m2 / 86400.0
     return simulated.add(runoff_m3_per_s, fill_value=0.0)
-
-
-def _extract_discharge_modflownwt(
-    output_dir: Path,
-    model_name: str,
-    time_index: pd.DatetimeIndex | None = None,
-) -> pd.Series | None:
-    """Sum the DRAIN/DRN budget component per timestep and return a series.
-
-    MODFLOW-NWT writes DRN outflow as negative values in the CBC file;
-    we sum their absolute values cell-wise, layer-wise, per timestep,
-    then convert from the run's native time unit (per ITMUNI in the DIS
-    file) to ``m³/s`` so the result is directly comparable to the
-    hydrometry observations (which are always normalised to m³/s).
-    """
-    import flopy.utils.binaryfile as bf
-
-    cbc_path = output_dir / f"{model_name}.cbc"
-    if not cbc_path.exists():
-        # Some workflows use ``.cbb``
-        cbc_path = output_dir / f"{model_name}.cbb"
-    if not cbc_path.exists():
-        logger.debug("CBC file not found in %s", output_dir)
-        return None
-
-    itmuni = _read_itmuni_from_dis(output_dir / f"{model_name}.dis")
-    seconds_per_unit = _ITMUNI_TO_SECONDS.get(itmuni, 1.0)
-
-    cbb = bf.CellBudgetFile(str(cbc_path))
-    try:
-        record_names = [r.decode().strip() for r in cbb.get_unique_record_names()]
-        drain_key = next(
-            (key for key in record_names if key.lower() in {"drains", "drn", "drain"}),
-            None,
-        )
-        if drain_key is None:
-            logger.debug("No DRAIN component in CBC; components were %s", record_names)
-            return None
-
-        times = cbb.get_times()
-        kstpkpers = cbb.get_kstpkper()
-        n_timesteps = len(times)
-        values = np.zeros(n_timesteps, dtype=float)
-        for t, (time, ksk) in enumerate(zip(times, kstpkpers, strict=False)):
-            try:
-                data = cbb.get_data(text=drain_key, kstpkper=ksk, totim=time, full3D=True)
-            except Exception:
-                continue
-            if not data:
-                continue
-            arr = np.asarray(data[0], dtype=float)
-            values[t] = float(np.abs(np.minimum(arr, 0.0)).sum())
-    finally:
-        cbb.close()
-
-    # Native MODFLOW flux is volume / itmuni-time-unit. Divide by the
-    # number of seconds in that unit to obtain m³/s.
-    values = values / seconds_per_unit
-
-    if time_index is not None and len(time_index) == n_timesteps:
-        return pd.Series(values, index=time_index, name="discharge")
-    return pd.Series(values, name="discharge")
-
-
-def _extract_head_modflownwt(
-    output_dir: Path,
-    model_name: str,
-    *,
-    station_cells: Mapping[str, tuple[int, int, int]],
-    time_index: pd.DatetimeIndex | None = None,
-) -> dict[str, pd.Series]:
-    """Return head timeseries keyed by station at the given ``(k, i, j)`` cells."""
-    import flopy.utils.binaryfile as bf
-
-    hds_path = output_dir / f"{model_name}.hds"
-    if not hds_path.exists():
-        logger.debug("HDS file not found in %s", output_dir)
-        return {}
-
-    hf = bf.HeadFile(str(hds_path))
-    try:
-        times = hf.get_times()
-        n_t = len(times)
-        out: dict[str, pd.Series] = {}
-        # Cache full heads by timestep to avoid re-reading the file per station.
-        for station_id, (k, i, j) in station_cells.items():
-            values = np.full(n_t, np.nan, dtype=float)
-            for t, totim in enumerate(times):
-                try:
-                    head = hf.get_data(totim=totim)
-                    values[t] = float(head[k, i, j])
-                except Exception:
-                    pass
-            # Treat HDRY / HNOFLO sentinels as NaN (same thresholds as extractor)
-            values[np.abs(values) > 1e6] = np.nan
-            if time_index is not None and len(time_index) == n_t:
-                out[station_id] = pd.Series(values, index=time_index, name=f"head@{station_id}")
-            else:
-                out[station_id] = pd.Series(values, name=f"head@{station_id}")
-    finally:
-        hf.close()
-    return out
 
 
 # ---------------------------------------------------------------------------
@@ -505,19 +356,21 @@ def build_metric_extractor(
         )
 
     def metric_fn(trial_ctx: Any, *, objective: str = objective, variable: str = variable):
-        found = _find_flow_run(trial_ctx)
-        if found is None or not observed:
+        resolved = _resolve_flow_adapter(trial_ctx)
+        if resolved is None or not observed:
             return float("nan"), {}
-        run_id, model, output_dir = found
-        model_name = getattr(model, "model_name", None) or getattr(model, "name", None)
-        if model_name is None:
-            return float("nan"), {}
+        adapter, run_ctx = resolved
 
         time_idx = _resolve_time_index(trial_ctx, n_timesteps=0)
         try:
             if variable == "discharge":
-                simulated = _extract_discharge_modflownwt(output_dir, model_name, time_idx)
-                if simulated is None:
+                simulated = adapter.extract_calibration_series(
+                    run_ctx,
+                    None,
+                    variable="discharge",
+                    time_index=time_idx,
+                )
+                if simulated.empty:
                     return float("nan"), {}
                 # Add the surface runoff forcing (data layer) to the
                 # baseflow component drained by MODFLOW so the simulated
@@ -542,15 +395,22 @@ def build_metric_extractor(
                 station_cells = _resolve_station_cells(trial_ctx, observed)
                 if not station_cells:
                     return float("nan"), {}
-                sim_series = _extract_head_modflownwt(
-                    output_dir, model_name, station_cells=station_cells, time_index=time_idx
-                )
                 components = {}
                 costs = []
                 for obs_rec in observed:
-                    if obs_rec.station_id not in sim_series:
+                    cell = station_cells.get(obs_rec.station_id)
+                    if cell is None:
                         continue
-                    cost = _score(obs_rec.series, sim_series[obs_rec.station_id], objective)
+                    sim = adapter.extract_calibration_series(
+                        run_ctx,
+                        None,
+                        variable="head",
+                        station_cells={obs_rec.station_id: cell},
+                        time_index=time_idx,
+                    )
+                    if sim.empty:
+                        continue
+                    cost = _score(obs_rec.series, sim, objective)
                     components[f"{objective}@{obs_rec.station_id}"] = cost
                     if not np.isnan(cost):
                         costs.append(cost)
@@ -659,13 +519,10 @@ def _extract_point(ctx: Any, output: CalibOutputDecl) -> list[float]:
     ``.hds`` file is missing, returns ``[nan]`` so callers can keep
     operating without crashing.
     """
-    found = _find_flow_run(ctx)
-    if found is None:
+    resolved = _resolve_flow_adapter(ctx)
+    if resolved is None:
         return [float("nan")]
-    _run_id, model, output_dir = found
-    model_name = getattr(model, "model_name", None) or getattr(model, "name", None)
-    if model_name is None:
-        return [float("nan")]
+    adapter, run_ctx = resolved
 
     x_m = _coerce_length_to_m(output.x)
     y_m = _coerce_length_to_m(output.y)
@@ -675,14 +532,14 @@ def _extract_point(ctx: Any, output: CalibOutputDecl) -> list[float]:
     cell = _find_cell_at_point(ctx, x_m, y_m)
     if cell is None:
         return [float("nan")]
-    series = _extract_head_modflownwt(
-        output_dir,
-        model_name,
+    sim = adapter.extract_calibration_series(
+        run_ctx,
+        None,
+        variable="head",
         station_cells={"_pt": cell},
         time_index=None,
     )
-    sim = series.get("_pt")
-    if sim is None or sim.size == 0:
+    if sim.empty:
         return [float("nan")]
     return _slice_time(sim.values, output.time, output.reducer)
 
@@ -691,21 +548,22 @@ def _extract_boundary(ctx: Any, output: CalibOutputDecl) -> list[float]:
     """Extract a boundary time series filtered by ``boundary_id``.
 
     The current implementation reuses the catchment-wide DRAIN summation
-    in :func:`_extract_discharge_modflownwt` and is solver-specific to
-    MODFLOW-NWT. Filtering by named boundary id requires a boundname-
-    aware reader; left as a follow-up. Returns ``[nan]`` when the CBC
-    file is absent.
+    exposed by ``SolverAdapter.extract_calibration_series(variable="discharge")``.
+    Filtering by named boundary id requires a boundname-aware reader; left
+    as a follow-up. Returns ``[nan]`` when the adapter has nothing to read.
     """
-    found = _find_flow_run(ctx)
-    if found is None:
+    resolved = _resolve_flow_adapter(ctx)
+    if resolved is None:
         return [float("nan")]
-    _run_id, model, output_dir = found
-    model_name = getattr(model, "model_name", None) or getattr(model, "name", None)
-    if model_name is None:
-        return [float("nan")]
+    adapter, run_ctx = resolved
 
-    sim = _extract_discharge_modflownwt(output_dir, model_name, time_index=None)
-    if sim is None or sim.size == 0:
+    sim = adapter.extract_calibration_series(
+        run_ctx,
+        None,
+        variable="discharge",
+        time_index=None,
+    )
+    if sim.empty:
         return [float("nan")]
     return _slice_time(sim.values, output.time, output.reducer)
 
@@ -764,10 +622,13 @@ def _find_cell_in_modflow_grid(ctx: Any, x: float, y: float) -> tuple[int, int, 
     ``StructuredGrid``). Returns ``None`` if no MODFLOW-NWT model is
     attached or the grid does not expose ``xcellcenters`` / ``ycellcenters``.
     """
-    found = _find_flow_run(ctx)
-    if found is None:
+    resolved = _resolve_flow_adapter(ctx)
+    if resolved is None:
         return None
-    _run_id, model, _output_dir = found
+    _adapter, run_ctx = resolved
+    model = run_ctx.state.execution.models_by_run_id.get(run_ctx.run.id)
+    if model is None:
+        return None
     modelgrid = getattr(getattr(model, "mf", None), "modelgrid", None)
     if modelgrid is None:
         return None

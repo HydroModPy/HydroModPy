@@ -51,6 +51,7 @@ _BUILTIN_PATHS: dict[AdapterKey, str] = {
     ("flow", "modflownwt"): "hydromodpy.solver.modflow_nwt.adapters.flow:ModflowNwtFlowAdapter",
     ("flow", "modflow6"): "hydromodpy.solver.modflow6.adapters.flow:Modflow6FlowAdapter",
     ("flow", "boussinesq"): "hydromodpy.solver.boussinesq.adapters.flow:BoussinesqFlowAdapter",
+    ("flow", "gr4j"): "hydromodpy.solver.gr4j.adapters.flow:GR4JFlowAdapter",
     (
         "transport",
         "modpath",

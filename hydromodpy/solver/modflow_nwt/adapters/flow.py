@@ -7,8 +7,18 @@ shared execution lifecycle lives in
 
 from __future__ import annotations
 
+from collections.abc import Mapping
+from pathlib import Path
+from typing import Any
+
+import pandas as pd
+
 from hydromodpy.simulation.planning.plan import RunContext, RunExecutionResult
 from hydromodpy.solver.base.cleanup import cleanup_solver_files
+from hydromodpy.solver.modflow_common.calibration_extractors import (
+    extract_discharge_from_cbc,
+    extract_head_from_hds,
+)
 from hydromodpy.solver.modflow_common.flow_adapter_helpers import (
     build_preprocess_options,
     resolve_run_model_name,
@@ -32,6 +42,51 @@ class ModflowNwtFlowAdapter:
         solver_output_dir = ctx.state.execution.output_dirs_by_run_id.get(ctx.run.id)
         if solver_output_dir is not None:
             cleanup_solver_files(solver_output_dir)
+
+    def extract_calibration_series(
+        self,
+        ctx: RunContext,
+        store: Any,
+        *,
+        variable: str,
+        station_cells: Mapping[str, tuple[int, int, int]] | None = None,
+        time_index: pd.DatetimeIndex | None = None,
+    ) -> pd.Series:
+        """Read the simulated calibration series from the scratch CBC/HDS files.
+
+        Lightweight calibration trials never go through the ``store``: they read
+        ``ctx.state.execution.output_dirs_by_run_id`` directly. ``store`` is
+        accepted for Protocol uniformity but unused here.
+        """
+        del store
+        output_dir = ctx.state.execution.output_dirs_by_run_id.get(ctx.run.id)
+        model = ctx.state.execution.models_by_run_id.get(ctx.run.id)
+        if output_dir is None or model is None:
+            return pd.Series(dtype=float, name=variable)
+        model_name = getattr(model, "model_name", None) or getattr(model, "name", None)
+        if model_name is None:
+            return pd.Series(dtype=float, name=variable)
+        output_dir = Path(output_dir)
+
+        if variable == "discharge":
+            return extract_discharge_from_cbc(output_dir, model_name, time_index)
+        if variable == "head":
+            if not station_cells:
+                return pd.Series(dtype=float, name=variable)
+            series_by_station = extract_head_from_hds(
+                output_dir,
+                model_name,
+                station_cells=station_cells,
+                time_index=time_index,
+            )
+            if len(station_cells) == 1:
+                station_id = next(iter(station_cells))
+                return series_by_station.get(station_id, pd.Series(dtype=float, name=variable))
+            raise ValueError(
+                "extract_calibration_series returns one series; pass station_cells "
+                "with a single entry per call for head calibration."
+            )
+        return pd.Series(dtype=float, name=variable)
 
     def execute(self, ctx: RunContext) -> RunExecutionResult:
         """Instantiate and execute one MODFLOW-NWT flow run.

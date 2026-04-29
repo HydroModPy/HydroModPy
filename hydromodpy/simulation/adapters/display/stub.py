@@ -7,6 +7,11 @@ into the simulation pipeline.
 
 from __future__ import annotations
 
+from collections.abc import Mapping
+from typing import Any
+
+import pandas as pd
+
 from hydromodpy.simulation.planning.plan import RunContext, RunExecutionResult
 
 
@@ -28,6 +33,19 @@ class FlowDisplayAdapter:
             "FlowDisplayAdapter is a stub. Implement by wrapping the flow display module."
         )
 
+    def extract_calibration_series(
+        self,
+        ctx: RunContext,
+        store: Any,
+        *,
+        variable: str,
+        station_cells: Mapping[str, tuple[int, int, int]] | None = None,
+        time_index: pd.DatetimeIndex | None = None,
+    ) -> pd.Series:
+        """Display runs are not calibration targets; return empty series."""
+        del ctx, store, station_cells, time_index
+        return pd.Series(dtype=float, name=variable)
+
 
 class TransportDisplayAdapter:
     """Adapter for ``display/transport`` runs (stub)."""
@@ -46,3 +64,16 @@ class TransportDisplayAdapter:
         raise NotImplementedError(
             "TransportDisplayAdapter is a stub. Implement by wrapping the transport display module."
         )
+
+    def extract_calibration_series(
+        self,
+        ctx: RunContext,
+        store: Any,
+        *,
+        variable: str,
+        station_cells: Mapping[str, tuple[int, int, int]] | None = None,
+        time_index: pd.DatetimeIndex | None = None,
+    ) -> pd.Series:
+        """Display runs are not calibration targets; return empty series."""
+        del ctx, store, station_cells, time_index
+        return pd.Series(dtype=float, name=variable)

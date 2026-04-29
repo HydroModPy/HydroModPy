@@ -2,7 +2,11 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from pathlib import Path
+from typing import Any
+
+import pandas as pd
 
 from hydromodpy.core.exceptions import SolverDivergedError
 from hydromodpy.simulation.adapters.transport_helpers import required_flow_model
@@ -26,6 +30,19 @@ class ModpathTransportAdapter:
         solver_output_dir = ctx.state.execution.output_dirs_by_run_id.get(ctx.run.id)
         if solver_output_dir is not None:
             cleanup_solver_files(solver_output_dir)
+
+    def extract_calibration_series(
+        self,
+        ctx: RunContext,
+        store: Any,
+        *,
+        variable: str,
+        station_cells: Mapping[str, tuple[int, int, int]] | None = None,
+        time_index: pd.DatetimeIndex | None = None,
+    ) -> pd.Series:
+        """Transport runs are not calibration targets; return empty series."""
+        del ctx, store, station_cells, time_index
+        return pd.Series(dtype=float, name=variable)
 
     def execute(self, ctx: RunContext) -> RunExecutionResult:
         """Instantiate and execute one Modpath particle-tracking run."""
