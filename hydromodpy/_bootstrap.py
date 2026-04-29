@@ -53,10 +53,34 @@ def _rebuild_forward_refs() -> None:
     cfg_module.HydroModPyConfig.model_rebuild()
 
 
+def _register_physics_contracts() -> None:
+    """Wire spatial-layer callables into the physics ``contracts`` registry.
+
+    Physics annotates its inputs through ``FieldParamLike`` and resolves
+    field-param payloads / spatial aggregations via these registered hooks
+    so the physics package never imports the spatial package.
+    """
+    from hydromodpy.physics import contracts
+    from hydromodpy.spatial.field.aggregation import (
+        extract_homogeneous_series_from_fields,
+    )
+    from hydromodpy.spatial.field.core.field_param import FieldParam
+    from hydromodpy.spatial.field.core.field_param_config import (
+        resolve_field_param_config_payload,
+        validate_resolved_field_param_data,
+    )
+
+    contracts.register_field_param_factory(FieldParam.from_dict)
+    contracts.register_field_param_payload_resolver(resolve_field_param_config_payload)
+    contracts.register_field_param_payload_validator(validate_resolved_field_param_data)
+    contracts.register_field_aggregator(extract_homogeneous_series_from_fields)
+
+
 def bootstrap() -> None:
     """Resolve HydroModPyConfig forward references. Idempotent."""
     global _BOOTSTRAPPED
     if _BOOTSTRAPPED:
         return
+    _register_physics_contracts()
     _rebuild_forward_refs()
     _BOOTSTRAPPED = True

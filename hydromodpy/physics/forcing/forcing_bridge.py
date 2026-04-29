@@ -19,7 +19,7 @@ from typing import TYPE_CHECKING, Literal
 
 import pandas as pd
 
-from hydromodpy.physics.contracts import LoadResultProto
+from hydromodpy.physics.contracts import LoadResultProto, get_field_aggregator
 
 if TYPE_CHECKING:
     from hydromodpy.core.time import ResolvedSimulationTimeWindow
@@ -83,20 +83,6 @@ def extract_homogeneous_series(result: LoadResultProto) -> pd.Series | None:
     return combined.mean(axis=1)
 
 
-def extract_homogeneous_series_from_fields(result: LoadResultProto) -> pd.Series | None:
-    """Compute the spatial mean of FieldRecords.
-
-    Reduces gridded data (TIF, NC, xarray) to one scalar per time step
-    by averaging all spatial cells.  Returns a Series in the data-manager
-    internal unit, or None.
-    """
-    from hydromodpy.spatial.mesh.cartesian_grid.sgrid_field_discretization import (
-        spatial_mean_from_fields,
-    )
-
-    return spatial_mean_from_fields(result)
-
-
 # ── Series builder (generic) ─────────────────────────────────
 
 
@@ -127,7 +113,7 @@ def build_forcing_series(
     series = extract_homogeneous_series(load_result)
 
     if series is None and force_homogeneous:
-        series = extract_homogeneous_series_from_fields(load_result)
+        series = get_field_aggregator()(load_result)
 
     if series is None:
         return None
