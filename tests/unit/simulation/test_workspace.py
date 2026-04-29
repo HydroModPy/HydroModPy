@@ -24,7 +24,7 @@ def test_workspace_bin_path_defaults_to_managed_cache(tmp_path, monkeypatch) -> 
     """Without HYDROMODPY_BIN, bin_path resolves to the managed cache."""
     monkeypatch.delenv("HYDROMODPY_BIN", raising=False)
 
-    from hydromodpy.core.tools.cache import get_cache_bin_dir
+    from hydromodpy.core.state.cache import get_cache_bin_dir
 
     project = _scaffold(tmp_path / "ws")
     cfg = WorkspaceConfig(project_root=project)

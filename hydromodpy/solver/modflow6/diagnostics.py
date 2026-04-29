@@ -8,7 +8,7 @@ from typing import Protocol
 
 import numpy as np
 
-from hydromodpy.core.tools import filesystem
+from hydromodpy.core.io import filesystem
 from hydromodpy.solver.modflow6.builders.boundary_conditions import (
     boundary_attr,
     boundary_conditions_mapping,

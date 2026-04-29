@@ -33,9 +33,9 @@ _ITMUNI_TO_SECONDS: dict[int, float] = {
     5: 31557600.0,  # years (365.25 days)
 }
 
+from hydromodpy.core.io.filesystem import create_folder
 from hydromodpy.core.io.raster_io import export_tif
 from hydromodpy.core.logging import get_logger
-from hydromodpy.core.tools.filesystem import create_folder
 from hydromodpy.solver.contracts import Solver
 from hydromodpy.solver.modflow_common import (
     SolverGridContext,

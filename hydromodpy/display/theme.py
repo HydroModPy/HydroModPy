@@ -5,11 +5,19 @@ fonts, grid, background) so the whole figure corpus looks consistent.
 The registry exposes three presets: ``default``, ``print`` and ``dark``.
 Call :func:`apply_theme` at the start of a display session; figures do
 not have to opt-in individually.
+
+The :func:`plot_params` helper is a legacy hook used by the MODFLOW-NWT
+and Boussinesq notebooks to apply the historical "classic" matplotlib
+rcParams in one call.
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass
+
+import matplotlib as mpl
+import matplotlib.pyplot as plt
+from matplotlib.font_manager import FontProperties
 
 
 @dataclass(frozen=True, slots=True)
@@ -125,4 +133,58 @@ def apply_theme(name: str) -> Theme:
     return theme
 
 
-__all__ = ["Theme", "THEMES", "get_theme", "apply_theme"]
+def plot_params(small: int, interm: int, medium: int, large: int) -> FontProperties:
+    """Apply the classic matplotlib rcParams style and return a FontProperties."""
+    mpl.style.use("classic")
+    mpl.rcParams["figure.facecolor"] = "white"
+    mpl.rcParams["grid.color"] = "darkgrey"
+    mpl.rcParams["grid.linestyle"] = "-"
+    mpl.rcParams["grid.alpha"] = 0.8
+    mpl.rcParams["axes.axisbelow"] = True
+    mpl.rcParams["axes.linewidth"] = 1.5
+    mpl.rcParams["figure.dpi"] = 300
+    mpl.rcParams["savefig.dpi"] = 300
+    mpl.rcParams["patch.force_edgecolor"] = True
+    mpl.rcParams["image.interpolation"] = "nearest"
+    mpl.rcParams["image.resample"] = True
+    mpl.rcParams["axes.autolimit_mode"] = "data"
+    mpl.rcParams["axes.xmargin"] = 0.05
+    mpl.rcParams["axes.ymargin"] = 0.05
+    mpl.rcParams["xtick.direction"] = "in"
+    mpl.rcParams["ytick.direction"] = "in"
+    mpl.rcParams["xtick.major.size"] = 5
+    mpl.rcParams["xtick.minor.size"] = 3
+    mpl.rcParams["xtick.major.width"] = 1.5
+    mpl.rcParams["xtick.minor.width"] = 1
+    mpl.rcParams["ytick.major.size"] = 5
+    mpl.rcParams["ytick.minor.size"] = 1.5
+    mpl.rcParams["ytick.major.width"] = 1.5
+    mpl.rcParams["ytick.minor.width"] = 1
+    mpl.rcParams["xtick.top"] = True
+    mpl.rcParams["ytick.right"] = True
+    mpl.rcParams["legend.numpoints"] = 1
+    mpl.rcParams["legend.scatterpoints"] = 1
+    mpl.rcParams["legend.edgecolor"] = "grey"
+    mpl.rcParams["date.autoformatter.year"] = "%Y"
+    mpl.rcParams["date.autoformatter.month"] = "%Y-%m"
+    mpl.rcParams["date.autoformatter.day"] = "%Y-%m-%d"
+    mpl.rcParams["date.autoformatter.hour"] = "%H:%M"
+    mpl.rcParams["date.autoformatter.minute"] = "%H:%M:%S"
+    mpl.rcParams["date.autoformatter.second"] = "%H:%M:%S"
+    mpl.rcParams.update({"mathtext.default": "regular"})
+
+    plt.rc("font", size=small)
+    plt.rc("figure", titlesize=large)
+    plt.rc("legend", fontsize=small)
+    plt.rc("axes", titlesize=medium, labelpad=10)
+    plt.rc("axes", labelsize=medium, labelpad=12)
+    plt.rc("xtick", labelsize=interm)
+    plt.rc("ytick", labelsize=interm)
+    plt.rc("font", family="sans serif")
+
+    fontprop = FontProperties()
+    fontprop.set_family("sans serif")
+    return fontprop
+
+
+__all__ = ["Theme", "THEMES", "get_theme", "apply_theme", "plot_params"]

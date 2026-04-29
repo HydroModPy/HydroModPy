@@ -127,7 +127,7 @@ def _run_toml(config_path: Path, *, args: argparse.Namespace) -> None:
         load_raw_toml,
         resolve_workflow,
     )
-    from hydromodpy.core.tools.display import print_hydromodpy
+    from hydromodpy.display.banner import print_hydromodpy
 
     print_hydromodpy()
     auto_scan_workspace(config_path)
@@ -233,7 +233,7 @@ def _run_toml(config_path: Path, *, args: argparse.Namespace) -> None:
 
 def _run_script(script_path: Path, extra_args: list[str]) -> None:
     """Run a Python prototype script as a subprocess."""
-    from hydromodpy.core.tools.display import print_hydromodpy
+    from hydromodpy.display.banner import print_hydromodpy
 
     print_hydromodpy()
     cmd = [sys.executable, str(script_path), *extra_args]

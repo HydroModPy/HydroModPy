@@ -10,8 +10,8 @@ from dataclasses import dataclass
 import flopy
 import numpy as np
 
+from hydromodpy.core.io.filesystem import create_folder
 from hydromodpy.core.logging import get_logger
-from hydromodpy.core.tools.filesystem import create_folder
 from hydromodpy.solver import Solver
 from hydromodpy.solver.modflow6.builders import (
     bind_recharge_from_flow,
