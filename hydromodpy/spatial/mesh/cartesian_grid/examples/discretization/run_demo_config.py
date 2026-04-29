@@ -25,8 +25,8 @@ REPO_ROOT = _find_repo_root()
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
+from hydromodpy.core.config.path_helpers import get_nested_section, resolve_path
 from hydromodpy.data.variables.geology.config import validate_geology_config_data
-from hydromodpy.solver.utils._config_helpers import get_nested_section, resolve_path
 from hydromodpy.spatial.field.core.field_param_config import (
     resolve_field_param_config_payload,
     validate_resolved_field_param_data,

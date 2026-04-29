@@ -6,9 +6,9 @@ from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
 
+from hydromodpy.core.config.path_helpers import get_nested_section
 from hydromodpy.core.config.toml_loader import load_toml_with_base_config
 from hydromodpy.data.variables.geology.config import validate_geology_config_data
-from hydromodpy.solver.utils._config_helpers import get_nested_section
 from hydromodpy.spatial.mesh.gmsh_grid import (
     parse_zone_meshing_domain_config,
     parse_zone_meshing_settings,
