@@ -36,7 +36,7 @@ Cross-refs
 
 from __future__ import annotations
 
-import json
+import json as _json
 import logging
 from functools import cached_property
 from pathlib import Path
@@ -124,7 +124,7 @@ class Run:
         if val is None:
             return None
         if isinstance(val, str):
-            return json.loads(val)
+            return _json.loads(val)
         return val
 
     @property
@@ -142,6 +142,38 @@ class Run:
     @property
     def n_timesteps(self) -> int | None:
         return self._load_row().get("n_timesteps")
+
+    # -- Summary -------------------------------------------------------------
+
+    def summary(self, json: bool = False) -> dict | str:
+        """Return a compact metadata snapshot of this run.
+
+        Picks the headline catalog fields (identity, solver, status,
+        timing, mesh sizes, tags). Datetime values are kept as Python
+        objects in dict form; with ``json=True`` they are stringified
+        and the whole payload is returned as a JSON string.
+        """
+        row = self._load_row()
+        keys = (
+            "name",
+            "project",
+            "solver",
+            "solver_category",
+            "flow_regime",
+            "status",
+            "created_at",
+            "duration_s",
+            "n_layers",
+            "n_cells",
+            "n_timesteps",
+            "tags",
+        )
+        data: dict = {"sim_id": self._sim_id}
+        for key in keys:
+            data[key] = row.get(key)
+        if json:
+            return _json.dumps(data, default=str, indent=2, sort_keys=False)
+        return data
 
     # -- Tabular data properties ---------------------------------------------
 
