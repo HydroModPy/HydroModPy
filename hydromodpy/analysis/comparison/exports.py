@@ -11,7 +11,7 @@ from typing import TYPE_CHECKING, Any
 
 import numpy as np
 
-from hydromodpy.analysis.comparison.runtime import resolve_bundle_cells
+from hydromodpy.analysis.comparison.runtime_mesh import resolve_bundle_cells
 
 if TYPE_CHECKING:
     from hydromodpy.results.catalog import SimulationCatalog
@@ -695,7 +695,7 @@ def write_budget_exports(
     variant_summaries: Iterable[Mapping[str, Any]],
 ) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
     """Write budget diagnostics derived from Boussinesq state histories."""
-    from hydromodpy.analysis.comparison.runtime import discover_result_store
+    from hydromodpy.analysis.comparison.runtime_metadata import discover_result_store
 
     rows: list[dict[str, Any]] = []
     for summary in _completed_variant_summaries(variant_summaries):

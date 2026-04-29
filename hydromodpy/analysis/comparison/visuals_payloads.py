@@ -14,14 +14,16 @@ from hydromodpy.analysis.comparison.config import (
     MethodComparisonObservable,
     MethodComparisonVariant,
 )
-from hydromodpy.analysis.comparison.runtime import (
-    VariableSeries,
-    load_variable_series,
-    mask_depth_series_from_head_nodata,
+from hydromodpy.analysis.comparison.runtime_mesh import (
     resolve_bundle_cells,
     resolve_structured_shape_from_config,
     resolve_structured_shape_from_run_folder,
-    select_time_slices,
+)
+from hydromodpy.analysis.comparison.runtime_observables import select_time_slices
+from hydromodpy.analysis.comparison.runtime_series import (
+    VariableSeries,
+    load_variable_series,
+    mask_depth_series_from_head_nodata,
 )
 from hydromodpy.analysis.comparison.visuals_style import _mask_nodata
 
