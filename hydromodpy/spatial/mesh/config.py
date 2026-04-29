@@ -16,10 +16,10 @@ from typing import Annotated, Any, Literal
 
 from pydantic import ConfigDict, Field, ValidationError, field_validator, model_validator
 
-from hydromodpy.core.config.base import HydroModelBase
-from hydromodpy.core.config.profile import Profile
 from hydromodpy.core.units import Length
 from hydromodpy.data.variables.geology.config import GeologyConfigBlock
+from hydromodpy.master_config.base import HydroModelBase
+from hydromodpy.master_config.profile import Profile
 from hydromodpy.spatial.mesh.gmsh_grid.zone_meshing.config import (
     ZoneMeshingSettingsSchema,
 )

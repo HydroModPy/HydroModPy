@@ -1,4 +1,4 @@
-"""Entry point for ``python -m hydromodpy.core.config``."""
+"""Entry point for ``python -m hydromodpy.master_config``."""
 
 from __future__ import annotations
 

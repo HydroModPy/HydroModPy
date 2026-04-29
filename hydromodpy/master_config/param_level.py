@@ -8,7 +8,7 @@ and Streamlit forms.
 from dataclasses import dataclass
 from typing import Literal
 
-from hydromodpy.core.config.profile import Profile
+from hydromodpy.master_config.profile import Profile
 
 ProfileName = Literal["user", "dev", "expert"]
 

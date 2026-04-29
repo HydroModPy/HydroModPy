@@ -39,8 +39,8 @@ from hydromodpy.workflow.internals.dependencies import earliest_affected_step
 from hydromodpy.workflow.internals.state import PipelineState
 
 if TYPE_CHECKING:
-    from hydromodpy.core.config.hydromodpy_config import HydroModPyConfig
     from hydromodpy.core.state.run_state import WorkflowContext
+    from hydromodpy.master_config.hydromodpy_config import HydroModPyConfig
     from hydromodpy.workflow.internals.step import Step
 
 logger = get_logger(__name__)
@@ -230,8 +230,8 @@ def prepare_trials(
         calibration helper (``mode="replace"``/``"scale"``). Otherwise, it
         falls back to the raw dotted-path writer.
     """
-    from hydromodpy.core.config.hydromodpy_config import HydroModPyConfig
-    from hydromodpy.core.config.toml_loader import load_toml_with_base_config
+    from hydromodpy.master_config.hydromodpy_config import HydroModPyConfig
+    from hydromodpy.master_config.toml_loader import load_toml_with_base_config
     from hydromodpy.spatial.domain.spatial_support import (
         build_default_spatial_support_provider_registry,
     )

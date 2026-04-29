@@ -4,8 +4,8 @@ Central location for logic that reads ``Annotated[...]`` metadata off
 :class:`pydantic.fields.FieldInfo` - profile visibility, conditional
 display, and any future metadata tags.
 
-Kept separate from :mod:`hydromodpy.core.config.generate_toml` and
-:mod:`hydromodpy.core.config.toml_io` so TOML, Streamlit, and JSON Schema
+Kept separate from :mod:`hydromodpy.master_config.generate_toml` and
+:mod:`hydromodpy.master_config.toml_io` so TOML, Streamlit, and JSON Schema
 paths can share the same source of truth.
 """
 
@@ -13,7 +13,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from hydromodpy.core.config.profile import Profile
+from hydromodpy.master_config.profile import Profile
 
 #: Fields without an explicit ``Profile`` tag default to :attr:`Profile.USER`
 #: so they always appear in generated templates.

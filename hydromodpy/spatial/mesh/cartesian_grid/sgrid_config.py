@@ -20,9 +20,9 @@ from typing import Annotated, Any, Literal
 
 from pydantic import ConfigDict, Field, ValidationError, field_validator, model_validator
 
-from hydromodpy.core.config.base import HydroModelBase
-from hydromodpy.core.config.path_helpers import resolve_path
-from hydromodpy.core.config.profile import Profile
+from hydromodpy.master_config.base import HydroModelBase
+from hydromodpy.master_config.path_helpers import resolve_path
+from hydromodpy.master_config.profile import Profile
 
 
 def _require_positive_int(value, *, name: str) -> int:

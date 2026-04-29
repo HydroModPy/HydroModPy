@@ -1,9 +1,10 @@
 """Bootstrap helper that resolves HydroModPyConfig forward references.
 
-Lives at the top level so the ``core/`` package stays a leaf of the import
-DAG: sibling configs from ``physics/``, ``solver/``, ``spatial/``, ``data/``,
-``simulation/``, ``display/``, ``analysis/``, ``calibration/``, and
-``workflow/`` are imported here, never from ``core/config/``.
+Lives at the top level so ``master_config/`` stays decoupled from sibling
+layers at module-load time: configs from ``physics/``, ``solver/``,
+``spatial/``, ``data/``, ``simulation/``, ``display/``, ``analysis/``,
+``calibration/``, and ``workflow/`` are imported here, never from
+``master_config/``.
 """
 
 from __future__ import annotations
@@ -16,15 +17,15 @@ def _rebuild_forward_refs() -> None:
 
     Pydantic resolves forward references at ``model_rebuild()`` time by name
     lookup against the defining module's globals, so the sibling classes are
-    written into ``hydromodpy.core.config.hydromodpy_config.__dict__``.
+    written into ``hydromodpy.master_config.hydromodpy_config.__dict__``.
     """
     from hydromodpy.analysis.batch.config import RegionalLabConfig
     from hydromodpy.analysis.capability_gallery import CapabilityGalleryConfig
     from hydromodpy.calibration.config import CalibrationConfig
-    from hydromodpy.core.config import hydromodpy_config as cfg_module
     from hydromodpy.data.data_managers_config import DataManagersConfig
     from hydromodpy.display.config import DisplayConfig
     from hydromodpy.display.overview.config import OverviewSection
+    from hydromodpy.master_config import hydromodpy_config as cfg_module
     from hydromodpy.physics.flow.flow_config import FlowConfig
     from hydromodpy.physics.transport.transport_config import TransportConfig
     from hydromodpy.simulation.planning.config import SimulationConfig

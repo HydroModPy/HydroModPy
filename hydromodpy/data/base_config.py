@@ -11,9 +11,9 @@ from typing import Annotated, ClassVar
 
 from pydantic import ConfigDict, Field, field_validator, model_validator
 
-from hydromodpy.core.config.base import HydroModelBase
-from hydromodpy.core.config.path_resolution import resolve_declared_path
-from hydromodpy.core.config.profile import Profile
+from hydromodpy.master_config.base import HydroModelBase
+from hydromodpy.master_config.path_resolution import resolve_declared_path
+from hydromodpy.master_config.profile import Profile
 
 
 def _load_toml(path: Path) -> dict:

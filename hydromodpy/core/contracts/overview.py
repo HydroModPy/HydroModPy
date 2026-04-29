@@ -15,8 +15,8 @@ from typing import TYPE_CHECKING, Any
 from hydromodpy.core.state.data import LoadedDataContext
 
 if TYPE_CHECKING:
-    from hydromodpy.core.config import HydroModPyConfig
     from hydromodpy.core.workspace.workspace import Workspace
+    from hydromodpy.master_config import HydroModPyConfig
 
 
 @dataclass

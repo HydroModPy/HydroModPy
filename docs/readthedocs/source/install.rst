@@ -341,7 +341,7 @@ Check the installation
 .. code-block:: python
 
    import hydromodpy
-   from hydromodpy.core.config import HydroModPyConfig
+   from hydromodpy.master_config import HydroModPyConfig
    from hydromodpy.spatial.geographic import CatchmentDelineation
    # Examples of submodule imports
    from hydromodpy.display import get, list_figures

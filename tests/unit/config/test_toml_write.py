@@ -3,7 +3,7 @@ from __future__ import annotations
 import tomllib
 from datetime import UTC, datetime, timezone
 
-from hydromodpy.core.config.toml_write import dumps
+from hydromodpy.master_config.toml_write import dumps
 
 
 def test_dumps_round_trips_nested_tables_and_arrays() -> None:

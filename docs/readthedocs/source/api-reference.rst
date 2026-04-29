@@ -7,8 +7,8 @@ the dedicated API section where classes, functions, and modules are documented.
 Module overview
 ---------------
 
-- :doc:`hydromodpy.core.config <api/hydromodpy-config>` - Pydantic parameter contracts
-  (:class:`~hydromodpy.core.config.hydromodpy_config.HydroModPyConfig`,
+- :doc:`hydromodpy.master_config <api/hydromodpy-config>` - Pydantic parameter contracts
+  (:class:`~hydromodpy.master_config.hydromodpy_config.HydroModPyConfig`,
   :class:`~hydromodpy.core.workspace.config.WorkspaceConfig`,
   :class:`~hydromodpy.spatial.geographic.geographic_config.GeographicConfig`)
   with validated fields, type constraints, and cross-field rules.
@@ -30,7 +30,7 @@ Module overview
 Key entry points
 ----------------
 
-- :class:`hydromodpy.core.config.HydroModPyConfig` - top-level Pydantic config
+- :class:`hydromodpy.master_config.HydroModPyConfig` - top-level Pydantic config
   loaded from a TOML file.
 - :class:`hydromodpy.spatial.geographic.CatchmentDelineation` - catchment
   delineation runtime, exposed by the geographic preprocessing pipeline.

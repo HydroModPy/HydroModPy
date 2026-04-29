@@ -1,12 +1,12 @@
 """HydroModPy configuration module."""
 
-from hydromodpy.core.config.base import HydroModelBase
-from hydromodpy.core.config.profile import Profile
+from hydromodpy.master_config.base import HydroModelBase
+from hydromodpy.master_config.profile import Profile
 
 
 def __getattr__(name: str):
     if name == "HydroModPyConfig":
-        from hydromodpy.core.config.hydromodpy_config import HydroModPyConfig
+        from hydromodpy.master_config.hydromodpy_config import HydroModPyConfig
 
         return HydroModPyConfig
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

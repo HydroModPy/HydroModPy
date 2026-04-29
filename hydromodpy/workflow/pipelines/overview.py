@@ -13,10 +13,10 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
-from hydromodpy.core.config import HydroModPyConfig
 from hydromodpy.core.contracts.overview import DataOverviewState
 from hydromodpy.core.exceptions import ConfigError, ConfigMissingError
 from hydromodpy.core.logging import get_logger
+from hydromodpy.master_config import HydroModPyConfig
 
 logger = get_logger(__name__)
 

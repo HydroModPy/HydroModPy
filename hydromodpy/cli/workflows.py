@@ -7,7 +7,7 @@ matching ``run_*`` adapter.
 
 The contract is enforced twice: here at CLI load time via
 :func:`resolve_workflow` for friendly error messages, and again at the
-Pydantic layer (:class:`hydromodpy.core.config.HydroModPyConfig`) so
+Pydantic layer (:class:`hydromodpy.master_config.HydroModPyConfig`) so
 API-driven callers (e.g. an Angular frontend posting a serialised
 config) face the same contract as the CLI.
 """

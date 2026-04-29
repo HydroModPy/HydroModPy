@@ -40,8 +40,8 @@ def _safe_float(value: object) -> float | None:
 
 def _extract_simulation_child_artifacts(config_path: Path) -> dict[str, Any]:
     """Extract compact simulation artifacts from one child launcher config."""
-    from hydromodpy.core.config.hydromodpy_config import HydroModPyConfig
     from hydromodpy.core.workspace.path_registry import WorkspacePathRegistry
+    from hydromodpy.master_config.hydromodpy_config import HydroModPyConfig
 
     artifacts: dict[str, Any] = {
         "child_artifact_kind": "simulation",
@@ -119,7 +119,7 @@ def _extract_simulation_child_artifacts(config_path: Path) -> dict[str, Any]:
 def _extract_method_comparison_child_artifacts(config_path: Path) -> dict[str, Any]:
     """Extract compact method-comparison artifacts from one child launcher config."""
     from hydromodpy.analysis.comparison.config import MethodComparisonConfig
-    from hydromodpy.core.config.toml_loader import load_toml_with_base_config
+    from hydromodpy.master_config.toml_loader import load_toml_with_base_config
 
     artifacts: dict[str, Any] = {
         "child_artifact_kind": "method_comparison",

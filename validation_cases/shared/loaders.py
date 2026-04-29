@@ -9,8 +9,8 @@ from typing import TYPE_CHECKING, Any
 
 import numpy as np
 
-from hydromodpy.core.config.toml_loader import load_toml_with_base_config, merge_toml_payloads
 from hydromodpy.core.logging import get_logger
+from hydromodpy.master_config.toml_loader import load_toml_with_base_config, merge_toml_payloads
 
 if TYPE_CHECKING:
     from hydromodpy.results.store import ResultStore

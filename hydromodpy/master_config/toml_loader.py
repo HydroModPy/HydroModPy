@@ -8,7 +8,7 @@ from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
 
-from hydromodpy.core.config.path_resolution import is_declared_absolute_path
+from hydromodpy.master_config.path_resolution import is_declared_absolute_path
 
 _BASIC_STRING_ASSIGNMENT_RE = re.compile(
     r'^(?P<prefix>\s*[^#=\n]+?=\s*)"(?P<value>[^"\n]*)"(?P<suffix>\s*(?:#.*)?)$'

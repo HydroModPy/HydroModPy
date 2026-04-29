@@ -5,7 +5,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from hydromodpy.core.config.results_config import ResultsConfig
+    from hydromodpy.master_config.results_config import ResultsConfig
     from hydromodpy.simulation.planning.plan import SimulationPlan
 
 

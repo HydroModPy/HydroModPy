@@ -46,7 +46,7 @@ def root_sections() -> dict[str, type[BaseModel]]:
     """
     global _CACHE
     if _CACHE is None:
-        from hydromodpy.core.config.hydromodpy_config import HydroModPyConfig
+        from hydromodpy.master_config.hydromodpy_config import HydroModPyConfig
 
         result: dict[str, type[BaseModel]] = {}
         for name, info in HydroModPyConfig.model_fields.items():

@@ -18,7 +18,7 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, model_validator
 
-from hydromodpy.core.config.param_level import VisibleWhen
+from hydromodpy.master_config.param_level import VisibleWhen
 
 
 class HydroModelBase(BaseModel):
@@ -64,7 +64,7 @@ class HydroModelBase(BaseModel):
         """Serialise this config to a TOML file filtered by *profile*.
 
         Round-trip guarantee: when ``profile="expert"`` is used on a fully
-        resolved :class:`~hydromodpy.core.config.hydromodpy_config.HydroModPyConfig`,
+        resolved :class:`~hydromodpy.master_config.hydromodpy_config.HydroModPyConfig`,
         calling :meth:`HydroModPyConfig.from_toml` on the written path yields
         an equivalent config.
 
@@ -74,10 +74,10 @@ class HydroModelBase(BaseModel):
             Destination TOML file path.
         profile
             One of ``"user"``, ``"dev"``, ``"expert"``. Fields whose
-            :class:`~hydromodpy.core.config.profile.Profile` exceeds
+            :class:`~hydromodpy.master_config.profile.Profile` exceeds
             the requested profile are omitted.
         """
-        from hydromodpy.core.config.toml_io import dump_toml_with_comments
+        from hydromodpy.master_config.toml_io import dump_toml_with_comments
 
         return dump_toml_with_comments(self, path, profile=profile)
 

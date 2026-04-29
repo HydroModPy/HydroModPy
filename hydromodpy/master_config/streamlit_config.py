@@ -2,7 +2,7 @@
 
 Launch with::
 
-    streamlit run hydromodpy/core/config/streamlit_config.py [-- --load config.toml]
+    streamlit run hydromodpy/master_config/streamlit_config.py [-- --load config.toml]
 
 Or via the CLI::
 
@@ -38,14 +38,14 @@ except ImportError:
 from pydantic import BaseModel, ValidationError
 from pydantic.fields import FieldInfo
 
-from hydromodpy.core.config._registry import root_sections
-from hydromodpy.core.config.generate_toml import (
+from hydromodpy.master_config._registry import root_sections
+from hydromodpy.master_config.generate_toml import (
     _UNDEFINED,
     _default_value,
 )
-from hydromodpy.core.config.param_level import VisibleWhen
-from hydromodpy.core.config.profile import Profile
-from hydromodpy.core.config.pydantic_introspect import extract_profile
+from hydromodpy.master_config.param_level import VisibleWhen
+from hydromodpy.master_config.profile import Profile
+from hydromodpy.master_config.pydantic_introspect import extract_profile
 
 # ── Type introspection helpers ───────────────────────────────────────────
 
@@ -316,7 +316,7 @@ def validate_section(
 ) -> list[str]:
     """Try to validate values against the model, return error messages."""
     # Strip empty strings (same as the TOML loader does)
-    from hydromodpy.core.config.toml_loader import _strip_empty_strings
+    from hydromodpy.master_config.toml_loader import _strip_empty_strings
 
     cleaned = _strip_empty_strings(values)
     try:
@@ -386,7 +386,7 @@ def _dict_to_toml(data: dict[str, Any], prefix: str = "") -> list[str]:
 
 def _load_existing_toml(path: Path) -> dict[str, dict[str, Any]]:
     """Load an existing config.toml into per-module dicts."""
-    from hydromodpy.core.config.toml_loader import load_toml_with_base_config
+    from hydromodpy.master_config.toml_loader import load_toml_with_base_config
 
     raw = load_toml_with_base_config(path)
     return raw

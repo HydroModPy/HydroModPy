@@ -31,13 +31,13 @@ def configure(
     no_display: bool,
 ) -> None:
     """Resolve the config, time grid and data plan, then build an empty ctx."""
-    from hydromodpy.core.config.hydromodpy_config import HydroModPyConfig
-    from hydromodpy.core.config.toml_loader import load_toml_with_base_config
     from hydromodpy.core.time import (
         apply_explicit_time_window_to_tgrids,
         require_flow_simulation_time_grid,
     )
     from hydromodpy.data import DataPlanner
+    from hydromodpy.master_config.hydromodpy_config import HydroModPyConfig
+    from hydromodpy.master_config.toml_loader import load_toml_with_base_config
     from hydromodpy.spatial.domain.spatial_support import (
         build_default_spatial_support_provider_registry,
     )

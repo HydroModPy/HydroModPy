@@ -26,8 +26,8 @@ repo_root = Path(__file__).resolve().parents[3]
 if (repo_root / "hydromodpy").exists() and str(repo_root) not in sys.path:
     sys.path.insert(0, str(repo_root))
 
-from hydromodpy.core.config.hydromodpy_config import HydroModPyConfig
 from hydromodpy.core.workspace import Workspace
+from hydromodpy.master_config.hydromodpy_config import HydroModPyConfig
 from hydromodpy.spatial.domain import Domain
 from hydromodpy.spatial.geographic.core.domain_geographic_pipeline import (
     DomainGeographicContext,

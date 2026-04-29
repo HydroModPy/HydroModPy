@@ -382,8 +382,8 @@ def _probe_from_toml(toml_path: Path, WorkspaceConfig, WorkspaceError) -> list[d
             }
         ]
     try:
-        from hydromodpy.core.config.path_resolution import resolve_declared_path
-        from hydromodpy.core.config.toml_loader import load_toml_with_base_config
+        from hydromodpy.master_config.path_resolution import resolve_declared_path
+        from hydromodpy.master_config.toml_loader import load_toml_with_base_config
 
         raw = load_toml_with_base_config(toml_path)
         base_dir = toml_path.parent

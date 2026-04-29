@@ -16,7 +16,7 @@ from hydromodpy.analysis.comparison.runtime_metadata import (
     _resolve_recorded_output_path,
     read_json_file,
 )
-from hydromodpy.core.config.toml_loader import load_toml_with_base_config
+from hydromodpy.master_config.toml_loader import load_toml_with_base_config
 
 try:
     import rasterio

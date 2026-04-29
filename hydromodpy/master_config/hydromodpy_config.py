@@ -7,7 +7,7 @@ to the user's home directory.
 
 Usage::
 
-    from hydromodpy.core.config import HydroModPyConfig
+    from hydromodpy.master_config import HydroModPyConfig
 
     cfg = HydroModPyConfig.from_toml(
         "examples/projects/01_canut/run_steady_nwt.toml"
@@ -32,11 +32,11 @@ from typing import TYPE_CHECKING, Annotated, Any, Literal
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 from pydantic.fields import FieldInfo
 
-from hydromodpy.core.config.base import HydroModelBase
-from hydromodpy.core.config.path_resolution import resolve_declared_path
-from hydromodpy.core.config.profile import Profile
-from hydromodpy.core.config.toml_loader import load_toml_with_base_config
 from hydromodpy.core.workspace.config import WorkspaceConfig
+from hydromodpy.master_config.base import HydroModelBase
+from hydromodpy.master_config.path_resolution import resolve_declared_path
+from hydromodpy.master_config.profile import Profile
+from hydromodpy.master_config.toml_loader import load_toml_with_base_config
 
 if TYPE_CHECKING:
     from hydromodpy.analysis.batch.config import RegionalLabConfig

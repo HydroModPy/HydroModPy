@@ -6,7 +6,7 @@ from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
 
-from hydromodpy.core.config.path_helpers import resolve_path
+from hydromodpy.master_config.path_helpers import resolve_path
 from hydromodpy.spatial._protocols import get_geology_data_source
 from hydromodpy.spatial.field.core.field_param_config import (
     resolve_field_param_config_payload,

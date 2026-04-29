@@ -7,10 +7,10 @@ from typing import Annotated, Literal
 
 from pydantic import ConfigDict, Field, model_validator
 
-from hydromodpy.core.config.base import HydroModelBase
-from hydromodpy.core.config.profile import Profile
 from hydromodpy.core.tracking import InputFile
 from hydromodpy.data.base_config import BaseVariableConfig
+from hydromodpy.master_config.base import HydroModelBase
+from hydromodpy.master_config.profile import Profile
 
 
 class TemperatureSourceConfig(HydroModelBase):

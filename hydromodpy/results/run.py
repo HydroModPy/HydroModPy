@@ -628,7 +628,7 @@ class Run:
         if snapshot is None:
             raise ValueError(f"Simulation '{self._sim_id}' has no config snapshot - cannot rerun")
 
-        from hydromodpy.core.config.hydromodpy_config import HydroModPyConfig
+        from hydromodpy.master_config.hydromodpy_config import HydroModPyConfig
 
         HydroModPyConfig.from_snapshot(snapshot, **overrides)
 

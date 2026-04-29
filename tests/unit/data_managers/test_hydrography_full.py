@@ -56,12 +56,12 @@ import pytest
 from pydantic import BaseModel, ValidationError
 from shapely.geometry import LineString, MultiLineString, Point, Polygon
 
-from hydromodpy.core.config.profile import Profile
 from hydromodpy.data.variables.hydrography.config import (
     HydrographyConfig,
     HydrographySourceConfig,
 )
 from hydromodpy.data.variables.hydrography.result import HydrographyResult
+from hydromodpy.master_config.profile import Profile
 
 # =====================================================================
 # Helpers
