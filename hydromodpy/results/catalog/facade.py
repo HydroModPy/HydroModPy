@@ -67,6 +67,30 @@ class SimulationCatalog(
 
         ensure_schema(self._db, self._workspace)
 
+    @classmethod
+    def from_toml(cls, toml_path: str | Path) -> SimulationCatalog:
+        """Open the catalog whose workspace is declared in a TOML config."""
+        from hydromodpy.core.config.hydromodpy_config import HydroModPyConfig
+
+        cfg = HydroModPyConfig.from_toml(toml_path)
+        return cls(cfg.workspace.root)
+
+    @classmethod
+    def from_json(cls, payload: str | bytes) -> SimulationCatalog:
+        """Open the catalog whose workspace is declared in a JSON config string."""
+        from hydromodpy.core.config.hydromodpy_config import HydroModPyConfig
+
+        cfg = HydroModPyConfig.model_validate_json(payload)
+        return cls(cfg.workspace.root)
+
+    @classmethod
+    def from_dict(cls, payload: dict) -> SimulationCatalog:
+        """Open the catalog whose workspace is declared in a dict config payload."""
+        from hydromodpy.core.config.hydromodpy_config import HydroModPyConfig
+
+        cfg = HydroModPyConfig.model_validate(payload)
+        return cls(cfg.workspace.root)
+
     @property
     def _connection(self) -> duckdb.DuckDBPyConnection:
         return self._db
