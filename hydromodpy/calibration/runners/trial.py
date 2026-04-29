@@ -232,11 +232,11 @@ def prepare_trials(
     """
     from hydromodpy.core.config.hydromodpy_config import HydroModPyConfig
     from hydromodpy.core.config.toml_loader import load_toml_with_base_config
-    from hydromodpy.pipeline.pipeline import Pipeline
     from hydromodpy.pipeline.steps import standard_steps
     from hydromodpy.spatial.domain.spatial_support import (
         build_default_spatial_support_provider_registry,
     )
+    from hydromodpy.workflow.runner import Pipeline
     from hydromodpy.workflow.steps.setup import (
         collect_requested_support_ids,
         resolve_support_configs,
@@ -365,7 +365,7 @@ def run_trial_light(
         ``None`` the default stub returns ``(nan, {})`` - the full
         extractor is wired in by the calibration CLI in Phase 2.
     """
-    from hydromodpy.pipeline.pipeline import Pipeline
+    from hydromodpy.workflow.runner import Pipeline
 
     t0 = time.monotonic()
     try:

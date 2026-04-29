@@ -465,7 +465,7 @@ class Project:
         :meth:`run`: K/Sy/Ss (homogeneous flow params), ``thickness``,
         ``first_clim``, ``properties``.
         """
-        from hydromodpy.workflow.pipeline import prepare_run
+        from hydromodpy.workflow.orchestrator import prepare_run
 
         self._run_counter += 1
         sim_id = str(uuid4())
@@ -496,7 +496,7 @@ class Project:
 
         Returns wall-clock seconds for the run.
         """
-        from hydromodpy.workflow.pipeline import execute_run
+        from hydromodpy.workflow.orchestrator import execute_run
 
         final_name = self._active_runs.get(sim_id, self._ctx.setup.run_id)
         wall = execute_run(self._ctx, sim_id, final_name=final_name)
@@ -505,7 +505,7 @@ class Project:
 
     def ingest(self, sim_id: str, *, extractors: list[str] | None = None) -> None:
         """Ingest observations for a completed simulation."""
-        from hydromodpy.workflow.pipeline import ingest_run
+        from hydromodpy.workflow.orchestrator import ingest_run
 
         ingest_run(self._ctx, sim_id, extractors=extractors)
 
@@ -516,7 +516,7 @@ class Project:
         figures: list[str] | None = None,
     ) -> list[Path]:
         """Render the display figures attached to this simulation."""
-        from hydromodpy.workflow.pipeline import render_run
+        from hydromodpy.workflow.orchestrator import render_run
 
         run = self._store[sim_id]
         final_name = self._active_runs.get(sim_id, self._ctx.setup.run_id)
@@ -538,7 +538,7 @@ class Project:
         status: str = "completed",
     ) -> None:
         """Finalize the run status and remove the scratch directory."""
-        from hydromodpy.workflow.pipeline import cleanup_run
+        from hydromodpy.workflow.orchestrator import cleanup_run
 
         wall = self._last_wall_seconds.pop(sim_id, 0.0)
         cleanup_run(

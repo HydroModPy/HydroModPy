@@ -437,7 +437,7 @@ def test_prepare_runtime_executes_embedded_mesh_phase_and_records_metrics(
 ) -> None:
     """Verify prepare_runtime calls the mesh workflow with correct args."""
     from hydromodpy.spatial.mesh.config import parse_mesh_catchment_config_data
-    from hydromodpy.workflow.pipeline import (
+    from hydromodpy.workflow.orchestrator import (
         execute_simulation,
         prepare_runtime,
     )
@@ -582,7 +582,7 @@ def test_prepare_runtime_uses_external_mesh_input_and_skips_embedded_workflow(
     hydromodpy_test_scratch_root: Path,
 ) -> None:
     """Verify prepare_runtime loads external mesh and skips embedded."""
-    from hydromodpy.workflow.pipeline import (
+    from hydromodpy.workflow.orchestrator import (
         execute_simulation,
         prepare_runtime,
     )

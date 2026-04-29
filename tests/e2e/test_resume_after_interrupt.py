@@ -13,8 +13,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from hydromodpy.pipeline.pipeline import Pipeline
 from hydromodpy.workflow.internals.state import PipelineState
+from hydromodpy.workflow.runner import Pipeline
 
 
 @dataclass
