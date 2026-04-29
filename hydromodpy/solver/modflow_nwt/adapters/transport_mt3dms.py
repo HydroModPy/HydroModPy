@@ -9,6 +9,7 @@ from hydromodpy.simulation.adapters.transport_helpers import (
     transport_output_suffix,
 )
 from hydromodpy.simulation.planning.plan import RunContext, RunExecutionResult
+from hydromodpy.solver.base.cleanup import cleanup_solver_files
 from hydromodpy.solver.modflow_nwt.mt3dms import Mt3dms
 
 
@@ -19,6 +20,15 @@ class Mt3dmsTransportAdapter:
     solver_name = "mt3dms"
     requires: tuple[tuple[str, str], ...] = (("flow", "modflownwt"),)
     produces_concentration: bool = True
+
+    def validate(self, ctx: RunContext) -> None:
+        """No precondition checks for MT3DMS transport runs."""
+
+    def cleanup(self, ctx: RunContext) -> None:
+        """Remove the scratch directory written by this run, if any."""
+        solver_output_dir = ctx.state.execution.output_dirs_by_run_id.get(ctx.run.id)
+        if solver_output_dir is not None:
+            cleanup_solver_files(solver_output_dir)
 
     def execute(self, ctx: RunContext) -> RunExecutionResult:
         """Instantiate and execute one MT3DMS concentration transport run."""

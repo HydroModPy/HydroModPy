@@ -17,6 +17,12 @@ class FlowDisplayAdapter:
     solver_name = "flow"
     requires: tuple[tuple[str, str], ...] = ()
 
+    def validate(self, ctx: RunContext) -> None:
+        """No precondition checks for the flow display stub."""
+
+    def cleanup(self, ctx: RunContext) -> None:
+        """Stub adapters write no scratch files."""
+
     def execute(self, ctx: RunContext) -> RunExecutionResult:
         raise NotImplementedError(
             "FlowDisplayAdapter is a stub. Implement by wrapping the flow display module."
@@ -29,6 +35,12 @@ class TransportDisplayAdapter:
     process_type = "display"
     solver_name = "transport"
     requires: tuple[tuple[str, str], ...] = ()
+
+    def validate(self, ctx: RunContext) -> None:
+        """No precondition checks for the transport display stub."""
+
+    def cleanup(self, ctx: RunContext) -> None:
+        """Stub adapters write no scratch files."""
 
     def execute(self, ctx: RunContext) -> RunExecutionResult:
         raise NotImplementedError(

@@ -1,12 +1,12 @@
 """Adapters that bind generic simulation runs to concrete solver APIs.
 
-The ``SolverRunner`` protocol exposed here is the single-method contract
-expected by :class:`hydromodpy.simulation.execution.runner.SimulationRunner`.
-Adapter classes are stored in the canonical registry at
-:mod:`hydromodpy.solver.base.registry` — import
-``get_solver_adapter`` from there rather than from this package.
+The single :class:`SolverAdapter` Protocol consumed by the simulation
+runner lives in :mod:`hydromodpy.solver.base.protocol`. Adapter classes
+are stored in the canonical registry at
+:mod:`hydromodpy.solver.base.registry` — import ``get_solver_adapter``
+from there.
 """
 
-from hydromodpy.simulation.adapters.base import SolverRunner
+from hydromodpy.solver.base.protocol import SolverAdapter
 
-__all__ = ["SolverRunner"]
+__all__ = ["SolverAdapter"]

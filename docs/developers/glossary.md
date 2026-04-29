@@ -80,9 +80,10 @@ Le terme recouvre deux rôles distincts. Toujours désambiguïser.
 ### SolverAdapter
 
 Interface Protocol qui lie une paire `(process_type, solver_name)` à un
-solveur concret. Module : `hydromodpy.simulation.adapters.base`. Le
-renommage vers `SolverRunner` est planifié mais non effectué. Le nom
-`SolverAdapter` reste la référence courante.
+solveur concret. Module : `hydromodpy.solver.base.protocol`. Contrat
+structurel : trois ClassVars (`process_type`, `solver_name`, `requires`)
+plus trois methods (`validate`, `execute`, `cleanup`) qu'un adaptateur
+doit exposer pour passer `isinstance(obj, SolverAdapter)`.
 
 ### Backend
 

@@ -8,7 +8,7 @@ live in ``solver/compatibility`` (class-based) and ``simulation/adapters``
   ``hydromodpy.solver`` entry-points group, see :func:`load_plugins`).
 - The simulation runner asks for an **instance** through
   :func:`get_solver_adapter`, which instantiates the registered class on
-  demand. This matches the lifecycle intent of ``SolverRunner`` (one adapter
+  demand. This matches the lifecycle intent of ``SolverAdapter`` (one adapter
   = one run) while preserving the lightweight semantics of a static catalog.
 
 The module also tracks per-solver **output extractors** in
@@ -30,7 +30,7 @@ from collections.abc import Iterable
 from importlib.metadata import entry_points
 from typing import Any
 
-from hydromodpy.solver.base.protocol import SolverRunner
+from hydromodpy.solver.base.protocol import SolverAdapter
 
 logger = logging.getLogger(__name__)
 
@@ -263,8 +263,8 @@ def pairs_for_process(process_type: str) -> Iterable[AdapterKey]:
 
 
 def is_adapter(obj: object) -> bool:
-    """Return ``True`` when *obj* structurally conforms to ``SolverRunner``."""
-    return isinstance(obj, SolverRunner)
+    """Return ``True`` when *obj* structurally conforms to ``SolverAdapter``."""
+    return isinstance(obj, SolverAdapter)
 
 
 def known_process_types() -> set[str]:
@@ -304,7 +304,7 @@ def load_plugins(*, force: bool = False) -> int:
     entry-points group.
 
     Each entry-point name must be ``"<process_type>_<solver_name>"`` (e.g.
-    ``"flow_modflow6"``). The loaded value must be a ``SolverRunner`` class.
+    ``"flow_modflow6"``). The loaded value must be a ``SolverAdapter`` class.
     Already-registered pairs are kept (an entry-point cannot replace an
     in-process registration unless ``force=True``).
 

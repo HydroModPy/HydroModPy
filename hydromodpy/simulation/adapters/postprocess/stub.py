@@ -17,6 +17,12 @@ class TimeseriesPostprocessAdapter:
     solver_name = "timeseries"
     requires: tuple[tuple[str, str], ...] = ()
 
+    def validate(self, ctx: RunContext) -> None:
+        """No precondition checks for the timeseries postprocess stub."""
+
+    def cleanup(self, ctx: RunContext) -> None:
+        """Stub adapters write no scratch files."""
+
     def execute(self, ctx: RunContext) -> RunExecutionResult:
         raise NotImplementedError(
             "TimeseriesPostprocessAdapter is a stub. "
@@ -30,6 +36,12 @@ class NetcdfPostprocessAdapter:
     process_type = "postprocess"
     solver_name = "netcdf"
     requires: tuple[tuple[str, str], ...] = ()
+
+    def validate(self, ctx: RunContext) -> None:
+        """No precondition checks for the NetCDF postprocess stub."""
+
+    def cleanup(self, ctx: RunContext) -> None:
+        """Stub adapters write no scratch files."""
 
     def execute(self, ctx: RunContext) -> RunExecutionResult:
         raise NotImplementedError(

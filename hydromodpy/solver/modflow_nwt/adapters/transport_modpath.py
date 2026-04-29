@@ -6,6 +6,7 @@ from pathlib import Path
 
 from hydromodpy.simulation.adapters.transport_helpers import required_flow_model
 from hydromodpy.simulation.planning.plan import RunContext, RunExecutionResult
+from hydromodpy.solver.base.cleanup import cleanup_solver_files
 from hydromodpy.solver.modflow_nwt.modpath import Modpath
 
 
@@ -15,6 +16,15 @@ class ModpathTransportAdapter:
     process_type = "transport"
     solver_name = "modpath"
     requires: tuple[tuple[str, str], ...] = (("flow", "modflownwt"),)
+
+    def validate(self, ctx: RunContext) -> None:
+        """No precondition checks for Modpath transport runs."""
+
+    def cleanup(self, ctx: RunContext) -> None:
+        """Remove the scratch directory written by this run, if any."""
+        solver_output_dir = ctx.state.execution.output_dirs_by_run_id.get(ctx.run.id)
+        if solver_output_dir is not None:
+            cleanup_solver_files(solver_output_dir)
 
     def execute(self, ctx: RunContext) -> RunExecutionResult:
         """Instantiate and execute one Modpath particle-tracking run."""

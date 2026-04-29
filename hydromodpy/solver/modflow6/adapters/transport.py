@@ -9,6 +9,7 @@ from hydromodpy.simulation.adapters.transport_helpers import (
     transport_output_suffix,
 )
 from hydromodpy.simulation.planning.plan import RunContext, RunExecutionResult
+from hydromodpy.solver.base.cleanup import cleanup_solver_files
 from hydromodpy.solver.modflow6.transport import Modflow6Transport
 
 
@@ -19,6 +20,15 @@ class Modflow6GwtTransportAdapter:
     solver_name = "modflow6gwt"
     requires: tuple[tuple[str, str], ...] = (("flow", "modflow6"),)
     produces_concentration: bool = True
+
+    def validate(self, ctx: RunContext) -> None:
+        """No precondition checks for MODFLOW 6 GWT transport runs."""
+
+    def cleanup(self, ctx: RunContext) -> None:
+        """Remove the scratch directory written by this run, if any."""
+        solver_output_dir = ctx.state.execution.output_dirs_by_run_id.get(ctx.run.id)
+        if solver_output_dir is not None:
+            cleanup_solver_files(solver_output_dir)
 
     def execute(self, ctx: RunContext) -> RunExecutionResult:
         """Instantiate and execute one MODFLOW 6 GWT concentration run."""

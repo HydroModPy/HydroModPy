@@ -96,7 +96,7 @@ def post_run_results(
         keep_solver_files if keep_solver_files is not None else results_config.keep_solver_files
     )
     if not do_keep and solver_output_dir is not None:
-        from hydromodpy.simulation.extraction.extractors.base import cleanup_solver_files
+        from hydromodpy.solver.base.cleanup import cleanup_solver_files
 
         try:
             cleanup_solver_files(solver_output_dir)
