@@ -13,6 +13,8 @@ import numpy as np
 import xarray as xr
 import zarr
 
+from hydromodpy.results import field_registry
+
 logger = logging.getLogger(__name__)
 
 
@@ -46,6 +48,8 @@ def export_netcdf(
     """
     output_path = Path(output_path)
     output_path.parent.mkdir(parents=True, exist_ok=True)
+
+    descriptors = {name: field_registry.get(name) for name in variables}
 
     root = zarr.open_group(str(zarr_path), mode="r")
     grp = root
@@ -106,29 +110,26 @@ def export_netcdf(
 
     # Locate each requested variable in the Zarr hierarchy
     for var_name in variables:
-        arr = _find_variable(grp, var_name)
+        descriptor = descriptors[var_name]
+        arr = _resolve_zarr_path(grp, descriptor.zarr_path)
         if arr is None:
-            logger.warning("Variable '%s' not found in sim %s, skipping", var_name, sim_id)
+            logger.warning(
+                "Variable '%s' (zarr_path=%r) not present in sim %s, skipping",
+                var_name,
+                descriptor.zarr_path,
+                sim_id,
+            )
             continue
 
         data = arr[:]
         ts_idx = list(range(data.shape[0])) if timesteps is None else timesteps
         data = data[ts_idx]
 
+        attrs = {**field_registry.cf_attrs(var_name), "mesh": "mesh2d", "location": "face"}
         if data.ndim == 3:
-            # (timestep, layer, cell) → 3D field
-            ds[var_name] = xr.DataArray(
-                data,
-                dims=("time", "layer", "n_face"),
-                attrs={"mesh": "mesh2d", "location": "face"},
-            )
+            ds[var_name] = xr.DataArray(data, dims=("time", "layer", "n_face"), attrs=attrs)
         elif data.ndim == 2:
-            # (timestep, cell) → 2D field
-            ds[var_name] = xr.DataArray(
-                data,
-                dims=("time", "n_face"),
-                attrs={"mesh": "mesh2d", "location": "face"},
-            )
+            ds[var_name] = xr.DataArray(data, dims=("time", "n_face"), attrs=attrs)
 
     if "time" in ds.dims:
         ds["time"] = xr.DataArray(
@@ -144,12 +145,16 @@ def export_netcdf(
     return output_path
 
 
-def _find_variable(grp, var_name: str):
-    """Search for a variable in the simulation group and its subgroups."""
-    if var_name in grp:
-        return grp[var_name]
-    for sub in ("derived", "budget"):
-        sg = grp.get(sub)
-        if sg is not None and var_name in sg:
-            return sg[var_name]
+def _resolve_zarr_path(grp, zarr_path: str):
+    """Resolve a registry zarr_path inside the simulation group, or None if absent."""
+    parts = zarr_path.split("/")
+    cursor = grp
+    for part in parts[:-1]:
+        sub = cursor.get(part)
+        if sub is None:
+            return None
+        cursor = sub
+    leaf = parts[-1]
+    if leaf in cursor:
+        return cursor[leaf]
     return None

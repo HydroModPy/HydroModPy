@@ -8,6 +8,8 @@ from pathlib import Path
 import numpy as np
 import zarr
 
+from hydromodpy.results import field_registry
+
 logger = logging.getLogger(__name__)
 
 
@@ -61,6 +63,8 @@ def export_geotiff(
     output_path = Path(output_path)
     output_path.parent.mkdir(parents=True, exist_ok=True)
 
+    descriptor = field_registry.get(variable)
+
     root = zarr.open_group(str(zarr_path), mode="r")
     grp = root
     mesh = grp["mesh"]
@@ -68,9 +72,11 @@ def export_geotiff(
     vertices = mesh["vertices"][:]
     connectivity = mesh["face_node_connectivity"][:]
 
-    arr = _find_variable(grp, variable)
+    arr = _resolve_zarr_path(grp, descriptor.zarr_path)
     if arr is None:
-        raise KeyError(f"Variable '{variable}' not found for sim={sim_id}")
+        raise KeyError(
+            f"Variable '{variable}' (zarr_path={descriptor.zarr_path!r}) not found for sim={sim_id}"
+        )
 
     data = arr[timestep]
     if data.ndim == 2:
@@ -126,12 +132,16 @@ def export_geotiff(
     return output_path
 
 
-def _find_variable(grp, var_name: str):
-    """Search for a variable in the simulation group and its subgroups."""
-    if var_name in grp:
-        return grp[var_name]
-    for sub in ("derived", "budget"):
-        sg = grp.get(sub)
-        if sg is not None and var_name in sg:
-            return sg[var_name]
+def _resolve_zarr_path(grp, zarr_path: str):
+    """Resolve a registry zarr_path inside the simulation group, or None if absent."""
+    parts = zarr_path.split("/")
+    cursor = grp
+    for part in parts[:-1]:
+        sub = cursor.get(part)
+        if sub is None:
+            return None
+        cursor = sub
+    leaf = parts[-1]
+    if leaf in cursor:
+        return cursor[leaf]
     return None
