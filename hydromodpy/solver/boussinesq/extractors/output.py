@@ -16,9 +16,9 @@ class BoussinesqOutputAdapter:
 
     Expects a solver output directory with ``_boussinesq_state_history.npz``
     (head history, derived fluxes) and ``_boussinesq_summary.json``
-    (convergence metadata).  These are written by
-    ``Boussinesq.post_processing()`` which the adapter calls after the
-    numerical solve.
+    (convergence metadata). ``Boussinesq.processing()`` writes both files at
+    the end of the solve, mirroring the MODFLOW lifecycle where the run step
+    is the only writer of solver outputs.
     """
 
     solver_name = "boussinesq"
