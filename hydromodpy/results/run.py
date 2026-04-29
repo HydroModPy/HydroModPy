@@ -45,6 +45,8 @@ from typing import TYPE_CHECKING
 import numpy as np
 import pandas as pd
 
+from hydromodpy.results.contracts import Mesh, RasterField, Stack, UGridStack
+
 logger = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
@@ -267,23 +269,30 @@ class Run:
         return _AtAccessor(self, timestep=timestep, layer=layer)
 
     @property
-    def mesh(self) -> dict:
+    def mesh(self) -> Mesh:
         sz = self._catalog.open_zarr(self._sim_id)
         mesh_grp = sz.root["mesh"]
-        return {
-            "vertices": mesh_grp["vertices"][:],
-            "face_node_connectivity": mesh_grp["face_node_connectivity"][:],
-            "z_interfaces": mesh_grp["z_interfaces"][:],
-        }
+        return Mesh(
+            vertices=mesh_grp["vertices"][:],
+            face_node_connectivity=mesh_grp["face_node_connectivity"][:],
+            z_interfaces=mesh_grp["z_interfaces"][:],
+        )
 
     # -- Geographic ----------------------------------------------------------
 
     def geographic(self, feature_name: str) -> gpd.GeoDataFrame:
         return self._catalog.read_geographic_feature(self._sim_id, feature_name)
 
-    def geographic_raster(self, name: str) -> tuple[np.ndarray, dict]:
+    def geographic_raster(self, name: str) -> RasterField:
         sz = self._catalog.open_zarr(self._sim_id)
-        return sz.read_geographic_raster(name)
+        data, meta = sz.read_geographic_raster(name)
+        return RasterField(
+            data=data,
+            transform=tuple(meta["transform"]),
+            crs=str(meta["crs"]),
+            nodata=float(meta["nodata"]),
+            shape=tuple(meta["shape"]),
+        )
 
     @cached_property
     def grid(self) -> Grid:
@@ -304,8 +313,8 @@ class Run:
         Shape matches ``run.grid.shape``. ``True`` where the DEM has a
         valid positive elevation. Cached on first access.
         """
-        dem, _ = self.geographic_raster("watershed_dem")
-        dem = dem.astype(float)
+        raster = self.geographic_raster("watershed_dem")
+        dem = raster.data.astype(float)
         return np.isfinite(dem) & (dem > 0)
 
     @cached_property
@@ -314,29 +323,36 @@ class Run:
 
         Use this when plotting or applying NaN-aware reductions. For a
         bit-for-bit copy of the stored raster (native dtype, sentinel
-        preserved), use ``run.geographic_raster("watershed_dem")``.
+        preserved), use ``run.geographic_raster("watershed_dem").data``.
         """
-        raw, meta = self.geographic_raster("watershed_dem")
-        arr = raw.astype("float64", copy=True)
-        nodata = meta.get("nodata")
+        raster = self.geographic_raster("watershed_dem")
+        arr = raster.data.astype("float64", copy=True)
+        nodata = raster.nodata
         if nodata is not None:
             arr[arr == float(nodata)] = np.nan
         return arr
 
-    def fields(self, variable: str) -> np.ndarray:
-        """Stack per-timestep rasters of ``variable`` as ``(n_t, nrow, ncol)``.
+    def fields(self, variable: str) -> Stack | UGridStack:
+        """Stack per-timestep arrays of ``variable``.
 
-        Reshapes each flat cell array to the DEM grid and stacks the
-        ``n_timesteps`` frames. Only defined for regular-in-plan meshes
-        (``dis`` / ``disv``); raises for ``disu`` via ``run.grid``.
+        For regular-in-plan meshes (``dis`` / ``disv``), reshapes each
+        flat cell array to the DEM grid and returns a :class:`Stack`
+        with ``data`` shaped ``(n_t, nrow, ncol)``. For unstructured
+        meshes (``disu``) returns a :class:`UGridStack` carrying the
+        raw ``(n_t, n_cells)`` array together with the underlying mesh.
         Values are returned raw (no masking or NaN substitution) -
         combine with ``run.catchment_mask`` to mask inactive cells.
         """
-        grid = self.grid
         n = self.n_timesteps or 1
-        return np.stack(
+        topology = self._load_row().get("mesh_topology")
+        if topology == "disu":
+            data = np.stack([np.asarray(self.field(variable, timestep=t)) for t in range(n)])
+            return UGridStack(data=data, variable=variable, mesh=self.mesh)
+        grid = self.grid
+        data = np.stack(
             [np.asarray(self.field(variable, timestep=t)).reshape(grid.shape) for t in range(n)]
         )
+        return Stack(data=data, variable=variable)
 
     @cached_property
     def time_index(self) -> pd.DatetimeIndex:

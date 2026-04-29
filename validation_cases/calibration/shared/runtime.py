@@ -619,8 +619,8 @@ def _extract_head_at_point_from_run(run: Any, *, x: float, y: float) -> np.ndarr
         except Exception:
             mesh_payload = None
         if mesh_payload is not None:
-            vertices = np.asarray(mesh_payload.get("vertices", []), dtype=float)
-            connectivity = np.asarray(mesh_payload.get("face_node_connectivity", []), dtype=int)
+            vertices = np.asarray(mesh_payload.vertices, dtype=float)
+            connectivity = np.asarray(mesh_payload.face_node_connectivity, dtype=int)
             if connectivity.size and vertices.size >= 2:
                 valid = connectivity >= 0
                 gathered = np.where(
