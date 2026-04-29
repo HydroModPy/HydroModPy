@@ -187,6 +187,7 @@ def test_watertable_depth_after_elevation(tmp_path):
     # Apply in registered topological order: elevation then depth.
     registry.apply(sz, names=["watertable_elevation", "watertable_depth"])
     depth = np.asarray(sz.root["derived"]["watertable_depth"][:])
+    assert (depth >= 0).all()
     np.testing.assert_array_equal(depth[0], [5.0, 0.0, 1.0, 0.0])
     np.testing.assert_array_equal(depth[1], [4.0, 3.0, 2.0, 1.0])
 
@@ -201,6 +202,7 @@ def test_seepage_mask_flags_overflowing_cells(tmp_path):
         names=["watertable_elevation", "seepage_mask"],
     )
     mask = np.asarray(sz.root["derived"]["seepage_mask"][:])
+    assert set(np.unique(mask)).issubset({0.0, 1.0})
     # Expect 1 where wt_elev >= top (10.0), 0 otherwise.
     np.testing.assert_array_equal(mask[0], [0.0, 1.0, 1.0, 0.0])
     np.testing.assert_array_equal(mask[1], [0.0, 1.0, 1.0, 1.0])

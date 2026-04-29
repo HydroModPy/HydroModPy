@@ -182,3 +182,6 @@ class TestGPMappingLegacyKwargs:
             )
         best = opt.best()
         assert best is not None
+        assert best.status == "completed"
+        assert isinstance(best.objective_value, float)
+        assert best.trial_id >= 0

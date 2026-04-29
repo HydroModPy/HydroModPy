@@ -38,7 +38,8 @@ def _build_surface(
 def test_surface_assert_same_geographic_domain_ok():
     top = _build_surface(np.array([[1.0, 2.0], [3.0, 4.0]]), name="top")
     bottom = _build_surface(np.array([[0.0, 1.0], [2.0, 3.0]]), name="bottom")
-    top.assert_same_geographic_domain(bottom)
+    # Method must return None (raises on mismatch).
+    assert top.assert_same_geographic_domain(bottom) is None
 
 
 def test_surface_assert_same_geographic_domain_raises_on_extent():

@@ -166,4 +166,5 @@ def test_modflow_accepts_missing_time_grid_for_steady_launcher_flow_preprocessin
     model.sgrid_config = object()
     model._apply_preprocess_options(model.preprocess_options)
 
-    model._validate_pre_processing_inputs()
+    # Steady flow should not require a time_grid; method must return None.
+    assert model._validate_pre_processing_inputs() is None

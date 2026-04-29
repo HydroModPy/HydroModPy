@@ -149,6 +149,7 @@ def test_recharge_point_source_builds_period_arrays():
 
     rch_data = adapter._build_recharge_payload()
 
+    assert set(rch_data.keys()) == {0, 1}
     np.testing.assert_allclose(
         rch_data[0],
         np.full((1, 1), 8.0e-3 / 86400.0, dtype=float),

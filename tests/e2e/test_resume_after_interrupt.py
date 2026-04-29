@@ -13,6 +13,9 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
+import pytest
+
+from hydromodpy.core.exceptions import StepError
 from hydromodpy.workflow.internals.checkpoint import _strip_unpicklable
 from hydromodpy.workflow.internals.state import (
     PipelineState,
@@ -61,10 +64,10 @@ def test_pipeline_resume_after_step_crash(tmp_path: Path) -> None:
     initial = PipelineState(run_id="rid-1")
 
     # First run - step "d" crashes after "a","b","c" were checkpointed.
-    try:
+    with pytest.raises(StepError) as exc_info:
         pipeline.run(initial)
-    except Exception:
-        pass
+    assert exc_info.value.step_name == "d"
+    assert isinstance(exc_info.value.cause, RuntimeError)
 
     # Second run - resume from the failing step; "d" now succeeds.
     final = pipeline.run(initial, resume_from=3)
@@ -124,10 +127,9 @@ def test_pipeline_rebinds_unpicklable_values_after_resume(tmp_path: Path) -> Non
         initial = PipelineState(run_id="rebind-1")
 
         # First run crashes on step 1 after step 0 wrote a marker checkpoint.
-        try:
+        with pytest.raises(StepError) as exc_info:
             pipeline.run(initial)
-        except Exception:
-            pass
+        assert isinstance(exc_info.value.cause, RuntimeError)
 
         # Resume from step 1: the marker must be rebuilt before step.run().
         final = pipeline.run(initial, resume_from=1)

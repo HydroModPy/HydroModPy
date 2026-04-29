@@ -49,7 +49,9 @@ def test_stations_valid():
             "name": ["One", "Two"],
         }
     )
-    validate_stations(df)
+    out = validate_stations(df)
+    assert list(out["station_id"]) == ["A", "B"]
+    assert {"lat", "lon", "z", "name"}.issubset(out.columns)
 
 
 def test_stations_bad_lat_fails():
@@ -73,7 +75,9 @@ def test_lithology_valid():
             "layer_thickness": [10.0, 15.0],
         }
     )
-    validate_lithology(df)
+    out = validate_lithology(df)
+    assert list(out["zone_id"]) == ["z1", "z2"]
+    assert (out["conductivity"] > 0).all()
 
 
 def test_lithology_negative_conductivity_fails():
@@ -93,7 +97,9 @@ def test_dem_valid_numpy_dict():
         "resolution": (25.0, 25.0),
         "crs": "EPSG:2154",
     }
-    validate_dem(dem)
+    out = validate_dem(dem)
+    assert out["crs"] == "EPSG:2154"
+    assert out["data"].shape == (10, 10)
 
 
 def test_dem_missing_crs_fails():
@@ -131,4 +137,7 @@ def test_catchment_valid():
         geometry=[poly],
         crs="EPSG:2154",
     )
-    validate_catchment(gdf)
+    out = validate_catchment(gdf)
+    assert len(out) == 1
+    assert str(out.crs) == "EPSG:2154"
+    assert out.iloc[0]["area_km2"] == 10.0
