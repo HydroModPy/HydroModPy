@@ -199,8 +199,8 @@ class ScipyNelderMead(_ScipyAdapterBase):
         self._maxfev = int(max_fun) if max_fun is not None else self._maxiter
         resolved_xatol = xatol if xatol is not None else xtol
         resolved_fatol = fatol if fatol is not None else ftol
-        self._xatol = float(resolved_xatol) if resolved_xatol is not None else 1e-4
-        self._fatol = float(resolved_fatol) if resolved_fatol is not None else 1e-4
+        self._xatol = float(resolved_xatol) if resolved_xatol is not None else None
+        self._fatol = float(resolved_fatol) if resolved_fatol is not None else None
         super().__init__(space, seed=seed)
 
     def _make_method(self) -> Callable[[Callable], object]:
@@ -224,18 +224,21 @@ class ScipyNelderMead(_ScipyAdapterBase):
             def clipped(x: np.ndarray) -> float:
                 return obj(np.clip(np.asarray(x, dtype=float), lower, upper))
 
+            options: dict[str, object] = {
+                "maxiter": self._maxiter,
+                "maxfev": self._maxfev,
+                "adaptive": True,
+                "initial_simplex": initial_simplex,
+            }
+            if self._xatol is not None:
+                options["xatol"] = self._xatol
+            if self._fatol is not None:
+                options["fatol"] = self._fatol
             return minimize(
                 clipped,
                 x0,
                 method="Nelder-Mead",
-                options={
-                    "maxiter": self._maxiter,
-                    "maxfev": self._maxfev,
-                    "xatol": self._xatol,
-                    "fatol": self._fatol,
-                    "adaptive": True,
-                    "initial_simplex": initial_simplex,
-                },
+                options=options,
             )
 
         return run

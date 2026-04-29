@@ -326,7 +326,7 @@ class Modflow6(Solver):
         self.sy = solver_mesh.flatten_from_grid(flow_params["sy"])
         self.ss = solver_mesh.flatten_from_grid(flow_params["ss"])
 
-        runtime = getattr(self.modflow_config, "runtime", None)
+        runtime = self.modflow_config.runtime
         sim_name = self.model_name_mf6
         self.sim = flopy.mf6.MFSimulation(
             sim_name=sim_name, sim_ws=self.full_path, exe_name=self.exe
@@ -346,12 +346,12 @@ class Modflow6(Solver):
         )
         self.ims = flopy.mf6.ModflowIms(
             self.sim,
-            print_option="SUMMARY" if getattr(runtime, "mf_verbose", False) else "NONE",
-            complexity=getattr(runtime, "mf6_ims_complexity", "COMPLEX"),
-            outer_dvclose=float(getattr(runtime, "mf6_outer_dvclose", 1e-4)),
-            inner_dvclose=float(getattr(runtime, "mf6_inner_dvclose", 1e-4)),
-            outer_maximum=int(getattr(runtime, "mf6_outer_maximum", 500)),
-            inner_maximum=int(getattr(runtime, "mf6_inner_maximum", 500)),
+            print_option="SUMMARY" if runtime.mf_verbose else "NONE",
+            complexity=runtime.mf6_ims_complexity,
+            outer_dvclose=float(runtime.mf6_outer_dvclose),
+            inner_dvclose=float(runtime.mf6_inner_dvclose),
+            outer_maximum=int(runtime.mf6_outer_maximum),
+            inner_maximum=int(runtime.mf6_inner_maximum),
             filename=f"{self.model_name_mf6}_gwf.ims",
             pname="IMS_GWF",
         )

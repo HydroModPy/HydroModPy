@@ -2,10 +2,9 @@
 
 All HydroModPy configuration classes inherit from :class:`HydroModelBase`
 rather than :class:`pydantic.BaseModel` directly. This centralises the
-strictness defaults (``extra="forbid"``, ``validate_assignment=True``,
-``populate_by_name=True``, ``serialize_by_alias=True``) that the
-architecture spec (``architecture_cible/02_config_pydantic.md`` §3.1)
-requires to be uniform across the codebase.
+strictness defaults (``extra="forbid"``, ``validate_assignment=True``)
+that the architecture spec (``architecture_cible/02_config_pydantic.md``
+§3.1) requires to be uniform across the codebase.
 
 The root base also validates any :class:`VisibleWhen` metadata attached to
 fields: a ``VisibleWhen("sibling", ...)`` tag must reference an existing
@@ -28,9 +27,6 @@ class HydroModelBase(BaseModel):
     Sets the strictness defaults required by the architecture spec:
 
     * ``extra="forbid"`` - typos in TOML keys are rejected.
-    * ``populate_by_name=True`` - model can be built from either alias
-      or internal field name.
-    * ``serialize_by_alias=True`` - dumps respect the declared aliases.
     * ``validate_assignment=True`` - mutations go through validators.
     * ``str_strip_whitespace=True`` - trims free-form string inputs.
     * ``arbitrary_types_allowed=True`` - needed for pint Quantities and
@@ -40,8 +36,6 @@ class HydroModelBase(BaseModel):
 
     model_config = ConfigDict(
         extra="forbid",
-        populate_by_name=True,
-        serialize_by_alias=True,
         validate_assignment=True,
         str_strip_whitespace=True,
         arbitrary_types_allowed=True,

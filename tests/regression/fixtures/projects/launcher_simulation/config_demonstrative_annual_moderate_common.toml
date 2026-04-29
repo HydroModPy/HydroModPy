@@ -79,12 +79,3 @@ enabled = true
 show = false
 save = true
 dpi = 300
-
-[display.flow]
-enabled = true
-state_triptych = true
-recharge_discharge_cumulative = true
-watertable_map = true
-cross_section = false
-streamflow = false
-piezometry = false

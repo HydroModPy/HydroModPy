@@ -70,16 +70,7 @@ def _normalize_unit_token(value: str | None) -> str | None:
 
 
 class FieldBaseSection(HydroModelBase):
-    """
-    Schema for `[field]` base section.
-
-    Notes
-    -----
-    `extra="allow"` keeps compatibility with legacy payloads where `value` or
-    `values` may also be directly placed in `[field]`.
-    """
-
-    model_config = ConfigDict(extra="allow")
+    """Schema for `[field]` base section."""
 
     id: Annotated[str | None, Profile.USER] = Field(
         default=None,
@@ -439,15 +430,7 @@ class FieldVerticalProfileSection(HydroModelBase):
 
 
 class FieldParamConfig(HydroModelBase):
-    """
-    Top-level schema for field-parameter TOML files.
-
-    Notes
-    -----
-    `extra="allow"` keeps compatibility with case-specific extra sections.
-    """
-
-    model_config = ConfigDict(extra="allow")
+    """Top-level schema for field-parameter TOML files."""
 
     field: Annotated[FieldBaseSection | None, Profile.USER] = Field(
         default=None,

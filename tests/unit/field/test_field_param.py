@@ -25,6 +25,8 @@ def test_field_param_homogeneous_from_toml(tmp_path: Path):
             [field]
             id = "K"
             kind = "homogeneous"
+
+            [field_homogeneous]
             value = 12.5
             """),
         encoding="utf-8",
@@ -300,11 +302,13 @@ def test_field_param_heterogeneous_requires_field_spatial_id(tmp_path: Path):
             [field]
             id = "K"
             kind = "heterogeneous"
+
+            [field_heterogeneous]
             values = { granite = 1.0, micaschists = 3.0 }
             """),
         encoding="utf-8",
     )
-    with pytest.raises(KeyError, match="field_spatial_id"):
+    with pytest.raises(ValueError, match="field_spatial_id"):
         _ = field_param_from_toml(path)
 
 
@@ -314,6 +318,8 @@ def test_field_param_requires_identifier(tmp_path: Path):
         textwrap.dedent("""
             [field]
             kind = "homogeneous"
+
+            [field_homogeneous]
             value = 1.0
             """),
         encoding="utf-8",
@@ -348,6 +354,8 @@ def test_field_param_from_toml_with_vertical_profile_exponential(tmp_path: Path)
             [field]
             id = "K"
             kind = "homogeneous"
+
+            [field_homogeneous]
             value = 12.0
 
             [field_vertical_profile]
@@ -372,6 +380,8 @@ def test_field_param_from_toml_with_vertical_profile_exponential_characteristic_
             [field]
             id = "K"
             kind = "homogeneous"
+
+            [field_homogeneous]
             value = 12.0
 
             [field_vertical_profile]
