@@ -45,8 +45,8 @@ Outputs (solver side):
 - recharge payloads:
   ``rch_data`` as a period-indexed dict or a scalar (steady-state Mapping
   average), consumed by ``ModflowRch(rech=...)``.
-  ``evt_spd`` as a per-period evapotranspiration dict built from negative
-  recharge values routed to EVT, or ``None`` when not activated.
+  ``evt_spd`` as a per-period evapotranspiration dict built from
+  ``flow.sinks_sources.etp``, or ``None`` when ETP is not configured.
 
 Glossary
 --------
@@ -164,35 +164,6 @@ def _discretize_heterogeneous_source(
     return {kper: np.zeros((nrow, ncol), dtype=float) for kper in range(nper)}
 
 
-def _merge_evt_payloads(
-    primary: dict[int, object] | None,
-    secondary: dict[int, object] | None,
-) -> dict[int, object] | None:
-    """Sum two per-period EVT payloads into one stress-period dict.
-
-    Either argument may be ``None``. Scalars and ndarrays are added
-    element-wise; mismatched shapes fall back to numpy broadcasting and
-    raise the underlying error. Returns ``None`` only when both inputs
-    are ``None``.
-    """
-    if primary is None:
-        return secondary
-    if secondary is None:
-        return primary
-
-    merged: dict[int, object] = dict(primary)
-    for kper, value in secondary.items():
-        if kper not in merged:
-            merged[kper] = value
-            continue
-        a = merged[kper]
-        if isinstance(a, np.ndarray) or isinstance(value, np.ndarray):
-            merged[kper] = np.asarray(a, dtype=float) + np.asarray(value, dtype=float)
-        else:
-            merged[kper] = float(a) + float(value)
-    return merged
-
-
 @dataclass(slots=True)
 class FlowModflowInputs:
     """
@@ -217,8 +188,8 @@ class FlowModflowInputs:
       ``ModflowRch(rech=...)``, or a scalar average for steady-state Mapping
       inputs.
     - ``evt_spd``: per-period evapotranspiration dict ``{kper: value}``
-      produced when negative recharge values are routed to EVT, or ``None``
-      when EVT routing is not activated.
+      produced from ``flow.sinks_sources.etp``, or ``None`` when ETP is
+      not configured.
 
     BAS contract reminder
     ---------------------
@@ -1068,27 +1039,29 @@ class FlowToModflowAdapter:
             raise ValueError("flow.flow_regime must be 'steady' or 'transient'.")
         return flow_regime
 
-    def _build_recharge_payload(self) -> tuple[object, dict[int, object] | None]:
+    def _build_recharge_payload(self) -> object | None:
         """
-        Build RCH and EVT payloads from ``flow.sinks_sources["recharge"]``.
+        Build the RCH payload from ``flow.sinks_sources["recharge"]``.
 
         Supports both homogeneous (scalar/series) and heterogeneous (2-D
         per-cell arrays from :class:`LoadResult` FieldRecords) recharge.
+        EVT routing is handled exclusively via ``FlowEtpConfig`` and
+        ``_build_etp_payload``.
 
         Returns
         -------
-        tuple[rch_data, evt_spd]
-            ``rch_data`` is the payload passed to ``ModflowRch(rech=...)``.
-            ``evt_spd`` is the EVT stress-period dict, or ``None`` when not activated.
+        rch_data : object | None
+            Payload passed to ``ModflowRch(rech=...)``, or ``None`` when
+            recharge is not active.
         """
         active = getattr(self.flow, "active_sinks_sources", [])
         if "recharge" not in active:
-            return None, None
+            return None
 
         sinks_sources = getattr(self.flow, "sinks_sources", {})
         recharge_cfg = sinks_sources.get("recharge") if isinstance(sinks_sources, Mapping) else None
         if recharge_cfg is None:
-            return None, None
+            return None
 
         # Heterogeneous path: gridded FieldRecords or located points from data managers.
         het_source = getattr(recharge_cfg, "heterogeneous_source", None)
@@ -1097,20 +1070,16 @@ class FlowToModflowAdapter:
         ):
             return self._build_heterogeneous_recharge_payload(recharge_cfg)
 
-        # Homogeneous path (existing behavior).
+        # Homogeneous path.
         recharge_payload = self._copy_payload(recharge_cfg.values)
         recharge_payload = convert_payload_to_m_per_s(
             recharge_payload,
             unit=str(getattr(recharge_cfg, "units", "mm/day")),
             label="flow.sinks_sources.recharge.values",
         )
-        recharge_payload, evt_spd = self._extract_evt_payload(
-            recharge_payload, recharge_cfg.negative_to_evt
-        )
-        rch_data = self._assemble_rch_data(
+        return self._assemble_rch_data(
             recharge_payload, recharge_cfg.first_clim, self._resolve_flow_regime()
         )
-        return rch_data, evt_spd
 
     def _build_etp_payload(self) -> tuple[dict[int, object] | None, float, float]:
         """Build the EVT payload from ``flow.sinks_sources["etp"]``.
@@ -1202,11 +1171,10 @@ class FlowToModflowAdapter:
     def _build_heterogeneous_recharge_payload(
         self,
         recharge_cfg: object,
-    ) -> tuple[dict[int, np.ndarray], dict[int, np.ndarray] | None]:
+    ) -> dict[int, np.ndarray]:
         """Discretize gridded FieldRecords onto the MODFLOW grid.
 
-        Returns ``(rch_data, evt_spd)`` where ``rch_data`` is
-        ``{kper: ndarray(nrow, ncol)}`` in solver time units.
+        Returns ``{kper: ndarray(nrow, ncol)}`` in solver time units.
         """
         het_source = recharge_cfg.heterogeneous_source
         interp_method = getattr(recharge_cfg, "interpolation_method", "nearest")
@@ -1222,20 +1190,11 @@ class FlowToModflowAdapter:
             source_unit=source_unit,
         )
 
-        # Apply first_clim policy.
-        rch_data = self._apply_first_clim_2d(
+        return self._apply_first_clim_2d(
             raw_arrays,
             getattr(recharge_cfg, "first_clim", "mean"),
             self._resolve_flow_regime(),
         )
-
-        # Element-wise EVT routing for negative cells.
-        rch_data, evt_spd = self._extract_evt_payload_2d(
-            rch_data,
-            getattr(recharge_cfg, "negative_to_evt", True),
-        )
-
-        return rch_data, evt_spd
 
     def _apply_first_clim_2d(
         self,
@@ -1265,105 +1224,6 @@ class FlowToModflowAdapter:
             result[0] = np.full((self.nrow, self.ncol), float(first_clim), dtype=float)
 
         return result
-
-    def _extract_evt_payload_2d(
-        self,
-        rch_data: dict[int, np.ndarray],
-        negative_to_evt: bool,
-    ) -> tuple[dict[int, np.ndarray], dict[int, np.ndarray] | None]:
-        """Element-wise EVT routing for 2-D recharge arrays.
-
-        Negative cell values are moved to EVT; RCH cells clipped to 0.
-        Period 0 EVT is always zero (warm-up convention).
-        """
-        if not negative_to_evt:
-            return rch_data, None
-
-        has_negative = any(np.any(arr < 0) for arr in rch_data.values())
-        if not has_negative:
-            return rch_data, None
-
-        evt_data: dict[int, np.ndarray] = {}
-        clipped_rch: dict[int, np.ndarray] = {}
-        for kper, arr in rch_data.items():
-            if kper == 0:
-                evt_data[kper] = np.zeros_like(arr)
-            else:
-                evt_data[kper] = np.abs(np.minimum(arr, 0.0))
-            clipped_rch[kper] = np.maximum(arr, 0.0)
-
-        return clipped_rch, evt_data
-
-    def _extract_evt_payload(
-        self, payload: object, negative_to_evt: bool
-    ) -> tuple[object, dict[int, object] | None]:
-        """
-        Route negative recharge values to an EVT stress-period dict and clip
-        the recharge payload to non-negative values.
-
-        In MODFLOW, EVT (EvapTranspiration) represents upward fluxes from the
-        water table. When a recharge series contains negative values, those can
-        optionally be routed to the EVT package instead of being zeroed out or
-        left as negative RCH - which MODFLOW would otherwise reject.
-
-        This method is a no-op (payload unchanged, ``None`` for EVT) when any
-        of the following is true:
-
-        - ``negative_to_evt`` is ``False``,
-        - ``payload`` is a Mapping (period-keyed dict: per-value routing is
-          not supported for this type),
-        - ``payload`` is a scalar number,
-        - ``payload`` contains no negative values.
-
-        Parameters
-        ----------
-        payload : object
-            Recharge series (numpy array, pandas Series, etc.). Negative values
-            are clipped to 0 in place when EVT routing is triggered.
-        negative_to_evt : bool
-            Flag from ``recharge_cfg.negative_to_evt``.
-
-        Returns
-        -------
-        tuple[object, dict[int, object] | None]
-            ``(clipped_payload, evt_spd)`` where ``clipped_payload`` has all
-            negative values set to 0 and ``evt_spd`` maps each stress period
-            to the absolute value of the original negative recharge.
-
-        Notes
-        -----
-        Period 0 always receives ``evt_spd[0] = 0``, regardless of the payload
-        value. This mirrors the ``first_clim`` warm-up convention for RCH:
-        the first climate step is excluded from EVT forcing.
-        """
-        if (
-            not negative_to_evt
-            or isinstance(payload, Mapping)
-            or self._is_scalar_number(payload)
-            or not self._has_negative_values(payload)
-        ):
-            return payload, None
-
-        payload_for_rch = self._copy_payload(payload)
-        evt_payload = self._copy_payload(payload)
-
-        # Python lists do not support boolean masking (payload[payload < 0]).
-        # Normalize sequence payloads to ndarrays before vectorized clipping.
-        if isinstance(payload_for_rch, list):
-            payload_for_rch = np.asarray(payload_for_rch, dtype=float)
-        if isinstance(evt_payload, list):
-            evt_payload = np.asarray(evt_payload, dtype=float)
-
-        evt_payload[evt_payload >= 0] = 0
-        evt_payload = np.abs(evt_payload)
-
-        evt_spd: dict[int, object] = {
-            kper: (0 if kper == 0 else self._series_value(evt_payload, kper))
-            for kper in range(self.nper)
-        }
-
-        payload_for_rch[payload_for_rch < 0] = 0
-        return payload_for_rch, evt_spd
 
     def _assemble_rch_data(self, payload: object, first_clim: object, flow_regime: str) -> object:
         """
@@ -1495,16 +1355,12 @@ class FlowToModflowAdapter:
         # Stage 5: normalize wells to WEL stress-period structure.
         wel_spd = self._build_well_stress_period_data()
 
-        # Stage 6: recharge and EVT payloads from flow.sinks_sources.recharge.
-        rch_data, evt_spd_from_recharge = self._build_recharge_payload()
+        # Stage 6: recharge payload from flow.sinks_sources.recharge.
+        rch_data = self._build_recharge_payload()
 
-        # Stage 7: dedicated ETP payload from flow.sinks_sources.etp. When
-        # both the negative-recharge fallback and a real ETP source are
-        # active, the per-period rates are summed before reaching the EVT
-        # package so the user can keep the legacy behaviour while adding
-        # an explicit ETP forcing.
-        evt_from_etp, evt_surface_offset, evt_extinction_depth = self._build_etp_payload()
-        evt_spd = _merge_evt_payloads(evt_spd_from_recharge, evt_from_etp)
+        # Stage 7: dedicated ETP payload from flow.sinks_sources.etp. This is
+        # the unique entry point for the EVT package.
+        evt_spd, evt_surface_offset, evt_extinction_depth = self._build_etp_payload()
 
         # Final packaging of all solver-ready arrays and SPD payloads.
         return FlowModflowInputs(

@@ -331,7 +331,7 @@ def _apply_transient_payload(
     flow["active_sinks_sources"] = ["recharge"]
     flow["active_bc"] = ["east_side", "drainage"]
     flow["ic"] = {"type": "custom", "value": f"{INITIAL_HEAD_M:.6f} m"}
-    flow["sinks_sources"] = {"recharge": {"first_clim": "first", "negative_to_evt": False}}
+    flow["sinks_sources"] = {"recharge": {"first_clim": "first"}}
 
     bc = dict(flow.get("bc", {}))
     dirichlet = dict(bc.get("dirichlet", {}))

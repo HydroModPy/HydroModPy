@@ -573,7 +573,6 @@ class TestFlowRechargeConfigHeterogeneousSource:
             heterogeneous_source=lr,
             first_clim="mean",
             units="m/s",
-            negative_to_evt=True,
         )
 
         assert cfg.heterogeneous_source is lr

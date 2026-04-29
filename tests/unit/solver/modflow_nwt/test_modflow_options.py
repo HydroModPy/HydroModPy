@@ -56,7 +56,6 @@ def test_recharge_config_defaults():
     assert cfg.values == 0.0
     assert cfg.first_clim == "mean"
     assert cfg.units == "mm/day"
-    assert cfg.negative_to_evt is True
 
 
 def test_recharge_config_first_clim_normalized_to_lowercase():
@@ -83,13 +82,6 @@ def test_recharge_config_first_clim_rejects_unknown_keyword():
 
 
 def test_recharge_config_accepts_list_values():
-    cfg = FlowRechargeConfig(values=[0.001, 0.0008, -0.0002], negative_to_evt=True)
+    cfg = FlowRechargeConfig(values=[0.001, 0.0008, -0.0002])
 
     assert cfg.values == [0.001, 0.0008, -0.0002]
-    assert cfg.negative_to_evt is True
-
-
-def test_recharge_config_negative_to_evt_default_true():
-    cfg = FlowRechargeConfig(values=0.001)
-
-    assert cfg.negative_to_evt is True
