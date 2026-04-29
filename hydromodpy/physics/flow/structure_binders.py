@@ -14,6 +14,7 @@ from hydromodpy.core.units.volumetric_flow import (
     convert_to_m3_per_s,
     normalize_m3_per_s_unit,
 )
+from hydromodpy.physics.contracts import LoadResultProto
 from hydromodpy.physics.flow.sinks_sources import (
     FlowEtpConfig,
     FlowRechargeConfig,
@@ -25,14 +26,13 @@ from hydromodpy.physics.flow.time_forcing import (
 
 if TYPE_CHECKING:
     from hydromodpy.core.time import ResolvedSimulationTimeWindow
-    from hydromodpy.data.contracts.load_result import LoadResult
     from hydromodpy.physics.flow import Flow
 
 
 def apply_oceanic_to_flow(
     *,
     flow: Flow,
-    oceanic: LoadResult | None,
+    oceanic: LoadResultProto | None,
 ) -> None:
     """Inject mean sea-level value into the active ocean boundary condition."""
     if oceanic is None:
@@ -58,7 +58,7 @@ def apply_oceanic_to_flow(
 def apply_recharge_load_result_to_flow(
     *,
     flow: Flow,
-    recharge_result: LoadResult | None,
+    recharge_result: LoadResultProto | None,
     simulation_window: ResolvedSimulationTimeWindow | None = None,
 ) -> bool:
     """Inject recharge from a data-manager LoadResult into flow.
@@ -123,7 +123,7 @@ def apply_recharge_load_result_to_flow(
 def apply_etp_load_result_to_flow(
     *,
     flow: Flow,
-    etp_result: LoadResult | None,
+    etp_result: LoadResultProto | None,
     simulation_window: ResolvedSimulationTimeWindow | None = None,
 ) -> bool:
     """Inject ETP from a data-manager LoadResult into flow.

@@ -19,9 +19,10 @@ from typing import TYPE_CHECKING, Literal
 
 import pandas as pd
 
+from hydromodpy.physics.contracts import LoadResultProto
+
 if TYPE_CHECKING:
     from hydromodpy.core.time import ResolvedSimulationTimeWindow
-    from hydromodpy.data.contracts.load_result import LoadResult
 
 SpatialMode = Literal["auto", "homogeneous", "heterogeneous"]
 InterpolationMethod = Literal["nearest", "linear", "idw"]
@@ -48,7 +49,7 @@ class ResolvedForcing:
     """
 
     series: pd.Series | None
-    heterogeneous_source: LoadResult | None
+    heterogeneous_source: LoadResultProto | None
     spatial_mode: str
     interpolation_method: str
 
@@ -56,7 +57,7 @@ class ResolvedForcing:
 # ── Homogeneous extraction (variable-agnostic) ───────────────
 
 
-def extract_homogeneous_series(result: LoadResult) -> pd.Series | None:
+def extract_homogeneous_series(result: LoadResultProto) -> pd.Series | None:
     """Extract a single time series from point records.
 
     If multiple stations are present, returns the arithmetic mean.
@@ -82,7 +83,7 @@ def extract_homogeneous_series(result: LoadResult) -> pd.Series | None:
     return combined.mean(axis=1)
 
 
-def extract_homogeneous_series_from_fields(result: LoadResult) -> pd.Series | None:
+def extract_homogeneous_series_from_fields(result: LoadResultProto) -> pd.Series | None:
     """Compute the spatial mean of FieldRecords.
 
     Reduces gridded data (TIF, NC, xarray) to one scalar per time step
@@ -100,7 +101,7 @@ def extract_homogeneous_series_from_fields(result: LoadResult) -> pd.Series | No
 
 
 def build_forcing_series(
-    load_result: LoadResult,
+    load_result: LoadResultProto,
     *,
     unit_conversion_factor: float = 1.0,
     simulation_window: ResolvedSimulationTimeWindow | None = None,
@@ -151,7 +152,7 @@ def build_forcing_series(
 # ── Spatial-mode dispatch (generic) ──────────────────────────
 
 
-def has_located_points(load_result: LoadResult) -> bool:
+def has_located_points(load_result: LoadResultProto) -> bool:
     """Return True if the LoadResult contains PointRecords with (x, y)."""
     for rec in load_result.points:
         loc = getattr(rec, "location", None)
@@ -161,7 +162,7 @@ def has_located_points(load_result: LoadResult) -> bool:
 
 
 def resolve_forcing(
-    load_result: LoadResult | None,
+    load_result: LoadResultProto | None,
     *,
     unit_conversion_factor: float = 1.0,
     simulation_window: ResolvedSimulationTimeWindow | None = None,
