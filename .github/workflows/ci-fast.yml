@@ -176,3 +176,57 @@ jobs:
           files: coverage.xml
           flags: regression-fast
           fail_ci_if_error: false
+
+  wheel-smoke:
+    name: Wheel install smoke (hmp doctor)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+
+      - name: Install system libraries
+        run: sudo apt-get update && sudo apt-get install -y libglu1-mesa
+
+      - name: Install build tooling
+        run: pip install --upgrade pip "build>=1.2"
+
+      - name: Build wheel and sdist
+        run: python -m build
+
+      - name: Create fresh venv
+        run: python -m venv /tmp/hmp-smoke
+
+      - name: Install wheel into fresh venv
+        run: |
+          /tmp/hmp-smoke/bin/pip install --upgrade pip
+          /tmp/hmp-smoke/bin/pip install dist/*.whl
+
+      - name: Run hmp doctor against the freshly installed wheel
+        run: /tmp/hmp-smoke/bin/hmp doctor --json
+
+  type-check:
+    name: Static type check (mypy)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+
+      - name: Install package and mypy
+        run: |
+          pip install --upgrade pip
+          pip install -e "."
+          pip install "mypy>=1.13" "pydantic>=2.13"
+
+      - name: Run mypy (baseline, non-blocking)
+        run: mypy hydromodpy

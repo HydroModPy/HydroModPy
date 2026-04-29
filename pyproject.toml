@@ -275,3 +275,52 @@ line-ending = "auto"
 # Also format code blocks inside docstrings (``>>>`` examples etc.).
 docstring-code-format = true
 docstring-code-line-length = 80
+
+[tool.mypy]
+# Baseline non-blocking type-check. Tighten incrementally as the codebase
+# grows type coverage. The CI gate runs with continue-on-error so failures
+# surface as annotations without blocking merges.
+python_version = "3.11"
+ignore_missing_imports = true
+follow_imports = "silent"
+no_implicit_optional = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+plugins = ["pydantic.mypy"]
+exclude = [
+    "hydromodpy_annex/",
+    "_archive/",
+    "examples/projects/",
+    "tests/",
+]
+
+[[tool.mypy.overrides]]
+module = [
+    "flopy.*",
+    "rasterio.*",
+    "shapely.*",
+    "geopandas.*",
+    "pyproj.*",
+    "rioxarray.*",
+    "xarray.*",
+    "xugrid.*",
+    "pysheds.*",
+    "whitebox_workflows.*",
+    "vedo.*",
+    "ultraplot.*",
+    "pyvista.*",
+    "gmsh.*",
+    "cma.*",
+    "optuna.*",
+    "selenium.*",
+    "duckdb.*",
+    "zarr.*",
+    "dask.*",
+    "tomlkit.*",
+    "tomli_w.*",
+    "matplotlib_scalebar.*",
+    "colormap.*",
+    "contextily.*",
+    "imageio.*",
+]
+ignore_missing_imports = true

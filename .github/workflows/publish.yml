@@ -3,8 +3,10 @@
 # Trigger: a git tag matching v*.*.* is pushed.
 # Steps:
 #   1. Build wheel + sdist with `python -m build`.
-#   2. Upload to PyPI via Trusted Publishers (OIDC, no API token).
-#   3. Create a GitHub release with the matching CHANGELOG section as body.
+#   2. Generate a CycloneDX SBOM (`cyclonedx-bom`) from a fresh wheel install.
+#   3. Upload to PyPI via Trusted Publishers (OIDC, no API token).
+#   4. Create a GitHub release with the matching CHANGELOG section as body
+#      and attach both the distribution files and the SBOM as release assets.
 #
 # Trusted Publisher prerequisite (one-time, on PyPI):
 #   project = hydromodpy
@@ -71,6 +73,51 @@ jobs:
           path: dist/
           if-no-files-found: error
 
+  sbom:
+    name: Generate CycloneDX SBOM
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.tag || github.ref }}
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist/
+
+      - name: Install SBOM tooling
+        run: |
+          pip install --upgrade pip
+          pip install "cyclonedx-bom>=4.6"
+
+      - name: Install built wheel into fresh venv
+        run: |
+          python -m venv /tmp/hmp-sbom
+          /tmp/hmp-sbom/bin/pip install --upgrade pip
+          /tmp/hmp-sbom/bin/pip install dist/*.whl
+
+      - name: Generate CycloneDX SBOM (JSON)
+        run: |
+          mkdir -p sbom
+          cyclonedx-py environment /tmp/hmp-sbom \
+            --output-format JSON \
+            --outfile sbom/hydromodpy-sbom.cdx.json
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: sbom
+          path: sbom/
+          if-no-files-found: error
+
   publish:
     name: Upload to PyPI
     needs: build
@@ -92,7 +139,7 @@ jobs:
 
   release:
     name: Create GitHub release
-    needs: publish
+    needs: [publish, sbom]
     runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions:
@@ -107,6 +154,11 @@ jobs:
         with:
           name: dist
           path: dist/
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: sbom
+          path: sbom/
 
       - name: Extract CHANGELOG section for tag
         id: notes
@@ -133,7 +185,9 @@ jobs:
           tag_name: ${{ inputs.tag || github.ref_name }}
           name: ${{ inputs.tag || github.ref_name }}
           body_path: release_notes.md
-          files: dist/*
+          files: |
+            dist/*
+            sbom/*
           fail_on_unmatched_files: true
           draft: false
           prerelease: false
