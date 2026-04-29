@@ -1,6 +1,6 @@
 """Internal convention for HydroModPy numerical model classes.
 
-Concrete numerical model classes (Modflow, Modflow6, Modpath, Boussinesq)
+Concrete numerical model classes (ModflowNwt, Modflow6, Modpath, Boussinesq)
 inherit from :class:`Solver` to share the same ``pre_processing``,
 ``processing`` and ``post_processing`` hooks. This is **not** the public
 solver-adapter contract: the adapter contract is the structural

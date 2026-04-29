@@ -226,7 +226,7 @@ class FlowToModflowAdapter:
     Scope
     -----
     This class only prepares solver data. FLOPY package construction is done
-    by the caller (`Modflow`), after adaptation is complete.
+    by the caller (`ModflowNwt`), after adaptation is complete.
 
     Input contract (high-level)
     ---------------------------

@@ -30,7 +30,7 @@ def _rebuild_forward_refs() -> None:
     from hydromodpy.simulation.planning.config import SimulationConfig
     from hydromodpy.solver.base.solver_config import SolverConfig
     from hydromodpy.solver.modflow6.modflow6_config import Modflow6Config
-    from hydromodpy.solver.modflow_nwt.modflow import ModflowConfig
+    from hydromodpy.solver.modflow_nwt.nwt import ModflowConfig
     from hydromodpy.spatial.domain.domain_config import DomainConfig
     from hydromodpy.spatial.geographic.geographic_config import GeographicConfig
     from hydromodpy.spatial.mesh.config import MeshCatchmentConfig

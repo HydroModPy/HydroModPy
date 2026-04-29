@@ -96,7 +96,7 @@ def _scale_rate_payload(payload: object, factor: float) -> object:
     """Scale a recharge / EVT rate payload by ``factor``.
 
     Handles the three shapes produced by
-    ``hydromodpy.solver.modflow_nwt.modflow.flow_to_modflow_adapter``:
+    ``hydromodpy.solver.modflow_nwt.nwt.flow_to_modflow_adapter``:
     a scalar (steady-state), a 2D ndarray (one map for the whole run),
     or a ``{kper: scalar | ndarray}`` mapping (one entry per stress
     period). Returns ``None`` unchanged so the caller can keep its
@@ -163,9 +163,9 @@ def _run_model_with_progress(
 # %% CLASS
 
 
-class Modflow(Solver):
+class ModflowNwt(Solver):
     """
-    Class Modflow.
+    MODFLOW-NWT solver.
 
     To build, run the hydrologic model and manage/format simulation outputs.
     """
@@ -322,7 +322,7 @@ class Modflow(Solver):
         flow_regime = self._resolve_flow_regime()
         if flow_regime is None:
             raise ValueError(
-                "Missing flow.flow_regime configuration: Modflow temporal setup "
+                "Missing flow.flow_regime configuration: ModflowNwt temporal setup "
                 "must be driven by [flow].flow_regime."
             )
         self.flow_regime = flow_regime

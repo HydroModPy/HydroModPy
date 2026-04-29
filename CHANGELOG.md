@@ -37,6 +37,14 @@ Each release section includes the following standard categories:
   public surface; the leading underscore was misleading. Update any
   external import (`from hydromodpy._cli...` → `from hydromodpy.cli...`).
   Entry points `hmp` and `hydromodpy` are unchanged.
+- Renamed `hydromodpy/solver/modflow_nwt/modflow/` to
+  `hydromodpy/solver/modflow_nwt/nwt/` and the NWT solver class
+  `Modflow` to `ModflowNwt` (S07-02). Both backends are MODFLOW; the
+  `modflow/` segment was ambiguous. Update imports
+  (`from hydromodpy.solver.modflow_nwt.modflow ...` →
+  `from hydromodpy.solver.modflow_nwt.nwt ...`) and references to the
+  class (`Modflow` → `ModflowNwt`). Top-level export
+  `hydromodpy.Modflow` is now `hydromodpy.ModflowNwt`. No alias.
 
 ---
 

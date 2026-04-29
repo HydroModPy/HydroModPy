@@ -436,7 +436,7 @@ import hydromodpy as hmp
 from hydromodpy.config.hydromodpy_config import HydroModPyConfig
 from hydromodpy.domain import Domain
 from hydromodpy.physics.flow import Flow
-from hydromodpy.solver.modflow_nwt import Modflow, ModflowPreprocessOptions, ModflowRunOptions
+from hydromodpy.solver.modflow_nwt import ModflowNwt, ModflowPreprocessOptions, ModflowRunOptions
 
 # 1. Load config from TOML
 config_path = Path("project.toml")
@@ -457,7 +457,7 @@ flow = Flow(config=cfg.flow)
 # flow.parameters["K"].field_homogeneous.value = 2.0
 
 # 6. Run MODFLOW-NWT
-model = Modflow(
+model = ModflowNwt(
     geographic,
     modflow_config=cfg.modflownwt,
     model_folder=str(ws.simulations_folder),

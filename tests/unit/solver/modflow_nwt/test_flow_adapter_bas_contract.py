@@ -6,7 +6,7 @@ import numpy as np
 import pytest
 
 from hydromodpy.solver.modflow_common.solver_mesh import SolverMesh
-from hydromodpy.solver.modflow_nwt.modflow.flow_to_modflow_adapter import FlowToModflowAdapter
+from hydromodpy.solver.modflow_nwt.nwt.flow_to_modflow_adapter import FlowToModflowAdapter
 
 
 def _build_adapter(

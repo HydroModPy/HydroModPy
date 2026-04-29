@@ -48,7 +48,7 @@ _LAZY_IMPORTS = {
     "TransportConfig": "hydromodpy.physics.transport.transport_config",
     "TransportProcess": "hydromodpy.physics.transport.transport:Transport",
     # Solvers
-    "Modflow": "hydromodpy.solver.modflow_nwt",
+    "ModflowNwt": "hydromodpy.solver.modflow_nwt",
     "Modflow6": "hydromodpy.solver.modflow6.modflow6",
     "Modpath": "hydromodpy.solver.modflow_nwt",
     "Mt3dms": "hydromodpy.solver.modflow_nwt",
@@ -221,7 +221,7 @@ __all__ = [
     "TransportConfig",
     "TransportProcess",
     # Solvers
-    "Modflow",
+    "ModflowNwt",
     "Modflow6",
     "Modpath",
     "Mt3dms",

@@ -32,7 +32,7 @@ EXPECTED_TOP_LEVEL = [
     "Workspace",
     "CatchmentDelineation",
     # Solvers
-    "Modflow",
+    "ModflowNwt",
     "Boussinesq",
     "Modflow6",
 ]

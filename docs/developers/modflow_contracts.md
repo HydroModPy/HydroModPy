@@ -12,7 +12,7 @@ Liens : [glossary.md](glossary.md), [design_patterns.md](design_patterns.md),
 
 ## 1. Contrat de discrétisation
 
-Source : `hydromodpy/solver/modflow_nwt/modflow/discretization.py`.
+Source : `hydromodpy/solver/modflow_nwt/nwt/discretization.py`.
 
 Deux dataclasses typées portent le contrat :
 
@@ -105,14 +105,14 @@ HydroModPy applique le contrat BAS standard, basé sur le signe :
 
 Source principale :
 
-- `hydromodpy/solver/modflow_nwt/modflow/flow_to_modflow_adapter.py`
+- `hydromodpy/solver/modflow_nwt/nwt/flow_to_modflow_adapter.py`
   - `FlowToModflowAdapter._build_initial_heads_and_sides`
   - `FlowToModflowAdapter._build_ocean_chd`
   - `FlowToModflowAdapter._validate_ibound_strt_contract`
 
 Point d'assemblage :
 
-- `hydromodpy/solver/modflow_nwt/modflow/nwt_solver.py` appelle
+- `hydromodpy/solver/modflow_nwt/nwt/nwt_solver.py` appelle
   `flopy.modflow.ModflowBas(..., ibound=..., strt=...)`.
 
 ### 2.3. Ordre d'application

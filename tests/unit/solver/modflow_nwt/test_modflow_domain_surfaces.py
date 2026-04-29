@@ -8,7 +8,7 @@ import pytest
 from hydromodpy.solver.modflow_common import (
     build_spatial_discretization,
 )
-from hydromodpy.solver.modflow_nwt.modflow import Modflow
+from hydromodpy.solver.modflow_nwt.nwt import ModflowNwt
 from hydromodpy.spatial import RasterSupport, Surface
 from hydromodpy.spatial.domain import Domain, DomainConfig
 from hydromodpy.spatial.mesh.cartesian_grid.sgrid_config import (
@@ -66,7 +66,7 @@ def test_modflow_requires_domain_object_for_spatial_geometry():
     dem = np.array([[10.0, 11.0], [12.0, 13.0]], dtype=float)
     geo = _DummyGeographic(dem)
 
-    model = Modflow(
+    model = ModflowNwt(
         geographic=geo,
         model_folder=".",
     )
@@ -80,7 +80,7 @@ def test_modflow_domain_surfaces_are_required():
     domain = _build_domain_from_dem(dem)
 
     domain.substratum = None
-    model = Modflow(geographic=geo, model_folder=".")
+    model = ModflowNwt(geographic=geo, model_folder=".")
     model.domain = domain
     with pytest.raises(
         ValueError,
@@ -99,7 +99,7 @@ def test_modflow_validates_domain_support_match_on_surface_build():
         name="substratum",
     )
 
-    model = Modflow(
+    model = ModflowNwt(
         geographic=geo,
         model_folder=".",
     )
@@ -143,7 +143,7 @@ def test_build_spatial_discretization_resamples_to_solver_shape():
 def test_modflow_requires_canonical_time_grid_for_launcher_flow_preprocessing():
     dem = np.array([[10.0, 11.0], [12.0, 13.0]], dtype=float)
     geo = _DummyGeographic(dem)
-    model = Modflow(geographic=geo, model_folder=".")
+    model = ModflowNwt(geographic=geo, model_folder=".")
     model.flow = SimpleNamespace(config=SimpleNamespace(flow_regime="transient"))
     model.domain = object()
     model.sgrid_config = object()
@@ -160,7 +160,7 @@ def test_modflow_requires_canonical_time_grid_for_launcher_flow_preprocessing():
 def test_modflow_accepts_missing_time_grid_for_steady_launcher_flow_preprocessing():
     dem = np.array([[10.0, 11.0], [12.0, 13.0]], dtype=float)
     geo = _DummyGeographic(dem)
-    model = Modflow(geographic=geo, model_folder=".")
+    model = ModflowNwt(geographic=geo, model_folder=".")
     model.flow = SimpleNamespace(config=SimpleNamespace(flow_regime="steady"))
     model.domain = object()
     model.sgrid_config = object()

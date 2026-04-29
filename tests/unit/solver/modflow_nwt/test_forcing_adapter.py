@@ -22,7 +22,7 @@ from hydromodpy.data.contracts.timeseries import PointRecord
 from hydromodpy.physics.flow.boundary_conditions import FlowBoundaryConditionConfig
 from hydromodpy.physics.flow.sinks_sources import FlowRechargeConfig, FlowWellConfig
 from hydromodpy.solver.modflow_common.solver_mesh import SolverMesh
-from hydromodpy.solver.modflow_nwt.modflow.flow_to_modflow_adapter import FlowToModflowAdapter
+from hydromodpy.solver.modflow_nwt.nwt.flow_to_modflow_adapter import FlowToModflowAdapter
 
 
 def _build_solver_mesh(nrow=1, ncol=1, nlay=1, dx=1.0, dy=1.0, xoff=0.0, yoff=0.0):

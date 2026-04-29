@@ -14,7 +14,7 @@
 The four intermittency variants (daily / weekly / monthly / yearly) share
 identical logic and differ only in the time window size.  A single
 ``export_intermittency`` function replaces the four near-identical blocks
-that previously appeared in ``Modflow.post_processing``.
+that previously appeared in ``ModflowNwt.post_processing``.
 """
 
 import os

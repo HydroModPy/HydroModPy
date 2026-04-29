@@ -14,11 +14,11 @@ from hydromodpy.solver.modflow_common.flow_adapter_helpers import (
     resolve_run_model_name,
     run_flow_model,
 )
-from hydromodpy.solver.modflow_nwt.modflow import Modflow
+from hydromodpy.solver.modflow_nwt.nwt import ModflowNwt
 
 
 class ModflowNwtFlowAdapter:
-    """Bridge one planned ``flow/modflownwt`` run to the ``Modflow`` API."""
+    """Bridge one planned ``flow/modflownwt`` run to the ``ModflowNwt`` API."""
 
     process_type = "flow"
     solver_name = "modflownwt"
@@ -40,7 +40,7 @@ class ModflowNwtFlowAdapter:
 
         - resolve the shared preprocessing options,
         - derive the stable model folder name for this run,
-        - build the concrete ``Modflow`` object,
+        - build the concrete ``ModflowNwt`` object,
         - delegate the rest of the lifecycle to ``run_flow_model``.
         """
 
@@ -49,7 +49,7 @@ class ModflowNwtFlowAdapter:
         model_name = resolve_run_model_name(ctx)
         # This is the only MODFLOW-NWT-specific part of the adapter: wiring
         # the correct config section into the concrete solver class.
-        model_modflow = Modflow(
+        model_modflow = ModflowNwt(
             state.setup.geographic,
             model_folder=state.setup.workspace.solver_scratch_folder,
             model_name=model_name,
