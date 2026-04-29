@@ -20,15 +20,11 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
 from hydromodpy.core.state.data import LoadedDataContext
 from hydromodpy.core.state.execution import ExecutionRegistry
 from hydromodpy.core.state.setup import SetupContext
-
-if TYPE_CHECKING:
-    from hydromodpy.data.plan import DataLoadPlan
-    from hydromodpy.master_config.hydromodpy_config import HydroModPyConfig
 
 
 @dataclass
@@ -40,12 +36,17 @@ class WorkflowContext:
 
     Also carries result-store lifecycle fields needed by the workflow layer:
     ``store``, ``sim_id``, and ``postprocess_runner``.
+
+    ``cfg`` and ``data_plan`` are typed as ``Any`` because ``core`` cannot
+    import from sibling layers. Concrete types are
+    ``master_config.hydromodpy_config.HydroModPyConfig`` and
+    ``data.plan.DataLoadPlan``.
     """
 
-    cfg: HydroModPyConfig
+    cfg: Any
     config_path: Path
     raw_toml: dict[str, Any]
-    data_plan: DataLoadPlan | None = None
+    data_plan: Any = None
     setup: SetupContext = field(default_factory=SetupContext)
     loaded_data: LoadedDataContext = field(default_factory=LoadedDataContext)
     execution: ExecutionRegistry = field(default_factory=ExecutionRegistry)

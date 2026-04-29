@@ -4,10 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
-
-if TYPE_CHECKING:
-    from hydromodpy.simulation.planning.plan import ProcessRun, SimulationPlan
+from typing import Any
 
 
 @dataclass
@@ -24,10 +21,15 @@ class ExecutionRegistry:
     the raw solver output directory emitted by each run. Calibration
     metric extractors read the solver binaries (``.hds`` / ``.cbc``)
     directly from these paths without touching the catalog.
+
+    Field types are ``Any`` because ``core`` cannot import from sibling
+    layers. ``simulation_plan``, ``process_runs_by_id`` values, and
+    ``models_by_run_id`` values are produced by the ``simulation`` and
+    ``solver`` layers respectively.
     """
 
-    simulation_plan: SimulationPlan | None = None
-    process_runs_by_id: dict[str, ProcessRun] = field(default_factory=dict)
+    simulation_plan: Any = None
+    process_runs_by_id: dict[str, Any] = field(default_factory=dict)
     models_by_run_id: dict[str, Any] = field(default_factory=dict)
     output_dirs_by_run_id: dict[str, Path] = field(default_factory=dict)
     lightweight: bool = False
