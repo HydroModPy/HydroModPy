@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-from pathlib import Path
-
 import numpy as np
 import pytest
 
@@ -83,7 +81,7 @@ def test_extruded_quad_mesh_supports_explicit_z_interfaces():
     assert mesh_3d.bounds == (10.0, 30.0, 70.0, 20.0, 50.0, 100.0)
 
 
-def test_extruded_prism_mesh_roundtrip_vtu_if_meshio_available():
+def test_extruded_prism_mesh_roundtrip_vtu_if_meshio_available(tmp_path):
     pytest.importorskip("meshio")
 
     mesh_3d = ExtrudedPrismMesh3D.from_layer_thicknesses(
@@ -92,9 +90,7 @@ def test_extruded_prism_mesh_roundtrip_vtu_if_meshio_available():
         layer_thicknesses=[4.0, 6.0],
     )
 
-    output_dir = Path.cwd() / "scratch_tests" / "extruded_prism_mesh" / "runtime"
-    output_dir.mkdir(parents=True, exist_ok=True)
-    path = output_dir / "extruded_reference.vtu"
+    path = tmp_path / "extruded_reference.vtu"
     mesh_3d.to_file(path)
     reread = ExtrudedPrismMesh3D.from_file(path)
 

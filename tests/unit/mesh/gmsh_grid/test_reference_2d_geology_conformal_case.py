@@ -563,8 +563,9 @@ def _build_reference_river_trace() -> SimpleNamespace:
 @_skip_no_gmsh
 def test_reference_2d_geology_conformal_case_non_regression(
     update_goldens: bool,
+    tmp_path: Path,
 ) -> None:
-    output_dir = Path.cwd() / "scratch_tests" / "reference_2d_geology_conformal" / "runtime"
+    output_dir = tmp_path / "runtime"
     output_dir.mkdir(parents=True, exist_ok=True)
 
     summary = run_reference_2d_zone_conformal_case_from_toml(
@@ -643,13 +644,8 @@ def test_reference_2d_geology_conformal_case_non_regression(
 
 
 @_skip_no_gmsh
-def test_reference_2d_geology_conformal_rejects_removed_clip_bbox_syntax() -> None:
-    output_dir = (
-        Path.cwd()
-        / "scratch_tests"
-        / "reference_2d_geology_conformal"
-        / "runtime_invalid_clip_bbox_domain"
-    )
+def test_reference_2d_geology_conformal_rejects_removed_clip_bbox_syntax(tmp_path: Path) -> None:
+    output_dir = tmp_path / "runtime_invalid_clip_bbox_domain"
     output_dir.mkdir(parents=True, exist_ok=True)
     invalid_toml = output_dir / "case_config_invalid_clip_bbox_domain.toml"
     _write_invalid_clip_bbox_domain_case_toml(invalid_toml)
@@ -1443,13 +1439,8 @@ def test_mesh_mode_key_is_rejected(tmp_path: Path) -> None:
 
 
 @_skip_no_gmsh
-def test_geographic_box_buffer_domain_uses_domain_geographic_support() -> None:
-    output_dir = (
-        Path.cwd()
-        / "scratch_tests"
-        / "reference_2d_geology_conformal"
-        / "runtime_geographic_box_buffer"
-    )
+def test_geographic_box_buffer_domain_uses_domain_geographic_support(tmp_path: Path) -> None:
+    output_dir = tmp_path / "runtime_geographic_box_buffer"
     output_dir.mkdir(parents=True, exist_ok=True)
     config_path = output_dir / "case_geographic_box_buffer.toml"
     _write_geographic_box_buffer_case_toml(config_path)
@@ -1473,13 +1464,8 @@ def test_geographic_box_buffer_domain_uses_domain_geographic_support() -> None:
 
 
 @_skip_no_gmsh
-def test_reference_case_accepts_watershed_boundary_section() -> None:
-    output_dir = (
-        Path.cwd()
-        / "scratch_tests"
-        / "reference_2d_geology_conformal"
-        / "runtime_geographic_box_buffer_watershed_boundary"
-    )
+def test_reference_case_accepts_watershed_boundary_section(tmp_path: Path) -> None:
+    output_dir = tmp_path / "runtime_geographic_box_buffer_watershed_boundary"
     output_dir.mkdir(parents=True, exist_ok=True)
     config_path = output_dir / "case_geographic_box_buffer_watershed_boundary.toml"
     _write_geographic_box_buffer_watershed_boundary_case_toml(config_path)
@@ -1516,10 +1502,8 @@ def test_reference_case_accepts_watershed_boundary_section() -> None:
 
 
 @_skip_no_gmsh
-def test_geology_rivers_mode_builds_combined_constraints_contract() -> None:
-    output_dir = (
-        Path.cwd() / "scratch_tests" / "reference_2d_geology_conformal" / "runtime_geology_rivers"
-    )
+def test_geology_rivers_mode_builds_combined_constraints_contract(tmp_path: Path) -> None:
+    output_dir = tmp_path / "runtime_geology_rivers"
     output_dir.mkdir(parents=True, exist_ok=True)
     case_toml = output_dir / "case_geology_rivers.toml"
     _write_mode_case_toml(
@@ -1552,13 +1536,8 @@ def test_geology_rivers_mode_builds_combined_constraints_contract() -> None:
     assert summary["river_trace"]["embedded_surface_curve_pairs"] > 0
 
 
-def test_reference_case_rejects_removed_scope_sections() -> None:
-    output_dir = (
-        Path.cwd()
-        / "scratch_tests"
-        / "reference_2d_geology_conformal"
-        / "runtime_geographic_scopes"
-    )
+def test_reference_case_rejects_removed_scope_sections(tmp_path: Path) -> None:
+    output_dir = tmp_path / "runtime_geographic_scopes"
     output_dir.mkdir(parents=True, exist_ok=True)
     config_path = output_dir / "case_geographic_scopes.toml"
     _write_geographic_scope_case_toml(config_path)
@@ -1576,10 +1555,8 @@ def test_reference_case_rejects_removed_scope_sections() -> None:
 
 
 @_skip_no_gmsh
-def test_rivers_only_mode_builds_river_constraints_contract() -> None:
-    output_dir = (
-        Path.cwd() / "scratch_tests" / "reference_2d_geology_conformal" / "runtime_rivers_only"
-    )
+def test_rivers_only_mode_builds_river_constraints_contract(tmp_path: Path) -> None:
+    output_dir = tmp_path / "runtime_rivers_only"
     output_dir.mkdir(parents=True, exist_ok=True)
     config_path = output_dir / "case_rivers_only.toml"
     config_path.write_text(

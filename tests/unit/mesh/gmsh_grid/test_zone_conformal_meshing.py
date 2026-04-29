@@ -88,11 +88,9 @@ def test_build_zone_conformal_partition_resolves_overlap_with_priority() -> None
     assert partition.covered_area == pytest.approx(2.0)
 
 
-def test_generate_zone_conformal_mesh_respects_zone_interface() -> None:
+def test_generate_zone_conformal_mesh_respects_zone_interface(tmp_path: Path) -> None:
     gdf = _build_split_zones_gdf()
-    output_dir = Path.cwd() / "scratch_tests" / "zone_conformal_meshing"
-    output_dir.mkdir(parents=True, exist_ok=True)
-    output_path = output_dir / "split_zone_conformal.msh"
+    output_path = tmp_path / "split_zone_conformal.msh"
 
     result = generate_zone_conformal_mesh_from_dataframe(
         gdf,
@@ -129,10 +127,8 @@ def test_generate_zone_conformal_mesh_respects_zone_interface() -> None:
         )
 
 
-def test_generate_zone_conformal_mesh_validates_interface_parameters() -> None:
+def test_generate_zone_conformal_mesh_validates_interface_parameters(tmp_path: Path) -> None:
     gdf = _build_split_zones_gdf()
-    output_dir = Path.cwd() / "scratch_tests" / "zone_conformal_meshing"
-    output_dir.mkdir(parents=True, exist_ok=True)
 
     with pytest.raises(
         ValueError,
@@ -140,7 +136,7 @@ def test_generate_zone_conformal_mesh_validates_interface_parameters() -> None:
     ):
         generate_zone_conformal_mesh_from_dataframe(
             gdf,
-            output_path=output_dir / "invalid_missing_interface_size.msh",
+            output_path=tmp_path / "invalid_missing_interface_size.msh",
             global_size=0.20,
             refine_interfaces=True,
             interface_distance=0.30,
@@ -152,18 +148,16 @@ def test_generate_zone_conformal_mesh_validates_interface_parameters() -> None:
     ):
         generate_zone_conformal_mesh_from_dataframe(
             gdf,
-            output_path=output_dir / "invalid_missing_interface_distance.msh",
+            output_path=tmp_path / "invalid_missing_interface_distance.msh",
             global_size=0.20,
             refine_interfaces=True,
             interface_size=0.08,
         )
 
 
-def test_generate_zone_conformal_mesh_accepts_river_trace() -> None:
+def test_generate_zone_conformal_mesh_accepts_river_trace(tmp_path: Path) -> None:
     gdf = _build_split_zones_gdf()
-    output_dir = Path.cwd() / "scratch_tests" / "zone_conformal_meshing"
-    output_dir.mkdir(parents=True, exist_ok=True)
-    output_path = output_dir / "split_zone_conformal_with_river.msh"
+    output_path = tmp_path / "split_zone_conformal_with_river.msh"
 
     river_trace = SimpleNamespace(lines=(LineString([(0.0, 0.5), (2.0, 0.5)]),))
 
@@ -185,11 +179,9 @@ def test_generate_zone_conformal_mesh_accepts_river_trace() -> None:
     assert any(group.name == "river::trace" for group in result.physical_groups)
 
 
-def test_generate_zone_conformal_mesh_accepts_generic_linear_constraints() -> None:
+def test_generate_zone_conformal_mesh_accepts_generic_linear_constraints(tmp_path: Path) -> None:
     gdf = _build_split_zones_gdf()
-    output_dir = Path.cwd() / "scratch_tests" / "zone_conformal_meshing"
-    output_dir.mkdir(parents=True, exist_ok=True)
-    output_path = output_dir / "split_zone_conformal_with_watershed_boundary.msh"
+    output_path = tmp_path / "split_zone_conformal_with_watershed_boundary.msh"
 
     constraint = ZoneLinearConstraint(
         name="watershed::boundary",
@@ -246,11 +238,9 @@ def test_surface_embedding_locator_tolerates_near_boundary_probe() -> None:
     assert int(matches[0]) == 10
 
 
-def test_generate_zone_conformal_mesh_reports_local_refinement_policy() -> None:
+def test_generate_zone_conformal_mesh_reports_local_refinement_policy(tmp_path: Path) -> None:
     gdf = _build_split_zones_gdf()
-    output_dir = Path.cwd() / "scratch_tests" / "zone_conformal_meshing"
-    output_dir.mkdir(parents=True, exist_ok=True)
-    output_path = output_dir / "split_zone_conformal_with_local_policy.msh"
+    output_path = tmp_path / "split_zone_conformal_with_local_policy.msh"
 
     river_trace = SimpleNamespace(lines=(LineString([(0.0, 0.5), (2.0, 0.5)]),))
     watershed_boundary = ZoneLinearConstraint(
@@ -326,11 +316,9 @@ def test_generate_zone_conformal_mesh_reports_local_refinement_policy() -> None:
     assert any(bool(dict(payload).get("enabled", False)) for payload in family_fields.values())
 
 
-def test_generate_zone_conformal_mesh_accepts_regional_size_field() -> None:
+def test_generate_zone_conformal_mesh_accepts_regional_size_field(tmp_path: Path) -> None:
     gdf = _build_split_zones_gdf()
-    output_dir = Path.cwd() / "scratch_tests" / "zone_conformal_meshing"
-    output_dir.mkdir(parents=True, exist_ok=True)
-    output_path = output_dir / "split_zone_conformal_with_regional_background.msh"
+    output_path = tmp_path / "split_zone_conformal_with_regional_background.msh"
 
     result = generate_zone_conformal_mesh_from_dataframe(
         gdf,

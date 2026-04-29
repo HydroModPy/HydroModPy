@@ -36,9 +36,10 @@ def _load_json(path: Path) -> dict:
         return json.load(stream)
 
 
-def test_reference_3d_visualization_case_non_regression(update_goldens: bool) -> None:
-    scratch_root = Path.cwd() / "scratch_tests" / "reference_3d_visualization"
-    output_dir = scratch_root / "runtime"
+def test_reference_3d_visualization_case_non_regression(
+    update_goldens: bool, tmp_path: Path
+) -> None:
+    output_dir = tmp_path / "runtime"
     output_dir.mkdir(parents=True, exist_ok=True)
 
     summary = run_reference_3d_visualization_from_toml(
@@ -70,8 +71,9 @@ def test_reference_3d_visualization_case_non_regression(update_goldens: bool) ->
 
 def test_reference_3d_visualization_ensures_backend_before_figure_build(
     monkeypatch,
+    tmp_path: Path,
 ) -> None:
-    output_dir = Path.cwd() / "scratch_tests" / "reference_3d_visualization_show" / "runtime"
+    output_dir = tmp_path / "runtime"
     output_dir.mkdir(parents=True, exist_ok=True)
 
     ensured = {"done": False}

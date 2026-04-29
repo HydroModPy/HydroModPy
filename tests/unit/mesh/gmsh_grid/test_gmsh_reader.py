@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-from pathlib import Path
-
 import numpy as np
 import pytest
 
@@ -42,7 +40,7 @@ def test_gmsh_mesh_data_rejects_mixed_cell_types_for_one_planar_mesh():
         _ = mesh_data.cell_type
 
 
-def test_meshio_roundtrip_and_mixed_selection():
+def test_meshio_roundtrip_and_mixed_selection(tmp_path):
     meshio = pytest.importorskip("meshio")
 
     points = np.array(
@@ -68,9 +66,7 @@ def test_meshio_roundtrip_and_mixed_selection():
     assert selected.n_cells == 1
     assert selected.connectivity.shape == (1, 4)
 
-    output_dir = Path.cwd() / "scratch_tests" / "gmsh_reader" / "runtime"
-    output_dir.mkdir(parents=True, exist_ok=True)
-    path = output_dir / "planar_triangles.vtu"
+    path = tmp_path / "planar_triangles.vtu"
     write_gmsh_2d_mesh(
         path,
         GmshMeshData(
