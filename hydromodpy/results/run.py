@@ -546,12 +546,12 @@ class Run:
             raise ValueError(
                 f"Figure '{figure_name}' not available. Capabilities: {self.display_capabilities}"
             )
-        from hydromodpy.results.display import render_figure
+        from hydromodpy.display.runs import render_figure
 
         render_figure(figure_name, self, save=save)
 
     def plot_all(self, *, save: str | Path | None = None) -> None:
-        from hydromodpy.results.display import render_figure
+        from hydromodpy.display.runs import render_figure
 
         for name in self.display_capabilities:
             try:

@@ -39,11 +39,11 @@ class DisplayStep:
     config_sections: ClassVar[tuple[str, ...]] = ("display",)
 
     def run(self, state: PipelineState) -> PipelineState:
-        from hydromodpy.results.catalog import SimulationCatalog
-        from hydromodpy.results.display import (
+        from hydromodpy.display.runs import (
             render_figures_for_run,
             resolve_run_output_dir,
         )
+        from hydromodpy.results.catalog import SimulationCatalog
 
         ctx = state.get("ctx")
         if ctx is None:

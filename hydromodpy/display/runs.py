@@ -1,7 +1,8 @@
-"""Thin wrapper around :mod:`hydromodpy.display` for result-side rendering.
+"""Per-run figure rendering helpers.
 
-Saving and showing are controlled by ``DisplayConfig`` (TOML
-``[display]`` section).
+Bridges :class:`~hydromodpy.results.run.Run` and the figure registry in
+:mod:`hydromodpy.display`. Saving and showing are driven by
+``DisplayConfig`` (TOML ``[display]`` section).
 """
 
 from __future__ import annotations
