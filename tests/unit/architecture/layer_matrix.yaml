@@ -1,0 +1,37 @@
+# Layer matrix contract — see unified_architecture/20_ENCAPSULATION_AND_COUPLING.md §2.
+#
+# Each row lists the set of packages a source layer is allowed to import.
+# A package always implicitly allows imports targeting itself.
+# Packages absent from the row's list are forbidden (CI flags them).
+# `_cli` is the actual on-disk name of the CLI top-level package (matrix uses cli).
+
+allowed:
+  core:        [core]
+  schema:      [core, schema]
+  physics:     [core, schema, physics]
+  data:        [core, schema, data]
+  spatial:     [core, schema, spatial]
+  simulation:  [core, schema, physics, spatial, data, simulation]
+  solver:      [core, schema, physics, spatial, solver, simulation]
+  calibration: [core, schema, physics, data, spatial, solver, simulation, calibration]
+  results:     [core, schema, results]
+  display:     [core, schema, results, display]
+  analysis:    [core, schema, data, results, analysis]
+  pipeline:    [core, schema, physics, data, spatial, solver, simulation, calibration, results, pipeline]
+  workflow:    [core, schema, physics, data, spatial, simulation, solver, calibration, results, display, analysis, pipeline, workflow]
+  _cli:        [core, schema, physics, data, spatial, simulation, solver, calibration, results, display, analysis, pipeline, workflow, _cli]
+
+# Cross-edges tolerated for now. Each tolerance must point at a documented
+# rationale. Empty until R0 lands. Tighten over time.
+tolerances:
+  - {src: data,        tgt: spatial,  reason: "geology field bridging — see 20_ENCAPSULATION_AND_COUPLING.md §4.3"}
+  - {src: calibration, tgt: results,  reason: "calibration reads catalog at planning time"}
+  - {src: simulation,  tgt: solver,   reason: "simulation queries solver registry"}
+  - {src: results,     tgt: spatial,  reason: "results stores spatial indices"}
+
+# Files exempt from the layer rule. Bootstrap shims that wire forward refs.
+exempt_files:
+  - hydromodpy/__init__.py
+  - hydromodpy/_bootstrap.py
+  - hydromodpy/__main__.py
+  - hydromodpy/project.py

@@ -84,7 +84,7 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-test = ["pytest", "pytest-xdist", "pytest-timeout", "coverage[toml]>=7.0"]
+test = ["pytest", "pytest-xdist", "pytest-timeout", "coverage[toml]>=7.0", "pyyaml"]
 docs = [
     "sphinx>=7.0",
     "sphinx-rtd-theme",
