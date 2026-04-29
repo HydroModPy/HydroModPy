@@ -8,7 +8,7 @@ from typing import Any
 
 from hydromodpy.core.config.path_helpers import get_nested_section
 from hydromodpy.core.config.toml_loader import load_toml_with_base_config
-from hydromodpy.data.variables.geology.config import validate_geology_config_data
+from hydromodpy.spatial._protocols import get_geology_data_source
 from hydromodpy.spatial.mesh.gmsh_grid import (
     parse_zone_meshing_domain_config,
     parse_zone_meshing_settings,
@@ -140,7 +140,7 @@ def _validate_domain_case_config(
 def _validate_geology_case_config(
     config_data: Mapping[str, Any],
 ) -> ZoneConformalGeologyConfig:
-    raw = validate_geology_config_data(dict(config_data))
+    raw = get_geology_data_source().validate_config(dict(config_data))
     return ZoneConformalGeologyConfig.from_mapping(raw)
 
 

@@ -115,7 +115,7 @@ def test_build_zone_source_inputs_loads_geology_once(monkeypatch) -> None:
     )
     call_count = 0
 
-    def _fake_load_vector_geology_dataframe(*args, **kwargs):
+    def _fake_load_vector_dataframe(*args, **kwargs):
         nonlocal call_count
         call_count += 1
         return {
@@ -129,10 +129,21 @@ def test_build_zone_source_inputs_loads_geology_once(monkeypatch) -> None:
         def to_mapping(self):
             return {"source": {"kind": "vector", "path": "geology.shp"}}
 
+    from hydromodpy.spatial import _protocols as spatial_protocols
+
+    real_data_source = spatial_protocols.get_geology_data_source()
+
+    class _FakeDataSource:
+        def __getattr__(self, name):
+            return getattr(real_data_source, name)
+
+        def load_vector_dataframe(self, *args, **kwargs):
+            return _fake_load_vector_dataframe(*args, **kwargs)
+
     monkeypatch.setattr(
-        conformal_planning_module,
-        "load_vector_geology_dataframe",
-        _fake_load_vector_geology_dataframe,
+        spatial_protocols,
+        "_geology_data_source",
+        _FakeDataSource(),
     )
     monkeypatch.setattr(
         conformal_planning_module,

@@ -76,11 +76,24 @@ def _register_physics_contracts() -> None:
     contracts.register_field_aggregator(extract_homogeneous_series_from_fields)
 
 
+def _register_spatial_contracts() -> None:
+    """Wire data-layer sources into the spatial ``_protocols`` registry.
+
+    Spatial code resolves geology IO through ``GeologyDataSource`` so the
+    spatial package never imports the data package at module load time.
+    """
+    from hydromodpy.data.variables.geology.io import default_geology_data_source
+    from hydromodpy.spatial import _protocols
+
+    _protocols.register_geology_data_source(default_geology_data_source())
+
+
 def bootstrap() -> None:
     """Resolve HydroModPyConfig forward references. Idempotent."""
     global _BOOTSTRAPPED
     if _BOOTSTRAPPED:
         return
     _register_physics_contracts()
+    _register_spatial_contracts()
     _rebuild_forward_refs()
     _BOOTSTRAPPED = True

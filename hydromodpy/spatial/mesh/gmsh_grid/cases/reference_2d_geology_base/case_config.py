@@ -7,9 +7,7 @@ from pathlib import Path
 from typing import Any
 
 from hydromodpy.core.config.path_helpers import resolve_path
-from hydromodpy.data.variables.geology.config import (
-    validate_geology_config_data,
-)
+from hydromodpy.spatial._protocols import get_geology_data_source
 from hydromodpy.spatial.field.core.field_param_config import (
     resolve_field_param_config_payload,
     validate_resolved_field_param_data,
@@ -97,7 +95,7 @@ def resolve_reference_case_config(
 
     return {
         "mesh": mesh_cfg,
-        "geology": validate_geology_config_data(geology_cfg),
+        "geology": get_geology_data_source().validate_config(geology_cfg),
         "field_param": validate_resolved_field_param_data(field_param_resolved),
         "cell_samples_per_axis": (
             None
