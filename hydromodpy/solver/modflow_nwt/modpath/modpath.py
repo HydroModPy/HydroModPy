@@ -261,7 +261,7 @@ class Modpath(Solver):
             "seepage_areas_t(0)_clip.tif",
         )
         try:
-            get_whitebox_backend().clip_raster_to_polygon(
+            get_whitebox_backend().raster.clip_raster_to_polygon(
                 str(seepage_tif),
                 str(watershed_shp),
                 str(seepage_clip_tif),

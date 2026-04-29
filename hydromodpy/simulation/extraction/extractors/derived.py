@@ -433,7 +433,7 @@ def _accumulation_flux_routed(
 
         dem_2d = surface_top.reshape(grid_shape)
         _write_bare_tif(dem_path, dem_2d, -99999.0)
-        wb.fill_depressions(dem_path, fill_path)
+        wb.flow.fill_depressions(dem_path, fill_path)
 
         with rasterio.open(fill_path) as src:
             fill_data = src.read(1)
@@ -452,7 +452,7 @@ def _accumulation_flux_routed(
             load_path = str(Path(tmp) / "load.tif")
             out_path = str(Path(tmp) / "acc.tif")
             _write_bare_tif(load_path, drain_2d, -99999.0)
-            wb.d8_mass_flux(fill_path, load_path, eff_path, abs_path, out_path)
+            wb.flow.d8_mass_flux(fill_path, load_path, eff_path, abs_path, out_path)
 
             with rasterio.open(out_path) as src:
                 acc = src.read(1).astype("float64")

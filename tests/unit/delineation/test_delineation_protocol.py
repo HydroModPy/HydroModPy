@@ -11,7 +11,12 @@ from __future__ import annotations
 
 import pytest
 
-from hydromodpy.spatial.delineation import DelineationBackend, WhiteboxBackend
+from hydromodpy.spatial.delineation import (
+    DelineationBackend,
+    WhiteboxDelineationBackend,
+    WhiteboxFlowBackend,
+    WhiteboxRasterBackend,
+)
 from hydromodpy.spatial.delineation.pysheds_backend import PyshedsBackend
 from hydromodpy.spatial.delineation.synthetic_backend import SyntheticBackend
 from hydromodpy.spatial.delineation.whitebox_cli_backend import WhiteboxCliBackend
@@ -27,16 +32,13 @@ def test_delineation_protocol_has_expected_methods() -> None:
         assert hasattr(DelineationBackend, name)
 
 
-def test_whitebox_backend_protocol_has_expected_methods() -> None:
-    for name in (
-        "fill_depressions",
-        "breach_depressions",
-        "d8_pointer",
-        "d8_flow_accumulation",
-        "extract_streams",
-        "watershed",
-    ):
-        assert hasattr(WhiteboxBackend, name)
+def test_whitebox_split_backends_expose_thematic_surfaces() -> None:
+    for name in ("read_raster", "write_raster", "clip_raster_to_polygon"):
+        assert hasattr(WhiteboxRasterBackend, name)
+    for name in ("fill_depressions", "breach_depressions", "d8_pointer", "d8_flow_accumulation"):
+        assert hasattr(WhiteboxFlowBackend, name)
+    for name in ("watershed", "extract_streams", "snap_pour_points"):
+        assert hasattr(WhiteboxDelineationBackend, name)
 
 
 @pytest.mark.parametrize(

@@ -15,7 +15,6 @@ from __future__ import annotations
 from pathlib import Path
 
 from hydromodpy.spatial.delineation import (
-    WhiteboxBackend,
     WhiteboxWorkflowsBackend,
     get_whitebox_backend,
 )
@@ -29,7 +28,7 @@ def clip_dem_to_box_buffer(
     output_dem_path: str | Path,
     crs_project: str | None = None,
     nodata: float = -9999.0,
-    backend: WhiteboxBackend | None = None,
+    backend: WhiteboxWorkflowsBackend | None = None,
 ) -> str:
     """Clip source DEM to domain rectangle and normalize metadata.
 
@@ -60,22 +59,22 @@ def clip_dem_to_box_buffer(
     Path(dst_dem).parent.mkdir(parents=True, exist_ok=True)
 
     if isinstance(tool, WhiteboxWorkflowsBackend):
-        clipped = tool.clip_raster_to_polygon_raster(
-            tool.read_raster(src_dem),
-            tool.read_vector(clip_poly),
+        clipped = tool.raster.clip_raster_to_polygon_raster(
+            tool.raster.read_raster(src_dem),
+            tool.raster.read_vector(clip_poly),
             maintain_dimensions=False,
         )
-        clipped = tool.modify_no_data_value_raster(clipped, new_value=float(nodata))
-        tool.write_raster(clipped, dst_dem)
+        clipped = tool.raster.modify_no_data_value_raster(clipped, new_value=float(nodata))
+        tool.raster.write_raster(clipped, dst_dem)
     else:
         # `maintain_dimensions=False` keeps only the effective clipped extent.
-        tool.clip_raster_to_polygon(
+        tool.raster.clip_raster_to_polygon(
             src_dem,
             clip_poly,
             dst_dem,
             maintain_dimensions=False,
         )
-        tool.modify_no_data_value(dst_dem, new_value=float(nodata))
+        tool.raster.modify_no_data_value(dst_dem, new_value=float(nodata))
 
     ensure_crs(dst_dem, crs_project)
     return dst_dem

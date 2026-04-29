@@ -160,7 +160,7 @@ class Subbasin:
         gdf.to_file(outlet_shp)
         # Snap the outlet shapefile from the flow accumulation
         outlet_snap_shp = outpath + "outlet_snap.shp"
-        self._backend.snap_pour_points(
+        self._backend.delineation.snap_pour_points(
             outlet_shp,
             os.path.join(geographic.correcflow_path, "dem_acc.tif"),
             outlet_snap_shp,
@@ -173,7 +173,7 @@ class Subbasin:
         )
         # Generate raster watershed
         watershed = outpath + "watershed.tif"
-        self._backend.watershed(
+        self._backend.delineation.watershed(
             os.path.join(geographic.correcflow_path, "dem_direc.tif"),
             outlet_snap_shp,
             watershed,
@@ -183,19 +183,19 @@ class Subbasin:
         # Create shapefile polygon of the watershed
         watershed_shp = outpath + "watershed.shp"
         logger.debug("Creating watershed shapefile: %s", watershed_shp)
-        self._backend.raster_to_vector_polygons(watershed, watershed_shp)
+        self._backend.delineation.raster_to_vector_polygons(watershed, watershed_shp)
         shp = gpd.read_file(watershed_shp)
         shp.set_crs(geographic.crs_proj, inplace=True, allow_override=True)
         shp.to_file(watershed_shp)
-        self._backend.polygon_area(watershed_shp)
+        self._backend.raster.polygon_area(watershed_shp)
         area = gpd.read_file(watershed_shp).AREA[0] / 1000000
         area = np.abs(area)
         # Create shapefile polyline of the watershed
         watershed_contour_shp = outpath + "watershed_contour.shp"
-        self._backend.polygons_to_lines(watershed_shp, watershed_contour_shp)
+        self._backend.delineation.polygons_to_lines(watershed_shp, watershed_contour_shp)
         # Clip buffer watershed DEM from watershed shapefile polygon
         watershed_dem = outpath + "watershed_dem.tif"
-        self._backend.clip_raster_to_polygon(
+        self._backend.raster.clip_raster_to_polygon(
             geographic.watershed_buff_dem,
             watershed_shp,
             watershed_dem,

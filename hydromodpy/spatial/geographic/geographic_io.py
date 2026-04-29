@@ -47,9 +47,9 @@ def read_raster_data_and_meta(path: str | Path) -> tuple:
     from hydromodpy.spatial.delineation import get_whitebox_backend
 
     wb = get_whitebox_backend()
-    data = wb.get_cached_raster_numpy(path_str)
+    data = wb.raster.get_cached_raster_numpy(path_str)
     if data is not None:
-        meta = wb.get_cached_raster_metadata(path_str)
+        meta = wb.raster.get_cached_raster_metadata(path_str)
         t = meta["transform"]  # (res_x, 0, west, 0, -res_y, north)
         # Convert to GDAL geotransform: (west, res_x, 0, north, 0, -res_y)
         gdal_transform = (t[2], t[0], 0.0, t[5], 0.0, -t[4])

@@ -14,7 +14,7 @@ from typing import Any
 import geopandas as gpd
 from geopy.geocoders import Nominatim
 
-from hydromodpy.spatial.delineation import WhiteboxBackend, get_whitebox_backend
+from hydromodpy.spatial.delineation import WhiteboxWorkflowsBackend, get_whitebox_backend
 from hydromodpy.spatial.geographic.core.catchment_domain import CatchmentDomainProducts
 from hydromodpy.spatial.geographic.core.catchment_metrics import compute_catchment_area_km2
 from hydromodpy.spatial.geographic.core.direct_dem_domain import build_direct_dem_domain
@@ -379,7 +379,7 @@ def build_geographic_runtime_context(
     *,
     config: GeographicConfig,
     out_dir_path: str | Path,
-    backend: WhiteboxBackend | None = None,
+    backend: WhiteboxWorkflowsBackend | None = None,
     locator_factory: object = Nominatim,
 ) -> GeographicRuntimeContext:
     """
@@ -449,7 +449,7 @@ def build_geographic_runtime_context(
                 crs_project=setup.crs_project,
             )
 
-        tool.polygons_to_lines(
+        tool.delineation.polygons_to_lines(
             setup.paths.watershed_shp,
             setup.paths.watershed_contour_shp,
         )

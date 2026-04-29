@@ -39,7 +39,7 @@ def test_modpath_resolve_zone_partic_clips_seepage_raster(
 
     calls: dict[str, object] = {}
 
-    class _FakeWhiteboxBackend:
+    class _FakeRaster:
         def clip_raster_to_polygon(
             self,
             in_raster: str,
@@ -52,6 +52,10 @@ def test_modpath_resolve_zone_partic_clips_seepage_raster(
             calls["out_raster"] = out_raster
             calls["maintain_dimensions"] = maintain_dimensions
             Path(out_raster).write_text("dummy")
+
+    class _FakeWhiteboxBackend:
+        def __init__(self) -> None:
+            self.raster = _FakeRaster()
 
     monkeypatch.setattr(
         "hydromodpy.solver.modflow_nwt.modpath.modpath.get_whitebox_backend",

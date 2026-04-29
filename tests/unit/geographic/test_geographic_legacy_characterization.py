@@ -56,10 +56,8 @@ class _UnavailableNominatim:
         raise GeocoderUnavailable("offline")
 
 
-class _FakeWhiteboxBackend:
-    """Deterministic in-test substitute for the Whitebox backend file API."""
-
-    verbose = False
+class _FakeRasterOps:
+    """Raster IO and conversion subset of the fake Whitebox facade."""
 
     @staticmethod
     def _copy_raster(src_path: str | Path, dst_path: str | Path) -> None:
@@ -72,11 +70,75 @@ class _FakeWhiteboxBackend:
         with rasterio.open(str(dst), "w", **profile) as dst_ds:
             dst_ds.write(data, 1)
 
+    def clip_raster_to_polygon(
+        self,
+        in_raster: str,
+        in_polygon: str,
+        out_raster: str,
+        maintain_dimensions: bool = False,
+    ) -> None:
+        _ = maintain_dimensions
+        polygons = gpd.read_file(in_polygon)
+        with rasterio.open(in_raster) as src_ds:
+            data = src_ds.read(1)
+            profile = src_ds.profile.copy()
+            nodata = src_ds.nodata if src_ds.nodata is not None else -9999.0
+            keep_mask = geometry_mask(
+                [geom for geom in polygons.geometry],
+                out_shape=data.shape,
+                transform=src_ds.transform,
+                invert=True,
+            )
+            clipped = np.where(keep_mask, data, nodata)
+            profile.update(count=1, nodata=nodata)
+        Path(out_raster).parent.mkdir(parents=True, exist_ok=True)
+        with rasterio.open(out_raster, "w", **profile) as dst_ds:
+            dst_ds.write(clipped.astype(profile["dtype"]), 1)
+
+    def modify_no_data_value(self, raster_path: str, *, new_value: float) -> None:
+        with rasterio.open(raster_path, "r+") as dst_ds:
+            dst_ds.nodata = float(new_value)
+
+    def vector_lines_to_raster(
+        self,
+        in_shp: str,
+        out_raster: str,
+        *,
+        field: str | None = None,
+        zero_background: bool | None = None,
+        cell_size: float | None = None,
+        base: str | None = None,
+    ) -> None:
+        _ = field, zero_background, cell_size
+        lines = gpd.read_file(in_shp)
+        with rasterio.open(base) as base_ds:
+            profile = base_ds.profile.copy()
+            transform = base_ds.transform
+            shape = (base_ds.height, base_ds.width)
+        profile.update(dtype=np.uint8, nodata=0, count=1)
+        data = rasterize(
+            [(geom, 1) for geom in lines.geometry],
+            out_shape=shape,
+            transform=transform,
+            fill=0,
+            dtype=np.uint8,
+        )
+        Path(out_raster).parent.mkdir(parents=True, exist_ok=True)
+        with rasterio.open(out_raster, "w", **profile) as dst_ds:
+            dst_ds.write(data, 1)
+
+
+class _FakeFlowOps:
+    """DEM flow analysis subset of the fake Whitebox facade."""
+
+    def __init__(self, raster: _FakeRasterOps) -> None:
+        self._raster = raster
+
     def fill_depressions(self, dem_in: str, dem_out: str) -> None:
-        self._copy_raster(dem_in, dem_out)
+        self._raster._copy_raster(dem_in, dem_out)
 
     def breach_depressions(self, dem_in: str, dem_out: str) -> None:
-        self._copy_raster(dem_in, dem_out)
+        self._raster._copy_raster(dem_in, dem_out)
 
     def d8_pointer(self, dem_in: str, out_path: str, esri_pntr: bool = False) -> None:
         _ = esri_pntr
@@ -99,6 +161,10 @@ class _FakeWhiteboxBackend:
         Path(out_path).parent.mkdir(parents=True, exist_ok=True)
         with rasterio.open(out_path, "w", **profile) as dst_ds:
             dst_ds.write(data, 1)
+
+
+class _FakeDelineationOps:
+    """Watershed and stream-network subset of the fake Whitebox facade."""
 
     def snap_pour_points(
         self,
@@ -174,60 +240,16 @@ class _FakeWhiteboxBackend:
         Path(out_shp).parent.mkdir(parents=True, exist_ok=True)
         out.to_file(out_shp)
 
-    def minimum_bounding_envelope(self, in_shp: str, out_shp: str, features: bool = False) -> None:
-        _ = features
-        gdf = gpd.read_file(in_shp)
-        xmin, ymin, xmax, ymax = gdf.total_bounds
-        out = gpd.GeoDataFrame({"id": [1]}, geometry=[box(xmin, ymin, xmax, ymax)], crs=gdf.crs)
-        Path(out_shp).parent.mkdir(parents=True, exist_ok=True)
-        out.to_file(out_shp)
 
-    def clip_raster_to_polygon(
-        self,
-        in_raster: str,
-        in_polygon: str,
-        out_raster: str,
-        maintain_dimensions: bool = False,
-    ) -> None:
-        _ = maintain_dimensions
-        polygons = gpd.read_file(in_polygon)
-        with rasterio.open(in_raster) as src_ds:
-            data = src_ds.read(1)
-            profile = src_ds.profile.copy()
-            nodata = src_ds.nodata if src_ds.nodata is not None else -9999.0
-            keep_mask = geometry_mask(
-                [geom for geom in polygons.geometry],
-                out_shape=data.shape,
-                transform=src_ds.transform,
-                invert=True,
-            )
-            clipped = np.where(keep_mask, data, nodata)
-            profile.update(count=1, nodata=nodata)
-        Path(out_raster).parent.mkdir(parents=True, exist_ok=True)
-        with rasterio.open(out_raster, "w", **profile) as dst_ds:
-            dst_ds.write(clipped.astype(profile["dtype"]), 1)
+class _FakeWhiteboxBackend:
+    """Facade composing fake raster, flow and delineation sub-backends."""
 
-    def modify_no_data_value(self, raster_path: str, new_value: float) -> None:
-        with rasterio.open(raster_path, "r+") as dst_ds:
-            dst_ds.nodata = float(new_value)
+    verbose = False
 
-    def vector_lines_to_raster(self, in_shp: str, out_raster: str, base: str) -> None:
-        lines = gpd.read_file(in_shp)
-        with rasterio.open(base) as base_ds:
-            profile = base_ds.profile.copy()
-            transform = base_ds.transform
-            shape = (base_ds.height, base_ds.width)
-        profile.update(dtype=np.uint8, nodata=0, count=1)
-        data = rasterize(
-            [(geom, 1) for geom in lines.geometry],
-            out_shape=shape,
-            transform=transform,
-            fill=0,
-            dtype=np.uint8,
-        )
-        Path(out_raster).parent.mkdir(parents=True, exist_ok=True)
-        with rasterio.open(out_raster, "w", **profile) as dst_ds:
-            dst_ds.write(data, 1)
+    def __init__(self) -> None:
+        self.raster = _FakeRasterOps()
+        self.flow = _FakeFlowOps(self.raster)
+        self.delineation = _FakeDelineationOps()
 
 
 def _write_synthetic_dem(path: Path) -> None:

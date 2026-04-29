@@ -147,47 +147,59 @@ def _write_dummy_tif(path, crs="EPSG:2154", shape=(100, 100)):
 
 
 class WhiteboxStubBackend:
-    """Deterministic in-test substitute for the Whitebox backend.
+    """Deterministic in-test substitute for the split Whitebox facade.
 
     Records each call and produces real synthetic raster/vector outputs so
     the manager pipeline can be exercised end-to-end without the real
-    Whitebox runtime. Tests probe ``calls`` to verify dispatch decisions
-    instead of relying on tautological MagicMock ``assert_called_once``.
+    Whitebox runtime. The facade exposes ``raster`` and ``delineation``
+    sub-backends that mirror the production split.
     """
 
     def __init__(self) -> None:
         self.calls: list[tuple] = []
+        self.raster = _WhiteboxStubRaster(self.calls)
+        self.delineation = _WhiteboxStubDelineation(self.calls)
+
+    def method_names(self) -> list[str]:
+        return [c[0] for c in self.calls]
+
+
+class _WhiteboxStubRaster:
+    def __init__(self, calls: list[tuple]) -> None:
+        self._calls = calls
 
     def vector_lines_to_raster(self, shp: str, tif: str, *, field: str, base: str) -> None:
-        self.calls.append(("vector_lines_to_raster", shp, tif, field))
+        self._calls.append(("vector_lines_to_raster", shp, tif, field))
         _write_dummy_tif(tif)
 
     def vector_polygons_to_raster(self, shp: str, tif: str, *, field: str, base: str) -> None:
-        self.calls.append(("vector_polygons_to_raster", shp, tif, field))
+        self._calls.append(("vector_polygons_to_raster", shp, tif, field))
         _write_dummy_tif(tif)
 
     def vector_points_to_raster(self, shp: str, tif: str, *, field: str, base: str) -> None:
-        self.calls.append(("vector_points_to_raster", shp, tif, field))
+        self._calls.append(("vector_points_to_raster", shp, tif, field))
         _write_dummy_tif(tif)
 
     def set_nodata_value(self, src: str, dst: str, *, back_value: float) -> None:
         import shutil
 
-        self.calls.append(("set_nodata_value", src, dst, back_value))
+        self._calls.append(("set_nodata_value", src, dst, back_value))
         if str(src) != str(dst):
             shutil.copy(src, dst)
 
+
+class _WhiteboxStubDelineation:
+    def __init__(self, calls: list[tuple]) -> None:
+        self._calls = calls
+
     def raster_to_vector_points(self, tif: str, out_shp: str) -> None:
-        self.calls.append(("raster_to_vector_points", tif, out_shp))
+        self._calls.append(("raster_to_vector_points", tif, out_shp))
         Path(out_shp).parent.mkdir(parents=True, exist_ok=True)
         gpd.GeoDataFrame(
             {"id": [1]},
             geometry=[Point(350000, 6750000)],
             crs="EPSG:2154",
         ).to_file(out_shp)
-
-    def method_names(self) -> list[str]:
-        return [c[0] for c in self.calls]
 
 
 # =====================================================================
@@ -1450,7 +1462,7 @@ class TestManagerTifPipeline:
         assert result.tif_streams.endswith("streams.tif")
         assert isinstance(result.streams_array, np.ndarray)
         # Vector rasterisation backend should NOT have been called
-        backend.vector_lines_to_raster.assert_not_called()
+        backend.raster.vector_lines_to_raster.assert_not_called()
 
     @patch("hydromodpy.data.variables.hydrography.manager.get_whitebox_backend")
     def test_tif_array_negative_to_nan(self, mock_backend_factory, tmp_path):
