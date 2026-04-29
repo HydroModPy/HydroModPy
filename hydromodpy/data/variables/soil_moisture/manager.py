@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from hydromodpy.data.base_manager import BaseFieldManager
+from hydromodpy.data.base_manager_field import BaseFieldManager
 from hydromodpy.data.variables.soil_moisture.config import SoilMoistureSourceConfig
 
 

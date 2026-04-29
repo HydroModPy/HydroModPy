@@ -381,7 +381,7 @@ class TestCompletenessReport:
             date_end=project_period[1],
             is_constant=True,
         )
-        from hydromodpy.data.base_manager import BaseVariableManager
+        from hydromodpy.data.base_manager_variable import BaseVariableManager
 
         class DummyManager(BaseVariableManager):
             VARIABLE_NAME = "test"
