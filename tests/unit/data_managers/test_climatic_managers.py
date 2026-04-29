@@ -16,7 +16,7 @@ import pandas as pd
 import pytest
 import xarray as xr
 
-from hydromodpy.data.base_manager import BaseFieldManager
+from hydromodpy.data.base_manager_field import BaseFieldManager
 from hydromodpy.data.common.custom_grid_loader import (
     _find_coord,
     _find_time_dim,

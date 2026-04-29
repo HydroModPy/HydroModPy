@@ -33,9 +33,9 @@ _ITMUNI_TO_SECONDS: dict[int, float] = {
     5: 31557600.0,  # years (365.25 days)
 }
 
+from hydromodpy.core.io.filesystem import create_folder
 from hydromodpy.core.io.raster_io import export_tif
 from hydromodpy.core.logging import get_logger
-from hydromodpy.core.tools.filesystem import create_folder
 from hydromodpy.solver.contracts import Solver
 from hydromodpy.solver.modflow_common import (
     SolverGridContext,
@@ -604,10 +604,9 @@ class Modflow(Solver):
         # Store the RCH schedule as an instance attribute so that post-processing
         # consumers (e.g. Timeseries) can read it without going back to the flow
         # object.  This is the *processed* schedule: first_clim has been applied
-        # to period 0 and, when negative_to_evt=True, negative values have already
-        # been clipped to 0 (their absolute values were routed to the EVT package
-        # above).  Format: dict {kper: rate [L/T]} in solver time units, mirroring
-        # what was actually fed to ModflowRch. None when recharge is not active.
+        # to period 0.  Format: dict {kper: rate [L/T]} in solver time units,
+        # mirroring what was actually fed to ModflowRch. None when recharge is
+        # not active.
         self.recharge = rch_data_solver
 
         # %% Drain package

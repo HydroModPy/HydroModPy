@@ -27,13 +27,15 @@ from hydromodpy.analysis.comparison.metrics import (
     write_metrics_json,
 )
 from hydromodpy.analysis.comparison.reporting import build_comparison_report
-from hydromodpy.analysis.comparison.runtime import (
+from hydromodpy.analysis.comparison.runtime_config import materialize_variant_config
+from hydromodpy.analysis.comparison.runtime_metadata import (
     compact_run_metrics,
     discover_result_store,
-    extract_observable_rows,
-    materialize_variant_config,
     read_json_file,
     read_variant_run_metadata,
+)
+from hydromodpy.analysis.comparison.runtime_observables import (
+    extract_observable_rows,
     write_observables_csv,
 )
 from hydromodpy.analysis.comparison.visuals import generate_comparison_figures

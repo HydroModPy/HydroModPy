@@ -24,9 +24,8 @@ Module overview
 - :doc:`hydromodpy.physics.hydrology.pyhelp <api/hydromodpy-pyhelp>` - coupling layer with the HELP
   land-surface model, NetCDF conversion tools, rainfall-runoff post-processing,
   and CLI entry points.
-- :doc:`hydromodpy.core.tools <api/hydromodpy-tools>` - shared toolbox for filesystem
-  helpers, raster reprojection, geomorphology metrics, ERA5 ingestion, and plot
-  presets.
+- :doc:`hydromodpy.tools (relocated) <api/hydromodpy-tools>` - filesystem helpers
+  (``hydromodpy.core.io``) and plot presets (``hydromodpy.display.theme``).
 
 Key entry points
 ----------------

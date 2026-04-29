@@ -345,7 +345,7 @@ Check the installation
    from hydromodpy.spatial.geographic import CatchmentDelineation
    # Examples of submodule imports
    from hydromodpy.display import get, list_figures
-   from hydromodpy.core.tools.display import plot_params
+   from hydromodpy.display.theme import plot_params
 
    font_sizes = plot_params(8, 15, 18, 20)  # small, medium, intermediate, large
    print([spec.name for spec in list_figures()[:3]])

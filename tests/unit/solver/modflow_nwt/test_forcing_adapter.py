@@ -93,60 +93,12 @@ def _make_point_recharge_record(
     )
 
 
-def test_recharge_builds_evt_and_clips_negative_values():
-    recharge = pd.Series([0.1, -0.2, 0.3], dtype=float)
-    cfg = FlowRechargeConfig(values=recharge, first_clim="mean", negative_to_evt=True, units="m/s")
-    adapter = _make_adapter(cfg, "transient", nper=3)
-
-    rch_data, evt_spd = adapter._build_recharge_payload()
-
-    assert evt_spd is not None
-    assert evt_spd[0] == 0
-    assert evt_spd[1] == pytest.approx(0.2)
-    assert evt_spd[2] == pytest.approx(0.0)
-
-    assert isinstance(rch_data, dict)
-    assert rch_data[0] == pytest.approx(np.mean([0.1, 0.0, 0.3]))
-    assert rch_data[1] == pytest.approx(0.0)
-    assert rch_data[2] == pytest.approx(0.3)
-
-
-def test_recharge_no_evt_when_negative_to_evt_false():
-    recharge = pd.Series([0.1, -0.2, 0.3], dtype=float)
-    cfg = FlowRechargeConfig(values=recharge, first_clim="mean", negative_to_evt=False)
-    adapter = _make_adapter(cfg, "transient", nper=3)
-
-    rch_data, evt_spd = adapter._build_recharge_payload()
-
-    assert evt_spd is None
-
-
-def test_recharge_list_builds_evt_and_clips_negative_values():
-    cfg = FlowRechargeConfig(
-        values=[0.1, -0.2, 0.3], first_clim="mean", negative_to_evt=True, units="m/s"
-    )
-    adapter = _make_adapter(cfg, "transient", nper=3)
-
-    rch_data, evt_spd = adapter._build_recharge_payload()
-
-    assert evt_spd is not None
-    assert evt_spd[0] == 0
-    assert evt_spd[1] == pytest.approx(0.2)
-    assert evt_spd[2] == pytest.approx(0.0)
-
-    assert isinstance(rch_data, dict)
-    assert rch_data[0] == pytest.approx(np.mean([0.1, 0.0, 0.3]))
-    assert rch_data[1] == pytest.approx(0.0)
-    assert rch_data[2] == pytest.approx(0.3)
-
-
 def test_recharge_steady_mapping_returns_mean_scalar():
     cfg = FlowRechargeConfig(values={0: 0.2, 1: 0.4}, units="m/s")
     adapter = _make_adapter(cfg, "steady", nper=2)
 
-    rch_data, evt_spd = adapter._build_recharge_payload()
+    rch_data = adapter._build_recharge_payload()
 
-    assert evt_spd is None
     assert rch_data == pytest.approx(0.3)
 
 
@@ -154,9 +106,8 @@ def test_recharge_transient_mapping_returned_as_dict():
     cfg = FlowRechargeConfig(values={0: 0.1, 1: 0.2}, units="m/s")
     adapter = _make_adapter(cfg, "transient", nper=2)
 
-    rch_data, evt_spd = adapter._build_recharge_payload()
+    rch_data = adapter._build_recharge_payload()
 
-    assert evt_spd is None
     assert rch_data == {0: 0.1, 1: 0.2}
 
 
@@ -164,24 +115,22 @@ def test_recharge_scalar_broadcast_to_all_periods():
     cfg = FlowRechargeConfig(values=0.001, units="mm/day")
     adapter = _make_adapter(cfg, "transient", nper=3)
 
-    rch_data, evt_spd = adapter._build_recharge_payload()
+    rch_data = adapter._build_recharge_payload()
 
-    assert evt_spd is None
     assert all(rch_data[k] == pytest.approx(1.0e-6 / 86400.0) for k in range(3))
 
 
-def test_recharge_point_source_builds_period_arrays_and_evt():
+def test_recharge_point_source_builds_period_arrays():
     point = _make_point_recharge_record(
         station_id="R1",
         x=0.5,
         y=0.5,
         january_value_mm_day=8.0,
-        february_value_mm_day=-4.0,
+        february_value_mm_day=4.0,
     )
     cfg = FlowRechargeConfig(
         values=0.0,
         first_clim="first",
-        negative_to_evt=True,
         heterogeneous_source=LoadResult(points=[point]),
         interpolation_method="nearest",
     )
@@ -198,17 +147,14 @@ def test_recharge_point_source_builds_period_arrays_and_evt():
         ),
     )
 
-    rch_data, evt_spd = adapter._build_recharge_payload()
+    rch_data = adapter._build_recharge_payload()
 
-    assert evt_spd is not None
     np.testing.assert_allclose(
         rch_data[0],
         np.full((1, 1), 8.0e-3 / 86400.0, dtype=float),
     )
-    np.testing.assert_allclose(rch_data[1], np.zeros((1, 1), dtype=float))
-    np.testing.assert_allclose(evt_spd[0], np.zeros((1, 1), dtype=float))
     np.testing.assert_allclose(
-        evt_spd[1],
+        rch_data[1],
         np.full((1, 1), 4.0e-3 / 86400.0, dtype=float),
     )
 
@@ -216,10 +162,9 @@ def test_recharge_point_source_builds_period_arrays_and_evt():
 def test_recharge_none_gives_none_payload():
     adapter = _make_adapter(None, "transient", nper=2)
 
-    rch_data, evt_spd = adapter._build_recharge_payload()
+    rch_data = adapter._build_recharge_payload()
 
     assert rch_data is None
-    assert evt_spd is None
 
 
 def test_recharge_first_clim_first_uses_index_zero():
@@ -227,7 +172,7 @@ def test_recharge_first_clim_first_uses_index_zero():
     cfg = FlowRechargeConfig(values=recharge, first_clim="first", units="m/s")
     adapter = _make_adapter(cfg, "transient", nper=3)
 
-    rch_data, _ = adapter._build_recharge_payload()
+    rch_data = adapter._build_recharge_payload()
 
     assert rch_data[0] == pytest.approx(0.5)
 
@@ -237,7 +182,7 @@ def test_recharge_first_clim_numeric_scalar():
     cfg = FlowRechargeConfig(values=recharge, first_clim=0.0, units="m/s")
     adapter = _make_adapter(cfg, "transient", nper=3)
 
-    rch_data, _ = adapter._build_recharge_payload()
+    rch_data = adapter._build_recharge_payload()
 
     assert rch_data[0] == pytest.approx(0.0)
 
@@ -256,14 +201,13 @@ def test_recharge_rejects_invalid_flow_regime():
 
 
 def test_recharge_not_activated_returns_none():
-    """When 'recharge' is absent from active_sinks_sources, both payloads are None."""
+    """When 'recharge' is absent from active_sinks_sources, payload is None."""
     cfg = FlowRechargeConfig(values=0.001)
     adapter = _make_adapter(cfg, "transient", nper=3, active_sinks_sources=[])
 
-    rch_data, evt_spd = adapter._build_recharge_payload()
+    rch_data = adapter._build_recharge_payload()
 
     assert rch_data is None
-    assert evt_spd is None
 
 
 def test_recharge_not_activated_ignores_configured_values():
@@ -271,10 +215,9 @@ def test_recharge_not_activated_ignores_configured_values():
     cfg = FlowRechargeConfig(values=pd.Series([0.1, 0.2, 0.3], dtype=float))
     adapter = _make_adapter(cfg, "transient", nper=3, active_sinks_sources=["wells"])
 
-    rch_data, evt_spd = adapter._build_recharge_payload()
+    rch_data = adapter._build_recharge_payload()
 
     assert rch_data is None
-    assert evt_spd is None
 
 
 def test_wells_not_activated_returns_empty_spd():

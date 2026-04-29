@@ -40,7 +40,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 from hydromodpy.core.logging import get_logger
-from hydromodpy.core.tools.cache import get_cache_bin_dir
+from hydromodpy.core.state.cache import get_cache_bin_dir
 from hydromodpy.solver.modflow_common.executables import ensure_platform_executable
 
 logger = get_logger(__name__)

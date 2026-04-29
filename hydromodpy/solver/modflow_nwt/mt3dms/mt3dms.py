@@ -35,10 +35,10 @@ df = dirname(dirname(abspath(__file__)))
 sys.path.append(df)
 
 # HydroModPy
+from hydromodpy.core.io.filesystem import create_folder
 from hydromodpy.core.io.raster_io import export_tif
 from hydromodpy.core.logging import get_logger
-from hydromodpy.core.tools.display import plot_params
-from hydromodpy.core.tools.filesystem import create_folder
+from hydromodpy.display.theme import plot_params
 from hydromodpy.solver.modflow_common import (
     ensure_solver_binary,
     masstransfer,

@@ -35,13 +35,13 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any, Literal
 
 from hydromodpy.core.state.execution import ExecutionRegistry
-from hydromodpy.pipeline.dependencies import earliest_affected_step
-from hydromodpy.pipeline.state import PipelineState
+from hydromodpy.workflow.internals.dependencies import earliest_affected_step
+from hydromodpy.workflow.internals.state import PipelineState
 
 if TYPE_CHECKING:
     from hydromodpy.core.config.hydromodpy_config import HydroModPyConfig
     from hydromodpy.core.state.run_state import WorkflowContext
-    from hydromodpy.pipeline.step import Step
+    from hydromodpy.workflow.internals.step import Step
 
 logger = logging.getLogger(__name__)
 
@@ -223,7 +223,7 @@ def prepare_trials(
         :meth:`TrialContext.fork` uses it to inject values by name.
     steps
         Pipeline steps to compose over. Defaults to
-        :func:`hydromodpy.pipeline.steps.standard_steps`.
+        :func:`hydromodpy.workflow.orchestrator.standard_steps`.
     parameter_space
         Optional :class:`~hydromodpy.calibration.parameters.ParameterSpace`.
         When supplied, :meth:`TrialContext.fork` injects values through the
@@ -232,11 +232,11 @@ def prepare_trials(
     """
     from hydromodpy.core.config.hydromodpy_config import HydroModPyConfig
     from hydromodpy.core.config.toml_loader import load_toml_with_base_config
-    from hydromodpy.pipeline.pipeline import Pipeline
-    from hydromodpy.pipeline.steps import standard_steps
     from hydromodpy.spatial.domain.spatial_support import (
         build_default_spatial_support_provider_registry,
     )
+    from hydromodpy.workflow.orchestrator import standard_steps
+    from hydromodpy.workflow.runner import Pipeline
     from hydromodpy.workflow.steps.setup import (
         collect_requested_support_ids,
         resolve_support_configs,
@@ -365,7 +365,7 @@ def run_trial_light(
         ``None`` the default stub returns ``(nan, {})`` - the full
         extractor is wired in by the calibration CLI in Phase 2.
     """
-    from hydromodpy.pipeline.pipeline import Pipeline
+    from hydromodpy.workflow.runner import Pipeline
 
     t0 = time.monotonic()
     try:

@@ -109,7 +109,6 @@ aggregate = "mean"
 
 [flow.sinks_sources.recharge]
 first_clim = "mean"
-negative_to_evt = true
 
 [postprocess]
 enabled = true

@@ -361,18 +361,20 @@ class TestProjectCalibratePythonModeDispatch:
 
     def test_python_mode_requires_parameters(self, project_toml, tmp_path):
         proj = _FakeProject(project_toml, tmp_path / "ws")
+        from hydromodpy.core.exceptions import ConfigMissingError
         from hydromodpy.project import Project
 
-        with pytest.raises(ValueError, match="parameters="):
+        with pytest.raises(ConfigMissingError, match="parameters="):
             Project.calibrate(proj)
 
     def test_python_mode_requires_toml_loaded_project(self, tmp_path):
         proj = _FakeProject.__new__(_FakeProject)
         proj._config_path = None
         proj._ctx = None
+        from hydromodpy.core.exceptions import ConfigMissingError
         from hydromodpy.project import Project
 
-        with pytest.raises(ValueError, match="loaded from a"):
+        with pytest.raises(ConfigMissingError, match="loaded from a"):
             Project.calibrate(
                 proj,
                 parameters={

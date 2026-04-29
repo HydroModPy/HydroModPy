@@ -16,11 +16,11 @@ import os
 
 import rasterio
 
+from hydromodpy.core.io.filesystem import create_folder
 from hydromodpy.core.io.raster_io import export_tif
 
 # HydroModPy
 from hydromodpy.core.logging import get_logger
-from hydromodpy.core.tools.filesystem import create_folder
 from hydromodpy.spatial.delineation import WhiteboxBackend, get_whitebox_backend
 
 logger = get_logger(__name__)

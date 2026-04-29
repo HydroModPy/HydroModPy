@@ -141,6 +141,12 @@ class Boussinesq(Solver):
         irrelevant here because the Boussinesq backend runs in-process. The
         method still keeps the legacy signature so the wider launcher layer can
         treat it like any other solver.
+
+        Diagnostic files (``_boussinesq_state_history.npz``,
+        ``_boussinesq_summary.json``) are written here at the end of the run
+        so the ``BoussinesqOutputAdapter`` can ingest them, mirroring the
+        MODFLOW lifecycle where ``processing()`` is the only step that writes
+        solver outputs to disk.
         """
         _ = write_model
         _ = kwargs
@@ -157,15 +163,17 @@ class Boussinesq(Solver):
         self._assert_supported_runtime_subset()
         if str(getattr(self.flow, "flow_regime", "transient")).strip().lower() == "steady":
             success = self._run_steady_runtime()
-            self.has_numerical_solution = bool(success)
-            self.solve_stage = "solved" if success else "failed"
-            return bool(success)
-        if self.time_grid is None:
+        elif self.time_grid is None:
             return True
+        else:
+            success = self._run_transient_runtime()
 
-        success = self._run_transient_runtime()
         self.has_numerical_solution = bool(success)
         self.solve_stage = "solved" if success else "failed"
+        try:
+            self.post_processing()
+        except Exception:
+            pass
         return bool(success)
 
     def post_processing(self, *args, **kwargs):

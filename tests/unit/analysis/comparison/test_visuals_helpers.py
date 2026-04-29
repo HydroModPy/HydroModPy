@@ -14,28 +14,47 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from hydromodpy.analysis.comparison import visuals
+from hydromodpy.analysis.comparison import visuals_render_maps
 from hydromodpy.analysis.comparison.config import MethodComparisonFineRaster
-from hydromodpy.analysis.comparison.visuals import (
+from hydromodpy.analysis.comparison.visuals_format import (
+    _apply_time_ticks,
+    _format_time_tick_label,
+)
+from hydromodpy.analysis.comparison.visuals_payloads import (
     DifferencePayload,
     MapPayload,
-    _apply_time_ticks,
-    _budget_component_color,
-    _budget_component_label,
     _build_difference_payload,
     _build_fine_grid,
-    _display_variant_label,
     _estimate_extent_from_centroids,
+    _payload_extent,
+    _payload_samples,
+    _regrid_payload,
+    _resolve_fine_grid_bounds,
+)
+from hydromodpy.analysis.comparison.visuals_render_maps import (
+    _write_difference_figure,
+    _write_geotiff,
+    _write_map_comparison_figure,
+    _write_regridded_difference_figure,
+    _write_regridded_map_figure,
+)
+from hydromodpy.analysis.comparison.visuals_render_series import (
+    _write_budget_diagnostic_figure,
+    _write_flux_dashboard,
+    _write_native_flux_panel,
+    _write_point_dashboard,
+    _write_runtime_bar_figure,
+    _write_timeseries_figure,
+)
+from hydromodpy.analysis.comparison.visuals_style import (
+    _budget_component_color,
+    _budget_component_label,
+    _display_variant_label,
     _finite_limits,
-    _format_time_tick_label,
     _is_flux_like_name,
     _legend_ncols,
     _mask_nodata,
-    _payload_extent,
-    _payload_samples,
     _pretty_label,
-    _regrid_payload,
-    _resolve_fine_grid_bounds,
     _rgba_to_hex,
     _robust_limits,
     _robust_symmetric_limit,
@@ -44,17 +63,6 @@ from hydromodpy.analysis.comparison.visuals import (
     _slug,
     _solver_color,
     _variant_panel_title,
-    _write_budget_diagnostic_figure,
-    _write_difference_figure,
-    _write_flux_dashboard,
-    _write_geotiff,
-    _write_map_comparison_figure,
-    _write_native_flux_panel,
-    _write_point_dashboard,
-    _write_regridded_difference_figure,
-    _write_regridded_map_figure,
-    _write_runtime_bar_figure,
-    _write_timeseries_figure,
 )
 
 # -- helpers --------------------------------------------------------------
@@ -935,7 +943,7 @@ def test_write_regridded_difference_figure_creates_png(tmp_path: Path) -> None:
 
 
 def test_write_geotiff_creates_tif(tmp_path: Path) -> None:
-    if visuals.rasterio is None:
+    if visuals_render_maps.rasterio is None:
         pytest.skip("rasterio not installed")
     array = np.arange(16, dtype=float).reshape(4, 4)
     out = tmp_path / "raster.tif"
@@ -945,7 +953,7 @@ def test_write_geotiff_creates_tif(tmp_path: Path) -> None:
 
 
 def test_write_geotiff_returns_false_for_zero_dim(tmp_path: Path) -> None:
-    if visuals.rasterio is None:
+    if visuals_render_maps.rasterio is None:
         pytest.skip("rasterio not installed")
     array = np.zeros((0, 0), dtype=float)
     out = tmp_path / "raster.tif"

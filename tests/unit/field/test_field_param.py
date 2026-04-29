@@ -11,6 +11,7 @@ import pytest
 from hydromodpy.spatial.field.cases.square.field_mesh_square import FieldMeshSquare
 from hydromodpy.spatial.field.cases.square.field_spatial_square import FieldSquare
 from hydromodpy.spatial.field.core.field_param import FieldParam
+from hydromodpy.spatial.field.core.field_param_io import field_param_from_toml
 from hydromodpy.spatial.field.core.field_spatial import Field, FieldDiscretization
 from hydromodpy.spatial.field.core.field_spatial_weighted_discretization import (
     WeightedAverageFieldDiscretization,
@@ -29,7 +30,7 @@ def test_field_param_homogeneous_from_toml(tmp_path: Path):
         encoding="utf-8",
     )
 
-    param = FieldParam.from_toml(path)
+    param = field_param_from_toml(path)
     assert param.is_homogeneous
     assert param.identifier == "K"
     assert float(param.to_array()) == pytest.approx(12.5)
@@ -179,7 +180,7 @@ def test_field_param_rejects_incompatible_unit_family():
 
 
 def test_field_param_heterogeneous_from_toml():
-    param = FieldParam.from_toml("hydromodpy/spatial/field/cases/square/field_param_config.toml")
+    param = field_param_from_toml("hydromodpy/spatial/field/cases/square/field_param_config.toml")
     assert param.is_heterogeneous
     assert param.identifier == "K"
     assert param.field_spatial_id == "field_square"
@@ -304,7 +305,7 @@ def test_field_param_heterogeneous_requires_field_spatial_id(tmp_path: Path):
         encoding="utf-8",
     )
     with pytest.raises(KeyError, match="field_spatial_id"):
-        _ = FieldParam.from_toml(path)
+        _ = field_param_from_toml(path)
 
 
 def test_field_param_requires_identifier(tmp_path: Path):
@@ -318,7 +319,7 @@ def test_field_param_requires_identifier(tmp_path: Path):
         encoding="utf-8",
     )
     with pytest.raises(KeyError, match="id"):
-        _ = FieldParam.from_toml(path)
+        _ = field_param_from_toml(path)
 
 
 def test_field_param_selects_kind_from_base_section(tmp_path: Path):
@@ -334,7 +335,7 @@ def test_field_param_selects_kind_from_base_section(tmp_path: Path):
             """),
         encoding="utf-8",
     )
-    param = FieldParam.from_toml(path)
+    param = field_param_from_toml(path)
     assert param.identifier == "Sy"
     assert param.is_homogeneous
     assert float(param.value) == pytest.approx(0.21)
@@ -356,7 +357,7 @@ def test_field_param_from_toml_with_vertical_profile_exponential(tmp_path: Path)
         encoding="utf-8",
     )
 
-    param = FieldParam.from_toml(path)
+    param = field_param_from_toml(path)
     assert param.is_homogeneous
     assert param.has_vertical_variation
     assert float(param.to_array(depth=30.0)) == pytest.approx(12.0 * np.exp(-1.0))
@@ -380,7 +381,7 @@ def test_field_param_from_toml_with_vertical_profile_exponential_characteristic_
         encoding="utf-8",
     )
 
-    param = FieldParam.from_toml(path)
+    param = field_param_from_toml(path)
     assert param.is_homogeneous
     assert param.has_vertical_variation
     assert float(param.to_array(depth=30.0)) == pytest.approx(12.0 * np.exp(-1.0))
@@ -416,7 +417,7 @@ def test_field_param_heterogeneous_from_toml_with_csv_values(tmp_path: Path):
         encoding="utf-8",
     )
 
-    param = FieldParam.from_toml(toml_path)
+    param = field_param_from_toml(toml_path)
     assert param.is_heterogeneous
     assert param.field_spatial_id == "field_geology"
     assert param.values_by_key == {"2141": 12.0, "1501": 8.5, "SEA": 1.0}
@@ -454,7 +455,7 @@ def test_field_param_from_toml_with_csv_rejects_duplicate_key(tmp_path: Path):
         encoding="utf-8",
     )
     with pytest.raises(ValueError, match="Duplicate key"):
-        _ = FieldParam.from_toml(toml_path)
+        _ = field_param_from_toml(toml_path)
 
 
 def test_field_param_to_mesh_field_applies_vertical_profile():

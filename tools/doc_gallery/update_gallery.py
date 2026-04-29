@@ -2002,12 +2002,12 @@ def _build_method_comparison_payload(
 ) -> tuple[dict[str, Any], dict[str, Any], list[dict[str, Any]]]:
     from hydromodpy.analysis.comparison.config import MethodComparisonConfig
     from hydromodpy.analysis.comparison.metrics import build_comparison_metrics
-    from hydromodpy.analysis.comparison.runtime import (
+    from hydromodpy.analysis.comparison.runtime_metadata import (
         compact_run_metrics,
-        extract_observable_rows,
         read_json_file,
         read_variant_run_metadata,
     )
+    from hydromodpy.analysis.comparison.runtime_observables import extract_observable_rows
     from hydromodpy.core.config.toml_loader import load_toml_with_base_config
 
     raw_toml = load_toml_with_base_config(config_path)
@@ -3743,7 +3743,7 @@ def _generate_method_comparison_case(spec: GalleryCaseSpec, source_root: Path) -
         SUMMARY_METRIC_FIELDS,
         write_metrics_csv,
     )
-    from hydromodpy.analysis.comparison.runtime import write_observables_csv
+    from hydromodpy.analysis.comparison.runtime_observables import write_observables_csv
 
     config_path = _repo_path(str(spec.metadata["comparison_config_path"]))
     manifest, metrics_payload, all_rows = _build_method_comparison_payload(config_path)

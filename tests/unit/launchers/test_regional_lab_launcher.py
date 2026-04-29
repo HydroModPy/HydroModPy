@@ -6,15 +6,17 @@ import sys
 from pathlib import Path
 from types import SimpleNamespace
 
-from hydromodpy.analysis.batch.bootstrap import build_site_catalog_from_outlet_table
-from hydromodpy.analysis.batch.config import RegionalLabConfig
-from hydromodpy.analysis.batch.runtime import (
-    RegionalLabLauncher,
+from hydromodpy.analysis.batch.batch_catalog import load_site_catalog
+from hydromodpy.analysis.batch.batch_execution import (
     _extract_method_comparison_child_artifacts,
+)
+from hydromodpy.analysis.batch.batch_planning import (
     build_regional_lab_plan,
     build_run_command,
-    load_site_catalog,
 )
+from hydromodpy.analysis.batch.bootstrap import build_site_catalog_from_outlet_table
+from hydromodpy.analysis.batch.config import RegionalLabConfig
+from hydromodpy.analysis.batch.runtime import RegionalLabLauncher
 
 
 def _write_regional_lab_config(
@@ -296,7 +298,7 @@ def test_regional_lab_execution_stops_on_first_failure(monkeypatch, tmp_path: Pa
 
     calls: list[list[str]] = []
 
-    def _fake_subprocess_run(command, cwd, check):
+    def _fake_subprocess_run(command, cwd, check, timeout=None):
         calls.append(list(command))
         returncode = 0 if len(calls) == 1 else 1
         return SimpleNamespace(returncode=returncode)
@@ -361,7 +363,7 @@ def test_regional_lab_resume_skips_completed_cases(monkeypatch, tmp_path: Path) 
 
     calls: list[list[str]] = []
 
-    def _fake_subprocess_run(command, cwd, check):
+    def _fake_subprocess_run(command, cwd, check, timeout=None):
         calls.append(list(command))
         return SimpleNamespace(returncode=0)
 
