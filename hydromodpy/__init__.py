@@ -148,6 +148,53 @@ def compare_methods(toml_path):
     return MethodComparisonLauncher(toml_path).run()
 
 
+def mesh(toml_path):
+    """Functional facade for the mesh-only workflow.
+
+    Mirrors ``hmp run`` for ``workflow = "mesh"`` configs: one call,
+    returns the launcher summary dict.
+    """
+    from pathlib import Path
+
+    from hydromodpy.workflow.pipelines.mesh import MeshCatchmentLauncher
+
+    return MeshCatchmentLauncher(Path(toml_path).expanduser().resolve()).run()
+
+
+def report(session_id_or_prefix=None, *, workspace=None):
+    """Render the HTML report for a calibration session.
+
+    ``session_id_or_prefix`` accepts a full UUID, a unique hex prefix,
+    or ``None`` to fall back to the most recently started session.
+    ``workspace`` defaults to the nearest ancestor of the current
+    working directory containing ``hydromodpy.duckdb``.
+    """
+    from pathlib import Path
+
+    from hydromodpy.calibration.report import resolve_calibration_session_id
+    from hydromodpy.results.catalog import SimulationCatalog
+    from hydromodpy.workflow.steps.calibration_report import (
+        step_render_calibration_report,
+    )
+
+    if workspace is None:
+        workspace_root = Path.cwd()
+        for parent in [workspace_root] + list(workspace_root.parents):
+            if (parent / "hydromodpy.duckdb").exists():
+                workspace_root = parent
+                break
+    else:
+        workspace_root = Path(workspace).expanduser().resolve()
+
+    with SimulationCatalog(workspace_root) as catalog:
+        full_id = resolve_calibration_session_id(catalog, session_id_or_prefix)
+        return step_render_calibration_report(
+            catalog=catalog,
+            session_id=full_id,
+            workspace_root=workspace_root,
+        )
+
+
 __all__ = [
     # Entry points
     "open",
@@ -155,6 +202,8 @@ __all__ = [
     "calibrate",
     "compare_pair",
     "compare_methods",
+    "mesh",
+    "report",
     "bootstrap_proj",
     "doctor",
     # Core infrastructure

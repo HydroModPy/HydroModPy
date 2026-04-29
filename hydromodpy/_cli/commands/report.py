@@ -48,12 +48,21 @@ def register(subparsers) -> argparse.ArgumentParser:
 
 
 def run(args: argparse.Namespace) -> None:
+    from hydromodpy.calibration.report import resolve_calibration_session_id
+    from hydromodpy.core.exceptions import ConfigError, ConfigMissingError
     from hydromodpy.results.catalog import SimulationCatalog
     from hydromodpy.workflow.steps.calibration_report import step_render_calibration_report
 
     workspace_root = args.workspace or find_workspace_root(Path.cwd())
     with SimulationCatalog(workspace_root) as catalog:
-        session_id = _resolve_session_id(catalog, args.session_id)
+        try:
+            session_id = resolve_calibration_session_id(catalog, args.session_id)
+        except ConfigMissingError as exc:
+            print(str(exc), file=sys.stderr)
+            sys.exit(EXIT_NOT_FOUND)
+        except ConfigError as exc:
+            print(str(exc), file=sys.stderr)
+            sys.exit(EXIT_CONFIG)
         out_path = step_render_calibration_report(
             catalog=catalog,
             session_id=session_id,
@@ -64,32 +73,3 @@ def run(args: argparse.Namespace) -> None:
         import webbrowser
 
         webbrowser.open(out_path.as_uri())
-
-
-def _resolve_session_id(catalog, raw: str) -> str:
-    """Return the full canonical session UUID matching ``raw`` (full or prefix)."""
-    import uuid
-
-    normalized = raw.replace("-", "").lower()
-    if len(normalized) == 32:
-        try:
-            return uuid.UUID(normalized).hex
-        except ValueError:
-            pass
-
-    rows = catalog._connection.execute(
-        "SELECT session_id FROM calibration_sessions",
-    ).fetchall()
-    candidates = [r[0].hex if hasattr(r[0], "hex") else str(r[0]).replace("-", "") for r in rows]
-    matches = [c for c in candidates if c.startswith(normalized)]
-    if not matches:
-        print(f"No calibration session matches {raw!r}.", file=sys.stderr)
-        sys.exit(EXIT_NOT_FOUND)
-    if len(matches) > 1:
-        print(
-            f"Session prefix {raw!r} is ambiguous ({len(matches)} matches). "
-            "Use more hex characters.",
-            file=sys.stderr,
-        )
-        sys.exit(EXIT_CONFIG)
-    return matches[0]

@@ -697,6 +697,51 @@ class Project:
             return_report=kwargs.get("return_report", True),
         )
 
+    def mesh(self) -> dict:
+        """Run the standalone mesh-only workflow defined by this project's TOML.
+
+        Symmetric counterpart of :func:`hydromodpy.mesh`. Requires a
+        TOML-loaded Project: the launcher consumes the source TOML directly
+        to build its own runtime configs.
+        """
+        if self._config_path is None:
+            raise ConfigMissingError(
+                "Project.mesh() requires Project to be loaded from a TOML "
+                "path (the mesh launcher needs the source TOML on disk)."
+            )
+        from hydromodpy.workflow.pipelines.mesh import MeshCatchmentLauncher
+
+        return MeshCatchmentLauncher(self._config_path).run()
+
+    def report(self, session_id: str | None = None) -> Path:
+        """Render the HTML report for a calibration session.
+
+        ``session_id`` accepts a full UUID, a unique hex prefix, or
+        ``None`` to fall back to the most recently started session
+        recorded in the project's catalog.
+        """
+        from hydromodpy.calibration.report import resolve_calibration_session_id
+        from hydromodpy.results.catalog import SimulationCatalog
+        from hydromodpy.workflow.steps.calibration_report import (
+            step_render_calibration_report,
+        )
+
+        workspace_root = self._resolve_workspace_path()
+        catalog = self._store
+        owns_catalog = catalog is None
+        if owns_catalog:
+            catalog = SimulationCatalog(workspace_root)
+        try:
+            full_id = resolve_calibration_session_id(catalog, session_id)
+            return step_render_calibration_report(
+                catalog=catalog,
+                session_id=full_id,
+                workspace_root=workspace_root,
+            )
+        finally:
+            if owns_catalog:
+                catalog.close()
+
     def simulate(
         self,
         *,

@@ -180,6 +180,52 @@ class SessionReportData:
 # ---------------------------------------------------------------------------
 
 
+def resolve_calibration_session_id(
+    catalog: SimulationCatalog,
+    raw: str | None,
+) -> str:
+    """Return the canonical hex session id for ``raw``.
+
+    ``raw`` accepts a full UUID (hex or dashed, 32 hex chars) or a unique
+    prefix of >= 1 hex char. When ``raw`` is ``None``, return the most
+    recently started session.
+    """
+    import uuid
+
+    from hydromodpy.core.exceptions import ConfigError, ConfigMissingError
+
+    rows = catalog._connection.execute(
+        "SELECT session_id, started_at FROM calibration_sessions "
+        "ORDER BY started_at DESC NULLS LAST",
+    ).fetchall()
+    candidates = [r[0].hex if hasattr(r[0], "hex") else str(r[0]).replace("-", "") for r in rows]
+    if not candidates:
+        raise ConfigMissingError("No calibration session found in the workspace catalog.")
+
+    if raw is None:
+        return candidates[0]
+
+    normalized = raw.replace("-", "").lower()
+    if len(normalized) == 32:
+        try:
+            full = uuid.UUID(normalized).hex
+        except ValueError as exc:
+            raise ConfigError(f"Invalid calibration session id {raw!r}: {exc}") from exc
+        if full in candidates:
+            return full
+        raise ConfigMissingError(f"Unknown calibration session {raw!r}.")
+
+    matches = [c for c in candidates if c.startswith(normalized)]
+    if not matches:
+        raise ConfigMissingError(f"No calibration session matches {raw!r}.")
+    if len(matches) > 1:
+        raise ConfigError(
+            f"Session prefix {raw!r} is ambiguous ({len(matches)} matches). "
+            "Use more hex characters."
+        )
+    return matches[0]
+
+
 def load_session_report_data(
     *,
     catalog: SimulationCatalog,
@@ -308,4 +354,9 @@ def _hex(value: Any) -> str:
     return str(value).replace("-", "")
 
 
-__all__ = ("CalibrationReport", "SessionReportData", "load_session_report_data")
+__all__ = (
+    "CalibrationReport",
+    "SessionReportData",
+    "load_session_report_data",
+    "resolve_calibration_session_id",
+)
