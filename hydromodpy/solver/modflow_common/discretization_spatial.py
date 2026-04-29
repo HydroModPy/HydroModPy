@@ -6,7 +6,10 @@ from collections.abc import Mapping
 
 import numpy as np
 
-from hydromodpy.solver.modflow_common.grid_context import GridReference, SolverGridContext
+from hydromodpy.solver.modflow_common.grid_context import (
+    SolverGridContext,
+    grid_reference_from_solver_mesh,
+)
 from hydromodpy.solver.modflow_common.solver_mesh import SolverMesh
 from hydromodpy.spatial.mesh.cartesian_grid.sgrid_config import (
     PlanarGridConfig,
@@ -228,7 +231,7 @@ def build_spatial_discretization(
         )
 
     return SolverGridContext(
-        grid=GridReference.from_solver_mesh(
+        grid=grid_reference_from_solver_mesh(
             solver_mesh,
             crs=None if top_surface.support is None else getattr(top_surface.support, "crs", None),
             nodata=nodata,

@@ -14,13 +14,13 @@ import numpy as np
 import pandas as pd
 import pytest
 
+from hydromodpy.core.grid_reference import GridReference
 from hydromodpy.core.time import ResolvedSimulationTimeWindow
 from hydromodpy.data.contracts.load_result import LoadResult
 from hydromodpy.data.contracts.location import StationLocation
 from hydromodpy.data.contracts.timeseries import PointRecord
 from hydromodpy.physics.flow.boundary_conditions import FlowBoundaryConditionConfig
 from hydromodpy.physics.flow.sinks_sources import FlowRechargeConfig, FlowWellConfig
-from hydromodpy.solver.modflow_common.grid_context import GridReference
 from hydromodpy.solver.modflow_common.solver_mesh import SolverMesh
 from hydromodpy.solver.modflow_nwt.modflow.flow_to_modflow_adapter import FlowToModflowAdapter
 

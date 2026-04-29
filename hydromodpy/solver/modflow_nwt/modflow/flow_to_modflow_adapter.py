@@ -98,6 +98,7 @@ from typing import TYPE_CHECKING
 import numpy as np
 import pandas as pd
 
+from hydromodpy.core.grid_reference import GridReference
 from hydromodpy.core.units import (
     convert_payload_to_m,
     convert_payload_to_m_per_s,
@@ -109,7 +110,7 @@ from hydromodpy.core.units.volumetric_flow import (
     normalize_m3_per_s_unit,
 )
 from hydromodpy.physics.flow.time_forcing import resolve_period_values_from_forcing
-from hydromodpy.solver.modflow_common.grid_context import GridReference
+from hydromodpy.solver.modflow_common.grid_context import grid_reference_from_solver_mesh
 from hydromodpy.solver.modflow_common.solver_mesh import SolverMesh
 
 from .property_mapping import (
@@ -905,7 +906,7 @@ class FlowToModflowAdapter:
 
         grid = self.grid
         if grid is None:
-            grid = GridReference.from_solver_mesh(self.solver_mesh)
+            grid = grid_reference_from_solver_mesh(self.solver_mesh)
 
         # Broadcast scalar / single-value flux to nper; reject length mismatches.
         normalized_wells: list[tuple[str, tuple[int, int, int], np.ndarray]] = []

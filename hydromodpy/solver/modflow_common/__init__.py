@@ -48,7 +48,7 @@ from .forcing_discretization import (
     has_spatially_distributed_source,
     stress_period_axes,
 )
-from .grid_context import GridReference, SolverGridContext
+from .grid_context import SolverGridContext
 from .grid_mapping import (
     DiscretizationKind,
     DisDescriptor,
@@ -77,7 +77,6 @@ __all__ = [
     "DisDescriptor",
     "DisvDescriptor",
     "DisvBoundaryCell",
-    "GridReference",
     "MF6_PACKAGES",
     "NWT_PACKAGES",
     "PACKAGE_ATTRS",
