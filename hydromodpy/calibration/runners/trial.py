@@ -22,6 +22,9 @@ Three public entry points:
 
 The storage contract is strict: ``run_trial_light`` never writes to
 disk. Only ``promote_trial`` creates simulation artefacts.
+
+Workflow access goes through :func:`get_trial_pipeline_provider` so the
+calibration package never imports the workflow package directly.
 """
 
 from __future__ import annotations
@@ -33,15 +36,16 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Literal
 
+from hydromodpy.calibration.runners.contracts import (
+    TrialStep,
+    get_trial_pipeline_provider,
+)
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.state.execution import ExecutionRegistry
-from hydromodpy.workflow.internals.dependencies import earliest_affected_step
-from hydromodpy.workflow.internals.state import PipelineState
 
 if TYPE_CHECKING:
     from hydromodpy.core.state.run_state import WorkflowContext
     from hydromodpy.master_config.hydromodpy_config import HydroModPyConfig
-    from hydromodpy.workflow.internals.step import Step
 
 logger = get_logger(__name__)
 
@@ -95,7 +99,7 @@ class TrialContext:
         *Per-trial* (recreated on every fork).
     earliest : int
         Index of the first pipeline step that must re-run per trial.
-    downstream_steps : tuple[Step, ...]
+    downstream_steps : tuple[TrialStep, ...]
         Full ordered tuple of pipeline steps (``00..11``). Trials run
         the slice ``[earliest:9]``.
     override_paths : Mapping[str, str]
@@ -112,7 +116,7 @@ class TrialContext:
     base_cfg: HydroModPyConfig
     ctx: WorkflowContext
     earliest: int
-    downstream_steps: tuple[Step, ...]
+    downstream_steps: tuple[TrialStep, ...]
     override_paths: Mapping[str, str]
     workspace: Path
     cfg_path: Path
@@ -179,11 +183,7 @@ class TrialContext:
             hasattr(new_ctx.loaded_data, "recharge")
             and getattr(new_setup, "domain", None) is not None
         ):
-            from hydromodpy.workflow.steps.data_loading import (
-                apply_structural_updates_from_data,
-            )
-
-            apply_structural_updates_from_data(new_ctx)
+            get_trial_pipeline_provider().apply_structural_updates_from_data(new_ctx)
 
         return TrialContext(
             base_cfg=self.base_cfg,
@@ -207,7 +207,7 @@ def prepare_trials(
     cfg_path: Path | str,
     *,
     override_paths: Mapping[str, str] | Iterable[str],
-    steps: Sequence[Step] | None = None,
+    steps: Sequence[TrialStep] | None = None,
     parameter_space: Any = None,
 ) -> TrialContext:
     """Load TOML, run steps ``[0..earliest)`` once, return a fork-able context.
@@ -222,8 +222,8 @@ def prepare_trials(
         iterable of dotted paths. The mapping form is preferred because
         :meth:`TrialContext.fork` uses it to inject values by name.
     steps
-        Pipeline steps to compose over. Defaults to
-        :func:`hydromodpy.workflow.orchestrator.standard_steps`.
+        Pipeline steps to compose over. Defaults to the workflow
+        provider's ``standard_steps()``.
     parameter_space
         Optional :class:`~hydromodpy.calibration.parameters.ParameterSpace`.
         When supplied, :meth:`TrialContext.fork` injects values through the
@@ -232,15 +232,8 @@ def prepare_trials(
     """
     from hydromodpy.master_config.hydromodpy_config import HydroModPyConfig
     from hydromodpy.master_config.toml_loader import load_toml_with_base_config
-    from hydromodpy.spatial.domain.spatial_support import (
-        build_default_spatial_support_provider_registry,
-    )
-    from hydromodpy.workflow.orchestrator import standard_steps
-    from hydromodpy.workflow.runner import Pipeline
-    from hydromodpy.workflow.steps.setup import (
-        collect_requested_support_ids,
-        resolve_support_configs,
-    )
+
+    provider = get_trial_pipeline_provider()
 
     cfg_path = Path(cfg_path).expanduser().resolve()
     raw_toml = load_toml_with_base_config(cfg_path)
@@ -260,23 +253,25 @@ def prepare_trials(
     # the contract. Without this the pipeline crashes on multi-zone configs
     # (e.g. piecewise-K calibration) because requested_domain_supports stays
     # empty in the pipeline state.
-    requested_support_ids = collect_requested_support_ids(cfg.flow)
-    requested_domain_supports = resolve_support_configs(
+    requested_support_ids = provider.collect_requested_support_ids(cfg.flow)
+    requested_domain_supports = provider.resolve_support_configs(
         cfg.domain,
         requested_support_ids,
     )
-    spatial_support_registry = build_default_spatial_support_provider_registry()
+    spatial_support_registry = provider.build_default_spatial_support_provider_registry()
 
-    pipeline_steps = tuple(steps if steps is not None else standard_steps())
+    pipeline_steps: tuple[TrialStep, ...] = tuple(
+        steps if steps is not None else provider.standard_steps()
+    )
     # Cap at 9 (extract) - the trial primitive never runs derive/export/display.
     max_downstream = 9
-    earliest = earliest_affected_step(path_set, pipeline_steps)
+    earliest = provider.earliest_affected_step(path_set, pipeline_steps)
     earliest = min(earliest, max_downstream)
 
     prep_slice = pipeline_steps[:earliest]
-    state: PipelineState = PipelineState(
-        run_id="calibration-prepare",
-        data={
+    state = provider.make_state(
+        "calibration-prepare",
+        {
             "cfg": cfg,
             "config_path": cfg_path,
             "raw_toml": raw_toml,
@@ -286,7 +281,7 @@ def prepare_trials(
         },
     )
     if prep_slice:
-        state = Pipeline(prep_slice).run(state)
+        state = provider.make_pipeline(prep_slice).run(state)
 
     ctx = state.get("ctx")
     if ctx is None:
@@ -365,7 +360,7 @@ def run_trial_light(
         ``None`` the default stub returns ``(nan, {})`` - the full
         extractor is wired in by the calibration CLI in Phase 2.
     """
-    from hydromodpy.workflow.runner import Pipeline
+    provider = get_trial_pipeline_provider()
 
     t0 = time.monotonic()
     try:
@@ -383,9 +378,9 @@ def run_trial_light(
     # Trials only run [earliest..8]. Derive/export/display are reserved
     # for promote_trial (steps 09-11).
     downstream_slice = forked.downstream_steps[forked.earliest : 9]
-    state: PipelineState = PipelineState(
-        run_id="calibration-trial",
-        data={
+    state = provider.make_state(
+        "calibration-trial",
+        {
             "cfg": forked.ctx.cfg,
             "config_path": forked.cfg_path,
             "raw_toml": dict(forked.raw_toml),
@@ -395,7 +390,7 @@ def run_trial_light(
 
     try:
         if downstream_slice:
-            state = Pipeline(downstream_slice).run(state)
+            state = provider.make_pipeline(downstream_slice).run(state)
     except Exception as exc:
         return TrialResult(
             values=dict(values),

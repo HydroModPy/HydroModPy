@@ -91,6 +91,20 @@ def _register_spatial_contracts() -> None:
     _protocols.register_geology_data_source(default_geology_data_source())
 
 
+def _register_calibration_contracts() -> None:
+    """Wire workflow-layer callables into the calibration trial registry.
+
+    Calibration runners resolve the pipeline driver, standard steps, and
+    structural binders through ``TrialPipelineProvider`` so the
+    calibration package never imports the workflow package.
+    """
+    from hydromodpy.workflow.steps.calibration_trial import (
+        register_default_trial_pipeline_provider,
+    )
+
+    register_default_trial_pipeline_provider()
+
+
 def bootstrap() -> None:
     """Resolve HydroModPyConfig forward references. Idempotent."""
     global _BOOTSTRAPPED
@@ -98,5 +112,6 @@ def bootstrap() -> None:
         return
     _register_physics_contracts()
     _register_spatial_contracts()
+    _register_calibration_contracts()
     _rebuild_forward_refs()
     _BOOTSTRAPPED = True
