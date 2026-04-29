@@ -33,9 +33,6 @@ sys.path.append(root_dir)
 # HydroModPy
 from hydromodpy.core.io.filesystem import create_folder  # noqa: E402
 from hydromodpy.core.logging import get_logger  # noqa: E402
-from hydromodpy.display.theme import plot_params  # noqa: E402
-
-fontprop = plot_params(8, 15, 18, 20)  # small, medium, interm, large
 
 logger = get_logger(__name__)
 

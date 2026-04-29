@@ -194,7 +194,8 @@ class MeshCatchmentBatchRunner:
         geology_cfg = self.mesh_section_data.geology
         if geology_cfg is None:
             return
-        reference_raster_raw = _optional_text(geology_cfg.source.reference_raster_path)
+        source_block = geology_cfg.get("source") or {}
+        reference_raster_raw = _optional_text(source_block.get("reference_raster_path"))
         if reference_raster_raw is None:
             return
         reference_raster_path = Path(reference_raster_raw).expanduser()

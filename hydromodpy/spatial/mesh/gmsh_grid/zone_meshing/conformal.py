@@ -17,8 +17,7 @@ import numpy as np
 from shapely.geometry.base import BaseGeometry
 from shapely.ops import unary_union
 
-from hydromodpy.data.variables.geology.io import load_vector_geology_dataframe
-from hydromodpy.data.variables.geology.processing import normalize_zone_key
+from hydromodpy.spatial._protocols import get_geology_data_source
 from hydromodpy.spatial.mesh.gmsh_grid._deps import require_gmsh as _require_gmsh
 from hydromodpy.spatial.mesh.gmsh_grid._trace import trace_mesh_stage
 from hydromodpy.spatial.mesh.gmsh_grid.zone_meshing._build_context import (
@@ -125,6 +124,7 @@ def build_zone_conformal_partition_from_dataframe(
     min_polygon_area: float = 0.0,
 ) -> ZoneConformalPartition:
     """Build one clean planar partition from one GeoDataFrame of polygon zones."""
+    geology_source = get_geology_data_source()
     return build_partition_from_dataframe_impl(
         gdf,
         zone_key_column=zone_key_column,
@@ -133,7 +133,7 @@ def build_zone_conformal_partition_from_dataframe(
         simplify_tolerance=simplify_tolerance,
         heal_tolerance=heal_tolerance,
         min_polygon_area=min_polygon_area,
-        normalize_zone_key_fn=normalize_zone_key,
+        normalize_zone_key_fn=geology_source.normalize_zone_key,
         partition_face_cls=ZonePartitionFace,
         partition_cls=ZoneConformalPartition,
     )
@@ -646,7 +646,7 @@ def generate_zone_conformal_mesh_from_geology_config(
     model_name: str = "zone_conformal_mesh",
 ) -> ZoneConformalMeshResult:
     """Load one vector geology source and generate a conformal planar mesh."""
-    geology_payload = load_vector_geology_dataframe(
+    geology_payload = get_geology_data_source().load_vector_dataframe(
         config,
         config_path=config_path,
         zone_key_column=zone_key_column,

@@ -17,9 +17,9 @@ from typing import Annotated, Any, Literal
 from pydantic import ConfigDict, Field, ValidationError, field_validator, model_validator
 
 from hydromodpy.core.units import Length
-from hydromodpy.data.variables.geology.config import GeologyConfigBlock
 from hydromodpy.master_config.base import HydroModelBase
 from hydromodpy.master_config.profile import Profile
+from hydromodpy.spatial._protocols import get_geology_data_source
 from hydromodpy.spatial.mesh.gmsh_grid.zone_meshing.config import (
     ZoneMeshingSettingsSchema,
 )
@@ -574,12 +574,13 @@ class MeshCatchmentConfig(HydroModelBase):
             "The default behavior is to reuse the in-memory river trace already built by the geographic pipeline."
         ),
     )
-    geology: Annotated[GeologyConfigBlock | None, Profile.USER] = Field(
+    geology: Annotated[dict[str, Any] | None, Profile.USER] = Field(
         default=None,
         description=(
             "Optional geology support used when constraints_mode includes geology. "
             "This section defines which polygon source represents lithological zones and how those polygons "
-            "should be interpreted before conformal meshing."
+            "should be interpreted before conformal meshing. "
+            "Validated through the geology data-source Protocol; stored as a normalized mapping."
         ),
     )
     watershed_boundary: Annotated[MeshCatchmentWatershedBoundaryConfig, Profile.USER] = Field(
@@ -657,6 +658,15 @@ class MeshCatchmentConfig(HydroModelBase):
         if text == "":
             raise ValueError("output paths cannot be empty when provided.")
         return text
+
+    @field_validator("geology", mode="before")
+    @classmethod
+    def _validate_geology_block(cls, value: object) -> dict[str, Any] | None:
+        if value is None:
+            return None
+        if not isinstance(value, Mapping):
+            raise ValueError("geology section must be a mapping.")
+        return get_geology_data_source().validate_config(dict(value))
 
     @model_validator(mode="after")
     def _validate_required_subsections(self) -> MeshCatchmentConfig:

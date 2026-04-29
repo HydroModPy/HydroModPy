@@ -25,8 +25,8 @@ REPO_ROOT = _find_repo_root()
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
-from hydromodpy.data.variables.geology.config import validate_geology_config_data
 from hydromodpy.master_config.path_helpers import get_nested_section, resolve_path
+from hydromodpy.spatial._protocols import get_geology_data_source
 from hydromodpy.spatial.field.core.field_param_config import (
     resolve_field_param_config_payload,
     validate_resolved_field_param_data,
@@ -154,7 +154,7 @@ class SGridFieldParamDiscretizationConfig(HydroModelBase):
     def _validate_geology_payload(cls, value):
         if not isinstance(value, Mapping):
             raise ValueError("geology must be a mapping")
-        return validate_geology_config_data(value)
+        return get_geology_data_source().validate_config(value)
 
     @field_validator("field_param", mode="before")
     @classmethod

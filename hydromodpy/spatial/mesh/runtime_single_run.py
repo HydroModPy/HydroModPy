@@ -354,9 +354,7 @@ def _export_exchange_bundle_if_possible(
     geology_cfg = (
         None
         if section_cfg.geology is None
-        else CatchmentBundleGeologyExportConfig.from_mapping(
-            section_cfg.geology.model_dump(mode="python")
-        )
+        else CatchmentBundleGeologyExportConfig.from_mapping(section_cfg.geology)
     )
     hydraulic_properties_cfg = (
         None
