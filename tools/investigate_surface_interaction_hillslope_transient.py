@@ -21,7 +21,7 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
-from hydromodpy.core.config.toml_loader import merge_toml_payloads
+from hydromodpy.master_config.toml_loader import merge_toml_payloads
 from tools.surface_interaction_reporting import (
     write_csv as reporting_write_csv,
 )

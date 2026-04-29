@@ -41,14 +41,14 @@ from hydromodpy.spatial.mesh.gmsh_grid.zone_meshing import (
     ZoneLinearConstraint,
     build_zone_conformal_partition_from_dataframe,
 )
-from hydromodpy.spatial.mesh.gmsh_grid.zone_meshing._geometry_utils import (
-    iter_polygon_parts,
-    make_valid_geometry,
-    make_valid_linework,
-)
 from hydromodpy.spatial.mesh.gmsh_grid.zone_meshing.config import (
     ZoneMeshingRefinementPolicySchema,
     ZoneMeshingSettings,
+)
+from hydromodpy.spatial.mesh.gmsh_grid.zone_meshing.geometry_utils import (
+    iter_polygon_parts,
+    make_valid_geometry,
+    make_valid_linework,
 )
 
 

@@ -72,9 +72,9 @@ def _ingest_rasters(geographic: Any, store: Any, sim_id: str | None) -> None:
 
         name = attr.removesuffix("_tif")
 
-        data = wb.get_cached_raster_numpy(path)
+        data = wb.raster.get_cached_raster_numpy(path)
         if data is not None:
-            meta = wb.get_cached_raster_metadata(path)
+            meta = wb.raster.get_cached_raster_metadata(path)
             store.write_geographic_raster(
                 sim_id,
                 name,
@@ -217,20 +217,24 @@ def dump_cached_rasters_to_disk(geographic: Any) -> None:
     from hydromodpy.spatial.delineation import get_whitebox_backend
 
     wb = get_whitebox_backend()
-    if not wb._raster_cache:
+    raster_backend = wb.raster
+    if not raster_backend._raster_cache:
         return
 
-    for path, raster in wb._raster_cache.items():
-        wb._ensure_parent(path)
-        wb._run_env_operation(
-            wb._env.write_raster,
+    for path, raster in raster_backend._raster_cache.items():
+        raster_backend._ensure_parent(path)
+        raster_backend._run_env_operation(
+            raster_backend._env.write_raster,
             raster,
             path,
-            compress=wb._compress_rasters,
+            compress=raster_backend._compress_rasters,
         )
         logger.debug("Dumped cached raster to %s", path)
 
-    logger.info("Wrote %d cached rasters to disk (write_intermediates=True)", len(wb._raster_cache))
+    logger.info(
+        "Wrote %d cached rasters to disk (write_intermediates=True)",
+        len(raster_backend._raster_cache),
+    )
 
 
 def cleanup_stable_folder(geographic: Any) -> None:
@@ -238,7 +242,7 @@ def cleanup_stable_folder(geographic: Any) -> None:
 
     from hydromodpy.spatial.delineation import get_whitebox_backend
 
-    get_whitebox_backend().clear_raster_cache()
+    get_whitebox_backend().raster.clear_raster_cache()
 
     stable = getattr(geographic, "stable_folder", None)
     if stable is not None:

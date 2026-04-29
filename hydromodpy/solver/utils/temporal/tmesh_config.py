@@ -10,13 +10,13 @@ from typing import Annotated, Any, Literal
 import pandas as pd
 from pydantic import ConfigDict, Field, ValidationError, field_validator, model_validator
 
-from hydromodpy.core.config.base import HydroModelBase
-from hydromodpy.core.config.path_helpers import get_nested_section, resolve_path
-from hydromodpy.core.config.profile import Profile
+from hydromodpy.master_config.base import HydroModelBase
+from hydromodpy.master_config.path_helpers import get_nested_section, resolve_path
+from hydromodpy.master_config.profile import Profile
 
 
 class TMeshConfig(HydroModelBase):
-    """Validated input model for ``TMesh_Generation`` settings."""
+    """Validated input model for ``TmeshGenerator`` settings."""
 
     # ``chron_colsep`` accepts single whitespace separators (e.g. ``"\t"``) so
     # we opt out of the HydroModelBase ``str_strip_whitespace`` default.
@@ -221,18 +221,18 @@ class TMeshConfig(HydroModelBase):
 
     def to_builder_kwargs(self) -> dict[str, Any]:
         """
-        Convert this validated model into constructor kwargs for ``TMesh_Generation``.
+        Convert this validated model into constructor kwargs for ``TmeshGenerator``.
 
         Pedagogical intent
         ------------------
         ``TMeshConfig`` is the typed/validated contract (Pydantic side),
-        while ``TMesh_Generation`` expects plain Python arguments (builder side).
+        while ``TmeshGenerator`` expects plain Python arguments (builder side).
         This method is the bridge between both layers.
 
         Why return a dict?
         ------------------
         The caller can pass the result directly with ``**kwargs``:
-        ``TMesh_Generation(**cfg.to_builder_kwargs())``.
+        ``TmeshGenerator(**cfg.to_builder_kwargs())``.
         This keeps the runtime path explicit and avoids duplicating field-by-field
         mapping logic at each call site.
 

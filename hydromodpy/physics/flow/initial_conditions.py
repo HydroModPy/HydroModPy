@@ -23,9 +23,9 @@ from typing import Annotated, ClassVar, Literal
 
 from pydantic import ConfigDict, Field, model_validator
 
-from hydromodpy.core.config.base import HydroModelBase
-from hydromodpy.core.config.profile import Profile
 from hydromodpy.core.units import Length, check_unit_compatible
+from hydromodpy.master_config.base import HydroModelBase
+from hydromodpy.master_config.profile import Profile
 from hydromodpy.physics.base import InitialCondition as BaseInitialCondition
 
 

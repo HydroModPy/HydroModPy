@@ -15,7 +15,6 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from hydromodpy.spatial.mesh.gmsh_grid._trace import trace_mesh_stage
 from hydromodpy.spatial.mesh.gmsh_grid.cases.reference_2d_geology_conformal.case_config import (
     _resolve_case_config,
 )
@@ -40,6 +39,7 @@ from hydromodpy.spatial.mesh.gmsh_grid.cases.reference_2d_geology_conformal.runn
     _resolve_config_path,
     _resolve_optional_output_path,
 )
+from hydromodpy.spatial.mesh.gmsh_grid.trace import trace_mesh_stage
 
 DEFAULT_CONFIG_FILE = "case_config_zone_conformal.toml"
 DEFAULT_SECTION = "mesh_case"

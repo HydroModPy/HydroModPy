@@ -12,7 +12,7 @@ from importlib import import_module
 _TEMPORAL_EXPORTS = {
     "TimeGrid",
     "TMeshConfig",
-    "TMesh_Generation",
+    "TmeshGenerator",
     "load_tmesh_toml",
     "validate_tmesh_config_data",
 }
@@ -20,7 +20,7 @@ _TEMPORAL_EXPORTS = {
 __all__ = [
     "TimeGrid",
     "TMeshConfig",
-    "TMesh_Generation",
+    "TmeshGenerator",
     "load_tmesh_toml",
     "validate_tmesh_config_data",
 ]

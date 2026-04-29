@@ -21,7 +21,7 @@ from typing import TYPE_CHECKING
 import rasterio
 
 from hydromodpy.core.io.filesystem import create_folder
-from hydromodpy.spatial.delineation import WhiteboxBackend, get_whitebox_backend
+from hydromodpy.spatial.delineation import WhiteboxWorkflowsBackend, get_whitebox_backend
 from hydromodpy.spatial.geographic.core.catchment_domain import (
     CatchmentDomainProducts,
     derive_catchment_domain,
@@ -98,7 +98,7 @@ def build_standard_catchment(
     direc_data: object | None = None,
     acc_data: object | None = None,
     crs_project: str | None,
-    backend: WhiteboxBackend | None = None,
+    backend: WhiteboxWorkflowsBackend | None = None,
     unsupported_mode: str = "error",
 ) -> CatchmentFromPointProducts | str | None:
     """Build the canonical watershed geometry from outlet or polygon config."""

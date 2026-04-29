@@ -159,7 +159,7 @@ def test_registry_skips_missing_inputs(tmp_path):
 # ---------------------------------------------------------------------------
 
 
-def test_watertable_elevation_clipped_to_surface(tmp_path):
+def test_watertable_elevation_writes_uppermost_saturated_head(tmp_path):
     sz = _make_zarr(
         tmp_path,
         head_values=np.array([[5.0, 11.0, 9.0, 12.0], [6.0, 7.0, 8.0, 9.0]]),
@@ -167,8 +167,8 @@ def test_watertable_elevation_clipped_to_surface(tmp_path):
     results = registry.apply(sz, names=["watertable_elevation"])
     assert [r.status for r in results] == ["computed"]
     wt = np.asarray(sz.root["derived"]["watertable_elevation"][:])
-    # Clipped to top_value=10.0
-    np.testing.assert_array_equal(wt[0], [5.0, 10.0, 9.0, 10.0])
+    # Head returned as-is; seepage above the surface is flagged separately.
+    np.testing.assert_array_equal(wt[0], [5.0, 11.0, 9.0, 12.0])
     np.testing.assert_array_equal(wt[1], [6.0, 7.0, 8.0, 9.0])
 
 

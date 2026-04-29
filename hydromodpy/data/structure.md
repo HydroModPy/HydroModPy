@@ -68,26 +68,24 @@ data_managers/
 │       ├── sim2_edr.py         # Client SIM2 EDR (auth, grilles)
 │       └── sim2_variables.py   # Registre SIM2 (11 variables)
 │
-├── variables/                  # 17 managers par variable
-│   ├── dem/                    # MNT
-│   ├── geology/                # Geologie
-│   ├── hydrography/            # Reseau hydrographique
-│   ├── hydrometry/             # Debits
-│   ├── piezometry/             # Niveaux piezometriques
-│   ├── water_quality/          # Qualite physico-chimique
-│   ├── intermittency/          # Etat d'ecoulement (ONDE)
-│   ├── oceanic/                # Maregraphie / niveau marin
-│   ├── precipitation/          # Precipitations
-│   ├── etp/                    # Evapotranspiration potentielle
-│   ├── recharge/               # Recharge
-│   ├── runoff/                 # Ruissellement
-│   ├── temperature/            # Temperature
-│   ├── wind/                   # Vent
-│   ├── humidity/               # Humidite relative
-│   ├── radiation/              # Rayonnement
-│   └── soil_moisture/          # Indice d'humidite du sol
-│
-└── climatic/                   # DEPRECATED (legacy, ne pas utiliser)
+└── variables/                  # 17 managers par variable
+    ├── dem/                    # MNT
+    ├── geology/                # Geologie
+    ├── hydrography/            # Reseau hydrographique
+    ├── hydrometry/             # Debits
+    ├── piezometry/             # Niveaux piezometriques
+    ├── water_quality/          # Qualite physico-chimique
+    ├── intermittency/          # Etat d'ecoulement (ONDE)
+    ├── oceanic/                # Maregraphie / niveau marin
+    ├── precipitation/          # Precipitations
+    ├── etp/                    # Evapotranspiration potentielle
+    ├── recharge/               # Recharge
+    ├── runoff/                 # Ruissellement
+    ├── temperature/            # Temperature
+    ├── wind/                   # Vent
+    ├── humidity/               # Humidite relative
+    ├── radiation/              # Rayonnement
+    └── soil_moisture/          # Indice d'humidite du sol
 ```
 
 ---
@@ -847,7 +845,6 @@ retelecharge pas les donnees deja en cache.
 - **Masquage spatial** : `mask_path` filtre les stations ponctuelles et
   decoupe les grilles au chargement.
 - **force_refresh** : bypass complet du cache pour une source donnee.
-- **Legacy** : le dossier `climatic/` est deprecie et ne doit plus etre utilise.
 
 ---
 

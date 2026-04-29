@@ -23,7 +23,7 @@ try:
     from hydromodpy.solver.utils.temporal.cases.run_tmesh_config import (
         load_tmesh_cases_toml,
     )
-    from hydromodpy.solver.utils.temporal.tmesh_generation import TMesh_Generation
+    from hydromodpy.solver.utils.temporal.tmesh_generation import TmeshGenerator
 except Exception:
     temporal_root = Path(__file__).resolve().parents[1]
     cases_root = Path(__file__).resolve().parent
@@ -45,7 +45,7 @@ except Exception:
         "_local_tmesh_case_config",
         cases_root / "run_tmesh_config.py",
     )
-    TMesh_Generation = tmesh_module.TMesh_Generation
+    TmeshGenerator = tmesh_module.TmeshGenerator
     load_tmesh_cases_toml = cfg_module.load_tmesh_cases_toml
 
 
@@ -185,7 +185,7 @@ def run_tmesh_cases_from_toml(
         output_dirs.append(compat_dir)
 
     for scenario in cfg.scenarios:
-        builder = TMesh_Generation(**scenario.to_builder_kwargs())
+        builder = TmeshGenerator(**scenario.to_builder_kwargs())
         tmesh = builder.run()
         figure_path, datetime_vector = _plot_datetime_vector(
             tmesh,

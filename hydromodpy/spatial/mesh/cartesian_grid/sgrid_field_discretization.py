@@ -14,7 +14,7 @@ Design follows :mod:`sgrid_fieldparam_discretization` patterns but produces
 from __future__ import annotations
 
 from pathlib import Path
-from typing import TYPE_CHECKING, Literal
+from typing import TYPE_CHECKING, Any, Literal
 
 import numpy as np
 import pandas as pd
@@ -26,9 +26,6 @@ if TYPE_CHECKING:
     import xarray as xr
 
     from hydromodpy.core.time import ResolvedSimulationTimeWindow
-    from hydromodpy.data.contracts.load_result import LoadResult
-    from hydromodpy.data.contracts.spatial_field import FieldRecord
-    from hydromodpy.data.contracts.timeseries import PointRecord
 
 logger = get_logger(__name__)
 
@@ -42,7 +39,7 @@ InterpolationMethod = Literal["nearest", "linear", "idw"]
 
 def discretize_fields_on_sgrid(
     *,
-    load_result: LoadResult,
+    load_result: Any,
     sgrid: object,
     nper: int,
     simulation_window: ResolvedSimulationTimeWindow | None = None,
@@ -113,7 +110,7 @@ def discretize_fields_on_sgrid(
 
 def discretize_points_on_sgrid(
     *,
-    load_result: LoadResult,
+    load_result: Any,
     sgrid: object,
     nper: int,
     simulation_window: ResolvedSimulationTimeWindow | None = None,
@@ -193,7 +190,7 @@ def discretize_points_on_sgrid(
 
 
 def spatial_mean_from_fields(
-    load_result: LoadResult,
+    load_result: Any,
     *,
     simulation_window: ResolvedSimulationTimeWindow | None = None,
 ) -> pd.Series | None:
@@ -290,7 +287,7 @@ def _stress_period_bounds(
 
 
 def _discretize_one_field_record(
-    field_rec: FieldRecord,
+    field_rec: Any,
     *,
     x_centers: np.ndarray,
     y_centers: np.ndarray,
@@ -604,7 +601,7 @@ def _discretize_geotiff(
 # ------------------------------------------------------------------
 
 
-def _spatial_mean_one_field(field_rec: FieldRecord) -> pd.Series | None:
+def _spatial_mean_one_field(field_rec: Any) -> pd.Series | None:
     """Compute the spatial mean of a single FieldRecord.
 
     Returns a pd.Series indexed by datetime (mm/day) or None.
@@ -676,7 +673,7 @@ def _spatial_mean_from_file(path: Path) -> pd.Series | None:
 # ------------------------------------------------------------------
 
 
-def _extract_located_points(load_result: LoadResult) -> list[PointRecord]:
+def _extract_located_points(load_result: Any) -> list[Any]:
     """Return PointRecords that have a valid location with coordinates."""
     result = []
     for rec in load_result.points:

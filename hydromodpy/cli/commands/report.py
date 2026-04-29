@@ -51,7 +51,7 @@ def run(args: argparse.Namespace) -> None:
     from hydromodpy.calibration.report import resolve_calibration_session_id
     from hydromodpy.core.exceptions import ConfigError, ConfigMissingError
     from hydromodpy.results.catalog import SimulationCatalog
-    from hydromodpy.workflow.steps.calibration_report import step_render_calibration_report
+    from hydromodpy.workflow.steps.calibration import step_render_calibration_report
 
     workspace_root = args.workspace or find_workspace_root(Path.cwd())
     with SimulationCatalog(workspace_root) as catalog:

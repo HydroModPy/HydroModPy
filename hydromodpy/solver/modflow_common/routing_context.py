@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 
-from hydromodpy.spatial.delineation import WhiteboxBackend
+from hydromodpy.spatial.delineation import WhiteboxWorkflowsBackend
 from hydromodpy.spatial.geographic.core.flow_products import build_regional_flow_products
 
 
@@ -25,7 +25,7 @@ def build_solver_routing_context(
     output_dir: str | Path,
     dem_correc_type: str,
     crs_project: str | None = None,
-    backend: WhiteboxBackend | None = None,
+    backend: WhiteboxWorkflowsBackend | None = None,
 ) -> SolverRoutingContext:
     """Build flow-correction and D8 routing rasters from one solver DEM."""
     dem_in = Path(dem_path)

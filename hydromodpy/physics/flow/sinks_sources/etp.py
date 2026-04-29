@@ -6,9 +6,9 @@ from typing import Annotated, Any, Literal
 
 from pydantic import ConfigDict, Field, field_validator
 
-from hydromodpy.core.config.base import HydroModelBase
-from hydromodpy.core.config.profile import Profile
 from hydromodpy.core.units import Length
+from hydromodpy.master_config.base import HydroModelBase
+from hydromodpy.master_config.profile import Profile
 from hydromodpy.physics.flow.sinks_sources._units import normalize_first_clim
 
 

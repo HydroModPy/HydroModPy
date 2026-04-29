@@ -152,6 +152,26 @@ Other actions:
 - Bump pinned ranges in `pyproject.toml` if a newer minor of a
   runtime dep is required (S06-03 added explicit upper bounds).
 
+### Finish phase (S08)
+
+Pre-tag remediation pass that lands the architecture target (94% → near-complete).
+24 sessions (S08-00..S08-23) closing partial / blocked items inherited from
+S04..S07 and trimming residual drift before the v1.0.0 cut.
+
+- **P0 architecture (S08-00..S08-09)**: extract `master_config/` package out of
+  `core/config` (S08-05) and break the 16 TYPE_CHECKING leaks
+  `core → solver/data/spatial/...` (S08-06). Strict zero on `test_annex_one_way`;
+  `test_layer_matrix` strict pass deferred (S08-09 BLOCKED — requires R0/R4-B
+  base-helper extraction `master_config → core/config_base/`, scoped post-v1.0).
+- **Workflow consolidation (S08-23)**: collapse 18 absorbed step modules into
+  the unified workflow runner; drop `pipeline/` planning layer in favour of
+  `workflow/`.
+- **Cleanup sweep (S08-10..S08-22)**: drop calibration JSONL legacy export,
+  unused `_LEGACY_STATION_EXPORT_DEFAULTS`, deprecated `climatic/` mentions in
+  docs, and the last alias re-exports across `data/`, `results/`, `display/`.
+
+Per-session reports: `unified_architecture/refactor_state/done/S08-*.md`.
+
 ---
 
 ## [v0.5.0] - 2026-04-29

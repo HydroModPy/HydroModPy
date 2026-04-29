@@ -1,4 +1,4 @@
-"""Unit tests for ``workflow.steps.modpath_ingestion``."""
+"""Unit tests for ``workflow.steps.extract``."""
 
 from __future__ import annotations
 
@@ -7,7 +7,7 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-from hydromodpy.workflow.steps import modpath_ingestion
+from hydromodpy.workflow.steps import extract
 
 
 class _FakeStore:
@@ -45,17 +45,17 @@ def test_restore_seepage_raster_writes_tif(tmp_path: Path, monkeypatch) -> None:
 
     fake_store = _FakeStore(pd.DataFrame([{"sim_id": "abc"}]), array)
     monkeypatch.setattr(
-        modpath_ingestion,
+        extract,
         "SimulationCatalog",
         lambda *_a, **_kw: fake_store,
     )
     monkeypatch.setattr(
-        modpath_ingestion,
+        extract,
         "locate_workspace_root",
         lambda _root: tmp_path,
     )
     monkeypatch.setattr(
-        modpath_ingestion.rasterio,
+        extract.rasterio,
         "open",
         lambda *_a, **_kw: _FakeRasterSrc(),
     )
@@ -69,9 +69,9 @@ def test_restore_seepage_raster_writes_tif(tmp_path: Path, monkeypatch) -> None:
         captured["nodata"] = nodata
         Path(dst_path).write_text("dummy")
 
-    monkeypatch.setattr(modpath_ingestion, "export_tif", _fake_export_tif)
+    monkeypatch.setattr(extract, "export_tif", _fake_export_tif)
 
-    ok = modpath_ingestion.restore_seepage_raster_from_store(tmp_path, base_raster, seepage_tif)
+    ok = extract.restore_seepage_raster_from_store(tmp_path, base_raster, seepage_tif)
 
     assert ok is True
     assert seepage_tif.is_file()
@@ -84,10 +84,7 @@ def test_restore_seepage_raster_writes_tif(tmp_path: Path, monkeypatch) -> None:
 def test_restore_seepage_raster_returns_false_when_base_missing(tmp_path: Path) -> None:
     base_raster = tmp_path / "missing.tif"
     seepage_tif = tmp_path / "out.tif"
-    assert (
-        modpath_ingestion.restore_seepage_raster_from_store(tmp_path, base_raster, seepage_tif)
-        is False
-    )
+    assert extract.restore_seepage_raster_from_store(tmp_path, base_raster, seepage_tif) is False
 
 
 def test_restore_seepage_raster_returns_false_when_catalog_empty(
@@ -99,16 +96,16 @@ def test_restore_seepage_raster_returns_false_when_catalog_empty(
 
     fake_store = _FakeStore(pd.DataFrame(columns=["sim_id"]), np.array([]))
     monkeypatch.setattr(
-        modpath_ingestion,
+        extract,
         "SimulationCatalog",
         lambda *_a, **_kw: fake_store,
     )
     monkeypatch.setattr(
-        modpath_ingestion,
+        extract,
         "locate_workspace_root",
         lambda _root: tmp_path,
     )
 
-    ok = modpath_ingestion.restore_seepage_raster_from_store(tmp_path, base_raster, seepage_tif)
+    ok = extract.restore_seepage_raster_from_store(tmp_path, base_raster, seepage_tif)
 
     assert ok is False

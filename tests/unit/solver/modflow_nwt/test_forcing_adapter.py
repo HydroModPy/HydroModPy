@@ -21,7 +21,7 @@ from hydromodpy.data.contracts.location import StationLocation
 from hydromodpy.data.contracts.timeseries import PointRecord
 from hydromodpy.physics.flow.boundary_conditions import FlowBoundaryConditionConfig
 from hydromodpy.physics.flow.sinks_sources import FlowRechargeConfig, FlowWellConfig
-from hydromodpy.solver.modflow_common.solver_mesh import SolverMesh
+from hydromodpy.solver.modflow_grid.solver_mesh import SolverMesh
 from hydromodpy.solver.modflow_nwt.nwt.flow_to_modflow_adapter import FlowToModflowAdapter
 
 

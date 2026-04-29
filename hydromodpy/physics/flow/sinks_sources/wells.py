@@ -14,10 +14,10 @@ from typing import TYPE_CHECKING, Annotated, Literal
 
 from pydantic import ConfigDict, Field, field_validator, model_validator
 
-from hydromodpy.core.config.base import HydroModelBase
-from hydromodpy.core.config.profile import Profile
 from hydromodpy.core.units import FlowRate
 from hydromodpy.core.units.volumetric_flow import normalize_m3_per_s_unit
+from hydromodpy.master_config.base import HydroModelBase
+from hydromodpy.master_config.profile import Profile
 
 if TYPE_CHECKING:
     from hydromodpy.core.grid_reference import GridReference

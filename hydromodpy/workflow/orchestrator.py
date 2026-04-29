@@ -19,23 +19,25 @@ from hydromodpy.simulation.execution.runner import (
     ProcessCallbacks,
     SimulationRunner,
 )
-from hydromodpy.workflow.steps.cleanup import step_cleanup_scratch
-from hydromodpy.workflow.steps.figures import step_render_figures
-from hydromodpy.workflow.steps.observations import step_ingest_observations
-from hydromodpy.workflow.steps.persistence import (
+from hydromodpy.workflow.steps.display import step_render_figures
+from hydromodpy.workflow.steps.export import (
+    step_cleanup_scratch,
+    step_finalize_store,
+    step_save_run_artifacts,
+)
+from hydromodpy.workflow.steps.extract import step_ingest_observations
+from hydromodpy.workflow.steps.planning import (
+    step_build_plan,
+    step_configure_results,
+)
+from hydromodpy.workflow.steps.prepare_solver import (
+    step_persist_forcings,
     step_persist_geographic,
     step_persist_mesh,
     step_persist_params,
-)
-from hydromodpy.workflow.steps.plan_building import step_build_plan
-from hydromodpy.workflow.steps.registration import step_register_simulation
-from hydromodpy.workflow.steps.result_ingestion import (
-    step_persist_forcings,
-    step_save_run_artifacts,
+    step_register_simulation,
     step_write_provenance,
 )
-from hydromodpy.workflow.steps.results_config import step_configure_results
-from hydromodpy.workflow.steps.store_lifecycle import step_finalize_store
 
 if TYPE_CHECKING:
     from hydromodpy.results.run import Run
@@ -58,10 +60,9 @@ def prepare_runtime(
     Composite used by the eager Project constructor. Step 5 exposes the four
     sub-phases as individual verbs for notebook iteration.
     """
-    from hydromodpy.workflow.steps.data_loading import step_data_loading
+    from hydromodpy.workflow.steps.data import step_data_loading
     from hydromodpy.workflow.steps.mesh import step_mesh, step_mesh_input
-    from hydromodpy.workflow.steps.setup import step_setup
-    from hydromodpy.workflow.steps.spatial_supports import step_spatial_supports
+    from hydromodpy.workflow.steps.setup import step_setup, step_spatial_supports
 
     if requested_domain_supports is None:
         requested_domain_supports = {}
@@ -163,6 +164,7 @@ def execute_run(
     results config that matches the plan. Returns wall-clock seconds.
     """
     from hydromodpy.simulation.extraction.post_run import post_run_results
+    from hydromodpy.simulation.planning.plan import RunContext
 
     plan = ctx.execution.simulation_plan
     results_cfg = step_configure_results(ctx.cfg.simulation.results, plan)
@@ -170,9 +172,8 @@ def execute_run(
 
     def _after_run(run, result, state):
         post_run_results(
+            ctx=RunContext(plan=plan, run=run, state=state),
             sim_id=sim_id,
-            solver_name=run.solver,
-            solver_output_dir=result.solver_output_dir,
             results_config=results_cfg,
             store=ctx.store,
             run_id=final_name,

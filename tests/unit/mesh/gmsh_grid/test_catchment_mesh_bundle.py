@@ -10,7 +10,7 @@ from rasterio.transform import from_origin
 from shapely.geometry import LineString
 
 import hydromodpy.spatial.mesh.gmsh_grid.catchment_mesh_bundle as catchment_mesh_bundle_mod
-from hydromodpy.spatial.mesh.gmsh_grid._bundle_export_contracts import (
+from hydromodpy.spatial.mesh.gmsh_grid.bundle_export_contracts import (
     CatchmentBundleGeologyExportConfig,
     CatchmentBundleHydraulicPropertiesConfig,
     CatchmentBundleSummaryReference,

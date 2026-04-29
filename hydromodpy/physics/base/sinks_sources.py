@@ -10,8 +10,8 @@ from typing import Annotated
 
 from pydantic import ConfigDict, Field
 
-from hydromodpy.core.config.base import HydroModelBase
-from hydromodpy.core.config.profile import Profile
+from hydromodpy.master_config.base import HydroModelBase
+from hydromodpy.master_config.profile import Profile
 
 
 class SinkSource(HydroModelBase):

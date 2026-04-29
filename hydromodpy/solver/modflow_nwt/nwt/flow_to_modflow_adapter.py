@@ -110,12 +110,12 @@ from hydromodpy.core.units.volumetric_flow import (
     normalize_m3_per_s_unit,
 )
 from hydromodpy.physics.flow.time_forcing import resolve_period_values_from_forcing
-from hydromodpy.solver.modflow_common.grid_context import grid_reference_from_solver_mesh
 from hydromodpy.solver.modflow_common.property_mapping import (
     resolve_flow_property_arrays,
     resolve_required_flow_properties,
 )
-from hydromodpy.solver.modflow_common.solver_mesh import SolverMesh
+from hydromodpy.solver.modflow_grid.grid_context import grid_reference_from_solver_mesh
+from hydromodpy.solver.modflow_grid.solver_mesh import SolverMesh
 
 if TYPE_CHECKING:
     from hydromodpy.core.time import ResolvedSimulationTimeWindow

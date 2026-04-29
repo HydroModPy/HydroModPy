@@ -298,7 +298,7 @@ class HydrographyManager:
 
         if shp_type in ("MultiPolygon", "Polygon"):
             logger.debug("Rasterising polygon geometry: %s", shp_type)
-            self._backend.vector_polygons_to_raster(
+            self._backend.raster.vector_polygons_to_raster(
                 str(streams_path),
                 str(tif_path),
                 field=field,
@@ -306,7 +306,7 @@ class HydrographyManager:
             )
         elif shp_type in ("MultiLineString", "LineString", "Line"):
             logger.debug("Rasterising line geometry: %s", shp_type)
-            self._backend.vector_lines_to_raster(
+            self._backend.raster.vector_lines_to_raster(
                 str(streams_path),
                 str(tif_path),
                 field=field,
@@ -314,7 +314,7 @@ class HydrographyManager:
             )
         elif shp_type in ("Point", "MultiPoint"):
             logger.debug("Rasterising point geometry: %s", shp_type)
-            self._backend.vector_points_to_raster(
+            self._backend.raster.vector_points_to_raster(
                 str(streams_path),
                 str(tif_path),
                 field=field,
@@ -323,11 +323,11 @@ class HydrographyManager:
         else:
             raise ValueError(f"Unsupported geometry type: {shp_type}")
 
-        self._backend.set_nodata_value(str(tif_path), str(tif_path), back_value=-32768)
+        self._backend.raster.set_nodata_value(str(tif_path), str(tif_path), back_value=-32768)
 
         # Also create a point shapefile from the raster (used downstream)
         pt_streams = self._data_folder / "streams_pt.shp"
-        self._backend.raster_to_vector_points(str(tif_path), str(pt_streams))
+        self._backend.delineation.raster_to_vector_points(str(tif_path), str(pt_streams))
 
         return tif_path
 

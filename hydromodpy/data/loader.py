@@ -34,11 +34,6 @@ logger = get_logger(__name__)
 class DataManagersRuntimeLoader:
     """Load runtime data objects from a resolved data-manager activation plan."""
 
-    _LEGACY_STATION_EXPORT_DEFAULTS: dict[str, str] = {
-        "hydrometry": "hydromodpy/data/hydrometry/exports",
-        "piezometry": "hydromodpy/data/piezometry/exports",
-    }
-
     def __init__(self, *, config_path: str | Path, data_plan: DataLoadPlan) -> None:
         self.config_path = Path(config_path).resolve()
         self.data_plan = data_plan

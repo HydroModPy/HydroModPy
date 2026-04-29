@@ -90,7 +90,7 @@ def test_whitebox_workflows_backend_suppresses_native_stdio(capfd) -> None:
         print("python-stdout")
         return 123
 
-    assert backend._run_env_operation(_noisy_native_operation) == 123
+    assert backend.raster._run_env_operation(_noisy_native_operation) == 123
     captured = capfd.readouterr()
     assert captured.out == ""
     assert captured.err == ""
@@ -166,60 +166,68 @@ def test_whitebox_workflows_backend_smoke_operations(tmp_path: Path) -> None:
     eff = tmp_path / "eff.tif"
     absr = tmp_path / "abs.tif"
 
-    backend.fill_depressions(str(dem), str(dem_fill))
-    backend.breach_depressions(str(dem), str(dem_breach))
-    backend.d8_pointer(str(dem_fill), str(direc))
-    backend.d8_flow_accumulation(str(dem_fill), str(acc), log=True)
-    backend.d8_flow_accumulation(str(dem_fill), str(acc_cells), log=False)
-    backend.extract_streams(str(acc_cells), str(streams), threshold=1, zero_background=True)
-    backend.remove_short_streams(
+    backend.flow.fill_depressions(str(dem), str(dem_fill))
+    backend.flow.breach_depressions(str(dem), str(dem_breach))
+    backend.flow.d8_pointer(str(dem_fill), str(direc))
+    backend.flow.d8_flow_accumulation(str(dem_fill), str(acc), log=True)
+    backend.flow.d8_flow_accumulation(str(dem_fill), str(acc_cells), log=False)
+    backend.delineation.extract_streams(
+        str(acc_cells), str(streams), threshold=1, zero_background=True
+    )
+    backend.delineation.remove_short_streams(
         str(direc),
         str(streams),
         str(streams_pruned),
         min_length=0,
     )
-    backend.strahler_stream_order(
+    backend.delineation.strahler_stream_order(
         str(direc),
         str(streams_pruned),
         str(streams_order),
         zero_background=True,
     )
-    backend.stream_link_identifier(
+    backend.delineation.stream_link_identifier(
         str(direc),
         str(streams_pruned),
         str(streams_link_id),
         zero_background=True,
     )
-    backend.raster_streams_to_vector(
+    backend.delineation.raster_streams_to_vector(
         str(streams_pruned),
         str(direc),
         str(streams_vector),
         all_vertices=False,
     )
-    backend.clip_raster_to_polygon(
+    backend.raster.clip_raster_to_polygon(
         str(dem_fill), str(polygon), str(clipped), maintain_dimensions=False
     )
-    backend.clip(str(points), str(polygon), str(points_clip))
-    backend.snap_pour_points(str(points), str(acc), str(snap_pts), 2)
-    backend.watershed(str(direc), str(snap_pts), str(watershed_tif))
-    backend.raster_to_vector_polygons(str(watershed_tif), str(watershed_shp))
-    backend.polygons_to_lines(str(watershed_shp), str(watershed_lines))
-    backend.vector_points_to_raster(str(points), str(point_raster), field="id", base=str(dem_fill))
-    backend.vector_lines_to_raster(str(lines), str(line_raster), field="id", base=str(dem_fill))
-    backend.vector_polygons_to_raster(
+    backend.raster.clip(str(points), str(polygon), str(points_clip))
+    backend.delineation.snap_pour_points(str(points), str(acc), str(snap_pts), 2)
+    backend.delineation.watershed(str(direc), str(snap_pts), str(watershed_tif))
+    backend.delineation.raster_to_vector_polygons(str(watershed_tif), str(watershed_shp))
+    backend.delineation.polygons_to_lines(str(watershed_shp), str(watershed_lines))
+    backend.raster.vector_points_to_raster(
+        str(points), str(point_raster), field="id", base=str(dem_fill)
+    )
+    backend.raster.vector_lines_to_raster(
+        str(lines), str(line_raster), field="id", base=str(dem_fill)
+    )
+    backend.raster.vector_polygons_to_raster(
         str(polygon), str(poly_raster), field="id", base=str(dem_fill)
     )
-    backend.set_nodata_value(str(line_raster), str(line_raster_nodata), back_value=-32768)
-    backend.polygon_area(str(watershed_shp))
-    backend.raster_to_vector_points(str(point_raster), str(tmp_path / "point_pixels.shp"))
-    backend.trace_downslope_flowpaths(str(points), str(direc), str(trace_raster))
-    backend.downslope_distance_to_stream(str(dem_fill), str(point_raster), str(downslope))
-    backend.add_point_coordinates_to_table(str(points_clip))
-    backend.extract_raster_values_at_points(str(point_raster), str(points_clip))
+    backend.raster.set_nodata_value(str(line_raster), str(line_raster_nodata), back_value=-32768)
+    backend.raster.polygon_area(str(watershed_shp))
+    backend.delineation.raster_to_vector_points(
+        str(point_raster), str(tmp_path / "point_pixels.shp")
+    )
+    backend.flow.trace_downslope_flowpaths(str(points), str(direc), str(trace_raster))
+    backend.flow.downslope_distance_to_stream(str(dem_fill), str(point_raster), str(downslope))
+    backend.delineation.add_point_coordinates_to_table(str(points_clip))
+    backend.raster.extract_raster_values_at_points(str(point_raster), str(points_clip))
 
     _write_raster(eff, np.ones((4, 4), dtype=np.float32))
     _write_raster(absr, np.zeros((4, 4), dtype=np.float32))
-    backend.d8_mass_flux(
+    backend.flow.d8_mass_flux(
         str(dem_fill),
         str(point_raster),
         str(eff),
@@ -300,22 +308,22 @@ def test_whitebox_workflows_backend_in_memory_chain(tmp_path: Path) -> None:
         crs="EPSG:2154",
     ).to_file(points)
 
-    dem_data = backend.read_raster(str(dem))
-    polygon_data = backend.read_vector(str(polygon))
-    points_data = backend.read_vector(str(points))
+    dem_data = backend.raster.read_raster(str(dem))
+    polygon_data = backend.raster.read_vector(str(polygon))
+    points_data = backend.raster.read_vector(str(points))
 
-    dem_fill = backend.fill_depressions_raster(dem_data)
-    direc = backend.d8_pointer_raster(dem_fill)
-    acc = backend.d8_flow_accumulation_raster(dem_fill, log=True)
-    points_snap = backend.snap_pour_points_vector(points_data, acc, 2)
-    watershed = backend.watershed_raster(direc, points_snap)
-    watershed_poly = backend.raster_to_vector_polygons_raster(watershed)
-    clipped = backend.clip_raster_to_polygon_raster(
+    dem_fill = backend.flow.fill_depressions_raster(dem_data)
+    direc = backend.flow.d8_pointer_raster(dem_fill)
+    acc = backend.flow.d8_flow_accumulation_raster(dem_fill, log=True)
+    points_snap = backend.delineation.snap_pour_points_vector(points_data, acc, 2)
+    watershed = backend.delineation.watershed_raster(direc, points_snap)
+    watershed_poly = backend.delineation.raster_to_vector_polygons_raster(watershed)
+    clipped = backend.raster.clip_raster_to_polygon_raster(
         dem_fill, polygon_data, maintain_dimensions=False
     )
 
-    backend.write_raster(clipped, str(tmp_path / "clipped.tif"))
-    backend.write_vector(watershed_poly, str(tmp_path / "watershed_mem.shp"))
+    backend.raster.write_raster(clipped, str(tmp_path / "clipped.tif"))
+    backend.raster.write_vector(watershed_poly, str(tmp_path / "watershed_mem.shp"))
 
     assert (tmp_path / "clipped.tif").exists()
     assert (tmp_path / "watershed_mem.shp").exists()
@@ -330,4 +338,4 @@ def test_whitebox_workflows_backend_rejects_empty_vector_write(tmp_path: Path) -
     out_path = tmp_path / "empty.shp"
 
     with pytest.raises(ValueError, match="empty vector layer"):
-        backend.write_vector(_EmptyVector(), str(out_path))
+        backend.raster.write_vector(_EmptyVector(), str(out_path))

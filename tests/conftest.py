@@ -103,7 +103,7 @@ def tmp_workspace(tmp_path: Path) -> Path:
 
 @pytest.fixture
 def minimal_config(tmp_path: Path):
-    """Return a minimal valid :class:`~hydromodpy.core.config.hydromodpy_config.HydroModPyConfig`.
+    """Return a minimal valid :class:`~hydromodpy.master_config.hydromodpy_config.HydroModPyConfig`.
 
     Only the two required sub-configs are populated: ``workspace``
     (``project_root`` pointing at *tmp_path*) and ``geographic``
@@ -112,8 +112,8 @@ def minimal_config(tmp_path: Path):
     ``default_factory``.  Tests that need a specific flow/solver block
     should extend the returned instance via ``model_copy(update=...)``.
     """
-    from hydromodpy.core.config import HydroModPyConfig
     from hydromodpy.core.workspace.config import WorkspaceConfig
+    from hydromodpy.master_config import HydroModPyConfig
     from hydromodpy.spatial.geographic.geographic_config import GeographicConfig
 
     return HydroModPyConfig(

@@ -18,30 +18,9 @@ class _FailIfCalledBackend:
         )
 
 
-class _EmptyVectorBackend:
-    def __init__(self) -> None:
-        self.write_vector_calls = 0
-
-    @staticmethod
-    def _touch(path: str) -> None:
-        out = Path(path)
-        out.parent.mkdir(parents=True, exist_ok=True)
-        out.touch()
-
-    def d8_flow_accumulation(self, input_dem: str, output_acc: str, *, log: bool = True) -> None:
-        _ = (input_dem, log)
-        self._touch(output_acc)
-
-    def extract_streams(
-        self,
-        flow_accumulation: str,
-        output_raster: str,
-        *,
-        threshold: float | int | None = None,
-        zero_background: bool | None = None,
-    ) -> None:
-        _ = (flow_accumulation, threshold, zero_background)
-        self._touch(output_raster)
+class _EmptyVectorRaster:
+    def __init__(self, parent: _EmptyVectorBackend) -> None:
+        self._parent = parent
 
     def clip_raster_to_polygon(
         self,
@@ -52,7 +31,7 @@ class _EmptyVectorBackend:
         maintain_dimensions: bool = False,
     ) -> None:
         _ = (input_raster, input_polygon, maintain_dimensions)
-        self._touch(output_raster)
+        self._parent._touch(output_raster)
 
     def read_raster(self, path: str):
         return path
@@ -60,19 +39,58 @@ class _EmptyVectorBackend:
     def read_vector(self, path: str):
         return path
 
-    def raster_streams_to_vector_raster(
-        self, streams_raster, d8_pointer, *, all_vertices: bool = False
-    ):
-        _ = (streams_raster, d8_pointer, all_vertices)
-        return type("EmptyVector", (), {"records": (), "projection": "EPSG:2154"})()
-
     def clip_vector(self, vector, clip_layer):
         _ = clip_layer
         return vector
 
     def write_vector(self, vector, path: str) -> None:
         _ = (vector, path)
-        self.write_vector_calls += 1
+        self._parent.write_vector_calls += 1
+
+
+class _EmptyVectorFlow:
+    def __init__(self, parent: _EmptyVectorBackend) -> None:
+        self._parent = parent
+
+    def d8_flow_accumulation(self, input_dem: str, output_acc: str, *, log: bool = True) -> None:
+        _ = (input_dem, log)
+        self._parent._touch(output_acc)
+
+
+class _EmptyVectorDelineation:
+    def __init__(self, parent: _EmptyVectorBackend) -> None:
+        self._parent = parent
+
+    def extract_streams(
+        self,
+        flow_accumulation: str,
+        output_raster: str,
+        *,
+        threshold: float | int | None = None,
+        zero_background: bool | None = None,
+    ) -> None:
+        _ = (flow_accumulation, threshold, zero_background)
+        self._parent._touch(output_raster)
+
+    def raster_streams_to_vector_raster(
+        self, streams_raster, d8_pointer, *, all_vertices: bool = False
+    ):
+        _ = (streams_raster, d8_pointer, all_vertices)
+        return type("EmptyVector", (), {"records": (), "projection": "EPSG:2154"})()
+
+
+class _EmptyVectorBackend:
+    def __init__(self) -> None:
+        self.write_vector_calls = 0
+        self.raster = _EmptyVectorRaster(self)
+        self.flow = _EmptyVectorFlow(self)
+        self.delineation = _EmptyVectorDelineation(self)
+
+    @staticmethod
+    def _touch(path: str) -> None:
+        out = Path(path)
+        out.parent.mkdir(parents=True, exist_ok=True)
+        out.touch()
 
 
 def test_resolve_stream_threshold_cells_from_area_mode():

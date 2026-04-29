@@ -2,17 +2,16 @@
 
 ## Supported Versions
 
-HydroModPy is pre-1.0. Only the latest minor release receives security
-fixes. Older minors (including pre-release tags) are not patched.
+HydroModPy follows a rolling "current minor + previous minor" policy.
+The current minor receives both bug fixes and security fixes; the
+previous minor receives security fixes only. Older minors (including
+pre-release tags) are not patched.
 
-| Version | Supported          |
-| ------- | ------------------ |
-| 0.5.x   | :white_check_mark: |
-| < 0.5   | :x:                |
-
-When 1.0.0 ships, this table will switch to a rolling "current minor +
-previous minor" policy and the row will be updated in the same commit
-as the release tag.
+| Version | Supported              |
+| ------- | ---------------------- |
+| 1.0.x   | :white_check_mark:     |
+| 0.5.x   | security fixes only    |
+| < 0.5   | :x:                    |
 
 ## Threat Model
 

@@ -374,13 +374,13 @@ def _compute_strahler_stream_order_raster(
     """Build and return Strahler stream-order raster for thresholded streams."""
     streams_raster_path = intermediate_dir / "streams_threshold.tif"
     stream_order_path = intermediate_dir / "streams_strahler_order.tif"
-    backend.extract_streams(
+    backend.delineation.extract_streams(
         str(d8_accumulation_path),
         str(streams_raster_path),
         threshold=float(accumulation_threshold_cells),
         zero_background=True,
     )
-    backend.strahler_stream_order(
+    backend.delineation.strahler_stream_order(
         str(d8_pointer_path),
         str(streams_raster_path),
         str(stream_order_path),
@@ -600,7 +600,7 @@ def run_catchment_identification_from_toml(
             output_path=region_projected_path,
         )
         dem_clipped_path = intermediate_dir / "dem_clipped.tif"
-        backend.clip_raster_to_polygon(
+        backend.raster.clip_raster_to_polygon(
             str(cfg.dem_path),
             str(region_projected_path),
             str(dem_clipped_path),
@@ -614,15 +614,15 @@ def run_catchment_identification_from_toml(
         "dem_fill.tif" if cfg.dem_correction == "fill" else "dem_breach.tif"
     )
     if cfg.dem_correction == "fill":
-        backend.fill_depressions(str(dem_for_flow), str(dem_corrected_path))
+        backend.flow.fill_depressions(str(dem_for_flow), str(dem_corrected_path))
     else:
-        backend.breach_depressions(str(dem_for_flow), str(dem_corrected_path))
+        backend.flow.breach_depressions(str(dem_for_flow), str(dem_corrected_path))
 
     progress.advance("Computing D8 pointer and accumulation")
     d8_pointer_path = intermediate_dir / "dem_d8_pointer.tif"
     d8_accumulation_path = intermediate_dir / "dem_d8_accumulation_cells.tif"
-    backend.d8_pointer(str(dem_corrected_path), str(d8_pointer_path), esri_pntr=False)
-    backend.d8_flow_accumulation(str(dem_corrected_path), str(d8_accumulation_path), log=False)
+    backend.flow.d8_pointer(str(dem_corrected_path), str(d8_pointer_path), esri_pntr=False)
+    backend.flow.d8_flow_accumulation(str(dem_corrected_path), str(d8_accumulation_path), log=False)
 
     ensure_crs(dem_corrected_path, dem_crs.to_string())
     ensure_crs(d8_pointer_path, dem_crs.to_string())
@@ -772,7 +772,7 @@ def run_catchment_identification_from_toml(
     progress.advance("Preparing outlets for watershed delineation")
     outlets_for_watershed_path = intermediate_dir / "outlets_for_watershed.shp"
     if cfg.snap_dist > 0:
-        backend.snap_pour_points(
+        backend.delineation.snap_pour_points(
             str(outlets_candidates_path),
             str(d8_accumulation_path),
             str(outlets_for_watershed_path),
@@ -825,13 +825,13 @@ def run_catchment_identification_from_toml(
     progress.advance("Delineating watersheds from selected outlets")
     watershed_raster_path = intermediate_dir / "watersheds_from_outlets.tif"
     watersheds_vector_raw_path = intermediate_dir / "watersheds_from_outlets_raw.shp"
-    backend.watershed(
+    backend.delineation.watershed(
         str(d8_pointer_path),
         str(outlets_for_watershed_path),
         str(watershed_raster_path),
         esri_pntr=False,
     )
-    backend.raster_to_vector_polygons(
+    backend.delineation.raster_to_vector_polygons(
         str(watershed_raster_path),
         str(watersheds_vector_raw_path),
     )

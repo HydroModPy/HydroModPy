@@ -47,9 +47,10 @@ from typing import Annotated, Any, Literal
 
 from pydantic import ConfigDict, Field, field_validator, model_validator
 
-from hydromodpy.core.config.base import HydroModelBase
-from hydromodpy.core.config.profile import Profile
 from hydromodpy.core.units import Length
+from hydromodpy.master_config.base import HydroModelBase
+from hydromodpy.master_config.persistence import PersistenceConfig
+from hydromodpy.master_config.profile import Profile
 
 SaveRunsMode = Literal["none", "best_n", "all"]
 ParameterMode = Literal["replace", "scale"]
@@ -286,6 +287,11 @@ class CalibrationConfig(HydroModelBase):
         default=None,
         description="Directory for per-candidate overlay TOMLs. "
         "Required when materialize_candidates is True.",
+    )
+    persistence: Annotated[PersistenceConfig, Profile.USER] = Field(
+        default_factory=PersistenceConfig,
+        description="Single switch governing every persistence sink "
+        "(catalog, Zarr, Parquet, lockfile) for calibration outputs.",
     )
 
     @field_validator("candidates_root", mode="before")

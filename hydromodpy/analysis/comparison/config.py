@@ -8,8 +8,8 @@ from typing import Any, Literal
 
 from pydantic import ConfigDict, Field, field_validator, model_validator
 
-from hydromodpy.core.config.base import HydroModelBase
-from hydromodpy.core.config.toml_loader import load_toml_with_base_config
+from hydromodpy.master_config.base import HydroModelBase
+from hydromodpy.master_config.toml_loader import load_toml_with_base_config
 
 
 def _clean_optional_text(value: object) -> str | None:

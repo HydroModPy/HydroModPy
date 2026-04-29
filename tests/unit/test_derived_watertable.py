@@ -14,12 +14,11 @@ from hydromodpy.results.derived import (
 )
 
 
-def test_watertable_elevation_clipped_to_top():
+def test_watertable_elevation_returns_head_unclipped():
     top = np.array([10.0, 10.0, 10.0])
     head = np.array([8.0, 11.0, 9.5])
     out = watertable_elevation(head, top)
-    assert (out <= top).all()
-    np.testing.assert_array_equal(out, [8.0, 10.0, 9.5])
+    np.testing.assert_array_equal(out, [8.0, 11.0, 9.5])
 
 
 def test_watertable_elevation_picks_uppermost_saturated_layer():
@@ -72,5 +71,5 @@ def test_watertable_elevation_xarray_path():
     head = xr.DataArray([8.0, 11.0, 9.5], dims="face")
     out = watertable_elevation(head, top)
     assert isinstance(out, xr.DataArray)
-    np.testing.assert_array_equal(out.values, [8.0, 10.0, 9.5])
+    np.testing.assert_array_equal(out.values, [8.0, 11.0, 9.5])
     assert out.attrs["units"] == "m"

@@ -31,7 +31,7 @@ from hydromodpy.solver.modflow6.builders import (
     resolve_deferred_heterogeneous_recharge,
     resolve_rewet_npf_options,
 )
-from hydromodpy.solver.modflow_common.solver_mesh import SolverMesh
+from hydromodpy.solver.modflow_grid.solver_mesh import SolverMesh
 from hydromodpy.spatial.mesh import CellBlock, CellType, HydroMesh
 from hydromodpy.spatial.mesh.gmsh_grid import (
     GmshSupportMetadata,

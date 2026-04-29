@@ -1,4 +1,4 @@
-hydromodpy.core.config - Parameter Contracts
+hydromodpy.master_config - Parameter Contracts
 ============================================
 
 All configuration parameters are defined as :class:`~pydantic.BaseModel` classes
@@ -9,7 +9,7 @@ precise message when a contract is violated.
 
 .. code-block:: python
 
-   from hydromodpy.core.config import HydroModPyConfig
+   from hydromodpy.master_config import HydroModPyConfig
 
    cfg = HydroModPyConfig.from_toml("config.toml")
    cfg.workspace.catch_name      # validated str
@@ -17,10 +17,10 @@ precise message when a contract is violated.
 
 ----
 
-hydromodpy.core.config.hydromodpy_config
+hydromodpy.master_config.hydromodpy_config
 ----------------------------------------
 
-.. autopydantic_model:: hydromodpy.core.config.hydromodpy_config.HydroModPyConfig
+.. autopydantic_model:: hydromodpy.master_config.hydromodpy_config.HydroModPyConfig
    :members:
    :undoc-members:
    :member-order: bysource

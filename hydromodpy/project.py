@@ -157,7 +157,7 @@ class Project:
 
     Full Python, no TOML::
 
-        from hydromodpy.core.config.hydromodpy_config import HydroModPyConfig
+        from hydromodpy.master_config.hydromodpy_config import HydroModPyConfig
 
         cfg = HydroModPyConfig(...)
         project = hmp.Project(cfg)
@@ -227,7 +227,7 @@ class Project:
     @classmethod
     def from_json(cls, payload: str | bytes, **kwargs) -> Project:
         """Build a Project from a JSON string validated against HydroModPyConfig."""
-        from hydromodpy.core.config.hydromodpy_config import HydroModPyConfig
+        from hydromodpy.master_config.hydromodpy_config import HydroModPyConfig
 
         cfg = HydroModPyConfig.model_validate_json(payload)
         return cls(cfg, **kwargs)
@@ -235,7 +235,7 @@ class Project:
     @classmethod
     def from_dict(cls, payload: dict, **kwargs) -> Project:
         """Build a Project from a dict payload validated against HydroModPyConfig."""
-        from hydromodpy.core.config.hydromodpy_config import HydroModPyConfig
+        from hydromodpy.master_config.hydromodpy_config import HydroModPyConfig
 
         cfg = HydroModPyConfig.model_validate(payload)
         return cls(cfg, **kwargs)
@@ -472,7 +472,7 @@ class Project:
         from hydromodpy.workflow.internals.state import PipelineState
         from hydromodpy.workflow.orchestrator import standard_steps
         from hydromodpy.workflow.runner import Pipeline
-        from hydromodpy.workflow.steps.plan_building import step_build_plan
+        from hydromodpy.workflow.steps.planning import step_build_plan
 
         if frozen:
             from hydromodpy.data.data_freeze import set_frozen_mode
@@ -722,7 +722,7 @@ class Project:
         """
         from hydromodpy.calibration.report import resolve_calibration_session_id
         from hydromodpy.results.catalog import SimulationCatalog
-        from hydromodpy.workflow.steps.calibration_report import (
+        from hydromodpy.workflow.steps.calibration import (
             step_render_calibration_report,
         )
 

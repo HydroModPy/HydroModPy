@@ -18,7 +18,7 @@ _log_manager = LogManager(mode="verbose", log_dir=None, overwrite=False)
 log_manager = _log_manager
 
 # Resolve HydroModPyConfig forward references (sibling configs imported here,
-# never from core/config/, to keep core/ a leaf of the import DAG).
+# never from master_config/, to keep the import DAG layered).
 from hydromodpy._bootstrap import bootstrap
 
 bootstrap()
@@ -28,6 +28,7 @@ _MODULE_EXPORTS = {
     "calibration": "hydromodpy.calibration",
     "core": "hydromodpy.core",
     "data": "hydromodpy.data",
+    "master_config": "hydromodpy.master_config",
     "physics": "hydromodpy.physics",
     "results": "hydromodpy.results",
     "simulation": "hydromodpy.simulation",
@@ -56,7 +57,7 @@ _LAZY_IMPORTS = {
     # Core infrastructure
     "Workspace": "hydromodpy.core.workspace",
     "WorkspaceConfig": "hydromodpy.core.workspace",
-    "HydroModPyConfig": "hydromodpy.core.config.hydromodpy_config",
+    "HydroModPyConfig": "hydromodpy.master_config.hydromodpy_config",
     # Simulation orchestration
     "SimulationConfig": "hydromodpy.simulation.planning.config",
     # Data variables (public surface)
@@ -173,7 +174,7 @@ def report(session_id_or_prefix=None, *, workspace=None):
 
     from hydromodpy.calibration.report import resolve_calibration_session_id
     from hydromodpy.results.catalog import SimulationCatalog
-    from hydromodpy.workflow.steps.calibration_report import (
+    from hydromodpy.workflow.steps.calibration import (
         step_render_calibration_report,
     )
 
@@ -253,6 +254,7 @@ __all__ = [
     "calibration",
     "core",
     "data",
+    "master_config",
     "physics",
     "results",
     "simulation",

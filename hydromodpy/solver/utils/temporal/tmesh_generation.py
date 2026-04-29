@@ -25,7 +25,7 @@ _VALID_GEN_METHODS = {"synthetic_regular", "from_chron"}
 
 @dataclass(frozen=True, slots=True)
 class TimeGrid:
-    """HydroModPy-native temporal mesh produced by ``TMesh_Generation``.
+    """HydroModPy-native temporal mesh produced by ``TmeshGenerator``.
 
     Backends translate this POPO to their own structures (FloPy ModelTime,
     MODFLOW DIS/TDIS payloads, ...). No FloPy dependency at this layer.
@@ -354,7 +354,7 @@ def _build_time_grid(
     )
 
 
-class TMesh_Generation:
+class TmeshGenerator:
     """Temporal mesh builder."""
 
     def __init__(self, config: TMeshConfig | None = None, **kwargs):
@@ -368,7 +368,7 @@ class TMesh_Generation:
         self._tmesh = None
 
     @classmethod
-    def from_config(cls, config: TMeshConfig) -> "TMesh_Generation":
+    def from_config(cls, config: TMeshConfig) -> "TmeshGenerator":
         return cls(config=config)
 
     @property

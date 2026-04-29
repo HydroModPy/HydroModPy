@@ -14,7 +14,7 @@ from __future__ import annotations
 from geopy.geocoders import Nominatim
 
 from hydromodpy.core.logging import get_logger
-from hydromodpy.spatial.delineation import WhiteboxBackend, get_whitebox_backend
+from hydromodpy.spatial.delineation import WhiteboxWorkflowsBackend, get_whitebox_backend
 from hydromodpy.spatial.geographic.core.derived_features import (
     GeographicBoundaryFeatures,
     GeographicDerivedFeatures,
@@ -34,7 +34,7 @@ def DEM_correcflow_analysis(
     dem_init_path: str,
     dem_out_dir_path: str,
     dem_correc_type: str,
-    backend: WhiteboxBackend | None = None,
+    backend: WhiteboxWorkflowsBackend | None = None,
 ) -> dict:
     """
     Build the 3 core regional rasters needed by watershed delineation.

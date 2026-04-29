@@ -7,7 +7,7 @@ from pathlib import Path
 from shapely.geometry import Polygon, box
 from shapely.ops import unary_union
 
-from hydromodpy.data.variables.geology.io import resolve_data_path
+from hydromodpy.spatial._protocols import get_geology_data_source
 from hydromodpy.spatial.mesh.gmsh_grid.zone_meshing._domain_contracts import (
     ZoneMeshingDomainConfig,
     ZoneMeshingDomainPayload,
@@ -169,7 +169,10 @@ def _load_vector_domain(
 
     if config.path is None:  # pragma: no cover - validated upstream
         raise ValueError("vector domain requires path")
-    source_path = Path(resolve_data_path(config.path, config_path=config_path)).resolve()
+    geology_source = get_geology_data_source()
+    source_path = Path(
+        geology_source.resolve_data_path(config.path, config_path=config_path)
+    ).resolve()
     gdf = gpd.read_file(source_path)
     if gdf.empty:
         raise ValueError(f"Domain vector source has no geometry: {source_path}")

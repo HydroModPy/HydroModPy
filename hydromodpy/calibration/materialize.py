@@ -7,12 +7,12 @@ rewrites each configured parameter at its target dotted path (honouring
 session, which makes it the natural hand-off for sharing the best
 candidate of a session or replaying a single trial.
 
-The overlay is rendered through :mod:`hydromodpy.core.config.toml_write`
+The overlay is rendered through :mod:`hydromodpy.master_config.toml_write`
 so the output remains valid TOML and round-trips through :mod:`tomllib`
 even in lightweight environments where external TOML writer packages are
 not installed. The ``base_config`` argument accepts either a path to a
 TOML file on disk or an in-memory
-:class:`~hydromodpy.core.config.HydroModPyConfig` instance; the latter is
+:class:`~hydromodpy.master_config.HydroModPyConfig` instance; the latter is
 useful when the calibration loop is driven from Python code.
 """
 
@@ -25,10 +25,10 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 from hydromodpy.calibration.parameters import ParameterSpace
-from hydromodpy.core.config.toml_write import dump as dump_toml
+from hydromodpy.master_config.toml_write import dump as dump_toml
 
 if TYPE_CHECKING:
-    from hydromodpy.core.config.hydromodpy_config import HydroModPyConfig
+    from hydromodpy.master_config.hydromodpy_config import HydroModPyConfig
 
 
 def _sanitize_label(label: str) -> str:
@@ -114,7 +114,7 @@ def _load_base_payload(
     parsed via :mod:`tomllib`. ``base_path`` is ``None`` when the caller
     passed an in-memory config without a backing file.
     """
-    from hydromodpy.core.config.hydromodpy_config import HydroModPyConfig
+    from hydromodpy.master_config.hydromodpy_config import HydroModPyConfig
 
     if isinstance(base_config, HydroModPyConfig):
         payload = base_config.model_dump(mode="json", by_alias=True, exclude_none=True)
@@ -179,7 +179,7 @@ def materialize_candidate(
     ----------
     base_config
         Path to the target simulation TOML or an in-memory
-        :class:`~hydromodpy.core.config.HydroModPyConfig` instance. When a
+        :class:`~hydromodpy.master_config.HydroModPyConfig` instance. When a
         config object is passed, the overlay is built from
         ``model_dump`` and ``base_config`` in the overlay falls back to
         ``base_dir`` (when supplied) so the file remains rechargeable.

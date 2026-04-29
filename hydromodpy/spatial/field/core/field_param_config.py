@@ -24,13 +24,13 @@ from pydantic import (
     model_validator,
 )
 
-from hydromodpy.core.config.base import HydroModelBase
-from hydromodpy.core.config.profile import Profile
 from hydromodpy.core.units import Length
 from hydromodpy.core.units.hydraulic_conductivity import (
     M_PER_S_CANONICAL_UNITS,
     normalize_m_per_s_unit,
 )
+from hydromodpy.master_config.base import HydroModelBase
+from hydromodpy.master_config.profile import Profile
 
 FieldKind = Literal["homogeneous", "heterogeneous"]
 HeterogeneousValueSource = Literal["inline", "csv"]

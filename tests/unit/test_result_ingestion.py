@@ -4,7 +4,7 @@ import tomllib
 from pathlib import Path
 from types import SimpleNamespace
 
-from hydromodpy.workflow.steps.result_ingestion import step_save_run_artifacts
+from hydromodpy.workflow.steps.export import step_save_run_artifacts
 
 
 def test_step_save_run_artifacts_writes_config_snapshot(tmp_path: Path) -> None:
