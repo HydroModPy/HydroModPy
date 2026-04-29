@@ -31,8 +31,7 @@ SUBCOMMANDS = [
     "import",
     "doctor",
     "inspect",
-    "best",
-    "worst",
+    "rank",
     "delete",
     "completion",
 ]

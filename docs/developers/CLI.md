@@ -153,7 +153,7 @@ La cible `validation` ajoute automatiquement le marqueur pytest
 | `hmp list` | Liste les projets et runs |
 | `hmp show <sim_id>` | Affiche les métadonnées d'un run |
 | `hmp inspect <sim_id>` | Inspection détaillée d'un run |
-| `hmp best` / `hmp worst` | Meilleur ou pire run selon métrique |
+| `hmp rank --top N` / `hmp rank --bottom N` | Top ou bottom N runs selon métrique |
 | `hmp compare <sim_a> <sim_b>` | Comparaison de deux runs |
 | `hmp display <config.toml>` | Production des figures |
 | `hmp export <sim_id>` | Export vers un format externe ou un `.hmp` |

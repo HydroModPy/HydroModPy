@@ -9,7 +9,6 @@ from __future__ import annotations
 
 from hydromodpy._cli.commands import (
     add,
-    best,
     compare,
     compare_methods,
     completion,
@@ -25,12 +24,12 @@ from hydromodpy._cli.commands import (
     install_binaries,
     lock,
     new,
+    rank,
     report,
     run,
     schema,
     show,
     test,
-    worst,
 )
 from hydromodpy._cli.commands import (
     list as list_cmd,
@@ -57,8 +56,7 @@ ALL_COMMANDS = (
     doctor,
     inspect,
     install_binaries,
-    best,
-    worst,
+    rank,
     delete,
     completion,
 )

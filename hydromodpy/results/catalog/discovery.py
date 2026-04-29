@@ -219,18 +219,32 @@ class DiscoveryMixin:
         return Run(str(row[0]), self)
 
     def best(self, project: str, metric: str = "nse") -> Run:
-        from hydromodpy.results.run import Run
+        return self.rank(project, metric, ascending=False, n=1)[0]
 
-        row = self._db.execute(
+    def worst(self, project: str, metric: str = "nse") -> Run:
+        return self.rank(project, metric, ascending=True, n=1)[0]
+
+    def rank(
+        self,
+        project: str,
+        metric: str = "nse",
+        *,
+        ascending: bool = False,
+        n: int = 1,
+    ) -> SimulationGroup:
+        from hydromodpy.results.simulation_group import SimulationGroup
+
+        order = "ASC" if ascending else "DESC"
+        rows = self._db.execute(
             "SELECT s.sim_id FROM simulations s "
             "JOIN metrics m ON s.sim_id = m.sim_id "
             "WHERE s.project = ? AND s.status = 'completed' "
             "AND m.metric_name = ? "
-            "ORDER BY m.value DESC LIMIT 1",
-            [project, metric],
-        ).fetchone()
-        if row is None:
+            f"ORDER BY m.value {order} LIMIT ?",
+            [project, metric, n],
+        ).fetchall()
+        if not rows:
             raise KeyError(
                 f"No completed simulation with metric '{metric}' for project '{project}'"
             )
-        return Run(str(row[0]), self)
+        return SimulationGroup([str(r[0]) for r in rows], self)
