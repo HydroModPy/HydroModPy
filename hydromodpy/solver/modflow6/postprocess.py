@@ -561,12 +561,18 @@ def run_flow_post_processing(
 
     times = head_fpu.get_times()
     model.times = times
-    dict_watertable_elevation = {}
-    dict_watertable_depth = {}
-    dict_seepage_areas = {}
-    dict_outflow_drain = {}
-    dict_outlet_discharge_east_side_m3_s = {}
-    dict_accumulation_flux = {}
+    dict_watertable_elevation: dict[int, np.ndarray] = {}
+    dict_watertable_depth: dict[int, np.ndarray] = {}
+    dict_seepage_areas: dict[int, np.ndarray] = {}
+    dict_outflow_drain: dict[int, np.ndarray] = {}
+    dict_outlet_discharge_east_side_m3_s: dict[int, np.ndarray] = {}
+    dict_accumulation_flux: dict[int, np.ndarray] = {}
+    model.dict_watertable_elevation = dict_watertable_elevation
+    model.dict_watertable_depth = dict_watertable_depth
+    model.dict_seepage_areas = dict_seepage_areas
+    model.dict_outflow_drain = dict_outflow_drain
+    model.dict_outlet_discharge_east_side_m3_s = dict_outlet_discharge_east_side_m3_s
+    model.dict_accumulation_flux = dict_accumulation_flux
     can_export_raster = bool(
         getattr(model.solver_mesh, "is_structured", False)
         and getattr(model, "dem_watershed_path", "")
@@ -753,10 +759,7 @@ def run_transport_post_processing(
     if len(times) != int(transport_model.model_modflow.nper):
         times = [float(i + 1) for i in range(int(transport_model.model_modflow.nper))]
 
-    outflow_drain = np.load(
-        os.path.join(transport_model.save_file, "outflow_drain.npy"),
-        allow_pickle=True,
-    ).item()
+    outflow_drain = getattr(transport_model.model_modflow, "dict_outflow_drain", {})
     dem_mask = np.asarray(
         getattr(
             transport_model.model_modflow,
