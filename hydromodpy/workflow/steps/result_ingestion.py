@@ -23,12 +23,13 @@ def step_ingest_run_results(
         return
 
     from hydromodpy.simulation.extraction.post_run import post_run_results
+    from hydromodpy.simulation.planning.plan import RunContext
 
+    plan = ctx.execution.simulation_plan
     results_cfg = ctx.cfg.simulation.results
     post_run_results(
+        ctx=RunContext(plan=plan, run=run, state=ctx),
         sim_id=ctx.sim_id,
-        solver_name=run.solver,
-        solver_output_dir=result.solver_output_dir,
         results_config=results_cfg,
         store=ctx.store,
         keep_solver_files=True,

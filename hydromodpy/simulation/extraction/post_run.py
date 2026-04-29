@@ -12,16 +12,16 @@ from typing import Any
 
 from hydromodpy.core.config.results_config import ResultsConfig
 from hydromodpy.core.logging import get_logger
-from hydromodpy.solver.base.registry import get_extractor_instance
+from hydromodpy.simulation.planning.plan import RunContext
+from hydromodpy.solver.base.registry import get_extractor_instance, get_solver_adapter
 
 logger = get_logger(__name__)
 
 
 def post_run_results(
     *,
+    ctx: RunContext,
     sim_id: str,
-    solver_name: str,
-    solver_output_dir: Path | None,
     results_config: ResultsConfig,
     store: Any,
     keep_solver_files: bool | None = None,
@@ -31,13 +31,12 @@ def post_run_results(
 
     Parameters
     ----------
+    ctx : RunContext
+        Resolved runtime context for the run that just completed. Carries
+        the ``ProcessRun`` (process type and solver name) and the runtime
+        state used to locate the scratch directory.
     sim_id : str
         Simulation UUID.
-    solver_name : str
-        Solver that just completed (e.g. ``"modflownwt"``).
-    solver_output_dir : Path or None
-        Directory containing raw solver output files. ``None`` for
-        in-memory solvers (GR4J).
     results_config : ResultsConfig
         The ``[simulation.results]`` config block.
     store : SimulationCatalog
@@ -49,8 +48,11 @@ def post_run_results(
     if not results_config.store:
         return
 
-    adapter = get_extractor_instance(solver_name)
-    if adapter is None:
+    solver_name = ctx.run.solver
+    solver_output_dir = ctx.state.execution.output_dirs_by_run_id.get(ctx.run.id)
+
+    extractor = get_extractor_instance(solver_name)
+    if extractor is None:
         logger.debug("No output adapter for solver '%s', skipping results ingestion", solver_name)
         return
 
@@ -60,11 +62,11 @@ def post_run_results(
             extract_kwargs = {}
             if results_config.budget.spatial_fields:
                 extract_kwargs["budget_spatial_fields"] = True
-            adapter.extract(sim_id, solver_output_dir, store, **extract_kwargs)
+            extractor.extract(sim_id, solver_output_dir, store, **extract_kwargs)
         except TypeError:
-            # Adapter doesn't accept extra kwargs (Boussinesq, GR4J, etc.)
+            # Extractor doesn't accept extra kwargs (Boussinesq, GR4J, etc.)
             try:
-                adapter.extract(sim_id, solver_output_dir, store)
+                extractor.extract(sim_id, solver_output_dir, store)
             except Exception:
                 logger.exception("Failed to extract outputs for sim %s", sim_id)
         except Exception:
@@ -73,7 +75,7 @@ def post_run_results(
     # Phase 2: compute derived variables
     derived_flags = results_config.derived.model_dump()
     try:
-        adapter.derive(sim_id, store, derived_flags)
+        extractor.derive(sim_id, store, derived_flags)
     except Exception:
         logger.exception("Failed to compute derived variables for sim %s", sim_id)
 
@@ -91,17 +93,24 @@ def post_run_results(
     export_label = run_id or sim_id[:8]
     _auto_export(sim_id, store, results_config, export_label=export_label)
 
-    # Cleanup solver files
+    # Cleanup solver files via the solver adapter
     do_keep = (
         keep_solver_files if keep_solver_files is not None else results_config.keep_solver_files
     )
-    if not do_keep and solver_output_dir is not None:
-        from hydromodpy.solver.base.cleanup import cleanup_solver_files
-
+    if not do_keep:
         try:
-            cleanup_solver_files(solver_output_dir)
+            adapter = get_solver_adapter(ctx.run.process_type, solver_name)
+        except KeyError:
+            logger.debug(
+                "No solver adapter registered for %s/%s, skipping cleanup",
+                ctx.run.process_type,
+                solver_name,
+            )
+            return
+        try:
+            adapter.cleanup(ctx)
         except Exception:
-            logger.warning("Failed to cleanup solver files at %s", solver_output_dir)
+            logger.warning("Failed to cleanup solver files for run %s", ctx.run.id)
 
 
 def _auto_export(

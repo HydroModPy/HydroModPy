@@ -163,6 +163,7 @@ def execute_run(
     results config that matches the plan. Returns wall-clock seconds.
     """
     from hydromodpy.simulation.extraction.post_run import post_run_results
+    from hydromodpy.simulation.planning.plan import RunContext
 
     plan = ctx.execution.simulation_plan
     results_cfg = step_configure_results(ctx.cfg.simulation.results, plan)
@@ -170,9 +171,8 @@ def execute_run(
 
     def _after_run(run, result, state):
         post_run_results(
+            ctx=RunContext(plan=plan, run=run, state=state),
             sim_id=sim_id,
-            solver_name=run.solver,
-            solver_output_dir=result.solver_output_dir,
             results_config=results_cfg,
             store=ctx.store,
             run_id=final_name,
