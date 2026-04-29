@@ -6,7 +6,7 @@ import argparse
 import sys
 from pathlib import Path
 
-from hydromodpy._cli.helpers import EXIT_CONFIG
+from hydromodpy.cli.helpers import EXIT_CONFIG
 
 NAME = "init"
 HELP = "Scaffold a HydroModPy workspace (catalog + data + projects). Default: ~/hydromodpy/"

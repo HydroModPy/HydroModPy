@@ -1,6 +1,6 @@
 """Top-level CLI dispatcher for HydroModPy.
 
-Builds the argparse tree from :mod:`hydromodpy._cli.commands` and invokes
+Builds the argparse tree from :mod:`hydromodpy.cli.commands` and invokes
 the subcommand handler attached via ``parser.set_defaults(_handler=...)``.
 """
 
@@ -11,7 +11,7 @@ import platform
 import sys
 from pathlib import Path
 
-from hydromodpy._cli.helpers import EXIT_OK
+from hydromodpy.cli.helpers import EXIT_OK
 
 
 def _version_string() -> str:
@@ -40,7 +40,7 @@ def _version_string() -> str:
 
 
 def _build_parser() -> argparse.ArgumentParser:
-    from hydromodpy._cli.commands import ALL_COMMANDS
+    from hydromodpy.cli.commands import ALL_COMMANDS
 
     prog = Path(sys.argv[0]).stem if sys.argv[0] else "hmp"
     parser = argparse.ArgumentParser(

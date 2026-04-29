@@ -6,7 +6,7 @@ import argparse
 import sys
 from pathlib import Path
 
-from hydromodpy._cli.helpers import EXIT_NOT_FOUND, find_workspace_root
+from hydromodpy.cli.helpers import EXIT_NOT_FOUND, find_workspace_root
 
 NAME = "compare"
 HELP = "Compare two simulations by sim_id, prefix, or name"

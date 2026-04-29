@@ -32,6 +32,12 @@ Each release section includes the following standard categories:
 
 ## [Unreleased]
 
+### Breaking
+- Renamed `hydromodpy._cli` to `hydromodpy.cli` (S07-01). The CLI is a
+  public surface; the leading underscore was misleading. Update any
+  external import (`from hydromodpy._cli...` → `from hydromodpy.cli...`).
+  Entry points `hmp` and `hydromodpy` are unchanged.
+
 ---
 
 ## [v0.5.0] - 2026-04-29

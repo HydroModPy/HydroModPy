@@ -6,7 +6,7 @@ import argparse
 import sys
 from pathlib import Path
 
-from hydromodpy._cli.helpers import EXIT_CONFIG
+from hydromodpy.cli.helpers import EXIT_CONFIG
 
 NAME = "compare-methods"
 HELP = "Run a multi-variant method comparison from a TOML config"

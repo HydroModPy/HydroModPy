@@ -136,7 +136,7 @@ workflow = "calibration"
 - `workflow = "calibration"`: the single switch that tells `hmp run`
   to dispatch to the ask/tell loop instead of the default
   single-simulation path. Dispatch logic lives in
-  `hydromodpy/_cli/workflows.py:DISPATCH`.
+  `hydromodpy/cli/workflows.py:DISPATCH`.
 
 ### Bloc simulation (standard)
 

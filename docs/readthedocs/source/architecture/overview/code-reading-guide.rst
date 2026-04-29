@@ -20,7 +20,7 @@ Code-oriented docs already present in the repository
 Several prose documents already exist in the repository, but they were
 not previously surfaced from the published architecture pages:
 
-- ``hydromodpy/_cli/README.md`` for the CLI dispatcher and the
+- ``hydromodpy/cli/README.md`` for the CLI dispatcher and the
   registered subcommands,
 - ``hydromodpy/simulation/README.md`` for planner / runner / adapter
   roles,
@@ -38,7 +38,7 @@ CLI-driven simulation
 
 When the question is "how does one TOML turn into solver runs?":
 
-1. ``hydromodpy/_cli/commands/run.py`` and ``_cli/workflows.py``
+1. ``hydromodpy/cli/commands/run.py`` and ``cli/workflows.py``
 2. ``hydromodpy/project.py`` (``Project`` facade)
 3. ``hydromodpy/simulation/planning/planner.py``
 4. ``hydromodpy/simulation/execution/runner.py``
@@ -63,7 +63,7 @@ Calibration
 When the question is "how does HydroModPy calibrate a simulation
 workflow?":
 
-1. ``hydromodpy/_cli/commands/run.py`` (workflow = "calibration"
+1. ``hydromodpy/cli/commands/run.py`` (workflow = "calibration"
    dispatch)
 2. ``hydromodpy/calibration/cli.py`` (calibration entry point)
 3. ``hydromodpy/calibration/engine.py`` and the ``CalibrationEngine``

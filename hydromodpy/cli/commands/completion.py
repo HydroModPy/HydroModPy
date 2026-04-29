@@ -62,7 +62,7 @@ def register(subparsers) -> argparse.ArgumentParser:
 
 
 def run(args: argparse.Namespace) -> None:
-    from hydromodpy._cli.commands import ALL_COMMANDS
+    from hydromodpy.cli.commands import ALL_COMMANDS
 
     names = sorted({getattr(mod, "NAME", mod.__name__) for mod in ALL_COMMANDS})
     subcommands = " ".join(names)

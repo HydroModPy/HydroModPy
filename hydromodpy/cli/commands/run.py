@@ -17,7 +17,7 @@ import subprocess
 import sys
 from pathlib import Path
 
-from hydromodpy._cli.helpers import (
+from hydromodpy.cli.helpers import (
     EXIT_CONFIG,
     EXIT_NOT_FOUND,
     EXIT_USER_ABORT,
@@ -117,12 +117,12 @@ def _run_toml(config_path: Path, *, args: argparse.Namespace) -> None:
     """Run a workflow from a TOML file.
 
     The TOML MUST declare ``workflow = "..."`` at the top level - otherwise
-    :class:`~hydromodpy._cli.workflows.WorkflowMissingError` is raised and
+    :class:`~hydromodpy.cli.workflows.WorkflowMissingError` is raised and
     the CLI exits with ``EXIT_CONFIG``. No implicit detection from sections.
     """
     import tomllib
 
-    from hydromodpy._cli.workflows import (
+    from hydromodpy.cli.workflows import (
         WorkflowError,
         load_raw_toml,
         resolve_workflow,
@@ -190,7 +190,7 @@ def _run_toml(config_path: Path, *, args: argparse.Namespace) -> None:
         )
         sys.exit(EXIT_CONFIG)
 
-    module = importlib.import_module("hydromodpy._cli.workflows")
+    module = importlib.import_module("hydromodpy.cli.workflows")
     dispatch = {
         "simulation": module.run_simulation,
         "overview": module.run_overview,
@@ -244,7 +244,7 @@ def _run_script(script_path: Path, extra_args: list[str]) -> None:
 def _infer_workflow_from_sections(raw_toml: dict) -> str:
     """Infer the workflow from the TOML sections present.
 
-    Mirrors the dispatch table in :mod:`hydromodpy._cli.workflows` - used
+    Mirrors the dispatch table in :mod:`hydromodpy.cli.workflows` - used
     only when ``--dry-run`` is set and the user has not declared
     ``workflow = "..."`` at the top level.
     """

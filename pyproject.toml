@@ -124,8 +124,8 @@ dev = [
 ]
 
 [project.scripts]
-hmp = "hydromodpy._cli:main"
-hydromodpy = "hydromodpy._cli:main"
+hmp = "hydromodpy.cli:main"
+hydromodpy = "hydromodpy.cli:main"
 
 [project.entry-points."hydromodpy.solver"]
 flow_modflownwt = "hydromodpy.solver.modflow_nwt.adapters.flow:ModflowNwtFlowAdapter"
@@ -237,7 +237,7 @@ ignore = [
 "validation_cases/**" = ["E402", "F401", "B007", "B905"]
 "examples/**" = ["E402", "F401", "B007"]
 # CLI shells can do argparse-style late imports.
-"hydromodpy/_cli/**" = ["E402"]
+"hydromodpy/cli/**" = ["E402"]
 # Pydantic `model_rebuild(_types_namespace=...)` pattern: forward refs are
 # resolved at runtime via an explicit namespace dict, so ruff can't see them
 # with static analysis. Known-good, silencing F821 in these files.

@@ -13,13 +13,13 @@ from pathlib import Path
 
 import pytest
 
-from hydromodpy._cli.workflows import (
+from hydromodpy.calibration.config import CalibrationConfig
+from hydromodpy.cli.workflows import (
     KNOWN_WORKFLOWS,
     extract_workflow_field,
     load_raw_toml,
     resolve_workflow,
 )
-from hydromodpy.calibration.config import CalibrationConfig
 
 
 def _write_rich_calibration_toml(path: Path) -> Path:
@@ -86,7 +86,7 @@ class TestDispatchCalibrationEnriched:
     def test_toml_without_workflow_field_requires_it(self, tmp_path: Path):
         path = tmp_path / "no_workflow.toml"
         path.write_text("[calibration]\nmethod = 'grid'\n", encoding="utf-8")
-        from hydromodpy._cli.workflows import WorkflowMissingError
+        from hydromodpy.cli.workflows import WorkflowMissingError
 
         with pytest.raises(WorkflowMissingError):
             resolve_workflow(path, cli_workflow=None, require_toml_field=True)

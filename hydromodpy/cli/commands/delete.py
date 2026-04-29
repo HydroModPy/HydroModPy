@@ -6,7 +6,7 @@ import argparse
 import sys
 from pathlib import Path
 
-from hydromodpy._cli.helpers import (
+from hydromodpy.cli.helpers import (
     EXIT_NOT_FOUND,
     EXIT_USER_ABORT,
     find_workspace_root,

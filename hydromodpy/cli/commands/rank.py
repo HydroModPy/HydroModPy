@@ -6,7 +6,7 @@ import argparse
 import sys
 from pathlib import Path
 
-from hydromodpy._cli.helpers import EXIT_NOT_FOUND, find_workspace_root
+from hydromodpy.cli.helpers import EXIT_NOT_FOUND, find_workspace_root
 
 NAME = "rank"
 HELP = "Rank simulations of a project by a metric (top or bottom N)"

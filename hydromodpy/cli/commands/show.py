@@ -7,7 +7,7 @@ import json
 import sys
 from pathlib import Path
 
-from hydromodpy._cli.helpers import (
+from hydromodpy.cli.helpers import (
     EXIT_NOT_FOUND,
     find_workspace_root,
     resolve_sim_id,

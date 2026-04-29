@@ -28,7 +28,7 @@ to study.
 .. code-block:: text
 
    hydromodpy/
-   |-- _cli/           Command-line entry point (hmp, hydromodpy aliases)
+   |-- cli/           Command-line entry point (hmp, hydromodpy aliases)
    |-- analysis/       Comparison, batch, and capability gallery helpers
    |-- calibration/    Optuna engine, objectives, optimizers, evaluators
    |-- core/           Config contracts, workspace anchoring, registry

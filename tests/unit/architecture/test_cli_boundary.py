@@ -3,9 +3,7 @@
 Only the dispatcher entry point ``hydromodpy.__main__`` may import from the
 CLI package. Every other module under ``hydromodpy/`` (and every file under
 ``tests/`` outside of CLI integration tests) must not depend on the CLI
-implementation. The lint covers both the current on-disk name ``_cli`` and
-the post-rename target ``cli`` (S07-01) so it stays valid through the
-rename.
+implementation.
 """
 
 from __future__ import annotations
@@ -23,7 +21,7 @@ if str(REPO_ROOT) not in sys.path:
 
 from tools.audit.build_graph import parse_imports  # noqa: E402
 
-CLI_PACKAGES: tuple[str, ...] = ("hydromodpy._cli", "hydromodpy.cli")
+CLI_PACKAGE: str = "hydromodpy.cli"
 
 WHITELIST: frozenset[str] = frozenset(
     {
@@ -33,15 +31,15 @@ WHITELIST: frozenset[str] = frozenset(
 
 
 def _is_cli_target(module: str) -> bool:
-    return any(module == pkg or module.startswith(f"{pkg}.") for pkg in CLI_PACKAGES)
+    return module == CLI_PACKAGE or module.startswith(f"{CLI_PACKAGE}.")
 
 
 def _is_inside_cli(rel: str) -> bool:
-    return rel.startswith("hydromodpy/_cli/") or rel.startswith("hydromodpy/cli/")
+    return rel.startswith("hydromodpy/cli/")
 
 
 def test_cli_boundary_sealed() -> None:
-    """No ``hydromodpy/`` module outside ``_cli/`` (or the whitelist) may import CLI code."""
+    """No ``hydromodpy/`` module outside ``cli/`` (or the whitelist) may import CLI code."""
     offenders: list[str] = []
     for py in sorted(PKG_ROOT.rglob("*.py")):
         if "__pycache__" in py.parts:
@@ -54,6 +52,6 @@ def test_cli_boundary_sealed() -> None:
                 offenders.append(f"{rel}:{lineno} imports {module}")
     if offenders:
         pytest.fail(
-            "CLI boundary breach — only hydromodpy/__main__.py may import from "
-            "hydromodpy._cli / hydromodpy.cli:\n" + "\n".join(f"  {o}" for o in offenders)
+            "CLI boundary breach: only hydromodpy/__main__.py may import from "
+            "hydromodpy.cli:\n" + "\n".join(f"  {o}" for o in offenders)
         )

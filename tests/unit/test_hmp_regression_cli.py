@@ -8,11 +8,11 @@ import pytest
 
 
 def _load_module():
-    return importlib.import_module("hydromodpy._cli.commands.test")
+    return importlib.import_module("hydromodpy.cli.commands.test")
 
 
 def _load_main_module():
-    return importlib.import_module("hydromodpy._cli.main")
+    return importlib.import_module("hydromodpy.cli.main")
 
 
 def _capture_pytest_invocation(

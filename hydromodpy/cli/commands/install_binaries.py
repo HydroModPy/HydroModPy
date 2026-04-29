@@ -11,7 +11,7 @@ from __future__ import annotations
 import argparse
 import sys
 
-from hydromodpy._cli.helpers import EXIT_CONFIG, EXIT_OK
+from hydromodpy.cli.helpers import EXIT_CONFIG, EXIT_OK
 
 NAME = "install-binaries"
 HELP = "Download MODFLOW/MODPATH/MT3D-USGS binaries into the HydroModPy cache"

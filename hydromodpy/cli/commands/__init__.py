@@ -7,7 +7,7 @@ in the order they should be registered on the top-level parser.
 
 from __future__ import annotations
 
-from hydromodpy._cli.commands import (
+from hydromodpy.cli.commands import (
     add,
     compare,
     compare_methods,
@@ -31,7 +31,7 @@ from hydromodpy._cli.commands import (
     show,
     test,
 )
-from hydromodpy._cli.commands import (
+from hydromodpy.cli.commands import (
     list as list_cmd,
 )
 

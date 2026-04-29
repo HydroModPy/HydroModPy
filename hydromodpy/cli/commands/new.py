@@ -6,7 +6,7 @@ import argparse
 import sys
 from pathlib import Path
 
-from hydromodpy._cli.helpers import EXIT_NOT_FOUND
+from hydromodpy.cli.helpers import EXIT_NOT_FOUND
 
 NAME = "new"
 HELP = "Create a new project inside the workspace"

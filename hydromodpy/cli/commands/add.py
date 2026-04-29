@@ -6,7 +6,7 @@ import argparse
 import sys
 from pathlib import Path
 
-from hydromodpy._cli.helpers import EXIT_NOT_FOUND, EXIT_RUN_FAILED
+from hydromodpy.cli.helpers import EXIT_NOT_FOUND, EXIT_RUN_FAILED
 
 NAME = "add"
 HELP = "Import a .hmp archive and dematerialise its bundled inputs"

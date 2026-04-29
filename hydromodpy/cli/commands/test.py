@@ -8,7 +8,7 @@ import subprocess
 import sys
 from pathlib import Path
 
-from hydromodpy._cli.helpers import (
+from hydromodpy.cli.helpers import (
     build_pytest_runtime_env,
     find_project_root,
     pytest_addopts_declares_basetemp,
