@@ -2,18 +2,14 @@
 
 from __future__ import annotations
 
-from typing import Annotated, Any
+from typing import Annotated, Any, Literal
 
 from pydantic import ConfigDict, Field, field_validator
 
 from hydromodpy.core.config.base import HydroModelBase
 from hydromodpy.core.config.profile import Profile
 from hydromodpy.core.units import Length
-from hydromodpy.physics.flow.sinks_sources._units import (
-    normalize_first_clim,
-    normalize_interpolation_method,
-    normalize_spatial_mode,
-)
+from hydromodpy.physics.flow.sinks_sources._units import normalize_first_clim
 
 
 class FlowEtpConfig(HydroModelBase):
@@ -80,30 +76,20 @@ class FlowEtpConfig(HydroModelBase):
             "evapotranspiration is zero. Legacy default was 1 m."
         ),
     )
-    spatial_mode: Annotated[str, Profile.DEV] = Field(
+    spatial_mode: Annotated[Literal["auto", "homogeneous", "heterogeneous"], Profile.DEV] = Field(
         default="auto",
         description=(
             "How to interpret spatial data: 'auto' (points->homogeneous, "
             "fields->heterogeneous), 'homogeneous', or 'heterogeneous'."
         ),
     )
-    interpolation_method: Annotated[str, Profile.DEV] = Field(
+    interpolation_method: Annotated[Literal["nearest", "linear", "idw"], Profile.DEV] = Field(
         default="nearest",
         description=(
             "Spatial interpolation method for gridded/point data onto the "
             "MODFLOW grid. Options: 'nearest', 'linear', 'idw'."
         ),
     )
-
-    @field_validator("spatial_mode", mode="before")
-    @classmethod
-    def _validate_spatial_mode(cls, value):
-        return normalize_spatial_mode(value)
-
-    @field_validator("interpolation_method", mode="before")
-    @classmethod
-    def _validate_interpolation_method(cls, value):
-        return normalize_interpolation_method(value)
 
     @field_validator("first_clim", mode="before")
     @classmethod

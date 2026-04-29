@@ -14,7 +14,7 @@ import math
 import tomllib
 from collections.abc import Mapping
 from pathlib import Path
-from typing import Annotated, Any
+from typing import Annotated, Any, Literal
 
 from pydantic import (
     ConfigDict,
@@ -32,10 +32,10 @@ from hydromodpy.core.units.hydraulic_conductivity import (
     normalize_m_per_s_unit,
 )
 
-SUPPORTED_FIELD_KINDS = ("homogeneous", "heterogeneous")
-SUPPORTED_HETEROGENEOUS_VALUE_SOURCES = ("inline", "csv")
-SUPPORTED_VERTICAL_PROFILE_MODES = ("none", "exponential", "tabulated")
-SUPPORTED_VERTICAL_PROFILE_INTERPOLATIONS = ("linear", "step")
+FieldKind = Literal["homogeneous", "heterogeneous"]
+HeterogeneousValueSource = Literal["inline", "csv"]
+VerticalProfileMode = Literal["none", "exponential", "tabulated"]
+VerticalProfileInterpolation = Literal["linear", "step"]
 SUPPORTED_PARAMETER_UNITS = ("-", *M_PER_S_CANONICAL_UNITS, "m-1", "cm-1")
 
 _UNIT_ALIASES = {
@@ -76,7 +76,7 @@ class FieldBaseSection(HydroModelBase):
         default=None,
         description=("Parameter identifier used in outputs and logs (for example 'K', 'Sy')."),
     )
-    kind: Annotated[str | None, Profile.USER] = Field(
+    kind: Annotated[FieldKind | None, Profile.USER] = Field(
         default=None,
         description=("Field type selector. Allowed values: 'homogeneous' or 'heterogeneous'."),
     )
@@ -96,17 +96,6 @@ class FieldBaseSection(HydroModelBase):
         if not text:
             raise ValueError("field.id cannot be empty")
         return text
-
-    @field_validator("kind")
-    @classmethod
-    def _validate_kind(cls, value):
-        if value is None:
-            return None
-        kind = str(value).strip().lower()
-        if kind not in SUPPORTED_FIELD_KINDS:
-            allowed = ", ".join(SUPPORTED_FIELD_KINDS)
-            raise ValueError(f"Unsupported field.kind '{value}'. Allowed: {allowed}")
-        return kind
 
     @field_validator("unit")
     @classmethod
@@ -150,7 +139,7 @@ class FieldHeterogeneousSection(HydroModelBase):
 
     model_config = ConfigDict(extra="forbid")
 
-    values_source: Annotated[str, Profile.USER] = Field(
+    values_source: Annotated[HeterogeneousValueSource, Profile.USER] = Field(
         default="inline",
         description=(
             "Source for heterogeneous values. "
@@ -186,17 +175,6 @@ class FieldHeterogeneousSection(HydroModelBase):
             "(must match geometry field id)."
         ),
     )
-
-    @field_validator("values_source")
-    @classmethod
-    def _validate_values_source(cls, value):
-        key = str(value).strip().lower()
-        if key not in SUPPORTED_HETEROGENEOUS_VALUE_SOURCES:
-            allowed = ", ".join(SUPPORTED_HETEROGENEOUS_VALUE_SOURCES)
-            raise ValueError(
-                f"Unsupported field_heterogeneous.values_source '{value}'. Allowed: {allowed}"
-            )
-        return key
 
     @field_validator("values")
     @classmethod
@@ -302,7 +280,7 @@ class FieldVerticalProfileSection(HydroModelBase):
 
     model_config = ConfigDict(extra="forbid")
 
-    mode: Annotated[str, Profile.USER] = Field(
+    mode: Annotated[VerticalProfileMode, Profile.USER] = Field(
         default="none",
         description=(
             "Depth dependency mode shared over the full domain. "
@@ -319,6 +297,8 @@ class FieldVerticalProfileSection(HydroModelBase):
     )
     min_factor: Annotated[float | None, Profile.DEV] = Field(
         default=None,
+        ge=0.0,
+        le=1.0,
         description=(
             "Optional floor factor for exponential mode. "
             "If provided, factor is max(exp(-depth/characteristic_depth), min_factor)."
@@ -326,63 +306,23 @@ class FieldVerticalProfileSection(HydroModelBase):
     )
     depths: Annotated[list[float] | None, Profile.DEV] = Field(
         default=None,
+        min_length=1,
         description="Depth nodes for tabulated mode (meters, first value must be 0).",
     )
     factors: Annotated[list[float] | None, Profile.DEV] = Field(
         default=None,
+        min_length=1,
         description=(
             "Multiplicative factors aligned with `depths` for tabulated mode "
             "(first value must be 1 at depth 0)."
         ),
     )
-    interpolation: Annotated[str, Profile.DEV] = Field(
+    interpolation: Annotated[VerticalProfileInterpolation, Profile.DEV] = Field(
         default="linear",
         description=(
             "Interpolation strategy for tabulated mode. Allowed values: 'linear' or 'step'."
         ),
     )
-
-    @field_validator("mode")
-    @classmethod
-    def _validate_mode(cls, value):
-        key = str(value).strip().lower()
-        if key not in SUPPORTED_VERTICAL_PROFILE_MODES:
-            allowed = ", ".join(SUPPORTED_VERTICAL_PROFILE_MODES)
-            raise ValueError(
-                f"Unsupported field_vertical_profile.mode '{value}'. Allowed: {allowed}"
-            )
-        return key
-
-    @field_validator("min_factor")
-    @classmethod
-    def _validate_min_factor(cls, value):
-        if value is None:
-            return None
-        numeric = float(value)
-        if numeric < 0.0 or numeric > 1.0:
-            raise ValueError("field_vertical_profile.min_factor must be in [0, 1]")
-        return numeric
-
-    @field_validator("depths", "factors")
-    @classmethod
-    def _validate_optional_non_empty_float_list(cls, value):
-        if value is None:
-            return None
-        arr = [float(v) for v in value]
-        if len(arr) == 0:
-            raise ValueError("field_vertical_profile list cannot be empty")
-        return arr
-
-    @field_validator("interpolation")
-    @classmethod
-    def _validate_interpolation(cls, value):
-        key = str(value).strip().lower()
-        if key not in SUPPORTED_VERTICAL_PROFILE_INTERPOLATIONS:
-            allowed = ", ".join(SUPPORTED_VERTICAL_PROFILE_INTERPOLATIONS)
-            raise ValueError(
-                f"Unsupported field_vertical_profile.interpolation '{value}'. Allowed: {allowed}"
-            )
-        return key
 
     @model_validator(mode="after")
     def _validate_mode_payload(self):
@@ -478,7 +418,7 @@ class ResolvedFieldParam(HydroModelBase):
         default=None,
         description="Resolved parameter identifier.",
     )
-    kind: Annotated[str | None, Profile.DEV] = Field(
+    kind: Annotated[FieldKind | None, Profile.DEV] = Field(
         default=None,
         description="Resolved parameter kind: homogeneous or heterogeneous.",
     )
@@ -498,7 +438,7 @@ class ResolvedFieldParam(HydroModelBase):
         default=None,
         description="Resolved spatial field identifier for heterogeneous kind.",
     )
-    values_source: Annotated[str | None, Profile.DEV] = Field(
+    values_source: Annotated[HeterogeneousValueSource | None, Profile.DEV] = Field(
         default=None,
         description="Optional helper flag describing heterogeneous values source.",
     )
@@ -528,17 +468,6 @@ class ResolvedFieldParam(HydroModelBase):
         if not text:
             raise ValueError("id cannot be empty")
         return text
-
-    @field_validator("kind")
-    @classmethod
-    def _validate_kind(cls, value):
-        if value is None:
-            return None
-        kind = str(value).strip().lower()
-        if kind not in SUPPORTED_FIELD_KINDS:
-            allowed = ", ".join(SUPPORTED_FIELD_KINDS)
-            raise ValueError(f"Unsupported kind '{value}'. Allowed: {allowed}")
-        return kind
 
     @field_validator("unit")
     @classmethod
@@ -586,17 +515,6 @@ class ResolvedFieldParam(HydroModelBase):
         if any(str(key).strip() == "" for key in values):
             raise ValueError("values cannot contain empty keys")
         return values
-
-    @field_validator("values_source")
-    @classmethod
-    def _validate_optional_values_source(cls, value):
-        if value is None:
-            return None
-        key = str(value).strip().lower()
-        if key not in SUPPORTED_HETEROGENEOUS_VALUE_SOURCES:
-            allowed = ", ".join(SUPPORTED_HETEROGENEOUS_VALUE_SOURCES)
-            raise ValueError(f"Unsupported values_source '{value}'. Allowed: {allowed}")
-        return key
 
     @field_validator("values_csv_file", "csv_key_column", "csv_value_column")
     @classmethod
