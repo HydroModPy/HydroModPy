@@ -12,9 +12,10 @@ these helpers when ingesting solver output.
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING, Any
+
 import numpy as np
 import xarray as xr
-from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     ArrayLike = np.ndarray | xr.DataArray

@@ -92,7 +92,9 @@ def test_step_open_store_closes_unused_bootstrap_zarr(monkeypatch, tmp_path: Pat
     monkeypatch.setattr(store_lifecycle_module, "_register_tracked_input_files", lambda ctx: None)
     monkeypatch.setattr(store_lifecycle_module, "step_persist_params", lambda *args, **kwargs: None)
     monkeypatch.setattr(store_lifecycle_module, "step_persist_mesh", lambda *args, **kwargs: None)
-    monkeypatch.setattr(store_lifecycle_module, "step_persist_geographic", lambda *args, **kwargs: None)
+    monkeypatch.setattr(
+        store_lifecycle_module, "step_persist_geographic", lambda *args, **kwargs: None
+    )
 
     store_lifecycle_module.step_open_store(ctx)
 

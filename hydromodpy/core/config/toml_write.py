@@ -38,9 +38,12 @@ def _format_key(key: str) -> str:
 
 
 def _is_mapping_array(value: Any) -> bool:
-    return isinstance(value, Sequence) and not isinstance(value, (str, bytes, bytearray)) and bool(
-        value
-    ) and all(isinstance(item, Mapping) for item in value)
+    return (
+        isinstance(value, Sequence)
+        and not isinstance(value, (str, bytes, bytearray))
+        and bool(value)
+        and all(isinstance(item, Mapping) for item in value)
+    )
 
 
 def _format_inline_table(mapping: Mapping[str, Any]) -> str:
