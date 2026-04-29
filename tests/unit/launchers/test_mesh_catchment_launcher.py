@@ -162,7 +162,7 @@ def test_mesh_catchment_launcher_run_uses_default_outputs(monkeypatch, tmp_path:
         lambda _: {"mesh_catchment": {"constraints_mode": "rivers_only"}},
     )
     monkeypatch.setattr(
-        "hydromodpy.spatial.mesh.runtime.hmp.Workspace",
+        "hydromodpy.spatial.mesh.runtime.Workspace",
         _DummyWorkspace,
     )
     _patch_dummy_geographic_builders(monkeypatch)
@@ -260,7 +260,7 @@ def test_mesh_catchment_launcher_accepts_watershed_boundary_section(
         },
     )
     monkeypatch.setattr(
-        "hydromodpy.spatial.mesh.runtime.hmp.Workspace",
+        "hydromodpy.spatial.mesh.runtime.Workspace",
         _DummyWorkspace,
     )
     _patch_dummy_geographic_builders(monkeypatch)
@@ -318,7 +318,7 @@ def test_mesh_catchment_launcher_flat_output_layout_writes_directly_to_project_r
         },
     )
     monkeypatch.setattr(
-        "hydromodpy.spatial.mesh.runtime.hmp.Workspace",
+        "hydromodpy.spatial.mesh.runtime.Workspace",
         _DummyWorkspace,
     )
 
@@ -408,7 +408,7 @@ def test_mesh_catchment_launcher_passes_domain_depth_model_to_bundle_export(
         },
     )
     monkeypatch.setattr(
-        "hydromodpy.spatial.mesh.runtime.hmp.Workspace",
+        "hydromodpy.spatial.mesh.runtime.Workspace",
         _DummyWorkspace,
     )
     _patch_dummy_geographic_builders(monkeypatch)
@@ -474,7 +474,7 @@ def test_mesh_catchment_launcher_run_uses_section_output_overrides(
         },
     )
     monkeypatch.setattr(
-        "hydromodpy.spatial.mesh.runtime.hmp.Workspace",
+        "hydromodpy.spatial.mesh.runtime.Workspace",
         _DummyWorkspace,
     )
     _patch_dummy_geographic_builders(monkeypatch)
@@ -539,7 +539,7 @@ def test_mesh_catchment_launcher_disables_figure_outputs_when_requested(
         },
     )
     monkeypatch.setattr(
-        "hydromodpy.spatial.mesh.runtime.hmp.Workspace",
+        "hydromodpy.spatial.mesh.runtime.Workspace",
         _DummyWorkspace,
     )
     _patch_dummy_geographic_builders(monkeypatch)
@@ -592,7 +592,7 @@ def test_mesh_catchment_launcher_cleanup_mode_removes_geographic_outputs(
         },
     )
     monkeypatch.setattr(
-        "hydromodpy.spatial.mesh.runtime.hmp.Workspace",
+        "hydromodpy.spatial.mesh.runtime.Workspace",
         _DummyWorkspace,
     )
     _patch_dummy_geographic_builders(monkeypatch)
@@ -647,7 +647,7 @@ def test_mesh_catchment_launcher_keep_mode_preserves_geographic_outputs(
         lambda _: {"mesh_catchment": {"constraints_mode": "rivers_only"}},
     )
     monkeypatch.setattr(
-        "hydromodpy.spatial.mesh.runtime.hmp.Workspace",
+        "hydromodpy.spatial.mesh.runtime.Workspace",
         _DummyWorkspace,
     )
     _patch_dummy_geographic_builders(monkeypatch)
@@ -878,7 +878,7 @@ def test_mesh_catchment_launcher_geology_mode_skips_river_trace_requirement(
         },
     )
     monkeypatch.setattr(
-        "hydromodpy.spatial.mesh.runtime.hmp.Workspace",
+        "hydromodpy.spatial.mesh.runtime.Workspace",
         _DummyWorkspace,
     )
     _patch_dummy_geographic_builders(monkeypatch, river_mesh_trace=None)
@@ -972,7 +972,7 @@ def test_mesh_catchment_launcher_batch_runs_selected_outlet_and_writes_manifest(
         },
     )
     monkeypatch.setattr(
-        "hydromodpy.spatial.mesh.runtime.hmp.Workspace",
+        "hydromodpy.spatial.mesh.runtime.Workspace",
         _DummyBatchWorkspace,
     )
     _patch_dummy_geographic_builders(monkeypatch, river_mesh_trace=None)
@@ -1082,7 +1082,7 @@ def test_mesh_catchment_launcher_batch_flat_layout_writes_directly_to_catchment_
         },
     )
     monkeypatch.setattr(
-        "hydromodpy.spatial.mesh.runtime.hmp.Workspace",
+        "hydromodpy.spatial.mesh.runtime.Workspace",
         _DummyBatchWorkspace,
     )
     _patch_dummy_geographic_builders(monkeypatch, river_mesh_trace=None)
@@ -1164,7 +1164,7 @@ def test_mesh_catchment_launcher_batch_can_disable_figures(
         },
     )
     monkeypatch.setattr(
-        "hydromodpy.spatial.mesh.runtime.hmp.Workspace",
+        "hydromodpy.spatial.mesh.runtime.Workspace",
         _DummyBatchWorkspace,
     )
     _patch_dummy_geographic_builders(monkeypatch, river_mesh_trace=None)
