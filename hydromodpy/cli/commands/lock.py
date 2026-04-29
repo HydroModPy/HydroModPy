@@ -66,7 +66,7 @@ def run(args: argparse.Namespace) -> None:
 
 
 def _cmd_update(args: argparse.Namespace) -> None:
-    from hydromodpy.data.lockfile import LOCKFILE_NAME, write_lockfile
+    from hydromodpy.data.data_freeze import LOCKFILE_NAME, write_lockfile
     from hydromodpy.data.registry.catalog_duckdb import DataCatalogDuckDB
 
     workspace = resolve_workspace(args.workspace)
@@ -78,7 +78,7 @@ def _cmd_update(args: argparse.Namespace) -> None:
 
 
 def _cmd_archive(args: argparse.Namespace) -> None:
-    from hydromodpy.data.lockfile import archive_lockfile
+    from hydromodpy.data.data_freeze import archive_lockfile
     from hydromodpy.data.registry.catalog_duckdb import DataCatalogDuckDB
 
     workspace = resolve_workspace(args.workspace)
@@ -90,7 +90,7 @@ def _cmd_archive(args: argparse.Namespace) -> None:
 
 
 def _cmd_restore(args: argparse.Namespace) -> None:
-    from hydromodpy.data.lockfile import restore_archive
+    from hydromodpy.data.data_freeze import restore_archive
 
     workspace = resolve_workspace(args.workspace)
     src = Path(args.input).expanduser().resolve()
@@ -104,7 +104,7 @@ def _cmd_restore(args: argparse.Namespace) -> None:
 
 
 def _cmd_verify(args: argparse.Namespace) -> None:
-    from hydromodpy.data.lockfile import LOCKFILE_NAME, verify_frozen
+    from hydromodpy.data.data_freeze import LOCKFILE_NAME, verify_frozen
     from hydromodpy.data.registry.catalog_duckdb import DataCatalogDuckDB
 
     workspace = resolve_workspace(args.workspace)

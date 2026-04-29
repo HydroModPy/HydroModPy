@@ -97,7 +97,7 @@ def run(args: argparse.Namespace) -> None:
         sys.exit(EXIT_NOT_FOUND)
 
     if getattr(args, "frozen", False):
-        from hydromodpy.data.lockfile import set_frozen_mode
+        from hydromodpy.data.data_freeze import set_frozen_mode
 
         set_frozen_mode(True)
 

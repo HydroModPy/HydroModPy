@@ -168,7 +168,7 @@ def _cmd_add(args: argparse.Namespace) -> None:
         convert_timeseries_csv_to_parquet,
         convert_vector_to_geoparquet,
     )
-    from hydromodpy.data.lockfile import LOCKFILE_NAME, read_lockfile, sha256_of
+    from hydromodpy.data.data_freeze import LOCKFILE_NAME, read_lockfile, sha256_of
     from hydromodpy.data.registry.catalog_duckdb import DataCatalogDuckDB
     from hydromodpy.data.scaffold import VARIABLES
 
@@ -272,7 +272,7 @@ def _cmd_prune(args: argparse.Namespace) -> None:
 
 
 def _cmd_export(args: argparse.Namespace) -> None:
-    from hydromodpy.data.lockfile import archive_lockfile
+    from hydromodpy.data.data_freeze import archive_lockfile
     from hydromodpy.data.registry.catalog_duckdb import DataCatalogDuckDB
 
     workspace = resolve_workspace(args.workspace)
@@ -284,7 +284,7 @@ def _cmd_export(args: argparse.Namespace) -> None:
 
 
 def _cmd_import(args: argparse.Namespace) -> None:
-    from hydromodpy.data.lockfile import restore_archive
+    from hydromodpy.data.data_freeze import restore_archive
 
     workspace = resolve_workspace(args.workspace)
     src = Path(args.input).expanduser().resolve()

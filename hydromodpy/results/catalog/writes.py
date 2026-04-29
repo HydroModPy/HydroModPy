@@ -23,8 +23,8 @@ import pandas as pd
 from hydromodpy.core.io.db_retry import with_lock_retry
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.version import __version__ as _HMP_VERSION
+from hydromodpy.results.array_fingerprint import fingerprint
 from hydromodpy.results.catalog_schema import GLOBAL_ZONE, ensure_parquet_views
-from hydromodpy.results.provenance import fingerprint
 from hydromodpy.results.spatial_index import point_in_cell
 
 PARQUET_SCHEMA_VERSION = "v1.0"

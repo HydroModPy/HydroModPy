@@ -475,7 +475,7 @@ class Project:
         from hydromodpy.workflow.steps.plan_building import step_build_plan
 
         if frozen:
-            from hydromodpy.data.lockfile import set_frozen_mode
+            from hydromodpy.data.data_freeze import set_frozen_mode
 
             set_frozen_mode(True)
 
