@@ -241,6 +241,12 @@ _log_manager = LogManager(mode="verbose", log_dir=None, overwrite=False)
 # Public access to log manager for users
 log_manager = _log_manager
 
+# Resolve HydroModPyConfig forward references (sibling configs imported here,
+# never from core/config/, to keep core/ a leaf of the import DAG).
+from hydromodpy._bootstrap import bootstrap
+
+bootstrap()
+
 _MODULE_EXPORTS = {
     "analysis": "hydromodpy.analysis",
     "calibration": "hydromodpy.calibration",
