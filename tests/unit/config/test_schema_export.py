@@ -73,14 +73,15 @@ def test_root_sections_lists_expected_keys():
     from hydromodpy.core.config.schema_export import _ensure_root_sections
 
     sections = _ensure_root_sections()
-    # Minimum viable set for P03 wiring.
+    # Registry derives from HydroModPyConfig.model_fields; nested
+    # ``flow_physical_properties`` is reachable via FlowConfig, not as a
+    # root section.
     for key in (
         "workspace",
         "geographic",
         "domain",
         "data",
         "flow",
-        "flow_physical_properties",
         "simulation",
         "solver",
     ):

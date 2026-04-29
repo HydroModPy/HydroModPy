@@ -38,10 +38,10 @@ except ImportError:
 from pydantic import BaseModel, ValidationError
 from pydantic.fields import FieldInfo
 
+from hydromodpy.core.config._registry import root_sections
 from hydromodpy.core.config.generate_toml import (
     _UNDEFINED,
     _default_value,
-    _get_registry,
 )
 from hydromodpy.core.config.param_level import VisibleWhen
 from hydromodpy.core.config.profile import Profile
@@ -402,7 +402,7 @@ def main() -> None:
         "Interface auto-générée depuis les modèles Pydantic. Les champs marqués * sont requis."
     )
 
-    registry = _get_registry()
+    registry = root_sections()
 
     # ── Sidebar ──────────────────────────────────────────────────────
     with st.sidebar:

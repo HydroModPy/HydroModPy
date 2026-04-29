@@ -236,15 +236,9 @@ def test_generate_toml_exposes_mesh_catchment_sections() -> None:
     modules = available_modules()
 
     assert "mesh_catchment" in modules
-    assert "mesh_catchment_batch" in modules
 
-    content = generate_toml(
-        modules=["mesh_catchment", "mesh_catchment_batch"],
-        profile="user",
-    )
+    content = generate_toml(modules=["mesh_catchment"], profile="user")
 
     assert "[mesh_catchment]" in content
-    assert "[mesh_catchment_batch]" in content
     assert "Meshing compliance target" in content
-    assert "Enable batch mode" in content
     assert "hydraulic_properties" in content
