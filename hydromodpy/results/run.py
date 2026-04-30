@@ -59,6 +59,7 @@ logger = get_logger(__name__)
 if TYPE_CHECKING:
     import geopandas as gpd
 
+    from hydromodpy.master_config import HydroModPyConfig
     from hydromodpy.results.catalog import SimulationCatalog
     from hydromodpy.results.grid import Grid
 
@@ -69,6 +70,17 @@ class Run:
         self._catalog = catalog
         self._row: dict | None = None
         self.array = RunArrayProvider(self)
+
+    @classmethod
+    def from_id(cls, catalog: SimulationCatalog, sim_id: str) -> Run:
+        """Build a ``Run`` view from an existing ``sim_id`` in the catalog.
+
+        Validates that the simulation exists by triggering one row load.
+        Raises ``KeyError`` when the id is unknown.
+        """
+        run = cls(sim_id, catalog)
+        run._load_row()
+        return run
 
     def _load_row(self) -> dict:
         if self._row is None:
@@ -121,13 +133,35 @@ class Run:
         return self._load_row().get("duration_s")
 
     @property
-    def config(self) -> dict | None:
+    def config_snapshot(self) -> dict | None:
+        """Raw config payload stored in the catalog as a dict.
+
+        Returns the JSON-decoded snapshot persisted at registration time
+        (full ``HydroModPyConfig.model_dump(mode='json')``). Use
+        :attr:`hydromodpy_config` for a validated Pydantic instance.
+        """
         val = self._load_row().get("config_toml")
         if val is None:
             return None
         if isinstance(val, str):
             return _json.loads(val)
         return val
+
+    @property
+    def hydromodpy_config(self) -> HydroModPyConfig:
+        """Validated :class:`HydroModPyConfig` rebuilt from the stored snapshot.
+
+        Raises ``ValueError`` when no snapshot was persisted for this run.
+        """
+        snapshot = self.config_snapshot
+        if snapshot is None:
+            raise ValueError(
+                f"Simulation '{self._sim_id}' has no config snapshot; "
+                "cannot rebuild HydroModPyConfig."
+            )
+        from hydromodpy.master_config import HydroModPyConfig
+
+        return HydroModPyConfig.model_validate(snapshot)
 
     @property
     def tags(self) -> list[str] | None:
@@ -255,6 +289,65 @@ class Run:
             index=idx,
             name=variable,
         )
+
+    def observed(
+        self,
+        variable: str,
+        station: str | None = None,
+        period: tuple | None = None,
+    ) -> pd.DataFrame:
+        """Return observed timeseries ingested for this simulation.
+
+        Observation series are persisted in the catalog ``timeseries`` table
+        with an ``_obs`` suffix on the variable name (see
+        :func:`hydromodpy.simulation.extraction.extractors.observation_ingest.ingest_observations`).
+        This accessor strips that suffix on read so callers query with the
+        canonical variable name (``discharge``, ``head``, ...).
+
+        Parameters
+        ----------
+        variable : str
+            Canonical variable name (no ``_obs`` suffix).
+        station : str, optional
+            Station id to filter on. When ``None``, every observed station
+            for ``variable`` is returned.
+        period : tuple, optional
+            ``(start, end)`` datetime bounds, inclusive on both ends.
+
+        Returns
+        -------
+        pd.DataFrame
+            Long-form frame with columns ``station_id``, ``datetime``,
+            ``value``. Datetimes are tz-naive UTC.
+
+        Raises
+        ------
+        ValueError
+            When no observation rows match the filter.
+        """
+        obs_variable = f"{variable}_obs"
+        query = (
+            "SELECT station_id, datetime, value FROM timeseries WHERE sim_id = ? AND variable = ?"
+        )
+        params: list = [self._sim_id, obs_variable]
+        if station is not None:
+            query += " AND station_id = ?"
+            params.append(station)
+        if period is not None:
+            query += " AND datetime >= ? AND datetime <= ?"
+            params.extend([period[0], period[1]])
+        query += " ORDER BY station_id, datetime"
+        df = self._catalog._connection.execute(query, params).fetchdf()
+        if df.empty:
+            station_msg = f", station={station}" if station is not None else ""
+            raise ValueError(
+                f"No observations for sim={self._sim_id}, variable={variable}{station_msg}"
+            )
+        idx = pd.DatetimeIndex(df["datetime"])
+        if idx.tz is not None:
+            idx = idx.tz_convert("UTC").tz_localize(None)
+        df["datetime"] = idx
+        return df
 
     def budget(
         self,
@@ -445,40 +538,37 @@ class Run:
         return str(val) if val is not None else None
 
     def rerun(self, **overrides) -> Run:
-        """Re-run this simulation with optional config overrides.
+        """Re-run this simulation with optional top-level config overrides.
 
-        Reconstructs a ``HydroModPyConfig`` from the stored snapshot,
-        applies overrides, and launches a new simulation. The new
-        simulation's ``parent_sim_id`` points back to this one.
+        Reconstructs a :class:`HydroModPyConfig` from the stored snapshot,
+        applies ``overrides`` via ``model_copy(update=...)``, and launches
+        a new simulation through :class:`hydromodpy.project.Project`.
 
         Parameters
         ----------
         overrides
-            Keyword overrides merged recursively into the stored config
-            snapshot. For example:
-            ``run.rerun(flow={"param": {"K": {"value": 2.0}}})``.
+            Keyword overrides forwarded to ``HydroModPyConfig.model_copy``.
+            Each key must match a top-level field of ``HydroModPyConfig``.
 
         Returns
         -------
         Run
             The newly created run.
         """
-        snapshot = self.config
-        if snapshot is None:
-            raise ValueError(f"Simulation '{self._sim_id}' has no config snapshot - cannot rerun")
-
-        from hydromodpy.master_config.hydromodpy_config import HydroModPyConfig
-
-        HydroModPyConfig.from_snapshot(snapshot, **overrides)
+        cfg = self.hydromodpy_config
+        if overrides:
+            cfg = cfg.model_copy(update=overrides)
 
         from hydromodpy.project import Project
 
-        Project.__new__(Project)
-        raise NotImplementedError(
-            "Full rerun() requires workflow integration with parent_sim_id. "
-            "Use HydroModPyConfig.from_snapshot() to reconstruct the config "
-            "and run it manually via Project or hmp run."
-        )
+        project = Project(cfg)
+        new_run = project.run()
+        if new_run is None:
+            raise RuntimeError(
+                f"rerun() of '{self._sim_id}' did not produce a new Run "
+                "(dry_run or short-circuited workflow)."
+            )
+        return new_run
 
     # -- Display capabilities ------------------------------------------------
 
