@@ -19,10 +19,10 @@ from typing import Annotated, Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
+from hydromodpy.core.config_kit.base import HydroModelBase
+from hydromodpy.core.config_kit.profile import Profile
 from hydromodpy.data.variables.dem.config import DemConfig
 from hydromodpy.data.variables.geology.config import GeologyConfig
-from hydromodpy.master_config.base import HydroModelBase
-from hydromodpy.master_config.profile import Profile
 
 SUPPORTED_DATA_MANAGER_TYPES = (
     "dem",
@@ -445,7 +445,7 @@ def _resolve_section_paths(
     so users can write ``path = "etp_sim2.nc"`` instead of the verbose
     ``path = "../../data/etp/etp_sim2.nc"``.
     """
-    from hydromodpy.master_config.path_resolution import resolve_declared_path
+    from hydromodpy.core.toml_io.paths import resolve_declared_path
 
     for field_name, field_info in model_cls.model_fields.items():
         value = data.get(field_name)

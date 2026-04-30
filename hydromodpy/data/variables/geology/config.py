@@ -9,9 +9,9 @@ from typing import Annotated, Any, Literal
 
 from pydantic import ConfigDict, Field, ValidationError, field_validator, model_validator
 
+from hydromodpy.core.config_kit.base import HydroModelBase
+from hydromodpy.core.config_kit.profile import Profile
 from hydromodpy.core.tracking import InputFile
-from hydromodpy.master_config.base import HydroModelBase
-from hydromodpy.master_config.profile import Profile
 
 
 class GeologySourceConfig(HydroModelBase):
