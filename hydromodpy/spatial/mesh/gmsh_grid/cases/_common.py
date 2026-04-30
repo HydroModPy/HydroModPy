@@ -17,7 +17,7 @@ from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
 
-from hydromodpy.master_config.path_helpers import get_nested_section
+from hydromodpy.core.toml_io.paths import get_nested_section
 
 
 def resolve_case_config_path(raw_config: str | Path, *, script_dir: str | Path) -> Path:

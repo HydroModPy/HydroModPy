@@ -7,7 +7,7 @@ from typing import Any
 
 import numpy as np
 
-from hydromodpy.master_config.path_helpers import resolve_path
+from hydromodpy.core.toml_io.paths import resolve_path
 from hydromodpy.spatial.mesh.gmsh_grid.cases._common import (
     load_case_section,
     resolve_case_config_path,
