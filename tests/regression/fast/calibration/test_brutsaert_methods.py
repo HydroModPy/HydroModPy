@@ -1,9 +1,4 @@
-"""Regression test for the Brutsaert recession calibration case.
-
-Exercises :func:`hydromodpy.calibration.cases.recession_brutsaert.calibrate_brutsaert`
-through each legacy method name and compares the best-parameter vector
-against the legacy golden file ``calibration_brutsaert_methods_golden.json``.
-"""
+"""Regression test for the Brutsaert recession calibration case."""
 
 from __future__ import annotations
 
@@ -19,18 +14,14 @@ GOLDEN_FILE = (
     Path(__file__).resolve().parent / "golden" / "calibration_brutsaert_methods_golden.json"
 )
 
-# The legacy golden was produced by a UCB-based acquisition; our Phase 4
-# port uses the standard Expected-Improvement acquisition on top of the
-# same RBF kernel. That algorithmic change costs ~4e-2 on the saturation
-# bound (Sy, here on [0.02, 0.35]) on this noisy-recession case, so
-# ``gp_mapping`` gets a looser 5e-2 tolerance relative to the original
-# 3e-2. ``da_mh_gp`` keeps its native 6e-2 (MCMC mixing noise).
+# ``gp_mapping`` has a looser tolerance because the Expected-Improvement
+# acquisition is sensitive to small dependency-level changes on this noisy
+# recession case. ``da_mh_gp`` keeps a 6e-2 tolerance for MCMC mixing noise.
 METHOD_ABS_TOL: dict[str, float] = {
     "grid_search": 1e-10,
     "random_search": 1e-10,
     "cma_es": 8e-3,
-    "nelder_mead": 2e-4,
-    "simplex": 2e-4,
+    "scipy_nelder_mead": 2e-4,
     "gp_mapping": 5e-2,
     "da_mh_gp": 6e-2,
 }
@@ -61,8 +52,7 @@ def _has_cmaes_sampler() -> bool:
     [
         "grid_search",
         "random_search",
-        "nelder_mead",
-        "simplex",
+        "scipy_nelder_mead",
         pytest.param(
             "cma_es",
             marks=pytest.mark.skipif(
@@ -75,17 +65,15 @@ def _has_cmaes_sampler() -> bool:
     ],
 )
 def test_brutsaert_method_matches_golden(method: str) -> None:
-    """Compare best-parameter vector of each method against the legacy golden."""
-    if method in ("nelder_mead", "simplex"):
+    """Compare best-parameter vector of each method against the golden."""
+    if method == "scipy_nelder_mead":
         pytest.importorskip("scipy")
     if method == "cma_es":
         pytest.importorskip("optuna")
     if method in ("gp_mapping", "da_mh_gp"):
         pytest.importorskip("sklearn")
 
-    # ``da_mh_gp`` is the only legacy case that used RMSE; everything else
-    # sticks to KGE. The two skipped entries inherit the legacy defaults
-    # in case the test is ever unskipped.
+    # ``da_mh_gp`` uses RMSE because its sampler builds a Gaussian likelihood.
     objective_metric = "rmse" if method == "da_mh_gp" else "kge"
 
     result = calibrate_brutsaert(method=method, objective_metric=objective_metric)

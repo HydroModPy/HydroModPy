@@ -8,7 +8,6 @@ from typing import TYPE_CHECKING
 import pandas as pd
 
 from hydromodpy.core.logging import get_logger
-from hydromodpy.results import field_registry
 
 if TYPE_CHECKING:
     import duckdb
@@ -46,9 +45,6 @@ def export_csv(
     """
     output_path = Path(output_path)
     output_path.parent.mkdir(parents=True, exist_ok=True)
-
-    if variable is not None:
-        field_registry.get(variable)
 
     query = "SELECT datetime, station_id, variable, value, unit FROM timeseries WHERE sim_id = ?"
     params: list = [sim_id]

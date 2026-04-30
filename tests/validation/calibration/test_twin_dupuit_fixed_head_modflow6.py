@@ -64,18 +64,6 @@ def test_calibration_twin_dupuit_fixed_head_modflow6_benchmark_recovers_truth() 
 @pytest.mark.steady
 @pytest.mark.fast
 @pytest.mark.mf6
-@pytest.mark.skip(
-    reason=(
-        "Path grammar mismatch in materialize_candidate: target "
-        "'flow.param.K.value' matches the resolved Pydantic path used by "
-        "apply_parameter_to_config but is invalid in the TOML overlay "
-        "(FieldParamConfig forbids extra 'value' alongside "
-        "field_homogeneous). Either teach materialize_candidate to "
-        "translate Pydantic-resolved paths back to TOML grammar, or split "
-        "TwinParameterTarget into (toml_target, runtime_target). Tracked "
-        "post-v1.0."
-    )
-)
 def test_calibration_twin_dupuit_fixed_head_modflow6_fast_grid_search_smoke() -> None:
     """Run one budget-capped smoke benchmark that stays genuinely quick."""
     _assert_modflow6_runtime_available()

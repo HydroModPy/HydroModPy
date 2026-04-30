@@ -6,6 +6,7 @@ RechargeSourceConfig validation, and custom grid loaders.
 
 from __future__ import annotations
 
+import builtins
 import hashlib
 from datetime import datetime
 from pathlib import Path
@@ -625,19 +626,21 @@ class TestLoadCustomNc:
 
 @pytest.mark.fast
 class TestLoadCustomTif:
-    def test_skip_if_rioxarray_not_available(self):
+    def test_raises_import_error_when_rioxarray_not_available(self, monkeypatch):
         """If rioxarray is not installed, load_custom_tif should raise ImportError."""
-        try:
-            import rioxarray  # noqa: F401
+        real_import = builtins.__import__
 
-            pytest.skip("rioxarray is available; skip-test not applicable")
-        except ImportError:
-            from hydromodpy.data.common.custom_grid_loader import (
-                load_custom_tif,
-            )
+        def block_rioxarray_import(name, globals=None, locals=None, fromlist=(), level=0):
+            if name == "rioxarray":
+                raise ImportError("rioxarray import blocked by test")
+            return real_import(name, globals, locals, fromlist, level)
 
-            with pytest.raises(ImportError):
-                load_custom_tif(Path("/fake.tif"), variable="x", unit="y")
+        monkeypatch.setattr(builtins, "__import__", block_rioxarray_import)
+
+        from hydromodpy.data.common.custom_grid_loader import load_custom_tif
+
+        with pytest.raises(ImportError, match="rioxarray import blocked by test"):
+            load_custom_tif(Path("/fake.tif"), variable="x", unit="y")
 
 
 @pytest.mark.fast

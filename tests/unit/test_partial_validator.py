@@ -106,4 +106,4 @@ def test_validate_field_nested_path() -> None:
                 # can traverse without crashing.
                 validate_field(path, None)
                 return
-    pytest.skip("no nested BaseModel under HydroModPyConfig")
+    pytest.fail("HydroModPyConfig exposes no nested BaseModel field to validate")

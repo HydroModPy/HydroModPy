@@ -1745,7 +1745,7 @@ def run_twin_benchmark_case(
 
         # Prepare timing wrapper: monkey-patch run_trial_light per call to
         # capture per-iteration durations. Easier than modifying the engine.
-        from hydromodpy.simulation.execution import trial as _trial_mod
+        from hydromodpy.calibration.runners import trial as _trial_mod
 
         original_run_trial_light = _trial_mod.run_trial_light
 

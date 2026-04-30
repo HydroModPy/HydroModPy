@@ -6,9 +6,12 @@ from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
 
+import numpy as np
 import pandas as pd
+import rasterio
 
 from hydromodpy.core.exceptions import SolverDivergedError
+from hydromodpy.core.io.raster_io import export_tif
 from hydromodpy.simulation.adapters.transport_helpers import required_flow_model
 from hydromodpy.simulation.planning.plan import RunContext, RunExecutionResult
 from hydromodpy.solver.base.cleanup import cleanup_solver_files
@@ -49,6 +52,7 @@ class ModpathTransportAdapter:
 
         state = ctx.state
         flow_model = required_flow_model(ctx)
+        _restore_seepage_clip_raster(ctx, flow_model)
         model_modpath = Modpath(
             state.setup.domain,
             state.setup.transport,
@@ -74,3 +78,40 @@ class ModpathTransportAdapter:
             if hasattr(model_modpath, "full_path")
             else None,
         )
+
+
+def _configured_zone_partic(transport: Any) -> str | None:
+    modpath = getattr(transport, "modpath", None)
+    parameters = getattr(modpath, "parameters", None)
+    if isinstance(parameters, Mapping):
+        value = parameters.get("zone_partic")
+    else:
+        value = getattr(parameters, "zone_partic", None)
+    return None if value is None else str(value)
+
+
+def _restore_seepage_clip_raster(ctx: RunContext, flow_model: Any) -> None:
+    """Write the MODPATH seepage raster from the store when requested."""
+    if _configured_zone_partic(ctx.state.setup.transport) != "seepage_clip":
+        return
+
+    store = getattr(ctx.state, "store", None)
+    sim_id = getattr(ctx.state, "sim_id", None)
+    base_raster = getattr(flow_model, "dem_watershed_path", None)
+    full_path = getattr(flow_model, "full_path", None)
+    if store is None or sim_id is None or base_raster is None or full_path is None:
+        return
+
+    base_path = Path(base_raster)
+    if not base_path.is_file():
+        return
+
+    seepage_tif = Path(full_path) / "_postprocess" / "_rasters" / "seepage_areas_t(0).tif"
+    if seepage_tif.is_file():
+        return
+
+    seepage = np.asarray(store.query_field(str(sim_id), "seepage_areas", 0), dtype=float).ravel()
+    with rasterio.open(base_path) as src:
+        seepage_array = seepage.reshape(src.height, src.width)
+    seepage_tif.parent.mkdir(parents=True, exist_ok=True)
+    export_tif(str(base_path), seepage_array, str(seepage_tif), -9999.0)

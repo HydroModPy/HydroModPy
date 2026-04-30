@@ -1,7 +1,7 @@
 """Regression test for calibration diagnostics and figure rendering.
 
 Runs :func:`hydromodpy.calibration.cases.recession_brutsaert.calibrate_brutsaert`
-for each runnable legacy method, builds a synthetic iteration trace matching the
+for each runnable method, builds a synthetic iteration trace matching the
 ``calibration_iterations`` schema, and verifies:
 
 1. :func:`hydromodpy.calibration.diagnostics.parameter_correlation` returns a
@@ -47,7 +47,7 @@ from hydromodpy.display import get as get_figure  # noqa: E402
 GOLDEN_FILE = (
     Path(__file__).resolve().parent / "golden" / "calibration_brutsaert_methods_golden.json"
 )
-RUNNABLE_METHODS = ("grid_search", "random_search", "nelder_mead", "simplex")
+RUNNABLE_METHODS = ("grid_search", "random_search", "scipy_nelder_mead")
 FIGURE_NAMES = (
     "calibration_convergence",
     "calibration_trace",
@@ -179,7 +179,7 @@ def test_calibrate_brutsaert_runs_and_yields_valid_diagnostics(
     _chronicle,
     _golden,
 ) -> None:
-    if method in ("nelder_mead", "simplex"):
+    if method == "scipy_nelder_mead":
         pytest.importorskip("scipy")
 
     # Confirm the calibration still runs through the new architecture.
