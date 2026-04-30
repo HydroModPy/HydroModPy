@@ -68,6 +68,26 @@ def _assign_nested(payload: dict[str, Any], dotted: Sequence[str], value: Any) -
     cursor[dotted[-1]] = value
 
 
+def _resolve_overlay_target_path(
+    base_payload: Mapping[str, Any],
+    dotted: Sequence[str],
+) -> tuple[str, ...]:
+    """Map canonical parameter paths onto the source TOML grammar."""
+    if len(dotted) < 4 or tuple(dotted[:2]) != ("flow", "param"):
+        return tuple(dotted)
+    param_payload = _lookup_nested(base_payload, dotted[:3])
+    if not isinstance(param_payload, Mapping):
+        return tuple(dotted)
+
+    field_name = dotted[3]
+    tail = tuple(dotted[4:])
+    if field_name == "value" and isinstance(param_payload.get("field_homogeneous"), Mapping):
+        return tuple(dotted[:3]) + ("field_homogeneous", "value") + tail
+    if field_name == "values" and isinstance(param_payload.get("field_heterogeneous"), Mapping):
+        return tuple(dotted[:3]) + ("field_heterogeneous", "values") + tail
+    return tuple(dotted)
+
+
 def _coerce_for_toml(value: Any) -> Any:
     """Recursively map a Python value into TOML-writer-friendly values.
 
@@ -267,14 +287,15 @@ def materialize_candidate(
         if param.name not in params:
             raise ValueError(f"Parameter {param.name!r} missing from candidate params mapping")
         dotted = _split_target_path(target)
-        base_value = _lookup_nested(base_raw, dotted)
+        overlay_dotted = _resolve_overlay_target_path(base_raw, dotted)
+        base_value = _lookup_nested(base_raw, overlay_dotted)
         resolved = _apply_parameter_mode(
             base_value=base_value,
             candidate_value=float(params[param.name]),
             mode=str(param.mode),
             param_name=param.name,
         )
-        _assign_nested(overlay, dotted, resolved)
+        _assign_nested(overlay, overlay_dotted, resolved)
 
     if extra_sections:
         for section_name, section_payload in extra_sections.items():
