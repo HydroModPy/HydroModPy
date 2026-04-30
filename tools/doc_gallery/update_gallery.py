@@ -2008,7 +2008,7 @@ def _build_method_comparison_payload(
         read_variant_run_metadata,
     )
     from hydromodpy.analysis.comparison.runtime_observables import extract_observable_rows
-    from hydromodpy.master_config.toml_loader import load_toml_with_base_config
+    from hydromodpy.core.toml_io.loader import load_toml_with_base_config
 
     raw_toml = load_toml_with_base_config(config_path)
     cfg = MethodComparisonConfig.from_toml(raw_toml, config_path=config_path)
@@ -5876,7 +5876,7 @@ def _load_toml_with_base(relative_path: str | None) -> dict[str, Any]:
     if not relative_path:
         return {}
     try:
-        from hydromodpy.master_config.toml_loader import load_toml_with_base_config
+        from hydromodpy.core.toml_io.loader import load_toml_with_base_config
 
         return load_toml_with_base_config(_repo_path(relative_path))
     except Exception:
