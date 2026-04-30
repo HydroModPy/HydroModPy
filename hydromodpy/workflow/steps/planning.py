@@ -8,7 +8,7 @@ from hydromodpy.core.exceptions import ConfigError
 from hydromodpy.core.logging import get_logger
 
 if TYPE_CHECKING:
-    from hydromodpy.master_config.results_config import ResultsConfig
+    from hydromodpy.results.config import ResultsConfig
     from hydromodpy.simulation.planning.plan import SimulationPlan
     from hydromodpy.spatial.domain import Domain
     from hydromodpy.workflow.context import WorkflowContext

@@ -114,7 +114,7 @@ def _cmd_config_template(args: argparse.Namespace) -> None:
         return
 
     if getattr(args, "ui", False):
-        ui_module = Path(__file__).resolve().parents[2] / "core" / "config" / "streamlit_config.py"
+        ui_module = Path(__file__).resolve().parents[2] / "display" / "streamlit_config.py"
         cmd = [
             sys.executable,
             "-m",

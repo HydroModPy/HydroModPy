@@ -8,8 +8,8 @@ from uuid import uuid4
 
 import pytest
 
-from hydromodpy.master_config.results_config import ResultsConfig
 from hydromodpy.results.catalog import SimulationCatalog
+from hydromodpy.results.config import ResultsConfig
 from hydromodpy.simulation.extraction.post_run import post_run_results
 from hydromodpy.simulation.planning.plan import ProcessRun, RunContext, SimulationPlan
 
