@@ -77,7 +77,7 @@ class HydroModelBase(BaseModel):
             :class:`~hydromodpy.core.config_kit.profile.Profile` exceeds
             the requested profile are omitted.
         """
-        from hydromodpy.master_config.toml_io import dump_toml_with_comments
+        from hydromodpy.core.toml_io.io import dump_toml_with_comments
 
         return dump_toml_with_comments(self, path, profile=profile)
 

@@ -8,11 +8,11 @@ Supports ``list[BaseModel]`` fields, rendered as TOML array-of-tables
 
 Usage::
 
-    from hydromodpy.master_config.generate_toml import generate_toml
+    from hydromodpy.core.toml_io.generator import generate_toml
 
     print(generate_toml(modules=["geographic"], profile="user"))
 
-    from hydromodpy.master_config.generate_toml import generate_toml_from_instances
+    from hydromodpy.core.toml_io.generator import generate_toml_from_instances
 
     generate_toml_from_instances(
         {"hydrometry": cfg_h, "piezometry": cfg_p},
@@ -32,9 +32,9 @@ from typing import Any, get_args, get_origin
 from pydantic import BaseModel
 from pydantic.fields import FieldInfo
 
-from hydromodpy.master_config._registry import root_sections
-from hydromodpy.master_config.profile import Profile
-from hydromodpy.master_config.pydantic_introspect import extract_profile, resolve_profile
+from hydromodpy.core.config_kit._registry import root_sections
+from hydromodpy.core.config_kit.introspect import extract_profile, resolve_profile
+from hydromodpy.core.config_kit.profile import Profile
 
 
 def available_modules() -> list[str]:
@@ -145,7 +145,7 @@ def generate_toml_from_instances(
     -------
     ::
 
-        from hydromodpy.master_config.generate_toml import generate_toml_from_instances
+        from hydromodpy.core.toml_io.generator import generate_toml_from_instances
 
         generate_toml_from_instances(
             {"hydrometry": cfg_h, "piezometry": cfg_p},
