@@ -23,8 +23,8 @@ from typing import TYPE_CHECKING, Annotated
 
 from pydantic import ConfigDict, Field
 
-from hydromodpy.master_config.base import HydroModelBase
-from hydromodpy.master_config.profile import Profile
+from hydromodpy.core.config_kit.base import HydroModelBase
+from hydromodpy.core.config_kit.profile import Profile
 
 if TYPE_CHECKING:
     from hydromodpy.results.run import Run

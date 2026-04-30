@@ -7,7 +7,7 @@ rewrites each configured parameter at its target dotted path (honouring
 session, which makes it the natural hand-off for sharing the best
 candidate of a session or replaying a single trial.
 
-The overlay is rendered through :mod:`hydromodpy.master_config.toml_write`
+The overlay is rendered through :mod:`hydromodpy.core.toml_io.writer`
 so the output remains valid TOML and round-trips through :mod:`tomllib`
 even in lightweight environments where external TOML writer packages are
 not installed. The ``base_config`` argument accepts either a path to a
@@ -25,7 +25,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 from hydromodpy.calibration.parameters import ParameterSpace
-from hydromodpy.master_config.toml_write import dump as dump_toml
+from hydromodpy.core.toml_io.writer import dump as dump_toml
 
 if TYPE_CHECKING:
     from hydromodpy.master_config.hydromodpy_config import HydroModPyConfig

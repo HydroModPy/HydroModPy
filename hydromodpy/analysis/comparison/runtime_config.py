@@ -13,7 +13,7 @@ from hydromodpy.analysis.comparison.config import (
     MethodComparisonConfig,
     MethodComparisonVariant,
 )
-from hydromodpy.master_config.toml_loader import (
+from hydromodpy.core.toml_io.loader import (
     load_toml_with_base_config,
     merge_toml_payloads,
 )

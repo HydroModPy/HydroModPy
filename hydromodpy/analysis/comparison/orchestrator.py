@@ -39,8 +39,8 @@ from hydromodpy.analysis.comparison.runtime_observables import (
     write_observables_csv,
 )
 from hydromodpy.analysis.comparison.visuals import generate_comparison_figures
+from hydromodpy.core.toml_io.loader import load_toml_with_base_config
 from hydromodpy.master_config.hydromodpy_config import HydroModPyConfig
-from hydromodpy.master_config.toml_loader import load_toml_with_base_config
 
 
 class MethodComparisonLauncher:
