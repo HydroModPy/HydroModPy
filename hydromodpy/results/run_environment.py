@@ -44,7 +44,10 @@ class EnvironmentSnapshot(TypedDict, total=False):
     git_commit: str | None
     project_git_commit: str | None
     mf6_binary_sha256: str | None
+    mf6_version_text: str | None
+    conda_env_hash: str | None
     env_packages: list[str]
+    rng_seed: int | None
 
 
 def _git_head(cwd: Path) -> str | None:
@@ -144,6 +147,48 @@ def _binary_sha256(path: Path | str | None) -> str | None:
     return h.hexdigest()
 
 
+def _mf6_version_text(path: Path | str | None) -> str | None:
+    """Capture the textual MF6 version banner from ``mf6 --version``."""
+    if path is None:
+        return None
+    p = Path(path)
+    if not p.is_file() or not os.access(p, os.X_OK):
+        return None
+    try:
+        out = subprocess.check_output(
+            [str(p), "--version"],
+            stderr=subprocess.STDOUT,
+            text=True,
+            timeout=5,
+        )
+    except (subprocess.SubprocessError, OSError):
+        return None
+    return out.strip() or None
+
+
+def _conda_env_hash() -> str | None:
+    """Return SHA-256 of ``mamba env export`` (or ``conda env export``).
+
+    Stable hash of the active conda/mamba environment, including channel
+    pins and exact package versions. Returns None when neither tool is on
+    the PATH or the export fails.
+    """
+    for tool in ("mamba", "conda"):
+        try:
+            out = subprocess.check_output(
+                [tool, "env", "export", "--no-builds"],
+                stderr=subprocess.DEVNULL,
+                text=True,
+                timeout=15,
+            )
+        except (subprocess.SubprocessError, OSError, FileNotFoundError):
+            continue
+        if not out.strip():
+            continue
+        return hashlib.sha256(out.encode("utf-8")).hexdigest()
+    return None
+
+
 def capture_environment(
     *,
     project_root: Path | str | None = None,
@@ -172,6 +217,8 @@ def capture_environment(
         "git_commit": _git_head(_hydromodpy_root()),
         "project_git_commit": _git_head(Path(project_root)) if project_root else None,
         "mf6_binary_sha256": _binary_sha256(mf6_binary_path),
+        "mf6_version_text": _mf6_version_text(mf6_binary_path),
+        "conda_env_hash": _conda_env_hash(),
         "env_packages": _env_packages(),
     }
     return snapshot

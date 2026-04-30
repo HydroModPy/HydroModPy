@@ -33,13 +33,13 @@ from typing import Any
 
 from hydromodpy.physics.flow import Flow
 from hydromodpy.physics.transport import Transport
+from hydromodpy.simulation._solver_protocol import get_solver_registry_provider
 from hydromodpy.simulation.planning.plan import (
     ProcessRun,
     RunContext,
     RunExecutionResult,
     SimulationPlan,
 )
-from hydromodpy.solver.base.registry import get_solver_adapter
 
 # ---------------------------------------------------------------------------
 # Process-context helpers (free functions, no factory class)
@@ -198,7 +198,7 @@ class SimulationRunner:
         """Execute one resolved process run through its registered adapter."""
 
         dependency_models = self._resolve_dependency_models(state, run)
-        adapter = get_solver_adapter(run.process_type, run.solver)
+        adapter = get_solver_registry_provider().get_solver_adapter(run.process_type, run.solver)
         result = adapter.execute(
             RunContext(
                 plan=plan,

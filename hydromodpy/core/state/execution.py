@@ -6,6 +6,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
+from hydromodpy.core.rng import RngManager
+
 
 @dataclass
 class ExecutionRegistry:
@@ -22,6 +24,12 @@ class ExecutionRegistry:
     metric extractors read the solver binaries (``.hds`` / ``.cbc``)
     directly from these paths without touching the catalog.
 
+    ``rng`` is the master :class:`RngManager` for the simulation.
+    Stochastic consumers derive their own deterministic ``Generator``
+    from ``rng.child_rng(label)``. It is ``None`` when no master seed
+    is declared in ``[simulation]``: each consumer then uses
+    ``np.random.default_rng()`` with a fresh entropy source.
+
     Field types are ``Any`` because ``core`` cannot import from sibling
     layers. ``simulation_plan``, ``process_runs_by_id`` values, and
     ``models_by_run_id`` values are produced by the ``simulation`` and
@@ -33,3 +41,4 @@ class ExecutionRegistry:
     models_by_run_id: dict[str, Any] = field(default_factory=dict)
     output_dirs_by_run_id: dict[str, Path] = field(default_factory=dict)
     lightweight: bool = False
+    rng: RngManager | None = None
