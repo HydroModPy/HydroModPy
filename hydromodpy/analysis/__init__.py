@@ -3,7 +3,7 @@
 The legacy ``display`` and ``postprocess`` subpackages were removed in P08:
 
 - Figures live in :mod:`hydromodpy.display` (catalog of registered classes).
-- Metrics live in :mod:`hydromodpy.results.metrics`.
+- Metrics live in :mod:`hydromodpy.core.metrics`.
 - Derived fields live in :mod:`hydromodpy.results.derived`.
 - The launcher-managed postprocess workflow is now part of the simulation
   pipeline (see :mod:`hydromodpy.workflow.steps`).

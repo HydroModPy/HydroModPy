@@ -14,7 +14,7 @@ from typing import Any, Protocol, runtime_checkable
 
 import numpy as np
 
-from hydromodpy.results.metrics import kge, mae, nse, rmse
+from hydromodpy.core.metrics import kge, mae, nse, rmse
 
 
 @dataclass(frozen=True, slots=True)

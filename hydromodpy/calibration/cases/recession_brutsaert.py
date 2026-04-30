@@ -33,7 +33,7 @@ from hydromodpy.calibration import (
     ParamSuggestion,
     build_optimizer,
 )
-from hydromodpy.results.metrics import kge as _kge_metric
+from hydromodpy.core.metrics import kge as _kge_metric
 
 # ---------------------------------------------------------------------------
 # Fixed physical context
