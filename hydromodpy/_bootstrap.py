@@ -21,10 +21,12 @@ def _rebuild_forward_refs() -> None:
     """
     from hydromodpy.analysis.batch.config import RegionalLabConfig
     from hydromodpy.analysis.capability_gallery import CapabilityGalleryConfig
+    from hydromodpy.analysis.comparison.config import MethodComparisonSection
     from hydromodpy.calibration.config import CalibrationConfig
     from hydromodpy.data.data_managers_config import DataManagersConfig
     from hydromodpy.display.config import DisplayConfig
     from hydromodpy.display.overview.config import OverviewSection
+    from hydromodpy.master_config import analysis as analysis_module
     from hydromodpy.master_config import hydromodpy_config as cfg_module
     from hydromodpy.physics.flow.flow_config import FlowConfig
     from hydromodpy.physics.transport.transport_config import TransportConfig
@@ -36,9 +38,13 @@ def _rebuild_forward_refs() -> None:
     from hydromodpy.spatial.geographic.geographic_config import GeographicConfig
     from hydromodpy.spatial.mesh.config import MeshCatchmentConfig
 
-    cfg_module.__dict__.update(
+    analysis_module.__dict__.update(
         RegionalLabConfig=RegionalLabConfig,
         CapabilityGalleryConfig=CapabilityGalleryConfig,
+        MethodComparisonSection=MethodComparisonSection,
+    )
+    analysis_module.AnalysisConfig.model_rebuild()
+    cfg_module.__dict__.update(
         CalibrationConfig=CalibrationConfig,
         DataManagersConfig=DataManagersConfig,
         DisplayConfig=DisplayConfig,
@@ -80,15 +86,15 @@ def _register_physics_contracts() -> None:
 
 
 def _register_spatial_contracts() -> None:
-    """Wire data-layer sources into the spatial ``_protocols`` registry.
+    """Wire data-layer sources into the spatial ``protocols`` registry.
 
     Spatial code resolves geology IO through ``GeologyDataSource`` so the
     spatial package never imports the data package at module load time.
     """
     from hydromodpy.data.variables.geology.io import default_geology_data_source
-    from hydromodpy.spatial import _protocols
+    from hydromodpy.spatial import protocols
 
-    _protocols.register_geology_data_source(default_geology_data_source())
+    protocols.register_geology_data_source(default_geology_data_source())
 
 
 def _register_calibration_contracts() -> None:
@@ -134,6 +140,38 @@ def _register_analysis_contracts() -> None:
     _solver_protocol.set_solver_registry_provider(_RegistryProvider())
 
 
+def _register_simulation_contracts() -> None:
+    """Wire the solver registry into simulation orchestration.
+
+    Simulation must not import the solver layer (cf. layer matrix). The
+    planner, runner, post-run hook and transport helpers reach the registry
+    through the ``SolverRegistryProvider`` Protocol declared in
+    :mod:`hydromodpy.simulation._solver_protocol`.
+    """
+    from hydromodpy.simulation import _solver_protocol as _sim_protocol
+    from hydromodpy.solver.base import registry as _registry
+
+    class _RegistryProvider:
+        def known_process_types(self) -> set[str]:
+            return _registry.known_process_types()
+
+        def required_bindings(
+            self, process_type: str, solver_name: str
+        ) -> tuple[tuple[str, str], ...]:
+            return _registry.required_bindings(process_type, solver_name)
+
+        def get_solver_adapter(self, process_type: str, solver_name: str):
+            return _registry.get_solver_adapter(process_type, solver_name)
+
+        def get_solver_adapter_class(self, process_type: str, solver_name: str) -> type:
+            return _registry.get(process_type, solver_name)
+
+        def get_extractor_instance(self, solver_name: str):
+            return _registry.get_extractor_instance(solver_name)
+
+    _sim_protocol.set_solver_registry_provider(_RegistryProvider())
+
+
 def bootstrap() -> None:
     """Resolve HydroModPyConfig forward references. Idempotent."""
     global _BOOTSTRAPPED
@@ -143,5 +181,6 @@ def bootstrap() -> None:
     _register_spatial_contracts()
     _register_calibration_contracts()
     _register_analysis_contracts()
+    _register_simulation_contracts()
     _rebuild_forward_refs()
     _BOOTSTRAPPED = True

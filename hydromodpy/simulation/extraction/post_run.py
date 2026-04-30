@@ -12,8 +12,8 @@ from typing import Any
 
 from hydromodpy.core.logging import get_logger
 from hydromodpy.results.config import ResultsConfig
+from hydromodpy.simulation._solver_protocol import get_solver_registry_provider
 from hydromodpy.simulation.planning.plan import RunContext
-from hydromodpy.solver.base.registry import get_extractor_instance, get_solver_adapter
 
 logger = get_logger(__name__)
 
@@ -48,10 +48,11 @@ def post_run_results(
     if not results_config.persistence.save_catalog:
         return
 
+    provider = get_solver_registry_provider()
     solver_name = ctx.run.solver
     solver_output_dir = ctx.state.execution.output_dirs_by_run_id.get(ctx.run.id)
 
-    extractor = get_extractor_instance(solver_name)
+    extractor = provider.get_extractor_instance(solver_name)
     if extractor is None:
         logger.debug("No output adapter for solver '%s', skipping results ingestion", solver_name)
         return
@@ -99,7 +100,7 @@ def post_run_results(
     )
     if not do_keep:
         try:
-            adapter = get_solver_adapter(ctx.run.process_type, solver_name)
+            adapter = provider.get_solver_adapter(ctx.run.process_type, solver_name)
         except KeyError:
             logger.debug(
                 "No solver adapter registered for %s/%s, skipping cleanup",
