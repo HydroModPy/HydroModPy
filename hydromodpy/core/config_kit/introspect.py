@@ -13,7 +13,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from hydromodpy.master_config.profile import Profile
+from hydromodpy.core.config_kit.profile import Profile
 
 #: Fields without an explicit ``Profile`` tag default to :attr:`Profile.USER`
 #: so they always appear in generated templates.
