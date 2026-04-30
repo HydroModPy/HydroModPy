@@ -6,11 +6,13 @@ Read-only facade over one row of the ``simulations`` table. ``Run`` lazy-loads
 its catalog row on first access and exposes typed properties (``solver``,
 ``status``, ``n_layers`` ...), tabular accessors (``parameters``, ``metrics``,
 ``timeseries``, ``budget``, ``mass_balance``, ``provenance``), field-array
-readers (``field``, ``mesh``, ``geographic``, ``geographic_raster``), spatial
-helpers (``grid``, ``catchment_mask``, ``dem``, ``outlet``), derived metrics
-(``saturated_fraction``, ``drainage_density``, ``persistence``,
-``catchment_mean``, ``recharge_forcing``), and the
-``display_capabilities`` hook consumed by the display layer.
+readers (``field``, ``mesh``, ``geographic``, ``geographic_raster``) and
+spatial helpers (``grid``, ``catchment_mask``, ``dem``, ``outlet``). Heavier
+xarray / UGRID readers (``dataset``, ``to_xarray_batch``, ``at``) live on the
+:class:`hydromodpy.results.run_array.RunArrayProvider` exposed as
+``run.array``. Derived catchment views are module-level functions in
+:mod:`hydromodpy.results.views` (``saturated_fraction``, ``drainage_density``,
+``persistence``, ``catchment_mean``, ``recharge_forcing``).
 
 Why
 ---
@@ -21,13 +23,14 @@ inside a session; cross-process freshness is handled by the catalog itself.
 Public API
 ----------
 - ``Run``: instantiated by ``SimulationCatalog`` resolution methods. Also
-  exposes ``rerun(**overrides)`` to spawn a derived simulation, plus
-  ``at(timestep, layer)`` returning an ``_AtAccessor`` view (private;
-  reachable only via ``Run.at``).
+  exposes ``rerun(**overrides)`` to spawn a derived simulation, and
+  ``run.array`` for xarray / UGRID readers.
 - :class:`hydromodpy.results.run_loader.RunLoaderAdapter` builds a ``Run``
   from a TOML / JSON / dict config payload.
 - :class:`hydromodpy.results.run_export.RunExportAdapter` writes per-run
   archives (``to_csv``, ``export``).
+- :class:`hydromodpy.results.run_array.RunArrayProvider` exposes
+  ``dataset``, ``to_xarray_batch`` and the ``at(timestep, layer)`` accessor.
 
 Cross-refs
 ----------
@@ -49,13 +52,12 @@ import pandas as pd
 
 from hydromodpy.core.logging import get_logger
 from hydromodpy.results.contracts import Mesh, RasterField, Stack
+from hydromodpy.results.run_array import RunArrayProvider
 
 logger = get_logger(__name__)
 
 if TYPE_CHECKING:
     import geopandas as gpd
-    import xarray as xr
-    import xugrid as xu
 
     from hydromodpy.results.catalog import SimulationCatalog
     from hydromodpy.results.grid import Grid
@@ -66,6 +68,7 @@ class Run:
         self._sim_id = sim_id
         self._catalog = catalog
         self._row: dict | None = None
+        self.array = RunArrayProvider(self)
 
     def _load_row(self) -> dict:
         if self._row is None:
@@ -83,11 +86,6 @@ class Run:
 
     @property
     def sim_id(self) -> str:
-        return self._sim_id
-
-    @property
-    def id(self) -> str:
-        """Alias for :attr:`sim_id` matching the public API (``run.id``)."""
         return self._sim_id
 
     @property
@@ -296,15 +294,6 @@ class Run:
             timestep = n_ts + timestep
         return sz.read_field(variable, timestep, layer=layer)
 
-    def at(self, timestep: int = -1, layer: int | None = None) -> _AtAccessor:
-        """Return a chainable accessor bound to ``(timestep, layer)``.
-
-        Enables ``sim.at(timestep=5).field("head")`` - the dual spelling of
-        ``sim.field("head", timestep=5)``. Useful in notebook sessions where
-        the same slice is reused across several variables.
-        """
-        return _AtAccessor(self, timestep=timestep, layer=layer)
-
     @property
     def mesh(self) -> Mesh:
         if self._load_row().get("solver_category") == "lumped":
@@ -370,138 +359,6 @@ class Run:
         if nodata is not None:
             arr[arr == float(nodata)] = np.nan
         return arr
-
-    def dataset(self, variable: str | None = None) -> xu.UgridDataset:
-        """Return a :class:`xugrid.UgridDataset` over the simulation's mesh.
-
-        Single entry point for figures: same UGRID topology and dimension
-        names regardless of the underlying solver layout (DIS, DISV, or
-        triangle / DISU). Pass ``variable=None`` to load every face-aligned
-        field present in the store; pass a name to load only that one.
-        Variable attributes follow CF-1.11 from
-        :mod:`hydromodpy.results.field_registry`.
-        """
-        import xarray as xr
-        import xugrid as xu
-
-        from hydromodpy.results import field_registry
-
-        mesh = self.mesh
-        verts = np.asarray(mesh.vertices, dtype=float)
-        fnc = np.asarray(mesh.face_node_connectivity, dtype=int)
-        grid = xu.Ugrid2d(
-            node_x=verts[:, 0],
-            node_y=verts[:, 1],
-            fill_value=-1,
-            face_node_connectivity=fnc,
-        )
-        face_dim = grid.face_dimension
-
-        face_shapes = {
-            field_registry.SHAPE_FACE: (face_dim,),
-            field_registry.SHAPE_LAYER_FACE: ("layer", face_dim),
-            field_registry.SHAPE_TIME_FACE: ("time", face_dim),
-            field_registry.SHAPE_TIME_LAYER_FACE: ("time", "layer", face_dim),
-        }
-
-        sz = self._catalog.open_zarr(self._sim_id)
-
-        def _lookup(zarr_path: str):
-            if "/" in zarr_path:
-                grp_name, var_name = zarr_path.split("/", 1)
-                grp = sz.root.get(grp_name)
-                if grp is None or var_name not in grp:
-                    return None
-                return grp[var_name]
-            if zarr_path not in sz.root:
-                return None
-            return sz.root[zarr_path]
-
-        if variable is None:
-            names = [
-                n
-                for n, d in field_registry.FIELD_REGISTRY.items()
-                if d.shape in face_shapes and _lookup(d.zarr_path) is not None
-            ]
-        else:
-            desc = field_registry.get(variable)
-            if desc.shape not in face_shapes:
-                raise ValueError(f"Field '{variable}' has shape '{desc.shape}', not face-aligned")
-            if _lookup(desc.zarr_path) is None:
-                raise KeyError(f"Field '{variable}' not found in simulation '{self._sim_id}'")
-            names = [variable]
-
-        data_vars: dict[str, xr.DataArray] = {}
-        for name in names:
-            desc = field_registry.get(name)
-            arr = _lookup(desc.zarr_path)
-            values = np.asarray(arr[:])
-            dims = face_shapes[desc.shape]
-            if len(dims) != values.ndim:
-                continue
-            data_vars[name] = xr.DataArray(
-                values,
-                dims=dims,
-                attrs=field_registry.cf_attrs(name),
-            )
-
-        return xu.UgridDataset(xr.Dataset(data_vars), grids=[grid])
-
-    def to_xarray_batch(
-        self,
-        variables: tuple[str, ...] = ("head",),
-        *,
-        time_slice: slice | None = None,
-    ) -> xr.Dataset:
-        """Return a lazy :class:`xarray.Dataset` over selected variables.
-
-        Single entry point for ML pipelines that prefer ``xarray`` /
-        ``xugrid`` over raw NumPy. Backed by the simulation's Zarr store
-        (no copy on read). ``variables`` lists field-registry names to
-        include; missing fields raise ``KeyError``. ``time_slice`` is an
-        optional ``slice`` object applied to the time dimension.
-        """
-        import xarray as xr
-
-        from hydromodpy.results import field_registry
-
-        sz = self._catalog.open_zarr(self._sim_id)
-
-        def _lookup(zarr_path: str):
-            if "/" in zarr_path:
-                grp_name, var_name = zarr_path.split("/", 1)
-                grp = sz.root.get(grp_name)
-                if grp is None or var_name not in grp:
-                    return None
-                return grp[var_name]
-            return sz.root.get(zarr_path)
-
-        data_vars: dict[str, xr.DataArray] = {}
-        for name in variables:
-            desc = field_registry.get(name)
-            arr = _lookup(desc.zarr_path)
-            if arr is None:
-                raise KeyError(f"Field '{name}' not found in simulation '{self._sim_id}'")
-            shape = desc.shape
-            if shape == field_registry.SHAPE_TIME_FACE:
-                dims = ("time", "cell")
-            elif shape == field_registry.SHAPE_TIME_LAYER_FACE:
-                dims = ("time", "layer", "cell")
-            elif shape == field_registry.SHAPE_LAYER_FACE:
-                dims = ("layer", "cell")
-            elif shape == field_registry.SHAPE_FACE:
-                dims = ("cell",)
-            else:
-                dims = tuple(f"d{i}" for i in range(np.asarray(arr).ndim))
-            values = np.asarray(arr[:])
-            if time_slice is not None and dims and dims[0] == "time":
-                values = values[time_slice]
-            data_vars[name] = xr.DataArray(
-                values,
-                dims=dims,
-                attrs=field_registry.cf_attrs(name),
-            )
-        return xr.Dataset(data_vars)
 
     def fields(self, variable: str) -> Stack:
         """Stack per-timestep arrays of ``variable``.
@@ -623,38 +480,6 @@ class Run:
             "and run it manually via Project or hmp run."
         )
 
-    # -- Lazy catchment views (delegate to hydromodpy.results.views) ---------
-
-    def saturated_fraction(self, **kwargs) -> pd.Series:
-        """Lazy ``%`` of catchment cells where seepage > threshold per step."""
-        from hydromodpy.results import views
-
-        return views.saturated_fraction(self, **kwargs)
-
-    def drainage_density(self, **kwargs) -> pd.Series:
-        """Lazy ``%`` of catchment cells with positive routed drain flux."""
-        from hydromodpy.results import views
-
-        return views.drainage_density(self, **kwargs)
-
-    def persistence(self, **kwargs) -> np.ndarray:
-        """Lazy per-cell fraction of timesteps above a threshold."""
-        from hydromodpy.results import views
-
-        return views.persistence(self, **kwargs)
-
-    def catchment_mean(self, variable: str, **kwargs) -> pd.Series:
-        """Lazy arithmetic mean of a cell variable over active cells."""
-        from hydromodpy.results import views
-
-        return views.catchment_mean(self, variable, **kwargs)
-
-    def recharge_forcing(self) -> pd.Series:
-        """Lazy input recharge forcing per stress period."""
-        from hydromodpy.results import views
-
-        return views.recharge_forcing(self)
-
     # -- Display capabilities ------------------------------------------------
 
     @property
@@ -716,21 +541,3 @@ class Run:
             "<table style='font-size:0.85em;border-collapse:collapse'>"
             f"{body}</table></div>"
         )
-
-
-class _AtAccessor:
-    """Chainable helper bound to a ``(timestep, layer)`` slice."""
-
-    __slots__ = ("_run", "_timestep", "_layer")
-
-    def __init__(self, run: Run, *, timestep: int, layer: int | None):
-        self._run = run
-        self._timestep = timestep
-        self._layer = layer
-
-    def field(self, variable: str) -> np.ndarray:
-        return self._run.field(variable, timestep=self._timestep, layer=self._layer)
-
-    def __repr__(self) -> str:
-        layer_str = f", layer={self._layer}" if self._layer is not None else ""
-        return f"Run.at(timestep={self._timestep}{layer_str})"
