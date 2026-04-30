@@ -25,7 +25,7 @@ def step_save_run_artifacts(
     wall_seconds: float,
 ) -> None:
     """Save config snapshot and optional capability gallery."""
-    from hydromodpy.master_config.toml_write import dumps as dump_toml_text
+    from hydromodpy.core.toml_io.writer import dumps as dump_toml_text
 
     project_root = ctx.setup.workspace.project_root
 
