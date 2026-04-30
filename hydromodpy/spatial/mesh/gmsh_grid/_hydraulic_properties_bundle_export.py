@@ -13,7 +13,6 @@ from dataclasses import replace
 from pathlib import Path
 
 from hydromodpy.core.units.hydraulic_conductivity import parse_to_m_per_s
-from hydromodpy.spatial._protocols import get_geology_data_source
 from hydromodpy.spatial.mesh.gmsh_grid._geology_bundle_export import _build_fractions_by_cell
 from hydromodpy.spatial.mesh.gmsh_grid.bundle_export_contracts import (
     CatchmentBundleHydraulicPropertiesConfig,
@@ -23,6 +22,7 @@ from hydromodpy.spatial.mesh.gmsh_grid.bundle_export_contracts import (
     HydraulicPropertiesPayload,
     HydraulicPropertyPayload,
 )
+from hydromodpy.spatial.protocols import get_geology_data_source
 
 
 def _resolve_config_relative_path(

@@ -174,7 +174,7 @@ def _resolve_max_iter_from_kwargs(
 ) -> int:
     """Estimate a reasonable ``max_iter`` upper bound from method kwargs."""
     method_key = str(method).strip().lower()
-    if method_key == "grid_search":
+    if method_key == "grid":
         n_per_dim = int(kwargs.get("n_per_dim", 5))
         return max(1, n_per_dim ** max(1, int(n_parameters)))
     if method_key == "random_search":

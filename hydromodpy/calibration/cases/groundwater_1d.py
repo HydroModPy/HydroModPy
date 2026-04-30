@@ -46,12 +46,12 @@ from hydromodpy.calibration.optimizer import (
     build_optimizer,
 )
 from hydromodpy.calibration.parameters import CalibParameter, ParameterSpace
+from hydromodpy.core.metrics import rmse
 from hydromodpy.physics.hydrology.synthetic.forcing import (
     build_hydrological_step_series,
     build_hydrological_year_dates,
     build_recharge_from_reservoir_chronicle,
 )
-from hydromodpy.results.metrics import rmse
 
 LINEARIZED_FORMULATION = "linearized"
 BOUSSINESQ_FORMULATION = "boussinesq"

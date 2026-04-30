@@ -6,7 +6,7 @@ from collections.abc import Mapping
 from dataclasses import dataclass, field
 from typing import Any
 
-from hydromodpy.spatial._protocols import get_geology_data_source
+from hydromodpy.spatial.protocols import get_geology_data_source
 
 
 def _optional_text(raw_value: object) -> str | None:

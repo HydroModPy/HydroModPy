@@ -1,8 +1,19 @@
 """High-level Project API for interactive Python usage.
 
 Setup-once, run-many interface that wraps the launcher's internal phases
-behind a clean API.  The TOML-driven workflow (``hmp run``) is unchanged;
+behind a clean API. The TOML-driven workflow (``hmp run``) is unchanged;
 this module provides the **programmatic** equivalent.
+
+The facade is composed of three cohesive helpers:
+
+- :class:`hydromodpy.project_runner.ProjectRunner` (``project._runner``):
+  the heavy run-phase methods (``run``, ``simulate``, ``sweep``,
+  ``calibrate``, ``mesh``, ``report``, prepared-run primitives).
+- :class:`hydromodpy.project_catalog.ProjectCatalog` (``project._catalog``):
+  catalog access (``store``, ``runs``, ``data``) and lifecycle (``close``).
+- :mod:`hydromodpy.project_phases`: model-phase verbs that mutate the
+  project directly (``configure``, ``setup_workspace``, ``build_geographic``,
+  ``load_data``, ``build_mesh``).
 
 Example
 -------
@@ -23,11 +34,11 @@ from __future__ import annotations
 
 from pathlib import Path
 from typing import TYPE_CHECKING
-from uuid import uuid4
 
-from hydromodpy.core.exceptions import ConfigError, ConfigMissingError, ResumeError
 from hydromodpy.core.logging import get_logger
 from hydromodpy.project_accessors import ProjectDataAccessor, ProjectRunsAccessor
+from hydromodpy.project_catalog import ProjectCatalog
+from hydromodpy.project_runner import ProjectRunner
 
 if TYPE_CHECKING:
     from hydromodpy.core.state.data import LoadedDataContext
@@ -44,78 +55,6 @@ if TYPE_CHECKING:
     )
 
 logger = get_logger(__name__)
-
-
-DEFAULT_RUN_NAME_TEMPLATE = "run_{counter:04d}"
-
-
-def _resolve_step_index(step: str | int, steps: tuple) -> int:
-    """Resolve a step name (or integer/digit string) to a tuple index.
-
-    Accepts either the ``step.name`` attribute (snake_case, e.g.
-    ``"setup_process"``), the class name (``"SetupProcessStep"``), the
-    class-name prefix (``"setupprocess"``), or a numeric index.
-    """
-    if isinstance(step, int):
-        return step
-    text = str(step)
-    if text.isdigit():
-        return int(text)
-    lower = text.lower()
-    target = lower.removesuffix("step").rstrip("_")
-    flat = target.replace("_", "")
-    for idx, obj in enumerate(steps):
-        if getattr(obj, "name", None) == lower:
-            return idx
-        candidate = type(obj).__name__.lower().removesuffix("step").rstrip("_")
-        if candidate == flat:
-            return idx
-    known = ", ".join(type(s).__name__ for s in steps)
-    raise ConfigError(f"Unknown pipeline step: {step!r}. Known steps: {known}")
-
-
-def _resolve_resume_step_index(workspace: Path, run_id: str) -> int:
-    """Locate the next step index to execute for a previously interrupted run."""
-    from hydromodpy.workflow.internals.checkpoint import CheckpointStore
-    from hydromodpy.workflow.internals.ledger import StepsLedger
-
-    cp = CheckpointStore(workspace, run_id)
-    last = cp.latest()
-    if last is None:
-        raise ResumeError(
-            f"No checkpoints found for run_id '{run_id}' in {cp.dir}. "
-            "Start a fresh run instead of using resume."
-        )
-    resume_from = last + 1
-
-    ledger = StepsLedger(workspace)
-    last_completed = ledger.last_completed(run_id)
-    ledger.close()
-    if last_completed is not None:
-        resume_from = max(resume_from, last_completed + 1)
-    return resume_from
-
-
-def _print_dry_run_plan(
-    *,
-    run_id: str,
-    steps: tuple,
-    resume_from: int | None,
-    checkpoint: bool,
-) -> None:
-    """Emit the resolved Pipeline plan without executing any step."""
-    print(f"[dry-run] run_id    : {run_id}")
-    print(f"[dry-run] checkpoint: {'enabled' if checkpoint else 'disabled'}")
-    if resume_from is not None:
-        print(f"[dry-run] resume_from: {resume_from}")
-    print("[dry-run] steps     :")
-    for idx, step in enumerate(steps):
-        print(f"  {idx:02d}  {type(step).__name__}")
-
-
-# =====================================================================
-# Project
-# =====================================================================
 
 
 class Project:
@@ -192,6 +131,8 @@ class Project:
             headless=headless,
             no_display=no_display,
         )
+        self._runner = ProjectRunner(self)
+        self._catalog = ProjectCatalog(self)
         if not _lazy:
             self.build_geographic()
             self.load_data()
@@ -240,7 +181,7 @@ class Project:
         cfg = HydroModPyConfig.model_validate(payload)
         return cls(cfg, **kwargs)
 
-    # -- Model-phase verbs -------------------------------------------------
+    # -- Model-phase verbs (delegate to project_phases) -------------------
 
     def setup_workspace(self) -> None:
         """Materialize the workspace and structural objects (Domain, Flow, Transport)."""
@@ -273,10 +214,7 @@ class Project:
         project_phases.rebuild_geographic(self, reuse_dem=reuse_dem)
 
     def build_mesh(self, **overrides) -> None:
-        """Build the catchment mesh from the current geographic context.
-
-        ``overrides`` patch ``cfg.mesh_catchment`` before the mesh step runs.
-        """
+        """Build the catchment mesh from the current geographic context."""
         from hydromodpy import project_phases
 
         project_phases.build_mesh(self, **overrides)
@@ -284,50 +222,30 @@ class Project:
     # -- Inspection properties --------------------------------------------
 
     @property
-    def phase(self) -> str:
-        """Current model-phase: uninitialized, workspace, geographic, data, mesh, ready."""
-        return self._phase
-
-    @property
-    def has_workspace(self) -> bool:
-        return self._ctx.setup.workspace is not None
-
-    @property
-    def has_geographic(self) -> bool:
-        return self._ctx.setup.geographic is not None
-
-    @property
-    def has_data(self) -> bool:
-        return bool(self._data_loaded)
-
-    @property
     def has_mesh(self) -> bool:
+        """True once the mesh has been built for the project."""
         return self._ctx.setup.mesh_planar is not None
-
-    @property
-    def is_ready_for_run(self) -> bool:
-        return self.has_workspace and self.has_mesh and self._store is not None
 
     @property
     def data_loaded(self) -> set[str]:
         """Set of data types already loaded for this project."""
-        return set(self._data_loaded)
+        return self._catalog.data_loaded
 
     @property
     def data(self) -> ProjectDataAccessor:
         """Accessor for the input-data cache scoped to this project."""
-        return ProjectDataAccessor(self)
+        return self._catalog.data
 
     @property
     def runs(self) -> ProjectRunsAccessor:
         """Accessor for the simulation catalog scoped to this project."""
-        return ProjectRunsAccessor(self)
+        return self._catalog.runs
 
     def __getitem__(self, sim_id: str) -> Run:
         """Return the Run view associated with ``sim_id``."""
-        return self._store[sim_id]
+        return self._catalog.get(sim_id)
 
-    # -- Public properties -------------------------------------------------
+    # -- Public properties (context state) --------------------------------
 
     @property
     def geographic(self) -> CatchmentDelineation | None:
@@ -342,7 +260,7 @@ class Project:
     @property
     def store(self) -> SimulationCatalog | None:
         """Open SimulationCatalog for direct queries across all runs."""
-        return self._store
+        return self._catalog.store
 
     @property
     def time_grid(
@@ -361,50 +279,19 @@ class Project:
         """Mutable workflow runtime state threaded through workflow steps."""
         return self._ctx
 
-    # -- Run ---------------------------------------------------------------
+    # -- Run-phase API (delegates to ProjectRunner) -----------------------
 
     def prepare(self, *, name: str | None = None, **overrides) -> str:
         """Reserve a sim_id, register the simulation and persist all inputs."""
-        from hydromodpy.workflow.orchestrator import prepare_run
-
-        self._run_counter += 1
-        sim_id = str(uuid4())
-        if name is None:
-            name = DEFAULT_RUN_NAME_TEMPLATE.format(counter=self._run_counter)
-
-        thickness = overrides.pop("thickness", None)
-        first_clim = overrides.pop("first_clim", None)
-        properties = overrides.pop("properties", None)
-
-        self._ctx.store = self._store
-        final_name = prepare_run(
-            self._ctx,
-            sim_id=sim_id,
-            name=name,
-            project_name=self._project_name,
-            overrides=overrides,
-            thickness=thickness,
-            first_clim=first_clim,
-            solver=self._solver,
-            properties=properties,
-        )
-        self._active_runs[sim_id] = final_name
-        return sim_id
+        return self._runner.prepare(name=name, **overrides)
 
     def execute(self, sim_id: str) -> float:
         """Run the solver for a previously prepared simulation."""
-        from hydromodpy.workflow.orchestrator import execute_run
-
-        final_name = self._active_runs.get(sim_id, self._ctx.setup.run_id)
-        wall = execute_run(self._ctx, sim_id, final_name=final_name)
-        self._last_wall_seconds[sim_id] = wall
-        return wall
+        return self._runner.execute(sim_id)
 
     def ingest(self, sim_id: str, *, extractors: list[str] | None = None) -> None:
         """Ingest observations for a completed simulation."""
-        from hydromodpy.workflow.orchestrator import ingest_run
-
-        ingest_run(self._ctx, sim_id, extractors=extractors)
+        return self._runner.ingest(sim_id, extractors=extractors)
 
     def render(
         self,
@@ -413,19 +300,7 @@ class Project:
         figures: list[str] | None = None,
     ) -> list[Path]:
         """Render the display figures attached to this simulation."""
-        from hydromodpy.workflow.orchestrator import render_run
-
-        run = self._store[sim_id]
-        final_name = self._active_runs.get(sim_id, self._ctx.setup.run_id)
-        return render_run(
-            self._ctx,
-            sim_id,
-            run=run,
-            figures=figures,
-            headless=self._headless,
-            no_display=self._no_display,
-            run_name=final_name,
-        )
+        return self._runner.render(sim_id, figures=figures)
 
     def cleanup(
         self,
@@ -435,19 +310,11 @@ class Project:
         status: str = "completed",
     ) -> None:
         """Finalize the run status and remove the scratch directory."""
-        from hydromodpy.workflow.orchestrator import cleanup_run
-
-        wall = self._last_wall_seconds.pop(sim_id, 0.0)
-        cleanup_run(
-            self._ctx,
+        return self._runner.cleanup(
             sim_id,
             keep_solver_files=keep_solver_files,
-            wall_seconds=wall,
-            save_artifacts=False,
-            close_store=False,
             status=status,
         )
-        self._active_runs.pop(sim_id, None)
 
     def run(
         self,
@@ -469,127 +336,17 @@ class Project:
         the special keys ``thickness``, ``first_clim``, ``properties`` are
         applied to the plan before the Pipeline runs.
         """
-        from hydromodpy.workflow.internals.state import PipelineState
-        from hydromodpy.workflow.orchestrator import standard_steps
-        from hydromodpy.workflow.runner import Pipeline
-        from hydromodpy.workflow.steps.planning import step_build_plan
-
-        if frozen:
-            from hydromodpy.data.data_freeze import set_frozen_mode
-
-            set_frozen_mode(True)
-
-        skip_display = bool(self._no_display) or bool(no_display)
-
-        thickness = overrides.pop("thickness", None)
-        first_clim = overrides.pop("first_clim", None)
-        properties = overrides.pop("properties", None)
-
-        if name is None:
-            self._run_counter += 1
-            name = DEFAULT_RUN_NAME_TEMPLATE.format(counter=self._run_counter)
-
-        all_steps = standard_steps()
-        steps = all_steps
-        if until_step is not None:
-            until_idx = _resolve_step_index(until_step, all_steps)
-            steps = tuple(all_steps[: until_idx + 1])
-
-        workspace_path = self._resolve_workspace_path()
-
-        if from_step is not None:
-            resume_from: int | None = _resolve_step_index(from_step, all_steps)
-            run_id = resume or name
-        elif resume is not None:
-            resume_from = _resolve_resume_step_index(workspace_path, resume)
-            run_id = resume
-        elif self._is_model_phase_ready():
-            resume_from = _resolve_step_index("setup_process", all_steps)
-            run_id = name
-        else:
-            resume_from = None
-            run_id = name
-
-        if dry_run:
-            _print_dry_run_plan(
-                run_id=run_id,
-                steps=steps,
-                resume_from=resume_from,
-                checkpoint=checkpoint,
-            )
-            return None
-
-        step_build_plan(
-            self._ctx,
+        return self._runner.run(
             name=name,
-            overrides=overrides or {},
-            thickness=thickness,
-            first_clim=first_clim,
-            solver=self._solver,
+            checkpoint=checkpoint,
+            resume=resume,
+            from_step=from_step,
+            until_step=until_step,
+            dry_run=dry_run,
+            frozen=frozen,
+            no_display=no_display,
+            **overrides,
         )
-
-        if properties is not None:
-            self._ctx.setup.flow_runtime_overrides = {
-                "source": "project_run",
-                "properties": dict(properties),
-            }
-        else:
-            self._ctx.setup.flow_runtime_overrides = None
-
-        self._ctx.setup.run_id = name
-
-        if self._store is not None:
-            self._store.close()
-            self._store = None
-        self._ctx.store = None
-
-        initial = PipelineState(
-            run_id=run_id,
-            data={
-                "ctx": self._ctx,
-                "cfg": self.cfg,
-                "config_path": self._config_path,
-                "raw_toml": getattr(self._ctx, "raw_toml", {}) or {},
-                "skip_display": skip_display,
-                "spatial_support_registry": self._spatial_support_registry,
-                "requested_spatial_support_ids": self._requested_support_ids,
-                "requested_domain_supports": self._requested_domain_supports,
-            },
-        )
-
-        pipeline = Pipeline(steps, workspace=workspace_path, checkpoint=checkpoint)
-        try:
-            final = pipeline.run(initial, resume_from=resume_from)
-        finally:
-            from hydromodpy import project_phases
-
-            project_phases.open_catalog(self)
-
-        final_ctx = final.get("ctx") if final is not None else None
-        sim_id = getattr(final_ctx, "sim_id", None) if final_ctx is not None else None
-        if sim_id is None or self._store is None:
-            return None
-        run_view = self._store[sim_id]
-        self._run_history.append(run_view)
-        return run_view
-
-    def _is_model_phase_ready(self) -> bool:
-        """Return True when Project's eager init has produced the runtime objects."""
-        setup = self._ctx.setup
-        return (
-            setup.workspace is not None
-            and setup.geographic is not None
-            and setup.domain is not None
-        )
-
-    def _resolve_workspace_path(self) -> Path:
-        """Return the workspace root used to persist checkpoints and ledger."""
-        workspace = self._ctx.setup.workspace
-        if workspace is not None:
-            return Path(workspace.root)
-        if self._config_path is not None:
-            return self._config_path.parent
-        return Path.cwd()
 
     def sweep(
         self,
@@ -600,18 +357,12 @@ class Project:
         parallel: int = 1,
     ):
         """Run N simulations from a parameter table."""
-        from hydromodpy.results.simulation_group import SimulationGroup
-        from hydromodpy.workflow.parallel import run_sweep
-
-        if parallel != 1:
-            raise NotImplementedError("Parallel sweep requires worker pool setup")
-        sim_ids = run_sweep(
-            self,
-            parameters=parameters,
+        return self._runner.sweep(
+            parameters,
             strategy=strategy,
             name_template=name_template,
+            parallel=parallel,
         )
-        return SimulationGroup(self._store, sim_ids)
 
     def calibrate(
         self,
@@ -637,6 +388,8 @@ class Project:
           :class:`CalibrationConfig` in memory from the declarations and
           run the same loop.
         """
+        from hydromodpy.core.exceptions import ConfigMissingError
+
         if config_path is not None:
             from hydromodpy.calibration.runner import run_calibration_cli
 
@@ -704,43 +457,11 @@ class Project:
         TOML-loaded Project: the launcher consumes the source TOML directly
         to build its own runtime configs.
         """
-        if self._config_path is None:
-            raise ConfigMissingError(
-                "Project.mesh() requires Project to be loaded from a TOML "
-                "path (the mesh launcher needs the source TOML on disk)."
-            )
-        from hydromodpy.workflow.pipelines.mesh import MeshCatchmentLauncher
-
-        return MeshCatchmentLauncher(self._config_path).run()
+        return self._runner.mesh()
 
     def report(self, session_id: str | None = None) -> Path:
-        """Render the HTML report for a calibration session.
-
-        ``session_id`` accepts a full UUID, a unique hex prefix, or
-        ``None`` to fall back to the most recently started session
-        recorded in the project's catalog.
-        """
-        from hydromodpy.calibration.report import resolve_calibration_session_id
-        from hydromodpy.results.catalog import SimulationCatalog
-        from hydromodpy.workflow.steps.calibration import (
-            step_render_calibration_report,
-        )
-
-        workspace_root = self._resolve_workspace_path()
-        catalog = self._store
-        owns_catalog = catalog is None
-        if owns_catalog:
-            catalog = SimulationCatalog(workspace_root)
-        try:
-            full_id = resolve_calibration_session_id(catalog, session_id)
-            return step_render_calibration_report(
-                catalog=catalog,
-                session_id=full_id,
-                workspace_root=workspace_root,
-            )
-        finally:
-            if owns_catalog:
-                catalog.close()
+        """Render the HTML report for a calibration session."""
+        return self._runner.report(session_id)
 
     def simulate(
         self,
@@ -750,63 +471,19 @@ class Project:
         name: str | None = None,
         **overrides,
     ) -> Run:
-        """Run one simulation with orchestration specified from Python.
-
-        Equivalent to ``run()`` but lets the caller override the time window
-        and the list of processes without touching the TOML.
-        """
-        from hydromodpy.simulation.planning.config import (
-            SimulationProcessConfig,
-            SimulationTimeConfig,
+        """Run one simulation with orchestration specified from Python."""
+        return self._runner.simulate(
+            time=time,
+            processes=processes,
+            name=name,
+            **overrides,
         )
 
-        if time is not None:
-            start, end, step = time
-            self.cfg.simulation.time = SimulationTimeConfig(
-                start_datetime=start,
-                end_datetime=end,
-                step_value=step,
-                coverage_policy=getattr(self.cfg.simulation.time, "coverage_policy", "warn"),
-            )
-            from hydromodpy.core.time import (
-                apply_explicit_time_window_to_tgrids,
-                require_flow_simulation_time_grid,
-            )
-
-            apply_explicit_time_window_to_tgrids(self.cfg)
-            self._time_grid = require_flow_simulation_time_grid(self.cfg)
-            self._ctx.setup.time_grid = self._time_grid
-
-        if processes is not None:
-            resolved: list[SimulationProcessConfig] = []
-            for idx, entry in enumerate(processes):
-                if isinstance(entry, str):
-                    proc_type, solver_name = entry, self._solver
-                else:
-                    proc_type, solver_name = entry
-                resolved.append(
-                    SimulationProcessConfig(
-                        id=f"{proc_type}_{idx}",
-                        type=proc_type,
-                        solvers=[solver_name],
-                    )
-                )
-            self.cfg.simulation.process = resolved
-
-        return self.run(name=name, **overrides)
-
-    # -- Lifecycle ---------------------------------------------------------
+    # -- Lifecycle --------------------------------------------------------
 
     def close(self) -> None:
         """Close the SimulationCatalog and clean up preprocessing files."""
-        from hydromodpy.spatial.geographic.store_ingestion import (
-            cleanup_stable_folder,
-        )
-
-        cleanup_stable_folder(self.geographic)
-        if self._store is not None:
-            self._store.close()
-            self._store = None
+        self._catalog.close()
 
     def __enter__(self):
         return self

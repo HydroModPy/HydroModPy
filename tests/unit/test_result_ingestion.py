@@ -17,7 +17,9 @@ def test_step_save_run_artifacts_writes_config_snapshot(tmp_path: Path) -> None:
             "workspace": {"root": str(project_root)},
             "simulation": {"run_id": "snapshot_case"},
         },
-        cfg=SimpleNamespace(capability_gallery=SimpleNamespace(enabled=False)),
+        cfg=SimpleNamespace(
+            analysis=SimpleNamespace(capability_gallery=SimpleNamespace(enabled=False))
+        ),
         execution=SimpleNamespace(simulation_plan=SimpleNamespace(runs=[])),
         store=None,
         sim_id=None,

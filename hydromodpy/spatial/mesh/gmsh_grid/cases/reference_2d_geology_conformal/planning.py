@@ -18,7 +18,6 @@ from types import SimpleNamespace
 import geopandas as gpd
 from shapely.ops import unary_union
 
-from hydromodpy.spatial._protocols import get_geology_data_source
 from hydromodpy.spatial.geographic.core.river_mesh_trace import (
     build_river_mesh_trace_from_vector,
 )
@@ -50,6 +49,7 @@ from hydromodpy.spatial.mesh.gmsh_grid.zone_meshing.geometry_utils import (
     make_valid_geometry,
     make_valid_linework,
 )
+from hydromodpy.spatial.protocols import get_geology_data_source
 
 
 def _resolve_river_trace_for_meshing(

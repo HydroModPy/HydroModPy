@@ -181,15 +181,17 @@ def test_launcher_simulation_mf6_mesh_catchment_config_embeds_mesh_generation() 
     assert payload["data"]["recharge"]["sources"][0]["freq"] == "10D"
     assert payload["postprocess"]["flow"]["display"] is True
     assert payload["postprocess"]["flow"]["native_mesh_png"] is True
-    assert payload["capability_gallery"]["enabled"] is True
-    assert payload["capability_gallery"]["case_slug"] == "modflow6_gmsh_mesh_catchment"
+    assert payload["analysis"]["capability_gallery"]["enabled"] is True
+    assert payload["analysis"]["capability_gallery"]["case_slug"] == "modflow6_gmsh_mesh_catchment"
 
     cfg = HydroModPyConfig.from_toml(example_config)
-    assert cfg.capability_gallery.enabled is True
+    assert cfg.analysis is not None
+    assert cfg.analysis.capability_gallery is not None
+    assert cfg.analysis.capability_gallery.enabled is True
     assert cfg.modflow6.tgrid is not None
     assert cfg.modflow6.tgrid.firstpersteady is False
     assert (
-        cfg.capability_gallery.output_dir
+        cfg.analysis.capability_gallery.output_dir
         == (
             example_config.parent
             / "../../capability_gallery/launcher_simulation/modflow6_gmsh_mesh_catchment"

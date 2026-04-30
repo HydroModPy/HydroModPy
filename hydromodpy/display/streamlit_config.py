@@ -38,9 +38,9 @@ except ImportError:
 from pydantic import BaseModel, ValidationError
 from pydantic.fields import FieldInfo
 
-from hydromodpy.core.config_kit._registry import root_sections
 from hydromodpy.core.config_kit.introspect import extract_profile
 from hydromodpy.core.config_kit.profile import Profile
+from hydromodpy.core.config_kit.registry import root_sections
 from hydromodpy.core.config_kit.visible_when import VisibleWhen
 from hydromodpy.core.toml_io.generator import (
     _UNDEFINED,

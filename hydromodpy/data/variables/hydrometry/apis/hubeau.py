@@ -2,7 +2,7 @@
 
 Produces ``PointRecord`` instances from the Hub'Eau v2 hydrometrie endpoints.
 This adapter is self-contained: it manages its own HTTP calls via the
-shared ``api_helpers`` module and converts raw JSON to the standard contract.
+shared ``api_client`` module and converts raw JSON to the standard contract.
 """
 
 from __future__ import annotations
@@ -15,7 +15,7 @@ import pandas as pd
 import requests
 
 from hydromodpy.core.logging import get_logger
-from hydromodpy.data.common.api_helpers import get_json
+from hydromodpy.data.common.api_client import get_json
 from hydromodpy.data.common.progress import iter_progress, log_step
 from hydromodpy.data.contracts.location import StationLocation
 from hydromodpy.data.contracts.timeseries import PointRecord

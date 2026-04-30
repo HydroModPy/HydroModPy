@@ -31,12 +31,12 @@ def step_save_run_artifacts(
     project_root = ctx.setup.workspace.project_root
 
     snapshot_path = project_root / "_config_snapshot.toml"
-    try:
-        snapshot_path.write_text(dump_toml_text(ctx.raw_toml), encoding="utf-8")
-    except Exception:
-        pass
+    snapshot_path.write_text(dump_toml_text(ctx.raw_toml), encoding="utf-8")
 
-    gallery_cfg = getattr(ctx.cfg, "capability_gallery", None)
+    analysis_cfg = getattr(ctx.cfg, "analysis", None)
+    gallery_cfg = (
+        getattr(analysis_cfg, "capability_gallery", None) if analysis_cfg is not None else None
+    )
     if gallery_cfg is not None and getattr(gallery_cfg, "enabled", False):
         from hydromodpy.analysis.capability_gallery import (
             publish_run_to_capability_gallery,

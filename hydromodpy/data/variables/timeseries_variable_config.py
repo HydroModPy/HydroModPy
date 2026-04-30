@@ -100,13 +100,34 @@ class TimeseriesVariableConfig(BaseVariableConfig):
 
     # Re-expose the shared CSV column-name grammar at the top level of the
     # variable config so it can be overridden alongside dates.
-    col_id: Annotated[str, Profile.DEV] = Field(default="id")
-    col_x: Annotated[str, Profile.DEV] = Field(default="x")
-    col_y: Annotated[str, Profile.DEV] = Field(default="y")
-    col_crs: Annotated[str, Profile.DEV] = Field(default="crs")
-    col_datetime: Annotated[str, Profile.DEV] = Field(default="datetime")
-    col_value: Annotated[str, Profile.DEV] = Field(default="value")
-    default_crs: Annotated[str, Profile.DEV] = Field(default="EPSG:4326")
+    col_id: Annotated[str, Profile.DEV] = Field(
+        default="id",
+        description="Column name for the station identifier in location files.",
+    )
+    col_x: Annotated[str, Profile.DEV] = Field(
+        default="x",
+        description="Column name for the X coordinate in location files.",
+    )
+    col_y: Annotated[str, Profile.DEV] = Field(
+        default="y",
+        description="Column name for the Y coordinate in location files.",
+    )
+    col_crs: Annotated[str, Profile.DEV] = Field(
+        default="crs",
+        description="Column name for the CRS in location files.",
+    )
+    col_datetime: Annotated[str, Profile.DEV] = Field(
+        default="datetime",
+        description="Column name for timestamps in chronicle CSVs.",
+    )
+    col_value: Annotated[str, Profile.DEV] = Field(
+        default="value",
+        description="Column name for numeric values in chronicle CSVs.",
+    )
+    default_crs: Annotated[str, Profile.DEV] = Field(
+        default="EPSG:4326",
+        description="Default CRS used when a location file omits the CRS column.",
+    )
 
     station_ids: Annotated[list[str] | None, Profile.USER] = Field(
         default=None,

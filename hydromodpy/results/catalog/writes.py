@@ -306,12 +306,17 @@ class WritesMixin:
         *,
         project_root: Path | str | None = None,
         mf6_binary_path: Path | str | None = None,
+        rng_seed: int | None = None,
     ) -> None:
         """Capture and persist the host environment snapshot for ``sim_id``.
 
         Idempotent: re-calling overwrites the previous row. Heavy collection
         steps (``pip list``, ``cpuinfo``) tolerate failures and fall back
         to partial values rather than raising.
+
+        ``rng_seed`` is the master seed driving ``RngManager``. Pass the
+        same value to reproduce stochastic stages (mesh sampling, random
+        forcing, calibration draws) from the catalog snapshot.
         """
         if not self._persistence.save_catalog:
             return
@@ -325,8 +330,9 @@ class WritesMixin:
             """INSERT OR REPLACE INTO runs_environment
                (sim_id, python_version, hydromodpy_version, platform,
                 hostname, user_name, cpu_info, memory_gb,
-                git_commit, project_git_commit, mf6_binary_sha256, env_packages)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                git_commit, project_git_commit, mf6_binary_sha256,
+                mf6_version_text, conda_env_hash, env_packages, rng_seed)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
             [
                 str(sim_id),
                 snap.get("python_version"),
@@ -339,7 +345,10 @@ class WritesMixin:
                 snap.get("git_commit"),
                 snap.get("project_git_commit"),
                 snap.get("mf6_binary_sha256"),
+                snap.get("mf6_version_text"),
+                snap.get("conda_env_hash"),
                 json.dumps(snap.get("env_packages") or []),
+                None if rng_seed is None else int(rng_seed),
             ],
         )
 

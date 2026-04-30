@@ -416,15 +416,3 @@ def test_validate_resolved_field_param_data_accepts_vertical_profile_alias_with_
     assert payload["vertical_profile"]["mode"] == "exponential"
     assert float(payload["vertical_profile"]["characteristic_depth"]) == pytest.approx(50.0)
     assert float(payload["vertical_profile"]["min_factor"]) == pytest.approx(0.01)
-
-
-def test_validate_resolved_field_param_data_accepts_units_alias():
-    payload = validate_resolved_field_param_data(
-        {
-            "id": "Ss",
-            "kind": "homogeneous",
-            "units": "1/m",
-            "value": 1e-6,
-        }
-    )
-    assert payload["unit"] == "m-1"

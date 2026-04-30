@@ -64,7 +64,6 @@ CalibrationMethod = Literal[
     "scipy_de",
     "scipy_nelder_mead",
     "grid",
-    "grid_search",
     "random_search",
     "simplex",
     "cma_es",

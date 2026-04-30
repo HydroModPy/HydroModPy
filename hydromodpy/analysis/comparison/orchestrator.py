@@ -41,6 +41,7 @@ from hydromodpy.analysis.comparison.runtime_observables import (
 from hydromodpy.analysis.comparison.visuals import generate_comparison_figures
 from hydromodpy.core.toml_io.loader import load_toml_with_base_config
 from hydromodpy.master_config.hydromodpy_config import HydroModPyConfig
+from hydromodpy.project import Project
 
 
 class MethodComparisonLauncher:
@@ -264,8 +265,6 @@ class MethodComparisonLauncher:
         try:
             config_path = materialize_variant_config(cfg=self.cfg, variant=variant)
             if section.run_variants and config_path is not None:
-                from hydromodpy.project import Project
-
                 start = time.monotonic()
                 project = Project(config_path)
                 project.run()

@@ -11,7 +11,7 @@ from hydromodpy.core.config_kit.base import HydroModelBase
 from hydromodpy.core.config_kit.profile import Profile
 from hydromodpy.core.units import normalize_time_unit, parse_scalar_and_unit
 from hydromodpy.results.config import ResultsConfig
-from hydromodpy.solver.base.registry import known_process_types
+from hydromodpy.simulation._solver_protocol import get_solver_registry_provider
 
 _VALID_STEP_UNITS = {"hour", "day", "month", "year"}
 _STEP_UNIT_ALIASES = {
@@ -172,7 +172,7 @@ class SimulationProcessConfig(HydroModelBase):
         cleaned = value.strip().lower()
         if not cleaned:
             raise ValueError("Process type cannot be empty.")
-        registered = known_process_types()
+        registered = get_solver_registry_provider().known_process_types()
         if cleaned not in registered:
             raise ValueError(
                 f"Unknown process type '{cleaned}'. "
@@ -295,6 +295,18 @@ class SimulationConfig(HydroModelBase):
             "Results storage and export configuration loaded from "
             "[simulation.results]. Controls SimulationCatalog, derived variables, "
             "and automated exports."
+        ),
+    )
+    rng_seed: Annotated[int | None, Profile.USER] = Field(
+        default=None,
+        ge=0,
+        description=(
+            "Master RNG seed for the simulation. When set, every stochastic "
+            "consumer (mesh point sampling, synthetic forcing, ...) derives "
+            "its own deterministic sub-seed via "
+            "``hydromodpy.core.rng.RngManager``. Persisted in "
+            "``runs_environment.rng_seed`` so the run can be re-executed "
+            "from the catalog snapshot."
         ),
     )
 

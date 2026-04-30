@@ -17,7 +17,6 @@ import numpy as np
 from shapely.geometry.base import BaseGeometry
 from shapely.ops import unary_union
 
-from hydromodpy.spatial._protocols import get_geology_data_source
 from hydromodpy.spatial.mesh.gmsh_grid._deps import require_gmsh as _require_gmsh
 from hydromodpy.spatial.mesh.gmsh_grid.trace import trace_mesh_stage
 from hydromodpy.spatial.mesh.gmsh_grid.zone_meshing._build_context import (
@@ -82,6 +81,7 @@ from hydromodpy.spatial.mesh.gmsh_grid.zone_meshing.contracts import (
     ZonePartitionFace,
     ZoneRegionalSizeField,
 )
+from hydromodpy.spatial.protocols import get_geology_data_source
 
 # ---------------------------------------------------------------------------
 # Partition builder

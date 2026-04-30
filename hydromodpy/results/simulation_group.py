@@ -6,8 +6,9 @@ Iterable, filterable view over a list of ``sim_id`` resolved against a single
 ``SimulationCatalog``. Builds pivoted ``parameters`` and ``metrics`` frames,
 ranks runs (``best``, ``worst``, ``sort_by``), compares scalar metrics across
 simulations (``compare``), exports tabular bundles (``to_dataframe``,
-``to_csv``), stacks field arrays into an ``xarray.DataArray``
-(``to_xarray``), and narrows the set with ``filter(**criteria)``.
+``to_csv``), stacks field arrays lazily into an ``xarray.DataArray``
+(``to_xarray``, dask-backed), streams runs as tensors
+(``to_torch_dataset``), and narrows the set with ``filter(**criteria)``.
 
 Why
 ---
@@ -25,7 +26,8 @@ Cross-refs
 ----------
 - ``hydromodpy.results.catalog.SimulationCatalog`` is the upstream owner.
 - ``hydromodpy.results.run.Run`` is the unit element of the group.
-- ``to_xarray`` defers to per-run ``Run.field`` reads.
+- ``to_xarray`` opens each per-sim Zarr lazily (dask-backed concat).
+- ``to_torch_dataset`` streams runs as :class:`torch.Tensor` items.
 """
 
 from __future__ import annotations
@@ -35,10 +37,67 @@ from typing import TYPE_CHECKING
 import pandas as pd
 
 if TYPE_CHECKING:
+    from collections.abc import Iterator
     from pathlib import Path
+
+    import xarray as xr
 
     from hydromodpy.results.catalog import SimulationCatalog
     from hydromodpy.results.run import Run
+
+
+def _open_simulation_lazy(catalog: SimulationCatalog, sim_id: str) -> xr.Dataset:
+    """Open one simulation's Zarr root as a lazy ``xr.Dataset``.
+
+    Wraps each registered field's Zarr array in ``dask.array.from_array``
+    so that the returned dataset is fully lazy: nothing is read until the
+    caller materialises slices. Dimensions are read from the field
+    registry, not Zarr metadata, so we don't depend on
+    ``dimension_names`` (which HydroModPy stores don't carry).
+    """
+    import dask.array as da
+    import xarray as xr
+    import zarr
+
+    from hydromodpy.results import field_registry
+
+    zarr_path = catalog.zarr_path_for(sim_id)
+    if str(zarr_path).endswith(".zarr.zip"):
+        store = zarr.storage.ZipStore(str(zarr_path), mode="r")
+        root = zarr.open_group(store, mode="r")
+    else:
+        store = zarr.storage.LocalStore(str(zarr_path))
+        root = zarr.open_group(store, mode="r")
+
+    shape_to_dims = {
+        field_registry.SHAPE_TIME_LAYER_FACE: ("time", "layer", "face"),
+        field_registry.SHAPE_TIME_FACE: ("time", "face"),
+        field_registry.SHAPE_LAYER_FACE: ("layer", "face"),
+        field_registry.SHAPE_FACE: ("face",),
+        field_registry.SHAPE_PARTICLES: ("time", "particle"),
+    }
+
+    data_vars: dict[str, xr.DataArray] = {}
+    for name, desc in field_registry.FIELD_REGISTRY.items():
+        path = desc.zarr_path
+        if "/" in path:
+            group_name, var_name = path.split("/", 1)
+            group = root.get(group_name)
+            if group is None or var_name not in group:
+                continue
+            arr = group[var_name]
+        else:
+            if path not in root:
+                continue
+            arr = root[path]
+        dims = shape_to_dims.get(desc.shape, ())
+        if len(dims) != arr.ndim:
+            dims = tuple(f"dim_{i}" for i in range(arr.ndim))
+        chunks = arr.chunks if arr.chunks else "auto"
+        dask_arr = da.from_array(arr, chunks=chunks)
+        data_vars[name] = xr.DataArray(dask_arr, dims=dims, attrs=dict(arr.attrs))
+
+    return xr.Dataset(data_vars)
 
 
 class SimulationGroup:
@@ -228,15 +287,15 @@ class SimulationGroup:
     def to_csv(self, path: Path | str) -> None:
         self.to_dataframe().to_csv(str(path), index=False)
 
-    def to_xarray(self, variable: str, *, dim: str = "sim"):
-        """Return a stacked :class:`xarray.DataArray` of ``variable`` across sims.
+    def to_xarray(self, variable: str, *, dim: str = "sim") -> xr.DataArray:
+        """Return a lazy stacked ``xarray.DataArray`` of ``variable`` across sims.
 
-        Every simulation in the group is opened, its
-        :meth:`SimulationZarr.to_xarray` dataset is queried for ``variable``,
-        and the results are concatenated along a new ``dim`` whose coordinate
-        values are the simulation ids. Simulations that do not carry the
-        variable are skipped with a warning; if none match, an empty
-        ``xarray.DataArray`` is returned.
+        Each per-simulation Zarr store is opened with ``xr.open_zarr`` (dask
+        backend) and arrays are concatenated along ``dim`` whose coordinate
+        values are the simulation ids. Nothing is read into memory until the
+        caller materialises the array (``.compute()``, ``.values``, slicing,
+        etc.). Simulations that lack the variable are skipped silently; if
+        none match, an empty :class:`xarray.DataArray` is returned.
 
         Parameters
         ----------
@@ -251,11 +310,10 @@ class SimulationGroup:
         arrays: list[xr.DataArray] = []
         sim_ids: list[str] = []
         for sid in self._sim_ids:
-            sz = self._catalog.open_zarr(sid)
             try:
-                ds = sz.to_xarray()
-            finally:
-                sz.close()
+                ds = _open_simulation_lazy(self._catalog, sid)
+            except (KeyError, FileNotFoundError, OSError):
+                continue
             if variable not in ds.data_vars:
                 continue
             arrays.append(ds[variable])
@@ -263,10 +321,65 @@ class SimulationGroup:
 
         if not arrays:
             return xr.DataArray(name=variable)
-        stacked = xr.concat(arrays, dim=dim)
+        stacked = xr.concat(
+            arrays,
+            dim=dim,
+            combine_attrs="drop_conflicts",
+            coords="minimal",
+            compat="override",
+        )
         stacked = stacked.assign_coords({dim: sim_ids})
         stacked.name = variable
         return stacked
+
+    def to_torch_dataset(
+        self,
+        variables: list[str],
+        *,
+        timestep: int | None = None,
+        layer: int | None = None,
+    ):
+        """Return a :class:`torch.utils.data.IterableDataset` streaming runs.
+
+        Each item yielded is a ``dict[str, torch.Tensor]`` keyed by entries
+        in ``variables`` (Zarr field names). Reads are streamed: only the
+        active simulation's slab is loaded at iteration time, so memory
+        footprint is O(one run) regardless of cohort size.
+
+        Parameters
+        ----------
+        variables
+            Field names to materialise per item.
+        timestep
+            Optional timestep index (negative = from end). ``None`` returns
+            the full time axis when present.
+        layer
+            Optional layer index. ``None`` returns the full layer axis when
+            present.
+
+        Raises
+        ------
+        ImportError
+            When :mod:`torch` is not installed. The error is a
+            :class:`hydromodpy.results.catalog.discovery.MissingMLDependencyError`.
+        """
+        try:
+            cls = _build_torch_iterable_dataset_class()
+        except ImportError as exc:
+            from hydromodpy.results.catalog.discovery import MissingMLDependencyError
+
+            raise MissingMLDependencyError(
+                "torch",
+                hint="install PyTorch (`pip install torch`) to stream runs as tensors",
+            ) from exc
+
+        return cls(
+            sim_ids=list(self._sim_ids),
+            catalog=self._catalog,
+            variables=list(variables),
+            timestep=timestep,
+            layer=layer,
+        )
 
     # -- Filter --------------------------------------------------------------
 
@@ -297,3 +410,69 @@ class SimulationGroup:
         except Exception:
             head = ""
         return f"<div><b>SimulationGroup</b> ({self.count} simulations)</div>{head}"
+
+
+_TORCH_DATASET_CLASS_CACHE: type | None = None
+
+
+def _build_torch_iterable_dataset_class() -> type:
+    """Build (once) and return the torch-aware IterableDataset subclass.
+
+    The class is constructed at first call so importing this module never
+    requires :mod:`torch`. The cached class is reused by every
+    :meth:`SimulationGroup.to_torch_dataset` invocation.
+    """
+    global _TORCH_DATASET_CLASS_CACHE
+    if _TORCH_DATASET_CLASS_CACHE is not None:
+        return _TORCH_DATASET_CLASS_CACHE
+
+    import numpy as np
+    import torch
+    from torch.utils.data import IterableDataset
+
+    class _TorchSimulationIterableDataset(IterableDataset):
+        """Streaming dataset yielding ``{var: tensor, "sim_id": str}`` per run."""
+
+        def __init__(
+            self,
+            *,
+            sim_ids: list[str],
+            catalog: SimulationCatalog,
+            variables: list[str],
+            timestep: int | None,
+            layer: int | None,
+        ) -> None:
+            super().__init__()
+            self._sim_ids = sim_ids
+            self._catalog = catalog
+            self._variables = variables
+            self._timestep = timestep
+            self._layer = layer
+
+        def __iter__(self) -> Iterator[dict]:
+            for sid in self._sim_ids:
+                try:
+                    ds = _open_simulation_lazy(self._catalog, sid)
+                except (KeyError, FileNotFoundError, OSError):
+                    continue
+                sample: dict[str, object] = {"sim_id": sid}
+                keep = True
+                for variable in self._variables:
+                    if variable not in ds.data_vars:
+                        keep = False
+                        break
+                    arr = ds[variable]
+                    if self._timestep is not None and "time" in arr.dims:
+                        arr = arr.isel(time=self._timestep)
+                    if self._layer is not None and "layer" in arr.dims:
+                        arr = arr.isel(layer=self._layer)
+                    values = np.ascontiguousarray(arr.values)
+                    sample[variable] = torch.from_numpy(values)
+                if keep:
+                    yield sample
+
+        def __len__(self) -> int:
+            return len(self._sim_ids)
+
+    _TORCH_DATASET_CLASS_CACHE = _TorchSimulationIterableDataset
+    return _TorchSimulationIterableDataset

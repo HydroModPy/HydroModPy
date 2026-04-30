@@ -14,6 +14,7 @@ from hydromodpy.workflow.internals.state import OpenStoreState, PipelineState, S
 
 if TYPE_CHECKING:
     from hydromodpy.physics.flow import Flow
+    from hydromodpy.results.catalog.protocol import SimulationStore
     from hydromodpy.simulation.planning.plan import SimulationPlan
     from hydromodpy.spatial.domain import Domain
     from hydromodpy.workflow.context import WorkflowContext
@@ -27,7 +28,7 @@ logger = get_logger(__name__)
 
 
 def step_persist_params(
-    store,
+    store: SimulationStore,
     sim_id: str,
     flow: Flow,
     *,
@@ -161,10 +162,7 @@ def collect_registration_kwargs(ctx: WorkflowContext) -> dict:
     if getattr(ctx, "config_path", None) is not None:
         kwargs["config_source"] = str(ctx.config_path)
 
-    try:
-        kwargs["config"] = ctx.cfg.model_dump(mode="json")
-    except Exception:
-        pass
+    kwargs["config"] = ctx.cfg.model_dump(mode="json")
 
     mesh = ctx.setup.mesh_planar
     if mesh is not None:
@@ -236,7 +234,12 @@ def step_register_simulation(
 
     try:
         project_root = getattr(getattr(ctx.setup, "workspace", None), "project_root", None)
-        ctx.store.write_run_environment(sim_id, project_root=project_root)
+        rng_seed = getattr(ctx.cfg.simulation, "rng_seed", None)
+        ctx.store.write_run_environment(
+            sim_id,
+            project_root=project_root,
+            rng_seed=rng_seed,
+        )
     except Exception:
         logger.exception("Failed to capture run environment for sim %s", short)
     return final_name
@@ -308,7 +311,12 @@ def step_open_store(ctx: WorkflowContext) -> None:
 
     try:
         project_root = getattr(workspace, "project_root", None)
-        ctx.store.write_run_environment(ctx.sim_id, project_root=project_root)
+        rng_seed = getattr(ctx.cfg.simulation, "rng_seed", None)
+        ctx.store.write_run_environment(
+            ctx.sim_id,
+            project_root=project_root,
+            rng_seed=rng_seed,
+        )
     except Exception:
         logger.exception("Failed to capture run environment for sim %s", ctx.sim_id[:8])
 

@@ -186,8 +186,9 @@ piézo-débit, moyenne multi-site) sans toucher à l'engine.
 
 ## 9. Metric
 
-Emplacement : `hydromodpy/calibration/metrics.py` (registre),
-`hydromodpy/results/metrics.py` (persistance).
+Emplacement : `hydromodpy/core/metrics/` (canon : NSE, KGE, RMSE, MAE,
+log-NSE, bias, pbias, correlation), `hydromodpy/calibration/metrics.py`
+(extracteur trial-side `build_metric_extractor`).
 
 Une `Metric` est un callable qui compare une série simulée à une série
 observée :

@@ -71,7 +71,7 @@ class TestSimulationMetadata:
         cfg = {"flow": {"K": 1.5}}
         sid = _register(catalog, config=cfg)
         sim = Run(sid, catalog)
-        assert sim.config == cfg
+        assert sim.config_snapshot == cfg
 
     def test_tags(self, catalog):
         sid = _register(catalog, tags=["fast", "test"])

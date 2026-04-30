@@ -57,10 +57,13 @@ def test_runner_ensures_process_context_before_before_process_callback(monkeypat
         ("flow", "modflownwt"): flow_adapter,
         ("transport", "mt3dms"): transport_adapter,
     }
-    monkeypatch.setattr(
-        "hydromodpy.simulation.execution.runner.get_solver_adapter",
-        lambda process_type, solver_name: adapters[(process_type, solver_name)],
-    )
+    from hydromodpy.simulation import _solver_protocol
+
+    class _FakeProvider:
+        def get_solver_adapter(self, process_type, solver_name):
+            return adapters[(process_type, solver_name)]
+
+    monkeypatch.setattr(_solver_protocol, "_PROVIDER", _FakeProvider())
 
     observations: dict[str, tuple[bool, bool]] = {}
     state = _build_state()

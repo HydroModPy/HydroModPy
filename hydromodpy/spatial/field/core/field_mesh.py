@@ -20,6 +20,8 @@ from typing import Any
 
 import numpy as np
 
+from hydromodpy.core.rng import RngManager
+
 
 @dataclass(frozen=True)
 class MeshCell:
@@ -216,9 +218,15 @@ class FieldMesh(ABC):
         *,
         target_n_cells: int,
         mesh_kind: str = "structured",
-        seed: int = 42,
+        rng_manager: RngManager | None = None,
     ) -> BaseFieldMesh:
-        """Build a mesh instance from unit-square settings."""
+        """Build a mesh instance from unit-square settings.
+
+        ``rng_manager`` drives stochastic mesh kinds (e.g.
+        ``triangular_unstructured``). When omitted, a fixed default seed is
+        used for compatibility with non-stochastic mesh kinds and
+        deterministic test fixtures.
+        """
 
     @classmethod
     @abstractmethod

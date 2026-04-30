@@ -41,8 +41,8 @@ from hydromodpy.calibration.diagnostics import (  # noqa: E402
     iterations_to_dataframe,
     parameter_correlation,
 )
+from hydromodpy.core.metrics import kge as _kge_metric  # noqa: E402
 from hydromodpy.display import get as get_figure  # noqa: E402
-from hydromodpy.results.metrics import kge as _kge_metric  # noqa: E402
 
 GOLDEN_FILE = (
     Path(__file__).resolve().parent / "golden" / "calibration_brutsaert_methods_golden.json"

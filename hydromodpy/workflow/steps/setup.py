@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING, ClassVar
 
 from hydromodpy.core.exceptions import ConfigError
 from hydromodpy.core.logging import get_logger
+from hydromodpy.core.rng import RngManager
 from hydromodpy.core.workspace import Workspace
 from hydromodpy.core.workspace.path_registry import PREPROCESSING_DIR
 from hydromodpy.simulation import ensure_flow, ensure_transport
@@ -355,6 +356,11 @@ def run_setup(
 
         toml_path = run_state.config_path
         setup_state.run_id = re.sub(r"^run_", "", Path(toml_path).stem) if toml_path else "default"
+
+    rng_seed = getattr(cfg.simulation, "rng_seed", None)
+    run_state.execution.rng = (
+        RngManager(master_seed=int(rng_seed)) if rng_seed is not None else None
+    )
 
     # Eagerly create Flow/Transport so data binders can reference them.
     ensure_flow(run_state)

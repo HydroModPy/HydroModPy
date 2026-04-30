@@ -131,7 +131,7 @@ def test_build_zone_source_inputs_loads_geology_once(monkeypatch) -> None:
         def to_mapping(self):
             return {"source": {"kind": "vector", "path": "geology.shp"}}
 
-    from hydromodpy.spatial import _protocols as spatial_protocols
+    from hydromodpy.spatial import protocols as spatial_protocols
 
     real_data_source = spatial_protocols.get_geology_data_source()
 

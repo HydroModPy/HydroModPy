@@ -1,17 +1,16 @@
-"""Run a deterministic intermittency-only case from a TOML configuration."""
+"""Run a deterministic intermittency-only case from a TOML configuration.
+
+Run with:
+    python -m hydromodpy.data.variables.intermittency.cases.run_intermittency_case
+"""
 
 from __future__ import annotations
 
 import argparse
 import json
-import sys
 import tomllib
 from pathlib import Path
 from typing import Any
-
-repo_root = Path(__file__).resolve().parents[5]
-if (repo_root / "hydromodpy").exists() and str(repo_root) not in sys.path:
-    sys.path.insert(0, str(repo_root))
 
 from hydromodpy.data.variables.intermittency.config import (
     IntermittencyConfig,

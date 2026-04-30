@@ -67,6 +67,7 @@ dependencies = [
     "rioxarray>=0.22.0,<1",
     "scikit-learn>=1.8.0,<2",
     "scipy>=1.17.1,<2",
+    "shapely>=2,<3",
     "cma>=4.4.4,<5",
     "optuna>=4.8.0,<5",
     "selenium>=4.43.0,<5",
