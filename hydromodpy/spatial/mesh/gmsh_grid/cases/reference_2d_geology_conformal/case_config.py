@@ -8,7 +8,6 @@ from typing import Any
 
 from hydromodpy.core.toml_io.loader import load_toml_with_base_config
 from hydromodpy.core.toml_io.paths import get_nested_section
-from hydromodpy.spatial._protocols import get_geology_data_source
 from hydromodpy.spatial.mesh.gmsh_grid import (
     parse_zone_meshing_domain_config,
     parse_zone_meshing_settings,
@@ -25,6 +24,7 @@ from hydromodpy.spatial.mesh.gmsh_grid.cases.reference_2d_geology_conformal.cont
 )
 from hydromodpy.spatial.mesh.gmsh_grid.zone_meshing.config import ZoneMeshingSettings
 from hydromodpy.spatial.mesh.gmsh_grid.zone_meshing.domain import ZoneMeshingDomainConfig
+from hydromodpy.spatial.protocols import get_geology_data_source
 
 
 def _resolve_constraints_mode(raw_value: Any) -> str:

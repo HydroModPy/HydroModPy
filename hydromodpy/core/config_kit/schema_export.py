@@ -37,7 +37,7 @@ import json
 from pathlib import Path
 from typing import Any
 
-from hydromodpy.core.config_kit._registry import root_sections as _root_sections
+from hydromodpy.core.config_kit.registry import root_sections as _root_sections
 
 
 def _ensure_root_sections() -> dict[str, type]:

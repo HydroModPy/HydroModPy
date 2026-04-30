@@ -39,12 +39,12 @@ from typing import Any
 import numpy as np
 from rasterio.transform import rowcol
 
-from hydromodpy.spatial._protocols import get_geology_data_source
 from hydromodpy.spatial.field.core.field_mesh import BaseFieldMesh
 from hydromodpy.spatial.field.core.field_spatial import Field
 from hydromodpy.spatial.field.core.field_spatial_weighted_discretization import (
     WeightedAverageFieldDiscretization,
 )
+from hydromodpy.spatial.protocols import get_geology_data_source
 
 
 @cache

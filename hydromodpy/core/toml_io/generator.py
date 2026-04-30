@@ -32,9 +32,9 @@ from typing import Any, get_args, get_origin
 from pydantic import BaseModel
 from pydantic.fields import FieldInfo
 
-from hydromodpy.core.config_kit._registry import root_sections
 from hydromodpy.core.config_kit.introspect import extract_profile, resolve_profile
 from hydromodpy.core.config_kit.profile import Profile
+from hydromodpy.core.config_kit.registry import root_sections
 
 
 def available_modules() -> list[str]:

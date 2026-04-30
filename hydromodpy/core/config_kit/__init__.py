@@ -14,6 +14,7 @@ from __future__ import annotations
 
 from hydromodpy.core.config_kit.base import HydroModelBase
 from hydromodpy.core.config_kit.profile import Profile
+from hydromodpy.core.config_kit.registry import root_sections
 from hydromodpy.core.config_kit.visible_when import PROFILES, VisibleWhen
 
-__all__ = ["HydroModelBase", "PROFILES", "Profile", "VisibleWhen"]
+__all__ = ["HydroModelBase", "PROFILES", "Profile", "VisibleWhen", "root_sections"]

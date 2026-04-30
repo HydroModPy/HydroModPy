@@ -7,7 +7,6 @@ from pathlib import Path
 from shapely.geometry import Polygon, box
 from shapely.ops import unary_union
 
-from hydromodpy.spatial._protocols import get_geology_data_source
 from hydromodpy.spatial.mesh.gmsh_grid.zone_meshing._domain_contracts import (
     ZoneMeshingDomainConfig,
     ZoneMeshingDomainPayload,
@@ -16,6 +15,7 @@ from hydromodpy.spatial.mesh.gmsh_grid.zone_meshing._domain_geometry import (
     geometry_to_summary_payload,
     normalize_polygonal_domain_geometry,
 )
+from hydromodpy.spatial.protocols import get_geology_data_source
 
 
 def load_zone_meshing_domain_payload_impl(

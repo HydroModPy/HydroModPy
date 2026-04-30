@@ -12,13 +12,13 @@ from typing import Any
 
 import numpy as np
 
-from hydromodpy.spatial._protocols import get_geology_data_source
 from hydromodpy.spatial.field.geology.geology_field import GeologyField
 from hydromodpy.spatial.mesh.gmsh_grid.bundle_export_contracts import (
     CatchmentBundleGeologyExportConfig,
     GeologyFractionRow,
     GeologyProjectionPayload,
 )
+from hydromodpy.spatial.protocols import get_geology_data_source
 
 
 def _build_fractions_by_cell(
