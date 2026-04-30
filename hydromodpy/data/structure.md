@@ -55,7 +55,7 @@ data_managers/
 ├── common/                     # Utilitaires partages
 │   ├── base_manager.py         # BaseVariableManager (donnees ponctuelles)
 │   ├── base_field_manager.py   # BaseFieldManager (donnees grille)
-│   ├── api_helpers.py          # HTTP retry / pagination
+│   ├── api_client.py           # HTTP retry / pagination
 │   ├── io_helpers.py           # Parsing fichiers, lecture CSV/LOC
 │   ├── geo_helpers.py          # Bbox, haversine, masques spatiaux
 │   ├── unit_helpers.py         # Conversions d'unites
@@ -655,7 +655,7 @@ de continuer ou d'echouer.
 
 ## 11. Utilitaires communs
 
-### API (`api_helpers.py`)
+### API (`api_client.py`)
 - `get_json()` : GET + retry exponentiel (3 essais, backoff x2)
 - `paginate_json()` : pagination automatique (`page_size=1000`)
 

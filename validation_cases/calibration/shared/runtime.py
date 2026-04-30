@@ -38,7 +38,7 @@ def _short_digest(text: str, *, size: int = 8) -> str:
 def _compact_method_code(method_name: str) -> str:
     """Return one short readable code for a calibration method."""
     mapping = {
-        "grid_search": "gs",
+        "grid": "gs",
         "random_search": "rs",
         "simplex": "sx",
         "cma_es": "cma",
@@ -320,7 +320,7 @@ def _apply_evaluation_budget(
 
     kwargs = dict(profile.method_kwargs)
     method = str(profile.name).strip().lower()
-    if method == "grid_search":
+    if method == "grid":
         n_per_dim = max(1, int(budget ** (1.0 / max(1, n_parameters))))
         kwargs["n_per_dim"] = int(n_per_dim)
     elif method == "random_search":

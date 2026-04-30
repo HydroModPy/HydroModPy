@@ -83,14 +83,14 @@ def test_calibration_twin_dupuit_fixed_head_modflow6_fast_grid_search_smoke() ->
     benchmark = run_lightweight_twin_benchmark_case(
         STEADY_DUPUIT_TWIN_CASE,
         caller_file=__file__,
-        method_names=("grid_search",),
+        method_names=("grid",),
         evaluation_budget=6,
     )
 
     assert benchmark.observations_truth["q_east"]
     assert len(benchmark.method_results) == 1
     result = benchmark.method_results[0]
-    assert result.method_name == "grid_search"
+    assert result.method_name == "grid"
     assert result.requested_evaluation_budget == 6
     assert result.n_evaluations == 6
     assert result.meets_success_target, result.to_mapping()

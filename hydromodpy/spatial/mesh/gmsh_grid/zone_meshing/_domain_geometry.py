@@ -4,13 +4,9 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 
+from shapely import make_valid
 from shapely.geometry import GeometryCollection, MultiPolygon, Polygon
 from shapely.ops import unary_union
-
-try:  # Shapely >= 2
-    from shapely import make_valid as _shapely_make_valid
-except ImportError:  # pragma: no cover - depends on environment
-    from shapely.validation import make_valid as _shapely_make_valid  # type: ignore[no-redef]
 
 
 def make_valid_geometry(geometry):
@@ -19,7 +15,7 @@ def make_valid_geometry(geometry):
         return GeometryCollection()
     if geometry.is_empty:
         return geometry
-    fixed = _shapely_make_valid(geometry)
+    fixed = make_valid(geometry)
     if fixed.is_empty:
         return fixed
     try:

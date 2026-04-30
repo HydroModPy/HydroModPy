@@ -321,7 +321,7 @@ STEADY_DUPUIT_TWIN_CASE = TwinCalibrationCaseDefinition(
     output_names=("q_east",),
     method_profiles=(
         CalibrationMethodProfile(
-            name="grid_search",
+            name="grid",
             method_kwargs={"n_per_dim": 11},
             persist_model_distribution=False,
         ),
@@ -437,7 +437,7 @@ STEADY_DUPUIT_MESH_PERTURBED_TWIN_CASE = TwinCalibrationCaseDefinition(
     output_names=("head_mid", "q_east"),
     method_profiles=(
         CalibrationMethodProfile(
-            name="grid_search",
+            name="grid",
             method_kwargs={"n_per_dim": 11},
             persist_model_distribution=False,
         ),
@@ -486,7 +486,7 @@ STEADY_DUPUIT_NOISY_TWIN_CASE = TwinCalibrationCaseDefinition(
     output_names=("q_east",),
     method_profiles=(
         CalibrationMethodProfile(
-            name="grid_search",
+            name="grid",
             method_kwargs={"n_per_dim": 11},
             persist_model_distribution=False,
         ),

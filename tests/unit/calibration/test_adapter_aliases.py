@@ -2,7 +2,7 @@
 
 Covers Phase 4 of the calibration integration:
 
-- ``grid`` and ``grid_search`` resolve to the same GridAdapter class.
+- ``grid`` resolves to the GridAdapter class.
 - ``simplex`` / ``nelder_mead`` / ``scipy_nelder_mead`` all resolve to the
   scipy Nelder-Mead adapter.
 - ``random_search`` matches the legacy numpy default_rng sampling path.
@@ -35,9 +35,8 @@ def _two_dim_space() -> ParameterSpace:
 
 
 class TestAdapterAliases:
-    @pytest.mark.parametrize("alias", ["grid", "grid_search"])
-    def test_grid_aliases(self, alias: str):
-        opt = build_optimizer(alias, _two_dim_space())
+    def test_grid_resolves(self):
+        opt = build_optimizer("grid", _two_dim_space())
         assert opt.name == "grid"
 
     @pytest.mark.parametrize("alias", ["simplex", "nelder_mead", "scipy_nelder_mead"])
@@ -68,7 +67,7 @@ class TestAdapterAliases:
 
 class TestGridLegacyKwargs:
     def test_n_per_dim_alias(self):
-        opt = build_optimizer("grid_search", _two_dim_space(), n_per_dim=3)
+        opt = build_optimizer("grid", _two_dim_space(), n_per_dim=3)
         suggestions = opt.ask(n=9)  # 3 x 3 grid
         values_x = [s.values["x"] for s in suggestions]
         values_y = [s.values["y"] for s in suggestions]

@@ -723,29 +723,14 @@ def validate_resolved_field_param_data(
         raise ValueError("resolved field parameter payload must be a mapping")
 
     payload = dict(config_data)
-    if "id" not in payload and "identifier" in payload:
-        payload["id"] = payload["identifier"]
-    if "kind" not in payload and "mode" in payload:
-        payload["kind"] = payload["mode"]
-    if "unit" not in payload and "units" in payload:
-        payload["unit"] = payload["units"]
-    if "values" not in payload and "values_by_key" in payload:
-        payload["values"] = payload["values_by_key"]
     if "vertical_profile" not in payload and "field_vertical_profile" in payload:
         payload["vertical_profile"] = payload["field_vertical_profile"]
-
-    # Drop alias keys after normalization so strict schema validation
-    # (`extra="forbid"`) does not reject legacy/alternate names.
-    payload.pop("identifier", None)
-    payload.pop("mode", None)
-    payload.pop("units", None)
-    payload.pop("values_by_key", None)
     payload.pop("field_vertical_profile", None)
 
     if payload.get("id") is None:
-        raise KeyError("Missing required key 'id' (or alias 'identifier')")
+        raise KeyError("Missing required key 'id'")
     if payload.get("kind") is None:
-        raise KeyError("Missing required key 'kind' (or alias 'mode')")
+        raise KeyError("Missing required key 'kind'")
 
     kind_key = str(payload["kind"]).strip().lower()
     if kind_key == "homogeneous":

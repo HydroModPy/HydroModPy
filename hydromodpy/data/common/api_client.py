@@ -1,8 +1,7 @@
 """HTTP helpers for API adapters (retry, pagination, status check).
 
-Thin wrappers over :class:`hydromodpy.core.io.http_client.HTTPClient` so
-legacy callers that import ``check_status`` / ``get_json`` /
-``paginate_json`` keep working through the unified client.
+Thin wrappers over :class:`hydromodpy.core.io.http_client.HTTPClient`
+exposing the request idioms used by remote API providers.
 """
 
 from __future__ import annotations

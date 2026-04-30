@@ -548,25 +548,22 @@ class FieldParam:
         """
         Build `FieldParam` from a plain mapping.
 
-        Accepted aliases: `id`/`identifier`, `kind`/`mode`, `unit`/`units`,
-        `values`/`values_by_key`, `field_spatial_id`, `vertical_profile`.
+        Required keys: `id`, `kind`. Optional: `unit`, `values`,
+        `field_spatial_id`, `vertical_profile`.
         """
         if not isinstance(config, Mapping):
             raise TypeError("config must be a mapping")
 
-        identifier = config.get("id", config.get("identifier"))
+        identifier = config.get("id")
         if identifier is None or str(identifier).strip() == "":
-            raise KeyError("Missing required key 'id' (or alias 'identifier')")
+            raise KeyError("Missing required key 'id'")
 
-        kind = config.get("kind", config.get("mode"))
+        kind = config.get("kind")
         if kind is None:
-            raise KeyError("Missing required key 'kind' (or alias 'mode')")
+            raise KeyError("Missing required key 'kind'")
         kind_key = str(kind).strip().lower()
-        unit = config.get("unit", config.get("units"))
-        vertical_profile = config.get(
-            "vertical_profile",
-            config.get("field_vertical_profile"),
-        )
+        unit = config.get("unit")
+        vertical_profile = config.get("vertical_profile")
 
         if kind_key == "homogeneous":
             if "value" not in config:
@@ -579,7 +576,7 @@ class FieldParam:
                 vertical_profile=vertical_profile,
             )
 
-        values_cfg = config.get("values", config.get("values_by_key"))
+        values_cfg = config.get("values")
         if not isinstance(values_cfg, Mapping):
             raise KeyError("Heterogeneous field requires mapping key 'values'")
         if "field_spatial_id" not in config:
