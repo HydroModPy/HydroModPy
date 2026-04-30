@@ -11,9 +11,9 @@ from pathlib import Path
 from typing import Any
 
 from hydromodpy.core.logging import get_logger
-from hydromodpy.results.config import ResultsConfig
 from hydromodpy.simulation._solver_protocol import get_solver_registry_provider
 from hydromodpy.simulation.planning.plan import RunContext
+from hydromodpy.simulation.planning.results_config import ResultsConfig
 
 logger = get_logger(__name__)
 

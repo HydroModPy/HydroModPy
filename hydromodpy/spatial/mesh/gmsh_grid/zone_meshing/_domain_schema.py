@@ -23,7 +23,10 @@ class ZoneMeshingDomainBBox(HydroModelBase):
 
     model_config = ConfigDict(extra="forbid")
 
-    kind: Annotated[str, Profile.USER] = Field(default="bbox")
+    kind: Annotated[str, Profile.USER] = Field(
+        default="bbox",
+        description="Domain kind discriminator, must be 'bbox' for this schema.",
+    )
     bbox: Annotated[list[float], Profile.USER]
 
     @field_validator("kind")
@@ -50,7 +53,10 @@ class ZoneMeshingDomainPolygon(HydroModelBase):
 
     model_config = ConfigDict(extra="forbid")
 
-    kind: Annotated[str, Profile.USER] = Field(default="polygon")
+    kind: Annotated[str, Profile.USER] = Field(
+        default="polygon",
+        description="Domain kind discriminator, must be 'polygon' for this schema.",
+    )
     coordinates: Annotated[list[list[float]], Profile.USER]
 
     @field_validator("kind")
@@ -74,10 +80,19 @@ class ZoneMeshingDomainVector(HydroModelBase):
 
     model_config = ConfigDict(extra="forbid")
 
-    kind: Annotated[str, Profile.USER] = Field(default="vector")
+    kind: Annotated[str, Profile.USER] = Field(
+        default="vector",
+        description="Domain kind discriminator, must be 'vector' for this schema.",
+    )
     path: Annotated[str, Profile.USER]
-    id_field: Annotated[str | None, Profile.USER] = Field(default=None)
-    selected_id: Annotated[str | None, Profile.USER] = Field(default=None)
+    id_field: Annotated[str | None, Profile.USER] = Field(
+        default=None,
+        description="Optional vector attribute field name used to filter features.",
+    )
+    selected_id: Annotated[str | None, Profile.USER] = Field(
+        default=None,
+        description="Optional value of id_field that selects a single feature in the vector source.",
+    )
 
     @field_validator("kind")
     @classmethod
@@ -116,7 +131,10 @@ class ZoneMeshingDomainGeographicBoxBuffer(HydroModelBase):
 
     model_config = ConfigDict(extra="forbid")
 
-    kind: Annotated[str, Profile.USER] = Field(default="geographic_box_buffer")
+    kind: Annotated[str, Profile.USER] = Field(
+        default="geographic_box_buffer",
+        description="Domain kind discriminator, must be 'geographic_box_buffer' for this schema.",
+    )
 
     @field_validator("kind")
     @classmethod
@@ -131,7 +149,10 @@ class ZoneMeshingDomainGeographicWatershed(HydroModelBase):
 
     model_config = ConfigDict(extra="forbid")
 
-    kind: Annotated[str, Profile.USER] = Field(default="geographic_watershed")
+    kind: Annotated[str, Profile.USER] = Field(
+        default="geographic_watershed",
+        description="Domain kind discriminator, must be 'geographic_watershed' for this schema.",
+    )
 
     @field_validator("kind")
     @classmethod
@@ -146,7 +167,10 @@ class ZoneMeshingDomainGeographicWatershedBox(HydroModelBase):
 
     model_config = ConfigDict(extra="forbid")
 
-    kind: Annotated[str, Profile.USER] = Field(default="geographic_watershed_box")
+    kind: Annotated[str, Profile.USER] = Field(
+        default="geographic_watershed_box",
+        description="Domain kind discriminator, must be 'geographic_watershed_box' for this schema.",
+    )
 
     @field_validator("kind")
     @classmethod

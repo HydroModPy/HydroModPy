@@ -410,13 +410,12 @@ _DEFAULT_BOUNDS: dict[str, tuple[float, float]] = {
 }
 
 _DEFAULT_METHOD_KWARGS: dict[str, dict[str, Any]] = {
-    "grid_search": {"n_per_dim": 5, "log_scale_indices": [0]},
+    "grid_search": {"points_per_dim": 5, "log_scale_indices": [0]},
     "random_search": {"n_samples": 80, "seed": 7, "log_scale_indices": [0]},
-    "nelder_mead": {"max_iter": 60},
-    "simplex": {"max_iter": 60, "max_fun": 120},
+    "scipy_nelder_mead": {"maxiter": 60, "maxfev": 120},
     "cma_es": {"sigma0": 0.2, "max_evaluations": 36, "seed": 7, "normalize": True},
     "gp_mapping": {
-        "max_iter": 15,
+        "maxiter": 15,
         "n_init": 8,
         "seed": 7,
         "log_scale_indices": [0],
@@ -424,7 +423,7 @@ _DEFAULT_METHOD_KWARGS: dict[str, dict[str, Any]] = {
     "da_mh_gp": {
         "sigma_noise": 0.20,
         "n_init": 12,
-        "max_iter": 80,
+        "maxiter": 80,
         "burn_in": 10,
         "proposal_sigma": 0.05,
         "retrain_interval": 10,
@@ -445,7 +444,7 @@ def _run_grid_search(
     q_observed: np.ndarray,
     bounds: Mapping[str, tuple[float, float]],
     cost_fn: Callable[[np.ndarray, np.ndarray], float],
-    n_per_dim: int | list[int],
+    points_per_dim: int | list[int],
     log_scale_indices: list[int] | None,
 ) -> tuple[np.ndarray, float, int]:
     """Grid search over ``(K, Sy)`` with per-axis log/linear transform.
@@ -463,18 +462,18 @@ def _run_grid_search(
         )
     space = ParameterSpace(params)
 
-    if isinstance(n_per_dim, int):
-        points_per_dim = [int(n_per_dim)] * space.dim
+    if isinstance(points_per_dim, int):
+        points_per_dim = [int(points_per_dim)] * space.dim
     else:
-        if len(n_per_dim) != space.dim:
-            raise ValueError("n_per_dim length must match parameter dimension")
-        points_per_dim = [int(v) for v in n_per_dim]
+        if len(points_per_dim) != space.dim:
+            raise ValueError("points_per_dim length must match parameter dimension")
+        points_per_dim = [int(v) for v in points_per_dim]
 
     engine = CalibrationEngine(
         space=space,
         optimizer=build_optimizer("grid", space, points_per_dim=points_per_dim),
         evaluator=_make_engine_evaluator(simulator, q_observed, cost_fn),
-        max_iter=int(np.prod(points_per_dim)),
+        maxiter=int(np.prod(points_per_dim)),
         batch_size=1,
     )
     session = engine.run()
@@ -537,10 +536,10 @@ def _run_scipy_minimize(
     bounds: Mapping[str, tuple[float, float]],
     cost_fn: Callable[[np.ndarray, np.ndarray], float],
     method_name: str,
-    max_iter: int,
-    max_fun: int | None = None,
+    maxiter: int,
+    maxfev: int | None = None,
 ) -> tuple[np.ndarray, float, int]:
-    """Local optimisation via Nelder-Mead or simplex with penalised bounds.
+    """Local optimisation via Nelder-Mead with penalised bounds.
 
     Uses a penalised cost wrapper so the optimiser stays within bounds
     without relying on a SciPy bounded implementation that could diverge
@@ -569,29 +568,20 @@ def _run_scipy_minimize(
 
     x0 = 0.5 * (lower + upper)
 
-    if method_name == "nelder_mead":
-        result = scipy_optimize.minimize(
-            _cost,
-            x0,
-            method="Nelder-Mead",
-            options={"maxiter": int(max_iter)},
-        )
-        x_best = _clip(np.asarray(result.x, dtype=float))
-        sim_best = simulator(float(x_best[0]), float(x_best[1]))
-        cost_best = float(cost_fn(q_observed, sim_best))
-        return x_best, cost_best, int(result.nfev)
-
-    if method_name == "simplex":
+    if method_name == "scipy_nelder_mead":
+        options: dict[str, Any] = {"maxiter": int(maxiter)}
+        if maxfev is not None:
+            options["maxfev"] = int(maxfev)
         fmin_kwargs: dict[str, Any] = {
             "func": _cost,
             "x0": x0,
-            "maxiter": int(max_iter),
+            "maxiter": options["maxiter"],
             "full_output": True,
             "disp": False,
             "retall": False,
         }
-        if max_fun is not None:
-            fmin_kwargs["maxfun"] = int(max_fun)
+        if "maxfev" in options:
+            fmin_kwargs["maxfun"] = options["maxfev"]
         x_raw, _f_opt, _n_iter, n_func, _warnflag = scipy_optimize.fmin(**fmin_kwargs)
         x_best = _clip(np.asarray(x_raw, dtype=float))
         sim_best = simulator(float(x_best[0]), float(x_best[1]))
@@ -639,7 +629,7 @@ def _run_cma_es(
         space=space,
         optimizer=optimizer,
         evaluator=_make_engine_evaluator(simulator, q_observed, cost_fn),
-        max_iter=max_eval,
+        maxiter=max_eval,
         batch_size=1,
     )
     session = engine.run()
@@ -658,7 +648,7 @@ def _run_gp_mapping(
     q_observed: np.ndarray,
     bounds: Mapping[str, tuple[float, float]],
     cost_fn: Callable[[np.ndarray, np.ndarray], float],
-    max_iter: int,
+    maxiter: int,
     n_init: int,
     seed: int,
     log_scale_indices: list[int] | None,
@@ -682,7 +672,7 @@ def _run_gp_mapping(
     optimizer = build_optimizer(
         "gp_mapping",
         space,
-        max_iter=int(max_iter),
+        maxiter=int(maxiter),
         n_init=int(n_init),
         seed=int(seed),
     )
@@ -690,7 +680,7 @@ def _run_gp_mapping(
         space=space,
         optimizer=optimizer,
         evaluator=_make_engine_evaluator(simulator, q_observed, cost_fn),
-        max_iter=int(max_iter),
+        maxiter=int(maxiter),
         batch_size=1,
     )
     session = engine.run()
@@ -711,7 +701,7 @@ def _run_da_mh_gp(
     cost_fn: Callable[[np.ndarray, np.ndarray], float],
     sigma_noise: float,
     n_init: int,
-    max_iter: int,
+    maxiter: int,
     burn_in: int,
     proposal_sigma: float,
     retrain_interval: int,
@@ -725,7 +715,7 @@ def _run_da_mh_gp(
     internally from ``sigma_noise``). ``log_scale_indices`` selects the log
     axis for K (matches the legacy default).
 
-    The engine's ``max_iter`` is sized as ``n_init + max_iter`` so the
+    The engine's ``maxiter`` is sized as ``n_init + maxiter`` so the
     optimizer can first consume its Sobol initial design and then run the
     chain budget without getting capped by the engine.
     """
@@ -744,7 +734,7 @@ def _run_da_mh_gp(
         space,
         sigma_noise=float(sigma_noise),
         n_init=int(n_init),
-        max_iter=int(max_iter),
+        maxiter=int(maxiter),
         burn_in=int(burn_in),
         proposal_sigma=float(proposal_sigma),
         retrain_interval=int(retrain_interval),
@@ -752,12 +742,12 @@ def _run_da_mh_gp(
     )
     # Engine budget must cover init design + accepted proposals; the
     # optimizer's background thread stops on its own.
-    engine_budget = int(n_init) + int(max_iter) + 16
+    engine_budget = int(n_init) + int(maxiter) + 16
     engine = CalibrationEngine(
         space=space,
         optimizer=optimizer,
         evaluator=_make_engine_evaluator(simulator, q_observed, cost_fn),
-        max_iter=engine_budget,
+        maxiter=engine_budget,
         batch_size=1,
     )
     session = engine.run()
@@ -865,7 +855,7 @@ def calibrate_brutsaert(
     ----------
     method
         Legacy method name; one of ``"grid_search"``, ``"random_search"``,
-        ``"nelder_mead"``, ``"simplex"``, ``"cma_es"``.
+        ``"scipy_nelder_mead"`` or ``"cma_es"``.
     chronicle
         Optional override of the default noisy-chronicle parameters.
     bounds
@@ -923,7 +913,7 @@ def calibrate_brutsaert(
             q_observed=q_observed,
             bounds=effective_bounds,
             cost_fn=cost_fn,
-            n_per_dim=kwargs.get("n_per_dim", 5),
+            points_per_dim=kwargs.get("points_per_dim", 5),
             log_scale_indices=kwargs.get("log_scale_indices"),
         )
     elif method_name == "random_search":
@@ -936,15 +926,15 @@ def calibrate_brutsaert(
             seed=int(kwargs.get("seed", 7)),
             log_scale_indices=kwargs.get("log_scale_indices"),
         )
-    elif method_name in ("nelder_mead", "simplex"):
+    elif method_name == "scipy_nelder_mead":
         x_best, cost_best, n_eval = _run_scipy_minimize(
             simulator=simulator,
             q_observed=q_observed,
             bounds=effective_bounds,
             cost_fn=cost_fn,
             method_name=method_name,
-            max_iter=int(kwargs.get("max_iter", 60)),
-            max_fun=kwargs.get("max_fun"),
+            maxiter=int(kwargs.get("maxiter", 60)),
+            maxfev=kwargs.get("maxfev"),
         )
     elif method_name == "cma_es":
         x_best, cost_best, n_eval = _run_cma_es(
@@ -963,7 +953,7 @@ def calibrate_brutsaert(
             q_observed=q_observed,
             bounds=effective_bounds,
             cost_fn=cost_fn,
-            max_iter=int(kwargs.get("max_iter", 15)),
+            maxiter=int(kwargs.get("maxiter", 15)),
             n_init=int(kwargs.get("n_init", 8)),
             seed=int(kwargs.get("seed", 7)),
             log_scale_indices=kwargs.get("log_scale_indices"),
@@ -981,7 +971,7 @@ def calibrate_brutsaert(
             cost_fn=cost_fn,
             sigma_noise=float(kwargs.get("sigma_noise", 0.20)),
             n_init=int(kwargs.get("n_init", 12)),
-            max_iter=int(kwargs.get("max_iter", 80)),
+            maxiter=int(kwargs.get("maxiter", 80)),
             burn_in=int(kwargs.get("burn_in", 10)),
             proposal_sigma=float(kwargs.get("proposal_sigma", 0.05)),
             retrain_interval=int(kwargs.get("retrain_interval", 10)),

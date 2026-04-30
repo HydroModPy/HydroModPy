@@ -50,6 +50,7 @@ from typing import TYPE_CHECKING
 import numpy as np
 import pandas as pd
 
+from hydromodpy.core.config_kit.root_config_protocol import get_root_config_provider
 from hydromodpy.core.logging import get_logger
 from hydromodpy.results.contracts import Mesh, RasterField, Stack
 from hydromodpy.results.run_array import RunArrayProvider
@@ -58,8 +59,8 @@ logger = get_logger(__name__)
 
 if TYPE_CHECKING:
     import geopandas as gpd
+    from pydantic import BaseModel
 
-    from hydromodpy.master_config import HydroModPyConfig
     from hydromodpy.results.catalog import SimulationCatalog
     from hydromodpy.results.grid import Grid
 
@@ -148,7 +149,7 @@ class Run:
         return val
 
     @property
-    def hydromodpy_config(self) -> HydroModPyConfig:
+    def hydromodpy_config(self) -> BaseModel:
         """Validated :class:`HydroModPyConfig` rebuilt from the stored snapshot.
 
         Raises ``ValueError`` when no snapshot was persisted for this run.
@@ -159,9 +160,7 @@ class Run:
                 f"Simulation '{self._sim_id}' has no config snapshot; "
                 "cannot rebuild HydroModPyConfig."
             )
-        from hydromodpy.master_config import HydroModPyConfig
-
-        return HydroModPyConfig.model_validate(snapshot)
+        return get_root_config_provider().from_dict(snapshot)
 
     @property
     def tags(self) -> list[str] | None:

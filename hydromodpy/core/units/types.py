@@ -182,7 +182,7 @@ SpecificStorage = Annotated[
 # SpecificYield is genuinely dimensionless with a physical range [0, 1].
 SpecificYield = Annotated[
     float,
-    Field(ge=0.0, le=1.0),
+    Field(ge=0.0, le=1.0, description="Specific yield (Sy), dimensionless in [0, 1]."),
 ]
 """Specific yield (Sy), a pure number in [0, 1]."""
 

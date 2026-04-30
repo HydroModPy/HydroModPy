@@ -13,8 +13,8 @@ from hydromodpy.cli.helpers import (
     resolve_sim_id,
 )
 
-NAME = "delete"
-HELP = "Delete a simulation (DuckDB row + Zarr store)"
+NAME: str = "delete"
+HELP: str = "Delete a simulation (DuckDB row + Zarr store)"
 
 
 def register(subparsers) -> argparse.ArgumentParser:

@@ -21,6 +21,7 @@ SUBCOMMANDS = [
     "new",
     "config",
     "run",
+    "dev",
     "display",
     "list",
     "export",
@@ -67,6 +68,13 @@ def test_data_subcommands_help(monkeypatch, capsys) -> None:
         assert code == 0, f"data {sub} --help failed"
         out = capsys.readouterr().out
         assert "usage" in out.lower()
+
+
+def test_dev_subcommands_help(monkeypatch, capsys) -> None:
+    code = _run_help(monkeypatch, ["hmp", "dev", "run-script", "--help"])
+    assert code == 0
+    out = capsys.readouterr().out
+    assert "usage" in out.lower()
 
 
 def test_lock_subcommands_help(monkeypatch, capsys) -> None:

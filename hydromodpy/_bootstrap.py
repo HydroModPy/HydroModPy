@@ -172,6 +172,52 @@ def _register_simulation_contracts() -> None:
     _sim_protocol.set_solver_registry_provider(_RegistryProvider())
 
 
+def _register_root_config_contracts() -> None:
+    """Wire HydroModPyConfig into the core config_kit registry.
+
+    The 14x14 layer matrix forbids ``core -> master_config``. The
+    config_kit registry, JSON Schema exporter and other downstream layers
+    (results, schema) reach the root model through the
+    ``RootConfigProvider`` Protocol declared in
+    :mod:`hydromodpy.core.config_kit.root_config_protocol`.
+    """
+    from pathlib import Path
+    from typing import Any
+
+    from hydromodpy.core.config_kit import root_config_protocol
+    from hydromodpy.master_config.hydromodpy_config import HydroModPyConfig
+
+    class _RootConfigProvider:
+        def root_model(self) -> type[HydroModPyConfig]:
+            return HydroModPyConfig
+
+        def from_toml(self, toml_path: str | Path) -> HydroModPyConfig:
+            return HydroModPyConfig.from_toml(toml_path)
+
+        def from_json(self, payload: str | bytes) -> HydroModPyConfig:
+            return HydroModPyConfig.model_validate_json(payload)
+
+        def from_dict(self, payload: dict[str, Any]) -> HydroModPyConfig:
+            return HydroModPyConfig.model_validate(payload)
+
+    root_config_protocol.set_root_config_provider(_RootConfigProvider())
+
+
+def _register_dynamic_flow_examples_contract() -> None:
+    """Wire dynamic-flow TOML examples into the core toml_io generator.
+
+    The 14x14 layer matrix forbids ``core -> physics`` and
+    ``core -> spatial``. The TOML generator delegates the rendering of
+    dynamic ``[flow.param.*]``, ``[flow.bc.*]`` and ``[flow.sinks_sources.*]``
+    example blocks to the provider declared in
+    :mod:`hydromodpy.core.toml_io.dynamic_examples_protocol`.
+    """
+    from hydromodpy.core.toml_io import dynamic_examples_protocol
+    from hydromodpy.master_config.dynamic_flow_examples import DynamicFlowExamples
+
+    dynamic_examples_protocol.set_dynamic_flow_examples_provider(DynamicFlowExamples())
+
+
 def bootstrap() -> None:
     """Resolve HydroModPyConfig forward references. Idempotent."""
     global _BOOTSTRAPPED
@@ -183,4 +229,6 @@ def bootstrap() -> None:
     _register_analysis_contracts()
     _register_simulation_contracts()
     _rebuild_forward_refs()
+    _register_root_config_contracts()
+    _register_dynamic_flow_examples_contract()
     _BOOTSTRAPPED = True

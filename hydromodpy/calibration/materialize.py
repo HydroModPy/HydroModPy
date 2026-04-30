@@ -11,9 +11,12 @@ The overlay is rendered through :mod:`hydromodpy.core.toml_io.writer`
 so the output remains valid TOML and round-trips through :mod:`tomllib`
 even in lightweight environments where external TOML writer packages are
 not installed. The ``base_config`` argument accepts either a path to a
-TOML file on disk or an in-memory
-:class:`~hydromodpy.master_config.HydroModPyConfig` instance; the latter is
-useful when the calibration loop is driven from Python code.
+TOML file on disk or an in-memory ``HydroModPyConfig`` Pydantic instance;
+the latter is useful when the calibration loop is driven from Python
+code. The Pydantic class is reached through the
+``RootConfigProvider`` Protocol declared in
+:mod:`hydromodpy.core.config_kit.root_config_protocol` so this module
+keeps the layer matrix ``calibration -> master_config`` edge at zero.
 """
 
 from __future__ import annotations
@@ -25,10 +28,11 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 from hydromodpy.calibration.parameters import ParameterSpace
+from hydromodpy.core.config_kit.root_config_protocol import get_root_config_provider
 from hydromodpy.core.toml_io.writer import dump as dump_toml
 
 if TYPE_CHECKING:
-    from hydromodpy.master_config.hydromodpy_config import HydroModPyConfig
+    from pydantic import BaseModel
 
 
 def _sanitize_label(label: str) -> str:
@@ -105,18 +109,19 @@ def write_overlay_toml(path: Path, payload: Mapping[str, Any]) -> None:
 
 
 def _load_base_payload(
-    base_config: Path | str | HydroModPyConfig,
+    base_config: Path | str | BaseModel,
 ) -> tuple[dict[str, Any], Path | None]:
     """Resolve ``base_config`` into a dict payload and an optional source path.
 
-    A :class:`HydroModPyConfig` is dumped through ``model_dump`` (alias
-    aware) so the rendered overlay matches the TOML schema. A path is
-    parsed via :mod:`tomllib`. ``base_path`` is ``None`` when the caller
-    passed an in-memory config without a backing file.
+    A ``HydroModPyConfig`` instance (or any Pydantic ``BaseModel``) is
+    dumped through ``model_dump`` (alias aware) so the rendered overlay
+    matches the TOML schema. A path is parsed via :mod:`tomllib`.
+    ``base_path`` is ``None`` when the caller passed an in-memory config
+    without a backing file.
     """
-    from hydromodpy.master_config.hydromodpy_config import HydroModPyConfig
+    root_cls = get_root_config_provider().root_model()
 
-    if isinstance(base_config, HydroModPyConfig):
+    if isinstance(base_config, root_cls):
         payload = base_config.model_dump(mode="json", by_alias=True, exclude_none=True)
         return payload, None
     base_path = Path(base_config).expanduser().resolve()
@@ -161,7 +166,7 @@ def _format_path_for_overlay(path: Path, base_dir: Path | None) -> str:
 
 
 def materialize_candidate(
-    base_config: Path | str | HydroModPyConfig,
+    base_config: Path | str | BaseModel,
     params: Mapping[str, float],
     space: ParameterSpace,
     out_dir: Path | str,
@@ -179,10 +184,11 @@ def materialize_candidate(
     ----------
     base_config
         Path to the target simulation TOML or an in-memory
-        :class:`~hydromodpy.master_config.HydroModPyConfig` instance. When a
-        config object is passed, the overlay is built from
-        ``model_dump`` and ``base_config`` in the overlay falls back to
-        ``base_dir`` (when supplied) so the file remains rechargeable.
+        ``HydroModPyConfig`` instance (any Pydantic ``BaseModel`` returned
+        by the installed ``RootConfigProvider``). When a config object is
+        passed, the overlay is built from ``model_dump`` and
+        ``base_config`` in the overlay falls back to ``base_dir`` (when
+        supplied) so the file remains rechargeable.
     params
         Candidate values keyed by parameter name (must cover every
         parameter in ``space`` that has a ``target`` or ``path``).

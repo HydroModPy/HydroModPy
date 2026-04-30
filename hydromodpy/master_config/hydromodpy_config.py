@@ -33,12 +33,12 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 from pydantic.fields import FieldInfo
 
 from hydromodpy.core.config_kit.base import HydroModelBase
+from hydromodpy.core.config_kit.persistence import PersistenceConfig
 from hydromodpy.core.config_kit.profile import Profile
 from hydromodpy.core.toml_io.loader import load_toml_with_base_config
 from hydromodpy.core.toml_io.paths import resolve_declared_path
 from hydromodpy.core.workspace.config import WorkspaceConfig
 from hydromodpy.master_config.analysis import AnalysisConfig
-from hydromodpy.master_config.persistence import PersistenceConfig
 
 if TYPE_CHECKING:
     from hydromodpy.calibration.config import CalibrationConfig

@@ -95,7 +95,10 @@ class SyntheticForcing(HydroModelBase):
 
 Forcing = Annotated[
     ConstantForcing | CsvForcing | SyntheticForcing,
-    Field(discriminator="kind"),
+    Field(
+        discriminator="kind",
+        description="Discriminated union of flow-forcing payloads selected by the kind tag.",
+    ),
 ]
 """Discriminated union of flow-forcing payloads."""
 

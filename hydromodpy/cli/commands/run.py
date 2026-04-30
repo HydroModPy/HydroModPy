@@ -4,16 +4,12 @@ Single CLI entry point. The TOML must carry a top-level
 ``workflow = "..."`` field (one of ``simulation``, ``calibration``,
 ``batch``, ``overview``, ``mesh``). Absence raises
 ``WorkflowMissingError``.
-
-Also supports ``.py`` scripts, executed as-is in a subprocess for
-prototyping (no workflow involved).
 """
 
 from __future__ import annotations
 
 import argparse
 import importlib
-import subprocess
 import sys
 from pathlib import Path
 
@@ -24,8 +20,8 @@ from hydromodpy.cli.helpers import (
     auto_scan_workspace,
 )
 
-NAME = "run"
-HELP = "Run a simulation (.toml) or a prototype script (.py)"
+NAME: str = "run"
+HELP: str = "Run a workflow from a TOML config"
 
 
 def register(subparsers) -> argparse.ArgumentParser:
@@ -33,12 +29,7 @@ def register(subparsers) -> argparse.ArgumentParser:
     parser.add_argument(
         "config",
         type=Path,
-        help="Path to a TOML config or Python script",
-    )
-    parser.add_argument(
-        "script_args",
-        nargs="*",
-        help="Extra arguments forwarded to .py scripts",
+        help="Path to a TOML config",
     )
     parser.add_argument(
         "--resume",
@@ -101,13 +92,18 @@ def run(args: argparse.Namespace) -> None:
 
         set_frozen_mode(True)
 
-    if target.suffix == ".py":
-        _run_script(target, getattr(args, "script_args", []))
-    elif target.suffix == ".toml":
+    if target.suffix == ".toml":
         _run_toml(target, args=args)
+    elif target.suffix == ".py":
+        print(
+            "Python scripts are not supported by 'hmp run'. "
+            "Use 'hmp dev run-script <script.py>' for prototypes.",
+            file=sys.stderr,
+        )
+        sys.exit(EXIT_CONFIG)
     else:
         print(
-            f"Unsupported file type: {target.suffix} (expected .toml or .py)",
+            f"Unsupported file type: {target.suffix} (expected .toml)",
             file=sys.stderr,
         )
         sys.exit(EXIT_CONFIG)
@@ -229,16 +225,6 @@ def _run_toml(config_path: Path, *, args: argparse.Namespace) -> None:
     if summary:
         for key, value in summary.items():
             print(f"  {key}: {value}", file=sys.stderr)
-
-
-def _run_script(script_path: Path, extra_args: list[str]) -> None:
-    """Run a Python prototype script as a subprocess."""
-    from hydromodpy.display.banner import print_hydromodpy
-
-    print_hydromodpy()
-    cmd = [sys.executable, str(script_path), *extra_args]
-    result = subprocess.run(cmd, cwd=str(script_path.parent))
-    sys.exit(result.returncode)
 
 
 def _infer_workflow_from_sections(raw_toml: dict) -> str:

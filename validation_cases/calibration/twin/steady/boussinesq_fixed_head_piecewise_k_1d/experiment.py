@@ -260,15 +260,15 @@ PIECEWISE_K_TWIN_CASE = TwinCalibrationCaseDefinition(
     method_profiles=(
         CalibrationMethodProfile(
             name="random_search",
-            method_kwargs={"n_samples": 96},
+            method_kwargs={"max_iter": 96},
             persist_model_distribution=True,
             repeat_seeds=(17, 29),
             success_metric="distribution",
         ),
         _cma_es_profile(seed=17),
         CalibrationMethodProfile(
-            name="simplex",
-            method_kwargs={"max_iter": 42, "xtol": 1.0e-8, "ftol": 1.0e-8},
+            name="scipy_nelder_mead",
+            method_kwargs={"maxiter": 42, "xatol": 1.0e-8, "fatol": 1.0e-8},
             persist_model_distribution=False,
         ),
     ),

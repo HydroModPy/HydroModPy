@@ -13,8 +13,8 @@ from hydromodpy.cli.helpers import (
     resolve_workspace,
 )
 
-NAME = "data"
-HELP = "Inspect and manage custom data artefacts in the workspace"
+NAME: str = "data"
+HELP: str = "Inspect and manage custom data artefacts in the workspace"
 
 
 def register(subparsers) -> argparse.ArgumentParser:

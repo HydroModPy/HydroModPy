@@ -20,8 +20,8 @@ from pathlib import Path
 
 from hydromodpy.cli.helpers import EXIT_CONFIG, EXIT_NOT_FOUND, find_workspace_root
 
-NAME = "report"
-HELP = "Render an HTML report for a calibration session"
+NAME: str = "report"
+HELP: str = "Render an HTML report for a calibration session"
 
 
 def register(subparsers) -> argparse.ArgumentParser:

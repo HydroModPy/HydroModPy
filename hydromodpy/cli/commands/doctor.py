@@ -9,8 +9,8 @@ import shutil
 import sys
 from pathlib import Path
 
-NAME = "doctor"
-HELP = "Diagnose the local environment (Python, deps, solvers, workspace)"
+NAME: str = "doctor"
+HELP: str = "Diagnose the local environment (Python, deps, solvers, workspace)"
 
 
 _CORE_DEPS = (

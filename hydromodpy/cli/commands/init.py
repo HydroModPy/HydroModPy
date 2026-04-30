@@ -8,8 +8,8 @@ from pathlib import Path
 
 from hydromodpy.cli.helpers import EXIT_CONFIG
 
-NAME = "init"
-HELP = "Scaffold a HydroModPy workspace (catalog + data + projects). Default: ~/hydromodpy/"
+NAME: str = "init"
+HELP: str = "Scaffold a HydroModPy workspace (catalog + data + projects). Default: ~/hydromodpy/"
 
 
 def register(subparsers) -> argparse.ArgumentParser:

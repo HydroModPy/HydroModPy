@@ -8,8 +8,8 @@ from pathlib import Path
 
 from hydromodpy.cli.helpers import EXIT_NOT_FOUND, EXIT_RUN_FAILED
 
-NAME = "import"
-HELP = "Import a .hmp package into a workspace"
+NAME: str = "import"
+HELP: str = "Import a .hmp package into a workspace"
 
 
 def register(subparsers) -> argparse.ArgumentParser:

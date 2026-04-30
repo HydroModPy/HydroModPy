@@ -7,8 +7,8 @@ from typing import Annotated
 from pydantic import ConfigDict, Field
 
 from hydromodpy.core.config_kit.base import HydroModelBase
+from hydromodpy.core.config_kit.persistence import PersistenceConfig
 from hydromodpy.core.config_kit.profile import Profile
-from hydromodpy.master_config.persistence import PersistenceConfig
 
 
 class DerivedConfig(HydroModelBase):
@@ -167,3 +167,12 @@ class ResultsConfig(HydroModelBase):
         default_factory=ExportConfig,
         description="Automated export configuration.",
     )
+
+
+__all__ = [
+    "BudgetConfig",
+    "DerivedConfig",
+    "ExportConfig",
+    "ExportVariablesConfig",
+    "ResultsConfig",
+]

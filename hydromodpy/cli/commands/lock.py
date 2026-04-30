@@ -13,8 +13,8 @@ from hydromodpy.cli.helpers import (
     resolve_workspace,
 )
 
-NAME = "lock"
-HELP = "Manage the reproducible data lockfile (hydromodpy.lock)"
+NAME: str = "lock"
+HELP: str = "Manage the reproducible data lockfile (hydromodpy.lock)"
 
 
 def register(subparsers) -> argparse.ArgumentParser:

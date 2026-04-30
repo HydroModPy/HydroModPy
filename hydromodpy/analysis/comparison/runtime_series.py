@@ -1,9 +1,7 @@
-"""TimeSlice / VariableSeries dataclasses and store/disk loaders."""
+"""TimeSlice / VariableSeries dataclasses and Zarr store loaders."""
 
 from __future__ import annotations
 
-import numbers
-from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
@@ -16,10 +14,6 @@ from hydromodpy.analysis.comparison.runtime_physics import (
     is_nodata_value,
 )
 from hydromodpy.core.logging import get_logger
-from hydromodpy.physics.flow.history_contract import (
-    snapshot_elapsed_seconds_from_payload,
-    step_end_elapsed_seconds_from_payload,
-)
 
 if TYPE_CHECKING:
     from hydromodpy.results.catalog import SimulationCatalog
@@ -48,170 +42,6 @@ class VariableSeries:
     cell_ids: np.ndarray | None = None
 
 
-def _sort_time_key(key: Any) -> tuple[int, float | str]:
-    if isinstance(key, numbers.Real):
-        return (0, float(key))
-    text = str(key)
-    try:
-        return (0, float(text))
-    except ValueError:
-        return (1, text)
-
-
-def _coerce_series_from_mapping(
-    mapping: Mapping[Any, Any],
-    *,
-    variable_name: str,
-    source_path: Path,
-    cell_ids: np.ndarray | None = None,
-) -> VariableSeries:
-    slices = tuple(
-        TimeSlice(
-            time_key=key,
-            time_index=index,
-            values=np.asarray(value, dtype=float).ravel(),
-        )
-        for index, (key, value) in enumerate(
-            sorted(mapping.items(), key=lambda item: _sort_time_key(item[0]))
-        )
-    )
-    return VariableSeries(
-        variable_name=variable_name,
-        source_path=source_path,
-        slices=slices,
-        cell_ids=cell_ids,
-    )
-
-
-def _load_npy_series(path: Path, *, variable_name: str) -> VariableSeries:
-    payload = np.load(path, allow_pickle=True)
-    if getattr(payload, "shape", None) == () and hasattr(payload, "item"):
-        item = payload.item()
-        if isinstance(item, Mapping):
-            return _coerce_series_from_mapping(
-                item,
-                variable_name=variable_name,
-                source_path=path,
-            )
-    arr = np.asarray(payload, dtype=float)
-    if arr.ndim <= 1:
-        slices = (TimeSlice(time_key=0, time_index=0, values=arr.ravel()),)
-    else:
-        slices = tuple(
-            TimeSlice(
-                time_key=index,
-                time_index=index,
-                values=np.asarray(row, dtype=float).ravel(),
-            )
-            for index, row in enumerate(arr)
-        )
-    return VariableSeries(variable_name=variable_name, source_path=path, slices=slices)
-
-
-def _load_mesh_npz_series(path: Path, *, variable_name: str) -> VariableSeries:
-    payload = np.load(path, allow_pickle=True)
-    values = np.asarray(payload["values"], dtype=float)
-    if "time_index" in payload:
-        time_keys = list(payload["time_index"])
-    elif "times" in payload:
-        time_keys = list(payload["times"])
-    else:
-        time_keys = list(range(values.shape[0] if values.ndim > 1 else 1))
-    elapsed_seconds = (
-        np.asarray(payload["times"], dtype=float).ravel() if "times" in payload else None
-    )
-    cell_ids = np.asarray(payload["cell_ids"], dtype=int) if "cell_ids" in payload else None
-    if values.ndim <= 1:
-        elapsed = (
-            float(elapsed_seconds[0])
-            if elapsed_seconds is not None and elapsed_seconds.size > 0
-            else None
-        )
-        slices = (
-            TimeSlice(
-                time_key=time_keys[0],
-                time_index=0,
-                values=values.ravel(),
-                elapsed_seconds=elapsed,
-            ),
-        )
-    else:
-        slices = tuple(
-            TimeSlice(
-                time_key=time_keys[index],
-                time_index=index,
-                values=values[index].ravel(),
-                elapsed_seconds=(
-                    float(elapsed_seconds[index])
-                    if elapsed_seconds is not None and index < elapsed_seconds.size
-                    else None
-                ),
-            )
-            for index in range(values.shape[0])
-        )
-    return VariableSeries(
-        variable_name=variable_name,
-        source_path=path,
-        slices=slices,
-        cell_ids=cell_ids,
-    )
-
-
-def _load_boussinesq_npz_series(
-    path: Path,
-    *,
-    variable_name: str,
-) -> VariableSeries:
-    payload = np.load(path, allow_pickle=True)
-    if variable_name not in payload:
-        raise KeyError(variable_name)
-    values = np.asarray(payload[variable_name], dtype=float)
-    period_lengths = (
-        np.asarray(payload["period_lengths_seconds"], dtype=float).ravel()
-        if "period_lengths_seconds" in payload
-        else np.asarray([], dtype=float)
-    )
-    if values.ndim <= 1:
-        elapsed = float(np.nansum(period_lengths)) if period_lengths.size > 0 else None
-        slices = (
-            TimeSlice(
-                time_key="final",
-                time_index=max(0, int(period_lengths.size)),
-                values=values.ravel(),
-                elapsed_seconds=elapsed,
-            ),
-        )
-    else:
-        elapsed_seconds = snapshot_elapsed_seconds_from_payload(
-            payload,
-            n_snapshots=int(values.shape[0]),
-        )
-        is_snapshot_series = elapsed_seconds is not None
-        if elapsed_seconds is None:
-            elapsed_seconds = step_end_elapsed_seconds_from_payload(
-                payload,
-                n_steps=int(values.shape[0]),
-            )
-            is_snapshot_series = False
-        if elapsed_seconds is None:
-            elapsed_by_index = [None for _ in range(values.shape[0])]
-        else:
-            elapsed_by_index = [
-                float(value) for value in np.asarray(elapsed_seconds, dtype=float).tolist()
-            ]
-        slices = tuple(
-            TimeSlice(
-                time_key=index,
-                time_index=index,
-                values=values[index].ravel(),
-                elapsed_seconds=elapsed_by_index[index],
-                is_initial_state=is_snapshot_series and index == 0,
-            )
-            for index in range(values.shape[0])
-        )
-    return VariableSeries(variable_name=variable_name, source_path=path, slices=slices)
-
-
 def _elapsed_seconds_from_period_lengths(
     *,
     n_snapshots: int,
@@ -228,77 +58,6 @@ def _elapsed_seconds_from_period_lengths(
     return [None for _ in range(n_snapshots)]
 
 
-def _load_boussinesq_surface_excess_total_series(
-    run_folder: Path,
-    path: Path,
-    *,
-    variable_name: str,
-) -> VariableSeries:
-    payload = np.load(path, allow_pickle=True)
-    if "saturation_excess_history_m_s" not in payload:
-        raise KeyError(variable_name)
-    values = np.asarray(payload["saturation_excess_history_m_s"], dtype=float)
-    if values.ndim == 1:
-        values = values.reshape(1, -1)
-    if values.ndim != 2:
-        raise ValueError(
-            "saturation_excess_history_m_s must be 2-D to derive surface-excess totals"
-        )
-
-    cells = resolve_bundle_cells(
-        run_folder,
-        expected_size=int(values.shape[1]),
-    )
-    if cells is None or cells.area_m2 is None:
-        raise ValueError("Cannot derive surface_excess_total_m3_s without bundle cell areas")
-    area_m2 = np.asarray(cells.area_m2, dtype=float).reshape(-1)
-    if area_m2.size != values.shape[1]:
-        raise ValueError("Bundle cell areas do not match saturation_excess_history_m_s width")
-
-    positive = np.maximum(values, 0.0)
-    totals_m3_s = np.sum(positive * area_m2[None, :], axis=1, dtype=float)
-    period_lengths = (
-        np.asarray(payload["period_lengths_seconds"], dtype=float).ravel()
-        if "period_lengths_seconds" in payload
-        else np.asarray([], dtype=float)
-    )
-    elapsed_seconds = snapshot_elapsed_seconds_from_payload(
-        payload,
-        n_snapshots=int(totals_m3_s.size),
-    )
-    if elapsed_seconds is None:
-        elapsed_seconds = step_end_elapsed_seconds_from_payload(
-            payload,
-            n_steps=int(totals_m3_s.size),
-        )
-    if elapsed_seconds is None:
-        elapsed_by_index = [None for _ in range(totals_m3_s.size)]
-        has_initial_state = False
-    else:
-        elapsed_by_index = [
-            float(value) for value in np.asarray(elapsed_seconds, dtype=float).tolist()
-        ]
-        has_initial_state = int(len(elapsed_by_index)) == int(totals_m3_s.size) and (
-            bool(period_lengths.size) and int(totals_m3_s.size) == int(period_lengths.size) + 1
-        )
-    slices = tuple(
-        TimeSlice(
-            time_key=index,
-            time_index=index,
-            values=np.asarray([float(total)], dtype=float),
-            elapsed_seconds=elapsed_by_index[index],
-            is_initial_state=has_initial_state and index == 0,
-        )
-        for index, total in enumerate(totals_m3_s.tolist())
-    )
-    return VariableSeries(
-        variable_name=variable_name,
-        source_path=path,
-        slices=slices,
-        cell_ids=None,
-    )
-
-
 def _store_variable_mapping(variable_name: str) -> str | None:
     """Map a postprocess variable name to its SimulationCatalog field name.
 
@@ -312,6 +71,9 @@ def _store_variable_mapping(variable_name: str) -> str | None:
         "accumulation_flux": "accumulation_flux",
         "outflow_drain": "outflow_drain",
         "groundwater_flux": "groundwater_flux",
+        "outlet_discharge_east_side_m3_s": "outlet_discharge_east_side_m3_s",
+        "drainage_flux_history_m3_s": "drainage_flux_history_m3_s",
+        "drainage_flux_m3_s": "drainage_flux_m3_s",
         "concentration_seepage": "concentration_seepage",
         "mass_seepage": "mass_seepage",
         "mass_accumulated": "mass_accumulated",
@@ -325,11 +87,7 @@ def _load_store_series(
     *,
     variable_name: str,
 ) -> VariableSeries | None:
-    """Try loading a variable series from the SimulationCatalog (Zarr fields).
-
-    Returns ``None`` when the variable is not available in the store,
-    allowing the caller to fall back to legacy loaders.
-    """
+    """Try loading a variable series from the SimulationCatalog (Zarr fields)."""
     store_field = _store_variable_mapping(variable_name)
     if store_field is None:
         return None
@@ -392,10 +150,8 @@ def _load_store_boussinesq_state_series(
 ) -> VariableSeries | None:
     """Try loading a Boussinesq state history variable from the store.
 
-    The Boussinesq extractor persists the full ``.npz`` content into a
-    ``boussinesq_state`` Zarr subgroup.  This reader mirrors the logic
-    of ``_load_boussinesq_npz_series`` but reads from Zarr instead of
-    the on-disk ``.npz`` file.
+    The Boussinesq extractor persists state history into a
+    ``boussinesq_state`` Zarr subgroup.
     """
     try:
         grp = store._open_zarr_group(sim_id)
@@ -539,95 +295,51 @@ def load_variable_series(
     store: SimulationCatalog | None = None,
     sim_id: str | None = None,
 ) -> VariableSeries:
-    """Load one variable series, preferring SimulationCatalog when available.
+    """Load one variable series from the DuckDB+Zarr result store."""
+    if store is None or sim_id is None:
+        raise ValueError("load_variable_series requires a SimulationCatalog and sim_id.")
 
-    When *store* and *sim_id* are provided the function tries to read
-    from the DuckDB+Zarr result store first.  If the variable is not
-    found in the store (or the store is ``None``), it falls back to the
-    legacy ``.npy`` / ``.npz`` loaders so existing workflows are not
-    broken.
-    """
-    if store is not None and sim_id is not None:
-        for variable_name in _variable_candidates(variable):
-            series = _load_store_series(store, sim_id, variable_name=variable_name)
-            if series is not None:
-                logger.debug(
-                    "Loaded '%s' from SimulationCatalog (sim_id=%s).",
-                    variable_name,
-                    sim_id,
-                )
-                return series
-
-            if variable_name in {
-                "surface_excess_total_m3_s",
-                "surface_threshold_total_m3_s",
-                "saturation_excess_total_m3_s",
-            }:
-                series = _load_store_surface_excess_total_series(
-                    store,
-                    sim_id,
-                    variable_name=variable_name,
-                    run_folder=run_folder,
-                )
-            else:
-                series = _load_store_boussinesq_state_series(
-                    store,
-                    sim_id,
-                    variable_name=variable_name,
-                )
-            if series is not None:
-                logger.debug(
-                    "Loaded '%s' from SimulationCatalog boussinesq_state (sim_id=%s).",
-                    variable_name,
-                    sim_id,
-                )
-                return series
-
-        logger.debug(
-            "Variable '%s' not found in SimulationCatalog (sim_id=%s), "
-            "falling back to legacy loaders.",
-            variable,
-            sim_id,
-        )
-
-    postprocess_dir = run_folder / "_postprocess"
-    searched: list[Path] = []
+    searched: list[str] = []
     for variable_name in _variable_candidates(variable):
-        npy_path = postprocess_dir / f"{variable_name}.npy"
-        searched.append(npy_path)
-        if npy_path.exists():
-            return _load_npy_series(npy_path, variable_name=variable_name)
+        searched.append(variable_name)
+        series = _load_store_series(store, sim_id, variable_name=variable_name)
+        if series is not None:
+            logger.debug(
+                "Loaded '%s' from SimulationCatalog (sim_id=%s).",
+                variable_name,
+                sim_id,
+            )
+            return series
 
-        mesh_npz_path = postprocess_dir / "_mesh" / f"flow_{variable_name}.npz"
-        searched.append(mesh_npz_path)
-        if mesh_npz_path.exists():
-            return _load_mesh_npz_series(mesh_npz_path, variable_name=variable_name)
+        if variable_name in {
+            "surface_excess_total_m3_s",
+            "surface_threshold_total_m3_s",
+            "saturation_excess_total_m3_s",
+        }:
+            series = _load_store_surface_excess_total_series(
+                store,
+                sim_id,
+                variable_name=variable_name,
+                run_folder=run_folder,
+            )
+        else:
+            series = _load_store_boussinesq_state_series(
+                store,
+                sim_id,
+                variable_name=variable_name,
+            )
+        if series is not None:
+            logger.debug(
+                "Loaded '%s' from SimulationCatalog boussinesq_state (sim_id=%s).",
+                variable_name,
+                sim_id,
+            )
+            return series
 
-        boussinesq_path = run_folder / "_boussinesq_state_history.npz"
-        searched.append(boussinesq_path)
-        if boussinesq_path.exists():
-            try:
-                if variable_name in {
-                    "surface_excess_total_m3_s",
-                    "surface_threshold_total_m3_s",
-                    "saturation_excess_total_m3_s",
-                }:
-                    return _load_boussinesq_surface_excess_total_series(
-                        run_folder,
-                        boussinesq_path,
-                        variable_name=variable_name,
-                    )
-                return _load_boussinesq_npz_series(
-                    boussinesq_path,
-                    variable_name=variable_name,
-                )
-            except KeyError:
-                pass
-
-    searched_text = ", ".join(str(path) for path in searched)
+    searched_text = ", ".join(searched)
     raise FileNotFoundError(
-        f"Could not find postprocess variable '{variable}' in {run_folder}. "
-        f"Searched: {searched_text}"
+        f"Could not find variable '{variable}' in SimulationCatalog sim_id={sim_id}. "
+        f"Tried variables: {searched_text}"
     )
 
 

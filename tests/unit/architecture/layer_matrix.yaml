@@ -17,7 +17,7 @@ allowed:
   display:       [core, schema, results, display]
   analysis:      [core, schema, data, results, analysis]
   pipeline:      [core, schema, physics, data, spatial, solver, simulation, calibration, results, pipeline]
-  workflow:      [core, schema, physics, data, spatial, simulation, solver, calibration, results, display, analysis, pipeline, workflow]
+  workflow:      [core, schema, physics, data, spatial, simulation, solver, calibration, results, display, analysis, pipeline, workflow, master_config]
   master_config: [core, schema, physics, data, spatial, simulation, solver, calibration, results, display, analysis, pipeline, workflow, master_config]
   cli:           [core, schema, physics, data, spatial, simulation, solver, calibration, results, display, analysis, pipeline, workflow, master_config, cli]
 
@@ -31,9 +31,14 @@ tolerances:
   - {src: analysis,    tgt: physics,  reason: "history contract — 20_ENCAPSULATION_AND_COUPLING.md §2 ?-cell"}
   - {src: results,     tgt: solver,   reason: "catalog stores solver registry id — 20_ENCAPSULATION_AND_COUPLING.md §2 ?-cell"}
 
-# Files exempt from the layer rule. Bootstrap shims that wire forward refs.
+# Files exempt from the layer rule. Bootstrap shims that wire forward refs,
+# plus *.cases.run_*case.py CLI entrypoints that load HydroModPyConfig from a
+# user-provided TOML (these are example runners, semantically closer to the
+# `examples/` tree than to the layer they live under).
 exempt_files:
   - hydromodpy/__init__.py
   - hydromodpy/_bootstrap.py
   - hydromodpy/__main__.py
   - hydromodpy/project.py
+  - hydromodpy/spatial/domain/cases/run_domain_case.py
+  - hydromodpy/spatial/geographic/cases/reference_catchment_delineation_case/run_case.py

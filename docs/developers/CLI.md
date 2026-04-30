@@ -47,11 +47,12 @@ Si `workflow` est absent ou prend une valeur inconnue, la commande
 appliquée côté Pydantic (`HydroModPyConfig`) afin que les frontaux
 (Angular, React) voient le champ comme un enum requis.
 
-Les scripts Python peuvent aussi être passés à `hmp run`, ils sont
-exécutés comme sous-processus :
+Les scripts Python de prototypage ne passent pas par `hmp run`.
+Ils vivent dans l'espace développeur pour garder `hmp run` strictement
+reproductible depuis une configuration validée :
 
 ```bash
-hmp run prototype_script.py
+hmp dev run-script prototype_script.py
 ```
 
 ## Génération d'un fichier de configuration

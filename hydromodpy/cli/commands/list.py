@@ -20,8 +20,8 @@ from pathlib import Path
 
 from hydromodpy.cli.helpers import EXIT_NOT_FOUND, find_workspace_root
 
-NAME = "list"
-HELP = "List projects or runs in a workspace"
+NAME: str = "list"
+HELP: str = "List projects or runs in a workspace"
 
 
 def register(subparsers) -> argparse.ArgumentParser:

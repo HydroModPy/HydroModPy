@@ -10,8 +10,8 @@ from typing import Any
 
 from hydromodpy.cli.helpers import EXIT_CONFIG, EXIT_NOT_FOUND
 
-NAME = "schema"
-HELP = "Export the JSON Schema and companion files for frontend hooks"
+NAME: str = "schema"
+HELP: str = "Export the JSON Schema and companion files for frontend hooks"
 
 
 def register(subparsers) -> argparse.ArgumentParser:

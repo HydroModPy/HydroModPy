@@ -1,19 +1,7 @@
-"""Tests for adapter aliasing + cma_es adapter construction.
-
-Covers Phase 4 of the calibration integration:
-
-- ``grid`` resolves to the GridAdapter class.
-- ``simplex`` / ``nelder_mead`` / ``scipy_nelder_mead`` all resolve to the
-  scipy Nelder-Mead adapter.
-- ``random_search`` matches the legacy numpy default_rng sampling path.
-- ``cma_es`` instantiates cleanly and respects ``seed`` reproducibility.
-- Adapters return suggestions whose parameter values fall within
-  transformed bounds.
-"""
+"""Tests for canonical optimizer adapter construction."""
 
 from __future__ import annotations
 
-import numpy as np
 import pytest
 
 from hydromodpy.calibration.optimizer import build_optimizer
@@ -29,26 +17,20 @@ def _two_dim_space() -> ParameterSpace:
     )
 
 
-# ---------------------------------------------------------------------------
-# Alias resolution
-# ---------------------------------------------------------------------------
-
-
-class TestAdapterAliases:
-    def test_grid_resolves(self):
+class TestCanonicalAdapters:
+    def test_grid_resolves(self) -> None:
         opt = build_optimizer("grid", _two_dim_space())
         assert opt.name == "grid"
 
-    @pytest.mark.parametrize("alias", ["simplex", "nelder_mead", "scipy_nelder_mead"])
-    def test_nelder_mead_aliases(self, alias: str):
-        opt = build_optimizer(alias, _two_dim_space())
+    def test_scipy_nelder_mead_resolves(self) -> None:
+        opt = build_optimizer("scipy_nelder_mead", _two_dim_space(), maxiter=5)
         assert opt.name == "scipy_nelder_mead"
 
-    def test_random_search_resolves(self):
+    def test_random_search_resolves(self) -> None:
         opt = build_optimizer("random_search", _two_dim_space(), seed=0)
         assert opt.name == "random_search"
 
-    def test_cma_es_resolves(self):
+    def test_cma_es_resolves(self) -> None:
         opt = build_optimizer(
             "cma_es",
             _two_dim_space(),
@@ -60,15 +42,30 @@ class TestAdapterAliases:
         assert opt.name == "cma_es"
 
 
-# ---------------------------------------------------------------------------
-# Grid adapter with legacy n_per_dim kwarg
-# ---------------------------------------------------------------------------
+class TestLegacyAdapterInputsRejected:
+    @pytest.mark.parametrize("name", ["simplex", "nelder_mead"])
+    def test_removed_nelder_mead_names_are_rejected(self, name: str) -> None:
+        with pytest.raises(KeyError, match="Unknown optimizer"):
+            build_optimizer(name, _two_dim_space())
+
+    def test_grid_rejects_n_per_dim(self) -> None:
+        with pytest.raises(TypeError, match="n_per_dim"):
+            build_optimizer("grid", _two_dim_space(), n_per_dim=3)
+
+    @pytest.mark.parametrize("kwarg", ["max_iter", "max_fun", "xtol", "ftol"])
+    def test_scipy_nelder_mead_rejects_removed_kwargs(self, kwarg: str) -> None:
+        with pytest.raises(TypeError, match=kwarg):
+            build_optimizer("scipy_nelder_mead", _two_dim_space(), **{kwarg: 1})
+
+    def test_random_search_rejects_n_samples(self) -> None:
+        with pytest.raises(TypeError, match="n_samples"):
+            build_optimizer("random_search", _two_dim_space(), n_samples=10)
 
 
-class TestGridLegacyKwargs:
-    def test_n_per_dim_alias(self):
-        opt = build_optimizer("grid", _two_dim_space(), n_per_dim=3)
-        suggestions = opt.ask(n=9)  # 3 x 3 grid
+class TestGridAdapter:
+    def test_points_per_dim_controls_grid_size(self) -> None:
+        opt = build_optimizer("grid", _two_dim_space(), points_per_dim=3)
+        suggestions = opt.ask(n=9)
         values_x = [s.values["x"] for s in suggestions]
         values_y = [s.values["y"] for s in suggestions]
         assert len(suggestions) == 9
@@ -78,13 +75,8 @@ class TestGridLegacyKwargs:
         assert max(values_y) == pytest.approx(2.0)
 
 
-# ---------------------------------------------------------------------------
-# Optuna random seeded reproducibility
-# ---------------------------------------------------------------------------
-
-
 class TestRandomSearchSeeding:
-    def test_same_seed_yields_same_suggestions(self):
+    def test_same_seed_yields_same_suggestions(self) -> None:
         opt_a = build_optimizer("random_search", _two_dim_space(), seed=7)
         opt_b = build_optimizer("random_search", _two_dim_space(), seed=7)
         sugg_a = opt_a.ask(n=4)
@@ -93,7 +85,7 @@ class TestRandomSearchSeeding:
             assert a.values["x"] == pytest.approx(b.values["x"])
             assert a.values["y"] == pytest.approx(b.values["y"])
 
-    def test_sampled_points_within_bounds(self):
+    def test_sampled_points_within_bounds(self) -> None:
         opt = build_optimizer("random_search", _two_dim_space(), seed=11)
         sugg = opt.ask(n=5)
         for s in sugg:
@@ -101,13 +93,8 @@ class TestRandomSearchSeeding:
             assert -2.0 <= s.values["y"] <= 2.0
 
 
-# ---------------------------------------------------------------------------
-# CMA-ES adapter seeded ask/tell roundtrip
-# ---------------------------------------------------------------------------
-
-
 class TestCmaEsAdapter:
-    def test_ask_tell_converges_on_convex(self):
+    def test_ask_tell_converges_on_convex(self) -> None:
         """Optimise a convex quadratic: best value must be close to origin."""
         space = _two_dim_space()
         opt = build_optimizer(
@@ -120,10 +107,7 @@ class TestCmaEsAdapter:
         )
         trial_to_vec: dict[int, dict[str, float]] = {}
         while not opt.converged():
-            try:
-                sugg = opt.ask(n=6)
-            except Exception:
-                break
+            sugg = opt.ask(n=6)
             if not sugg:
                 break
             results = []
@@ -148,7 +132,7 @@ class TestCmaEsAdapter:
         assert abs(best_vec["x"] - 0.3) < 0.1
         assert abs(best_vec["y"] - 0.5) < 0.1
 
-    def test_ask_returns_values_within_bounds(self):
+    def test_ask_returns_values_within_bounds(self) -> None:
         space = _two_dim_space()
         opt = build_optimizer(
             "cma_es",
@@ -164,48 +148,7 @@ class TestCmaEsAdapter:
             assert 0.0 <= s.values["x"] <= 1.0
             assert -2.0 <= s.values["y"] <= 2.0
 
-
-# ---------------------------------------------------------------------------
-# Scipy Nelder-Mead accepts legacy kwargs (max_iter / max_fun / xtol / ftol)
-# ---------------------------------------------------------------------------
-
-
-class TestScipyLegacyKwargs:
-    def test_legacy_kwargs_accepted(self):
-        opt = build_optimizer(
-            "simplex",
-            _two_dim_space(),
-            max_iter=5,
-            max_fun=10,
-            xtol=1e-3,
-            ftol=1e-3,
-        )
-        # Just confirm construction does not raise and first ask works.
-        sugg = opt.ask(n=1)
-        assert sugg
-
-
-# ---------------------------------------------------------------------------
-# CMA-ES legacy ``restarts`` kwarg
-# ---------------------------------------------------------------------------
-
-
-class TestCmaRestarts:
-    def test_cma_adapter_accepts_restarts_kwarg(self):
-        opt = build_optimizer(
-            "cma_es",
-            _two_dim_space(),
-            sigma0=0.25,
-            popsize=4,
-            max_evaluations=8,
-            seed=1,
-            restarts=2,
-        )
-        assert opt.name == "cma_es"
-        sugg = opt.ask(n=1)
-        assert sugg
-
-    def test_cma_adapter_restarts_actually_restarts(self):
+    def test_cma_adapter_restarts(self) -> None:
         """A restart must re-instantiate the strategy when CMA stops early."""
         space = _two_dim_space()
         opt = build_optimizer(
@@ -218,9 +161,6 @@ class TestCmaRestarts:
             restarts=1,
         )
         first_es_id = id(opt._es)
-        # Force an early stop on the active strategy without exhausting the
-        # evaluation budget. The next ask() must trigger a restart and swap
-        # the underlying strategy instance.
         original_stop = opt._es.stop
         forced_stops = {"count": 0}
 
@@ -234,3 +174,16 @@ class TestCmaRestarts:
         opt.ask(n=1)
         assert opt._restarts_used == 1
         assert id(opt._es) != first_es_id
+
+
+def test_scipy_nelder_mead_accepts_canonical_kwargs() -> None:
+    opt = build_optimizer(
+        "scipy_nelder_mead",
+        _two_dim_space(),
+        maxiter=5,
+        maxfev=10,
+        xatol=1e-3,
+        fatol=1e-3,
+    )
+    sugg = opt.ask(n=1)
+    assert sugg

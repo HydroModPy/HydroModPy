@@ -209,9 +209,13 @@ class SyntheticGeographicConfig(HydroModelBase):
         default="flat20",
         description="Identifier used by local case runners and outputs.",
     )
-    grid: Annotated[SyntheticGridConfig, Profile.USER] = Field(default_factory=SyntheticGridConfig)
+    grid: Annotated[SyntheticGridConfig, Profile.USER] = Field(
+        default_factory=SyntheticGridConfig,
+        description="Synthetic grid definition (extent and cell size).",
+    )
     topography: Annotated[SyntheticTopographyConfig, Profile.USER] = Field(
-        default_factory=SyntheticTopographyConfig
+        default_factory=SyntheticTopographyConfig,
+        description="Synthetic topography definition (shape, elevations, slope).",
     )
 
     @classmethod

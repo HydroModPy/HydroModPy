@@ -17,8 +17,8 @@ from pathlib import Path
 
 from hydromodpy.cli.helpers import EXIT_CONFIG, EXIT_NOT_FOUND
 
-NAME = "config"
-HELP = "Generate a TOML template, validate a config, or export the JSON Schema"
+NAME: str = "config"
+HELP: str = "Generate a TOML template, validate a config, or export the JSON Schema"
 
 
 def register(subparsers) -> argparse.ArgumentParser:

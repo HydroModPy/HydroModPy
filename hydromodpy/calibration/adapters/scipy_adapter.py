@@ -166,16 +166,8 @@ class ScipyDE(_ScipyAdapterBase):
 
 
 @register_optimizer("scipy_nelder_mead")
-@register_optimizer("nelder_mead")
-@register_optimizer("simplex")
 class ScipyNelderMead(_ScipyAdapterBase):
-    """scipy.optimize.minimize(method='Nelder-Mead') adapter.
-
-    Registered under ``scipy_nelder_mead`` (default), ``nelder_mead`` and
-    ``simplex`` (legacy aliases). Accepts ``max_iter`` / ``max_fun`` as
-    synonyms of ``maxiter`` / ``maxfev`` and ``xtol`` / ``ftol`` as
-    synonyms of ``xatol`` / ``fatol`` for parity with the legacy driver.
-    """
+    """scipy.optimize.minimize(method='Nelder-Mead') adapter."""
 
     name = "scipy_nelder_mead"
 
@@ -185,22 +177,14 @@ class ScipyNelderMead(_ScipyAdapterBase):
         *,
         seed: int | None = None,
         maxiter: int | None = None,
-        max_iter: int | None = None,
-        max_fun: int | None = None,
+        maxfev: int | None = None,
         xatol: float | None = None,
-        xtol: float | None = None,
         fatol: float | None = None,
-        ftol: float | None = None,
     ):
-        resolved_maxiter = max_iter if max_iter is not None else maxiter
-        if resolved_maxiter is None:
-            resolved_maxiter = 100
-        self._maxiter = int(resolved_maxiter)
-        self._maxfev = int(max_fun) if max_fun is not None else self._maxiter
-        resolved_xatol = xatol if xatol is not None else xtol
-        resolved_fatol = fatol if fatol is not None else ftol
-        self._xatol = float(resolved_xatol) if resolved_xatol is not None else None
-        self._fatol = float(resolved_fatol) if resolved_fatol is not None else None
+        self._maxiter = 100 if maxiter is None else int(maxiter)
+        self._maxfev = self._maxiter if maxfev is None else int(maxfev)
+        self._xatol = None if xatol is None else float(xatol)
+        self._fatol = None if fatol is None else float(fatol)
         super().__init__(space, seed=seed)
 
     def _make_method(self) -> Callable[[Callable], object]:

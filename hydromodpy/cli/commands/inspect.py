@@ -13,8 +13,8 @@ from hydromodpy.cli.helpers import (
     resolve_sim_id,
 )
 
-NAME = "inspect"
-HELP = "Inspect a simulation (metadata, mesh, status, files)"
+NAME: str = "inspect"
+HELP: str = "Inspect a simulation (metadata, mesh, status, files)"
 
 
 def register(subparsers) -> argparse.ArgumentParser:

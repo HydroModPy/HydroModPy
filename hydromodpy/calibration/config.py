@@ -48,9 +48,9 @@ from typing import Annotated, Any, Literal
 from pydantic import ConfigDict, Field, field_validator, model_validator
 
 from hydromodpy.core.config_kit.base import HydroModelBase
+from hydromodpy.core.config_kit.persistence import PersistenceConfig
 from hydromodpy.core.config_kit.profile import Profile
 from hydromodpy.core.units import Length
-from hydromodpy.master_config.persistence import PersistenceConfig
 
 SaveRunsMode = Literal["none", "best_n", "all"]
 ParameterMode = Literal["replace", "scale"]
@@ -65,9 +65,7 @@ CalibrationMethod = Literal[
     "scipy_nelder_mead",
     "grid",
     "random_search",
-    "simplex",
     "cma_es",
-    "nelder_mead",
     "gp_mapping",
     "da_mh_gp",
 ]

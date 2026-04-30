@@ -1,7 +1,12 @@
-"""
-Pydantic schemas and helpers for field parameter TOML payloads.
+"""Pydantic schemas and helpers for field parameter TOML payloads.
 
-This module validates the structure used by `field_param_config.toml`:
+This module is the thin façade that binds the dedicated sub-modules:
+- `_field_param_units` - unit aliases and normalization,
+- `_field_param_sections` - per-section schemas,
+- `_field_param_resolved` - resolved schema and validator,
+- `_field_param_resolution` - TOML/CSV resolution pipeline.
+
+It validates the TOML structure used by `field_param_config.toml`:
 - base section: `[field]` (id, kind),
 - optional mode sections: `[field_homogeneous]`, `[field_heterogeneous]`,
 - optional vertical section: `[field_vertical_profile]`.
@@ -9,351 +14,57 @@ This module validates the structure used by `field_param_config.toml`:
 
 from __future__ import annotations
 
-import csv
-import math
 import tomllib
 from collections.abc import Mapping
 from pathlib import Path
-from typing import Annotated, Any, Literal
+from typing import Annotated, Any
 
 from pydantic import (
-    ConfigDict,
     Field,
     ValidationError,
-    field_validator,
     model_validator,
 )
 
 from hydromodpy.core.config_kit.base import HydroModelBase
 from hydromodpy.core.config_kit.profile import Profile
-from hydromodpy.core.units import Length
-from hydromodpy.core.units.hydraulic_conductivity import (
-    M_PER_S_CANONICAL_UNITS,
-    normalize_m_per_s_unit,
+from hydromodpy.spatial.field.core._field_param_resolution import (
+    resolve_field_param_config_payload,
+)
+from hydromodpy.spatial.field.core._field_param_resolved import (
+    ResolvedFieldParam,
+    validate_resolved_field_param_data,
+)
+from hydromodpy.spatial.field.core._field_param_sections import (
+    FieldBaseSection,
+    FieldHeterogeneousSection,
+    FieldHomogeneousSection,
+    FieldKind,
+    FieldVerticalProfileSection,
+    HeterogeneousValueSource,
+    VerticalProfileInterpolation,
+    VerticalProfileMode,
+)
+from hydromodpy.spatial.field.core._field_param_units import (
+    SUPPORTED_PARAMETER_UNITS,
 )
 
-FieldKind = Literal["homogeneous", "heterogeneous"]
-HeterogeneousValueSource = Literal["inline", "csv"]
-VerticalProfileMode = Literal["none", "exponential", "tabulated"]
-VerticalProfileInterpolation = Literal["linear", "step"]
-SUPPORTED_PARAMETER_UNITS = ("-", *M_PER_S_CANONICAL_UNITS, "m-1", "cm-1")
-
-_UNIT_ALIASES = {
-    "-": "-",
-    "1": "-",
-    "none": "-",
-    "dimensionless": "-",
-    "unitless": "-",
-    "m-1": "m-1",
-    "1/m": "m-1",
-    "m^-1": "m-1",
-    "cm-1": "cm-1",
-    "1/cm": "cm-1",
-    "cm^-1": "cm-1",
-}
-
-
-def _normalize_unit_token(value: str | None) -> str | None:
-    """Normalize one user unit token to canonical representation."""
-    if value is None:
-        return None
-    token = str(value).strip().lower().replace(" ", "")
-    if token == "":
-        raise ValueError("field.unit cannot be empty when provided")
-    if token in _UNIT_ALIASES:
-        return _UNIT_ALIASES[token]
-    try:
-        return normalize_m_per_s_unit(token)
-    except ValueError:
-        allowed = ", ".join(SUPPORTED_PARAMETER_UNITS)
-        raise ValueError(f"Unsupported field.unit '{value}'. Allowed: {allowed}") from None
-
-
-class FieldBaseSection(HydroModelBase):
-    """Schema for `[field]` base section."""
-
-    id: Annotated[str | None, Profile.USER] = Field(
-        default=None,
-        description=("Parameter identifier used in outputs and logs (for example 'K', 'Sy')."),
-    )
-    kind: Annotated[FieldKind | None, Profile.USER] = Field(
-        default=None,
-        description=("Field type selector. Allowed values: 'homogeneous' or 'heterogeneous'."),
-    )
-    unit: Annotated[str | None, Profile.USER] = Field(
-        default=None,
-        description=(
-            "Unit of parameter values. Typical examples: 'm/s' (K), '-' (Sy), 'm-1' (Ss)."
-        ),
-    )
-
-    @field_validator("id")
-    @classmethod
-    def _validate_id(cls, value):
-        if value is None:
-            return None
-        text = str(value).strip()
-        if not text:
-            raise ValueError("field.id cannot be empty")
-        return text
-
-    @field_validator("unit")
-    @classmethod
-    def _validate_unit(cls, value):
-        return _normalize_unit_token(value)
-
-
-class FieldHomogeneousSection(HydroModelBase):
-    """
-    Schema for `[field_homogeneous]`.
-    """
-
-    model_config = ConfigDict(extra="forbid")
-
-    value: Annotated[object | None, Profile.USER] = Field(
-        default=None,
-        description="Scalar surface value used when kind='homogeneous'.",
-    )
-
-    @field_validator("value")
-    @classmethod
-    def _validate_value(cls, value):
-        if value is None:
-            return None
-        if isinstance(value, bool):
-            raise TypeError("field_homogeneous.value must be numeric or '<number> <unit>'")
-        if isinstance(value, (int, float)):
-            return float(value)
-        if isinstance(value, str):
-            token = value.strip()
-            if token == "":
-                raise ValueError("field_homogeneous.value cannot be empty")
-            return token
-        raise TypeError("field_homogeneous.value must be numeric or '<number> <unit>'")
-
-
-class FieldHeterogeneousSection(HydroModelBase):
-    """
-    Schema for `[field_heterogeneous]`.
-    """
-
-    model_config = ConfigDict(extra="forbid")
-
-    values_source: Annotated[HeterogeneousValueSource, Profile.USER] = Field(
-        default="inline",
-        description=(
-            "Source for heterogeneous values. "
-            "Use 'inline' for TOML mapping or 'csv' for external table."
-        ),
-    )
-    values: Annotated[dict[str, object] | None, Profile.USER] = Field(
-        default=None,
-        description=(
-            "Inline key/value mapping used when values_source='inline'. "
-            "Keys are zone/material ids, values are numeric parameter values."
-        ),
-    )
-    values_csv_file: Annotated[str | None, Profile.DEV] = Field(
-        default=None,
-        description=(
-            "Path to CSV mapping file used when values_source='csv'. "
-            "Relative paths are resolved from TOML directory."
-        ),
-    )
-    csv_key_column: Annotated[str, Profile.DEV] = Field(
-        default="zone_key",
-        description="CSV column name containing zone/material keys.",
-    )
-    csv_value_column: Annotated[str, Profile.DEV] = Field(
-        default="value",
-        description="CSV column name containing numeric parameter values.",
-    )
-    field_spatial_id: Annotated[str | None, Profile.USER] = Field(
-        default=None,
-        description=(
-            "Identifier of the spatial field used to map heterogeneous values "
-            "(must match geometry field id)."
-        ),
-    )
-
-    @field_validator("values")
-    @classmethod
-    def _validate_values(cls, value):
-        if value is None:
-            return None
-        values: dict[str, object] = {}
-        for key, raw_value in dict(value).items():
-            key_text = str(key)
-            if isinstance(raw_value, bool):
-                raise TypeError(
-                    f"field_heterogeneous.values['{key_text}'] must be numeric or '<number> <unit>'"
-                )
-            if isinstance(raw_value, (int, float)):
-                values[key_text] = float(raw_value)
-                continue
-            if isinstance(raw_value, str):
-                token = raw_value.strip()
-                if token == "":
-                    raise ValueError(f"field_heterogeneous.values['{key_text}'] cannot be empty")
-                values[key_text] = token
-                continue
-            raise TypeError(
-                f"field_heterogeneous.values['{key_text}'] must be numeric or '<number> <unit>'"
-            )
-        if len(values) == 0:
-            raise ValueError("field_heterogeneous.values cannot be empty")
-        if any(str(key).strip() == "" for key in values):
-            raise ValueError("field_heterogeneous.values cannot contain empty keys")
-        return values
-
-    @field_validator("values_csv_file")
-    @classmethod
-    def _validate_values_csv_file(cls, value):
-        if value is None:
-            return None
-        text = str(value).strip()
-        if text == "":
-            raise ValueError("field_heterogeneous.values_csv_file cannot be empty when provided")
-        return text
-
-    @field_validator("csv_key_column", "csv_value_column")
-    @classmethod
-    def _validate_csv_column_names(cls, value):
-        text = str(value).strip()
-        if text == "":
-            raise ValueError("CSV column name cannot be empty")
-        return text
-
-    @field_validator("field_spatial_id")
-    @classmethod
-    def _validate_field_spatial_id(cls, value):
-        if value is None:
-            return None
-        text = str(value).strip()
-        if not text:
-            raise ValueError("field_heterogeneous.field_spatial_id cannot be empty")
-        return text
-
-    @model_validator(mode="after")
-    def _validate_value_source_payload(self):
-        # Allow an empty section so users can keep full templates in TOML
-        # even when this heterogeneous block is not the active `field.kind`.
-        if (
-            self.values is None
-            and self.values_csv_file is None
-            and self.field_spatial_id is None
-            and self.values_source == "inline"
-            and self.csv_key_column == "zone_key"
-            and self.csv_value_column == "value"
-        ):
-            return self
-
-        if self.values_source == "inline":
-            if self.values is None:
-                raise ValueError(
-                    "field_heterogeneous.values is required when values_source='inline'"
-                )
-            if self.field_spatial_id is None:
-                raise ValueError(
-                    "field_heterogeneous.field_spatial_id is required for heterogeneous mapping"
-                )
-            return self
-
-        if self.values_source == "csv":
-            if self.values_csv_file is None:
-                raise ValueError(
-                    "field_heterogeneous.values_csv_file is required when values_source='csv'"
-                )
-            if self.field_spatial_id is None:
-                raise ValueError(
-                    "field_heterogeneous.field_spatial_id is required for heterogeneous mapping"
-                )
-            return self
-
-        return self
-
-
-class FieldVerticalProfileSection(HydroModelBase):
-    """
-    Schema for `[field_vertical_profile]`.
-    """
-
-    model_config = ConfigDict(extra="forbid")
-
-    mode: Annotated[VerticalProfileMode, Profile.USER] = Field(
-        default="none",
-        description=(
-            "Depth dependency mode shared over the full domain. "
-            "Allowed values: 'none', 'exponential', 'tabulated'."
-        ),
-    )
-    characteristic_depth: Annotated[Length | None, Profile.DEV] = Field(
-        default=None,
-        gt=0.0,
-        description=(
-            "Characteristic depth for exponential mode. "
-            "Vertical factor is exp(-depth/characteristic_depth)."
-        ),
-    )
-    min_factor: Annotated[float | None, Profile.DEV] = Field(
-        default=None,
-        ge=0.0,
-        le=1.0,
-        description=(
-            "Optional floor factor for exponential mode. "
-            "If provided, factor is max(exp(-depth/characteristic_depth), min_factor)."
-        ),
-    )
-    depths: Annotated[list[float] | None, Profile.DEV] = Field(
-        default=None,
-        min_length=1,
-        description="Depth nodes for tabulated mode (meters, first value must be 0).",
-    )
-    factors: Annotated[list[float] | None, Profile.DEV] = Field(
-        default=None,
-        min_length=1,
-        description=(
-            "Multiplicative factors aligned with `depths` for tabulated mode "
-            "(first value must be 1 at depth 0)."
-        ),
-    )
-    interpolation: Annotated[VerticalProfileInterpolation, Profile.DEV] = Field(
-        default="linear",
-        description=(
-            "Interpolation strategy for tabulated mode. Allowed values: 'linear' or 'step'."
-        ),
-    )
-
-    @model_validator(mode="after")
-    def _validate_mode_payload(self):
-        if self.mode == "none":
-            return self
-
-        if self.mode == "exponential":
-            if self.characteristic_depth is None:
-                raise ValueError(
-                    "field_vertical_profile.characteristic_depth is required when mode='exponential'"
-                )
-            return self
-
-        if self.mode == "tabulated":
-            if self.depths is None:
-                raise ValueError("field_vertical_profile.depths is required when mode='tabulated'")
-            if self.factors is None:
-                raise ValueError("field_vertical_profile.factors is required when mode='tabulated'")
-            if len(self.depths) != len(self.factors):
-                raise ValueError("field_vertical_profile.depths and factors must have same length")
-            if any(v < 0.0 for v in self.depths):
-                raise ValueError("field_vertical_profile.depths must be >= 0")
-            if any(self.depths[i] <= self.depths[i - 1] for i in range(1, len(self.depths))):
-                raise ValueError("field_vertical_profile.depths must be strictly increasing")
-            if not math.isclose(float(self.depths[0]), 0.0, rel_tol=0.0, abs_tol=1e-12):
-                raise ValueError("field_vertical_profile tabulated first depth must be 0.0")
-            if not math.isclose(float(self.factors[0]), 1.0, rel_tol=0.0, abs_tol=1e-12):
-                raise ValueError("field_vertical_profile tabulated factor at depth 0.0 must be 1.0")
-            return self
-
-        return self
+__all__ = (
+    "FieldBaseSection",
+    "FieldHeterogeneousSection",
+    "FieldHomogeneousSection",
+    "FieldKind",
+    "FieldParamConfig",
+    "FieldVerticalProfileSection",
+    "HeterogeneousValueSource",
+    "ResolvedFieldParam",
+    "SUPPORTED_PARAMETER_UNITS",
+    "VerticalProfileInterpolation",
+    "VerticalProfileMode",
+    "load_field_param_toml",
+    "resolve_field_param_config_payload",
+    "validate_field_param_toml_data",
+    "validate_resolved_field_param_data",
+)
 
 
 class FieldParamConfig(HydroModelBase):
@@ -405,160 +116,8 @@ class FieldParamConfig(HydroModelBase):
         return self
 
 
-class ResolvedFieldParam(HydroModelBase):
-    """
-    Schema for a fully resolved field-parameter payload.
-
-    This corresponds to the merged mapping consumed by `FieldParam.from_dict`.
-    """
-
-    model_config = ConfigDict(extra="forbid")
-
-    id: Annotated[str | None, Profile.DEV] = Field(
-        default=None,
-        description="Resolved parameter identifier.",
-    )
-    kind: Annotated[FieldKind | None, Profile.DEV] = Field(
-        default=None,
-        description="Resolved parameter kind: homogeneous or heterogeneous.",
-    )
-    unit: Annotated[str | None, Profile.DEV] = Field(
-        default=None,
-        description="Resolved parameter unit (canonical token).",
-    )
-    value: Annotated[object | None, Profile.DEV] = Field(
-        default=None,
-        description="Resolved scalar value for homogeneous kind.",
-    )
-    values: Annotated[dict[str, object] | None, Profile.DEV] = Field(
-        default=None,
-        description="Resolved mapping for heterogeneous kind.",
-    )
-    field_spatial_id: Annotated[str | None, Profile.DEV] = Field(
-        default=None,
-        description="Resolved spatial field identifier for heterogeneous kind.",
-    )
-    values_source: Annotated[HeterogeneousValueSource | None, Profile.DEV] = Field(
-        default=None,
-        description="Optional helper flag describing heterogeneous values source.",
-    )
-    values_csv_file: Annotated[str | None, Profile.DEV] = Field(
-        default=None,
-        description="Optional helper CSV path used before resolution.",
-    )
-    csv_key_column: Annotated[str | None, Profile.DEV] = Field(
-        default=None,
-        description="Optional helper CSV key column used before resolution.",
-    )
-    csv_value_column: Annotated[str | None, Profile.DEV] = Field(
-        default=None,
-        description="Optional helper CSV value column used before resolution.",
-    )
-    vertical_profile: Annotated[FieldVerticalProfileSection | None, Profile.DEV] = Field(
-        default=None,
-        description="Resolved optional depth profile configuration.",
-    )
-
-    @field_validator("id")
-    @classmethod
-    def _validate_id(cls, value):
-        if value is None:
-            return None
-        text = str(value).strip()
-        if not text:
-            raise ValueError("id cannot be empty")
-        return text
-
-    @field_validator("unit")
-    @classmethod
-    def _validate_unit(cls, value):
-        return _normalize_unit_token(value)
-
-    @field_validator("value")
-    @classmethod
-    def _validate_value(cls, value):
-        if value is None:
-            return None
-        if isinstance(value, bool):
-            raise TypeError("value must be numeric or '<number> <unit>'")
-        if isinstance(value, (int, float)):
-            return float(value)
-        if isinstance(value, str):
-            token = value.strip()
-            if token == "":
-                raise ValueError("value cannot be empty")
-            return token
-        raise TypeError("value must be numeric or '<number> <unit>'")
-
-    @field_validator("values")
-    @classmethod
-    def _validate_values(cls, value):
-        if value is None:
-            return None
-        values: dict[str, object] = {}
-        for key, raw_value in dict(value).items():
-            key_text = str(key)
-            if isinstance(raw_value, bool):
-                raise TypeError(f"values['{key_text}'] must be numeric or '<number> <unit>'")
-            if isinstance(raw_value, (int, float)):
-                values[key_text] = float(raw_value)
-                continue
-            if isinstance(raw_value, str):
-                token = raw_value.strip()
-                if token == "":
-                    raise ValueError(f"values['{key_text}'] cannot be empty")
-                values[key_text] = token
-                continue
-            raise TypeError(f"values['{key_text}'] must be numeric or '<number> <unit>'")
-        if len(values) == 0:
-            raise ValueError("values cannot be empty")
-        if any(str(key).strip() == "" for key in values):
-            raise ValueError("values cannot contain empty keys")
-        return values
-
-    @field_validator("values_csv_file", "csv_key_column", "csv_value_column")
-    @classmethod
-    def _validate_optional_non_empty(cls, value):
-        if value is None:
-            return None
-        text = str(value).strip()
-        if text == "":
-            raise ValueError("value cannot be empty when provided")
-        return text
-
-    @field_validator("field_spatial_id")
-    @classmethod
-    def _validate_optional_field_spatial_id(cls, value):
-        if value is None:
-            return None
-        text = str(value).strip()
-        if not text:
-            raise ValueError("field_spatial_id cannot be empty when provided")
-        return text
-
-    @model_validator(mode="after")
-    def _validate_by_kind(self):
-        if self.kind is None:
-            return self
-        if self.kind == "homogeneous":
-            if self.value is None:
-                raise ValueError("Homogeneous field requires 'value'")
-            object.__setattr__(self, "values", None)
-            object.__setattr__(self, "field_spatial_id", None)
-            return self
-
-        if self.values is None:
-            raise ValueError("Heterogeneous field requires 'values'")
-        if self.field_spatial_id is None:
-            raise ValueError("Heterogeneous field requires 'field_spatial_id'")
-        object.__setattr__(self, "value", None)
-        return self
-
-
 def validate_field_param_toml_data(config_data: Mapping[str, Any]) -> dict[str, Any]:
-    """
-    Validate raw field-parameter TOML payload and return normalized dictionary.
-    """
+    """Validate raw field-parameter TOML payload and return normalized dictionary."""
     if not isinstance(config_data, Mapping):
         raise ValueError("field parameter configuration must be a mapping")
     try:
@@ -568,142 +127,8 @@ def validate_field_param_toml_data(config_data: Mapping[str, Any]) -> dict[str, 
     return parsed.model_dump(mode="python", exclude_none=True)
 
 
-def _resolve_relative_to(path_like: str | Path, *, base_dir: Path) -> Path:
-    """Resolve one path relative to a base directory if not absolute."""
-    raw = Path(str(path_like))
-    if raw.is_absolute():
-        return raw
-    return (base_dir / raw).resolve()
-
-
-def _load_values_mapping_csv(
-    csv_path: str | Path,
-    *,
-    key_column: str = "zone_key",
-    value_column: str = "value",
-) -> dict[str, float]:
-    """Load one heterogeneous key->value mapping from CSV."""
-    key_col = str(key_column).strip()
-    val_col = str(value_column).strip()
-    if key_col == "" or val_col == "":
-        raise ValueError("CSV key/value column names cannot be empty")
-
-    path = Path(csv_path)
-    if not path.exists():
-        raise FileNotFoundError(f"CSV values file not found: {path}")
-
-    with path.open("r", encoding="utf-8-sig", newline="") as stream:
-        reader = csv.DictReader(stream)
-        headers = [str(h).strip() for h in (reader.fieldnames or [])]
-        if key_col not in headers:
-            raise KeyError(
-                f"CSV values file '{path}' is missing key column '{key_col}'. "
-                f"Available columns: {headers}"
-            )
-        if val_col not in headers:
-            raise KeyError(
-                f"CSV values file '{path}' is missing value column '{val_col}'. "
-                f"Available columns: {headers}"
-            )
-
-        values: dict[str, float] = {}
-        for i, row in enumerate(reader, start=2):  # 1=header
-            key_raw = row.get(key_col, "")
-            key = str(key_raw).strip()
-            if key == "":
-                continue
-            if key in values:
-                raise ValueError(f"Duplicate key '{key}' in CSV mapping '{path}' at line {i}.")
-            raw_value = row.get(val_col, "")
-            try:
-                value = float(raw_value)
-            except Exception as exc:
-                raise ValueError(
-                    f"Invalid numeric value in CSV mapping '{path}' line {i}: "
-                    f"column '{val_col}' -> {raw_value!r}"
-                ) from exc
-            values[key] = value
-
-    if len(values) == 0:
-        raise ValueError(f"CSV values file '{path}' does not define any key/value pair")
-    return values
-
-
-def resolve_field_param_config_payload(
-    config_data: Mapping[str, Any],
-    *,
-    param_id: str | None = None,
-    base_dir: Path | None = None,
-    section_label: str = "field",
-) -> dict[str, Any]:
-    """Resolve one field-parameter TOML-like payload into canonical mapping.
-
-    This function encapsulates mode selection (`homogeneous`/`heterogeneous`),
-    optional vertical profile extraction, and optional CSV value loading.
-    """
-    validated = validate_field_param_toml_data(config_data)
-
-    field_section = validated.get("field")
-    if not isinstance(field_section, Mapping):
-        raise KeyError(f"{section_label} requires section [{section_label}.field]")
-
-    merged: dict[str, Any] = dict(field_section)
-    field_id = str(merged.get("id", "")).strip()
-    if param_id is not None:
-        if field_id == "":
-            merged["id"] = param_id
-        elif field_id != param_id:
-            raise ValueError(
-                f"{section_label}.field.id must match section key '{param_id}', got '{field_id}'"
-            )
-
-    kind_raw = merged.get("kind")
-    kind_key = str(kind_raw).strip().lower() if kind_raw is not None else None
-    if kind_key in ("homogeneous", "heterogeneous"):
-        specific_section = validated.get(f"field_{kind_key}")
-        if isinstance(specific_section, Mapping):
-            merged.update(dict(specific_section))
-
-    vertical_section = validated.get("field_vertical_profile", validated.get("vertical_profile"))
-    if isinstance(vertical_section, Mapping):
-        merged["vertical_profile"] = dict(vertical_section)
-
-    if kind_key == "heterogeneous":
-        value_source = str(merged.get("values_source", "inline")).strip().lower()
-        if value_source == "csv":
-            csv_file = merged.get("values_csv_file")
-            if csv_file is None or str(csv_file).strip() == "":
-                raise KeyError(
-                    "Heterogeneous field with values_source='csv' requires 'values_csv_file'"
-                )
-            if base_dir is None:
-                raise ValueError(
-                    "CSV heterogeneous payload requires 'base_dir' to resolve values_csv_file"
-                )
-            csv_path = _resolve_relative_to(csv_file, base_dir=base_dir)
-            csv_key_column = str(merged.get("csv_key_column", "zone_key"))
-            csv_value_column = str(merged.get("csv_value_column", "value"))
-            merged["values"] = _load_values_mapping_csv(
-                csv_path,
-                key_column=csv_key_column,
-                value_column=csv_value_column,
-            )
-
-    for helper_key in (
-        "values_source",
-        "values_csv_file",
-        "csv_key_column",
-        "csv_value_column",
-    ):
-        merged.pop(helper_key, None)
-
-    return validate_resolved_field_param_data(merged)
-
-
 def load_field_param_toml(config_path: str | Path) -> dict[str, Any]:
-    """
-    Load and validate a field-parameter TOML file.
-    """
+    """Load and validate a field-parameter TOML file."""
     path = Path(config_path)
     with path.open("rb") as stream:
         payload = tomllib.load(stream)
@@ -711,39 +136,3 @@ def load_field_param_toml(config_path: str | Path) -> dict[str, Any]:
         return validate_field_param_toml_data(payload)
     except ValueError as exc:
         raise ValueError(f"Invalid field parameter configuration in {path}: {exc}") from exc
-
-
-def validate_resolved_field_param_data(
-    config_data: Mapping[str, Any],
-) -> dict[str, Any]:
-    """
-    Validate merged field-parameter mapping before building `FieldParam`.
-    """
-    if not isinstance(config_data, Mapping):
-        raise ValueError("resolved field parameter payload must be a mapping")
-
-    payload = dict(config_data)
-    if "vertical_profile" not in payload and "field_vertical_profile" in payload:
-        payload["vertical_profile"] = payload["field_vertical_profile"]
-    payload.pop("field_vertical_profile", None)
-
-    if payload.get("id") is None:
-        raise KeyError("Missing required key 'id'")
-    if payload.get("kind") is None:
-        raise KeyError("Missing required key 'kind'")
-
-    kind_key = str(payload["kind"]).strip().lower()
-    if kind_key == "homogeneous":
-        if "value" not in payload:
-            raise KeyError("Homogeneous field requires key 'value'")
-    elif kind_key == "heterogeneous":
-        if "values" not in payload:
-            raise KeyError("Heterogeneous field requires mapping key 'values'")
-        if "field_spatial_id" not in payload:
-            raise KeyError("Heterogeneous field requires key 'field_spatial_id'")
-
-    try:
-        parsed = ResolvedFieldParam.model_validate(payload)
-    except (ValidationError, TypeError) as exc:
-        raise ValueError(str(exc)) from exc
-    return parsed.model_dump(mode="python", exclude_none=True)

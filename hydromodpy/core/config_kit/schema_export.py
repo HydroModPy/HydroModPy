@@ -38,6 +38,7 @@ from pathlib import Path
 from typing import Any
 
 from hydromodpy.core.config_kit.registry import root_sections as _root_sections
+from hydromodpy.core.config_kit.root_config_protocol import get_root_config_provider
 
 
 def _ensure_root_sections() -> dict[str, type]:
@@ -75,9 +76,7 @@ def export_schema(
         model_cls = sections[section]
 
     if model_cls is None:
-        from hydromodpy.master_config.hydromodpy_config import HydroModPyConfig
-
-        model_cls = HydroModPyConfig
+        model_cls = get_root_config_provider().root_model()
 
     schema = model_cls.model_json_schema()
     # Attach a meta marker so downstream tools can identify the producer.

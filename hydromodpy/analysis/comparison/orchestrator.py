@@ -39,8 +39,8 @@ from hydromodpy.analysis.comparison.runtime_observables import (
     write_observables_csv,
 )
 from hydromodpy.analysis.comparison.visuals import generate_comparison_figures
+from hydromodpy.core.config_kit.root_config_protocol import get_root_config_provider
 from hydromodpy.core.toml_io.loader import load_toml_with_base_config
-from hydromodpy.master_config.hydromodpy_config import HydroModPyConfig
 from hydromodpy.project import Project
 
 
@@ -327,7 +327,7 @@ class MethodComparisonLauncher:
         solver_name: str | None = None,
     ) -> Path:
         """Infer one existing run folder from a simulation config path."""
-        cfg = HydroModPyConfig.from_toml(config_path)
+        cfg = get_root_config_provider().from_toml(config_path)
         base_folder = Path(cfg.workspace.solver_scratch_folder) / str(cfg.simulation.run_id)
         if (base_folder / "_postprocess").exists() or (
             base_folder / "_boussinesq_state_history.npz"

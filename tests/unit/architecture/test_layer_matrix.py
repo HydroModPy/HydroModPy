@@ -1,10 +1,9 @@
 """Enforce the layer-matrix contract documented in
 ``unified_architecture/20_ENCAPSULATION_AND_COUPLING.md`` §2.
 
-Stage 1: ``test_layer_matrix`` is marked ``xfail`` so it reports the
-current violation count without breaking CI. Stage 2 will tighten the
-quota; stage 3 will require strict zero (with ``tolerances`` documented).
-The annex one-way rule is already satisfied and runs strict.
+The layer matrix is a release gate: undocumented cross-layer imports fail
+the suite. Documented tolerances live in ``layer_matrix.yaml`` and must carry
+an explicit rationale.
 """
 
 from __future__ import annotations
@@ -59,16 +58,8 @@ def _violations() -> tuple[list, list]:
     return p0, annex
 
 
-@pytest.mark.xfail(
-    strict=False,
-    reason="layer-matrix violations being remediated through R0..R4 (see PLAN_ACTION.md)",
-)
 def test_layer_matrix() -> None:
-    """Report the count of forbidden cross-layer imports.
-
-    Marked xfail until R0..R4 land. The assertion message lists the top
-    offending edges so reviewers can track progress.
-    """
+    """Reject undocumented forbidden cross-layer imports."""
     p0, _ = _violations()
     if p0:
         from collections import Counter

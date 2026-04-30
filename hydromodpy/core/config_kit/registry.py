@@ -13,6 +13,8 @@ from typing import get_args, get_origin
 
 from pydantic import BaseModel
 
+from hydromodpy.core.config_kit.root_config_protocol import get_root_config_provider
+
 _CACHE: dict[str, type[BaseModel]] | None = None
 
 
@@ -46,10 +48,10 @@ def root_sections() -> dict[str, type[BaseModel]]:
     """
     global _CACHE
     if _CACHE is None:
-        from hydromodpy.master_config.hydromodpy_config import HydroModPyConfig
+        root_cls = get_root_config_provider().root_model()
 
         result: dict[str, type[BaseModel]] = {}
-        for name, info in HydroModPyConfig.model_fields.items():
+        for name, info in root_cls.model_fields.items():
             cls = _resolve_basemodel(info.annotation)
             if cls is not None:
                 result[name] = cls

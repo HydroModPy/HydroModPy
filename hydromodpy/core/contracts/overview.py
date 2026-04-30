@@ -16,14 +16,18 @@ from hydromodpy.core.state.data import LoadedDataContext
 
 if TYPE_CHECKING:
     from hydromodpy.core.workspace.workspace import Workspace
-    from hydromodpy.master_config import HydroModPyConfig
 
 
 @dataclass
 class DataOverviewState:
-    """Runtime state threaded through the overview pipeline phases."""
+    """Runtime state threaded through the overview pipeline phases.
 
-    cfg: HydroModPyConfig
+    ``cfg`` is the root :class:`HydroModPyConfig` instance. It is typed
+    ``Any`` so this module stays in the ``core`` leaf layer (the architecture
+    contract forbids ``core -> master_config`` even under TYPE_CHECKING).
+    """
+
+    cfg: Any
     workspace: Workspace | None = None
     geographic: Any = None
     geographic_features: Any = None

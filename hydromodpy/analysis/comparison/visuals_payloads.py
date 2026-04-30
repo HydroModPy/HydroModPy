@@ -19,6 +19,7 @@ from hydromodpy.analysis.comparison.runtime_mesh import (
     resolve_structured_shape_from_config,
     resolve_structured_shape_from_run_folder,
 )
+from hydromodpy.analysis.comparison.runtime_metadata import discover_result_store
 from hydromodpy.analysis.comparison.runtime_observables import select_time_slices
 from hydromodpy.analysis.comparison.runtime_series import (
     VariableSeries,
@@ -164,8 +165,29 @@ def _build_map_payload(
     if not run_folder:
         return None
     run_folder_path = Path(str(run_folder))
-    series = load_variable_series(run_folder=run_folder_path, variable=observable.variable)
-    series = mask_depth_series_from_head_nodata(run_folder=run_folder_path, series=series)
+    config_path_raw = summary.get("config_path")
+    config_path = None if config_path_raw in ("", None) else Path(str(config_path_raw))
+    if config_path is None:
+        config_path = cfg.resolve_variant_config_path(variant)
+    store = None
+    sim_id = None
+    try:
+        store, sim_id = discover_result_store(config_path)
+        series = load_variable_series(
+            run_folder=run_folder_path,
+            variable=observable.variable,
+            store=store,
+            sim_id=sim_id,
+        )
+        series = mask_depth_series_from_head_nodata(
+            run_folder=run_folder_path,
+            series=series,
+            store=store,
+            sim_id=sim_id,
+        )
+    finally:
+        if store is not None:
+            store.close()
     selected = _choose_map_slice(series=series, observable=observable)
     if selected is None:
         return None
@@ -183,11 +205,6 @@ def _build_map_payload(
         ),
         observable.unit or "",
     )
-
-    config_path_raw = summary.get("config_path")
-    config_path = None if config_path_raw in ("", None) else Path(str(config_path_raw))
-    if config_path is None:
-        config_path = cfg.resolve_variant_config_path(variant)
     cells = resolve_bundle_cells(
         run_folder_path,
         config_path=config_path,

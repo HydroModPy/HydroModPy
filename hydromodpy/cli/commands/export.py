@@ -8,8 +8,8 @@ from pathlib import Path
 
 from hydromodpy.cli.helpers import EXIT_CONFIG, EXIT_NOT_FOUND, find_workspace_root
 
-NAME = "export"
-HELP = "Export geographic data or simulation results from the project store"
+NAME: str = "export"
+HELP: str = "Export geographic data or simulation results from the project store"
 
 
 def register(subparsers) -> argparse.ArgumentParser:

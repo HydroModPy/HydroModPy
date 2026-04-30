@@ -8,8 +8,8 @@ from pathlib import Path
 
 from hydromodpy.cli.helpers import EXIT_NOT_FOUND, find_workspace_root
 
-NAME = "rank"
-HELP = "Rank simulations of a project by a metric (top or bottom N)"
+NAME: str = "rank"
+HELP: str = "Rank simulations of a project by a metric (top or bottom N)"
 
 
 def register(subparsers) -> argparse.ArgumentParser:

@@ -1,73 +1,13 @@
-"""Geographic package.
+"""Geographic package facade.
 
 The decomposed geographic workflow lives in ``hydromodpy.spatial.geographic.core``.
 This package exposes the ``CatchmentDelineation`` runtime facade and its
-public data contracts.
+public data contracts via lazy attribute access to keep import time low.
 """
 
 from __future__ import annotations
 
-from hydromodpy.spatial.geographic.catchment_delineation import (
-    CatchmentDelineation,
-    DEM_correcflow_analysis,
-)
-from hydromodpy.spatial.geographic.core.catchment_domain import (
-    CatchmentDomainProducts,
-    derive_catchment_domain,
-)
-from hydromodpy.spatial.geographic.core.catchment_from_point import (
-    CatchmentFromPointProducts,
-    extract_catchment_from_point,
-)
-from hydromodpy.spatial.geographic.core.catchment_from_polygon import (
-    extract_catchment_from_polygon,
-)
-from hydromodpy.spatial.geographic.core.catchment_metrics import compute_catchment_area_km2
-from hydromodpy.spatial.geographic.core.catchment_zones import (
-    CatchmentZoneCode,
-    CatchmentZoneProducts,
-    build_catchment_zone_codes,
-)
-from hydromodpy.spatial.geographic.core.derived_features import (
-    GeographicBoundaryFeatures,
-    GeographicDerivedFeatures,
-    coerce_geographic_derived_features,
-    resolve_river_mesh_trace,
-)
-from hydromodpy.spatial.geographic.core.domain_dem import clip_dem_to_box_buffer
-from hydromodpy.spatial.geographic.core.domain_geographic_pipeline import (
-    DomainGeographicContext,
-    build_domain_geographic_context,
-    build_geographic_derived_features,
-)
-from hydromodpy.spatial.geographic.core.flow_products import (
-    FlowProducts,
-    build_regional_flow_products,
-)
-from hydromodpy.spatial.geographic.core.river_mesh_trace import (
-    RiverMeshTrace,
-    build_river_mesh_trace_from_vector,
-)
-from hydromodpy.spatial.geographic.core.river_network import (
-    RiverNetworkProducts,
-    build_river_network_products,
-    resolve_stream_threshold_cells,
-)
-from hydromodpy.spatial.geographic.core.surface_from_dem import build_surface_topo_from_dem
-from hydromodpy.spatial.geographic.dem_metadata import (
-    DemMetadata,
-    read_dem_metadata,
-)
-from hydromodpy.spatial.geographic.domain_rasters import (
-    DomainRasterProducts,
-    build_domain_rasters,
-)
-from hydromodpy.spatial.geographic.geographic_config import GeographicConfig, RiverNetworkConfig
-from hydromodpy.spatial.geographic.pipeline import (
-    GeographicRuntimeContext,
-    build_geographic_runtime_context,
-)
-from hydromodpy.spatial.geographic.subbasin import Subbasin
+from importlib import import_module
 
 __all__ = [
     "CatchmentDelineation",
@@ -107,3 +47,54 @@ __all__ = [
     "resolve_river_mesh_trace",
     "resolve_stream_threshold_cells",
 ]
+
+_LAZY_IMPORTS: dict[str, str] = {
+    "CatchmentDelineation": "hydromodpy.spatial.geographic.catchment_delineation:CatchmentDelineation",
+    "DEM_correcflow_analysis": "hydromodpy.spatial.geographic.catchment_delineation:DEM_correcflow_analysis",
+    "CatchmentDomainProducts": "hydromodpy.spatial.geographic.core.catchment_domain:CatchmentDomainProducts",
+    "derive_catchment_domain": "hydromodpy.spatial.geographic.core.catchment_domain:derive_catchment_domain",
+    "CatchmentFromPointProducts": "hydromodpy.spatial.geographic.core.catchment_from_point:CatchmentFromPointProducts",
+    "extract_catchment_from_point": "hydromodpy.spatial.geographic.core.catchment_from_point:extract_catchment_from_point",
+    "extract_catchment_from_polygon": "hydromodpy.spatial.geographic.core.catchment_from_polygon:extract_catchment_from_polygon",
+    "compute_catchment_area_km2": "hydromodpy.spatial.geographic.core.catchment_metrics:compute_catchment_area_km2",
+    "CatchmentZoneCode": "hydromodpy.spatial.geographic.core.catchment_zones:CatchmentZoneCode",
+    "CatchmentZoneProducts": "hydromodpy.spatial.geographic.core.catchment_zones:CatchmentZoneProducts",
+    "build_catchment_zone_codes": "hydromodpy.spatial.geographic.core.catchment_zones:build_catchment_zone_codes",
+    "GeographicBoundaryFeatures": "hydromodpy.spatial.geographic.core.derived_features:GeographicBoundaryFeatures",
+    "GeographicDerivedFeatures": "hydromodpy.spatial.geographic.core.derived_features:GeographicDerivedFeatures",
+    "coerce_geographic_derived_features": "hydromodpy.spatial.geographic.core.derived_features:coerce_geographic_derived_features",
+    "resolve_river_mesh_trace": "hydromodpy.spatial.geographic.core.derived_features:resolve_river_mesh_trace",
+    "clip_dem_to_box_buffer": "hydromodpy.spatial.geographic.core.domain_dem:clip_dem_to_box_buffer",
+    "DomainGeographicContext": "hydromodpy.spatial.geographic.core.domain_geographic_pipeline:DomainGeographicContext",
+    "build_domain_geographic_context": "hydromodpy.spatial.geographic.core.domain_geographic_pipeline:build_domain_geographic_context",
+    "build_geographic_derived_features": "hydromodpy.spatial.geographic.core.domain_geographic_pipeline:build_geographic_derived_features",
+    "FlowProducts": "hydromodpy.spatial.geographic.core.flow_products:FlowProducts",
+    "build_regional_flow_products": "hydromodpy.spatial.geographic.core.flow_products:build_regional_flow_products",
+    "RiverMeshTrace": "hydromodpy.spatial.geographic.core.river_mesh_trace:RiverMeshTrace",
+    "build_river_mesh_trace_from_vector": "hydromodpy.spatial.geographic.core.river_mesh_trace:build_river_mesh_trace_from_vector",
+    "RiverNetworkProducts": "hydromodpy.spatial.geographic.core.river_network:RiverNetworkProducts",
+    "build_river_network_products": "hydromodpy.spatial.geographic.core.river_network:build_river_network_products",
+    "resolve_stream_threshold_cells": "hydromodpy.spatial.geographic.core.river_network:resolve_stream_threshold_cells",
+    "build_surface_topo_from_dem": "hydromodpy.spatial.geographic.core.surface_from_dem:build_surface_topo_from_dem",
+    "DemMetadata": "hydromodpy.spatial.geographic.dem_metadata:DemMetadata",
+    "read_dem_metadata": "hydromodpy.spatial.geographic.dem_metadata:read_dem_metadata",
+    "DomainRasterProducts": "hydromodpy.spatial.geographic.domain_rasters:DomainRasterProducts",
+    "build_domain_rasters": "hydromodpy.spatial.geographic.domain_rasters:build_domain_rasters",
+    "GeographicConfig": "hydromodpy.spatial.geographic.geographic_config:GeographicConfig",
+    "RiverNetworkConfig": "hydromodpy.spatial.geographic.geographic_config:RiverNetworkConfig",
+    "GeographicRuntimeContext": "hydromodpy.spatial.geographic.pipeline:GeographicRuntimeContext",
+    "build_geographic_runtime_context": "hydromodpy.spatial.geographic.pipeline:build_geographic_runtime_context",
+    "Subbasin": "hydromodpy.spatial.geographic.subbasin:Subbasin",
+}
+
+
+def __getattr__(name: str):
+    try:
+        target = _LAZY_IMPORTS[name]
+    except KeyError as exc:
+        raise AttributeError(f"module {__name__!r} has no attribute {name!r}") from exc
+    module_path, attr_name = target.split(":", 1)
+    module = import_module(module_path)
+    attr = getattr(module, attr_name)
+    globals()[name] = attr
+    return attr

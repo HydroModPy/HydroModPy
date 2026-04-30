@@ -5,8 +5,8 @@ from __future__ import annotations
 import argparse
 import sys
 
-NAME = "completion"
-HELP = "Emit a shell completion script for bash, zsh, or fish"
+NAME: str = "completion"
+HELP: str = "Emit a shell completion script for bash, zsh, or fish"
 
 
 _BASH_TEMPLATE = """\

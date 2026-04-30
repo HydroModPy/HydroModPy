@@ -66,5 +66,8 @@ class FlatSubstratumDepthModel(HydroModelBase):
 
 DepthModelConfig: TypeAlias = Annotated[
     ConstantThicknessDepthModel | FlatSubstratumDepthModel,
-    Field(discriminator="type"),
+    Field(
+        discriminator="type",
+        description="Discriminated union of depth-model variants selected by the type tag.",
+    ),
 ]

@@ -50,7 +50,7 @@ def build_payload(
     observed_values: Mapping[str, tuple[float, ...]],
     method_profile: CalibrationMethodProfile,
 ) -> dict[str, Any]:
-    """Build one v0.6-shaped ``[calibration]`` payload for a twin definition.
+    """Build one ``[calibration]`` payload for a twin definition.
 
     Emits the enriched schema consumed by
     :class:`hydromodpy.calibration.config.CalibrationConfig`:
@@ -59,8 +59,8 @@ def build_payload(
       ``seed``, ``save_runs`` defaulting to ``"none"``).
     - ``[calibration.parameters.<name>]`` collects bounds, target,
       transform, and mode.
-    - ``[calibration.outputs.<name>]`` mirrors the legacy output blocks
-      with ``observed_values`` injected from the truth synthesis.
+    - ``[calibration.outputs.<name>]`` injects ``observed_values`` from the
+      truth synthesis.
     - ``[calibration.objective_blocks]`` lists the weighted blocks.
     - ``[calibration.optimizer_kwargs]`` forwards method kwargs.
 
@@ -140,6 +140,8 @@ def build_payload(
         method_kwargs,
         n_parameters=n_parameters,
     )
+    if str(method_profile.name).strip().lower() == "random_search":
+        method_kwargs.pop("max_iter", None)
 
     calibration_section: dict[str, Any] = {
         "method": str(method_profile.name),
@@ -175,21 +177,21 @@ def _resolve_max_iter_from_kwargs(
     """Estimate a reasonable ``max_iter`` upper bound from method kwargs."""
     method_key = str(method).strip().lower()
     if method_key == "grid":
-        n_per_dim = int(kwargs.get("n_per_dim", 5))
-        return max(1, n_per_dim ** max(1, int(n_parameters)))
+        points_per_dim = int(kwargs.get("points_per_dim", 5))
+        return max(1, points_per_dim ** max(1, int(n_parameters)))
     if method_key == "random_search":
-        return max(1, int(kwargs.get("n_samples", 20)))
+        return max(1, int(kwargs.get("max_iter", 20)))
     if method_key == "cma_es":
         return max(1, int(kwargs.get("max_evaluations", 30)))
-    if method_key in {"simplex", "nelder_mead", "scipy_nelder_mead"}:
-        return max(1, int(kwargs.get("max_iter", 30)))
+    if method_key == "scipy_nelder_mead":
+        return max(1, int(kwargs.get("maxiter", 30)))
     if method_key == "gp_mapping":
         n_init = int(kwargs.get("n_init", 8))
         n_refine = int(kwargs.get("n_refine", 3))
         batch = int(kwargs.get("batch_size", 1))
         return max(1, n_init + n_refine * batch)
     if method_key == "da_mh_gp":
-        return max(1, int(kwargs.get("n_init", 8)) + int(kwargs.get("n_samples", 32)))
+        return max(1, int(kwargs.get("max_iter", 32)))
     return max(1, int(kwargs.get("max_iter", kwargs.get("max_evaluations", 50))))
 
 

@@ -13,7 +13,7 @@ from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Literal
 
 from hydromodpy.calibration.optimizer import EvaluationResult, ParamSuggestion
-from hydromodpy.master_config.persistence import PersistenceConfig
+from hydromodpy.core.config_kit.persistence import PersistenceConfig
 
 if TYPE_CHECKING:
     from hydromodpy.results.catalog import SimulationCatalog
