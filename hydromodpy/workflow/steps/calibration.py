@@ -50,7 +50,7 @@ def step_render_calibration_report(
     produces output even on partial data.
     """
     from hydromodpy.calibration.report import load_session_report_data
-    from hydromodpy.display.sessions import render_session
+    from hydromodpy.display.calibration_report import render_session
 
     session_data = load_session_report_data(
         catalog=catalog,

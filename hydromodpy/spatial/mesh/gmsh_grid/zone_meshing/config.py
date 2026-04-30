@@ -23,8 +23,8 @@ from pydantic import (
     model_validator,
 )
 
-from hydromodpy.master_config.base import HydroModelBase
-from hydromodpy.master_config.profile import Profile
+from hydromodpy.core.config_kit.base import HydroModelBase
+from hydromodpy.core.config_kit.profile import Profile
 
 
 class ZoneMeshingRefinementFamilySettings(HydroModelBase):
@@ -247,9 +247,6 @@ class ZoneMeshingRefinementPolicy(HydroModelBase):
                 for family_name, settings in sorted(self.families.items())
             },
         }
-
-
-ZoneMeshingRefinementPolicySchema = ZoneMeshingRefinementPolicy
 
 
 class ZoneMeshingSettings(HydroModelBase):
@@ -487,9 +484,6 @@ class ZoneMeshingSettings(HydroModelBase):
         }
 
 
-ZoneMeshingSettingsSchema = ZoneMeshingSettings
-
-
 def parse_zone_meshing_settings(config_data: Mapping[str, Any]) -> ZoneMeshingSettings:
     """Return one typed zone-meshing settings contract from a raw mapping."""
 
@@ -503,7 +497,5 @@ __all__ = [
     "ZoneMeshingRefinementGridSettings",
     "ZoneMeshingRefinementHotspotSettings",
     "ZoneMeshingRefinementPolicy",
-    "ZoneMeshingRefinementPolicySchema",
     "ZoneMeshingSettings",
-    "ZoneMeshingSettingsSchema",
 ]

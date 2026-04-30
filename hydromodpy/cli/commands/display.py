@@ -130,7 +130,7 @@ def run(args: argparse.Namespace) -> None:
 
     # ---- Path A: TOML-driven dispatch --------------------------------------
     if target_path.is_file() and target_path.suffix == ".toml":
-        from hydromodpy.master_config.toml_loader import load_toml_with_base_config
+        from hydromodpy.core.toml_io.loader import load_toml_with_base_config
 
         raw_toml = load_toml_with_base_config(target_path)
         display_cfg = DisplayConfig.model_validate(raw_toml.get("display", {}))

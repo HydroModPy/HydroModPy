@@ -11,8 +11,8 @@ from typing import Annotated, Literal
 
 from pydantic import Field
 
-from hydromodpy.master_config.base import HydroModelBase
-from hydromodpy.master_config.profile import Profile
+from hydromodpy.core.config_kit.base import HydroModelBase
+from hydromodpy.core.config_kit.profile import Profile
 
 
 class DisplayConfig(HydroModelBase):

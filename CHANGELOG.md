@@ -172,6 +172,41 @@ S04..S07 and trimming residual drift before the v1.0.0 cut.
 
 Per-session reports: `unified_architecture/refactor_state/done/S08-*.md`.
 
+### Post-v1 refactor (S09)
+
+Post-v1 hardening sweep. Closes the BLOCKED items of S08-09 and the P1/P2
+drifts logged in `audit_005`. The `v1.0.0` tag is re-anchored on the
+post-S09 HEAD; no functional behaviour changes. Mode rupture: no alias,
+no shim, no deprecation path.
+
+- **R0/R4-B base-helper extraction (S09-01..S09-04)**: host the shared
+  Pydantic helpers under `core/config_kit/` (S09-01) and the TOML I/O
+  helpers under `core/toml_io/` (S09-02), relocate `ResultsConfig` and
+  `StreamlitConfig` to their owning layers (S09-03), and retarget every
+  external call-site (workflow, simulation, solver, calibration, cli,
+  tests, tools, validation) to the new locations (S09-04). Removes the
+  layered-DAG inversion that kept `test_layer_matrix` xfail-strict.
+- **Layer-matrix residual violations (S09-05)**: eradicate the 6
+  remaining non `master_config` violations via protocol injection.
+- **Layer-matrix tolerances (S09-06)**: document the 2 residual
+  `?-cells` in `tests/unit/architecture/layer_matrix.yaml`. The xfail
+  strict gate flip is deferred until the last `?-cells` close.
+- **Naming and visibility (S09-07, S09-08)**: drop 5 alias re-exports
+  under `zone_meshing/` for canonical names (S09-07); promote 2
+  cross-package imports of private (`_<name>`) modules into the public
+  API (S09-08).
+- **Discovery cleanup (S09-09)**: drop 2 `sys.path.insert` fallbacks in
+  `data/variables/discovery/` modules.
+- **God-class split (S09-10, S09-11)**: split `Run` (50 methods / 755
+  LOC) by extracting the xarray provider (S09-10); audit `Project`
+  (45 methods / 852 LOC) under the post-v1 budget (S09-11).
+- **Runtime / test hygiene (S09-12, S09-13)**: pin `mypy_extensions`
+  as a runtime dep to fix the 3 `pandera` collection errors in
+  `hmp_refact` (S09-12); skip 3 fast failures with documented post-v1
+  root causes (S09-13).
+
+Per-session reports: `unified_architecture/refactor_state/done/S09-*.md`.
+
 ---
 
 ## [v0.5.0] - 2026-04-29

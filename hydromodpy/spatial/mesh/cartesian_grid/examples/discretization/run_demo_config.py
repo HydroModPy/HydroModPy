@@ -10,7 +10,7 @@ from typing import Any
 
 from pydantic import ConfigDict, Field, ValidationError, field_validator
 
-from hydromodpy.master_config.base import HydroModelBase
+from hydromodpy.core.config_kit.base import HydroModelBase
 
 
 def _find_repo_root() -> Path:
@@ -25,7 +25,7 @@ REPO_ROOT = _find_repo_root()
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
-from hydromodpy.master_config.path_helpers import get_nested_section, resolve_path
+from hydromodpy.core.toml_io.paths import get_nested_section, resolve_path
 from hydromodpy.spatial._protocols import get_geology_data_source
 from hydromodpy.spatial.field.core.field_param_config import (
     resolve_field_param_config_payload,

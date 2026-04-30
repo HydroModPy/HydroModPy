@@ -158,13 +158,13 @@ def _build_report(workspace_arg: str | None, *, toml: str | None = None) -> dict
         )
 
     try:
-        from hydromodpy.core.workspace.workspace import _resolve_bin_path
+        from hydromodpy.core.workspace.workspace import resolve_bin_path
         from hydromodpy.solver.modflow_common.binaries import (
             locate_solver_binary,
             read_manifest,
         )
 
-        effective_bin = Path(_resolve_bin_path())
+        effective_bin = Path(resolve_bin_path())
     except Exception as exc:  # pragma: no cover - defensive
         effective_bin = None
         checks.append(
@@ -382,8 +382,8 @@ def _probe_from_toml(toml_path: Path, WorkspaceConfig, WorkspaceError) -> list[d
             }
         ]
     try:
-        from hydromodpy.master_config.path_resolution import resolve_declared_path
-        from hydromodpy.master_config.toml_loader import load_toml_with_base_config
+        from hydromodpy.core.toml_io.loader import load_toml_with_base_config
+        from hydromodpy.core.toml_io.paths import resolve_declared_path
 
         raw = load_toml_with_base_config(toml_path)
         base_dir = toml_path.parent

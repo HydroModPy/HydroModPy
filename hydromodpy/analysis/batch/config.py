@@ -8,9 +8,9 @@ from typing import Annotated, Any, Literal
 
 from pydantic import ConfigDict, Field
 
-from hydromodpy.master_config.base import HydroModelBase
-from hydromodpy.master_config.profile import Profile
-from hydromodpy.master_config.toml_loader import load_toml_with_base_config
+from hydromodpy.core.config_kit.base import HydroModelBase
+from hydromodpy.core.config_kit.profile import Profile
+from hydromodpy.core.toml_io.loader import load_toml_with_base_config
 
 
 def _require_mapping(value: object, *, label: str) -> Mapping[str, Any]:

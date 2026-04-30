@@ -4,9 +4,9 @@ from typing import Annotated, Literal
 
 from pydantic import ConfigDict, Field, field_validator, model_validator
 
+from hydromodpy.core.config_kit.base import HydroModelBase
+from hydromodpy.core.config_kit.profile import Profile
 from hydromodpy.core.units import parse_length_to_m
-from hydromodpy.master_config.base import HydroModelBase
-from hydromodpy.master_config.profile import Profile
 
 
 class DomainSupportBaseConfig(HydroModelBase):

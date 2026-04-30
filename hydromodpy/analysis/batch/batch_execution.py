@@ -119,7 +119,7 @@ def _extract_simulation_child_artifacts(config_path: Path) -> dict[str, Any]:
 def _extract_method_comparison_child_artifacts(config_path: Path) -> dict[str, Any]:
     """Extract compact method-comparison artifacts from one child launcher config."""
     from hydromodpy.analysis.comparison.config import MethodComparisonConfig
-    from hydromodpy.master_config.toml_loader import load_toml_with_base_config
+    from hydromodpy.core.toml_io.loader import load_toml_with_base_config
 
     artifacts: dict[str, Any] = {
         "child_artifact_kind": "method_comparison",

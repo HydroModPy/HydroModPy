@@ -4,9 +4,9 @@ from typing import Annotated, Literal, TypeAlias
 
 from pydantic import ConfigDict, Field, field_validator
 
+from hydromodpy.core.config_kit.base import HydroModelBase
+from hydromodpy.core.config_kit.profile import Profile
 from hydromodpy.core.units.length import parse_length_to_m
-from hydromodpy.master_config.base import HydroModelBase
-from hydromodpy.master_config.profile import Profile
 
 
 class ConstantThicknessDepthModel(HydroModelBase):

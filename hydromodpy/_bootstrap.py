@@ -105,6 +105,35 @@ def _register_calibration_contracts() -> None:
     register_default_trial_pipeline_provider()
 
 
+def _register_analysis_contracts() -> None:
+    """Wire the solver registry into analysis comparison helpers.
+
+    Analysis cannot import the solver layer (cf. layer matrix), so the
+    distributed flow solver lookup is injected here through the
+    ``SolverRegistryProvider`` Protocol declared in
+    :mod:`hydromodpy.analysis.comparison._solver_protocol`.
+    """
+    from hydromodpy.analysis.comparison import _solver_protocol
+    from hydromodpy.solver.base import registry as _registry
+
+    class _RegistryProvider:
+        def distributed_flow_solver_sections(self) -> tuple[str, ...]:
+            flow_solvers = {name for _, name in _registry.pairs_for_process("flow")}
+            sections: list[str] = []
+            for name in _registry.list_extractor_solvers():
+                if name not in flow_solvers:
+                    continue
+                try:
+                    extractor = _registry.get_extractor(name)
+                except KeyError:
+                    continue
+                if getattr(extractor, "category", None) == "distributed":
+                    sections.append(name)
+            return tuple(sections)
+
+    _solver_protocol.set_solver_registry_provider(_RegistryProvider())
+
+
 def bootstrap() -> None:
     """Resolve HydroModPyConfig forward references. Idempotent."""
     global _BOOTSTRAPPED
@@ -113,5 +142,6 @@ def bootstrap() -> None:
     _register_physics_contracts()
     _register_spatial_contracts()
     _register_calibration_contracts()
+    _register_analysis_contracts()
     _rebuild_forward_refs()
     _BOOTSTRAPPED = True

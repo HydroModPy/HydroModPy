@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import Any
 
 from hydromodpy.core.logging import get_logger
-from hydromodpy.master_config.toml_loader import load_toml_with_base_config
+from hydromodpy.core.toml_io.loader import load_toml_with_base_config
 
 logger = get_logger(__name__)
 

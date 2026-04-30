@@ -35,9 +35,9 @@ def configure(
         apply_explicit_time_window_to_tgrids,
         require_flow_simulation_time_grid,
     )
+    from hydromodpy.core.toml_io.loader import load_toml_with_base_config
     from hydromodpy.data import DataPlanner
     from hydromodpy.master_config.hydromodpy_config import HydroModPyConfig
-    from hydromodpy.master_config.toml_loader import load_toml_with_base_config
     from hydromodpy.spatial.domain.spatial_support import (
         build_default_spatial_support_provider_registry,
     )

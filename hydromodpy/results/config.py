@@ -6,9 +6,9 @@ from typing import Annotated
 
 from pydantic import ConfigDict, Field
 
-from hydromodpy.master_config.base import HydroModelBase
+from hydromodpy.core.config_kit.base import HydroModelBase
+from hydromodpy.core.config_kit.profile import Profile
 from hydromodpy.master_config.persistence import PersistenceConfig
-from hydromodpy.master_config.profile import Profile
 
 
 class DerivedConfig(HydroModelBase):

@@ -29,7 +29,7 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
-from hydromodpy.master_config.toml_loader import merge_toml_payloads
+from hydromodpy.core.toml_io.loader import merge_toml_payloads
 from hydromodpy.physics.flow import Flow
 from hydromodpy.solver.boussinesq import Boussinesq
 from hydromodpy.spatial.mesh.gmsh_grid.catchment_mesh_bundle_reader import (

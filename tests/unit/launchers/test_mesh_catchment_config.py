@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 
-from hydromodpy.master_config.generate_toml import available_modules, generate_toml
+from hydromodpy.core.toml_io.generator import available_modules, generate_toml
 from hydromodpy.spatial.mesh.config import (
     parse_mesh_catchment_batch_config_data,
     parse_mesh_catchment_config_data,

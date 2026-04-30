@@ -137,7 +137,7 @@ def test_dataset_returns_ugriddataset(catalog, topology, build_mesh):
     sid = _persist(catalog, topology=topology, vertices=vertices, fnc=fnc)
     run = Run(sid, catalog)
 
-    ds = run.dataset()
+    ds = run.array.dataset()
 
     assert isinstance(ds, xu.UgridDataset)
     grids = ds.grids
@@ -161,7 +161,7 @@ def test_dataset_variable_filter(catalog):
     sid = _persist(catalog, topology="dis", vertices=vertices, fnc=fnc)
     run = Run(sid, catalog)
 
-    ds = run.dataset(variable="head")
+    ds = run.array.dataset(variable="head")
 
     assert list(ds.data_vars) == ["head"]
 
@@ -172,7 +172,7 @@ def test_dataset_unknown_variable_raises(catalog):
     run = Run(sid, catalog)
 
     with pytest.raises(KeyError, match="not registered"):
-        run.dataset(variable="not_a_field")
+        run.array.dataset(variable="not_a_field")
 
 
 def test_dataset_missing_variable_raises(catalog):
@@ -181,4 +181,4 @@ def test_dataset_missing_variable_raises(catalog):
     run = Run(sid, catalog)
 
     with pytest.raises(KeyError, match="not found"):
-        run.dataset(variable="watertable_depth")
+        run.array.dataset(variable="watertable_depth")

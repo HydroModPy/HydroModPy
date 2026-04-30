@@ -133,7 +133,7 @@ def resolve_bundled_executable(executable: str) -> Path:
     :mod:`hydromodpy.solver.modflow_common.binaries` (``mfnwt``, ``mf6``,
     ``mp6``, ``mp7``, ``mt3dusgs``).
     """
-    from hydromodpy.core.workspace.workspace import _resolve_bin_path
+    from hydromodpy.core.workspace.workspace import resolve_bin_path
     from hydromodpy.solver.modflow_common.binaries import (
         available_solvers,
         exe_filename,
@@ -143,7 +143,7 @@ def resolve_bundled_executable(executable: str) -> Path:
         raise ValueError(
             f"Unknown solver '{executable}'. Expected one of: {', '.join(available_solvers())}."
         )
-    return Path(_resolve_bin_path()) / exe_filename(executable)
+    return Path(resolve_bin_path()) / exe_filename(executable)
 
 
 def load_golden_reference(path: Path) -> dict:
@@ -677,7 +677,7 @@ def assert_required_executables(
     binary is missing, because that is an environment issue, not a
     model-regression issue.
     """
-    from hydromodpy.core.workspace.workspace import _resolve_bin_path
+    from hydromodpy.core.workspace.workspace import resolve_bin_path
     from hydromodpy.solver.modflow_common.binaries import locate_solver_binary
 
     required: list[str] = []
@@ -690,7 +690,7 @@ def assert_required_executables(
     if require_mt3dms:
         required.append("mt3dusgs")
 
-    bin_dir = Path(_resolve_bin_path())
+    bin_dir = Path(resolve_bin_path())
     resolved: list[Path] = []
     missing: list[str] = []
     for solver in required:

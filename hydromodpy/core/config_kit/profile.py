@@ -5,7 +5,7 @@ Lower value ⇒ more broadly visible.
 
 Usage::
 
-    from hydromodpy.master_config.profile import Profile
+    from hydromodpy.core.config_kit.profile import Profile
 
     class FlowConfig(HydroModelBase):
         k_aquifer: Annotated[HydraulicConductivity, Profile.USER] = Field(...)

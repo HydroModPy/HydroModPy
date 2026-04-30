@@ -11,7 +11,7 @@ from pathlib import Path
 from typing import Any
 
 from hydromodpy.core.logging import get_logger
-from hydromodpy.master_config.results_config import ResultsConfig
+from hydromodpy.results.config import ResultsConfig
 from hydromodpy.simulation.planning.plan import RunContext
 from hydromodpy.solver.base.registry import get_extractor_instance, get_solver_adapter
 

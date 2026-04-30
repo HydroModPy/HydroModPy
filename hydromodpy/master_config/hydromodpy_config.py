@@ -32,11 +32,11 @@ from typing import TYPE_CHECKING, Annotated, Any, Literal
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 from pydantic.fields import FieldInfo
 
+from hydromodpy.core.config_kit.base import HydroModelBase
+from hydromodpy.core.config_kit.profile import Profile
+from hydromodpy.core.toml_io.loader import load_toml_with_base_config
+from hydromodpy.core.toml_io.paths import resolve_declared_path
 from hydromodpy.core.workspace.config import WorkspaceConfig
-from hydromodpy.master_config.base import HydroModelBase
-from hydromodpy.master_config.path_resolution import resolve_declared_path
-from hydromodpy.master_config.profile import Profile
-from hydromodpy.master_config.toml_loader import load_toml_with_base_config
 
 if TYPE_CHECKING:
     from hydromodpy.analysis.batch.config import RegionalLabConfig
@@ -314,11 +314,11 @@ class HydroModPyConfig(HydroModelBase):
         # bare filenames in [data.*.sources].path resolve against
         # <workspace>/data/<role>/ instead of forcing the user to write
         # ../../data/<role>/<file>.
-        parsed_workspace = _load_standard_section(workspace_section, WorkspaceConfig, base)
+        parsed_workspace = load_standard_section(workspace_section, WorkspaceConfig, base)
         workspace_data_dir = getattr(parsed_workspace, "data_dir", None)
 
         def _std(model_cls):
-            return lambda data, b: _load_standard_section(
+            return lambda data, b: load_standard_section(
                 data, model_cls, b, workspace_data_dir=workspace_data_dir
             )
 
@@ -467,7 +467,7 @@ def _resolve_section_paths(
             )
 
 
-def _load_standard_section(
+def load_standard_section(
     section_data: Any,
     model_cls: type[BaseModel],
     base: Path,
@@ -513,7 +513,7 @@ def _load_optional_overview_section(
     """Load the optional ``[overview]`` section."""
     if section_data is None:
         return None
-    return _load_standard_section(section_data, OverviewSection, base)
+    return load_standard_section(section_data, OverviewSection, base)
 
 
 def _load_optional_mesh_catchment_section(
@@ -535,4 +535,4 @@ def _load_optional_calibration_section(
     """Load the optional ``[calibration]`` section."""
     if section_data is None:
         return None
-    return _load_standard_section(section_data, CalibrationConfig, base)
+    return load_standard_section(section_data, CalibrationConfig, base)

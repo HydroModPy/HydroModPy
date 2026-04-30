@@ -23,7 +23,7 @@ from hydromodpy.core.workspace.path_registry import WorkspacePathRegistry
 logger = get_logger(__name__)
 
 
-def _resolve_bin_path() -> str:
+def resolve_bin_path() -> str:
     """Resolve the folder that holds solver executables.
 
     Resolution order:
@@ -64,4 +64,4 @@ class Workspace:
         self.figure_folder = self.paths.figures_folder
         self.solver_scratch_folder = self.paths.solver_scratch_folder
 
-        self.bin_path = _resolve_bin_path()
+        self.bin_path = resolve_bin_path()

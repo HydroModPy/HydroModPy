@@ -14,8 +14,8 @@ from typing import Annotated, Literal
 
 from pydantic import ConfigDict, Field
 
-from hydromodpy.master_config.base import HydroModelBase
-from hydromodpy.master_config.profile import Profile
+from hydromodpy.core.config_kit.base import HydroModelBase
+from hydromodpy.core.config_kit.profile import Profile
 
 CompressionCodec = Literal["none", "zstd", "lz4", "gzip", "snappy"]
 

@@ -8,9 +8,9 @@ from typing import Annotated
 
 from pydantic import ConfigDict, Field, field_validator
 
+from hydromodpy.core.config_kit.base import HydroModelBase
+from hydromodpy.core.config_kit.profile import Profile
 from hydromodpy.core.units.length import parse_length_to_m
-from hydromodpy.master_config.base import HydroModelBase
-from hydromodpy.master_config.profile import Profile
 from hydromodpy.solver.utils.temporal.tmesh_config import TMeshConfig
 from hydromodpy.spatial.mesh.cartesian_grid.sgrid_config import SolverSGridConfig
 

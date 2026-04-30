@@ -155,7 +155,7 @@ class TestZarrPattern:
         sid = _seed_run(catalog, project="ml_p4", name="r1", objective="exploratory")
         run = catalog[sid]
 
-        ds = run.to_xarray_batch(("head",))
+        ds = run.array.to_xarray_batch(("head",))
         assert "head" in ds
         assert ds["head"].dims == ("time", "layer", "cell")
         assert ds["head"].sizes["time"] == 3
@@ -165,7 +165,7 @@ class TestZarrPattern:
         sid = _seed_run(catalog, project="ml_p4b", name="r1", objective="exploratory")
         run = catalog[sid]
         with pytest.raises(KeyError, match="not found"):
-            run.to_xarray_batch(("watertable_depth",))
+            run.array.to_xarray_batch(("watertable_depth",))
 
 
 class TestTrainingSplit:

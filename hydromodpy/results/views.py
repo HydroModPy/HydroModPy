@@ -11,10 +11,9 @@ object exposing the same ``field`` / ``n_timesteps`` / ``mesh`` API) and
 the reduction parameters, and return a new object. They never mutate the
 catalog.
 
-Standard Python pattern: the module-level function is the source of
-truth; :class:`Run` exposes thin delegate methods for
-ergonomics (``sim.drainage_density(...)`` calls
-:func:`drainage_density`).
+Module-level functions are the canonical entry point: call
+``views.drainage_density(run)`` rather than expecting a method on
+:class:`Run` itself.
 """
 
 from __future__ import annotations
