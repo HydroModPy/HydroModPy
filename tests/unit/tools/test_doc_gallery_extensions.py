@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
+from dataclasses import replace
 from pathlib import Path
-
-import pytest
+from shutil import copyfile
 
 from tools.doc_gallery.gallery_manifest import build_gallery_specs
 from tools.doc_gallery.update_gallery import _build_index_page, _generate_case
@@ -113,20 +113,66 @@ def test_generate_depth_property_case_smoke(tmp_path: Path) -> None:
 
 def test_generate_method_comparison_case_smoke(tmp_path: Path) -> None:
     spec = _spec_by_slug("example12_map_method_comparison")
-    # Generation reuses committed comparison artifacts via
-    # ``_load_committed_method_comparison_payload`` - gate on those, not on
-    # the solver run folders (which are not checked in).
-    committed_root = (
+    static_root = (
         Path(__file__).resolve().parents[3]
-        / "tests"
-        / "regression"
-        / "fixtures"
+        / "docs"
+        / "readthedocs"
+        / "source"
+        / "_static"
+        / "capability_gallery"
         / "method_comparison"
-        / "example12_map_method_comparison"
     )
-    required = ("comparison_manifest.json", "comparison_metrics.json", "observables.csv")
-    if not all((committed_root / name).exists() for name in required):
-        pytest.skip("committed method comparison artifacts not available on this branch")
+    artifact_map = {
+        "example12_map_method_comparison_comparison_manifest.json": "comparison_manifest.json",
+        "example12_map_method_comparison_comparison_metrics.json": "comparison_metrics.json",
+        "example12_map_method_comparison_observables.csv": "observables.csv",
+    }
+    committed_root = tmp_path / "method_comparison" / "example12_map_method_comparison"
+    committed_root.mkdir(parents=True)
+    for source_name, target_name in artifact_map.items():
+        source_path = static_root / source_name
+        assert source_path.exists()
+        copyfile(source_path, committed_root / target_name)
+
+    config_path = tmp_path / "run_method_comparison_example12_map_existing.toml"
+    config_path.write_text(
+        f"""
+[method_comparison]
+comparison_id = "example12_map_method_comparison"
+output_root = "{committed_root.as_posix()}"
+run_variants = false
+reference_variant = "mf6_gmsh_existing"
+
+[[method_comparison.variant]]
+id = "mf6_gmsh_existing"
+label = "MODFLOW 6"
+run_folder = "mf6_gmsh_existing"
+
+[[method_comparison.variant]]
+id = "boussinesq_reused_gmsh"
+label = "Boussinesq"
+run_folder = "boussinesq_reused_gmsh"
+
+[[method_comparison.observable]]
+name = "watertable_elevation_map"
+variable = "watertable_elevation"
+support = "map"
+time = "last"
+unit = "m"
+""",
+        encoding="utf-8",
+    )
+    spec = replace(
+        spec,
+        source_paths=(
+            config_path.as_posix(),
+            *((committed_root / name).as_posix() for name in artifact_map.values()),
+        ),
+        metadata={
+            **spec.metadata,
+            "comparison_config_path": config_path.as_posix(),
+        },
+    )
 
     summary = _generate_case(spec, tmp_path)
 

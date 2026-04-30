@@ -2441,6 +2441,7 @@ def _generate_irregular_mesh_property_case(
 ) -> dict[str, Any]:
     plt = _import_pyplot()
 
+    from hydromodpy.core.rng import RngManager
     from hydromodpy.spatial.field.cases.square.field_mesh_square import FieldMeshSquare
     from hydromodpy.spatial.field.cases.square.field_spatial_square import FieldSquare
     from hydromodpy.spatial.field.core.field_param import FieldParam
@@ -2457,11 +2458,12 @@ def _generate_irregular_mesh_property_case(
         zone1_name="granite",
         zone2_name="micaschists",
     )
+    irregular_mesh_seed = 23
     structured_mesh = FieldMeshSquare.from_unit_square(target_n_cells=64, mesh_kind="structured")
     irregular_mesh = FieldMeshSquare.from_unit_square(
         target_n_cells=160,
         mesh_kind="triangular_unstructured",
-        seed=23,
+        rng_manager=RngManager(master_seed=irregular_mesh_seed),
     )
     conductivity = FieldParam(
         identifier="K",
@@ -2527,7 +2529,7 @@ def _generate_irregular_mesh_property_case(
         },
         metadata={
             **dict(spec.metadata),
-            "irregular_mesh_seed": 23,
+            "irregular_mesh_seed": irregular_mesh_seed,
         },
     )
 
