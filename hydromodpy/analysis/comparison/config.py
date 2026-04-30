@@ -40,7 +40,10 @@ class MethodComparisonVariant(HydroModelBase):
         "unstructured",
         "unknown",
     ] = "unknown"
-    overlay: dict[str, Any] = Field(default_factory=dict)
+    overlay: dict[str, Any] = Field(
+        default_factory=dict,
+        description="TOML overlay applied on top of the base simulation config for this variant.",
+    )
 
     @field_validator("id")
     @classmethod
@@ -207,8 +210,14 @@ class MethodComparisonSection(HydroModelBase):
     continue_on_error: bool = False
     reference_variant: str | None = None
     fine_raster: MethodComparisonFineRaster | None = None
-    variant: list[MethodComparisonVariant] = Field(default_factory=list)
-    observable: list[MethodComparisonObservable] = Field(default_factory=list)
+    variant: list[MethodComparisonVariant] = Field(
+        default_factory=list,
+        description="Solver/mesh method variants to run or reuse for the comparison.",
+    )
+    observable: list[MethodComparisonObservable] = Field(
+        default_factory=list,
+        description="Quantities of interest extracted from each variant run folder.",
+    )
 
     @field_validator(
         "comparison_id",
@@ -288,7 +297,10 @@ class MethodComparisonConfig(HydroModelBase):
     comparison_root: Path
     base_simulation_config_path: Path | None = None
     anchors_path: Path | None = None
-    anchors: dict[str, tuple[float, float]] = Field(default_factory=dict)
+    anchors: dict[str, tuple[float, float]] = Field(
+        default_factory=dict,
+        description="Resolved anchor id to (x, y) coordinates loaded from anchors_file.",
+    )
     method_comparison: MethodComparisonSection
 
     @classmethod

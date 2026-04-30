@@ -136,12 +136,30 @@ class TransportConfig(ProcessSpatialConfig):
 
     # Keep shared ProcessSpatial schema inheritance, but exclude these generic
     # containers from default transport serialization.
-    param_list: Annotated[list[str], Profile.USER] = Field(default_factory=list, exclude=True)
-    param: Annotated[dict[str, object], Profile.USER] = Field(default_factory=dict, exclude=True)
-    ic: Annotated[object | None, Profile.USER] = Field(default=None, exclude=True)
-    bc: Annotated[dict[str, object], Profile.USER] = Field(default_factory=dict, exclude=True)
+    param_list: Annotated[list[str], Profile.USER] = Field(
+        default_factory=list,
+        exclude=True,
+        description="Inherited generic parameter list (excluded from transport serialization).",
+    )
+    param: Annotated[dict[str, object], Profile.USER] = Field(
+        default_factory=dict,
+        exclude=True,
+        description="Inherited generic parameter map (excluded from transport serialization).",
+    )
+    ic: Annotated[object | None, Profile.USER] = Field(
+        default=None,
+        exclude=True,
+        description="Inherited initial-condition payload (excluded from transport serialization).",
+    )
+    bc: Annotated[dict[str, object], Profile.USER] = Field(
+        default_factory=dict,
+        exclude=True,
+        description="Inherited boundary-condition map (excluded from transport serialization).",
+    )
     sinks_sources: Annotated[dict[str, object], Profile.USER] = Field(
-        default_factory=dict, exclude=True
+        default_factory=dict,
+        exclude=True,
+        description="Inherited sinks/sources map (excluded from transport serialization).",
     )
 
     modpath: Annotated[TransportModpathConfig, Profile.USER] = Field(

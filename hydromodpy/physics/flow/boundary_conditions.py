@@ -137,14 +137,38 @@ class FlowBoundaryForcingConfig(HydroModelBase):
         default=None,
         description="Source units of forcing values before runtime conversion.",
     )
-    value: Annotated[float | None, Profile.USER] = Field(default=None)
-    path_file: Annotated[Path | None, Profile.DEV] = Field(default=None)
-    sep: Annotated[str, Profile.DEV] = Field(default=",")
-    date_column: Annotated[str, Profile.DEV] = Field(default="date")
-    date_format: Annotated[str | None, Profile.DEV] = Field(default=None)
-    value_column: Annotated[str, Profile.DEV] = Field(default="value")
-    fill_method: Annotated[Literal["ffill", "bfill"], Profile.DEV] = Field(default="ffill")
-    aggregate: Annotated[Literal["mean", "last"], Profile.DEV] = Field(default="mean")
+    value: Annotated[float | None, Profile.USER] = Field(
+        default=None,
+        description="Constant boundary head value used when mode='constant'.",
+    )
+    path_file: Annotated[Path | None, Profile.DEV] = Field(
+        default=None,
+        description="CSV file path containing time-series boundary head values when mode='csv'.",
+    )
+    sep: Annotated[str, Profile.DEV] = Field(
+        default=",",
+        description="CSV column separator.",
+    )
+    date_column: Annotated[str, Profile.DEV] = Field(
+        default="date",
+        description="CSV column containing timestamps.",
+    )
+    date_format: Annotated[str | None, Profile.DEV] = Field(
+        default=None,
+        description="Optional datetime format passed to pandas.to_datetime.",
+    )
+    value_column: Annotated[str, Profile.DEV] = Field(
+        default="value",
+        description="CSV column containing boundary head values.",
+    )
+    fill_method: Annotated[Literal["ffill", "bfill"], Profile.DEV] = Field(
+        default="ffill",
+        description="Gap-filling policy used when a stress period has no direct sample.",
+    )
+    aggregate: Annotated[Literal["mean", "last"], Profile.DEV] = Field(
+        default="mean",
+        description="Stress-period aggregation method.",
+    )
 
     @model_validator(mode="after")
     def _validate_mode_payload(self):

@@ -76,19 +76,22 @@ class ZoneMeshingRefinementFamilies(HydroModelBase):
         default_factory=lambda: ZoneMeshingRefinementFamilySettings(
             enabled=True,
             priority=300,
-        )
+        ),
+        description="Refinement settings for the river family (highest default priority).",
     )
     geology_interface: Annotated[ZoneMeshingRefinementFamilySettings, Profile.USER] = Field(
         default_factory=lambda: ZoneMeshingRefinementFamilySettings(
             enabled=True,
             priority=200,
-        )
+        ),
+        description="Refinement settings for the geology-interface family.",
     )
     watershed_boundary: Annotated[ZoneMeshingRefinementFamilySettings, Profile.USER] = Field(
         default_factory=lambda: ZoneMeshingRefinementFamilySettings(
             enabled=True,
             priority=100,
-        )
+        ),
+        description="Refinement settings for the watershed-boundary family.",
     )
 
 
@@ -177,18 +180,27 @@ class ZoneMeshingRefinementPolicy(HydroModelBase):
     model_config = ConfigDict(extra="forbid")
 
     enabled: Annotated[bool, Profile.USER] = False
-    mode: Annotated[str, Profile.USER] = Field(default="family_priority_local_budget")
+    mode: Annotated[str, Profile.USER] = Field(
+        default="family_priority_local_budget",
+        description=(
+            "Refinement mode selector. One of 'family_priority_local_budget' or "
+            "'grid_local_budget'."
+        ),
+    )
     hotspot: Annotated[ZoneMeshingRefinementHotspotSettings, Profile.DEV] = Field(
-        default_factory=ZoneMeshingRefinementHotspotSettings
+        default_factory=ZoneMeshingRefinementHotspotSettings,
+        description="Hotspot-detection thresholds used when budgeting local refinement.",
     )
     grid: Annotated[ZoneMeshingRefinementGridSettings, Profile.USER] = Field(
-        default_factory=ZoneMeshingRefinementGridSettings
+        default_factory=ZoneMeshingRefinementGridSettings,
+        description="Grid settings used by the locality-first refinement policy.",
     )
     families: Annotated[dict[str, ZoneMeshingRefinementFamilySettings], Profile.USER] = Field(
         default_factory=lambda: {
             name: ZoneMeshingRefinementFamilySettings(**defaults)
             for name, defaults in _FAMILY_DEFAULTS.items()
-        }
+        },
+        description="Per-family refinement settings keyed by family name.",
     )
 
     @field_validator("mode")

@@ -44,7 +44,10 @@ class TMeshCasesConfig(HydroModelBase):
 
     model_config = ConfigDict(extra="forbid")
 
-    scenarios: list[TMeshCaseScenarioConfig] = Field(default_factory=list)
+    scenarios: list[TMeshCaseScenarioConfig] = Field(
+        default_factory=list,
+        description="Named temporal-mesh demo scenarios declared in the TOML file.",
+    )
     output_summary_json: Path | None = None
     output_figures_dir: Path | None = None
 

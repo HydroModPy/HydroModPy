@@ -89,7 +89,10 @@ class FlowWellForcingCsvConfig(HydroModelBase):
 
 FlowWellForcingConfig = Annotated[
     FlowWellForcingConstantConfig | FlowWellForcingCsvConfig,
-    Field(discriminator="mode"),
+    Field(
+        discriminator="mode",
+        description="Discriminated union of well-forcing payloads (constant or csv).",
+    ),
 ]
 """Discriminated union of well-forcing payloads (mode = "constant" | "csv")."""
 
