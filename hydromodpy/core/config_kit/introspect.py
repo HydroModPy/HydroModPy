@@ -4,8 +4,8 @@ Central location for logic that reads ``Annotated[...]`` metadata off
 :class:`pydantic.fields.FieldInfo` - profile visibility, conditional
 display, and any future metadata tags.
 
-Kept separate from :mod:`hydromodpy.master_config.generate_toml` and
-:mod:`hydromodpy.master_config.toml_io` so TOML, Streamlit, and JSON Schema
+Kept separate from :mod:`hydromodpy.core.toml_io.generator` and
+:mod:`hydromodpy.core.toml_io.io` so TOML, Streamlit, and JSON Schema
 paths can share the same source of truth.
 """
 
