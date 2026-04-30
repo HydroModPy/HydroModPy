@@ -28,6 +28,8 @@ tolerances:
   - {src: calibration, tgt: results,  reason: "calibration reads catalog at planning time"}
   - {src: simulation,  tgt: solver,   reason: "simulation queries solver registry"}
   - {src: results,     tgt: spatial,  reason: "results stores spatial indices"}
+  - {src: analysis,    tgt: physics,  reason: "history contract — 20_ENCAPSULATION_AND_COUPLING.md §2 ?-cell"}
+  - {src: results,     tgt: solver,   reason: "catalog stores solver registry id — 20_ENCAPSULATION_AND_COUPLING.md §2 ?-cell"}
 
 # Files exempt from the layer rule. Bootstrap shims that wire forward refs.
 exempt_files:
