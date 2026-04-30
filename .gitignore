@@ -47,6 +47,8 @@ __pypackages__/
 .idea/
 .claude/
 CLAUDE.md
+.codex
+AGENTS.md
 .spyderproject
 .spyproject
 .ropeproject
