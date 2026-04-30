@@ -42,6 +42,7 @@ from hydromodpy.calibration.runners.contracts import (
 )
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.state.execution import ExecutionRegistry
+from hydromodpy.project import Project
 
 if TYPE_CHECKING:
     from hydromodpy.core.state.run_state import WorkflowContext
@@ -486,8 +487,6 @@ def promote_trial(
         Optional calibration session UUID; added as
         ``"calibration:<sid>"`` tag when supplied.
     """
-    from hydromodpy.project import Project
-
     cfg_path = Path(cfg_path).expanduser().resolve()
     project = Project(cfg_path)
     try:
