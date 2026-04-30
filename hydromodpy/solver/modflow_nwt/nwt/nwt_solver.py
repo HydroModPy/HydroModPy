@@ -9,39 +9,21 @@
 * SPDX-License-Identifier: EPL-2.0 OR Apache-2.0
 """
 
+from __future__ import annotations
+
 import os
 from collections.abc import Mapping
 
 import flopy
 import numpy as np
-import rasterio
-from tqdm import tqdm
-
-from hydromodpy.solver.modflow_nwt.common.binary_reader import (
-    open_cell_budget_file,
-    open_head_file,
-)
-
-# Map MODFLOW ITMUNI codes to seconds per time unit.
-# Used to convert FieldParam SI values (m/s) to solver time units.
-_ITMUNI_TO_SECONDS: dict[int, float] = {
-    0: 1.0,  # undefined → treat as seconds
-    1: 1.0,  # seconds
-    2: 60.0,  # minutes
-    3: 3600.0,  # hours
-    4: 86400.0,  # days
-    5: 31557600.0,  # years (365.25 days)
-}
 
 from hydromodpy.core.io.filesystem import create_folder
-from hydromodpy.core.io.raster_io import export_tif
 from hydromodpy.core.logging import get_logger
 from hydromodpy.solver.contracts import Solver
 from hydromodpy.solver.modflow_common import (
     SolverRoutingContext,
     build_solver_routing_context,
     ensure_solver_binary,
-    masstransfer,
     write_grid_array_to_raster,
 )
 from hydromodpy.solver.modflow_common.options import (
@@ -57,165 +39,68 @@ from hydromodpy.solver.modflow_grid import (
 )
 from hydromodpy.spatial.mesh.cartesian_grid.sgrid_config import SolverSGridConfig
 
-from .diagnostics import check_water_flow_connectivity
+from ._post_processing import run_post_processing
+from ._pre_processing import assemble_flopy_packages
+from ._progress import run_model_with_progress
 from .flow_to_modflow_adapter import FlowToModflowAdapter
-from .intermittency import export_intermittency
 from .nwt_config import (
     ModflowConfig,
     ModflowSpecifParams,
 )
-from .postprocess import (
-    NODATA,
-    compute_groundwater_flux,
-    compute_groundwater_storage,
-    compute_outflow_drain,
-    compute_outlet_discharge_east_side_m3_s,
-    compute_seepage_areas,
-    compute_watertable_depth,
-    compute_watertable_elevation,
-)
+from .postprocess import NODATA
 
 logger = get_logger(__name__)
 MODFLOW_LENUNI_METERS = 2
 
-# ---------------------------------------------------------------------------
-# Helper: run MODFLOW with a tqdm progress bar on stress periods
-# ---------------------------------------------------------------------------
-
-import re as _re
-
-_SOLVING_RE = _re.compile(
-    r"Solving:\s+Stress period:\s+(\d+)\s+Time step:\s+(\d+)",
-    _re.IGNORECASE,
-)
-
-
-def _scale_rate_payload(payload: object, factor: float) -> object:
-    """Scale a recharge / EVT rate payload by ``factor``.
-
-    Handles the three shapes produced by
-    ``hydromodpy.solver.modflow_nwt.nwt.flow_to_modflow_adapter``:
-    a scalar (steady-state), a 2D ndarray (one map for the whole run),
-    or a ``{kper: scalar | ndarray}`` mapping (one entry per stress
-    period). Returns ``None`` unchanged so the caller can keep its
-    existing skip logic.
-    """
-    if payload is None:
-        return None
-    if isinstance(payload, Mapping):
-        return {kper: _scale_rate_payload(value, factor) for kper, value in payload.items()}
-    if isinstance(payload, np.ndarray):
-        return payload * factor
-    return float(payload) * factor
-
-
-def _run_model_with_progress(
-    mf_model,
-    nper: int,
-) -> tuple[bool, list[str]]:
-    """Run a MODFLOW model while showing a tqdm progress bar.
-
-    Intercepts solver stdout, parses "Solving: Stress period: N …" lines
-    to advance the bar, and suppresses the raw output.  Non-solving lines
-    (header, termination message, etc.) are forwarded to the logger.
-    """
-    import flopy.mbase as _mbase
-
-    pbar = tqdm(
-        total=nper,
-        desc="[INFO] MODFLOW solving",
-        unit="sp",
-        disable=nper <= 1,
-    )
-    _last_sp = 0
-
-    def _progress_print(line: str) -> None:
-        nonlocal _last_sp
-        m = _SOLVING_RE.search(line)
-        if m:
-            sp = int(m.group(1))
-            if sp > _last_sp:
-                pbar.update(sp - _last_sp)
-                _last_sp = sp
-            return
-        # Forward important non-solving lines (header, termination, etc.)
-        stripped = line.strip()
-        if stripped:
-            logger.debug("%s", stripped)
-
-    try:
-        success, buff = _mbase.run_model(
-            mf_model.exe_name,
-            mf_model.namefile,
-            model_ws=mf_model.model_ws,
-            silent=False,
-            report=True,
-            custom_print=_progress_print,
-        )
-    finally:
-        pbar.close()
-
-    return success, buff
-
-
-# %% CLASS
-
 
 class ModflowNwt(Solver):
-    """
-    MODFLOW-NWT solver.
+    """MODFLOW-NWT solver lifecycle facade.
 
-    To build, run the hydrologic model and manage/format simulation outputs.
+    Drives pre-processing, processing, and post-processing for the
+    MODFLOW-NWT backend. Heavy concern-specific work is delegated to:
+
+    - ``_pre_processing.assemble_flopy_packages`` for FLOPY package wiring,
+    - ``_post_processing.run_post_processing`` for output reduction,
+    - ``_progress.run_model_with_progress`` and ``scale_rate_payload``
+      for runtime helpers.
     """
 
     def __init__(
         self,
         geographic: object,
         modflow_config: ModflowConfig | Mapping[str, object] | None = None,
-        # Worflow settings
         model_folder: str = "HydroModPy_outputs",
         model_name: str = "Default",
         bin_path: str | None = None,
         preprocess_options: ModflowPreprocessOptions | None = None,
     ):
-        """
-        Initialize method.
+        """Initialize the solver state and resolve the MODFLOW-NWT binary.
 
         Parameters
         ----------
         geographic : object
-            Object geographic build by HydroModPy.
+            Geographic context built by HydroModPy.
         model_folder : str, optional
-            Path where the model will be store. The default is 'HydroModPy_outputs'.
+            Path where the model will be stored. Default is ``HydroModPy_outputs``.
         model_name : str, optional
-            Name of the model. The default is 'Default'.
-        bin_path : str or None, optional
-            Folder that holds the MODFLOW executables. When None, the
-            HydroModPy-managed cache (~/.cache/hydromodpy/bin) is used
+            Model name. Default is ``Default``.
+        bin_path : str | None, optional
+            Folder that holds the MODFLOW executables. When None the
+            HydroModPy-managed cache (``~/.cache/hydromodpy/bin``) is used
             and missing binaries are downloaded on first use.
         modflow_config : ModflowConfig | Mapping | None, optional
-            Expert MODFLOW-NWT package parameters loaded from
-            `[modflownwt.runtime]`, `[modflownwt.process_specific]`,
-            `[modflownwt.sgrid.planar]`, and `[modflownwt.sgrid.vertical]`
-            in TOML.
-            If None, internal defaults from ModflowConfig are used.
+            Expert MODFLOW-NWT package parameters. When None internal
+            defaults from ``ModflowConfig`` are used.
         preprocess_options : ModflowPreprocessOptions | None
-            Optional typed options for pre_processing stage.
+            Optional typed options for the pre-processing stage.
         """
-
-        # %% Initialization paths
-
         self.model_folder = model_folder
         if not os.path.exists(self.model_folder):
             create_folder(self.model_folder)
 
         self.model_name = model_name
-
         self.exe = str(ensure_solver_binary("mfnwt", bin_path))
-
-        self.full_path = os.path.join(model_folder, model_name)  #'modraw'
-
-        # %% Domain definition
+        self.full_path = os.path.join(model_folder, model_name)
 
         self.geographic = geographic
         self.flow = None
@@ -235,7 +120,6 @@ class ModflowNwt(Solver):
         self.preprocess_options = preprocess_options
         self._apply_preprocess_options(preprocess_options)
 
-        # %% Flopy model parameters driven by expert config
         specif_params = ModflowSpecifParams.from_config(modflow_config)
         if modflow_config is None:
             self.modflow_config = ModflowConfig()
@@ -281,18 +165,14 @@ class ModflowNwt(Solver):
         self.check_grid = bool(options.check_grid)
         self._select_active_dem(box=bool(options.box))
 
-    # %% PRE-PROCESSING
-
     def _get_domain_surfaces(self):
-        """
-        Return explicit domain surfaces used by the MODFLOW spatial grid.
-        """
+        """Return explicit domain surfaces used by the MODFLOW spatial grid."""
         return resolve_domain_surfaces(
             domain=self.domain,
         )
 
     def _resolve_flow_regime(self) -> str | None:
-        """Return flow regime from flow config when available."""
+        """Return the flow regime from flow config when available."""
         if self.flow is None:
             return None
 
@@ -379,7 +259,7 @@ class ModflowNwt(Solver):
         return result.as_dis_kwargs()
 
     def _build_spatial_discretization(self):
-        """Build structured spatial grid from validated domain surfaces."""
+        """Build the structured spatial grid from validated domain surfaces."""
         self.grid_ctx = build_spatial_discretization(
             domain=self.domain,
             sgrid_config=self.sgrid_config,
@@ -434,7 +314,7 @@ class ModflowNwt(Solver):
         return self.routing_ctx
 
     def _build_dis_package(self, solver_mesh, temporal_dis: Mapping[str, object]) -> None:
-        """Create FLOPY DIS package from spatial and temporal discretization."""
+        """Create the FLOPY DIS package from spatial and temporal discretization."""
         dis_kwargs = solver_mesh.to_dis_kwargs()
         verts = np.asarray(solver_mesh.planar_mesh.vertices, dtype=float)
         xmin = float(verts[:, 0].min())
@@ -454,7 +334,7 @@ class ModflowNwt(Solver):
         )
 
     def _build_flow_modflow_inputs(self, solver_mesh):
-        """Adapt Flow+Domain data into solver-ready payloads."""
+        """Adapt Flow + Domain data into solver-ready payloads."""
         adapter = FlowToModflowAdapter(
             flow=self.flow,
             domain=self.domain,
@@ -478,8 +358,7 @@ class ModflowNwt(Solver):
         mesh_support: object | None = None,
         flow_runtime_overrides: Mapping[str, object] | None = None,
     ):
-        """
-        Pre-processing to build the hydrologic model.
+        """Pre-processing to build the hydrologic model.
 
         Parameters
         ----------
@@ -489,11 +368,6 @@ class ModflowNwt(Solver):
             Domain object for this preprocessing run.
         options : ModflowPreprocessOptions, optional
             Optional typed pre-processing options.
-
-        Returns
-        -------
-        None.
-
         """
         self.flow = flow
         self.domain = domain
@@ -511,174 +385,14 @@ class ModflowNwt(Solver):
         sgrid = self._build_spatial_discretization()
         self._build_dis_package(sgrid, temporal_dis)
 
-        # %% Flow adaptation (process -> solver-ready payloads)
         flow_inputs = self._build_flow_modflow_inputs(sgrid)
-
-        # FieldParam stores hydraulic properties in SI (m/s). MODFLOW
-        # interprets values according to itmuni. Convert K (and derived
-        # conductances) from SI to solver time units.
-        _si_to_solver = _ITMUNI_TO_SECONDS.get(self.dis_itmuni, 1.0)
-
-        # Boundary conditions arrays
-        self.drain_array = flow_inputs.drain_array
-
-        if flow_inputs.chd_spd is not None:
-            self.chd = flopy.modflow.ModflowChd(self.mf, stress_period_data=flow_inputs.chd_spd)
-
-        # ---- flopy.modflow.ModflowBas
-        # BAS contract reminder:
-        # - ibound > 0: active cells (head is solved)
-        # - ibound = 0: inactive/no-flow cells
-        # - ibound < 0: constant-head cells
-        # - strt: startup head field and imposed head on constant-head cells
-        self.bas_hnoflo = self._params.runtime.bas_hnoflo
-        self.bas = flopy.modflow.ModflowBas(
-            self.mf,
-            ibound=flow_inputs.ibound,
-            strt=flow_inputs.strt,
-            hnoflo=self.bas_hnoflo,
-        )
-
-        # %% Parametrization
-
-        # Specify the unconfined conditions of the aquifer.
-        self.laywet = np.zeros(self.nlay)  # wettable
-        self.laytype = np.ones(self.nlay)  # convertible
-
-        self.hk = flow_inputs.hk * _si_to_solver
-        self.hk_value = flow_inputs.hk_value * _si_to_solver
-        self.sy = flow_inputs.sy
-        self.sy_value = flow_inputs.sy_value
-        self.ss = flow_inputs.ss
-        self.ss_value = flow_inputs.ss_value
-
-        # ---- flopy.modflow.ModflowUpw
-        self.upw_hdry = self._params.runtime.upw_hdry
-        self.upw = flopy.modflow.ModflowUpw(
-            self.mf,
-            laytyp=self.laytype,
-            laywet=self.laywet,
-            hk=self.hk,
-            sy=self.sy,
-            ss=self.ss,
-            vka=self._params.process_specific.vka,
-            iphdry=self._params.runtime.upw_iphdry,
-            hdry=self.upw_hdry,
-            layvka=self._params.runtime.upw_layvka,
-            extension="upw",
-            unitnumber=None,
-            noparcheck=False,
-        )
-
-        # %% Source terms
-
-        # Recharge / EVT rates arrive in SI (m/s) but MODFLOW interprets
-        # them according to itmuni. Apply the same SI-to-solver-time
-        # conversion already used for K and drain conductance above.
-        rch_data_solver = _scale_rate_payload(flow_inputs.rch_data, _si_to_solver)
-        evt_spd_solver = _scale_rate_payload(flow_inputs.evt_spd, _si_to_solver)
-
-        if evt_spd_solver is not None:
-            # Position the EVT extraction surface a configurable distance
-            # below topography (legacy default = top - 2 m) and let the
-            # extinction depth come from the FlowEtpConfig too. When only
-            # the negative-recharge fallback is active, the adapter passes
-            # the legacy defaults via FlowModflowInputs.
-            surf_offset = float(getattr(flow_inputs, "evt_surface_offset", 2.0))
-            exdp = float(getattr(flow_inputs, "evt_extinction_depth", 1.0))
-            self.evt = flopy.modflow.ModflowEvt(
-                self.mf,
-                evtr=evt_spd_solver,
-                surf=self.top_elevation - surf_offset,
-                nevtop=self._params.runtime.evt_nevtop,
-                exdp=exdp,
-                ievt=self._params.runtime.evt_ievt,
-                ipakcb=self._params.runtime.evt_ipakcb,
-            )
-
-        # ---- flopy.modflow.ModflowRch
-        if rch_data_solver is not None:
-            self.rch = flopy.modflow.ModflowRch(self.mf, rech=rch_data_solver)
-        # Store the RCH schedule as an instance attribute so that post-processing
-        # consumers (e.g. Timeseries) can read it without going back to the flow
-        # object.  This is the *processed* schedule: first_clim has been applied
-        # to period 0.  Format: dict {kper: rate [L/T]} in solver time units,
-        # mirroring what was actually fed to ModflowRch. None when recharge is
-        # not active.
-        self.recharge = rch_data_solver
-
-        # %% Drain package
-
-        # DRN is applied to all the surface of the model: enables seepage on the top layer
-        if flow_inputs.drn_spd is not None:
-            # Drainage conductance [L²/T] was derived from hk in SI;
-            # convert to solver time units (column index 4 = conductance).
-            for _kper_data in flow_inputs.drn_spd.values():
-                _kper_data[:, 4] *= _si_to_solver
-            self.drn = flopy.modflow.ModflowDrn(
-                self.mf,
-                stress_period_data=flow_inputs.drn_spd,
-            )
-
-        # %% Well package
-
-        if flow_inputs.wel_spd:
-            # Well flux is built in SI (m3/s); MODFLOW expects volume per
-            # solver time-step. Scale the 4th column (flux) per row.
-            wel_spd_solver = {
-                kper: [list(row[:3]) + [float(row[3]) * _si_to_solver] for row in rows]
-                for kper, rows in flow_inputs.wel_spd.items()
-            }
-            self.wel = flopy.modflow.ModflowWel(
-                self.mf,
-                ipakcb=self._params.runtime.wel_ipakcb,
-                stress_period_data=wel_spd_solver,
-            )
-
-        # %% Output control
-
-        stress_period_data = {}
-        for kper in range(self.nper):
-            kstp = int(self.nstp[kper])
-            if kstp > 1:
-                # Multiple substeps: save every substep for transient accuracy
-                for ts in range(kstp):
-                    stress_period_data[(kper, ts)] = ["save head", "save budget"]
-            else:
-                stress_period_data[(kper, 0)] = ["save head", "save budget"]
-        # ---- flopy.modflow.ModflowOc
-        self.oc = flopy.modflow.ModflowOc(
-            self.mf,
-            stress_period_data=stress_period_data,
-            extension=["oc", "hds", "cbc"],
-            unitnumber=None,
-            compact=self._params.runtime.oc_compact,
-        )
-        self.oc.reset_budgetunit(fname=self.model_name + ".cbc")
-
-        # %% Grid connectivity check
-
-        if active_options.check_grid:
-            grid_to_check = self.mf.modelgrid.top_botm
-            problematic_cells = check_water_flow_connectivity(grid_to_check)
-            if not problematic_cells:
-                logger.info("MODFLOW grid connectivity check passed")
-                self.prob_cells = 0
-            else:
-                logger.warning(
-                    "MODFLOW grid connectivity check found %d problematic cells",
-                    len(problematic_cells),
-                )
-                self.prob_cells = len(problematic_cells)
-
-    # %% PROCESSING
+        assemble_flopy_packages(self, flow_inputs, active_options)
 
     def processing(
         self,
         options: ModflowRunOptions | None = None,
     ):
-        """
-        Run the hydrologic model.
+        """Run the hydrologic model.
 
         Parameters
         ----------
@@ -688,10 +402,8 @@ class ModflowNwt(Solver):
         Returns
         -------
         success_model : bool
-            Flag to know if the simulation is done correctly.
-
+            Flag to know if the simulation completed successfully.
         """
-
         if options is None:
             options = ModflowRunOptions()
         elif not isinstance(options, ModflowRunOptions):
@@ -706,16 +418,13 @@ class ModflowNwt(Solver):
                 unitnumber=None,
             )
 
-        # Create modflow files
         if options.write_model:
-            # Write input files
             self.mf.write_input()
 
-        # Run modflow files
         success_model = False
         if options.run_model:
             if options.verbose:
-                success_model, _ = _run_model_with_progress(
+                success_model, _ = run_model_with_progress(
                     self.mf,
                     int(self.nper),
                 )
@@ -724,31 +433,11 @@ class ModflowNwt(Solver):
 
         return success_model
 
-    # %% POST-PROCESSING
-
-    def _setup_postprocess_folders(self) -> None:
-        """Create the output folder hierarchy for post-processing artefacts."""
-        self.save_file = os.path.join(self.full_path, "_postprocess")
-        create_folder(self.save_file)
-
-        self.figure_file = os.path.join(self.full_path, "_postprocess", "_figures")
-        create_folder(self.figure_file)
-
-        self.temporary_file = os.path.join(self.full_path, "_postprocess", "_temporary")
-        create_folder(self.temporary_file)
-
-        self.tifs_file = os.path.join(self.full_path, "_postprocess", "_rasters")
-        create_folder(self.tifs_file)
-
-        self.save_fig = os.path.join(self.model_folder, "_figures")
-        create_folder(self.save_fig)
-
     def post_processing(
         self,
         options: ModflowPostprocessOptions | None = None,
     ):
-        """
-        Create outputs files.
+        """Create output files from MODFLOW heads and budget.
 
         Parameters
         ----------
@@ -760,248 +449,4 @@ class ModflowNwt(Solver):
         elif not isinstance(options, ModflowPostprocessOptions):
             raise TypeError("post_processing options must be a ModflowPostprocessOptions instance.")
 
-        self._setup_postprocess_folders()
-
-        # %% Load essential data
-
-        # Modflow specific files (written in the processing phase)
-        self.path_file = os.path.join(self.full_path, self.model_name)
-
-        # Files have been output in the processing phase and are re-read here.
-        if not hasattr(self, "inactive_mask"):
-            raise ValueError("inactive_mask must be set before MODFLOW post-processing.")
-        inactive_mask = np.asarray(self.inactive_mask, dtype=bool)
-        # heads
-        self.head_fpu = open_head_file(self.path_file + ".hds", precision="single")
-        # fluxes
-        self.cbb = open_cell_budget_file(self.path_file + ".cbc", precision="single")
-
-        # Import times
-        self.times = self.head_fpu.get_times()
-        self.kstpkpers = self.head_fpu.get_kstpkper()
-
-        # Params model
-        self.nper = self.dis.nper
-        self.kper = np.arange(0, self.nper, 1)
-        if len(self.kper) > 1:
-            self.kstp = self.nstp[self.kper] - 1
-
-        # %% Initialize result dictionaries
-        # x[time] = matrix - one 2-D array per stress period
-        self.dict_watertable_elevation = {}
-        self.dict_watertable_depth = {}
-        self.dict_seepage_areas = {}
-        self.dict_outflow_drain = {}
-        self.dict_outlet_discharge_east_side_m3_s = {}
-        self.dict_groundwater_flux = {}
-        self.dict_specific_discharge = {}
-        self.dict_accumulation_flux = {}
-        self.dict_groundwater_storage = {}
-        self.dict_persistency_index = {}
-        self.dict_intermittency_yearly = {}
-        self.dict_intermittency_monthly = {}
-        self.dict_intermittency_weekly = {}
-        self.dict_intermittency_daily = {}
-
-        logger.debug("Post-processing MODFLOW: %s", self.model_name)
-
-        # %% Loop over stress periods
-
-        for item, time in enumerate(
-            tqdm(
-                self.times,
-                desc="[INFO] Post-processing",
-                unit="sp",
-                disable=len(self.times) <= 1,
-            )
-        ):
-            if len(self.times) == 1:
-                self.kstpkper = self.kstpkpers[0]
-            else:
-                self.kstpkper = (self.kstp[item], self.kper[item])
-
-            lead_numb = str(item)
-            do_export_tif = options.export_all_tif or (item == 0)
-
-            self.head = self.head_fpu.get_data(totim=time)
-
-            if options.watertable_elevation:
-                self.wt_elev = compute_watertable_elevation(self.head, self.nlay)
-                self.wt_elev[inactive_mask] = NODATA
-                output_path = self.tifs_file + f"/watertable_elevation_t({lead_numb}).tif"
-                if do_export_tif:
-                    export_tif(self.dem_watershed_path, self.wt_elev, output_path, NODATA)
-                self.dict_watertable_elevation[item] = self.wt_elev
-
-            if options.watertable_depth:
-                self.wt_depth = compute_watertable_depth(
-                    self.wt_elev, self.top_elevation, inactive_mask
-                )
-                output_path = self.tifs_file + f"/watertable_depth_t({lead_numb}).tif"
-                if do_export_tif:
-                    export_tif(self.dem_watershed_path, self.wt_depth, output_path, NODATA)
-                self.dict_watertable_depth[item] = self.wt_depth
-
-            if options.seepage_areas:
-                self.seep_area = compute_seepage_areas(
-                    self.wt_elev, self.top_elevation, inactive_mask
-                )
-                output_path = self.tifs_file + f"/seepage_areas_t({lead_numb}).tif"
-                if do_export_tif:
-                    export_tif(self.dem_watershed_path, self.seep_area, output_path, NODATA)
-                self.dict_seepage_areas[item] = self.seep_area
-
-            if options.outflow_drain:
-                self.drain = self.cbb.get_data(text="DRAINS", kstpkper=self.kstpkper, totim=time)
-                self.out_drn = compute_outflow_drain(
-                    self.drain,
-                    self.drain_array,
-                    self.dis.nrow,
-                    self.dis.ncol,
-                    inactive_mask,
-                )
-                output_path = self.tifs_file + f"/outflow_drain_t({lead_numb}).tif"
-                if options.accumulation_flux or do_export_tif:
-                    export_tif(self.dem_watershed_path, self.out_drn, output_path, NODATA)
-                self.dict_outflow_drain[item] = self.out_drn
-
-            if options.outlet_discharge_east_side_m3_s:
-                try:
-                    constant_head = self.cbb.get_data(
-                        text="CONSTANT HEAD",
-                        kstpkper=self.kstpkper,
-                        totim=time,
-                    )
-                except Exception as exc:
-                    message = str(exc).lower()
-                    if "text string is not in the budget file" in message:
-                        constant_head = None
-                    else:
-                        raise
-                outlet_discharge_m3_s = compute_outlet_discharge_east_side_m3_s(
-                    constant_head,
-                    nrow=self.dis.nrow,
-                    ncol=self.dis.ncol,
-                )
-                self.dict_outlet_discharge_east_side_m3_s[item] = np.asarray(
-                    [outlet_discharge_m3_s],
-                    dtype=float,
-                )
-
-            if options.groundwater_flux:
-                self.flux_top = compute_groundwater_flux(
-                    self.cbb, self.kstpkper, time, self.nlay, inactive_mask
-                )
-                output_path = self.tifs_file + f"/groundwater_flux_t({lead_numb}).tif"
-                if do_export_tif:
-                    export_tif(self.dem_watershed_path, self.flux_top, output_path, NODATA)
-                self.dict_groundwater_flux[item] = self.flux_top
-
-            if options.groundwater_storage:
-                self.wt_sto = compute_groundwater_storage(
-                    self.wt_elev,
-                    self.zbot,
-                    self.sy,
-                    self.top_elevation,
-                    cell_area=float(self.cell_area),
-                )
-                output_path = self.tifs_file + f"/groundwater_storage_t({lead_numb}).tif"
-                if do_export_tif:
-                    export_tif(self.dem_watershed_path, self.wt_sto, output_path, NODATA)
-                self.dict_groundwater_storage[item] = self.wt_sto
-
-            if options.accumulation_flux:
-                routing_ctx = self._ensure_solver_routing_context()
-                accumulated_flow = masstransfer.Masstransfer(
-                    self.geographic,
-                    f"outflow_drain_t({lead_numb}).tif",
-                    f"tracept_t({lead_numb}).shp",
-                    f"accumulation_flux_t({lead_numb}).tif",
-                    extraction_folder=self.save_file,
-                    routing_fill_path=routing_ctx.correc_path,
-                    routing_direc_path=routing_ctx.direc_path,
-                )
-                accumulated_flow.trace_cumulated()
-                output_path = self.tifs_file + f"/accumulation_flux_t({lead_numb}).tif"
-                with rasterio.open(output_path) as src:
-                    self.dict_accumulation_flux[item] = src.read(1)
-
-        # %% Persistency index
-
-        if options.persistency_index and self.dict_accumulation_flux:
-            logger.info("Exporting persistency index maps")
-            acc_npy_raw = self.dict_accumulation_flux
-            acc_npy = list(acc_npy_raw.items())[:]
-            mask = inactive_mask
-            for key in range(len(acc_npy)):
-                acc_npy[key] = np.ma.masked_array(acc_npy[key][1], mask=mask)
-            zero = acc_npy_raw[0] * 0
-            for i in range(len(acc_npy)):
-                tempo = acc_npy[i].copy()
-                tempo[tempo > 0] = 1
-                zero = zero + tempo
-            days_flux = zero.copy() / len(acc_npy)
-            pi_export = days_flux.copy()
-            self.pi = np.ma.masked_where(days_flux <= 0, days_flux)
-            self.dict_persistency_index[0] = self.pi
-            pi_export[days_flux <= 0] = NODATA
-            pi_export[mask] = NODATA
-            output_path = self.tifs_file + "/persistency_index_t(-).tif"
-            export_tif(self.dem_watershed_path, pi_export, output_path, NODATA)
-
-        # %% Intermittency (daily / weekly / monthly / yearly)
-
-        _any_intermittency = (
-            options.intermittency_daily
-            or options.intermittency_weekly
-            or options.intermittency_monthly
-            or options.intermittency_yearly
-        )
-        acc_npy_raw = (
-            self.dict_accumulation_flux
-            if (_any_intermittency and self.dict_accumulation_flux)
-            else None
-        )
-
-        if options.intermittency_daily and acc_npy_raw is not None:
-            export_intermittency(
-                label="daily",
-                window_size=365,
-                acc_npy_raw=acc_npy_raw,
-                result_dict=self.dict_intermittency_daily,
-                tifs_file=self.tifs_file,
-                watershed_dem=self.dem_watershed_path,
-            )
-
-        if options.intermittency_weekly and acc_npy_raw is not None:
-            export_intermittency(
-                label="weekly",
-                window_size=52,
-                acc_npy_raw=acc_npy_raw,
-                result_dict=self.dict_intermittency_weekly,
-                tifs_file=self.tifs_file,
-                watershed_dem=self.dem_watershed_path,
-            )
-
-        if options.intermittency_monthly and acc_npy_raw is not None:
-            export_intermittency(
-                label="monthly",
-                window_size=12,
-                acc_npy_raw=acc_npy_raw,
-                result_dict=self.dict_intermittency_monthly,
-                tifs_file=self.tifs_file,
-                watershed_dem=self.dem_watershed_path,
-            )
-
-        if options.intermittency_yearly and acc_npy_raw is not None:
-            export_intermittency(
-                label="yearly",
-                window_size=1,
-                acc_npy_raw=acc_npy_raw,
-                result_dict=self.dict_intermittency_yearly,
-                tifs_file=self.tifs_file,
-                watershed_dem=self.dem_watershed_path,
-            )
-
-
-# %% NOTES
+        run_post_processing(self, options)
