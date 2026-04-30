@@ -45,8 +45,9 @@ from hydromodpy.core.state.execution import ExecutionRegistry
 from hydromodpy.project import Project
 
 if TYPE_CHECKING:
+    from pydantic import BaseModel
+
     from hydromodpy.core.state.run_state import WorkflowContext
-    from hydromodpy.master_config.hydromodpy_config import HydroModPyConfig
 
 logger = get_logger(__name__)
 
@@ -114,7 +115,7 @@ class TrialContext:
         Parsed TOML, used to rebuild per-trial contexts.
     """
 
-    base_cfg: HydroModPyConfig
+    base_cfg: BaseModel
     ctx: WorkflowContext
     earliest: int
     downstream_steps: tuple[TrialStep, ...]
@@ -231,8 +232,8 @@ def prepare_trials(
         calibration helper (``mode="replace"``/``"scale"``). Otherwise, it
         falls back to the raw dotted-path writer.
     """
+    from hydromodpy.core.config_kit.root_config_protocol import get_root_config_provider
     from hydromodpy.core.toml_io.loader import load_toml_with_base_config
-    from hydromodpy.master_config.hydromodpy_config import HydroModPyConfig
 
     provider = get_trial_pipeline_provider()
 
@@ -240,7 +241,7 @@ def prepare_trials(
     raw_toml = load_toml_with_base_config(cfg_path)
     # from_toml handles base_config inheritance + resolves relative paths
     # against the TOML directory (e.g. data.dem.source_path -> absolute).
-    cfg = HydroModPyConfig.from_toml(cfg_path)
+    cfg = get_root_config_provider().from_toml(cfg_path)
 
     if isinstance(override_paths, Mapping):
         path_map: dict[str, str] = {str(k): str(v) for k, v in override_paths.items()}

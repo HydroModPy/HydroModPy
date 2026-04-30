@@ -40,15 +40,15 @@ def _safe_float(value: object) -> float | None:
 
 def _extract_simulation_child_artifacts(config_path: Path) -> dict[str, Any]:
     """Extract compact simulation artifacts from one child launcher config."""
+    from hydromodpy.core.config_kit.root_config_protocol import get_root_config_provider
     from hydromodpy.core.workspace.path_registry import WorkspacePathRegistry
-    from hydromodpy.master_config.hydromodpy_config import HydroModPyConfig
 
     artifacts: dict[str, Any] = {
         "child_artifact_kind": "simulation",
         "child_artifact_status": "unavailable",
     }
     try:
-        cfg = HydroModPyConfig.from_toml(config_path)
+        cfg = get_root_config_provider().from_toml(config_path)
     except Exception as exc:
         artifacts["child_artifact_status"] = "config_parse_failed"
         artifacts["child_artifact_error_type"] = type(exc).__name__

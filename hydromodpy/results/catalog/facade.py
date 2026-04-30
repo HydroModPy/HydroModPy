@@ -14,8 +14,9 @@ from typing import TYPE_CHECKING, Any
 
 import duckdb
 
+from hydromodpy.core.config_kit.persistence import PersistenceConfig
+from hydromodpy.core.config_kit.root_config_protocol import get_root_config_provider
 from hydromodpy.core.io.db_retry import connect_with_retry
-from hydromodpy.master_config.persistence import PersistenceConfig
 from hydromodpy.results.catalog.discovery import DiscoveryMixin
 from hydromodpy.results.catalog.lifecycle import LifecycleMixin
 from hydromodpy.results.catalog.package_io import PackageIOMixin
@@ -79,25 +80,19 @@ class SimulationCatalog(
     @classmethod
     def from_toml(cls, toml_path: str | Path) -> SimulationCatalog:
         """Open the catalog whose workspace is declared in a TOML config."""
-        from hydromodpy.master_config.hydromodpy_config import HydroModPyConfig
-
-        cfg = HydroModPyConfig.from_toml(toml_path)
+        cfg = get_root_config_provider().from_toml(toml_path)
         return cls(cfg.workspace.root)
 
     @classmethod
     def from_json(cls, payload: str | bytes) -> SimulationCatalog:
         """Open the catalog whose workspace is declared in a JSON config string."""
-        from hydromodpy.master_config.hydromodpy_config import HydroModPyConfig
-
-        cfg = HydroModPyConfig.model_validate_json(payload)
+        cfg = get_root_config_provider().from_json(payload)
         return cls(cfg.workspace.root)
 
     @classmethod
     def from_dict(cls, payload: dict) -> SimulationCatalog:
         """Open the catalog whose workspace is declared in a dict config payload."""
-        from hydromodpy.master_config.hydromodpy_config import HydroModPyConfig
-
-        cfg = HydroModPyConfig.model_validate(payload)
+        cfg = get_root_config_provider().from_dict(payload)
         return cls(cfg.workspace.root)
 
     @property
