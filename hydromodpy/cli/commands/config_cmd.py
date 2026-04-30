@@ -22,7 +22,7 @@ HELP = "Generate a TOML template, validate a config, or export the JSON Schema"
 
 
 def register(subparsers) -> argparse.ArgumentParser:
-    from hydromodpy.master_config.param_level import PROFILES
+    from hydromodpy.core.config_kit.visible_when import PROFILES
 
     parser = subparsers.add_parser(NAME, help=HELP)
     sub = parser.add_subparsers(dest="config_command", required=False)
@@ -106,7 +106,7 @@ def run(args: argparse.Namespace) -> None:
 
 
 def _cmd_config_template(args: argparse.Namespace) -> None:
-    from hydromodpy.master_config.generate_toml import available_modules, generate_toml
+    from hydromodpy.core.toml_io.generator import available_modules, generate_toml
 
     if getattr(args, "list_modules", False):
         for name in available_modules():
@@ -186,7 +186,7 @@ def _cmd_config_check(args: argparse.Namespace) -> None:
 
 def _cmd_config_schema(args: argparse.Namespace) -> None:
     """Export the JSON Schema for the HydroModPy configuration."""
-    from hydromodpy.master_config.schema_export import (
+    from hydromodpy.core.config_kit.schema_export import (
         _ensure_root_sections,
         export_schema,
         write_schema,
@@ -212,7 +212,7 @@ def _cmd_config_schema(args: argparse.Namespace) -> None:
 def _cmd_config_wizard(args: argparse.Namespace) -> None:
     """Minimal stdin-based wizard to scaffold a TOML config."""
     from hydromodpy.cli.helpers import EXIT_USER_ABORT
-    from hydromodpy.master_config.generate_toml import generate_toml
+    from hydromodpy.core.toml_io.generator import generate_toml
 
     def _ask(label: str, default: str | None = None) -> str:
         hint = f" [{default}]" if default else ""
