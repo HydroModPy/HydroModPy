@@ -37,10 +37,10 @@ from hydromodpy.core.config_kit.profile import Profile
 from hydromodpy.core.toml_io.loader import load_toml_with_base_config
 from hydromodpy.core.toml_io.paths import resolve_declared_path
 from hydromodpy.core.workspace.config import WorkspaceConfig
+from hydromodpy.master_config.analysis import AnalysisConfig
+from hydromodpy.master_config.persistence import PersistenceConfig
 
 if TYPE_CHECKING:
-    from hydromodpy.analysis.batch.config import RegionalLabConfig
-    from hydromodpy.analysis.capability_gallery import CapabilityGalleryConfig
     from hydromodpy.calibration.config import CalibrationConfig
     from hydromodpy.data.data_managers_config import DataManagersConfig
     from hydromodpy.display.config import DisplayConfig
@@ -163,11 +163,21 @@ class HydroModPyConfig(HydroModelBase):
         default_factory=lambda: DisplayConfig(),
         description=("Optional display and export toggles loaded from the [display] section."),
     )
-    capability_gallery: Annotated[CapabilityGalleryConfig, Profile.USER] = Field(
-        default_factory=lambda: CapabilityGalleryConfig(),
+    persistence: Annotated[PersistenceConfig, Profile.USER] = Field(
+        default_factory=PersistenceConfig,
         description=(
-            "Optional publication block copying selected run figures into a "
-            "versionable capability-gallery source folder."
+            "Storage backend toggles loaded from [persistence]. Drives the "
+            "DuckDB catalog, Zarr field arrays, Parquet tables, and the "
+            "`hydromodpy.lock` reproducibility manifest."
+        ),
+    )
+    analysis: Annotated[AnalysisConfig | None, Profile.USER] = Field(
+        default=None,
+        description=(
+            "Optional analysis hub loaded from [analysis]. Aggregates "
+            "[analysis.batch] (regional-lab launcher), "
+            "[analysis.capability_gallery] (figure publication), and "
+            "[analysis.comparison] (method-comparison launcher)."
         ),
     )
 
@@ -193,13 +203,6 @@ class HydroModPyConfig(HydroModelBase):
         description=(
             "Optional calibration settings loaded from the [calibration] "
             "section.  When present, triggers the calibration workflow."
-        ),
-    )
-    batch: Annotated[RegionalLabConfig | None, Profile.USER] = Field(
-        default=None,
-        description=(
-            "Optional regional-lab batch settings. When loaded standalone "
-            "via `RegionalLabLauncher`, the section name is `[regional_lab]`."
         ),
     )
 
@@ -281,6 +284,15 @@ class HydroModPyConfig(HydroModelBase):
                 "Section [modflow] is no longer supported. "
                 "Use [solver], [modflownwt], and [modflow6] sections instead."
             )
+        if "capability_gallery" in raw:
+            raise ValueError(
+                "Section [capability_gallery] is no longer supported. "
+                "Use [analysis.capability_gallery] instead."
+            )
+        if "batch" in raw:
+            raise ValueError(
+                "Section [batch] is no longer supported. Use [analysis.batch] instead."
+            )
 
         # Auto-derive workspace.project_root from TOML location if absent.
         # HYDROMODPY_PROJECT_ROOT env var takes precedence (used by test infra).
@@ -336,7 +348,8 @@ class HydroModPyConfig(HydroModelBase):
             "modflownwt": ({}, _std(ModflowConfig)),
             "modflow6": ({}, _std(Modflow6Config)),
             "display": ({}, _std(DisplayConfig)),
-            "capability_gallery": ({}, _std(CapabilityGalleryConfig)),
+            "persistence": ({}, _std(PersistenceConfig)),
+            "analysis": (None, _load_optional_analysis_section),
             "overview": (None, _load_optional_overview_section),
             "mesh_catchment": (None, _load_optional_mesh_catchment_section),
             "calibration": (None, _load_optional_calibration_section),
@@ -536,3 +549,53 @@ def _load_optional_calibration_section(
     if section_data is None:
         return None
     return load_standard_section(section_data, CalibrationConfig, base)
+
+
+def _load_optional_analysis_section(
+    section_data: Any,
+    base: Path,
+) -> AnalysisConfig | None:
+    """Load the optional ``[analysis]`` hub.
+
+    Each sub-section (``batch``, ``capability_gallery``, ``comparison``)
+    is parsed independently. Standalone launchers keep the legacy section
+    names ``[regional_lab]`` and ``[method_comparison]``.
+    """
+    if section_data is None:
+        return None
+    if not isinstance(section_data, Mapping):
+        raise ValueError("[analysis] must be a mapping")
+
+    from hydromodpy.analysis.batch.config import RegionalLabConfig
+    from hydromodpy.analysis.capability_gallery import CapabilityGalleryConfig
+    from hydromodpy.analysis.comparison.config import MethodComparisonSection
+
+    parsed: dict[str, Any] = {}
+
+    raw_gallery = section_data.get("capability_gallery")
+    if raw_gallery is not None:
+        parsed["capability_gallery"] = load_standard_section(
+            raw_gallery, CapabilityGalleryConfig, base
+        )
+
+    raw_batch = section_data.get("batch")
+    if raw_batch is not None:
+        if not isinstance(raw_batch, Mapping):
+            raise ValueError("[analysis.batch] must be a mapping")
+        parsed["batch"] = RegionalLabConfig.from_toml(
+            {"regional_lab": raw_batch},
+            config_path=base / "analysis_batch.toml",
+        )
+
+    raw_comparison = section_data.get("comparison")
+    if raw_comparison is not None:
+        if not isinstance(raw_comparison, Mapping):
+            raise ValueError("[analysis.comparison] must be a mapping")
+        parsed["comparison"] = MethodComparisonSection.model_validate(raw_comparison)
+
+    extra_keys = set(section_data) - {"batch", "capability_gallery", "comparison"}
+    if extra_keys:
+        unknown = ", ".join(sorted(extra_keys))
+        raise ValueError(f"Unknown [analysis] sub-section(s): {unknown}")
+
+    return AnalysisConfig(**parsed)
