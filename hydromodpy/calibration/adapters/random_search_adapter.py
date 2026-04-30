@@ -1,10 +1,4 @@
-"""Random-search adapter using ``numpy.random.default_rng`` for parity.
-
-Matches the legacy ``_driver_random_search`` byte-for-byte: same seed seeds a
-``default_rng``; ``rng.random(dim)`` draws a unit-cube vector mapped to
-transformed bounds. Optuna ``RandomSampler`` would draw a different sequence,
-breaking goldens calibrated on the legacy RNG.
-"""
+"""Random-search adapter using ``numpy.random.default_rng``."""
 
 from __future__ import annotations
 
@@ -29,10 +23,7 @@ class RandomSearchAdapter:
         space: ParameterSpace,
         *,
         seed: int | None = None,
-        n_samples: int | None = None,
-        **_unused,
     ) -> None:
-        del n_samples
         self.space = space
         self._rng = np.random.default_rng(None if seed is None else int(seed))
         self._lower = np.array([p.lower_transformed for p in space.parameters], dtype=float)

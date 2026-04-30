@@ -1,8 +1,5 @@
 """Delayed-Acceptance Metropolis-Hastings with Gaussian-process surrogate.
 
-Ported from the legacy ``da_mh_gp`` calibration method (see
-``old/hydromodpy/analysis/calibration/core/methods/da_mh_gp.py``).
-
 Two-stage MCMC for expensive simulators: stage 1 filters proposals with a
 sklearn GaussianProcessRegressor surrogate of the log-posterior; stage 2
 corrects the acceptance ratio with one full-model call, so the chain targets
@@ -130,29 +127,18 @@ class DaMhGpOptimizer:
         prior_mean: float | Sequence[float] | None = None,
         prior_std: float | Sequence[float] | None = None,
         seed: int | None = None,
-        proposal_scale: float | Sequence[float] | None = None,
-        n_samples: int | None = None,
         thin: int = 1,
-        gp_noise: float = 1e-8,
+        gp_alpha: float = 1e-8,
         cache_decimals: int | None = None,
     ):
         """Construct the DA-MH-GP optimizer.
 
-        Legacy-compatibility kwargs (in addition to the documented ones):
-
-        - ``proposal_scale`` : random-walk std expressed as a **fraction of
-          the transformed bounds span**. When provided, ``proposal_sigma``
-          is computed internally as ``proposal_scale * (upper - lower)``;
-          ``proposal_sigma`` is then ignored (a warning is emitted only if
-          the caller passed both with conflicting values).
-        - ``n_samples`` : synonym for ``max_iter``. The larger of the two
-          values wins so explicit user intent is never silently downgraded.
         - ``thin`` : thinning interval applied to ``posterior_samples``.
           Keeps every ``thin``-th post-burn-in sample. Default ``1`` keeps
-          all samples (matches the previous behaviour).
-        - ``gp_noise`` : GP noise floor passed as ``alpha`` to the
+          all samples.
+        - ``gp_alpha`` : GP noise floor passed as ``alpha`` to the
           :class:`sklearn.gaussian_process.GaussianProcessRegressor`. Default
-          ``1e-8`` matches the previous hard-coded value.
+          ``1e-8``.
         - ``cache_decimals`` : rounding precision (number of decimals) used
           to dedupe full-model evaluations in the surrogate's training
           cache. When set, repeated proposals at the same rounded location
@@ -167,10 +153,7 @@ class DaMhGpOptimizer:
         self.space = space
         self._dim = space.dim
 
-        max_iter_eff = int(max_iter)
-        if n_samples is not None:
-            max_iter_eff = max(max_iter_eff, int(n_samples))
-        self._max_iter = max_iter_eff
+        self._max_iter = int(max_iter)
         self._burn_in = int(max(0, burn_in))
         self._n_init = max(2, int(n_init))
         self._retrain_interval = max(1, int(retrain_interval))
@@ -182,9 +165,9 @@ class DaMhGpOptimizer:
             raise ValueError("full_mh_prob must be in [0, 1]")
         self._seed = 0 if seed is None else int(seed)
         self._thin = max(1, int(thin))
-        self._gp_alpha = float(gp_noise)
+        self._gp_alpha = float(gp_alpha)
         if self._gp_alpha <= 0.0:
-            raise ValueError("gp_noise must be > 0")
+            raise ValueError("gp_alpha must be > 0")
         self._cache_decimals = None if cache_decimals is None else int(cache_decimals)
         self._eval_cache: dict[tuple, float] = {}
 
@@ -194,14 +177,7 @@ class DaMhGpOptimizer:
         )
         self._lower = self._bounds_t[:, 0]
         self._upper = self._bounds_t[:, 1]
-        if proposal_scale is not None:
-            scale = _as_vector(proposal_scale, "proposal_scale", self._dim)
-            if np.any(scale <= 0.0):
-                raise ValueError("proposal_scale must be > 0")
-            span = np.maximum(self._upper - self._lower, 1e-12)
-            self._proposal_std = scale * span
-        else:
-            self._proposal_std = _as_vector(proposal_sigma, "proposal_sigma", self._dim)
+        self._proposal_std = _as_vector(proposal_sigma, "proposal_sigma", self._dim)
         if np.any(self._proposal_std <= 0.0):
             raise ValueError("proposal_sigma must be > 0")
 

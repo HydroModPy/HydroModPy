@@ -691,7 +691,7 @@ def calibrate_groundwater(
     chronicle_config: Mapping[str, Any] | None = None,
     space: ParameterSpace | None = None,
     bounds: Mapping[str, tuple[float, float]] | None = None,
-    max_iter: int = 50,
+    maxiter: int = 50,
     seed: int | None = None,
     optimizer_kwargs: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
@@ -712,7 +712,7 @@ def calibrate_groundwater(
         Explicit parameter space. Defaults to :func:`default_parameter_space`.
     bounds : Mapping[str, tuple[float, float]] | None
         Alternative to a full ``space``: tweak bounds of default parameters.
-    max_iter : int
+    maxiter : int
         Maximum number of evaluations (ask/tell rounds) for the engine.
     seed : int | None
         Seed forwarded to the optimizer factory when it accepts one.
@@ -742,7 +742,7 @@ def calibrate_groundwater(
         space=space,
         optimizer=optimizer,
         evaluator=evaluator,
-        max_iter=int(max_iter),
+        maxiter=int(maxiter),
     )
     session = engine.run()
     best = session.best

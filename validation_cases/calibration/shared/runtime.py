@@ -40,9 +40,8 @@ def _compact_method_code(method_name: str) -> str:
     mapping = {
         "grid": "gs",
         "random_search": "rs",
-        "simplex": "sx",
         "cma_es": "cma",
-        "nelder_mead": "nm",
+        "scipy_nelder_mead": "snm",
         "gp_mapping": "gpm",
         "da_mh_gp": "damh",
         "truth": "tr",
@@ -321,19 +320,17 @@ def _apply_evaluation_budget(
     kwargs = dict(profile.method_kwargs)
     method = str(profile.name).strip().lower()
     if method == "grid":
-        n_per_dim = max(1, int(budget ** (1.0 / max(1, n_parameters))))
-        kwargs["n_per_dim"] = int(n_per_dim)
+        points_per_dim = max(1, int(budget ** (1.0 / max(1, n_parameters))))
+        kwargs["points_per_dim"] = int(points_per_dim)
     elif method == "random_search":
-        kwargs["n_samples"] = int(budget)
+        kwargs["max_iter"] = int(budget)
     elif method == "cma_es":
         kwargs["max_evaluations"] = int(budget)
         if "popsize" in kwargs:
             kwargs["popsize"] = max(4, min(int(kwargs["popsize"]), int(budget)))
-    elif method == "simplex":
-        kwargs["max_iter"] = int(budget)
-        kwargs["max_fun"] = int(budget)
-    elif method == "nelder_mead":
-        kwargs["max_iter"] = int(budget)
+    elif method == "scipy_nelder_mead":
+        kwargs["maxiter"] = int(budget)
+        kwargs["maxfev"] = int(budget)
     elif method == "gp_mapping":
         batch_size = max(1, int(kwargs.get("batch_size", 1)))
         n_init_default = max(1, int(kwargs.get("n_init", batch_size)))
@@ -343,21 +340,21 @@ def _apply_evaluation_budget(
         kwargs["n_refine"] = int(remaining // batch_size)
     elif method == "da_mh_gp":
         base_init = max(1, int(kwargs.get("n_init", max(1, budget // 5))))
-        base_samples = max(1, int(kwargs.get("n_samples", max(1, budget))))
-        scale = float(budget) / float(base_init + base_samples)
+        base_iter = max(1, int(kwargs.get("max_iter", max(1, budget))))
+        scale = float(budget) / float(base_init + base_iter)
         kwargs["n_init"] = max(1, int(round(base_init * scale)))
-        kwargs["n_samples"] = max(1, int(round(base_samples * scale)))
+        kwargs["max_iter"] = max(1, int(round(base_iter * scale)))
         burn_in = kwargs.get("burn_in")
         if burn_in is not None:
-            kwargs["burn_in"] = min(int(burn_in), max(0, int(kwargs["n_samples"]) - 1))
+            kwargs["burn_in"] = min(int(burn_in), max(0, int(kwargs["max_iter"]) - 1))
         thin = max(1, int(kwargs.get("thin", 1)))
         retained_target = max(8, min(32, int(budget)))
         retained_count = max(
             0,
-            (int(kwargs["n_samples"]) - int(kwargs.get("burn_in", 0)) + thin - 1) // thin,
+            (int(kwargs["max_iter"]) - int(kwargs.get("burn_in", 0)) + thin - 1) // thin,
         )
         if retained_count < retained_target:
-            kwargs["n_samples"] = int(kwargs.get("burn_in", 0)) + thin * retained_target
+            kwargs["max_iter"] = int(kwargs.get("burn_in", 0)) + thin * retained_target
     else:
         raise ValueError(f"Unsupported evaluation-budget adaptation for method '{profile.name}'.")
 
