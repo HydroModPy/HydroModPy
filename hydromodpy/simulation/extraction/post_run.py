@@ -7,6 +7,7 @@ cleanup → provenance.
 
 from __future__ import annotations
 
+import inspect
 from pathlib import Path
 from typing import Any
 
@@ -54,41 +55,33 @@ def post_run_results(
 
     extractor = provider.get_extractor_instance(solver_name)
     if extractor is None:
-        logger.debug("No output adapter for solver '%s', skipping results ingestion", solver_name)
-        return
+        raise RuntimeError(f"No output adapter registered for solver {solver_name!r}")
 
     # Phase 1: extract raw outputs
-    if solver_output_dir is not None and solver_output_dir.exists():
-        try:
-            extract_kwargs = {}
-            if results_config.budget.spatial_fields:
-                extract_kwargs["budget_spatial_fields"] = True
-            extractor.extract(sim_id, solver_output_dir, store, **extract_kwargs)
-        except TypeError:
-            # Extractor doesn't accept extra kwargs (Boussinesq, GR4J, etc.)
-            try:
-                extractor.extract(sim_id, solver_output_dir, store)
-            except Exception:
-                logger.exception("Failed to extract outputs for sim %s", sim_id)
-        except Exception:
-            logger.exception("Failed to extract outputs for sim %s", sim_id)
+    if solver_output_dir is None or not solver_output_dir.exists():
+        raise FileNotFoundError(
+            f"Solver output directory is missing for sim {sim_id}: {solver_output_dir}"
+        )
+
+    extract_kwargs = {}
+    if results_config.budget.spatial_fields and _accepts_kwarg(
+        extractor.extract,
+        "budget_spatial_fields",
+    ):
+        extract_kwargs["budget_spatial_fields"] = True
+    extractor.extract(sim_id, solver_output_dir, store, **extract_kwargs)
 
     # Phase 2: compute derived variables
     derived_flags = results_config.derived.model_dump()
-    try:
-        extractor.derive(sim_id, store, derived_flags)
-    except Exception:
-        logger.exception("Failed to compute derived variables for sim %s", sim_id)
+    extractor.derive(sim_id, store, derived_flags)
 
     # Phase 3: aggregate catchment timeseries from spatial fields
-    try:
+    if getattr(extractor, "category", None) != "lumped":
         from hydromodpy.simulation.extraction.extractors.catchment_aggregation import (
             aggregate_catchment_timeseries,
         )
 
         aggregate_catchment_timeseries(sim_id, store)
-    except Exception:
-        logger.exception("Failed to aggregate catchment timeseries for sim %s", sim_id)
 
     # Auto-export if configured
     export_label = run_id or sim_id[:8]
@@ -111,7 +104,18 @@ def post_run_results(
         try:
             adapter.cleanup(ctx)
         except Exception:
-            logger.warning("Failed to cleanup solver files for run %s", ctx.run.id)
+            logger.warning("Failed to cleanup solver files for run %s", ctx.run.id, exc_info=True)
+
+
+def _accepts_kwarg(callable_obj: Any, name: str) -> bool:
+    """Return True when ``callable_obj`` accepts keyword ``name``."""
+    try:
+        signature = inspect.signature(callable_obj)
+    except (TypeError, ValueError):
+        return False
+    return name in signature.parameters or any(
+        param.kind == inspect.Parameter.VAR_KEYWORD for param in signature.parameters.values()
+    )
 
 
 def _auto_export(
@@ -141,11 +145,13 @@ def _auto_export(
     output_dir = base_dir / label
     output_dir.mkdir(parents=True, exist_ok=True)
 
+    failures: list[str] = []
+
     if export.csv_timeseries:
         try:
             store.export(sim_id, "*", "csv", output_dir / "timeseries.csv")
-        except Exception:
-            logger.exception("Auto-export CSV failed for sim %s", sim_id)
+        except Exception as exc:
+            failures.append(f"csv: {exc}")
 
     if export.netcdf and var_names:
         try:
@@ -155,10 +161,8 @@ def _auto_export(
                 "netcdf",
                 output_dir / "fields.nc",
             )
-        except KeyError:
-            logger.debug("NetCDF export skipped (no UGRID mesh) for sim %s", sim_id)
-        except Exception:
-            logger.exception("Auto-export NetCDF failed for sim %s", sim_id)
+        except Exception as exc:
+            failures.append(f"netcdf: {exc}")
 
     if export.vtu and var_names:
         for var in var_names:
@@ -170,8 +174,8 @@ def _auto_export(
                     output_dir / f"{var}_t0.vtu",
                     timestep=0,
                 )
-            except Exception:
-                logger.exception("Auto-export VTU failed for %s/%s", sim_id, var)
+            except Exception as exc:
+                failures.append(f"vtu:{var}: {exc}")
 
     if export.geotiff and var_names:
         for var in var_names:
@@ -183,8 +187,8 @@ def _auto_export(
                     output_dir / f"{var}_t0.tif",
                     timestep=0,
                 )
-            except Exception:
-                logger.exception("Auto-export GeoTIFF failed for %s/%s", sim_id, var)
+            except Exception as exc:
+                failures.append(f"geotiff:{var}: {exc}")
 
     if export.shapefile and var_names:
         for var in var_names:
@@ -196,5 +200,8 @@ def _auto_export(
                     output_dir / f"{var}_t0.shp",
                     timestep=0,
                 )
-            except Exception:
-                logger.exception("Auto-export Shapefile failed for %s/%s", sim_id, var)
+            except Exception as exc:
+                failures.append(f"shapefile:{var}: {exc}")
+
+    if failures:
+        raise RuntimeError(f"Auto-export failed for sim {sim_id}: " + "; ".join(failures))

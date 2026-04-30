@@ -1,5 +1,5 @@
 """Enforce the layer-matrix contract documented in
-``unified_architecture/20_ENCAPSULATION_AND_COUPLING.md`` §2.
+``docs/developers/architecture.md``.
 
 The layer matrix is a release gate: undocumented cross-layer imports fail
 the suite. Documented tolerances live in ``layer_matrix.yaml`` and must carry

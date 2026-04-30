@@ -368,8 +368,8 @@ def step_write_provenance(ctx: WorkflowContext) -> None:
                         period_end=getattr(rec, "date_end", None),
                     )
                     written += 1
-                except Exception:
-                    logger.debug("Provenance failed for %s:%s", f.name, rec.variable)
+                except Exception as exc:
+                    raise RuntimeError(f"Provenance failed for {f.name}:{rec.variable}") from exc
 
         fields = getattr(load_result, "fields", None)
         if fields:
@@ -394,8 +394,10 @@ def step_write_provenance(ctx: WorkflowContext) -> None:
                         period_end=getattr(rec, "date_end", None),
                     )
                     written += 1
-                except Exception:
-                    logger.debug("Provenance failed for field %s:%s", f.name, rec.variable)
+                except Exception as exc:
+                    raise RuntimeError(
+                        f"Provenance failed for field {f.name}:{rec.variable}"
+                    ) from exc
 
     if written:
         logger.info("Wrote %d provenance records for sim %s", written, ctx.sim_id)

@@ -77,7 +77,7 @@ constraint.
    hmp config template config.toml --profile user          # minimal
    hmp config template config.toml --profile expert        # all knobs
    hmp config template config.toml --modules geographic flow modflownwt
-   hmp config --list-modules                               # available modules
+   hmp config template --list-modules                      # available modules
 
 The generated file is meant to be edited. Validation against the
 Pydantic schema is available with:
@@ -136,7 +136,7 @@ The simulation catalog is queryable from the same CLI:
    hmp rank my_basin --metric nse --top 1      # top-ranked run
    hmp rank my_basin --metric nse --bottom 1   # bottom-ranked run
    hmp compare <sim_a> <sim_b>                 # side-by-side comparison
-   hmp display <sim_id>                        # render figures
+   hmp display <sim_id> <figure>               # render one figure
 
 A ``sim_id`` accepts a unique prefix, so ``hmp show ab12`` matches the
 single run starting with ``ab12``.
@@ -174,12 +174,12 @@ Tier definitions and tags are documented in :doc:`../contribute`.
 9. Share a simulation
 ---------------------
 
-A run can be exported to a portable archive (``.hmp``) and imported
-into another workspace:
+Simulation outputs can be exported from a project workspace and imported
+into another workspace when packaged:
 
 .. code-block:: bash
 
-   hmp export <sim_id> -o my_run.hmp           # bundle one run
+   hmp export my_basin --sim run_demo --csv --output exports/run_demo
    hmp add my_run.hmp                          # import into current dir
    hmp add my_run.hmp -w /mnt/shared/hmp       # import into a workspace
    hmp add my_run.hmp --as renamed_run         # rename on import
@@ -205,8 +205,6 @@ Less common but documented for reference:
      - Inspect or manage custom data artefacts in the workspace.
    * - ``hmp lock``
      - Manage the reproducible data lockfile (``hydromodpy.lock``).
-   * - ``hmp migrate``
-     - Apply schema migrations on the simulation catalog.
    * - ``hmp report``
      - Render the HTML report for a calibration session.
    * - ``hmp schema``

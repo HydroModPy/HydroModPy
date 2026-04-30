@@ -88,27 +88,9 @@ class LifecycleMixin:
         duration_s: float | None = None,
     ) -> None:
         sid = str(sim_id)
-        self._db.execute(
-            "UPDATE simulations SET status = ?, duration_s = ? WHERE sim_id = ?",
-            [status, duration_s, sid],
-        )
-
+        rel_zarr_path: str | None = None
+        zarr_packed = False
         if status == "completed":
-            existing = self._db.execute(
-                "SELECT scientific_objective FROM simulations WHERE sim_id = ?",
-                [sid],
-            ).fetchone()
-            if existing is not None and not existing[0]:
-                logger.warning(
-                    "Simulation %s completed without a scientific_objective; "
-                    "defaulting to 'unspecified'. Set one with "
-                    "Catalog.write_scientific_objective() to enable ML stratification.",
-                    sid[:8],
-                )
-                self._db.execute(
-                    "UPDATE simulations SET scientific_objective = 'unspecified' WHERE sim_id = ?",
-                    [sid],
-                )
             basename = self._paths.basename_for(sid)
             zarr_dir = self._simulations_dir / f"{basename}.zarr"
             if zarr_dir.is_dir():
@@ -118,15 +100,67 @@ class LifecycleMixin:
                     try:
                         sz.consolidate_metadata()
                         zip_path = sz.pack_to_zip()
-                        rel = f"simulations/{zip_path.name}"
-                        self._db.execute(
-                            "UPDATE simulations SET zarr_path = ? WHERE sim_id = ?",
-                            [rel, sid],
-                        )
+                        rel_zarr_path = f"simulations/{zip_path.name}"
+                        zarr_packed = True
                     finally:
                         sz.close()
-                except Exception:
-                    logger.debug("Could not pack zarr to zip for sim %s", sid)
+                except Exception as exc:
+                    self._db.execute(
+                        """UPDATE simulations
+                              SET status = 'partial',
+                                  duration_s = ?,
+                                  ended_at = current_timestamp,
+                                  updated_at = current_timestamp
+                            WHERE sim_id = ?""",
+                        [duration_s, sid],
+                    )
+                    raise RuntimeError(f"Could not pack Zarr store for sim {sid}") from exc
+
+        self._db.execute("BEGIN TRANSACTION")
+        try:
+            if status == "completed":
+                existing = self._db.execute(
+                    "SELECT scientific_objective FROM simulations WHERE sim_id = ?",
+                    [sid],
+                ).fetchone()
+                if existing is not None and not existing[0]:
+                    logger.warning(
+                        "Simulation %s completed without a scientific_objective; "
+                        "defaulting to 'unspecified'. Set one with "
+                        "Catalog.write_scientific_objective() to enable ML stratification.",
+                        sid[:8],
+                    )
+                    self._db.execute(
+                        "UPDATE simulations SET scientific_objective = 'unspecified' WHERE sim_id = ?",
+                        [sid],
+                    )
+
+            if rel_zarr_path is not None:
+                self._db.execute(
+                    """UPDATE simulations
+                          SET status = ?,
+                              duration_s = ?,
+                              zarr_path = ?,
+                              zarr_packed = ?,
+                              ended_at = current_timestamp,
+                              updated_at = current_timestamp
+                        WHERE sim_id = ?""",
+                    [status, duration_s, rel_zarr_path, zarr_packed, sid],
+                )
+            else:
+                self._db.execute(
+                    """UPDATE simulations
+                          SET status = ?,
+                              duration_s = ?,
+                              ended_at = current_timestamp,
+                              updated_at = current_timestamp
+                        WHERE sim_id = ?""",
+                    [status, duration_s, sid],
+                )
+            self._db.execute("COMMIT")
+        except Exception:
+            self._db.execute("ROLLBACK")
+            raise
 
     @with_lock_retry()
     def delete(

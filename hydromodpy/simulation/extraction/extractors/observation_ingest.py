@@ -74,6 +74,14 @@ def ingest_observations(
                     variable=f"{rec.variable}_obs",
                     ts=ts,
                     unit=getattr(rec, "unit", "") or "",
+                    qflag="observed",
+                )
+                store.write_observations(
+                    station_id=str(rec.station_id),
+                    variable_type=str(rec.variable),
+                    ts=ts,
+                    unit=getattr(rec, "unit", "") or "",
+                    quality=getattr(rec, "quality", None),
                 )
                 written += 1
             except Exception:

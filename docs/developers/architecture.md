@@ -4,7 +4,7 @@ HydroModPy is structured as a strict layered DAG. Each top-level package
 under `hydromodpy/` is a layer; imports flow downward only. The 14x14
 contract is the canonical source of truth for v1.0.
 
-- Authoritative spec: `unified_architecture/20_ENCAPSULATION_AND_COUPLING.md` §2.
+- Authoritative spec: this document.
 - Machine-readable copy: `tests/unit/architecture/layer_matrix.yaml`.
 - CI gate: `tests/unit/architecture/test_layer_matrix.py`.
 - AST scanner: `tools/audit/build_graph.py`.
@@ -69,9 +69,7 @@ documented rationale and a migration target.
 
 ## CI behavior
 
-`test_layer_matrix.py` is currently marked `xfail`. It reports the
-count of remaining forbidden imports without breaking CI. The roadmap
-follows `unified_architecture/20_ENCAPSULATION_AND_COUPLING.md` §7.7:
+`test_layer_matrix.py` is the active CI gate. The roadmap is:
 
 1. **Stage 1 (active)** — xfail; count and report only.
 2. **Stage 2** — quota; fail if count exceeds a decreasing budget.

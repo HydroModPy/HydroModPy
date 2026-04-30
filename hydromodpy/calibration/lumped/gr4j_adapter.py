@@ -61,20 +61,27 @@ class Gr4jAdapter:
         """
         del ctx
         if store is None:
-            return pd.Series(dtype=float, name=variable)
+            raise NotImplementedError(
+                "GR4J calibration extraction requires a catalog store; "
+                "lightweight RAM extraction is not implemented."
+            )
         station_id = "outlet"
         if station_cells:
             station_id = next(iter(station_cells))
 
         sim_id = self._latest_sim_id(store)
         if sim_id is None:
-            return pd.Series(dtype=float, name=variable)
+            raise KeyError("No GR4J simulation is available in the catalog store.")
         try:
             ts = store.query_timeseries(sim_id, station_id, variable)
-        except Exception:
-            return pd.Series(dtype=float, name=variable)
+        except Exception as exc:
+            raise KeyError(
+                f"No GR4J timeseries for station={station_id!r}, variable={variable!r}."
+            ) from exc
         if ts is None or ts.empty:
-            return pd.Series(dtype=float, name=variable)
+            raise KeyError(
+                f"Empty GR4J timeseries for station={station_id!r}, variable={variable!r}."
+            )
         if time_index is not None and len(time_index) == len(ts):
             return pd.Series(ts.values, index=time_index, name=variable)
         return pd.Series(ts.values, name=variable)
@@ -89,8 +96,8 @@ class Gr4jAdapter:
             sims = list_simulations(solver="gr4j")
         except TypeError:
             sims = list_simulations()
-        except Exception:
-            return None
+        except Exception as exc:
+            raise RuntimeError("Could not list GR4J simulations from the catalog store.") from exc
         if sims is None or getattr(sims, "empty", False):
             return None
         try:

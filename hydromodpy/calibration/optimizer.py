@@ -88,6 +88,14 @@ def build_optimizer(name: str, space, **kwargs) -> Optimizer:
     raise KeyError(f"Unknown optimizer: {name!r}. Available built-ins: {sorted(_BUILTIN)}")
 
 
+def available_optimizers() -> tuple[str, ...]:
+    """Return registered optimizer names, including installed entry points."""
+    _ensure_builtins_loaded()
+    names = set(_BUILTIN)
+    names.update(ep.name for ep in entry_points(group="hydromodpy.optimizer"))
+    return tuple(sorted(names))
+
+
 _LOADED = False
 
 

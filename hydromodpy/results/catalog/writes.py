@@ -122,6 +122,7 @@ class WritesMixin:
         variable: str,
         ts: pd.Series,
         unit: str = "",
+        qflag: str = "simulated",
     ) -> None:
         if not self._persistence.save_parquet:
             return
@@ -146,7 +147,7 @@ class WritesMixin:
                 "datetime": dt_values,
                 "value": ts.values.astype("float64"),
                 "unit": np.full(n, unit, dtype=object),
-                "qflag": np.full(n, "simulated", dtype=object),
+                "qflag": np.full(n, qflag, dtype=object),
             }
         )
         select_sql = (
@@ -168,6 +169,63 @@ class WritesMixin:
             pk_cols=("sim_id", "station_id", "variable", "datetime"),
             kv_metadata=self._kv_metadata_for_sim(sid),
         )
+
+    @with_lock_retry()
+    def write_observations(
+        self,
+        station_id: str,
+        variable_type: str,
+        ts: pd.Series,
+        unit: str = "",
+        quality: str | None = None,
+    ) -> None:
+        n = len(ts)
+        if n == 0:
+            return
+        dt_values = pd.DatetimeIndex(ts.index)
+        if dt_values.tz is None:
+            dt_values = dt_values.tz_localize("UTC")
+        else:
+            dt_values = dt_values.tz_convert("UTC")
+        insert_df = pd.DataFrame(
+            {
+                "station_id": np.full(n, station_id, dtype=object),
+                "variable_type": np.full(n, variable_type, dtype=object),
+                "datetime": dt_values,
+                "value": ts.values.astype("float64"),
+                "unit": np.full(n, unit, dtype=object),
+                "quality": np.full(n, quality, dtype=object),
+            }
+        )
+        self._db.register("_hmp_insert", insert_df)
+        try:
+            self._db.execute(
+                """
+                DELETE FROM observations
+                WHERE station_id = ?
+                  AND variable_type = ?
+                  AND datetime IN (
+                      SELECT CAST(datetime AS TIMESTAMPTZ) FROM _hmp_insert
+                  )
+                """,
+                [station_id, variable_type],
+            )
+            self._db.execute(
+                """
+                INSERT INTO observations
+                    (station_id, variable_type, datetime, value, unit, quality)
+                SELECT
+                    CAST(station_id AS VARCHAR),
+                    CAST(variable_type AS VARCHAR),
+                    CAST(datetime AS TIMESTAMPTZ),
+                    CAST(value AS DOUBLE),
+                    CAST(unit AS VARCHAR),
+                    CAST(quality AS VARCHAR)
+                FROM _hmp_insert
+                """
+            )
+        finally:
+            self._db.unregister("_hmp_insert")
 
     def write_budget(
         self,
@@ -431,17 +489,18 @@ class WritesMixin:
         if not self._persistence.save_catalog:
             return
         fp = fingerprint(data)
-        source_type_value = (
-            source_type
-            if source_type
-            in (
-                "http_api",
-                "custom_file",
-                "derived",
-                "cache",
-            )
-            else "derived"
+        allowed_source_types = (
+            "http_api",
+            "custom_file",
+            "data_manager",
+            "derived",
+            "cache",
         )
+        if source_type not in allowed_source_types:
+            raise ValueError(
+                f"Unknown provenance source_type {source_type!r}. "
+                f"Expected one of {allowed_source_types}."
+            )
         self._db.execute(
             """INSERT OR REPLACE INTO provenance
                (sim_id, variable, source_type, source_ref,
@@ -450,7 +509,7 @@ class WritesMixin:
             [
                 str(sim_id),
                 variable,
-                source_type_value,
+                source_type,
                 source_ref,
                 _coerce_timestamp(period_start),
                 _coerce_timestamp(period_end),
@@ -459,8 +518,6 @@ class WritesMixin:
                 json.dumps(fp["stats"]),
             ],
         )
-
-    record_provenance = write_provenance
 
     @with_lock_retry()
     def register_observation_points(
@@ -629,6 +686,43 @@ class WritesMixin:
         sz = self.open_zarr(sim_id)
         try:
             sz.write_field(variable, timestep, values, n_timesteps=n_timesteps, subgroup=subgroup)
+        finally:
+            sz.close()
+
+    def write_time(
+        self,
+        sim_id: str | UUID,
+        values: np.ndarray,
+        *,
+        epoch: str = "1970-01-01T00:00:00",
+        calendar: str = "proleptic_gregorian",
+        units: str = "seconds since 1970-01-01T00:00:00",
+    ) -> None:
+        if not self._persistence.save_zarr:
+            return
+        sz = self.open_zarr(sim_id)
+        try:
+            sz.write_time(values, epoch=epoch, calendar=calendar, units=units)
+        finally:
+            sz.close()
+
+    def write_crs(
+        self,
+        sim_id: str | UUID,
+        *,
+        crs_wkt: str,
+        grid_mapping_name: str = "latitude_longitude",
+        epsg_code: int | None = None,
+    ) -> None:
+        if not self._persistence.save_zarr:
+            return
+        sz = self.open_zarr(sim_id)
+        try:
+            sz.write_crs(
+                crs_wkt=crs_wkt,
+                grid_mapping_name=grid_mapping_name,
+                epsg_code=epsg_code,
+            )
         finally:
             sz.close()
 

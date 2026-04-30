@@ -18,6 +18,8 @@ EXPECTED_TOP_LEVEL = [
     "open",
     "run",
     "calibrate",
+    "overview",
+    "batch",
     "compare_pair",
     "compare_methods",
     "doctor",
@@ -27,7 +29,6 @@ EXPECTED_TOP_LEVEL = [
     "SimulationPlan",
     "SimulationCatalog",
     "SimulationGroup",
-    "Catalog",
     # Core
     "Workspace",
     "CatchmentDelineation",
@@ -43,8 +44,9 @@ def test_public_symbol_available(symbol: str) -> None:
     assert hasattr(hmp, symbol), f"hmp.{symbol} missing from public API"
 
 
-def test_catalog_alias_is_simulation_catalog() -> None:
-    assert hmp.Catalog is hmp.SimulationCatalog
+def test_catalog_alias_is_not_exposed() -> None:
+    with pytest.raises(AttributeError):
+        hmp.Catalog  # noqa: B018
 
 
 def test_open_returns_simulation_catalog() -> None:

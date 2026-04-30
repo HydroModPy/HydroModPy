@@ -66,6 +66,29 @@ def _derive_run_id_from_filename(toml_path: Path) -> str:
     return re.sub(r"^run_", "", stem)
 
 
+_KNOWN_TOP_LEVEL_KEYS = frozenset(
+    {
+        "workflow",
+        "workspace",
+        "geographic",
+        "domain",
+        "data",
+        "flow",
+        "transport",
+        "simulation",
+        "solver",
+        "modflownwt",
+        "modflow6",
+        "display",
+        "persistence",
+        "analysis",
+        "overview",
+        "mesh_catchment",
+        "calibration",
+    }
+)
+
+
 class HydroModPyConfig(HydroModelBase):
     """
     Top-level configuration for HydroModPy.
@@ -293,6 +316,9 @@ class HydroModPyConfig(HydroModelBase):
             raise ValueError(
                 "Section [batch] is no longer supported. Use [analysis.batch] instead."
             )
+        unknown = sorted(set(raw) - _KNOWN_TOP_LEVEL_KEYS)
+        if unknown:
+            raise ValueError(f"Unknown top-level TOML section(s): {', '.join(unknown)}")
 
         # Auto-derive workspace.project_root from TOML location if absent.
         # HYDROMODPY_PROJECT_ROOT env var takes precedence (used by test infra).
@@ -302,24 +328,6 @@ class HydroModPyConfig(HydroModelBase):
             workspace_section["project_root"] = str(Path(env_project_root).expanduser().resolve())
         elif not workspace_section.get("project_root"):
             workspace_section["project_root"] = str(base)
-
-        # DEM bridge placeholder.
-        # When dem_init_path is omitted but [[data.dem.sources]] declares at
-        # least one source, inject a placeholder so GeographicConfig
-        # validation passes. setup.resolve_dem_init_path() (or the
-        # overview pipeline) replaces it with a real path before any
-        # geographic step runs.
-        if "geographic" not in raw:
-            raw["geographic"] = {}
-        geographic_override = raw["geographic"]
-        if isinstance(geographic_override, Mapping) and not geographic_override.get(
-            "dem_init_path"
-        ):
-            data_section = raw.get("data", {})
-            dem_section = data_section.get("dem") if isinstance(data_section, Mapping) else None
-            has_dem_source = isinstance(dem_section, Mapping) and bool(dem_section.get("sources"))
-            if has_dem_source or ("overview" in raw and "dem" in data_section.get("types", [])):
-                geographic_override["dem_init_path"] = "__DEM_API_BOOTSTRAP__"
 
         # Workspace must be parsed first so we can derive the shared data
         # directory and pass it to every other section loader. This lets
@@ -334,8 +342,23 @@ class HydroModPyConfig(HydroModelBase):
                 data, model_cls, b, workspace_data_dir=workspace_data_dir
             )
 
+        geographic_section = raw.get("geographic", {})
+        allow_dem_bootstrap = (
+            isinstance(geographic_section, Mapping)
+            and not geographic_section.get("dem_init_path")
+            and _raw_declares_dem_source(raw.get("data", {}))
+        )
+
         section_loaders: dict[str, tuple[Any, Callable[[Any, Path], Any]]] = {
-            "geographic": (geographic_override, _std(GeographicConfig)),
+            "geographic": (
+                geographic_section,
+                lambda data, b: load_geographic_section(
+                    data,
+                    b,
+                    workspace_data_dir=workspace_data_dir,
+                    allow_dem_bootstrap=allow_dem_bootstrap,
+                ),
+            ),
             "domain": ({}, _std(DomainConfig)),
             "data": (
                 {},
@@ -364,7 +387,10 @@ class HydroModPyConfig(HydroModelBase):
         if "workflow" in raw:
             parsed_sections["workflow"] = raw["workflow"]
 
-        cfg = cls(**parsed_sections)
+        cfg = cls.model_validate(
+            parsed_sections,
+            context={"allow_dem_bootstrap": allow_dem_bootstrap},
+        )
 
         # Derive run_id from TOML filename if not set explicitly.
         if not cfg.simulation.run_id:
@@ -496,6 +522,38 @@ def load_standard_section(
     payload = dict(section_data)
     _resolve_section_paths(payload, model_cls, base, workspace_data_dir=workspace_data_dir)
     return model_cls(**payload)
+
+
+def _raw_declares_dem_source(section_data: Any) -> bool:
+    """Return True when raw TOML declares at least one DEM data source."""
+    if not isinstance(section_data, Mapping):
+        return False
+    dem_section = section_data.get("dem")
+    if not isinstance(dem_section, Mapping):
+        return False
+    sources = dem_section.get("sources")
+    return isinstance(sources, list) and bool(sources)
+
+
+def load_geographic_section(
+    section_data: Any,
+    base: Path,
+    *,
+    workspace_data_dir: Path | None = None,
+    allow_dem_bootstrap: bool = False,
+) -> GeographicConfig:
+    """Load [geographic], allowing DEM resolution from [data.dem] when declared."""
+    if section_data is None:
+        section_data = {}
+    if not isinstance(section_data, Mapping):
+        raise ValueError("TOML section must be a mapping for GeographicConfig")
+
+    payload = dict(section_data)
+    _resolve_section_paths(payload, GeographicConfig, base, workspace_data_dir=workspace_data_dir)
+    return GeographicConfig.model_validate(
+        payload,
+        context={"allow_dem_bootstrap": allow_dem_bootstrap},
+    )
 
 
 def _load_flow_section(section_data: Any, base: Path) -> FlowConfig:

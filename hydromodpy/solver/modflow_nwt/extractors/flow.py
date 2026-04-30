@@ -22,6 +22,14 @@ _ITMUNI_FLUX_UNIT: dict[int, str] = {
     4: "m3/d",
     5: "m3/yr",
 }
+_ITMUNI_SECONDS: dict[int, float] = {
+    0: 1.0,
+    1: 1.0,
+    2: 60.0,
+    3: 3600.0,
+    4: 86400.0,
+    5: 31557600.0,
+}
 
 
 def _read_itmuni(dis_path: Path) -> int:
@@ -58,6 +66,35 @@ def _read_itmuni(dis_path: Path) -> int:
 def _flux_unit_for(itmuni: int) -> str:
     """Return the volumetric-flux unit label matching ``itmuni``."""
     return _ITMUNI_FLUX_UNIT.get(itmuni, "m3/s")
+
+
+def _write_time_coordinate(store: Any, sim_id: str, times: list[float], itmuni: int) -> None:
+    """Persist solver times as CF seconds since epoch."""
+    writer = getattr(store, "write_time", None)
+    if writer is None:
+        raise TypeError("Simulation store must implement write_time().")
+    factor = _ITMUNI_SECONDS.get(itmuni, 1.0)
+    values = np.rint(np.asarray(times, dtype=float) * factor).astype("int64")
+    writer(sim_id, values)
+
+
+def _budget_key(name: str) -> str:
+    """Normalize a MODFLOW listing budget column name."""
+    return str(name).upper().replace("-", "_").replace(" ", "_")
+
+
+def _budget_field_lookup(names: tuple[str, ...]) -> dict[str, str]:
+    """Map normalized listing field names to their native dtype names."""
+    return {_budget_key(name): name for name in names}
+
+
+def _budget_value(row: np.void, fields: dict[str, str], *candidates: str) -> float:
+    """Return a listing-budget value or NaN when the field is absent."""
+    for candidate in candidates:
+        native = fields.get(_budget_key(candidate))
+        if native is not None:
+            return float(row[native])
+    return float("nan")
 
 
 class ModflowNwtOutputAdapter:
@@ -98,6 +135,8 @@ class ModflowNwtOutputAdapter:
         times = head_file.get_times()
         kstpkpers = head_file.get_kstpkper()
         n_timesteps = len(times)
+        itmuni = _read_itmuni(solver_output_dir / f"{model_name}.dis")
+        _write_time_coordinate(store, sim_id, times, itmuni)
 
         head0 = head_file.get_data(totim=times[0])
         nlay, nrow, ncol = head0.shape
@@ -126,7 +165,6 @@ class ModflowNwtOutputAdapter:
             )
 
         if cbc_path.exists():
-            itmuni = _read_itmuni(solver_output_dir / f"{model_name}.dis")
             self._extract_budget(
                 sim_id,
                 store,
@@ -235,29 +273,35 @@ class ModflowNwtOutputAdapter:
 
             mf_list = MfListBudget(str(lst_path))
             inc, cum = mf_list.get_budget_from_list()
+            del cum
             if inc is not None:
                 records = []
+                fields = _budget_field_lookup(inc.dtype.names or ())
                 for t in range(len(inc)):
-                    total_in = float(inc[t]["IN-OUT"])
-                    total_out = 0.0
-                    pct_err = (
-                        float(inc[t]["PERCENT_DISCREPANCY"])
-                        if "PERCENT_DISCREPANCY" in inc.dtype.names
-                        else 0.0
+                    row = inc[t]
+                    total_in = _budget_value(row, fields, "TOTAL_IN", "TOTAL IN")
+                    total_out = _budget_value(row, fields, "TOTAL_OUT", "TOTAL OUT")
+                    storage_in = _budget_value(row, fields, "STORAGE_IN", "STORAGE IN")
+                    storage_out = _budget_value(row, fields, "STORAGE_OUT", "STORAGE OUT")
+                    pct_err = _budget_value(
+                        row,
+                        fields,
+                        "PERCENT_DISCREPANCY",
+                        "PERCENT DISCREPANCY",
                     )
                     records.append(
                         {
                             "timestep": t,
                             "total_in": total_in,
                             "total_out": total_out,
-                            "storage_in": 0.0,
-                            "storage_out": 0.0,
+                            "storage_in": storage_in,
+                            "storage_out": storage_out,
                             "percent_error": pct_err,
                         }
                     )
                 store.write_mass_balances(sim_id, records)
         except Exception:
-            logger.warning("Could not parse listing file %s", lst_path)
+            logger.warning("Could not parse listing file %s", lst_path, exc_info=True)
 
     def _write_surface_elevation(
         self,

@@ -182,16 +182,13 @@ cd HydroModPy
 
 ## Getting started
 
-The fastest route is the self-contained example under
-`examples/getting_started/` - a synthetic 1D Dupuit aquifer that
-requires no external DEM or downloaded data.
+The fastest route is to scaffold a project, generate a v1 TOML template,
+and run it through the single workflow dispatcher.
 
 ```bash
-# CLI
-hmp run examples/getting_started/project.toml
-
-# Python
-python examples/getting_started/run_sim.py
+hmp new getting_started
+hmp config template getting_started/project.toml --profile user
+hmp run getting_started/project.toml
 ```
 
 Outputs land in a workspace next to the config:
@@ -204,7 +201,7 @@ Open the results programmatically:
 ```python
 import hydromodpy as hmp
 
-catalog = hmp.open("examples/getting_started")
+catalog = hmp.open("getting_started")
 print(catalog.simulations)              # DataFrame of all sims
 sim = catalog.best("getting_started")   # best by default metric
 sim.plot("watertable_map", save=".")
@@ -270,12 +267,8 @@ split convention) lives in
 
 ## Usage Examples
 
-- `examples/getting_started/` - minimal synthetic example (start here).
-- `examples/projects/01_canut/` - delineated catchment from a regional DEM.
-- `examples/projects/data_overview/` - data-only overview workflow.
-- `examples/projects/04_nancon/` - transient case with piezometry data.
-
-More examples live alongside each validation case under
+Runnable datasets and reference inputs live under `examples/data/`.
+Executable examples live alongside each validation case under
 `validation_cases/analytical/` and `validation_cases/numerical/`.
 
 ## Annex Tooling (`hydromodpy_annex`)

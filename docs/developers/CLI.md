@@ -58,10 +58,10 @@ hmp dev run-script prototype_script.py
 ## Génération d'un fichier de configuration
 
 ```bash
-hmp config mon_config.toml
-hmp config mon_config.toml --profile user
-hmp config --list-modules
-hmp config --modules flow transport
+hmp config template mon_config.toml
+hmp config template mon_config.toml --profile user
+hmp config template --list-modules
+hmp config template --modules flow transport
 ```
 
 `--profile` contrôle la verbosité du TOML produit :
@@ -156,8 +156,8 @@ La cible `validation` ajoute automatiquement le marqueur pytest
 | `hmp inspect <sim_id>` | Inspection détaillée d'un run |
 | `hmp rank --top N` / `hmp rank --bottom N` | Top ou bottom N runs selon métrique |
 | `hmp compare <sim_a> <sim_b>` | Comparaison de deux runs |
-| `hmp display <config.toml>` | Production des figures |
-| `hmp export <sim_id>` | Export vers un format externe ou un `.hmp` |
+| `hmp display <config.toml>` / `hmp display <sim_id> <figure>` | Production des figures |
+| `hmp export <project> --sim <name> --csv --output <dir>` | Export vers un format externe |
 | `hmp import <package.hmp>` | Import d'un `.hmp` dans le workspace |
 | `hmp delete <sim_id>` | Suppression d'un run |
 | `hmp schema export` | Export JSON Schema (voir [frontend_hooks.md](frontend_hooks.md)) |

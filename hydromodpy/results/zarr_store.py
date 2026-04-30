@@ -3,6 +3,7 @@ from __future__ import annotations
 import shutil
 import zipfile
 from collections.abc import Callable
+from os import replace
 from pathlib import Path
 from typing import Any
 
@@ -667,13 +668,27 @@ class SimulationZarr:
         self.close()
 
         zip_path = self._path.with_suffix(".zarr.zip")
-        with zipfile.ZipFile(str(zip_path), "w", compression=zipfile.ZIP_STORED) as zf:
+        tmp_path = zip_path.with_name(f"{zip_path.name}.tmp")
+        if tmp_path.exists():
+            tmp_path.unlink()
+
+        with zipfile.ZipFile(str(tmp_path), "w", compression=zipfile.ZIP_STORED) as zf:
             for fpath in sorted(self._path.rglob("*")):
                 if fpath.is_file():
                     arcname = str(fpath.relative_to(self._path))
                     zf.write(str(fpath), arcname)
 
-        shutil.rmtree(self._path, ignore_errors=True)
+        with zipfile.ZipFile(str(tmp_path), "r") as zf:
+            corrupt = zf.testzip()
+            if corrupt is not None:
+                tmp_path.unlink(missing_ok=True)
+                raise RuntimeError(f"Corrupt Zarr zip member: {corrupt}")
+
+        replace(tmp_path, zip_path)
+        check = SimulationZarr(zip_path)
+        check.close()
+
+        shutil.rmtree(self._path)
         logger.debug("Packed %s -> %s", self._path.name, zip_path.name)
 
         self._path = zip_path

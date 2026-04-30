@@ -21,18 +21,12 @@ Created on Thu Apr  3 13:06:53 2025
 # Python
 import os
 import shutil
-import sys
 from collections.abc import Mapping
-from os.path import abspath, dirname
 
 import flopy
 import flopy.utils.binaryfile as bf
 import numpy as np
 import rasterio
-
-# Root
-df = dirname(dirname(abspath(__file__)))
-sys.path.append(df)
 
 # HydroModPy
 from hydromodpy.core.io.filesystem import create_folder

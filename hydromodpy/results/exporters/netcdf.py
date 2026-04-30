@@ -10,10 +10,10 @@ from pathlib import Path
 
 import numpy as np
 import xarray as xr
-import zarr
 
 from hydromodpy.core.logging import get_logger
 from hydromodpy.results import field_registry
+from hydromodpy.results.zarr_store import SimulationZarr
 
 logger = get_logger(__name__)
 
@@ -51,18 +51,22 @@ def export_netcdf(
 
     descriptors = {name: field_registry.get(name) for name in variables}
 
-    root = zarr.open_group(str(zarr_path), mode="r")
-    grp = root
+    sz = SimulationZarr(zarr_path)
+    try:
+        grp = sz.root
 
-    mesh = grp.get("mesh")
-    if mesh is None or "vertices" not in mesh or "face_node_connectivity" not in mesh:
-        raise KeyError(
-            f"UGRID mesh (vertices, face_node_connectivity) not found for sim={sim_id}. "
-            "NetCDF-UGRID export requires a full mesh. Use GeoTIFF or CSV export instead."
-        )
-    vertices = mesh["vertices"][:]
-    connectivity = mesh["face_node_connectivity"][:]
-    z_interfaces = mesh["z_interfaces"][:]
+        mesh = grp.get("mesh")
+        if mesh is None or "vertices" not in mesh or "face_node_connectivity" not in mesh:
+            raise KeyError(
+                f"UGRID mesh (vertices, face_node_connectivity) not found for sim={sim_id}. "
+                "NetCDF-UGRID export requires a full mesh. Use GeoTIFF or CSV export instead."
+            )
+        vertices = mesh["vertices"][:]
+        connectivity = mesh["face_node_connectivity"][:]
+        z_interfaces = mesh["z_interfaces"][:]
+        start_index = int(mesh.attrs.get("start_index", 0))
+    finally:
+        sz.close()
     n_nodes = vertices.shape[0]
     connectivity.shape[0]
     connectivity.shape[1]
@@ -95,7 +99,7 @@ def export_netcdf(
         dims=("n_face", "max_vertices_per_face"),
         attrs={
             "cf_role": "face_node_connectivity",
-            "start_index": int(mesh.attrs.get("start_index", 0)),
+            "start_index": start_index,
             "_FillValue": -1,
         },
     )
@@ -108,34 +112,48 @@ def export_netcdf(
     ds["face_x"] = xr.DataArray(np.nanmean(cx, axis=1), dims=("n_face",))
     ds["face_y"] = xr.DataArray(np.nanmean(cy, axis=1), dims=("n_face",))
 
-    # Locate each requested variable in the Zarr hierarchy
-    for var_name in variables:
-        descriptor = descriptors[var_name]
-        arr = _resolve_zarr_path(grp, descriptor.zarr_path)
-        if arr is None:
-            logger.warning(
-                "Variable '%s' (zarr_path=%r) not present in sim %s, skipping",
-                var_name,
-                descriptor.zarr_path,
-                sim_id,
-            )
-            continue
+    zarr_time: np.ndarray | None = None
+    zarr_time_attrs: dict[str, object] = {}
+    sz = SimulationZarr(zarr_path)
+    try:
+        grp = sz.root
+        if "time" in grp:
+            zarr_time = np.asarray(grp["time"][:])
+            zarr_time_attrs = dict(grp["time"].attrs)
+        # Locate each requested variable in the Zarr hierarchy
+        for var_name in variables:
+            descriptor = descriptors[var_name]
+            arr = _resolve_zarr_path(grp, descriptor.zarr_path)
+            if arr is None:
+                logger.warning(
+                    "Variable '%s' (zarr_path=%r) not present in sim %s, skipping",
+                    var_name,
+                    descriptor.zarr_path,
+                    sim_id,
+                )
+                continue
 
-        data = arr[:]
-        ts_idx = list(range(data.shape[0])) if timesteps is None else timesteps
-        data = data[ts_idx]
+            data = arr[:]
+            ts_idx = list(range(data.shape[0])) if timesteps is None else timesteps
+            data = data[ts_idx]
 
-        attrs = {**field_registry.cf_attrs(var_name), "mesh": "mesh2d", "location": "face"}
-        if data.ndim == 3:
-            ds[var_name] = xr.DataArray(data, dims=("time", "layer", "n_face"), attrs=attrs)
-        elif data.ndim == 2:
-            ds[var_name] = xr.DataArray(data, dims=("time", "n_face"), attrs=attrs)
+            attrs = {**field_registry.cf_attrs(var_name), "mesh": "mesh2d", "location": "face"}
+            if data.ndim == 3:
+                ds[var_name] = xr.DataArray(data, dims=("time", "layer", "n_face"), attrs=attrs)
+            elif data.ndim == 2:
+                ds[var_name] = xr.DataArray(data, dims=("time", "n_face"), attrs=attrs)
+    finally:
+        sz.close()
 
     if "time" in ds.dims:
+        time_indices = list(range(ds.sizes["time"])) if timesteps is None else list(timesteps)
+        if zarr_time is None or max(time_indices, default=-1) >= len(zarr_time):
+            raise ValueError("NetCDF export requires a Zarr time coordinate.")
+        time_values = zarr_time[time_indices]
         ds["time"] = xr.DataArray(
-            np.arange(ds.sizes["time"]),
+            time_values,
             dims=("time",),
-            attrs={"units": "timestep index"},
+            attrs={"standard_name": "time", **zarr_time_attrs},
         )
     if "layer" in ds.dims:
         ds["layer"] = xr.DataArray(np.arange(ds.sizes["layer"]), dims=("layer",))

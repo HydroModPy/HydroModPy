@@ -30,6 +30,7 @@ calibration package never imports the workflow package directly.
 from __future__ import annotations
 
 import copy as _copy
+import math
 import time
 from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass, field
@@ -359,8 +360,8 @@ def run_trial_light(
     metric_fn
         Optional RAM-only extractor with signature
         ``(ctx, objective, variable) -> (primary, metrics)``. When
-        ``None`` the default stub returns ``(nan, {})`` - the full
-        extractor is wired in by the calibration CLI in Phase 2.
+        ``None`` the default stub fails the trial with a non-finite
+        objective. The full extractor is wired in by the calibration CLI.
     """
     provider = get_trial_pipeline_provider()
 
@@ -416,6 +417,16 @@ def run_trial_light(
             error=f"metric_fn: {type(exc).__name__}: {exc}",
         )
 
+    if not math.isfinite(float(primary)):
+        return TrialResult(
+            values=dict(values),
+            metrics=dict(metrics),
+            primary_metric=float("nan"),
+            status="failed",
+            duration_s=time.monotonic() - t0,
+            error="metric_fn returned a non-finite objective",
+        )
+
     return TrialResult(
         values=dict(values),
         metrics=dict(metrics),
@@ -439,11 +450,10 @@ def _default_metric_extractor(
 ) -> tuple[float, Mapping[str, float]]:
     """Placeholder extractor.
 
-    Phase 1 ships the trial primitive without the observation-plan
-    machinery: the default extractor returns ``nan`` and an empty
-    metrics dict so that unit tests can exercise the lightweight
-    pipeline without observations wired. Phase 2 replaces this with a
-    reading of ``ctx.loaded_data.hydrometry`` + the observation plan.
+    The trial primitive has no observation plan by itself, so the
+    default extractor returns ``nan`` and the caller marks the trial
+    failed. The calibration CLI replaces this with the configured
+    extractor.
     """
     del ctx, objective, variable  # unused until Phase 2
     return float("nan"), {}

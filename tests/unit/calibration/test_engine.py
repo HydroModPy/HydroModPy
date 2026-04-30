@@ -275,7 +275,8 @@ class TestEngineCacheIntegration:
         assert session.history[0].from_cache is False
         assert session.history[1].from_cache is True
         assert session.history[2].from_cache is True
-        assert session.history[1].status == "cached"
+        assert session.history[1].status == "completed"
+        assert session.history[1].objective_value == 0.5
         # Cache is keyed by hash of the suggested values.
         assert params_hash({"x": 0.5}) in cache
 
@@ -302,7 +303,10 @@ class TestEngineCacheIntegration:
         )
         engine.run()
         key = params_hash({"x": 0.42})
-        assert cache.get(key) == "sim-abc"
+        hit = cache.get(key)
+        assert hit is not None
+        assert hit.sim_id == "sim-abc"
+        assert hit.objective_value == 0.1
 
     def test_no_cache_means_every_trial_runs(self):
         """When ``cache=None`` the engine never inspects or stores results."""

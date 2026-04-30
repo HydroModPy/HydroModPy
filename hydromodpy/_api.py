@@ -28,7 +28,18 @@ def open(workspace_path: Any) -> Any:
 
 
 def run(config: Any, **kwargs: Any) -> Any:
-    """Functional facade for ``hmp.Project(config).run()``."""
+    """Functional facade for ``hmp run <config.toml>``."""
+    if isinstance(config, (str, Path)):
+        from hydromodpy.cli.workflows import dispatch_workflow, resolve_workflow
+
+        config_path = Path(config).expanduser().resolve()
+        workflow = resolve_workflow(
+            config_path,
+            cli_workflow=None,
+            require_toml_field=True,
+        )
+        return dispatch_workflow(workflow, config_path, **kwargs)
+
     from hydromodpy.project import Project
 
     with Project(config, headless=kwargs.pop("headless", False)) as project:
@@ -36,10 +47,42 @@ def run(config: Any, **kwargs: Any) -> Any:
 
 
 def calibrate(config: Any, **kwargs: Any) -> Any:
-    """Functional facade for a calibration session driven by a TOML config."""
-    from hydromodpy.calibration.runner import run_calibration_cli
+    """Functional facade for ``hmp run`` with ``workflow = "calibration"``."""
+    from hydromodpy.cli.workflows import dispatch_workflow, resolve_workflow
 
-    return run_calibration_cli(Path(config).expanduser().resolve(), **kwargs)
+    config_path = Path(config).expanduser().resolve()
+    workflow = resolve_workflow(
+        config_path,
+        cli_workflow="calibration",
+        require_toml_field=True,
+    )
+    return dispatch_workflow(workflow, config_path, **kwargs)
+
+
+def overview(config: Any, **kwargs: Any) -> Any:
+    """Functional facade for ``hmp run`` with ``workflow = "overview"``."""
+    from hydromodpy.cli.workflows import dispatch_workflow, resolve_workflow
+
+    config_path = Path(config).expanduser().resolve()
+    workflow = resolve_workflow(
+        config_path,
+        cli_workflow="overview",
+        require_toml_field=True,
+    )
+    return dispatch_workflow(workflow, config_path, **kwargs)
+
+
+def batch(config: Any, **kwargs: Any) -> Any:
+    """Functional facade for ``hmp run`` with ``workflow = "batch"``."""
+    from hydromodpy.cli.workflows import dispatch_workflow, resolve_workflow
+
+    config_path = Path(config).expanduser().resolve()
+    workflow = resolve_workflow(
+        config_path,
+        cli_workflow="batch",
+        require_toml_field=True,
+    )
+    return dispatch_workflow(workflow, config_path, **kwargs)
 
 
 def compare_pair(sim_a: Any, sim_b: Any, *, workspace: Any = None) -> Any:

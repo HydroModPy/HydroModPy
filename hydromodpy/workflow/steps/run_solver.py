@@ -35,7 +35,7 @@ def step_ingest_run_results(
         sim_id=ctx.sim_id,
         results_config=results_cfg,
         store=ctx.store,
-        keep_solver_files=True,
+        keep_solver_files=results_cfg.keep_solver_files,
         run_id=ctx.setup.run_id,
     )
 

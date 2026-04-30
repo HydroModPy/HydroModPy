@@ -3,7 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Annotated, Literal
 
-from pydantic import ConfigDict, Field, field_validator, model_validator
+from pydantic import ConfigDict, Field, ValidationInfo, field_validator, model_validator
 
 from hydromodpy.core.config_kit.base import HydroModelBase
 from hydromodpy.core.config_kit.profile import Profile
@@ -414,7 +414,7 @@ class GeographicConfig(HydroModelBase):
         return pct
 
     @model_validator(mode="after")
-    def _check_mode_requirements(self) -> GeographicConfig:
+    def _check_mode_requirements(self, info: ValidationInfo) -> GeographicConfig:
         """
         Validates the configuration based on the selected catchment definition mode.
 
@@ -431,6 +431,8 @@ class GeographicConfig(HydroModelBase):
         if self.uses_synthetic_geographic():
             return self
 
+        context = info.context or {}
+        allow_dem_bootstrap = bool(context.get("allow_dem_bootstrap"))
         mode = self.catch_def
         if mode is None:
             raise ValueError(
@@ -438,7 +440,7 @@ class GeographicConfig(HydroModelBase):
             )
 
         if mode in ("dem", "txt"):
-            if not self.dem_init_path:
+            if not self.dem_init_path and not allow_dem_bootstrap:
                 raise ValueError(
                     f"catch_def='{mode}' requires 'dem_init_path' "
                     "(path to the DEM raster or XYZ text file)."
@@ -458,7 +460,7 @@ class GeographicConfig(HydroModelBase):
                     ("snap_dist", self.snap_dist),
                     ("buff_area", self.buff_area),
                 ]
-                if val is None
+                if val is None and (name != "dem_init_path" or not allow_dem_bootstrap)
             ]
             if missing:
                 raise ValueError(f"catch_def='from_outlet_coord' requires: {', '.join(missing)}.")
@@ -471,7 +473,7 @@ class GeographicConfig(HydroModelBase):
                     ("polyg_shp_path", self.polyg_shp_path),
                     ("buff_area", self.buff_area),
                 ]
-                if val is None
+                if val is None and (name != "dem_init_path" or not allow_dem_bootstrap)
             ]
             if missing:
                 raise ValueError(f"catch_def='from_polyg_shp' requires: {', '.join(missing)}.")

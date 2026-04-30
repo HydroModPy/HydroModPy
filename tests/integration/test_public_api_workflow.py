@@ -78,13 +78,13 @@ def test_find_returns_simulation_group_filtered_by_metric(tmp_path: Path) -> Non
 
 
 def test_best_returns_simulation_view_with_public_methods(tmp_path: Path) -> None:
-    """``catalog.best`` returns a Run exposing id/project/metrics."""
+    """``catalog.best`` returns a Run exposing sim_id/project/metrics."""
     with hmp.open(tmp_path / "workspace") as catalog:
         sid_good = _register_demo_sim(catalog, project="demo", nse=0.92, sim_name="good")
         _register_demo_sim(catalog, project="demo", nse=0.45, sim_name="bad")
 
         best = catalog.best("demo", metric="nse")
-        assert best.id == sid_good
+        assert best.sim_id == sid_good
         assert best.project == "demo"
         metrics = best.metrics
         assert isinstance(metrics, pd.DataFrame)
@@ -101,6 +101,6 @@ def test_doctor_reports_expected_keys() -> None:
     assert isinstance(report["optional"], dict)
 
 
-def test_catalog_alias_is_the_same_class() -> None:
-    """``hmp.Catalog`` is the alias exposed in CLAUDE.md user snippets."""
-    assert hmp.Catalog is hmp.SimulationCatalog
+def test_catalog_alias_is_not_exposed() -> None:
+    with pytest.raises(AttributeError):
+        hmp.Catalog  # noqa: B018

@@ -52,7 +52,7 @@ def run(args: argparse.Namespace) -> None:
                 sub_files = []
 
         payload = {
-            "sim_id": sim.id,
+            "sim_id": sim.sim_id,
             "name": sim.name,
             "project": sim.project,
             "solver": sim.solver,
@@ -69,8 +69,8 @@ def run(args: argparse.Namespace) -> None:
             print(json.dumps(payload, indent=2, default=str))
             return
 
-        print(f"Simulation {sim.name or sim.id[:8]}")
-        print(f"  sim_id     : {sim.id}")
+        print(f"Simulation {sim.name or sim.sim_id[:8]}")
+        print(f"  sim_id     : {sim.sim_id}")
         print(f"  project    : {sim.project}")
         print(f"  solver     : {sim.solver}")
         print(f"  status     : {sim.status}")

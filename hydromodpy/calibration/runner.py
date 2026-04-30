@@ -26,6 +26,7 @@ covers the standard NSE / KGE / RMSE cases.
 from __future__ import annotations
 
 import importlib
+import json
 import sys
 import time
 import tomllib
@@ -128,23 +129,36 @@ def _preload_hash_cache(catalog_conn, cache: ParamsHashCache) -> int:
     from hydromodpy.core.io.db_retry import with_lock_retry
 
     @with_lock_retry()
-    def _run() -> list[tuple[str, str]]:
+    def _run() -> list[tuple[str, str | None, float, str, str | None]]:
         rows = catalog_conn.execute(
             """
-            SELECT params_hash, sim_id
+            SELECT params_hash, sim_id, objective_value, status, metrics
               FROM calibration_iterations
              WHERE params_hash IS NOT NULL
-               AND sim_id      IS NOT NULL
                AND status      = 'completed'
+               AND objective_value IS NOT NULL
             """
         ).fetchall()
         return rows
 
     rows = _run()
     n_before = len(cache)
-    for params_hash, sim_id in rows:
-        if params_hash and sim_id is not None:
-            cache.put(str(params_hash), str(sim_id))
+    for params_hash, sim_id, objective_value, status, metrics_json in rows:
+        if not params_hash:
+            continue
+        components = None
+        if metrics_json:
+            try:
+                components = json.loads(metrics_json)
+            except (TypeError, ValueError):
+                components = None
+        cache.put(
+            str(params_hash),
+            str(sim_id) if sim_id is not None else None,
+            objective_value=float(objective_value),
+            status=str(status),
+            components=components,
+        )
     return len(cache) - n_before
 
 
@@ -312,9 +326,8 @@ def _run_calibration(
             variable=cfg.variable,
             metric_fn=metric_fn,
         )
-        # calibration_iterations CHECK accepts only
-        # {completed, diverged, timeout, crashed, cached} - map "failed"
-        # (setup/metric errors) onto "crashed" for persistence.
+        # calibration_iterations CHECK accepts only finite lifecycle states.
+        # Map "failed" metric errors onto "crashed" for persistence.
         db_status = "crashed" if result.status == "failed" else result.status
         meta: dict[str, object] = {}
         if result.error:

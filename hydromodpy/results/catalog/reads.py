@@ -263,11 +263,25 @@ class ReadsMixin:
             from hydromodpy.results.exporters.geotiff import export_geotiff
 
             timestep = kwargs.pop("timestep", 0)
+            kwargs.setdefault("crs", self._export_crs_for(sid))
             return export_geotiff(zarr_path, sid, variable, timestep, path, **kwargs)
         elif fmt == "shapefile":
             from hydromodpy.results.exporters.shapefile import export_shapefile
 
             timestep = kwargs.pop("timestep", 0)
+            kwargs.setdefault("crs", self._export_crs_for(sid))
             return export_shapefile(zarr_path, sid, variable, timestep, path, **kwargs)
         else:
             raise ValueError(f"Unknown export format '{fmt}'")
+
+    def _export_crs_for(self, sim_id: str) -> str | None:
+        row = self._db.execute(
+            "SELECT crs_epsg, crs_wkt FROM simulations WHERE sim_id = ?",
+            [sim_id],
+        ).fetchone()
+        if row is None:
+            return None
+        epsg, wkt = row
+        if epsg is not None:
+            return f"EPSG:{int(epsg)}"
+        return str(wkt) if wkt else None

@@ -4,10 +4,9 @@ from __future__ import annotations
 
 from pathlib import Path
 
-import zarr
-
 from hydromodpy.core.logging import get_logger
 from hydromodpy.results import field_registry
+from hydromodpy.results.zarr_store import SimulationZarr
 
 logger = get_logger(__name__)
 
@@ -20,7 +19,7 @@ def export_shapefile(
     output_path: str | Path,
     *,
     layer: int | None = None,
-    crs: str = "EPSG:2154",
+    crs: str | None = None,
 ) -> Path:
     """Export mesh cells with field values to a Shapefile.
 
@@ -55,21 +54,25 @@ def export_shapefile(
     output_path.parent.mkdir(parents=True, exist_ok=True)
 
     descriptor = field_registry.get(variable)
+    if crs is None:
+        raise ValueError("Shapefile export requires an explicit CRS.")
 
-    root = zarr.open_group(str(zarr_path), mode="r")
-    grp = root
-    mesh = grp["mesh"]
+    sz = SimulationZarr(zarr_path)
+    try:
+        grp = sz.root
+        mesh = grp["mesh"]
+        vertices = mesh["vertices"][:]
+        connectivity = mesh["face_node_connectivity"][:]
 
-    vertices = mesh["vertices"][:]
-    connectivity = mesh["face_node_connectivity"][:]
-
-    arr = _resolve_zarr_path(grp, descriptor.zarr_path)
-    if arr is None:
-        raise KeyError(
-            f"Variable '{variable}' (zarr_path={descriptor.zarr_path!r}) not found for sim={sim_id}"
-        )
-
-    data = arr[timestep]
+        arr = _resolve_zarr_path(grp, descriptor.zarr_path)
+        if arr is None:
+            raise KeyError(
+                f"Variable '{variable}' (zarr_path={descriptor.zarr_path!r}) "
+                f"not found for sim={sim_id}"
+            )
+        data = arr[timestep]
+    finally:
+        sz.close()
     if data.ndim == 2:
         data = data[layer or 0]
 

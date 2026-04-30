@@ -1,8 +1,4 @@
-"""Data catalog backed by DuckDB (drop-in replacement for the SQLAlchemy catalog).
-
-Same public API as DataCatalog so that DataStore and all variable managers
-work without changes.
-"""
+"""Data catalog backed by DuckDB."""
 
 from __future__ import annotations
 
@@ -190,7 +186,7 @@ class _CatalogEntry:
 
 
 class DataCatalogDuckDB:
-    """DuckDB-backed data catalog with the same API as DataCatalog."""
+    """DuckDB-backed data catalog."""
 
     def __init__(self, db_path: Path | str | None = None):
         if db_path is None:

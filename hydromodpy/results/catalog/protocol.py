@@ -38,7 +38,7 @@ class SimulationStore(Protocol):
 
     - registration: ``register_simulation``;
     - per-simulation writes: ``write_parameters``, ``write_timeseries``,
-      ``write_field``, ``write_mesh``, ``write_provenance``,
+      ``write_field``, ``write_time``, ``write_crs``, ``write_mesh``, ``write_provenance``,
       ``write_metric``, ``write_run_environment``, ``register_tracked_files``;
     - reads / queries: ``query_field``, ``query_timeseries``,
       ``list_simulations``, ``__getitem__``, ``open_zarr``;
@@ -77,8 +77,9 @@ class SimulationStore(Protocol):
         variable: str,
         ts: pd.Series,
         unit: str = "",
+        qflag: str = "simulated",
     ) -> None:
-        """Persist a per-station simulated timeseries for ``sim_id``."""
+        """Persist a per-station timeseries for ``sim_id``."""
 
     def write_field(
         self,
@@ -91,6 +92,37 @@ class SimulationStore(Protocol):
         subgroup: str | None = None,
     ) -> None:
         """Persist a 2D / 3D field array slice for ``sim_id`` at ``timestep``."""
+
+    def write_time(
+        self,
+        sim_id: str | UUID,
+        values: np.ndarray,
+        *,
+        epoch: str = "1970-01-01T00:00:00",
+        calendar: str = "proleptic_gregorian",
+        units: str = "seconds since 1970-01-01T00:00:00",
+    ) -> None:
+        """Persist the CF time coordinate for ``sim_id``."""
+
+    def write_crs(
+        self,
+        sim_id: str | UUID,
+        *,
+        crs_wkt: str,
+        grid_mapping_name: str = "latitude_longitude",
+        epsg_code: int | None = None,
+    ) -> None:
+        """Persist the CF CRS grid mapping for ``sim_id``."""
+
+    def write_observations(
+        self,
+        station_id: str,
+        variable_type: str,
+        ts: Any,
+        unit: str = "",
+        quality: str | None = None,
+    ) -> None:
+        """Persist observed station timeseries in the workspace observation table."""
 
     def write_mesh(
         self,

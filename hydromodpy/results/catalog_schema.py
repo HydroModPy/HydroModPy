@@ -1,6 +1,6 @@
 """DuckDB schema for the HydroModPy simulation catalog.
 
-Schema v0.6: per-simulation ``timeseries``, ``budgets`` and ``mass_balance``
+Schema v1: per-simulation ``timeseries``, ``budgets`` and ``mass_balance``
 now live as Parquet files under ``simulations/<uuid>.parquet/`` and are
 exposed in DuckDB as views with the original table names. Every other
 per-sim table (``parameters``, ``metrics``, ``observation_points``,
@@ -9,11 +9,10 @@ per-sim table (``parameters``, ``metrics``, ``observation_points``,
 tables (``simulations``, ``stations``, ``observations``,
 ``calibration_sessions``, ``calibration_iterations``) stay in DuckDB.
 
-This module defines only DDL and helpers; it does not track historical schema
-versions. Each major release starts from a fresh schema. Migration principles
-for post-P13 evolutions are documented in
-``docs/developers/schema_evolution.md``. The Parquet layout and rationale
-are described in ``docs/developers/parquet_lakehouse_architecture.md``.
+This module defines DDL, additive migrations and the catalog schema marker.
+Migration principles are documented in ``docs/developers/schema_evolution.md``.
+The Parquet layout and rationale are described in
+``docs/developers/parquet_lakehouse_architecture.md``.
 
 Note on referential integrity: per-sim DuckDB tables carry ``sim_id UUID
 NOT NULL`` columns but **no** ``FOREIGN KEY`` clause. DuckDB's foreign-key
@@ -36,23 +35,35 @@ logger = get_logger(__name__)
 
 GLOBAL_ZONE = "__global__"
 OUTLET_STATION = "__outlet__"
+CATALOG_SCHEMA_VERSION = "1"
+
+_SCHEMA_VERSION_DDL = """
+CREATE TABLE IF NOT EXISTS _schema_version (
+    component  VARCHAR PRIMARY KEY,
+    version    VARCHAR NOT NULL,
+    applied_at TIMESTAMPTZ NOT NULL DEFAULT current_timestamp
+);
+"""
 
 
 def solver_category(solver_name: str) -> str | None:
-    """Return the physical category declared by a solver extractor.
-
-    Reads the ``category`` class attribute on the extractor registered for
-    ``solver_name`` (see :mod:`hydromodpy.solver.base.registry`). Unknown
-    solvers return ``None`` so the catalog column stays nullable rather than
-    invented.
-    """
-    from hydromodpy.solver.base.registry import get_extractor
-
-    try:
-        cls = get_extractor(solver_name)
-    except KeyError:
+    """Return the category for in-tree solvers without importing solver layers."""
+    known = {
+        "boussinesq": "integrated",
+        "gr4j": "lumped",
+        "modflow6": "distributed",
+        "modflow6gwt": "distributed",
+        "modflownwt": "distributed",
+        "modpath": "distributed",
+        "mt3dms": "distributed",
+    }
+    parts = [part.strip() for part in str(solver_name).split(",") if part.strip()]
+    if not parts:
         return None
-    return getattr(cls, "category", None)
+    categories = {known[part] for part in parts if part in known}
+    if len(categories) == 1 and len(categories) == len(parts):
+        return categories.pop()
+    return None
 
 
 # ---------------------------------------------------------------------------
@@ -71,7 +82,7 @@ CREATE TABLE IF NOT EXISTS simulations (
                flow_regime IN ('steady', 'transient', 'steady_then_transient')),
     status                  VARCHAR NOT NULL DEFAULT 'running'
         CHECK (status IN ('pending', 'running', 'completed',
-                          'failed', 'aborted')),
+                          'partial', 'failed', 'aborted')),
     mesh_topology           VARCHAR
         CHECK (mesh_topology IS NULL OR
                mesh_topology IN ('dis', 'disv', 'disu')),
@@ -185,7 +196,7 @@ CREATE TABLE IF NOT EXISTS provenance (
     variable       VARCHAR NOT NULL,
     source_type    VARCHAR NOT NULL
         CHECK (source_type IN ('http_api', 'custom_file',
-                               'derived', 'cache')),
+                               'data_manager', 'derived', 'cache')),
     source_ref     VARCHAR NOT NULL,
     source_sha256  VARCHAR,
     payload_sha256 VARCHAR,
@@ -477,6 +488,7 @@ _ALL_VIEW_DDL: tuple[str, ...] = (
 # ---------------------------------------------------------------------------
 
 TABLE_NAMES: tuple[str, ...] = (
+    "_schema_version",
     "simulations",
     "parameters",
     "metrics",
@@ -518,6 +530,7 @@ PARQUET_VIEW_NAMES: tuple[str, ...] = (
 )
 
 _ALL_DDL: tuple[str, ...] = (
+    _SCHEMA_VERSION_DDL,
     _SIMULATIONS_DDL,
     _PARAMETERS_DDL,
     _METRICS_DDL,
@@ -630,6 +643,7 @@ def ensure_parquet_views(conn: duckdb.DuckDBPyConnection, workspace_path: Path) 
 # painless without introducing a full versioned migration system.
 _SIMULATIONS_ADDITIVE_COLUMNS: tuple[tuple[str, str], ...] = (
     ("config_source", "VARCHAR"),
+    ("zarr_packed", "BOOLEAN DEFAULT FALSE"),
     ("storage_basename", "VARCHAR"),
     ("description", "VARCHAR"),
     ("scientific_objective", "VARCHAR"),
@@ -679,6 +693,74 @@ def _apply_runs_environment_additive_columns(conn: duckdb.DuckDBPyConnection) ->
             logger.info("DuckDB schema upgrade: added runs_environment.%s", name)
 
 
+def _apply_provenance_source_type_migration(conn: duckdb.DuckDBPyConnection) -> None:
+    """Rebuild legacy provenance tables whose CHECK omits ``data_manager``."""
+    rows = conn.execute(
+        "SELECT COUNT(*) FROM information_schema.tables WHERE table_name = 'provenance'"
+    ).fetchone()
+    if rows is None or rows[0] == 0:
+        return
+    try:
+        constraints = conn.execute(
+            """
+            SELECT constraint_text
+              FROM duckdb_constraints()
+             WHERE table_name = 'provenance'
+               AND constraint_type = 'CHECK'
+            """
+        ).fetchall()
+    except duckdb.Error:
+        return
+    if any("data_manager" in str(row[0]) for row in constraints):
+        return
+
+    columns = [
+        "sim_id",
+        "variable",
+        "source_type",
+        "source_ref",
+        "source_sha256",
+        "payload_sha256",
+        "loader_name",
+        "loader_version",
+        "fetched_at",
+        "period_start",
+        "period_end",
+        "n_records",
+        "stats",
+    ]
+    conn.execute("DROP INDEX IF EXISTS ix_prov_sha256")
+    conn.execute("ALTER TABLE provenance RENAME TO provenance__legacy")
+    try:
+        for stmt in _iter_statements_without_index(_PROVENANCE_DDL):
+            conn.execute(stmt)
+        existing = {
+            row[0]
+            for row in conn.execute(
+                "SELECT column_name FROM information_schema.columns "
+                "WHERE table_name = 'provenance__legacy'"
+            ).fetchall()
+        }
+        copy_cols = [col for col in columns if col in existing]
+        joined = ", ".join(copy_cols)
+        conn.execute(f"INSERT INTO provenance ({joined}) SELECT {joined} FROM provenance__legacy")
+    except Exception:
+        conn.execute("DROP TABLE IF EXISTS provenance")
+        conn.execute("ALTER TABLE provenance__legacy RENAME TO provenance")
+        raise
+    else:
+        conn.execute("DROP TABLE provenance__legacy")
+        logger.info("DuckDB schema upgrade: rebuilt provenance.source_type CHECK")
+
+
+def _record_schema_version(conn: duckdb.DuckDBPyConnection) -> None:
+    conn.execute("DELETE FROM _schema_version WHERE component = 'catalog'")
+    conn.execute(
+        "INSERT INTO _schema_version (component, version) VALUES ('catalog', ?)",
+        [CATALOG_SCHEMA_VERSION],
+    )
+
+
 def ensure_schema(
     conn: duckdb.DuckDBPyConnection,
     workspace_path: Path | None = None,
@@ -707,6 +789,8 @@ def ensure_schema(
     # Phase 2: migrate pre-existing tables to the current column set.
     _apply_simulations_additive_columns(conn)
     _apply_runs_environment_additive_columns(conn)
+    _apply_provenance_source_type_migration(conn)
+    _record_schema_version(conn)
 
     # Phase 3: (re-)create indexes now that every referenced column exists.
     for ddl in _ALL_DDL:
