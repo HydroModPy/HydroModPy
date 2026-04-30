@@ -32,11 +32,11 @@ from typing import TYPE_CHECKING, Annotated, Any, Literal
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 from pydantic.fields import FieldInfo
 
+from hydromodpy.core.config_kit.base import HydroModelBase
+from hydromodpy.core.config_kit.profile import Profile
+from hydromodpy.core.toml_io.loader import load_toml_with_base_config
+from hydromodpy.core.toml_io.paths import resolve_declared_path
 from hydromodpy.core.workspace.config import WorkspaceConfig
-from hydromodpy.master_config.base import HydroModelBase
-from hydromodpy.master_config.path_resolution import resolve_declared_path
-from hydromodpy.master_config.profile import Profile
-from hydromodpy.master_config.toml_loader import load_toml_with_base_config
 
 if TYPE_CHECKING:
     from hydromodpy.analysis.batch.config import RegionalLabConfig
