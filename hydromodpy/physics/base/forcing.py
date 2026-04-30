@@ -22,9 +22,9 @@ from typing import Annotated, Literal
 
 from pydantic import Field
 
+from hydromodpy.core.config_kit.base import HydroModelBase
+from hydromodpy.core.config_kit.profile import Profile
 from hydromodpy.core.units import FlowRate, Time
-from hydromodpy.master_config.base import HydroModelBase
-from hydromodpy.master_config.profile import Profile
 
 
 class ConstantForcing(HydroModelBase):
