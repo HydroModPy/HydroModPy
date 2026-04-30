@@ -13,8 +13,8 @@ import sys
 
 from hydromodpy.cli.helpers import EXIT_CONFIG, EXIT_OK
 
-NAME = "install-binaries"
-HELP = "Download MODFLOW/MODPATH/MT3D-USGS binaries into the HydroModPy cache"
+NAME: str = "install-binaries"
+HELP: str = "Download MODFLOW/MODPATH/MT3D-USGS binaries into the HydroModPy cache"
 
 
 def register(subparsers) -> argparse.ArgumentParser:

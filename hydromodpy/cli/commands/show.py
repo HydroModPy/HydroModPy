@@ -13,8 +13,8 @@ from hydromodpy.cli.helpers import (
     resolve_sim_id,
 )
 
-NAME = "show"
-HELP = "Show metadata, metrics, and parameters of a simulation"
+NAME: str = "show"
+HELP: str = "Show metadata, metrics, and parameters of a simulation"
 
 
 def register(subparsers) -> argparse.ArgumentParser:

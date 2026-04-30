@@ -112,9 +112,15 @@ level (``workflow = "simulation"``, ``"calibration"``, ``"batch"``,
 
    hmp run my_basin/run_demo.toml
    hmp run my_basin/run_calibration.toml
-   hmp run my_basin/prototype.py    # also accepts a Python script
 
 The catalog updates after every successful run.
+
+Prototype Python scripts belong to the developer namespace, outside the
+stable ``hmp run`` reproducibility contract:
+
+.. code-block:: bash
+
+   hmp dev run-script my_basin/prototype.py
 
 6. Browse and inspect results
 -----------------------------

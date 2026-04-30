@@ -25,8 +25,8 @@ from pathlib import Path
 
 from hydromodpy.cli.helpers import EXIT_CONFIG, EXIT_NOT_FOUND, find_workspace_root
 
-NAME = "display"
-HELP = "Render figures for a simulation from the workspace catalog"
+NAME: str = "display"
+HELP: str = "Render figures for a simulation from the workspace catalog"
 
 
 def register(subparsers) -> argparse.ArgumentParser:

@@ -8,8 +8,8 @@ from pathlib import Path
 
 from hydromodpy.cli.helpers import EXIT_CONFIG
 
-NAME = "compare-methods"
-HELP = "Run a multi-variant method comparison from a TOML config"
+NAME: str = "compare-methods"
+HELP: str = "Run a multi-variant method comparison from a TOML config"
 
 
 def register(subparsers) -> argparse.ArgumentParser:

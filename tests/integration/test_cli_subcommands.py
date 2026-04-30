@@ -20,6 +20,7 @@ SUBCOMMANDS = (
     "config",
     "schema",
     "run",
+    "dev",
     "display",
     "list",
     "export",
@@ -86,6 +87,13 @@ def test_run_dry_run_lists_steps(monkeypatch, capsys, tmp_path) -> None:
     out = capsys.readouterr().out
     assert "dry-run" in out
     assert "workflow: simulation" in out
+
+
+def test_dev_run_script_help(monkeypatch, capsys) -> None:
+    code = _run_cli(monkeypatch, ["hmp", "dev", "run-script", "--help"])
+    assert code == 0
+    out = capsys.readouterr().out
+    assert "usage" in out.lower()
 
 
 def test_config_check_reports_missing_file(monkeypatch, capsys, tmp_path) -> None:

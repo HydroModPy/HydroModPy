@@ -8,8 +8,8 @@ from pathlib import Path
 
 from hydromodpy.cli.helpers import EXIT_NOT_FOUND
 
-NAME = "new"
-HELP = "Create a new project inside the workspace"
+NAME: str = "new"
+HELP: str = "Create a new project inside the workspace"
 
 
 def register(subparsers) -> argparse.ArgumentParser:
