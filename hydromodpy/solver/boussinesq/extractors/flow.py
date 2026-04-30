@@ -36,8 +36,7 @@ class BoussinesqOutputAdapter:
         npz_path = solver_output_dir / "_boussinesq_state_history.npz"
 
         if not npz_path.exists():
-            logger.warning("No _boussinesq_state_history.npz in %s", solver_output_dir)
-            return
+            raise FileNotFoundError(f"No _boussinesq_state_history.npz in {solver_output_dir}")
 
         with np.load(npz_path) as payload:
             head_history = payload.get("head_history_m")
@@ -47,14 +46,22 @@ class BoussinesqOutputAdapter:
                     head_history = head_history.reshape(1, -1)
 
             if head_history is None:
-                logger.warning("No head data in %s", npz_path)
-                return
+                raise KeyError(f"No head data in {npz_path}")
 
             if head_history.ndim == 1:
                 head_history = head_history.reshape(1, -1)
 
             n_timesteps = head_history.shape[0]
             n_cells = head_history.shape[1]
+            time_values = payload.get("snapshot_elapsed_seconds")
+            if time_values is None or len(time_values) < n_timesteps:
+                raise KeyError(f"No snapshot_elapsed_seconds time axis in {npz_path}")
+            writer = getattr(store, "write_time", None)
+            if writer is None:
+                raise TypeError("Simulation store must implement write_time().")
+            writer(
+                sim_id, np.rint(np.asarray(time_values[:n_timesteps], dtype=float)).astype("int64")
+            )
 
             logger.info(
                 "Extracting Boussinesq results: %d timesteps, %d cells",
@@ -79,17 +86,16 @@ class BoussinesqOutputAdapter:
     @staticmethod
     def _persist_state_history(sim_id: str, store: Any, payload) -> None:
         """Write all Boussinesq state arrays to a ``boussinesq_state`` Zarr group."""
+        sz = store.open_zarr(sim_id)
         try:
-            grp = store._open_zarr_group(sim_id)
-            if "boussinesq_state" not in grp:
-                grp.create_group("boussinesq_state")
-            state_grp = grp["boussinesq_state"]
+            grp = sz.root
+            state_grp = grp.require_group("boussinesq_state")
             for key in payload.files:
                 arr = np.asarray(payload[key])
                 state_grp.create_array(key, data=arr, overwrite=True)
             logger.debug("Persisted %d Boussinesq state arrays to store", len(payload.files))
-        except Exception:
-            logger.debug("Failed to persist Boussinesq state history", exc_info=True)
+        finally:
+            sz.close()
 
     def _write_surface_elevation(
         self,

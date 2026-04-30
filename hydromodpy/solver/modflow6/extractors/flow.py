@@ -11,6 +11,40 @@ from hydromodpy.core.logging import get_logger
 
 logger = get_logger(__name__)
 
+_TIME_UNIT_SECONDS: dict[str, float] = {
+    "UNKNOWN": 1.0,
+    "SECONDS": 1.0,
+    "MINUTES": 60.0,
+    "HOURS": 3600.0,
+    "DAYS": 86400.0,
+    "YEARS": 31557600.0,
+}
+
+
+def _read_time_units(tdis_path: Path) -> str:
+    """Return the MF6 TDIS TIME_UNITS option."""
+    if not tdis_path.is_file():
+        return "SECONDS"
+    try:
+        with tdis_path.open("r", encoding="utf-8") as fh:
+            for raw in fh:
+                tokens = raw.strip().split()
+                if len(tokens) >= 2 and tokens[0].upper() == "TIME_UNITS":
+                    return tokens[1].upper()
+    except OSError:
+        return "SECONDS"
+    return "SECONDS"
+
+
+def _write_time_coordinate(store: Any, sim_id: str, times: list[float], time_units: str) -> None:
+    """Persist solver times as CF seconds since epoch."""
+    writer = getattr(store, "write_time", None)
+    if writer is None:
+        raise TypeError("Simulation store must implement write_time().")
+    factor = _TIME_UNIT_SECONDS.get(time_units.upper(), 1.0)
+    values = np.rint(np.asarray(times, dtype=float) * factor).astype("int64")
+    writer(sim_id, values)
+
 
 class Modflow6OutputAdapter:
     """Read MODFLOW 6 binary outputs and inject them into a SimulationCatalog.
@@ -48,6 +82,10 @@ class Modflow6OutputAdapter:
         times = head_file.get_times()
         kstpkpers = head_file.get_kstpkper()
         n_timesteps = len(times)
+        tdis_path = solver_output_dir / f"{model_name}.tdis"
+        if not tdis_path.is_file():
+            tdis_path = next(iter(solver_output_dir.glob("*.tdis")), tdis_path)
+        _write_time_coordinate(store, sim_id, times, _read_time_units(tdis_path))
 
         head0 = head_file.get_data(totim=times[0])
         if head0.ndim == 3:

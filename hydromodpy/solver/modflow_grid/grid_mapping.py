@@ -76,14 +76,13 @@ def describe_grid(solver_mesh: SolverMesh) -> DisDescriptor | DisvDescriptor:
             solver_mesh.ncol,
         )
         bounds = solver_mesh.planar_mesh.bounds()
-        delr_val = (float(bounds[2]) - float(bounds[0])) / solver_mesh.ncol
-        delc_val = (float(bounds[3]) - float(bounds[1])) / solver_mesh.nrow
+        delr, delc = solver_mesh.structured_delr_delc()
         return DisDescriptor(
             nlay=solver_mesh.nlay,
             nrow=solver_mesh.nrow,
             ncol=solver_mesh.ncol,
-            delr=np.full(solver_mesh.ncol, delr_val, dtype=float),
-            delc=np.full(solver_mesh.nrow, delc_val, dtype=float),
+            delr=delr,
+            delc=delc,
             top=top,
             botm=botm,
             xorigin=float(bounds[0]),

@@ -77,6 +77,7 @@ def step_finalize_store(
     ctx: WorkflowContext,
     *,
     wall_seconds: float = 0.0,
+    status: str = "completed",
 ) -> None:
     """Finalize the simulation in the store and close it.
 
@@ -88,7 +89,7 @@ def step_finalize_store(
     try:
         ctx.store.finalize(
             ctx.sim_id,
-            status="completed",
+            status=status,
             duration_s=wall_seconds,
         )
     finally:

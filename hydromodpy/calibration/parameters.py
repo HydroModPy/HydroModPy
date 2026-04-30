@@ -183,6 +183,18 @@ class ParameterSpace:
             low, high = float(bounds[0]), float(bounds[1])
             transform = decl.get("transform", ann.transform if ann else "identity")
             prior = decl.get("prior", ann.prior if ann else "uniform")
+            if not low < high:
+                raise ValueError(f"Parameter {name!r}: lower bound must be < upper bound")
+            if transform == "log" and low <= 0.0:
+                raise ValueError(f"Parameter {name!r}: log transform requires lower > 0")
+            if transform == "logit" and not (0.0 < low < high < 1.0):
+                raise ValueError(
+                    f"Parameter {name!r}: logit transform requires 0 < lower < upper < 1"
+                )
+            if prior not in {"uniform", "log_uniform", "normal"}:
+                raise ValueError(f"Parameter {name!r}: unknown prior {prior!r}")
+            if prior == "log_uniform" and low <= 0.0:
+                raise ValueError(f"Parameter {name!r}: log_uniform prior requires lower > 0")
             units = decl.get("units", ann.units if ann else None)
             path = decl.get("path")
             target = decl.get("target")

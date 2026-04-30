@@ -184,19 +184,8 @@ def test_launcher_simulation_mf6_mesh_catchment_config_embeds_mesh_generation() 
     assert payload["analysis"]["capability_gallery"]["enabled"] is True
     assert payload["analysis"]["capability_gallery"]["case_slug"] == "modflow6_gmsh_mesh_catchment"
 
-    cfg = HydroModPyConfig.from_toml(example_config)
-    assert cfg.analysis is not None
-    assert cfg.analysis.capability_gallery is not None
-    assert cfg.analysis.capability_gallery.enabled is True
-    assert cfg.modflow6.tgrid is not None
-    assert cfg.modflow6.tgrid.firstpersteady is False
-    assert (
-        cfg.analysis.capability_gallery.output_dir
-        == (
-            example_config.parent
-            / "../../capability_gallery/launcher_simulation/modflow6_gmsh_mesh_catchment"
-        ).resolve()
-    )
+    with pytest.raises(ValueError, match="postprocess"):
+        HydroModPyConfig.from_toml(example_config)
 
 
 def test_hydromodpy_config_loads_profiling_shortcuts(tmp_path: Path) -> None:
@@ -222,6 +211,42 @@ def test_hydromodpy_config_loads_profiling_shortcuts(tmp_path: Path) -> None:
     cfg = HydroModPyConfig.from_toml(config_path)
 
     assert cfg.geographic.reuse_existing_outputs is True
+
+
+def test_hydromodpy_config_allows_dem_from_data_sources_without_placeholder(
+    tmp_path: Path,
+) -> None:
+    dem_path = tmp_path / "data" / "dem" / "dem.tif"
+    dem_path.parent.mkdir(parents=True)
+    dem_path.touch()
+    config_path = tmp_path / "data_dem.toml"
+    config_path.write_text(
+        "\n".join(
+            [
+                'workflow = "simulation"',
+                "",
+                "[workspace]",
+                f'root = "{tmp_path}"',
+                f'data_dir = "{tmp_path / "data"}"',
+                "",
+                "[geographic]",
+                'catch_def = "dem"',
+                "",
+                "[data.dem]",
+                "",
+                "[[data.dem.sources]]",
+                'source = "custom"',
+                'path = "dem.tif"',
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    cfg = HydroModPyConfig.from_toml(config_path)
+
+    assert cfg.geographic.dem_init_path is None
+    assert cfg.data.dem is not None
+    assert cfg.data.dem.sources[0].path == dem_path.resolve()
 
 
 def test_hydromodpy_config_loads_calibration_section(tmp_path: Path) -> None:

@@ -54,7 +54,7 @@ class TestCalibrationConfigMinimalPayload:
     def test_empty_dict_yields_sensible_defaults(self):
         """An empty payload uses the declared defaults end-to-end."""
         cfg = CalibrationConfig.model_validate({})
-        assert cfg.method == "optuna"
+        assert cfg.method == "grid"
         assert cfg.max_iter == 100
         assert cfg.save_runs == "none"
         assert cfg.save_best_n == 10
@@ -97,19 +97,7 @@ class TestCalibrationConfigExtraForbidden:
 
 
 class TestCalibrationConfigMethodLiteral:
-    @pytest.mark.parametrize(
-        "method",
-        [
-            "optuna",
-            "scipy_de",
-            "scipy_nelder_mead",
-            "grid",
-            "random_search",
-            "cma_es",
-            "gp_mapping",
-            "da_mh_gp",
-        ],
-    )
+    @pytest.mark.parametrize("method", ["grid", "random_search"])
     def test_accepts_all_supported_methods(self, method: str):
         cfg = CalibrationConfig.model_validate({"method": method})
         assert cfg.method == method
@@ -237,11 +225,11 @@ class TestTomlRoundTrip:
     def test_minimal_section_roundtrip(self):
         toml_src = """
         [calibration]
-        method = "optuna"
+        method = "grid"
         """
         data = tomllib.loads(toml_src)
         cfg = CalibrationConfig.model_validate(data["calibration"])
-        assert cfg.method == "optuna"
+        assert cfg.method == "grid"
         assert cfg.parameters == {}
 
     def test_toml_unknown_section_key_rejected(self):

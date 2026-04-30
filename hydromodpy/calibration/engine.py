@@ -14,6 +14,7 @@ ask/tell loop until the optimizer converges or ``max_iter`` is reached.
 
 from __future__ import annotations
 
+import math
 import time
 import uuid
 from collections.abc import Callable
@@ -123,15 +124,21 @@ class CalibrationEngine:
         if hit is not None:
             return EvaluationResult(
                 trial_id=sugg.trial_id,
-                sim_id=hit,
-                objective_value=float("nan"),  # caller should refetch if needed
-                status="cached",
+                sim_id=hit.sim_id,
+                objective_value=hit.objective_value,
+                status="completed",
                 from_cache=True,
-                metadata={"params_hash": key},
+                components=hit.components,
+                metadata={"params_hash": key, "cached_status": hit.status},
             )
         result = self.evaluator(sugg)
-        if result.sim_id is not None and result.status == "completed":
-            self.cache.put(key, result.sim_id)
+        if result.status == "completed" and math.isfinite(result.objective_value):
+            self.cache.put(
+                key,
+                result.sim_id,
+                objective_value=result.objective_value,
+                components=result.components,
+            )
         # Enrich metadata with hash for persistence.
         meta = dict(result.metadata or {})
         meta.setdefault("params_hash", key)

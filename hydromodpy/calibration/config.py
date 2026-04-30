@@ -3,7 +3,7 @@
 Minimal TOML::
 
     [calibration]
-    method       = "optuna"
+    method       = "grid"
     max_iter     = 200
     save_runs    = "best_n"
     save_best_n  = 10
@@ -59,16 +59,7 @@ OutputReducer = Literal["mean", "sum", "last", "none"]
 ObjectiveTransform = Literal["identity", "log", "inverse"]
 PersistIterationDetail = Literal["none", "summary", "full"]
 MetricKind = Literal["rmse", "nse", "kge", "mae"]
-CalibrationMethod = Literal[
-    "optuna",
-    "scipy_de",
-    "scipy_nelder_mead",
-    "grid",
-    "random_search",
-    "cma_es",
-    "gp_mapping",
-    "da_mh_gp",
-]
+CalibrationMethod = str
 
 
 class CalibParameterDecl(HydroModelBase):
@@ -202,8 +193,8 @@ class CalibrationConfig(HydroModelBase):
     model_config = ConfigDict(extra="forbid")
 
     method: Annotated[CalibrationMethod, Profile.USER] = Field(
-        default="optuna",
-        description="Optimization method. 'optuna' is the recommended default.",
+        default="grid",
+        description="Optimization method. Install the calibration extra for optuna or cma_es.",
     )
     max_iter: Annotated[int, Profile.USER] = Field(
         default=100,
@@ -290,6 +281,20 @@ class CalibrationConfig(HydroModelBase):
         description="Single switch governing every persistence sink "
         "(catalog, Zarr, Parquet, lockfile) for calibration outputs.",
     )
+
+    @field_validator("method")
+    @classmethod
+    def _validate_method(cls, value: str) -> str:
+        """Validate optimizer names through the runtime registry."""
+        method = str(value).strip()
+        from hydromodpy.calibration.optimizer import available_optimizers
+
+        available = available_optimizers()
+        if method not in available:
+            raise ValueError(
+                f"Unknown calibration method {method!r}. Available methods: {available}"
+            )
+        return method
 
     @field_validator("candidates_root", mode="before")
     @classmethod

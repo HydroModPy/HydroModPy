@@ -7,11 +7,11 @@ from hydromodpy.data.registry.constants import (
     SENTINEL_EMPTY,
 )
 
-__all__ = ["DataCatalogDuckDB", "DataCatalog", "SENTINEL_CUSTOM", "SENTINEL_EMPTY"]
+__all__ = ["DataCatalogDuckDB", "SENTINEL_CUSTOM", "SENTINEL_EMPTY"]
 
 
 def __getattr__(name: str):
-    if name in ("DataCatalog", "DataCatalogDuckDB"):
+    if name == "DataCatalogDuckDB":
         from hydromodpy.data.registry.catalog_duckdb import DataCatalogDuckDB
 
         return DataCatalogDuckDB

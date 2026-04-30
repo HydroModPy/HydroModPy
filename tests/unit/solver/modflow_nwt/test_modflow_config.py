@@ -242,6 +242,34 @@ def test_hydromodpy_config_rejects_legacy_flat_modflow_schema(tmp_path: Path):
         HydroModPyConfig.from_toml(toml_path)
 
 
+def test_hydromodpy_config_rejects_unknown_top_level_sections(tmp_path: Path):
+    dem_path = tmp_path / "dem.tif"
+    dem_path.touch()
+
+    toml_path = tmp_path / "config.toml"
+    toml_path.write_text(
+        "\n".join(
+            [
+                'workflow = "simulation"',
+                "[workspace]",
+                f'project_root = "{tmp_path}"',
+                f'root = "{tmp_path}"',
+                "",
+                "[geographic]",
+                'catch_def = "dem"',
+                'dem_init_path = "dem.tif"',
+                "",
+                "[unexpected]",
+                "enabled = true",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError, match="Unknown top-level TOML section"):
+        HydroModPyConfig.from_toml(toml_path)
+
+
 def test_hydromodpy_config_loads_independent_modflow6_runtime(tmp_path: Path):
     dem_path = tmp_path / "dem.tif"
     dem_path.touch()

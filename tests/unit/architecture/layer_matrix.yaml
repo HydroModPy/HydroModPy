@@ -1,4 +1,4 @@
-# Layer matrix contract — see unified_architecture/20_ENCAPSULATION_AND_COUPLING.md §2.
+# Layer matrix contract - see docs/developers/architecture.md.
 #
 # Each row lists the set of packages a source layer is allowed to import.
 # A package always implicitly allows imports targeting itself.
@@ -24,12 +24,12 @@ allowed:
 # Cross-edges tolerated for now. Each tolerance must point at a documented
 # rationale. Empty until R0 lands. Tighten over time.
 tolerances:
-  - {src: data,        tgt: spatial,  reason: "geology field bridging — see 20_ENCAPSULATION_AND_COUPLING.md §4.3"}
+  - {src: data,        tgt: spatial,  reason: "geology field bridging"}
   - {src: calibration, tgt: results,  reason: "calibration reads catalog at planning time"}
   - {src: simulation,  tgt: solver,   reason: "simulation queries solver registry"}
   - {src: results,     tgt: spatial,  reason: "results stores spatial indices"}
-  - {src: analysis,    tgt: physics,  reason: "history contract — 20_ENCAPSULATION_AND_COUPLING.md §2 ?-cell"}
-  - {src: results,     tgt: solver,   reason: "catalog stores solver registry id — 20_ENCAPSULATION_AND_COUPLING.md §2 ?-cell"}
+  - {src: analysis,    tgt: physics,  reason: "history contract"}
+  - {src: results,     tgt: solver,   reason: "catalog stores solver registry id"}
 
 # Files exempt from the layer rule. Bootstrap shims that wire forward refs,
 # plus *.cases.run_*case.py CLI entrypoints that load HydroModPyConfig from a

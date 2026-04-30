@@ -219,7 +219,11 @@ class TestRunTrialLight:
     def test_runs_only_downstream_slice(self, tmp_path: Path) -> None:
         trial_ctx, steps = _make_trial_context(tmp_path, earliest=6)
         # First trial
-        result = run_trial_light(trial_ctx, {"K": 1.0})
+        result = run_trial_light(
+            trial_ctx,
+            {"K": 1.0},
+            metric_fn=lambda ctx, *, objective, variable: (0.0, {}),
+        )
         assert isinstance(result, TrialResult)
         assert result.status == "completed"
         # steps[0..5] must NOT have been called (they are the shared prep)
@@ -249,15 +253,17 @@ class TestRunTrialLight:
         assert result.primary_metric != result.primary_metric  # NaN
         assert "solver crashed" in (result.error or "")
 
-    def test_default_metric_returns_nan(self, tmp_path: Path) -> None:
-        """Phase 1 ships a stub metric extractor (NaN + empty metrics).
+    def test_default_metric_returns_failed_result(self, tmp_path: Path) -> None:
+        """The stub metric extractor fails the trial with a non-finite objective.
 
         The real extractor is swapped in by the calibration CLI in Phase 2.
         """
         trial_ctx, _ = _make_trial_context(tmp_path, earliest=6)
         result = run_trial_light(trial_ctx, {"K": 1.0})
+        assert result.status == "failed"
         assert result.primary_metric != result.primary_metric  # NaN
         assert result.metrics == {}
+        assert result.error == "metric_fn returned a non-finite objective"
 
     def test_custom_metric_fn_is_used_when_supplied(self, tmp_path: Path) -> None:
         trial_ctx, _ = _make_trial_context(tmp_path, earliest=6)

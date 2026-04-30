@@ -208,8 +208,7 @@ def get_extractor(solver_name: str) -> type:
 def get_extractor_instance(solver_name: str) -> Any | None:
     """Return a freshly-instantiated extractor, or ``None`` when unknown.
 
-    Used by ``post_run_results`` to stay silent when a solver has no
-    extractor (e.g. third-party pipeline stages).
+    ``post_run_results`` treats ``None`` as a configuration error.
     """
     try:
         cls = get_extractor(solver_name)

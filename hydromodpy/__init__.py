@@ -5,12 +5,14 @@ from __future__ import annotations
 import importlib
 
 from hydromodpy._api import (
+    batch,
     calibrate,
     compare_methods,
     compare_pair,
     doctor,
     mesh,
     open,
+    overview,
     report,
     run,
 )
@@ -54,6 +56,8 @@ __all__ = [
     "open",
     "run",
     "calibrate",
+    "overview",
+    "batch",
     "compare_pair",
     "compare_methods",
     "mesh",
@@ -85,7 +89,6 @@ __all__ = [
     "Run",
     "SimulationConfig",
     "SimulationPlan",
-    "Catalog",
     "SimulationCatalog",
     "SimulationGroup",
     # Data variables

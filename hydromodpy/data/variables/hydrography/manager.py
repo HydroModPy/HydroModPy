@@ -20,7 +20,7 @@ from hydromodpy.data.variables.hydrography.result import HydrographyResult
 from hydromodpy.spatial.delineation import get_whitebox_backend
 
 if TYPE_CHECKING:
-    from hydromodpy.data.registry.catalog_duckdb import DataCatalogDuckDB as DataCatalog
+    from hydromodpy.data.registry.catalog_duckdb import DataCatalogDuckDB
 
 logger = get_logger(__name__)
 
@@ -36,7 +36,7 @@ class HydrographyManager:
         config: HydrographyConfig,
         geographic: object,
         out_path: str | Path,
-        catalog: DataCatalog | None = None,
+        catalog: DataCatalogDuckDB | None = None,
         data_dir: Path | None = None,
         stable_folder: str | Path | None = None,
     ) -> None:

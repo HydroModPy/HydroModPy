@@ -275,7 +275,7 @@ def cleanup_run(
         cleanup_stable_folder(geo)
 
     if close_store:
-        step_finalize_store(ctx, wall_seconds=wall_seconds)
+        step_finalize_store(ctx, wall_seconds=wall_seconds, status=status)
     elif ctx.store is not None:
         ctx.store.finalize(sim_id, status=status, duration_s=wall_seconds)
 

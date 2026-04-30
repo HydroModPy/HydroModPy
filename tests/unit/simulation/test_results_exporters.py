@@ -27,6 +27,7 @@ def catalog_with_data(tmp_path):
         n_cells=n_cells,
         n_layers=n_layers,
         n_timesteps=n_ts,
+        crs="EPSG:2154",
     )
     if reg.zarr is not None:
         reg.zarr.close()
@@ -60,6 +61,8 @@ def catalog_with_data(tmp_path):
 
     z_intf = np.array([10.0, 5.0, 0.0])
     c.write_mesh(sid, verts, conn, z_intf)
+    c.write_time(sid, np.array([0, 86400, 172800], dtype="int64"))
+    c.write_crs(sid, crs_wkt="EPSG:2154", epsg_code=2154)
 
     rng = np.random.default_rng(42)
     for t in range(n_ts):
@@ -82,7 +85,7 @@ class TestNetCDFExport:
         result = catalog.export(sid, "head", "netcdf", out)
         assert result.exists()
 
-        ds = xr.open_dataset(out)
+        ds = xr.open_dataset(out, decode_times=False)
         assert "head" in ds
         assert "mesh2d" in ds
         assert "node_x" in ds
@@ -107,7 +110,7 @@ class TestNetCDFExport:
 
         out = tmp_path / "multi.nc"
         result = catalog.export(sid, "head,watertable_depth", "netcdf", out)
-        ds = xr.open_dataset(out)
+        ds = xr.open_dataset(out, decode_times=False)
         assert "head" in ds
         assert "watertable_depth" in ds
         assert ds["watertable_depth"].dims == ("time", "n_face")
@@ -117,8 +120,9 @@ class TestNetCDFExport:
         catalog, sid, tmp_path = catalog_with_data
         out = tmp_path / "subset.nc"
         result = catalog.export(sid, "head", "netcdf", out, timesteps=[0, 2])
-        ds = xr.open_dataset(out)
+        ds = xr.open_dataset(out, decode_times=False)
         assert ds["head"].shape[0] == 2
+        np.testing.assert_array_equal(ds["time"].values, np.array([0, 172800]))
         ds.close()
 
 

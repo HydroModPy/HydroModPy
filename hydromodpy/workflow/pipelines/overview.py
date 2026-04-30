@@ -85,11 +85,7 @@ class DataOverviewLauncher:
         )
 
         geo_cfg = state.cfg.geographic
-        if (
-            geo_cfg.dem_init_path is not None
-            and Path(geo_cfg.dem_init_path).name != "__DEM_API_BOOTSTRAP__"
-            and geo_cfg.dem_init_path.exists()
-        ):
+        if geo_cfg.dem_init_path is not None and geo_cfg.dem_init_path.exists():
             return
 
         cache_dir = None

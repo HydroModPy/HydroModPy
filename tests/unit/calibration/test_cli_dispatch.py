@@ -27,7 +27,7 @@ def _write_rich_calibration_toml(path: Path) -> Path:
 workflow = "calibration"
 
 [calibration]
-method = "cma_es"
+method = "grid"
 max_iter = 20
 seed = 42
 objective = "rmse"
@@ -69,7 +69,7 @@ class TestDispatchCalibrationEnriched:
         path = _write_rich_calibration_toml(tmp_path / "calib.toml")
         data = load_raw_toml(path)
         cfg = CalibrationConfig.model_validate(data["calibration"])
-        assert cfg.method == "cma_es"
+        assert cfg.method == "grid"
         assert "K_aquifer" in cfg.parameters
         assert cfg.parameters["K_aquifer"].target == "flow.param.K.value"
         assert cfg.parameters["K_aquifer"].mode == "replace"

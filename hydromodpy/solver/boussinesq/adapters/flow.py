@@ -13,8 +13,6 @@ from dataclasses import replace
 from pathlib import Path
 from typing import Any
 
-import pandas as pd
-
 from hydromodpy.core.exceptions import SolverDivergedError
 from hydromodpy.simulation.planning.plan import RunContext, RunExecutionResult
 from hydromodpy.solver.base.cleanup import cleanup_solver_files
@@ -49,19 +47,18 @@ class BoussinesqFlowAdapter:
         *,
         variable: str,
         station_cells: Mapping[str, tuple[int, int, int]] | None = None,
-        time_index: pd.DatetimeIndex | None = None,
-    ) -> pd.Series:
+        time_index: Any = None,
+    ) -> Any:
         """Read the simulated calibration series from the Boussinesq scratch dir.
 
-        The Boussinesq output format (``_boussinesq_state_history.npz``) does
-        not yet expose a head-at-cell lookup matching MODFLOW's HDS layout, so
-        this method returns an empty Series for now and the trial naturally
-        scores as NaN (the optimizer skips it). Slated for a follow-up that
-        wires the npz reader through the cold-path ``store`` once the mesh
-        ``(layer, row, col)`` mapping is available.
+        The Boussinesq output format is not yet wired into the calibration
+        extractor contract. Failing explicitly prevents NaN-scored trials from
+        being reported as valid calibration evaluations.
         """
         del ctx, store, station_cells, time_index
-        return pd.Series(dtype=float, name=variable)
+        raise NotImplementedError(
+            f"Boussinesq calibration extraction is not implemented for variable {variable!r}."
+        )
 
     def execute(self, ctx: RunContext) -> RunExecutionResult:
         """Instantiate and execute one Boussinesq flow run."""

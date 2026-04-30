@@ -5,10 +5,10 @@ from __future__ import annotations
 from pathlib import Path
 
 import numpy as np
-import zarr
 
 from hydromodpy.core.logging import get_logger
 from hydromodpy.results import field_registry
+from hydromodpy.results.zarr_store import SimulationZarr
 
 logger = get_logger(__name__)
 
@@ -56,14 +56,24 @@ def export_vtu(
 
     descriptor = field_registry.get(variable)
 
-    root = zarr.open_group(str(zarr_path), mode="r")
-    grp = root
-    mesh = grp["mesh"]
+    sz = SimulationZarr(zarr_path)
+    try:
+        grp = sz.root
+        mesh = grp["mesh"]
+        vertices = mesh["vertices"][:]
+        connectivity = mesh["face_node_connectivity"][:]
+        max_vpf = connectivity.shape[1]
 
-    vertices = mesh["vertices"][:]
-    connectivity = mesh["face_node_connectivity"][:]
-    connectivity.shape[0]
-    max_vpf = connectivity.shape[1]
+        # Read field data
+        arr = _resolve_zarr_path(grp, descriptor.zarr_path)
+        if arr is None:
+            raise KeyError(
+                f"Variable '{variable}' (zarr_path={descriptor.zarr_path!r}) "
+                f"not found for sim={sim_id}"
+            )
+        data = arr[timestep]
+    finally:
+        sz.close()
 
     # Pad vertices to 3D if needed
     if vertices.shape[1] == 2:
@@ -72,14 +82,6 @@ def export_vtu(
     # Build meshio cells from face_node_connectivity
     cells = _build_meshio_cells(connectivity, max_vpf)
 
-    # Read field data
-    arr = _resolve_zarr_path(grp, descriptor.zarr_path)
-    if arr is None:
-        raise KeyError(
-            f"Variable '{variable}' (zarr_path={descriptor.zarr_path!r}) not found for sim={sim_id}"
-        )
-
-    data = arr[timestep]
     if data.ndim == 2:
         # 3D field (layer, cell) → extract one layer
         data = data[layer or 0]

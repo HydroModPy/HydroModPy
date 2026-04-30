@@ -15,24 +15,16 @@
 import glob
 import os
 import shutil
-import sys
-
-# Root
-from os.path import abspath, dirname
 from pathlib import Path
 
 import geopandas as gpd
 import numpy as np
 import pandas as pd
 
-from hydromodpy.spatial.delineation import get_whitebox_backend
-
-root_dir = dirname(dirname(abspath(__file__)))
-sys.path.append(root_dir)
-
 # HydroModPy
-from hydromodpy.core.io.filesystem import create_folder  # noqa: E402
-from hydromodpy.core.logging import get_logger  # noqa: E402
+from hydromodpy.core.io.filesystem import create_folder
+from hydromodpy.core.logging import get_logger
+from hydromodpy.spatial.delineation import get_whitebox_backend
 
 logger = get_logger(__name__)
 

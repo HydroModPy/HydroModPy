@@ -190,7 +190,7 @@ at the value written in the TOML. Here `Sy` and `Ss` are frozen at
 
 ```toml
 [calibration]
-method = "optuna"
+method = "grid"
 max_iter = 40
 batch_size = 1
 save_runs = "best_n"
@@ -205,7 +205,7 @@ Exhaustive option reference:
 
 | Option | Values | Default | Effect |
 |---|---|---|---|
-| `method` | `optuna` / `grid` / `scipy_de` / `scipy_nelder_mead` | `optuna` | Sampler backing the ask/tell loop. |
+| `method` | `grid` / `random_search` / `optuna` / `scipy_de` / `scipy_nelder_mead` | `grid` | Sampler backing the ask/tell loop. `optuna` and `cma_es` require the calibration extra. |
 | `max_iter` | integer ≥ 1 | `100` | Maximum number of trial evaluations. |
 | `save_runs` | `none` / `best_n` / `all` | `none` | How many trials to promote to full simulations after the loop. |
 | `save_best_n` | integer ≥ 0 | `10` | Number of top trials promoted when `save_runs = "best_n"`. **Ignored** when `save_runs != "best_n"`. |
@@ -282,7 +282,7 @@ path = "domain.depth_model.thickness"
 | Use case | Block |
 |---|---|
 | Quick exploratory sweep (1-2 params) | `method = "grid"`, `max_iter ≈ 25`, `save_runs = "none"` |
-| Default production calibration | `method = "optuna"`, `max_iter = 100`, `save_runs = "best_n"`, `save_best_n = 5`, `seed = 42` |
+| Default production calibration | `method = "grid"`, `max_iter = 100`, `save_runs = "best_n"`, `save_best_n = 5`, `seed = 42` |
 | Multi-dim continuous (3+ params) | `method = "optuna"`, `optimizer_kwargs = {sampler = "cmaes"}`, `max_iter = 300` |
 | Local refinement near a known optimum | `method = "scipy_nelder_mead"`, `max_iter = 80` |
 | Full Bayesian posterior (Phase 4) | `method = "da_mh_gp"`, `max_iter = 2000`, `save_runs = "best_n"`, `save_best_n = 10` |

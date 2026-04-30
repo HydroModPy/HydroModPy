@@ -10,11 +10,9 @@ asks the run's :class:`SolverAdapter` to produce the simulated series via
 
 Solver coverage is owned by the adapters: the lightweight reader for
 MODFLOW-NWT and MODFLOW 6 lives in
-``hydromodpy.solver.modflow_common.calibration_extractors``; Boussinesq
-and GR4J have stub implementations that return an empty series until the
-follow-up extractor wiring lands. When an adapter returns an empty
-series, the trial reports ``status="completed"`` but its objective
-becomes ``nan`` and the optimizer naturally skips it.
+``hydromodpy.solver.modflow_common.calibration_extractors``. Unsupported
+adapters raise explicit errors so failed calibration trials do not look
+like valid NaN-scored evaluations.
 """
 
 from __future__ import annotations
@@ -350,15 +348,14 @@ def build_metric_extractor(
 
     observed = _load_observed(ctx, variable) if variable else []
     if not observed:
-        logger.warning(
-            "No observations for variable=%r; metric extractor will return NaN.",
-            variable,
-        )
+        logger.warning("No observations for variable=%r.", variable)
 
     def metric_fn(trial_ctx: Any, *, objective: str = objective, variable: str = variable):
         resolved = _resolve_flow_adapter(trial_ctx)
-        if resolved is None or not observed:
-            return float("nan"), {}
+        if resolved is None:
+            raise NotImplementedError("No flow solver adapter available for calibration")
+        if not observed:
+            raise ValueError(f"No observations available for calibration variable {variable!r}")
         adapter, run_ctx = resolved
 
         time_idx = _resolve_time_index(trial_ctx, n_timesteps=0)
@@ -371,7 +368,9 @@ def build_metric_extractor(
                     time_index=time_idx,
                 )
                 if simulated.empty:
-                    return float("nan"), {}
+                    raise NotImplementedError(
+                        f"Solver {run_ctx.run.solver!r} returned no discharge calibration series"
+                    )
                 # Add the surface runoff forcing (data layer) to the
                 # baseflow component drained by MODFLOW so the simulated
                 # signal matches the total streamflow recorded by the
@@ -385,7 +384,7 @@ def build_metric_extractor(
                     if not np.isnan(cost):
                         costs.append(cost)
                 if not costs:
-                    return float("nan"), components
+                    raise ValueError("No finite discharge calibration costs were produced")
                 return float(np.mean(costs)), components
 
             elif variable == "head":
@@ -394,7 +393,9 @@ def build_metric_extractor(
                 # flesh out a dedicated mapper.
                 station_cells = _resolve_station_cells(trial_ctx, observed)
                 if not station_cells:
-                    return float("nan"), {}
+                    raise NotImplementedError(
+                        "No station-to-cell mapping available for head calibration"
+                    )
                 components = {}
                 costs = []
                 for obs_rec in observed:
@@ -409,24 +410,22 @@ def build_metric_extractor(
                         time_index=time_idx,
                     )
                     if sim.empty:
-                        continue
+                        raise NotImplementedError(
+                            f"Solver {run_ctx.run.solver!r} returned no head calibration series"
+                        )
                     cost = _score(obs_rec.series, sim, objective)
                     components[f"{objective}@{obs_rec.station_id}"] = cost
                     if not np.isnan(cost):
                         costs.append(cost)
                 if not costs:
-                    return float("nan"), components
+                    raise ValueError("No finite head calibration costs were produced")
                 return float(np.mean(costs)), components
 
             else:
-                logger.warning(
-                    "Calibration variable %r not supported yet (add a branch here).",
-                    variable,
-                )
-                return float("nan"), {}
-        except Exception as exc:
+                raise NotImplementedError(f"Calibration variable {variable!r} is not supported")
+        except Exception:
             logger.exception("Metric extractor failed")
-            return float("nan"), {"error": -1.0, "__error__": str(exc)}  # type: ignore[return-value]
+            raise
 
     return metric_fn
 
@@ -439,8 +438,7 @@ def _resolve_station_cells(
 
     Reads lat/lon from the station metadata and intersects with the
     model grid when available. Returns an empty dict when the mapping
-    cannot be resolved - head calibration then degrades to NaN which
-    the optimizer will skip.
+    cannot be resolved.
     """
     domain = getattr(ctx.setup, "domain", None)
     mesh = getattr(ctx.setup, "mesh_planar", None)
@@ -514,24 +512,21 @@ def _extract_point(ctx: Any, output: CalibOutputDecl) -> list[float]:
     """Extract a head time series at the (x, y) point declared on ``output``.
 
     Resolves the closest cell in the structured MODFLOW-NWT grid (layer 0)
-    by searching the planar mesh centroids. When the trial context does
-    not expose a structured grid (MODFLOW 6 / unsupported solver) or the
-    ``.hds`` file is missing, returns ``[nan]`` so callers can keep
-    operating without crashing.
+    by searching the planar mesh centroids.
     """
     resolved = _resolve_flow_adapter(ctx)
     if resolved is None:
-        return [float("nan")]
+        raise NotImplementedError("No flow solver adapter available for point extraction")
     adapter, run_ctx = resolved
 
     x_m = _coerce_length_to_m(output.x)
     y_m = _coerce_length_to_m(output.y)
     if x_m is None or y_m is None:
-        return [float("nan")]
+        raise ValueError("Point calibration output requires x and y")
 
     cell = _find_cell_at_point(ctx, x_m, y_m)
     if cell is None:
-        return [float("nan")]
+        raise NotImplementedError("Could not map point calibration output to a solver cell")
     sim = adapter.extract_calibration_series(
         run_ctx,
         None,
@@ -540,7 +535,7 @@ def _extract_point(ctx: Any, output: CalibOutputDecl) -> list[float]:
         time_index=None,
     )
     if sim.empty:
-        return [float("nan")]
+        raise NotImplementedError("Solver returned no point calibration series")
     return _slice_time(sim.values, output.time, output.reducer)
 
 
@@ -549,12 +544,11 @@ def _extract_boundary(ctx: Any, output: CalibOutputDecl) -> list[float]:
 
     The current implementation reuses the catchment-wide DRAIN summation
     exposed by ``SolverAdapter.extract_calibration_series(variable="discharge")``.
-    Filtering by named boundary id requires a boundname-aware reader; left
-    as a follow-up. Returns ``[nan]`` when the adapter has nothing to read.
+    Filtering by named boundary id requires a boundname-aware reader.
     """
     resolved = _resolve_flow_adapter(ctx)
     if resolved is None:
-        return [float("nan")]
+        raise NotImplementedError("No flow solver adapter available for boundary extraction")
     adapter, run_ctx = resolved
 
     sim = adapter.extract_calibration_series(
@@ -564,7 +558,7 @@ def _extract_boundary(ctx: Any, output: CalibOutputDecl) -> list[float]:
         time_index=None,
     )
     if sim.empty:
-        return [float("nan")]
+        raise NotImplementedError("Solver returned no boundary calibration series")
     return _slice_time(sim.values, output.time, output.reducer)
 
 
@@ -573,12 +567,11 @@ def _extract_cell(ctx: Any, output: CalibOutputDecl) -> list[float]:
 
     The current schema does not expose ``row`` / ``col`` explicitly on
     :class:`CalibOutputDecl` (twin benchmarks pass ``support="cell"`` to
-    bypass coordinate lookup). Returns ``[nan]`` until the schema gains
-    explicit indices; the API entry point is in place for callers that
-    pre-resolve a cell elsewhere.
+    bypass coordinate lookup). The API entry point is in place for callers
+    that pre-resolve a cell elsewhere.
     """
     del ctx, output
-    return [float("nan")]
+    raise NotImplementedError("Cell calibration outputs require explicit row/column schema support")
 
 
 def _find_cell_at_point(ctx: Any, x: float, y: float) -> tuple[int, int, int] | None:
@@ -592,8 +585,8 @@ def _find_cell_at_point(ctx: Any, x: float, y: float) -> tuple[int, int, int] | 
        straight from ``[modflownwt.sgrid.planar]`` to the solver
        without building a planar mesh.
 
-    Returns ``None`` (caller emits NaN) when neither source resolves a
-    cell — typically MODFLOW 6 / unsupported grids.
+    Returns ``None`` when neither source resolves a cell, typically
+    MODFLOW 6 or unsupported grids.
     """
     mesh = getattr(getattr(ctx, "setup", None), "mesh_planar", None)
     if mesh is not None:
@@ -670,13 +663,17 @@ def _build_composite_metric_extractor(
                     simulated_by_output[name] = _extract_cell(trial_ctx, decl)
             except Exception as exc:
                 logger.exception("Output %r extraction failed", name)
-                return float("nan"), {"__error__": f"{type(exc).__name__}: {exc}"}
+                raise RuntimeError(
+                    f"Output {name!r} extraction failed: {type(exc).__name__}: {exc}"
+                ) from exc
 
         try:
             value = composite.evaluate(simulated_by_output)
         except Exception as exc:
             logger.exception("Composite objective evaluation failed")
-            return float("nan"), {"__error__": f"{type(exc).__name__}: {exc}"}
+            raise RuntimeError(
+                f"Composite objective evaluation failed: {type(exc).__name__}: {exc}"
+            ) from exc
 
         components = {key: float(val) for key, val in value.components.items()}
         total = float(value.total)

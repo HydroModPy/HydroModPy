@@ -66,7 +66,9 @@ def resolve_dem_init_path(cfg: object, run_state: WorkflowContext) -> None:
         return
 
     existing = getattr(geographic_cfg, "dem_init_path", None)
-    if existing is not None and Path(existing).name != "__DEM_API_BOOTSTRAP__":
+    if existing is not None:
+        return
+    if not _cfg_declares_dem_source(cfg):
         return
 
     from hydromodpy.data.variables.dem.resolver import (
@@ -75,7 +77,10 @@ def resolve_dem_init_path(cfg: object, run_state: WorkflowContext) -> None:
 
     config_path = run_state.config_path
     if config_path is None:
-        return
+        raise ConfigError(
+            "geographic.dem_init_path is missing and no config path is available "
+            "to resolve [[data.dem.sources]]."
+        )
 
     cache_dir = None
     workspace = run_state.setup.workspace
@@ -91,6 +96,16 @@ def resolve_dem_init_path(cfg: object, run_state: WorkflowContext) -> None:
     )
     if resolved is not None:
         geographic_cfg.dem_init_path = resolved
+        return
+    raise ConfigError(
+        "geographic.dem_init_path is missing and [[data.dem.sources]] did not resolve."
+    )
+
+
+def _cfg_declares_dem_source(cfg: object) -> bool:
+    data_cfg = getattr(cfg, "data", None)
+    dem_cfg = getattr(data_cfg, "dem", None)
+    return bool(getattr(dem_cfg, "sources", None))
 
 
 # ---------------------------------------------------------------------------

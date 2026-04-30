@@ -7,14 +7,12 @@ Covers Phase 3 of the calibration integration:
 - With ``outputs`` and ``objective_blocks`` the extractor routes through
   :func:`build_objective_from_config` and exposes per-block costs as
   components.
-- The point / boundary helpers degrade gracefully when the trial
-  context does not expose a flow run (returns ``[nan]`` instead of
-  raising).
+- The point / boundary helpers fail loudly when the trial context does
+  not expose a flow run.
 """
 
 from __future__ import annotations
 
-import math
 from types import SimpleNamespace
 
 import pytest
@@ -57,15 +55,14 @@ class TestLegacyFallback:
             outputs=None,
             objective_blocks=None,
         )
-        primary, components = metric_fn(ctx, objective="rmse", variable="head")
-        assert math.isnan(primary)
-        assert components == {}
+        with pytest.raises(NotImplementedError, match="No flow solver adapter"):
+            metric_fn(ctx, objective="rmse", variable="head")
 
     def test_falls_back_when_outputs_empty(self):
         ctx = _empty_ctx()
         metric_fn = build_metric_extractor("head", "rmse", ctx, outputs={}, objective_blocks=[])
-        primary, _ = metric_fn(ctx, objective="rmse", variable="head")
-        assert math.isnan(primary)
+        with pytest.raises(NotImplementedError, match="No flow solver adapter"):
+            metric_fn(ctx, objective="rmse", variable="head")
 
 
 # ---------------------------------------------------------------------------
@@ -99,14 +96,8 @@ class TestCompositeRouting:
             outputs=outputs,
             objective_blocks=blocks,
         )
-        # ``_extract_cell`` returns [nan] on a stub context. The composite
-        # propagates that into a non-finite total but we still want the
-        # block components to be returned.
-        primary, components = metric_fn(ctx)
-        assert isinstance(primary, float)
-        # Either the cost is nan (insufficient data) or +inf (no data).
-        assert math.isnan(primary) or math.isinf(primary)
-        assert isinstance(components, dict)
+        with pytest.raises(RuntimeError, match="Output 'head_A' extraction failed"):
+            metric_fn(ctx)
 
     def test_composite_total_matches_block_when_simulated_provided(self):
         """When the extractor is replaced with a stub returning known
@@ -149,22 +140,23 @@ class TestHelpers:
         assert _slice_time(arr, "all", "sum")[0] == pytest.approx(10.0)
         assert _slice_time(arr, "all", "last") == [4.0]
 
-    def test_extract_point_returns_nan_when_no_flow_run(self):
+    def test_extract_point_raises_when_no_flow_run(self):
         ctx = _empty_ctx()
         out = CalibOutputDecl.model_validate(
             {"variable": "head", "support": "point", "x": 1.0, "y": 2.0}
         )
-        assert _extract_point(ctx, out) == [float("nan")] or math.isnan(_extract_point(ctx, out)[0])
+        with pytest.raises(NotImplementedError, match="No flow solver adapter"):
+            _extract_point(ctx, out)
 
-    def test_extract_boundary_returns_nan_when_no_flow_run(self):
+    def test_extract_boundary_raises_when_no_flow_run(self):
         ctx = _empty_ctx()
         out = CalibOutputDecl.model_validate(
             {"variable": "discharge", "support": "boundary", "boundary_id": "outlet"}
         )
-        result = _extract_boundary(ctx, out)
-        assert len(result) == 1 and math.isnan(result[0])
+        with pytest.raises(NotImplementedError, match="No flow solver adapter"):
+            _extract_boundary(ctx, out)
 
-    def test_extract_cell_returns_nan(self):
+    def test_extract_cell_raises_until_schema_supports_indices(self):
         out = CalibOutputDecl.model_validate({"variable": "head", "support": "cell"})
-        result = _extract_cell(_empty_ctx(), out)
-        assert len(result) == 1 and math.isnan(result[0])
+        with pytest.raises(NotImplementedError, match="explicit row/column schema"):
+            _extract_cell(_empty_ctx(), out)

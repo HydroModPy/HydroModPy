@@ -11,8 +11,8 @@ verify:
   expected number of trials,
 - promoted ``sim_id`` values are back-filled into
   ``calibration_iterations``,
-- the ``ParamsHashCache`` preloads previously-promoted
-  ``params_hash → sim_id`` mappings at the start of a new session,
+- the ``ParamsHashCache`` preloads previously-promoted objective values
+  at the start of a new session,
 - the ``objective="module.path:fn"`` escape hatch resolves and invokes
   the user-supplied callable.
 """
@@ -314,8 +314,8 @@ class TestCachePreload:
 
         # Session 2 - same TOML, cache should preload.
         run_calibration_cli(calib_toml, metric_fn=quadratic_metric)
-        # Each of the 2 promoted rows should have left a params_hash → sim_id
-        # mapping that the second session's preload picked up.
+        # Each promoted row should have left a params_hash cache entry that
+        # the second session's preload picked up.
         assert len(preloaded_snapshot) >= 2
 
 

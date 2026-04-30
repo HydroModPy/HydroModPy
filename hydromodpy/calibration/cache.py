@@ -11,6 +11,7 @@ import hashlib
 import json
 import math
 from collections.abc import Mapping
+from dataclasses import dataclass
 
 
 def canonical_json(values: Mapping[str, float], *, precision: int = 12) -> str:
@@ -42,27 +43,50 @@ def params_hash(values: Mapping[str, float], *, precision: int = 12) -> str:
     return hashlib.sha256(payload).hexdigest()
 
 
+@dataclass(frozen=True, slots=True)
+class CachedEvaluation:
+    """Cached objective for one parameter hash."""
+
+    sim_id: str | None
+    objective_value: float
+    status: str = "completed"
+    components: Mapping[str, float] | None = None
+
+
 class ParamsHashCache:
-    """In-memory cache mapping params_hash → sim_id.
+    """In-memory cache mapping params_hash to evaluated objective.
 
     Thin wrapper; persistence is handled by the DuckDB ``calibration_iterations``
     table (column ``params_hash``). This class is for the current run only.
     """
 
     def __init__(self) -> None:
-        self._hits: dict[str, str] = {}
+        self._hits: dict[str, CachedEvaluation] = {}
 
     def __contains__(self, key: str) -> bool:
         return key in self._hits
 
-    def get(self, key: str) -> str | None:
+    def get(self, key: str) -> CachedEvaluation | None:
         return self._hits.get(key)
 
-    def put(self, key: str, sim_id: str) -> None:
-        self._hits[key] = sim_id
+    def put(
+        self,
+        key: str,
+        sim_id: str | None,
+        *,
+        objective_value: float,
+        status: str = "completed",
+        components: Mapping[str, float] | None = None,
+    ) -> None:
+        self._hits[key] = CachedEvaluation(
+            sim_id=sim_id,
+            objective_value=float(objective_value),
+            status=status,
+            components=components,
+        )
 
     def __len__(self) -> int:
         return len(self._hits)
 
 
-__all__ = ["params_hash", "canonical_json", "ParamsHashCache"]
+__all__ = ["CachedEvaluation", "params_hash", "canonical_json", "ParamsHashCache"]

@@ -7,10 +7,13 @@ import uuid
 from pathlib import Path
 
 import duckdb
+import numpy as np
+import pandas as pd
 import pytest
 
 from hydromodpy.results.catalog import SimulationCatalog
 from hydromodpy.results.catalog_schema import (
+    CATALOG_SCHEMA_VERSION,
     PARQUET_VIEW_NAMES,
     TABLE_NAMES,
     VIEW_NAMES,
@@ -52,7 +55,7 @@ class TestSchema:
         ).fetchall()
         tables = {r[0] for r in rows}
         assert set(TABLE_NAMES) <= tables
-        assert len(TABLE_NAMES) == 14
+        assert len(TABLE_NAMES) == 15
 
     def test_parquet_views_present_as_empty(self, mem_conn):
         rows = mem_conn.execute(
@@ -65,12 +68,11 @@ class TestSchema:
             count = mem_conn.execute(f"SELECT COUNT(*) FROM {view}").fetchone()[0]
             assert count == 0
 
-    def test_schema_version_table_absent(self, mem_conn):
-        rows = mem_conn.execute(
-            "SELECT table_name FROM information_schema.tables WHERE table_schema='main'"
-        ).fetchall()
-        tables = {r[0] for r in rows}
-        assert "_schema_version" not in tables
+    def test_schema_version_table_records_catalog_version(self, mem_conn):
+        row = mem_conn.execute(
+            "SELECT version FROM _schema_version WHERE component = 'catalog'"
+        ).fetchone()
+        assert row == (CATALOG_SCHEMA_VERSION,)
 
     def test_config_snapshot_column_exists(self, mem_conn):
         row = mem_conn.execute(
@@ -133,6 +135,66 @@ class TestSchema:
                 ).fetchall()
             }
             assert "config_source" in cols_after
+        finally:
+            conn.close()
+
+    def test_ensure_schema_adds_zarr_packed_to_legacy_catalog(self):
+        from hydromodpy.results import catalog_schema as cs_mod
+
+        legacy_sim_ddl = cs_mod._SIMULATIONS_DDL.replace(
+            "    zarr_packed             BOOLEAN NOT NULL DEFAULT FALSE,\n", ""
+        )
+        conn = duckdb.connect(":memory:")
+        try:
+            conn.execute(legacy_sim_ddl)
+            ensure_schema(conn)
+            cols_after = {
+                r[0]
+                for r in conn.execute(
+                    "SELECT column_name FROM information_schema.columns "
+                    "WHERE table_name='simulations'"
+                ).fetchall()
+            }
+            assert "zarr_packed" in cols_after
+        finally:
+            conn.close()
+
+    def test_ensure_schema_migrates_provenance_source_type_check(self):
+        old_provenance_ddl = """
+        CREATE TABLE provenance (
+            sim_id         UUID NOT NULL,
+            variable       VARCHAR NOT NULL,
+            source_type    VARCHAR NOT NULL
+                CHECK (source_type IN ('http_api', 'custom_file', 'derived', 'cache')),
+            source_ref     VARCHAR NOT NULL,
+            source_sha256  VARCHAR,
+            payload_sha256 VARCHAR,
+            loader_name    VARCHAR,
+            loader_version VARCHAR,
+            fetched_at     TIMESTAMPTZ,
+            period_start   TIMESTAMPTZ,
+            period_end     TIMESTAMPTZ,
+            n_records      BIGINT,
+            stats          JSON,
+            PRIMARY KEY (sim_id, variable, source_ref)
+        );
+        """
+        conn = duckdb.connect(":memory:")
+        try:
+            conn.execute(old_provenance_ddl)
+            ensure_schema(conn)
+            sid = _sim_id()
+            conn.execute(
+                "INSERT INTO simulations (sim_id, project, solver) VALUES (?, 'p', 'mf6')",
+                [sid],
+            )
+            conn.execute(
+                "INSERT INTO provenance (sim_id, variable, source_type, source_ref) "
+                "VALUES (?, 'dem', 'data_manager', 'dem.tif')",
+                [sid],
+            )
+            row = conn.execute("SELECT source_type FROM provenance").fetchone()
+            assert row[0] == "data_manager"
         finally:
             conn.close()
 
@@ -258,6 +320,44 @@ class TestRegisterAndRead:
             if sz is not None:
                 sz.close()
 
+    def test_write_observations_populates_observation_table(self, catalog):
+        ts = pd.Series(
+            [1.0, 2.0],
+            index=pd.date_range("2020-01-01", periods=2, freq="D"),
+            name="discharge_obs",
+        )
+        catalog.write_observations("S1", "discharge", ts, unit="m3/s", quality="validated")
+        rows = catalog._connection.execute(
+            "SELECT station_id, variable_type, value, unit, quality "
+            "FROM observations ORDER BY datetime"
+        ).fetchall()
+        assert rows == [
+            ("S1", "discharge", 1.0, "m3/s", "validated"),
+            ("S1", "discharge", 2.0, "m3/s", "validated"),
+        ]
+
+    def test_write_timeseries_accepts_quality_flag(self, catalog):
+        sid = _sim_id()
+        catalog.register_simulation(sid, project="p", solver="modflow6")
+        ts = pd.Series(
+            [1.0],
+            index=pd.date_range("2020-01-01", periods=1, freq="D"),
+            name="discharge_obs",
+        )
+        catalog.write_timeseries(
+            sid,
+            station_id="S1",
+            variable="discharge_obs",
+            ts=ts,
+            unit="m3/s",
+            qflag="observed",
+        )
+        row = catalog._connection.execute(
+            "SELECT qflag FROM timeseries WHERE sim_id = ?",
+            [sid],
+        ).fetchone()
+        assert row == ("observed",)
+
 
 class TestPrimaryKeys:
     def test_parameters_pk_rejects_duplicates(self, mem_conn):
@@ -354,6 +454,47 @@ class TestChecks:
                 "INSERT INTO simulations (sim_id, project, solver, status) "
                 "VALUES (?, 'p', 'mf6', 'bogus')",
                 [sid],
+            )
+
+    def test_status_enum_accepts_partial(self, mem_conn):
+        sid = _sim_id()
+        mem_conn.execute(
+            "INSERT INTO simulations (sim_id, project, solver, status) "
+            "VALUES (?, 'p', 'mf6', 'partial')",
+            [sid],
+        )
+        status = mem_conn.execute(
+            "SELECT status FROM simulations WHERE sim_id = ?",
+            [sid],
+        ).fetchone()[0]
+        assert status == "partial"
+
+    def test_provenance_accepts_data_manager_source_type(self, catalog):
+        sid = _sim_id()
+        catalog.register_simulation(sid, project="p", solver="modflow6")
+        catalog.write_provenance(
+            sid,
+            "dem",
+            "dem.tif",
+            np.ones(3),
+            source_type="data_manager",
+        )
+        source_type = catalog._connection.execute(
+            "SELECT source_type FROM provenance WHERE sim_id = ?",
+            [sid],
+        ).fetchone()[0]
+        assert source_type == "data_manager"
+
+    def test_provenance_rejects_unknown_source_type(self, catalog):
+        sid = _sim_id()
+        catalog.register_simulation(sid, project="p", solver="modflow6")
+        with pytest.raises(ValueError, match="Unknown provenance source_type"):
+            catalog.write_provenance(
+                sid,
+                "dem",
+                "dem.tif",
+                np.ones(3),
+                source_type="legacy",
             )
 
     def test_budget_component_accepts_any_nonempty_label(self, catalog):

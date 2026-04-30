@@ -102,10 +102,6 @@ class Run:
         return self._sim_id
 
     @property
-    def id(self) -> str:
-        return self._sim_id
-
-    @property
     def name(self) -> str | None:
         return self._load_row().get("name")
 
@@ -145,7 +141,7 @@ class Run:
         (full ``HydroModPyConfig.model_dump(mode='json')``). Use
         :attr:`hydromodpy_config` for a validated Pydantic instance.
         """
-        val = self._load_row().get("config_toml")
+        val = self._load_row().get("config_snapshot")
         if val is None:
             return None
         if isinstance(val, str):
@@ -389,22 +385,28 @@ class Run:
         layer: int | None = None,
     ) -> np.ndarray:
         sz = self._catalog.open_zarr(self._sim_id)
-        n_ts = self._load_row().get("n_timesteps")
-        if n_ts is not None and timestep < 0:
-            timestep = n_ts + timestep
-        return sz.read_field(variable, timestep, layer=layer)
+        try:
+            n_ts = self._load_row().get("n_timesteps")
+            if n_ts is not None and timestep < 0:
+                timestep = n_ts + timestep
+            return sz.read_field(variable, timestep, layer=layer)
+        finally:
+            sz.close()
 
     @property
     def mesh(self) -> Mesh:
         if self._load_row().get("solver_category") == "lumped":
             raise RuntimeError("lumped simulation has no spatial grid")
         sz = self._catalog.open_zarr(self._sim_id)
-        mesh_grp = sz.root["mesh"]
-        return Mesh(
-            vertices=mesh_grp["vertices"][:],
-            face_node_connectivity=mesh_grp["face_node_connectivity"][:],
-            z_interfaces=mesh_grp["z_interfaces"][:],
-        )
+        try:
+            mesh_grp = sz.root["mesh"]
+            return Mesh(
+                vertices=mesh_grp["vertices"][:],
+                face_node_connectivity=mesh_grp["face_node_connectivity"][:],
+                z_interfaces=mesh_grp["z_interfaces"][:],
+            )
+        finally:
+            sz.close()
 
     # -- Geographic ----------------------------------------------------------
 
@@ -413,14 +415,17 @@ class Run:
 
     def geographic_raster(self, name: str) -> RasterField:
         sz = self._catalog.open_zarr(self._sim_id)
-        data, meta = sz.read_geographic_raster(name)
-        return RasterField(
-            data=data,
-            transform=tuple(meta["transform"]),
-            crs=str(meta["crs"]),
-            nodata=float(meta["nodata"]),
-            shape=tuple(meta["shape"]),
-        )
+        try:
+            data, meta = sz.read_geographic_raster(name)
+            return RasterField(
+                data=data,
+                transform=tuple(meta["transform"]),
+                crs=str(meta["crs"]),
+                nodata=float(meta["nodata"]),
+                shape=tuple(meta["shape"]),
+            )
+        finally:
+            sz.close()
 
     @cached_property
     def grid(self) -> Grid:
@@ -605,13 +610,13 @@ class Run:
         try:
             row = self._load_row()
             return (
-                f"Run(id={self._sim_id!r}, "
+                f"Run(sim_id={self._sim_id!r}, "
                 f"project={row.get('project')!r}, "
                 f"solver={row.get('solver')!r}, "
                 f"status={row.get('status')!r})"
             )
         except KeyError:
-            return f"Run(id={self._sim_id!r}, <not found>)"
+            return f"Run(sim_id={self._sim_id!r}, <not found>)"
 
     def _repr_html_(self) -> str:
         try:

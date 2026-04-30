@@ -38,7 +38,7 @@ from hydromodpy.calibration.objective import (
 def _cfg_one_block() -> CalibrationConfig:
     return CalibrationConfig.model_validate(
         {
-            "method": "optuna",
+            "method": "grid",
             "objective": "rmse",
             "variable": "head",
             "outputs": {

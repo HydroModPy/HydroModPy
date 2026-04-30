@@ -61,7 +61,7 @@ def _point_record(station_id: str, variable: str, n_points: int = 5) -> _StubPoi
 
 def _query(catalog: SimulationCatalog, sim_id: str) -> pd.DataFrame:
     return catalog._connection.execute(
-        "SELECT station_id, variable, datetime, value, unit "
+        "SELECT station_id, variable, datetime, value, unit, qflag "
         "FROM timeseries WHERE sim_id = ? ORDER BY station_id, variable, datetime",
         [sim_id],
     ).fetchdf()
@@ -83,6 +83,12 @@ class TestIngest:
         assert list(rows["station_id"].unique()) == ["NANCON"]
         assert len(rows) == 5
         assert rows["unit"].iloc[0] == "m3/s"
+        assert rows["qflag"].unique().tolist() == ["observed"]
+        obs_rows = catalog._connection.execute(
+            "SELECT station_id, variable_type, value, unit FROM observations ORDER BY datetime"
+        ).fetchall()
+        assert obs_rows[0] == ("NANCON", "discharge", 0.0, "m3/s")
+        assert len(obs_rows) == 5
 
     def test_handles_multiple_managers(self, catalog):
         sid = _sim_id()
