@@ -5,12 +5,14 @@ This module exposes:
 - ``plot_domain_summary`` to export a quick validation PNG (top, vertical scalar maps,
   catchment zones, and optional geology classes).
 - a CLI entrypoint (``main``) for local runs and smoke checks.
+
+Run with:
+    python -m hydromodpy.spatial.domain.cases.run_domain_case
 """
 
 from __future__ import annotations
 
 import argparse
-import sys
 from pathlib import Path
 
 import matplotlib
@@ -19,12 +21,6 @@ import numpy as np
 import rasterio
 from matplotlib.colors import BoundaryNorm, ListedColormap
 from matplotlib.ticker import FuncFormatter, MaxNLocator, ScalarFormatter
-
-# Support direct execution from file path and ensure local package precedence.
-# Example: python hydromodpy/spatial/domain/cases/run_domain_case.py
-repo_root = Path(__file__).resolve().parents[3]
-if (repo_root / "hydromodpy").exists() and str(repo_root) not in sys.path:
-    sys.path.insert(0, str(repo_root))
 
 from hydromodpy.core.workspace import Workspace
 from hydromodpy.master_config.hydromodpy_config import HydroModPyConfig

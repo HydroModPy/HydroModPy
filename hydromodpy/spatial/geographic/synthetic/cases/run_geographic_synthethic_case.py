@@ -1,19 +1,17 @@
-"""Run a synthetic geographic-only case from a dedicated TOML configuration."""
+"""Run a synthetic geographic-only case from a dedicated TOML configuration.
+
+Run with:
+    python -m hydromodpy.spatial.geographic.synthetic.cases.run_geographic_synthethic_case
+"""
 
 from __future__ import annotations
 
 import argparse
-import sys
 from pathlib import Path
 
 import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib.ticker import ScalarFormatter
-
-# Support direct execution from file path and ensure local package precedence.
-repo_root = Path(__file__).resolve().parents[4]
-if (repo_root / "hydromodpy").exists() and str(repo_root) not in sys.path:
-    sys.path.insert(0, str(repo_root))
 
 from hydromodpy.spatial.geographic.synthetic import (
     SyntheticGeographicConfig,

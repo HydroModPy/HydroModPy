@@ -1,9 +1,12 @@
-"""Run one or multiple geographic-only cases from one TOML configuration."""
+"""Run one or multiple geographic-only cases from one TOML configuration.
+
+Run with:
+    python -m hydromodpy.spatial.geographic.cases.reference_catchment_delineation_case.run_case
+"""
 
 from __future__ import annotations
 
 import argparse
-import sys
 from pathlib import Path
 from typing import Any
 
@@ -12,12 +15,6 @@ import numpy as np
 import rasterio
 from matplotlib import pyplot as plt
 from matplotlib.ticker import ScalarFormatter
-
-# Allow direct script execution without requiring editable install.
-if __package__ in (None, ""):
-    _repo_root = Path(__file__).resolve().parents[4]
-    if str(_repo_root) not in sys.path:
-        sys.path.insert(0, str(_repo_root))
 
 from hydromodpy.core.workspace import Workspace
 from hydromodpy.master_config.hydromodpy_config import HydroModPyConfig

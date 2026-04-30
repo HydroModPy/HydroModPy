@@ -1,19 +1,17 @@
-"""Geology-to-property transfer demo using the generic field pipeline."""
+"""Geology-to-property transfer demo using the generic field pipeline.
+
+Run with:
+    python -m hydromodpy.data.variables.geology.cases.run_geology_property_case
+"""
 
 from __future__ import annotations
 
 import argparse
-import sys
-from pathlib import Path
 
 import matplotlib.pyplot as plt
 import numpy as np
 from rasterio.features import rasterize
 from rasterio.transform import from_bounds
-
-REPO_ROOT = Path(__file__).resolve().parents[5]
-if str(REPO_ROOT) not in sys.path:
-    sys.path.insert(0, str(REPO_ROOT))
 
 from hydromodpy.core.units import parse_length_to_m
 from hydromodpy.data.variables.geology.cases.common import (
