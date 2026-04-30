@@ -136,25 +136,74 @@ class RegionalLabCatalogConfig(HydroModelBase):
         default="site_id",
         description="Catalog column carrying the site identifier.",
     )
-    site_label_field: Annotated[str | None, Profile.USER] = Field(default="site_label")
-    cluster_id_field: Annotated[str | None, Profile.USER] = Field(default="cluster_id")
-    cluster_label_field: Annotated[str | None, Profile.USER] = Field(default="cluster_label")
-    cluster_family_field: Annotated[str | None, Profile.USER] = Field(default="cluster_family")
-    cluster_scale_field: Annotated[str | None, Profile.USER] = Field(default="cluster_scale")
-    region_field: Annotated[str | None, Profile.USER] = Field(default="region_id")
-    source_selection_field: Annotated[str | None, Profile.USER] = Field(
-        default="source_selection_id"
+    site_label_field: Annotated[str | None, Profile.USER] = Field(
+        default="site_label",
+        description="Catalog column carrying a human-readable site label.",
     )
-    status_field: Annotated[str | None, Profile.USER] = Field(default="site_status")
-    maturity_field: Annotated[str | None, Profile.USER] = Field(default="maturity")
-    x_field: Annotated[str | None, Profile.USER] = Field(default="x")
-    y_field: Annotated[str | None, Profile.USER] = Field(default="y")
-    area_km2_field: Annotated[str | None, Profile.USER] = Field(default="area_km2")
-    tags_field: Annotated[str | None, Profile.USER] = Field(default="tags")
-    enabled_field: Annotated[str | None, Profile.USER] = Field(default="enabled")
-    required_fields: Annotated[tuple[str, ...], Profile.USER] = Field(default=())
-    path_fields: Annotated[tuple[str, ...], Profile.USER] = Field(default=())
-    tag_separator: Annotated[str, Profile.USER] = Field(default=";")
+    cluster_id_field: Annotated[str | None, Profile.USER] = Field(
+        default="cluster_id",
+        description="Catalog column carrying the cluster identifier.",
+    )
+    cluster_label_field: Annotated[str | None, Profile.USER] = Field(
+        default="cluster_label",
+        description="Catalog column carrying the cluster label.",
+    )
+    cluster_family_field: Annotated[str | None, Profile.USER] = Field(
+        default="cluster_family",
+        description="Catalog column carrying the cluster family name.",
+    )
+    cluster_scale_field: Annotated[str | None, Profile.USER] = Field(
+        default="cluster_scale",
+        description="Catalog column carrying the cluster spatial scale tag.",
+    )
+    region_field: Annotated[str | None, Profile.USER] = Field(
+        default="region_id",
+        description="Catalog column carrying the region identifier.",
+    )
+    source_selection_field: Annotated[str | None, Profile.USER] = Field(
+        default="source_selection_id",
+        description="Catalog column carrying the data-source selection identifier.",
+    )
+    status_field: Annotated[str | None, Profile.USER] = Field(
+        default="site_status",
+        description="Catalog column carrying the site lifecycle status.",
+    )
+    maturity_field: Annotated[str | None, Profile.USER] = Field(
+        default="maturity",
+        description="Catalog column carrying the site maturity level.",
+    )
+    x_field: Annotated[str | None, Profile.USER] = Field(
+        default="x",
+        description="Catalog column carrying the X coordinate (CRS units).",
+    )
+    y_field: Annotated[str | None, Profile.USER] = Field(
+        default="y",
+        description="Catalog column carrying the Y coordinate (CRS units).",
+    )
+    area_km2_field: Annotated[str | None, Profile.USER] = Field(
+        default="area_km2",
+        description="Catalog column carrying the catchment area in km^2.",
+    )
+    tags_field: Annotated[str | None, Profile.USER] = Field(
+        default="tags",
+        description="Catalog column carrying free-form tags joined by tag_separator.",
+    )
+    enabled_field: Annotated[str | None, Profile.USER] = Field(
+        default="enabled",
+        description="Catalog column flagging whether a site is active.",
+    )
+    required_fields: Annotated[tuple[str, ...], Profile.USER] = Field(
+        default=(),
+        description="Catalog columns that must be present and non-empty per row.",
+    )
+    path_fields: Annotated[tuple[str, ...], Profile.USER] = Field(
+        default=(),
+        description="Catalog columns whose values are resolved as filesystem paths.",
+    )
+    tag_separator: Annotated[str, Profile.USER] = Field(
+        default=";",
+        description="Separator splitting the tags column into individual tags.",
+    )
 
 
 class RegionalLabSelectionConfig(HydroModelBase):
@@ -162,16 +211,46 @@ class RegionalLabSelectionConfig(HydroModelBase):
 
     model_config = ConfigDict(extra="forbid", arbitrary_types_allowed=True)
 
-    site_ids: Annotated[tuple[str, ...], Profile.USER] = Field(default=())
-    cluster_ids: Annotated[tuple[str, ...], Profile.USER] = Field(default=())
-    regions: Annotated[tuple[str, ...], Profile.USER] = Field(default=())
-    families: Annotated[tuple[str, ...], Profile.USER] = Field(default=())
-    scales: Annotated[tuple[str, ...], Profile.USER] = Field(default=())
-    statuses: Annotated[tuple[str, ...], Profile.USER] = Field(default=())
-    maturity_levels: Annotated[tuple[str, ...], Profile.USER] = Field(default=())
-    tags: Annotated[tuple[str, ...], Profile.USER] = Field(default=())
-    limit: Annotated[int | None, Profile.USER] = Field(default=None)
-    include_disabled: Annotated[bool, Profile.USER] = Field(default=False)
+    site_ids: Annotated[tuple[str, ...], Profile.USER] = Field(
+        default=(),
+        description="Whitelist of site identifiers to keep. Empty means no filter.",
+    )
+    cluster_ids: Annotated[tuple[str, ...], Profile.USER] = Field(
+        default=(),
+        description="Whitelist of cluster identifiers to keep. Empty means no filter.",
+    )
+    regions: Annotated[tuple[str, ...], Profile.USER] = Field(
+        default=(),
+        description="Whitelist of region identifiers to keep. Empty means no filter.",
+    )
+    families: Annotated[tuple[str, ...], Profile.USER] = Field(
+        default=(),
+        description="Whitelist of cluster family names to keep. Empty means no filter.",
+    )
+    scales: Annotated[tuple[str, ...], Profile.USER] = Field(
+        default=(),
+        description="Whitelist of cluster scale tags to keep. Empty means no filter.",
+    )
+    statuses: Annotated[tuple[str, ...], Profile.USER] = Field(
+        default=(),
+        description="Whitelist of site lifecycle statuses to keep. Empty means no filter.",
+    )
+    maturity_levels: Annotated[tuple[str, ...], Profile.USER] = Field(
+        default=(),
+        description="Whitelist of site maturity levels to keep. Empty means no filter.",
+    )
+    tags: Annotated[tuple[str, ...], Profile.USER] = Field(
+        default=(),
+        description="Required tags. A site must carry every tag listed here to pass.",
+    )
+    limit: Annotated[int | None, Profile.USER] = Field(
+        default=None,
+        description="Maximum number of sites to retain after filtering. None disables.",
+    )
+    include_disabled: Annotated[bool, Profile.USER] = Field(
+        default=False,
+        description="If True, also keep sites flagged as disabled in the catalog.",
+    )
 
 
 class RegionalLabClusterRuleConfig(HydroModelBase):
@@ -181,16 +260,43 @@ class RegionalLabClusterRuleConfig(HydroModelBase):
 
     id: Annotated[str, Profile.USER] = Field(description="Unique rule identifier.")
     label: Annotated[str, Profile.USER] = Field(description="Human-readable rule label.")
-    enabled: Annotated[bool, Profile.USER] = Field(default=True)
-    priority: Annotated[int, Profile.USER] = Field(default=100)
+    enabled: Annotated[bool, Profile.USER] = Field(
+        default=True,
+        description="If False, the rule is parsed but skipped during enrichment.",
+    )
+    priority: Annotated[int, Profile.USER] = Field(
+        default=100,
+        description="Application order (lower runs first) when several rules match.",
+    )
     selection: Annotated[RegionalLabSelectionConfig, Profile.USER]
-    field_equals: Annotated[tuple[tuple[str, str], ...], Profile.USER] = Field(default=())
-    set_cluster_id: Annotated[str | None, Profile.USER] = Field(default=None)
-    set_cluster_label: Annotated[str | None, Profile.USER] = Field(default=None)
-    set_cluster_family: Annotated[str | None, Profile.USER] = Field(default=None)
-    set_cluster_scale: Annotated[str | None, Profile.USER] = Field(default=None)
-    cluster_tags: Annotated[tuple[str, ...], Profile.USER] = Field(default=())
-    override_existing_cluster: Annotated[bool, Profile.USER] = Field(default=False)
+    field_equals: Annotated[tuple[tuple[str, str], ...], Profile.USER] = Field(
+        default=(),
+        description="Column equality constraints applied on top of selection (key=value).",
+    )
+    set_cluster_id: Annotated[str | None, Profile.USER] = Field(
+        default=None,
+        description="Cluster id to assign to matched sites. None leaves it untouched.",
+    )
+    set_cluster_label: Annotated[str | None, Profile.USER] = Field(
+        default=None,
+        description="Cluster label to assign to matched sites. None leaves it untouched.",
+    )
+    set_cluster_family: Annotated[str | None, Profile.USER] = Field(
+        default=None,
+        description="Cluster family to assign to matched sites. None leaves it untouched.",
+    )
+    set_cluster_scale: Annotated[str | None, Profile.USER] = Field(
+        default=None,
+        description="Cluster scale tag to assign to matched sites. None leaves it untouched.",
+    )
+    cluster_tags: Annotated[tuple[str, ...], Profile.USER] = Field(
+        default=(),
+        description="Extra tags appended to the cluster of matched sites.",
+    )
+    override_existing_cluster: Annotated[bool, Profile.USER] = Field(
+        default=False,
+        description="If True, overwrite cluster fields already set on matched sites.",
+    )
 
 
 class RegionalLabRecipeConfig(HydroModelBase):
@@ -206,10 +312,19 @@ class RegionalLabRecipeConfig(HydroModelBase):
     config_path_template: Annotated[str, Profile.USER] = Field(
         description="Template producing the child config path from a site context."
     )
-    enabled: Annotated[bool, Profile.USER] = Field(default=True)
+    enabled: Annotated[bool, Profile.USER] = Field(
+        default=True,
+        description="If False, the recipe is parsed but skipped during dispatch.",
+    )
     selection: Annotated[RegionalLabSelectionConfig, Profile.USER]
-    required_fields: Annotated[tuple[str, ...], Profile.USER] = Field(default=())
-    allowed_platforms: Annotated[tuple[str, ...], Profile.USER] = Field(default=())
+    required_fields: Annotated[tuple[str, ...], Profile.USER] = Field(
+        default=(),
+        description="Catalog columns that must be present per site for this recipe.",
+    )
+    allowed_platforms: Annotated[tuple[str, ...], Profile.USER] = Field(
+        default=(),
+        description="Platforms (linux, darwin, windows) on which the recipe may run.",
+    )
 
 
 class RegionalLabConfig(HydroModelBase):
@@ -227,20 +342,39 @@ class RegionalLabConfig(HydroModelBase):
     output_root: Annotated[Path, Profile.USER] = Field(
         description="Directory where lab artifacts are written."
     )
-    execute: Annotated[bool, Profile.USER] = Field(default=True)
-    continue_on_error: Annotated[bool, Profile.USER] = Field(default=True)
-    validate_config_paths: Annotated[bool, Profile.USER] = Field(default=True)
-    resume_from_report: Annotated[bool, Profile.USER] = Field(default=True)
-    skip_completed_cases: Annotated[bool, Profile.USER] = Field(default=True)
+    execute: Annotated[bool, Profile.USER] = Field(
+        default=True,
+        description="If False, the planner runs but no child subprocesses are launched.",
+    )
+    continue_on_error: Annotated[bool, Profile.USER] = Field(
+        default=True,
+        description="If True, keep dispatching siblings after a child failure.",
+    )
+    validate_config_paths: Annotated[bool, Profile.USER] = Field(
+        default=True,
+        description="If True, ensure each rendered child config path exists before run.",
+    )
+    resume_from_report: Annotated[bool, Profile.USER] = Field(
+        default=True,
+        description="If True, replay the previous report to skip already-completed cases.",
+    )
+    skip_completed_cases: Annotated[bool, Profile.USER] = Field(
+        default=True,
+        description="If True, do not re-run cases marked as completed in the report.",
+    )
     child_timeout_s: Annotated[int | None, Profile.USER] = Field(
         default=3600,
         description="Per-child subprocess timeout in seconds. Use null to disable.",
     )
-    python_executable: Annotated[Path | None, Profile.USER] = Field(default=None)
+    python_executable: Annotated[Path | None, Profile.USER] = Field(
+        default=None,
+        description="Python interpreter used for child subprocesses. None means current.",
+    )
     catalog: Annotated[RegionalLabCatalogConfig, Profile.USER]
     selection: Annotated[RegionalLabSelectionConfig, Profile.USER]
     cluster_rules: Annotated[tuple[RegionalLabClusterRuleConfig, ...], Profile.USER] = Field(
-        default=()
+        default=(),
+        description="Optional cluster enrichment rules applied on top of the catalog.",
     )
     recipes: Annotated[tuple[RegionalLabRecipeConfig, ...], Profile.USER]
 

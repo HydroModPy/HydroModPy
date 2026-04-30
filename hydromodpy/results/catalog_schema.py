@@ -266,7 +266,10 @@ CREATE TABLE IF NOT EXISTS runs_environment (
     git_commit          VARCHAR,
     project_git_commit  VARCHAR,
     mf6_binary_sha256   VARCHAR,
+    mf6_version_text    VARCHAR,
+    conda_env_hash      VARCHAR,
     env_packages        JSON,
+    rng_seed            BIGINT,
     recorded_at         TIMESTAMPTZ NOT NULL DEFAULT current_timestamp,
     PRIMARY KEY (sim_id)
 );
@@ -610,25 +613,9 @@ def ensure_parquet_views(conn: duckdb.DuckDBPyConnection, workspace_path: Path) 
     view is installed so that ``SELECT * FROM <view>`` still succeeds with
     the right columns on a fresh workspace. On the next write that creates
     the first file, the catalog calls this function again to swap the view
-    over to ``read_parquet``. If a legacy DuckDB table with the same name as
-    a target view still exists, view creation is skipped so the caller can
-    still query its rows; legacy workspaces should be regenerated.
+    over to ``read_parquet``.
     """
-    legacy_tables = {
-        r[0]
-        for r in conn.execute(
-            "SELECT table_name FROM information_schema.tables "
-            "WHERE table_schema='main' AND table_type='BASE TABLE'"
-        ).fetchall()
-    }
     for view in PARQUET_VIEW_NAMES:
-        if view in legacy_tables:
-            logger.warning(
-                "Skipping view %r: a legacy DuckDB table with that name still "
-                "exists. Regenerate the workspace to use the Parquet layout.",
-                view,
-            )
-            continue
         if _parquet_files_exist(workspace_path, view):
             ddl = _read_parquet_view_ddl(view, _glob_for_view(workspace_path, view))
         else:
@@ -657,6 +644,9 @@ _SIMULATIONS_ADDITIVE_COLUMNS: tuple[tuple[str, str], ...] = (
 _RUNS_ENVIRONMENT_ADDITIVE_COLUMNS: tuple[tuple[str, str], ...] = (
     ("project_git_commit", "VARCHAR"),
     ("mf6_binary_sha256", "VARCHAR"),
+    ("rng_seed", "BIGINT"),
+    ("mf6_version_text", "VARCHAR"),
+    ("conda_env_hash", "VARCHAR"),
 )
 
 
@@ -717,7 +707,6 @@ def ensure_schema(
     # Phase 2: migrate pre-existing tables to the current column set.
     _apply_simulations_additive_columns(conn)
     _apply_runs_environment_additive_columns(conn)
-    _drop_legacy_parquet_tables(conn)
 
     # Phase 3: (re-)create indexes now that every referenced column exists.
     for ddl in _ALL_DDL:
@@ -736,34 +725,6 @@ def ensure_schema(
         len(VIEW_NAMES),
         len(PARQUET_VIEW_NAMES),
     )
-
-
-def _drop_legacy_parquet_tables(conn: duckdb.DuckDBPyConnection) -> None:
-    """Drop pre-refactor ``timeseries`` / ``budgets`` / ``mass_balance``
-    tables if they still exist in the DuckDB file.
-
-    A table and a view cannot share a name. When opening a pre-refactor
-    catalog, the old tables must be dropped before the Parquet views can
-    be created. This function is a no-op when the names are already bound
-    to views or are absent. Non-empty legacy tables are left in place and
-    log a warning; the workspace must be regenerated.
-    """
-    rows = conn.execute(
-        "SELECT table_name, table_type FROM information_schema.tables "
-        "WHERE table_schema='main' AND table_name IN ('timeseries', 'budgets', 'mass_balance')"
-    ).fetchall()
-    for name, kind in rows:
-        if kind == "BASE TABLE":
-            count = conn.execute(f'SELECT COUNT(*) FROM "{name}"').fetchone()[0]
-            if count:
-                logger.warning(
-                    "Catalog still has %d rows in legacy table %r - "
-                    "regenerate the workspace to migrate to the Parquet layout.",
-                    count,
-                    name,
-                )
-                continue
-            conn.execute(f'DROP TABLE "{name}"')
 
 
 def _iter_statements_without_index(ddl: str):
