@@ -34,16 +34,18 @@ from hydromodpy.spatial.mesh.gmsh_grid.cases.reference_2d_geology_conformal.case
     _resolve_constraints_mode,
 )
 from hydromodpy.spatial.mesh.gmsh_grid.cases.reference_2d_geology_conformal.contracts import (
-    ZoneConformalDomainConfig,
     ZoneConformalGeologyConfig,
-    ZoneConformalGeometryPayload,
     ZoneConformalRiversConfig,
-    ZoneConformalZoneMeshingConfig,
 )
 from hydromodpy.spatial.mesh.gmsh_grid.cases.reference_2d_geology_conformal.planning import (
     _build_zone_conformal_meshing_inputs,
     _clip_river_trace_to_domain,
     _resolve_river_trace_for_meshing,
+)
+from hydromodpy.spatial.mesh.gmsh_grid.zone_meshing.config import ZoneMeshingSettings
+from hydromodpy.spatial.mesh.gmsh_grid.zone_meshing.domain import (
+    ZoneMeshingDomainConfig,
+    ZoneMeshingDomainPayload,
 )
 
 GOLDEN_DIR = Path(__file__).resolve().parent / "golden"
@@ -148,7 +150,7 @@ def test_build_zone_source_inputs_loads_geology_once(monkeypatch) -> None:
     monkeypatch.setattr(
         conformal_planning_module,
         "_load_effective_domain_payload",
-        lambda **_: ZoneConformalGeometryPayload(
+        lambda **_: ZoneMeshingDomainPayload(
             geometry=domain_gdf.geometry.iloc[0],
             gdf=domain_gdf,
             summary={},
@@ -769,8 +771,8 @@ def test_resolve_case_config_supports_base_config_inheritance(tmp_path: Path) ->
     assert cfg.figure_regional_dpi == 220
     assert isinstance(cfg.geology, ZoneConformalGeologyConfig)
     assert cfg.zone_meshing is not None
-    assert isinstance(cfg.zone_meshing, ZoneConformalZoneMeshingConfig)
-    assert isinstance(cfg.domain, ZoneConformalDomainConfig)
+    assert isinstance(cfg.zone_meshing, ZoneMeshingSettings)
+    assert isinstance(cfg.domain, ZoneMeshingDomainConfig)
 
 
 def test_resolve_case_config_accepts_prevalidated_launcher_section_defaults(
@@ -816,7 +818,7 @@ def test_resolve_case_config_accepts_prevalidated_launcher_section_defaults(
     assert cfg.constraints_mode_label == "geology_only"
     assert cfg.figure_dpi == 340
     assert cfg.figure_regional_dpi == 210
-    assert isinstance(cfg.domain, ZoneConformalDomainConfig)
+    assert isinstance(cfg.domain, ZoneMeshingDomainConfig)
     assert cfg.domain.kind == "geographic_box_buffer"
     assert cfg.domain.to_mapping()["kind"] == "geographic_box_buffer"
     assert isinstance(cfg.geology, ZoneConformalGeologyConfig)

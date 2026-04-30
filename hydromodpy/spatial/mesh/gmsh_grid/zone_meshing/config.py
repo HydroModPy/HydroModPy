@@ -249,9 +249,6 @@ class ZoneMeshingRefinementPolicy(HydroModelBase):
         }
 
 
-ZoneMeshingRefinementPolicySchema = ZoneMeshingRefinementPolicy
-
-
 class ZoneMeshingSettings(HydroModelBase):
     """Validated settings for one conformal 2D Gmsh meshing run."""
 
@@ -487,9 +484,6 @@ class ZoneMeshingSettings(HydroModelBase):
         }
 
 
-ZoneMeshingSettingsSchema = ZoneMeshingSettings
-
-
 def parse_zone_meshing_settings(config_data: Mapping[str, Any]) -> ZoneMeshingSettings:
     """Return one typed zone-meshing settings contract from a raw mapping."""
 
@@ -503,7 +497,5 @@ __all__ = [
     "ZoneMeshingRefinementGridSettings",
     "ZoneMeshingRefinementHotspotSettings",
     "ZoneMeshingRefinementPolicy",
-    "ZoneMeshingRefinementPolicySchema",
     "ZoneMeshingSettings",
-    "ZoneMeshingSettingsSchema",
 ]

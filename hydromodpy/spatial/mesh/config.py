@@ -21,7 +21,7 @@ from hydromodpy.core.config_kit.profile import Profile
 from hydromodpy.core.units import Length
 from hydromodpy.spatial._protocols import get_geology_data_source
 from hydromodpy.spatial.mesh.gmsh_grid.zone_meshing.config import (
-    ZoneMeshingSettingsSchema,
+    ZoneMeshingSettings,
 )
 from hydromodpy.spatial.mesh.gmsh_grid.zone_meshing.domain import (
     ZoneMeshingDomainBBox,
@@ -609,8 +609,8 @@ class MeshCatchmentConfig(HydroModelBase):
             "prepared during delineation, which is usually the right support for mono-catchment meshing."
         ),
     )
-    zone_meshing: Annotated[ZoneMeshingSettingsSchema, Profile.DEV] = Field(
-        default_factory=ZoneMeshingSettingsSchema,
+    zone_meshing: Annotated[ZoneMeshingSettings, Profile.DEV] = Field(
+        default_factory=ZoneMeshingSettings,
         description=(
             "Low-level Gmsh sizing and cleanup parameters controlling cell size, simplification, "
             "and interface refinement. Defaults are valid, but project examples typically override them "

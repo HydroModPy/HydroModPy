@@ -16,15 +16,15 @@ from hydromodpy.spatial.mesh.gmsh_grid import (
 from hydromodpy.spatial.mesh.gmsh_grid.cases.reference_2d_geology_conformal.contracts import (
     ZoneConformalCaseConfig,
     ZoneConformalConstraintFamilies,
-    ZoneConformalDomainConfig,
     ZoneConformalGeologyConfig,
     ZoneConformalRiversConfig,
     ZoneConformalWatershedBoundaryConfig,
     ZoneConformalWatershedBoundarySmoothingConfig,
     ZoneConformalWatershedGeologyConformityConfig,
     ZoneConformalWatershedOutsideCoarseningConfig,
-    ZoneConformalZoneMeshingConfig,
 )
+from hydromodpy.spatial.mesh.gmsh_grid.zone_meshing.config import ZoneMeshingSettings
+from hydromodpy.spatial.mesh.gmsh_grid.zone_meshing.domain import ZoneMeshingDomainConfig
 
 
 def _resolve_constraints_mode(raw_value: Any) -> str:
@@ -127,13 +127,13 @@ def _validate_rivers_case_config(
 
 def _validate_zone_meshing_case_config(
     config_data: Mapping[str, Any],
-) -> ZoneConformalZoneMeshingConfig:
+) -> ZoneMeshingSettings:
     return parse_zone_meshing_settings(config_data)
 
 
 def _validate_domain_case_config(
     config_data: Mapping[str, Any],
-) -> ZoneConformalDomainConfig:
+) -> ZoneMeshingDomainConfig:
     return parse_zone_meshing_domain_config(config_data)
 
 
