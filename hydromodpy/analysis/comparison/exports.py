@@ -519,8 +519,6 @@ def _load_boussinesq_budget_rows(
     sim_id: str | None = None,
 ) -> list[dict[str, Any]]:
     run_folder = Path(str(summary.get("run_folder", "")))
-
-    # --- Try SimulationCatalog first ------------------------------------------------
     payload: Mapping[str, Any] | None = None
     source_label: str = ""
     if store is not None and sim_id is not None:
@@ -532,13 +530,8 @@ def _load_boussinesq_budget_rows(
                 sim_id,
             )
 
-    # --- Fallback to legacy .npz file -----------------------------------------
     if payload is None:
-        npz_path = run_folder / "_boussinesq_state_history.npz"
-        if not npz_path.exists():
-            return []
-        payload = np.load(npz_path, allow_pickle=True)
-        source_label = str(npz_path)
+        return []
 
     recharge_history = _history_matrix(payload, "recharge_rate_history_m_s")
     well_history = _history_matrix(payload, "well_flux_history_m3_s")
