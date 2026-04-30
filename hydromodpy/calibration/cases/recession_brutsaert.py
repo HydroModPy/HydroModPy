@@ -1,16 +1,15 @@
 """Brutsaert recession analytical calibration case.
 
-This module ports the legacy ``recession_brutsaert`` reference case into the
-new calibration architecture. Everything is pure Python:
+This module implements the ``recession_brutsaert`` reference case in the
+calibration architecture. Everything is pure Python:
 
 - :class:`BaseflowConfig` carries the fixed physical context;
 - :func:`build_noisy_coarse_sand_chronicle` builds a synthetic noisy chronicle
   from analytical recession equations (exponential or Boussinesq form);
 - :func:`make_baseflow_simulator` returns a ``simulator(K, Sy)`` closure;
 - :func:`calibrate_brutsaert` wires the simulator to
-  :class:`~hydromodpy.calibration.engine.CalibrationEngine` (or calls SciPy
-  directly when exact reproduction of the legacy golden is required) and
-  returns a compact result dictionary matching the legacy golden schema.
+  :class:`~hydromodpy.calibration.engine.CalibrationEngine` and returns a
+  compact result dictionary matching the regression golden schema.
 
 The case calibrates only ``K`` and ``Sy`` against a synthetic discharge time
 series; all other parameters of the analytical solution (``Q0``, ``A``,
@@ -60,7 +59,7 @@ class BaseflowConfig:
 
 
 # ---------------------------------------------------------------------------
-# Analytical equations (port of legacy ``model.py``)
+# Analytical equations
 # ---------------------------------------------------------------------------
 
 
@@ -194,7 +193,7 @@ def build_noisy_coarse_sand_chronicle(
             if key in merged:
                 merged[key] = value
 
-    # Basic sanity checks (mirror legacy pydantic validators).
+    # Basic sanity checks matching the public configuration contract.
     for positive in ("Q0", "K", "Sy", "t_min_days"):
         if float(merged[positive]) <= 0.0:
             raise ValueError(f"{positive} must be > 0")
@@ -303,7 +302,7 @@ def make_baseflow_simulator(
 
 
 # ---------------------------------------------------------------------------
-# Metrics (matching legacy compute_performance_metrics)
+# Metrics
 # ---------------------------------------------------------------------------
 
 
@@ -325,7 +324,7 @@ def _nse_log(obs: np.ndarray, sim: np.ndarray) -> float:
 
 
 def _kge_with_components(obs: np.ndarray, sim: np.ndarray) -> dict[str, float]:
-    """KGE 2009 with ddof=1 components - matches legacy golden."""
+    """KGE 2009 with ddof=1 components."""
     mask = np.isfinite(obs) & np.isfinite(sim)
     o, s = obs[mask], sim[mask]
     obs_mean = float(np.mean(o))
@@ -412,10 +411,10 @@ _DEFAULT_BOUNDS: dict[str, tuple[float, float]] = {
 _DEFAULT_METHOD_KWARGS: dict[str, dict[str, Any]] = {
     "grid_search": {"points_per_dim": 5, "log_scale_indices": [0]},
     "random_search": {"n_samples": 80, "seed": 7, "log_scale_indices": [0]},
-    "scipy_nelder_mead": {"maxiter": 60, "maxfev": 120},
+    "scipy_nelder_mead": {"max_iter": 60, "maxfev": 120},
     "cma_es": {"sigma0": 0.2, "max_evaluations": 36, "seed": 7, "normalize": True},
     "gp_mapping": {
-        "maxiter": 15,
+        "max_iter": 15,
         "n_init": 8,
         "seed": 7,
         "log_scale_indices": [0],
@@ -423,7 +422,7 @@ _DEFAULT_METHOD_KWARGS: dict[str, dict[str, Any]] = {
     "da_mh_gp": {
         "sigma_noise": 0.20,
         "n_init": 12,
-        "maxiter": 80,
+        "max_iter": 80,
         "burn_in": 10,
         "proposal_sigma": 0.05,
         "retrain_interval": 10,
@@ -473,7 +472,7 @@ def _run_grid_search(
         space=space,
         optimizer=build_optimizer("grid", space, points_per_dim=points_per_dim),
         evaluator=_make_engine_evaluator(simulator, q_observed, cost_fn),
-        maxiter=int(np.prod(points_per_dim)),
+        max_iter=int(np.prod(points_per_dim)),
         batch_size=1,
     )
     session = engine.run()
@@ -536,7 +535,7 @@ def _run_scipy_minimize(
     bounds: Mapping[str, tuple[float, float]],
     cost_fn: Callable[[np.ndarray, np.ndarray], float],
     method_name: str,
-    maxiter: int,
+    max_iter: int,
     maxfev: int | None = None,
 ) -> tuple[np.ndarray, float, int]:
     """Local optimisation via Nelder-Mead with penalised bounds.
@@ -569,7 +568,7 @@ def _run_scipy_minimize(
     x0 = 0.5 * (lower + upper)
 
     if method_name == "scipy_nelder_mead":
-        options: dict[str, Any] = {"maxiter": int(maxiter)}
+        options: dict[str, Any] = {"maxiter": int(max_iter)}
         if maxfev is not None:
             options["maxfev"] = int(maxfev)
         fmin_kwargs: dict[str, Any] = {
@@ -629,7 +628,7 @@ def _run_cma_es(
         space=space,
         optimizer=optimizer,
         evaluator=_make_engine_evaluator(simulator, q_observed, cost_fn),
-        maxiter=max_eval,
+        max_iter=max_eval,
         batch_size=1,
     )
     session = engine.run()
@@ -648,7 +647,7 @@ def _run_gp_mapping(
     q_observed: np.ndarray,
     bounds: Mapping[str, tuple[float, float]],
     cost_fn: Callable[[np.ndarray, np.ndarray], float],
-    maxiter: int,
+    max_iter: int,
     n_init: int,
     seed: int,
     log_scale_indices: list[int] | None,
@@ -657,7 +656,7 @@ def _run_gp_mapping(
 
     Wired through ``CalibrationEngine`` + ``GPMappingOptimizer``. The
     caller picks which dimensions live on a log axis via
-    ``log_scale_indices`` (the legacy default used log K, linear Sy).
+    ``log_scale_indices`` (default: log K, linear Sy).
     """
     log_idx = set() if log_scale_indices is None else set(log_scale_indices)
     params: list[CalibParameter] = []
@@ -672,7 +671,7 @@ def _run_gp_mapping(
     optimizer = build_optimizer(
         "gp_mapping",
         space,
-        maxiter=int(maxiter),
+        max_iter=int(max_iter),
         n_init=int(n_init),
         seed=int(seed),
     )
@@ -680,7 +679,7 @@ def _run_gp_mapping(
         space=space,
         optimizer=optimizer,
         evaluator=_make_engine_evaluator(simulator, q_observed, cost_fn),
-        maxiter=int(maxiter),
+        max_iter=int(max_iter),
         batch_size=1,
     )
     session = engine.run()
@@ -701,7 +700,7 @@ def _run_da_mh_gp(
     cost_fn: Callable[[np.ndarray, np.ndarray], float],
     sigma_noise: float,
     n_init: int,
-    maxiter: int,
+    max_iter: int,
     burn_in: int,
     proposal_sigma: float,
     retrain_interval: int,
@@ -713,9 +712,9 @@ def _run_da_mh_gp(
     Wired through ``CalibrationEngine`` + ``DaMhGpOptimizer``. The optimizer
     expects the evaluator to return RMSE (the log-likelihood is built
     internally from ``sigma_noise``). ``log_scale_indices`` selects the log
-    axis for K (matches the legacy default).
+    axis for K.
 
-    The engine's ``maxiter`` is sized as ``n_init + maxiter`` so the
+    The engine's ``max_iter`` is sized as ``n_init + max_iter`` so the
     optimizer can first consume its Sobol initial design and then run the
     chain budget without getting capped by the engine.
     """
@@ -734,7 +733,7 @@ def _run_da_mh_gp(
         space,
         sigma_noise=float(sigma_noise),
         n_init=int(n_init),
-        maxiter=int(maxiter),
+        max_iter=int(max_iter),
         burn_in=int(burn_in),
         proposal_sigma=float(proposal_sigma),
         retrain_interval=int(retrain_interval),
@@ -742,12 +741,12 @@ def _run_da_mh_gp(
     )
     # Engine budget must cover init design + accepted proposals; the
     # optimizer's background thread stops on its own.
-    engine_budget = int(n_init) + int(maxiter) + 16
+    engine_budget = int(n_init) + int(max_iter) + 16
     engine = CalibrationEngine(
         space=space,
         optimizer=optimizer,
         evaluator=_make_engine_evaluator(simulator, q_observed, cost_fn),
-        maxiter=engine_budget,
+        max_iter=engine_budget,
         batch_size=1,
     )
     session = engine.run()
@@ -777,7 +776,7 @@ def _configure_cmaes(optimizer: Any, *, sigma0: float) -> None:
 
     Optuna's ``CmaEsSampler`` accepts ``sigma0`` as constructor argument
     but our adapter only forwards ``seed`` - we patch it after the fact
-    so the calibration matches the legacy sigma0 choice when possible.
+    so the calibration matches the configured sigma0 choice when possible.
     """
     try:
         study = optimizer._study
@@ -854,7 +853,7 @@ def calibrate_brutsaert(
     Parameters
     ----------
     method
-        Legacy method name; one of ``"grid_search"``, ``"random_search"``,
+        Calibration method name; one of ``"grid_search"``, ``"random_search"``,
         ``"scipy_nelder_mead"`` or ``"cma_es"``.
     chronicle
         Optional override of the default noisy-chronicle parameters.
@@ -863,13 +862,13 @@ def calibrate_brutsaert(
     objective_metric
         Either ``"kge"`` (default) or ``"rmse"``.
     method_kwargs
-        Per-method override dictionary merged on top of the legacy defaults.
+        Per-method override dictionary merged on top of the defaults.
 
     Returns
     -------
     dict
         Keys: ``method``, ``x_best``, ``cost_best``, ``score_best``,
-        ``n_evaluations``, ``metrics``. Matches the legacy golden schema.
+        ``n_evaluations``, ``metrics``.
     """
     method_name = str(method)
     metric_key = objective_metric.lower()
@@ -933,7 +932,7 @@ def calibrate_brutsaert(
             bounds=effective_bounds,
             cost_fn=cost_fn,
             method_name=method_name,
-            maxiter=int(kwargs.get("maxiter", 60)),
+            max_iter=int(kwargs.get("max_iter", 60)),
             maxfev=kwargs.get("maxfev"),
         )
     elif method_name == "cma_es":
@@ -953,7 +952,7 @@ def calibrate_brutsaert(
             q_observed=q_observed,
             bounds=effective_bounds,
             cost_fn=cost_fn,
-            maxiter=int(kwargs.get("maxiter", 15)),
+            max_iter=int(kwargs.get("max_iter", 15)),
             n_init=int(kwargs.get("n_init", 8)),
             seed=int(kwargs.get("seed", 7)),
             log_scale_indices=kwargs.get("log_scale_indices"),
@@ -971,7 +970,7 @@ def calibrate_brutsaert(
             cost_fn=cost_fn,
             sigma_noise=float(kwargs.get("sigma_noise", 0.20)),
             n_init=int(kwargs.get("n_init", 12)),
-            maxiter=int(kwargs.get("maxiter", 80)),
+            max_iter=int(kwargs.get("max_iter", 80)),
             burn_in=int(kwargs.get("burn_in", 10)),
             proposal_sigma=float(kwargs.get("proposal_sigma", 0.05)),
             retrain_interval=int(kwargs.get("retrain_interval", 10)),
@@ -984,9 +983,9 @@ def calibrate_brutsaert(
     sim_best = simulator(float(x_best[0]), float(x_best[1]))
     metrics = _compute_metrics(q_observed, sim_best)
 
-    # ``score_best`` semantics (legacy):
+    # ``score_best`` semantics:
     # - KGE minimization: score = KGE value at x_best (higher better)
-    # - RMSE minimization: score = cost itself (legacy quirk)
+    # - RMSE minimization: score = cost itself for calibration reports
     if metric_key == "kge":
         score_best = float(metrics["KGE"])
     else:

@@ -45,8 +45,8 @@ def test_calibration_twin_boussinesq_fixed_head_piecewise_k_modflow6_benchmark_r
     random_results = [
         result for result in benchmark.method_results if result.method_name == "random_search"
     ]
-    simplex_result = next(
-        result for result in benchmark.method_results if result.method_name == "simplex"
+    nelder_mead_result = next(
+        result for result in benchmark.method_results if result.method_name == "scipy_nelder_mead"
     )
     cma_es_result = next(
         result for result in benchmark.method_results if result.method_name == "cma_es"
@@ -65,11 +65,11 @@ def test_calibration_twin_boussinesq_fixed_head_piecewise_k_modflow6_benchmark_r
         assert_lightweight_method_result(result)
     assert all(result.meets_success_target for result in random_results)
     tolerance_ratios = {
-        name: simplex_result.param_abs_error[name]
+        name: nelder_mead_result.param_abs_error[name]
         / PIECEWISE_K_TWIN_CASE.parameter_abs_tolerances[name]
         for name in PIECEWISE_K_TWIN_CASE.truth_params
     }
-    assert max(tolerance_ratios.values()) <= 1.5, simplex_result.to_mapping()
+    assert max(tolerance_ratios.values()) <= 1.5, nelder_mead_result.to_mapping()
     cma_tolerance_ratios = {
         name: cma_es_result.param_abs_error[name]
         / PIECEWISE_K_TWIN_CASE.parameter_abs_tolerances[name]
