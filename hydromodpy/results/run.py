@@ -102,6 +102,10 @@ class Run:
         return self._sim_id
 
     @property
+    def id(self) -> str:
+        return self._sim_id
+
+    @property
     def name(self) -> str | None:
         return self._load_row().get("name")
 
@@ -209,6 +213,10 @@ class Run:
         if json:
             return _json.dumps(data, default=str, indent=2, sort_keys=False)
         return data
+
+    def at(self, timestep: int = -1, layer: int | None = None):
+        """Return the chainable array accessor for one time/layer slice."""
+        return self.array.at(timestep=timestep, layer=layer)
 
     # -- Tabular data properties ---------------------------------------------
 

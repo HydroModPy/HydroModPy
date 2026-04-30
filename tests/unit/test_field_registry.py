@@ -108,8 +108,12 @@ class TestPublicAPI:
             "cell_methods",
             "grid_mapping",
             "coordinates",
+            "mesh",
+            "location",
         }
         assert set(attrs) == expected
         assert attrs["standard_name"] == "groundwater_head_above_reference_level"
         assert attrs["units"] == "m"
         assert attrs["grid_mapping"] == "crs"
+        assert attrs["mesh"] == "mesh/topology"
+        assert attrs["location"] == "face"

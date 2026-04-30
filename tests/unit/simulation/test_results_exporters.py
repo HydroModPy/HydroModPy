@@ -9,6 +9,7 @@ import pandas as pd
 import pytest
 import xarray as xr
 
+from hydromodpy.core.exceptions import UnknownFieldError
 from hydromodpy.results.catalog import SimulationCatalog
 
 
@@ -222,8 +223,5 @@ class TestExportErrors:
     def test_missing_variable_netcdf(self, catalog_with_data):
         catalog, sid, tmp_path = catalog_with_data
         out = tmp_path / "missing.nc"
-        # Should succeed but with warning (variable skipped)
-        catalog.export(sid, "nonexistent_field", "netcdf", out)
-        ds = xr.open_dataset(out)
-        assert "nonexistent_field" not in ds
-        ds.close()
+        with pytest.raises(UnknownFieldError, match="nonexistent_field"):
+            catalog.export(sid, "nonexistent_field", "netcdf", out)

@@ -8,6 +8,7 @@ from uuid import uuid4
 
 import pytest
 
+from hydromodpy.core.config_kit.persistence import PersistenceConfig
 from hydromodpy.results.catalog import SimulationCatalog
 from hydromodpy.simulation.extraction.post_run import post_run_results
 from hydromodpy.simulation.planning.plan import ProcessRun, RunContext, SimulationPlan
@@ -50,7 +51,7 @@ class TestPostRunResults:
     def test_store_disabled_noop(self, catalog, tmp_path):
         sid = str(uuid4())
         catalog.register_simulation(sid, project="test", solver="modflownwt")
-        config = ResultsConfig(store=False)
+        config = ResultsConfig(persistence=PersistenceConfig(save_catalog=False))
         ctx = _build_run_context(solver_name="modflownwt", solver_output_dir=tmp_path)
         # Should return without doing anything
         post_run_results(

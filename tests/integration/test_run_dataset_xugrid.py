@@ -20,6 +20,7 @@ import numpy as np
 import pytest
 import xugrid as xu
 
+from hydromodpy.core.exceptions import UnknownFieldError
 from hydromodpy.results.catalog import SimulationCatalog
 from hydromodpy.results.run import Run
 
@@ -171,7 +172,7 @@ def test_dataset_unknown_variable_raises(catalog):
     sid = _persist(catalog, topology="dis", vertices=vertices, fnc=fnc)
     run = Run(sid, catalog)
 
-    with pytest.raises(KeyError, match="not registered"):
+    with pytest.raises(UnknownFieldError, match="not registered"):
         run.array.dataset(variable="not_a_field")
 
 
