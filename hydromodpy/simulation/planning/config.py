@@ -10,8 +10,8 @@ from pydantic import ConfigDict, Field, field_validator, model_validator
 from hydromodpy.core.config_kit.base import HydroModelBase
 from hydromodpy.core.config_kit.profile import Profile
 from hydromodpy.core.units import normalize_time_unit, parse_scalar_and_unit
-from hydromodpy.results.config import ResultsConfig
 from hydromodpy.simulation._solver_protocol import get_solver_registry_provider
+from hydromodpy.simulation.planning.results_config import ResultsConfig
 
 _VALID_STEP_UNITS = {"hour", "day", "month", "year"}
 _STEP_UNIT_ALIASES = {

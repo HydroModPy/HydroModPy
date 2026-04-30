@@ -9,9 +9,9 @@ from uuid import uuid4
 import pytest
 
 from hydromodpy.results.catalog import SimulationCatalog
-from hydromodpy.results.config import ResultsConfig
 from hydromodpy.simulation.extraction.post_run import post_run_results
 from hydromodpy.simulation.planning.plan import ProcessRun, RunContext, SimulationPlan
+from hydromodpy.simulation.planning.results_config import ResultsConfig
 
 
 @pytest.fixture

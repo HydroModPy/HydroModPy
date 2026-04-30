@@ -2,10 +2,7 @@
 
 ``PersistenceConfig`` is the orthogonal save/no-save knob shared by every
 write path: the DuckDB SimulationCatalog, the per-sim Zarr and Parquet
-artifacts, and the reproducibility lockfile. It replaces the eclectic mix
-of ``store``, ``save_runs``, and ad-hoc ``save_*`` flags previously
-scattered across ``master_config/results_config.py``,
-``calibration/persistence.py``, and ``results/catalog/writes.py``.
+artifacts, and the reproducibility lockfile.
 """
 
 from __future__ import annotations

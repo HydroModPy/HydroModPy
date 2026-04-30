@@ -5,7 +5,7 @@ from __future__ import annotations
 import pytest
 from pydantic import ValidationError
 
-from hydromodpy.results.config import (
+from hydromodpy.simulation.planning.results_config import (
     BudgetConfig,
     DerivedConfig,
     ExportConfig,
