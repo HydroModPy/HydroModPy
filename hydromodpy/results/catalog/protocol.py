@@ -1,0 +1,186 @@
+"""SimulationStore Protocol for result-catalog backends.
+
+The default in-tree implementation is
+:class:`hydromodpy.results.catalog.SimulationCatalog`, backed by DuckDB
+for tabular state and Zarr / Parquet for field arrays and timeseries.
+
+Conforming alternative backends (PostgreSQL, Parquet-only, in-memory for
+tests, remote object storage) can be plugged behind this same contract
+without changing the workflow steps that consume it. Implementations
+conform structurally - no base class to inherit from.
+
+The contract is the minimal write/read surface that workflow steps,
+solver adapters, and post-run extractors actually call. Methods absent
+from this Protocol stay implementation-specific to ``SimulationCatalog``
+(``find``, ``rank``, ``training_split``, archive package_io ...).
+"""
+
+from __future__ import annotations
+
+from pathlib import Path
+from typing import TYPE_CHECKING, Any, Protocol, runtime_checkable
+from uuid import UUID
+
+if TYPE_CHECKING:
+    import numpy as np
+    import pandas as pd
+
+    from hydromodpy.results.catalog.registration import RegistrationResult
+    from hydromodpy.results.run import Run
+    from hydromodpy.results.zarr_store import SimulationZarr
+
+
+@runtime_checkable
+class SimulationStore(Protocol):
+    """Minimal write/read contract for a simulation results catalog.
+
+    The Protocol covers four concerns:
+
+    - registration: ``register_simulation``;
+    - per-simulation writes: ``write_parameters``, ``write_timeseries``,
+      ``write_field``, ``write_mesh``, ``write_provenance``,
+      ``write_metric``, ``write_run_environment``, ``register_tracked_files``;
+    - reads / queries: ``query_field``, ``query_timeseries``,
+      ``list_simulations``, ``__getitem__``, ``open_zarr``;
+    - lifecycle: ``finalize``, ``close`` (plus ``__enter__`` / ``__exit__``).
+
+    Concrete backends are free to expose richer surfaces (discovery,
+    ranking, ML splits, archive import/export). Workflow consumers must
+    only depend on what is declared here.
+    """
+
+    workspace_path: Path
+
+    def register_simulation(
+        self,
+        sim_id: str | UUID,
+        project: str,
+        solver: str,
+        *,
+        name: str | None = None,
+        on_collision: str = "replace",
+        **kwargs: Any,
+    ) -> RegistrationResult:
+        """Allocate a new simulation row and return its registration result."""
+
+    def write_parameters(
+        self,
+        sim_id: str | UUID,
+        params: list[dict],
+    ) -> None:
+        """Persist solver parameters for ``sim_id``."""
+
+    def write_timeseries(
+        self,
+        sim_id: str | UUID,
+        station_id: str,
+        variable: str,
+        ts: pd.Series,
+        unit: str = "",
+    ) -> None:
+        """Persist a per-station simulated timeseries for ``sim_id``."""
+
+    def write_field(
+        self,
+        sim_id: str | UUID,
+        variable: str,
+        timestep: int,
+        values: np.ndarray,
+        *,
+        n_timesteps: int | None = None,
+        subgroup: str | None = None,
+    ) -> None:
+        """Persist a 2D / 3D field array slice for ``sim_id`` at ``timestep``."""
+
+    def write_mesh(
+        self,
+        sim_id: str | UUID,
+        vertices: np.ndarray,
+        face_node_connectivity: np.ndarray,
+        z_interfaces: np.ndarray,
+        layer_indices: np.ndarray | None = None,
+        source_cell_indices: np.ndarray | None = None,
+    ) -> None:
+        """Persist the simulation mesh for ``sim_id``."""
+
+    def write_metric(
+        self,
+        sim_id: str | UUID,
+        station_id: str,
+        metric_name: str,
+        value: float,
+        *,
+        variable: str = "head",
+    ) -> None:
+        """Persist a scalar metric for ``sim_id`` at ``station_id``."""
+
+    def write_provenance(
+        self,
+        sim_id: str | UUID,
+        variable: str,
+        source_ref: str,
+        data: np.ndarray,
+        *,
+        source_type: str = "data_manager",
+        period_start: Any = None,
+        period_end: Any = None,
+    ) -> None:
+        """Record fingerprint and source provenance for one variable."""
+
+    def write_run_environment(
+        self,
+        sim_id: str | UUID,
+        *,
+        project_root: Path | str | None = None,
+        mf6_binary_path: Path | str | None = None,
+    ) -> None:
+        """Capture and persist host environment snapshot for ``sim_id``."""
+
+    def register_tracked_files(
+        self,
+        sim_id: str | UUID,
+        entries: list[Any],
+    ) -> int:
+        """Persist tracked-input file records for ``sim_id``."""
+
+    def query_field(
+        self,
+        sim_id: str | UUID,
+        variable: str,
+        timestep: int,
+        layer: int | None = None,
+    ) -> np.ndarray:
+        """Read a field array slice for ``sim_id`` at ``timestep``."""
+
+    def query_timeseries(
+        self,
+        sim_id: str | UUID,
+        station_id: str,
+        variable: str,
+        period: tuple | None = None,
+    ) -> pd.Series:
+        """Read a per-station simulated timeseries for ``sim_id``."""
+
+    def list_simulations(self, **filters: Any) -> pd.DataFrame:
+        """Return one DataFrame row per simulation matching ``filters``."""
+
+    def open_zarr(self, sim_id: str | UUID) -> SimulationZarr:
+        """Open the per-simulation Zarr store for ``sim_id``."""
+
+    def finalize(
+        self,
+        sim_id: str | UUID,
+        status: str = "completed",
+        duration_s: float | None = None,
+    ) -> None:
+        """Mark ``sim_id`` final, set its status, and pack on-disk artefacts."""
+
+    def close(self) -> None:
+        """Release every open resource (DB connection, Zarr handles)."""
+
+    def __getitem__(self, ref: str | UUID) -> Run:
+        """Resolve ``ref`` to a :class:`Run` view bound to this store."""
+
+    def __enter__(self) -> SimulationStore: ...
+
+    def __exit__(self, *exc: object) -> None: ...
