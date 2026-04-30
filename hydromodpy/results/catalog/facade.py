@@ -10,7 +10,7 @@ are mixed in here via plain inheritance.
 from __future__ import annotations
 
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 import duckdb
 
@@ -28,6 +28,8 @@ from hydromodpy.results.zarr_store import SimulationZarr
 
 if TYPE_CHECKING:
     from uuid import UUID
+
+    import xarray as xr
 
 
 class SimulationCatalog(
@@ -117,6 +119,32 @@ class SimulationCatalog(
     def parquet_dir_for(self, sim_id: str | UUID) -> Path:
         """Return the per-simulation Parquet directory (public accessor)."""
         return self._paths.parquet_dir_for(sim_id)
+
+    def load_dataset(
+        self,
+        filters: dict[str, Any] | None = None,
+        *,
+        fields: list[str] | None = None,
+        include_params: bool = True,
+        include_metrics: bool = True,
+        include_env: bool = True,
+    ) -> xr.Dataset:
+        """Return one ``xr.Dataset`` joining scalars + Zarr fields for a cohort.
+
+        Composition entry-point for ML/DL pipelines: bundles parameters,
+        metrics, ``runs_environment`` metadata, and (optionally) lazy Zarr
+        fields into a single :class:`xarray.Dataset` indexed by ``sim_id``.
+        See :class:`hydromodpy.results.catalog.dataset_loader.DatasetLoader`.
+        """
+        from hydromodpy.results.catalog.dataset_loader import DatasetLoader
+
+        return DatasetLoader(self).load(
+            filters,
+            fields=fields,
+            include_params=include_params,
+            include_metrics=include_metrics,
+            include_env=include_env,
+        )
 
     def __repr__(self) -> str:
         try:
