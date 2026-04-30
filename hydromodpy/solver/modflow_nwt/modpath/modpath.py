@@ -39,14 +39,11 @@ sys.path.append(df)
 from hydromodpy.core.io.filesystem import create_folder
 from hydromodpy.core.io.raster_io import export_tif
 from hydromodpy.core.logging import get_logger
-from hydromodpy.display.theme import plot_params
+from hydromodpy.solver.contracts import Solver
 from hydromodpy.solver.modflow_common import ensure_solver_binary
 from hydromodpy.spatial.delineation import get_whitebox_backend
 
 logger = get_logger(__name__)
-fontprop = plot_params(8, 15, 18, 20)  # small, medium, interm, large
-
-from hydromodpy.solver.contracts import Solver
 
 # %% CLASS
 

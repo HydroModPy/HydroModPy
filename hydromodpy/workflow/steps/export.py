@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import shutil
+from pathlib import Path
 from typing import TYPE_CHECKING, ClassVar
 
 from hydromodpy.core.exceptions import ConfigError
@@ -40,6 +41,7 @@ def step_save_run_artifacts(
         from hydromodpy.analysis.capability_gallery import (
             publish_run_to_capability_gallery,
         )
+        from hydromodpy.display.runs import render_figure
 
         plan = ctx.execution.simulation_plan
         solvers_used = {r.solver for r in plan.runs} if plan is not None else set()
@@ -53,12 +55,16 @@ def step_save_run_artifacts(
             except Exception:
                 run_wrapper = None
 
+        def _render(figure_name: str, run: object, target_path: Path) -> None:
+            render_figure(figure_name, run, save=target_path)
+
         publish_run_to_capability_gallery(
             run_id=str(ctx.setup.run_id),
             run_folder=project_root,
             config=gallery_cfg,
             solvers=tuple(str(s) for s in solvers_used),
             run=run_wrapper,
+            render_figure=_render,
         )
 
 

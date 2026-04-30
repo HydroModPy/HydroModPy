@@ -11,6 +11,9 @@ from typing import Any
 
 import numpy as np
 
+from hydromodpy.analysis.comparison._solver_protocol import (
+    get_solver_registry_provider,
+)
 from hydromodpy.analysis.comparison.runtime_metadata import (
     _resolve_project_root_from_config,
     _resolve_recorded_output_path,
@@ -72,27 +75,17 @@ def _candidate_solver_sections(solver_name: str | None = None) -> tuple[str, ...
     Sections are pulled from the solver registry filtered by the
     ``distributed`` category - the only backends that expose a structured
     ``(nrow, ncol)`` shape via their TOML config. ``solver_name``, when
-    given, is tried first.
+    given, is tried first. The registry lookup goes through
+    :class:`SolverRegistryProvider` so analysis stays decoupled from the
+    solver layer.
     """
-    from hydromodpy.solver.base.registry import (
-        get_extractor,
-        list_extractor_solvers,
-        pairs_for_process,
-    )
-
     sections: list[str] = []
     if solver_name:
         sections.append(str(solver_name).strip().lower())
 
-    flow_solvers = {name for _, name in pairs_for_process("flow")}
-    for name in list_extractor_solvers():
-        if name not in flow_solvers:
-            continue
-        try:
-            if getattr(get_extractor(name), "category", None) == "distributed":
-                sections.append(name)
-        except KeyError:
-            continue
+    provider = get_solver_registry_provider()
+    if provider is not None:
+        sections.extend(provider.distributed_flow_solver_sections())
 
     return tuple(dict.fromkeys(section for section in sections if section))
 

@@ -1,14 +1,16 @@
 """HTML report rendering for one calibration session.
 
-Consumes the data dataclass produced by
-:func:`hydromodpy.calibration.report.load_session_report_data` and
-turns it into a self-contained HTML report at
+Consumes the structural payload produced by
+:func:`hydromodpy.calibration.report.load_session_report_data` and turns
+it into a self-contained HTML report at
 ``<workspace>/reports/<session_id>/report.html``. Renders the six
 calibration figures registered in :mod:`hydromodpy.display.figures`
 plus a best-run obs-vs-sim panel when a promoted run is available.
 
 The HTML is intentionally static - no JS, no external fonts, no CDN.
-It opens offline from the workspace directory.
+It opens offline from the workspace directory. Display never imports
+calibration: the input is described locally by
+:class:`SessionReportPayload` (a structural Protocol).
 """
 
 from __future__ import annotations
@@ -16,7 +18,7 @@ from __future__ import annotations
 import html
 import json
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Protocol
 
 from hydromodpy.core.logging import get_logger
 from hydromodpy.display.catalog import get as _get_figure
@@ -25,9 +27,24 @@ from hydromodpy.display.catalog import names as _figure_names
 if TYPE_CHECKING:
     import pandas as pd
 
-    from hydromodpy.calibration.report import SessionReportData
-
 logger = get_logger(__name__)
+
+
+class SessionReportPayload(Protocol):
+    """Structural shape consumed by :func:`render_session`.
+
+    Mirrors the attributes of
+    ``hydromodpy.calibration.report.SessionReportData`` without taking
+    a static dependency on the calibration package.
+    """
+
+    session_id: str
+    session: dict[str, Any]
+    iterations: list[dict[str, Any]]
+    workspace_root: Path
+    best_sim_id: str | None
+    sim_timeseries: pd.DataFrame | None
+    obs_timeseries: pd.DataFrame | None
 
 
 _DEFAULT_FIGURE_NAMES: tuple[str, ...] = (
@@ -46,7 +63,7 @@ _DEFAULT_FIGURE_NAMES: tuple[str, ...] = (
 
 
 def render_session(
-    session_data: SessionReportData,
+    session_data: SessionReportPayload,
     *,
     figure_names: list[str] | tuple[str, ...] | None = None,
     output_dir: Path | None = None,
@@ -56,8 +73,9 @@ def render_session(
     Parameters
     ----------
     session_data
-        Dataclass produced by
-        :func:`hydromodpy.calibration.report.load_session_report_data`.
+        Payload produced by
+        :func:`hydromodpy.calibration.report.load_session_report_data`,
+        accepted structurally as :class:`SessionReportPayload`.
     figure_names
         Iterable of registered figure names to render. Defaults to the
         six built-in ``calibration_*`` figures.
@@ -412,4 +430,4 @@ def _format_iterations_preview(iterations: list[dict], limit: int = 20) -> str:
     return "\n".join(lines) or "(no iterations)"
 
 
-__all__ = ("render_session",)
+__all__ = ("SessionReportPayload", "render_session")

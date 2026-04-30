@@ -9,8 +9,8 @@ its catalog row on first access and exposes typed properties (``solver``,
 readers (``field``, ``mesh``, ``geographic``, ``geographic_raster``), spatial
 helpers (``grid``, ``catchment_mask``, ``dem``, ``outlet``), derived metrics
 (``saturated_fraction``, ``drainage_density``, ``persistence``,
-``catchment_mean``, ``recharge_forcing``), and display hooks
-(``display_capabilities``, ``plot``, ``plot_all``).
+``catchment_mean``, ``recharge_forcing``), and the
+``display_capabilities`` hook consumed by the display layer.
 
 Why
 ---
@@ -42,7 +42,6 @@ from __future__ import annotations
 
 import json as _json
 from functools import cached_property
-from pathlib import Path
 from typing import TYPE_CHECKING
 
 import numpy as np
@@ -677,24 +676,6 @@ class Run:
             caps.append("particle_tracks")
 
         return caps
-
-    def plot(self, figure_name: str, *, save: str | Path | None = None) -> None:
-        if figure_name not in self.display_capabilities:
-            raise ValueError(
-                f"Figure '{figure_name}' not available. Capabilities: {self.display_capabilities}"
-            )
-        from hydromodpy.display.runs import render_figure
-
-        render_figure(figure_name, self, save=save)
-
-    def plot_all(self, *, save: str | Path | None = None) -> None:
-        from hydromodpy.display.runs import render_figure
-
-        for name in self.display_capabilities:
-            try:
-                render_figure(name, self, save=save)
-            except Exception:
-                logger.warning("Failed to render '%s'", name)
 
     # -- Repr ----------------------------------------------------------------
 

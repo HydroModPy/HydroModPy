@@ -10,8 +10,8 @@ Two concerns live here, both purely data-side:
    one calibration session out of the workspace catalog and return a
    plain dataclass ready to be handed to the display layer for HTML
    rendering. The rendering itself lives in
-   :mod:`hydromodpy.display.sessions`; this module never imports
-   ``hydromodpy.display``.
+   :mod:`hydromodpy.display.calibration_report`; this module never
+   imports ``hydromodpy.display``.
 """
 
 from __future__ import annotations
@@ -140,8 +140,9 @@ class CalibrationReport:
 class SessionReportData:
     """Plain data extracted from one calibration session.
 
-    Carries everything :func:`hydromodpy.display.sessions.render_session`
-    needs to produce the HTML report; no catalog handle, no live database
+    Carries everything
+    :func:`hydromodpy.display.calibration_report.render_session` needs to
+    produce the HTML report; no catalog handle, no live database
     connection. Constructed by :func:`load_session_report_data`.
 
     Attributes

@@ -38,7 +38,6 @@ sys.path.append(df)
 from hydromodpy.core.io.filesystem import create_folder
 from hydromodpy.core.io.raster_io import export_tif
 from hydromodpy.core.logging import get_logger
-from hydromodpy.display.theme import plot_params
 from hydromodpy.solver.modflow_common import (
     ensure_solver_binary,
     masstransfer,
@@ -47,7 +46,6 @@ from hydromodpy.solver.modflow_common.runtime_arrays import (
     build_concentration_runtime_overrides,
 )
 
-fontprop = plot_params(8, 15, 18, 20)  # small, medium, interm, large
 MT3DMS_NORMAL_MESSAGES = ["normal termination", "program completed"]
 
 # %% CLASS
