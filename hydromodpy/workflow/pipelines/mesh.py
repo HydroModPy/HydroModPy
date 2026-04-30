@@ -27,7 +27,7 @@ from typing import Any
 from hydromodpy.core.exceptions import PipelineError
 from hydromodpy.core.toml_io.loader import load_toml_with_base_config
 from hydromodpy.core.workspace.config import WorkspaceConfig
-from hydromodpy.master_config.hydromodpy_config import _load_standard_section
+from hydromodpy.master_config.hydromodpy_config import load_standard_section
 from hydromodpy.spatial.domain.domain_config import DomainConfig
 from hydromodpy.spatial.geographic.geographic_config import GeographicConfig
 from hydromodpy.spatial.mesh import runtime as mesh_runtime
@@ -90,18 +90,18 @@ class MeshCatchmentLauncher:
     ) -> tuple[WorkspaceConfig, GeographicConfig, DomainConfig]:
         """Load the shared runtime sections consumed by the launcher."""
         base_dir = self.config_path.parent
-        workspace_cfg = _load_standard_section(
+        workspace_cfg = load_standard_section(
             self._normalize_workspace_section(payload),
             WorkspaceConfig,
             base_dir,
         )
-        geographic_cfg = _load_standard_section(
+        geographic_cfg = load_standard_section(
             payload.get("geographic", {}),
             GeographicConfig,
             base_dir,
         )
         if "domain" in payload:
-            domain_cfg = _load_standard_section(
+            domain_cfg = load_standard_section(
                 payload.get("domain", {}),
                 DomainConfig,
                 base_dir,

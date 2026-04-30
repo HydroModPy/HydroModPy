@@ -158,13 +158,13 @@ def _build_report(workspace_arg: str | None, *, toml: str | None = None) -> dict
         )
 
     try:
-        from hydromodpy.core.workspace.workspace import _resolve_bin_path
+        from hydromodpy.core.workspace.workspace import resolve_bin_path
         from hydromodpy.solver.modflow_common.binaries import (
             locate_solver_binary,
             read_manifest,
         )
 
-        effective_bin = Path(_resolve_bin_path())
+        effective_bin = Path(resolve_bin_path())
     except Exception as exc:  # pragma: no cover - defensive
         effective_bin = None
         checks.append(
