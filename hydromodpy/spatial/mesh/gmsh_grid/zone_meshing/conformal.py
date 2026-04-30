@@ -33,6 +33,9 @@ from hydromodpy.spatial.mesh.gmsh_grid.zone_meshing._conformal_gmsh_stages impor
 from hydromodpy.spatial.mesh.gmsh_grid.zone_meshing._conformal_partition import (
     build_and_split_partition,
 )
+from hydromodpy.spatial.mesh.gmsh_grid.zone_meshing._conformal_partition import (
+    build_zone_conformal_partition_from_dataframe as _build_zone_conformal_partition_from_dataframe,
+)
 from hydromodpy.spatial.mesh.gmsh_grid.zone_meshing._input_normalization import (
     normalize_interface_refinement_inputs,
 )
@@ -66,12 +69,7 @@ def _select_partition_face_owner(
     overlap_tolerance: float,
     probe_radius: float,
 ) -> str | None:
-    """Compatibility wrapper around the internal partition-owner selector.
-
-    The implementation now lives in ``_partition_builder.py``, but this thin
-    wrapper keeps the historical import path stable for tests and local debug
-    scripts that still import the helper from ``conformal.py``.
-    """
+    """Select the owner zone for one partition face."""
     return _select_partition_face_owner_impl(
         part=part,
         point=point,
@@ -79,6 +77,28 @@ def _select_partition_face_owner(
         grouped_priorities=grouped_priorities,
         overlap_tolerance=overlap_tolerance,
         probe_radius=probe_radius,
+    )
+
+
+def build_zone_conformal_partition_from_dataframe(
+    gdf,
+    *,
+    zone_key_column: str = "zone_key",
+    priority_column: str | None = None,
+    domain_geometry=None,
+    simplify_tolerance: float = 0.0,
+    heal_tolerance: float = 0.0,
+    min_polygon_area: float = 0.0,
+):
+    """Build one clean planar partition from one GeoDataFrame of polygon zones."""
+    return _build_zone_conformal_partition_from_dataframe(
+        gdf,
+        zone_key_column=zone_key_column,
+        priority_column=priority_column,
+        domain_geometry=domain_geometry,
+        simplify_tolerance=simplify_tolerance,
+        heal_tolerance=heal_tolerance,
+        min_polygon_area=min_polygon_area,
     )
 
 
