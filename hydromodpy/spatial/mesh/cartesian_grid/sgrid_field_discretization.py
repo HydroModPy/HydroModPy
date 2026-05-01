@@ -91,6 +91,7 @@ def discretize_fields_on_sgrid(
 
     # Compute stress-period boundaries for temporal slicing.
     period_bounds = stress_period_bounds(nper, simulation_window)
+    coverage_policy = str(getattr(simulation_window, "coverage_policy", "ignore"))
 
     # Aggregate all FieldRecords into one temporal-spatial stack.
     rch_arrays: dict[int, np.ndarray] = {}
@@ -103,6 +104,7 @@ def discretize_fields_on_sgrid(
             ncol=ncol,
             nper=nper,
             period_bounds=period_bounds,
+            coverage_policy=coverage_policy,
             method=method,
         )
         for kper, arr in field_arrays.items():
@@ -155,6 +157,7 @@ def discretize_points_on_sgrid(
 
     x_centers, y_centers = cell_centers_from_sgrid(sgrid, nrow, ncol)
     period_bounds = stress_period_bounds(nper, simulation_window)
+    coverage_policy = str(getattr(simulation_window, "coverage_policy", "ignore"))
 
     return discretize_located_points(
         located_points=located_points,
@@ -164,6 +167,7 @@ def discretize_points_on_sgrid(
         ncol=ncol,
         nper=nper,
         period_bounds=period_bounds,
+        coverage_policy=coverage_policy,
         method=method,
         source_unit=source_unit,
     )

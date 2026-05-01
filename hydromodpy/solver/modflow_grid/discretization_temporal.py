@@ -66,7 +66,10 @@ def build_temporal_discretization_from_time_grid(
     if nper == 0:
         raise ValueError("simulation.time grid produced an empty perlen vector.")
 
-    nstp = np.ones((nper,), dtype=int)
+    nstp_per_period = int(getattr(time_grid, "nstp_per_period", 1) or 1)
+    if nstp_per_period <= 0:
+        raise ValueError("simulation.time.substeps_per_period must be a positive integer.")
+    nstp = np.full((nper,), nstp_per_period, dtype=int)
     flow_regime_text = str(flow_regime).strip().lower()
     if flow_regime_text == "steady":
         steady = np.ones((nper,), dtype=bool)

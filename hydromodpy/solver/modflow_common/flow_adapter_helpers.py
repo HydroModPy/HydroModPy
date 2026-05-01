@@ -113,6 +113,16 @@ def build_preprocess_options(state) -> ModflowPreprocessOptions:
     return ModflowPreprocessOptions(time_grid=time_grid)
 
 
+def _requires_mt3dms_link(ctx: RunContext) -> bool:
+    """Return whether one downstream MT3DMS run consumes this flow output."""
+    return any(
+        planned.process_type == "transport"
+        and planned.solver == "mt3dms"
+        and ctx.run.id in planned.depends_on
+        for planned in ctx.plan.runs
+    )
+
+
 def run_flow_model(ctx: RunContext, model_modflow, preprocess_options) -> RunExecutionResult:
     """Execute the shared lifecycle for one already-instantiated flow model.
 
@@ -138,9 +148,14 @@ def run_flow_model(ctx: RunContext, model_modflow, preprocess_options) -> RunExe
     )
 
     # The numerical run is shared across flow backends: write files, execute
-    # the solver, and link MT3DMS-compatible outputs when available.
+    # the solver, and link MT3DMS-compatible outputs only when a downstream
+    # MT3DMS transport run depends on this flow run.
     success = model_modflow.processing(
-        options=ModflowRunOptions(write_model=True, run_model=True, link_mt3dms=True)
+        options=ModflowRunOptions(
+            write_model=True,
+            run_model=True,
+            link_mt3dms=_requires_mt3dms_link(ctx),
+        )
     )
     if not success:
         diagnostics_path = Path(getattr(model_modflow, "full_path", "")).resolve()

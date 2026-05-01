@@ -177,9 +177,14 @@ class Boussinesq(Solver):
         _ = kwargs
         if self.state is not None:
             state_history_path = self.full_path / "_boussinesq_state_history.npz"
+            state_payload = build_state_history_export_payload(self.state)
+            if self.mesh is not None:
+                state_payload["z_top_m"] = np.asarray(self.mesh.z_top_m, dtype=float)
+                state_payload["z_bottom_m"] = np.asarray(self.mesh.z_bottom_m, dtype=float)
+                state_payload["cell_area_m2"] = np.asarray(self.mesh.cell_area_m2, dtype=float)
             np.savez(
                 state_history_path,
-                **build_state_history_export_payload(self.state),
+                **state_payload,
             )
             record_surface_threshold_summary(self)
 
@@ -188,10 +193,8 @@ class Boussinesq(Solver):
         summary_payload["has_numerical_solution"] = bool(self.has_numerical_solution)
         summary_payload["solve_stage"] = str(self.solve_stage)
         if self.mesh is not None and hasattr(self.mesh, "z_top_m"):
-            z_top = self.mesh.z_top_m
-            summary_payload["z_top_m"] = (
-                float(z_top[0]) if hasattr(z_top, "__len__") else float(z_top)
-            )
+            summary_payload["z_top_m"] = np.asarray(self.mesh.z_top_m, dtype=float).tolist()
+            summary_payload["z_bottom_m"] = np.asarray(self.mesh.z_bottom_m, dtype=float).tolist()
         if self.state is not None:
             summary_payload["period_lengths_seconds"] = list(self.state.period_lengths_seconds)
             summary_payload["nonlinear_iterations"] = list(self.state.nonlinear_iterations)

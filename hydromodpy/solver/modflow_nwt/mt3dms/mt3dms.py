@@ -373,13 +373,21 @@ class Mt3dms:
         self.outflow_drain = getattr(self.model_modflow, "dict_outflow_drain", {})
 
         self.ucnobj = bf.UcnFile(self.path_file)
-        ucn_times = list(self.ucnobj.get_times())
+        ucn_all_data = None
+        if hasattr(self.ucnobj, "get_times"):
+            ucn_times = list(self.ucnobj.get_times())
+        else:
+            ucn_all_data = np.asarray(self.ucnobj.get_alldata(), dtype=float)
+            ucn_times = list(range(int(ucn_all_data.shape[0])))
         if not ucn_times:
             raise RuntimeError(f"No MT3DMS concentration timesteps found in {self.path_file}")
 
         def _surface_concentration(period_index: int) -> np.ndarray:
             time_index = min(period_index + 1, len(ucn_times) - 1)
-            values = np.asarray(self.ucnobj.get_data(totim=ucn_times[time_index]), dtype=float)
+            if ucn_all_data is None:
+                values = np.asarray(self.ucnobj.get_data(totim=ucn_times[time_index]), dtype=float)
+            else:
+                values = np.asarray(ucn_all_data[time_index], dtype=float)
             surface = values[0].copy()
             surface[surface >= 1e30] = np.nan
             return surface

@@ -11,17 +11,7 @@ from hydromodpy.core.logging import get_logger
 
 logger = get_logger(__name__)
 
-# Map MODFLOW ITMUNI codes to the canonical volumetric-flux unit label
-# the extractor writes to the catalog. Codes follow the MODFLOW
-# discretization-package convention (0 = undefined, 1 = seconds, …).
-_ITMUNI_FLUX_UNIT: dict[int, str] = {
-    0: "m3/s",
-    1: "m3/s",
-    2: "m3/min",
-    3: "m3/h",
-    4: "m3/d",
-    5: "m3/yr",
-}
+# Map MODFLOW ITMUNI codes to seconds per model-time unit.
 _ITMUNI_SECONDS: dict[int, float] = {
     0: 1.0,
     1: 1.0,
@@ -61,11 +51,6 @@ def _read_itmuni(dis_path: Path) -> int:
     except (OSError, ValueError):
         return 1
     return 1
-
-
-def _flux_unit_for(itmuni: int) -> str:
-    """Return the volumetric-flux unit label matching ``itmuni``."""
-    return _ITMUNI_FLUX_UNIT.get(itmuni, "m3/s")
 
 
 def _write_time_coordinate(store: Any, sim_id: str, times: list[float], itmuni: int) -> None:
@@ -136,6 +121,7 @@ class ModflowNwtOutputAdapter:
         kstpkpers = head_file.get_kstpkper()
         n_timesteps = len(times)
         itmuni = _read_itmuni(solver_output_dir / f"{model_name}.dis")
+        flux_scale_to_m3_s = 1.0 / float(_ITMUNI_SECONDS.get(itmuni, 1.0))
         _write_time_coordinate(store, sim_id, times, itmuni)
 
         head0 = head_file.get_data(totim=times[0])
@@ -175,12 +161,12 @@ class ModflowNwtOutputAdapter:
                 nrow,
                 ncol,
                 spatial_fields=budget_spatial_fields,
-                flux_unit=_flux_unit_for(itmuni),
+                flux_scale_to_m3_s=flux_scale_to_m3_s,
             )
 
         lst_path = solver_output_dir / f"{model_name}.lst"
         if lst_path.exists():
-            self._extract_mass_balance(sim_id, store, lst_path)
+            self._extract_mass_balance(sim_id, store, lst_path, flux_scale_to_m3_s)
 
         head_file.close()
 
@@ -200,7 +186,7 @@ class ModflowNwtOutputAdapter:
         ncol: int,
         *,
         spatial_fields: bool = False,
-        flux_unit: str = "m3/s",
+        flux_scale_to_m3_s: float = 1.0,
     ) -> None:
         """Extract cell budget data from .cbc file."""
         import flopy.utils.binaryfile as bf
@@ -229,7 +215,7 @@ class ModflowNwtOutputAdapter:
                     continue
                 if not data:
                     continue
-                arr = np.asarray(data[0], dtype="float64")
+                arr = np.asarray(data[0], dtype="float64") * float(flux_scale_to_m3_s)
                 if arr.ndim >= 2:
                     flux_in = float(np.maximum(arr, 0).sum())
                     flux_out = float(np.minimum(arr, 0).sum())
@@ -243,7 +229,7 @@ class ModflowNwtOutputAdapter:
                         "component": component.lower().strip(),
                         "flux_in": flux_in,
                         "flux_out": abs(flux_out),
-                        "unit": flux_unit,
+                        "unit": "m3/s",
                     }
                 )
                 if spatial_fields and arr.ndim >= 2:
@@ -266,6 +252,7 @@ class ModflowNwtOutputAdapter:
         sim_id: str,
         store: Any,
         lst_path: Path,
+        flux_scale_to_m3_s: float,
     ) -> None:
         """Parse MODFLOW listing file for mass balance summary."""
         try:
@@ -279,10 +266,19 @@ class ModflowNwtOutputAdapter:
                 fields = _budget_field_lookup(inc.dtype.names or ())
                 for t in range(len(inc)):
                     row = inc[t]
-                    total_in = _budget_value(row, fields, "TOTAL_IN", "TOTAL IN")
-                    total_out = _budget_value(row, fields, "TOTAL_OUT", "TOTAL OUT")
-                    storage_in = _budget_value(row, fields, "STORAGE_IN", "STORAGE IN")
-                    storage_out = _budget_value(row, fields, "STORAGE_OUT", "STORAGE OUT")
+                    total_in = (
+                        _budget_value(row, fields, "TOTAL_IN", "TOTAL IN") * flux_scale_to_m3_s
+                    )
+                    total_out = (
+                        _budget_value(row, fields, "TOTAL_OUT", "TOTAL OUT") * flux_scale_to_m3_s
+                    )
+                    storage_in = (
+                        _budget_value(row, fields, "STORAGE_IN", "STORAGE IN") * flux_scale_to_m3_s
+                    )
+                    storage_out = (
+                        _budget_value(row, fields, "STORAGE_OUT", "STORAGE OUT")
+                        * flux_scale_to_m3_s
+                    )
                     pct_err = _budget_value(
                         row,
                         fields,

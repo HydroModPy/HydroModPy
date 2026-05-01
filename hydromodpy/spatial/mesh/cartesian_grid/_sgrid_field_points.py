@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import warnings
 from typing import Any, Literal
 
 import numpy as np
@@ -20,15 +21,36 @@ def extract_located_points(load_result: Any) -> list[Any]:
     return result
 
 
-def period_mean(series: pd.Series, t_start: pd.Timestamp, t_end: pd.Timestamp) -> float:
+def period_mean(
+    series: pd.Series,
+    t_start: pd.Timestamp,
+    t_end: pd.Timestamp,
+    *,
+    coverage_policy: str,
+    label: str,
+) -> float:
     """Mean value of a series within [t_start, t_end)."""
     mask = (series.index >= t_start) & (series.index < t_end)
     subset = series[mask]
     if subset.empty:
-        # Fallback: nearest time step.
+        message = (
+            "Recharge coverage check failed: no point forcing values inside "
+            f"{label} period [{t_start}, {t_end})."
+        )
+        if coverage_policy == "error":
+            raise ValueError(message)
+        if coverage_policy == "warn":
+            warnings.warn(message, stacklevel=2)
         diffs = np.abs((series.index - t_start).total_seconds())
-        return float(series.iloc[int(np.argmin(diffs))])
-    return float(subset.mean())
+        value = float(series.iloc[int(np.argmin(diffs))])
+    else:
+        values = np.asarray(subset.to_numpy(), dtype=float)
+        if not np.all(np.isfinite(values)):
+            raise ValueError(f"Recharge coverage check failed: {label} contains non-finite values.")
+        value = float(subset.mean())
+    if not np.isfinite(value):
+        raise ValueError(f"Recharge coverage check failed: {label} contains non-finite values.")
+    return value
 
 
 def discretize_located_points(
@@ -40,8 +62,9 @@ def discretize_located_points(
     ncol: int,
     nper: int,
     period_bounds: list[tuple[pd.Timestamp, pd.Timestamp]] | None,
-    method: InterpolationMethod,
-    source_unit: str,
+    coverage_policy: str = "ignore",
+    method: InterpolationMethod = "nearest",
+    source_unit: str = "mm/day",
 ) -> dict[int, np.ndarray]:
     """Interpolate the time series of located points onto cell centers."""
     from hydromodpy.spatial.mesh.cartesian_grid._sgrid_field_grid_utils import (
@@ -65,10 +88,34 @@ def discretize_located_points(
         # Get the value of each station for this period.
         if period_bounds is not None and kper < len(period_bounds):
             t_start, t_end = period_bounds[kper]
-            values = np.array([period_mean(s, t_start, t_end) for s in station_series])
+            values = np.array(
+                [
+                    period_mean(
+                        s,
+                        t_start,
+                        t_end,
+                        coverage_policy=coverage_policy,
+                        label=f"stress period {kper}",
+                    )
+                    for s in station_series
+                ]
+            )
         else:
             # No temporal alignment: use full-series mean.
-            values = np.array([float(s.mean()) for s in station_series])
+            period_values: list[float] = []
+            for s in station_series:
+                series_values = np.asarray(s.to_numpy(), dtype=float)
+                if not np.all(np.isfinite(series_values)):
+                    raise ValueError(
+                        "Recharge coverage check failed: point forcing contains non-finite values."
+                    )
+                period_values.append(float(s.mean()))
+            values = np.asarray(period_values, dtype=float)
+
+        if not np.all(np.isfinite(values)):
+            raise ValueError(
+                f"Recharge coverage check failed: stress period {kper} contains non-finite values."
+            )
 
         # Convert from source unit to m/s.  Per-record unit takes precedence
         # over the caller-supplied default so that mixed-unit datasets work.

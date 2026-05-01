@@ -7,28 +7,40 @@ from numbers import Real
 
 import numpy as np
 
+from hydromodpy.core.time import validate_recharge_coverage
 from hydromodpy.core.units import convert_payload_to_m_per_s
+from hydromodpy.physics.forcing.validation import (
+    ensure_finite_numeric_payload,
+    ensure_non_negative_numeric_payload,
+    has_temporal_index,
+)
 
 
 def sanitize_numeric_payload(payload: object) -> object:
-    """Replace unsupported/invalid numeric payload values by finite MF6-safe values."""
-    if payload is None:
-        return 0.0
-    if isinstance(payload, Mapping):
-        return {key: sanitize_numeric_payload(value) for key, value in payload.items()}
-    if isinstance(payload, Real) and not isinstance(payload, bool):
-        scalar = float(payload)
-        return 0.0 if not np.isfinite(scalar) else scalar
-    if hasattr(payload, "replace") and hasattr(payload, "fillna"):
-        series = payload.copy()
-        series = series.astype(float)
-        return series.replace([np.inf, -np.inf], np.nan).fillna(0.0)
+    """Validate one finite numeric payload and return it unchanged."""
+    ensure_finite_numeric_payload(payload, label="recharge payload")
+    return payload
 
-    arr = np.asarray(payload, dtype=float)
-    if arr.ndim == 0:
-        scalar = float(arr)
-        return 0.0 if not np.isfinite(scalar) else scalar
-    return np.nan_to_num(arr.astype(float, copy=False), nan=0.0, posinf=0.0, neginf=0.0)
+
+def validate_recharge_numeric_payload(
+    payload: object,
+    *,
+    label: str,
+    allow_negative: bool = False,
+) -> None:
+    """Validate one recharge payload before it reaches MF6 stress packages."""
+    if allow_negative:
+        ensure_finite_numeric_payload(payload, label=label)
+    else:
+        ensure_non_negative_numeric_payload(payload, label=label)
+
+
+def _copy_numeric_payload(payload: object) -> object:
+    if isinstance(payload, Mapping):
+        return {key: _copy_numeric_payload(value) for key, value in payload.items()}
+    if isinstance(payload, Real) and not isinstance(payload, bool):
+        return float(payload)
+    return copy_runtime_payload(payload)
 
 
 def payload_has_negative_values(payload: object) -> bool:
@@ -100,7 +112,7 @@ def series_payload_value(payload: object, kper: int, *, first_clim: object) -> f
     if kper == 0:
         if first_clim == "mean":
             arr = np.asarray(payload, dtype=float)
-            return float(np.nanmean(arr))
+            return float(np.mean(arr))
         if first_clim == "first":
             if hasattr(payload, "iloc"):
                 first = payload.iloc[0]
@@ -177,7 +189,12 @@ def bind_recharge_from_flow(model) -> None:
     model._evt_rate_payload = None
     model._pending_negative_to_evt = False
     if model.recharge is not None:
-        model.recharge = sanitize_numeric_payload(model.recharge)
+        validate_recharge_numeric_payload(
+            model.recharge,
+            label="model.recharge",
+            allow_negative=False,
+        )
+        model.recharge = _copy_numeric_payload(model.recharge)
         if model.first_clim is None:
             model.first_clim = "mean"
         return
@@ -208,13 +225,22 @@ def bind_recharge_from_flow(model) -> None:
         return
 
     payload = copy_runtime_payload(getattr(recharge_cfg, "values", 0.0))
+    if has_temporal_index(payload):
+        validate_recharge_coverage(
+            payload,
+            model.time_grid.window if getattr(model, "time_grid", None) is not None else None,
+        )
     payload = convert_payload_to_m_per_s(
         payload,
         unit=str(getattr(recharge_cfg, "units", "mm/day")),
         label="flow.sinks_sources.recharge.values",
     )
-    payload = sanitize_numeric_payload(payload)
     negative_to_evt = bool(getattr(recharge_cfg, "negative_to_evt", False))
+    validate_recharge_numeric_payload(
+        payload,
+        label="flow.sinks_sources.recharge.values",
+        allow_negative=negative_to_evt,
+    )
     if hasattr(model, "nper"):
         payload, evt_payload = extract_evt_payload(model, payload, negative_to_evt)
         model._evt_rate_payload = evt_payload
@@ -319,6 +345,11 @@ def resolve_deferred_heterogeneous_recharge(model) -> None:
         raw_arrays,
         getattr(model, "_heterogeneous_negative_to_evt", False),
     )
+    validate_recharge_numeric_payload(
+        raw_arrays,
+        label="flow.sinks_sources.recharge.heterogeneous_source",
+        allow_negative=False,
+    )
 
     # `recharge_to_spd` handles Mapping {kper: ndarray(ncpl,)}.
     model.recharge = raw_arrays
@@ -340,37 +371,47 @@ def as_recharge_flat(model, value: object, *, kper: int | None = None) -> np.nda
     if arr.ndim == 0:
         return scalar_to_flat(model, float(arr))
     if arr.ndim == 1:
-        if arr.size == 0:
-            return np.zeros(int(model.ncpl), dtype=float)
         if arr.size == int(model.ncpl):
             return arr.astype(float)
-        if kper is None:
-            return scalar_to_flat(model, float(arr[-1]))
-        idx = min(max(int(kper), 0), int(arr.size) - 1)
-        return scalar_to_flat(model, float(arr[idx]))
+        raise ValueError(
+            f"recharge array for period {kper} must be scalar or length ncpl "
+            f"({int(model.ncpl)}); got {int(arr.size)}."
+        )
     if arr.ndim == 2:
         flat = arr.ravel()
         if flat.size == int(model.ncpl):
             return flat.astype(float)
-        if flat.size == 0:
-            return np.zeros(int(model.ncpl), dtype=float)
-        return scalar_to_flat(model, float(flat[-1]))
+        raise ValueError(
+            f"recharge array for period {kper} must flatten to ncpl "
+            f"({int(model.ncpl)}); got {int(flat.size)}."
+        )
     if arr.ndim >= 3:
-        if kper is None:
-            kper = 0
-        idx = min(max(int(kper), 0), int(arr.shape[0]) - 1)
+        if kper is None or int(kper) < 0 or int(kper) >= int(arr.shape[0]):
+            raise ValueError(
+                "time-indexed recharge arrays require one leading entry per stress period."
+            )
+        idx = int(kper)
         flat = np.asarray(arr[idx], dtype=float).ravel()
         if flat.size == int(model.ncpl):
             return flat
-        if flat.size == 0:
-            return np.zeros(int(model.ncpl), dtype=float)
-        return scalar_to_flat(model, float(flat[-1]))
+        raise ValueError(
+            f"recharge array for period {kper} must flatten to ncpl "
+            f"({int(model.ncpl)}); got {int(flat.size)}."
+        )
 
-    return np.zeros(int(model.ncpl), dtype=float)
+    raise ValueError(f"Unsupported recharge payload shape {arr.shape}.")
 
 
 def series_like_to_scalar(model, kper: int) -> float:
     return series_payload_value(model.recharge, kper, first_clim=model.first_clim)
+
+
+def _payload_sequence(model) -> np.ndarray:
+    payload = model.recharge
+    if hasattr(payload, "iloc"):
+        values = [payload.iloc[idx] for idx in range(len(payload))]
+        return np.asarray(values, dtype=float).reshape(-1)
+    return np.asarray(payload, dtype=float)
 
 
 def recharge_to_spd(model) -> dict[int, np.ndarray]:
@@ -379,7 +420,7 @@ def recharge_to_spd(model) -> dict[int, np.ndarray]:
         for kper in range(model.nper):
             arr = model.recharge.get(kper)
             if arr is None:
-                arr = 0.0
+                raise ValueError(f"model.recharge mapping is missing stress period {kper}.")
             spd[kper] = as_recharge_flat(model, arr, kper=kper)
         return spd
 
@@ -389,10 +430,44 @@ def recharge_to_spd(model) -> dict[int, np.ndarray]:
             spd[kper] = scalar_to_flat(model, scalar)
         return spd
 
-    for kper in range(model.nper):
-        scalar = series_like_to_scalar(model, kper)
-        spd[kper] = scalar_to_flat(model, scalar)
-    return spd
+    arr = _payload_sequence(model)
+    if arr.ndim == 0:
+        scalar = float(arr)
+        for kper in range(model.nper):
+            spd[kper] = scalar_to_flat(model, scalar)
+        return spd
+    if arr.ndim == 1:
+        if arr.size == 1:
+            scalar = float(arr[0])
+            for kper in range(model.nper):
+                spd[kper] = scalar_to_flat(model, scalar)
+            return spd
+        if arr.size == int(model.ncpl):
+            flat = as_recharge_flat(model, arr)
+            for kper in range(model.nper):
+                spd[kper] = flat.copy()
+            return spd
+        if arr.size == int(model.nper):
+            for kper in range(model.nper):
+                spd[kper] = scalar_to_flat(model, float(arr[kper]))
+            return spd
+        raise ValueError(
+            "model.recharge sequence length must be 1, nper "
+            f"({int(model.nper)}), or ncpl ({int(model.ncpl)}); got {int(arr.size)}."
+        )
+    if arr.ndim == 2 and arr.size == int(model.ncpl):
+        flat = as_recharge_flat(model, arr)
+        for kper in range(model.nper):
+            spd[kper] = flat.copy()
+        return spd
+    if arr.ndim >= 2 and arr.shape[0] == int(model.nper):
+        for kper in range(model.nper):
+            spd[kper] = as_recharge_flat(model, arr[kper], kper=kper)
+        return spd
+    raise ValueError(
+        "model.recharge array must be scalar, length nper, length ncpl, "
+        "one grid array, or one leading entry per stress period."
+    )
 
 
 def empty_recharge_aux(model) -> dict[int, list[np.ndarray]]:

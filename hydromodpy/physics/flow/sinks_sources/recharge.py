@@ -9,6 +9,7 @@ from pydantic import ConfigDict, Field, field_validator
 from hydromodpy.core.config_kit.base import HydroModelBase
 from hydromodpy.core.config_kit.profile import Profile
 from hydromodpy.physics.flow.sinks_sources._units import normalize_first_clim
+from hydromodpy.physics.forcing.validation import ensure_non_negative_numeric_payload
 
 
 class FlowRechargeConfig(HydroModelBase):
@@ -102,3 +103,9 @@ class FlowRechargeConfig(HydroModelBase):
     @classmethod
     def _validate_first_clim(cls, value):
         return normalize_first_clim(value)
+
+    @field_validator("values", mode="before")
+    @classmethod
+    def _validate_values(cls, value):
+        ensure_non_negative_numeric_payload(value, label="flow.sinks_sources.recharge.values")
+        return value

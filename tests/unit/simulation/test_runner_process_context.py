@@ -215,11 +215,13 @@ def test_run_flow_model_forwards_flow_runtime_overrides(monkeypatch) -> None:
 
         def __init__(self) -> None:
             self.pre_kwargs = None
+            self.processing_options = None
 
         def pre_processing(self, **kwargs) -> None:
             self.pre_kwargs = dict(kwargs)
 
         def processing(self, options) -> bool:
+            self.processing_options = options
             return True
 
         def post_processing(self, options) -> None:
@@ -235,3 +237,57 @@ def test_run_flow_model_forwards_flow_runtime_overrides(monkeypatch) -> None:
 
     assert model.pre_kwargs is not None
     assert model.pre_kwargs["flow_runtime_overrides"] == {"properties": {"K": [1.0, 2.0]}}
+    assert model.processing_options.link_mt3dms is False
+
+
+def test_run_flow_model_links_mt3dms_only_for_downstream_mt3dms_transport() -> None:
+    flow_run = ProcessRun(
+        id="flow_main::modflownwt",
+        process_id="flow_main",
+        process_type="flow",
+        solver="modflownwt",
+    )
+    transport_run = ProcessRun(
+        id="transport_main::mt3dms",
+        process_id="transport_main",
+        process_type="transport",
+        solver="mt3dms",
+        depends_on=(flow_run.id,),
+    )
+    plan = SimulationPlan(
+        name="demo",
+        description="demo",
+        runs=(flow_run, transport_run),
+    )
+    state = SimpleNamespace(
+        setup=SimpleNamespace(
+            flow=SimpleNamespace(active_bc=[]),
+            domain=SimpleNamespace(),
+            flow_runtime_overrides=None,
+        ),
+        execution=SimpleNamespace(models_by_run_id={}),
+    )
+
+    class _SuccessfulFlowModel:
+        model_name = "demo_model"
+        full_path = "/tmp/demo_model"
+
+        def __init__(self) -> None:
+            self.processing_options = None
+
+        def pre_processing(self, **kwargs) -> None:
+            return None
+
+        def processing(self, options) -> bool:
+            self.processing_options = options
+            return True
+
+    model = _SuccessfulFlowModel()
+
+    run_flow_model(
+        RunContext(plan=plan, run=flow_run, state=state),
+        model,
+        ModflowPreprocessOptions(),
+    )
+
+    assert model.processing_options.link_mt3dms is True

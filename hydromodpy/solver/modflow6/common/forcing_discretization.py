@@ -103,8 +103,7 @@ def broadcast_to_stress_periods(
     if shape is not None and arr.ndim == 0:
         arr = np.full(shape, float(arr))
     arr = np.array(arr, dtype=float, copy=True)
-    arr.setflags(write=False)
-    return {kper: arr for kper in range(int(nper))}
+    return {kper: arr.copy() for kper in range(int(nper))}
 
 
 def stress_period_axes(nper: int) -> list[int]:

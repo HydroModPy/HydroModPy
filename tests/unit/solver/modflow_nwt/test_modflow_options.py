@@ -81,7 +81,13 @@ def test_recharge_config_first_clim_rejects_unknown_keyword():
         FlowRechargeConfig(values=0.001, first_clim="median")
 
 
-def test_recharge_config_accepts_list_values():
-    cfg = FlowRechargeConfig(values=[0.001, 0.0008, -0.0002])
+def test_recharge_config_accepts_non_negative_list_values():
+    cfg = FlowRechargeConfig(values=[0.001, 0.0008, 0.0002])
 
-    assert cfg.values == [0.001, 0.0008, -0.0002]
+    assert cfg.values == [0.001, 0.0008, 0.0002]
+
+
+@pytest.mark.parametrize("value", [None, float("nan"), float("inf"), -0.0002])
+def test_recharge_config_rejects_invalid_numeric_values(value):
+    with pytest.raises(ValueError):
+        FlowRechargeConfig(values=value)

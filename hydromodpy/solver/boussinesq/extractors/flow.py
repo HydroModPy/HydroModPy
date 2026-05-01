@@ -53,6 +53,9 @@ class BoussinesqOutputAdapter:
 
             n_timesteps = head_history.shape[0]
             n_cells = head_history.shape[1]
+            z_top_m = payload.get("z_top_m")
+            z_bottom_m = payload.get("z_bottom_m")
+            cell_area_m2 = payload.get("cell_area_m2")
             time_values = payload.get("snapshot_elapsed_seconds")
             if time_values is None or len(time_values) < n_timesteps:
                 raise KeyError(f"No snapshot_elapsed_seconds time axis in {npz_path}")
@@ -80,8 +83,23 @@ class BoussinesqOutputAdapter:
                 )
 
             self._persist_state_history(sim_id, store, payload)
+            self._write_budget_fields(
+                sim_id,
+                store,
+                payload,
+                n_timesteps=n_timesteps,
+                n_cells=n_cells,
+                cell_area_m2=cell_area_m2,
+            )
 
-        self._write_surface_elevation(sim_id, store, solver_output_dir, n_cells)
+        self._write_surface_elevation(
+            sim_id,
+            store,
+            solver_output_dir,
+            n_cells,
+            z_top_m=z_top_m,
+            z_bottom_m=z_bottom_m,
+        )
 
     @staticmethod
     def _persist_state_history(sim_id: str, store: Any, payload) -> None:
@@ -97,12 +115,91 @@ class BoussinesqOutputAdapter:
         finally:
             sz.close()
 
+    @staticmethod
+    def _write_budget_fields(
+        sim_id: str,
+        store: Any,
+        payload,
+        *,
+        n_timesteps: int,
+        n_cells: int,
+        cell_area_m2: np.ndarray | None,
+    ) -> None:
+        """Write canonical Boussinesq budget fields with solver units."""
+        area = None if cell_area_m2 is None else np.asarray(cell_area_m2, dtype=float).reshape(-1)
+        if area is not None and area.size != int(n_cells):
+            area = None
+
+        def _history(name: str) -> np.ndarray | None:
+            values = payload.get(name)
+            if values is None:
+                return None
+            arr = np.asarray(values, dtype=float)
+            if arr.ndim == 1:
+                arr = arr.reshape(1, -1)
+            if arr.shape[1] != int(n_cells):
+                return None
+            return arr[:n_timesteps]
+
+        recharge_rate = _history("recharge_rate_history_m_s")
+        if recharge_rate is not None and area is not None:
+            recharge_flux = recharge_rate * area.reshape(1, -1)
+            for timestep, values in enumerate(recharge_flux):
+                store.write_field(
+                    sim_id,
+                    "recharge",
+                    timestep,
+                    values,
+                    n_timesteps=n_timesteps if timestep == 0 else None,
+                    subgroup="budget",
+                )
+
+        drainage_flux = _history("drainage_flux_history_m3_s")
+        if drainage_flux is not None:
+            for timestep, values in enumerate(drainage_flux):
+                store.write_field(
+                    sim_id,
+                    "drain",
+                    timestep,
+                    values,
+                    n_timesteps=n_timesteps if timestep == 0 else None,
+                    subgroup="budget",
+                )
+
+        well_flux = _history("well_flux_history_m3_s")
+        if well_flux is not None:
+            for timestep, values in enumerate(well_flux):
+                store.write_field(
+                    sim_id,
+                    "well",
+                    timestep,
+                    values.reshape(1, -1),
+                    n_timesteps=n_timesteps if timestep == 0 else None,
+                    subgroup="budget",
+                )
+
+        saturation_excess = _history("saturation_excess_history_m_s")
+        if saturation_excess is not None and area is not None:
+            surface_excess_flux = saturation_excess * area.reshape(1, -1)
+            for timestep, values in enumerate(surface_excess_flux):
+                store.write_field(
+                    sim_id,
+                    "surface_excess",
+                    timestep,
+                    values,
+                    n_timesteps=n_timesteps if timestep == 0 else None,
+                    subgroup="budget",
+                )
+
     def _write_surface_elevation(
         self,
         sim_id: str,
         store: Any,
         solver_output_dir: Path,
         n_cells: int,
+        *,
+        z_top_m: np.ndarray | None,
+        z_bottom_m: np.ndarray | None,
     ) -> None:
         """Write surface_top from Boussinesq summary for derived variables."""
         try:
@@ -113,18 +210,28 @@ class BoussinesqOutputAdapter:
                 return
 
             summary = _json.loads(summary_path.read_text(encoding="utf-8"))
-            z_top = summary.get("z_top_m")
-            if z_top is not None:
-                top = np.full(n_cells, float(z_top), dtype="float64")
-            else:
+            raw_z_top = z_top_m if z_top_m is not None else summary.get("z_top_m")
+            raw_z_bottom = z_bottom_m if z_bottom_m is not None else summary.get("z_bottom_m")
+            if raw_z_top is None or raw_z_bottom is None:
+                return
+            z_top = np.asarray(raw_z_top, dtype="float64").reshape(-1)
+            z_bottom = np.asarray(raw_z_bottom, dtype="float64").reshape(-1)
+            if z_top.size == 1:
+                z_top = np.full(n_cells, float(z_top[0]), dtype="float64")
+            if z_bottom.size == 1:
+                z_bottom = np.full(n_cells, float(z_bottom[0]), dtype="float64")
+            if z_top.size != int(n_cells) or z_bottom.size != int(n_cells):
                 return
 
             sz = store.open_zarr(sim_id)
             try:
                 mesh = sz.root.require_group("mesh")
-                mesh.create_array("surface_top", data=top, overwrite=True)
-                z_flat = np.array([float(z_top), float(z_top) - 10.0])
-                mesh.create_array("z_interfaces", data=z_flat, overwrite=True)
+                mesh.create_array("surface_top", data=z_top, overwrite=True)
+                mesh.create_array(
+                    "z_interfaces",
+                    data=np.vstack([z_top, z_bottom]),
+                    overwrite=True,
+                )
                 mesh.attrs["n_cells"] = int(n_cells)
                 mesh.attrs["n_layers"] = 1
             finally:
