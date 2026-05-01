@@ -278,6 +278,105 @@ class TestSimulationGroup:
         assert group.sim_ids == sids
         assert group[0].sim_id == sids[0]
 
+    def test_project_run_handles_survive_later_runs(self, monkeypatch, tmp_path):
+        from hydromodpy.project_runner import ProjectRunner
+        from hydromodpy.results.catalog import SimulationCatalog
+        from hydromodpy.workflow.internals.state import PipelineState
+
+        class _Step:
+            name = "setup_process"
+
+        class _Pipeline:
+            counter = 0
+
+            def __init__(self, steps, *, workspace, checkpoint):
+                self.steps = steps
+                self.workspace = workspace
+                self.checkpoint = checkpoint
+
+            def run(self, state, *, resume_from=None):
+                _Pipeline.counter += 1
+                ctx = state.get("ctx")
+                sim_id = str(uuid.uuid4())
+                with SimulationCatalog(ctx.setup.workspace.root) as run_catalog:
+                    reg = run_catalog.register_simulation(
+                        sim_id,
+                        project="project",
+                        solver="fake",
+                        name=ctx.setup.run_id,
+                        n_cells=1,
+                        n_layers=1,
+                    )
+                    if reg.zarr is not None:
+                        reg.zarr.close()
+                    run_catalog.write_parameters(
+                        sim_id,
+                        [
+                            {
+                                "param_name": "thickness",
+                                "value": float(_Pipeline.counter),
+                                "unit": "m",
+                            }
+                        ],
+                    )
+                    run_catalog.finalize(sim_id, "completed")
+                ctx.sim_id = sim_id
+                ctx.store = None
+                return PipelineState(
+                    run_id=state.run_id,
+                    step_index=0,
+                    step_name="display",
+                    data={**state.data, "ctx": ctx},
+                )
+
+        monkeypatch.setattr("hydromodpy.workflow.orchestrator.standard_steps", lambda: (_Step(),))
+        monkeypatch.setattr(
+            "hydromodpy.workflow.steps.planning.step_build_plan", lambda *a, **k: None
+        )
+        monkeypatch.setattr("hydromodpy.workflow.runner.Pipeline", _Pipeline)
+
+        workspace = SimpleNamespace(root=tmp_path / "workspace", project_root=tmp_path / "project")
+        ctx = SimpleNamespace(
+            setup=SimpleNamespace(
+                workspace=workspace,
+                geographic=object(),
+                domain=object(),
+                run_id=None,
+                flow_runtime_overrides=None,
+            ),
+            raw_toml={},
+            store=None,
+            sim_id=None,
+        )
+        project = SimpleNamespace(
+            _ctx=ctx,
+            cfg=SimpleNamespace(),
+            _config_path=tmp_path / "project.toml",
+            _spatial_support_registry=None,
+            _requested_support_ids=(),
+            _requested_domain_supports={},
+            _store=None,
+            _run_counter=0,
+            _solver="fake",
+            _no_display=True,
+            _headless=True,
+            _project_name="project",
+            _active_runs={},
+            _last_wall_seconds={},
+            _run_history=[],
+        )
+
+        runner = ProjectRunner(project)
+        first = runner.run(name="first")
+        first_catalog = first._catalog
+        second = runner.run(name="second")
+
+        assert first_catalog is not project._store
+        assert first._catalog is project._store
+        assert second._catalog is project._store
+        assert first.params["thickness"] == pytest.approx(1.0)
+        assert second.params["thickness"] == pytest.approx(2.0)
+
     def test_iter(self, catalog):
         sids = [_register(catalog) for _ in range(2)]
         group = SimulationGroup(sids, catalog)
