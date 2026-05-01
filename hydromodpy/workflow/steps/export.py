@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import json
 import shutil
 from pathlib import Path
 from typing import TYPE_CHECKING, ClassVar
@@ -26,28 +25,13 @@ def step_save_run_artifacts(
     ctx: WorkflowContext,
     wall_seconds: float,
 ) -> None:
-    """Save config snapshot and optional capability gallery."""
-    from hydromodpy.core.toml_io.writer import dumps as dump_toml_text
-
-    project_root = ctx.setup.workspace.project_root
-
-    if ctx.raw_toml:
-        snapshot_path = project_root / "_config_snapshot.toml"
-        snapshot_path.write_text(dump_toml_text(ctx.raw_toml), encoding="utf-8")
-
-    snapshot = _effective_config_snapshot(ctx)
-    if snapshot:
-        json_path = project_root / "_config_snapshot.json"
-        json_path.write_text(
-            json.dumps(snapshot, indent=2, sort_keys=True, ensure_ascii=True) + "\n",
-            encoding="utf-8",
-        )
-
+    """Save optional run artifacts."""
     analysis_cfg = getattr(ctx.cfg, "analysis", None)
     gallery_cfg = (
         getattr(analysis_cfg, "capability_gallery", None) if analysis_cfg is not None else None
     )
     if gallery_cfg is not None and getattr(gallery_cfg, "enabled", False):
+        project_root = ctx.setup.workspace.project_root
         from hydromodpy.analysis.capability_gallery import (
             publish_run_to_capability_gallery,
         )
@@ -81,16 +65,6 @@ def step_save_run_artifacts(
             run=run_wrapper,
             render_figure=_render,
         )
-
-
-def _effective_config_snapshot(ctx: WorkflowContext) -> dict:
-    cfg = getattr(ctx, "cfg", None)
-    if cfg is not None and hasattr(cfg, "model_dump"):
-        from hydromodpy.workflow.steps.prepare_solver import collect_effective_config_snapshot
-
-        return collect_effective_config_snapshot(ctx)
-    raw_toml = getattr(ctx, "raw_toml", None)
-    return dict(raw_toml) if isinstance(raw_toml, dict) else {}
 
 
 # ---------------------------------------------------------------------------
