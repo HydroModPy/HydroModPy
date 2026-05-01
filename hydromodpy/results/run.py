@@ -494,7 +494,7 @@ class Run:
                 raise KeyError(f"Field '{variable}' not found in simulation '{self._sim_id}'")
             chunks = arr.chunks if arr.chunks else "auto"
             data = da.from_array(arr, chunks=chunks)
-            if desc.shape == field_registry.SHAPE_TIME_LAYER_FACE:
+            if desc.shape == field_registry.SHAPE_TIME_LAYER_FACE and data.ndim == 3:
                 if data.shape[1] != 1:
                     raise ValueError(
                         f"Field '{variable}' has {data.shape[1]} layers; "

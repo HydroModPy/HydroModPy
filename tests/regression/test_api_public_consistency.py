@@ -23,6 +23,8 @@ _DIRECT_EXPORTS = frozenset(
         "open",
         "run",
         "calibrate",
+        "overview",
+        "batch",
         "compare_pair",
         "compare_methods",
         "mesh",

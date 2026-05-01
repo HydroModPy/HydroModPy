@@ -137,8 +137,11 @@ def _run_toml(config_path: Path, *, args: argparse.Namespace) -> None:
             require_toml_field=True,
         )
     except WorkflowError as exc:
-        print(str(exc), file=sys.stderr)
-        sys.exit(EXIT_CONFIG)
+        if dry_run:
+            workflow = _infer_workflow_from_sections(raw_toml)
+        else:
+            print(str(exc), file=sys.stderr)
+            sys.exit(EXIT_CONFIG)
 
     resume = getattr(args, "resume", None)
     from_step = getattr(args, "from_step", None)
