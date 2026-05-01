@@ -31,6 +31,7 @@ from hydromodpy.cli.commands import (
     schema,
     show,
     test,
+    workspace,
 )
 from hydromodpy.cli.commands import (
     list as list_cmd,
@@ -60,6 +61,7 @@ ALL_COMMANDS = (
     install_binaries,
     rank,
     delete,
+    workspace,
     completion,
 )
 
