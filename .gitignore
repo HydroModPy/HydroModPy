@@ -120,6 +120,7 @@ out/
 **/exports/
 **/projects/**/figures/
 **/project_results.zarr.db
+**/.hmp/
 **/.solver_scratch/
 examples/results/
 catalog.db

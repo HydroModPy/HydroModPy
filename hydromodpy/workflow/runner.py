@@ -68,7 +68,11 @@ class Pipeline:
         solver_registry.load_plugins()
         solver_registry.load_extractor_plugins()
 
-        ledger = StepsLedger(self.workspace) if self.workspace is not None else None
+        ledger = (
+            StepsLedger(self.workspace)
+            if (self.workspace is not None and self.checkpoint_enabled)
+            else None
+        )
         cp_store = (
             CheckpointStore(self.workspace, state.run_id)
             if (self.workspace is not None and self.checkpoint_enabled)
@@ -78,7 +82,7 @@ class Pipeline:
         try:
             start_index = 0 if resume_from is None else int(resume_from)
             manifest: ResolvedRunManifest | None = None
-            if self.workspace is not None:
+            if self.workspace is not None and self.checkpoint_enabled:
                 manifest = ResolvedRunManifest.read(self.workspace, state.run_id)
                 if start_index > 0 and manifest is not None:
                     manifest.verify_state(state, self.steps, self.workspace)
@@ -111,7 +115,7 @@ class Pipeline:
                 if index < start_index:
                     continue
                 state = self._execute_step(step, state, index, ledger, cp_store)
-                if self.workspace is not None:
+                if self.workspace is not None and self.checkpoint_enabled:
                     manifest = (
                         ResolvedRunManifest.from_state(state, self.steps, self.workspace)
                         if manifest is None

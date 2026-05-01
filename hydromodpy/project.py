@@ -332,7 +332,7 @@ class Project:
         self,
         *,
         name: str | None = None,
-        checkpoint: bool = True,
+        checkpoint: bool = False,
         resume: str | None = None,
         from_step: str | int | None = None,
         until_step: str | int | None = None,

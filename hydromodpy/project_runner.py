@@ -199,7 +199,7 @@ class ProjectRunner:
         self,
         *,
         name: str | None = None,
-        checkpoint: bool = True,
+        checkpoint: bool = False,
         resume: str | None = None,
         from_step: str | int | None = None,
         until_step: str | int | None = None,
@@ -217,6 +217,9 @@ class ProjectRunner:
         project = self._project
 
         skip_display = bool(project._no_display) or bool(no_display)
+        checkpoint = bool(checkpoint or resume is not None or from_step is not None)
+        if until_step is not None:
+            checkpoint = True
 
         thickness = overrides.pop("thickness", None)
         first_clim = overrides.pop("first_clim", None)
