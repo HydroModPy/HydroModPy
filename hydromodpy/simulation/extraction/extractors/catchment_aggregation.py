@@ -63,21 +63,29 @@ def aggregate_catchment_timeseries(
 
         active_mask = _build_active_mask(grp)
 
-        # Resolve a DatetimeIndex - DuckDB timeseries table requires TIMESTAMP.
-        if time_index is not None and len(time_index) == n_timesteps:
-            ts_index = time_index
-        else:
-            # Try to read period from simulation metadata.
-            ts_index = _resolve_time_index(store, sim_id, n_timesteps)
-
-        written = 0
+        pending: list[tuple[str, list[float]]] = []
         for store_var, output_var, reducer in _AGGREGATION_SPEC:
             values = _aggregate_variable(
                 store, sim_id, grp, store_var, n_timesteps, active_mask, reducer
             )
             if values is None:
                 continue
+            pending.append((output_var, values))
 
+        if not pending:
+            return
+
+        if time_index is not None and len(time_index) == n_timesteps:
+            ts_index = time_index
+        else:
+            try:
+                ts_index = _resolve_time_index(store, sim_id, n_timesteps)
+            except RuntimeError as exc:
+                logger.warning("Skipping catchment timeseries for sim %s: %s", sim_id, exc)
+                return
+
+        written = 0
+        for output_var, values in pending:
             ts = pd.Series(values, index=ts_index, name=output_var, dtype="float64")
             if output_var == "discharge":
                 ts = _add_runoff_to_discharge_series(ts, sim_id, store, grp)

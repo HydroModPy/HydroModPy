@@ -7,7 +7,7 @@ import shutil
 from pathlib import Path
 from typing import TYPE_CHECKING, ClassVar
 
-from hydromodpy.core.exceptions import ConfigError
+from hydromodpy.core.exceptions import ConfigError, ExportError
 from hydromodpy.core.logging import get_logger
 from hydromodpy.workflow.internals.state import DerivedState, ExportedState, PipelineState
 
@@ -145,7 +145,7 @@ def step_cleanup_scratch(
         except FileNotFoundError:
             return
         except OSError as exc:
-            raise RuntimeError(f"Could not remove solver scratch directory: {scratch}") from exc
+            raise ExportError(f"Could not remove solver scratch directory: {scratch}") from exc
 
 
 # ---------------------------------------------------------------------------

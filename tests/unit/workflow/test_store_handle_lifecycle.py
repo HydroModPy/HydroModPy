@@ -145,6 +145,7 @@ def test_effective_config_snapshot_uses_runtime_domain_and_results() -> None:
 
 
 def test_step_cleanup_scratch_raises_on_cleanup_failure(monkeypatch, tmp_path: Path) -> None:
+    from hydromodpy.core.exceptions import ExportError
     from hydromodpy.workflow.steps import export as export_module
 
     scratch = tmp_path / ".solver_scratch"
@@ -160,5 +161,5 @@ def test_step_cleanup_scratch_raises_on_cleanup_failure(monkeypatch, tmp_path: P
 
     monkeypatch.setattr(export_module.shutil, "rmtree", fail_rmtree)
 
-    with pytest.raises(RuntimeError, match="Could not remove solver scratch directory"):
+    with pytest.raises(ExportError, match="Could not remove solver scratch directory"):
         export_module.step_cleanup_scratch(ctx)

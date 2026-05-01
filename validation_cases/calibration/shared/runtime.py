@@ -65,6 +65,37 @@ def _compact_calibration_id(
     return f"{_compact_case_code(definition)}_{method_token}_{method_suffix}"
 
 
+def _parameter_payload_value(raw: Any) -> float:
+    """Return the physical value from one persisted parameter payload."""
+    if isinstance(raw, dict):
+        for key in ("value", "candidate_value", "transformed_value"):
+            if key in raw and raw[key] is not None:
+                return float(raw[key])
+        raise ValueError("Parameter payload has no numeric value")
+    return float(raw)
+
+
+def _normalize_parameter_payload(raw: Any) -> dict[str, float]:
+    """Return flat physical parameter values from persisted iteration payload."""
+    payload = raw or {}
+    if isinstance(payload, str):
+        try:
+            payload = json.loads(payload)
+        except json.JSONDecodeError:
+            payload = {}
+    if not isinstance(payload, dict):
+        return {}
+    values: dict[str, float] = {}
+    for name, value in dict(payload).items():
+        if value is None:
+            continue
+        try:
+            values[str(name)] = _parameter_payload_value(value)
+        except (TypeError, ValueError, KeyError):
+            continue
+    return values
+
+
 def _resolve_twin_benchmark_root(
     definition: TwinCalibrationCaseDefinition,
 ) -> Path:
@@ -430,8 +461,8 @@ def _distribution_truth_metrics(
     min_errors = {str(name): math.inf for name in truth_params}
     truth_in_distribution = False
     for sample in samples:
-        params_named = sample.get("params_named", {})
-        if not isinstance(params_named, dict):
+        params_named = _normalize_parameter_payload(sample.get("params_named", {}))
+        if not params_named:
             continue
         sample_ok = True
         for name, truth in truth_params.items():
@@ -439,7 +470,7 @@ def _distribution_truth_metrics(
             if raw_value is None:
                 sample_ok = False
                 continue
-            error = abs(float(raw_value) - float(truth))
+            error = abs(raw_value - float(truth))
             if error < min_errors[str(name)]:
                 min_errors[str(name)] = float(error)
             if error > float(abs_tolerances[str(name)]):
@@ -1172,17 +1203,7 @@ def _assess_method_result_from_report(
     if not completed_df.empty:
         best_idx = completed_df["objective_value"].astype(float).idxmin()
         best_row = iterations_df.loc[best_idx]
-        params_named = best_row.get("parameters") or {}
-        if isinstance(params_named, str):
-            try:
-                params_named = json.loads(params_named)
-            except json.JSONDecodeError:
-                params_named = {}
-        params_best = {
-            str(name): float(value)
-            for name, value in dict(params_named).items()
-            if value is not None
-        }
+        params_best = _normalize_parameter_payload(best_row.get("parameters"))
     param_abs_error = _param_abs_error(
         truth_params=truth_params,
         params_best=params_best,
@@ -1255,16 +1276,11 @@ def _assess_method_result_from_report(
     if method_profile.persist_model_distribution and not completed_df.empty:
         samples: list[dict[str, Any]] = []
         for _, row in completed_df.iterrows():
-            params_named = row.get("parameters") or {}
-            if isinstance(params_named, str):
-                try:
-                    params_named = json.loads(params_named)
-                except json.JSONDecodeError:
-                    params_named = {}
+            params_named = _normalize_parameter_payload(row.get("parameters"))
             samples.append(
                 {
                     "sample_id": f"iter_{int(row['iteration']):04d}",
-                    "params_named": {str(k): float(v) for k, v in dict(params_named).items()},
+                    "params_named": params_named,
                     "objective_total": (
                         None
                         if row["objective_value"] is None
@@ -1434,12 +1450,7 @@ def _write_iteration_history_jsonl(
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("w", encoding="utf-8") as stream:
         for _, row in iterations_df.iterrows():
-            params_named = row.get("parameters") or {}
-            if isinstance(params_named, str):
-                try:
-                    params_named = json.loads(params_named)
-                except json.JSONDecodeError:
-                    params_named = {}
+            params_named = _normalize_parameter_payload(row.get("parameters"))
             metrics_payload = row.get("metrics") or {}
             if isinstance(metrics_payload, str):
                 try:
@@ -1460,10 +1471,8 @@ def _write_iteration_history_jsonl(
                 json.dumps(
                     {
                         "iteration_id": f"iter_{int(row['iteration']):04d}",
-                        "params_named": dict(params_named),
-                        "params_vector": [
-                            float(v) for v in dict(params_named).values() if v is not None
-                        ],
+                        "params_named": params_named,
+                        "params_vector": [float(v) for v in params_named.values()],
                         "objective_total": obj_value,
                         "block_costs": block_costs,
                         "status": str(row.get("status") or "unknown"),
@@ -1529,7 +1538,6 @@ def synthesize_truth_observations_via_project_api(
         workspace_root=benchmark_root / "project_truth",
         extra_sections={
             "display": {"enabled": False, "show": False, "save": False},
-            "postprocess": {"enabled": False},
             "simulation": {"run_id": "twin_truth"},
         },
     )

@@ -26,6 +26,7 @@ from validation_cases.shared.boussinesq_uniform_strip import (
 )
 from validation_cases.shared.runtime import (
     ValidationRunResult,
+    materialize_postprocess_fields_to_store,
     resolve_validation_results_dir,
 )
 
@@ -281,6 +282,18 @@ def run_boussinesq_brutsaert_recession_case(
     )
 
     particles_dir = postprocess_dir / "_particles"
+    store, sim_id = materialize_postprocess_fields_to_store(
+        out_path=out_path,
+        postprocess_dir=postprocess_dir,
+        solver_name="boussinesq",
+        flow_regime="transient",
+        variables=(
+            "watertable_elevation",
+            "watertable_depth",
+            "outlet_discharge_m3_s",
+            "outlet_discharge_east_side_m3_s",
+        ),
+    )
     return ValidationRunResult(
         case_dir=case_dir,
         solver_name="boussinesq",
@@ -291,6 +304,8 @@ def run_boussinesq_brutsaert_recession_case(
         run_returncode=0,
         run_stdout="",
         run_stderr="",
+        store=store,
+        sim_id=sim_id,
     )
 
 
