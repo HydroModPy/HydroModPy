@@ -121,3 +121,15 @@ def test_simulation_time_window_rejects_conflicting_inline_and_explicit_units() 
                 "process": [],
             }
         )
+
+
+def test_simulation_transient_helper_builds_flow_transport_processes() -> None:
+    cfg = SimulationConfig.transient(
+        time=("2020-01-01", "2020-01-02", "1 day"),
+        flow="modflownwt",
+        transport="mt3dms",
+    )
+
+    assert [process.id for process in cfg.process] == ["flow_main", "transport_main"]
+    assert [process.type for process in cfg.process] == ["flow", "transport"]
+    assert cfg.process[1].solvers == ["mt3dms"]

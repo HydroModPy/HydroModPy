@@ -407,19 +407,23 @@ class ProjectRunner:
             strategy=strategy,
             name_template=name_template,
         )
-        return SimulationGroup(self._project._store, sim_ids)
+        return SimulationGroup(sim_ids, self._project._store)
 
     def mesh(self) -> dict:
-        """Run the standalone mesh-only workflow defined by this project's TOML."""
+        """Run the standalone mesh-only workflow defined by this project."""
         project = self._project
-        if project._config_path is None:
-            raise ConfigMissingError(
-                "Project.mesh() requires Project to be loaded from a TOML "
-                "path (the mesh launcher needs the source TOML on disk)."
-            )
-        from hydromodpy.workflow.pipelines.mesh import MeshCatchmentLauncher
+        if project._config_path is not None:
+            from hydromodpy.workflow.pipelines.mesh import MeshCatchmentLauncher
 
-        return MeshCatchmentLauncher(project._config_path).run()
+            return MeshCatchmentLauncher(project._config_path).run()
+        if project.cfg.mesh_catchment is None:
+            raise ConfigMissingError(
+                "Project.mesh() requires cfg.mesh_catchment when Project was "
+                "created from an in-memory HydroModPyConfig."
+            )
+
+        project.build_mesh()
+        return dict(project._ctx.setup.mesh_summary or {})
 
     def report(self, session_id: str | None = None) -> Path:
         """Render the HTML report for a calibration session."""

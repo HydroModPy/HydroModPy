@@ -75,7 +75,7 @@ def configure(
             project._config_path,
         )
     else:
-        project._mesh_section_data = None
+        project._mesh_section_data = project.cfg.mesh_catchment
         project._external_mesh_input = None
     project._mesh_constraints_mode = None
     if project._mesh_section_data is not None and project._external_mesh_input is not None:

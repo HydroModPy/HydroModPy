@@ -531,6 +531,10 @@ class FlowConfig(ProcessSpatialConfig):
             return cls()
         if not isinstance(flow_section, Mapping):
             raise ValueError("TOML section 'flow' must be a mapping when provided")
+        known_keys = set(cls.model_fields) | {"param_values"}
+        unknown_keys = sorted(set(flow_section) - known_keys)
+        if unknown_keys:
+            raise ValueError(f"Unknown TOML key(s) in [flow]: {', '.join(unknown_keys)}")
 
         raw_param_list = flow_section.get("param_list", [])
         if raw_param_list is None:

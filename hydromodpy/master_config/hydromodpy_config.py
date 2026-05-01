@@ -23,6 +23,8 @@ Usage::
 
 from __future__ import annotations
 
+import copy
+import json
 import os
 import re
 from collections.abc import Callable, Mapping
@@ -103,12 +105,13 @@ class HydroModPyConfig(HydroModelBase):
     model_config = ConfigDict(extra="forbid", arbitrary_types_allowed=True)
 
     workflow: Annotated[
-        Literal["simulation", "calibration", "batch", "overview", "mesh"],
+        Literal["simulation", "calibration", "batch", "overview", "mesh", "method-comparison"],
         Profile.USER,
     ] = Field(
         description=(
             "Workflow selector (mandatory). Must be one of "
-            "'simulation', 'calibration', 'batch', 'overview', 'mesh'. "
+            "'simulation', 'calibration', 'batch', 'overview', 'mesh', "
+            "'method-comparison'. "
             "Drives dispatch in `hmp run <toml>` and in API-driven callers "
             "that instantiate `HydroModPyConfig` from a frontend form."
         ),
@@ -294,10 +297,50 @@ class HydroModPyConfig(HydroModelBase):
         HydroModPyConfig
             The fully loaded and path-resolved configuration instance.
         """
-        toml_path = Path(toml_path).resolve()
+        toml_path = Path(toml_path).expanduser().resolve()
         raw = load_toml_with_base_config(toml_path)
 
-        base = toml_path.parent
+        cfg = cls._from_payload(raw, base=toml_path.parent)
+
+        # Derive run_id from TOML filename if not set explicitly.
+        if not cfg.simulation.run_id:
+            cfg.simulation.run_id = _derive_run_id_from_filename(toml_path)
+
+        return cfg
+
+    @classmethod
+    def from_json(
+        cls,
+        payload: str | bytes,
+        *,
+        base_dir: str | Path | None = None,
+    ) -> HydroModPyConfig:
+        """Load and validate configuration from a JSON payload."""
+        raw = json.loads(payload)
+        if not isinstance(raw, Mapping):
+            raise ValueError("HydroModPyConfig JSON payload must be a mapping")
+        return cls.from_dict(raw, base_dir=base_dir)
+
+    @classmethod
+    def from_dict(
+        cls,
+        payload: Mapping[str, Any],
+        *,
+        base_dir: str | Path | None = None,
+    ) -> HydroModPyConfig:
+        """Load and validate configuration from a Python mapping."""
+        base = Path(base_dir).expanduser().resolve() if base_dir is not None else Path.cwd()
+        return cls._from_payload(payload, base=base)
+
+    @classmethod
+    def _from_payload(
+        cls,
+        payload: Mapping[str, Any],
+        *,
+        base: Path,
+    ) -> HydroModPyConfig:
+        """Normalize one raw config payload and validate the root model."""
+        raw = _strip_empty_string_placeholders(copy.deepcopy(dict(payload)))
         if "initializing" in raw:
             raise ValueError(
                 "Section [initializing] is no longer supported. Use [workspace] instead."
@@ -391,11 +434,6 @@ class HydroModPyConfig(HydroModelBase):
             parsed_sections,
             context={"allow_dem_bootstrap": allow_dem_bootstrap},
         )
-
-        # Derive run_id from TOML filename if not set explicitly.
-        if not cfg.simulation.run_id:
-            cfg.simulation.run_id = _derive_run_id_from_filename(toml_path)
-
         return cfg
 
     @classmethod
@@ -431,6 +469,24 @@ def _deep_merge(base: dict, overrides: dict) -> dict:
         else:
             result[key] = val
     return result
+
+
+def _strip_empty_string_placeholders(data: dict[str, Any]) -> dict[str, Any]:
+    """Drop TOML-template empty-string placeholders from a nested payload."""
+    cleaned: dict[str, Any] = {}
+    for key, value in data.items():
+        if isinstance(value, dict):
+            cleaned[key] = _strip_empty_string_placeholders(value)
+        elif isinstance(value, list):
+            cleaned[key] = [
+                _strip_empty_string_placeholders(item) if isinstance(item, dict) else item
+                for item in value
+            ]
+        elif value == "":
+            continue
+        else:
+            cleaned[key] = value
+    return cleaned
 
 
 def _is_path_field(field_info: FieldInfo) -> bool:

@@ -185,39 +185,53 @@ PROJECT_TOML_TEMPLATE = """\
 # ===========================================================================
 # Project : {project_name}
 #
-# This file defines the shared settings for all runs in this project:
-# geographic, domain, data sources, and flow parameters.
+# This file defines shared settings for all runs in this project:
+# geographic support, domain, data sources, and flow parameters.
 #
 # Run files (run_*.toml) inherit from this file via:
 #   base_config = "project.toml"
 # ===========================================================================
 
 
-# --- Geographic -----------------------------------------------------------
-
 [geographic]
-catch_def = "from_outlet_coord"
-# x_outlet = -1.68
-# y_outlet = 48.12
-# dem_init_path = "../../data/dem/DEM_armorican_massif.tif"
+source_mode = "synthetic"
 
+[geographic.synthetic]
+case_id = "{project_name}_synthetic"
 
-# --- Domain ---------------------------------------------------------------
+[geographic.synthetic.grid]
+length_x = "1000 m"
+length_y = "1000 m"
+nx = 20
+ny = 20
 
-[domain]
-domain_depth = 50.0
-
-
-# --- Data -----------------------------------------------------------------
+[geographic.synthetic.topography]
+kind = "linear"
+base_elevation = 20.0
+right_to_left_amplitude = 5.0
 
 [data]
-# types = ["geology", "hydrometry", "piezometry"]
+types = []
 
-
-# --- Flow -----------------------------------------------------------------
+[domain.depth_model]
+type = "constant_thickness"
+thickness = "50 m"
 
 [flow]
-# param_list = ["K", "Sy"]
+flow_regime = "steady"
+param_list = ["K", "Sy"]
+
+[flow.param.K.field]
+kind = "homogeneous"
+
+[flow.param.K.field_homogeneous]
+value = "1.0e-4 m/s"
+
+[flow.param.Sy.field]
+kind = "homogeneous"
+
+[flow.param.Sy.field_homogeneous]
+value = "0.12 -"
 """
 
 RUN_TOML_TEMPLATE = """\
@@ -228,6 +242,7 @@ RUN_TOML_TEMPLATE = """\
 # Inherits from : project.toml
 # ===========================================================================
 
+workflow = "simulation"
 base_config = "project.toml"
 
 [workspace]
@@ -235,6 +250,12 @@ project_root = "."
 
 [simulation]
 name = "{run_name}"
+description = "Scaffolded synthetic steady-flow run."
+
+[simulation.time]
+start_datetime = "2000-01-01T00:00:00"
+end_datetime = "2000-12-31T00:00:00"
+step_value = "1 year"
 
 [[simulation.process]]
 id = "flow_main"

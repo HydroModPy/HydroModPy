@@ -12,10 +12,9 @@ The Project setup is intentionally minimal: we monkey-patch
 by ``test_calibration_cli``) so the calibration loop runs without
 touching MODFLOW, while the catalog persistence and
 :class:`CalibrationReport` assembly remain real. A duck-typed
-``_FakeProject`` exposes the two attributes
-``run_calibration_programmatic`` reads (``_config_path`` and
-``_ctx.setup.workspace.root``) so we never have to validate a full
-:class:`HydroModPyConfig`.
+``_FakeProject`` exposes the source TOML and workspace attributes used by
+``run_calibration_programmatic`` so we never have to validate a full
+:class:`HydroModPyConfig` in the common path.
 """
 
 from __future__ import annotations
@@ -254,16 +253,36 @@ class TestRunCalibrationProgrammatic:
         after = {p.name for p in tempdir.iterdir() if p.name.startswith("hmp_calibrate_")}
         assert after == before
 
-    def test_requires_project_with_config_path(self, tmp_path, fake_pipeline, quadratic_metric):
-        empty_project = _FakeProject.__new__(_FakeProject)
-        empty_project._config_path = None
-        empty_project._ctx = None
-        with pytest.raises(ValueError, match="loaded from a"):
-            run_calibration_programmatic(
-                _baseline_cfg(),
-                project=empty_project,
-                metric_fn=quadratic_metric,
-            )
+    def test_accepts_project_without_config_path(self, tmp_path, fake_pipeline, quadratic_metric):
+        project = _FakeProject.__new__(_FakeProject)
+        project._config_path = None
+        project._ctx = _FakeProject(tmp_path / "unused.toml", tmp_path / "ws")._ctx
+
+        class _Config:
+            def model_dump(self, **kwargs):
+                return {
+                    "workflow": "simulation",
+                    "workspace": {"root": str(tmp_path / "ws")},
+                    "flow": {
+                        "param": {
+                            "K": {
+                                "field_homogeneous": {
+                                    "value": 1e-4,
+                                }
+                            }
+                        }
+                    },
+                }
+
+        project.cfg = _Config()
+
+        report = run_calibration_programmatic(
+            _baseline_cfg(),
+            project=project,
+            metric_fn=quadratic_metric,
+        )
+
+        assert isinstance(report, CalibrationReport)
 
     def test_iterations_persisted(self, fake_project, fake_pipeline, quadratic_metric, tmp_path):
         cfg = _baseline_cfg()
@@ -367,15 +386,27 @@ class TestProjectCalibratePythonModeDispatch:
         with pytest.raises(ConfigMissingError, match="parameters="):
             Project.calibrate(proj)
 
-    def test_python_mode_requires_toml_loaded_project(self, tmp_path):
+    def test_python_mode_accepts_in_memory_project(self, tmp_path):
         proj = _FakeProject.__new__(_FakeProject)
         proj._config_path = None
         proj._ctx = None
-        from hydromodpy.core.exceptions import ConfigMissingError
         from hydromodpy.project import Project
 
-        with pytest.raises(ConfigMissingError, match="loaded from a"):
-            Project.calibrate(
+        sentinel = CalibrationReport(
+            session_id="abc",
+            method="grid",
+            n_iterations=2,
+            best_objective=0.0,
+            best_sim_id=None,
+            duration_s=0.0,
+            save_runs="none",
+            promoted=0,
+        )
+        with patch(
+            "hydromodpy.calibration.runner.run_calibration_programmatic",
+            return_value=sentinel,
+        ) as mocked:
+            result = Project.calibrate(
                 proj,
                 parameters={
                     "K": {
@@ -387,3 +418,5 @@ class TestProjectCalibratePythonModeDispatch:
                 max_iter=2,
                 save_runs="none",
             )
+            assert result is sentinel
+            assert mocked.call_args.kwargs["project"] is proj

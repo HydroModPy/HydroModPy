@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 import pytest
@@ -311,3 +312,84 @@ def test_hydromodpy_config_calibration_absent_yields_none(tmp_path: Path) -> Non
     cfg = HydroModPyConfig.from_toml(config_path)
 
     assert cfg.calibration is None
+
+
+def test_hydromodpy_config_rejects_unknown_flow_keys(tmp_path: Path) -> None:
+    config_path = tmp_path / "unknown_flow.toml"
+    config_path.write_text(
+        "\n".join(
+            [
+                'workflow = "simulation"',
+                "[workspace]",
+                f'root = "{tmp_path}"',
+                "",
+                "[geographic]",
+                'source_mode = "synthetic"',
+                "",
+                "[flow]",
+                "typo_runtime = true",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError, match=r"Unknown TOML key\(s\) in \[flow\]"):
+        HydroModPyConfig.from_toml(config_path)
+
+
+def test_hydromodpy_config_from_dict_uses_toml_normalization(tmp_path: Path) -> None:
+    dem_path = tmp_path / "dem.tif"
+    dem_path.touch()
+
+    cfg = HydroModPyConfig.from_dict(
+        {
+            "workflow": "simulation",
+            "workspace": {"root": str(tmp_path), "project_root": ""},
+            "geographic": {"catch_def": "dem", "dem_init_path": "dem.tif"},
+            "flow": {
+                "param": {
+                    "K": {
+                        "field": {"kind": "homogeneous"},
+                        "field_homogeneous": {"value": "1.0e-4 m/s"},
+                    }
+                }
+            },
+        },
+        base_dir=tmp_path,
+    )
+
+    assert cfg.workspace.project_root == tmp_path.resolve()
+    assert cfg.geographic.dem_init_path == dem_path.resolve()
+    assert cfg.flow.param_list == ["K"]
+    assert cfg.flow.param["K"] == {
+        "id": "K",
+        "kind": "homogeneous",
+        "value": "1.0e-4 m/s",
+    }
+
+
+def test_hydromodpy_config_from_json_uses_toml_normalization(tmp_path: Path) -> None:
+    dem_path = tmp_path / "dem.tif"
+    dem_path.touch()
+    payload = {
+        "workflow": "simulation",
+        "workspace": {"root": str(tmp_path), "project_root": str(tmp_path)},
+        "geographic": {"catch_def": "dem", "dem_init_path": "dem.tif"},
+    }
+
+    cfg = HydroModPyConfig.from_json(json.dumps(payload), base_dir=tmp_path)
+
+    assert cfg.geographic.dem_init_path == dem_path.resolve()
+
+
+def test_hydromodpy_config_accepts_method_comparison_workflow(tmp_path: Path) -> None:
+    cfg = HydroModPyConfig.from_dict(
+        {
+            "workflow": "method-comparison",
+            "workspace": {"root": str(tmp_path)},
+            "geographic": {"source_mode": "synthetic"},
+        },
+        base_dir=tmp_path,
+    )
+
+    assert cfg.workflow == "method-comparison"

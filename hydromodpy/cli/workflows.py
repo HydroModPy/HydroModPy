@@ -2,8 +2,8 @@
 
 Single CLI entry point: ``hmp run <toml>``. The TOML must declare a
 mandatory top-level ``workflow = "..."`` field (one of ``simulation``,
-``calibration``, ``batch``, ``overview``, ``mesh``). Dispatches to the
-matching ``run_*`` adapter.
+``calibration``, ``batch``, ``overview``, ``mesh``,
+``method-comparison``). Dispatches to the matching ``run_*`` adapter.
 
 The contract is enforced twice: here at CLI load time via
 :func:`resolve_workflow` for friendly error messages, and again at the
@@ -18,7 +18,14 @@ import tomllib
 from pathlib import Path
 from typing import Literal
 
-WorkflowName = Literal["simulation", "calibration", "batch", "overview", "mesh"]
+WorkflowName = Literal[
+    "simulation",
+    "calibration",
+    "batch",
+    "overview",
+    "mesh",
+    "method-comparison",
+]
 
 KNOWN_WORKFLOWS: tuple[str, ...] = (
     "simulation",
@@ -26,6 +33,7 @@ KNOWN_WORKFLOWS: tuple[str, ...] = (
     "batch",
     "overview",
     "mesh",
+    "method-comparison",
 )
 
 
@@ -191,12 +199,20 @@ def run_batch(config_path: str | Path) -> dict:
     return RegionalLabLauncher(config_path).run()
 
 
+def run_method_comparison(config_path: str | Path) -> dict:
+    """Run a method-comparison workflow from a TOML file."""
+    from hydromodpy.analysis.comparison.orchestrator import MethodComparisonLauncher
+
+    return MethodComparisonLauncher(config_path).run()
+
+
 DISPATCH: dict[str, callable] = {
     "simulation": run_simulation,
     "overview": run_overview,
     "mesh": run_mesh,
     "calibration": run_calibration,
     "batch": run_batch,
+    "method-comparison": run_method_comparison,
 }
 
 
@@ -221,5 +237,6 @@ __all__ = (
     "run_mesh",
     "run_calibration",
     "run_batch",
+    "run_method_comparison",
     "DISPATCH",
 )

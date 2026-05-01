@@ -2,7 +2,7 @@
 
 Single CLI entry point. The TOML must carry a top-level
 ``workflow = "..."`` field (one of ``simulation``, ``calibration``,
-``batch``, ``overview``, ``mesh``). Absence raises
+``batch``, ``overview``, ``mesh``, ``method-comparison``). Absence raises
 ``WorkflowMissingError``.
 """
 
@@ -131,19 +131,14 @@ def _run_toml(config_path: Path, *, args: argparse.Namespace) -> None:
 
     dry_run = bool(getattr(args, "dry_run", False))
     try:
-        # In --dry-run we only print the plan, so the workflow field becomes
-        # advisory: infer from TOML sections when absent rather than refusing.
         workflow = resolve_workflow(
             config_path,
             cli_workflow=None,
-            require_toml_field=not dry_run,
+            require_toml_field=True,
         )
     except WorkflowError as exc:
         print(str(exc), file=sys.stderr)
         sys.exit(EXIT_CONFIG)
-
-    if workflow is None:
-        workflow = _infer_workflow_from_sections(raw_toml)
 
     resume = getattr(args, "resume", None)
     from_step = getattr(args, "from_step", None)
@@ -188,6 +183,7 @@ def _run_toml(config_path: Path, *, args: argparse.Namespace) -> None:
         "mesh": module.run_mesh,
         "calibration": module.run_calibration,
         "batch": module.run_batch,
+        "method-comparison": module.run_method_comparison,
     }
     runner = dispatch[workflow]
 
@@ -237,6 +233,8 @@ def _infer_workflow_from_sections(raw_toml: dict) -> str:
         return "overview"
     if "mesh_catchment" in raw_toml and "simulation" not in raw_toml:
         return "mesh"
+    if "method_comparison" in raw_toml:
+        return "method-comparison"
     return "simulation"
 
 
