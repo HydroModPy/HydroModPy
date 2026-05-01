@@ -26,7 +26,13 @@ def has_temporal_index(payload: object) -> bool:
         converted = pd.to_datetime(index, errors="coerce")
     except Exception:
         return False
-    return bool(len(converted) > 0 and not converted.isna().any())
+    if isinstance(converted, pd.Timestamp):
+        return not bool(pd.isna(converted))
+    try:
+        length = len(converted)
+    except TypeError:
+        return not bool(pd.isna(converted))
+    return bool(length > 0 and not converted.isna().any())
 
 
 def numeric_payload_array(payload: object, *, label: str) -> np.ndarray:

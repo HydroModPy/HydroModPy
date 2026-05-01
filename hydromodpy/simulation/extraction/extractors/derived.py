@@ -272,10 +272,13 @@ def _compute_accumulation_flux(
             )
             logger.debug("Derived accumulation_flux (routed) for sim %s", sim_id)
             return
-        except Exception:
+        except BaseException as exc:
+            if isinstance(exc, (KeyboardInterrupt, SystemExit, GeneratorExit)):
+                raise
             logger.debug(
                 "Whitebox routing unavailable for sim %s, falling back to abs(drn)",
                 sim_id,
+                exc_info=True,
             )
 
         for t in range(n_timesteps):

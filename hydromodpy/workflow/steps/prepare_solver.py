@@ -190,6 +190,15 @@ def collect_registration_kwargs(ctx: WorkflowContext) -> dict:
             kwargs["period_start"] = str(boundaries[0])
             kwargs["period_end"] = str(boundaries[-1])
             kwargs["n_timesteps"] = len(boundaries) - 1
+        else:
+            datetimes = getattr(tg, "datetimes", None)
+            if datetimes:
+                start_datetime = getattr(tg, "start_datetime", None)
+                kwargs["period_start"] = str(
+                    start_datetime if start_datetime is not None else datetimes[0]
+                )
+                kwargs["period_end"] = str(datetimes[-1])
+                kwargs["n_timesteps"] = len(datetimes)
         time_cfg = getattr(ctx.cfg.simulation, "time", None)
         if time_cfg is not None:
             kwargs["time_unit"] = getattr(time_cfg, "step_unit", None)
@@ -258,13 +267,16 @@ def _write_zarr_time(ctx: WorkflowContext, sim_id: str) -> None:
     """Persist simulation period-end timestamps as CF time coordinates."""
     time_grid = getattr(ctx.setup, "time_grid", None)
     boundaries = getattr(time_grid, "boundaries", None)
-    if not boundaries or len(boundaries) < 2:
-        return
-
     import numpy as np
     import pandas as pd
 
-    period_ends = pd.DatetimeIndex(boundaries[1:])
+    if boundaries and len(boundaries) >= 2:
+        period_ends = pd.DatetimeIndex(boundaries[1:])
+    else:
+        datetimes = getattr(time_grid, "datetimes", None)
+        if not datetimes:
+            return
+        period_ends = pd.DatetimeIndex(datetimes)
     if period_ends.tz is None:
         period_ends = period_ends.tz_localize("UTC")
     else:

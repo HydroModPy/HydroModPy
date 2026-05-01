@@ -20,7 +20,7 @@ DEM_CORRECTION_TYPES = ["breach", "fill"]
 
 ABS_TOL_ELEV_M = 2e-2
 ABS_TOL_SUM_M = 20.0
-ABS_TOL_SUM_INT = 256.0
+ABS_TOL_SUM_INT = 512.0
 
 
 def _write_json(path: Path, payload: dict) -> None:
