@@ -13,10 +13,13 @@ import sys
 import tempfile
 import time
 import tomllib
+import uuid
 from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
+
+import numpy as np
 
 from validation_cases.shared.loaders import load_case_metadata
 
@@ -401,6 +404,81 @@ def _discover_result_store(project_path: Path) -> tuple[Any, str | None]:
         store.close()
         return None, None
     sim_id = str(sims.iloc[-1]["sim_id"])
+    return store, sim_id
+
+
+def materialize_postprocess_fields_to_store(
+    *,
+    out_path: Path,
+    postprocess_dir: Path,
+    solver_name: str,
+    flow_regime: str = "steady",
+    variables: tuple[str, ...] = ("watertable_elevation", "watertable_depth"),
+) -> tuple[Any, str | None]:
+    """Write validation postprocess fields to a SimulationCatalog."""
+    payloads: dict[str, list[tuple[int, np.ndarray]]] = {}
+    for variable in variables:
+        field_path = Path(postprocess_dir) / f"{variable}.npy"
+        if not field_path.exists():
+            continue
+        raw = np.load(field_path, allow_pickle=True).item()
+        if not isinstance(raw, Mapping) or not raw:
+            continue
+        payloads[variable] = [
+            (int(key), np.asarray(value, dtype="float64")) for key, value in sorted(raw.items())
+        ]
+
+    if not payloads:
+        return None, None
+
+    first_series = next(iter(payloads.values()))
+    first_values = first_series[0][1]
+    n_cells = int(first_values.size)
+    n_timesteps = len(first_series)
+    sim_id = str(uuid.uuid4())
+
+    from hydromodpy.results.catalog import SimulationCatalog
+
+    store = SimulationCatalog(out_path)
+    registration = store.register_simulation(
+        sim_id,
+        project=Path(out_path).name,
+        solver=solver_name,
+        name=f"{Path(out_path).name}_{solver_name}",
+        solver_category="distributed",
+        flow_regime=flow_regime,
+        n_cells=n_cells,
+        n_layers=1,
+        n_timesteps=n_timesteps,
+    )
+    if registration.zarr is not None:
+        registration.zarr.close()
+
+    if first_values.ndim == 2:
+        nrow, ncol = first_values.shape
+        store.write_geographic_metadata(
+            sim_id,
+            {
+                "nrow": int(nrow),
+                "ncol": int(ncol),
+            },
+        )
+
+    try:
+        for variable, series in payloads.items():
+            for write_index, (_time_key, values) in enumerate(series):
+                store.write_field(
+                    sim_id,
+                    variable,
+                    write_index,
+                    np.asarray(values, dtype="float64").reshape(-1),
+                    n_timesteps=n_timesteps if write_index == 0 else None,
+                    subgroup="derived",
+                )
+    except Exception:
+        store.close()
+        raise
+
     return store, sim_id
 
 
