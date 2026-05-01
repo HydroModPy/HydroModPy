@@ -213,7 +213,7 @@ def test_export_bundles_directory_input(tmp_path: Path) -> None:
         import hashlib as _h
 
         sha = _h.sha256(b"dir").hexdigest()
-        catalog._connection.execute(
+        catalog.connection.execute(
             """INSERT INTO tracked_files
                (sim_id, role, category, original_path, canonical_path,
                 sha256, size_bytes, portable)

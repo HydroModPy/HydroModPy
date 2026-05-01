@@ -68,7 +68,7 @@ Run the underlying example or validation case with:
 
 .. code-block:: bash
 
-   python -m hydromodpy run examples_legacy_2/projects/launcher_simulation/run_method_comparison_example12_map_existing.toml
+   python -m tools.doc_gallery
 
 Refresh the committed gallery artifacts with:
 
@@ -93,15 +93,15 @@ Comparison Setup
    * - ``[method_comparison] comparison_id``
      - Stable identifier used to collect outputs and summary artifacts for the comparison.
      - example12_map_method_comparison
-     - ``examples_legacy_2/projects/launcher_simulation/run_method_comparison_example12_map_existing.toml``
+     - ``docs/readthedocs/source/_static/capability_gallery/method_comparison/example12_map_method_comparison_summary.json``
    * - ``[method_comparison] reference_variant``
      - Variant used as the baseline when computing map-wise differences and error metrics.
      - mf6_gmsh_existing
-     - ``examples_legacy_2/projects/launcher_simulation/run_method_comparison_example12_map_existing.toml``
+     - ``docs/readthedocs/source/_static/capability_gallery/method_comparison/example12_map_method_comparison_summary.json``
    * - ``[method_comparison] run_variants``
      - Whether the launcher reruns the variants or only reuses committed run folders.
      - false
-     - ``examples_legacy_2/projects/launcher_simulation/run_method_comparison_example12_map_existing.toml``
+     - ``docs/readthedocs/source/_static/capability_gallery/method_comparison/example12_map_method_comparison_summary.json``
    * - ``study_area``
      - Study area summarized by the gallery page for this comparison case.
      - Naizin catchment
@@ -121,11 +121,11 @@ Compared Variants
    * - ``variant.mf6_gmsh_existing``
      - Compared run folder and solver definition used by the method-comparison launcher.
      - MODFLOW 6 on generated Gmsh mesh; solver=modflow6; mesh_mode=mesh_catchment; run_folder=results_simulations/example12_fast_mf6_mesh_catchment
-     - ``examples_legacy_2/projects/launcher_simulation/run_method_comparison_example12_map_existing.toml``
+     - ``docs/readthedocs/source/_static/capability_gallery/method_comparison/example12_map_method_comparison_summary.json``
    * - ``variant.boussinesq_reused_gmsh``
      - Compared run folder and solver definition used by the method-comparison launcher.
      - Boussinesq on reused Gmsh mesh; solver=boussinesq; mesh_mode=mesh_input; run_folder=results_reused_real_meshes/example12_fast/results_simulations/flow_main__boussinesq
-     - ``examples_legacy_2/projects/launcher_simulation/run_method_comparison_example12_map_existing.toml``
+     - ``docs/readthedocs/source/_static/capability_gallery/method_comparison/example12_map_method_comparison_summary.json``
 
 Compared Observables
 ^^^^^^^^^^^^^^^^^^^^
@@ -141,33 +141,33 @@ Compared Observables
    * - ``observable.head_outlet_lowland``
      - Observable extracted from each run before parity plots and difference metrics are computed.
      - variable=watertable_elevation; support=point; time=all; unit=m
-     - ``examples_legacy_2/projects/launcher_simulation/run_method_comparison_example12_map_existing.toml``
+     - ``docs/readthedocs/source/_static/capability_gallery/method_comparison/example12_map_method_comparison_summary.json``
    * - ``observable.head_mid_basin_response``
      - Observable extracted from each run before parity plots and difference metrics are computed.
      - variable=watertable_elevation; support=point; time=all; unit=m
-     - ``examples_legacy_2/projects/launcher_simulation/run_method_comparison_example12_map_existing.toml``
+     - ``docs/readthedocs/source/_static/capability_gallery/method_comparison/example12_map_method_comparison_summary.json``
    * - ``observable.head_upstream_ridge``
      - Observable extracted from each run before parity plots and difference metrics are computed.
      - variable=watertable_elevation; support=point; time=all; unit=m
-     - ``examples_legacy_2/projects/launcher_simulation/run_method_comparison_example12_map_existing.toml``
+     - ``docs/readthedocs/source/_static/capability_gallery/method_comparison/example12_map_method_comparison_summary.json``
    * - ``observable.watertable_elevation_map``
      - Observable extracted from each run before parity plots and difference metrics are computed.
      - variable=watertable_elevation; support=map; time=last; unit=m
-     - ``examples_legacy_2/projects/launcher_simulation/run_method_comparison_example12_map_existing.toml``
+     - ``docs/readthedocs/source/_static/capability_gallery/method_comparison/example12_map_method_comparison_summary.json``
    * - ``observable.watertable_depth_map``
      - Observable extracted from each run before parity plots and difference metrics are computed.
      - variable=watertable_depth; support=map; time=last; unit=m
-     - ``examples_legacy_2/projects/launcher_simulation/run_method_comparison_example12_map_existing.toml``
+     - ``docs/readthedocs/source/_static/capability_gallery/method_comparison/example12_map_method_comparison_summary.json``
 
 Source Pointers
 ---------------
 
-- ``examples_legacy_2/projects/launcher_simulation/run_method_comparison_example12_map_existing.toml``
-- ``examples_legacy_2/projects/launcher_simulation/run_fast_mf6_mesh_catchment.toml``
-- ``examples_legacy_2/projects/launcher_simulation/run_fast_boussinesq_precomputed_mesh_input.toml``
-- ``examples_legacy_2/projects/launcher_simulation/method_comparison/example12_map_method_comparison/comparison_manifest.json``
-- ``examples_legacy_2/projects/launcher_simulation/method_comparison/example12_map_method_comparison/comparison_metrics.json``
-- ``examples_legacy_2/projects/launcher_simulation/method_comparison/example12_map_method_comparison/observables.csv``
+- ``docs/readthedocs/source/_static/capability_gallery/method_comparison/example12_map_method_comparison_summary.json``
+- ``docs/readthedocs/source/_static/capability_gallery/method_comparison/example12_map_method_comparison_summary.json``
+- ``docs/readthedocs/source/_static/capability_gallery/method_comparison/example12_map_method_comparison_summary.json``
+- ``docs/readthedocs/source/_static/capability_gallery/method_comparison/example12_map_method_comparison_summary.json``
+- ``docs/readthedocs/source/_static/capability_gallery/method_comparison/example12_map_method_comparison_summary.json``
+- ``docs/readthedocs/source/_static/capability_gallery/method_comparison/example12_map_method_comparison_summary.json``
 
 Artifacts
 ---------

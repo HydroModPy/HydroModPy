@@ -26,7 +26,7 @@ timestamp:
 
 ```json
 {
-  "release": "latest",
+  "release": "6.7.0",
   "downloaded_at": "2026-04-29T12:34:56+00:00",
   "solvers": ["mf6", "mfnwt", "mp6", "mp7", "mt3dusgs"]
 }
@@ -46,14 +46,14 @@ hmp install-binaries
 # Restrict to a subset
 hmp install-binaries --subset mf6,mfnwt
 
-# Force re-download (e.g. after a USGS upstream bump)
+# Force re-download of the pinned release
 hmp install-binaries --upgrade
 
 # Pin a specific release tag (reproducibility)
 hmp install-binaries --release 18.0
 ```
 
-The default release is `latest`. Once a binary lands in the cache it is
+The default release is `6.7.0`. Once a binary lands in the cache it is
 **not** auto-refreshed: the same version stays in place for the lifetime
 of the cache so a run started today yields the same results a year from
 now. Upgrades are explicit (`--upgrade`).

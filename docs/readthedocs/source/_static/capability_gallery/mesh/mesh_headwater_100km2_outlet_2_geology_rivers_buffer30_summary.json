@@ -25,10 +25,9 @@
   "equations_rst": [],
   "walkthrough_doc": null,
   "walkthrough_title": null,
-  "reproduction_command": "python -m launchers mesh-catchment run old/launchers/mesh_catchment/scenarios/config_headwater_100km2.toml",
+  "reproduction_command": "python -m tools.doc_gallery",
   "gallery_update_command": "python -m tools.doc_gallery",
   "source_paths": [
-    "old/launchers/mesh_catchment/scenarios/config_headwater_100km2.toml",
     "examples/projects/07_mesh_gallery/100km2/mesh_headwater_100km2_outlet_2_geology_rivers_buffer30/case.json",
     "examples/projects/07_mesh_gallery/100km2/mesh_headwater_100km2_outlet_2_geology_rivers_buffer30/viewer_config.toml",
     "examples/projects/07_mesh_gallery/100km2/mesh_headwater_100km2_outlet_2_geology_rivers_buffer30/README.md",
@@ -45,8 +44,7 @@
     "examples/projects/07_mesh_gallery/100km2/mesh_headwater_100km2_outlet_2_geology_rivers_buffer30/figures/mesh_regional.png"
   ],
   "source_hashes": {
-    "old/launchers/mesh_catchment/scenarios/config_headwater_100km2.toml": "262fd7cf7062816878afef8ba26921f1d5c43369e0c5e8eccfe7ee8e36ebeb6f",
-    "examples/projects/07_mesh_gallery/100km2/mesh_headwater_100km2_outlet_2_geology_rivers_buffer30/case.json": "bdb29bc78260dcc4cb298d8ac9530bcb81a900556221a648dbb032168eca9b75",
+    "examples/projects/07_mesh_gallery/100km2/mesh_headwater_100km2_outlet_2_geology_rivers_buffer30/case.json": "f220053b59407b5f89507d706262984255a377a7ed9cadcfd15ba2d515872974",
     "examples/projects/07_mesh_gallery/100km2/mesh_headwater_100km2_outlet_2_geology_rivers_buffer30/viewer_config.toml": "4f6a8e1b5f99cc8cb510a735a556d3d780df1f192d3df642f98496768bd1280b",
     "examples/projects/07_mesh_gallery/100km2/mesh_headwater_100km2_outlet_2_geology_rivers_buffer30/README.md": "fcf2bf4d599d151d5c57895b0fbddb58c69096c8e347eacb4cd39e6a7fadea1b",
     "examples/projects/07_mesh_gallery/100km2/mesh_headwater_100km2_outlet_2_geology_rivers_buffer30/domain_bbox.geojson": "d9bfff7db454531035b26b68f89776d8cb75854ca5971a33186943a1739e5fbd",

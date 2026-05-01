@@ -15,6 +15,7 @@ from __future__ import annotations
 
 from types import SimpleNamespace
 
+import pandas as pd
 import pytest
 
 from hydromodpy.calibration.config import (
@@ -26,6 +27,7 @@ from hydromodpy.calibration.metrics import (
     _extract_boundary,
     _extract_cell,
     _extract_point,
+    _score,
     _slice_time,
     build_metric_extractor,
 )
@@ -139,6 +141,12 @@ class TestHelpers:
         assert _slice_time(arr, "all", "mean")[0] == pytest.approx(2.5)
         assert _slice_time(arr, "all", "sum")[0] == pytest.approx(10.0)
         assert _slice_time(arr, "all", "last") == [4.0]
+
+    def test_score_raises_when_series_do_not_overlap(self):
+        obs = pd.Series([1.0], index=pd.DatetimeIndex(["2020-01-01"]))
+        sim = pd.Series([1.0], index=pd.DatetimeIndex(["2021-01-01"]))
+        with pytest.raises(ValueError, match="No overlapping finite"):
+            _score(obs, sim, "rmse")
 
     def test_extract_point_raises_when_no_flow_run(self):
         ctx = _empty_ctx()

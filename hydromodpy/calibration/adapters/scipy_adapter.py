@@ -18,6 +18,10 @@ from collections.abc import Callable
 
 import numpy as np
 
+from hydromodpy.calibration.adapters._prior_sampling import (
+    transformed_prior_center,
+    transformed_prior_samples,
+)
 from hydromodpy.calibration.optimizer import (
     FAILED_EVAL_COST,
     EvaluationResult,
@@ -150,6 +154,12 @@ class ScipyDE(_ScipyAdapterBase):
         from scipy.optimize import differential_evolution
 
         bounds = self._bounds_transformed()
+        rng = np.random.default_rng(self._seed)
+        init = transformed_prior_samples(
+            self.space,
+            rng,
+            max(5, self._popsize * max(1, self.space.dim)),
+        )
 
         def run(obj: Callable[[np.ndarray], float]) -> object:
             return differential_evolution(
@@ -160,6 +170,7 @@ class ScipyDE(_ScipyAdapterBase):
                 popsize=self._popsize,
                 tol=self._tol,
                 polish=False,
+                init=init,
             )
 
         return run
@@ -193,7 +204,7 @@ class ScipyNelderMead(_ScipyAdapterBase):
         bounds = self._bounds_transformed()
         lower = np.array([b[0] for b in bounds], dtype=float)
         upper = np.array([b[1] for b in bounds], dtype=float)
-        x0 = 0.5 * (lower + upper)
+        x0 = transformed_prior_center(self.space)
         # Bound-scaled initial simplex (10 % of range per axis) gives
         # Nelder-Mead a wider starting spread than scipy's 5 %-of-x0
         # default, reducing the iter count needed to reach a tight

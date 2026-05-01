@@ -2,7 +2,6 @@ name: hydromodpy
 channels:
 - conda-forge
 dependencies:
-- colormap
 - contextily
 - flopy
 - geopandas
@@ -11,7 +10,6 @@ dependencies:
 - ipykernel
 - ipython
 - matplotlib
-- matplotlib-scalebar
 - netcdf4
 - numpy>=2.0
 - pandas
@@ -30,10 +28,8 @@ dependencies:
 - cma
 - scikit-learn
 - scipy
-- selenium
 - spyder-kernels
 - spyder
-- vedo
 - xarray
 - pyside6
 - pysheds

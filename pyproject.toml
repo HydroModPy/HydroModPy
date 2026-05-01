@@ -45,15 +45,12 @@ classifiers = [
 ]
 
 dependencies = [
-    "colormap>=1.3.0,<2",
     "contextily>=1.7.0,<2",
     "flopy>=3.10.0,<4",
     "geopandas>=1.1.3,<2",
-    "gmsh>=4.15.2,<5",
     "h5py>=3.16.0,<4",
     "imageio>=2.37.3,<3",
     "matplotlib>=3.10.8,<4",
-    "matplotlib-scalebar>=0.9.0,<1",
     "meshio>=5.3.5,<6",
     "netCDF4>=1.7.4,<2",
     "numpy>=2.4.4,<3",
@@ -61,33 +58,30 @@ dependencies = [
     "plotly>=6.7.0,<7",
     "pint>=0.25.3,<1",
     "pydantic-pint>=0.4,<1",
+    "pyarrow>=22.0.0,<23",
     "pyproj>=3.7.2,<4",
-    "pysheds>=0.5,<1",
     "rasterio>=1.5.0,<2",
     "rioxarray>=0.22.0,<1",
     "scikit-learn>=1.8.0,<2",
     "scipy>=1.17.1,<2",
     "shapely>=2,<3",
-    "ultraplot>=2.2.0,<3",
-    "vedo>=2026.6.1,<2027",
     "xarray>=2026.4.0,<2027",
     "xugrid>=0.15.2,<1",
     "pydantic>=2.13.3,<3",
     "duckdb>=1.5.2,<2",
     "dask>=2026.3.0,<2027",
-    "sqlalchemy>=2.0.49,<3",
     "tqdm>=4.67.3,<5",
     "zarr>=3.1.6,<4",
     "zstandard>=0.25.0,<1",
     "tomlkit>=0.14.0,<1",
     "tomli-w>=1.2.0,<2",
     "pandera>=0.31.1,<1",
-    "mypy_extensions>=1.0,<2",
 ]
 
 [project.optional-dependencies]
 calibration = ["cma>=4.4.4,<5", "optuna>=4.8.0,<5"]
 delineation = ["whitebox-workflows>=1.3.5,<2"]
+mesh = ["gmsh>=4.15.2,<5"]
 test = ["pytest", "pytest-xdist", "pytest-timeout", "coverage[toml]>=7.0", "pyyaml"]
 docs = [
     "sphinx>=7.0",
@@ -197,7 +191,6 @@ target-version = "py311"
 line-length = 100
 
 extend-exclude = [
-    "examples_legacy_2",
     "hydromodpy.egg-info",
     "docs",              # Sphinx conf + doc examples aren't production code
     "bin",
@@ -310,7 +303,6 @@ module = [
     "rioxarray.*",
     "xarray.*",
     "xugrid.*",
-    "pysheds.*",
     "whitebox_workflows.*",
     "vedo.*",
     "ultraplot.*",

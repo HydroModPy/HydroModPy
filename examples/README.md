@@ -79,9 +79,8 @@ examples/projects/<NN_nom>/
 Les artefacts de run (`hydromodpy.duckdb`, Zarr) sont stockés au
 niveau du workspace `examples/` et ignorés par `.gitignore`.
 
-## Archive pré-v0.5
+## Archive
 
-Les exemples historiques qui ne s'alignent plus sur l'API actuelle
-sont conservés dans
-[`examples_legacy_2/`](../examples_legacy_2/README_LEGACY.md) et
-seront supprimés en v0.6.
+Les exemples qui ne s'alignent plus sur l'API actuelle ne font plus
+partie du parcours public. Les projets versionnés sous `projects/`
+restent la référence pour les nouveaux usages.

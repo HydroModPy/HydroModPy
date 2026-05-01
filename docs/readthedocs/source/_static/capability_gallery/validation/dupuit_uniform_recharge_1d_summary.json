@@ -50,7 +50,7 @@
     "validation_cases/shared/boussinesq_uniform_strip.py"
   ],
   "source_hashes": {
-    "validation_cases/README.md": "634832ce341c47597143d5614d06c8d22bac809193447706294f5b43e38359c3",
+    "validation_cases/README.md": "55c78d50160086ae953092b98a464b1b2e5b1249064486a058d719d61533a6d9",
     "validation_cases/analytical/steady/dupuit_uniform_recharge_1d/README.md": "6ac185d60659f416b0ad2c685f7166ab04b9a22880f591a1b1d93d49b95349b4",
     "validation_cases/analytical/steady/dupuit_uniform_recharge_1d/reference.py": "57ba602b730b954b1948abd726c2e3b19dac6446e2a21220c6a5123b6406a104",
     "validation_cases/analytical/steady/dupuit_uniform_recharge_1d/comparison.py": "e631575490210eb36c0639a84270f9f5f4b45541991331690bcfb67c3e0eeaa0",
@@ -65,7 +65,7 @@
     "validation_cases/analytical/steady/dupuit_uniform_recharge_1d/config_modflow6.toml": "9a3a68ee60db0f7b112d7ea579603eb52e71ff6e57a577a8cc3ce42627bad368",
     "validation_cases/analytical/steady/dupuit_uniform_recharge_1d/config_modflow6_irregular_tri.toml": "44bbb1355e7c1998a05f8b4db0b9272fdf1a68761e6b4aab002102dcdf8d9048",
     "validation_cases/analytical/steady/dupuit_uniform_recharge_1d/config_boussinesq.toml": "bf9a68e7c1dca1d194187dc5584f7f51dc4243bfab5d762e437760d1a797434c",
-    "validation_cases/shared/boussinesq_uniform_strip.py": "4c7b6bc8f898f453c77f94c542591d3b1b4e8f7f0a785fe8a6bc7d4ed44d0473"
+    "validation_cases/shared/boussinesq_uniform_strip.py": "90dc5f900e857a5d80f297c04debaa82e96c6d70754765ed46a48469fd2698a1"
   },
   "docname": "cases/dupuit_uniform_recharge_1d",
   "images": [

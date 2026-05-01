@@ -59,7 +59,7 @@
     "validation_cases/shared/boussinesq_uniform_strip.py"
   ],
   "source_hashes": {
-    "validation_cases/README.md": "634832ce341c47597143d5614d06c8d22bac809193447706294f5b43e38359c3",
+    "validation_cases/README.md": "55c78d50160086ae953092b98a464b1b2e5b1249064486a058d719d61533a6d9",
     "validation_cases/analytical/steady/boussinesq_sloping_substratum_uniform_recharge_1d/README.md": "cf25ee10544cad7d3261f0b75327a1ad0f314db503bcbe9a03e6e9c5c4d1a47b",
     "validation_cases/analytical/steady/boussinesq_sloping_substratum_uniform_recharge_1d/reference.py": "442d436638c5359ce00fe99d4e6a5124de54f0d0bb69db6a0ea810f31413945b",
     "validation_cases/analytical/steady/boussinesq_sloping_substratum_uniform_recharge_1d/comparison.py": "42378d53164f0b69b84c99336b17ebcb7e8b1d1d04214909980c1b27e3ad440d",
@@ -76,7 +76,7 @@
     "validation_cases/analytical/steady/boussinesq_sloping_substratum_uniform_recharge_1d/config_modflow6_irregular_tri.toml": "2b98a973e5f68139217fb511eef9d75f924e04e02f0e77a5964275046c55687d",
     "validation_cases/analytical/steady/boussinesq_sloping_substratum_uniform_recharge_1d/config_boussinesq.toml": "680ca3136a91011bfa3f42afabe3b5895b01ebffe6d91a7a416fe53bb75ac4ff",
     "validation_cases/analytical/steady/boussinesq_sloping_substratum.py": "7115b66a3efba827ab0acef3fa860712443102f4352cd1e6bfcadd450b7457dd",
-    "validation_cases/shared/boussinesq_uniform_strip.py": "4c7b6bc8f898f453c77f94c542591d3b1b4e8f7f0a785fe8a6bc7d4ed44d0473"
+    "validation_cases/shared/boussinesq_uniform_strip.py": "90dc5f900e857a5d80f297c04debaa82e96c6d70754765ed46a48469fd2698a1"
   },
   "docname": "cases/boussinesq_sloping_substratum_uniform_recharge_1d",
   "images": [

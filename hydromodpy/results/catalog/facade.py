@@ -96,7 +96,8 @@ class SimulationCatalog(
         return cls(cfg.workspace.root)
 
     @property
-    def _connection(self) -> duckdb.DuckDBPyConnection:
+    def connection(self) -> duckdb.DuckDBPyConnection:
+        """Return the DuckDB connection for protocol-based integrations."""
         return self._db
 
     @property

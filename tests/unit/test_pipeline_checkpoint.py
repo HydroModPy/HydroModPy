@@ -38,6 +38,17 @@ class _Crash:
         raise RuntimeError("simulated crash on step 2")
 
 
+class _RecoveredCrash:
+    name = "crash"
+
+    def run(self, state):
+        return state.advance(
+            step_index=state.step_index + 1,
+            step_name=self.name,
+            counter=state.data.get("counter", 0) + 1,
+        )
+
+
 class _Double:
     name = "double"
 
@@ -97,7 +108,7 @@ def test_crash_then_resume_replays_only_remaining(tmp_path: Path) -> None:
         assert failed[0][1] == 1  # step_index of crash
 
     # Replace the crashing step with a working one and resume.
-    fixed_pipeline = _fresh_pipeline(tmp_path, [_AddOne(), _AddOne(), _Double()])
+    fixed_pipeline = _fresh_pipeline(tmp_path, [_AddOne(), _RecoveredCrash(), _Double()])
     final = fixed_pipeline.run(
         PipelineState(run_id="crash-1"),
         resume_from=1,

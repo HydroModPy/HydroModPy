@@ -8,8 +8,8 @@ an explicit rationale.
 
 from __future__ import annotations
 
+import importlib.util
 import pathlib
-import sys
 
 import pytest
 import yaml
@@ -18,10 +18,17 @@ REPO_ROOT = pathlib.Path(__file__).resolve().parents[3]
 PKG_ROOT = REPO_ROOT / "hydromodpy"
 MATRIX_FILE = pathlib.Path(__file__).with_name("layer_matrix.yaml")
 
-if str(REPO_ROOT) not in sys.path:
-    sys.path.insert(0, str(REPO_ROOT))
+_BUILD_GRAPH_PATH = REPO_ROOT / "tools" / "audit" / "build_graph.py"
+_BUILD_GRAPH_SPEC = importlib.util.spec_from_file_location(
+    "hydromodpy_architecture_build_graph",
+    _BUILD_GRAPH_PATH,
+)
+if _BUILD_GRAPH_SPEC is None or _BUILD_GRAPH_SPEC.loader is None:
+    raise RuntimeError(f"Could not load architecture scanner at {_BUILD_GRAPH_PATH}")
+_BUILD_GRAPH_MODULE = importlib.util.module_from_spec(_BUILD_GRAPH_SPEC)
+_BUILD_GRAPH_SPEC.loader.exec_module(_BUILD_GRAPH_MODULE)
 
-from tools.audit.build_graph import scan_package  # noqa: E402
+scan_package = _BUILD_GRAPH_MODULE.scan_package
 
 
 def _load_matrix() -> dict:
@@ -45,8 +52,6 @@ def _violations() -> tuple[list, list]:
             continue
         if edge.tgt_pkg == "<annex>":
             annex.append(edge)
-            continue
-        if edge.src_pkg == "<root>" or edge.tgt_pkg == "<root>":
             continue
         if edge.src_pkg not in allowed:
             continue

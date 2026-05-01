@@ -57,30 +57,28 @@ class DeriveStep:
         try:
             sim_zarr = store.open_zarr(sim_id)
         except Exception as exc:
-            logger.debug("DeriveStep: cannot open Zarr for sim %s: %s", sim_id, exc)
-            return state.advance(
-                step_index=state.step_index + 1,
-                step_name=self.name,
-                ctx=ctx,
-            )
+            raise RuntimeError(f"DeriveStep cannot open Zarr for sim {sim_id}") from exc
 
-        if "head" not in sim_zarr.root:
-            logger.debug(
-                "DeriveStep: no 'head' field in Zarr for sim %s, nothing to derive",
-                sim_id,
-            )
-            return state.advance(
-                step_index=state.step_index + 1,
-                step_name=self.name,
-                ctx=ctx,
-            )
+        try:
+            if "head" not in sim_zarr.root:
+                logger.debug(
+                    "DeriveStep: no 'head' field in Zarr for sim %s, nothing to derive",
+                    sim_id,
+                )
+                return state.advance(
+                    step_index=state.step_index + 1,
+                    step_name=self.name,
+                    ctx=ctx,
+                )
 
-        results = self._registry.apply(sim_zarr)
-        for result in results:
-            if result.status == "computed":
-                logger.debug("DeriveStep: computed '%s'", result.name)
-            else:
-                logger.debug("DeriveStep: skipped '%s' (%s)", result.name, result.reason)
+            results = self._registry.apply(sim_zarr)
+            for result in results:
+                if result.status == "computed":
+                    logger.debug("DeriveStep: computed '%s'", result.name)
+                else:
+                    logger.debug("DeriveStep: skipped '%s' (%s)", result.name, result.reason)
+        finally:
+            sim_zarr.close()
 
         return state.advance(
             step_index=state.step_index + 1,

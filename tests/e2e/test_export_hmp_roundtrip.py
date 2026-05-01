@@ -57,13 +57,13 @@ def test_hmp_package_roundtrip(tmp_path: Path) -> None:
         assert len(sims) == 1
         assert str(sims.iloc[0]["sim_id"]) == sim_id
 
-        ts = target._connection.execute(
+        ts = target.connection.execute(
             "SELECT variable, value FROM timeseries WHERE sim_id = ? ORDER BY datetime",
             [sim_id],
         ).fetchdf()
         assert list(ts["value"]) == pytest.approx([10.0, 10.1, 10.2, 10.3])
 
-        metric = target._connection.execute(
+        metric = target.connection.execute(
             "SELECT value FROM metrics WHERE sim_id = ? AND metric_name = 'nse'",
             [sim_id],
         ).fetchone()

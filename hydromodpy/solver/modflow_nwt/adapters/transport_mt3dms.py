@@ -44,9 +44,11 @@ class Mt3dmsTransportAdapter:
         station_cells: Mapping[str, tuple[int, int, int]] | None = None,
         time_index: pd.DatetimeIndex | None = None,
     ) -> pd.Series:
-        """Transport runs are not calibration targets; return empty series."""
+        """Fail explicitly because transport calibration is not implemented."""
         del ctx, store, station_cells, time_index
-        return pd.Series(dtype=float, name=variable)
+        raise NotImplementedError(
+            f"MT3DMS calibration extraction is not implemented for {variable!r}."
+        )
 
     def execute(self, ctx: RunContext) -> RunExecutionResult:
         """Instantiate and execute one MT3DMS concentration transport run."""

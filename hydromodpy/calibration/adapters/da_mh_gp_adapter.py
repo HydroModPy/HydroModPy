@@ -181,6 +181,10 @@ class DaMhGpOptimizer:
         if np.any(self._proposal_std <= 0.0):
             raise ValueError("proposal_sigma must be > 0")
 
+        if prior_mean is None and prior_std is None:
+            default_prior = space.default_prior_mean_std()
+            if default_prior is not None:
+                prior_mean, prior_std = default_prior
         self._prior_mean = (
             None if prior_mean is None else _as_vector(prior_mean, "prior_mean", self._dim)
         )

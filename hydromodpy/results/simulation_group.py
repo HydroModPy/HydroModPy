@@ -138,7 +138,7 @@ class SimulationGroup:
         if not self._sim_ids:
             return pd.DataFrame()
         placeholders = ", ".join(["?"] * len(self._sim_ids))
-        df = self._catalog._connection.execute(
+        df = self._catalog.connection.execute(
             f"SELECT sim_id, param_name, zone_id, value "
             f"FROM parameters WHERE sim_id IN ({placeholders})",
             self._sim_ids,
@@ -161,7 +161,7 @@ class SimulationGroup:
         if not self._sim_ids:
             return pd.DataFrame()
         placeholders = ", ".join(["?"] * len(self._sim_ids))
-        df = self._catalog._connection.execute(
+        df = self._catalog.connection.execute(
             f"SELECT sim_id, station_id, metric_name, value "
             f"FROM metrics WHERE sim_id IN ({placeholders})",
             self._sim_ids,
@@ -185,7 +185,7 @@ class SimulationGroup:
         if not self._sim_ids:
             return pd.DataFrame()
         placeholders = ", ".join(["?"] * len(self._sim_ids))
-        return self._catalog._connection.execute(
+        return self._catalog.connection.execute(
             f"SELECT s.sim_id, s.name, s.project, s.solver, m.station_id, m.value "
             f"FROM simulations s "
             f"JOIN metrics m ON s.sim_id = m.sim_id "
@@ -200,7 +200,7 @@ class SimulationGroup:
         if not self._sim_ids:
             raise ValueError("Empty group")
         placeholders = ", ".join(["?"] * len(self._sim_ids))
-        row = self._catalog._connection.execute(
+        row = self._catalog.connection.execute(
             f"SELECT m.sim_id FROM metrics m "
             f"WHERE m.sim_id IN ({placeholders}) AND m.metric_name = ? "
             f"ORDER BY m.value DESC LIMIT 1",
@@ -216,7 +216,7 @@ class SimulationGroup:
         if not self._sim_ids:
             raise ValueError("Empty group")
         placeholders = ", ".join(["?"] * len(self._sim_ids))
-        row = self._catalog._connection.execute(
+        row = self._catalog.connection.execute(
             f"SELECT m.sim_id FROM metrics m "
             f"WHERE m.sim_id IN ({placeholders}) AND m.metric_name = ? "
             f"ORDER BY m.value ASC LIMIT 1",
@@ -231,7 +231,7 @@ class SimulationGroup:
             return self
         placeholders = ", ".join(["?"] * len(self._sim_ids))
         order = "ASC" if ascending else "DESC"
-        rows = self._catalog._connection.execute(
+        rows = self._catalog.connection.execute(
             f"SELECT m.sim_id FROM metrics m "
             f"WHERE m.sim_id IN ({placeholders}) AND m.metric_name = ? "
             f"ORDER BY m.value {order}",
@@ -260,7 +260,7 @@ class SimulationGroup:
         if not self._sim_ids:
             return pd.DataFrame()
         placeholders = ", ".join(["?"] * len(self._sim_ids))
-        sims = self._catalog._connection.execute(
+        sims = self._catalog.connection.execute(
             f"SELECT sim_id, project, solver, solver_category, flow_regime, "
             f"n_cells, n_layers "
             f"FROM simulations WHERE sim_id IN ({placeholders})",

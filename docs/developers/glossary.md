@@ -91,8 +91,8 @@ Moteur d'implémentation choisi au runtime. Toujours qualifier :
 
 - Backend de solveur : moteur concret derrière un `SolverAdapter`
   (flopy, scipy, petsc).
-- Backend de délinéation : `WhiteboxCLIBackend` versus
-  `WhiteboxWorkflowsBackend`. Module
+- Backend de délinéation : `whitebox_workflows`, `synthetic`, ou un
+  backend ajoute via `register_backend()`. Module
   `hydromodpy.spatial.delineation/`.
 - Backend d'affichage : matplotlib ou pyvista, sélectionné dans
   `[display]`.

@@ -375,8 +375,10 @@ def snapshot_signature(path: Path) -> dict:
 def collect_store_modpath_signatures(store, sim_id: str) -> dict:
     """Collect MODPATH signatures from the SimulationCatalog pathlines group."""
     result = {}
+    sz = None
     try:
-        grp = store._open_zarr_group(sim_id)
+        sz = store.open_zarr(sim_id)
+        grp = sz.root
         pathlines_grp = grp.get("pathlines")
         if pathlines_grp is None:
             return result
@@ -402,6 +404,9 @@ def collect_store_modpath_signatures(store, sim_id: str) -> dict:
             }
     except (KeyError, Exception):
         pass
+    finally:
+        if sz is not None:
+            sz.close()
 
     return result
 

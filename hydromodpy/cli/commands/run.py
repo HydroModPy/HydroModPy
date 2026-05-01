@@ -87,11 +87,6 @@ def run(args: argparse.Namespace) -> None:
         print(f"File not found: {target}", file=sys.stderr)
         sys.exit(EXIT_NOT_FOUND)
 
-    if getattr(args, "frozen", False):
-        from hydromodpy.data.data_freeze import set_frozen_mode
-
-        set_frozen_mode(True)
-
     if target.suffix == ".toml":
         _run_toml(target, args=args)
     elif target.suffix == ".py":

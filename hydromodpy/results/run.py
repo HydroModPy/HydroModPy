@@ -85,13 +85,13 @@ class Run:
 
     def _load_row(self) -> dict:
         if self._row is None:
-            row = self._catalog._connection.execute(
+            row = self._catalog.connection.execute(
                 "SELECT * FROM simulations WHERE sim_id = ?",
                 [self._sim_id],
             ).fetchone()
             if row is None:
                 raise KeyError(f"Simulation '{self._sim_id}' not found")
-            cols = [d[0] for d in self._catalog._connection.description]
+            cols = [d[0] for d in self._catalog.connection.description]
             self._row = dict(zip(cols, row, strict=False))
         return self._row
 
@@ -226,7 +226,7 @@ class Run:
         scalars are trivially looked up via
         ``sim.parameters.loc["thickness", "value"]``.
         """
-        df = self._catalog._connection.execute(
+        df = self._catalog.connection.execute(
             "SELECT param_name, zone_id, value, unit, parameterization "
             "FROM parameters WHERE sim_id = ? ORDER BY param_name, zone_id",
             [self._sim_id],
@@ -244,7 +244,7 @@ class Run:
 
     @property
     def metrics(self) -> pd.DataFrame:
-        return self._catalog._connection.execute(
+        return self._catalog.connection.execute(
             "SELECT station_id, metric_name, value "
             "FROM metrics WHERE sim_id = ? ORDER BY station_id, metric_name",
             [self._sim_id],
@@ -252,7 +252,7 @@ class Run:
 
     @property
     def provenance(self) -> pd.DataFrame:
-        return self._catalog._connection.execute(
+        return self._catalog.connection.execute(
             "SELECT variable, source_type, source_ref, "
             "payload_sha256 AS checksum, "
             "period_start, period_end, n_records "
@@ -277,7 +277,7 @@ class Run:
             query += " AND datetime >= ? AND datetime <= ?"
             params.extend([period[0], period[1]])
         query += " ORDER BY datetime"
-        result = self._catalog._connection.execute(query, params).fetchdf()
+        result = self._catalog.connection.execute(query, params).fetchdf()
         if result.empty:
             raise KeyError(
                 f"No timeseries for sim={self._sim_id}, station={station}, var={variable}"
@@ -340,7 +340,7 @@ class Run:
             query += " AND datetime >= ? AND datetime <= ?"
             params.extend([period[0], period[1]])
         query += " ORDER BY station_id, datetime"
-        df = self._catalog._connection.execute(query, params).fetchdf()
+        df = self._catalog.connection.execute(query, params).fetchdf()
         if df.empty:
             station_msg = f", station={station}" if station is not None else ""
             raise ValueError(
@@ -369,11 +369,11 @@ class Run:
         if period is not None:
             query += " AND timestep >= ? AND timestep <= ?"
             params.extend(period)
-        return self._catalog._connection.execute(query, params).fetchdf()
+        return self._catalog.connection.execute(query, params).fetchdf()
 
     @property
     def mass_balance(self) -> pd.DataFrame:
-        return self._catalog._connection.execute(
+        return self._catalog.connection.execute(
             "SELECT * FROM mass_balance WHERE sim_id = ? ORDER BY timestep",
             [self._sim_id],
         ).fetchdf()
@@ -479,9 +479,16 @@ class Run:
             raise RuntimeError("lumped simulation has no spatial grid")
         n = self.n_timesteps or 1
         grid = self.grid
-        data = np.stack(
-            [np.asarray(self.field(variable, timestep=t)).reshape(grid.shape) for t in range(n)]
-        )
+        sz = self._catalog.open_zarr(self._sim_id)
+        try:
+            data = np.stack(
+                [
+                    np.asarray(sz.read_field(variable, timestep=t)).reshape(grid.shape)
+                    for t in range(n)
+                ]
+            )
+        finally:
+            sz.close()
         return Stack(data=data, variable=variable)
 
     @cached_property
@@ -517,7 +524,7 @@ class Run:
         ``run.parameters`` DataFrame (MultiIndex on ``param_name`` and
         ``zone_id``).
         """
-        rows = self._catalog._connection.execute(
+        rows = self._catalog.connection.execute(
             "SELECT param_name, value FROM parameters "
             "WHERE sim_id = ? AND (zone_id IS NULL OR zone_id = ?)",
             [self._sim_id, "__global__"],
@@ -597,10 +604,13 @@ class Run:
             caps.append("hydrograph")
 
         sz = self._catalog.open_zarr(self._sim_id)
-        if "concentration" in sz.root:
-            caps.append("concentration_map")
-        if "pathlines" in sz.root:
-            caps.append("particle_tracks")
+        try:
+            if "concentration" in sz.root:
+                caps.append("concentration_map")
+            if "pathlines" in sz.root:
+                caps.append("particle_tracks")
+        finally:
+            sz.close()
 
         return caps
 

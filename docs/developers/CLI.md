@@ -154,12 +154,13 @@ La cible `validation` ajoute automatiquement le marqueur pytest
 | `hmp list` | Liste les projets et runs |
 | `hmp show <sim_id>` | Affiche les métadonnées d'un run |
 | `hmp inspect <sim_id>` | Inspection détaillée d'un run |
-| `hmp rank --top N` / `hmp rank --bottom N` | Top ou bottom N runs selon métrique |
+| `hmp rank <project> --metric <name> --top N` / `hmp rank <project> --metric <name> --bottom N` | Top ou bottom N runs selon métrique |
 | `hmp compare <sim_a> <sim_b>` | Comparaison de deux runs |
 | `hmp display <config.toml>` / `hmp display <sim_id> <figure>` | Production des figures |
-| `hmp export <project> --sim <name> --csv --output <dir>` | Export vers un format externe |
+| `hmp export <project> --sim <name> --csv --output <dir>` / `hmp export <project> --sim <name> --geotiff --resolution <dx>` | Export vers un format externe |
 | `hmp import <package.hmp>` | Import d'un `.hmp` dans le workspace |
 | `hmp delete <sim_id>` | Suppression d'un run |
+| `hmp install-binaries [--subset mf6,mfnwt]` | Précharge les binaires solveur dans le cache local |
 | `hmp schema export` | Export JSON Schema (voir [frontend_hooks.md](frontend_hooks.md)) |
 | `hmp schema validate-field` | Validation partielle d'un champ |
 | `hmp lock` | Verrou workspace |

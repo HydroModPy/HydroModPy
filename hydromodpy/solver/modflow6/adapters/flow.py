@@ -62,17 +62,17 @@ class Modflow6FlowAdapter:
         output_dir = ctx.state.execution.output_dirs_by_run_id.get(ctx.run.id)
         model = ctx.state.execution.models_by_run_id.get(ctx.run.id)
         if output_dir is None or model is None:
-            return pd.Series(dtype=float, name=variable)
+            raise RuntimeError(f"No solver output recorded for run {ctx.run.id!r}")
         model_name = getattr(model, "model_name", None) or getattr(model, "name", None)
         if model_name is None:
-            return pd.Series(dtype=float, name=variable)
+            raise RuntimeError(f"Model name is missing for run {ctx.run.id!r}")
         output_dir = Path(output_dir)
 
         if variable == "discharge":
             return extract_discharge_from_cbc(output_dir, model_name, time_index)
         if variable == "head":
             if not station_cells:
-                return pd.Series(dtype=float, name=variable)
+                raise ValueError("head calibration requires station_cells")
             series_by_station = extract_head_from_hds(
                 output_dir,
                 model_name,
@@ -81,12 +81,17 @@ class Modflow6FlowAdapter:
             )
             if len(station_cells) == 1:
                 station_id = next(iter(station_cells))
-                return series_by_station.get(station_id, pd.Series(dtype=float, name=variable))
+                try:
+                    return series_by_station[station_id]
+                except KeyError as exc:
+                    raise KeyError(f"No head series extracted for station {station_id!r}") from exc
             raise ValueError(
                 "extract_calibration_series returns one series; pass station_cells "
                 "with a single entry per call for head calibration."
             )
-        return pd.Series(dtype=float, name=variable)
+        raise NotImplementedError(
+            f"MODFLOW 6 calibration extraction is not implemented for variable {variable!r}."
+        )
 
     @staticmethod
     def _solver_runtime_cache(state) -> dict[tuple[str, str, str], Modflow6]:

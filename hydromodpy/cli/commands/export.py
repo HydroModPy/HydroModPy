@@ -30,6 +30,12 @@ def register(subparsers) -> argparse.ArgumentParser:
     parser.add_argument(
         "--geotiff", action="store_true", help="Export spatial fields as GeoTIFF (one per variable)"
     )
+    parser.add_argument(
+        "--resolution",
+        type=float,
+        default=None,
+        help="GeoTIFF pixel size in project CRS units. Required with --geotiff.",
+    )
     parser.add_argument("--vtu", action="store_true", help="Export mesh + fields as VTU (ParaView)")
     parser.add_argument(
         "--raster", nargs="+", help="Geographic raster name(s) to export as GeoTIFF"
@@ -68,8 +74,12 @@ def run(args: argparse.Namespace) -> None:
         rasters: list[str] = []
         if not sims.empty:
             latest_sid = str(sims.iloc[-1]["sim_id"])
-            geo_grp = catalog._open_zarr_group(latest_sid).get("geographic")
-            rasters = list(geo_grp.keys()) if geo_grp is not None else []
+            sz = catalog.open_zarr(latest_sid)
+            try:
+                geo_grp = sz.root.get("geographic")
+                rasters = list(geo_grp.keys()) if geo_grp is not None else []
+            finally:
+                sz.close()
         features = catalog.list_geographic_features(latest_sid) if latest_sid else []
         print("Geographic rasters:", file=sys.stderr)
         for name in sorted(rasters):
@@ -165,7 +175,7 @@ def run(args: argparse.Namespace) -> None:
             print(str(exc), file=sys.stderr)
             catalog.close()
             sys.exit(EXIT_NOT_FOUND)
-        row = catalog._connection.execute(
+        row = catalog.connection.execute(
             "SELECT name FROM simulations WHERE CAST(sim_id AS VARCHAR) = ?",
             [sim_id],
         ).fetchone()
@@ -194,17 +204,49 @@ def run(args: argparse.Namespace) -> None:
                 print(f"  NetCDF export failed: {exc}", file=sys.stderr)
 
         if args.geotiff:
-            grp = catalog._open_zarr_group(sim_id, mode="r")
-            for var in list(grp.keys()) + list((grp.get("derived") or {}).keys()):
-                if var in ("mesh", "budget", "derived", "pathlines"):
+            if args.resolution is None:
+                print("--resolution is required with --geotiff", file=sys.stderr)
+                catalog.close()
+                sys.exit(EXIT_CONFIG)
+            failures: list[str] = []
+            sz = catalog.open_zarr(sim_id)
+            try:
+                grp = sz.root
+                variables = list(grp.keys()) + list((grp.get("derived") or {}).keys())
+            finally:
+                sz.close()
+            for var in variables:
+                if var in (
+                    "mesh",
+                    "budget",
+                    "derived",
+                    "pathlines",
+                    "forcing",
+                    "geographic",
+                    "crs",
+                    "time",
+                ):
                     continue
                 try:
                     out = sim_dir / f"{var}_t0.tif"
-                    catalog.export(sim_id, var, "geotiff", out, timestep=0)
+                    catalog.export(
+                        sim_id,
+                        var,
+                        "geotiff",
+                        out,
+                        timestep=0,
+                        resolution=float(args.resolution),
+                    )
                     exported.append(out)
                     print(f"  {out}", file=sys.stderr)
-                except Exception:
-                    pass
+                except Exception as exc:
+                    failures.append(f"{var}: {exc}")
+            if failures:
+                print("GeoTIFF export failed:", file=sys.stderr)
+                for failure in failures:
+                    print(f"  {failure}", file=sys.stderr)
+                catalog.close()
+                sys.exit(EXIT_CONFIG)
 
         if args.vtu:
             out = sim_dir / "head_t0.vtu"

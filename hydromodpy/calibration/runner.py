@@ -31,8 +31,9 @@ import sys
 import time
 import tomllib
 import uuid
+from collections.abc import Callable
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from hydromodpy.calibration.cache import ParamsHashCache
 from hydromodpy.calibration.config import CalibrationConfig
@@ -57,6 +58,15 @@ if TYPE_CHECKING:
     from hydromodpy.calibration.runners.trial import TrialContext
 
 logger = get_logger(__name__)
+
+CalibrationStoreFactory = Callable[[Path, object], Any]
+
+
+def _default_store_factory(workspace: Path, persistence: object) -> Any:
+    """Open the default calibration store."""
+    from hydromodpy.results.catalog import SimulationCatalog
+
+    return SimulationCatalog(workspace, persistence=persistence)
 
 
 # ---------------------------------------------------------------------------
@@ -175,7 +185,7 @@ def _update_iter_sim_id(catalog, session_id: str, iteration: int, sim_id: str) -
     def _run() -> None:
         sid = uuid.UUID(session_id) if len(session_id) == 32 else session_id
         sim_uuid = uuid.UUID(sim_id) if len(sim_id) == 32 else sim_id
-        catalog._connection.execute(
+        catalog.connection.execute(
             """
             UPDATE calibration_iterations
                SET sim_id = ?
@@ -194,12 +204,22 @@ def _update_best_sim_id(catalog, session_id: str, sim_id: str) -> None:
     def _run() -> None:
         sid = uuid.UUID(session_id) if len(session_id) == 32 else session_id
         sim_uuid = uuid.UUID(sim_id) if len(sim_id) == 32 else sim_id
-        catalog._connection.execute(
+        catalog.connection.execute(
             "UPDATE calibration_sessions SET best_sim_id = ? WHERE session_id = ?",
             [sim_uuid, sid],
         )
 
     _run()
+
+
+def _stored_parameter_value(raw: Any) -> float:
+    """Return the physical candidate value from a persisted parameter payload."""
+    if isinstance(raw, dict):
+        for key in ("value", "candidate_value", "transformed_value"):
+            if key in raw:
+                return float(raw[key])
+        raise KeyError("Persisted parameter payload has no value")
+    return float(raw)
 
 
 # ---------------------------------------------------------------------------
@@ -217,6 +237,7 @@ def _run_calibration(
     cfg_path: Path | None = None,
     metric_fn: TrialMetricFn | None = None,
     objective: str | None = None,
+    store_factory: CalibrationStoreFactory | None = None,
 ) -> CalibrationReport:
     """Heart of the calibration loop. Caller-agnostic.
 
@@ -253,18 +274,18 @@ def _run_calibration(
     """
     from hydromodpy.calibration.persistence import CalibrationPersistence
     from hydromodpy.calibration.report import CalibrationReport
-    from hydromodpy.results.catalog import SimulationCatalog
 
     override_paths = _override_paths(cfg)
 
-    catalog = SimulationCatalog(workspace, persistence=cfg.persistence)
+    factory = store_factory or _default_store_factory
+    catalog = factory(workspace, cfg.persistence)
     persistence = CalibrationPersistence(catalog, persistence=cfg.persistence)
 
     engine_cache: ParamsHashCache | None = None
     if cfg.use_cache:
         engine_cache = ParamsHashCache()
         try:
-            n_preloaded = _preload_hash_cache(catalog._connection, engine_cache)
+            n_preloaded = _preload_hash_cache(catalog.connection, engine_cache)
             if n_preloaded:
                 logger.info("Preloaded %d params_hash entries from DuckDB", n_preloaded)
         except Exception:
@@ -431,7 +452,7 @@ def _run_calibration(
             best_obj = best.objective_value if best else None
             for row in top:
                 values = {
-                    name: float(row["parameters"][name])
+                    name: _stored_parameter_value(row["parameters"][name])
                     for name in override_paths
                     if name in row["parameters"]
                 }
@@ -490,6 +511,9 @@ def _run_calibration(
         )
         if best_sim_id is not None:
             _update_best_sim_id(catalog, session_id, best_sim_id)
+        close = getattr(catalog, "close", None)
+        if close is not None:
+            close()
 
     return CalibrationReport(
         session_id=session_id,
@@ -501,6 +525,7 @@ def _run_calibration(
         save_runs=cfg.save_runs,
         promoted=promotion_count,
         workspace=workspace,
+        store_factory=lambda path: factory(path, cfg.persistence),
     )
 
 
@@ -517,6 +542,7 @@ def run_calibration_cli(
     project: str = "calibration",
     metric_fn: TrialMetricFn | None = None,
     return_report: bool = False,
+    store_factory: CalibrationStoreFactory | None = None,
 ) -> dict | object:
     """Run a calibration described by ``config_path``.
 
@@ -569,6 +595,7 @@ def run_calibration_cli(
         cfg_path=cfg_path,
         metric_fn=metric_fn,
         objective=objective,
+        store_factory=store_factory,
     )
     if return_report:
         return report
@@ -589,6 +616,7 @@ def run_calibration_programmatic(
     metric_fn: TrialMetricFn | None = None,
     objective: str | None = None,
     return_report: bool = True,
+    store_factory: CalibrationStoreFactory | None = None,
 ) -> CalibrationReport | dict:
     """Run calibration without a calibration TOML file.
 
@@ -620,27 +648,12 @@ def run_calibration_programmatic(
         When True (the default), return the :class:`CalibrationReport`;
         otherwise return its ``to_dict()`` payload.
     """
-    src_path = getattr(project, "_config_path", None)
-    if src_path is None:
-        raise ValueError(
-            "run_calibration_programmatic requires a Project loaded from a "
-            "TOML file (the source path is needed for prepare_trials and "
-            "promotion). Build the Project from a path before calibrating."
-        )
-    cfg_path = Path(src_path).expanduser().resolve()
-
     declarations = {
         name: decl.model_dump(exclude_none=True, by_alias=True)
         for name, decl in cfg.parameters.items()
     }
     space = ParameterSpace.from_toml_mapping(declarations)
     override_paths = _override_paths(cfg)
-
-    trial_ctx = prepare_trials(
-        cfg_path,
-        override_paths=override_paths,
-        parameter_space=space,
-    )
 
     if workspace is not None:
         ws_root = Path(workspace).expanduser().resolve()
@@ -651,7 +664,23 @@ def run_calibration_programmatic(
         if ws_root_obj is not None:
             ws_root = Path(ws_root_obj.root)
         else:
-            ws_root = trial_ctx.workspace
+            ws_root = Path.cwd()
+
+    src_path = getattr(project, "_config_path", None)
+    if src_path is None:
+        from hydromodpy.calibration.materialize import write_overlay_toml
+
+        cfg_path = ws_root / ".hydromodpy" / "calibration_base.toml"
+        payload = project.cfg.model_dump(mode="json", by_alias=True, exclude_none=True)
+        write_overlay_toml(cfg_path, payload)
+    else:
+        cfg_path = Path(src_path).expanduser().resolve()
+
+    trial_ctx = prepare_trials(
+        cfg_path,
+        override_paths=override_paths,
+        parameter_space=space,
+    )
 
     report = _run_calibration(
         cfg,
@@ -662,6 +691,7 @@ def run_calibration_programmatic(
         cfg_path=cfg_path,
         metric_fn=metric_fn,
         objective=objective,
+        store_factory=store_factory,
     )
     if return_report:
         return report

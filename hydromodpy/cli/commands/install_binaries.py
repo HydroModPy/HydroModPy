@@ -32,7 +32,7 @@ def register(subparsers) -> argparse.ArgumentParser:
     parser.add_argument(
         "--release",
         default=None,
-        help='USGS executables release tag (default: "latest"; pin e.g. "18.0" for reproducibility).',
+        help="USGS executables release tag (default: HydroModPy pinned release).",
     )
     parser.add_argument(
         "--upgrade",

@@ -60,11 +60,13 @@ class Pipeline:
         from hydromodpy.solver.base import registry as solver_registry
         from hydromodpy.workflow.internals.checkpoint import CheckpointStore
         from hydromodpy.workflow.internals.ledger import StepsLedger
+        from hydromodpy.workflow.internals.manifest import ResolvedRunManifest
 
         # Load any third-party solver adapters declared via the
         # ``hydromodpy.solver`` entry-points group. Idempotent: calling this
         # more than once is a no-op (subsequent calls return 0).
         solver_registry.load_plugins()
+        solver_registry.load_extractor_plugins()
 
         ledger = StepsLedger(self.workspace) if self.workspace is not None else None
         cp_store = (
@@ -74,12 +76,30 @@ class Pipeline:
         )
 
         start_index = 0 if resume_from is None else int(resume_from)
+        manifest: ResolvedRunManifest | None = None
+        if self.workspace is not None:
+            manifest = ResolvedRunManifest.read(self.workspace, state.run_id)
+            if start_index > 0 and manifest is not None:
+                manifest.verify_state(state, self.steps, self.workspace)
+            elif start_index == 0:
+                manifest = ResolvedRunManifest.from_state(state, self.steps, self.workspace)
+                manifest.write_atomic(self.workspace)
+
         if start_index > 0 and cp_store is not None:
             # Restore state from the last successful checkpoint strictly
             # before start_index.
             last_saved = cp_store.latest_before(start_index)
             if last_saved is not None:
                 state = cp_store.restore(last_saved)
+                if manifest is not None:
+                    manifest.verify_state(state, self.steps, self.workspace)
+                elif self.workspace is not None:
+                    manifest = ResolvedRunManifest.from_state(
+                        state,
+                        self.steps,
+                        self.workspace,
+                    )
+                    manifest.write_atomic(self.workspace)
                 logger.info(
                     "pipeline.resume: restored run_id=%s from step %d",
                     state.run_id,
@@ -90,6 +110,13 @@ class Pipeline:
             if index < start_index:
                 continue
             state = self._execute_step(step, state, index, ledger, cp_store)
+            if self.workspace is not None:
+                manifest = (
+                    ResolvedRunManifest.from_state(state, self.steps, self.workspace)
+                    if manifest is None
+                    else manifest.with_state(state, self.steps)
+                )
+                manifest.write_atomic(self.workspace)
         return state
 
     # ------------------------------------------------------------------

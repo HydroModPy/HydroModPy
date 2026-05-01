@@ -141,6 +141,11 @@ class ExportStep:
         if ctx.store is not None:
             step_save_run_artifacts(ctx, wall_seconds)
             step_finalize_store(ctx, wall_seconds=wall_seconds)
+        results_cfg = getattr(ctx, "effective_results_config", None) or ctx.cfg.simulation.results
+        step_cleanup_scratch(
+            ctx,
+            keep_solver_files=bool(getattr(results_cfg, "keep_solver_files", False)),
+        )
 
         return state.advance(
             step_index=state.step_index + 1,

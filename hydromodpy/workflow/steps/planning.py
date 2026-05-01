@@ -172,18 +172,20 @@ def step_configure_results(
     user_cfg: ResultsConfig,
     plan: SimulationPlan,
 ) -> ResultsConfig:
-    """Return a ResultsConfig whose seepage flags track the plan content.
+    """Return a ResultsConfig aligned with the plan content.
 
-    concentration_seepage and mass_seepage only make sense when a transport
-    process is present. Everything else in the TOML is preserved verbatim.
+    Transport-only derived variables are disabled when no transport process is
+    present. If transport exists, the user's TOML choices are preserved.
     """
     has_transport = any(r.process_type == "transport" for r in plan.runs)
+    if has_transport:
+        return user_cfg
     return user_cfg.model_copy(
         update={
             "derived": user_cfg.derived.model_copy(
                 update={
-                    "concentration_seepage": has_transport,
-                    "mass_seepage": has_transport,
+                    "concentration_seepage": False,
+                    "mass_seepage": False,
                 }
             ),
         }

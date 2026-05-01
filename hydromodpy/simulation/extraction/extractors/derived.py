@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from contextlib import contextmanager
 from typing import Any
 
 import numpy as np
@@ -11,14 +12,31 @@ from hydromodpy.core.logging import get_logger
 logger = get_logger(__name__)
 
 
-def _write_bare_tif(path: str, data: np.ndarray, nodata: float = -99999.0) -> None:
-    """Write a 2D array as a GeoTIFF with dummy georef (whitebox needs geokeys)."""
+@contextmanager
+def _zarr_root(store: Any, sim_id: str):
+    """Open a simulation Zarr root and close its handle."""
+    sz = store.open_zarr(sim_id)
+    try:
+        yield sz.root
+    finally:
+        sz.close()
+
+
+def _write_bare_tif(
+    path: str,
+    data: np.ndarray,
+    nodata: float = -99999.0,
+    *,
+    crs_epsg: int | None = None,
+) -> None:
+    """Write a 2D array as a minimal GeoTIFF for Whitebox routing."""
     import rasterio
     from rasterio.crs import CRS
     from rasterio.transform import from_bounds
 
     nrow, ncol = data.shape
     transform = from_bounds(0, 0, ncol, nrow, ncol, nrow)
+    crs = CRS.from_epsg(crs_epsg) if crs_epsg is not None else None
     with rasterio.open(
         path,
         "w",
@@ -29,9 +47,21 @@ def _write_bare_tif(path: str, data: np.ndarray, nodata: float = -99999.0) -> No
         dtype=data.dtype,
         nodata=nodata,
         transform=transform,
-        crs=CRS.from_epsg(32631),
+        crs=crs,
     ) as dst:
         dst.write(data, 1)
+
+
+def _metadata_epsg(metadata: dict[str, object]) -> int | None:
+    """Return EPSG code from geographic metadata when available."""
+    raw = metadata.get("epsg") or metadata.get("crs_epsg")
+    if raw is None:
+        return None
+    try:
+        value = int(str(raw).split(":")[-1])
+    except (TypeError, ValueError):
+        return None
+    return value if value > 0 else None
 
 
 # Configurable derived variables and their default state. Watertable
@@ -70,20 +100,20 @@ def compute_derived(
 
     # Determine how many timesteps the head field has
     try:
-        grp = store._open_zarr_group(sim_id, mode="r")
-        if "head" not in grp:
-            logger.debug("No head field stored for sim %s, skipping derived", sim_id)
-            return
-        head_arr = grp["head"]
-        n_timesteps = head_arr.shape[0]
-        n_layers = head_arr.shape[1] if head_arr.ndim == 3 else 1
-        n_cells = head_arr.shape[-1]
+        with _zarr_root(store, sim_id) as grp:
+            if "head" not in grp:
+                logger.debug("No head field stored for sim %s, skipping derived", sim_id)
+                return
+            head_arr = grp["head"]
+            n_timesteps = head_arr.shape[0]
+            n_layers = head_arr.shape[1] if head_arr.ndim == 3 else 1
+            n_cells = head_arr.shape[-1]
     except Exception:
         logger.debug("Cannot read head field for sim %s", sim_id)
         return
 
     if flags.get("seepage_areas"):
-        _compute_seepage_areas(sim_id, store, n_timesteps, n_cells)
+        _compute_seepage_mask(sim_id, store, n_timesteps, n_cells)
 
     if flags.get("groundwater_flux"):
         _compute_groundwater_flux(sim_id, store, n_timesteps, n_layers, n_cells)
@@ -104,31 +134,30 @@ def compute_derived(
         _compute_mass_accumulated(sim_id, store, n_timesteps, n_cells)
 
 
-def _compute_seepage_areas(
+def _compute_seepage_mask(
     sim_id: str,
     store: Any,
     n_timesteps: int,
     n_cells: int,
 ) -> None:
-    """Seepage areas = cells where watertable >= surface elevation.
+    """Seepage mask = cells where watertable >= surface elevation.
 
     Requires both ``watertable_elevation`` and ``z_interfaces``.
     """
-    grp = store._open_zarr_group(sim_id, mode="r")
+    with _zarr_root(store, sim_id) as grp:
+        if "mesh" not in grp:
+            logger.debug("No mesh data, skipping seepage_mask for sim %s", sim_id)
+            return
 
-    if "mesh" not in grp:
-        logger.debug("No mesh data, skipping seepage_areas for sim %s", sim_id)
-        return
-
-    mesh = grp["mesh"]
-    if "surface_top" in mesh:
-        top_elev = np.asarray(mesh["surface_top"][:], dtype="float64").ravel()[:n_cells]
-    elif "z_interfaces" in mesh:
-        z_intf = mesh["z_interfaces"][:]
-        top_elev = np.full(n_cells, float(z_intf[0]))
-    else:
-        logger.debug("No surface elevation data, skipping seepage_areas for sim %s", sim_id)
-        return
+        mesh = grp["mesh"]
+        if "surface_top" in mesh:
+            top_elev = np.asarray(mesh["surface_top"][:], dtype="float64").ravel()[:n_cells]
+        elif "z_interfaces" in mesh:
+            z_intf = mesh["z_interfaces"][:]
+            top_elev = np.full(n_cells, float(z_intf[0]))
+        else:
+            logger.debug("No surface elevation data, skipping seepage_mask for sim %s", sim_id)
+            return
 
     for t in range(n_timesteps):
         try:
@@ -140,14 +169,14 @@ def _compute_seepage_areas(
         seepage = (wt >= top_elev).astype("float64")
         store.write_field(
             sim_id,
-            "seepage_areas",
+            "seepage_mask",
             t,
             seepage,
             n_timesteps=n_timesteps if t == 0 else None,
             subgroup="derived",
         )
 
-    logger.debug("Derived seepage_areas for sim %s", sim_id)
+    logger.debug("Derived seepage_mask for sim %s", sim_id)
 
 
 def _compute_groundwater_flux(
@@ -162,42 +191,44 @@ def _compute_groundwater_flux(
     Reads right-face, front-face, and lower-face flow from the budget
     Zarr subgroup and computes the vector magnitude per cell.
     """
-    grp = store._open_zarr_group(sim_id, mode="r")
-    budget_grp = grp.get("budget")
-    if budget_grp is None:
-        logger.debug("No budget fields, skipping groundwater_flux for sim %s", sim_id)
-        return
+    with _zarr_root(store, sim_id) as grp:
+        budget_grp = grp.get("budget")
+        if budget_grp is None:
+            logger.debug("No budget fields, skipping groundwater_flux for sim %s", sim_id)
+            return
 
-    face_keys = []
-    for candidate in (
-        "flow_right_face",
-        "flow_front_face",
-        "flow_lower_face",
-        "flow-ja-face",
-        "flow_ja_face",
-    ):
-        if candidate in budget_grp:
-            face_keys.append(candidate)
+        face_keys = []
+        for candidate in (
+            "flow_right_face",
+            "flow_front_face",
+            "flow_lower_face",
+            "flow-ja-face",
+            "flow_ja_face",
+        ):
+            if candidate in budget_grp:
+                face_keys.append(candidate)
 
-    if not face_keys:
-        logger.debug("No face-flow budget fields for groundwater_flux, sim %s", sim_id)
-        return
+        if not face_keys:
+            logger.debug("No face-flow budget fields for groundwater_flux, sim %s", sim_id)
+            return
 
-    for t in range(n_timesteps):
-        sq_sum = np.zeros((n_layers, n_cells), dtype="float64")
-        for key in face_keys:
-            arr = budget_grp[key][t]
-            reshaped = arr.reshape(n_layers, n_cells) if arr.shape != (n_layers, n_cells) else arr
-            sq_sum += reshaped**2
-        magnitude = np.sqrt(sq_sum)
-        store.write_field(
-            sim_id,
-            "groundwater_flux",
-            t,
-            magnitude,
-            n_timesteps=n_timesteps if t == 0 else None,
-            subgroup="derived",
-        )
+        for t in range(n_timesteps):
+            sq_sum = np.zeros((n_layers, n_cells), dtype="float64")
+            for key in face_keys:
+                arr = budget_grp[key][t]
+                reshaped = (
+                    arr.reshape(n_layers, n_cells) if arr.shape != (n_layers, n_cells) else arr
+                )
+                sq_sum += reshaped**2
+            magnitude = np.sqrt(sq_sum)
+            store.write_field(
+                sim_id,
+                "groundwater_flux",
+                t,
+                magnitude,
+                n_timesteps=n_timesteps if t == 0 else None,
+                subgroup="derived",
+            )
 
     logger.debug("Derived groundwater_flux for sim %s", sim_id)
 
@@ -214,55 +245,53 @@ def _compute_accumulation_flux(
     from the store (produces a connected stream network). Falls back to
     simple ``abs(drn)`` per cell if geographic data or whitebox is unavailable.
     """
-    grp = store._open_zarr_group(sim_id, mode="r")
-    budget_grp = grp.get("budget")
-    if budget_grp is None:
-        logger.debug("No budget fields, skipping accumulation_flux for sim %s", sim_id)
-        return
+    with _zarr_root(store, sim_id) as grp:
+        budget_grp = grp.get("budget")
+        if budget_grp is None:
+            logger.debug("No budget fields, skipping accumulation_flux for sim %s", sim_id)
+            return
 
-    drn_key = None
-    for candidate in ("drn", "drain", "drains", "DRN", "DRAINS"):
-        if candidate in budget_grp:
-            drn_key = candidate
-            break
+        drn_key = None
+        for candidate in ("drn", "drain", "drains", "DRN", "DRAINS"):
+            if candidate in budget_grp:
+                drn_key = candidate
+                break
 
-    if drn_key is None:
-        logger.debug("No DRN budget field for accumulation_flux, sim %s", sim_id)
-        return
+        if drn_key is None:
+            logger.debug("No DRN budget field for accumulation_flux, sim %s", sim_id)
+            return
 
-    # Try whitebox D8 routing with fill DEM from geographic store
-    try:
-        _accumulation_flux_routed(
-            sim_id,
-            store,
-            budget_grp,
-            drn_key,
-            n_timesteps,
-            n_cells,
-        )
-        logger.debug("Derived accumulation_flux (routed) for sim %s", sim_id)
-        return
-    except Exception:
-        logger.debug(
-            "Whitebox routing unavailable for sim %s, falling back to abs(drn)",
-            sim_id,
-        )
+        try:
+            _accumulation_flux_routed(
+                sim_id,
+                store,
+                budget_grp,
+                drn_key,
+                n_timesteps,
+                n_cells,
+            )
+            logger.debug("Derived accumulation_flux (routed) for sim %s", sim_id)
+            return
+        except Exception:
+            logger.debug(
+                "Whitebox routing unavailable for sim %s, falling back to abs(drn)",
+                sim_id,
+            )
 
-    # Fallback: simple abs(drn) without routing
-    for t in range(n_timesteps):
-        drn = budget_grp[drn_key][t]
-        if drn.ndim == 2:
-            flux = np.abs(drn).sum(axis=0)
-        else:
-            flux = np.abs(drn)
-        store.write_field(
-            sim_id,
-            "accumulation_flux",
-            t,
-            flux.astype("float64"),
-            n_timesteps=n_timesteps if t == 0 else None,
-            subgroup="derived",
-        )
+        for t in range(n_timesteps):
+            drn = budget_grp[drn_key][t]
+            if drn.ndim == 2:
+                flux = np.abs(drn).sum(axis=0)
+            else:
+                flux = np.abs(drn)
+            store.write_field(
+                sim_id,
+                "accumulation_flux",
+                t,
+                flux.astype("float64"),
+                n_timesteps=n_timesteps if t == 0 else None,
+                subgroup="derived",
+            )
 
     logger.debug("Derived accumulation_flux (simple) for sim %s", sim_id)
 
@@ -289,14 +318,15 @@ def _accumulation_flux_routed(
     from hydromodpy.spatial.delineation import get_whitebox_backend
 
     # Read surface_top from mesh (solver resolution) and infer 2D shape.
-    grp = store._open_zarr_group(sim_id, mode="r")
-    mesh = grp.get("mesh")
-    if mesh is None or "surface_top" not in mesh:
-        raise KeyError("No mesh/surface_top for routing")
-    surface_top = np.asarray(mesh["surface_top"][:], dtype="float64")
+    with _zarr_root(store, sim_id) as grp:
+        mesh = grp.get("mesh")
+        if mesh is None or "surface_top" not in mesh:
+            raise KeyError("No mesh/surface_top for routing")
+        surface_top = np.asarray(mesh["surface_top"][:], dtype="float64")
 
     # Infer 2D grid shape: try geographic metadata first, then assume square.
     geo_meta = store.read_geographic_metadata(sim_id)
+    crs_epsg = _metadata_epsg(geo_meta)
     nrow = int(geo_meta.get("nrow", 0))
     ncol = int(geo_meta.get("ncol", 0))
     if nrow * ncol == n_cells:
@@ -317,7 +347,7 @@ def _accumulation_flux_routed(
         fill_path = str(Path(tmp) / "fill.tif")
 
         dem_2d = surface_top.reshape(grid_shape)
-        _write_bare_tif(dem_path, dem_2d, -99999.0)
+        _write_bare_tif(dem_path, dem_2d, -99999.0, crs_epsg=crs_epsg)
         wb.flow.fill_depressions(dem_path, fill_path)
 
         with rasterio.open(fill_path) as src:
@@ -325,8 +355,18 @@ def _accumulation_flux_routed(
 
         eff_path = str(Path(tmp) / "eff.tif")
         abs_path = str(Path(tmp) / "abs.tif")
-        _write_bare_tif(eff_path, np.where(fill_data >= 0, 1.0, -99999), -99999.0)
-        _write_bare_tif(abs_path, np.where(fill_data >= 0, 0.0, -99999), -99999.0)
+        _write_bare_tif(
+            eff_path,
+            np.where(fill_data >= 0, 1.0, -99999),
+            -99999.0,
+            crs_epsg=crs_epsg,
+        )
+        _write_bare_tif(
+            abs_path,
+            np.where(fill_data >= 0, 0.0, -99999),
+            -99999.0,
+            crs_epsg=crs_epsg,
+        )
 
         for t in range(n_timesteps):
             drn = budget_grp[drn_key][t]
@@ -336,7 +376,7 @@ def _accumulation_flux_routed(
 
             load_path = str(Path(tmp) / "load.tif")
             out_path = str(Path(tmp) / "acc.tif")
-            _write_bare_tif(load_path, drain_2d, -99999.0)
+            _write_bare_tif(load_path, drain_2d, -99999.0, crs_epsg=crs_epsg)
             wb.flow.d8_mass_flux(fill_path, load_path, eff_path, abs_path, out_path)
 
             with rasterio.open(out_path) as src:
@@ -363,36 +403,36 @@ def _compute_outflow_drain(
 
     Like accumulation_flux but keeps the physical sign (negative = outflow).
     """
-    grp = store._open_zarr_group(sim_id, mode="r")
-    budget_grp = grp.get("budget")
-    if budget_grp is None:
-        logger.debug("No budget fields, skipping outflow_drain for sim %s", sim_id)
-        return
+    with _zarr_root(store, sim_id) as grp:
+        budget_grp = grp.get("budget")
+        if budget_grp is None:
+            logger.debug("No budget fields, skipping outflow_drain for sim %s", sim_id)
+            return
 
-    drn_key = None
-    for candidate in ("drn", "drain", "drains", "DRN", "DRAINS"):
-        if candidate in budget_grp:
-            drn_key = candidate
-            break
+        drn_key = None
+        for candidate in ("drn", "drain", "drains", "DRN", "DRAINS"):
+            if candidate in budget_grp:
+                drn_key = candidate
+                break
 
-    if drn_key is None:
-        logger.debug("No DRN budget field for outflow_drain, sim %s", sim_id)
-        return
+        if drn_key is None:
+            logger.debug("No DRN budget field for outflow_drain, sim %s", sim_id)
+            return
 
-    for t in range(n_timesteps):
-        drn = budget_grp[drn_key][t]
-        if drn.ndim == 2:
-            flux = drn.sum(axis=0)
-        else:
-            flux = drn
-        store.write_field(
-            sim_id,
-            "outflow_drain",
-            t,
-            flux.astype("float64"),
-            n_timesteps=n_timesteps if t == 0 else None,
-            subgroup="derived",
-        )
+        for t in range(n_timesteps):
+            drn = budget_grp[drn_key][t]
+            if drn.ndim == 2:
+                flux = drn.sum(axis=0)
+            else:
+                flux = drn
+            store.write_field(
+                sim_id,
+                "outflow_drain",
+                t,
+                flux.astype("float64"),
+                n_timesteps=n_timesteps if t == 0 else None,
+                subgroup="derived",
+            )
 
     logger.debug("Derived outflow_drain for sim %s", sim_id)
 
@@ -404,34 +444,32 @@ def _compute_concentration_seepage(
     n_cells: int,
 ) -> None:
     """Concentration at seepage cells only. Zero elsewhere."""
-    grp = store._open_zarr_group(sim_id, mode="r")
-    grp.get("derived")
-
-    if "concentration" not in grp:
-        logger.debug("No concentration field, skipping concentration_seepage for sim %s", sim_id)
-        return
-
-    for t in range(n_timesteps):
-        try:
-            seepage = store.query_field(sim_id, "seepage_areas", t)
-        except KeyError:
-            logger.debug("seepage_areas missing at t=%d, skipping concentration_seepage", t)
+    with _zarr_root(store, sim_id) as grp:
+        if "concentration" not in grp:
+            logger.debug(
+                "No concentration field, skipping concentration_seepage for sim %s", sim_id
+            )
             return
 
-        conc = grp["concentration"][t]
-        # Use top layer if 3D
-        if conc.ndim == 2:
-            conc = conc[0]
-        # NaN for non-seepage cells so stats only count seepage cells.
-        result = np.where(seepage > 0, conc * seepage, np.nan)
-        store.write_field(
-            sim_id,
-            "concentration_seepage",
-            t,
-            result.astype("float64"),
-            n_timesteps=n_timesteps if t == 0 else None,
-            subgroup="derived",
-        )
+        for t in range(n_timesteps):
+            try:
+                seepage = store.query_field(sim_id, "seepage_mask", t)
+            except KeyError:
+                logger.debug("seepage_mask missing at t=%d, skipping concentration_seepage", t)
+                return
+
+            conc = grp["concentration"][t]
+            if conc.ndim == 2:
+                conc = conc[0]
+            result = np.where(seepage > 0, conc * seepage, np.nan)
+            store.write_field(
+                sim_id,
+                "concentration_seepage",
+                t,
+                result.astype("float64"),
+                n_timesteps=n_timesteps if t == 0 else None,
+                subgroup="derived",
+            )
 
     logger.debug("Derived concentration_seepage for sim %s", sim_id)
 
@@ -443,41 +481,41 @@ def _compute_mass_seepage(
     n_cells: int,
 ) -> None:
     """Mass flux at seepage cells = concentration_seepage * drain outflow."""
-    grp = store._open_zarr_group(sim_id, mode="r")
-    budget_grp = grp.get("budget")
+    with _zarr_root(store, sim_id) as grp:
+        budget_grp = grp.get("budget")
 
-    if budget_grp is None:
-        logger.debug("No budget fields, skipping mass_seepage for sim %s", sim_id)
-        return
-
-    drn_key = None
-    for candidate in ("drn", "drain", "drains", "DRN", "DRAINS"):
-        if candidate in budget_grp:
-            drn_key = candidate
-            break
-
-    for t in range(n_timesteps):
-        try:
-            conc_seep = store.query_field(sim_id, "concentration_seepage", t)
-        except KeyError:
-            logger.debug("concentration_seepage missing at t=%d, skipping mass_seepage", t)
+        if budget_grp is None:
+            logger.debug("No budget fields, skipping mass_seepage for sim %s", sim_id)
             return
 
-        if drn_key is not None:
-            drn = budget_grp[drn_key][t]
-            flux = np.abs(drn).sum(axis=0) if drn.ndim == 2 else np.abs(drn)
-        else:
-            flux = np.ones(n_cells, dtype="float64")
+        drn_key = None
+        for candidate in ("drn", "drain", "drains", "DRN", "DRAINS"):
+            if candidate in budget_grp:
+                drn_key = candidate
+                break
 
-        mass = conc_seep * flux
-        store.write_field(
-            sim_id,
-            "mass_seepage",
-            t,
-            mass.astype("float64"),
-            n_timesteps=n_timesteps if t == 0 else None,
-            subgroup="derived",
-        )
+        for t in range(n_timesteps):
+            try:
+                conc_seep = store.query_field(sim_id, "concentration_seepage", t)
+            except KeyError:
+                logger.debug("concentration_seepage missing at t=%d, skipping mass_seepage", t)
+                return
+
+            if drn_key is not None:
+                drn = budget_grp[drn_key][t]
+                flux = np.abs(drn).sum(axis=0) if drn.ndim == 2 else np.abs(drn)
+            else:
+                flux = np.ones(n_cells, dtype="float64")
+
+            mass = conc_seep * flux
+            store.write_field(
+                sim_id,
+                "mass_seepage",
+                t,
+                mass.astype("float64"),
+                n_timesteps=n_timesteps if t == 0 else None,
+                subgroup="derived",
+            )
 
     logger.debug("Derived mass_seepage for sim %s", sim_id)
 

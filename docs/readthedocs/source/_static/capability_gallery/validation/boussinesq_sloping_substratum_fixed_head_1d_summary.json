@@ -58,7 +58,7 @@
     "validation_cases/shared/boussinesq_uniform_strip.py"
   ],
   "source_hashes": {
-    "validation_cases/README.md": "634832ce341c47597143d5614d06c8d22bac809193447706294f5b43e38359c3",
+    "validation_cases/README.md": "55c78d50160086ae953092b98a464b1b2e5b1249064486a058d719d61533a6d9",
     "validation_cases/analytical/steady/boussinesq_sloping_substratum_fixed_head_1d/README.md": "36f85440db001f4604b66b655692df9b6109076b725790c9db44866a1771e340",
     "validation_cases/analytical/steady/boussinesq_sloping_substratum_fixed_head_1d/reference.py": "52994cee8b9c0dd0b3fb4309adec45bc757b5388ce6a1e668a73b014d205b5e5",
     "validation_cases/analytical/steady/boussinesq_sloping_substratum_fixed_head_1d/comparison.py": "d8d346138e9562c252098acfa50d36ce4278a6f5e823710ce06168188e53b455",
@@ -75,7 +75,7 @@
     "validation_cases/analytical/steady/boussinesq_sloping_substratum_fixed_head_1d/config_modflow6_irregular_tri.toml": "2b98a973e5f68139217fb511eef9d75f924e04e02f0e77a5964275046c55687d",
     "validation_cases/analytical/steady/boussinesq_sloping_substratum_fixed_head_1d/config_boussinesq.toml": "bf9a68e7c1dca1d194187dc5584f7f51dc4243bfab5d762e437760d1a797434c",
     "validation_cases/analytical/steady/boussinesq_sloping_substratum.py": "7115b66a3efba827ab0acef3fa860712443102f4352cd1e6bfcadd450b7457dd",
-    "validation_cases/shared/boussinesq_uniform_strip.py": "4c7b6bc8f898f453c77f94c542591d3b1b4e8f7f0a785fe8a6bc7d4ed44d0473"
+    "validation_cases/shared/boussinesq_uniform_strip.py": "90dc5f900e857a5d80f297c04debaa82e96c6d70754765ed46a48469fd2698a1"
   },
   "docname": "cases/boussinesq_sloping_substratum_fixed_head_1d",
   "images": [

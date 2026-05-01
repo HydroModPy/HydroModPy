@@ -8,18 +8,25 @@ implementation.
 
 from __future__ import annotations
 
+import importlib.util
 import pathlib
-import sys
 
 import pytest
 
 REPO_ROOT = pathlib.Path(__file__).resolve().parents[3]
 PKG_ROOT = REPO_ROOT / "hydromodpy"
 
-if str(REPO_ROOT) not in sys.path:
-    sys.path.insert(0, str(REPO_ROOT))
+_BUILD_GRAPH_PATH = REPO_ROOT / "tools" / "audit" / "build_graph.py"
+_BUILD_GRAPH_SPEC = importlib.util.spec_from_file_location(
+    "hydromodpy_cli_boundary_build_graph",
+    _BUILD_GRAPH_PATH,
+)
+if _BUILD_GRAPH_SPEC is None or _BUILD_GRAPH_SPEC.loader is None:
+    raise RuntimeError(f"Could not load architecture scanner at {_BUILD_GRAPH_PATH}")
+_BUILD_GRAPH_MODULE = importlib.util.module_from_spec(_BUILD_GRAPH_SPEC)
+_BUILD_GRAPH_SPEC.loader.exec_module(_BUILD_GRAPH_MODULE)
 
-from tools.audit.build_graph import parse_imports  # noqa: E402
+parse_imports = _BUILD_GRAPH_MODULE.parse_imports
 
 CLI_PACKAGE: str = "hydromodpy.cli"
 

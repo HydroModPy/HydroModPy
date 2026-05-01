@@ -34,27 +34,25 @@
   "equations_rst": [],
   "walkthrough_doc": "getting_started/simulation-walkthrough",
   "walkthrough_title": "the Simulation walkthrough",
-  "reproduction_command": "python -m hydromodpy run examples_legacy_2/projects/launcher_simulation/regional_lab/config_headwater_100km2_lab_backend_compare.toml",
+  "reproduction_command": "python -m tools.doc_gallery",
   "gallery_update_command": "python -m tools.doc_gallery",
   "source_paths": [
-    "examples_legacy_2/projects/launcher_simulation/regional_lab/config_headwater_100km2_lab_backend_compare.toml",
-    "hydromodpy/analysis/batch/__init__.py",
-    "hydromodpy/analysis/batch/config.py",
-    "hydromodpy/analysis/batch/runtime.py",
-    "examples_legacy_2/projects/launcher_simulation/regional_lab/README.md",
-    "examples_legacy_2/projects/launcher_simulation/regional_lab/config_headwater_100km2_lab.toml",
-    "examples_legacy_2/projects/launcher_simulation/regional_lab/site_catalog.csv",
-    "examples_legacy_2/projects/launcher_simulation/run_method_comparison_headwater_100km2_outlet_2_backends.toml"
+    "docs/readthedocs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_backend_compare_recipe_plan.json",
+    "docs/readthedocs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_backend_compare_recipe_report.json",
+    "docs/readthedocs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_backend_compare_recipe_summary.md",
+    "docs/readthedocs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_backend_compare_recipe_site_inventory.csv",
+    "docs/readthedocs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_backend_compare_recipe_recipe_summary.csv",
+    "docs/readthedocs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_backend_compare_recipe_cluster_summary.csv",
+    "docs/readthedocs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_backend_compare_recipe_case_matrix.csv"
   ],
   "source_hashes": {
-    "examples_legacy_2/projects/launcher_simulation/regional_lab/config_headwater_100km2_lab_backend_compare.toml": "5fff61c5abac70c57f4597c22b218d13c6cfe9e4faa9c15f668a5b877dea8b26",
-    "hydromodpy/analysis/batch/__init__.py": "a456178f0f80ef7fb8acc4b2e550aa776cbeb755d224f959fe7d5597d462849d",
-    "hydromodpy/analysis/batch/config.py": "143de773efb5875e2d9a07008d189e36fca510c1bb712da6240d536718264f8f",
-    "hydromodpy/analysis/batch/runtime.py": "f05dd267e80c383e2df1d46dd002c8b3fd5dbfbce00c715fc19756b8a10c53e8",
-    "examples_legacy_2/projects/launcher_simulation/regional_lab/README.md": "a1910134f58cd8c49abe41d4e1f51adfd502266eba56dfb7b055c0dd72255b25",
-    "examples_legacy_2/projects/launcher_simulation/regional_lab/config_headwater_100km2_lab.toml": "7832458061e2960886a245c39b4dab3fc05b47a5b45a79159736f1cd90f7a572",
-    "examples_legacy_2/projects/launcher_simulation/regional_lab/site_catalog.csv": "ea2ad802cf1325c4ddf0250fc415ef30252bab9f5afdb26f2a025fb9283375f8",
-    "examples_legacy_2/projects/launcher_simulation/run_method_comparison_headwater_100km2_outlet_2_backends.toml": "27d17cc0dffde8de79eb0f83ea2e768ce16d6193a41c0872047316c6345c202f"
+    "docs/readthedocs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_backend_compare_recipe_plan.json": "2ca95a23c1af0124cdf41cd1d938b589c461ac9ca2c204c9b389249fb950b090",
+    "docs/readthedocs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_backend_compare_recipe_report.json": "3449eb128caee97ac2d260943315344ac1e1fdf407f1aa225b7ab91fb5c7d2d7",
+    "docs/readthedocs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_backend_compare_recipe_summary.md": "36952c1faf2b91d5e3ac07c1f68a5c3088bc537d44626009d537eada64d42207",
+    "docs/readthedocs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_backend_compare_recipe_site_inventory.csv": "73de6c821dd1a433893d147e96e3c4231564a0c6667225d17c970563f63a977b",
+    "docs/readthedocs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_backend_compare_recipe_recipe_summary.csv": "9336b2a77b5ea167f4c20bb8c4b5dab1f76b55275e372e31bc7ad2441389fc8f",
+    "docs/readthedocs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_backend_compare_recipe_cluster_summary.csv": "1738b81b72150d3df29ccd709c43345eae3ad096603da988299a8a81f74d32c1",
+    "docs/readthedocs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_backend_compare_recipe_case_matrix.csv": "ab239f085b36317af5aa4adfe1c674034f91460ef1e5073c7f68d1221a242329"
   },
   "docname": "cases/regional_lab_headwater_100km2_backend_compare_recipe",
   "images": [
@@ -93,7 +91,7 @@
     }
   ],
   "metadata": {
-    "regional_lab_config_path": "examples_legacy_2/projects/launcher_simulation/regional_lab/config_headwater_100km2_lab_backend_compare.toml",
+    "regional_lab_config_path": "docs/readthedocs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_backend_compare_recipe_summary.json",
     "study_area": "Brittany regional laboratory",
     "process_families": [
       "planning",

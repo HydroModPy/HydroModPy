@@ -279,9 +279,25 @@ class ReadsMixin:
             "SELECT crs_epsg, crs_wkt FROM simulations WHERE sim_id = ?",
             [sim_id],
         ).fetchone()
-        if row is None:
+        if row is not None:
+            epsg, wkt = row
+            if epsg is not None:
+                return f"EPSG:{int(epsg)}"
+            if wkt:
+                return str(wkt)
+        try:
+            sz = self.open_zarr(sim_id)
+            try:
+                crs = sz.root.get("crs")
+                if crs is None:
+                    return None
+                attrs = dict(crs.attrs)
+            finally:
+                sz.close()
+        except Exception:
             return None
-        epsg, wkt = row
-        if epsg is not None:
-            return f"EPSG:{int(epsg)}"
-        return str(wkt) if wkt else None
+        epsg_attr = attrs.get("epsg_code")
+        if epsg_attr is not None:
+            return f"EPSG:{int(epsg_attr)}"
+        wkt_attr = attrs.get("crs_wkt")
+        return str(wkt_attr) if wkt_attr else None

@@ -25,10 +25,9 @@
   "equations_rst": [],
   "walkthrough_doc": null,
   "walkthrough_title": null,
-  "reproduction_command": "python -m launchers mesh-catchment run old/launchers/mesh_catchment/scenarios/config_headwater_100km2.toml",
+  "reproduction_command": "python -m tools.doc_gallery",
   "gallery_update_command": "python -m tools.doc_gallery",
   "source_paths": [
-    "old/launchers/mesh_catchment/scenarios/config_headwater_100km2.toml",
     "examples/projects/07_mesh_gallery/100km2/mesh_headwater_100km2_outlet_4_geology_rivers_buffer30/case.json",
     "examples/projects/07_mesh_gallery/100km2/mesh_headwater_100km2_outlet_4_geology_rivers_buffer30/viewer_config.toml",
     "examples/projects/07_mesh_gallery/100km2/mesh_headwater_100km2_outlet_4_geology_rivers_buffer30/README.md",
@@ -44,8 +43,7 @@
     "examples/projects/07_mesh_gallery/100km2/mesh_headwater_100km2_outlet_4_geology_rivers_buffer30/figures/mesh_regional.png"
   ],
   "source_hashes": {
-    "old/launchers/mesh_catchment/scenarios/config_headwater_100km2.toml": "262fd7cf7062816878afef8ba26921f1d5c43369e0c5e8eccfe7ee8e36ebeb6f",
-    "examples/projects/07_mesh_gallery/100km2/mesh_headwater_100km2_outlet_4_geology_rivers_buffer30/case.json": "6795bf2c9ad3a5bb4a22ddced9ad14831973c5165e0faebcc83a513b557d88f6",
+    "examples/projects/07_mesh_gallery/100km2/mesh_headwater_100km2_outlet_4_geology_rivers_buffer30/case.json": "17390f5e7419eb94bf1d96573627ed178edec27aaadd7a5dbe328d72c9766845",
     "examples/projects/07_mesh_gallery/100km2/mesh_headwater_100km2_outlet_4_geology_rivers_buffer30/viewer_config.toml": "03e1eb6dfe7fbc04d08bf82b36c8a9645ef69255838c92ea861f0f2de57617ea",
     "examples/projects/07_mesh_gallery/100km2/mesh_headwater_100km2_outlet_4_geology_rivers_buffer30/README.md": "972c7f3653f29bc9dea22c8b827433cd5fb4a2d66606a6e4b14eb51fa65d03af",
     "examples/projects/07_mesh_gallery/100km2/mesh_headwater_100km2_outlet_4_geology_rivers_buffer30/bundle/mesh_2d.msh": "f2154f6b6a0a9b4cd2f539d4cf9396f52582306f62b7df6fd6bbca46512ef633",

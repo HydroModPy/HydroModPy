@@ -50,7 +50,7 @@
     "validation_cases/shared/boussinesq_uniform_strip.py"
   ],
   "source_hashes": {
-    "validation_cases/README.md": "634832ce341c47597143d5614d06c8d22bac809193447706294f5b43e38359c3",
+    "validation_cases/README.md": "55c78d50160086ae953092b98a464b1b2e5b1249064486a058d719d61533a6d9",
     "validation_cases/analytical/steady/dupuit_divide_river_1d/README.md": "8066495c06a2262c0a2ee4335527aaffe471d92a568369d534cc9afeb1f1c45b",
     "validation_cases/analytical/steady/dupuit_divide_river_1d/reference.py": "3ab9f52dda0eb17a142a8444a9293f7dff16fddad5a5493af9d322efa3808216",
     "validation_cases/analytical/steady/dupuit_divide_river_1d/comparison.py": "9fa1921f637eca22c121089acd54f353ebca8d66d3cce9fc77a191fe4a3125ac",
@@ -65,7 +65,7 @@
     "validation_cases/analytical/steady/dupuit_divide_river_1d/config_modflow6.toml": "9a3a68ee60db0f7b112d7ea579603eb52e71ff6e57a577a8cc3ce42627bad368",
     "validation_cases/analytical/steady/dupuit_divide_river_1d/config_modflow6_irregular_tri.toml": "44bbb1355e7c1998a05f8b4db0b9272fdf1a68761e6b4aab002102dcdf8d9048",
     "validation_cases/analytical/steady/dupuit_divide_river_1d/config_boussinesq.toml": "bf9a68e7c1dca1d194187dc5584f7f51dc4243bfab5d762e437760d1a797434c",
-    "validation_cases/shared/boussinesq_uniform_strip.py": "4c7b6bc8f898f453c77f94c542591d3b1b4e8f7f0a785fe8a6bc7d4ed44d0473"
+    "validation_cases/shared/boussinesq_uniform_strip.py": "90dc5f900e857a5d80f297c04debaa82e96c6d70754765ed46a48469fd2698a1"
   },
   "docname": "cases/dupuit_divide_river_1d",
   "images": [

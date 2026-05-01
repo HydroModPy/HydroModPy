@@ -393,19 +393,15 @@ def _discover_result_store(project_path: Path) -> tuple[Any, str | None]:
     db_path = project_path / "hydromodpy.duckdb"
     if not db_path.exists():
         return None, None
-    try:
-        from hydromodpy.results.catalog import SimulationCatalog
+    from hydromodpy.results.catalog import SimulationCatalog
 
-        store = SimulationCatalog(project_path)
-        sims = store.list_simulations()
-        if sims.empty:
-            store.close()
-            return None, None
-        # Pick the most recent (last) simulation
-        sim_id = str(sims.iloc[-1]["sim_id"])
-        return store, sim_id
-    except Exception:
+    store = SimulationCatalog(project_path)
+    sims = store.list_simulations()
+    if sims.empty:
+        store.close()
         return None, None
+    sim_id = str(sims.iloc[-1]["sim_id"])
+    return store, sim_id
 
 
 def run_example_script(

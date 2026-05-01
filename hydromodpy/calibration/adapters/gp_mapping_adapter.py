@@ -18,6 +18,7 @@ from collections.abc import Sequence
 
 import numpy as np
 
+from hydromodpy.calibration.adapters._prior_sampling import transformed_prior_samples
 from hydromodpy.calibration.optimizer import (
     EvaluationResult,
     ParamSuggestion,
@@ -41,15 +42,6 @@ except ImportError:  # pragma: no cover - tested via sklearn availability guard
     RBF = None
     _scipy_minimize = None
     _scipy_norm = None
-
-
-def _lhs_unit(n: int, d: int, rng: np.random.Generator) -> np.ndarray:
-    """Return ``n`` Latin-hypercube samples in the unit hypercube ``[0, 1)^d``."""
-    u = np.empty((n, d), dtype=float)
-    for j in range(d):
-        perm = rng.permutation(n)
-        u[:, j] = (perm + rng.random(n)) / float(n)
-    return u
 
 
 def _expected_improvement(
@@ -171,13 +163,8 @@ class GPMappingOptimizer:
             [(p.lower_transformed, p.upper_transformed) for p in space.parameters],
             dtype=float,
         )
-        # Pre-sample the initial Latin-hypercube design.
-        u = _lhs_unit(self._n_init, self._dim, self._rng)
-        lower = self._bounds_t[:, 0]
-        upper = self._bounds_t[:, 1]
-        self._initial_points: list[np.ndarray] = [
-            (lower + u[i] * (upper - lower)) for i in range(self._n_init)
-        ]
+        initial_design = transformed_prior_samples(space, self._rng, self._n_init)
+        self._initial_points = [initial_design[i] for i in range(self._n_init)]
 
         self._trial_id = 0
         self._pending: dict[int, np.ndarray] = {}  # trial_id -> transformed x

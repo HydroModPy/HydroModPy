@@ -88,8 +88,29 @@ def _now_iso() -> str:
     return datetime.now(UTC).isoformat(timespec="seconds")
 
 
-def _entry_to_locked(row: dict[str, Any]) -> LockedArtifact | None:
-    path = Path(row["file_path"])
+def _catalog_base_dir(catalog: DataCatalogDuckDB) -> Path | None:
+    db_path = getattr(catalog, "_db_path", None)
+    if db_path is None:
+        return None
+    return Path(db_path).parent
+
+
+def _resolve_artifact_path(file_path: str | Path, base_dir: Path | None) -> Path:
+    path = Path(file_path)
+    if path.is_absolute():
+        return path
+    candidates: list[Path] = []
+    if base_dir is not None:
+        candidates.extend((base_dir / path, base_dir.parent / path))
+    candidates.append(path)
+    for candidate in candidates:
+        if candidate.is_file():
+            return candidate
+    return candidates[0]
+
+
+def _entry_to_locked(row: dict[str, Any], *, base_dir: Path | None) -> LockedArtifact | None:
+    path = _resolve_artifact_path(row["file_path"], base_dir)
     if not path.is_file():
         return None
     size = None
@@ -101,8 +122,8 @@ def _entry_to_locked(row: dict[str, Any]) -> LockedArtifact | None:
         variable=row["variable"],
         source=row["source"],
         station_id=row.get("station_id"),
-        file_path=str(path),
-        sha256=sha256_of(path),
+        file_path=str(row["file_path"]),
+        sha256=str(row.get("sha256") or sha256_of(path)),
         file_mtime=float(row["file_mtime"]) if row.get("file_mtime") is not None else None,
         size_bytes=size,
         fetched_at=_now_iso(),
@@ -117,7 +138,7 @@ def write_lockfile(catalog: DataCatalogDuckDB, dest: Path | str) -> Path:
     dest = Path(dest)
     rows = (
         catalog.connection.execute(
-            "SELECT variable, source, station_id, file_path, file_mtime "
+            "SELECT variable, source, station_id, file_path, file_mtime, sha256 "
             "FROM entries ORDER BY variable, source, station_id"
         )
         .fetchdf()
@@ -128,8 +149,9 @@ def write_lockfile(catalog: DataCatalogDuckDB, dest: Path | str) -> Path:
     doc.add("version", _LOCKFILE_VERSION)
     doc.add("generated_at", _now_iso())
     artefacts = tomlkit.aot()
+    base_dir = _catalog_base_dir(catalog)
     for row in rows:
-        locked = _entry_to_locked(row)
+        locked = _entry_to_locked(row, base_dir=base_dir)
         if locked is None:
             continue
         table = tomlkit.table()
@@ -179,6 +201,7 @@ def verify_frozen(
     """Return every mismatch between *lockfile* and the catalog state."""
     locked = {(la.variable, la.source, la.station_id): la for la in read_lockfile(lockfile)}
     mismatches: list[LockMismatch] = []
+    base_dir = _catalog_base_dir(catalog)
     rows = catalog.connection.execute(
         "SELECT variable, source, station_id, file_path FROM entries"
     ).fetchall()
@@ -199,7 +222,7 @@ def verify_frozen(
                 )
             )
             continue
-        p = Path(file_path)
+        p = _resolve_artifact_path(file_path, base_dir)
         if not p.is_file():
             mismatches.append(
                 LockMismatch(
@@ -289,9 +312,10 @@ def archive_lockfile(
     try:
         with tarfile.open(fileobj=stream, mode=mode) as tar:
             tar.add(lockfile_dest, arcname=LOCKFILE_NAME)
+            base_dir = _catalog_base_dir(catalog)
             rows = catalog.connection.execute("SELECT file_path FROM entries").fetchall()
             for (fp,) in rows:
-                p = Path(fp)
+                p = _resolve_artifact_path(fp, base_dir)
                 if p.is_file():
                     tar.add(p, arcname=f"artefacts/{p.name}")
     finally:

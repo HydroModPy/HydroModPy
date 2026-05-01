@@ -10,7 +10,7 @@ Usage::
     from hydromodpy.master_config import HydroModPyConfig
 
     cfg = HydroModPyConfig.from_toml(
-        "examples/projects/01_canut/run_steady_nwt.toml"
+        "examples/projects/03_canut_watershed/project.toml"
     )
     cfg.workspace.project_root
     cfg.geographic.catch_def
@@ -616,8 +616,7 @@ def _load_optional_analysis_section(
     """Load the optional ``[analysis]`` hub.
 
     Each sub-section (``batch``, ``capability_gallery``, ``comparison``)
-    is parsed independently. Standalone launchers keep the legacy section
-    names ``[regional_lab]`` and ``[method_comparison]``.
+    is parsed independently from the payload under ``[analysis.*]``.
     """
     if section_data is None:
         return None
@@ -641,7 +640,7 @@ def _load_optional_analysis_section(
         if not isinstance(raw_batch, Mapping):
             raise ValueError("[analysis.batch] must be a mapping")
         parsed["batch"] = RegionalLabConfig.from_toml(
-            {"regional_lab": raw_batch},
+            raw_batch,
             config_path=base / "analysis_batch.toml",
         )
 

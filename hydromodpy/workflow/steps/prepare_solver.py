@@ -196,6 +196,44 @@ def collect_registration_kwargs(ctx: WorkflowContext) -> dict:
     return kwargs
 
 
+def _crs_grid_mapping_attrs(crs: object) -> dict[str, object]:
+    """Return CF grid-mapping attrs for a CRS value."""
+    try:
+        from pyproj import CRS
+
+        parsed = CRS.from_user_input(crs)
+        attrs = dict(parsed.to_cf())
+        if "crs_wkt" not in attrs:
+            attrs["crs_wkt"] = parsed.to_wkt()
+        epsg = parsed.to_epsg()
+        if epsg is not None:
+            attrs["epsg_code"] = int(epsg)
+        return attrs
+    except Exception:
+        return {"crs_wkt": str(crs)}
+
+
+def _write_zarr_crs(ctx: WorkflowContext, sim_id: str) -> None:
+    """Persist CRS metadata in the simulation Zarr store when configured."""
+    crs = getattr(ctx.cfg.geographic, "crs_project", None)
+    if crs is None:
+        return
+    attrs = _crs_grid_mapping_attrs(crs)
+    epsg_raw = attrs.get("epsg_code")
+    semi_major_raw = attrs.get("semi_major_axis")
+    inverse_flattening_raw = attrs.get("inverse_flattening")
+    ctx.store.write_crs(
+        sim_id,
+        crs_wkt=str(attrs.get("crs_wkt", str(crs))),
+        grid_mapping_name=str(attrs.get("grid_mapping_name", "latitude_longitude")),
+        epsg_code=int(epsg_raw) if epsg_raw is not None else None,
+        semi_major_axis=float(semi_major_raw) if semi_major_raw is not None else None,
+        inverse_flattening=(
+            float(inverse_flattening_raw) if inverse_flattening_raw is not None else None
+        ),
+    )
+
+
 def step_register_simulation(
     ctx: WorkflowContext,
     sim_id: str,
@@ -231,6 +269,7 @@ def step_register_simulation(
         logger.info("Run '%s' stored [%s]", final_name, short)
     if registration.zarr is not None:
         registration.zarr.close()
+    _write_zarr_crs(ctx, sim_id)
 
     try:
         project_root = getattr(getattr(ctx.setup, "workspace", None), "project_root", None)
@@ -339,6 +378,30 @@ def step_open_store(ctx: WorkflowContext) -> None:
 # ---------------------------------------------------------------------------
 
 
+def _record_source_path(record: object) -> Path | None:
+    file_path = getattr(record, "file_path", None)
+    if file_path is not None:
+        return Path(file_path)
+    data = getattr(record, "data", None)
+    if isinstance(data, (str, Path)):
+        return Path(data)
+    return None
+
+
+def _sha256_file_or_none(path: Path | None) -> str | None:
+    if path is None or not path.is_file():
+        return None
+    digest = hashlib.sha256()
+    with open(path, "rb") as fh:
+        for chunk in iter(lambda: fh.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def _loader_name(scope_name: str, record: object) -> str:
+    return f"{scope_name}:{type(record).__name__}"
+
+
 def step_write_provenance(ctx: WorkflowContext) -> None:
     """Record provenance fingerprints for each loaded data variable."""
     if ctx.store is None or ctx.sim_id is None:
@@ -358,12 +421,16 @@ def step_write_provenance(ctx: WorkflowContext) -> None:
             for rec in points:
                 try:
                     arr = np.asarray(rec.data["value"].values, dtype="float64")
+                    source_path = _record_source_path(rec)
                     ctx.store.write_provenance(
                         ctx.sim_id,
                         variable=f"{f.name}:{rec.variable}",
                         source_ref=str(getattr(rec, "source", "")),
                         data=arr,
                         source_type="data_manager",
+                        source_sha256=_sha256_file_or_none(source_path),
+                        loader_name=_loader_name(f.name, rec),
+                        loader_version="v1",
                         period_start=getattr(rec, "date_start", None),
                         period_end=getattr(rec, "date_end", None),
                     )
@@ -376,12 +443,15 @@ def step_write_provenance(ctx: WorkflowContext) -> None:
             for rec in fields:
                 try:
                     data = rec.data
+                    source_path = _record_source_path(rec)
                     if hasattr(data, "values"):
                         var_name = list(data.data_vars)[0] if data.data_vars else None
                         if var_name is not None:
                             arr = np.asarray(data[var_name].values, dtype="float64")
                         else:
                             continue
+                    elif source_path is not None and source_path.is_file():
+                        arr = np.frombuffer(source_path.read_bytes(), dtype="uint8")
                     else:
                         continue
                     ctx.store.write_provenance(
@@ -390,6 +460,9 @@ def step_write_provenance(ctx: WorkflowContext) -> None:
                         source_ref=str(getattr(rec, "source", "")),
                         data=arr,
                         source_type="data_manager",
+                        source_sha256=_sha256_file_or_none(source_path),
+                        loader_name=_loader_name(f.name, rec),
+                        loader_version="v1",
                         period_start=getattr(rec, "date_start", None),
                         period_end=getattr(rec, "date_end", None),
                     )
@@ -572,6 +645,7 @@ class PrepareSolverStep:
 
     def run(self, state: PipelineState) -> PipelineState:
         from hydromodpy.simulation.planning.planner import SimulationPlanner
+        from hydromodpy.workflow.steps.planning import step_configure_results
 
         ctx = state.get("ctx")
         if ctx is None:
@@ -581,6 +655,12 @@ class PrepareSolverStep:
             sim_cfg = getattr(ctx.cfg, "simulation", None)
             if sim_cfg is not None:
                 ctx.execution.simulation_plan = SimulationPlanner().build(sim_cfg)
+
+        if ctx.execution.simulation_plan is not None:
+            ctx.effective_results_config = step_configure_results(
+                ctx.cfg.simulation.results,
+                ctx.execution.simulation_plan,
+            )
 
         if not ctx.execution.lightweight:
             step_open_store(ctx)

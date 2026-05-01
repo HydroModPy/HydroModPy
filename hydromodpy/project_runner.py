@@ -216,11 +216,6 @@ class ProjectRunner:
 
         project = self._project
 
-        if frozen:
-            from hydromodpy.data.data_freeze import set_frozen_mode
-
-            set_frozen_mode(True)
-
         skip_display = bool(project._no_display) or bool(no_display)
 
         thickness = overrides.pop("thickness", None)
@@ -300,12 +295,38 @@ class ProjectRunner:
         )
 
         pipeline = Pipeline(steps, workspace=workspace_path, checkpoint=checkpoint)
+        previous_frozen_mode: bool | None = None
+        if frozen:
+            from hydromodpy.data.data_freeze import is_frozen_mode, set_frozen_mode
+
+            previous_frozen_mode = is_frozen_mode()
+            set_frozen_mode(True)
         try:
             final = pipeline.run(initial, resume_from=resume_from)
-        finally:
+        except Exception:
             from hydromodpy import project_phases
 
             project_phases.open_catalog(project)
+            failed_sim_id = getattr(project._ctx, "sim_id", None)
+            if failed_sim_id is not None and project._store is not None:
+                try:
+                    project._store.finalize(failed_sim_id, status="failed")
+                except Exception:
+                    logger.debug(
+                        "Could not mark failed simulation %s after pipeline error",
+                        failed_sim_id,
+                        exc_info=True,
+                    )
+            raise
+        finally:
+            from hydromodpy import project_phases
+
+            if project._store is None:
+                project_phases.open_catalog(project)
+            if previous_frozen_mode is not None:
+                from hydromodpy.data.data_freeze import set_frozen_mode
+
+                set_frozen_mode(previous_frozen_mode)
 
         final_ctx = final.get("ctx") if final is not None else None
         sim_id = getattr(final_ctx, "sim_id", None) if final_ctx is not None else None

@@ -52,7 +52,7 @@ Run the underlying example or validation case with:
 
 .. code-block:: bash
 
-   python -m launchers mesh-catchment run old/launchers/mesh_catchment/scenarios/config_s3_100km2.toml
+   python -m tools.doc_gallery
 
 Refresh the committed gallery artifacts with:
 
@@ -158,7 +158,7 @@ Mesh Summary
 Source Pointers
 ---------------
 
-- ``old/launchers/mesh_catchment/scenarios/config_s3_100km2.toml``
+- ``docs/readthedocs/source/_static/capability_gallery/mesh/mesh_s3_100km2_outlet_20_geology_rivers_buffer30_summary.json``
 - ``examples/projects/07_mesh_gallery/100km2/mesh_s3_100km2_outlet_20_geology_rivers_buffer30/case.json``
 - ``examples/projects/07_mesh_gallery/100km2/mesh_s3_100km2_outlet_20_geology_rivers_buffer30/viewer_config.toml``
 - ``examples/projects/07_mesh_gallery/100km2/mesh_s3_100km2_outlet_20_geology_rivers_buffer30/README.md``

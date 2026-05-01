@@ -2,8 +2,7 @@
 
 This module defines the abstract contract used by `hydromodpy` to perform
 delineation on top of a digital elevation model. Concrete implementations
-live in `whitebox_cli_backend.py`, `whitebox_workflows_backend.py`,
-`pysheds_backend.py`, and `synthetic_backend.py`.
+live in `whitebox_workflows_backend.py` and `synthetic_backend.py`.
 
 The low-level Whitebox surface is no longer expressed as a Protocol since
 :class:`hydromodpy.spatial.delineation.whitebox_workflows_backend.WhiteboxWorkflowsBackend`

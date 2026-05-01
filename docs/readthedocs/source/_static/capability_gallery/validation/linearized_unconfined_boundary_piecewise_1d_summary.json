@@ -50,7 +50,7 @@
     "validation_cases/analytical/transient/linearized_unconfined_1d.py"
   ],
   "source_hashes": {
-    "validation_cases/README.md": "634832ce341c47597143d5614d06c8d22bac809193447706294f5b43e38359c3",
+    "validation_cases/README.md": "55c78d50160086ae953092b98a464b1b2e5b1249064486a058d719d61533a6d9",
     "validation_cases/analytical/transient/linearized_unconfined_boundary_piecewise_1d/README.md": "831999737d3e20e252187fb4305420248f719f0a8b64c9ba54197142ae541dad",
     "validation_cases/analytical/transient/linearized_unconfined_boundary_piecewise_1d/reference.py": "97f0786c76684977d2e605e313669bf7b2c8acdbe22de756dfdd11675e7b9bad",
     "validation_cases/analytical/transient/linearized_unconfined_boundary_piecewise_1d/comparison.py": "cb232651b390a968bd584d01a9edb2a6ab789b1703b016043b6a912383f3f897",
@@ -63,7 +63,7 @@
     "validation_cases/analytical/transient/linearized_unconfined_boundary_piecewise_1d/tolerances_modflow6.toml": "557f12784b1d694159daa5e05cf774ed466d8a01639d4a177f7e802673576771",
     "validation_cases/analytical/transient/linearized_unconfined_boundary_piecewise_1d/config_modflow6.toml": "5178d0ddd7e825c92998ab69a7ab05c4e9c300a82ea20cf81d199aec22050129",
     "validation_cases/analytical/transient/linearized_unconfined_boundary_piecewise_1d/config_boussinesq.toml": "bf9a68e7c1dca1d194187dc5584f7f51dc4243bfab5d762e437760d1a797434c",
-    "validation_cases/shared/boussinesq_uniform_strip.py": "4c7b6bc8f898f453c77f94c542591d3b1b4e8f7f0a785fe8a6bc7d4ed44d0473",
+    "validation_cases/shared/boussinesq_uniform_strip.py": "90dc5f900e857a5d80f297c04debaa82e96c6d70754765ed46a48469fd2698a1",
     "validation_cases/analytical/transient/linearized_unconfined_1d.py": "c8ccdde712d17a661edce5e50bcd81608a5ef00e53d9d3a0ef4dfc5632e5c42e"
   },
   "docname": "cases/linearized_unconfined_boundary_piecewise_1d",

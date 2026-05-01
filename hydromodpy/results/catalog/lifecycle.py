@@ -57,9 +57,6 @@ class LifecycleMixin:
             return self._track_zarr_handle(SimulationZarr(zarr_zip))
         return self._track_zarr_handle(SimulationZarr(self._simulations_dir / f"{basename}.zarr"))
 
-    def _open_zarr_group(self, sim_id: str | UUID, *, mode: str = "r"):
-        return self.open_zarr(sim_id).root
-
     def cleanup(
         self,
         *,
@@ -188,13 +185,19 @@ class LifecycleMixin:
         zarr_abs = self._workspace / row[0] if remove_storage and row and row[0] else None
         self._paths.forget(sid)
 
-        for table in PER_SIM_TABLE_NAMES:
-            self._db.execute(f"DELETE FROM {table} WHERE sim_id = ?", [sid])
-        self._db.execute(
-            "DELETE FROM calibration_iterations WHERE sim_id = ?",
-            [sid],
-        )
-        self._db.execute("DELETE FROM simulations WHERE sim_id = ?", [sid])
+        self._db.execute("BEGIN TRANSACTION")
+        try:
+            for table in PER_SIM_TABLE_NAMES:
+                self._db.execute(f"DELETE FROM {table} WHERE sim_id = ?", [sid])
+            self._db.execute(
+                "DELETE FROM calibration_iterations WHERE sim_id = ?",
+                [sid],
+            )
+            self._db.execute("DELETE FROM simulations WHERE sim_id = ?", [sid])
+            self._db.execute("COMMIT")
+        except Exception:
+            self._db.execute("ROLLBACK")
+            raise
 
         if parquet_dir is not None and parquet_dir.is_dir():
             shutil.rmtree(parquet_dir, ignore_errors=True)

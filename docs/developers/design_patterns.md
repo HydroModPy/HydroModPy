@@ -84,19 +84,18 @@ config `[display]` (`DisplayConfig` dans
 
 Emplacement : `hydromodpy/spatial/delineation/`.
 
-La délinéation est agnostique du backend. `WhiteboxCLIBackend`
-(`whitebox_cli_backend.py`) encapsule le binaire standalone ;
-`WhiteboxWorkflowsBackend` (`whitebox_workflows_backend.py`) encapsule le
-paquet pip. Les deux exposent le même Protocol `WhiteboxBackend`
-(`base.py`) consommé par les steps d'analyse de flux.
+La délinéation est agnostique du backend. Les backends integrés sont
+`whitebox_workflows` et `synthetic`; les autres implementations passent
+par `register_backend()` puis `get_backend()`. `DelineationBackend`
+(`base.py`) decrit le contrat minimal consomme par les steps d'analyse
+de flux.
 
 ```python
-backend = get_whitebox_backend(preferred="wheel")
-backend.breach_depressions(input_dem, output_dem)
+backend = get_backend("whitebox_workflows")
+backend.flow.breach_depressions(input_dem, output_dem)
 ```
 
-Raison : permuter les binaires au runtime (CI sur wheel, prod sur
-binaire). Le code aval ne touche jamais au chemin du binaire.
+Raison : ajouter un backend au runtime sans publier de placeholder public.
 
 ## 5. Data Manager
 

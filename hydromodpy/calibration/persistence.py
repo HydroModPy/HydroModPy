@@ -1,8 +1,8 @@
 """DuckDB persistence for calibration sessions and iterations.
 
-Writes to the workspace-level ``hydromodpy.duckdb`` via a ``SimulationCatalog``
-connection. Each iteration becomes **one row** in ``calibration_iterations``
-regardless of ``save_runs`` mode.
+Writes through the injected calibration store connection. Each iteration
+becomes **one row** in ``calibration_iterations`` regardless of ``save_runs``
+mode.
 """
 
 from __future__ import annotations
@@ -10,16 +10,19 @@ from __future__ import annotations
 import json
 import uuid
 from datetime import UTC, datetime
-from typing import TYPE_CHECKING, Literal
+from typing import Any, Literal, Protocol
 
 from hydromodpy.calibration.optimizer import EvaluationResult, ParamSuggestion
 from hydromodpy.core.config_kit.persistence import PersistenceConfig
 
-if TYPE_CHECKING:
-    from hydromodpy.results.catalog import SimulationCatalog
-
-
 PersistDetail = Literal["none", "summary", "full"]
+
+
+class CalibrationStore(Protocol):
+    """Store surface required by calibration persistence."""
+
+    @property
+    def connection(self) -> Any: ...
 
 
 class CalibrationPersistence:
@@ -32,10 +35,10 @@ class CalibrationPersistence:
 
     def __init__(
         self,
-        catalog: SimulationCatalog,
+        catalog: CalibrationStore,
         persistence: PersistenceConfig | None = None,
     ):
-        self._conn = catalog._connection
+        self._conn = catalog.connection
         self._persistence = persistence or PersistenceConfig()
 
     def start_session(
@@ -76,8 +79,13 @@ class CalibrationPersistence:
     ) -> None:
         if not self._persistence.save_catalog:
             return
-        params_json = json.dumps(dict(suggestion.values))
         metadata = result.metadata or {}
+        parameter_payload = metadata.get("parameters")
+        if not isinstance(parameter_payload, dict):
+            parameter_payload = {
+                name: {"value": value} for name, value in dict(suggestion.values).items()
+            }
+        params_json = json.dumps(parameter_payload, default=str)
         params_hash = metadata.get("params_hash")
         metrics_json = _build_metrics_json(result, metadata, detail)
         sid = uuid.UUID(session_id) if len(session_id) == 32 else session_id
@@ -246,6 +254,9 @@ def _build_metrics_json(
     payload: dict[str, object] = {}
     if result.components:
         payload.update({str(k): v for k, v in dict(result.components).items()})
+    overlay = metadata.get("materialized_overlay")
+    if overlay:
+        payload["materialized_overlay"] = str(overlay)
     if detail == "full":
         block_costs = metadata.get("block_costs")
         if isinstance(block_costs, dict) and block_costs:

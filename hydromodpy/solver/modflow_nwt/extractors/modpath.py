@@ -78,14 +78,17 @@ class ModpathOutputAdapter:
             z[i, :n] = particle["z"]
             t[i, :n] = particle["time"]
 
-        grp = store._open_zarr_group(sim_id, mode="a")
-        pathlines_grp = grp.require_group("pathlines")
-        for name, arr in [("x", x), ("y", y), ("z", z), ("time", t)]:
-            pathlines_grp.create_array(
-                name,
-                data=arr,
-                overwrite=True,
-            )
+        sz = store.open_zarr(sim_id)
+        try:
+            pathlines_grp = sz.root.require_group("pathlines")
+            for name, arr in [("x", x), ("y", y), ("z", z), ("time", t)]:
+                pathlines_grp.create_array(
+                    name,
+                    data=arr,
+                    overwrite=True,
+                )
+        finally:
+            sz.close()
 
         logger.info(
             "Extracted %d pathlines (max %d steps) for sim %s",
@@ -110,24 +113,26 @@ class ModpathOutputAdapter:
             logger.debug("Empty endpoint file %s", ept_path)
             return
 
-        grp = store._open_zarr_group(sim_id, mode="a")
-        pathlines_grp = grp.require_group("pathlines")
-
-        pathlines_grp.create_array(
-            "endpoint_x",
-            data=all_data["x0"].astype("float64"),
-            overwrite=True,
-        )
-        pathlines_grp.create_array(
-            "endpoint_y",
-            data=all_data["y0"].astype("float64"),
-            overwrite=True,
-        )
-        pathlines_grp.create_array(
-            "endpoint_z",
-            data=all_data["z0"].astype("float64"),
-            overwrite=True,
-        )
+        sz = store.open_zarr(sim_id)
+        try:
+            pathlines_grp = sz.root.require_group("pathlines")
+            pathlines_grp.create_array(
+                "endpoint_x",
+                data=all_data["x0"].astype("float64"),
+                overwrite=True,
+            )
+            pathlines_grp.create_array(
+                "endpoint_y",
+                data=all_data["y0"].astype("float64"),
+                overwrite=True,
+            )
+            pathlines_grp.create_array(
+                "endpoint_z",
+                data=all_data["z0"].astype("float64"),
+                overwrite=True,
+            )
+        finally:
+            sz.close()
         pathlines_grp.create_array(
             "endpoint_time",
             data=all_data["time"].astype("float64"),

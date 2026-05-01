@@ -237,16 +237,14 @@ def build_ocean_chd(
     )
 
     sea_threshold = float(np.max(ocean_series))
+    rows, cols = np.nonzero((adapter.dem < sea_threshold) & (ibound[0] != 0))
+    if rows.size:
+        drain_array[rows, cols] = 0
+    ocean_cells = [(int(row), int(col)) for row, col in zip(rows, cols, strict=False)]
     chd_spd: dict[int, list[list[float]]] = {}
     for kper in range(adapter.nper):
-        chd_kper: list[list[float]] = []
         kper_head = float(ocean_series[kper])
-        for i in range(adapter.nrow):
-            for j in range(adapter.ncol):
-                if adapter.dem[i, j] < sea_threshold and ibound[0, i, j] != 0:
-                    drain_array[i, j] = 0
-                    chd_kper.append([0, i, j, kper_head, kper_head])
-        chd_spd[kper] = chd_kper
+        chd_spd[kper] = [[0, i, j, kper_head, kper_head] for i, j in ocean_cells]
     return chd_spd
 
 
@@ -296,11 +294,14 @@ def build_side_chd(
         if side_boundary_is_static(boundary):
             continue
         series = resolve_side_boundary_series(adapter, boundary=boundary, bc_id=bc_id)
+        cells = [
+            (ilay, row, col)
+            for ilay, row, col in iter_side_boundary_cells(adapter, bc_id)
+            if not adapter.inactive_mask[row, col]
+        ]
 
         for kper, head in enumerate(series):
-            for ilay, row, col in iter_side_boundary_cells(adapter, bc_id):
-                if adapter.inactive_mask[row, col]:
-                    continue
+            for ilay, row, col in cells:
                 per_period[kper][(ilay, row, col)] = [
                     ilay,
                     row,

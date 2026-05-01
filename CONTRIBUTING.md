@@ -136,16 +136,16 @@ This creates `projects/my_catchment/` with two template files:
 
 ```bash
 # Full config (expert profile, all modules)
-hmp config my_config.toml
+hmp config template my_config.toml
 
 # Minimal config (user profile)
-hmp config my_config.toml --profile user
+hmp config template my_config.toml --profile user
 
 # Only specific modules
-hmp config my_config.toml --modules geographic flow modflownwt
+hmp config template my_config.toml --modules geographic flow solver
 
 # List available modules
-hmp config --list-modules
+hmp config template --list-modules
 ```
 
 The generated TOML includes all field descriptions as comments, default
@@ -346,7 +346,7 @@ nlay = 5
 
 The recommended workflow:
 
-1. Generate a template: `hmp config my_project.toml --profile user`
+1. Generate a template: `hmp config template my_project.toml --profile user`
 2. Open the file and read the comments -- they explain every parameter.
 3. Fill in the values for your catchment.
 4. Run: `hmp run my_project.toml`
@@ -468,7 +468,7 @@ model.pre_processing(flow=flow, domain=domain, options=ModflowPreprocessOptions(
 model.processing(options=ModflowRunOptions(write_model=True, run_model=True))
 ```
 
-See `examples/projects/01_canut/run_steady_prototype.py` for a complete
+See `examples/projects/03_canut_watershed/run_steady_prototype.py` for a complete
 working example with visualization.
 
 ### Connecting to the geographic system
@@ -732,7 +732,7 @@ def _check_requirements(self) -> "MyConfig":
    from mypackage.my_config import MyConfig
    _MODULE_REGISTRY["my_section"] = MyConfig
    ```
-3. The new section is now available via `hmp config --modules my_section`
+3. The new section is now available via `hmp config template --modules my_section`
    and in the top-level `HydroModPyConfig`.
 
 ---
@@ -760,13 +760,14 @@ hmp test regression --update-goldens
 ## Architecture (layer matrix)
 
 HydroModPy enforces a strict layered DAG between top-level packages.
-The full 14x14 contract lives in
-[`unified_architecture/20_ENCAPSULATION_AND_COUPLING.md`](unified_architecture/20_ENCAPSULATION_AND_COUPLING.md)
-§2 and is mirrored as YAML in
+The full layer contract lives in
+[`docs/developers/architecture.md`](docs/developers/architecture.md)
+and is mirrored as YAML in
 [`tests/unit/architecture/layer_matrix.yaml`](tests/unit/architecture/layer_matrix.yaml).
 
 | src \ tgt    | allowed targets |
 |--------------|-----------------|
+| `<root>`     | public facade wiring only |
 | core         | core |
 | schema       | core, schema |
 | physics      | core, schema, physics |
@@ -778,9 +779,9 @@ The full 14x14 contract lives in
 | results      | core, schema, results |
 | display      | core, schema, results, display |
 | analysis     | core, schema, data, results, analysis |
-| pipeline     | core, schema, physics, data, spatial, solver, simulation, calibration, results, pipeline |
-| workflow     | everything except `_cli` |
-| `_cli`       | everything |
+| workflow     | core, schema, physics, data, spatial, simulation, solver, calibration, results, display, analysis, workflow, master_config |
+| master_config | core, schema, physics, data, spatial, simulation, solver, calibration, results, display, analysis, workflow, master_config |
+| cli          | core, schema, physics, data, spatial, simulation, solver, calibration, results, display, analysis, workflow, master_config, cli |
 
 The contract is checked by `tests/unit/architecture/test_layer_matrix.py`
 on every pytest run:
@@ -789,10 +790,8 @@ on every pytest run:
 pytest tests/unit/architecture/test_layer_matrix.py -v
 ```
 
-The test currently runs in `xfail` mode while R0..R4 (see
-`unified_architecture/PLAN_ACTION.md`) clear the legacy violations. The
-reported xfail count is the number of forbidden cross-layer imports
-remaining; it must trend down with every refactor session.
+Forbidden cross-layer imports fail the test. Temporary tolerances must be
+listed in `layer_matrix.yaml` with a short rationale.
 
 `test_annex_one_way` runs strict: `hydromodpy/` must never import from
 `hydromodpy_annex/`. Adding such an import is a CI failure.
@@ -813,8 +812,8 @@ Keep pull requests focused on a single topic. If your change touches
 configuration, make sure the TOML generator still produces valid output:
 
 ```bash
-hmp config /tmp/test_config.toml --profile user
-hmp config /tmp/test_config.toml --profile expert
+hmp config template /tmp/test_config.toml --profile user
+hmp config template /tmp/test_config.toml --profile expert
 ```
 
 ---

@@ -5,6 +5,7 @@
 # Packages absent from the row's list are forbidden (CI flags them).
 
 allowed:
+  "<root>":      ["<root>", core, schema, physics, data, spatial, simulation, solver, calibration, results, display, analysis, workflow, master_config, cli]
   core:          [core]
   schema:        [core, schema]
   physics:       [core, schema, physics]
@@ -16,10 +17,9 @@ allowed:
   results:       [core, schema, results]
   display:       [core, schema, results, display]
   analysis:      [core, schema, data, results, analysis]
-  pipeline:      [core, schema, physics, data, spatial, solver, simulation, calibration, results, pipeline]
-  workflow:      [core, schema, physics, data, spatial, simulation, solver, calibration, results, display, analysis, pipeline, workflow, master_config]
-  master_config: [core, schema, physics, data, spatial, simulation, solver, calibration, results, display, analysis, pipeline, workflow, master_config]
-  cli:           [core, schema, physics, data, spatial, simulation, solver, calibration, results, display, analysis, pipeline, workflow, master_config, cli]
+  workflow:      [core, schema, physics, data, spatial, simulation, solver, calibration, results, display, analysis, workflow, master_config]
+  master_config: [core, schema, physics, data, spatial, simulation, solver, calibration, results, display, analysis, workflow, master_config]
+  cli:           [core, schema, physics, data, spatial, simulation, solver, calibration, results, display, analysis, workflow, master_config, cli]
 
 # Cross-edges tolerated for now. Each tolerance must point at a documented
 # rationale. Empty until R0 lands. Tighten over time.
@@ -29,7 +29,12 @@ tolerances:
   - {src: simulation,  tgt: solver,   reason: "simulation queries solver registry"}
   - {src: results,     tgt: spatial,  reason: "results stores spatial indices"}
   - {src: analysis,    tgt: physics,  reason: "history contract"}
-  - {src: results,     tgt: solver,   reason: "catalog stores solver registry id"}
+  - {src: analysis,    tgt: "<root>", reason: "method comparison launches public Project facade"}
+  - {src: calibration, tgt: "<root>", reason: "trial promotion launches public Project facade"}
+  - {src: cli,         tgt: "<root>", reason: "CLI dispatch delegates to public Project facade"}
+  - {src: master_config, tgt: "<root>", reason: "module entrypoint delegates to hydromodpy.__main__"}
+  - {src: results,     tgt: "<root>", reason: "Run.rerun launches public Project facade"}
+  - {src: workflow,    tgt: "<root>", reason: "sweep helper accepts Project facade instances"}
 
 # Files exempt from the layer rule. Bootstrap shims that wire forward refs,
 # plus *.cases.run_*case.py CLI entrypoints that load HydroModPyConfig from a

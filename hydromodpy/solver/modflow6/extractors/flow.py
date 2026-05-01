@@ -327,14 +327,15 @@ class Modflow6OutputAdapter:
             else:
                 return
 
-            grp = store._open_zarr_group(sim_id)
-            if "mesh" not in grp:
-                grp.create_group("mesh")
-            mesh = grp["mesh"]
-            mesh.create_array("z_interfaces", data=z_flat, overwrite=True)
-            mesh.create_array("surface_top", data=top, overwrite=True)
-            mesh.attrs["n_cells"] = int(n_cells)
-            mesh.attrs["n_layers"] = int(nlay)
+            sz = store.open_zarr(sim_id)
+            try:
+                mesh = sz.root.require_group("mesh")
+                mesh.create_array("z_interfaces", data=z_flat, overwrite=True)
+                mesh.create_array("surface_top", data=top, overwrite=True)
+                mesh.attrs["n_cells"] = int(n_cells)
+                mesh.attrs["n_layers"] = int(nlay)
+            finally:
+                sz.close()
         except Exception:
             logger.debug("Could not write surface elevation for sim %s", sim_id, exc_info=True)
 

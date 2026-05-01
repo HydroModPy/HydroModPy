@@ -30,8 +30,8 @@ logger = get_logger(__name__)
 def step_ingest_observations(ctx: WorkflowContext, sim_id: str) -> None:
     """Ingest observation timeseries associated with this simulation.
 
-    Failures are swallowed and logged. Observations are an enrichment of the
-    run record, not a requirement, so they never block finalize.
+    Observation ingestion is part of the scientific record. Failures abort
+    the run instead of leaving the catalog half populated.
     """
     from hydromodpy.simulation.extraction.extractors.observation_ingest import (
         ingest_observations,
@@ -39,8 +39,9 @@ def step_ingest_observations(ctx: WorkflowContext, sim_id: str) -> None:
 
     try:
         ingest_observations(sim_id, ctx.store, ctx.loaded_data)
-    except Exception:
+    except Exception as exc:
         logger.exception("Failed to ingest observations for sim %s", sim_id)
+        raise RuntimeError(f"Failed to ingest observations for sim {sim_id}") from exc
 
 
 # ---------------------------------------------------------------------------
@@ -72,7 +73,7 @@ def restore_seepage_raster_from_store(
             if sims.empty:
                 return False
             sim_id = str(sims.iloc[-1]["sim_id"])
-            arr = catalog.query_field(sim_id, "seepage_areas", 0)
+            arr = catalog.query_field(sim_id, "seepage_mask", 0)
         finally:
             catalog.close()
 

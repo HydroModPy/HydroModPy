@@ -515,7 +515,7 @@ SQL direct (power users, ML) :
 
 ```python
 catalog.sql("SELECT project, solver, AVG(m.value) ...")   # → DataFrame
-catalog._connection                                        # → duckdb.DuckDBPyConnection (escape hatch)
+catalog.connection                                         # → duckdb.DuckDBPyConnection
 ```
 
 ### 7.2. Simulation : une simulation individuelle

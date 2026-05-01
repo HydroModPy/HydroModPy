@@ -68,7 +68,7 @@ Run the underlying example or validation case with:
 
 .. code-block:: bash
 
-   python -m hydromodpy run examples_legacy_2/projects/launcher_simulation/regional_lab/config_headwater_100km2_lab.toml
+   python -m tools.doc_gallery
 
 Refresh the committed gallery artifacts with:
 
@@ -82,9 +82,9 @@ Source Pointers
 - ``hydromodpy/analysis/batch/__init__.py``
 - ``hydromodpy/analysis/batch/config.py``
 - ``hydromodpy/analysis/batch/runtime.py``
-- ``examples_legacy_2/projects/launcher_simulation/regional_lab/README.md``
-- ``examples_legacy_2/projects/launcher_simulation/regional_lab/config_headwater_100km2_lab.toml``
-- ``examples_legacy_2/projects/launcher_simulation/regional_lab/site_catalog.csv``
+- ``docs/readthedocs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_dry_plan_summary.json``
+- ``docs/readthedocs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_dry_plan_summary.json``
+- ``docs/readthedocs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_dry_plan_summary.json``
 
 Artifacts
 ---------

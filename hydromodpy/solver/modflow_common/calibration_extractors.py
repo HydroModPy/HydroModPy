@@ -16,11 +16,6 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-from hydromodpy.core.logging import get_logger
-
-logger = get_logger(__name__)
-
-
 # MODFLOW ITMUNI codes -> seconds per native time unit. CBC fluxes are
 # expressed in volume / itmuni-time-unit; dividing by this factor yields
 # m3/s, which matches the hydrometry observations.
@@ -68,8 +63,7 @@ def extract_discharge_from_cbc(
 ) -> pd.Series:
     """Sum the DRAIN budget component per timestep and return a m3/s series.
 
-    Returns an empty series when no CBC file is found or no DRAIN component
-    is recorded.
+    Raises when no CBC file is found or no DRAIN component is recorded.
     """
     import flopy.utils.binaryfile as bf
 
@@ -77,8 +71,7 @@ def extract_discharge_from_cbc(
     if not cbc_path.exists():
         cbc_path = output_dir / f"{model_name}.cbb"
     if not cbc_path.exists():
-        logger.debug("CBC file not found in %s", output_dir)
-        return pd.Series(dtype=float, name="discharge")
+        raise FileNotFoundError(f"CBC file not found for model {model_name!r} in {output_dir}")
 
     itmuni = _read_itmuni_from_dis(output_dir / f"{model_name}.dis")
     seconds_per_unit = _ITMUNI_TO_SECONDS.get(itmuni, 1.0)
@@ -91,8 +84,7 @@ def extract_discharge_from_cbc(
             None,
         )
         if drain_key is None:
-            logger.debug("No DRAIN component in CBC; components were %s", record_names)
-            return pd.Series(dtype=float, name="discharge")
+            raise KeyError(f"No DRAIN component in CBC; components were {record_names}")
 
         times = cbb.get_times()
         kstpkpers = cbb.get_kstpkper()
@@ -129,22 +121,27 @@ def extract_head_from_hds(
 
     hds_path = output_dir / f"{model_name}.hds"
     if not hds_path.exists():
-        logger.debug("HDS file not found in %s", output_dir)
-        return {}
+        raise FileNotFoundError(f"HDS file not found for model {model_name!r} in {output_dir}")
 
     hf = bf.HeadFile(str(hds_path))
     try:
         times = hf.get_times()
         n_t = len(times)
-        out: dict[str, pd.Series] = {}
-        for station_id, (k, i, j) in station_cells.items():
-            values = np.full(n_t, np.nan, dtype=float)
-            for t, totim in enumerate(times):
+        values_by_station = {
+            station_id: np.full(n_t, np.nan, dtype=float) for station_id in station_cells
+        }
+        for t, totim in enumerate(times):
+            head = hf.get_data(totim=totim)
+            for station_id, (k, i, j) in station_cells.items():
                 try:
-                    head = hf.get_data(totim=totim)
-                    values[t] = float(head[k, i, j])
-                except Exception:
-                    pass
+                    values_by_station[station_id][t] = float(head[k, i, j])
+                except IndexError as exc:
+                    raise IndexError(
+                        f"Station {station_id!r} cell {(k, i, j)!r} is outside "
+                        f"the head array shape {head.shape!r}."
+                    ) from exc
+        out: dict[str, pd.Series] = {}
+        for station_id, values in values_by_station.items():
             values[np.abs(values) > 1e6] = np.nan
             if time_index is not None and len(time_index) == n_t:
                 out[station_id] = pd.Series(values, index=time_index, name=f"head@{station_id}")

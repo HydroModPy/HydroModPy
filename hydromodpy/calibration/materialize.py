@@ -24,6 +24,7 @@ from __future__ import annotations
 import re
 import tomllib
 from collections.abc import Mapping, Sequence
+from copy import deepcopy
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
@@ -206,9 +207,8 @@ def materialize_candidate(
         Path to the target simulation TOML or an in-memory
         ``HydroModPyConfig`` instance (any Pydantic ``BaseModel`` returned
         by the installed ``RootConfigProvider``). When a config object is
-        passed, the overlay is built from ``model_dump`` and
-        ``base_config`` in the overlay falls back to ``base_dir`` (when
-        supplied) so the file remains rechargeable.
+        passed, the rendered TOML is complete and does not rely on a
+        ``base_config`` pointer.
     params
         Candidate values keyed by parameter name (must cover every
         parameter in ``space`` that has a ``target`` or ``path``).
@@ -257,14 +257,14 @@ def materialize_candidate(
 
     base_dir_resolved = Path(base_dir).expanduser().resolve() if base_dir is not None else None
 
-    overlay: dict[str, Any] = {}
+    overlay: dict[str, Any] = deepcopy(base_raw) if base_path is None else {}
     if base_path is not None:
         overlay["base_config"] = _format_path_for_overlay(base_path, base_dir_resolved)
-    elif base_dir_resolved is not None:
-        overlay["base_config"] = str(base_dir_resolved)
 
     if run_id is not None:
-        overlay["simulation"] = {"run_id": str(run_id)}
+        simulation_section = dict(overlay.get("simulation", {}))
+        simulation_section["run_id"] = str(run_id)
+        overlay["simulation"] = simulation_section
 
     workspace_section: dict[str, Any] = dict(base_raw.get("workspace", {}))
     if workspace_root is not None:

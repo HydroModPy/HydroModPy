@@ -132,6 +132,21 @@ class CalibOutputDecl(HydroModelBase):
         default=None,
         description="Boundary package identifier when support='boundary'.",
     )
+    row: Annotated[int | None, Profile.USER] = Field(
+        default=None,
+        ge=0,
+        description="Structured row index when support='cell'.",
+    )
+    col: Annotated[int | None, Profile.USER] = Field(
+        default=None,
+        ge=0,
+        description="Structured column index when support='cell'.",
+    )
+    layer: Annotated[int, Profile.USER] = Field(
+        default=0,
+        ge=0,
+        description="Structured layer index when support='cell'.",
+    )
     time: Annotated[Literal["all", "last", "first"] | list[str], Profile.USER] = Field(
         default="all",
         description="'all' keeps every time step; 'last' / 'first' selects one; "

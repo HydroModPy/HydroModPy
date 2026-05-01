@@ -33,6 +33,8 @@ VerticalProfileInterpolation = Literal["linear", "step"]
 class FieldBaseSection(HydroModelBase):
     """Schema for `[field]` base section."""
 
+    model_config = ConfigDict(extra="forbid")
+
     id: Annotated[str | None, Profile.USER] = Field(
         default=None,
         description=("Parameter identifier used in outputs and logs (for example 'K', 'Sy')."),

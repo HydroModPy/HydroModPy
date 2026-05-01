@@ -119,6 +119,7 @@ def prepare_run(
         solver=solver,
     )
 
+    ctx.effective_results_config = step_configure_results(ctx.cfg.simulation.results, plan)
     if properties is not None:
         ctx.setup.flow_runtime_overrides = {
             "source": "project_run",
@@ -167,8 +168,11 @@ def execute_run(
     from hydromodpy.simulation.planning.plan import RunContext
 
     plan = ctx.execution.simulation_plan
-    results_cfg = step_configure_results(ctx.cfg.simulation.results, plan)
-    ctx._effective_results_cfg = results_cfg
+    results_cfg = ctx.effective_results_config or step_configure_results(
+        ctx.cfg.simulation.results,
+        plan,
+    )
+    ctx.effective_results_config = results_cfg
 
     def _after_run(run, result, state):
         post_run_results(
@@ -256,7 +260,7 @@ def cleanup_run(
     if save_artifacts:
         step_save_run_artifacts(ctx, wall_seconds)
 
-    effective = getattr(ctx, "_effective_results_cfg", None)
+    effective = getattr(ctx, "effective_results_config", None)
     keep = keep_solver_files
     if effective is not None:
         keep = effective.keep_solver_files

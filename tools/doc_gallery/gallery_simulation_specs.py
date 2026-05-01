@@ -23,13 +23,9 @@ def build_simulation_specs() -> tuple[GalleryCaseSpec, ...]:
                 "How the flow-state triptych relates topography, hydraulic head, and water-table depth.",
                 "How cumulative recharge and discharge can be inspected without committing a full run folder.",
             ),
-            reproduction_command=(
-                "python -m hydromodpy run examples_legacy_2/projects/launcher_simulation/"
-                "run_fast_mf6_mesh_catchment.toml"
-            ),
+            reproduction_command="python -m tools.doc_gallery",
             source_paths=(
-                "examples_legacy_2/projects/launcher_simulation/run_fast_mf6_mesh_catchment.toml",
-                "examples_legacy_2/projects/launcher_simulation/config_mf6_mesh_catchment_common.toml",
+                "examples/projects/09_capability_gallery/README.md",
                 "examples/projects/09_capability_gallery/launcher_simulation/modflow6_gmsh_mesh_catchment/manifest.json",
                 "hydromodpy/analysis/capability_gallery.py",
             ),
@@ -70,7 +66,7 @@ def build_simulation_specs() -> tuple[GalleryCaseSpec, ...]:
                 ),
             ),
             case_setup=(
-                "Entry config: `run_fast_mf6_mesh_catchment.toml` overlays one shared base profile and adds the fast-run forcing, timeline, and solver choices.",
+                "Static gallery manifest: the committed capability-gallery manifest records the published assets and their generation context.",
                 "Execution chain: geographic setup -> `mesh_catchment` -> runtime triangular mesh -> MODFLOW 6 flow -> MODFLOW 6 transport -> postprocess/display.",
                 "Only selected synthesis figures are republished into `examples/projects/09_capability_gallery/`; the full run workspace stays outside the doc tree.",
             ),
@@ -132,14 +128,9 @@ def build_simulation_specs() -> tuple[GalleryCaseSpec, ...]:
                 "How monthly synthetic recharge drives three years of cumulative recharge and discharge on a real basin support.",
                 "How the same run can surface both global synthesis figures and direct water-table maps without shipping the full solver workspace.",
             ),
-            reproduction_command=(
-                "python -m hydromodpy run examples_legacy_2/projects/launcher_simulation/"
-                "run_headwater_100km2_outlet_2_mf6_transient_reference.toml"
-            ),
+            reproduction_command="python -m tools.doc_gallery",
             source_paths=(
-                "examples_legacy_2/projects/launcher_simulation/run_headwater_100km2_outlet_2_mf6_transient_reference.toml",
-                "examples_legacy_2/projects/launcher_simulation/config_headwater_100km2_mf6_transient_common.toml",
-                "examples_legacy_2/projects/launcher_simulation/README.md",
+                "examples/projects/09_capability_gallery/README.md",
                 "examples/projects/09_capability_gallery/launcher_simulation/headwater_100km2_outlet_2_mf6_transient_reference/manifest.json",
                 "hydromodpy/analysis/capability_gallery.py",
             ),
@@ -198,8 +189,8 @@ def build_simulation_specs() -> tuple[GalleryCaseSpec, ...]:
                 ),
             ),
             case_setup=(
-                "Base config: `config_headwater_100km2_mf6_transient_common.toml` keeps the committed triangular mesh, the flow-only process chain, and the common postprocess/display switches.",
-                "Overlay config: `run_headwater_100km2_outlet_2_mf6_transient_reference.toml` injects the three-year monthly recharge chronology and homogeneous K/Sy/Ss values.",
+                "Static gallery manifest: the committed capability-gallery manifest records the published assets and their generation context.",
+                "The source run used a committed triangular mesh, the flow-only process chain, and common postprocess/display switches.",
                 "Execution chain: committed `mesh_input` bundle -> MODFLOW 6 transient flow -> postprocess rasters and synthesis figures -> gallery publication.",
             ),
             key_parameters=(

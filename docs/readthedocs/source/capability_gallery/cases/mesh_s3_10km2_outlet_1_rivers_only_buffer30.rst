@@ -50,7 +50,7 @@ Run the underlying example or validation case with:
 
 .. code-block:: bash
 
-   python -m launchers mesh-catchment run old/launchers/mesh_catchment/scenarios/config_s3_10km2_outlet_1_rivers_only.toml
+   python -m tools.doc_gallery
 
 Refresh the committed gallery artifacts with:
 
@@ -156,7 +156,7 @@ Mesh Summary
 Source Pointers
 ---------------
 
-- ``old/launchers/mesh_catchment/scenarios/config_s3_10km2_outlet_1_rivers_only.toml``
+- ``docs/readthedocs/source/_static/capability_gallery/mesh/mesh_s3_10km2_outlet_1_rivers_only_buffer30_summary.json``
 - ``examples/projects/07_mesh_gallery/10km2/mesh_s3_10km2_outlet_1_rivers_only_buffer30/case.json``
 - ``examples/projects/07_mesh_gallery/10km2/mesh_s3_10km2_outlet_1_rivers_only_buffer30/viewer_config.toml``
 - ``examples/projects/07_mesh_gallery/10km2/mesh_s3_10km2_outlet_1_rivers_only_buffer30/README.md``

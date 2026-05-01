@@ -66,7 +66,7 @@ def _store_variable_mapping(variable_name: str) -> str | None:
     mapping: dict[str, str] = {
         "watertable_elevation": "watertable_elevation",
         "watertable_depth": "watertable_depth",
-        "seepage_areas": "seepage_areas",
+        "seepage_mask": "seepage_mask",
         "head": "head",
         "accumulation_flux": "accumulation_flux",
         "outflow_drain": "outflow_drain",
@@ -92,23 +92,28 @@ def _load_store_series(
     if store_field is None:
         return None
 
+    sz = None
     try:
-        grp = store._open_zarr_group(sim_id)
+        sz = store.open_zarr(sim_id)
+        grp = sz.root
     except (KeyError, Exception):
         return None
-
-    arr = None
-    for loc in (grp, grp.get("derived"), grp.get("budget")):
-        if loc is not None and store_field in loc:
-            arr = loc[store_field]
-            break
-    if arr is None:
-        return None
-
     try:
-        data = arr[:]
-    except Exception:
-        return None
+        arr = None
+        for loc in (grp, grp.get("derived"), grp.get("budget")):
+            if loc is not None and store_field in loc:
+                arr = loc[store_field]
+                break
+        if arr is None:
+            return None
+
+        try:
+            data = arr[:]
+        except Exception:
+            return None
+    finally:
+        if sz is not None:
+            sz.close()
 
     if data.ndim == 0:
         return None
@@ -136,7 +141,7 @@ def _load_store_series(
 
     return VariableSeries(
         variable_name=variable_name,
-        source_path=Path(store.zarr_path),
+        source_path=store.zarr_path_for(sim_id),
         slices=slices,
         cell_ids=None,
     )
@@ -153,26 +158,34 @@ def _load_store_boussinesq_state_series(
     The Boussinesq extractor persists state history into a
     ``boussinesq_state`` Zarr subgroup.
     """
+    sz = None
     try:
-        grp = store._open_zarr_group(sim_id)
+        sz = store.open_zarr(sim_id)
+        grp = sz.root
     except (KeyError, Exception):
         return None
 
-    state_grp = grp.get("boussinesq_state")
-    if state_grp is None or variable_name not in state_grp:
-        return None
-
     try:
-        values = np.asarray(state_grp[variable_name][:], dtype=float)
-    except Exception:
-        return None
+        state_grp = grp.get("boussinesq_state")
+        if state_grp is None or variable_name not in state_grp:
+            return None
 
-    period_lengths = np.asarray([], dtype=float)
-    if "period_lengths_seconds" in state_grp:
         try:
-            period_lengths = np.asarray(state_grp["period_lengths_seconds"][:], dtype=float).ravel()
+            values = np.asarray(state_grp[variable_name][:], dtype=float)
         except Exception:
-            pass
+            return None
+
+        period_lengths = np.asarray([], dtype=float)
+        if "period_lengths_seconds" in state_grp:
+            try:
+                period_lengths = np.asarray(
+                    state_grp["period_lengths_seconds"][:], dtype=float
+                ).ravel()
+            except Exception:
+                pass
+    finally:
+        if sz is not None:
+            sz.close()
 
     if values.ndim <= 1:
         elapsed = float(np.nansum(period_lengths)) if period_lengths.size > 0 else None
@@ -202,7 +215,7 @@ def _load_store_boussinesq_state_series(
 
     return VariableSeries(
         variable_name=variable_name,
-        source_path=Path(store.zarr_path),
+        source_path=store.zarr_path_for(sim_id),
         slices=slices,
         cell_ids=None,
     )
@@ -221,50 +234,56 @@ def _load_store_surface_excess_total_series(
     the ``saturation_excess_history_m_s`` array from the Zarr
     ``boussinesq_state`` group.
     """
+    sz = None
     try:
-        grp = store._open_zarr_group(sim_id)
+        sz = store.open_zarr(sim_id)
+        grp = sz.root
     except (KeyError, Exception):
         return None
 
-    state_grp = grp.get("boussinesq_state")
-    if state_grp is None or "saturation_excess_history_m_s" not in state_grp:
-        return None
-
     try:
-        values = np.asarray(
-            state_grp["saturation_excess_history_m_s"][:],
-            dtype=float,
-        )
-    except Exception:
-        return None
+        state_grp = grp.get("boussinesq_state")
+        if state_grp is None or "saturation_excess_history_m_s" not in state_grp:
+            return None
 
-    if values.ndim == 1:
-        values = values.reshape(1, -1)
-    if values.ndim != 2:
-        return None
-
-    cells = resolve_bundle_cells(
-        run_folder,
-        expected_size=int(values.shape[1]),
-    )
-    if cells is None or cells.area_m2 is None:
-        return None
-    area_m2 = np.asarray(cells.area_m2, dtype=float).reshape(-1)
-    if area_m2.size != values.shape[1]:
-        return None
-
-    positive = np.maximum(values, 0.0)
-    totals_m3_s = np.sum(positive * area_m2[None, :], axis=1, dtype=float)
-
-    period_lengths = np.asarray([], dtype=float)
-    if "period_lengths_seconds" in state_grp:
         try:
-            period_lengths = np.asarray(
-                state_grp["period_lengths_seconds"][:],
+            values = np.asarray(
+                state_grp["saturation_excess_history_m_s"][:],
                 dtype=float,
-            ).ravel()
+            )
         except Exception:
-            pass
+            return None
+
+        if values.ndim == 1:
+            values = values.reshape(1, -1)
+        if values.ndim != 2:
+            return None
+
+        cells = resolve_bundle_cells(
+            run_folder,
+            expected_size=int(values.shape[1]),
+        )
+        if cells is None or cells.area_m2 is None:
+            return None
+        area_m2 = np.asarray(cells.area_m2, dtype=float).reshape(-1)
+        if area_m2.size != values.shape[1]:
+            return None
+
+        positive = np.maximum(values, 0.0)
+        totals_m3_s = np.sum(positive * area_m2[None, :], axis=1, dtype=float)
+
+        period_lengths = np.asarray([], dtype=float)
+        if "period_lengths_seconds" in state_grp:
+            try:
+                period_lengths = np.asarray(
+                    state_grp["period_lengths_seconds"][:],
+                    dtype=float,
+                ).ravel()
+            except Exception:
+                pass
+    finally:
+        if sz is not None:
+            sz.close()
 
     elapsed_by_index = _elapsed_seconds_from_period_lengths(
         n_snapshots=int(totals_m3_s.size),
@@ -282,7 +301,7 @@ def _load_store_surface_excess_total_series(
     )
     return VariableSeries(
         variable_name=variable_name,
-        source_path=Path(store.zarr_path),
+        source_path=store.zarr_path_for(sim_id),
         slices=slices,
         cell_ids=None,
     )

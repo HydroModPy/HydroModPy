@@ -29,7 +29,7 @@ def step_ingest_run_results(
     from hydromodpy.simulation.planning.plan import RunContext
 
     plan = ctx.execution.simulation_plan
-    results_cfg = ctx.cfg.simulation.results
+    results_cfg = getattr(ctx, "effective_results_config", None) or ctx.cfg.simulation.results
     post_run_results(
         ctx=RunContext(plan=plan, run=run, state=ctx),
         sim_id=ctx.sim_id,

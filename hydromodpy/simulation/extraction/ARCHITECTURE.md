@@ -361,7 +361,7 @@ project_results.zarr/
     |   +-- riv                            # (ntimesteps, nlayers, ncells)
     |   +-- ghb                            # (ntimesteps, nlayers, ncells)
     |   +-- sto                            # (ntimesteps, nlayers, ncells)
-    |   +-- flow_ja_face                   # (ntimesteps, n_connections)
+    |   +-- flow_ja_face                   # (ntimesteps, n_link_faces)
     |
     +-- pathlines/                         # MODPATH
         +-- x                              # (n_particles, n_steps) float64

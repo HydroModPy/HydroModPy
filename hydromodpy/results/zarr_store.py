@@ -3,6 +3,7 @@ from __future__ import annotations
 import shutil
 import zipfile
 from collections.abc import Callable
+from datetime import UTC, datetime
 from os import replace
 from pathlib import Path
 from typing import Any
@@ -12,6 +13,7 @@ import zarr
 import zarr.codecs
 
 from hydromodpy.core.logging import get_logger
+from hydromodpy.core.version import __version__ as _HMP_VERSION
 from hydromodpy.results import field_registry
 
 logger = get_logger(__name__)
@@ -23,6 +25,7 @@ _SUBGROUPS = ("mesh", "derived", "budget", "pathlines", "geographic", "forcing")
 # CF-1.11 + UGRID-1.0 root conventions string attached to every simulation
 # Zarr store (see :mod:`hydromodpy.results.field_registry`).
 CF_CONVENTIONS = "CF-1.11 UGRID-1.0"
+ZARR_SCHEMA_VERSION = "1"
 
 # Target balanced-chunk size in bytes. Chosen so that compressed chunks sit
 # in the typical local-disk / S3 object-store sweet spot (~1 MiB).
@@ -119,6 +122,9 @@ class SimulationZarr:
         root = zarr.open_group(store, mode="w")
         root_attrs: dict[str, object] = {
             "Conventions": CF_CONVENTIONS,
+            "hydromodpy_version": _HMP_VERSION,
+            "zarr_schema_version": ZARR_SCHEMA_VERSION,
+            "created_at": datetime.now(UTC).isoformat(),
             "n_cells": n_cells,
             "n_layers": n_layers,
         }

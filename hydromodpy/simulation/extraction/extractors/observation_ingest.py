@@ -15,6 +15,7 @@ separate and keeps the raw variable name.
 
 from __future__ import annotations
 
+import json
 from typing import Any
 
 import pandas as pd
@@ -58,6 +59,7 @@ def ingest_observations(
         Number of timeseries successfully persisted.
     """
     written = 0
+    failures: list[str] = []
     for field in _OBSERVATION_FIELDS:
         result = getattr(loaded_data, field, None)
         if result is None:
@@ -68,6 +70,7 @@ def ingest_observations(
                 ts = _point_to_series(rec)
                 if ts is None or ts.empty:
                     continue
+                _write_station(store, rec)
                 store.write_timeseries(
                     sim_id,
                     station_id=str(rec.station_id),
@@ -81,18 +84,51 @@ def ingest_observations(
                     variable_type=str(rec.variable),
                     ts=ts,
                     unit=getattr(rec, "unit", "") or "",
-                    quality=getattr(rec, "quality", None),
+                    quality=_quality_value(getattr(rec, "quality", None)),
                 )
                 written += 1
-            except Exception:
+            except Exception as exc:
+                failures.append(f"{field}/{getattr(rec, 'station_id', '?')}: {exc}")
                 logger.exception(
                     "Failed to ingest observation %s/%s",
                     field,
                     getattr(rec, "station_id", "?"),
                 )
+    if failures:
+        raise RuntimeError("Observation ingestion failed: " + "; ".join(failures))
     if written:
         logger.info("Ingested %d observation timeseries for sim %s", written, sim_id)
     return written
+
+
+def _quality_value(value: Any) -> str:
+    if value is None:
+        return "observed"
+    if isinstance(value, str):
+        return value
+    return json.dumps(value, sort_keys=True, default=str)
+
+
+def _write_station(store: Any, rec: Any) -> None:
+    writer = getattr(store, "write_station", None)
+    if not callable(writer):
+        return
+    loc = getattr(rec, "location", None)
+    metadata = {}
+    if loc is not None and hasattr(loc, "to_dict"):
+        metadata = loc.to_dict()
+    writer(
+        station_id=str(rec.station_id),
+        variable_type=str(rec.variable),
+        name=str(getattr(loc, "id", rec.station_id)),
+        latitude=(float(loc.y) if loc is not None else None),
+        longitude=(float(loc.x) if loc is not None else None),
+        elevation=(float(metadata["z"]) if "z" in metadata else None),
+        source=str(getattr(rec, "source", "")) or None,
+        first_valid=getattr(rec, "date_start", None),
+        last_valid=getattr(rec, "date_end", None),
+        metadata=metadata,
+    )
 
 
 def _point_to_series(rec: Any) -> pd.Series | None:

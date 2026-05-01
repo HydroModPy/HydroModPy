@@ -41,7 +41,7 @@ class TestAtomicWrite:
             sid = _register(cat)
             cat.write_timeseries(sid, "P01", "head", _make_series(), unit="m")
             cat.write_timeseries(sid, "P02", "head", _make_series(), unit="m")
-            count = cat._connection.execute(
+            count = cat.connection.execute(
                 "SELECT COUNT(*) FROM timeseries WHERE sim_id = ?", [sid]
             ).fetchone()[0]
         assert count == 10
@@ -61,11 +61,11 @@ class TestViewSemantics:
     def test_empty_view_has_expected_columns(self, tmp_path: Path):
         with SimulationCatalog(tmp_path) as cat:
             for view in PARQUET_VIEW_NAMES:
-                count = cat._connection.execute(f"SELECT COUNT(*) FROM {view}").fetchone()[0]
+                count = cat.connection.execute(f"SELECT COUNT(*) FROM {view}").fetchone()[0]
                 assert count == 0
                 cols = {
                     r[0]
-                    for r in cat._connection.execute(f"DESCRIBE SELECT * FROM {view}").fetchall()
+                    for r in cat.connection.execute(f"DESCRIBE SELECT * FROM {view}").fetchall()
                 }
                 assert "sim_id" in cols
 
@@ -75,7 +75,7 @@ class TestViewSemantics:
             ts = _make_series(n=7)
             cat.write_timeseries(sid, "P01", "head", ts, unit="m")
             via_view = (
-                cat._connection.execute(
+                cat.connection.execute(
                     "SELECT value FROM timeseries "
                     "WHERE sim_id = ? AND station_id = 'P01' AND variable = 'head' "
                     "ORDER BY datetime",
@@ -109,7 +109,7 @@ class TestDelete:
             assert parquet_dir.is_dir()
             cat.delete(sid)
             assert not parquet_dir.exists()
-            remaining = cat._connection.execute("SELECT COUNT(*) FROM timeseries").fetchone()[0]
+            remaining = cat.connection.execute("SELECT COUNT(*) FROM timeseries").fetchone()[0]
         assert remaining == 0
 
 
@@ -139,8 +139,8 @@ class TestConcurrentWrites:
             sim_ids = pool.map(_worker_write, inputs)
         assert len(set(sim_ids)) == 8
         with SimulationCatalog(tmp_path) as cat:
-            total = cat._connection.execute("SELECT COUNT(*) FROM timeseries").fetchone()[0]
-            sims = cat._connection.execute(
+            total = cat.connection.execute("SELECT COUNT(*) FROM timeseries").fetchone()[0]
+            sims = cat.connection.execute(
                 "SELECT COUNT(DISTINCT sim_id) FROM timeseries"
             ).fetchone()[0]
         assert sims == 8
@@ -155,7 +155,7 @@ class TestAtomicInterruption:
             cat.write_timeseries(sid, "P01", "head", _make_series(), unit="m")
             stray = cat.parquet_dir_for(sid) / "timeseries.parquet.tmp"
             stray.write_bytes(b"corrupted")
-            count = cat._connection.execute(
+            count = cat.connection.execute(
                 "SELECT COUNT(*) FROM timeseries WHERE sim_id = ?", [sid]
             ).fetchone()[0]
             assert count == 5

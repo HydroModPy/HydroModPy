@@ -1152,8 +1152,8 @@ def _write_calibration_toml_for_project(
     simulation_config_name: str,
     workspace_root: Path,
 ) -> Path:
-    """Materialise the v0.6 calibration TOML on disk next to the simulation."""
-    calibration_path = benchmark_root / f"calibration_v06_{method_instance_name}.toml"
+    """Materialise the calibration TOML on disk next to the simulation."""
+    calibration_path = benchmark_root / f"calibration_case_{method_instance_name}.toml"
     rendered: dict[str, Any] = {
         "base_config": str(simulation_config_name),
         "workspace": {"root": str(workspace_root)},

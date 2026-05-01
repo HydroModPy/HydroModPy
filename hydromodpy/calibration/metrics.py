@@ -304,10 +304,10 @@ def _score(observed: pd.Series, simulated: pd.Series, objective: str) -> float:
     obs_aligned, sim_aligned = _align_to_simulation_step(obs, sim)
     paired = pd.concat([obs_aligned.rename("obs"), sim_aligned.rename("sim")], axis=1).dropna()
     if paired.empty:
-        return float("nan")
+        raise ValueError("No overlapping finite observation/simulation samples for calibration")
     value = float(metric(paired["sim"].values, paired["obs"].values))
-    if np.isnan(value):
-        return float("nan")
+    if not np.isfinite(value):
+        raise ValueError(f"Calibration metric {objective!r} returned a non-finite value")
     return (1.0 - value) if objective.lower() in HIGHER_IS_BETTER else value
 
 
@@ -381,7 +381,7 @@ def build_metric_extractor(
                 for obs_rec in observed:
                     cost = _score(obs_rec.series, simulated, objective)
                     components[f"{objective}@{obs_rec.station_id}"] = cost
-                    if not np.isnan(cost):
+                    if np.isfinite(cost):
                         costs.append(cost)
                 if not costs:
                     raise ValueError("No finite discharge calibration costs were produced")
@@ -415,7 +415,7 @@ def build_metric_extractor(
                         )
                     cost = _score(obs_rec.series, sim, objective)
                     components[f"{objective}@{obs_rec.station_id}"] = cost
-                    if not np.isnan(cost):
+                    if np.isfinite(cost):
                         costs.append(cost)
                 if not costs:
                     raise ValueError("No finite head calibration costs were produced")
@@ -565,13 +565,25 @@ def _extract_boundary(ctx: Any, output: CalibOutputDecl) -> list[float]:
 def _extract_cell(ctx: Any, output: CalibOutputDecl) -> list[float]:
     """Extract a head time series at a structured (row, col) cell.
 
-    The current schema does not expose ``row`` / ``col`` explicitly on
-    :class:`CalibOutputDecl` (twin benchmarks pass ``support="cell"`` to
-    bypass coordinate lookup). The API entry point is in place for callers
-    that pre-resolve a cell elsewhere.
+    ``support="cell"`` uses explicit structured indices and therefore
+    bypasses point-to-cell lookup.
     """
-    del ctx, output
-    raise NotImplementedError("Cell calibration outputs require explicit row/column schema support")
+    if output.row is None or output.col is None:
+        raise NotImplementedError("Cell calibration outputs require explicit row/column schema")
+    resolved = _resolve_flow_adapter(ctx)
+    if resolved is None:
+        raise NotImplementedError("No flow solver adapter available for cell extraction")
+    adapter, run_ctx = resolved
+    sim = adapter.extract_calibration_series(
+        run_ctx,
+        None,
+        variable=output.variable,
+        station_cells={"_cell": (int(output.layer), int(output.row), int(output.col))},
+        time_index=None,
+    )
+    if sim.empty:
+        raise NotImplementedError("Solver returned no cell calibration series")
+    return _slice_time(sim.values, output.time, output.reducer)
 
 
 def _find_cell_at_point(ctx: Any, x: float, y: float) -> tuple[int, int, int] | None:

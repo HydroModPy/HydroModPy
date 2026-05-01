@@ -47,16 +47,16 @@ def run(config: Any, **kwargs: Any) -> Any:
 
 
 def calibrate(config: Any, **kwargs: Any) -> Any:
-    """Functional facade for ``hmp run`` with ``workflow = "calibration"``."""
-    from hydromodpy.cli.workflows import dispatch_workflow, resolve_workflow
+    """Functional facade for :meth:`hydromodpy.Project.calibrate`."""
+    from hydromodpy.project import Project
 
-    config_path = Path(config).expanduser().resolve()
-    workflow = resolve_workflow(
-        config_path,
-        cli_workflow="calibration",
-        require_toml_field=True,
-    )
-    return dispatch_workflow(workflow, config_path, **kwargs)
+    if isinstance(config, (str, Path)):
+        config_path = Path(config).expanduser().resolve()
+        with Project.lazy(config_path, headless=kwargs.pop("headless", True)) as project:
+            return project.calibrate(config_path=config_path, **kwargs)
+
+    with Project.lazy(config, headless=kwargs.pop("headless", True)) as project:
+        return project.calibrate(**kwargs)
 
 
 def overview(config: Any, **kwargs: Any) -> Any:

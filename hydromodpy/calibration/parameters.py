@@ -159,6 +159,49 @@ class ParameterSpace:
     def physical_bounds(self) -> dict[str, tuple[float, float]]:
         return {p.name: (p.lower, p.upper) for p in self._params}
 
+    def describe_values(self, values: Mapping[str, float]) -> dict[str, dict[str, Any]]:
+        """Return serializable parameter metadata for one candidate."""
+        out: dict[str, dict[str, Any]] = {}
+        for param in self._params:
+            if param.name not in values:
+                continue
+            physical = float(values[param.name])
+            out[param.name] = {
+                "value": physical,
+                "transformed_value": param.to_transformed(physical),
+                "bounds": [param.lower, param.upper],
+                "transformed_bounds": [
+                    param.lower_transformed,
+                    param.upper_transformed,
+                ],
+                "transform": param.transform,
+                "prior": param.prior,
+                "mode": param.mode,
+                "target": param.effective_path,
+                "units": param.units,
+            }
+        return out
+
+    def default_prior_mean_std(self) -> tuple[list[float], list[float]] | None:
+        """Return Normal-prior vectors in transformed space when declared."""
+        means: list[float] = []
+        stds: list[float] = []
+        has_normal = False
+        for param in self._params:
+            low = param.lower_transformed
+            high = param.upper_transformed
+            span = high - low
+            if param.prior == "normal":
+                has_normal = True
+                means.append(0.5 * (low + high))
+                stds.append(max(span / 6.0, 1e-12))
+            else:
+                means.append(0.5 * (low + high))
+                stds.append(max(span * 1e6, 1e12))
+        if not has_normal:
+            return None
+        return means, stds
+
     @classmethod
     def from_toml_mapping(
         cls,

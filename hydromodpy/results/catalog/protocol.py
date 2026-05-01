@@ -111,6 +111,8 @@ class SimulationStore(Protocol):
         crs_wkt: str,
         grid_mapping_name: str = "latitude_longitude",
         epsg_code: int | None = None,
+        semi_major_axis: float | None = None,
+        inverse_flattening: float | None = None,
     ) -> None:
         """Persist the CF CRS grid mapping for ``sim_id``."""
 
@@ -123,6 +125,22 @@ class SimulationStore(Protocol):
         quality: str | None = None,
     ) -> None:
         """Persist observed station timeseries in the workspace observation table."""
+
+    def write_station(
+        self,
+        station_id: str,
+        variable_type: str,
+        *,
+        name: str | None = None,
+        latitude: float | None = None,
+        longitude: float | None = None,
+        elevation: float | None = None,
+        source: str | None = None,
+        first_valid: Any = None,
+        last_valid: Any = None,
+        metadata: dict[str, Any] | None = None,
+    ) -> None:
+        """Persist station metadata for an observed timeseries."""
 
     def write_mesh(
         self,
@@ -143,6 +161,9 @@ class SimulationStore(Protocol):
         value: float,
         *,
         variable: str = "head",
+        n_samples: int | None = None,
+        period_start: Any | None = None,
+        period_end: Any | None = None,
     ) -> None:
         """Persist a scalar metric for ``sim_id`` at ``station_id``."""
 
@@ -154,6 +175,10 @@ class SimulationStore(Protocol):
         data: np.ndarray,
         *,
         source_type: str = "data_manager",
+        source_sha256: str | None = None,
+        loader_name: str | None = None,
+        loader_version: str | None = None,
+        fetched_at: Any = None,
         period_start: Any = None,
         period_end: Any = None,
     ) -> None:

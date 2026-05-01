@@ -275,7 +275,7 @@ class TestRunCalibrationProgrammatic:
         from hydromodpy.results.catalog import SimulationCatalog
 
         with SimulationCatalog(tmp_path / "ws") as catalog:
-            rows = catalog._connection.execute(
+            rows = catalog.connection.execute(
                 "SELECT COUNT(*) FROM calibration_iterations WHERE session_id = ?",
                 [uuid.UUID(report.session_id)],
             ).fetchone()

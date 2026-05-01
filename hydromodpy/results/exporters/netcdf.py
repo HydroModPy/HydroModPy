@@ -54,6 +54,7 @@ def export_netcdf(
     sz = SimulationZarr(zarr_path)
     try:
         grp = sz.root
+        crs_attrs = dict(grp["crs"].attrs) if "crs" in grp else {}
 
         mesh = grp.get("mesh")
         if mesh is None or "vertices" not in mesh or "face_node_connectivity" not in mesh:
@@ -104,6 +105,8 @@ def export_netcdf(
         },
     )
     ds["z_interfaces"] = xr.DataArray(z_interfaces, dims=("n_z_interface",))
+    if crs_attrs:
+        ds["crs"] = xr.DataArray(np.int32(0), attrs=crs_attrs)
 
     # Compute face centroids for spatial reference
     valid_mask = connectivity >= 0

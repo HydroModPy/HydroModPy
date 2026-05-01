@@ -75,7 +75,7 @@ Run the underlying example or validation case with:
 
 .. code-block:: bash
 
-   python -m hydromodpy run examples_legacy_2/projects/launcher_simulation/run_headwater_100km2_outlet_2_mf6_transient_reference.toml
+   python -m tools.doc_gallery
 
 Refresh the committed gallery artifacts with:
 
@@ -100,35 +100,35 @@ Selected Parameters
    * - ``[simulation.time] start_datetime``
      - Start of the simulated period used by the flow and transport run.
      - 2003-01-01 00:00:00
-     - ``examples_legacy_2/projects/launcher_simulation/run_headwater_100km2_outlet_2_mf6_transient_reference.toml``
+     - ``docs/readthedocs/source/_static/capability_gallery/simulation/headwater_100km2_outlet_2_mf6_transient_reference_summary.json``
    * - ``[simulation.time] end_datetime``
      - End of the simulated period used by the flow and transport run.
      - 2005-12-31 00:00:00
-     - ``examples_legacy_2/projects/launcher_simulation/run_headwater_100km2_outlet_2_mf6_transient_reference.toml``
+     - ``docs/readthedocs/source/_static/capability_gallery/simulation/headwater_100km2_outlet_2_mf6_transient_reference_summary.json``
    * - ``[simulation.time] step_value``
      - Nominal time step used to discretize the simulation period.
      - 1 month
-     - ``examples_legacy_2/projects/launcher_simulation/run_headwater_100km2_outlet_2_mf6_transient_reference.toml``
+     - ``docs/readthedocs/source/_static/capability_gallery/simulation/headwater_100km2_outlet_2_mf6_transient_reference_summary.json``
    * - ``[data.recharge.sources] values``
      - Synthetic recharge sequence injected into the run over the configured time support.
      - 2.4, 2.2, 1.8, 1.2, 0.7, 0.2, -0.3, -0.5, 0.1, 0.9, 1.8, 2.3, 2.1, 1.9, 1.5, 1, 0.4, 0, -0.6, -0.8, -0.1, 0.7, 1.6, 2, 2.7, 2.4, 1.9, 1.3, 0.8, 0.3, -0.2, -0.4, 0.2, 1.1, 2, 2.6
-     - ``examples_legacy_2/projects/launcher_simulation/run_headwater_100km2_outlet_2_mf6_transient_reference.toml``
+     - ``docs/readthedocs/source/_static/capability_gallery/simulation/headwater_100km2_outlet_2_mf6_transient_reference_summary.json``
    * - ``[data.recharge.sources] freq``
      - Temporal frequency used to interpret the synthetic recharge sequence.
      - MS
-     - ``examples_legacy_2/projects/launcher_simulation/run_headwater_100km2_outlet_2_mf6_transient_reference.toml``
+     - ``docs/readthedocs/source/_static/capability_gallery/simulation/headwater_100km2_outlet_2_mf6_transient_reference_summary.json``
    * - ``[data.recharge.sources] runoff_ratio``
      - Fraction of recharge redirected to runoff rather than infiltration.
      - 0.12
-     - ``examples_legacy_2/projects/launcher_simulation/run_headwater_100km2_outlet_2_mf6_transient_reference.toml``
+     - ``docs/readthedocs/source/_static/capability_gallery/simulation/headwater_100km2_outlet_2_mf6_transient_reference_summary.json``
    * - ``[flow.param.K.field_homogeneous] value``
      - Homogeneous hydraulic conductivity used by the flow model in this tutorial run.
      - 2.5e-05
-     - ``examples_legacy_2/projects/launcher_simulation/run_headwater_100km2_outlet_2_mf6_transient_reference.toml``
+     - ``docs/readthedocs/source/_static/capability_gallery/simulation/headwater_100km2_outlet_2_mf6_transient_reference_summary.json``
    * - ``[flow.param.Sy.field_homogeneous] value``
      - Specific yield used to control the free-surface response of the aquifer.
      - 0.1
-     - ``examples_legacy_2/projects/launcher_simulation/run_headwater_100km2_outlet_2_mf6_transient_reference.toml``
+     - ``docs/readthedocs/source/_static/capability_gallery/simulation/headwater_100km2_outlet_2_mf6_transient_reference_summary.json``
 
 Mesh and Output Selection
 ^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -144,14 +144,14 @@ Mesh and Output Selection
    * - ``[capability_gallery] assets``
      - Subset of run outputs copied into the static documentation gallery.
      - flow_state_triptych.png, recharge_discharge_cumulative.png, watertable_elevation.png, watertable_depth.png, flow_support_overview.png
-     - ``examples_legacy_2/projects/launcher_simulation/run_headwater_100km2_outlet_2_mf6_transient_reference.toml``
+     - ``docs/readthedocs/source/_static/capability_gallery/simulation/headwater_100km2_outlet_2_mf6_transient_reference_summary.json``
 
 Source Pointers
 ---------------
 
-- ``examples_legacy_2/projects/launcher_simulation/run_headwater_100km2_outlet_2_mf6_transient_reference.toml``
-- ``examples_legacy_2/projects/launcher_simulation/config_headwater_100km2_mf6_transient_common.toml``
-- ``examples_legacy_2/projects/launcher_simulation/README.md``
+- ``docs/readthedocs/source/_static/capability_gallery/simulation/headwater_100km2_outlet_2_mf6_transient_reference_summary.json``
+- ``docs/readthedocs/source/_static/capability_gallery/simulation/headwater_100km2_outlet_2_mf6_transient_reference_summary.json``
+- ``docs/readthedocs/source/_static/capability_gallery/simulation/headwater_100km2_outlet_2_mf6_transient_reference_summary.json``
 - ``examples/projects/09_capability_gallery/launcher_simulation/headwater_100km2_outlet_2_mf6_transient_reference/manifest.json``
 - ``hydromodpy/analysis/capability_gallery.py``
 

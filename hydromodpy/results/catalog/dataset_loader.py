@@ -123,7 +123,7 @@ class DatasetLoader:
         if not filters:
             from hydromodpy.results.simulation_group import SimulationGroup
 
-            rows = self._catalog._connection.execute(
+            rows = self._catalog.connection.execute(
                 "SELECT CAST(sim_id AS VARCHAR) FROM simulations ORDER BY created_at DESC"
             ).fetchall()
             return SimulationGroup([str(r[0]) for r in rows], self._catalog)
@@ -159,7 +159,7 @@ class DatasetLoader:
     def _select_simulations(self, sim_ids: list[str]) -> pd.DataFrame:
         placeholders = ", ".join(["?"] * len(sim_ids))
         cols = ", ".join(_SIM_META_COLUMNS)
-        df = self._catalog._connection.execute(
+        df = self._catalog.connection.execute(
             f"SELECT {cols} FROM simulations WHERE sim_id IN ({placeholders})",
             sim_ids,
         ).fetchdf()
@@ -168,7 +168,7 @@ class DatasetLoader:
 
     def _select_parameters(self, sim_ids: list[str]) -> pd.DataFrame:
         placeholders = ", ".join(["?"] * len(sim_ids))
-        df = self._catalog._connection.execute(
+        df = self._catalog.connection.execute(
             f"SELECT sim_id, param_name, zone_id, value "
             f"FROM parameters WHERE sim_id IN ({placeholders})",
             sim_ids,
@@ -191,7 +191,7 @@ class DatasetLoader:
 
     def _select_metrics(self, sim_ids: list[str]) -> pd.DataFrame:
         placeholders = ", ".join(["?"] * len(sim_ids))
-        df = self._catalog._connection.execute(
+        df = self._catalog.connection.execute(
             f"SELECT sim_id, station_id, metric_name, value "
             f"FROM metrics WHERE sim_id IN ({placeholders})",
             sim_ids,
@@ -215,7 +215,7 @@ class DatasetLoader:
     def _select_environment(self, sim_ids: list[str]) -> pd.DataFrame:
         placeholders = ", ".join(["?"] * len(sim_ids))
         cols = ", ".join(_ENV_META_COLUMNS)
-        df = self._catalog._connection.execute(
+        df = self._catalog.connection.execute(
             f"SELECT sim_id, {cols} FROM runs_environment WHERE sim_id IN ({placeholders})",
             sim_ids,
         ).fetchdf()

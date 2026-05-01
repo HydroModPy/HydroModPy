@@ -71,7 +71,7 @@ class ExportVariablesConfig(HydroModelBase):
     )
     derived: Annotated[bool, Profile.USER] = Field(
         default=True,
-        description="Export derived variables (watertable_depth, seepage_areas, etc.).",
+        description="Export derived variables (watertable_depth, seepage_mask, etc.).",
     )
 
     def active_names(self) -> list[str]:
@@ -82,7 +82,7 @@ class ExportVariablesConfig(HydroModelBase):
         if self.concentration:
             names.append("concentration")
         if self.derived:
-            names.extend(["watertable_elevation", "watertable_depth", "seepage_areas"])
+            names.extend(["watertable_elevation", "watertable_depth", "seepage_mask"])
         return names
 
 
