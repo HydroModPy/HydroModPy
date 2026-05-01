@@ -1080,7 +1080,12 @@ class WritesMixin:
                 copy_sql = f"COPY ({merge_sql}) TO '{tmp}' (FORMAT PARQUET{kv_clause})"
             else:
                 copy_sql = f"COPY ({select_sql}) TO '{tmp}' (FORMAT PARQUET{kv_clause})"
-            self._db.execute(copy_sql)
+            tmp.parent.mkdir(parents=True, exist_ok=True)
+            try:
+                self._db.execute(copy_sql)
+            except Exception:
+                tmp.unlink(missing_ok=True)
+                raise
         finally:
             self._db.unregister("_hmp_insert")
         os.replace(tmp, target)

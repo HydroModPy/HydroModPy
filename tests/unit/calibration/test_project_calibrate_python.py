@@ -300,6 +300,47 @@ class TestRunCalibrationProgrammatic:
             ).fetchone()
         assert rows[0] == 3
 
+    def test_save_runs_all_promotes_every_completed_iteration(
+        self, fake_project, fake_pipeline, quadratic_metric
+    ):
+        cfg = _baseline_cfg().model_copy(update={"save_runs": "all"})
+        report = run_calibration_programmatic(
+            cfg,
+            project=fake_project,
+            metric_fn=quadratic_metric,
+        )
+
+        assert report.promoted == report.n_iterations == 3
+        assert len(fake_pipeline) == 3
+        assert report.best_sim_id in {row["sim_id"] for row in fake_pipeline}
+
+    def test_failed_required_promotion_marks_session_failed(
+        self, fake_project, fake_pipeline, quadratic_metric, monkeypatch, tmp_path
+    ):
+        def _fail_promote(*args, **kwargs):
+            del args, kwargs
+            raise RuntimeError("promotion unavailable")
+
+        monkeypatch.setattr(runner_module, "promote_trial", _fail_promote)
+        cfg = _baseline_cfg().model_copy(update={"save_runs": "all"})
+
+        report = run_calibration_programmatic(
+            cfg,
+            project=fake_project,
+            metric_fn=quadratic_metric,
+        )
+
+        from hydromodpy.results.catalog import SimulationCatalog
+
+        with SimulationCatalog(tmp_path / "ws") as catalog:
+            row = catalog.connection.execute(
+                "SELECT status, error_message FROM calibration_sessions WHERE session_id = ?",
+                [uuid.UUID(report.session_id)],
+            ).fetchone()
+        assert report.promoted == 0
+        assert row[0] == "failed"
+        assert "promotion unavailable" in row[1]
+
 
 # ---------------------------------------------------------------------------
 # Project.calibrate dispatch

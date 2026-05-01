@@ -422,6 +422,7 @@ def _run_calibration(
     final_status = "failed"
     final_error: str | None = None
     promotion_count = 0
+    promotion_failures: list[str] = []
     best_sim_id: str | None = None
     best: EvaluationResult | None = None
 
@@ -429,27 +430,38 @@ def _run_calibration(
         session = engine.run()
         best = session.best
 
-        if cfg.save_runs != "none":
+        promotion_required = cfg.save_runs != "none" or cfg.rerun_best_with_outputs
+        if promotion_required:
             if cfg_path is None:
                 raise ValueError(
-                    f"calibration.save_runs={cfg.save_runs!r} requires a source TOML "
-                    "(promotion replays the full pipeline). Provide cfg_path or set "
-                    "save_runs='none' for trace-only sessions."
+                    "Calibration promotion requires a source TOML "
+                    "(promotion replays the full pipeline). Provide cfg_path or disable "
+                    "save_runs/rerun_best_with_outputs."
                 )
             if cfg.save_runs == "best_n":
                 top = persistence.top_n(session_id, cfg.save_best_n)
-            else:
+            elif cfg.save_runs == "all":
                 top = [
                     row
                     for row in persistence.load_iterations(session_id)
                     if row["status"] == "completed" and row["objective_value"] is not None
                 ]
+            else:
+                top = []
+            if cfg.rerun_best_with_outputs and best is not None:
+                completed = [
+                    row
+                    for row in persistence.load_iterations(session_id)
+                    if row["status"] == "completed" and row["objective_value"] is not None
+                ]
+                best_rows = [row for row in completed if int(row["iteration"]) == best.trial_id]
+                if best_rows and all(int(row["iteration"]) != best.trial_id for row in top):
+                    top.append(best_rows[0])
             if top:
                 print(
                     f"Promoting {len(top)} iteration(s) as full simulations...",
                     file=sys.stderr,
                 )
-            best_obj = best.objective_value if best else None
             for row in top:
                 values = {
                     name: _stored_parameter_value(row["parameters"][name])
@@ -464,19 +476,16 @@ def _run_calibration(
                         name=f"{cfg.method}_iter_{row['iteration']:04d}",
                         session_id=session_id,
                     )
-                except Exception:
+                except Exception as exc:
                     logger.exception(
-                        "Promotion failed for iteration %d; skipping.",
+                        "Promotion failed for iteration %d.",
                         row["iteration"],
                     )
+                    promotion_failures.append(f"iteration {row['iteration']}: {exc}")
                     continue
                 _update_iter_sim_id(catalog, session_id, row["iteration"], sim_id)
                 promotion_count += 1
-                if (
-                    best_sim_id is None
-                    and best_obj is not None
-                    and row["objective_value"] == best_obj
-                ):
+                if best is not None and int(row["iteration"]) == best.trial_id:
                     best_sim_id = sim_id
 
         n_total = len(session.history)
@@ -489,6 +498,9 @@ def _run_calibration(
             final_status = "failed"
             if n_total == 0:
                 final_error = "no iterations completed"
+        if promotion_failures:
+            final_status = "partial" if promotion_count > 0 else "failed"
+            final_error = "; ".join(promotion_failures)
     except KeyboardInterrupt:
         final_status = "aborted"
         final_error = "SIGINT"

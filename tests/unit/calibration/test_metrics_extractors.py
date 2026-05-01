@@ -18,15 +18,18 @@ from types import SimpleNamespace
 import pandas as pd
 import pytest
 
+from hydromodpy.calibration import metrics as metrics_module
 from hydromodpy.calibration.config import (
     CalibObjectiveBlockDecl,
     CalibOutputDecl,
 )
 from hydromodpy.calibration.metrics import (
+    ObservedSeries,
     _coerce_length_to_m,
     _extract_boundary,
     _extract_cell,
     _extract_point,
+    _resolve_station_cells,
     _score,
     _slice_time,
     build_metric_extractor,
@@ -79,6 +82,8 @@ class TestCompositeRouting:
                 {
                     "variable": "head",
                     "support": "cell",
+                    "row": 0,
+                    "col": 0,
                     "observed_values": [1.0, 2.0, 3.0],
                 }
             )
@@ -164,7 +169,43 @@ class TestHelpers:
         with pytest.raises(NotImplementedError, match="No flow solver adapter"):
             _extract_boundary(ctx, out)
 
-    def test_extract_cell_raises_until_schema_supports_indices(self):
-        out = CalibOutputDecl.model_validate({"variable": "head", "support": "cell"})
-        with pytest.raises(NotImplementedError, match="explicit row/column schema"):
+    def test_extract_boundary_requires_adapter_boundary_filter(self, monkeypatch):
+        class _Adapter:
+            def extract_calibration_series(self, ctx, store, *, variable, time_index=None):
+                del ctx, store, variable, time_index
+                return pd.Series([1.0])
+
+        run_ctx = SimpleNamespace(run=SimpleNamespace(solver="fake_solver"))
+        monkeypatch.setattr(
+            metrics_module,
+            "_resolve_flow_adapter",
+            lambda ctx: (_Adapter(), run_ctx),
+        )
+        out = CalibOutputDecl.model_validate(
+            {"variable": "discharge", "support": "boundary", "boundary_id": "outlet"}
+        )
+        with pytest.raises(NotImplementedError, match="cannot filter calibration boundary_id"):
+            _extract_boundary(_empty_ctx(), out)
+
+    def test_extract_cell_raises_when_no_flow_run(self):
+        out = CalibOutputDecl.model_validate(
+            {"variable": "head", "support": "cell", "row": 0, "col": 1}
+        )
+        with pytest.raises(NotImplementedError, match="No flow solver adapter"):
             _extract_cell(_empty_ctx(), out)
+
+    def test_station_cells_uses_structural_metadata_without_mesh(self):
+        rec = SimpleNamespace(station_id="P1", cell_ij=(3, 4, 2))
+        ctx = SimpleNamespace(
+            setup=SimpleNamespace(mesh_planar=None, domain=None),
+            loaded_data=SimpleNamespace(piezometry=SimpleNamespace(points=[rec])),
+        )
+        observed = [
+            ObservedSeries(
+                station_id="P1",
+                variable="head",
+                series=pd.Series([1.0], index=pd.DatetimeIndex(["2020-01-01"])),
+            )
+        ]
+
+        assert _resolve_station_cells(ctx, observed) == {"P1": (2, 3, 4)}

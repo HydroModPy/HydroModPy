@@ -23,6 +23,10 @@ from typing import TYPE_CHECKING, Any, Protocol
 from hydromodpy.core.logging import get_logger
 from hydromodpy.display.catalog import get as _get_figure
 from hydromodpy.display.catalog import names as _figure_names
+from hydromodpy.results.time_alignment import (
+    normalize_datetime_series,
+    observed_on_simulation_index,
+)
 
 if TYPE_CHECKING:
     import pandas as pd
@@ -176,21 +180,26 @@ def _render_figures(
     registered = set(_figure_names())
     run_stub = _SessionRunStub(session_id, iterations)
     rendered: list[tuple[str, Path]] = []
+    failures: list[str] = []
     for figure_name in figure_names:
         if figure_name not in registered:
-            logger.debug("skip %s (not registered)", figure_name)
+            failures.append(f"{figure_name}: figure is not registered")
             continue
         out_path = figures_dir / f"{figure_name}.png"
         try:
             fig_cls = _get_figure(figure_name)
             fig_cls.plot(run_stub, save_path=out_path, session_id=session_id)
         except Exception as exc:
-            logger.warning("%s failed: %s", figure_name, exc)
+            failures.append(f"{figure_name}: {exc}")
             plt.close("all")
             continue
         plt.close("all")
         if out_path.exists():
             rendered.append((figure_name, out_path))
+        else:
+            failures.append(f"{figure_name}: no output file was written")
+    if failures:
+        raise RuntimeError("Calibration report figure rendering failed: " + "; ".join(failures))
     return rendered
 
 
@@ -200,7 +209,7 @@ def _render_best_obs_vs_sim(
     sim_df: pd.DataFrame | None,
     obs_df: pd.DataFrame | None,
     figures_dir: Path,
-) -> Path | None:
+) -> Path:
     """Plot observed vs simulated discharge for the best promoted run.
 
     The simulated column already includes the ``DRN + runoff``
@@ -215,24 +224,19 @@ def _render_best_obs_vs_sim(
     import pandas as pd
 
     if sim_df is None or sim_df.empty:
-        logger.warning("best_obs_vs_sim: no simulated discharge for sim %s", sim_id)
-        return None
+        raise ValueError(f"best_obs_vs_sim: no simulated discharge for sim {sim_id}")
     if obs_df is None or obs_df.empty:
-        logger.warning("best_obs_vs_sim: no observed discharge for sim %s", sim_id)
-        return None
+        raise ValueError(f"best_obs_vs_sim: no observed discharge for sim {sim_id}")
 
-    sim = pd.Series(sim_df["value"].values, index=pd.DatetimeIndex(sim_df["datetime"]))
-    obs = pd.Series(obs_df["value"].values, index=pd.DatetimeIndex(obs_df["datetime"]))
-    if sim.index.tz is not None:
-        sim = sim.tz_localize(None)
-    if obs.index.tz is not None:
-        obs = obs.tz_localize(None)
-
-    sim = sim.sort_index()
-    obs = obs.sort_index()
+    sim = normalize_datetime_series(
+        pd.Series(sim_df["value"].values, index=pd.DatetimeIndex(sim_df["datetime"]))
+    )
+    obs = normalize_datetime_series(
+        pd.Series(obs_df["value"].values, index=pd.DatetimeIndex(obs_df["datetime"]))
+    )
     obs_daily = obs.loc[sim.index.min() : sim.index.max()]
 
-    obs_binned = _bin_obs_to_sim_index(obs_daily, sim.index)
+    obs_binned = observed_on_simulation_index(obs_daily, pd.DatetimeIndex(sim.index))
 
     out_path = figures_dir / "best_obs_vs_sim.png"
     fig, (ax_ts, ax_sc) = plt.subplots(
@@ -281,32 +285,6 @@ def _render_best_obs_vs_sim(
     fig.savefig(out_path, bbox_inches="tight")
     plt.close(fig)
     return out_path
-
-
-def _bin_obs_to_sim_index(obs, sim_index):
-    """Average daily observations into bins centered on simulation timestamps.
-
-    Each simulation timestamp ``t`` covers ``[t - dt/2, t + dt/2)`` where
-    ``dt`` is the median sim step. Falls back to a nearest-reindex when
-    the obs sampling is not finer than the sim sampling.
-    """
-    import pandas as pd
-
-    if obs.empty or len(sim_index) < 2:
-        return obs.copy()
-
-    sim_index = sim_index.sort_values()
-    sim_step = pd.Timedelta(sim_index.to_series().diff().dropna().median())
-    obs_step = pd.Timedelta(obs.index.to_series().diff().dropna().median())
-    if sim_step <= obs_step:
-        return obs.reindex(sim_index, method="nearest", tolerance=sim_step)
-
-    half = sim_step / 2
-    bin_edges = pd.DatetimeIndex([sim_index[0] - half] + [t + half for t in sim_index])
-    binned_keys = pd.cut(obs.index, bins=bin_edges, right=False)
-    obs_aligned = obs.groupby(binned_keys, observed=True).mean()
-    obs_aligned.index = sim_index[: len(obs_aligned)]
-    return obs_aligned
 
 
 # ---------------------------------------------------------------------------

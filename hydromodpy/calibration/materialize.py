@@ -22,7 +22,6 @@ keeps the layer matrix ``calibration -> master_config`` edge at zero.
 from __future__ import annotations
 
 import re
-import tomllib
 from collections.abc import Mapping, Sequence
 from copy import deepcopy
 from pathlib import Path
@@ -30,6 +29,7 @@ from typing import TYPE_CHECKING, Any
 
 from hydromodpy.calibration.parameters import ParameterSpace
 from hydromodpy.core.config_kit.root_config_protocol import get_root_config_provider
+from hydromodpy.core.toml_io.loader import load_toml_with_base_config
 from hydromodpy.core.toml_io.writer import dump as dump_toml
 
 if TYPE_CHECKING:
@@ -148,8 +148,7 @@ def _load_base_payload(
     base_path = Path(base_config).expanduser().resolve()
     if not base_path.is_file():
         raise FileNotFoundError(f"base_config not found: {base_path}")
-    with open(base_path, "rb") as f:
-        return tomllib.load(f), base_path
+    return load_toml_with_base_config(base_path), base_path
 
 
 def _apply_parameter_mode(
@@ -256,6 +255,10 @@ def materialize_candidate(
     overlay_path = candidate_dir / "candidate_override.toml"
 
     base_dir_resolved = Path(base_dir).expanduser().resolve() if base_dir is not None else None
+    if base_path is None and base_dir_resolved is None:
+        raise ValueError(
+            "materialize_candidate requires base_dir when base_config is an in-memory config"
+        )
 
     overlay: dict[str, Any] = deepcopy(base_raw) if base_path is None else {}
     if base_path is not None:

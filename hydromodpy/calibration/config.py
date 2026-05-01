@@ -118,6 +118,10 @@ class CalibOutputDecl(HydroModelBase):
         description="'point' reads at (x, y); 'boundary' sums flux at boundary_id; "
         "'cell' reads a single cell.",
     )
+    geometry: Annotated[dict[str, Any] | None, Profile.USER] = Field(
+        default=None,
+        description="GeoJSON point geometry when support='point'. Coordinates are in metres.",
+    )
     x: Annotated[Length | None, Profile.USER] = Field(
         default=None,
         description="X coordinate when support='point'. Accepts a bare number "
@@ -131,6 +135,11 @@ class CalibOutputDecl(HydroModelBase):
     boundary_id: Annotated[str | None, Profile.USER] = Field(
         default=None,
         description="Boundary package identifier when support='boundary'.",
+    )
+    cell_id: Annotated[int | None, Profile.USER] = Field(
+        default=None,
+        ge=0,
+        description="Flat cell index when support='cell' and the backend exposes one.",
     )
     row: Annotated[int | None, Profile.USER] = Field(
         default=None,
@@ -163,10 +172,16 @@ class CalibOutputDecl(HydroModelBase):
 
     @model_validator(mode="after")
     def _check_support_required_fields(self) -> CalibOutputDecl:
-        if self.support == "point" and (self.x is None or self.y is None):
-            raise ValueError("support='point' requires both 'x' and 'y' to be set.")
+        if self.support == "point" and (self.x is None or self.y is None) and self.geometry is None:
+            raise ValueError("support='point' requires both 'x' and 'y', or 'geometry'.")
         if self.support == "boundary" and self.boundary_id is None:
             raise ValueError("support='boundary' requires 'boundary_id' to be set.")
+        if (
+            self.support == "cell"
+            and self.cell_id is None
+            and (self.row is None or self.col is None)
+        ):
+            raise ValueError("support='cell' requires 'cell_id' or both 'row' and 'col'.")
         return self
 
 

@@ -17,6 +17,7 @@ like valid NaN-scored evaluations.
 
 from __future__ import annotations
 
+import inspect
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from types import SimpleNamespace
@@ -31,6 +32,10 @@ from hydromodpy.calibration.objective import (
     build_objective_from_config,
 )
 from hydromodpy.core.logging import get_logger
+from hydromodpy.results.time_alignment import (
+    align_observed_simulated,
+    observed_on_simulation_index,
+)
 from hydromodpy.simulation.planning.plan import RunContext
 from hydromodpy.solver.base.registry import get_solver_adapter
 
@@ -128,6 +133,10 @@ def _resolve_flow_adapter(trial_ctx: Any) -> tuple[Any, RunContext] | None:
             break
     if flow_run is None:
         return None
+    if flow_run.solver == "boussinesq":
+        raise NotImplementedError(
+            "Calibration extraction is not implemented for solver 'boussinesq'"
+        )
 
     try:
         adapter = get_solver_adapter(flow_run.process_type, flow_run.solver)
@@ -198,7 +207,7 @@ def _add_runoff_to_discharge(
         runoff_mm_per_d = runoff_mm_per_d.tz_localize(None)
     elif runoff_index.tz is not None and target_index.tz is not None:
         runoff_mm_per_d = runoff_mm_per_d.tz_convert(target_index.tz)
-    aligned = runoff_mm_per_d.reindex(target_index, method="nearest")
+    aligned = observed_on_simulation_index(runoff_mm_per_d, pd.DatetimeIndex(target_index))
     runoff_m3_per_s = aligned * 1e-3 * catch_area_m2 / 86400.0
     return simulated.add(runoff_m3_per_s, fill_value=0.0)
 
@@ -237,55 +246,6 @@ def _resolve_time_index(ctx: Any, n_timesteps: int = 0) -> pd.DatetimeIndex | No
 # ---------------------------------------------------------------------------
 
 
-def _median_step(index: pd.DatetimeIndex) -> pd.Timedelta | None:
-    """Return the median spacing of a datetime index, or ``None`` when undefined."""
-    if len(index) < 2:
-        return None
-    deltas = index.to_series().diff().dropna()
-    if deltas.empty:
-        return None
-    return pd.Timedelta(deltas.median())
-
-
-def _align_to_simulation_step(obs: pd.Series, sim: pd.Series) -> tuple[pd.Series, pd.Series]:
-    """Match obs and sim on the simulation stress-period index.
-
-    The observed series is typically daily while the simulated series is
-    one value per stress period (e.g. monthly). Comparing them at the
-    daily index would broadcast each monthly sim value 30 times and bias
-    every metric. Instead we group obs into bins centered on the sim
-    timestamps and take the mean of every observation falling in the
-    bin. The simulated series stays at its native sampling.
-    """
-    if sim.empty or obs.empty:
-        return obs, sim
-
-    sim = sim.sort_index()
-    obs = obs.sort_index()
-
-    # Restrict obs to the simulated window.
-    obs = obs.loc[sim.index.min() : sim.index.max()]
-    if obs.empty:
-        return obs, sim
-
-    sim_step = _median_step(sim.index)
-    obs_step = _median_step(obs.index)
-    if sim_step is None or obs_step is None or sim_step <= obs_step:
-        # Nothing to bin (irregular index or sim is not coarser than obs).
-        sim_aligned = sim.reindex(obs.index, method="nearest", tolerance=sim_step)
-        return obs, sim_aligned
-
-    # Bin obs around each sim timestamp. Each sim point t covers
-    # [t - sim_step/2, t + sim_step/2). Use ``cut`` over the half-step
-    # boundaries derived from the simulation index.
-    half = sim_step / 2
-    bin_edges = pd.DatetimeIndex([sim.index[0] - half] + [t + half for t in sim.index])
-    binned = pd.cut(obs.index, bins=bin_edges, right=False)
-    obs_aligned = obs.groupby(binned, observed=True).mean()
-    obs_aligned.index = sim.index[: len(obs_aligned)]
-    return obs_aligned, sim.loc[obs_aligned.index]
-
-
 def _score(observed: pd.Series, simulated: pd.Series, objective: str) -> float:
     """Align both series at the simulation frequency, compute the scalar metric.
 
@@ -299,10 +259,7 @@ def _score(observed: pd.Series, simulated: pd.Series, objective: str) -> float:
             f"Unknown calibration objective {objective!r}. "
             f"Choices: {sorted(METRICS)} or a user callable via 'module.path:fn'."
         )
-    obs = observed.astype(float)
-    sim = simulated.astype(float)
-    obs_aligned, sim_aligned = _align_to_simulation_step(obs, sim)
-    paired = pd.concat([obs_aligned.rename("obs"), sim_aligned.rename("sim")], axis=1).dropna()
+    paired = align_observed_simulated(observed, simulated)
     if paired.empty:
         raise ValueError("No overlapping finite observation/simulation samples for calibration")
     value = float(metric(paired["sim"].values, paired["obs"].values))
@@ -434,19 +391,7 @@ def _resolve_station_cells(
     ctx: Any,
     observed: list[ObservedSeries],
 ) -> dict[str, tuple[int, int, int]]:
-    """Best-effort station → ``(layer, row, col)`` mapping.
-
-    Reads lat/lon from the station metadata and intersects with the
-    model grid when available. Returns an empty dict when the mapping
-    cannot be resolved.
-    """
-    domain = getattr(ctx.setup, "domain", None)
-    mesh = getattr(ctx.setup, "mesh_planar", None)
-    if mesh is None or domain is None:
-        return {}
-    # The real mapping lives in hydromodpy.data.variables.piezometry.* -
-    # we look up the station record directly from ctx.loaded_data.piezometry
-    # to avoid duplicating geometry logic here.
+    """Resolve station ids to structured ``(layer, row, col)`` cells."""
     piezo = getattr(ctx.loaded_data, "piezometry", None)
     if piezo is None:
         return {}
@@ -455,12 +400,72 @@ def _resolve_station_cells(
     for obs_rec in observed:
         for rec in points:
             if str(rec.station_id) == obs_rec.station_id:
-                cell = getattr(rec, "cell_ij", None) or getattr(rec, "cell", None)
-                if cell is not None and len(cell) >= 2:
-                    layer = int(cell[2]) if len(cell) >= 3 else 0
-                    cells[obs_rec.station_id] = (layer, int(cell[0]), int(cell[1]))
+                cell_ij = getattr(rec, "cell_ij", None)
+                cell = (
+                    _coerce_cell_ij(cell_ij)
+                    if cell_ij is not None
+                    else _coerce_structured_cell(
+                        getattr(rec, "cell", None) or getattr(rec, "station_cell", None)
+                    )
+                )
+                if cell is None:
+                    xy = _xy_from_record(rec)
+                    if xy is not None:
+                        cell = _find_cell_at_point(ctx, xy[0], xy[1])
+                if cell is not None:
+                    cells[obs_rec.station_id] = cell
                 break
     return cells
+
+
+def _coerce_cell_ij(value: Any) -> tuple[int, int, int] | None:
+    """Return ``(layer, row, col)`` from ``(row, col[, layer])`` metadata."""
+    try:
+        parts = tuple(value)
+    except TypeError:
+        return None
+    if len(parts) == 2:
+        return (0, int(parts[0]), int(parts[1]))
+    if len(parts) >= 3:
+        return (int(parts[2]), int(parts[0]), int(parts[1]))
+    return None
+
+
+def _coerce_structured_cell(value: Any) -> tuple[int, int, int] | None:
+    """Return ``(layer, row, col)`` from common station metadata shapes."""
+    if value is None:
+        return None
+    if isinstance(value, Mapping):
+        layer = value.get("layer", value.get("k", 0))
+        row = value.get("row", value.get("i"))
+        col = value.get("col", value.get("j"))
+        if row is None or col is None:
+            return None
+        return (int(layer), int(row), int(col))
+    try:
+        parts = tuple(value)
+    except TypeError:
+        return None
+    if len(parts) == 2:
+        return (0, int(parts[0]), int(parts[1]))
+    if len(parts) >= 3:
+        return (int(parts[0]), int(parts[1]), int(parts[2]))
+    return None
+
+
+def _xy_from_record(record: Any) -> tuple[float, float] | None:
+    """Extract planar x/y coordinates from an observation record."""
+    for x_name, y_name in (("x", "y"), ("easting", "northing"), ("longitude", "latitude")):
+        x_val = getattr(record, x_name, None)
+        y_val = getattr(record, y_name, None)
+        if x_val is not None and y_val is not None:
+            return float(x_val), float(y_val)
+    geometry = getattr(record, "geometry", None)
+    x_val = getattr(geometry, "x", None)
+    y_val = getattr(geometry, "y", None)
+    if x_val is not None and y_val is not None:
+        return float(x_val), float(y_val)
+    return None
 
 
 # ---------------------------------------------------------------------------
@@ -482,6 +487,53 @@ def _coerce_length_to_m(value: Any) -> float | None:
         except Exception:  # pragma: no cover - defensive: unexpected pint state
             pass
     return float(value)
+
+
+def _point_xy_from_output(output: CalibOutputDecl) -> tuple[float, float] | None:
+    """Return planar point coordinates from an output declaration."""
+    x_m = _coerce_length_to_m(output.x)
+    y_m = _coerce_length_to_m(output.y)
+    if x_m is not None and y_m is not None:
+        return x_m, y_m
+    geometry = output.geometry
+    if not geometry:
+        return None
+    if str(geometry.get("type", "")).lower() != "point":
+        raise ValueError("Point calibration geometry must be a GeoJSON Point")
+    coords = geometry.get("coordinates")
+    if not isinstance(coords, (list, tuple)) or len(coords) < 2:
+        raise ValueError("Point calibration geometry requires two coordinates")
+    return float(coords[0]), float(coords[1])
+
+
+def _call_extract_calibration_series(
+    adapter: Any,
+    run_ctx: RunContext,
+    *,
+    variable: str,
+    station_cells: Mapping[str, Any] | None = None,
+    boundary_id: str | None = None,
+    time_index: pd.DatetimeIndex | None = None,
+) -> pd.Series:
+    """Call an adapter while enforcing explicit boundary filtering support."""
+    kwargs: dict[str, Any] = {
+        "variable": variable,
+        "time_index": time_index,
+    }
+    if station_cells is not None:
+        kwargs["station_cells"] = station_cells
+    if boundary_id is not None:
+        signature = inspect.signature(adapter.extract_calibration_series)
+        supports_keyword = "boundary_id" in signature.parameters or any(
+            param.kind == inspect.Parameter.VAR_KEYWORD for param in signature.parameters.values()
+        )
+        if not supports_keyword:
+            raise NotImplementedError(
+                f"Solver {run_ctx.run.solver!r} cannot filter calibration boundary_id="
+                f"{boundary_id!r}"
+            )
+        kwargs["boundary_id"] = boundary_id
+    return adapter.extract_calibration_series(run_ctx, None, **kwargs)
 
 
 def _slice_time(values: np.ndarray, time: Any, reducer: str) -> list[float]:
@@ -519,17 +571,16 @@ def _extract_point(ctx: Any, output: CalibOutputDecl) -> list[float]:
         raise NotImplementedError("No flow solver adapter available for point extraction")
     adapter, run_ctx = resolved
 
-    x_m = _coerce_length_to_m(output.x)
-    y_m = _coerce_length_to_m(output.y)
-    if x_m is None or y_m is None:
-        raise ValueError("Point calibration output requires x and y")
+    xy = _point_xy_from_output(output)
+    if xy is None:
+        raise ValueError("Point calibration output requires x/y or geometry")
 
-    cell = _find_cell_at_point(ctx, x_m, y_m)
+    cell = _find_cell_at_point(ctx, xy[0], xy[1])
     if cell is None:
         raise NotImplementedError("Could not map point calibration output to a solver cell")
-    sim = adapter.extract_calibration_series(
+    sim = _call_extract_calibration_series(
+        adapter,
         run_ctx,
-        None,
         variable="head",
         station_cells={"_pt": cell},
         time_index=None,
@@ -540,21 +591,17 @@ def _extract_point(ctx: Any, output: CalibOutputDecl) -> list[float]:
 
 
 def _extract_boundary(ctx: Any, output: CalibOutputDecl) -> list[float]:
-    """Extract a boundary time series filtered by ``boundary_id``.
-
-    The current implementation reuses the catchment-wide DRAIN summation
-    exposed by ``SolverAdapter.extract_calibration_series(variable="discharge")``.
-    Filtering by named boundary id requires a boundname-aware reader.
-    """
+    """Extract a boundary time series filtered by ``boundary_id``."""
     resolved = _resolve_flow_adapter(ctx)
     if resolved is None:
         raise NotImplementedError("No flow solver adapter available for boundary extraction")
     adapter, run_ctx = resolved
 
-    sim = adapter.extract_calibration_series(
+    sim = _call_extract_calibration_series(
+        adapter,
         run_ctx,
-        None,
         variable="discharge",
+        boundary_id=str(output.boundary_id),
         time_index=None,
     )
     if sim.empty:
@@ -563,22 +610,24 @@ def _extract_boundary(ctx: Any, output: CalibOutputDecl) -> list[float]:
 
 
 def _extract_cell(ctx: Any, output: CalibOutputDecl) -> list[float]:
-    """Extract a head time series at a structured (row, col) cell.
-
-    ``support="cell"`` uses explicit structured indices and therefore
-    bypasses point-to-cell lookup.
-    """
-    if output.row is None or output.col is None:
-        raise NotImplementedError("Cell calibration outputs require explicit row/column schema")
+    """Extract a head time series at an explicit cell selector."""
     resolved = _resolve_flow_adapter(ctx)
     if resolved is None:
         raise NotImplementedError("No flow solver adapter available for cell extraction")
     adapter, run_ctx = resolved
-    sim = adapter.extract_calibration_series(
+    if output.row is not None and output.col is not None:
+        selector: Any = (int(output.layer), int(output.row), int(output.col))
+    elif output.cell_id is not None:
+        raise NotImplementedError(
+            f"Solver {run_ctx.run.solver!r} does not expose flat cell_id calibration selectors"
+        )
+    else:
+        raise ValueError("Cell calibration output requires row/col or cell_id")
+    sim = _call_extract_calibration_series(
+        adapter,
         run_ctx,
-        None,
         variable=output.variable,
-        station_cells={"_cell": (int(output.layer), int(output.row), int(output.col))},
+        station_cells={"_cell": selector},
         time_index=None,
     )
     if sim.empty:

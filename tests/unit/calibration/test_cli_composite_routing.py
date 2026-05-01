@@ -42,6 +42,8 @@ class TestCliWiring:
                     "head_A": {
                         "variable": "head",
                         "support": "cell",
+                        "row": 0,
+                        "col": 0,
                         "observed_values": [1.0, 2.0, 3.0],
                     }
                 },
@@ -76,6 +78,8 @@ class TestCliWiring:
                     "head_A": {
                         "variable": "head",
                         "support": "cell",
+                        "row": 0,
+                        "col": 0,
                         "observed_values": [10.0, 20.0, 30.0],
                     }
                 },
