@@ -131,9 +131,8 @@ utilisent des alias `Annotated` de `hydromodpy/core/units/` :
 `SpecificYield`, `Area`, `Volume`, `Dimensionless`. L'utilisateur peut
 écrire `"50 m"` ou `"0.1 km"`.
 
-`Profile` (`core/config/profile.py`, un `IntEnum`) contrôle la visibilité
-des champs dans les TOML générés. Le shim legacy `ParamLevel("user")`
-reste fonctionnel en v0.6.
+`Profile` (`hydromodpy.core.config_kit.profile.Profile`, un `IntEnum`)
+contrôle la visibilité des champs dans les TOML générés.
 
 ```python
 class DomainConfig(BaseModel):

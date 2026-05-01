@@ -28,8 +28,8 @@
   "reproduction_command": "python -m tools.doc_gallery",
   "gallery_update_command": "python -m tools.doc_gallery",
   "source_paths": [
-    "examples/projects/07_mesh_gallery/1000km2/mesh_1000km2_outlet_2_geology_rivers_buffer30/case.json",
     "examples/projects/07_mesh_gallery/1000km2/mesh_1000km2_outlet_2_geology_rivers_buffer30/viewer_config.toml",
+    "examples/projects/07_mesh_gallery/1000km2/mesh_1000km2_outlet_2_geology_rivers_buffer30/case.json",
     "examples/projects/07_mesh_gallery/1000km2/mesh_1000km2_outlet_2_geology_rivers_buffer30/README.md",
     "examples/projects/07_mesh_gallery/1000km2/mesh_1000km2_outlet_2_geology_rivers_buffer30/bundle/mesh_2d.msh",
     "examples/projects/07_mesh_gallery/1000km2/mesh_1000km2_outlet_2_geology_rivers_buffer30/bundle/nodes.csv",
@@ -43,9 +43,9 @@
     "examples/projects/07_mesh_gallery/1000km2/mesh_1000km2_outlet_2_geology_rivers_buffer30/figures/mesh_regional.png"
   ],
   "source_hashes": {
-    "examples/projects/07_mesh_gallery/1000km2/mesh_1000km2_outlet_2_geology_rivers_buffer30/case.json": "ecf242ad6fc3c98ff7aba69f2094125e059daa60c21e87ec22d3fca7c54d7fb0",
     "examples/projects/07_mesh_gallery/1000km2/mesh_1000km2_outlet_2_geology_rivers_buffer30/viewer_config.toml": "02c168393ab46e92192ffd360bb6bb60e3ba4909d9c2eb1e3b3a96564cb76fd7",
-    "examples/projects/07_mesh_gallery/1000km2/mesh_1000km2_outlet_2_geology_rivers_buffer30/README.md": "8eaa3df464c5696012804f1a450503c64137c964446aa2d9ac86f787775c033b",
+    "examples/projects/07_mesh_gallery/1000km2/mesh_1000km2_outlet_2_geology_rivers_buffer30/case.json": "ecf242ad6fc3c98ff7aba69f2094125e059daa60c21e87ec22d3fca7c54d7fb0",
+    "examples/projects/07_mesh_gallery/1000km2/mesh_1000km2_outlet_2_geology_rivers_buffer30/README.md": "d89091fbc7693f15fd15309a9a4941f40111c99ea4f1a6480e142dc40d0124de",
     "examples/projects/07_mesh_gallery/1000km2/mesh_1000km2_outlet_2_geology_rivers_buffer30/bundle/mesh_2d.msh": "62832f33090121299f3ab25c3b45513aa96ed2a399335239089ab061d67a6925",
     "examples/projects/07_mesh_gallery/1000km2/mesh_1000km2_outlet_2_geology_rivers_buffer30/bundle/nodes.csv": "6cc2edc536fb6a2c989fd807e67e19ec32f1430b76d1d7ccbf8fc31627ecb4d8",
     "examples/projects/07_mesh_gallery/1000km2/mesh_1000km2_outlet_2_geology_rivers_buffer30/bundle/cells.csv": "4a7bb0ed9f7b20436fb216054556fa37de8afe4cbff9a2b9f294d8c553d5f6ac",

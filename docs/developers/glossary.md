@@ -183,7 +183,7 @@ identiques au sein d'une session de calibration.
 ### Profile
 
 Nom canonique : `Profile` (IntEnum). Module :
-`hydromodpy.master_config.profile.Profile`. Trois niveaux :
+`hydromodpy.core.config_kit.profile.Profile`. Trois niveaux :
 
 - `Profile.USER` (1) : champs physiques et projet.
 - `Profile.DEV` (2) : tolérances, backends, cache.
@@ -191,12 +191,6 @@ Nom canonique : `Profile` (IntEnum). Module :
 
 Un champ est inclus dans un TOML généré si son profil est inférieur ou
 égal au profil demandé. Déclaration via `Annotated[T, Profile.X]`.
-
-### ParamLevel (shim)
-
-Module : `hydromodpy.master_config.param_level.ParamLevel`. Alias dataclass
-legacy (`ParamLevel("user" | "dev" | "expert")`) maintenu en v0.6 pour la
-compatibilité. Nouveau code : `Profile`. Retrait prévu en v0.7.
 
 ## Hygiène de nommage
 

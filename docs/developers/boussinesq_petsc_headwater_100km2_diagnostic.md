@@ -18,29 +18,22 @@ Objectif : une note technique autonome réutilisable pour :
 - futurs bug reports ou tickets de benchmark,
 - comparaison avec d'autres solveurs d'eau souterraine.
 
-## Reproduction
+## Reproduction Notes
 
-Main run command:
+The original PETSc diagnostic run was produced from an external run workspace
+that is not committed in this repository. The committed evidence now lives in
+the capability-gallery source tree:
 
-```bash
-python -m hydromodpy run examples/projects/launcher_simulation/run_headwater_100km2_outlet_2_boussinesq_petsc_partition_mesh_input.toml
-```
-
-Main config:
-
-- `examples/projects/launcher_simulation/run_headwater_100km2_outlet_2_boussinesq_petsc_partition_mesh_input.toml`
-
-Base config:
-
-- `examples/projects/launcher_simulation/run_headwater_100km2_outlet_2_boussinesq_mesh_input.toml`
+- `examples/projects/09_capability_gallery/launcher_simulation/headwater_100km2_outlet_2_mf6_transient_reference/manifest.json`
+- `examples/projects/09_capability_gallery/launcher_simulation/modflow6_gmsh_mesh_catchment/manifest.json`
 
 Mesh bundle reused by the run:
 
-- `examples/mesh_gallery/100km2/mesh_headwater_100km2_outlet_2_geology_rivers_buffer30/bundle`
+- `examples/projects/07_mesh_gallery/100km2/mesh_headwater_100km2_outlet_2_geology_rivers_buffer30/bundle`
 
 Typical failed-output summary path:
 
-- `examples/projects/launcher_simulation/results_reused_real_meshes/headwater_100km2_outlet_2/results_simulations/flow_main__boussinesq/_boussinesq_summary.json`
+- archived external run workspace, not committed under `examples/projects/`.
 
 ## Physical problem actually solved
 
@@ -328,7 +321,7 @@ so the previous failure was reached with a smaller nonlinear budget.
 At one point the case was started with:
 
 ```bash
-python -m launchers.process_simulation.launcher ...
+hmp run ...
 ```
 
 This does not run the launcher correctly here and can appear to no-op.
@@ -336,7 +329,7 @@ This does not run the launcher correctly here and can appear to no-op.
 The correct entrypoint is:
 
 ```bash
-python -m hydromodpy run <config>
+hmp run <config>
 ```
 
 ### 2. PETSc `Mat.shift()` called on an unassembled matrix
@@ -492,7 +485,7 @@ improvements for this case:
 After the latest local fixes, rerun exactly:
 
 ```bash
-python -m hydromodpy run examples/projects/launcher_simulation/run_headwater_100km2_outlet_2_boussinesq_petsc_partition_mesh_input.toml
+hmp run <project-config.toml>
 ```
 
 Then inspect:

@@ -27,8 +27,8 @@
   "reproduction_command": "python -m tools.doc_gallery",
   "gallery_update_command": "python -m tools.doc_gallery",
   "source_paths": [
-    "examples/projects/07_mesh_gallery/100km2/mesh_100km2_outlet_27_rivers_only_buffer30/case.json",
     "examples/projects/07_mesh_gallery/100km2/mesh_100km2_outlet_27_rivers_only_buffer30/viewer_config.toml",
+    "examples/projects/07_mesh_gallery/100km2/mesh_100km2_outlet_27_rivers_only_buffer30/case.json",
     "examples/projects/07_mesh_gallery/100km2/mesh_100km2_outlet_27_rivers_only_buffer30/README.md",
     "examples/projects/07_mesh_gallery/100km2/mesh_100km2_outlet_27_rivers_only_buffer30/bundle/mesh_2d.msh",
     "examples/projects/07_mesh_gallery/100km2/mesh_100km2_outlet_27_rivers_only_buffer30/bundle/nodes.csv",
@@ -42,9 +42,9 @@
     "examples/projects/07_mesh_gallery/100km2/mesh_100km2_outlet_27_rivers_only_buffer30/figures/mesh_regional.png"
   ],
   "source_hashes": {
-    "examples/projects/07_mesh_gallery/100km2/mesh_100km2_outlet_27_rivers_only_buffer30/case.json": "5cf0e1c0b8ec5014cd38b1338de06889b957f9bd4f51ca8f9bcc10853db66a2d",
     "examples/projects/07_mesh_gallery/100km2/mesh_100km2_outlet_27_rivers_only_buffer30/viewer_config.toml": "90ef0ede6055f5a1548125931574998cb1c1025eb77435d8dc98846bbbd5f5be",
-    "examples/projects/07_mesh_gallery/100km2/mesh_100km2_outlet_27_rivers_only_buffer30/README.md": "28531e22d53541804bef5f8f7d86ae3bb6cf5be5a8c332341d8a7601d615bb73",
+    "examples/projects/07_mesh_gallery/100km2/mesh_100km2_outlet_27_rivers_only_buffer30/case.json": "5cf0e1c0b8ec5014cd38b1338de06889b957f9bd4f51ca8f9bcc10853db66a2d",
+    "examples/projects/07_mesh_gallery/100km2/mesh_100km2_outlet_27_rivers_only_buffer30/README.md": "529b24da900ca7380fed2aa70b43c852d3ce6ea0d295756ddf3105309f546d85",
     "examples/projects/07_mesh_gallery/100km2/mesh_100km2_outlet_27_rivers_only_buffer30/bundle/mesh_2d.msh": "b4903ae089988bd4c53cf4c98bb230f2718c511b3e2e75c012c0ede1ba4a014e",
     "examples/projects/07_mesh_gallery/100km2/mesh_100km2_outlet_27_rivers_only_buffer30/bundle/nodes.csv": "702c26de4c76f52079bb9bf56529c113db39435ccc06db344e700f6dbe473443",
     "examples/projects/07_mesh_gallery/100km2/mesh_100km2_outlet_27_rivers_only_buffer30/bundle/cells.csv": "09a80fd6c575523881b3d185b9463ba318c0c5e3aeb5bd616c9fdb37227bd705",

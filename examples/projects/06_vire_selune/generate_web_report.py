@@ -4,7 +4,6 @@ import csv
 import json
 import math
 import shutil
-import sys
 import tomllib
 from dataclasses import dataclass
 from pathlib import Path
@@ -17,11 +16,7 @@ from matplotlib.collections import LineCollection, PolyCollection
 from rasterio.plot import show as rio_show
 
 ROOT = Path(__file__).resolve().parent
-REPO_ROOT = ROOT.parents[3]
-if str(REPO_ROOT) not in sys.path:
-    sys.path.insert(0, str(REPO_ROOT))
-
-from hydromodpy.spatial.mesh.gmsh_grid.catchment_mesh_bundle_reader import (  # noqa: E402
+from hydromodpy.spatial.mesh.gmsh_grid.catchment_mesh_bundle_reader import (
     load_catchment_mesh_bundle,
 )
 

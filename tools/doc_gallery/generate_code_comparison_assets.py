@@ -14,7 +14,7 @@ import numpy as np
 from matplotlib.patches import FancyArrowPatch, Rectangle
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
-ASSET_ROOT = REPO_ROOT / "examples" / "capability_gallery" / "code_comparison"
+ASSET_ROOT = REPO_ROOT / "examples" / "projects" / "09_capability_gallery" / "code_comparison"
 
 SOLVER_ORDER = (
     "modflownwt",

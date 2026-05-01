@@ -20,5 +20,5 @@ This family captures repeated conformal meshing runs on the 10 km2 Strahler-3 se
 ## Reproduction
 
 ```bash
-python -m launchers mesh-catchment run launchers/mesh_catchment/scenarios/config_s3_10km2.toml
+python -m tools.doc_gallery
 ```

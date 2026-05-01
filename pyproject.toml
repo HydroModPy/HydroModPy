@@ -55,12 +55,14 @@ dependencies = [
     "netCDF4>=1.7.4,<2",
     "numpy>=2.4.4,<3",
     "pandas>=2.3.3,<3",
+    "Pillow>=12.0.0,<13",
     "plotly>=6.7.0,<7",
     "pint>=0.25.3,<1",
     "pydantic-pint>=0.4,<1",
     "pyarrow>=22.0.0,<23",
     "pyproj>=3.7.2,<4",
     "rasterio>=1.5.0,<2",
+    "requests>=2.32.5,<3",
     "rioxarray>=0.22.0,<1",
     "scikit-learn>=1.8.0,<2",
     "scipy>=1.17.1,<2",
@@ -79,9 +81,10 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-calibration = ["cma>=4.4.4,<5", "optuna>=4.8.0,<5"]
+calibration = ["cma>=4.4.4,<5", "cmaes>=0.12.0,<1", "optuna>=4.8.0,<5"]
 delineation = ["whitebox-workflows>=1.3.5,<2"]
 mesh = ["gmsh>=4.15.2,<5"]
+ui = ["streamlit>=1.51.0,<2"]
 test = ["pytest", "pytest-xdist", "pytest-timeout", "coverage[toml]>=7.0", "pyyaml"]
 docs = [
     "sphinx>=7.0",
@@ -226,7 +229,7 @@ ignore = [
 # Tests can use idiomatic pytest patterns: bare pytest.raises(Exception),
 # zip without strict=, kept assignments for readability, etc.
 "tests/**/*.py" = ["E402", "F401", "B011", "B017", "B905", "F841"]
-# tools/ scripts do `sys.path.insert(0, REPO_ROOT)` before imports - legit pattern.
+# tools/ scripts may set repo-root import precedence before imports.
 "tools/**" = ["E402", "F401", "B007", "B905", "F841"]
 # Annex: legacy/peripheral code, minimal linting.
 "hydromodpy_annex/**" = ["E402", "F401", "B006", "B007"]
@@ -242,8 +245,8 @@ ignore = [
 # with static analysis. Known-good, silencing F821 in these files.
 "hydromodpy/data/data_managers_config.py" = ["F821"]
 "hydromodpy/master_config/hydromodpy_config.py" = ["F821"]
-# Legacy MODFLOW-NWT subtree: uses `sys.path` manipulation and double-docstring
-# license headers that technically break import ordering. Not worth rewriting.
+# MODFLOW-NWT solver subtree: import ordering and double-docstring license
+# headers are handled separately from this release cleanup.
 "hydromodpy/solver/modflow_nwt/**" = ["E402"]
 
 [tool.ruff.lint.isort]

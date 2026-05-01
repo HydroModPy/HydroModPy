@@ -158,9 +158,8 @@ Mesh Summary
 Source Pointers
 ---------------
 
-- ``docs/readthedocs/source/_static/capability_gallery/mesh/mesh_headwater_100km2_outlet_3_geology_rivers_buffer30_summary.json``
-- ``examples/projects/07_mesh_gallery/100km2/mesh_headwater_100km2_outlet_3_geology_rivers_buffer30/case.json``
 - ``examples/projects/07_mesh_gallery/100km2/mesh_headwater_100km2_outlet_3_geology_rivers_buffer30/viewer_config.toml``
+- ``examples/projects/07_mesh_gallery/100km2/mesh_headwater_100km2_outlet_3_geology_rivers_buffer30/case.json``
 - ``examples/projects/07_mesh_gallery/100km2/mesh_headwater_100km2_outlet_3_geology_rivers_buffer30/README.md``
 - ``examples/projects/07_mesh_gallery/100km2/mesh_headwater_100km2_outlet_3_geology_rivers_buffer30/bundle/mesh_2d.msh``
 - ``examples/projects/07_mesh_gallery/100km2/mesh_headwater_100km2_outlet_3_geology_rivers_buffer30/bundle/nodes.csv``

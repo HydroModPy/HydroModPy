@@ -45,9 +45,8 @@ There are two execution paths:
    delta on top of the shared description.
 
 2. **Python API path** - `hmp.Project(...)`. Same pipeline behind the
-   scenes; the difference is that the configuration is built with
-   typed factories (`hmp.Config`, `hmp.Geographic.from_outlet`,
-   `hmp.Flow.homogeneous`, ...) and the run is triggered by
+   scenes; the configuration is loaded through the canonical
+   `HydroModPyConfig` model and the run is triggered by
    `project.run(**overrides)`. Use this when you want to sweep
    parameters, drive a notebook cell by cell, or call HydroModPy
    from a larger Python program.
@@ -65,7 +64,7 @@ All commands assume your working directory is the repository root.
 | --- | --- |
 | `hmp run examples/projects/02_nancon_watershed/run_transient_nwt.toml` | One transient MODFLOW-NWT run, monthly steps, 2000-2002. |
 | `hmp run examples/projects/02_nancon_watershed/run_calibration_k.toml` | Optuna calibration on K against observed discharge (NSE objective). Sy / Ss / thickness frozen. |
-| `hmp run examples/projects/02_nancon_watershed/run_sweep_sy.toml` | Forward-looking design TOML for a Sy sweep. **Not runnable yet** - the `sweep` workflow is not wired into the dispatcher. Use `run_transient_prototype.py` until then. |
+| `run_sweep_sy.toml` | Forward-looking design TOML for a Sy sweep. **Not runnable with `hmp run` in v1**. Use `run_transient_prototype.py` until then. |
 
 To validate any TOML without running it:
 `hmp config check examples/projects/02_nancon_watershed/<file>.toml`.

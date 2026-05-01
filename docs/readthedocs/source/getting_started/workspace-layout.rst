@@ -35,7 +35,7 @@ Scaffold a workspace with ``hmp init``:
 Workspace resolution
 --------------------
 
-HydroModPy v0.6 uses a **strict binary resolver**. Given a project TOML,
+HydroModPy v1 uses a **strict binary resolver**. Given a project TOML,
 it answers "where is the workspace" by trying three branches in order:
 
 1. **Explicit** (in the TOML)

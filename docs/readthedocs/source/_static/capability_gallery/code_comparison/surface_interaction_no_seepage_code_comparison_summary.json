@@ -48,7 +48,7 @@
   "source_hashes": {
     "tools/doc_gallery/manifests/code_comparison_cases.json": "5267417dae34a6406eb1b4723688681eb667b629aff03fc8b4afc6d9edf36391",
     "tools/investigate_surface_interaction_hillslope_transient.py": "ffc53bb2e4aa572be69cc768ad73003be9d7c60b38f9caa5e7dfcc49823c4e54",
-    "tools/doc_gallery/generate_code_comparison_assets.py": "48c261381e86dc492723f3bc771bc2144b620a7a2bceda3dafc4a8a84faa7abc",
+    "tools/doc_gallery/generate_code_comparison_assets.py": "ce7bec783b01f400904ca06428c66ce2fdb1885bf82f66d59c8ac2fe788c7e49",
     "validation_cases/shared/boussinesq_budget.py": "fa6b6c31647bebf77896570cf1bf7eecbfceb59ef6a5ba915dc0ea01f884a4b9",
     "examples/projects/09_capability_gallery/code_comparison/surface_interaction_no_seepage/no_seepage_reference_k.png": "cd469b3563825670f13ecd0145c4b535917cfd47b6e25a2ce344f0f349df00b1",
     "examples/projects/09_capability_gallery/code_comparison/surface_interaction_no_seepage/no_seepage_reference_k.json": "1eb896ed4524a1e74b369a70b727b08f709ba6b5152e7994dbe7611bca6015c8",

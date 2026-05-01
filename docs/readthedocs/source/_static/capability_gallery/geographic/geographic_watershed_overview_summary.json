@@ -46,7 +46,7 @@
   ],
   "source_hashes": {
     "tools/doc_gallery/manifests/geographic_cases.json": "87a228bb5a5c8c8b087dbeae7693efd258f71bab1739443c6cf211b1f90f7bfe",
-    "examples/projects/04_data_overview/project.toml": "6a4125b50e96b77e49f4fb86682e8e189a4a6cc8e2232b291c56ce615b5ad9c5",
+    "examples/projects/04_data_overview/project.toml": "3b40d265d8a08bc8a11a6df771a779ce5705062f0afb7641d949ac6856261469",
     "examples/projects/09_capability_gallery/geographic/README.md": "fe6bc2eca9984e4b58baa744210d733ff348585fe5e499aa146a02b2f61a4dad",
     "examples/projects/09_capability_gallery/geographic/watershed_overview/geographic_watershed_dem.png": "e89a7527ccc0ce66f7c55f5acfcd4fa0c286ad83b78bcb04589a463c6c6d1979",
     "examples/projects/09_capability_gallery/geographic/watershed_overview/geographic_watershed_local.png": "851a58eea24b3710185702557b5d74e7505f5f656507b5d2236fb537570ae92d"

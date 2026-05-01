@@ -36,8 +36,6 @@ from hydromodpy.spatial.mesh.batch import (
     MeshCatchmentBatchRunner,
 )
 
-DEFAULT_CONFIG_NAME = "scenarios/config_example.toml"
-
 
 class MeshCatchmentLauncher:
     """Run one mesh-only workflow from the ``[mesh_catchment]`` TOML section."""
@@ -150,16 +148,14 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument(
         "config",
-        nargs="?",
         type=Path,
-        default=Path(__file__).parent / DEFAULT_CONFIG_NAME,
-        help=f"Path to launcher TOML file (default: {DEFAULT_CONFIG_NAME}).",
+        help="Path to launcher TOML file.",
     )
     return parser
 
 
 def main(argv: list[str] | None = None) -> None:
-    """Run the mesh-catchment launcher with a provided TOML or default local config."""
+    """Run the mesh-catchment launcher with a provided TOML config."""
     args = _build_parser().parse_args(argv)
     summary = MeshCatchmentLauncher(args.config.expanduser().resolve()).run()
     print(json.dumps(summary, ensure_ascii=True, indent=2))
