@@ -346,3 +346,24 @@ class TestEngineCacheIntegration:
         result = session.history[0]
         assert "params_hash" in result.metadata
         assert result.metadata["params_hash"] == params_hash({"x": 0.25})
+
+    def test_cache_context_scopes_params_hash_in_metadata(self):
+        space = _unit_space()
+        opt = _StubOptimizer([{"x": 0.25}])
+        cache = ParamsHashCache()
+        context = {"objective": "kge", "bounds": [0.0, 1.0]}
+
+        engine = CalibrationEngine(
+            space=space,
+            optimizer=opt,
+            evaluator=_simple_evaluator,
+            max_iter=5,
+            cache=cache,
+            cache_context=context,
+        )
+        session = engine.run()
+
+        key = params_hash({"x": 0.25}, context=context)
+        assert session.history[0].metadata["params_hash"] == key
+        assert key.startswith("v2:")
+        assert key in cache
