@@ -90,6 +90,16 @@ def _print_dry_run_plan(
         print(f"  {idx:02d}  {type(step).__name__}")
 
 
+def _rebind_run_history_catalog(project: Project) -> None:
+    """Bind previously returned Run handles to the current project catalog."""
+    store = project._store
+    if store is None:
+        return
+    project._ctx.store = store
+    for run in project._run_history:
+        run._catalog = store
+
+
 class ProjectRunner:
     """Run-phase methods bound to a :class:`Project` instance.
 
@@ -199,7 +209,7 @@ class ProjectRunner:
         self,
         *,
         name: str | None = None,
-        checkpoint: bool = True,
+        checkpoint: bool = False,
         resume: str | None = None,
         from_step: str | int | None = None,
         until_step: str | int | None = None,
@@ -217,6 +227,9 @@ class ProjectRunner:
         project = self._project
 
         skip_display = bool(project._no_display) or bool(no_display)
+        checkpoint = bool(checkpoint or resume is not None or from_step is not None)
+        if until_step is not None:
+            checkpoint = True
 
         thickness = overrides.pop("thickness", None)
         first_clim = overrides.pop("first_clim", None)
@@ -323,6 +336,7 @@ class ProjectRunner:
 
             if project._store is None:
                 project_phases.open_catalog(project)
+            _rebind_run_history_catalog(project)
             if previous_frozen_mode is not None:
                 from hydromodpy.data.data_freeze import set_frozen_mode
 
@@ -334,6 +348,7 @@ class ProjectRunner:
             return None
         run_view = project._store[sim_id]
         project._run_history.append(run_view)
+        _rebind_run_history_catalog(project)
         return run_view
 
     def simulate(

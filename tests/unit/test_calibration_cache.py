@@ -44,6 +44,17 @@ class TestParamsHash:
         h2 = params_hash({"a": 2.0})
         assert h1 != h2
 
+    def test_context_changes_hash(self):
+        h1 = params_hash({"a": 1.0}, context={"objective": "kge"})
+        h2 = params_hash({"a": 1.0}, context={"objective": "nse"})
+        assert h1 != h2
+        assert h1.startswith("v2:")
+
+    def test_context_order_is_stable(self):
+        h1 = params_hash({"a": 1.0}, context={"b": 2.0, "a": [3.0, 4.0]})
+        h2 = params_hash({"a": 1.0}, context={"a": [3.0, 4.0], "b": 2.0})
+        assert h1 == h2
+
 
 class TestParamsHashCache:
     def test_empty_cache(self):

@@ -1,9 +1,4 @@
-"""Content-addressable params_hash cache.
-
-Two calls with the same **resolved, transformed** parameters produce the same
-SHA-256. The cache lets an optimizer skip re-running an already-evaluated
-point, and lets ``calibration_iterations`` dedupe across sessions.
-"""
+"""Content-addressable calibration cache."""
 
 from __future__ import annotations
 
@@ -12,6 +7,8 @@ import json
 import math
 from collections.abc import Mapping
 from dataclasses import dataclass
+from pathlib import Path
+from typing import Any
 
 
 def canonical_json(values: Mapping[str, float], *, precision: int = 12) -> str:
@@ -20,14 +17,21 @@ def canonical_json(values: Mapping[str, float], *, precision: int = 12) -> str:
     Keys are sorted; values are rounded to ``precision`` significant digits
     so floating-point noise below that threshold yields the same hash.
     """
-    rounded: dict[str, float] = {}
-    for k in sorted(values):
-        v = float(values[k])
-        if math.isnan(v) or math.isinf(v):
-            rounded[k] = v
-        else:
-            rounded[k] = round(v, precision) if v == 0.0 else _round_sig(v, precision)
+    rounded = _round_float_mapping(values, precision=precision)
     return json.dumps(rounded, sort_keys=True, separators=(",", ":"))
+
+
+def _round_float_mapping(values: Mapping[str, float], *, precision: int) -> dict[str, float]:
+    rounded: dict[str, float] = {}
+    for key in sorted(values):
+        rounded[str(key)] = _round_float(float(values[key]), precision=precision)
+    return rounded
+
+
+def _round_float(value: float, *, precision: int) -> float:
+    if math.isnan(value) or math.isinf(value):
+        return value
+    return round(value, precision) if value == 0.0 else _round_sig(value, precision)
 
 
 def _round_sig(v: float, digits: int) -> float:
@@ -37,10 +41,41 @@ def _round_sig(v: float, digits: int) -> float:
     return round(v, digits - 1 - magnitude)
 
 
-def params_hash(values: Mapping[str, float], *, precision: int = 12) -> str:
-    """SHA-256 of the canonical JSON of ``values``."""
-    payload = canonical_json(values, precision=precision).encode("utf-8")
-    return hashlib.sha256(payload).hexdigest()
+def _normalize_context(value: Any, *, precision: int) -> Any:
+    if isinstance(value, Mapping):
+        return {
+            str(key): _normalize_context(value[key], precision=precision)
+            for key in sorted(value, key=str)
+        }
+    if isinstance(value, (list, tuple)):
+        return [_normalize_context(item, precision=precision) for item in value]
+    if isinstance(value, (set, frozenset)):
+        return [_normalize_context(item, precision=precision) for item in sorted(value, key=repr)]
+    if isinstance(value, Path):
+        return str(value)
+    if isinstance(value, float):
+        return _round_float(value, precision=precision)
+    return value
+
+
+def params_hash(
+    values: Mapping[str, float],
+    *,
+    context: Mapping[str, Any] | None = None,
+    precision: int = 12,
+) -> str:
+    """Return a SHA-256 cache key for one scientific evaluation."""
+    if context is None:
+        payload_text = canonical_json(values, precision=precision)
+    else:
+        payload = {
+            "context": _normalize_context(context, precision=precision),
+            "parameters": _round_float_mapping(values, precision=precision),
+        }
+        payload_text = json.dumps(payload, sort_keys=True, separators=(",", ":"))
+    payload = payload_text.encode("utf-8")
+    digest = hashlib.sha256(payload).hexdigest()
+    return digest if context is None else f"v2:{digest}"
 
 
 @dataclass(frozen=True, slots=True)

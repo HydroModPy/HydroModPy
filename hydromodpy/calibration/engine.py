@@ -17,9 +17,9 @@ from __future__ import annotations
 import math
 import time
 import uuid
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field
-from typing import Protocol
+from typing import Any, Protocol
 
 from hydromodpy.calibration.cache import ParamsHashCache, params_hash
 from hydromodpy.calibration.optimizer import (
@@ -79,6 +79,7 @@ class CalibrationEngine:
     max_iter: int = 100
     batch_size: int = 1
     cache: ParamsHashCache | None = None
+    cache_context: Mapping[str, Any] | None = None
     progress: ProgressReporter | None = None
     session_id: str | None = None
     on_iteration: Callable[[EvaluationResult], None] | None = None
@@ -119,7 +120,7 @@ class CalibrationEngine:
     def _evaluate_with_cache(self, sugg: ParamSuggestion) -> EvaluationResult:
         if self.cache is None:
             return self._with_parameter_metadata(self.evaluator(sugg), sugg)
-        key = params_hash(sugg.values)
+        key = params_hash(sugg.values, context=self.cache_context)
         hit = self.cache.get(key)
         if hit is not None:
             return EvaluationResult(

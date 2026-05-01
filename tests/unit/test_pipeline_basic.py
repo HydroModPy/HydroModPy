@@ -7,6 +7,8 @@ produced by the last step.
 
 from __future__ import annotations
 
+from pathlib import Path
+
 import pytest
 
 from hydromodpy.core.exceptions import StepError
@@ -85,6 +87,17 @@ def test_pipeline_run_without_workspace_skips_ledger() -> None:
     pipeline = Pipeline([_AddOne()])
     final = pipeline.run(state)
     assert final.data["counter"] == 1
+
+
+def test_pipeline_workspace_without_checkpoint_does_not_create_runtime_state(
+    tmp_path: Path,
+) -> None:
+    state = PipelineState(run_id="r", data={"counter": 0})
+    pipeline = Pipeline([_AddOne()], workspace=tmp_path, checkpoint=False)
+    final = pipeline.run(state)
+
+    assert final.data["counter"] == 1
+    assert not (tmp_path / ".hmp").exists()
 
 
 def test_pipeline_wraps_step_failure_in_step_error() -> None:

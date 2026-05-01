@@ -25,6 +25,7 @@ from pathlib import Path
 import pytest
 
 from hydromodpy.calibration import runner as runner_module
+from hydromodpy.calibration.cache import ParamsHashCache
 from hydromodpy.calibration.config import CalibrationConfig
 from hydromodpy.calibration.runner import run_calibration_cli
 
@@ -317,6 +318,37 @@ class TestCachePreload:
         # Each promoted row should have left a params_hash cache entry that
         # the second session's preload picked up.
         assert len(preloaded_snapshot) >= 2
+        assert all(key.startswith("v2:") for key in preloaded_snapshot)
+
+    def test_preload_ignores_legacy_unscoped_hashes(self):
+        import duckdb
+
+        conn = duckdb.connect(":memory:")
+        conn.execute(
+            """
+            CREATE TABLE calibration_iterations (
+                params_hash VARCHAR,
+                sim_id VARCHAR,
+                objective_value DOUBLE,
+                status VARCHAR,
+                metrics JSON
+            )
+            """
+        )
+        conn.execute(
+            """
+            INSERT INTO calibration_iterations VALUES
+                ('legacyhash', NULL, 1.0, 'completed', NULL),
+                ('v2:scopedhash', NULL, 2.0, 'completed', '{"rmse": 2.0}')
+            """
+        )
+
+        cache = ParamsHashCache()
+        n_preloaded = runner_module._preload_hash_cache(conn, cache)
+
+        assert n_preloaded == 1
+        assert "legacyhash" not in cache
+        assert "v2:scopedhash" in cache
 
 
 class TestObjectiveEscapeHatch:

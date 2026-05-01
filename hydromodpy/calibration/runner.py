@@ -25,6 +25,7 @@ covers the standard NSE / KGE / RMSE cases.
 
 from __future__ import annotations
 
+import hashlib
 import importlib
 import json
 import sys
@@ -145,6 +146,7 @@ def _preload_hash_cache(catalog_conn, cache: ParamsHashCache) -> int:
             SELECT params_hash, sim_id, objective_value, status, metrics
               FROM calibration_iterations
              WHERE params_hash IS NOT NULL
+               AND params_hash LIKE 'v2:%'
                AND status      = 'completed'
                AND objective_value IS NOT NULL
             """
@@ -170,6 +172,133 @@ def _preload_hash_cache(catalog_conn, cache: ParamsHashCache) -> int:
             components=components,
         )
     return len(cache) - n_before
+
+
+def _build_cache_context(
+    *,
+    cfg: CalibrationConfig,
+    trial_ctx: TrialContext,
+    space: ParameterSpace,
+    override_paths: dict[str, str],
+    objective_entrypoint: str | None,
+) -> dict[str, object]:
+    """Return the scientific context that scopes calibration cache hits."""
+    model_payload = trial_ctx.base_cfg.model_dump(mode="json")
+    model_payload.pop("calibration", None)
+    model_payload.pop("display", None)
+    model_payload.pop("overview", None)
+    model_payload.pop("mesh_catchment", None)
+
+    calibration_payload = cfg.model_dump(mode="json")
+    for runtime_key in (
+        "max_iter",
+        "batch_size",
+        "save_runs",
+        "save_best_n",
+        "use_cache",
+        "persistence",
+        "persist_iteration_detail",
+        "materialize_candidates",
+        "candidates_root",
+        "rerun_best_with_outputs",
+    ):
+        calibration_payload.pop(runtime_key, None)
+
+    context: dict[str, object] = {
+        "schema": "hydromodpy.calibration.params_hash.v2",
+        "model": model_payload,
+        "calibration": calibration_payload,
+        "override_paths": dict(sorted(override_paths.items())),
+        "parameter_space": _parameter_space_context(space),
+        "input_files": _input_file_fingerprints(trial_ctx.base_cfg),
+    }
+
+    if objective_entrypoint:
+        context["objective_entrypoint"] = objective_entrypoint
+
+    domain = getattr(getattr(trial_ctx.ctx, "setup", None), "domain", None)
+    domain_config = getattr(domain, "config", None)
+    if domain_config is not None and hasattr(domain_config, "model_dump"):
+        context["effective_domain"] = domain_config.model_dump(mode="json")
+
+    return context
+
+
+def _parameter_space_context(space: ParameterSpace) -> list[dict[str, object]]:
+    """Return serializable declarations for the calibrated dimensions."""
+    payload: list[dict[str, object]] = []
+    for param in space:
+        payload.append(
+            {
+                "name": param.name,
+                "bounds": [param.lower, param.upper],
+                "transformed_bounds": [
+                    param.lower_transformed,
+                    param.upper_transformed,
+                ],
+                "transform": param.transform,
+                "prior": param.prior,
+                "path": param.path,
+                "target": param.target,
+                "mode": param.mode,
+                "units": param.units,
+            }
+        )
+    return payload
+
+
+def _input_file_fingerprints(config: object) -> list[dict[str, object]]:
+    """Return content fingerprints for declared input files and directories."""
+    try:
+        from hydromodpy.core.tracking import collect_input_files
+    except Exception:
+        return []
+    if not hasattr(config, "model_fields"):
+        return []
+    try:
+        entries = collect_input_files(config)
+    except Exception:
+        return []
+
+    fingerprints: list[dict[str, object]] = []
+    for entry in entries:
+        path = entry.canonical_path
+        payload: dict[str, object] = {
+            "role": entry.role,
+            "category": entry.category,
+            "path": str(path),
+            "exists": path.exists(),
+        }
+        if path.is_file():
+            payload["kind"] = "file"
+            payload["sha256"] = _sha256_file(path)
+            payload["size_bytes"] = path.stat().st_size
+        elif path.is_dir():
+            payload["kind"] = "directory"
+            payload["sha256"] = _sha256_directory(path)
+        else:
+            payload["kind"] = "missing"
+        fingerprints.append(payload)
+    return sorted(fingerprints, key=lambda item: (str(item["role"]), str(item["path"])))
+
+
+def _sha256_file(path: Path, *, chunk_size: int = 1024 * 1024) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        for chunk in iter(lambda: handle.read(chunk_size), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def _sha256_directory(root: Path) -> str:
+    digest = hashlib.sha256()
+    for path in sorted(item for item in root.rglob("*") if item.is_file()):
+        rel = path.relative_to(root).as_posix()
+        digest.update(rel.encode("utf-8"))
+        digest.update(b"\0")
+        digest.update(_sha256_file(path).encode("ascii"))
+        digest.update(b"\0")
+    return digest.hexdigest()
 
 
 # ---------------------------------------------------------------------------
@@ -318,6 +447,13 @@ def _run_calibration(
         seed=cfg.seed,
         **cfg.optimizer_kwargs,
     )
+    cache_context = _build_cache_context(
+        cfg=cfg,
+        trial_ctx=trial_ctx,
+        space=space,
+        override_paths=override_paths,
+        objective_entrypoint=objective,
+    )
 
     last_suggestion: dict[int, ParamSuggestion] = {}
 
@@ -407,6 +543,7 @@ def _run_calibration(
         max_iter=cfg.max_iter,
         batch_size=cfg.batch_size,
         cache=engine_cache,
+        cache_context=cache_context,
         session_id=session_id,
         on_iteration=on_iteration,
     )

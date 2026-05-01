@@ -45,6 +45,7 @@ def test_hmp_run_dispatches_simulation_workflow(monkeypatch, tmp_path) -> None:
     assert captured["run_called"] is True
     # --no-display was not passed so the CLI forwards no_display=False.
     assert captured["kwargs"].get("no_display") is False
+    assert captured["kwargs"].get("checkpoint") is False
 
 
 def test_hmp_run_forwards_no_display_flag(monkeypatch, tmp_path) -> None:
@@ -66,6 +67,48 @@ def test_hmp_run_forwards_no_display_flag(monkeypatch, tmp_path) -> None:
     main()
 
     assert captured["kwargs"].get("no_display") is True
+
+
+def test_hmp_run_forwards_checkpoint_flag(monkeypatch, tmp_path) -> None:
+    """``hmp run --checkpoint`` must opt into checkpoint persistence."""
+    config = _write_toml(
+        tmp_path / "config.toml",
+        'workflow = "simulation"\n[workspace]\nproject_root = "."\n[simulation]\nname = "test"\n',
+    )
+
+    captured: dict = {}
+
+    def fake_run(config_path, **kwargs):
+        captured["kwargs"] = kwargs
+        return {"name": "test", "sim_id": "abc"}
+
+    monkeypatch.setitem(workflow_dispatch.DISPATCH, "simulation", fake_run)
+    monkeypatch.setattr("sys.argv", ["hmp", "run", str(config), "--checkpoint"])
+
+    main()
+
+    assert captured["kwargs"].get("checkpoint") is True
+
+
+def test_hmp_run_resume_enables_checkpoint(monkeypatch, tmp_path) -> None:
+    """``--resume`` implies checkpoint reads even without ``--checkpoint``."""
+    config = _write_toml(
+        tmp_path / "config.toml",
+        'workflow = "simulation"\n[workspace]\nproject_root = "."\n[simulation]\nname = "test"\n',
+    )
+
+    captured: dict = {}
+
+    def fake_run(config_path, **kwargs):
+        captured["kwargs"] = kwargs
+        return {"name": "test", "sim_id": "abc"}
+
+    monkeypatch.setitem(workflow_dispatch.DISPATCH, "simulation", fake_run)
+    monkeypatch.setattr("sys.argv", ["hmp", "run", str(config), "--resume", "run-1"])
+
+    main()
+
+    assert captured["kwargs"].get("checkpoint") is True
 
 
 def test_hmp_run_dispatches_overview_workflow(monkeypatch, tmp_path) -> None:
