@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import shutil
 from pathlib import Path
 from typing import TYPE_CHECKING, ClassVar
@@ -30,8 +31,17 @@ def step_save_run_artifacts(
 
     project_root = ctx.setup.workspace.project_root
 
-    snapshot_path = project_root / "_config_snapshot.toml"
-    snapshot_path.write_text(dump_toml_text(ctx.raw_toml), encoding="utf-8")
+    if ctx.raw_toml:
+        snapshot_path = project_root / "_config_snapshot.toml"
+        snapshot_path.write_text(dump_toml_text(ctx.raw_toml), encoding="utf-8")
+
+    snapshot = _effective_config_snapshot(ctx)
+    if snapshot:
+        json_path = project_root / "_config_snapshot.json"
+        json_path.write_text(
+            json.dumps(snapshot, indent=2, sort_keys=True, ensure_ascii=True) + "\n",
+            encoding="utf-8",
+        )
 
     analysis_cfg = getattr(ctx.cfg, "analysis", None)
     gallery_cfg = (
@@ -66,6 +76,16 @@ def step_save_run_artifacts(
             run=run_wrapper,
             render_figure=_render,
         )
+
+
+def _effective_config_snapshot(ctx: WorkflowContext) -> dict:
+    cfg = getattr(ctx, "cfg", None)
+    if cfg is not None and hasattr(cfg, "model_dump"):
+        from hydromodpy.workflow.steps.prepare_solver import collect_effective_config_snapshot
+
+        return collect_effective_config_snapshot(ctx)
+    raw_toml = getattr(ctx, "raw_toml", None)
+    return dict(raw_toml) if isinstance(raw_toml, dict) else {}
 
 
 # ---------------------------------------------------------------------------
@@ -138,10 +158,30 @@ class ExportStep:
 
         wall_seconds = float(state.get("wall_seconds", 0.0) or 0.0)
 
+        results_cfg = getattr(ctx, "effective_results_config", None) or ctx.cfg.simulation.results
         if ctx.store is not None:
             step_save_run_artifacts(ctx, wall_seconds)
+            plan = ctx.execution.simulation_plan
+            if plan is not None and not ctx.execution.lightweight and ctx.sim_id is not None:
+                from hydromodpy.simulation.extraction.post_run import (
+                    auto_export_results,
+                    cleanup_solver_outputs,
+                )
+                from hydromodpy.simulation.planning.plan import RunContext
+
+                auto_export_results(
+                    sim_id=ctx.sim_id,
+                    store=ctx.store,
+                    results_config=results_cfg,
+                    run_id=ctx.setup.run_id,
+                )
+                for run in plan.runs:
+                    cleanup_solver_outputs(
+                        ctx=RunContext(plan=plan, run=run, state=ctx),
+                        results_config=results_cfg,
+                        keep_solver_files=bool(getattr(results_cfg, "keep_solver_files", False)),
+                    )
             step_finalize_store(ctx, wall_seconds=wall_seconds)
-        results_cfg = getattr(ctx, "effective_results_config", None) or ctx.cfg.simulation.results
         step_cleanup_scratch(
             ctx,
             keep_solver_files=bool(getattr(results_cfg, "keep_solver_files", False)),

@@ -143,7 +143,7 @@ def prepare_run(
             ctx.store,
             sim_id,
             ctx.setup.flow,
-            domain=ctx.cfg.domain,
+            domain=ctx.setup.domain,
         )
     step_persist_mesh(ctx, sim_id)
     step_persist_geographic(ctx, sim_id)

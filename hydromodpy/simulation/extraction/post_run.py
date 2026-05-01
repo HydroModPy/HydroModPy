@@ -49,6 +49,42 @@ def post_run_results(
     if not results_config.persistence.save_catalog:
         return
 
+    extract_run_outputs(
+        ctx=ctx,
+        sim_id=sim_id,
+        results_config=results_config,
+        store=store,
+    )
+    derive_run_outputs(
+        ctx=ctx,
+        sim_id=sim_id,
+        results_config=results_config,
+        store=store,
+    )
+    auto_export_results(
+        sim_id=sim_id,
+        store=store,
+        results_config=results_config,
+        run_id=run_id,
+    )
+    cleanup_solver_outputs(
+        ctx=ctx,
+        results_config=results_config,
+        keep_solver_files=keep_solver_files,
+    )
+
+
+def extract_run_outputs(
+    *,
+    ctx: RunContext,
+    sim_id: str,
+    results_config: ResultsConfig,
+    store: Any,
+) -> None:
+    """Extract raw solver outputs into the SimulationCatalog."""
+    if not results_config.persistence.save_catalog:
+        return
+
     provider = get_solver_registry_provider()
     solver_name = ctx.run.solver
     solver_output_dir = ctx.state.execution.output_dirs_by_run_id.get(ctx.run.id)
@@ -71,7 +107,24 @@ def post_run_results(
         extract_kwargs["budget_spatial_fields"] = True
     extractor.extract(sim_id, solver_output_dir, store, **extract_kwargs)
 
-    # Phase 2: compute derived variables
+
+def derive_run_outputs(
+    *,
+    ctx: RunContext,
+    sim_id: str,
+    results_config: ResultsConfig,
+    store: Any,
+) -> None:
+    """Compute solver-adapter derived outputs and catchment aggregates."""
+    if not results_config.persistence.save_catalog:
+        return
+
+    provider = get_solver_registry_provider()
+    solver_name = ctx.run.solver
+    extractor = provider.get_extractor_instance(solver_name)
+    if extractor is None:
+        raise RuntimeError(f"No output adapter registered for solver {solver_name!r}")
+
     derived_flags = results_config.derived.model_dump()
     extractor.derive(sim_id, store, derived_flags)
 
@@ -83,28 +136,48 @@ def post_run_results(
 
         aggregate_catchment_timeseries(sim_id, store)
 
-    # Auto-export if configured
+
+def auto_export_results(
+    *,
+    sim_id: str,
+    store: Any,
+    results_config: ResultsConfig,
+    run_id: str | None = None,
+) -> None:
+    """Run automated exports for one simulation when configured."""
+    if not results_config.persistence.save_catalog:
+        return
+
     export_label = run_id or sim_id[:8]
     _auto_export(sim_id, store, results_config, export_label=export_label)
 
-    # Cleanup solver files via the solver adapter
+
+def cleanup_solver_outputs(
+    *,
+    ctx: RunContext,
+    results_config: ResultsConfig,
+    keep_solver_files: bool | None = None,
+) -> None:
+    """Cleanup raw solver files through the matching solver adapter."""
     do_keep = (
         keep_solver_files if keep_solver_files is not None else results_config.keep_solver_files
     )
-    if not do_keep:
-        try:
-            adapter = provider.get_solver_adapter(ctx.run.process_type, solver_name)
-        except KeyError:
-            logger.debug(
-                "No solver adapter registered for %s/%s, skipping cleanup",
-                ctx.run.process_type,
-                solver_name,
-            )
-            return
-        try:
-            adapter.cleanup(ctx)
-        except Exception:
-            logger.warning("Failed to cleanup solver files for run %s", ctx.run.id, exc_info=True)
+    if do_keep:
+        return
+    provider = get_solver_registry_provider()
+    try:
+        adapter = provider.get_solver_adapter(ctx.run.process_type, ctx.run.solver)
+    except KeyError:
+        logger.debug(
+            "No solver adapter registered for %s/%s, skipping cleanup",
+            ctx.run.process_type,
+            ctx.run.solver,
+        )
+        return
+    try:
+        adapter.cleanup(ctx)
+    except Exception:
+        logger.warning("Failed to cleanup solver files for run %s", ctx.run.id, exc_info=True)
 
 
 def _accepts_kwarg(callable_obj: Any, name: str) -> bool:

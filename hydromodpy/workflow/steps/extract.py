@@ -96,7 +96,7 @@ def restore_seepage_raster_from_store(
 
 
 class ExtractStep:
-    """Finalize extraction (currently a pass-through after run-time ingestion)."""
+    """Extract solver outputs into the result store."""
 
     name = "extract"
     tin: ClassVar[type] = SolverRanState
@@ -107,8 +107,40 @@ class ExtractStep:
         ctx = state.get("ctx")
         if ctx is None:
             raise ConfigError("ExtractStep requires 'ctx' in state.data")
+        if ctx.execution.lightweight or ctx.store is None or ctx.sim_id is None:
+            return state.advance(
+                step_index=state.step_index + 1,
+                step_name=self.name,
+                ctx=ctx,
+                extraction_summary={"runs": 0},
+            )
+
+        from hydromodpy.simulation.extraction.post_run import extract_run_outputs
+        from hydromodpy.simulation.planning.plan import RunContext
+        from hydromodpy.workflow.steps.planning import step_configure_results
+
+        plan = ctx.execution.simulation_plan
+        if plan is None:
+            raise ConfigError("ExtractStep requires execution.simulation_plan to be set")
+
+        results_cfg = getattr(ctx, "effective_results_config", None) or step_configure_results(
+            ctx.cfg.simulation.results,
+            plan,
+        )
+        ctx.effective_results_config = results_cfg
+
+        extracted = 0
+        for run in plan.runs:
+            extract_run_outputs(
+                ctx=RunContext(plan=plan, run=run, state=ctx),
+                sim_id=ctx.sim_id,
+                results_config=results_cfg,
+                store=ctx.store,
+            )
+            extracted += 1
         return state.advance(
             step_index=state.step_index + 1,
             step_name=self.name,
             ctx=ctx,
+            extraction_summary={"runs": extracted},
         )

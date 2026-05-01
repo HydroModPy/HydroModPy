@@ -141,8 +141,10 @@ class ResultsConfig(HydroModelBase):
 
     persistence: Annotated[PersistenceConfig, Profile.USER] = Field(
         default_factory=PersistenceConfig,
-        description="Single switch governing every persistence sink "
-        "(catalog, Zarr, Parquet, lockfile).",
+        description=(
+            "Simulation-run persistence switch passed to the result catalog "
+            "(DuckDB rows, Zarr fields, Parquet tables, lockfile)."
+        ),
     )
     keep_solver_files: Annotated[bool, Profile.DEV] = Field(
         default=False,

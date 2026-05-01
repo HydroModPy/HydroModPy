@@ -54,11 +54,31 @@ class DeriveStep:
                 ctx=ctx,
             )
 
+        plan = ctx.execution.simulation_plan
+        if plan is not None and not ctx.execution.lightweight:
+            from hydromodpy.simulation.extraction.post_run import derive_run_outputs
+            from hydromodpy.simulation.planning.plan import RunContext
+            from hydromodpy.workflow.steps.planning import step_configure_results
+
+            results_cfg = getattr(ctx, "effective_results_config", None) or step_configure_results(
+                ctx.cfg.simulation.results,
+                plan,
+            )
+            ctx.effective_results_config = results_cfg
+            for run in plan.runs:
+                derive_run_outputs(
+                    ctx=RunContext(plan=plan, run=run, state=ctx),
+                    sim_id=sim_id,
+                    results_config=results_cfg,
+                    store=store,
+                )
+
         try:
             sim_zarr = store.open_zarr(sim_id)
         except Exception as exc:
             raise RuntimeError(f"DeriveStep cannot open Zarr for sim {sim_id}") from exc
 
+        derived_names: list[str] = []
         try:
             if "head" not in sim_zarr.root:
                 logger.debug(
@@ -74,6 +94,7 @@ class DeriveStep:
             results = self._registry.apply(sim_zarr)
             for result in results:
                 if result.status == "computed":
+                    derived_names.append(result.name)
                     logger.debug("DeriveStep: computed '%s'", result.name)
                 else:
                     logger.debug("DeriveStep: skipped '%s' (%s)", result.name, result.reason)
@@ -84,4 +105,5 @@ class DeriveStep:
             step_index=state.step_index + 1,
             step_name=self.name,
             ctx=ctx,
+            derived_names=derived_names,
         )

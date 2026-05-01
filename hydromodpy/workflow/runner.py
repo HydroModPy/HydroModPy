@@ -75,49 +75,53 @@ class Pipeline:
             else None
         )
 
-        start_index = 0 if resume_from is None else int(resume_from)
-        manifest: ResolvedRunManifest | None = None
-        if self.workspace is not None:
-            manifest = ResolvedRunManifest.read(self.workspace, state.run_id)
-            if start_index > 0 and manifest is not None:
-                manifest.verify_state(state, self.steps, self.workspace)
-            elif start_index == 0:
-                manifest = ResolvedRunManifest.from_state(state, self.steps, self.workspace)
-                manifest.write_atomic(self.workspace)
-
-        if start_index > 0 and cp_store is not None:
-            # Restore state from the last successful checkpoint strictly
-            # before start_index.
-            last_saved = cp_store.latest_before(start_index)
-            if last_saved is not None:
-                state = cp_store.restore(last_saved)
-                if manifest is not None:
+        try:
+            start_index = 0 if resume_from is None else int(resume_from)
+            manifest: ResolvedRunManifest | None = None
+            if self.workspace is not None:
+                manifest = ResolvedRunManifest.read(self.workspace, state.run_id)
+                if start_index > 0 and manifest is not None:
                     manifest.verify_state(state, self.steps, self.workspace)
-                elif self.workspace is not None:
-                    manifest = ResolvedRunManifest.from_state(
-                        state,
-                        self.steps,
-                        self.workspace,
+                elif start_index == 0:
+                    manifest = ResolvedRunManifest.from_state(state, self.steps, self.workspace)
+                    manifest.write_atomic(self.workspace)
+
+            if start_index > 0 and cp_store is not None:
+                # Restore state from the last successful checkpoint strictly
+                # before start_index.
+                last_saved = cp_store.latest_before(start_index)
+                if last_saved is not None:
+                    state = cp_store.restore(last_saved)
+                    if manifest is not None:
+                        manifest.verify_state(state, self.steps, self.workspace)
+                    elif self.workspace is not None:
+                        manifest = ResolvedRunManifest.from_state(
+                            state,
+                            self.steps,
+                            self.workspace,
+                        )
+                        manifest.write_atomic(self.workspace)
+                    logger.info(
+                        "pipeline.resume: restored run_id=%s from step %d",
+                        state.run_id,
+                        last_saved,
+                    )
+
+            for index, step in enumerate(self.steps):
+                if index < start_index:
+                    continue
+                state = self._execute_step(step, state, index, ledger, cp_store)
+                if self.workspace is not None:
+                    manifest = (
+                        ResolvedRunManifest.from_state(state, self.steps, self.workspace)
+                        if manifest is None
+                        else manifest.with_state(state, self.steps)
                     )
                     manifest.write_atomic(self.workspace)
-                logger.info(
-                    "pipeline.resume: restored run_id=%s from step %d",
-                    state.run_id,
-                    last_saved,
-                )
-
-        for index, step in enumerate(self.steps):
-            if index < start_index:
-                continue
-            state = self._execute_step(step, state, index, ledger, cp_store)
-            if self.workspace is not None:
-                manifest = (
-                    ResolvedRunManifest.from_state(state, self.steps, self.workspace)
-                    if manifest is None
-                    else manifest.with_state(state, self.steps)
-                )
-                manifest.write_atomic(self.workspace)
-        return state
+            return state
+        finally:
+            if ledger is not None:
+                ledger.close()
 
     # ------------------------------------------------------------------
     # Internals

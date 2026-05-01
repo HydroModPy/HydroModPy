@@ -1,4 +1,4 @@
-"""Run-solver step - execute the plan and ingest run results into the store."""
+"""Run-solver step - execute the plan and record solver output locations."""
 
 from __future__ import annotations
 
@@ -10,38 +10,13 @@ from hydromodpy.core.logging import get_logger
 from hydromodpy.workflow.internals.state import OpenStoreState, PipelineState, SolverRanState
 
 if TYPE_CHECKING:
-    from hydromodpy.simulation.planning.plan import ProcessRun, RunExecutionResult
-    from hydromodpy.workflow.context import WorkflowContext
+    pass
 
 logger = get_logger(__name__)
 
 
-def step_ingest_run_results(
-    ctx: WorkflowContext,
-    run: ProcessRun,
-    result: RunExecutionResult,
-) -> None:
-    """Ingest solver outputs into ``ctx.store`` after one run completes."""
-    if ctx.store is None:
-        return
-
-    from hydromodpy.simulation.extraction.post_run import post_run_results
-    from hydromodpy.simulation.planning.plan import RunContext
-
-    plan = ctx.execution.simulation_plan
-    results_cfg = getattr(ctx, "effective_results_config", None) or ctx.cfg.simulation.results
-    post_run_results(
-        ctx=RunContext(plan=plan, run=run, state=ctx),
-        sim_id=ctx.sim_id,
-        results_config=results_cfg,
-        store=ctx.store,
-        keep_solver_files=results_cfg.keep_solver_files,
-        run_id=ctx.setup.run_id,
-    )
-
-
 class RunSolverStep:
-    """Execute the plan and ingest results via ``SimulationRunner``."""
+    """Execute the plan via ``SimulationRunner``."""
 
     name = "run_solver"
     tin: ClassVar[type] = OpenStoreState
@@ -68,16 +43,9 @@ class RunSolverStep:
         if plan is None:
             raise ConfigError("run_solver step requires execution.simulation_plan to be set")
 
-        if ctx.execution.lightweight:
-            after_run = None
-        else:
-
-            def after_run(run, result, st):
-                step_ingest_run_results(ctx, run, result)
-
         callbacks = ProcessCallbacks(
             after_process=state.get("after_process"),
-            after_run=after_run,
+            after_run=None,
         )
 
         t0 = time.monotonic()

@@ -163,6 +163,7 @@ def collect_registration_kwargs(ctx: WorkflowContext) -> dict:
         kwargs["config_source"] = str(ctx.config_path)
 
     kwargs["config"] = ctx.cfg.model_dump(mode="json")
+    kwargs["config_snapshot"] = collect_effective_config_snapshot(ctx)
 
     mesh = ctx.setup.mesh_planar
     if mesh is not None:
@@ -196,6 +197,24 @@ def collect_registration_kwargs(ctx: WorkflowContext) -> dict:
     return kwargs
 
 
+def collect_effective_config_snapshot(ctx: WorkflowContext) -> dict:
+    """Return the reproducible config snapshot used by the current run."""
+    payload = ctx.cfg.model_dump(mode="json")
+
+    effective_results = getattr(ctx, "effective_results_config", None)
+    if effective_results is not None:
+        simulation_payload = dict(payload.get("simulation") or {})
+        simulation_payload["results"] = effective_results.model_dump(mode="json")
+        payload["simulation"] = simulation_payload
+
+    domain = getattr(ctx.setup, "domain", None)
+    domain_config = getattr(domain, "config", None)
+    if domain_config is not None and hasattr(domain_config, "model_dump"):
+        payload["domain"] = domain_config.model_dump(mode="json")
+
+    return payload
+
+
 def _crs_grid_mapping_attrs(crs: object) -> dict[str, object]:
     """Return CF grid-mapping attrs for a CRS value."""
     try:
@@ -215,7 +234,8 @@ def _crs_grid_mapping_attrs(crs: object) -> dict[str, object]:
 
 def _write_zarr_crs(ctx: WorkflowContext, sim_id: str) -> None:
     """Persist CRS metadata in the simulation Zarr store when configured."""
-    crs = getattr(ctx.cfg.geographic, "crs_project", None)
+    geographic_cfg = getattr(ctx.cfg, "geographic", None)
+    crs = getattr(geographic_cfg, "crs_project", None)
     if crs is None:
         return
     attrs = _crs_grid_mapping_attrs(crs)
@@ -313,10 +333,11 @@ def _register_tracked_input_files(ctx: WorkflowContext) -> None:
 def step_open_store(ctx: WorkflowContext) -> None:
     """Open a ``SimulationCatalog`` and register the current simulation.
 
-    Does nothing when ``cfg.simulation.results.persistence.save_catalog``
-    is disabled. After this step ``ctx.store`` and ``ctx.sim_id`` are set.
+    Does nothing when the effective ``simulation.results.persistence`` block
+    disables catalog persistence. After this step ``ctx.store`` and
+    ``ctx.sim_id`` are set.
     """
-    results_cfg = ctx.cfg.simulation.results
+    results_cfg = getattr(ctx, "effective_results_config", None) or ctx.cfg.simulation.results
     if not results_cfg.persistence.save_catalog:
         return
 
@@ -366,7 +387,7 @@ def step_open_store(ctx: WorkflowContext) -> None:
             ctx.store,
             ctx.sim_id,
             ctx.setup.flow,
-            domain=ctx.cfg.domain,
+            domain=ctx.setup.domain,
         )
 
     step_persist_mesh(ctx, ctx.sim_id)

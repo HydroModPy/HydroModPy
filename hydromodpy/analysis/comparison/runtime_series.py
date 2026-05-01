@@ -141,7 +141,7 @@ def _load_store_series(
 
     return VariableSeries(
         variable_name=variable_name,
-        source_path=store.zarr_path_for(sim_id),
+        source_path=_store_source_path(store, sim_id),
         slices=slices,
         cell_ids=None,
     )
@@ -215,7 +215,7 @@ def _load_store_boussinesq_state_series(
 
     return VariableSeries(
         variable_name=variable_name,
-        source_path=store.zarr_path_for(sim_id),
+        source_path=_store_source_path(store, sim_id),
         slices=slices,
         cell_ids=None,
     )
@@ -301,10 +301,17 @@ def _load_store_surface_excess_total_series(
     )
     return VariableSeries(
         variable_name=variable_name,
-        source_path=store.zarr_path_for(sim_id),
+        source_path=_store_source_path(store, sim_id),
         slices=slices,
         cell_ids=None,
     )
+
+
+def _store_source_path(store: SimulationCatalog, sim_id: str) -> Path:
+    zarr_path_for = getattr(store, "zarr_path_for", None)
+    if callable(zarr_path_for):
+        return Path(zarr_path_for(sim_id))
+    return Path(getattr(store, "zarr_path", ""))
 
 
 def load_variable_series(

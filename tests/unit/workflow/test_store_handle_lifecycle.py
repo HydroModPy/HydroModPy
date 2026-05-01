@@ -102,3 +102,36 @@ def test_step_open_store_closes_unused_bootstrap_zarr(monkeypatch, tmp_path: Pat
     assert ctx.sim_id is not None
     assert ctx.setup.run_id == "run_0002"
     assert fake_zarr.close_calls == 1
+
+
+class _Dumpable:
+    def __init__(self, payload: dict) -> None:
+        self.payload = payload
+
+    def model_dump(self, **_kwargs) -> dict:
+        return dict(self.payload)
+
+
+def test_effective_config_snapshot_uses_runtime_domain_and_results() -> None:
+    declared = {
+        "workflow": "simulation",
+        "domain": {"depth_model": {"type": "constant_thickness", "thickness": 10.0}},
+        "simulation": {"results": {"keep_solver_files": False}},
+    }
+    effective_domain = {
+        "depth_model": {"type": "constant_thickness", "thickness": 25.0},
+    }
+    effective_results = {
+        "keep_solver_files": True,
+        "persistence": {"save_catalog": True},
+    }
+    ctx = SimpleNamespace(
+        cfg=_Dumpable(declared),
+        setup=SimpleNamespace(domain=SimpleNamespace(config=_Dumpable(effective_domain))),
+        effective_results_config=_Dumpable(effective_results),
+    )
+
+    snapshot = prepare_solver_module.collect_effective_config_snapshot(ctx)
+
+    assert snapshot["domain"] == effective_domain
+    assert snapshot["simulation"]["results"] == effective_results
