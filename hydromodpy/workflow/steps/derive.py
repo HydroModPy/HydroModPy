@@ -20,7 +20,7 @@ from __future__ import annotations
 
 from typing import ClassVar
 
-from hydromodpy.core.exceptions import ConfigError
+from hydromodpy.core.exceptions import ConfigError, ExtractError
 from hydromodpy.core.logging import get_logger
 from hydromodpy.workflow.internals.derived import registry as _default_registry
 from hydromodpy.workflow.internals.state import DerivedState, ExtractedState, PipelineState
@@ -76,7 +76,7 @@ class DeriveStep:
         try:
             sim_zarr = store.open_zarr(sim_id)
         except Exception as exc:
-            raise RuntimeError(f"DeriveStep cannot open Zarr for sim {sim_id}") from exc
+            raise ExtractError(f"DeriveStep cannot open Zarr for sim {sim_id}") from exc
 
         derived_names: list[str] = []
         try:

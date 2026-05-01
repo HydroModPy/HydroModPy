@@ -10,13 +10,13 @@ from hydromodpy.core.logging import get_logger
 from hydromodpy.workflow.internals.state import OpenStoreState, PipelineState, SolverRanState
 
 if TYPE_CHECKING:
-    pass
+    from hydromodpy.workflow.launcher_protocol import Launcher
 
 logger = get_logger(__name__)
 
 
 class RunSolverStep:
-    """Execute the plan via ``SimulationRunner``."""
+    """Execute the plan via the configured launcher."""
 
     name = "run_solver"
     tin: ClassVar[type] = OpenStoreState
@@ -28,6 +28,9 @@ class RunSolverStep:
         "modflownwt",
         "modflow6",
     )
+
+    def __init__(self, launcher: Launcher | None = None) -> None:
+        self.launcher = launcher
 
     def run(self, state: PipelineState) -> PipelineState:
         from hydromodpy.simulation.execution.runner import (
@@ -49,7 +52,8 @@ class RunSolverStep:
         )
 
         t0 = time.monotonic()
-        SimulationRunner(callbacks=callbacks).execute(plan, ctx)
+        launcher = self.launcher if self.launcher is not None else SimulationRunner()
+        launcher.execute(plan, ctx, callbacks=callbacks)
         wall_seconds = time.monotonic() - t0
 
         return state.advance(

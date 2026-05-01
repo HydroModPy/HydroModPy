@@ -15,10 +15,6 @@ import time
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
-from hydromodpy.simulation.execution.runner import (
-    ProcessCallbacks,
-    SimulationRunner,
-)
 from hydromodpy.workflow.steps.display import step_render_figures
 from hydromodpy.workflow.steps.export import (
     step_cleanup_scratch,
@@ -43,6 +39,7 @@ if TYPE_CHECKING:
     from hydromodpy.results.run import Run
     from hydromodpy.spatial.mesh.config import MeshCatchmentConfig
     from hydromodpy.workflow.context import WorkflowContext
+    from hydromodpy.workflow.launcher_protocol import Launcher
 
 
 def prepare_runtime(
@@ -158,12 +155,14 @@ def execute_run(
     *,
     final_name: str,
     after_process: Any | None = None,
+    launcher: Launcher | None = None,
 ) -> float:
-    """Execute the planned simulation via SimulationRunner.
+    """Execute the planned simulation via a launcher.
 
     The seepage derivatives are patched once here so ingest steps see a
     results config that matches the plan. Returns wall-clock seconds.
     """
+    from hydromodpy.simulation.execution.runner import ProcessCallbacks, SimulationRunner
     from hydromodpy.simulation.extraction.post_run import post_run_results
     from hydromodpy.simulation.planning.plan import RunContext
 
@@ -186,12 +185,15 @@ def execute_run(
     wall_start = time.monotonic()
     original_domain = ctx.setup.domain
     try:
-        SimulationRunner(
+        active_launcher = launcher if launcher is not None else SimulationRunner()
+        active_launcher.execute(
+            plan,
+            ctx,
             callbacks=ProcessCallbacks(
                 after_process=after_process,
                 after_run=_after_run,
             ),
-        ).execute(plan, ctx)
+        )
     finally:
         ctx.setup.domain = original_domain
         ctx.setup.flow_runtime_overrides = None

@@ -24,7 +24,7 @@ import pandas as pd
 # HydroModPy
 from hydromodpy.core.io.filesystem import create_folder
 from hydromodpy.core.logging import get_logger
-from hydromodpy.spatial.delineation import get_whitebox_backend
+from hydromodpy.spatial.geographic.geographic_io import resolve_delineation_backend
 
 logger = get_logger(__name__)
 
@@ -62,7 +62,7 @@ class Subbasin:
             Path of the HydroModPy outputs.
         """
         logger.info("Extracting subbasin definitions for watershed")
-        self._backend = get_whitebox_backend()
+        self._backend = resolve_delineation_backend()
 
         self.sub_snap_dist = sub_snap_dist
 

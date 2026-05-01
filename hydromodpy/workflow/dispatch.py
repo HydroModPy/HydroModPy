@@ -1,22 +1,13 @@
-"""Workflow dispatch helpers.
-
-Single CLI entry point: ``hmp run <toml>``. The TOML must declare a
-mandatory top-level ``workflow = "..."`` field (one of ``simulation``,
-``calibration``, ``batch``, ``overview``, ``mesh``,
-``method-comparison``). Dispatches to the matching ``run_*`` adapter.
-
-The contract is enforced twice: here at CLI load time via
-:func:`resolve_workflow` for friendly error messages, and again at the
-Pydantic layer (:class:`hydromodpy.master_config.HydroModPyConfig`) so
-API-driven callers (e.g. an Angular frontend posting a serialised
-config) face the same contract as the CLI.
-"""
+"""Workflow dispatch helpers."""
 
 from __future__ import annotations
 
 import tomllib
+from collections.abc import Callable
 from pathlib import Path
-from typing import Literal
+from typing import Any, Literal
+
+from hydromodpy.core.exceptions import ConfigError
 
 WorkflowName = Literal[
     "simulation",
@@ -37,35 +28,30 @@ KNOWN_WORKFLOWS: tuple[str, ...] = (
 )
 
 
-class WorkflowError(Exception):
-    """Base class for workflow-dispatch errors surfaced to the CLI user."""
+class WorkflowError(ConfigError):
+    """Base class for workflow-dispatch errors."""
 
 
 class WorkflowMissingError(WorkflowError):
-    """TOML lacks the top-level ``workflow`` field required by ``hmp run``."""
+    """TOML lacks the top-level workflow field."""
 
 
 class WorkflowUnknownError(WorkflowError):
-    """TOML declares ``workflow = "..."`` but the value is not recognised."""
+    """TOML declares an unknown workflow value."""
 
 
 class WorkflowMismatchError(WorkflowError):
-    """CLI subcommand and TOML ``workflow`` field disagree."""
+    """Requested workflow and TOML workflow field disagree."""
 
 
-# ---------------------------------------------------------------------------
-# TOML loading + validation
-# ---------------------------------------------------------------------------
-
-
-def load_raw_toml(config_path: Path) -> dict:
-    """Parse ``config_path`` as TOML, return raw dict."""
+def load_raw_toml(config_path: Path) -> dict[str, Any]:
+    """Parse a TOML config file."""
     with open(config_path, "rb") as fh:
         return tomllib.load(fh)
 
 
-def extract_workflow_field(raw_toml: dict) -> str | None:
-    """Return the top-level ``workflow = "..."`` field or ``None`` if absent."""
+def extract_workflow_field(raw_toml: dict[str, Any]) -> str | None:
+    """Return the top-level workflow field."""
     value = raw_toml.get("workflow")
     if value is None:
         return None
@@ -80,32 +66,7 @@ def resolve_workflow(
     cli_workflow: str | None,
     require_toml_field: bool,
 ) -> str:
-    """Resolve which workflow to run and validate CLI↔TOML consistency.
-
-    Parameters
-    ----------
-    config_path
-        Path to the TOML config.
-    cli_workflow
-        Workflow name from the CLI subcommand (e.g. ``"simulation"`` when the
-        user invoked ``hmp simulate``), or ``None`` for ``hmp run``.
-    require_toml_field
-        If ``True``, the TOML MUST declare ``workflow = "..."`` - else
-        :class:`WorkflowMissingError`. Set by ``hmp run``.
-
-    Returns
-    -------
-    The validated workflow name.
-
-    Raises
-    ------
-    WorkflowMissingError
-        Generic ``hmp run`` but TOML lacks ``workflow = "..."``.
-    WorkflowUnknownError
-        TOML declares a ``workflow`` value outside :data:`KNOWN_WORKFLOWS`.
-    WorkflowMismatchError
-        Explicit CLI subcommand and TOML field disagree.
-    """
+    """Resolve and validate the workflow selected by config and caller."""
     raw = load_raw_toml(config_path)
     toml_workflow = extract_workflow_field(raw)
 
@@ -122,21 +83,22 @@ def resolve_workflow(
             f"Valid values: {', '.join(KNOWN_WORKFLOWS)}."
         )
 
-    if cli_workflow is not None and toml_workflow is not None:
-        if cli_workflow != toml_workflow:
-            raise WorkflowMismatchError(
-                f"CLI subcommand selected workflow={cli_workflow!r} but "
-                f"{config_path.name} declares workflow={toml_workflow!r}. "
-                f"Fix one of the two so they agree."
-            )
+    if cli_workflow is not None and toml_workflow is not None and cli_workflow != toml_workflow:
+        raise WorkflowMismatchError(
+            f"CLI subcommand selected workflow={cli_workflow!r} but "
+            f"{config_path.name} declares workflow={toml_workflow!r}. "
+            f"Fix one of the two so they agree."
+        )
 
-    # Priority: CLI > TOML (they are either equal or one is None at this point)
-    return cli_workflow or toml_workflow  # type: ignore[return-value]
-
-
-# ---------------------------------------------------------------------------
-# Workflow adapters
-# ---------------------------------------------------------------------------
+    if cli_workflow is not None:
+        return cli_workflow
+    if toml_workflow is None:
+        raise WorkflowMissingError(
+            f"{config_path.name} must declare a top-level "
+            f"'workflow = \"...\"' field.\n"
+            f"Valid values: {', '.join(KNOWN_WORKFLOWS)}."
+        )
+    return toml_workflow
 
 
 def run_simulation(
@@ -149,8 +111,8 @@ def run_simulation(
     no_display: bool = False,
     frozen: bool = False,
     dry_run: bool = False,
-) -> dict:
-    """Execute a single simulation from a TOML file via ``Project.run``."""
+) -> dict[str, Any]:
+    """Execute a single simulation from a TOML file."""
     from hydromodpy.project import Project
 
     with Project(config_path, no_display=no_display) as project:
@@ -171,42 +133,42 @@ def run_simulation(
         }
 
 
-def run_overview(config_path: str | Path) -> dict:
+def run_overview(config_path: str | Path) -> dict[str, Any]:
     """Generate a watershed identity card from a TOML file."""
     from hydromodpy.workflow.pipelines.overview import DataOverviewLauncher
 
     return DataOverviewLauncher(config_path).run()
 
 
-def run_mesh(config_path: str | Path) -> dict:
+def run_mesh(config_path: str | Path) -> dict[str, Any]:
     """Generate a catchment mesh from a TOML file."""
     from hydromodpy.workflow.pipelines.mesh import MeshCatchmentLauncher
 
     return MeshCatchmentLauncher(config_path).run()
 
 
-def run_calibration(config_path: str | Path) -> dict:
+def run_calibration(config_path: str | Path) -> dict[str, Any]:
     """Run a parameter calibration campaign from a TOML file."""
     from hydromodpy.calibration.runner import run_calibration_cli
 
     return run_calibration_cli(config_path)
 
 
-def run_batch(config_path: str | Path) -> dict:
+def run_batch(config_path: str | Path) -> dict[str, Any]:
     """Run a multi-site batch campaign from a TOML file."""
     from hydromodpy.analysis.batch.runtime import RegionalLabLauncher
 
     return RegionalLabLauncher(config_path).run()
 
 
-def run_method_comparison(config_path: str | Path) -> dict:
+def run_method_comparison(config_path: str | Path) -> dict[str, Any]:
     """Run a method-comparison workflow from a TOML file."""
     from hydromodpy.analysis.comparison.orchestrator import MethodComparisonLauncher
 
     return MethodComparisonLauncher(config_path).run()
 
 
-DISPATCH: dict[str, callable] = {
+DISPATCH: dict[str, Callable[..., dict[str, Any]]] = {
     "simulation": run_simulation,
     "overview": run_overview,
     "mesh": run_mesh,
@@ -216,27 +178,28 @@ DISPATCH: dict[str, callable] = {
 }
 
 
-def dispatch_workflow(workflow: str, config_path: Path, **kwargs) -> dict:
-    """Dispatch to the ``run_*`` adapter for a resolved workflow name."""
+def dispatch_workflow(workflow: str, config_path: Path, **kwargs: Any) -> dict[str, Any]:
+    """Dispatch to the adapter for a resolved workflow name."""
     runner = DISPATCH[workflow]
     return runner(config_path, **kwargs)
 
 
 __all__ = (
+    "DISPATCH",
     "KNOWN_WORKFLOWS",
     "WorkflowError",
-    "WorkflowMissingError",
-    "WorkflowUnknownError",
     "WorkflowMismatchError",
-    "load_raw_toml",
-    "extract_workflow_field",
-    "resolve_workflow",
+    "WorkflowMissingError",
+    "WorkflowName",
+    "WorkflowUnknownError",
     "dispatch_workflow",
-    "run_simulation",
-    "run_overview",
-    "run_mesh",
-    "run_calibration",
+    "extract_workflow_field",
+    "load_raw_toml",
+    "resolve_workflow",
     "run_batch",
+    "run_calibration",
+    "run_mesh",
     "run_method_comparison",
-    "DISPATCH",
+    "run_overview",
+    "run_simulation",
 )

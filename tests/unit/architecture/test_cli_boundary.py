@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import importlib.util
 import pathlib
+import sys
 
 import pytest
 
@@ -24,6 +25,7 @@ _BUILD_GRAPH_SPEC = importlib.util.spec_from_file_location(
 if _BUILD_GRAPH_SPEC is None or _BUILD_GRAPH_SPEC.loader is None:
     raise RuntimeError(f"Could not load architecture scanner at {_BUILD_GRAPH_PATH}")
 _BUILD_GRAPH_MODULE = importlib.util.module_from_spec(_BUILD_GRAPH_SPEC)
+sys.modules[_BUILD_GRAPH_SPEC.name] = _BUILD_GRAPH_MODULE
 _BUILD_GRAPH_SPEC.loader.exec_module(_BUILD_GRAPH_MODULE)
 
 parse_imports = _BUILD_GRAPH_MODULE.parse_imports

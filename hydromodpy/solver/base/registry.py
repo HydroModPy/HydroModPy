@@ -35,6 +35,7 @@ from hydromodpy.solver.base.protocol import SolverAdapter
 logger = get_logger(__name__)
 
 AdapterKey = tuple[str, str]
+Capabilities = frozenset[str]
 ENTRY_POINT_GROUP = "hydromodpy.solver"
 EXTRACTOR_ENTRY_POINT_GROUP = "hydromodpy.solver.extractor"
 
@@ -63,23 +64,15 @@ _BUILTIN_PATHS: dict[AdapterKey, str] = {
         "transport",
         "modflow6gwt",
     ): "hydromodpy.solver.modflow6.adapters.transport:Modflow6GwtTransportAdapter",
-    # Postprocess and display stubs keep the process-type taxonomy open; they
-    # do not do any real work yet and will fail with NotImplementedError on
-    # ``execute``. Registering them here lets ``known_process_types`` discover
-    # them without a dedicated compatibility table.
-    (
-        "postprocess",
-        "timeseries",
-    ): "hydromodpy.simulation.adapters.postprocess.stub:TimeseriesPostprocessAdapter",
-    (
-        "postprocess",
-        "netcdf",
-    ): "hydromodpy.simulation.adapters.postprocess.stub:NetcdfPostprocessAdapter",
-    ("display", "flow"): "hydromodpy.simulation.adapters.display.stub:FlowDisplayAdapter",
-    (
-        "display",
-        "transport",
-    ): "hydromodpy.simulation.adapters.display.stub:TransportDisplayAdapter",
+}
+
+_BUILTIN_CAPABILITIES: dict[AdapterKey, Capabilities] = {
+    ("flow", "modflownwt"): frozenset({"flow", "flow:heads", "flow:budget"}),
+    ("flow", "modflow6"): frozenset({"flow", "flow:heads", "flow:budget"}),
+    ("flow", "boussinesq"): frozenset({"flow", "flow:heads"}),
+    ("transport", "modpath"): frozenset({"transport", "transport:particles"}),
+    ("transport", "mt3dms"): frozenset({"transport", "transport:concentration"}),
+    ("transport", "modflow6gwt"): frozenset({"transport", "transport:concentration"}),
 }
 
 # Dotted paths to in-tree output extractor classes. Keyed on solver_name
@@ -178,6 +171,23 @@ def get(process_type: str, solver_name: str) -> type:
     )
 
 
+def capabilities(process_type: str, solver_name: str) -> Capabilities:
+    """Return the declared runtime capabilities for one adapter pair."""
+    key = (process_type, solver_name)
+    if key not in _REGISTRY:
+        builtin = _BUILTIN_CAPABILITIES.get(key)
+        if builtin is not None:
+            return builtin
+    cls = get(process_type, solver_name)
+    declared = getattr(cls, "capabilities", None)
+    if declared is not None:
+        return frozenset(str(item) for item in declared)
+    builtin = _BUILTIN_CAPABILITIES.get(key)
+    if builtin is not None:
+        return builtin
+    return frozenset({process_type})
+
+
 def get_solver_adapter(process_type: str, solver_name: str) -> Any:
     """Return a freshly-instantiated adapter for ``(process_type, solver_name)``.
 
@@ -201,6 +211,11 @@ def get_extractor(solver_name: str) -> type:
     cls = _load_builtin_extractor(solver_name)
     if cls is not None:
         return cls
+    if not _EXTRACTOR_PLUGINS_LOADED:
+        load_extractor_plugins()
+        cls = _EXTRACTOR_REGISTRY.get(solver_name)
+        if cls is not None:
+            return cls
     known = sorted(set(_EXTRACTOR_REGISTRY) | set(_BUILTIN_EXTRACTOR_PATHS))
     raise KeyError(f"No extractor registered for solver {solver_name!r}. Known: {known}.")
 
@@ -228,6 +243,7 @@ def unregister(process_type: str, solver_name: str) -> None:
     key = (process_type, solver_name)
     _REGISTRY.pop(key, None)
     _BUILTIN_PATHS.pop(key, None)
+    _BUILTIN_CAPABILITIES.pop(key, None)
 
 
 def unregister_extractor(solver_name: str) -> None:
@@ -364,7 +380,10 @@ def load_extractor_plugins(*, force: bool = False) -> int:
         eps = entry_points().get(EXTRACTOR_ENTRY_POINT_GROUP, [])  # type: ignore[attr-defined]
 
     for ep in eps:
-        solver_name = ep.name
+        solver_name = str(ep.name).strip()
+        if solver_name == "":
+            logger.warning("extractor plugin %r ignored: entry-point name cannot be empty", ep)
+            continue
         if solver_name in _EXTRACTOR_REGISTRY and not force:
             continue
         try:
@@ -383,9 +402,11 @@ def load_extractor_plugins(*, force: bool = False) -> int:
 
 
 __all__ = [
+    "Capabilities",
     "EXTRACTOR_ENTRY_POINT_GROUP",
     "ENTRY_POINT_GROUP",
     "AdapterKey",
+    "capabilities",
     "get",
     "get_extractor",
     "get_extractor_instance",

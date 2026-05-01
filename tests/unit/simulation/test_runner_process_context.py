@@ -16,6 +16,8 @@ from hydromodpy.simulation.planning.plan import (
 )
 from hydromodpy.solver.modflow_common.flow_adapter_helpers import run_flow_model
 from hydromodpy.solver.modflow_nwt import ModflowPreprocessOptions
+from hydromodpy.workflow.internals.state import PipelineState
+from hydromodpy.workflow.steps.run_solver import RunSolverStep
 
 
 class _RecordingAdapter:
@@ -105,6 +107,46 @@ def test_runner_ensures_process_context_before_before_process_callback(monkeypat
         "flow_main::modflownwt": flow_model,
         "transport_main::mt3dms": transport_model,
     }
+
+
+def test_run_solver_step_uses_injected_launcher() -> None:
+    plan = SimulationPlan(
+        name="demo",
+        description="demo",
+        runs=(
+            ProcessRun(
+                id="flow_main::modflownwt",
+                process_id="flow_main",
+                process_type="flow",
+                solver="modflownwt",
+            ),
+        ),
+    )
+    ctx = SimpleNamespace(execution=SimpleNamespace(simulation_plan=plan))
+
+    class _Launcher:
+        def __init__(self) -> None:
+            self.calls: list[tuple[SimulationPlan, object, object]] = []
+
+        def execute(
+            self,
+            plan: SimulationPlan,
+            state: object,
+            *,
+            callbacks: object | None = None,
+        ) -> None:
+            self.calls.append((plan, state, callbacks))
+
+    launcher = _Launcher()
+    state = PipelineState(run_id="run", data={"ctx": ctx})
+
+    out = RunSolverStep(launcher=launcher).run(state)
+
+    called_plan, called_state, callbacks = launcher.calls[0]
+    assert called_plan is plan
+    assert called_state is ctx
+    assert callbacks is not None
+    assert out.get("wall_seconds") is not None
 
 
 def test_run_flow_model_raises_when_solver_fails() -> None:

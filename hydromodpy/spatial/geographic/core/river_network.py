@@ -26,9 +26,12 @@ import numpy as np
 import rasterio
 from shapely.geometry import LineString, MultiLineString
 
-from hydromodpy.spatial.delineation import WhiteboxWorkflowsBackend, get_whitebox_backend
 from hydromodpy.spatial.geographic.core.river_mesh_trace import RiverMeshTrace
 from hydromodpy.spatial.geographic.geographic_config import RiverNetworkConfig
+from hydromodpy.spatial.geographic.geographic_io import (
+    backend_has_callables,
+    resolve_delineation_backend,
+)
 
 if TYPE_CHECKING:
     from shapely.geometry.base import BaseGeometry
@@ -297,13 +300,36 @@ def build_river_network_products(
     network_shp_path: str | Path,
     summary_json_path: str | Path,
     network_crs: str | None = None,
-    backend: WhiteboxWorkflowsBackend | None = None,
+    backend: object | None = None,
 ) -> RiverNetworkProducts:
     """Build stream rasters, stream vectors and one summary JSON payload."""
     if not bool(river_network.enabled):
         return RiverNetworkProducts(enabled=False)
 
-    tool = get_whitebox_backend() if backend is None else backend
+    tool = resolve_delineation_backend(backend)
+    if not (
+        backend_has_callables(
+            tool,
+            "raster",
+            "read_raster",
+            "read_vector",
+            "clip_raster_to_polygon",
+            "clip_vector",
+            "write_vector",
+        )
+        and backend_has_callables(
+            tool,
+            "flow",
+            "d8_flow_accumulation",
+        )
+        and backend_has_callables(
+            tool,
+            "delineation",
+            "extract_streams",
+            "raster_streams_to_vector_raster",
+        )
+    ):
+        raise TypeError("River network extraction requires a delineation backend with raster APIs.")
 
     geo_dir = Path(geographic_dir)
     correc_dir = Path(correcflow_dir)

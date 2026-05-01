@@ -8,7 +8,7 @@ import json
 from pathlib import Path
 from typing import TYPE_CHECKING, ClassVar
 
-from hydromodpy.core.exceptions import ConfigError, MeshError
+from hydromodpy.core.exceptions import ConfigError, MeshError, PipelineError
 from hydromodpy.core.logging import get_logger
 from hydromodpy.workflow.internals.state import OpenStoreState, PipelineState, SetupState
 
@@ -485,7 +485,7 @@ def step_write_provenance(ctx: WorkflowContext) -> None:
                     )
                     written += 1
                 except Exception as exc:
-                    raise RuntimeError(f"Provenance failed for {f.name}:{rec.variable}") from exc
+                    raise PipelineError(f"Provenance failed for {f.name}:{rec.variable}") from exc
 
         fields = getattr(load_result, "fields", None)
         if fields:
@@ -517,7 +517,7 @@ def step_write_provenance(ctx: WorkflowContext) -> None:
                     )
                     written += 1
                 except Exception as exc:
-                    raise RuntimeError(
+                    raise PipelineError(
                         f"Provenance failed for field {f.name}:{rec.variable}"
                     ) from exc
 

@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import importlib.util
 import pathlib
+import sys
 
 import pytest
 import yaml
@@ -26,6 +27,7 @@ _BUILD_GRAPH_SPEC = importlib.util.spec_from_file_location(
 if _BUILD_GRAPH_SPEC is None or _BUILD_GRAPH_SPEC.loader is None:
     raise RuntimeError(f"Could not load architecture scanner at {_BUILD_GRAPH_PATH}")
 _BUILD_GRAPH_MODULE = importlib.util.module_from_spec(_BUILD_GRAPH_SPEC)
+sys.modules[_BUILD_GRAPH_SPEC.name] = _BUILD_GRAPH_MODULE
 _BUILD_GRAPH_SPEC.loader.exec_module(_BUILD_GRAPH_MODULE)
 
 scan_package = _BUILD_GRAPH_MODULE.scan_package
@@ -33,6 +35,14 @@ scan_package = _BUILD_GRAPH_MODULE.scan_package
 
 def _load_matrix() -> dict:
     return yaml.safe_load(MATRIX_FILE.read_text(encoding="utf-8"))
+
+
+def _top_level_packages() -> set[str]:
+    return {
+        path.name
+        for path in PKG_ROOT.iterdir()
+        if path.is_dir() and not path.name.startswith("__") and path.name != "__pycache__"
+    }
 
 
 def _violations() -> tuple[list, list]:
@@ -54,6 +64,10 @@ def _violations() -> tuple[list, list]:
             annex.append(edge)
             continue
         if edge.src_pkg not in allowed:
+            p0.append(edge)
+            continue
+        if edge.tgt_pkg not in allowed:
+            p0.append(edge)
             continue
         if edge.tgt_pkg in allowed[edge.src_pkg]:
             continue
@@ -72,6 +86,29 @@ def test_layer_matrix() -> None:
         per_pair = Counter((e.src_pkg, e.tgt_pkg) for e in p0)
         breakdown = "\n".join(f"  {s:>12} -> {t:<12} {n}" for (s, t), n in per_pair.most_common())
         pytest.fail(f"{len(p0)} layer-matrix violations:\n{breakdown}")
+
+
+def test_layer_matrix_declares_every_top_level_package() -> None:
+    """Reject stale or missing rows in the machine-readable layer matrix."""
+    matrix = _load_matrix()
+    declared = set(matrix["allowed"]) - {"<root>"}
+    actual = _top_level_packages()
+    missing = sorted(actual - declared)
+    stale = sorted(declared - actual)
+    assert missing == [], f"Top-level packages missing from layer matrix: {missing}"
+    assert stale == [], f"Layer matrix rows without a package: {stale}"
+
+
+def test_layer_tolerances_reference_declared_layers() -> None:
+    """Reject tolerance entries for unknown layers."""
+    matrix = _load_matrix()
+    declared = set(matrix["allowed"])
+    unknown: list[tuple[str, str]] = []
+    for entry in matrix.get("tolerances", []):
+        pair = (entry["src"], entry["tgt"])
+        if pair[0] not in declared or pair[1] not in declared:
+            unknown.append(pair)
+    assert unknown == []
 
 
 def test_annex_one_way() -> None:

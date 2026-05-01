@@ -14,7 +14,6 @@ from typing import Any
 import geopandas as gpd
 from geopy.geocoders import Nominatim
 
-from hydromodpy.spatial.delineation import WhiteboxWorkflowsBackend, get_whitebox_backend
 from hydromodpy.spatial.geographic.core.catchment_domain import CatchmentDomainProducts
 from hydromodpy.spatial.geographic.core.catchment_metrics import compute_catchment_area_km2
 from hydromodpy.spatial.geographic.core.direct_dem_domain import build_direct_dem_domain
@@ -41,6 +40,7 @@ from hydromodpy.spatial.geographic.domain_rasters import (
     build_domain_rasters,
 )
 from hydromodpy.spatial.geographic.geographic_config import GeographicConfig
+from hydromodpy.spatial.geographic.geographic_io import resolve_delineation_backend
 from hydromodpy.spatial.geographic.geographic_paths import GeographicPaths
 
 _GEOGRAPHIC_CACHE_SCHEMA_VERSION = "hydromodpy_geographic_cache_v1"
@@ -379,7 +379,7 @@ def build_geographic_runtime_context(
     *,
     config: GeographicConfig,
     out_dir_path: str | Path,
-    backend: WhiteboxWorkflowsBackend | None = None,
+    backend: object | None = None,
     locator_factory: object = Nominatim,
 ) -> GeographicRuntimeContext:
     """
@@ -393,7 +393,7 @@ def build_geographic_runtime_context(
         out_dir_path=out_dir_path,
     )
 
-    tool = get_whitebox_backend() if backend is None else backend
+    tool = resolve_delineation_backend(backend)
     cached_products = _load_cached_geographic_products(
         config=config,
         paths=setup.paths,

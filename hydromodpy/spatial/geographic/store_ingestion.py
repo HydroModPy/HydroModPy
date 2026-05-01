@@ -12,6 +12,10 @@ from pathlib import Path
 from typing import Any
 
 from hydromodpy.core.logging import get_logger
+from hydromodpy.spatial.geographic.geographic_io import (
+    backend_has_callables,
+    resolve_delineation_backend,
+)
 
 logger = get_logger(__name__)
 
@@ -60,9 +64,14 @@ def _ingest_rasters(geographic: Any, store: Any, sim_id: str | None) -> None:
     if sim_id is None:
         return
 
-    from hydromodpy.spatial.delineation import get_whitebox_backend
-
-    wb = get_whitebox_backend()
+    backend = resolve_delineation_backend()
+    raster_backend = getattr(backend, "raster", None)
+    has_cache = backend_has_callables(
+        backend,
+        "raster",
+        "get_cached_raster_numpy",
+        "get_cached_raster_metadata",
+    )
 
     for attr in _RASTER_ATTRS:
         path = getattr(geographic, attr, None)
@@ -72,9 +81,9 @@ def _ingest_rasters(geographic: Any, store: Any, sim_id: str | None) -> None:
 
         name = attr.removesuffix("_tif")
 
-        data = wb.raster.get_cached_raster_numpy(path)
-        if data is not None:
-            meta = wb.raster.get_cached_raster_metadata(path)
+        data = raster_backend.get_cached_raster_numpy(path) if has_cache else None
+        if data is not None and raster_backend is not None:
+            meta = raster_backend.get_cached_raster_metadata(path)
             store.write_geographic_raster(
                 sim_id,
                 name,
@@ -214,11 +223,9 @@ def _cleanup_intermediate_dirs(geographic: Any) -> None:
 
 
 def dump_cached_rasters_to_disk(geographic: Any) -> None:
-    from hydromodpy.spatial.delineation import get_whitebox_backend
-
-    wb = get_whitebox_backend()
-    raster_backend = wb.raster
-    if not raster_backend._raster_cache:
+    backend = resolve_delineation_backend()
+    raster_backend = getattr(backend, "raster", None)
+    if raster_backend is None or not getattr(raster_backend, "_raster_cache", {}):
         return
 
     for path, raster in raster_backend._raster_cache.items():
@@ -240,9 +247,9 @@ def dump_cached_rasters_to_disk(geographic: Any) -> None:
 def cleanup_stable_folder(geographic: Any) -> None:
     import shutil
 
-    from hydromodpy.spatial.delineation import get_whitebox_backend
-
-    get_whitebox_backend().raster.clear_raster_cache()
+    backend = resolve_delineation_backend()
+    if backend_has_callables(backend, "raster", "clear_raster_cache"):
+        backend.raster.clear_raster_cache()
 
     stable = getattr(geographic, "stable_folder", None)
     if stable is not None:

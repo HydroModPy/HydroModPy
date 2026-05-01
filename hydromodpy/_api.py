@@ -30,7 +30,7 @@ def open(workspace_path: Any) -> Any:
 def run(config: Any, **kwargs: Any) -> Any:
     """Functional facade for ``hmp run <config.toml>``."""
     if isinstance(config, (str, Path)):
-        from hydromodpy.cli.workflows import dispatch_workflow, resolve_workflow
+        from hydromodpy.workflow.dispatch import dispatch_workflow, resolve_workflow
 
         config_path = Path(config).expanduser().resolve()
         workflow = resolve_workflow(
@@ -61,7 +61,7 @@ def calibrate(config: Any, **kwargs: Any) -> Any:
 
 def overview(config: Any, **kwargs: Any) -> Any:
     """Functional facade for ``hmp run`` with ``workflow = "overview"``."""
-    from hydromodpy.cli.workflows import dispatch_workflow, resolve_workflow
+    from hydromodpy.workflow.dispatch import dispatch_workflow, resolve_workflow
 
     config_path = Path(config).expanduser().resolve()
     workflow = resolve_workflow(
@@ -74,7 +74,7 @@ def overview(config: Any, **kwargs: Any) -> Any:
 
 def batch(config: Any, **kwargs: Any) -> Any:
     """Functional facade for ``hmp run`` with ``workflow = "batch"``."""
-    from hydromodpy.cli.workflows import dispatch_workflow, resolve_workflow
+    from hydromodpy.workflow.dispatch import dispatch_workflow, resolve_workflow
 
     config_path = Path(config).expanduser().resolve()
     workflow = resolve_workflow(

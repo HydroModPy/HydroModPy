@@ -5,6 +5,7 @@ from __future__ import annotations
 import pytest
 
 from hydromodpy.solver.base import registry
+from hydromodpy.solver.base.solver_config import SolverConfig
 
 
 class FakeAdapter:
@@ -31,6 +32,12 @@ class AnotherFakeAdapter(FakeAdapter):
     pass
 
 
+class FakeExtractor:
+    def extract(self, *args: object, **kwargs: object) -> None:
+        del args, kwargs
+        return None
+
+
 @pytest.fixture(autouse=True)
 def _clean_registry():
     """Snapshot the registry and restore it after each test.
@@ -40,6 +47,11 @@ def _clean_registry():
     """
     eager = dict(registry._REGISTRY)
     lazy = dict(registry._BUILTIN_PATHS)
+    capabilities = dict(registry._BUILTIN_CAPABILITIES)
+    extractor_eager = dict(registry._EXTRACTOR_REGISTRY)
+    extractor_lazy = dict(registry._BUILTIN_EXTRACTOR_PATHS)
+    plugins_loaded = registry._PLUGINS_LOADED
+    extractor_plugins_loaded = registry._EXTRACTOR_PLUGINS_LOADED
     try:
         yield
     finally:
@@ -47,6 +59,14 @@ def _clean_registry():
         registry._REGISTRY.update(eager)
         registry._BUILTIN_PATHS.clear()
         registry._BUILTIN_PATHS.update(lazy)
+        registry._BUILTIN_CAPABILITIES.clear()
+        registry._BUILTIN_CAPABILITIES.update(capabilities)
+        registry._EXTRACTOR_REGISTRY.clear()
+        registry._EXTRACTOR_REGISTRY.update(extractor_eager)
+        registry._BUILTIN_EXTRACTOR_PATHS.clear()
+        registry._BUILTIN_EXTRACTOR_PATHS.update(extractor_lazy)
+        registry._PLUGINS_LOADED = plugins_loaded
+        registry._EXTRACTOR_PLUGINS_LOADED = extractor_plugins_loaded
 
 
 def test_register_and_get_returns_cls() -> None:
@@ -86,6 +106,36 @@ def test_pairs_for_process_filters_by_type() -> None:
     registry.register("flow", "a", FakeAdapter)
     registry.register("transport", "b", FakeAdapter)
     assert list(registry.pairs_for_process("flow")) == [("flow", "a")]
+
+
+def test_builtin_process_types_exclude_workflow_stub_phases() -> None:
+    assert "postprocess" not in registry.known_process_types()
+    assert "display" not in registry.known_process_types()
+
+
+def test_transport_capabilities_are_explicit() -> None:
+    assert registry.capabilities("transport", "modpath") == frozenset(
+        {"transport", "transport:particles"}
+    )
+    assert registry.capabilities("transport", "mt3dms") == frozenset(
+        {"transport", "transport:concentration"}
+    )
+    assert registry.capabilities("transport", "modflow6gwt") == frozenset(
+        {"transport", "transport:concentration"}
+    )
+
+
+def test_solver_config_accepts_registered_plugin_flow_solver() -> None:
+    registry.register("flow", "pluginsolver", FakeAdapter)
+
+    cfg = SolverConfig.model_validate({"solver_engine": "pluginsolver"})
+
+    assert cfg.solver_engine == "pluginsolver"
+
+
+def test_solver_config_rejects_unknown_flow_solver() -> None:
+    with pytest.raises(ValueError, match="Unknown flow solver"):
+        SolverConfig.model_validate({"solver_engine": "missing"})
 
 
 def test_unregister_removes_entry() -> None:
@@ -180,3 +230,23 @@ def test_load_plugins_skips_malformed_entry_point_name(monkeypatch) -> None:
     # Malformed entry-points must not pollute the registry.
     assert count == 0
     assert pairs_after == pairs_before
+
+
+def test_get_extractor_loads_plugin_lazily(monkeypatch) -> None:
+    monkeypatch.setattr(registry, "_EXTRACTOR_PLUGINS_LOADED", False)
+
+    class _StubEntryPoint:
+        name = "pluginflow"
+
+        def load(self) -> type:
+            return FakeExtractor
+
+    monkeypatch.setattr(
+        registry,
+        "entry_points",
+        lambda *, group: (
+            [_StubEntryPoint()] if group == registry.EXTRACTOR_ENTRY_POINT_GROUP else []
+        ),
+    )
+
+    assert registry.get_extractor("pluginflow") is FakeExtractor

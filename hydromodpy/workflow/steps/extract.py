@@ -9,7 +9,7 @@ from typing import TYPE_CHECKING, ClassVar
 import numpy as np
 import rasterio
 
-from hydromodpy.core.exceptions import ConfigError
+from hydromodpy.core.exceptions import ConfigError, ExtractError
 from hydromodpy.core.io.raster_io import export_tif
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.workspace.resolve import locate_workspace_root
@@ -41,7 +41,7 @@ def step_ingest_observations(ctx: WorkflowContext, sim_id: str) -> None:
         ingest_observations(sim_id, ctx.store, ctx.loaded_data)
     except Exception as exc:
         logger.exception("Failed to ingest observations for sim %s", sim_id)
-        raise RuntimeError(f"Failed to ingest observations for sim {sim_id}") from exc
+        raise ExtractError(f"Failed to ingest observations for sim {sim_id}") from exc
 
 
 # ---------------------------------------------------------------------------

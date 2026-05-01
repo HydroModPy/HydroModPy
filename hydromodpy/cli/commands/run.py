@@ -9,7 +9,6 @@ Single CLI entry point. The TOML must carry a top-level
 from __future__ import annotations
 
 import argparse
-import importlib
 import sys
 from pathlib import Path
 
@@ -108,17 +107,18 @@ def _run_toml(config_path: Path, *, args: argparse.Namespace) -> None:
     """Run a workflow from a TOML file.
 
     The TOML MUST declare ``workflow = "..."`` at the top level - otherwise
-    :class:`~hydromodpy.cli.workflows.WorkflowMissingError` is raised and
+    :class:`~hydromodpy.workflow.dispatch.WorkflowMissingError` is raised and
     the CLI exits with ``EXIT_CONFIG``. No implicit detection from sections.
     """
     import tomllib
 
-    from hydromodpy.cli.workflows import (
+    from hydromodpy.display.banner import print_hydromodpy
+    from hydromodpy.workflow.dispatch import (
+        DISPATCH,
         WorkflowError,
         load_raw_toml,
         resolve_workflow,
     )
-    from hydromodpy.display.banner import print_hydromodpy
 
     print_hydromodpy()
     auto_scan_workspace(config_path)
@@ -176,16 +176,7 @@ def _run_toml(config_path: Path, *, args: argparse.Namespace) -> None:
         )
         sys.exit(EXIT_CONFIG)
 
-    module = importlib.import_module("hydromodpy.cli.workflows")
-    dispatch = {
-        "simulation": module.run_simulation,
-        "overview": module.run_overview,
-        "mesh": module.run_mesh,
-        "calibration": module.run_calibration,
-        "batch": module.run_batch,
-        "method-comparison": module.run_method_comparison,
-    }
-    runner = dispatch[workflow]
+    runner = DISPATCH[workflow]
 
     try:
         if workflow == "simulation":
@@ -221,7 +212,7 @@ def _run_toml(config_path: Path, *, args: argparse.Namespace) -> None:
 def _infer_workflow_from_sections(raw_toml: dict) -> str:
     """Infer the workflow from the TOML sections present.
 
-    Mirrors the dispatch table in :mod:`hydromodpy.cli.workflows` - used
+    Mirrors the dispatch table in :mod:`hydromodpy.workflow.dispatch` - used
     only when ``--dry-run`` is set and the user has not declared
     ``workflow = "..."`` at the top level.
     """

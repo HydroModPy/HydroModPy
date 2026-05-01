@@ -131,7 +131,13 @@ class SimulationRunner:
     ) -> None:
         self.callbacks = callbacks or ProcessCallbacks()
 
-    def execute(self, plan: SimulationPlan, state: Any) -> None:
+    def execute(
+        self,
+        plan: SimulationPlan,
+        state: Any,
+        *,
+        callbacks: ProcessCallbacks | None = None,
+    ) -> None:
         """Execute each planned run in order against ``state``.
 
         The plan is assumed to be pre-validated by ``SimulationPlanner``.
@@ -157,20 +163,26 @@ class SimulationRunner:
         7. ``after_process("transport")``
         """
 
-        current_process_type: str | None = None
+        previous_callbacks = self.callbacks
+        if callbacks is not None:
+            self.callbacks = callbacks
+        try:
+            current_process_type: str | None = None
 
-        for run in plan.runs:
-            if run.process_type != current_process_type:
-                if current_process_type is not None:
-                    self._call_after_process(current_process_type)
-                ensure_process_context(state, run.process_type)
-                self._call_before_process(run.process_type)
-                current_process_type = run.process_type
+            for run in plan.runs:
+                if run.process_type != current_process_type:
+                    if current_process_type is not None:
+                        self._call_after_process(current_process_type)
+                    ensure_process_context(state, run.process_type)
+                    self._call_before_process(run.process_type)
+                    current_process_type = run.process_type
 
-            self._run_process_run(plan, state, run)
+                self._run_process_run(plan, state, run)
 
-        if current_process_type is not None:
-            self._call_after_process(current_process_type)
+            if current_process_type is not None:
+                self._call_after_process(current_process_type)
+        finally:
+            self.callbacks = previous_callbacks
 
     def _call_before_process(self, process_type: str) -> None:
         if self.callbacks.before_process is not None:

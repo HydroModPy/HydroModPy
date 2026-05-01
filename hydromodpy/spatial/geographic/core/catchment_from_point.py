@@ -25,11 +25,11 @@ from pathlib import Path
 import geopandas as gpd
 import pandas as pd
 
-from hydromodpy.spatial.delineation import (
-    WhiteboxWorkflowsBackend,
-    get_whitebox_backend,
+from hydromodpy.spatial.geographic.geographic_io import (
+    backend_has_callables,
+    ensure_crs,
+    resolve_delineation_backend,
 )
-from hydromodpy.spatial.geographic.geographic_io import ensure_crs
 
 
 @dataclass(frozen=True)
@@ -57,7 +57,7 @@ def extract_catchment_from_point(
     outlet_snap_name: str = "outlet_snap.shp",
     watershed_tif_name: str = "watershed.tif",
     watershed_shp_name: str = "watershed.shp",
-    backend: WhiteboxWorkflowsBackend | None = None,
+    backend: object | None = None,
 ) -> CatchmentFromPointProducts:
     """Delineate a catchment polygon from one outlet point.
 
@@ -78,7 +78,7 @@ def extract_catchment_from_point(
     backend:
         Optional Whitebox backend for runtime/tests.
     """
-    tool = get_whitebox_backend() if backend is None else backend
+    tool = resolve_delineation_backend(backend)
 
     # Prepare deterministic output paths used by the rest of the pipeline.
     out_dir = Path(output_dir)
@@ -95,7 +95,21 @@ def extract_catchment_from_point(
     gdf.to_file(str(outlet_shp))
     ensure_crs(outlet_shp, crs_project)
 
-    if isinstance(tool, WhiteboxWorkflowsBackend):
+    if backend_has_callables(
+        tool,
+        "raster",
+        "read_vector",
+        "read_raster",
+        "write_vector",
+        "write_raster",
+        "vector_record_count",
+    ) and backend_has_callables(
+        tool,
+        "delineation",
+        "snap_pour_points_vector",
+        "watershed_raster",
+        "raster_to_vector_polygons_raster",
+    ):
         outlet_data = tool.raster.read_vector(str(outlet_shp))
         acc_input = acc_data if acc_data is not None else tool.raster.read_raster(str(acc_path))
         snapped_outlet = tool.delineation.snap_pour_points_vector(

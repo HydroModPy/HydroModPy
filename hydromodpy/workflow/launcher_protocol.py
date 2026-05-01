@@ -30,11 +30,19 @@ class Launcher(Protocol):
     optional callbacks the implementation supports (e.g. ``after_run``).
     """
 
-    def execute(self, plan: SimulationPlan, state: Any) -> None:
+    def execute(
+        self,
+        plan: SimulationPlan,
+        state: Any,
+        *,
+        callbacks: Any | None = None,
+    ) -> None:
         """Execute every planned run in order against ``state``.
 
         ``state`` is typed as ``Any`` because the workflow context is
         defined in the ``core`` layer and this Protocol lives in
         ``workflow``: keeping the parameter loose preserves the layered
         DAG while letting concrete launchers depend on the real type.
+        ``callbacks`` is launcher-specific metadata; the default launcher
+        accepts :class:`hydromodpy.simulation.execution.runner.ProcessCallbacks`.
         """
