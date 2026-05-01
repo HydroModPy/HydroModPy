@@ -332,7 +332,7 @@ class TestTemporalFieldTransient:
 class TestGeoTIFFDiscretization:
     def test_geotiff_static_field_steady(self, tmp_path: Path):
         """A GeoTIFF with uniform recharge should produce correct m/s values."""
-        rasterio = pytest.importorskip("rasterio")
+        import rasterio
         from rasterio.transform import from_origin
 
         nrow, ncol = 4, 5
@@ -828,7 +828,7 @@ class TestSpatialMeanFromFields:
 class TestMultiBandGeoTIFF:
     def test_multiband_tif_produces_per_band_arrays(self, tmp_path: Path):
         """A multi-band GeoTIFF should produce one array per band."""
-        rasterio = pytest.importorskip("rasterio")
+        import rasterio
         from rasterio.transform import from_origin
 
         nrow, ncol = 3, 4

@@ -163,7 +163,8 @@ class TestCSVExport:
 
 class TestVTUExport:
     def test_basic(self, catalog_with_data):
-        meshio = pytest.importorskip("meshio")
+        import meshio
+
         catalog, sid, tmp_path = catalog_with_data
         out = tmp_path / "field.vtu"
         result = catalog.export(sid, "head", "vtu", out, timestep=0, layer=0)
@@ -176,7 +177,8 @@ class TestVTUExport:
 
 class TestGeoTIFFExport:
     def test_basic(self, catalog_with_data):
-        rasterio = pytest.importorskip("rasterio")
+        import rasterio
+
         catalog, sid, tmp_path = catalog_with_data
         out = tmp_path / "field.tif"
         result = catalog.export(
@@ -200,7 +202,8 @@ class TestGeoTIFFExport:
 
 class TestShapefileExport:
     def test_basic(self, catalog_with_data):
-        gpd = pytest.importorskip("geopandas")
+        import geopandas as gpd
+
         catalog, sid, tmp_path = catalog_with_data
         out = tmp_path / "cells.shp"
         result = catalog.export(

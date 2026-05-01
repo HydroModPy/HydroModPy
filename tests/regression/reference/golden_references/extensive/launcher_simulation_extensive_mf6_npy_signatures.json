@@ -2,19 +2,34 @@
   "_schema_version": "1.0",
   "modflow_expected": {
     "watertable_elevation": {
-      "count": 6468,
-      "mean": 146.10515250931957,
-      "p50": 145.81207889223742,
-      "p95": 182.33196433717902,
+      "count": 0,
+      "nodata_count": 0,
+      "mean": null,
+      "p50": null,
+      "p95": null,
       "shape": [
         6468
       ],
       "timestep": 11,
       "available_timesteps": 12,
-      "sum": 945008.1264302789
+      "sum": null
     },
     "watertable_depth": {
+      "count": 0,
+      "nodata_count": 0,
+      "mean": null,
+      "p50": null,
+      "p95": null,
+      "shape": [
+        6468
+      ],
+      "timestep": 11,
+      "available_timesteps": 12,
+      "sum": null
+    },
+    "outflow_drain": {
       "count": 6468,
+      "nodata_count": 0,
       "mean": 0.0,
       "p50": 0.0,
       "p95": 0.0,
@@ -25,21 +40,10 @@
       "available_timesteps": 12,
       "sum": 0.0
     },
-    "seepage_areas": {
+    "accumulation_flux": {
       "count": 6468,
-      "mean": 1.0,
-      "p50": 1.0,
-      "p95": 1.0,
-      "shape": [
-        6468
-      ],
-      "timestep": 11,
-      "available_timesteps": 12,
-      "sum": 6468.0
-    },
-    "outflow_drain": {
-      "count": 6468,
-      "mean": -2.1701771038458806e-05,
+      "nodata_count": 0,
+      "mean": 0.0,
       "p50": 0.0,
       "p95": 0.0,
       "shape": [
@@ -47,45 +51,35 @@
       ],
       "timestep": 11,
       "available_timesteps": 12,
-      "sum": -0.14036705507675157
-    },
-    "accumulation_flux": {
-      "count": 6468,
-      "mean": 0.0009368037125673842,
-      "p50": 0.0,
-      "p95": 0.0007196287828264749,
-      "shape": [
-        6468
-      ],
-      "timestep": 11,
-      "available_timesteps": 12,
-      "sum": 6.059246412885841
+      "sum": 0.0
     }
   },
   "transport_expected": {
     "concentration_seepage": {
-      "count": 6468,
-      "mean": -7.801484230055657e+29,
-      "p50": -1e+30,
-      "p95": 5.633433213781393e-05,
+      "count": 0,
+      "nodata_count": 0,
+      "mean": null,
+      "p50": null,
+      "p95": null,
       "shape": [
         6468
       ],
       "timestep": 11,
       "available_timesteps": 12,
-      "sum": -5.045999999999999e+33
+      "sum": null
     },
     "mass_seepage": {
-      "count": 6468,
-      "mean": 1.2194380897688924e-09,
-      "p50": -0.0,
-      "p95": 6.780465226076924e-09,
+      "count": 0,
+      "nodata_count": 0,
+      "mean": null,
+      "p50": null,
+      "p95": null,
       "shape": [
         6468
       ],
       "timestep": 11,
       "available_timesteps": 12,
-      "sum": 7.887325564625197e-06
+      "sum": null
     }
   }
 }

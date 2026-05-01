@@ -864,11 +864,11 @@ def _extract_head_at_point_from_dir(
     bit-identical to the truth observations when the unconfined head reaches
     the ground surface.
 
-    Resolves the cell index from the solver model's mesh first - the
-    lightweight v0.6 trial pipeline never populates ``setup.mesh_planar`` for
-    ``sgrid`` simulations, so the registered solver model is the only place
-    where the grid layout is exposed at trial time. Falls back to
-    ``mesh_planar`` for legacy callers (catchment-scale runs).
+    Resolves the cell index from the solver model's mesh first. The v1
+    lightweight trial path may not populate ``setup.mesh_planar`` for ``sgrid``
+    simulations, so the registered solver model is the canonical source for
+    the grid layout at trial time. Falls back to ``mesh_planar`` for
+    catchment-scale runs.
 
     Indexes the head array by inspecting its shape: structured DIS arrays
     are ``(nlay, nrow, ncol)`` while DISV arrays come back as
@@ -1076,33 +1076,6 @@ def _nearest_cell_index_legacy(
     row = flat_index // n_cols
     col = flat_index % n_cols
     return (layer, int(row), int(col), flat_index)
-
-
-def _make_instrumented_run_trial_light(
-    original_fn: Any,
-    state: dict[str, float],
-) -> Any:
-    """Wrap ``run_trial_light`` to record per-iteration timing into ``state``."""
-
-    def _instrumented(
-        trial_ctx: Any,
-        values: Any,
-        *,
-        objective: str = "nse",
-        variable: str = "head",
-        metric_fn: Any = None,
-    ) -> Any:
-        state["t_start"] = time.perf_counter()
-        state["t_run_start"] = time.perf_counter()
-        return original_fn(
-            trial_ctx,
-            values,
-            objective=objective,
-            variable=variable,
-            metric_fn=metric_fn,
-        )
-
-    return _instrumented
 
 
 def _normalise_outputs_for_extraction(
@@ -1429,6 +1402,29 @@ def _summarize_candidate_timings_for_report(
     return summary
 
 
+def _candidate_timing_values_from_iterations(iterations_df: Any) -> list[dict[str, float]]:
+    """Build candidate timing summaries from persisted iteration durations."""
+    columns = getattr(iterations_df, "columns", ())
+    if "duration_s" not in columns:
+        return []
+    values: list[dict[str, float]] = []
+    for raw_value in iterations_df["duration_s"].tolist():
+        try:
+            duration = float(raw_value)
+        except (TypeError, ValueError):
+            continue
+        if not math.isfinite(duration):
+            continue
+        values.append(
+            {
+                "total_time_seconds": duration,
+                "prepare_time_seconds": 0.0,
+                "simulation_time_seconds": duration,
+            }
+        )
+    return values
+
+
 def _write_iteration_history_jsonl(
     *,
     path: Path,
@@ -1595,7 +1591,7 @@ def run_twin_benchmark_case(
 ) -> TwinCalibrationBenchmarkResult:
     """Run one twin benchmark via the :meth:`Project.calibrate` API.
 
-    Routes through the v0.6 ``[calibration]`` schema +
+    Routes through the v1 ``[calibration]`` schema and
     :class:`hydromodpy.Project`. The case definition must declare
     ``parameter_targets``, ``output_specs`` and ``objective_block_specs``
     so :func:`build_payload` can emit the enriched TOML.
@@ -1657,12 +1653,10 @@ def run_twin_benchmark_case(
     generate_case_figures = (
         definition.generate_case_figures if case_figures is None else bool(case_figures)
     )
-    del figure_format  # case figures are skipped by default for the v0.6 path
+    del figure_format
     configuration_figure: Path | None = None
     reference_objective_path: Path | None = None
     if generate_case_figures:
-        # Reuse the legacy plotting helpers when explicitly requested. Fall
-        # back to None on the v0.6 path until the figure pipeline is ported.
         configuration_figure = None
 
     method_results: list[TwinMethodBenchmarkResult] = []
@@ -1695,9 +1689,6 @@ def run_twin_benchmark_case(
             workspace_root=benchmark_root / "project",
         )
 
-        candidate_timing_values: list[dict[str, float]] = []
-        candidate_run_state: dict[str, float] = {"t_start": 0.0, "t_run_start": 0.0}
-
         output_decls = _normalise_outputs_for_extraction(
             definition.output_specs,
             observed_values=observations_used,
@@ -1707,73 +1698,23 @@ def run_twin_benchmark_case(
             objective_blocks=tuple(definition.objective_block_specs),
         )
 
-        def _make_timing_metric_fn(
-            inner_metric_fn: Any,
-            state: dict[str, float],
-            timings: list[dict[str, float]],
-        ) -> Any:
-            def _timing_metric_fn(
-                trial_ctx: Any,
-                *,
-                objective: str | None = None,
-                variable: str | None = None,
-            ) -> Any:
-                sim_end = time.perf_counter()
-                primary, components = inner_metric_fn(
-                    trial_ctx,
-                    objective=objective,
-                    variable=variable,
-                )
-                sim_total = sim_end - state["t_run_start"]
-                total = time.perf_counter() - state["t_start"]
-                timings.append(
-                    {
-                        "total_time_seconds": float(total),
-                        "prepare_time_seconds": max(0.0, float(total) - float(sim_total)),
-                        "simulation_time_seconds": float(sim_total),
-                    }
-                )
-                return primary, components
-
-            return _timing_metric_fn
-
-        timing_metric_fn = _make_timing_metric_fn(
-            custom_metric_fn,
-            candidate_run_state,
-            candidate_timing_values,
-        )
-
-        # Prepare timing wrapper: monkey-patch run_trial_light per call to
-        # capture per-iteration durations. Easier than modifying the engine.
-        from hydromodpy.calibration.runners import trial as _trial_mod
-
-        original_run_trial_light = _trial_mod.run_trial_light
-
-        instrumented_run_trial_light = _make_instrumented_run_trial_light(
-            original_run_trial_light,
-            candidate_run_state,
-        )
-
         from hydromodpy.calibration.runner import run_calibration_cli
 
         session_prepare_t0 = time.perf_counter()
-        try:
-            _trial_mod.run_trial_light = instrumented_run_trial_light
-            report = run_calibration_cli(
-                calibration_path,
-                metric_fn=timing_metric_fn,
-                workspace=benchmark_root / "project",
-                project=str(definition.case_id),
-                return_report=True,
-            )
-        finally:
-            _trial_mod.run_trial_light = original_run_trial_light
+        report = run_calibration_cli(
+            calibration_path,
+            metric_fn=custom_metric_fn,
+            workspace=benchmark_root / "project",
+            project=str(definition.case_id),
+            return_report=True,
+        )
         session_prepare_time_seconds = float(time.perf_counter() - session_prepare_t0)
 
         from hydromodpy.results.catalog import SimulationCatalog
 
         with SimulationCatalog(benchmark_root / "project") as catalog:
             iterations_df = catalog.calibration_iterations(report.session_id)
+        candidate_timing_values = _candidate_timing_values_from_iterations(iterations_df)
 
         assessed_result = _assess_method_result_from_report(
             definition=definition,

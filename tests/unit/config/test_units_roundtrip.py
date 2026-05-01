@@ -8,9 +8,8 @@ from __future__ import annotations
 
 import tomllib
 
+import pydantic_pint  # noqa: F401
 import pytest
-
-pytest.importorskip("pydantic_pint")
 
 
 def _build_model():

@@ -298,7 +298,7 @@ def _build_geographic_legacy_case(
     import hydromodpy.spatial.geographic.catchment_delineation as geo_mod
 
     fake_wbt = _FakeWhiteboxBackend()
-    monkeypatch.setattr(geo_mod, "get_whitebox_backend", lambda: fake_wbt)
+    monkeypatch.setattr(geo_mod, "resolve_delineation_backend", lambda backend=None: fake_wbt)
     monkeypatch.setattr(geo_mod, "Nominatim", _FakeNominatim)
 
     dem_path = tmp_path / "inputs" / "dem.tif"
@@ -324,7 +324,7 @@ def _build_geographic_legacy_outlet_case(
     import hydromodpy.spatial.geographic.catchment_delineation as geo_mod
 
     fake_wbt = _FakeWhiteboxBackend()
-    monkeypatch.setattr(geo_mod, "get_whitebox_backend", lambda: fake_wbt)
+    monkeypatch.setattr(geo_mod, "resolve_delineation_backend", lambda backend=None: fake_wbt)
     monkeypatch.setattr(geo_mod, "Nominatim", _FakeNominatim)
 
     dem_path = tmp_path / "inputs" / "dem.tif"

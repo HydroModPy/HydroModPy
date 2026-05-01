@@ -86,6 +86,7 @@ _KNOWN_TOP_LEVEL_KEYS = frozenset(
         "analysis",
         "overview",
         "mesh_catchment",
+        "mesh_input",
         "calibration",
     }
 )

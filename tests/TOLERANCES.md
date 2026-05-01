@@ -21,7 +21,7 @@ References frequently cited:
 - Anderson, Woessner & Hunt 2015, *Applied Groundwater Modeling*, 2nd ed.
 - ASME V&V 20-2009 terminology (verification vs validation).
 
-The table below records the 22 tolerances enforced today. Every tolerance
+The table below records the 24 tolerances enforced today. Every tolerance
 must carry a rationale before it is merged.
 
 ## Table of tolerances
@@ -50,6 +50,8 @@ must carry a rationale before it is merged.
 | 20 | Provenance float-stat SHA | exact equality | `n/a` | Hash equality | No tolerance |
 | 21 | Mesh vertex/connectivity | exact equality | `n/a` | Integer connectivity | No float tolerance |
 | 22 | Bootstrap CI on metrics | bootstrap `rtol` | `2 %` | Sampling noise | 1000 resamples |
+| 23 | Geographic catchment golden | boundary area, elevation sum, and pixel-count drift | `0.03 km2`, `1000 m`, `5 px` | Whitebox raster boundary tie envelope on fixed DEM/outlet | Shapes, CRS, elevation distribution, and counts remain constrained |
+| 24 | Geographic DEM processing golden | D8/floating raster stat drift | `0.02 m` for elevation stats, `256` for integer sums, `20 m` for float sums | Whitebox D8 tie ordering on fixed DEM/outlet | Per-raster shape, dtype, nodata, counts, min/max, and quantiles remain constrained |
 
 ## Update policy
 
@@ -65,7 +67,7 @@ The tolerances above assume that tests run with:
 
 - BLAS single-thread (`OPENBLAS_NUM_THREADS=1`, `MKL_NUM_THREADS=1`,
   `OMP_NUM_THREADS=1`) - enforced by `tests/conftest.py`.
-- Fixed RNG seed (0) - enforced autouse via `_deterministic_seeds`.
+- Fixed RNG seed (42) - enforced autouse via `_deterministic_seeds`.
 - No timestamps inside goldens (excluded from signature stats).
 
 Deviating from those assumptions requires documenting the new

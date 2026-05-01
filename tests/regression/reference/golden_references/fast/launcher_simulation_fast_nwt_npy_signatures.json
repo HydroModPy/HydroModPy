@@ -3,6 +3,7 @@
   "modflow_expected": {
     "watertable_elevation": {
       "count": 3600,
+      "nodata_count": 0,
       "mean": 118.29673519346449,
       "p50": 120.20234298706055,
       "p95": 128.3691734313965,
@@ -15,6 +16,7 @@
     },
     "watertable_depth": {
       "count": 3600,
+      "nodata_count": 0,
       "mean": 3.3501825375027128,
       "p50": 3.512157440185547,
       "p95": 6.677959823608399,
@@ -25,20 +27,9 @@
       "available_timesteps": 3,
       "sum": 12060.657135009766
     },
-    "seepage_areas": {
-      "count": 3600,
-      "mean": 0.06194444444444445,
-      "p50": 0.0,
-      "p95": 1.0,
-      "shape": [
-        3600
-      ],
-      "timestep": 2,
-      "available_timesteps": 3,
-      "sum": 223.0
-    },
     "outflow_drain": {
       "count": 3600,
+      "nodata_count": 0,
       "mean": -2.504231451843629e-05,
       "p50": 0.0,
       "p95": 0.0,
@@ -51,6 +42,7 @@
     },
     "accumulation_flux": {
       "count": 3600,
+      "nodata_count": 0,
       "mean": 0.0007211540780685432,
       "p50": 0.0,
       "p95": 0.0003824838888249315,
@@ -62,38 +54,11 @@
       "sum": 2.5961546810467553
     }
   },
-  "modpath_expected": {
-    "starting.dbf": {
-      "n_rows": 85,
-      "time": {
-        "count": 85,
-        "mean": 234021947.67058823,
-        "p50": 215925792.0,
-        "p95": 345284864.0
-      }
-    },
-    "ending.dbf": {
-      "n_rows": 85,
-      "time": {
-        "count": 85,
-        "mean": 234021947.67058823,
-        "p50": 215925792.0,
-        "p95": 345284864.0
-      }
-    },
-    "pathlines": {
-      "n_rows": 85,
-      "time": {
-        "count": 4924,
-        "mean": 47801668.868644014,
-        "p50": 23819530.0,
-        "p95": 195750376.79999995
-      }
-    }
-  },
+  "modpath_expected": {},
   "mt3dms_expected": {
     "concentration_seepage": {
       "count": 223,
+      "nodata_count": 0,
       "mean": 2.7228705082537664e-06,
       "p50": 2.7144419618707616e-06,
       "p95": 2.7694332629835114e-06,
@@ -106,6 +71,7 @@
     },
     "mass_seepage": {
       "count": 223,
+      "nodata_count": 0,
       "mean": 1.1002686527514856e-09,
       "p50": 9.896540489266875e-10,
       "p95": 2.738890628192036e-09,

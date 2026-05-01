@@ -62,6 +62,17 @@ DEFAULT_MODFLOW_OUTPUT_NAMES = [
     "accumulation_flux",
 ]
 
+NODATA_SENTINELS_BY_VARIABLE = {
+    "watertable_elevation": (-9999.0, -99999.0, -999999.0, -1.0e30, 1.0e30),
+    "watertable_depth": (-9999.0, -99999.0, -999999.0, -1.0e30, 1.0e30),
+    "concentration_seepage": (-9999.0, -99999.0, -999999.0, -1.0e30, 1.0e30),
+    "mass_seepage": (-9999.0, -99999.0, -999999.0, -1.0e30, 1.0e30),
+}
+NODATA_ABS_LIMIT_BY_VARIABLE = {
+    "concentration_seepage": 1.0e20,
+    "mass_seepage": 1.0e20,
+}
+
 
 def _rmtree_onerror(func, path, exc_info) -> None:
     """Retry one failed ``rmtree`` step after clearing a read-only bit.
@@ -253,43 +264,73 @@ def load_npy_dict(path: Path) -> dict:
     return np.load(path, allow_pickle=True).item()
 
 
-def array_stats(values) -> dict:
+def _nodata_mask(arr: np.ndarray, variable: str | None) -> np.ndarray:
+    """Return the variable-specific nodata mask."""
+    sentinels = NODATA_SENTINELS_BY_VARIABLE.get(str(variable or ""))
+    if not sentinels:
+        return np.zeros(arr.shape, dtype=bool)
+    mask = np.zeros(arr.shape, dtype=bool)
+    for sentinel in sentinels:
+        tolerance = max(abs(float(sentinel)) * 1.0e-6, 1.0e-9)
+        mask |= np.isclose(arr, float(sentinel), rtol=0.0, atol=tolerance)
+    abs_limit = NODATA_ABS_LIMIT_BY_VARIABLE.get(str(variable or ""))
+    if abs_limit is not None:
+        mask |= np.abs(arr) >= float(abs_limit)
+    return mask
+
+
+def _valid_values(values, variable: str | None = None) -> tuple[np.ndarray, int]:
+    """Return finite, non-nodata values and the nodata count."""
+    arr = np.asarray(values, dtype=float)
+    finite_mask = np.isfinite(arr)
+    nodata_mask = _nodata_mask(arr, variable) & finite_mask
+    valid = arr[finite_mask & ~nodata_mask]
+    return valid, int(np.count_nonzero(nodata_mask))
+
+
+def array_stats(values, *, variable: str | None = None) -> dict:
     """
     Compute compact, stable statistics from a numeric array-like input.
 
-    The function explicitly ignores non-finite values (`NaN`, `+/-Inf`) so
-    signatures remain robust across minor runtime/environment differences.
+    The function explicitly ignores non-finite values (`NaN`, `+/-Inf`) and
+    variable-specific nodata sentinels so signatures remain focused on
+    physically meaningful cells.
 
     Returned metrics are intentionally small and interpretable:
-    - `count`: number of finite values,
+    - `count`: number of finite, non-nodata values,
+    - `nodata_count`: number of masked nodata sentinel values,
     - `mean`: arithmetic mean,
     - `p50`: median,
     - `p95`: upper-tail indicator.
     """
-    arr = np.asarray(values, dtype=float)
-    # Keep only finite values to avoid unstable statistics when outputs include
-    # masked cells or undefined values.
-    finite = arr[np.isfinite(arr)]
-    if finite.size == 0:
-        return {"count": 0, "mean": None, "p50": None, "p95": None}
+    valid, nodata_count = _valid_values(values, variable)
+    if valid.size == 0:
+        return {
+            "count": 0,
+            "nodata_count": nodata_count,
+            "mean": None,
+            "p50": None,
+            "p95": None,
+        }
     return {
-        "count": int(finite.size),
-        "mean": float(finite.mean()),
-        "p50": float(np.percentile(finite, 50)),
-        "p95": float(np.percentile(finite, 95)),
+        "count": int(valid.size),
+        "nodata_count": nodata_count,
+        "mean": float(valid.mean()),
+        "p50": float(np.percentile(valid, 50)),
+        "p95": float(np.percentile(valid, 95)),
     }
 
 
-def array_signature(values) -> dict:
+def array_signature(values, *, variable: str | None = None) -> dict:
     """Build one compact signature from a generic numeric array."""
     arr = np.asarray(values, dtype=float)
-    sig = array_stats(arr)
+    sig = array_stats(arr, variable=variable)
     sig["shape"] = list(arr.shape)
     if sig["count"] == 0:
         sig["sum"] = None
     else:
-        finite = arr[np.isfinite(arr)]
-        sig["sum"] = float(finite.sum())
+        valid, _ = _valid_values(arr, variable)
+        sig["sum"] = float(valid.sum())
     return sig
 
 
@@ -317,6 +358,8 @@ def assert_stats(
         Absolute tolerance forwarded to ``pytest.approx``.
     """
     assert actual["count"] == expected["count"]
+    if "nodata_count" in expected:
+        assert actual["nodata_count"] == expected["nodata_count"]
     for key in ("mean", "p50", "p95"):
         if expected[key] is None:
             assert actual[key] is None
@@ -324,7 +367,7 @@ def assert_stats(
             assert actual[key] == pytest.approx(expected[key], rel=rel, abs=abs_tol)
 
 
-def modflow_signature(path: Path) -> dict:
+def modflow_signature(path: Path, *, variable: str | None = None) -> dict:
     """
     Build a compact signature from a MODFLOW `.npy` output.
 
@@ -335,12 +378,13 @@ def modflow_signature(path: Path) -> dict:
     """
     data = load_npy_dict(path)
     assert len(data) > 0
+    variable_name = path.stem if variable is None else str(variable)
 
     # Use the final timestep to summarize the end state of the run.
     last_timestep = sorted(data.keys())[-1]
     arr = np.asarray(data[last_timestep], dtype=float)
 
-    sig = array_stats(arr)
+    sig = array_stats(arr, variable=variable_name)
     sig["shape"] = list(arr.shape)
     sig["timestep"] = int(last_timestep)
     sig["available_timesteps"] = len(data)
@@ -348,8 +392,8 @@ def modflow_signature(path: Path) -> dict:
     if sig["count"] == 0:
         sig["sum"] = None
     else:
-        finite = arr[np.isfinite(arr)]
-        sig["sum"] = float(finite.sum())
+        valid, _ = _valid_values(arr, variable_name)
+        sig["sum"] = float(valid.sum())
     return sig
 
 
@@ -418,7 +462,9 @@ def collect_modflow_signatures(postprocess_dir: Path, names: list[str]) -> dict:
     Each name is a base filename (without extension). For example:
     `watertable_elevation` -> `<postprocess_dir>/watertable_elevation.npy`.
     """
-    return {name: modflow_signature(postprocess_dir / f"{name}.npy") for name in names}
+    return {
+        name: modflow_signature(postprocess_dir / f"{name}.npy", variable=name) for name in names
+    }
 
 
 def collect_modpath_signatures(particles_dir: Path, filenames: list[str]) -> dict:
@@ -436,7 +482,8 @@ def collect_npz_signatures(
     with np.load(npz_path) as payload:
         ordered_names = sorted(payload.files) if names is None else list(names)
         return {
-            name: array_signature(np.asarray(payload[name], dtype=float)) for name in ordered_names
+            name: array_signature(np.asarray(payload[name], dtype=float), variable=name)
+            for name in ordered_names
         }
 
 
@@ -501,7 +548,7 @@ def store_field_signature(store, sim_id: str, variable: str) -> dict:
     if arr.ndim > 1:
         arr = arr.reshape(-1)
 
-    sig = array_stats(arr)
+    sig = array_stats(arr, variable=variable)
     sig["shape"] = list(arr.shape)
     sig["timestep"] = last_t
     sig["available_timesteps"] = available
@@ -509,8 +556,8 @@ def store_field_signature(store, sim_id: str, variable: str) -> dict:
     if sig["count"] == 0:
         sig["sum"] = None
     else:
-        finite = arr[np.isfinite(arr)]
-        sig["sum"] = float(finite.sum())
+        valid, _ = _valid_values(arr, variable)
+        sig["sum"] = float(valid.sum())
     return sig
 
 

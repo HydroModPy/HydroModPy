@@ -61,19 +61,6 @@ values = [3.4, 3.2, 2.7, 2.1, 1.5, 0.8, 0.2, 0.1, 0.2, 0.7, 1.8, 3.0]
 freq = "MS"
 runoff_ratio = 0.06
 
-[postprocess]
-enabled = true
-
-[postprocess.flow]
-enabled = true
-native_mesh_npz = true
-native_mesh_csv = true
-native_mesh_vtu = false
-native_mesh_png = true
-
-[postprocess.flow.timeseries]
-enabled = true
-
 [display]
 enabled = true
 show = false

@@ -110,7 +110,7 @@ def _write_structured_solver_config(path: Path, *, solver: str, nx: int, ny: int
 
 
 def _write_solver_grid_template(run_folder: Path, *, nx: int, ny: int) -> None:
-    rasterio = pytest.importorskip("rasterio")
+    import rasterio
     from rasterio.transform import from_origin
 
     run_folder.mkdir(parents=True, exist_ok=True)
@@ -566,7 +566,7 @@ def test_extract_observable_rows_reads_point_and_strict_outlet(tmp_path: Path) -
 
 
 def test_extract_observable_rows_resolves_structured_xy_from_config(tmp_path: Path) -> None:
-    rasterio = pytest.importorskip("rasterio")
+    import rasterio
     from rasterio.transform import from_origin
 
     project_root = tmp_path / "structured_project"

@@ -137,7 +137,10 @@ def test_launcher_simulation_example_config_inheritance_keeps_only_relevant_data
     assert payload["data"]["recharge"]["sources"][0]["source"] == "synthetic"
 
 
-def test_launcher_simulation_mf6_precomputed_mesh_input_config_uses_runtime_mesh() -> None:
+def test_launcher_simulation_mf6_precomputed_mesh_input_config_uses_runtime_mesh(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     example_config = (
         Path(__file__).resolve().parents[3]
         / "tests"
@@ -154,10 +157,16 @@ def test_launcher_simulation_mf6_precomputed_mesh_input_config_uses_runtime_mesh
     assert payload["mesh_input"]["bundle_dir"] == "results_stable/mesh/mesh_catchment_bundle"
     assert "planar" not in payload["modflow6"]["sgrid"]
     assert payload["modflow6"]["sgrid"]["vertical"]["nlay"] == 2
-    assert payload["postprocess"]["flow"]["native_mesh_png"] is True
+    assert "postprocess" not in payload
+    monkeypatch.setenv("HYDROMODPY_WORKSPACE", str(tmp_path))
+    cfg = HydroModPyConfig.from_toml(example_config)
+    assert list(cfg.simulation.process[0].solvers) == ["modflow6"]
 
 
-def test_launcher_simulation_mf6_mesh_catchment_config_embeds_mesh_generation() -> None:
+def test_launcher_simulation_mf6_mesh_catchment_config_embeds_mesh_generation(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     example_config = (
         Path(__file__).resolve().parents[3]
         / "tests"
@@ -180,13 +189,13 @@ def test_launcher_simulation_mf6_mesh_catchment_config_embeds_mesh_generation() 
     assert payload["flow"]["param"]["K"]["field_homogeneous"]["value"] == "1e-5 m/s"
     assert payload["flow"]["param"]["Sy"]["field_homogeneous"]["value"] == "0.12 -"
     assert payload["data"]["recharge"]["sources"][0]["freq"] == "10D"
-    assert payload["postprocess"]["flow"]["display"] is True
-    assert payload["postprocess"]["flow"]["native_mesh_png"] is True
+    assert "postprocess" not in payload
     assert payload["analysis"]["capability_gallery"]["enabled"] is True
     assert payload["analysis"]["capability_gallery"]["case_slug"] == "modflow6_gmsh_mesh_catchment"
 
-    with pytest.raises(ValueError, match="postprocess"):
-        HydroModPyConfig.from_toml(example_config)
+    monkeypatch.setenv("HYDROMODPY_WORKSPACE", str(tmp_path))
+    cfg = HydroModPyConfig.from_toml(example_config)
+    assert cfg.mesh_catchment is not None
 
 
 def test_hydromodpy_config_loads_profiling_shortcuts(tmp_path: Path) -> None:

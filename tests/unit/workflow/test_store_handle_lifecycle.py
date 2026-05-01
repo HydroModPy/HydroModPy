@@ -18,10 +18,14 @@ class _FakeStore:
     def __init__(self, registration) -> None:
         self.registration = registration
         self.calls: list[tuple[tuple[object, ...], dict[str, object]]] = []
+        self.environment_calls: list[dict[str, object]] = []
 
     def register_simulation(self, *args, **kwargs):
         self.calls.append((args, kwargs))
         return self.registration
+
+    def write_run_environment(self, *args, **kwargs) -> None:
+        self.environment_calls.append({"args": args, "kwargs": kwargs})
 
 
 def test_step_register_simulation_closes_unused_bootstrap_zarr(monkeypatch) -> None:
@@ -32,6 +36,7 @@ def test_step_register_simulation_closes_unused_bootstrap_zarr(monkeypatch) -> N
         parent_sim_id=None,
         store=store,
         cfg=SimpleNamespace(simulation=SimpleNamespace(on_collision="replace")),
+        setup=SimpleNamespace(time_grid=None, workspace=SimpleNamespace(project_root=None)),
     )
     plan = SimpleNamespace(runs=[SimpleNamespace(solver="boussinesq")])
 

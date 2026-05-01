@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import geopandas as gpd
 import numpy as np
 import pandas as pd
 import pytest
@@ -128,7 +129,6 @@ def test_catchment_requires_geodataframe():
 
 
 def test_catchment_valid():
-    gpd = pytest.importorskip("geopandas")
     from shapely.geometry import Polygon
 
     poly = Polygon([(0, 0), (1, 0), (1, 1), (0, 1)])

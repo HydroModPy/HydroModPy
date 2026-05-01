@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any
 
 from validation_cases.calibration.shared.definitions import (
     CalibrationMethodProfile,
@@ -34,173 +33,6 @@ def build_simulation_config(path: Path, project_root: Path) -> None:
     payload.setdefault("workspace", {})["project_root"] = str(project_root)
     payload.setdefault("simulation", {})["run_id"] = "transient_lu_truth"
     path.write_text(_dump_toml(payload), encoding="utf-8", newline="\n")
-
-
-def build_calibration_payload(
-    simulation_config_name: str,
-    calibration_id: str,
-    observed_values: dict[str, tuple[float, ...]],
-    method_profile: CalibrationMethodProfile,
-) -> dict[str, Any]:
-    """Build one calibration payload for the transient multiobservable twin benchmark."""
-    return {
-        "model_calibration": {
-            "simulation_config": simulation_config_name,
-            "calibration_id": calibration_id,
-            "disable_display": True,
-            "disable_postprocess": True,
-            "rerun_best_with_outputs": False,
-            "persist_model_distribution": bool(method_profile.persist_model_distribution),
-            "rerun_model_distribution_with_outputs": False,
-            "persist_iteration_history": True,
-            "persist_iteration_detail_level": "minimal",
-            "persist_calibration_report": True,
-            "resume_existing_session": False,
-            "reuse_persisted_iterations": False,
-            "parameter": [
-                {
-                    "name": "K_global",
-                    "property": "K",
-                    "target": "flow.param.K.field_homogeneous.value",
-                    "mode": "replace",
-                    "parameterization": "global_value",
-                },
-                {
-                    "name": "Sy_global",
-                    "property": "Sy",
-                    "target": "flow.param.Sy.field_homogeneous.value",
-                    "mode": "replace",
-                    "parameterization": "global_value",
-                },
-            ],
-            "output": [
-                {
-                    "name": "head_mid",
-                    "variable": "watertable_elevation",
-                    "source": "runtime",
-                    "support": "point",
-                    "x": 50.0,
-                    "y": 5.0,
-                    "time": "all",
-                    "observed_values": list(observed_values["head_mid"]),
-                },
-                {
-                    "name": "q_east",
-                    "variable": "outlet_discharge",
-                    "source": "runtime",
-                    "support": "boundary",
-                    "boundary_id": "east_side",
-                    "time": "all",
-                    "observed_values": list(observed_values["q_east"]),
-                },
-            ],
-            "objective_block": [
-                {
-                    "name": "heads",
-                    "metric": "rmse",
-                    "weight": 1.0,
-                    "uses_outputs": ["head_mid"],
-                    "normalize_cost": True,
-                },
-                {
-                    "name": "flux",
-                    "metric": "rmse",
-                    "weight": 1.0,
-                    "uses_outputs": ["q_east"],
-                    "normalize_cost": True,
-                },
-            ],
-        },
-        "calibration": {
-            "objective_metric": "rmse",
-            "global_method": method_profile.name,
-        },
-        "objective": {
-            "transform": "identity",
-        },
-        "calibration_method": {
-            method_profile.name: dict(method_profile.method_kwargs),
-        },
-        "bounds": {
-            "K_global": [5.0e-5, 3.0e-4],
-            "Sy_global": [0.04, 0.18],
-        },
-    }
-
-
-def build_flux_only_calibration_payload(
-    simulation_config_name: str,
-    calibration_id: str,
-    observed_values: dict[str, tuple[float, ...]],
-    method_profile: CalibrationMethodProfile,
-) -> dict[str, Any]:
-    """Build one flux-only calibration payload for the ill-conditioned K+Sy twin benchmark."""
-    return {
-        "model_calibration": {
-            "simulation_config": simulation_config_name,
-            "calibration_id": calibration_id,
-            "disable_display": True,
-            "disable_postprocess": True,
-            "rerun_best_with_outputs": False,
-            "persist_model_distribution": bool(method_profile.persist_model_distribution),
-            "rerun_model_distribution_with_outputs": False,
-            "persist_iteration_history": True,
-            "persist_iteration_detail_level": "minimal",
-            "persist_calibration_report": True,
-            "resume_existing_session": False,
-            "reuse_persisted_iterations": False,
-            "parameter": [
-                {
-                    "name": "K_global",
-                    "property": "K",
-                    "target": "flow.param.K.field_homogeneous.value",
-                    "mode": "replace",
-                    "parameterization": "global_value",
-                },
-                {
-                    "name": "Sy_global",
-                    "property": "Sy",
-                    "target": "flow.param.Sy.field_homogeneous.value",
-                    "mode": "replace",
-                    "parameterization": "global_value",
-                },
-            ],
-            "output": [
-                {
-                    "name": "q_east",
-                    "variable": "outlet_discharge",
-                    "source": "runtime",
-                    "support": "boundary",
-                    "boundary_id": "east_side",
-                    "time": "all",
-                    "observed_values": list(observed_values["q_east"]),
-                },
-            ],
-            "objective_block": [
-                {
-                    "name": "flux",
-                    "metric": "rmse",
-                    "weight": 1.0,
-                    "uses_outputs": ["q_east"],
-                    "normalize_cost": True,
-                },
-            ],
-        },
-        "calibration": {
-            "objective_metric": "rmse",
-            "global_method": method_profile.name,
-        },
-        "objective": {
-            "transform": "identity",
-        },
-        "calibration_method": {
-            method_profile.name: dict(method_profile.method_kwargs),
-        },
-        "bounds": {
-            "K_global": [5.0e-5, 3.0e-4],
-            "Sy_global": [0.04, 0.18],
-        },
-    }
 
 
 def _gp_mapping_profile(*, seed: int = 13) -> CalibrationMethodProfile:
@@ -247,6 +79,37 @@ _TRANSIENT_PARAMETER_TARGETS = {
         mode="replace",
     ),
 }
+_TRANSIENT_OUTPUT_SPECS = {
+    "head_mid": TwinOutputSpec(
+        variable="watertable_elevation",
+        support="point",
+        x=50.0,
+        y=5.0,
+        time="all",
+    ),
+    "q_east": TwinOutputSpec(
+        variable="outlet_discharge",
+        support="boundary",
+        boundary_id="east_side",
+        time="all",
+    ),
+}
+_TRANSIENT_OBJECTIVE_BLOCK_SPECS = (
+    TwinObjectiveBlockSpec(
+        name="heads",
+        metric="rmse",
+        weight=1.0,
+        uses_outputs=("head_mid",),
+        normalize_cost=True,
+    ),
+    TwinObjectiveBlockSpec(
+        name="flux",
+        metric="rmse",
+        weight=1.0,
+        uses_outputs=("q_east",),
+        normalize_cost=True,
+    ),
+)
 _TRANSIENT_FLUX_ONLY_OUTPUT_SPECS = {
     "q_east": TwinOutputSpec(
         variable="outlet_discharge",
@@ -326,7 +189,9 @@ TRANSIENT_RECHARGE_STEP_TWIN_CASE = TwinCalibrationCaseDefinition(
     reference_objective_sampling="sobol",
     reference_objective_seed=13,
     build_simulation_config=build_simulation_config,
-    build_calibration_payload=build_calibration_payload,
+    parameter_targets=_TRANSIENT_PARAMETER_TARGETS,
+    output_specs=_TRANSIENT_OUTPUT_SPECS,
+    objective_block_specs=_TRANSIENT_OBJECTIVE_BLOCK_SPECS,
 )
 
 
@@ -374,7 +239,9 @@ TRANSIENT_RECHARGE_STEP_NOISY_TWIN_CASE = TwinCalibrationCaseDefinition(
         seed=17,
     ),
     build_simulation_config=build_simulation_config,
-    build_calibration_payload=build_calibration_payload,
+    parameter_targets=_TRANSIENT_PARAMETER_TARGETS,
+    output_specs=_TRANSIENT_OUTPUT_SPECS,
+    objective_block_specs=_TRANSIENT_OBJECTIVE_BLOCK_SPECS,
 )
 
 
@@ -470,7 +337,6 @@ TRANSIENT_RECHARGE_STEP_FLUX_ONLY_NOISY_TWIN_CASE = TwinCalibrationCaseDefinitio
     reference_objective_sampling="sobol",
     reference_objective_seed=31,
     build_simulation_config=build_simulation_config,
-    build_calibration_payload=build_flux_only_calibration_payload,
     parameter_targets=_TRANSIENT_PARAMETER_TARGETS,
     output_specs=_TRANSIENT_FLUX_ONLY_OUTPUT_SPECS,
     objective_block_specs=_TRANSIENT_FLUX_ONLY_OBJECTIVE_BLOCK_SPECS,
