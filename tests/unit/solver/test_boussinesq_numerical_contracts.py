@@ -131,3 +131,45 @@ def test_boussinesq_extractor_writes_cellwise_interfaces_and_volumetric_budgets(
             zarr_store.close()
     finally:
         catalog.close()
+
+
+def test_boussinesq_extractor_raises_on_invalid_surface_metadata(tmp_path: Path) -> None:
+    output_dir = tmp_path / "solver"
+    output_dir.mkdir()
+    np.savez(
+        output_dir / "_boussinesq_state_history.npz",
+        head_history_m=np.asarray([[5.0, 6.0]], dtype=float),
+        snapshot_elapsed_seconds=np.asarray([0.0], dtype=float),
+    )
+    (output_dir / "_boussinesq_summary.json").write_text("{invalid", encoding="utf-8")
+
+    catalog = SimulationCatalog(tmp_path / "workspace")
+    sim_id = str(uuid4())
+    registration = catalog.register_simulation(
+        sim_id,
+        project="test",
+        solver="boussinesq",
+        n_cells=2,
+        n_layers=1,
+        n_timesteps=1,
+    )
+    if registration.zarr is not None:
+        registration.zarr.close()
+
+    try:
+        with pytest.raises(RuntimeError, match="Could not parse Boussinesq summary"):
+            BoussinesqOutputAdapter().extract(sim_id, output_dir, catalog)
+    finally:
+        catalog.close()
+
+
+def test_boussinesq_derive_propagates_derived_failures(monkeypatch) -> None:
+    from hydromodpy.simulation.extraction.extractors import derived as derived_module
+
+    def fail_compute_derived(_sim_id: str, _store: object, _config: dict) -> None:
+        raise RuntimeError("derived failed")
+
+    monkeypatch.setattr(derived_module, "compute_derived", fail_compute_derived)
+
+    with pytest.raises(RuntimeError, match="derived failed"):
+        BoussinesqOutputAdapter().derive("sim-1", object(), {"seepage_areas": True})

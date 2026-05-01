@@ -3,6 +3,8 @@ from __future__ import annotations
 from pathlib import Path
 from types import SimpleNamespace
 
+import pytest
+
 from hydromodpy.workflow.steps import prepare_solver as prepare_solver_module
 
 
@@ -140,3 +142,23 @@ def test_effective_config_snapshot_uses_runtime_domain_and_results() -> None:
 
     assert snapshot["domain"] == effective_domain
     assert snapshot["simulation"]["results"] == effective_results
+
+
+def test_step_cleanup_scratch_raises_on_cleanup_failure(monkeypatch, tmp_path: Path) -> None:
+    from hydromodpy.workflow.steps import export as export_module
+
+    scratch = tmp_path / ".solver_scratch"
+    scratch.mkdir()
+    ctx = SimpleNamespace(
+        setup=SimpleNamespace(
+            workspace=SimpleNamespace(solver_scratch_folder=scratch),
+        )
+    )
+
+    def fail_rmtree(_path: Path) -> None:
+        raise OSError("locked")
+
+    monkeypatch.setattr(export_module.shutil, "rmtree", fail_rmtree)
+
+    with pytest.raises(RuntimeError, match="Could not remove solver scratch directory"):
+        export_module.step_cleanup_scratch(ctx)

@@ -10,6 +10,7 @@ Orchestrates four phases:
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
@@ -19,6 +20,30 @@ from hydromodpy.core.logging import get_logger
 from hydromodpy.master_config import HydroModPyConfig
 
 logger = get_logger(__name__)
+
+
+@dataclass(frozen=True, slots=True)
+class _OverviewLoaderConfig:
+    data: Any
+    workspace: Any
+    simulation: Any
+    overview: Any
+
+
+@dataclass(frozen=True, slots=True)
+class _OverviewLoaderSetup:
+    workspace: Any
+    geographic: Any
+    domain: Any
+
+
+@dataclass(frozen=True, slots=True)
+class _OverviewLoaderContext:
+    cfg: _OverviewLoaderConfig
+    setup: _OverviewLoaderSetup
+    loaded_data: Any
+    config_path: Path
+    data_plan: Any
 
 
 class DataOverviewLauncher:
@@ -149,8 +174,6 @@ class DataOverviewLauncher:
         mimics ``WorkflowContext``. Overview dates from ``[overview]`` are
         injected into data sections that have no explicit dates of their own.
         """
-        from types import SimpleNamespace
-
         from hydromodpy.data.loader import DataManagersRuntimeLoader
         from hydromodpy.data.plan import DataLoadPlan
 
@@ -162,14 +185,14 @@ class DataOverviewLauncher:
 
         self._inject_overview_dates(state)
 
-        proxy = SimpleNamespace(
-            cfg=SimpleNamespace(
+        proxy = _OverviewLoaderContext(
+            cfg=_OverviewLoaderConfig(
                 data=state.cfg.data,
                 workspace=state.cfg.workspace,
                 simulation=None,
                 overview=state.cfg.overview,
             ),
-            setup=SimpleNamespace(
+            setup=_OverviewLoaderSetup(
                 workspace=state.workspace,
                 geographic=state.geographic,
                 domain=None,

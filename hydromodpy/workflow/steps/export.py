@@ -62,7 +62,12 @@ def step_save_run_artifacts(
                 from hydromodpy.results.run import Run as _Run
 
                 run_wrapper = _Run(ctx.sim_id, ctx.store)
-            except Exception:
+            except Exception as exc:
+                logger.warning(
+                    "Could not build Run wrapper for capability gallery: %s",
+                    exc,
+                    exc_info=True,
+                )
                 run_wrapper = None
 
         def _render(figure_name: str, run: object, target_path: Path) -> None:
@@ -135,7 +140,12 @@ def step_cleanup_scratch(
         return
     scratch = workspace.solver_scratch_folder
     if scratch.exists():
-        shutil.rmtree(scratch, ignore_errors=True)
+        try:
+            shutil.rmtree(scratch)
+        except FileNotFoundError:
+            return
+        except OSError as exc:
+            raise RuntimeError(f"Could not remove solver scratch directory: {scratch}") from exc
 
 
 # ---------------------------------------------------------------------------

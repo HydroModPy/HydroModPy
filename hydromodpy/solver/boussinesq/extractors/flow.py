@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 from typing import Any
 
@@ -128,7 +129,9 @@ class BoussinesqOutputAdapter:
         """Write canonical Boussinesq budget fields with solver units."""
         area = None if cell_area_m2 is None else np.asarray(cell_area_m2, dtype=float).reshape(-1)
         if area is not None and area.size != int(n_cells):
-            area = None
+            raise ValueError(
+                f"Boussinesq cell_area_m2 has {area.size} cells; expected {int(n_cells)}"
+            )
 
         def _history(name: str) -> np.ndarray | None:
             values = payload.get(name)
@@ -138,11 +141,20 @@ class BoussinesqOutputAdapter:
             if arr.ndim == 1:
                 arr = arr.reshape(1, -1)
             if arr.shape[1] != int(n_cells):
-                return None
+                raise ValueError(
+                    f"Boussinesq array {name!r} has {arr.shape[1]} cells; expected {int(n_cells)}"
+                )
+            if arr.shape[0] < int(n_timesteps):
+                raise ValueError(
+                    f"Boussinesq array {name!r} has {arr.shape[0]} timesteps; "
+                    f"expected at least {int(n_timesteps)}"
+                )
             return arr[:n_timesteps]
 
         recharge_rate = _history("recharge_rate_history_m_s")
-        if recharge_rate is not None and area is not None:
+        if recharge_rate is not None:
+            if area is None:
+                raise KeyError("Boussinesq recharge history requires cell_area_m2")
             recharge_flux = recharge_rate * area.reshape(1, -1)
             for timestep, values in enumerate(recharge_flux):
                 store.write_field(
@@ -179,7 +191,9 @@ class BoussinesqOutputAdapter:
                 )
 
         saturation_excess = _history("saturation_excess_history_m_s")
-        if saturation_excess is not None and area is not None:
+        if saturation_excess is not None:
+            if area is None:
+                raise KeyError("Boussinesq saturation excess history requires cell_area_m2")
             surface_excess_flux = saturation_excess * area.reshape(1, -1)
             for timestep, values in enumerate(surface_excess_flux):
                 store.write_field(
@@ -202,42 +216,49 @@ class BoussinesqOutputAdapter:
         z_bottom_m: np.ndarray | None,
     ) -> None:
         """Write surface_top from Boussinesq summary for derived variables."""
-        try:
-            import json as _json
-
+        summary: dict[str, Any] = {}
+        if z_top_m is None or z_bottom_m is None:
             summary_path = solver_output_dir / "_boussinesq_summary.json"
             if not summary_path.exists():
-                return
-
-            summary = _json.loads(summary_path.read_text(encoding="utf-8"))
-            raw_z_top = z_top_m if z_top_m is not None else summary.get("z_top_m")
-            raw_z_bottom = z_bottom_m if z_bottom_m is not None else summary.get("z_bottom_m")
-            if raw_z_top is None or raw_z_bottom is None:
-                return
-            z_top = np.asarray(raw_z_top, dtype="float64").reshape(-1)
-            z_bottom = np.asarray(raw_z_bottom, dtype="float64").reshape(-1)
-            if z_top.size == 1:
-                z_top = np.full(n_cells, float(z_top[0]), dtype="float64")
-            if z_bottom.size == 1:
-                z_bottom = np.full(n_cells, float(z_bottom[0]), dtype="float64")
-            if z_top.size != int(n_cells) or z_bottom.size != int(n_cells):
-                return
-
-            sz = store.open_zarr(sim_id)
-            try:
-                mesh = sz.root.require_group("mesh")
-                mesh.create_array("surface_top", data=z_top, overwrite=True)
-                mesh.create_array(
-                    "z_interfaces",
-                    data=np.vstack([z_top, z_bottom]),
-                    overwrite=True,
+                raise FileNotFoundError(
+                    f"No Boussinesq surface metadata found for sim {sim_id}: {summary_path}"
                 )
-                mesh.attrs["n_cells"] = int(n_cells)
-                mesh.attrs["n_layers"] = 1
-            finally:
-                sz.close()
-        except Exception:
-            logger.debug("Could not write surface elevation for Boussinesq sim %s", sim_id)
+
+            try:
+                summary = json.loads(summary_path.read_text(encoding="utf-8"))
+            except json.JSONDecodeError as exc:
+                raise RuntimeError(f"Could not parse Boussinesq summary: {summary_path}") from exc
+        raw_z_top = z_top_m if z_top_m is not None else summary.get("z_top_m")
+        raw_z_bottom = z_bottom_m if z_bottom_m is not None else summary.get("z_bottom_m")
+        if raw_z_top is None or raw_z_bottom is None:
+            raise KeyError(
+                f"Boussinesq surface metadata missing z_top_m/z_bottom_m for sim {sim_id}"
+            )
+        z_top = np.asarray(raw_z_top, dtype="float64").reshape(-1)
+        z_bottom = np.asarray(raw_z_bottom, dtype="float64").reshape(-1)
+        if z_top.size == 1:
+            z_top = np.full(n_cells, float(z_top[0]), dtype="float64")
+        if z_bottom.size == 1:
+            z_bottom = np.full(n_cells, float(z_bottom[0]), dtype="float64")
+        if z_top.size != int(n_cells) or z_bottom.size != int(n_cells):
+            raise ValueError(
+                "Boussinesq surface arrays have incompatible sizes: "
+                f"z_top={z_top.size}, z_bottom={z_bottom.size}, n_cells={int(n_cells)}"
+            )
+
+        sz = store.open_zarr(sim_id)
+        try:
+            mesh = sz.root.require_group("mesh")
+            mesh.create_array("surface_top", data=z_top, overwrite=True)
+            mesh.create_array(
+                "z_interfaces",
+                data=np.vstack([z_top, z_bottom]),
+                overwrite=True,
+            )
+            mesh.attrs["n_cells"] = int(n_cells)
+            mesh.attrs["n_layers"] = 1
+        finally:
+            sz.close()
 
     def derive(
         self,
@@ -262,11 +283,4 @@ class BoussinesqOutputAdapter:
             "mass_seepage": False,
             "mass_accumulated": False,
         }
-        try:
-            compute_derived(sim_id, store, boussinesq_cfg)
-        except Exception:
-            logger.debug(
-                "Derived variable computation skipped for Boussinesq sim %s "
-                "(mesh may not be registered in store)",
-                sim_id,
-            )
+        compute_derived(sim_id, store, boussinesq_cfg)

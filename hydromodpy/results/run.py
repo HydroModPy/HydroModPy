@@ -52,8 +52,9 @@ import pandas as pd
 
 from hydromodpy.core.config_kit.root_config_protocol import get_root_config_provider
 from hydromodpy.core.logging import get_logger
+from hydromodpy.results import field_registry
 from hydromodpy.results.contracts import Mesh, RasterField, Stack
-from hydromodpy.results.run_array import RunArrayProvider
+from hydromodpy.results.run_array import RunArrayProvider, lookup_zarr_path
 
 logger = get_logger(__name__)
 
@@ -466,29 +467,50 @@ class Run:
         return arr
 
     def fields(self, variable: str) -> Stack:
-        """Stack per-timestep arrays of ``variable``.
+        """Return a lazy per-timestep raster stack of ``variable``.
 
         For regular-in-plan meshes (``dis`` / ``disv``) reshapes each
         flat cell array to the DEM grid and returns a :class:`Stack`
-        with ``data`` shaped ``(n_t, nrow, ncol)``. Values are returned
-        raw (no masking or NaN substitution); combine with
+        with Dask-backed ``data`` shaped ``(n_t, nrow, ncol)``. Values are
+        returned raw (no masking or NaN substitution); combine with
         ``run.catchment_mask`` to mask inactive cells. Raises
         ``RuntimeError`` for lumped simulations.
         """
+        import dask.array as da
+
         if self._load_row().get("solver_category") == "lumped":
             raise RuntimeError("lumped simulation has no spatial grid")
-        n = self.n_timesteps or 1
+        desc = field_registry.get(variable)
+        if desc.shape not in (
+            field_registry.SHAPE_TIME_FACE,
+            field_registry.SHAPE_TIME_LAYER_FACE,
+        ):
+            raise ValueError(f"Field '{variable}' is not a time-varying face field")
         grid = self.grid
         sz = self._catalog.open_zarr(self._sim_id)
         try:
-            data = np.stack(
-                [
-                    np.asarray(sz.read_field(variable, timestep=t)).reshape(grid.shape)
-                    for t in range(n)
-                ]
-            )
-        finally:
+            arr = lookup_zarr_path(sz.root, desc.zarr_path)
+            if arr is None:
+                raise KeyError(f"Field '{variable}' not found in simulation '{self._sim_id}'")
+            chunks = arr.chunks if arr.chunks else "auto"
+            data = da.from_array(arr, chunks=chunks)
+            if desc.shape == field_registry.SHAPE_TIME_LAYER_FACE:
+                if data.shape[1] != 1:
+                    raise ValueError(
+                        f"Field '{variable}' has {data.shape[1]} layers; "
+                        "use run.array.to_xarray_batch() for multi-layer data."
+                    )
+                data = data[:, 0, :]
+            nrow, ncol = grid.shape
+            if data.shape[-1] != nrow * ncol:
+                raise ValueError(
+                    f"Field '{variable}' has {data.shape[-1]} cells; "
+                    f"grid shape {grid.shape} requires {nrow * ncol} cells."
+                )
+            data = data.reshape((data.shape[0], nrow, ncol))
+        except Exception:
             sz.close()
+            raise
         return Stack(data=data, variable=variable)
 
     @cached_property

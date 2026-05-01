@@ -37,6 +37,23 @@ def _seed_field(catalog: SimulationCatalog) -> str:
     reg.zarr.close()
     catalog.write_field(sid, "head", 0, np.array([[1.0, 2.0]]), n_timesteps=2)
     catalog.write_field(sid, "head", 1, np.array([[3.0, 4.0]]), n_timesteps=2)
+    catalog.write_geographic_metadata(
+        sid,
+        {
+            "dem_res": 1.0,
+            "nrow": 1,
+            "ncol": 2,
+            "crs_proj": "EPSG:2154",
+            "catch_area": 0.000002,
+        },
+    )
+    catalog.write_geographic_raster(
+        sid,
+        "watershed_dem",
+        np.array([[10.0, 11.0]], dtype=float),
+        transform=(1.0, 0.0, 0.0, 0.0, -1.0, 1.0),
+        crs="EPSG:2154",
+    )
     return sid
 
 
@@ -96,6 +113,16 @@ def test_run_array_batch_is_dask_backed(catalog):
 
     assert isinstance(ds["head"].data, DaskArray)
     assert ds["head"].shape == (2, 1, 2)
+
+
+def test_run_fields_is_dask_backed(catalog):
+    sid = _seed_field(catalog)
+
+    stack = catalog[sid].fields("head")
+
+    assert isinstance(stack.data, DaskArray)
+    assert stack.data.shape == (2, 1, 2)
+    np.testing.assert_allclose(stack.data.compute(), np.array([[[1.0, 2.0]], [[3.0, 4.0]]]))
 
 
 def test_simulation_zarr_to_xarray_is_dask_backed(catalog):

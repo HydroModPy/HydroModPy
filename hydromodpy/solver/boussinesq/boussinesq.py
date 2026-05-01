@@ -167,8 +167,9 @@ class Boussinesq(Solver):
         self.solve_stage = "solved" if success else "failed"
         try:
             self.post_processing()
-        except Exception:
-            pass
+        except Exception as exc:
+            self.solve_stage = "post_processing_failed"
+            raise RuntimeError("Boussinesq post-processing failed") from exc
         return bool(success)
 
     def post_processing(self, *args, **kwargs):
