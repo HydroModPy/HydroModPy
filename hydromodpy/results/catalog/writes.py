@@ -24,6 +24,7 @@ from hydromodpy.core.io.db_retry import with_lock_retry
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.version import __version__ as _HMP_VERSION
 from hydromodpy.results.array_fingerprint import fingerprint
+from hydromodpy.results.catalog.storage_paths import sanitize_segment
 from hydromodpy.results.catalog_schema import GLOBAL_ZONE, ensure_parquet_views
 from hydromodpy.results.spatial_index import point_in_cell
 
@@ -75,6 +76,29 @@ def _normalize_geometry_kind(geom_type: str | None) -> str | None:
         "MultiPolygon": "multipolygon",
     }
     return mapping.get(geom_type, "polygon")
+
+
+def _epsg_from_crs(crs: str | None) -> int | None:
+    if not crs:
+        return None
+    upper = str(crs).upper().strip()
+    if upper.startswith("EPSG:"):
+        try:
+            return int(upper.split(":", 1)[1])
+        except ValueError:
+            return None
+    try:
+        from pyproj import CRS
+
+        return CRS.from_user_input(crs).to_epsg()
+    except Exception:
+        return None
+
+
+def _json_scalar(value: object) -> object:
+    if value is None or isinstance(value, (str, int, float, bool)):
+        return value
+    return str(value)
 
 
 class WritesMixin:
@@ -675,10 +699,25 @@ class WritesMixin:
         points: dict[str, tuple[float, float]],
         variable: str = "head",
         layer: int = 0,
+        *,
+        crs: str | None = None,
+        crs_epsg: int | None = None,
     ) -> None:
         if not self._persistence.save_catalog:
             return
         sid = str(sim_id)
+        if crs is None or crs_epsg is None:
+            row = self._db.execute(
+                "SELECT crs_wkt, crs_epsg FROM simulations WHERE sim_id = ?",
+                [sid],
+            ).fetchone()
+            if row is not None:
+                crs = crs or row[0]
+                crs_epsg = crs_epsg if crs_epsg is not None else row[1]
+        if crs is None:
+            raise ValueError("Observation point CRS is required.")
+        if crs_epsg is None:
+            crs_epsg = _epsg_from_crs(crs)
         sz = self.open_zarr(sim_id)
         try:
             mesh = sz.root["mesh"]
@@ -691,9 +730,9 @@ class WritesMixin:
                 cell_id = mapping[station_id]
                 self._db.execute(
                     """INSERT OR REPLACE INTO observation_points
-                       (sim_id, station_id, x, y, cell_id, layer)
-                       VALUES (?, ?, ?, ?, ?, ?)""",
-                    [sid, station_id, x, y, cell_id, layer],
+                       (sim_id, station_id, x, y, cell_id, layer, crs_wkt, crs_epsg)
+                       VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
+                    [sid, station_id, x, y, cell_id, layer, str(crs), crs_epsg],
                 )
         finally:
             sz.close()
@@ -765,9 +804,34 @@ class WritesMixin:
         union_geom = unary_union([g for g in gdf.geometry if g is not None and not g.is_empty])
         geom_kind = _normalize_geometry_kind(union_geom.geom_type)
         crs_str = str(gdf.crs) if gdf.crs else None
+        if crs_str is None:
+            raise ValueError("Geographic feature CRS is required.")
+        sid = str(sim_id)
+        target = self._geographic_feature_parquet_path(
+            sid,
+            feature_name,
+            geoparquet_path=geoparquet_path,
+        )
+        rel_path = (
+            str(target.relative_to(self._workspace))
+            if target.is_relative_to(self._workspace)
+            else str(target)
+        )
+        self._write_geographic_feature_parquet(gdf, target)
+        bounds = [float(value) for value in gdf.total_bounds]
+        schema_payload = {
+            "columns": [str(col) for col in gdf.columns if col != gdf.geometry.name],
+            "geometry_kind": geom_kind,
+            "crs": crs_str,
+        }
+        schema_hash = hashlib.sha256(
+            json.dumps(schema_payload, sort_keys=True).encode("utf-8")
+        ).hexdigest()
         properties = {
-            "geojson": gdf.to_json(),
             "n_features": int(len(gdf)),
+            "bbox": bounds,
+            "geometry_encoding": "WKB",
+            "schema_sha256": schema_hash,
         }
         self._db.execute(
             "INSERT OR REPLACE INTO geographic_features "
@@ -775,14 +839,51 @@ class WritesMixin:
             " geoparquet_path, properties) "
             "VALUES (?, ?, ?, ?, ?, ?)",
             [
-                str(sim_id),
+                sid,
                 feature_name,
                 geom_kind,
                 crs_str,
-                geoparquet_path,
+                rel_path,
                 json.dumps(properties),
             ],
         )
+
+    def _geographic_feature_parquet_path(
+        self,
+        sim_id: str,
+        feature_name: str,
+        *,
+        geoparquet_path: str | None,
+    ) -> Path:
+        if geoparquet_path:
+            path = Path(geoparquet_path)
+            return path if path.is_absolute() else self._workspace / path
+        safe_name = sanitize_segment(feature_name)
+        return self._paths.parquet_dir_for(sim_id) / f"geographic_{safe_name}.parquet"
+
+    def _write_geographic_feature_parquet(self, gdf: gpd.GeoDataFrame, target: Path) -> None:
+        target.parent.mkdir(parents=True, exist_ok=True)
+        tmp = target.with_name(target.name + ".tmp")
+        if tmp.exists():
+            tmp.unlink()
+        plain = gdf.drop(columns=[gdf.geometry.name]).copy()
+        for column in plain.columns:
+            plain[column] = plain[column].map(_json_scalar)
+        plain["geometry_wkb"] = [
+            None if geom is None or geom.is_empty else bytes(geom.wkb) for geom in gdf.geometry
+        ]
+        plain["geometry_type"] = [
+            None if geom is None or geom.is_empty else str(geom.geom_type) for geom in gdf.geometry
+        ]
+        self._db.register("_hmp_geographic_feature", plain)
+        try:
+            tmp_sql = str(tmp).replace("'", "''")
+            self._db.execute(
+                f"COPY (SELECT * FROM _hmp_geographic_feature) TO '{tmp_sql}' (FORMAT PARQUET)"
+            )
+        finally:
+            self._db.unregister("_hmp_geographic_feature")
+        os.replace(tmp, target)
 
     @with_lock_retry()
     def write_geographic_metadata(

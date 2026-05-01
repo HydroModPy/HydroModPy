@@ -81,6 +81,44 @@ class SimulationStore(Protocol):
     ) -> None:
         """Persist a per-station timeseries for ``sim_id``."""
 
+    def write_budget(
+        self,
+        sim_id: str | UUID,
+        timestep: int,
+        zone_id: str,
+        component: str,
+        flux_in: float,
+        flux_out: float,
+        unit: str = "m3/s",
+    ) -> None:
+        """Persist one budget row for ``sim_id``."""
+
+    def write_budgets(
+        self,
+        sim_id: str | UUID,
+        records: list[dict],
+    ) -> None:
+        """Persist multiple budget rows for ``sim_id``."""
+
+    def write_mass_balance(
+        self,
+        sim_id: str | UUID,
+        timestep: int,
+        total_in: float,
+        total_out: float,
+        percent_error: float,
+        storage_in: float = 0.0,
+        storage_out: float = 0.0,
+    ) -> None:
+        """Persist one mass-balance row for ``sim_id``."""
+
+    def write_mass_balances(
+        self,
+        sim_id: str | UUID,
+        records: list[dict],
+    ) -> None:
+        """Persist multiple mass-balance rows for ``sim_id``."""
+
     def write_field(
         self,
         sim_id: str | UUID,

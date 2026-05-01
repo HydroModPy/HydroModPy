@@ -254,6 +254,31 @@ def _write_zarr_crs(ctx: WorkflowContext, sim_id: str) -> None:
     )
 
 
+def _write_zarr_time(ctx: WorkflowContext, sim_id: str) -> None:
+    """Persist simulation period-end timestamps as CF time coordinates."""
+    time_grid = getattr(ctx.setup, "time_grid", None)
+    boundaries = getattr(time_grid, "boundaries", None)
+    if not boundaries or len(boundaries) < 2:
+        return
+
+    import numpy as np
+    import pandas as pd
+
+    period_ends = pd.DatetimeIndex(boundaries[1:])
+    if period_ends.tz is None:
+        period_ends = period_ends.tz_localize("UTC")
+    else:
+        period_ends = period_ends.tz_convert("UTC")
+    epoch = pd.Timestamp("1970-01-01T00:00:00Z")
+    seconds = ((period_ends - epoch).total_seconds()).astype("int64")
+    ctx.store.write_time(
+        sim_id,
+        np.asarray(seconds, dtype="int64"),
+        epoch="1970-01-01T00:00:00Z",
+        units="seconds since 1970-01-01T00:00:00Z",
+    )
+
+
 def step_register_simulation(
     ctx: WorkflowContext,
     sim_id: str,
@@ -289,6 +314,7 @@ def step_register_simulation(
         logger.info("Run '%s' stored [%s]", final_name, short)
     if registration.zarr is not None:
         registration.zarr.close()
+    _write_zarr_time(ctx, sim_id)
     _write_zarr_crs(ctx, sim_id)
 
     try:
@@ -368,6 +394,8 @@ def step_open_store(ctx: WorkflowContext) -> None:
         ctx.setup.run_id = registration.name
     if registration.zarr is not None:
         registration.zarr.close()
+    _write_zarr_time(ctx, ctx.sim_id)
+    _write_zarr_crs(ctx, ctx.sim_id)
 
     try:
         project_root = getattr(workspace, "project_root", None)

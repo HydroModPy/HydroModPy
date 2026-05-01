@@ -48,6 +48,7 @@ class RunArrayProvider:
         Variable attributes follow CF-1.11 from
         :mod:`hydromodpy.results.field_registry`.
         """
+        import dask.array as da
         import xarray as xr
         import xugrid as xu
 
@@ -71,38 +72,34 @@ class RunArrayProvider:
         }
 
         sz = run._catalog.open_zarr(run._sim_id)
-        try:
-            if variable is None:
-                names = [
-                    n
-                    for n, d in field_registry.FIELD_REGISTRY.items()
-                    if d.shape in face_shapes and _zarr_lookup(sz.root, d.zarr_path) is not None
-                ]
-            else:
-                desc = field_registry.get(variable)
-                if desc.shape not in face_shapes:
-                    raise ValueError(
-                        f"Field '{variable}' has shape '{desc.shape}', not face-aligned"
-                    )
-                if _zarr_lookup(sz.root, desc.zarr_path) is None:
-                    raise KeyError(f"Field '{variable}' not found in simulation '{run._sim_id}'")
-                names = [variable]
+        if variable is None:
+            names = [
+                n
+                for n, d in field_registry.FIELD_REGISTRY.items()
+                if d.shape in face_shapes and _zarr_lookup(sz.root, d.zarr_path) is not None
+            ]
+        else:
+            desc = field_registry.get(variable)
+            if desc.shape not in face_shapes:
+                raise ValueError(f"Field '{variable}' has shape '{desc.shape}', not face-aligned")
+            if _zarr_lookup(sz.root, desc.zarr_path) is None:
+                raise KeyError(f"Field '{variable}' not found in simulation '{run._sim_id}'")
+            names = [variable]
 
-            data_vars: dict[str, xr.DataArray] = {}
-            for name in names:
-                desc = field_registry.get(name)
-                arr = _zarr_lookup(sz.root, desc.zarr_path)
-                values = np.asarray(arr[:])
-                dims = face_shapes[desc.shape]
-                if len(dims) != values.ndim:
-                    continue
-                data_vars[name] = xr.DataArray(
-                    values,
-                    dims=dims,
-                    attrs=field_registry.cf_attrs(name),
-                )
-        finally:
-            sz.close()
+        data_vars: dict[str, xr.DataArray] = {}
+        for name in names:
+            desc = field_registry.get(name)
+            arr = _zarr_lookup(sz.root, desc.zarr_path)
+            dims = face_shapes[desc.shape]
+            if len(dims) != arr.ndim:
+                continue
+            chunks = arr.chunks if arr.chunks else "auto"
+            values = da.from_array(arr, chunks=chunks)
+            data_vars[name] = xr.DataArray(
+                values,
+                dims=dims,
+                attrs=field_registry.cf_attrs(name),
+            )
 
         return xu.UgridDataset(xr.Dataset(data_vars), grids=[grid])
 
@@ -120,38 +117,37 @@ class RunArrayProvider:
         include; missing fields raise ``KeyError``. ``time_slice`` is an
         optional ``slice`` object applied to the time dimension.
         """
+        import dask.array as da
         import xarray as xr
 
         run = self._run
         sz = run._catalog.open_zarr(run._sim_id)
-        try:
-            data_vars: dict[str, xr.DataArray] = {}
-            for name in variables:
-                desc = field_registry.get(name)
-                arr = _zarr_lookup(sz.root, desc.zarr_path)
-                if arr is None:
-                    raise KeyError(f"Field '{name}' not found in simulation '{run._sim_id}'")
-                shape = desc.shape
-                if shape == field_registry.SHAPE_TIME_FACE:
-                    dims = ("time", "cell")
-                elif shape == field_registry.SHAPE_TIME_LAYER_FACE:
-                    dims = ("time", "layer", "cell")
-                elif shape == field_registry.SHAPE_LAYER_FACE:
-                    dims = ("layer", "cell")
-                elif shape == field_registry.SHAPE_FACE:
-                    dims = ("cell",)
-                else:
-                    dims = tuple(f"d{i}" for i in range(np.asarray(arr).ndim))
-                values = np.asarray(arr[:])
-                if time_slice is not None and dims and dims[0] == "time":
-                    values = values[time_slice]
-                data_vars[name] = xr.DataArray(
-                    values,
-                    dims=dims,
-                    attrs=field_registry.cf_attrs(name),
-                )
-        finally:
-            sz.close()
+        data_vars: dict[str, xr.DataArray] = {}
+        for name in variables:
+            desc = field_registry.get(name)
+            arr = _zarr_lookup(sz.root, desc.zarr_path)
+            if arr is None:
+                raise KeyError(f"Field '{name}' not found in simulation '{run._sim_id}'")
+            shape = desc.shape
+            if shape == field_registry.SHAPE_TIME_FACE:
+                dims = ("time", "cell")
+            elif shape == field_registry.SHAPE_TIME_LAYER_FACE:
+                dims = ("time", "layer", "cell")
+            elif shape == field_registry.SHAPE_LAYER_FACE:
+                dims = ("layer", "cell")
+            elif shape == field_registry.SHAPE_FACE:
+                dims = ("cell",)
+            else:
+                dims = tuple(f"d{i}" for i in range(arr.ndim))
+            chunks = arr.chunks if arr.chunks else "auto"
+            values = da.from_array(arr, chunks=chunks)
+            if time_slice is not None and dims and dims[0] == "time":
+                values = values[time_slice]
+            data_vars[name] = xr.DataArray(
+                values,
+                dims=dims,
+                attrs=field_registry.cf_attrs(name),
+            )
         return xr.Dataset(data_vars)
 
     def at(self, timestep: int = -1, layer: int | None = None) -> _AtAccessor:

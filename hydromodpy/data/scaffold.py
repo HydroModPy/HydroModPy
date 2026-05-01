@@ -213,6 +213,8 @@ right_to_left_amplitude = 5.0
 [data]
 types = []
 
+[domain]
+
 [domain.depth_model]
 type = "constant_thickness"
 thickness = "50 m"

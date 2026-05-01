@@ -14,9 +14,89 @@ from uuid import UUID
 
 import numpy as np
 import pandas as pd
+from shapely import wkb
 
 if TYPE_CHECKING:
     import geopandas as gpd
+
+_SIMULATION_FILTER_COLUMNS: frozenset[str] = frozenset(
+    {
+        "sim_id",
+        "name",
+        "project",
+        "solver",
+        "solver_category",
+        "flow_regime",
+        "status",
+        "mesh_topology",
+        "mesh_hash",
+        "n_cells",
+        "n_layers",
+        "n_timesteps",
+        "crs_wkt",
+        "crs_epsg",
+        "period_start",
+        "period_end",
+        "time_unit",
+        "config_hash",
+        "config_source",
+        "parent_sim_id",
+        "lineage_kind",
+        "zarr_packed",
+        "storage_basename",
+        "geographic_fingerprint",
+        "duration_s",
+        "created_at",
+        "updated_at",
+        "scientific_objective",
+        "study_area_name",
+        "doi",
+    }
+)
+_SIMULATION_ORDER_COLUMNS: frozenset[str] = _SIMULATION_FILTER_COLUMNS | frozenset(
+    {
+        "started_at",
+        "ended_at",
+        "bbox_xmin",
+        "bbox_ymin",
+        "bbox_xmax",
+        "bbox_ymax",
+    }
+)
+_ORDER_DIRECTIONS: frozenset[str] = frozenset({"ASC", "DESC"})
+
+
+def _order_clause(order_by: str | tuple[str, str] | None) -> str | None:
+    if order_by is None:
+        return None
+    if isinstance(order_by, tuple):
+        column, direction = order_by
+    else:
+        parts = str(order_by).strip().split()
+        if len(parts) == 1:
+            column, direction = parts[0], "ASC"
+        elif len(parts) == 2:
+            column, direction = parts
+        else:
+            raise ValueError("order_by must be '<column>' or '<column> ASC|DESC'")
+    if column not in _SIMULATION_ORDER_COLUMNS:
+        raise ValueError(f"Unknown order_by column: {column!r}")
+    direction = direction.upper()
+    if direction not in _ORDER_DIRECTIONS:
+        raise ValueError("order_by direction must be 'ASC' or 'DESC'")
+    return f"{column} {direction}"
+
+
+def _geometry_from_wkb(value: object):
+    if value is None:
+        return None
+    try:
+        missing = pd.isna(value)
+    except (TypeError, ValueError):
+        missing = False
+    if isinstance(missing, (bool, np.bool_)) and missing:
+        return None
+    return wkb.loads(bytes(value))
 
 
 class ReadsMixin:
@@ -123,11 +203,8 @@ class ReadsMixin:
     def list_simulations(self, **filters) -> pd.DataFrame:
         """Return one DataFrame row per simulation matching ``filters``.
 
-        ``order_by`` is an optional SQL ORDER BY clause (e.g. ``"created_at DESC"``).
-        When omitted, rows are returned in DuckDB storage order - which is
-        typically insertion order but not guaranteed by SQL. Callers that need
-        the most recent run should pass ``order_by="created_at DESC"`` and
-        read ``iloc[0]``.
+        ``order_by`` accepts only whitelisted simulation columns, with an
+        optional ``ASC`` or ``DESC`` direction.
         """
         order_by = filters.pop("order_by", None)
         query = "SELECT * FROM simulations"
@@ -135,11 +212,14 @@ class ReadsMixin:
         if filters:
             clauses = []
             for key, val in filters.items():
+                if key not in _SIMULATION_FILTER_COLUMNS:
+                    raise ValueError(f"Unknown simulation filter: {key!r}")
                 clauses.append(f"{key} = ?")
                 params.append(val)
             query += " WHERE " + " AND ".join(clauses)
-        if order_by:
-            query += f" ORDER BY {order_by}"
+        clause = _order_clause(order_by)
+        if clause is not None:
+            query += f" ORDER BY {clause}"
         return self._db.execute(query, params).fetchdf()
 
     def list_tracked_files(self, sim_id: str | UUID) -> pd.DataFrame:
@@ -159,22 +239,32 @@ class ReadsMixin:
         import geopandas as gpd_mod
 
         row = self._db.execute(
-            "SELECT properties, crs_wkt FROM geographic_features "
+            "SELECT geoparquet_path, properties, crs_wkt FROM geographic_features "
             "WHERE sim_id = ? AND feature_name = ?",
             [str(sim_id), feature_name],
         ).fetchone()
         if row is None:
             raise KeyError(f"Feature '{feature_name}' not found for sim '{sim_id}'")
-        properties_json, crs = row
-        if not properties_json:
-            raise KeyError(f"No payload for feature '{feature_name}'")
-        props = json.loads(properties_json) if isinstance(properties_json, str) else properties_json
-        geojson_str = props.get("geojson") if isinstance(props, dict) else None
-        if not geojson_str:
-            raise KeyError(f"No GeoJSON data for feature '{feature_name}'")
-        gdf = gpd_mod.read_file(geojson_str)
-        if crs and gdf.crs is None:
-            gdf = gdf.set_crs(crs)
+        parquet_path, properties_json, crs = row
+        if not parquet_path:
+            raise KeyError(f"No Parquet payload for feature '{feature_name}'")
+        path = Path(parquet_path)
+        if not path.is_absolute():
+            path = self._workspace / path
+        if not path.is_file():
+            raise FileNotFoundError(path)
+        escaped = str(path).replace("'", "''")
+        df = self._db.execute(f"SELECT * FROM read_parquet('{escaped}')").fetchdf()
+        if "geometry_wkb" not in df.columns:
+            raise KeyError(f"No geometry_wkb column for feature '{feature_name}'")
+        geoms = [_geometry_from_wkb(value) for value in df.pop("geometry_wkb")]
+        gdf = gpd_mod.GeoDataFrame(df, geometry=geoms, crs=crs)
+        if properties_json:
+            props = (
+                json.loads(properties_json) if isinstance(properties_json, str) else properties_json
+            )
+            if isinstance(props, dict) and props.get("geometry_encoding") != "WKB":
+                raise ValueError(f"Unsupported geometry encoding for feature '{feature_name}'")
         return gdf
 
     def list_geographic_features(self, sim_id: str | UUID) -> list[str]:

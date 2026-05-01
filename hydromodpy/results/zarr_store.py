@@ -589,6 +589,7 @@ class SimulationZarr:
         coordinate variables so that downstream consumers can round-trip
         through xarray without losing CF metadata.
         """
+        import dask.array as da
         import xarray as xr
 
         data_vars: dict[str, xr.Variable] = {}
@@ -620,9 +621,10 @@ class SimulationZarr:
                 # fall back to generic dims when the shape does not match the
                 # stored array (e.g. a field was written with an extra axis)
                 dims = tuple(f"dim_{i}" for i in range(arr.ndim))
+            chunks = arr.chunks if arr.chunks else "auto"
             data_vars[name] = xr.Variable(
                 dims,
-                np.asarray(arr[:]),
+                da.from_array(arr, chunks=chunks),
                 attrs=dict(arr.attrs),
             )
 

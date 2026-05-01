@@ -139,6 +139,10 @@ class BaseFieldManager(BaseManagerCommon):
             import xarray as xr
 
             ds = xr.open_dataset(nc_path)
+            if not entry.crs:
+                raise ValueError(
+                    f"Cached field {var_name!r} from {source!r} is missing CRS metadata."
+                )
             logger.info("Cache hit: %s from %s", var_name, nc_path.name)
 
             results.append(
@@ -148,7 +152,7 @@ class BaseFieldManager(BaseManagerCommon):
                     unit=entry.unit or self.INTERNAL_UNIT,
                     data=ds,
                     bbox=(entry.bbox_xmin, entry.bbox_ymin, entry.bbox_xmax, entry.bbox_ymax),
-                    crs=entry.crs or "EPSG:4326",
+                    crs=entry.crs,
                     date_start=datetime.fromisoformat(entry.date_start)
                     if entry.date_start
                     else None,

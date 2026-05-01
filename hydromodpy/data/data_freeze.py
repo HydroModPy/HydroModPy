@@ -95,12 +95,19 @@ def _catalog_base_dir(catalog: DataCatalogDuckDB) -> Path | None:
     return Path(db_path).parent
 
 
-def _resolve_artifact_path(file_path: str | Path, base_dir: Path | None) -> Path:
+def _resolve_artifact_path(
+    file_path: str | Path,
+    base_dir: Path | None,
+    *,
+    variable: str | None = None,
+) -> Path:
     path = Path(file_path)
     if path.is_absolute():
         return path
     candidates: list[Path] = []
     if base_dir is not None:
+        if variable:
+            candidates.append(base_dir / variable / path)
         candidates.extend((base_dir / path, base_dir.parent / path))
     candidates.append(path)
     for candidate in candidates:
@@ -110,7 +117,7 @@ def _resolve_artifact_path(file_path: str | Path, base_dir: Path | None) -> Path
 
 
 def _entry_to_locked(row: dict[str, Any], *, base_dir: Path | None) -> LockedArtifact | None:
-    path = _resolve_artifact_path(row["file_path"], base_dir)
+    path = _resolve_artifact_path(row["file_path"], base_dir, variable=row.get("variable"))
     if not path.is_file():
         return None
     size = None
@@ -199,7 +206,9 @@ def verify_frozen(
     lockfile: Path | str,
 ) -> list[LockMismatch]:
     """Return every mismatch between *lockfile* and the catalog state."""
-    locked = {(la.variable, la.source, la.station_id): la for la in read_lockfile(lockfile)}
+    locked = {
+        (la.variable, la.source, la.station_id, la.file_path): la for la in read_lockfile(lockfile)
+    }
     mismatches: list[LockMismatch] = []
     base_dir = _catalog_base_dir(catalog)
     rows = catalog.connection.execute(
@@ -207,7 +216,7 @@ def verify_frozen(
     ).fetchall()
     seen = set()
     for variable, source, station_id, file_path in rows:
-        key = (variable, source, station_id)
+        key = (variable, source, station_id, file_path)
         seen.add(key)
         la = locked.get(key)
         if la is None:
@@ -222,7 +231,7 @@ def verify_frozen(
                 )
             )
             continue
-        p = _resolve_artifact_path(file_path, base_dir)
+        p = _resolve_artifact_path(file_path, base_dir, variable=variable)
         if not p.is_file():
             mismatches.append(
                 LockMismatch(
@@ -313,11 +322,12 @@ def archive_lockfile(
         with tarfile.open(fileobj=stream, mode=mode) as tar:
             tar.add(lockfile_dest, arcname=LOCKFILE_NAME)
             base_dir = _catalog_base_dir(catalog)
-            rows = catalog.connection.execute("SELECT file_path FROM entries").fetchall()
-            for (fp,) in rows:
-                p = _resolve_artifact_path(fp, base_dir)
+            for fp, variable in catalog.connection.execute(
+                "SELECT file_path, variable FROM entries"
+            ).fetchall():
+                p = _resolve_artifact_path(fp, base_dir, variable=variable)
                 if p.is_file():
-                    tar.add(p, arcname=f"artefacts/{p.name}")
+                    tar.add(p, arcname=f"artefacts/{sha256_of(p)}/{p.name}")
     finally:
         if hasattr(stream, "close"):
             stream.close()
@@ -346,7 +356,7 @@ def restore_archive(archive: Path | str, dest_dir: Path | str) -> Path:
     if lockfile_path.is_file():
         locked = read_lockfile(lockfile_path)
         for la in locked:
-            candidate = dest_dir / "artefacts" / Path(la.file_path).name
+            candidate = dest_dir / "artefacts" / la.sha256 / Path(la.file_path).name
             if candidate.is_file():
                 actual = sha256_of(candidate)
                 if actual != la.sha256:

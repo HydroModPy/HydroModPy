@@ -153,17 +153,28 @@ def convert_timeseries_csv_to_parquet(
 
     dest.parent.mkdir(parents=True, exist_ok=True)
 
-    import pyarrow as pa
-    import pyarrow.parquet as pq
+    import duckdb
+    import pandas as pd
 
-    table = pa.table(
+    frame = pd.DataFrame(
         {
-            "datetime": [r[0] for r in artifact.records],
-            "value": [r[1] for r in artifact.records],
+            "datetime": [record[0] for record in artifact.records],
+            "value": [record[1] for record in artifact.records],
             "station_id": [artifact.station_id] * len(artifact.records),
-        }
+        },
     )
-    pq.write_table(table, dest, compression="zstd")
+    tmp = dest.with_name(dest.name + ".tmp")
+    conn = duckdb.connect(":memory:")
+    try:
+        conn.register("_hmp_timeseries_csv", frame)
+        tmp_sql = str(tmp).replace("'", "''")
+        conn.execute(
+            f"COPY (SELECT * FROM _hmp_timeseries_csv) TO '{tmp_sql}' "
+            "(FORMAT PARQUET, COMPRESSION ZSTD)"
+        )
+    finally:
+        conn.close()
+    tmp.replace(dest)
     return dest
 
 
@@ -248,7 +259,7 @@ def convert_locations_csv_to_geoparquet(
     src: str | Path,
     dest: str | Path,
 ) -> Path:
-    """Convert a locations CSV into a GeoParquet file."""
+    """Convert a locations CSV into a Parquet vector table with WKB geometry."""
     src = Path(src)
     dest = Path(dest)
     artifact = read_locations_csv(src)
@@ -257,19 +268,31 @@ def convert_locations_csv_to_geoparquet(
 
     dest.parent.mkdir(parents=True, exist_ok=True)
 
-    import geopandas as gpd
+    import duckdb
+    import pandas as pd
     from shapely.geometry import Point
 
     geoms = [Point(s["x"], s["y"]) for s in artifact.stations]
-    gdf = gpd.GeoDataFrame(
+    frame = pd.DataFrame(
         {
             "id": [s["id"] for s in artifact.stations],
             "unit": [s["unit"] for s in artifact.stations],
+            "crs": [artifact.crs] * len(artifact.stations),
+            "geometry_wkb": [bytes(geom.wkb) for geom in geoms],
         },
-        geometry=geoms,
-        crs=artifact.crs or None,
     )
-    gdf.to_parquet(dest)
+    tmp = dest.with_name(dest.name + ".tmp")
+    conn = duckdb.connect(":memory:")
+    try:
+        conn.register("_hmp_locations_csv", frame)
+        tmp_sql = str(tmp).replace("'", "''")
+        conn.execute(
+            f"COPY (SELECT * FROM _hmp_locations_csv) TO '{tmp_sql}' "
+            "(FORMAT PARQUET, COMPRESSION ZSTD)"
+        )
+    finally:
+        conn.close()
+    tmp.replace(dest)
     return dest
 
 

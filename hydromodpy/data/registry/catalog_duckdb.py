@@ -267,7 +267,7 @@ class DataCatalogDuckDB:
     ) -> int:
         """Register or update a data file entry. Returns entry id (-1 on error)."""
         file_path = Path(file_path)
-        resolved_path = self._resolve_entry_path(file_path)
+        resolved_path = self._resolve_entry_path(file_path, variable=variable)
         if file_mtime is None:
             try:
                 mtime = resolved_path.stat().st_mtime if resolved_path.exists() else None
@@ -459,12 +459,14 @@ class DataCatalogDuckDB:
                 return candidate
         return candidates[0]
 
-    def _resolve_entry_path(self, file_path: Path | str) -> Path:
+    def _resolve_entry_path(self, file_path: Path | str, *, variable: str | None = None) -> Path:
         path = Path(file_path)
         if path.is_absolute():
             return path
         candidates: list[Path] = []
         if self._db_path is not None:
+            if variable:
+                candidates.append(self._db_path.parent / variable / path)
             candidates.extend((self._db_path.parent / path, self._db_path.parent.parent / path))
         candidates.append(path)
         for candidate in candidates:
@@ -495,7 +497,7 @@ class DataCatalogDuckDB:
         file_path: Path | str,
     ):
         path = Path(file_path)
-        resolved = self._resolve_entry_path(path)
+        resolved = self._resolve_entry_path(path, variable=variable)
         artifacts = self._locked_artifacts()
         for artifact in artifacts:
             if (
@@ -505,16 +507,8 @@ class DataCatalogDuckDB:
                 and (
                     Path(artifact.file_path) == path
                     or Path(artifact.file_path) == resolved
-                    or self._resolve_entry_path(artifact.file_path) == resolved
+                    or self._resolve_entry_path(artifact.file_path, variable=variable) == resolved
                 )
-            ):
-                return artifact
-        for artifact in artifacts:
-            if (
-                artifact.variable == variable
-                and artifact.source == source
-                and artifact.station_id == station_id
-                and Path(artifact.file_path).name == path.name
             ):
                 return artifact
         return None
@@ -548,7 +542,9 @@ class DataCatalogDuckDB:
                 "Frozen data mode forbids catalog entries absent from hydromodpy.lock: "
                 f"{entry.variable}/{entry.source}/{entry.station_id or '-'}."
             )
-        observed = entry.sha256 or _sha256_or_none(self._resolve_entry_path(entry.file_path))
+        observed = entry.sha256 or _sha256_or_none(
+            self._resolve_entry_path(entry.file_path, variable=entry.variable)
+        )
         if observed != artifact.sha256:
             raise RuntimeError(
                 "Frozen data mode detected a SHA-256 mismatch for "
@@ -617,6 +613,9 @@ class DataCatalogDuckDB:
         df = self._conn.execute(query, params).fetchdf()
         if "is_custom" in df.columns:
             df["is_custom"] = df["is_custom"].astype(bool)
+        for column in ("date_start", "date_end"):
+            if column in df.columns:
+                df[column] = df[column].map(_format_catalog_timestamp)
         return df
 
     # -- invalidate ------------------------------------------------------------
@@ -942,6 +941,15 @@ def _dt_to_str(dt: datetime | str | None) -> str | None:
     if isinstance(dt, datetime):
         return dt.isoformat()
     return str(dt)
+
+
+def _format_catalog_timestamp(value) -> str | None:
+    if value is None or pd.isna(value):
+        return None
+    ts = pd.Timestamp(value)
+    if ts.tz is not None:
+        ts = ts.tz_localize(None)
+    return ts.isoformat(timespec="seconds")
 
 
 def _json_or_none(d: dict | None) -> str | None:
