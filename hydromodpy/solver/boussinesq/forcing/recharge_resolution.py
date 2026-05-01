@@ -6,6 +6,7 @@ from collections.abc import Mapping
 
 import numpy as np
 
+from hydromodpy.physics.forcing.validation import ensure_non_negative_numeric_payload
 from hydromodpy.spatial.mesh.gmsh_grid.planar_forcing_discretization import (
     discretize_fields_on_planar_mesh,
     discretize_points_on_planar_mesh,
@@ -105,13 +106,21 @@ class RechargeResolutionMixin:
             int(kper): np.asarray(values, dtype=float).reshape(-1)
             for kper, values in raw_arrays.items()
         }
+        ensure_non_negative_numeric_payload(arrays, label="flow.sinks_sources.recharge.values")
+        for kper, values in arrays.items():
+            if values.size != int(self.mesh.n_cells):
+                raise ValueError(
+                    "flow.sinks_sources.recharge.values must resolve to one value per "
+                    f"Boussinesq cell; period {kper} has {values.size}, "
+                    f"expected {int(self.mesh.n_cells)}."
+                )
         if not arrays:
             return tuple(np.zeros(self.mesh.n_cells, dtype=float) for _ in range(nper))
 
         stacked = np.stack(tuple(arrays.values()), axis=0)
         flow_regime = str(getattr(self.flow, "flow_regime", "transient")).strip().lower()
         if flow_regime == "steady" or nper <= 1:
-            mean_array = np.nanmean(stacked, axis=0)
+            mean_array = np.mean(stacked, axis=0)
             return (np.asarray(mean_array, dtype=float).reshape(-1),)
 
         result = {
@@ -119,7 +128,7 @@ class RechargeResolutionMixin:
             for kper in range(nper)
         }
         if first_clim == "mean":
-            result[0] = np.nanmean(stacked, axis=0)
+            result[0] = np.mean(stacked, axis=0)
         elif first_clim == "first":
             pass
         elif self.is_scalar_number(first_clim):

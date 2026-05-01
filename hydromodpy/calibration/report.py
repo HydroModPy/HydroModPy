@@ -16,6 +16,7 @@ Two concerns live here, both purely data-side:
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
@@ -24,8 +25,6 @@ from hydromodpy.core.logging import get_logger
 
 if TYPE_CHECKING:
     import pandas as pd
-
-    from hydromodpy.results.catalog import SimulationCatalog
 
 logger = get_logger(__name__)
 
@@ -79,6 +78,11 @@ class CalibrationReport:
     promoted: int
     workspace: Path | None = None
     extra: dict[str, Any] = field(default_factory=dict)
+    store_factory: Callable[[Path], Any] | None = field(
+        default=None,
+        repr=False,
+        compare=False,
+    )
 
     # ------------------------------------------------------------------
     # Lazy accessors
@@ -88,17 +92,15 @@ class CalibrationReport:
     def iterations(self):
         """Return the iteration history as a :class:`pandas.DataFrame`.
 
-        Loads lazily via :class:`hydromodpy.results.catalog.SimulationCatalog`
-        using the workspace attached to the report.
+        Loads lazily through the configured calibration store.
         """
         import pandas as pd
 
         if self.workspace is None:
             return pd.DataFrame()
         from hydromodpy.calibration.persistence import CalibrationPersistence
-        from hydromodpy.results.catalog import SimulationCatalog
 
-        with SimulationCatalog(self.workspace) as catalog:
+        with self._open_store() as catalog:
             rows = CalibrationPersistence(catalog).load_iterations(self.session_id)
         return pd.DataFrame(rows)
 
@@ -107,10 +109,19 @@ class CalibrationReport:
         """Return the best promoted :class:`Run` or ``None``."""
         if self.best_sim_id is None or self.workspace is None:
             return None
-        from hydromodpy.results.catalog import SimulationCatalog
 
-        with SimulationCatalog(self.workspace) as catalog:
+        with self._open_store() as catalog:
             return catalog[self.best_sim_id]
+
+    def _open_store(self):
+        """Open the report store using the injected factory or default catalog."""
+        if self.workspace is None:
+            raise ValueError("CalibrationReport has no workspace")
+        if self.store_factory is not None:
+            return self.store_factory(self.workspace)
+        from hydromodpy.calibration.runner import _default_store_factory
+
+        return _default_store_factory(self.workspace, None)
 
     def to_dict(self) -> dict[str, Any]:
         """Return a JSON-friendly summary matching the legacy CLI output."""
@@ -182,7 +193,7 @@ class SessionReportData:
 
 
 def resolve_calibration_session_id(
-    catalog: SimulationCatalog,
+    catalog: Any,
     raw: str | None,
 ) -> str:
     """Return the canonical hex session id for ``raw``.
@@ -195,7 +206,7 @@ def resolve_calibration_session_id(
 
     from hydromodpy.core.exceptions import ConfigError, ConfigMissingError
 
-    rows = catalog._connection.execute(
+    rows = catalog.connection.execute(
         "SELECT session_id, started_at FROM calibration_sessions "
         "ORDER BY started_at DESC NULLS LAST",
     ).fetchall()
@@ -229,7 +240,7 @@ def resolve_calibration_session_id(
 
 def load_session_report_data(
     *,
-    catalog: SimulationCatalog,
+    catalog: Any,
     session_id: str,
     workspace_root: Path,
 ) -> SessionReportData:
@@ -262,11 +273,11 @@ def load_session_report_data(
 # ---------------------------------------------------------------------------
 
 
-def _load_session(catalog: SimulationCatalog, session_id: str) -> dict:
+def _load_session(catalog: Any, session_id: str) -> dict:
     import uuid
 
     sid = uuid.UUID(session_id) if len(session_id) == 32 else session_id
-    row = catalog._connection.execute(
+    row = catalog.connection.execute(
         """
         SELECT session_id, project, method, objective_name,
                n_iterations, config, started_at, ended_at, status,
@@ -295,14 +306,14 @@ def _load_session(catalog: SimulationCatalog, session_id: str) -> dict:
     return dict(zip(keys, row, strict=False))
 
 
-def _load_iterations(catalog: SimulationCatalog, session_id: str) -> list[dict]:
+def _load_iterations(catalog: Any, session_id: str) -> list[dict]:
     from hydromodpy.calibration.persistence import CalibrationPersistence
 
     return CalibrationPersistence(catalog).load_iterations(session_id)
 
 
 def _load_best_discharge(
-    catalog: SimulationCatalog, sim_id: str
+    catalog: Any, sim_id: str
 ) -> tuple[pd.DataFrame | None, pd.DataFrame | None]:
     """Return (simulated, observed) discharge frames for ``sim_id``.
 
@@ -311,13 +322,13 @@ def _load_best_discharge(
     obs-vs-sim figure in that case.
     """
     try:
-        sim_df = catalog._connection.execute(
+        sim_df = catalog.connection.execute(
             "SELECT datetime, value FROM timeseries "
             "WHERE sim_id = ? AND variable = 'discharge' AND station_id = '_catchment' "
             "ORDER BY datetime",
             [sim_id],
         ).fetchdf()
-        obs_df = catalog._connection.execute(
+        obs_df = catalog.connection.execute(
             "SELECT datetime, value FROM timeseries "
             "WHERE sim_id = ? AND variable = 'discharge_obs' "
             "ORDER BY datetime",

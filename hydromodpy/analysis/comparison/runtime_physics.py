@@ -82,8 +82,10 @@ def _native_unit_for_variable(variable_name: str) -> str:
         return "m"
     if key in {"surface_excess_rate", "surface_excess_map"}:
         return "m/day"
-    if key in {"accumulation_flux", "outflow_drain", "seepage_areas"}:
+    if key in {"accumulation_flux", "outflow_drain"}:
         return "m/day"
+    if key == "seepage_mask":
+        return "1"
     if key.endswith("_m3_s") or "_m3_s" in key:
         return "m3/s"
     if key.endswith("_m_s") or "_m_s" in key:

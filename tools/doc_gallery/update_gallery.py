@@ -845,7 +845,9 @@ def _generate_copy_assets_case(spec: GalleryCaseSpec, source_root: Path) -> dict
             raise ValueError(f"Gallery asset {asset.filename} is missing source_path.")
         destination = source_root / _docs_relative_static_path(spec.category, asset.filename)
         destination.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copy2(_repo_path(asset.source_path), destination)
+        source = _repo_path(asset.source_path)
+        if source.resolve() != destination.resolve():
+            shutil.copy2(source, destination)
         copied_assets.append(
             {
                 "source_path": asset.source_path,
@@ -853,9 +855,19 @@ def _generate_copy_assets_case(spec: GalleryCaseSpec, source_root: Path) -> dict
             }
         )
 
+    metrics_override = None
+    static_summary_path = str(spec.metadata.get("static_summary_path", "")).strip()
+    if static_summary_path:
+        try:
+            static_summary = json.loads(_repo_path(static_summary_path).read_text(encoding="utf-8"))
+            metrics_override = list(static_summary.get("metrics", []))
+        except (OSError, json.JSONDecodeError):
+            metrics_override = []
+
     return _build_case_summary(
         spec,
         metrics_source={},
+        metrics_override=metrics_override,
         metadata={
             **dict(spec.metadata),
             "copied_assets": copied_assets,

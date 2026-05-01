@@ -13,7 +13,7 @@ Liens : [glossary.md](glossary.md),
 [schema_evolution.md](schema_evolution.md),
 [calibration_guide.md](calibration_guide.md).
 
-Note v0.6 (refactor Parquet lakehouse) : les tables `timeseries`,
+Note v1 (refactor Parquet lakehouse) : les tables `timeseries`,
 `budgets` et `mass_balance` ne sont plus stockées dans
 `hydromodpy.duckdb`. Elles vivent désormais en Parquet par simulation
 sous `simulations/<uuid>.parquet/`, exposées comme des vues DuckDB du
@@ -515,7 +515,7 @@ SQL direct (power users, ML) :
 
 ```python
 catalog.sql("SELECT project, solver, AVG(m.value) ...")   # → DataFrame
-catalog._connection                                        # → duckdb.DuckDBPyConnection (escape hatch)
+catalog.connection                                         # → duckdb.DuckDBPyConnection
 ```
 
 ### 7.2. Simulation : une simulation individuelle

@@ -84,7 +84,7 @@ def test_extruded_mesh_values_reject_invalid_shape():
 
 
 def test_extruded_mesh_values_vtu_roundtrip_if_meshio_available(tmp_path):
-    pytest.importorskip("meshio")
+    import meshio  # noqa: F401
 
     mesh_3d = _build_mesh_3d()
     attached = attach_extruded_values(

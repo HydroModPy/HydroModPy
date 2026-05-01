@@ -84,7 +84,7 @@ def test_add_copies_inputs_and_rewrites_paths(tmp_path: Path) -> None:
         imported = target.import_package(archive)
         assert imported == sim_id
 
-        row = target._connection.execute(
+        row = target.connection.execute(
             "SELECT project, config_toml FROM simulations WHERE sim_id = ?",
             [sim_id],
         ).fetchone()
@@ -92,7 +92,7 @@ def test_add_copies_inputs_and_rewrites_paths(tmp_path: Path) -> None:
         cfg = json.loads(row[1]) if row[1] else {}
         assert cfg.get("dummy_path", "").startswith(str(dst_ws / "data"))
 
-        tf = target._connection.execute(
+        tf = target.connection.execute(
             "SELECT role, canonical_path, sha256 FROM tracked_files WHERE sim_id = ?",
             [sim_id],
         ).fetchone()
@@ -125,7 +125,7 @@ def test_add_dedupes_reimport_of_same_archive(tmp_path: Path) -> None:
             force=True,
             as_project="alpha_v2",
         )
-        rows = target._connection.execute(
+        rows = target.connection.execute(
             "SELECT DISTINCT role, canonical_path FROM tracked_files"
         ).fetchall()
     # File was reused on the second import (same SHA). Only one physical copy.
@@ -187,7 +187,7 @@ def test_add_project_name_conflict_requires_as(tmp_path: Path) -> None:
         with pytest.raises(ValueError, match="already exists"):
             target.import_package(archive)
         target.import_package(archive, as_project="alpha_imported")
-        rows = target._connection.execute(
+        rows = target.connection.execute(
             "SELECT project FROM simulations ORDER BY project"
         ).fetchall()
     assert [r[0] for r in rows] == ["alpha", "alpha_imported"]
@@ -211,7 +211,7 @@ def test_add_dry_run_writes_nothing(tmp_path: Path) -> None:
 
     with hmp.open(dst_ws) as target:
         reported = target.import_package(archive, dry_run=True)
-        rows = target._connection.execute("SELECT COUNT(*) FROM simulations").fetchone()
+        rows = target.connection.execute("SELECT COUNT(*) FROM simulations").fetchone()
     assert reported == sim_id
     assert rows[0] == 0
     assert not (dst_ws / "data").exists()

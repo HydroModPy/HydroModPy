@@ -33,9 +33,9 @@ Entrées requises :
 - Direction et accumulation D8.
 
 Backend : `WhiteboxWorkflowsBackend`
-(`hydromodpy/spatial/delineation/whitebox_workflows_backend.py`) pour la
-version wheel, `WhiteboxCLIBackend` pour le binaire standalone. Le
-choix se fait via `get_whitebox_backend(preferred=...)`.
+(`hydromodpy/spatial/delineation/whitebox_workflows_backend.py`). Les
+autres backends doivent etre enregistres explicitement via
+`register_backend()`.
 
 Paramètres TOML :
 

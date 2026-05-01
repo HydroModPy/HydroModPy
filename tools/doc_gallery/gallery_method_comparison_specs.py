@@ -7,10 +7,23 @@ from typing import Any
 
 from .gallery_schema import GalleryCaseSpec, GalleryImageAsset
 
+_METHOD_STATIC_ROOT = "docs/readthedocs/source/_static/capability_gallery/method_comparison"
 _DEFAULT_METHOD_COMPARISON_NEXT_STEPS = (
     "Use :doc:`the gallery and validation reading guide </getting_started/reading-results-pages>` to distinguish example pages, method-comparison pages, and validation pages.",
     "Go back to :doc:`the simulation walkthrough </getting_started/simulation-walkthrough>` when you need to inspect one contributing run in isolation.",
 )
+
+
+def _static_method_assets(slug: str) -> tuple[str, ...]:
+    root = f"{_METHOD_STATIC_ROOT}/{slug}"
+    return (
+        f"{root}_summary.json",
+        f"{root}_comparison_manifest.json",
+        f"{root}_comparison_metrics.json",
+        f"{root}_observables.csv",
+        f"{root}_summary_metrics.csv",
+        f"{root}_difference_metrics.csv",
+    )
 
 
 def _augment_method_comparison_source_paths(
@@ -62,17 +75,15 @@ def _build_method_comparison_case_spec(
         deck=deck,
         summary=summary,
         what_it_shows=what_it_shows,
-        reproduction_command=(f"python -m hydromodpy run {comparison_config_path}"),
-        source_paths=_augment_method_comparison_source_paths(
-            comparison_config_path,
-            source_paths,
-        ),
-        generator="method_comparison_case",
+        reproduction_command="python -m tools.doc_gallery",
+        source_paths=_static_method_assets(slug) + source_paths,
+        generator="copy_assets",
         image_assets=(
             GalleryImageAsset(
                 filename=f"{slug}.png",
                 caption=f"Summary comparison figure for {title.lower()}.",
                 alt_text=f"Method comparison summary for {title}",
+                source_path=f"{_METHOD_STATIC_ROOT}/{slug}.png",
             ),
         ),
         case_setup=case_setup,
@@ -82,7 +93,8 @@ def _build_method_comparison_case_spec(
         walkthrough_doc="getting_started/reading-results-pages",
         walkthrough_title="the gallery and validation reading guide",
         metadata={
-            "comparison_config_path": comparison_config_path,
+            "static_summary_path": f"{_METHOD_STATIC_ROOT}/{slug}_summary.json",
+            "comparison_summary_path": f"{_METHOD_STATIC_ROOT}/{slug}_summary.json",
             "study_area": study_area,
             "focus_variant_id": focus_variant_id,
             "comparison_family_key": comparison_family_key,
@@ -113,19 +125,9 @@ def build_method_comparison_specs() -> tuple[GalleryCaseSpec, ...]:
                 "How three point chronicle comparisons expose outlet, mid-basin, and upstream response differences.",
                 "How comparison figures can be regenerated from committed run folders without rerunning the solvers.",
             ),
-            reproduction_command=(
-                "python -m hydromodpy run "
-                "examples_legacy_2/projects/launcher_simulation/run_method_comparison_example12_map_existing.toml"
-            ),
-            source_paths=_augment_method_comparison_source_paths(
-                "examples_legacy_2/projects/launcher_simulation/run_method_comparison_example12_map_existing.toml",
-                (
-                    "examples_legacy_2/projects/launcher_simulation/run_fast_mf6_mesh_catchment.toml",
-                    "examples_legacy_2/projects/launcher_simulation/run_fast_boussinesq_precomputed_mesh_input.toml",
-                    "examples_legacy_2/projects/launcher_simulation/method_comparison/example12_map_method_comparison/comparison_manifest.json",
-                ),
-            ),
-            generator="method_comparison_case",
+            reproduction_command="python -m tools.doc_gallery",
+            source_paths=_static_method_assets("example12_map_method_comparison"),
+            generator="copy_assets",
             image_assets=(
                 GalleryImageAsset(
                     filename="example12_map_method_comparison.png",
@@ -134,6 +136,10 @@ def build_method_comparison_specs() -> tuple[GalleryCaseSpec, ...]:
                         "runs on the shared Naizin mesh."
                     ),
                     alt_text="Method comparison figure for the shared Naizin mesh",
+                    source_path=(
+                        "docs/readthedocs/source/_static/capability_gallery/method_comparison/"
+                        "example12_map_method_comparison.png"
+                    ),
                 ),
             ),
             case_setup=(
@@ -162,7 +168,14 @@ def build_method_comparison_specs() -> tuple[GalleryCaseSpec, ...]:
             walkthrough_doc="getting_started/reading-results-pages",
             walkthrough_title="the gallery and validation reading guide",
             metadata={
-                "comparison_config_path": "examples_legacy_2/projects/launcher_simulation/run_method_comparison_example12_map_existing.toml",
+                "static_summary_path": (
+                    "docs/readthedocs/source/_static/capability_gallery/method_comparison/"
+                    "example12_map_method_comparison_summary.json"
+                ),
+                "comparison_summary_path": (
+                    "docs/readthedocs/source/_static/capability_gallery/method_comparison/"
+                    "example12_map_method_comparison_summary.json"
+                ),
                 "study_area": "Naizin catchment",
                 "focus_variant_id": "boussinesq_reused_gmsh",
                 "comparison_family_key": "shared_support_cross_solver",
@@ -195,12 +208,10 @@ def build_method_comparison_specs() -> tuple[GalleryCaseSpec, ...]:
                 "How point chronicles, outlet flux, map snapshots, and native flux panels complement one another on the same benchmark.",
                 "How execution-time bars look when the comparison does not mix structured and triangular supports.",
             ),
-            comparison_config_path="examples_legacy_2/projects/launcher_simulation/run_method_comparison_mf6_vs_nwt_same_regular_mesh_moderate.toml",
-            source_paths=(
-                "examples_legacy_2/projects/launcher_simulation/run_demonstrative_annual_moderate_mf6_structured.toml",
-                "examples_legacy_2/projects/launcher_simulation/run_demonstrative_annual_moderate_nwt.toml",
-                "examples_legacy_2/projects/launcher_simulation/method_comparison/ex12_mf6_nwt_moderate_same_s60/comparison_manifest.json",
+            comparison_config_path=(
+                f"{_METHOD_STATIC_ROOT}/ex12_mf6_nwt_moderate_same_s60_summary.json"
             ),
+            source_paths=(),
             case_setup=(
                 "Reference variant: MODFLOW 6 on the 60x60 structured grid.",
                 "Candidate variant: MODFLOW-NWT on the same 60x60 structured grid.",
@@ -242,12 +253,8 @@ def build_method_comparison_specs() -> tuple[GalleryCaseSpec, ...]:
                 "How a fine common raster and an intersection extent make map comparisons possible across incompatible supports.",
                 "How point chronicles and outlet flux help decide whether disagreement is local, diffuse, or tied to basin export.",
             ),
-            comparison_config_path="examples_legacy_2/projects/launcher_simulation/run_method_comparison_mf6_vs_nwt_different_meshes_moderate.toml",
-            source_paths=(
-                "examples_legacy_2/projects/launcher_simulation/run_demonstrative_annual_moderate_mf6_precomputed_mesh_input.toml",
-                "examples_legacy_2/projects/launcher_simulation/run_demonstrative_annual_moderate_nwt.toml",
-                "examples_legacy_2/projects/launcher_simulation/method_comparison/ex12_mf6_nwt_moderate/comparison_manifest.json",
-            ),
+            comparison_config_path=f"{_METHOD_STATIC_ROOT}/ex12_mf6_nwt_moderate_summary.json",
+            source_paths=(),
             case_setup=(
                 "Reference variant: MODFLOW 6 on the committed triangular mesh.",
                 "Candidate variant: MODFLOW-NWT on the 60x60 structured grid.",
@@ -289,12 +296,10 @@ def build_method_comparison_specs() -> tuple[GalleryCaseSpec, ...]:
                 "How the same observable set can be reused across moderate and demonstrative regimes to separate regime effects from support effects.",
                 "How execution-time bars and flux panels behave on a more showcase-oriented scenario.",
             ),
-            comparison_config_path="examples_legacy_2/projects/launcher_simulation/run_method_comparison_mf6_vs_nwt_different_meshes_demonstrative.toml",
-            source_paths=(
-                "examples_legacy_2/projects/launcher_simulation/run_demonstrative_annual_mf6_precomputed_mesh_input.toml",
-                "examples_legacy_2/projects/launcher_simulation/run_demonstrative_annual_nwt.toml",
-                "examples_legacy_2/projects/launcher_simulation/method_comparison/example12_mf6_vs_nwt_different_meshes_demonstrative/comparison_manifest.json",
+            comparison_config_path=(
+                f"{_METHOD_STATIC_ROOT}/example12_mf6_vs_nwt_different_meshes_demonstrative_summary.json"
             ),
+            source_paths=(),
             case_setup=(
                 "Reference variant: MODFLOW 6 on the committed triangular support.",
                 "Candidate variant: MODFLOW-NWT on the 60x60 structured support.",
@@ -308,7 +313,7 @@ def build_method_comparison_specs() -> tuple[GalleryCaseSpec, ...]:
             how_to_read=(
                 "Compare this page to the moderate different-support case before drawing conclusions about the mesh effect alone.",
                 "If a mismatch grows mainly here, the forcing regime is amplifying it; if it stays similar, the support transfer is probably the dominant cause.",
-                "Do not read the demonstrative label as â€˜more correctâ€™; it is a more expressive scenario, not a stronger validation claim.",
+                "Do not read the demonstrative label as 'more correct'; it is a more expressive scenario, not a stronger validation claim.",
             ),
             study_area="Example12 / Naizin",
             focus_variant_id="nwt_demo_structured",
@@ -336,14 +341,8 @@ def build_method_comparison_specs() -> tuple[GalleryCaseSpec, ...]:
                 "How multi-variant map comparisons and point chronicles stay interpretable when one reference variant is kept explicit.",
                 "How outlet flux, native flux panels, and execution times complement the map-based metrics in a four-variant suite.",
             ),
-            comparison_config_path="examples_legacy_2/projects/launcher_simulation/run_method_comparison_example12_multi_method_moderate.toml",
-            source_paths=(
-                "examples_legacy_2/projects/launcher_simulation/run_demonstrative_annual_moderate_mf6_structured.toml",
-                "examples_legacy_2/projects/launcher_simulation/run_demonstrative_annual_moderate_nwt.toml",
-                "examples_legacy_2/projects/launcher_simulation/run_demonstrative_annual_moderate_mf6_precomputed_mesh_input.toml",
-                "examples_legacy_2/projects/launcher_simulation/run_demonstrative_annual_moderate_boussinesq_precomputed_mesh_input.toml",
-                "examples_legacy_2/projects/launcher_simulation/method_comparison/ex12_multi_method_moderate/comparison_manifest.json",
-            ),
+            comparison_config_path=f"{_METHOD_STATIC_ROOT}/ex12_multi_method_moderate_summary.json",
+            source_paths=(),
             case_setup=(
                 "Reference variant: MODFLOW 6 on the 60x60 structured grid.",
                 "Additional variants: MODFLOW-NWT on the same grid, MODFLOW 6 on committed triangles, and Boussinesq on the same committed triangles.",
@@ -386,12 +385,10 @@ def build_method_comparison_specs() -> tuple[GalleryCaseSpec, ...]:
                 "How Boussinesq-specific surface-excess and budget views help explain disagreements seen in the more generic four-method page.",
                 "How the same comparison backbone can support both a compact synthesis page and a more causal diagnostic page.",
             ),
-            comparison_config_path="examples_legacy_2/projects/launcher_simulation/.__runtime_method_comparison_example12_multi_method_moderate_causes.toml",
-            source_paths=(
-                "examples_legacy_2/projects/launcher_simulation/run_method_comparison_example12_multi_method_moderate.toml",
-                "examples_legacy_2/projects/launcher_simulation/.__runtime_method_comparison_example12_multi_method_moderate_causes.toml",
-                "examples_legacy_2/projects/launcher_simulation/method_comparison/ex12_multi_method_moderate_causes/comparison_manifest.json",
+            comparison_config_path=(
+                f"{_METHOD_STATIC_ROOT}/ex12_multi_method_moderate_causes_summary.json"
             ),
+            source_paths=(),
             case_setup=(
                 "Base variants are identical to the four-method moderate suite: MF6 structured, NWT structured, MF6 triangular, and Boussinesq triangular.",
                 "Additional observables expose surface-excess response and Boussinesq budget structure rather than only the shared state variables.",

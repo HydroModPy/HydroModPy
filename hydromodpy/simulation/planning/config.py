@@ -213,7 +213,6 @@ class SimulationConfig(HydroModelBase):
                     id="transport_main",
                     type="transport",
                     solvers=[transport],
-                    depends_on=["flow_main"],
                 )
             )
         return cls(

@@ -8,15 +8,7 @@ at package bootstrap by a higher layer (see ``hydromodpy/_bootstrap.py``).
 
 from __future__ import annotations
 
-from typing import Protocol
-
-
-class SolverRegistryProvider(Protocol):
-    """Read-only view of the solver registry consumed by analysis."""
-
-    def distributed_flow_solver_sections(self) -> tuple[str, ...]:
-        """Return the TOML section names of every distributed flow solver."""
-
+from hydromodpy.core.contracts.solver_registry import SolverRegistryProvider
 
 _PROVIDER: SolverRegistryProvider | None = None
 

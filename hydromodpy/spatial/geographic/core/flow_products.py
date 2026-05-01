@@ -18,11 +18,11 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 
-from hydromodpy.spatial.delineation import (
-    WhiteboxWorkflowsBackend,
-    get_whitebox_backend,
+from hydromodpy.spatial.geographic.geographic_io import (
+    backend_has_callables,
+    ensure_crs,
+    resolve_delineation_backend,
 )
-from hydromodpy.spatial.geographic.geographic_io import ensure_crs
 
 
 @dataclass(frozen=True)
@@ -53,7 +53,7 @@ def build_regional_flow_products(
     dem_out_dir_path: str | Path,
     dem_correc_type: str,
     crs_project: str | None = None,
-    backend: WhiteboxWorkflowsBackend | None = None,
+    backend: object | None = None,
 ) -> FlowProducts:
     """Generate corrected DEM, D8 direction and D8 accumulation rasters.
 
@@ -72,7 +72,7 @@ def build_regional_flow_products(
     backend:
         Optional Whitebox backend injected for runtime/tests.
     """
-    tool = get_whitebox_backend() if backend is None else backend
+    tool = resolve_delineation_backend(backend)
 
     dem_in = str(dem_init_path)
     out_dir = Path(dem_out_dir_path)
@@ -93,7 +93,19 @@ def build_regional_flow_products(
     correc_data = None
     direc_data = None
     acc_data = None
-    if isinstance(tool, WhiteboxWorkflowsBackend):
+    if backend_has_callables(
+        tool,
+        "raster",
+        "read_raster",
+        "write_raster",
+    ) and backend_has_callables(
+        tool,
+        "flow",
+        "fill_depressions_raster",
+        "breach_depressions_raster",
+        "d8_pointer_raster",
+        "d8_flow_accumulation_raster",
+    ):
         dem_data = tool.raster.read_raster(dem_in)
         if dem_correc_type == "fill":
             # "fill": raise depression cells until drainage continuity is ensured.

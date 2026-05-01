@@ -64,7 +64,7 @@ def _build_small_planar_mesh() -> GmshPlanarMesh2D:
 
 
 def test_exchange_api_can_read_reference_assets():
-    pytest.importorskip("meshio")
+    import meshio  # noqa: F401
 
     planar_mesh = load_planar_mesh(REFERENCE_PLANAR_MSH)
     extruded_mesh = load_extruded_mesh(REFERENCE_VALUES_VTU)
@@ -77,7 +77,7 @@ def test_exchange_api_can_read_reference_assets():
 
 
 def test_exchange_api_roundtrip_with_meshio_available(tmp_path):
-    pytest.importorskip("meshio")
+    import meshio  # noqa: F401
 
     planar_mesh = _build_small_planar_mesh()
     mesh_3d = ExtrudedPrismMesh3D.from_layer_thicknesses(
@@ -116,7 +116,7 @@ def test_exchange_api_roundtrip_with_meshio_available(tmp_path):
 
 
 def test_read_only_example_builds_summary_from_reference_assets():
-    pytest.importorskip("meshio")
+    import meshio  # noqa: F401
 
     summary = build_read_only_summary(
         planar_mesh_path=REFERENCE_PLANAR_MSH,

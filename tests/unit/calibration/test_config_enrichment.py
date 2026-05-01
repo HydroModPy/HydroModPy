@@ -65,7 +65,9 @@ class TestCalibParameterDeclExtensions:
 
 class TestCalibOutputDecl:
     def test_minimal_declaration_defaults(self):
-        decl = CalibOutputDecl.model_validate({"variable": "head", "support": "cell"})
+        decl = CalibOutputDecl.model_validate(
+            {"variable": "head", "support": "cell", "row": 0, "col": 0}
+        )
         assert decl.variable == "head"
         assert decl.support == "cell"
         assert decl.time == "all"
@@ -101,6 +103,8 @@ class TestCalibOutputDecl:
             {
                 "variable": "head",
                 "support": "cell",
+                "row": 0,
+                "col": 0,
                 "time": ["2020-01-01", "2020-06-01"],
             }
         )
@@ -111,7 +115,7 @@ class TestCalibOutputDecl:
         [
             ("point", {"x": 0.0, "y": 0.0}),
             ("boundary", {"boundary_id": "outlet"}),
-            ("cell", {}),
+            ("cell", {"row": 0, "col": 0}),
         ],
     )
     def test_support_literal(self, support: str, extra: dict):
@@ -125,7 +129,13 @@ class TestCalibOutputDecl:
     def test_rejects_extra_keys(self):
         with pytest.raises(ValidationError, match="Extra inputs are not permitted"):
             CalibOutputDecl.model_validate(
-                {"variable": "head", "support": "cell", "legacy_hint": True}
+                {
+                    "variable": "head",
+                    "support": "cell",
+                    "row": 0,
+                    "col": 0,
+                    "legacy_hint": True,
+                }
             )
 
     def test_point_support_requires_xy(self):
@@ -275,7 +285,7 @@ class TestCalibrationConfigEnriched:
                 "objective": "nse",
                 "variable": "head",
                 "outputs": {
-                    "head": {"variable": "head", "support": "cell"},
+                    "head": {"variable": "head", "support": "cell", "row": 0, "col": 0},
                 },
                 "objective_blocks": [
                     {

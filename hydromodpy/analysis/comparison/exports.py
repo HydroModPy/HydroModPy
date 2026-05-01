@@ -493,22 +493,25 @@ def _load_boussinesq_state_from_store(
     Returns a dict-like mapping of array names to numpy arrays (same
     interface as ``np.load(...)``), or ``None`` if unavailable.
     """
+    sz = None
     try:
-        grp = store._open_zarr_group(sim_id)
+        sz = store.open_zarr(sim_id)
+        grp = sz.root
     except (KeyError, Exception):
         return None
 
-    state_grp = grp.get("boussinesq_state")
-    if state_grp is None:
-        return None
-
-    # Build a lazy dict reading arrays on demand.
-    result: dict[str, np.ndarray] = {}
     try:
+        state_grp = grp.get("boussinesq_state")
+        if state_grp is None:
+            return None
+        result: dict[str, np.ndarray] = {}
         for key in state_grp:
             result[key] = np.asarray(state_grp[key][:])
     except Exception:
         return None
+    finally:
+        if sz is not None:
+            sz.close()
 
     return result if result else None
 

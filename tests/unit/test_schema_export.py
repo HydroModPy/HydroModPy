@@ -37,13 +37,17 @@ def test_export_full_schema_produces_valid_json(tmp_path: Path) -> None:
     validators = json.loads(paths["validators"].read_text(encoding="utf-8"))
 
     assert "properties" in config
+    assert "method-comparison" in config["properties"]["workflow"]["enum"]
     assert "flow" in config["properties"]
     assert isinstance(meta.get("sections"), list)
+    assert isinstance(meta.get("root_fields"), list)
+    assert {item["name"] for item in meta["root_fields"]} >= {"workflow"}
     assert meta["sections"], "expected at least one section entry"
     section_names = {s["name"] for s in meta["sections"]}
     for expected in ("workspace", "geographic", "flow", "simulation", "solver"):
         assert expected in section_names
     assert isinstance(validators, dict)
+    assert validators["workflow"] == "enum"
     assert "flow.flow_regime" in validators
 
 

@@ -17,9 +17,7 @@ from hydromodpy.spatial.delineation import (
     WhiteboxFlowBackend,
     WhiteboxRasterBackend,
 )
-from hydromodpy.spatial.delineation.pysheds_backend import PyshedsBackend
 from hydromodpy.spatial.delineation.synthetic_backend import SyntheticBackend
-from hydromodpy.spatial.delineation.whitebox_cli_backend import WhiteboxCliBackend
 
 
 def test_delineation_protocol_has_expected_methods() -> None:
@@ -44,8 +42,6 @@ def test_whitebox_split_backends_expose_thematic_surfaces() -> None:
 @pytest.mark.parametrize(
     "cls,expected_name",
     [
-        (WhiteboxCliBackend, "whitebox_cli"),
-        (PyshedsBackend, "pysheds"),
         (SyntheticBackend, "synthetic"),
     ],
 )
@@ -64,13 +60,3 @@ def test_synthetic_backend_instantiates() -> None:
         backend.stream_network(dem=None, threshold=100.0)
     with pytest.raises(NotImplementedError):
         backend.catchment_from_outlet(dem=None, x=0.0, y=0.0)
-
-
-def test_pysheds_backend_refuses_instantiation() -> None:
-    with pytest.raises(NotImplementedError):
-        PyshedsBackend()
-
-
-def test_whitebox_cli_backend_refuses_instantiation() -> None:
-    with pytest.raises(NotImplementedError):
-        WhiteboxCliBackend()

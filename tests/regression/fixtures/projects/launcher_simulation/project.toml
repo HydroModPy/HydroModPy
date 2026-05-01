@@ -109,6 +109,3 @@ aggregate = "mean"
 
 [flow.sinks_sources.recharge]
 first_clim = "mean"
-
-[postprocess]
-enabled = true

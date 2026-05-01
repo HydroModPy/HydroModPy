@@ -184,6 +184,8 @@ CREATE TABLE IF NOT EXISTS observation_points (
     y          DOUBLE NOT NULL,
     cell_id    INTEGER NOT NULL,
     layer      INTEGER NOT NULL DEFAULT 0,
+    crs_wkt    VARCHAR NOT NULL,
+    crs_epsg   INTEGER,
     PRIMARY KEY (sim_id, station_id)
 );
 CREATE INDEX IF NOT EXISTS ix_obs_cell
@@ -664,6 +666,12 @@ _RUNS_ENVIRONMENT_ADDITIVE_COLUMNS: tuple[tuple[str, str], ...] = (
 )
 
 
+_OBSERVATION_POINTS_ADDITIVE_COLUMNS: tuple[tuple[str, str], ...] = (
+    ("crs_wkt", "VARCHAR"),
+    ("crs_epsg", "INTEGER"),
+)
+
+
 def _apply_simulations_additive_columns(conn: duckdb.DuckDBPyConnection) -> None:
     """Add missing columns to ``simulations`` without touching existing rows."""
     existing = {
@@ -691,6 +699,21 @@ def _apply_runs_environment_additive_columns(conn: duckdb.DuckDBPyConnection) ->
         if name not in existing:
             conn.execute(f"ALTER TABLE runs_environment ADD COLUMN {name} {sql_type}")
             logger.info("DuckDB schema upgrade: added runs_environment.%s", name)
+
+
+def _apply_observation_points_additive_columns(conn: duckdb.DuckDBPyConnection) -> None:
+    """Add missing columns to ``observation_points`` without touching existing rows."""
+    existing = {
+        row[0]
+        for row in conn.execute(
+            "SELECT column_name FROM information_schema.columns "
+            "WHERE table_name = 'observation_points'"
+        ).fetchall()
+    }
+    for name, sql_type in _OBSERVATION_POINTS_ADDITIVE_COLUMNS:
+        if name not in existing:
+            conn.execute(f"ALTER TABLE observation_points ADD COLUMN {name} {sql_type}")
+            logger.info("DuckDB schema upgrade: added observation_points.%s", name)
 
 
 def _apply_provenance_source_type_migration(conn: duckdb.DuckDBPyConnection) -> None:
@@ -789,6 +812,7 @@ def ensure_schema(
     # Phase 2: migrate pre-existing tables to the current column set.
     _apply_simulations_additive_columns(conn)
     _apply_runs_environment_additive_columns(conn)
+    _apply_observation_points_additive_columns(conn)
     _apply_provenance_source_type_migration(conn)
     _record_schema_version(conn)
 

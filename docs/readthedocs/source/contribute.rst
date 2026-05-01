@@ -67,8 +67,6 @@ Add only the extras you need. They can be combined inside the same
        extensions used to build this documentation.
    * - ``[ide]``
      - ``ipykernel``, ``jupyterlab``, Spyder, and PySide6.
-   * - ``[ugrid]``
-     - ``xugrid`` for unstructured mesh handling.
    * - ``[viewer3d]``
      - ``pyvista`` for 3D mesh visualization.
 

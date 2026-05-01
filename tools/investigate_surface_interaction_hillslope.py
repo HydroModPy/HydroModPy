@@ -14,7 +14,6 @@ import argparse
 import csv
 import json
 import os
-import sys
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -26,8 +25,6 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
-if str(REPO_ROOT) not in sys.path:
-    sys.path.insert(0, str(REPO_ROOT))
 
 from hydromodpy.core.toml_io.loader import merge_toml_payloads
 from hydromodpy.physics.flow import Flow
@@ -441,15 +438,16 @@ def _run_boussinesq_scenario(
     model.runtime_summary["accepted_with_relaxed_residual"] = bool((not success) and accepted)
     model.runtime_summary["acceptable_steady_residual_inf"] = float(ACCEPTABLE_BOUSS_RESIDUAL_INF)
     if not accepted:
+        post_error = ""
         try:
             model.post_processing()
-        except Exception:
-            pass
+        except Exception as exc:
+            post_error = f" Post-processing failed: {type(exc).__name__}: {exc}."
         raise RuntimeError(
             "Boussinesq hillslope-surface investigation did not converge to an "
             f"acceptable residual. residual_inf={residual:.6g}, "
             f"threshold={ACCEPTABLE_BOUSS_RESIDUAL_INF:.6g}, "
-            f"workspace={model.full_path}"
+            f"workspace={model.full_path}.{post_error}"
         )
 
     model.has_numerical_solution = True

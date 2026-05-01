@@ -48,7 +48,7 @@ class LifecycleMixin:
             try:
                 handle.close()
             except Exception:
-                logger.debug("Could not close SimulationZarr handle", exc_info=True)
+                logger.warning("Could not close SimulationZarr handle", exc_info=True)
 
     def open_zarr(self, sim_id: str | UUID) -> SimulationZarr:
         basename = self._paths.basename_for(sim_id)
@@ -56,9 +56,6 @@ class LifecycleMixin:
         if zarr_zip.exists():
             return self._track_zarr_handle(SimulationZarr(zarr_zip))
         return self._track_zarr_handle(SimulationZarr(self._simulations_dir / f"{basename}.zarr"))
-
-    def _open_zarr_group(self, sim_id: str | UUID, *, mode: str = "r"):
-        return self.open_zarr(sim_id).root
 
     def cleanup(
         self,
@@ -188,16 +185,25 @@ class LifecycleMixin:
         zarr_abs = self._workspace / row[0] if remove_storage and row and row[0] else None
         self._paths.forget(sid)
 
-        for table in PER_SIM_TABLE_NAMES:
-            self._db.execute(f"DELETE FROM {table} WHERE sim_id = ?", [sid])
-        self._db.execute(
-            "DELETE FROM calibration_iterations WHERE sim_id = ?",
-            [sid],
-        )
-        self._db.execute("DELETE FROM simulations WHERE sim_id = ?", [sid])
+        self._db.execute("BEGIN TRANSACTION")
+        try:
+            for table in PER_SIM_TABLE_NAMES:
+                self._db.execute(f"DELETE FROM {table} WHERE sim_id = ?", [sid])
+            self._db.execute(
+                "DELETE FROM calibration_iterations WHERE sim_id = ?",
+                [sid],
+            )
+            self._db.execute("DELETE FROM simulations WHERE sim_id = ?", [sid])
+            self._db.execute("COMMIT")
+        except Exception:
+            self._db.execute("ROLLBACK")
+            raise
 
         if parquet_dir is not None and parquet_dir.is_dir():
-            shutil.rmtree(parquet_dir, ignore_errors=True)
+            try:
+                shutil.rmtree(parquet_dir)
+            except OSError as exc:
+                raise RuntimeError(f"Could not remove Parquet directory: {parquet_dir}") from exc
             # Refresh views so a workspace whose last per-sim Parquet file
             # was just removed drops back to the empty-typed view form.
             ensure_parquet_views(self._db, self._workspace)
@@ -206,7 +212,10 @@ class LifecycleMixin:
             if zarr_abs.is_file():
                 zarr_abs.unlink(missing_ok=True)
             elif zarr_abs.is_dir():
-                shutil.rmtree(zarr_abs, ignore_errors=True)
+                try:
+                    shutil.rmtree(zarr_abs)
+                except OSError as exc:
+                    raise RuntimeError(f"Could not remove Zarr directory: {zarr_abs}") from exc
 
     def close(self) -> None:
         self._close_open_zarr_handles()

@@ -12,7 +12,6 @@ from hydromodpy.solver.base import (
     Solver,
     SolverAdapter,
     SolverConfig,
-    SolverEngine,
     registry,
 )
 
@@ -21,6 +20,5 @@ __all__ = [
     "Solver",
     "SolverAdapter",
     "SolverConfig",
-    "SolverEngine",
     "registry",
 ]

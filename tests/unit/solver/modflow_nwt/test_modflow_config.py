@@ -5,7 +5,6 @@ from pathlib import Path
 import pytest
 
 from hydromodpy.master_config.hydromodpy_config import HydroModPyConfig
-from hydromodpy.solver.base.solver_engine import SolverEngine
 from hydromodpy.solver.modflow_nwt.nwt import (
     ModflowConfig,
     ModflowSpecifParams,
@@ -95,7 +94,7 @@ def test_hydromodpy_config_loads_modflow_nested_sections(tmp_path: Path):
 
     cfg = HydroModPyConfig.from_toml(toml_path)
 
-    assert cfg.solver.solver_engine == SolverEngine.MODFLOW_NWT
+    assert cfg.solver.solver_engine == "modflownwt"
     assert cfg.modflownwt.process_specific.vka == 2.5
     assert cfg.modflownwt.process_specific.exdp == 3.0
     assert cfg.modflownwt.runtime.nwt_options == "SIMPLE"
@@ -304,7 +303,7 @@ def test_hydromodpy_config_loads_independent_modflow6_runtime(tmp_path: Path):
     )
 
     cfg = HydroModPyConfig.from_toml(toml_path)
-    assert cfg.solver.solver_engine == SolverEngine.MODFLOW6
+    assert cfg.solver.solver_engine == "modflow6"
     assert cfg.modflow6.runtime.mf6_executable_name == "mf6_custom"
     assert cfg.modflow6.runtime.mf6_ims_complexity == "SIMPLE"
     assert cfg.modflow6.runtime.mf6_enable_rewet is True

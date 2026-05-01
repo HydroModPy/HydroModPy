@@ -370,6 +370,46 @@ def test_modflow6_resolves_absolute_xy_well_on_unstructured_runtime_mesh() -> No
     assert wel_spd[1] == [[0, 0, pytest.approx(-1.0)]]
 
 
+def test_modflow6_rejects_unstructured_well_outside_runtime_mesh() -> None:
+    model = _build_unstructured_model()
+    model.grid_ctx = SimpleNamespace(grid=None)
+    model.flow = SimpleNamespace(
+        sinks_sources={
+            "wells": {
+                "W1": FlowWellConfig(
+                    location_mode="absolute_xy",
+                    x=2.0,
+                    y=2.0,
+                    flux=-1.0,
+                )
+            }
+        },
+        active_sinks_sources=["wells"],
+    )
+
+    with pytest.raises(ValueError, match="outside the .* mesh domain"):
+        build_well_stress_period_data(model, 2)
+
+
+def test_modflow6_rejects_well_flux_length_mismatch() -> None:
+    model = _build_model()
+    model.grid_ctx = SimpleNamespace(grid=None)
+    model.flow = SimpleNamespace(
+        sinks_sources={
+            "wells": {
+                "W1": FlowWellConfig(
+                    cell=(0, 0, 0),
+                    flux=[-1.0, -2.0, -3.0],
+                )
+            }
+        },
+        active_sinks_sources=["wells"],
+    )
+
+    with pytest.raises(ValueError, match="must be 1 or match nper"):
+        build_well_stress_period_data(model, 2)
+
+
 def test_modflow6_builds_side_boundary_chd_on_unstructured_runtime_mesh() -> None:
     model = _build_unstructured_model()
     model.flow = SimpleNamespace(
@@ -549,6 +589,30 @@ def test_modflow6_binds_recharge_from_flow_sinks_sources() -> None:
     assert spd[0].shape == (6,)
     assert np.allclose(spd[0], 0.5e-3 / 86400.0)
     assert np.allclose(spd[1], 0.3e-3 / 86400.0)
+
+
+def test_modflow6_rejects_nonfinite_direct_recharge() -> None:
+    model = _build_model()
+    model.recharge = np.asarray([1.0e-8, np.nan], dtype=float)
+
+    with pytest.raises(ValueError, match="model.recharge"):
+        bind_recharge_from_flow(model)
+
+
+def test_modflow6_rejects_bad_recharge_flat_shape() -> None:
+    model = _build_model()
+    model.recharge = np.asarray([1.0e-8, 2.0e-8, 3.0e-8], dtype=float)
+
+    with pytest.raises(ValueError, match="sequence length"):
+        recharge_to_spd(model)
+
+
+def test_modflow6_rejects_missing_recharge_mapping_period() -> None:
+    model = _build_model()
+    model.recharge = {0: np.full(6, 1.0e-8, dtype=float)}
+
+    with pytest.raises(ValueError, match="missing stress period 1"):
+        recharge_to_spd(model)
 
 
 def test_modflow6_resolves_point_recharge_on_unstructured_runtime_mesh() -> None:

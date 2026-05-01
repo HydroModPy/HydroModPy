@@ -8,6 +8,7 @@ unified as the discriminated union :data:`FlowWellForcingConfig`.
 from __future__ import annotations
 
 from collections.abc import Mapping
+from math import isfinite
 from numbers import Real
 from pathlib import Path
 from typing import TYPE_CHECKING, Annotated, Literal
@@ -233,7 +234,10 @@ class FlowWellConfig(HydroModelBase):
             return None
         if isinstance(value, bool) or not isinstance(value, Real):
             raise TypeError("well absolute coordinates must be numeric")
-        return float(value)
+        numeric = float(value)
+        if not isfinite(numeric):
+            raise ValueError("well absolute coordinates must be finite")
+        return numeric
 
     @field_validator("x_rel", "y_rel", mode="before")
     @classmethod
@@ -243,6 +247,8 @@ class FlowWellConfig(HydroModelBase):
         if isinstance(value, bool) or not isinstance(value, Real):
             raise TypeError("well relative coordinates must be numeric")
         numeric = float(value)
+        if not isfinite(numeric):
+            raise ValueError("well relative coordinates must be finite")
         if numeric < 0.0 or numeric > 1.0:
             raise ValueError("well relative coordinates must be within [0, 1]")
         return numeric
@@ -255,7 +261,10 @@ class FlowWellConfig(HydroModelBase):
         if isinstance(value, bool):
             raise TypeError("well.flux must be numeric or a list of numeric values")
         if isinstance(value, Real):
-            return float(value)
+            numeric = float(value)
+            if not isfinite(numeric):
+                raise ValueError("well.flux must contain only finite values")
+            return numeric
         if isinstance(value, (list, tuple)):
             if len(value) == 0:
                 raise ValueError("well.flux list cannot be empty")
@@ -263,7 +272,10 @@ class FlowWellConfig(HydroModelBase):
             for idx, raw_item in enumerate(value):
                 if isinstance(raw_item, bool) or not isinstance(raw_item, Real):
                     raise TypeError(f"well.flux[{idx}] must be numeric")
-                parsed.append(float(raw_item))
+                numeric = float(raw_item)
+                if not isfinite(numeric):
+                    raise ValueError("well.flux must contain only finite values")
+                parsed.append(numeric)
             return parsed
         raise TypeError("well.flux must be numeric or a list of numeric values")
 
@@ -353,8 +365,21 @@ class FlowWellConfig(HydroModelBase):
         else:
             raise ValueError("well location cannot be resolved without cell or coordinate mode")
 
-        col = int((x - float(grid.xmin)) / float(grid.dx))
-        row = int((float(grid.ymax) - y) / float(grid.dy))
-        col = min(max(col, 0), int(grid.ncol) - 1)
-        row = min(max(row, 0), int(grid.nrow) - 1)
+        xmin = float(grid.xmin)
+        xmax = float(grid.xmax)
+        ymin = float(grid.ymin)
+        ymax = float(grid.ymax)
+        if x < xmin or x > xmax or y < ymin or y > ymax:
+            raise ValueError(
+                "well coordinates are outside the structured solver grid extent "
+                f"[{xmin}, {xmax}] x [{ymin}, {ymax}]."
+            )
+        col = int((x - xmin) / float(grid.dx))
+        row = int((ymax - y) / float(grid.dy))
+        if col == int(grid.ncol) and x == xmax:
+            col = int(grid.ncol) - 1
+        if row == int(grid.nrow) and y == ymin:
+            row = int(grid.nrow) - 1
+        if col < 0 or col >= int(grid.ncol) or row < 0 or row >= int(grid.nrow):
+            raise ValueError("well coordinates could not be resolved to a structured grid cell.")
         return (int(self.layer), row, col)

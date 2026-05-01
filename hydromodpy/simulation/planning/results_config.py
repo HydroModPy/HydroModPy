@@ -71,7 +71,7 @@ class ExportVariablesConfig(HydroModelBase):
     )
     derived: Annotated[bool, Profile.USER] = Field(
         default=True,
-        description="Export derived variables (watertable_depth, seepage_areas, etc.).",
+        description="Export derived variables (watertable_depth, seepage_mask, etc.).",
     )
 
     def active_names(self) -> list[str]:
@@ -82,7 +82,7 @@ class ExportVariablesConfig(HydroModelBase):
         if self.concentration:
             names.append("concentration")
         if self.derived:
-            names.extend(["watertable_elevation", "watertable_depth", "seepage_areas"])
+            names.extend(["watertable_elevation", "watertable_depth", "seepage_mask"])
         return names
 
 
@@ -141,8 +141,10 @@ class ResultsConfig(HydroModelBase):
 
     persistence: Annotated[PersistenceConfig, Profile.USER] = Field(
         default_factory=PersistenceConfig,
-        description="Single switch governing every persistence sink "
-        "(catalog, Zarr, Parquet, lockfile).",
+        description=(
+            "Simulation-run persistence switch passed to the result catalog "
+            "(DuckDB rows, Zarr fields, Parquet tables, lockfile)."
+        ),
     )
     keep_solver_files: Annotated[bool, Profile.DEV] = Field(
         default=False,

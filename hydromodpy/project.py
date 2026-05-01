@@ -166,19 +166,31 @@ class Project:
         return cls(toml_path, **kwargs)
 
     @classmethod
-    def from_json(cls, payload: str | bytes, **kwargs) -> Project:
+    def from_json(
+        cls,
+        payload: str | bytes,
+        *,
+        base_dir: str | Path | None = None,
+        **kwargs,
+    ) -> Project:
         """Build a Project from a JSON string validated against HydroModPyConfig."""
         from hydromodpy.master_config.hydromodpy_config import HydroModPyConfig
 
-        cfg = HydroModPyConfig.model_validate_json(payload)
+        cfg = HydroModPyConfig.from_json(payload, base_dir=base_dir)
         return cls(cfg, **kwargs)
 
     @classmethod
-    def from_dict(cls, payload: dict, **kwargs) -> Project:
+    def from_dict(
+        cls,
+        payload: dict,
+        *,
+        base_dir: str | Path | None = None,
+        **kwargs,
+    ) -> Project:
         """Build a Project from a dict payload validated against HydroModPyConfig."""
         from hydromodpy.master_config.hydromodpy_config import HydroModPyConfig
 
-        cfg = HydroModPyConfig.model_validate(payload)
+        cfg = HydroModPyConfig.from_dict(payload, base_dir=base_dir)
         return cls(cfg, **kwargs)
 
     # -- Model-phase verbs (delegate to project_phases) -------------------
@@ -400,11 +412,6 @@ class Project:
                 "Project.calibrate() requires either config_path= or "
                 "parameters= (Python-mode declaration)."
             )
-        if self._config_path is None:
-            raise ConfigMissingError(
-                "Python-mode calibrate requires Project to be loaded from a "
-                "TOML path (need the simulation TOML on disk)."
-            )
 
         from hydromodpy.calibration.config import CalibrationConfig
         from hydromodpy.calibration.runner import run_calibration_programmatic
@@ -451,12 +458,7 @@ class Project:
         )
 
     def mesh(self) -> dict:
-        """Run the standalone mesh-only workflow defined by this project's TOML.
-
-        Symmetric counterpart of :func:`hydromodpy.mesh`. Requires a
-        TOML-loaded Project: the launcher consumes the source TOML directly
-        to build its own runtime configs.
-        """
+        """Run the standalone mesh-only workflow defined by this project."""
         return self._runner.mesh()
 
     def report(self, session_id: str | None = None) -> Path:

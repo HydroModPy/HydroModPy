@@ -20,6 +20,7 @@ import math
 
 import numpy as np
 
+from hydromodpy.calibration.adapters._prior_sampling import transformed_prior_center
 from hydromodpy.calibration.optimizer import (
     FAILED_EVAL_COST,
     EvaluationResult,
@@ -92,12 +93,13 @@ class CmaEsAdapter:
 
         self._lower = np.asarray([p.lower_transformed for p in space.parameters], dtype=float)
         self._upper = np.asarray([p.upper_transformed for p in space.parameters], dtype=float)
+        center = transformed_prior_center(space)
 
         if self._normalize:
             span = self._upper - self._lower
             span = np.where(span > 0.0, span, 1.0)
             self._span = span
-            self._x0_t = (0.5 * (self._lower + self._upper) - self._lower) / span
+            self._x0_t = (center - self._lower) / span
             self._bounds_t = [
                 np.zeros_like(self._lower).tolist(),
                 np.ones_like(self._upper).tolist(),
@@ -106,7 +108,7 @@ class CmaEsAdapter:
             self._upper_t = np.ones_like(self._upper)
         else:
             self._span = np.ones_like(self._upper)
-            self._x0_t = 0.5 * (self._lower + self._upper)
+            self._x0_t = center
             self._bounds_t = [self._lower.tolist(), self._upper.tolist()]
             self._lower_t = self._lower
             self._upper_t = self._upper

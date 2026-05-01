@@ -21,7 +21,7 @@ if TYPE_CHECKING:
     from hydromodpy.results.run import Run
 
 
-def _zarr_lookup(root, zarr_path: str):
+def lookup_zarr_path(root, zarr_path: str):
     """Resolve a registry zarr_path against a Zarr root, returning ``None`` if absent."""
     if "/" in zarr_path:
         grp_name, var_name = zarr_path.split("/", 1)
@@ -48,6 +48,7 @@ class RunArrayProvider:
         Variable attributes follow CF-1.11 from
         :mod:`hydromodpy.results.field_registry`.
         """
+        import dask.array as da
         import xarray as xr
         import xugrid as xu
 
@@ -76,7 +77,7 @@ class RunArrayProvider:
                 names = [
                     n
                     for n, d in field_registry.FIELD_REGISTRY.items()
-                    if d.shape in face_shapes and _zarr_lookup(sz.root, d.zarr_path) is not None
+                    if d.shape in face_shapes and lookup_zarr_path(sz.root, d.zarr_path) is not None
                 ]
             else:
                 desc = field_registry.get(variable)
@@ -84,26 +85,30 @@ class RunArrayProvider:
                     raise ValueError(
                         f"Field '{variable}' has shape '{desc.shape}', not face-aligned"
                     )
-                if _zarr_lookup(sz.root, desc.zarr_path) is None:
+                if lookup_zarr_path(sz.root, desc.zarr_path) is None:
                     raise KeyError(f"Field '{variable}' not found in simulation '{run._sim_id}'")
                 names = [variable]
 
             data_vars: dict[str, xr.DataArray] = {}
             for name in names:
                 desc = field_registry.get(name)
-                arr = _zarr_lookup(sz.root, desc.zarr_path)
-                values = np.asarray(arr[:])
+                arr = lookup_zarr_path(sz.root, desc.zarr_path)
                 dims = face_shapes[desc.shape]
-                if len(dims) != values.ndim:
+                if len(dims) != arr.ndim:
                     continue
+                chunks = arr.chunks if arr.chunks else "auto"
+                values = da.from_array(arr, chunks=chunks)
                 data_vars[name] = xr.DataArray(
                     values,
                     dims=dims,
                     attrs=field_registry.cf_attrs(name),
                 )
-        finally:
+        except Exception:
             sz.close()
+            raise
 
+        if not data_vars:
+            sz.close()
         return xu.UgridDataset(xr.Dataset(data_vars), grids=[grid])
 
     def to_xarray_batch(
@@ -120,6 +125,7 @@ class RunArrayProvider:
         include; missing fields raise ``KeyError``. ``time_slice`` is an
         optional ``slice`` object applied to the time dimension.
         """
+        import dask.array as da
         import xarray as xr
 
         run = self._run
@@ -128,7 +134,7 @@ class RunArrayProvider:
             data_vars: dict[str, xr.DataArray] = {}
             for name in variables:
                 desc = field_registry.get(name)
-                arr = _zarr_lookup(sz.root, desc.zarr_path)
+                arr = lookup_zarr_path(sz.root, desc.zarr_path)
                 if arr is None:
                     raise KeyError(f"Field '{name}' not found in simulation '{run._sim_id}'")
                 shape = desc.shape
@@ -141,8 +147,9 @@ class RunArrayProvider:
                 elif shape == field_registry.SHAPE_FACE:
                     dims = ("cell",)
                 else:
-                    dims = tuple(f"d{i}" for i in range(np.asarray(arr).ndim))
-                values = np.asarray(arr[:])
+                    dims = tuple(f"d{i}" for i in range(arr.ndim))
+                chunks = arr.chunks if arr.chunks else "auto"
+                values = da.from_array(arr, chunks=chunks)
                 if time_slice is not None and dims and dims[0] == "time":
                     values = values[time_slice]
                 data_vars[name] = xr.DataArray(
@@ -150,7 +157,10 @@ class RunArrayProvider:
                     dims=dims,
                     attrs=field_registry.cf_attrs(name),
                 )
-        finally:
+        except Exception:
+            sz.close()
+            raise
+        if not data_vars:
             sz.close()
         return xr.Dataset(data_vars)
 

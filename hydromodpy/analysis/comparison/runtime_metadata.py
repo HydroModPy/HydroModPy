@@ -81,17 +81,83 @@ def compact_run_metrics(metrics: Mapping[str, Any]) -> dict[str, Any]:
     return {key: metrics.get(key) for key in keys if key in metrics}
 
 
-def read_variant_run_metadata(run_folder: Path) -> dict[str, Any]:
+def read_catalog_run_metadata(store: Any, sim_id: str | None) -> dict[str, Any]:
+    """Read run metadata from the SimulationCatalog when available."""
+    if store is None or sim_id in (None, ""):
+        return {}
+    try:
+        conn = getattr(store, "connection", None) or store._db
+        row = conn.execute(
+            """
+            SELECT duration_s, solver, n_cells, n_layers, n_timesteps, mesh_topology
+            FROM simulations
+            WHERE sim_id = ?
+            """,
+            [str(sim_id)],
+        ).fetchone()
+    except Exception:
+        logger.debug("Could not read comparison metadata from catalog", exc_info=True)
+        return {}
+    if row is None:
+        return {}
+
+    duration_s, solver, n_cells, n_layers, n_timesteps, mesh_topology = row
+    payload: dict[str, Any] = {}
+    metrics: dict[str, Any] = {}
+    if duration_s is not None:
+        wall_time = float(duration_s)
+        payload["wall_time_seconds"] = wall_time
+        metrics["wall_time_seconds"] = wall_time
+    if solver not in (None, ""):
+        solvers = [item for item in str(solver).split(",") if item]
+        payload["solvers"] = solvers
+        metrics["solvers"] = solvers
+    for key, value in (
+        ("n_cells", n_cells),
+        ("n_layers", n_layers),
+        ("n_timesteps", n_timesteps),
+        ("mesh_topology", mesh_topology),
+    ):
+        if value is not None:
+            payload[key] = value
+    if metrics:
+        payload["metrics"] = compact_run_metrics(metrics)
+    return payload
+
+
+def read_variant_run_metrics(
+    run_folder: Path,
+    *,
+    store: Any = None,
+    sim_id: str | None = None,
+) -> dict[str, Any]:
+    """Read compact comparison metrics, preferring the catalog over scratch JSON."""
+    metrics = compact_run_metrics(read_json_file(run_folder / "_metrics.json"))
+    catalog_metadata = read_catalog_run_metadata(store, sim_id)
+    catalog_metrics = catalog_metadata.get("metrics")
+    if isinstance(catalog_metrics, Mapping):
+        metrics.update(compact_run_metrics(catalog_metrics))
+    return metrics
+
+
+def read_variant_run_metadata(
+    run_folder: Path,
+    *,
+    store: Any = None,
+    sim_id: str | None = None,
+) -> dict[str, Any]:
     """Collect lightweight run metadata useful in comparison manifests."""
     metrics = read_json_file(run_folder / "_metrics.json")
     boussinesq_summary = read_json_file(run_folder / "_boussinesq_summary.json")
-    payload: dict[str, Any] = {}
+    payload: dict[str, Any] = read_catalog_run_metadata(store, sim_id)
 
     if metrics:
-        payload["metrics"] = compact_run_metrics(metrics)
-        if "wall_time_seconds" in metrics:
+        merged_metrics = compact_run_metrics(metrics)
+        merged_metrics.update(payload.get("metrics", {}))
+        payload["metrics"] = merged_metrics
+        if "wall_time_seconds" in metrics and "wall_time_seconds" not in payload:
             payload["wall_time_seconds"] = metrics.get("wall_time_seconds")
-        if "solvers" in metrics:
+        if "solvers" in metrics and "solvers" not in payload:
             payload["solvers"] = metrics.get("solvers")
 
     if boussinesq_summary:
@@ -180,6 +246,8 @@ def discover_result_store(
 __all__ = (
     "compact_run_metrics",
     "discover_result_store",
+    "read_catalog_run_metadata",
     "read_json_file",
+    "read_variant_run_metrics",
     "read_variant_run_metadata",
 )

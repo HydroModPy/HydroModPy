@@ -111,6 +111,30 @@ def test_recharge_transient_mapping_returned_as_dict():
     assert rch_data == {0: 0.1, 1: 0.2}
 
 
+def test_recharge_series_coverage_error_rejects_missing_window_data():
+    recharge = pd.Series(
+        [0.1],
+        index=pd.DatetimeIndex([pd.Timestamp("2003-01-01")]),
+        dtype=float,
+    )
+    cfg = FlowRechargeConfig(values=recharge, units="m/s")
+    adapter = _make_adapter(
+        cfg,
+        "transient",
+        nper=2,
+        simulation_window=ResolvedSimulationTimeWindow(
+            start=pd.Timestamp("2003-01-01"),
+            end=pd.Timestamp("2003-02-28"),
+            step_value=1,
+            step_unit="month",
+            coverage_policy="error",
+        ),
+    )
+
+    with pytest.raises(ValueError, match="does not fully cover simulation window"):
+        adapter._build_recharge_payload()
+
+
 def test_recharge_scalar_broadcast_to_all_periods():
     cfg = FlowRechargeConfig(values=0.001, units="mm/day")
     adapter = _make_adapter(cfg, "transient", nper=3)
@@ -324,6 +348,66 @@ def test_well_relative_xy_is_resolved_to_solver_cell():
 
     assert wel_spd[0] == [[0, 3, 2, pytest.approx(-1e-4)]]
     assert wel_spd[1] == [[0, 3, 2, pytest.approx(-2e-4)]]
+
+
+def test_well_absolute_xy_outside_grid_raises():
+    flow = types.SimpleNamespace(
+        sinks_sources={
+            "recharge": None,
+            "wells": {
+                "W1": FlowWellConfig(
+                    location_mode="absolute_xy",
+                    layer=0,
+                    x=1000.0,
+                    y=1000.0,
+                    flux=-1e-4,
+                )
+            },
+        },
+        flow_regime="transient",
+        active_sinks_sources=["wells"],
+        config=None,
+    )
+    grid = GridReference(
+        n_cells=20,
+        bounds=(0.0, 0.0, 250.0, 400.0),
+        crs=None,
+        structured_shape=(4, 5),
+        cell_size_hint=50.0,
+    )
+    adapter = FlowToModflowAdapter(
+        flow=flow,
+        domain=None,
+        solver_mesh=_build_solver_mesh(nrow=4, ncol=5, nlay=1, dx=50.0, dy=100.0),
+        nper=2,
+        grid=grid,
+        sink_fill=False,
+    )
+
+    with pytest.raises(ValueError, match="outside the structured solver grid extent"):
+        adapter._build_well_stress_period_data()
+
+
+def test_well_flux_length_mismatch_raises():
+    flow = types.SimpleNamespace(
+        sinks_sources={
+            "recharge": None,
+            "wells": {"W1": FlowWellConfig(cell=(0, 0, 0), flux=[-1e-4, -2e-4, -3e-4])},
+        },
+        flow_regime="transient",
+        active_sinks_sources=["wells"],
+        config=None,
+    )
+    adapter = FlowToModflowAdapter(
+        flow=flow,
+        domain=None,
+        solver_mesh=_build_solver_mesh(),
+        nper=2,
+        sink_fill=False,
+    )
+
+    with pytest.raises(ValueError, match="must be 1 or match nper"):
+        adapter._build_well_stress_period_data()
 
 
 def test_well_relative_xy_defaults_to_layer_zero():

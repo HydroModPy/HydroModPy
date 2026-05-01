@@ -33,27 +33,21 @@
   "equations_rst": [],
   "walkthrough_doc": "getting_started/reading-results-pages",
   "walkthrough_title": "the gallery and validation reading guide",
-  "reproduction_command": "python -m hydromodpy run examples_legacy_2/projects/launcher_simulation/run_method_comparison_example12_multi_method_moderate.toml",
+  "reproduction_command": "python -m tools.doc_gallery",
   "gallery_update_command": "python -m tools.doc_gallery",
   "source_paths": [
-    "examples_legacy_2/projects/launcher_simulation/run_method_comparison_example12_multi_method_moderate.toml",
-    "examples_legacy_2/projects/launcher_simulation/run_demonstrative_annual_moderate_mf6_structured.toml",
-    "examples_legacy_2/projects/launcher_simulation/run_demonstrative_annual_moderate_nwt.toml",
-    "examples_legacy_2/projects/launcher_simulation/run_demonstrative_annual_moderate_mf6_precomputed_mesh_input.toml",
-    "examples_legacy_2/projects/launcher_simulation/run_demonstrative_annual_moderate_boussinesq_precomputed_mesh_input.toml",
-    "examples_legacy_2/projects/launcher_simulation/method_comparison/ex12_multi_method_moderate/comparison_manifest.json",
-    "examples_legacy_2/projects/launcher_simulation/method_comparison/ex12_multi_method_moderate/comparison_metrics.json",
-    "examples_legacy_2/projects/launcher_simulation/method_comparison/ex12_multi_method_moderate/observables.csv"
+    "docs/readthedocs/source/_static/capability_gallery/method_comparison/ex12_multi_method_moderate_comparison_manifest.json",
+    "docs/readthedocs/source/_static/capability_gallery/method_comparison/ex12_multi_method_moderate_comparison_metrics.json",
+    "docs/readthedocs/source/_static/capability_gallery/method_comparison/ex12_multi_method_moderate_observables.csv",
+    "docs/readthedocs/source/_static/capability_gallery/method_comparison/ex12_multi_method_moderate_summary_metrics.csv",
+    "docs/readthedocs/source/_static/capability_gallery/method_comparison/ex12_multi_method_moderate_difference_metrics.csv"
   ],
   "source_hashes": {
-    "examples_legacy_2/projects/launcher_simulation/run_method_comparison_example12_multi_method_moderate.toml": "701202ecfe956d28453ff5aafed09905f44be36fa41451dddbf590013be7289c",
-    "examples_legacy_2/projects/launcher_simulation/run_demonstrative_annual_moderate_mf6_structured.toml": "51defbfb99d40e0b6fda2f65275d3ec66d92c770396453e73067235f8900ed52",
-    "examples_legacy_2/projects/launcher_simulation/run_demonstrative_annual_moderate_nwt.toml": "9dfba942ebe2af53a3b7086a67b0c2a18767ca81de61f9e95a3d74a4669367ef",
-    "examples_legacy_2/projects/launcher_simulation/run_demonstrative_annual_moderate_mf6_precomputed_mesh_input.toml": "5494498e1283f64e5435870ab3926997b54709e61babf9ded391868ce3ed844c",
-    "examples_legacy_2/projects/launcher_simulation/run_demonstrative_annual_moderate_boussinesq_precomputed_mesh_input.toml": "ba6cce229881a4209fbb887f0253a1a367669185f2a16d6a695c9c0f3f262792",
-    "examples_legacy_2/projects/launcher_simulation/method_comparison/ex12_multi_method_moderate/comparison_manifest.json": "94ff8bd55904df8e21aaf2d9f296a3efc6b9a714df9bad8a3f9e71f102fa9a5c",
-    "examples_legacy_2/projects/launcher_simulation/method_comparison/ex12_multi_method_moderate/comparison_metrics.json": "d530b6489a362341e935cd9122462f76e68a2fa8467dcd3dc7608d3bad66c382",
-    "examples_legacy_2/projects/launcher_simulation/method_comparison/ex12_multi_method_moderate/observables.csv": "4d749da9602862cd73343b278c149c26df4f46429e760b9541238ff6e21c07ea"
+    "docs/readthedocs/source/_static/capability_gallery/method_comparison/ex12_multi_method_moderate_comparison_manifest.json": "94ff8bd55904df8e21aaf2d9f296a3efc6b9a714df9bad8a3f9e71f102fa9a5c",
+    "docs/readthedocs/source/_static/capability_gallery/method_comparison/ex12_multi_method_moderate_comparison_metrics.json": "d530b6489a362341e935cd9122462f76e68a2fa8467dcd3dc7608d3bad66c382",
+    "docs/readthedocs/source/_static/capability_gallery/method_comparison/ex12_multi_method_moderate_observables.csv": "29dac462298fa9fa275c388a7d3562041fd1283e05dad939d939ed6cc898425f",
+    "docs/readthedocs/source/_static/capability_gallery/method_comparison/ex12_multi_method_moderate_summary_metrics.csv": "22e81c197b5ad682533c90bb1b6e0f2a8bbbe5591ff3ac42e4c995e00358130a",
+    "docs/readthedocs/source/_static/capability_gallery/method_comparison/ex12_multi_method_moderate_difference_metrics.csv": "b8832d28a35d7752a037ba4fad4c5990e4dcaf5324a4ecc07da31e341f9730e3"
   },
   "docname": "cases/ex12_multi_method_moderate",
   "images": [
@@ -152,7 +146,7 @@
     }
   ],
   "metadata": {
-    "comparison_config_path": "examples_legacy_2/projects/launcher_simulation/run_method_comparison_example12_multi_method_moderate.toml",
+    "comparison_config_path": "docs/readthedocs/source/_static/capability_gallery/method_comparison/ex12_multi_method_moderate_summary.json",
     "study_area": "Example12 / Naizin",
     "focus_variant_id": "bouss_mod_tri",
     "comparison_family_key": "multi_method_suites",
@@ -205,19 +199,19 @@
             "field": "[method_comparison] comparison_id",
             "meaning": "Stable identifier used to collect outputs and summary artifacts for the comparison.",
             "value": "ex12_multi_method_moderate",
-            "source": "examples_legacy_2/projects/launcher_simulation/run_method_comparison_example12_multi_method_moderate.toml"
+            "source": "docs/readthedocs/source/_static/capability_gallery/method_comparison/ex12_multi_method_moderate_summary.json"
           },
           {
             "field": "[method_comparison] reference_variant",
             "meaning": "Variant used as the baseline when computing map-wise differences and error metrics.",
             "value": "mf6_mod_s60",
-            "source": "examples_legacy_2/projects/launcher_simulation/run_method_comparison_example12_multi_method_moderate.toml"
+            "source": "docs/readthedocs/source/_static/capability_gallery/method_comparison/ex12_multi_method_moderate_summary.json"
           },
           {
             "field": "[method_comparison] run_variants",
             "meaning": "Whether the launcher reruns the variants or only reuses committed run folders.",
             "value": "true",
-            "source": "examples_legacy_2/projects/launcher_simulation/run_method_comparison_example12_multi_method_moderate.toml"
+            "source": "docs/readthedocs/source/_static/capability_gallery/method_comparison/ex12_multi_method_moderate_summary.json"
           },
           {
             "field": "study_area",
@@ -234,25 +228,25 @@
             "field": "variant.mf6_mod_s60",
             "meaning": "Compared run folder and solver definition used by the method-comparison launcher.",
             "value": "MF6 annual moderate on 60x60 structured grid; solver=modflow6; mesh_mode=structured; run_folder=None",
-            "source": "examples_legacy_2/projects/launcher_simulation/run_method_comparison_example12_multi_method_moderate.toml"
+            "source": "docs/readthedocs/source/_static/capability_gallery/method_comparison/ex12_multi_method_moderate_summary.json"
           },
           {
             "field": "variant.nwt_mod_s60",
             "meaning": "Compared run folder and solver definition used by the method-comparison launcher.",
             "value": "NWT annual moderate on 60x60 structured grid; solver=modflownwt; mesh_mode=structured; run_folder=None",
-            "source": "examples_legacy_2/projects/launcher_simulation/run_method_comparison_example12_multi_method_moderate.toml"
+            "source": "docs/readthedocs/source/_static/capability_gallery/method_comparison/ex12_multi_method_moderate_summary.json"
           },
           {
             "field": "variant.mf6_mod_tri",
             "meaning": "Compared run folder and solver definition used by the method-comparison launcher.",
             "value": "MF6 annual moderate on committed triangular mesh; solver=modflow6; mesh_mode=mesh_input; run_folder=None",
-            "source": "examples_legacy_2/projects/launcher_simulation/run_method_comparison_example12_multi_method_moderate.toml"
+            "source": "docs/readthedocs/source/_static/capability_gallery/method_comparison/ex12_multi_method_moderate_summary.json"
           },
           {
             "field": "variant.bouss_mod_tri",
             "meaning": "Compared run folder and solver definition used by the method-comparison launcher.",
             "value": "Boussinesq annual moderate on committed triangular mesh; solver=boussinesq; mesh_mode=mesh_input; run_folder=None",
-            "source": "examples_legacy_2/projects/launcher_simulation/run_method_comparison_example12_multi_method_moderate.toml"
+            "source": "docs/readthedocs/source/_static/capability_gallery/method_comparison/ex12_multi_method_moderate_summary.json"
           }
         ]
       },
@@ -263,55 +257,55 @@
             "field": "observable.head_outlet_lowland",
             "meaning": "Observable extracted from each run before parity plots and difference metrics are computed.",
             "value": "variable=watertable_elevation; support=point; time=all; unit=m",
-            "source": "examples_legacy_2/projects/launcher_simulation/run_method_comparison_example12_multi_method_moderate.toml"
+            "source": "docs/readthedocs/source/_static/capability_gallery/method_comparison/ex12_multi_method_moderate_summary.json"
           },
           {
             "field": "observable.head_mid_basin_response",
             "meaning": "Observable extracted from each run before parity plots and difference metrics are computed.",
             "value": "variable=watertable_elevation; support=point; time=all; unit=m",
-            "source": "examples_legacy_2/projects/launcher_simulation/run_method_comparison_example12_multi_method_moderate.toml"
+            "source": "docs/readthedocs/source/_static/capability_gallery/method_comparison/ex12_multi_method_moderate_summary.json"
           },
           {
             "field": "observable.head_upstream_ridge",
             "meaning": "Observable extracted from each run before parity plots and difference metrics are computed.",
             "value": "variable=watertable_elevation; support=point; time=all; unit=m",
-            "source": "examples_legacy_2/projects/launcher_simulation/run_method_comparison_example12_multi_method_moderate.toml"
+            "source": "docs/readthedocs/source/_static/capability_gallery/method_comparison/ex12_multi_method_moderate_summary.json"
           },
           {
             "field": "observable.outlet_flux_series",
             "meaning": "Observable extracted from each run before parity plots and difference metrics are computed.",
             "value": "variable=outlet_flux; support=outlet; time=all; unit=m3/s",
-            "source": "examples_legacy_2/projects/launcher_simulation/run_method_comparison_example12_multi_method_moderate.toml"
+            "source": "docs/readthedocs/source/_static/capability_gallery/method_comparison/ex12_multi_method_moderate_summary.json"
           },
           {
             "field": "observable.head_map_last",
             "meaning": "Observable extracted from each run before parity plots and difference metrics are computed.",
             "value": "variable=watertable_elevation; support=map; time=last; unit=m",
-            "source": "examples_legacy_2/projects/launcher_simulation/run_method_comparison_example12_multi_method_moderate.toml"
+            "source": "docs/readthedocs/source/_static/capability_gallery/method_comparison/ex12_multi_method_moderate_summary.json"
           },
           {
             "field": "observable.depth_map_last",
             "meaning": "Observable extracted from each run before parity plots and difference metrics are computed.",
             "value": "variable=watertable_depth; support=map; time=last; unit=m",
-            "source": "examples_legacy_2/projects/launcher_simulation/run_method_comparison_example12_multi_method_moderate.toml"
+            "source": "docs/readthedocs/source/_static/capability_gallery/method_comparison/ex12_multi_method_moderate_summary.json"
           },
           {
             "field": "observable.outflow_drain_map_last",
             "meaning": "Observable extracted from each run before parity plots and difference metrics are computed.",
             "value": "variable=outflow_drain; support=map; time=last; unit=m/day",
-            "source": "examples_legacy_2/projects/launcher_simulation/run_method_comparison_example12_multi_method_moderate.toml"
+            "source": "docs/readthedocs/source/_static/capability_gallery/method_comparison/ex12_multi_method_moderate_summary.json"
           },
           {
             "field": "observable.surface_excess_flux_series",
             "meaning": "Observable extracted from each run before parity plots and difference metrics are computed.",
             "value": "variable=surface_excess_flux; support=cell_mask; time=all; unit=m3/s",
-            "source": "examples_legacy_2/projects/launcher_simulation/run_method_comparison_example12_multi_method_moderate.toml"
+            "source": "docs/readthedocs/source/_static/capability_gallery/method_comparison/ex12_multi_method_moderate_summary.json"
           },
           {
             "field": "observable.surface_excess_map_last",
             "meaning": "Observable extracted from each run before parity plots and difference metrics are computed.",
             "value": "variable=surface_excess_rate; support=map; time=last; unit=m/day",
-            "source": "examples_legacy_2/projects/launcher_simulation/run_method_comparison_example12_multi_method_moderate.toml"
+            "source": "docs/readthedocs/source/_static/capability_gallery/method_comparison/ex12_multi_method_moderate_summary.json"
           }
         ]
       }

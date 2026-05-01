@@ -34,7 +34,7 @@ from pydantic.fields import FieldInfo
 
 from hydromodpy.core.config_kit.introspect import extract_profile, resolve_profile
 from hydromodpy.core.config_kit.profile import Profile
-from hydromodpy.core.config_kit.registry import root_sections
+from hydromodpy.core.config_kit.registry import root_scalar_fields, root_sections
 from hydromodpy.core.toml_io.dynamic_examples_protocol import (
     get_dynamic_flow_examples_provider,
 )
@@ -93,7 +93,15 @@ def generate_toml(
             )
         selected = {k: registry[k] for k in modules}
 
-    lines = _header(profile, list(selected.keys()))
+    scalar_fields = root_scalar_fields()
+    selected_root_names = [
+        name
+        for name, field_info in scalar_fields.items()
+        if extract_profile(field_info) <= threshold
+    ]
+
+    lines = _header(profile, [*selected_root_names, *list(selected.keys())])
+    lines.extend(_root_scalars(scalar_fields, threshold))
 
     for section_name, model_cls in selected.items():
         section_values = (overrides or {}).get(section_name)
@@ -509,6 +517,41 @@ def _render_field_comment(
         meta_parts.append(f"Default: {_fmt(default)}")
 
     lines.append(f"# {' | '.join(meta_parts)}")
+
+
+def _root_scalars(
+    fields: dict[str, FieldInfo],
+    threshold: int,
+    values: dict | None = None,
+) -> list[str]:
+    """Generate root-level scalar TOML fields such as ``workflow``."""
+    selected = [
+        (name, field_info, extract_profile(field_info))
+        for name, field_info in fields.items()
+        if extract_profile(field_info) <= threshold
+    ]
+    if not selected:
+        return []
+
+    lines = [
+        "",
+        "# " + "-" * 70,
+        "# Root-level workflow selector.",
+        "# " + "-" * 70,
+        "",
+    ]
+    for name, field_info, level in selected:
+        _render_field_comment(lines, field_info)
+        default = _default_value(field_info)
+        if values is not None and name in values and values[name] is not None:
+            lines.append(f"{name} = {_fmt(values[name])}")
+        elif default is not _UNDEFINED and default is not None:
+            lines.append(f"{name} = {_fmt(default)}")
+        elif level == Profile.USER and default is _UNDEFINED:
+            lines.append(f"{name} = {_placeholder(field_info)}")
+        else:
+            lines.append(f"# {name} = {_placeholder(field_info)}")
+    return lines
 
 
 def _section(

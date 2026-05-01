@@ -24,6 +24,7 @@ from hydromodpy.core.io.db_retry import with_lock_retry
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.version import __version__ as _HMP_VERSION
 from hydromodpy.results.array_fingerprint import fingerprint
+from hydromodpy.results.catalog.storage_paths import sanitize_segment
 from hydromodpy.results.catalog_schema import GLOBAL_ZONE, ensure_parquet_views
 from hydromodpy.results.spatial_index import point_in_cell
 
@@ -75,6 +76,29 @@ def _normalize_geometry_kind(geom_type: str | None) -> str | None:
         "MultiPolygon": "multipolygon",
     }
     return mapping.get(geom_type, "polygon")
+
+
+def _epsg_from_crs(crs: str | None) -> int | None:
+    if not crs:
+        return None
+    upper = str(crs).upper().strip()
+    if upper.startswith("EPSG:"):
+        try:
+            return int(upper.split(":", 1)[1])
+        except ValueError:
+            return None
+    try:
+        from pyproj import CRS
+
+        return CRS.from_user_input(crs).to_epsg()
+    except Exception:
+        return None
+
+
+def _json_scalar(value: object) -> object:
+    if value is None or isinstance(value, (str, int, float, bool)):
+        return value
+    return str(value)
 
 
 class WritesMixin:
@@ -226,6 +250,54 @@ class WritesMixin:
             )
         finally:
             self._db.unregister("_hmp_insert")
+
+    @with_lock_retry()
+    def write_station(
+        self,
+        station_id: str,
+        variable_type: str,
+        *,
+        name: str | None = None,
+        latitude: float | None = None,
+        longitude: float | None = None,
+        elevation: float | None = None,
+        source: str | None = None,
+        first_valid: Any = None,
+        last_valid: Any = None,
+        metadata: dict[str, Any] | None = None,
+    ) -> None:
+        if not self._persistence.save_catalog:
+            return
+        self._db.execute(
+            """
+            INSERT INTO stations
+                (station_id, variable_type, name, latitude, longitude, elevation,
+                 source, first_valid, last_valid, metadata, active)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, TRUE)
+            ON CONFLICT (station_id, variable_type) DO UPDATE SET
+                name = EXCLUDED.name,
+                latitude = EXCLUDED.latitude,
+                longitude = EXCLUDED.longitude,
+                elevation = EXCLUDED.elevation,
+                source = EXCLUDED.source,
+                first_valid = EXCLUDED.first_valid,
+                last_valid = EXCLUDED.last_valid,
+                metadata = EXCLUDED.metadata,
+                active = TRUE
+            """,
+            [
+                station_id,
+                variable_type,
+                name,
+                latitude,
+                longitude,
+                elevation,
+                source,
+                _coerce_timestamp(first_valid),
+                _coerce_timestamp(last_valid),
+                json.dumps(metadata or {}),
+            ],
+        )
 
     def write_budget(
         self,
@@ -464,15 +536,62 @@ class WritesMixin:
         value: float,
         *,
         variable: str = "head",
+        n_samples: int | None = None,
+        period_start: Any | None = None,
+        period_end: Any | None = None,
     ) -> None:
         if not self._persistence.save_catalog:
             return
         self._db.execute(
             """INSERT OR REPLACE INTO metrics
-               (sim_id, station_id, variable, metric_name, value)
-               VALUES (?, ?, ?, ?, ?)""",
-            [str(sim_id), station_id, variable, metric_name, value],
+               (sim_id, station_id, variable, metric_name, value,
+                n_samples, period_start, period_end)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
+            [
+                str(sim_id),
+                station_id,
+                variable,
+                metric_name,
+                value,
+                n_samples,
+                period_start,
+                period_end,
+            ],
         )
+        if self._persistence.save_parquet:
+            insert_df = pd.DataFrame(
+                [
+                    {
+                        "sim_id": str(sim_id),
+                        "station_id": station_id,
+                        "variable": variable,
+                        "metric_name": metric_name,
+                        "value": value,
+                        "n_samples": n_samples,
+                        "period_start": _coerce_timestamp(period_start),
+                        "period_end": _coerce_timestamp(period_end),
+                    }
+                ]
+            )
+            select_sql = (
+                "SELECT "
+                "CAST(sim_id AS UUID) AS sim_id, "
+                "CAST(station_id AS VARCHAR) AS station_id, "
+                "CAST(variable AS VARCHAR) AS variable, "
+                "CAST(metric_name AS VARCHAR) AS metric_name, "
+                "CAST(value AS DOUBLE) AS value, "
+                "CAST(n_samples AS INTEGER) AS n_samples, "
+                "CAST(period_start AS TIMESTAMPTZ) AS period_start, "
+                "CAST(period_end AS TIMESTAMPTZ) AS period_end "
+                "FROM _hmp_insert"
+            )
+            self._atomic_write_parquet(
+                self._paths.parquet_path_for(str(sim_id), "metrics"),
+                insert_df,
+                select_sql,
+                pk_cols=("sim_id", "station_id", "variable", "metric_name"),
+                kv_metadata=self._kv_metadata_for_sim(str(sim_id)),
+            )
 
     @with_lock_retry()
     def write_provenance(
@@ -483,6 +602,10 @@ class WritesMixin:
         data: np.ndarray,
         *,
         source_type: str = "data_manager",
+        source_sha256: str | None = None,
+        loader_name: str | None = None,
+        loader_version: str | None = None,
+        fetched_at: Any = None,
         period_start: Any = None,
         period_end: Any = None,
     ) -> None:
@@ -501,23 +624,73 @@ class WritesMixin:
                 f"Unknown provenance source_type {source_type!r}. "
                 f"Expected one of {allowed_source_types}."
             )
+        payload = [
+            str(sim_id),
+            variable,
+            source_type,
+            source_ref,
+            source_sha256,
+            loader_name,
+            loader_version,
+            _coerce_timestamp(fetched_at),
+            _coerce_timestamp(period_start),
+            _coerce_timestamp(period_end),
+            fp["checksum"],
+            int(np.prod(data.shape)),
+            json.dumps(fp["stats"]),
+        ]
         self._db.execute(
             """INSERT OR REPLACE INTO provenance
                (sim_id, variable, source_type, source_ref,
+                source_sha256, loader_name, loader_version, fetched_at,
                 period_start, period_end, payload_sha256, n_records, stats)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
-            [
-                str(sim_id),
-                variable,
-                source_type,
-                source_ref,
-                _coerce_timestamp(period_start),
-                _coerce_timestamp(period_end),
-                fp["checksum"],
-                int(np.prod(data.shape)),
-                json.dumps(fp["stats"]),
-            ],
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+            payload,
         )
+        if self._persistence.save_parquet:
+            insert_df = pd.DataFrame(
+                [
+                    {
+                        "sim_id": payload[0],
+                        "variable": payload[1],
+                        "source_type": payload[2],
+                        "source_ref": payload[3],
+                        "source_sha256": payload[4],
+                        "loader_name": payload[5],
+                        "loader_version": payload[6],
+                        "fetched_at": payload[7],
+                        "period_start": payload[8],
+                        "period_end": payload[9],
+                        "payload_sha256": payload[10],
+                        "n_records": payload[11],
+                        "stats": payload[12],
+                    }
+                ]
+            )
+            select_sql = (
+                "SELECT "
+                "CAST(sim_id AS UUID) AS sim_id, "
+                "CAST(variable AS VARCHAR) AS variable, "
+                "CAST(source_type AS VARCHAR) AS source_type, "
+                "CAST(source_ref AS VARCHAR) AS source_ref, "
+                "CAST(source_sha256 AS VARCHAR) AS source_sha256, "
+                "CAST(loader_name AS VARCHAR) AS loader_name, "
+                "CAST(loader_version AS VARCHAR) AS loader_version, "
+                "CAST(fetched_at AS TIMESTAMPTZ) AS fetched_at, "
+                "CAST(period_start AS TIMESTAMPTZ) AS period_start, "
+                "CAST(period_end AS TIMESTAMPTZ) AS period_end, "
+                "CAST(payload_sha256 AS VARCHAR) AS payload_sha256, "
+                "CAST(n_records AS BIGINT) AS n_records, "
+                "CAST(stats AS JSON) AS stats "
+                "FROM _hmp_insert"
+            )
+            self._atomic_write_parquet(
+                self._paths.parquet_path_for(str(sim_id), "provenance"),
+                insert_df,
+                select_sql,
+                pk_cols=("sim_id", "variable", "source_ref"),
+                kv_metadata=self._kv_metadata_for_sim(str(sim_id)),
+            )
 
     @with_lock_retry()
     def register_observation_points(
@@ -526,10 +699,25 @@ class WritesMixin:
         points: dict[str, tuple[float, float]],
         variable: str = "head",
         layer: int = 0,
+        *,
+        crs: str | None = None,
+        crs_epsg: int | None = None,
     ) -> None:
         if not self._persistence.save_catalog:
             return
         sid = str(sim_id)
+        if crs is None or crs_epsg is None:
+            row = self._db.execute(
+                "SELECT crs_wkt, crs_epsg FROM simulations WHERE sim_id = ?",
+                [sid],
+            ).fetchone()
+            if row is not None:
+                crs = crs or row[0]
+                crs_epsg = crs_epsg if crs_epsg is not None else row[1]
+        if crs is None:
+            raise ValueError("Observation point CRS is required.")
+        if crs_epsg is None:
+            crs_epsg = _epsg_from_crs(crs)
         sz = self.open_zarr(sim_id)
         try:
             mesh = sz.root["mesh"]
@@ -542,9 +730,9 @@ class WritesMixin:
                 cell_id = mapping[station_id]
                 self._db.execute(
                     """INSERT OR REPLACE INTO observation_points
-                       (sim_id, station_id, x, y, cell_id, layer)
-                       VALUES (?, ?, ?, ?, ?, ?)""",
-                    [sid, station_id, x, y, cell_id, layer],
+                       (sim_id, station_id, x, y, cell_id, layer, crs_wkt, crs_epsg)
+                       VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
+                    [sid, station_id, x, y, cell_id, layer, str(crs), crs_epsg],
                 )
         finally:
             sz.close()
@@ -616,9 +804,34 @@ class WritesMixin:
         union_geom = unary_union([g for g in gdf.geometry if g is not None and not g.is_empty])
         geom_kind = _normalize_geometry_kind(union_geom.geom_type)
         crs_str = str(gdf.crs) if gdf.crs else None
+        if crs_str is None:
+            raise ValueError("Geographic feature CRS is required.")
+        sid = str(sim_id)
+        target = self._geographic_feature_parquet_path(
+            sid,
+            feature_name,
+            geoparquet_path=geoparquet_path,
+        )
+        rel_path = (
+            str(target.relative_to(self._workspace))
+            if target.is_relative_to(self._workspace)
+            else str(target)
+        )
+        self._write_geographic_feature_parquet(gdf, target)
+        bounds = [float(value) for value in gdf.total_bounds]
+        schema_payload = {
+            "columns": [str(col) for col in gdf.columns if col != gdf.geometry.name],
+            "geometry_kind": geom_kind,
+            "crs": crs_str,
+        }
+        schema_hash = hashlib.sha256(
+            json.dumps(schema_payload, sort_keys=True).encode("utf-8")
+        ).hexdigest()
         properties = {
-            "geojson": gdf.to_json(),
             "n_features": int(len(gdf)),
+            "bbox": bounds,
+            "geometry_encoding": "WKB",
+            "schema_sha256": schema_hash,
         }
         self._db.execute(
             "INSERT OR REPLACE INTO geographic_features "
@@ -626,14 +839,51 @@ class WritesMixin:
             " geoparquet_path, properties) "
             "VALUES (?, ?, ?, ?, ?, ?)",
             [
-                str(sim_id),
+                sid,
                 feature_name,
                 geom_kind,
                 crs_str,
-                geoparquet_path,
+                rel_path,
                 json.dumps(properties),
             ],
         )
+
+    def _geographic_feature_parquet_path(
+        self,
+        sim_id: str,
+        feature_name: str,
+        *,
+        geoparquet_path: str | None,
+    ) -> Path:
+        if geoparquet_path:
+            path = Path(geoparquet_path)
+            return path if path.is_absolute() else self._workspace / path
+        safe_name = sanitize_segment(feature_name)
+        return self._paths.parquet_dir_for(sim_id) / f"geographic_{safe_name}.parquet"
+
+    def _write_geographic_feature_parquet(self, gdf: gpd.GeoDataFrame, target: Path) -> None:
+        target.parent.mkdir(parents=True, exist_ok=True)
+        tmp = target.with_name(target.name + ".tmp")
+        if tmp.exists():
+            tmp.unlink()
+        plain = gdf.drop(columns=[gdf.geometry.name]).copy()
+        for column in plain.columns:
+            plain[column] = plain[column].map(_json_scalar)
+        plain["geometry_wkb"] = [
+            None if geom is None or geom.is_empty else bytes(geom.wkb) for geom in gdf.geometry
+        ]
+        plain["geometry_type"] = [
+            None if geom is None or geom.is_empty else str(geom.geom_type) for geom in gdf.geometry
+        ]
+        self._db.register("_hmp_geographic_feature", plain)
+        try:
+            tmp_sql = str(tmp).replace("'", "''")
+            self._db.execute(
+                f"COPY (SELECT * FROM _hmp_geographic_feature) TO '{tmp_sql}' (FORMAT PARQUET)"
+            )
+        finally:
+            self._db.unregister("_hmp_geographic_feature")
+        os.replace(tmp, target)
 
     @with_lock_retry()
     def write_geographic_metadata(
@@ -713,6 +963,8 @@ class WritesMixin:
         crs_wkt: str,
         grid_mapping_name: str = "latitude_longitude",
         epsg_code: int | None = None,
+        semi_major_axis: float | None = None,
+        inverse_flattening: float | None = None,
     ) -> None:
         if not self._persistence.save_zarr:
             return
@@ -722,6 +974,8 @@ class WritesMixin:
                 crs_wkt=crs_wkt,
                 grid_mapping_name=grid_mapping_name,
                 epsg_code=epsg_code,
+                semi_major_axis=semi_major_axis,
+                inverse_flattening=inverse_flattening,
             )
         finally:
             sz.close()
@@ -764,14 +1018,17 @@ class WritesMixin:
         columns map to empty strings so the layout is stable across runs.
         """
         row = self._db.execute(
-            "SELECT project, name, scientific_objective FROM simulations WHERE sim_id = ?",
+            "SELECT project, name, solver, config_hash, scientific_objective "
+            "FROM simulations WHERE sim_id = ?",
             [sim_id],
         ).fetchone()
-        project, name, objective = row or (None, None, None)
+        project, name, solver, config_hash, objective = row or (None, None, None, None, None)
         return {
             "sim_id": sim_id,
             "project": str(project) if project is not None else "",
             "name": str(name) if name is not None else "",
+            "solver": str(solver) if solver is not None else "",
+            "config_hash": str(config_hash) if config_hash is not None else "",
             "hydromodpy_version": _HMP_VERSION,
             "schema_version": PARQUET_SCHEMA_VERSION,
             "written_at": datetime.now(UTC).isoformat(),
@@ -823,7 +1080,12 @@ class WritesMixin:
                 copy_sql = f"COPY ({merge_sql}) TO '{tmp}' (FORMAT PARQUET{kv_clause})"
             else:
                 copy_sql = f"COPY ({select_sql}) TO '{tmp}' (FORMAT PARQUET{kv_clause})"
-            self._db.execute(copy_sql)
+            tmp.parent.mkdir(parents=True, exist_ok=True)
+            try:
+                self._db.execute(copy_sql)
+            except Exception:
+                tmp.unlink(missing_ok=True)
+                raise
         finally:
             self._db.unregister("_hmp_insert")
         os.replace(tmp, target)

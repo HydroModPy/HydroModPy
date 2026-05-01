@@ -64,7 +64,7 @@ Run the underlying example or validation case with:
 
 .. code-block:: bash
 
-   python -m hydromodpy run examples_legacy_2/projects/launcher_simulation/run_fast_mf6_mesh_catchment.toml
+   python -m tools.doc_gallery
 
 Refresh the committed gallery artifacts with:
 
@@ -89,35 +89,35 @@ Selected Parameters
    * - ``[simulation.time] start_datetime``
      - Start of the simulated period used by the flow and transport run.
      - 2003-01-01 00:00:00
-     - ``examples_legacy_2/projects/launcher_simulation/run_fast_mf6_mesh_catchment.toml``
+     - ``docs/readthedocs/source/_static/capability_gallery/simulation/modflow6_gmsh_mesh_catchment_summary.json``
    * - ``[simulation.time] end_datetime``
      - End of the simulated period used by the flow and transport run.
      - 2003-03-31 00:00:00
-     - ``examples_legacy_2/projects/launcher_simulation/run_fast_mf6_mesh_catchment.toml``
+     - ``docs/readthedocs/source/_static/capability_gallery/simulation/modflow6_gmsh_mesh_catchment_summary.json``
    * - ``[simulation.time] step_value``
      - Nominal time step used to discretize the simulation period.
      - 10 day
-     - ``examples_legacy_2/projects/launcher_simulation/run_fast_mf6_mesh_catchment.toml``
+     - ``docs/readthedocs/source/_static/capability_gallery/simulation/modflow6_gmsh_mesh_catchment_summary.json``
    * - ``[data.recharge.sources] values``
      - Synthetic recharge sequence injected into the run over the configured time support.
      - 0.2, 6, 1, 0, 4.5, 8, 0.5, 0, 3.5
-     - ``examples_legacy_2/projects/launcher_simulation/run_fast_mf6_mesh_catchment.toml``
+     - ``docs/readthedocs/source/_static/capability_gallery/simulation/modflow6_gmsh_mesh_catchment_summary.json``
    * - ``[data.recharge.sources] freq``
      - Temporal frequency used to interpret the synthetic recharge sequence.
      - 10D
-     - ``examples_legacy_2/projects/launcher_simulation/run_fast_mf6_mesh_catchment.toml``
+     - ``docs/readthedocs/source/_static/capability_gallery/simulation/modflow6_gmsh_mesh_catchment_summary.json``
    * - ``[data.recharge.sources] runoff_ratio``
      - Fraction of recharge redirected to runoff rather than infiltration.
      - 0.1
-     - ``examples_legacy_2/projects/launcher_simulation/run_fast_mf6_mesh_catchment.toml``
+     - ``docs/readthedocs/source/_static/capability_gallery/simulation/modflow6_gmsh_mesh_catchment_summary.json``
    * - ``[flow.param.K.field_homogeneous] value``
      - Homogeneous hydraulic conductivity used by the flow model in this tutorial run.
      - 1e-5 m/s
-     - ``examples_legacy_2/projects/launcher_simulation/run_fast_mf6_mesh_catchment.toml``
+     - ``docs/readthedocs/source/_static/capability_gallery/simulation/modflow6_gmsh_mesh_catchment_summary.json``
    * - ``[flow.param.Sy.field_homogeneous] value``
      - Specific yield used to control the free-surface response of the aquifer.
      - 0.12 -
-     - ``examples_legacy_2/projects/launcher_simulation/run_fast_mf6_mesh_catchment.toml``
+     - ``docs/readthedocs/source/_static/capability_gallery/simulation/modflow6_gmsh_mesh_catchment_summary.json``
 
 Mesh and Output Selection
 ^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -133,29 +133,29 @@ Mesh and Output Selection
    * - ``[mesh_catchment] constraints_mode``
      - Constraint family activated when building the runtime Gmsh support.
      - geology_rivers
-     - ``examples_legacy_2/projects/launcher_simulation/config_mf6_mesh_catchment_common.toml``
+     - ``docs/readthedocs/source/_static/capability_gallery/simulation/modflow6_gmsh_mesh_catchment_summary.json``
    * - ``[mesh_catchment.zone_meshing] global_size``
      - Target background edge size used by the conformal meshing policy.
      - 136
-     - ``examples_legacy_2/projects/launcher_simulation/config_mf6_mesh_catchment_common.toml``
+     - ``docs/readthedocs/source/_static/capability_gallery/simulation/modflow6_gmsh_mesh_catchment_summary.json``
    * - ``[mesh_catchment.zone_meshing] min_size``
      - Lower bound applied to local mesh refinement.
      - 100
-     - ``examples_legacy_2/projects/launcher_simulation/config_mf6_mesh_catchment_common.toml``
+     - ``docs/readthedocs/source/_static/capability_gallery/simulation/modflow6_gmsh_mesh_catchment_summary.json``
    * - ``[mesh_catchment.zone_meshing] max_size``
      - Upper bound applied to local mesh coarsening.
      - 200
-     - ``examples_legacy_2/projects/launcher_simulation/config_mf6_mesh_catchment_common.toml``
+     - ``docs/readthedocs/source/_static/capability_gallery/simulation/modflow6_gmsh_mesh_catchment_summary.json``
    * - ``[capability_gallery] assets``
      - Subset of run outputs copied into the static documentation gallery.
      - flow_state_triptych.png, recharge_discharge_cumulative.png, watertable_elevation.png, watertable_depth.png, flow_support_overview.png
-     - ``examples_legacy_2/projects/launcher_simulation/run_fast_mf6_mesh_catchment.toml``
+     - ``docs/readthedocs/source/_static/capability_gallery/simulation/modflow6_gmsh_mesh_catchment_summary.json``
 
 Source Pointers
 ---------------
 
-- ``examples_legacy_2/projects/launcher_simulation/run_fast_mf6_mesh_catchment.toml``
-- ``examples_legacy_2/projects/launcher_simulation/config_mf6_mesh_catchment_common.toml``
+- ``docs/readthedocs/source/_static/capability_gallery/simulation/modflow6_gmsh_mesh_catchment_summary.json``
+- ``docs/readthedocs/source/_static/capability_gallery/simulation/modflow6_gmsh_mesh_catchment_summary.json``
 - ``examples/projects/09_capability_gallery/launcher_simulation/modflow6_gmsh_mesh_catchment/manifest.json``
 - ``hydromodpy/analysis/capability_gallery.py``
 

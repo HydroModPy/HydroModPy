@@ -13,27 +13,7 @@ This is the same pattern already used by
 
 from __future__ import annotations
 
-from typing import Any, Protocol
-
-
-class SolverRegistryProvider(Protocol):
-    """Read-only view of the solver registry consumed by simulation."""
-
-    def known_process_types(self) -> set[str]:
-        """Return the set of process types declared by any registered adapter."""
-
-    def required_bindings(self, process_type: str, solver_name: str) -> tuple[tuple[str, str], ...]:
-        """Return capabilities that must be satisfied by earlier runs."""
-
-    def get_solver_adapter(self, process_type: str, solver_name: str) -> Any:
-        """Return a freshly-instantiated adapter for the given pair."""
-
-    def get_solver_adapter_class(self, process_type: str, solver_name: str) -> type:
-        """Return the adapter **class** registered for the given pair."""
-
-    def get_extractor_instance(self, solver_name: str) -> Any | None:
-        """Return a freshly-instantiated extractor, or ``None`` when unknown."""
-
+from hydromodpy.core.contracts.solver_registry import SolverRegistryProvider
 
 _PROVIDER: SolverRegistryProvider | None = None
 

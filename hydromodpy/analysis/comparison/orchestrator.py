@@ -29,10 +29,9 @@ from hydromodpy.analysis.comparison.metric_diff import (
 from hydromodpy.analysis.comparison.reporting import build_comparison_report
 from hydromodpy.analysis.comparison.runtime_config import materialize_variant_config
 from hydromodpy.analysis.comparison.runtime_metadata import (
-    compact_run_metrics,
     discover_result_store,
-    read_json_file,
     read_variant_run_metadata,
+    read_variant_run_metrics,
 )
 from hydromodpy.analysis.comparison.runtime_observables import (
     extract_observable_rows,
@@ -267,13 +266,17 @@ class MethodComparisonLauncher:
             if section.run_variants and config_path is not None:
                 start = time.monotonic()
                 project = Project(config_path)
-                project.run()
-                wall_seconds = round(time.monotonic() - start, 2)
-                run_folder = self._resolve_completed_run_folder(
-                    run_state=project.workflow_context,
-                    solver_name=str(variant.solver),
-                )
-                project.close()
+                try:
+                    project.run()
+                    wall_seconds = round(time.monotonic() - start, 2)
+                    run_folder = self._resolve_completed_run_folder(
+                        run_state=project.workflow_context,
+                        solver_name=str(variant.solver),
+                    )
+                finally:
+                    close = getattr(project, "close", None)
+                    if callable(close):
+                        close()
                 status = "completed"
             elif run_folder is None and config_path is not None:
                 run_folder = self._infer_run_folder_from_config(
@@ -284,8 +287,25 @@ class MethodComparisonLauncher:
             elif run_folder is None:
                 raise ValueError(f"Variant '{variant.id}' has no config_path or run_folder")
 
-            metrics = compact_run_metrics(read_json_file(run_folder / "_metrics.json"))
-            metadata = read_variant_run_metadata(run_folder)
+            store = None
+            sim_id = None
+            try:
+                store, sim_id = discover_result_store(config_path)
+                metrics = read_variant_run_metrics(run_folder, store=store, sim_id=sim_id)
+                try:
+                    metadata = read_variant_run_metadata(
+                        run_folder,
+                        store=store,
+                        sim_id=sim_id,
+                    )
+                except TypeError:
+                    metadata = read_variant_run_metadata(run_folder)
+            finally:
+                if store is not None:
+                    try:
+                        store.close()
+                    except Exception:
+                        pass
             return {
                 "id": variant.id,
                 "label": variant.label or variant.id,

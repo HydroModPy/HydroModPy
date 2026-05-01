@@ -388,10 +388,8 @@ class RegionalLabConfig(HydroModelBase):
         """Validate one raw TOML payload."""
         if not isinstance(raw_toml, Mapping):
             raise ValueError("configuration must be a mapping")
-        raw_section = _require_mapping(
-            raw_toml.get("regional_lab"),
-            label="regional_lab",
-        )
+        source = raw_toml.get("regional_lab") if "regional_lab" in raw_toml else raw_toml
+        raw_section = _require_mapping(source, label="regional_lab")
 
         resolved_config_path = Path(config_path).expanduser().resolve()
         base_dir = resolved_config_path.parent

@@ -87,13 +87,11 @@ _DOC_OPTIONAL_IMPORTS = [
     "netCDF4",
     "plotly",
     "pyproj",
-    "pysheds",
     "rasterio",
     "rioxarray",
     "sklearn",
     "cma",
     "optuna",
-    "selenium",
     "ultraplot",
     "vedo",
     "whitebox_workflows",
@@ -431,7 +429,6 @@ autodoc_mock_imports = [
     "pyshp",
     "rasterio",
     "rioxarray",
-    "selenium",
     "spyder",
     "spyder_kernels",
     "pyside6",
@@ -439,7 +436,6 @@ autodoc_mock_imports = [
     "vtk",
     "whitebox_workflows",
     "xarray",
-    "pysheds",
 ]
 
 # use :numref: for references (instead of :ref:)

@@ -32,10 +32,10 @@ class _FakeCatalog:
         self._root = root
         self.closed = False
 
-    def _open_zarr_group(self, sim_id: str, *, mode: str = "r") -> dict[str, object]:
+    def open_zarr(self, sim_id: str) -> SimpleNamespace:
         if sim_id != SIM_ID:
             raise KeyError(sim_id)
-        return self._root
+        return SimpleNamespace(root=self._root, close=lambda: None)
 
     def close(self) -> None:
         self.closed = True
@@ -110,7 +110,7 @@ def _write_structured_solver_config(path: Path, *, solver: str, nx: int, ny: int
 
 
 def _write_solver_grid_template(run_folder: Path, *, nx: int, ny: int) -> None:
-    rasterio = pytest.importorskip("rasterio")
+    import rasterio
     from rasterio.transform import from_origin
 
     run_folder.mkdir(parents=True, exist_ok=True)
@@ -566,7 +566,7 @@ def test_extract_observable_rows_reads_point_and_strict_outlet(tmp_path: Path) -
 
 
 def test_extract_observable_rows_resolves_structured_xy_from_config(tmp_path: Path) -> None:
-    rasterio = pytest.importorskip("rasterio")
+    import rasterio
     from rasterio.transform import from_origin
 
     project_root = tmp_path / "structured_project"

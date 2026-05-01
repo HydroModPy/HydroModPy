@@ -56,6 +56,7 @@ class WorkflowContext:
     sim_id: str | None = None
     parent_sim_id: str | None = None
     postprocess_runner: Any = field(default=None, repr=False)
+    effective_results_config: Any = field(default=None, repr=False)
 
     def get_model(self, run_id: str) -> Any:
         """Return the exact model produced by a concrete process run."""

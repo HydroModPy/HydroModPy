@@ -5,7 +5,6 @@ from __future__ import annotations
 import argparse
 import json
 import os
-import sys
 import time
 from dataclasses import dataclass
 from datetime import datetime, timedelta
@@ -18,8 +17,6 @@ matplotlib.use("Agg")
 import numpy as np
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
-if str(REPO_ROOT) not in sys.path:
-    sys.path.insert(0, str(REPO_ROOT))
 
 from hydromodpy.core.toml_io.loader import merge_toml_payloads
 from tools.surface_interaction_reporting import (

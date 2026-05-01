@@ -20,8 +20,11 @@ class BoussinesqAssembly:
     internal_edge_flux_m3_s: np.ndarray
     prescribed_head_flux_m3_s: np.ndarray
     prescribed_head_m_by_cell: np.ndarray
+    head_constraint_residual_m: np.ndarray
     boundary_edge_flux_m3_s: np.ndarray
     drainage_flux_m3_s: np.ndarray
+    flow_residual_m3_s: np.ndarray
+    solver_residual: np.ndarray
     residual_m3_s: np.ndarray
 
 

@@ -8,12 +8,12 @@ from pathlib import Path
 import rasterio
 
 from hydromodpy.core.io.raster_io import export_tif
-from hydromodpy.spatial.delineation import (
-    WhiteboxWorkflowsBackend,
-    get_whitebox_backend,
-)
 from hydromodpy.spatial.geographic.core.domain_dem import clip_dem_to_box_buffer
-from hydromodpy.spatial.geographic.geographic_io import ensure_crs
+from hydromodpy.spatial.geographic.geographic_io import (
+    backend_has_callables,
+    ensure_crs,
+    resolve_delineation_backend,
+)
 from hydromodpy.spatial.geographic.geographic_paths import GeographicPaths
 
 
@@ -41,7 +41,7 @@ def _clip_raster(
     maintain_dimensions: bool,
     crs_project: str | None,
     nodata: float | None,
-    backend: WhiteboxWorkflowsBackend,
+    backend: object,
 ) -> None:
     """Clip one raster and enforce CRS / nodata conventions."""
     dst_path = str(dst)
@@ -89,16 +89,25 @@ def build_domain_rasters(
     watershed_buff_shp: str | Path,
     paths: GeographicPaths,
     crs_project: str | None = None,
-    backend: WhiteboxWorkflowsBackend | None = None,
+    backend: object | None = None,
 ) -> DomainRasterProducts:
     """
     Build the raster bundle still consumed by legacy solvers and postprocess.
 
     The generated files preserve historical names and nodata conventions.
     """
-    tool = get_whitebox_backend() if backend is None else backend
+    tool = resolve_delineation_backend(backend)
 
-    if isinstance(tool, WhiteboxWorkflowsBackend):
+    if backend_has_callables(
+        tool,
+        "raster",
+        "read_raster",
+        "read_vector",
+        "clip_raster_to_polygon_raster",
+        "modify_no_data_value_raster",
+        "write_raster",
+        "vector_lines_to_raster",
+    ):
         dem_init_raster = tool.raster.read_raster(str(dem_init_path))
         correc_raster = (
             correc_data if correc_data is not None else tool.raster.read_raster(str(correc_path))

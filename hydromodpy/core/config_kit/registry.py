@@ -12,10 +12,12 @@ import typing
 from typing import get_args, get_origin
 
 from pydantic import BaseModel
+from pydantic.fields import FieldInfo
 
 from hydromodpy.core.config_kit.root_config_protocol import get_root_config_provider
 
 _CACHE: dict[str, type[BaseModel]] | None = None
+_SCALAR_CACHE: dict[str, FieldInfo] | None = None
 
 
 def _is_union_origin(origin: object) -> bool:
@@ -59,4 +61,18 @@ def root_sections() -> dict[str, type[BaseModel]]:
     return dict(_CACHE)
 
 
-__all__ = ["root_sections"]
+def root_scalar_fields() -> dict[str, FieldInfo]:
+    """Return root fields that are TOML scalars rather than sections."""
+    global _SCALAR_CACHE
+    if _SCALAR_CACHE is None:
+        root_cls = get_root_config_provider().root_model()
+
+        result: dict[str, FieldInfo] = {}
+        for name, info in root_cls.model_fields.items():
+            if _resolve_basemodel(info.annotation) is None:
+                result[name] = info
+        _SCALAR_CACHE = result
+    return dict(_SCALAR_CACHE)
+
+
+__all__ = ["root_scalar_fields", "root_sections"]

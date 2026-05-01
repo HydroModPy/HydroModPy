@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import tomllib
 from pathlib import Path
 from types import SimpleNamespace
@@ -31,3 +32,8 @@ def test_step_save_run_artifacts_writes_config_snapshot(tmp_path: Path) -> None:
     assert snapshot_path.is_file()
     payload = tomllib.loads(snapshot_path.read_text(encoding="utf-8"))
     assert payload["simulation"]["run_id"] == "snapshot_case"
+
+    json_path = project_root / "_config_snapshot.json"
+    assert json_path.is_file()
+    json_payload = json.loads(json_path.read_text(encoding="utf-8"))
+    assert json_payload["simulation"]["run_id"] == "snapshot_case"

@@ -87,8 +87,8 @@ Node by node:
   `[solver]`) is exactly what you would write for a single run.
 - **`hmp run`**: the unified CLI entry point. It reads `workflow =
   "calibration"` and dispatches to
-  `hydromodpy.calibration.runner.run_calibration_cli`. There is no
-  separate `hmp calibrate` command.
+  `hydromodpy.calibration.runner.run_calibration_cli`. Calibration does not
+  have a separate top-level subcommand.
 - **`prepare_trials`**: runs pipeline steps `[0..earliest)` exactly
   once. `earliest` is computed from the dotted paths declared by
   `[calibration.parameters.*]` (see §4). The prepared

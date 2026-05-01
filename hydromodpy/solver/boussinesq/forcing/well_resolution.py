@@ -64,7 +64,7 @@ class WellResolutionMixin:
             y_m = self.mesh.y_min_m + y_rel * (self.mesh.y_max_m - self.mesh.y_min_m)
         else:
             raise ValueError(f"Unsupported well location mode for '{well_id}': {location_mode!r}.")
-        return self.mesh.locate_cell_index_for_point(x_m, y_m, allow_nearest=True)
+        return self.mesh.locate_cell_index_for_point(x_m, y_m, allow_nearest=False)
 
     def resolve_well_flux_series(
         self,
@@ -89,7 +89,7 @@ class WellResolutionMixin:
             )
             raw_units = getattr(forcing, "units", None) or getattr(well_cfg, "units", "m3/s")
             canonical_units = normalize_m3_per_s_unit(str(raw_units))
-            return np.asarray(
+            values = np.asarray(
                 [
                     convert_to_m3_per_s(
                         value,
@@ -100,6 +100,9 @@ class WellResolutionMixin:
                 ],
                 dtype=float,
             )
+            if not np.all(np.isfinite(values)):
+                raise ValueError(f"flow.sinks_sources.wells.{well_id}.forcing must be finite.")
+            return values
         return self.simple_period_series(
             getattr(well_cfg, "flux", None),
             nper=nper,

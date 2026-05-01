@@ -69,7 +69,7 @@ Run the underlying example or validation case with:
 
 .. code-block:: bash
 
-   python -m hydromodpy run examples_legacy_2/projects/launcher_simulation/run_method_comparison_mf6_vs_nwt_different_meshes_demonstrative.toml
+   python -m tools.doc_gallery
 
 Refresh the committed gallery artifacts with:
 
@@ -94,15 +94,15 @@ Comparison Setup
    * - ``[method_comparison] comparison_id``
      - Stable identifier used to collect outputs and summary artifacts for the comparison.
      - example12_mf6_vs_nwt_different_meshes_demonstrative
-     - ``examples_legacy_2/projects/launcher_simulation/run_method_comparison_mf6_vs_nwt_different_meshes_demonstrative.toml``
+     - ``docs/readthedocs/source/_static/capability_gallery/method_comparison/example12_mf6_vs_nwt_different_meshes_demonstrative_summary.json``
    * - ``[method_comparison] reference_variant``
      - Variant used as the baseline when computing map-wise differences and error metrics.
      - mf6_demo_triangular
-     - ``examples_legacy_2/projects/launcher_simulation/run_method_comparison_mf6_vs_nwt_different_meshes_demonstrative.toml``
+     - ``docs/readthedocs/source/_static/capability_gallery/method_comparison/example12_mf6_vs_nwt_different_meshes_demonstrative_summary.json``
    * - ``[method_comparison] run_variants``
      - Whether the launcher reruns the variants or only reuses committed run folders.
      - true
-     - ``examples_legacy_2/projects/launcher_simulation/run_method_comparison_mf6_vs_nwt_different_meshes_demonstrative.toml``
+     - ``docs/readthedocs/source/_static/capability_gallery/method_comparison/example12_mf6_vs_nwt_different_meshes_demonstrative_summary.json``
    * - ``study_area``
      - Study area summarized by the gallery page for this comparison case.
      - Example12 / Naizin
@@ -122,11 +122,11 @@ Compared Variants
    * - ``variant.mf6_demo_triangular``
      - Compared run folder and solver definition used by the method-comparison launcher.
      - MF6 annual demonstrative on committed triangular mesh; solver=modflow6; mesh_mode=mesh_input; run_folder=None
-     - ``examples_legacy_2/projects/launcher_simulation/run_method_comparison_mf6_vs_nwt_different_meshes_demonstrative.toml``
+     - ``docs/readthedocs/source/_static/capability_gallery/method_comparison/example12_mf6_vs_nwt_different_meshes_demonstrative_summary.json``
    * - ``variant.nwt_demo_structured``
      - Compared run folder and solver definition used by the method-comparison launcher.
      - NWT annual demonstrative on 60x60 structured grid; solver=modflownwt; mesh_mode=structured; run_folder=None
-     - ``examples_legacy_2/projects/launcher_simulation/run_method_comparison_mf6_vs_nwt_different_meshes_demonstrative.toml``
+     - ``docs/readthedocs/source/_static/capability_gallery/method_comparison/example12_mf6_vs_nwt_different_meshes_demonstrative_summary.json``
 
 Compared Observables
 ^^^^^^^^^^^^^^^^^^^^
@@ -142,41 +142,41 @@ Compared Observables
    * - ``observable.head_outlet_lowland``
      - Observable extracted from each run before parity plots and difference metrics are computed.
      - variable=watertable_elevation; support=point; time=all; unit=m
-     - ``examples_legacy_2/projects/launcher_simulation/run_method_comparison_mf6_vs_nwt_different_meshes_demonstrative.toml``
+     - ``docs/readthedocs/source/_static/capability_gallery/method_comparison/example12_mf6_vs_nwt_different_meshes_demonstrative_summary.json``
    * - ``observable.head_mid_basin_response``
      - Observable extracted from each run before parity plots and difference metrics are computed.
      - variable=watertable_elevation; support=point; time=all; unit=m
-     - ``examples_legacy_2/projects/launcher_simulation/run_method_comparison_mf6_vs_nwt_different_meshes_demonstrative.toml``
+     - ``docs/readthedocs/source/_static/capability_gallery/method_comparison/example12_mf6_vs_nwt_different_meshes_demonstrative_summary.json``
    * - ``observable.head_upstream_ridge``
      - Observable extracted from each run before parity plots and difference metrics are computed.
      - variable=watertable_elevation; support=point; time=all; unit=m
-     - ``examples_legacy_2/projects/launcher_simulation/run_method_comparison_mf6_vs_nwt_different_meshes_demonstrative.toml``
+     - ``docs/readthedocs/source/_static/capability_gallery/method_comparison/example12_mf6_vs_nwt_different_meshes_demonstrative_summary.json``
    * - ``observable.outlet_flux_series``
      - Observable extracted from each run before parity plots and difference metrics are computed.
      - variable=outlet_flux; support=outlet; time=all; unit=m3/s
-     - ``examples_legacy_2/projects/launcher_simulation/run_method_comparison_mf6_vs_nwt_different_meshes_demonstrative.toml``
+     - ``docs/readthedocs/source/_static/capability_gallery/method_comparison/example12_mf6_vs_nwt_different_meshes_demonstrative_summary.json``
    * - ``observable.head_map_last``
      - Observable extracted from each run before parity plots and difference metrics are computed.
      - variable=watertable_elevation; support=map; time=last; unit=m
-     - ``examples_legacy_2/projects/launcher_simulation/run_method_comparison_mf6_vs_nwt_different_meshes_demonstrative.toml``
+     - ``docs/readthedocs/source/_static/capability_gallery/method_comparison/example12_mf6_vs_nwt_different_meshes_demonstrative_summary.json``
    * - ``observable.depth_map_last``
      - Observable extracted from each run before parity plots and difference metrics are computed.
      - variable=watertable_depth; support=map; time=last; unit=m
-     - ``examples_legacy_2/projects/launcher_simulation/run_method_comparison_mf6_vs_nwt_different_meshes_demonstrative.toml``
+     - ``docs/readthedocs/source/_static/capability_gallery/method_comparison/example12_mf6_vs_nwt_different_meshes_demonstrative_summary.json``
    * - ``observable.outflow_drain_map_last``
      - Observable extracted from each run before parity plots and difference metrics are computed.
      - variable=outflow_drain; support=map; time=last; unit=m/day
-     - ``examples_legacy_2/projects/launcher_simulation/run_method_comparison_mf6_vs_nwt_different_meshes_demonstrative.toml``
+     - ``docs/readthedocs/source/_static/capability_gallery/method_comparison/example12_mf6_vs_nwt_different_meshes_demonstrative_summary.json``
 
 Source Pointers
 ---------------
 
-- ``examples_legacy_2/projects/launcher_simulation/run_method_comparison_mf6_vs_nwt_different_meshes_demonstrative.toml``
-- ``examples_legacy_2/projects/launcher_simulation/run_demonstrative_annual_mf6_precomputed_mesh_input.toml``
-- ``examples_legacy_2/projects/launcher_simulation/run_demonstrative_annual_nwt.toml``
-- ``examples_legacy_2/projects/launcher_simulation/method_comparison/example12_mf6_vs_nwt_different_meshes_demonstrative/comparison_manifest.json``
-- ``examples_legacy_2/projects/launcher_simulation/method_comparison/example12_mf6_vs_nwt_different_meshes_demonstrative/comparison_metrics.json``
-- ``examples_legacy_2/projects/launcher_simulation/method_comparison/example12_mf6_vs_nwt_different_meshes_demonstrative/observables.csv``
+- ``docs/readthedocs/source/_static/capability_gallery/method_comparison/example12_mf6_vs_nwt_different_meshes_demonstrative_summary.json``
+- ``docs/readthedocs/source/_static/capability_gallery/method_comparison/example12_mf6_vs_nwt_different_meshes_demonstrative_summary.json``
+- ``docs/readthedocs/source/_static/capability_gallery/method_comparison/example12_mf6_vs_nwt_different_meshes_demonstrative_summary.json``
+- ``docs/readthedocs/source/_static/capability_gallery/method_comparison/example12_mf6_vs_nwt_different_meshes_demonstrative_summary.json``
+- ``docs/readthedocs/source/_static/capability_gallery/method_comparison/example12_mf6_vs_nwt_different_meshes_demonstrative_summary.json``
+- ``docs/readthedocs/source/_static/capability_gallery/method_comparison/example12_mf6_vs_nwt_different_meshes_demonstrative_summary.json``
 
 Artifacts
 ---------

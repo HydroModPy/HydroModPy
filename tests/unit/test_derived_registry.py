@@ -9,6 +9,7 @@ the DeriveStep wiring through a minimal stub context.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from types import SimpleNamespace
 
 import numpy as np
 import pytest
@@ -254,6 +255,7 @@ class _CtxStub:
     def __init__(self, store, sim_id: str = "stub") -> None:
         self.store = store
         self.sim_id = sim_id
+        self.execution = SimpleNamespace(simulation_plan=None, lightweight=True)
 
 
 def test_derive_step_runs_registry(tmp_path):

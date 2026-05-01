@@ -55,6 +55,17 @@ def _write_overlay_config(
     return config_path
 
 
+def _load_boussinesq_summary(project_root: Path) -> dict[str, object]:
+    """Load the Boussinesq runtime summary from public run artifacts."""
+    for folder_name in (".solver_scratch", "results_simulations"):
+        results_dir = project_root / folder_name
+        if not results_dir.is_dir():
+            continue
+        for summary_path in sorted(results_dir.glob("*/_boussinesq_summary.json")):
+            return json.loads(summary_path.read_text(encoding="utf-8"))
+    raise AssertionError(f"Boussinesq summary not found under {project_root}")
+
+
 def _run_transient_real_case_summary(
     *,
     tmp_path: Path,
@@ -90,14 +101,10 @@ def _run_transient_real_case_summary(
     monkeypatch.setenv("MPLBACKEND", "Agg")
 
     with Project(config_path) as project:
-        project.run()
-    model = project._ctx.get_model_for_solver("boussinesq")
-    assert model is not None
-    assert model.has_numerical_solution is True
+        run = project.run()
+    assert run is not None
 
-    summary_path = Path(model.full_path) / "_boussinesq_summary.json"
-    assert summary_path.exists()
-    return json.loads(summary_path.read_text(encoding="utf-8"))
+    return _load_boussinesq_summary(project_root)
 
 
 @pytest.mark.validation

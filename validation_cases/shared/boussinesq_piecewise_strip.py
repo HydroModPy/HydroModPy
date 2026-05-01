@@ -515,6 +515,12 @@ def write_piecewise_strip_launcher_config(
         f"description = {json.dumps(str(simulation_description))}",
         f"run_id = {json.dumps(str(run_id))}",
         "",
+        "[simulation.time]",
+        'start_datetime = "2000-01-01 00:00:00"',
+        'end_datetime = "2000-01-01 00:00:00"',
+        'step_value = "1 day"',
+        'coverage_policy = "ignore"',
+        "",
         "[[simulation.process]]",
         f"id = {json.dumps(str(process_id))}",
         'type = "flow"',
@@ -569,9 +575,6 @@ def write_piecewise_strip_launcher_config(
             "",
             "[data]",
             "types = []",
-            "",
-            "[postprocess]",
-            "enabled = false",
             "",
         ]
     )

@@ -118,7 +118,7 @@ class CalibrationEngine:
 
     def _evaluate_with_cache(self, sugg: ParamSuggestion) -> EvaluationResult:
         if self.cache is None:
-            return self.evaluator(sugg)
+            return self._with_parameter_metadata(self.evaluator(sugg), sugg)
         key = params_hash(sugg.values)
         hit = self.cache.get(key)
         if hit is not None:
@@ -129,7 +129,11 @@ class CalibrationEngine:
                 status="completed",
                 from_cache=True,
                 components=hit.components,
-                metadata={"params_hash": key, "cached_status": hit.status},
+                metadata={
+                    "params_hash": key,
+                    "cached_status": hit.status,
+                    "parameters": self.space.describe_values(sugg.values),
+                },
             )
         result = self.evaluator(sugg)
         if result.status == "completed" and math.isfinite(result.objective_value):
@@ -142,6 +146,25 @@ class CalibrationEngine:
         # Enrich metadata with hash for persistence.
         meta = dict(result.metadata or {})
         meta.setdefault("params_hash", key)
+        meta.setdefault("parameters", self.space.describe_values(sugg.values))
+        return EvaluationResult(
+            trial_id=result.trial_id,
+            sim_id=result.sim_id,
+            objective_value=result.objective_value,
+            status=result.status,
+            duration_s=result.duration_s,
+            components=result.components,
+            from_cache=result.from_cache,
+            metadata=meta,
+        )
+
+    def _with_parameter_metadata(
+        self,
+        result: EvaluationResult,
+        sugg: ParamSuggestion,
+    ) -> EvaluationResult:
+        meta = dict(result.metadata or {})
+        meta.setdefault("parameters", self.space.describe_values(sugg.values))
         return EvaluationResult(
             trial_id=result.trial_id,
             sim_id=result.sim_id,

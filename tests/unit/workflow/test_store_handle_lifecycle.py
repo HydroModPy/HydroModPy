@@ -3,6 +3,8 @@ from __future__ import annotations
 from pathlib import Path
 from types import SimpleNamespace
 
+import pytest
+
 from hydromodpy.workflow.steps import prepare_solver as prepare_solver_module
 
 
@@ -18,10 +20,14 @@ class _FakeStore:
     def __init__(self, registration) -> None:
         self.registration = registration
         self.calls: list[tuple[tuple[object, ...], dict[str, object]]] = []
+        self.environment_calls: list[dict[str, object]] = []
 
     def register_simulation(self, *args, **kwargs):
         self.calls.append((args, kwargs))
         return self.registration
+
+    def write_run_environment(self, *args, **kwargs) -> None:
+        self.environment_calls.append({"args": args, "kwargs": kwargs})
 
 
 def test_step_register_simulation_closes_unused_bootstrap_zarr(monkeypatch) -> None:
@@ -32,6 +38,7 @@ def test_step_register_simulation_closes_unused_bootstrap_zarr(monkeypatch) -> N
         parent_sim_id=None,
         store=store,
         cfg=SimpleNamespace(simulation=SimpleNamespace(on_collision="replace")),
+        setup=SimpleNamespace(time_grid=None, workspace=SimpleNamespace(project_root=None)),
     )
     plan = SimpleNamespace(runs=[SimpleNamespace(solver="boussinesq")])
 
@@ -102,3 +109,56 @@ def test_step_open_store_closes_unused_bootstrap_zarr(monkeypatch, tmp_path: Pat
     assert ctx.sim_id is not None
     assert ctx.setup.run_id == "run_0002"
     assert fake_zarr.close_calls == 1
+
+
+class _Dumpable:
+    def __init__(self, payload: dict) -> None:
+        self.payload = payload
+
+    def model_dump(self, **_kwargs) -> dict:
+        return dict(self.payload)
+
+
+def test_effective_config_snapshot_uses_runtime_domain_and_results() -> None:
+    declared = {
+        "workflow": "simulation",
+        "domain": {"depth_model": {"type": "constant_thickness", "thickness": 10.0}},
+        "simulation": {"results": {"keep_solver_files": False}},
+    }
+    effective_domain = {
+        "depth_model": {"type": "constant_thickness", "thickness": 25.0},
+    }
+    effective_results = {
+        "keep_solver_files": True,
+        "persistence": {"save_catalog": True},
+    }
+    ctx = SimpleNamespace(
+        cfg=_Dumpable(declared),
+        setup=SimpleNamespace(domain=SimpleNamespace(config=_Dumpable(effective_domain))),
+        effective_results_config=_Dumpable(effective_results),
+    )
+
+    snapshot = prepare_solver_module.collect_effective_config_snapshot(ctx)
+
+    assert snapshot["domain"] == effective_domain
+    assert snapshot["simulation"]["results"] == effective_results
+
+
+def test_step_cleanup_scratch_raises_on_cleanup_failure(monkeypatch, tmp_path: Path) -> None:
+    from hydromodpy.workflow.steps import export as export_module
+
+    scratch = tmp_path / ".solver_scratch"
+    scratch.mkdir()
+    ctx = SimpleNamespace(
+        setup=SimpleNamespace(
+            workspace=SimpleNamespace(solver_scratch_folder=scratch),
+        )
+    )
+
+    def fail_rmtree(_path: Path) -> None:
+        raise OSError("locked")
+
+    monkeypatch.setattr(export_module.shutil, "rmtree", fail_rmtree)
+
+    with pytest.raises(RuntimeError, match="Could not remove solver scratch directory"):
+        export_module.step_cleanup_scratch(ctx)

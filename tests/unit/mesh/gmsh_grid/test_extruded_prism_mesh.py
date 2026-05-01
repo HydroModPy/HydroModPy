@@ -82,7 +82,7 @@ def test_extruded_quad_mesh_supports_explicit_z_interfaces():
 
 
 def test_extruded_prism_mesh_roundtrip_vtu_if_meshio_available(tmp_path):
-    pytest.importorskip("meshio")
+    import meshio  # noqa: F401
 
     mesh_3d = ExtrudedPrismMesh3D.from_layer_thicknesses(
         _build_triangle_planar_mesh(),

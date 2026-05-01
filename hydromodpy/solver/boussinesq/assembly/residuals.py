@@ -45,7 +45,12 @@ def _finalize_assembly(
         boundary_head_m_by_edge=boundary_head_m_by_edge,
         prescribed_head_m_by_cell=prescribed_head_m_by_cell,
     )
-    residual, prescribed_head_flux = finalize_boundary_constrained_residual(
+    (
+        solver_residual,
+        prescribed_head_flux,
+        head_constraint_residual,
+        flow_residual,
+    ) = finalize_boundary_constrained_residual(
         head_m=np.asarray(head_candidate_m, dtype=float),
         raw_residual_m3_s=raw_residual_m3_s,
         prescribed_head_m_by_cell=boundary_inputs.prescribed_head_m_by_cell,
@@ -60,9 +65,12 @@ def _finalize_assembly(
         internal_edge_flux_m3_s=spatial_terms.internal_edge_flux_m3_s,
         prescribed_head_flux_m3_s=prescribed_head_flux,
         prescribed_head_m_by_cell=boundary_inputs.prescribed_head_m_by_cell,
+        head_constraint_residual_m=head_constraint_residual,
         boundary_edge_flux_m3_s=spatial_terms.boundary_edge_flux_m3_s,
         drainage_flux_m3_s=spatial_terms.drainage_flux_m3_s,
-        residual_m3_s=residual,
+        flow_residual_m3_s=flow_residual,
+        solver_residual=solver_residual,
+        residual_m3_s=flow_residual,
     )
 
 

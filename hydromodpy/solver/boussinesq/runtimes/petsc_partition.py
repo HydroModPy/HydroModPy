@@ -125,7 +125,7 @@ def _solve_nonlinear_system(
 
     current_assembly = assembly_for(head0)
     initial_residual_norm_inf = residual_norm_inf(
-        np.asarray(current_assembly.residual_m3_s, dtype=float)
+        np.asarray(current_assembly.solver_residual, dtype=float)
     )
 
     def _residual(_snes, state_vec, residual_vec) -> None:
@@ -133,7 +133,7 @@ def _solve_nonlinear_system(
         head_m = np.asarray(state_vec.getArray(readonly=True), dtype=float)
         current_assembly = assembly_for(head_m)
         residual = np.asarray(residual_vec.getArray(), dtype=float)
-        residual[:] = np.asarray(current_assembly.residual_m3_s, dtype=float)
+        residual[:] = np.asarray(current_assembly.solver_residual, dtype=float)
 
     def _jacobian(_snes, state_vec, jac, preconditioner) -> None:
         nonlocal current_assembly
@@ -169,7 +169,7 @@ def _solve_nonlinear_system(
                     n_rows=n_cells,
                 ),
                 residual_norm_inf=float(
-                    residual_norm_inf(np.asarray(current_assembly.residual_m3_s, dtype=float))
+                    residual_norm_inf(np.asarray(current_assembly.solver_residual, dtype=float))
                 ),
                 initial_residual_norm_inf=initial_residual_norm_inf,
             )
@@ -189,7 +189,7 @@ def _solve_nonlinear_system(
     snes.solve(None, solution)
     head = np.asarray(solution.getArray(readonly=True), dtype=float).copy()
     current_assembly = assembly_for(head)
-    residual_norm = residual_norm_inf(np.asarray(current_assembly.residual_m3_s, dtype=float))
+    residual_norm = residual_norm_inf(np.asarray(current_assembly.solver_residual, dtype=float))
     converged_reason = int(snes.getConvergedReason())
     reason_label = _snes_reason_label(converged_reason)
     termination_reason_base = (

@@ -17,6 +17,10 @@ from tools.doc_gallery.mesh_case_registry import (
 from tools.doc_gallery.update_gallery import _build_category_page, _generate_mesh_viewer_case
 
 SAMPLE_BUNDLE = REPO_ROOT / "examples" / "projects" / "08_mesh_viewer" / "sample_bundle"
+DEFAULT_100KM2_SOURCE_CONFIG = (
+    "examples/projects/07_mesh_gallery/100km2/"
+    "mesh_headwater_100km2_outlet_27_geology_rivers_buffer30/viewer_config.toml"
+)
 
 
 def _write_dummy_launcher_config(repo_root: Path, relative_path: str) -> None:
@@ -49,10 +53,7 @@ def _build_bundle_with_mesher_figures(tmp_path: Path) -> tuple[Path, Path, Path]
 
 def test_import_mesh_bundle_case_creates_canonical_layout(tmp_path: Path) -> None:
     repo_root = tmp_path / "repo"
-    _write_dummy_launcher_config(
-        repo_root,
-        "old/launchers/mesh_catchment/scenarios/config_headwater_100km2.toml",
-    )
+    _write_dummy_launcher_config(repo_root, DEFAULT_100KM2_SOURCE_CONFIG)
 
     case_dir = import_mesh_bundle_case(
         source_bundle=SAMPLE_BUNDLE,
@@ -90,10 +91,7 @@ def test_import_mesh_bundle_case_creates_canonical_layout(tmp_path: Path) -> Non
         payload["config_path"]
         == "examples/projects/07_mesh_gallery/100km2/mesh_100km2_outlet_27_geology_rivers_buffer30/viewer_config.toml"
     )
-    assert (
-        "old/launchers/mesh_catchment/scenarios/config_headwater_100km2.toml"
-        in payload["source_paths"]
-    )
+    assert DEFAULT_100KM2_SOURCE_CONFIG in payload["source_paths"]
 
     viewer_config = viewer_config_path.read_text(encoding="utf-8")
     assert 'bundle_dir = "./bundle"' in viewer_config
@@ -102,10 +100,7 @@ def test_import_mesh_bundle_case_creates_canonical_layout(tmp_path: Path) -> Non
 
 def test_build_repo_mesh_gallery_case_specs_discovers_imported_cases(tmp_path: Path) -> None:
     repo_root = tmp_path / "repo"
-    _write_dummy_launcher_config(
-        repo_root,
-        "old/launchers/mesh_catchment/scenarios/config_headwater_100km2.toml",
-    )
+    _write_dummy_launcher_config(repo_root, DEFAULT_100KM2_SOURCE_CONFIG)
 
     import_mesh_bundle_case(
         source_bundle=SAMPLE_BUNDLE,
@@ -133,10 +128,7 @@ def test_build_repo_mesh_gallery_case_specs_discovers_imported_cases(tmp_path: P
 
 def test_imported_mesh_case_prefers_copied_mesher_figures_when_available(tmp_path: Path) -> None:
     repo_root = tmp_path / "repo"
-    _write_dummy_launcher_config(
-        repo_root,
-        "old/launchers/mesh_catchment/scenarios/config_headwater_100km2.toml",
-    )
+    _write_dummy_launcher_config(repo_root, DEFAULT_100KM2_SOURCE_CONFIG)
     source_bundle, overview_png, regional_png = _build_bundle_with_mesher_figures(tmp_path)
 
     import_mesh_bundle_case(
@@ -174,10 +166,7 @@ def test_generate_mesh_viewer_case_uses_preferred_doc_figure_when_available(
     monkeypatch,
 ) -> None:
     repo_root = tmp_path / "repo"
-    _write_dummy_launcher_config(
-        repo_root,
-        "old/launchers/mesh_catchment/scenarios/config_headwater_100km2.toml",
-    )
+    _write_dummy_launcher_config(repo_root, DEFAULT_100KM2_SOURCE_CONFIG)
     source_bundle, overview_png, regional_png = _build_bundle_with_mesher_figures(tmp_path)
     import_mesh_bundle_case(
         source_bundle=source_bundle,

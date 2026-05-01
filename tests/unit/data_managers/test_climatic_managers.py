@@ -520,6 +520,8 @@ class TestLoadCustomNc:
             },
         )
         ds["recharge"].attrs["units"] = "m/day"
+        ds["recharge"].attrs["nodata"] = -9999.0
+        ds.attrs["crs"] = "EPSG:4326"
         nc_path = tmp_path / "test_recharge.nc"
         ds.to_netcdf(nc_path)
 
@@ -559,6 +561,8 @@ class TestLoadCustomNc:
                 "y": [10.0, 20.0],
             },
         )
+        ds["etp"].attrs["nodata"] = -9999.0
+        ds.attrs["crs"] = "EPSG:4326"
         nc_path = tmp_path / "etp_explicit_source_unit.nc"
         ds.to_netcdf(nc_path)
 
@@ -589,6 +593,8 @@ class TestLoadCustomNc:
                 "y": [10.0, 20.0, 30.0],
             },
         )
+        ds["etp"].attrs["nodata"] = -9999.0
+        ds.attrs["crs"] = "EPSG:4326"
         nc_path = tmp_path / "etp.nc"
         ds.to_netcdf(nc_path)
 
@@ -614,6 +620,8 @@ class TestLoadCustomNc:
                 "y": np.arange(5),
             },
         )
+        ds["soil_k"].attrs["nodata"] = -9999.0
+        ds.attrs["crs"] = "EPSG:4326"
         nc_path = tmp_path / "soil.nc"
         ds.to_netcdf(nc_path)
 
@@ -622,6 +630,30 @@ class TestLoadCustomNc:
         assert rec.date_start is None
         assert rec.date_end is None
         assert rec.frequency is None
+
+    def test_load_rejects_missing_crs(self, tmp_path):
+        ds = xr.Dataset(
+            {"soil_k": (["x", "y"], np.ones((2, 2)))},
+            coords={"x": [0.0, 1.0], "y": [0.0, 1.0]},
+        )
+        ds["soil_k"].attrs["nodata"] = -9999.0
+        nc_path = tmp_path / "missing_crs.nc"
+        ds.to_netcdf(nc_path)
+
+        with pytest.raises(ValueError, match="CRS"):
+            load_custom_nc(nc_path, variable="soil_k", unit="m/s")
+
+    def test_load_rejects_missing_nodata(self, tmp_path):
+        ds = xr.Dataset(
+            {"soil_k": (["x", "y"], np.ones((2, 2)))},
+            coords={"x": [0.0, 1.0], "y": [0.0, 1.0]},
+            attrs={"crs": "EPSG:4326"},
+        )
+        nc_path = tmp_path / "missing_nodata.nc"
+        ds.to_netcdf(nc_path)
+
+        with pytest.raises(ValueError, match="nodata"):
+            load_custom_nc(nc_path, variable="soil_k", unit="m/s")
 
 
 @pytest.mark.fast

@@ -197,7 +197,7 @@ def _resolve_max_iter_from_kwargs(
 
 @dataclass(frozen=True, slots=True)
 class TwinParameterTarget:
-    """One v0.6-shaped parameter declaration shared by twin cases."""
+    """One v1 parameter declaration shared by twin cases."""
 
     target: str
     mode: str = "replace"
@@ -206,7 +206,7 @@ class TwinParameterTarget:
 
 @dataclass(frozen=True, slots=True)
 class TwinOutputSpec:
-    """One v0.6-shaped output declaration shared by twin cases."""
+    """One v1 output declaration shared by twin cases."""
 
     variable: str
     support: str = "point"
@@ -219,7 +219,7 @@ class TwinOutputSpec:
 
 @dataclass(frozen=True, slots=True)
 class TwinObjectiveBlockSpec:
-    """One v0.6-shaped objective block declaration shared by twin cases."""
+    """One v1 objective block declaration shared by twin cases."""
 
     name: str
     metric: str = "rmse"
@@ -251,13 +251,6 @@ class TwinCalibrationCaseDefinition:
     reference_objective_seed: int = 91
     build_simulation_config: Callable[[Path, Path], None] | None = None
     build_truth_simulation_config: Callable[[Path, Path], None] | None = None
-    build_calibration_payload: (
-        Callable[
-            [str, str, Mapping[str, tuple[float, ...]], CalibrationMethodProfile],
-            dict[str, Any],
-        ]
-        | None
-    ) = None
     parameter_targets: Mapping[str, TwinParameterTarget] | None = None
     output_specs: Mapping[str, TwinOutputSpec] | None = None
     objective_block_specs: tuple[TwinObjectiveBlockSpec, ...] | None = None

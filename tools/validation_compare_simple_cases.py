@@ -12,7 +12,6 @@ import csv
 import importlib
 import json
 import os
-import sys
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -24,8 +23,6 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
-if str(REPO_ROOT) not in sys.path:
-    sys.path.insert(0, str(REPO_ROOT))
 DEFAULT_CASE_IDS = (
     "dupuit_fixed_head_1d",
     "dupuit_uniform_recharge_1d",

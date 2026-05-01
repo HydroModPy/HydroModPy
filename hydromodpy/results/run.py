@@ -52,8 +52,9 @@ import pandas as pd
 
 from hydromodpy.core.config_kit.root_config_protocol import get_root_config_provider
 from hydromodpy.core.logging import get_logger
+from hydromodpy.results import field_registry
 from hydromodpy.results.contracts import Mesh, RasterField, Stack
-from hydromodpy.results.run_array import RunArrayProvider
+from hydromodpy.results.run_array import RunArrayProvider, lookup_zarr_path
 
 logger = get_logger(__name__)
 
@@ -85,13 +86,13 @@ class Run:
 
     def _load_row(self) -> dict:
         if self._row is None:
-            row = self._catalog._connection.execute(
+            row = self._catalog.connection.execute(
                 "SELECT * FROM simulations WHERE sim_id = ?",
                 [self._sim_id],
             ).fetchone()
             if row is None:
                 raise KeyError(f"Simulation '{self._sim_id}' not found")
-            cols = [d[0] for d in self._catalog._connection.description]
+            cols = [d[0] for d in self._catalog.connection.description]
             self._row = dict(zip(cols, row, strict=False))
         return self._row
 
@@ -226,7 +227,7 @@ class Run:
         scalars are trivially looked up via
         ``sim.parameters.loc["thickness", "value"]``.
         """
-        df = self._catalog._connection.execute(
+        df = self._catalog.connection.execute(
             "SELECT param_name, zone_id, value, unit, parameterization "
             "FROM parameters WHERE sim_id = ? ORDER BY param_name, zone_id",
             [self._sim_id],
@@ -244,7 +245,7 @@ class Run:
 
     @property
     def metrics(self) -> pd.DataFrame:
-        return self._catalog._connection.execute(
+        return self._catalog.connection.execute(
             "SELECT station_id, metric_name, value "
             "FROM metrics WHERE sim_id = ? ORDER BY station_id, metric_name",
             [self._sim_id],
@@ -252,7 +253,7 @@ class Run:
 
     @property
     def provenance(self) -> pd.DataFrame:
-        return self._catalog._connection.execute(
+        return self._catalog.connection.execute(
             "SELECT variable, source_type, source_ref, "
             "payload_sha256 AS checksum, "
             "period_start, period_end, n_records "
@@ -277,7 +278,7 @@ class Run:
             query += " AND datetime >= ? AND datetime <= ?"
             params.extend([period[0], period[1]])
         query += " ORDER BY datetime"
-        result = self._catalog._connection.execute(query, params).fetchdf()
+        result = self._catalog.connection.execute(query, params).fetchdf()
         if result.empty:
             raise KeyError(
                 f"No timeseries for sim={self._sim_id}, station={station}, var={variable}"
@@ -340,7 +341,7 @@ class Run:
             query += " AND datetime >= ? AND datetime <= ?"
             params.extend([period[0], period[1]])
         query += " ORDER BY station_id, datetime"
-        df = self._catalog._connection.execute(query, params).fetchdf()
+        df = self._catalog.connection.execute(query, params).fetchdf()
         if df.empty:
             station_msg = f", station={station}" if station is not None else ""
             raise ValueError(
@@ -369,11 +370,11 @@ class Run:
         if period is not None:
             query += " AND timestep >= ? AND timestep <= ?"
             params.extend(period)
-        return self._catalog._connection.execute(query, params).fetchdf()
+        return self._catalog.connection.execute(query, params).fetchdf()
 
     @property
     def mass_balance(self) -> pd.DataFrame:
-        return self._catalog._connection.execute(
+        return self._catalog.connection.execute(
             "SELECT * FROM mass_balance WHERE sim_id = ? ORDER BY timestep",
             [self._sim_id],
         ).fetchdf()
@@ -466,22 +467,50 @@ class Run:
         return arr
 
     def fields(self, variable: str) -> Stack:
-        """Stack per-timestep arrays of ``variable``.
+        """Return a lazy per-timestep raster stack of ``variable``.
 
         For regular-in-plan meshes (``dis`` / ``disv``) reshapes each
         flat cell array to the DEM grid and returns a :class:`Stack`
-        with ``data`` shaped ``(n_t, nrow, ncol)``. Values are returned
-        raw (no masking or NaN substitution); combine with
+        with Dask-backed ``data`` shaped ``(n_t, nrow, ncol)``. Values are
+        returned raw (no masking or NaN substitution); combine with
         ``run.catchment_mask`` to mask inactive cells. Raises
         ``RuntimeError`` for lumped simulations.
         """
+        import dask.array as da
+
         if self._load_row().get("solver_category") == "lumped":
             raise RuntimeError("lumped simulation has no spatial grid")
-        n = self.n_timesteps or 1
+        desc = field_registry.get(variable)
+        if desc.shape not in (
+            field_registry.SHAPE_TIME_FACE,
+            field_registry.SHAPE_TIME_LAYER_FACE,
+        ):
+            raise ValueError(f"Field '{variable}' is not a time-varying face field")
         grid = self.grid
-        data = np.stack(
-            [np.asarray(self.field(variable, timestep=t)).reshape(grid.shape) for t in range(n)]
-        )
+        sz = self._catalog.open_zarr(self._sim_id)
+        try:
+            arr = lookup_zarr_path(sz.root, desc.zarr_path)
+            if arr is None:
+                raise KeyError(f"Field '{variable}' not found in simulation '{self._sim_id}'")
+            chunks = arr.chunks if arr.chunks else "auto"
+            data = da.from_array(arr, chunks=chunks)
+            if desc.shape == field_registry.SHAPE_TIME_LAYER_FACE:
+                if data.shape[1] != 1:
+                    raise ValueError(
+                        f"Field '{variable}' has {data.shape[1]} layers; "
+                        "use run.array.to_xarray_batch() for multi-layer data."
+                    )
+                data = data[:, 0, :]
+            nrow, ncol = grid.shape
+            if data.shape[-1] != nrow * ncol:
+                raise ValueError(
+                    f"Field '{variable}' has {data.shape[-1]} cells; "
+                    f"grid shape {grid.shape} requires {nrow * ncol} cells."
+                )
+            data = data.reshape((data.shape[0], nrow, ncol))
+        except Exception:
+            sz.close()
+            raise
         return Stack(data=data, variable=variable)
 
     @cached_property
@@ -517,7 +546,7 @@ class Run:
         ``run.parameters`` DataFrame (MultiIndex on ``param_name`` and
         ``zone_id``).
         """
-        rows = self._catalog._connection.execute(
+        rows = self._catalog.connection.execute(
             "SELECT param_name, value FROM parameters "
             "WHERE sim_id = ? AND (zone_id IS NULL OR zone_id = ?)",
             [self._sim_id, "__global__"],
@@ -597,10 +626,13 @@ class Run:
             caps.append("hydrograph")
 
         sz = self._catalog.open_zarr(self._sim_id)
-        if "concentration" in sz.root:
-            caps.append("concentration_map")
-        if "pathlines" in sz.root:
-            caps.append("particle_tracks")
+        try:
+            if "concentration" in sz.root:
+                caps.append("concentration_map")
+            if "pathlines" in sz.root:
+                caps.append("particle_tracks")
+        finally:
+            sz.close()
 
         return caps
 

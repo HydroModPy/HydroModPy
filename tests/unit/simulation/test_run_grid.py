@@ -263,7 +263,7 @@ class TestTimeIndex:
 class TestParams:
     def test_params_returns_global_scalars(self, catalog):
         sid = _register_sim(catalog)
-        catalog._connection.execute(
+        catalog.connection.execute(
             "INSERT INTO parameters (sim_id, param_name, zone_id, value) "
             "VALUES (?, 'K', '__global__', 5e-5), "
             "       (?, 'Sy', '__global__', 0.05)",
@@ -274,7 +274,7 @@ class TestParams:
 
     def test_params_excludes_zonal_rows(self, catalog):
         sid = _register_sim(catalog)
-        catalog._connection.execute(
+        catalog.connection.execute(
             "INSERT INTO parameters (sim_id, param_name, zone_id, value) "
             "VALUES (?, 'thickness', '__global__', 30.0), "
             "       (?, 'K', 'zone_1', 1e-4), "

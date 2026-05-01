@@ -180,7 +180,7 @@ def test_calibrate_brutsaert_runs_and_yields_valid_diagnostics(
     _golden,
 ) -> None:
     if method == "scipy_nelder_mead":
-        pytest.importorskip("scipy")
+        import scipy  # noqa: F401
 
     # Confirm the calibration still runs through the new architecture.
     result = calibrate_brutsaert(method=method, objective_metric="kge")

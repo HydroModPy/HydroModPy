@@ -11,12 +11,14 @@ from __future__ import annotations
 from collections.abc import Mapping
 from dataclasses import dataclass, field
 from pathlib import Path
+from types import SimpleNamespace
 from typing import Any
 
 import pytest
 
 from hydromodpy.core.exceptions import StepError
-from hydromodpy.workflow.internals.checkpoint import _strip_unpicklable
+from hydromodpy.core.state.run_state import WorkflowContext
+from hydromodpy.workflow.internals.checkpoint import CheckpointStore, _strip_unpicklable
 from hydromodpy.workflow.internals.state import (
     PipelineState,
     UnpicklableMarker,
@@ -148,3 +150,35 @@ def test_strip_unpicklable_emits_marker_with_type_name() -> None:
     assert isinstance(stripped.data["k"], UnpicklableMarker)
     assert stripped.data["k"].type_name == "function"
     assert stripped.data["n"] == 7
+
+
+def test_checkpoint_strips_live_store_without_losing_ctx(tmp_path: Path) -> None:
+    """Checkpointed workflow contexts keep metadata but not live catalog handles."""
+    cfg = SimpleNamespace(
+        simulation=SimpleNamespace(
+            results=SimpleNamespace(persistence=SimpleNamespace(save_catalog=False))
+        )
+    )
+    ctx = WorkflowContext(cfg=cfg, config_path=tmp_path / "project.toml", raw_toml={})
+    ctx.sim_id = "sim-1"
+    ctx.store = lambda: None
+    ctx.postprocess_runner = lambda: None
+
+    state = PipelineState(
+        run_id="ctx-1",
+        step_index=0,
+        step_name="prepare_solver",
+        data={"ctx": ctx, "cfg": cfg},
+    )
+    store = CheckpointStore(tmp_path, state.run_id)
+    path = store.persist(state)
+
+    assert path.exists()
+    assert list(path.parent.glob("*.tmp")) == []
+
+    restored = store.restore(0)
+    restored_ctx = restored.data["ctx"]
+    assert isinstance(restored_ctx, WorkflowContext)
+    assert restored_ctx.sim_id == "sim-1"
+    assert restored_ctx.store is None
+    assert restored_ctx.postprocess_runner is None

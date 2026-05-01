@@ -148,8 +148,8 @@ def build_well_stress_period_data(
             )
         else:
             flux = well.flux
-            if isinstance(flux, list):
-                flux_vector = np.asarray(flux, dtype=float)
+            if isinstance(flux, (list, tuple)):
+                flux_vector = np.asarray(list(flux), dtype=float)
                 if flux_vector.size == 1:
                     flux_vector = np.full(adapter.nper, float(flux_vector[0]), dtype=float)
                 elif flux_vector.size != adapter.nper:
@@ -159,6 +159,8 @@ def build_well_stress_period_data(
                     )
             else:
                 flux_vector = np.full(adapter.nper, float(flux), dtype=float)
+        if not np.all(np.isfinite(flux_vector)):
+            raise ValueError(f"flow.sinks_sources.wells.{well_id}.flux must be finite.")
         normalized_wells.append((well_id, cell, flux_vector))
 
     lrcq: dict[int, list[list[float]]] = {}

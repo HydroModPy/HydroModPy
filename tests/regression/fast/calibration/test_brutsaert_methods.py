@@ -67,11 +67,11 @@ def _has_cmaes_sampler() -> bool:
 def test_brutsaert_method_matches_golden(method: str) -> None:
     """Compare best-parameter vector of each method against the golden."""
     if method == "scipy_nelder_mead":
-        pytest.importorskip("scipy")
+        import scipy  # noqa: F401
     if method == "cma_es":
         pytest.importorskip("optuna")
     if method in ("gp_mapping", "da_mh_gp"):
-        pytest.importorskip("sklearn")
+        import sklearn  # noqa: F401
 
     # ``da_mh_gp`` uses RMSE because its sampler builds a Gaussian likelihood.
     objective_metric = "rmse" if method == "da_mh_gp" else "kge"

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 import tomllib
 from collections.abc import Mapping
 from pathlib import Path
@@ -16,6 +17,11 @@ if TYPE_CHECKING:
     from hydromodpy.results.store import ResultStore
 
 logger = get_logger(__name__)
+
+
+def _legacy_npy_enabled() -> bool:
+    """Return whether legacy validation .npy loading is explicitly enabled."""
+    return os.environ.get("HYDROMODPY_ALLOW_LEGACY_NPY_VALIDATION") == "1"
 
 
 def _aggregate_triangles_to_grid(
@@ -126,6 +132,12 @@ def load_case_tolerances(case_dir: Path, solver: str | None = None) -> dict:
 
 def load_npy_dict(path: Path) -> dict:
     """Load one HydroModPy dictionary payload serialized in ``.npy`` format."""
+    if not _legacy_npy_enabled():
+        raise RuntimeError(
+            "Legacy validation .npy loading is disabled. Read validation outputs "
+            "through the result store, or set HYDROMODPY_ALLOW_LEGACY_NPY_VALIDATION=1 "
+            "for archived pre-v1 artifacts."
+        )
     return np.load(path, allow_pickle=True).item()
 
 

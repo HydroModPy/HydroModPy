@@ -12,6 +12,7 @@ from hydromodpy.solver.modflow_grid import (
 def test_build_temporal_discretization_from_time_grid_ignores_firstpersteady_in_steady() -> None:
     time_grid = SimpleNamespace(
         period_lengths_seconds=(1.0, 2.0, 3.0),
+        nstp_per_period=4,
         window=None,
     )
 
@@ -23,5 +24,5 @@ def test_build_temporal_discretization_from_time_grid_ignores_firstpersteady_in_
 
     assert result.nper == 3
     assert np.allclose(result.perlen, np.array([1.0, 2.0, 3.0]))
-    assert np.array_equal(result.nstp, np.array([1, 1, 1]))
+    assert np.array_equal(result.nstp, np.array([4, 4, 4]))
     assert np.array_equal(result.steady, np.array([True, True, True]))

@@ -2,14 +2,13 @@
 
 Single CLI entry point. The TOML must carry a top-level
 ``workflow = "..."`` field (one of ``simulation``, ``calibration``,
-``batch``, ``overview``, ``mesh``). Absence raises
+``batch``, ``overview``, ``mesh``, ``method-comparison``). Absence raises
 ``WorkflowMissingError``.
 """
 
 from __future__ import annotations
 
 import argparse
-import importlib
 import sys
 from pathlib import Path
 
@@ -87,11 +86,6 @@ def run(args: argparse.Namespace) -> None:
         print(f"File not found: {target}", file=sys.stderr)
         sys.exit(EXIT_NOT_FOUND)
 
-    if getattr(args, "frozen", False):
-        from hydromodpy.data.data_freeze import set_frozen_mode
-
-        set_frozen_mode(True)
-
     if target.suffix == ".toml":
         _run_toml(target, args=args)
     elif target.suffix == ".py":
@@ -113,17 +107,18 @@ def _run_toml(config_path: Path, *, args: argparse.Namespace) -> None:
     """Run a workflow from a TOML file.
 
     The TOML MUST declare ``workflow = "..."`` at the top level - otherwise
-    :class:`~hydromodpy.cli.workflows.WorkflowMissingError` is raised and
+    :class:`~hydromodpy.workflow.dispatch.WorkflowMissingError` is raised and
     the CLI exits with ``EXIT_CONFIG``. No implicit detection from sections.
     """
     import tomllib
 
-    from hydromodpy.cli.workflows import (
+    from hydromodpy.display.banner import print_hydromodpy
+    from hydromodpy.workflow.dispatch import (
+        DISPATCH,
         WorkflowError,
         load_raw_toml,
         resolve_workflow,
     )
-    from hydromodpy.display.banner import print_hydromodpy
 
     print_hydromodpy()
     auto_scan_workspace(config_path)
@@ -136,19 +131,14 @@ def _run_toml(config_path: Path, *, args: argparse.Namespace) -> None:
 
     dry_run = bool(getattr(args, "dry_run", False))
     try:
-        # In --dry-run we only print the plan, so the workflow field becomes
-        # advisory: infer from TOML sections when absent rather than refusing.
         workflow = resolve_workflow(
             config_path,
             cli_workflow=None,
-            require_toml_field=not dry_run,
+            require_toml_field=True,
         )
     except WorkflowError as exc:
         print(str(exc), file=sys.stderr)
         sys.exit(EXIT_CONFIG)
-
-    if workflow is None:
-        workflow = _infer_workflow_from_sections(raw_toml)
 
     resume = getattr(args, "resume", None)
     from_step = getattr(args, "from_step", None)
@@ -186,15 +176,7 @@ def _run_toml(config_path: Path, *, args: argparse.Namespace) -> None:
         )
         sys.exit(EXIT_CONFIG)
 
-    module = importlib.import_module("hydromodpy.cli.workflows")
-    dispatch = {
-        "simulation": module.run_simulation,
-        "overview": module.run_overview,
-        "mesh": module.run_mesh,
-        "calibration": module.run_calibration,
-        "batch": module.run_batch,
-    }
-    runner = dispatch[workflow]
+    runner = DISPATCH[workflow]
 
     try:
         if workflow == "simulation":
@@ -230,7 +212,7 @@ def _run_toml(config_path: Path, *, args: argparse.Namespace) -> None:
 def _infer_workflow_from_sections(raw_toml: dict) -> str:
     """Infer the workflow from the TOML sections present.
 
-    Mirrors the dispatch table in :mod:`hydromodpy.cli.workflows` - used
+    Mirrors the dispatch table in :mod:`hydromodpy.workflow.dispatch` - used
     only when ``--dry-run`` is set and the user has not declared
     ``workflow = "..."`` at the top level.
     """
@@ -242,6 +224,8 @@ def _infer_workflow_from_sections(raw_toml: dict) -> str:
         return "overview"
     if "mesh_catchment" in raw_toml and "simulation" not in raw_toml:
         return "mesh"
+    if "method_comparison" in raw_toml:
+        return "method-comparison"
     return "simulation"
 
 

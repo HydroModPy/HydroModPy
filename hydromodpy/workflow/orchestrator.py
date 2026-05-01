@@ -15,10 +15,6 @@ import time
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
-from hydromodpy.simulation.execution.runner import (
-    ProcessCallbacks,
-    SimulationRunner,
-)
 from hydromodpy.workflow.steps.display import step_render_figures
 from hydromodpy.workflow.steps.export import (
     step_cleanup_scratch,
@@ -43,6 +39,7 @@ if TYPE_CHECKING:
     from hydromodpy.results.run import Run
     from hydromodpy.spatial.mesh.config import MeshCatchmentConfig
     from hydromodpy.workflow.context import WorkflowContext
+    from hydromodpy.workflow.launcher_protocol import Launcher
 
 
 def prepare_runtime(
@@ -119,6 +116,7 @@ def prepare_run(
         solver=solver,
     )
 
+    ctx.effective_results_config = step_configure_results(ctx.cfg.simulation.results, plan)
     if properties is not None:
         ctx.setup.flow_runtime_overrides = {
             "source": "project_run",
@@ -142,7 +140,7 @@ def prepare_run(
             ctx.store,
             sim_id,
             ctx.setup.flow,
-            domain=ctx.cfg.domain,
+            domain=ctx.setup.domain,
         )
     step_persist_mesh(ctx, sim_id)
     step_persist_geographic(ctx, sim_id)
@@ -157,18 +155,23 @@ def execute_run(
     *,
     final_name: str,
     after_process: Any | None = None,
+    launcher: Launcher | None = None,
 ) -> float:
-    """Execute the planned simulation via SimulationRunner.
+    """Execute the planned simulation via a launcher.
 
     The seepage derivatives are patched once here so ingest steps see a
     results config that matches the plan. Returns wall-clock seconds.
     """
+    from hydromodpy.simulation.execution.runner import ProcessCallbacks, SimulationRunner
     from hydromodpy.simulation.extraction.post_run import post_run_results
     from hydromodpy.simulation.planning.plan import RunContext
 
     plan = ctx.execution.simulation_plan
-    results_cfg = step_configure_results(ctx.cfg.simulation.results, plan)
-    ctx._effective_results_cfg = results_cfg
+    results_cfg = ctx.effective_results_config or step_configure_results(
+        ctx.cfg.simulation.results,
+        plan,
+    )
+    ctx.effective_results_config = results_cfg
 
     def _after_run(run, result, state):
         post_run_results(
@@ -182,12 +185,15 @@ def execute_run(
     wall_start = time.monotonic()
     original_domain = ctx.setup.domain
     try:
-        SimulationRunner(
+        active_launcher = launcher if launcher is not None else SimulationRunner()
+        active_launcher.execute(
+            plan,
+            ctx,
             callbacks=ProcessCallbacks(
                 after_process=after_process,
                 after_run=_after_run,
             ),
-        ).execute(plan, ctx)
+        )
     finally:
         ctx.setup.domain = original_domain
         ctx.setup.flow_runtime_overrides = None
@@ -256,7 +262,7 @@ def cleanup_run(
     if save_artifacts:
         step_save_run_artifacts(ctx, wall_seconds)
 
-    effective = getattr(ctx, "_effective_results_cfg", None)
+    effective = getattr(ctx, "effective_results_config", None)
     keep = keep_solver_files
     if effective is not None:
         keep = effective.keep_solver_files

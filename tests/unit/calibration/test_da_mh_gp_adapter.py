@@ -10,8 +10,7 @@ from __future__ import annotations
 
 import numpy as np
 import pytest
-
-sklearn = pytest.importorskip("sklearn")  # noqa: F841 - skip gracefully if missing
+import sklearn  # noqa: F401
 
 from hydromodpy.calibration.engine import CalibrationEngine
 from hydromodpy.calibration.optimizer import (

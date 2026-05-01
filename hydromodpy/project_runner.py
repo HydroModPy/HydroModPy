@@ -216,11 +216,6 @@ class ProjectRunner:
 
         project = self._project
 
-        if frozen:
-            from hydromodpy.data.data_freeze import set_frozen_mode
-
-            set_frozen_mode(True)
-
         skip_display = bool(project._no_display) or bool(no_display)
 
         thickness = overrides.pop("thickness", None)
@@ -300,12 +295,38 @@ class ProjectRunner:
         )
 
         pipeline = Pipeline(steps, workspace=workspace_path, checkpoint=checkpoint)
+        previous_frozen_mode: bool | None = None
+        if frozen:
+            from hydromodpy.data.data_freeze import is_frozen_mode, set_frozen_mode
+
+            previous_frozen_mode = is_frozen_mode()
+            set_frozen_mode(True)
         try:
             final = pipeline.run(initial, resume_from=resume_from)
-        finally:
+        except Exception:
             from hydromodpy import project_phases
 
             project_phases.open_catalog(project)
+            failed_sim_id = getattr(project._ctx, "sim_id", None)
+            if failed_sim_id is not None and project._store is not None:
+                try:
+                    project._store.finalize(failed_sim_id, status="failed")
+                except Exception:
+                    logger.debug(
+                        "Could not mark failed simulation %s after pipeline error",
+                        failed_sim_id,
+                        exc_info=True,
+                    )
+            raise
+        finally:
+            from hydromodpy import project_phases
+
+            if project._store is None:
+                project_phases.open_catalog(project)
+            if previous_frozen_mode is not None:
+                from hydromodpy.data.data_freeze import set_frozen_mode
+
+                set_frozen_mode(previous_frozen_mode)
 
         final_ctx = final.get("ctx") if final is not None else None
         sim_id = getattr(final_ctx, "sim_id", None) if final_ctx is not None else None
@@ -386,19 +407,23 @@ class ProjectRunner:
             strategy=strategy,
             name_template=name_template,
         )
-        return SimulationGroup(self._project._store, sim_ids)
+        return SimulationGroup(sim_ids, self._project._store)
 
     def mesh(self) -> dict:
-        """Run the standalone mesh-only workflow defined by this project's TOML."""
+        """Run the standalone mesh-only workflow defined by this project."""
         project = self._project
-        if project._config_path is None:
-            raise ConfigMissingError(
-                "Project.mesh() requires Project to be loaded from a TOML "
-                "path (the mesh launcher needs the source TOML on disk)."
-            )
-        from hydromodpy.workflow.pipelines.mesh import MeshCatchmentLauncher
+        if project._config_path is not None:
+            from hydromodpy.workflow.pipelines.mesh import MeshCatchmentLauncher
 
-        return MeshCatchmentLauncher(project._config_path).run()
+            return MeshCatchmentLauncher(project._config_path).run()
+        if project.cfg.mesh_catchment is None:
+            raise ConfigMissingError(
+                "Project.mesh() requires cfg.mesh_catchment when Project was "
+                "created from an in-memory HydroModPyConfig."
+            )
+
+        project.build_mesh()
+        return dict(project._ctx.setup.mesh_summary or {})
 
     def report(self, session_id: str | None = None) -> Path:
         """Render the HTML report for a calibration session."""

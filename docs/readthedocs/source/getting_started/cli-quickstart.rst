@@ -14,10 +14,10 @@ A standard first session looks like this:
 
 .. code-block:: bash
 
-   hmp init                          # scaffold the default workspace
-   hmp new my_basin                  # create a project inside it
-   hmp config template my_basin/run_demo.toml --profile user
-   hmp run my_basin/run_demo.toml    # execute the run
+   hmp init .                                      # scaffold this directory as a workspace
+   hmp new my_basin --workspace .                  # create projects/my_basin
+   hmp config template projects/my_basin/run_demo.toml --profile user
+   hmp run projects/my_basin/run_demo.toml         # execute the run
    hmp list                          # browse results
    hmp show <sim_id>                 # inspect one simulation
 
@@ -43,7 +43,7 @@ The command creates the canonical layout:
    |-- hydromodpy.duckdb     # simulation catalog (one per workspace)
    |-- data/                 # cached input data, one folder per variable
    |-- projects/             # one folder per project lives here
-   `-- simulations/          # Zarr stores, one per run
+   `-- simulations/          # finalized Zarr archives and Parquet tables
 
 See :doc:`workspace-layout` for the resolution rules and the role of
 each folder.
@@ -84,7 +84,7 @@ Pydantic schema is available with:
 
 .. code-block:: bash
 
-   hmp config check my_basin/run_demo.toml
+   hmp config check projects/my_basin/run_demo.toml
 
 4. Pre-fetch solver binaries (optional)
 ---------------------------------------
@@ -110,8 +110,8 @@ level (``workflow = "simulation"``, ``"calibration"``, ``"batch"``,
 
 .. code-block:: bash
 
-   hmp run my_basin/run_demo.toml
-   hmp run my_basin/run_calibration.toml
+   hmp run projects/my_basin/run_demo.toml
+   hmp run projects/my_basin/run_calibration.toml
 
 The catalog updates after every successful run.
 
@@ -120,7 +120,7 @@ stable ``hmp run`` reproducibility contract:
 
 .. code-block:: bash
 
-   hmp dev run-script my_basin/prototype.py
+   hmp dev run-script projects/my_basin/prototype.py
 
 6. Browse and inspect results
 -----------------------------
@@ -179,7 +179,8 @@ into another workspace when packaged:
 
 .. code-block:: bash
 
-   hmp export my_basin --sim run_demo --csv --output exports/run_demo
+   hmp export projects/my_basin --sim run_demo --csv --output exports/run_demo
+   hmp export projects/my_basin --sim run_demo --geotiff --resolution 100 --output exports/maps
    hmp add my_run.hmp                          # import into current dir
    hmp add my_run.hmp -w /mnt/shared/hmp       # import into a workspace
    hmp add my_run.hmp --as renamed_run         # rename on import

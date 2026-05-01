@@ -33,23 +33,21 @@
   "equations_rst": [],
   "walkthrough_doc": "getting_started/reading-results-pages",
   "walkthrough_title": "the gallery and validation reading guide",
-  "reproduction_command": "python -m hydromodpy run examples_legacy_2/projects/launcher_simulation/run_method_comparison_mf6_vs_nwt_same_regular_mesh_moderate.toml",
+  "reproduction_command": "python -m tools.doc_gallery",
   "gallery_update_command": "python -m tools.doc_gallery",
   "source_paths": [
-    "examples_legacy_2/projects/launcher_simulation/run_method_comparison_mf6_vs_nwt_same_regular_mesh_moderate.toml",
-    "examples_legacy_2/projects/launcher_simulation/run_demonstrative_annual_moderate_mf6_structured.toml",
-    "examples_legacy_2/projects/launcher_simulation/run_demonstrative_annual_moderate_nwt.toml",
-    "examples_legacy_2/projects/launcher_simulation/method_comparison/ex12_mf6_nwt_moderate_same_s60/comparison_manifest.json",
-    "examples_legacy_2/projects/launcher_simulation/method_comparison/ex12_mf6_nwt_moderate_same_s60/comparison_metrics.json",
-    "examples_legacy_2/projects/launcher_simulation/method_comparison/ex12_mf6_nwt_moderate_same_s60/observables.csv"
+    "docs/readthedocs/source/_static/capability_gallery/method_comparison/ex12_mf6_nwt_moderate_same_s60_comparison_manifest.json",
+    "docs/readthedocs/source/_static/capability_gallery/method_comparison/ex12_mf6_nwt_moderate_same_s60_comparison_metrics.json",
+    "docs/readthedocs/source/_static/capability_gallery/method_comparison/ex12_mf6_nwt_moderate_same_s60_observables.csv",
+    "docs/readthedocs/source/_static/capability_gallery/method_comparison/ex12_mf6_nwt_moderate_same_s60_summary_metrics.csv",
+    "docs/readthedocs/source/_static/capability_gallery/method_comparison/ex12_mf6_nwt_moderate_same_s60_difference_metrics.csv"
   ],
   "source_hashes": {
-    "examples_legacy_2/projects/launcher_simulation/run_method_comparison_mf6_vs_nwt_same_regular_mesh_moderate.toml": "69ec336f3b9fd21ff75e52f14dc8e90a35664ee9196c99ef007b1878ce1cde3f",
-    "examples_legacy_2/projects/launcher_simulation/run_demonstrative_annual_moderate_mf6_structured.toml": "51defbfb99d40e0b6fda2f65275d3ec66d92c770396453e73067235f8900ed52",
-    "examples_legacy_2/projects/launcher_simulation/run_demonstrative_annual_moderate_nwt.toml": "9dfba942ebe2af53a3b7086a67b0c2a18767ca81de61f9e95a3d74a4669367ef",
-    "examples_legacy_2/projects/launcher_simulation/method_comparison/ex12_mf6_nwt_moderate_same_s60/comparison_manifest.json": "4cad27aa6e6fafc5882ef6edf8a01637a00ff3343ac9842bf3b3b9d91bdfa1ac",
-    "examples_legacy_2/projects/launcher_simulation/method_comparison/ex12_mf6_nwt_moderate_same_s60/comparison_metrics.json": "3938c9b3ae9ba68a8804b3c18df741ccb37e5a3527f43c2b1479b0ed54ef4603",
-    "examples_legacy_2/projects/launcher_simulation/method_comparison/ex12_mf6_nwt_moderate_same_s60/observables.csv": "edab71f757728b40224205c20f76ae9f8c431b0cb21f9942262de6ee79d50537"
+    "docs/readthedocs/source/_static/capability_gallery/method_comparison/ex12_mf6_nwt_moderate_same_s60_comparison_manifest.json": "4cad27aa6e6fafc5882ef6edf8a01637a00ff3343ac9842bf3b3b9d91bdfa1ac",
+    "docs/readthedocs/source/_static/capability_gallery/method_comparison/ex12_mf6_nwt_moderate_same_s60_comparison_metrics.json": "3938c9b3ae9ba68a8804b3c18df741ccb37e5a3527f43c2b1479b0ed54ef4603",
+    "docs/readthedocs/source/_static/capability_gallery/method_comparison/ex12_mf6_nwt_moderate_same_s60_observables.csv": "942a6925e8b8ff237243827d8f4eb5714b94b785d089e83d6d788b2c846a1748",
+    "docs/readthedocs/source/_static/capability_gallery/method_comparison/ex12_mf6_nwt_moderate_same_s60_summary_metrics.csv": "0a231ac10f174032bfce7626eee0f39738dae70295eda710b4f6d213991d4f9f",
+    "docs/readthedocs/source/_static/capability_gallery/method_comparison/ex12_mf6_nwt_moderate_same_s60_difference_metrics.csv": "2bd6dd11f3eaeb4b381f4de2b9f4b3ede315466b1146a31662be6de51a81389d"
   },
   "docname": "cases/ex12_mf6_nwt_moderate_same_s60",
   "images": [
@@ -148,7 +146,7 @@
     }
   ],
   "metadata": {
-    "comparison_config_path": "examples_legacy_2/projects/launcher_simulation/run_method_comparison_mf6_vs_nwt_same_regular_mesh_moderate.toml",
+    "comparison_config_path": "docs/readthedocs/source/_static/capability_gallery/method_comparison/ex12_mf6_nwt_moderate_same_s60_summary.json",
     "study_area": "Example12 / Naizin",
     "focus_variant_id": "nwt_mod_s60",
     "comparison_family_key": "shared_support_cross_solver",
@@ -199,19 +197,19 @@
             "field": "[method_comparison] comparison_id",
             "meaning": "Stable identifier used to collect outputs and summary artifacts for the comparison.",
             "value": "ex12_mf6_nwt_moderate_same_s60",
-            "source": "examples_legacy_2/projects/launcher_simulation/run_method_comparison_mf6_vs_nwt_same_regular_mesh_moderate.toml"
+            "source": "docs/readthedocs/source/_static/capability_gallery/method_comparison/ex12_mf6_nwt_moderate_same_s60_summary.json"
           },
           {
             "field": "[method_comparison] reference_variant",
             "meaning": "Variant used as the baseline when computing map-wise differences and error metrics.",
             "value": "mf6_mod_s60",
-            "source": "examples_legacy_2/projects/launcher_simulation/run_method_comparison_mf6_vs_nwt_same_regular_mesh_moderate.toml"
+            "source": "docs/readthedocs/source/_static/capability_gallery/method_comparison/ex12_mf6_nwt_moderate_same_s60_summary.json"
           },
           {
             "field": "[method_comparison] run_variants",
             "meaning": "Whether the launcher reruns the variants or only reuses committed run folders.",
             "value": "true",
-            "source": "examples_legacy_2/projects/launcher_simulation/run_method_comparison_mf6_vs_nwt_same_regular_mesh_moderate.toml"
+            "source": "docs/readthedocs/source/_static/capability_gallery/method_comparison/ex12_mf6_nwt_moderate_same_s60_summary.json"
           },
           {
             "field": "study_area",
@@ -228,13 +226,13 @@
             "field": "variant.mf6_mod_s60",
             "meaning": "Compared run folder and solver definition used by the method-comparison launcher.",
             "value": "MF6 annual moderate on 60x60 structured grid; solver=modflow6; mesh_mode=structured; run_folder=None",
-            "source": "examples_legacy_2/projects/launcher_simulation/run_method_comparison_mf6_vs_nwt_same_regular_mesh_moderate.toml"
+            "source": "docs/readthedocs/source/_static/capability_gallery/method_comparison/ex12_mf6_nwt_moderate_same_s60_summary.json"
           },
           {
             "field": "variant.nwt_mod_s60",
             "meaning": "Compared run folder and solver definition used by the method-comparison launcher.",
             "value": "NWT annual moderate on 60x60 structured grid; solver=modflownwt; mesh_mode=structured; run_folder=None",
-            "source": "examples_legacy_2/projects/launcher_simulation/run_method_comparison_mf6_vs_nwt_same_regular_mesh_moderate.toml"
+            "source": "docs/readthedocs/source/_static/capability_gallery/method_comparison/ex12_mf6_nwt_moderate_same_s60_summary.json"
           }
         ]
       },
@@ -245,43 +243,43 @@
             "field": "observable.head_outlet_lowland",
             "meaning": "Observable extracted from each run before parity plots and difference metrics are computed.",
             "value": "variable=watertable_elevation; support=point; time=all; unit=m",
-            "source": "examples_legacy_2/projects/launcher_simulation/run_method_comparison_mf6_vs_nwt_same_regular_mesh_moderate.toml"
+            "source": "docs/readthedocs/source/_static/capability_gallery/method_comparison/ex12_mf6_nwt_moderate_same_s60_summary.json"
           },
           {
             "field": "observable.head_mid_basin_response",
             "meaning": "Observable extracted from each run before parity plots and difference metrics are computed.",
             "value": "variable=watertable_elevation; support=point; time=all; unit=m",
-            "source": "examples_legacy_2/projects/launcher_simulation/run_method_comparison_mf6_vs_nwt_same_regular_mesh_moderate.toml"
+            "source": "docs/readthedocs/source/_static/capability_gallery/method_comparison/ex12_mf6_nwt_moderate_same_s60_summary.json"
           },
           {
             "field": "observable.head_upstream_ridge",
             "meaning": "Observable extracted from each run before parity plots and difference metrics are computed.",
             "value": "variable=watertable_elevation; support=point; time=all; unit=m",
-            "source": "examples_legacy_2/projects/launcher_simulation/run_method_comparison_mf6_vs_nwt_same_regular_mesh_moderate.toml"
+            "source": "docs/readthedocs/source/_static/capability_gallery/method_comparison/ex12_mf6_nwt_moderate_same_s60_summary.json"
           },
           {
             "field": "observable.outlet_flux_series",
             "meaning": "Observable extracted from each run before parity plots and difference metrics are computed.",
             "value": "variable=outlet_flux; support=outlet; time=all; unit=m3/s",
-            "source": "examples_legacy_2/projects/launcher_simulation/run_method_comparison_mf6_vs_nwt_same_regular_mesh_moderate.toml"
+            "source": "docs/readthedocs/source/_static/capability_gallery/method_comparison/ex12_mf6_nwt_moderate_same_s60_summary.json"
           },
           {
             "field": "observable.head_map_last",
             "meaning": "Observable extracted from each run before parity plots and difference metrics are computed.",
             "value": "variable=watertable_elevation; support=map; time=last; unit=m",
-            "source": "examples_legacy_2/projects/launcher_simulation/run_method_comparison_mf6_vs_nwt_same_regular_mesh_moderate.toml"
+            "source": "docs/readthedocs/source/_static/capability_gallery/method_comparison/ex12_mf6_nwt_moderate_same_s60_summary.json"
           },
           {
             "field": "observable.depth_map_last",
             "meaning": "Observable extracted from each run before parity plots and difference metrics are computed.",
             "value": "variable=watertable_depth; support=map; time=last; unit=m",
-            "source": "examples_legacy_2/projects/launcher_simulation/run_method_comparison_mf6_vs_nwt_same_regular_mesh_moderate.toml"
+            "source": "docs/readthedocs/source/_static/capability_gallery/method_comparison/ex12_mf6_nwt_moderate_same_s60_summary.json"
           },
           {
             "field": "observable.outflow_drain_map_last",
             "meaning": "Observable extracted from each run before parity plots and difference metrics are computed.",
             "value": "variable=outflow_drain; support=map; time=last; unit=m/day",
-            "source": "examples_legacy_2/projects/launcher_simulation/run_method_comparison_mf6_vs_nwt_same_regular_mesh_moderate.toml"
+            "source": "docs/readthedocs/source/_static/capability_gallery/method_comparison/ex12_mf6_nwt_moderate_same_s60_summary.json"
           }
         ]
       }

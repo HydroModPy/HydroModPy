@@ -165,16 +165,13 @@ _RUNOFF_WARNING_EMITTED: set[str] = set()
 
 def _read_catchment_area_m2(store: Any, sim_id: str) -> float:
     """Return the catchment area in m² from ``geographic_metadata``."""
-    try:
-        conn = getattr(store, "connection", None) or store._db
-        row = conn.execute(
-            "SELECT value FROM geographic_metadata WHERE sim_id = ? AND key = 'catch_area'",
-            [str(sim_id)],
-        ).fetchone()
-        if row is not None and row[0] is not None:
-            return float(row[0]) * 1e6
-    except Exception:
-        return 0.0
+    conn = getattr(store, "connection", None) or store._db
+    row = conn.execute(
+        "SELECT value FROM geographic_metadata WHERE sim_id = ? AND key = 'catch_area'",
+        [str(sim_id)],
+    ).fetchone()
+    if row is not None and row[0] is not None:
+        return float(row[0]) * 1e6
     return 0.0
 
 

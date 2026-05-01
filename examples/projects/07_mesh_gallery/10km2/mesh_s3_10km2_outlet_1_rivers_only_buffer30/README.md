@@ -20,5 +20,5 @@ This case is reserved for a catchment mesh where geology is removed from the int
 ## Reproduction
 
 ```bash
-python -m launchers mesh-catchment run launchers/mesh_catchment/scenarios/config_s3_10km2_outlet_1_rivers_only.toml
+python -m tools.doc_gallery
 ```

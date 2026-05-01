@@ -235,13 +235,13 @@ class TestRunCalibrationCli:
 
         workspace_root = calib_toml.parent / "ws"
         with SimulationCatalog(workspace_root) as catalog:
-            rows = catalog._connection.execute(
+            rows = catalog.connection.execute(
                 "SELECT COUNT(*) FROM calibration_iterations WHERE session_id = ?",
                 [uuid.UUID(summary["session_id"])],
             ).fetchone()
             assert rows[0] == 5
             # best_n=2 means 2 rows should have non-null sim_id
-            rows = catalog._connection.execute(
+            rows = catalog.connection.execute(
                 "SELECT COUNT(*) FROM calibration_iterations "
                 "WHERE session_id = ? AND sim_id IS NOT NULL",
                 [uuid.UUID(summary["session_id"])],
@@ -254,7 +254,7 @@ class TestRunCalibrationCli:
 
         workspace_root = calib_toml.parent / "ws"
         with SimulationCatalog(workspace_root) as catalog:
-            row = catalog._connection.execute(
+            row = catalog.connection.execute(
                 "SELECT status, n_iterations, best_objective, best_sim_id "
                 "FROM calibration_sessions WHERE session_id = ?",
                 [uuid.UUID(summary["session_id"])],
@@ -403,7 +403,7 @@ class TestSessionLifecycle:
         from hydromodpy.results.catalog import SimulationCatalog
 
         with SimulationCatalog(workspace_root) as catalog:
-            return catalog._connection.execute(
+            return catalog.connection.execute(
                 "SELECT status, error_message, n_iterations "
                 "FROM calibration_sessions WHERE session_id = ?",
                 [uuid.UUID(session_id)],

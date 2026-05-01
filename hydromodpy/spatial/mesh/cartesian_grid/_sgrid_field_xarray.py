@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import warnings
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Literal
 
@@ -22,6 +23,16 @@ logger = get_logger(__name__)
 InterpolationMethod = Literal["nearest", "linear", "idw"]
 
 
+def _ensure_finite_field_values(values: object, *, label: str) -> np.ndarray:
+    """Return finite field values as a float array."""
+    arr = np.asarray(values, dtype=float)
+    if arr.size == 0:
+        raise ValueError(f"{label} cannot be empty.")
+    if not np.all(np.isfinite(arr)):
+        raise ValueError(f"{label} must contain only finite numeric values.")
+    return arr
+
+
 def discretize_one_field_record(
     field_rec: Any,
     *,
@@ -31,6 +42,7 @@ def discretize_one_field_record(
     ncol: int,
     nper: int,
     period_bounds: list[tuple[pd.Timestamp, pd.Timestamp]] | None,
+    coverage_policy: str = "ignore",
     method: InterpolationMethod = "nearest",
 ) -> dict[int, np.ndarray]:
     """Discretize a single FieldRecord onto the solver grid.
@@ -55,6 +67,7 @@ def discretize_one_field_record(
             ncol=ncol,
             nper=nper,
             period_bounds=period_bounds,
+            coverage_policy=coverage_policy,
             unit_factor=unit_factor,
             method=method,
         )
@@ -72,6 +85,7 @@ def discretize_one_field_record(
                 ncol=ncol,
                 nper=nper,
                 period_bounds=period_bounds,
+                coverage_policy=coverage_policy,
                 unit_factor=unit_factor,
                 method=method,
             )
@@ -95,6 +109,7 @@ def discretize_from_xarray(
     nper: int,
     period_bounds: list[tuple[pd.Timestamp, pd.Timestamp]] | None,
     unit_factor: float,
+    coverage_policy: str = "ignore",
     method: InterpolationMethod = "nearest",
 ) -> dict[int, np.ndarray]:
     """Reproject an xarray Dataset onto solver cell centers."""
@@ -110,9 +125,13 @@ def discretize_from_xarray(
     has_time = "time" in da.dims
     if not has_time:
         # Static field: apply to all periods.
+        source_values = _ensure_finite_field_values(
+            da.values,
+            label="recharge gridded forcing values",
+        )
         arr_2d = (
             interp_2d(
-                da.values,
+                source_values,
                 da.coords[x_dim].values,
                 da.coords[y_dim].values,
                 x_centers,
@@ -133,11 +152,26 @@ def discretize_from_xarray(
         for kper, (t_start, t_end) in enumerate(period_bounds):
             mask = (time_coords >= t_start) & (time_coords < t_end)
             if not mask.any():
-                # No data for this period: use nearest time step.
+                message = (
+                    "Recharge coverage check failed: no gridded forcing values inside "
+                    f"stress period {kper} [{t_start}, {t_end})."
+                )
+                if coverage_policy == "error":
+                    raise ValueError(message)
+                if coverage_policy == "warn":
+                    warnings.warn(message, stacklevel=2)
                 idx = int(np.argmin(np.abs((time_coords - t_start).total_seconds())))
-                slice_2d = da.isel(time=idx).values
+                slice_2d = _ensure_finite_field_values(
+                    da.isel(time=idx).values,
+                    label=f"recharge gridded forcing values for stress period {kper}",
+                )
             else:
-                slice_2d = da.isel(time=mask).mean(dim="time").values
+                selected = da.isel(time=mask)
+                _ensure_finite_field_values(
+                    selected.values,
+                    label=f"recharge gridded forcing values for stress period {kper}",
+                )
+                slice_2d = selected.mean(dim="time").values
             arr_2d = (
                 interp_2d(
                     slice_2d,
@@ -155,7 +189,10 @@ def discretize_from_xarray(
     else:
         # No simulation window: one array per time step.
         for kper in range(min(len(time_coords), 1000)):
-            slice_2d = da.isel(time=kper).values
+            slice_2d = _ensure_finite_field_values(
+                da.isel(time=kper).values,
+                label=f"recharge gridded forcing values for stress period {kper}",
+            )
             arr_2d = (
                 interp_2d(
                     slice_2d,
@@ -184,6 +221,7 @@ def discretize_from_file(
     nper: int,
     period_bounds: list[tuple[pd.Timestamp, pd.Timestamp]] | None,
     unit_factor: float,
+    coverage_policy: str = "ignore",
     method: InterpolationMethod = "nearest",
 ) -> dict[int, np.ndarray]:
     """Load and discretize from a NetCDF or GeoTIFF file."""
@@ -201,6 +239,7 @@ def discretize_from_file(
                 ncol=ncol,
                 nper=nper,
                 period_bounds=period_bounds,
+                coverage_policy=coverage_policy,
                 unit_factor=unit_factor,
                 method=method,
             )
@@ -216,6 +255,7 @@ def discretize_from_file(
             ncol=ncol,
             nper=nper,
             period_bounds=period_bounds,
+            coverage_policy=coverage_policy,
             unit_factor=unit_factor,
             method=method,
         )
@@ -236,6 +276,7 @@ def discretize_geotiff(
     nper: int,
     period_bounds: list[tuple[pd.Timestamp, pd.Timestamp]] | None,
     unit_factor: float,
+    coverage_policy: str = "ignore",
     method: InterpolationMethod = "nearest",
 ) -> dict[int, np.ndarray]:
     """Read a GeoTIFF (single- or multi-band) and discretize onto solver grid.
@@ -257,7 +298,10 @@ def discretize_geotiff(
 
         if n_bands == 1:
             # Static single-band TIF.
-            band = src.read(1).astype(float)
+            band = _ensure_finite_field_values(
+                src.read(1),
+                label="recharge GeoTIFF forcing values",
+            )
             arr_2d = (
                 interp_2d(band, src_x, src_y, x_centers, y_centers, nrow, ncol, method)
                 * unit_factor
@@ -267,7 +311,10 @@ def discretize_geotiff(
         # Multi-band: one band per time step.
         band_arrays: list[np.ndarray] = []
         for b in range(1, n_bands + 1):
-            band = src.read(b).astype(float)
+            band = _ensure_finite_field_values(
+                src.read(b),
+                label=f"recharge GeoTIFF forcing band {b}",
+            )
             arr_2d = (
                 interp_2d(band, src_x, src_y, x_centers, y_centers, nrow, ncol, method)
                 * unit_factor
@@ -283,7 +330,14 @@ def discretize_geotiff(
             start_b = kper * bands_per_period
             end_b = min(start_b + bands_per_period, len(band_arrays))
             if start_b >= len(band_arrays):
-                # Use nearest available band.
+                message = (
+                    "Recharge coverage check failed: no GeoTIFF forcing band mapped to "
+                    f"stress period {kper}."
+                )
+                if coverage_policy == "error":
+                    raise ValueError(message)
+                if coverage_policy == "warn":
+                    warnings.warn(message, stacklevel=2)
                 results[kper] = band_arrays[-1].copy()
             else:
                 results[kper] = np.mean(band_arrays[start_b:end_b], axis=0)

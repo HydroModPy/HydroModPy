@@ -15,7 +15,6 @@ from hydromodpy.physics.flow.history_contract import (
 from validation_cases.shared import (
     ValidationRunResult,
     load_case_metadata,
-    load_npy_time_series_arrays,
 )
 from validation_cases.shared.boussinesq_budget import (
     compute_free_control_volume_budget,
@@ -183,14 +182,15 @@ def _topography_profile(x_m: np.ndarray, *, geometry_cfg: dict[str, object]) -> 
 
 def _infer_structured_shape(
     *,
-    mean_head_profiles_m: np.ndarray,
+    head_history_m: np.ndarray,
     cell_y_m: np.ndarray,
     geometry_cfg: dict[str, object],
 ) -> tuple[int, int]:
     """Infer the effective structured aggregation shape from the run outputs."""
-    nx = int(np.asarray(mean_head_profiles_m, dtype=float).shape[1])
+    n_cells = int(np.asarray(head_history_m, dtype=float).shape[1])
     unique_y = np.unique(np.round(np.asarray(cell_y_m, dtype=float), decimals=9))
     ny = int(unique_y.size)
+    nx = n_cells // ny if ny > 0 and n_cells % ny == 0 else 0
     if nx <= 0:
         nx = int(geometry_cfg["nx"])
     if ny <= 0:
@@ -264,19 +264,28 @@ def build_hillslope_overflow_diagnostics(
 
     summary = _load_summary(result.model_ws)
     state_history = _load_state_history(result.model_ws)
-    _, heads = load_npy_time_series_arrays(result.postprocess_dir, "watertable_elevation")
-    mean_head_profiles_m = np.mean(np.asarray(heads, dtype=float), axis=1)
 
     bundle_dir = result.out_path / "mesh_bundle"
     cell_x_m, cell_y_m, cell_area_m2 = _load_cell_geometry(bundle_dir)
+    head_history_m = np.asarray(state_history["head_history_m"], dtype=float)
     nx, ny = _infer_structured_shape(
-        mean_head_profiles_m=mean_head_profiles_m,
+        head_history_m=head_history_m,
         cell_y_m=cell_y_m,
         geometry_cfg=geometry_cfg,
     )
     length_x_m = float(geometry_cfg["length_x_m"])
     width_y_m = float(geometry_cfg["width_y_m"])
     x_m = (np.arange(nx, dtype=float) + 0.5) * (length_x_m / float(nx))
+    head_grid_m = aggregate_cell_history_to_grid(
+        head_history_m,
+        cell_x_m=cell_x_m,
+        cell_y_m=cell_y_m,
+        nx=nx,
+        ny=ny,
+        length_x_m=length_x_m,
+        width_y_m=width_y_m,
+    )
+    mean_head_profiles_m = np.mean(head_grid_m, axis=1)
     topography_profile_m = _topography_profile(x_m, geometry_cfg=geometry_cfg)
     mean_head_clearance_m = mean_head_profiles_m - topography_profile_m[None, :]
 

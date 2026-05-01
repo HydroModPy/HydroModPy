@@ -16,6 +16,8 @@ from hydromodpy.simulation.planning.plan import (
 )
 from hydromodpy.solver.modflow_common.flow_adapter_helpers import run_flow_model
 from hydromodpy.solver.modflow_nwt import ModflowPreprocessOptions
+from hydromodpy.workflow.internals.state import PipelineState
+from hydromodpy.workflow.steps.run_solver import RunSolverStep
 
 
 class _RecordingAdapter:
@@ -105,6 +107,46 @@ def test_runner_ensures_process_context_before_before_process_callback(monkeypat
         "flow_main::modflownwt": flow_model,
         "transport_main::mt3dms": transport_model,
     }
+
+
+def test_run_solver_step_uses_injected_launcher() -> None:
+    plan = SimulationPlan(
+        name="demo",
+        description="demo",
+        runs=(
+            ProcessRun(
+                id="flow_main::modflownwt",
+                process_id="flow_main",
+                process_type="flow",
+                solver="modflownwt",
+            ),
+        ),
+    )
+    ctx = SimpleNamespace(execution=SimpleNamespace(simulation_plan=plan))
+
+    class _Launcher:
+        def __init__(self) -> None:
+            self.calls: list[tuple[SimulationPlan, object, object]] = []
+
+        def execute(
+            self,
+            plan: SimulationPlan,
+            state: object,
+            *,
+            callbacks: object | None = None,
+        ) -> None:
+            self.calls.append((plan, state, callbacks))
+
+    launcher = _Launcher()
+    state = PipelineState(run_id="run", data={"ctx": ctx})
+
+    out = RunSolverStep(launcher=launcher).run(state)
+
+    called_plan, called_state, callbacks = launcher.calls[0]
+    assert called_plan is plan
+    assert called_state is ctx
+    assert callbacks is not None
+    assert out.get("wall_seconds") is not None
 
 
 def test_run_flow_model_raises_when_solver_fails() -> None:
@@ -215,11 +257,13 @@ def test_run_flow_model_forwards_flow_runtime_overrides(monkeypatch) -> None:
 
         def __init__(self) -> None:
             self.pre_kwargs = None
+            self.processing_options = None
 
         def pre_processing(self, **kwargs) -> None:
             self.pre_kwargs = dict(kwargs)
 
         def processing(self, options) -> bool:
+            self.processing_options = options
             return True
 
         def post_processing(self, options) -> None:
@@ -235,3 +279,57 @@ def test_run_flow_model_forwards_flow_runtime_overrides(monkeypatch) -> None:
 
     assert model.pre_kwargs is not None
     assert model.pre_kwargs["flow_runtime_overrides"] == {"properties": {"K": [1.0, 2.0]}}
+    assert model.processing_options.link_mt3dms is False
+
+
+def test_run_flow_model_links_mt3dms_only_for_downstream_mt3dms_transport() -> None:
+    flow_run = ProcessRun(
+        id="flow_main::modflownwt",
+        process_id="flow_main",
+        process_type="flow",
+        solver="modflownwt",
+    )
+    transport_run = ProcessRun(
+        id="transport_main::mt3dms",
+        process_id="transport_main",
+        process_type="transport",
+        solver="mt3dms",
+        depends_on=(flow_run.id,),
+    )
+    plan = SimulationPlan(
+        name="demo",
+        description="demo",
+        runs=(flow_run, transport_run),
+    )
+    state = SimpleNamespace(
+        setup=SimpleNamespace(
+            flow=SimpleNamespace(active_bc=[]),
+            domain=SimpleNamespace(),
+            flow_runtime_overrides=None,
+        ),
+        execution=SimpleNamespace(models_by_run_id={}),
+    )
+
+    class _SuccessfulFlowModel:
+        model_name = "demo_model"
+        full_path = "/tmp/demo_model"
+
+        def __init__(self) -> None:
+            self.processing_options = None
+
+        def pre_processing(self, **kwargs) -> None:
+            return None
+
+        def processing(self, options) -> bool:
+            self.processing_options = options
+            return True
+
+    model = _SuccessfulFlowModel()
+
+    run_flow_model(
+        RunContext(plan=plan, run=flow_run, state=state),
+        model,
+        ModflowPreprocessOptions(),
+    )
+
+    assert model.processing_options.link_mt3dms is True

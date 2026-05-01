@@ -79,12 +79,12 @@ def saturated_fraction(
 ) -> pd.Series:
     """Fraction of active catchment cells where seepage exceeds ``threshold``.
 
-    Reads ``derived/seepage_areas`` (m) from the simulation Zarr and
+    Reads ``derived/seepage_mask`` from the simulation Zarr and
     reduces each timestep to the percentage of active cells above the
     threshold. Unit: ``%``.
     """
     mask = _catchment_mask(sim)
-    stack = _stack_field(sim, "seepage_areas")
+    stack = _stack_field(sim, "seepage_mask")
     if mask is None:
         mask = np.ones(stack.shape[1], dtype=bool)
     n_active = int(mask.sum())

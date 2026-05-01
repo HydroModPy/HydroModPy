@@ -15,8 +15,7 @@ Tests cover three slices:
 from __future__ import annotations
 
 import pytest
-
-pytest.importorskip("sklearn")
+import sklearn  # noqa: F401
 
 from hydromodpy.calibration.optimizer import (
     EvaluationResult,

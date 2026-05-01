@@ -60,6 +60,11 @@ def catalog_with_data(tmp_path):
     )
     z_intf = np.array([10.0, 5.0, 0.0])
     c.write_mesh(sid, verts, conn, z_intf)
+    c.write_time(
+        sid,
+        np.array([1577836800, 1577923200, 1578009600], dtype="int64"),
+        units="seconds since 1970-01-01T00:00:00Z",
+    )
 
     rng = np.random.default_rng(42)
     for t in range(n_ts):

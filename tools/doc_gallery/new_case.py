@@ -185,7 +185,9 @@ def scaffold_copy_assets_case(
     asset_dir_path = (
         (repo_root / asset_dir).resolve()
         if asset_dir
-        else (repo_root / "examples" / "capability_gallery" / category / slug).resolve()
+        else (
+            repo_root / "examples" / "projects" / "09_capability_gallery" / category / slug
+        ).resolve()
     )
     asset_dir_path.mkdir(parents=True, exist_ok=True)
     asset_dir_repo = _repo_relative(asset_dir_path, repo_root=repo_root)

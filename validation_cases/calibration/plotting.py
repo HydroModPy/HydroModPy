@@ -23,6 +23,7 @@ from validation_cases.calibration.shared.definitions import (
     CalibrationMethodProfile,
     TwinCalibrationCaseDefinition,
     TwinMethodBenchmarkResult,
+    build_payload,
 )
 
 SUITE_TITLE_FONTSIZE = 10.0
@@ -589,19 +590,18 @@ def _case_payload(
     definition: TwinCalibrationCaseDefinition,
 ) -> dict[str, object]:
     """Build a representative calibration payload used to summarize the case."""
-    if definition.build_calibration_payload is None:
-        return {}
     if definition.method_profiles:
         method_profile = definition.method_profiles[0]
     else:
         method_profile = CalibrationMethodProfile(name="summary")
     try:
         return dict(
-            definition.build_calibration_payload(
-                "simulation.toml",
-                "case_summary",
-                _placeholder_observations(definition),
-                method_profile,
+            build_payload(
+                definition,
+                simulation_config_name="simulation.toml",
+                calibration_id="case_summary",
+                observed_values=_placeholder_observations(definition),
+                method_profile=method_profile,
             )
         )
     except Exception:

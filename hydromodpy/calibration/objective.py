@@ -142,24 +142,21 @@ def _transform_identity(cost: float) -> float:
 
 
 def _transform_log(cost: float, *, epsilon: float = 1.0e-6) -> float:
-    """Apply ``log10(cost + epsilon)``; flips small costs into large positive values."""
+    """Apply a monotone log transform to a minimization cost."""
     value = float(cost) + float(epsilon)
     if value <= 0.0:
         raise ValueError(
             f"log transform requires cost + epsilon > 0 (got cost={cost}, epsilon={epsilon})"
         )
-    # ``-log10`` so that small costs (near-zero) map to *large* penalty values
-    # while large costs map to small penalty values. This matches the intent of
-    # emphasising near-zero departures as "bad" when the user asks for log.
-    return -float(np.log10(value))
+    return float(np.log10(value))
 
 
 def _transform_inverse(cost: float, *, epsilon: float = 1.0e-6) -> float:
-    """Apply ``1 / (cost + epsilon)``; flips near-zero costs into large values."""
+    """Apply a monotone inverse transform to a minimization cost."""
     value = float(cost) + float(epsilon)
     if value == 0.0:
         raise ValueError("inverse transform requires cost + epsilon != 0")
-    return 1.0 / value
+    return -1.0 / value
 
 
 _TRANSFORMS: dict[str, Callable[[float], float]] = {
@@ -364,11 +361,14 @@ class ConfigBlockObjective:
                 )
             simulated_parts.append(np.asarray(list(part), dtype=float).ravel())
         simulated = np.concatenate(simulated_parts) if simulated_parts else np.empty(0)
-        n = int(min(self._observed.size, simulated.size))
-        if n == 0:
+        if self._observed.size == 0 or simulated.size == 0:
             return ObjectiveValue(total=float("inf"), components={})
-        observed = self._observed[:n]
-        simulated = simulated[:n]
+        if simulated.size != self._observed.size:
+            raise ValueError(
+                f"Block {self.name!r}: simulated length {simulated.size} does not match "
+                f"observed length {self._observed.size}"
+            )
+        observed = self._observed
         raw = float(self._metric_fn(simulated, observed))
         if not np.isfinite(raw):
             return ObjectiveValue(
@@ -382,7 +382,7 @@ class ConfigBlockObjective:
             f"{self.name}.raw_cost": float(cost),
             f"{self.name}.normalized_cost": float(normalized),
             f"{self.name}.reference_scale": float(self._reference_scale),
-            f"{self.name}.n_values": float(n),
+            f"{self.name}.n_values": float(self._observed.size),
         }
         return ObjectiveValue(total=float(transformed), components=components)
 

@@ -50,11 +50,17 @@ def resolve_well_disv_cell(
             raise ValueError(
                 f"flow.sinks_sources.wells.{well_id}.cell must contain [lay, row, col]."
             )
+        lay, row, col = int(cell_seq[0]), int(cell_seq[1]), int(cell_seq[2])
+        nrow = int(getattr(model, "nrow", 0) or 0)
+        if nrow > 0 and (row < 0 or row >= nrow):
+            raise ValueError(f"flow.sinks_sources.wells.{well_id}.cell row is outside the grid.")
+        if ncol > 0 and (col < 0 or col >= ncol):
+            raise ValueError(f"flow.sinks_sources.wells.{well_id}.cell col is outside the grid.")
         return well_cell_to_disv(
             ncol=ncol,
-            lay=int(cell_seq[0]),
-            row=int(cell_seq[1]),
-            col=int(cell_seq[2]),
+            lay=lay,
+            row=row,
+            col=col,
         )
 
     if location_mode in {"", "cell"}:
@@ -88,10 +94,21 @@ def resolve_well_disv_cell(
                     f"Unsupported well location mode for flow.sinks_sources.wells.{well_id}: "
                     f"{location_mode!r}."
                 )
-            col = int((x_m - float(grid.xmin)) / float(grid.dx))
-            row = int((float(grid.ymax) - y_m) / float(grid.dy))
-            col = min(max(col, 0), int(grid.ncol) - 1)
-            row = min(max(row, 0), int(grid.nrow) - 1)
+            xmin = float(grid.xmin)
+            xmax = float(grid.xmax)
+            ymin = float(grid.ymin)
+            ymax = float(grid.ymax)
+            if x_m < xmin or x_m > xmax or y_m < ymin or y_m > ymax:
+                raise ValueError(
+                    f"flow.sinks_sources.wells.{well_id} coordinates are outside "
+                    "the structured solver grid extent."
+                )
+            col = int((x_m - xmin) / float(grid.dx))
+            row = int((ymax - y_m) / float(grid.dy))
+            if col == int(grid.ncol) and x_m == xmax:
+                col = int(grid.ncol) - 1
+            if row == int(grid.nrow) and y_m == ymin:
+                row = int(grid.nrow) - 1
             lay = layer
         return well_cell_to_disv(ncol=ncol, lay=int(lay), row=int(row), col=int(col))
 
@@ -115,7 +132,7 @@ def resolve_well_disv_cell(
             f"Unsupported well location mode for flow.sinks_sources.wells.{well_id}: "
             f"{location_mode!r}."
         )
-    cell_id = int(support.locate_cell_index_for_point(x_m, y_m, allow_nearest=True))
+    cell_id = int(support.locate_cell_index_for_point(x_m, y_m, allow_nearest=False))
     return (layer, cell_id)
 
 
@@ -194,11 +211,15 @@ def build_well_stress_period_data(
             parsed = np.asarray(raw_flux_seq, dtype=float)
             if parsed.size == 1:
                 flux_vector = np.full((n_stress_periods,), float(parsed[0]), dtype=float)
-            elif parsed.size >= n_stress_periods:
-                flux_vector = parsed[:n_stress_periods].astype(float)
             else:
-                flux_vector = np.full((n_stress_periods,), float(parsed[-1]), dtype=float)
-                flux_vector[: parsed.size] = parsed
+                if parsed.size != int(n_stress_periods):
+                    raise ValueError(
+                        f"flow.sinks_sources.wells.{well_id}.flux length ({parsed.size}) "
+                        f"must be 1 or match nper ({int(n_stress_periods)})."
+                    )
+                flux_vector = parsed.astype(float)
+        if not np.all(np.isfinite(flux_vector)):
+            raise ValueError(f"flow.sinks_sources.wells.{well_id}.flux must be finite.")
         normalized_wells.append((cell, flux_vector))
 
     spd: dict[int, list[list[float]]] = {}

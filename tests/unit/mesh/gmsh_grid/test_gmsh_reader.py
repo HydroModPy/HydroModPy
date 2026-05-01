@@ -41,7 +41,7 @@ def test_gmsh_mesh_data_rejects_mixed_cell_types_for_one_planar_mesh():
 
 
 def test_meshio_roundtrip_and_mixed_selection(tmp_path):
-    meshio = pytest.importorskip("meshio")
+    import meshio
 
     points = np.array(
         [

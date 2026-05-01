@@ -7,7 +7,12 @@ from typing import TYPE_CHECKING
 
 import numpy as np
 
+from hydromodpy.core.time import validate_recharge_coverage
 from hydromodpy.core.units import convert_payload_to_m_per_s
+from hydromodpy.physics.forcing.validation import (
+    ensure_non_negative_numeric_payload,
+    has_temporal_index,
+)
 from hydromodpy.solver.modflow_grid.solver_mesh import SolverMesh
 from hydromodpy.solver.modflow_nwt.nwt._chd_payloads import is_scalar_number
 
@@ -116,6 +121,7 @@ def assemble_rch_data(
     nper: int,
 ) -> object:
     """Convert a recharge payload into the period-indexed structure."""
+    ensure_non_negative_numeric_payload(payload, label="flow.sinks_sources.recharge.values")
     if isinstance(payload, Mapping):
         if flow_regime == "steady":
             if len(payload) == 0:
@@ -131,7 +137,7 @@ def assemble_rch_data(
             rch_dict[kper] = float(payload)
         elif kper == 0:
             if first_clim == "mean":
-                rch_dict[kper] = np.nanmean(payload)
+                rch_dict[kper] = np.mean(payload)
             elif first_clim == "first":
                 rch_dict[kper] = series_value(payload, 0)
             elif is_scalar_number(first_clim):
@@ -156,10 +162,11 @@ def apply_first_clim_2d(
     ncol: int,
 ) -> dict[int, np.ndarray]:
     """Apply ``first_clim`` policy to period 0 of 2-D recharge arrays."""
+    ensure_non_negative_numeric_payload(raw_arrays, label="flow.sinks_sources.recharge.values")
     if flow_regime == "steady" or nper <= 1:
         if raw_arrays:
             all_vals = np.stack(list(raw_arrays.values()), axis=0)
-            mean_arr = np.nanmean(all_vals, axis=0)
+            mean_arr = np.mean(all_vals, axis=0)
         else:
             mean_arr = np.zeros((nrow, ncol), dtype=float)
         return {0: mean_arr}
@@ -170,7 +177,7 @@ def apply_first_clim_2d(
 
     if first_clim == "mean" and len(raw_arrays) > 0:
         all_vals = np.stack(list(raw_arrays.values()), axis=0)
-        result[0] = np.nanmean(all_vals, axis=0)
+        result[0] = np.mean(all_vals, axis=0)
     elif first_clim == "first":
         pass
     elif is_scalar_number(first_clim):
@@ -252,6 +259,8 @@ def build_recharge_payload(adapter: FlowToModflowAdapter) -> object | None:
         return build_heterogeneous_recharge_payload(adapter, recharge_cfg)
 
     recharge_payload = copy_payload(recharge_cfg.values)
+    if has_temporal_index(recharge_payload):
+        validate_recharge_coverage(recharge_payload, adapter.simulation_window)
     recharge_payload = convert_payload_to_m_per_s(
         recharge_payload,
         unit=str(getattr(recharge_cfg, "units", "mm/day")),

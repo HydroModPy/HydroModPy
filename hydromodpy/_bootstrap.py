@@ -195,10 +195,10 @@ def _register_root_config_contracts() -> None:
             return HydroModPyConfig.from_toml(toml_path)
 
         def from_json(self, payload: str | bytes) -> HydroModPyConfig:
-            return HydroModPyConfig.model_validate_json(payload)
+            return HydroModPyConfig.from_json(payload)
 
         def from_dict(self, payload: dict[str, Any]) -> HydroModPyConfig:
-            return HydroModPyConfig.model_validate(payload)
+            return HydroModPyConfig.from_dict(payload)
 
     root_config_protocol.set_root_config_provider(_RootConfigProvider())
 

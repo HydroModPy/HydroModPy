@@ -43,9 +43,11 @@ class ModpathTransportAdapter:
         station_cells: Mapping[str, tuple[int, int, int]] | None = None,
         time_index: pd.DatetimeIndex | None = None,
     ) -> pd.Series:
-        """Transport runs are not calibration targets; return empty series."""
+        """Fail explicitly because particle calibration is not implemented."""
         del ctx, store, station_cells, time_index
-        return pd.Series(dtype=float, name=variable)
+        raise NotImplementedError(
+            f"MODPATH calibration extraction is not implemented for {variable!r}."
+        )
 
     def execute(self, ctx: RunContext) -> RunExecutionResult:
         """Instantiate and execute one Modpath particle-tracking run."""
@@ -110,7 +112,7 @@ def _restore_seepage_clip_raster(ctx: RunContext, flow_model: Any) -> None:
     if seepage_tif.is_file():
         return
 
-    seepage = np.asarray(store.query_field(str(sim_id), "seepage_areas", 0), dtype=float).ravel()
+    seepage = np.asarray(store.query_field(str(sim_id), "seepage_mask", 0), dtype=float).ravel()
     with rasterio.open(base_path) as src:
         seepage_array = seepage.reshape(src.height, src.width)
     seepage_tif.parent.mkdir(parents=True, exist_ok=True)

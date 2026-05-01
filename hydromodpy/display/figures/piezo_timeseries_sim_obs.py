@@ -8,6 +8,10 @@ from hydromodpy.core.units.labels import axis_label
 from hydromodpy.display._map_axes import style_date_axis
 from hydromodpy.display.catalog import register
 from hydromodpy.display.figure import BaseFigure, FigureSpec
+from hydromodpy.results.time_alignment import (
+    normalize_datetime_series,
+    observed_on_simulation_index,
+)
 
 if TYPE_CHECKING:
     from matplotlib.axes import Axes
@@ -36,7 +40,7 @@ class PiezoTimeseriesSimObs(BaseFigure):
         variable: str = "head",
         **_,
     ) -> Axes:
-        sim_ts = sim.timeseries(variable, station=station)
+        sim_ts = normalize_datetime_series(sim.timeseries(variable, station=station))
         ax.plot(
             sim_ts.index,
             sim_ts.values,
@@ -46,9 +50,13 @@ class PiezoTimeseriesSimObs(BaseFigure):
         )
 
         obs_df = sim.observed(variable, station=station)
+        obs_ts = normalize_datetime_series(obs_df.set_index("datetime")["value"].rename("obs"))
+        obs_aligned = observed_on_simulation_index(obs_ts, sim_ts.index).dropna()
+        if obs_aligned.empty:
+            raise ValueError(f"No observed {variable!r} values overlap station {station!r}")
         ax.plot(
-            obs_df["datetime"].values,
-            obs_df["value"].values,
+            obs_aligned.index,
+            obs_aligned.values,
             label="obs",
             color="black",
             lw=0.9,

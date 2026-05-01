@@ -35,7 +35,7 @@ def test_build_gallery_specs_exposes_extended_categories() -> None:
     assert specs["mesh_resolution_sensitivity_scale_ladder"].category == "mesh"
     assert specs["mesh_zoom_panels_naizin_10km2"].category == "mesh"
     assert specs["example12_map_method_comparison"].category == "method_comparison"
-    assert "comparison_config_path" in specs["example12_map_method_comparison"].metadata
+    assert "comparison_summary_path" in specs["example12_map_method_comparison"].metadata
 
 
 def test_build_index_page_lists_extended_categories_when_populated() -> None:
@@ -164,6 +164,7 @@ unit = "m"
     )
     spec = replace(
         spec,
+        generator="method_comparison_case",
         source_paths=(
             config_path.as_posix(),
             *((committed_root / name).as_posix() for name in artifact_map.values()),

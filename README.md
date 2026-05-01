@@ -186,24 +186,25 @@ The fastest route is to scaffold a project, generate a v1 TOML template,
 and run it through the single workflow dispatcher.
 
 ```bash
-hmp new getting_started
-hmp config template getting_started/project.toml --profile user
-hmp run getting_started/project.toml
+hmp init .
+hmp new getting_started --workspace .
+hmp run projects/getting_started/run_demo.toml
 ```
 
 Outputs land in a workspace next to the config:
 
 - `hydromodpy.duckdb` - the unified simulation catalog.
-- `simulations/<uuid>.zarr/` - spatial fields and metadata per run.
+- `simulations/<basename>.zarr.zip` - finalized spatial fields and metadata per run.
 
 Open the results programmatically:
 
 ```python
 import hydromodpy as hmp
 
-catalog = hmp.open("getting_started")
+catalog = hmp.open(".")
 print(catalog.simulations)              # DataFrame of all sims
 sim = catalog.best("getting_started")   # best by default metric
+print(catalog.zarr_path_for(sim.sim_id))
 sim.plot("watertable_map", save=".")
 ```
 
@@ -247,17 +248,19 @@ can pick whichever fits its workload:
   )
   ```
 
-- **Per-simulation Zarr chunks for tensor-friendly access.** Spatial fields
-  live in `workspace/simulations/<basename>.zarr/` and load straight into
+- **Per-simulation Zarr chunks for tensor-friendly access.** Finalized spatial fields
+  live in `workspace/simulations/<basename>.zarr.zip` and load straight into
   `xarray` / `xugrid`, ready for `torch.utils.data.Dataset` wrappers:
 
   ```python
-  import xarray as xr
+  from hydromodpy.results.zarr_store import SimulationZarr
 
-  ds = xr.open_zarr(
-      "workspace/simulations/getting_started__synthetic__a1b2c3d4.zarr"
-  )
-  head = ds["head"]
+  sz = SimulationZarr(catalog.zarr_path_for(sim.sim_id))
+  try:
+      ds = sz.to_xarray()
+      head = ds["head"]
+  finally:
+      sz.close()
   ```
 
 The full walkthrough (DuckDB SQL recipes, Parquet batch loading, Zarr

@@ -22,13 +22,14 @@ keeps the layer matrix ``calibration -> master_config`` edge at zero.
 from __future__ import annotations
 
 import re
-import tomllib
 from collections.abc import Mapping, Sequence
+from copy import deepcopy
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 from hydromodpy.calibration.parameters import ParameterSpace
 from hydromodpy.core.config_kit.root_config_protocol import get_root_config_provider
+from hydromodpy.core.toml_io.loader import load_toml_with_base_config
 from hydromodpy.core.toml_io.writer import dump as dump_toml
 
 if TYPE_CHECKING:
@@ -147,8 +148,7 @@ def _load_base_payload(
     base_path = Path(base_config).expanduser().resolve()
     if not base_path.is_file():
         raise FileNotFoundError(f"base_config not found: {base_path}")
-    with open(base_path, "rb") as f:
-        return tomllib.load(f), base_path
+    return load_toml_with_base_config(base_path), base_path
 
 
 def _apply_parameter_mode(
@@ -206,9 +206,8 @@ def materialize_candidate(
         Path to the target simulation TOML or an in-memory
         ``HydroModPyConfig`` instance (any Pydantic ``BaseModel`` returned
         by the installed ``RootConfigProvider``). When a config object is
-        passed, the overlay is built from ``model_dump`` and
-        ``base_config`` in the overlay falls back to ``base_dir`` (when
-        supplied) so the file remains rechargeable.
+        passed, the rendered TOML is complete and does not rely on a
+        ``base_config`` pointer.
     params
         Candidate values keyed by parameter name (must cover every
         parameter in ``space`` that has a ``target`` or ``path``).
@@ -256,15 +255,19 @@ def materialize_candidate(
     overlay_path = candidate_dir / "candidate_override.toml"
 
     base_dir_resolved = Path(base_dir).expanduser().resolve() if base_dir is not None else None
+    if base_path is None and base_dir_resolved is None:
+        raise ValueError(
+            "materialize_candidate requires base_dir when base_config is an in-memory config"
+        )
 
-    overlay: dict[str, Any] = {}
+    overlay: dict[str, Any] = deepcopy(base_raw) if base_path is None else {}
     if base_path is not None:
         overlay["base_config"] = _format_path_for_overlay(base_path, base_dir_resolved)
-    elif base_dir_resolved is not None:
-        overlay["base_config"] = str(base_dir_resolved)
 
     if run_id is not None:
-        overlay["simulation"] = {"run_id": str(run_id)}
+        simulation_section = dict(overlay.get("simulation", {}))
+        simulation_section["run_id"] = str(run_id)
+        overlay["simulation"] = simulation_section
 
     workspace_section: dict[str, Any] = dict(base_raw.get("workspace", {}))
     if workspace_root is not None:

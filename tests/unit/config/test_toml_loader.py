@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 import pytest
@@ -136,7 +137,10 @@ def test_launcher_simulation_example_config_inheritance_keeps_only_relevant_data
     assert payload["data"]["recharge"]["sources"][0]["source"] == "synthetic"
 
 
-def test_launcher_simulation_mf6_precomputed_mesh_input_config_uses_runtime_mesh() -> None:
+def test_launcher_simulation_mf6_precomputed_mesh_input_config_uses_runtime_mesh(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     example_config = (
         Path(__file__).resolve().parents[3]
         / "tests"
@@ -153,10 +157,16 @@ def test_launcher_simulation_mf6_precomputed_mesh_input_config_uses_runtime_mesh
     assert payload["mesh_input"]["bundle_dir"] == "results_stable/mesh/mesh_catchment_bundle"
     assert "planar" not in payload["modflow6"]["sgrid"]
     assert payload["modflow6"]["sgrid"]["vertical"]["nlay"] == 2
-    assert payload["postprocess"]["flow"]["native_mesh_png"] is True
+    assert "postprocess" not in payload
+    monkeypatch.setenv("HYDROMODPY_WORKSPACE", str(tmp_path))
+    cfg = HydroModPyConfig.from_toml(example_config)
+    assert list(cfg.simulation.process[0].solvers) == ["modflow6"]
 
 
-def test_launcher_simulation_mf6_mesh_catchment_config_embeds_mesh_generation() -> None:
+def test_launcher_simulation_mf6_mesh_catchment_config_embeds_mesh_generation(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     example_config = (
         Path(__file__).resolve().parents[3]
         / "tests"
@@ -179,13 +189,13 @@ def test_launcher_simulation_mf6_mesh_catchment_config_embeds_mesh_generation() 
     assert payload["flow"]["param"]["K"]["field_homogeneous"]["value"] == "1e-5 m/s"
     assert payload["flow"]["param"]["Sy"]["field_homogeneous"]["value"] == "0.12 -"
     assert payload["data"]["recharge"]["sources"][0]["freq"] == "10D"
-    assert payload["postprocess"]["flow"]["display"] is True
-    assert payload["postprocess"]["flow"]["native_mesh_png"] is True
+    assert "postprocess" not in payload
     assert payload["analysis"]["capability_gallery"]["enabled"] is True
     assert payload["analysis"]["capability_gallery"]["case_slug"] == "modflow6_gmsh_mesh_catchment"
 
-    with pytest.raises(ValueError, match="postprocess"):
-        HydroModPyConfig.from_toml(example_config)
+    monkeypatch.setenv("HYDROMODPY_WORKSPACE", str(tmp_path))
+    cfg = HydroModPyConfig.from_toml(example_config)
+    assert cfg.mesh_catchment is not None
 
 
 def test_hydromodpy_config_loads_profiling_shortcuts(tmp_path: Path) -> None:
@@ -311,3 +321,84 @@ def test_hydromodpy_config_calibration_absent_yields_none(tmp_path: Path) -> Non
     cfg = HydroModPyConfig.from_toml(config_path)
 
     assert cfg.calibration is None
+
+
+def test_hydromodpy_config_rejects_unknown_flow_keys(tmp_path: Path) -> None:
+    config_path = tmp_path / "unknown_flow.toml"
+    config_path.write_text(
+        "\n".join(
+            [
+                'workflow = "simulation"',
+                "[workspace]",
+                f'root = "{tmp_path}"',
+                "",
+                "[geographic]",
+                'source_mode = "synthetic"',
+                "",
+                "[flow]",
+                "typo_runtime = true",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError, match=r"Unknown TOML key\(s\) in \[flow\]"):
+        HydroModPyConfig.from_toml(config_path)
+
+
+def test_hydromodpy_config_from_dict_uses_toml_normalization(tmp_path: Path) -> None:
+    dem_path = tmp_path / "dem.tif"
+    dem_path.touch()
+
+    cfg = HydroModPyConfig.from_dict(
+        {
+            "workflow": "simulation",
+            "workspace": {"root": str(tmp_path), "project_root": ""},
+            "geographic": {"catch_def": "dem", "dem_init_path": "dem.tif"},
+            "flow": {
+                "param": {
+                    "K": {
+                        "field": {"kind": "homogeneous"},
+                        "field_homogeneous": {"value": "1.0e-4 m/s"},
+                    }
+                }
+            },
+        },
+        base_dir=tmp_path,
+    )
+
+    assert cfg.workspace.project_root == tmp_path.resolve()
+    assert cfg.geographic.dem_init_path == dem_path.resolve()
+    assert cfg.flow.param_list == ["K"]
+    assert cfg.flow.param["K"] == {
+        "id": "K",
+        "kind": "homogeneous",
+        "value": "1.0e-4 m/s",
+    }
+
+
+def test_hydromodpy_config_from_json_uses_toml_normalization(tmp_path: Path) -> None:
+    dem_path = tmp_path / "dem.tif"
+    dem_path.touch()
+    payload = {
+        "workflow": "simulation",
+        "workspace": {"root": str(tmp_path), "project_root": str(tmp_path)},
+        "geographic": {"catch_def": "dem", "dem_init_path": "dem.tif"},
+    }
+
+    cfg = HydroModPyConfig.from_json(json.dumps(payload), base_dir=tmp_path)
+
+    assert cfg.geographic.dem_init_path == dem_path.resolve()
+
+
+def test_hydromodpy_config_accepts_method_comparison_workflow(tmp_path: Path) -> None:
+    cfg = HydroModPyConfig.from_dict(
+        {
+            "workflow": "method-comparison",
+            "workspace": {"root": str(tmp_path)},
+            "geographic": {"source_mode": "synthetic"},
+        },
+        base_dir=tmp_path,
+    )
+
+    assert cfg.workflow == "method-comparison"

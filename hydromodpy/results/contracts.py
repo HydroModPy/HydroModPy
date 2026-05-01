@@ -8,8 +8,12 @@ to allocate, immutable for callers, attribute access only.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import TYPE_CHECKING
 
 import numpy as np
+
+if TYPE_CHECKING:
+    from dask.array import Array as DaskArray
 
 __all__ = ["Mesh", "RasterField", "Stack", "UGridStack"]
 
@@ -38,7 +42,7 @@ class RasterField:
 class Stack:
     """Time stack of regular-in-plan rasters as ``(n_t, nrow, ncol)``."""
 
-    data: np.ndarray
+    data: np.ndarray | DaskArray
     variable: str
 
 

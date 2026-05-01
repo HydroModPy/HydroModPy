@@ -44,7 +44,7 @@ def run(args: argparse.Namespace) -> None:
         sys.exit(EXIT_NOT_FOUND)
 
     with SimulationCatalog(workspace_root) as catalog:
-        rows = catalog._connection.execute(
+        rows = catalog.connection.execute(
             f"""
             SELECT s.sim_id, s.name, s.solver, s.status, m.value
             FROM simulations s

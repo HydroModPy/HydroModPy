@@ -115,7 +115,7 @@ class TestDerivedVariables:
         # top=10, head~8-12, so depth = 10 - wt should be roughly -2 to 2
         assert np.all(np.isfinite(depth))
 
-    def test_seepage_areas(self, catalog):
+    def test_seepage_mask(self, catalog):
         sid = self._setup_sim_with_head(catalog)
         compute_derived(
             sid,
@@ -123,7 +123,7 @@ class TestDerivedVariables:
             {"watertable_elevation": True, "watertable_depth": False, "seepage_areas": True},
         )
 
-        seep = catalog.query_field(sid, "seepage_areas", 0)
+        seep = catalog.query_field(sid, "seepage_mask", 0)
         assert seep.shape == (10,)
         # Some cells have head > 10 (surface), so seepage > 0
         assert seep.sum() > 0

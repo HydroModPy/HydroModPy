@@ -33,7 +33,7 @@ class RunExportAdapter:
 
     def to_csv(self, path: Path | str | None = None) -> pd.DataFrame:
         run = self._run
-        df = run._catalog._connection.execute(
+        df = run._catalog.connection.execute(
             "SELECT station_id, variable, datetime, value, unit "
             "FROM timeseries WHERE sim_id = ? "
             "ORDER BY station_id, variable, datetime",

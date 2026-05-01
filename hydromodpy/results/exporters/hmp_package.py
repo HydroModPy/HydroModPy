@@ -226,7 +226,7 @@ def _materialise_inputs(
     Writes ``inputs/manifest.json`` listing each bundled input. Returns
     the manifest list (also useful for the root manifest).
     """
-    rows = catalog._connection.execute(
+    rows = catalog.connection.execute(
         """SELECT role, category, original_path, canonical_path,
                   sha256, size_bytes, portable
            FROM tracked_files WHERE sim_id = ?
@@ -517,7 +517,7 @@ def export_hmp_package(
             else output.with_suffix(".hmp")
         )
 
-    row = catalog._connection.execute(
+    row = catalog.connection.execute(
         "SELECT zarr_path, geographic_fingerprint, project FROM simulations WHERE sim_id = ?",
         [sid],
     ).fetchone()
@@ -532,7 +532,7 @@ def export_hmp_package(
         staging.mkdir()
 
         _dump_catalog_snapshot(
-            catalog._connection,
+            catalog.connection,
             sid,
             staging / CATALOG_SNAPSHOT_NAME,
         )
@@ -588,7 +588,7 @@ def _check_project_conflict(
     incoming_project = manifest.get("project")
     if not incoming_project:
         return
-    existing_sid = catalog._connection.execute(
+    existing_sid = catalog.connection.execute(
         "SELECT sim_id FROM simulations WHERE project = ? LIMIT 1",
         [incoming_project],
     ).fetchone()
@@ -732,7 +732,7 @@ def import_hmp_package(
                     f"expected {entry['sha256']}, got {actual}"
                 )
 
-        existing = catalog._connection.execute(
+        existing = catalog.connection.execute(
             "SELECT sim_id FROM simulations WHERE sim_id = ?",
             [sid],
         ).fetchone()
@@ -766,11 +766,11 @@ def import_hmp_package(
 
         from hydromodpy.results.catalog.storage_paths import build_storage_basename
 
-        catalog._connection.begin()
+        catalog.connection.begin()
         try:
-            _restore_catalog_snapshot(catalog._connection, snap_path)
+            _restore_catalog_snapshot(catalog.connection, snap_path)
             workspace = catalog.workspace_path
-            row = catalog._connection.execute(
+            row = catalog.connection.execute(
                 "SELECT project, name FROM simulations WHERE sim_id = ?",
                 [sid],
             ).fetchone()
@@ -778,17 +778,16 @@ def import_hmp_package(
             name_final = row[1] if row else None
             basename = build_storage_basename(project_final, name_final, sid)
             zarr_path = f"simulations/{basename}.zarr.zip"
-            catalog._connection.execute(
+            catalog.connection.execute(
                 "UPDATE simulations SET zarr_path = ?, storage_basename = ? WHERE sim_id = ?",
                 [zarr_path, basename, sid],
             )
-            catalog._connection.commit()
+            catalog.connection.commit()
         except Exception:
-            catalog._connection.rollback()
+            catalog.connection.rollback()
             raise
 
-        if hasattr(catalog, "_basename_cache"):
-            catalog._basename_cache[sid] = basename
+        catalog._paths.cache_basename(sid, basename)
 
         dst = workspace / zarr_path
         dst.parent.mkdir(parents=True, exist_ok=True)
@@ -800,7 +799,7 @@ def import_hmp_package(
         # caller's catalog connection.
         from hydromodpy.results.catalog_schema import ensure_parquet_views
 
-        ensure_parquet_views(catalog._connection, workspace)
+        ensure_parquet_views(catalog.connection, workspace)
 
         _dematerialise_geographic(
             pkg,

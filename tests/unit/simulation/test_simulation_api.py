@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import uuid
+from types import SimpleNamespace
 
 import numpy as np
 import pandas as pd
@@ -256,6 +257,26 @@ class TestSimulationGroup:
         group = SimulationGroup(sids, catalog)
         assert group.count == 3
         assert len(group) == 3
+
+    def test_project_sweep_returns_group_bound_to_catalog(self, monkeypatch, catalog):
+        from hydromodpy.project_runner import ProjectRunner
+
+        sids = [_register(catalog) for _ in range(2)]
+
+        def fake_run_sweep(project, *, parameters, strategy, name_template):
+            assert parameters == {"K": [1.0, 2.0]}
+            assert strategy == "enumerate"
+            assert name_template == "{param}_{value:.4g}"
+            return sids
+
+        monkeypatch.setattr("hydromodpy.workflow.parallel.run_sweep", fake_run_sweep)
+        project = SimpleNamespace(_store=catalog)
+
+        group = ProjectRunner(project).sweep({"K": [1.0, 2.0]})
+
+        assert isinstance(group, SimulationGroup)
+        assert group.sim_ids == sids
+        assert group[0].sim_id == sids[0]
 
     def test_iter(self, catalog):
         sids = [_register(catalog) for _ in range(2)]
