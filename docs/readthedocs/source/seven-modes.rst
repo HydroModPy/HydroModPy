@@ -1,11 +1,40 @@
-Seven ways to drive HydroModPy
-==============================
+Usage Modes
+===========
 
 HydroModPy exposes a single :class:`~hydromodpy.Project` facade and seven
 supported usage modes. Every mode feeds the same pipeline. Only the
 construction layer differs. Pick the mode that matches your workflow:
 TOML for reproducible runs, Python for prototyping, notebook cells for
 exploration.
+
+This page answers:
+"How do I drive HydroModPy?"
+
+It does not answer:
+"Which user-facing workflow should I run?"
+
+Modes vs workflows
+------------------
+
+HydroModPy distinguishes two different ideas:
+
+- a usage mode is the entry style: CLI TOML, JSON payload, full Python,
+  notebook cells, or low-level primitives;
+- a workflow is the user-facing operation declared through
+  ``workflow = "..."`` in a TOML file, such as ``overview``,
+  ``simulation``, ``mesh``, ``calibration``, ``batch``, or ``comparison``.
+
+The distinction matters because one workflow can be driven through several
+modes. For example, the standard ``simulation`` workflow can be launched:
+
+- from a CLI TOML file,
+- from a Python-built config,
+- from a notebook,
+- or through a frontend that submits JSON.
+
+If you want the inventory of actual workflow families, their goals, and the
+best current entry point for each one, use
+:doc:`getting_started/workflow-families`.
 
 The reference example projects under
 ``examples/projects/02_nancon_watershed/`` provide one concrete file for

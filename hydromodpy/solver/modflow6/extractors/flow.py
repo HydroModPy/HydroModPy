@@ -151,7 +151,9 @@ class Modflow6OutputAdapter:
                         "component": component.lower().strip(),
                         "flux_in": flux_in,
                         "flux_out": abs(flux_out),
-                        "unit": "m3/d",
+                        # HydroModPy writes MODFLOW 6 TDIS in seconds and
+                        # converts hydraulic inputs to SI before assembly.
+                        "unit": "m3/s",
                     }
                 )
                 if spatial_fields and hasattr(arr, "shape") and arr.ndim >= 1:

@@ -250,6 +250,37 @@ _TRANSIENT_PARAMETER_TARGETS = {
         mode="replace",
     ),
 }
+_TRANSIENT_OUTPUT_SPECS = {
+    "head_mid": TwinOutputSpec(
+        variable="watertable_elevation",
+        support="point",
+        x=50.0,
+        y=5.0,
+        time="all",
+    ),
+    "q_east": TwinOutputSpec(
+        variable="outlet_discharge",
+        support="boundary",
+        boundary_id="east_side",
+        time="all",
+    ),
+}
+_TRANSIENT_OBJECTIVE_BLOCK_SPECS = (
+    TwinObjectiveBlockSpec(
+        name="heads",
+        metric="rmse",
+        weight=1.0,
+        uses_outputs=("head_mid",),
+        normalize_cost=True,
+    ),
+    TwinObjectiveBlockSpec(
+        name="flux",
+        metric="rmse",
+        weight=1.0,
+        uses_outputs=("q_east",),
+        normalize_cost=True,
+    ),
+)
 _TRANSIENT_FLUX_ONLY_OUTPUT_SPECS = {
     "q_east": TwinOutputSpec(
         variable="outlet_discharge",
@@ -330,6 +361,9 @@ TRANSIENT_RECHARGE_STEP_TWIN_CASE = TwinCalibrationCaseDefinition(
     reference_objective_seed=13,
     build_simulation_config=build_simulation_config,
     build_calibration_payload=build_calibration_payload,
+    parameter_targets=_TRANSIENT_PARAMETER_TARGETS,
+    output_specs=_TRANSIENT_OUTPUT_SPECS,
+    objective_block_specs=_TRANSIENT_OBJECTIVE_BLOCK_SPECS,
 )
 
 
@@ -378,6 +412,9 @@ TRANSIENT_RECHARGE_STEP_NOISY_TWIN_CASE = TwinCalibrationCaseDefinition(
     ),
     build_simulation_config=build_simulation_config,
     build_calibration_payload=build_calibration_payload,
+    parameter_targets=_TRANSIENT_PARAMETER_TARGETS,
+    output_specs=_TRANSIENT_OUTPUT_SPECS,
+    objective_block_specs=_TRANSIENT_OBJECTIVE_BLOCK_SPECS,
 )
 
 

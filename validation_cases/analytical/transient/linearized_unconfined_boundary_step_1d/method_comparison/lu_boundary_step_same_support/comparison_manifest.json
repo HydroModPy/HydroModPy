@@ -1,0 +1,201 @@
+{
+  "schema_version": "method_comparison_manifest_v2",
+  "comparison_id": "lu_boundary_step_same_support",
+  "config_path": "C:\\codes\\HydroModPy\\validation_cases\\analytical\\transient\\linearized_unconfined_boundary_step_1d\\.__runtime_method_comparison_boundary_step.toml",
+  "comparison_root": "C:\\codes\\HydroModPy\\validation_cases\\analytical\\transient\\linearized_unconfined_boundary_step_1d\\method_comparison\\lu_boundary_step_same_support",
+  "base_simulation_config": "C:\\codes\\HydroModPy\\validation_cases\\analytical\\transient\\linearized_unconfined_boundary_step_1d\\config_modflownwt.toml",
+  "run_variants": true,
+  "continue_on_error": false,
+  "reference_variant": "modflow6",
+  "observables_csv": "C:\\codes\\HydroModPy\\validation_cases\\analytical\\transient\\linearized_unconfined_boundary_step_1d\\method_comparison\\lu_boundary_step_same_support\\observables.csv",
+  "comparison_metrics_csv": "C:\\codes\\HydroModPy\\validation_cases\\analytical\\transient\\linearized_unconfined_boundary_step_1d\\method_comparison\\lu_boundary_step_same_support\\comparison_metrics.csv",
+  "comparison_differences_csv": "C:\\codes\\HydroModPy\\validation_cases\\analytical\\transient\\linearized_unconfined_boundary_step_1d\\method_comparison\\lu_boundary_step_same_support\\comparison_differences.csv",
+  "comparison_metrics_json": "C:\\codes\\HydroModPy\\validation_cases\\analytical\\transient\\linearized_unconfined_boundary_step_1d\\method_comparison\\lu_boundary_step_same_support\\comparison_metrics.json",
+  "comparison_report_md": "C:\\codes\\HydroModPy\\validation_cases\\analytical\\transient\\linearized_unconfined_boundary_step_1d\\method_comparison\\lu_boundary_step_same_support\\comparison_report.md",
+  "comparison_figures_dir": "C:\\codes\\HydroModPy\\validation_cases\\analytical\\transient\\linearized_unconfined_boundary_step_1d\\method_comparison\\lu_boundary_step_same_support\\comparison_figures",
+  "comparison_figures": [
+    {
+      "kind": "timeseries",
+      "observable": "head_east_response",
+      "unit": "m",
+      "path": "C:\\codes\\HydroModPy\\validation_cases\\analytical\\transient\\linearized_unconfined_boundary_step_1d\\method_comparison\\lu_boundary_step_same_support\\comparison_figures\\head_east_response__timeseries.png"
+    },
+    {
+      "kind": "timeseries",
+      "observable": "head_mid_response",
+      "unit": "m",
+      "path": "C:\\codes\\HydroModPy\\validation_cases\\analytical\\transient\\linearized_unconfined_boundary_step_1d\\method_comparison\\lu_boundary_step_same_support\\comparison_figures\\head_mid_response__timeseries.png"
+    },
+    {
+      "kind": "timeseries",
+      "observable": "head_west_response",
+      "unit": "m",
+      "path": "C:\\codes\\HydroModPy\\validation_cases\\analytical\\transient\\linearized_unconfined_boundary_step_1d\\method_comparison\\lu_boundary_step_same_support\\comparison_figures\\head_west_response__timeseries.png"
+    },
+    {
+      "kind": "point_dashboard",
+      "observable": "head_points",
+      "path": "C:\\codes\\HydroModPy\\validation_cases\\analytical\\transient\\linearized_unconfined_boundary_step_1d\\method_comparison\\lu_boundary_step_same_support\\comparison_figures\\head_points_dashboard.png"
+    },
+    {
+      "kind": "execution_time_bars",
+      "observable": "execution_time",
+      "path": "C:\\codes\\HydroModPy\\validation_cases\\analytical\\transient\\linearized_unconfined_boundary_step_1d\\method_comparison\\lu_boundary_step_same_support\\comparison_figures\\execution_time_comparison.png"
+    }
+  ],
+  "comparison_data_artifacts": [
+    {
+      "kind": "timeseries_long_csv",
+      "path": "C:\\codes\\HydroModPy\\validation_cases\\analytical\\transient\\linearized_unconfined_boundary_step_1d\\method_comparison\\lu_boundary_step_same_support\\timeseries_long.csv"
+    },
+    {
+      "kind": "timeseries_wide_csv",
+      "path": "C:\\codes\\HydroModPy\\validation_cases\\analytical\\transient\\linearized_unconfined_boundary_step_1d\\method_comparison\\lu_boundary_step_same_support\\timeseries_wide.csv"
+    },
+    {
+      "kind": "timeseries_delta_csv",
+      "path": "C:\\codes\\HydroModPy\\validation_cases\\analytical\\transient\\linearized_unconfined_boundary_step_1d\\method_comparison\\lu_boundary_step_same_support\\timeseries_delta.csv"
+    },
+    {
+      "kind": "execution_times_csv",
+      "path": "C:\\codes\\HydroModPy\\validation_cases\\analytical\\transient\\linearized_unconfined_boundary_step_1d\\method_comparison\\lu_boundary_step_same_support\\execution_times.csv"
+    }
+  ],
+  "n_observable_rows": 1240,
+  "n_metric_rows": 5,
+  "n_difference_rows": 620,
+  "wall_time_seconds": 23.36,
+  "variants": [
+    {
+      "id": "modflownwt",
+      "label": "MODFLOW-NWT 50x5",
+      "status": "completed",
+      "enabled": true,
+      "solver": "modflownwt",
+      "mesh_label": null,
+      "mesh_mode": "structured",
+      "config_path": "C:\\codes\\HydroModPy\\validation_cases\\analytical\\transient\\linearized_unconfined_boundary_step_1d\\method_comparison\\lu_boundary_step_same_support\\_generated_configs\\modflownwt.toml",
+      "run_folder": "C:\\codes\\HydroModPy\\tmp\\lu_boundary_step_same_support_workspace\\.solver_scratch\\modflownwt",
+      "sim_id": "4c414e06-3c3e-43bf-815c-91cdee7be2c2",
+      "run_name": "modflownwt",
+      "wall_time_seconds": 6.58,
+      "metrics": {},
+      "run_metadata": {},
+      "n_observable_rows": 620
+    },
+    {
+      "id": "modflow6",
+      "label": "MODFLOW 6 50x5",
+      "status": "completed",
+      "enabled": true,
+      "solver": "modflow6",
+      "mesh_label": null,
+      "mesh_mode": "structured",
+      "config_path": "C:\\codes\\HydroModPy\\validation_cases\\analytical\\transient\\linearized_unconfined_boundary_step_1d\\method_comparison\\lu_boundary_step_same_support\\_generated_configs\\modflow6.toml",
+      "run_folder": "C:\\codes\\HydroModPy\\tmp\\lu_boundary_step_same_support_workspace\\.solver_scratch\\modflow6",
+      "sim_id": "3039ca08-2512-4e36-8ca8-fdea4b6ecb1c",
+      "run_name": "modflow6",
+      "wall_time_seconds": 9.0,
+      "metrics": {},
+      "run_metadata": {},
+      "n_observable_rows": 620
+    }
+  ],
+  "observables": [
+    {
+      "name": "head_west_response",
+      "variable": "watertable_elevation",
+      "source": "disk",
+      "variants": null,
+      "support": "point",
+      "anchor_id": null,
+      "x": null,
+      "y": null,
+      "cell_index": 5,
+      "cell_indices": null,
+      "boundary_id": null,
+      "allow_domain_proxy": false,
+      "time": "all",
+      "time_window": null,
+      "reducer": "nearest_cell",
+      "time_reducer": null,
+      "unit": "m"
+    },
+    {
+      "name": "head_mid_response",
+      "variable": "watertable_elevation",
+      "source": "disk",
+      "variants": null,
+      "support": "point",
+      "anchor_id": null,
+      "x": null,
+      "y": null,
+      "cell_index": 25,
+      "cell_indices": null,
+      "boundary_id": null,
+      "allow_domain_proxy": false,
+      "time": "all",
+      "time_window": null,
+      "reducer": "nearest_cell",
+      "time_reducer": null,
+      "unit": "m"
+    },
+    {
+      "name": "head_east_response",
+      "variable": "watertable_elevation",
+      "source": "disk",
+      "variants": null,
+      "support": "point",
+      "anchor_id": null,
+      "x": null,
+      "y": null,
+      "cell_index": 45,
+      "cell_indices": null,
+      "boundary_id": null,
+      "allow_domain_proxy": false,
+      "time": "all",
+      "time_window": null,
+      "reducer": "nearest_cell",
+      "time_reducer": null,
+      "unit": "m"
+    },
+    {
+      "name": "head_map_last",
+      "variable": "watertable_elevation",
+      "source": "disk",
+      "variants": null,
+      "support": "map",
+      "anchor_id": null,
+      "x": null,
+      "y": null,
+      "cell_index": null,
+      "cell_indices": null,
+      "boundary_id": null,
+      "allow_domain_proxy": false,
+      "time": "last",
+      "time_window": null,
+      "reducer": "identity",
+      "time_reducer": null,
+      "unit": "m"
+    },
+    {
+      "name": "depth_map_last",
+      "variable": "watertable_depth",
+      "source": "disk",
+      "variants": null,
+      "support": "map",
+      "anchor_id": null,
+      "x": null,
+      "y": null,
+      "cell_index": null,
+      "cell_indices": null,
+      "boundary_id": null,
+      "allow_domain_proxy": false,
+      "time": "last",
+      "time_window": null,
+      "reducer": "identity",
+      "time_reducer": null,
+      "unit": "m"
+    }
+  ]
+}

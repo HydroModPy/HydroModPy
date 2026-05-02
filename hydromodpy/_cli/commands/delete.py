@@ -65,19 +65,39 @@ def run(args: argparse.Namespace) -> None:
                 print("Aborted.", file=sys.stderr)
                 sys.exit(EXIT_USER_ABORT)
 
-        zarr_path = catalog.zarr_path_for(sid)
-        parquet_dir = catalog.parquet_dir_for(sid)
-        _delete_from_catalog(catalog, sid)
-        if zarr_path.exists():
-            if zarr_path.is_dir():
-                shutil.rmtree(zarr_path, ignore_errors=True)
-            else:
-                zarr_path.unlink(missing_ok=True)
-            print(f"  removed zarr: {zarr_path}")
-        if parquet_dir.exists():
-            shutil.rmtree(parquet_dir, ignore_errors=True)
-            print(f"  removed parquet: {parquet_dir}")
+        result = delete_simulation_artifacts(catalog, sid)
+        for removed_path in result["removed_paths"]:
+            print(f"  removed: {removed_path}")
         print(f"Deleted simulation {label}")
+
+
+def delete_simulation_artifacts(catalog, sid: str) -> dict[str, object]:
+    """Delete one simulation row and its on-disk artefacts.
+
+    Returns a small summary with removed paths and the approximate byte count
+    freed on disk. Missing artefacts are ignored.
+    """
+    zarr_path = catalog.zarr_path_for(sid)
+    parquet_dir = catalog.parquet_dir_for(sid)
+    freed_bytes = _path_size(zarr_path) + _path_size(parquet_dir)
+
+    _delete_from_catalog(catalog, sid)
+
+    removed_paths: list[str] = []
+    if zarr_path.exists():
+        if zarr_path.is_dir():
+            shutil.rmtree(zarr_path, ignore_errors=True)
+        else:
+            zarr_path.unlink(missing_ok=True)
+        removed_paths.append(str(zarr_path))
+    if parquet_dir.exists():
+        shutil.rmtree(parquet_dir, ignore_errors=True)
+        removed_paths.append(str(parquet_dir))
+    return {
+        "sim_id": sid,
+        "freed_bytes": freed_bytes,
+        "removed_paths": removed_paths,
+    }
 
 
 def _delete_from_catalog(catalog, sid: str) -> None:
@@ -109,3 +129,26 @@ def _delete_from_catalog(catalog, sid: str) -> None:
             # Skip tables that may not exist in older workspaces.
             pass
     conn.execute("DELETE FROM simulations WHERE sim_id = ?", [sid])
+
+
+def _path_size(path: Path) -> int:
+    """Return the recursive file size for *path* in bytes."""
+    if not path.exists():
+        return 0
+    try:
+        if path.is_file():
+            return int(path.stat().st_size)
+    except OSError:
+        return 0
+
+    total = 0
+    try:
+        for child in path.rglob("*"):
+            try:
+                if child.is_file():
+                    total += int(child.stat().st_size)
+            except OSError:
+                continue
+    except OSError:
+        return total
+    return total

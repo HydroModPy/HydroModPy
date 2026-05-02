@@ -1,0 +1,56 @@
+@startuml
+title Hydrographic Network - End-to-End Runtime Sequence
+autonumber
+skinparam wrapWidth 180
+skinparam maxMessageSize 180
+
+actor User
+participant "workflow / Project" as Workflow
+participant "HydrographyManager" as HydroMgr
+participant "geographic.river_network\npreprocessing" as GeoRiver
+participant "HydrographicNetwork\nfactory methods" as Factory
+participant "GeographicDerivedFeatures" as Features
+participant "SimulationCatalog" as Catalog
+participant "Run" as Run
+participant "Comparison / figures" as Compare
+
+User -> Workflow : run one simulation / overview / comparison case
+
+alt reference network is loaded
+  Workflow -> HydroMgr : load data.hydrography
+  HydroMgr --> Workflow : HydrographyResult
+  Workflow -> Factory : from_hydrography_result(...)
+  Factory --> Workflow : HydrographicNetwork(role=\"reference\")
+  Workflow -> Features : attach reference role
+  Workflow -> Catalog : persist hydrographic_network_reference
+else no reference source configured
+  Workflow -> Features : keep reference = None
+end
+
+alt generated network is enabled
+  Workflow -> GeoRiver : build_river_network_products(...)
+  GeoRiver --> Workflow : RiverNetworkProducts
+  Workflow -> Factory : from_river_network_products(...)
+  Factory --> Workflow : HydrographicNetwork(role=\"generated\")
+  Workflow -> Features : attach generated role
+  Workflow -> Catalog : persist hydrographic_network_generated\n(+ legacy alias river_network)
+else geographic.river_network disabled or empty
+  Workflow -> Features : keep generated = None
+end
+
+User -> Run : available_hydrographic_network_roles()
+Run -> Catalog : list_geographic_features(...)
+Catalog --> Run : available canonical roles
+
+alt both reference and generated exist
+  User -> Run : hydrographic_network_comparison(...)
+  Run -> Compare : compare_hydrographic_networks(...)
+  Compare --> Run : HydrographicNetworkComparison
+  Run --> User : comparison metrics / figures available
+else one role is missing
+  User -> Run : hydrographic_network_comparison(...)
+  Run --> User : explicit error: missing role(s)
+  User -> Run : hydrographic_network(existing_role)
+  Run --> User : standalone role still readable
+end
+@enduml

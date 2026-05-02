@@ -10,6 +10,7 @@ from hydromodpy.solver.modflow_nwt.modflow import (
     ModflowConfig,
     ModflowSpecifParams,
 )
+from hydromodpy.solver.modflow6 import Modflow6Config
 from hydromodpy.solver.utils.temporal.tmesh_config import TMeshConfig
 from hydromodpy.spatial.mesh.cartesian_grid.sgrid_config import SolverSGridConfig
 
@@ -27,6 +28,12 @@ def test_modflow_config_defaults_match_runtime_defaults():
     assert params.sgrid.planar.mode == "keep_native"
     assert params.sgrid.vertical.nlay == 1
     assert params.tgrid is None
+
+
+def test_modflow6_runtime_defaults_keep_xt3d_in_auto_mode():
+    cfg = Modflow6Config()
+
+    assert cfg.runtime.mf6_enable_xt3d is None
 
 
 def test_modflow_config_accepts_exdp_with_unit_string():
@@ -266,6 +273,7 @@ def test_hydromodpy_config_loads_independent_modflow6_runtime(tmp_path: Path):
                 'mf6_executable_name = "mf6_custom"',
                 'mf6_ims_complexity = "SIMPLE"',
                 "mf6_enable_rewet = true",
+                "mf6_enable_xt3d = true",
                 "mf6_rewet_wetdry = 0.05",
                 "",
                 "[modflow6.process_specific]",
@@ -280,5 +288,6 @@ def test_hydromodpy_config_loads_independent_modflow6_runtime(tmp_path: Path):
     assert cfg.modflow6.runtime.mf6_executable_name == "mf6_custom"
     assert cfg.modflow6.runtime.mf6_ims_complexity == "SIMPLE"
     assert cfg.modflow6.runtime.mf6_enable_rewet is True
+    assert cfg.modflow6.runtime.mf6_enable_xt3d is True
     assert cfg.modflow6.runtime.mf6_rewet_wetdry == pytest.approx(0.05)
     assert cfg.modflow6.process_specific.evt_extinction_depth == pytest.approx(2.5)

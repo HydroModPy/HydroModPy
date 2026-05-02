@@ -16,6 +16,7 @@ dependencies:
   - pandas
   - pint
   - pydantic
+  - pydantic-pint
   - pytest
   - pytest-xdist
   - sphinx
@@ -37,4 +38,4 @@ dependencies:
       - gmsh
       - meshio
       - whitebox-workflows
-      - -e ..
+      - -e "..[docs]"

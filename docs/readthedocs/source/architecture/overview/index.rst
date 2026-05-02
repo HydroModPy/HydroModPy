@@ -7,6 +7,8 @@ rather "where does one responsibility live?" or "which layer should I change?".
 
 The pages below focus on the recurring maintenance boundaries:
 
+- the quality ladder from local unit checks to scientific benchmark
+  validation, with the routine commands used to run each level,
 - the split between reusable scientific benchmarks and pytest entrypoints,
 - the compatibility layers that keep legacy or simplified imports alive
   while internals are reorganized,
@@ -24,6 +26,9 @@ They are deliberately complementary to the package-level sections in
 .. toctree::
    :maxdepth: 2
 
+   test-families-and-quality-roles
+   mental-model-and-design-choices
+   hydrographic-network-uml-diagrams
    code-reading-guide
    tests-and-validation
    compatibility-facades

@@ -9,7 +9,8 @@ and simulation steps:
 - domain support polygons (catchment, box, buffered box),
 - clipped DEM products used by domain gridding,
 - optional DEM-derived river network products,
-- compatibility payload consumed by legacy and modern runtimes.
+- compatibility payload consumed by legacy and modern runtimes,
+- canonical hydrographic-network objects shared with comparison and display layers.
 
 ## Package Layout
 
@@ -36,6 +37,7 @@ and simulation steps:
 - `catchment_metrics.py`: scalar metrics (currently catchment area).
 - `direct_dem_domain.py`: direct-domain mode from DEM (`catch_def="dem"`).
 - `river_network.py`: optional stream extraction and network diagnostics.
+- `hydrographic_network.py`: canonical hydrographic-network concept and naming contract.
 - `pipeline_steps.py`: shared setup helpers reused by orchestration.
 - `domain_geographic_pipeline.py`: top-level context builder for domain runtime.
 
@@ -62,14 +64,14 @@ For `standard`, `catch_def` selects the domain definition:
 5. Clip DEM to buffered box (`domain_dem`).
 6. Build topographic surface (`surface_from_dem`).
 7. Compute metrics (`catchment_metrics`).
-8. Optionally build river network (`river_network`).
+8. Optionally build the generated hydrographic network (`geographic.river_network`).
 
 The `domain_geographic_pipeline` module orchestrates this sequence for modern
 domain entrypoints. The `Geographic` class preserves historical behavior using
 compatibility payloads that now live directly in this package, with old import
 paths served only through centralized aliases.
 
-## Optional River Network
+## Generated Hydrographic Network
 
 `[geographic.river_network]` controls stream extraction:
 
@@ -85,8 +87,27 @@ Outputs can include:
 - optional pruned streams raster,
 - optional Strahler order raster,
 - optional stream-link raster,
-- vector river network (`river_network.shp`),
-- summary JSON (`river_network_summary.json`).
+- vector generated network (`river_network.shp`, legacy filename),
+- summary JSON (`river_network_summary.json`, legacy filename).
+
+Canonical concept:
+
+- `HydrographicNetwork(role="generated")` is the shared conceptual object used by
+  display, comparison and result APIs.
+- `RiverNetworkProducts` remains the technical low-level bundle produced by the
+  geographic preprocessing step.
+- `RiverMeshTrace` remains the narrow downstream projection used by meshing.
+
+Canonical persisted names:
+
+- `hydrographic_network_generated` for the generated network,
+- `hydrographic_network_reference` for the loaded reference network.
+
+Legacy aliases still kept for compatibility:
+
+- `river_network` as the generated feature alias,
+- `streams.shp` / `streams.tif` for the loaded reference files,
+- `river_network.shp` / `river_network_summary.json` for generated on-disk products.
 
 ## Typical Inputs
 
@@ -137,6 +158,8 @@ python hydromodpy/spatial/geographic/cases/review_cases.py
 - Core modules are intentionally small and explicit to simplify testing and
   maintenance.
 - File/path contracts are centralized to keep downstream code deterministic.
+- `HydrographicNetwork` is the preferred cross-layer concept; `RiverNetworkProducts`
+  should be treated as an internal preprocessing contract.
 
 ## Development Tips
 

@@ -4,7 +4,7 @@ workflow = "simulation"
 solvers = ["modflow6"]
 
 [modflow6.runtime]
-mf6_ims_complexity = "SIMPLE"
+mf6_ims_complexity = "COMPLEX"
 mf_verbose = false
 
 [modflow6.process_specific]

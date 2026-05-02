@@ -97,8 +97,8 @@ Solver Coverage
          Boussinesq Uniform-Recharge Piecewise-K 1D rendered with MODFLOW 6 irregular triangles for the analytical gallery.
 
       **Metrics**
-      - Head-profile RMSE: 0.2036 m
-      - Head-profile max abs error: 0.3177 m
+      - Head-profile RMSE: 0.0219 m
+      - Head-profile max abs error: 0.0401 m
       - Cross-row head spread: 0.00e+00 m
 
       - Config file: ``validation_cases/analytical/steady/boussinesq_uniform_recharge_piecewise_k_1d/config_modflow6_irregular_tri.toml``

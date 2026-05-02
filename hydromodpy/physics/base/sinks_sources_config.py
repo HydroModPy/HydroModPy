@@ -27,6 +27,7 @@ def normalize_sink_source_payload(
 
     payload = dict(value)
     payload.setdefault("id", default_id)
-    if "units" not in payload and "unit" in payload:
-        payload["units"] = payload["unit"]
+    if "unit" in payload:
+        payload.setdefault("units", payload["unit"])
+        payload.pop("unit", None)
     return SinkSource.model_validate(payload)

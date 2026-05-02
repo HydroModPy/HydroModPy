@@ -61,6 +61,12 @@ os.environ.setdefault("TMP", str(_TEST_TMP_ROOT))
 os.environ.setdefault("TEMP", str(_TEST_TMP_ROOT))
 
 
+def _ensure_test_scratch_dirs() -> None:
+    """Recreate shared scratch folders if a test removed them mid-session."""
+    for path in (_TEST_SCRATCH_ROOT, _TEST_TMP_ROOT, _TEST_PYTEST_ROOT):
+        path.mkdir(parents=True, exist_ok=True)
+
+
 def pytest_addoption(parser):
     """Add a CLI switch to refresh regression golden references."""
     parser.addoption(
@@ -185,6 +191,15 @@ def pytest_collection_modifyitems(config, items):
                 item.add_marker(pytest.mark.extensive)
             else:
                 item.add_marker(pytest.mark.fast)
+
+
+def pytest_runtest_setup(item):
+    """Keep pytest's shared temp roots available even after test-side cleanup."""
+    _ensure_test_scratch_dirs()
+    tmp_path_factory = getattr(item.session.config, "_tmp_path_factory", None)
+    if tmp_path_factory is None:
+        return
+    tmp_path_factory.getbasetemp().mkdir(parents=True, exist_ok=True)
 
 
 def pytest_sessionfinish(session, exitstatus):

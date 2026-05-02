@@ -13,8 +13,12 @@ but the long-term orchestration contract should prefer `GeographicDerivedFeature
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 
+from hydromodpy.spatial.geographic.core.hydrographic_network import (
+    HydrographicNetwork,
+    HydrographicNetworks,
+)
 from hydromodpy.spatial.geographic.core.river_network import RiverNetworkProducts
 from hydromodpy.spatial.surface import Surface
 
@@ -44,6 +48,7 @@ class GeographicDerivedFeatures:
     zone_kind: str = "catchment"
     watershed_box_buff_dem: str = ""
     regional_dem_path: str | None = None
+    hydrographic_networks: HydrographicNetworks = field(default_factory=HydrographicNetworks)
 
     def to_domain_geographic_context(self):
         """Return the historical compatibility view used by domain consumers."""
@@ -72,6 +77,16 @@ class GeographicDerivedFeatures:
                 None if self.regional_dem_path is None else str(self.regional_dem_path)
             ),
         )
+
+    @property
+    def generated_hydrographic_network(self) -> HydrographicNetwork | None:
+        """Return the canonical generated hydrographic network when available."""
+        return self.hydrographic_networks.generated
+
+    @property
+    def reference_hydrographic_network(self) -> HydrographicNetwork | None:
+        """Return the canonical reference hydrographic network when available."""
+        return self.hydrographic_networks.reference
 
     @classmethod
     def from_domain_geographic_context(
@@ -106,6 +121,7 @@ class GeographicDerivedFeatures:
                 if getattr(context, "regional_dem_path", None) in (None, "")
                 else str(context.regional_dem_path)
             ),
+            hydrographic_networks=HydrographicNetworks(),
         )
 
 
@@ -140,6 +156,30 @@ def coerce_geographic_derived_features(
     return None
 
 
+def attach_reference_hydrographic_network(
+    geographic_features: GeographicDerivedFeatures,
+    hydrography_result: object | None,
+) -> GeographicDerivedFeatures:
+    """Return one updated features bundle enriched with the reference network.
+
+    The geographic preprocessing stack creates the generated network early,
+    while the imported hydrography becomes available only after data loading.
+    This helper keeps that late binding explicit and localized.
+    """
+    if hydrography_result is None:
+        return geographic_features
+
+    reference = HydrographicNetwork.from_hydrography_result(
+        hydrography_result,
+        watershed_shp=geographic_features.boundaries.watershed_shp,
+    )
+    networks = geographic_features.hydrographic_networks
+    return replace(
+        geographic_features,
+        hydrographic_networks=replace(networks, reference=reference),
+    )
+
+
 def resolve_river_mesh_trace(
     *,
     geographic_features: GeographicDerivedFeatures | None = None,
@@ -158,6 +198,7 @@ def resolve_river_mesh_trace(
 __all__ = [
     "GeographicBoundaryFeatures",
     "GeographicDerivedFeatures",
+    "attach_reference_hydrographic_network",
     "coerce_geographic_derived_features",
     "resolve_river_mesh_trace",
 ]

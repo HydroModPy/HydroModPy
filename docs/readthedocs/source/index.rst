@@ -39,13 +39,16 @@ First visit
 
    1. :doc:`install`
    2. :doc:`getting_started/index`
-   3. :doc:`examples`
-   4. :doc:`capability_gallery/index`
+   3. :doc:`user_guide/index`
+   4. :doc:`examples`
+   5. :doc:`capability_gallery/index`
 
-Use :doc:`getting_started/index` when you want a guided first workflow. Use
-:doc:`examples` when you already know that you want the full notebook and
-script inventory. Use :doc:`capability_gallery/index` when you want stable,
-curated result pages before running anything locally.
+Use :doc:`getting_started/index` when you want the shortest first-run path.
+Use :doc:`user_guide/index` when you need operational concepts such as usage
+modes, workflow families, workspace layout, comparison, calibration, meshes, or
+solver choice. Use :doc:`examples` when you already know that you want the full
+notebook and script inventory. Use :doc:`capability_gallery/index` when you
+want stable, curated result pages before running anything locally.
 
 If you are looking for technical documentation, code-reading guides, module
 diagrams, or UML pages, use :doc:`architecture/index`. If you are looking for
@@ -72,10 +75,20 @@ Documentation map
       :link: getting_started/index
       :link-type: doc
 
-      **Getting started**
+      **Quickstart**
       ^^^
-      First-run guidance, workflow selection, and parameter-reading help for
-      the main example families.
+      Short path from installation to a first project, a data overview, and one
+      end-to-end simulation.
+
+   .. grid-item-card::
+      :class-card: sd-shadow-sm sd-rounded-3 sd-p-4
+      :link: user_guide/index
+      :link-type: doc
+
+      **User guide**
+      ^^^
+      Usage modes, workflow families, workspace layout, project/run concepts,
+      comparison, calibration, meshes, and solver-choice routing.
 
    .. grid-item-card::
       :class-card: sd-shadow-sm sd-rounded-3 sd-p-4
@@ -92,10 +105,30 @@ Documentation map
       :link: capability_gallery/index
       :link-type: doc
 
-      **Capability gallery**
+      **Case studies**
       ^^^
       Static mesh illustrations, validation figures, and watershed diagnostics
       curated for documentation and teaching.
+
+   .. grid-item-card::
+      :class-card: sd-shadow-sm sd-rounded-3 sd-p-4
+      :link: scientific/index
+      :link-type: doc
+
+      **Scientific background**
+      ^^^
+      Method notes, solver equations, and modelling assumptions separated from
+      the software architecture.
+
+   .. grid-item-card::
+      :class-card: sd-shadow-sm sd-rounded-3 sd-p-4
+      :link: architecture/index
+      :link-type: doc
+
+      **Developer guide**
+      ^^^
+      Technical documentation, code-reading maps, component diagrams, class
+      diagrams, activity diagrams, and runtime handoff views.
 
    .. grid-item-card::
       :class-card: sd-shadow-sm sd-rounded-3 sd-p-4
@@ -106,27 +139,6 @@ Documentation map
       ^^^
       Browse the package tree exactly as in ``hydromodpy/`` (spatial, solver,
       display, pyhelp, and tooling APIs).
-
-   .. grid-item-card::
-      :class-card: sd-shadow-sm sd-rounded-3 sd-p-4
-      :link: architecture/index
-      :link-type: doc
-
-      **Architecture & code guides**
-      ^^^
-      Technical documentation, code-reading maps, component diagrams, class
-      diagrams, activity diagrams, and runtime handoff views for the main
-      HydroModPy modules.
-
-   .. grid-item-card::
-      :class-card: sd-shadow-sm sd-rounded-3 sd-p-4
-      :link: scientific/index
-      :link-type: doc
-
-      **Scientific documentation**
-      ^^^
-      Method notes, solver equations, and modelling assumptions separated from
-      the software architecture.
 
    .. grid-item-card::
       :class-card: sd-shadow-sm sd-rounded-3 sd-p-4
@@ -195,12 +207,12 @@ For any question or collaboration request, contact:
 
    Home <self>
    install
-   getting_started/index
-   seven-modes
+   Quickstart <getting_started/index>
+   user_guide/index
    examples
-   capability_gallery/index
-   scientific/index
-   architecture/index
+   Case Studies <capability_gallery/index>
+   Scientific Background <scientific/index>
+   Developer Guide <architecture/index>
    api-reference
    contribute
 

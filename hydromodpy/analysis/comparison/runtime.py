@@ -10,6 +10,7 @@ import numbers
 from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
+from types import SimpleNamespace
 from typing import TYPE_CHECKING, Any
 
 import numpy as np
@@ -24,6 +25,7 @@ from hydromodpy.core.config.toml_loader import (
     merge_toml_payloads,
 )
 from hydromodpy.physics.flow.history_contract import (
+    build_transient_time_axes,
     snapshot_elapsed_seconds_from_payload,
     step_end_elapsed_seconds_from_payload,
 )
@@ -215,6 +217,24 @@ def _resolve_project_root_from_config(config_path: Path) -> Path | None:
     if project_root in (None, ""):
         return None
     resolved = Path(str(project_root)).expanduser()
+    if not resolved.is_absolute():
+        resolved = config_path.parent / resolved
+    return resolved.resolve()
+
+
+def _resolve_workspace_root_from_config(config_path: Path) -> Path | None:
+    """Return the configured workspace root when the config declares one."""
+    try:
+        payload = load_toml_with_base_config(config_path)
+    except Exception:
+        return None
+    workspace = payload.get("workspace")
+    if not isinstance(workspace, Mapping):
+        return None
+    root = workspace.get("root")
+    if root in (None, ""):
+        return None
+    resolved = Path(str(root)).expanduser()
     if not resolved.is_absolute():
         resolved = config_path.parent / resolved
     return resolved.resolve()
@@ -503,6 +523,83 @@ def _resolve_recorded_output_path(
     return path
 
 
+def _bundle_dir_from_config(config_path: Path) -> Path | None:
+    try:
+        payload = load_toml_with_base_config(config_path)
+    except Exception:
+        return None
+    mesh_input = payload.get("mesh_input")
+    if isinstance(mesh_input, Mapping):
+        bundle_dir_raw = mesh_input.get("bundle_dir")
+        if bundle_dir_raw not in (None, ""):
+            return _resolve_recorded_output_path(bundle_dir_raw, base_dir=config_path.parent)
+
+    mesh_catchment = payload.get("mesh_catchment")
+    if not isinstance(mesh_catchment, Mapping):
+        return None
+
+    output_mesh_raw = mesh_catchment.get("output_mesh")
+    candidates: list[Path] = []
+    if output_mesh_raw not in (None, ""):
+        output_mesh = _resolve_recorded_output_path(output_mesh_raw, base_dir=config_path.parent)
+        if output_mesh is not None:
+            candidates.append(output_mesh.parent / "mesh_catchment_bundle")
+
+    project_root = _resolve_project_root_from_config(config_path)
+    if project_root is not None:
+        candidates.extend(
+            (
+                project_root / "mesh" / "mesh_catchment_bundle",
+                project_root / "results_stable" / "mesh" / "mesh_catchment_bundle",
+            )
+        )
+    for candidate in candidates:
+        if (candidate / "cells.csv").exists():
+            return candidate.resolve()
+    return None
+
+
+def _load_bundle_cells(cells_path: Path) -> CellCentroidTable | None:
+    if not cells_path.exists():
+        return None
+    cell_ids: list[int] = []
+    xs: list[float] = []
+    ys: list[float] = []
+    areas: list[float] = []
+    storage_coefficients: list[float] = []
+    with cells_path.open("r", encoding="utf-8", newline="") as handle:
+        reader = csv.DictReader(handle)
+        for row in reader:
+            try:
+                cell_ids.append(int(row["cell_id"]))
+                xs.append(float(row["centroid_x"]))
+                ys.append(float(row["centroid_y"]))
+                area_value = row.get("area_m2")
+                areas.append(float(area_value) if area_value not in (None, "") else math.nan)
+                storage_value = row.get("storage_coefficient")
+                storage_coefficients.append(
+                    float(storage_value) if storage_value not in (None, "") else math.nan
+                )
+            except Exception:
+                continue
+
+    if not cell_ids:
+        return None
+    area_array = np.asarray(areas, dtype=float)
+    if area_array.size != len(cell_ids) or not np.any(np.isfinite(area_array)):
+        area_array = None
+    storage_array = np.asarray(storage_coefficients, dtype=float)
+    if storage_array.size != len(cell_ids) or not np.any(np.isfinite(storage_array)):
+        storage_array = None
+    return CellCentroidTable(
+        cell_ids=np.asarray(cell_ids, dtype=int),
+        x=np.asarray(xs, dtype=float),
+        y=np.asarray(ys, dtype=float),
+        area_m2=area_array,
+        storage_coefficient=storage_array,
+    )
+
+
 def compact_run_metrics(metrics: Mapping[str, Any]) -> dict[str, Any]:
     """Keep only comparison-relevant scalar/list metrics in manifests."""
     keys = (
@@ -594,44 +691,18 @@ def resolve_bundle_cells(
     if bundle_dir_raw:
         bundle_dir = _resolve_recorded_output_path(bundle_dir_raw, base_dir=run_folder)
         cells_path = None if bundle_dir is None else (bundle_dir / "cells.csv")
-        if cells_path is not None and cells_path.exists():
-            cell_ids: list[int] = []
-            xs: list[float] = []
-            ys: list[float] = []
-            areas: list[float] = []
-            storage_coefficients: list[float] = []
-            with cells_path.open("r", encoding="utf-8", newline="") as handle:
-                reader = csv.DictReader(handle)
-                for row in reader:
-                    try:
-                        cell_ids.append(int(row["cell_id"]))
-                        xs.append(float(row["centroid_x"]))
-                        ys.append(float(row["centroid_y"]))
-                        area_value = row.get("area_m2")
-                        areas.append(
-                            float(area_value) if area_value not in (None, "") else math.nan
-                        )
-                        storage_value = row.get("storage_coefficient")
-                        storage_coefficients.append(
-                            float(storage_value) if storage_value not in (None, "") else math.nan
-                        )
-                    except Exception:
-                        continue
+        if cells_path is not None:
+            cells = _load_bundle_cells(cells_path)
+            if cells is not None:
+                return cells
 
-            if cell_ids:
-                area_array = np.asarray(areas, dtype=float)
-                if area_array.size != len(cell_ids) or not np.any(np.isfinite(area_array)):
-                    area_array = None
-                storage_array = np.asarray(storage_coefficients, dtype=float)
-                if storage_array.size != len(cell_ids) or not np.any(np.isfinite(storage_array)):
-                    storage_array = None
-                return CellCentroidTable(
-                    cell_ids=np.asarray(cell_ids, dtype=int),
-                    x=np.asarray(xs, dtype=float),
-                    y=np.asarray(ys, dtype=float),
-                    area_m2=area_array,
-                    storage_coefficient=storage_array,
-                )
+    if config_path is not None:
+        bundle_dir = _bundle_dir_from_config(config_path)
+        cells_path = None if bundle_dir is None else (bundle_dir / "cells.csv")
+        if cells_path is not None:
+            cells = _load_bundle_cells(cells_path)
+            if cells is not None:
+                return cells
 
     if config_path is None:
         return _structured_cells_from_run_folder(
@@ -1165,11 +1236,119 @@ def _store_variable_mapping(variable_name: str) -> str | None:
     return mapping.get(variable_name.strip().lower())
 
 
+def _namespace_from_mapping(value: Any) -> Any:
+    """Return an attribute-access view for a JSON/TOML-like mapping."""
+    if isinstance(value, Mapping):
+        return SimpleNamespace(
+            **{str(key): _namespace_from_mapping(item) for key, item in value.items()}
+        )
+    if isinstance(value, list):
+        return [_namespace_from_mapping(item) for item in value]
+    return value
+
+
+def _elapsed_axis_from_config_time_grid(
+    config_path: Path | None,
+    *,
+    n_slices: int,
+) -> tuple[list[float | None], bool] | None:
+    """Infer one physical elapsed-time axis from `[simulation.time]`.
+
+    MODFLOW-family field outputs are step-end histories: there is one stored
+    field per stress period. Boussinesq snapshot histories can include the
+    initial state, in which case their length is `nper + 1`.
+    """
+    if config_path is None or n_slices <= 0:
+        return None
+    try:
+        payload = load_toml_with_base_config(config_path)
+        from hydromodpy.core.time import resolve_simulation_time_grid
+
+        grid = resolve_simulation_time_grid(_namespace_from_mapping(payload))
+    except Exception:
+        return None
+    if grid is None:
+        return None
+    axes = build_transient_time_axes(grid.period_lengths_seconds)
+    if axes.n_snapshots == int(n_slices):
+        return (
+            [float(value) for value in axes.snapshot_elapsed_seconds.tolist()],
+            True,
+        )
+    if axes.n_steps == int(n_slices):
+        return (
+            [float(value) for value in axes.step_end_elapsed_seconds.tolist()],
+            False,
+        )
+    return None
+
+
+def _elapsed_axis_from_boussinesq_state_group(
+    grp: Any,
+    *,
+    n_slices: int,
+) -> tuple[list[float | None], bool] | None:
+    """Return Boussinesq elapsed-time metadata stored beside state histories."""
+    state_grp = grp.get("boussinesq_state") if grp is not None else None
+    if state_grp is None or n_slices <= 0:
+        return None
+
+    def _read_1d(name: str) -> np.ndarray | None:
+        if name not in state_grp:
+            return None
+        try:
+            values = np.asarray(state_grp[name][:], dtype=float).reshape(-1)
+        except Exception:
+            return None
+        return values if values.size > 0 else None
+
+    snapshots = _read_1d("snapshot_elapsed_seconds")
+    if snapshots is not None and snapshots.size == int(n_slices):
+        return ([float(value) for value in snapshots.tolist()], True)
+
+    step_ends = _read_1d("step_end_elapsed_seconds")
+    if step_ends is not None and step_ends.size == int(n_slices):
+        return ([float(value) for value in step_ends.tolist()], False)
+
+    periods = _read_1d("period_lengths_seconds")
+    if periods is not None:
+        return _elapsed_seconds_from_period_lengths(
+            n_snapshots=int(n_slices),
+            period_lengths=periods,
+        ), periods.size == int(n_slices) - 1
+    return None
+
+
+def _elapsed_axis_for_store_field(
+    grp: Any,
+    *,
+    n_slices: int,
+    config_path: Path | None,
+) -> tuple[list[float | None], bool]:
+    """Resolve elapsed seconds and initial-state flag for one stored field."""
+    from_boussinesq = _elapsed_axis_from_boussinesq_state_group(
+        grp,
+        n_slices=n_slices,
+    )
+    if from_boussinesq is not None:
+        return from_boussinesq
+
+    from_config = _elapsed_axis_from_config_time_grid(
+        config_path,
+        n_slices=n_slices,
+    )
+    if from_config is not None:
+        return from_config
+
+    return [None for _ in range(max(int(n_slices), 0))], False
+
+
 def _load_store_series(
     store: SimulationCatalog,
     sim_id: str,
     *,
     variable_name: str,
+    config_path: Path | None = None,
 ) -> VariableSeries | None:
     """Try loading a variable series from the SimulationCatalog (Zarr fields).
 
@@ -1202,6 +1381,13 @@ def _load_store_series(
     if data.ndim == 0:
         return None
 
+    n_slices = 1 if data.ndim == 1 else int(data.shape[0])
+    elapsed_by_index, has_initial_state = _elapsed_axis_for_store_field(
+        grp,
+        n_slices=n_slices,
+        config_path=config_path,
+    )
+
     # Build TimeSlice list from the stored array.
     if data.ndim == 1:
         slices = (
@@ -1209,6 +1395,8 @@ def _load_store_series(
                 time_key=0,
                 time_index=0,
                 values=np.asarray(data, dtype=float).ravel(),
+                elapsed_seconds=elapsed_by_index[0] if elapsed_by_index else None,
+                is_initial_state=has_initial_state,
             ),
         )
     else:
@@ -1220,6 +1408,8 @@ def _load_store_series(
                 time_key=t,
                 time_index=t,
                 values=np.asarray(data[t], dtype=float).ravel(),
+                elapsed_seconds=elapsed_by_index[t] if t < len(elapsed_by_index) else None,
+                is_initial_state=has_initial_state and t == 0,
             )
             for t in range(data.shape[0])
         )
@@ -1229,7 +1419,7 @@ def _load_store_series(
 
     return VariableSeries(
         variable_name=variable_name,
-        source_path=Path(store.zarr_path),
+        source_path=Path(store.zarr_path_for(sim_id)),
         slices=slices,
         cell_ids=None,
     )
@@ -1297,7 +1487,7 @@ def _load_store_boussinesq_state_series(
 
     return VariableSeries(
         variable_name=variable_name,
-        source_path=Path(store.zarr_path),
+        source_path=Path(store.zarr_path_for(sim_id)),
         slices=slices,
         cell_ids=None,
     )
@@ -1377,7 +1567,7 @@ def _load_store_surface_excess_total_series(
     )
     return VariableSeries(
         variable_name=variable_name,
-        source_path=Path(store.zarr_path),
+        source_path=Path(store.zarr_path_for(sim_id)),
         slices=slices,
         cell_ids=None,
     )
@@ -1389,6 +1579,7 @@ def load_variable_series(
     variable: str,
     store: SimulationCatalog | None = None,
     sim_id: str | None = None,
+    config_path: Path | None = None,
 ) -> VariableSeries:
     """Load one variable series, preferring SimulationCatalog when available.
 
@@ -1402,7 +1593,12 @@ def load_variable_series(
     if store is not None and sim_id is not None:
         for variable_name in _variable_candidates(variable):
             # 1. Direct spatial fields (watertable_elevation, head, ...)
-            series = _load_store_series(store, sim_id, variable_name=variable_name)
+            series = _load_store_series(
+                store,
+                sim_id,
+                variable_name=variable_name,
+                config_path=config_path,
+            )
             if series is not None:
                 logger.debug(
                     "Loaded '%s' from SimulationCatalog (sim_id=%s).",
@@ -1492,6 +1688,7 @@ def mask_depth_series_from_head_nodata(
     series: VariableSeries,
     store: SimulationCatalog | None = None,
     sim_id: str | None = None,
+    config_path: Path | None = None,
 ) -> VariableSeries:
     """Mask `watertable_depth` where the companion head series carries nodata."""
     if series.variable_name.strip().lower() != "watertable_depth":
@@ -1503,6 +1700,7 @@ def mask_depth_series_from_head_nodata(
             variable="watertable_elevation",
             store=store,
             sim_id=sim_id,
+            config_path=config_path,
         )
     except Exception:
         return series
@@ -1568,6 +1766,13 @@ def _select_time_slices(
         return (series.slices[-1],)
     if selector_text == "first":
         return (series.slices[0],)
+
+    if isinstance(time_selector, numbers.Integral):
+        index = int(time_selector)
+        if index >= 0 and any(item.is_initial_state for item in series.slices):
+            non_initial = [item for item in series.slices if not item.is_initial_state]
+            if index < len(non_initial):
+                return (non_initial[index],)
 
     for item in series.slices:
         if str(item.time_key) == str(time_selector):
@@ -1802,12 +2007,14 @@ def extract_observable_rows(
             variable=observable.variable,
             store=store,
             sim_id=sim_id,
+            config_path=config_path,
         )
         series = mask_depth_series_from_head_nodata(
             run_folder=run_folder,
             series=series,
             store=store,
             sim_id=sim_id,
+            config_path=config_path,
         )
         if cells is None:
             first_slice_size = int(series.slices[0].values.size) if series.slices else None
@@ -1931,6 +2138,9 @@ def extract_observable_rows(
 
 def discover_result_store(
     config_path: Path | None,
+    *,
+    preferred_sim_id: str | None = None,
+    preferred_name: str | None = None,
 ) -> tuple[Any, str | None]:
     """Open a SimulationCatalog from the workspace root inferred from a config path.
 
@@ -1940,14 +2150,22 @@ def discover_result_store(
     """
     if config_path is None:
         return None, None
+    config_path_resolved = Path(config_path).expanduser().resolve()
 
-    project_root = _resolve_project_root_from_config(config_path)
-    if project_root is None:
-        return None, None
+    def _normalize_catalog_path(raw_path: object) -> str:
+        try:
+            return str(Path(str(raw_path)).expanduser().resolve()).casefold()
+        except Exception:
+            return str(raw_path or "").strip().replace("\\", "/").casefold()
 
-    from hydromodpy.core.workspace.resolve import locate_workspace_root
+    workspace_root = _resolve_workspace_root_from_config(config_path)
+    if workspace_root is None:
+        project_root = _resolve_project_root_from_config(config_path)
+        if project_root is None:
+            return None, None
+        from hydromodpy.core.workspace.resolve import locate_workspace_root
 
-    workspace_root = locate_workspace_root(project_root) or project_root
+        workspace_root = locate_workspace_root(project_root) or project_root
 
     try:
         from hydromodpy.results.catalog import SimulationCatalog
@@ -1957,6 +2175,21 @@ def discover_result_store(
         if sims.empty:
             catalog.close()
             return None, None
+        if preferred_sim_id not in (None, "") and "sim_id" in sims.columns:
+            matches = sims.loc[sims["sim_id"].astype(str) == str(preferred_sim_id)]
+            if not matches.empty:
+                return catalog, str(matches.iloc[-1]["sim_id"])
+        if preferred_name not in (None, "") and "name" in sims.columns:
+            names = sims["name"].fillna("").astype(str)
+            matches = sims.loc[names == str(preferred_name)]
+            if not matches.empty:
+                return catalog, str(matches.iloc[-1]["sim_id"])
+        if "config_source" in sims.columns:
+            config_key = str(config_path_resolved).casefold()
+            config_sources = sims["config_source"].fillna("").map(_normalize_catalog_path)
+            matches = sims.loc[config_sources == config_key]
+            if not matches.empty:
+                return catalog, str(matches.iloc[-1]["sim_id"])
         # Pick the most recent (last) simulation.
         sim_id = str(sims.iloc[-1]["sim_id"])
         return catalog, sim_id

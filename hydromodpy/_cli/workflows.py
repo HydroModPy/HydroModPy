@@ -2,14 +2,14 @@
 
 Single CLI entry point: ``hmp run <toml>``. The TOML must declare a
 mandatory top-level ``workflow = "..."`` field (one of ``simulation``,
-``calibration``, ``batch``, ``overview``, ``mesh``). Dispatches to the
+``calibration``, ``batch``, ``overview``, ``mesh``, ``comparison``). Dispatches to the
 matching ``run_*`` adapter.
 
 The contract is enforced twice: here at CLI load time via
 :func:`resolve_workflow` for friendly error messages, and again at the
-Pydantic layer (:class:`hydromodpy.core.config.HydroModPyConfig`) so
-API-driven callers (e.g. an Angular frontend posting a serialised
-config) face the same contract as the CLI.
+Pydantic layer for workflows owned by the simulation config. External
+analysis workflows can keep their own lighter config contracts while
+still using the same CLI dispatcher.
 """
 
 from __future__ import annotations
@@ -18,7 +18,14 @@ import tomllib
 from pathlib import Path
 from typing import Literal
 
-WorkflowName = Literal["simulation", "calibration", "batch", "overview", "mesh"]
+WorkflowName = Literal[
+    "simulation",
+    "calibration",
+    "batch",
+    "overview",
+    "mesh",
+    "comparison",
+]
 
 KNOWN_WORKFLOWS: tuple[str, ...] = (
     "simulation",
@@ -26,6 +33,7 @@ KNOWN_WORKFLOWS: tuple[str, ...] = (
     "batch",
     "overview",
     "mesh",
+    "comparison",
 )
 
 
@@ -186,12 +194,22 @@ def run_batch(config_path: str | Path) -> dict:
     return RegionalLabLauncher(config_path).run()
 
 
+def run_comparison(config_path: str | Path) -> dict:
+    """Run an external simulation-comparison experiment from a TOML file."""
+    from hydromodpy.analysis.comparison.experiment_launcher import (
+        SimulationComparisonLauncher,
+    )
+
+    return SimulationComparisonLauncher(config_path).run()
+
+
 DISPATCH: dict[str, callable] = {
     "simulation": run_simulation,
     "overview": run_overview,
     "mesh": run_mesh,
     "calibration": run_calibration,
     "batch": run_batch,
+    "comparison": run_comparison,
 }
 
 
@@ -265,5 +283,6 @@ __all__ = (
     "run_mesh",
     "run_calibration",
     "run_batch",
+    "run_comparison",
     "DISPATCH",
 )

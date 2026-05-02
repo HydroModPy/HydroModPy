@@ -96,8 +96,8 @@ Solver Coverage
          Dupuit Fixed-Head 1D rendered with MODFLOW 6 irregular triangles for the analytical gallery.
 
       **Metrics**
-      - Head-profile RMSE: 0.0330 m
-      - Head-profile max abs error: 0.0854 m
+      - Head-profile RMSE: 0.0195 m
+      - Head-profile max abs error: 0.0453 m
       - Cross-row head spread: 8.88e-16 m
 
       - Config file: ``validation_cases/analytical/steady/dupuit_fixed_head_1d/config_modflow6_irregular_tri.toml``
@@ -352,7 +352,38 @@ Solver-Specific Overrides
 
    .. tab-item:: MODFLOW 6 irregular triangles
 
-      - No additional override beyond the common validation setup.
+      .. list-table::
+         :header-rows: 1
+         :widths: 26 42 20 12
+
+         * - Field
+           - Meaning
+           - Value
+           - Source
+         * - ``modflow6.runtime.mf6_ims_complexity``
+           - Linear-solver complexity preset used by MODFLOW 6.
+           - COMPLEX
+           - ``validation_cases/analytical/steady/dupuit_fixed_head_1d/config_modflow6_irregular_tri.toml``
+         * - ``modflow6.runtime.mf_verbose``
+           - Solver-specific override applied to MODFLOW 6.
+           - false
+           - ``validation_cases/analytical/steady/dupuit_fixed_head_1d/config_modflow6_irregular_tri.toml``
+         * - ``modflow6.process_specific.vka``
+           - Vertical anisotropy ratio passed to MODFLOW 6.
+           - 1
+           - ``validation_cases/analytical/steady/dupuit_fixed_head_1d/config_modflow6_irregular_tri.toml``
+         * - ``modflow6.sgrid.vertical.nlay``
+           - Number of vertical layers used by MODFLOW 6.
+           - 1
+           - ``validation_cases/analytical/steady/dupuit_fixed_head_1d/config_modflow6_irregular_tri.toml``
+         * - ``mesh_input.mesh_path``
+           - Committed unstructured mesh file used by the irregular-mesh solver variant.
+           - ../../../shared/mesh_bundles/sloping_substratum_irregular_tri_400x50/mesh_2d.msh
+           - ``validation_cases/analytical/steady/dupuit_fixed_head_1d/config_modflow6_irregular_tri.toml``
+         * - ``mesh_input.bundle_dir``
+           - Committed mesh-bundle directory used to recover support metadata for the irregular-mesh solver variant.
+           - ../../../shared/mesh_bundles/sloping_substratum_irregular_tri_400x50
+           - ``validation_cases/analytical/steady/dupuit_fixed_head_1d/config_modflow6_irregular_tri.toml``
 
    .. tab-item:: Boussinesq
 

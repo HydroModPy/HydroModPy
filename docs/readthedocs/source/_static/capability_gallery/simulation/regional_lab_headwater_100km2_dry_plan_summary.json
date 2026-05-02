@@ -46,49 +46,16 @@
     "examples_legacy_2/projects/launcher_simulation/regional_lab/site_catalog.csv"
   ],
   "source_hashes": {
-    "hydromodpy/analysis/batch/__init__.py": "a456178f0f80ef7fb8acc4b2e550aa776cbeb755d224f959fe7d5597d462849d",
-    "hydromodpy/analysis/batch/config.py": "143de773efb5875e2d9a07008d189e36fca510c1bb712da6240d536718264f8f",
-    "hydromodpy/analysis/batch/runtime.py": "f05dd267e80c383e2df1d46dd002c8b3fd5dbfbce00c715fc19756b8a10c53e8",
-    "examples_legacy_2/projects/launcher_simulation/regional_lab/README.md": "a1910134f58cd8c49abe41d4e1f51adfd502266eba56dfb7b055c0dd72255b25",
-    "examples_legacy_2/projects/launcher_simulation/regional_lab/config_headwater_100km2_lab.toml": "7832458061e2960886a245c39b4dab3fc05b47a5b45a79159736f1cd90f7a572",
-    "examples_legacy_2/projects/launcher_simulation/regional_lab/site_catalog.csv": "ea2ad802cf1325c4ddf0250fc415ef30252bab9f5afdb26f2a025fb9283375f8"
+    "hydromodpy/analysis/batch/__init__.py": "fd66fa0503694884495d6d668b29fdee9e65fb1a812e397119c033f5351b2550",
+    "hydromodpy/analysis/batch/config.py": "e24edd3579595e7e2a308af298104735bbb32abc6bce35760ff80dda81bd2abe",
+    "hydromodpy/analysis/batch/runtime.py": "75c579931a01507a6b9aaf75cb57c49229ccbf555b289a03f35621786fc84c7c",
+    "examples_legacy_2/projects/launcher_simulation/regional_lab/README.md": "__missing__",
+    "examples_legacy_2/projects/launcher_simulation/regional_lab/config_headwater_100km2_lab.toml": "__missing__",
+    "examples_legacy_2/projects/launcher_simulation/regional_lab/site_catalog.csv": "__missing__"
   },
   "docname": "cases/regional_lab_headwater_100km2_dry_plan",
-  "images": [
-    {
-      "filename": "regional_lab_headwater_100km2_dry_plan.png",
-      "caption": "Dry-plan synthesis for the committed regional-lab example: site/recipe matrix, recipe coverage, and planning summary.",
-      "alt_text": "Regional lab dry-plan synthesis for the headwater 100 km2 example",
-      "doc_path": "/_static/capability_gallery/simulation/regional_lab_headwater_100km2_dry_plan.png",
-      "repo_path": "docs/readthedocs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_dry_plan.png"
-    }
-  ],
-  "metrics": [
-    {
-      "label": "Selected sites",
-      "key": "selected_site_count",
-      "value": 5,
-      "display": "5"
-    },
-    {
-      "label": "Planned cases",
-      "key": "planned_case_count",
-      "value": 3,
-      "display": "3"
-    },
-    {
-      "label": "Skipped cases",
-      "key": "skipped_case_count",
-      "value": 6,
-      "display": "6"
-    },
-    {
-      "label": "Pending cases",
-      "key": "pending_case_count",
-      "value": 3,
-      "display": "3"
-    }
-  ],
+  "images": [],
+  "metrics": [],
   "metadata": {
     "regional_lab_config_path": "examples_legacy_2/projects/launcher_simulation/regional_lab/config_headwater_100km2_lab.toml",
     "study_area": "Brittany regional laboratory",
@@ -108,49 +75,37 @@
       "recipe_coverage_summary",
       "coverage_gap_summary"
     ],
-    "execute": false,
-    "selected_site_ids": [
-      "headwater_100km2_outlet_2",
-      "headwater_100km2_outlet_27",
-      "headwater_100km2_outlet_34",
-      "s3_100km2_outlet_8",
-      "s3_10km2_outlet_3"
-    ],
-    "candidate_site_ids": [
-      "headwater_100km2_outlet_2",
-      "headwater_100km2_outlet_27",
-      "headwater_100km2_outlet_34"
-    ],
-    "recipe_ids": [
-      "mf6_reference",
-      "backend_compare",
-      "transient_backend_compare"
-    ],
-    "recipe_labels": {
-      "mf6_reference": "MF6 reference replay",
-      "backend_compare": "Backend comparison",
-      "transient_backend_compare": "Transient backend comparison"
-    },
-    "candidate_site_count": 3,
-    "runnable_site_count": 1,
-    "gap_reasons": {
-      "missing_required_fields": 6
-    }
+    "generation_status": "source_unavailable_local",
+    "generation_reason": "The regional-lab overlay config needed to regenerate this page is not available in the current checkout.",
+    "missing_source_paths": [
+      "examples_legacy_2/projects/launcher_simulation/regional_lab/README.md",
+      "examples_legacy_2/projects/launcher_simulation/regional_lab/config_headwater_100km2_lab.toml",
+      "examples_legacy_2/projects/launcher_simulation/regional_lab/site_catalog.csv"
+    ]
   },
   "artifacts": {
     "summary_json_doc_path": "/_static/capability_gallery/simulation/regional_lab_headwater_100km2_dry_plan_summary.json",
     "summary_json_repo_path": "docs/readthedocs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_dry_plan_summary.json",
-    "image_repo_paths": [
-      "docs/readthedocs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_dry_plan.png"
-    ],
-    "extra_repo_paths": [
-      "docs/readthedocs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_dry_plan_plan.json",
-      "docs/readthedocs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_dry_plan_report.json",
-      "docs/readthedocs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_dry_plan_summary.md",
-      "docs/readthedocs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_dry_plan_site_inventory.csv",
-      "docs/readthedocs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_dry_plan_recipe_summary.csv",
-      "docs/readthedocs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_dry_plan_cluster_summary.csv",
-      "docs/readthedocs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_dry_plan_case_matrix.csv"
-    ]
-  }
+    "image_repo_paths": []
+  },
+  "custom_sections": [
+    {
+      "title": "Local Regeneration Note",
+      "kind": "paragraphs",
+      "paragraphs": [
+        "This local checkout cannot fully rebuild the original gallery artefacts for this case because one or more legacy source files are not present.",
+        "The page is still generated so that the capability-gallery structure, cross-links, and reading guides remain valid during a full documentation rebuild.",
+        "Reason: The regional-lab overlay config needed to regenerate this page is not available in the current checkout."
+      ]
+    },
+    {
+      "title": "Missing Local Inputs",
+      "kind": "bullets",
+      "items": [
+        "``examples_legacy_2/projects/launcher_simulation/regional_lab/README.md``",
+        "``examples_legacy_2/projects/launcher_simulation/regional_lab/config_headwater_100km2_lab.toml``",
+        "``examples_legacy_2/projects/launcher_simulation/regional_lab/site_catalog.csv``"
+      ]
+    }
+  ]
 }

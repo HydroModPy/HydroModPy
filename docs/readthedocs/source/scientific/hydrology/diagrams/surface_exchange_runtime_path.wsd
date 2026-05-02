@@ -1,0 +1,43 @@
+@startuml
+title Current Public Path For Stream, Ocean, And Drainage
+left to right direction
+skinparam componentStyle rectangle
+skinparam wrapWidth 180
+skinparam maxMessageSize 180
+
+package "Loaded data and geometry" {
+  component "hydrography" as Hydro
+  component "oceanic data\n(mean sea level or time series)" as OceanData
+  component "runtime mesh support\ncells / edges / labels" as Support
+}
+
+package "Flow contract" {
+  component "flow.bc.stream\nDirichlet stage\noptional support_label" as BCStream
+  component "flow.bc.ocean\nDirichlet stage" as BCOcean
+  component "flow.bc.drainage\nCauchy / Robin conductance" as BCDrain
+}
+
+package "Current backend interpretations" {
+  component "MODFLOW family\nstream -> CHD\nocean -> CHD\ndrainage -> DRN" as MF
+  component "Boussinesq\nstream/ocean -> Dirichlet supports\ndrainage -> top outflow operator" as Bouss
+}
+
+Hydro --> Support : river-tagged supports
+OceanData --> BCOcean : stage value
+Support --> BCStream : selected support
+
+BCStream --> MF
+BCOcean --> MF
+BCDrain --> MF
+
+BCStream --> Bouss
+BCOcean --> Bouss
+BCDrain --> Bouss
+
+note bottom
+Current public semantics:
+- stream and ocean prescribe stage/head
+- drainage prescribes exchange capacity
+- resulting fluxes are solver outputs
+end note
+@enduml

@@ -156,6 +156,9 @@ class DataOverviewLauncher:
 
         from hydromodpy.data.loader import DataManagersRuntimeLoader
         from hydromodpy.data.plan import DataLoadPlan
+        from hydromodpy.spatial.geographic.core.derived_features import (
+            attach_reference_hydrographic_network,
+        )
 
         data_plan = DataLoadPlan(
             explicit_types=tuple(state.cfg.data.types),
@@ -187,6 +190,11 @@ class DataOverviewLauncher:
             data_plan=data_plan,
         )
         loader.load_all(proxy)
+        if state.geographic_features is not None:
+            state.geographic_features = attach_reference_hydrographic_network(
+                state.geographic_features,
+                state.loaded_data.hydrography,
+            )
 
     @staticmethod
     def _inject_overview_dates(state: DataOverviewState) -> None:

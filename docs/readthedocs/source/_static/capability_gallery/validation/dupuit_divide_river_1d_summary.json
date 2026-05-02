@@ -50,22 +50,22 @@
     "validation_cases/shared/boussinesq_uniform_strip.py"
   ],
   "source_hashes": {
-    "validation_cases/README.md": "634832ce341c47597143d5614d06c8d22bac809193447706294f5b43e38359c3",
-    "validation_cases/analytical/steady/dupuit_divide_river_1d/README.md": "8066495c06a2262c0a2ee4335527aaffe471d92a568369d534cc9afeb1f1c45b",
-    "validation_cases/analytical/steady/dupuit_divide_river_1d/reference.py": "3ab9f52dda0eb17a142a8444a9293f7dff16fddad5a5493af9d322efa3808216",
-    "validation_cases/analytical/steady/dupuit_divide_river_1d/comparison.py": "9fa1921f637eca22c121089acd54f353ebca8d66d3cce9fc77a191fe4a3125ac",
-    "validation_cases/analytical/steady/dupuit_divide_river_1d/plotting.py": "863162cce08a88ed5549002ab36c5ae19d885cae0482de4c8da9df1f1996187b",
-    "validation_cases/analytical/steady/dupuit_divide_river_1d/run_case.py": "163c28c50fd138bd1af8b748881a06f1bf20323cd07bd1330f7fcc5e13e24dd6",
-    "validation_cases/analytical/steady/dupuit_divide_river_1d/metadata.toml": "42592b65dc3d4a71e15121f24fb2d85e3616cecd875391dc445c4ab4299a31d1",
-    "validation_cases/analytical/steady/dupuit_divide_river_1d/config_modflownwt.toml": "086d2a23de8cf4de81b7e5aa6e887c51de0b772e659418cb88bcfd7b409e8e22",
-    "validation_cases/analytical/steady/dupuit_divide_river_1d/runtime_boussinesq.py": "b613bf9bd978bed072fdb25cb6f9ba7313c0353e614ef14774ab7d84e5e2bfec",
-    "validation_cases/analytical/steady/dupuit_divide_river_1d/tolerances.toml": "3c7cdd060951dd9c33b5084475beac18c7b981d342f9d63eca2583e1b9c2fec8",
-    "validation_cases/analytical/steady/dupuit_divide_river_1d/tolerances_modflow6.toml": "a481477a553ca4b474a9a1a6c849ff17549ce757cba4f8ea69c5d3cd749eb4bc",
-    "validation_cases/analytical/steady/dupuit_divide_river_1d/tolerances_modflow6_irregular_tri.toml": "755e85691f1944b0e88e0f36e4b5ec56194fce892abbea31a993dfe63c8f4e76",
-    "validation_cases/analytical/steady/dupuit_divide_river_1d/config_modflow6.toml": "9a3a68ee60db0f7b112d7ea579603eb52e71ff6e57a577a8cc3ce42627bad368",
-    "validation_cases/analytical/steady/dupuit_divide_river_1d/config_modflow6_irregular_tri.toml": "44bbb1355e7c1998a05f8b4db0b9272fdf1a68761e6b4aab002102dcdf8d9048",
-    "validation_cases/analytical/steady/dupuit_divide_river_1d/config_boussinesq.toml": "bf9a68e7c1dca1d194187dc5584f7f51dc4243bfab5d762e437760d1a797434c",
-    "validation_cases/shared/boussinesq_uniform_strip.py": "4c7b6bc8f898f453c77f94c542591d3b1b4e8f7f0a785fe8a6bc7d4ed44d0473"
+    "validation_cases/README.md": "1965de83b961f1ab4e38d8194d51342e1286d0c2e1b779188903b84e3fc26f1c",
+    "validation_cases/analytical/steady/dupuit_divide_river_1d/README.md": "a1a7a066af660764be468f96949727921484b41883479b9ebf1e25c98c3efc6b",
+    "validation_cases/analytical/steady/dupuit_divide_river_1d/reference.py": "d1138dab6cf7badb22e294c2581b0c809de185a37d09a9a271ba0fdd7d98b47d",
+    "validation_cases/analytical/steady/dupuit_divide_river_1d/comparison.py": "82d21b1eec5e20841f04feb6282b3f3399b8190c3604e05910d993142331ec37",
+    "validation_cases/analytical/steady/dupuit_divide_river_1d/plotting.py": "6c4e78a25eb9c33fb02a632dce95f9dea691e41c50b13053b4c0e84291805b02",
+    "validation_cases/analytical/steady/dupuit_divide_river_1d/run_case.py": "caa65263439dd67a6f0828864dc34cab46cefcbc6ffcb8decb611ea538dcc6a4",
+    "validation_cases/analytical/steady/dupuit_divide_river_1d/metadata.toml": "4d1ce85649ba311f72a8d2a5d8d03a68653d53ea356b0e395f0330c215a2c649",
+    "validation_cases/analytical/steady/dupuit_divide_river_1d/config_modflownwt.toml": "50299b48736540c24b22c03ac24ef811901c424c67bb6ccc652411b513169016",
+    "validation_cases/analytical/steady/dupuit_divide_river_1d/runtime_boussinesq.py": "8ff99310e2cbe043e856a9a28bc33b2e250a43735ab5ddb9a11b80df2ddff52f",
+    "validation_cases/analytical/steady/dupuit_divide_river_1d/tolerances.toml": "23004e207bd274d4586d771374539e51526dbb3ccd6bdc67c5fcd2621b17e85b",
+    "validation_cases/analytical/steady/dupuit_divide_river_1d/tolerances_modflow6.toml": "8a31eb4b0de33742832a324d1d705d789d27b27f53cd51c94f38d608d6660a58",
+    "validation_cases/analytical/steady/dupuit_divide_river_1d/tolerances_modflow6_irregular_tri.toml": "cda6638e8409d2812b43992f5d20b2d9488fb289fd241e2fdb5475cb8a2a2196",
+    "validation_cases/analytical/steady/dupuit_divide_river_1d/config_modflow6.toml": "e668647e68535e36fad07cfad44315d3cdf951c3667fbd299c05faadb166252d",
+    "validation_cases/analytical/steady/dupuit_divide_river_1d/config_modflow6_irregular_tri.toml": "d934aaecdc1f26f7a5d7f98a1da6a30950e5e208c46bc7c6744e2c0d281c4da8",
+    "validation_cases/analytical/steady/dupuit_divide_river_1d/config_boussinesq.toml": "9ea33a84182c92308cbe72ca4ca15e61f54a9781219372f7c130345eaca4399f",
+    "validation_cases/shared/boussinesq_uniform_strip.py": "a6de8caacdd3701e729798a8bb45b68d84a48eef4b37e26997a29fccecea6a99"
   },
   "docname": "cases/dupuit_divide_river_1d",
   "images": [
@@ -288,9 +288,9 @@
       "expected_output": "Expected shape: 5 x 40",
       "command": "python -m validation_cases.analytical.steady.dupuit_divide_river_1d.run_case --no-show --solver modflow6_irregular_tri",
       "metric_lines": [
-        "Head-profile RMSE: 0.3023 m",
-        "Head-profile max abs error: 0.3970 m",
-        "Cross-row head spread: 0.00e+00 m"
+        "Head-profile RMSE: 0.0268 m",
+        "Head-profile max abs error: 0.0365 m",
+        "Cross-row head spread: 8.88e-16 m"
       ],
       "image": {
         "filename": "dupuit_divide_river_1d__modflow6_irregular_tri.png",

@@ -581,6 +581,73 @@ class Modflow6(Solver):
         enable_rewet = getattr(runtime, "mf6_enable_rewet", None)
         return bool(enable_rewet) if enable_rewet is not None else False
 
+    def _xt3d_requested_value(self) -> bool | None:
+        """Return the user-requested XT3D flag, or None when left to auto."""
+        runtime = getattr(self.modflow_config, "runtime", None)
+        requested = getattr(runtime, "mf6_enable_xt3d", None)
+        if requested is None:
+            return None
+        return bool(requested)
+
+    def _xt3d_is_enabled(self, solver_mesh=None) -> bool:
+        """Return whether MF6 XT3D is enabled for the current run."""
+        requested = self._xt3d_requested_value()
+        if requested is not None:
+            return requested
+        if solver_mesh is None:
+            solver_mesh = getattr(self, "solver_mesh", None)
+        if solver_mesh is None:
+            return False
+        return not bool(getattr(solver_mesh, "is_structured", False))
+
+    def _xt3d_activation_mode(self, solver_mesh=None) -> str:
+        """Describe how XT3D activation was resolved for the current run."""
+        requested = self._xt3d_requested_value()
+        if requested is True:
+            return "explicit_true"
+        if requested is False:
+            return "explicit_false"
+        if self._xt3d_is_enabled(solver_mesh):
+            return "auto_unstructured"
+        return "auto_structured"
+
+    def _resolve_ims_complexity(self, solver_mesh=None) -> str:
+        """Return one IMS complexity keyword compatible with the current setup."""
+        runtime = getattr(self.modflow_config, "runtime", None)
+        complexity = str(getattr(runtime, "mf6_ims_complexity", "COMPLEX")).strip().upper()
+        if self._xt3d_is_enabled(solver_mesh) and complexity == "SIMPLE":
+            logger.warning(
+                "XT3D is active for model '%s'; overriding mf6_ims_complexity from SIMPLE "
+                "to COMPLEX because XT3D can produce an asymmetric coefficient matrix.",
+                self.model_name_mf6,
+            )
+            return "COMPLEX"
+        return complexity
+
+    def _log_xt3d_resolution(self, solver_mesh=None) -> None:
+        """Log XT3D activation once per run for traceability."""
+        if bool(getattr(self, "_xt3d_resolution_logged", False)):
+            return
+        mode = self._xt3d_activation_mode(solver_mesh)
+        enabled = self._xt3d_is_enabled(solver_mesh)
+        if mode == "auto_unstructured":
+            logger.info(
+                "XT3D auto-enabled for unstructured MODFLOW 6 mesh in model '%s'.",
+                self.model_name_mf6,
+            )
+        elif mode == "explicit_true":
+            logger.info("XT3D explicitly enabled for model '%s'.", self.model_name_mf6)
+        elif mode == "explicit_false":
+            logger.info("XT3D explicitly disabled for model '%s'.", self.model_name_mf6)
+        else:
+            logger.info(
+                "XT3D left disabled for structured MODFLOW 6 mesh in model '%s'.",
+                self.model_name_mf6,
+            )
+        self._xt3d_resolution_logged = True
+        self._xt3d_effective_enabled = bool(enabled)
+        self._xt3d_effective_mode = str(mode)
+
     def _build_start_heads(self, solver_mesh) -> np.ndarray:
         """Build MF6 starting heads as flat (nlay, ncpl) for DISV."""
         h_ic = self._resolve_head_initial_condition()
@@ -1383,6 +1450,12 @@ class Modflow6(Solver):
         ).astype(float)
         return rewet_record, wetdry
 
+    def _resolve_xt3d_npf_options(self, solver_mesh=None) -> list[str] | None:
+        """Return MF6 NPF XT3D options when explicitly enabled."""
+        if not self._xt3d_is_enabled(solver_mesh):
+            return None
+        return ["XT3D"]
+
     def _build_evt_stress_period_data(
         self,
         solver_mesh,
@@ -1523,6 +1596,7 @@ class Modflow6(Solver):
         self.hk = solver_mesh.flatten_from_grid(flow_params["hk"])
         self.sy = solver_mesh.flatten_from_grid(flow_params["sy"])
         self.ss = solver_mesh.flatten_from_grid(flow_params["ss"])
+        self._log_xt3d_resolution(solver_mesh)
 
         runtime = getattr(self.modflow_config, "runtime", None)
         sim_name = self.model_name_mf6
@@ -1545,7 +1619,7 @@ class Modflow6(Solver):
         self.ims = flopy.mf6.ModflowIms(
             self.sim,
             print_option="SUMMARY" if getattr(runtime, "mf_verbose", False) else "NONE",
-            complexity=getattr(runtime, "mf6_ims_complexity", "COMPLEX"),
+            complexity=self._resolve_ims_complexity(solver_mesh),
             outer_dvclose=float(getattr(runtime, "mf6_outer_dvclose", 1e-4)),
             inner_dvclose=float(getattr(runtime, "mf6_inner_dvclose", 1e-4)),
             outer_maximum=int(getattr(runtime, "mf6_outer_maximum", 500)),
@@ -1582,6 +1656,7 @@ class Modflow6(Solver):
         self._ocean_support_mask = np.asarray(ocean_support_mask, dtype=bool).copy()
         self._stream_support_mask = np.asarray(stream_support_mask, dtype=bool).copy()
         rewet_record, wetdry = self._resolve_rewet_npf_options(solver_mesh)
+        xt3doptions = self._resolve_xt3d_npf_options(solver_mesh)
 
         self.npf = flopy.mf6.ModflowGwfnpf(
             self.gwf,
@@ -1595,6 +1670,7 @@ class Modflow6(Solver):
                 1e-12,
             ),
             rewet_record=rewet_record,
+            xt3doptions=xt3doptions,
             wetdry=wetdry,
             save_specific_discharge=True,
             save_saturation=True,

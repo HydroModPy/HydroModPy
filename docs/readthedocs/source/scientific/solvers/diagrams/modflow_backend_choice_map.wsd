@@ -1,0 +1,29 @@
+@startuml
+title MODFLOW Family Choice Map In HydroModPy
+left to right direction
+skinparam componentStyle rectangle
+skinparam wrapWidth 180
+skinparam maxMessageSize 180
+
+rectangle "Common HydroModPy flow payload\nhead unknown, K/Sy/Ss,\nboundaries, recharge, wells" as Flow
+
+rectangle "MODFLOW-NWT\nstructured DIS\nUPW + NWT Newton path\nlegacy MODFLOW-2005 ecosystem" as NWT
+rectangle "MODFLOW 6\nstructured DIS or layered DISV\nNPF + IMS\noptional Newton path\nXT3D when justified" as MF6
+
+rectangle "Structured benchmark / legacy continuity" as LegacyNeed
+rectangle "Irregular support / modern default / shared natural mesh" as ModernNeed
+
+rectangle "Report explicitly:\nsupport equality\nDIS vs DISV\nXT3D on/off\nstorage regime\ncomparison intent" as Report
+
+Flow --> NWT
+Flow --> MF6
+LegacyNeed --> NWT
+ModernNeed --> MF6
+NWT --> Report
+MF6 --> Report
+
+note bottom of Flow
+The scientific core stays comparable, but backend choice still changes
+the discretization contract, the internal flow package, and the nonlinear path.
+end note
+@enduml

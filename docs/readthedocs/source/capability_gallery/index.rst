@@ -15,8 +15,8 @@ Coverage Snapshot
 -----------------
 
 - Category pages available today: 9.
-- Curated gallery cases available today: 83.
-- Most populated sections: Mesh Gallery (29), Validation Benchmarks (23), Method Comparison (6).
+- Curated gallery cases available today: 84.
+- Most populated sections: Mesh Gallery (29), Validation Benchmarks (24), Method Comparison (6).
 
 Browse By Intent
 ----------------
@@ -117,7 +117,7 @@ Use these pages when the goal is not demonstration only, but numerical trust or 
 
       **Validation Benchmarks**
       ^^^
-      Analytical and semi-analytical comparisons rendered as reproducible teaching figures. 23 cases.
+      Analytical and semi-analytical comparisons rendered as reproducible teaching figures. 24 cases.
 
    .. grid-item-card::
       :class-card: sd-shadow-sm sd-rounded-3 sd-p-4

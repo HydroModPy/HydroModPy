@@ -93,12 +93,13 @@ pip install -e ".[test]"
 
 ### Option 2: conda environment
 
-Two ready-to-use Conda recipes live in `install/`:
+Three ready-to-use Conda recipes live in `install/`:
 
 - `env_hydromodpy.yml` installs every runtime dependency (including Spyder) so you
   can run scripts and notebooks right away.
 - `env_hydromodpy_pkg.yml` mirrors the same stack but finishes with
-  `pip install -e ..` to expose the local repository as a package.
+  `pip install -e "..[docs]"` to expose the local repository as a package and
+  include the local Sphinx docs toolchain.
 - `env_hydromodpy_light_pkg.yml` provides a lighter editable stack, recommended
   for Linux/WSL command-line development and test runs.
 

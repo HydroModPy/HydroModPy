@@ -737,6 +737,61 @@ def test_modflow6_enables_rewet_when_requested() -> None:
     np.testing.assert_allclose(wetdry, np.full((1, 6), 0.1, dtype=float))
 
 
+def test_modflow6_disables_xt3d_by_default() -> None:
+    model = _build_model()
+
+    assert model._xt3d_requested_value() is None
+    assert model._xt3d_is_enabled() is False
+    assert model._resolve_xt3d_npf_options() is None
+
+
+def test_modflow6_enables_xt3d_when_requested() -> None:
+    model = _build_model()
+    model.modflow_config = model.modflow_config.model_copy(
+        update={
+            "runtime": model.modflow_config.runtime.model_copy(update={"mf6_enable_xt3d": True})
+        }
+    )
+
+    assert model._xt3d_is_enabled() is True
+    assert model._resolve_xt3d_npf_options() == ["XT3D"]
+
+
+def test_modflow6_auto_enables_xt3d_on_unstructured_mesh() -> None:
+    model = _build_unstructured_model()
+
+    assert model._xt3d_requested_value() is None
+    assert model._xt3d_activation_mode(model.solver_mesh) == "auto_unstructured"
+    assert model._xt3d_is_enabled(model.solver_mesh) is True
+    assert model._resolve_xt3d_npf_options(model.solver_mesh) == ["XT3D"]
+
+
+def test_modflow6_explicit_false_disables_xt3d_on_unstructured_mesh() -> None:
+    model = _build_unstructured_model()
+    model.modflow_config = model.modflow_config.model_copy(
+        update={
+            "runtime": model.modflow_config.runtime.model_copy(update={"mf6_enable_xt3d": False})
+        }
+    )
+
+    assert model._xt3d_requested_value() is False
+    assert model._xt3d_activation_mode(model.solver_mesh) == "explicit_false"
+    assert model._xt3d_is_enabled(model.solver_mesh) is False
+    assert model._resolve_xt3d_npf_options(model.solver_mesh) is None
+
+
+def test_modflow6_forces_complex_ims_when_xt3d_is_active() -> None:
+    model = _build_unstructured_model()
+    model.modflow_config = model.modflow_config.model_copy(
+        update={
+            "runtime": model.modflow_config.runtime.model_copy(update={"mf6_ims_complexity": "SIMPLE"})
+        }
+    )
+
+    assert model._xt3d_is_enabled(model.solver_mesh) is True
+    assert model._resolve_ims_complexity(model.solver_mesh) == "COMPLEX"
+
+
 def test_modflow6_defaults_to_zero_recharge_when_inactive() -> None:
     model = _build_model()
     model.flow = SimpleNamespace(
