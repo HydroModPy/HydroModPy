@@ -55,6 +55,11 @@ diagrams, or UML pages, use :doc:`architecture/index`. If you are looking for
 equations, modelling assumptions, or method notes, use
 :doc:`scientific/index`.
 
+If you specifically want the quality ladder used in the repository, including
+the usual commands for unit, integration, regression, validation, PETSc, and
+manual benchmark runs, start with
+:doc:`architecture/overview/test-families-and-quality-roles`.
+
 Documentation map
 -----------------
 
