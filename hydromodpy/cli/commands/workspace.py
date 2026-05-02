@@ -24,7 +24,9 @@ def register(subparsers) -> argparse.ArgumentParser:
     clean.add_argument("--workspace", default=None, help="Workspace root")
     clean.add_argument("--all", action="store_true", help="Clean every generated artifact group")
     clean.add_argument(
-        "--results", action="store_true", help="Remove hydromodpy.duckdb and simulations/"
+        "--results",
+        action="store_true",
+        help="Remove project hydromodpy.duckdb files and simulations/ folders",
     )
     clean.add_argument(
         "--data-cache", action="store_true", help="Remove data/cache.duckdb and data/blobs/"
@@ -118,6 +120,16 @@ def _collect_targets(workspace: Path, groups: set[str]) -> list[Path]:
                 workspace / "simulations",
             ]
         )
+        for project_dir in sorted(workspace.glob("projects/*")):
+            if not project_dir.is_dir():
+                continue
+            targets.extend(
+                [
+                    project_dir / "hydromodpy.duckdb",
+                    project_dir / "hydromodpy.duckdb.wal",
+                    project_dir / "simulations",
+                ]
+            )
     if "data_cache" in groups:
         targets.extend(
             [

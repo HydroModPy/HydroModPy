@@ -17,7 +17,7 @@ if TYPE_CHECKING:
 
 @dataclass(frozen=True)
 class WorkspacePathRegistry:
-    """Centralize canonical input/output paths for one workspace."""
+    """Centralize shared data and project-local result paths."""
 
     project_root: Path
     root: Path

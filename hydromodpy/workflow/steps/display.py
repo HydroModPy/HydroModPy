@@ -117,7 +117,7 @@ class DisplayStep:
             else:
                 workspace = ctx.setup.workspace
                 project_root = workspace.project_root
-                with SimulationCatalog(workspace.root) as catalog:
+                with SimulationCatalog.from_workspace(workspace) as catalog:
                     sim = catalog[sim_id]
                     out_dir = resolve_run_output_dir(
                         display_cfg,

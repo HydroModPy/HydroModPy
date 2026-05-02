@@ -57,26 +57,27 @@ class _FakeProject:
     """Minimal duck-typed Project for ``run_calibration_programmatic``.
 
     Exposes only the two attributes the public helper reads:
-    ``_config_path`` (the source TOML) and ``_ctx.setup.workspace.root``
-    (the workspace root).
+    ``_config_path`` (the source TOML) and ``_ctx.setup.workspace``
+    (shared data root plus project catalog root).
     """
 
     def __init__(self, cfg_path: Path, workspace: Path) -> None:
         self._config_path = cfg_path
 
         class _Workspace:
-            def __init__(self, root: Path) -> None:
+            def __init__(self, root: Path, project_root: Path) -> None:
                 self.root = root
+                self.project_root = project_root
 
         class _Setup:
-            def __init__(self, ws: Path) -> None:
-                self.workspace = _Workspace(ws)
+            def __init__(self, ws: Path, project_root: Path) -> None:
+                self.workspace = _Workspace(ws, project_root)
 
         class _Ctx:
-            def __init__(self, ws: Path) -> None:
-                self.setup = _Setup(ws)
+            def __init__(self, ws: Path, project_root: Path) -> None:
+                self.setup = _Setup(ws, project_root)
 
-        self._ctx = _Ctx(workspace)
+        self._ctx = _Ctx(workspace, cfg_path.parent)
 
 
 @pytest.fixture
@@ -88,7 +89,11 @@ def fake_pipeline(monkeypatch, tmp_path):
 
     class _FakeSetup:
         def __init__(self):
-            self.workspace = type("_WS", (), {"root": tmp_path / "ws"})()
+            self.workspace = type(
+                "_WS",
+                (),
+                {"root": tmp_path / "ws", "project_root": tmp_path},
+            )()
             self.flow = None
             self.transport = None
             self.flow_runtime_overrides = None
@@ -142,7 +147,7 @@ def fake_pipeline(monkeypatch, tmp_path):
             earliest=9,
             downstream_steps=(),
             override_paths=paths,
-            workspace=tmp_path / "ws",
+            workspace=tmp_path,
             cfg_path=cfg_path,
             raw_toml=raw,
         )
@@ -293,7 +298,7 @@ class TestRunCalibrationProgrammatic:
         )
         from hydromodpy.results.catalog import SimulationCatalog
 
-        with SimulationCatalog(tmp_path / "ws") as catalog:
+        with SimulationCatalog(tmp_path) as catalog:
             rows = catalog.connection.execute(
                 "SELECT COUNT(*) FROM calibration_iterations WHERE session_id = ?",
                 [uuid.UUID(report.session_id)],
@@ -332,7 +337,7 @@ class TestRunCalibrationProgrammatic:
 
         from hydromodpy.results.catalog import SimulationCatalog
 
-        with SimulationCatalog(tmp_path / "ws") as catalog:
+        with SimulationCatalog(tmp_path) as catalog:
             row = catalog.connection.execute(
                 "SELECT status, error_message FROM calibration_sessions WHERE session_id = ?",
                 [uuid.UUID(report.session_id)],

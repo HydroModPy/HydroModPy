@@ -67,7 +67,7 @@ def _default_store_factory(workspace: Path, persistence: object) -> Any:
     """Open the default calibration store."""
     from hydromodpy.results.catalog import SimulationCatalog
 
-    return SimulationCatalog(workspace, persistence=persistence)
+    return SimulationCatalog(workspace, persistence=persistence, register_global=True)
 
 
 # ---------------------------------------------------------------------------
@@ -386,7 +386,7 @@ def _run_calibration(
     trial_ctx
         Prepared trial context used by every evaluation.
     workspace
-        Workspace root where the catalog DB lives.
+        Project catalog root where the catalog DB lives.
     space
         Parameter space the optimizer samples from.
     project_label
@@ -707,7 +707,7 @@ def run_calibration_cli(
         extractor built from the TOML ``[calibration].objective`` +
         ``[calibration].variable`` pair.
     workspace
-        Override the workspace root (defaults to the one resolved from
+        Override the project catalog root (defaults to the one resolved from
         the TOML).
     project
         Project label written to ``calibration_sessions.project``.
@@ -785,7 +785,7 @@ def run_calibration_programmatic(
         :class:`hydromodpy.Project` whose simulation TOML drives the
         trial loop.
     workspace
-        Override the workspace root. Defaults to ``project.workspace``
+        Override the project catalog root. Defaults to ``project.workspace``
         when available.
     project_label
         Label written to ``calibration_sessions.project``.
@@ -811,7 +811,7 @@ def run_calibration_programmatic(
         ws_setup = getattr(ws_obj, "setup", None) if ws_obj is not None else None
         ws_root_obj = getattr(ws_setup, "workspace", None) if ws_setup is not None else None
         if ws_root_obj is not None:
-            ws_root = Path(ws_root_obj.root)
+            ws_root = Path(ws_root_obj.project_root)
         else:
             ws_root = Path.cwd()
 

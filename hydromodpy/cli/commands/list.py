@@ -4,7 +4,7 @@ Workspace discovery mirrors ``hmp display --list``:
 
 1. ``--workspace`` flag, if provided.
 2. ``HYDROMODPY_WORKSPACE`` environment variable.
-3. Walk up from the current directory looking for ``hydromodpy.duckdb``.
+3. Walk up from the current directory looking for a workspace scaffold.
 4. Fall back to :data:`hydromodpy.data.scaffold.DEFAULT_ROOT` (``~/hydromodpy``).
 
 This way a run registered by ``hmp run`` (which uses the same walk-up rule)
@@ -50,7 +50,7 @@ def _resolve_workspace(workspace_arg: str | None) -> Path:
     ws_override = os.environ.get("HYDROMODPY_WORKSPACE")
     start = Path(ws_override).expanduser().resolve() if ws_override else Path.cwd()
     found = find_workspace_root(start)
-    if (found / "hydromodpy.duckdb").exists():
+    if (found / "projects").is_dir() or (found / "data").is_dir():
         return found
     return Path(DEFAULT_ROOT).expanduser().resolve()
 
@@ -58,11 +58,12 @@ def _resolve_workspace(workspace_arg: str | None) -> Path:
 def run(args: argparse.Namespace) -> None:
     workspace_root = _resolve_workspace(args.workspace)
     projects_dir = workspace_root / "projects"
-    db_path = workspace_root / "hydromodpy.duckdb"
 
     if args.project:
+        project_dir = projects_dir / args.project
+        db_path = project_dir / "hydromodpy.duckdb"
         if not db_path.exists():
-            print(f"No hydromodpy.duckdb in {workspace_root}", file=sys.stderr)
+            print(f"No project catalog at {project_dir}", file=sys.stderr)
             sys.exit(EXIT_NOT_FOUND)
         try:
             from hydromodpy.results.catalog import (
@@ -70,11 +71,8 @@ def run(args: argparse.Namespace) -> None:
                 short_id,
             )
 
-            with SimulationCatalog(workspace_root) as catalog:
-                sims = catalog.list_simulations(
-                    project=args.project,
-                    order_by="created_at DESC",
-                )
+            with SimulationCatalog(project_dir) as catalog:
+                sims = catalog.list_simulations(order_by="created_at DESC")
                 if sims.empty:
                     print(f"  No simulations recorded in {args.project}")
                     return
@@ -91,7 +89,7 @@ def run(args: argparse.Namespace) -> None:
                         f"solver={solver}  status={status}{dur_str}"
                     )
         except Exception as exc:
-            print(f"  Error reading hydromodpy.duckdb: {exc}", file=sys.stderr)
+            print(f"  Error reading project catalog: {exc}", file=sys.stderr)
         return
 
     # No project arg: list project directories, then runs from the catalog.
@@ -112,30 +110,26 @@ def run(args: argparse.Namespace) -> None:
             suffix = f"  [{', '.join(details)}]" if details else ""
             print(f"  {project_dir.name}{suffix}")
 
-    if db_path.exists():
-        try:
-            from hydromodpy.results.catalog import SimulationCatalog
+    try:
+        from hydromodpy.results.catalog import CatalogIndex
 
-            with SimulationCatalog(workspace_root) as catalog:
-                sims = catalog.list_simulations(order_by="created_at DESC")
-            if sims.empty:
-                print("# catalog: (no simulations recorded)")
-            else:
-                projects = (
-                    sims["project"].dropna().value_counts().sort_index()
-                    if "project" in sims.columns
-                    else {}
-                )
-                print(f"# catalog: {len(sims)} run(s) across {len(projects)} project(s)")
-                for project_name, count in projects.items():
-                    print(f"  {project_name}  [{count} run(s)]")
-        except Exception as exc:
-            print(f"  Error reading hydromodpy.duckdb: {exc}", file=sys.stderr)
+        with CatalogIndex() as index:
+            index.register_workspace(workspace_root)
+            sims = index.query("SELECT project_slug, sim_id FROM all_simulations")
+        if sims.empty:
+            print("# catalog: (no simulations recorded)")
+        else:
+            projects = sims["project_slug"].dropna().value_counts().sort_index()
+            print(f"# catalog: {len(sims)} run(s) across {len(projects)} project(s)")
+            for project_name, count in projects.items():
+                print(f"  {project_name}  [{count} run(s)]")
         return
+    except Exception as exc:
+        print(f"  Error reading project catalogs: {exc}", file=sys.stderr)
 
     if not projects_dir.is_dir():
         print(
-            f"No projects/ directory and no hydromodpy.duckdb found in {workspace_root}",
+            f"No projects/ directory found in {workspace_root}",
             file=sys.stderr,
         )
         sys.exit(EXIT_NOT_FOUND)

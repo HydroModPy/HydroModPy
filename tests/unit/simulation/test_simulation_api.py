@@ -298,7 +298,7 @@ class TestSimulationGroup:
                 _Pipeline.counter += 1
                 ctx = state.get("ctx")
                 sim_id = str(uuid.uuid4())
-                with SimulationCatalog(ctx.setup.workspace.root) as run_catalog:
+                with SimulationCatalog(ctx.setup.workspace.project_root) as run_catalog:
                     reg = run_catalog.register_simulation(
                         sim_id,
                         project="project",

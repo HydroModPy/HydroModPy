@@ -6,7 +6,7 @@ import argparse
 import sys
 from pathlib import Path
 
-from hydromodpy.cli.helpers import EXIT_NOT_FOUND, find_workspace_root
+from hydromodpy.cli.helpers import EXIT_NOT_FOUND, find_catalog_root
 
 NAME: str = "compare"
 HELP: str = "Compare two simulations by sim_id, prefix, or name"
@@ -16,7 +16,9 @@ def register(subparsers) -> argparse.ArgumentParser:
     parser = subparsers.add_parser(NAME, help=HELP)
     parser.add_argument("sim_a", help="First simulation")
     parser.add_argument("sim_b", help="Second simulation")
-    parser.add_argument("--workspace", default=None, help="Workspace root (default: auto-detect)")
+    parser.add_argument(
+        "--workspace", default=None, help="Project catalog root (default: auto-detect)"
+    )
     parser.set_defaults(_handler=run)
     return parser
 
@@ -28,7 +30,7 @@ def run(args: argparse.Namespace) -> None:
         SimulationNotFoundError,
     )
 
-    workspace_root = find_workspace_root(
+    workspace_root = find_catalog_root(
         Path(getattr(args, "workspace", None) or Path.cwd()).expanduser().resolve()
     )
     if not (workspace_root / "hydromodpy.duckdb").exists():

@@ -7,6 +7,7 @@ import importlib
 from hydromodpy._api import (
     batch,
     calibrate,
+    catalog,
     compare_methods,
     compare_pair,
     doctor,
@@ -56,6 +57,7 @@ __all__ = [
     "open",
     "run",
     "calibrate",
+    "catalog",
     "overview",
     "batch",
     "compare_pair",
@@ -90,6 +92,7 @@ __all__ = [
     "SimulationConfig",
     "SimulationPlan",
     "SimulationCatalog",
+    "CatalogIndex",
     "SimulationGroup",
     # Data variables
     "DataManagersConfig",

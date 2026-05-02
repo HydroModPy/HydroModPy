@@ -610,18 +610,17 @@ def _read_parquet_view_ddl(view_name: str, glob_path: str) -> str:
     )
 
 
-def _glob_for_view(workspace_path: Path, view_name: str) -> str:
-    return str(workspace_path / "simulations" / "*.parquet" / f"{view_name}.parquet")
+def _glob_for_view(simulations_dir: Path, view_name: str) -> str:
+    return str(simulations_dir / "*.parquet" / f"{view_name}.parquet")
 
 
-def _parquet_files_exist(workspace_path: Path, view_name: str) -> bool:
-    sim_root = workspace_path / "simulations"
-    if not sim_root.is_dir():
+def _parquet_files_exist(simulations_dir: Path, view_name: str) -> bool:
+    if not simulations_dir.is_dir():
         return False
-    return any(sim_root.glob(f"*.parquet/{view_name}.parquet"))
+    return any(simulations_dir.glob(f"*.parquet/{view_name}.parquet"))
 
 
-def ensure_parquet_views(conn: duckdb.DuckDBPyConnection, workspace_path: Path) -> None:
+def ensure_parquet_views(conn: duckdb.DuckDBPyConnection, simulations_dir: Path) -> None:
     """Create or refresh the three Parquet-backed views on ``conn``.
 
     If no matching Parquet file exists for a given view, an empty typed
@@ -630,9 +629,10 @@ def ensure_parquet_views(conn: duckdb.DuckDBPyConnection, workspace_path: Path) 
     the first file, the catalog calls this function again to swap the view
     over to ``read_parquet``.
     """
+    simulations_dir = Path(simulations_dir)
     for view in PARQUET_VIEW_NAMES:
-        if _parquet_files_exist(workspace_path, view):
-            ddl = _read_parquet_view_ddl(view, _glob_for_view(workspace_path, view))
+        if _parquet_files_exist(simulations_dir, view):
+            ddl = _read_parquet_view_ddl(view, _glob_for_view(simulations_dir, view))
         else:
             ddl = _empty_view_ddl(view)
         conn.execute(ddl)
@@ -787,6 +787,7 @@ def _record_schema_version(conn: duckdb.DuckDBPyConnection) -> None:
 def ensure_schema(
     conn: duckdb.DuckDBPyConnection,
     workspace_path: Path | None = None,
+    simulations_dir: Path | None = None,
 ) -> None:
     """Create the catalog tables and views if they do not already exist.
 
@@ -824,8 +825,13 @@ def ensure_schema(
     for ddl in _ALL_VIEW_DDL:
         conn.execute(ddl)
 
-    if workspace_path is not None:
-        ensure_parquet_views(conn, Path(workspace_path))
+    if workspace_path is not None or simulations_dir is not None:
+        parquet_root = (
+            Path(simulations_dir)
+            if simulations_dir is not None
+            else Path(workspace_path) / "simulations"
+        )
+        ensure_parquet_views(conn, parquet_root)
 
     logger.debug(
         "DuckDB catalog schema ensured (%d tables, %d views, %d parquet views)",

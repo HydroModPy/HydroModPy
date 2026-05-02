@@ -477,11 +477,11 @@ class ProjectRunner:
         )
 
     def _resolve_workspace_path(self) -> Path:
-        """Return the workspace root used to persist checkpoints and ledger."""
+        """Return the project runtime root used for checkpoints and ledger."""
         project = self._project
         workspace = project._ctx.setup.workspace
         if workspace is not None:
-            return Path(workspace.root)
+            return Path(workspace.project_root)
         if project._config_path is not None:
             return project._config_path.parent
         return Path.cwd()

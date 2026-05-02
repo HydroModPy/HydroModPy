@@ -37,7 +37,20 @@ def find_project_root() -> Path:
 
 
 def find_workspace_root(project_dir: Path) -> Path:
-    """Walk up from ``project_dir`` to find a ``hydromodpy.duckdb`` file."""
+    """Walk up from ``project_dir`` to find the shared data workspace."""
+    start = project_dir.resolve()
+    if start.name == "projects" and start.parent.is_dir():
+        return start.parent
+    for parent in [start] + list(start.parents):
+        if parent.parent.name == "projects":
+            return parent.parent.parent
+        if (parent / "projects").is_dir() or (parent / "data").is_dir():
+            return parent
+    return start
+
+
+def find_catalog_root(project_dir: Path) -> Path:
+    """Walk up from ``project_dir`` to find a project-local catalog."""
     for parent in [project_dir] + list(project_dir.parents):
         if (parent / "hydromodpy.duckdb").exists():
             return parent
@@ -162,6 +175,7 @@ __all__ = (
     "EXIT_SOLVER_ERROR",
     "EXIT_SIGINT",
     "find_project_root",
+    "find_catalog_root",
     "find_workspace_root",
     "find_data_workspace",
     "resolve_workspace",

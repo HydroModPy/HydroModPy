@@ -384,7 +384,11 @@ def step_open_store(ctx: WorkflowContext) -> None:
     from hydromodpy.results.catalog import SimulationCatalog
 
     workspace = ctx.setup.workspace
-    ctx.store = SimulationCatalog(workspace.root, persistence=results_cfg.persistence)
+    ctx.store = SimulationCatalog.from_workspace(
+        workspace,
+        persistence=results_cfg.persistence,
+        register_global=True,
+    )
     ctx.sim_id = str(uuid4())
 
     project_name = workspace.project_root.name

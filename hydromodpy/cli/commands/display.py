@@ -23,7 +23,12 @@ import argparse
 import sys
 from pathlib import Path
 
-from hydromodpy.cli.helpers import EXIT_CONFIG, EXIT_NOT_FOUND, find_workspace_root
+from hydromodpy.cli.helpers import (
+    EXIT_CONFIG,
+    EXIT_NOT_FOUND,
+    find_catalog_root,
+    find_workspace_root,
+)
 
 NAME: str = "display"
 HELP: str = "Render figures for a simulation from the workspace catalog"
@@ -137,7 +142,7 @@ def run(args: argparse.Namespace) -> None:
         if args.no_show:
             display_cfg.show = False
         project_dir = target_path.parent.resolve()
-        workspace_root = find_workspace_root(project_dir)
+        workspace_root = project_dir
         config_source = str(target_path.resolve())
 
         figure_filter = None
@@ -195,7 +200,7 @@ def run(args: argparse.Namespace) -> None:
         )
         sys.exit(EXIT_CONFIG)
 
-    workspace_root = find_workspace_root(Path.cwd())
+    workspace_root = find_catalog_root(Path.cwd())
     with SimulationCatalog(workspace_root) as catalog:
         try:
             sim = catalog[target]
@@ -252,19 +257,30 @@ def _list_runs(*, all_projects: bool) -> None:
 
     ws_override = os.environ.get("HYDROMODPY_WORKSPACE")
     start = Path(ws_override).expanduser() if ws_override else Path.cwd()
-    workspace_root = find_workspace_root(start)
-    with SimulationCatalog(workspace_root) as catalog:
-        if all_projects:
-            sims = catalog.list_simulations(order_by="created_at DESC")
-        else:
+    if all_projects:
+        from hydromodpy.results.catalog import CatalogIndex
+
+        workspace_root = find_workspace_root(start)
+        with CatalogIndex() as index:
+            index.register_workspace(workspace_root)
+            sims = index.query(
+                """
+                SELECT project_slug AS project, sim_id, name, solver, status, created_at
+                FROM all_simulations
+                ORDER BY created_at DESC
+                """
+            )
+    else:
+        workspace_root = find_catalog_root(start)
+        with SimulationCatalog(workspace_root) as catalog:
             sims = catalog.list_simulations(
                 project=Path.cwd().name,
                 order_by="created_at DESC",
             )
-        if sims.empty:
-            print("No simulations found.", file=sys.stderr)
-            return
-        _print_run_table(sims)
+    if sims.empty:
+        print("No simulations found.", file=sys.stderr)
+        return
+    _print_run_table(sims)
 
 
 def _print_run_table(sims, *, source_label: str | None = None) -> None:
