@@ -98,24 +98,37 @@ Coding style
 Run the tests
 -------------
 
-The test suite is split in three tiers:
+HydroModPy uses several test families because they do not validate the same
+thing:
 
 - ``tests/unit/`` covers API and behaviour checks on isolated
   components.
+- ``tests/integration/`` covers cross-module workflows without golden
+  references.
+- ``tests/e2e/`` covers complete user-facing scenarios.
 - ``tests/regression/`` checks reference outputs and full workflows.
 - ``tests/validation/`` runs scientific benchmarks against analytical or
   trusted physical references.
 
-Typical commands:
+Quick command ladder:
 
 .. code-block:: bash
 
-   pytest tests/unit -q
-   pytest tests/regression -q
-   pytest tests/validation -q
    hmp test unit
+   pytest tests/integration -q
+   pytest tests/e2e -q
    hmp test regression --fast -j 2
+   hmp test regression --extensive
    hmp test validation --fast
+   hmp test validation --steady
+   hmp test validation --transient
+   pytest -m solver_sanity -q
+   pytest -m petsc -q
+   python -m validation_cases.run_cases --solver modflownwt --regime both --no-show
+
+For the detailed role of each family, and for guidance on how to interpret one
+failure, use
+:doc:`architecture/overview/test-families-and-quality-roles`.
 
 The PETSc Boussinesq backend is Linux only. Tests tagged
 ``pytest.mark.petsc`` are skipped on Windows by design.
