@@ -1,4 +1,4 @@
-"""``hmp add`` - import a .hmp archive and its bundled inputs into a workspace."""
+"""``hmp add`` - import a .hmp archive and its bundled inputs into a project catalog."""
 
 from __future__ import annotations
 
@@ -19,7 +19,7 @@ def register(subparsers) -> argparse.ArgumentParser:
         "-w",
         "--workspace",
         default=None,
-        help="Target workspace root (default: current directory)",
+        help="Target project catalog root (default: current directory)",
     )
     parser.add_argument(
         "--as",

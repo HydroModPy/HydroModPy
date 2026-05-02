@@ -6,7 +6,7 @@ import argparse
 import sys
 from pathlib import Path
 
-from hydromodpy.cli.helpers import EXIT_NOT_FOUND, find_workspace_root
+from hydromodpy.cli.helpers import EXIT_NOT_FOUND, find_catalog_root
 
 NAME: str = "rank"
 HELP: str = "Rank simulations of a project by a metric (top or bottom N)"
@@ -16,7 +16,9 @@ def register(subparsers) -> argparse.ArgumentParser:
     parser = subparsers.add_parser(NAME, help=HELP)
     parser.add_argument("project", help="Project label")
     parser.add_argument("--metric", default="nse", help="Metric name (default: nse)")
-    parser.add_argument("--workspace", default=None, help="Workspace root (default: auto-detect)")
+    parser.add_argument(
+        "--workspace", default=None, help="Project catalog root (default: auto-detect)"
+    )
     group = parser.add_mutually_exclusive_group()
     group.add_argument("--top", type=int, default=None, help="Show the top N simulations")
     group.add_argument("--bottom", type=int, default=None, help="Show the bottom N simulations")
@@ -38,7 +40,7 @@ def run(args: argparse.Namespace) -> None:
 
     from hydromodpy.results.catalog import SimulationCatalog
 
-    workspace_root = find_workspace_root(Path(args.workspace or Path.cwd()).expanduser().resolve())
+    workspace_root = find_catalog_root(Path(args.workspace or Path.cwd()).expanduser().resolve())
     if not (workspace_root / "hydromodpy.duckdb").exists():
         print(f"No catalog at {workspace_root}", file=sys.stderr)
         sys.exit(EXIT_NOT_FOUND)

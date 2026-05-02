@@ -280,9 +280,7 @@ def _probe_workspace(workspace_arg: str | None, *, toml: str | None) -> list[dic
                 "hint": "Run 'hmp init <workspace>' to scaffold one",
             }
         ]
-    db = ws / "hydromodpy.duckdb"
     cache = ws / "data" / "cache.duckdb"
-    sims = ws / "simulations"
     checks = [
         {
             "name": "workspace",
@@ -290,12 +288,18 @@ def _probe_workspace(workspace_arg: str | None, *, toml: str | None) -> list[dic
             "detail": f"{ws}",
             "hint": None,
         },
-        _path_check("catalog_path", db),
         _path_check("data_dir", ws / "data"),
-        _path_check("simulations_dir", sims),
+        _path_check("projects_dir", ws / "projects"),
         _path_check("data_cache", cache, required=False),
     ]
-    checks.extend(_probe_parquet_layout(ws))
+    project_roots = []
+    projects_dir = ws / "projects"
+    if projects_dir.is_dir():
+        project_roots.extend(p for p in sorted(projects_dir.iterdir()) if p.is_dir())
+    if (ws / "hydromodpy.duckdb").is_file():
+        project_roots.append(ws)
+    for project_root in project_roots:
+        checks.extend(_probe_parquet_layout(project_root))
     return checks
 
 

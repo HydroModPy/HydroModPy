@@ -9,7 +9,7 @@ from pathlib import Path
 
 from hydromodpy.cli.helpers import (
     EXIT_NOT_FOUND,
-    find_workspace_root,
+    find_catalog_root,
     resolve_sim_id,
 )
 
@@ -23,7 +23,9 @@ def register(subparsers) -> argparse.ArgumentParser:
         "sim_id",
         help="Full sim_id, unique prefix (>=4 chars), or simulation name",
     )
-    parser.add_argument("--workspace", default=None, help="Workspace root (default: auto-detect)")
+    parser.add_argument(
+        "--workspace", default=None, help="Project catalog root (default: auto-detect)"
+    )
     parser.add_argument(
         "--json", action="store_true", help="Emit a JSON document (suitable for jq)"
     )
@@ -34,7 +36,7 @@ def register(subparsers) -> argparse.ArgumentParser:
 def run(args: argparse.Namespace) -> None:
     from hydromodpy.results.catalog import SimulationCatalog
 
-    workspace_root = find_workspace_root(
+    workspace_root = find_catalog_root(
         Path(getattr(args, "workspace", None) or Path.cwd()).expanduser().resolve()
     )
     if not (workspace_root / "hydromodpy.duckdb").exists():

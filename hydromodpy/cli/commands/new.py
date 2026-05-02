@@ -31,9 +31,8 @@ def run(args: argparse.Namespace) -> None:
     from hydromodpy.data.scaffold import DEFAULT_ROOT, create_project
 
     workspace_root = Path(args.workspace or DEFAULT_ROOT).expanduser().resolve()
-    catalog_ok = (workspace_root / "hydromodpy.duckdb").exists()
     layout_ok = (workspace_root / "data").is_dir() or (workspace_root / "projects").is_dir()
-    if not (catalog_ok or layout_ok):
+    if not layout_ok:
         print(
             f"'{workspace_root}' does not look like a HydroModPy workspace. "
             "Run 'hmp init <workspace>' first or use --workspace.",

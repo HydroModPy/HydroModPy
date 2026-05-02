@@ -18,7 +18,7 @@ import argparse
 import sys
 from pathlib import Path
 
-from hydromodpy.cli.helpers import EXIT_CONFIG, EXIT_NOT_FOUND, find_workspace_root
+from hydromodpy.cli.helpers import EXIT_CONFIG, EXIT_NOT_FOUND, find_catalog_root
 
 NAME: str = "report"
 HELP: str = "Render an HTML report for a calibration session"
@@ -35,7 +35,7 @@ def register(subparsers) -> argparse.ArgumentParser:
         type=Path,
         default=None,
         metavar="PATH",
-        help="Workspace root (defaults to ancestor of CWD).",
+        help="Project catalog root (defaults to ancestor of CWD).",
     )
     parser.add_argument(
         "--open",
@@ -53,7 +53,7 @@ def run(args: argparse.Namespace) -> None:
     from hydromodpy.results.catalog import SimulationCatalog
     from hydromodpy.workflow.steps.calibration import step_render_calibration_report
 
-    workspace_root = args.workspace or find_workspace_root(Path.cwd())
+    workspace_root = args.workspace or find_catalog_root(Path.cwd())
     with SimulationCatalog(workspace_root) as catalog:
         try:
             session_id = resolve_calibration_session_id(catalog, args.session_id)

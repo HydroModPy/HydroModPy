@@ -17,7 +17,7 @@ from hydromodpy.core.version import __version__
 
 
 def open(workspace_path: Any) -> Any:
-    """Open a HydroModPy workspace and return the unified catalog.
+    """Open a HydroModPy project catalog.
 
     Mirrors ``xarray.open_dataset`` / ``pandas.read_csv`` in intent: one call,
     a ready-to-query object backed by ``hydromodpy.duckdb``.
@@ -25,6 +25,13 @@ def open(workspace_path: Any) -> Any:
     from hydromodpy.results.catalog import SimulationCatalog
 
     return SimulationCatalog(workspace_path)
+
+
+def catalog(path: Any = None) -> Any:
+    """Open the hidden global catalog index for inter-project queries."""
+    from hydromodpy.results.catalog import CatalogIndex
+
+    return CatalogIndex(path)
 
 
 def run(config: Any, **kwargs: Any) -> Any:

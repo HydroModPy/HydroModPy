@@ -1,4 +1,4 @@
-"""``hmp import`` - import a .hmp package into a workspace."""
+"""``hmp import`` - import a .hmp package into a project catalog."""
 
 from __future__ import annotations
 
@@ -9,7 +9,7 @@ from pathlib import Path
 from hydromodpy.cli.helpers import EXIT_NOT_FOUND, EXIT_RUN_FAILED
 
 NAME: str = "import"
-HELP: str = "Import a .hmp package into a workspace"
+HELP: str = "Import a .hmp package into a project catalog"
 
 
 def register(subparsers) -> argparse.ArgumentParser:
@@ -19,7 +19,7 @@ def register(subparsers) -> argparse.ArgumentParser:
         "-w",
         "--workspace",
         default=None,
-        help="Target workspace root (default: cwd)",
+        help="Target project catalog root (default: cwd)",
     )
     parser.set_defaults(_handler=run)
     return parser

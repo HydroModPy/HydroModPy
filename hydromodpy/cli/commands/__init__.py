@@ -9,6 +9,7 @@ from __future__ import annotations
 
 from hydromodpy.cli.commands import (
     add,
+    catalog,
     compare,
     compare_methods,
     completion,
@@ -44,6 +45,7 @@ ALL_COMMANDS = (
     schema,
     run,
     dev,
+    catalog,
     display,
     report,
     list_cmd,
