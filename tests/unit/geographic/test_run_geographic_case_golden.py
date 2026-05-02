@@ -111,6 +111,9 @@ def test_run_geographic_case_metrics_golden(
         outputs_root=tmp_path / "figures",
         write_plot=False,
     )
+    nancon_summary = summaries["nancon"]
+    assert "hydrographic_network_generated_summary_json" in nancon_summary
+    assert "hydrographic_network_generated_shp" in nancon_summary
 
     actual = {
         case_id: {

@@ -96,8 +96,8 @@ Solver Coverage
          Dupuit Uniform Recharge 1D rendered with MODFLOW 6 irregular triangles for the analytical gallery.
 
       **Metrics**
-      - Head-profile RMSE: 0.2333 m
-      - Head-profile max abs error: 0.3250 m
+      - Head-profile RMSE: 0.0295 m
+      - Head-profile max abs error: 0.0464 m
       - Cross-row head spread: 0.00e+00 m
 
       - Config file: ``validation_cases/analytical/steady/dupuit_uniform_recharge_1d/config_modflow6_irregular_tri.toml``

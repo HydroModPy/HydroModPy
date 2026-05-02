@@ -261,6 +261,66 @@ def _structured_cells_from_run_folder(
     )
 
 
+def _bundle_cells_from_dir(bundle_dir: Path) -> CellCentroidTable | None:
+    cells_path = bundle_dir / "cells.csv"
+    if not cells_path.exists():
+        return None
+
+    cell_ids: list[int] = []
+    xs: list[float] = []
+    ys: list[float] = []
+    areas: list[float] = []
+    storage_coefficients: list[float] = []
+    with cells_path.open("r", encoding="utf-8", newline="") as handle:
+        reader = csv.DictReader(handle)
+        for row in reader:
+            try:
+                cell_ids.append(int(row["cell_id"]))
+                xs.append(float(row["centroid_x"]))
+                ys.append(float(row["centroid_y"]))
+                area_value = row.get("area_m2")
+                areas.append(float(area_value) if area_value not in (None, "") else math.nan)
+                storage_value = row.get("storage_coefficient")
+                storage_coefficients.append(
+                    float(storage_value) if storage_value not in (None, "") else math.nan
+                )
+            except Exception:
+                continue
+
+    if not cell_ids:
+        return None
+    area_array: Any = np.asarray(areas, dtype=float)
+    if area_array.size != len(cell_ids) or not np.any(np.isfinite(area_array)):
+        area_array = None
+    storage_array: Any = np.asarray(storage_coefficients, dtype=float)
+    if storage_array.size != len(cell_ids) or not np.any(np.isfinite(storage_array)):
+        storage_array = None
+    return CellCentroidTable(
+        cell_ids=np.asarray(cell_ids, dtype=int),
+        x=np.asarray(xs, dtype=float),
+        y=np.asarray(ys, dtype=float),
+        area_m2=area_array,
+        storage_coefficient=storage_array,
+    )
+
+
+def _bundle_cells_from_config(config_path: Path) -> CellCentroidTable | None:
+    try:
+        payload = load_toml_with_base_config(config_path)
+    except Exception:
+        return None
+    mesh_input = payload.get("mesh_input")
+    if not isinstance(mesh_input, Mapping):
+        return None
+    bundle_dir_raw = mesh_input.get("bundle_dir")
+    if bundle_dir_raw in (None, ""):
+        return None
+    bundle_dir = _resolve_recorded_output_path(bundle_dir_raw, base_dir=config_path.parent)
+    if bundle_dir is None:
+        return None
+    return _bundle_cells_from_dir(bundle_dir)
+
+
 def resolve_bundle_cells(
     run_folder: Path,
     *,
@@ -276,51 +336,18 @@ def resolve_bundle_cells(
         bundle_dir_raw = boussinesq_summary.get("bundle_dir")
     if bundle_dir_raw:
         bundle_dir = _resolve_recorded_output_path(bundle_dir_raw, base_dir=run_folder)
-        cells_path = None if bundle_dir is None else (bundle_dir / "cells.csv")
-        if cells_path is not None and cells_path.exists():
-            cell_ids: list[int] = []
-            xs: list[float] = []
-            ys: list[float] = []
-            areas: list[float] = []
-            storage_coefficients: list[float] = []
-            with cells_path.open("r", encoding="utf-8", newline="") as handle:
-                reader = csv.DictReader(handle)
-                for row in reader:
-                    try:
-                        cell_ids.append(int(row["cell_id"]))
-                        xs.append(float(row["centroid_x"]))
-                        ys.append(float(row["centroid_y"]))
-                        area_value = row.get("area_m2")
-                        areas.append(
-                            float(area_value) if area_value not in (None, "") else math.nan
-                        )
-                        storage_value = row.get("storage_coefficient")
-                        storage_coefficients.append(
-                            float(storage_value) if storage_value not in (None, "") else math.nan
-                        )
-                    except Exception:
-                        continue
-
-            if cell_ids:
-                area_array: Any = np.asarray(areas, dtype=float)
-                if area_array.size != len(cell_ids) or not np.any(np.isfinite(area_array)):
-                    area_array = None
-                storage_array: Any = np.asarray(storage_coefficients, dtype=float)
-                if storage_array.size != len(cell_ids) or not np.any(np.isfinite(storage_array)):
-                    storage_array = None
-                return CellCentroidTable(
-                    cell_ids=np.asarray(cell_ids, dtype=int),
-                    x=np.asarray(xs, dtype=float),
-                    y=np.asarray(ys, dtype=float),
-                    area_m2=area_array,
-                    storage_coefficient=storage_array,
-                )
+        if bundle_dir is not None and (cells := _bundle_cells_from_dir(bundle_dir)) is not None:
+            return cells
 
     if config_path is None:
         return _structured_cells_from_run_folder(
             run_folder=run_folder,
             expected_size=expected_size,
         )
+    config_bundle_cells = _bundle_cells_from_config(config_path)
+    if config_bundle_cells is not None:
+        if expected_size is None or config_bundle_cells.cell_ids.size == int(expected_size):
+            return config_bundle_cells
     structured_cells = _structured_cells_from_config(
         config_path=config_path,
         solver_name=solver_name,

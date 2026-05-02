@@ -8,8 +8,9 @@ scenario you need.
 .. important::
 
    If you are new to HydroModPy, do not start by scanning the full notebook
-   inventory below. Open :doc:`getting_started/index` first, then return here
-   once you know which workflow family you want.
+   inventory below. Open :doc:`getting_started/index` first, then use
+   :doc:`user_guide/index` if you need concepts such as usage modes, workflow
+   families, or result-reading guidance.
 
 - **Pip installations** - the PyPI wheel does not include the `examples/`
   directory. Download the full archive from
@@ -26,7 +27,9 @@ inventory, start with the guided entry points below.
 
 1. Open :doc:`getting_started/index`.
 2. Run the data-overview walkthrough before a full solver workflow.
-3. Return to the notebook gallery only after you know which example family you
+3. Use :doc:`user_guide/index` if you need to choose between usage modes,
+   workflow families, comparison, calibration, meshes, or solver options.
+4. Return to the notebook gallery only after you know which example family you
    want.
 
 .. grid:: 1 1 2 2
@@ -44,10 +47,20 @@ inventory, start with the guided entry points below.
 
    .. grid-item-card::
       :class-card: sd-shadow-sm sd-rounded-3 sd-p-4
+      :link: user_guide/index
+      :link-type: doc
+
+      **User guide**
+      ^^^
+      Understand usage modes, workflow families, workspace layout, result
+      reading, comparison, calibration, meshes, and solver-choice routing.
+
+   .. grid-item-card::
+      :class-card: sd-shadow-sm sd-rounded-3 sd-p-4
       :link: capability_gallery/index
       :link-type: doc
 
-      **Capability gallery**
+      **Case studies**
       ^^^
       Curated static pages covering support building, workflow execution,
       solver comparison, validation, and calibration.
@@ -70,6 +83,10 @@ Choose the right entry point
      - :ref:`examples-notebook-gallery`
      - This is the full inventory, useful once you already know which family
        of examples you need.
+   * - Understand usage modes and workflow families
+     - :doc:`user_guide/index`
+     - This is the operational guide between the quickstart and the lower-level
+       scientific, architecture, and API references.
    * - Inspect stable, curated result pages
      - :doc:`capability_gallery/index`
      - It is the best entry point when you want quick visual orientation,
@@ -117,4 +134,5 @@ settings, and any parameter sweeps explored later in the notebook.
    :maxdepth: 1
 
    getting_started/index
+   user_guide/index
    capability_gallery/index

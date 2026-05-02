@@ -43,6 +43,16 @@ What It Shows
 - How the flow-state triptych relates topography, hydraulic head, and water-table depth.
 - How cumulative recharge and discharge can be inspected without committing a full run folder.
 
+Key Parameters
+--------------
+
+- `[simulation.time] step_value`, `start_datetime`, and `end_datetime` define the time support of the run and the interpretation of the recharge chronology.
+- `[data.recharge.sources] values`, `freq`, and `runoff_ratio` control the synthetic forcing that drives the cumulative recharge/discharge figure.
+- `[flow.param.K.field_homogeneous]` and `[flow.param.Sy.field_homogeneous]` are the first groundwater parameters to modify when learning how heads and depths react.
+- `[mesh_catchment.zone_meshing] global_size`, `min_size`, and `max_size` in the shared base config change the mesh density and therefore the support overview.
+- `[mesh_catchment] constraints_mode` and the river/geology source sections decide which spatial structures are enforced in the runtime mesh.
+- `[capability_gallery] assets` only selects which figures are copied into the docs; it does not change the physics of the run.
+
 How To Read It
 --------------
 
@@ -64,7 +74,7 @@ Run the underlying example or validation case with:
 
 .. code-block:: bash
 
-   python -m tools.doc_gallery
+   python -m hydromodpy run examples_legacy_2/projects/launcher_simulation/run_fast_mf6_mesh_catchment.toml
 
 Refresh the committed gallery artifacts with:
 
@@ -72,90 +82,11 @@ Refresh the committed gallery artifacts with:
 
    python -m tools.doc_gallery
 
-Case Parameters
----------------
-
-Selected Parameters
-^^^^^^^^^^^^^^^^^^^
-
-.. list-table::
-   :header-rows: 1
-   :widths: 26 42 20 12
-
-   * - Field
-     - Meaning
-     - Value
-     - Source
-   * - ``[simulation.time] start_datetime``
-     - Start of the simulated period used by the flow and transport run.
-     - 2003-01-01 00:00:00
-     - ``docs/readthedocs/source/_static/capability_gallery/simulation/modflow6_gmsh_mesh_catchment_summary.json``
-   * - ``[simulation.time] end_datetime``
-     - End of the simulated period used by the flow and transport run.
-     - 2003-03-31 00:00:00
-     - ``docs/readthedocs/source/_static/capability_gallery/simulation/modflow6_gmsh_mesh_catchment_summary.json``
-   * - ``[simulation.time] step_value``
-     - Nominal time step used to discretize the simulation period.
-     - 10 day
-     - ``docs/readthedocs/source/_static/capability_gallery/simulation/modflow6_gmsh_mesh_catchment_summary.json``
-   * - ``[data.recharge.sources] values``
-     - Synthetic recharge sequence injected into the run over the configured time support.
-     - 0.2, 6, 1, 0, 4.5, 8, 0.5, 0, 3.5
-     - ``docs/readthedocs/source/_static/capability_gallery/simulation/modflow6_gmsh_mesh_catchment_summary.json``
-   * - ``[data.recharge.sources] freq``
-     - Temporal frequency used to interpret the synthetic recharge sequence.
-     - 10D
-     - ``docs/readthedocs/source/_static/capability_gallery/simulation/modflow6_gmsh_mesh_catchment_summary.json``
-   * - ``[data.recharge.sources] runoff_ratio``
-     - Fraction of recharge redirected to runoff rather than infiltration.
-     - 0.1
-     - ``docs/readthedocs/source/_static/capability_gallery/simulation/modflow6_gmsh_mesh_catchment_summary.json``
-   * - ``[flow.param.K.field_homogeneous] value``
-     - Homogeneous hydraulic conductivity used by the flow model in this tutorial run.
-     - 1e-5 m/s
-     - ``docs/readthedocs/source/_static/capability_gallery/simulation/modflow6_gmsh_mesh_catchment_summary.json``
-   * - ``[flow.param.Sy.field_homogeneous] value``
-     - Specific yield used to control the free-surface response of the aquifer.
-     - 0.12 -
-     - ``docs/readthedocs/source/_static/capability_gallery/simulation/modflow6_gmsh_mesh_catchment_summary.json``
-
-Mesh and Output Selection
-^^^^^^^^^^^^^^^^^^^^^^^^^
-
-.. list-table::
-   :header-rows: 1
-   :widths: 26 42 20 12
-
-   * - Field
-     - Meaning
-     - Value
-     - Source
-   * - ``[mesh_catchment] constraints_mode``
-     - Constraint family activated when building the runtime Gmsh support.
-     - geology_rivers
-     - ``docs/readthedocs/source/_static/capability_gallery/simulation/modflow6_gmsh_mesh_catchment_summary.json``
-   * - ``[mesh_catchment.zone_meshing] global_size``
-     - Target background edge size used by the conformal meshing policy.
-     - 136
-     - ``docs/readthedocs/source/_static/capability_gallery/simulation/modflow6_gmsh_mesh_catchment_summary.json``
-   * - ``[mesh_catchment.zone_meshing] min_size``
-     - Lower bound applied to local mesh refinement.
-     - 100
-     - ``docs/readthedocs/source/_static/capability_gallery/simulation/modflow6_gmsh_mesh_catchment_summary.json``
-   * - ``[mesh_catchment.zone_meshing] max_size``
-     - Upper bound applied to local mesh coarsening.
-     - 200
-     - ``docs/readthedocs/source/_static/capability_gallery/simulation/modflow6_gmsh_mesh_catchment_summary.json``
-   * - ``[capability_gallery] assets``
-     - Subset of run outputs copied into the static documentation gallery.
-     - flow_state_triptych.png, recharge_discharge_cumulative.png, watertable_elevation.png, watertable_depth.png, flow_support_overview.png
-     - ``docs/readthedocs/source/_static/capability_gallery/simulation/modflow6_gmsh_mesh_catchment_summary.json``
-
 Source Pointers
 ---------------
 
-- ``docs/readthedocs/source/_static/capability_gallery/simulation/modflow6_gmsh_mesh_catchment_summary.json``
-- ``docs/readthedocs/source/_static/capability_gallery/simulation/modflow6_gmsh_mesh_catchment_summary.json``
+- ``examples_legacy_2/projects/launcher_simulation/run_fast_mf6_mesh_catchment.toml``
+- ``examples_legacy_2/projects/launcher_simulation/config_mf6_mesh_catchment_common.toml``
 - ``examples/projects/09_capability_gallery/launcher_simulation/modflow6_gmsh_mesh_catchment/manifest.json``
 - ``hydromodpy/analysis/capability_gallery.py``
 

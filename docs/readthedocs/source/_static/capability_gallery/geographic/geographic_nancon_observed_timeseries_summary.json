@@ -45,9 +45,9 @@
     "examples/projects/09_capability_gallery/geographic/nancon_observed_timeseries/geographic_nancon_timeseries_water_quality.png"
   ],
   "source_hashes": {
-    "tools/doc_gallery/manifests/geographic_cases.json": "87a228bb5a5c8c8b087dbeae7693efd258f71bab1739443c6cf211b1f90f7bfe",
-    "examples/projects/05_nancon_data_overview/config_overview.toml": "879016d1e597ca85205b76c3c6c7ee08bf3aae046540b637a1b8f26ff87c85ac",
-    "examples/projects/09_capability_gallery/geographic/README.md": "fe6bc2eca9984e4b58baa744210d733ff348585fe5e499aa146a02b2f61a4dad",
+    "tools/doc_gallery/manifests/geographic_cases.json": "d8ef3b9bd8f9fcbeef8701d9035f284d54634dc90741e82a6ffa5d1ab0372261",
+    "examples/projects/05_nancon_data_overview/config_overview.toml": "c98a19b16dfb3b2eff41a0b3ab2a184a037ee37bc08ae36cd2e487b2f562825a",
+    "examples/projects/09_capability_gallery/geographic/README.md": "07f37f4616cc9972e1d68a854ddf3ba078bd7a08178147c2939fb8a292983456",
     "examples/projects/09_capability_gallery/geographic/nancon_observed_timeseries/geographic_nancon_timeseries_discharge.png": "60e4641dd894bc881c0bc32d5c0dafa0c25238b049e8e4fd0413aa412b33b618",
     "examples/projects/09_capability_gallery/geographic/nancon_observed_timeseries/geographic_nancon_timeseries_piezometry.png": "811d308efa7954f55bdd603fd3d997cd14fc9200a2e8b801089a00e57d8c51a3",
     "examples/projects/09_capability_gallery/geographic/nancon_observed_timeseries/geographic_nancon_timeseries_intermittency.png": "bf56193b7835c8d755fc744543c060fefbaa7c99152991a989f2516ba532eec7",

@@ -8,33 +8,9 @@ Calibration Twin: Recharge-Step Flux-Only K+Sy 1D
 
 Same-solver noisy twin benchmark on linearized_unconfined_recharge_step_1d with K+Sy, flux-only outlet observations, and deliberately weak identifiability.
 
-.. figure:: /_static/capability_gallery/calibration/calibration_twin_linearized_recharge_step_flux_only_noisy_modflow6__configuration.png
-   :alt: Calibration Twin: Recharge-Step Flux-Only K+Sy 1D configuration figure
-   :width: 100%
-
-   Calibration Twin: Recharge-Step Flux-Only K+Sy 1D configuration summary used by the calibration gallery.
-
 .. tab-set::
 
    .. tab-item:: random_search
-
-      .. figure:: /_static/capability_gallery/calibration/calibration_twin_linearized_recharge_step_flux_only_noisy_modflow6__random_search_landscape.png
-         :alt: Calibration Twin: Recharge-Step Flux-Only K+Sy 1D objective landscape for random_search
-         :width: 100%
-
-         Objective landscape or pairwise projection for `random_search` on Calibration Twin: Recharge-Step Flux-Only K+Sy 1D.
-
-      .. figure:: /_static/capability_gallery/calibration/calibration_twin_linearized_recharge_step_flux_only_noisy_modflow6__random_search_posterior.png
-         :alt: Calibration Twin: Recharge-Step Flux-Only K+Sy 1D posterior distribution for random_search
-         :width: 100%
-
-         Parameter distribution for `random_search` on Calibration Twin: Recharge-Step Flux-Only K+Sy 1D.
-
-      .. figure:: /_static/capability_gallery/calibration/calibration_twin_linearized_recharge_step_flux_only_noisy_modflow6__random_search_trace.png
-         :alt: Calibration Twin: Recharge-Step Flux-Only K+Sy 1D objective trace for random_search
-         :width: 100%
-
-         Objective trace for `random_search` on Calibration Twin: Recharge-Step Flux-Only K+Sy 1D, showing the evaluated models in order.
 
       - metric=best_fit_or_distribution
       - target=True
@@ -42,122 +18,87 @@ Same-solver noisy twin benchmark on linearized_unconfined_recharge_step_1d with 
       - cost=0.410218
       - n_eval=24
       - distribution_samples=24
-      - calibration=57.21 s
-      - candidate runtime=57.2 s
-      - algorithm overhead=0.008057 s
-      - simulate=2.313 s
+      - calibration=93.31 s
+      - candidate runtime=92.95 s
+      - algorithm overhead=0.3619 s
+      - actualize=0.2663 s
+      - launcher prep=0.2663 s
+      - runtime patch=0 s
+      - simulate=3.607 s
+      - output select=0 s
+      - objective score=0 s
 
    .. tab-item:: cma_es
 
-      .. figure:: /_static/capability_gallery/calibration/calibration_twin_linearized_recharge_step_flux_only_noisy_modflow6__cma_es_landscape.png
-         :alt: Calibration Twin: Recharge-Step Flux-Only K+Sy 1D objective landscape for cma_es
-         :width: 100%
-
-         Objective landscape or pairwise projection for `cma_es` on Calibration Twin: Recharge-Step Flux-Only K+Sy 1D.
-
-      .. figure:: /_static/capability_gallery/calibration/calibration_twin_linearized_recharge_step_flux_only_noisy_modflow6__cma_es_trace.png
-         :alt: Calibration Twin: Recharge-Step Flux-Only K+Sy 1D objective trace for cma_es
-         :width: 100%
-
-         Objective trace for `cma_es` on Calibration Twin: Recharge-Step Flux-Only K+Sy 1D, showing the evaluated models in order.
-
       - metric=best_fit
       - target=False
       - best_fit=False
-      - cost=0.407795
+      - cost=0.407793
       - n_eval=56
       - distribution_samples=0
-      - calibration=146.7 s
-      - candidate runtime=146.7 s
-      - algorithm overhead=0.03094 s
-      - simulate=2.542 s
+      - calibration=213.9 s
+      - candidate runtime=213.2 s
+      - algorithm overhead=0.6246 s
+      - actualize=0.2522 s
+      - launcher prep=0.2522 s
+      - runtime patch=0 s
+      - simulate=3.555 s
+      - output select=0 s
+      - objective score=0 s
 
    .. tab-item:: simplex
 
-      .. figure:: /_static/capability_gallery/calibration/calibration_twin_linearized_recharge_step_flux_only_noisy_modflow6__simplex_landscape.png
-         :alt: Calibration Twin: Recharge-Step Flux-Only K+Sy 1D objective landscape for simplex
-         :width: 100%
-
-         Objective landscape or pairwise projection for `simplex` on Calibration Twin: Recharge-Step Flux-Only K+Sy 1D.
-
-      .. figure:: /_static/capability_gallery/calibration/calibration_twin_linearized_recharge_step_flux_only_noisy_modflow6__simplex_trace.png
-         :alt: Calibration Twin: Recharge-Step Flux-Only K+Sy 1D objective trace for simplex
-         :width: 100%
-
-         Objective trace for `simplex` on Calibration Twin: Recharge-Step Flux-Only K+Sy 1D, showing the evaluated models in order.
-
       - metric=best_fit
       - target=False
       - best_fit=False
-      - cost=0.408539
+      - cost=0.407768
       - n_eval=16
       - distribution_samples=0
-      - calibration=42.52 s
-      - candidate runtime=42.51 s
-      - algorithm overhead=0.008306 s
-      - simulate=2.58 s
+      - calibration=62.44 s
+      - candidate runtime=62.23 s
+      - algorithm overhead=0.2112 s
+      - actualize=0.2403 s
+      - launcher prep=0.2403 s
+      - runtime patch=0 s
+      - simulate=3.649 s
+      - output select=0 s
+      - objective score=0 s
 
    .. tab-item:: gp_mapping
 
-      .. figure:: /_static/capability_gallery/calibration/calibration_twin_linearized_recharge_step_flux_only_noisy_modflow6__gp_mapping_landscape.png
-         :alt: Calibration Twin: Recharge-Step Flux-Only K+Sy 1D objective landscape for gp_mapping
-         :width: 100%
-
-         Objective landscape or pairwise projection for `gp_mapping` on Calibration Twin: Recharge-Step Flux-Only K+Sy 1D.
-
-      .. figure:: /_static/capability_gallery/calibration/calibration_twin_linearized_recharge_step_flux_only_noisy_modflow6__gp_mapping_posterior.png
-         :alt: Calibration Twin: Recharge-Step Flux-Only K+Sy 1D posterior distribution for gp_mapping
-         :width: 100%
-
-         Parameter distribution for `gp_mapping` on Calibration Twin: Recharge-Step Flux-Only K+Sy 1D.
-
-      .. figure:: /_static/capability_gallery/calibration/calibration_twin_linearized_recharge_step_flux_only_noisy_modflow6__gp_mapping_trace.png
-         :alt: Calibration Twin: Recharge-Step Flux-Only K+Sy 1D objective trace for gp_mapping
-         :width: 100%
-
-         Objective trace for `gp_mapping` on Calibration Twin: Recharge-Step Flux-Only K+Sy 1D, showing the evaluated models in order.
-
       - metric=best_fit_or_distribution
       - target=True
       - best_fit=False
-      - cost=0.40781
+      - cost=0.410619
       - n_eval=20
       - distribution_samples=20
-      - calibration=51.5 s
-      - candidate runtime=51.49 s
-      - algorithm overhead=0.009931 s
-      - simulate=2.499 s
+      - calibration=99.48 s
+      - candidate runtime=77.04 s
+      - algorithm overhead=22.44 s
+      - actualize=0.2517 s
+      - launcher prep=0.2517 s
+      - runtime patch=0 s
+      - simulate=3.6 s
+      - output select=0 s
+      - objective score=0 s
 
    .. tab-item:: da_mh_gp
 
-      .. figure:: /_static/capability_gallery/calibration/calibration_twin_linearized_recharge_step_flux_only_noisy_modflow6__da_mh_gp_landscape.png
-         :alt: Calibration Twin: Recharge-Step Flux-Only K+Sy 1D objective landscape for da_mh_gp
-         :width: 100%
-
-         Objective landscape or pairwise projection for `da_mh_gp` on Calibration Twin: Recharge-Step Flux-Only K+Sy 1D.
-
-      .. figure:: /_static/capability_gallery/calibration/calibration_twin_linearized_recharge_step_flux_only_noisy_modflow6__da_mh_gp_posterior.png
-         :alt: Calibration Twin: Recharge-Step Flux-Only K+Sy 1D posterior distribution for da_mh_gp
-         :width: 100%
-
-         Parameter distribution for `da_mh_gp` on Calibration Twin: Recharge-Step Flux-Only K+Sy 1D.
-
-      .. figure:: /_static/capability_gallery/calibration/calibration_twin_linearized_recharge_step_flux_only_noisy_modflow6__da_mh_gp_trace.png
-         :alt: Calibration Twin: Recharge-Step Flux-Only K+Sy 1D objective trace for da_mh_gp
-         :width: 100%
-
-         Objective trace for `da_mh_gp` on Calibration Twin: Recharge-Step Flux-Only K+Sy 1D, showing the evaluated models in order.
-
       - metric=best_fit_or_distribution
       - target=True
       - best_fit=False
-      - cost=0.407762
+      - cost=0.649032
       - n_eval=140
       - distribution_samples=140
-      - calibration=364.1 s
-      - candidate runtime=364 s
-      - algorithm overhead=0.08979 s
-      - simulate=2.518 s
+      - calibration=581.8 s
+      - candidate runtime=572 s
+      - algorithm overhead=9.797 s
+      - actualize=0.264 s
+      - launcher prep=0.264 s
+      - runtime patch=0 s
+      - simulate=3.822 s
+      - output select=0 s
+      - objective score=0 s
 
 Case Setup
 ----------
@@ -189,18 +130,18 @@ Key Metrics
 - Methods: 5
 - Display method: da_mh_gp
 - Distribution samples: 140
-- Calibration total: 364.1 s
-- Session prep: 0 s
-- Candidate runtime: 364 s
-- Algorithm overhead: 0.08979 s
-- Model total: 2.6 s
-- Actualize:
-- Launcher prep:
-- Runtime patch:
-- Model prep: 0 s
-- Model sim: 2.518 s
-- Output select:
-- Objective score:
+- Calibration total: 581.8 s
+- Session prep: 583.8 s
+- Candidate runtime: 572 s
+- Algorithm overhead: 9.797 s
+- Model total: 4.086 s
+- Actualize: 0.264 s
+- Launcher prep: 0.264 s
+- Runtime patch: 0 s
+- Model prep: 0.264 s
+- Model sim: 3.822 s
+- Output select: 0 s
+- Objective score: 0 s
 
 Next Steps
 ----------
@@ -291,23 +232,23 @@ Methods And Timing
      - Source
    * - ``random_search``
      - Method result summary including target status, evaluation count, total time, and mean per-model actualize / launcher / simulation / objective timings.
-     - target=true, cost=0.410218, n_eval=24, distribution_samples=24, calib_s=57.2075, candidate_runtime_s=57.1994, algorithm_overhead_s=0.00805673, model_sim_s=2.31278
+     - target=true, cost=0.410218, n_eval=24, distribution_samples=24, calib_s=93.3098, candidate_runtime_s=92.9479, algorithm_overhead_s=0.36193, actualize_s=0.266251, launcher_prep_s=0.266251, runtime_patch_s=0, model_sim_s=3.60658, output_select_s=0, objective_score_s=0
      - ``docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_linearized_recharge_step_flux_only_noisy_modflow6_summary.json``
    * - ``cma_es``
      - Method result summary including target status, evaluation count, total time, and mean per-model actualize / launcher / simulation / objective timings.
-     - target=false, cost=0.407795, n_eval=56, distribution_samples=0, calib_s=146.733, candidate_runtime_s=146.702, algorithm_overhead_s=0.0309405, model_sim_s=2.54243
+     - target=false, cost=0.407793, n_eval=56, distribution_samples=0, calib_s=213.853, candidate_runtime_s=213.229, algorithm_overhead_s=0.624593, actualize_s=0.252227, launcher_prep_s=0.252227, runtime_patch_s=0, model_sim_s=3.55543, output_select_s=0, objective_score_s=0
      - ``docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_linearized_recharge_step_flux_only_noisy_modflow6_summary.json``
    * - ``simplex``
      - Method result summary including target status, evaluation count, total time, and mean per-model actualize / launcher / simulation / objective timings.
-     - target=false, cost=0.408539, n_eval=16, distribution_samples=0, calib_s=42.5229, candidate_runtime_s=42.5146, algorithm_overhead_s=0.00830594, model_sim_s=2.57977
+     - target=false, cost=0.407768, n_eval=16, distribution_samples=0, calib_s=62.4428, candidate_runtime_s=62.2316, algorithm_overhead_s=0.21121, actualize_s=0.240306, launcher_prep_s=0.240306, runtime_patch_s=0, model_sim_s=3.64917, output_select_s=0, objective_score_s=0
      - ``docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_linearized_recharge_step_flux_only_noisy_modflow6_summary.json``
    * - ``gp_mapping``
      - Method result summary including target status, evaluation count, total time, and mean per-model actualize / launcher / simulation / objective timings.
-     - target=true, cost=0.40781, n_eval=20, distribution_samples=20, calib_s=51.499, candidate_runtime_s=51.4891, algorithm_overhead_s=0.00993061, model_sim_s=2.49867
+     - target=true, cost=0.410619, n_eval=20, distribution_samples=20, calib_s=99.4763, candidate_runtime_s=77.0411, algorithm_overhead_s=22.4351, actualize_s=0.251747, launcher_prep_s=0.251747, runtime_patch_s=0, model_sim_s=3.60031, output_select_s=0, objective_score_s=0
      - ``docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_linearized_recharge_step_flux_only_noisy_modflow6_summary.json``
    * - ``da_mh_gp``
      - Method result summary including target status, evaluation count, total time, and mean per-model actualize / launcher / simulation / objective timings.
-     - target=true, cost=0.407762, n_eval=140, distribution_samples=140, calib_s=364.115, candidate_runtime_s=364.026, algorithm_overhead_s=0.0897865, model_sim_s=2.51813
+     - target=true, cost=0.649032, n_eval=140, distribution_samples=140, calib_s=581.818, candidate_runtime_s=572.021, algorithm_overhead_s=9.79661, actualize_s=0.263951, launcher_prep_s=0.263951, runtime_patch_s=0, model_sim_s=3.82191, output_select_s=0, objective_score_s=0
      - ``docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_linearized_recharge_step_flux_only_noisy_modflow6_summary.json``
 
 Displayed Metrics
@@ -335,31 +276,51 @@ Displayed Metrics
      - ``docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_linearized_recharge_step_flux_only_noisy_modflow6_summary.json``
    * - ``calibration_time_seconds``
      - Metric surfaced on the gallery page for the selected display method.
-     - 364.1 s
+     - 581.8 s
      - ``docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_linearized_recharge_step_flux_only_noisy_modflow6_summary.json``
    * - ``session_prepare_time_seconds``
      - Metric surfaced on the gallery page for the selected display method.
-     - 0 s
+     - 583.8 s
      - ``docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_linearized_recharge_step_flux_only_noisy_modflow6_summary.json``
    * - ``estimated_candidate_runtime_seconds``
      - Metric surfaced on the gallery page for the selected display method.
-     - 364 s
+     - 572 s
      - ``docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_linearized_recharge_step_flux_only_noisy_modflow6_summary.json``
    * - ``algorithm_overhead_time_seconds``
      - Metric surfaced on the gallery page for the selected display method.
-     - 0.08979 s
+     - 9.797 s
      - ``docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_linearized_recharge_step_flux_only_noisy_modflow6_summary.json``
    * - ``mean_candidate_total_time_seconds``
      - Metric surfaced on the gallery page for the selected display method.
-     - 2.6 s
+     - 4.086 s
      - ``docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_linearized_recharge_step_flux_only_noisy_modflow6_summary.json``
-   * - ``mean_candidate_preparation_time_seconds``
+   * - ``mean_candidate_actualize_time_seconds``
+     - Metric surfaced on the gallery page for the selected display method.
+     - 0.264 s
+     - ``docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_linearized_recharge_step_flux_only_noisy_modflow6_summary.json``
+   * - ``mean_candidate_launcher_prepare_time_seconds``
+     - Metric surfaced on the gallery page for the selected display method.
+     - 0.264 s
+     - ``docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_linearized_recharge_step_flux_only_noisy_modflow6_summary.json``
+   * - ``mean_candidate_runtime_patch_time_seconds``
      - Metric surfaced on the gallery page for the selected display method.
      - 0 s
      - ``docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_linearized_recharge_step_flux_only_noisy_modflow6_summary.json``
+   * - ``mean_candidate_preparation_time_seconds``
+     - Metric surfaced on the gallery page for the selected display method.
+     - 0.264 s
+     - ``docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_linearized_recharge_step_flux_only_noisy_modflow6_summary.json``
    * - ``mean_candidate_simulation_time_seconds``
      - Metric surfaced on the gallery page for the selected display method.
-     - 2.518 s
+     - 3.822 s
+     - ``docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_linearized_recharge_step_flux_only_noisy_modflow6_summary.json``
+   * - ``mean_candidate_output_selection_time_seconds``
+     - Metric surfaced on the gallery page for the selected display method.
+     - 0 s
+     - ``docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_linearized_recharge_step_flux_only_noisy_modflow6_summary.json``
+   * - ``mean_candidate_objective_compute_time_seconds``
+     - Metric surfaced on the gallery page for the selected display method.
+     - 0 s
      - ``docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_linearized_recharge_step_flux_only_noisy_modflow6_summary.json``
 
 Source Pointers
@@ -378,18 +339,4 @@ Source Pointers
 Artifacts
 ---------
 
-- ``docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_linearized_recharge_step_flux_only_noisy_modflow6__configuration.png``
-- ``docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_linearized_recharge_step_flux_only_noisy_modflow6__random_search_landscape.png``
-- ``docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_linearized_recharge_step_flux_only_noisy_modflow6__random_search_trace.png``
-- ``docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_linearized_recharge_step_flux_only_noisy_modflow6__random_search_posterior.png``
-- ``docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_linearized_recharge_step_flux_only_noisy_modflow6__cma_es_landscape.png``
-- ``docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_linearized_recharge_step_flux_only_noisy_modflow6__cma_es_trace.png``
-- ``docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_linearized_recharge_step_flux_only_noisy_modflow6__simplex_landscape.png``
-- ``docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_linearized_recharge_step_flux_only_noisy_modflow6__simplex_trace.png``
-- ``docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_linearized_recharge_step_flux_only_noisy_modflow6__gp_mapping_landscape.png``
-- ``docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_linearized_recharge_step_flux_only_noisy_modflow6__gp_mapping_trace.png``
-- ``docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_linearized_recharge_step_flux_only_noisy_modflow6__gp_mapping_posterior.png``
-- ``docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_linearized_recharge_step_flux_only_noisy_modflow6__da_mh_gp_landscape.png``
-- ``docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_linearized_recharge_step_flux_only_noisy_modflow6__da_mh_gp_trace.png``
-- ``docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_linearized_recharge_step_flux_only_noisy_modflow6__da_mh_gp_posterior.png``
 - ``docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_linearized_recharge_step_flux_only_noisy_modflow6_summary.json`` stores the displayed metrics plus source hashes used by ``python -m tools.doc_gallery --check``.

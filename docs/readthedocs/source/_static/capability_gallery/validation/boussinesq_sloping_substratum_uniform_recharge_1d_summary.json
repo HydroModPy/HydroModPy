@@ -59,24 +59,24 @@
     "validation_cases/shared/boussinesq_uniform_strip.py"
   ],
   "source_hashes": {
-    "validation_cases/README.md": "55c78d50160086ae953092b98a464b1b2e5b1249064486a058d719d61533a6d9",
-    "validation_cases/analytical/steady/boussinesq_sloping_substratum_uniform_recharge_1d/README.md": "cf25ee10544cad7d3261f0b75327a1ad0f314db503bcbe9a03e6e9c5c4d1a47b",
-    "validation_cases/analytical/steady/boussinesq_sloping_substratum_uniform_recharge_1d/reference.py": "442d436638c5359ce00fe99d4e6a5124de54f0d0bb69db6a0ea810f31413945b",
-    "validation_cases/analytical/steady/boussinesq_sloping_substratum_uniform_recharge_1d/comparison.py": "42378d53164f0b69b84c99336b17ebcb7e8b1d1d04214909980c1b27e3ad440d",
-    "validation_cases/analytical/steady/boussinesq_sloping_substratum_uniform_recharge_1d/plotting.py": "1874bc13fe5a5488c76f308f3f824e9124d9185043ec61a194d96829b3505032",
-    "validation_cases/analytical/steady/boussinesq_sloping_substratum_uniform_recharge_1d/run_case.py": "a8ab5997860c11c046caec1af47b6c10deace7912648405e1db6f152ab457255",
-    "validation_cases/analytical/steady/boussinesq_sloping_substratum_uniform_recharge_1d/metadata.toml": "ca8a4c88f8587a127662fd459fe5ca8e4f23fcfb54aabab870e16a1f9888012f",
-    "validation_cases/analytical/steady/boussinesq_sloping_substratum_uniform_recharge_1d/config_common.toml": "19f328bc927836a47cf9428d73168790fc864f98e4fb4f9c07eca6009b7512ab",
-    "validation_cases/analytical/steady/boussinesq_sloping_substratum_uniform_recharge_1d/runtime_boussinesq.py": "c8ad223f2299fe066c7d6d68b1f1b363298dacfa4f3fe18d3264eb782b0fbb8d",
-    "validation_cases/analytical/steady/boussinesq_sloping_substratum_uniform_recharge_1d/tolerances.toml": "a481477a553ca4b474a9a1a6c849ff17549ce757cba4f8ea69c5d3cd749eb4bc",
-    "validation_cases/analytical/steady/boussinesq_sloping_substratum_uniform_recharge_1d/tolerances_boussinesq.toml": "c29813e9a9b106f25873daafa0b2475e9814307ceceab688d934ad980518b1cf",
-    "validation_cases/analytical/steady/boussinesq_sloping_substratum_uniform_recharge_1d/tolerances_modflow6_irregular_tri.toml": "7854ad572f46922e2ecafe3c408b7e4489a3435eed39f38ea7c311e1a9776e9d",
-    "validation_cases/analytical/steady/boussinesq_sloping_substratum_uniform_recharge_1d/config_modflownwt.toml": "2c0516d9253a3fca6f03518261423c981713bd534769e3d099b99a730573b6b2",
-    "validation_cases/analytical/steady/boussinesq_sloping_substratum_uniform_recharge_1d/config_modflow6.toml": "a166ea169efbe444e52d9604c10bf9eea94eb47f4ea6495eea36b2c2b0f27123",
-    "validation_cases/analytical/steady/boussinesq_sloping_substratum_uniform_recharge_1d/config_modflow6_irregular_tri.toml": "2b98a973e5f68139217fb511eef9d75f924e04e02f0e77a5964275046c55687d",
-    "validation_cases/analytical/steady/boussinesq_sloping_substratum_uniform_recharge_1d/config_boussinesq.toml": "680ca3136a91011bfa3f42afabe3b5895b01ebffe6d91a7a416fe53bb75ac4ff",
-    "validation_cases/analytical/steady/boussinesq_sloping_substratum.py": "7115b66a3efba827ab0acef3fa860712443102f4352cd1e6bfcadd450b7457dd",
-    "validation_cases/shared/boussinesq_uniform_strip.py": "90dc5f900e857a5d80f297c04debaa82e96c6d70754765ed46a48469fd2698a1"
+    "validation_cases/README.md": "1965de83b961f1ab4e38d8194d51342e1286d0c2e1b779188903b84e3fc26f1c",
+    "validation_cases/analytical/steady/boussinesq_sloping_substratum_uniform_recharge_1d/README.md": "ccc6ebd58e65a4463aaa95cea5e6630d819c3fe47d45a3ff4d46ab57125a811f",
+    "validation_cases/analytical/steady/boussinesq_sloping_substratum_uniform_recharge_1d/reference.py": "8b2c1b6813f361628bb0bf0be6db1f8b0a5965143322b4d0272bea6405f41bd0",
+    "validation_cases/analytical/steady/boussinesq_sloping_substratum_uniform_recharge_1d/comparison.py": "3594d60a1e81006345d4ca3e8512654920084363d7b1e7ddeafb74a6cfcb0463",
+    "validation_cases/analytical/steady/boussinesq_sloping_substratum_uniform_recharge_1d/plotting.py": "c5778aec4f90a250b4db0210e3edeba192faa12ba80f30877358da8c39d19e70",
+    "validation_cases/analytical/steady/boussinesq_sloping_substratum_uniform_recharge_1d/run_case.py": "7cf3ba5805f66f17fc566b6c991393bd80a2d2e4fe69f98b39b3fdb7554045c2",
+    "validation_cases/analytical/steady/boussinesq_sloping_substratum_uniform_recharge_1d/metadata.toml": "4d3c477e0113aeb82ddab699bf924c80b0a02acc90de2c756a2521913b75fae3",
+    "validation_cases/analytical/steady/boussinesq_sloping_substratum_uniform_recharge_1d/config_common.toml": "da148865eca486f2031a5c3d38091af324b759965bf4a333a4e4511fcc16c15e",
+    "validation_cases/analytical/steady/boussinesq_sloping_substratum_uniform_recharge_1d/runtime_boussinesq.py": "1e7bafb28c85ec911013a21176f01aa7795f59408caeaab81de70bdaff8c36a0",
+    "validation_cases/analytical/steady/boussinesq_sloping_substratum_uniform_recharge_1d/tolerances.toml": "8a31eb4b0de33742832a324d1d705d789d27b27f53cd51c94f38d608d6660a58",
+    "validation_cases/analytical/steady/boussinesq_sloping_substratum_uniform_recharge_1d/tolerances_boussinesq.toml": "fea3c11fcd1a5371e736de33a1acc270b7e8fda504509c2b3fae9f9d9af61fda",
+    "validation_cases/analytical/steady/boussinesq_sloping_substratum_uniform_recharge_1d/tolerances_modflow6_irregular_tri.toml": "15a93edc88b858d688ee814f217a6f5f2ef27298d96c7259fc5afcf3005ea820",
+    "validation_cases/analytical/steady/boussinesq_sloping_substratum_uniform_recharge_1d/config_modflownwt.toml": "12b06f65b9542f1da7d3405c79026ad814176ea949d3e379e8f4f1facfa0d6de",
+    "validation_cases/analytical/steady/boussinesq_sloping_substratum_uniform_recharge_1d/config_modflow6.toml": "3664cea7b2b8a584463400a4e216cb92e91337b8514b2f6f1cff91f4a3d1a1e1",
+    "validation_cases/analytical/steady/boussinesq_sloping_substratum_uniform_recharge_1d/config_modflow6_irregular_tri.toml": "acff5448ad55f03a214cd8bbab763e7a3cd13645b7e9cd6bf71f4592c6dd3c6d",
+    "validation_cases/analytical/steady/boussinesq_sloping_substratum_uniform_recharge_1d/config_boussinesq.toml": "5c888b9931a7b5dabe99097d616a11a9fa42f05da073cd542e7c2a8db583a5f0",
+    "validation_cases/analytical/steady/boussinesq_sloping_substratum.py": "eaec84b0490c01a7dcd9a2b838a277d4657197321a2a79e8f0855e346ef7c284",
+    "validation_cases/shared/boussinesq_uniform_strip.py": "a6de8caacdd3701e729798a8bb45b68d84a48eef4b37e26997a29fccecea6a99"
   },
   "docname": "cases/boussinesq_sloping_substratum_uniform_recharge_1d",
   "images": [
@@ -311,8 +311,8 @@
       "expected_output": "Expected shape: 5 x 40",
       "command": "python -m validation_cases.analytical.steady.boussinesq_sloping_substratum_uniform_recharge_1d.run_case --no-show --solver modflow6_irregular_tri",
       "metric_lines": [
-        "Head-profile RMSE: 0.1077 m",
-        "Head-profile max abs error: 0.2363 m",
+        "Head-profile RMSE: 0.0404 m",
+        "Head-profile max abs error: 0.0948 m",
         "Cross-row head spread: 1.78e-15 m",
         "Reference west discharge per width: 1.734e-05 m2/s",
         "Reference east discharge per width: 2.196e-05 m2/s"
@@ -749,7 +749,44 @@
           "source": "validation_cases/analytical/steady/boussinesq_sloping_substratum_uniform_recharge_1d/config_modflow6.toml"
         }
       ],
-      "modflow6_irregular_tri": [],
+      "modflow6_irregular_tri": [
+        {
+          "field": "modflow6.runtime.mf6_ims_complexity",
+          "meaning": "Linear-solver complexity preset used by MODFLOW 6.",
+          "value": "COMPLEX",
+          "source": "validation_cases/analytical/steady/boussinesq_sloping_substratum_uniform_recharge_1d/config_modflow6_irregular_tri.toml"
+        },
+        {
+          "field": "modflow6.runtime.mf_verbose",
+          "meaning": "Solver-specific override applied to MODFLOW 6.",
+          "value": "false",
+          "source": "validation_cases/analytical/steady/boussinesq_sloping_substratum_uniform_recharge_1d/config_modflow6_irregular_tri.toml"
+        },
+        {
+          "field": "modflow6.process_specific.vka",
+          "meaning": "Vertical anisotropy ratio passed to MODFLOW 6.",
+          "value": "1",
+          "source": "validation_cases/analytical/steady/boussinesq_sloping_substratum_uniform_recharge_1d/config_modflow6_irregular_tri.toml"
+        },
+        {
+          "field": "modflow6.sgrid.vertical.nlay",
+          "meaning": "Number of vertical layers used by MODFLOW 6.",
+          "value": "1",
+          "source": "validation_cases/analytical/steady/boussinesq_sloping_substratum_uniform_recharge_1d/config_modflow6_irregular_tri.toml"
+        },
+        {
+          "field": "mesh_input.mesh_path",
+          "meaning": "Committed unstructured mesh file used by the irregular-mesh solver variant.",
+          "value": "../../../shared/mesh_bundles/sloping_substratum_irregular_tri_400x50/mesh_2d.msh",
+          "source": "validation_cases/analytical/steady/boussinesq_sloping_substratum_uniform_recharge_1d/config_modflow6_irregular_tri.toml"
+        },
+        {
+          "field": "mesh_input.bundle_dir",
+          "meaning": "Committed mesh-bundle directory used to recover support metadata for the irregular-mesh solver variant.",
+          "value": "../../../shared/mesh_bundles/sloping_substratum_irregular_tri_400x50",
+          "source": "validation_cases/analytical/steady/boussinesq_sloping_substratum_uniform_recharge_1d/config_modflow6_irregular_tri.toml"
+        }
+      ],
       "boussinesq": [
         {
           "field": "flow.runtime_backend",

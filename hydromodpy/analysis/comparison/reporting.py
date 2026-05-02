@@ -98,7 +98,15 @@ def build_comparison_report(
         lines.append("- No supplemental CSV exports were written.")
     else:
         for artifact in data_files:
-            lines.append(f"- `{artifact.get('kind', '')}`: `{artifact.get('path', '')}`")
+            path = str(artifact.get("path", ""))
+            note = str(artifact.get("note", "")).strip()
+            if path not in {"", "None"}:
+                line = f"- `{artifact.get('kind', '')}`: `{path}`"
+            else:
+                line = f"- `{artifact.get('kind', '')}`"
+            if note != "":
+                line += f" ({note})"
+            lines.append(line)
 
     lines.extend(
         [

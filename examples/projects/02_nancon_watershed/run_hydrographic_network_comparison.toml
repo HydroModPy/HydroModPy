@@ -1,0 +1,36 @@
+# ======================================================================
+# Nançon - hydrographic network comparison demo
+# ----------------------------------------------------------------------
+# Overlay TOML dedicated to the canonical hydrographic-network workflow:
+# - load the reference network from [data.hydrography]
+# - generate a DEM-derived network from [geographic.river_network]
+# - render the standard `hydrographic_network_comparison` figure
+# ======================================================================
+
+base_config = "project.toml"
+workflow = "simulation"
+
+
+[simulation]
+name = "nancon_hydrographic_network_compare"
+description = "Nançon - reference vs generated hydrographic-network comparison."
+
+
+[geographic.river_network]
+enabled = true
+threshold_mode = "area_km2"
+threshold_area_km2 = 0.5
+prune_short_streams = false
+min_stream_length_m = 0.0
+compute_strahler_order = true
+compute_stream_links = true
+
+
+[display]
+figures = [
+    "hydrographic_network_reference",
+    "hydrographic_network_generated",
+    "hydrographic_network_comparison",
+    "hydrographic_network_reference_missing_only",
+    "hydrographic_network_generated_extra_only",
+]

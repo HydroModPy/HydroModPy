@@ -7,6 +7,7 @@ not instantiate the full data-manager dependency graph.
 from __future__ import annotations
 
 from importlib import import_module
+from importlib.util import find_spec
 
 __all__ = (
     "DataManagers",
@@ -26,13 +27,18 @@ _LAZY_IMPORTS = {
 
 
 def __getattr__(name: str):
-    try:
-        target = _LAZY_IMPORTS[name]
-    except KeyError as exc:
-        raise AttributeError(f"module {__name__!r} has no attribute {name!r}") from exc
+    target = _LAZY_IMPORTS.get(name)
+    if target is not None:
+        module_path, attr_name = target.split(":", 1)
+        module = import_module(module_path)
+        attr = getattr(module, attr_name)
+        globals()[name] = attr
+        return attr
 
-    module_path, attr_name = target.split(":", 1)
-    module = import_module(module_path)
-    attr = getattr(module, attr_name)
-    globals()[name] = attr
-    return attr
+    module_name = f"{__name__}.{name}"
+    if find_spec(module_name) is not None:
+        module = import_module(module_name)
+        globals()[name] = module
+        return module
+
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

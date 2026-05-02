@@ -15,8 +15,8 @@ Current Coverage
 ----------------
 
 - Study areas: Example12 / Naizin, Naizin catchment.
-- Compared variants: Boussinesq annual moderate on committed triangular mesh, Boussinesq on reused Gmsh mesh, MF6 annual demonstrative on committed triangular mesh, MF6 annual moderate on 60x60 structured grid, MF6 annual moderate on committed triangular mesh, MODFLOW 6 on generated Gmsh mesh, NWT annual demonstrative on 60x60 structured grid, NWT annual moderate on 60x60 structured grid.
-- Compared observables: Depth Last, Head Last, Head Mid Basin Response, Head Outlet Lowland, Head Upstream Ridge, Outflow Drain Last, Outlet Flux Series, Surface Excess Flux Series, Surface Excess Last, Watertable Depth, Watertable Elevation.
+- Compared variants: Boussinesq reusing the same mesh, MODFLOW 6 on committed Gmsh mesh.
+- Compared observables: Head Timeseries, Watertable Depth, Watertable Elevation.
 - Comparison families: Same Support, Different Solvers (2), Different Supports, Same Regime (2), Multi-Method Suites (2).
 - Extend this section by adding committed comparison TOMLs to an existing family, or by declaring a new family when the comparison axis really changes.
 

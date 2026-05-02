@@ -1,0 +1,52 @@
+@startuml
+title Hydrographic Network - Persistence and Run API Sequence
+autonumber
+skinparam wrapWidth 180
+skinparam maxMessageSize 180
+
+participant "WorkflowContext\nloaded_data + geographic_features" as Ctx
+participant "prepare_solver.py" as ReferencePersistence
+participant "store_ingestion.py" as StoreIngestion
+database "SimulationCatalog" as Catalog
+participant "Run" as Run
+participant "Display / comparison caller" as Caller
+
+alt loaded reference hydrography exists
+  Ctx -> ReferencePersistence : _persist_reference_hydrographic_feature(...)
+  ReferencePersistence -> Catalog : write_geographic_feature(\n\"hydrographic_network_reference\", gdf)
+else no loaded reference hydrography
+  ReferencePersistence --> Ctx : skip reference persistence
+end
+
+alt generated geographic network exists
+  Ctx -> StoreIngestion : _ingest_river_network(...)
+  StoreIngestion -> Catalog : write_geographic_feature(\n\"hydrographic_network_generated\", gdf)
+  StoreIngestion -> Catalog : write_geographic_feature(\n\"river_network\", gdf)  # legacy alias
+else no generated geographic network
+  StoreIngestion --> Ctx : skip generated persistence
+end
+
+Caller -> Run : available_hydrographic_network_roles()
+Run -> Catalog : list_geographic_features(sim_id)
+Catalog --> Run : canonical feature names present
+Run --> Caller : [reference? generated? simulated_active?]
+
+alt caller asks for one existing role
+  Caller -> Run : hydrographic_network(role)
+  Run -> Catalog : read_geographic_feature(...)
+  Catalog --> Run : GeoDataFrame
+  Run --> Caller : GeoDataFrame
+else caller asks for one missing role
+  Caller -> Run : hydrographic_network(role)
+  Run --> Caller : KeyError with available roles
+end
+
+alt both reference and generated exist
+  Caller -> Run : hydrographic_network_comparison(...)
+  Run -> Catalog : read reference + generated
+  Run --> Caller : HydrographicNetworkComparison
+else one role is missing
+  Caller -> Run : hydrographic_network_comparison(...)
+  Run --> Caller : ValueError\nmissing role(s), available roles listed
+end
+@enduml

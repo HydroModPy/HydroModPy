@@ -16,6 +16,7 @@ from hydromodpy.analysis.comparison.config import MethodComparisonConfig
 from hydromodpy.analysis.comparison.exports import (
     write_budget_exports,
     write_execution_summary_csv,
+    write_hydrographic_network_metrics_export,
     write_native_timeseries_exports,
     write_observable_chronicle_exports,
 )
@@ -93,7 +94,17 @@ class MethodComparisonLauncher:
             try:
                 config_path = summary.get("config_path")
                 resolved_config_path = None if config_path in (None, "") else Path(str(config_path))
-                store, sim_id = discover_result_store(resolved_config_path)
+                preferred_sim_id = summary.get("sim_id")
+                preferred_run_name = summary.get("run_name")
+                store, sim_id = discover_result_store(
+                    resolved_config_path,
+                    preferred_sim_id=(
+                        None if preferred_sim_id in (None, "") else str(preferred_sim_id)
+                    ),
+                    preferred_name=(
+                        None if preferred_run_name in (None, "") else str(preferred_run_name)
+                    ),
+                )
                 rows = extract_observable_rows(
                     comparison_id=str(section.comparison_id),
                     variant=variant,
@@ -173,6 +184,12 @@ class MethodComparisonLauncher:
             )
         )
         data_artifacts.extend(native_artifacts)
+        hydrographic_artifacts, _hydrographic_rows = write_hydrographic_network_metrics_export(
+            comparison_id=str(section.comparison_id),
+            comparison_root=comparison_root,
+            variant_summaries=variant_summaries,
+        )
+        data_artifacts.extend(hydrographic_artifacts)
         budget_artifacts, budget_rows = write_budget_exports(
             comparison_root=comparison_root,
             variant_summaries=variant_summaries,
@@ -260,23 +277,20 @@ class MethodComparisonLauncher:
         error_type: str | None = None
         error_message: str | None = None
         wall_seconds: float | None = None
+        sim_id: str | None = None
 
         try:
             config_path = materialize_variant_config(cfg=self.cfg, variant=variant)
             if section.run_variants and config_path is not None:
                 start = time.monotonic()
-                project = Project(config_path)
-                try:
-                    project.run()
+                with Project(config_path) as project:
+                    run = project.run()
                     wall_seconds = round(time.monotonic() - start, 2)
                     run_folder = self._resolve_completed_run_folder(
                         run_state=project.workflow_context,
                         solver_name=str(variant.solver),
                     )
-                finally:
-                    close = getattr(project, "close", None)
-                    if callable(close):
-                        close()
+                    sim_id = None if run is None else run.sim_id
                 status = "completed"
             elif run_folder is None and config_path is not None:
                 run_folder = self._infer_run_folder_from_config(
@@ -288,9 +302,13 @@ class MethodComparisonLauncher:
                 raise ValueError(f"Variant '{variant.id}' has no config_path or run_folder")
 
             store = None
-            sim_id = None
             try:
-                store, sim_id = discover_result_store(config_path)
+                store, discovered_sim_id = discover_result_store(
+                    config_path,
+                    preferred_sim_id=None if sim_id in (None, "") else str(sim_id),
+                    preferred_name=str(variant.id),
+                )
+                sim_id = discovered_sim_id
                 metrics = read_variant_run_metrics(run_folder, store=store, sim_id=sim_id)
                 try:
                     metadata = read_variant_run_metadata(
@@ -316,6 +334,7 @@ class MethodComparisonLauncher:
                 "mesh_mode": variant.mesh_mode,
                 "config_path": None if config_path is None else str(config_path),
                 "run_folder": str(run_folder),
+                "sim_id": sim_id,
                 "wall_time_seconds": wall_seconds,
                 "metrics": metrics,
                 "run_metadata": metadata,

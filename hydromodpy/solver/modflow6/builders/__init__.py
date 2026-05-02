@@ -51,6 +51,14 @@ from hydromodpy.solver.modflow6.builders.recharge import (
     series_like_to_scalar,
     series_payload_value,
 )
+from hydromodpy.solver.modflow6.builders.solver_options import (
+    log_xt3d_resolution,
+    resolve_ims_complexity,
+    resolve_xt3d_npf_options,
+    xt3d_activation_mode,
+    xt3d_is_enabled,
+    xt3d_requested_value,
+)
 from hydromodpy.solver.modflow6.builders.wells import (
     build_well_stress_period_data,
     resolve_well_disv_cell,
@@ -87,17 +95,20 @@ __all__ = [
     "is_bc_active",
     "is_scalar_number",
     "iter_side_boundary_cells",
+    "log_xt3d_resolution",
     "ocean_chd_support_mask",
     "payload_has_negative_values",
     "recharge_to_spd",
     "resolve_deferred_heterogeneous_recharge",
     "resolve_drainage_conductance_series",
     "resolve_head_initial_condition",
+    "resolve_ims_complexity",
     "resolve_ocean_boundary_series",
     "resolve_rewet_npf_options",
     "resolve_side_boundary_series",
     "resolve_stream_boundary_series",
     "resolve_well_disv_cell",
+    "resolve_xt3d_npf_options",
     "rewet_is_enabled",
     "sanitize_numeric_payload",
     "scalar_to_flat",
@@ -106,4 +117,7 @@ __all__ = [
     "side_boundary_cell_ids",
     "stream_chd_support_mask",
     "well_cell_to_disv",
+    "xt3d_activation_mode",
+    "xt3d_is_enabled",
+    "xt3d_requested_value",
 ]

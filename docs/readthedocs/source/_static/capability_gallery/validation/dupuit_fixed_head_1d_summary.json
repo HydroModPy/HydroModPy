@@ -52,24 +52,24 @@
     "validation_cases/shared/boussinesq_uniform_strip.py"
   ],
   "source_hashes": {
-    "validation_cases/README.md": "55c78d50160086ae953092b98a464b1b2e5b1249064486a058d719d61533a6d9",
-    "validation_cases/analytical/steady/dupuit_fixed_head_1d/README.md": "3b5e1de21f97d888f5cd10866a246e50c6a1c1fea31c2cf245b08220cd9ecada",
-    "validation_cases/analytical/steady/dupuit_fixed_head_1d/reference.py": "1aaa4f200c51669c4664e6266f892224855f63f9bd134ae3441069ad53c5383c",
-    "validation_cases/analytical/steady/dupuit_fixed_head_1d/comparison.py": "0bec812789d3edf8ca2eca5dba3082496e48fe5bb3266fcdc0b95b02f8c96e20",
-    "validation_cases/analytical/steady/dupuit_fixed_head_1d/plotting.py": "03c726f8fff47defc3459665f89e7274e1c0ba43ed88defa97341388a927b861",
-    "validation_cases/analytical/steady/dupuit_fixed_head_1d/run_case.py": "e0ba83aebb0928c6a38e4853560529b38d87e200d18fd0bb68bd926446f6f5ad",
-    "validation_cases/analytical/steady/dupuit_fixed_head_1d/metadata.toml": "dc82e3504a08e46458458a5b8d03442c2bad707482283b993ce501e4a7a26d2a",
-    "validation_cases/analytical/steady/dupuit_fixed_head_1d/config_common.toml": "0396106a8e0a5de161318e76b372f284b76a681565e88c95bd310e97e2c91f0a",
-    "validation_cases/analytical/steady/dupuit_fixed_head_1d/runtime_boussinesq.py": "ad22922503f362b4249589d9f7ea8a1d080032535e7a2f765f175737a38c2d2c",
-    "validation_cases/analytical/steady/dupuit_fixed_head_1d/tolerances.toml": "3c7cdd060951dd9c33b5084475beac18c7b981d342f9d63eca2583e1b9c2fec8",
-    "validation_cases/analytical/steady/dupuit_fixed_head_1d/tolerances_modflow6.toml": "2416096ac36036afd72b2c681546cd6682bf59faa92ce2cbc1a79de39d9ab297",
-    "validation_cases/analytical/steady/dupuit_fixed_head_1d/tolerances_petsc.toml": "a5cf7e99d56641043d3a522937dae684f3e3573c44a571765095473710ed69a8",
-    "validation_cases/analytical/steady/dupuit_fixed_head_1d/tolerances_petsc_partition.toml": "a5cf7e99d56641043d3a522937dae684f3e3573c44a571765095473710ed69a8",
-    "validation_cases/analytical/steady/dupuit_fixed_head_1d/config_modflownwt.toml": "775254b3896dc6631b7da639d8f266e6d2b030a6caf09bada6053ae920da6b23",
-    "validation_cases/analytical/steady/dupuit_fixed_head_1d/config_modflow6.toml": "500d12e78009034e6feee87309dc89f3c3f876bad33c2c66b9fd0cad6dfd8d15",
-    "validation_cases/analytical/steady/dupuit_fixed_head_1d/config_modflow6_irregular_tri.toml": "2b98a973e5f68139217fb511eef9d75f924e04e02f0e77a5964275046c55687d",
-    "validation_cases/analytical/steady/dupuit_fixed_head_1d/config_boussinesq.toml": "bf9a68e7c1dca1d194187dc5584f7f51dc4243bfab5d762e437760d1a797434c",
-    "validation_cases/shared/boussinesq_uniform_strip.py": "90dc5f900e857a5d80f297c04debaa82e96c6d70754765ed46a48469fd2698a1"
+    "validation_cases/README.md": "1965de83b961f1ab4e38d8194d51342e1286d0c2e1b779188903b84e3fc26f1c",
+    "validation_cases/analytical/steady/dupuit_fixed_head_1d/README.md": "ac8ddefa6152df306d16c3b0c0db5c570abe13000c489264a9bc90496b39cc82",
+    "validation_cases/analytical/steady/dupuit_fixed_head_1d/reference.py": "0aec87d1d4402276421726b97f08b90e08c7981a2839b167f35db87bb4fa7d81",
+    "validation_cases/analytical/steady/dupuit_fixed_head_1d/comparison.py": "b128ed88857bd396c536a0f27fe12141a4f36fd5559627902ec40f3b8b5ce21a",
+    "validation_cases/analytical/steady/dupuit_fixed_head_1d/plotting.py": "d55a102f64cbf07b34d662e451dcf640596c7c057a3729b4a6cd5b510fdacc5c",
+    "validation_cases/analytical/steady/dupuit_fixed_head_1d/run_case.py": "44bc17e7f2d2f498455c05b52d358bc570de3ff8da28db3cb83f1279661fd83c",
+    "validation_cases/analytical/steady/dupuit_fixed_head_1d/metadata.toml": "6e473474e0d602e1995f9f89218aa7b7190ae38a039b898b6a6ce7ea9445ba7a",
+    "validation_cases/analytical/steady/dupuit_fixed_head_1d/config_common.toml": "fd8bd20ec0c3a7c53b7b0f259a00195c6e0639e57ff71703ec202de66aede93d",
+    "validation_cases/analytical/steady/dupuit_fixed_head_1d/runtime_boussinesq.py": "e3a06d3be7c98b2efaeee95364e50aad08694ae50eb6255907040c06a49cab35",
+    "validation_cases/analytical/steady/dupuit_fixed_head_1d/tolerances.toml": "23004e207bd274d4586d771374539e51526dbb3ccd6bdc67c5fcd2621b17e85b",
+    "validation_cases/analytical/steady/dupuit_fixed_head_1d/tolerances_modflow6.toml": "440a7cf2517593fc12dc2f78620f8768719f8afa045f045ba86a44406671a5a1",
+    "validation_cases/analytical/steady/dupuit_fixed_head_1d/tolerances_petsc.toml": "53df3340b8bf3a30f21d3c46f1ae56b046104e161d5161acbb27962b37c59713",
+    "validation_cases/analytical/steady/dupuit_fixed_head_1d/tolerances_petsc_partition.toml": "53df3340b8bf3a30f21d3c46f1ae56b046104e161d5161acbb27962b37c59713",
+    "validation_cases/analytical/steady/dupuit_fixed_head_1d/config_modflownwt.toml": "df9536f2eb09f8b02fbaccca5241aa56db2980f007d93df7a1e0e67bb92b364c",
+    "validation_cases/analytical/steady/dupuit_fixed_head_1d/config_modflow6.toml": "0d3b3ba045d0ec126be4676f214bd288b468701aa7a3f2e13a453d92acd27fd3",
+    "validation_cases/analytical/steady/dupuit_fixed_head_1d/config_modflow6_irregular_tri.toml": "acff5448ad55f03a214cd8bbab763e7a3cd13645b7e9cd6bf71f4592c6dd3c6d",
+    "validation_cases/analytical/steady/dupuit_fixed_head_1d/config_boussinesq.toml": "9ea33a84182c92308cbe72ca4ca15e61f54a9781219372f7c130345eaca4399f",
+    "validation_cases/shared/boussinesq_uniform_strip.py": "a6de8caacdd3701e729798a8bb45b68d84a48eef4b37e26997a29fccecea6a99"
   },
   "docname": "cases/dupuit_fixed_head_1d",
   "images": [
@@ -290,8 +290,8 @@
       "expected_output": "Expected shape: 5 x 40",
       "command": "python -m validation_cases.analytical.steady.dupuit_fixed_head_1d.run_case --no-show --solver modflow6_irregular_tri",
       "metric_lines": [
-        "Head-profile RMSE: 0.0330 m",
-        "Head-profile max abs error: 0.0854 m",
+        "Head-profile RMSE: 0.0195 m",
+        "Head-profile max abs error: 0.0453 m",
         "Cross-row head spread: 8.88e-16 m"
       ],
       "image": {
@@ -654,7 +654,44 @@
           "source": "validation_cases/analytical/steady/dupuit_fixed_head_1d/config_modflow6.toml"
         }
       ],
-      "modflow6_irregular_tri": [],
+      "modflow6_irregular_tri": [
+        {
+          "field": "modflow6.runtime.mf6_ims_complexity",
+          "meaning": "Linear-solver complexity preset used by MODFLOW 6.",
+          "value": "COMPLEX",
+          "source": "validation_cases/analytical/steady/dupuit_fixed_head_1d/config_modflow6_irregular_tri.toml"
+        },
+        {
+          "field": "modflow6.runtime.mf_verbose",
+          "meaning": "Solver-specific override applied to MODFLOW 6.",
+          "value": "false",
+          "source": "validation_cases/analytical/steady/dupuit_fixed_head_1d/config_modflow6_irregular_tri.toml"
+        },
+        {
+          "field": "modflow6.process_specific.vka",
+          "meaning": "Vertical anisotropy ratio passed to MODFLOW 6.",
+          "value": "1",
+          "source": "validation_cases/analytical/steady/dupuit_fixed_head_1d/config_modflow6_irregular_tri.toml"
+        },
+        {
+          "field": "modflow6.sgrid.vertical.nlay",
+          "meaning": "Number of vertical layers used by MODFLOW 6.",
+          "value": "1",
+          "source": "validation_cases/analytical/steady/dupuit_fixed_head_1d/config_modflow6_irregular_tri.toml"
+        },
+        {
+          "field": "mesh_input.mesh_path",
+          "meaning": "Committed unstructured mesh file used by the irregular-mesh solver variant.",
+          "value": "../../../shared/mesh_bundles/sloping_substratum_irregular_tri_400x50/mesh_2d.msh",
+          "source": "validation_cases/analytical/steady/dupuit_fixed_head_1d/config_modflow6_irregular_tri.toml"
+        },
+        {
+          "field": "mesh_input.bundle_dir",
+          "meaning": "Committed mesh-bundle directory used to recover support metadata for the irregular-mesh solver variant.",
+          "value": "../../../shared/mesh_bundles/sloping_substratum_irregular_tri_400x50",
+          "source": "validation_cases/analytical/steady/dupuit_fixed_head_1d/config_modflow6_irregular_tri.toml"
+        }
+      ],
       "boussinesq": [
         {
           "field": "flow.runtime_backend",

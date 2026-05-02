@@ -59,6 +59,7 @@ def overlay_watershed_contour(
     color: str = "black",
     linewidth: float = 1.0,
     alpha: float = 0.8,
+    target_crs: str | None = None,
 ) -> None:
     """Draw the catchment polygon outline on top of a map, if available.
 
@@ -72,6 +73,8 @@ def overlay_watershed_contour(
     if gdf is None or gdf.empty:
         return
     try:
+        if target_crs not in (None, "") and gdf.crs is not None and str(gdf.crs) != str(target_crs):
+            gdf = gdf.to_crs(target_crs)
         gdf.boundary.plot(ax=ax, color=color, linewidth=linewidth, alpha=alpha, zorder=5)
     except Exception:
         # Rare case: geometry column is missing or CRS mismatch - don't abort.

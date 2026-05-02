@@ -46,7 +46,7 @@ def _build_reference_figure(
     dem_display = np.where(valid_mask, dem, np.nan)
 
     watershed = gpd.read_file(geographic.watershed_shp)
-    network = gpd.read_file(geographic.river_network_shp)
+    network = gpd.read_file(geographic.hydrographic_network_generated_shp)
 
     fig, ax = plt.subplots(1, 1, figsize=(11.5, 8.5), dpi=130)
     im = ax.imshow(
@@ -129,8 +129,10 @@ def run_reference_river_network_nancon_from_toml(
     config_path = Path(config_toml).expanduser().resolve()
     workspace, geographic = run_geographic_case_from_toml(config_path)
 
-    network_shp = Path(geographic.river_network_shp).expanduser().resolve()
-    summary_json = Path(geographic.river_network_summary_json).expanduser().resolve()
+    network_shp = Path(geographic.hydrographic_network_generated_shp).expanduser().resolve()
+    summary_json = (
+        Path(geographic.hydrographic_network_generated_summary_json).expanduser().resolve()
+    )
     if not network_shp.exists():
         raise FileNotFoundError(
             f"Missing river network shapefile: {network_shp}. "
@@ -170,6 +172,8 @@ def run_reference_river_network_nancon_from_toml(
         "project_root": str(workspace.project_root),
         "watershed_shp": str(geographic.watershed_shp),
         "watershed_box_buff_dem": str(geographic.watershed_box_buff_dem),
+        "hydrographic_network_generated_shp": str(network_shp),
+        "hydrographic_network_generated_summary_json": str(summary_json),
         "river_network_shp": str(network_shp),
         "river_network_summary_json": str(summary_json),
         "segment_count": int(summary["segment_count"]),
@@ -212,7 +216,12 @@ def main(argv: list[str] | None = None) -> int:
         output_dir=args.output_dir,
         show_plot=(not bool(args.no_show_plot)),
     )
-    print(f"catch_folder={payload['catch_folder']}")
+    print(f"project_root={payload['project_root']}")
+    print(f"hydrographic_network_generated_shp={payload['hydrographic_network_generated_shp']}")
+    print(
+        "hydrographic_network_generated_summary_json="
+        f"{payload['hydrographic_network_generated_summary_json']}"
+    )
     print(f"river_network_shp={payload['river_network_shp']}")
     print(f"river_network_summary_json={payload['river_network_summary_json']}")
     print(f"segment_count={payload['segment_count']}")

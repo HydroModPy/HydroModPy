@@ -61,6 +61,11 @@ def register(subparsers) -> argparse.ArgumentParser:
     parser.add_argument(
         "--mf6", action="store_true", help="Only run MODFLOW 6 / GWT regression tests"
     )
+    parser.add_argument(
+        "--intercomparison",
+        action="store_true",
+        help="Only run solver intercomparison regression tests",
+    )
     parser.add_argument("--steady", action="store_true", help="Filter to steady-state tests")
     parser.add_argument("--transient", action="store_true", help="Filter to transient tests")
     parser.add_argument(
@@ -105,10 +110,18 @@ def run(args: argparse.Namespace) -> None:
         if args.extensive:
             print("--extensive is only available for regression tests.", file=sys.stderr)
             sys.exit(2)
-        if args.nwt or args.mf6 or args.steady or args.transient or args.analytical:
+        if (
+            args.nwt
+            or args.mf6
+            or args.intercomparison
+            or args.steady
+            or args.transient
+            or args.analytical
+        ):
             print(
                 "--nwt/--mf6/--steady/--transient/--analytical are only available "
-                "for regression or validation tests.",
+                "for regression or validation tests; --intercomparison is only "
+                "available for regression tests.",
                 file=sys.stderr,
             )
             sys.exit(2)
@@ -153,6 +166,7 @@ def run(args: argparse.Namespace) -> None:
             slow=args.slow,
             nwt=args.nwt,
             mf6=args.mf6,
+            intercomparison=args.intercomparison,
             steady=args.steady,
             transient=args.transient,
             analytical=args.analytical,
@@ -174,6 +188,9 @@ def run(args: argparse.Namespace) -> None:
         if args.update_goldens:
             print("--update-goldens is only available for regression tests.", file=sys.stderr)
             sys.exit(2)
+        if args.intercomparison:
+            print("--intercomparison is only available for regression tests.", file=sys.stderr)
+            sys.exit(2)
 
         pytest_args.append(str(root / "tests" / "validation"))
         _append_marker_filter(
@@ -183,6 +200,7 @@ def run(args: argparse.Namespace) -> None:
             slow=args.slow,
             nwt=args.nwt,
             mf6=args.mf6,
+            intercomparison=False,
             validation=True,
             steady=args.steady,
             transient=args.transient,
@@ -217,6 +235,7 @@ def _append_marker_filter(
     slow: bool,
     nwt: bool,
     mf6: bool,
+    intercomparison: bool,
     *,
     validation: bool = False,
     steady: bool = False,
@@ -255,6 +274,8 @@ def _append_marker_filter(
         markers.append("nwt")
     if mf6:
         markers.append("mf6")
+    if intercomparison:
+        markers.append("intercomparison")
     if analytical:
         markers.append("analytical")
     if steady:

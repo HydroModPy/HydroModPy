@@ -5,6 +5,11 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 
+from hydromodpy.spatial.geographic.core.hydrographic_network import (
+    HYDROGRAPHIC_NETWORK_GENERATED_SUMMARY_FILENAME,
+    HYDROGRAPHIC_NETWORK_GENERATED_VECTOR_FILENAME,
+)
+
 
 @dataclass(frozen=True)
 class GeographicPaths:
@@ -35,6 +40,16 @@ class GeographicPaths:
     river_stream_link_id_tif: str
     river_network_shp: str
     river_network_summary_json: str
+
+    @property
+    def hydrographic_network_generated_shp(self) -> str:
+        """Canonical alias of the generated hydrographic-network vector path."""
+        return self.river_network_shp
+
+    @property
+    def hydrographic_network_generated_summary_json(self) -> str:
+        """Canonical alias of the generated hydrographic-network summary path."""
+        return self.river_network_summary_json
 
 
 def build_geographic_paths(
@@ -77,6 +92,8 @@ def build_geographic_paths(
         river_streams_pruned_tif=str(geographic_path / "river_streams_pruned.tif"),
         river_stream_order_strahler_tif=str(geographic_path / "river_stream_order_strahler.tif"),
         river_stream_link_id_tif=str(geographic_path / "river_stream_link_id.tif"),
-        river_network_shp=str(geographic_path / "river_network.shp"),
-        river_network_summary_json=str(geographic_path / "river_network_summary.json"),
+        river_network_shp=str(geographic_path / HYDROGRAPHIC_NETWORK_GENERATED_VECTOR_FILENAME),
+        river_network_summary_json=str(
+            geographic_path / HYDROGRAPHIC_NETWORK_GENERATED_SUMMARY_FILENAME
+        ),
     )

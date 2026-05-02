@@ -262,6 +262,20 @@ def test_build_domain_geographic_context_retries_with_fill_after_empty_breach_wa
                 / "geographic"
                 / "river_network_summary.json"
             ),
+            hydrographic_network_generated_shp=str(
+                tmp_path
+                / "results"
+                / ".solver_scratch/_preprocessing"
+                / "geographic"
+                / "river_network.shp"
+            ),
+            hydrographic_network_generated_summary_json=str(
+                tmp_path
+                / "results"
+                / ".solver_scratch/_preprocessing"
+                / "geographic"
+                / "river_network_summary.json"
+            ),
         ),
     )
     flow_calls: list[str] = []

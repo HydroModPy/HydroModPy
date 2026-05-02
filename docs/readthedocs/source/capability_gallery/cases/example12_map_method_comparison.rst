@@ -11,12 +11,6 @@ This case reuses two committed run folders for the same Naizin catchment mesh. I
 .. seealso::
    Read :doc:`the gallery and validation reading guide </getting_started/reading-results-pages>` if you want the parameter mapping, a recommended reading order, and the first modifications to try.
 
-.. figure:: /_static/capability_gallery/method_comparison/example12_map_method_comparison.png
-   :alt: Method comparison figure for the shared Naizin mesh
-   :width: 100%
-
-   Parity plots and error bars comparing the committed MODFLOW 6 and Boussinesq runs on the shared Naizin mesh.
-
 Case Setup
 ----------
 
@@ -33,6 +27,15 @@ What It Shows
 - How three point chronicle comparisons expose outlet, mid-basin, and upstream response differences.
 - How comparison figures can be regenerated from committed run folders without rerunning the solvers.
 
+Key Parameters
+--------------
+
+- The most important modelling choice is not a scalar parameter but support equality: both runs must use the same saved mesh if you want a fair map-wide comparison.
+- `run_method_comparison_example12_map_existing.toml` defines which run folders are compared and which observables are sampled from them.
+- The compared observables (`watertable_elevation`, `watertable_depth`) determine whether the figure emphasizes absolute state mismatch or near-surface response mismatch.
+- The three point observables reuse anchors from `method_comparison_points.toml` so the same physical locations are compared across methods.
+- Interpret RMSE and MAE together: RMSE highlights stronger local mismatches while MAE gives the typical cell-wise discrepancy.
+
 How To Read It
 --------------
 
@@ -41,19 +44,24 @@ How To Read It
 - Use the error bars and scalar metrics to judge whether disagreement is diffuse or concentrated in specific ranges of the state variable.
 - Do not read this page as a validation benchmark: it is a solver-to-solver comparison, not a comparison against an analytical truth.
 
-Key Metrics
------------
+Local Regeneration Note
+-----------------------
 
-- Head Mid Basin Response RMSE: 0.02473 m
-- Head Mid Basin Response MAE: 0.02403 m
-- Head Outlet Lowland RMSE: 0.0403 m
-- Head Outlet Lowland MAE: 0.03982 m
-- Head Upstream Ridge RMSE: 0.01294 m
-- Head Upstream Ridge MAE: 0.01163 m
-- Watertable Depth RMSE: 0.7507 m
-- Watertable Depth MAE: 0.4561 m
-- Watertable Elevation RMSE: 0.7512 m
-- Watertable Elevation MAE: 0.465 m
+This local checkout cannot fully rebuild the original gallery artefacts for this case because one or more legacy source files are not present.
+
+The page is still generated so that the capability-gallery structure, cross-links, and reading guides remain valid during a full documentation rebuild.
+
+Reason: The method-comparison config and committed comparison artifacts needed to regenerate this page are not available in the current checkout.
+
+Missing Local Inputs
+--------------------
+
+- ``examples_legacy_2/projects/launcher_simulation/run_method_comparison_example12_map_existing.toml``
+- ``examples_legacy_2/projects/launcher_simulation/run_fast_mf6_mesh_catchment.toml``
+- ``examples_legacy_2/projects/launcher_simulation/run_fast_boussinesq_precomputed_mesh_input.toml``
+- ``examples_legacy_2/projects/launcher_simulation/method_comparison/example12_map_method_comparison/comparison_manifest.json``
+- ``examples_legacy_2/projects/launcher_simulation/method_comparison/example12_map_method_comparison/comparison_metrics.json``
+- ``examples_legacy_2/projects/launcher_simulation/method_comparison/example12_map_method_comparison/observables.csv``
 
 Next Steps
 ----------
@@ -68,7 +76,7 @@ Run the underlying example or validation case with:
 
 .. code-block:: bash
 
-   python -m tools.doc_gallery
+   python -m hydromodpy run examples_legacy_2/projects/launcher_simulation/run_method_comparison_example12_map_existing.toml
 
 Refresh the committed gallery artifacts with:
 
@@ -76,106 +84,17 @@ Refresh the committed gallery artifacts with:
 
    python -m tools.doc_gallery
 
-Case Parameters
----------------
-
-Comparison Setup
-^^^^^^^^^^^^^^^^
-
-.. list-table::
-   :header-rows: 1
-   :widths: 26 42 20 12
-
-   * - Field
-     - Meaning
-     - Value
-     - Source
-   * - ``[method_comparison] comparison_id``
-     - Stable identifier used to collect outputs and summary artifacts for the comparison.
-     - example12_map_method_comparison
-     - ``docs/readthedocs/source/_static/capability_gallery/method_comparison/example12_map_method_comparison_summary.json``
-   * - ``[method_comparison] reference_variant``
-     - Variant used as the baseline when computing map-wise differences and error metrics.
-     - mf6_gmsh_existing
-     - ``docs/readthedocs/source/_static/capability_gallery/method_comparison/example12_map_method_comparison_summary.json``
-   * - ``[method_comparison] run_variants``
-     - Whether the launcher reruns the variants or only reuses committed run folders.
-     - false
-     - ``docs/readthedocs/source/_static/capability_gallery/method_comparison/example12_map_method_comparison_summary.json``
-   * - ``study_area``
-     - Study area summarized by the gallery page for this comparison case.
-     - Naizin catchment
-     - ``docs/readthedocs/source/_static/capability_gallery/method_comparison/example12_map_method_comparison_summary.json``
-
-Compared Variants
-^^^^^^^^^^^^^^^^^
-
-.. list-table::
-   :header-rows: 1
-   :widths: 26 42 20 12
-
-   * - Field
-     - Meaning
-     - Value
-     - Source
-   * - ``variant.mf6_gmsh_existing``
-     - Compared run folder and solver definition used by the method-comparison launcher.
-     - MODFLOW 6 on generated Gmsh mesh; solver=modflow6; mesh_mode=mesh_catchment; run_folder=results_simulations/example12_fast_mf6_mesh_catchment
-     - ``docs/readthedocs/source/_static/capability_gallery/method_comparison/example12_map_method_comparison_summary.json``
-   * - ``variant.boussinesq_reused_gmsh``
-     - Compared run folder and solver definition used by the method-comparison launcher.
-     - Boussinesq on reused Gmsh mesh; solver=boussinesq; mesh_mode=mesh_input; run_folder=results_reused_real_meshes/example12_fast/results_simulations/flow_main__boussinesq
-     - ``docs/readthedocs/source/_static/capability_gallery/method_comparison/example12_map_method_comparison_summary.json``
-
-Compared Observables
-^^^^^^^^^^^^^^^^^^^^
-
-.. list-table::
-   :header-rows: 1
-   :widths: 26 42 20 12
-
-   * - Field
-     - Meaning
-     - Value
-     - Source
-   * - ``observable.head_outlet_lowland``
-     - Observable extracted from each run before parity plots and difference metrics are computed.
-     - variable=watertable_elevation; support=point; time=all; unit=m
-     - ``docs/readthedocs/source/_static/capability_gallery/method_comparison/example12_map_method_comparison_summary.json``
-   * - ``observable.head_mid_basin_response``
-     - Observable extracted from each run before parity plots and difference metrics are computed.
-     - variable=watertable_elevation; support=point; time=all; unit=m
-     - ``docs/readthedocs/source/_static/capability_gallery/method_comparison/example12_map_method_comparison_summary.json``
-   * - ``observable.head_upstream_ridge``
-     - Observable extracted from each run before parity plots and difference metrics are computed.
-     - variable=watertable_elevation; support=point; time=all; unit=m
-     - ``docs/readthedocs/source/_static/capability_gallery/method_comparison/example12_map_method_comparison_summary.json``
-   * - ``observable.watertable_elevation_map``
-     - Observable extracted from each run before parity plots and difference metrics are computed.
-     - variable=watertable_elevation; support=map; time=last; unit=m
-     - ``docs/readthedocs/source/_static/capability_gallery/method_comparison/example12_map_method_comparison_summary.json``
-   * - ``observable.watertable_depth_map``
-     - Observable extracted from each run before parity plots and difference metrics are computed.
-     - variable=watertable_depth; support=map; time=last; unit=m
-     - ``docs/readthedocs/source/_static/capability_gallery/method_comparison/example12_map_method_comparison_summary.json``
-
 Source Pointers
 ---------------
 
-- ``docs/readthedocs/source/_static/capability_gallery/method_comparison/example12_map_method_comparison_summary.json``
-- ``docs/readthedocs/source/_static/capability_gallery/method_comparison/example12_map_method_comparison_summary.json``
-- ``docs/readthedocs/source/_static/capability_gallery/method_comparison/example12_map_method_comparison_summary.json``
-- ``docs/readthedocs/source/_static/capability_gallery/method_comparison/example12_map_method_comparison_summary.json``
-- ``docs/readthedocs/source/_static/capability_gallery/method_comparison/example12_map_method_comparison_summary.json``
-- ``docs/readthedocs/source/_static/capability_gallery/method_comparison/example12_map_method_comparison_summary.json``
+- ``examples_legacy_2/projects/launcher_simulation/run_method_comparison_example12_map_existing.toml``
+- ``examples_legacy_2/projects/launcher_simulation/run_fast_mf6_mesh_catchment.toml``
+- ``examples_legacy_2/projects/launcher_simulation/run_fast_boussinesq_precomputed_mesh_input.toml``
+- ``examples_legacy_2/projects/launcher_simulation/method_comparison/example12_map_method_comparison/comparison_manifest.json``
+- ``examples_legacy_2/projects/launcher_simulation/method_comparison/example12_map_method_comparison/comparison_metrics.json``
+- ``examples_legacy_2/projects/launcher_simulation/method_comparison/example12_map_method_comparison/observables.csv``
 
 Artifacts
 ---------
 
-- ``docs/readthedocs/source/_static/capability_gallery/method_comparison/example12_map_method_comparison.png``
-- ``docs/readthedocs/source/_static/capability_gallery/method_comparison/example12_map_method_comparison_comparison_manifest.json``
-- ``docs/readthedocs/source/_static/capability_gallery/method_comparison/example12_map_method_comparison_comparison_metrics.json``
-- ``docs/readthedocs/source/_static/capability_gallery/method_comparison/example12_map_method_comparison_observables.csv``
-- ``docs/readthedocs/source/_static/capability_gallery/method_comparison/example12_map_method_comparison_summary_metrics.csv``
-- ``docs/readthedocs/source/_static/capability_gallery/method_comparison/example12_map_method_comparison_difference_metrics.csv``
 - ``docs/readthedocs/source/_static/capability_gallery/method_comparison/example12_map_method_comparison_summary.json`` stores the displayed metrics plus source hashes used by ``python -m tools.doc_gallery --check``.

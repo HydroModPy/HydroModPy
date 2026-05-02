@@ -4,6 +4,9 @@ Choose Your First Workflow
 Use this page when you know what you want to learn, but not which HydroModPy
 entry point to open first.
 
+If you already know the CLI keyword you are looking for and want the full map
+of ``workflow = "..."`` families, use :doc:`workflow-families`.
+
 .. important::
 
    Default recommendation: start with :doc:`data-overview-walkthrough`. It is
@@ -30,9 +33,9 @@ Match your goal to a first page
      - You see how geographic setup, meshing, and flow fit together.
      - ``hmp run examples/projects/06_vire_selune/run_vire_mf6_irregular.toml``
    * - Compare two numerical methods on the same support
-     - :doc:`reading-results-pages`
-     - You need to read solver-to-solver discrepancies without confusing them with validation.
-     - ``hmp compare <sim_a> <sim_b>``
+     - :doc:`comparison-workflow`
+     - You want a dedicated run workflow that generates child simulations, metrics, and difference figures.
+     - ``hmp run examples/projects/09_comparison_workflow/compare_dupuit_mf6_bouss.toml``
    * - Check numerical credibility against a reference
      - :doc:`reading-results-pages`
      - Validation pages explain analytical targets, solver coverage, and tolerance-based metrics.

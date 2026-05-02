@@ -18,6 +18,7 @@ from .gallery_schema import (
     GalleryMetricSpec,
 )
 from .gallery_simulation_specs import build_simulation_specs
+from .gallery_validation_notes_specs import build_validation_note_specs
 from .manifest_loader import (
     load_json_gallery_case_specs as _load_json_gallery_case_specs_from_module,
 )
@@ -263,6 +264,7 @@ def build_gallery_specs(
         *build_regional_lab_specs(),
         *build_hydraulic_property_specs(),
         *build_method_comparison_specs(),
+        *build_validation_note_specs(),
         *_load_json_gallery_case_specs("code_comparison_cases.json"),
     )
     mesh_specs = build_repo_mesh_gallery_case_specs()

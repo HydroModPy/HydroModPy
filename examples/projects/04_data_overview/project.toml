@@ -69,3 +69,20 @@ date_end = "2003-01-30"
 [[data.oceanic.sources]]
 source = "shom"
 nearest = true
+
+[overview]
+name = "Watershed Data Overview"
+date_start = "2019-01-01"
+date_end = "2025-12-31"
+
+[overview.panels]
+map_dem = true
+map_geology = true
+map_hydrography = true
+stats_card = true
+timeseries_discharge = true
+timeseries_piezometry = false
+climatic_summary = false
+timeseries_intermittency = true
+timeseries_water_quality = false
+station_inventory = true

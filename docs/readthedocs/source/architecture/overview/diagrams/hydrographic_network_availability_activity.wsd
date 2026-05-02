@@ -1,0 +1,34 @@
+@startuml
+title Hydrographic Network - Availability and Output Branching
+start
+
+:Build / load hydrographic-network inputs;
+
+if (reference role available?) then (yes)
+  :Persist / expose\nhydrographic_network_reference;
+else (no)
+  :reference = absent;
+endif
+
+if (generated role available?) then (yes)
+  :Persist / expose\nhydrographic_network_generated;
+else (no)
+  :generated = absent;
+endif
+
+if (reference and generated both available?) then (yes)
+  :Enable comparison API;
+  :Expose comparison figures;
+  :Allow hydrographic_network_metrics export;
+else (no)
+  if (at least one role available?) then (yes)
+    :Expose standalone figure(s)\nfor available role(s);
+    :comparison exports skipped;
+    :comparison API raises explicit\nmissing-role error if called;
+  else (no)
+    :No hydrographic-network\nfigures or comparison outputs;
+  endif
+endif
+
+stop
+@enduml

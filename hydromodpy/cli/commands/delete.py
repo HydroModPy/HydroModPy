@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import sys
 from pathlib import Path
+from typing import Any
 
 from hydromodpy.cli.helpers import (
     EXIT_NOT_FOUND,
@@ -71,5 +72,51 @@ def run(args: argparse.Namespace) -> None:
                 print("Aborted.", file=sys.stderr)
                 sys.exit(EXIT_USER_ABORT)
 
-        catalog.delete(sid, remove_storage=not args.keep_storage)
+        result = delete_simulation_artifacts(catalog, sid, remove_storage=not args.keep_storage)
+        for removed_path in result["removed_paths"]:
+            print(f"  removed: {removed_path}")
         print(f"Deleted simulation {label}")
+
+
+def delete_simulation_artifacts(
+    catalog: Any,
+    sid: str,
+    *,
+    remove_storage: bool = True,
+) -> dict[str, object]:
+    """Delete one simulation and return a small storage summary."""
+    zarr_path = catalog.zarr_path_for(sid)
+    parquet_dir = catalog.parquet_dir_for(sid)
+    existing_paths = [path for path in (zarr_path, parquet_dir) if path.exists()]
+    freed_bytes = sum(_path_size(path) for path in existing_paths) if remove_storage else 0
+
+    catalog.delete(sid, remove_storage=remove_storage)
+
+    return {
+        "sim_id": sid,
+        "freed_bytes": freed_bytes,
+        "removed_paths": [str(path) for path in existing_paths] if remove_storage else [],
+    }
+
+
+def _path_size(path: Path) -> int:
+    """Return the recursive file size for *path* in bytes."""
+    if not path.exists():
+        return 0
+    try:
+        if path.is_file():
+            return int(path.stat().st_size)
+    except OSError:
+        return 0
+
+    total = 0
+    try:
+        for child in path.rglob("*"):
+            try:
+                if child.is_file():
+                    total += int(child.stat().st_size)
+            except OSError:
+                continue
+    except OSError:
+        return total
+    return total

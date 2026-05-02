@@ -27,6 +27,10 @@ from hydromodpy.spatial.geographic.core.derived_features import (
 from hydromodpy.spatial.geographic.core.direct_dem_domain import build_direct_dem_domain
 from hydromodpy.spatial.geographic.core.domain_dem import clip_dem_to_box_buffer
 from hydromodpy.spatial.geographic.core.flow_products import build_regional_flow_products
+from hydromodpy.spatial.geographic.core.hydrographic_network import (
+    HydrographicNetwork,
+    HydrographicNetworks,
+)
 from hydromodpy.spatial.geographic.core.pipeline_steps import (
     build_standard_catchment,
     build_standard_domain_polygons,
@@ -170,6 +174,7 @@ def build_geographic_derived_features(
             watershed_box_buff_dem=dem_products.watershed_box_buff_dem,
             zone_kind="uniform",
             regional_dem_path=dem_products.watershed_box_buff_dem,
+            hydrographic_networks=HydrographicNetworks(),
         )
 
     if config.buff_area is None:
@@ -234,7 +239,7 @@ def build_geographic_derived_features(
         nodata=-9999.0,
     )
 
-    river_network_products = build_river_network_products(
+    generated_hydrographic_network_products = build_river_network_products(
         river_network=config.river_network,
         dem_correc_path=flow.correc,
         d8_pointer_path=flow.direc,
@@ -246,14 +251,16 @@ def build_geographic_derived_features(
         streams_pruned_tif_path=setup.paths.river_streams_pruned_tif,
         stream_order_strahler_tif_path=setup.paths.river_stream_order_strahler_tif,
         stream_link_id_tif_path=setup.paths.river_stream_link_id_tif,
-        network_shp_path=setup.paths.river_network_shp,
-        summary_json_path=setup.paths.river_network_summary_json,
+        network_shp_path=setup.paths.hydrographic_network_generated_shp,
+        summary_json_path=setup.paths.hydrographic_network_generated_summary_json,
         network_crs=setup.crs_project,
     )
 
-    river_mesh_trace = river_network_products.river_mesh_trace
-
     surface_topo = build_surface_topo_from_dem(setup.paths.watershed_box_buff_dem)
+    generated_network = HydrographicNetwork.from_river_network_products(
+        generated_hydrographic_network_products,
+        watershed_shp=setup.paths.watershed_shp,
+    )
 
     return GeographicDerivedFeatures(
         surface_topo=surface_topo,
@@ -263,18 +270,18 @@ def build_geographic_derived_features(
             box_buff_shp=setup.paths.box_buff,
         ),
         rivers=RiverNetworkProducts(
-            enabled=river_network_products.enabled,
-            threshold_cells=river_network_products.threshold_cells,
-            flow_acc_cells_tif=river_network_products.flow_acc_cells_tif,
-            streams_tif=river_network_products.streams_tif,
-            active_streams_tif=river_network_products.active_streams_tif,
-            streams_pruned_tif=river_network_products.streams_pruned_tif,
-            stream_order_strahler_tif=river_network_products.stream_order_strahler_tif,
-            stream_link_id_tif=river_network_products.stream_link_id_tif,
-            network_shp=river_network_products.network_shp,
-            network_crs=river_network_products.network_crs,
-            river_mesh_trace=river_mesh_trace,
-            summary_json=river_network_products.summary_json,
+            enabled=generated_hydrographic_network_products.enabled,
+            threshold_cells=generated_hydrographic_network_products.threshold_cells,
+            flow_acc_cells_tif=generated_hydrographic_network_products.flow_acc_cells_tif,
+            streams_tif=generated_hydrographic_network_products.streams_tif,
+            active_streams_tif=generated_hydrographic_network_products.active_streams_tif,
+            streams_pruned_tif=generated_hydrographic_network_products.streams_pruned_tif,
+            stream_order_strahler_tif=generated_hydrographic_network_products.stream_order_strahler_tif,
+            stream_link_id_tif=generated_hydrographic_network_products.stream_link_id_tif,
+            network_shp=generated_hydrographic_network_products.network_shp,
+            network_crs=generated_hydrographic_network_products.network_crs,
+            river_mesh_trace=generated_hydrographic_network_products.river_mesh_trace,
+            summary_json=generated_hydrographic_network_products.summary_json,
         ),
         catchment_area_km2=float(catchment_area_km2),
         catch_def=str(config.catch_def),
@@ -283,4 +290,5 @@ def build_geographic_derived_features(
         watershed_box_buff_dem=setup.paths.watershed_box_buff_dem,
         zone_kind="catchment",
         regional_dem_path=setup.dem_init_path,
+        hydrographic_networks=HydrographicNetworks(generated=generated_network),
     )

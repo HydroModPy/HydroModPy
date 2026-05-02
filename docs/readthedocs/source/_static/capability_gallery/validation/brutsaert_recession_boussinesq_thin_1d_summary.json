@@ -50,25 +50,25 @@
     "validation_cases/analytical/transient/runtime_boussinesq_brutsaert_1d.py"
   ],
   "source_hashes": {
-    "validation_cases/README.md": "55c78d50160086ae953092b98a464b1b2e5b1249064486a058d719d61533a6d9",
-    "validation_cases/analytical/transient/brutsaert_recession_boussinesq_thin_1d/README.md": "4fcf55d7c686808b607cf572f4179c5fe8b292a044ccad5d25c3a7ecb588dadc",
-    "validation_cases/analytical/transient/brutsaert_recession_boussinesq_thin_1d/reference.py": "80c7eba3a7c327548930f3e1427c481122c637fa5b8f67d452812319c8cf325c",
-    "validation_cases/analytical/transient/brutsaert_recession_boussinesq_thin_1d/comparison.py": "9c55d782d24d5af7743ef50034e78c22361582c993c261e410893f522ac10d5f",
-    "validation_cases/analytical/transient/brutsaert_recession_boussinesq_thin_1d/plotting.py": "c0e75e5300a19bfbca57a33b63a2d5ec4905f791bc846adb5250ac93215db1ce",
-    "validation_cases/analytical/transient/brutsaert_recession_boussinesq_thin_1d/run_case.py": "edd42b1316f3873d6dd211f741970ed445534b88844d98967b164e71feb15b8e",
-    "validation_cases/analytical/transient/brutsaert_recession_boussinesq_thin_1d/metadata.toml": "40c3a0e16ce7674512b3f8a49c7847da2adbc74a5b355fecaf76544b73d69c66",
-    "validation_cases/analytical/transient/brutsaert_recession_boussinesq_thin_1d/config_common.toml": "db4340039463d71e41029321a53783ffaf33d4f0ed3c24907f04fc1153656795",
-    "validation_cases/analytical/transient/brutsaert_recession_boussinesq_thin_1d/runtime_boussinesq.py": "324e26ca7dda7858328d8d2cc1aaa151eace2e57bf1b5652a36ee2b89c1aeb6a",
-    "validation_cases/analytical/transient/brutsaert_recession_boussinesq_thin_1d/tolerances.toml": "5a97502fbc4bde6a195bd1860ce639e66f37073dff8707c0e7b32944d5146771",
-    "validation_cases/analytical/transient/brutsaert_recession_boussinesq_thin_1d/tolerances_boussinesq.toml": "8792a01b32a1c7253a4c0607cf6721c37201948f723b964599dcb27f05d5bd83",
-    "validation_cases/analytical/transient/brutsaert_recession_boussinesq_thin_1d/tolerances_modflow6.toml": "b7d5b6b1d9482f0704bbea8a8cd931479ad25e67d277bf93b08765a675fcf760",
-    "validation_cases/analytical/transient/brutsaert_recession_boussinesq_thin_1d/tolerances_modflownwt.toml": "b7d5b6b1d9482f0704bbea8a8cd931479ad25e67d277bf93b08765a675fcf760",
-    "validation_cases/analytical/transient/brutsaert_recession_boussinesq_thin_1d/config_modflownwt.toml": "08e2bdae708ee23712a825cd9f280a25eaa386cddfe45d32b2a3913b41bb250c",
-    "validation_cases/analytical/transient/brutsaert_recession_boussinesq_thin_1d/config_modflow6.toml": "e09cb653e44fe749918075985da4edad213878c9a408fb4e211c9a9f1e3e564f",
-    "validation_cases/analytical/transient/brutsaert_recession_boussinesq_thin_1d/config_boussinesq.toml": "ea18211445a04869af95f98936f99cc1bb4877e552b6df975d5fef96ba303884",
-    "validation_cases/analytical/transient/brutsaert_common.py": "791ee2faf7dbac308af940b61658d620640f89b61668c44c8c8da00b89995045",
-    "validation_cases/analytical/transient/brutsaert_reference.py": "44d0dc6f28b76fdfb12f4cac2527c116eb4e72775f5152f2845263841f43df62",
-    "validation_cases/analytical/transient/runtime_boussinesq_brutsaert_1d.py": "85665c33e0860c571e0142ed4e05096c8a329a574b46042ece2b8f964124d91f"
+    "validation_cases/README.md": "1965de83b961f1ab4e38d8194d51342e1286d0c2e1b779188903b84e3fc26f1c",
+    "validation_cases/analytical/transient/brutsaert_recession_boussinesq_thin_1d/README.md": "08fe443980aaada1e30a213323ace0f47040d026c97cf6c1cc570f8b218bf295",
+    "validation_cases/analytical/transient/brutsaert_recession_boussinesq_thin_1d/reference.py": "4b5bf03d4cfa8ba52e90125d886b8cb149da78acf800e1a8e5f427c61151f730",
+    "validation_cases/analytical/transient/brutsaert_recession_boussinesq_thin_1d/comparison.py": "3ad4e5f96844cb363cffdb3f7030186819b9cbbb6210fd2e48367d9c40073fd9",
+    "validation_cases/analytical/transient/brutsaert_recession_boussinesq_thin_1d/plotting.py": "0d6150c5cf09f0e92382cb424e1362f79178a3bd9495ae1894c6cafaa8bafa85",
+    "validation_cases/analytical/transient/brutsaert_recession_boussinesq_thin_1d/run_case.py": "1794cff74af93354f32cf5bad1aad0a31d64be8e20861b2d2f17d86de778c213",
+    "validation_cases/analytical/transient/brutsaert_recession_boussinesq_thin_1d/metadata.toml": "e6840fda6865d33ff8e7536428103ffc31128708e982401f73866d8733f4c714",
+    "validation_cases/analytical/transient/brutsaert_recession_boussinesq_thin_1d/config_common.toml": "0295df7d3592c75be764ce1bcc53100e0f68bb39bae792e6726c94b7909646ba",
+    "validation_cases/analytical/transient/brutsaert_recession_boussinesq_thin_1d/runtime_boussinesq.py": "a221b9fdec543412c2ef138900e2ffab1b436075b3e0f8ff3d11c97377c2ad87",
+    "validation_cases/analytical/transient/brutsaert_recession_boussinesq_thin_1d/tolerances.toml": "dba9f6c8d90e24b35674dd65ae34c328a2dfa793dc7dfc7f75b1b3dcff3708b0",
+    "validation_cases/analytical/transient/brutsaert_recession_boussinesq_thin_1d/tolerances_boussinesq.toml": "32956b016fe1b2bbbf17447393adcc2d6c4a853ce52b48fa7970ddb290e684c3",
+    "validation_cases/analytical/transient/brutsaert_recession_boussinesq_thin_1d/tolerances_modflow6.toml": "a9d686973f114a73ba4c1307c4077f2056bdb508cdb0e59a5966874002d847b9",
+    "validation_cases/analytical/transient/brutsaert_recession_boussinesq_thin_1d/tolerances_modflownwt.toml": "a9d686973f114a73ba4c1307c4077f2056bdb508cdb0e59a5966874002d847b9",
+    "validation_cases/analytical/transient/brutsaert_recession_boussinesq_thin_1d/config_modflownwt.toml": "c76f289c87c1f86677b343dfc7fb2eb83a39833fd40d80acff0160baf69bd219",
+    "validation_cases/analytical/transient/brutsaert_recession_boussinesq_thin_1d/config_modflow6.toml": "d194539c405955fbe7cc89e1a4f18af8f21c4e6b8fbcb0f77cce22a0f8c52535",
+    "validation_cases/analytical/transient/brutsaert_recession_boussinesq_thin_1d/config_boussinesq.toml": "6f68bf8bb4da181014cdc8fc3d802958f0c056f4675490e309cfaa280b586156",
+    "validation_cases/analytical/transient/brutsaert_common.py": "f482c83f5b719701941d028505ec0ee6f7ec7023a2a793b2abcdabe47003ac7e",
+    "validation_cases/analytical/transient/brutsaert_reference.py": "971b3a11b10643e89902b700399d14835f60ed4498858553912fff2453132616",
+    "validation_cases/analytical/transient/runtime_boussinesq_brutsaert_1d.py": "f02baf9a83e20bc9ba018ea3579931d37ab5afac6252df0889b81aaae6154606"
   },
   "docname": "cases/brutsaert_recession_boussinesq_thin_1d",
   "images": [
@@ -342,7 +342,7 @@
         "Characteristic time: 29.09 d",
         "Relative RMSE: 0.2189",
         "Relative max abs error: 0.2353",
-        "Cross-row head spread: 8.18e-16 m"
+        "Cross-row head spread: 8.38e-16 m"
       ],
       "image": {
         "filename": "brutsaert_recession_boussinesq_thin_1d__boussinesq.png",

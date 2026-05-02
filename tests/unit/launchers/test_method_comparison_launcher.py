@@ -45,7 +45,12 @@ def _patch_result_store(
     monkeypatch: pytest.MonkeyPatch,
     mapping: dict[Path, _FakeCatalog],
 ) -> None:
-    def _discover(config_path: Path | None):
+    def _discover(
+        config_path: Path | None,
+        *,
+        preferred_sim_id: str | None = None,
+        preferred_name: str | None = None,
+    ):
         if config_path is None:
             if len(mapping) == 1:
                 return next(iter(mapping.values())), SIM_ID
@@ -1388,6 +1393,13 @@ def test_method_comparison_launcher_prefers_model_full_path_for_completed_runs(
 
         def run(self, **kwargs):
             return None
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, tb):
+            self.close()
+            return False
 
         def close(self):
             pass

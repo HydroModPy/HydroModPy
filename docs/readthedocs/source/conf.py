@@ -25,6 +25,34 @@ from sphinx.util.docutils import SphinxDirective
 
 package_path = Path(__file__).resolve().parents[3]
 os.environ["PYTHONPATH"] = ":".join((str(package_path), os.environ.get("PYTHONPATH", "")))
+_DOC_REQUIRED_EXTENSIONS = [
+    "nbsphinx",
+    "myst_parser",
+    "sphinx_gallery",
+    "sphinx_design",
+    "sphinx_copybutton",
+    "sphinx_togglebutton",
+    "sphinx_tabs",
+    "sphinx_multiversion",
+    "sphinxcontrib.autodoc_pydantic",
+]
+
+
+def _ensure_required_doc_extensions() -> None:
+    missing_extensions = [
+        extension for extension in _DOC_REQUIRED_EXTENSIONS if find_spec(extension) is None
+    ]
+    if not missing_extensions:
+        return
+
+    missing_display = ", ".join(missing_extensions)
+    raise RuntimeError(
+        "Local Sphinx docs build is missing required extensions: "
+        f"{missing_display}. From the repository root, run "
+        '`pip install -e ".[docs]"` or recreate the editable Conda '
+        "environment from install/env_hydromodpy_pkg.yml or "
+        "install/env_hydromodpy_light_pkg.yml."
+    )
 
 
 def _resolve_vendor_graphviz_dot() -> Path | None:
@@ -72,6 +100,7 @@ if _vendor_graphviz_dot is not None:
 # Make the editable install (or cloned repo) importable without relying on src/
 sys.path.insert(0, str(package_path))
 sys.path.insert(0, str(package_path / "hydromodpy"))
+_ensure_required_doc_extensions()
 
 _DOC_OPTIONAL_IMPORTS = [
     "pint",

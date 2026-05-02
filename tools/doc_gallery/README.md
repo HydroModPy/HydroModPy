@@ -27,6 +27,83 @@ Generate or refresh the committed gallery artifacts:
 python -m tools.doc_gallery
 ```
 
+For the whole Read the Docs refresh chain, use the dedicated orchestration
+script. It recomputes validation reports, the XT3D note payload, the gallery
+artifacts, runs the gallery drift check, then rebuilds Sphinx locally:
+
+```bash
+python -m tools.refresh_readthedocs
+```
+
+Add `--install-solver-binaries` on clean CI machines that do not already have
+the MODFLOW executables cached:
+
+```bash
+python -m tools.refresh_readthedocs --install-solver-binaries
+```
+
+To enforce that such a refresh only touched the generated docs artifacts, use:
+
+```bash
+python -m tools.verify_docs_refresh_outputs
+```
+
+The scheduled GitHub workflow `.github/workflows/docs-nightly-refresh.yml`
+chains both commands before committing the refreshed artifacts back to the
+documentation branches.
+
+On Windows, one wrapper can chain the common local workflow:
+
+- optional analytical validation report refresh
+- capability-gallery regeneration
+- gallery drift check
+- Sphinx HTML rebuild in `docs/readthedocs/build/html` by default
+
+```powershell
+powershell -File tools/update_capability_gallery.ps1
+```
+
+When one step needs the scientific stack, the wrapper auto-prefers
+`conda run -n hydromodpy-kpg python` if that environment exists. Override it
+explicitly when needed:
+
+```powershell
+powershell -File tools/update_capability_gallery.ps1 `
+  -CondaEnv hydromodpy-kpg
+```
+
+For one rerun-focused refresh, keep the scope narrow:
+
+```powershell
+powershell -File tools/update_capability_gallery.ps1 `
+  -Only modflow6_irregular_tri_xt3d_method_choice `
+  -OpenHtml
+```
+
+If the rerun also changed committed analytical batch reports, restrict that step
+to one solver family instead of refreshing every report:
+
+```powershell
+powershell -File tools/update_capability_gallery.ps1 `
+  -IncludeValidationReports `
+  -ValidationSolvers modflow6_irregular_tri `
+  -ValidationRegime steady `
+  -Only modflow6_irregular_tri_xt3d_method_choice
+```
+
+The XT3D irregular-triangle diagnostics note uses its own committed report
+source. Targeting that slug now refreshes the report automatically before the
+gallery rebuild, or you can force that step explicitly:
+
+```powershell
+powershell -File tools/update_capability_gallery.ps1 `
+  -IncludeXt3dDiagnostics `
+  -Only modflow6_irregular_tri_xt3d_method_choice
+```
+
+Use `-BuildDir _build/html` only if you explicitly want the alternate Sphinx
+output tree; `build/html` matches `make.bat` and the usual local browser path.
+
 Verify that the committed generated files are in sync with the manifest and the
 source hashes:
 

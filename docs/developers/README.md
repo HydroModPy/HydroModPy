@@ -9,9 +9,12 @@ au code, mainteneurs, intégrateurs frontaux. Pour l'usage utilisateur voir
 
 1. [glossary.md](glossary.md) : vocabulaire canonique (Workspace, Project,
    Run, Catalog...). Sert d'arbitre en cas de conflit de nommage.
-2. [design_patterns.md](design_patterns.md) : dix patterns récurrents à
+2. [mental_model_and_design_choices.md](mental_model_and_design_choices.md) :
+   vue d'ensemble pedagogique, relations entre objets, raisons des
+   decoupages, diagrammes recommandes.
+3. [design_patterns.md](design_patterns.md) : dix patterns récurrents à
    connaître avant de lire le code.
-3. [CLI.md](CLI.md) : commandes `hmp` et workflows disponibles.
+4. [CLI.md](CLI.md) : commandes `hmp` et workflows disponibles.
 
 ## Architecture et stockage
 
@@ -26,6 +29,8 @@ au code, mainteneurs, intégrateurs frontaux. Pour l'usage utilisateur voir
   verrous DuckDB, écriture atomique, retries.
 - [schema_evolution.md](schema_evolution.md) : règles d'évolution des
   schémas DuckDB et Zarr.
+- [simulation_comparison_workflow.md](simulation_comparison_workflow.md) :
+  surcouche externe de comparaison de simulations, TOML, audit, sorties.
 
 ## Solveurs
 
