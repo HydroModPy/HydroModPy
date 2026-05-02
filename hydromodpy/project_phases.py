@@ -255,7 +255,7 @@ def open_catalog(project: Project) -> None:
     ws = project._ctx.setup.workspace
     if ws is None:
         return
-    project._store = SimulationCatalog(ws.root)
+    project._store = SimulationCatalog.from_workspace(ws, register_global=True)
     project._project_name = ws.project_root.name
 
 

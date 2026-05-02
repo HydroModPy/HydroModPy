@@ -274,7 +274,6 @@ def scaffold(root_dir: str | Path | None = None) -> Path:
         <workspace>/
         |-- data/
         |   |-- cache.duckdb                (input cache, created on first run)
-        |-- simulations/                    (empty, populated per run)
         |-- hydrometry_custom/
         |   |-- README.md
         |   |-- example_locations.csv
@@ -288,16 +287,14 @@ def scaffold(root_dir: str | Path | None = None) -> Path:
         |-- projects/                       (empty, ready for hmp new)
 
     Idempotent for user-authored files (custom locations, chronicles,
-    READMEs) - they are never overwritten. The simulation catalog
-    (``hydromodpy.duckdb``) is created by ``hmp init``, not here, so the
-    ``data`` layer never reaches into ``results``.
+    READMEs) - they are never overwritten. Simulation catalogs and
+    ``simulations/`` directories are project-local.
     """
     root = Path(root_dir).expanduser().resolve() if root_dir else DEFAULT_ROOT
     root.mkdir(parents=True, exist_ok=True)
 
     (root / "data").mkdir(parents=True, exist_ok=True)
     (root / "projects").mkdir(parents=True, exist_ok=True)
-    (root / "simulations").mkdir(parents=True, exist_ok=True)
 
     for spec in VARIABLES:
         var_dir = root / f"{spec.name}_custom"

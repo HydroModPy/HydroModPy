@@ -1009,7 +1009,7 @@ class WritesMixin:
         Idempotent. Writes go through this so newly created or emptied per-sim
         Parquet files are reflected in the workspace-wide view.
         """
-        ensure_parquet_views(self._db, self._workspace)
+        ensure_parquet_views(self._db, self._simulations_dir)
 
     def _kv_metadata_for_sim(self, sim_id: str) -> dict[str, str]:
         """Return Parquet KV metadata keys per the ML-access spec.

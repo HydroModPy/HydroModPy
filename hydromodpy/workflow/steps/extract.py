@@ -63,7 +63,8 @@ def restore_seepage_raster_from_store(
         return False
 
     project_root = Path(project_root)
-    workspace_root = locate_workspace_root(project_root) or project_root
+    catalog_root = project_root if (project_root / "hydromodpy.duckdb").exists() else None
+    workspace_root = catalog_root or locate_workspace_root(project_root) or project_root
 
     seepage_tif = Path(seepage_tif_path)
     try:

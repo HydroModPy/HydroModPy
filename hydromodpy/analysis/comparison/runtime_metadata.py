@@ -211,7 +211,7 @@ def read_variant_run_metadata(
 def discover_result_store(
     config_path: Path | None,
 ) -> tuple[Any, str | None]:
-    """Open a SimulationCatalog from the workspace root inferred from a config path.
+    """Open a SimulationCatalog from the project root inferred from a config path.
 
     Returns ``(catalog, sim_id)`` on success, ``(None, None)`` when the
     catalog is unavailable.  The caller is responsible for closing the
@@ -224,9 +224,7 @@ def discover_result_store(
     if project_root is None:
         return None, None
 
-    from hydromodpy.core.workspace.resolve import locate_workspace_root
-
-    workspace_root = locate_workspace_root(project_root) or project_root
+    workspace_root = project_root
 
     try:
         from hydromodpy.results.catalog import SimulationCatalog

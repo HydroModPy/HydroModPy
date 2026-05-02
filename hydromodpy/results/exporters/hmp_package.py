@@ -799,7 +799,7 @@ def import_hmp_package(
         # caller's catalog connection.
         from hydromodpy.results.catalog_schema import ensure_parquet_views
 
-        ensure_parquet_views(catalog.connection, workspace)
+        ensure_parquet_views(catalog.connection, catalog.simulations_dir)
 
         _dematerialise_geographic(
             pkg,

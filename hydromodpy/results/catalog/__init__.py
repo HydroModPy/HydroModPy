@@ -26,6 +26,7 @@ from hydromodpy.results.catalog.discovery import (
     short_id,
 )
 from hydromodpy.results.catalog.facade import SimulationCatalog
+from hydromodpy.results.catalog.global_index import CatalogIndex
 from hydromodpy.results.catalog.registration import (
     DuplicateSimulationNameError,
     RegistrationResult,
@@ -35,6 +36,7 @@ __all__ = [
     "AmbiguousReferenceError",
     "DuplicateSimulationNameError",
     "RegistrationResult",
+    "CatalogIndex",
     "SimulationCatalog",
     "SimulationNotFoundError",
     "short_id",

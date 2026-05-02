@@ -206,7 +206,7 @@ class LifecycleMixin:
                 raise RuntimeError(f"Could not remove Parquet directory: {parquet_dir}") from exc
             # Refresh views so a workspace whose last per-sim Parquet file
             # was just removed drops back to the empty-typed view form.
-            ensure_parquet_views(self._db, self._workspace)
+            ensure_parquet_views(self._db, self._simulations_dir)
 
         if zarr_abs is not None:
             if zarr_abs.is_file():

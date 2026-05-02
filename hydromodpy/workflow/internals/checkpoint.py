@@ -253,12 +253,16 @@ def _rebind_workflow_context(ctx: Any, workspace: Path | None) -> Any:
     persistence = _context_persistence(ctx)
     if persistence is not None and not getattr(persistence, "save_catalog", True):
         return ctx
+    runtime_workspace = _context_workspace(ctx)
     workspace_root = _context_workspace_root(ctx, workspace)
-    if workspace_root is None:
+    if workspace_root is None and runtime_workspace is None:
         return ctx
     from hydromodpy.results.catalog import SimulationCatalog
 
-    ctx.store = SimulationCatalog(workspace_root, persistence=persistence)
+    if runtime_workspace is not None:
+        ctx.store = SimulationCatalog.from_workspace(runtime_workspace, persistence=persistence)
+    else:
+        ctx.store = SimulationCatalog(workspace_root, persistence=persistence)
     return ctx
 
 
@@ -273,12 +277,16 @@ def _context_persistence(ctx: Any) -> Any:
 
 
 def _context_workspace_root(ctx: Any, workspace: Path | None) -> Path | None:
-    setup = getattr(ctx, "setup", None)
-    runtime_workspace = getattr(setup, "workspace", None) if setup is not None else None
-    root = getattr(runtime_workspace, "root", None)
-    if root is not None:
-        return Path(root)
+    runtime_workspace = _context_workspace(ctx)
+    project_root = getattr(runtime_workspace, "project_root", None)
+    if project_root is not None:
+        return Path(project_root)
     return Path(workspace) if workspace is not None else None
+
+
+def _context_workspace(ctx: Any) -> Any | None:
+    setup = getattr(ctx, "setup", None)
+    return getattr(setup, "workspace", None) if setup is not None else None
 
 
 __all__ = ("CheckpointStore",)

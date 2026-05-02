@@ -109,7 +109,7 @@ class TrialContext:
         Parameter name → dotted config path for :meth:`fork` value
         injection.
     workspace : Path
-        Workspace root (for :func:`promote_trial` and reporting).
+        Project catalog root (for :func:`promote_trial` and reporting).
     cfg_path : Path
         Source TOML path.
     raw_toml : Mapping[str, Any]
@@ -309,7 +309,7 @@ def prepare_trials(
             logger.debug("prepare_trials: could not resolve time_grid eagerly")
 
     workspace_obj = getattr(ctx.setup, "workspace", None)
-    workspace = Path(workspace_obj.root) if workspace_obj is not None else cfg_path.parent
+    workspace = Path(workspace_obj.project_root) if workspace_obj is not None else cfg_path.parent
 
     return TrialContext(
         base_cfg=cfg,
