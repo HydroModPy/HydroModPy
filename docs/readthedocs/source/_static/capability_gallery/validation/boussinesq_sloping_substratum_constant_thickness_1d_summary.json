@@ -58,24 +58,24 @@
     "validation_cases/shared/boussinesq_uniform_strip.py"
   ],
   "source_hashes": {
-    "validation_cases/README.md": "55c78d50160086ae953092b98a464b1b2e5b1249064486a058d719d61533a6d9",
-    "validation_cases/analytical/steady/boussinesq_sloping_substratum_constant_thickness_1d/README.md": "3d406c887b514bde064323496dc9d3baa7e1a8fd0d302cc47ab1692fca647b92",
-    "validation_cases/analytical/steady/boussinesq_sloping_substratum_constant_thickness_1d/reference.py": "c6bbc42c3d22484d902b05cb1813fa951f9a8d909f199d2d3fd9ddedd113b43e",
-    "validation_cases/analytical/steady/boussinesq_sloping_substratum_constant_thickness_1d/comparison.py": "3f630ad0fa22e1e270cce017a6219faba42fc15209d41a7fbc7f05091df6dc5a",
-    "validation_cases/analytical/steady/boussinesq_sloping_substratum_constant_thickness_1d/plotting.py": "427aa21d47c7cf54e12241f72a1b582897a029c88372c1900d10aacdf40aeb6e",
-    "validation_cases/analytical/steady/boussinesq_sloping_substratum_constant_thickness_1d/run_case.py": "881a3a516f00f7e7273308998b30da5abc48acf7c6acb44b63945fb4db42b587",
-    "validation_cases/analytical/steady/boussinesq_sloping_substratum_constant_thickness_1d/metadata.toml": "bc5286311ee172537993fc4997a2e42f1fd1a68b8677a497524452cbb63fe7c7",
-    "validation_cases/analytical/steady/boussinesq_sloping_substratum_constant_thickness_1d/config_common.toml": "c39985a7bbd93f50df58f39172d7f5b399bcc54b1a0344850f3df1ead51524a3",
-    "validation_cases/analytical/steady/boussinesq_sloping_substratum_constant_thickness_1d/runtime_boussinesq.py": "c1890d728513161e2b8ed585e6c7549c8719fdc5f2b81257c42893376eaaf48c",
-    "validation_cases/analytical/steady/boussinesq_sloping_substratum_constant_thickness_1d/tolerances.toml": "3c7cdd060951dd9c33b5084475beac18c7b981d342f9d63eca2583e1b9c2fec8",
-    "validation_cases/analytical/steady/boussinesq_sloping_substratum_constant_thickness_1d/tolerances_modflow6.toml": "f31fe595624cf629c2a87836041bb2a866607bd78ac001d1666d35563bc52d64",
-    "validation_cases/analytical/steady/boussinesq_sloping_substratum_constant_thickness_1d/tolerances_modflow6_irregular_tri.toml": "a00926ded001855388298407084c296b99ae77b2991c59a4c122fccf0db3faa4",
-    "validation_cases/analytical/steady/boussinesq_sloping_substratum_constant_thickness_1d/config_modflownwt.toml": "775254b3896dc6631b7da639d8f266e6d2b030a6caf09bada6053ae920da6b23",
-    "validation_cases/analytical/steady/boussinesq_sloping_substratum_constant_thickness_1d/config_modflow6.toml": "500d12e78009034e6feee87309dc89f3c3f876bad33c2c66b9fd0cad6dfd8d15",
-    "validation_cases/analytical/steady/boussinesq_sloping_substratum_constant_thickness_1d/config_modflow6_irregular_tri.toml": "2b98a973e5f68139217fb511eef9d75f924e04e02f0e77a5964275046c55687d",
-    "validation_cases/analytical/steady/boussinesq_sloping_substratum_constant_thickness_1d/config_boussinesq.toml": "bf9a68e7c1dca1d194187dc5584f7f51dc4243bfab5d762e437760d1a797434c",
-    "validation_cases/analytical/steady/boussinesq_sloping_substratum.py": "7115b66a3efba827ab0acef3fa860712443102f4352cd1e6bfcadd450b7457dd",
-    "validation_cases/shared/boussinesq_uniform_strip.py": "90dc5f900e857a5d80f297c04debaa82e96c6d70754765ed46a48469fd2698a1"
+    "validation_cases/README.md": "1965de83b961f1ab4e38d8194d51342e1286d0c2e1b779188903b84e3fc26f1c",
+    "validation_cases/analytical/steady/boussinesq_sloping_substratum_constant_thickness_1d/README.md": "2e66d6a95a1d5eae6d2eb36b7250d10af2a31a581ff30f6d4a3466457bb15414",
+    "validation_cases/analytical/steady/boussinesq_sloping_substratum_constant_thickness_1d/reference.py": "e796c146f98c8d4664b24f13713fd390a48105e9c9f60bd7a319b6fb1768d397",
+    "validation_cases/analytical/steady/boussinesq_sloping_substratum_constant_thickness_1d/comparison.py": "8401437939a7585cb2f5e24c43262d01b1d09fe14f4c6da8cff36217b5ef9273",
+    "validation_cases/analytical/steady/boussinesq_sloping_substratum_constant_thickness_1d/plotting.py": "3e4c165bd6bfad5c5219b06a08da2484c4d171b72ecc0fd76632a6bee0e23f10",
+    "validation_cases/analytical/steady/boussinesq_sloping_substratum_constant_thickness_1d/run_case.py": "9881fa3c634e4888fd7b10f616e5c6a0fb99d8a1477a1ab1018ee5c37a33bfdd",
+    "validation_cases/analytical/steady/boussinesq_sloping_substratum_constant_thickness_1d/metadata.toml": "97c42cd4a7d03e831f19fd8711a7d160b51152c59aba1f9001d91193386b6d24",
+    "validation_cases/analytical/steady/boussinesq_sloping_substratum_constant_thickness_1d/config_common.toml": "e6e307d4c9aaf0ba43dbc5b0f6cf090c678cf8233678651e6afba329457ec26e",
+    "validation_cases/analytical/steady/boussinesq_sloping_substratum_constant_thickness_1d/runtime_boussinesq.py": "c7fb6ff210f23292e4b24647da1dd0b552cfb826f19723fe87bd323cbc248ac7",
+    "validation_cases/analytical/steady/boussinesq_sloping_substratum_constant_thickness_1d/tolerances.toml": "23004e207bd274d4586d771374539e51526dbb3ccd6bdc67c5fcd2621b17e85b",
+    "validation_cases/analytical/steady/boussinesq_sloping_substratum_constant_thickness_1d/tolerances_modflow6.toml": "c3c8210cbb662268b2f621a8d4f3aa24cc22cfff0e76a585ff73f8631043d0cd",
+    "validation_cases/analytical/steady/boussinesq_sloping_substratum_constant_thickness_1d/tolerances_modflow6_irregular_tri.toml": "17edb3d18c51bc31e7597a8719f4ed985ae9d79ae90c809e86ec305e01dd6ee7",
+    "validation_cases/analytical/steady/boussinesq_sloping_substratum_constant_thickness_1d/config_modflownwt.toml": "df9536f2eb09f8b02fbaccca5241aa56db2980f007d93df7a1e0e67bb92b364c",
+    "validation_cases/analytical/steady/boussinesq_sloping_substratum_constant_thickness_1d/config_modflow6.toml": "0d3b3ba045d0ec126be4676f214bd288b468701aa7a3f2e13a453d92acd27fd3",
+    "validation_cases/analytical/steady/boussinesq_sloping_substratum_constant_thickness_1d/config_modflow6_irregular_tri.toml": "acff5448ad55f03a214cd8bbab763e7a3cd13645b7e9cd6bf71f4592c6dd3c6d",
+    "validation_cases/analytical/steady/boussinesq_sloping_substratum_constant_thickness_1d/config_boussinesq.toml": "9ea33a84182c92308cbe72ca4ca15e61f54a9781219372f7c130345eaca4399f",
+    "validation_cases/analytical/steady/boussinesq_sloping_substratum.py": "eaec84b0490c01a7dcd9a2b838a277d4657197321a2a79e8f0855e346ef7c284",
+    "validation_cases/shared/boussinesq_uniform_strip.py": "a6de8caacdd3701e729798a8bb45b68d84a48eef4b37e26997a29fccecea6a99"
   },
   "docname": "cases/boussinesq_sloping_substratum_constant_thickness_1d",
   "images": [
@@ -308,9 +308,9 @@
       "expected_output": "Expected shape: 5 x 40",
       "command": "python -m validation_cases.analytical.steady.boussinesq_sloping_substratum_constant_thickness_1d.run_case --no-show --solver modflow6_irregular_tri",
       "metric_lines": [
-        "Head-profile RMSE: 0.0385 m",
-        "Head-profile max abs error: 0.0798 m",
-        "Cross-row head spread: 0.00e+00 m",
+        "Head-profile RMSE: 0.0200 m",
+        "Head-profile max abs error: 0.0440 m",
+        "Cross-row head spread: 1.78e-15 m",
         "Reference discharge per width: 1.000e-05 m2/s"
       ],
       "image": {
@@ -720,7 +720,44 @@
           "source": "validation_cases/analytical/steady/boussinesq_sloping_substratum_constant_thickness_1d/config_modflow6.toml"
         }
       ],
-      "modflow6_irregular_tri": [],
+      "modflow6_irregular_tri": [
+        {
+          "field": "modflow6.runtime.mf6_ims_complexity",
+          "meaning": "Linear-solver complexity preset used by MODFLOW 6.",
+          "value": "COMPLEX",
+          "source": "validation_cases/analytical/steady/boussinesq_sloping_substratum_constant_thickness_1d/config_modflow6_irregular_tri.toml"
+        },
+        {
+          "field": "modflow6.runtime.mf_verbose",
+          "meaning": "Solver-specific override applied to MODFLOW 6.",
+          "value": "false",
+          "source": "validation_cases/analytical/steady/boussinesq_sloping_substratum_constant_thickness_1d/config_modflow6_irregular_tri.toml"
+        },
+        {
+          "field": "modflow6.process_specific.vka",
+          "meaning": "Vertical anisotropy ratio passed to MODFLOW 6.",
+          "value": "1",
+          "source": "validation_cases/analytical/steady/boussinesq_sloping_substratum_constant_thickness_1d/config_modflow6_irregular_tri.toml"
+        },
+        {
+          "field": "modflow6.sgrid.vertical.nlay",
+          "meaning": "Number of vertical layers used by MODFLOW 6.",
+          "value": "1",
+          "source": "validation_cases/analytical/steady/boussinesq_sloping_substratum_constant_thickness_1d/config_modflow6_irregular_tri.toml"
+        },
+        {
+          "field": "mesh_input.mesh_path",
+          "meaning": "Committed unstructured mesh file used by the irregular-mesh solver variant.",
+          "value": "../../../shared/mesh_bundles/sloping_substratum_irregular_tri_400x50/mesh_2d.msh",
+          "source": "validation_cases/analytical/steady/boussinesq_sloping_substratum_constant_thickness_1d/config_modflow6_irregular_tri.toml"
+        },
+        {
+          "field": "mesh_input.bundle_dir",
+          "meaning": "Committed mesh-bundle directory used to recover support metadata for the irregular-mesh solver variant.",
+          "value": "../../../shared/mesh_bundles/sloping_substratum_irregular_tri_400x50",
+          "source": "validation_cases/analytical/steady/boussinesq_sloping_substratum_constant_thickness_1d/config_modflow6_irregular_tri.toml"
+        }
+      ],
       "boussinesq": [
         {
           "field": "flow.runtime_backend",

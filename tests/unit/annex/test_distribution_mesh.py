@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 import shutil
 import subprocess
 import sys
@@ -20,6 +21,16 @@ from tools.mesh_bundle_viewer.runner.visualization_runner import (
 from tools.mesh_bundle_viewer.schema import (
     DEFAULT_CONFIG_FILENAME as MESH_DEFAULT_CONFIG_FILENAME,
 )
+
+
+def _pythonpath_with(path: Path) -> dict[str, str]:
+    """Return one child environment that can import modules from ``path``."""
+
+    env = os.environ.copy()
+    current = env.get("PYTHONPATH", "")
+    extra = str(path)
+    env["PYTHONPATH"] = extra if current == "" else os.pathsep.join((extra, current))
+    return env
 
 
 def _ecrire_csv_bundle(path: Path, header: str, rows: list[str]) -> None:
@@ -413,6 +424,7 @@ def test_python_module_mesh_bundle_viewer_runs_from_distributed_folder(
             str(config_path),
         ],
         cwd=str(distribution_root),
+        env=_pythonpath_with(distribution_root),
         text=True,
         capture_output=True,
         check=False,
@@ -446,6 +458,7 @@ def test_python_module_mesh_bundle_viewer_runs_with_default_example_bundle(
             "mesh_bundle_viewer",
         ],
         cwd=str(distribution_root),
+        env=_pythonpath_with(distribution_root),
         text=True,
         capture_output=True,
         check=False,

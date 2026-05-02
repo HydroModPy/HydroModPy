@@ -22,6 +22,8 @@ __all__ = [
     "domain_dem",
     "domain_geographic_pipeline",
     "flow_products",
+    "hydrographic_network",
+    "hydrographic_network_comparison",
     "pipeline_steps",
     "river_mesh_trace",
     "surface_from_dem",

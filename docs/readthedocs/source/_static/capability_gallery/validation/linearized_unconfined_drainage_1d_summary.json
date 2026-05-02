@@ -48,19 +48,19 @@
     "validation_cases/analytical/transient/linearized_unconfined_1d.py"
   ],
   "source_hashes": {
-    "validation_cases/README.md": "55c78d50160086ae953092b98a464b1b2e5b1249064486a058d719d61533a6d9",
-    "validation_cases/analytical/steady/linearized_unconfined_drainage_1d/README.md": "706fcacf05bb9498b4ad83e0a62a3aebaf821a2b90245dbea7b1b2d8648327d8",
-    "validation_cases/analytical/steady/linearized_unconfined_drainage_1d/reference.py": "143df142b47e17f08d64029fdc70bb27a525a67a0e95d58882b45945269b7684",
-    "validation_cases/analytical/steady/linearized_unconfined_drainage_1d/comparison.py": "5514e4749afe6e03b4ffb0695a30399f640bf30373b8f3c2521c4912f79787bc",
-    "validation_cases/analytical/steady/linearized_unconfined_drainage_1d/plotting.py": "f466df2fec5c05d49b60b6a0ddd3413e711b642459c499de4fcd86046f91328b",
-    "validation_cases/analytical/steady/linearized_unconfined_drainage_1d/run_case.py": "794d922622a513485063e9f6be8e59a01fa966c05dc2ef2df23ebd33bbc73e8a",
-    "validation_cases/analytical/steady/linearized_unconfined_drainage_1d/metadata.toml": "f0f0c4bebbfab49df6f7c40110388499b18d5a4a5bbaff1cd8665414f6e57d50",
-    "validation_cases/analytical/steady/linearized_unconfined_drainage_1d/config_modflownwt.toml": "a620c3a4ccb274fc4ee8cda4771972e28b91059413f95011449590c75d06f76d",
-    "validation_cases/analytical/steady/linearized_unconfined_drainage_1d/tolerances.toml": "3c7cdd060951dd9c33b5084475beac18c7b981d342f9d63eca2583e1b9c2fec8",
-    "validation_cases/analytical/steady/linearized_unconfined_drainage_1d/tolerances_modflow6.toml": "ce0c971ead1206504eb87b87624b3dcb1ce88d4a5dfb1d2a7391c8fd8bc14588",
-    "validation_cases/analytical/steady/linearized_unconfined_drainage_1d/config_modflow6.toml": "87385d03cd0d79a2b2cfff9249827a3ba7be56cc75c6f2fee426cae430060656",
-    "validation_cases/analytical/steady/linearized_unconfined_drainage_1d/config_modflow6_irregular_tri.toml": "d0eb58570ce83abbbb597a5f29a852b9db11958cd4c8935ab2a64e8fe8ee744f",
-    "validation_cases/analytical/transient/linearized_unconfined_1d.py": "c8ccdde712d17a661edce5e50bcd81608a5ef00e53d9d3a0ef4dfc5632e5c42e"
+    "validation_cases/README.md": "1965de83b961f1ab4e38d8194d51342e1286d0c2e1b779188903b84e3fc26f1c",
+    "validation_cases/analytical/steady/linearized_unconfined_drainage_1d/README.md": "cc0e305c6370fc4cbc7b4054f756b18d5d57fab3cc120e1138640e84003f6845",
+    "validation_cases/analytical/steady/linearized_unconfined_drainage_1d/reference.py": "7723d5d6ccc991e8fb29a190b851af523a2220da9aa29592a01bfdef00db6a97",
+    "validation_cases/analytical/steady/linearized_unconfined_drainage_1d/comparison.py": "1f4fd4ae7c63ee0e74bc9aede1b224fe238f7e7f76b5fd6064ba76074427b922",
+    "validation_cases/analytical/steady/linearized_unconfined_drainage_1d/plotting.py": "79ed96e4f66c115a43421c38b2ffd26df6409537479e4ddd7a1c8c7b6146b21b",
+    "validation_cases/analytical/steady/linearized_unconfined_drainage_1d/run_case.py": "b6e318f4f39823a17b3726d3d285dbc2b8d6ae13d1f6e1a5786acce6ea96b4ff",
+    "validation_cases/analytical/steady/linearized_unconfined_drainage_1d/metadata.toml": "90ceb4c4cef2eced27bcbbb7ed8c6a7c51f0dd4c01bb462d8448cd5d6ffc67a1",
+    "validation_cases/analytical/steady/linearized_unconfined_drainage_1d/config_modflownwt.toml": "fbd5f333267f87112ecd631d2728d3607487002245d09219d1a50725c1d76dda",
+    "validation_cases/analytical/steady/linearized_unconfined_drainage_1d/tolerances.toml": "23004e207bd274d4586d771374539e51526dbb3ccd6bdc67c5fcd2621b17e85b",
+    "validation_cases/analytical/steady/linearized_unconfined_drainage_1d/tolerances_modflow6.toml": "6839360153107e5a65339229961b1f2e802c49e972ee277e0a53d28762147814",
+    "validation_cases/analytical/steady/linearized_unconfined_drainage_1d/config_modflow6.toml": "4ab7535546b2a0fc5c5389fee0095b7f83bd23bc3440b2f0717d04ba663b0f2a",
+    "validation_cases/analytical/steady/linearized_unconfined_drainage_1d/config_modflow6_irregular_tri.toml": "97b48204004d16cf7dc96e34a4b364d8e01ef60a445865f98d1b574f88331a07",
+    "validation_cases/analytical/transient/linearized_unconfined_1d.py": "b78a584f72b0268e0317f547067afa6fa4ae9edbc220f77148f71837024e9e60"
   },
   "docname": "cases/linearized_unconfined_drainage_1d",
   "images": [
@@ -279,8 +279,8 @@
       "expected_output": "Expected shape: 5 x 50",
       "command": "python -m validation_cases.analytical.steady.linearized_unconfined_drainage_1d.run_case --no-show --solver modflow6_irregular_tri",
       "metric_lines": [
-        "Head-profile RMSE: 0.0147 m",
-        "Head-profile max abs error: 0.0235 m",
+        "Head-profile RMSE: 0.0463 m",
+        "Head-profile max abs error: 0.0640 m",
         "Cross-row head spread: 0.00e+00 m"
       ],
       "image": {

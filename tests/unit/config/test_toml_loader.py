@@ -198,6 +198,26 @@ def test_launcher_simulation_mf6_mesh_catchment_config_embeds_mesh_generation(
     assert cfg.mesh_catchment is not None
 
 
+def test_data_overview_example_declares_overview_workflow_and_report_section() -> None:
+    example_config = (
+        Path(__file__).resolve().parents[3]
+        / "examples"
+        / "projects"
+        / "04_data_overview"
+        / "project.toml"
+    )
+
+    cfg = HydroModPyConfig.from_toml(example_config)
+
+    assert cfg.workflow == "overview"
+    assert cfg.overview is not None
+    assert cfg.overview.date_start == "2019-01-01"
+    assert cfg.overview.date_end == "2025-12-31"
+    assert cfg.overview.panels.map_dem is True
+    assert cfg.overview.panels.timeseries_piezometry is False
+    assert cfg.overview.panels.climatic_summary is False
+
+
 def test_hydromodpy_config_loads_profiling_shortcuts(tmp_path: Path) -> None:
     dem_path = tmp_path / "dem.tif"
     dem_path.touch()

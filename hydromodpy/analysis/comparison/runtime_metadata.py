@@ -67,6 +67,23 @@ def _resolve_project_root_from_config(config_path: Path) -> Path | None:
     return resolved.resolve()
 
 
+def _resolve_workspace_root_from_config(config_path: Path) -> Path | None:
+    try:
+        payload = load_toml_with_base_config(config_path)
+    except Exception:
+        return None
+    workspace = payload.get("workspace")
+    if not isinstance(workspace, Mapping):
+        return None
+    root = workspace.get("root")
+    if root in (None, ""):
+        return None
+    resolved = Path(str(root)).expanduser()
+    if not resolved.is_absolute():
+        resolved = config_path.parent / resolved
+    return resolved.resolve()
+
+
 def compact_run_metrics(metrics: Mapping[str, Any]) -> dict[str, Any]:
     """Keep only comparison-relevant scalar/list metrics in manifests."""
     keys = (
@@ -210,6 +227,9 @@ def read_variant_run_metadata(
 
 def discover_result_store(
     config_path: Path | None,
+    *,
+    preferred_sim_id: str | None = None,
+    preferred_name: str | None = None,
 ) -> tuple[Any, str | None]:
     """Open a SimulationCatalog from the project root inferred from a config path.
 
@@ -219,12 +239,22 @@ def discover_result_store(
     """
     if config_path is None:
         return None, None
+    config_path_resolved = Path(config_path).expanduser().resolve()
 
-    project_root = _resolve_project_root_from_config(config_path)
-    if project_root is None:
-        return None, None
+    def _normalize_catalog_path(raw_path: object) -> str:
+        try:
+            return str(Path(str(raw_path)).expanduser().resolve()).casefold()
+        except Exception:
+            return str(raw_path or "").strip().replace("\\", "/").casefold()
 
-    workspace_root = project_root
+    workspace_root = _resolve_workspace_root_from_config(config_path_resolved)
+    if workspace_root is None:
+        project_root = _resolve_project_root_from_config(config_path_resolved)
+        if project_root is None:
+            return None, None
+        from hydromodpy.core.workspace.resolve import locate_workspace_root
+
+        workspace_root = locate_workspace_root(project_root) or project_root
 
     try:
         from hydromodpy.results.catalog import SimulationCatalog
@@ -234,6 +264,21 @@ def discover_result_store(
         if sims.empty:
             catalog.close()
             return None, None
+        if preferred_sim_id not in (None, "") and "sim_id" in sims.columns:
+            matches = sims.loc[sims["sim_id"].astype(str) == str(preferred_sim_id)]
+            if not matches.empty:
+                return catalog, str(matches.iloc[-1]["sim_id"])
+        if preferred_name not in (None, "") and "name" in sims.columns:
+            names = sims["name"].fillna("").astype(str)
+            matches = sims.loc[names == str(preferred_name)]
+            if not matches.empty:
+                return catalog, str(matches.iloc[-1]["sim_id"])
+        if "config_source" in sims.columns:
+            config_key = str(config_path_resolved).casefold()
+            config_sources = sims["config_source"].fillna("").map(_normalize_catalog_path)
+            matches = sims.loc[config_sources == config_key]
+            if not matches.empty:
+                return catalog, str(matches.iloc[-1]["sim_id"])
         sim_id = str(sims.iloc[-1]["sim_id"])
         return catalog, sim_id
     except Exception:

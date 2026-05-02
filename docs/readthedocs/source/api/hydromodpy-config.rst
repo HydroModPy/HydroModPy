@@ -26,8 +26,6 @@ hydromodpy.master_config.hydromodpy_config
    :member-order: bysource
    :no-index:
 
-----
-
 hydromodpy.core.workspace.config
 --------------------------------
 
@@ -37,10 +35,8 @@ hydromodpy.core.workspace.config
    :member-order: bysource
    :no-index:
 
-----
-
 hydromodpy.spatial.geographic.geographic_config
-------------------------------------------------
+-----------------------------------------------
 
 .. autopydantic_model:: hydromodpy.spatial.geographic.geographic_config.GeographicConfig
    :members:

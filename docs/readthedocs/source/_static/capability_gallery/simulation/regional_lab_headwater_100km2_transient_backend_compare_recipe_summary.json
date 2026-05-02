@@ -34,64 +34,33 @@
   "equations_rst": [],
   "walkthrough_doc": "getting_started/simulation-walkthrough",
   "walkthrough_title": "the Simulation walkthrough",
-  "reproduction_command": "python -m tools.doc_gallery",
+  "reproduction_command": "python -m hydromodpy run examples_legacy_2/projects/launcher_simulation/regional_lab/config_headwater_100km2_lab_transient_backend_compare.toml",
   "gallery_update_command": "python -m tools.doc_gallery",
   "source_paths": [
-    "docs/readthedocs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_transient_backend_compare_recipe_plan.json",
-    "docs/readthedocs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_transient_backend_compare_recipe_report.json",
-    "docs/readthedocs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_transient_backend_compare_recipe_summary.md",
-    "docs/readthedocs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_transient_backend_compare_recipe_site_inventory.csv",
-    "docs/readthedocs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_transient_backend_compare_recipe_recipe_summary.csv",
-    "docs/readthedocs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_transient_backend_compare_recipe_cluster_summary.csv",
-    "docs/readthedocs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_transient_backend_compare_recipe_case_matrix.csv"
+    "examples_legacy_2/projects/launcher_simulation/regional_lab/config_headwater_100km2_lab_transient_backend_compare.toml",
+    "hydromodpy/analysis/batch/__init__.py",
+    "hydromodpy/analysis/batch/config.py",
+    "hydromodpy/analysis/batch/runtime.py",
+    "examples_legacy_2/projects/launcher_simulation/regional_lab/README.md",
+    "examples_legacy_2/projects/launcher_simulation/regional_lab/config_headwater_100km2_lab.toml",
+    "examples_legacy_2/projects/launcher_simulation/regional_lab/site_catalog.csv",
+    "examples_legacy_2/projects/launcher_simulation/run_method_comparison_headwater_100km2_outlet_2_transient_pulsed_recharge_backends.toml"
   ],
   "source_hashes": {
-    "docs/readthedocs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_transient_backend_compare_recipe_plan.json": "7f3aef1c68e39a7ea31b82bed7285715d5d6d8a9fcea4d2c08c128ef2c88972a",
-    "docs/readthedocs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_transient_backend_compare_recipe_report.json": "af006d9666041515700ab1f5038abedb4fa54e08bcbdb100d49ea7aba85e1b38",
-    "docs/readthedocs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_transient_backend_compare_recipe_summary.md": "92345e4db85a35094c87d6c4164525e3b3b6d2392ab1a811f77a5a2e7b9bdb2c",
-    "docs/readthedocs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_transient_backend_compare_recipe_site_inventory.csv": "67971195d4964dee305bb8d87b2f7e5a4356eb5cac371ed6a6b7f019f7e97e71",
-    "docs/readthedocs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_transient_backend_compare_recipe_recipe_summary.csv": "d92e0adf1ace7bb99e6f56be90aae2638719b2235714d33af6417921053a9d6b",
-    "docs/readthedocs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_transient_backend_compare_recipe_cluster_summary.csv": "1738b81b72150d3df29ccd709c43345eae3ad096603da988299a8a81f74d32c1",
-    "docs/readthedocs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_transient_backend_compare_recipe_case_matrix.csv": "1b6703fa4897346f26fd8f25b257e9d899ac9d53a6ac22a8e209ff747bef0713"
+    "examples_legacy_2/projects/launcher_simulation/regional_lab/config_headwater_100km2_lab_transient_backend_compare.toml": "__missing__",
+    "hydromodpy/analysis/batch/__init__.py": "fd66fa0503694884495d6d668b29fdee9e65fb1a812e397119c033f5351b2550",
+    "hydromodpy/analysis/batch/config.py": "e24edd3579595e7e2a308af298104735bbb32abc6bce35760ff80dda81bd2abe",
+    "hydromodpy/analysis/batch/runtime.py": "75c579931a01507a6b9aaf75cb57c49229ccbf555b289a03f35621786fc84c7c",
+    "examples_legacy_2/projects/launcher_simulation/regional_lab/README.md": "__missing__",
+    "examples_legacy_2/projects/launcher_simulation/regional_lab/config_headwater_100km2_lab.toml": "__missing__",
+    "examples_legacy_2/projects/launcher_simulation/regional_lab/site_catalog.csv": "__missing__",
+    "examples_legacy_2/projects/launcher_simulation/run_method_comparison_headwater_100km2_outlet_2_transient_pulsed_recharge_backends.toml": "__missing__"
   },
   "docname": "cases/regional_lab_headwater_100km2_transient_backend_compare_recipe",
-  "images": [
-    {
-      "filename": "regional_lab_headwater_100km2_transient_backend_compare_recipe.png",
-      "caption": "Dry-plan synthesis for regional lab transient backend comparison recipe on headwater 100 km2: site or candidate coverage, recipe summary, and planning metrics.",
-      "alt_text": "Regional lab dry-plan synthesis for Regional Lab Transient Backend Comparison Recipe on Headwater 100 km2",
-      "doc_path": "/_static/capability_gallery/simulation/regional_lab_headwater_100km2_transient_backend_compare_recipe.png",
-      "repo_path": "docs/readthedocs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_transient_backend_compare_recipe.png"
-    }
-  ],
-  "metrics": [
-    {
-      "label": "Candidate sites",
-      "key": "candidate_site_count",
-      "value": 3,
-      "display": "3"
-    },
-    {
-      "label": "Planned cases",
-      "key": "planned_case_count",
-      "value": 1,
-      "display": "1"
-    },
-    {
-      "label": "Coverage gaps",
-      "key": "skipped_case_count",
-      "value": 2,
-      "display": "2"
-    },
-    {
-      "label": "Pending cases",
-      "key": "pending_case_count",
-      "value": 1,
-      "display": "1"
-    }
-  ],
+  "images": [],
+  "metrics": [],
   "metadata": {
-    "regional_lab_config_path": "docs/readthedocs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_transient_backend_compare_recipe_summary.json",
+    "regional_lab_config_path": "examples_legacy_2/projects/launcher_simulation/regional_lab/config_headwater_100km2_lab_transient_backend_compare.toml",
     "study_area": "Brittany regional laboratory",
     "process_families": [
       "planning",
@@ -114,45 +83,41 @@
     "mesh_supports": [
       "committed_triangular_mesh_input"
     ],
-    "execute": false,
-    "selected_site_ids": [
-      "headwater_100km2_outlet_2",
-      "headwater_100km2_outlet_27",
-      "headwater_100km2_outlet_34",
-      "s3_100km2_outlet_8",
-      "s3_10km2_outlet_3"
-    ],
-    "candidate_site_ids": [
-      "headwater_100km2_outlet_2",
-      "headwater_100km2_outlet_27",
-      "headwater_100km2_outlet_34"
-    ],
-    "recipe_ids": [
-      "transient_backend_compare"
-    ],
-    "recipe_labels": {
-      "transient_backend_compare": "Transient backend comparison"
-    },
-    "candidate_site_count": 3,
-    "runnable_site_count": 1,
-    "gap_reasons": {
-      "missing_required_fields": 2
-    }
+    "generation_status": "source_unavailable_local",
+    "generation_reason": "The regional-lab overlay config needed to regenerate this page is not available in the current checkout.",
+    "missing_source_paths": [
+      "examples_legacy_2/projects/launcher_simulation/regional_lab/config_headwater_100km2_lab_transient_backend_compare.toml",
+      "examples_legacy_2/projects/launcher_simulation/regional_lab/README.md",
+      "examples_legacy_2/projects/launcher_simulation/regional_lab/config_headwater_100km2_lab.toml",
+      "examples_legacy_2/projects/launcher_simulation/regional_lab/site_catalog.csv",
+      "examples_legacy_2/projects/launcher_simulation/run_method_comparison_headwater_100km2_outlet_2_transient_pulsed_recharge_backends.toml"
+    ]
   },
   "artifacts": {
     "summary_json_doc_path": "/_static/capability_gallery/simulation/regional_lab_headwater_100km2_transient_backend_compare_recipe_summary.json",
     "summary_json_repo_path": "docs/readthedocs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_transient_backend_compare_recipe_summary.json",
-    "image_repo_paths": [
-      "docs/readthedocs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_transient_backend_compare_recipe.png"
-    ],
-    "extra_repo_paths": [
-      "docs/readthedocs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_transient_backend_compare_recipe_plan.json",
-      "docs/readthedocs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_transient_backend_compare_recipe_report.json",
-      "docs/readthedocs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_transient_backend_compare_recipe_summary.md",
-      "docs/readthedocs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_transient_backend_compare_recipe_site_inventory.csv",
-      "docs/readthedocs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_transient_backend_compare_recipe_recipe_summary.csv",
-      "docs/readthedocs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_transient_backend_compare_recipe_cluster_summary.csv",
-      "docs/readthedocs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_transient_backend_compare_recipe_case_matrix.csv"
-    ]
-  }
+    "image_repo_paths": []
+  },
+  "custom_sections": [
+    {
+      "title": "Local Regeneration Note",
+      "kind": "paragraphs",
+      "paragraphs": [
+        "This local checkout cannot fully rebuild the original gallery artefacts for this case because one or more legacy source files are not present.",
+        "The page is still generated so that the capability-gallery structure, cross-links, and reading guides remain valid during a full documentation rebuild.",
+        "Reason: The regional-lab overlay config needed to regenerate this page is not available in the current checkout."
+      ]
+    },
+    {
+      "title": "Missing Local Inputs",
+      "kind": "bullets",
+      "items": [
+        "``examples_legacy_2/projects/launcher_simulation/regional_lab/config_headwater_100km2_lab_transient_backend_compare.toml``",
+        "``examples_legacy_2/projects/launcher_simulation/regional_lab/README.md``",
+        "``examples_legacy_2/projects/launcher_simulation/regional_lab/config_headwater_100km2_lab.toml``",
+        "``examples_legacy_2/projects/launcher_simulation/regional_lab/site_catalog.csv``",
+        "``examples_legacy_2/projects/launcher_simulation/run_method_comparison_headwater_100km2_outlet_2_transient_pulsed_recharge_backends.toml``"
+      ]
+    }
+  ]
 }

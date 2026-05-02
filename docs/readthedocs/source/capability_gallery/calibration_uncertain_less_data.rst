@@ -93,75 +93,75 @@ Method Rows
      - 1
      - 0.410218
      - 24
-     - 57.21 s
-     - 57.2 s
-     - 0.008057 s
-     -
-     -
-     -
-     - 2.313 s
-     -
-     -
+     - 93.31 s
+     - 92.95 s
+     - 0.3619 s
+     - 0.2663 s
+     - 0.2663 s
+     - 0 s
+     - 3.607 s
+     - 0 s
+     - 0 s
    * - :doc:`Calibration Twin: Recharge-Step Flux-Only K+Sy 1D <cases/calibration_twin_linearized_recharge_step_flux_only_noisy_modflow6>`
      - cma_es
      - best_fit
      - 0
-     - 0.407795
+     - 0.407793
      - 56
-     - 146.7 s
-     - 146.7 s
-     - 0.03094 s
-     -
-     -
-     -
-     - 2.542 s
-     -
-     -
+     - 213.9 s
+     - 213.2 s
+     - 0.6246 s
+     - 0.2522 s
+     - 0.2522 s
+     - 0 s
+     - 3.555 s
+     - 0 s
+     - 0 s
    * - :doc:`Calibration Twin: Recharge-Step Flux-Only K+Sy 1D <cases/calibration_twin_linearized_recharge_step_flux_only_noisy_modflow6>`
      - simplex
      - best_fit
      - 0
-     - 0.408539
+     - 0.407768
      - 16
-     - 42.52 s
-     - 42.51 s
-     - 0.008306 s
-     -
-     -
-     -
-     - 2.58 s
-     -
-     -
+     - 62.44 s
+     - 62.23 s
+     - 0.2112 s
+     - 0.2403 s
+     - 0.2403 s
+     - 0 s
+     - 3.649 s
+     - 0 s
+     - 0 s
    * - :doc:`Calibration Twin: Recharge-Step Flux-Only K+Sy 1D <cases/calibration_twin_linearized_recharge_step_flux_only_noisy_modflow6>`
      - gp_mapping
      - best_fit_or_distribution
      - 1
-     - 0.40781
+     - 0.410619
      - 20
-     - 51.5 s
-     - 51.49 s
-     - 0.009931 s
-     -
-     -
-     -
-     - 2.499 s
-     -
-     -
+     - 99.48 s
+     - 77.04 s
+     - 22.44 s
+     - 0.2517 s
+     - 0.2517 s
+     - 0 s
+     - 3.6 s
+     - 0 s
+     - 0 s
    * - :doc:`Calibration Twin: Recharge-Step Flux-Only K+Sy 1D <cases/calibration_twin_linearized_recharge_step_flux_only_noisy_modflow6>`
      - da_mh_gp
      - best_fit_or_distribution
      - 1
-     - 0.407762
+     - 0.649032
      - 140
-     - 364.1 s
-     - 364 s
-     - 0.08979 s
-     -
-     -
-     -
-     - 2.518 s
-     -
-     -
+     - 581.8 s
+     - 572 s
+     - 9.797 s
+     - 0.264 s
+     - 0.264 s
+     - 0 s
+     - 3.822 s
+     - 0 s
+     - 0 s
 
 Artifacts
 ---------

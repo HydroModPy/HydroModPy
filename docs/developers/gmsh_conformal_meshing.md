@@ -16,15 +16,25 @@ Liens : [glossary.md](glossary.md),
 Module : `hydromodpy/spatial/geographic/core/river_network.py`.
 
 Déclenchement : `geographic.river_network.enabled = true`. Le pipeline
-géographique produit alors les fichiers canoniques suivants dans
+géographique produit alors un réseau généré qui alimente ensuite le
+concept canonique `HydrographicNetwork(role="generated")`. Les fichiers
+écrits dans
 `results_stable/geographic/` :
 
 - `river_streams.tif` : raster des cellules de cours d'eau.
 - `river_streams_pruned.tif` : idem, après élagage optionnel.
 - `river_stream_order_strahler.tif` : ordre de Strahler.
 - `river_stream_link_id.tif` : identifiant de tronçon.
-- `river_network.shp` : version vectorielle clippée au bassin versant.
-- `river_network_summary.json` : métriques de reproductibilité.
+- `river_network.shp` : version vectorielle clippée au bassin versant
+  (nom de fichier legacy conservé).
+- `river_network_summary.json` : métriques de reproductibilité
+  (nom de fichier legacy conservé).
+
+Contrats à distinguer :
+
+- `HydrographicNetwork` : concept partagé entre stockage, affichage et comparaison.
+- `RiverNetworkProducts` : bundle technique produit par le prétraitement géographique.
+- `RiverMeshTrace` : projection réduite consommée par le mailleur.
 
 Entrées requises :
 
@@ -70,7 +80,8 @@ Champs :
 
 Règle de structuration : le réseau hydrographique n'est pas une zone du
 domaine. La génération du maillage reste dans `zone_meshing`, la logique
-métier du domaine reste dans `spatial/domain/`.
+métier du domaine reste dans `spatial/domain/`, et le concept central à
+partager entre couches reste `HydrographicNetwork`.
 
 ## 3. Génération gmsh conforme
 

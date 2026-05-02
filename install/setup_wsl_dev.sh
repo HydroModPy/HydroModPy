@@ -102,7 +102,10 @@ if [[ "${WITH_PETSC}" -eq 1 ]]; then
   conda run -n "${ENV_NAME}" python -c "from petsc4py import PETSc; print('PETSc', PETSc.Sys.getVersion())"
 fi
 
-conda run -n "${ENV_NAME}" python -c "import hydromodpy; print('HydroModPy', hydromodpy.__version__)"
+conda run -n "${ENV_NAME}" python "${SCRIPT_DIR}/verify_dev_env.py" \
+  --dist-name hydromodpy \
+  --expected-editable-root "${REPO_ROOT}" \
+  --require-docs
 
 cat <<EOF
 

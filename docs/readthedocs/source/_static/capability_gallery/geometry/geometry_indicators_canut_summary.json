@@ -32,7 +32,7 @@
   "source_hashes": {
     "examples/data/masks/canut.shp": "31931653587ad6b644b86e43138ce9a648ed98c4787cddf8262bf2cec42f2efd",
     "examples/data/dem/regional_dem_naizin.tif": "826a5fcfeafced373c228cb26cd177f0b2879bfc4e773aa04da57aba01f081ae",
-    "tools/doc_gallery/update_gallery.py": "25aca740632f14183bcc0bbb7bfa2a0c0e1032840c826d245241860f6db6770c"
+    "tools/doc_gallery/update_gallery.py": "f8302641e411e0e693b53cfbaac5cbb06ff30492d159ea0c0dcedc114b439174"
   },
   "docname": "cases/geometry_indicators_canut",
   "images": [

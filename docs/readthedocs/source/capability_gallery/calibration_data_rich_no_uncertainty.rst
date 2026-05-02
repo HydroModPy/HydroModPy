@@ -27,6 +27,18 @@ Summary Figures
 
    Calibration intercomparison figure `benchmark_target_success_rates` derived from the curated capability-gallery cases.
 
+.. figure:: /_static/capability_gallery/calibration/intercomparison/calibration_data_rich_no_uncertainty/benchmark_cost_vs_budget.png
+   :alt: Calibration intercomparison figure benchmark_cost_vs_budget
+   :width: 100%
+
+   Calibration intercomparison figure `benchmark_cost_vs_budget` derived from the curated capability-gallery cases.
+
+.. figure:: /_static/capability_gallery/calibration/intercomparison/calibration_data_rich_no_uncertainty/benchmark_time_vs_cost.png
+   :alt: Calibration intercomparison figure benchmark_time_vs_cost
+   :width: 100%
+
+   Calibration intercomparison figure `benchmark_time_vs_cost` derived from the curated capability-gallery cases.
+
 .. figure:: /_static/capability_gallery/calibration/intercomparison/calibration_data_rich_no_uncertainty/benchmark_calibration_time_closure.png
    :alt: Calibration intercomparison figure benchmark_calibration_time_closure
    :width: 100%
@@ -88,142 +100,144 @@ Method Rows
      - random_search
      - best_fit
      - 0
-     -
+     - 0.529874
      - 16
-     - 39.26 s
-     - 39.25 s
-     - 0.005831 s
-     -
-     -
-     -
-     - 2.386 s
-     -
-     -
+     - 51.23 s
+     - 51.08 s
+     - 0.1446 s
+     - 0.234 s
+     - 0.234 s
+     - 0 s
+     - 2.959 s
+     - 0 s
+     - 0 s
    * - :doc:`Calibration Twin: Recharge-Step K+Sy 1D <cases/calibration_twin_linearized_recharge_step_modflow6>`
      - cma_es
      - best_fit
-     - 0
-     -
-     - 10
-     - 24.42 s
-     - 24.41 s
-     - 0.005649 s
-     -
-     -
-     -
-     - 2.373 s
-     -
-     -
+     - 1
+     - 0.214878
+     - 40
+     - 143 s
+     - 142.6 s
+     - 0.4538 s
+     - 0.2393 s
+     - 0.2393 s
+     - 0 s
+     - 3.325 s
+     - 0 s
+     - 0 s
    * - :doc:`Calibration Twin: Recharge-Step K+Sy 1D <cases/calibration_twin_linearized_recharge_step_modflow6>`
      - simplex
      - best_fit
-     - 0
-     -
+     - 1
+     - 0.219763
      - 12
-     - 29.85 s
-     - 29.85 s
-     - 0.004777 s
-     -
-     -
-     -
-     - 2.42 s
-     -
-     -
+     - 64.41 s
+     - 64.23 s
+     - 0.1755 s
+     - 0.3446 s
+     - 0.3446 s
+     - 0 s
+     - 5.008 s
+     - 0 s
+     - 0 s
    * - :doc:`Calibration Twin: Recharge-Step K+Sy 1D <cases/calibration_twin_linearized_recharge_step_modflow6>`
      - gp_mapping
      - best_fit_or_distribution
-     - 0
-     -
+     - 1
+     - 0.320649
      - 16
-     - 38.82 s
-     - 38.82 s
-     - 0.006773 s
-     -
-     -
-     -
-     - 2.351 s
-     -
-     -
+     - 89.74 s
+     - 80.66 s
+     - 9.087 s
+     - 0.3677 s
+     - 0.3677 s
+     - 0 s
+     - 4.673 s
+     - 0 s
+     - 0 s
    * - :doc:`Calibration Twin: Recharge-Step K+Sy 1D <cases/calibration_twin_linearized_recharge_step_modflow6>`
      - da_mh_gp
      - best_fit_or_distribution
-     - 0
-     -
-     - 107
-     - 264.4 s
-     - 264.4 s
-     - 0.05479 s
-     -
-     -
-     -
-     - 2.398 s
-     -
-     -
+     - 1
+     - 2.22364
+     - 72
+     - 323 s
+     - 319.4 s
+     - 3.538 s
+     - 0.3319 s
+     - 0.3319 s
+     - 0 s
+     - 4.105 s
+     - 0 s
+     - 0 s
    * - :doc:`Calibration Twin: Piecewise-K 1D <cases/calibration_twin_boussinesq_fixed_head_piecewise_k_modflow6>`
      - random_search_seed017
      - distribution
      - 1
-     -
+     - 0.0451974
      - 48
-     - 19.26 s
-     - 19.25 s
-     - 0.01439 s
-     -
-     -
-     -
-     - 0.3634 s
-     -
-     -
+     - 54.61 s
+     - 54.07 s
+     - 0.5399 s
+     - 0.05938 s
+     - 0.05938 s
+     - 0 s
+     - 1.067 s
+     - 0 s
+     - 0 s
    * - :doc:`Calibration Twin: Piecewise-K 1D <cases/calibration_twin_boussinesq_fixed_head_piecewise_k_modflow6>`
      - random_search_seed029
      - distribution
      - 0
-     -
+     - 0.0289115
      - 48
-     - 18.78 s
-     - 18.76 s
-     - 0.01744 s
-     -
-     -
-     -
-     - 0.3532 s
-     -
-     -
+     - 50.19 s
+     - 49.56 s
+     - 0.6215 s
+     - 0.06425 s
+     - 0.06425 s
+     - 0 s
+     - 0.9683 s
+     - 0 s
+     - 0 s
    * - :doc:`Calibration Twin: Piecewise-K 1D <cases/calibration_twin_boussinesq_fixed_head_piecewise_k_modflow6>`
      - cma_es
      - best_fit
      - 0
-     -
-     - 14
-     - 5.751 s
-     - 5.744 s
-     - 0.006934 s
-     -
-     -
-     -
-     - 0.3707 s
-     -
-     -
+     - 0.0271745
+     - 48
+     - 54.06 s
+     - 53.5 s
+     - 0.5649 s
+     - 0.0572 s
+     - 0.0572 s
+     - 0 s
+     - 1.057 s
+     - 0 s
+     - 0 s
    * - :doc:`Calibration Twin: Piecewise-K 1D <cases/calibration_twin_boussinesq_fixed_head_piecewise_k_modflow6>`
      - simplex
      - best_fit
-     - 0
-     -
+     - 1
+     - 0.00225239
      - 48
-     - 19.73 s
-     - 19.71 s
-     - 0.01701 s
-     -
-     -
-     -
-     - 0.3706 s
-     -
-     -
+     - 60.17 s
+     - 59.37 s
+     - 0.8059 s
+     - 0.07837 s
+     - 0.07837 s
+     - 0 s
+     - 1.158 s
+     - 0 s
+     - 0 s
 
 Artifacts
 ---------
 
 - ``docs/readthedocs/source/_static/capability_gallery/calibration/intercomparison/calibration_data_rich_no_uncertainty/calibration_intercomparison_summary.json``
 - ``docs/readthedocs/source/_static/capability_gallery/calibration/intercomparison/calibration_data_rich_no_uncertainty/benchmark_target_success_rates.png``
+- ``docs/readthedocs/source/_static/capability_gallery/calibration/intercomparison/calibration_data_rich_no_uncertainty/benchmark_cost_vs_budget.png``
+- ``docs/readthedocs/source/_static/capability_gallery/calibration/intercomparison/calibration_data_rich_no_uncertainty/benchmark_time_vs_cost.png``
 - ``docs/readthedocs/source/_static/capability_gallery/calibration/intercomparison/calibration_data_rich_no_uncertainty/benchmark_calibration_time_closure.png``
 - ``docs/readthedocs/source/_static/capability_gallery/calibration/intercomparison/calibration_data_rich_no_uncertainty/benchmark_candidate_timing_breakdown.png``

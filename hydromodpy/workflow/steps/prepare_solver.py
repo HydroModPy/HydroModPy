@@ -622,13 +622,18 @@ def step_persist_forcings(ctx: WorkflowContext) -> None:
             try:
                 arr = np.asarray(obj.streams_array)
                 if arr.size > 0:
+                    from hydromodpy.spatial.geographic.core.hydrographic_network import (
+                        HYDROGRAPHIC_NETWORK_REFERENCE_RASTER_FORCING_NAME,
+                    )
+
                     sz.write_forcing_field(
-                        "hydrography_streams",
+                        HYDROGRAPHIC_NETWORK_REFERENCE_RASTER_FORCING_NAME,
                         arr,
                         unit="",
                         source="hydrography",
                     )
                     written += 1
+                _persist_reference_hydrographic_feature(ctx, obj)
             except Exception:
                 logger.debug("Failed to persist hydrography forcing")
             continue
@@ -687,6 +692,49 @@ def step_persist_forcings(ctx: WorkflowContext) -> None:
 
     if written:
         logger.info("Persisted %d forcing datasets for sim %s", written, ctx.sim_id)
+
+
+def _persist_reference_hydrographic_feature(
+    ctx: WorkflowContext,
+    hydrography_result: object,
+) -> bool:
+    """Persist the imported hydrography vector as one canonical feature."""
+    if ctx.store is None or ctx.sim_id is None:
+        return False
+
+    from pathlib import Path
+
+    from hydromodpy.spatial.geographic.core.hydrographic_network import (
+        HYDROGRAPHIC_NETWORK_REFERENCE_FEATURE_NAME,
+        HydrographicNetwork,
+    )
+
+    features = getattr(getattr(ctx, "setup", None), "geographic_features", None)
+    network = (
+        getattr(features, "reference_hydrographic_network", None) if features is not None else None
+    )
+    if network is None:
+        network = HydrographicNetwork.from_hydrography_result(hydrography_result)
+
+    vector_path = getattr(network, "vector_path", None)
+    if vector_path in (None, "") or not Path(str(vector_path)).exists():
+        return False
+
+    try:
+        gdf = network.read_vector()
+        if gdf is None or gdf.empty:
+            return False
+        if gdf.crs is None and getattr(network, "crs", None) not in (None, ""):
+            gdf = gdf.set_crs(str(network.crs), allow_override=True)
+        ctx.store.write_geographic_feature(
+            ctx.sim_id,
+            HYDROGRAPHIC_NETWORK_REFERENCE_FEATURE_NAME,
+            gdf,
+        )
+        return True
+    except Exception:
+        logger.debug("Failed to persist hydrographic network reference feature")
+        return False
 
 
 # ---------------------------------------------------------------------------

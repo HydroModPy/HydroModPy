@@ -149,12 +149,18 @@ class DataManagersRuntimeLoader:
             period = self._resolve_period_for_spec(cfg, spec, result)
             self._apply_default_masks(cfg, result)
 
+            manager_kwargs = {
+                "config": cfg,
+                "catalog": self._catalog,
+                "project_period": period,
+                "project_extent": None,
+                "data_dir": self._data_dir(variable),
+            }
+            if variable == "oceanic":
+                manager_kwargs["geographic"] = result.setup.geographic
+
             manager = manager_cls(
-                config=cfg,
-                catalog=self._catalog,
-                project_period=period,
-                project_extent=None,
-                data_dir=self._data_dir(variable),
+                **manager_kwargs,
             )
             load_result = manager.load()
             setattr(result.loaded_data, variable, load_result)

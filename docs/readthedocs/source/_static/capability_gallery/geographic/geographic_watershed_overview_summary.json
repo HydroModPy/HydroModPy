@@ -45,9 +45,9 @@
     "examples/projects/09_capability_gallery/geographic/watershed_overview/geographic_watershed_local.png"
   ],
   "source_hashes": {
-    "tools/doc_gallery/manifests/geographic_cases.json": "87a228bb5a5c8c8b087dbeae7693efd258f71bab1739443c6cf211b1f90f7bfe",
-    "examples/projects/04_data_overview/project.toml": "3b40d265d8a08bc8a11a6df771a779ce5705062f0afb7641d949ac6856261469",
-    "examples/projects/09_capability_gallery/geographic/README.md": "fe6bc2eca9984e4b58baa744210d733ff348585fe5e499aa146a02b2f61a4dad",
+    "tools/doc_gallery/manifests/geographic_cases.json": "d8ef3b9bd8f9fcbeef8701d9035f284d54634dc90741e82a6ffa5d1ab0372261",
+    "examples/projects/04_data_overview/project.toml": "092103c50a3edf6b421c9999488186e12ce7433575e6f72519f5b15102a30299",
+    "examples/projects/09_capability_gallery/geographic/README.md": "07f37f4616cc9972e1d68a854ddf3ba078bd7a08178147c2939fb8a292983456",
     "examples/projects/09_capability_gallery/geographic/watershed_overview/geographic_watershed_dem.png": "e89a7527ccc0ce66f7c55f5acfcd4fa0c286ad83b78bcb04589a463c6c6d1979",
     "examples/projects/09_capability_gallery/geographic/watershed_overview/geographic_watershed_local.png": "851a58eea24b3710185702557b5d74e7505f5f656507b5d2236fb537570ae92d"
   },
@@ -225,6 +225,47 @@
             "field": "[[data.hydrography.sources]] rasterize_field",
             "meaning": "Attribute used when rasterizing the clipped vector network to the watershed grid.",
             "value": "FID",
+            "source": "examples/projects/04_data_overview/project.toml"
+          }
+        ]
+      },
+      {
+        "title": "Overview Panels",
+        "rows": [
+          {
+            "field": "[overview] name",
+            "meaning": "Title injected into the generated overview panels.",
+            "value": "Watershed Data Overview",
+            "source": "examples/projects/04_data_overview/project.toml"
+          },
+          {
+            "field": "[overview.panels] enabled",
+            "meaning": "Panel toggles enabled for this overview run.",
+            "value": "map_dem, map_geology, map_hydrography, stats_card, timeseries_discharge, timeseries_intermittency, station_inventory",
+            "source": "examples/projects/04_data_overview/project.toml"
+          },
+          {
+            "field": "[overview.panels] map_dem",
+            "meaning": "Whether the `map_dem` panel is rendered for this overview case.",
+            "value": "true",
+            "source": "examples/projects/04_data_overview/project.toml"
+          },
+          {
+            "field": "[overview.panels] map_geology",
+            "meaning": "Whether the `map_geology` panel is rendered for this overview case.",
+            "value": "true",
+            "source": "examples/projects/04_data_overview/project.toml"
+          },
+          {
+            "field": "[overview.panels] map_hydrography",
+            "meaning": "Whether the `map_hydrography` panel is rendered for this overview case.",
+            "value": "true",
+            "source": "examples/projects/04_data_overview/project.toml"
+          },
+          {
+            "field": "[overview.panels] stats_card",
+            "meaning": "Whether the `stats_card` panel is rendered for this overview case.",
+            "value": "true",
             "source": "examples/projects/04_data_overview/project.toml"
           }
         ]

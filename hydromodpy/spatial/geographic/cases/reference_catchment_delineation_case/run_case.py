@@ -7,6 +7,8 @@ Run with:
 from __future__ import annotations
 
 import argparse
+import json
+import sys
 from pathlib import Path
 from typing import Any
 
@@ -15,6 +17,12 @@ import numpy as np
 import rasterio
 from matplotlib import pyplot as plt
 from matplotlib.ticker import ScalarFormatter
+
+# Allow direct script execution without requiring editable install.
+if __package__ in (None, ""):
+    _repo_root = Path(__file__).resolve().parents[5]
+    if str(_repo_root) not in sys.path:
+        sys.path.insert(0, str(_repo_root))
 
 from hydromodpy.core.workspace import Workspace
 from hydromodpy.master_config.hydromodpy_config import HydroModPyConfig
@@ -34,6 +42,23 @@ def run_geographic_case_from_toml(config_toml: str | Path):
     workspace = Workspace(config=cfg.workspace)
     geographic = CatchmentDelineation(config=cfg.geographic, initializing=workspace)
     return workspace, geographic
+
+
+def _load_river_network_summary(geographic) -> tuple[str | None, dict[str, Any] | None]:
+    """Return the river-network summary path and decoded payload when available."""
+    summary_path_raw = (
+        str(getattr(geographic, "hydrographic_network_generated_summary_json", "")).strip()
+        or str(getattr(geographic, "river_network_summary_json", "")).strip()
+    )
+    if summary_path_raw == "":
+        return None, None
+
+    summary_path = Path(summary_path_raw).expanduser().resolve()
+    if not summary_path.exists():
+        return str(summary_path), None
+
+    with summary_path.open("r", encoding="utf-8") as stream:
+        return str(summary_path), json.load(stream)
 
 
 def _build_case_specs(cfg: HydroModPyConfig) -> dict[str, dict[str, Any]]:
@@ -209,6 +234,12 @@ def run_geographic_cases_from_toml(
         workspace = Workspace(config=init_cfg)
         geographic = CatchmentDelineation(config=geo_cfg, initializing=workspace)
         metrics = compute_catchment_metrics(geographic)
+        river_network_summary_path, river_network_summary = _load_river_network_summary(geographic)
+        generated_network_shp = (
+            str(getattr(geographic, "hydrographic_network_generated_shp", "")).strip()
+            or str(getattr(geographic, "river_network_shp", "")).strip()
+            or None
+        )
         fig_path = None
         if write_plot:
             fig_path = _plot_geographic_summary(
@@ -229,6 +260,9 @@ def run_geographic_cases_from_toml(
                 int(geographic.dem_box_buff_data.shape[0]),
                 int(geographic.dem_box_buff_data.shape[1]),
             ),
+            "hydrographic_network_generated_shp": generated_network_shp,
+            "hydrographic_network_generated_summary_json": river_network_summary_path,
+            "river_network_summary": river_network_summary,
             "figure": None if fig_path is None else str(fig_path),
             **metrics,
         }

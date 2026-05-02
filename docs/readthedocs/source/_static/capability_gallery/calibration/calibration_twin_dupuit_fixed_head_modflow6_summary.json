@@ -47,105 +47,22 @@
     "validation_cases/calibration/shared/runtime.py",
     "validation_cases/calibration/twin/steady/dupuit_fixed_head_1d/run_case.py",
     "validation_cases/calibration/twin/steady/dupuit_fixed_head_1d/experiment.py",
+    "hydromodpy/calibration/benchmark.py",
     "hydromodpy/calibration/engine.py"
   ],
   "source_hashes": {
-    "validation_cases/calibration/README.md": "c1505a35ce03f992dee89720ccf1594240b23d6b6515be252ff2cc2f1ab95f83",
-    "validation_cases/calibration/run_benchmarks.py": "5dbfc429861ce457dba8f21d45672a25275a2cbabc40b42073bfa117cb24c50f",
-    "validation_cases/calibration/plotting.py": "cdff4453dd7fc8baa9d2cb6315d90d442d82963cfec4de87776cea4269e9b015",
-    "validation_cases/calibration/shared/definitions.py": "0a01f1d5ea41cde0fef8c3d10cc59a251eb7d7745330723d91ffb051fe0e4067",
-    "validation_cases/calibration/shared/runtime.py": "c8b6e3812161d8965d6dcdd712a16f52c8fa3ea507331ef6f1cb029b72265674",
-    "validation_cases/calibration/twin/steady/dupuit_fixed_head_1d/run_case.py": "cad36fa96752b1d923446a88a43d51f00674fd876a1eca1ea3b01ffc5ed9112a",
-    "validation_cases/calibration/twin/steady/dupuit_fixed_head_1d/experiment.py": "089a3b64d21471412bd2749bfce55d3b74c497230c7fc250bed4e90906067786",
-    "hydromodpy/calibration/engine.py": "13a51d9daf9d2f916feee9e08b1d506f5d5ae8a63ac85d70b5e0841f8da17773"
+    "validation_cases/calibration/README.md": "e622a8b1b136616155ba2c6dc7c926c4cb3e286aec3186991c6698ff1b78ff3c",
+    "validation_cases/calibration/run_benchmarks.py": "a14105a8aa298e50f5a6f1c4658d7e15472d7f2feb6c626856b3927ff0027b18",
+    "validation_cases/calibration/plotting.py": "a1a80e0d9d4abdacdb7382c980e2ec1bfd50750fd13c9ebec8d3c78c71dd818f",
+    "validation_cases/calibration/shared/definitions.py": "a5229cae8da566510e49c0bfd0adef6e1549768864bd66d66322315cbded34ab",
+    "validation_cases/calibration/shared/runtime.py": "5830978162261beb3e3be9716dcbdd99b30e28db2a824ae4b80f119a5cae2d7d",
+    "validation_cases/calibration/twin/steady/dupuit_fixed_head_1d/run_case.py": "f0c3f565ae2b05edb1a80f367bd2f9deae840b05354694407fcb09961dae4189",
+    "validation_cases/calibration/twin/steady/dupuit_fixed_head_1d/experiment.py": "50d3c88b9f34f488ccc8e16df3f2a6693957e289eb377f1694493130c7c60ca4",
+    "hydromodpy/calibration/benchmark.py": "__missing__",
+    "hydromodpy/calibration/engine.py": "fb6ab2fa3fae9d0df6ec608a27b9539e470e988c01d9e74caf4dff97028c9988"
   },
   "docname": "cases/calibration_twin_dupuit_fixed_head_modflow6",
-  "images": [
-    {
-      "filename": "calibration_twin_dupuit_fixed_head_modflow6__configuration.png",
-      "caption": "Calibration Twin: Dupuit Fixed-Head 1D configuration summary used by the calibration gallery.",
-      "alt_text": "Calibration Twin: Dupuit Fixed-Head 1D configuration figure",
-      "doc_path": "/_static/capability_gallery/calibration/calibration_twin_dupuit_fixed_head_modflow6__configuration.png",
-      "repo_path": "docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_dupuit_fixed_head_modflow6__configuration.png"
-    },
-    {
-      "filename": "calibration_twin_dupuit_fixed_head_modflow6__grid_search_landscape.png",
-      "caption": "Objective landscape or pairwise projection for `grid_search` on Calibration Twin: Dupuit Fixed-Head 1D.",
-      "alt_text": "Calibration Twin: Dupuit Fixed-Head 1D objective landscape for grid_search",
-      "doc_path": "/_static/capability_gallery/calibration/calibration_twin_dupuit_fixed_head_modflow6__grid_search_landscape.png",
-      "repo_path": "docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_dupuit_fixed_head_modflow6__grid_search_landscape.png"
-    },
-    {
-      "filename": "calibration_twin_dupuit_fixed_head_modflow6__grid_search_trace.png",
-      "caption": "Objective trace for `grid_search` on Calibration Twin: Dupuit Fixed-Head 1D, showing the evaluated models in order.",
-      "alt_text": "Calibration Twin: Dupuit Fixed-Head 1D objective trace for grid_search",
-      "doc_path": "/_static/capability_gallery/calibration/calibration_twin_dupuit_fixed_head_modflow6__grid_search_trace.png",
-      "repo_path": "docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_dupuit_fixed_head_modflow6__grid_search_trace.png"
-    },
-    {
-      "filename": "calibration_twin_dupuit_fixed_head_modflow6__random_search_landscape.png",
-      "caption": "Objective landscape or pairwise projection for `random_search` on Calibration Twin: Dupuit Fixed-Head 1D.",
-      "alt_text": "Calibration Twin: Dupuit Fixed-Head 1D objective landscape for random_search",
-      "doc_path": "/_static/capability_gallery/calibration/calibration_twin_dupuit_fixed_head_modflow6__random_search_landscape.png",
-      "repo_path": "docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_dupuit_fixed_head_modflow6__random_search_landscape.png"
-    },
-    {
-      "filename": "calibration_twin_dupuit_fixed_head_modflow6__random_search_trace.png",
-      "caption": "Objective trace for `random_search` on Calibration Twin: Dupuit Fixed-Head 1D, showing the evaluated models in order.",
-      "alt_text": "Calibration Twin: Dupuit Fixed-Head 1D objective trace for random_search",
-      "doc_path": "/_static/capability_gallery/calibration/calibration_twin_dupuit_fixed_head_modflow6__random_search_trace.png",
-      "repo_path": "docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_dupuit_fixed_head_modflow6__random_search_trace.png"
-    },
-    {
-      "filename": "calibration_twin_dupuit_fixed_head_modflow6__random_search_posterior.png",
-      "caption": "Parameter distribution for `random_search` on Calibration Twin: Dupuit Fixed-Head 1D.",
-      "alt_text": "Calibration Twin: Dupuit Fixed-Head 1D posterior distribution for random_search",
-      "doc_path": "/_static/capability_gallery/calibration/calibration_twin_dupuit_fixed_head_modflow6__random_search_posterior.png",
-      "repo_path": "docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_dupuit_fixed_head_modflow6__random_search_posterior.png"
-    },
-    {
-      "filename": "calibration_twin_dupuit_fixed_head_modflow6__cma_es_landscape.png",
-      "caption": "Objective landscape or pairwise projection for `cma_es` on Calibration Twin: Dupuit Fixed-Head 1D.",
-      "alt_text": "Calibration Twin: Dupuit Fixed-Head 1D objective landscape for cma_es",
-      "doc_path": "/_static/capability_gallery/calibration/calibration_twin_dupuit_fixed_head_modflow6__cma_es_landscape.png",
-      "repo_path": "docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_dupuit_fixed_head_modflow6__cma_es_landscape.png"
-    },
-    {
-      "filename": "calibration_twin_dupuit_fixed_head_modflow6__cma_es_trace.png",
-      "caption": "Objective trace for `cma_es` on Calibration Twin: Dupuit Fixed-Head 1D, showing the evaluated models in order.",
-      "alt_text": "Calibration Twin: Dupuit Fixed-Head 1D objective trace for cma_es",
-      "doc_path": "/_static/capability_gallery/calibration/calibration_twin_dupuit_fixed_head_modflow6__cma_es_trace.png",
-      "repo_path": "docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_dupuit_fixed_head_modflow6__cma_es_trace.png"
-    },
-    {
-      "filename": "calibration_twin_dupuit_fixed_head_modflow6__simplex_landscape.png",
-      "caption": "Objective landscape or pairwise projection for `simplex` on Calibration Twin: Dupuit Fixed-Head 1D.",
-      "alt_text": "Calibration Twin: Dupuit Fixed-Head 1D objective landscape for simplex",
-      "doc_path": "/_static/capability_gallery/calibration/calibration_twin_dupuit_fixed_head_modflow6__simplex_landscape.png",
-      "repo_path": "docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_dupuit_fixed_head_modflow6__simplex_landscape.png"
-    },
-    {
-      "filename": "calibration_twin_dupuit_fixed_head_modflow6__simplex_trace.png",
-      "caption": "Objective trace for `simplex` on Calibration Twin: Dupuit Fixed-Head 1D, showing the evaluated models in order.",
-      "alt_text": "Calibration Twin: Dupuit Fixed-Head 1D objective trace for simplex",
-      "doc_path": "/_static/capability_gallery/calibration/calibration_twin_dupuit_fixed_head_modflow6__simplex_trace.png",
-      "repo_path": "docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_dupuit_fixed_head_modflow6__simplex_trace.png"
-    },
-    {
-      "filename": "calibration_twin_dupuit_fixed_head_modflow6__nelder_mead_landscape.png",
-      "caption": "Objective landscape or pairwise projection for `nelder_mead` on Calibration Twin: Dupuit Fixed-Head 1D.",
-      "alt_text": "Calibration Twin: Dupuit Fixed-Head 1D objective landscape for nelder_mead",
-      "doc_path": "/_static/capability_gallery/calibration/calibration_twin_dupuit_fixed_head_modflow6__nelder_mead_landscape.png",
-      "repo_path": "docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_dupuit_fixed_head_modflow6__nelder_mead_landscape.png"
-    },
-    {
-      "filename": "calibration_twin_dupuit_fixed_head_modflow6__nelder_mead_trace.png",
-      "caption": "Objective trace for `nelder_mead` on Calibration Twin: Dupuit Fixed-Head 1D, showing the evaluated models in order.",
-      "alt_text": "Calibration Twin: Dupuit Fixed-Head 1D objective trace for nelder_mead",
-      "doc_path": "/_static/capability_gallery/calibration/calibration_twin_dupuit_fixed_head_modflow6__nelder_mead_trace.png",
-      "repo_path": "docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_dupuit_fixed_head_modflow6__nelder_mead_trace.png"
-    }
-  ],
+  "images": [],
   "metrics": [
     {
       "label": "Methods",
@@ -168,74 +85,74 @@
     {
       "label": "Calibration total",
       "key": "calibration_time_seconds",
-      "value": 7.580601021996699,
-      "display": "7.581 s"
+      "value": 14.410460948944092,
+      "display": "14.41 s"
     },
     {
       "label": "Session prep",
       "key": "session_prepare_time_seconds",
-      "value": 0.0,
-      "display": "0 s"
+      "value": 15.771538300003158,
+      "display": "15.77 s"
     },
     {
       "label": "Candidate runtime",
       "key": "estimated_candidate_runtime_seconds",
-      "value": 7.57429120677989,
-      "display": "7.574 s"
+      "value": 14.202302000048803,
+      "display": "14.2 s"
     },
     {
       "label": "Algorithm overhead",
       "key": "algorithm_overhead_time_seconds",
-      "value": 0.006309815216809511,
-      "display": "0.00631 s"
+      "value": 0.20815894889528863,
+      "display": "0.2082 s"
     },
     {
       "label": "Model total",
       "key": "mean_candidate_total_time_seconds",
-      "value": 0.3155954669491621,
-      "display": "0.3156 s"
+      "value": 0.5917625833353668,
+      "display": "0.5918 s"
     },
     {
       "label": "Actualize",
       "key": "mean_candidate_actualize_time_seconds",
-      "value": null,
-      "display": ""
+      "value": 0.016792779169312173,
+      "display": "0.01679 s"
     },
     {
       "label": "Launcher prep",
       "key": "mean_candidate_launcher_prepare_time_seconds",
-      "value": null,
-      "display": ""
+      "value": 0.016792779169312173,
+      "display": "0.01679 s"
     },
     {
       "label": "Runtime patch",
       "key": "mean_candidate_runtime_patch_time_seconds",
-      "value": null,
-      "display": ""
-    },
-    {
-      "label": "Model prep",
-      "key": "mean_candidate_preparation_time_seconds",
       "value": 0.0,
       "display": "0 s"
     },
     {
+      "label": "Model prep",
+      "key": "mean_candidate_preparation_time_seconds",
+      "value": 0.016792779169312173,
+      "display": "0.01679 s"
+    },
+    {
       "label": "Model sim",
       "key": "mean_candidate_simulation_time_seconds",
-      "value": 0.28898872852732893,
-      "display": "0.289 s"
+      "value": 0.5749698041660546,
+      "display": "0.575 s"
     },
     {
       "label": "Output select",
       "key": "mean_candidate_output_selection_time_seconds",
-      "value": null,
-      "display": ""
+      "value": 0.0,
+      "display": "0 s"
     },
     {
       "label": "Objective score",
       "key": "mean_candidate_objective_compute_time_seconds",
-      "value": null,
-      "display": ""
+      "value": 0.0,
+      "display": "0 s"
     }
   ],
   "metadata": {
@@ -280,8 +197,8 @@
     "benchmark_family_page_intro": null,
     "benchmark_family_order": 30,
     "benchmark_family_primary": false,
-    "benchmark_root": "/tmp/hydromodpy_validation_outputs/validation_calibration_twin/ct_fc77d205fc_e11156a7",
-    "benchmark_summary_path": "/tmp/hydromodpy_validation_outputs/validation_calibration_twin/ct_fc77d205fc_e11156a7/benchmark_summary.json",
+    "benchmark_root": "C:\\results\\HydromodPy\\validation\\validation_calibration_twin\\ct_fc77d205fc_82c370f5",
+    "benchmark_summary_path": "C:\\results\\HydromodPy\\validation\\validation_calibration_twin\\ct_fc77d205fc_82c370f5\\benchmark_summary.json",
     "artifact_retention": "minimal",
     "method_runs": [
       {
@@ -293,28 +210,28 @@
         "cost_best": 0.0,
         "n_evaluations": 11,
         "model_distribution_sample_count": 0,
-        "calibration_time_seconds": 3.3913405450293794,
-        "session_prepare_time_seconds": 0.0,
-        "estimated_candidate_runtime_seconds": 3.388391680084169,
-        "algorithm_overhead_time_seconds": 0.0029488649452105165,
-        "mean_candidate_total_time_seconds": 0.308035607280379,
-        "mean_candidate_preparation_time_seconds": 0.0,
-        "mean_candidate_actualize_time_seconds": null,
-        "mean_candidate_launcher_prepare_time_seconds": null,
-        "mean_candidate_runtime_patch_time_seconds": null,
-        "mean_candidate_simulation_time_seconds": 0.2826029335317964,
-        "mean_candidate_output_selection_time_seconds": null,
-        "mean_candidate_objective_build_time_seconds": null,
-        "mean_candidate_objective_compute_time_seconds": null,
-        "mean_candidate_objective_time_seconds": null,
+        "calibration_time_seconds": 8.39512014389038,
+        "session_prepare_time_seconds": 13.156230300010066,
+        "estimated_candidate_runtime_seconds": 8.29031909997866,
+        "algorithm_overhead_time_seconds": 0.10480104391172063,
+        "mean_candidate_total_time_seconds": 0.7536653727253327,
+        "mean_candidate_preparation_time_seconds": 0.020508645455596376,
+        "mean_candidate_actualize_time_seconds": 0.020508645455596376,
+        "mean_candidate_launcher_prepare_time_seconds": 0.020508645455596376,
+        "mean_candidate_runtime_patch_time_seconds": 0.0,
+        "mean_candidate_simulation_time_seconds": 0.7331567272697364,
+        "mean_candidate_output_selection_time_seconds": 0.0,
+        "mean_candidate_objective_build_time_seconds": 0.0,
+        "mean_candidate_objective_compute_time_seconds": 0.0,
+        "mean_candidate_objective_time_seconds": 0.0,
         "param_abs_error": {
           "K_global": 1.3552527156068805e-20
         },
         "params_best": {
           "K_global": 9.999999999999999e-05
         },
-        "objective_landscape_filename": "calibration_twin_dupuit_fixed_head_modflow6__grid_search_landscape.png",
-        "objective_trace_filename": "calibration_twin_dupuit_fixed_head_modflow6__grid_search_trace.png",
+        "objective_landscape_filename": null,
+        "objective_trace_filename": null,
         "posterior_distribution_filename": null
       },
       {
@@ -326,61 +243,61 @@
         "cost_best": 0.03827174758576722,
         "n_evaluations": 24,
         "model_distribution_sample_count": 24,
-        "calibration_time_seconds": 7.580601021996699,
-        "session_prepare_time_seconds": 0.0,
-        "estimated_candidate_runtime_seconds": 7.57429120677989,
-        "algorithm_overhead_time_seconds": 0.006309815216809511,
-        "mean_candidate_total_time_seconds": 0.3155954669491621,
-        "mean_candidate_preparation_time_seconds": 0.0,
-        "mean_candidate_actualize_time_seconds": null,
-        "mean_candidate_launcher_prepare_time_seconds": null,
-        "mean_candidate_runtime_patch_time_seconds": null,
-        "mean_candidate_simulation_time_seconds": 0.28898872852732893,
-        "mean_candidate_output_selection_time_seconds": null,
-        "mean_candidate_objective_build_time_seconds": null,
-        "mean_candidate_objective_compute_time_seconds": null,
-        "mean_candidate_objective_time_seconds": null,
+        "calibration_time_seconds": 14.410460948944092,
+        "session_prepare_time_seconds": 15.771538300003158,
+        "estimated_candidate_runtime_seconds": 14.202302000048803,
+        "algorithm_overhead_time_seconds": 0.20815894889528863,
+        "mean_candidate_total_time_seconds": 0.5917625833353668,
+        "mean_candidate_preparation_time_seconds": 0.016792779169312173,
+        "mean_candidate_actualize_time_seconds": 0.016792779169312173,
+        "mean_candidate_launcher_prepare_time_seconds": 0.016792779169312173,
+        "mean_candidate_runtime_patch_time_seconds": 0.0,
+        "mean_candidate_simulation_time_seconds": 0.5749698041660546,
+        "mean_candidate_output_selection_time_seconds": 0.0,
+        "mean_candidate_objective_build_time_seconds": 0.0,
+        "mean_candidate_objective_compute_time_seconds": 0.0,
+        "mean_candidate_objective_time_seconds": 0.0,
         "param_abs_error": {
           "K_global": 3.827174558899727e-06
         },
         "params_best": {
           "K_global": 0.00010382717455889973
         },
-        "objective_landscape_filename": "calibration_twin_dupuit_fixed_head_modflow6__random_search_landscape.png",
-        "objective_trace_filename": "calibration_twin_dupuit_fixed_head_modflow6__random_search_trace.png",
-        "posterior_distribution_filename": "calibration_twin_dupuit_fixed_head_modflow6__random_search_posterior.png"
+        "objective_landscape_filename": null,
+        "objective_trace_filename": null,
+        "posterior_distribution_filename": null
       },
       {
         "method_name": "cma_es",
         "method_instance_name": "cma_es",
         "success_metric": "best_fit",
-        "meets_success_target": false,
-        "recovered_truth": false,
-        "cost_best": null,
-        "n_evaluations": 8,
+        "meets_success_target": true,
+        "recovered_truth": true,
+        "cost_best": 0.011637914265896523,
+        "n_evaluations": 28,
         "model_distribution_sample_count": 0,
-        "calibration_time_seconds": 2.590030867024325,
-        "session_prepare_time_seconds": 0.0,
-        "estimated_candidate_runtime_seconds": 2.5677735399222,
-        "algorithm_overhead_time_seconds": 0.02225732710212469,
-        "mean_candidate_total_time_seconds": 0.320971692490275,
-        "mean_candidate_preparation_time_seconds": 0.0,
-        "mean_candidate_actualize_time_seconds": null,
-        "mean_candidate_launcher_prepare_time_seconds": null,
-        "mean_candidate_runtime_patch_time_seconds": null,
-        "mean_candidate_simulation_time_seconds": 0.29389956574596,
-        "mean_candidate_output_selection_time_seconds": null,
-        "mean_candidate_objective_build_time_seconds": null,
-        "mean_candidate_objective_compute_time_seconds": null,
-        "mean_candidate_objective_time_seconds": null,
+        "calibration_time_seconds": 18.332212448120117,
+        "session_prepare_time_seconds": 19.585823800007347,
+        "estimated_candidate_runtime_seconds": 18.06014679998043,
+        "algorithm_overhead_time_seconds": 0.27206564813968726,
+        "mean_candidate_total_time_seconds": 0.6450052428564439,
+        "mean_candidate_preparation_time_seconds": 0.017927971428954543,
+        "mean_candidate_actualize_time_seconds": 0.017927971428954543,
+        "mean_candidate_launcher_prepare_time_seconds": 0.017927971428954543,
+        "mean_candidate_runtime_patch_time_seconds": 0.0,
+        "mean_candidate_simulation_time_seconds": 0.6270772714274894,
+        "mean_candidate_output_selection_time_seconds": 0.0,
+        "mean_candidate_objective_build_time_seconds": 0.0,
+        "mean_candidate_objective_compute_time_seconds": 0.0,
+        "mean_candidate_objective_time_seconds": 0.0,
         "param_abs_error": {
-          "K_global": 7.5e-05
+          "K_global": 1.1637915323604235e-06
         },
         "params_best": {
-          "K_global": 0.000175
+          "K_global": 9.883620846763958e-05
         },
-        "objective_landscape_filename": "calibration_twin_dupuit_fixed_head_modflow6__cma_es_landscape.png",
-        "objective_trace_filename": "calibration_twin_dupuit_fixed_head_modflow6__cma_es_trace.png",
+        "objective_landscape_filename": null,
+        "objective_trace_filename": null,
         "posterior_distribution_filename": null
       },
       {
@@ -389,31 +306,31 @@
         "success_metric": "best_fit",
         "meets_success_target": true,
         "recovered_truth": true,
-        "cost_best": 7.324199542433451e-05,
+        "cost_best": 0.0,
         "n_evaluations": 30,
         "model_distribution_sample_count": 0,
-        "calibration_time_seconds": 9.98098273598589,
-        "session_prepare_time_seconds": 0.0,
-        "estimated_candidate_runtime_seconds": 9.970190190011635,
-        "algorithm_overhead_time_seconds": 0.010792545974254608,
-        "mean_candidate_total_time_seconds": 0.33233967300038786,
-        "mean_candidate_preparation_time_seconds": 0.0,
-        "mean_candidate_actualize_time_seconds": null,
-        "mean_candidate_launcher_prepare_time_seconds": null,
-        "mean_candidate_runtime_patch_time_seconds": null,
-        "mean_candidate_simulation_time_seconds": 0.3041416156648969,
-        "mean_candidate_output_selection_time_seconds": null,
-        "mean_candidate_objective_build_time_seconds": null,
-        "mean_candidate_objective_compute_time_seconds": null,
-        "mean_candidate_objective_time_seconds": null,
+        "calibration_time_seconds": 23.662310361862183,
+        "session_prepare_time_seconds": 24.900566600001184,
+        "estimated_candidate_runtime_seconds": 23.357167999987723,
+        "algorithm_overhead_time_seconds": 0.3051423618744593,
+        "mean_candidate_total_time_seconds": 0.7785722666662575,
+        "mean_candidate_preparation_time_seconds": 0.01889699333308575,
+        "mean_candidate_actualize_time_seconds": 0.01889699333308575,
+        "mean_candidate_launcher_prepare_time_seconds": 0.01889699333308575,
+        "mean_candidate_runtime_patch_time_seconds": 0.0,
+        "mean_candidate_simulation_time_seconds": 0.7596752733331716,
+        "mean_candidate_output_selection_time_seconds": 0.0,
+        "mean_candidate_objective_build_time_seconds": 0.0,
+        "mean_candidate_objective_compute_time_seconds": 0.0,
+        "mean_candidate_objective_time_seconds": 0.0,
         "param_abs_error": {
-          "K_global": 7.32421875008864e-09
+          "K_global": 4.0657581468206416e-20
         },
         "params_best": {
-          "K_global": 9.999267578124992e-05
+          "K_global": 0.00010000000000000005
         },
-        "objective_landscape_filename": "calibration_twin_dupuit_fixed_head_modflow6__simplex_landscape.png",
-        "objective_trace_filename": "calibration_twin_dupuit_fixed_head_modflow6__simplex_trace.png",
+        "objective_landscape_filename": null,
+        "objective_trace_filename": null,
         "posterior_distribution_filename": null
       },
       {
@@ -422,44 +339,39 @@
         "success_metric": "best_fit",
         "meets_success_target": true,
         "recovered_truth": true,
-        "cost_best": 7.324199542433451e-05,
-        "n_evaluations": 30,
+        "cost_best": 0.0,
+        "n_evaluations": 18,
         "model_distribution_sample_count": 0,
-        "calibration_time_seconds": 10.104551936965436,
-        "session_prepare_time_seconds": 0.0,
-        "estimated_candidate_runtime_seconds": 10.093341405619867,
-        "algorithm_overhead_time_seconds": 0.011210531345568597,
-        "mean_candidate_total_time_seconds": 0.33644471352066224,
-        "mean_candidate_preparation_time_seconds": 0.0,
-        "mean_candidate_actualize_time_seconds": null,
-        "mean_candidate_launcher_prepare_time_seconds": null,
-        "mean_candidate_runtime_patch_time_seconds": null,
-        "mean_candidate_simulation_time_seconds": 0.3071537097644371,
-        "mean_candidate_output_selection_time_seconds": null,
-        "mean_candidate_objective_build_time_seconds": null,
-        "mean_candidate_objective_compute_time_seconds": null,
-        "mean_candidate_objective_time_seconds": null,
+        "calibration_time_seconds": 11.242954015731812,
+        "session_prepare_time_seconds": 12.314714899999672,
+        "estimated_candidate_runtime_seconds": 11.07948079999187,
+        "algorithm_overhead_time_seconds": 0.16347321573994122,
+        "mean_candidate_total_time_seconds": 0.6155267111106595,
+        "mean_candidate_preparation_time_seconds": 0.016367377777997818,
+        "mean_candidate_actualize_time_seconds": 0.016367377777997818,
+        "mean_candidate_launcher_prepare_time_seconds": 0.016367377777997818,
+        "mean_candidate_runtime_patch_time_seconds": 0.0,
+        "mean_candidate_simulation_time_seconds": 0.5991593333326617,
+        "mean_candidate_output_selection_time_seconds": 0.0,
+        "mean_candidate_objective_build_time_seconds": 0.0,
+        "mean_candidate_objective_compute_time_seconds": 0.0,
+        "mean_candidate_objective_time_seconds": 0.0,
         "param_abs_error": {
-          "K_global": 7.32421875008864e-09
+          "K_global": 4.0657581468206416e-20
         },
         "params_best": {
-          "K_global": 9.999267578124992e-05
+          "K_global": 0.00010000000000000005
         },
-        "objective_landscape_filename": "calibration_twin_dupuit_fixed_head_modflow6__nelder_mead_landscape.png",
-        "objective_trace_filename": "calibration_twin_dupuit_fixed_head_modflow6__nelder_mead_trace.png",
+        "objective_landscape_filename": null,
+        "objective_trace_filename": null,
         "posterior_distribution_filename": null
       }
     ],
-    "lead_image_filenames": [
-      "calibration_twin_dupuit_fixed_head_modflow6__configuration.png"
-    ],
+    "lead_image_filenames": [],
     "tab_specs": [
       {
         "title": "grid_search",
-        "filenames": [
-          "calibration_twin_dupuit_fixed_head_modflow6__grid_search_landscape.png",
-          "calibration_twin_dupuit_fixed_head_modflow6__grid_search_trace.png"
-        ],
+        "filenames": [],
         "body_lines": [
           "metric=best_fit",
           "target=True",
@@ -467,19 +379,20 @@
           "cost=0",
           "n_eval=11",
           "distribution_samples=0",
-          "calibration=3.391 s",
-          "candidate runtime=3.388 s",
-          "algorithm overhead=0.002949 s",
-          "simulate=0.2826 s"
+          "calibration=8.395 s",
+          "candidate runtime=8.29 s",
+          "algorithm overhead=0.1048 s",
+          "actualize=0.02051 s",
+          "launcher prep=0.02051 s",
+          "runtime patch=0 s",
+          "simulate=0.7332 s",
+          "output select=0 s",
+          "objective score=0 s"
         ]
       },
       {
         "title": "random_search",
-        "filenames": [
-          "calibration_twin_dupuit_fixed_head_modflow6__random_search_landscape.png",
-          "calibration_twin_dupuit_fixed_head_modflow6__random_search_posterior.png",
-          "calibration_twin_dupuit_fixed_head_modflow6__random_search_trace.png"
-        ],
+        "filenames": [],
         "body_lines": [
           "metric=best_fit",
           "target=True",
@@ -487,89 +400,87 @@
           "cost=0.0382717",
           "n_eval=24",
           "distribution_samples=24",
-          "calibration=7.581 s",
-          "candidate runtime=7.574 s",
-          "algorithm overhead=0.00631 s",
-          "simulate=0.289 s"
+          "calibration=14.41 s",
+          "candidate runtime=14.2 s",
+          "algorithm overhead=0.2082 s",
+          "actualize=0.01679 s",
+          "launcher prep=0.01679 s",
+          "runtime patch=0 s",
+          "simulate=0.575 s",
+          "output select=0 s",
+          "objective score=0 s"
         ]
       },
       {
         "title": "cma_es",
-        "filenames": [
-          "calibration_twin_dupuit_fixed_head_modflow6__cma_es_landscape.png",
-          "calibration_twin_dupuit_fixed_head_modflow6__cma_es_trace.png"
-        ],
+        "filenames": [],
         "body_lines": [
           "metric=best_fit",
-          "target=False",
-          "best_fit=False",
-          "cost=",
-          "n_eval=8",
+          "target=True",
+          "best_fit=True",
+          "cost=0.0116379",
+          "n_eval=28",
           "distribution_samples=0",
-          "calibration=2.59 s",
-          "candidate runtime=2.568 s",
-          "algorithm overhead=0.02226 s",
-          "simulate=0.2939 s"
+          "calibration=18.33 s",
+          "candidate runtime=18.06 s",
+          "algorithm overhead=0.2721 s",
+          "actualize=0.01793 s",
+          "launcher prep=0.01793 s",
+          "runtime patch=0 s",
+          "simulate=0.6271 s",
+          "output select=0 s",
+          "objective score=0 s"
         ]
       },
       {
         "title": "simplex",
-        "filenames": [
-          "calibration_twin_dupuit_fixed_head_modflow6__simplex_landscape.png",
-          "calibration_twin_dupuit_fixed_head_modflow6__simplex_trace.png"
-        ],
+        "filenames": [],
         "body_lines": [
           "metric=best_fit",
           "target=True",
           "best_fit=True",
-          "cost=7.3242e-05",
+          "cost=0",
           "n_eval=30",
           "distribution_samples=0",
-          "calibration=9.981 s",
-          "candidate runtime=9.97 s",
-          "algorithm overhead=0.01079 s",
-          "simulate=0.3041 s"
+          "calibration=23.66 s",
+          "candidate runtime=23.36 s",
+          "algorithm overhead=0.3051 s",
+          "actualize=0.0189 s",
+          "launcher prep=0.0189 s",
+          "runtime patch=0 s",
+          "simulate=0.7597 s",
+          "output select=0 s",
+          "objective score=0 s"
         ]
       },
       {
         "title": "nelder_mead",
-        "filenames": [
-          "calibration_twin_dupuit_fixed_head_modflow6__nelder_mead_landscape.png",
-          "calibration_twin_dupuit_fixed_head_modflow6__nelder_mead_trace.png"
-        ],
+        "filenames": [],
         "body_lines": [
           "metric=best_fit",
           "target=True",
           "best_fit=True",
-          "cost=7.3242e-05",
-          "n_eval=30",
+          "cost=0",
+          "n_eval=18",
           "distribution_samples=0",
-          "calibration=10.1 s",
-          "candidate runtime=10.09 s",
-          "algorithm overhead=0.01121 s",
-          "simulate=0.3072 s"
+          "calibration=11.24 s",
+          "candidate runtime=11.08 s",
+          "algorithm overhead=0.1635 s",
+          "actualize=0.01637 s",
+          "launcher prep=0.01637 s",
+          "runtime patch=0 s",
+          "simulate=0.5992 s",
+          "output select=0 s",
+          "objective score=0 s"
         ]
       }
     ],
-    "configuration_figure": "/tmp/hydromodpy_validation_outputs/validation_calibration_twin/ct_fc77d205fc_e11156a7/figures/case_configuration.png"
+    "configuration_figure": null
   },
   "artifacts": {
     "summary_json_doc_path": "/_static/capability_gallery/calibration/calibration_twin_dupuit_fixed_head_modflow6_summary.json",
     "summary_json_repo_path": "docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_dupuit_fixed_head_modflow6_summary.json",
-    "image_repo_paths": [
-      "docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_dupuit_fixed_head_modflow6__configuration.png",
-      "docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_dupuit_fixed_head_modflow6__grid_search_landscape.png",
-      "docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_dupuit_fixed_head_modflow6__grid_search_trace.png",
-      "docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_dupuit_fixed_head_modflow6__random_search_landscape.png",
-      "docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_dupuit_fixed_head_modflow6__random_search_trace.png",
-      "docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_dupuit_fixed_head_modflow6__random_search_posterior.png",
-      "docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_dupuit_fixed_head_modflow6__cma_es_landscape.png",
-      "docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_dupuit_fixed_head_modflow6__cma_es_trace.png",
-      "docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_dupuit_fixed_head_modflow6__simplex_landscape.png",
-      "docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_dupuit_fixed_head_modflow6__simplex_trace.png",
-      "docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_dupuit_fixed_head_modflow6__nelder_mead_landscape.png",
-      "docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_dupuit_fixed_head_modflow6__nelder_mead_trace.png"
-    ]
+    "image_repo_paths": []
   },
   "method_runs": [
     {
@@ -581,28 +492,28 @@
       "cost_best": 0.0,
       "n_evaluations": 11,
       "model_distribution_sample_count": 0,
-      "calibration_time_seconds": 3.3913405450293794,
-      "session_prepare_time_seconds": 0.0,
-      "estimated_candidate_runtime_seconds": 3.388391680084169,
-      "algorithm_overhead_time_seconds": 0.0029488649452105165,
-      "mean_candidate_total_time_seconds": 0.308035607280379,
-      "mean_candidate_preparation_time_seconds": 0.0,
-      "mean_candidate_actualize_time_seconds": null,
-      "mean_candidate_launcher_prepare_time_seconds": null,
-      "mean_candidate_runtime_patch_time_seconds": null,
-      "mean_candidate_simulation_time_seconds": 0.2826029335317964,
-      "mean_candidate_output_selection_time_seconds": null,
-      "mean_candidate_objective_build_time_seconds": null,
-      "mean_candidate_objective_compute_time_seconds": null,
-      "mean_candidate_objective_time_seconds": null,
+      "calibration_time_seconds": 8.39512014389038,
+      "session_prepare_time_seconds": 13.156230300010066,
+      "estimated_candidate_runtime_seconds": 8.29031909997866,
+      "algorithm_overhead_time_seconds": 0.10480104391172063,
+      "mean_candidate_total_time_seconds": 0.7536653727253327,
+      "mean_candidate_preparation_time_seconds": 0.020508645455596376,
+      "mean_candidate_actualize_time_seconds": 0.020508645455596376,
+      "mean_candidate_launcher_prepare_time_seconds": 0.020508645455596376,
+      "mean_candidate_runtime_patch_time_seconds": 0.0,
+      "mean_candidate_simulation_time_seconds": 0.7331567272697364,
+      "mean_candidate_output_selection_time_seconds": 0.0,
+      "mean_candidate_objective_build_time_seconds": 0.0,
+      "mean_candidate_objective_compute_time_seconds": 0.0,
+      "mean_candidate_objective_time_seconds": 0.0,
       "param_abs_error": {
         "K_global": 1.3552527156068805e-20
       },
       "params_best": {
         "K_global": 9.999999999999999e-05
       },
-      "objective_landscape_filename": "calibration_twin_dupuit_fixed_head_modflow6__grid_search_landscape.png",
-      "objective_trace_filename": "calibration_twin_dupuit_fixed_head_modflow6__grid_search_trace.png",
+      "objective_landscape_filename": null,
+      "objective_trace_filename": null,
       "posterior_distribution_filename": null
     },
     {
@@ -614,61 +525,61 @@
       "cost_best": 0.03827174758576722,
       "n_evaluations": 24,
       "model_distribution_sample_count": 24,
-      "calibration_time_seconds": 7.580601021996699,
-      "session_prepare_time_seconds": 0.0,
-      "estimated_candidate_runtime_seconds": 7.57429120677989,
-      "algorithm_overhead_time_seconds": 0.006309815216809511,
-      "mean_candidate_total_time_seconds": 0.3155954669491621,
-      "mean_candidate_preparation_time_seconds": 0.0,
-      "mean_candidate_actualize_time_seconds": null,
-      "mean_candidate_launcher_prepare_time_seconds": null,
-      "mean_candidate_runtime_patch_time_seconds": null,
-      "mean_candidate_simulation_time_seconds": 0.28898872852732893,
-      "mean_candidate_output_selection_time_seconds": null,
-      "mean_candidate_objective_build_time_seconds": null,
-      "mean_candidate_objective_compute_time_seconds": null,
-      "mean_candidate_objective_time_seconds": null,
+      "calibration_time_seconds": 14.410460948944092,
+      "session_prepare_time_seconds": 15.771538300003158,
+      "estimated_candidate_runtime_seconds": 14.202302000048803,
+      "algorithm_overhead_time_seconds": 0.20815894889528863,
+      "mean_candidate_total_time_seconds": 0.5917625833353668,
+      "mean_candidate_preparation_time_seconds": 0.016792779169312173,
+      "mean_candidate_actualize_time_seconds": 0.016792779169312173,
+      "mean_candidate_launcher_prepare_time_seconds": 0.016792779169312173,
+      "mean_candidate_runtime_patch_time_seconds": 0.0,
+      "mean_candidate_simulation_time_seconds": 0.5749698041660546,
+      "mean_candidate_output_selection_time_seconds": 0.0,
+      "mean_candidate_objective_build_time_seconds": 0.0,
+      "mean_candidate_objective_compute_time_seconds": 0.0,
+      "mean_candidate_objective_time_seconds": 0.0,
       "param_abs_error": {
         "K_global": 3.827174558899727e-06
       },
       "params_best": {
         "K_global": 0.00010382717455889973
       },
-      "objective_landscape_filename": "calibration_twin_dupuit_fixed_head_modflow6__random_search_landscape.png",
-      "objective_trace_filename": "calibration_twin_dupuit_fixed_head_modflow6__random_search_trace.png",
-      "posterior_distribution_filename": "calibration_twin_dupuit_fixed_head_modflow6__random_search_posterior.png"
+      "objective_landscape_filename": null,
+      "objective_trace_filename": null,
+      "posterior_distribution_filename": null
     },
     {
       "method_name": "cma_es",
       "method_instance_name": "cma_es",
       "success_metric": "best_fit",
-      "meets_success_target": false,
-      "recovered_truth": false,
-      "cost_best": null,
-      "n_evaluations": 8,
+      "meets_success_target": true,
+      "recovered_truth": true,
+      "cost_best": 0.011637914265896523,
+      "n_evaluations": 28,
       "model_distribution_sample_count": 0,
-      "calibration_time_seconds": 2.590030867024325,
-      "session_prepare_time_seconds": 0.0,
-      "estimated_candidate_runtime_seconds": 2.5677735399222,
-      "algorithm_overhead_time_seconds": 0.02225732710212469,
-      "mean_candidate_total_time_seconds": 0.320971692490275,
-      "mean_candidate_preparation_time_seconds": 0.0,
-      "mean_candidate_actualize_time_seconds": null,
-      "mean_candidate_launcher_prepare_time_seconds": null,
-      "mean_candidate_runtime_patch_time_seconds": null,
-      "mean_candidate_simulation_time_seconds": 0.29389956574596,
-      "mean_candidate_output_selection_time_seconds": null,
-      "mean_candidate_objective_build_time_seconds": null,
-      "mean_candidate_objective_compute_time_seconds": null,
-      "mean_candidate_objective_time_seconds": null,
+      "calibration_time_seconds": 18.332212448120117,
+      "session_prepare_time_seconds": 19.585823800007347,
+      "estimated_candidate_runtime_seconds": 18.06014679998043,
+      "algorithm_overhead_time_seconds": 0.27206564813968726,
+      "mean_candidate_total_time_seconds": 0.6450052428564439,
+      "mean_candidate_preparation_time_seconds": 0.017927971428954543,
+      "mean_candidate_actualize_time_seconds": 0.017927971428954543,
+      "mean_candidate_launcher_prepare_time_seconds": 0.017927971428954543,
+      "mean_candidate_runtime_patch_time_seconds": 0.0,
+      "mean_candidate_simulation_time_seconds": 0.6270772714274894,
+      "mean_candidate_output_selection_time_seconds": 0.0,
+      "mean_candidate_objective_build_time_seconds": 0.0,
+      "mean_candidate_objective_compute_time_seconds": 0.0,
+      "mean_candidate_objective_time_seconds": 0.0,
       "param_abs_error": {
-        "K_global": 7.5e-05
+        "K_global": 1.1637915323604235e-06
       },
       "params_best": {
-        "K_global": 0.000175
+        "K_global": 9.883620846763958e-05
       },
-      "objective_landscape_filename": "calibration_twin_dupuit_fixed_head_modflow6__cma_es_landscape.png",
-      "objective_trace_filename": "calibration_twin_dupuit_fixed_head_modflow6__cma_es_trace.png",
+      "objective_landscape_filename": null,
+      "objective_trace_filename": null,
       "posterior_distribution_filename": null
     },
     {
@@ -677,31 +588,31 @@
       "success_metric": "best_fit",
       "meets_success_target": true,
       "recovered_truth": true,
-      "cost_best": 7.324199542433451e-05,
+      "cost_best": 0.0,
       "n_evaluations": 30,
       "model_distribution_sample_count": 0,
-      "calibration_time_seconds": 9.98098273598589,
-      "session_prepare_time_seconds": 0.0,
-      "estimated_candidate_runtime_seconds": 9.970190190011635,
-      "algorithm_overhead_time_seconds": 0.010792545974254608,
-      "mean_candidate_total_time_seconds": 0.33233967300038786,
-      "mean_candidate_preparation_time_seconds": 0.0,
-      "mean_candidate_actualize_time_seconds": null,
-      "mean_candidate_launcher_prepare_time_seconds": null,
-      "mean_candidate_runtime_patch_time_seconds": null,
-      "mean_candidate_simulation_time_seconds": 0.3041416156648969,
-      "mean_candidate_output_selection_time_seconds": null,
-      "mean_candidate_objective_build_time_seconds": null,
-      "mean_candidate_objective_compute_time_seconds": null,
-      "mean_candidate_objective_time_seconds": null,
+      "calibration_time_seconds": 23.662310361862183,
+      "session_prepare_time_seconds": 24.900566600001184,
+      "estimated_candidate_runtime_seconds": 23.357167999987723,
+      "algorithm_overhead_time_seconds": 0.3051423618744593,
+      "mean_candidate_total_time_seconds": 0.7785722666662575,
+      "mean_candidate_preparation_time_seconds": 0.01889699333308575,
+      "mean_candidate_actualize_time_seconds": 0.01889699333308575,
+      "mean_candidate_launcher_prepare_time_seconds": 0.01889699333308575,
+      "mean_candidate_runtime_patch_time_seconds": 0.0,
+      "mean_candidate_simulation_time_seconds": 0.7596752733331716,
+      "mean_candidate_output_selection_time_seconds": 0.0,
+      "mean_candidate_objective_build_time_seconds": 0.0,
+      "mean_candidate_objective_compute_time_seconds": 0.0,
+      "mean_candidate_objective_time_seconds": 0.0,
       "param_abs_error": {
-        "K_global": 7.32421875008864e-09
+        "K_global": 4.0657581468206416e-20
       },
       "params_best": {
-        "K_global": 9.999267578124992e-05
+        "K_global": 0.00010000000000000005
       },
-      "objective_landscape_filename": "calibration_twin_dupuit_fixed_head_modflow6__simplex_landscape.png",
-      "objective_trace_filename": "calibration_twin_dupuit_fixed_head_modflow6__simplex_trace.png",
+      "objective_landscape_filename": null,
+      "objective_trace_filename": null,
       "posterior_distribution_filename": null
     },
     {
@@ -710,31 +621,31 @@
       "success_metric": "best_fit",
       "meets_success_target": true,
       "recovered_truth": true,
-      "cost_best": 7.324199542433451e-05,
-      "n_evaluations": 30,
+      "cost_best": 0.0,
+      "n_evaluations": 18,
       "model_distribution_sample_count": 0,
-      "calibration_time_seconds": 10.104551936965436,
-      "session_prepare_time_seconds": 0.0,
-      "estimated_candidate_runtime_seconds": 10.093341405619867,
-      "algorithm_overhead_time_seconds": 0.011210531345568597,
-      "mean_candidate_total_time_seconds": 0.33644471352066224,
-      "mean_candidate_preparation_time_seconds": 0.0,
-      "mean_candidate_actualize_time_seconds": null,
-      "mean_candidate_launcher_prepare_time_seconds": null,
-      "mean_candidate_runtime_patch_time_seconds": null,
-      "mean_candidate_simulation_time_seconds": 0.3071537097644371,
-      "mean_candidate_output_selection_time_seconds": null,
-      "mean_candidate_objective_build_time_seconds": null,
-      "mean_candidate_objective_compute_time_seconds": null,
-      "mean_candidate_objective_time_seconds": null,
+      "calibration_time_seconds": 11.242954015731812,
+      "session_prepare_time_seconds": 12.314714899999672,
+      "estimated_candidate_runtime_seconds": 11.07948079999187,
+      "algorithm_overhead_time_seconds": 0.16347321573994122,
+      "mean_candidate_total_time_seconds": 0.6155267111106595,
+      "mean_candidate_preparation_time_seconds": 0.016367377777997818,
+      "mean_candidate_actualize_time_seconds": 0.016367377777997818,
+      "mean_candidate_launcher_prepare_time_seconds": 0.016367377777997818,
+      "mean_candidate_runtime_patch_time_seconds": 0.0,
+      "mean_candidate_simulation_time_seconds": 0.5991593333326617,
+      "mean_candidate_output_selection_time_seconds": 0.0,
+      "mean_candidate_objective_build_time_seconds": 0.0,
+      "mean_candidate_objective_compute_time_seconds": 0.0,
+      "mean_candidate_objective_time_seconds": 0.0,
       "param_abs_error": {
-        "K_global": 7.32421875008864e-09
+        "K_global": 4.0657581468206416e-20
       },
       "params_best": {
-        "K_global": 9.999267578124992e-05
+        "K_global": 0.00010000000000000005
       },
-      "objective_landscape_filename": "calibration_twin_dupuit_fixed_head_modflow6__nelder_mead_landscape.png",
-      "objective_trace_filename": "calibration_twin_dupuit_fixed_head_modflow6__nelder_mead_trace.png",
+      "objective_landscape_filename": null,
+      "objective_trace_filename": null,
       "posterior_distribution_filename": null
     }
   ],
@@ -786,31 +697,31 @@
           {
             "field": "grid_search",
             "meaning": "Method result summary including target status, evaluation count, total time, and mean per-model actualize / launcher / simulation / objective timings.",
-            "value": "target=true, cost=0, n_eval=11, distribution_samples=0, calib_s=3.39134, candidate_runtime_s=3.38839, algorithm_overhead_s=0.00294886, model_sim_s=0.282603",
+            "value": "target=true, cost=0, n_eval=11, distribution_samples=0, calib_s=8.39512, candidate_runtime_s=8.29032, algorithm_overhead_s=0.104801, actualize_s=0.0205086, launcher_prep_s=0.0205086, runtime_patch_s=0, model_sim_s=0.733157, output_select_s=0, objective_score_s=0",
             "source": "docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_dupuit_fixed_head_modflow6_summary.json"
           },
           {
             "field": "random_search",
             "meaning": "Method result summary including target status, evaluation count, total time, and mean per-model actualize / launcher / simulation / objective timings.",
-            "value": "target=true, cost=0.0382717, n_eval=24, distribution_samples=24, calib_s=7.5806, candidate_runtime_s=7.57429, algorithm_overhead_s=0.00630982, model_sim_s=0.288989",
+            "value": "target=true, cost=0.0382717, n_eval=24, distribution_samples=24, calib_s=14.4105, candidate_runtime_s=14.2023, algorithm_overhead_s=0.208159, actualize_s=0.0167928, launcher_prep_s=0.0167928, runtime_patch_s=0, model_sim_s=0.57497, output_select_s=0, objective_score_s=0",
             "source": "docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_dupuit_fixed_head_modflow6_summary.json"
           },
           {
             "field": "cma_es",
             "meaning": "Method result summary including target status, evaluation count, total time, and mean per-model actualize / launcher / simulation / objective timings.",
-            "value": "target=false, n_eval=8, distribution_samples=0, calib_s=2.59003, candidate_runtime_s=2.56777, algorithm_overhead_s=0.0222573, model_sim_s=0.2939",
+            "value": "target=true, cost=0.0116379, n_eval=28, distribution_samples=0, calib_s=18.3322, candidate_runtime_s=18.0601, algorithm_overhead_s=0.272066, actualize_s=0.017928, launcher_prep_s=0.017928, runtime_patch_s=0, model_sim_s=0.627077, output_select_s=0, objective_score_s=0",
             "source": "docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_dupuit_fixed_head_modflow6_summary.json"
           },
           {
             "field": "simplex",
             "meaning": "Method result summary including target status, evaluation count, total time, and mean per-model actualize / launcher / simulation / objective timings.",
-            "value": "target=true, cost=7.3242e-05, n_eval=30, distribution_samples=0, calib_s=9.98098, candidate_runtime_s=9.97019, algorithm_overhead_s=0.0107925, model_sim_s=0.304142",
+            "value": "target=true, cost=0, n_eval=30, distribution_samples=0, calib_s=23.6623, candidate_runtime_s=23.3572, algorithm_overhead_s=0.305142, actualize_s=0.018897, launcher_prep_s=0.018897, runtime_patch_s=0, model_sim_s=0.759675, output_select_s=0, objective_score_s=0",
             "source": "docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_dupuit_fixed_head_modflow6_summary.json"
           },
           {
             "field": "nelder_mead",
             "meaning": "Method result summary including target status, evaluation count, total time, and mean per-model actualize / launcher / simulation / objective timings.",
-            "value": "target=true, cost=7.3242e-05, n_eval=30, distribution_samples=0, calib_s=10.1046, candidate_runtime_s=10.0933, algorithm_overhead_s=0.0112105, model_sim_s=0.307154",
+            "value": "target=true, cost=0, n_eval=18, distribution_samples=0, calib_s=11.243, candidate_runtime_s=11.0795, algorithm_overhead_s=0.163473, actualize_s=0.0163674, launcher_prep_s=0.0163674, runtime_patch_s=0, model_sim_s=0.599159, output_select_s=0, objective_score_s=0",
             "source": "docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_dupuit_fixed_head_modflow6_summary.json"
           }
         ]
@@ -839,43 +750,73 @@
           {
             "field": "calibration_time_seconds",
             "meaning": "Metric surfaced on the gallery page for the selected display method.",
-            "value": "7.581 s",
+            "value": "14.41 s",
             "source": "docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_dupuit_fixed_head_modflow6_summary.json"
           },
           {
             "field": "session_prepare_time_seconds",
             "meaning": "Metric surfaced on the gallery page for the selected display method.",
-            "value": "0 s",
+            "value": "15.77 s",
             "source": "docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_dupuit_fixed_head_modflow6_summary.json"
           },
           {
             "field": "estimated_candidate_runtime_seconds",
             "meaning": "Metric surfaced on the gallery page for the selected display method.",
-            "value": "7.574 s",
+            "value": "14.2 s",
             "source": "docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_dupuit_fixed_head_modflow6_summary.json"
           },
           {
             "field": "algorithm_overhead_time_seconds",
             "meaning": "Metric surfaced on the gallery page for the selected display method.",
-            "value": "0.00631 s",
+            "value": "0.2082 s",
             "source": "docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_dupuit_fixed_head_modflow6_summary.json"
           },
           {
             "field": "mean_candidate_total_time_seconds",
             "meaning": "Metric surfaced on the gallery page for the selected display method.",
-            "value": "0.3156 s",
+            "value": "0.5918 s",
             "source": "docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_dupuit_fixed_head_modflow6_summary.json"
           },
           {
-            "field": "mean_candidate_preparation_time_seconds",
+            "field": "mean_candidate_actualize_time_seconds",
+            "meaning": "Metric surfaced on the gallery page for the selected display method.",
+            "value": "0.01679 s",
+            "source": "docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_dupuit_fixed_head_modflow6_summary.json"
+          },
+          {
+            "field": "mean_candidate_launcher_prepare_time_seconds",
+            "meaning": "Metric surfaced on the gallery page for the selected display method.",
+            "value": "0.01679 s",
+            "source": "docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_dupuit_fixed_head_modflow6_summary.json"
+          },
+          {
+            "field": "mean_candidate_runtime_patch_time_seconds",
             "meaning": "Metric surfaced on the gallery page for the selected display method.",
             "value": "0 s",
             "source": "docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_dupuit_fixed_head_modflow6_summary.json"
           },
           {
+            "field": "mean_candidate_preparation_time_seconds",
+            "meaning": "Metric surfaced on the gallery page for the selected display method.",
+            "value": "0.01679 s",
+            "source": "docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_dupuit_fixed_head_modflow6_summary.json"
+          },
+          {
             "field": "mean_candidate_simulation_time_seconds",
             "meaning": "Metric surfaced on the gallery page for the selected display method.",
-            "value": "0.289 s",
+            "value": "0.575 s",
+            "source": "docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_dupuit_fixed_head_modflow6_summary.json"
+          },
+          {
+            "field": "mean_candidate_output_selection_time_seconds",
+            "meaning": "Metric surfaced on the gallery page for the selected display method.",
+            "value": "0 s",
+            "source": "docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_dupuit_fixed_head_modflow6_summary.json"
+          },
+          {
+            "field": "mean_candidate_objective_compute_time_seconds",
+            "meaning": "Metric surfaced on the gallery page for the selected display method.",
+            "value": "0 s",
             "source": "docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_dupuit_fixed_head_modflow6_summary.json"
           }
         ]

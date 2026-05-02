@@ -1,0 +1,49 @@
+{
+  "_schema_version": "1.0",
+  "intercomparison_expected": {
+    "signature_schema_version": "intercomparison_signature_v1",
+    "metrics_schema_version": "simulation_comparison_metrics_v1",
+    "audit_schema_version": "simulation_comparison_audit_v1",
+    "comparison_id": "dupuit_mf6_vs_bouss",
+    "reference_variant": "mf6_ref",
+    "audit_status": "pass",
+    "summary": {
+      "bouss_candidate::head_east_last": {
+        "unit": "m",
+        "n_pairs": 1,
+        "bias": 0.0024757414105884834,
+        "mae": 0.0024757414105884834,
+        "rmse": 0.0024757414105884834,
+        "max_abs_error": 0.0024757414105884834,
+        "mean_relative_error": 0.0002889657764801688
+      },
+      "bouss_candidate::head_map_last": {
+        "unit": "m",
+        "n_pairs": 176,
+        "bias": -0.006722690054796431,
+        "mae": 0.01772674033495538,
+        "rmse": 0.023497269080101076,
+        "max_abs_error": 0.09245819765776364,
+        "mean_relative_error": 0.002389144615161803
+      },
+      "bouss_candidate::head_middle_last": {
+        "unit": "m",
+        "n_pairs": 1,
+        "bias": 0.0017847419116527874,
+        "mae": 0.0017847419116527874,
+        "rmse": 0.0017847419116527874,
+        "max_abs_error": 0.0017847419116527874,
+        "mean_relative_error": 0.0002074818717177927
+      },
+      "bouss_candidate::head_west_last": {
+        "unit": "m",
+        "n_pairs": 1,
+        "bias": 1.921207029020877e-05,
+        "mae": 1.921207029020877e-05,
+        "rmse": 1.921207029020877e-05,
+        "max_abs_error": 1.921207029020877e-05,
+        "mean_relative_error": 1.9753848821423123e-06
+      }
+    }
+  }
+}

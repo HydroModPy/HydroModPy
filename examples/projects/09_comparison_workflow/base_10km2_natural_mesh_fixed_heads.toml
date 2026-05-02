@@ -1,0 +1,80 @@
+workflow = "simulation"
+
+[workspace]
+project_root = "outputs/10km2_natural_mesh_fixed_heads/workspace"
+root = "../../"
+
+[simulation]
+name = "10km2_natural_mesh_fixed_heads_shared_case"
+description = "Reduced steady-flow case on a precomputed 10 km2 natural triangular mesh."
+on_collision = "replace"
+
+[simulation.time]
+start_datetime = "2020-01-01 00:00:00"
+end_datetime = "2020-12-31 00:00:00"
+step_value = "1 year"
+coverage_policy = "warn"
+
+[[simulation.process]]
+id = "flow_main"
+type = "flow"
+solvers = ["modflow6"]
+
+[geographic]
+source_mode = "synthetic"
+
+[geographic.synthetic]
+case_id = "s3_10km2_natural_mesh_support"
+
+[geographic.synthetic.grid]
+length_x = "7725.0 m"
+length_y = "6525.0 m"
+nx = 103
+ny = 87
+xmin = 461737.5
+ymin = 6863512.5
+crs = "EPSG:2154"
+
+[geographic.synthetic.topography]
+kind = "linear"
+base_elevation = 200.0
+right_to_left_amplitude = 40.0
+
+[domain]
+
+[domain.depth_model]
+type = "constant_thickness"
+thickness = "50.0 m"
+
+[flow]
+flow_regime = "steady"
+active_sinks_sources = []
+active_bc = ["west_side", "east_side"]
+param_list = ["K"]
+
+[flow.param.K.field]
+id = "K"
+kind = "homogeneous"
+unit = "m/s"
+
+[flow.param.K.field_homogeneous]
+value = "1e-5 m/s"
+
+[flow.ic]
+type = "custom"
+value = "190.0 m"
+
+[flow.bc.dirichlet.west_side]
+type = "dirichlet"
+value = "210.0 m"
+
+[flow.bc.dirichlet.east_side]
+type = "dirichlet"
+value = "170.0 m"
+
+[mesh_input]
+mesh_path = "../07_mesh_gallery/10km2/mesh_s3_10km2_outlet_1_geology_rivers_buffer30/bundle/mesh_2d.msh"
+bundle_dir = "../07_mesh_gallery/10km2/mesh_s3_10km2_outlet_1_geology_rivers_buffer30/bundle"
+
+[display]
+enabled = false

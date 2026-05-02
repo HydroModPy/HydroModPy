@@ -11,12 +11,6 @@ This case compares MODFLOW 6 and MODFLOW-NWT on the exact same 60x60 structured 
 .. seealso::
    Read :doc:`the gallery and validation reading guide </getting_started/reading-results-pages>` if you want the parameter mapping, a recommended reading order, and the first modifications to try.
 
-.. figure:: /_static/capability_gallery/method_comparison/ex12_mf6_nwt_moderate_same_s60.png
-   :alt: Method comparison summary for MF6 vs NWT on the Same 60x60 Grid
-   :width: 100%
-
-   Summary comparison figure for mf6 vs nwt on the same 60x60 grid.
-
 Case Setup
 ----------
 
@@ -31,6 +25,13 @@ What It Shows
 - How point chronicles, outlet flux, map snapshots, and native flux panels complement one another on the same benchmark.
 - How execution-time bars look when the comparison does not mix structured and triangular supports.
 
+Key Parameters
+--------------
+
+- Support equality is the main control knob here: both variants use the same `mesh_label = "sgrid_60x60"`, so disagreements are not attributable to a mesh-family change.
+- `run_method_comparison_mf6_vs_nwt_same_regular_mesh_moderate.toml` selects the observables that stay comparable across the two MODFLOW families.
+- Use the outlet-flux and native-flux observables together: the outlet curve shows integrated export, while the native panels reveal how each code reports internal drainage/accumulation terms.
+
 How To Read It
 --------------
 
@@ -38,23 +39,24 @@ How To Read It
 - Then inspect the flux and execution-time observables to see whether numerical agreement and runtime cost move together or not.
 - If a discrepancy looks large, do not blame the mesh first: this page is intentionally built to remove that degree of freedom.
 
-Key Metrics
------------
+Local Regeneration Note
+-----------------------
 
-- Depth Last RMSE: 4.764 m
-- Depth Last MAE: 4.097 m
-- Head Last RMSE: 3.54 m
-- Head Last MAE: 2.871 m
-- Head Mid Basin Response RMSE: 0.7798 m
-- Head Mid Basin Response MAE: 0.4077 m
-- Head Outlet Lowland RMSE: 0.552 m
-- Head Outlet Lowland MAE: 0.2452 m
-- Head Upstream Ridge RMSE: 1.072 m
-- Head Upstream Ridge MAE: 0.5974 m
-- Outflow Drain Last RMSE: 2.668e-05 m/day
-- Outflow Drain Last MAE: 1.738e-05 m/day
-- Outlet Flux Series RMSE: 3.047e-05 m3/s
-- Outlet Flux Series MAE: 1.634e-05 m3/s
+This local checkout cannot fully rebuild the original gallery artefacts for this case because one or more legacy source files are not present.
+
+The page is still generated so that the capability-gallery structure, cross-links, and reading guides remain valid during a full documentation rebuild.
+
+Reason: The method-comparison config and committed comparison artifacts needed to regenerate this page are not available in the current checkout.
+
+Missing Local Inputs
+--------------------
+
+- ``examples_legacy_2/projects/launcher_simulation/run_method_comparison_mf6_vs_nwt_same_regular_mesh_moderate.toml``
+- ``examples_legacy_2/projects/launcher_simulation/run_demonstrative_annual_moderate_mf6_structured.toml``
+- ``examples_legacy_2/projects/launcher_simulation/run_demonstrative_annual_moderate_nwt.toml``
+- ``examples_legacy_2/projects/launcher_simulation/method_comparison/ex12_mf6_nwt_moderate_same_s60/comparison_manifest.json``
+- ``examples_legacy_2/projects/launcher_simulation/method_comparison/ex12_mf6_nwt_moderate_same_s60/comparison_metrics.json``
+- ``examples_legacy_2/projects/launcher_simulation/method_comparison/ex12_mf6_nwt_moderate_same_s60/observables.csv``
 
 Next Steps
 ----------
@@ -69,7 +71,7 @@ Run the underlying example or validation case with:
 
 .. code-block:: bash
 
-   python -m tools.doc_gallery
+   python -m hydromodpy run examples_legacy_2/projects/launcher_simulation/run_method_comparison_mf6_vs_nwt_same_regular_mesh_moderate.toml
 
 Refresh the committed gallery artifacts with:
 
@@ -77,114 +79,17 @@ Refresh the committed gallery artifacts with:
 
    python -m tools.doc_gallery
 
-Case Parameters
----------------
-
-Comparison Setup
-^^^^^^^^^^^^^^^^
-
-.. list-table::
-   :header-rows: 1
-   :widths: 26 42 20 12
-
-   * - Field
-     - Meaning
-     - Value
-     - Source
-   * - ``[method_comparison] comparison_id``
-     - Stable identifier used to collect outputs and summary artifacts for the comparison.
-     - ex12_mf6_nwt_moderate_same_s60
-     - ``docs/readthedocs/source/_static/capability_gallery/method_comparison/ex12_mf6_nwt_moderate_same_s60_summary.json``
-   * - ``[method_comparison] reference_variant``
-     - Variant used as the baseline when computing map-wise differences and error metrics.
-     - mf6_mod_s60
-     - ``docs/readthedocs/source/_static/capability_gallery/method_comparison/ex12_mf6_nwt_moderate_same_s60_summary.json``
-   * - ``[method_comparison] run_variants``
-     - Whether the launcher reruns the variants or only reuses committed run folders.
-     - true
-     - ``docs/readthedocs/source/_static/capability_gallery/method_comparison/ex12_mf6_nwt_moderate_same_s60_summary.json``
-   * - ``study_area``
-     - Study area summarized by the gallery page for this comparison case.
-     - Example12 / Naizin
-     - ``docs/readthedocs/source/_static/capability_gallery/method_comparison/ex12_mf6_nwt_moderate_same_s60_summary.json``
-
-Compared Variants
-^^^^^^^^^^^^^^^^^
-
-.. list-table::
-   :header-rows: 1
-   :widths: 26 42 20 12
-
-   * - Field
-     - Meaning
-     - Value
-     - Source
-   * - ``variant.mf6_mod_s60``
-     - Compared run folder and solver definition used by the method-comparison launcher.
-     - MF6 annual moderate on 60x60 structured grid; solver=modflow6; mesh_mode=structured; run_folder=None
-     - ``docs/readthedocs/source/_static/capability_gallery/method_comparison/ex12_mf6_nwt_moderate_same_s60_summary.json``
-   * - ``variant.nwt_mod_s60``
-     - Compared run folder and solver definition used by the method-comparison launcher.
-     - NWT annual moderate on 60x60 structured grid; solver=modflownwt; mesh_mode=structured; run_folder=None
-     - ``docs/readthedocs/source/_static/capability_gallery/method_comparison/ex12_mf6_nwt_moderate_same_s60_summary.json``
-
-Compared Observables
-^^^^^^^^^^^^^^^^^^^^
-
-.. list-table::
-   :header-rows: 1
-   :widths: 26 42 20 12
-
-   * - Field
-     - Meaning
-     - Value
-     - Source
-   * - ``observable.head_outlet_lowland``
-     - Observable extracted from each run before parity plots and difference metrics are computed.
-     - variable=watertable_elevation; support=point; time=all; unit=m
-     - ``docs/readthedocs/source/_static/capability_gallery/method_comparison/ex12_mf6_nwt_moderate_same_s60_summary.json``
-   * - ``observable.head_mid_basin_response``
-     - Observable extracted from each run before parity plots and difference metrics are computed.
-     - variable=watertable_elevation; support=point; time=all; unit=m
-     - ``docs/readthedocs/source/_static/capability_gallery/method_comparison/ex12_mf6_nwt_moderate_same_s60_summary.json``
-   * - ``observable.head_upstream_ridge``
-     - Observable extracted from each run before parity plots and difference metrics are computed.
-     - variable=watertable_elevation; support=point; time=all; unit=m
-     - ``docs/readthedocs/source/_static/capability_gallery/method_comparison/ex12_mf6_nwt_moderate_same_s60_summary.json``
-   * - ``observable.outlet_flux_series``
-     - Observable extracted from each run before parity plots and difference metrics are computed.
-     - variable=outlet_flux; support=outlet; time=all; unit=m3/s
-     - ``docs/readthedocs/source/_static/capability_gallery/method_comparison/ex12_mf6_nwt_moderate_same_s60_summary.json``
-   * - ``observable.head_map_last``
-     - Observable extracted from each run before parity plots and difference metrics are computed.
-     - variable=watertable_elevation; support=map; time=last; unit=m
-     - ``docs/readthedocs/source/_static/capability_gallery/method_comparison/ex12_mf6_nwt_moderate_same_s60_summary.json``
-   * - ``observable.depth_map_last``
-     - Observable extracted from each run before parity plots and difference metrics are computed.
-     - variable=watertable_depth; support=map; time=last; unit=m
-     - ``docs/readthedocs/source/_static/capability_gallery/method_comparison/ex12_mf6_nwt_moderate_same_s60_summary.json``
-   * - ``observable.outflow_drain_map_last``
-     - Observable extracted from each run before parity plots and difference metrics are computed.
-     - variable=outflow_drain; support=map; time=last; unit=m/day
-     - ``docs/readthedocs/source/_static/capability_gallery/method_comparison/ex12_mf6_nwt_moderate_same_s60_summary.json``
-
 Source Pointers
 ---------------
 
-- ``docs/readthedocs/source/_static/capability_gallery/method_comparison/ex12_mf6_nwt_moderate_same_s60_summary.json``
-- ``docs/readthedocs/source/_static/capability_gallery/method_comparison/ex12_mf6_nwt_moderate_same_s60_summary.json``
-- ``docs/readthedocs/source/_static/capability_gallery/method_comparison/ex12_mf6_nwt_moderate_same_s60_summary.json``
-- ``docs/readthedocs/source/_static/capability_gallery/method_comparison/ex12_mf6_nwt_moderate_same_s60_summary.json``
-- ``docs/readthedocs/source/_static/capability_gallery/method_comparison/ex12_mf6_nwt_moderate_same_s60_summary.json``
-- ``docs/readthedocs/source/_static/capability_gallery/method_comparison/ex12_mf6_nwt_moderate_same_s60_summary.json``
+- ``examples_legacy_2/projects/launcher_simulation/run_method_comparison_mf6_vs_nwt_same_regular_mesh_moderate.toml``
+- ``examples_legacy_2/projects/launcher_simulation/run_demonstrative_annual_moderate_mf6_structured.toml``
+- ``examples_legacy_2/projects/launcher_simulation/run_demonstrative_annual_moderate_nwt.toml``
+- ``examples_legacy_2/projects/launcher_simulation/method_comparison/ex12_mf6_nwt_moderate_same_s60/comparison_manifest.json``
+- ``examples_legacy_2/projects/launcher_simulation/method_comparison/ex12_mf6_nwt_moderate_same_s60/comparison_metrics.json``
+- ``examples_legacy_2/projects/launcher_simulation/method_comparison/ex12_mf6_nwt_moderate_same_s60/observables.csv``
 
 Artifacts
 ---------
 
-- ``docs/readthedocs/source/_static/capability_gallery/method_comparison/ex12_mf6_nwt_moderate_same_s60.png``
-- ``docs/readthedocs/source/_static/capability_gallery/method_comparison/ex12_mf6_nwt_moderate_same_s60_comparison_manifest.json``
-- ``docs/readthedocs/source/_static/capability_gallery/method_comparison/ex12_mf6_nwt_moderate_same_s60_comparison_metrics.json``
-- ``docs/readthedocs/source/_static/capability_gallery/method_comparison/ex12_mf6_nwt_moderate_same_s60_observables.csv``
-- ``docs/readthedocs/source/_static/capability_gallery/method_comparison/ex12_mf6_nwt_moderate_same_s60_summary_metrics.csv``
-- ``docs/readthedocs/source/_static/capability_gallery/method_comparison/ex12_mf6_nwt_moderate_same_s60_difference_metrics.csv``
 - ``docs/readthedocs/source/_static/capability_gallery/method_comparison/ex12_mf6_nwt_moderate_same_s60_summary.json`` stores the displayed metrics plus source hashes used by ``python -m tools.doc_gallery --check``.

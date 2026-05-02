@@ -1,0 +1,91 @@
+# Nightly refresh of the generated artifacts committed for the Read the Docs
+# project. The workflow recomputes the versioned reports and capability-gallery
+# inputs, verifies that Sphinx still builds, then pushes only the generated
+# artifacts back to the target branch. Read the Docs rebuilds online docs from
+# that new commit.
+#
+# Important: hosted CI runners are acceptable for structural artifacts, but
+# runtime-sensitive figures (for example wall-clock comparisons) will be more
+# stable on a dedicated self-hosted machine. If needed, replace `ubuntu-latest`
+# below with a self-hosted label that matches your reference workstation.
+
+name: Docs Nightly Refresh
+
+on:
+  schedule:
+    - cron: "30 1 * * *"
+  workflow_dispatch:
+
+concurrency:
+  group: docs-nightly-refresh
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+env:
+  MPLBACKEND: Agg
+
+jobs:
+  refresh-generated-docs:
+    name: Refresh docs artifacts on ${{ matrix.target_branch }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 240
+    strategy:
+      fail-fast: false
+      matrix:
+        target_branch: [dev, master]
+
+    steps:
+      - name: Check out target branch
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ matrix.target_branch }}
+          fetch-depth: 0
+
+      - name: Set up Miniforge
+        uses: conda-incubator/setup-miniconda@v3
+        with:
+          miniforge-version: latest
+          activate-environment: hydromodpy-docs
+          auto-activate-base: false
+          environment-file: install/env_hydromodpy.yml
+          channels: conda-forge
+          channel-priority: strict
+
+      - name: Install package and docs dependencies
+        shell: bash -el {0}
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e .
+          python -m pip install -r docs/readthedocs/readthedocs_requirements.txt
+
+      - name: Refresh committed docs artifacts
+        shell: bash -el {0}
+        run: |
+          python -m tools.refresh_readthedocs --install-solver-binaries
+
+      - name: Verify refresh touched only generated docs artifacts
+        shell: bash -el {0}
+        run: |
+          python -m tools.verify_docs_refresh_outputs
+
+      - name: Commit refreshed artifacts
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git add \
+            docs/readthedocs/source/capability_gallery \
+            docs/readthedocs/source/_static/capability_gallery \
+            validation_cases/reports/latest \
+            tools/doc_gallery/manifests/xt3d_irregular_tri_method_choice_report.json
+
+          if git diff --cached --quiet; then
+            echo "No generated docs changes to commit on ${{ matrix.target_branch }}."
+            exit 0
+          fi
+
+          git commit -m "docs: nightly refresh generated artifacts"
+          git push origin HEAD:${{ matrix.target_branch }}

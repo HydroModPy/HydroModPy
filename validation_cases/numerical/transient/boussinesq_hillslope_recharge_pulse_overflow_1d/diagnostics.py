@@ -15,6 +15,7 @@ from hydromodpy.physics.flow.history_contract import (
 from validation_cases.shared import (
     ValidationRunResult,
     load_case_metadata,
+    load_npy_time_series_arrays,
 )
 from validation_cases.shared.boussinesq_budget import (
     compute_free_control_volume_budget,
@@ -180,22 +181,33 @@ def _topography_profile(x_m: np.ndarray, *, geometry_cfg: dict[str, object]) -> 
     )
 
 
-def _infer_structured_shape(
+def _resolve_mean_head_profiles_m(
     *,
-    head_history_m: np.ndarray,
+    result: ValidationRunResult,
+    state_history: dict[str, np.ndarray],
+    cell_x_m: np.ndarray,
     cell_y_m: np.ndarray,
-    geometry_cfg: dict[str, object],
-) -> tuple[int, int]:
-    """Infer the effective structured aggregation shape from the run outputs."""
-    n_cells = int(np.asarray(head_history_m, dtype=float).shape[1])
-    unique_y = np.unique(np.round(np.asarray(cell_y_m, dtype=float), decimals=9))
-    ny = int(unique_y.size)
-    nx = n_cells // ny if ny > 0 and n_cells % ny == 0 else 0
-    if nx <= 0:
-        nx = int(geometry_cfg["nx"])
-    if ny <= 0:
-        ny = int(geometry_cfg["ny"])
-    return nx, ny
+    nx: int,
+    ny: int,
+    length_x_m: float,
+    width_y_m: float,
+) -> np.ndarray:
+    """Return one time-x mean head matrix aligned with Boussinesq snapshots."""
+    head_history = np.asarray(state_history.get("head_history_m", ()), dtype=float)
+    if head_history.ndim == 2 and head_history.size > 0:
+        head_grid_m = aggregate_cell_history_to_grid(
+            head_history,
+            cell_x_m=cell_x_m,
+            cell_y_m=cell_y_m,
+            nx=nx,
+            ny=ny,
+            length_x_m=length_x_m,
+            width_y_m=width_y_m,
+        )
+        return np.mean(head_grid_m, axis=1)
+
+    _, heads = load_npy_time_series_arrays(result.postprocess_dir, "watertable_elevation")
+    return np.mean(np.asarray(heads, dtype=float), axis=1)
 
 
 def _resolve_recharge_series_mm_day(
@@ -267,17 +279,14 @@ def build_hillslope_overflow_diagnostics(
 
     bundle_dir = result.out_path / "mesh_bundle"
     cell_x_m, cell_y_m, cell_area_m2 = _load_cell_geometry(bundle_dir)
-    head_history_m = np.asarray(state_history["head_history_m"], dtype=float)
-    nx, ny = _infer_structured_shape(
-        head_history_m=head_history_m,
-        cell_y_m=cell_y_m,
-        geometry_cfg=geometry_cfg,
-    )
+    nx = int(geometry_cfg["nx"])
+    ny = int(geometry_cfg["ny"])
     length_x_m = float(geometry_cfg["length_x_m"])
     width_y_m = float(geometry_cfg["width_y_m"])
     x_m = (np.arange(nx, dtype=float) + 0.5) * (length_x_m / float(nx))
-    head_grid_m = aggregate_cell_history_to_grid(
-        head_history_m,
+    mean_head_profiles_m = _resolve_mean_head_profiles_m(
+        result=result,
+        state_history=state_history,
         cell_x_m=cell_x_m,
         cell_y_m=cell_y_m,
         nx=nx,
@@ -285,7 +294,6 @@ def build_hillslope_overflow_diagnostics(
         length_x_m=length_x_m,
         width_y_m=width_y_m,
     )
-    mean_head_profiles_m = np.mean(head_grid_m, axis=1)
     topography_profile_m = _topography_profile(x_m, geometry_cfg=geometry_cfg)
     mean_head_clearance_m = mean_head_profiles_m - topography_profile_m[None, :]
 

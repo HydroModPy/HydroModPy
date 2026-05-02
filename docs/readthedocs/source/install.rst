@@ -139,8 +139,9 @@ that matches your workflow.
 
    .. tab-item:: Conda (Editable stack)
 
-      Sets up the same environment but finishes with ``pip install -e ..`` so
-      the cloned repository stays importable everywhere.
+      Sets up the same environment but finishes with
+      ``pip install -e "..[docs]"`` so the cloned repository stays importable
+      everywhere and the Sphinx extension stack is ready for local doc builds.
 
       .. code-block:: bash
 
@@ -148,8 +149,8 @@ that matches your workflow.
          conda activate <env>-pkg
 
       Run the commands from the repository root (``install/`` sits at the top
-      level) so the relative ``pip install -e ..`` executed by the YAML file can
-      reach the project.
+      level) so the relative ``pip install -e "..[docs]"`` executed by the YAML
+      file can reach the project.
 
    .. tab-item:: Conda (Light editable stack)
 
@@ -162,8 +163,8 @@ that matches your workflow.
          conda activate <env>-light
 
       As with the other editable recipe, run the command from the repository
-      root so the relative ``pip install -e ..`` in the YAML file resolves back
-      to ``HydroModPy/``.
+      root so the relative ``pip install -e "..[docs]"`` in the YAML file
+      resolves back to ``HydroModPy/``.
 
 Command recipes
 ---------------
@@ -189,7 +190,7 @@ environment name, set ``<py>`` to the desired Python version (3.11-3.13), and sw
 
    .. code-block:: bash
 
-      # Clone + editable stack (adds pip install -e ..)
+      # Clone + editable stack (adds pip install -e "..[docs]")
       git clone https://github.com/HydroModPy/HydroModPy.git && cd HydroModPy && conda env create -n <env>-pkg -f install/env_hydromodpy_pkg.yml && conda activate <env>-pkg
 
    .. code-block:: bash

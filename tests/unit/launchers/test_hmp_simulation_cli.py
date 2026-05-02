@@ -218,11 +218,34 @@ def test_hmp_run_crashes_when_workflow_field_missing(monkeypatch, tmp_path) -> N
     assert exc_info.value.code == EXIT_CONFIG
 
 
+def test_hmp_run_dispatches_comparison_workflow(monkeypatch, tmp_path) -> None:
+    """``hmp run`` with workflow=comparison dispatches to run_comparison."""
+    config = _write_toml(
+        tmp_path / "comparison.toml",
+        'workflow = "comparison"\n[comparison]\nbase_simulation_config = "base.toml"\n',
+    )
+
+    captured: dict = {}
+
+    def fake_run(config_path):
+        captured["config_path"] = Path(config_path)
+        captured["run_called"] = True
+        return {"mode": "comparison"}
+
+    monkeypatch.setitem(workflow_dispatch.DISPATCH, "comparison", fake_run)
+    monkeypatch.setattr("sys.argv", ["hmp", "run", str(config)])
+
+    main()
+
+    assert captured["config_path"] == config.resolve()
+    assert captured["run_called"] is True
+
+
 def test_hmp_run_crashes_on_unknown_workflow_value(monkeypatch, tmp_path) -> None:
-    """``hmp run`` rejects a workflow value outside the Literal set."""
+    """``hmp run`` rejects a workflow value outside the known set."""
     config = _write_toml(
         tmp_path / "bad_workflow.toml",
-        'workflow = "comparison"\n[workspace]\nproject_root = "."\n',
+        'workflow = "not_a_workflow"\n[workspace]\nproject_root = "."\n',
     )
     monkeypatch.setattr("sys.argv", ["hmp", "run", str(config)])
 

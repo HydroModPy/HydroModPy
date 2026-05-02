@@ -277,7 +277,17 @@ def _write_head_snapshots_figure(
     output_png.parent.mkdir(parents=True, exist_ok=True)
     output_png.unlink(missing_ok=True)
     ordered = list(results)
-    snapshot_idx = _select_snapshot_indices(ordered[0].diagnostics.elapsed_days, SNAPSHOT_DAYS)
+    first = ordered[0].diagnostics
+    n_available = min(
+        int(np.asarray(first.elapsed_days, dtype=float).size),
+        int(np.asarray(first.mean_head_profiles_m, dtype=float).shape[0]),
+    )
+    if n_available <= 0:
+        raise ValueError("Head snapshot figure requires at least one aligned head profile.")
+    snapshot_idx = _select_snapshot_indices(
+        np.asarray(first.elapsed_days, dtype=float)[:n_available],
+        SNAPSHOT_DAYS,
+    )
     colors = plt.cm.cividis(np.linspace(0.12, 0.88, len(snapshot_idx)))
 
     fig, axes = plt.subplots(
@@ -287,6 +297,9 @@ def _write_head_snapshots_figure(
         axes = [axes]
     for ax, item in zip(axes, ordered, strict=False):
         diagnostics = item.diagnostics
+        head_profiles = np.asarray(diagnostics.mean_head_profiles_m, dtype=float)
+        elapsed_days = np.asarray(diagnostics.elapsed_days, dtype=float)
+        n_profiles = min(int(head_profiles.shape[0]), int(elapsed_days.size))
         ax.plot(
             diagnostics.x_m,
             diagnostics.topography_profile_m,
@@ -296,12 +309,14 @@ def _write_head_snapshots_figure(
             label="Topography",
         )
         for color, idx in zip(colors, snapshot_idx, strict=False):
+            if idx >= n_profiles:
+                continue
             ax.plot(
                 diagnostics.x_m,
-                diagnostics.mean_head_profiles_m[idx],
+                head_profiles[idx],
                 color=color,
                 linewidth=1.9,
-                label=f"t={diagnostics.elapsed_days[idx]:.0f} d",
+                label=f"t={elapsed_days[idx]:.0f} d",
             )
         ax.set_ylabel("Head [m]")
         ax.set_title(diagnostics.solver_label, fontsize=10.5)

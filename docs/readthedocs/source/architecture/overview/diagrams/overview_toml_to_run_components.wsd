@@ -1,0 +1,66 @@
+@startuml
+title HydroModPy Overview - TOML to Run Component Diagram
+left to right direction
+skinparam componentStyle rectangle
+skinparam wrapWidth 160
+skinparam maxMessageSize 160
+
+package "User entry points" {
+  component "TOML configuration" as Toml
+  component "CLI workflows\nhmp run / overview / mesh / calibration" as Cli
+  component "Python API\nProject(...)" as PythonApi
+}
+
+package "Facade and planning" {
+  component "Project\npublic facade" as Project
+  component "SimulationPlanner" as Planner
+  component "SimulationPlan\nProcessRun..." as Plan
+  component "Pipeline\nstep orchestration" as Pipeline
+}
+
+package "Input data loading" {
+  component "DataLoadPlan" as DataLoadPlan
+  component "Variable / Manager layer" as Managers
+  component "Sources\nAPIs / files / custom" as Sources
+  database "DataCatalogDuckDB\ninput cache" as DataCatalog
+}
+
+package "Solver execution" {
+  component "SimulationRunner" as SimulationRunner
+  component "SolverAdapter registry" as AdapterRegistry
+  component "Concrete solver\nMODFLOW-NWT / MODFLOW 6 /\nBoussinesq" as Solver
+}
+
+package "Persistence and reading" {
+  database "SimulationCatalog" as SimulationCatalog
+  component "Run\nread handle" as Run
+}
+
+Toml --> Cli : selects workflow
+Toml --> PythonApi : provides config
+Cli --> Project : load + dispatch
+PythonApi --> Project : instantiate + run
+
+Project --> Planner : build plan
+Planner --> Plan
+Plan --> Pipeline : logical schedule
+
+Project --> DataLoadPlan : resolve input needs
+DataLoadPlan --> Managers
+Managers --> Sources
+Managers --> DataCatalog : read/write cache
+DataCatalog --> Managers : cached inputs
+Managers --> Pipeline : normalized runtime inputs
+
+Project --> Pipeline : execute phases
+Pipeline --> SimulationRunner : dispatch ProcessRun
+SimulationRunner --> AdapterRegistry : resolve adapter
+AdapterRegistry --> Solver
+
+Solver --> SimulationCatalog : persist outputs
+Pipeline --> SimulationCatalog : ingest metadata\nand derived artifacts
+Project --> SimulationCatalog : register run
+
+SimulationCatalog --> Run : reopen persisted result
+Project --> Run : return handle
+@enduml

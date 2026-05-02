@@ -101,10 +101,10 @@ Solver Coverage
          Linearized Unconfined Hillslope Drainage 1D rendered with MODFLOW 6 irregular triangles for the analytical gallery.
 
       **Metrics**
-      - Head-profile RMSE: 0.0111 m
-      - Head-profile max abs error: 0.0246 m
+      - Head-profile RMSE: 0.0203 m
+      - Head-profile max abs error: 0.0320 m
       - Cross-row head spread: 8.88e-16 m
-      - Min numerical clearance above topography: 0.0977 m
+      - Min numerical clearance above topography: 0.0801 m
 
       - Config file: ``validation_cases/analytical/steady/linearized_unconfined_hillslope_drainage_1d/config_modflow6_irregular_tri.toml``
       - Tolerances: ``validation_cases/analytical/steady/linearized_unconfined_hillslope_drainage_1d/tolerances.toml``

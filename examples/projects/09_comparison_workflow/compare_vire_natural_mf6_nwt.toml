@@ -1,0 +1,96 @@
+workflow = "comparison"
+
+[comparison]
+comparison_id = "vire_natural_mf6_vs_nwt"
+base_simulation_config = "base_vire_natural_structured_steady.toml"
+output_root = "outputs/vire_natural_mf6_vs_nwt"
+reference_simulation = "mf6_ref"
+continue_on_error = false
+
+[comparison.execution]
+backend = "subprocess_hmp_run"
+max_parallel_runs = 1
+run_simulations = true
+keep_generated_configs = true
+
+[comparison.audit]
+mode = "strict_same_case"
+on_mismatch = "warn"
+
+[comparison.fine_raster]
+enabled = true
+resolution = 500.0
+extent_mode = "intersection"
+interpolation = "linear"
+write_geotiff = false
+
+[[comparison.simulation]]
+id = "mf6_ref"
+label = "MODFLOW 6 natural reference"
+solver = "modflow6"
+mesh_label = "Vire structured 40x40"
+mesh_mode = "structured"
+
+[comparison.simulation.overlay.modflow6.runtime]
+mf6_ims_complexity = "COMPLEX"
+mf6_outer_dvclose = 0.0001
+mf6_inner_dvclose = 0.0001
+mf6_outer_maximum = 500
+mf6_inner_maximum = 500
+mf6_enable_rewet = false
+
+[comparison.simulation.overlay.modflow6.sgrid.planar]
+mode = "resample_to_shape"
+nx = 40
+ny = 40
+resampling = "nearest"
+
+[comparison.simulation.overlay.modflow6.sgrid.vertical]
+nlay = 1
+
+[[comparison.simulation]]
+id = "nwt_candidate"
+label = "MODFLOW-NWT natural candidate"
+solver = "modflownwt"
+mesh_label = "Vire structured 40x40"
+mesh_mode = "structured"
+
+[comparison.simulation.overlay.modflownwt.runtime]
+mf_version = "mfnwt"
+nwt_headtol = 1e-6
+nwt_fluxtol = 1e-4
+nwt_maxiterout = 500
+nwt_options = "SIMPLE"
+nwt_continue = false
+dis_itmuni = 1
+bas_hnoflo = -9999.0
+upw_iphdry = 1
+upw_hdry = -100.0
+upw_layvka = 1
+evt_nevtop = 3
+evt_ievt = 1
+evt_ipakcb = 1
+oc_compact = true
+wel_ipakcb = 1
+
+[comparison.simulation.overlay.modflownwt.sgrid.planar]
+mode = "resample_to_shape"
+nx = 40
+ny = 40
+resampling = "nearest"
+
+[comparison.simulation.overlay.modflownwt.sgrid.vertical]
+nlay = 1
+
+[comparison.simulation.overlay.modflownwt.tgrid]
+itmuni = "days"
+genmtd = "synthetic_regular"
+nper = 1
+lenper = 1.0
+
+[[comparison.observable]]
+name = "head_map_last"
+variable = "watertable_elevation"
+support = "map"
+time = "last"
+unit = "m"

@@ -50,22 +50,22 @@
     "validation_cases/shared/boussinesq_uniform_strip.py"
   ],
   "source_hashes": {
-    "validation_cases/README.md": "55c78d50160086ae953092b98a464b1b2e5b1249064486a058d719d61533a6d9",
-    "validation_cases/analytical/steady/dupuit_uniform_recharge_1d/README.md": "6ac185d60659f416b0ad2c685f7166ab04b9a22880f591a1b1d93d49b95349b4",
-    "validation_cases/analytical/steady/dupuit_uniform_recharge_1d/reference.py": "57ba602b730b954b1948abd726c2e3b19dac6446e2a21220c6a5123b6406a104",
-    "validation_cases/analytical/steady/dupuit_uniform_recharge_1d/comparison.py": "e631575490210eb36c0639a84270f9f5f4b45541991331690bcfb67c3e0eeaa0",
-    "validation_cases/analytical/steady/dupuit_uniform_recharge_1d/plotting.py": "3c589e57b141c5aec2a64830cf3a9b56778532aa8607b6f16091863a1ab8321d",
-    "validation_cases/analytical/steady/dupuit_uniform_recharge_1d/run_case.py": "45891f398b75540747cf0143db0ea99a09919f36344969176f1182cd08791010",
-    "validation_cases/analytical/steady/dupuit_uniform_recharge_1d/metadata.toml": "2805728c9d07ad7925c9ebe77c177d7adcdc626eabad2c16a4e03abca1eec6bf",
-    "validation_cases/analytical/steady/dupuit_uniform_recharge_1d/config_modflownwt.toml": "f189721c7182d2ab246bd8a8096d96e242eb30895a7b0809e374ccde7a74176f",
-    "validation_cases/analytical/steady/dupuit_uniform_recharge_1d/runtime_boussinesq.py": "4203d0d1e3ae26c4dbeaebdd8ee99e0ead242328f268daa3412cc72fe38a8925",
-    "validation_cases/analytical/steady/dupuit_uniform_recharge_1d/tolerances.toml": "3c7cdd060951dd9c33b5084475beac18c7b981d342f9d63eca2583e1b9c2fec8",
-    "validation_cases/analytical/steady/dupuit_uniform_recharge_1d/tolerances_modflow6.toml": "0edc932a6d863e79dfa07815f8fd8a04cf0734cbccf716bd8db22a27c7c0ebd5",
-    "validation_cases/analytical/steady/dupuit_uniform_recharge_1d/tolerances_modflow6_irregular_tri.toml": "0f6cd57e911acf8fc3f512df1b7df704e60bbfdd4d034e7e9b1590a0633c7b44",
-    "validation_cases/analytical/steady/dupuit_uniform_recharge_1d/config_modflow6.toml": "9a3a68ee60db0f7b112d7ea579603eb52e71ff6e57a577a8cc3ce42627bad368",
-    "validation_cases/analytical/steady/dupuit_uniform_recharge_1d/config_modflow6_irregular_tri.toml": "44bbb1355e7c1998a05f8b4db0b9272fdf1a68761e6b4aab002102dcdf8d9048",
-    "validation_cases/analytical/steady/dupuit_uniform_recharge_1d/config_boussinesq.toml": "bf9a68e7c1dca1d194187dc5584f7f51dc4243bfab5d762e437760d1a797434c",
-    "validation_cases/shared/boussinesq_uniform_strip.py": "90dc5f900e857a5d80f297c04debaa82e96c6d70754765ed46a48469fd2698a1"
+    "validation_cases/README.md": "1965de83b961f1ab4e38d8194d51342e1286d0c2e1b779188903b84e3fc26f1c",
+    "validation_cases/analytical/steady/dupuit_uniform_recharge_1d/README.md": "7d0a21ffdb686060872cd732662314197ad96afd06539b102b164cb89be4ba7c",
+    "validation_cases/analytical/steady/dupuit_uniform_recharge_1d/reference.py": "b80b2ceb1103fd6d517e87829417ea0b0d9cf1745deb7b5f259b8143ec187bd0",
+    "validation_cases/analytical/steady/dupuit_uniform_recharge_1d/comparison.py": "c500b445086bd1c41e603a86eb195f2e6d06d55bf1bc87e5fce0b97481f80965",
+    "validation_cases/analytical/steady/dupuit_uniform_recharge_1d/plotting.py": "943640af1826d74c59923d118bdd97ffb87c28d8b8356264b361f4ebc0d69427",
+    "validation_cases/analytical/steady/dupuit_uniform_recharge_1d/run_case.py": "94734f097ae3484b62e18928d7ef80204d784ffd8fbac813b9e72e4b0bfab15e",
+    "validation_cases/analytical/steady/dupuit_uniform_recharge_1d/metadata.toml": "9999a5d81556639f4e57c5d2fef4e8220db0bc6a6242a24c1616ef36310473e0",
+    "validation_cases/analytical/steady/dupuit_uniform_recharge_1d/config_modflownwt.toml": "75cec84ca54b7282be14d8a8145605aba7a8bf5d42791307520aff2a6cf0a514",
+    "validation_cases/analytical/steady/dupuit_uniform_recharge_1d/runtime_boussinesq.py": "f15827a5c4bd49825b9ba1d984fba672b2b19a8f98fcff87d5e8c38ed24f5ab6",
+    "validation_cases/analytical/steady/dupuit_uniform_recharge_1d/tolerances.toml": "23004e207bd274d4586d771374539e51526dbb3ccd6bdc67c5fcd2621b17e85b",
+    "validation_cases/analytical/steady/dupuit_uniform_recharge_1d/tolerances_modflow6.toml": "8fd46d87a1f394170401933d089cccd2ec1983e8330e9a6af088568d8c170b12",
+    "validation_cases/analytical/steady/dupuit_uniform_recharge_1d/tolerances_modflow6_irregular_tri.toml": "bd448644d2375d17b4d3f294b39a2763383a763bda4ab87d1a5f7ae94cac6a18",
+    "validation_cases/analytical/steady/dupuit_uniform_recharge_1d/config_modflow6.toml": "e668647e68535e36fad07cfad44315d3cdf951c3667fbd299c05faadb166252d",
+    "validation_cases/analytical/steady/dupuit_uniform_recharge_1d/config_modflow6_irregular_tri.toml": "d934aaecdc1f26f7a5d7f98a1da6a30950e5e208c46bc7c6744e2c0d281c4da8",
+    "validation_cases/analytical/steady/dupuit_uniform_recharge_1d/config_boussinesq.toml": "9ea33a84182c92308cbe72ca4ca15e61f54a9781219372f7c130345eaca4399f",
+    "validation_cases/shared/boussinesq_uniform_strip.py": "a6de8caacdd3701e729798a8bb45b68d84a48eef4b37e26997a29fccecea6a99"
   },
   "docname": "cases/dupuit_uniform_recharge_1d",
   "images": [
@@ -288,8 +288,8 @@
       "expected_output": "Expected shape: 5 x 40",
       "command": "python -m validation_cases.analytical.steady.dupuit_uniform_recharge_1d.run_case --no-show --solver modflow6_irregular_tri",
       "metric_lines": [
-        "Head-profile RMSE: 0.2333 m",
-        "Head-profile max abs error: 0.3250 m",
+        "Head-profile RMSE: 0.0295 m",
+        "Head-profile max abs error: 0.0464 m",
         "Cross-row head spread: 0.00e+00 m"
       ],
       "image": {

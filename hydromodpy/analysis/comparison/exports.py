@@ -3,20 +3,63 @@
 from __future__ import annotations
 
 import csv
+import json
 import math
 from collections.abc import Iterable, Mapping
 from pathlib import Path
+from types import SimpleNamespace
 from typing import TYPE_CHECKING, Any
 
 import numpy as np
 
 from hydromodpy.analysis.comparison.runtime_mesh import resolve_bundle_cells
 from hydromodpy.core.logging import get_logger
+from hydromodpy.core.toml_io.loader import load_toml_with_base_config
+from hydromodpy.core.units.scalar import parse_scalar_and_unit
+from hydromodpy.core.units.volumetric_flow import factor_to_m3_per_s
+from hydromodpy.physics.flow.history_contract import build_transient_time_axes
 
 if TYPE_CHECKING:
     from hydromodpy.results.catalog import SimulationCatalog
 
 logger = get_logger(__name__)
+
+HYDROGRAPHIC_NETWORK_METRICS_FIELDS = [
+    "comparison_id",
+    "variant_id",
+    "variant_label",
+    "solver",
+    "mesh_label",
+    "mesh_mode",
+    "sim_id",
+    "run_name",
+    "run_folder",
+    "reference_role",
+    "candidate_role",
+    "reference_feature_name",
+    "candidate_feature_name",
+    "tolerance_m",
+    "crs",
+    "reference_segment_count",
+    "candidate_segment_count",
+    "reference_matched_segment_count",
+    "reference_missing_segment_count",
+    "candidate_matched_segment_count",
+    "candidate_extra_segment_count",
+    "reference_total_length_m",
+    "candidate_total_length_m",
+    "matched_reference_length_m",
+    "matched_candidate_length_m",
+    "missing_reference_length_m",
+    "extra_candidate_length_m",
+    "reference_coverage_ratio",
+    "candidate_match_ratio",
+    "missing_reference_ratio",
+    "extra_candidate_ratio",
+    "length_balance_ratio",
+    "length_f1_ratio",
+    "hausdorff_distance_m",
+]
 
 
 def _as_float(value: Any) -> float | None:
@@ -411,6 +454,142 @@ def write_native_timeseries_exports(
     return artifacts, long_rows, wide_rows, delta_rows
 
 
+def write_hydrographic_network_metrics_export(
+    *,
+    comparison_id: str,
+    comparison_root: Path,
+    variant_summaries: Iterable[Mapping[str, Any]],
+    tolerance_m: float = 50.0,
+    reference_role: str = "reference",
+    candidate_role: str = "generated",
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    """Write one flat CSV of per-run hydrographic-network comparison metrics."""
+    from hydromodpy.analysis.comparison.runtime_metadata import discover_result_store
+
+    rows: list[dict[str, Any]] = []
+    skipped_variants: list[dict[str, Any]] = []
+    reference_feature_name: str | None = None
+    candidate_feature_name: str | None = None
+
+    for summary in _completed_variant_summaries(variant_summaries):
+        variant_id = str(summary.get("id", ""))
+        config_path_raw = summary.get("config_path")
+        config_path = None if config_path_raw in (None, "") else Path(str(config_path_raw))
+        preferred_sim_id = summary.get("sim_id")
+        preferred_run_name = summary.get("run_name")
+        store, sim_id = discover_result_store(
+            config_path,
+            preferred_sim_id=(None if preferred_sim_id in (None, "") else str(preferred_sim_id)),
+            preferred_name=(None if preferred_run_name in (None, "") else str(preferred_run_name)),
+        )
+        if store is None or sim_id in (None, ""):
+            skipped_variants.append(
+                {
+                    "variant_id": variant_id,
+                    "reason": "result_store_unavailable",
+                    "available_roles": [],
+                }
+            )
+            continue
+        try:
+            run = store[str(sim_id)]
+            reference_contract = run.hydrographic_network_naming(reference_role)
+            candidate_contract = run.hydrographic_network_naming(candidate_role)
+            reference_feature_name = reference_contract.get("canonical_feature_name")
+            candidate_feature_name = candidate_contract.get("canonical_feature_name")
+            available_roles = run.available_hydrographic_network_roles()
+            if not {reference_role, candidate_role}.issubset(set(available_roles)):
+                skipped_variants.append(
+                    {
+                        "variant_id": variant_id,
+                        "reason": "missing_required_roles",
+                        "available_roles": available_roles,
+                    }
+                )
+                continue
+            row = run.hydrographic_network_comparison_metrics(
+                reference_role=reference_role,
+                candidate_role=candidate_role,
+                tolerance_m=tolerance_m,
+                comparison_id=comparison_id,
+                variant_id=variant_id,
+                variant_label=str(summary.get("label", summary.get("id", ""))),
+                solver=str(summary.get("solver", "")),
+                mesh_label=str(summary.get("mesh_label", "")),
+                mesh_mode=str(summary.get("mesh_mode", "")),
+                sim_id=str(sim_id),
+                run_name=str(summary.get("run_name", "")),
+                run_folder=str(summary.get("run_folder", "")),
+                reference_feature_name=reference_feature_name,
+                candidate_feature_name=candidate_feature_name,
+            )
+            rows.append(row)
+        except Exception as exc:
+            skipped_variants.append(
+                {
+                    "variant_id": variant_id,
+                    "reason": "comparison_metrics_failed",
+                    "error_type": type(exc).__name__,
+                    "error_message": str(exc),
+                }
+            )
+            logger.debug(
+                "Skipping hydrographic-network metrics export for variant '%s'.",
+                variant_id,
+                exc_info=True,
+            )
+        finally:
+            try:
+                store.close()
+            except Exception:
+                pass
+
+    artifacts: list[dict[str, Any]] = []
+    if skipped_variants:
+        skipped_path = comparison_root / "hydrographic_network_metrics_skipped.json"
+        skipped_payload = {
+            "comparison_id": comparison_id,
+            "reference_role": reference_role,
+            "candidate_role": candidate_role,
+            "reference_feature_name": reference_feature_name,
+            "candidate_feature_name": candidate_feature_name,
+            "tolerance_m": float(tolerance_m),
+            "skipped_variants": skipped_variants,
+        }
+        skipped_path.parent.mkdir(parents=True, exist_ok=True)
+        skipped_path.write_text(
+            json.dumps(skipped_payload, indent=2, ensure_ascii=True) + "\n",
+            encoding="utf-8",
+        )
+        artifacts.append(
+            {
+                "kind": "hydrographic_network_metrics_skipped_json",
+                "path": str(skipped_path),
+                "note": (
+                    f"{len(skipped_variants)} variant(s) skipped for hydrographic-network "
+                    "metrics export."
+                ),
+            }
+        )
+        logger.info(
+            "Hydrographic-network metrics export skipped %d variant(s): %s",
+            len(skipped_variants),
+            ", ".join(str(item.get("variant_id", "")) for item in skipped_variants),
+        )
+    if not rows:
+        return artifacts, rows
+
+    path = comparison_root / "hydrographic_network_metrics.csv"
+    _write_csv(path, rows, HYDROGRAPHIC_NETWORK_METRICS_FIELDS)
+    artifacts.append({"kind": "hydrographic_network_metrics_csv", "path": str(path)})
+    logger.info(
+        "Wrote hydrographic-network metrics export for %d variant(s) to %s",
+        len(rows),
+        path,
+    )
+    return artifacts, rows
+
+
 def _history_matrix(payload: Mapping[str, Any], key: str) -> np.ndarray | None:
     if key not in payload:
         return None
@@ -433,6 +612,99 @@ def _elapsed_seconds_axis(period_lengths: np.ndarray, *, n_snapshots: int) -> np
     if period_lengths.size == n_snapshots:
         return np.asarray(np.cumsum(period_lengths, dtype=float), dtype=float)
     return np.arange(n_snapshots, dtype=float)
+
+
+def _namespace_from_mapping(value: Any) -> Any:
+    if isinstance(value, Mapping):
+        return SimpleNamespace(
+            **{str(key): _namespace_from_mapping(item) for key, item in value.items()}
+        )
+    if isinstance(value, list):
+        return [_namespace_from_mapping(item) for item in value]
+    return value
+
+
+def _step_end_elapsed_seconds_from_config(
+    config_path: Path | None,
+    *,
+    n_steps: int,
+) -> np.ndarray:
+    if config_path is None or n_steps <= 0:
+        return np.arange(max(n_steps, 0), dtype=float)
+    try:
+        from hydromodpy.core.time import resolve_simulation_time_grid
+
+        payload = load_toml_with_base_config(config_path)
+        grid = resolve_simulation_time_grid(_namespace_from_mapping(payload))
+    except Exception:
+        return np.arange(n_steps, dtype=float)
+    if grid is None:
+        return np.arange(n_steps, dtype=float)
+    axes = build_transient_time_axes(grid.period_lengths_seconds)
+    if axes.n_steps == n_steps:
+        return np.asarray(axes.step_end_elapsed_seconds, dtype=float)
+    return np.arange(n_steps, dtype=float)
+
+
+def _homogeneous_sy_from_config(config_path: Path | None) -> float | None:
+    """Read a homogeneous `Sy` value from one generated simulation config."""
+    if config_path is None:
+        return None
+    try:
+        payload = load_toml_with_base_config(config_path)
+    except Exception:
+        return None
+    flow = payload.get("flow")
+    if not isinstance(flow, Mapping):
+        return None
+    params = flow.get("param")
+    if not isinstance(params, Mapping):
+        return None
+    sy_payload = params.get("Sy") or params.get("sy") or params.get("S") or params.get("s")
+    if not isinstance(sy_payload, Mapping):
+        return None
+
+    candidates: list[Any] = []
+    for section_name in ("field_homogeneous", "homogeneous"):
+        section = sy_payload.get(section_name)
+        if isinstance(section, Mapping) and "value" in section:
+            candidates.append(section.get("value"))
+    if "value" in sy_payload:
+        candidates.append(sy_payload.get("value"))
+
+    for candidate in candidates:
+        try:
+            scalar, _ = parse_scalar_and_unit(
+                candidate,
+                default_unit="-",
+                location="flow.param.Sy",
+            )
+            value = float(scalar)
+        except Exception:
+            continue
+        if math.isfinite(value):
+            return value
+    return None
+
+
+def _flux_factor_to_m3_s(unit: str) -> float:
+    """Return a factor to normalize a volumetric budget unit to m3/s."""
+    text = str(unit or "m3/s").strip()
+    if text == "":
+        return 1.0
+    try:
+        return float(factor_to_m3_per_s(text))
+    except Exception:
+        return 1.0
+
+
+def _catalog_budget_factor_to_m3_s(*, solver: str, unit: str) -> float:
+    """Return the catalog budget conversion factor for one solver row."""
+    unit_text = str(unit or "").strip().lower()
+    solver_key = str(solver or "").strip().lower()
+    if solver_key == "modflow6" and unit_text in {"m3/d", "m3/day", "m^3/day"}:
+        return 1.0
+    return _flux_factor_to_m3_s(unit)
 
 
 def _storage_change_series_m3_s(
@@ -522,6 +794,8 @@ def _load_boussinesq_budget_rows(
     sim_id: str | None = None,
 ) -> list[dict[str, Any]]:
     run_folder = Path(str(summary.get("run_folder", "")))
+    config_path_raw = summary.get("config_path")
+    config_path = None if config_path_raw in (None, "") else Path(str(config_path_raw))
     payload: Mapping[str, Any] | None = None
     source_label: str = ""
     if store is not None and sim_id is not None:
@@ -540,6 +814,7 @@ def _load_boussinesq_budget_rows(
     well_history = _history_matrix(payload, "well_flux_history_m3_s")
     drainage_history = _history_matrix(payload, "drainage_flux_history_m3_s")
     surface_history = _history_matrix(payload, "saturation_excess_history_m_s")
+    prescribed_head_history = _history_matrix(payload, "prescribed_head_flux_history_m3_s")
     head_history = _history_matrix(payload, "head_history_m")
 
     n_snapshots = max(
@@ -550,6 +825,7 @@ def _load_boussinesq_budget_rows(
                 well_history,
                 drainage_history,
                 surface_history,
+                prescribed_head_history,
                 head_history,
             )
             if matrix is not None
@@ -569,6 +845,7 @@ def _load_boussinesq_budget_rows(
                 well_history,
                 drainage_history,
                 surface_history,
+                prescribed_head_history,
                 head_history,
             )
             if matrix is not None and matrix.ndim == 2
@@ -580,6 +857,7 @@ def _load_boussinesq_budget_rows(
         # dropped: the function falls back to the exchange-bundle path.
         cells = resolve_bundle_cells(
             run_folder,
+            config_path=config_path,
             expected_size=n_cells,
         )
         if cells is not None:
@@ -590,6 +868,8 @@ def _load_boussinesq_budget_rows(
                     cells.storage_coefficient,
                     dtype=float,
                 ).reshape(-1)
+            elif (sy_value := _homogeneous_sy_from_config(config_path)) is not None:
+                storage_coefficient = np.full(n_cells, sy_value, dtype=float)
 
     period_lengths = (
         np.asarray(payload["period_lengths_seconds"], dtype=float).ravel()
@@ -630,6 +910,12 @@ def _load_boussinesq_budget_rows(
             axis=1,
             dtype=float,
         )
+    if prescribed_head_history is not None:
+        component_series["prescribed_head_out_total_m3_s"] = np.sum(
+            np.maximum(prescribed_head_history, 0.0),
+            axis=1,
+            dtype=float,
+        )
 
     storage_change = _storage_change_series_m3_s(
         head_history_m=head_history,
@@ -647,11 +933,16 @@ def _load_boussinesq_budget_rows(
         "surface_excess_total_m3_s",
         "storage_change_total_m3_s",
     }.issubset(component_series):
+        prescribed_out = component_series.get(
+            "prescribed_head_out_total_m3_s",
+            np.zeros_like(component_series["recharge_total_m3_s"], dtype=float),
+        )
         component_series["closure_residual_m3_s"] = (
             component_series["recharge_total_m3_s"]
             + component_series["well_total_m3_s"]
             - component_series["drainage_total_m3_s"]
             - component_series["surface_excess_total_m3_s"]
+            - prescribed_out
             - component_series["storage_change_total_m3_s"]
         )
 
@@ -685,6 +976,132 @@ def _load_boussinesq_budget_rows(
     return rows
 
 
+def _mf_budget_component_name(component: str) -> str:
+    key = str(component).strip().lower().replace("_", "-")
+    aliases = {
+        "rcha": "recharge_total_m3_s",
+        "rch": "recharge_total_m3_s",
+        "recharge": "recharge_total_m3_s",
+        "drn": "drainage_total_m3_s",
+        "drains": "drainage_total_m3_s",
+        "drain": "drainage_total_m3_s",
+        "chd": "prescribed_head_out_total_m3_s",
+        "constant head": "prescribed_head_out_total_m3_s",
+        "constant-head": "prescribed_head_out_total_m3_s",
+        "evt": "evapotranspiration_total_m3_s",
+        "et": "evapotranspiration_total_m3_s",
+    }
+    if key.startswith("sto") or key.startswith("storage"):
+        return "storage_change_total_m3_s"
+    return aliases.get(key, "")
+
+
+def _mf_budget_component_value_m3_s(component: str, flux_in: float, flux_out: float) -> float:
+    target = _mf_budget_component_name(component)
+    if target == "storage_change_total_m3_s":
+        return float(flux_out) - float(flux_in)
+    if target in {
+        "drainage_total_m3_s",
+        "prescribed_head_out_total_m3_s",
+        "evapotranspiration_total_m3_s",
+    }:
+        return float(flux_out) - float(flux_in)
+    return float(flux_in) - float(flux_out)
+
+
+def _load_catalog_budget_rows(
+    summary: Mapping[str, Any],
+    store: SimulationCatalog | None,
+    sim_id: str | None,
+) -> list[dict[str, Any]]:
+    """Load generic catalog budget rows and normalize them to comparison terms."""
+    if store is None or sim_id in (None, ""):
+        return []
+    try:
+        table = store.query_budget(str(sim_id))
+    except Exception:
+        return []
+    if table is None or table.empty:
+        return []
+
+    config_path_raw = summary.get("config_path")
+    config_path = None if config_path_raw in (None, "") else Path(str(config_path_raw))
+    try:
+        max_timestep = int(table["timestep"].max())
+    except Exception:
+        return []
+    elapsed_axis = _step_end_elapsed_seconds_from_config(
+        config_path,
+        n_steps=max_timestep + 1,
+    )
+
+    component_values: dict[tuple[int, str], float] = {}
+    for _, raw_row in table.iterrows():
+        source_component = str(raw_row.get("component", ""))
+        component = _mf_budget_component_name(source_component)
+        if not component:
+            continue
+        try:
+            timestep = int(raw_row.get("timestep"))
+            factor = _catalog_budget_factor_to_m3_s(
+                solver=str(summary.get("solver", "")),
+                unit=str(raw_row.get("unit", "m3/s")),
+            )
+            flux_in = float(raw_row.get("flux_in", 0.0)) * factor
+            flux_out = float(raw_row.get("flux_out", 0.0)) * factor
+        except Exception:
+            continue
+        value = _mf_budget_component_value_m3_s(source_component, flux_in, flux_out)
+        key = (timestep, component)
+        component_values[key] = component_values.get(key, 0.0) + value
+
+    if not component_values:
+        return []
+
+    grouped_by_time: dict[int, dict[str, float]] = {}
+    for (timestep, component), value in component_values.items():
+        grouped_by_time.setdefault(timestep, {})[component] = value
+    for values in grouped_by_time.values():
+        if {
+            "recharge_total_m3_s",
+            "storage_change_total_m3_s",
+        }.issubset(values):
+            values["closure_residual_m3_s"] = (
+                values.get("recharge_total_m3_s", 0.0)
+                - values.get("drainage_total_m3_s", 0.0)
+                - values.get("surface_excess_total_m3_s", 0.0)
+                - values.get("prescribed_head_out_total_m3_s", 0.0)
+                - values.get("evapotranspiration_total_m3_s", 0.0)
+                - values.get("storage_change_total_m3_s", 0.0)
+            )
+
+    rows: list[dict[str, Any]] = []
+    for timestep, values in sorted(grouped_by_time.items()):
+        elapsed = (
+            float(elapsed_axis[timestep]) if timestep < int(elapsed_axis.size) else float(timestep)
+        )
+        time_label = f"{elapsed / 86400.0:.1f} d" if math.isfinite(elapsed) else str(timestep)
+        for component, value in sorted(values.items()):
+            if not math.isfinite(float(value)):
+                continue
+            rows.append(
+                {
+                    "variant_id": summary.get("id", ""),
+                    "variant_label": summary.get("label", summary.get("id", "")),
+                    "solver": summary.get("solver", ""),
+                    "mesh_mode": summary.get("mesh_mode", ""),
+                    "component": component,
+                    "unit": "m3/s",
+                    "time_index": timestep,
+                    "elapsed_seconds": elapsed,
+                    "time_label": time_label,
+                    "value": float(value),
+                    "source": f"SimulationCatalog budgets(sim_id={sim_id})",
+                }
+            )
+    return rows
+
+
 def write_budget_exports(
     *,
     comparison_root: Path,
@@ -697,8 +1114,17 @@ def write_budget_exports(
     for summary in _completed_variant_summaries(variant_summaries):
         config_path_raw = summary.get("config_path")
         config_path = None if config_path_raw in (None, "") else Path(str(config_path_raw))
-        store, sim_id = discover_result_store(config_path)
+        preferred_sim_id = summary.get("sim_id")
+        preferred_run_name = summary.get("run_name")
+        store, sim_id = discover_result_store(
+            config_path,
+            preferred_sim_id=(None if preferred_sim_id in (None, "") else str(preferred_sim_id)),
+            preferred_name=(None if preferred_run_name in (None, "") else str(preferred_run_name)),
+        )
         try:
+            catalog_rows = _load_catalog_budget_rows(summary, store, sim_id)
+            if catalog_rows:
+                rows.extend(catalog_rows)
             rows.extend(_load_boussinesq_budget_rows(summary, store=store, sim_id=sim_id))
         finally:
             if store is not None:
@@ -731,9 +1157,9 @@ def write_budget_exports(
     )
     artifacts.append({"kind": "budget_timeseries_long_csv", "path": str(long_path)})
 
-    wide_index: dict[tuple[str, int], dict[str, Any]] = {}
+    wide_index: dict[tuple[str, str], dict[str, Any]] = {}
     for row in rows:
-        key = (str(row["component"]), int(row["time_index"]))
+        key = (str(row["component"]), str(row.get("elapsed_seconds", row.get("time_index", ""))))
         item = wide_index.setdefault(
             key,
             {
@@ -817,6 +1243,7 @@ def write_execution_summary_csv(
 __all__ = (
     "write_budget_exports",
     "write_execution_summary_csv",
+    "write_hydrographic_network_metrics_export",
     "write_native_timeseries_exports",
     "write_observable_chronicle_exports",
 )

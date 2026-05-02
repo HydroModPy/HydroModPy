@@ -1,0 +1,59 @@
+@startuml
+title Hydrographic Network - Runtime Components
+left to right direction
+skinparam componentStyle rectangle
+skinparam wrapWidth 180
+
+package "Input and preprocessing" {
+  component "HydrographyManager\nloaded reference input" as HydrographyManager
+  component "HydrographyResult" as HydrographyResult
+  component "build_river_network_products(...)\nDEM-derived preprocessing" as RiverBuild
+  component "RiverNetworkProducts" as RiverNetworkProducts
+}
+
+package "Canonical geographic layer" {
+  component "HydrographicNetwork\nrole = reference / generated / ..." as HydrographicNetwork
+  component "HydrographicNetworks\nbundle of available roles" as HydrographicNetworks
+  component "GeographicDerivedFeatures" as GeographicDerivedFeatures
+}
+
+package "Persistence and reading" {
+  component "prepare_solver.py\nreference persistence" as ReferencePersistence
+  component "store_ingestion.py\ngenerated persistence" as StoreIngestion
+  database "SimulationCatalog" as SimulationCatalog
+  component "Run facade" as Run
+}
+
+package "Consumers" {
+  component "Standalone figures\nreference / generated" as SingleFigures
+  component "HydrographicNetworkComparison" as Comparison
+  component "Comparison figures\noverlay / missing / extra" as ComparisonFigures
+  component "Comparison exports\nhydrographic_network_metrics.csv" as ComparisonExports
+}
+
+HydrographyManager --> HydrographyResult
+RiverBuild --> RiverNetworkProducts
+
+HydrographyResult --> HydrographicNetwork : from_hydrography_result(...)
+RiverNetworkProducts --> HydrographicNetwork : from_river_network_products(...)
+HydrographicNetwork --> HydrographicNetworks : stored by role
+HydrographicNetworks --> GeographicDerivedFeatures
+
+GeographicDerivedFeatures --> ReferencePersistence : reference role
+GeographicDerivedFeatures --> StoreIngestion : generated role
+ReferencePersistence --> SimulationCatalog
+StoreIngestion --> SimulationCatalog
+
+SimulationCatalog --> Run
+Run --> SingleFigures
+Run --> Comparison : when both roles exist
+Comparison --> ComparisonFigures
+Comparison --> ComparisonExports
+
+note bottom of Run
+If only one role exists:
+- standalone figure remains available
+- comparison API raises explicit error
+- comparison figures/exports are skipped
+end note
+@enduml

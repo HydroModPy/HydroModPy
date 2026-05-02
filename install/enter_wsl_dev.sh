@@ -164,8 +164,19 @@ if [[ -n "${OUTPUT_ROOT}" ]]; then
   echo "  out:  ${HYDROMODPY_OUT_PATH}"
 fi
 
+exec_hmp_or_command() {
+  case "${1:-}" in
+    add|best|compare|completion|config|data|delete|display|doctor|export|import|init|inspect|install-binaries|lock|manage|new|report|run|schema|show|test|worst|-V|--version)
+      exec python -m hydromodpy "$@"
+      ;;
+    *)
+      exec "$@"
+      ;;
+  esac
+}
+
 if [[ $# -gt 0 ]]; then
-  exec "$@"
+  exec_hmp_or_command "$@"
 fi
 
 exec "${SHELL:-/bin/bash}" -i

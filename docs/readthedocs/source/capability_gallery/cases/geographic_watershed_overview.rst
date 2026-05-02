@@ -176,6 +176,42 @@ Hydrography Source Options
      - FID
      - ``examples/projects/04_data_overview/project.toml``
 
+Overview Panels
+^^^^^^^^^^^^^^^
+
+.. list-table::
+   :header-rows: 1
+   :widths: 26 42 20 12
+
+   * - Field
+     - Meaning
+     - Value
+     - Source
+   * - ``[overview] name``
+     - Title injected into the generated overview panels.
+     - Watershed Data Overview
+     - ``examples/projects/04_data_overview/project.toml``
+   * - ``[overview.panels] enabled``
+     - Panel toggles enabled for this overview run.
+     - map_dem, map_geology, map_hydrography, stats_card, timeseries_discharge, timeseries_intermittency, station_inventory
+     - ``examples/projects/04_data_overview/project.toml``
+   * - ``[overview.panels] map_dem``
+     - Whether the `map_dem` panel is rendered for this overview case.
+     - true
+     - ``examples/projects/04_data_overview/project.toml``
+   * - ``[overview.panels] map_geology``
+     - Whether the `map_geology` panel is rendered for this overview case.
+     - true
+     - ``examples/projects/04_data_overview/project.toml``
+   * - ``[overview.panels] map_hydrography``
+     - Whether the `map_hydrography` panel is rendered for this overview case.
+     - true
+     - ``examples/projects/04_data_overview/project.toml``
+   * - ``[overview.panels] stats_card``
+     - Whether the `stats_card` panel is rendered for this overview case.
+     - true
+     - ``examples/projects/04_data_overview/project.toml``
+
 Observation Windows
 ^^^^^^^^^^^^^^^^^^^
 

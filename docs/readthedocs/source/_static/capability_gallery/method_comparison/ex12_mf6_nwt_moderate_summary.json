@@ -33,120 +33,29 @@
   "equations_rst": [],
   "walkthrough_doc": "getting_started/reading-results-pages",
   "walkthrough_title": "the gallery and validation reading guide",
-  "reproduction_command": "python -m tools.doc_gallery",
+  "reproduction_command": "python -m hydromodpy run examples_legacy_2/projects/launcher_simulation/run_method_comparison_mf6_vs_nwt_different_meshes_moderate.toml",
   "gallery_update_command": "python -m tools.doc_gallery",
   "source_paths": [
-    "docs/readthedocs/source/_static/capability_gallery/method_comparison/ex12_mf6_nwt_moderate_comparison_manifest.json",
-    "docs/readthedocs/source/_static/capability_gallery/method_comparison/ex12_mf6_nwt_moderate_comparison_metrics.json",
-    "docs/readthedocs/source/_static/capability_gallery/method_comparison/ex12_mf6_nwt_moderate_observables.csv",
-    "docs/readthedocs/source/_static/capability_gallery/method_comparison/ex12_mf6_nwt_moderate_summary_metrics.csv",
-    "docs/readthedocs/source/_static/capability_gallery/method_comparison/ex12_mf6_nwt_moderate_difference_metrics.csv"
+    "examples_legacy_2/projects/launcher_simulation/run_method_comparison_mf6_vs_nwt_different_meshes_moderate.toml",
+    "examples_legacy_2/projects/launcher_simulation/run_demonstrative_annual_moderate_mf6_precomputed_mesh_input.toml",
+    "examples_legacy_2/projects/launcher_simulation/run_demonstrative_annual_moderate_nwt.toml",
+    "examples_legacy_2/projects/launcher_simulation/method_comparison/ex12_mf6_nwt_moderate/comparison_manifest.json",
+    "examples_legacy_2/projects/launcher_simulation/method_comparison/ex12_mf6_nwt_moderate/comparison_metrics.json",
+    "examples_legacy_2/projects/launcher_simulation/method_comparison/ex12_mf6_nwt_moderate/observables.csv"
   ],
   "source_hashes": {
-    "docs/readthedocs/source/_static/capability_gallery/method_comparison/ex12_mf6_nwt_moderate_comparison_manifest.json": "a6f55f3829d2573502069677a87b9cea54fd6aae5a3691a213f9250d381d536e",
-    "docs/readthedocs/source/_static/capability_gallery/method_comparison/ex12_mf6_nwt_moderate_comparison_metrics.json": "672068fd036f64e233a1911377b65041f1d8ce6282085c8c9300b163a6625d07",
-    "docs/readthedocs/source/_static/capability_gallery/method_comparison/ex12_mf6_nwt_moderate_observables.csv": "f6d354005a2364552638d569e12f44a62a3a77c61ea42255bdae80a64068863d",
-    "docs/readthedocs/source/_static/capability_gallery/method_comparison/ex12_mf6_nwt_moderate_summary_metrics.csv": "e1127682dcda49bbe109f9bf1575130c5a0349fcec2a95050e138241129dcf26",
-    "docs/readthedocs/source/_static/capability_gallery/method_comparison/ex12_mf6_nwt_moderate_difference_metrics.csv": "658c0a80ed3a27255ec387903c2965c7bd30fd2678af5aef56c5a1523dd68503"
+    "examples_legacy_2/projects/launcher_simulation/run_method_comparison_mf6_vs_nwt_different_meshes_moderate.toml": "__missing__",
+    "examples_legacy_2/projects/launcher_simulation/run_demonstrative_annual_moderate_mf6_precomputed_mesh_input.toml": "__missing__",
+    "examples_legacy_2/projects/launcher_simulation/run_demonstrative_annual_moderate_nwt.toml": "__missing__",
+    "examples_legacy_2/projects/launcher_simulation/method_comparison/ex12_mf6_nwt_moderate/comparison_manifest.json": "__missing__",
+    "examples_legacy_2/projects/launcher_simulation/method_comparison/ex12_mf6_nwt_moderate/comparison_metrics.json": "__missing__",
+    "examples_legacy_2/projects/launcher_simulation/method_comparison/ex12_mf6_nwt_moderate/observables.csv": "__missing__"
   },
   "docname": "cases/ex12_mf6_nwt_moderate",
-  "images": [
-    {
-      "filename": "ex12_mf6_nwt_moderate.png",
-      "caption": "Summary comparison figure for mf6 triangular vs nwt structured on moderate forcing.",
-      "alt_text": "Method comparison summary for MF6 Triangular vs NWT Structured on Moderate Forcing",
-      "doc_path": "/_static/capability_gallery/method_comparison/ex12_mf6_nwt_moderate.png",
-      "repo_path": "docs/readthedocs/source/_static/capability_gallery/method_comparison/ex12_mf6_nwt_moderate.png"
-    }
-  ],
-  "metrics": [
-    {
-      "label": "Depth Last RMSE",
-      "key": "depth_map_last_rmse",
-      "value": 3.695400633318847,
-      "display": "3.695 m"
-    },
-    {
-      "label": "Depth Last MAE",
-      "key": "depth_map_last_mae",
-      "value": 2.4867088485444335,
-      "display": "2.487 m"
-    },
-    {
-      "label": "Head Last RMSE",
-      "key": "head_map_last_rmse",
-      "value": 20.1068055165673,
-      "display": "20.11 m"
-    },
-    {
-      "label": "Head Last MAE",
-      "key": "head_map_last_mae",
-      "value": 16.964259899694373,
-      "display": "16.96 m"
-    },
-    {
-      "label": "Head Mid Basin Response RMSE",
-      "key": "head_mid_basin_response_rmse",
-      "value": 11.24256647265889,
-      "display": "11.24 m"
-    },
-    {
-      "label": "Head Mid Basin Response MAE",
-      "key": "head_mid_basin_response_mae",
-      "value": 9.959854366565946,
-      "display": "9.96 m"
-    },
-    {
-      "label": "Head Outlet Lowland RMSE",
-      "key": "head_outlet_lowland_rmse",
-      "value": 21.83917337828017,
-      "display": "21.84 m"
-    },
-    {
-      "label": "Head Outlet Lowland MAE",
-      "key": "head_outlet_lowland_mae",
-      "value": 19.90499271395381,
-      "display": "19.9 m"
-    },
-    {
-      "label": "Head Upstream Ridge RMSE",
-      "key": "head_upstream_ridge_rmse",
-      "value": 11.954229040239964,
-      "display": "11.95 m"
-    },
-    {
-      "label": "Head Upstream Ridge MAE",
-      "key": "head_upstream_ridge_mae",
-      "value": 11.068866367764869,
-      "display": "11.07 m"
-    },
-    {
-      "label": "Outflow Drain Last RMSE",
-      "key": "outflow_drain_map_last_rmse",
-      "value": 0.00022240011380071523,
-      "display": "0.0002224 m/day"
-    },
-    {
-      "label": "Outflow Drain Last MAE",
-      "key": "outflow_drain_map_last_mae",
-      "value": 0.0002046085825295126,
-      "display": "0.0002046 m/day"
-    },
-    {
-      "label": "Outlet Flux Series RMSE",
-      "key": "outlet_flux_series_rmse",
-      "value": 0.0017922802164740924,
-      "display": "0.001792 m3/s"
-    },
-    {
-      "label": "Outlet Flux Series MAE",
-      "key": "outlet_flux_series_mae",
-      "value": 0.0014909328953709672,
-      "display": "0.001491 m3/s"
-    }
-  ],
+  "images": [],
+  "metrics": [],
   "metadata": {
-    "comparison_config_path": "docs/readthedocs/source/_static/capability_gallery/method_comparison/ex12_mf6_nwt_moderate_summary.json",
+    "comparison_config_path": "examples_legacy_2/projects/launcher_simulation/run_method_comparison_mf6_vs_nwt_different_meshes_moderate.toml",
     "study_area": "Example12 / Naizin",
     "focus_variant_id": "nwt_mod_s60",
     "comparison_family_key": "mixed_support_regime",
@@ -154,135 +63,43 @@
     "comparison_family_deck": "These cases keep the forcing regime fixed but intentionally change the mesh family, so the page captures both solver differences and support-transfer effects.",
     "comparison_family_order": 20,
     "comparison_case_order": 10,
-    "comparison_id": "ex12_mf6_nwt_moderate",
-    "reference_variant": "mf6_mod_tri",
-    "reference_variant_label": "MF6 annual moderate on committed triangular mesh",
-    "focus_variant_label": "NWT annual moderate on 60x60 structured grid",
-    "variant_labels": {
-      "mf6_mod_tri": "MF6 annual moderate on committed triangular mesh",
-      "nwt_mod_s60": "NWT annual moderate on 60x60 structured grid"
-    },
-    "observable_names": [
-      "head_outlet_lowland",
-      "head_mid_basin_response",
-      "head_upstream_ridge",
-      "outlet_flux_series",
-      "head_map_last",
-      "depth_map_last",
-      "outflow_drain_map_last"
-    ],
-    "n_observable_rows": 12903,
-    "n_difference_rows": 1584
+    "generation_status": "source_unavailable_local",
+    "generation_reason": "The method-comparison config and committed comparison artifacts needed to regenerate this page are not available in the current checkout.",
+    "missing_source_paths": [
+      "examples_legacy_2/projects/launcher_simulation/run_method_comparison_mf6_vs_nwt_different_meshes_moderate.toml",
+      "examples_legacy_2/projects/launcher_simulation/run_demonstrative_annual_moderate_mf6_precomputed_mesh_input.toml",
+      "examples_legacy_2/projects/launcher_simulation/run_demonstrative_annual_moderate_nwt.toml",
+      "examples_legacy_2/projects/launcher_simulation/method_comparison/ex12_mf6_nwt_moderate/comparison_manifest.json",
+      "examples_legacy_2/projects/launcher_simulation/method_comparison/ex12_mf6_nwt_moderate/comparison_metrics.json",
+      "examples_legacy_2/projects/launcher_simulation/method_comparison/ex12_mf6_nwt_moderate/observables.csv"
+    ]
   },
   "artifacts": {
     "summary_json_doc_path": "/_static/capability_gallery/method_comparison/ex12_mf6_nwt_moderate_summary.json",
     "summary_json_repo_path": "docs/readthedocs/source/_static/capability_gallery/method_comparison/ex12_mf6_nwt_moderate_summary.json",
-    "image_repo_paths": [
-      "docs/readthedocs/source/_static/capability_gallery/method_comparison/ex12_mf6_nwt_moderate.png"
-    ],
-    "extra_repo_paths": [
-      "docs/readthedocs/source/_static/capability_gallery/method_comparison/ex12_mf6_nwt_moderate_comparison_manifest.json",
-      "docs/readthedocs/source/_static/capability_gallery/method_comparison/ex12_mf6_nwt_moderate_comparison_metrics.json",
-      "docs/readthedocs/source/_static/capability_gallery/method_comparison/ex12_mf6_nwt_moderate_observables.csv",
-      "docs/readthedocs/source/_static/capability_gallery/method_comparison/ex12_mf6_nwt_moderate_summary_metrics.csv",
-      "docs/readthedocs/source/_static/capability_gallery/method_comparison/ex12_mf6_nwt_moderate_difference_metrics.csv"
-    ]
+    "image_repo_paths": []
   },
-  "parameter_docs": {
-    "sections": [
-      {
-        "title": "Comparison Setup",
-        "rows": [
-          {
-            "field": "[method_comparison] comparison_id",
-            "meaning": "Stable identifier used to collect outputs and summary artifacts for the comparison.",
-            "value": "ex12_mf6_nwt_moderate",
-            "source": "docs/readthedocs/source/_static/capability_gallery/method_comparison/ex12_mf6_nwt_moderate_summary.json"
-          },
-          {
-            "field": "[method_comparison] reference_variant",
-            "meaning": "Variant used as the baseline when computing map-wise differences and error metrics.",
-            "value": "mf6_mod_tri",
-            "source": "docs/readthedocs/source/_static/capability_gallery/method_comparison/ex12_mf6_nwt_moderate_summary.json"
-          },
-          {
-            "field": "[method_comparison] run_variants",
-            "meaning": "Whether the launcher reruns the variants or only reuses committed run folders.",
-            "value": "true",
-            "source": "docs/readthedocs/source/_static/capability_gallery/method_comparison/ex12_mf6_nwt_moderate_summary.json"
-          },
-          {
-            "field": "study_area",
-            "meaning": "Study area summarized by the gallery page for this comparison case.",
-            "value": "Example12 / Naizin",
-            "source": "docs/readthedocs/source/_static/capability_gallery/method_comparison/ex12_mf6_nwt_moderate_summary.json"
-          }
-        ]
-      },
-      {
-        "title": "Compared Variants",
-        "rows": [
-          {
-            "field": "variant.mf6_mod_tri",
-            "meaning": "Compared run folder and solver definition used by the method-comparison launcher.",
-            "value": "MF6 annual moderate on committed triangular mesh; solver=modflow6; mesh_mode=mesh_input; run_folder=None",
-            "source": "docs/readthedocs/source/_static/capability_gallery/method_comparison/ex12_mf6_nwt_moderate_summary.json"
-          },
-          {
-            "field": "variant.nwt_mod_s60",
-            "meaning": "Compared run folder and solver definition used by the method-comparison launcher.",
-            "value": "NWT annual moderate on 60x60 structured grid; solver=modflownwt; mesh_mode=structured; run_folder=None",
-            "source": "docs/readthedocs/source/_static/capability_gallery/method_comparison/ex12_mf6_nwt_moderate_summary.json"
-          }
-        ]
-      },
-      {
-        "title": "Compared Observables",
-        "rows": [
-          {
-            "field": "observable.head_outlet_lowland",
-            "meaning": "Observable extracted from each run before parity plots and difference metrics are computed.",
-            "value": "variable=watertable_elevation; support=point; time=all; unit=m",
-            "source": "docs/readthedocs/source/_static/capability_gallery/method_comparison/ex12_mf6_nwt_moderate_summary.json"
-          },
-          {
-            "field": "observable.head_mid_basin_response",
-            "meaning": "Observable extracted from each run before parity plots and difference metrics are computed.",
-            "value": "variable=watertable_elevation; support=point; time=all; unit=m",
-            "source": "docs/readthedocs/source/_static/capability_gallery/method_comparison/ex12_mf6_nwt_moderate_summary.json"
-          },
-          {
-            "field": "observable.head_upstream_ridge",
-            "meaning": "Observable extracted from each run before parity plots and difference metrics are computed.",
-            "value": "variable=watertable_elevation; support=point; time=all; unit=m",
-            "source": "docs/readthedocs/source/_static/capability_gallery/method_comparison/ex12_mf6_nwt_moderate_summary.json"
-          },
-          {
-            "field": "observable.outlet_flux_series",
-            "meaning": "Observable extracted from each run before parity plots and difference metrics are computed.",
-            "value": "variable=outlet_flux; support=outlet; time=all; unit=m3/s",
-            "source": "docs/readthedocs/source/_static/capability_gallery/method_comparison/ex12_mf6_nwt_moderate_summary.json"
-          },
-          {
-            "field": "observable.head_map_last",
-            "meaning": "Observable extracted from each run before parity plots and difference metrics are computed.",
-            "value": "variable=watertable_elevation; support=map; time=last; unit=m",
-            "source": "docs/readthedocs/source/_static/capability_gallery/method_comparison/ex12_mf6_nwt_moderate_summary.json"
-          },
-          {
-            "field": "observable.depth_map_last",
-            "meaning": "Observable extracted from each run before parity plots and difference metrics are computed.",
-            "value": "variable=watertable_depth; support=map; time=last; unit=m",
-            "source": "docs/readthedocs/source/_static/capability_gallery/method_comparison/ex12_mf6_nwt_moderate_summary.json"
-          },
-          {
-            "field": "observable.outflow_drain_map_last",
-            "meaning": "Observable extracted from each run before parity plots and difference metrics are computed.",
-            "value": "variable=outflow_drain; support=map; time=last; unit=m/day",
-            "source": "docs/readthedocs/source/_static/capability_gallery/method_comparison/ex12_mf6_nwt_moderate_summary.json"
-          }
-        ]
-      }
-    ]
-  }
+  "custom_sections": [
+    {
+      "title": "Local Regeneration Note",
+      "kind": "paragraphs",
+      "paragraphs": [
+        "This local checkout cannot fully rebuild the original gallery artefacts for this case because one or more legacy source files are not present.",
+        "The page is still generated so that the capability-gallery structure, cross-links, and reading guides remain valid during a full documentation rebuild.",
+        "Reason: The method-comparison config and committed comparison artifacts needed to regenerate this page are not available in the current checkout."
+      ]
+    },
+    {
+      "title": "Missing Local Inputs",
+      "kind": "bullets",
+      "items": [
+        "``examples_legacy_2/projects/launcher_simulation/run_method_comparison_mf6_vs_nwt_different_meshes_moderate.toml``",
+        "``examples_legacy_2/projects/launcher_simulation/run_demonstrative_annual_moderate_mf6_precomputed_mesh_input.toml``",
+        "``examples_legacy_2/projects/launcher_simulation/run_demonstrative_annual_moderate_nwt.toml``",
+        "``examples_legacy_2/projects/launcher_simulation/method_comparison/ex12_mf6_nwt_moderate/comparison_manifest.json``",
+        "``examples_legacy_2/projects/launcher_simulation/method_comparison/ex12_mf6_nwt_moderate/comparison_metrics.json``",
+        "``examples_legacy_2/projects/launcher_simulation/method_comparison/ex12_mf6_nwt_moderate/observables.csv``"
+      ]
+    }
+  ]
 }

@@ -52,23 +52,23 @@
     "validation_cases/analytical/steady/boussinesq_piecewise.py"
   ],
   "source_hashes": {
-    "validation_cases/README.md": "55c78d50160086ae953092b98a464b1b2e5b1249064486a058d719d61533a6d9",
-    "validation_cases/analytical/steady/boussinesq_uniform_recharge_piecewise_k_1d/README.md": "629fed23316ccf2a60052fc9f95a2e2cbc6666f9c7ca5ab6bde514746d1e43d8",
-    "validation_cases/analytical/steady/boussinesq_uniform_recharge_piecewise_k_1d/reference.py": "1c5352e1c9738fbdcf9a8b4e8d83e58d123e6692cfe76ec8264c9dbf431132fa",
-    "validation_cases/analytical/steady/boussinesq_uniform_recharge_piecewise_k_1d/comparison.py": "8e0e40f04bf0e3f326d3a6cfee47d557ceb8b6fb3b45ff4c46298dfa4632ab7d",
-    "validation_cases/analytical/steady/boussinesq_uniform_recharge_piecewise_k_1d/plotting.py": "2452ce18820c4484c91db7020fafb909ccaf51ff7fd1cd30b59f95c4f9f15913",
-    "validation_cases/analytical/steady/boussinesq_uniform_recharge_piecewise_k_1d/run_case.py": "757751d36d2fd019fbcb9248964e68b934e657f3ea97c2e1b53541529274e5f2",
-    "validation_cases/analytical/steady/boussinesq_uniform_recharge_piecewise_k_1d/metadata.toml": "afb5963bdf11e3283f7328591066807337b1141770206dd1709f454930d532c1",
-    "validation_cases/analytical/steady/boussinesq_uniform_recharge_piecewise_k_1d/config_modflownwt.toml": "5d2afc6fa9c38acc97b13867b5ef6975553919adb918b3e1d91c14f03b99443d",
-    "validation_cases/analytical/steady/boussinesq_uniform_recharge_piecewise_k_1d/runtime_boussinesq.py": "7d1121d6d85cd2199784a5b0bf945d6e6182752619b8cdd5826cd6a9ebb237ad",
-    "validation_cases/analytical/steady/boussinesq_uniform_recharge_piecewise_k_1d/tolerances.toml": "3c7cdd060951dd9c33b5084475beac18c7b981d342f9d63eca2583e1b9c2fec8",
-    "validation_cases/analytical/steady/boussinesq_uniform_recharge_piecewise_k_1d/tolerances_boussinesq.toml": "a00090a6139af223dc8e6188ce18d5d1802237baf5f6092ff9004bffc27fd5ed",
-    "validation_cases/analytical/steady/boussinesq_uniform_recharge_piecewise_k_1d/tolerances_modflow6.toml": "fade1971f0a3ef48eb2d413d66e5f1050aaa17b2b0e5e28bbe2a5497e68f6c2c",
-    "validation_cases/analytical/steady/boussinesq_uniform_recharge_piecewise_k_1d/tolerances_modflow6_irregular_tri.toml": "02ad5ebfd6d0d4b17827c6577ecdd24718feca973d4082322ba7fd4982df5f0b",
-    "validation_cases/analytical/steady/boussinesq_uniform_recharge_piecewise_k_1d/config_modflow6.toml": "9a3a68ee60db0f7b112d7ea579603eb52e71ff6e57a577a8cc3ce42627bad368",
-    "validation_cases/analytical/steady/boussinesq_uniform_recharge_piecewise_k_1d/config_modflow6_irregular_tri.toml": "44bbb1355e7c1998a05f8b4db0b9272fdf1a68761e6b4aab002102dcdf8d9048",
-    "validation_cases/analytical/steady/boussinesq_uniform_recharge_piecewise_k_1d/config_boussinesq.toml": "aaebad7805cda1a24b2ee2a9aefb95270df1b1e498044e123a4ad0e9be5f28e8",
-    "validation_cases/analytical/steady/boussinesq_piecewise.py": "bfff2ce5d28332a51c46bd11d61037e100b89f4b36e86cdbbb3dc000fb76981b"
+    "validation_cases/README.md": "1965de83b961f1ab4e38d8194d51342e1286d0c2e1b779188903b84e3fc26f1c",
+    "validation_cases/analytical/steady/boussinesq_uniform_recharge_piecewise_k_1d/README.md": "8fc5e548bfc1e304f15543ab9b86b9099d4aa587ce34d8175c63fdccb8592b89",
+    "validation_cases/analytical/steady/boussinesq_uniform_recharge_piecewise_k_1d/reference.py": "e671f5aee01c247373e2eb7cc34dfe0ffdb6ec9271b05b82b83779ee06add064",
+    "validation_cases/analytical/steady/boussinesq_uniform_recharge_piecewise_k_1d/comparison.py": "6e4d81be7a784d78907c021d6b5f4755349437784b3c4456338f870ec93d6205",
+    "validation_cases/analytical/steady/boussinesq_uniform_recharge_piecewise_k_1d/plotting.py": "80aa87d4efcc9504d1121be36f8e23406ca75c6abefe0ecc6d740fad40e6389a",
+    "validation_cases/analytical/steady/boussinesq_uniform_recharge_piecewise_k_1d/run_case.py": "3d49029e8ac97cd6c5a8694d60d7cad4c915b88080b9ed5855002d3f571d7f0b",
+    "validation_cases/analytical/steady/boussinesq_uniform_recharge_piecewise_k_1d/metadata.toml": "4dbc8da5b1646572498576dcf95ad85be0aa14c851a725d5adff2d67b389dd0d",
+    "validation_cases/analytical/steady/boussinesq_uniform_recharge_piecewise_k_1d/config_modflownwt.toml": "f6773aa5ee4827853e669f538e0456d6ec5b6c4143fe838afd854ad0ba390c2b",
+    "validation_cases/analytical/steady/boussinesq_uniform_recharge_piecewise_k_1d/runtime_boussinesq.py": "5fe6004311626827a977cd2a12f7978a5c6a65bc83459c4f2823e2fb5db2e45a",
+    "validation_cases/analytical/steady/boussinesq_uniform_recharge_piecewise_k_1d/tolerances.toml": "23004e207bd274d4586d771374539e51526dbb3ccd6bdc67c5fcd2621b17e85b",
+    "validation_cases/analytical/steady/boussinesq_uniform_recharge_piecewise_k_1d/tolerances_boussinesq.toml": "9acc07f43d889ae5ea1e48fc0197a97adfe58a9d06986589b944ed0b7dae9d1e",
+    "validation_cases/analytical/steady/boussinesq_uniform_recharge_piecewise_k_1d/tolerances_modflow6.toml": "d30bd227e5007b4679f5ba915f6bcfcfca354c2adcbdb16e1f9b43e814491700",
+    "validation_cases/analytical/steady/boussinesq_uniform_recharge_piecewise_k_1d/tolerances_modflow6_irregular_tri.toml": "465dc9005305c8b7eb648589d51d797d64d030521322a4a0f11720765dd5d5e0",
+    "validation_cases/analytical/steady/boussinesq_uniform_recharge_piecewise_k_1d/config_modflow6.toml": "e668647e68535e36fad07cfad44315d3cdf951c3667fbd299c05faadb166252d",
+    "validation_cases/analytical/steady/boussinesq_uniform_recharge_piecewise_k_1d/config_modflow6_irregular_tri.toml": "d934aaecdc1f26f7a5d7f98a1da6a30950e5e208c46bc7c6744e2c0d281c4da8",
+    "validation_cases/analytical/steady/boussinesq_uniform_recharge_piecewise_k_1d/config_boussinesq.toml": "c343d4093712f5df9d92d3c3de19d3dbf161cabb733536ef93ce693c44ab4278",
+    "validation_cases/analytical/steady/boussinesq_piecewise.py": "62c299fafedaa7556160b00275e6e9780a00baa0ebc1c5aaf206a27c035fb8db"
   },
   "docname": "cases/boussinesq_uniform_recharge_piecewise_k_1d",
   "images": [
@@ -319,8 +319,8 @@
       "expected_output": "Expected shape: 5 x 40",
       "command": "python -m validation_cases.analytical.steady.boussinesq_uniform_recharge_piecewise_k_1d.run_case --no-show --solver modflow6_irregular_tri",
       "metric_lines": [
-        "Head-profile RMSE: 0.2036 m",
-        "Head-profile max abs error: 0.3177 m",
+        "Head-profile RMSE: 0.0219 m",
+        "Head-profile max abs error: 0.0401 m",
         "Cross-row head spread: 0.00e+00 m"
       ],
       "image": {

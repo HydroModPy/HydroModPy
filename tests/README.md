@@ -34,11 +34,12 @@ tests/
 
 ## Markers
 
-Declared in `pyproject.toml`:
+Declared in `tests/pytest.ini`:
 
 | Marker        | Meaning |
 |---------------|---------|
 | `regression`  | compares output against a committed reference dataset |
+| `intercomparison` | solver-to-solver regression based on compact comparison metrics |
 | `validation`  | compares output against an analytical/numerical reference |
 | `analytical`  | validation against a closed-form solution |
 | `steady`      | steady-state case |
@@ -66,6 +67,7 @@ pytest tests/unit/ -q -k metrics_nse          # keyword filter
 
 # Regression - fast tier (parallel)
 pytest tests/regression/fast/ -q -n auto
+pytest -m "regression and intercomparison" -q -n 1
 
 # Regression - extensive tier (serial)
 pytest tests/regression/extensive/ -q -n 1
@@ -89,6 +91,7 @@ The `hmp` CLI wraps the most common invocations:
 ```bash
 hmp test unit                # → pytest tests/unit/
 hmp test regression --fast   # → pytest tests/regression/fast/
+hmp test regression --fast --intercomparison
 hmp test regression --extensive
 hmp test regression --update-goldens
 ```

@@ -82,10 +82,14 @@ def test_run_reference_river_network_nancon_case(
 
     river_network_shp = Path(str(payload["river_network_shp"]))
     summary_path = Path(str(payload["river_network_summary_json"]))
+    generated_network_shp = Path(str(payload["hydrographic_network_generated_shp"]))
+    generated_summary_path = Path(str(payload["hydrographic_network_generated_summary_json"]))
 
     assert payload["figure"] is None
     assert river_network_shp.exists()
     assert summary_path.exists()
+    assert generated_network_shp == river_network_shp
+    assert generated_summary_path == summary_path
     assert int(payload["segment_count"]) > 0
     assert float(payload["network_total_length_m"]) > 0.0
 

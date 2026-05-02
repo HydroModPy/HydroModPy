@@ -29,12 +29,12 @@
     "tools/mesh_bundle_viewer/display/summary.py"
   ],
   "source_hashes": {
-    "examples/projects/08_mesh_viewer/config_example.toml": "3d029b663116ccb877ebb5969950ba7bbb51f46f5b67548e796dd500e2e41ca5",
-    "examples/projects/08_mesh_viewer/default_bundle/README.md": "44d8359209d029cc02d8f9f9d31da522369d090983d4bc12dff6781da6e98bd1",
-    "tools/mesh_bundle_viewer/README.md": "ee221138fdfd22bdca4c3e5dbd1b3b6abab2a8e89c4ad51c5f17355708f72d13",
-    "tools/mesh_bundle_viewer/runner/visualization_runner.py": "79a289826efba8ea310f1f497afc8f421ff275bc90de3a7efc0f439f4fc63c96",
-    "tools/mesh_bundle_viewer/display/figure.py": "0df18b1454f263696e5cc7d272e072ddee6cf1fd81cc176b628f9568c787489e",
-    "tools/mesh_bundle_viewer/display/summary.py": "94d0c8de4718a447b459daf5899e8fe92812a90999fee0e7f1c02d28e45fe7b0"
+    "examples/projects/08_mesh_viewer/config_example.toml": "23c379f7334a38be13d577a7238b94aa0ea7962cee3fbd43fbf4f952d261df95",
+    "examples/projects/08_mesh_viewer/default_bundle/README.md": "6033bff255a7b967403f2423851979b8fc8c7eb906a26e5450e2c70dc5ede8fc",
+    "tools/mesh_bundle_viewer/README.md": "563695ceaf5f7c62cc42a3e16637c8fbe4cad128af808b50846f259c4887de88",
+    "tools/mesh_bundle_viewer/runner/visualization_runner.py": "b7038bc554370fd3584de9ef467d4c6e979981de1c1fdc6e1585a2900b5c3934",
+    "tools/mesh_bundle_viewer/display/figure.py": "ec6056f53f5af1961ef073c1e700f2e6a9658fec18f890150aae4ab42130e6c6",
+    "tools/mesh_bundle_viewer/display/summary.py": "152e4dcf6c8a6884f812411daa890f9fde18b13a464cf7209a15361f92ec8c6d"
   },
   "docname": "cases/mesh_sample_bundle",
   "images": [

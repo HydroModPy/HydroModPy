@@ -15,6 +15,7 @@ WorkflowName = Literal[
     "batch",
     "overview",
     "mesh",
+    "comparison",
     "method-comparison",
 ]
 
@@ -24,6 +25,7 @@ KNOWN_WORKFLOWS: tuple[str, ...] = (
     "batch",
     "overview",
     "mesh",
+    "comparison",
     "method-comparison",
 )
 
@@ -174,12 +176,20 @@ def run_method_comparison(config_path: str | Path) -> dict[str, Any]:
     return MethodComparisonLauncher(config_path).run()
 
 
+def run_comparison(config_path: str | Path) -> dict[str, Any]:
+    """Run a simulation-comparison workflow from a TOML file."""
+    from hydromodpy.analysis.comparison.experiment_launcher import SimulationComparisonLauncher
+
+    return SimulationComparisonLauncher(config_path).run()
+
+
 DISPATCH: dict[str, Callable[..., dict[str, Any]]] = {
     "simulation": run_simulation,
     "overview": run_overview,
     "mesh": run_mesh,
     "calibration": run_calibration,
     "batch": run_batch,
+    "comparison": run_comparison,
     "method-comparison": run_method_comparison,
 }
 
@@ -204,6 +214,7 @@ __all__ = (
     "resolve_workflow",
     "run_batch",
     "run_calibration",
+    "run_comparison",
     "run_mesh",
     "run_method_comparison",
     "run_overview",

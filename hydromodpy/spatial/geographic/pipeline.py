@@ -76,6 +76,10 @@ class GeographicRuntimeContext:
         attrs = dict(vars(self.paths))
         attrs.update(
             {
+                "hydrographic_network_generated_shp": self.paths.hydrographic_network_generated_shp,
+                "hydrographic_network_generated_summary_json": (
+                    self.paths.hydrographic_network_generated_summary_json
+                ),
                 "catch_area": float(self.catchment_area_km2),
                 "crs_proj": self.crs_project,
                 "epsg": self.epsg,
@@ -188,12 +192,12 @@ def _river_products_from_cache(
     if not bool(config.river_network.enabled):
         return RiverNetworkProducts(enabled=False)
 
-    summary_path = Path(paths.river_network_summary_json)
+    summary_path = Path(paths.hydrographic_network_generated_summary_json)
     summary: dict[str, Any] = {}
     if summary_path.exists():
         summary = json.loads(summary_path.read_text(encoding="utf-8"))
 
-    network_path = Path(paths.river_network_shp)
+    network_path = Path(paths.hydrographic_network_generated_shp)
     network_shp = str(network_path) if _vector_artifact_exists(network_path) else None
     network_gdf = None
     if network_shp is not None:
@@ -237,7 +241,7 @@ def _river_products_from_cache(
         network_shp=network_shp,
         network_crs=crs_project,
         river_mesh_trace=river_mesh_trace,
-        summary_json=paths.river_network_summary_json,
+        summary_json=paths.hydrographic_network_generated_summary_json,
     )
 
 
@@ -275,7 +279,7 @@ def _required_geographic_cache_artifacts(
             [
                 Path(paths.correcflow_path) / "dem_acc_cells.tif",
                 paths.river_streams_tif,
-                paths.river_network_summary_json,
+                paths.hydrographic_network_generated_summary_json,
             ]
         )
         if bool(config.river_network.prune_short_streams):
@@ -325,7 +329,7 @@ def _load_cached_geographic_products(
         crs_project=crs_project,
     )
     if bool(config.river_network.enabled):
-        summary_path = Path(paths.river_network_summary_json)
+        summary_path = Path(paths.hydrographic_network_generated_summary_json)
         if summary_path.exists():
             summary = json.loads(summary_path.read_text(encoding="utf-8"))
             if (
@@ -466,8 +470,8 @@ def build_geographic_runtime_context(
             streams_pruned_tif_path=setup.paths.river_streams_pruned_tif,
             stream_order_strahler_tif_path=setup.paths.river_stream_order_strahler_tif,
             stream_link_id_tif_path=setup.paths.river_stream_link_id_tif,
-            network_shp_path=setup.paths.river_network_shp,
-            summary_json_path=setup.paths.river_network_summary_json,
+            network_shp_path=setup.paths.hydrographic_network_generated_shp,
+            summary_json_path=setup.paths.hydrographic_network_generated_summary_json,
             network_crs=setup.crs_project,
             backend=tool,
         )

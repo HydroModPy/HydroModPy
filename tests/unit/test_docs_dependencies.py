@@ -7,6 +7,10 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 PYPROJECT_PATH = ROOT / "pyproject.toml"
 RTD_REQUIREMENTS_PATH = ROOT / "docs" / "readthedocs" / "readthedocs_requirements.txt"
+EDITABLE_ENVIRONMENT_PATHS = [
+    ROOT / "install" / "env_hydromodpy_pkg.yml",
+    ROOT / "install" / "env_hydromodpy_light_pkg.yml",
+]
 
 
 def _normalize_requirement(requirement: str) -> str:
@@ -52,4 +56,19 @@ def test_docs_extra_covers_local_sphinx_notebook_and_uml_build_deps() -> None:
     assert not missing, (
         "The docs extra should install the core local Sphinx/PlantUML/notebook "
         f"build dependencies. Missing: {sorted(missing)}"
+    )
+
+
+def test_editable_conda_environments_install_docs_extra() -> None:
+    expected_pattern = re.compile(r'^\s*-\s+-e\s+["\']?\.\.\[docs\]["\']?\s*$', re.MULTILINE)
+
+    missing_docs_extra = [
+        environment_path.name
+        for environment_path in EDITABLE_ENVIRONMENT_PATHS
+        if expected_pattern.search(environment_path.read_text(encoding="utf-8")) is None
+    ]
+
+    assert not missing_docs_extra, (
+        "Editable conda environments should install the repository docs extra "
+        f"so local Sphinx builds include notebook extensions. Missing: {missing_docs_extra}"
     )

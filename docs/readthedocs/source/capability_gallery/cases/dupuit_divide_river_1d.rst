@@ -96,9 +96,9 @@ Solver Coverage
          Dupuit Divide-River 1D rendered with MODFLOW 6 irregular triangles for the analytical gallery.
 
       **Metrics**
-      - Head-profile RMSE: 0.3023 m
-      - Head-profile max abs error: 0.3970 m
-      - Cross-row head spread: 0.00e+00 m
+      - Head-profile RMSE: 0.0268 m
+      - Head-profile max abs error: 0.0365 m
+      - Cross-row head spread: 8.88e-16 m
 
       - Config file: ``validation_cases/analytical/steady/dupuit_divide_river_1d/config_modflow6_irregular_tri.toml``
       - Tolerances: ``validation_cases/analytical/steady/dupuit_divide_river_1d/tolerances_modflow6_irregular_tri.toml``
