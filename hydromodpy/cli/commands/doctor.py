@@ -296,7 +296,7 @@ def _probe_workspace(workspace_arg: str | None, *, toml: str | None) -> list[dic
     projects_dir = ws / "projects"
     if projects_dir.is_dir():
         project_roots.extend(p for p in sorted(projects_dir.iterdir()) if p.is_dir())
-    if (ws / "hydromodpy.duckdb").is_file():
+    elif (ws / "hydromodpy.duckdb").is_file():
         project_roots.append(ws)
     for project_root in project_roots:
         checks.extend(_probe_parquet_layout(project_root))

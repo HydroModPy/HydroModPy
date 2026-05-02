@@ -169,6 +169,7 @@ def _discover_project_catalogs(workspace_root: Path) -> list[tuple[Path, Path]]:
             catalog_path = project_root / CATALOG_FILENAME
             if catalog_path.is_file():
                 candidates.append((project_root, catalog_path))
+        return candidates
     catalog_path = workspace_root / CATALOG_FILENAME
     if catalog_path.is_file():
         candidates.append((workspace_root, catalog_path))
