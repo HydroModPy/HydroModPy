@@ -88,7 +88,11 @@ def fake_pipeline(monkeypatch, tmp_path):
 
     class _FakeSetup:
         def __init__(self):
-            self.workspace = type("_WS", (), {"root": tmp_path / "ws"})()
+            self.workspace = type(
+                "_WS",
+                (),
+                {"root": tmp_path / "ws", "project_root": tmp_path},
+            )()
             self.flow = None
             self.transport = None
             self.flow_runtime_overrides = None
@@ -143,7 +147,7 @@ def fake_pipeline(monkeypatch, tmp_path):
             earliest=9,  # never run downstream - our metric_fn ignores ctx
             downstream_steps=(),
             override_paths=paths,
-            workspace=tmp_path / "ws",
+            workspace=tmp_path,
             cfg_path=cfg_path,
             raw_toml=raw,
         )
@@ -234,7 +238,7 @@ class TestRunCalibrationCli:
         summary = run_calibration_cli(calib_toml, metric_fn=quadratic_metric)
         from hydromodpy.results.catalog import SimulationCatalog
 
-        workspace_root = calib_toml.parent / "ws"
+        workspace_root = calib_toml.parent
         with SimulationCatalog(workspace_root) as catalog:
             rows = catalog.connection.execute(
                 "SELECT COUNT(*) FROM calibration_iterations WHERE session_id = ?",
@@ -253,7 +257,7 @@ class TestRunCalibrationCli:
         summary = run_calibration_cli(calib_toml, metric_fn=quadratic_metric)
         from hydromodpy.results.catalog import SimulationCatalog
 
-        workspace_root = calib_toml.parent / "ws"
+        workspace_root = calib_toml.parent
         with SimulationCatalog(workspace_root) as catalog:
             row = catalog.connection.execute(
                 "SELECT status, n_iterations, best_objective, best_sim_id "
@@ -464,7 +468,7 @@ class TestSessionLifecycle:
             run_calibration_cli(calib_toml)
 
         assert captured, "start_session should have been invoked"
-        row = self._read_session(calib_toml.parent / "ws", captured[-1])
+        row = self._read_session(calib_toml.parent, captured[-1])
         assert row[0] == "failed"
         assert row[1] == "boom from engine"
         assert row[2] == 0
@@ -491,7 +495,7 @@ class TestSessionLifecycle:
         with pytest.raises(KeyboardInterrupt):
             run_calibration_cli(calib_toml)
 
-        row = self._read_session(calib_toml.parent / "ws", captured[-1])
+        row = self._read_session(calib_toml.parent, captured[-1])
         assert row[0] == "aborted"
         assert row[1] == "SIGINT"
 
@@ -500,6 +504,6 @@ class TestSessionLifecycle:
             raise RuntimeError("metric blew up")
 
         summary = run_calibration_cli(calib_toml, metric_fn=crashing_metric)
-        row = self._read_session(calib_toml.parent / "ws", summary["session_id"])
+        row = self._read_session(calib_toml.parent, summary["session_id"])
         assert row[0] == "failed"
         assert row[2] == 5
