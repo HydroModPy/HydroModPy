@@ -9,6 +9,13 @@ question, so it helps to separate them early.
    Use this page after one walkthrough. It is meant to help you interpret
    published result pages, not to replace the editable case guides.
 
+If you need the actual run workflow that generates comparison outputs, use
+:doc:`comparison-workflow` first and come back here to interpret the produced
+pages and metrics.
+
+If you already have one comparison output folder in hand and want a strict
+artifact-by-artifact reading order, use :doc:`comparison-output-reading-order`.
+
 Know which question the page answers
 ------------------------------------
 
@@ -84,4 +91,5 @@ When you want that, go back to:
 
 - :doc:`data-overview-walkthrough`
 - :doc:`simulation-walkthrough`
+- :doc:`comparison-output-reading-order`
 - :doc:`choose-your-first-workflow`

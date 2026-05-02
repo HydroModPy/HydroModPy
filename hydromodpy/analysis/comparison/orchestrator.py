@@ -16,6 +16,7 @@ from hydromodpy.analysis.comparison.config import MethodComparisonConfig
 from hydromodpy.analysis.comparison.exports import (
     write_budget_exports,
     write_execution_summary_csv,
+    write_hydrographic_network_metrics_export,
     write_native_timeseries_exports,
     write_observable_chronicle_exports,
 )
@@ -91,7 +92,21 @@ class MethodComparisonLauncher:
             try:
                 config_path = summary.get("config_path")
                 resolved_config_path = None if config_path in (None, "") else Path(str(config_path))
-                store, sim_id = discover_result_store(resolved_config_path)
+                preferred_sim_id = summary.get("sim_id")
+                preferred_run_name = summary.get("run_name")
+                store, sim_id = discover_result_store(
+                    resolved_config_path,
+                    preferred_sim_id=(
+                        None
+                        if preferred_sim_id in (None, "")
+                        else str(preferred_sim_id)
+                    ),
+                    preferred_name=(
+                        None
+                        if preferred_run_name in (None, "")
+                        else str(preferred_run_name)
+                    ),
+                )
                 rows = extract_observable_rows(
                     comparison_id=str(section.comparison_id),
                     variant=variant,
@@ -171,6 +186,12 @@ class MethodComparisonLauncher:
             )
         )
         data_artifacts.extend(native_artifacts)
+        hydrographic_artifacts, _hydrographic_rows = write_hydrographic_network_metrics_export(
+            comparison_id=str(section.comparison_id),
+            comparison_root=comparison_root,
+            variant_summaries=variant_summaries,
+        )
+        data_artifacts.extend(hydrographic_artifacts)
         budget_artifacts, budget_rows = write_budget_exports(
             comparison_root=comparison_root,
             variant_summaries=variant_summaries,
@@ -258,21 +279,53 @@ class MethodComparisonLauncher:
         error_type: str | None = None
         error_message: str | None = None
         wall_seconds: float | None = None
+        sim_id: str | None = None
+        run_name: str | None = variant.id
 
         try:
             config_path = materialize_variant_config(cfg=self.cfg, variant=variant)
             if section.run_variants and config_path is not None:
                 from hydromodpy.project import Project
 
-                start = time.monotonic()
                 project = Project(config_path)
-                project.run()
-                wall_seconds = round(time.monotonic() - start, 2)
-                run_folder = self._resolve_completed_run_folder(
-                    run_state=project._ctx,
-                    solver_name=str(variant.solver),
-                )
-                project.close()
+                try:
+                    supports_granular_run = all(
+                        callable(getattr(project, method_name, None))
+                        for method_name in ("prepare", "execute", "ingest", "render", "cleanup")
+                    )
+                    start = time.monotonic()
+                    if supports_granular_run:
+                        sim_id = project.prepare(name=variant.id)
+                        run_name = str(project._active_runs.get(sim_id, variant.id))
+                        try:
+                            project.execute(sim_id)
+                            project.ingest(sim_id)
+                            project.render(sim_id)
+                            wall_seconds = round(time.monotonic() - start, 2)
+                            run_folder = self._resolve_completed_run_folder(
+                                run_state=project._ctx,
+                                solver_name=str(variant.solver),
+                            )
+                            project.cleanup(sim_id, keep_solver_files=True)
+                        except Exception:
+                            try:
+                                project.cleanup(
+                                    sim_id,
+                                    keep_solver_files=True,
+                                    status="failed",
+                                )
+                            except Exception:
+                                pass
+                            raise
+                    else:
+                        project.run(name=variant.id)
+                        wall_seconds = round(time.monotonic() - start, 2)
+                        run_folder = self._resolve_completed_run_folder(
+                            run_state=project._ctx,
+                            solver_name=str(variant.solver),
+                        )
+                finally:
+                    project.close()
                 status = "completed"
             elif run_folder is None and config_path is not None:
                 run_folder = self._infer_run_folder_from_config(
@@ -295,6 +348,8 @@ class MethodComparisonLauncher:
                 "mesh_mode": variant.mesh_mode,
                 "config_path": None if config_path is None else str(config_path),
                 "run_folder": str(run_folder),
+                "sim_id": sim_id,
+                "run_name": run_name,
                 "wall_time_seconds": wall_seconds,
                 "metrics": metrics,
                 "run_metadata": metadata,
@@ -314,10 +369,95 @@ class MethodComparisonLauncher:
                 "mesh_mode": variant.mesh_mode,
                 "config_path": None if config_path is None else str(config_path),
                 "run_folder": None if run_folder is None else str(run_folder),
+                "sim_id": sim_id,
+                "run_name": run_name,
                 "wall_time_seconds": wall_seconds,
                 "error_type": error_type,
                 "error_message": error_message,
             }
+
+    @staticmethod
+    def _looks_like_run_folder(candidate: Path) -> bool:
+        """Return whether a folder contains comparison-readable run outputs."""
+        return (candidate / "_postprocess").exists() or (
+            candidate / "_boussinesq_state_history.npz"
+        ).exists()
+
+    @classmethod
+    def _resolve_existing_run_folder(
+        cls,
+        base_folder: Path,
+        *,
+        solver_name: str | None = None,
+    ) -> Path:
+        """Resolve one concrete run folder from a root, child, or sibling path."""
+        base_folder = Path(base_folder).expanduser()
+        solver_key = str(solver_name or "").strip().lower()
+
+        def _append_dir(targets: list[Path], candidate: Path) -> None:
+            if not candidate.exists() or not candidate.is_dir():
+                return
+            if any(existing == candidate for existing in targets):
+                return
+            targets.append(candidate)
+
+        candidates: list[Path] = []
+        _append_dir(candidates, base_folder)
+        if solver_key:
+            _append_dir(candidates, base_folder / solver_key)
+
+        first_ring: list[Path] = []
+        if base_folder.exists():
+            for child in sorted(base_folder.iterdir()):
+                _append_dir(first_ring, child)
+
+        parent = base_folder.parent
+        if parent.exists():
+            for sibling in sorted(parent.iterdir()):
+                _append_dir(first_ring, sibling)
+
+        ordered_children = sorted(
+            first_ring,
+            key=lambda path: (
+                0
+                if solver_key
+                and (solver_key in path.name.strip().lower())
+                else 1,
+                len(path.parts),
+                str(path),
+            ),
+        )
+        for child in ordered_children:
+            _append_dir(candidates, child)
+
+        second_ring: list[Path] = []
+        for container in ordered_children:
+            try:
+                for grandchild in sorted(container.iterdir()):
+                    _append_dir(second_ring, grandchild)
+            except Exception:
+                continue
+        ordered_grandchildren = sorted(
+            second_ring,
+            key=lambda path: (
+                0
+                if solver_key
+                and (
+                    solver_key in path.name.strip().lower()
+                    or solver_key in path.parent.name.strip().lower()
+                )
+                else 1,
+                len(path.parts),
+                str(path),
+            ),
+        )
+        for grandchild in ordered_grandchildren:
+            _append_dir(candidates, grandchild)
+
+        for candidate in candidates:
+            if cls._looks_like_run_folder(candidate):
+                return candidate.resolve()
+        return base_folder.resolve()
 
     @staticmethod
     def _infer_run_folder_from_config(
@@ -328,24 +468,10 @@ class MethodComparisonLauncher:
         """Infer one existing run folder from a simulation config path."""
         cfg = HydroModPyConfig.from_toml(config_path)
         base_folder = Path(cfg.workspace.solver_scratch_folder) / str(cfg.simulation.run_id)
-        if (base_folder / "_postprocess").exists() or (
-            base_folder / "_boussinesq_state_history.npz"
-        ).exists():
-            return base_folder
-
-        solver_key = str(solver_name or "").strip().lower()
-        if base_folder.parent.exists():
-            for child in sorted(base_folder.parent.iterdir()):
-                if not child.is_dir():
-                    continue
-                child_name = child.name.strip().lower()
-                if solver_key and solver_key not in child_name:
-                    continue
-                if (child / "_postprocess").exists() or (
-                    child / "_boussinesq_state_history.npz"
-                ).exists():
-                    return child
-        return base_folder
+        return MethodComparisonLauncher._resolve_existing_run_folder(
+            base_folder,
+            solver_name=solver_name,
+        )
 
     @staticmethod
     def _resolve_completed_run_folder(*, run_state: Any, solver_name: str) -> Path:
@@ -360,11 +486,17 @@ class MethodComparisonLauncher:
 
         full_path = Path(str(getattr(model, "full_path", "") or "")).expanduser()
         if str(full_path).strip() != "":
-            return full_path
+            return MethodComparisonLauncher._resolve_existing_run_folder(
+                full_path,
+                solver_name=solver_name,
+            )
 
         workspace = run_state.setup.workspace
         run_id = run_state.setup.run_id
-        return Path(workspace.solver_scratch_folder) / str(run_id)
+        return MethodComparisonLauncher._resolve_existing_run_folder(
+            Path(workspace.solver_scratch_folder) / str(run_id),
+            solver_name=solver_name,
+        )
 
     @staticmethod
     def _first_completed_variant_id(
@@ -375,6 +507,21 @@ class MethodComparisonLauncher:
             if summary.get("status") in {"completed", "reused"}:
                 return str(summary.get("id"))
         return None
+
+    @staticmethod
+    def pairwise(sim_a: Any, sim_b: Any, **kwargs) -> dict[str, Any]:
+        """Reserved ad-hoc two-run comparison entry point.
+
+        The public ``hydromodpy.compare(...)`` facade points here. The
+        pairwise helper is not implemented in this checkout yet; callers should
+        use a TOML-driven comparison through :meth:`Project.compare` or invoke
+        :class:`MethodComparisonLauncher` directly with a config path.
+        """
+        raise NotImplementedError(
+            "hydromodpy.compare(sim_a, sim_b) is not implemented in this checkout. "
+            "Use Project.compare(config_path=...) or "
+            "MethodComparisonLauncher(config_path).run() instead."
+        )
 
 
 __all__ = ("MethodComparisonLauncher",)

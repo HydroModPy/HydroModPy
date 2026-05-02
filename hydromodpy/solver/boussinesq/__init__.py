@@ -20,8 +20,27 @@ The detailed implementation is intentionally split across several modules:
 - ``boussinesq.py``: orchestration around the HydroModPy launcher contract.
 """
 
-from hydromodpy.solver.boussinesq.boussinesq import Boussinesq
-from hydromodpy.solver.boussinesq.core.state import BoussinesqState
-from hydromodpy.solver.boussinesq.mesh import BoussinesqMesh
+from __future__ import annotations
+
+from importlib import import_module
 
 __all__ = ["Boussinesq", "BoussinesqMesh", "BoussinesqState"]
+
+_LAZY_IMPORTS = {
+    "Boussinesq": "hydromodpy.solver.boussinesq.boussinesq:Boussinesq",
+    "BoussinesqMesh": "hydromodpy.solver.boussinesq.mesh:BoussinesqMesh",
+    "BoussinesqState": "hydromodpy.solver.boussinesq.core.state:BoussinesqState",
+}
+
+
+def __getattr__(name: str):
+    try:
+        target = _LAZY_IMPORTS[name]
+    except KeyError as exc:
+        raise AttributeError(f"module {__name__!r} has no attribute {name!r}") from exc
+
+    module_path, attr_name = target.split(":", 1)
+    module = import_module(module_path)
+    attr = getattr(module, attr_name)
+    globals()[name] = attr
+    return attr

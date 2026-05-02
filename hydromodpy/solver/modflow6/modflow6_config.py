@@ -58,6 +58,15 @@ class Modflow6RuntimeConfig(HydroModelBase):
             "keeps rewetting disabled unless explicitly enabled."
         ),
     )
+    mf6_enable_xt3d: Annotated[bool | None, Profile.EXPERT] = Field(
+        default=None,
+        description=(
+            "Enable MF6 NPF XT3D terms. When left to None, HydroModPy "
+            "auto-enables XT3D on unstructured solver meshes. This increases "
+            "computational cost but can improve accuracy on unstructured or "
+            "non-orthogonal grids."
+        ),
+    )
     mf6_rewet_wetfct: Annotated[float, Profile.EXPERT] = Field(
         default=0.1,
         gt=0.0,

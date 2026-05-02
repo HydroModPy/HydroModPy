@@ -37,16 +37,16 @@
     "tests/unit/data_managers/geology/test_geology_property_demo.py"
   ],
   "source_hashes": {
-    "hydromodpy/data/variables/geology/cases/run_geology_property_case.py": "6d0b0860df556e57445776ef770eed7a656ee7198b61bb61ac1570d5c2650526",
-    "hydromodpy/data/variables/geology/cases/gallery_geology_config_brittany.toml": "9b82c493a4ad1f08de6d1fa3bf0b504005b87eabd3c5088b47609d2876a7920e",
-    "hydromodpy/data/variables/geology/cases/gallery_field_param_brittany.toml": "d2cbacad3f958af74c4dec3165d82361485d13424467f5673b3852e94d277ba8",
+    "hydromodpy/data/variables/geology/cases/run_geology_property_case.py": "bb646c607d60d46d7c92799176279aa7b1c3de5f9b09cf7d70a87a7036fd4686",
+    "hydromodpy/data/variables/geology/cases/gallery_geology_config_brittany.toml": "9eb1702d8911c9b188b7379120abfc060f01eb38a204cc0c3fe75ccbabd0d7e5",
+    "hydromodpy/data/variables/geology/cases/gallery_field_param_brittany.toml": "fb8e1fd76f435d003cd69eba16d6cd197d4e22e2de3925ae6a98fe3347f77e63",
     "examples/data/geology/GEO1M_brittany.shp": "cc219d3a2fd0c768aec9c4ea9e7f51cdefe5e1f386c4e9503513cf1dc97eff4a",
     "examples/data/geology/GEO1M_brittany.dbf": "93d6915e20b1e19742f9f9bde7d8e84c2740e91ecab6a503d7481306f2f72783",
     "examples/data/geology/GEO1M_brittany.shx": "aa6de33ceda971da31504c32a4cf4c09befb390b89c3af7e99359d53603bff37",
     "examples/data/geology/GEO1M_brittany.prj": "88fd73ff8b13e826726f33a6da48f15dd720da8dcbb4c135b60918a21325e505",
-    "examples/data/geology/geology_K_dummy_demo.csv": "cd4db67a76a8af968e1074e57d5e8f4310b606cb235e35142509786b125e8f25",
+    "examples/data/geology/geology_K_dummy_demo.csv": "ef98e1906feebd7d0dbb12eba6ee11f43fb07574cf0b105283867bb56c277b7e",
     "examples/data/dem/regional_dem_naizin.tif": "826a5fcfeafced373c228cb26cd177f0b2879bfc4e773aa04da57aba01f081ae",
-    "tests/unit/data_managers/geology/test_geology_property_demo.py": "12b2717b9eb83c98a37ab252956634002610c007a52b6a7efacc5e97df2904dd"
+    "tests/unit/data_managers/geology/test_geology_property_demo.py": "ef0128e4004d0ae59f701ebef19eb77c3c193292bde49bb64942173eb98677a2"
   },
   "docname": "cases/hydraulic_conductivity_geology_transfer_brittany",
   "images": [

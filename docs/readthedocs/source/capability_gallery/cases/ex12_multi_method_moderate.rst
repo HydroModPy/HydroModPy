@@ -11,12 +11,6 @@ This case expands the comparison from two variants to four. It combines one same
 .. seealso::
    Read :doc:`the gallery and validation reading guide </getting_started/reading-results-pages>` if you want the parameter mapping, a recommended reading order, and the first modifications to try.
 
-.. figure:: /_static/capability_gallery/method_comparison/ex12_multi_method_moderate.png
-   :alt: Method comparison summary for Four-Method Moderate Suite on Example12
-   :width: 100%
-
-   Summary comparison figure for four-method moderate suite on example12.
-
 Case Setup
 ----------
 
@@ -31,6 +25,13 @@ What It Shows
 - How multi-variant map comparisons and point chronicles stay interpretable when one reference variant is kept explicit.
 - How outlet flux, native flux panels, and execution times complement the map-based metrics in a four-variant suite.
 
+Key Parameters
+--------------
+
+- The chosen reference variant matters more here than in the two-variant pages because every metric is read relative to `mf6_mod_s60`.
+- The two triangular variants share the same committed support, which helps isolate the solver-family jump from MF6 to Boussinesq once you are already off the structured grid.
+- Use the execution-time bars as a complement, not a ranking by itself: the suite mixes different support families and solver implementations on purpose.
+
 How To Read It
 --------------
 
@@ -38,23 +39,26 @@ How To Read It
 - This page is not meant to collapse everything into one scalar ranking; it is meant to show which comparison axis explains each mismatch.
 - If the suite feels dense, use the dedicated two-variant cases first and come back here for synthesis.
 
-Key Metrics
------------
+Local Regeneration Note
+-----------------------
 
-- Depth Last RMSE: 8.47 m
-- Depth Last MAE: 7.189 m
-- Head Last RMSE: 16.77 m
-- Head Last MAE: 13.3 m
-- Head Mid Basin Response RMSE: 8.209 m
-- Head Mid Basin Response MAE: 7.988 m
-- Head Outlet Lowland RMSE: 9.337 m
-- Head Outlet Lowland MAE: 9.183 m
-- Head Upstream Ridge RMSE: 6.589 m
-- Head Upstream Ridge MAE: 6.385 m
-- Outflow Drain Last RMSE: 5.829e-05 m/day
-- Outflow Drain Last MAE: 3.457e-05 m/day
-- Outlet Flux Series RMSE: 0.0001475 m3/s
-- Outlet Flux Series MAE: 0.000124 m3/s
+This local checkout cannot fully rebuild the original gallery artefacts for this case because one or more legacy source files are not present.
+
+The page is still generated so that the capability-gallery structure, cross-links, and reading guides remain valid during a full documentation rebuild.
+
+Reason: The method-comparison config and committed comparison artifacts needed to regenerate this page are not available in the current checkout.
+
+Missing Local Inputs
+--------------------
+
+- ``examples_legacy_2/projects/launcher_simulation/run_method_comparison_example12_multi_method_moderate.toml``
+- ``examples_legacy_2/projects/launcher_simulation/run_demonstrative_annual_moderate_mf6_structured.toml``
+- ``examples_legacy_2/projects/launcher_simulation/run_demonstrative_annual_moderate_nwt.toml``
+- ``examples_legacy_2/projects/launcher_simulation/run_demonstrative_annual_moderate_mf6_precomputed_mesh_input.toml``
+- ``examples_legacy_2/projects/launcher_simulation/run_demonstrative_annual_moderate_boussinesq_precomputed_mesh_input.toml``
+- ``examples_legacy_2/projects/launcher_simulation/method_comparison/ex12_multi_method_moderate/comparison_manifest.json``
+- ``examples_legacy_2/projects/launcher_simulation/method_comparison/ex12_multi_method_moderate/comparison_metrics.json``
+- ``examples_legacy_2/projects/launcher_simulation/method_comparison/ex12_multi_method_moderate/observables.csv``
 
 Next Steps
 ----------
@@ -77,113 +81,6 @@ Refresh the committed gallery artifacts with:
 
    python -m tools.doc_gallery
 
-Case Parameters
----------------
-
-Comparison Setup
-^^^^^^^^^^^^^^^^
-
-.. list-table::
-   :header-rows: 1
-   :widths: 26 42 20 12
-
-   * - Field
-     - Meaning
-     - Value
-     - Source
-   * - ``[method_comparison] comparison_id``
-     - Stable identifier used to collect outputs and summary artifacts for the comparison.
-     - ex12_multi_method_moderate
-     - ``examples_legacy_2/projects/launcher_simulation/run_method_comparison_example12_multi_method_moderate.toml``
-   * - ``[method_comparison] reference_variant``
-     - Variant used as the baseline when computing map-wise differences and error metrics.
-     - mf6_mod_s60
-     - ``examples_legacy_2/projects/launcher_simulation/run_method_comparison_example12_multi_method_moderate.toml``
-   * - ``[method_comparison] run_variants``
-     - Whether the launcher reruns the variants or only reuses committed run folders.
-     - true
-     - ``examples_legacy_2/projects/launcher_simulation/run_method_comparison_example12_multi_method_moderate.toml``
-   * - ``study_area``
-     - Study area summarized by the gallery page for this comparison case.
-     - Example12 / Naizin
-     - ``docs/readthedocs/source/_static/capability_gallery/method_comparison/ex12_multi_method_moderate_summary.json``
-
-Compared Variants
-^^^^^^^^^^^^^^^^^
-
-.. list-table::
-   :header-rows: 1
-   :widths: 26 42 20 12
-
-   * - Field
-     - Meaning
-     - Value
-     - Source
-   * - ``variant.mf6_mod_s60``
-     - Compared run folder and solver definition used by the method-comparison launcher.
-     - MF6 annual moderate on 60x60 structured grid; solver=modflow6; mesh_mode=structured; run_folder=None
-     - ``examples_legacy_2/projects/launcher_simulation/run_method_comparison_example12_multi_method_moderate.toml``
-   * - ``variant.nwt_mod_s60``
-     - Compared run folder and solver definition used by the method-comparison launcher.
-     - NWT annual moderate on 60x60 structured grid; solver=modflownwt; mesh_mode=structured; run_folder=None
-     - ``examples_legacy_2/projects/launcher_simulation/run_method_comparison_example12_multi_method_moderate.toml``
-   * - ``variant.mf6_mod_tri``
-     - Compared run folder and solver definition used by the method-comparison launcher.
-     - MF6 annual moderate on committed triangular mesh; solver=modflow6; mesh_mode=mesh_input; run_folder=None
-     - ``examples_legacy_2/projects/launcher_simulation/run_method_comparison_example12_multi_method_moderate.toml``
-   * - ``variant.bouss_mod_tri``
-     - Compared run folder and solver definition used by the method-comparison launcher.
-     - Boussinesq annual moderate on committed triangular mesh; solver=boussinesq; mesh_mode=mesh_input; run_folder=None
-     - ``examples_legacy_2/projects/launcher_simulation/run_method_comparison_example12_multi_method_moderate.toml``
-
-Compared Observables
-^^^^^^^^^^^^^^^^^^^^
-
-.. list-table::
-   :header-rows: 1
-   :widths: 26 42 20 12
-
-   * - Field
-     - Meaning
-     - Value
-     - Source
-   * - ``observable.head_outlet_lowland``
-     - Observable extracted from each run before parity plots and difference metrics are computed.
-     - variable=watertable_elevation; support=point; time=all; unit=m
-     - ``examples_legacy_2/projects/launcher_simulation/run_method_comparison_example12_multi_method_moderate.toml``
-   * - ``observable.head_mid_basin_response``
-     - Observable extracted from each run before parity plots and difference metrics are computed.
-     - variable=watertable_elevation; support=point; time=all; unit=m
-     - ``examples_legacy_2/projects/launcher_simulation/run_method_comparison_example12_multi_method_moderate.toml``
-   * - ``observable.head_upstream_ridge``
-     - Observable extracted from each run before parity plots and difference metrics are computed.
-     - variable=watertable_elevation; support=point; time=all; unit=m
-     - ``examples_legacy_2/projects/launcher_simulation/run_method_comparison_example12_multi_method_moderate.toml``
-   * - ``observable.outlet_flux_series``
-     - Observable extracted from each run before parity plots and difference metrics are computed.
-     - variable=outlet_flux; support=outlet; time=all; unit=m3/s
-     - ``examples_legacy_2/projects/launcher_simulation/run_method_comparison_example12_multi_method_moderate.toml``
-   * - ``observable.head_map_last``
-     - Observable extracted from each run before parity plots and difference metrics are computed.
-     - variable=watertable_elevation; support=map; time=last; unit=m
-     - ``examples_legacy_2/projects/launcher_simulation/run_method_comparison_example12_multi_method_moderate.toml``
-   * - ``observable.depth_map_last``
-     - Observable extracted from each run before parity plots and difference metrics are computed.
-     - variable=watertable_depth; support=map; time=last; unit=m
-     - ``examples_legacy_2/projects/launcher_simulation/run_method_comparison_example12_multi_method_moderate.toml``
-   * - ``observable.outflow_drain_map_last``
-     - Observable extracted from each run before parity plots and difference metrics are computed.
-     - variable=outflow_drain; support=map; time=last; unit=m/day
-     - ``examples_legacy_2/projects/launcher_simulation/run_method_comparison_example12_multi_method_moderate.toml``
-   * - ``observable.surface_excess_flux_series``
-     - Observable extracted from each run before parity plots and difference metrics are computed.
-     - variable=surface_excess_flux; support=cell_mask; time=all; unit=m3/s
-     - ``examples_legacy_2/projects/launcher_simulation/run_method_comparison_example12_multi_method_moderate.toml``
-   * - ``observable.surface_excess_map_last``
-     - Observable extracted from each run before parity plots and difference metrics are computed.
-     - variable=surface_excess_rate; support=map; time=last; unit=m/day
-     - ``examples_legacy_2/projects/launcher_simulation/run_method_comparison_example12_multi_method_moderate.toml``
-
 Source Pointers
 ---------------
 
@@ -199,10 +96,4 @@ Source Pointers
 Artifacts
 ---------
 
-- ``docs/readthedocs/source/_static/capability_gallery/method_comparison/ex12_multi_method_moderate.png``
-- ``docs/readthedocs/source/_static/capability_gallery/method_comparison/ex12_multi_method_moderate_comparison_manifest.json``
-- ``docs/readthedocs/source/_static/capability_gallery/method_comparison/ex12_multi_method_moderate_comparison_metrics.json``
-- ``docs/readthedocs/source/_static/capability_gallery/method_comparison/ex12_multi_method_moderate_observables.csv``
-- ``docs/readthedocs/source/_static/capability_gallery/method_comparison/ex12_multi_method_moderate_summary_metrics.csv``
-- ``docs/readthedocs/source/_static/capability_gallery/method_comparison/ex12_multi_method_moderate_difference_metrics.csv``
 - ``docs/readthedocs/source/_static/capability_gallery/method_comparison/ex12_multi_method_moderate_summary.json`` stores the displayed metrics plus source hashes used by ``python -m tools.doc_gallery --check``.

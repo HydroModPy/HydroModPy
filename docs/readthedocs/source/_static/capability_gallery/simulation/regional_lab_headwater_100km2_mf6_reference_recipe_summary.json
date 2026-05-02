@@ -47,51 +47,18 @@
     "examples_legacy_2/projects/launcher_simulation/run_headwater_100km2_outlet_2_mf6_transient_reference.toml"
   ],
   "source_hashes": {
-    "examples_legacy_2/projects/launcher_simulation/regional_lab/config_headwater_100km2_lab_mf6_reference.toml": "6f171b8893c3dbd44b3b305173a7b809cf5b6e83dabe0807d943804f7f17103f",
-    "hydromodpy/analysis/batch/__init__.py": "a456178f0f80ef7fb8acc4b2e550aa776cbeb755d224f959fe7d5597d462849d",
-    "hydromodpy/analysis/batch/config.py": "143de773efb5875e2d9a07008d189e36fca510c1bb712da6240d536718264f8f",
-    "hydromodpy/analysis/batch/runtime.py": "f05dd267e80c383e2df1d46dd002c8b3fd5dbfbce00c715fc19756b8a10c53e8",
-    "examples_legacy_2/projects/launcher_simulation/regional_lab/README.md": "a1910134f58cd8c49abe41d4e1f51adfd502266eba56dfb7b055c0dd72255b25",
-    "examples_legacy_2/projects/launcher_simulation/regional_lab/config_headwater_100km2_lab.toml": "7832458061e2960886a245c39b4dab3fc05b47a5b45a79159736f1cd90f7a572",
-    "examples_legacy_2/projects/launcher_simulation/regional_lab/site_catalog.csv": "ea2ad802cf1325c4ddf0250fc415ef30252bab9f5afdb26f2a025fb9283375f8",
-    "examples_legacy_2/projects/launcher_simulation/run_headwater_100km2_outlet_2_mf6_transient_reference.toml": "35464713f1c8e99fa9bf583f3ebfafb9fc543f19ac00255a10b371d8bae8f8bd"
+    "examples_legacy_2/projects/launcher_simulation/regional_lab/config_headwater_100km2_lab_mf6_reference.toml": "__missing__",
+    "hydromodpy/analysis/batch/__init__.py": "fd66fa0503694884495d6d668b29fdee9e65fb1a812e397119c033f5351b2550",
+    "hydromodpy/analysis/batch/config.py": "e24edd3579595e7e2a308af298104735bbb32abc6bce35760ff80dda81bd2abe",
+    "hydromodpy/analysis/batch/runtime.py": "75c579931a01507a6b9aaf75cb57c49229ccbf555b289a03f35621786fc84c7c",
+    "examples_legacy_2/projects/launcher_simulation/regional_lab/README.md": "__missing__",
+    "examples_legacy_2/projects/launcher_simulation/regional_lab/config_headwater_100km2_lab.toml": "__missing__",
+    "examples_legacy_2/projects/launcher_simulation/regional_lab/site_catalog.csv": "__missing__",
+    "examples_legacy_2/projects/launcher_simulation/run_headwater_100km2_outlet_2_mf6_transient_reference.toml": "__missing__"
   },
   "docname": "cases/regional_lab_headwater_100km2_mf6_reference_recipe",
-  "images": [
-    {
-      "filename": "regional_lab_headwater_100km2_mf6_reference_recipe.png",
-      "caption": "Dry-plan synthesis for regional lab mf6 reference recipe on headwater 100 km2: site or candidate coverage, recipe summary, and planning metrics.",
-      "alt_text": "Regional lab dry-plan synthesis for Regional Lab MF6 Reference Recipe on Headwater 100 km2",
-      "doc_path": "/_static/capability_gallery/simulation/regional_lab_headwater_100km2_mf6_reference_recipe.png",
-      "repo_path": "docs/readthedocs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_mf6_reference_recipe.png"
-    }
-  ],
-  "metrics": [
-    {
-      "label": "Candidate sites",
-      "key": "candidate_site_count",
-      "value": 3,
-      "display": "3"
-    },
-    {
-      "label": "Planned cases",
-      "key": "planned_case_count",
-      "value": 1,
-      "display": "1"
-    },
-    {
-      "label": "Coverage gaps",
-      "key": "skipped_case_count",
-      "value": 2,
-      "display": "2"
-    },
-    {
-      "label": "Pending cases",
-      "key": "pending_case_count",
-      "value": 1,
-      "display": "1"
-    }
-  ],
+  "images": [],
+  "metrics": [],
   "metadata": {
     "regional_lab_config_path": "examples_legacy_2/projects/launcher_simulation/regional_lab/config_headwater_100km2_lab_mf6_reference.toml",
     "study_area": "Brittany regional laboratory",
@@ -119,113 +86,41 @@
     "flow_solvers": [
       "MODFLOW 6"
     ],
-    "execute": false,
-    "selected_site_ids": [
-      "headwater_100km2_outlet_2",
-      "headwater_100km2_outlet_27",
-      "headwater_100km2_outlet_34",
-      "s3_100km2_outlet_8",
-      "s3_10km2_outlet_3"
-    ],
-    "candidate_site_ids": [
-      "headwater_100km2_outlet_2",
-      "headwater_100km2_outlet_27",
-      "headwater_100km2_outlet_34"
-    ],
-    "recipe_ids": [
-      "mf6_reference"
-    ],
-    "recipe_labels": {
-      "mf6_reference": "MF6 reference replay"
-    },
-    "candidate_site_count": 3,
-    "runnable_site_count": 1,
-    "gap_reasons": {
-      "missing_required_fields": 2
-    }
+    "generation_status": "source_unavailable_local",
+    "generation_reason": "The regional-lab overlay config needed to regenerate this page is not available in the current checkout.",
+    "missing_source_paths": [
+      "examples_legacy_2/projects/launcher_simulation/regional_lab/config_headwater_100km2_lab_mf6_reference.toml",
+      "examples_legacy_2/projects/launcher_simulation/regional_lab/README.md",
+      "examples_legacy_2/projects/launcher_simulation/regional_lab/config_headwater_100km2_lab.toml",
+      "examples_legacy_2/projects/launcher_simulation/regional_lab/site_catalog.csv",
+      "examples_legacy_2/projects/launcher_simulation/run_headwater_100km2_outlet_2_mf6_transient_reference.toml"
+    ]
   },
   "artifacts": {
     "summary_json_doc_path": "/_static/capability_gallery/simulation/regional_lab_headwater_100km2_mf6_reference_recipe_summary.json",
     "summary_json_repo_path": "docs/readthedocs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_mf6_reference_recipe_summary.json",
-    "image_repo_paths": [
-      "docs/readthedocs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_mf6_reference_recipe.png"
-    ],
-    "extra_repo_paths": [
-      "docs/readthedocs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_mf6_reference_recipe_plan.json",
-      "docs/readthedocs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_mf6_reference_recipe_report.json",
-      "docs/readthedocs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_mf6_reference_recipe_summary.md",
-      "docs/readthedocs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_mf6_reference_recipe_site_inventory.csv",
-      "docs/readthedocs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_mf6_reference_recipe_recipe_summary.csv",
-      "docs/readthedocs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_mf6_reference_recipe_cluster_summary.csv",
-      "docs/readthedocs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_mf6_reference_recipe_case_matrix.csv"
-    ]
+    "image_repo_paths": []
   },
-  "parameter_docs": {
-    "sections": [
-      {
-        "title": "Selected Parameters",
-        "rows": [
-          {
-            "field": "[simulation.time] start_datetime",
-            "meaning": "Start of the simulated period used by the flow and transport run.",
-            "value": "2003-01-01 00:00:00",
-            "source": "examples_legacy_2/projects/launcher_simulation/run_headwater_100km2_outlet_2_mf6_transient_reference.toml"
-          },
-          {
-            "field": "[simulation.time] end_datetime",
-            "meaning": "End of the simulated period used by the flow and transport run.",
-            "value": "2005-12-31 00:00:00",
-            "source": "examples_legacy_2/projects/launcher_simulation/run_headwater_100km2_outlet_2_mf6_transient_reference.toml"
-          },
-          {
-            "field": "[simulation.time] step_value",
-            "meaning": "Nominal time step used to discretize the simulation period.",
-            "value": "1 month",
-            "source": "examples_legacy_2/projects/launcher_simulation/run_headwater_100km2_outlet_2_mf6_transient_reference.toml"
-          },
-          {
-            "field": "[data.recharge.sources] values",
-            "meaning": "Synthetic recharge sequence injected into the run over the configured time support.",
-            "value": "2.4, 2.2, 1.8, 1.2, 0.7, 0.2, -0.3, -0.5, 0.1, 0.9, 1.8, 2.3, 2.1, 1.9, 1.5, 1, 0.4, 0, -0.6, -0.8, -0.1, 0.7, 1.6, 2, 2.7, 2.4, 1.9, 1.3, 0.8, 0.3, -0.2, -0.4, 0.2, 1.1, 2, 2.6",
-            "source": "examples_legacy_2/projects/launcher_simulation/run_headwater_100km2_outlet_2_mf6_transient_reference.toml"
-          },
-          {
-            "field": "[data.recharge.sources] freq",
-            "meaning": "Temporal frequency used to interpret the synthetic recharge sequence.",
-            "value": "MS",
-            "source": "examples_legacy_2/projects/launcher_simulation/run_headwater_100km2_outlet_2_mf6_transient_reference.toml"
-          },
-          {
-            "field": "[data.recharge.sources] runoff_ratio",
-            "meaning": "Fraction of recharge redirected to runoff rather than infiltration.",
-            "value": "0.12",
-            "source": "examples_legacy_2/projects/launcher_simulation/run_headwater_100km2_outlet_2_mf6_transient_reference.toml"
-          },
-          {
-            "field": "[flow.param.K.field_homogeneous] value",
-            "meaning": "Homogeneous hydraulic conductivity used by the flow model in this tutorial run.",
-            "value": "2.5e-05",
-            "source": "examples_legacy_2/projects/launcher_simulation/run_headwater_100km2_outlet_2_mf6_transient_reference.toml"
-          },
-          {
-            "field": "[flow.param.Sy.field_homogeneous] value",
-            "meaning": "Specific yield used to control the free-surface response of the aquifer.",
-            "value": "0.1",
-            "source": "examples_legacy_2/projects/launcher_simulation/run_headwater_100km2_outlet_2_mf6_transient_reference.toml"
-          }
-        ]
-      },
-      {
-        "title": "Mesh and Output Selection",
-        "rows": [
-          {
-            "field": "[capability_gallery] assets",
-            "meaning": "Subset of run outputs copied into the static documentation gallery.",
-            "value": "flow_state_triptych.png, recharge_discharge_cumulative.png, watertable_elevation.png, watertable_depth.png, flow_support_overview.png",
-            "source": "examples_legacy_2/projects/launcher_simulation/run_headwater_100km2_outlet_2_mf6_transient_reference.toml"
-          }
-        ]
-      }
-    ]
-  }
+  "custom_sections": [
+    {
+      "title": "Local Regeneration Note",
+      "kind": "paragraphs",
+      "paragraphs": [
+        "This local checkout cannot fully rebuild the original gallery artefacts for this case because one or more legacy source files are not present.",
+        "The page is still generated so that the capability-gallery structure, cross-links, and reading guides remain valid during a full documentation rebuild.",
+        "Reason: The regional-lab overlay config needed to regenerate this page is not available in the current checkout."
+      ]
+    },
+    {
+      "title": "Missing Local Inputs",
+      "kind": "bullets",
+      "items": [
+        "``examples_legacy_2/projects/launcher_simulation/regional_lab/config_headwater_100km2_lab_mf6_reference.toml``",
+        "``examples_legacy_2/projects/launcher_simulation/regional_lab/README.md``",
+        "``examples_legacy_2/projects/launcher_simulation/regional_lab/config_headwater_100km2_lab.toml``",
+        "``examples_legacy_2/projects/launcher_simulation/regional_lab/site_catalog.csv``",
+        "``examples_legacy_2/projects/launcher_simulation/run_headwater_100km2_outlet_2_mf6_transient_reference.toml``"
+      ]
+    }
+  ]
 }

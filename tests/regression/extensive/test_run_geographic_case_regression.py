@@ -125,19 +125,12 @@ def _build_metrics_payload(
 
 
 def _collect_case_signature(
-    project_root: str | Path,
+    case_summary: dict[str, object],
 ) -> dict[str, bool | str | float | int | None]:
-    summary_path = (
-        Path(project_root)
-        / ".solver_scratch/_preprocessing"
-        / "geographic"
-        / "river_network_summary.json"
-    )
-    if not summary_path.exists():
-        raise AssertionError(f"Missing river network summary: {summary_path}")
-
-    with summary_path.open("r", encoding="utf-8") as stream:
-        summary = json.load(stream)
+    summary = case_summary.get("river_network_summary")
+    if not isinstance(summary, dict):
+        summary_path = case_summary.get("river_network_summary_json")
+        raise AssertionError(f"Missing river network summary payload: {summary_path}")
 
     return {
         "enabled": bool(summary["enabled"]),
@@ -159,7 +152,7 @@ def _build_river_network_payload(
     summaries: dict[str, dict[str, object]],
 ) -> dict[str, dict[str, object]]:
     return {
-        case_id: _collect_case_signature(summaries[case_id]["project_root"]) for case_id in CASE_IDS
+        case_id: _collect_case_signature(summaries[case_id]) for case_id in CASE_IDS
     }
 
 

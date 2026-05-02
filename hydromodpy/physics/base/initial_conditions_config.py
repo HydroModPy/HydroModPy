@@ -35,6 +35,7 @@ def normalize_initial_condition_payload(
 
     payload = dict(value)
     payload.setdefault("id", default_id)
-    if "units" not in payload and "unit" in payload:
-        payload["units"] = payload["unit"]
+    if "unit" in payload:
+        payload.setdefault("units", payload["unit"])
+        payload.pop("unit", None)
     return InitialCondition.model_validate(payload)

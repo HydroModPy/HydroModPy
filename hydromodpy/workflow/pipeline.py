@@ -261,9 +261,9 @@ def cleanup_run(
         step_save_run_artifacts(ctx, wall_seconds)
 
     effective = getattr(ctx, "_effective_results_cfg", None)
-    keep = keep_solver_files
+    keep = bool(keep_solver_files)
     if effective is not None:
-        keep = effective.keep_solver_files
+        keep = keep or bool(effective.keep_solver_files)
     step_cleanup_scratch(ctx, keep_solver_files=keep)
 
     geo = ctx.setup.geographic

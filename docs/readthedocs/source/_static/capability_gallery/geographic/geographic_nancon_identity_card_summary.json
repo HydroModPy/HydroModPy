@@ -49,10 +49,10 @@
     "examples/projects/09_capability_gallery/geographic/nancon_identity_card/geographic_nancon_identity_card_stats_card.png"
   ],
   "source_hashes": {
-    "tools/doc_gallery/manifests/geographic_cases.json": "87a228bb5a5c8c8b087dbeae7693efd258f71bab1739443c6cf211b1f90f7bfe",
-    "examples/projects/05_nancon_data_overview/README.md": "13e8270f6f109c7a14ff9464abb088632cb972968eb8453a346f4f6490faca64",
-    "examples/projects/05_nancon_data_overview/config_overview.toml": "879016d1e597ca85205b76c3c6c7ee08bf3aae046540b637a1b8f26ff87c85ac",
-    "examples/projects/09_capability_gallery/geographic/README.md": "fe6bc2eca9984e4b58baa744210d733ff348585fe5e499aa146a02b2f61a4dad",
+    "tools/doc_gallery/manifests/geographic_cases.json": "d8ef3b9bd8f9fcbeef8701d9035f284d54634dc90741e82a6ffa5d1ab0372261",
+    "examples/projects/05_nancon_data_overview/README.md": "78e13cf3e4fb617669e1655b026f789421306d5b4f8e813d77f45cb4387d045c",
+    "examples/projects/05_nancon_data_overview/config_overview.toml": "c98a19b16dfb3b2eff41a0b3ab2a184a037ee37bc08ae36cd2e487b2f562825a",
+    "examples/projects/09_capability_gallery/geographic/README.md": "07f37f4616cc9972e1d68a854ddf3ba078bd7a08178147c2939fb8a292983456",
     "examples/projects/09_capability_gallery/geographic/nancon_identity_card/geographic_nancon_identity_card_map_dem.png": "ec51960426ffc4ffeea30afc31ed99844b48a08e05bcdf0308ddc2c3b2e0653d",
     "examples/projects/09_capability_gallery/geographic/nancon_identity_card/geographic_nancon_identity_card_map_geology.png": "98bde05904473e5c59011ce8a107c9fcc350aa5b2d2617b9931d3f938e702ae5",
     "examples/projects/09_capability_gallery/geographic/nancon_identity_card/geographic_nancon_identity_card_map_hydrography.png": "32f1ad36cb0879224f9288c7110e5a8efe4390a9eb74e7deb16d7a2115175b99",

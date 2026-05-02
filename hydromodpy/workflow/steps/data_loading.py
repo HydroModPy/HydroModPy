@@ -17,6 +17,9 @@ from hydromodpy.physics.flow.structure_binders import (
     apply_recharge_load_result_to_flow,
 )
 from hydromodpy.simulation import ensure_flow
+from hydromodpy.spatial.geographic.core.derived_features import (
+    attach_reference_hydrographic_network,
+)
 from hydromodpy.spatial.geographic.structure_binders import apply_geology_to_domain
 
 if TYPE_CHECKING:
@@ -123,6 +126,11 @@ def apply_structural_updates_from_data(
         etp_result=getattr(data_state, "etp", None),
         simulation_window=window,
     )
+    if setup_state.geographic_features is not None:
+        setup_state.geographic_features = attach_reference_hydrographic_network(
+            setup_state.geographic_features,
+            data_state.hydrography,
+        )
 
 
 # ---------------------------------------------------------------------------

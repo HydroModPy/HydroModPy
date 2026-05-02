@@ -1,0 +1,83 @@
+workflow = "comparison"
+
+[comparison]
+comparison_id = "dupuit_mf6_vs_bouss"
+base_simulation_config = "base_dupuit_shared_mesh.toml"
+output_root = "outputs/dupuit_mf6_vs_bouss"
+reference_simulation = "mf6_ref"
+continue_on_error = false
+
+[comparison.execution]
+backend = "subprocess_hmp_run"
+max_parallel_runs = 1
+run_simulations = true
+keep_generated_configs = true
+
+[comparison.audit]
+mode = "strict_same_case"
+on_mismatch = "warn"
+
+[comparison.fine_raster]
+enabled = true
+resolution = 10.0
+extent_mode = "intersection"
+interpolation = "linear"
+write_geotiff = false
+
+[[comparison.simulation]]
+id = "mf6_ref"
+label = "MODFLOW 6 reference"
+solver = "modflow6"
+mesh_label = "shared irregular triangle mesh"
+mesh_mode = "mesh_input"
+
+[comparison.simulation.overlay.modflow6.runtime]
+mf6_ims_complexity = "SIMPLE"
+mf_verbose = false
+
+[comparison.simulation.overlay.modflow6.process_specific]
+vka = 1.0
+
+[comparison.simulation.overlay.modflow6.sgrid.vertical]
+nlay = 1
+
+[[comparison.simulation]]
+id = "bouss_candidate"
+label = "Boussinesq candidate"
+solver = "boussinesq"
+mesh_label = "shared irregular triangle mesh"
+mesh_mode = "mesh_input"
+
+[comparison.simulation.overlay.flow]
+runtime_backend = "scipy_sparse"
+
+[[comparison.observable]]
+name = "head_map_last"
+variable = "watertable_elevation"
+support = "map"
+time = "last"
+unit = "m"
+
+[[comparison.observable]]
+name = "head_west_last"
+variable = "watertable_elevation"
+support = "point"
+cell_index = 2
+time = "last"
+unit = "m"
+
+[[comparison.observable]]
+name = "head_middle_last"
+variable = "watertable_elevation"
+support = "point"
+cell_index = 88
+time = "last"
+unit = "m"
+
+[[comparison.observable]]
+name = "head_east_last"
+variable = "watertable_elevation"
+support = "point"
+cell_index = 175
+time = "last"
+unit = "m"

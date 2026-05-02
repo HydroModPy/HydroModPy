@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 import subprocess
 import sys
 from dataclasses import replace
@@ -17,6 +18,16 @@ from tools.mesh_bundle_viewer import (
     load_visualization_data,
 )
 from tools.mesh_bundle_viewer.reader import load_catchment_mesh_bundle
+
+
+def _pythonpath_with(path: Path) -> dict[str, str]:
+    """Return one child environment that can import modules from ``path``."""
+
+    env = os.environ.copy()
+    current = env.get("PYTHONPATH", "")
+    extra = str(path)
+    env["PYTHONPATH"] = extra if current == "" else os.pathsep.join((extra, current))
+    return env
 
 
 def _repo_root() -> Path:
@@ -92,6 +103,7 @@ def test_python_module_mesh_bundle_viewer_entrypoint_runs_on_example_bundle(
             str(summary_path),
         ],
         cwd=_repo_root(),
+        env=_pythonpath_with(_repo_root()),
         check=False,
         capture_output=True,
         text=True,

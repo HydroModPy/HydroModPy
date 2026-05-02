@@ -36,7 +36,13 @@ if TYPE_CHECKING:
 
 @dataclass(frozen=True)
 class RiverNetworkProducts:
-    """Canonical output paths and key metrics for one river-network build."""
+    """Legacy-compatible technical bundle for one DEM-derived network build.
+
+    The canonical conceptual object is now :class:`HydrographicNetwork`, but
+    this bundle remains the low-level output contract produced directly by the
+    ``geographic.river_network`` preprocessing step and consumed by legacy
+    runtime layers.
+    """
 
     enabled: bool
     threshold_cells: float | None = None
@@ -50,6 +56,16 @@ class RiverNetworkProducts:
     network_crs: str | None = None
     river_mesh_trace: RiverMeshTrace | None = None
     summary_json: str | None = None
+
+    @property
+    def hydrographic_network_generated_shp(self) -> str | None:
+        """Canonical alias of the generated hydrographic-network vector path."""
+        return self.network_shp
+
+    @property
+    def hydrographic_network_generated_summary_json(self) -> str | None:
+        """Canonical alias of the generated hydrographic-network summary path."""
+        return self.summary_json
 
 
 def resolve_stream_threshold_cells(

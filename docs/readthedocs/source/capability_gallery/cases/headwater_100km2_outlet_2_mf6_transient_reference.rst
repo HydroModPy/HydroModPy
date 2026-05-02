@@ -55,6 +55,14 @@ What It Shows
 - How monthly synthetic recharge drives three years of cumulative recharge and discharge on a real basin support.
 - How the same run can surface both global synthesis figures and direct water-table maps without shipping the full solver workspace.
 
+Key Parameters
+--------------
+
+- `[mesh_input] mesh_path` and `bundle_dir` lock the support to the versioned 100 km2 outlet-2 mesh, which makes this page a support-reuse workflow rather than a meshing example.
+- `[simulation.time] start_datetime`, `end_datetime`, and `step_value` define the three-year monthly replay window shown in the cumulative curves.
+- `[[data.recharge.sources]] values`, `freq`, and `runoff_ratio` define the synthetic forcing chronology that drives the transient response.
+- `[flow.param.K.field_homogeneous]`, `[flow.param.Sy.field_homogeneous]`, and `[flow.param.Ss.field_homogeneous]` are the main parameters to perturb when comparing this reference run against the more complex scenario overlays.
+
 How To Read It
 --------------
 
@@ -82,69 +90,6 @@ Refresh the committed gallery artifacts with:
 .. code-block:: bash
 
    python -m tools.doc_gallery
-
-Case Parameters
----------------
-
-Selected Parameters
-^^^^^^^^^^^^^^^^^^^
-
-.. list-table::
-   :header-rows: 1
-   :widths: 26 42 20 12
-
-   * - Field
-     - Meaning
-     - Value
-     - Source
-   * - ``[simulation.time] start_datetime``
-     - Start of the simulated period used by the flow and transport run.
-     - 2003-01-01 00:00:00
-     - ``examples_legacy_2/projects/launcher_simulation/run_headwater_100km2_outlet_2_mf6_transient_reference.toml``
-   * - ``[simulation.time] end_datetime``
-     - End of the simulated period used by the flow and transport run.
-     - 2005-12-31 00:00:00
-     - ``examples_legacy_2/projects/launcher_simulation/run_headwater_100km2_outlet_2_mf6_transient_reference.toml``
-   * - ``[simulation.time] step_value``
-     - Nominal time step used to discretize the simulation period.
-     - 1 month
-     - ``examples_legacy_2/projects/launcher_simulation/run_headwater_100km2_outlet_2_mf6_transient_reference.toml``
-   * - ``[data.recharge.sources] values``
-     - Synthetic recharge sequence injected into the run over the configured time support.
-     - 2.4, 2.2, 1.8, 1.2, 0.7, 0.2, -0.3, -0.5, 0.1, 0.9, 1.8, 2.3, 2.1, 1.9, 1.5, 1, 0.4, 0, -0.6, -0.8, -0.1, 0.7, 1.6, 2, 2.7, 2.4, 1.9, 1.3, 0.8, 0.3, -0.2, -0.4, 0.2, 1.1, 2, 2.6
-     - ``examples_legacy_2/projects/launcher_simulation/run_headwater_100km2_outlet_2_mf6_transient_reference.toml``
-   * - ``[data.recharge.sources] freq``
-     - Temporal frequency used to interpret the synthetic recharge sequence.
-     - MS
-     - ``examples_legacy_2/projects/launcher_simulation/run_headwater_100km2_outlet_2_mf6_transient_reference.toml``
-   * - ``[data.recharge.sources] runoff_ratio``
-     - Fraction of recharge redirected to runoff rather than infiltration.
-     - 0.12
-     - ``examples_legacy_2/projects/launcher_simulation/run_headwater_100km2_outlet_2_mf6_transient_reference.toml``
-   * - ``[flow.param.K.field_homogeneous] value``
-     - Homogeneous hydraulic conductivity used by the flow model in this tutorial run.
-     - 2.5e-05
-     - ``examples_legacy_2/projects/launcher_simulation/run_headwater_100km2_outlet_2_mf6_transient_reference.toml``
-   * - ``[flow.param.Sy.field_homogeneous] value``
-     - Specific yield used to control the free-surface response of the aquifer.
-     - 0.1
-     - ``examples_legacy_2/projects/launcher_simulation/run_headwater_100km2_outlet_2_mf6_transient_reference.toml``
-
-Mesh and Output Selection
-^^^^^^^^^^^^^^^^^^^^^^^^^
-
-.. list-table::
-   :header-rows: 1
-   :widths: 26 42 20 12
-
-   * - Field
-     - Meaning
-     - Value
-     - Source
-   * - ``[capability_gallery] assets``
-     - Subset of run outputs copied into the static documentation gallery.
-     - flow_state_triptych.png, recharge_discharge_cumulative.png, watertable_elevation.png, watertable_depth.png, flow_support_overview.png
-     - ``examples_legacy_2/projects/launcher_simulation/run_headwater_100km2_outlet_2_mf6_transient_reference.toml``
 
 Source Pointers
 ---------------

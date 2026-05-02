@@ -18,6 +18,10 @@ from hydromodpy.data.variables.hydrography.config import (
 )
 from hydromodpy.data.variables.hydrography.result import HydrographyResult
 from hydromodpy.spatial.delineation import get_whitebox_backend
+from hydromodpy.spatial.geographic.core.hydrographic_network import (
+    HYDROGRAPHIC_NETWORK_REFERENCE_RASTER_FILENAME,
+    HYDROGRAPHIC_NETWORK_REFERENCE_VECTOR_FILENAME,
+)
 
 if TYPE_CHECKING:
     from hydromodpy.data.registry.catalog_duckdb import DataCatalogDuckDB as DataCatalog
@@ -87,7 +91,7 @@ class HydrographyManager:
         clipped = gpd.clip(combined, watershed)
 
         # 4. Save clipped vector
-        streams_path = self._data_folder / "streams.shp"
+        streams_path = self._data_folder / HYDROGRAPHIC_NETWORK_REFERENCE_VECTOR_FILENAME
         with warnings.catch_warnings():
             warnings.filterwarnings("ignore", message="Column names longer than 10 characters")
             clipped.to_file(streams_path)
@@ -140,7 +144,7 @@ class HydrographyManager:
                 nodata=-32768,
             )
 
-        out_tif = self._data_folder / "streams.tif"
+        out_tif = self._data_folder / HYDROGRAPHIC_NETWORK_REFERENCE_RASTER_FILENAME
         with rasterio.open(str(out_tif), "w", **out_meta) as dst:
             dst.write(out_image)
 

@@ -14,15 +14,19 @@ These cases show how HydroModPy validates numerical behaviour against lightweigh
 Current Coverage
 ----------------
 
-- Process families populated today: Flow (23).
-- Benchmark families: Core 1D Dupuit Baselines (3), Steady 1D Boussinesq with Heterogeneous Conductivity (3), Steady 1D Boussinesq with Topography or Sloping Substratum (6), Steady 2D Radial or Island Cases (2), Transient 1D Boundary or Recharge Forcing (5), Transient 1D Recession or Interception Dynamics (3), Transient 2D Radial Response (1).
-- Reference styles: Analytical Exact (10), Analytical Series (11), Semi-Analytical / Diagnostic (2).
+- Process families populated today: Flow (24).
+- Benchmark families: Core 1D Dupuit Baselines (3), Steady 1D Boussinesq with Heterogeneous Conductivity (3), Steady 1D Boussinesq with Topography or Sloping Substratum (6), Steady 2D Radial or Island Cases (2), Transient 1D Boundary or Recharge Forcing (5), Transient 1D Recession or Interception Dynamics (3), Transient 2D Radial Response (1), XT3D Choice For Irregular MF6 Meshes (1).
+- Reference styles: Analytical Exact (10), Analytical Series (11), Diagnostic Comparison (1), Semi-Analytical / Diagnostic (2).
 - Solver variants discovered: MODFLOW-NWT (21), MODFLOW 6 (21), MODFLOW 6 irregular triangles (11), Boussinesq (21).
 
 Latest Batch Reports
 --------------------
 
-- No committed validation batch reports yet.
+- MODFLOW-NWT: 0/21 cases failed on 2026-05-02T12:25:40.708825+00:00 (86.5 s), report ``validation_cases/reports/latest/modflownwt_both.json``.
+- MODFLOW 6: 0/21 cases failed on 2026-05-02T12:27:05.496388+00:00 (81.1 s), report ``validation_cases/reports/latest/modflow6_both.json``.
+- MODFLOW 6 irregular triangles: 0/11 cases failed on 2026-05-02T12:28:12.704769+00:00 (64.7 s), report ``validation_cases/reports/latest/modflow6_irregular_tri_both.json``.
+- MODFLOW 6 irregular triangles: 11/11 cases passed on 2026-05-02T00:31:05.408573+00:00 (168.9 s), report ``validation_cases/reports/latest/modflow6_irregular_tri_steady.json``.
+- Boussinesq: 0/21 cases failed on 2026-05-02T12:30:06.955407+00:00 (110.8 s), report ``validation_cases/reports/latest/boussinesq_both.json``.
 
 Grouped Benchmarks
 ------------------
@@ -165,6 +169,23 @@ Steady 1D Boussinesq with Topography or Sloping Substratum
       ^^^
       Steady synthetic groundwater-flow case used to validate one sloping-topography setup with distributed top drainage under the linearized unconfined model.
 
+XT3D Choice For Irregular MF6 Meshes
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+1 case in this family.
+
+.. grid:: 1 1 2 2
+   :gutter: 2 2 3 3
+
+   .. grid-item-card::
+      :class-card: sd-shadow-sm sd-rounded-3 sd-p-4
+      :link: cases/modflow6_irregular_tri_xt3d_method_choice
+      :link-type: doc
+
+      **MODFLOW 6 Irregular Triangles: Why XT3D Is The Default**
+      ^^^
+      Pedagogical comparison of MODFLOW 6 irregular triangles with and without XT3D on the steady analytical strip benchmarks affected by the default change.
+
 Steady 2D Radial or Island Cases
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
@@ -300,26 +321,27 @@ Transient 2D Radial Response
    :hidden:
    :maxdepth: 1
 
+   cases/modflow6_irregular_tri_xt3d_method_choice
+   cases/boussinesq_circular_island_piecewise_k_2d
    cases/boussinesq_divide_fixed_head_piecewise_k_1d
    cases/boussinesq_fixed_head_piecewise_k_1d
    cases/boussinesq_hillslope_interception_1d
+   cases/boussinesq_hillslope_recharge_step_interception_1d
    cases/boussinesq_sloping_substratum_constant_thickness_1d
    cases/boussinesq_sloping_substratum_fixed_head_1d
    cases/boussinesq_sloping_substratum_uniform_recharge_1d
    cases/boussinesq_uniform_recharge_piecewise_k_1d
+   cases/brutsaert_recession_boussinesq_thin_1d
+   cases/brutsaert_recession_linearized_deep_1d
+   cases/dupuit_circular_island_ocean_2d
    cases/dupuit_divide_river_1d
    cases/dupuit_fixed_head_1d
    cases/dupuit_uniform_recharge_1d
-   cases/linearized_unconfined_drainage_1d
-   cases/linearized_unconfined_hillslope_drainage_1d
-   cases/boussinesq_circular_island_piecewise_k_2d
-   cases/dupuit_circular_island_ocean_2d
-   cases/boussinesq_hillslope_recharge_step_interception_1d
-   cases/brutsaert_recession_boussinesq_thin_1d
-   cases/brutsaert_recession_linearized_deep_1d
+   cases/late_time_unconfined_pumping_2d
    cases/linearized_unconfined_boundary_piecewise_1d
    cases/linearized_unconfined_boundary_step_1d
+   cases/linearized_unconfined_drainage_1d
+   cases/linearized_unconfined_hillslope_drainage_1d
    cases/linearized_unconfined_recharge_periodic_1d
    cases/linearized_unconfined_recharge_step_1d
    cases/linearized_unconfined_recharge_step_deep_1d
-   cases/late_time_unconfined_pumping_2d

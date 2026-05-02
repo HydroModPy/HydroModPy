@@ -942,6 +942,11 @@ def _meaning_for_config_field(field: str) -> str:
     if field.startswith("flow.runtime_backend"):
         return "Runtime backend selected for the in-house solver."
 
+    if tokens[:2] == ["mesh_input", "mesh_path"]:
+        return "Committed unstructured mesh file used by the irregular-mesh solver variant."
+    if tokens[:2] == ["mesh_input", "bundle_dir"]:
+        return "Committed mesh-bundle directory used to recover support metadata for the irregular-mesh solver variant."
+
     if tokens[0] in _SOLVER_CONFIG_SECTION_NAMES:
         solver_name = _normalize_solver_name(tokens[0])
         leaf = tokens[-1]
@@ -1029,6 +1034,8 @@ def _should_include_common_config_field(field: str) -> bool:
 def _should_include_solver_override_field(field: str, *, solver: str) -> bool:
     if field.startswith(f"{solver}."):
         return True
+    if solver == "modflow6_irregular_tri":
+        return field.startswith("modflow6.") or field.startswith("mesh_input.")
     return solver == "boussinesq" and field == "flow.runtime_backend"
 
 

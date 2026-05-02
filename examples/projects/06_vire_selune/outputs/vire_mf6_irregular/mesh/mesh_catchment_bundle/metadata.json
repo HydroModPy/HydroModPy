@@ -1,0 +1,76 @@
+{
+  "bundle_schema_version": "mesh_catchment_bundle_v1",
+  "mesh_kind": "gmsh_2d",
+  "cell_type": "triangle",
+  "indexing": "zero_based",
+  "crs": "EPSG:2154",
+  "n_nodes": 18873,
+  "n_cells": 37688,
+  "constraints_mode": "rivers_only",
+  "topography": {
+    "node_field": "z_top",
+    "cell_fields": [
+      "z_top_centroid",
+      "z_top_mean"
+    ],
+    "source_path": "C:\\codes\\HydroModPy\\examples\\projects\\06_vire_selune\\outputs\\vire_mf6_irregular\\.solver_scratch\\_preprocessing\\geographic\\watershed_box_buff_dem.tif"
+  },
+  "vertical": {
+    "available": true,
+    "surface_name": "substratum",
+    "derived_from": "domain.depth_model",
+    "node_field": "z_bottom",
+    "cell_fields": [
+      "z_bottom_centroid",
+      "z_bottom_mean"
+    ],
+    "depth_model": {
+      "type": "constant_thickness",
+      "thickness_m": 50.0
+    }
+  },
+  "geology": {
+    "available": false,
+    "field_id": null,
+    "source_kind": null,
+    "cell_samples_per_axis": null,
+    "zone_keys": []
+  },
+  "hydraulic_properties": {
+    "available": false,
+    "averaging": "weighted_by_geology_fraction",
+    "cell_fields": [
+      "hydraulic_conductivity_m_s",
+      "storage_coefficient"
+    ],
+    "conductivity": {
+      "available": false,
+      "unit": "m/s",
+      "values_source": null,
+      "values_csv_file": null,
+      "default_value": null,
+      "zone_keys_defined": [],
+      "missing_zone_keys": []
+    },
+    "storage_coefficient": {
+      "available": false,
+      "unit": "-",
+      "values_source": null,
+      "values_csv_file": null,
+      "default_value": null,
+      "zone_keys_defined": [],
+      "missing_zone_keys": []
+    }
+  },
+  "files": {
+    "mesh": "mesh_2d.msh",
+    "nodes": "nodes.csv",
+    "cells": "cells.csv",
+    "edges": "edges.csv",
+    "cell_geology_fractions": "cell_geology_fractions.csv",
+    "metadata": "metadata.json",
+    "readme": "README.md",
+    "mesh_summary": "mesh_summary.json"
+  },
+  "source_mesh_path": "C:\\codes\\HydroModPy\\examples\\projects\\06_vire_selune\\outputs\\vire_mf6_irregular\\mesh\\mesh_catchment.msh"
+}

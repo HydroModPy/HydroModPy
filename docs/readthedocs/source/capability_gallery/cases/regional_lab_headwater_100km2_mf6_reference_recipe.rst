@@ -11,12 +11,6 @@ This page narrows the committed `regional_lab` example to the `mf6_reference` re
 .. seealso::
    Read :doc:`the Simulation walkthrough </getting_started/simulation-walkthrough>` if you want the parameter mapping, a recommended reading order, and the first modifications to try.
 
-.. figure:: /_static/capability_gallery/simulation/regional_lab_headwater_100km2_mf6_reference_recipe.png
-   :alt: Regional lab dry-plan synthesis for Regional Lab MF6 Reference Recipe on Headwater 100 km2
-   :width: 100%
-
-   Dry-plan synthesis for regional lab mf6 reference recipe on headwater 100 km2: site or candidate coverage, recipe summary, and planning metrics.
-
 Case Setup
 ----------
 
@@ -31,6 +25,14 @@ What It Shows
 - How `required_fields = ["simulation_reference_config"]` turns missing references into explicit recipe-level gaps.
 - How recipe-specific overlay configs keep the reproduction command precise without duplicating the whole laboratory definition.
 
+Key Parameters
+--------------
+
+- `[[regional_lab.recipe]] id = "mf6_reference"` plus the overlay `enabled` flags define the focused orchestration slice documented by this page.
+- `families = ["headwater"]` and `scales = ["100km2"]` scope the recipe before any child config path is resolved.
+- `required_fields = ["simulation_reference_config"]` is the gate that separates the one runnable outlet from the two inventory-only headwater sites.
+- `config_path_template = "{simulation_reference_config}"` delegates the concrete simulation config choice to the catalog row.
+
 How To Read It
 --------------
 
@@ -38,13 +40,23 @@ How To Read It
 - Use the coverage bar next to judge how far the committed catalog already goes for this replay workflow before adding more child configs.
 - Finish with the planning summary to connect the remaining gaps to site maturity and cluster scope.
 
-Key Metrics
------------
+Local Regeneration Note
+-----------------------
 
-- Candidate sites: 3
-- Planned cases: 1
-- Coverage gaps: 2
-- Pending cases: 1
+This local checkout cannot fully rebuild the original gallery artefacts for this case because one or more legacy source files are not present.
+
+The page is still generated so that the capability-gallery structure, cross-links, and reading guides remain valid during a full documentation rebuild.
+
+Reason: The regional-lab overlay config needed to regenerate this page is not available in the current checkout.
+
+Missing Local Inputs
+--------------------
+
+- ``examples_legacy_2/projects/launcher_simulation/regional_lab/config_headwater_100km2_lab_mf6_reference.toml``
+- ``examples_legacy_2/projects/launcher_simulation/regional_lab/README.md``
+- ``examples_legacy_2/projects/launcher_simulation/regional_lab/config_headwater_100km2_lab.toml``
+- ``examples_legacy_2/projects/launcher_simulation/regional_lab/site_catalog.csv``
+- ``examples_legacy_2/projects/launcher_simulation/run_headwater_100km2_outlet_2_mf6_transient_reference.toml``
 
 Next Steps
 ----------
@@ -67,69 +79,6 @@ Refresh the committed gallery artifacts with:
 
    python -m tools.doc_gallery
 
-Case Parameters
----------------
-
-Selected Parameters
-^^^^^^^^^^^^^^^^^^^
-
-.. list-table::
-   :header-rows: 1
-   :widths: 26 42 20 12
-
-   * - Field
-     - Meaning
-     - Value
-     - Source
-   * - ``[simulation.time] start_datetime``
-     - Start of the simulated period used by the flow and transport run.
-     - 2003-01-01 00:00:00
-     - ``examples_legacy_2/projects/launcher_simulation/run_headwater_100km2_outlet_2_mf6_transient_reference.toml``
-   * - ``[simulation.time] end_datetime``
-     - End of the simulated period used by the flow and transport run.
-     - 2005-12-31 00:00:00
-     - ``examples_legacy_2/projects/launcher_simulation/run_headwater_100km2_outlet_2_mf6_transient_reference.toml``
-   * - ``[simulation.time] step_value``
-     - Nominal time step used to discretize the simulation period.
-     - 1 month
-     - ``examples_legacy_2/projects/launcher_simulation/run_headwater_100km2_outlet_2_mf6_transient_reference.toml``
-   * - ``[data.recharge.sources] values``
-     - Synthetic recharge sequence injected into the run over the configured time support.
-     - 2.4, 2.2, 1.8, 1.2, 0.7, 0.2, -0.3, -0.5, 0.1, 0.9, 1.8, 2.3, 2.1, 1.9, 1.5, 1, 0.4, 0, -0.6, -0.8, -0.1, 0.7, 1.6, 2, 2.7, 2.4, 1.9, 1.3, 0.8, 0.3, -0.2, -0.4, 0.2, 1.1, 2, 2.6
-     - ``examples_legacy_2/projects/launcher_simulation/run_headwater_100km2_outlet_2_mf6_transient_reference.toml``
-   * - ``[data.recharge.sources] freq``
-     - Temporal frequency used to interpret the synthetic recharge sequence.
-     - MS
-     - ``examples_legacy_2/projects/launcher_simulation/run_headwater_100km2_outlet_2_mf6_transient_reference.toml``
-   * - ``[data.recharge.sources] runoff_ratio``
-     - Fraction of recharge redirected to runoff rather than infiltration.
-     - 0.12
-     - ``examples_legacy_2/projects/launcher_simulation/run_headwater_100km2_outlet_2_mf6_transient_reference.toml``
-   * - ``[flow.param.K.field_homogeneous] value``
-     - Homogeneous hydraulic conductivity used by the flow model in this tutorial run.
-     - 2.5e-05
-     - ``examples_legacy_2/projects/launcher_simulation/run_headwater_100km2_outlet_2_mf6_transient_reference.toml``
-   * - ``[flow.param.Sy.field_homogeneous] value``
-     - Specific yield used to control the free-surface response of the aquifer.
-     - 0.1
-     - ``examples_legacy_2/projects/launcher_simulation/run_headwater_100km2_outlet_2_mf6_transient_reference.toml``
-
-Mesh and Output Selection
-^^^^^^^^^^^^^^^^^^^^^^^^^
-
-.. list-table::
-   :header-rows: 1
-   :widths: 26 42 20 12
-
-   * - Field
-     - Meaning
-     - Value
-     - Source
-   * - ``[capability_gallery] assets``
-     - Subset of run outputs copied into the static documentation gallery.
-     - flow_state_triptych.png, recharge_discharge_cumulative.png, watertable_elevation.png, watertable_depth.png, flow_support_overview.png
-     - ``examples_legacy_2/projects/launcher_simulation/run_headwater_100km2_outlet_2_mf6_transient_reference.toml``
-
 Source Pointers
 ---------------
 
@@ -145,12 +94,4 @@ Source Pointers
 Artifacts
 ---------
 
-- ``docs/readthedocs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_mf6_reference_recipe.png``
-- ``docs/readthedocs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_mf6_reference_recipe_plan.json``
-- ``docs/readthedocs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_mf6_reference_recipe_report.json``
-- ``docs/readthedocs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_mf6_reference_recipe_summary.md``
-- ``docs/readthedocs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_mf6_reference_recipe_site_inventory.csv``
-- ``docs/readthedocs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_mf6_reference_recipe_recipe_summary.csv``
-- ``docs/readthedocs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_mf6_reference_recipe_cluster_summary.csv``
-- ``docs/readthedocs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_mf6_reference_recipe_case_matrix.csv``
 - ``docs/readthedocs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_mf6_reference_recipe_summary.json`` stores the displayed metrics plus source hashes used by ``python -m tools.doc_gallery --check``.

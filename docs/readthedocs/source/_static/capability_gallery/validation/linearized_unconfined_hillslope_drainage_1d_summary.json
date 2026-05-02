@@ -50,19 +50,19 @@
     "validation_cases/analytical/transient/linearized_unconfined_1d.py"
   ],
   "source_hashes": {
-    "validation_cases/README.md": "634832ce341c47597143d5614d06c8d22bac809193447706294f5b43e38359c3",
-    "validation_cases/analytical/steady/linearized_unconfined_hillslope_drainage_1d/README.md": "97169685d282b92fcccca48057876832ace6937e99ba06fd63998b2902f5efe3",
-    "validation_cases/analytical/steady/linearized_unconfined_hillslope_drainage_1d/reference.py": "426e076dc7064308f4198523b584ded771703071ffee78bdd0d2abddd8299b04",
-    "validation_cases/analytical/steady/linearized_unconfined_hillslope_drainage_1d/comparison.py": "576f9cdd31d5534fa170e400c6aafea94b512d710834c420a6c2ec1b8980128f",
-    "validation_cases/analytical/steady/linearized_unconfined_hillslope_drainage_1d/plotting.py": "cd7e4793bb5ad4b945d6d61ac17484e3375c257b0af4a46ab1e46cb478d0871f",
-    "validation_cases/analytical/steady/linearized_unconfined_hillslope_drainage_1d/run_case.py": "49fb3f8d131fa6f7e21133ff3e5b0c2ce7063fd06798cd4715d737a92fdf83d0",
-    "validation_cases/analytical/steady/linearized_unconfined_hillslope_drainage_1d/metadata.toml": "80dbf58e34eae8175d25d295e73a4b630a2549aa0d0ceb9e1b2212ffb93d5395",
-    "validation_cases/analytical/steady/linearized_unconfined_hillslope_drainage_1d/config_modflownwt.toml": "bb90ddb1273615bc914266741518d98253706eaa4e95d9bfa79e848db8ce82e3",
-    "validation_cases/analytical/steady/linearized_unconfined_hillslope_drainage_1d/tolerances.toml": "5334f059c4c0d9d1ed244823d76249271a5366384aa57c557583de1c99ce0a13",
-    "validation_cases/analytical/steady/linearized_unconfined_hillslope_drainage_1d/tolerances_boussinesq.toml": "9cb3b87fe76777b042e99d0da3b8d7e68d16033e08aa29603da9a24210494023",
-    "validation_cases/analytical/steady/linearized_unconfined_hillslope_drainage_1d/config_modflow6.toml": "91d349932bd150784a0a7ab35ba7ce5a5a3d2ba4b763a39c1e06463bf40c7526",
-    "validation_cases/analytical/steady/linearized_unconfined_hillslope_drainage_1d/config_modflow6_irregular_tri.toml": "00e59b561bc3c7b9a8a482edd087e21171599752fddc31c4d8f98044b602be93",
-    "validation_cases/analytical/transient/linearized_unconfined_1d.py": "c8ccdde712d17a661edce5e50bcd81608a5ef00e53d9d3a0ef4dfc5632e5c42e"
+    "validation_cases/README.md": "1965de83b961f1ab4e38d8194d51342e1286d0c2e1b779188903b84e3fc26f1c",
+    "validation_cases/analytical/steady/linearized_unconfined_hillslope_drainage_1d/README.md": "122557ec9d6063b12d591d086e3f021021bd8fdb71571cb8a36c78247f498b2f",
+    "validation_cases/analytical/steady/linearized_unconfined_hillslope_drainage_1d/reference.py": "4e6b5d14c06179b326ce9caf3a9957ffe735a1947a3f2c6b9481c45c2c35e451",
+    "validation_cases/analytical/steady/linearized_unconfined_hillslope_drainage_1d/comparison.py": "e80eed46958418616e1cb7f1ad686b88b3121e301bd43ca31461a891475a63a1",
+    "validation_cases/analytical/steady/linearized_unconfined_hillslope_drainage_1d/plotting.py": "9d390215e2e844f4debe7257e7970b5cc8bffcb94a9a38ab7fa3da3ed958963d",
+    "validation_cases/analytical/steady/linearized_unconfined_hillslope_drainage_1d/run_case.py": "683710341c7be2cde95aa5bc718437f3d5e134154fb467e8c26101e58ee86d60",
+    "validation_cases/analytical/steady/linearized_unconfined_hillslope_drainage_1d/metadata.toml": "e846800fceb266d8ad6a77f7b21c92ef8d1fd25aaf961ed9e81f4c10ddf803bf",
+    "validation_cases/analytical/steady/linearized_unconfined_hillslope_drainage_1d/config_modflownwt.toml": "2150d09f102ff37e992aa7bdc3642ef65d26a283f31d9f27dc9fcea66131736b",
+    "validation_cases/analytical/steady/linearized_unconfined_hillslope_drainage_1d/tolerances.toml": "cca79f102caa15dd662f9c2e080192c42a5ac463236b047f1832ac03aaa3d23e",
+    "validation_cases/analytical/steady/linearized_unconfined_hillslope_drainage_1d/tolerances_boussinesq.toml": "a276471eae83d7316ad9c2761ee1b3f8691c3557602910e7dc54248be93b00ac",
+    "validation_cases/analytical/steady/linearized_unconfined_hillslope_drainage_1d/config_modflow6.toml": "289a89d2bc94b5e472c5d7f50fcf1664198e01fcec1a842839a8b5e0aa11343e",
+    "validation_cases/analytical/steady/linearized_unconfined_hillslope_drainage_1d/config_modflow6_irregular_tri.toml": "40201b8a037631a9c3fd08a4cf76595bf2b184f5f7848cde5dd41353f84b1208",
+    "validation_cases/analytical/transient/linearized_unconfined_1d.py": "b78a584f72b0268e0317f547067afa6fa4ae9edbc220f77148f71837024e9e60"
   },
   "docname": "cases/linearized_unconfined_hillslope_drainage_1d",
   "images": [
@@ -287,10 +287,10 @@
       "expected_output": "Expected shape: 5 x 50",
       "command": "python -m validation_cases.analytical.steady.linearized_unconfined_hillslope_drainage_1d.run_case --no-show --solver modflow6_irregular_tri",
       "metric_lines": [
-        "Head-profile RMSE: 0.0111 m",
-        "Head-profile max abs error: 0.0246 m",
+        "Head-profile RMSE: 0.0203 m",
+        "Head-profile max abs error: 0.0320 m",
         "Cross-row head spread: 8.88e-16 m",
-        "Min numerical clearance above topography: 0.0977 m"
+        "Min numerical clearance above topography: 0.0801 m"
       ],
       "image": {
         "filename": "linearized_unconfined_hillslope_drainage_1d__modflow6_irregular_tri.png",

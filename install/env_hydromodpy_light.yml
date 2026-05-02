@@ -16,6 +16,7 @@ dependencies:
   - pandas
   - pint
   - pydantic
+  - pydantic-pint
   - pytest
   - pytest-xdist
   - sphinx

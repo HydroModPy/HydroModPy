@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import csv
 import math
 import re
 from collections.abc import Iterable, Mapping
@@ -21,16 +22,22 @@ from hydromodpy.analysis.comparison.config import (
 )
 from hydromodpy.analysis.comparison.runtime import (
     VariableSeries,
+    _bundle_dir_from_config,
+    _resolve_recorded_output_path,
+    discover_result_store,
     load_variable_series,
     mask_depth_series_from_head_nodata,
+    read_json_file,
     resolve_bundle_cells,
     resolve_structured_shape_from_config,
     resolve_structured_shape_from_run_folder,
     select_time_slices,
 )
+from hydromodpy.core.config.toml_loader import load_toml_with_base_config
 
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
+from matplotlib.collections import PolyCollection
 
 try:
     from scipy.interpolate import griddata
@@ -80,6 +87,25 @@ class DifferencePayload:
     x: np.ndarray | None = None
     y: np.ndarray | None = None
     extent: tuple[float, float, float, float] | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class CaseConfigurationPayload:
+    """Visual summary of the physical support used by one comparison."""
+
+    comparison_id: str
+    reference_variant: str
+    variant_lines: tuple[str, ...]
+    metadata_lines: tuple[str, ...]
+    boundary_sides: tuple[tuple[str, str], ...]
+    observable_points: tuple[tuple[float, float, str], ...]
+    vertices: np.ndarray | None = None
+    faces: np.ndarray | None = None
+    surface_top: np.ndarray | None = None
+    centroid_x: np.ndarray | None = None
+    centroid_y: np.ndarray | None = None
+    recharge_values: np.ndarray | None = None
+    recharge_unit: str = ""
 
 
 _TITLE_FONT_SIZE = 11
@@ -240,6 +266,22 @@ def _safe_float(value: Any) -> float | None:
     return number
 
 
+def _rows_have_elapsed_seconds(rows: Iterable[Mapping[str, Any]]) -> bool:
+    return all(_safe_float(row.get("elapsed_seconds")) is not None for row in rows)
+
+
+def _row_time_value(row: Mapping[str, Any], *, use_elapsed_seconds: bool) -> float | None:
+    return (
+        _safe_float(row.get("elapsed_seconds"))
+        if use_elapsed_seconds
+        else _safe_float(row.get("time_index"))
+    )
+
+
+def _time_axis_label(*, use_elapsed_seconds: bool) -> str:
+    return "Elapsed time [s]" if use_elapsed_seconds else "Time step"
+
+
 def _mask_nodata(values: np.ndarray) -> np.ndarray:
     masked = np.asarray(values, dtype=float).copy()
     if masked.size == 0:
@@ -372,6 +414,586 @@ def _series_style(observable_name: str) -> dict[str, Any]:
     return {"linewidth": 1.8, "markersize": 3.0, "marker": "o"}
 
 
+def _safe_config_payload(config_path: Path | None) -> Mapping[str, Any]:
+    if config_path is None:
+        return {}
+    try:
+        payload = load_toml_with_base_config(config_path)
+    except Exception:
+        return {}
+    return payload if isinstance(payload, Mapping) else {}
+
+
+def _read_zarr_array(group: Any, name: str) -> np.ndarray | None:
+    try:
+        if group is None or name not in group:
+            return None
+        return np.asarray(group[name][:])
+    except Exception:
+        return None
+
+
+def _mesh_payload_from_store(store: Any, sim_id: str) -> tuple[np.ndarray | None, ...]:
+    try:
+        grp = store.open_zarr_group(sim_id)
+    except Exception:
+        return None, None, None
+    try:
+        mesh = grp.get("mesh") if grp is not None else None
+    except Exception:
+        return None, None, None
+    vertices = _read_zarr_array(mesh, "vertices")
+    faces = _read_zarr_array(mesh, "face_node_connectivity")
+    surface_top = _read_zarr_array(mesh, "surface_top")
+    if vertices is not None:
+        vertices = np.asarray(vertices, dtype=float)
+    if faces is not None:
+        faces = np.asarray(faces, dtype=int)
+    if surface_top is not None:
+        surface_top = np.asarray(surface_top, dtype=float).reshape(-1)
+    return vertices, faces, surface_top
+
+
+def _bundle_dir_for_case(run_folder: Path, config_path: Path | None) -> Path | None:
+    metrics = read_json_file(run_folder / "_metrics.json")
+    boussinesq_summary = read_json_file(run_folder / "_boussinesq_summary.json")
+    bundle_dir_raw = metrics.get("mesh_output_exchange_bundle_dir") or boussinesq_summary.get(
+        "bundle_dir"
+    )
+    if bundle_dir_raw:
+        bundle_dir = _resolve_recorded_output_path(bundle_dir_raw, base_dir=run_folder)
+        if bundle_dir is not None and bundle_dir.exists():
+            return bundle_dir
+    if config_path is None:
+        return None
+    bundle_dir = _bundle_dir_from_config(config_path)
+    if bundle_dir is not None and bundle_dir.exists():
+        return bundle_dir
+    return None
+
+
+def _mesh_payload_from_bundle(bundle_dir: Path | None) -> tuple[np.ndarray | None, ...]:
+    if bundle_dir is None:
+        return None, None, None
+    nodes_path = bundle_dir / "nodes.csv"
+    cells_path = bundle_dir / "cells.csv"
+    if not nodes_path.exists() or not cells_path.exists():
+        return None, None, None
+
+    node_ids: list[int] = []
+    vertices: list[tuple[float, float, float]] = []
+    with nodes_path.open("r", encoding="utf-8", newline="") as handle:
+        reader = csv.DictReader(handle)
+        for row in reader:
+            try:
+                node_ids.append(int(row["node_id"]))
+                z_raw = row.get("z_top")
+                z_value = float(z_raw) if z_raw not in (None, "") else math.nan
+                vertices.append((float(row["x"]), float(row["y"]), z_value))
+            except Exception:
+                continue
+    if not vertices:
+        return None, None, None
+
+    node_index = {node_id: index for index, node_id in enumerate(node_ids)}
+    faces: list[list[int]] = []
+    surface_top: list[float] = []
+    with cells_path.open("r", encoding="utf-8", newline="") as handle:
+        reader = csv.DictReader(handle)
+        for row in reader:
+            face: list[int] = []
+            for key in ("n0", "n1", "n2", "n3"):
+                raw = row.get(key)
+                if raw in (None, ""):
+                    continue
+                try:
+                    face.append(node_index[int(raw)])
+                except Exception:
+                    continue
+            if len(face) < 3:
+                continue
+            faces.append(face)
+            top_raw = row.get("z_top_mean") or row.get("z_top_centroid")
+            try:
+                surface_top.append(float(top_raw))
+            except Exception:
+                surface_top.append(math.nan)
+    if not faces:
+        return None, None, None
+
+    max_face_size = max(len(face) for face in faces)
+    face_array = np.full((len(faces), max_face_size), -1, dtype=int)
+    for index, face in enumerate(faces):
+        face_array[index, : len(face)] = np.asarray(face, dtype=int)
+    return (
+        np.asarray(vertices, dtype=float),
+        face_array,
+        np.asarray(surface_top, dtype=float),
+    )
+
+
+def _recharge_payload_from_store(store: Any, sim_id: str) -> tuple[np.ndarray | None, str]:
+    try:
+        grp = store.open_zarr_group(sim_id)
+    except Exception:
+        return None, ""
+    try:
+        forcing = grp.get("forcing") if grp is not None else None
+        recharge = forcing.get("recharge") if forcing is not None and "recharge" in forcing else None
+    except Exception:
+        return None, ""
+    if recharge is None:
+        return None, ""
+
+    candidate_groups = [recharge]
+    try:
+        candidate_groups.extend(
+            recharge[key] for key in recharge.keys() if not hasattr(recharge[key], "shape")
+        )
+    except Exception:
+        pass
+    for candidate in candidate_groups:
+        values = _read_zarr_array(candidate, "values")
+        if values is None:
+            continue
+        arr = np.asarray(values, dtype=float).reshape(-1)
+        if arr.size == 0:
+            continue
+        unit = ""
+        try:
+            unit = str(candidate.attrs.get("unit", ""))
+        except Exception:
+            unit = ""
+        return arr, unit
+    return None, ""
+
+
+def _recharge_payload_from_config(config_payload: Mapping[str, Any]) -> tuple[np.ndarray | None, str]:
+    data = config_payload.get("data")
+    if not isinstance(data, Mapping):
+        return None, ""
+    recharge = data.get("recharge")
+    if not isinstance(recharge, Mapping):
+        return None, ""
+    sources = recharge.get("sources")
+    if not isinstance(sources, list):
+        return None, ""
+    for source in sources:
+        if not isinstance(source, Mapping):
+            continue
+        values = source.get("values")
+        if values is None:
+            continue
+        try:
+            arr = np.asarray(values, dtype=float).reshape(-1)
+        except Exception:
+            continue
+        if arr.size:
+            return arr, str(source.get("source_unit") or "mm/day")
+    return None, ""
+
+
+def _side_from_text(value: str) -> str | None:
+    text = str(value).strip().lower().replace("-", "_").replace(" ", "_")
+    for side in ("west", "east", "north", "south"):
+        if side in text:
+            return side
+    return None
+
+
+def _boundary_sides_from_config(config_payload: Mapping[str, Any]) -> tuple[tuple[str, str], ...]:
+    flow = config_payload.get("flow")
+    if not isinstance(flow, Mapping):
+        return ()
+    active = {
+        str(item).strip()
+        for item in (flow.get("active_bc") or ())
+        if str(item).strip()
+    }
+    bc = flow.get("bc")
+    dirichlet = bc.get("dirichlet") if isinstance(bc, Mapping) else None
+    if not isinstance(dirichlet, Mapping):
+        return ()
+    resolved: list[tuple[str, str]] = []
+    for bc_id, payload in dirichlet.items():
+        bc_name = str(bc_id).strip()
+        if active and bc_name not in active:
+            continue
+        text_parts = [bc_name]
+        if isinstance(payload, Mapping):
+            text_parts.extend(str(payload.get(key, "")) for key in ("application_domain", "type"))
+            value = payload.get("value", "")
+        else:
+            value = ""
+        side = _side_from_text(" ".join(text_parts))
+        if side is not None:
+            label = f"{bc_name}={value}" if str(value).strip() else bc_name
+            resolved.append((side, label))
+    return tuple(resolved)
+
+
+def _flow_param_summary_lines(config_payload: Mapping[str, Any]) -> tuple[str, ...]:
+    flow = config_payload.get("flow")
+    if not isinstance(flow, Mapping):
+        return ()
+    params = flow.get("param")
+    if not isinstance(params, Mapping):
+        return ()
+    lines: list[str] = []
+    for name in ("K", "Sy", "Ss"):
+        payload = params.get(name)
+        if not isinstance(payload, Mapping):
+            continue
+        value = ""
+        section = payload.get("field_homogeneous")
+        if isinstance(section, Mapping):
+            value = str(section.get("value", ""))
+        elif "value" in payload:
+            value = str(payload.get("value", ""))
+        unit = ""
+        field = payload.get("field")
+        if isinstance(field, Mapping):
+            unit = str(field.get("unit", ""))
+        if value:
+            lines.append(f"{name}: {value}{(' ' + unit) if unit and unit not in value else ''}")
+    return tuple(lines)
+
+
+def _simulation_time_summary_lines(config_payload: Mapping[str, Any]) -> tuple[str, ...]:
+    simulation = config_payload.get("simulation")
+    if not isinstance(simulation, Mapping):
+        return ()
+    time_cfg = simulation.get("time")
+    if not isinstance(time_cfg, Mapping):
+        return ()
+    lines = []
+    start = str(time_cfg.get("start_datetime", "")).strip()
+    end = str(time_cfg.get("end_datetime", "")).strip()
+    step = str(time_cfg.get("step_value", "")).strip()
+    unit = str(time_cfg.get("step_unit", "")).strip()
+    if start or end:
+        lines.append(f"time: {start or '?'} -> {end or '?'}")
+    if step:
+        lines.append(f"step: {step}{(' ' + unit) if unit and unit not in step else ''}")
+    return tuple(lines)
+
+
+def _face_centroids(vertices: np.ndarray | None, faces: np.ndarray | None) -> tuple[np.ndarray, np.ndarray]:
+    if vertices is None or faces is None or vertices.ndim != 2 or faces.ndim != 2:
+        return np.asarray([], dtype=float), np.asarray([], dtype=float)
+    valid_faces = []
+    for face in np.asarray(faces, dtype=int):
+        face = face[(face >= 0) & (face < vertices.shape[0])]
+        if face.size >= 3:
+            valid_faces.append(face)
+    if not valid_faces:
+        return np.asarray([], dtype=float), np.asarray([], dtype=float)
+    centroids = np.asarray([vertices[face, :2].mean(axis=0) for face in valid_faces], dtype=float)
+    return centroids[:, 0], centroids[:, 1]
+
+
+def _observable_points_for_case(
+    cfg: MethodComparisonConfig,
+    *,
+    centroid_x: np.ndarray | None,
+    centroid_y: np.ndarray | None,
+) -> tuple[tuple[float, float, str], ...]:
+    points: list[tuple[float, float, str]] = []
+    for observable in cfg.method_comparison.observable:
+        if observable.support not in {"point", "outlet"}:
+            continue
+        x = observable.x
+        y = observable.y
+        if x is None or y is None:
+            if (
+                observable.cell_index is not None
+                and centroid_x is not None
+                and centroid_y is not None
+                and 0 <= int(observable.cell_index) < int(centroid_x.size)
+            ):
+                x = float(centroid_x[int(observable.cell_index)])
+                y = float(centroid_y[int(observable.cell_index)])
+        if x is None or y is None:
+            continue
+        points.append((float(x), float(y), observable.name))
+    return tuple(points[:12])
+
+
+def _build_case_configuration_payload(
+    *,
+    cfg: MethodComparisonConfig,
+    variant_summaries: list[dict[str, Any]],
+    reference_variant: str | None,
+) -> CaseConfigurationPayload | None:
+    completed = [
+        summary
+        for summary in variant_summaries
+        if str(summary.get("status", "")) in {"completed", "reused"}
+    ]
+    if not completed:
+        return None
+    selected = next(
+        (summary for summary in completed if str(summary.get("id", "")) == str(reference_variant)),
+        completed[0],
+    )
+    config_path_raw = selected.get("config_path")
+    config_path = None if config_path_raw in (None, "") else Path(str(config_path_raw))
+    config_payload = _safe_config_payload(config_path)
+
+    vertices = faces = surface_top = None
+    recharge_values = None
+    recharge_unit = ""
+    store = None
+    sim_id = None
+    try:
+        store, sim_id = discover_result_store(
+            config_path,
+            preferred_sim_id=(
+                None if selected.get("sim_id") in (None, "") else str(selected.get("sim_id"))
+            ),
+            preferred_name=(
+                None if selected.get("run_name") in (None, "") else str(selected.get("run_name"))
+            ),
+        )
+        if store is not None and sim_id is not None:
+            vertices, faces, surface_top = _mesh_payload_from_store(store, sim_id)
+            recharge_values, recharge_unit = _recharge_payload_from_store(store, sim_id)
+    finally:
+        if store is not None:
+            try:
+                store.close()
+            except Exception:
+                pass
+
+    run_folder = Path(str(selected.get("run_folder", "")))
+    if vertices is None or faces is None:
+        vertices, faces, surface_top = _mesh_payload_from_bundle(
+            _bundle_dir_for_case(run_folder, config_path)
+        )
+    cells = resolve_bundle_cells(run_folder, config_path=config_path)
+    centroid_x = centroid_y = None
+    if vertices is not None and faces is not None:
+        centroid_x, centroid_y = _face_centroids(vertices, faces)
+    if (centroid_x is None or centroid_x.size == 0) and cells is not None:
+        centroid_x = np.asarray(cells.x, dtype=float)
+        centroid_y = np.asarray(cells.y, dtype=float)
+    if recharge_values is None:
+        recharge_values, recharge_unit = _recharge_payload_from_config(config_payload)
+
+    n_cells = (
+        int(surface_top.size)
+        if surface_top is not None and surface_top.size
+        else int(centroid_x.size)
+        if centroid_x is not None
+        else 0
+    )
+    variant_lines = tuple(
+        f"{summary.get('id', '')}: {summary.get('solver', '') or 'n/a'} / {summary.get('mesh_mode', '')}"
+        for summary in completed
+    )
+    metadata_lines = (
+        f"comparison: {cfg.method_comparison.comparison_id}",
+        f"reference: {reference_variant or selected.get('id', '')}",
+        f"n_cells: {n_cells}" if n_cells else "n_cells: n/a",
+        *_simulation_time_summary_lines(config_payload),
+        *_flow_param_summary_lines(config_payload),
+    )
+    return CaseConfigurationPayload(
+        comparison_id=str(cfg.method_comparison.comparison_id),
+        reference_variant=str(reference_variant or selected.get("id", "")),
+        variant_lines=variant_lines,
+        metadata_lines=tuple(metadata_lines),
+        boundary_sides=_boundary_sides_from_config(config_payload),
+        observable_points=_observable_points_for_case(
+            cfg,
+            centroid_x=centroid_x,
+            centroid_y=centroid_y,
+        ),
+        vertices=vertices,
+        faces=faces,
+        surface_top=surface_top,
+        centroid_x=centroid_x,
+        centroid_y=centroid_y,
+        recharge_values=recharge_values,
+        recharge_unit=recharge_unit,
+    )
+
+
+def _boundary_edges_by_side(
+    vertices: np.ndarray,
+    faces: np.ndarray,
+) -> dict[str, list[np.ndarray]]:
+    edges: dict[tuple[int, int], int] = {}
+    for face in np.asarray(faces, dtype=int):
+        face = face[(face >= 0) & (face < vertices.shape[0])]
+        if face.size < 3:
+            continue
+        for left, right in zip(face, np.roll(face, -1), strict=False):
+            key = tuple(sorted((int(left), int(right))))
+            edges[key] = edges.get(key, 0) + 1
+    boundary = [edge for edge, count in edges.items() if count == 1]
+    if not boundary:
+        return {}
+    xy = np.asarray(vertices[:, :2], dtype=float)
+    xmin, ymin = np.nanmin(xy, axis=0)
+    xmax, ymax = np.nanmax(xy, axis=0)
+    span_x = max(float(xmax - xmin), 1.0)
+    span_y = max(float(ymax - ymin), 1.0)
+    tol_x = span_x * 0.03
+    tol_y = span_y * 0.03
+    result: dict[str, list[np.ndarray]] = {"west": [], "east": [], "south": [], "north": []}
+    for edge in boundary:
+        segment = xy[np.asarray(edge, dtype=int)]
+        midpoint = segment.mean(axis=0)
+        if abs(float(midpoint[0]) - float(xmin)) <= tol_x:
+            result["west"].append(segment)
+        elif abs(float(midpoint[0]) - float(xmax)) <= tol_x:
+            result["east"].append(segment)
+        elif abs(float(midpoint[1]) - float(ymin)) <= tol_y:
+            result["south"].append(segment)
+        elif abs(float(midpoint[1]) - float(ymax)) <= tol_y:
+            result["north"].append(segment)
+    return result
+
+
+def _write_case_configuration_figure(
+    *,
+    path: Path,
+    payload: CaseConfigurationPayload,
+) -> bool:
+    has_mesh = (
+        payload.vertices is not None
+        and payload.faces is not None
+        and payload.vertices.size > 0
+        and payload.faces.size > 0
+    ) or (
+        payload.centroid_x is not None
+        and payload.centroid_y is not None
+        and payload.centroid_x.size > 0
+    )
+    if not has_mesh and payload.recharge_values is None:
+        return False
+
+    figure, axes = plt.subplots(2, 2, figsize=(12.6, 8.4), squeeze=False)
+    mesh_ax, recharge_ax, meta_ax, semantics_ax = np.asarray(axes, dtype=object).ravel()
+
+    if payload.vertices is not None and payload.faces is not None and payload.vertices.size:
+        polygons: list[np.ndarray] = []
+        colors: list[float] = []
+        surface = payload.surface_top
+        for index, face in enumerate(np.asarray(payload.faces, dtype=int)):
+            face = face[(face >= 0) & (face < payload.vertices.shape[0])]
+            if face.size < 3:
+                continue
+            polygons.append(np.asarray(payload.vertices[face, :2], dtype=float))
+            if surface is not None and index < surface.size and math.isfinite(float(surface[index])):
+                colors.append(float(surface[index]))
+            else:
+                colors.append(float(index))
+        if polygons:
+            collection = PolyCollection(
+                polygons,
+                array=np.asarray(colors, dtype=float),
+                cmap="terrain",
+                edgecolors=(0.12, 0.16, 0.20, 0.22),
+                linewidths=0.25,
+            )
+            mesh_ax.add_collection(collection)
+            mesh_ax.autoscale_view()
+            colorbar = figure.colorbar(collection, ax=mesh_ax, fraction=0.046, pad=0.02)
+            colorbar.set_label(
+                "surface top [m]" if payload.surface_top is not None else "cell",
+                fontsize=_LABEL_FONT_SIZE,
+            )
+            colorbar.ax.tick_params(labelsize=_TICK_FONT_SIZE)
+            boundary_edges = _boundary_edges_by_side(payload.vertices, payload.faces)
+            side_colors = {
+                "west": "#2563eb",
+                "east": "#dc2626",
+                "south": "#059669",
+                "north": "#7c3aed",
+            }
+            for side, label in payload.boundary_sides:
+                for segment in boundary_edges.get(side, []):
+                    mesh_ax.plot(
+                        segment[:, 0],
+                        segment[:, 1],
+                        color=side_colors.get(side, "#111827"),
+                        linewidth=2.1,
+                        solid_capstyle="round",
+                    )
+                mesh_ax.plot([], [], color=side_colors.get(side, "#111827"), linewidth=2.1, label=label)
+    elif payload.centroid_x is not None and payload.centroid_y is not None:
+        values = np.arange(payload.centroid_x.size, dtype=float)
+        mesh_ax.scatter(payload.centroid_x, payload.centroid_y, c=values, s=22, cmap="viridis")
+
+    for x, y, label in payload.observable_points:
+        mesh_ax.scatter([x], [y], s=34, c="#111827", marker="o", edgecolors="white", linewidths=0.8)
+        mesh_ax.text(x, y, f" {label}", fontsize=7, color="#111827", va="center")
+    mesh_ax.set_title("Spatial support, topography, boundaries", fontsize=_TITLE_FONT_SIZE)
+    mesh_ax.set_aspect("equal", adjustable="box")
+    mesh_ax.tick_params(labelsize=_TICK_FONT_SIZE)
+    if payload.boundary_sides:
+        mesh_ax.legend(loc="upper right", fontsize=7, frameon=True)
+
+    if payload.recharge_values is not None and payload.recharge_values.size > 0:
+        values = np.asarray(payload.recharge_values, dtype=float).reshape(-1)
+        recharge_ax.step(np.arange(values.size), values, where="post", color="#0f766e", linewidth=1.8)
+        recharge_ax.fill_between(np.arange(values.size), values, step="post", color="#99f6e4", alpha=0.45)
+        recharge_ax.set_ylabel(payload.recharge_unit or "recharge", fontsize=_LABEL_FONT_SIZE)
+        recharge_ax.set_xlabel("forcing record", fontsize=_LABEL_FONT_SIZE)
+    else:
+        recharge_ax.text(0.5, 0.5, "No recharge forcing found", ha="center", va="center")
+    recharge_ax.set_title("Recharge forcing", fontsize=_TITLE_FONT_SIZE)
+    recharge_ax.grid(True, alpha=0.18, linewidth=0.6)
+    recharge_ax.tick_params(labelsize=_TICK_FONT_SIZE)
+
+    meta_ax.axis("off")
+    meta_text = "\n".join([*payload.metadata_lines, "", "variants:", *payload.variant_lines])
+    meta_ax.text(
+        0.02,
+        0.98,
+        meta_text,
+        ha="left",
+        va="top",
+        fontsize=9,
+        family="monospace",
+        linespacing=1.35,
+    )
+    meta_ax.set_title("Case metadata", fontsize=_TITLE_FONT_SIZE, loc="left")
+
+    semantics_ax.axis("off")
+    boundary_text = "\n".join(f"- {label} ({side})" for side, label in payload.boundary_sides)
+    if not boundary_text:
+        boundary_text = "- no side Dirichlet boundary detected"
+    semantics = (
+        "Interpretation notes\n\n"
+        "Boundary conditions:\n"
+        f"{boundary_text}\n\n"
+        "For MF6/Boussinesq comparisons, inspect budgets before judging head differences:\n"
+        "- fixed-head support can change effective recharge support,\n"
+        "- Boussinesq reports prescribed-head outflow explicitly,\n"
+        "- metrics are aligned on physical elapsed time."
+    )
+    semantics_ax.text(
+        0.02,
+        0.98,
+        semantics,
+        ha="left",
+        va="top",
+        fontsize=9,
+        linespacing=1.35,
+    )
+    semantics_ax.set_title("Comparison semantics", fontsize=_TITLE_FONT_SIZE, loc="left")
+
+    figure.suptitle(f"Comparison case configuration: {payload.comparison_id}", fontsize=13, y=0.985)
+    figure.subplots_adjust(left=0.06, right=0.98, top=0.92, bottom=0.07, hspace=0.32, wspace=0.2)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    figure.savefig(path, dpi=180, bbox_inches="tight")
+    plt.close(figure)
+    return True
+
+
 def _choose_map_slice(
     *,
     series: VariableSeries,
@@ -410,8 +1032,41 @@ def _build_map_payload(
     if not run_folder:
         return None
     run_folder_path = Path(str(run_folder))
-    series = load_variable_series(run_folder=run_folder_path, variable=observable.variable)
-    series = mask_depth_series_from_head_nodata(run_folder=run_folder_path, series=series)
+
+    config_path_raw = summary.get("config_path")
+    config_path = None if config_path_raw in ("", None) else Path(str(config_path_raw))
+    if config_path is None:
+        config_path = cfg.resolve_variant_config_path(variant)
+
+    store = None
+    sim_id = None
+    try:
+        preferred_sim_id = summary.get("sim_id")
+        preferred_name = summary.get("run_name")
+        store, sim_id = discover_result_store(
+            config_path,
+            preferred_sim_id=None if preferred_sim_id in ("", None) else str(preferred_sim_id),
+            preferred_name=None if preferred_name in ("", None) else str(preferred_name),
+        )
+        series = load_variable_series(
+            run_folder=run_folder_path,
+            variable=observable.variable,
+            store=store,
+            sim_id=sim_id,
+        )
+        series = mask_depth_series_from_head_nodata(
+            run_folder=run_folder_path,
+            series=series,
+            store=store,
+            sim_id=sim_id,
+        )
+    finally:
+        if store is not None:
+            try:
+                store.close()
+            except Exception:
+                pass
+
     selected = _choose_map_slice(series=series, observable=observable)
     if selected is None:
         return None
@@ -430,10 +1085,6 @@ def _build_map_payload(
         observable.unit or "",
     )
 
-    config_path_raw = summary.get("config_path")
-    config_path = None if config_path_raw in ("", None) else Path(str(config_path_raw))
-    if config_path is None:
-        config_path = cfg.resolve_variant_config_path(variant)
     cells = resolve_bundle_cells(
         run_folder_path,
         config_path=config_path,
@@ -758,6 +1409,99 @@ def _write_difference_figure(
     plt.close(figure)
 
 
+def _write_map_triptych_figure(
+    *,
+    path: Path,
+    reference: MapPayload,
+    candidate: MapPayload,
+    difference: DifferencePayload,
+) -> bool:
+    limits = _robust_limits([reference.values, candidate.values])
+    if limits is None:
+        limits = _finite_limits([reference.values, candidate.values])
+    if limits is None:
+        return False
+    vmin, vmax = limits
+    if math.isclose(vmin, vmax):
+        delta = abs(vmin) * 0.05 or 1.0
+        vmin -= delta
+        vmax += delta
+
+    diff_vmax = _robust_symmetric_limit([difference.values])
+    if diff_vmax is None:
+        diff_limits = _finite_limits([difference.values])
+        if diff_limits is None:
+            return False
+        diff_vmax = max(abs(diff_limits[0]), abs(diff_limits[1]))
+    if not math.isfinite(diff_vmax) or math.isclose(diff_vmax, 0.0):
+        diff_vmax = 1.0
+
+    figure, axes = plt.subplots(1, 3, figsize=(13.8, 4.9), squeeze=False)
+    ref_ax, cand_ax, diff_ax = np.asarray(axes, dtype=object).ravel().tolist()
+    ref_artist = _render_map_subplot(ref_ax, reference, cmap="viridis", vmin=vmin, vmax=vmax)
+    _render_map_subplot(cand_ax, candidate, cmap="viridis", vmin=vmin, vmax=vmax)
+    diff_artist = _render_difference_subplot(
+        diff_ax,
+        difference,
+        cmap="coolwarm",
+        vmax=diff_vmax,
+    )
+    ref_ax.set_title(
+        _variant_panel_title(
+            variant_id=reference.variant_id,
+            variant_label=reference.variant_label,
+            solver=reference.solver or reference.mesh_mode,
+        ),
+        fontsize=_PANEL_TITLE_FONT_SIZE,
+        pad=6,
+    )
+    cand_ax.set_title(
+        _variant_panel_title(
+            variant_id=candidate.variant_id,
+            variant_label=candidate.variant_label,
+            solver=candidate.solver or candidate.mesh_mode,
+        ),
+        fontsize=_PANEL_TITLE_FONT_SIZE,
+        pad=6,
+    )
+    diff_ax.set_title(
+        f"{candidate.variant_id} minus {reference.variant_id}",
+        fontsize=_PANEL_TITLE_FONT_SIZE,
+        pad=6,
+    )
+    value_colorbar = figure.colorbar(
+        ref_artist,
+        ax=[ref_ax, cand_ax],
+        orientation="horizontal",
+        pad=0.08,
+        fraction=0.055,
+        aspect=38,
+    )
+    value_colorbar.set_label(reference.unit or "value", fontsize=_LABEL_FONT_SIZE, labelpad=4)
+    value_colorbar.ax.tick_params(labelsize=_TICK_FONT_SIZE)
+    diff_colorbar = figure.colorbar(
+        diff_artist,
+        ax=diff_ax,
+        orientation="horizontal",
+        pad=0.08,
+        fraction=0.055,
+        aspect=28,
+    )
+    diff_colorbar.set_label(reference.unit or "difference", fontsize=_LABEL_FONT_SIZE, labelpad=4)
+    diff_colorbar.ax.tick_params(labelsize=_TICK_FONT_SIZE)
+    figure.suptitle(
+        f"{_pretty_label(reference.observable_name)} [{reference.unit or 'native'}]  "
+        f"{reference.time_label}",
+        fontsize=_TITLE_FONT_SIZE,
+        y=0.97,
+    )
+    figure.subplots_adjust(left=0.03, right=0.98, top=0.84, bottom=0.18, wspace=0.08)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    figure.savefig(path, dpi=180, bbox_inches="tight")
+    plt.close(figure)
+    return True
+
+
 def _write_timeseries_figure(
     *,
     path: Path,
@@ -918,11 +1662,12 @@ def _write_point_dashboard(
     if len(observables) < 2:
         return False
 
+    use_elapsed_seconds = _rows_have_elapsed_seconds(point_rows)
     grouped: dict[str, dict[tuple[str, str], list[tuple[float, float]]]] = {}
     for row in point_rows:
         observable_name = str(row.get("observable", ""))
         value = _safe_float(row.get("value"))
-        x_value = _safe_float(row.get("time_index"))
+        x_value = _row_time_value(row, use_elapsed_seconds=use_elapsed_seconds)
         if not observable_name or value is None or x_value is None:
             continue
         key = (
@@ -994,8 +1739,12 @@ def _write_point_dashboard(
             for line in legend.get_lines():
                 line.set_linewidth(1.8)
 
-    axes_flat[-1].set_xlabel("Time step", fontsize=_LABEL_FONT_SIZE)
-    _apply_time_ticks(axes_flat[-1], tick_positions=tick_positions)
+    axes_flat[-1].set_xlabel(
+        _time_axis_label(use_elapsed_seconds=use_elapsed_seconds),
+        fontsize=_LABEL_FONT_SIZE,
+    )
+    if not use_elapsed_seconds:
+        _apply_time_ticks(axes_flat[-1], tick_positions=tick_positions)
     figure.suptitle("Head chronicle comparison", fontsize=_TITLE_FONT_SIZE, y=0.985)
     figure.subplots_adjust(left=0.11, right=0.98, top=0.86, bottom=0.13, hspace=0.34)
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -1125,13 +1874,15 @@ def _write_flux_dashboard(
     panels: list[
         tuple[str, dict[tuple[str, str], list[tuple[float, float]]], list[str] | None]
     ] = []
+    candidate_axis_rows = list(rows) + [dict(row) for row in native_long_rows]
+    use_elapsed_seconds = _rows_have_elapsed_seconds(candidate_axis_rows)
 
     outlet_rows = [row for row in rows if str(row.get("observable", "")) == "outlet_flux_series"]
     if outlet_rows:
         grouped: dict[tuple[str, str], list[tuple[float, float]]] = {}
         for row in outlet_rows:
             value = _safe_float(row.get("value"))
-            x_value = _safe_float(row.get("time_index"))
+            x_value = _row_time_value(row, use_elapsed_seconds=use_elapsed_seconds)
             if value is None or x_value is None:
                 continue
             key = (
@@ -1149,7 +1900,7 @@ def _write_flux_dashboard(
             if str(row.get("variable", "")) != variable:
                 continue
             value = _safe_float(row.get("value"))
-            x_value = _safe_float(row.get("time_index"))
+            x_value = _row_time_value(row, use_elapsed_seconds=use_elapsed_seconds)
             if value is None or x_value is None:
                 continue
             key = (
@@ -1159,7 +1910,7 @@ def _write_flux_dashboard(
             grouped_native.setdefault(key, []).append((x_value, value))
             label = str(row.get("time_label", "")).strip()
             if label:
-                time_labels[int(x_value)] = label
+                time_labels[int(round(float(x_value)))] = label
         if any(len(points) >= 2 for points in grouped_native.values()):
             labels = [time_labels[index] for index in sorted(time_labels)] if time_labels else None
             panels.append((_pretty_label(variable), grouped_native, labels))
@@ -1213,8 +1964,12 @@ def _write_flux_dashboard(
             for line in legend.get_lines():
                 line.set_linewidth(1.8)
 
-    axes_flat[-1].set_xlabel("Time step", fontsize=_LABEL_FONT_SIZE)
-    _apply_time_ticks(axes_flat[-1], tick_positions=tick_positions, tick_labels=tick_labels)
+    axes_flat[-1].set_xlabel(
+        _time_axis_label(use_elapsed_seconds=use_elapsed_seconds),
+        fontsize=_LABEL_FONT_SIZE,
+    )
+    if not use_elapsed_seconds:
+        _apply_time_ticks(axes_flat[-1], tick_positions=tick_positions, tick_labels=tick_labels)
     figure.suptitle("Flux overview", fontsize=_TITLE_FONT_SIZE, y=0.985)
     figure.subplots_adjust(left=0.11, right=0.98, top=0.86, bottom=0.13, hspace=0.34)
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -1228,6 +1983,8 @@ def _budget_component_label(component: str) -> str:
         "recharge_total_m3_s": "Recharge",
         "well_total_m3_s": "Wells",
         "drainage_total_m3_s": "Drainage",
+        "prescribed_head_out_total_m3_s": "Fixed-head outflow",
+        "evapotranspiration_total_m3_s": "Evapotranspiration",
         "surface_excess_total_m3_s": "Surface excess",
         "storage_change_total_m3_s": "Storage change",
         "closure_residual_m3_s": "Closure residual",
@@ -1240,6 +1997,8 @@ def _budget_component_color(component: str) -> str:
         "recharge_total_m3_s": "#1f77b4",
         "well_total_m3_s": "#8c564b",
         "drainage_total_m3_s": "#ff7f0e",
+        "prescribed_head_out_total_m3_s": "#9467bd",
+        "evapotranspiration_total_m3_s": "#17becf",
         "surface_excess_total_m3_s": "#d62728",
         "storage_change_total_m3_s": "#2ca02c",
         "closure_residual_m3_s": "#6b7280",
@@ -1269,7 +2028,7 @@ def _write_budget_diagnostic_figure(
     x_label = "Elapsed time [s]" if use_elapsed_seconds else "Time step"
 
     component_groups: dict[str, list[tuple[float, float]]] = {}
-    time_labels: dict[int, str] = {}
+    time_labels: dict[float, str] = {}
     for row in variant_budget_rows:
         component = str(row.get("component", "")).strip()
         x_value = _safe_float(row.get(x_field))
@@ -1277,10 +2036,9 @@ def _write_budget_diagnostic_figure(
         if not component or x_value is None or value is None:
             continue
         component_groups.setdefault(component, []).append((x_value, value))
-        time_index = _safe_float(row.get("time_index"))
         label = str(row.get("time_label", "")).strip()
-        if time_index is not None and label:
-            time_labels[int(time_index)] = label
+        if label:
+            time_labels[float(x_value)] = label
 
     if not component_groups:
         return False
@@ -1303,6 +2061,7 @@ def _write_budget_diagnostic_figure(
         component
         for component in (
             "drainage_total_m3_s",
+            "prescribed_head_out_total_m3_s",
             "surface_excess_total_m3_s",
         )
         if component in component_groups
@@ -1312,6 +2071,7 @@ def _write_budget_diagnostic_figure(
         for component in (
             "recharge_total_m3_s",
             "well_total_m3_s",
+            "evapotranspiration_total_m3_s",
             "storage_change_total_m3_s",
             "closure_residual_m3_s",
         )
@@ -1398,8 +2158,24 @@ def _write_budget_diagnostic_figure(
         )
         for line in legend.get_lines():
             line.set_linewidth(1.8)
-    tick_labels = [time_labels[index] for index in sorted(time_labels)] if time_labels else None
-    _apply_time_ticks(balance_ax, tick_positions=tick_positions, tick_labels=tick_labels)
+    if use_elapsed_seconds:
+        label_positions = sorted(time_labels)
+        _apply_time_ticks(
+            balance_ax,
+            tick_positions=label_positions if time_labels else tick_positions,
+            tick_labels=[time_labels[position] for position in label_positions]
+            if time_labels
+            else None,
+        )
+    else:
+        label_positions = sorted(time_labels)
+        _apply_time_ticks(
+            balance_ax,
+            tick_positions=label_positions if time_labels else tick_positions,
+            tick_labels=[time_labels[position] for position in label_positions]
+            if time_labels
+            else None,
+        )
     figure.suptitle(
         f"Budget diagnostics: {_display_variant_label(variant_id=variant_id, variant_label=variant_label)}",
         fontsize=_TITLE_FONT_SIZE,
@@ -1628,6 +2404,131 @@ def _write_regridded_difference_figure(
     return True
 
 
+def _write_regridded_triptych_figure(
+    *,
+    path: Path,
+    observable_name: str,
+    reference_payload: MapPayload,
+    candidate_payload: MapPayload,
+    reference_array: np.ndarray,
+    candidate_array: np.ndarray,
+    extent: tuple[float, float, float, float],
+) -> bool:
+    limits = _robust_limits([reference_array, candidate_array])
+    if limits is None:
+        limits = _finite_limits([reference_array, candidate_array])
+    if limits is None:
+        return False
+    vmin, vmax = limits
+    if math.isclose(vmin, vmax):
+        delta = abs(vmin) * 0.05 or 1.0
+        vmin -= delta
+        vmax += delta
+
+    difference_array = np.asarray(candidate_array - reference_array, dtype=float)
+    diff_vmax = _robust_symmetric_limit([difference_array])
+    if diff_vmax is None:
+        diff_limits = _finite_limits([difference_array])
+        if diff_limits is None:
+            return False
+        diff_vmax = max(abs(diff_limits[0]), abs(diff_limits[1]))
+    if not math.isfinite(diff_vmax) or math.isclose(diff_vmax, 0.0):
+        diff_vmax = 1.0
+
+    figure, axes = plt.subplots(1, 3, figsize=(13.8, 4.9), squeeze=False)
+    ref_ax, cand_ax, diff_ax = np.asarray(axes, dtype=object).ravel().tolist()
+    ref_artist = ref_ax.imshow(
+        reference_array,
+        origin="lower",
+        extent=extent,
+        cmap="viridis",
+        vmin=vmin,
+        vmax=vmax,
+        aspect="equal",
+    )
+    cand_ax.imshow(
+        candidate_array,
+        origin="lower",
+        extent=extent,
+        cmap="viridis",
+        vmin=vmin,
+        vmax=vmax,
+        aspect="equal",
+    )
+    diff_artist = diff_ax.imshow(
+        difference_array,
+        origin="lower",
+        extent=extent,
+        cmap="coolwarm",
+        vmin=-diff_vmax,
+        vmax=diff_vmax,
+        aspect="equal",
+    )
+    for ax in (ref_ax, cand_ax, diff_ax):
+        _style_map_axes(ax)
+    ref_ax.set_title(
+        _variant_panel_title(
+            variant_id=reference_payload.variant_id,
+            variant_label=reference_payload.variant_label,
+            solver=reference_payload.solver or reference_payload.mesh_mode,
+        ),
+        fontsize=_PANEL_TITLE_FONT_SIZE,
+        pad=6,
+    )
+    cand_ax.set_title(
+        _variant_panel_title(
+            variant_id=candidate_payload.variant_id,
+            variant_label=candidate_payload.variant_label,
+            solver=candidate_payload.solver or candidate_payload.mesh_mode,
+        ),
+        fontsize=_PANEL_TITLE_FONT_SIZE,
+        pad=6,
+    )
+    diff_ax.set_title(
+        f"{candidate_payload.variant_id} minus {reference_payload.variant_id}",
+        fontsize=_PANEL_TITLE_FONT_SIZE,
+        pad=6,
+    )
+    value_colorbar = figure.colorbar(
+        ref_artist,
+        ax=[ref_ax, cand_ax],
+        orientation="horizontal",
+        pad=0.08,
+        fraction=0.055,
+        aspect=38,
+    )
+    value_colorbar.set_label(
+        reference_payload.unit or "value",
+        fontsize=_LABEL_FONT_SIZE,
+        labelpad=4,
+    )
+    value_colorbar.ax.tick_params(labelsize=_TICK_FONT_SIZE)
+    diff_colorbar = figure.colorbar(
+        diff_artist,
+        ax=diff_ax,
+        orientation="horizontal",
+        pad=0.08,
+        fraction=0.055,
+        aspect=28,
+    )
+    diff_colorbar.set_label(
+        reference_payload.unit or "difference",
+        fontsize=_LABEL_FONT_SIZE,
+        labelpad=4,
+    )
+    diff_colorbar.ax.tick_params(labelsize=_TICK_FONT_SIZE)
+    figure.suptitle(
+        f"{_pretty_label(observable_name)} on fine raster [{reference_payload.unit or 'native'}]",
+        fontsize=_TITLE_FONT_SIZE,
+        y=0.97,
+    )
+    figure.subplots_adjust(left=0.03, right=0.98, top=0.84, bottom=0.18, wspace=0.08)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    figure.savefig(path, dpi=180, bbox_inches="tight")
+    plt.close(figure)
+    return True
+
+
 def _write_geotiff(
     *,
     path: Path,
@@ -1697,6 +2598,24 @@ def generate_comparison_figures(
 
     artifacts: list[dict[str, Any]] = []
     fine_raster = cfg.method_comparison.fine_raster
+    try:
+        case_payload = _build_case_configuration_payload(
+            cfg=cfg,
+            variant_summaries=variant_summaries,
+            reference_variant=reference_variant,
+        )
+    except Exception:
+        case_payload = None
+    if case_payload is not None:
+        case_path = figure_root / "case_configuration.png"
+        if _write_case_configuration_figure(path=case_path, payload=case_payload):
+            artifacts.append(
+                {
+                    "kind": "case_configuration",
+                    "observable": "case_configuration",
+                    "path": str(case_path),
+                }
+            )
 
     for observable in cfg.method_comparison.observable:
         if observable.support != "map":
@@ -1765,6 +2684,25 @@ def generate_comparison_figures(
                         "reference_variant": reference_variant,
                         "candidate_variant": candidate.variant_id,
                         "path": str(diff_path),
+                    }
+                )
+            triptych_path = figure_root / (
+                f"{_slug(observable.name)}__triptych__"
+                f"{_slug(reference_variant)}__vs__{_slug(candidate.variant_id)}.png"
+            )
+            if _write_map_triptych_figure(
+                path=triptych_path,
+                reference=reference_payload,
+                candidate=candidate,
+                difference=difference,
+            ):
+                artifacts.append(
+                    {
+                        "kind": "map_triptych",
+                        "observable": observable.name,
+                        "reference_variant": reference_variant,
+                        "candidate_variant": candidate.variant_id,
+                        "path": str(triptych_path),
                     }
                 )
 
@@ -1845,6 +2783,28 @@ def generate_comparison_figures(
                                 if payload.variant_id == reference_variant:
                                     continue
                                 difference_array = np.asarray(array - reference_array, dtype=float)
+                                triptych_path = figure_root / (
+                                    f"{_slug(observable.name)}__fine_raster_triptych__"
+                                    f"{_slug(reference_variant)}__vs__{_slug(payload.variant_id)}.png"
+                                )
+                                if _write_regridded_triptych_figure(
+                                    path=triptych_path,
+                                    observable_name=observable.name,
+                                    reference_payload=reference_payload,
+                                    candidate_payload=payload,
+                                    reference_array=reference_array,
+                                    candidate_array=array,
+                                    extent=grid_extent,
+                                ):
+                                    artifacts.append(
+                                        {
+                                            "kind": "fine_raster_triptych",
+                                            "observable": observable.name,
+                                            "reference_variant": reference_variant,
+                                            "candidate_variant": payload.variant_id,
+                                            "path": str(triptych_path),
+                                        }
+                                    )
                                 diff_path = figure_root / (
                                     f"{_slug(observable.name)}__fine_raster_difference__"
                                     f"{_slug(reference_variant)}__vs__{_slug(payload.variant_id)}.png"

@@ -11,12 +11,6 @@ This case compares a MODFLOW 6 run on the committed triangular support against a
 .. seealso::
    Read :doc:`the gallery and validation reading guide </getting_started/reading-results-pages>` if you want the parameter mapping, a recommended reading order, and the first modifications to try.
 
-.. figure:: /_static/capability_gallery/method_comparison/ex12_mf6_nwt_moderate.png
-   :alt: Method comparison summary for MF6 Triangular vs NWT Structured on Moderate Forcing
-   :width: 100%
-
-   Summary comparison figure for mf6 triangular vs nwt structured on moderate forcing.
-
 Case Setup
 ----------
 
@@ -31,6 +25,13 @@ What It Shows
 - How a fine common raster and an intersection extent make map comparisons possible across incompatible supports.
 - How point chronicles and outlet flux help decide whether disagreement is local, diffuse, or tied to basin export.
 
+Key Parameters
+--------------
+
+- `[method_comparison.fine_raster] enabled = true` is essential here because the compared meshes are not natively aligned cell by cell.
+- `extent_mode = "intersection"` keeps the comparison on the spatial footprint both supports actually share.
+- Read outlet-flux differences with more caution than in the same-grid case: they now reflect both solver behaviour and support discretization.
+
 How To Read It
 --------------
 
@@ -38,23 +39,24 @@ How To Read It
 - Read the parity metrics after checking the support mismatch described in the case setup; otherwise the numbers look more absolute than they really are.
 - Use this page to understand what changes when you leave the shared-support regime used by the tighter comparison cases.
 
-Key Metrics
------------
+Local Regeneration Note
+-----------------------
 
-- Depth Last RMSE: 3.695 m
-- Depth Last MAE: 2.487 m
-- Head Last RMSE: 20.11 m
-- Head Last MAE: 16.96 m
-- Head Mid Basin Response RMSE: 11.24 m
-- Head Mid Basin Response MAE: 9.96 m
-- Head Outlet Lowland RMSE: 21.84 m
-- Head Outlet Lowland MAE: 19.9 m
-- Head Upstream Ridge RMSE: 11.95 m
-- Head Upstream Ridge MAE: 11.07 m
-- Outflow Drain Last RMSE: 0.0002224 m/day
-- Outflow Drain Last MAE: 0.0002046 m/day
-- Outlet Flux Series RMSE: 0.001792 m3/s
-- Outlet Flux Series MAE: 0.001491 m3/s
+This local checkout cannot fully rebuild the original gallery artefacts for this case because one or more legacy source files are not present.
+
+The page is still generated so that the capability-gallery structure, cross-links, and reading guides remain valid during a full documentation rebuild.
+
+Reason: The method-comparison config and committed comparison artifacts needed to regenerate this page are not available in the current checkout.
+
+Missing Local Inputs
+--------------------
+
+- ``examples_legacy_2/projects/launcher_simulation/run_method_comparison_mf6_vs_nwt_different_meshes_moderate.toml``
+- ``examples_legacy_2/projects/launcher_simulation/run_demonstrative_annual_moderate_mf6_precomputed_mesh_input.toml``
+- ``examples_legacy_2/projects/launcher_simulation/run_demonstrative_annual_moderate_nwt.toml``
+- ``examples_legacy_2/projects/launcher_simulation/method_comparison/ex12_mf6_nwt_moderate/comparison_manifest.json``
+- ``examples_legacy_2/projects/launcher_simulation/method_comparison/ex12_mf6_nwt_moderate/comparison_metrics.json``
+- ``examples_legacy_2/projects/launcher_simulation/method_comparison/ex12_mf6_nwt_moderate/observables.csv``
 
 Next Steps
 ----------
@@ -77,97 +79,6 @@ Refresh the committed gallery artifacts with:
 
    python -m tools.doc_gallery
 
-Case Parameters
----------------
-
-Comparison Setup
-^^^^^^^^^^^^^^^^
-
-.. list-table::
-   :header-rows: 1
-   :widths: 26 42 20 12
-
-   * - Field
-     - Meaning
-     - Value
-     - Source
-   * - ``[method_comparison] comparison_id``
-     - Stable identifier used to collect outputs and summary artifacts for the comparison.
-     - ex12_mf6_nwt_moderate
-     - ``examples_legacy_2/projects/launcher_simulation/run_method_comparison_mf6_vs_nwt_different_meshes_moderate.toml``
-   * - ``[method_comparison] reference_variant``
-     - Variant used as the baseline when computing map-wise differences and error metrics.
-     - mf6_mod_tri
-     - ``examples_legacy_2/projects/launcher_simulation/run_method_comparison_mf6_vs_nwt_different_meshes_moderate.toml``
-   * - ``[method_comparison] run_variants``
-     - Whether the launcher reruns the variants or only reuses committed run folders.
-     - true
-     - ``examples_legacy_2/projects/launcher_simulation/run_method_comparison_mf6_vs_nwt_different_meshes_moderate.toml``
-   * - ``study_area``
-     - Study area summarized by the gallery page for this comparison case.
-     - Example12 / Naizin
-     - ``docs/readthedocs/source/_static/capability_gallery/method_comparison/ex12_mf6_nwt_moderate_summary.json``
-
-Compared Variants
-^^^^^^^^^^^^^^^^^
-
-.. list-table::
-   :header-rows: 1
-   :widths: 26 42 20 12
-
-   * - Field
-     - Meaning
-     - Value
-     - Source
-   * - ``variant.mf6_mod_tri``
-     - Compared run folder and solver definition used by the method-comparison launcher.
-     - MF6 annual moderate on committed triangular mesh; solver=modflow6; mesh_mode=mesh_input; run_folder=None
-     - ``examples_legacy_2/projects/launcher_simulation/run_method_comparison_mf6_vs_nwt_different_meshes_moderate.toml``
-   * - ``variant.nwt_mod_s60``
-     - Compared run folder and solver definition used by the method-comparison launcher.
-     - NWT annual moderate on 60x60 structured grid; solver=modflownwt; mesh_mode=structured; run_folder=None
-     - ``examples_legacy_2/projects/launcher_simulation/run_method_comparison_mf6_vs_nwt_different_meshes_moderate.toml``
-
-Compared Observables
-^^^^^^^^^^^^^^^^^^^^
-
-.. list-table::
-   :header-rows: 1
-   :widths: 26 42 20 12
-
-   * - Field
-     - Meaning
-     - Value
-     - Source
-   * - ``observable.head_outlet_lowland``
-     - Observable extracted from each run before parity plots and difference metrics are computed.
-     - variable=watertable_elevation; support=point; time=all; unit=m
-     - ``examples_legacy_2/projects/launcher_simulation/run_method_comparison_mf6_vs_nwt_different_meshes_moderate.toml``
-   * - ``observable.head_mid_basin_response``
-     - Observable extracted from each run before parity plots and difference metrics are computed.
-     - variable=watertable_elevation; support=point; time=all; unit=m
-     - ``examples_legacy_2/projects/launcher_simulation/run_method_comparison_mf6_vs_nwt_different_meshes_moderate.toml``
-   * - ``observable.head_upstream_ridge``
-     - Observable extracted from each run before parity plots and difference metrics are computed.
-     - variable=watertable_elevation; support=point; time=all; unit=m
-     - ``examples_legacy_2/projects/launcher_simulation/run_method_comparison_mf6_vs_nwt_different_meshes_moderate.toml``
-   * - ``observable.outlet_flux_series``
-     - Observable extracted from each run before parity plots and difference metrics are computed.
-     - variable=outlet_flux; support=outlet; time=all; unit=m3/s
-     - ``examples_legacy_2/projects/launcher_simulation/run_method_comparison_mf6_vs_nwt_different_meshes_moderate.toml``
-   * - ``observable.head_map_last``
-     - Observable extracted from each run before parity plots and difference metrics are computed.
-     - variable=watertable_elevation; support=map; time=last; unit=m
-     - ``examples_legacy_2/projects/launcher_simulation/run_method_comparison_mf6_vs_nwt_different_meshes_moderate.toml``
-   * - ``observable.depth_map_last``
-     - Observable extracted from each run before parity plots and difference metrics are computed.
-     - variable=watertable_depth; support=map; time=last; unit=m
-     - ``examples_legacy_2/projects/launcher_simulation/run_method_comparison_mf6_vs_nwt_different_meshes_moderate.toml``
-   * - ``observable.outflow_drain_map_last``
-     - Observable extracted from each run before parity plots and difference metrics are computed.
-     - variable=outflow_drain; support=map; time=last; unit=m/day
-     - ``examples_legacy_2/projects/launcher_simulation/run_method_comparison_mf6_vs_nwt_different_meshes_moderate.toml``
-
 Source Pointers
 ---------------
 
@@ -181,10 +92,4 @@ Source Pointers
 Artifacts
 ---------
 
-- ``docs/readthedocs/source/_static/capability_gallery/method_comparison/ex12_mf6_nwt_moderate.png``
-- ``docs/readthedocs/source/_static/capability_gallery/method_comparison/ex12_mf6_nwt_moderate_comparison_manifest.json``
-- ``docs/readthedocs/source/_static/capability_gallery/method_comparison/ex12_mf6_nwt_moderate_comparison_metrics.json``
-- ``docs/readthedocs/source/_static/capability_gallery/method_comparison/ex12_mf6_nwt_moderate_observables.csv``
-- ``docs/readthedocs/source/_static/capability_gallery/method_comparison/ex12_mf6_nwt_moderate_summary_metrics.csv``
-- ``docs/readthedocs/source/_static/capability_gallery/method_comparison/ex12_mf6_nwt_moderate_difference_metrics.csv``
 - ``docs/readthedocs/source/_static/capability_gallery/method_comparison/ex12_mf6_nwt_moderate_summary.json`` stores the displayed metrics plus source hashes used by ``python -m tools.doc_gallery --check``.

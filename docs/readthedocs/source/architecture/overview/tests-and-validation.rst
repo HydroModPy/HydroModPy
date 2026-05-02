@@ -7,6 +7,9 @@ Scope
 HydroModPy deliberately separates reusable scientific benchmark logic from the
 pytest files that assert acceptance thresholds.
 
+For the full inventory of test families, their roles, and the routine commands
+used to run them, use :doc:`test-families-and-quality-roles`.
+
 Code map
 --------
 

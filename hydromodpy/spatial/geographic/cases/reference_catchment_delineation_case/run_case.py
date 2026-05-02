@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import json
 import sys
 from pathlib import Path
 from typing import Any
@@ -37,6 +38,23 @@ def run_geographic_case_from_toml(config_toml: str | Path):
     workspace = Workspace(config=cfg.workspace)
     geographic = CatchmentDelineation(config=cfg.geographic, initializing=workspace)
     return workspace, geographic
+
+
+def _load_river_network_summary(geographic) -> tuple[str | None, dict[str, Any] | None]:
+    """Return the river-network summary path and decoded payload when available."""
+    summary_path_raw = (
+        str(getattr(geographic, "hydrographic_network_generated_summary_json", "")).strip()
+        or str(getattr(geographic, "river_network_summary_json", "")).strip()
+    )
+    if summary_path_raw == "":
+        return None, None
+
+    summary_path = Path(summary_path_raw).expanduser().resolve()
+    if not summary_path.exists():
+        return str(summary_path), None
+
+    with summary_path.open("r", encoding="utf-8") as stream:
+        return str(summary_path), json.load(stream)
 
 
 def _build_case_specs(cfg: HydroModPyConfig) -> dict[str, dict[str, Any]]:
@@ -212,6 +230,12 @@ def run_geographic_cases_from_toml(
         workspace = Workspace(config=init_cfg)
         geographic = CatchmentDelineation(config=geo_cfg, initializing=workspace)
         metrics = compute_catchment_metrics(geographic)
+        river_network_summary_path, river_network_summary = _load_river_network_summary(geographic)
+        generated_network_shp = (
+            str(getattr(geographic, "hydrographic_network_generated_shp", "")).strip()
+            or str(getattr(geographic, "river_network_shp", "")).strip()
+            or None
+        )
         fig_path = None
         if write_plot:
             fig_path = _plot_geographic_summary(
@@ -232,6 +256,10 @@ def run_geographic_cases_from_toml(
                 int(geographic.dem_box_buff_data.shape[0]),
                 int(geographic.dem_box_buff_data.shape[1]),
             ),
+            "hydrographic_network_generated_shp": generated_network_shp,
+            "hydrographic_network_generated_summary_json": river_network_summary_path,
+            "river_network_summary_json": river_network_summary_path,
+            "river_network_summary": river_network_summary,
             "figure": None if fig_path is None else str(fig_path),
             **metrics,
         }
@@ -368,13 +396,23 @@ def main(argv: list[str] | None = None) -> int:
     )
     for case_id in selected_case_ids:
         summary = summaries[case_id]
-        print(f"[{case_id}] catch_folder={summary['catch_folder']}")
+        print(f"[{case_id}] project_root={summary['project_root']}")
         print(f"[{case_id}] watershed_shp={summary['watershed_shp']}")
         print(f"[{case_id}] watershed_box_buff_dem={summary['watershed_box_buff_dem']}")
         print(
             f"[{case_id}] shape_box_buff_dem="
             f"{summary['shape_box_buff_dem'][0]}x{summary['shape_box_buff_dem'][1]}"
         )
+        if summary["hydrographic_network_generated_shp"] is not None:
+            print(
+                f"[{case_id}] hydrographic_network_generated_shp="
+                f"{summary['hydrographic_network_generated_shp']}"
+            )
+        if summary["hydrographic_network_generated_summary_json"] is not None:
+            print(
+                f"[{case_id}] hydrographic_network_generated_summary_json="
+                f"{summary['hydrographic_network_generated_summary_json']}"
+            )
         print(f"[{case_id}] catchment_area_km2={summary['catchment_area_km2']:.3f}")
         print(f"[{case_id}] mean_elevation_catchment_m={summary['mean_elevation_catchment_m']:.2f}")
         if summary["figure"] is not None:

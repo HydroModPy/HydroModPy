@@ -50,6 +50,18 @@ def test_hmp_regression_fast_mf6_builds_fast_tier_selection(monkeypatch) -> None
     assert args[marker_index + 1] == "fast and mf6"
 
 
+def test_hmp_regression_fast_intercomparison_builds_marker_selection(monkeypatch) -> None:
+    args, _ = _capture_pytest_invocation(
+        monkeypatch,
+        ["hmp", "test", "regression", "--fast", "--intercomparison"],
+    )
+
+    assert args[:3] == [str(Path(sys.executable)), "-m", "pytest"]
+    assert any(str(arg).endswith(str(Path("tests") / "regression" / "fast")) for arg in args)
+    marker_index = args.index("-m", 3)
+    assert args[marker_index + 1] == "fast and intercomparison"
+
+
 def test_hmp_validation_fast_steady_builds_validation_marker_selection(monkeypatch) -> None:
     args, _ = _capture_pytest_invocation(
         monkeypatch,
@@ -97,6 +109,25 @@ def test_hmp_validation_rejects_extensive(monkeypatch) -> None:
 
     monkeypatch.setattr(module.subprocess, "call", _fake_call)
     monkeypatch.setattr(sys, "argv", ["hmp", "test", "validation", "--extensive"])
+
+    with pytest.raises(SystemExit) as exc_info:
+        main_module.main()
+
+    assert exc_info.value.code == 2
+    assert captured["called"] is False
+
+
+def test_hmp_validation_rejects_intercomparison(monkeypatch) -> None:
+    module = _load_module()
+    main_module = _load_main_module()
+    captured = {"called": False}
+
+    def _fake_call(args: list[str]) -> int:
+        captured["called"] = True
+        return 0
+
+    monkeypatch.setattr(module.subprocess, "call", _fake_call)
+    monkeypatch.setattr(sys, "argv", ["hmp", "test", "validation", "--intercomparison"])
 
     with pytest.raises(SystemExit) as exc_info:
         main_module.main()

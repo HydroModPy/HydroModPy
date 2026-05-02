@@ -882,6 +882,13 @@ def update_or_assert_goldens(
             expected["boussinesq_summary_expected"],
         )
 
+    if "intercomparison_expected" in actual:
+        assert "intercomparison_expected" in expected
+        assert_json_signatures(
+            actual["intercomparison_expected"],
+            expected["intercomparison_expected"],
+        )
+
 
 def run_example_script(
     *,

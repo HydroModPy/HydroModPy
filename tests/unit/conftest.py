@@ -35,7 +35,7 @@ _ORIG_CALL = subprocess.call
 _ORIG_CHECK_CALL = subprocess.check_call
 
 
-def _caller_is_user_code() -> bool:
+def _caller_is_user_code(*, frame_offset: int) -> bool:
     """Return True when the *immediate* caller is outside stdlib.
 
     We only look at the first non-conftest frame: this keeps transitive
@@ -44,7 +44,7 @@ def _caller_is_user_code() -> bool:
     import side-effects) out of the ban while still catching direct
     ``subprocess.run(...)`` invocations from a test module.
     """
-    frame = sys._getframe(2)  # skip _wrapper + _caller_is_user_code
+    frame = sys._getframe(frame_offset)
     while frame is not None:
         fname = frame.f_code.co_filename
         try:
@@ -64,11 +64,20 @@ def _caller_is_user_code() -> bool:
 
 def _wrap(orig):
     def _wrapper(*args, **kwargs):
-        if _caller_is_user_code():
+        if _caller_is_user_code(frame_offset=2):
             raise RuntimeError(_MESSAGE)
         return orig(*args, **kwargs)
 
     return _wrapper
+
+
+class _GuardedPopen(_ORIG_POPEN):
+    """Class-preserving guard used by unit tests."""
+
+    def __init__(self, *args, **kwargs):
+        if _caller_is_user_code(frame_offset=2):
+            raise RuntimeError(_MESSAGE)
+        super().__init__(*args, **kwargs)
 
 
 @pytest.fixture(autouse=True)
@@ -79,7 +88,7 @@ def _forbid_subprocess_in_unit(request, monkeypatch):
         return
 
     monkeypatch.setattr(subprocess, "run", _wrap(_ORIG_RUN))
-    monkeypatch.setattr(subprocess, "Popen", _wrap(_ORIG_POPEN))
+    monkeypatch.setattr(subprocess, "Popen", _GuardedPopen)
     monkeypatch.setattr(subprocess, "call", _wrap(_ORIG_CALL))
     monkeypatch.setattr(subprocess, "check_call", _wrap(_ORIG_CHECK_CALL))
 

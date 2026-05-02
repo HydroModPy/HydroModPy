@@ -15,8 +15,6 @@ precise message when a contract is violated.
    cfg.workspace.catch_name      # validated str
    cfg.geographic.catch_def      # validated Literal
 
-----
-
 hydromodpy.core.config.hydromodpy_config
 ----------------------------------------
 
@@ -25,8 +23,6 @@ hydromodpy.core.config.hydromodpy_config
    :undoc-members:
    :member-order: bysource
    :no-index:
-
-----
 
 hydromodpy.core.workspace.config
 --------------------------------
@@ -37,10 +33,8 @@ hydromodpy.core.workspace.config
    :member-order: bysource
    :no-index:
 
-----
-
 hydromodpy.spatial.geographic.geographic_config
-------------------------------------------------
+-----------------------------------------------
 
 .. autopydantic_model:: hydromodpy.spatial.geographic.geographic_config.GeographicConfig
    :members:

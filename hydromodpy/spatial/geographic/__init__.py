@@ -34,6 +34,10 @@ from hydromodpy.spatial.geographic.core.derived_features import (
     coerce_geographic_derived_features,
     resolve_river_mesh_trace,
 )
+from hydromodpy.spatial.geographic.core.hydrographic_network import (
+    HydrographicNetwork,
+    HydrographicNetworks,
+)
 from hydromodpy.spatial.geographic.core.domain_dem import clip_dem_to_box_buffer
 from hydromodpy.spatial.geographic.core.domain_geographic_pipeline import (
     DomainGeographicContext,
@@ -84,6 +88,8 @@ __all__ = [
     "GeographicConfig",
     "GeographicDerivedFeatures",
     "GeographicRuntimeContext",
+    "HydrographicNetwork",
+    "HydrographicNetworks",
     "RiverMeshTrace",
     "RiverNetworkConfig",
     "RiverNetworkProducts",

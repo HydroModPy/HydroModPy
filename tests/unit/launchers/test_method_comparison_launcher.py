@@ -8,10 +8,18 @@ from pathlib import Path
 from types import SimpleNamespace
 
 import numpy as np
+import pandas as pd
 import pytest
 
-from hydromodpy.analysis.comparison.config import MethodComparisonConfig
-from hydromodpy.analysis.comparison.exports import write_budget_exports
+from hydromodpy.analysis.comparison.config import (
+    MethodComparisonConfig,
+    MethodComparisonObservable,
+    MethodComparisonVariant,
+)
+from hydromodpy.analysis.comparison.exports import (
+    _load_catalog_budget_rows,
+    write_budget_exports,
+)
 from hydromodpy.analysis.comparison.metrics import (
     build_comparison_metrics,
     build_unmatched_groups,
@@ -852,6 +860,129 @@ def test_write_budget_exports_derives_boussinesq_budget_timeseries(
     assert math.isfinite(float(residual_row["value"]))
 
 
+def test_write_budget_exports_uses_child_config_bundle_when_run_folder_has_no_mesh_metadata(
+    tmp_path: Path,
+) -> None:
+    run_folder = tmp_path / "generated_configs"
+    bundle_dir = tmp_path / "bundle_from_child_config"
+    run_folder.mkdir(parents=True, exist_ok=True)
+    _write_boussinesq_run_folder(run_folder, bundle_dir)
+    (run_folder / "_boussinesq_summary.json").unlink()
+
+    config_dir = tmp_path / "comparison" / "_generated_configs"
+    config_dir.mkdir(parents=True)
+    config_path = config_dir / "bouss_candidate.toml"
+    config_path.write_text(
+        "\n".join(
+            [
+                "workflow = \"simulation\"",
+                "",
+                "[mesh_input]",
+                'bundle_dir = "../../bundle_from_child_config"',
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    artifacts, rows = write_budget_exports(
+        comparison_root=tmp_path / "comparison",
+        variant_summaries=[
+            {
+                "id": "bouss_demo",
+                "label": "Bouss demo",
+                "solver": "boussinesq",
+                "mesh_mode": "mesh_input",
+                "status": "completed",
+                "run_folder": str(run_folder),
+                "config_path": str(config_path),
+            }
+        ],
+    )
+
+    assert artifacts
+    assert any(row["component"] == "recharge_total_m3_s" for row in rows)
+
+
+def test_catalog_budget_rows_are_normalized_to_elapsed_seconds_and_m3_s(tmp_path: Path) -> None:
+    config_path = tmp_path / "mf6_child.toml"
+    config_path.write_text(
+        "\n".join(
+            [
+                'workflow = "simulation"',
+                "",
+                "[simulation]",
+                'name = "mf6_budget_demo"',
+                "",
+                "[simulation.time]",
+                'start_datetime = "2020-01-01 00:00:00"',
+                'end_datetime = "2020-01-02 00:00:00"',
+                'step_value = "1 day"',
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    class FakeBudgetStore:
+        def query_budget(self, sim_id: str) -> pd.DataFrame:
+            assert sim_id == "mf6-demo"
+            return pd.DataFrame(
+                [
+                    {
+                        "timestep": 0,
+                        "component": "rcha",
+                        "flux_in": 2.5,
+                        "flux_out": 0.0,
+                        "unit": "m3/d",
+                    },
+                    {
+                        "timestep": 0,
+                        "component": "chd",
+                        "flux_in": 0.1,
+                        "flux_out": 0.4,
+                        "unit": "m3/d",
+                    },
+                    {
+                        "timestep": 0,
+                        "component": "sto-sy",
+                        "flux_in": 0.2,
+                        "flux_out": 1.0,
+                        "unit": "m3/d",
+                    },
+                    {
+                        "timestep": 1,
+                        "component": "rcha",
+                        "flux_in": 0.0,
+                        "flux_out": 0.0,
+                        "unit": "m3/s",
+                    },
+                ]
+            )
+
+    rows = _load_catalog_budget_rows(
+        {
+            "id": "mf6_ref",
+            "label": "MF6 reference",
+            "solver": "modflow6",
+            "mesh_mode": "mesh_input",
+            "config_path": str(config_path),
+        },
+        FakeBudgetStore(),
+        "mf6-demo",
+    )
+
+    by_component = {
+        row["component"]: row for row in rows if int(row["time_index"]) == 0
+    }
+    assert by_component["recharge_total_m3_s"]["elapsed_seconds"] == pytest.approx(86400.0)
+    assert by_component["recharge_total_m3_s"]["unit"] == "m3/s"
+    assert by_component["recharge_total_m3_s"]["value"] == pytest.approx(2.5)
+    assert by_component["prescribed_head_out_total_m3_s"]["value"] == pytest.approx(0.3)
+    assert by_component["storage_change_total_m3_s"]["value"] == pytest.approx(0.8)
+    assert by_component["closure_residual_m3_s"]["value"] == pytest.approx(1.4)
+
+
 @pytest.mark.skipif(os.name != "nt", reason="WSL bundle-path normalization is Windows-specific")
 def test_extract_observable_rows_resolves_wsl_bundle_path_on_windows(
     tmp_path: Path,
@@ -1063,8 +1194,10 @@ def test_method_comparison_launcher_generates_visual_figures(tmp_path: Path) -> 
     figures = summary["comparison_figures"]
     assert summary["comparison_figures_dir"]
     assert {item["kind"] for item in figures} == {
+        "case_configuration",
         "map_comparison",
         "difference_map",
+        "map_triptych",
         "timeseries",
         "point_dashboard",
     }
@@ -1211,7 +1344,12 @@ def test_method_comparison_launcher_generates_structured_figures_from_run_folder
     summary = MethodComparisonLauncher(config_path).run()
 
     figures = summary["comparison_figures"]
-    assert {item["kind"] for item in figures} == {"map_comparison", "difference_map"}
+    assert {item["kind"] for item in figures} == {
+        "case_configuration",
+        "map_comparison",
+        "difference_map",
+        "map_triptych",
+    }
     for item in figures:
         figure_path = Path(item["path"])
         assert figure_path.exists()
@@ -1494,3 +1632,161 @@ def test_build_comparison_metrics_aligns_non_initial_steps_and_keeps_initial_unm
             "reason": "missing aligned reference row or unit mismatch",
         }
     ]
+
+
+def test_store_series_aligns_modflow_steps_with_boussinesq_snapshots(
+    tmp_path: Path,
+) -> None:
+    class FakeArray:
+        def __init__(self, values: object) -> None:
+            self._values = np.asarray(values, dtype=float)
+
+        def __getitem__(self, key: object) -> np.ndarray:
+            return self._values[key]
+
+    class FakeStore:
+        def __init__(self, roots: dict[str, dict[str, object]]) -> None:
+            self.roots = roots
+
+        def open_zarr_group(self, sim_id: str) -> dict[str, object]:
+            return self.roots[sim_id]
+
+        def zarr_path_for(self, sim_id: str) -> Path:
+            return Path(f"{sim_id}.zarr")
+
+    config_path = tmp_path / "transient_config.toml"
+    config_path.write_text(
+        "\n".join(
+            [
+                'workflow = "simulation"',
+                "",
+                "[simulation.time]",
+                'start_datetime = "2020-01-01 00:00:00"',
+                'end_datetime = "2020-01-03 00:00:00"',
+                'step_value = "1 day"',
+                'coverage_policy = "warn"',
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    mf6_id = "mf6"
+    bouss_id = "bouss"
+    store = FakeStore(
+        {
+            mf6_id: {
+                "derived": {
+                    "watertable_elevation": FakeArray([[101.0], [102.0], [103.0]]),
+                },
+            },
+            bouss_id: {
+                "derived": {
+                    "watertable_elevation": FakeArray(
+                        [[100.0], [101.0], [102.0], [103.0]]
+                    ),
+                },
+                "boussinesq_state": {
+                    "period_lengths_seconds": FakeArray([86400.0, 86400.0, 86400.0]),
+                    "snapshot_elapsed_seconds": FakeArray(
+                        [0.0, 86400.0, 172800.0, 259200.0]
+                    ),
+                    "step_end_elapsed_seconds": FakeArray([86400.0, 172800.0, 259200.0]),
+                },
+            },
+        }
+    )
+
+    mf6_series = load_variable_series(
+        run_folder=tmp_path,
+        variable="watertable_elevation",
+        store=store,  # type: ignore[arg-type]
+        sim_id=mf6_id,
+        config_path=config_path,
+    )
+    bouss_series = load_variable_series(
+        run_folder=tmp_path,
+        variable="watertable_elevation",
+        store=store,  # type: ignore[arg-type]
+        sim_id=bouss_id,
+        config_path=config_path,
+    )
+
+    assert [item.elapsed_seconds for item in mf6_series.slices] == [
+        86400.0,
+        172800.0,
+        259200.0,
+    ]
+    assert [item.elapsed_seconds for item in bouss_series.slices] == [
+        0.0,
+        86400.0,
+        172800.0,
+        259200.0,
+    ]
+    assert bouss_series.slices[0].is_initial_state is True
+
+    observables = (
+        MethodComparisonObservable(
+            name="head_series",
+            variable="watertable_elevation",
+            support="point",
+            cell_index=0,
+            time="all",
+            unit="m",
+        ),
+        MethodComparisonObservable(
+            name="head_map_step_1",
+            variable="watertable_elevation",
+            support="map",
+            time=1,
+            unit="m",
+        ),
+    )
+    rows = []
+    rows.extend(
+        extract_observable_rows(
+            comparison_id="time_axis_demo",
+            variant=MethodComparisonVariant(id="reference", solver="modflow6"),
+            run_folder=tmp_path,
+            observables=observables,
+            config_path=config_path,
+            store=store,  # type: ignore[arg-type]
+            sim_id=mf6_id,
+        )
+    )
+    rows.extend(
+        extract_observable_rows(
+            comparison_id="time_axis_demo",
+            variant=MethodComparisonVariant(id="candidate", solver="boussinesq"),
+            run_folder=tmp_path,
+            observables=observables,
+            config_path=config_path,
+            store=store,  # type: ignore[arg-type]
+            sim_id=bouss_id,
+        )
+    )
+
+    detail, summary = build_comparison_metrics(rows, reference_variant="reference")
+    by_observable = {item["observable"]: item for item in summary}
+
+    assert by_observable["head_series"]["n_pairs"] == 3
+    assert by_observable["head_series"]["rmse"] == pytest.approx(0.0)
+    assert by_observable["head_map_step_1"]["n_pairs"] == 1
+    assert by_observable["head_map_step_1"]["rmse"] == pytest.approx(0.0)
+    assert {
+        item["comparison_time_key"]
+        for item in detail
+        if item["observable"] == "head_series"
+    } == {
+        "elapsed_seconds:86400",
+        "elapsed_seconds:172800",
+        "elapsed_seconds:259200",
+    }
+    assert all(item["reference_match_strategy"] == "exact_time_key" for item in detail)
+
+
+def test_public_compare_raises_helpful_not_implemented() -> None:
+    import hydromodpy as hmp
+
+    with pytest.raises(NotImplementedError, match="Project.compare"):
+        hmp.compare("sim_a", "sim_b")

@@ -19,6 +19,10 @@ from hydromodpy.spatial.geographic.core.derived_features import (
     GeographicBoundaryFeatures,
     GeographicDerivedFeatures,
 )
+from hydromodpy.spatial.geographic.core.hydrographic_network import (
+    HydrographicNetwork,
+    HydrographicNetworks,
+)
 from hydromodpy.spatial.geographic.core.domain_geographic_pipeline import DomainGeographicContext
 from hydromodpy.spatial.geographic.core.flow_products import build_regional_flow_products
 from hydromodpy.spatial.geographic.core.river_network import RiverNetworkProducts
@@ -152,12 +156,26 @@ class CatchmentDelineation:
 
         river_products = getattr(self, "_river_network_products", None)
         if not isinstance(river_products, RiverNetworkProducts):
+            generated_network_shp = (
+                str(getattr(self, "hydrographic_network_generated_shp", ""))
+                or str(getattr(self, "river_network_shp", ""))
+                or None
+            )
+            generated_summary_json = (
+                str(getattr(self, "hydrographic_network_generated_summary_json", ""))
+                or str(getattr(self, "river_network_summary_json", ""))
+                or None
+            )
             river_products = RiverNetworkProducts(
                 enabled=bool(getattr(self, "river_mesh_trace", None) is not None),
-                network_shp=(str(getattr(self, "river_network_shp", "")) or None),
-                summary_json=(str(getattr(self, "river_network_summary_json", "")) or None),
+                network_shp=generated_network_shp,
+                summary_json=generated_summary_json,
                 river_mesh_trace=getattr(self, "river_mesh_trace", None),
             )
+        generated_network = HydrographicNetwork.from_river_network_products(
+            river_products,
+            watershed_shp=str(self.watershed_shp),
+        )
 
         return GeographicDerivedFeatures(
             surface_topo=self.get_domain_surface_topo(),
@@ -174,6 +192,7 @@ class CatchmentDelineation:
             zone_kind=("uniform" if str(self.catch_def).strip().lower() == "dem" else "catchment"),
             watershed_box_buff_dem=str(self.watershed_box_buff_dem),
             regional_dem_path=str(getattr(self, "dem_init_path", "")) or None,
+            hydrographic_networks=HydrographicNetworks(generated=generated_network),
         )
 
     def get_domain_geographic_context(self) -> DomainGeographicContext:

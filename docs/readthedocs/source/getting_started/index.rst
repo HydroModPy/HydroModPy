@@ -1,9 +1,9 @@
 Getting Started
 ===============
 
-This section is the guided entry point for HydroModPy. Use it when you want a
-recommended first workflow instead of opening the full example inventory
-directly.
+This section is the shortest guided entry point for HydroModPy. Use it when
+you want to install the package, choose a first workflow, and run one
+meaningful case without scanning the full documentation tree.
 
 For most users, the default path is simple: choose the right first workflow,
 run the data-overview case, then move to the end-to-end simulation case.
@@ -17,8 +17,8 @@ run the data-overview case, then move to the end-to-end simulation case.
 .. important::
 
    If you are unsure where to start, read
-   :doc:`choose-your-first-workflow` and then run
-   :doc:`data-overview-walkthrough`.
+   :doc:`choose-your-first-workflow`, run :doc:`cli-quickstart`, and then
+   continue with :doc:`data-overview-walkthrough`.
 
 Recommended entry points
 ------------------------
@@ -66,16 +66,6 @@ Recommended entry points
       Follow one end-to-end MODFLOW 6 plus Gmsh case and map the main config
       sections to the displayed outputs.
 
-   .. grid-item-card::
-      :class-card: sd-shadow-sm sd-rounded-3 sd-p-4
-      :link: reading-results-pages
-      :link-type: doc
-
-      **Read gallery and validation pages**
-      ^^^
-      Learn how to interpret capability-gallery pages, solver comparisons, and
-      analytical validation pages.
-
 Default path
 ------------
 
@@ -85,12 +75,13 @@ Default path
 3. Run :doc:`data-overview-walkthrough` if you want to understand basin setup
    before touching any solver.
 4. Continue with :doc:`simulation-walkthrough` for a complete end-to-end case.
-5. Use :doc:`reading-results-pages` when you start comparing methods or reading
-   validation metrics.
 
 Related sections
 ----------------
 
+- :doc:`../user_guide/index` explains usage modes, workflow families,
+  workspace layout, project/run concepts, comparison, calibration, meshes, and
+  solver-choice routing.
 - :doc:`../examples` lists the full notebook and script inventory.
 - :doc:`../capability_gallery/index` shows static, versioned result pages built
   from reproducible cases.
@@ -101,8 +92,5 @@ Related sections
 
    choose-your-first-workflow
    cli-quickstart
-   workspace-layout
-   project-vs-run
    data-overview-walkthrough
    simulation-walkthrough
-   reading-results-pages
