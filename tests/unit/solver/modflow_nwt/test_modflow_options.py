@@ -56,6 +56,7 @@ def test_recharge_config_defaults():
     assert cfg.values == 0.0
     assert cfg.first_clim == "mean"
     assert cfg.units == "mm/day"
+    assert cfg.negative_to_evt is True
 
 
 def test_recharge_config_first_clim_normalized_to_lowercase():
@@ -87,7 +88,19 @@ def test_recharge_config_accepts_non_negative_list_values():
     assert cfg.values == [0.001, 0.0008, 0.0002]
 
 
-@pytest.mark.parametrize("value", [None, float("nan"), float("inf"), -0.0002])
+@pytest.mark.parametrize("value", [None, float("nan"), float("inf")])
 def test_recharge_config_rejects_invalid_numeric_values(value):
     with pytest.raises(ValueError):
         FlowRechargeConfig(values=value)
+
+
+def test_recharge_config_accepts_negative_values_when_routed_to_evt():
+    cfg = FlowRechargeConfig(values=[0.001, -0.0002])
+
+    assert cfg.negative_to_evt is True
+    assert cfg.values == [0.001, -0.0002]
+
+
+def test_recharge_config_rejects_negative_values_when_evt_routing_disabled():
+    with pytest.raises(ValueError, match="non-negative"):
+        FlowRechargeConfig(values=[0.001, -0.0002], negative_to_evt=False)

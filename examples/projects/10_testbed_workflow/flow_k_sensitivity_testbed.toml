@@ -60,23 +60,29 @@ value = "2e-5 m/s"
 [[testbed.metric]]
 name = "duration_s"
 source = "flow_metrics.duration_s"
+required = true
 
 [[testbed.metric]]
 name = "n_cells"
 source = "flow_metrics.n_cells"
+required = true
 
 [[testbed.metric]]
 name = "param_K"
 source = "flow_metrics.param_K"
+required = true
 
 [[testbed.metric]]
 name = "max_abs_balance_error"
 source = "flow_metrics.max_abs_mass_balance_percent_error"
+required = true
 
 [[testbed.metric]]
 name = "head_range_m"
 source = "flow_metrics.head_range_m"
+required = true
 
 [[testbed.metric]]
 name = "prescribed_head_out"
 source = "flow_metrics.budget_chd_total_out"
+required = true

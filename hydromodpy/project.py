@@ -393,10 +393,10 @@ class Project:
 
         Two modes are supported:
 
-        * **TOML mode** (``config_path`` supplied): delegate to
+        * TOML mode (``config_path`` supplied): delegate to
           :func:`hydromodpy.calibration.runner.run_calibration_cli` with the
-          given TOML path.
-        * **Python mode** (``parameters`` supplied): build a
+          given TOML path. Extra keyword arguments are forwarded.
+        * Python mode (``parameters`` supplied): build a
           :class:`CalibrationConfig` in memory from the declarations and
           run the same loop.
         """

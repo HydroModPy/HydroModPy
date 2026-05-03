@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Literal
+from typing import TYPE_CHECKING
 
 from hydromodpy.display._map_axes import overlay_watershed_contour, style_map_axes
 from hydromodpy.display._ugrid import render_face_field
@@ -10,11 +10,20 @@ from hydromodpy.display.catalog import register
 from hydromodpy.display.figure import BaseFigure, FigureSpec
 from hydromodpy.display.figures.hydrographic_network import _project_gdf_for_metric_operations
 from hydromodpy.results import views
+from hydromodpy.results.views import SimulatedActiveNetworkMode
 
 if TYPE_CHECKING:
     from matplotlib.axes import Axes
 
     from hydromodpy.results.run import Run
+
+
+def _mode_label(mode: str, persistence_threshold: float) -> str:
+    if mode == "persistent":
+        return f"persistent >= {persistence_threshold:g}"
+    if mode in {"always_active", "perennial"}:
+        return "always active over transient window"
+    return mode
 
 
 @register
@@ -36,7 +45,7 @@ class SimulatedActiveNetworkMap(BaseFigure):
         *,
         variable: str = "accumulation_flux",
         threshold: float = 0.0,
-        mode: Literal["last", "any", "persistent", "perennial", "persistence"] = "persistent",
+        mode: SimulatedActiveNetworkMode = "persistent",
         persistence_threshold: float = 0.5,
         timestep: int | None = None,
         cmap: str | None = None,
@@ -63,7 +72,7 @@ class SimulatedActiveNetworkMap(BaseFigure):
         )
         overlay_watershed_contour(ax, sim)
         style_map_axes(ax)
-        mode_label = mode if mode != "persistent" else f"persistent >= {persistence_threshold:g}"
+        mode_label = _mode_label(mode, persistence_threshold)
         ax.set_title(f"Simulated active network ({mode_label}) - {sim.name or sim.sim_id}")
         return ax
 
@@ -87,15 +96,18 @@ class SimulatedActiveNetworkReferenceOverlay(BaseFigure):
         *,
         variable: str = "accumulation_flux",
         threshold: float = 0.0,
-        mode: Literal["last", "any", "persistent", "perennial", "persistence"] = "persistent",
+        mode: SimulatedActiveNetworkMode = "persistent",
         persistence_threshold: float = 0.5,
         timestep: int | None = None,
         buffer_m: float = 0.0,
         cmap: str = "Blues",
+        active_color: str = "#9ecae1",
+        active_alpha: float = 0.55,
         reference_color: str = "#9b1c1c",
         **_,
     ) -> Axes:
         import matplotlib.pyplot as plt
+        from matplotlib.colors import ListedColormap
         from matplotlib.lines import Line2D
         from matplotlib.patches import Patch
 
@@ -111,9 +123,12 @@ class SimulatedActiveNetworkReferenceOverlay(BaseFigure):
         if mode != "persistence":
             display_values[display_values <= 0.0] = float("nan")
 
-        active_cmap = plt.get_cmap(cmap).copy()
+        if mode == "persistence":
+            active_cmap = plt.get_cmap(cmap).copy()
+        else:
+            active_cmap = ListedColormap([active_color])
         active_cmap.set_bad((1.0, 1.0, 1.0, 0.0))
-        render_face_field(
+        collection = render_face_field(
             ax,
             sim,
             display_values,
@@ -124,6 +139,7 @@ class SimulatedActiveNetworkReferenceOverlay(BaseFigure):
                 "Active persistence (0-1)" if mode == "persistence" else "Simulated active cells"
             ),
         )
+        collection.set_alpha(active_alpha)
 
         reference = sim.hydrographic_network("reference")
         try:
@@ -141,7 +157,7 @@ class SimulatedActiveNetworkReferenceOverlay(BaseFigure):
         )
         overlay_watershed_contour(ax, sim, color="#404040", linewidth=0.9, alpha=0.65)
         style_map_axes(ax)
-        mode_label = mode if mode != "persistent" else f"persistent >= {persistence_threshold:g}"
+        mode_label = _mode_label(mode, persistence_threshold)
         ax.set_title(f"Simulated active vs reference ({mode_label}) - {sim.name or sim.sim_id}")
 
         try:
@@ -180,8 +196,9 @@ class SimulatedActiveNetworkReferenceOverlay(BaseFigure):
         ax.legend(
             handles=[
                 Patch(
-                    facecolor=plt.get_cmap(cmap)(0.75),
+                    facecolor=active_color,
                     edgecolor="none",
+                    alpha=active_alpha,
                     label="simulated active",
                 ),
                 Line2D([0], [0], color=reference_color, lw=1.5, label="reference"),

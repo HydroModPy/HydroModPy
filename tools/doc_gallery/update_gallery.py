@@ -25,6 +25,9 @@ from tools.mesh_bundle_viewer.runner.visualization_runner import (
     load_toml_config,
     run_visualization,
 )
+from validation_cases.calibration.shared.definitions import (
+    method_returns_parameter_distribution,
+)
 
 from .gallery_manifest import (
     CATEGORY_SPECS,
@@ -2018,14 +2021,16 @@ def _generate_calibration_case(spec: GalleryCaseSpec, source_root: Path) -> dict
             all_image_repo_paths.append(image["repo_path"])
 
         posterior_filename = f"{spec.slug}__{method_slug}_posterior.png"
-        posterior_destination = source_root / _docs_relative_static_path(
-            spec.category,
-            posterior_filename,
-        )
-        posterior_copied = _copy_generated_gallery_image(
-            source_path=result.posterior_distribution_figure,
-            destination=posterior_destination,
-        )
+        posterior_copied = False
+        if method_returns_parameter_distribution(result.method_name):
+            posterior_destination = source_root / _docs_relative_static_path(
+                spec.category,
+                posterior_filename,
+            )
+            posterior_copied = _copy_generated_gallery_image(
+                source_path=result.posterior_distribution_figure,
+                destination=posterior_destination,
+            )
         if posterior_copied:
             image = _build_validation_image_summary(
                 category=spec.category,
@@ -2060,12 +2065,6 @@ def _generate_calibration_case(spec: GalleryCaseSpec, source_root: Path) -> dict
             "key": "display_method_name",
             "value": display_result.method_name,
             "display": str(display_result.method_name),
-        },
-        {
-            "label": "Distribution samples",
-            "key": "model_distribution_sample_count",
-            "value": int(display_result.model_distribution_sample_count),
-            "display": str(int(display_result.model_distribution_sample_count)),
         },
         {
             "label": "Calibration total",
@@ -2215,6 +2214,16 @@ def _generate_calibration_case(spec: GalleryCaseSpec, source_root: Path) -> dict
             ),
         },
     ]
+    if method_returns_parameter_distribution(display_result.method_name):
+        metrics_override.insert(
+            2,
+            {
+                "label": "Posterior samples",
+                "key": "posterior_sample_count",
+                "value": int(display_result.model_distribution_sample_count),
+                "display": str(int(display_result.model_distribution_sample_count)),
+            },
+        )
 
     method_run_rows = []
     method_assets_by_instance = {
@@ -2222,6 +2231,11 @@ def _generate_calibration_case(spec: GalleryCaseSpec, source_root: Path) -> dict
     }
     for result in method_results:
         method_assets = method_assets_by_instance.get(str(result.method_instance_name), {})
+        posterior_filename = (
+            method_assets.get("posterior_filename")
+            if method_returns_parameter_distribution(result.method_name)
+            else None
+        )
         method_run_row = {
             "method_name": result.method_name,
             "method_instance_name": result.method_instance_name,
@@ -2265,7 +2279,7 @@ def _generate_calibration_case(spec: GalleryCaseSpec, source_root: Path) -> dict
             "params_best": {str(name): float(value) for name, value in result.params_best.items()},
             "objective_landscape_filename": method_assets.get("landscape_filename"),
             "objective_trace_filename": method_assets.get("trace_filename"),
-            "posterior_distribution_filename": method_assets.get("posterior_filename"),
+            "posterior_distribution_filename": posterior_filename,
         }
         method_run_rows.append(method_run_row)
 
@@ -2294,19 +2308,21 @@ def _generate_calibration_case(spec: GalleryCaseSpec, source_root: Path) -> dict
             if raw_value is None:
                 continue
             timing_bits.append(f"{label}={_format_metric_display(raw_value, 's')}")
+        body_lines = [
+            f"success_metric={result.success_metric}",
+            f"meets_target={bool(result.meets_success_target)}",
+            f"truth_recovered={bool(result.recovered_truth)}",
+            f"cost={'' if result.cost_best is None else f'{float(result.cost_best):.6g}'}",
+            f"n_eval={int(result.n_evaluations)}",
+        ]
+        if method_returns_parameter_distribution(result.method_name):
+            body_lines.append(f"posterior_samples={int(result.model_distribution_sample_count)}")
+        body_lines.extend(timing_bits)
         tab_specs.append(
             {
                 "title": str(result.method_instance_name),
                 "filenames": tab_filenames,
-                "body_lines": [
-                    f"metric={result.success_metric}",
-                    f"target={bool(result.meets_success_target)}",
-                    f"best_fit={bool(result.recovered_truth)}",
-                    f"cost={'' if result.cost_best is None else f'{float(result.cost_best):.6g}'}",
-                    f"n_eval={int(result.n_evaluations)}",
-                    f"distribution_samples={int(result.model_distribution_sample_count)}",
-                    *timing_bits,
-                ],
+                "body_lines": body_lines,
             }
         )
 
@@ -6096,6 +6112,26 @@ def _append_figure(
     )
 
 
+def _filter_calibration_tab_specs(tab_specs: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Remove posterior figures from methods that do not return distributions."""
+    filtered: list[dict[str, Any]] = []
+    for tab in tab_specs:
+        title = str(tab.get("title", "")).strip()
+        allow_posterior = method_returns_parameter_distribution(title)
+        clone = dict(tab)
+        if not allow_posterior:
+            filenames = [
+                str(filename)
+                for filename in list(clone.get("filenames", []))
+                if "_posterior" not in str(filename)
+            ]
+            clone["filenames"] = filenames
+            if "_posterior" in str(clone.get("filename", "")):
+                clone["filename"] = ""
+        filtered.append(clone)
+    return filtered
+
+
 def _append_mesh_tab_images(
     lines: list[str],
     images: list[dict[str, Any]],
@@ -7263,6 +7299,23 @@ def _build_calibration_parameter_docs(case: dict[str, Any]) -> dict[str, Any]:
     for method_row in metadata.get("method_runs", []):
         if not isinstance(method_row, dict):
             continue
+        method_name = str(method_row.get("method_name", ""))
+        value = {
+            "target": bool(method_row.get("meets_success_target")),
+            "cost": method_row.get("cost_best"),
+            "n_eval": method_row.get("n_evaluations"),
+            "calib_s": method_row.get("calibration_time_seconds"),
+            "candidate_runtime_s": method_row.get("estimated_candidate_runtime_seconds"),
+            "algorithm_overhead_s": method_row.get("algorithm_overhead_time_seconds"),
+            "actualize_s": method_row.get("mean_candidate_actualize_time_seconds"),
+            "launcher_prep_s": method_row.get("mean_candidate_launcher_prepare_time_seconds"),
+            "runtime_patch_s": method_row.get("mean_candidate_runtime_patch_time_seconds"),
+            "model_sim_s": method_row.get("mean_candidate_simulation_time_seconds"),
+            "output_select_s": method_row.get("mean_candidate_output_selection_time_seconds"),
+            "objective_score_s": method_row.get("mean_candidate_objective_compute_time_seconds"),
+        }
+        if method_returns_parameter_distribution(method_name):
+            value["posterior_samples"] = method_row.get("model_distribution_sample_count")
         _add_parameter_row(
             method_rows,
             field=str(method_row.get("method_instance_name", method_row.get("method_name"))),
@@ -7270,23 +7323,7 @@ def _build_calibration_parameter_docs(case: dict[str, Any]) -> dict[str, Any]:
                 "Method result summary including target status, evaluation count, total time, "
                 "and mean per-model actualize / launcher / simulation / objective timings."
             ),
-            value={
-                "target": bool(method_row.get("meets_success_target")),
-                "cost": method_row.get("cost_best"),
-                "n_eval": method_row.get("n_evaluations"),
-                "distribution_samples": method_row.get("model_distribution_sample_count"),
-                "calib_s": method_row.get("calibration_time_seconds"),
-                "candidate_runtime_s": method_row.get("estimated_candidate_runtime_seconds"),
-                "algorithm_overhead_s": method_row.get("algorithm_overhead_time_seconds"),
-                "actualize_s": method_row.get("mean_candidate_actualize_time_seconds"),
-                "launcher_prep_s": method_row.get("mean_candidate_launcher_prepare_time_seconds"),
-                "runtime_patch_s": method_row.get("mean_candidate_runtime_patch_time_seconds"),
-                "model_sim_s": method_row.get("mean_candidate_simulation_time_seconds"),
-                "output_select_s": method_row.get("mean_candidate_output_selection_time_seconds"),
-                "objective_score_s": method_row.get(
-                    "mean_candidate_objective_compute_time_seconds"
-                ),
-            },
+            value=value,
             source=summary_source,
         )
 
@@ -7434,6 +7471,8 @@ def _build_case_page(case: dict[str, Any]) -> str:
             _append_figure(lines, image)
             rendered_filenames.add(filename)
         tab_specs = list(case.get("metadata", {}).get("tab_specs", []))
+        if str(case.get("category", "")) == "calibration":
+            tab_specs = _filter_calibration_tab_specs(tab_specs)
         if tab_specs:
             _append_tabbed_images(lines, image_map, tab_specs)
             for tab in tab_specs:

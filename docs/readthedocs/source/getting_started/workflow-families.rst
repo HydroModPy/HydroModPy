@@ -78,7 +78,7 @@ The most robust documentation split is:
 - ``scientific/*`` answers which physical and numerical methods are used;
 - ``architecture/*`` answers where those responsibilities live in code.
 
-That split stays coherent with ``hydromodpy/_cli/workflows.py`` and with the
+That split stays coherent with ``hydromodpy/workflow/dispatch.py`` and with the
 developer glossary.
 
 Workflow Profiles

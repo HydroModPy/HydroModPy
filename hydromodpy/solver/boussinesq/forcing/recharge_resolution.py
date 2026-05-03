@@ -6,6 +6,7 @@ from collections.abc import Mapping
 
 import numpy as np
 
+from hydromodpy.physics.flow.regime import normalize_flow_regime
 from hydromodpy.physics.forcing.validation import ensure_non_negative_numeric_payload
 from hydromodpy.spatial.mesh.gmsh_grid.planar_forcing_discretization import (
     discretize_fields_on_planar_mesh,
@@ -118,7 +119,7 @@ class RechargeResolutionMixin:
             return tuple(np.zeros(self.mesh.n_cells, dtype=float) for _ in range(nper))
 
         stacked = np.stack(tuple(arrays.values()), axis=0)
-        flow_regime = str(getattr(self.flow, "flow_regime", "transient")).strip().lower()
+        flow_regime = normalize_flow_regime(getattr(self.flow, "flow_regime", "transient"))
         if flow_regime == "steady" or nper <= 1:
             mean_array = np.mean(stacked, axis=0)
             return (np.asarray(mean_array, dtype=float).reshape(-1),)

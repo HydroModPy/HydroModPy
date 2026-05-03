@@ -15,7 +15,7 @@ Case Setup
 - steady uniform recharge used only to build the initial saturated state,
 - transient recession started by switching recharge off,
 - comparison performed on outlet discharge `Q(t)`.
-- Available solver variants: MODFLOW-NWT, MODFLOW 6, Boussinesq.
+- Available solver variants: MODFLOW-NWT, MODFLOW 6, MODFLOW 6 irregular triangles, Boussinesq.
 
 What It Shows
 -------------
@@ -33,7 +33,7 @@ Solver Coverage
 ---------------
 
 - Default solver: MODFLOW-NWT
-- Available variants: MODFLOW-NWT, MODFLOW 6, Boussinesq
+- Available variants: MODFLOW-NWT, MODFLOW 6, MODFLOW 6 irregular triangles, Boussinesq
 
 .. tab-set::
 
@@ -82,6 +82,29 @@ Solver Coverage
       .. code-block:: bash
 
          python -m validation_cases.analytical.transient.brutsaert_recession_linearized_deep_1d.run_case --no-show --solver modflow6
+
+   .. tab-item:: MODFLOW 6 irregular triangles
+
+      .. figure:: /_static/capability_gallery/validation/brutsaert_recession_linearized_deep_1d__modflow6_irregular_tri.png
+         :alt: Brutsaert Recession Validation: Deep Linearized Aquifer validation figure for MODFLOW 6 irregular triangles
+         :width: 100%
+
+         Brutsaert Recession Validation: Deep Linearized Aquifer rendered with MODFLOW 6 irregular triangles for the analytical gallery.
+
+      **Metrics**
+      - Solution: exponential
+      - Initial discharge: 2.751283e-04 m3/s
+      - Characteristic time: 15.01 d
+      - Relative RMSE: 0.0202
+      - Relative max abs error: 0.0349
+      - Cross-row head spread: 7.11e-15 m
+
+      - Config file: ``validation_cases/analytical/transient/brutsaert_recession_linearized_deep_1d/config_modflow6_irregular_tri.toml``
+      - Tolerances: ``validation_cases/analytical/transient/brutsaert_recession_linearized_deep_1d/tolerances_modflow6_irregular_tri.toml``
+
+      .. code-block:: bash
+
+         python -m validation_cases.analytical.transient.brutsaert_recession_linearized_deep_1d.run_case --no-show --solver modflow6_irregular_tri
 
    .. tab-item:: Boussinesq
 
@@ -403,6 +426,45 @@ Solver-Specific Overrides
            - true
            - ``validation_cases/analytical/transient/brutsaert_recession_linearized_deep_1d/config_modflow6.toml``
 
+   .. tab-item:: MODFLOW 6 irregular triangles
+
+      .. list-table::
+         :header-rows: 1
+         :widths: 26 42 20 12
+
+         * - Field
+           - Meaning
+           - Value
+           - Source
+         * - ``modflow6.runtime.mf_verbose``
+           - Solver-specific override applied to MODFLOW 6.
+           - false
+           - ``validation_cases/analytical/transient/brutsaert_recession_linearized_deep_1d/config_modflow6_irregular_tri.toml``
+         * - ``modflow6.runtime.mf6_ims_complexity``
+           - Linear-solver complexity preset used by MODFLOW 6.
+           - COMPLEX
+           - ``validation_cases/analytical/transient/brutsaert_recession_linearized_deep_1d/config_modflow6_irregular_tri.toml``
+         * - ``modflow6.process_specific.vka``
+           - Vertical anisotropy ratio passed to MODFLOW 6.
+           - 1
+           - ``validation_cases/analytical/transient/brutsaert_recession_linearized_deep_1d/config_modflow6_irregular_tri.toml``
+         * - ``modflow6.sgrid.vertical.nlay``
+           - Number of vertical layers used by MODFLOW 6.
+           - 1
+           - ``validation_cases/analytical/transient/brutsaert_recession_linearized_deep_1d/config_modflow6_irregular_tri.toml``
+         * - ``modflow6.tgrid.firstpersteady``
+           - Whether the first time period is treated as steady by MODFLOW 6.
+           - true
+           - ``validation_cases/analytical/transient/brutsaert_recession_linearized_deep_1d/config_modflow6_irregular_tri.toml``
+         * - ``mesh_input.mesh_path``
+           - Committed unstructured mesh file used by the irregular-mesh solver variant.
+           - ../../../shared/mesh_bundles/brutsaert_recession_linearized_deep_irregular_tri_400x30/mesh_2d.msh
+           - ``validation_cases/analytical/transient/brutsaert_recession_linearized_deep_1d/config_modflow6_irregular_tri.toml``
+         * - ``mesh_input.bundle_dir``
+           - Committed mesh-bundle directory used to recover support metadata for the irregular-mesh solver variant.
+           - ../../../shared/mesh_bundles/brutsaert_recession_linearized_deep_irregular_tri_400x30
+           - ``validation_cases/analytical/transient/brutsaert_recession_linearized_deep_1d/config_modflow6_irregular_tri.toml``
+
    .. tab-item:: Boussinesq
 
       - No additional override beyond the common validation setup.
@@ -429,6 +491,10 @@ Acceptance Criteria
    * - ``output.head_observable_name``
      - Head-like observable used when the case exposes more than one comparison target.
      - watertable_elevation
+     - ``validation_cases/analytical/transient/brutsaert_recession_linearized_deep_1d/metadata.toml``
+   * - ``output.warmup_periods_by_solver.modflow6_irregular_tri``
+     - Warmup periods dropped before comparing `modflow6_irregular_tri` to the reference.
+     - 1
      - ``validation_cases/analytical/transient/brutsaert_recession_linearized_deep_1d/metadata.toml``
 
 Acceptance Criteria by Solver
@@ -498,6 +564,37 @@ Acceptance Criteria by Solver
            - 1e-12
            - ``validation_cases/analytical/transient/brutsaert_recession_linearized_deep_1d/tolerances.toml``
 
+   .. tab-item:: MODFLOW 6 irregular triangles
+
+      .. list-table::
+         :header-rows: 1
+         :widths: 26 42 20 12
+
+         * - Field
+           - Meaning
+           - Value
+           - Source
+         * - ``expected_output``
+           - Expected output shape or time-space layout checked for this solver.
+           - None
+           - ``validation_cases/analytical/transient/brutsaert_recession_linearized_deep_1d/metadata.toml``
+         * - ``discharge.relative_rmse``
+           - Acceptance threshold for `discharge.relative_rmse`.
+           - 0.03
+           - ``validation_cases/analytical/transient/brutsaert_recession_linearized_deep_1d/tolerances_modflow6_irregular_tri.toml``
+         * - ``discharge.relative_max_error``
+           - Acceptance threshold for `discharge.relative_max_error`.
+           - 0.05
+           - ``validation_cases/analytical/transient/brutsaert_recession_linearized_deep_1d/tolerances_modflow6_irregular_tri.toml``
+         * - ``uniformity.row_spread``
+           - Maximum accepted cross-row spread for uniformity.
+           - 1e-06
+           - ``validation_cases/analytical/transient/brutsaert_recession_linearized_deep_1d/tolerances_modflow6_irregular_tri.toml``
+         * - ``monotonicity.max_positive_increment_m3_s``
+           - Acceptance threshold for `monotonicity.max_positive_increment_m3_s`.
+           - 1e-07
+           - ``validation_cases/analytical/transient/brutsaert_recession_linearized_deep_1d/tolerances_modflow6_irregular_tri.toml``
+
    .. tab-item:: Boussinesq
 
       .. list-table::
@@ -542,9 +639,11 @@ Source Pointers
 - ``validation_cases/analytical/transient/brutsaert_recession_linearized_deep_1d/config_common.toml``
 - ``validation_cases/analytical/transient/brutsaert_recession_linearized_deep_1d/runtime_boussinesq.py``
 - ``validation_cases/analytical/transient/brutsaert_recession_linearized_deep_1d/tolerances.toml``
+- ``validation_cases/analytical/transient/brutsaert_recession_linearized_deep_1d/tolerances_modflow6_irregular_tri.toml``
 - ``validation_cases/analytical/transient/brutsaert_recession_linearized_deep_1d/tolerances_modflownwt.toml``
 - ``validation_cases/analytical/transient/brutsaert_recession_linearized_deep_1d/config_modflownwt.toml``
 - ``validation_cases/analytical/transient/brutsaert_recession_linearized_deep_1d/config_modflow6.toml``
+- ``validation_cases/analytical/transient/brutsaert_recession_linearized_deep_1d/config_modflow6_irregular_tri.toml``
 - ``validation_cases/analytical/transient/brutsaert_recession_linearized_deep_1d/config_boussinesq.toml``
 - ``validation_cases/analytical/transient/brutsaert_common.py``
 - ``validation_cases/analytical/transient/brutsaert_reference.py``
@@ -555,5 +654,6 @@ Artifacts
 
 - ``docs/readthedocs/source/_static/capability_gallery/validation/brutsaert_recession_linearized_deep_1d__modflownwt.png``
 - ``docs/readthedocs/source/_static/capability_gallery/validation/brutsaert_recession_linearized_deep_1d__modflow6.png``
+- ``docs/readthedocs/source/_static/capability_gallery/validation/brutsaert_recession_linearized_deep_1d__modflow6_irregular_tri.png``
 - ``docs/readthedocs/source/_static/capability_gallery/validation/brutsaert_recession_linearized_deep_1d__boussinesq.png``
 - ``docs/readthedocs/source/_static/capability_gallery/validation/brutsaert_recession_linearized_deep_1d_summary.json`` stores the displayed metrics plus source hashes used by ``python -m tools.doc_gallery --check``.

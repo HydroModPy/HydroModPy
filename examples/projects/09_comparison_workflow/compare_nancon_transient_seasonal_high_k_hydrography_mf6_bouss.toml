@@ -1,0 +1,126 @@
+workflow = "comparison"
+
+[comparison]
+comparison_id = "nancon_transient_seasonal_high_k_hydrography_mf6_vs_bouss"
+base_simulation_config = "base_nancon_transient_seasonal_high_k_with_hydrography.toml"
+output_root = "outputs/nancon_transient_seasonal_high_k_hydrography_mf6_vs_bouss"
+reference_simulation = "mf6_ref"
+continue_on_error = false
+
+[comparison.execution]
+backend = "subprocess_hmp_run"
+max_parallel_runs = 1
+run_simulations = true
+keep_generated_configs = true
+
+[comparison.audit]
+mode = "strict_same_case"
+on_mismatch = "warn"
+
+[comparison.fine_raster]
+enabled = true
+resolution = 250.0
+extent_mode = "intersection"
+interpolation = "linear"
+write_geotiff = false
+
+[[comparison.simulation]]
+id = "mf6_ref"
+label = "MODFLOW 6 Nancon seasonal high-K reference with observed hydrography"
+solver = "modflow6"
+mesh_label = "Nancon generated catchment support"
+mesh_mode = "mesh_catchment"
+
+[comparison.simulation.overlay.workspace]
+project_root = "outputs/nancon_transient_seasonal_high_k_hydrography/workspace_mf6"
+root = "outputs/nancon_transient_seasonal_high_k_hydrography/workspace_mf6"
+
+[comparison.simulation.overlay.modflow6.runtime]
+mf6_ims_complexity = "COMPLEX"
+mf6_outer_dvclose = 0.0001
+mf6_inner_dvclose = 0.0001
+mf6_outer_maximum = 500
+mf6_inner_maximum = 500
+mf_verbose = false
+
+[comparison.simulation.overlay.modflow6.process_specific]
+vka = 1.0
+
+[comparison.simulation.overlay.modflow6.sgrid.vertical]
+nlay = 1
+
+[[comparison.simulation]]
+id = "bouss_candidate"
+label = "Boussinesq Nancon seasonal high-K candidate with observed hydrography"
+solver = "boussinesq"
+mesh_label = "Nancon generated catchment support"
+mesh_mode = "mesh_catchment"
+
+[comparison.simulation.overlay.workspace]
+project_root = "outputs/nancon_transient_seasonal_high_k_hydrography/workspace_bouss"
+root = "outputs/nancon_transient_seasonal_high_k_hydrography/workspace_bouss"
+
+[comparison.simulation.overlay.flow]
+runtime_backend = "scipy_sparse"
+
+[[comparison.observable]]
+name = "head_map_after_first_week"
+variable = "watertable_elevation"
+support = "map"
+time = 0
+unit = "m"
+
+[[comparison.observable]]
+name = "head_map_wet_winter"
+variable = "watertable_elevation"
+support = "map"
+time = 8
+unit = "m"
+
+[[comparison.observable]]
+name = "head_map_spring_recession"
+variable = "watertable_elevation"
+support = "map"
+time = 22
+unit = "m"
+
+[[comparison.observable]]
+name = "head_map_summer_storm"
+variable = "watertable_elevation"
+support = "map"
+time = 42
+unit = "m"
+
+[[comparison.observable]]
+name = "head_map_last"
+variable = "watertable_elevation"
+support = "map"
+time = "last"
+unit = "m"
+
+[[comparison.observable]]
+name = "head_outlet_series"
+variable = "watertable_elevation"
+support = "point"
+x = 389273.126405933
+y = 6816556.61306809
+time = "all"
+unit = "m"
+
+[[comparison.observable]]
+name = "head_mid_catchment_series"
+variable = "watertable_elevation"
+support = "point"
+x = 390941.369935479
+y = 6820865.93033605
+time = "all"
+unit = "m"
+
+[[comparison.observable]]
+name = "head_eastern_plateau_series"
+variable = "watertable_elevation"
+support = "point"
+x = 396713.1740067336
+y = 6816807.001469235
+time = "all"
+unit = "m"

@@ -12,6 +12,7 @@ import numpy as np
 
 from hydromodpy.physics.flow import Flow
 from hydromodpy.physics.flow.flow_config import FlowConfig
+from hydromodpy.physics.flow.regime import normalize_flow_regime
 from hydromodpy.simulation.planning.plan import (
     ProcessRun,
     RunContext,
@@ -402,9 +403,7 @@ def run_boussinesq_uniform_strip_case(
     """Run one Boussinesq validation case on a small homogeneous strip mesh."""
     del timeout
 
-    normalized_regime = str(flow_regime).strip().lower()
-    if normalized_regime not in {"steady", "transient"}:
-        raise ValueError("flow_regime must be 'steady' or 'transient'.")
+    normalized_regime = normalize_flow_regime(flow_regime)
     if normalized_regime == "transient":
         if nper is None or dt_seconds is None:
             raise ValueError("Transient strip cases require nper and dt_seconds.")

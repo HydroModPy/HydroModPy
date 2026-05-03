@@ -754,6 +754,54 @@ class Run:
             )
         return new_run
 
+    def saturated_fraction(self, **kwargs) -> pd.Series:
+        """Lazy % of catchment cells with saturated head."""
+        from hydromodpy.results import views
+
+        return views.saturated_fraction(self, **kwargs)
+
+    def drainage_density(self, **kwargs) -> pd.Series:
+        """Lazy % of catchment cells with positive routed drain flux."""
+        from hydromodpy.results import views
+
+        return views.drainage_density(self, **kwargs)
+
+    def persistence(self, **kwargs) -> np.ndarray:
+        """Lazy per-cell fraction of timesteps above a threshold."""
+        from hydromodpy.results import views
+
+        return views.persistence(self, **kwargs)
+
+    def simulated_active_network_mask(self, **kwargs) -> np.ndarray:
+        """Lazy per-cell active-network mask from accumulation flux."""
+        from hydromodpy.results import views
+
+        return views.simulated_active_network_mask(self, **kwargs)
+
+    def simulated_active_network_metrics(self, **kwargs) -> dict[str, float | int | str]:
+        """Lazy scalar summary of active drainage occupancy from accumulation flux."""
+        from hydromodpy.results import views
+
+        return views.simulated_active_network_metrics(self, **kwargs)
+
+    def simulated_active_network_overlap_metrics(self, **kwargs) -> dict[str, float | int | str]:
+        """Lazy cell-overlap metrics against one persisted vector network role."""
+        from hydromodpy.results import views
+
+        return views.simulated_active_network_overlap_metrics(self, **kwargs)
+
+    def catchment_mean(self, variable: str, **kwargs) -> pd.Series:
+        """Lazy arithmetic mean of a cell variable over active cells."""
+        from hydromodpy.results import views
+
+        return views.catchment_mean(self, variable, **kwargs)
+
+    def recharge_forcing(self) -> pd.Series:
+        """Lazy input recharge forcing per stress period."""
+        from hydromodpy.results import views
+
+        return views.recharge_forcing(self)
+
     # -- Display capabilities ------------------------------------------------
 
     @property

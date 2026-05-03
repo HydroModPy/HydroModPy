@@ -4,12 +4,15 @@ from __future__ import annotations
 
 from typing import Annotated, Any, Literal
 
-from pydantic import ConfigDict, Field, field_validator
+from pydantic import ConfigDict, Field, field_validator, model_validator
 
 from hydromodpy.core.config_kit.base import HydroModelBase
 from hydromodpy.core.config_kit.profile import Profile
 from hydromodpy.physics.flow.sinks_sources._units import normalize_first_clim
-from hydromodpy.physics.forcing.validation import ensure_non_negative_numeric_payload
+from hydromodpy.physics.forcing.validation import (
+    ensure_finite_numeric_payload,
+    ensure_non_negative_numeric_payload,
+)
 
 
 class FlowRechargeConfig(HydroModelBase):
@@ -18,9 +21,8 @@ class FlowRechargeConfig(HydroModelBase):
 
     Recharge drives the MODFLOW RCH package. The conversion to MODFLOW
     stress-period dictionaries is handled by
-    ``FlowToModflowAdapter._build_recharge_payload``. Negative values are
-    rejected: evapotranspiration is configured separately through
-    :class:`FlowEtpConfig` (one unique EVT entry point).
+    ``FlowToModflowAdapter._build_recharge_payload``. Negative values can be
+    routed to EVT when ``negative_to_evt`` is enabled.
 
     Attributes
     ----------
@@ -82,6 +84,13 @@ class FlowRechargeConfig(HydroModelBase):
             "factor_to_m_per_s()."
         ),
     )
+    negative_to_evt: Annotated[bool, Profile.DEV] = Field(
+        default=True,
+        description=(
+            "When true, negative recharge values are routed to the solver EVT "
+            "package and RCH receives the non-negative clipped recharge."
+        ),
+    )
     spatial_mode: Annotated[Literal["auto", "homogeneous", "heterogeneous"], Profile.DEV] = Field(
         default="auto",
         description=(
@@ -107,5 +116,14 @@ class FlowRechargeConfig(HydroModelBase):
     @field_validator("values", mode="before")
     @classmethod
     def _validate_values(cls, value):
-        ensure_non_negative_numeric_payload(value, label="flow.sinks_sources.recharge.values")
+        ensure_finite_numeric_payload(value, label="flow.sinks_sources.recharge.values")
         return value
+
+    @model_validator(mode="after")
+    def _validate_negative_policy(self):
+        if not self.negative_to_evt:
+            ensure_non_negative_numeric_payload(
+                self.values,
+                label="flow.sinks_sources.recharge.values",
+            )
+        return self

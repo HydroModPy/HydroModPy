@@ -20,6 +20,7 @@ from validation_cases.analytical.transient.linearized_unconfined_boundary_piecew
     [
         pytest.param("modflownwt", True, False, id="modflownwt"),
         pytest.param("modflow6", False, True, id="modflow6"),
+        pytest.param("modflow6_irregular_tri", False, True, id="modflow6_irregular_tri"),
         pytest.param("boussinesq", False, False, id="boussinesq"),
     ],
 )

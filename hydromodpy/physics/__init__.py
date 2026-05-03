@@ -12,6 +12,8 @@ __all__ = [
     "BoundaryCondition",
     "Flow",
     "FlowConfig",
+    "FlowRegime",
+    "FlowRegimeInput",
     "FlowInitialCondition",
     "FlowInitialConditions",
     "InitialCondition",
@@ -21,6 +23,8 @@ __all__ = [
     "Transport",
     "TransportConfig",
     "TransportInitialConditions",
+    "is_permanent_flow_regime",
+    "normalize_flow_regime",
 ]
 
 _LAZY_IMPORTS = {
@@ -31,11 +35,15 @@ _LAZY_IMPORTS = {
     "SinkSource": "hydromodpy.physics.base:SinkSource",
     "Flow": "hydromodpy.physics.flow:Flow",
     "FlowConfig": "hydromodpy.physics.flow:FlowConfig",
+    "FlowRegime": "hydromodpy.physics.flow:FlowRegime",
+    "FlowRegimeInput": "hydromodpy.physics.flow:FlowRegimeInput",
     "FlowInitialCondition": "hydromodpy.physics.flow:FlowInitialCondition",
     "FlowInitialConditions": "hydromodpy.physics.flow:FlowInitialConditions",
     "Transport": "hydromodpy.physics.transport:Transport",
     "TransportConfig": "hydromodpy.physics.transport:TransportConfig",
     "TransportInitialConditions": "hydromodpy.physics.transport:TransportInitialConditions",
+    "is_permanent_flow_regime": "hydromodpy.physics.flow:is_permanent_flow_regime",
+    "normalize_flow_regime": "hydromodpy.physics.flow:normalize_flow_regime",
 }
 
 

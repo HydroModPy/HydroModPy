@@ -12,6 +12,7 @@ import numpy as np
 
 from hydromodpy.core.io.filesystem import create_folder
 from hydromodpy.core.logging import get_logger
+from hydromodpy.physics.flow.regime import normalize_flow_regime
 from hydromodpy.solver import Solver
 from hydromodpy.solver.modflow6.builders import (
     bind_recharge_from_flow,
@@ -245,10 +246,7 @@ class Modflow6(Solver):
         if flow_regime is None:
             return None
 
-        flow_regime_text = str(flow_regime).strip().lower()
-        if flow_regime_text not in {"steady", "transient"}:
-            raise ValueError("flow.flow_regime must be 'steady' or 'transient'")
-        return flow_regime_text
+        return normalize_flow_regime(flow_regime)
 
     def _validate_pre_processing_inputs(self) -> None:
         if self.flow is None:
@@ -257,7 +255,7 @@ class Modflow6(Solver):
             raise ValueError("pre_processing requires a configured Domain object.")
         flow_regime = self._resolve_flow_regime()
         if flow_regime is None:
-            raise ValueError("flow.flow_regime must be 'steady' or 'transient'")
+            raise ValueError("flow.flow_regime must be 'steady', 'permanent', or 'transient'")
         self.flow_regime = flow_regime
         if self.time_grid is None and self.flow_regime != "steady":
             raise ValueError(

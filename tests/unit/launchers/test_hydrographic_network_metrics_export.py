@@ -315,6 +315,7 @@ def test_write_simulated_active_network_metrics_export_writes_csv(tmp_path: Path
     assert len(rows) == 1
     assert rows[0]["catchment_cell_count"] == 2
     assert rows[0]["active_cell_count_max"] == 2
+    assert rows[0]["always_active_cell_count"] == 1
     assert rows[0]["drainage_density_last_pct"] == pytest.approx(100.0)
 
 

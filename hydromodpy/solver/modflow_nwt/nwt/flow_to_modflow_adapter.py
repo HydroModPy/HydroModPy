@@ -144,6 +144,7 @@ class FlowToModflowAdapter:
         self.flow_runtime_overrides = (
             None if flow_runtime_overrides is None else dict(flow_runtime_overrides)
         )
+        self._negative_recharge_evt_spd: dict[int, object] | None = None
 
     @property
     def _boundary_conditions(self) -> Mapping[str, object]:

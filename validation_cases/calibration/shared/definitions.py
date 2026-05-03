@@ -7,6 +7,13 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
+PARAMETER_DISTRIBUTION_METHODS = frozenset({"da_mh_gp"})
+
+
+def method_returns_parameter_distribution(method_name: str) -> bool:
+    """Return True when a method's scientific result is a parameter distribution."""
+    return str(method_name).strip().lower() in PARAMETER_DISTRIBUTION_METHODS
+
 
 def _json_ready_mapping(mapping: Mapping[str, Any]) -> dict[str, Any]:
     """Return one JSON-safe shallow mapping."""

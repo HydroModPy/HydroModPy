@@ -41,9 +41,9 @@ locations:
 - ``hydromodpy/solver/modflow6/modflow6.py``
 - ``hydromodpy/solver/modflow6/flow_to_modflow_adapter.py``
 - ``hydromodpy/solver/modflow6/modflow6_config.py``
-- ``hydromodpy/solver/modflow_nwt/modflow/nwt_solver.py``
-- ``hydromodpy/solver/modflow_nwt/modflow/flow_to_modflow_adapter.py``
-- ``hydromodpy/solver/modflow_nwt/modflow/nwt_config.py``
+- ``hydromodpy/solver/modflow_nwt/nwt/nwt_solver.py``
+- ``hydromodpy/solver/modflow_nwt/nwt/flow_to_modflow_adapter.py``
+- ``hydromodpy/solver/modflow_nwt/nwt/nwt_config.py``
 - ``hydromodpy/physics/flow/time_forcing.py``
 - ``hydromodpy/physics/forcing/time_alignment.py``
 

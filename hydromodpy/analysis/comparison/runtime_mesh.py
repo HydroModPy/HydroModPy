@@ -307,8 +307,10 @@ def _bundle_cells_from_dir(bundle_dir: Path) -> CellCentroidTable | None:
                 storage_coefficients.append(
                     float(storage_value) if storage_value not in (None, "") else math.nan
                 )
-                top_value = row.get("z_top_centroid") or row.get("z_top")
-                bottom_value = row.get("z_bottom_centroid") or row.get("z_bottom")
+                top_value = row.get("z_top_centroid") or row.get("z_top_mean") or row.get("z_top")
+                bottom_value = (
+                    row.get("z_bottom_centroid") or row.get("z_bottom_mean") or row.get("z_bottom")
+                )
                 z_tops.append(float(top_value) if top_value not in (None, "") else math.nan)
                 z_bottoms.append(
                     float(bottom_value) if bottom_value not in (None, "") else math.nan

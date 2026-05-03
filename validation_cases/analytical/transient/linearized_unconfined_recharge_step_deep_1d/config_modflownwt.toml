@@ -81,6 +81,7 @@ value = "100.0 m"
 
 [flow.sinks_sources.recharge]
 first_clim = "mean"
+negative_to_evt = true
 
 [data]
 types = ["recharge"]
