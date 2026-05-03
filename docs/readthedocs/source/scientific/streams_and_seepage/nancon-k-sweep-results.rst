@@ -243,12 +243,16 @@ The figure band below each map uses the following notation:
 - :math:`C_{ref}=N_{ov}/N_{ref}`: reference-network coverage.
 - :math:`P_a=N_{ov}/N_a`: simulated-active precision.
 - :math:`F_1=2 C_{ref} P_a/(C_{ref}+P_a)`: harmonic overlap score.
-- :math:`D^{plan}_{s\to o}`: mean planar distance from simulated-active
+- :math:`D^{plan}_{s\to ref}`: mean planar distance from simulated-active
   cells to the observed ``reference`` network.
-- :math:`D^{plan}_{o\to s}`: mean planar distance from observed
+- :math:`D^{plan}_{ref\to s}`: mean planar distance from observed
   ``reference``-network cells to the simulated-active support.
 - :math:`\bar{D}^{plan}`: symmetric mean of the two directional planar
   distances.
+- :math:`R_D^{plan}=D^{plan}_{s\to ref}/D^{plan}_{ref\to s}`:
+  planar distance-balance ratio. A value close to 1 means that the two
+  directional distances are balanced. This is only a planar proxy for the
+  article-style optimum, not the downslope criterion itself.
 
 Visual Sweep
 ------------
@@ -310,8 +314,9 @@ Metric Evolution
    :alt: Evolution of Nancon wide K-sweep active-network metrics with hydraulic conductivity
    :width: 100%
 
-   Evolution of support size, overlap quality, and planar distance metrics
-   across the completed ``K`` values.
+   Evolution of support size, overlap quality, planar distance metrics, and
+   :math:`\log_{10} R_D^{plan}` across the completed ``K`` values. Crossing 0
+   marks a planar balance between the two directional distances.
 
 .. figure:: /_static/workflows/simulated_active_network/nancon_wide_k_sweep/metric_tradeoff.png
    :alt: Nancon wide K-sweep overlap and distance tradeoff graph
@@ -337,6 +342,14 @@ bidirectional downslope criterion used by Abherve et al. (2023), where the
 simulated seepage network is compared to the observed stream network through
 simulated-to-observed and observed-to-simulated flowpath distances.
 
+The current CSVs therefore contain a useful planar balance proxy,
+``planar_distance_balance_ratio`` and ``planar_distance_log10_balance``. They
+can show an optimum-like crossing when
+:math:`D^{plan}_{s\to ref}` decreases while
+:math:`D^{plan}_{ref\to s}` increases, or conversely. They are not
+:math:`r_{optim}` from the article because :math:`r_{optim}` must be computed
+from downslope flowpath distances and normalized by the DEM resolution.
+
 Related Reading
 ---------------
 
@@ -344,6 +357,9 @@ Related Reading
 - :doc:`conceptual-model`
 - :doc:`../hydrology/simulated-active-network`
 - :doc:`../../getting_started/comparison-workflow`
-- Abhervé, R. et al. (2023), `Calibration of groundwater seepage against the
-  spatial distribution of the stream network to assess catchment-scale
-  hydraulic properties <https://doi.org/10.5194/hess-27-3221-2023>`_.
+- Abherve, R., Roques, C., Gauvain, A., Longuevergne, L., Louaisil, S.,
+  Aquilina, L., and de Dreuzy, J.-R. (2023), `Calibration of groundwater
+  seepage against the spatial distribution of the stream network to assess
+  catchment-scale hydraulic properties
+  <https://doi.org/10.5194/hess-27-3221-2023>`_, Hydrol. Earth Syst. Sci.,
+  27, 3221-3239.
