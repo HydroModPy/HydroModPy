@@ -223,6 +223,44 @@ The display layer stays separate. Figures consume the canonical networks and
 comparison payloads, but rendering is not embedded in the data classes
 themselves.
 
+Simulated-Active Role Status
+----------------------------
+
+The hydrographic-network contract already reserves one third scientific role:
+
+- ``simulated_active``
+
+This role is different from the loaded reference and the DEM-derived generated
+network. It would describe the network that emerges from simulated drainage or
+stream-activity fields such as ``accumulation_flux`` and ``outflow_drain``.
+
+The role already exists in the class contract, but it is not auto-populated
+yet. Today, HydroModPy already persists the raw simulated fields and already
+computes useful summaries such as:
+
+- ``run.drainage_density()``
+- ``run.persistence(variable="accumulation_flux")``
+- ``run.simulated_active_network_mask()``
+- ``run.simulated_active_network_metrics()``
+- ``run.simulated_active_network_overlap_metrics()``
+- ``run.simulated_active_network_distance_metrics()``
+- the ``simulated_active_network`` figure when the run has
+  ``accumulation_flux`` and a plottable mesh
+
+The first two are result views in ``hydromodpy.results.views`` because they
+are direct reductions of persisted fields. The planar bidirectional distance
+metric is placed in ``hydromodpy.analysis.stream_networks`` because it is a
+comparison analysis that combines a computed active mask, mesh geometry, and a
+persisted hydrographic-network role.
+
+What is still missing is the canonical storage rule that decides which
+thresholded or aggregated active network should become the persisted
+``hydrographic_network_simulated_active`` feature.
+
+For the detailed inventory and next design choices, use:
+
+- :doc:`hydrographic-network-simulated-active-inventory`
+
 Diagrams worth adding
 ---------------------
 

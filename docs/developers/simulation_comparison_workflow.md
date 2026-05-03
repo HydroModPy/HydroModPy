@@ -132,6 +132,22 @@ Un run de comparaison produit notamment:
 - `hydrographic_network_metrics.csv`: comparaison geometrique `reference` vs
   `generated` quand les runs exposes stockent les deux reseaux hydrographiques
   canoniques;
+- `hydrographic_network_metrics_skipped.json`: diagnostic des variants sautes
+  quand un run n'expose pas les roles hydrographiques requis;
+- `simulated_active_network_metrics.csv`: metriques d'occupation du reseau
+  actif simule, calculees depuis `accumulation_flux` quand ce champ existe;
+- `simulated_active_network_metrics_skipped.json`: diagnostic des variants
+  sautes quand le champ simule requis n'est pas disponible;
+- `simulated_active_network_overlap_metrics.csv`: comparaison cellule-a-cellule
+  entre le reseau actif simule et le role vectoriel `reference` quand les deux
+  supports existent;
+- `simulated_active_network_overlap_metrics_skipped.json`: diagnostic des
+  variants sautes pour cette comparaison observation-vs-simulation;
+- `simulated_active_network_distance_metrics.csv`: distances planaires
+  bidirectionnelles entre les centroïdes des cellules actives simulees et le
+  role vectoriel `reference`;
+- `simulated_active_network_distance_metrics_skipped.json`: diagnostic des
+  variants sautes pour cette comparaison de distance;
 - `comparison_figures/case_configuration.png`: figure d'orientation du cas
   compare, avec support spatial, conditions aux limites detectees, points
   observables et chronique de recharge quand elle existe;
@@ -166,6 +182,44 @@ Si un run n'expose qu'un seul des deux reseaux canoniques:
 - les figures de comparaison hydrographique ne doivent pas etre demandees;
 - l'API `Run` permet de verifier ce cas via
   `available_hydrographic_network_roles()` et `has_hydrographic_network(...)`.
+
+Le role canonique `simulated_active` n'est pas encore persiste comme feature
+vectorielle. En revanche, l'API `Run` expose maintenant
+`simulated_active_network_mask()` pour visualiser le signal actif simule cellule
+par cellule, `simulated_active_network_metrics()` pour le resumer depuis
+`accumulation_flux`, `simulated_active_network_overlap_metrics()` pour une
+comparaison cellule-a-cellule avec un role vectoriel existant, et
+`simulated_active_network_distance_metrics()` pour une distance planaire
+bidirectionnelle. La cible principale est `reference`, car on compare alors
+simulation et observation. S'il n'y a pas de role `reference`, cette
+comparaison doit etre ignoree plutot que de basculer automatiquement vers
+`generated`. `generated` reste utile comme diagnostic secondaire vis-a-vis du
+reseau derive du DEM/topographie, mais ce n'est pas une observation. Quand le
+run porte un maillage exploitable, la figure `simulated_active_network` permet
+de rendre cette vue calculee, et
+`simulated_active_network_reference_overlay` superpose cette vue avec le reseau
+observe `reference`. La comparaison peut exporter les metriques d'occupation
+dans `simulated_active_network_metrics.csv`, les metriques de recouvrement dans
+`simulated_active_network_overlap_metrics.csv`, et les distances planaires dans
+`simulated_active_network_distance_metrics.csv`.
+
+Terminologie a respecter pour ces vues:
+
+- sans `mode` explicite, `flow_regime = "steady"` utilise le champ actif
+  steady-state, tandis que `flow_regime = "transient"` utilise `persistent`
+  par compatibilite;
+- `persistent` signifie actif pendant au moins une fraction declaree des pas de
+  temps transitoires;
+- `always_active` signifie actif a tous les pas de temps de la fenetre
+  transitoire analysee;
+- `steady` est le concept a utiliser pour un etat de reference permanent au
+  sens du solveur;
+- `perennial` reste seulement un alias legacy de `always_active` dans l'API
+  calculee;
+- un reseau simule steady devrait de preference venir d'un run
+  `flow_regime = "steady"` representatif, puis etre compare a `reference`;
+- il faut laisser la porte ouverte a plusieurs reseaux simules nommes
+  (`steady`, `transient_persistent_50`, `event_snapshot`, etc.).
 
 Lire d'abord `case_configuration.png` pour comprendre le cas teste, puis les
 figures `*triptych*.png` pour valider rapidement les champs: champ de

@@ -43,6 +43,91 @@ catchment description can feed several backend families, but the numerical
 contract changes depending on whether the support is raster-aligned, layered,
 or reduced to one shallow-flow planar mesh.
 
+Result Illustration: Nancon Basin Support To Solver Result
+----------------------------------------------------------
+
+The Nancon pages are the best first example here because they stay close to one
+observed basin. They show the practical order in which discretization should
+be read: basin support first, hydrography and geology second, solver result
+only after that.
+
+.. figure:: /_static/capability_gallery/geographic/geographic_nancon_identity_card_map_dem.png
+   :alt: Nancon DEM and basin support
+   :width: 100%
+
+   Start with the terrain and basin support. This is the physical surface that
+   later has to be sampled by a grid or mesh; it is not yet a solver result.
+
+.. figure:: /_static/capability_gallery/geographic/geographic_nancon_identity_card_map_hydrography.png
+   :alt: Nancon hydrography rendered on the basin support
+   :width: 100%
+
+   Then inspect the hydrography on the same basin support. This is where
+   discretization choices become visible: a structured grid can approximate
+   the hydrographic geometry, while a catchment-conformal mesh can try to
+   honour it more explicitly.
+
+.. figure:: /_static/capability_gallery/geographic/geographic_nancon_identity_card_map_geology.png
+   :alt: Nancon geology rendered on the basin support
+   :width: 100%
+
+   Geology is a second support constraint. If the solver cells do not align
+   with geological boundaries, the field-to-cell transfer becomes a
+   parameterization choice rather than exact geometry preservation.
+
+.. figure:: /_static/capability_gallery/simulation/nancon_transient_nwt_piezometric_map.png
+   :alt: Piezometric map from the Nancon transient MODFLOW-NWT run
+   :width: 100%
+
+   Only after the support and mapped constraints are understood should the
+   solver field be interpreted. This Nancon result comes from the public
+   transient MODFLOW-NWT path, so it is best read as a structured legacy-style
+   basin example, not as a runtime Gmsh mesh example.
+
+What Nancon Shows, And What It Does Not
+---------------------------------------
+
+The Nancon example is useful because it connects real input layers with a real
+basin result:
+
+- DEM and basin mask;
+- hydrography on the basin support;
+- geology on the same support;
+- transient MODFLOW-NWT output;
+- hydrographic-network comparison and active-network diagnostics on top of the
+  simulated state.
+
+It should not be over-read as a demonstration that one discretization is always
+better than another. In the current committed Nancon NWT case, the key lesson
+is simpler:
+
+- inspect the observed support before the solver result;
+- report whether the run is structured-grid or runtime-mesh based;
+- avoid interpreting a map discrepancy as "physics" before checking whether it
+  is partly a support/discretization effect.
+
+Runtime Mesh Contrast
+---------------------
+
+The committed MODFLOW 6 Gmsh case illustrates a different situation: the
+support itself is generated as a runtime catchment mesh. It is a useful
+contrast to Nancon because the mesh is the first-order object to inspect before
+reading the flow state.
+
+.. figure:: /_static/capability_gallery/simulation/modflow6_gmsh_support_overview.png
+   :alt: Runtime Gmsh support overview for a MODFLOW 6 basin run
+   :width: 100%
+
+   Runtime support overview for a MODFLOW 6 basin run. This figure answers
+   "what geometry did the solver consume?"
+
+.. figure:: /_static/capability_gallery/simulation/modflow6_gmsh_flow_state_triptych.png
+   :alt: MODFLOW 6 runtime mesh flow-state triptych
+   :width: 100%
+
+   The flow-state triptych then answers "what did the solver compute on that
+   support?"
+
 Planar Support Families
 -----------------------
 
@@ -185,6 +270,12 @@ Practical Choice Guide
 ----------------------
 
 The choice below is not absolute, but it reflects the current project logic.
+
+On Nancon today, the public NWT case is the natural structured-grid reference.
+Use it when the question is "how do observed support layers, MODFLOW-NWT
+package assembly, and basin diagnostics connect?" Use a runtime
+catchment-conformal mesh when the question is explicitly about support fidelity
+or solver comparison on a shared irregular support.
 
 .. list-table::
    :header-rows: 1

@@ -5,8 +5,8 @@ from pathlib import Path
 
 import pytest
 
-from hydromodpy.core.toml_io.loader import load_toml_with_base_config
-from hydromodpy.master_config.hydromodpy_config import HydroModPyConfig
+from hydromodpy.config import HydroModPyConfig
+from hydromodpy.core.config.toml_loader import load_toml_with_base_config
 
 
 def test_load_toml_with_base_config_merges_nested_sections(tmp_path: Path) -> None:

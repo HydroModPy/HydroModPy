@@ -5,30 +5,51 @@
     "Surface lifted well above the imposed east head to suppress seepage.",
     "Four cross-family methods on the same transient forcing."
   ],
+  "configuration": {
+    "geometry": "400 m x 30 m synthetic strip aquifer",
+    "topography": "surface lifted by +10 m relative to the ramp benchmark",
+    "boundaries": "west no-flow, east fixed head, top drainage inactive by design",
+    "time_step_days": 15.0,
+    "specific_yield": 0.1,
+    "hydraulic_conductivity_scale": 0.2,
+    "drainage_conductance_m2_s": 0.0001,
+    "forcing": "same recharge ramp and dry recovery as the ramp benchmark",
+    "methods": "MODFLOW-NWT, MODFLOW 6, MODFLOW 6 irregular triangles, Boussinesq local partition"
+  },
+  "execution_times_csv": "out/sih_tx_4cmp_linux_no_seepage_20260415/execution_times.csv",
+  "execution_times_available": true,
   "solvers": [
     {
       "solver": "modflownwt",
       "solver_label": "MODFLOW-NWT",
       "peak_total_outflow_m3_day": 35.07051235064864,
-      "final_storage_change_m3_day": -6.147515614827474
+      "final_storage_change_m3_day": -6.147515614827474,
+      "wall_time_seconds": 236.9446769419883,
+      "results_dir": "/mnt/c/codes/HydroModPy/out/sih_tx_4cmp_linux_no_seepage_20260415/validation/investigate_surfa_062b168c50/transient_modflownwt_9e8df8cf"
     },
     {
       "solver": "modflow6",
       "solver_label": "MODFLOW 6",
       "peak_total_outflow_m3_day": 34.86148029029283,
-      "final_storage_change_m3_day": -6.180487472327176
+      "final_storage_change_m3_day": -6.180487472327176,
+      "wall_time_seconds": 223.3242965649988,
+      "results_dir": "/mnt/c/codes/HydroModPy/out/sih_tx_4cmp_linux_no_seepage_20260415/validation/investigate_surfa_062b168c50/transient_modflow6_fd5d459b"
     },
     {
       "solver": "modflow6_irregular_tri",
       "solver_label": "MODFLOW 6 irregular triangles",
-      "peak_total_outflow_m3_day": 41.85901450409335,
-      "final_storage_change_m3_day": -4.466420216511694
+      "peak_total_outflow_m3_day": 35.05493852692122,
+      "final_storage_change_m3_day": -6.11893286222133,
+      "wall_time_seconds": 223.20236547198147,
+      "results_dir": "/mnt/c/codes/HydroModPy/out/sih_tx_4cmp_linux_no_seepage_20260415/validation/investigate_surfa_062b168c50/transient_modflow_30d11bbf32"
     },
     {
       "solver": "boussinesq",
       "solver_label": "Boussinesq",
-      "peak_total_outflow_m3_day": 35.66654478507665,
-      "final_storage_change_m3_day": -6.355630603465078
+      "peak_total_outflow_m3_day": 9.016857256459678e-12,
+      "final_storage_change_m3_day": 0.0,
+      "wall_time_seconds": 1.1108626650238875,
+      "results_dir": "/mnt/c/codes/HydroModPy/out/sih_tx_4cmp_linux_no_seepage_20260415/validation/investigate_surfa_062b168c50/hillslope_surface_f108cc98ca"
     }
   ]
 }

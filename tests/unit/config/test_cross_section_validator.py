@@ -9,6 +9,7 @@ from __future__ import annotations
 import pytest
 from pydantic import ValidationError
 
+from hydromodpy.config import HydroModPyConfig
 from hydromodpy.core.workspace.config import WorkspaceConfig
 from hydromodpy.data.data_managers_config import DataManagersConfig
 from hydromodpy.master_config.hydromodpy_config import HydroModPyConfig

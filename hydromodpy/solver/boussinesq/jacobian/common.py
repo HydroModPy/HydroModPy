@@ -19,6 +19,16 @@ def saturated_thickness_derivative_from_head(
     return active.astype(float, copy=False)
 
 
+def storage_thickness_derivative_from_head(
+    mesh: BoussinesqMesh,
+    head_m: np.ndarray,
+) -> np.ndarray:
+    """Return d max(h - z_bottom, 0) / dh for the transient storage term."""
+    head = np.asarray(head_m, dtype=float)
+    active = (head - np.asarray(mesh.z_bottom_m, dtype=float)) > 0.0
+    return active.astype(float, copy=False)
+
+
 def drainage_diagonal_derivative(
     mesh: BoussinesqMesh,
     head_m: np.ndarray,
@@ -116,4 +126,5 @@ __all__ = [
     "harmonic_conductivity",
     "saturated_thickness_derivative_from_head",
     "saturated_thickness_value",
+    "storage_thickness_derivative_from_head",
 ]

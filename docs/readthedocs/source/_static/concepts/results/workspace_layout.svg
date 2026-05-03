@@ -1,0 +1,67 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="620" viewBox="0 0 1200 620" role="img" aria-labelledby="title desc">
+  <title id="title">HydroModPy workspace layout</title>
+  <desc id="desc">Diagram showing how a workspace contains data cache, projects, simulations, catalog, and exported outputs.</desc>
+  <defs>
+    <marker id="arrow" markerWidth="12" markerHeight="12" refX="10" refY="6" orient="auto">
+      <path d="M2,2 L10,6 L2,10 Z" fill="#344b5b"/>
+    </marker>
+    <style>
+      .bg { fill: #f7f8f4; }
+      .workspace { fill: #ffffff; stroke: #7d8c83; stroke-width: 3; rx: 24; }
+      .folder { fill: #e9f1dc; stroke: #70885d; stroke-width: 2; rx: 18; }
+      .catalog { fill: #eaf2fb; stroke: #5d7d9c; stroke-width: 2; rx: 18; }
+      .run { fill: #fff1dd; stroke: #b5843e; stroke-width: 2; rx: 18; }
+      .docs { fill: #f1e8f1; stroke: #846b86; stroke-width: 2; rx: 18; }
+      .title { font: 700 26px Georgia, serif; fill: #22313a; }
+      .label { font: 700 18px Georgia, serif; fill: #22313a; }
+      .small { font: 14px Georgia, serif; fill: #43515a; }
+      .mono { font: 13px Consolas, monospace; fill: #2e3d47; }
+      .arrow { stroke: #344b5b; stroke-width: 3; fill: none; marker-end: url(#arrow); }
+    </style>
+  </defs>
+
+  <rect class="bg" width="1200" height="620"/>
+  <text x="48" y="58" class="title">Workspace as the durable spine of a project</text>
+
+  <rect x="54" y="92" width="1092" height="468" class="workspace"/>
+  <text x="84" y="132" class="label">&lt;workspace&gt;/</text>
+  <text x="84" y="160" class="small">shared area for cached inputs, project intent, persisted runs, and user-facing evidence</text>
+
+  <rect x="104" y="214" width="220" height="120" class="catalog"/>
+  <text x="132" y="248" class="label">hydromodpy.duckdb</text>
+  <text x="132" y="278" class="small">simulation catalog</text>
+  <text x="132" y="304" class="mono">runs, metrics, provenance</text>
+
+  <rect x="104" y="382" width="220" height="120" class="folder"/>
+  <text x="132" y="416" class="label">data/</text>
+  <text x="132" y="446" class="small">shared input cache</text>
+  <text x="132" y="472" class="mono">DEM, geology, recharge</text>
+
+  <rect x="458" y="214" width="230" height="120" class="folder"/>
+  <text x="486" y="248" class="label">projects/&lt;name&gt;/</text>
+  <text x="486" y="278" class="small">human-authored intent</text>
+  <text x="486" y="304" class="mono">project.toml, overlays</text>
+
+  <rect x="458" y="382" width="230" height="120" class="run"/>
+  <text x="486" y="416" class="label">simulations/</text>
+  <text x="486" y="446" class="small">persisted run stores</text>
+  <text x="486" y="472" class="mono">&lt;sim_uuid&gt;.zarr/</text>
+
+  <rect x="824" y="214" width="230" height="120" class="docs"/>
+  <text x="852" y="248" class="label">outputs/</text>
+  <text x="852" y="278" class="small">workflow evidence</text>
+  <text x="852" y="304" class="mono">figures, reports, tables</text>
+
+  <rect x="824" y="382" width="230" height="120" class="docs"/>
+  <text x="852" y="416" class="label">docs static assets</text>
+  <text x="852" y="446" class="small">curated examples</text>
+  <text x="852" y="472" class="mono">capability_gallery/</text>
+
+  <path class="arrow" d="M334,274 C390,274 398,274 448,274"/>
+  <path class="arrow" d="M334,442 C392,442 398,442 448,442"/>
+  <path class="arrow" d="M698,274 C754,274 762,274 814,274"/>
+  <path class="arrow" d="M698,442 C754,442 762,442 814,442"/>
+  <path class="arrow" d="M574,340 L574,372"/>
+
+  <text x="82" y="596" class="small">Rule of thumb: edit project TOMLs, inspect runs through the catalog/API, and treat cache and simulations as generated stores.</text>
+</svg>

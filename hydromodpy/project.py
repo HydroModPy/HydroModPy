@@ -96,7 +96,7 @@ class Project:
 
     Full Python, no TOML::
 
-        from hydromodpy.master_config.hydromodpy_config import HydroModPyConfig
+        from hydromodpy.config import HydroModPyConfig
 
         cfg = HydroModPyConfig(...)
         project = hmp.Project(cfg)
@@ -161,9 +161,9 @@ class Project:
         )
 
     @classmethod
-    def from_toml(cls, toml_path: str | Path, **kwargs) -> Project:
-        """Build a Project from a TOML configuration file."""
-        return cls(toml_path, **kwargs)
+    def from_json(cls, payload: dict, **kwargs) -> Project:
+        """Build a Project from a JSON payload validated against HydroModPyConfig."""
+        from hydromodpy.config import HydroModPyConfig
 
     @classmethod
     def from_json(
@@ -184,11 +184,32 @@ class Project:
         cls,
         payload: dict,
         *,
-        base_dir: str | Path | None = None,
-        **kwargs,
-    ) -> Project:
-        """Build a Project from a dict payload validated against HydroModPyConfig."""
-        from hydromodpy.master_config.hydromodpy_config import HydroModPyConfig
+        solver: str | None,
+        headless: bool,
+        no_display: bool,
+    ) -> None:
+        """Resolve the config, time grid and data plan, then build an empty ctx."""
+        from hydromodpy.config import HydroModPyConfig
+        from hydromodpy.core.config.toml_loader import load_toml_with_base_config
+        from hydromodpy.core.time import (
+            apply_explicit_time_window_to_tgrids,
+            require_flow_simulation_time_grid,
+        )
+        from hydromodpy.data import DataPlanner
+        from hydromodpy.spatial.domain.spatial_support import (
+            build_default_spatial_support_provider_registry,
+        )
+        from hydromodpy.workflow.context import WorkflowContext
+        from hydromodpy.workflow.steps.data_loading import log_data_plan
+        from hydromodpy.workflow.steps.mesh import (
+            resolve_optional_mesh_input,
+            resolve_optional_mesh_section,
+        )
+        from hydromodpy.workflow.steps.setup import (
+            collect_requested_support_ids,
+            resolve_support_configs,
+            support_provider_names,
+        )
 
         cfg = HydroModPyConfig.from_dict(payload, base_dir=base_dir)
         return cls(cfg, **kwargs)

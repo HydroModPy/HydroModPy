@@ -401,6 +401,7 @@ def _run_boussinesq_scenario(
                     "recharge": {
                         "values": mm_day_to_m_s(float(scenario.recharge_mm_day)),
                         "first_clim": "mean",
+                        "units": "m/s",
                     }
                 },
                 "bc": {

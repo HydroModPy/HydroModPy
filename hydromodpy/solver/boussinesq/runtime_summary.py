@@ -116,13 +116,24 @@ def record_surface_threshold_summary(solver: Boussinesq) -> None:
         n_columns=n_cells,
         default_value=0.0,
     )
+    dry_deficit_history = history_or_current(
+        solver.state.dry_deficit_history_m_s,
+        solver.state.dry_deficit_rate_m_s,
+        n_columns=n_cells,
+        default_value=0.0,
+    )
 
-    n_snapshots = min(head_history.shape[0], saturation_excess_history.shape[0])
+    n_snapshots = min(
+        head_history.shape[0],
+        saturation_excess_history.shape[0],
+        dry_deficit_history.shape[0],
+    )
     head_history = np.asarray(head_history[:n_snapshots], dtype=float)
     saturation_excess_history = np.asarray(
         saturation_excess_history[:n_snapshots],
         dtype=float,
     )
+    dry_deficit_history = np.asarray(dry_deficit_history[:n_snapshots], dtype=float)
     period_lengths = tuple(
         float(value) for value in (getattr(solver.state, "period_lengths_seconds", ()) or ())
     )
@@ -134,9 +145,14 @@ def record_surface_threshold_summary(solver: Boussinesq) -> None:
     )
     elapsed_days = elapsed_days_for_snapshots(solver.state, n_snapshots=n_snapshots)
     z_top = np.asarray(solver.mesh.z_top_m, dtype=float).reshape(1, -1)
+    z_bottom = np.asarray(solver.mesh.z_bottom_m, dtype=float).reshape(1, -1)
+    cell_area = np.asarray(solver.mesh.cell_area_m2, dtype=float)[None, :]
     positive_saturation_excess = np.maximum(saturation_excess_history, 0.0)
+    positive_dry_deficit = np.maximum(dry_deficit_history, 0.0)
     active_mask = positive_saturation_excess > _SURFACE_THRESHOLD_ACTIVE_RATE_EPS_M_S
     active_counts = np.sum(active_mask, axis=1, dtype=int)
+    dry_deficit_mask = positive_dry_deficit > _SURFACE_THRESHOLD_ACTIVE_RATE_EPS_M_S
+    dry_deficit_counts = np.sum(dry_deficit_mask, axis=1, dtype=int)
     active_any_by_snapshot = active_counts > 0
     activation_transitions = int(
         np.count_nonzero(
@@ -153,15 +169,49 @@ def record_surface_threshold_summary(solver: Boussinesq) -> None:
     )
     total_surface_flux_m3_day = (
         np.sum(
-            positive_saturation_excess * np.asarray(solver.mesh.cell_area_m2, dtype=float)[None, :],
+            positive_saturation_excess * cell_area,
             axis=1,
         )
         * _SECONDS_PER_DAY
     )
+    total_dry_deficit_m3_day = (
+        np.sum(positive_dry_deficit * cell_area, axis=1) * _SECONDS_PER_DAY
+    )
+    used_dry_steps = min(len(period_lengths), max(positive_dry_deficit.shape[0] - 1, 0))
+    integrated_dry_deficit_m3 = (
+        float(
+            np.sum(
+                positive_dry_deficit[1 : used_dry_steps + 1]
+                * cell_area
+                * np.asarray(period_lengths[:used_dry_steps], dtype=float).reshape(-1, 1)
+            )
+        )
+        if used_dry_steps > 0
+        else 0.0
+    )
     peak_active_cells = int(np.max(active_counts)) if active_counts.size else 0
     final_active_cells = int(active_counts[-1]) if active_counts.size else 0
+    peak_dry_deficit_cells = (
+        int(np.max(dry_deficit_counts)) if dry_deficit_counts.size else 0
+    )
+    final_dry_deficit_cells = int(dry_deficit_counts[-1]) if dry_deficit_counts.size else 0
     peak_head_above_top_m = float(
         np.max(evaluated_head_history - z_top) if evaluated_head_history.size else 0.0
+    )
+    bottom_gap_history_m = evaluated_head_history - z_bottom
+    bottom_violation_m = np.maximum(-bottom_gap_history_m, 0.0)
+    bottom_violation_counts = np.sum(bottom_violation_m > 0.0, axis=1, dtype=int)
+    negative_storage_volume_m3 = np.sum(
+        np.asarray(solver.mesh.cell_area_m2, dtype=float)[None, :]
+        * np.asarray(solver.mesh.storage_coefficient, dtype=float)[None, :]
+        * bottom_violation_m,
+        axis=1,
+    )
+    peak_bottom_violation_cells = (
+        int(np.max(bottom_violation_counts)) if bottom_violation_counts.size else 0
+    )
+    final_bottom_violation_cells = (
+        int(bottom_violation_counts[-1]) if bottom_violation_counts.size else 0
     )
     active_indices = np.flatnonzero(active_counts > 0)
     first_active_index = int(active_indices[0]) if active_indices.size else None
@@ -207,6 +257,54 @@ def record_surface_threshold_summary(solver: Boussinesq) -> None:
     solver.runtime_summary["surface_threshold_peak_head_above_top_m"] = peak_head_above_top_m
     solver.runtime_summary["surface_threshold_any_head_above_top"] = bool(
         peak_head_above_top_m > 0.0
+    )
+    solver.runtime_summary["bottom_threshold_min_head_above_bottom_m"] = float(
+        np.min(bottom_gap_history_m) if bottom_gap_history_m.size else 0.0
+    )
+    solver.runtime_summary["bottom_threshold_peak_head_below_bottom_m"] = float(
+        np.max(bottom_violation_m) if bottom_violation_m.size else 0.0
+    )
+    solver.runtime_summary["bottom_threshold_any_head_below_bottom"] = bool(
+        np.any(bottom_violation_m > 0.0)
+    )
+    solver.runtime_summary["bottom_threshold_peak_violation_cells"] = peak_bottom_violation_cells
+    solver.runtime_summary["bottom_threshold_peak_violation_fraction"] = float(
+        peak_bottom_violation_cells / max(n_cells, 1)
+    )
+    solver.runtime_summary["bottom_threshold_final_violation_cells"] = (
+        final_bottom_violation_cells
+    )
+    solver.runtime_summary["bottom_threshold_final_violation_fraction"] = float(
+        final_bottom_violation_cells / max(n_cells, 1)
+    )
+    solver.runtime_summary["bottom_threshold_peak_negative_storage_volume_m3"] = float(
+        np.max(negative_storage_volume_m3) if negative_storage_volume_m3.size else 0.0
+    )
+    solver.runtime_summary["bottom_threshold_final_negative_storage_volume_m3"] = float(
+        negative_storage_volume_m3[-1] if negative_storage_volume_m3.size else 0.0
+    )
+    solver.runtime_summary["bottom_constraint_dry_deficit_active_any"] = bool(
+        np.any(dry_deficit_counts > 0)
+    )
+    solver.runtime_summary["bottom_constraint_peak_active_cells"] = peak_dry_deficit_cells
+    solver.runtime_summary["bottom_constraint_peak_active_fraction"] = float(
+        peak_dry_deficit_cells / max(n_cells, 1)
+    )
+    solver.runtime_summary["bottom_constraint_final_active_cells"] = final_dry_deficit_cells
+    solver.runtime_summary["bottom_constraint_final_active_fraction"] = float(
+        final_dry_deficit_cells / max(n_cells, 1)
+    )
+    solver.runtime_summary["bottom_constraint_peak_cell_rate_mm_day"] = float(
+        np.max(positive_dry_deficit) * _SECONDS_PER_DAY * 1_000.0
+    )
+    solver.runtime_summary["bottom_constraint_peak_total_m3_day"] = float(
+        np.max(total_dry_deficit_m3_day) if total_dry_deficit_m3_day.size else 0.0
+    )
+    solver.runtime_summary["bottom_constraint_final_total_m3_day"] = float(
+        total_dry_deficit_m3_day[-1] if total_dry_deficit_m3_day.size else 0.0
+    )
+    solver.runtime_summary["bottom_constraint_integrated_volume_m3"] = (
+        integrated_dry_deficit_m3
     )
 
     if solver._surface_interaction_model() != "complementarity":

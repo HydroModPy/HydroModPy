@@ -7,7 +7,7 @@ to the user's home directory.
 
 Usage::
 
-    from hydromodpy.master_config import HydroModPyConfig
+    from hydromodpy.config import HydroModPyConfig
 
     cfg = HydroModPyConfig.from_toml(
         "examples/projects/03_canut_watershed/project.toml"
@@ -42,6 +42,10 @@ from hydromodpy.core.toml_io.paths import resolve_declared_path
 from hydromodpy.core.workspace.config import WorkspaceConfig
 from hydromodpy.master_config.analysis import AnalysisConfig
 
+# This module is the application-level config root. It is allowed to assemble
+# sibling package configs, while the generic helpers remain in ``core.config``.
+# Imports listed here serve IDE/static-type-checker consumption only; the real
+# runtime imports happen in ``_rebuild_forward_refs``.
 if TYPE_CHECKING:
     from hydromodpy.calibration.config import CalibrationConfig
     from hydromodpy.data.data_managers_config import DataManagersConfig
@@ -675,15 +679,8 @@ def _load_optional_calibration_section(
         return None
     return load_standard_section(section_data, CalibrationConfig, base)
 
-
-def _load_optional_analysis_section(
-    section_data: Any,
-    base: Path,
-) -> AnalysisConfig | None:
-    """Load the optional ``[analysis]`` hub.
-
-    Each sub-section (``batch``, ``capability_gallery``, ``comparison``)
-    is parsed independently from the payload under ``[analysis.*]``.
+    Kept inside a function so package assembly happens in the config root,
+    not in the generic ``core.config`` helpers.
     """
     if section_data is None:
         return None

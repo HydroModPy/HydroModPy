@@ -6,8 +6,20 @@ from typing import Annotated
 
 from pydantic import ConfigDict, Field
 
-from hydromodpy.core.config_kit.base import HydroModelBase
-from hydromodpy.core.config_kit.profile import Profile
+from hydromodpy.core.config.base import HydroModelBase
+from hydromodpy.core.config.profile import Profile
+from hydromodpy.core.state.data import LoadedDataContext
+
+if TYPE_CHECKING:
+    from hydromodpy.config import HydroModPyConfig
+    from hydromodpy.core.workspace.workspace import Workspace
+    from hydromodpy.spatial.geographic.catchment_delineation import CatchmentDelineation
+    from hydromodpy.spatial.geographic.core.derived_features import (
+        GeographicDerivedFeatures,
+    )
+    from hydromodpy.spatial.geographic.core.domain_geographic_pipeline import (
+        DomainGeographicContext,
+    )
 
 
 class OverviewPanelsConfig(HydroModelBase):

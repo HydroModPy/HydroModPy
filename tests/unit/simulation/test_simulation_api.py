@@ -330,6 +330,100 @@ class TestSimulationData:
             np.array([1.0 / 3.0, 1.0, np.nan, 1.0 / 3.0]),
         )
 
+    def test_simulated_active_network_mask_default_is_regime_aware(self, catalog):
+        transient_sid = _register(
+            catalog,
+            n_cells=4,
+            n_layers=1,
+            n_timesteps=3,
+            flow_regime="transient",
+        )
+        steady_sid = _register(
+            catalog,
+            n_cells=4,
+            n_layers=1,
+            n_timesteps=3,
+            flow_regime="steady",
+        )
+        _write_active_accumulation_flux_case(catalog, transient_sid)
+        _write_active_accumulation_flux_case(catalog, steady_sid)
+
+        transient = Run(transient_sid, catalog)
+        steady = Run(steady_sid, catalog)
+
+        np.testing.assert_allclose(
+            transient.simulated_active_network_mask(threshold=0.5),
+            np.array([0.0, 1.0, np.nan, 0.0]),
+        )
+        np.testing.assert_allclose(
+            steady.simulated_active_network_mask(threshold=0.5),
+            np.array([0.0, 1.0, np.nan, 1.0]),
+        )
+
+    def test_simulated_active_network_overlap_metrics_against_reference_role_by_default(
+        self,
+        catalog,
+    ):
+        sid = _register(catalog, n_cells=4, n_layers=1, n_timesteps=3)
+        _write_active_accumulation_flux_case(catalog, sid, write_plot_mesh=True)
+        reference = gpd.GeoDataFrame(
+            {"id": [1]},
+            geometry=[LineString([(1.5, 0.5), (1.5, 1.5)])],
+            crs="EPSG:2154",
+        )
+        catalog.write_geographic_feature(sid, HYDROGRAPHIC_NETWORK_REFERENCE_FEATURE_NAME, reference)
+
+        sim = Run(sid, catalog)
+        metrics = sim.simulated_active_network_overlap_metrics(
+            threshold=0.5,
+            mode="persistent",
+            persistence_threshold=0.5,
+        )
+
+        assert metrics["network_role"] == "reference"
+        assert metrics["catchment_cell_count"] == 3
+        assert metrics["active_cell_count"] == 1
+        assert metrics["network_cell_count"] == 2
+        assert metrics["overlap_cell_count"] == 1
+        assert metrics["missing_network_cell_count"] == 1
+        assert metrics["extra_active_cell_count"] == 0
+        assert metrics["network_coverage_ratio"] == pytest.approx(0.5)
+        assert metrics["active_precision_ratio"] == pytest.approx(1.0)
+        assert metrics["cell_f1_ratio"] == pytest.approx(2.0 / 3.0)
+        assert metrics["cell_jaccard_ratio"] == pytest.approx(0.5)
+
+    def test_simulated_active_network_distance_metrics_against_reference_role(
+        self,
+        catalog,
+    ):
+        sid = _register(catalog, n_cells=4, n_layers=1, n_timesteps=3)
+        _write_active_accumulation_flux_case(catalog, sid, write_plot_mesh=True)
+        reference = gpd.GeoDataFrame(
+            {"id": [1]},
+            geometry=[LineString([(1.5, 0.5), (1.5, 1.5)])],
+            crs="EPSG:2154",
+        )
+        catalog.write_geographic_feature(sid, HYDROGRAPHIC_NETWORK_REFERENCE_FEATURE_NAME, reference)
+
+        sim = Run(sid, catalog)
+        metrics = sim.simulated_active_network_distance_metrics(
+            threshold=0.5,
+            mode="persistent",
+            persistence_threshold=0.5,
+        )
+
+        assert metrics["network_role"] == "reference"
+        assert metrics["distance_method"] == "planar_cell_centroid_to_network"
+        assert metrics["catchment_cell_count"] == 3
+        assert metrics["active_cell_count"] == 1
+        assert metrics["network_cell_count"] == 2
+        assert metrics["sim_to_network_sample_count"] == 1
+        assert metrics["network_to_sim_sample_count"] == 2
+        assert metrics["sim_to_network_distance_mean_m"] == pytest.approx(0.0)
+        assert metrics["network_to_sim_distance_mean_m"] == pytest.approx(0.25)
+        assert metrics["network_to_sim_distance_max_m"] == pytest.approx(0.5)
+        assert metrics["bidirectional_distance_mean_m"] == pytest.approx(0.125)
+
 
 class TestSimulationField:
     def test_read_field(self, catalog):

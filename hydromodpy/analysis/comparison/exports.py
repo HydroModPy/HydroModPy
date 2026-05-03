@@ -123,6 +123,41 @@ SIMULATED_ACTIVE_NETWORK_OVERLAP_METRICS_FIELDS = [
     "cell_jaccard_ratio",
 ]
 
+SIMULATED_ACTIVE_NETWORK_DISTANCE_METRICS_FIELDS = [
+    "comparison_id",
+    "variant_id",
+    "variant_label",
+    "solver",
+    "mesh_label",
+    "mesh_mode",
+    "sim_id",
+    "run_name",
+    "run_folder",
+    "network_role",
+    "source_variable",
+    "threshold",
+    "mode",
+    "persistence_threshold",
+    "timestep",
+    "network_buffer_m",
+    "distance_method",
+    "catchment_cell_count",
+    "active_cell_count",
+    "network_cell_count",
+    "sim_to_network_sample_count",
+    "sim_to_network_distance_mean_m",
+    "sim_to_network_distance_median_m",
+    "sim_to_network_distance_p95_m",
+    "sim_to_network_distance_max_m",
+    "network_to_sim_sample_count",
+    "network_to_sim_distance_mean_m",
+    "network_to_sim_distance_median_m",
+    "network_to_sim_distance_p95_m",
+    "network_to_sim_distance_max_m",
+    "bidirectional_distance_mean_m",
+    "bidirectional_distance_quadratic_mean_m",
+]
+
 
 def _as_float(value: Any) -> float | None:
     if value in ("", None):
@@ -960,6 +995,346 @@ def write_simulated_active_network_overlap_metrics_export(
     return artifacts, rows
 
 
+def write_simulated_active_network_distance_metrics_export(
+    *,
+    comparison_id: str,
+    comparison_root: Path,
+    variant_summaries: Iterable[Mapping[str, Any]],
+    network_role: str = "reference",
+    variable: str = "accumulation_flux",
+    threshold: float = 0.0,
+    mode: str | None = None,
+    persistence_threshold: float = 0.5,
+    timestep: int | None = None,
+    network_buffer_m: float = 0.0,
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    """Write planar distance metrics between active cells and a vector role.
+
+    The export complements overlap metrics. It is intentionally explicit about
+    its ``distance_method`` because it is not the DEM-downslope criterion from
+    Abherve et al.; it only uses currently persisted mesh, field and reference
+    linework artifacts.
+    """
+    from hydromodpy.analysis.comparison.runtime import discover_result_store
+
+    rows: list[dict[str, Any]] = []
+    skipped_variants: list[dict[str, Any]] = []
+    for summary in _completed_variant_summaries(variant_summaries):
+        variant_id = str(summary.get("id", ""))
+        config_path_raw = summary.get("config_path")
+        config_path = None if config_path_raw in (None, "") else Path(str(config_path_raw))
+        preferred_sim_id = summary.get("sim_id")
+        preferred_run_name = summary.get("run_name")
+        store, sim_id = discover_result_store(
+            config_path,
+            preferred_sim_id=(
+                None if preferred_sim_id in (None, "") else str(preferred_sim_id)
+            ),
+            preferred_name=(
+                None if preferred_run_name in (None, "") else str(preferred_run_name)
+            ),
+        )
+        if store is None or sim_id in (None, ""):
+            skipped_variants.append(
+                {
+                    "variant_id": variant_id,
+                    "reason": "result_store_unavailable",
+                    "source_variable": variable,
+                    "network_role": network_role,
+                }
+            )
+            continue
+        try:
+            run = store[str(sim_id)]
+            if not run.has_hydrographic_network(network_role):
+                skipped_variants.append(
+                    {
+                        "variant_id": variant_id,
+                        "reason": "missing_vector_network_role",
+                        "network_role": network_role,
+                        "available_roles": run.available_hydrographic_network_roles(),
+                        "source_variable": variable,
+                    }
+                )
+                continue
+            if not run.has_field(variable):
+                skipped_variants.append(
+                    {
+                        "variant_id": variant_id,
+                        "reason": "missing_simulated_active_field",
+                        "network_role": network_role,
+                        "source_variable": variable,
+                    }
+                )
+                continue
+            zarr_root = store.open_zarr(str(sim_id)).root
+            mesh = zarr_root.get("mesh")
+            if (
+                mesh is None
+                or "vertices" not in mesh
+                or "face_node_connectivity" not in mesh
+            ):
+                skipped_variants.append(
+                    {
+                        "variant_id": variant_id,
+                        "reason": "missing_plottable_mesh",
+                        "network_role": network_role,
+                        "source_variable": variable,
+                    }
+                )
+                continue
+            metrics = run.simulated_active_network_distance_metrics(
+                network_role=network_role,
+                variable=variable,
+                threshold=threshold,
+                mode=mode,
+                persistence_threshold=persistence_threshold,
+                timestep=timestep,
+                network_buffer_m=network_buffer_m,
+            )
+            row = {
+                "comparison_id": comparison_id,
+                "variant_id": variant_id,
+                "variant_label": str(summary.get("label", summary.get("id", ""))),
+                "solver": str(summary.get("solver", "")),
+                "mesh_label": str(summary.get("mesh_label", "")),
+                "mesh_mode": str(summary.get("mesh_mode", "")),
+                "sim_id": str(sim_id),
+                "run_name": str(summary.get("run_name", "")),
+                "run_folder": str(summary.get("run_folder", "")),
+            }
+            row.update(metrics)
+            rows.append(row)
+        except Exception as exc:
+            skipped_variants.append(
+                {
+                    "variant_id": variant_id,
+                    "reason": "simulated_active_distance_metrics_failed",
+                    "source_variable": variable,
+                    "network_role": network_role,
+                    "error_type": type(exc).__name__,
+                    "error_message": str(exc),
+                }
+            )
+            logger.debug(
+                "Skipping simulated-active distance metrics export for variant '%s'.",
+                variant_id,
+                exc_info=True,
+            )
+        finally:
+            try:
+                store.close()
+            except Exception:
+                pass
+
+    artifacts: list[dict[str, Any]] = []
+    if skipped_variants:
+        skipped_path = comparison_root / "simulated_active_network_distance_metrics_skipped.json"
+        skipped_payload = {
+            "comparison_id": comparison_id,
+            "network_role": network_role,
+            "source_variable": variable,
+            "threshold": float(threshold),
+            "mode": mode or "auto",
+            "persistence_threshold": float(persistence_threshold),
+            "timestep": timestep,
+            "network_buffer_m": float(network_buffer_m),
+            "skipped_variants": skipped_variants,
+        }
+        skipped_path.parent.mkdir(parents=True, exist_ok=True)
+        skipped_path.write_text(
+            json.dumps(skipped_payload, indent=2, ensure_ascii=True) + "\n",
+            encoding="utf-8",
+        )
+        artifacts.append(
+            {
+                "kind": "simulated_active_network_distance_metrics_skipped_json",
+                "path": str(skipped_path),
+                "note": (
+                    f"{len(skipped_variants)} variant(s) skipped for simulated-active "
+                    "network distance metrics export."
+                ),
+            }
+        )
+        logger.info(
+            "Simulated-active network distance metrics export skipped %d variant(s): %s",
+            len(skipped_variants),
+            ", ".join(str(item.get("variant_id", "")) for item in skipped_variants),
+        )
+    if not rows:
+        return artifacts, rows
+
+    path = comparison_root / "simulated_active_network_distance_metrics.csv"
+    _write_csv(path, rows, SIMULATED_ACTIVE_NETWORK_DISTANCE_METRICS_FIELDS)
+    artifacts.append(
+        {"kind": "simulated_active_network_distance_metrics_csv", "path": str(path)}
+    )
+    logger.info(
+        "Wrote simulated-active network distance metrics export for %d variant(s) to %s",
+        len(rows),
+        path,
+    )
+    return artifacts, rows
+
+
+def write_simulated_active_network_reference_figure_export(
+    *,
+    comparison_root: Path,
+    variant_summaries: Iterable[Mapping[str, Any]],
+    network_role: str = "reference",
+    variable: str = "accumulation_flux",
+    threshold: float = 0.0,
+    mode: str | None = None,
+    persistence_threshold: float = 0.5,
+    timestep: int | None = None,
+    buffer_m: float = 0.0,
+    dpi: int = 180,
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    """Render per-variant simulated-active maps against the reference network.
+
+    The comparison target is deliberately ``reference``. Missing reference
+    linework skips the figure for that variant; it never falls back to the
+    topography-derived ``generated`` network.
+    """
+    import matplotlib.pyplot as plt
+
+    from hydromodpy.analysis.comparison.runtime import discover_result_store
+    from hydromodpy.display import get as get_figure
+
+    rows: list[dict[str, Any]] = []
+    skipped_variants: list[dict[str, Any]] = []
+    figure_root = comparison_root / "run_figures"
+    figure_names = (
+        "simulated_active_network",
+        "simulated_active_network_reference_overlay",
+    )
+
+    for summary in _completed_variant_summaries(variant_summaries):
+        variant_id = str(summary.get("id", ""))
+        config_path_raw = summary.get("config_path")
+        config_path = None if config_path_raw in (None, "") else Path(str(config_path_raw))
+        preferred_sim_id = summary.get("sim_id")
+        preferred_run_name = summary.get("run_name")
+        store, sim_id = discover_result_store(
+            config_path,
+            preferred_sim_id=(
+                None if preferred_sim_id in (None, "") else str(preferred_sim_id)
+            ),
+            preferred_name=(
+                None if preferred_run_name in (None, "") else str(preferred_run_name)
+            ),
+        )
+        if store is None or sim_id in (None, ""):
+            skipped_variants.append(
+                {
+                    "variant_id": variant_id,
+                    "reason": "result_store_unavailable",
+                    "source_variable": variable,
+                    "network_role": network_role,
+                }
+            )
+            continue
+
+        try:
+            run = store[str(sim_id)]
+            if not run.has_field(variable):
+                skipped_variants.append(
+                    {
+                        "variant_id": variant_id,
+                        "reason": "missing_simulated_active_field",
+                        "source_variable": variable,
+                        "network_role": network_role,
+                    }
+                )
+                continue
+            if not run.has_hydrographic_network(network_role):
+                skipped_variants.append(
+                    {
+                        "variant_id": variant_id,
+                        "reason": "missing_vector_network_role",
+                        "network_role": network_role,
+                        "available_roles": run.available_hydrographic_network_roles(),
+                        "source_variable": variable,
+                    }
+                )
+                continue
+
+            variant_dir = figure_root / variant_id
+            for figure_name in figure_names:
+                figure_path = variant_dir / f"{figure_name}.png"
+                fig = get_figure(figure_name).plot(
+                    run,
+                    dpi=dpi,
+                    save_path=figure_path,
+                    variable=variable,
+                    threshold=threshold,
+                    mode=mode,
+                    persistence_threshold=persistence_threshold,
+                    timestep=timestep,
+                    buffer_m=buffer_m,
+                )
+                plt.close(fig)
+                row = {
+                    "kind": "simulated_active_network_figure",
+                    "variant_id": variant_id,
+                    "figure_name": figure_name,
+                    "path": str(figure_path),
+                }
+                rows.append(row)
+        except Exception as exc:
+            skipped_variants.append(
+                {
+                    "variant_id": variant_id,
+                    "reason": "simulated_active_network_figure_failed",
+                    "source_variable": variable,
+                    "network_role": network_role,
+                    "error_type": type(exc).__name__,
+                    "error_message": str(exc),
+                }
+            )
+            logger.debug(
+                "Skipping simulated-active network figure export for variant '%s'.",
+                variant_id,
+                exc_info=True,
+            )
+        finally:
+            try:
+                store.close()
+            except Exception:
+                pass
+
+    artifacts: list[dict[str, Any]] = list(rows)
+    if skipped_variants:
+        skipped_path = comparison_root / "simulated_active_network_figures_skipped.json"
+        skipped_payload = {
+            "network_role": network_role,
+            "source_variable": variable,
+            "threshold": float(threshold),
+            "mode": mode or "auto",
+            "persistence_threshold": float(persistence_threshold),
+            "timestep": timestep,
+            "buffer_m": float(buffer_m),
+            "skipped_variants": skipped_variants,
+        }
+        skipped_path.parent.mkdir(parents=True, exist_ok=True)
+        skipped_path.write_text(
+            json.dumps(skipped_payload, indent=2, ensure_ascii=True) + "\n",
+            encoding="utf-8",
+        )
+        artifacts.append(
+            {
+                "kind": "simulated_active_network_figures_skipped_json",
+                "path": str(skipped_path),
+                "note": (
+                    f"{len(skipped_variants)} variant(s) skipped for simulated-active "
+                    "network figure export."
+                ),
+            }
+        )
+
+    return artifacts, rows
+
+
 def _history_matrix(payload: Mapping[str, Any], key: str) -> np.ndarray | None:
     if key not in payload:
         return None
@@ -1080,6 +1455,7 @@ def _catalog_budget_factor_to_m3_s(*, solver: str, unit: str) -> float:
 def _storage_change_series_m3_s(
     *,
     head_history_m: np.ndarray | None,
+    saturated_thickness_history_m: np.ndarray | None,
     area_m2: np.ndarray | None,
     storage_coefficient: np.ndarray | None,
     period_lengths_seconds: np.ndarray,
@@ -1093,8 +1469,15 @@ def _storage_change_series_m3_s(
         return None
     if not (head_history_m.shape[1] == area_m2.size == storage_coefficient.size):
         return None
+    storage_state_m = head_history_m
+    if (
+        saturated_thickness_history_m is not None
+        and saturated_thickness_history_m.ndim == 2
+        and saturated_thickness_history_m.shape == head_history_m.shape
+    ):
+        storage_state_m = saturated_thickness_history_m
 
-    n_snapshots = int(head_history_m.shape[0])
+    n_snapshots = int(storage_state_m.shape[0])
     storage_change = np.full(n_snapshots, np.nan, dtype=float)
     if n_snapshots == 0:
         return storage_change
@@ -1105,9 +1488,9 @@ def _storage_change_series_m3_s(
             dt_seconds = float(period_lengths_seconds[index - 1])
             if dt_seconds <= 0.0 or not math.isfinite(dt_seconds):
                 continue
-            delta_head_m = head_history_m[index] - head_history_m[index - 1]
+            delta_storage_state_m = storage_state_m[index] - storage_state_m[index - 1]
             storage_change[index] = float(
-                np.nansum(area_m2 * storage_coefficient * delta_head_m) / dt_seconds
+                np.nansum(area_m2 * storage_coefficient * delta_storage_state_m) / dt_seconds
             )
         return storage_change
 
@@ -1117,9 +1500,9 @@ def _storage_change_series_m3_s(
             dt_seconds = float(period_lengths_seconds[index])
             if dt_seconds <= 0.0 or not math.isfinite(dt_seconds):
                 continue
-            delta_head_m = head_history_m[index] - head_history_m[index - 1]
+            delta_storage_state_m = storage_state_m[index] - storage_state_m[index - 1]
             storage_change[index] = float(
-                np.nansum(area_m2 * storage_coefficient * delta_head_m) / dt_seconds
+                np.nansum(area_m2 * storage_coefficient * delta_storage_state_m) / dt_seconds
             )
         return storage_change
 
@@ -1184,8 +1567,10 @@ def _load_boussinesq_budget_rows(
     well_history = _history_matrix(payload, "well_flux_history_m3_s")
     drainage_history = _history_matrix(payload, "drainage_flux_history_m3_s")
     surface_history = _history_matrix(payload, "saturation_excess_history_m_s")
+    dry_deficit_history = _history_matrix(payload, "dry_deficit_history_m_s")
     prescribed_head_history = _history_matrix(payload, "prescribed_head_flux_history_m3_s")
     head_history = _history_matrix(payload, "head_history_m")
+    saturated_thickness_history = _history_matrix(payload, "saturated_thickness_history_m")
 
     n_snapshots = max(
         (
@@ -1195,8 +1580,10 @@ def _load_boussinesq_budget_rows(
                 well_history,
                 drainage_history,
                 surface_history,
+                dry_deficit_history,
                 prescribed_head_history,
                 head_history,
+                saturated_thickness_history,
             )
             if matrix is not None
         ),
@@ -1215,8 +1602,10 @@ def _load_boussinesq_budget_rows(
                 well_history,
                 drainage_history,
                 surface_history,
+                dry_deficit_history,
                 prescribed_head_history,
                 head_history,
+                saturated_thickness_history,
             )
             if matrix is not None and matrix.ndim == 2
         ),
@@ -1280,6 +1669,16 @@ def _load_boussinesq_budget_rows(
             axis=1,
             dtype=float,
         )
+    if (
+        dry_deficit_history is not None
+        and area_m2 is not None
+        and dry_deficit_history.shape[1] == area_m2.size
+    ):
+        component_series["dry_deficit_total_m3_s"] = np.sum(
+            np.maximum(dry_deficit_history, 0.0) * area_m2[None, :],
+            axis=1,
+            dtype=float,
+        )
     if prescribed_head_history is not None:
         component_series["prescribed_head_out_total_m3_s"] = np.sum(
             np.maximum(prescribed_head_history, 0.0),
@@ -1289,6 +1688,7 @@ def _load_boussinesq_budget_rows(
 
     storage_change = _storage_change_series_m3_s(
         head_history_m=head_history,
+        saturated_thickness_history_m=saturated_thickness_history,
         area_m2=area_m2,
         storage_coefficient=storage_coefficient,
         period_lengths_seconds=period_lengths,
@@ -1310,6 +1710,10 @@ def _load_boussinesq_budget_rows(
         component_series["closure_residual_m3_s"] = (
             component_series["recharge_total_m3_s"]
             + component_series["well_total_m3_s"]
+            + component_series.get(
+                "dry_deficit_total_m3_s",
+                np.zeros_like(component_series["recharge_total_m3_s"], dtype=float),
+            )
             - component_series["drainage_total_m3_s"]
             - component_series["surface_excess_total_m3_s"]
             - prescribed_out
@@ -1472,6 +1876,194 @@ def _load_catalog_budget_rows(
     return rows
 
 
+BOUSSINESQ_OBSTACLE_DIAGNOSTICS_FIELDS = [
+    "variant_id",
+    "variant_label",
+    "solver",
+    "mesh_mode",
+    "time_index",
+    "elapsed_seconds",
+    "time_label",
+    "min_head_above_bottom_m",
+    "max_head_below_bottom_m",
+    "head_below_bottom_cell_count",
+    "negative_storage_volume_m3",
+    "max_head_above_surface_m",
+    "head_above_surface_cell_count",
+    "dry_deficit_active_cell_count",
+    "dry_deficit_total_m3_s",
+    "surface_excess_active_cell_count",
+    "surface_excess_total_m3_s",
+    "source",
+]
+
+
+def _load_boussinesq_obstacle_diagnostic_rows(
+    summary: Mapping[str, Any],
+    store: SimulationCatalog | None = None,
+    sim_id: str | None = None,
+) -> list[dict[str, Any]]:
+    """Load lower/upper obstacle diagnostics from Boussinesq state histories."""
+    run_folder = Path(str(summary.get("run_folder", "")))
+    config_path_raw = summary.get("config_path")
+    config_path = None if config_path_raw in (None, "") else Path(str(config_path_raw))
+
+    payload: Mapping[str, Any] | None = None
+    source_label = ""
+    if store is not None and sim_id is not None:
+        payload = _load_boussinesq_state_from_store(store, sim_id)
+        if payload is not None:
+            source_label = f"SimulationCatalog(sim_id={sim_id})"
+
+    if payload is None:
+        npz_path = run_folder / "_boussinesq_state_history.npz"
+        if not npz_path.exists():
+            return []
+        payload = np.load(npz_path, allow_pickle=True)
+        source_label = str(npz_path)
+
+    head_history = _history_matrix(payload, "head_history_m")
+    if head_history is None or head_history.ndim != 2:
+        return []
+
+    n_snapshots, n_cells = int(head_history.shape[0]), int(head_history.shape[1])
+    cells = resolve_bundle_cells(
+        run_folder,
+        config_path=config_path,
+        expected_size=n_cells,
+    )
+    if cells is None:
+        return []
+    if (
+        cells.z_top_m is None
+        or cells.z_bottom_m is None
+        or cells.z_top_m.size != n_cells
+        or cells.z_bottom_m.size != n_cells
+    ):
+        return []
+
+    area_m2 = (
+        np.asarray(cells.area_m2, dtype=float).reshape(-1)
+        if cells.area_m2 is not None and cells.area_m2.size == n_cells
+        else np.full(n_cells, np.nan, dtype=float)
+    )
+    storage_coefficient = (
+        np.asarray(cells.storage_coefficient, dtype=float).reshape(-1)
+        if cells.storage_coefficient is not None and cells.storage_coefficient.size == n_cells
+        else np.full(n_cells, np.nan, dtype=float)
+    )
+    z_top = (
+        np.asarray(cells.z_top_m, dtype=float).reshape(-1)
+        if cells.z_top_m is not None and cells.z_top_m.size == n_cells
+        else np.full(n_cells, np.nan, dtype=float)
+    )
+    z_bottom = (
+        np.asarray(cells.z_bottom_m, dtype=float).reshape(-1)
+        if cells.z_bottom_m is not None and cells.z_bottom_m.size == n_cells
+        else np.full(n_cells, np.nan, dtype=float)
+    )
+
+    dry_deficit_history = _history_matrix(payload, "dry_deficit_history_m_s")
+    surface_history = _history_matrix(payload, "saturation_excess_history_m_s")
+    if dry_deficit_history is None or dry_deficit_history.shape != head_history.shape:
+        dry_deficit_history = np.zeros_like(head_history, dtype=float)
+    if surface_history is None or surface_history.shape != head_history.shape:
+        surface_history = np.zeros_like(head_history, dtype=float)
+
+    period_lengths = (
+        np.asarray(payload["period_lengths_seconds"], dtype=float).ravel()
+        if "period_lengths_seconds" in payload
+        else np.asarray([], dtype=float)
+    )
+    elapsed_seconds = _elapsed_seconds_axis(period_lengths, n_snapshots=n_snapshots)
+    time_labels = [
+        (f"{elapsed / 86400.0:.1f} d" if math.isfinite(float(elapsed)) else str(index))
+        for index, elapsed in enumerate(elapsed_seconds.tolist())
+    ]
+
+    rows: list[dict[str, Any]] = []
+    for time_index in range(n_snapshots):
+        head = np.asarray(head_history[time_index], dtype=float)
+        bottom_gap = head - z_bottom
+        top_gap = head - z_top
+        bottom_violation = np.maximum(-bottom_gap, 0.0)
+        top_violation = np.maximum(top_gap, 0.0)
+        dry = np.maximum(np.asarray(dry_deficit_history[time_index], dtype=float), 0.0)
+        surface = np.maximum(np.asarray(surface_history[time_index], dtype=float), 0.0)
+        negative_storage_volume = area_m2 * storage_coefficient * bottom_violation
+        rows.append(
+            {
+                "variant_id": summary.get("id", ""),
+                "variant_label": summary.get("label", summary.get("id", "")),
+                "solver": summary.get("solver", ""),
+                "mesh_mode": summary.get("mesh_mode", ""),
+                "time_index": time_index,
+                "elapsed_seconds": float(elapsed_seconds[time_index]),
+                "time_label": time_labels[time_index],
+                "min_head_above_bottom_m": float(np.nanmin(bottom_gap)),
+                "max_head_below_bottom_m": float(np.nanmax(bottom_violation)),
+                "head_below_bottom_cell_count": int(np.nansum(bottom_violation > 0.0)),
+                "negative_storage_volume_m3": float(np.nansum(negative_storage_volume)),
+                "max_head_above_surface_m": float(np.nanmax(top_violation)),
+                "head_above_surface_cell_count": int(np.nansum(top_violation > 0.0)),
+                "dry_deficit_active_cell_count": int(np.nansum(dry > 1.0e-12)),
+                "dry_deficit_total_m3_s": float(np.nansum(dry * area_m2)),
+                "surface_excess_active_cell_count": int(np.nansum(surface > 1.0e-12)),
+                "surface_excess_total_m3_s": float(np.nansum(surface * area_m2)),
+                "source": source_label,
+            }
+        )
+    return rows
+
+
+def write_boussinesq_obstacle_diagnostics_export(
+    *,
+    comparison_root: Path,
+    variant_summaries: Iterable[Mapping[str, Any]],
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    """Write per-snapshot Boussinesq obstacle diagnostics when available."""
+    from hydromodpy.analysis.comparison.runtime import discover_result_store
+
+    rows: list[dict[str, Any]] = []
+    for summary in _completed_variant_summaries(variant_summaries):
+        config_path_raw = summary.get("config_path")
+        config_path = None if config_path_raw in (None, "") else Path(str(config_path_raw))
+        preferred_sim_id = summary.get("sim_id")
+        preferred_run_name = summary.get("run_name")
+        store, sim_id = discover_result_store(
+            config_path,
+            preferred_sim_id=(
+                None if preferred_sim_id in (None, "") else str(preferred_sim_id)
+            ),
+            preferred_name=(
+                None if preferred_run_name in (None, "") else str(preferred_run_name)
+            ),
+        )
+        try:
+            rows.extend(
+                _load_boussinesq_obstacle_diagnostic_rows(
+                    summary,
+                    store=store,
+                    sim_id=sim_id,
+                )
+            )
+        finally:
+            if store is not None:
+                try:
+                    store.close()
+                except Exception:
+                    pass
+
+    artifacts: list[dict[str, Any]] = []
+    if not rows:
+        return artifacts, rows
+
+    path = comparison_root / "boussinesq_obstacle_diagnostics.csv"
+    _write_csv(path, rows, BOUSSINESQ_OBSTACLE_DIAGNOSTICS_FIELDS)
+    artifacts.append({"kind": "boussinesq_obstacle_diagnostics_csv", "path": str(path)})
+    return artifacts, rows
+
+
 def write_budget_exports(
     *,
     comparison_root: Path,
@@ -1611,11 +2203,13 @@ def write_execution_summary_csv(
 
 
 __all__ = (
+    "write_boussinesq_obstacle_diagnostics_export",
     "write_budget_exports",
     "write_execution_summary_csv",
     "write_hydrographic_network_metrics_export",
     "write_native_timeseries_exports",
     "write_observable_chronicle_exports",
+    "write_simulated_active_network_reference_figure_export",
     "write_simulated_active_network_metrics_export",
     "write_simulated_active_network_overlap_metrics_export",
 )

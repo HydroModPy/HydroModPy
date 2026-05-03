@@ -209,6 +209,39 @@ In other words, keeping NWT alive is not only technical inertia. It preserves a
 scientifically interpretable baseline for some classes of structured unconfined
 problems and for legacy project continuity.
 
+Concrete Result Anchor
+----------------------
+
+The figures below use one committed validation family to make the comparison
+less abstract. They are not meant to prove that one backend is always better.
+They show how HydroModPy publishes the same physical benchmark through two
+MODFLOW-family routes.
+
+.. tab-set::
+
+   .. tab-item:: MODFLOW-NWT
+
+      .. figure:: /_static/capability_gallery/validation/linearized_unconfined_hillslope_drainage_1d__modflownwt.png
+         :alt: Linearized unconfined hillslope drainage rendered with MODFLOW-NWT
+         :width: 100%
+
+         The NWT result is the legacy structured-grid reading of the same
+         hillslope drainage benchmark. It is useful as a continuity baseline
+         for older structured MODFLOW studies.
+
+   .. tab-item:: MODFLOW 6
+
+      .. figure:: /_static/capability_gallery/validation/linearized_unconfined_hillslope_drainage_1d__modflow6.png
+         :alt: Linearized unconfined hillslope drainage rendered with MODFLOW 6
+         :width: 100%
+
+         The MF6 result is the modern package-stack reading. It should be
+         compared with the NWT result only after reporting support, package,
+         storage, and solver settings.
+
+The detailed metrics live in the committed gallery case:
+:doc:`../../capability_gallery/cases/linearized_unconfined_hillslope_drainage_1d`.
+
 What Must Be Reported In Comparisons
 ------------------------------------
 

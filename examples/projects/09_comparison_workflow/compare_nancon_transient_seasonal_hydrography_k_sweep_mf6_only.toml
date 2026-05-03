@@ -1,0 +1,247 @@
+workflow = "comparison"
+
+[comparison]
+comparison_id = "nancon_transient_seasonal_hydrography_wide_k_sweep_mf6"
+base_simulation_config = "base_nancon_transient_seasonal_with_hydrography.toml"
+output_root = "outputs/nancon_transient_seasonal_hydrography_wide_k_sweep_mf6"
+reference_simulation = "k_2e4"
+continue_on_error = false
+
+[comparison.execution]
+backend = "subprocess_hmp_run"
+max_parallel_runs = 1
+run_simulations = true
+keep_generated_configs = true
+
+[comparison.audit]
+mode = "strict_same_case"
+on_mismatch = "warn"
+
+[comparison.fine_raster]
+enabled = true
+resolution = 250.0
+extent_mode = "intersection"
+interpolation = "linear"
+write_geotiff = false
+
+[[comparison.simulation]]
+id = "k_5e5"
+label = "MF6 Nancon hydrography K=5e-5 m/s, wider saturated branch"
+solver = "modflow6"
+mesh_label = "Nancon generated catchment support"
+mesh_mode = "mesh_catchment"
+
+[comparison.simulation.overlay.workspace]
+project_root = "outputs/nancon_transient_seasonal_hydrography_wide_k_sweep_mf6/workspace_k_5e5"
+root = "outputs/nancon_transient_seasonal_hydrography_wide_k_sweep_mf6/workspace_k_5e5"
+
+[comparison.simulation.overlay.modflow6.runtime]
+mf6_ims_complexity = "COMPLEX"
+mf6_outer_dvclose = 0.0001
+mf6_inner_dvclose = 0.0001
+mf6_outer_maximum = 500
+mf6_inner_maximum = 500
+mf_verbose = false
+
+[comparison.simulation.overlay.modflow6.process_specific]
+vka = 1.0
+
+[comparison.simulation.overlay.modflow6.sgrid.vertical]
+nlay = 1
+
+[comparison.simulation.overlay.modflow6.tgrid]
+firstpersteady = false
+
+[comparison.simulation.overlay.flow.param.K.field_homogeneous]
+value = "5e-5 m/s"
+
+[comparison.simulation.overlay.flow.param.Ss.field_homogeneous]
+value = "1e-4 m-1"
+
+[comparison.simulation.overlay.flow.param.Sy.field_homogeneous]
+value = "0.05 -"
+
+[comparison.simulation.overlay.flow.bc.cauchy.drainage]
+value = "3e-3 m2/s"
+
+[[comparison.simulation]]
+id = "k_1e4"
+label = "MF6 Nancon hydrography K=1e-4 m/s, Nancon F low"
+solver = "modflow6"
+mesh_label = "Nancon generated catchment support"
+mesh_mode = "mesh_catchment"
+
+[comparison.simulation.overlay.workspace]
+project_root = "outputs/nancon_transient_seasonal_hydrography_wide_k_sweep_mf6/workspace_k_1e4"
+root = "outputs/nancon_transient_seasonal_hydrography_wide_k_sweep_mf6/workspace_k_1e4"
+
+[comparison.simulation.overlay.modflow6.runtime]
+mf6_ims_complexity = "COMPLEX"
+mf6_outer_dvclose = 0.0001
+mf6_inner_dvclose = 0.0001
+mf6_outer_maximum = 500
+mf6_inner_maximum = 500
+mf_verbose = false
+
+[comparison.simulation.overlay.modflow6.process_specific]
+vka = 1.0
+
+[comparison.simulation.overlay.modflow6.sgrid.vertical]
+nlay = 1
+
+[comparison.simulation.overlay.modflow6.tgrid]
+firstpersteady = false
+
+[comparison.simulation.overlay.flow.param.K.field_homogeneous]
+value = "1e-4 m/s"
+
+[comparison.simulation.overlay.flow.param.Ss.field_homogeneous]
+value = "1e-4 m-1"
+
+[comparison.simulation.overlay.flow.param.Sy.field_homogeneous]
+value = "0.05 -"
+
+[comparison.simulation.overlay.flow.bc.cauchy.drainage]
+value = "3e-3 m2/s"
+
+[[comparison.simulation]]
+id = "k_2e4"
+label = "MF6 Nancon hydrography K=2e-4 m/s, Nancon F middle"
+solver = "modflow6"
+mesh_label = "Nancon generated catchment support"
+mesh_mode = "mesh_catchment"
+
+[comparison.simulation.overlay.workspace]
+project_root = "outputs/nancon_transient_seasonal_hydrography_wide_k_sweep_mf6/workspace_k_2e4"
+root = "outputs/nancon_transient_seasonal_hydrography_wide_k_sweep_mf6/workspace_k_2e4"
+
+[comparison.simulation.overlay.modflow6.runtime]
+mf6_ims_complexity = "COMPLEX"
+mf6_outer_dvclose = 0.0001
+mf6_inner_dvclose = 0.0001
+mf6_outer_maximum = 500
+mf6_inner_maximum = 500
+mf_verbose = false
+
+[comparison.simulation.overlay.modflow6.process_specific]
+vka = 1.0
+
+[comparison.simulation.overlay.modflow6.sgrid.vertical]
+nlay = 1
+
+[comparison.simulation.overlay.modflow6.tgrid]
+firstpersteady = false
+
+[comparison.simulation.overlay.flow.param.K.field_homogeneous]
+value = "2e-4 m/s"
+
+[comparison.simulation.overlay.flow.param.Ss.field_homogeneous]
+value = "1e-4 m-1"
+
+[comparison.simulation.overlay.flow.param.Sy.field_homogeneous]
+value = "0.05 -"
+
+[comparison.simulation.overlay.flow.bc.cauchy.drainage]
+value = "3e-3 m2/s"
+
+[[comparison.simulation]]
+id = "k_5e4"
+label = "MF6 Nancon hydrography K=5e-4 m/s, wider dry branch"
+solver = "modflow6"
+mesh_label = "Nancon generated catchment support"
+mesh_mode = "mesh_catchment"
+
+[comparison.simulation.overlay.workspace]
+project_root = "outputs/nancon_transient_seasonal_hydrography_wide_k_sweep_mf6/workspace_k_5e4"
+root = "outputs/nancon_transient_seasonal_hydrography_wide_k_sweep_mf6/workspace_k_5e4"
+
+[comparison.simulation.overlay.modflow6.runtime]
+mf6_ims_complexity = "COMPLEX"
+mf6_outer_dvclose = 0.0001
+mf6_inner_dvclose = 0.0001
+mf6_outer_maximum = 500
+mf6_inner_maximum = 500
+mf_verbose = false
+
+[comparison.simulation.overlay.modflow6.process_specific]
+vka = 1.0
+
+[comparison.simulation.overlay.modflow6.sgrid.vertical]
+nlay = 1
+
+[comparison.simulation.overlay.modflow6.tgrid]
+firstpersteady = false
+
+[comparison.simulation.overlay.flow.param.K.field_homogeneous]
+value = "5e-4 m/s"
+
+[comparison.simulation.overlay.flow.param.Ss.field_homogeneous]
+value = "1e-4 m-1"
+
+[comparison.simulation.overlay.flow.param.Sy.field_homogeneous]
+value = "0.05 -"
+
+[comparison.simulation.overlay.flow.bc.cauchy.drainage]
+value = "3e-3 m2/s"
+
+[[comparison.observable]]
+name = "head_map_after_first_week"
+variable = "watertable_elevation"
+support = "map"
+time = 0
+unit = "m"
+
+[[comparison.observable]]
+name = "head_map_wet_winter"
+variable = "watertable_elevation"
+support = "map"
+time = 8
+unit = "m"
+
+[[comparison.observable]]
+name = "head_map_spring_recession"
+variable = "watertable_elevation"
+support = "map"
+time = 22
+unit = "m"
+
+[[comparison.observable]]
+name = "head_map_summer_storm"
+variable = "watertable_elevation"
+support = "map"
+time = 42
+unit = "m"
+
+[[comparison.observable]]
+name = "head_map_last"
+variable = "watertable_elevation"
+support = "map"
+time = "last"
+unit = "m"
+
+[[comparison.observable]]
+name = "head_outlet_series"
+variable = "watertable_elevation"
+support = "point"
+x = 389273.126405933
+y = 6816556.61306809
+time = "all"
+unit = "m"
+
+[[comparison.observable]]
+name = "head_mid_catchment_series"
+variable = "watertable_elevation"
+support = "point"
+x = 390941.369935479
+y = 6820865.93033605
+time = "all"
+unit = "m"
+
+[[comparison.observable]]
+name = "head_eastern_plateau_series"
+variable = "watertable_elevation"
+support = "point"
+x = 396713.1740067336
+y = 6816807.001469235
+time = "all"
+unit = "m"

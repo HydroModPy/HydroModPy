@@ -24,6 +24,28 @@ Purpose Of This Note
 This note complements the architecture documentation by making the solver-side
 physics and residual assembly explicit.
 
+Result Anchors For The Equations
+--------------------------------
+
+Before reading the residual terms, it helps to keep two committed validation
+figures in mind. They are not decorative examples; they show what the
+mathematical terms below are meant to explain.
+
+.. figure:: /_static/capability_gallery/validation/boussinesq_hillslope_recharge_step_interception_1d__boussinesq.png
+   :alt: Boussinesq hillslope recharge-step interception validation result
+   :width: 100%
+
+   This validation result connects recharge, internal flow, interception, and
+   surface-interaction terms on a controlled hillslope problem.
+
+.. figure:: /_static/scientific/solvers/boussinesq/lower_obstacle_drying_rewetting.png
+   :alt: Boussinesq lower-obstacle drying and rewetting diagnostic
+   :width: 100%
+
+   The lower-obstacle diagnostic is a visual companion for the bounded
+   saturated-thickness interpretation and the drying/rewetting behaviour
+   discussed later in the Boussinesq documentation.
+
 Geometric Setting And Unknowns
 ------------------------------
 

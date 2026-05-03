@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Literal
 
-UnknownLayoutName = Literal["head_only", "head_plus_qex"]
+UnknownLayoutName = Literal["head_only", "head_plus_qex_qdry"]
 SurfaceClosureName = Literal["regularized_partition", "complementarity"]
 
 

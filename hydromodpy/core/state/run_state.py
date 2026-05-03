@@ -26,6 +26,10 @@ from hydromodpy.core.state.data import LoadedDataContext
 from hydromodpy.core.state.execution import ExecutionRegistry
 from hydromodpy.core.state.setup import SetupContext
 
+if TYPE_CHECKING:
+    from hydromodpy.config import HydroModPyConfig
+    from hydromodpy.data.plan import DataLoadPlan
+
 
 @dataclass
 class WorkflowContext:

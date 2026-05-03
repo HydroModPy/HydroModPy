@@ -30,7 +30,7 @@ def test_method_catalog_resolves_complementarity_only_for_petsc() -> None:
     )
 
     assert method.id == "mixed_complementarity"
-    assert method.unknown_layout == "head_plus_qex"
+    assert method.unknown_layout == "head_plus_qex_qdry"
     assert method.surface_closure == "complementarity"
 
     with pytest.raises(NotImplementedError):

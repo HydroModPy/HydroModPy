@@ -54,6 +54,17 @@ the DEM manager:
    path = "data/dem/local_dem.tif"
    mask_path = "data/masks/watershed.gpkg"
 
+The expected output is the same kind of basin-support panel as for public
+providers: a readable DEM, a coherent watershed boundary, and no CRS surprise.
+
+.. figure:: /_static/capability_gallery/geographic/geographic_nancon_identity_card_map_dem.png
+   :alt: Basin DEM panel used as the visual contract for custom DEM data
+   :width: 100%
+
+   A custom DEM should make this support check boring. If the basin appears
+   shifted, cropped, inverted, or empty, fix the local file metadata before
+   changing solver settings.
+
 Local vectors
 -------------
 
@@ -67,6 +78,21 @@ Custom geology vectors need a field that carries the geology code:
    code_field = "CODE_LEG"
    values_table_path = "data/geology/hydraulic_properties.csv"
 
+The rendered geology panel should expose both the spatial units and their
+legend. The important check is that the geology code used by ``code_field`` is
+still interpretable after loading, clipping, reprojection, and optional joining
+with the hydraulic-property table.
+
+.. figure:: /_static/capability_gallery/geographic/geographic_nancon_identity_card_map_geology.png
+   :alt: Geology panel with legend used as the visual contract for custom geology data
+   :width: 100%
+
+   A custom geology layer is ready to drive supports, zones, or hydraulic
+   parameters only when the displayed polygons and legend are readable
+   together. Missing labels, collapsed categories, or unexpected empty zones
+   usually point to a ``code_field`` mismatch, a failed attribute join, or a CRS
+   issue in the source vector.
+
 Custom hydrography can point to a local river-network vector:
 
 .. code-block:: toml
@@ -75,6 +101,16 @@ Custom hydrography can point to a local river-network vector:
    source = "custom"
    path = "data/hydrography/rivers.gpkg"
    rasterize_field = "FID"
+
+For local hydrography, the visual contract is the same as for BD Topage or OSM:
+the loaded river layer must make sense on the basin support.
+
+.. figure:: /_static/capability_gallery/geographic/geographic_nancon_identity_card_map_hydrography.png
+   :alt: Hydrography panel used as the visual contract for custom river data
+   :width: 100%
+
+   Custom river data is authoritative only after it has passed this spatial
+   check. A correct file path is not enough.
 
 Local point and time-series folders
 -----------------------------------
@@ -125,6 +161,17 @@ instead of reshaping source files:
    col_datetime = "date"
    col_value = "Q"
    station_ids = ["J1234010"]
+
+The overview panels should then show both the selected stations and the
+chronicles that were actually ingested.
+
+.. figure:: /_static/capability_gallery/geographic/geographic_nancon_timeseries_discharge.png
+   :alt: Discharge chronicle panel used as the visual contract for custom hydrometry
+   :width: 100%
+
+   For custom time series, the most useful check is not the filename convention
+   itself but the rendered chronology: dates, gaps, units, and station identity
+   must be visible before a solver or calibration run reuses the data.
 
 Controlled sources
 ------------------

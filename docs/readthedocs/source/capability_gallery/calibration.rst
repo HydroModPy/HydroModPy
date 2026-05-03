@@ -25,7 +25,7 @@ How To Read These Pages
 
 - Start with the configuration figure on each case page to identify the truth parameters, observation block, search bounds, and weighting before looking at method performance.
 - Then use the objective landscape and objective trace together: the landscape shows where evaluated candidates concentrate, while the trace shows when the search stabilizes or keeps improving.
-- Only genuinely distribution-valued methods get a posterior figure. In the current gallery this means ``da_mh_gp``; candidate clouds from ``random_search``, ``grid_search``, ``cma_es``, ``simplex``, ``nelder_mead``, or ``gp_mapping`` remain optimization diagnostics, not parameter distributions.
+- On distribution-valued methods, the posterior figure shows the full retained ensemble of plausible parameter values. Its spread matters as much as its peak because it reveals identifiability and uncertainty.
 - Use the benchmark-family pages to compare methods across several inverse problems, then open the individual case pages when you need parameter-level interpretation and timing details.
 
 Benchmark Families

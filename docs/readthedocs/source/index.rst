@@ -55,6 +55,14 @@ diagrams, or UML pages, use :doc:`architecture/index`. If you are looking for
 equations, modelling assumptions, or method notes, use
 :doc:`scientific/index`.
 
+If you are specifically looking for streams, seepage, observed hydrography, or
+simulation-derived active networks, use the map
+:doc:`scientific/streams_and_seepage/index`. It points to the scientific
+semantics, the computed ``simulated_active`` views, comparison outputs,
+developer diagrams, and example figures from one place. For a concrete
+simulation result, open
+:doc:`scientific/streams_and_seepage/nancon-k-sweep-results`.
+
 If you specifically want the quality ladder used in the repository, including
 the usual commands for unit, integration, regression, validation, PETSc, and
 manual benchmark runs, start with
@@ -124,6 +132,16 @@ Documentation map
       ^^^
       Method notes, solver equations, and modelling assumptions separated from
       the software architecture.
+
+   .. grid-item-card::
+      :class-card: sd-shadow-sm sd-rounded-3 sd-p-4
+      :link: scientific/streams_and_seepage/index
+      :link-type: doc
+
+      **Streams and seepage**
+      ^^^
+      One map for observed stream networks, seepage, drainage outflow,
+      simulated active networks, figures, metrics, and developer diagrams.
 
    .. grid-item-card::
       :class-card: sd-shadow-sm sd-rounded-3 sd-p-4

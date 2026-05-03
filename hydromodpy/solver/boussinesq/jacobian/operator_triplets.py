@@ -10,6 +10,7 @@ from hydromodpy.solver.boussinesq.jacobian.common import (
     harmonic_conductivity,
     saturated_thickness_derivative_from_head,
     saturated_thickness_value,
+    storage_thickness_derivative_from_head,
 )
 from hydromodpy.solver.boussinesq.mesh import BoussinesqMesh
 
@@ -65,14 +66,16 @@ def build_sparse_semianalytic_triplets(
         row_parts.append(active)
         col_parts.append(active.copy())
 
+    db_dh = saturated_thickness_derivative_from_head(mesh, head)
+
     if include_storage and dt_seconds is not None:
         dt = float(dt_seconds)
         if dt <= 0.0:
             raise ValueError("dt_seconds must be strictly positive when provided.")
-        storage_diag = mesh.cell_area_m2 * mesh.storage_coefficient / dt
+        storage_db_dh = storage_thickness_derivative_from_head(mesh, head)
+        storage_diag = mesh.cell_area_m2 * mesh.storage_coefficient * storage_db_dh / dt
         _append_diagonal(storage_diag)
 
-    db_dh = saturated_thickness_derivative_from_head(mesh, head)
     if include_internal_flux:
         append_internal_flux_triplets(
             mesh,
