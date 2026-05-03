@@ -30,6 +30,25 @@ class _DummyGeographic:
         self.watershed_buff_dem = "dummy_buff.tif"
 
 
+class _RuntimePlanarMesh:
+    def __init__(self, hydro_mesh: HydroMesh):
+        self._hydro_mesh = hydro_mesh
+
+    def cell_centroids(self):
+        vertices = np.asarray(self._hydro_mesh.vertices, dtype=float)
+        connectivity = self._hydro_mesh.flat_connectivity
+        return np.asarray(
+            [
+                [float(vertices[nodes, 0].mean()), float(vertices[nodes, 1].mean())]
+                for nodes in connectivity
+            ],
+            dtype=float,
+        )
+
+    def to_hydro_mesh(self) -> HydroMesh:
+        return self._hydro_mesh
+
+
 def _build_surface(
     values: np.ndarray,
     *,
@@ -155,36 +174,38 @@ def test_build_spatial_discretization_resamples_to_solver_shape():
     assert ctx.grid.cell_area == pytest.approx((0.5) * (2.0 / 3.0))
 
 
-def test_build_spatial_discretization_uses_runtime_mesh_vertical_bounds():
-    top = np.full((2, 2), 100.0, dtype=float)
+def test_runtime_planar_mesh_uses_domain_surfaces_before_bundle_vertical_fallback():
+    top = np.full((2, 2), 20.0, dtype=float)
+    bottom = np.zeros((2, 2), dtype=float)
     domain = _build_domain_from_dem(top)
-    domain.substratum = _build_surface(np.zeros((2, 2), dtype=float), name="substratum")
+    domain.substratum = _build_surface(bottom, name="substratum")
     hydro_mesh = HydroMesh(
-        vertices=np.asarray(
+        vertices=np.array(
             [
                 [0.0, 0.0],
                 [1.0, 0.0],
-                [0.0, 1.0],
                 [1.0, 1.0],
+                [0.0, 1.0],
             ],
             dtype=float,
         ),
         cell_blocks=(
             CellBlock(
                 CellType.TRIANGLE,
-                np.asarray(
+                np.array(
                     [
                         [0, 1, 2],
-                        [1, 3, 2],
+                        [0, 2, 3],
                     ],
                     dtype=int,
                 ),
             ),
         ),
     )
-    support = SimpleNamespace(
-        cell_z_top_m=np.asarray([30.0, 40.0], dtype=float),
-        cell_z_bottom_m=np.asarray([10.0, 20.0], dtype=float),
+    planar_mesh = _RuntimePlanarMesh(hydro_mesh)
+    runtime_mesh_support = SimpleNamespace(
+        cell_z_top_m=np.array([25.0, 30.0], dtype=float),
+        cell_z_bottom_m=np.array([5.0, 10.0], dtype=float),
     )
 
     ctx = build_spatial_discretization(
@@ -192,25 +213,16 @@ def test_build_spatial_discretization_uses_runtime_mesh_vertical_bounds():
         sgrid_config=SolverSGridConfig(
             vertical=VerticalGridConfig(
                 genmtd_lay="constant",
-                nlay=2,
+                nlay=1,
                 nodata=-9999.0,
             ),
         ),
-        runtime_planar_mesh=_RuntimePlanarMesh(hydro_mesh),
-        runtime_mesh_support=support,
+        runtime_planar_mesh=planar_mesh,
+        runtime_mesh_support=runtime_mesh_support,
     )
 
-    np.testing.assert_allclose(ctx.solver_mesh.top, np.asarray([30.0, 40.0], dtype=float))
-    np.testing.assert_allclose(
-        ctx.solver_mesh.botm,
-        np.asarray(
-            [
-                [20.0, 30.0],
-                [10.0, 20.0],
-            ],
-            dtype=float,
-        ),
-    )
+    assert ctx.solver_mesh.top.tolist() == pytest.approx([20.0, 20.0])
+    assert ctx.solver_mesh.botm.reshape(-1).tolist() == pytest.approx([0.0, 0.0])
 
 
 def test_modflow_requires_canonical_time_grid_for_launcher_flow_preprocessing():
