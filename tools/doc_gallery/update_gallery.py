@@ -15,6 +15,8 @@ import tempfile
 import time
 import tomllib
 from collections import Counter
+from collections.abc import Iterator
+from contextlib import contextmanager
 from dataclasses import replace
 from pathlib import Path
 from typing import Any
@@ -24,6 +26,9 @@ import numpy as np
 from tools.mesh_bundle_viewer.runner.visualization_runner import (
     load_toml_config,
     run_visualization,
+)
+from validation_cases.calibration.shared.definitions import (
+    method_returns_parameter_distribution,
 )
 
 from .gallery_manifest import (
@@ -37,9 +42,6 @@ from .mesh_case_registry import (
 )
 from .mesh_case_registry import (
     scale_label as mesh_scale_label,
-)
-from validation_cases.calibration.shared.definitions import (
-    method_returns_parameter_distribution,
 )
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -114,10 +116,46 @@ def _gallery_temp_root() -> Path:
     return temp_root
 
 
-def _temporary_gallery_dir(*, prefix: str) -> tempfile.TemporaryDirectory[str]:
+@contextmanager
+def _temporary_gallery_dir(*, prefix: str) -> Iterator[str]:
     """Create one temporary directory under the gallery temp root."""
 
-    return tempfile.TemporaryDirectory(prefix=prefix, dir=_gallery_temp_root())
+    temp_path = Path(tempfile.mkdtemp(prefix=prefix, dir=_gallery_temp_root()))
+    try:
+        yield str(temp_path)
+    finally:
+        shutil.rmtree(_filesystem_path(temp_path), ignore_errors=True)
+
+
+def _windows_extended_length_path(path: Path) -> str:
+    """Return a Windows long-path spelling while keeping normal paths unchanged."""
+    normalized = path.expanduser().resolve()
+    text = str(normalized)
+    if text.startswith("\\\\?\\"):
+        return text
+    if text.startswith("\\\\"):
+        return "\\\\?\\UNC\\" + text.lstrip("\\")
+    return "\\\\?\\" + text
+
+
+def _filesystem_path(path: Path) -> Path | str:
+    if os.name != "nt":
+        return path
+    return _windows_extended_length_path(path)
+
+
+def _copy_file(source_path: Path, destination_path: Path) -> None:
+    if os.name == "nt":
+        shutil.copy2(
+            _windows_extended_length_path(source_path),
+            _windows_extended_length_path(destination_path),
+        )
+        return
+    shutil.copy2(source_path, destination_path)
+
+
+def _read_bytes(path: Path) -> bytes:
+    return Path(_filesystem_path(path)).read_bytes()
 
 
 def _load_calibration_benchmark_families() -> dict[str, dict[str, Any]]:
@@ -452,7 +490,7 @@ def _copy_summary_artifacts_from_baseline(
         if source_path.resolve() == destination_path.resolve():
             continue
         destination_path.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copy2(source_path, destination_path)
+        _copy_file(source_path, destination_path)
 
 
 def _summary_richness(summary: dict[str, Any]) -> tuple[int, int, int]:
@@ -707,7 +745,9 @@ def _compare_selected_generated_tree(
             issues.append(f"Missing generated file: {relative_path}")
             continue
         suffix = Path(relative_path).suffix.lower()
-        if suffix in TEXTUAL_SUFFIXES and expected_path.read_bytes() != committed_path.read_bytes():
+        if suffix in TEXTUAL_SUFFIXES and _read_bytes(expected_path) != _read_bytes(
+            committed_path
+        ):
             issues.append(f"Stale generated file: {relative_path}")
 
     for relative_path in sorted(stale_relative_paths or set()):
@@ -1010,7 +1050,7 @@ def _generate_mesh_viewer_case(spec: GalleryCaseSpec, source_root: Path) -> dict
         for asset in preferred_assets:
             destination = source_root / _docs_relative_static_path(spec.category, asset.filename)
             destination.parent.mkdir(parents=True, exist_ok=True)
-            shutil.copy2(_repo_path(str(asset.source_path)), destination)
+            _copy_file(_repo_path(str(asset.source_path)), destination)
     else:
         figure_path = source_root / _docs_relative_static_path(
             spec.category, spec.image_assets[0].filename
@@ -1051,7 +1091,7 @@ def _generate_copy_assets_case(spec: GalleryCaseSpec, source_root: Path) -> dict
             raise ValueError(f"Gallery asset {asset.filename} is missing source_path.")
         destination = source_root / _docs_relative_static_path(spec.category, asset.filename)
         destination.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copy2(_repo_path(asset.source_path), destination)
+        _copy_file(_repo_path(asset.source_path), destination)
         copied_assets.append(
             {
                 "source_path": asset.source_path,
@@ -1466,7 +1506,7 @@ def _generate_regional_lab_case(spec: GalleryCaseSpec, source_root: Path) -> dic
         ):
             destination = static_dir / dest_name
             if payload is None:
-                shutil.copy2(source_artifact, destination)
+                _copy_file(source_artifact, destination)
             else:
                 _write_json(destination, payload)
             copied_artifact_names.append(dest_name)
@@ -1917,7 +1957,7 @@ def _copy_generated_gallery_image(
     if source_path is None or not source_path.is_file():
         return False
     destination.parent.mkdir(parents=True, exist_ok=True)
-    shutil.copy2(source_path, destination)
+    _copy_file(source_path, destination)
     return True
 
 
@@ -7841,9 +7881,8 @@ def _compare_generated_trees(
         suffix = Path(relative_path).suffix.lower()
         if suffix not in TEXTUAL_SUFFIXES:
             continue
-        if (
-            expected_files[relative_path].read_bytes()
-            != committed_files[relative_path].read_bytes()
+        if _read_bytes(expected_files[relative_path]) != _read_bytes(
+            committed_files[relative_path]
         ):
             issues.append(f"Stale generated file: {relative_path}")
 
