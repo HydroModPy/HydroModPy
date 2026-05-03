@@ -42,7 +42,7 @@ class ConcentrationMap(BaseFigure):
         c = np.asarray(sim.field("concentration", timestep=ts, layer=layer))
         if c.ndim == 2:
             c = c[0]
-        render_face_field(ax, sim, c, cmap=cmap, cbar_label="Concentration")
+        render_face_field(ax, sim, c, cmap=cmap, cbar_label=self.axis_label_for("concentration"))
         ax.set_title(f"Concentration - {sim.name or sim.sim_id}")
         ax.set_xlabel("x (m)")
         ax.set_ylabel("y (m)")

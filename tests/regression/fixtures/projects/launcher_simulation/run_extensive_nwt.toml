@@ -11,11 +11,7 @@ solvers = ["modflownwt"]
 [[simulation.process]]
 id = "transport_main"
 type = "transport"
-solvers = ["modpath", "mt3dms"]
-
-[transport.modpath.parameters]
-zone_partic = "seepage_clip"
-track_dir = "backward"
+solvers = ["mt3dms"]
 
 [transport.mt3dms.parameters]
 spc_name = "NO3"

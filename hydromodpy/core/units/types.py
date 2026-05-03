@@ -39,7 +39,7 @@ from __future__ import annotations
 
 from typing import Annotated, Any
 
-from pydantic import BeforeValidator, Field
+from pydantic import BeforeValidator, Field, PlainSerializer
 
 from hydromodpy.core.units.registry import UREG
 
@@ -56,6 +56,24 @@ def _coerce_bare_number(unit: str):
         return value
 
     return _coerce
+
+
+def _to_canonical_magnitude(unit: str):
+    """Build a PlainSerializer that emits the canonical-unit magnitude.
+
+    Falls back to ``float(value)`` when the value is a bare number, which can
+    happen for unvalidated defaults assigned via ``Field(default=...)``.
+    """
+
+    def _ser(value: Any) -> Any:
+        if value is None:
+            return None
+        to = getattr(value, "to", None)
+        if callable(to):
+            return float(value.to(unit).magnitude)
+        return float(value)
+
+    return _ser
 
 
 def _pint_annotation(unit: str):
@@ -77,6 +95,7 @@ Length = Annotated[
     Any,
     _pint_annotation("m"),
     BeforeValidator(_coerce_bare_number("m")),
+    PlainSerializer(_to_canonical_magnitude("m"), return_type=float, when_used="unless-none"),
 ]
 """Length in metres. Accepts ``1.0``, ``"1.0 m"``, ``"100 cm"``, ..."""
 
@@ -85,6 +104,7 @@ Area = Annotated[
     Any,
     _pint_annotation("m**2"),
     BeforeValidator(_coerce_bare_number("m**2")),
+    PlainSerializer(_to_canonical_magnitude("m**2"), return_type=float, when_used="unless-none"),
 ]
 """Area in square metres."""
 
@@ -93,6 +113,7 @@ Volume = Annotated[
     Any,
     _pint_annotation("m**3"),
     BeforeValidator(_coerce_bare_number("m**3")),
+    PlainSerializer(_to_canonical_magnitude("m**3"), return_type=float, when_used="unless-none"),
 ]
 """Volume in cubic metres."""
 
@@ -105,6 +126,7 @@ Time = Annotated[
     Any,
     _pint_annotation("s"),
     BeforeValidator(_coerce_bare_number("s")),
+    PlainSerializer(_to_canonical_magnitude("s"), return_type=float, when_used="unless-none"),
 ]
 """Duration in seconds. Accepts ``"1 day"``, ``"3600 s"``, ``86400``, ..."""
 
@@ -117,8 +139,22 @@ FlowRate = Annotated[
     Any,
     _pint_annotation("m**3/s"),
     BeforeValidator(_coerce_bare_number("m**3/s")),
+    PlainSerializer(_to_canonical_magnitude("m**3/s"), return_type=float, when_used="unless-none"),
 ]
 """Volumetric flow rate in m^3/s."""
+
+
+# ---------------------------------------------------------------------------
+# Velocity / flux density
+# ---------------------------------------------------------------------------
+
+Velocity = Annotated[
+    Any,
+    _pint_annotation("m/s"),
+    BeforeValidator(_coerce_bare_number("m/s")),
+    PlainSerializer(_to_canonical_magnitude("m/s"), return_type=float, when_used="unless-none"),
+]
+"""Velocity / flux density in m/s. Accepts ``1e-8``, ``"1 mm/day"``, ``"0.36 m/h"``."""
 
 
 # ---------------------------------------------------------------------------
@@ -129,6 +165,7 @@ HydraulicConductivity = Annotated[
     Any,
     _pint_annotation("m/s"),
     BeforeValidator(_coerce_bare_number("m/s")),
+    PlainSerializer(_to_canonical_magnitude("m/s"), return_type=float, when_used="unless-none"),
 ]
 """Hydraulic conductivity (K) in m/s. Accepts ``"1e-4 m/s"``, ``"0.36 m/h"``, ``1e-4``."""
 
@@ -137,6 +174,7 @@ SpecificStorage = Annotated[
     Any,
     _pint_annotation("1/m"),
     BeforeValidator(_coerce_bare_number("1/m")),
+    PlainSerializer(_to_canonical_magnitude("1/m"), return_type=float, when_used="unless-none"),
 ]
 """Specific storage (Ss) in m^-1."""
 
@@ -144,7 +182,7 @@ SpecificStorage = Annotated[
 # SpecificYield is genuinely dimensionless with a physical range [0, 1].
 SpecificYield = Annotated[
     float,
-    Field(ge=0.0, le=1.0),
+    Field(ge=0.0, le=1.0, description="Specific yield (Sy), dimensionless in [0, 1]."),
 ]
 """Specific yield (Sy), a pure number in [0, 1]."""
 
@@ -154,6 +192,9 @@ Dimensionless = Annotated[
     Any,
     _pint_annotation("dimensionless"),
     BeforeValidator(_coerce_bare_number("dimensionless")),
+    PlainSerializer(
+        _to_canonical_magnitude("dimensionless"), return_type=float, when_used="unless-none"
+    ),
 ]
 """Dimensionless pint Quantity (``-``)."""
 
@@ -167,5 +208,6 @@ __all__ = [
     "SpecificStorage",
     "SpecificYield",
     "Time",
+    "Velocity",
     "Volume",
 ]

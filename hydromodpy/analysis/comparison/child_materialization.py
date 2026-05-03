@@ -11,17 +11,17 @@ from hydromodpy.analysis.comparison.experiment_config import (
     ComparisonSimulationConfig,
     SimulationComparisonConfig,
 )
-from hydromodpy.analysis.comparison.runtime import (
+from hydromodpy.analysis.comparison.runtime_config import (
     _build_solver_process_overlay,
     _deepcopy_jsonlike,
     _overlay_defines_process,
     write_toml_payload,
 )
-from hydromodpy.core.config.path_resolution import is_declared_absolute_path
-from hydromodpy.core.config.toml_loader import (
+from hydromodpy.core.toml_io.loader import (
     load_toml_with_base_config,
     merge_toml_payloads,
 )
+from hydromodpy.core.toml_io.paths import is_declared_absolute_path
 
 ALLOWED_TOP_LEVEL_OVERLAY_KEYS = {
     "simulation",
@@ -75,8 +75,7 @@ def validate_numeric_overlay(overlay: Mapping[str, Any]) -> None:
         if unknown_simulation_keys:
             keys = ", ".join(unknown_simulation_keys)
             raise ValueError(
-                "comparison.simulation.overlay.simulation contains forbidden keys: "
-                f"{keys}"
+                f"comparison.simulation.overlay.simulation contains forbidden keys: {keys}"
             )
 
     flow = overlay.get("flow")
@@ -84,10 +83,7 @@ def validate_numeric_overlay(overlay: Mapping[str, Any]) -> None:
         unknown_flow_keys = sorted(set(flow) - ALLOWED_FLOW_OVERLAY_KEYS)
         if unknown_flow_keys:
             keys = ", ".join(unknown_flow_keys)
-            raise ValueError(
-                "comparison.simulation.overlay.flow contains forbidden keys: "
-                f"{keys}"
-            )
+            raise ValueError(f"comparison.simulation.overlay.flow contains forbidden keys: {keys}")
 
 
 def _child_run_name(*, comparison_id: str, simulation_id: str) -> str:
@@ -113,8 +109,7 @@ def _absolutize_relative_path_values(value: Any, *, source_dir: Path, key: str =
         }
     if isinstance(value, list):
         return [
-            _absolutize_relative_path_values(item, source_dir=source_dir, key=key)
-            for item in value
+            _absolutize_relative_path_values(item, source_dir=source_dir, key=key) for item in value
         ]
     if not isinstance(value, str) or not _looks_like_path_key(key):
         return value

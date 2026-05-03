@@ -170,7 +170,7 @@ def _solve_nonlinear_system(
         # Rebuild the Jacobian at each iterate so the linearization stays
         # consistent with the current nonlinear state.
         return build_dense_fd_jacobian(
-            lambda candidate: assembly_for(candidate).residual_m3_s,
+            lambda candidate: assembly_for(candidate).solver_residual,
             head_m,
             residual_m3_s,
             rel_step=float(fd_rel_step),
@@ -200,10 +200,7 @@ def _solve_nonlinear_system(
     )
 
 
-LocalStepSolveResult = RuntimeSolveResult
-
 __all__ = [
-    "LocalStepSolveResult",
     "solve_backward_euler_step",
     "solve_steady_problem",
     "solve_steady_state",

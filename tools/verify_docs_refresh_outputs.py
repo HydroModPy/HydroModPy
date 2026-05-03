@@ -13,7 +13,9 @@ DEFAULT_ALLOWED_PREFIXES = (
     "docs/readthedocs/source/_static/capability_gallery/",
     "validation_cases/reports/latest/",
 )
-DEFAULT_ALLOWED_FILES = ("tools/doc_gallery/manifests/xt3d_irregular_tri_method_choice_report.json",)
+DEFAULT_ALLOWED_FILES = (
+    "tools/doc_gallery/manifests/xt3d_irregular_tri_method_choice_report.json",
+)
 
 
 @dataclass(frozen=True, slots=True)

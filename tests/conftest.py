@@ -86,19 +86,6 @@ def _ensure_test_scratch_dirs() -> None:
         path.mkdir(parents=True, exist_ok=True)
 
 
-def _ensure_pytest_basetemp(config: pytest.Config) -> None:
-    """Materialize pytest's temp root and recreate it if cleanup removed it."""
-    _ensure_test_scratch_dirs()
-    tmp_path_factory = getattr(config, "_tmp_path_factory", None)
-    if tmp_path_factory is None:
-        return
-    try:
-        tmp_path_factory.getbasetemp().mkdir(parents=True, exist_ok=True)
-    except FileNotFoundError:
-        _ensure_test_scratch_dirs()
-        tmp_path_factory.getbasetemp().mkdir(parents=True, exist_ok=True)
-
-
 def pytest_addoption(parser):
     """Add a CLI switch to refresh regression golden references."""
     parser.addoption(
@@ -107,18 +94,6 @@ def pytest_addoption(parser):
         default=False,
         help="Rewrite regression golden JSON files with current outputs.",
     )
-
-
-def pytest_configure(config: pytest.Config) -> None:
-    """Create pytest temp roots before the first fixture asks for ``tmp_path``."""
-    _ensure_pytest_basetemp(config)
-
-
-@pytest.hookimpl(tryfirst=True)
-def pytest_fixture_setup(fixturedef, request) -> None:
-    """Recreate pytest's cached basetemp immediately before tmp fixtures run."""
-    if fixturedef.argname in {"tmp_path", "tmpdir"}:
-        _ensure_pytest_basetemp(request.config)
 
 
 @pytest.fixture(scope="session")
@@ -153,7 +128,7 @@ def tmp_workspace(tmp_path: Path) -> Path:
 
 @pytest.fixture
 def minimal_config(tmp_path: Path):
-    """Return a minimal valid :class:`~hydromodpy.core.config.hydromodpy_config.HydroModPyConfig`.
+    """Return a minimal valid :class:`~hydromodpy.master_config.hydromodpy_config.HydroModPyConfig`.
 
     Only the two required sub-configs are populated: ``workspace``
     (``project_root`` pointing at *tmp_path*) and ``geographic``
@@ -162,8 +137,8 @@ def minimal_config(tmp_path: Path):
     ``default_factory``.  Tests that need a specific flow/solver block
     should extend the returned instance via ``model_copy(update=...)``.
     """
-    from hydromodpy.core.config import HydroModPyConfig
     from hydromodpy.core.workspace.config import WorkspaceConfig
+    from hydromodpy.master_config import HydroModPyConfig
     from hydromodpy.spatial.geographic.geographic_config import GeographicConfig
 
     return HydroModPyConfig(
@@ -239,7 +214,11 @@ def pytest_collection_modifyitems(config, items):
 
 def pytest_runtest_setup(item):
     """Keep pytest's shared temp roots available even after test-side cleanup."""
-    _ensure_pytest_basetemp(item.session.config)
+    _ensure_test_scratch_dirs()
+    tmp_path_factory = getattr(item.session.config, "_tmp_path_factory", None)
+    if tmp_path_factory is None:
+        return
+    tmp_path_factory.getbasetemp().mkdir(parents=True, exist_ok=True)
 
 
 def pytest_sessionfinish(session, exitstatus):

@@ -11,6 +11,7 @@ code assignments. Codes follow the ``HMPY.Exxx`` convention.
 
 from __future__ import annotations
 
+from collections.abc import Iterable
 from typing import Any
 
 
@@ -337,6 +338,40 @@ class ZarrStoreError(StorageError):
     code = "HMPY.E802"
 
 
+# -- Results -------------------------------------------------------------------
+
+
+class ResultsError(HydroModPyError):
+    """Results / postprocessing failure."""
+
+    code = "HMPY.E900"
+
+
+class UnknownFieldError(ResultsError):
+    """Requested field name is not registered in the canonical field registry."""
+
+    code = "HMPY.E901"
+
+    def __init__(
+        self,
+        name: str,
+        available: Iterable[str],
+        *,
+        sim_id: str | None = None,
+        run_id: str | None = None,
+        **context: Any,
+    ) -> None:
+        avail = tuple(sorted(available))
+        message = (
+            f"Field {name!r} is not registered. Available fields: {', '.join(avail)}"
+            if avail
+            else f"Field {name!r} is not registered."
+        )
+        super().__init__(message, sim_id=sim_id, run_id=run_id, **context)
+        self.name = name
+        self.available = avail
+
+
 __all__ = [
     "HydroModPyError",
     # Config
@@ -388,4 +423,7 @@ __all__ = [
     "StorageError",
     "CatalogError",
     "ZarrStoreError",
+    # Results
+    "ResultsError",
+    "UnknownFieldError",
 ]

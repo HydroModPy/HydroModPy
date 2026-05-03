@@ -1,19 +1,17 @@
-"""Geology-to-property transfer demo using the generic field pipeline."""
+"""Geology-to-property transfer demo using the generic field pipeline.
+
+Run with:
+    python -m hydromodpy.data.variables.geology.cases.run_geology_property_case
+"""
 
 from __future__ import annotations
 
 import argparse
-import sys
-from pathlib import Path
 
 import matplotlib.pyplot as plt
 import numpy as np
 from rasterio.features import rasterize
 from rasterio.transform import from_bounds
-
-REPO_ROOT = Path(__file__).resolve().parents[5]
-if str(REPO_ROOT) not in sys.path:
-    sys.path.insert(0, str(REPO_ROOT))
 
 from hydromodpy.core.units import parse_length_to_m
 from hydromodpy.data.variables.geology.cases.common import (
@@ -29,6 +27,7 @@ from hydromodpy.data.variables.geology.processing import (
     uniformize_sea_zone_on_dataframe,
 )
 from hydromodpy.spatial.field.core.field_param import FieldParam
+from hydromodpy.spatial.field.core.field_param_io import field_param_from_toml
 from hydromodpy.spatial.field.geology.geology_field import GeologyField
 from hydromodpy.spatial.field.geology.geology_mesh import GeologyStructuredMesh
 
@@ -184,7 +183,7 @@ def _load_display_geology(args, geology_config_path):
 
 
 def _load_and_validate_field_param(args, field_param_path, *, expected_field_id: str):
-    field_param = FieldParam.from_toml(field_param_path, section=args.field_param_section)
+    field_param = field_param_from_toml(field_param_path, section=args.field_param_section)
     if field_param.is_homogeneous:
         raise ValueError("This demo expects a heterogeneous FieldParam (kind='heterogeneous').")
     if str(field_param.field_spatial_id) != str(expected_field_id):

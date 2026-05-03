@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-from pathlib import Path
-
 import numpy as np
 import pytest
 
@@ -85,8 +83,8 @@ def test_extruded_mesh_values_reject_invalid_shape():
         _ = attach_extruded_values(mesh_3d, np.array([1.0, 2.0, 3.0], dtype=float))
 
 
-def test_extruded_mesh_values_vtu_roundtrip_if_meshio_available():
-    pytest.importorskip("meshio")
+def test_extruded_mesh_values_vtu_roundtrip_if_meshio_available(tmp_path):
+    import meshio  # noqa: F401
 
     mesh_3d = _build_mesh_3d()
     attached = attach_extruded_values(
@@ -96,9 +94,7 @@ def test_extruded_mesh_values_vtu_roundtrip_if_meshio_available():
         prism_center_depths=np.array([[2.5, 2.5], [10.0, 10.0]], dtype=float),
     )
 
-    output_dir = Path.cwd() / "scratch_tests" / "extruded_mesh_values" / "runtime"
-    output_dir.mkdir(parents=True, exist_ok=True)
-    path = output_dir / "values_3d.vtu"
+    path = tmp_path / "values_3d.vtu"
     attached.to_file(path, value_name="K_value", depth_name="depth_center")
     reread = ExtrudedPrismMeshWithValues.from_file(
         path,

@@ -9,25 +9,18 @@ For now the review set is built from the square-domain examples, with a few
 controlled variations of mesh type and field heterogeneity. This keeps the
 launcher lightweight while still giving a quick visual tour of the current
 `field/cases` capabilities.
+
+Run with:
+    python -m hydromodpy.spatial.field.cases.review_cases
 """
 
 from __future__ import annotations
 
 import argparse
-import sys
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
-
-# Ensure repository root is importable when the script is launched directly.
-# ``review_cases.py`` lives under ``hydromodpy/spatial/field/cases/``, so the
-# repository root is four levels up. Inserting ``.../hydromodpy`` here would
-# shadow the legacy top-level ``launchers`` package with
-# ``hydromodpy/launchers`` modules during test collection.
-REPO_ROOT = Path(__file__).resolve().parents[4]
-if str(REPO_ROOT) not in sys.path:
-    sys.path.insert(0, str(REPO_ROOT))
 
 CASES_DIR = Path(__file__).resolve().parent
 OUTPUT_DIR = CASES_DIR / "outputs" / "review_cases"

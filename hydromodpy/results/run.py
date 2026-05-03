@@ -1,18 +1,66 @@
+"""Single-simulation view on the results catalog.
+
+What
+----
+Read-only facade over one row of the ``simulations`` table. ``Run`` lazy-loads
+its catalog row on first access and exposes typed properties (``solver``,
+``status``, ``n_layers`` ...), tabular accessors (``parameters``, ``metrics``,
+``timeseries``, ``budget``, ``mass_balance``, ``provenance``), field-array
+readers (``field``, ``mesh``, ``geographic``, ``geographic_raster``) and
+spatial helpers (``grid``, ``catchment_mask``, ``dem``, ``outlet``). Heavier
+xarray / UGRID readers (``dataset``, ``to_xarray_batch``, ``at``) live on the
+:class:`hydromodpy.results.run_array.RunArrayProvider` exposed as
+``run.array``. Derived catchment views are module-level functions in
+:mod:`hydromodpy.results.views` (``saturated_fraction``, ``drainage_density``,
+``persistence``, ``catchment_mean``, ``recharge_forcing``).
+
+Why
+---
+Notebook and script users need a stable per-simulation handle that hides the
+DuckDB / Zarr split. Caching is per-instance to avoid repeated catalog hits
+inside a session; cross-process freshness is handled by the catalog itself.
+
+Public API
+----------
+- ``Run``: instantiated by ``SimulationCatalog`` resolution methods. Also
+  exposes ``rerun(**overrides)`` to spawn a derived simulation, and
+  ``run.array`` for xarray / UGRID readers.
+- :class:`hydromodpy.results.run_loader.RunLoaderAdapter` builds a ``Run``
+  from a TOML / JSON / dict config payload.
+- :class:`hydromodpy.results.run_export.RunExportAdapter` writes per-run
+  archives (``to_csv``, ``export``).
+- :class:`hydromodpy.results.run_array.RunArrayProvider` exposes
+  ``dataset``, ``to_xarray_batch`` and the ``at(timestep, layer)`` accessor.
+
+Cross-refs
+----------
+- ``hydromodpy.results.catalog.SimulationCatalog`` owns this object's data.
+- ``hydromodpy.results.simulation_group.SimulationGroup`` iterates over
+  ``Run`` instances.
+- ``hydromodpy.results.grid.Grid`` backs the spatial helpers.
+- ``hydromodpy.results.derived`` provides the derived-metric implementations.
+"""
+
 from __future__ import annotations
 
-import json
-import logging
+import json as _json
 from functools import cached_property
-from pathlib import Path
 from typing import TYPE_CHECKING
 
 import numpy as np
 import pandas as pd
 
-logger = logging.getLogger(__name__)
+from hydromodpy.core.config_kit.root_config_protocol import get_root_config_provider
+from hydromodpy.core.logging import get_logger
+from hydromodpy.results import field_registry
+from hydromodpy.results.contracts import Mesh, RasterField, Stack
+from hydromodpy.results.run_array import RunArrayProvider, lookup_zarr_path
+
+logger = get_logger(__name__)
 
 if TYPE_CHECKING:
     import geopandas as gpd
+    from pydantic import BaseModel
 
     from hydromodpy.results.catalog import SimulationCatalog
     from hydromodpy.results.grid import Grid
@@ -23,6 +71,18 @@ class Run:
         self._sim_id = sim_id
         self._catalog = catalog
         self._row: dict | None = None
+        self.array = RunArrayProvider(self)
+
+    @classmethod
+    def from_id(cls, catalog: SimulationCatalog, sim_id: str) -> Run:
+        """Build a ``Run`` view from an existing ``sim_id`` in the catalog.
+
+        Validates that the simulation exists by triggering one row load.
+        Raises ``KeyError`` when the id is unknown.
+        """
+        run = cls(sim_id, catalog)
+        run._load_row()
+        return run
 
     def _load_row(self) -> dict:
         if self._row is None:
@@ -40,11 +100,6 @@ class Run:
 
     @property
     def sim_id(self) -> str:
-        return self._sim_id
-
-    @property
-    def id(self) -> str:
-        """Alias for :attr:`sim_id` matching the public API (``run.id``)."""
         return self._sim_id
 
     @property
@@ -80,13 +135,33 @@ class Run:
         return self._load_row().get("duration_s")
 
     @property
-    def config(self) -> dict | None:
-        val = self._load_row().get("config_toml")
+    def config_snapshot(self) -> dict | None:
+        """Raw config payload stored in the catalog as a dict.
+
+        Returns the JSON-decoded snapshot persisted at registration time
+        (full ``HydroModPyConfig.model_dump(mode='json')``). Use
+        :attr:`hydromodpy_config` for a validated Pydantic instance.
+        """
+        val = self._load_row().get("config_snapshot")
         if val is None:
             return None
         if isinstance(val, str):
-            return json.loads(val)
+            return _json.loads(val)
         return val
+
+    @property
+    def hydromodpy_config(self) -> BaseModel:
+        """Validated :class:`HydroModPyConfig` rebuilt from the stored snapshot.
+
+        Raises ``ValueError`` when no snapshot was persisted for this run.
+        """
+        snapshot = self.config_snapshot
+        if snapshot is None:
+            raise ValueError(
+                f"Simulation '{self._sim_id}' has no config snapshot; "
+                "cannot rebuild HydroModPyConfig."
+            )
+        return get_root_config_provider().from_dict(snapshot)
 
     @property
     def tags(self) -> list[str] | None:
@@ -103,6 +178,42 @@ class Run:
     @property
     def n_timesteps(self) -> int | None:
         return self._load_row().get("n_timesteps")
+
+    # -- Summary -------------------------------------------------------------
+
+    def summary(self, json: bool = False) -> dict | str:
+        """Return a compact metadata snapshot of this run.
+
+        Picks the headline catalog fields (identity, solver, status,
+        timing, mesh sizes, tags). Datetime values are kept as Python
+        objects in dict form; with ``json=True`` they are stringified
+        and the whole payload is returned as a JSON string.
+        """
+        row = self._load_row()
+        keys = (
+            "name",
+            "project",
+            "solver",
+            "solver_category",
+            "flow_regime",
+            "status",
+            "created_at",
+            "duration_s",
+            "n_layers",
+            "n_cells",
+            "n_timesteps",
+            "tags",
+        )
+        data: dict = {"sim_id": self._sim_id}
+        for key in keys:
+            data[key] = row.get(key)
+        if json:
+            return _json.dumps(data, default=str, indent=2, sort_keys=False)
+        return data
+
+    def at(self, timestep: int = -1, layer: int | None = None):
+        """Return the chainable array accessor for one time/layer slice."""
+        return self.array.at(timestep=timestep, layer=layer)
 
     # -- Tabular data properties ---------------------------------------------
 
@@ -183,6 +294,65 @@ class Run:
             name=variable,
         )
 
+    def observed(
+        self,
+        variable: str,
+        station: str | None = None,
+        period: tuple | None = None,
+    ) -> pd.DataFrame:
+        """Return observed timeseries ingested for this simulation.
+
+        Observation series are persisted in the catalog ``timeseries`` table
+        with an ``_obs`` suffix on the variable name (see
+        :func:`hydromodpy.simulation.extraction.extractors.observation_ingest.ingest_observations`).
+        This accessor strips that suffix on read so callers query with the
+        canonical variable name (``discharge``, ``head``, ...).
+
+        Parameters
+        ----------
+        variable : str
+            Canonical variable name (no ``_obs`` suffix).
+        station : str, optional
+            Station id to filter on. When ``None``, every observed station
+            for ``variable`` is returned.
+        period : tuple, optional
+            ``(start, end)`` datetime bounds, inclusive on both ends.
+
+        Returns
+        -------
+        pd.DataFrame
+            Long-form frame with columns ``station_id``, ``datetime``,
+            ``value``. Datetimes are tz-naive UTC.
+
+        Raises
+        ------
+        ValueError
+            When no observation rows match the filter.
+        """
+        obs_variable = f"{variable}_obs"
+        query = (
+            "SELECT station_id, datetime, value FROM timeseries WHERE sim_id = ? AND variable = ?"
+        )
+        params: list = [self._sim_id, obs_variable]
+        if station is not None:
+            query += " AND station_id = ?"
+            params.append(station)
+        if period is not None:
+            query += " AND datetime >= ? AND datetime <= ?"
+            params.extend([period[0], period[1]])
+        query += " ORDER BY station_id, datetime"
+        df = self._catalog.connection.execute(query, params).fetchdf()
+        if df.empty:
+            station_msg = f", station={station}" if station is not None else ""
+            raise ValueError(
+                f"No observations for sim={self._sim_id}, variable={variable}{station_msg}"
+            )
+        idx = pd.DatetimeIndex(df["datetime"])
+        if idx.tz is not None:
+            idx = idx.tz_convert("UTC").tz_localize(None)
+        df["datetime"] = idx
+        return df
+
     def budget(
         self,
         component: str | None = None,
@@ -216,44 +386,45 @@ class Run:
         layer: int | None = None,
     ) -> np.ndarray:
         sz = self._catalog.open_zarr(self._sim_id)
-        n_ts = self._load_row().get("n_timesteps")
-        if n_ts is not None and timestep < 0:
-            timestep = n_ts + timestep
-        return sz.read_field(variable, timestep, layer=layer)
-
-    def has_field(self, variable: str, *, subgroup: str | None = None) -> bool:
-        """Return true when ``variable`` is persisted in the simulation Zarr."""
-        sz = self._catalog.open_zarr(self._sim_id)
         try:
-            if subgroup is not None:
-                target = sz.root.get(subgroup)
-                return target is not None and variable in target
-            for loc_name in (None, "derived", "budget"):
-                target = sz.root if loc_name is None else sz.root.get(loc_name)
-                if target is not None and variable in target:
-                    return True
-            return False
+            n_ts = self._load_row().get("n_timesteps")
+            if n_ts is not None and timestep < 0:
+                timestep = n_ts + timestep
+            return sz.read_field(variable, timestep, layer=layer)
         finally:
             sz.close()
 
-    def at(self, timestep: int = -1, layer: int | None = None) -> _AtAccessor:
-        """Return a chainable accessor bound to ``(timestep, layer)``.
-
-        Enables ``sim.at(timestep=5).field("head")`` - the dual spelling of
-        ``sim.field("head", timestep=5)``. Useful in notebook sessions where
-        the same slice is reused across several variables.
-        """
-        return _AtAccessor(self, timestep=timestep, layer=layer)
+    def has_field(self, variable: str, *, subgroup: str | None = None) -> bool:
+        """Return true when a field array is persisted in this run's Zarr store."""
+        sz = self._catalog.open_zarr(self._sim_id)
+        try:
+            if subgroup is not None:
+                group = sz.root.get(subgroup)
+                return group is not None and variable in group
+            if field_registry.has(variable):
+                return lookup_zarr_path(sz.root, field_registry.get(variable).zarr_path) is not None
+            return any(
+                variable in group
+                for group in (sz.root, sz.root.get("derived"), sz.root.get("budget"))
+                if group is not None
+            )
+        finally:
+            sz.close()
 
     @property
-    def mesh(self) -> dict:
+    def mesh(self) -> Mesh:
+        if self._load_row().get("solver_category") == "lumped":
+            raise RuntimeError("lumped simulation has no spatial grid")
         sz = self._catalog.open_zarr(self._sim_id)
-        mesh_grp = sz.root["mesh"]
-        return {
-            "vertices": mesh_grp["vertices"][:],
-            "face_node_connectivity": mesh_grp["face_node_connectivity"][:],
-            "z_interfaces": mesh_grp["z_interfaces"][:],
-        }
+        try:
+            mesh_grp = sz.root["mesh"]
+            return Mesh(
+                vertices=mesh_grp["vertices"][:],
+                face_node_connectivity=mesh_grp["face_node_connectivity"][:],
+                z_interfaces=mesh_grp["z_interfaces"][:],
+            )
+        finally:
+            sz.close()
 
     # -- Geographic ----------------------------------------------------------
 
@@ -275,7 +446,7 @@ class Run:
         return roles
 
     def has_hydrographic_network(self, role: str = "generated") -> bool:
-        """Return true when the requested canonical hydrographic-network role exists."""
+        """Return true when the requested hydrographic-network role exists."""
         return role in self.available_hydrographic_network_roles()
 
     def hydrographic_network(self, role: str = "generated") -> gpd.GeoDataFrame:
@@ -366,17 +537,27 @@ class Run:
             **metadata,
         )
 
-    def geographic_raster(self, name: str) -> tuple[np.ndarray, dict]:
+    def geographic_raster(self, name: str) -> RasterField:
         sz = self._catalog.open_zarr(self._sim_id)
-        return sz.read_geographic_raster(name)
+        try:
+            data, meta = sz.read_geographic_raster(name)
+            return RasterField(
+                data=data,
+                transform=tuple(meta["transform"]),
+                crs=str(meta["crs"]),
+                nodata=float(meta["nodata"]),
+                shape=tuple(meta["shape"]),
+            )
+        finally:
+            sz.close()
 
     @cached_property
     def grid(self) -> Grid:
         """Scalar grid metadata: cell_size, shape, extent, CRS, area.
 
-        Raises ``RuntimeError`` for unstructured (``disu``) meshes -
-        use ``run.mesh`` vertices + ``run.field(...)`` in that case -
-        or when geographic metadata has not been ingested.
+        Raises ``RuntimeError`` for lumped simulations (``solver_category``
+        ``"lumped"``) which have no spatial discretisation, or when
+        geographic metadata has not been ingested.
         """
         from hydromodpy.results.grid import build_grid
 
@@ -389,8 +570,8 @@ class Run:
         Shape matches ``run.grid.shape``. ``True`` where the DEM has a
         valid positive elevation. Cached on first access.
         """
-        dem, _ = self.geographic_raster("watershed_dem")
-        dem = dem.astype(float)
+        raster = self.geographic_raster("watershed_dem")
+        dem = raster.data.astype(float)
         return np.isfinite(dem) & (dem > 0)
 
     @cached_property
@@ -399,59 +580,81 @@ class Run:
 
         Use this when plotting or applying NaN-aware reductions. For a
         bit-for-bit copy of the stored raster (native dtype, sentinel
-        preserved), use ``run.geographic_raster("watershed_dem")``.
+        preserved), use ``run.geographic_raster("watershed_dem").data``.
         """
-        raw, meta = self.geographic_raster("watershed_dem")
-        arr = raw.astype("float64", copy=True)
-        nodata = meta.get("nodata")
+        raster = self.geographic_raster("watershed_dem")
+        arr = raster.data.astype("float64", copy=True)
+        nodata = raster.nodata
         if nodata is not None:
             arr[arr == float(nodata)] = np.nan
         return arr
 
-    def fields(self, variable: str) -> np.ndarray:
-        """Stack all timesteps of ``variable``.
+    def fields(self, variable: str) -> Stack:
+        """Return a lazy per-timestep raster stack of ``variable``.
 
-        When the field lives on the geographic DEM grid, returns
-        ``(n_t, nrow, ncol)`` using ``run.grid.shape``. When a solver uses a
-        resampled structured mesh, returns the solver-grid shape recorded in
-        ``mesh.attrs['structured_shape']``. If no regular 2D shape is known
-        (for example a native DISV/Gmsh mesh), returns ``(n_t, n_cells)``.
+        For regular-in-plan meshes (``dis`` / ``disv``) reshapes each
+        flat cell array to the DEM grid and returns a :class:`Stack`
+        with Dask-backed ``data`` shaped ``(n_t, nrow, ncol)``. Values are
+        returned raw (no masking or NaN substitution); combine with
+        ``run.catchment_mask`` to mask inactive cells. Raises
+        ``RuntimeError`` for lumped simulations.
         """
-        if self._load_row().get("mesh_topology") == "disu":
-            _ = self.grid
+        import dask.array as da
 
-        n = self.n_timesteps or 1
-        frames = [np.asarray(self.field(variable, timestep=t)).ravel() for t in range(n)]
-        field_size = int(frames[0].size)
-        shape = self._regular_shape_for_field_size(field_size)
-        if shape is None:
-            return np.stack(frames)
-        return np.stack([frame.reshape(shape) for frame in frames])
-
-    def _regular_shape_for_field_size(self, field_size: int) -> tuple[int, int] | None:
-        """Return the regular 2D shape for a field size, if one is known."""
-        try:
-            grid = self.grid
-        except RuntimeError:
-            grid = None
-        if grid is not None and int(np.prod(grid.shape)) == int(field_size):
-            return grid.shape
-
+        if self._load_row().get("solver_category") == "lumped":
+            raise RuntimeError("lumped simulation has no spatial grid")
+        desc = field_registry.get(variable)
+        if desc.shape not in (
+            field_registry.SHAPE_TIME_FACE,
+            field_registry.SHAPE_TIME_LAYER_FACE,
+        ):
+            raise ValueError(f"Field '{variable}' is not a time-varying face field")
         sz = self._catalog.open_zarr(self._sim_id)
         try:
-            mesh = sz.root.get("mesh")
-            if mesh is None:
-                return None
-            structured_shape = mesh.attrs.get("structured_shape")
-            if structured_shape is None:
-                return None
-            shape = tuple(int(v) for v in structured_shape)
-        finally:
+            arr = lookup_zarr_path(sz.root, desc.zarr_path)
+            if arr is None:
+                raise KeyError(f"Field '{variable}' not found in simulation '{self._sim_id}'")
+            chunks = arr.chunks if arr.chunks else "auto"
+            data = da.from_array(arr, chunks=chunks)
+            if desc.shape == field_registry.SHAPE_TIME_LAYER_FACE and data.ndim == 3:
+                if data.shape[1] != 1:
+                    raise ValueError(
+                        f"Field '{variable}' has {data.shape[1]} layers; "
+                        "use run.array.to_xarray_batch() for multi-layer data."
+                    )
+                data = data[:, 0, :]
+            nrow, ncol = self._regular_shape_for_field_size(sz.root, int(data.shape[-1]))
+            if data.shape[-1] != nrow * ncol:
+                raise ValueError(
+                    f"Field '{variable}' has {data.shape[-1]} cells; "
+                    f"grid shape {(nrow, ncol)} requires {nrow * ncol} cells."
+                )
+            data = data.reshape((data.shape[0], nrow, ncol))
+        except Exception:
             sz.close()
+            raise
+        return Stack(data=data, variable=variable)
 
-        if len(shape) == 2 and shape[0] * shape[1] == int(field_size):
-            return shape
-        return None
+    def _regular_shape_for_field_size(self, root, n_cells: int) -> tuple[int, int]:
+        mesh = root.get("mesh")
+        if mesh is not None:
+            raw_shape = mesh.attrs.get("structured_shape")
+            if raw_shape is not None:
+                shape = tuple(int(v) for v in raw_shape)
+                if len(shape) == 2 and shape[0] * shape[1] == int(n_cells):
+                    return shape[0], shape[1]
+        try:
+            grid_shape = self.grid.shape
+        except Exception as exc:
+            raise ValueError(
+                f"Field has {n_cells} cells but this run has no regular grid shape metadata."
+            ) from exc
+        if int(grid_shape[0]) * int(grid_shape[1]) != int(n_cells):
+            raise ValueError(
+                f"Field has {n_cells} cells; grid shape {grid_shape} "
+                f"requires {int(grid_shape[0]) * int(grid_shape[1])} cells."
+            )
+        return int(grid_shape[0]), int(grid_shape[1])
 
     @cached_property
     def time_index(self) -> pd.DatetimeIndex:
@@ -519,99 +722,46 @@ class Run:
         return str(val) if val is not None else None
 
     def rerun(self, **overrides) -> Run:
-        """Re-run this simulation with optional config overrides.
+        """Re-run this simulation with optional top-level config overrides.
 
-        Reconstructs a ``HydroModPyConfig`` from the stored snapshot,
-        applies overrides, and launches a new simulation. The new
-        simulation's ``parent_sim_id`` points back to this one.
+        Reconstructs a :class:`HydroModPyConfig` from the stored snapshot,
+        applies ``overrides`` via ``model_copy(update=...)``, and launches
+        a new simulation through :class:`hydromodpy.project.Project`.
 
         Parameters
         ----------
         overrides
-            Keyword overrides merged recursively into the stored config
-            snapshot. For example:
-            ``run.rerun(flow={"param": {"K": {"value": 2.0}}})``.
+            Keyword overrides forwarded to ``HydroModPyConfig.model_copy``.
+            Each key must match a top-level field of ``HydroModPyConfig``.
 
         Returns
         -------
         Run
             The newly created run.
         """
-        snapshot = self.config
-        if snapshot is None:
-            raise ValueError(f"Simulation '{self._sim_id}' has no config snapshot - cannot rerun")
-
-        from hydromodpy.core.config.hydromodpy_config import HydroModPyConfig
-
-        HydroModPyConfig.from_snapshot(snapshot, **overrides)
+        cfg = self.hydromodpy_config
+        if overrides:
+            cfg = cfg.model_copy(update=overrides)
 
         from hydromodpy.project import Project
 
-        Project.__new__(Project)
-        raise NotImplementedError(
-            "Full rerun() requires workflow integration with parent_sim_id. "
-            "Use HydroModPyConfig.from_snapshot() to reconstruct the config "
-            "and run it manually via Project or hmp run."
-        )
-
-    # -- Export convenience --------------------------------------------------
-
-    def to_csv(self, path: Path | str | None = None) -> pd.DataFrame:
-        df = self._catalog.connection.execute(
-            "SELECT station_id, variable, datetime, value, unit "
-            "FROM timeseries WHERE sim_id = ? "
-            "ORDER BY station_id, variable, datetime",
-            [self._sim_id],
-        ).fetchdf()
-        if path is not None:
-            df.to_csv(str(path), index=False)
-        return df
-
-    # -- Export --------------------------------------------------------------
-
-    def export(
-        self,
-        variable: str = "*",
-        fmt: str = "csv",
-        path: str | Path | None = None,
-        **kwargs,
-    ) -> None:
-        """Export results to a file.
-
-        Parameters
-        ----------
-        variable : str
-            Variable name or ``"*"`` for all timeseries.
-        fmt : str
-            ``"csv"``, ``"netcdf"``, ``"geotiff"``, ``"vtu"``, ``"shapefile"``.
-        path : Path, optional
-            Output file path. Defaults to
-            ``<workspace>/exports/<name>/<variable>.<ext>``.
-        """
-        if path is None:
-            ext_map = {
-                "csv": "csv",
-                "netcdf": "nc",
-                "vtu": "vtu",
-                "geotiff": "tif",
-                "shapefile": "shp",
-            }
-            ext = ext_map.get(fmt, fmt)
-            out_dir = self._catalog.project_path / "exports" / (self.name or self._sim_id)
-            out_dir.mkdir(parents=True, exist_ok=True)
-            path = out_dir / (f"{variable}.{ext}" if variable != "*" else f"timeseries.{ext}")
-        self._catalog.export(self._sim_id, variable, fmt, path, **kwargs)
-
-    # -- Lazy catchment views (delegate to hydromodpy.results.views) ---------
+        project = Project(cfg)
+        new_run = project.run()
+        if new_run is None:
+            raise RuntimeError(
+                f"rerun() of '{self._sim_id}' did not produce a new Run "
+                "(dry_run or short-circuited workflow)."
+            )
+        return new_run
 
     def saturated_fraction(self, **kwargs) -> pd.Series:
-        """Lazy ``%`` of catchment cells where seepage > threshold per step."""
+        """Lazy % of catchment cells with saturated head."""
         from hydromodpy.results import views
 
         return views.saturated_fraction(self, **kwargs)
 
     def drainage_density(self, **kwargs) -> pd.Series:
-        """Lazy ``%`` of catchment cells with positive routed drain flux."""
+        """Lazy % of catchment cells with positive routed drain flux."""
         from hydromodpy.results import views
 
         return views.drainage_density(self, **kwargs)
@@ -673,18 +823,17 @@ class Run:
             if "pathlines" in sz.root:
                 caps.append("particle_tracks")
             mesh = sz.root.get("mesh")
+            derived = sz.root.get("derived")
             if (
                 mesh is not None
                 and "vertices" in mesh
                 and "face_node_connectivity" in mesh
-                and self.has_field("accumulation_flux")
+                and derived is not None
+                and "accumulation_flux" in derived
             ):
                 caps.append("simulated_active_network")
-                try:
-                    if self.has_hydrographic_network("reference"):
-                        caps.append("simulated_active_network_reference_overlay")
-                except Exception:
-                    pass
+                if self.has_hydrographic_network("reference"):
+                    caps.append("simulated_active_network_reference_overlay")
         finally:
             sz.close()
 
@@ -703,37 +852,19 @@ class Run:
 
         return caps
 
-    def plot(self, figure_name: str, *, save: str | Path | None = None) -> None:
-        if figure_name not in self.display_capabilities:
-            raise ValueError(
-                f"Figure '{figure_name}' not available. Capabilities: {self.display_capabilities}"
-            )
-        from hydromodpy.results.display import render_figure
-
-        render_figure(figure_name, self, save=save)
-
-    def plot_all(self, *, save: str | Path | None = None) -> None:
-        from hydromodpy.results.display import render_figure
-
-        for name in self.display_capabilities:
-            try:
-                render_figure(name, self, save=save)
-            except Exception:
-                logger.warning("Failed to render '%s'", name)
-
     # -- Repr ----------------------------------------------------------------
 
     def __repr__(self) -> str:
         try:
             row = self._load_row()
             return (
-                f"Run(id={self._sim_id!r}, "
+                f"Run(sim_id={self._sim_id!r}, "
                 f"project={row.get('project')!r}, "
                 f"solver={row.get('solver')!r}, "
                 f"status={row.get('status')!r})"
             )
         except KeyError:
-            return f"Run(id={self._sim_id!r}, <not found>)"
+            return f"Run(sim_id={self._sim_id!r}, <not found>)"
 
     def _repr_html_(self) -> str:
         try:
@@ -760,21 +891,3 @@ class Run:
             "<table style='font-size:0.85em;border-collapse:collapse'>"
             f"{body}</table></div>"
         )
-
-
-class _AtAccessor:
-    """Chainable helper bound to a ``(timestep, layer)`` slice."""
-
-    __slots__ = ("_run", "_timestep", "_layer")
-
-    def __init__(self, run: Run, *, timestep: int, layer: int | None):
-        self._run = run
-        self._timestep = timestep
-        self._layer = layer
-
-    def field(self, variable: str) -> np.ndarray:
-        return self._run.field(variable, timestep=self._timestep, layer=self._layer)
-
-    def __repr__(self) -> str:
-        layer_str = f", layer={self._layer}" if self._layer is not None else ""
-        return f"Run.at(timestep={self._timestep}{layer_str})"

@@ -4,7 +4,7 @@ The original implementation accumulated several distinct responsibilities in
 one large module. The code now lives in smaller helpers:
 
 - ``_geometry_contracts.py`` for local dataclasses
-- ``_geometry_utils.py`` for validation and part iteration
+- ``geometry_utils.py`` for validation and part iteration
 - ``_polygon_cleaning.py`` for polygon cleaning and overlap resolution
 - ``_partition_split.py`` for line-based repartitioning
 - ``_linework_matching.py`` for segment/linework matching
@@ -22,14 +22,6 @@ from hydromodpy.spatial.mesh.gmsh_grid.zone_meshing._geometry_contracts import (
     ZoneGeometryGrouping,
     ZoneRowCleaningDiagnostics,
 )
-from hydromodpy.spatial.mesh.gmsh_grid.zone_meshing._geometry_utils import (
-    as_metric_tolerance,
-    is_invalid_nonempty_geometry,
-    iter_line_parts,
-    iter_polygon_parts,
-    make_valid_geometry,
-    make_valid_linework,
-)
 from hydromodpy.spatial.mesh.gmsh_grid.zone_meshing._linework_matching import (
     segment_intersects_refinement_scope,
     segment_matches_linework,
@@ -43,6 +35,14 @@ from hydromodpy.spatial.mesh.gmsh_grid.zone_meshing._polygon_cleaning import (
     group_zone_geometries,
     intersection_area,
     resolve_zone_overlaps,
+)
+from hydromodpy.spatial.mesh.gmsh_grid.zone_meshing.geometry_utils import (
+    as_metric_tolerance,
+    is_invalid_nonempty_geometry,
+    iter_line_parts,
+    iter_polygon_parts,
+    make_valid_geometry,
+    make_valid_linework,
 )
 
 __all__ = [

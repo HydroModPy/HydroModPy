@@ -159,6 +159,49 @@ class ParameterSpace:
     def physical_bounds(self) -> dict[str, tuple[float, float]]:
         return {p.name: (p.lower, p.upper) for p in self._params}
 
+    def describe_values(self, values: Mapping[str, float]) -> dict[str, dict[str, Any]]:
+        """Return serializable parameter metadata for one candidate."""
+        out: dict[str, dict[str, Any]] = {}
+        for param in self._params:
+            if param.name not in values:
+                continue
+            physical = float(values[param.name])
+            out[param.name] = {
+                "value": physical,
+                "transformed_value": param.to_transformed(physical),
+                "bounds": [param.lower, param.upper],
+                "transformed_bounds": [
+                    param.lower_transformed,
+                    param.upper_transformed,
+                ],
+                "transform": param.transform,
+                "prior": param.prior,
+                "mode": param.mode,
+                "target": param.effective_path,
+                "units": param.units,
+            }
+        return out
+
+    def default_prior_mean_std(self) -> tuple[list[float], list[float]] | None:
+        """Return Normal-prior vectors in transformed space when declared."""
+        means: list[float] = []
+        stds: list[float] = []
+        has_normal = False
+        for param in self._params:
+            low = param.lower_transformed
+            high = param.upper_transformed
+            span = high - low
+            if param.prior == "normal":
+                has_normal = True
+                means.append(0.5 * (low + high))
+                stds.append(max(span / 6.0, 1e-12))
+            else:
+                means.append(0.5 * (low + high))
+                stds.append(max(span * 1e6, 1e12))
+        if not has_normal:
+            return None
+        return means, stds
+
     @classmethod
     def from_toml_mapping(
         cls,
@@ -183,6 +226,18 @@ class ParameterSpace:
             low, high = float(bounds[0]), float(bounds[1])
             transform = decl.get("transform", ann.transform if ann else "identity")
             prior = decl.get("prior", ann.prior if ann else "uniform")
+            if not low < high:
+                raise ValueError(f"Parameter {name!r}: lower bound must be < upper bound")
+            if transform == "log" and low <= 0.0:
+                raise ValueError(f"Parameter {name!r}: log transform requires lower > 0")
+            if transform == "logit" and not (0.0 < low < high < 1.0):
+                raise ValueError(
+                    f"Parameter {name!r}: logit transform requires 0 < lower < upper < 1"
+                )
+            if prior not in {"uniform", "log_uniform", "normal"}:
+                raise ValueError(f"Parameter {name!r}: unknown prior {prior!r}")
+            if prior == "log_uniform" and low <= 0.0:
+                raise ValueError(f"Parameter {name!r}: log_uniform prior requires lower > 0")
             units = decl.get("units", ann.units if ann else None)
             path = decl.get("path")
             target = decl.get("target")

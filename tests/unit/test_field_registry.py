@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import pytest
 
+from hydromodpy.core.exceptions import UnknownFieldError
 from hydromodpy.results import field_registry
 from hydromodpy.results.field_registry import (
     FIELD_REGISTRY,
@@ -33,6 +34,8 @@ class TestRegistryContents:
             "storage_change",
             "recharge",
             "drain",
+            "outflow_drain",
+            "accumulation_flux",
             "river",
             "well",
             "cell_budget",
@@ -77,9 +80,13 @@ class TestFieldDescriptor:
 
 
 class TestPublicAPI:
-    def test_get_unknown_raises_keyerror_with_available_names(self):
-        with pytest.raises(KeyError, match="not registered"):
+    def test_get_unknown_raises_unknownfielderror_with_available_names(self):
+        with pytest.raises(UnknownFieldError) as exc_info:
             get("unknown_field_xyz")
+        err = exc_info.value
+        assert err.name == "unknown_field_xyz"
+        assert "head" in err.available
+        assert "not registered" in err.message
 
     def test_has(self):
         assert has("head") is True
@@ -103,8 +110,12 @@ class TestPublicAPI:
             "cell_methods",
             "grid_mapping",
             "coordinates",
+            "mesh",
+            "location",
         }
         assert set(attrs) == expected
         assert attrs["standard_name"] == "groundwater_head_above_reference_level"
         assert attrs["units"] == "m"
         assert attrs["grid_mapping"] == "crs"
+        assert attrs["mesh"] == "mesh/topology"
+        assert attrs["location"] == "face"

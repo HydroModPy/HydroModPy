@@ -9,6 +9,7 @@
 * SPDX-License-Identifier: EPL-2.0 OR Apache-2.0
 """
 
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
@@ -19,14 +20,26 @@ from hydromodpy.core.units import factor_to_seconds, to_pandas_timedelta_unit
 from hydromodpy.physics.flow.regime import normalize_flow_regime
 from hydromodpy.solver.utils.temporal.tmesh_config import TMeshConfig
 
-try:
-    from flopy.discretization.modeltime import ModelTime
-except ModuleNotFoundError:  # pragma: no cover - used only in minimal local envs
-    ModelTime = None
-
-
 _VALID_FLOW_REGIMES = {"steady", "transient"}
 _VALID_GEN_METHODS = {"synthetic_regular", "from_chron"}
+
+
+@dataclass(frozen=True, slots=True)
+class TimeGrid:
+    """HydroModPy-native temporal mesh produced by ``TmeshGenerator``.
+
+    Backends translate this POPO to their own structures (FloPy ModelTime,
+    MODFLOW DIS/TDIS payloads, ...). No FloPy dependency at this layer.
+    """
+
+    time_units: str
+    start_datetime: pd.Timestamp | None
+    perlen: np.ndarray
+    nstp: np.ndarray
+    tsmult: np.ndarray
+    steady_state: np.ndarray
+    totim: np.ndarray
+    datetimes: tuple[pd.Timestamp, ...]
 
 
 def _as_positive_int(name: str, value: Any) -> int:
@@ -296,7 +309,24 @@ def _expand_tsmult(
     return arr
 
 
-def _build_modeltime(
+def _compute_datetime_vector(
+    *,
+    time_units: str,
+    start_datetime: Any,
+    perlen: np.ndarray,
+) -> tuple[tuple[pd.Timestamp, ...], np.ndarray]:
+    """Return (datetimes, totim) vectors for the given period lengths."""
+    totim = np.cumsum(np.asarray(perlen, dtype=float))
+    if start_datetime is None or totim.size == 0:
+        return tuple(), totim
+    start = pd.Timestamp(start_datetime)
+    seconds_factor = factor_to_seconds(time_units)
+    deltas = pd.to_timedelta(totim * seconds_factor, unit="s")
+    datetimes = tuple(start + delta for delta in deltas)
+    return datetimes, totim
+
+
+def _build_time_grid(
     *,
     time_units: str,
     start_datetime: Any,
@@ -304,22 +334,30 @@ def _build_modeltime(
     perlen: np.ndarray,
     nstp: np.ndarray,
     tsmult: np.ndarray,
-):
-    if ModelTime is None:
-        raise ModuleNotFoundError(
-            "flopy is required to build ModelTime. Install flopy to run temporal mesh generation."
-        )
-    return ModelTime(
+) -> TimeGrid:
+    perlen_arr = np.asarray(perlen, dtype=float)
+    nstp_arr = np.asarray(nstp, dtype=int)
+    tsmult_arr = np.asarray(tsmult, dtype=float)
+    steady_arr = np.asarray(steady_state, dtype=bool)
+    start_ts = None if start_datetime is None else pd.Timestamp(start_datetime)
+    datetimes, totim = _compute_datetime_vector(
         time_units=time_units,
-        start_datetime=start_datetime,
-        steady_state=steady_state,
-        perlen=perlen,
-        nstp=nstp,
-        tsmult=tsmult,
+        start_datetime=start_ts,
+        perlen=perlen_arr,
+    )
+    return TimeGrid(
+        time_units=str(time_units),
+        start_datetime=start_ts,
+        perlen=perlen_arr,
+        nstp=nstp_arr,
+        tsmult=tsmult_arr,
+        steady_state=steady_arr,
+        totim=totim,
+        datetimes=datetimes,
     )
 
 
-class TMesh_Generation:
+class TmeshGenerator:
     """Temporal mesh builder."""
 
     def __init__(self, config: TMeshConfig | None = None, **kwargs):
@@ -333,7 +371,7 @@ class TMesh_Generation:
         self._tmesh = None
 
     @classmethod
-    def from_config(cls, config: TMeshConfig) -> "TMesh_Generation":
+    def from_config(cls, config: TMeshConfig) -> "TmeshGenerator":
         return cls(config=config)
 
     @property
@@ -357,7 +395,7 @@ class TMesh_Generation:
         self._config = new_config
         self._invalidate_mesh()
 
-    def run(self):
+    def run(self) -> TimeGrid:
         if not self._tmesh_created:
             self._create_tmesh()
         return self._tmesh
@@ -487,7 +525,7 @@ class TMesh_Generation:
         steady_state = self._get_steady_state_array(perlen)
         nstp = _expand_ntsp(self.ntsp, len(perlen))
         tsmult = _expand_tsmult(self.tsmult, len(perlen))
-        tmesh = _build_modeltime(
+        tmesh = _build_time_grid(
             time_units=time_units,
             start_datetime=start_datetime,
             steady_state=steady_state,

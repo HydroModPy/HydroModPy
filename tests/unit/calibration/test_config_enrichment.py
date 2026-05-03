@@ -65,7 +65,9 @@ class TestCalibParameterDeclExtensions:
 
 class TestCalibOutputDecl:
     def test_minimal_declaration_defaults(self):
-        decl = CalibOutputDecl.model_validate({"variable": "head", "support": "cell"})
+        decl = CalibOutputDecl.model_validate(
+            {"variable": "head", "support": "cell", "row": 0, "col": 0}
+        )
         assert decl.variable == "head"
         assert decl.support == "cell"
         assert decl.time == "all"
@@ -101,6 +103,8 @@ class TestCalibOutputDecl:
             {
                 "variable": "head",
                 "support": "cell",
+                "row": 0,
+                "col": 0,
                 "time": ["2020-01-01", "2020-06-01"],
             }
         )
@@ -111,7 +115,7 @@ class TestCalibOutputDecl:
         [
             ("point", {"x": 0.0, "y": 0.0}),
             ("boundary", {"boundary_id": "outlet"}),
-            ("cell", {}),
+            ("cell", {"row": 0, "col": 0}),
         ],
     )
     def test_support_literal(self, support: str, extra: dict):
@@ -125,7 +129,13 @@ class TestCalibOutputDecl:
     def test_rejects_extra_keys(self):
         with pytest.raises(ValidationError, match="Extra inputs are not permitted"):
             CalibOutputDecl.model_validate(
-                {"variable": "head", "support": "cell", "legacy_hint": True}
+                {
+                    "variable": "head",
+                    "support": "cell",
+                    "row": 0,
+                    "col": 0,
+                    "legacy_hint": True,
+                }
             )
 
     def test_point_support_requires_xy(self):
@@ -226,7 +236,6 @@ class TestCalibrationConfigEnriched:
             {
                 "persist_iteration_detail": "full",
                 "persist_model_distribution": True,
-                "resume_session": "abcdef01",
                 "rerun_best_with_outputs": True,
                 "materialize_candidates": True,
                 "candidates_root": "/tmp/candidates",
@@ -234,10 +243,13 @@ class TestCalibrationConfigEnriched:
         )
         assert cfg.persist_iteration_detail == "full"
         assert cfg.persist_model_distribution is True
-        assert cfg.resume_session == "abcdef01"
         assert cfg.rerun_best_with_outputs is True
         assert cfg.materialize_candidates is True
         assert str(cfg.candidates_root) == "/tmp/candidates"
+
+    def test_resume_session_field_is_rejected(self):
+        with pytest.raises(ValidationError):
+            CalibrationConfig.model_validate({"resume_session": "abcdef01"})
 
     def test_implicit_objective_block_built_from_objective_variable(self):
         cfg = CalibrationConfig.model_validate(
@@ -273,7 +285,7 @@ class TestCalibrationConfigEnriched:
                 "objective": "nse",
                 "variable": "head",
                 "outputs": {
-                    "head": {"variable": "head", "support": "cell"},
+                    "head": {"variable": "head", "support": "cell", "row": 0, "col": 0},
                 },
                 "objective_blocks": [
                     {

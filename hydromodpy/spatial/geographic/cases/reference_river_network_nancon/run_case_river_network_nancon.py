@@ -1,10 +1,13 @@
-"""Run one reference geographic case focused on hydrographic network extraction."""
+"""Run one reference geographic case focused on hydrographic network extraction.
+
+Run with:
+    python -m hydromodpy.spatial.geographic.cases.reference_river_network_nancon.run_case_river_network_nancon
+"""
 
 from __future__ import annotations
 
 import argparse
 import json
-import sys
 from pathlib import Path
 from typing import Any
 
@@ -14,11 +17,6 @@ import rasterio
 from matplotlib import pyplot as plt
 from matplotlib.lines import Line2D
 from matplotlib.ticker import ScalarFormatter
-
-# Support direct execution from file path and ensure local package precedence.
-repo_root = Path(__file__).resolve().parents[5]
-if (repo_root / "hydromodpy").exists() and str(repo_root) not in sys.path:
-    sys.path.insert(0, str(repo_root))
 
 from hydromodpy.spatial.geographic.cases import run_geographic_case_from_toml
 from hydromodpy.spatial.geographic.cases.plotting_utils import (
@@ -132,7 +130,9 @@ def run_reference_river_network_nancon_from_toml(
     workspace, geographic = run_geographic_case_from_toml(config_path)
 
     network_shp = Path(geographic.hydrographic_network_generated_shp).expanduser().resolve()
-    summary_json = Path(geographic.hydrographic_network_generated_summary_json).expanduser().resolve()
+    summary_json = (
+        Path(geographic.hydrographic_network_generated_summary_json).expanduser().resolve()
+    )
     if not network_shp.exists():
         raise FileNotFoundError(
             f"Missing river network shapefile: {network_shp}. "

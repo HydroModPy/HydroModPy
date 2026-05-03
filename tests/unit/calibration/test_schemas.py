@@ -28,6 +28,7 @@ import pytest
 from pydantic import ValidationError
 
 from hydromodpy.calibration.config import (
+    CalibOutputDecl,
     CalibParameterDecl,
     CalibrationConfig,
 )
@@ -54,7 +55,7 @@ class TestCalibrationConfigMinimalPayload:
     def test_empty_dict_yields_sensible_defaults(self):
         """An empty payload uses the declared defaults end-to-end."""
         cfg = CalibrationConfig.model_validate({})
-        assert cfg.method == "optuna"
+        assert cfg.method == "grid"
         assert cfg.max_iter == 100
         assert cfg.save_runs == "none"
         assert cfg.save_best_n == 10
@@ -97,22 +98,7 @@ class TestCalibrationConfigExtraForbidden:
 
 
 class TestCalibrationConfigMethodLiteral:
-    @pytest.mark.parametrize(
-        "method",
-        [
-            "optuna",
-            "scipy_de",
-            "scipy_nelder_mead",
-            "grid",
-            "grid_search",
-            "random_search",
-            "simplex",
-            "cma_es",
-            "nelder_mead",
-            "gp_mapping",
-            "da_mh_gp",
-        ],
-    )
+    @pytest.mark.parametrize("method", ["grid", "random_search"])
     def test_accepts_all_supported_methods(self, method: str):
         cfg = CalibrationConfig.model_validate({"method": method})
         assert cfg.method == method
@@ -196,6 +182,35 @@ class TestCalibParameterDeclDefaults:
             CalibParameterDecl.model_validate({"legacy_hint": 1.0})
 
 
+class TestCalibOutputDeclSelectors:
+    def test_point_accepts_geojson_geometry(self):
+        decl = CalibOutputDecl.model_validate(
+            {
+                "variable": "head",
+                "support": "point",
+                "geometry": {"type": "Point", "coordinates": [10.0, 20.0]},
+            }
+        )
+        assert decl.geometry["type"] == "Point"
+
+    def test_cell_requires_structural_selector(self):
+        with pytest.raises(ValidationError, match="support='cell' requires"):
+            CalibOutputDecl.model_validate({"variable": "head", "support": "cell"})
+
+    def test_cell_accepts_row_col(self):
+        decl = CalibOutputDecl.model_validate(
+            {"variable": "head", "support": "cell", "row": 2, "col": 3}
+        )
+        assert decl.row == 2
+        assert decl.col == 3
+
+    def test_cell_accepts_cell_id(self):
+        decl = CalibOutputDecl.model_validate(
+            {"variable": "head", "support": "cell", "cell_id": 42}
+        )
+        assert decl.cell_id == 42
+
+
 # ---------------------------------------------------------------------------
 # TOML round-trip (the old test exercised load_calibration_toml; the new
 # architecture uses plain tomllib + model_validate directly)
@@ -240,11 +255,11 @@ class TestTomlRoundTrip:
     def test_minimal_section_roundtrip(self):
         toml_src = """
         [calibration]
-        method = "optuna"
+        method = "grid"
         """
         data = tomllib.loads(toml_src)
         cfg = CalibrationConfig.model_validate(data["calibration"])
-        assert cfg.method == "optuna"
+        assert cfg.method == "grid"
         assert cfg.parameters == {}
 
     def test_toml_unknown_section_key_rejected(self):

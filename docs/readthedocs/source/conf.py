@@ -116,13 +116,11 @@ _DOC_OPTIONAL_IMPORTS = [
     "netCDF4",
     "plotly",
     "pyproj",
-    "pysheds",
     "rasterio",
     "rioxarray",
     "sklearn",
     "cma",
     "optuna",
-    "selenium",
     "ultraplot",
     "vedo",
     "whitebox_workflows",
@@ -194,10 +192,22 @@ project = "HydroModPy"
 copyright = "2021"
 author = "A. Gauvain, R. Abhervé"
 
+# Single source of truth: pyproject.toml (read via importlib.metadata).
+# Fallback to hydromodpy.core.version when the package is not installed
+# (RTD source checkout before `pip install -e .`).
+try:
+    from importlib.metadata import PackageNotFoundError
+    from importlib.metadata import version as _pkg_version
+
+    try:
+        release = _pkg_version("hydromodpy")
+    except PackageNotFoundError:
+        from hydromodpy.core.version import __version__ as release
+except ImportError:
+    from hydromodpy.core.version import __version__ as release
+
 # The short X.Y version
-version = "0.1"
-# The full version, including alpha/beta/rc tags
-release = "0.1.0"
+version = ".".join(release.split(".")[:2])
 
 
 # -- General configuration ---------------------------------------------------
@@ -286,9 +296,7 @@ language = "en"
 # List of patterns, relative to source directory, that match files and
 # directories to ignore when looking for source files.
 # This pattern also affects html_static_path and html_extra_path .
-exclude_patterns = [
-    "_static/capability_gallery/simulation/*_summary.md",
-]
+exclude_patterns = []
 
 # The name of the Pygments (syntax highlighting) style to use.
 pygments_style = "sphinx"
@@ -450,7 +458,6 @@ autodoc_mock_imports = [
     "pyshp",
     "rasterio",
     "rioxarray",
-    "selenium",
     "spyder",
     "spyder_kernels",
     "pyside6",
@@ -458,7 +465,6 @@ autodoc_mock_imports = [
     "vtk",
     "whitebox_workflows",
     "xarray",
-    "pysheds",
 ]
 
 # use :numref: for references (instead of :ref:)

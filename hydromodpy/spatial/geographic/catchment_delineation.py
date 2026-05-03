@@ -14,21 +14,21 @@ from __future__ import annotations
 from geopy.geocoders import Nominatim
 
 from hydromodpy.core.logging import get_logger
-from hydromodpy.spatial.delineation import WhiteboxBackend, get_whitebox_backend
 from hydromodpy.spatial.geographic.core.derived_features import (
     GeographicBoundaryFeatures,
     GeographicDerivedFeatures,
 )
+from hydromodpy.spatial.geographic.core.domain_geographic_pipeline import DomainGeographicContext
+from hydromodpy.spatial.geographic.core.flow_products import build_regional_flow_products
 from hydromodpy.spatial.geographic.core.hydrographic_network import (
     HydrographicNetwork,
     HydrographicNetworks,
 )
-from hydromodpy.spatial.geographic.core.domain_geographic_pipeline import DomainGeographicContext
-from hydromodpy.spatial.geographic.core.flow_products import build_regional_flow_products
 from hydromodpy.spatial.geographic.core.river_network import RiverNetworkProducts
 from hydromodpy.spatial.geographic.core.surface_from_dem import build_surface_topo_from_dem
 from hydromodpy.spatial.geographic.dem_metadata import read_dem_metadata
 from hydromodpy.spatial.geographic.geographic_config import GeographicConfig
+from hydromodpy.spatial.geographic.geographic_io import resolve_delineation_backend
 from hydromodpy.spatial.geographic.pipeline import build_geographic_runtime_context
 
 logger = get_logger(__name__)
@@ -38,7 +38,7 @@ def DEM_correcflow_analysis(
     dem_init_path: str,
     dem_out_dir_path: str,
     dem_correc_type: str,
-    backend: WhiteboxBackend | None = None,
+    backend: object | None = None,
 ) -> dict:
     """
     Build the 3 core regional rasters needed by watershed delineation.
@@ -69,7 +69,7 @@ def DEM_correcflow_analysis(
         Dictionary with output raster paths:
         ``{"correc": ..., "direc": ..., "acc": ...}``.
     """
-    tool = get_whitebox_backend() if backend is None else backend
+    tool = resolve_delineation_backend(backend)
     products = build_regional_flow_products(
         dem_init_path=dem_init_path,
         dem_out_dir_path=dem_out_dir_path,
@@ -203,7 +203,7 @@ class CatchmentDelineation:
 
     def processing(self):
         """Build and hydrate the full geographic runtime payload."""
-        tool = get_whitebox_backend()
+        tool = resolve_delineation_backend()
         context = build_geographic_runtime_context(
             config=self._config,
             out_dir_path=self.out_dir_path,

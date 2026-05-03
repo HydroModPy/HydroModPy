@@ -63,7 +63,7 @@ def _newton_loop_template(
 
     head = np.asarray(head_initial_guess_m, dtype=float).copy()
     assembly = assembly_for(head)
-    residual = np.asarray(assembly.residual_m3_s, dtype=float)
+    residual = np.asarray(assembly.solver_residual, dtype=float)
     residual_norm = residual_norm_inf(residual)
     initial_residual_norm = residual_norm
     if residual_norm <= float(tol_residual_inf):
@@ -107,7 +107,7 @@ def _newton_loop_template(
         while damping >= float(min_damping):
             candidate_head = head + damping * delta
             candidate_assembly = assembly_for(candidate_head)
-            candidate_residual = np.asarray(candidate_assembly.residual_m3_s, dtype=float)
+            candidate_residual = np.asarray(candidate_assembly.solver_residual, dtype=float)
             candidate_norm = residual_norm_inf(candidate_residual)
             if candidate_norm < residual_norm or damping <= float(min_damping):
                 head = candidate_head

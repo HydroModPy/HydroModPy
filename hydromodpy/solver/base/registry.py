@@ -8,7 +8,7 @@ live in ``solver/compatibility`` (class-based) and ``simulation/adapters``
   ``hydromodpy.solver`` entry-points group, see :func:`load_plugins`).
 - The simulation runner asks for an **instance** through
   :func:`get_solver_adapter`, which instantiates the registered class on
-  demand. This matches the lifecycle intent of ``SolverRunner`` (one adapter
+  demand. This matches the lifecycle intent of ``SolverAdapter`` (one adapter
   = one run) while preserving the lightweight semantics of a static catalog.
 
 The module also tracks per-solver **output extractors** in
@@ -25,16 +25,17 @@ concrete backends at package-load time.
 from __future__ import annotations
 
 import importlib
-import logging
 from collections.abc import Iterable
 from importlib.metadata import entry_points
 from typing import Any
 
-from hydromodpy.solver.base.protocol import SolverRunner
+from hydromodpy.core.logging import get_logger
+from hydromodpy.solver.base.protocol import SolverAdapter
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 AdapterKey = tuple[str, str]
+Capabilities = frozenset[str]
 ENTRY_POINT_GROUP = "hydromodpy.solver"
 EXTRACTOR_ENTRY_POINT_GROUP = "hydromodpy.solver.extractor"
 
@@ -63,23 +64,15 @@ _BUILTIN_PATHS: dict[AdapterKey, str] = {
         "transport",
         "modflow6gwt",
     ): "hydromodpy.solver.modflow6.adapters.transport:Modflow6GwtTransportAdapter",
-    # Postprocess and display stubs keep the process-type taxonomy open; they
-    # do not do any real work yet and will fail with NotImplementedError on
-    # ``execute``. Registering them here lets ``known_process_types`` discover
-    # them without a dedicated compatibility table.
-    (
-        "postprocess",
-        "timeseries",
-    ): "hydromodpy.simulation.adapters.postprocess.stub:TimeseriesPostprocessAdapter",
-    (
-        "postprocess",
-        "netcdf",
-    ): "hydromodpy.simulation.adapters.postprocess.stub:NetcdfPostprocessAdapter",
-    ("display", "flow"): "hydromodpy.simulation.adapters.display.stub:FlowDisplayAdapter",
-    (
-        "display",
-        "transport",
-    ): "hydromodpy.simulation.adapters.display.stub:TransportDisplayAdapter",
+}
+
+_BUILTIN_CAPABILITIES: dict[AdapterKey, Capabilities] = {
+    ("flow", "modflownwt"): frozenset({"flow", "flow:heads", "flow:budget"}),
+    ("flow", "modflow6"): frozenset({"flow", "flow:heads", "flow:budget"}),
+    ("flow", "boussinesq"): frozenset({"flow", "flow:heads"}),
+    ("transport", "modpath"): frozenset({"transport", "transport:particles"}),
+    ("transport", "mt3dms"): frozenset({"transport", "transport:concentration"}),
+    ("transport", "modflow6gwt"): frozenset({"transport", "transport:concentration"}),
 }
 
 # Dotted paths to in-tree output extractor classes. Keyed on solver_name
@@ -88,8 +81,7 @@ _BUILTIN_PATHS: dict[AdapterKey, str] = {
 _BUILTIN_EXTRACTOR_PATHS: dict[str, str] = {
     "modflownwt": "hydromodpy.solver.modflow_nwt.extractors.flow:ModflowNwtOutputAdapter",
     "modflow6": "hydromodpy.solver.modflow6.extractors.flow:Modflow6OutputAdapter",
-    "boussinesq": "hydromodpy.solver.boussinesq.extractors.output:BoussinesqOutputAdapter",
-    "gr4j": "hydromodpy.solver.gr4j.extractors.output:GR4JOutputAdapter",
+    "boussinesq": "hydromodpy.solver.boussinesq.extractors.flow:BoussinesqOutputAdapter",
     "mt3dms": "hydromodpy.solver.modflow_nwt.extractors.mt3dms:Mt3dmsOutputAdapter",
     "modflow6gwt": "hydromodpy.solver.modflow6.extractors.transport:Modflow6GwtOutputAdapter",
     "modpath": "hydromodpy.solver.modflow_nwt.extractors.modpath:ModpathOutputAdapter",
@@ -179,6 +171,23 @@ def get(process_type: str, solver_name: str) -> type:
     )
 
 
+def capabilities(process_type: str, solver_name: str) -> Capabilities:
+    """Return the declared runtime capabilities for one adapter pair."""
+    key = (process_type, solver_name)
+    if key not in _REGISTRY:
+        builtin = _BUILTIN_CAPABILITIES.get(key)
+        if builtin is not None:
+            return builtin
+    cls = get(process_type, solver_name)
+    declared = getattr(cls, "capabilities", None)
+    if declared is not None:
+        return frozenset(str(item) for item in declared)
+    builtin = _BUILTIN_CAPABILITIES.get(key)
+    if builtin is not None:
+        return builtin
+    return frozenset({process_type})
+
+
 def get_solver_adapter(process_type: str, solver_name: str) -> Any:
     """Return a freshly-instantiated adapter for ``(process_type, solver_name)``.
 
@@ -202,6 +211,11 @@ def get_extractor(solver_name: str) -> type:
     cls = _load_builtin_extractor(solver_name)
     if cls is not None:
         return cls
+    if not _EXTRACTOR_PLUGINS_LOADED:
+        load_extractor_plugins()
+        cls = _EXTRACTOR_REGISTRY.get(solver_name)
+        if cls is not None:
+            return cls
     known = sorted(set(_EXTRACTOR_REGISTRY) | set(_BUILTIN_EXTRACTOR_PATHS))
     raise KeyError(f"No extractor registered for solver {solver_name!r}. Known: {known}.")
 
@@ -209,8 +223,7 @@ def get_extractor(solver_name: str) -> type:
 def get_extractor_instance(solver_name: str) -> Any | None:
     """Return a freshly-instantiated extractor, or ``None`` when unknown.
 
-    Used by ``post_run_results`` to stay silent when a solver has no
-    extractor (e.g. third-party pipeline stages).
+    ``post_run_results`` treats ``None`` as a configuration error.
     """
     try:
         cls = get_extractor(solver_name)
@@ -230,6 +243,7 @@ def unregister(process_type: str, solver_name: str) -> None:
     key = (process_type, solver_name)
     _REGISTRY.pop(key, None)
     _BUILTIN_PATHS.pop(key, None)
+    _BUILTIN_CAPABILITIES.pop(key, None)
 
 
 def unregister_extractor(solver_name: str) -> None:
@@ -263,8 +277,8 @@ def pairs_for_process(process_type: str) -> Iterable[AdapterKey]:
 
 
 def is_adapter(obj: object) -> bool:
-    """Return ``True`` when *obj* structurally conforms to ``SolverRunner``."""
-    return isinstance(obj, SolverRunner)
+    """Return ``True`` when *obj* structurally conforms to ``SolverAdapter``."""
+    return isinstance(obj, SolverAdapter)
 
 
 def known_process_types() -> set[str]:
@@ -304,7 +318,7 @@ def load_plugins(*, force: bool = False) -> int:
     entry-points group.
 
     Each entry-point name must be ``"<process_type>_<solver_name>"`` (e.g.
-    ``"flow_modflow6"``). The loaded value must be a ``SolverRunner`` class.
+    ``"flow_modflow6"``). The loaded value must be a ``SolverAdapter`` class.
     Already-registered pairs are kept (an entry-point cannot replace an
     in-process registration unless ``force=True``).
 
@@ -366,7 +380,10 @@ def load_extractor_plugins(*, force: bool = False) -> int:
         eps = entry_points().get(EXTRACTOR_ENTRY_POINT_GROUP, [])  # type: ignore[attr-defined]
 
     for ep in eps:
-        solver_name = ep.name
+        solver_name = str(ep.name).strip()
+        if solver_name == "":
+            logger.warning("extractor plugin %r ignored: entry-point name cannot be empty", ep)
+            continue
         if solver_name in _EXTRACTOR_REGISTRY and not force:
             continue
         try:
@@ -385,9 +402,11 @@ def load_extractor_plugins(*, force: bool = False) -> int:
 
 
 __all__ = [
+    "Capabilities",
     "EXTRACTOR_ENTRY_POINT_GROUP",
     "ENTRY_POINT_GROUP",
     "AdapterKey",
+    "capabilities",
     "get",
     "get_extractor",
     "get_extractor_instance",

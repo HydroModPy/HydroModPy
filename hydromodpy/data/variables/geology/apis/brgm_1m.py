@@ -6,12 +6,13 @@ License: ETALAB Open Licence v2.0 (open data, attribution required)
 
 from __future__ import annotations
 
-import logging
 import urllib.request
 import zipfile
 from pathlib import Path
 
-logger = logging.getLogger(__name__)
+from hydromodpy.core.logging import get_logger
+
+logger = get_logger(__name__)
 
 BRGM_1M_URL = "http://infoterre.brgm.fr/telechargements/BDCharm50/FR_vecteur.zip"
 FGEOL_LAYER_PATTERN = "S_FGEOL_2154"

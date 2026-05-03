@@ -14,6 +14,7 @@ from hydromodpy.core.units.volumetric_flow import (
     convert_to_m3_per_s,
     normalize_m3_per_s_unit,
 )
+from hydromodpy.physics.contracts import LoadResultProto
 from hydromodpy.physics.flow.sinks_sources import (
     FlowEtpConfig,
     FlowRechargeConfig,
@@ -25,14 +26,13 @@ from hydromodpy.physics.flow.time_forcing import (
 
 if TYPE_CHECKING:
     from hydromodpy.core.time import ResolvedSimulationTimeWindow
-    from hydromodpy.data.contracts.load_result import LoadResult
     from hydromodpy.physics.flow import Flow
 
 
 def apply_oceanic_to_flow(
     *,
     flow: Flow,
-    oceanic: LoadResult | None,
+    oceanic: LoadResultProto | None,
 ) -> None:
     """Inject mean sea-level value into the active ocean boundary condition."""
     if oceanic is None:
@@ -58,7 +58,7 @@ def apply_oceanic_to_flow(
 def apply_recharge_load_result_to_flow(
     *,
     flow: Flow,
-    recharge_result: LoadResult | None,
+    recharge_result: LoadResultProto | None,
     simulation_window: ResolvedSimulationTimeWindow | None = None,
 ) -> bool:
     """Inject recharge from a data-manager LoadResult into flow.
@@ -66,8 +66,8 @@ def apply_recharge_load_result_to_flow(
     Uses the generic :func:`forcing_bridge.resolve_forcing` to handle
     spatial_mode dispatch (auto / homogeneous / heterogeneous).
 
-    Preserves solver-side recharge policy (first_clim, negative_to_evt)
-    from the existing flow configuration.
+    Preserves solver-side recharge policy (first_clim, negative_to_evt,
+    spatial_mode, interpolation_method) from the existing flow configuration.
 
     Returns True if recharge was successfully injected, False otherwise.
     """
@@ -81,14 +81,14 @@ def apply_recharge_load_result_to_flow(
     recharge_cfg = sinks_sources.get("recharge") if isinstance(sinks_sources, dict) else None
 
     first_clim = "mean"
-    negative_to_evt = True
     spatial_mode = "auto"
     interpolation_method = "nearest"
+    negative_to_evt = True
     if recharge_cfg is not None:
         first_clim = getattr(recharge_cfg, "first_clim", "mean")
-        negative_to_evt = getattr(recharge_cfg, "negative_to_evt", True)
         spatial_mode = getattr(recharge_cfg, "spatial_mode", "auto")
         interpolation_method = getattr(recharge_cfg, "interpolation_method", "nearest")
+        negative_to_evt = bool(getattr(recharge_cfg, "negative_to_evt", True))
 
     # Data-manager output is always in mm/day (internal convention).
     # Flow._normalize_recharge_config has already converted recharge_cfg.units
@@ -111,10 +111,10 @@ def apply_recharge_load_result_to_flow(
             values=resolved.series if resolved.series is not None else 0.0,
             first_clim=first_clim,
             units="m/s",
-            negative_to_evt=negative_to_evt,
             heterogeneous_source=resolved.heterogeneous_source,
             spatial_mode=resolved.spatial_mode,
             interpolation_method=resolved.interpolation_method,
+            negative_to_evt=negative_to_evt,
         )
     )
     return True
@@ -123,7 +123,7 @@ def apply_recharge_load_result_to_flow(
 def apply_etp_load_result_to_flow(
     *,
     flow: Flow,
-    etp_result: LoadResult | None,
+    etp_result: LoadResultProto | None,
     simulation_window: ResolvedSimulationTimeWindow | None = None,
 ) -> bool:
     """Inject ETP from a data-manager LoadResult into flow.
@@ -159,8 +159,12 @@ def apply_etp_load_result_to_flow(
         first_clim = getattr(etp_cfg, "first_clim", first_clim)
         spatial_mode = getattr(etp_cfg, "spatial_mode", spatial_mode)
         interpolation_method = getattr(etp_cfg, "interpolation_method", interpolation_method)
-        surface_offset = float(getattr(etp_cfg, "surface_offset", surface_offset))
-        extinction_depth = float(getattr(etp_cfg, "extinction_depth", extinction_depth))
+        surface_offset_q = getattr(etp_cfg, "surface_offset", None)
+        if surface_offset_q is not None:
+            surface_offset = float(surface_offset_q.to("m").magnitude)
+        extinction_depth_q = getattr(etp_cfg, "extinction_depth", None)
+        if extinction_depth_q is not None:
+            extinction_depth = float(extinction_depth_q.to("m").magnitude)
 
     unit_conversion_factor = factor_to_m_per_s("mm/day")
 

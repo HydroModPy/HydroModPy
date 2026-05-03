@@ -130,7 +130,7 @@ package "hydromodpy.data.runtime_loader" {
 }
 
 package "hydromodpy.solver" {
-  class Modflow
+  class ModflowNwt
   class Modflow6
 }
 
@@ -155,8 +155,8 @@ SyntheticGeneratedRechargeChronicleConfig *-- SeasonalStepRechargeChronicleConfi
 
 DataManagersRuntimeLoader --> TimeWindowServices : date bounds lookup
 
-Project --> Modflow : passes required preprocess options.time_grid
+Project --> ModflowNwt : passes required preprocess options.time_grid
 Project --> Modflow6 : passes required preprocess options.time_grid
-Modflow ..> ResolvedSimulationTimeGrid : consumes nper/perlen
+ModflowNwt ..> ResolvedSimulationTimeGrid : consumes nper/perlen
 Modflow6 ..> ResolvedSimulationTimeGrid : consumes nper/perlen
 @enduml

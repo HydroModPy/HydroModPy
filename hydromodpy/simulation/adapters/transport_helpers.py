@@ -7,8 +7,8 @@ rather than leaking into a specific solver backend.
 
 from __future__ import annotations
 
+from hydromodpy.simulation._solver_protocol import get_solver_registry_provider
 from hydromodpy.simulation.planning.plan import ProcessRun, RunContext, SimulationPlan
-from hydromodpy.solver.base.registry import get
 
 
 def required_flow_model(ctx: RunContext):
@@ -31,7 +31,7 @@ def _produces_concentration(run: ProcessRun) -> bool:
     if run.process_type != "transport":
         return False
     try:
-        cls = get(run.process_type, run.solver)
+        cls = get_solver_registry_provider().get_solver_adapter_class(run.process_type, run.solver)
     except KeyError:
         return False
     return bool(getattr(cls, "produces_concentration", False))

@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from hydromodpy.data.lockfile import (
+from hydromodpy.data.data_freeze import (
     LOCKFILE_NAME,
     archive_lockfile,
     read_lockfile,
@@ -63,3 +63,47 @@ def test_archive_and_restore(tmp_path):
     restore_dir = tmp_path / "restored"
     restore_archive(archive, restore_dir)
     assert (restore_dir / LOCKFILE_NAME).is_file()
+
+
+def test_lockfile_resolves_workspace_data_variable_relative_paths(tmp_path):
+    workspace = tmp_path / "workspace"
+    data_dir = workspace / "data" / "hydrometry"
+    data_dir.mkdir(parents=True)
+    src = data_dir / "hydrometry_hubeau_A_20200101_20200102_D.csv"
+    src.write_text("datetime,value\n2020-01-01,1.0\n")
+
+    cat = DataCatalogDuckDB(workspace / "data" / "cache.duckdb")
+    cat.register(
+        variable="hydrometry",
+        source="hubeau",
+        station_id="A",
+        file_path=src.name,
+    )
+    dest = workspace / LOCKFILE_NAME
+    write_lockfile(cat, dest)
+
+    entries = read_lockfile(dest)
+    assert len(entries) == 1
+    assert entries[0].file_path == src.name
+    assert entries[0].sha256 == sha256_of(src)
+    assert verify_frozen(cat, dest) == []
+
+
+def test_verify_frozen_keeps_distinct_gridded_artifacts(tmp_path):
+    workspace = tmp_path / "workspace"
+    data_dir = workspace / "data" / "precipitation"
+    data_dir.mkdir(parents=True)
+    first = data_dir / "precip_a.nc"
+    second = data_dir / "precip_b.nc"
+    first.write_text("a")
+    second.write_text("b")
+
+    cat = DataCatalogDuckDB(workspace / "data" / "cache.duckdb")
+    cat.register(variable="precipitation", source="sim2", file_path=first.name)
+    cat.register(variable="precipitation", source="sim2", file_path=second.name)
+    dest = workspace / LOCKFILE_NAME
+    write_lockfile(cat, dest)
+
+    entries = read_lockfile(dest)
+    assert {entry.file_path for entry in entries} == {first.name, second.name}
+    assert verify_frozen(cat, dest) == []

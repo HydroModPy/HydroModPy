@@ -7,21 +7,22 @@ cleanup → provenance.
 
 from __future__ import annotations
 
-import logging
+import inspect
 from pathlib import Path
 from typing import Any
 
-from hydromodpy.results.config import ResultsConfig
-from hydromodpy.solver.base.registry import get_extractor_instance
+from hydromodpy.core.logging import get_logger
+from hydromodpy.simulation._solver_protocol import get_solver_registry_provider
+from hydromodpy.simulation.planning.plan import RunContext
+from hydromodpy.simulation.planning.results_config import ResultsConfig
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 def post_run_results(
     *,
+    ctx: RunContext,
     sim_id: str,
-    solver_name: str,
-    solver_output_dir: Path | None,
     results_config: ResultsConfig,
     store: Any,
     keep_solver_files: bool | None = None,
@@ -31,13 +32,12 @@ def post_run_results(
 
     Parameters
     ----------
+    ctx : RunContext
+        Resolved runtime context for the run that just completed. Carries
+        the ``ProcessRun`` (process type and solver name) and the runtime
+        state used to locate the scratch directory.
     sim_id : str
         Simulation UUID.
-    solver_name : str
-        Solver that just completed (e.g. ``"modflownwt"``).
-    solver_output_dir : Path or None
-        Directory containing raw solver output files. ``None`` for
-        in-memory solvers (GR4J).
     results_config : ResultsConfig
         The ``[simulation.results]`` config block.
     store : SimulationCatalog
@@ -46,62 +46,149 @@ def post_run_results(
         Human-readable run identifier used to name export subdirectories.
         Falls back to the first 8 characters of *sim_id* when absent.
     """
-    if not results_config.store:
+    if not results_config.persistence.save_catalog:
         return
 
-    adapter = get_extractor_instance(solver_name)
-    if adapter is None:
-        logger.debug("No output adapter for solver '%s', skipping results ingestion", solver_name)
+    extract_run_outputs(
+        ctx=ctx,
+        sim_id=sim_id,
+        results_config=results_config,
+        store=store,
+    )
+    derive_run_outputs(
+        ctx=ctx,
+        sim_id=sim_id,
+        results_config=results_config,
+        store=store,
+    )
+    auto_export_results(
+        sim_id=sim_id,
+        store=store,
+        results_config=results_config,
+        run_id=run_id,
+    )
+    cleanup_solver_outputs(
+        ctx=ctx,
+        results_config=results_config,
+        keep_solver_files=keep_solver_files,
+    )
+
+
+def extract_run_outputs(
+    *,
+    ctx: RunContext,
+    sim_id: str,
+    results_config: ResultsConfig,
+    store: Any,
+) -> None:
+    """Extract raw solver outputs into the SimulationCatalog."""
+    if not results_config.persistence.save_catalog:
         return
+
+    provider = get_solver_registry_provider()
+    solver_name = ctx.run.solver
+    solver_output_dir = ctx.state.execution.output_dirs_by_run_id.get(ctx.run.id)
+
+    extractor = provider.get_extractor_instance(solver_name)
+    if extractor is None:
+        raise RuntimeError(f"No output adapter registered for solver {solver_name!r}")
 
     # Phase 1: extract raw outputs
-    if solver_output_dir is not None and solver_output_dir.exists():
-        try:
-            extract_kwargs = {}
-            if results_config.budget.spatial_fields:
-                extract_kwargs["budget_spatial_fields"] = True
-            adapter.extract(sim_id, solver_output_dir, store, **extract_kwargs)
-        except TypeError:
-            # Adapter doesn't accept extra kwargs (Boussinesq, GR4J, etc.)
-            try:
-                adapter.extract(sim_id, solver_output_dir, store)
-            except Exception:
-                logger.exception("Failed to extract outputs for sim %s", sim_id)
-        except Exception:
-            logger.exception("Failed to extract outputs for sim %s", sim_id)
+    if solver_output_dir is None or not solver_output_dir.exists():
+        raise FileNotFoundError(
+            f"Solver output directory is missing for sim {sim_id}: {solver_output_dir}"
+        )
 
-    # Phase 2: compute derived variables
+    extract_kwargs = {}
+    if results_config.budget.spatial_fields and _accepts_kwarg(
+        extractor.extract,
+        "budget_spatial_fields",
+    ):
+        extract_kwargs["budget_spatial_fields"] = True
+    extractor.extract(sim_id, solver_output_dir, store, **extract_kwargs)
+
+
+def derive_run_outputs(
+    *,
+    ctx: RunContext,
+    sim_id: str,
+    results_config: ResultsConfig,
+    store: Any,
+) -> None:
+    """Compute solver-adapter derived outputs and catchment aggregates."""
+    if not results_config.persistence.save_catalog:
+        return
+
+    provider = get_solver_registry_provider()
+    solver_name = ctx.run.solver
+    extractor = provider.get_extractor_instance(solver_name)
+    if extractor is None:
+        raise RuntimeError(f"No output adapter registered for solver {solver_name!r}")
+
     derived_flags = results_config.derived.model_dump()
-    try:
-        adapter.derive(sim_id, store, derived_flags)
-    except Exception:
-        logger.exception("Failed to compute derived variables for sim %s", sim_id)
+    extractor.derive(sim_id, store, derived_flags)
 
     # Phase 3: aggregate catchment timeseries from spatial fields
-    try:
+    if getattr(extractor, "category", None) != "lumped":
         from hydromodpy.simulation.extraction.extractors.catchment_aggregation import (
             aggregate_catchment_timeseries,
         )
 
         aggregate_catchment_timeseries(sim_id, store)
-    except Exception:
-        logger.exception("Failed to aggregate catchment timeseries for sim %s", sim_id)
 
-    # Auto-export if configured
+
+def auto_export_results(
+    *,
+    sim_id: str,
+    store: Any,
+    results_config: ResultsConfig,
+    run_id: str | None = None,
+) -> None:
+    """Run automated exports for one simulation when configured."""
+    if not results_config.persistence.save_catalog:
+        return
+
     export_label = run_id or sim_id[:8]
     _auto_export(sim_id, store, results_config, export_label=export_label)
 
-    # Cleanup solver files
+
+def cleanup_solver_outputs(
+    *,
+    ctx: RunContext,
+    results_config: ResultsConfig,
+    keep_solver_files: bool | None = None,
+) -> None:
+    """Cleanup raw solver files through the matching solver adapter."""
     do_keep = (
         keep_solver_files if keep_solver_files is not None else results_config.keep_solver_files
     )
-    if not do_keep and solver_output_dir is not None:
-        from hydromodpy.simulation.extraction.extractors.base import cleanup_solver_files
+    if do_keep:
+        return
+    provider = get_solver_registry_provider()
+    try:
+        adapter = provider.get_solver_adapter(ctx.run.process_type, ctx.run.solver)
+    except KeyError:
+        logger.debug(
+            "No solver adapter registered for %s/%s, skipping cleanup",
+            ctx.run.process_type,
+            ctx.run.solver,
+        )
+        return
+    try:
+        adapter.cleanup(ctx)
+    except Exception:
+        logger.warning("Failed to cleanup solver files for run %s", ctx.run.id, exc_info=True)
 
-        try:
-            cleanup_solver_files(solver_output_dir)
-        except Exception:
-            logger.warning("Failed to cleanup solver files at %s", solver_output_dir)
+
+def _accepts_kwarg(callable_obj: Any, name: str) -> bool:
+    """Return True when ``callable_obj`` accepts keyword ``name``."""
+    try:
+        signature = inspect.signature(callable_obj)
+    except (TypeError, ValueError):
+        return False
+    return name in signature.parameters or any(
+        param.kind == inspect.Parameter.VAR_KEYWORD for param in signature.parameters.values()
+    )
 
 
 def _auto_export(
@@ -131,11 +218,13 @@ def _auto_export(
     output_dir = base_dir / label
     output_dir.mkdir(parents=True, exist_ok=True)
 
+    failures: list[str] = []
+
     if export.csv_timeseries:
         try:
             store.export(sim_id, "*", "csv", output_dir / "timeseries.csv")
-        except Exception:
-            logger.exception("Auto-export CSV failed for sim %s", sim_id)
+        except Exception as exc:
+            failures.append(f"csv: {exc}")
 
     if export.netcdf and var_names:
         try:
@@ -145,10 +234,8 @@ def _auto_export(
                 "netcdf",
                 output_dir / "fields.nc",
             )
-        except KeyError:
-            logger.debug("NetCDF export skipped (no UGRID mesh) for sim %s", sim_id)
-        except Exception:
-            logger.exception("Auto-export NetCDF failed for sim %s", sim_id)
+        except Exception as exc:
+            failures.append(f"netcdf: {exc}")
 
     if export.vtu and var_names:
         for var in var_names:
@@ -160,8 +247,8 @@ def _auto_export(
                     output_dir / f"{var}_t0.vtu",
                     timestep=0,
                 )
-            except Exception:
-                logger.exception("Auto-export VTU failed for %s/%s", sim_id, var)
+            except Exception as exc:
+                failures.append(f"vtu:{var}: {exc}")
 
     if export.geotiff and var_names:
         for var in var_names:
@@ -173,8 +260,8 @@ def _auto_export(
                     output_dir / f"{var}_t0.tif",
                     timestep=0,
                 )
-            except Exception:
-                logger.exception("Auto-export GeoTIFF failed for %s/%s", sim_id, var)
+            except Exception as exc:
+                failures.append(f"geotiff:{var}: {exc}")
 
     if export.shapefile and var_names:
         for var in var_names:
@@ -186,5 +273,8 @@ def _auto_export(
                     output_dir / f"{var}_t0.shp",
                     timestep=0,
                 )
-            except Exception:
-                logger.exception("Auto-export Shapefile failed for %s/%s", sim_id, var)
+            except Exception as exc:
+                failures.append(f"shapefile:{var}: {exc}")
+
+    if failures:
+        raise RuntimeError(f"Auto-export failed for sim {sim_id}: " + "; ".join(failures))

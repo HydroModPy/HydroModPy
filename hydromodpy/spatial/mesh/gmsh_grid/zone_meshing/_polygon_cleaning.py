@@ -14,7 +14,7 @@ from hydromodpy.spatial.mesh.gmsh_grid.zone_meshing._geometry_contracts import (
     ZoneGeometryGrouping,
     ZoneRowCleaningDiagnostics,
 )
-from hydromodpy.spatial.mesh.gmsh_grid.zone_meshing._geometry_utils import (
+from hydromodpy.spatial.mesh.gmsh_grid.zone_meshing.geometry_utils import (
     is_invalid_nonempty_geometry,
     iter_polygon_parts,
     make_valid_geometry,

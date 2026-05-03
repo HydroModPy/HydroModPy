@@ -24,9 +24,10 @@ from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
 
-from hydromodpy.core.config.hydromodpy_config import _load_standard_section
-from hydromodpy.core.config.toml_loader import load_toml_with_base_config
+from hydromodpy.core.exceptions import PipelineError
+from hydromodpy.core.toml_io.loader import load_toml_with_base_config
 from hydromodpy.core.workspace.config import WorkspaceConfig
+from hydromodpy.master_config.hydromodpy_config import load_standard_section
 from hydromodpy.spatial.domain.domain_config import DomainConfig
 from hydromodpy.spatial.geographic.geographic_config import GeographicConfig
 from hydromodpy.spatial.mesh import runtime as mesh_runtime
@@ -34,8 +35,6 @@ from hydromodpy.spatial.mesh.batch import (
     MeshCatchmentBatchConfig,
     MeshCatchmentBatchRunner,
 )
-
-DEFAULT_CONFIG_NAME = "scenarios/config_example.toml"
 
 
 class MeshCatchmentLauncher:
@@ -89,18 +88,18 @@ class MeshCatchmentLauncher:
     ) -> tuple[WorkspaceConfig, GeographicConfig, DomainConfig]:
         """Load the shared runtime sections consumed by the launcher."""
         base_dir = self.config_path.parent
-        workspace_cfg = _load_standard_section(
+        workspace_cfg = load_standard_section(
             self._normalize_workspace_section(payload),
             WorkspaceConfig,
             base_dir,
         )
-        geographic_cfg = _load_standard_section(
+        geographic_cfg = load_standard_section(
             payload.get("geographic", {}),
             GeographicConfig,
             base_dir,
         )
         if "domain" in payload:
-            domain_cfg = _load_standard_section(
+            domain_cfg = load_standard_section(
                 payload.get("domain", {}),
                 DomainConfig,
                 base_dir,
@@ -133,7 +132,7 @@ class MeshCatchmentLauncher:
         """Execute the launcher and return the final summary payload."""
         if self.batch_cfg is not None:
             if self.batch_runner is None:  # pragma: no cover - defensive only
-                raise RuntimeError("Batch runner was not initialized.")
+                raise PipelineError("Batch runner was not initialized.")
             return self.batch_runner.run(self.batch_cfg)
         return self._run_single_workflow(
             workspace_cfg=self.workspace_cfg,
@@ -149,16 +148,14 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument(
         "config",
-        nargs="?",
         type=Path,
-        default=Path(__file__).parent / DEFAULT_CONFIG_NAME,
-        help=f"Path to launcher TOML file (default: {DEFAULT_CONFIG_NAME}).",
+        help="Path to launcher TOML file.",
     )
     return parser
 
 
 def main(argv: list[str] | None = None) -> None:
-    """Run the mesh-catchment launcher with a provided TOML or default local config."""
+    """Run the mesh-catchment launcher with a provided TOML config."""
     args = _build_parser().parse_args(argv)
     summary = MeshCatchmentLauncher(args.config.expanduser().resolve()).run()
     print(json.dumps(summary, ensure_ascii=True, indent=2))

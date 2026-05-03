@@ -8,14 +8,13 @@ delegates to :func:`run_calibration_cli` when a ``config_path`` is
 supplied.
 
 The Project setup is intentionally minimal: we monkey-patch
-:func:`prepare_trials` and :func:`promote_trial` (the same fakes used
+:func:`prepare_trials` and :func:`promote_prepared_trial` (the same fakes used
 by ``test_calibration_cli``) so the calibration loop runs without
 touching MODFLOW, while the catalog persistence and
 :class:`CalibrationReport` assembly remain real. A duck-typed
-``_FakeProject`` exposes the two attributes
-``run_calibration_programmatic`` reads (``_config_path`` and
-``_ctx.setup.workspace.root``) so we never have to validate a full
-:class:`HydroModPyConfig`.
+``_FakeProject`` exposes the source TOML and workspace attributes used by
+``run_calibration_programmatic`` so we never have to validate a full
+:class:`HydroModPyConfig` in the common path.
 """
 
 from __future__ import annotations
@@ -28,9 +27,9 @@ from unittest.mock import patch
 import pytest
 
 from hydromodpy.calibration import CalibrationReport
-from hydromodpy.calibration import cli as cli_module
-from hydromodpy.calibration.cli import run_calibration_programmatic
+from hydromodpy.calibration import runner as runner_module
 from hydromodpy.calibration.config import CalibrationConfig
+from hydromodpy.calibration.runner import run_calibration_programmatic
 
 # ---------------------------------------------------------------------------
 # Fixtures
@@ -58,38 +57,43 @@ class _FakeProject:
     """Minimal duck-typed Project for ``run_calibration_programmatic``.
 
     Exposes only the two attributes the public helper reads:
-    ``_config_path`` (the source TOML) and ``_ctx.setup.workspace.root``
-    (the workspace root).
+    ``_config_path`` (the source TOML) and ``_ctx.setup.workspace``
+    (shared data root plus project catalog root).
     """
 
     def __init__(self, cfg_path: Path, workspace: Path) -> None:
         self._config_path = cfg_path
 
         class _Workspace:
-            def __init__(self, root: Path) -> None:
+            def __init__(self, root: Path, project_root: Path) -> None:
                 self.root = root
+                self.project_root = project_root
 
         class _Setup:
-            def __init__(self, ws: Path) -> None:
-                self.workspace = _Workspace(ws)
+            def __init__(self, ws: Path, project_root: Path) -> None:
+                self.workspace = _Workspace(ws, project_root)
 
         class _Ctx:
-            def __init__(self, ws: Path) -> None:
-                self.setup = _Setup(ws)
+            def __init__(self, ws: Path, project_root: Path) -> None:
+                self.setup = _Setup(ws, project_root)
 
-        self._ctx = _Ctx(workspace)
+        self._ctx = _Ctx(workspace, cfg_path.parent)
 
 
 @pytest.fixture
 def fake_pipeline(monkeypatch, tmp_path):
-    """Monkey-patch prepare_trials + promote_trial so calls run in seconds."""
-    from hydromodpy.simulation.execution.trial import TrialContext
+    """Monkey-patch prepare_trials + promote_prepared_trial so calls run in seconds."""
+    from hydromodpy.calibration.runners.trial import TrialContext
 
     promoted: list[dict] = []
 
     class _FakeSetup:
         def __init__(self):
-            self.workspace = type("_WS", (), {"root": tmp_path / "ws"})()
+            self.workspace = type(
+                "_WS",
+                (),
+                {"root": tmp_path / "ws", "project_root": tmp_path},
+            )()
             self.flow = None
             self.transport = None
             self.flow_runtime_overrides = None
@@ -143,12 +147,13 @@ def fake_pipeline(monkeypatch, tmp_path):
             earliest=9,
             downstream_steps=(),
             override_paths=paths,
-            workspace=tmp_path / "ws",
+            workspace=tmp_path,
             cfg_path=cfg_path,
             raw_toml=raw,
         )
 
-    def _fake_promote(cfg_path, values, *, paths=None, name=None, tags=(), session_id=None):
+    def _fake_promote(trial_ctx, values, *, name=None, tags=(), session_id=None):
+        del trial_ctx, tags
         sim_id = uuid.uuid4().hex
         promoted.append(
             {
@@ -160,8 +165,8 @@ def fake_pipeline(monkeypatch, tmp_path):
         )
         return sim_id
 
-    monkeypatch.setattr(cli_module, "prepare_trials", _fake_prepare)
-    monkeypatch.setattr(cli_module, "promote_trial", _fake_promote)
+    monkeypatch.setattr(runner_module, "prepare_trials", _fake_prepare)
+    monkeypatch.setattr(runner_module, "promote_prepared_trial", _fake_promote)
     return promoted
 
 
@@ -254,16 +259,36 @@ class TestRunCalibrationProgrammatic:
         after = {p.name for p in tempdir.iterdir() if p.name.startswith("hmp_calibrate_")}
         assert after == before
 
-    def test_requires_project_with_config_path(self, tmp_path, fake_pipeline, quadratic_metric):
-        empty_project = _FakeProject.__new__(_FakeProject)
-        empty_project._config_path = None
-        empty_project._ctx = None
-        with pytest.raises(ValueError, match="loaded from a"):
-            run_calibration_programmatic(
-                _baseline_cfg(),
-                project=empty_project,
-                metric_fn=quadratic_metric,
-            )
+    def test_accepts_project_without_config_path(self, tmp_path, fake_pipeline, quadratic_metric):
+        project = _FakeProject.__new__(_FakeProject)
+        project._config_path = None
+        project._ctx = _FakeProject(tmp_path / "unused.toml", tmp_path / "ws")._ctx
+
+        class _Config:
+            def model_dump(self, **kwargs):
+                return {
+                    "workflow": "simulation",
+                    "workspace": {"root": str(tmp_path / "ws")},
+                    "flow": {
+                        "param": {
+                            "K": {
+                                "field_homogeneous": {
+                                    "value": 1e-4,
+                                }
+                            }
+                        }
+                    },
+                }
+
+        project.cfg = _Config()
+
+        report = run_calibration_programmatic(
+            _baseline_cfg(),
+            project=project,
+            metric_fn=quadratic_metric,
+        )
+
+        assert isinstance(report, CalibrationReport)
 
     def test_iterations_persisted(self, fake_project, fake_pipeline, quadratic_metric, tmp_path):
         cfg = _baseline_cfg()
@@ -274,12 +299,53 @@ class TestRunCalibrationProgrammatic:
         )
         from hydromodpy.results.catalog import SimulationCatalog
 
-        with SimulationCatalog(tmp_path / "ws") as catalog:
+        with SimulationCatalog(tmp_path) as catalog:
             rows = catalog.connection.execute(
                 "SELECT COUNT(*) FROM calibration_iterations WHERE session_id = ?",
                 [uuid.UUID(report.session_id)],
             ).fetchone()
         assert rows[0] == 3
+
+    def test_save_runs_all_promotes_every_completed_iteration(
+        self, fake_project, fake_pipeline, quadratic_metric
+    ):
+        cfg = _baseline_cfg().model_copy(update={"save_runs": "all"})
+        report = run_calibration_programmatic(
+            cfg,
+            project=fake_project,
+            metric_fn=quadratic_metric,
+        )
+
+        assert report.promoted == report.n_iterations == 3
+        assert len(fake_pipeline) == 3
+        assert report.best_sim_id in {row["sim_id"] for row in fake_pipeline}
+
+    def test_failed_required_promotion_marks_session_failed(
+        self, fake_project, fake_pipeline, quadratic_metric, monkeypatch, tmp_path
+    ):
+        def _fail_promote(*args, **kwargs):
+            del args, kwargs
+            raise RuntimeError("promotion unavailable")
+
+        monkeypatch.setattr(runner_module, "promote_prepared_trial", _fail_promote)
+        cfg = _baseline_cfg().model_copy(update={"save_runs": "all"})
+
+        report = run_calibration_programmatic(
+            cfg,
+            project=fake_project,
+            metric_fn=quadratic_metric,
+        )
+
+        from hydromodpy.results.catalog import SimulationCatalog
+
+        with SimulationCatalog(tmp_path) as catalog:
+            row = catalog.connection.execute(
+                "SELECT status, error_message FROM calibration_sessions WHERE session_id = ?",
+                [uuid.UUID(report.session_id)],
+            ).fetchone()
+        assert report.promoted == 0
+        assert row[0] == "failed"
+        assert "promotion unavailable" in row[1]
 
 
 # ---------------------------------------------------------------------------
@@ -312,7 +378,7 @@ path = "flow.param.K.field_homogeneous.value"
 
         from hydromodpy.project import Project
 
-        with patch.object(cli_module, "run_calibration_cli") as mocked:
+        with patch.object(runner_module, "run_calibration_cli") as mocked:
             mocked.return_value = {"session_id": "abc", "method": "grid"}
             Project.calibrate(proj, config_path=toml_calib)
             assert mocked.call_count == 1
@@ -338,7 +404,7 @@ class TestProjectCalibratePythonModeDispatch:
             promoted=0,
         )
         with patch(
-            "hydromodpy.calibration.cli.run_calibration_programmatic",
+            "hydromodpy.calibration.runner.run_calibration_programmatic",
             return_value=sentinel,
         ) as mocked:
             result = Project.calibrate(
@@ -361,19 +427,33 @@ class TestProjectCalibratePythonModeDispatch:
 
     def test_python_mode_requires_parameters(self, project_toml, tmp_path):
         proj = _FakeProject(project_toml, tmp_path / "ws")
+        from hydromodpy.core.exceptions import ConfigMissingError
         from hydromodpy.project import Project
 
-        with pytest.raises(ValueError, match="parameters="):
+        with pytest.raises(ConfigMissingError, match="parameters="):
             Project.calibrate(proj)
 
-    def test_python_mode_requires_toml_loaded_project(self, tmp_path):
+    def test_python_mode_accepts_in_memory_project(self, tmp_path):
         proj = _FakeProject.__new__(_FakeProject)
         proj._config_path = None
         proj._ctx = None
         from hydromodpy.project import Project
 
-        with pytest.raises(ValueError, match="loaded from a"):
-            Project.calibrate(
+        sentinel = CalibrationReport(
+            session_id="abc",
+            method="grid",
+            n_iterations=2,
+            best_objective=0.0,
+            best_sim_id=None,
+            duration_s=0.0,
+            save_runs="none",
+            promoted=0,
+        )
+        with patch(
+            "hydromodpy.calibration.runner.run_calibration_programmatic",
+            return_value=sentinel,
+        ) as mocked:
+            result = Project.calibrate(
                 proj,
                 parameters={
                     "K": {
@@ -385,3 +465,5 @@ class TestProjectCalibratePythonModeDispatch:
                 max_iter=2,
                 save_runs="none",
             )
+            assert result is sentinel
+            assert mocked.call_args.kwargs["project"] is proj

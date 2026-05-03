@@ -2,15 +2,15 @@
 
 from __future__ import annotations
 
-import csv
 import json
 import math
 from collections.abc import Iterable, Mapping
 from pathlib import Path
 from typing import Any
 
-from hydromodpy.analysis.comparison.runtime import _bundle_dir_from_config, discover_result_store
-from hydromodpy.core.config.toml_loader import load_toml_with_base_config
+from hydromodpy.analysis.comparison.runtime_mesh import resolve_bundle_cells
+from hydromodpy.analysis.comparison.runtime_metadata import discover_result_store
+from hydromodpy.core.toml_io.loader import load_toml_with_base_config
 
 STRICT_METADATA_KEYS = (
     "mesh_hash",
@@ -245,8 +245,7 @@ def _compare_scalar_series(
     max_abs_rel_diff = max(relative_differences)
     status = (
         "pass"
-        if max_abs_diff <= RECHARGE_ABS_TOL_M3_S
-        or max_abs_rel_diff <= RECHARGE_REL_TOL
+        if max_abs_diff <= RECHARGE_ABS_TOL_M3_S or max_abs_rel_diff <= RECHARGE_REL_TOL
         else "warn"
     )
     return {
@@ -273,42 +272,8 @@ def _as_float(value: Any) -> float | None:
     return parsed if math.isfinite(parsed) else None
 
 
-def _load_cell_vertical_bounds(config_path: Path | None) -> dict[int, tuple[float, float]]:
-    if config_path is None:
-        return {}
-    try:
-        bundle_dir = _bundle_dir_from_config(config_path)
-    except Exception:
-        return {}
-    if bundle_dir is None:
-        return {}
-    cells_path = bundle_dir / "cells.csv"
-    if not cells_path.exists():
-        return {}
-    bounds: dict[int, tuple[float, float]] = {}
-    try:
-        with cells_path.open("r", encoding="utf-8", newline="") as handle:
-            reader = csv.DictReader(handle)
-            for row in reader:
-                try:
-                    cell_id = int(row["cell_id"])
-                    top = float(row["z_top_centroid"])
-                    bottom = float(row["z_bottom_centroid"])
-                except Exception:
-                    continue
-                if math.isfinite(top) and math.isfinite(bottom):
-                    bounds[cell_id] = (top, bottom)
-    except Exception:
-        return {}
-    return bounds
-
-
 def _row_cell_index(row: Mapping[str, Any]) -> int | None:
-    candidates = (
-        row.get("selected_cell_index"),
-        row.get("value_index"),
-    )
-    for candidate in candidates:
+    for candidate in (row.get("selected_cell_index"), row.get("value_index")):
         if candidate in ("", None):
             continue
         try:
@@ -325,16 +290,21 @@ def _head_bounds_diagnostics(
 ) -> list[dict[str, Any]]:
     if observable_rows is None:
         return []
-    config_by_variant: dict[str, Path] = {}
+
+    cells_by_variant = {}
     for summary in variant_summaries:
-        config_path_raw = summary.get("config_path")
-        if config_path_raw in ("", None):
+        run_folder_raw = summary.get("run_folder")
+        if run_folder_raw in ("", None):
             continue
-        config_by_variant[str(summary.get("id", ""))] = Path(str(config_path_raw))
-    bounds_by_variant = {
-        variant_id: _load_cell_vertical_bounds(config_path)
-        for variant_id, config_path in config_by_variant.items()
-    }
+        config_path_raw = summary.get("config_path")
+        config_path = None if config_path_raw in ("", None) else Path(str(config_path_raw))
+        cells = resolve_bundle_cells(
+            Path(str(run_folder_raw)),
+            config_path=config_path,
+            solver_name=str(summary.get("solver", "")) or None,
+        )
+        if cells is not None:
+            cells_by_variant[str(summary.get("id", ""))] = cells
 
     grouped: dict[tuple[str, str], list[float]] = {}
     below_grouped: dict[tuple[str, str], list[float]] = {}
@@ -348,12 +318,13 @@ def _head_bounds_diagnostics(
             continue
         variant_id = str(row.get("variant_id", ""))
         cell_index = _row_cell_index(row)
-        if cell_index is None:
+        cells = cells_by_variant.get(variant_id)
+        if cell_index is None or cells is None:
             continue
-        bounds = bounds_by_variant.get(variant_id, {})
-        if cell_index not in bounds:
+        bounds = cells.vertical_bounds_for_cell_id(cell_index)
+        if bounds is None:
             continue
-        top, bottom = bounds[cell_index]
+        top, bottom = bounds
         key = (variant_id, str(row.get("observable", "")))
         counts[key] = counts.get(key, 0) + 1
         above = value - top
@@ -459,9 +430,7 @@ def _head_recharge_response_diagnostics(
                     delta_heads,
                 ),
                 "same_sign_delta_fraction": (
-                    same_sign_count / nonzero_recharge_steps
-                    if nonzero_recharge_steps
-                    else None
+                    same_sign_count / nonzero_recharge_steps if nonzero_recharge_steps else None
                 ),
             }
         )
@@ -629,17 +598,16 @@ def build_equivalence_audit(
     for item in head_bounds:
         above_fraction = _as_float(item.get("above_top_fraction")) or 0.0
         above_max = _as_float(item.get("above_top_max_m")) or 0.0
-        if (
-            above_fraction > HEAD_ABOVE_TOP_FRACTION_TOL
-            and above_max > HEAD_ABOVE_TOP_TOL_M
-        ):
+        if above_fraction > HEAD_ABOVE_TOP_FRACTION_TOL and above_max > HEAD_ABOVE_TOP_TOL_M:
             issues.append(
                 {
                     "level": "error" if on_mismatch == "fail" else "warning",
                     "kind": "watertable_above_top",
                     "variant_id": item.get("variant_id", ""),
                     "field": item.get("observable", ""),
-                    "message": "Watertable elevation is above the model top on a large fraction of cells.",
+                    "message": (
+                        "Watertable elevation is above the model top on a large fraction of cells."
+                    ),
                     "above_top_fraction": above_fraction,
                     "above_top_max_m": above_max,
                     "fraction_tolerance": HEAD_ABOVE_TOP_FRACTION_TOL,

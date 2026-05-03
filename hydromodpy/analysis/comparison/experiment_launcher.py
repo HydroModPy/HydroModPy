@@ -27,10 +27,8 @@ from hydromodpy.analysis.comparison.exports import (
     write_hydrographic_network_metrics_export,
     write_native_timeseries_exports,
     write_observable_chronicle_exports,
-    write_simulated_active_network_metrics_export,
-    write_simulated_active_network_overlap_metrics_export,
 )
-from hydromodpy.analysis.comparison.metrics import (
+from hydromodpy.analysis.comparison.metric_diff import (
     DETAIL_METRIC_FIELDS,
     SUMMARY_METRIC_FIELDS,
     build_comparison_metrics,
@@ -39,13 +37,13 @@ from hydromodpy.analysis.comparison.metrics import (
 )
 from hydromodpy.analysis.comparison.reporting import build_comparison_report
 from hydromodpy.analysis.comparison.run_backend import ChildRunResult, run_child_with_hmp
-from hydromodpy.analysis.comparison.runtime import (
-    discover_result_store,
+from hydromodpy.analysis.comparison.runtime_metadata import discover_result_store
+from hydromodpy.analysis.comparison.runtime_observables import (
     extract_observable_rows,
     write_observables_csv,
 )
 from hydromodpy.analysis.comparison.visuals import generate_comparison_figures
-from hydromodpy.core.config.toml_loader import load_toml_with_base_config
+from hydromodpy.core.toml_io.loader import load_toml_with_base_config
 
 
 class SimulationComparisonLauncher:
@@ -119,8 +117,7 @@ class SimulationComparisonLauncher:
                 rows=all_rows,
                 detail_metrics=detail_metrics,
                 observables=[
-                    observable.model_dump(mode="json")
-                    for observable in comparison.observable
+                    observable.model_dump(mode="json") for observable in comparison.observable
                 ],
             )
         )
@@ -140,22 +137,6 @@ class SimulationComparisonLauncher:
             variant_summaries=variant_summaries,
         )
         data_artifacts.extend(hydrographic_artifacts)
-        simulated_active_artifacts, _simulated_active_rows = (
-            write_simulated_active_network_metrics_export(
-                comparison_id=str(comparison.comparison_id),
-                comparison_root=comparison_root,
-                variant_summaries=variant_summaries,
-            )
-        )
-        data_artifacts.extend(simulated_active_artifacts)
-        simulated_active_overlap_artifacts, _simulated_active_overlap_rows = (
-            write_simulated_active_network_overlap_metrics_export(
-                comparison_id=str(comparison.comparison_id),
-                comparison_root=comparison_root,
-                variant_summaries=variant_summaries,
-            )
-        )
-        data_artifacts.extend(simulated_active_overlap_artifacts)
         budget_artifacts, budget_rows = write_budget_exports(
             comparison_root=comparison_root,
             variant_summaries=variant_summaries,
@@ -241,8 +222,7 @@ class SimulationComparisonLauncher:
 
         if audit.get("status") == "fail" and comparison.audit.on_mismatch == "fail":
             raise RuntimeError(
-                "Comparison audit failed. See "
-                f"{audit_json} for equivalence diagnostics."
+                f"Comparison audit failed. See {audit_json} for equivalence diagnostics."
             )
         return manifest
 
@@ -302,7 +282,7 @@ class SimulationComparisonLauncher:
         )
         if not result.succeeded:
             summary["error_type"] = "ChildProcessError"
-            summary["error_message"] = _format_child_process_error(result)
+            summary["error_message"] = f"hmp run exited with code {result.returncode}"
         return summary
 
     def _reuse_child_summary(self, child: GeneratedChildConfig) -> dict[str, Any]:
@@ -465,18 +445,6 @@ class SimulationComparisonLauncher:
             except Exception as exc:
                 errors.append(f"could not remove {generated_dir}: {exc}")
         return errors
-
-
-def _format_child_process_error(result: ChildRunResult) -> str:
-    """Return a concise error message with enough child output to diagnose."""
-    message = f"hmp run exited with code {result.returncode}"
-    stderr = result.stderr.strip()
-    stdout = result.stdout.strip()
-    if stderr:
-        return f"{message}\nstderr tail:\n{stderr[-2000:]}"
-    if stdout:
-        return f"{message}\nstdout tail:\n{stdout[-2000:]}"
-    return message
 
 
 __all__ = ("SimulationComparisonLauncher",)

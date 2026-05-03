@@ -20,6 +20,7 @@ from validation_cases.analytical.steady.boussinesq_fixed_head_piecewise_k_1d.run
 from validation_cases.analytical.steady.boussinesq_piecewise import mm_day_to_m_s
 from validation_cases.shared.runtime import (
     ValidationRunResult,
+    materialize_postprocess_fields_to_store,
     resolve_validation_results_dir,
 )
 
@@ -300,6 +301,11 @@ def run_boussinesq_hillslope_interception_case(
     model_ws = Path(model.full_path)
     postprocess_dir = model_ws / "_postprocess"
     particles_dir = postprocess_dir / "_particles"
+    store, sim_id = materialize_postprocess_fields_to_store(
+        out_path=out_path,
+        postprocess_dir=postprocess_dir,
+        solver_name="boussinesq",
+    )
     return ValidationRunResult(
         case_dir=Path(__file__).resolve().parent,
         solver_name="boussinesq",
@@ -310,6 +316,8 @@ def run_boussinesq_hillslope_interception_case(
         run_returncode=0,
         run_stdout="",
         run_stderr="",
+        store=store,
+        sim_id=sim_id,
     )
 
 

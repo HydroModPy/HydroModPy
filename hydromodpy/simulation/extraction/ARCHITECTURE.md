@@ -361,7 +361,7 @@ project_results.zarr/
     |   +-- riv                            # (ntimesteps, nlayers, ncells)
     |   +-- ghb                            # (ntimesteps, nlayers, ncells)
     |   +-- sto                            # (ntimesteps, nlayers, ncells)
-    |   +-- flow_ja_face                   # (ntimesteps, n_connections)
+    |   +-- flow_ja_face                   # (ntimesteps, n_link_faces)
     |
     +-- pathlines/                         # MODPATH
         +-- x                              # (n_particles, n_steps) float64
@@ -893,7 +893,7 @@ SimulationRunner
   -> forcing/ prepare les entrees (recharge, CL, parametres spatiaux)
   -> ResultStore.record_provenance()   # hash + stats des forcages injectes
                                        # (ne stocke PAS les arrays de forcage)
-  -> SolverRunner execute le solver
+  -> SolverAdapter execute le solver
   -> le solver ecrit ses fichiers proprietaires (.hds, .cbc, .ucn, ...)
   -> OutputAdapter lit ces fichiers via FloPy (ou en memoire pour GR4J)
   -> ResultStore.write_mesh()          # topologie du maillage (1 seule fois)

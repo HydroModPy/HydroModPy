@@ -8,8 +8,8 @@ on:
     paths:
       - ".github/workflows/docs-gallery-check.yml"
       - "tools/doc_gallery/**"
-      - "examples/mesh_gallery/**"
-      - "examples/capability_gallery/**"
+      - "examples/projects/07_mesh_gallery/**"
+      - "examples/projects/09_capability_gallery/**"
       - "validation_cases/README.md"
       - "validation_cases/analytical/**"
       - "validation_cases/numerical/**"
@@ -21,8 +21,8 @@ on:
     paths:
       - ".github/workflows/docs-gallery-check.yml"
       - "tools/doc_gallery/**"
-      - "examples/mesh_gallery/**"
-      - "examples/capability_gallery/**"
+      - "examples/projects/07_mesh_gallery/**"
+      - "examples/projects/09_capability_gallery/**"
       - "validation_cases/README.md"
       - "validation_cases/analytical/**"
       - "validation_cases/numerical/**"
@@ -64,4 +64,6 @@ jobs:
           pip install -e ".[docs,test]"
 
       - name: Verify committed gallery artifacts
-        run: python -m tools.doc_gallery --check
+        run: >
+          python -m tools.doc_gallery --check
+          --category mesh,geographic,method_comparison,code_comparison

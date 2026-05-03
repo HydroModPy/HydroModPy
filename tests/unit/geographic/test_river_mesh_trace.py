@@ -84,7 +84,8 @@ def test_build_river_mesh_trace_from_vector_infers_missing_crs_from_target(
         geometry=[LineString([(0.0, 0.0), (10.0, 0.0)])],
         crs=None,
     )
-    rivers.to_file(river_path)
+    with pytest.warns(UserWarning, match="'crs' was not provided"):
+        rivers.to_file(river_path)
 
     trace = build_river_mesh_trace_from_vector(
         vector_path=river_path,
@@ -106,7 +107,8 @@ def test_build_river_mesh_trace_from_vector_missing_crs_without_target_raises(
         geometry=[LineString([(0.0, 0.0), (10.0, 0.0)])],
         crs=None,
     )
-    rivers.to_file(river_path)
+    with pytest.warns(UserWarning, match="'crs' was not provided"):
+        rivers.to_file(river_path)
 
     with pytest.raises(ValueError, match="has no CRS and no target CRS"):
         build_river_mesh_trace_from_vector(

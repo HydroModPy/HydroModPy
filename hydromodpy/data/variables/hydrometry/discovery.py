@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import logging
 from datetime import datetime
 from math import asin, cos, radians, sin, sqrt
 from pathlib import Path
@@ -12,24 +11,12 @@ import pandas as pd
 import requests
 
 from hydromodpy.core.io.http_client import get_default_client
+from hydromodpy.core.logging import get_logger
+from hydromodpy.core.units import parse_length_to_m
 
-logger = logging.getLogger(__name__)
+from ..common.base_station_set import BaseStationSet
 
-try:
-    from hydromodpy.core.units import parse_length_to_m
-
-    from ..common.base_station_set import BaseStationSet
-except ImportError:
-    import sys
-
-    _manager_root = Path(__file__).resolve().parents[1]
-    _repo_root = Path(__file__).resolve().parents[3]
-    for _path in (str(_manager_root), str(_repo_root)):
-        if _path not in sys.path:
-            sys.path.insert(0, _path)
-    from common.base_station_set import BaseStationSet
-
-    from hydromodpy.core.units import parse_length_to_m
+logger = get_logger(__name__)
 
 
 API_BASE_URL = "https://hubeau.eaufrance.fr/api/v2/"

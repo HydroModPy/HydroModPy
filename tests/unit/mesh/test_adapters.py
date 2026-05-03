@@ -113,7 +113,8 @@ class TestFlopyAdapter:
 
 class TestMeshioAdapter:
     def test_roundtrip(self) -> None:
-        meshio = pytest.importorskip("meshio")
+        import meshio  # noqa: F401
+
         from hydromodpy.spatial.mesh.adapters.meshio_adapter import from_meshio, to_meshio
 
         verts = np.array([[0, 0], [1, 0], [0.5, 1], [1.5, 1]], dtype=float)

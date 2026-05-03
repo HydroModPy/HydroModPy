@@ -1,11 +1,13 @@
-"""Run temporal-mesh demo scenarios from a TOML configuration."""
+"""Run temporal-mesh demo scenarios from a TOML configuration.
+
+Run with:
+    python -m hydromodpy.solver.utils.temporal.cases.run_tmesh_case
+"""
 
 from __future__ import annotations
 
 import argparse
-import importlib.util
 import json
-import sys
 from pathlib import Path
 from typing import Any
 
@@ -13,40 +15,10 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 
-# Support direct execution from file path and ensure local package precedence.
-# Example: python hydromodpy/solver/utils/temporal/cases/run_tmesh_case.py
-repo_root = Path(__file__).resolve().parents[5]
-if (repo_root / "hydromodpy").exists() and str(repo_root) not in sys.path:
-    sys.path.insert(0, str(repo_root))
-
-try:
-    from hydromodpy.solver.utils.temporal.cases.run_tmesh_config import (
-        load_tmesh_cases_toml,
-    )
-    from hydromodpy.solver.utils.temporal.tmesh_generation import TMesh_Generation
-except Exception:
-    temporal_root = Path(__file__).resolve().parents[1]
-    cases_root = Path(__file__).resolve().parent
-
-    def _load_module(module_name: str, module_path: Path):
-        spec = importlib.util.spec_from_file_location(module_name, module_path)
-        if spec is None or spec.loader is None:
-            raise ImportError(f"Cannot load module from {module_path}")
-        module = importlib.util.module_from_spec(spec)
-        sys.modules[module_name] = module
-        spec.loader.exec_module(module)
-        return module
-
-    tmesh_module = _load_module(
-        "_local_tmesh_generation",
-        temporal_root / "tmesh_generation.py",
-    )
-    cfg_module = _load_module(
-        "_local_tmesh_case_config",
-        cases_root / "run_tmesh_config.py",
-    )
-    TMesh_Generation = tmesh_module.TMesh_Generation
-    load_tmesh_cases_toml = cfg_module.load_tmesh_cases_toml
+from hydromodpy.solver.utils.temporal.cases.run_tmesh_config import (
+    load_tmesh_cases_toml,
+)
+from hydromodpy.solver.utils.temporal.tmesh_generation import TmeshGenerator
 
 
 def _as_serializable(value: Any):
@@ -185,7 +157,7 @@ def run_tmesh_cases_from_toml(
         output_dirs.append(compat_dir)
 
     for scenario in cfg.scenarios:
-        builder = TMesh_Generation(**scenario.to_builder_kwargs())
+        builder = TmeshGenerator(**scenario.to_builder_kwargs())
         tmesh = builder.run()
         figure_path, datetime_vector = _plot_datetime_vector(
             tmesh,

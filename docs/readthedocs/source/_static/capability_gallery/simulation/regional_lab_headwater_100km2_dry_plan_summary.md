@@ -1,7 +1,7 @@
 # Regional Lab Summary: headwater_100km2_lab
 
-- Config: `/home/bb/Documents/01_Git_Repository/02-HydroModPy-dev/examples_legacy_2/projects/launcher_simulation/regional_lab/config_headwater_100km2_lab.toml`
-- Site catalog: `/home/bb/Documents/01_Git_Repository/02-HydroModPy-dev/examples_legacy_2/projects/launcher_simulation/regional_lab/site_catalog.csv`
+- Config: `/home/bb/Documents/01_Git_Repository/02-HydroModPy-dev/docs/readthedocs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_dry_plan_summary.json`
+- Site catalog: `/home/bb/Documents/01_Git_Repository/02-HydroModPy-dev/docs/readthedocs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_dry_plan_summary.json`
 - Selected sites: 5
 - Planned cases: 3
 - Skipped cases: 6

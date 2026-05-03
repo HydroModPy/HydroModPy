@@ -25,6 +25,9 @@ from tools.mesh_bundle_viewer.runner.visualization_runner import (
     load_toml_config,
     run_visualization,
 )
+from validation_cases.calibration.shared.definitions import (
+    method_returns_parameter_distribution,
+)
 
 from .gallery_manifest import (
     CATEGORY_SPECS,
@@ -37,9 +40,6 @@ from .mesh_case_registry import (
 )
 from .mesh_case_registry import (
     scale_label as mesh_scale_label,
-)
-from validation_cases.calibration.shared.definitions import (
-    method_returns_parameter_distribution,
 )
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -63,10 +63,10 @@ CATEGORY_GROUP_SPECS = (
     {
         "title": "Build The Support",
         "deck": (
-            "Start here when the question is still about the basin, geometry, or "
-            "properties rather than about solver behaviour."
+            "Start here when the question is still about the basin, the geometry, the "
+            "properties, or the mesh rather than about solver behaviour."
         ),
-        "categories": ("geographic", "geometry", "hydraulic_properties"),
+        "categories": ("geographic", "geometry", "hydraulic_properties", "mesh"),
     },
     {
         "title": "Run And Compare",
@@ -84,19 +84,6 @@ CATEGORY_GROUP_SPECS = (
         ),
         "categories": ("validation", "calibration"),
     },
-    {
-        "title": "Inspect Mesh Supports",
-        "deck": (
-            "Use these pages when the scientific question is specifically about mesh "
-            "support, constraint preservation, or reusable spatial-support artifacts."
-        ),
-        "categories": ("mesh",),
-    },
-)
-CATEGORY_NAVIGATION_ORDER = tuple(
-    category_slug
-    for group_spec in CATEGORY_GROUP_SPECS
-    for category_slug in group_spec["categories"]
 )
 
 
@@ -814,7 +801,9 @@ def _build_unavailable_case_summary(
     missing_paths: tuple[str, ...] | list[str] = (),
     metadata_override: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
-    normalized_missing_paths = tuple(_missing_repo_paths(list(missing_paths) or list(spec.source_paths)))
+    normalized_missing_paths = tuple(
+        _missing_repo_paths(list(missing_paths) or list(spec.source_paths))
+    )
     custom_sections: list[dict[str, Any]] = [
         {
             "title": "Local Regeneration Note",
@@ -1051,7 +1040,9 @@ def _generate_copy_assets_case(spec: GalleryCaseSpec, source_root: Path) -> dict
             raise ValueError(f"Gallery asset {asset.filename} is missing source_path.")
         destination = source_root / _docs_relative_static_path(spec.category, asset.filename)
         destination.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copy2(_repo_path(asset.source_path), destination)
+        source = _repo_path(asset.source_path)
+        if source.resolve() != destination.resolve():
+            shutil.copy2(source, destination)
         copied_assets.append(
             {
                 "source_path": asset.source_path,
@@ -1059,9 +1050,19 @@ def _generate_copy_assets_case(spec: GalleryCaseSpec, source_root: Path) -> dict
             }
         )
 
+    metrics_override = None
+    static_summary_path = str(spec.metadata.get("static_summary_path", "")).strip()
+    if static_summary_path:
+        try:
+            static_summary = json.loads(_repo_path(static_summary_path).read_text(encoding="utf-8"))
+            metrics_override = list(static_summary.get("metrics", []))
+        except (OSError, json.JSONDecodeError):
+            metrics_override = []
+
     return _build_case_summary(
         spec,
         metrics_source={},
+        metrics_override=metrics_override,
         metadata={
             **dict(spec.metadata),
             "copied_assets": copied_assets,
@@ -1838,9 +1839,7 @@ def _generate_xt3d_method_choice_case(spec: GalleryCaseSpec, source_root: Path) 
         },
     ]
     if improved_names:
-        custom_sections[2]["items"].append(
-            "Representative improved cases: " + improved_names + "."
-        )
+        custom_sections[2]["items"].append("Representative improved cases: " + improved_names + ".")
 
     metadata = dict(spec.metadata)
     metadata.update(
@@ -1900,9 +1899,7 @@ def _generate_xt3d_method_choice_case(spec: GalleryCaseSpec, source_root: Path) 
                 "image_repo_paths": [
                     _repo_docs_artifact_path(spec.category, figure_asset.filename)
                 ],
-                "extra_repo_paths": [
-                    _repo_docs_artifact_path(spec.category, report_filename)
-                ],
+                "extra_repo_paths": [_repo_docs_artifact_path(spec.category, report_filename)],
             },
         },
     )
@@ -1969,10 +1966,7 @@ def _generate_calibration_case(spec: GalleryCaseSpec, source_root: Path) -> dict
         image = _build_validation_image_summary(
             category=spec.category,
             filename=configuration_filename,
-            caption=(
-                f"Calibration setup summary for {spec.title}: truth parameters, observation block, "
-                "search bounds, and weighting used by the inverse benchmark."
-            ),
+            caption=f"{spec.title} configuration summary used by the calibration gallery.",
             alt_text=f"{spec.title} configuration figure",
         )
         images_override.append(image)
@@ -1997,8 +1991,7 @@ def _generate_calibration_case(spec: GalleryCaseSpec, source_root: Path) -> dict
                 filename=landscape_filename,
                 caption=(
                     f"Objective landscape or pairwise projection for `{result.method_instance_name}` "
-                    f"on {spec.title}. It shows where evaluated candidates concentrate relative "
-                    "to the truth and the best retained solution."
+                    f"on {spec.title}."
                 ),
                 alt_text=f"{spec.title} objective landscape for {result.method_instance_name}",
             )
@@ -2020,7 +2013,7 @@ def _generate_calibration_case(spec: GalleryCaseSpec, source_root: Path) -> dict
                 filename=trace_filename,
                 caption=(
                     f"Objective trace for `{result.method_instance_name}` on {spec.title}, "
-                    "showing the chronology of evaluated models and whether the search keeps improving or plateaus."
+                    "showing the evaluated models in order."
                 ),
                 alt_text=f"{spec.title} objective trace for {result.method_instance_name}",
             )
@@ -2043,9 +2036,7 @@ def _generate_calibration_case(spec: GalleryCaseSpec, source_root: Path) -> dict
                 category=spec.category,
                 filename=posterior_filename,
                 caption=(
-                    f"Posterior or retained parameter distribution for `{result.method_instance_name}` "
-                    f"on {spec.title}. It shows the full spread of plausible calibrated values, "
-                    "not only the single best fit."
+                    f"Parameter distribution for `{result.method_instance_name}` on {spec.title}."
                 ),
                 alt_text=f"{spec.title} posterior distribution for {result.method_instance_name}",
             )
@@ -2325,9 +2316,7 @@ def _generate_calibration_case(spec: GalleryCaseSpec, source_root: Path) -> dict
             f"n_eval={int(result.n_evaluations)}",
         ]
         if method_returns_parameter_distribution(result.method_name):
-            body_lines.append(
-                f"posterior_samples={int(result.model_distribution_sample_count)}"
-            )
+            body_lines.append(f"posterior_samples={int(result.model_distribution_sample_count)}")
         body_lines.extend(timing_bits)
         tab_specs.append(
             {
@@ -2431,14 +2420,14 @@ def _build_method_comparison_payload(
     config_path: Path,
 ) -> tuple[dict[str, Any], dict[str, Any], list[dict[str, Any]]]:
     from hydromodpy.analysis.comparison.config import MethodComparisonConfig
-    from hydromodpy.analysis.comparison.metrics import build_comparison_metrics
-    from hydromodpy.analysis.comparison.runtime import (
+    from hydromodpy.analysis.comparison.metric_diff import build_comparison_metrics
+    from hydromodpy.analysis.comparison.runtime_metadata import (
         compact_run_metrics,
-        extract_observable_rows,
         read_json_file,
         read_variant_run_metadata,
     )
-    from hydromodpy.core.config.toml_loader import load_toml_with_base_config
+    from hydromodpy.analysis.comparison.runtime_observables import extract_observable_rows
+    from hydromodpy.core.toml_io.loader import load_toml_with_base_config
 
     raw_toml = load_toml_with_base_config(config_path)
     cfg = MethodComparisonConfig.from_toml(raw_toml, config_path=config_path)
@@ -2871,6 +2860,7 @@ def _generate_irregular_mesh_property_case(
 ) -> dict[str, Any]:
     plt = _import_pyplot()
 
+    from hydromodpy.core.rng import RngManager
     from hydromodpy.spatial.field.cases.square.field_mesh_square import FieldMeshSquare
     from hydromodpy.spatial.field.cases.square.field_spatial_square import FieldSquare
     from hydromodpy.spatial.field.core.field_param import FieldParam
@@ -2887,11 +2877,12 @@ def _generate_irregular_mesh_property_case(
         zone1_name="granite",
         zone2_name="micaschists",
     )
+    irregular_mesh_seed = 23
     structured_mesh = FieldMeshSquare.from_unit_square(target_n_cells=64, mesh_kind="structured")
     irregular_mesh = FieldMeshSquare.from_unit_square(
         target_n_cells=160,
         mesh_kind="triangular_unstructured",
-        seed=23,
+        rng_manager=RngManager(master_seed=irregular_mesh_seed),
     )
     conductivity = FieldParam(
         identifier="K",
@@ -2957,7 +2948,7 @@ def _generate_irregular_mesh_property_case(
         },
         metadata={
             **dict(spec.metadata),
-            "irregular_mesh_seed": 23,
+            "irregular_mesh_seed": irregular_mesh_seed,
         },
     )
 
@@ -4168,12 +4159,12 @@ def _generate_geometry_case(
 
 
 def _generate_method_comparison_case(spec: GalleryCaseSpec, source_root: Path) -> dict[str, Any]:
-    from hydromodpy.analysis.comparison.metrics import (
+    from hydromodpy.analysis.comparison.metric_diff import (
         DETAIL_METRIC_FIELDS,
         SUMMARY_METRIC_FIELDS,
         write_metrics_csv,
     )
-    from hydromodpy.analysis.comparison.runtime import write_observables_csv
+    from hydromodpy.analysis.comparison.runtime_observables import write_observables_csv
 
     config_path_relative = str(spec.metadata["comparison_config_path"])
     config_path = _repo_path(config_path_relative)
@@ -4386,7 +4377,9 @@ def _append_custom_sections(lines: list[str], custom_sections: list[dict[str, An
             lines.append("")
             continue
         if kind == "list_table":
-            headers = [str(item).strip() for item in section.get("headers", []) if str(item).strip()]
+            headers = [
+                str(item).strip() for item in section.get("headers", []) if str(item).strip()
+            ]
             rows = [list(row) for row in section.get("rows", [])]
             if headers and rows:
                 widths = section.get("widths", [])
@@ -4740,13 +4733,15 @@ def _generate_calibration_intercomparison_summary(
         figure_paths = write_suite_figures(rows, output_root=output_root)
         for path in figure_paths:
             relative_parts = path.relative_to(source_root / "_static" / "capability_gallery").parts
-            caption, alt_text = _calibration_intercomparison_caption(path.stem)
             figures.append(
                 _build_validation_image_summary(
                     category=str(Path(*relative_parts[:-1]).as_posix()),
                     filename=path.name,
-                    caption=caption,
-                    alt_text=alt_text,
+                    caption=(
+                        f"Calibration intercomparison figure `{path.stem}` derived from the "
+                        "curated capability-gallery cases."
+                    ),
+                    alt_text=f"Calibration intercomparison figure {path.stem}",
                 )
             )
 
@@ -4818,15 +4813,6 @@ def _build_calibration_intercomparison_page(
     if figures:
         lines.extend(
             [
-                "How To Read These Summary Figures",
-                "---------------------------------",
-                "",
-                "- ``benchmark_target_success_rates`` tells you which methods reliably reach their declared success criterion in this benchmark family.",
-                "- ``benchmark_cost_vs_budget`` compares final objective quality at similar search effort, so it is the right place to judge efficiency under a fixed evaluation budget.",
-                "- ``benchmark_time_vs_cost`` separates methods that are numerically effective from methods that are merely cheap because they evaluate fewer candidates.",
-                "- ``benchmark_calibration_time_closure`` is a bookkeeping check: the reported calibration time should roughly match candidate runtime plus method overhead.",
-                "- ``benchmark_candidate_timing_breakdown`` shows whether time is spent in the solver itself or in framework overhead such as candidate preparation and scoring.",
-                "",
                 "Summary Figures",
                 "---------------",
                 "",
@@ -5216,12 +5202,7 @@ def _build_index_page(cases_by_category: dict[str, list[dict[str, Any]]]) -> str
             "",
         ]
     )
-    for category_slug in CATEGORY_NAVIGATION_ORDER:
-        if cases_by_category.get(category_slug):
-            lines.append(f"   {category_slug}")
     for category_slug in CATEGORY_SPECS:
-        if category_slug in CATEGORY_NAVIGATION_ORDER:
-            continue
         if cases_by_category.get(category_slug):
             lines.append(f"   {category_slug}")
     return "\n".join(lines)
@@ -6041,14 +6022,6 @@ def _build_category_page(category_slug: str, cases: list[dict[str, Any]]) -> str
                 )
                 + ".",
                 "",
-                "How To Read These Pages",
-                "-----------------------",
-                "",
-                "- Start with the configuration figure on each case page to identify the truth parameters, observation block, search bounds, and weighting before looking at method performance.",
-                "- Then use the objective landscape and objective trace together: the landscape shows where evaluated candidates concentrate, while the trace shows when the search stabilizes or keeps improving.",
-                "- On distribution-valued methods, the posterior figure shows the full retained ensemble of plausible parameter values. Its spread matters as much as its peak because it reveals identifiability and uncertainty.",
-                "- Use the benchmark-family pages to compare methods across several inverse problems, then open the individual case pages when you need parameter-level interpretation and timing details.",
-                "",
             ]
         )
         if primary_families:
@@ -6136,39 +6109,6 @@ def _append_figure(
             f"{indent}   {image['caption']}",
             "",
         ]
-    )
-
-
-def _calibration_intercomparison_caption(stem: str) -> tuple[str, str]:
-    """Return a human-readable caption and alt text for suite summary figures."""
-    figure_map = {
-        "benchmark_target_success_rates": (
-            "Success rate by method across the selected calibration cases. Read this first to see which methods consistently reach their declared target within the configured evaluation budget.",
-            "Calibration summary figure showing target success rates by method across cases",
-        ),
-        "benchmark_cost_vs_budget": (
-            "Best objective cost reached by each method relative to the evaluation budget. Lower is better, so this figure compares solution quality at comparable search effort.",
-            "Calibration summary figure showing best objective cost versus evaluation budget",
-        ),
-        "benchmark_time_vs_cost": (
-            "Calibration wall-clock time versus best objective cost. Use it to compare the trade-off between final fit quality and total time spent to obtain it.",
-            "Calibration summary figure showing calibration time versus best objective cost",
-        ),
-        "benchmark_calibration_time_closure": (
-            "Closure check comparing total calibration time with the sum of candidate runtime and algorithm overhead. Large mismatches indicate timing-accounting issues rather than better calibration.",
-            "Calibration summary figure checking calibration time closure",
-        ),
-        "benchmark_candidate_timing_breakdown": (
-            "Mean per-candidate timing breakdown split into actualization, launcher preparation, runtime patching, simulation, output selection, and objective scoring. Use it to see where each method really spends time.",
-            "Calibration summary figure showing per-candidate timing breakdown",
-        ),
-    }
-    return figure_map.get(
-        stem,
-        (
-            f"Calibration intercomparison figure `{stem}` derived from the curated capability-gallery cases.",
-            f"Calibration intercomparison figure {stem}",
-        ),
     )
 
 
@@ -6451,7 +6391,7 @@ def _load_toml_with_base(relative_path: str | None) -> dict[str, Any]:
     if not relative_path:
         return {}
     try:
-        from hydromodpy.core.config.toml_loader import load_toml_with_base_config
+        from hydromodpy.core.toml_io.loader import load_toml_with_base_config
 
         return load_toml_with_base_config(_repo_path(relative_path))
     except Exception:
@@ -7372,9 +7312,7 @@ def _build_calibration_parameter_docs(case: dict[str, Any]) -> dict[str, Any]:
             "runtime_patch_s": method_row.get("mean_candidate_runtime_patch_time_seconds"),
             "model_sim_s": method_row.get("mean_candidate_simulation_time_seconds"),
             "output_select_s": method_row.get("mean_candidate_output_selection_time_seconds"),
-            "objective_score_s": method_row.get(
-                "mean_candidate_objective_compute_time_seconds"
-            ),
+            "objective_score_s": method_row.get("mean_candidate_objective_compute_time_seconds"),
         }
         if method_returns_parameter_distribution(method_name):
             value["posterior_samples"] = method_row.get("model_distribution_sample_count")
@@ -7491,17 +7429,6 @@ def _build_case_page(case: dict[str, Any]) -> str:
     reference_highlights = list(case.get("reference_highlights", []))
     equations_rst = list(case.get("equations_rst", []))
     next_steps = list(case.get("next_steps", []))
-    images = list(case.get("images", []))
-    has_posterior_figures = any(
-        "_posterior" in str(image.get("filename", "")) for image in images
-    )
-    if str(case.get("category", "")) == "calibration":
-        method_rows = list(dict(case.get("metadata", {})).get("method_runs", []))
-        has_posterior_figures = any(
-            bool(row.get("posterior_distribution_filename"))
-            and method_returns_parameter_distribution(str(row.get("method_name", "")))
-            for row in method_rows
-        )
     lines = [
         AUTO_GENERATED_COMMENT,
         "",
@@ -7523,22 +7450,6 @@ def _build_case_page(case: dict[str, Any]) -> str:
                 "",
             ]
         )
-    if str(case.get("category", "")) == "calibration":
-        lines.extend(
-            [
-                "Figure Reading Order",
-                "--------------------",
-                "",
-                "- Read the configuration figure first: it summarizes the truth parameters, observations, bounds, and weighting that define the inverse problem.",
-                "- Read the objective landscape next: it shows where the evaluated candidates cluster, whether the objective is sharply constrained, and where the best retained solution sits relative to the truth.",
-                "- Read the objective trace as the chronology of the search. It shows whether the method quickly stabilizes, improves gradually, or keeps wandering through flat regions.",
-            ]
-        )
-        if has_posterior_figures:
-            lines.append(
-                "- Read the posterior figure as the full retained parameter distribution, not as a single answer. A wide or multi-modal posterior indicates residual ambiguity even when one candidate has the lowest cost."
-            )
-        lines.append("")
     solver_runs = list(case.get("solver_runs", []))
     solver_display_name_map = {
         str(run.get("solver", "")): str(run.get("solver_display_name", run.get("solver", "")))
@@ -7546,7 +7457,7 @@ def _build_case_page(case: dict[str, Any]) -> str:
     }
     parameter_sections = _normalize_parameter_sections(case)
     if not solver_runs:
-        image_map = {image["filename"]: image for image in images}
+        image_map = {image["filename"]: image for image in case["images"]}
         lead_image_filenames = [
             str(filename).strip()
             for filename in list(case.get("metadata", {}).get("lead_image_filenames", []))
@@ -7574,7 +7485,7 @@ def _build_case_page(case: dict[str, Any]) -> str:
                 if single_filename:
                     rendered_filenames.add(single_filename)
         else:
-            for image in images:
+            for image in case["images"]:
                 if image["filename"] in rendered_filenames:
                     continue
                 _append_figure(lines, image)
@@ -7911,7 +7822,9 @@ def generate_gallery(*, source_root: Path) -> None:
                 source_root=source_root,
             )
             case_summaries.append(case_summary)
-            summary_path = static_dir / str(case_summary["category"]) / f"{case_summary['slug']}_summary.json"
+            summary_path = (
+                static_dir / str(case_summary["category"]) / f"{case_summary['slug']}_summary.json"
+            )
             _write_json(summary_path, case_summary)
             _write_text(case_dir / f"{case_summary['slug']}.rst", _build_case_page(case_summary))
 

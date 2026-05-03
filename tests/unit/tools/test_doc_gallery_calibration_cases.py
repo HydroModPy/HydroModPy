@@ -4,16 +4,6 @@ from __future__ import annotations
 
 import pytest
 
-try:
-    from validation_cases.analytical.steady.boussinesq_sloping_substratum_fixed_head_1d.comparison import (  # noqa: F401,E501
-        build_boussinesq_sloping_substratum_fixed_head_comparison,
-    )
-except ImportError as exc:
-    pytest.skip(
-        f"doc-gallery generators transitively import broken validation_cases modules: {exc}",
-        allow_module_level=True,
-    )
-
 from tools.doc_gallery.calibration_case_registry import build_calibration_case_records
 from tools.doc_gallery.gallery_manifest import build_gallery_specs
 from tools.doc_gallery.update_gallery import (
@@ -221,8 +211,9 @@ def test_build_case_page_renders_calibration_parameter_sections() -> None:
     assert ".. tab-set::" in page
     assert "synthetic__configuration.png" in page
     assert "synthetic__random_search_landscape.png" in page
-    assert "synthetic__random_search_posterior.png" not in page
     assert "synthetic__random_search_trace.png" in page
+    assert "synthetic__random_search_posterior.png" not in page
+    assert "distribution_samples" not in page
 
 
 def test_build_calibration_intercomparison_page_renders_rows() -> None:

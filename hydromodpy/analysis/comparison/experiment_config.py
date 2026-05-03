@@ -12,7 +12,7 @@ from hydromodpy.analysis.comparison.config import (
     MethodComparisonFineRaster,
     MethodComparisonObservable,
 )
-from hydromodpy.core.config.base import HydroModelBase
+from hydromodpy.core.config_kit.base import HydroModelBase
 
 
 def _clean_text(value: object) -> str:
@@ -170,7 +170,10 @@ class ComparisonSection(HydroModelBase):
         if len(observable_names) != len(set(observable_names)):
             raise ValueError("comparison.observable names must be unique")
         enabled_id_set = set(enabled_ids)
-        if self.reference_simulation is not None and self.reference_simulation not in enabled_id_set:
+        if (
+            self.reference_simulation is not None
+            and self.reference_simulation not in enabled_id_set
+        ):
             raise ValueError("comparison.reference_simulation must match an enabled simulation id")
         for observable in self.observable:
             if observable.variants is None:
@@ -187,7 +190,7 @@ class ComparisonSection(HydroModelBase):
 class SimulationComparisonConfig(HydroModelBase):
     """Resolved comparison experiment config with absolute paths."""
 
-    model_config = ConfigDict(arbitrary_types_allowed=True)
+    model_config = ConfigDict(arbitrary_types_allowed=True, extra="forbid")
 
     config_path: Path
     base_dir: Path

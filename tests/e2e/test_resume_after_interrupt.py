@@ -9,12 +9,21 @@ state at step 2 and execute step 3 onwards exactly once.
 from __future__ import annotations
 
 from collections.abc import Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
+from types import SimpleNamespace
 from typing import Any
 
-from hydromodpy.pipeline.pipeline import Pipeline
-from hydromodpy.pipeline.state import PipelineState
+import pytest
+
+from hydromodpy.core.exceptions import StepError
+from hydromodpy.core.state.run_state import WorkflowContext
+from hydromodpy.workflow.internals.checkpoint import CheckpointStore, _strip_unpicklable
+from hydromodpy.workflow.internals.state import (
+    PipelineState,
+    UnpicklableMarker,
+)
+from hydromodpy.workflow.runner import Pipeline
 
 
 @dataclass
@@ -57,10 +66,10 @@ def test_pipeline_resume_after_step_crash(tmp_path: Path) -> None:
     initial = PipelineState(run_id="rid-1")
 
     # First run - step "d" crashes after "a","b","c" were checkpointed.
-    try:
+    with pytest.raises(StepError) as exc_info:
         pipeline.run(initial)
-    except Exception:
-        pass
+    assert exc_info.value.step_name == "d"
+    assert isinstance(exc_info.value.cause, RuntimeError)
 
     # Second run - resume from the failing step; "d" now succeeds.
     final = pipeline.run(initial, resume_from=3)
@@ -71,3 +80,105 @@ def test_pipeline_resume_after_step_crash(tmp_path: Path) -> None:
     files = sorted(p.name for p in checkpoint_dir.iterdir())
     assert any(name.startswith("00_") for name in files)
     assert any(name.startswith("02_") for name in files)
+
+
+@dataclass
+class _StashUnpicklable:
+    """Step that stores a non-picklable handle under ``data["resource"]``."""
+
+    name: str = "stash"
+
+    def run(self, state: PipelineState) -> PipelineState:
+        # Lambdas are not picklable: forces _strip_unpicklable to emit a marker.
+        return state.with_data(resource=lambda: "live-handle")
+
+
+@dataclass
+class _RecordResource:
+    """Step that records the runtime type of ``data["resource"]``."""
+
+    name: str
+    fail_once: list[bool] = field(default_factory=lambda: [False])
+
+    def run(self, state: PipelineState) -> PipelineState:
+        if self.fail_once and self.fail_once[0]:
+            self.fail_once[0] = False
+            raise RuntimeError(f"{self.name} crashed")
+        data: Mapping[str, Any] = state.data  # type: ignore[assignment]
+        observed = type(data["resource"]).__name__
+        return state.with_data(observed_type=observed)
+
+
+def test_pipeline_rebinds_unpicklable_values_after_resume(tmp_path: Path) -> None:
+    """Markers left by ``_strip_unpicklable`` are rebuilt before each step."""
+    rebuilt_calls: list[Path | None] = []
+
+    def factory(workspace: Path | None, _state: PipelineState) -> dict[str, Any]:
+        rebuilt_calls.append(workspace)
+        return {"rebuilt": True, "workspace": str(workspace)}
+
+    PipelineState.register_rebuild("resource", factory)
+    try:
+        crash_flag = [True]
+        steps = [
+            _StashUnpicklable(),
+            _RecordResource("crash_or_record", fail_once=crash_flag),
+        ]
+        pipeline = Pipeline(steps, workspace=tmp_path, checkpoint=True)
+
+        initial = PipelineState(run_id="rebind-1")
+
+        # First run crashes on step 1 after step 0 wrote a marker checkpoint.
+        with pytest.raises(StepError) as exc_info:
+            pipeline.run(initial)
+        assert isinstance(exc_info.value.cause, RuntimeError)
+
+        # Resume from step 1: the marker must be rebuilt before step.run().
+        final = pipeline.run(initial, resume_from=1)
+    finally:
+        PipelineState.unregister_rebuild("resource")
+
+    assert rebuilt_calls == [tmp_path]
+    assert final.data["observed_type"] == "dict"
+    assert final.data["resource"] == {"rebuilt": True, "workspace": str(tmp_path)}
+
+
+def test_strip_unpicklable_emits_marker_with_type_name() -> None:
+    """``_strip_unpicklable`` records the original type name in the marker."""
+    state = PipelineState(run_id="strip-1", data={"k": lambda: None, "n": 7})
+    stripped = _strip_unpicklable(state)
+    assert isinstance(stripped.data["k"], UnpicklableMarker)
+    assert stripped.data["k"].type_name == "function"
+    assert stripped.data["n"] == 7
+
+
+def test_checkpoint_strips_live_store_without_losing_ctx(tmp_path: Path) -> None:
+    """Checkpointed workflow contexts keep metadata but not live catalog handles."""
+    cfg = SimpleNamespace(
+        simulation=SimpleNamespace(
+            results=SimpleNamespace(persistence=SimpleNamespace(save_catalog=False))
+        )
+    )
+    ctx = WorkflowContext(cfg=cfg, config_path=tmp_path / "project.toml", raw_toml={})
+    ctx.sim_id = "sim-1"
+    ctx.store = lambda: None
+    ctx.postprocess_runner = lambda: None
+
+    state = PipelineState(
+        run_id="ctx-1",
+        step_index=0,
+        step_name="prepare_solver",
+        data={"ctx": ctx, "cfg": cfg},
+    )
+    store = CheckpointStore(tmp_path, state.run_id)
+    path = store.persist(state)
+
+    assert path.exists()
+    assert list(path.parent.glob("*.tmp")) == []
+
+    restored = store.restore(0)
+    restored_ctx = restored.data["ctx"]
+    assert isinstance(restored_ctx, WorkflowContext)
+    assert restored_ctx.sim_id == "sim-1"
+    assert restored_ctx.store is None
+    assert restored_ctx.postprocess_runner is None

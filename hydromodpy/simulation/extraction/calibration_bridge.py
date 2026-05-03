@@ -16,14 +16,15 @@ The bridge provides:
 
 from __future__ import annotations
 
-import logging
 from collections.abc import Callable
 from typing import Any
 
 import numpy as np
 import pandas as pd
 
-logger = logging.getLogger(__name__)
+from hydromodpy.core.logging import get_logger
+
+logger = get_logger(__name__)
 
 
 def make_hot_simulator(

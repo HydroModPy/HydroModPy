@@ -2,13 +2,15 @@
 
 from __future__ import annotations
 
-import logging
 from pathlib import Path
 
 import numpy as np
-import zarr
 
-logger = logging.getLogger(__name__)
+from hydromodpy.core.logging import get_logger
+from hydromodpy.results import field_registry
+from hydromodpy.results.zarr_store import SimulationZarr
+
+logger = get_logger(__name__)
 
 
 def export_vtu(
@@ -52,14 +54,26 @@ def export_vtu(
     output_path = Path(output_path)
     output_path.parent.mkdir(parents=True, exist_ok=True)
 
-    root = zarr.open_group(str(zarr_path), mode="r")
-    grp = root
-    mesh = grp["mesh"]
+    descriptor = field_registry.get(variable)
 
-    vertices = mesh["vertices"][:]
-    connectivity = mesh["face_node_connectivity"][:]
-    connectivity.shape[0]
-    max_vpf = connectivity.shape[1]
+    sz = SimulationZarr(zarr_path)
+    try:
+        grp = sz.root
+        mesh = grp["mesh"]
+        vertices = mesh["vertices"][:]
+        connectivity = mesh["face_node_connectivity"][:]
+        max_vpf = connectivity.shape[1]
+
+        # Read field data
+        arr = _resolve_zarr_path(grp, descriptor.zarr_path)
+        if arr is None:
+            raise KeyError(
+                f"Variable '{variable}' (zarr_path={descriptor.zarr_path!r}) "
+                f"not found for sim={sim_id}"
+            )
+        data = arr[timestep]
+    finally:
+        sz.close()
 
     # Pad vertices to 3D if needed
     if vertices.shape[1] == 2:
@@ -68,12 +82,6 @@ def export_vtu(
     # Build meshio cells from face_node_connectivity
     cells = _build_meshio_cells(connectivity, max_vpf)
 
-    # Read field data
-    arr = _find_variable(grp, variable)
-    if arr is None:
-        raise KeyError(f"Variable '{variable}' not found for sim={sim_id}")
-
-    data = arr[timestep]
     if data.ndim == 2:
         # 3D field (layer, cell) → extract one layer
         data = data[layer or 0]
@@ -116,12 +124,16 @@ def _split_cell_data(data: np.ndarray, cells: list) -> list[np.ndarray]:
     return result
 
 
-def _find_variable(grp, var_name: str):
-    """Search for a variable in the simulation group and its subgroups."""
-    if var_name in grp:
-        return grp[var_name]
-    for sub in ("derived", "budget"):
-        sg = grp.get(sub)
-        if sg is not None and var_name in sg:
-            return sg[var_name]
+def _resolve_zarr_path(grp, zarr_path: str):
+    """Resolve a registry zarr_path inside the simulation group, or None if absent."""
+    parts = zarr_path.split("/")
+    cursor = grp
+    for part in parts[:-1]:
+        sub = cursor.get(part)
+        if sub is None:
+            return None
+        cursor = sub
+    leaf = parts[-1]
+    if leaf in cursor:
+        return cursor[leaf]
     return None

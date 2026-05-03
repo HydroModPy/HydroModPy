@@ -18,6 +18,10 @@ from collections.abc import Callable
 
 import numpy as np
 
+from hydromodpy.calibration.adapters._prior_sampling import (
+    transformed_prior_center,
+    transformed_prior_samples,
+)
 from hydromodpy.calibration.optimizer import (
     FAILED_EVAL_COST,
     EvaluationResult,
@@ -150,6 +154,12 @@ class ScipyDE(_ScipyAdapterBase):
         from scipy.optimize import differential_evolution
 
         bounds = self._bounds_transformed()
+        rng = np.random.default_rng(self._seed)
+        init = transformed_prior_samples(
+            self.space,
+            rng,
+            max(5, self._popsize * max(1, self.space.dim)),
+        )
 
         def run(obj: Callable[[np.ndarray], float]) -> object:
             return differential_evolution(
@@ -160,22 +170,15 @@ class ScipyDE(_ScipyAdapterBase):
                 popsize=self._popsize,
                 tol=self._tol,
                 polish=False,
+                init=init,
             )
 
         return run
 
 
 @register_optimizer("scipy_nelder_mead")
-@register_optimizer("nelder_mead")
-@register_optimizer("simplex")
 class ScipyNelderMead(_ScipyAdapterBase):
-    """scipy.optimize.minimize(method='Nelder-Mead') adapter.
-
-    Registered under ``scipy_nelder_mead`` (default), ``nelder_mead`` and
-    ``simplex`` (legacy aliases). Accepts ``max_iter`` / ``max_fun`` as
-    synonyms of ``maxiter`` / ``maxfev`` and ``xtol`` / ``ftol`` as
-    synonyms of ``xatol`` / ``fatol`` for parity with the legacy driver.
-    """
+    """scipy.optimize.minimize(method='Nelder-Mead') adapter."""
 
     name = "scipy_nelder_mead"
 
@@ -185,22 +188,14 @@ class ScipyNelderMead(_ScipyAdapterBase):
         *,
         seed: int | None = None,
         maxiter: int | None = None,
-        max_iter: int | None = None,
-        max_fun: int | None = None,
+        maxfev: int | None = None,
         xatol: float | None = None,
-        xtol: float | None = None,
         fatol: float | None = None,
-        ftol: float | None = None,
     ):
-        resolved_maxiter = max_iter if max_iter is not None else maxiter
-        if resolved_maxiter is None:
-            resolved_maxiter = 100
-        self._maxiter = int(resolved_maxiter)
-        self._maxfev = int(max_fun) if max_fun is not None else self._maxiter
-        resolved_xatol = xatol if xatol is not None else xtol
-        resolved_fatol = fatol if fatol is not None else ftol
-        self._xatol = float(resolved_xatol) if resolved_xatol is not None else 1e-4
-        self._fatol = float(resolved_fatol) if resolved_fatol is not None else 1e-4
+        self._maxiter = 100 if maxiter is None else int(maxiter)
+        self._maxfev = self._maxiter if maxfev is None else int(maxfev)
+        self._xatol = None if xatol is None else float(xatol)
+        self._fatol = None if fatol is None else float(fatol)
         super().__init__(space, seed=seed)
 
     def _make_method(self) -> Callable[[Callable], object]:
@@ -209,7 +204,7 @@ class ScipyNelderMead(_ScipyAdapterBase):
         bounds = self._bounds_transformed()
         lower = np.array([b[0] for b in bounds], dtype=float)
         upper = np.array([b[1] for b in bounds], dtype=float)
-        x0 = 0.5 * (lower + upper)
+        x0 = transformed_prior_center(self.space)
         # Bound-scaled initial simplex (10 % of range per axis) gives
         # Nelder-Mead a wider starting spread than scipy's 5 %-of-x0
         # default, reducing the iter count needed to reach a tight
@@ -224,18 +219,21 @@ class ScipyNelderMead(_ScipyAdapterBase):
             def clipped(x: np.ndarray) -> float:
                 return obj(np.clip(np.asarray(x, dtype=float), lower, upper))
 
+            options: dict[str, object] = {
+                "maxiter": self._maxiter,
+                "maxfev": self._maxfev,
+                "adaptive": True,
+                "initial_simplex": initial_simplex,
+            }
+            if self._xatol is not None:
+                options["xatol"] = self._xatol
+            if self._fatol is not None:
+                options["fatol"] = self._fatol
             return minimize(
                 clipped,
                 x0,
                 method="Nelder-Mead",
-                options={
-                    "maxiter": self._maxiter,
-                    "maxfev": self._maxfev,
-                    "xatol": self._xatol,
-                    "fatol": self._fatol,
-                    "adaptive": True,
-                    "initial_simplex": initial_simplex,
-                },
+                options=options,
             )
 
         return run

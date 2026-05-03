@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import importlib.util
+import tomllib
 from pathlib import Path
 
 from tools.ci.coverage_helpers import coverage_include_patterns, coverage_sources
@@ -9,15 +10,10 @@ from tools.ci.coverage_helpers import coverage_include_patterns, coverage_source
 def test_coverage_helpers_follow_pyproject_source_list() -> None:
     sources = coverage_sources()
     patterns = coverage_include_patterns()
+    pyproject_payload = tomllib.loads(Path("pyproject.toml").read_text(encoding="utf-8"))
+    expected_sources = tuple(pyproject_payload["tool"]["coverage"]["run"]["source"])
 
-    assert tuple(sources) == tuple(
-        s.strip()
-        for s in (
-            "hydromodpy.core,hydromodpy.spatial,hydromodpy.physics,"
-            "hydromodpy.data,hydromodpy.results,hydromodpy.simulation,"
-            "hydromodpy.solver,hydromodpy.analysis"
-        ).split(",")
-    )
+    assert tuple(sources) == expected_sources
     assert patterns == [f"*/{s.replace('.', '/')}/*" for s in sources]
 
 

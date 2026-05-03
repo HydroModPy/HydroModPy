@@ -16,7 +16,7 @@ from datetime import datetime
 import pandas as pd
 
 from hydromodpy.core.logging import get_logger
-from hydromodpy.data.common.api_helpers import get_json
+from hydromodpy.data.common.api_client import get_json
 from hydromodpy.data.common.progress import iter_progress, log_step
 from hydromodpy.data.contracts.location import StationLocation
 from hydromodpy.data.contracts.timeseries import PointRecord

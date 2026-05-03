@@ -264,7 +264,7 @@ def _safe_eval(node: ast.AST, env: dict[str, Any]) -> Any:
     if isinstance(node, ast.Dict):
         return {
             _safe_eval(key, env): _safe_eval(value, env)
-            for key, value in zip(node.keys, node.values)
+            for key, value in zip(node.keys, node.values, strict=True)
         }
     if isinstance(node, ast.UnaryOp):
         operand = _safe_eval(node.operand, env)
@@ -449,12 +449,16 @@ def _analyze_source_text(source: str, source_label: str) -> dict[str, ParameterV
             if function_node.args.defaults
             else []
         )
-        for arg, default in zip(positional, function_node.args.defaults):
+        for arg, default in zip(positional, function_node.args.defaults, strict=False):
             value = _evaluate(default, function_env)
             function_env[arg.arg] = value
             _record_named_assignment(parameters, arg.arg, value)
         if function_call is not None:
-            for arg_node, arg_value in zip(function_node.args.args, function_call.args):
+            for arg_node, arg_value in zip(
+                function_node.args.args,
+                function_call.args,
+                strict=False,
+            ):
                 value = _evaluate(arg_value, module_env)
                 function_env[arg_node.arg] = value
                 _record_named_assignment(parameters, arg_node.arg, value)

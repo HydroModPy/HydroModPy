@@ -100,6 +100,7 @@ def test_domain_builds_top_and_bottom_with_constant_thickness():
     )
 
     domain = Domain(config=cfg, surface_topo=Surface(name="surface_topo", values=dem))
+    assert (domain.substratum.as_array() < domain.surface_topo.as_array()).all()
     np.testing.assert_allclose(domain.surface_topo.as_array(), dem)
     np.testing.assert_allclose(domain.substratum.as_array(), dem - 30.0)
 
@@ -116,6 +117,7 @@ def test_domain_builds_top_and_bottom_with_constant_thickness_unit_string():
     )
 
     domain = Domain(config=cfg, surface_topo=Surface(name="surface_topo", values=dem))
+    assert (domain.surface_topo.as_array() - domain.substratum.as_array() == 30.0).all()
     np.testing.assert_allclose(domain.surface_topo.as_array(), dem)
     np.testing.assert_allclose(domain.substratum.as_array(), dem - 30.0)
 
@@ -132,6 +134,7 @@ def test_domain_builds_flat_substratum():
     )
 
     domain = Domain(config=cfg, surface_topo=Surface(name="surface_topo", values=dem))
+    assert np.unique(domain.substratum.as_array()).tolist() == [-12.5]
     np.testing.assert_allclose(domain.surface_topo.as_array(), dem)
     np.testing.assert_allclose(
         domain.substratum.as_array(),

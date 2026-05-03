@@ -14,7 +14,7 @@ from typing import TYPE_CHECKING, Any
 
 from hydromodpy.core.exceptions import NetworkError
 from hydromodpy.core.io.http_client import HTTPClient, get_default_client
-from hydromodpy.data.common.api_helpers import check_status
+from hydromodpy.data.common.api_client import check_status
 
 if TYPE_CHECKING:
     import pandas as pd
@@ -200,6 +200,6 @@ class Sim2EDRClient:
     @staticmethod
     def metadata() -> dict | None:
         """Fetch collection metadata from the API."""
-        from hydromodpy.data.common.api_helpers import get_json
+        from hydromodpy.data.common.api_client import get_json
 
         return get_json(f"{BASE_URL}/")

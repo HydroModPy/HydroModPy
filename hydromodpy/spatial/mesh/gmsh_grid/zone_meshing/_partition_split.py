@@ -8,7 +8,7 @@ from shapely.ops import polygonize, unary_union
 from hydromodpy.spatial.mesh.gmsh_grid.zone_meshing._geometry_contracts import (
     ZoneGeometry,
 )
-from hydromodpy.spatial.mesh.gmsh_grid.zone_meshing._geometry_utils import (
+from hydromodpy.spatial.mesh.gmsh_grid.zone_meshing.geometry_utils import (
     iter_line_parts,
     iter_polygon_parts,
     make_valid_geometry,

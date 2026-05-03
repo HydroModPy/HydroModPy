@@ -223,7 +223,6 @@ def test_apply_oceanic_to_flow_is_noop_without_ocean_boundary() -> None:
 class _DummyRechargeConfig:
     first_clim = "mean"
     units = "m/s"
-    negative_to_evt = True
 
 
 class _DummyFlow:

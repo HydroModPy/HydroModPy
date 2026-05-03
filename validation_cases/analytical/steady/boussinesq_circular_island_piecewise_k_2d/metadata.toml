@@ -44,4 +44,3 @@ recharge_mm_day = 1.0
 
 [reference.comparison_radius_max_by_solver]
 boussinesq = 180.0
-

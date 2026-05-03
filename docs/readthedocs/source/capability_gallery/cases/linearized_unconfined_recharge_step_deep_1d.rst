@@ -18,7 +18,7 @@ Case Setup
 - forcing: constant recharge `10 mm/day` from the first period,
 - reference saturated thickness: `100.0 m`,
 - simulated observable: `watertable_elevation`. For `solver=boussinesq`, the validation uses one small balanced triangular strip projected back to a regular `40 x 3` comparison grid. The runtime itself is selected through the case `config_boussinesq.toml`.
-- Available solver variants: MODFLOW-NWT, MODFLOW 6, MODFLOW 6 irregular triangles, Boussinesq.
+- Available solver variants: MODFLOW-NWT, MODFLOW 6, Boussinesq.
 
 What It Shows
 -------------
@@ -44,7 +44,7 @@ Solver Coverage
 ---------------
 
 - Default solver: MODFLOW-NWT
-- Available variants: MODFLOW-NWT, MODFLOW 6, MODFLOW 6 irregular triangles, Boussinesq
+- Available variants: MODFLOW-NWT, MODFLOW 6, Boussinesq
 
 .. tab-set::
 
@@ -91,28 +91,6 @@ Solver Coverage
       .. code-block:: bash
 
          python -m validation_cases.analytical.transient.linearized_unconfined_recharge_step_deep_1d.run_case --no-show --solver modflow6
-
-   .. tab-item:: MODFLOW 6 irregular triangles
-
-      .. figure:: /_static/capability_gallery/validation/linearized_unconfined_recharge_step_deep_1d__modflow6_irregular_tri.png
-         :alt: Linearized Unconfined 1D Recharge Step (Deep Aquifer) validation figure for MODFLOW 6 irregular triangles
-         :width: 100%
-
-         Linearized Unconfined 1D Recharge Step (Deep Aquifer) rendered with MODFLOW 6 irregular triangles for the analytical gallery.
-
-      **Metrics**
-      - Space-time RMSE: 0.0006 m
-      - Space-time max abs error: 0.0031 m
-      - Final-profile RMSE: 0.0005 m
-      - Cross-row head spread: 0.00e+00 m
-
-      - Config file: ``validation_cases/analytical/transient/linearized_unconfined_recharge_step_deep_1d/config_modflow6_irregular_tri.toml``
-      - Tolerances: ``validation_cases/analytical/transient/linearized_unconfined_recharge_step_deep_1d/tolerances.toml``
-      - Expected output: 60 periods, spatial shape 5 x 50
-
-      .. code-block:: bash
-
-         python -m validation_cases.analytical.transient.linearized_unconfined_recharge_step_deep_1d.run_case --no-show --solver modflow6_irregular_tri
 
    .. tab-item:: Boussinesq
 
@@ -417,45 +395,6 @@ Solver-Specific Overrides
            - false
            - ``validation_cases/analytical/transient/linearized_unconfined_recharge_step_deep_1d/config_modflow6.toml``
 
-   .. tab-item:: MODFLOW 6 irregular triangles
-
-      .. list-table::
-         :header-rows: 1
-         :widths: 26 42 20 12
-
-         * - Field
-           - Meaning
-           - Value
-           - Source
-         * - ``modflow6.runtime.mf_verbose``
-           - Solver-specific override applied to MODFLOW 6.
-           - false
-           - ``validation_cases/analytical/transient/linearized_unconfined_recharge_step_deep_1d/config_modflow6_irregular_tri.toml``
-         * - ``modflow6.runtime.mf6_ims_complexity``
-           - Linear-solver complexity preset used by MODFLOW 6.
-           - COMPLEX
-           - ``validation_cases/analytical/transient/linearized_unconfined_recharge_step_deep_1d/config_modflow6_irregular_tri.toml``
-         * - ``modflow6.process_specific.vka``
-           - Vertical anisotropy ratio passed to MODFLOW 6.
-           - 1
-           - ``validation_cases/analytical/transient/linearized_unconfined_recharge_step_deep_1d/config_modflow6_irregular_tri.toml``
-         * - ``modflow6.sgrid.vertical.nlay``
-           - Number of vertical layers used by MODFLOW 6.
-           - 1
-           - ``validation_cases/analytical/transient/linearized_unconfined_recharge_step_deep_1d/config_modflow6_irregular_tri.toml``
-         * - ``modflow6.tgrid.firstpersteady``
-           - Whether the first time period is treated as steady by MODFLOW 6.
-           - false
-           - ``validation_cases/analytical/transient/linearized_unconfined_recharge_step_deep_1d/config_modflow6_irregular_tri.toml``
-         * - ``mesh_input.mesh_path``
-           - Committed unstructured mesh file used by the irregular-mesh solver variant.
-           - ../../../shared/mesh_bundles/linearized_unconfined_drainage_irregular_tri_100x10/mesh_2d.msh
-           - ``validation_cases/analytical/transient/linearized_unconfined_recharge_step_deep_1d/config_modflow6_irregular_tri.toml``
-         * - ``mesh_input.bundle_dir``
-           - Committed mesh-bundle directory used to recover support metadata for the irregular-mesh solver variant.
-           - ../../../shared/mesh_bundles/linearized_unconfined_drainage_irregular_tri_100x10
-           - ``validation_cases/analytical/transient/linearized_unconfined_recharge_step_deep_1d/config_modflow6_irregular_tri.toml``
-
    .. tab-item:: Boussinesq
 
       .. list-table::
@@ -570,41 +509,6 @@ Acceptance Criteria by Solver
            - 0.03
            - ``validation_cases/analytical/transient/linearized_unconfined_recharge_step_deep_1d/tolerances.toml``
 
-   .. tab-item:: MODFLOW 6 irregular triangles
-
-      .. list-table::
-         :header-rows: 1
-         :widths: 26 42 20 12
-
-         * - Field
-           - Meaning
-           - Value
-           - Source
-         * - ``expected_output``
-           - Expected output shape or time-space layout checked for this solver.
-           - Expected output: 60 periods, spatial shape 5 x 50
-           - ``validation_cases/analytical/transient/linearized_unconfined_recharge_step_deep_1d/metadata.toml``
-         * - ``space_time.rmse``
-           - Maximum accepted root-mean-square error for space time.
-           - 0.02
-           - ``validation_cases/analytical/transient/linearized_unconfined_recharge_step_deep_1d/tolerances.toml``
-         * - ``space_time.max_abs_error``
-           - Maximum accepted absolute error for space time.
-           - 0.03
-           - ``validation_cases/analytical/transient/linearized_unconfined_recharge_step_deep_1d/tolerances.toml``
-         * - ``space_time.row_spread``
-           - Maximum accepted cross-row spread for space time.
-           - 0.0001
-           - ``validation_cases/analytical/transient/linearized_unconfined_recharge_step_deep_1d/tolerances.toml``
-         * - ``final_profile.rmse``
-           - Maximum accepted root-mean-square error for final profile.
-           - 0.02
-           - ``validation_cases/analytical/transient/linearized_unconfined_recharge_step_deep_1d/tolerances.toml``
-         * - ``final_profile.max_abs_error``
-           - Maximum accepted absolute error for final profile.
-           - 0.03
-           - ``validation_cases/analytical/transient/linearized_unconfined_recharge_step_deep_1d/tolerances.toml``
-
    .. tab-item:: Boussinesq
 
       .. list-table::
@@ -655,7 +559,6 @@ Source Pointers
 - ``validation_cases/analytical/transient/linearized_unconfined_recharge_step_deep_1d/tolerances.toml``
 - ``validation_cases/analytical/transient/linearized_unconfined_recharge_step_deep_1d/tolerances_boussinesq.toml``
 - ``validation_cases/analytical/transient/linearized_unconfined_recharge_step_deep_1d/config_modflow6.toml``
-- ``validation_cases/analytical/transient/linearized_unconfined_recharge_step_deep_1d/config_modflow6_irregular_tri.toml``
 - ``validation_cases/analytical/transient/linearized_unconfined_recharge_step_deep_1d/config_boussinesq.toml``
 - ``validation_cases/analytical/transient/linearized_unconfined_1d.py``
 
@@ -664,6 +567,5 @@ Artifacts
 
 - ``docs/readthedocs/source/_static/capability_gallery/validation/linearized_unconfined_recharge_step_deep_1d__modflownwt.png``
 - ``docs/readthedocs/source/_static/capability_gallery/validation/linearized_unconfined_recharge_step_deep_1d__modflow6.png``
-- ``docs/readthedocs/source/_static/capability_gallery/validation/linearized_unconfined_recharge_step_deep_1d__modflow6_irregular_tri.png``
 - ``docs/readthedocs/source/_static/capability_gallery/validation/linearized_unconfined_recharge_step_deep_1d__boussinesq.png``
 - ``docs/readthedocs/source/_static/capability_gallery/validation/linearized_unconfined_recharge_step_deep_1d_summary.json`` stores the displayed metrics plus source hashes used by ``python -m tools.doc_gallery --check``.

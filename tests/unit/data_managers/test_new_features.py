@@ -63,7 +63,6 @@ class TestMaskSpatialSelection:
 
     def test_filter_locations_by_geometry(self):
         """Test filtering with a shapely box geometry."""
-        pytest.importorskip("shapely")
         from shapely.geometry import box
 
         geom = box(-2.0, 47.0, -1.0, 49.0)
@@ -76,7 +75,6 @@ class TestMaskSpatialSelection:
         assert {loc.id for loc in inside} == {"A", "C"}
 
     def test_geometry_to_bbox(self):
-        pytest.importorskip("shapely")
         from shapely.geometry import box
 
         geom = box(-2.0, 47.0, -1.0, 49.0)
@@ -93,7 +91,7 @@ class TestMaskSpatialSelection:
 
     def test_load_mask_from_vector_geojson(self, tmp_path):
         """Test loading a GeoJSON mask file."""
-        gpd = pytest.importorskip("geopandas")
+        import geopandas as gpd
         from shapely.geometry import box
 
         geom = box(-2.0, 47.0, -1.0, 49.0)
@@ -381,7 +379,7 @@ class TestCompletenessReport:
             date_end=project_period[1],
             is_constant=True,
         )
-        from hydromodpy.data.base_manager import BaseVariableManager
+        from hydromodpy.data.base_manager_variable import BaseVariableManager
 
         class DummyManager(BaseVariableManager):
             VARIABLE_NAME = "test"

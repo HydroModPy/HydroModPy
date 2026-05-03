@@ -31,15 +31,18 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any
 
+from hydromodpy.core.logging import get_logger
 from hydromodpy.physics.flow import Flow
 from hydromodpy.physics.transport import Transport
+from hydromodpy.simulation._solver_protocol import get_solver_registry_provider
 from hydromodpy.simulation.planning.plan import (
     ProcessRun,
     RunContext,
     RunExecutionResult,
     SimulationPlan,
 )
-from hydromodpy.solver.base.registry import get_solver_adapter
+
+logger = get_logger(__name__)
 
 # ---------------------------------------------------------------------------
 # Process-context helpers (free functions, no factory class)
@@ -131,7 +134,13 @@ class SimulationRunner:
     ) -> None:
         self.callbacks = callbacks or ProcessCallbacks()
 
-    def execute(self, plan: SimulationPlan, state: Any) -> None:
+    def execute(
+        self,
+        plan: SimulationPlan,
+        state: Any,
+        *,
+        callbacks: ProcessCallbacks | None = None,
+    ) -> None:
         """Execute each planned run in order against ``state``.
 
         The plan is assumed to be pre-validated by ``SimulationPlanner``.
@@ -157,20 +166,43 @@ class SimulationRunner:
         7. ``after_process("transport")``
         """
 
-        current_process_type: str | None = None
+        previous_callbacks = self.callbacks
+        if callbacks is not None:
+            self.callbacks = callbacks
+        try:
+            current_process_type: str | None = None
+            process_open = False
 
-        for run in plan.runs:
-            if run.process_type != current_process_type:
-                if current_process_type is not None:
-                    self._call_after_process(current_process_type)
-                ensure_process_context(state, run.process_type)
-                self._call_before_process(run.process_type)
-                current_process_type = run.process_type
+            try:
+                for run in plan.runs:
+                    if run.process_type != current_process_type:
+                        if process_open and current_process_type is not None:
+                            process_open = False
+                            self._call_after_process(current_process_type)
+                        ensure_process_context(state, run.process_type)
+                        self._call_before_process(run.process_type)
+                        current_process_type = run.process_type
+                        process_open = True
 
-            self._run_process_run(plan, state, run)
+                    self._run_process_run(plan, state, run)
+            except BaseException:
+                if process_open and current_process_type is not None:
+                    process_open = False
+                    try:
+                        self._call_after_process(current_process_type)
+                    except Exception:
+                        logger.warning(
+                            "after_process callback failed while unwinding process %s",
+                            current_process_type,
+                            exc_info=True,
+                        )
+                raise
 
-        if current_process_type is not None:
-            self._call_after_process(current_process_type)
+            if process_open and current_process_type is not None:
+                process_open = False
+                self._call_after_process(current_process_type)
+        finally:
+            self.callbacks = previous_callbacks
 
     def _call_before_process(self, process_type: str) -> None:
         if self.callbacks.before_process is not None:
@@ -198,7 +230,7 @@ class SimulationRunner:
         """Execute one resolved process run through its registered adapter."""
 
         dependency_models = self._resolve_dependency_models(state, run)
-        adapter = get_solver_adapter(run.process_type, run.solver)
+        adapter = get_solver_registry_provider().get_solver_adapter(run.process_type, run.solver)
         result = adapter.execute(
             RunContext(
                 plan=plan,

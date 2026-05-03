@@ -86,8 +86,8 @@ apt-get install -y libxft2 libglu1-mesa libgl1 libxcursor1 libxinerama1 libxrand
 Bootstrap d'un env PETSc conda-forge depuis PowerShell :
 
 ```powershell
-wsl.exe bash -lc "source ~/miniforge3/etc/profile.d/conda.sh && mamba create -y -n hydromodpy-petsc -c conda-forge --strict-channel-priority python=3.12 pip petsc petsc4py mpi4py dask plotly numpy scipy pytest pytest-xdist pandas xarray pydantic matplotlib shapely pyproj geopandas rasterio rioxarray flopy h5py netcdf4 pint pyshp scikit-learn meshio imageio requests geopy selenium tqdm sqlalchemy"
-wsl.exe bash -lc "cd /mnt/c/codes/HydroModPy-GH && source ~/miniforge3/etc/profile.d/conda.sh && conda activate hydromodpy-petsc && python -m pip install pysheds tomli-w whitebox-workflows && python -m pip install -e . --no-deps"
+wsl.exe bash -lc "source ~/miniforge3/etc/profile.d/conda.sh && mamba create -y -n hydromodpy-petsc -c conda-forge --strict-channel-priority python=3.12 pip petsc petsc4py mpi4py dask plotly numpy scipy pytest pytest-xdist pandas xarray pydantic matplotlib shapely pyproj geopandas rasterio rioxarray flopy h5py netcdf4 pint pyshp scikit-learn meshio imageio requests geopy tqdm sqlalchemy"
+wsl.exe bash -lc "cd /mnt/c/codes/HydroModPy-GH && source ~/miniforge3/etc/profile.d/conda.sh && conda activate hydromodpy-petsc && python -m pip install tomli-w whitebox-workflows && python -m pip install -e . --no-deps"
 ```
 
 Commande smoke non-PETSc depuis PowerShell :

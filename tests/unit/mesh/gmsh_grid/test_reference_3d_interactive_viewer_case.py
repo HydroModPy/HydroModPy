@@ -27,9 +27,8 @@ CASE_TOML = (
 )
 
 
-def test_reference_3d_interactive_viewer_case_runs_off_screen():
-    scratch_root = Path.cwd() / "scratch_tests" / "reference_3d_interactive_viewer"
-    output_dir = scratch_root / "runtime"
+def test_reference_3d_interactive_viewer_case_runs_off_screen(tmp_path: Path):
+    output_dir = tmp_path / "runtime"
     output_dir.mkdir(parents=True, exist_ok=True)
 
     state = build_reference_interactive_viewer_state_from_toml(CASE_TOML)

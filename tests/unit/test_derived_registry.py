@@ -1,4 +1,4 @@
-"""Unit tests for :mod:`hydromodpy.pipeline.derived`.
+"""Unit tests for :mod:`hydromodpy.workflow.internals.derived`.
 
 Covers the registry API (register / get / list / ordered_names / apply),
 the canonical default derivations (watertable_elevation, watertable_depth,
@@ -9,19 +9,21 @@ the DeriveStep wiring through a minimal stub context.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from types import SimpleNamespace
 
 import numpy as np
 import pytest
 
-from hydromodpy.pipeline.derived import (
+from hydromodpy.core.exceptions import ConfigError
+from hydromodpy.results.zarr_store import SimulationZarr
+from hydromodpy.workflow.internals.derived import (
     DerivedComputation,
     DerivedRegistry,
     DerivedResult,
     registry,
 )
-from hydromodpy.pipeline.state import PipelineState
-from hydromodpy.pipeline.steps.step_09_derive import DeriveStep
-from hydromodpy.results.zarr_store import SimulationZarr
+from hydromodpy.workflow.internals.state import PipelineState
+from hydromodpy.workflow.steps.derive import DeriveStep
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -113,7 +115,7 @@ def test_default_registry_has_canonical_entries():
 def test_registry_register_duplicate_raises():
     reg = DerivedRegistry()
     reg.register(_Fake("a"))
-    with pytest.raises(ValueError):
+    with pytest.raises(ConfigError):
         reg.register(_Fake("a"))
     reg.register(_Fake("a"), overwrite=True)  # allowed
 
@@ -131,7 +133,7 @@ def test_registry_cycle_raises():
     reg = DerivedRegistry()
     reg.register(_Fake("a", required_derived=("b",)))
     reg.register(_Fake("b", required_derived=("a",)))
-    with pytest.raises(ValueError, match="Cycle"):
+    with pytest.raises(ConfigError, match="Cycle"):
         reg.ordered_names()
 
 
@@ -158,7 +160,7 @@ def test_registry_skips_missing_inputs(tmp_path):
 # ---------------------------------------------------------------------------
 
 
-def test_watertable_elevation_clipped_to_surface(tmp_path):
+def test_watertable_elevation_writes_uppermost_saturated_head(tmp_path):
     sz = _make_zarr(
         tmp_path,
         head_values=np.array([[5.0, 11.0, 9.0, 12.0], [6.0, 7.0, 8.0, 9.0]]),
@@ -166,8 +168,8 @@ def test_watertable_elevation_clipped_to_surface(tmp_path):
     results = registry.apply(sz, names=["watertable_elevation"])
     assert [r.status for r in results] == ["computed"]
     wt = np.asarray(sz.root["derived"]["watertable_elevation"][:])
-    # Clipped to top_value=10.0
-    np.testing.assert_array_equal(wt[0], [5.0, 10.0, 9.0, 10.0])
+    # Head returned as-is; seepage above the surface is flagged separately.
+    np.testing.assert_array_equal(wt[0], [5.0, 11.0, 9.0, 12.0])
     np.testing.assert_array_equal(wt[1], [6.0, 7.0, 8.0, 9.0])
 
 
@@ -186,6 +188,7 @@ def test_watertable_depth_after_elevation(tmp_path):
     # Apply in registered topological order: elevation then depth.
     registry.apply(sz, names=["watertable_elevation", "watertable_depth"])
     depth = np.asarray(sz.root["derived"]["watertable_depth"][:])
+    assert (depth >= 0).all()
     np.testing.assert_array_equal(depth[0], [5.0, 0.0, 1.0, 0.0])
     np.testing.assert_array_equal(depth[1], [4.0, 3.0, 2.0, 1.0])
 
@@ -200,6 +203,7 @@ def test_seepage_mask_flags_overflowing_cells(tmp_path):
         names=["watertable_elevation", "seepage_mask"],
     )
     mask = np.asarray(sz.root["derived"]["seepage_mask"][:])
+    assert set(np.unique(mask)).issubset({0.0, 1.0})
     # Expect 1 where wt_elev >= top (10.0), 0 otherwise.
     np.testing.assert_array_equal(mask[0], [0.0, 1.0, 1.0, 0.0])
     np.testing.assert_array_equal(mask[1], [0.0, 1.0, 1.0, 1.0])
@@ -251,6 +255,7 @@ class _CtxStub:
     def __init__(self, store, sim_id: str = "stub") -> None:
         self.store = store
         self.sim_id = sim_id
+        self.execution = SimpleNamespace(simulation_plan=None, lightweight=True)
 
 
 def test_derive_step_runs_registry(tmp_path):
@@ -277,7 +282,7 @@ def test_derive_step_runs_registry(tmp_path):
 
 def test_derive_step_without_ctx_raises():
     state = PipelineState(run_id="r", data={})
-    with pytest.raises(ValueError, match="'ctx'"):
+    with pytest.raises(ConfigError, match="'ctx'"):
         DeriveStep().run(state)
 
 
@@ -308,6 +313,6 @@ def test_derive_step_without_head_is_noop(tmp_path):
 
 
 def test_registry_accessible_via_public_api():
-    import hydromodpy.pipeline as pipeline_pkg
+    from hydromodpy.workflow.internals import derived as derived_pkg
 
-    assert "watertable_elevation" in pipeline_pkg.derived.registry.list()
+    assert "watertable_elevation" in derived_pkg.registry.list()

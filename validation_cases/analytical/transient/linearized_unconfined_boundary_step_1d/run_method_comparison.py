@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import Any
 
 from hydromodpy.analysis.comparison.orchestrator import MethodComparisonLauncher
-from hydromodpy.analysis.comparison.runtime import write_toml_payload
+from hydromodpy.analysis.comparison.runtime_config import write_toml_payload
 
 CASE_DIR = Path(__file__).resolve().parent
 REPO_ROOT = CASE_DIR.parents[3]

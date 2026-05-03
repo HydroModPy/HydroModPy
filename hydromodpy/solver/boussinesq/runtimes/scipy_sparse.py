@@ -14,12 +14,12 @@ dense prototypes and a later fully analytic or PETSc-based backend.
 
 from __future__ import annotations
 
-import logging
 import warnings
 from collections.abc import Callable
 
 import numpy as np
 
+from hydromodpy.core.logging import get_logger
 from hydromodpy.solver.boussinesq.assembly import (
     BoussinesqAssembly,
 )
@@ -49,7 +49,7 @@ from hydromodpy.solver.boussinesq.runtimes.partition_utils import (
     regularized_partition_jacobian_shift,
 )
 
-_log = logging.getLogger(__name__)
+_log = get_logger(__name__)
 
 
 def _require_scipy_sparse():
@@ -325,6 +325,11 @@ def _build_sparse_jacobian(
         column_groups=jacobian_column_groups,
         rel_step=float(fd_rel_step),
     )
+    saturation_triplets = _remove_prescribed_rows_from_triplets(
+        saturation_triplets,
+        prescribed_head_m_by_cell=prescribed_head_m_by_cell,
+        n_cells=int(mesh.n_cells),
+    )
     data, row_indices, col_indices = _concatenate_triplets(
         base_triplets,
         saturation_triplets,
@@ -337,6 +342,31 @@ def _build_sparse_jacobian(
     jacobian.sum_duplicates()
     jacobian.eliminate_zeros()
     return jacobian
+
+
+def _remove_prescribed_rows_from_triplets(
+    triplets: tuple[np.ndarray, np.ndarray, np.ndarray],
+    *,
+    prescribed_head_m_by_cell: np.ndarray | None,
+    n_cells: int,
+) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """Drop nonlinear correction rows replaced by prescribed-head constraints."""
+    if prescribed_head_m_by_cell is None:
+        return triplets
+    prescribed = np.asarray(prescribed_head_m_by_cell, dtype=float).reshape(-1)
+    if prescribed.size != int(n_cells):
+        raise ValueError(
+            "prescribed_head_m_by_cell length must match mesh.n_cells "
+            f"({prescribed.size} != {int(n_cells)})."
+        )
+    data, row_indices, col_indices = triplets
+    rows = np.asarray(row_indices, dtype=int).reshape(-1)
+    keep = ~np.isfinite(prescribed[rows])
+    return (
+        np.asarray(data, dtype=float).reshape(-1)[keep],
+        rows[keep],
+        np.asarray(col_indices, dtype=int).reshape(-1)[keep],
+    )
 
 
 def _concatenate_triplets(

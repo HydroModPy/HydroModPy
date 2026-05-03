@@ -13,7 +13,7 @@
     "forcing: constant recharge `10 mm/day` from the first period,",
     "reference saturated thickness: `100.0 m`,",
     "simulated observable: `watertable_elevation`. For `solver=boussinesq`, the validation uses one small balanced triangular strip projected back to a regular `40 x 3` comparison grid. The runtime itself is selected through the case `config_boussinesq.toml`.",
-    "Available solver variants: MODFLOW-NWT, MODFLOW 6, MODFLOW 6 irregular triangles, Boussinesq."
+    "Available solver variants: MODFLOW-NWT, MODFLOW 6, Boussinesq."
   ],
   "key_parameters": [],
   "how_to_read": [],
@@ -47,7 +47,6 @@
     "validation_cases/analytical/transient/linearized_unconfined_recharge_step_deep_1d/tolerances.toml",
     "validation_cases/analytical/transient/linearized_unconfined_recharge_step_deep_1d/tolerances_boussinesq.toml",
     "validation_cases/analytical/transient/linearized_unconfined_recharge_step_deep_1d/config_modflow6.toml",
-    "validation_cases/analytical/transient/linearized_unconfined_recharge_step_deep_1d/config_modflow6_irregular_tri.toml",
     "validation_cases/analytical/transient/linearized_unconfined_recharge_step_deep_1d/config_boussinesq.toml",
     "validation_cases/analytical/transient/linearized_unconfined_1d.py"
   ],
@@ -58,13 +57,12 @@
     "validation_cases/analytical/transient/linearized_unconfined_recharge_step_deep_1d/comparison.py": "7a029e1572f1e12a034ff8c5cbb967ba9e4b1cc7cbd014f21091a031bb3a9e8f",
     "validation_cases/analytical/transient/linearized_unconfined_recharge_step_deep_1d/plotting.py": "1fd5cc72427d2d6ed1f9d3653bf0483dc091f00cfb54d54d833b6c3c89298849",
     "validation_cases/analytical/transient/linearized_unconfined_recharge_step_deep_1d/run_case.py": "bb641d17f8161389c27daf0166671f2a55fe7748a9d52bb3c984cb937fd7de4e",
-    "validation_cases/analytical/transient/linearized_unconfined_recharge_step_deep_1d/metadata.toml": "4294741fd1513b1ec12d206c6ec913acbdb48a794cf414259c6f72435e3585aa",
+    "validation_cases/analytical/transient/linearized_unconfined_recharge_step_deep_1d/metadata.toml": "c3c24982f4bfebbb0f000b3047e77961515d5608bbfd087bf86b74b873260570",
     "validation_cases/analytical/transient/linearized_unconfined_recharge_step_deep_1d/config_modflownwt.toml": "c650e5622419b035edd4dc0bceac9b24e1fa077942586e41ad474fec6b5a8d61",
     "validation_cases/analytical/transient/linearized_unconfined_recharge_step_deep_1d/runtime_boussinesq.py": "bbe4475fe85cc04d3cc653afe7b1a43fb8a3a5140f014aee78cb8a32248301c4",
     "validation_cases/analytical/transient/linearized_unconfined_recharge_step_deep_1d/tolerances.toml": "e2f1a8185b29440716e67cc66770dc85378118e4ef27f6ff057218ed63c58acc",
     "validation_cases/analytical/transient/linearized_unconfined_recharge_step_deep_1d/tolerances_boussinesq.toml": "78135a6d94bcf55b7e49112da9df9560e68cdadd96d65cdb5a5ece7da672385d",
     "validation_cases/analytical/transient/linearized_unconfined_recharge_step_deep_1d/config_modflow6.toml": "8383da077ac9ae012a1b78e04c7c9c8701be2c8d6e09c9e4a9ad620e46e6f004",
-    "validation_cases/analytical/transient/linearized_unconfined_recharge_step_deep_1d/config_modflow6_irregular_tri.toml": "8062b040eff4bf04532aef5c25a6755b9e39dc18afc588603b5ff36a93920605",
     "validation_cases/analytical/transient/linearized_unconfined_recharge_step_deep_1d/config_boussinesq.toml": "c343d4093712f5df9d92d3c3de19d3dbf161cabb733536ef93ce693c44ab4278",
     "validation_cases/analytical/transient/linearized_unconfined_1d.py": "b78a584f72b0268e0317f547067afa6fa4ae9edbc220f77148f71837024e9e60"
   },
@@ -85,7 +83,6 @@
     "solver_variants": [
       "modflownwt",
       "modflow6",
-      "modflow6_irregular_tri",
       "boussinesq"
     ],
     "solver_details": {
@@ -98,12 +95,6 @@
       "modflow6": {
         "display_name": "MODFLOW 6",
         "config_path": "validation_cases/analytical/transient/linearized_unconfined_recharge_step_deep_1d/config_modflow6.toml",
-        "expected_output": "Expected output: 60 periods, spatial shape 5 x 50",
-        "tolerance_path": "validation_cases/analytical/transient/linearized_unconfined_recharge_step_deep_1d/tolerances.toml"
-      },
-      "modflow6_irregular_tri": {
-        "display_name": "MODFLOW 6 irregular triangles",
-        "config_path": "validation_cases/analytical/transient/linearized_unconfined_recharge_step_deep_1d/config_modflow6_irregular_tri.toml",
         "expected_output": "Expected output: 60 periods, spatial shape 5 x 50",
         "tolerance_path": "validation_cases/analytical/transient/linearized_unconfined_recharge_step_deep_1d/tolerances.toml"
       },
@@ -139,7 +130,6 @@
     "image_repo_paths": [
       "docs/readthedocs/source/_static/capability_gallery/validation/linearized_unconfined_recharge_step_deep_1d__modflownwt.png",
       "docs/readthedocs/source/_static/capability_gallery/validation/linearized_unconfined_recharge_step_deep_1d__modflow6.png",
-      "docs/readthedocs/source/_static/capability_gallery/validation/linearized_unconfined_recharge_step_deep_1d__modflow6_irregular_tri.png",
       "docs/readthedocs/source/_static/capability_gallery/validation/linearized_unconfined_recharge_step_deep_1d__boussinesq.png"
     ]
   },
@@ -179,7 +169,6 @@
           "config_files": {
             "modflownwt": "config_modflownwt.toml",
             "modflow6": "config_modflow6.toml",
-            "modflow6_irregular_tri": "config_modflow6_irregular_tri.toml",
             "boussinesq": "config_boussinesq.toml"
           },
           "workspace": {
@@ -277,105 +266,6 @@
           "config_files": {
             "modflownwt": "config_modflownwt.toml",
             "modflow6": "config_modflow6.toml",
-            "modflow6_irregular_tri": "config_modflow6_irregular_tri.toml",
-            "boussinesq": "config_boussinesq.toml"
-          },
-          "workspace": {
-            "results_folder_name": "results_simulations"
-          },
-          "output": {
-            "observable_name": "watertable_elevation",
-            "expected_periods": 60,
-            "expected_spatial_shape": [
-              5,
-              50
-            ],
-            "expected_spatial_shape_by_solver": {
-              "boussinesq": [
-                3,
-                40
-              ]
-            }
-          },
-          "time": {
-            "dt_seconds": 43200.0
-          },
-          "reference": {
-            "xmin": 0.0,
-            "xmax": 100.0,
-            "base_head_m": 100.0,
-            "recharge_mm_day": 10.0,
-            "hydraulic_conductivity_m_per_s": 0.0001,
-            "reference_saturated_thickness_m": 100.0,
-            "specific_yield": 0.1,
-            "profile_axis": 0,
-            "n_terms": 400
-          },
-          "plot": {
-            "profile_times_days": [
-              0.5,
-              2.0,
-              7.0,
-              20.0,
-              30.0
-            ],
-            "monitor_positions_m": [
-              25.0,
-              50.0,
-              75.0
-            ]
-          }
-        },
-        "tolerances": {
-          "space_time": {
-            "rmse": 0.02,
-            "max_abs_error": 0.03,
-            "row_spread": 0.0001
-          },
-          "final_profile": {
-            "rmse": 0.02,
-            "max_abs_error": 0.03
-          }
-        },
-        "final_elapsed_days": 30.0
-      }
-    },
-    {
-      "solver": "modflow6_irregular_tri",
-      "solver_display_name": "MODFLOW 6 irregular triangles",
-      "is_default": false,
-      "config_path": "validation_cases/analytical/transient/linearized_unconfined_recharge_step_deep_1d/config_modflow6_irregular_tri.toml",
-      "tolerance_path": "validation_cases/analytical/transient/linearized_unconfined_recharge_step_deep_1d/tolerances.toml",
-      "expected_output": "Expected output: 60 periods, spatial shape 5 x 50",
-      "command": "python -m validation_cases.analytical.transient.linearized_unconfined_recharge_step_deep_1d.run_case --no-show --solver modflow6_irregular_tri",
-      "metric_lines": [
-        "Space-time RMSE: 0.0006 m",
-        "Space-time max abs error: 0.0031 m",
-        "Final-profile RMSE: 0.0005 m",
-        "Cross-row head spread: 0.00e+00 m"
-      ],
-      "image": {
-        "filename": "linearized_unconfined_recharge_step_deep_1d__modflow6_irregular_tri.png",
-        "caption": "Linearized Unconfined 1D Recharge Step (Deep Aquifer) rendered with MODFLOW 6 irregular triangles for the analytical gallery.",
-        "alt_text": "Linearized Unconfined 1D Recharge Step (Deep Aquifer) validation figure for MODFLOW 6 irregular triangles",
-        "doc_path": "/_static/capability_gallery/validation/linearized_unconfined_recharge_step_deep_1d__modflow6_irregular_tri.png",
-        "repo_path": "docs/readthedocs/source/_static/capability_gallery/validation/linearized_unconfined_recharge_step_deep_1d__modflow6_irregular_tri.png"
-      },
-      "metadata": {
-        "observable_name": "watertable_elevation",
-        "case_metadata": {
-          "case_id": "lu_recharge_step_deep_1d",
-          "category": "analytical",
-          "regime": "transient",
-          "dimension": "1d",
-          "launcher": "launcher_simulation",
-          "config_file": "config_modflownwt.toml",
-          "default_solver": "modflownwt",
-          "base_config": "config_modflownwt.toml",
-          "config_files": {
-            "modflownwt": "config_modflownwt.toml",
-            "modflow6": "config_modflow6.toml",
-            "modflow6_irregular_tri": "config_modflow6_irregular_tri.toml",
             "boussinesq": "config_boussinesq.toml"
           },
           "workspace": {
@@ -473,7 +363,6 @@
           "config_files": {
             "modflownwt": "config_modflownwt.toml",
             "modflow6": "config_modflow6.toml",
-            "modflow6_irregular_tri": "config_modflow6_irregular_tri.toml",
             "boussinesq": "config_boussinesq.toml"
           },
           "workspace": {
@@ -865,50 +754,6 @@
           "source": "validation_cases/analytical/transient/linearized_unconfined_recharge_step_deep_1d/config_modflow6.toml"
         }
       ],
-      "modflow6_irregular_tri": [
-        {
-          "field": "modflow6.runtime.mf_verbose",
-          "meaning": "Solver-specific override applied to MODFLOW 6.",
-          "value": "false",
-          "source": "validation_cases/analytical/transient/linearized_unconfined_recharge_step_deep_1d/config_modflow6_irregular_tri.toml"
-        },
-        {
-          "field": "modflow6.runtime.mf6_ims_complexity",
-          "meaning": "Linear-solver complexity preset used by MODFLOW 6.",
-          "value": "COMPLEX",
-          "source": "validation_cases/analytical/transient/linearized_unconfined_recharge_step_deep_1d/config_modflow6_irregular_tri.toml"
-        },
-        {
-          "field": "modflow6.process_specific.vka",
-          "meaning": "Vertical anisotropy ratio passed to MODFLOW 6.",
-          "value": "1",
-          "source": "validation_cases/analytical/transient/linearized_unconfined_recharge_step_deep_1d/config_modflow6_irregular_tri.toml"
-        },
-        {
-          "field": "modflow6.sgrid.vertical.nlay",
-          "meaning": "Number of vertical layers used by MODFLOW 6.",
-          "value": "1",
-          "source": "validation_cases/analytical/transient/linearized_unconfined_recharge_step_deep_1d/config_modflow6_irregular_tri.toml"
-        },
-        {
-          "field": "modflow6.tgrid.firstpersteady",
-          "meaning": "Whether the first time period is treated as steady by MODFLOW 6.",
-          "value": "false",
-          "source": "validation_cases/analytical/transient/linearized_unconfined_recharge_step_deep_1d/config_modflow6_irregular_tri.toml"
-        },
-        {
-          "field": "mesh_input.mesh_path",
-          "meaning": "Committed unstructured mesh file used by the irregular-mesh solver variant.",
-          "value": "../../../shared/mesh_bundles/linearized_unconfined_drainage_irregular_tri_100x10/mesh_2d.msh",
-          "source": "validation_cases/analytical/transient/linearized_unconfined_recharge_step_deep_1d/config_modflow6_irregular_tri.toml"
-        },
-        {
-          "field": "mesh_input.bundle_dir",
-          "meaning": "Committed mesh-bundle directory used to recover support metadata for the irregular-mesh solver variant.",
-          "value": "../../../shared/mesh_bundles/linearized_unconfined_drainage_irregular_tri_100x10",
-          "source": "validation_cases/analytical/transient/linearized_unconfined_recharge_step_deep_1d/config_modflow6_irregular_tri.toml"
-        }
-      ],
       "boussinesq": [
         {
           "field": "flow.runtime_backend",
@@ -979,44 +824,6 @@
           }
         ],
         "modflow6": [
-          {
-            "field": "expected_output",
-            "meaning": "Expected output shape or time-space layout checked for this solver.",
-            "value": "Expected output: 60 periods, spatial shape 5 x 50",
-            "source": "validation_cases/analytical/transient/linearized_unconfined_recharge_step_deep_1d/metadata.toml"
-          },
-          {
-            "field": "space_time.rmse",
-            "meaning": "Maximum accepted root-mean-square error for space time.",
-            "value": "0.02",
-            "source": "validation_cases/analytical/transient/linearized_unconfined_recharge_step_deep_1d/tolerances.toml"
-          },
-          {
-            "field": "space_time.max_abs_error",
-            "meaning": "Maximum accepted absolute error for space time.",
-            "value": "0.03",
-            "source": "validation_cases/analytical/transient/linearized_unconfined_recharge_step_deep_1d/tolerances.toml"
-          },
-          {
-            "field": "space_time.row_spread",
-            "meaning": "Maximum accepted cross-row spread for space time.",
-            "value": "0.0001",
-            "source": "validation_cases/analytical/transient/linearized_unconfined_recharge_step_deep_1d/tolerances.toml"
-          },
-          {
-            "field": "final_profile.rmse",
-            "meaning": "Maximum accepted root-mean-square error for final profile.",
-            "value": "0.02",
-            "source": "validation_cases/analytical/transient/linearized_unconfined_recharge_step_deep_1d/tolerances.toml"
-          },
-          {
-            "field": "final_profile.max_abs_error",
-            "meaning": "Maximum accepted absolute error for final profile.",
-            "value": "0.03",
-            "source": "validation_cases/analytical/transient/linearized_unconfined_recharge_step_deep_1d/tolerances.toml"
-          }
-        ],
-        "modflow6_irregular_tri": [
           {
             "field": "expected_output",
             "meaning": "Expected output shape or time-space layout checked for this solver.",

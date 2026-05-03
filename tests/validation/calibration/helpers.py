@@ -14,7 +14,7 @@ def run_lightweight_twin_benchmark_case(
     caller_file: str | Path,
     **kwargs: Any,
 ):
-    """Run one twin benchmark via the v0.6 :meth:`Project.calibrate` API."""
+    """Run one twin benchmark via the v1 :meth:`Project.calibrate` API."""
     benchmark = run_twin_benchmark_case(
         definition,
         caller_file=caller_file,

@@ -46,7 +46,7 @@ package "hydromodpy.physics" {
 
 package "hydromodpy.solver" {
   interface "Flow Solver Adapter" as FlowSolver
-  class Modflow
+  class ModflowNwt
   class Modflow6
   class Boussinesq
 
@@ -76,7 +76,7 @@ SimulationRunner ..> Transport : uses runtime process
 SimulationRunner ..> FlowSolver : instantiates from run.solver
 SimulationRunner ..> TransportSolver : instantiates from run.solver
 
-FlowSolver <|.. Modflow
+FlowSolver <|.. ModflowNwt
 FlowSolver <|.. Modflow6
 FlowSolver <|.. Boussinesq
 

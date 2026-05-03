@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import pytest
 
-from hydromodpy.core.config.hydromodpy_config import HydroModPyConfig
+from hydromodpy.master_config.hydromodpy_config import HydroModPyConfig
 from hydromodpy.spatial.geographic import GeographicConfig
 
 

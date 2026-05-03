@@ -25,16 +25,13 @@ Code map
   DEM-derived preprocessing outputs (`RiverNetworkProducts`).
 - ``hydromodpy/spatial/geographic/core/derived_features.py``:
   geographic bundle that carries canonical network roles.
-- ``hydromodpy/workflow/steps/result_ingestion.py`` and
+- ``hydromodpy/workflow/steps/prepare_solver.py`` and
   ``hydromodpy/spatial/geographic/store_ingestion.py``:
   persistence into the catalog.
 - ``hydromodpy/results/run.py``:
   read facade and comparison accessors.
 - ``hydromodpy/display/figures/hydrographic_network*.py``:
   standalone and comparison figures.
-- ``hydromodpy/results/views.py`` and
-  ``hydromodpy/display/figures/simulated_active_network.py``:
-  computed simulated-active masks, metrics, and cell-map figure.
 
 Recommended reading path
 ------------------------
@@ -42,7 +39,7 @@ Recommended reading path
 1. ``hydromodpy/spatial/geographic/core/hydrographic_network.py``
 2. ``hydromodpy/spatial/geographic/core/river_network.py``
 3. ``hydromodpy/spatial/geographic/core/derived_features.py``
-4. ``hydromodpy/workflow/steps/result_ingestion.py`` and
+4. ``hydromodpy/workflow/steps/prepare_solver.py`` and
    ``hydromodpy/spatial/geographic/store_ingestion.py``
 5. ``hydromodpy/results/run.py``
 6. ``hydromodpy/display/figures/hydrographic_network.py`` and
@@ -85,19 +82,6 @@ Use this diagram when the main question is:
    :language: text
    :caption: PlantUML (.wsd) source - hydrographic-network runtime sequence diagram
 
-Simulated-Active Pipeline Diagram
----------------------------------
-
-Use this diagram when the main question is:
-"how do simulated flux fields become a computed active-network view, and what
-is still missing before a stored vector role exists?"
-
-.. uml:: diagrams/hydrographic_network_simulated_active_pipeline.wsd
-
-.. literalinclude:: diagrams/hydrographic_network_simulated_active_pipeline.wsd
-   :language: text
-   :caption: PlantUML (.wsd) source - simulated-active network pipeline
-
 Availability Activity Diagram
 -----------------------------
 
@@ -128,7 +112,7 @@ Persistence And Run API Notes
 
 From a developer point of view, the most important operational split is:
 
-- ``result_ingestion.py`` persists the loaded reference role when
+- ``prepare_solver.py`` persists the loaded reference role when
   ``data.hydrography`` produced one usable vector network.
 - ``store_ingestion.py`` persists the generated role when the geographic
   preprocessing produced one usable DEM-derived network.
@@ -159,10 +143,8 @@ For this topic, the highest-value diagrams are:
    "missing role" branch.
 4. An activity diagram for the availability branches and output gating.
 5. A developer-facing sequence diagram for persistence and ``Run`` behavior.
-6. A simulated-active pipeline diagram for the distinction between computed
-   masks and a future persisted vector role.
 
-These diagrams answer the most common maintenance questions:
+These three diagrams answer the most common maintenance questions:
 
 - where should a new field live?
 - where should a conversion happen?
@@ -181,7 +163,7 @@ Lower-value diagrams for this topic are:
 If more detail is needed later, the next useful addition would be one small
 package-level component diagram focused only on:
 
-- ``result_ingestion.py``
+- ``prepare_solver.py``
 - ``store_ingestion.py``
 - ``Run``
 - the display figure registry
@@ -191,7 +173,5 @@ Related reading
 ---------------
 
 - :doc:`mental-model-and-design-choices`
-- :doc:`hydrographic-network-simulated-active-inventory`
-- :doc:`../../scientific/hydrology/simulated-active-network`
 - :doc:`code-reading-guide`
 - :doc:`../../getting_started/comparison-workflow`

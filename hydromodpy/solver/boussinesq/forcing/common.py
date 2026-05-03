@@ -7,6 +7,12 @@ from numbers import Real
 
 import numpy as np
 
+from hydromodpy.core.time import validate_recharge_coverage
+from hydromodpy.physics.forcing.validation import (
+    ensure_finite_numeric_payload,
+    ensure_non_negative_numeric_payload,
+    has_temporal_index,
+)
 from hydromodpy.spatial.mesh.gmsh_grid.runtime_support import (
     GmshSupportMetadata,
     build_gmsh_support_metadata,
@@ -150,7 +156,13 @@ class ForcingCommonMixin:
         if nper <= 0:
             return np.asarray([], dtype=float)
         if payload is None:
-            return np.zeros(nper, dtype=float)
+            raise ValueError(f"{label} cannot be None.")
+        if has_temporal_index(payload):
+            validate_recharge_coverage(
+                payload,
+                getattr(self.time_grid, "window", None) if self.time_grid is not None else None,
+            )
+        ensure_non_negative_numeric_payload(payload, label=label)
         if isinstance(payload, Mapping):
             series = np.zeros(nper, dtype=float)
             for raw_key, raw_value in payload.items():
@@ -169,14 +181,14 @@ class ForcingCommonMixin:
         sequence = self.payload_to_sequence(payload, label=label)
         if sequence.size == 1:
             return np.full(nper, float(sequence[0]), dtype=float)
-        if sequence.size < int(nper):
+        if sequence.size != int(nper):
             raise ValueError(
-                f"{label} length ({int(sequence.size)}) must be 1 or at least nper ({int(nper)})."
+                f"{label} length ({int(sequence.size)}) must be 1 or match nper ({int(nper)})."
             )
 
         series = np.zeros(nper, dtype=float)
         if first_clim == "mean":
-            series[0] = float(np.nanmean(sequence))
+            series[0] = float(np.mean(sequence))
         elif first_clim == "first":
             series[0] = float(sequence[0])
         elif self.is_scalar_number(first_clim):
@@ -202,6 +214,7 @@ class ForcingCommonMixin:
             return np.asarray([], dtype=float)
         if payload is None:
             raise ValueError(f"{label} is required.")
+        ensure_finite_numeric_payload(payload, label=label)
         if ForcingCommonMixin.is_scalar_number(payload):
             return np.full(nper, float(payload), dtype=float)
         sequence = ForcingCommonMixin.payload_to_sequence(payload, label=label)
@@ -230,6 +243,8 @@ class ForcingCommonMixin:
             raise TypeError(f"{label} must be numeric or a sequence of numeric values.") from exc
         if array.size == 0:
             raise ValueError(f"{label} cannot be empty.")
+        if not np.all(np.isfinite(array)):
+            raise ValueError(f"{label} must contain only finite numeric values.")
         return array.astype(float, copy=False)
 
     @staticmethod

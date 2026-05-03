@@ -6,6 +6,9 @@ This demo now prepares horizontal surfaces directly in code:
 - optionally re-discretize in XY via Surface,
 - build bottom surface in absolute elevation,
 - run vertical discretization in StructuredGridBuilder.
+
+Run with:
+    python -m hydromodpy.spatial.mesh.cartesian_grid.examples.generation.run_grid_demo
 """
 
 from __future__ import annotations
@@ -19,15 +22,7 @@ from pathlib import Path
 import matplotlib
 import numpy as np
 
-# Allow running this file directly without installing the package.
-# (python hydromodpy/.../run_grid_demo.py)
-if __package__ in (None, ""):
-    _THIS_FILE = Path(__file__).resolve()
-    _PROJECT_ROOT = _THIS_FILE.parents[7]
-    if str(_PROJECT_ROOT) not in sys.path:
-        sys.path.insert(0, str(_PROJECT_ROOT))
-
-from hydromodpy.solver.utils._config_helpers import resolve_path
+from hydromodpy.core.toml_io.paths import resolve_path
 from hydromodpy.spatial.mesh.cartesian_grid.sgrid_config import VerticalGridConfig
 from hydromodpy.spatial.mesh.cartesian_grid.sgrid_generation import StructuredGridBuilder
 from hydromodpy.spatial.mesh.cartesian_grid.utils.raster_grid_reader import (

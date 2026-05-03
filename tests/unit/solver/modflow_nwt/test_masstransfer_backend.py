@@ -33,6 +33,13 @@ class _FakeWhiteboxBackend:
         self.mass_flux_calls: list[dict[str, str]] = []
         self.vector_points_calls: list[tuple[str, str]] = []
         self.trace_calls: list[tuple[str, str, str]] = []
+        self.flow = _FakeFlow(self)
+        self.delineation = _FakeDelineation(self)
+
+
+class _FakeFlow:
+    def __init__(self, parent: _FakeWhiteboxBackend) -> None:
+        self._parent = parent
 
     def d8_mass_flux(
         self,
@@ -42,7 +49,7 @@ class _FakeWhiteboxBackend:
         absorption: str,
         output: str,
     ) -> None:
-        self.mass_flux_calls.append(
+        self._parent.mass_flux_calls.append(
             {
                 "dem": dem,
                 "loading": loading,
@@ -57,23 +64,28 @@ class _FakeWhiteboxBackend:
         with rasterio.open(output, "w", **profile) as dst:
             dst.write(arr + 10, 1)
 
-    def raster_to_vector_points(self, input_raster: str, output_shp: str) -> None:
-        self.vector_points_calls.append((input_raster, output_shp))
-        gdf = gpd.GeoDataFrame({"id": [1]}, geometry=[Point(0.5, 0.5)], crs="EPSG:2154")
-        gdf.to_file(output_shp)
-
     def trace_downslope_flowpaths(
         self,
         input_points: str,
         d8_pntr: str,
         output_raster: str,
     ) -> None:
-        self.trace_calls.append((input_points, d8_pntr, output_raster))
+        self._parent.trace_calls.append((input_points, d8_pntr, output_raster))
         with rasterio.open(d8_pntr) as src:
             profile = src.profile.copy()
             arr = np.ones((src.height, src.width), dtype=profile["dtype"])
         with rasterio.open(output_raster, "w", **profile) as dst:
             dst.write(arr, 1)
+
+
+class _FakeDelineation:
+    def __init__(self, parent: _FakeWhiteboxBackend) -> None:
+        self._parent = parent
+
+    def raster_to_vector_points(self, input_raster: str, output_shp: str) -> None:
+        self._parent.vector_points_calls.append((input_raster, output_shp))
+        gdf = gpd.GeoDataFrame({"id": [1]}, geometry=[Point(0.5, 0.5)], crs="EPSG:2154")
+        gdf.to_file(output_shp)
 
 
 def test_masstransfer_trace_cumulated_uses_backend_and_writes_intermediates(tmp_path: Path) -> None:

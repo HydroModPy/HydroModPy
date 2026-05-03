@@ -6,7 +6,7 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from hydromodpy.workflow.pipelines.overview_config import DataOverviewState
+    from hydromodpy.core.contracts.overview import DataOverviewState
 
 
 @dataclass(frozen=True)

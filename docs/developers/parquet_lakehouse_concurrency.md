@@ -94,7 +94,7 @@ per-(sim, view) lock, would be the smallest fix.
 - **Process kill mid-COPY**: DuckDB closes the output file as part of
   its COPY handler; if killed, the `.tmp` is incomplete. Again, not
   visible through the view.
-- **Concurrent `hmp migrate` and `hmp run` on the same workspace**:
+- **Concurrent catalog migration and `hmp run` on the same workspace**:
   undefined. Don't. The catalog lock serialises the two processes at
   `connect()` but they can still race on view creation if both start
   within a narrow window. Run migration against a quiesced workspace.

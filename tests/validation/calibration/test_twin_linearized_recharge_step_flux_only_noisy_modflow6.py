@@ -47,7 +47,9 @@ def test_calibration_twin_linearized_recharge_step_flux_only_noisy_modflow6_benc
         if result.method_name in {"random_search", "gp_mapping", "da_mh_gp"}
     ]
     point_results = [
-        result for result in benchmark.method_results if result.method_name in {"cma_es", "simplex"}
+        result
+        for result in benchmark.method_results
+        if result.method_name in {"cma_es", "scipy_nelder_mead"}
     ]
 
     for result in benchmark.method_results:

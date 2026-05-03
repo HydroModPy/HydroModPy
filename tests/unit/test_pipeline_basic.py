@@ -1,4 +1,4 @@
-"""Unit tests for the :class:`hydromodpy.pipeline.Pipeline` orchestrator.
+"""Unit tests for the :class:`hydromodpy.workflow.runner.Pipeline` orchestrator.
 
 Covers the linear execution contract: state flows between steps, step
 metadata (index, name, elapsed) is populated, and the final state is
@@ -7,10 +7,14 @@ produced by the last step.
 
 from __future__ import annotations
 
+from pathlib import Path
+
 import pytest
 
 from hydromodpy.core.exceptions import StepError
-from hydromodpy.pipeline import Pipeline, PipelineState, Step
+from hydromodpy.workflow.internals.state import PipelineState
+from hydromodpy.workflow.internals.step import Step
+from hydromodpy.workflow.runner import Pipeline
 
 
 class _AddOne:
@@ -83,6 +87,17 @@ def test_pipeline_run_without_workspace_skips_ledger() -> None:
     pipeline = Pipeline([_AddOne()])
     final = pipeline.run(state)
     assert final.data["counter"] == 1
+
+
+def test_pipeline_workspace_without_checkpoint_does_not_create_runtime_state(
+    tmp_path: Path,
+) -> None:
+    state = PipelineState(run_id="r", data={"counter": 0})
+    pipeline = Pipeline([_AddOne()], workspace=tmp_path, checkpoint=False)
+    final = pipeline.run(state)
+
+    assert final.data["counter"] == 1
+    assert not (tmp_path / ".hmp").exists()
 
 
 def test_pipeline_wraps_step_failure_in_step_error() -> None:

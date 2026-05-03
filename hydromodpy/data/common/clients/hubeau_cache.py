@@ -13,7 +13,7 @@ from hydromodpy.core.logging import get_logger
 from hydromodpy.data.contracts.timeseries import PointRecord
 
 if TYPE_CHECKING:
-    from hydromodpy.data.base_manager import BaseVariableManager
+    from hydromodpy.data.base_manager_variable import BaseVariableManager
 
 logger = get_logger(__name__)
 

@@ -9,8 +9,9 @@ import pandas as pd
 import pytest
 
 from hydromodpy.analysis.testbed.config import TestbedConfig as MethodTestbedConfig
+from hydromodpy.analysis.testbed.contracts import register_testbed_runner_provider
 from hydromodpy.analysis.testbed.runtime import TestbedLauncher as MethodTestbedLauncher
-from hydromodpy.core.config.toml_loader import load_toml_with_base_config
+from hydromodpy.core.toml_io import load_toml_with_base_config
 
 
 def _write_mesh_base(path: Path) -> None:
@@ -160,9 +161,7 @@ def test_testbed_config_parses_flow_variants(tmp_path: Path) -> None:
     assert cfg.runner.type == "simulation"
     assert cfg.runner.no_display is True
     assert cfg.base_config_path == base_config.resolve()
-    assert cfg.variants[0].overlay["flow"]["param"]["K"]["field_homogeneous"][
-        "value"
-    ] == "5e-6 m/s"
+    assert cfg.variants[0].overlay["flow"]["param"]["K"]["field_homogeneous"]["value"] == "5e-6 m/s"
 
 
 def test_flow_testbed_requires_separate_base_config(tmp_path: Path) -> None:
@@ -282,7 +281,6 @@ def test_testbed_launcher_materializes_flow_child_configs_without_executing(
 
 
 def test_testbed_launcher_runs_mesh_catchment_variants_and_collects_metrics(
-    monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
 ) -> None:
     config_path = tmp_path / "testbed.toml"
@@ -324,25 +322,22 @@ def test_testbed_launcher_runs_mesh_catchment_variants_and_collects_metrics(
     )
     calls: list[Path] = []
 
-    class _FakeMeshLauncher:
-        def __init__(self, child_config: str | Path) -> None:
-            self.child_config = Path(child_config)
-
-        def run(self) -> dict[str, object]:
-            calls.append(self.child_config)
-            payload = load_toml_with_base_config(self.child_config)
+    class _FakeProvider:
+        def run_mesh_catchment(self, child_config: Path) -> dict[str, object]:
+            calls.append(child_config)
+            payload = load_toml_with_base_config(child_config)
             size = payload["mesh_catchment"]["zone_meshing"]["global_size"]
             n_cells = 10 if size == 400.0 else 40
             return {
                 "summary_schema_version": "zone_conformal_sidecar_v1",
                 "n_cells": n_cells,
-                "output_mesh": str(self.child_config.with_suffix(".msh")),
+                "output_mesh": str(child_config.with_suffix(".msh")),
             }
 
-    monkeypatch.setattr(
-        "hydromodpy.workflow.pipelines.mesh.MeshCatchmentLauncher",
-        _FakeMeshLauncher,
-    )
+        def run_simulation(self, child_config: Path, *, no_display: bool) -> dict[str, object]:
+            raise AssertionError("simulation runner should not be used")
+
+    register_testbed_runner_provider(_FakeProvider())
 
     summary = MethodTestbedLauncher(config_path).run()
 
@@ -358,7 +353,6 @@ def test_testbed_launcher_runs_mesh_catchment_variants_and_collects_metrics(
 
 
 def test_testbed_launcher_runs_flow_variants_and_collects_metrics(
-    monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
 ) -> None:
     base_config = tmp_path / "flow_base.toml"
@@ -410,26 +404,23 @@ def test_testbed_launcher_runs_flow_variants_and_collects_metrics(
     )
     calls: list[tuple[Path, bool]] = []
 
-    def _fake_run_simulation(
-        child_config: str | Path,
-        *,
-        resume: str | None = None,
-        no_display: bool = False,
-    ) -> dict[str, object]:
-        assert resume is None
-        child_config = Path(child_config)
-        calls.append((child_config, no_display))
-        payload = load_toml_with_base_config(child_config)
-        run_name = payload["simulation"]["name"]
-        k_value = payload["flow"]["param"]["K"]["field_homogeneous"]["value"]
-        return {
-            "name": run_name,
-            "sim_id": f"sim_{run_name}",
-            "k_value": k_value,
-            "wall_time_seconds": 1.25,
-        }
+    class _FakeProvider:
+        def run_mesh_catchment(self, child_config: Path) -> dict[str, object]:
+            raise AssertionError("mesh runner should not be used")
 
-    monkeypatch.setattr("hydromodpy._cli.workflows.run_simulation", _fake_run_simulation)
+        def run_simulation(self, child_config: Path, *, no_display: bool) -> dict[str, object]:
+            calls.append((child_config, no_display))
+            payload = load_toml_with_base_config(child_config)
+            run_name = payload["simulation"]["name"]
+            k_value = payload["flow"]["param"]["K"]["field_homogeneous"]["value"]
+            return {
+                "name": run_name,
+                "sim_id": f"sim_{run_name}",
+                "k_value": k_value,
+                "wall_time_seconds": 1.25,
+            }
+
+    register_testbed_runner_provider(_FakeProvider())
 
     summary = MethodTestbedLauncher(config_path).run()
 
@@ -498,18 +489,16 @@ def test_flow_testbed_enriches_metrics_from_simulation_catalog(
         encoding="utf-8",
     )
 
-    def _fake_run_simulation(
-        child_config: str | Path,
-        *,
-        resume: str | None = None,
-        no_display: bool = False,
-    ) -> dict[str, object]:
-        assert resume is None
-        assert no_display is True
-        return {
-            "name": "flow_reference",
-            "sim_id": "11111111-1111-1111-1111-111111111111",
-        }
+    class _FakeProvider:
+        def run_mesh_catchment(self, child_config: Path) -> dict[str, object]:
+            raise AssertionError("mesh runner should not be used")
+
+        def run_simulation(self, child_config: Path, *, no_display: bool) -> dict[str, object]:
+            assert no_display is True
+            return {
+                "name": "flow_reference",
+                "sim_id": "11111111-1111-1111-1111-111111111111",
+            }
 
     class _FakeRun:
         sim_id = "11111111-1111-1111-1111-111111111111"
@@ -582,9 +571,9 @@ def test_flow_testbed_enriches_metrics_from_simulation_catalog(
         assert preferred_name == "flow_reference"
         return fake_store, _FakeRun.sim_id
 
-    monkeypatch.setattr("hydromodpy._cli.workflows.run_simulation", _fake_run_simulation)
+    register_testbed_runner_provider(_FakeProvider())
     monkeypatch.setattr(
-        "hydromodpy.analysis.comparison.runtime.discover_result_store",
+        "hydromodpy.analysis.comparison.runtime_metadata.discover_result_store",
         _fake_discover_result_store,
     )
 
@@ -643,15 +632,13 @@ def test_testbed_required_metric_failure_is_persisted(
         encoding="utf-8",
     )
 
-    def _fake_run_simulation(
-        child_config: str | Path,
-        *,
-        resume: str | None = None,
-        no_display: bool = False,
-    ) -> dict[str, object]:
-        assert resume is None
-        assert no_display is True
-        return {"name": "flow_reference", "sim_id": "missing-catalog-run"}
+    class _FakeProvider:
+        def run_mesh_catchment(self, child_config: Path) -> dict[str, object]:
+            raise AssertionError("mesh runner should not be used")
+
+        def run_simulation(self, child_config: Path, *, no_display: bool) -> dict[str, object]:
+            assert no_display is True
+            return {"name": "flow_reference", "sim_id": "missing-catalog-run"}
 
     def _fake_discover_result_store(
         config_path: Path | None,
@@ -664,9 +651,9 @@ def test_testbed_required_metric_failure_is_persisted(
         assert preferred_name == "flow_reference"
         return None, ""
 
-    monkeypatch.setattr("hydromodpy._cli.workflows.run_simulation", _fake_run_simulation)
+    register_testbed_runner_provider(_FakeProvider())
     monkeypatch.setattr(
-        "hydromodpy.analysis.comparison.runtime.discover_result_store",
+        "hydromodpy.analysis.comparison.runtime_metadata.discover_result_store",
         _fake_discover_result_store,
     )
 

@@ -8,10 +8,10 @@ import numpy as np
 import pandas as pd
 import pytest
 
+from hydromodpy.calibration.lumped import Gr4jFlowExtractor
 from hydromodpy.results.catalog import SimulationCatalog
-from hydromodpy.simulation.extraction.extractors.base import cleanup_solver_files
 from hydromodpy.simulation.extraction.extractors.derived import compute_derived
-from hydromodpy.solver.gr4j.extractors import GR4JOutputAdapter
+from hydromodpy.solver.base.cleanup import cleanup_solver_files
 
 
 @pytest.fixture
@@ -21,7 +21,7 @@ def catalog(tmp_path):
     c.close()
 
 
-class TestGR4JOutputAdapter:
+class TestGr4jFlowExtractor:
     def test_discharge_stored(self, catalog):
         sid = str(uuid4())
         catalog.register_simulation(sid, project="test", solver="gr4j")
@@ -29,7 +29,7 @@ class TestGR4JOutputAdapter:
         idx = pd.date_range("2020-01-01", periods=30, freq="D")
         q = pd.Series(np.random.default_rng(1).random(30), index=idx, name="Q")
 
-        adapter = GR4JOutputAdapter()
+        adapter = Gr4jFlowExtractor()
         adapter.extract_from_memory(sid, catalog, discharge=q)
 
         result = catalog.query_timeseries(sid, "outlet", "discharge")
@@ -41,7 +41,7 @@ class TestGR4JOutputAdapter:
         catalog.register_simulation(sid, project="test", solver="gr4j")
 
         idx = pd.date_range("2020-01-01", periods=10, freq="D")
-        adapter = GR4JOutputAdapter()
+        adapter = Gr4jFlowExtractor()
         adapter.extract_from_memory(
             sid,
             catalog,
@@ -55,7 +55,7 @@ class TestGR4JOutputAdapter:
     def test_derive_noop(self, catalog):
         sid = str(uuid4())
         catalog.register_simulation(sid, project="test", solver="gr4j")
-        adapter = GR4JOutputAdapter()
+        adapter = Gr4jFlowExtractor()
         adapter.derive(sid, catalog)  # should not raise
 
 
@@ -115,7 +115,7 @@ class TestDerivedVariables:
         # top=10, head~8-12, so depth = 10 - wt should be roughly -2 to 2
         assert np.all(np.isfinite(depth))
 
-    def test_seepage_areas(self, catalog):
+    def test_seepage_mask(self, catalog):
         sid = self._setup_sim_with_head(catalog)
         compute_derived(
             sid,
@@ -123,7 +123,7 @@ class TestDerivedVariables:
             {"watertable_elevation": True, "watertable_depth": False, "seepage_areas": True},
         )
 
-        seep = catalog.query_field(sid, "seepage_areas", 0)
+        seep = catalog.query_field(sid, "seepage_mask", 0)
         assert seep.shape == (10,)
         # Some cells have head > 10 (surface), so seepage > 0
         assert seep.sum() > 0
