@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import csv
 import json
-import logging
 import math
 import numbers
 import os
@@ -25,6 +24,7 @@ from hydromodpy.core.config.toml_loader import (
     load_toml_with_base_config,
     merge_toml_payloads,
 )
+from hydromodpy.core.logging import get_logger
 from hydromodpy.physics.flow.history_contract import (
     build_transient_time_axes,
     snapshot_elapsed_seconds_from_payload,
@@ -39,7 +39,7 @@ try:
 except Exception:  # pragma: no cover - optional dependency in lightweight envs
     rasterio = None
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 @dataclass(frozen=True, slots=True)
@@ -1043,16 +1043,12 @@ def normalize_observable_value(
         native_unit = "m3/s"
         conversion_applied = "drainage_flux_m3_s_to_m_per_day"
         cell_area_m2 = area_m2
-    elif (
-        observable.variable.strip().lower()
-        in {
-            "surface_excess_rate",
-            "surface_excess_map",
-            "dry_deficit_rate",
-            "dry_deficit_map",
-        }
-        and series.variable_name in {"saturation_excess_history_m_s", "dry_deficit_history_m_s"}
-    ):
+    elif observable.variable.strip().lower() in {
+        "surface_excess_rate",
+        "surface_excess_map",
+        "dry_deficit_rate",
+        "dry_deficit_map",
+    } and series.variable_name in {"saturation_excess_history_m_s", "dry_deficit_history_m_s"}:
         output_value = _convert_rate_m_s_to_m_per_day(value_m_s=output_value)
         native_unit = "m/s"
         conversion_applied = (

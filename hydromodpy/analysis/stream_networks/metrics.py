@@ -187,7 +187,7 @@ def simulated_active_network_distance_metrics(
         raise ValueError(
             "Mesh polygon count does not match simulated active-network field size: "
             f"mesh={polygons.size}, field={values.size}."
-    )
+        )
 
     network_gdf = sim.hydrographic_network(network_role)
     network_geometries = _network_geometries(
@@ -229,9 +229,22 @@ def simulated_active_network_distance_metrics(
     if sim_mean is None or network_mean is None:
         bidirectional_mean = None
         bidirectional_quadratic_mean = None
+        bidirectional_absolute_balance_m = None
+        distance_balance_ratio = None
+        distance_log10_balance = None
     else:
         bidirectional_mean = float(0.5 * (sim_mean + network_mean))
         bidirectional_quadratic_mean = float(np.hypot(sim_mean, network_mean))
+        bidirectional_absolute_balance_m = float(abs(sim_mean - network_mean))
+        if sim_mean == 0.0 and network_mean == 0.0:
+            distance_balance_ratio = 1.0
+            distance_log10_balance = 0.0
+        elif network_mean > 0.0 and sim_mean > 0.0:
+            distance_balance_ratio = float(sim_mean / network_mean)
+            distance_log10_balance = float(np.log10(distance_balance_ratio))
+        else:
+            distance_balance_ratio = None
+            distance_log10_balance = None
 
     return {
         "network_role": network_role,
@@ -249,4 +262,7 @@ def simulated_active_network_distance_metrics(
         **network_to_sim,
         "bidirectional_distance_mean_m": bidirectional_mean,
         "bidirectional_distance_quadratic_mean_m": bidirectional_quadratic_mean,
+        "bidirectional_distance_absolute_balance_m": bidirectional_absolute_balance_m,
+        "planar_distance_balance_ratio": distance_balance_ratio,
+        "planar_distance_log10_balance": distance_log10_balance,
     }

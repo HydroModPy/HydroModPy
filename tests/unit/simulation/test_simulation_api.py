@@ -371,7 +371,9 @@ class TestSimulationData:
             geometry=[LineString([(1.5, 0.5), (1.5, 1.5)])],
             crs="EPSG:2154",
         )
-        catalog.write_geographic_feature(sid, HYDROGRAPHIC_NETWORK_REFERENCE_FEATURE_NAME, reference)
+        catalog.write_geographic_feature(
+            sid, HYDROGRAPHIC_NETWORK_REFERENCE_FEATURE_NAME, reference
+        )
 
         sim = Run(sid, catalog)
         metrics = sim.simulated_active_network_overlap_metrics(
@@ -403,7 +405,9 @@ class TestSimulationData:
             geometry=[LineString([(1.5, 0.5), (1.5, 1.5)])],
             crs="EPSG:2154",
         )
-        catalog.write_geographic_feature(sid, HYDROGRAPHIC_NETWORK_REFERENCE_FEATURE_NAME, reference)
+        catalog.write_geographic_feature(
+            sid, HYDROGRAPHIC_NETWORK_REFERENCE_FEATURE_NAME, reference
+        )
 
         sim = Run(sid, catalog)
         metrics = sim.simulated_active_network_distance_metrics(

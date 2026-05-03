@@ -30,84 +30,9 @@ __email__ = (
     "alexandre.gauvain.ag@gmail.com, ronan.abherve@gmail.com, jean-raynald.de-dreuzy@univ-rennes.fr"
 )
 
-log_manager = LogManager(mode="verbose", log_dir=None, overwrite=False)
-
 _log_manager = LogManager(mode="verbose", log_dir=None, overwrite=False)
 # Public access to log manager for users
 log_manager = _log_manager
-
-_MODULE_EXPORTS = {
-    "analysis": "hydromodpy.analysis",
-    "calibration": "hydromodpy.calibration",
-    "core": "hydromodpy.core",
-    "data": "hydromodpy.data",
-    "physics": "hydromodpy.physics",
-    "results": "hydromodpy.results",
-    "simulation": "hydromodpy.simulation",
-    "solver": "hydromodpy.solver",
-    "spatial": "hydromodpy.spatial",
-}
-
-_LAZY_IMPORTS = {
-    # Spatial / geographic
-    "CatchmentDelineation": "hydromodpy.spatial.geographic.catchment_delineation",
-    "GeographicConfig": "hydromodpy.spatial.geographic.geographic_config",
-    "Geographic": "hydromodpy.spatial.geographic.geographic_config:GeographicConfig",
-    "Subbasin": "hydromodpy.spatial.geographic.subbasin",
-    "HydroMesh": "hydromodpy.spatial.mesh.hydro_mesh",
-    "DomainConfig": "hydromodpy.spatial.domain.domain_config",
-    "Domain": "hydromodpy.spatial.domain.domain_config:DomainConfig",
-    # Processes (factories expose FlowConfig/TransportConfig)
-    "FlowConfig": "hydromodpy.physics.flow.flow_config",
-    "Flow": "hydromodpy.physics.flow.flow_config:FlowConfig",
-    "FlowProcess": "hydromodpy.physics.flow.flow:Flow",
-    "TransportConfig": "hydromodpy.physics.transport.transport_config",
-    "Transport": "hydromodpy.physics.transport.transport_config:TransportConfig",
-    "TransportProcess": "hydromodpy.physics.transport.transport:Transport",
-    # Solvers
-    "Modflow": "hydromodpy.solver.modflow_nwt",
-    "Modflow6": "hydromodpy.solver.modflow6.modflow6",
-    "Modpath": "hydromodpy.solver.modflow_nwt",
-    "Modpath7": "hydromodpy.solver.modflow_nwt",
-    "Mt3dms": "hydromodpy.solver.modflow_nwt",
-    "Boussinesq": "hydromodpy.solver.boussinesq.boussinesq",
-    # Core infrastructure
-    "Workspace": "hydromodpy.core.workspace",
-    "WorkspaceConfig": "hydromodpy.core.workspace",
-    "HydroModPyConfig": "hydromodpy.config:HydroModPyConfig",
-    "Config": "hydromodpy.config:HydroModPyConfig",
-    # Simulation orchestration
-    "SimulationConfig": "hydromodpy.simulation.planning.config",
-    "Sim": "hydromodpy.simulation.planning.config:SimulationConfig",
-    # Data variables (public surface)
-    "DataManagersConfig": "hydromodpy.data.data_managers_config",
-    "Data": "hydromodpy.data.data_managers_config:DataManagersConfig",
-    "RechargeConfig": "hydromodpy.data.variables.recharge.config",
-    "Recharge": "hydromodpy.data.variables.recharge.config:RechargeConfig",
-    "HydrometryConfig": "hydromodpy.data.variables.hydrometry.config",
-    "Hydrometry": "hydromodpy.data.variables.hydrometry.config:HydrometryConfig",
-    "PiezometryConfig": "hydromodpy.data.variables.piezometry.config",
-    "Piezometry": "hydromodpy.data.variables.piezometry.config:PiezometryConfig",
-    "GeologyConfig": "hydromodpy.data.variables.geology.config",
-    "Geology": "hydromodpy.data.variables.geology.config:GeologyConfig",
-    "DemConfig": "hydromodpy.data.variables.dem.config",
-    "DEM": "hydromodpy.data.variables.dem.config:DemConfig",
-    "HydrographyConfig": "hydromodpy.data.variables.hydrography.config",
-    "HydrographyManager": "hydromodpy.data.variables.hydrography.manager",
-    "HydrographyResult": "hydromodpy.data.variables.hydrography.result",
-    "IntermittencyConfig": "hydromodpy.data.variables.intermittency.config",
-    "IntermittencyManager": "hydromodpy.data.variables.intermittency.manager",
-    "OceanicConfig": "hydromodpy.data.variables.oceanic",
-    "OceanicManager": "hydromodpy.data.variables.oceanic",
-    # Project / run API (programmatic façade)
-    "Project": "hydromodpy.project",
-    "SimulationPlan": "hydromodpy.simulation.planning.plan",
-    # Catalog API
-    "Catalog": "hydromodpy.results.catalog:SimulationCatalog",
-    "SimulationCatalog": "hydromodpy.results.catalog",
-    "SimulationGroup": "hydromodpy.results.simulation_group",
-    "Run": "hydromodpy.results.run",
-}
 
 
 def __getattr__(name: str):

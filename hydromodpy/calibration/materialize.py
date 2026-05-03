@@ -22,15 +22,13 @@ import re
 from collections.abc import Mapping, Sequence
 from copy import deepcopy
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import Any
+
+from pydantic import BaseModel
 
 from hydromodpy.calibration.parameters import ParameterSpace
-from hydromodpy.core.config_kit.root_config_protocol import get_root_config_provider
 from hydromodpy.core.toml_io.loader import load_toml_with_base_config
 from hydromodpy.core.toml_io.writer import dump as dump_toml
-
-if TYPE_CHECKING:
-    from hydromodpy.config import HydroModPyConfig
 
 
 def _sanitize_label(label: str) -> str:
@@ -137,9 +135,8 @@ def _load_base_payload(
     ``base_path`` is ``None`` when the caller passed an in-memory config
     without a backing file.
     """
-    from hydromodpy.config import HydroModPyConfig
 
-    if isinstance(base_config, root_cls):
+    if isinstance(base_config, BaseModel):
         payload = base_config.model_dump(mode="json", by_alias=True, exclude_none=True)
         return payload, None
     base_path = Path(base_config).expanduser().resolve()

@@ -71,6 +71,7 @@ def test_write_schema_creates_valid_json_file(tmp_path: Path):
 
 def test_root_sections_lists_expected_keys():
     from hydromodpy.config.schema_export import _ensure_root_sections
+    from hydromodpy.core.config_kit.registry import root_scalar_fields
 
     sections = _ensure_root_sections()
     scalars = root_scalar_fields()

@@ -679,9 +679,12 @@ def _load_optional_calibration_section(
         return None
     return load_standard_section(section_data, CalibrationConfig, base)
 
-    Kept inside a function so package assembly happens in the config root,
-    not in the generic ``core.config`` helpers.
-    """
+
+def _load_optional_analysis_section(
+    section_data: Any,
+    base: Path,
+) -> AnalysisConfig | None:
+    """Load the optional ``[analysis]`` section."""
     if section_data is None:
         return None
     if not isinstance(section_data, Mapping):

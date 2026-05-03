@@ -12,7 +12,6 @@ import re
 from dataclasses import dataclass
 from pathlib import Path
 
-
 VISUAL_RE = re.compile(r"^\s*\.\.\s+(figure|image|uml|graphviz)::", re.MULTILINE)
 TOCTREE_RE = re.compile(r"^\s*\.\.\s+toctree::", re.MULTILINE)
 

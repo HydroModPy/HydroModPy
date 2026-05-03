@@ -15,9 +15,7 @@ import numpy as np
 from matplotlib.patches import FancyArrowPatch, Rectangle
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
-ASSET_ROOT = (
-    REPO_ROOT / "examples" / "projects" / "09_capability_gallery" / "code_comparison"
-)
+ASSET_ROOT = REPO_ROOT / "examples" / "projects" / "09_capability_gallery" / "code_comparison"
 
 SOLVER_ORDER = (
     "modflownwt",
@@ -131,7 +129,10 @@ CASES = (
                 configuration=(
                     ("geometry", "400 m x 30 m synthetic strip aquifer"),
                     ("topography", "surface lifted by +10 m relative to the ramp benchmark"),
-                    ("boundaries", "west no-flow, east fixed head, top drainage inactive by design"),
+                    (
+                        "boundaries",
+                        "west no-flow, east fixed head, top drainage inactive by design",
+                    ),
                     ("time_step_days", 15.0),
                     ("specific_yield", 0.10),
                     ("hydraulic_conductivity_scale", 0.2),
@@ -156,7 +157,10 @@ CASES = (
                 configuration=(
                     ("geometry", "400 m x 30 m synthetic strip aquifer"),
                     ("topography", "surface lifted by +10 m relative to the ramp benchmark"),
-                    ("boundaries", "west no-flow, east fixed head, top drainage inactive by design"),
+                    (
+                        "boundaries",
+                        "west no-flow, east fixed head, top drainage inactive by design",
+                    ),
                     ("time_step_days", 15.0),
                     ("specific_yield", 0.10),
                     ("hydraulic_conductivity_scale", 1.6),
@@ -371,7 +375,9 @@ def _write_surface_interaction_configuration_schematic(
 
     ax.text(0.085, 0.87, "West divide", ha="left", va="bottom", fontsize=10.0)
     surface_label = "Lifted ground surface (+10 m)" if no_seepage else "Sloping ground surface"
-    ax.text(0.46, 0.72 if no_seepage else 0.69, surface_label, ha="center", va="bottom", fontsize=10.0)
+    ax.text(
+        0.46, 0.72 if no_seepage else 0.69, surface_label, ha="center", va="bottom", fontsize=10.0
+    )
     ax.text(
         0.47,
         0.37,

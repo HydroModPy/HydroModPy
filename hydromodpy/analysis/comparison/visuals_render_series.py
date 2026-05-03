@@ -27,6 +27,8 @@ from hydromodpy.analysis.comparison.visuals_style import (
     _solver_color,
 )
 
+_SECONDS_PER_DAY = 86_400.0
+
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt  # noqa: E402
 
@@ -94,7 +96,7 @@ def _write_timeseries_figure(
     use_elapsed_seconds = all(
         _safe_float(row.get("elapsed_seconds")) is not None for row in grouped_rows
     )
-    x_label = "Elapsed time [s]" if use_elapsed_seconds else "Time index"
+    x_label = "Elapsed time [d]" if use_elapsed_seconds else "Time index"
 
     series_payloads: dict[tuple[str, str, int], list[tuple[float, float]]] = {}
     for row in grouped_rows:
@@ -108,6 +110,8 @@ def _write_timeseries_figure(
         )
         if x_value is None:
             continue
+        if use_elapsed_seconds:
+            x_value = x_value / _SECONDS_PER_DAY
         key = (
             str(row.get("variant_id", "")),
             str(row.get("variant_label", row.get("variant_id", ""))),
@@ -572,13 +576,15 @@ def _write_budget_diagnostic_figure(
         _safe_float(row.get("elapsed_seconds")) is not None for row in variant_budget_rows
     )
     x_field = "elapsed_seconds" if use_elapsed_seconds else "time_index"
-    x_label = "Elapsed time [s]" if use_elapsed_seconds else "Time step"
+    x_label = "Elapsed time [d]" if use_elapsed_seconds else "Time step"
 
     component_groups: dict[str, list[tuple[float, float]]] = {}
     time_labels: dict[int, str] = {}
     for row in variant_budget_rows:
         component = str(row.get("component", "")).strip()
         x_value = _safe_float(row.get(x_field))
+        if x_value is not None and use_elapsed_seconds:
+            x_value = x_value / _SECONDS_PER_DAY
         value = _safe_float(row.get("value"))
         if not component or x_value is None or value is None:
             continue
@@ -600,6 +606,8 @@ def _write_budget_diagnostic_figure(
         if str(row.get("unit", "")) != "m3/s":
             continue
         x_value = _safe_float(row.get(x_field))
+        if x_value is not None and use_elapsed_seconds:
+            x_value = x_value / _SECONDS_PER_DAY
         value = _safe_float(row.get("value"))
         if x_value is None or value is None:
             continue

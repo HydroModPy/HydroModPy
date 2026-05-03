@@ -63,7 +63,7 @@ def _link_from_web(path: str | Path) -> str:
         return target.relative_to(WEB_DIR.resolve()).as_posix()
     except Exception:
         try:
-            return ("../" + target.relative_to(COMPARISON_ROOT.resolve()).as_posix())
+            return "../" + target.relative_to(COMPARISON_ROOT.resolve()).as_posix()
         except Exception:
             return target.as_posix()
 
@@ -133,11 +133,7 @@ def _enrich_execution_rows(
     rows: list[dict[str, str]], manifest: dict[str, Any]
 ) -> list[dict[str, str]]:
     variants = manifest.get("variants", [])
-    by_id = {
-        str(item.get("id", "")): item
-        for item in variants
-        if isinstance(item, dict)
-    }
+    by_id = {str(item.get("id", "")): item for item in variants if isinstance(item, dict)}
     enriched: list[dict[str, str]] = []
     for row in rows:
         variant = by_id.get(str(row.get("variant_id", "")), {})
@@ -158,7 +154,7 @@ def _render_table(
     max_rows: int = 12,
 ) -> str:
     if not rows:
-        return f"<p class=\"muted\">{html.escape(empty)}</p>"
+        return f'<p class="muted">{html.escape(empty)}</p>'
     head = "".join(f"<th>{html.escape(label)}</th>" for _, label in columns)
     body_rows = []
     for row in rows[:max_rows]:
@@ -183,7 +179,7 @@ def _render_table(
             cells.append(f"<td>{_safe_text(value)}</td>")
         body_rows.append("<tr>" + "".join(cells) + "</tr>")
     return (
-        "<div class=\"table-wrap\"><table><thead><tr>"
+        '<div class="table-wrap"><table><thead><tr>'
         + head
         + "</tr></thead><tbody>"
         + "".join(body_rows)
@@ -230,12 +226,12 @@ def _variant_cards(manifest: dict[str, Any], config: dict[str, Any]) -> str:
             </article>
             """
         )
-    return "\n".join(cards) or "<p class=\"muted\">Aucune variante disponible.</p>"
+    return "\n".join(cards) or '<p class="muted">Aucune variante disponible.</p>'
 
 
 def _figure_grid(figures: list[dict[str, Any]], *, empty: str) -> str:
     if not figures:
-        return f"<p class=\"muted\">{html.escape(empty)}</p>"
+        return f'<p class="muted">{html.escape(empty)}</p>'
     items = []
     for figure in figures:
         path = figure.get("path", "")
@@ -250,7 +246,7 @@ def _figure_grid(figures: list[dict[str, Any]], *, empty: str) -> str:
             </figure>
             """
         )
-    return "<div class=\"fig-grid\">" + "\n".join(items) + "</div>"
+    return '<div class="fig-grid">' + "\n".join(items) + "</div>"
 
 
 def _figure_by_filename(figures: list[dict[str, Any]], filename: str) -> dict[str, Any] | None:
@@ -264,10 +260,7 @@ def _figure_by_variant_name(
     figures: list[dict[str, Any]], variant_id: str, figure_name: str
 ) -> dict[str, Any] | None:
     for figure in figures:
-        if (
-            figure.get("variant_id") == variant_id
-            and figure.get("figure_name") == figure_name
-        ):
+        if figure.get("variant_id") == variant_id and figure.get("figure_name") == figure_name:
             return figure
     return None
 
@@ -280,9 +273,9 @@ def _render_figure(
 ) -> str:
     if not figure:
         return (
-            "<figure class=\"missing-figure\">"
+            '<figure class="missing-figure">'
             f"<figcaption>{html.escape(title)}</figcaption>"
-            "<p class=\"muted\">Figure non disponible.</p>"
+            '<p class="muted">Figure non disponible.</p>'
             "</figure>"
         )
     path = figure.get("path", "")
@@ -321,27 +314,20 @@ def _theme_panel(
 
 def _figure_deck(items: list[tuple[dict[str, Any] | None, str, str]]) -> str:
     return (
-        "<div class=\"figure-deck\">"
-        + "\n".join(
-            _render_figure(figure, title=title, note=note)
-            for figure, title, note in items
-        )
+        '<div class="figure-deck">'
+        + "\n".join(_render_figure(figure, title=title, note=note) for figure, title, note in items)
         + "</div>"
     )
 
 
-def _metric_value(
-    rows: list[dict[str, str]], variant_id: str, observable: str, field: str
-) -> str:
+def _metric_value(rows: list[dict[str, str]], variant_id: str, observable: str, field: str) -> str:
     for row in rows:
         if row.get("variant_id") == variant_id and row.get("observable") == observable:
             return _format_float(row.get(field))
     return ""
 
 
-def _wide_value(
-    rows: list[dict[str, str]], observable: str, variant_id: str
-) -> str:
+def _wide_value(rows: list[dict[str, str]], observable: str, variant_id: str) -> str:
     key = f"value__{variant_id}"
     for row in rows:
         if row.get("observable") == observable:
@@ -367,10 +353,7 @@ def _config_detail_table(base: dict[str, Any], config: dict[str, Any]) -> str:
         if simulation.get("solver") != "modflownwt":
             continue
         planar = (
-            simulation.get("overlay", {})
-            .get("modflownwt", {})
-            .get("sgrid", {})
-            .get("planar", {})
+            simulation.get("overlay", {}).get("modflownwt", {}).get("sgrid", {}).get("planar", {})
         )
         nx = planar.get("nx", "")
         ny = planar.get("ny", "")
@@ -437,7 +420,7 @@ def _config_detail_table(base: dict[str, Any], config: dict[str, Any]) -> str:
         for label, value, comment in rows
     )
     return (
-        "<div class=\"table-wrap\"><table class=\"config-table\">"
+        '<div class="table-wrap"><table class="config-table">'
         "<thead><tr><th>Element</th><th>Configuration</th><th>Commentaire</th></tr></thead>"
         f"<tbody>{body}</tbody></table></div>"
     )
@@ -467,10 +450,7 @@ def _interpretation_cards(
         row.get("variant_id"): _format_float(row.get("network_coverage_ratio"))
         for row in active_overlap
     }
-    f1 = {
-        row.get("variant_id"): _format_float(row.get("cell_f1_ratio"))
-        for row in active_overlap
-    }
+    f1 = {row.get("variant_id"): _format_float(row.get("cell_f1_ratio")) for row in active_overlap}
 
     cards = [
         (
@@ -506,9 +486,9 @@ def _interpretation_cards(
         ),
     ]
     return (
-        "<div class=\"comment-grid\">"
+        '<div class="comment-grid">'
         + "\n".join(
-            f"<article class=\"comment-card\"><h3>{_safe_text(title)}</h3><p>{_safe_text(text)}</p></article>"
+            f'<article class="comment-card"><h3>{_safe_text(title)}</h3><p>{_safe_text(text)}</p></article>'
             for title, text in cards
         )
         + "</div>"
@@ -549,11 +529,6 @@ def build_report() -> Path:
     figures = _figure_artifacts(manifest)
     cfg_summary = _config_summary(base)
 
-    selected_network = _figures_by_keywords(
-        figures,
-        ("simulated_active", "active_network", "reference_overlay"),
-        limit=8,
-    )
     selected_runtime = _figures_by_keywords(figures, ("execution_time",), limit=2)
     case_configuration_figure = _figure_by_filename(figures, "case_configuration.png")
 

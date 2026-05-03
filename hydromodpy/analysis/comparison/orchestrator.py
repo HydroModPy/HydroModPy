@@ -44,8 +44,9 @@ from hydromodpy.analysis.comparison.runtime_observables import (
     write_observables_csv,
 )
 from hydromodpy.analysis.comparison.visuals import generate_comparison_figures
-from hydromodpy.config import HydroModPyConfig
 from hydromodpy.core.config.toml_loader import load_toml_with_base_config
+from hydromodpy.core.config_kit.root_config_protocol import get_root_config_provider
+from hydromodpy.project import Project
 
 
 class MethodComparisonLauncher:
@@ -207,7 +208,7 @@ class MethodComparisonLauncher:
                 variant_summaries=variant_summaries,
             )
         )
-        data_artifacts.extend(simulated_active_overlap_artifacts)
+        data_artifacts.extend(active_overlap_artifacts)
         simulated_active_distance_artifacts, _simulated_active_distance_rows = (
             write_simulated_active_network_distance_metrics_export(
                 comparison_id=str(section.comparison_id),

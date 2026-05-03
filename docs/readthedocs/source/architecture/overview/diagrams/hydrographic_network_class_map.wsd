@@ -109,4 +109,11 @@ The current distance metric is planar and
 cell-based; it is not yet the downslope
 DEM-routing criterion.
 end note
+
+note bottom of StreamNetworkMetrics
+Package hydromodpy.analysis.stream_networks.
+The current distance metric is planar and
+cell-based; it is not yet the downslope
+DEM-routing criterion.
+end note
 @enduml

@@ -174,9 +174,7 @@ def record_surface_threshold_summary(solver: Boussinesq) -> None:
         )
         * _SECONDS_PER_DAY
     )
-    total_dry_deficit_m3_day = (
-        np.sum(positive_dry_deficit * cell_area, axis=1) * _SECONDS_PER_DAY
-    )
+    total_dry_deficit_m3_day = np.sum(positive_dry_deficit * cell_area, axis=1) * _SECONDS_PER_DAY
     used_dry_steps = min(len(period_lengths), max(positive_dry_deficit.shape[0] - 1, 0))
     integrated_dry_deficit_m3 = (
         float(
@@ -191,9 +189,7 @@ def record_surface_threshold_summary(solver: Boussinesq) -> None:
     )
     peak_active_cells = int(np.max(active_counts)) if active_counts.size else 0
     final_active_cells = int(active_counts[-1]) if active_counts.size else 0
-    peak_dry_deficit_cells = (
-        int(np.max(dry_deficit_counts)) if dry_deficit_counts.size else 0
-    )
+    peak_dry_deficit_cells = int(np.max(dry_deficit_counts)) if dry_deficit_counts.size else 0
     final_dry_deficit_cells = int(dry_deficit_counts[-1]) if dry_deficit_counts.size else 0
     peak_head_above_top_m = float(
         np.max(evaluated_head_history - z_top) if evaluated_head_history.size else 0.0
@@ -271,9 +267,7 @@ def record_surface_threshold_summary(solver: Boussinesq) -> None:
     solver.runtime_summary["bottom_threshold_peak_violation_fraction"] = float(
         peak_bottom_violation_cells / max(n_cells, 1)
     )
-    solver.runtime_summary["bottom_threshold_final_violation_cells"] = (
-        final_bottom_violation_cells
-    )
+    solver.runtime_summary["bottom_threshold_final_violation_cells"] = final_bottom_violation_cells
     solver.runtime_summary["bottom_threshold_final_violation_fraction"] = float(
         final_bottom_violation_cells / max(n_cells, 1)
     )
@@ -303,9 +297,7 @@ def record_surface_threshold_summary(solver: Boussinesq) -> None:
     solver.runtime_summary["bottom_constraint_final_total_m3_day"] = float(
         total_dry_deficit_m3_day[-1] if total_dry_deficit_m3_day.size else 0.0
     )
-    solver.runtime_summary["bottom_constraint_integrated_volume_m3"] = (
-        integrated_dry_deficit_m3
-    )
+    solver.runtime_summary["bottom_constraint_integrated_volume_m3"] = integrated_dry_deficit_m3
 
     if solver._surface_interaction_model() != "complementarity":
         return

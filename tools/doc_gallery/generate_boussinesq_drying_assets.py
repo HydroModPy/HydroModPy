@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
 import json
 import os
+from dataclasses import dataclass
 from pathlib import Path
 
 import numpy as np
@@ -268,14 +268,18 @@ def write_figure(path: Path, data: dict[str, np.ndarray]) -> None:
         linestyle="--",
         label="q_dry active cells",
     )
-    thickness_ax.set_title("Drying lowers stored saturated thickness, rewetting restores it", loc="left")
+    thickness_ax.set_title(
+        "Drying lowers stored saturated thickness, rewetting restores it", loc="left"
+    )
     thickness_ax.set_ylabel("Saturated thickness H [m]")
     thickness_ax.set_xlabel("Elapsed time [d]")
     dry_count_ax.set_ylabel("Dry cells")
     thickness_ax.grid(True, alpha=0.2)
     handles_a, labels_a = thickness_ax.get_legend_handles_labels()
     handles_b, labels_b = dry_count_ax.get_legend_handles_labels()
-    thickness_ax.legend(handles_a + handles_b, labels_a + labels_b, loc="upper right", frameon=False)
+    thickness_ax.legend(
+        handles_a + handles_b, labels_a + labels_b, loc="upper right", frameon=False
+    )
 
     flux_ax.bar(
         elapsed_days,

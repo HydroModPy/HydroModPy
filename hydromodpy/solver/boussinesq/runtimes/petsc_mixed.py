@@ -46,8 +46,8 @@ from hydromodpy.solver.boussinesq.runtimes.petsc_common import (
 from hydromodpy.solver.boussinesq.runtimes.petsc_mixed_common import (
     _apply_prescribed_head_constraints,
     _complementarity_scales,
-    _fischer_burmeister_residual_and_gap_derivatives,
     _fischer_burmeister_residual_and_derivatives,
+    _fischer_burmeister_residual_and_gap_derivatives,
     _initial_steady_q_ex_guess,
     _initial_transient_q_ex_guess,
     _prescribed_head_vector,
@@ -271,13 +271,11 @@ def _solve_mixed_problem(
             head_scale_m=float(head_scale_m),
             rate_scale_m_s=float(rate_scale_m_s),
         )
-        _, dphi_bottom_dh, dphi_bottom_dq = (
-            _fischer_burmeister_residual_and_gap_derivatives(
-                q_dry_rate_m_s,
-                bottom_gap_m,
-                head_scale_m=float(head_scale_m),
-                rate_scale_m_s=float(rate_scale_m_s),
-            )
+        _, dphi_bottom_dh, dphi_bottom_dq = _fischer_burmeister_residual_and_gap_derivatives(
+            q_dry_rate_m_s,
+            bottom_gap_m,
+            head_scale_m=float(head_scale_m),
+            rate_scale_m_s=float(rate_scale_m_s),
         )
 
         base_data, base_rows, base_cols = build_sparse_semianalytic_base_jacobian_triplets(
