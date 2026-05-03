@@ -23,6 +23,15 @@ Conceptual Contract
 HydroModPy keeps the raw simulated drainage signal as cell fields before any
 vector network is declared.
 
+For a perennial-network question, distinguish the hydrological scenario from
+the transient occupancy rule. ``flow_regime = "permanent"`` is now accepted as
+the user-facing name for a representative steady-state flow computation and is
+normalized internally to the solver-facing ``steady`` regime. A simulated
+perennial network should be derived from such a permanent run whenever
+possible, then compared with the observed ``reference`` network. The transient
+``always_active`` mask only means active at all timesteps of the analysed
+chronicle.
+
 .. list-table::
    :header-rows: 1
    :widths: 22 34 44

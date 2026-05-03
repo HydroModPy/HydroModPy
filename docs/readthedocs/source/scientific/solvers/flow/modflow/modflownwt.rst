@@ -55,6 +55,7 @@ Focused Reading
 
    ../../modflow6-vs-modflownwt-scientific-comparison
    ../../worked-modflow-case-linearized-unconfined-recharge-periodic-1d
+   ../../worked-modflow-case-nancon-transient-nwt-etp-evt
 
 Typical Use Cases
 -----------------

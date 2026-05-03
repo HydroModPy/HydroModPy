@@ -27,11 +27,5 @@ Transport Engines
    ~hydromodpy.solver.modflow6.modflow6.Modflow6Transport
    ~hydromodpy.solver.modflow_common.masstransfer.Masstransfer
 
-Result Surfaces
----------------
-
-.. autosummary::
-   :nosignatures:
-   :toctree: generated/modeling
-
-   ~hydromodpy.results.run.Run
+Result access is documented separately in
+:doc:`project, run, and catalog API <hydromodpy-project-results>`.

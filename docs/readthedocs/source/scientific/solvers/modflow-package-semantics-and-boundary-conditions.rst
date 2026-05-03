@@ -661,6 +661,7 @@ Related Pages
 - :doc:`worked-modflow-case-dupuit-fixed-head-1d`
 - :doc:`worked-modflow-case-linearized-unconfined-recharge-periodic-1d`
 - :doc:`worked-modflow-case-linearized-unconfined-drainage-1d`
+- :doc:`worked-modflow-case-nancon-transient-nwt-etp-evt`
 - :doc:`field-to-cell-parameter-transfer`
 - :doc:`vertical-representation-and-storage-assumptions`
 - :doc:`../hydrology/forcing-time-aggregation-and-first-clim`

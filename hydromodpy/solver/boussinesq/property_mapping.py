@@ -21,7 +21,10 @@ _DEFAULT_CELL_SAMPLES_PER_AXIS = 8
 
 def resolve_required_flow_properties(*, flow_regime: str) -> frozenset[str]:
     """Return the minimal hydraulic-property set required by Boussinesq."""
-    regime = normalize_flow_regime(flow_regime)
+    try:
+        regime = normalize_flow_regime(flow_regime)
+    except ValueError:
+        return frozenset({"K", "Sy"})
     if regime == "steady":
         return frozenset({"K"})
     return frozenset({"K", "Sy"})
