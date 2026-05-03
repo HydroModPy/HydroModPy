@@ -43,6 +43,7 @@ ALLOWED_SIMULATION_OVERLAY_KEYS = {
 }
 
 ALLOWED_FLOW_OVERLAY_KEYS = {
+    "param",
     "runtime_backend",
 }
 
@@ -63,7 +64,7 @@ class GeneratedChildConfig:
 
 
 def validate_numeric_overlay(overlay: Mapping[str, Any]) -> None:
-    """Reject overlays that would alter the physical case in V1."""
+    """Validate comparison overlays before child TOML materialization."""
     unknown_top_keys = sorted(set(overlay) - ALLOWED_TOP_LEVEL_OVERLAY_KEYS)
     if unknown_top_keys:
         keys = ", ".join(unknown_top_keys)

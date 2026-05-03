@@ -7,7 +7,7 @@
   "summary": "Steady synthetic groundwater-flow case used to validate the launcher workflow against the axisymmetric Dupuit-Boussinesq solution for a circular island with:",
   "case_setup": [
     "Circular synthetic island on Cartesian grid, uniform recharge, flat substratum, `ocean` top BC",
-    "Available solver variants: MODFLOW-NWT, MODFLOW 6, Boussinesq."
+    "Available solver variants: MODFLOW-NWT, MODFLOW 6, MODFLOW 6 irregular triangles, Boussinesq."
   ],
   "key_parameters": [],
   "how_to_read": [],
@@ -47,22 +47,24 @@
     "validation_cases/analytical/steady/dupuit_circular_island_ocean_2d/tolerances_boussinesq.toml",
     "validation_cases/analytical/steady/dupuit_circular_island_ocean_2d/tolerances_modflow6.toml",
     "validation_cases/analytical/steady/dupuit_circular_island_ocean_2d/config_modflow6.toml",
+    "validation_cases/analytical/steady/dupuit_circular_island_ocean_2d/config_modflow6_irregular_tri.toml",
     "validation_cases/analytical/steady/dupuit_circular_island_ocean_2d/config_boussinesq.toml"
   ],
   "source_hashes": {
-    "validation_cases/README.md": "1965de83b961f1ab4e38d8194d51342e1286d0c2e1b779188903b84e3fc26f1c",
+    "validation_cases/README.md": "6954bbc12c427d8f32dc4ec659fa99518dc972708789e988cd3b39b37b82dfe5",
     "validation_cases/analytical/steady/dupuit_circular_island_ocean_2d/README.md": "5ecf68854b0e6bf81bee4fa40ce9267df07915134ca546c7d4ca6016719e155a",
     "validation_cases/analytical/steady/dupuit_circular_island_ocean_2d/reference.py": "8e83ad8adb0fc205f37638be55aea3c71e510e823186b2ae50a289f2a5539560",
-    "validation_cases/analytical/steady/dupuit_circular_island_ocean_2d/comparison.py": "2575834ade9c188bc408b29d1a33bd814461df8767a4f3a3fcba803fe2de4766",
+    "validation_cases/analytical/steady/dupuit_circular_island_ocean_2d/comparison.py": "886f8ee27055ddc7b4a99630ff620d5682a52902b79031fd4dce1285808eb13f",
     "validation_cases/analytical/steady/dupuit_circular_island_ocean_2d/plotting.py": "da4cec8893f58743138c63e4f25ad76ebe86afb17ac3bcb7519a765019adc290",
     "validation_cases/analytical/steady/dupuit_circular_island_ocean_2d/run_case.py": "6a2560b3cf52d4bc0beb590f4a1540388ee2445e5cfd7dfff9f53062968f1053",
-    "validation_cases/analytical/steady/dupuit_circular_island_ocean_2d/metadata.toml": "d3c6575ceecab1e7c802d98aa5c751cb2b6820b53a353429941a2afee24491be",
+    "validation_cases/analytical/steady/dupuit_circular_island_ocean_2d/metadata.toml": "a1f271b20481dc163787226cde45631153b73154f137a3e5c28d6f162c27717b",
     "validation_cases/analytical/steady/dupuit_circular_island_ocean_2d/config_modflownwt.toml": "e6a77e8be5dd78244b40953d1091a90d7ca11e16d8a75cbc39a12fa8dda960bc",
     "validation_cases/analytical/steady/dupuit_circular_island_ocean_2d/runtime_boussinesq.py": "2291e9c746136125631b3e37749d10fd408aff69cc53fbaee964acc159dde551",
     "validation_cases/analytical/steady/dupuit_circular_island_ocean_2d/tolerances.toml": "94cc94a82656a15c08760bf188dea51333e0c45ac1254d1d40632a28ceb9a58d",
     "validation_cases/analytical/steady/dupuit_circular_island_ocean_2d/tolerances_boussinesq.toml": "0e704808cd6e8b5e2bee229fd9c55a879eab7bb99bb08607cf7e01a28d811978",
     "validation_cases/analytical/steady/dupuit_circular_island_ocean_2d/tolerances_modflow6.toml": "0a50298d4b44378dac58011267654dd0327125401f8c95899dda3d4a6ed7dac3",
     "validation_cases/analytical/steady/dupuit_circular_island_ocean_2d/config_modflow6.toml": "861f5eef5f90f4482e1018d1d02c41c9bbc32452acb036a155ef57f531b4c1fc",
+    "validation_cases/analytical/steady/dupuit_circular_island_ocean_2d/config_modflow6_irregular_tri.toml": "72aa8ccbfa7ed2382c5a429aec8b7baae29cbd5bc9897e672a08f7ffdd90796b",
     "validation_cases/analytical/steady/dupuit_circular_island_ocean_2d/config_boussinesq.toml": "c343d4093712f5df9d92d3c3de19d3dbf161cabb733536ef93ce693c44ab4278"
   },
   "docname": "cases/dupuit_circular_island_ocean_2d",
@@ -82,6 +84,7 @@
     "solver_variants": [
       "modflownwt",
       "modflow6",
+      "modflow6_irregular_tri",
       "boussinesq"
     ],
     "solver_details": {
@@ -96,6 +99,12 @@
         "config_path": "validation_cases/analytical/steady/dupuit_circular_island_ocean_2d/config_modflow6.toml",
         "expected_output": "Expected shape: 61 x 61",
         "tolerance_path": "validation_cases/analytical/steady/dupuit_circular_island_ocean_2d/tolerances_modflow6.toml"
+      },
+      "modflow6_irregular_tri": {
+        "display_name": "MODFLOW 6 irregular triangles",
+        "config_path": "validation_cases/analytical/steady/dupuit_circular_island_ocean_2d/config_modflow6_irregular_tri.toml",
+        "expected_output": "Expected shape: 61 x 61",
+        "tolerance_path": "validation_cases/analytical/steady/dupuit_circular_island_ocean_2d/tolerances.toml"
       },
       "boussinesq": {
         "display_name": "Boussinesq",
@@ -129,6 +138,7 @@
     "image_repo_paths": [
       "docs/readthedocs/source/_static/capability_gallery/validation/dupuit_circular_island_ocean_2d__modflownwt.png",
       "docs/readthedocs/source/_static/capability_gallery/validation/dupuit_circular_island_ocean_2d__modflow6.png",
+      "docs/readthedocs/source/_static/capability_gallery/validation/dupuit_circular_island_ocean_2d__modflow6_irregular_tri.png",
       "docs/readthedocs/source/_static/capability_gallery/validation/dupuit_circular_island_ocean_2d__boussinesq.png"
     ]
   },
@@ -169,6 +179,7 @@
           "config_files": {
             "modflownwt": "config_modflownwt.toml",
             "modflow6": "config_modflow6.toml",
+            "modflow6_irregular_tri": "config_modflow6_irregular_tri.toml",
             "boussinesq": "config_boussinesq.toml"
           },
           "workspace": {
@@ -253,6 +264,7 @@
           "config_files": {
             "modflownwt": "config_modflownwt.toml",
             "modflow6": "config_modflow6.toml",
+            "modflow6_irregular_tri": "config_modflow6_irregular_tri.toml",
             "boussinesq": "config_boussinesq.toml"
           },
           "workspace": {
@@ -302,6 +314,91 @@
       }
     },
     {
+      "solver": "modflow6_irregular_tri",
+      "solver_display_name": "MODFLOW 6 irregular triangles",
+      "is_default": false,
+      "config_path": "validation_cases/analytical/steady/dupuit_circular_island_ocean_2d/config_modflow6_irregular_tri.toml",
+      "tolerance_path": "validation_cases/analytical/steady/dupuit_circular_island_ocean_2d/tolerances.toml",
+      "expected_output": "Expected shape: 61 x 61",
+      "command": "python -m validation_cases.analytical.steady.dupuit_circular_island_ocean_2d.run_case --no-show --solver modflow6_irregular_tri",
+      "metric_lines": [
+        "Radial head-profile RMSE: 0.0758 m",
+        "Radial head-profile max abs error: 0.1377 m",
+        "Azimuthal spread: 0.1879 m",
+        "Ocean head max abs error: 0.00e+00 m",
+        "Minimum land freeboard: 0.8318 m"
+      ],
+      "image": {
+        "filename": "dupuit_circular_island_ocean_2d__modflow6_irregular_tri.png",
+        "caption": "Dupuit Circular-Island Ocean 2D rendered with MODFLOW 6 irregular triangles for the analytical gallery.",
+        "alt_text": "Dupuit Circular-Island Ocean 2D validation figure for MODFLOW 6 irregular triangles",
+        "doc_path": "/_static/capability_gallery/validation/dupuit_circular_island_ocean_2d__modflow6_irregular_tri.png",
+        "repo_path": "docs/readthedocs/source/_static/capability_gallery/validation/dupuit_circular_island_ocean_2d__modflow6_irregular_tri.png"
+      },
+      "metadata": {
+        "observable_name": "watertable_elevation",
+        "case_metadata": {
+          "case_id": "dupuit_circular_island_ocean_2d",
+          "category": "analytical",
+          "regime": "steady",
+          "dimension": "2d",
+          "launcher": "launcher_simulation",
+          "config_file": "config_modflownwt.toml",
+          "default_solver": "modflownwt",
+          "base_config": "config_modflownwt.toml",
+          "config_files": {
+            "modflownwt": "config_modflownwt.toml",
+            "modflow6": "config_modflow6.toml",
+            "modflow6_irregular_tri": "config_modflow6_irregular_tri.toml",
+            "boussinesq": "config_boussinesq.toml"
+          },
+          "workspace": {
+            "results_folder_name": "results_simulations"
+          },
+          "output": {
+            "observable_name": "watertable_elevation",
+            "expected_shape": [
+              61,
+              61
+            ]
+          },
+          "reference": {
+            "crs": "EPSG:2154",
+            "xmin": 265400.0,
+            "ymin": 6784100.0,
+            "length_x_m": 610.0,
+            "length_y_m": 610.0,
+            "nx": 61,
+            "ny": 61,
+            "center_x_m": 265705.0,
+            "center_y_m": 6784405.0,
+            "sea_level_m": 0.0,
+            "ocean_floor_elevation_m": -1.0,
+            "crest_elevation_m": 12.0,
+            "island_radius_m": 200.0,
+            "comparison_radius_max_m": 190.0,
+            "radial_bin_width_m": 10.0,
+            "substratum_elevation_m": -5.0,
+            "hydraulic_conductivity_m_per_s": 5e-06,
+            "recharge_mm_day": 1.0,
+            "comparison_radius_max_by_solver": {
+              "boussinesq": 170.0
+            }
+          }
+        },
+        "tolerances": {
+          "radial_profile": {
+            "rmse": 0.25,
+            "max_abs_error": 0.5,
+            "azimuthal_spread": 0.25,
+            "ocean_head_max_error": 1e-06,
+            "min_land_clearance": 0.1
+          }
+        },
+        "timestep": 1
+      }
+    },
+    {
       "solver": "boussinesq",
       "solver_display_name": "Boussinesq",
       "is_default": false,
@@ -337,6 +434,7 @@
           "config_files": {
             "modflownwt": "config_modflownwt.toml",
             "modflow6": "config_modflow6.toml",
+            "modflow6_irregular_tri": "config_modflow6_irregular_tri.toml",
             "boussinesq": "config_boussinesq.toml"
           },
           "workspace": {
@@ -750,6 +848,44 @@
           "source": "validation_cases/analytical/steady/dupuit_circular_island_ocean_2d/config_modflow6.toml"
         }
       ],
+      "modflow6_irregular_tri": [
+        {
+          "field": "modflow6.runtime.mf_verbose",
+          "meaning": "Solver-specific override applied to MODFLOW 6.",
+          "value": "false",
+          "source": "validation_cases/analytical/steady/dupuit_circular_island_ocean_2d/config_modflow6_irregular_tri.toml"
+        },
+        {
+          "field": "modflow6.runtime.mf6_ims_complexity",
+          "meaning": "Linear-solver complexity preset used by MODFLOW 6.",
+          "value": "COMPLEX",
+          "source": "validation_cases/analytical/steady/dupuit_circular_island_ocean_2d/config_modflow6_irregular_tri.toml"
+        },
+        {
+          "field": "modflow6.process_specific.vka",
+          "meaning": "Vertical anisotropy ratio passed to MODFLOW 6.",
+          "value": "1",
+          "source": "validation_cases/analytical/steady/dupuit_circular_island_ocean_2d/config_modflow6_irregular_tri.toml"
+        },
+        {
+          "field": "modflow6.sgrid.vertical.nlay",
+          "meaning": "Number of vertical layers used by MODFLOW 6.",
+          "value": "1",
+          "source": "validation_cases/analytical/steady/dupuit_circular_island_ocean_2d/config_modflow6_irregular_tri.toml"
+        },
+        {
+          "field": "mesh_input.mesh_path",
+          "meaning": "Committed unstructured mesh file used by the irregular-mesh solver variant.",
+          "value": "../../../shared/mesh_bundles/dupuit_circular_island_ocean_irregular_tri_radial_48/mesh_2d.msh",
+          "source": "validation_cases/analytical/steady/dupuit_circular_island_ocean_2d/config_modflow6_irregular_tri.toml"
+        },
+        {
+          "field": "mesh_input.bundle_dir",
+          "meaning": "Committed mesh-bundle directory used to recover support metadata for the irregular-mesh solver variant.",
+          "value": "../../../shared/mesh_bundles/dupuit_circular_island_ocean_irregular_tri_radial_48",
+          "source": "validation_cases/analytical/steady/dupuit_circular_island_ocean_2d/config_modflow6_irregular_tri.toml"
+        }
+      ],
       "boussinesq": [
         {
           "field": "flow.runtime_backend",
@@ -849,6 +985,44 @@
             "meaning": "Acceptance threshold for `radial_profile.min_land_clearance`.",
             "value": "0.6",
             "source": "validation_cases/analytical/steady/dupuit_circular_island_ocean_2d/tolerances_modflow6.toml"
+          }
+        ],
+        "modflow6_irregular_tri": [
+          {
+            "field": "expected_output",
+            "meaning": "Expected output shape or time-space layout checked for this solver.",
+            "value": "Expected shape: 61 x 61",
+            "source": "validation_cases/analytical/steady/dupuit_circular_island_ocean_2d/metadata.toml"
+          },
+          {
+            "field": "radial_profile.rmse",
+            "meaning": "Maximum accepted root-mean-square error for radial profile.",
+            "value": "0.25",
+            "source": "validation_cases/analytical/steady/dupuit_circular_island_ocean_2d/tolerances.toml"
+          },
+          {
+            "field": "radial_profile.max_abs_error",
+            "meaning": "Maximum accepted absolute error for radial profile.",
+            "value": "0.5",
+            "source": "validation_cases/analytical/steady/dupuit_circular_island_ocean_2d/tolerances.toml"
+          },
+          {
+            "field": "radial_profile.azimuthal_spread",
+            "meaning": "Acceptance threshold for `radial_profile.azimuthal_spread`.",
+            "value": "0.25",
+            "source": "validation_cases/analytical/steady/dupuit_circular_island_ocean_2d/tolerances.toml"
+          },
+          {
+            "field": "radial_profile.ocean_head_max_error",
+            "meaning": "Acceptance threshold for `radial_profile.ocean_head_max_error`.",
+            "value": "1e-06",
+            "source": "validation_cases/analytical/steady/dupuit_circular_island_ocean_2d/tolerances.toml"
+          },
+          {
+            "field": "radial_profile.min_land_clearance",
+            "meaning": "Acceptance threshold for `radial_profile.min_land_clearance`.",
+            "value": "0.1",
+            "source": "validation_cases/analytical/steady/dupuit_circular_island_ocean_2d/tolerances.toml"
           }
         ],
         "boussinesq": [
