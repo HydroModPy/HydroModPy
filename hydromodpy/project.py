@@ -677,7 +677,7 @@ class Project:
             :class:`~hydromodpy.calibration.config.CalibObjectiveBlockDecl`.
         method, max_iter, save_runs, seed
             Top-level knobs on the Pydantic config.
-        **kwargs
+        kwargs
             Forwarded to the CLI in TOML mode, otherwise merged onto the
             in-memory Pydantic config.
 

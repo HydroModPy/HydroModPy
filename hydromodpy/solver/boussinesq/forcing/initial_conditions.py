@@ -28,6 +28,12 @@ class InitialConditionResolutionMixin:
             return np.asarray(self.mesh.z_top_m, dtype=float)
         if ic_type == "bottom":
             return np.asarray(self.mesh.z_bottom_m, dtype=float)
+        if ic_type == "top_offset":
+            if head_ic.value is None:
+                raise ValueError("flow.ic.value is required when flow.ic.type='top_offset'.")
+            top = np.asarray(self.mesh.z_top_m, dtype=float)
+            bottom = np.asarray(self.mesh.z_bottom_m, dtype=float)
+            return np.maximum(top - float(head_ic.value), bottom + 1e-6)
         if ic_type == "custom":
             if head_ic.value is None:
                 raise ValueError("flow.ic.value is required when flow.ic.type='custom'.")

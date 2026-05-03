@@ -41,6 +41,8 @@ __all__ = [
     "saturated_fraction",
     "drainage_density",
     "persistence",
+    "resolve_simulated_active_network_mode",
+    "simulated_active_network_mode_label",
     "simulated_active_network_mask",
     "simulated_active_network_metrics",
     "simulated_active_network_overlap_metrics",
@@ -143,6 +145,52 @@ def _safe_ratio(numerator: int, denominator: int) -> float:
     return float(numerator / denominator) if denominator else 0.0
 
 
+def _flow_regime(sim: Run) -> str:
+    """Return the normalized flow regime recorded for a run, if any."""
+    return str(getattr(sim, "flow_regime", "") or "").strip().lower()
+
+
+def resolve_simulated_active_network_mode(
+    sim: Run,
+    mode: SimulatedActiveNetworkMode | None = None,
+) -> SimulatedActiveNetworkMode:
+    """Resolve the concrete active-network selection mode for a run.
+
+    ``mode`` is a temporal aggregation rule. It is therefore only required for
+    transient runs. For steady runs, the default is the steady-state cell field,
+    implemented as ``last`` because persisted fields use the same timestep API.
+    """
+    if mode is None:
+        return "last" if _flow_regime(sim) == "steady" else "persistent"
+    if mode == "perennial":
+        return "always_active"
+    if mode in {"last", "any", "persistent", "always_active", "persistence"}:
+        return mode
+    raise ValueError(
+        "Unknown simulated active-network mode. Expected one of: "
+        "last, any, persistent, always_active, perennial, persistence."
+    )
+
+
+def simulated_active_network_mode_label(
+    sim: Run,
+    *,
+    mode: SimulatedActiveNetworkMode | None = None,
+    persistence_threshold: float = 0.5,
+) -> str:
+    """Human-readable label for the resolved active-network selection."""
+    resolved_mode = resolve_simulated_active_network_mode(sim, mode)
+    if mode is None and _flow_regime(sim) == "steady":
+        return "steady-state"
+    if resolved_mode == "persistent":
+        return f"persistent >= {float(persistence_threshold):g}"
+    if resolved_mode == "always_active":
+        return "always active over transient window"
+    if resolved_mode == "persistence":
+        return "active persistence (0-1)"
+    return resolved_mode
+
+
 # --------------------------------------------------------------------------
 # Views
 # --------------------------------------------------------------------------
@@ -226,7 +274,7 @@ def simulated_active_network_mask(
     *,
     variable: str = "accumulation_flux",
     threshold: float = 0.0,
-    mode: SimulatedActiveNetworkMode = "persistent",
+    mode: SimulatedActiveNetworkMode | None = None,
     persistence_threshold: float = 0.5,
     timestep: int | None = None,
 ) -> np.ndarray:
@@ -235,18 +283,23 @@ def simulated_active_network_mask(
     The view is computed from a persisted cell field, usually
     ``derived/accumulation_flux``. It does not persist a vector network.
 
-    Modes:
+    Default:
+    - ``flow_regime='steady'``: the steady-state active network, using the
+      persisted steady state field.
+    - ``flow_regime='transient'`` or unknown: ``persistent`` with the declared
+      ``persistence_threshold`` for backward compatibility.
+
+    Explicit modes:
     - ``last``: cells active at the selected timestep, defaulting to the last one.
     - ``any``: cells active at least once over the simulation.
     - ``persistent``: cells active for at least ``persistence_threshold`` of timesteps.
     - ``always_active``: cells active at every timestep of the available transient window.
     - ``perennial``: backward-compatible alias for ``always_active``; this is
-      a temporal occupancy rule, not a permanent-flow definition.
+      a temporal occupancy rule, not a steady-state definition.
     - ``persistence``: continuous active-time fraction in ``[0, 1]``.
 
-    A hydrologically perennial network is better defined from a representative
-    permanent/steady-state run, then viewed with ``mode='last'`` or compared as
-    a dedicated permanent scenario. The transient ``always_active`` rule is a
+    A hydrologically steady network is better defined from a representative
+    ``flow_regime='steady'`` run. The transient ``always_active`` rule is a
     stricter diagnostic over the simulated time window and can be biased by
     spin-up, drought periods, or the chosen chronicle length.
 
@@ -256,7 +309,7 @@ def simulated_active_network_mask(
     persistence_threshold = float(persistence_threshold)
     if not 0.0 <= persistence_threshold <= 1.0:
         raise ValueError("persistence_threshold must be between 0 and 1.")
-    normalized_mode = "always_active" if mode == "perennial" else mode
+    resolved_mode = resolve_simulated_active_network_mode(sim, mode)
 
     stack, mask = _stack_field_with_mask(sim, variable)
     n_timesteps = stack.shape[0]
@@ -264,7 +317,7 @@ def simulated_active_network_mask(
         return np.full(stack.shape[1], np.nan, dtype="float64")
 
     active = np.asarray(stack, dtype="float64") > float(threshold)
-    if normalized_mode == "last":
+    if resolved_mode == "last":
         ts = n_timesteps - 1 if timestep is None else int(timestep)
         if ts < 0:
             ts = n_timesteps + ts
@@ -274,19 +327,14 @@ def simulated_active_network_mask(
                 f"[0, {n_timesteps - 1}]."
             )
         values = active[ts].astype("float64")
-    elif normalized_mode == "any":
+    elif resolved_mode == "any":
         values = active.any(axis=0).astype("float64")
-    elif normalized_mode == "persistent":
+    elif resolved_mode == "persistent":
         values = (active.mean(axis=0) >= persistence_threshold).astype("float64")
-    elif normalized_mode == "always_active":
+    elif resolved_mode == "always_active":
         values = (active.mean(axis=0) >= 1.0).astype("float64")
-    elif normalized_mode == "persistence":
+    elif resolved_mode == "persistence":
         values = active.mean(axis=0).astype("float64")
-    else:
-        raise ValueError(
-            "Unknown simulated active-network mode. Expected one of: "
-            "last, any, persistent, always_active, perennial, persistence."
-        )
 
     values[~mask] = np.nan
     return values
@@ -376,7 +424,7 @@ def simulated_active_network_overlap_metrics(
     network_role: str = "reference",
     variable: str = "accumulation_flux",
     threshold: float = 0.0,
-    mode: SimulatedActiveNetworkMode = "persistent",
+    mode: SimulatedActiveNetworkMode | None = None,
     persistence_threshold: float = 0.5,
     timestep: int | None = None,
     buffer_m: float = 0.0,
@@ -390,16 +438,17 @@ def simulated_active_network_overlap_metrics(
     simulated active network matches observed hydrography. ``generated`` is
     still useful as a secondary topographic/DEM-derived diagnostic.
     """
+    resolved_mode = resolve_simulated_active_network_mode(sim, mode)
     values = simulated_active_network_mask(
         sim,
         variable=variable,
         threshold=threshold,
-        mode=mode,
+        mode=resolved_mode,
         persistence_threshold=persistence_threshold,
         timestep=timestep,
     )
     valid = np.isfinite(values)
-    if mode == "persistence":
+    if resolved_mode == "persistence":
         active = values >= float(persistence_threshold)
     else:
         active = values > 0.5
@@ -430,7 +479,7 @@ def simulated_active_network_overlap_metrics(
         "network_role": network_role,
         "source_variable": variable,
         "threshold": float(threshold),
-        "mode": mode,
+        "mode": resolved_mode,
         "persistence_threshold": float(persistence_threshold),
         "timestep": int(timestep) if timestep is not None else -1,
         "buffer_m": float(buffer_m),

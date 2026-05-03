@@ -41,7 +41,7 @@ def resolve_time_scheme(flow_regime: str | None) -> TimeSchemeSpec:
     if regime == "transient":
         return BACKWARD_EULER
     raise ValueError(
-        "Unsupported Boussinesq flow regime. Expected one of: steady, permanent, transient."
+        "Unsupported Boussinesq flow regime. Expected one of: steady, transient."
     )
 
 

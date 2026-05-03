@@ -47,12 +47,22 @@ Files Used
   ``examples/projects/02_nancon_watershed/README.md``
 - Basin context figures:
   :doc:`../../capability_gallery/cases/geographic_nancon_identity_card`
+- Committed basin-result page:
+  :doc:`../../capability_gallery/cases/nancon_transient_nwt`
 
-Basin Context Already Documented
---------------------------------
+Basin Context And Committed Result Page
+---------------------------------------
 
-The exact solver-result figures for this run are not yet committed into the
-capability gallery, but the basin context and forcing context already are.
+The basin context and one stable basin-result page are now both committed in
+the documentation:
+
+- basin and forcing context through
+  :doc:`../../capability_gallery/cases/geographic_nancon_identity_card`
+- stable post-run diagnostics through
+  :doc:`../../capability_gallery/cases/nancon_transient_nwt`
+
+This scientific page still keeps the focus on the package path and option
+rationale, not on repeating the gallery reading order.
 
 .. figure:: /_static/capability_gallery/geographic/geographic_nancon_identity_card_map_dem.png
    :alt: Nancon basin DEM context
@@ -296,8 +306,8 @@ Read them in that order:
 4. ``recharge_map`` for forcing context,
 5. ``seepage_map`` for the drainage response on the basin support.
 
-Why This Page Still Matters Without Committed Solver Figures
-------------------------------------------------------------
+Why This Page Still Matters Beyond The Committed Gallery Page
+-------------------------------------------------------------
 
 The analytical worked cases are better for exact validation metrics.
 
@@ -308,7 +318,8 @@ This page answers a different need:
 - how ``RCH`` and ``EVT`` coexist in the NWT branch,
 - and which outputs a contributor should inspect first after a real run.
 
-In other words, it is a workflow-reading page more than a benchmark page.
+In other words, it is a workflow-reading page more than a gallery-reading
+page.
 
 Recommended Reading Order
 -------------------------
@@ -319,19 +330,20 @@ Recommended Reading Order
 4. this Nancon NWT worked case
 5. :doc:`modflow6-vs-modflownwt-scientific-comparison`
 
-Current Limitation
-------------------
+Current Scope Boundary
+----------------------
 
-The missing piece for this exact case is clear:
+The committed gallery page for this exact run now exists:
 
-- the solver-result figures for ``nancon_transient_nwt`` are not yet published
-  as committed capability-gallery assets.
+- :doc:`../../capability_gallery/cases/nancon_transient_nwt`
 
-So this page currently gives:
+So the split is now deliberate:
 
-- the basin context,
-- the exact package path,
-- the runtime interpretation,
-- the expected output files,
+- this scientific page gives the basin context, exact package path, runtime
+  interpretation, and expected output files,
+- the gallery page gives the stable rendered figures and their reading order.
 
-but not yet one versioned RTD gallery page for the final solver figures.
+What still remains outside this page is a broader Nancon postprocess family of
+MF6-style bundle figures such as one compact flow-state triptych or support
+overview. The current committed Nancon gallery case emphasizes hydrographic and
+active-network diagnostics instead.

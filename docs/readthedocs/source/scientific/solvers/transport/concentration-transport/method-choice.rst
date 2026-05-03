@@ -4,6 +4,11 @@ Concentration Transport Method Choice
 This page groups the main choice between ``transport/mt3dms`` and
 ``transport/modflow6gwt``.
 
+Read this as a route choice, not only as a concentration-solver choice:
+
+- MODFLOW-NWT route: ``flow/modflownwt`` followed by ``transport/mt3dms``;
+- MODFLOW 6 route: ``flow/modflow6`` followed by ``transport/modflow6gwt``.
+
 Decision Map
 ------------
 
@@ -47,6 +52,8 @@ document:
 Related Pages
 -------------
 
+- :doc:`../modflow-nwt-transport`
+- :doc:`../modflow6-transport`
 - :doc:`common-parameters`
 - :doc:`mt3dms`
 - :doc:`modflow6gwt`

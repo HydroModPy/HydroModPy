@@ -15,8 +15,8 @@ Coverage Snapshot
 -----------------
 
 - Category pages available today: 9.
-- Curated gallery cases available today: 84.
-- Most populated sections: Mesh Gallery (29), Validation Benchmarks (24), Method Comparison (6).
+- Curated gallery cases available today: 85.
+- Most populated sections: Mesh Gallery (29), Validation Benchmarks (24), Simulation Workflows (7).
 
 Browse By Intent
 ----------------
@@ -82,7 +82,7 @@ Move here once the spatial support is understood and you want to inspect one ful
 
       **Simulation Workflows**
       ^^^
-      End-to-end solver runs rendered as stable documentation artifacts. 6 cases.
+      End-to-end solver runs rendered as stable documentation artifacts. 7 cases.
 
    .. grid-item-card::
       :class-card: sd-shadow-sm sd-rounded-3 sd-p-4

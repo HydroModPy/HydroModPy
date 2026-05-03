@@ -34,7 +34,7 @@ Expected structure:
 
 ```toml
 [flow]
-flow_regime = "transient"          # "steady", "permanent", or "transient"
+flow_regime = "transient"          # "steady" or "transient"
 param_list = ["K", "Ss", "Sy"]     # ordered parameter ids
 
 [flow.param.K.field]
@@ -72,17 +72,10 @@ mode = "constant"
 value = -200.0
 ```
 
-`permanent` is the hydrological/user-facing name for a steady-state flow
-scenario. HydroModPy normalizes it to the solver-facing canonical value
-`steady`, so both of these are equivalent at execution time:
-
-```toml
-flow_regime = "permanent"
-flow_regime = "steady"
-```
-
-Use `permanent` when the scientific intent is to define a representative
-perennial-flow state. Use `steady` when describing the numerical solver mode.
+Use `steady` when the scientific intent is to define a representative
+stationary state. In hydrographic-network diagnostics, this is the run regime
+to use when deriving a simulated active network intended to represent
+perennial behavior.
 
 
 ## 3. Parameter Section (`[flow.param.<id>]`)

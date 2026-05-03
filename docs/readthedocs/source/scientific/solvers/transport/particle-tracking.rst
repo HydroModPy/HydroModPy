@@ -6,9 +6,11 @@ times through a previously solved flow field.
 
 Read this family as:
 
-1. common transport dependency rules in :doc:`common-concepts`,
-2. particle-tracking family structure in :doc:`particle-tracking/index`,
-3. MODPATH-specific assumptions in :doc:`particle-tracking/modpath`.
+1. transport equations and unknowns in :doc:`equations-and-unknowns`,
+2. common transport dependency rules in :doc:`common-concepts`,
+3. MODFLOW-NWT transport route in :doc:`modflow-nwt-transport`,
+4. particle-tracking family structure in :doc:`particle-tracking/index`,
+5. MODPATH-specific assumptions in :doc:`particle-tracking/modpath`.
 
 Current Solver
 --------------
@@ -31,6 +33,7 @@ Internal Structure
 .. toctree::
    :maxdepth: 2
 
+   equations-and-unknowns
    particle-tracking/index
 
 Typical Plan
@@ -72,6 +75,7 @@ Related Pages
 -------------
 
 - :doc:`common-concepts`
+- :doc:`modflow-nwt-transport`
 - :doc:`../flow/modflow-family`
 - :doc:`../../../architecture/solver/transport/modflow-transport-adapters`
 - :doc:`../solver-capability-matrix`

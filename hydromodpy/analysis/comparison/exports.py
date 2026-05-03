@@ -800,12 +800,17 @@ def write_simulated_active_network_overlap_metrics_export(
     network_role: str = "reference",
     variable: str = "accumulation_flux",
     threshold: float = 0.0,
-    mode: str = "persistent",
+    mode: str | None = None,
     persistence_threshold: float = 0.5,
     timestep: int | None = None,
     buffer_m: float = 0.0,
 ) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
-    """Write cell-overlap metrics between simulated-active cells and a vector role."""
+    """Write cell-overlap metrics between simulated-active cells and a vector role.
+
+    When ``mode`` is omitted, each run resolves its default from ``flow_regime``:
+    steady runs use their steady-state field, transient runs use the persistent
+    occupancy rule for backward compatibility.
+    """
     from hydromodpy.analysis.comparison.runtime import discover_result_store
 
     rows: list[dict[str, Any]] = []
@@ -926,7 +931,7 @@ def write_simulated_active_network_overlap_metrics_export(
             "network_role": network_role,
             "source_variable": variable,
             "threshold": float(threshold),
-            "mode": mode,
+            "mode": mode or "auto",
             "persistence_threshold": float(persistence_threshold),
             "timestep": timestep,
             "buffer_m": float(buffer_m),

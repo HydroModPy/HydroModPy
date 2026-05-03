@@ -1,0 +1,48 @@
+@startuml
+title MODFLOW 6 To Simulated Active Network
+skinparam sequenceMessageAlign center
+skinparam wrapWidth 180
+skinparam maxMessageSize 180
+
+actor User
+participant "hydromodpy run" as Run
+participant "MODFLOW 6 GWF" as MF6
+participant "Modflow6OutputAdapter" as Adapter
+database "SimulationCatalog\nZarr + DuckDB" as Catalog
+participant "Derived extractor" as Derived
+participant "Run API" as RunApi
+participant "Display layer" as Display
+
+User -> Run : run simulation TOML
+Run -> MF6 : write packages and execute
+MF6 --> Adapter : heads (.hds)\nbudgets (.cbc)\ngrid binary (.grb)
+
+Adapter -> Catalog : write head and budget fields
+Adapter -> Catalog : write mesh/vertices\nmesh/face_node_connectivity\nmesh/surface_top
+
+Derived -> Catalog : read raw DRN budget
+Derived -> Catalog : write derived/outflow_drain\npositive, layer-summed
+Derived -> Catalog : write derived/accumulation_flux\nD8 route, mesh route, or fallback
+
+User -> RunApi : run.fields("accumulation_flux")
+RunApi -> Catalog : read solver field
+Catalog --> RunApi : reshape on solver support\nwhen structured_shape is known
+
+User -> Display : run.plot("simulated_active_network")
+Display -> RunApi : simulated_active_network_mask(...)
+Display -> Catalog : read accumulation_flux + mesh topology
+Display --> User : active-network figure
+
+note over Adapter,Catalog
+The mesh topology is what allows
+MODFLOW 6 results to be plotted on
+the solver support rather than on
+the source DEM grid.
+end note
+
+note over Derived
+Raw MODFLOW drain outflow usually has
+a negative budget sign. HydroModPy
+stores positive outflow for result use.
+end note
+@enduml

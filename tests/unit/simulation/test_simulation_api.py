@@ -345,6 +345,36 @@ class TestSimulationData:
             np.array([1.0 / 3.0, 1.0, np.nan, 1.0 / 3.0]),
         )
 
+    def test_simulated_active_network_mask_default_is_regime_aware(self, catalog):
+        transient_sid = _register(
+            catalog,
+            n_cells=4,
+            n_layers=1,
+            n_timesteps=3,
+            flow_regime="transient",
+        )
+        steady_sid = _register(
+            catalog,
+            n_cells=4,
+            n_layers=1,
+            n_timesteps=3,
+            flow_regime="steady",
+        )
+        _write_active_accumulation_flux_case(catalog, transient_sid)
+        _write_active_accumulation_flux_case(catalog, steady_sid)
+
+        transient = Run(transient_sid, catalog)
+        steady = Run(steady_sid, catalog)
+
+        np.testing.assert_allclose(
+            transient.simulated_active_network_mask(threshold=0.5),
+            np.array([0.0, 1.0, np.nan, 0.0]),
+        )
+        np.testing.assert_allclose(
+            steady.simulated_active_network_mask(threshold=0.5),
+            np.array([0.0, 1.0, np.nan, 1.0]),
+        )
+
     def test_simulated_active_network_overlap_metrics_against_reference_role_by_default(
         self,
         catalog,

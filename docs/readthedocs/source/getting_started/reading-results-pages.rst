@@ -91,5 +91,6 @@ When you want that, go back to:
 
 - :doc:`data-overview-walkthrough`
 - :doc:`simulation-walkthrough`
+- :doc:`read-real-basin-run`
 - :doc:`comparison-output-reading-order`
 - :doc:`choose-your-first-workflow`

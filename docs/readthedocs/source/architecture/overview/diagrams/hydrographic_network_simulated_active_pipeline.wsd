@@ -11,7 +11,7 @@ package "Persisted simulation fields" {
 }
 
 package "Computed Run views" {
-  component "run.simulated_active_network_mask(...)\nlast / any / persistent / always_active / persistence\nperennial = legacy alias" as ActiveMask
+  component "run.simulated_active_network_mask(...)\nmode optional\nsteady -> steady-state field\ntransient -> persistent default" as ActiveMask
   component "run.simulated_active_network_metrics(...)\noccupancy scalar summary" as ActiveMetrics
   component "run.simulated_active_network_overlap_metrics(...)\ncell overlap, default target = reference" as OverlapMetrics
   component "run.drainage_density()\ntime series" as DrainageDensity
@@ -30,7 +30,7 @@ package "Persisted vector networks" {
 
 package "Future canonical role" {
   component "aggregation contract\nthreshold + window + mode" as Contract
-  component "permanent/steady-state scenario\npreferred basis for perennial network" as PermanentScenario
+  component "steady-state scenario\npreferred basis for perennial network" as SteadyScenario
   component "optional persisted mask" as PersistedMask
   component "optional vectorization" as Vectorization
   component "hydrographic_network_simulated_active\nGeoDataFrame linework" as SimulatedActiveRole
@@ -52,7 +52,7 @@ GeneratedNetwork --> OverlapMetrics
 OverlapMetrics --> OverlapExport
 
 ActiveMask --> Contract : informs
-PermanentScenario --> Contract : preferred perennial definition
+SteadyScenario --> Contract : preferred perennial definition
 Contract --> PersistedMask
 PersistedMask --> Vectorization
 Vectorization --> SimulatedActiveRole
@@ -60,16 +60,18 @@ Vectorization --> SimulatedActiveRole
 note bottom of ActiveMask
 Current implementation is computed on demand.
 It does not create a canonical vector role.
+Explicit transient modes remain available:
+last / any / persistent / always_active / persistence.
 end note
 
 note bottom of Contract
 This is the main design decision still open:
-which threshold, timestep/window and mode should
+which threshold, steady scenario or transient window should
 define one comparable network?
 end note
 
-note bottom of PermanentScenario
-Use a representative permanent run to define
+note bottom of SteadyScenario
+Use a representative flow_regime="steady" run to define
 hydrological perennial behavior. Do not infer it
 only from one arbitrary transient chronicle.
 end note

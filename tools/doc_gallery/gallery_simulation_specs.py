@@ -242,6 +242,154 @@ def build_simulation_specs() -> tuple[GalleryCaseSpec, ...]:
                 ],
             },
         ),
+        GalleryCaseSpec(
+            slug="nancon_transient_nwt",
+            title="Nancon Transient NWT Basin Diagnostics",
+            category="simulation",
+            deck=(
+                "Observed-basin transient MODFLOW-NWT run with stable figures linking "
+                "hydrography diagnostics, groundwater state, hydrograph, and basin budget."
+            ),
+            summary=(
+                "This case publishes one real Nancon watershed run from the standard "
+                "`02_nancon_watershed` example project. Unlike the more synthetic "
+                "launcher demonstrations, it stays close to one observed basin and "
+                "uses stable figures to connect simulated groundwater response with "
+                "reference hydrography and catchment-scale discharge diagnostics."
+            ),
+            what_it_shows=(
+                "How one project-scoped MODFLOW-NWT transient run turns monthly recharge, ETP, and top drainage into a basin hydrograph and integrated water budget.",
+                "How the simulated active drainage pattern compares to the observed hydrographic network on the same basin support.",
+                "How classical project figures and newer hydrographic-network diagnostics can be committed together as one stable documentation case.",
+            ),
+            reproduction_command=(
+                "python -m hydromodpy run "
+                "examples/projects/02_nancon_watershed/run_transient_nwt.toml"
+            ),
+            source_paths=(
+                "examples/projects/02_nancon_watershed/project.toml",
+                "examples/projects/02_nancon_watershed/run_transient_nwt.toml",
+                "examples/projects/02_nancon_watershed/README.md",
+                "examples/projects/09_capability_gallery/launcher_simulation/nancon_transient_nwt/manifest.json",
+                "hydromodpy/analysis/capability_gallery.py",
+                "hydromodpy/display/figures/simulated_active_network.py",
+                "hydromodpy/display/figures/hydrographic_network_comparison.py",
+            ),
+            generator="copy_assets",
+            image_assets=(
+                GalleryImageAsset(
+                    filename="nancon_transient_nwt_hydrographic_network_comparison.png",
+                    caption=(
+                        "Reference versus generated hydrographic linework on the Nancon basin, "
+                        "used as the structural context before reading the simulated response."
+                    ),
+                    alt_text="Hydrographic network comparison on the Nancon basin",
+                    source_path=(
+                        "examples/projects/09_capability_gallery/launcher_simulation/"
+                        "nancon_transient_nwt/hydrographic_network_comparison.png"
+                    ),
+                ),
+                GalleryImageAsset(
+                    filename="nancon_transient_nwt_simulated_active_network_reference_overlay.png",
+                    caption=(
+                        "Simulated active drainage cells overlaid with the observed reference "
+                        "hydrography, including cell-overlap metrics on the same map."
+                    ),
+                    alt_text="Simulated active network overlay against reference hydrography on Nancon",
+                    source_path=(
+                        "examples/projects/09_capability_gallery/launcher_simulation/"
+                        "nancon_transient_nwt/simulated_active_network_reference_overlay.png"
+                    ),
+                ),
+                GalleryImageAsset(
+                    filename="nancon_transient_nwt_piezometric_map.png",
+                    caption=(
+                        "Piezometric map from the same transient NWT run, used to read the "
+                        "main groundwater-state structure after the network diagnostics."
+                    ),
+                    alt_text="Piezometric map for the Nancon transient NWT run",
+                    source_path=(
+                        "examples/projects/09_capability_gallery/launcher_simulation/"
+                        "nancon_transient_nwt/piezometric_map.png"
+                    ),
+                ),
+                GalleryImageAsset(
+                    filename="nancon_transient_nwt_hydrograph.png",
+                    caption=(
+                        "Observed-versus-simulated hydrograph used to judge whether the "
+                        "basin-scale temporal response remains coherent over the transient window."
+                    ),
+                    alt_text="Hydrograph for the Nancon transient NWT run",
+                    source_path=(
+                        "examples/projects/09_capability_gallery/launcher_simulation/"
+                        "nancon_transient_nwt/hydrograph.png"
+                    ),
+                ),
+                GalleryImageAsset(
+                    filename="nancon_transient_nwt_water_budget.png",
+                    caption=(
+                        "Integrated basin water-budget figure from the same run, used after the "
+                        "maps and hydrograph to interpret the balance of inflows and outflows."
+                    ),
+                    alt_text="Water budget for the Nancon transient NWT run",
+                    source_path=(
+                        "examples/projects/09_capability_gallery/launcher_simulation/"
+                        "nancon_transient_nwt/water_budget.png"
+                    ),
+                ),
+            ),
+            case_setup=(
+                "Base config: `project.toml` loads the offline Nancon basin data bundle, activates `recharge`, `etp`, and top `drainage`, and defines the default display contract.",
+                "Overlay config: `run_transient_nwt.toml` selects the monthly 2000-2002 transient window, the `modflownwt` backend, the homogeneous K/Sy/Ss values, and the stable capability-gallery publication block.",
+                "Execution chain: observed-basin setup -> transient MODFLOW-NWT flow -> catalog-backed figure rendering -> stable publication into `examples/projects/09_capability_gallery/launcher_simulation/nancon_transient_nwt/`.",
+            ),
+            key_parameters=(
+                "`[simulation.time] start_datetime`, `end_datetime`, and `step_value` define the three-year monthly window used by the hydrograph and budget figures.",
+                "`[flow] active_sinks_sources = [\"recharge\", \"etp\"]` keeps both diffuse recharge and explicit atmospheric extraction active in the same transient run.",
+                "`[flow] active_bc = [\"drainage\"]` turns top-face seepage release into the main head-dependent outflow shown later in the budget and active-network diagnostics.",
+                "`[flow.param.K.field_homogeneous]`, `[flow.param.Sy.field_homogeneous]`, and `[flow.param.Ss.field_homogeneous]` are the first basin parameters to perturb when learning how the hydrograph and active-network overlap change.",
+                "`[capability_gallery] assets` publishes hydrographic-network and active-network figures that go beyond the default `project.toml` display list, without changing the underlying physics.",
+            ),
+            how_to_read=(
+                "Start with the hydrographic-network comparison to separate reference linework from the generated structural network before reading any simulated response.",
+                "Read the simulated active-network overlay next: it tells you where the transient groundwater response aligns with or departs from the observed hydrography.",
+                "Open the piezometric map after that to read the groundwater-state structure behind the network pattern.",
+                "Use the hydrograph and water-budget figures last, once the spatial context is already clear, so that you do not over-interpret one temporal mismatch without checking where it comes from spatially.",
+            ),
+            next_steps=(
+                "Read :doc:`the real-basin reading guide </getting_started/read-real-basin-run>` for a stricter interpretation order across committed basin-result pages.",
+                "Read :doc:`the Nancon scientific worked case </scientific/solvers/worked-modflow-case-nancon-transient-nwt-etp-evt>` if you want the exact `ETP -> EVT` package path and the MODFLOW-NWT option rationale behind this run.",
+            ),
+            walkthrough_doc="getting_started/read-real-basin-run",
+            walkthrough_title="the real-basin reading guide",
+            metadata={
+                "study_area": "Nancon watershed",
+                "process_families": [
+                    "Display",
+                    "Flow",
+                    "Observed Hydrography Diagnostics",
+                    "Postprocess",
+                ],
+                "mesh_supports": ["Project-Scoped Basin Support"],
+                "flow_solvers": ["MODFLOW-NWT"],
+                "workflow_family_key": "observed_basin_diagnostics",
+                "workflow_family_label": "Observed Basin Diagnostics",
+                "workflow_family_deck": (
+                    "These cases stay close to one observed basin and use stable figures "
+                    "to connect solver response, reference hydrography, and integrated "
+                    "basin diagnostics."
+                ),
+                "workflow_family_order": 30,
+                "workflow_case_order": 10,
+                "postprocess_outputs": [
+                    "Hydrographic Network Comparison",
+                    "Hydrograph",
+                    "Piezometric Map",
+                    "Simulated Active Network Overlay",
+                    "Water Budget",
+                ],
+            },
+        ),
     )
 
 

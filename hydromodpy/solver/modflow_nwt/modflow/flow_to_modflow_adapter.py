@@ -375,18 +375,26 @@ class FlowToModflowAdapter:
         # MODFLOW startup heads are derived from one explicit process policy:
         # - "top": initialize with DEM elevation
         # - "bottom": initialize with bottom elevation
+        # - "top_offset": initialize below DEM by one scalar offset
         # - "custom": initialize with one user scalar
         initial_type = str(getattr(initial_condition, "type", "")).strip().lower()
         if initial_type == "top":
             strt = np.ones((self.nlay, self.nrow, self.ncol), dtype=float) * self.dem
         elif initial_type == "bottom":
             strt = np.ones((self.nlay, self.nrow, self.ncol), dtype=float) * self.bottom_layer
+        elif initial_type == "top_offset":
+            offset_m = float(initial_condition.value)
+            start_head = np.maximum(self.dem - offset_m, self.bottom_layer + 1e-6)
+            strt = np.ones((self.nlay, self.nrow, self.ncol), dtype=float) * start_head
         elif initial_type == "custom":
             strt = np.ones((self.nlay, self.nrow, self.ncol), dtype=float) * float(
                 initial_condition.value
             )
         else:
-            raise ValueError("flow.initial_conditions.h.type must be one of: top, bottom, custom")
+            raise ValueError(
+                "flow.initial_conditions.h.type must be one of: "
+                "top, bottom, top_offset, custom"
+            )
 
         # Side Dirichlet boundaries are enforced by:
         # - setting ibound to -1 (constant-head cells),

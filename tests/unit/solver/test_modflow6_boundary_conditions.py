@@ -517,6 +517,31 @@ def test_modflow6_accepts_bottom_initial_condition_name() -> None:
     assert np.allclose(strt[0], botm_layer2.ravel())
 
 
+def test_modflow6_builds_start_heads_from_top_offset_initial_condition() -> None:
+    model = _build_model()
+    model.flow = SimpleNamespace(
+        initial_conditions=FlowInitialConditions(
+            h=FlowInitialCondition(id="h", type="top_offset", value=5.0)
+        ),
+        boundary_conditions={},
+        active_bc=[],
+    )
+    top = np.array([[10.0, 11.0, 12.0], [13.0, 14.0, 15.0]], dtype=float)
+    botm_layer1 = np.array([[6.0, 6.0, 6.0], [6.0, 6.0, 6.0]], dtype=float)
+    botm_layer2 = np.array([[2.0, 3.0, 8.0], [5.0, 6.0, 7.0]], dtype=float)
+    solver_mesh = SolverMesh.from_structured_arrays(
+        nrow=2,
+        ncol=3,
+        top=top,
+        botm=np.stack([botm_layer1, botm_layer2]),
+    )
+
+    strt = model._build_start_heads(solver_mesh)
+
+    expected = np.maximum(top.ravel() - 5.0, botm_layer2.ravel() + 1e-6)
+    assert np.allclose(strt[0], expected)
+
+
 def test_modflow6_binds_recharge_from_flow_sinks_sources() -> None:
     model = _build_model()
     model.flow = SimpleNamespace(

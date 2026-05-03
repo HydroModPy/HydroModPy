@@ -55,16 +55,14 @@ These APIs compute cell masks, persistence maps, and scalar metrics from the
 persisted ``accumulation_flux`` field without declaring that a canonical vector
 feature exists.
 
-Perennial, Persistent, Permanent
---------------------------------
+Steady, Persistent, Always Active
+---------------------------------
 
 The terminology must stay explicit because three related ideas are easy to
 confuse:
 
-- ``permanent`` describes the model regime or scenario: a representative
-  steady-state/permanent flow computation. In TOML, ``flow_regime =
-  "permanent"`` is accepted as the user-facing hydrological name and normalized
-  internally to the solver-facing ``steady`` regime.
+- ``steady`` describes the model regime or scenario used for a representative
+  steady-state flow computation.
 - ``persistent`` describes a transient occupancy rule: a cell is active for at
   least a chosen fraction of timesteps, for example 50% or 80%.
 - ``always_active`` describes a stricter transient occupancy rule: a cell is
@@ -74,9 +72,18 @@ HydroModPy keeps ``perennial`` as a backward-compatible alias for
 ``always_active`` in the computed API, but it should not be interpreted as a
 true hydrological perennial-network definition. A hydrologically perennial
 simulated network should preferably be defined from a representative
-permanent/steady-state run, then compared to ``reference`` with
+``flow_regime = "steady"`` run, then compared to ``reference`` with
 ``run.simulated_active_network_overlap_metrics(...)`` or visualized with
 ``simulated_active_network_reference_overlay``.
+
+The computed API is now regime-aware when no ``mode`` is provided:
+
+- ``flow_regime = "steady"`` resolves to the steady-state active field,
+  implemented on the persisted timestep API as ``last``.
+- ``flow_regime = "transient"`` resolves to ``persistent`` for backward
+  compatibility.
+- an explicit ``mode`` still overrides the default and should be used for
+  transient diagnostics.
 
 This avoids making a one-year transient chronicle, its spin-up, or an arbitrary
 drought period define what is meant by "perennial".
@@ -135,8 +142,8 @@ Lazy result views already built on top of those fields
 - ``run.persistence(variable="accumulation_flux")``: per-cell fraction of
   timesteps above a threshold; useful for transient persistent/intermittent
   behavior.
-- ``run.simulated_active_network_mask()``: per-cell active-network view with
-  explicit modes:
+- ``run.simulated_active_network_mask()``: per-cell active-network view with a
+  regime-aware default and optional explicit modes:
 
   - ``last`` for one timestep snapshot,
   - ``any`` for cells active at least once,
@@ -233,7 +240,7 @@ network:
   - instantaneous active network,
   - seasonal or event-specific active network,
   - persistent transient active network,
-  - permanent-flow perennial active network.
+  - steady-state perennial active network.
 
 This is the main reason why the role exists in the class contract but stays
 empty in practice.
@@ -320,8 +327,8 @@ starting candidates are:
 
 - one thresholded snapshot at a declared timestep or season,
 - one persistence-based mask over the full simulation or one declared year.
-- one permanent/steady-state scenario with representative recharge, used as
-  the preferred basis for a simulated perennial network.
+- one steady-state scenario with representative recharge, used as the preferred
+  basis for a simulated perennial network.
 
 That would avoid mixing two questions:
 
@@ -354,7 +361,7 @@ Natural next metrics after a canonical active-network representation exists:
 - precision / recall / F1 on raster occupancy,
 - Hausdorff-like distance for vectorized active lines,
 - seasonal persistence classes such as persistent vs intermittent branches,
-  separate from permanent-flow perennial behavior.
+  separate from steady-state perennial behavior.
 
 Open Design Questions
 ---------------------

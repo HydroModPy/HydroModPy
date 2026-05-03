@@ -274,10 +274,11 @@ For terminology, ``persistent`` is a transient occupancy rule, while
 ``always_active`` means active at every timestep of the analysed transient
 window. The legacy name ``perennial`` is kept as an alias of
 ``always_active``. A hydrologically perennial simulated network should instead
-be based on a representative permanent/steady-state run, then compared against
-``reference``. In TOML, that intent can be declared with ``flow_regime =
-"permanent"``, which HydroModPy normalizes to the solver-facing ``steady``
-mode.
+be based on a representative ``flow_regime = "steady"`` run, then compared
+against ``reference``. When no active-network ``mode`` is supplied,
+HydroModPy resolves the default from the run regime: ``steady`` uses the
+steady-state active field, while ``transient`` uses ``persistent`` for
+backward compatibility.
 
 For a programmatic diagnostic against an existing vector role, use:
 
