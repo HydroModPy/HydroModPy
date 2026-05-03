@@ -11,30 +11,16 @@ import sys
 
 import pytest
 
+from hydromodpy._cli.commands import ALL_COMMANDS
+
 
 def _load_module():
     return importlib.import_module("hydromodpy._cli.main")
 
 
 SUBCOMMANDS = [
-    "init",
-    "new",
-    "config",
-    "run",
-    "display",
-    "list",
-    "export",
-    "test",
-    "data",
-    "show",
-    "compare",
-    "import",
-    "doctor",
-    "inspect",
-    "best",
-    "worst",
-    "delete",
-    "completion",
+    getattr(module, "NAME", module.__name__.rsplit(".", 1)[-1])
+    for module in ALL_COMMANDS
 ]
 
 

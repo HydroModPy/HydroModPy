@@ -50,13 +50,104 @@ Python reading path
 
    catalog = hmp.open("~/hydromodpy")
    run = catalog.latest(project="my_basin")
-   metrics = catalog.query_field(run.sim_id, "head")
-   run.export("run_outputs", formats=["netcdf", "geotiff"])
+   head0 = catalog.query_field(run.sim_id, "head", timestep=0)
+   budget = catalog.query_budget(run.sim_id)
+   run.export(variable="head", fmt="netcdf", path="run_outputs/head.nc")
 
 Common catalog operations include listing simulations, resolving ids, finding
 the latest or best run, querying fields and timeseries, reading budget and
 mass-balance records, exporting portable packages, and importing a package into
 another workspace.
+
+Query cookbook
+--------------
+
+List completed runs for one project:
+
+.. code-block:: python
+
+   import hydromodpy as hmp
+
+   catalog = hmp.open("~/hydromodpy")
+   runs = catalog.list_simulations(
+       project="my_basin",
+       status="completed",
+       order_by="created_at DESC",
+   )
+
+Resolve a run id prefix, then open the ``Run`` view:
+
+.. code-block:: python
+
+   sim_id = catalog.resolve("ab12")
+   run = catalog[sim_id]
+
+Read a field from the Zarr-backed store:
+
+.. code-block:: python
+
+   head = catalog.query_field(sim_id, "head", timestep=0)
+   seepage = catalog.query_field(sim_id, "seepage", timestep=-1)
+
+Read station time series:
+
+.. code-block:: python
+
+   q = catalog.query_timeseries(
+       sim_id,
+       station_id="J1234010",
+       variable="discharge",
+       period=("2000-01-01", "2005-12-31"),
+   )
+
+Read budgets, mass balance, and provenance:
+
+.. code-block:: python
+
+   budgets = catalog.query_budget(sim_id)
+   outlet_budget = catalog.query_budget(sim_id, zone_id="outlet")
+   mass_balance = catalog.query_mass_balance(sim_id)
+   provenance = catalog.get_provenance(sim_id)
+
+Use SQL when you need a cross-run table:
+
+.. code-block:: python
+
+   ranking = catalog.sql(
+       """
+       SELECT s.project, s.name, m.metric_name, m.value
+         FROM simulations s
+         JOIN metrics m ON s.sim_id = m.sim_id
+        WHERE s.status = 'completed'
+          AND m.metric_name = ?
+        ORDER BY m.value DESC
+       """,
+       ["nse"],
+   )
+
+Export cookbook
+---------------
+
+Export all persisted timeseries to CSV:
+
+.. code-block:: python
+
+   run.to_csv("exports/timeseries.csv")
+
+Export one field to common external formats:
+
+.. code-block:: python
+
+   run.export(variable="head", fmt="netcdf", path="exports/head.nc")
+   run.export(variable="head", fmt="geotiff", path="exports/head_last.tif", timestep=-1)
+   run.export(variable="head", fmt="vtu", path="exports/head_last.vtu", timestep=-1)
+
+Package a full run for exchange:
+
+.. code-block:: python
+
+   catalog.export_package(run.sim_id, "exports/my_run.hmp")
+   catalog.import_package("exports/my_run.hmp")
 
 Export formats
 --------------

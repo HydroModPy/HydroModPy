@@ -218,6 +218,8 @@ def load_last_npy_array_on_expected_grid(
     expected_shape: tuple[int, ...],
     x_min_m: float | None = None,
     x_max_m: float | None = None,
+    y_min_m: float | None = None,
+    y_max_m: float | None = None,
     collapse_y_to_x_profile: bool = False,
     store: Any = None,
     sim_id: str | None = None,
@@ -323,6 +325,8 @@ def load_last_npy_array_on_expected_grid(
         ny=int(expected_shape[0]),
         x_min_m=x_min_m,
         x_max_m=x_max_m,
+        y_min_m=y_min_m,
+        y_max_m=y_max_m,
     )
     return timestep, np.asarray(regridded[0], dtype=float)
 
@@ -435,6 +439,11 @@ def load_time_series_fields(
     sim_id: str | None = None,
     observable_name: str,
     expected_spatial_shape: tuple[int, ...] | None = None,
+    mesh_bundle_dir: Path | None = None,
+    x_min_m: float | None = None,
+    x_max_m: float | None = None,
+    y_min_m: float | None = None,
+    y_max_m: float | None = None,
 ) -> tuple[np.ndarray, np.ndarray]:
     """Load all timesteps for one variable, preferring the store.
 
@@ -481,12 +490,28 @@ def load_time_series_fields(
                     and data.ndim == 2
                     and data[:1].size > 0
                 ):
-                    data = _aggregate_triangle_history_to_grid(
-                        data,
-                        eff_shape,
-                        store,
-                        sim_id,
-                    )
+                    if mesh_bundle_dir is not None and len(tuple(eff_shape)) == 2:
+                        from validation_cases.shared.gmsh_irregular_strip import (
+                            interpolate_bundle_history_to_structured_grids,
+                        )
+
+                        data = interpolate_bundle_history_to_structured_grids(
+                            data,
+                            bundle_dir=Path(mesh_bundle_dir),
+                            nx=int(eff_shape[1]),
+                            ny=int(eff_shape[0]),
+                            x_min_m=x_min_m,
+                            x_max_m=x_max_m,
+                            y_min_m=y_min_m,
+                            y_max_m=y_max_m,
+                        )
+                    else:
+                        data = _aggregate_triangle_history_to_grid(
+                            data,
+                            eff_shape,
+                            store,
+                            sim_id,
+                        )
                 return indices, data
         except Exception:
             logger.debug(
@@ -536,7 +561,32 @@ def load_time_series_fields(
             f"Cannot load time-series '{observable_name}': no store provided and "
             "postprocess_dir is None."
         )
-    return load_npy_time_series_arrays(postprocess_dir, observable_name)
+    indices, arrays = load_npy_time_series_arrays(postprocess_dir, observable_name)
+    eff_shape = expected_spatial_shape
+    if eff_shape is not None and tuple(arrays.shape[1:]) != tuple(eff_shape):
+        if (
+            arrays.ndim == 2
+            and mesh_bundle_dir is not None
+            and len(tuple(eff_shape)) == 2
+            and arrays[:1].size > 0
+        ):
+            from validation_cases.shared.gmsh_irregular_strip import (
+                interpolate_bundle_history_to_structured_grids,
+            )
+
+            arrays = interpolate_bundle_history_to_structured_grids(
+                arrays,
+                bundle_dir=Path(mesh_bundle_dir),
+                nx=int(eff_shape[1]),
+                ny=int(eff_shape[0]),
+                x_min_m=x_min_m,
+                x_max_m=x_max_m,
+                y_min_m=y_min_m,
+                y_max_m=y_max_m,
+            )
+        elif arrays[:1].size > 0 and int(np.prod(arrays.shape[1:])) == int(np.prod(eff_shape)):
+            arrays = arrays.reshape(arrays.shape[0], *tuple(eff_shape))
+    return indices, arrays
 
 
 def load_npy_time_series_arrays(

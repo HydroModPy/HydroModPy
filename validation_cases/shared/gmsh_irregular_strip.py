@@ -116,6 +116,7 @@ def write_irregular_strip_bundle(
     storage_coefficient: float,
     seed: int = 20260413,
     base_mesh_size_m: float | None = None,
+    extra_seed_points_m: tuple[tuple[float, float, float], ...] = (),
 ) -> Path:
     """Write one irregular triangular strip bundle backed by an actual Gmsh mesh."""
 
@@ -147,6 +148,17 @@ def write_irregular_strip_bundle(
         for x_m, y_m in seed_points:
             local_size = float(base_mesh_size_m) * float(rng.uniform(0.78, 1.24))
             point_tags.append(int(gmsh.model.occ.addPoint(float(x_m), float(y_m), 0.0, local_size)))
+        for x_m, y_m, local_size_m in tuple(extra_seed_points_m):
+            point_tags.append(
+                int(
+                    gmsh.model.occ.addPoint(
+                        float(x_m),
+                        float(y_m),
+                        0.0,
+                        float(local_size_m),
+                    )
+                )
+            )
 
         gmsh.model.occ.synchronize()
         if point_tags:
@@ -157,7 +169,14 @@ def write_irregular_strip_bundle(
         gmsh.option.setNumber("Mesh.MeshSizeFromCurvature", 0.0)
         gmsh.option.setNumber("Mesh.MeshSizeExtendFromBoundary", 1.0)
         gmsh.option.setNumber(
-            "Mesh.CharacteristicLengthMin", max(0.25, 0.55 * float(base_mesh_size_m))
+            "Mesh.CharacteristicLengthMin",
+            max(
+                0.25,
+                min(
+                    [0.55 * float(base_mesh_size_m)]
+                    + [0.75 * float(point[2]) for point in tuple(extra_seed_points_m)]
+                ),
+            ),
         )
         gmsh.option.setNumber("Mesh.CharacteristicLengthMax", 1.45 * float(base_mesh_size_m))
         gmsh.model.mesh.generate(2)
@@ -327,6 +346,83 @@ def write_irregular_strip_bundle(
     return bundle_dir
 
 
+def write_gmsh22_triangle_mesh_from_bundle_csv(
+    bundle_dir: Path,
+    *,
+    mesh_filename: str = "mesh_2d.msh",
+) -> Path:
+    """Write a minimal Gmsh 2.2 triangle mesh from bundle ``nodes``/``cells`` CSV files."""
+
+    bundle_dir = Path(bundle_dir)
+    nodes = np.genfromtxt(
+        bundle_dir / "nodes.csv",
+        delimiter=",",
+        names=True,
+        dtype=None,
+        encoding="utf-8",
+    )
+    cells = np.genfromtxt(
+        bundle_dir / "cells.csv",
+        delimiter=",",
+        names=True,
+        dtype=None,
+        encoding="utf-8",
+    )
+
+    node_ids = np.asarray(nodes["node_id"], dtype=int).reshape(-1)
+    node_x = np.asarray(nodes["x"], dtype=float).reshape(-1)
+    node_y = np.asarray(nodes["y"], dtype=float).reshape(-1)
+    if node_ids.size == 0:
+        raise ValueError(f"Bundle has no nodes: {bundle_dir}")
+
+    node_order = np.argsort(node_ids)
+    node_ids = node_ids[node_order]
+    node_x = node_x[node_order]
+    node_y = node_y[node_order]
+    gmsh_id_by_node_id = {
+        int(node_id): int(index + 1) for index, node_id in enumerate(node_ids.tolist())
+    }
+
+    cell_ids = np.asarray(cells["cell_id"], dtype=int).reshape(-1)
+    geom_type = np.asarray(cells["geom_type"]).astype(str).reshape(-1)
+    triangle_mask = np.char.lower(geom_type) == "triangle"
+    if not np.any(triangle_mask):
+        raise ValueError(f"Bundle has no triangle cells: {bundle_dir}")
+    cell_order = np.argsort(cell_ids[triangle_mask])
+    n0 = np.asarray(cells["n0"], dtype=int).reshape(-1)[triangle_mask][cell_order]
+    n1 = np.asarray(cells["n1"], dtype=int).reshape(-1)[triangle_mask][cell_order]
+    n2 = np.asarray(cells["n2"], dtype=int).reshape(-1)[triangle_mask][cell_order]
+
+    lines: list[str] = [
+        "$MeshFormat",
+        "2.2 0 8",
+        "$EndMeshFormat",
+        "$Nodes",
+        str(int(node_ids.size)),
+    ]
+    for node_id, x_m, y_m in zip(node_ids, node_x, node_y, strict=True):
+        lines.append(f"{gmsh_id_by_node_id[int(node_id)]} {float(x_m):.12g} {float(y_m):.12g} 0")
+    lines.extend(["$EndNodes", "$Elements", str(int(n0.size))])
+    for element_index, (node_0, node_1, node_2) in enumerate(zip(n0, n1, n2, strict=True), start=1):
+        lines.append(
+            " ".join(
+                [
+                    str(int(element_index)),
+                    "2",
+                    "0",
+                    str(gmsh_id_by_node_id[int(node_0)]),
+                    str(gmsh_id_by_node_id[int(node_1)]),
+                    str(gmsh_id_by_node_id[int(node_2)]),
+                ]
+            )
+        )
+    lines.append("$EndElements")
+
+    mesh_path = bundle_dir / str(mesh_filename)
+    mesh_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    return mesh_path
+
+
 def interpolate_bundle_history_to_structured_grids(
     values: np.ndarray,
     *,
@@ -384,5 +480,6 @@ def interpolate_bundle_history_to_structured_grids(
 
 __all__ = [
     "interpolate_bundle_history_to_structured_grids",
+    "write_gmsh22_triangle_mesh_from_bundle_csv",
     "write_irregular_strip_bundle",
 ]

@@ -249,7 +249,7 @@ class Modflow6(Solver):
         location_mode = str(_value("location_mode", "") or "").strip().lower()
         solver_mesh = getattr(self, "solver_mesh", None)
 
-        if cell_payload is not None:
+        if cell_payload is not None and location_mode in {"", "cell"}:
             cell_seq = list(cell_payload)
             if len(cell_seq) != 3:
                 raise ValueError(

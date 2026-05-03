@@ -211,6 +211,8 @@ def write_observable_chronicle_exports(
             "elapsed_seconds": row.get("elapsed_seconds", ""),
             "value_index": row.get("value_index", ""),
             "value": row.get("value", ""),
+            "surface_top_m": row.get("surface_top_m", ""),
+            "surface_bottom_m": row.get("surface_bottom_m", ""),
         }
         for row in rows
         if str(row.get("support", "")) != "map"

@@ -149,6 +149,16 @@ Capability and API-oriented guides
 
    .. grid-item-card::
       :class-card: sd-shadow-sm sd-rounded-3 sd-p-4
+      :link: cli-reference
+      :link-type: doc
+
+      **CLI reference**
+      ^^^
+      Registered top-level commands, workflow flags, and nested command
+      families.
+
+   .. grid-item-card::
+      :class-card: sd-shadow-sm sd-rounded-3 sd-p-4
       :link: capability-matrix
       :link-type: doc
 
@@ -219,6 +229,7 @@ Use these pages once you have generated or opened result pages:
    mesh
    comparison
    calibration
+   cli-reference
    capability-matrix
    data-sources
    results-and-exports

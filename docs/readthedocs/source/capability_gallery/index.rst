@@ -26,7 +26,7 @@ The gallery is intentionally grouped by workflow intent first, then by case page
 Build The Support
 ~~~~~~~~~~~~~~~~~
 
-Start here when the question is still about the basin, the geometry, the properties, or the mesh rather than about solver behaviour.
+Start here when the question is still about the basin, geometry, or properties rather than about solver behaviour.
 
 .. grid:: 1 1 2 2
    :gutter: 2 2 3 3
@@ -57,15 +57,6 @@ Start here when the question is still about the basin, the geometry, the propert
       **Hydraulic Properties**
       ^^^
       Hydraulic conductivity and storage parameterizations rendered on synthetic and geology-driven supports. 5 cases.
-
-   .. grid-item-card::
-      :class-card: sd-shadow-sm sd-rounded-3 sd-p-4
-      :link: mesh
-      :link-type: doc
-
-      **Mesh Gallery**
-      ^^^
-      Static mesh and geology illustrations produced from versioned bundle inputs. 29 cases.
 
 Run And Compare
 ~~~~~~~~~~~~~~~
@@ -128,16 +119,33 @@ Use these pages when the goal is not demonstration only, but numerical trust or 
       ^^^
       Synthetic inverse problems used to inspect calibration workflows, search methods, and timing diagnostics. 5 cases.
 
+Inspect Mesh Supports
+~~~~~~~~~~~~~~~~~~~~~
+
+Use these pages when the scientific question is specifically about mesh support, constraint preservation, or reusable spatial-support artifacts.
+
+.. grid:: 1 1 2 2
+   :gutter: 2 2 3 3
+
+   .. grid-item-card::
+      :class-card: sd-shadow-sm sd-rounded-3 sd-p-4
+      :link: mesh
+      :link-type: doc
+
+      **Mesh Gallery**
+      ^^^
+      Static mesh and geology illustrations produced from versioned bundle inputs. 29 cases.
+
 .. toctree::
    :hidden:
    :maxdepth: 1
 
-   mesh
-   validation
-   calibration
    geographic
    geometry
    hydraulic_properties
+   simulation
    method_comparison
    code_comparison
-   simulation
+   validation
+   calibration
+   mesh

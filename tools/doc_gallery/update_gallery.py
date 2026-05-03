@@ -63,10 +63,10 @@ CATEGORY_GROUP_SPECS = (
     {
         "title": "Build The Support",
         "deck": (
-            "Start here when the question is still about the basin, the geometry, the "
-            "properties, or the mesh rather than about solver behaviour."
+            "Start here when the question is still about the basin, geometry, or "
+            "properties rather than about solver behaviour."
         ),
-        "categories": ("geographic", "geometry", "hydraulic_properties", "mesh"),
+        "categories": ("geographic", "geometry", "hydraulic_properties"),
     },
     {
         "title": "Run And Compare",
@@ -84,6 +84,19 @@ CATEGORY_GROUP_SPECS = (
         ),
         "categories": ("validation", "calibration"),
     },
+    {
+        "title": "Inspect Mesh Supports",
+        "deck": (
+            "Use these pages when the scientific question is specifically about mesh "
+            "support, constraint preservation, or reusable spatial-support artifacts."
+        ),
+        "categories": ("mesh",),
+    },
+)
+CATEGORY_NAVIGATION_ORDER = tuple(
+    category_slug
+    for group_spec in CATEGORY_GROUP_SPECS
+    for category_slug in group_spec["categories"]
 )
 
 
@@ -5203,7 +5216,12 @@ def _build_index_page(cases_by_category: dict[str, list[dict[str, Any]]]) -> str
             "",
         ]
     )
+    for category_slug in CATEGORY_NAVIGATION_ORDER:
+        if cases_by_category.get(category_slug):
+            lines.append(f"   {category_slug}")
     for category_slug in CATEGORY_SPECS:
+        if category_slug in CATEGORY_NAVIGATION_ORDER:
+            continue
         if cases_by_category.get(category_slug):
             lines.append(f"   {category_slug}")
     return "\n".join(lines)

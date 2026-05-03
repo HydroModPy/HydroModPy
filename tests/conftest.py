@@ -31,17 +31,28 @@ _LAYER_TIMEOUTS_SECONDS = {
     "regression": 300.0,
     "e2e": 1800.0,
 }
+_SCRATCH_ROOT_ENV = "HYDROMODPY_TEST_SCRATCH_ROOT"
+_SCRATCH_SESSION_ENV = "HYDROMODPY_TEST_SESSION_SCRATCH_ROOT"
 _SCRATCH_OWNER_ENV = "HYDROMODPY_TEST_SCRATCH_OWNER"
-_SCRATCH_OWNER_TOKEN = f"{os.getpid()}-{uuid.uuid4().hex}"
-_OWNS_TEST_SCRATCH = not os.environ.get(_SCRATCH_OWNER_ENV)
+_INHERITED_SCRATCH_OWNER = os.environ.get(_SCRATCH_OWNER_ENV)
+_SCRATCH_OWNER_TOKEN = _INHERITED_SCRATCH_OWNER or f"{os.getpid()}-{uuid.uuid4().hex[:12]}"
+_OWNS_TEST_SCRATCH = _INHERITED_SCRATCH_OWNER is None
 
 
 def _resolve_test_scratch_root() -> Path:
     """Return the shared scratch root used by pytest and subprocesses."""
-    override = os.environ.get("HYDROMODPY_TEST_SCRATCH_ROOT")
+    override = os.environ.get(_SCRATCH_ROOT_ENV)
     if override:
         return Path(override).expanduser().resolve()
     return (Path(tempfile.gettempdir()) / "hydromodpy_tests").resolve()
+
+
+def _resolve_test_session_root(scratch_root: Path) -> Path:
+    """Return the per-session scratch root used by this pytest process tree."""
+    override = os.environ.get(_SCRATCH_SESSION_ENV)
+    if override:
+        return Path(override).expanduser().resolve()
+    return (scratch_root / "sessions" / _SCRATCH_OWNER_TOKEN).resolve()
 
 
 def _path_has_suffix_parts(path: Path, suffix_parts: tuple[str, ...]) -> bool:
@@ -51,14 +62,16 @@ def _path_has_suffix_parts(path: Path, suffix_parts: tuple[str, ...]) -> bool:
 
 
 _TEST_SCRATCH_ROOT = _resolve_test_scratch_root()
-_TEST_TMP_ROOT = _TEST_SCRATCH_ROOT / "tmp"
-_TEST_PYTEST_ROOT = _TEST_SCRATCH_ROOT / "pytest"
-for _path in (_TEST_SCRATCH_ROOT, _TEST_TMP_ROOT, _TEST_PYTEST_ROOT):
+_TEST_SESSION_ROOT = _resolve_test_session_root(_TEST_SCRATCH_ROOT)
+_TEST_TMP_ROOT = _TEST_SESSION_ROOT / "tmp"
+_TEST_PYTEST_ROOT = _TEST_SESSION_ROOT / "pytest"
+for _path in (_TEST_SCRATCH_ROOT, _TEST_SESSION_ROOT, _TEST_TMP_ROOT, _TEST_PYTEST_ROOT):
     _path.mkdir(parents=True, exist_ok=True)
 
 # Configure scratch locations at import time so pytest internals and spawned
 # subprocesses inherit one repository-external root by default.
-os.environ.setdefault("HYDROMODPY_TEST_SCRATCH_ROOT", str(_TEST_SCRATCH_ROOT))
+os.environ.setdefault(_SCRATCH_ROOT_ENV, str(_TEST_SCRATCH_ROOT))
+os.environ.setdefault(_SCRATCH_SESSION_ENV, str(_TEST_SESSION_ROOT))
 if _OWNS_TEST_SCRATCH:
     os.environ[_SCRATCH_OWNER_ENV] = _SCRATCH_OWNER_TOKEN
 os.environ.setdefault("PYTEST_DEBUG_TEMPROOT", str(_TEST_PYTEST_ROOT))
@@ -69,7 +82,7 @@ os.environ.setdefault("TEMP", str(_TEST_TMP_ROOT))
 
 def _ensure_test_scratch_dirs() -> None:
     """Recreate shared scratch folders if a test removed them mid-session."""
-    for path in (_TEST_SCRATCH_ROOT, _TEST_TMP_ROOT, _TEST_PYTEST_ROOT):
+    for path in (_TEST_SCRATCH_ROOT, _TEST_SESSION_ROOT, _TEST_TMP_ROOT, _TEST_PYTEST_ROOT):
         path.mkdir(parents=True, exist_ok=True)
 
 
@@ -101,6 +114,13 @@ def pytest_configure(config: pytest.Config) -> None:
     _ensure_pytest_basetemp(config)
 
 
+@pytest.hookimpl(tryfirst=True)
+def pytest_fixture_setup(fixturedef, request) -> None:
+    """Recreate pytest's cached basetemp immediately before tmp fixtures run."""
+    if fixturedef.argname in {"tmp_path", "tmpdir"}:
+        _ensure_pytest_basetemp(request.config)
+
+
 @pytest.fixture(scope="session")
 def update_goldens(request):
     """Return True when regression tests should rewrite golden references."""
@@ -109,8 +129,8 @@ def update_goldens(request):
 
 @pytest.fixture(scope="session")
 def hydromodpy_test_scratch_root() -> Path:
-    """Expose the shared repository-external scratch root to tests."""
-    return _TEST_SCRATCH_ROOT
+    """Expose this session's repository-external scratch root to tests."""
+    return _TEST_SESSION_ROOT
 
 
 @pytest.fixture
@@ -223,7 +243,7 @@ def pytest_runtest_setup(item):
 
 
 def pytest_sessionfinish(session, exitstatus):
-    """Clean up the shared scratch root at the end of the test session.
+    """Clean up this session's scratch root at the end of the test session.
 
     Only runs on the controller process (not on xdist workers) to avoid
     races.  Silently ignores missing or locked files.
@@ -231,6 +251,6 @@ def pytest_sessionfinish(session, exitstatus):
     is_xdist_worker = hasattr(session.config, "workerinput")
     if is_xdist_worker or not _OWNS_TEST_SCRATCH:
         return
-    scratch = _TEST_SCRATCH_ROOT
+    scratch = _TEST_SESSION_ROOT
     if scratch.exists():
         shutil.rmtree(scratch, ignore_errors=True)

@@ -6,6 +6,7 @@ import os
 import re
 import sys
 import tempfile
+import uuid
 from pathlib import Path
 
 # ---------------------------------------------------------------------------
@@ -129,6 +130,14 @@ def resolve_test_scratch_root() -> Path:
     return (Path(tempfile.gettempdir()) / "hydromodpy_tests").resolve()
 
 
+def resolve_test_session_scratch_root(scratch_root: Path) -> Path:
+    """Return the pytest scratch root for this CLI-launched test process tree."""
+    override = os.environ.get("HYDROMODPY_TEST_SESSION_SCRATCH_ROOT")
+    if override:
+        return Path(override).expanduser().resolve()
+    return (scratch_root / "sessions" / f"cli_{os.getpid()}_{uuid.uuid4().hex[:12]}").resolve()
+
+
 def pytest_addopts_declares_basetemp(pytest_addopts: str) -> bool:
     """Return ``True`` when ``PYTEST_ADDOPTS`` already declares ``--basetemp``."""
     return re.search(r"(^|\\s)--basetemp(?:=|\\s|$)", str(pytest_addopts)) is not None
@@ -137,14 +146,16 @@ def pytest_addopts_declares_basetemp(pytest_addopts: str) -> bool:
 def build_pytest_runtime_env() -> tuple[Path, dict[str, str]]:
     """Prepare one external scratch root for pytest internals and subprocesses."""
     scratch_root = resolve_test_scratch_root()
-    tmp_root = scratch_root / "tmp"
-    pytest_root = scratch_root / "pytest"
+    session_root = resolve_test_session_scratch_root(scratch_root)
+    tmp_root = session_root / "tmp"
+    pytest_root = session_root / "pytest"
     basetemp_root = pytest_root / f"cli_{os.getpid()}"
-    for path in (scratch_root, tmp_root, pytest_root, basetemp_root):
+    for path in (scratch_root, session_root, tmp_root, pytest_root, basetemp_root):
         path.mkdir(parents=True, exist_ok=True)
 
     env = os.environ.copy()
     env["HYDROMODPY_TEST_SCRATCH_ROOT"] = str(scratch_root)
+    env["HYDROMODPY_TEST_SESSION_SCRATCH_ROOT"] = str(session_root)
     env["PYTEST_DEBUG_TEMPROOT"] = str(pytest_root)
     env["TMPDIR"] = str(tmp_root)
     env["TMP"] = str(tmp_root)
@@ -168,6 +179,7 @@ __all__ = (
     "resolve_sim_id",
     "auto_scan_workspace",
     "resolve_test_scratch_root",
+    "resolve_test_session_scratch_root",
     "pytest_addopts_declares_basetemp",
     "build_pytest_runtime_env",
 )

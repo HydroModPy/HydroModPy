@@ -13,7 +13,7 @@ from validation_cases.shared import (
     ValidationRunResult,
     load_case_metadata,
     load_case_tolerances,
-    load_field,
+    load_last_npy_array_on_expected_grid,
     max_abs_error,
     rmse,
     run_launcher_validation_case,
@@ -157,12 +157,19 @@ def build_boussinesq_circular_island_piecewise_k_comparison(
         expected_shape = tuple(expected_shape_by_solver[solver_name])
     else:
         expected_shape = tuple(output_cfg.get("expected_shape", ()))
-    timestep, heads = load_field(
+    timestep, heads = load_last_npy_array_on_expected_grid(
         postprocess_dir=result.postprocess_dir,
+        observable_name=observable_name,
+        case_dir=CASE_DIR,
+        metadata=case_metadata,
+        solver=solver_name,
+        expected_shape=expected_shape,
+        x_min_m=float(reference_cfg["xmin"]),
+        x_max_m=float(reference_cfg["xmin"]) + float(reference_cfg["length_x_m"]),
+        y_min_m=float(reference_cfg["ymin"]),
+        y_max_m=float(reference_cfg["ymin"]) + float(reference_cfg["length_y_m"]),
         store=result.store,
         sim_id=result.sim_id,
-        observable_name=observable_name,
-        expected_shape=expected_shape or None,
     )
 
     if expected_shape:
@@ -174,6 +181,9 @@ def build_boussinesq_circular_island_piecewise_k_comparison(
     sea_level = float(reference_cfg["sea_level_m"])
     land_mask = dem > sea_level
     ocean_mask = dem <= sea_level
+    heads = np.asarray(heads, dtype=float).copy()
+    if solver_name == "modflow6_irregular_tri":
+        heads[ocean_mask] = sea_level
     comparison_radius_max_by_solver = reference_cfg.get("comparison_radius_max_by_solver", {})
     comparison_radius_max_m = float(reference_cfg["comparison_radius_max_m"])
     if (

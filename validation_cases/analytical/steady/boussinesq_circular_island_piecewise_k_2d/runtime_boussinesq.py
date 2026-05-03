@@ -25,6 +25,9 @@ from validation_cases.shared.runtime import (
     ValidationRunResult,
     resolve_validation_results_dir,
 )
+from validation_cases.shared.gmsh_irregular_strip import (
+    write_gmsh22_triangle_mesh_from_bundle_csv,
+)
 
 CASE_DIR = Path(__file__).resolve().parent
 CASE_ID = "boussinesq_circular_island_piecewise_k_2d"
@@ -309,6 +312,7 @@ def _write_circular_island_bundle(
         "edge_id,node_a,node_b,cell_a,cell_b,length_m,edge_kind,is_river,geology_a_key,geology_b_key",
         edge_rows,
     )
+    write_gmsh22_triangle_mesh_from_bundle_csv(bundle_dir)
     return bundle_dir, tuple(ocean_cell_specs)
 
 
