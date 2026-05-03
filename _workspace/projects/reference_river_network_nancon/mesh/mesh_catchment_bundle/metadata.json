@@ -4,8 +4,8 @@
   "cell_type": "triangle",
   "indexing": "zero_based",
   "crs": "EPSG:2154",
-  "n_nodes": 3133,
-  "n_cells": 6192,
+  "n_nodes": 3132,
+  "n_cells": 6190,
   "constraints_mode": "rivers_only",
   "topography": {
     "node_field": "z_top",

@@ -27,6 +27,10 @@ Reading map
    * - See every supported family and provider
      - :doc:`provider-matrix`
      - Decide between public APIs, local files, synthetic forcing, and constants.
+   * - Read one page per data family and source
+     - :doc:`families/index`
+     - Inspect the operational contract, examples, checks, and source-specific
+       pages for each data type.
    * - Use institutionally curated local datasets
      - :doc:`custom-data`
      - Match local rasters, vectors, or station time series to HydroModPy's
@@ -90,5 +94,6 @@ diagnostics, not simulation results. For the complete case page, open
 
    retrieval-workflow
    provider-matrix
+   families/index
    custom-data
    cache-and-lockfiles

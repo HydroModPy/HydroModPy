@@ -156,6 +156,9 @@ SIMULATED_ACTIVE_NETWORK_DISTANCE_METRICS_FIELDS = [
     "network_to_sim_distance_max_m",
     "bidirectional_distance_mean_m",
     "bidirectional_distance_quadratic_mean_m",
+    "bidirectional_distance_absolute_balance_m",
+    "planar_distance_balance_ratio",
+    "planar_distance_log10_balance",
 ]
 
 

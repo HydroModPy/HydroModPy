@@ -6,7 +6,10 @@ import json
 import os
 import shutil
 from pathlib import Path
+from types import ModuleType
 
+import pytest
+from tools.doc_gallery import import_mesh_bundle as import_mesh_bundle_module
 import tools.doc_gallery.update_gallery as update_gallery_module
 from tools.doc_gallery.gallery_manifest import build_repo_mesh_gallery_case_specs
 from tools.doc_gallery.import_mesh_bundle import import_mesh_bundle_case
@@ -18,6 +21,53 @@ from tools.doc_gallery.mesh_case_registry import (
 from tools.doc_gallery.update_gallery import _build_category_page, _generate_mesh_viewer_case
 
 SAMPLE_BUNDLE = REPO_ROOT / "examples" / "projects" / "08_mesh_viewer" / "sample_bundle"
+
+
+def _path_too_long_error() -> OSError:
+    error = OSError("path too long")
+    error.winerror = 206  # type: ignore[attr-defined]
+    return error
+
+
+def _assert_windows_copy_uses_extended_path_fallback(
+    module: ModuleType,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    source = Path("source.txt")
+    destination = Path("destination.txt")
+    calls: list[tuple[object, object]] = []
+
+    def fake_copy2(src: object, dst: object) -> None:
+        calls.append((src, dst))
+        if len(calls) == 1:
+            raise _path_too_long_error()
+
+    monkeypatch.setattr(module.os, "name", "nt")
+    monkeypatch.setattr(module.shutil, "copy2", fake_copy2)
+    monkeypatch.setattr(
+        module,
+        "_windows_extended_length_path",
+        lambda path: f"extended:{path}",
+    )
+
+    module._copy_file(source, destination)
+
+    assert calls == [
+        (source, destination),
+        ("extended:source.txt", "extended:destination.txt"),
+    ]
+
+
+def test_import_mesh_bundle_copy_file_falls_back_to_extended_windows_paths(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _assert_windows_copy_uses_extended_path_fallback(import_mesh_bundle_module, monkeypatch)
+
+
+def test_update_gallery_copy_file_falls_back_to_extended_windows_paths(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _assert_windows_copy_uses_extended_path_fallback(update_gallery_module, monkeypatch)
 
 
 def _read_bytes(path: Path) -> bytes:

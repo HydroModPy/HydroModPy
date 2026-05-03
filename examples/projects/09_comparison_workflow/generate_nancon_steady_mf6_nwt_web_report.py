@@ -12,7 +12,7 @@ from pathlib import Path
 from typing import Any
 
 ROOT = Path(__file__).resolve().parent
-REPO_ROOT = ROOT.parents[3]
+REPO_ROOT = ROOT.parents[2]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
@@ -20,6 +20,7 @@ CONFIG_PATH = ROOT / "compare_nancon_steady_mf6_disv_vs_nwt.toml"
 BASE_CONFIG_PATH = ROOT / "base_nancon_steady_hydrography_mesh_input.toml"
 COMPARISON_ROOT = ROOT / "outputs" / "nancon_steady_mf6_disv_vs_nwt"
 WEB_DIR = COMPARISON_ROOT / "web"
+WEB_FIGURES_DIR = COMPARISON_ROOT / "web_figures"
 
 
 def _load_toml(path: Path) -> dict[str, Any]:
@@ -129,8 +130,19 @@ def _read_metric_rows() -> tuple[list[dict[str, str]], list[dict[str, str]], lis
     )
 
 
+def _cell_counts_from_rows(rows: list[dict[str, str]]) -> dict[str, str]:
+    counts: dict[str, str] = {}
+    for row in rows:
+        variant_id = str(row.get("variant_id", ""))
+        count = _float(row.get("catchment_cell_count"))
+        if not variant_id or count is None:
+            continue
+        counts[variant_id] = str(int(round(count)))
+    return counts
+
+
 def _enrich_execution_rows(
-    rows: list[dict[str, str]], manifest: dict[str, Any]
+    rows: list[dict[str, str]], manifest: dict[str, Any], cell_counts: dict[str, str]
 ) -> list[dict[str, str]]:
     variants = manifest.get("variants", [])
     by_id = {
@@ -146,6 +158,7 @@ def _enrich_execution_rows(
             merged.setdefault("status", str(variant.get("status", "")))
             if not merged.get("status"):
                 merged["status"] = str(variant.get("status", ""))
+        merged["cell_count"] = cell_counts.get(str(row.get("variant_id", "")), "")
         enriched.append(merged)
     return enriched
 
@@ -191,7 +204,11 @@ def _render_table(
     )
 
 
-def _variant_cards(manifest: dict[str, Any], config: dict[str, Any]) -> str:
+def _variant_cards(
+    manifest: dict[str, Any],
+    config: dict[str, Any],
+    cell_counts: dict[str, str],
+) -> str:
     variants = manifest.get("variants", [])
     simulations = {
         str(item.get("id", "")): item
@@ -223,6 +240,7 @@ def _variant_cards(manifest: dict[str, Any], config: dict[str, Any]) -> str:
               <dl>
                 <dt>Solver</dt><dd>{_safe_text(variant.get("solver", ""))}</dd>
                 <dt>Maillage</dt><dd>{_safe_text(grid_text)}</dd>
+                <dt>Mailles</dt><dd>{_safe_text(cell_counts.get(variant_id, ""))}</dd>
                 <dt>Statut</dt><dd>{_safe_text(variant.get("status", ""))}</dd>
                 <dt>Temps</dt><dd>{_format_float(variant.get("wall_time_seconds"))} s</dd>
                 <dt>Run</dt><dd><code>{_safe_text(_rel(variant.get("run_folder", "")))}</code></dd>
@@ -325,6 +343,23 @@ def _figure_deck(items: list[tuple[dict[str, Any] | None, str, str]]) -> str:
         + "\n".join(
             _render_figure(figure, title=title, note=note)
             for figure, title, note in items
+        )
+        + "</div>"
+    )
+
+
+def _wide_figure_grid(figures: list[dict[str, Any]], *, empty: str) -> str:
+    if not figures:
+        return f"<p class=\"muted\">{html.escape(empty)}</p>"
+    return (
+        "<div class=\"wide-fig-grid\">"
+        + "\n".join(
+            _render_figure(
+                figure,
+                title=str(figure.get("title") or figure.get("observable") or "Carte"),
+                note=str(figure.get("note") or ""),
+            )
+            for figure in figures
         )
         + "</div>"
     )
@@ -443,6 +478,467 @@ def _config_detail_table(base: dict[str, Any], config: dict[str, Any]) -> str:
     )
 
 
+def _method_comparison_cfg_from_manifest(
+    config: dict[str, Any], manifest: dict[str, Any]
+) -> Any | None:
+    try:
+        from hydromodpy.analysis.comparison.config import (
+            MethodComparisonConfig,
+            MethodComparisonSection,
+            MethodComparisonVariant,
+        )
+    except Exception:
+        return None
+
+    comparison = config.get("comparison", {})
+    variants: list[Any] = []
+    for item in manifest.get("variants", []):
+        if not isinstance(item, dict) or not item.get("enabled", True):
+            continue
+        variants.append(
+            MethodComparisonVariant(
+                id=str(item.get("id", "")),
+                label=str(item.get("label", item.get("id", ""))),
+                solver=str(item.get("solver", "")),
+                mesh_label=str(item.get("mesh_label", "")),
+                mesh_mode=str(item.get("mesh_mode", "unknown")),  # type: ignore[arg-type]
+                simulation_config=str(item.get("config_path", "")),
+                run_folder=str(item.get("run_folder", "")),
+            )
+        )
+    if not variants:
+        return None
+    try:
+        section = MethodComparisonSection(
+            comparison_id=str(comparison.get("comparison_id", "")),
+            base_simulation_config=str(BASE_CONFIG_PATH),
+            output_root=str(COMPARISON_ROOT),
+            run_variants=False,
+            continue_on_error=bool(comparison.get("continue_on_error", False)),
+            reference_variant=comparison.get("reference_simulation"),
+            fine_raster=comparison.get("fine_raster"),
+            variant=variants,
+            observable=comparison.get("observable", []),
+        )
+        return MethodComparisonConfig(
+            config_path=CONFIG_PATH.resolve(),
+            base_dir=ROOT.resolve(),
+            comparison_root=COMPARISON_ROOT.resolve(),
+            base_simulation_config_path=BASE_CONFIG_PATH.resolve(),
+            anchors_path=None,
+            anchors={},
+            method_comparison=section,
+        )
+    except Exception:
+        return None
+
+
+def _write_three_case_map_figure(
+    *,
+    path: Path,
+    observable_name: str,
+    payloads: list[Any],
+    cell_counts: dict[str, str],
+    overlay: dict[str, Any] | None,
+) -> bool:
+    try:
+        import numpy as np
+        from hydromodpy.analysis.comparison.visuals import (
+            _finite_limits,
+            _pretty_label,
+            _robust_limits,
+        )
+        import matplotlib.pyplot as plt
+    except Exception:
+        return False
+
+    if not payloads:
+        return False
+    limits = _robust_limits(payload.values for payload in payloads)
+    if limits is None:
+        limits = _finite_limits(payload.values for payload in payloads)
+    if limits is None:
+        return False
+    vmin, vmax = limits
+    if math.isclose(vmin, vmax):
+        delta = abs(vmin) * 0.05 or 1.0
+        vmin -= delta
+        vmax += delta
+
+    ncols = len(payloads)
+    figure, axes = plt.subplots(1, ncols, figsize=(5.0 * ncols, 5.0), squeeze=False)
+    axes_array = np.asarray(axes, dtype=object).ravel().tolist()
+    artist = None
+    for ax, payload in zip(axes_array, payloads, strict=False):
+        artist = _render_payload_georef_subplot(
+            ax,
+            payload,
+            cmap="viridis",
+            vmin=vmin,
+            vmax=vmax,
+        )
+        _overlay_watershed_context(ax, overlay)
+        count = cell_counts.get(str(payload.variant_id), "")
+        count_text = f"{count} mailles" if count else "mailles n/d"
+        ax.set_title(
+            f"{payload.variant_id}\n{payload.solver or payload.mesh_mode} - {count_text}",
+            fontsize=9,
+            pad=6,
+        )
+    if artist is not None:
+        colorbar = figure.colorbar(
+            artist,
+            ax=axes_array,
+            orientation="horizontal",
+            pad=0.07,
+            fraction=0.055,
+            aspect=44,
+        )
+        colorbar.set_label(payloads[0].unit or "valeur", fontsize=9, labelpad=4)
+        colorbar.ax.tick_params(labelsize=8)
+    figure.suptitle(
+        f"{_pretty_label(observable_name)} - bassin, exutoire et cartes completes par cas",
+        fontsize=12,
+        y=0.98,
+    )
+    figure.subplots_adjust(left=0.025, right=0.985, top=0.84, bottom=0.16, wspace=0.05)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    figure.savefig(path, dpi=180, bbox_inches="tight")
+    plt.close(figure)
+    return path.exists()
+
+
+def _generate_three_case_map_figures(
+    *,
+    config: dict[str, Any],
+    manifest: dict[str, Any],
+    cell_counts: dict[str, str],
+    overlay: dict[str, Any] | None,
+) -> list[dict[str, Any]]:
+    try:
+        from hydromodpy.analysis.comparison.visuals import _build_map_payload, _slug
+    except Exception:
+        return []
+
+    method_cfg = _method_comparison_cfg_from_manifest(config, manifest)
+    if method_cfg is None:
+        return []
+    summaries = {
+        str(item.get("id", "")): item
+        for item in manifest.get("variants", [])
+        if isinstance(item, dict) and item.get("status") in {"completed", "reused"}
+    }
+    WEB_FIGURES_DIR.mkdir(parents=True, exist_ok=True)
+    variants = [variant for variant in method_cfg.method_comparison.variant if variant.enabled]
+    artifacts: list[dict[str, Any]] = []
+    for observable in method_cfg.method_comparison.observable:
+        if observable.support != "map":
+            continue
+        payloads: list[Any] = []
+        for variant in variants:
+            summary = summaries.get(variant.id)
+            if summary is None:
+                continue
+            try:
+                payload = _build_map_payload(
+                    cfg=method_cfg,
+                    variant=variant,
+                    summary=summary,
+                    observable=observable,
+                    rows=[],
+                )
+            except Exception:
+                payload = None
+            if payload is not None:
+                payloads.append(payload)
+        if len(payloads) < 2:
+            continue
+        path = WEB_FIGURES_DIR / f"{_slug(observable.name)}__three_cases_complete.png"
+        if _write_three_case_map_figure(
+            path=path,
+            observable_name=observable.name,
+            payloads=payloads,
+            cell_counts=cell_counts,
+            overlay=overlay,
+        ):
+            artifacts.append(
+                {
+                    "kind": "three_case_complete_map",
+                    "observable": observable.name,
+                    "title": _complete_map_title(str(observable.name)),
+                    "note": "Meme echelle de couleur, meme cadre cartographique, contour du bassin et exutoire superposes.",
+                    "path": str(path),
+                }
+            )
+    return artifacts
+
+
+def _complete_map_title(observable_name: str) -> str:
+    labels = {
+        "head_map_last": "Charge hydraulique - 3 cas",
+        "watertable_depth_map_last": "Profondeur de nappe - 3 cas",
+        "seepage_map_last": "Zones de suintement - 3 cas",
+        "outflow_drain_map_last": "Drainage distribue - 3 cas",
+        "active_network_flux_map_last": "Flux accumule / reseau actif - 3 cas",
+    }
+    return labels.get(observable_name, observable_name)
+
+
+def _resolve_output_path(path_value: Any) -> Path | None:
+    if path_value in ("", None):
+        return None
+    path = Path(str(path_value)).expanduser()
+    if not path.is_absolute():
+        path = ROOT / path
+    return path.resolve()
+
+
+def _variant_workspace_path(config: dict[str, Any], variant_id: str) -> Path | None:
+    for simulation in config.get("comparison", {}).get("simulation", []):
+        if not isinstance(simulation, dict) or simulation.get("id") != variant_id:
+            continue
+        workspace = simulation.get("overlay", {}).get("workspace", {})
+        if not isinstance(workspace, dict):
+            return None
+        return _resolve_output_path(workspace.get("root") or workspace.get("project_root"))
+    return None
+
+
+def _open_zarr_group(path: Path) -> tuple[Any | None, Any | None]:
+    try:
+        import zarr
+        from zarr.storage import ZipStore
+    except Exception:
+        return None, None
+    try:
+        if path.suffix.lower() == ".zip":
+            store = ZipStore(str(path), mode="r")
+            return zarr.open_group(store=store, mode="r"), store
+        return zarr.open_group(str(path), mode="r"), None
+    except Exception:
+        return None, None
+
+
+def _load_watershed_overlay(
+    config: dict[str, Any], manifest: dict[str, Any], base: dict[str, Any]
+) -> dict[str, Any] | None:
+    try:
+        import numpy as np
+    except Exception:
+        return None
+
+    reference_id = (
+        config.get("comparison", {}).get("reference_simulation")
+        or manifest.get("reference_variant")
+        or "mf6_disv_ref"
+    )
+    variant = next(
+        (
+            item
+            for item in manifest.get("variants", [])
+            if isinstance(item, dict) and item.get("id") == reference_id
+        ),
+        None,
+    )
+    if not isinstance(variant, dict):
+        return None
+    workspace = _variant_workspace_path(config, str(reference_id))
+    sim_id = str(variant.get("sim_id", ""))
+    candidates: list[Path] = []
+    if workspace is not None:
+        sim_dir = workspace / "simulations"
+        if sim_id:
+            candidates.extend(sorted(sim_dir.glob(f"*{sim_id[:8]}*.zarr.zip")))
+            candidates.extend(sorted(sim_dir.glob(f"*{sim_id[:8]}*.zarr")))
+        candidates.extend(sorted(sim_dir.glob("*.zarr.zip"), key=lambda p: p.stat().st_mtime, reverse=True))
+        candidates.extend(sorted(sim_dir.glob("*.zarr"), key=lambda p: p.stat().st_mtime, reverse=True))
+
+    for candidate in candidates:
+        group, store = _open_zarr_group(candidate)
+        try:
+            if group is None or "geographic" not in group:
+                continue
+            geographic = group["geographic"]
+            raster_name = "watershed_dem" if "watershed_dem" in geographic else "watershed_fill"
+            if raster_name not in geographic:
+                continue
+            raster = geographic[raster_name]
+            array = np.asarray(raster[:], dtype=float)
+            attrs = dict(raster.attrs)
+            transform = attrs.get("transform")
+            if not transform or len(transform) < 6:
+                continue
+            nodata = _float(attrs.get("nodata"))
+            valid = np.isfinite(array)
+            if nodata is not None:
+                valid &= ~np.isclose(array, nodata, rtol=0.0, atol=1.0e-6)
+            if not np.any(valid):
+                continue
+            a, _b, c, _d, e, f = [float(value) for value in transform[:6]]
+            rows, cols = array.shape
+            x = c + a * (np.arange(cols, dtype=float) + 0.5)
+            y = f + e * (np.arange(rows, dtype=float) + 0.5)
+            xx, yy = np.meshgrid(x, y)
+            xv = xx[valid]
+            yv = yy[valid]
+            pad = max(float(np.nanmax(xv) - np.nanmin(xv)), float(np.nanmax(yv) - np.nanmin(yv))) * 0.035
+            outlet_x = _float(base.get("geographic", {}).get("x_outlet"))
+            outlet_y = _float(base.get("geographic", {}).get("y_outlet"))
+            return {
+                "x_grid": xx,
+                "y_grid": yy,
+                "mask": valid.astype(float),
+                "extent": (
+                    float(np.nanmin(xv) - pad),
+                    float(np.nanmax(xv) + pad),
+                    float(np.nanmin(yv) - pad),
+                    float(np.nanmax(yv) + pad),
+                ),
+                "outlet": (outlet_x, outlet_y) if outlet_x is not None and outlet_y is not None else None,
+            }
+        finally:
+            if store is not None:
+                try:
+                    store.close()
+                except Exception:
+                    pass
+    return None
+
+
+def _mask_values(values: Any) -> Any:
+    import numpy as np
+
+    masked = np.asarray(values, dtype=float).copy()
+    for sentinel in (-9999.0, -99999.0, -999999.0):
+        masked[np.isclose(masked, sentinel, rtol=0.0, atol=1.0e-6)] = np.nan
+    return masked
+
+
+def _render_payload_georef_subplot(
+    ax: Any,
+    payload: Any,
+    *,
+    cmap: str,
+    vmin: float,
+    vmax: float,
+) -> Any:
+    import numpy as np
+    from hydromodpy.analysis.comparison.visuals import _render_map_subplot
+
+    values = _mask_values(payload.values).ravel()
+    x = getattr(payload, "x", None)
+    y = getattr(payload, "y", None)
+    if x is not None and y is not None:
+        x_arr = np.asarray(x, dtype=float).ravel()
+        y_arr = np.asarray(y, dtype=float).ravel()
+        if x_arr.size == y_arr.size == values.size:
+            finite = np.isfinite(x_arr) & np.isfinite(y_arr)
+            size = max(1.3, min(14.0, 52000.0 / max(1, values.size)))
+            artist = ax.scatter(
+                x_arr[finite],
+                y_arr[finite],
+                c=values[finite],
+                cmap=cmap,
+                vmin=vmin,
+                vmax=vmax,
+                s=size,
+                marker="s",
+                linewidths=0.0,
+            )
+            return artist
+    return _render_map_subplot(ax, payload, cmap=cmap, vmin=vmin, vmax=vmax)
+
+
+def _overlay_watershed_context(ax: Any, overlay: dict[str, Any] | None) -> None:
+    if not overlay:
+        return
+    try:
+        ax.contour(
+            overlay["x_grid"],
+            overlay["y_grid"],
+            overlay["mask"],
+            levels=[0.5],
+            colors="#111111",
+            linewidths=1.25,
+            zorder=6,
+        )
+    except Exception:
+        pass
+    outlet = overlay.get("outlet")
+    if outlet is not None:
+        ax.scatter(
+            [outlet[0]],
+            [outlet[1]],
+            marker="*",
+            s=95,
+            c="#d82626",
+            edgecolors="#111111",
+            linewidths=0.6,
+            zorder=8,
+        )
+    extent = overlay.get("extent")
+    if extent is not None:
+        xmin, xmax, ymin, ymax = extent
+        ax.set_xlim(xmin, xmax)
+        ax.set_ylim(ymin, ymax)
+    ax.set_aspect("equal", adjustable="box")
+
+
+def _write_mesh_runtime_figure(rows: list[dict[str, str]]) -> dict[str, Any] | None:
+    try:
+        import numpy as np
+        import matplotlib.pyplot as plt
+    except Exception:
+        return None
+    valid_rows = [
+        row
+        for row in rows
+        if _float(row.get("cell_count")) is not None
+        and _float(row.get("runtime_seconds")) is not None
+    ]
+    if not valid_rows:
+        return None
+    labels = [str(row.get("variant_id", "")) for row in valid_rows]
+    cells = np.asarray([float(row.get("cell_count", 0.0)) for row in valid_rows], dtype=float)
+    runtimes = np.asarray(
+        [float(row.get("runtime_seconds", 0.0)) for row in valid_rows],
+        dtype=float,
+    )
+    path = WEB_FIGURES_DIR / "mesh_count_runtime_comparison.png"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    colors = ["#1f6b8f", "#57785d", "#a55d2a"][: len(labels)]
+    fig, axes = plt.subplots(1, 2, figsize=(11.8, 4.4), squeeze=False)
+    ax_cells, ax_time = axes.ravel().tolist()
+    x = np.arange(len(labels))
+    ax_cells.bar(x, cells, color=colors)
+    ax_time.bar(x, runtimes, color=colors)
+    for ax, values, ylabel in (
+        (ax_cells, cells, "Nombre de mailles"),
+        (ax_time, runtimes, "Temps de calcul [s]"),
+    ):
+        ax.set_xticks(x)
+        ax.set_xticklabels(labels, rotation=18, ha="right", fontsize=8)
+        ax.set_ylabel(ylabel, fontsize=9)
+        ax.grid(axis="y", color="#d7ddd7", linewidth=0.7, alpha=0.8)
+        ax.spines["top"].set_visible(False)
+        ax.spines["right"].set_visible(False)
+        for index, value in enumerate(values):
+            label = f"{int(round(value))}" if ylabel.startswith("Nombre") else f"{value:.1f}"
+            ax.text(index, value, label, ha="center", va="bottom", fontsize=8)
+    ax_cells.set_title("Discretisation", fontsize=10)
+    ax_time.set_title("Cout de calcul", fontsize=10)
+    fig.suptitle("Nombre de mailles et temps de calcul", fontsize=12, y=0.98)
+    fig.subplots_adjust(left=0.07, right=0.98, top=0.82, bottom=0.22, wspace=0.25)
+    fig.savefig(path, dpi=180, bbox_inches="tight")
+    plt.close(fig)
+    return {
+        "kind": "mesh_runtime_comparison",
+        "title": "Mailles et temps de calcul",
+        "note": "Barres comparant la discretisation et le temps de run pour chaque variante.",
+        "path": str(path),
+    }
+
+
 def _interpretation_cards(
     *,
     metrics: list[dict[str, str]],
@@ -543,11 +1039,20 @@ def build_report() -> Path:
     base = _load_toml(BASE_CONFIG_PATH)
     manifest = _load_json(COMPARISON_ROOT / "comparison_manifest.json")
     summary_metrics, active_overlap, execution_rows = _read_metric_rows()
-    execution_rows = _enrich_execution_rows(execution_rows, manifest)
+    active_metrics_rows = _load_csv(COMPARISON_ROOT / "simulated_active_network_metrics.csv")
+    cell_counts = _cell_counts_from_rows(active_metrics_rows)
+    execution_rows = _enrich_execution_rows(execution_rows, manifest, cell_counts)
     timeseries_rows = _load_csv(COMPARISON_ROOT / "timeseries_wide.csv")
     budget_rows = _load_csv(COMPARISON_ROOT / "budget_timeseries_wide.csv")
     figures = _figure_artifacts(manifest)
     cfg_summary = _config_summary(base)
+    watershed_overlay = _load_watershed_overlay(config, manifest, base)
+    complete_case_maps = _generate_three_case_map_figures(
+        config=config,
+        manifest=manifest,
+        cell_counts=cell_counts,
+        overlay=watershed_overlay,
+    )
 
     selected_network = _figures_by_keywords(
         figures,
@@ -555,6 +1060,10 @@ def build_report() -> Path:
         limit=8,
     )
     selected_runtime = _figures_by_keywords(figures, ("execution_time",), limit=2)
+    mesh_runtime_figure = _write_mesh_runtime_figure(execution_rows)
+    runtime_figures = (
+        ([mesh_runtime_figure] if mesh_runtime_figure is not None else []) + selected_runtime
+    )
     case_configuration_figure = _figure_by_filename(figures, "case_configuration.png")
 
     interpretation_cards = _interpretation_cards(
@@ -718,6 +1227,7 @@ def build_report() -> Path:
             ("variant_id", "Variante"),
             ("solver", "Solver"),
             ("mesh_mode", "Maillage"),
+            ("cell_count", "Mailles"),
             ("status", "Statut"),
             ("runtime_seconds", "Temps s"),
         ),
@@ -751,7 +1261,7 @@ def build_report() -> Path:
       line-height: 1.45;
     }}
     main {{
-      max-width: 1320px;
+      max-width: 1760px;
       margin: 0 auto;
       padding: 28px 24px 64px;
     }}
@@ -832,6 +1342,12 @@ def build_report() -> Path:
       gap: 14px;
     }}
     .figure-deck {{ grid-template-columns: repeat(3, minmax(0, 1fr)); }}
+    .wide-fig-grid {{
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 16px;
+      margin: 14px 0 18px;
+    }}
     .theme-panel {{
       border-top: 1px solid var(--line);
       padding-top: 16px;
@@ -901,7 +1417,7 @@ def build_report() -> Path:
       font-size: 0.86rem;
     }}
     @media (max-width: 980px) {{
-      .intro-grid, .facts, .variants, .comment-grid, .fig-grid, .figure-deck, .paired-figs {{ grid-template-columns: 1fr; }}
+      .intro-grid, .facts, .variants, .comment-grid, .fig-grid, .figure-deck, .wide-fig-grid, .paired-figs {{ grid-template-columns: 1fr; }}
       main {{ padding: 18px 14px 44px; }}
     }}
   </style>
@@ -960,7 +1476,7 @@ def build_report() -> Path:
   <section class="section">
     <h2>Variantes executees</h2>
     <div class="variants">
-      {_variant_cards(manifest, config)}
+      {_variant_cards(manifest, config, cell_counts)}
     </div>
   </section>
 
@@ -972,7 +1488,7 @@ def build_report() -> Path:
       tres differents de la reference MF6.
     </p>
     {execution_table}
-    {_figure_grid(selected_runtime, empty="Aucune figure de temps de calcul disponible.")}
+    {_figure_grid(runtime_figures, empty="Aucune figure de temps de calcul disponible.")}
   </section>
 
   <section class="section">
@@ -995,13 +1511,18 @@ def build_report() -> Path:
   </section>
 
   <section class="section">
-    <h2>Cartes interpretees cote a cote</h2>
+    <h2>Cartes comparables par variable</h2>
     <p>
-      Chaque ligne met en vis a vis le rendu sur raster commun et le rendu sur les supports natifs. Pour decider si
-      une variante NWT se rapproche de MF6, le raster commun est la lecture principale; le support natif sert a comprendre
-      l'origine spatiale des ecarts.
+      Chaque planche affiche les trois cas dans le meme sens et dans le meme cadre: nord en haut,
+      limites communes, contour du bassin versant en noir et exutoire en etoile rouge. Les panneaux
+      restent sur leur support spatial complet, avec une echelle de couleur commune par variable.
     </p>
-    {map_theme_panels}
+    <p class="callout">
+      Le nombre de mailles est indique dans le titre de chaque panneau. Cette disposition remplace les
+      comparaisons empilees: elle permet de lire directement MF6 DISV, NWT 120 x 120 et NWT 180 x 180
+      cote a cote pour chaque variable.
+    </p>
+    {_wide_figure_grid(complete_case_maps, empty="Les cartes completes par cas ne sont pas encore disponibles.")}
   </section>
 
   <section class="section">

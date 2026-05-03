@@ -438,6 +438,9 @@ class TestSimulationData:
         assert metrics["network_to_sim_distance_mean_m"] == pytest.approx(0.25)
         assert metrics["network_to_sim_distance_max_m"] == pytest.approx(0.5)
         assert metrics["bidirectional_distance_mean_m"] == pytest.approx(0.125)
+        assert metrics["bidirectional_distance_absolute_balance_m"] == pytest.approx(0.25)
+        assert metrics["planar_distance_balance_ratio"] is None
+        assert metrics["planar_distance_log10_balance"] is None
 
 
 class TestSimulationField:

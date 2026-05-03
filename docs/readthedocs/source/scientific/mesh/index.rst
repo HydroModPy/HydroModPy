@@ -74,6 +74,9 @@ Main Questions
    * - Which mesh families exist and why do they matter?
      - :doc:`../solvers/mesh-and-discretization-strategies`
      - :doc:`/capability_gallery/mesh`
+   * - How do regular and irregular meshes compare for the same cell budget?
+     - :doc:`regular-vs-irregular-meshes`
+     - :doc:`/capability_gallery/cases/mesh_resolution_sensitivity_scale_ladder`
    * - How are geology, hydraulic properties, or forcing mapped to cells?
      - :doc:`../solvers/field-to-cell-parameter-transfer`
      - :doc:`/capability_gallery/hydraulic_properties`
@@ -107,16 +110,18 @@ Recommended Reading Order
 For a new mesh-related question, read in this order:
 
 1. :doc:`../solvers/mesh-and-discretization-strategies`
-2. :doc:`../solvers/field-to-cell-parameter-transfer`
-3. :doc:`../solvers/mesh-quality-and-acceptance-criteria`
-4. :doc:`/capability_gallery/mesh`
-5. One concrete case page, such as
+2. :doc:`regular-vs-irregular-meshes`
+3. :doc:`../solvers/field-to-cell-parameter-transfer`
+4. :doc:`../solvers/mesh-quality-and-acceptance-criteria`
+5. :doc:`/capability_gallery/mesh`
+6. One concrete case page, such as
    :doc:`/capability_gallery/cases/mesh_quality_diagnostics_naizin_10km2`
 
 .. toctree::
    :maxdepth: 2
 
    Mesh and discretization strategies <../solvers/mesh-and-discretization-strategies>
+   Regular and irregular mesh cell budgets <regular-vs-irregular-meshes>
    Field-to-cell parameter transfer <../solvers/field-to-cell-parameter-transfer>
    Mesh quality and acceptance criteria <../solvers/mesh-quality-and-acceptance-criteria>
    Vertical representation and storage assumptions <../solvers/vertical-representation-and-storage-assumptions>
