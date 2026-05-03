@@ -15,12 +15,21 @@ def test_display_import_does_not_mutate_rcparams() -> None:
     import matplotlib
 
     before = dict(matplotlib.rcParams)
+    display_modules = {
+        name: module for name, module in sys.modules.items() if name.startswith("hydromodpy.display")
+    }
 
-    # Force a fresh import to exercise the module-level code paths.
-    for mod in list(sys.modules):
-        if mod.startswith("hydromodpy.display"):
-            del sys.modules[mod]
-    importlib.import_module("hydromodpy.display")
+    try:
+        # Force a fresh import to exercise the module-level code paths.
+        for mod in list(sys.modules):
+            if mod.startswith("hydromodpy.display"):
+                del sys.modules[mod]
+        importlib.import_module("hydromodpy.display")
+    finally:
+        for mod in list(sys.modules):
+            if mod.startswith("hydromodpy.display"):
+                del sys.modules[mod]
+        sys.modules.update(display_modules)
 
     after = dict(matplotlib.rcParams)
     changed = {k: (before.get(k), after.get(k)) for k in after if before.get(k) != after.get(k)}
