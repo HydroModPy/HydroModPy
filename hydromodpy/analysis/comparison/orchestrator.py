@@ -19,6 +19,8 @@ from hydromodpy.analysis.comparison.exports import (
     write_hydrographic_network_metrics_export,
     write_native_timeseries_exports,
     write_observable_chronicle_exports,
+    write_simulated_active_network_metrics_export,
+    write_simulated_active_network_overlap_metrics_export,
 )
 from hydromodpy.analysis.comparison.metric_diff import (
     DETAIL_METRIC_FIELDS,
@@ -190,6 +192,20 @@ class MethodComparisonLauncher:
             variant_summaries=variant_summaries,
         )
         data_artifacts.extend(hydrographic_artifacts)
+        active_artifacts, _active_rows = write_simulated_active_network_metrics_export(
+            comparison_id=str(section.comparison_id),
+            comparison_root=comparison_root,
+            variant_summaries=variant_summaries,
+        )
+        data_artifacts.extend(active_artifacts)
+        active_overlap_artifacts, _active_overlap_rows = (
+            write_simulated_active_network_overlap_metrics_export(
+                comparison_id=str(section.comparison_id),
+                comparison_root=comparison_root,
+                variant_summaries=variant_summaries,
+            )
+        )
+        data_artifacts.extend(active_overlap_artifacts)
         budget_artifacts, budget_rows = write_budget_exports(
             comparison_root=comparison_root,
             variant_summaries=variant_summaries,

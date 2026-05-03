@@ -11,6 +11,10 @@ from typing import Any
 
 import numpy as np
 
+from hydromodpy.core.field_routing import (
+    drain_budget_to_positive_outflow,
+    find_drain_budget_key,
+)
 from hydromodpy.core.logging import get_logger
 
 logger = get_logger(__name__)
@@ -66,18 +70,25 @@ def _drn_budget_field(store: Any, sim_id: str, timestep: int) -> np.ndarray:
         budget = sz.root.get("budget")
         if budget is None:
             raise KeyError("No budget spatial fields stored - enable budget.spatial_fields")
-        for key in ("drn", "drain", "drains"):
-            if key in budget:
-                return np.asarray(budget[key][timestep], dtype="float64")
+        key = find_drain_budget_key(budget)
+        if key is not None:
+            return np.asarray(budget[key][timestep], dtype="float64")
         raise KeyError("No drain budget field (DRN/DRAINS) in store")
     finally:
         sz.close()
 
 
 def _outflow_drain(store: Any, sim_id: str, timestep: int) -> np.ndarray:
-    """Per-cell drain outflow (signed), summed over layers."""
+    """Positive per-cell drain outflow summed over layers."""
     drn = _drn_budget_field(store, sim_id, timestep)
-    return drn.sum(axis=0) if drn.ndim == 2 else drn
+    n_cells = None
+    try:
+        head = store.query_field(sim_id, "head", timestep)
+    except Exception:
+        head = None
+    if head is not None:
+        n_cells = int(np.asarray(head).shape[-1])
+    return drain_budget_to_positive_outflow(drn, n_cells=n_cells)
 
 
 # Registry: variable name -> computation function(store, sim_id, timestep)
