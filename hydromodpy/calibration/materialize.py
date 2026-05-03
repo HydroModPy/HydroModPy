@@ -7,28 +7,33 @@ rewrites each configured parameter at its target dotted path (honouring
 session, which makes it the natural hand-off for sharing the best
 candidate of a session or replaying a single trial.
 
-The overlay is rendered through :mod:`hydromodpy.core.config.toml_write`
+The overlay is rendered through :mod:`hydromodpy.core.toml_io.writer`
 so the output remains valid TOML and round-trips through :mod:`tomllib`
 even in lightweight environments where external TOML writer packages are
 not installed. The ``base_config`` argument accepts either a path to a
-TOML file on disk or an in-memory
-:class:`~hydromodpy.core.config.HydroModPyConfig` instance; the latter is
-useful when the calibration loop is driven from Python code.
+TOML file on disk or an in-memory ``HydroModPyConfig`` Pydantic instance;
+the latter is useful when the calibration loop is driven from Python
+code. The Pydantic class is reached through the
+``RootConfigProvider`` Protocol declared in
+:mod:`hydromodpy.core.config_kit.root_config_protocol` so this module
+keeps the layer matrix ``calibration -> master_config`` edge at zero.
 """
 
 from __future__ import annotations
 
 import re
-import tomllib
 from collections.abc import Mapping, Sequence
+from copy import deepcopy
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 from hydromodpy.calibration.parameters import ParameterSpace
-from hydromodpy.core.config.toml_write import dump as dump_toml
+from hydromodpy.core.config_kit.root_config_protocol import get_root_config_provider
+from hydromodpy.core.toml_io.loader import load_toml_with_base_config
+from hydromodpy.core.toml_io.writer import dump as dump_toml
 
 if TYPE_CHECKING:
-    from hydromodpy.core.config.hydromodpy_config import HydroModPyConfig
+    from pydantic import BaseModel
 
 
 def _sanitize_label(label: str) -> str:
@@ -62,6 +67,26 @@ def _assign_nested(payload: dict[str, Any], dotted: Sequence[str], value: Any) -
             cursor[part] = sub
         cursor = sub
     cursor[dotted[-1]] = value
+
+
+def _resolve_overlay_target_path(
+    base_payload: Mapping[str, Any],
+    dotted: Sequence[str],
+) -> tuple[str, ...]:
+    """Map canonical parameter paths onto the source TOML grammar."""
+    if len(dotted) < 4 or tuple(dotted[:2]) != ("flow", "param"):
+        return tuple(dotted)
+    param_payload = _lookup_nested(base_payload, dotted[:3])
+    if not isinstance(param_payload, Mapping):
+        return tuple(dotted)
+
+    field_name = dotted[3]
+    tail = tuple(dotted[4:])
+    if field_name == "value" and isinstance(param_payload.get("field_homogeneous"), Mapping):
+        return tuple(dotted[:3]) + ("field_homogeneous", "value") + tail
+    if field_name == "values" and isinstance(param_payload.get("field_heterogeneous"), Mapping):
+        return tuple(dotted[:3]) + ("field_heterogeneous", "values") + tail
+    return tuple(dotted)
 
 
 def _coerce_for_toml(value: Any) -> Any:
@@ -105,25 +130,25 @@ def write_overlay_toml(path: Path, payload: Mapping[str, Any]) -> None:
 
 
 def _load_base_payload(
-    base_config: Path | str | HydroModPyConfig,
+    base_config: Path | str | BaseModel,
 ) -> tuple[dict[str, Any], Path | None]:
     """Resolve ``base_config`` into a dict payload and an optional source path.
 
-    A :class:`HydroModPyConfig` is dumped through ``model_dump`` (alias
-    aware) so the rendered overlay matches the TOML schema. A path is
-    parsed via :mod:`tomllib`. ``base_path`` is ``None`` when the caller
-    passed an in-memory config without a backing file.
+    A ``HydroModPyConfig`` instance (or any Pydantic ``BaseModel``) is
+    dumped through ``model_dump`` (alias aware) so the rendered overlay
+    matches the TOML schema. A path is parsed via :mod:`tomllib`.
+    ``base_path`` is ``None`` when the caller passed an in-memory config
+    without a backing file.
     """
-    from hydromodpy.core.config.hydromodpy_config import HydroModPyConfig
+    root_cls = get_root_config_provider().root_model()
 
-    if isinstance(base_config, HydroModPyConfig):
+    if isinstance(base_config, root_cls):
         payload = base_config.model_dump(mode="json", by_alias=True, exclude_none=True)
         return payload, None
     base_path = Path(base_config).expanduser().resolve()
     if not base_path.is_file():
         raise FileNotFoundError(f"base_config not found: {base_path}")
-    with open(base_path, "rb") as f:
-        return tomllib.load(f), base_path
+    return load_toml_with_base_config(base_path), base_path
 
 
 def _apply_parameter_mode(
@@ -161,7 +186,7 @@ def _format_path_for_overlay(path: Path, base_dir: Path | None) -> str:
 
 
 def materialize_candidate(
-    base_config: Path | str | HydroModPyConfig,
+    base_config: Path | str | BaseModel,
     params: Mapping[str, float],
     space: ParameterSpace,
     out_dir: Path | str,
@@ -179,10 +204,10 @@ def materialize_candidate(
     ----------
     base_config
         Path to the target simulation TOML or an in-memory
-        :class:`~hydromodpy.core.config.HydroModPyConfig` instance. When a
-        config object is passed, the overlay is built from
-        ``model_dump`` and ``base_config`` in the overlay falls back to
-        ``base_dir`` (when supplied) so the file remains rechargeable.
+        ``HydroModPyConfig`` instance (any Pydantic ``BaseModel`` returned
+        by the installed ``RootConfigProvider``). When a config object is
+        passed, the rendered TOML is complete and does not rely on a
+        ``base_config`` pointer.
     params
         Candidate values keyed by parameter name (must cover every
         parameter in ``space`` that has a ``target`` or ``path``).
@@ -230,15 +255,19 @@ def materialize_candidate(
     overlay_path = candidate_dir / "candidate_override.toml"
 
     base_dir_resolved = Path(base_dir).expanduser().resolve() if base_dir is not None else None
+    if base_path is None and base_dir_resolved is None:
+        raise ValueError(
+            "materialize_candidate requires base_dir when base_config is an in-memory config"
+        )
 
-    overlay: dict[str, Any] = {}
+    overlay: dict[str, Any] = deepcopy(base_raw) if base_path is None else {}
     if base_path is not None:
         overlay["base_config"] = _format_path_for_overlay(base_path, base_dir_resolved)
-    elif base_dir_resolved is not None:
-        overlay["base_config"] = str(base_dir_resolved)
 
     if run_id is not None:
-        overlay["simulation"] = {"run_id": str(run_id)}
+        simulation_section = dict(overlay.get("simulation", {}))
+        simulation_section["run_id"] = str(run_id)
+        overlay["simulation"] = simulation_section
 
     workspace_section: dict[str, Any] = dict(base_raw.get("workspace", {}))
     if workspace_root is not None:
@@ -261,14 +290,15 @@ def materialize_candidate(
         if param.name not in params:
             raise ValueError(f"Parameter {param.name!r} missing from candidate params mapping")
         dotted = _split_target_path(target)
-        base_value = _lookup_nested(base_raw, dotted)
+        overlay_dotted = _resolve_overlay_target_path(base_raw, dotted)
+        base_value = _lookup_nested(base_raw, overlay_dotted)
         resolved = _apply_parameter_mode(
             base_value=base_value,
             candidate_value=float(params[param.name]),
             mode=str(param.mode),
             param_name=param.name,
         )
-        _assign_nested(overlay, dotted, resolved)
+        _assign_nested(overlay, overlay_dotted, resolved)
 
     if extra_sections:
         for section_name, section_payload in extra_sections.items():

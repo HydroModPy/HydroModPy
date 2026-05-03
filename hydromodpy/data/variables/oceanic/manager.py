@@ -5,7 +5,7 @@ from __future__ import annotations
 from datetime import datetime
 from pathlib import Path
 
-from hydromodpy.data.base_manager import BaseFieldManager
+from hydromodpy.data.base_manager_field import BaseFieldManager
 from hydromodpy.data.variables.oceanic.config import OceanicConfig, OceanicSourceConfig
 
 

@@ -23,12 +23,14 @@ def test_extract_catchment_from_point_rejects_empty_snapped_outlet(
         "hydromodpy.spatial.geographic.core.catchment_from_point.ensure_crs",
         lambda *args, **kwargs: None,
     )
-    monkeypatch.setattr(backend, "read_vector", lambda path: _DummyVector([object()]))
+    monkeypatch.setattr(backend.raster, "read_vector", lambda path: _DummyVector([object()]))
     monkeypatch.setattr(
-        backend, "snap_pour_points_vector", lambda *args, **kwargs: _DummyVector([])
+        backend.delineation,
+        "snap_pour_points_vector",
+        lambda *args, **kwargs: _DummyVector([]),
     )
     monkeypatch.setattr(
-        backend,
+        backend.raster,
         "write_vector",
         lambda *args, **kwargs: (_ for _ in ()).throw(
             AssertionError("write_vector should not be called")
@@ -61,24 +63,24 @@ def test_extract_catchment_from_point_rejects_empty_watershed_polygon(
         "hydromodpy.spatial.geographic.core.catchment_from_point.ensure_crs",
         lambda *args, **kwargs: None,
     )
-    monkeypatch.setattr(backend, "read_vector", lambda path: _DummyVector([object()]))
+    monkeypatch.setattr(backend.raster, "read_vector", lambda path: _DummyVector([object()]))
     monkeypatch.setattr(
-        backend,
+        backend.delineation,
         "snap_pour_points_vector",
         lambda *args, **kwargs: _DummyVector([object()]),
     )
-    monkeypatch.setattr(backend, "watershed_raster", lambda *args, **kwargs: object())
+    monkeypatch.setattr(backend.delineation, "watershed_raster", lambda *args, **kwargs: object())
     monkeypatch.setattr(
-        backend,
+        backend.delineation,
         "raster_to_vector_polygons_raster",
         lambda *args, **kwargs: _DummyVector([]),
     )
-    monkeypatch.setattr(backend, "write_raster", lambda *args, **kwargs: None)
+    monkeypatch.setattr(backend.raster, "write_raster", lambda *args, **kwargs: None)
 
     def _fake_write_vector(vector, path: str) -> None:
         write_targets.append(str(path))
 
-    monkeypatch.setattr(backend, "write_vector", _fake_write_vector)
+    monkeypatch.setattr(backend.raster, "write_vector", _fake_write_vector)
 
     with pytest.raises(ValueError, match="Watershed delineation produced an empty polygon"):
         extract_catchment_from_point(

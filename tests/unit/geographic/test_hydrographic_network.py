@@ -204,10 +204,17 @@ def test_geographic_derived_features_can_attach_reference_network(tmp_path: Path
 
 
 def test_canonical_feature_names_are_role_specific():
-    assert canonical_feature_name_for_role("reference") == HYDROGRAPHIC_NETWORK_REFERENCE_FEATURE_NAME
-    assert canonical_feature_name_for_role("generated") == HYDROGRAPHIC_NETWORK_GENERATED_FEATURE_NAME
+    assert (
+        canonical_feature_name_for_role("reference") == HYDROGRAPHIC_NETWORK_REFERENCE_FEATURE_NAME
+    )
+    assert (
+        canonical_feature_name_for_role("generated") == HYDROGRAPHIC_NETWORK_GENERATED_FEATURE_NAME
+    )
     assert canonical_feature_name_for_role("mesh_constraint") is None
-    assert legacy_feature_name_for_role("generated") == HYDROGRAPHIC_NETWORK_GENERATED_LEGACY_FEATURE_NAME
+    assert (
+        legacy_feature_name_for_role("generated")
+        == HYDROGRAPHIC_NETWORK_GENERATED_LEGACY_FEATURE_NAME
+    )
     assert default_vector_filename_for_role("reference") == "streams.shp"
     assert default_vector_filename_for_role("generated") == "river_network.shp"
     contract = hydrographic_network_naming_contract("reference")

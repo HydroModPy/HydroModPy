@@ -107,7 +107,7 @@ def main(schema_dir: Path = DEFAULT_SCHEMA_DIR) -> None:  # pragma: no cover - U
 
     tabs = st.tabs([s["name"] for s in sections])
     values: dict[str, dict[str, Any]] = {}
-    for tab, section in zip(tabs, sections):
+    for tab, section in zip(tabs, sections, strict=True):
         with tab:
             st.subheader(section.get("title", section["name"]))
             if section.get("description"):

@@ -1,7 +1,7 @@
 Project vs Run
 ==============
 
-HydroModPy v0.6 names every object in the hierarchy explicitly so the API
+HydroModPy v1 names every object in the hierarchy explicitly so the API
 stops overloading the word "simulation".
 
 Three levels
@@ -66,12 +66,12 @@ CLI equivalents
 | ``hmp display``     | ``hmp.open(ws)[sim_id].plot(...)``        |
 +---------------------+-------------------------------------------+
 
-Migration from v0.5
--------------------
+Migration from pre-v1 APIs
+--------------------------
 
 The v0.5 names ``Simulation`` (in ``hydromodpy.project``) and
 ``SimulationView`` (in ``hydromodpy.results.simulation``) are removed in
-v0.6. Update imports:
+v1. Update imports:
 
 .. code-block:: diff
 

@@ -36,26 +36,47 @@ def write_shapefile_without_duplicate_columns(src_path: str | Path, dst_path: st
     gdf.to_file(dst_path)
 
 
+def resolve_delineation_backend(backend: object | None = None) -> object:
+    """Return the injected backend or the default delineation registry entry."""
+    if backend is not None:
+        return backend
+    from hydromodpy.spatial.delineation import get_backend
+
+    return get_backend()
+
+
+def backend_has_callables(backend: object, component_name: str, *method_names: str) -> bool:
+    """Return true when one backend component exposes all named methods."""
+    component = getattr(backend, component_name, None)
+    if component is None:
+        return False
+    return all(callable(getattr(component, method_name, None)) for method_name in method_names)
+
+
 def read_raster_data_and_meta(path: str | Path) -> tuple:
-    """Read raster data + metadata from whitebox cache or disk.
+    """Read raster data + metadata from backend cache or disk.
 
     Returns ``(data, transform_gdal, nodata, crs_string)``.
     ``transform_gdal`` is a 6-element GDAL-style geotransform tuple.
     """
 
     path_str = str(path)
-    from hydromodpy.spatial.delineation import get_whitebox_backend
-
-    wb = get_whitebox_backend()
-    data = wb.get_cached_raster_numpy(path_str)
-    if data is not None:
-        meta = wb.get_cached_raster_metadata(path_str)
-        t = meta["transform"]  # (res_x, 0, west, 0, -res_y, north)
-        # Convert to GDAL geotransform: (west, res_x, 0, north, 0, -res_y)
-        gdal_transform = (t[2], t[0], 0.0, t[5], 0.0, -t[4])
-        nodata = meta["nodata"]
-        crs = str(meta.get("crs", ""))
-        return data, gdal_transform, nodata, crs
+    backend = resolve_delineation_backend()
+    raster_backend = getattr(backend, "raster", None)
+    if raster_backend is not None and backend_has_callables(
+        backend,
+        "raster",
+        "get_cached_raster_numpy",
+        "get_cached_raster_metadata",
+    ):
+        data = raster_backend.get_cached_raster_numpy(path_str)
+        if data is not None:
+            meta = raster_backend.get_cached_raster_metadata(path_str)
+            t = meta["transform"]  # (res_x, 0, west, 0, -res_y, north)
+            gdal_transform = (t[2], t[0], 0.0, t[5], 0.0, -t[4])
+            nodata = meta["nodata"]
+            crs = str(meta.get("crs", ""))
+            return data, gdal_transform, nodata, crs
 
     with rasterio.open(path_str) as src:
         data = src.read(1)

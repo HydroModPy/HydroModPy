@@ -163,8 +163,8 @@ def test_components_dict_is_merged_from_all_blocks() -> None:
     assert len(total_keys) == 2
 
 
-def test_transform_log_flips_near_zero_costs_into_large_values() -> None:
-    """``transform="log"`` maps near-zero costs into large positive values."""
+def test_transform_log_keeps_minimization_order() -> None:
+    """``transform="log"`` preserves lower-is-better ordering."""
     # Build two identity-fit blocks (costs near zero after metric).
     obs = np.array([1.0, 2.0, 3.0, 4.0, 5.0])
     sim_values = obs.copy()
@@ -177,29 +177,25 @@ def test_transform_log_flips_near_zero_costs_into_large_values() -> None:
     identity_total = identity_composite.evaluate(sim).total
     assert identity_total == pytest.approx(0.0, abs=1.0e-12)
 
-    # log transform: -log10(cost + eps) with eps=1e-6 and cost~0 => ~6.0
     log_composite = CompositeObjective([(block, 1.0)], transform="log")
     log_total = log_composite.evaluate(sim).total
-    assert log_total > 5.0  # much larger than the raw identity cost (~0)
     assert math.isfinite(log_total)
 
-    # With a larger cost (worse fit), the log-transformed total should be
-    # smaller than the near-zero-cost log total.
     bad_block = ScalarObjective(_make_obs("A", obs), metric="rmse")
     bad_sim = _make_sim({"A": obs + 10.0})
     bad_log_total = CompositeObjective([(bad_block, 1.0)], transform="log").evaluate(bad_sim).total
-    assert bad_log_total < log_total
+    assert log_total < bad_log_total
 
 
-def test_transform_inverse_also_flips_small_costs() -> None:
-    """``transform="inverse"`` similarly inflates near-zero costs."""
+def test_transform_inverse_keeps_minimization_order() -> None:
+    """``transform="inverse"`` preserves lower-is-better ordering."""
     obs = np.array([1.0, 2.0, 3.0, 4.0, 5.0])
     block = ScalarObjective(_make_obs("A", obs), metric="rmse")
     sim = _make_sim({"A": obs.copy()})  # perfect fit -> cost ~0
 
     inverse_composite = CompositeObjective([(block, 1.0)], transform="inverse")
-    # 1 / (0 + 1e-6) = 1e6
-    assert inverse_composite.evaluate(sim).total > 1.0e5
+    bad_sim = _make_sim({"A": obs + 10.0})
+    assert inverse_composite.evaluate(sim).total < inverse_composite.evaluate(bad_sim).total
 
 
 # ---------------------------------------------------------------------------

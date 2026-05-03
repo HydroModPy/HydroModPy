@@ -2,13 +2,48 @@
 
 from __future__ import annotations
 
-import logging
 from pathlib import Path
 from typing import Any
 
 import numpy as np
 
-logger = logging.getLogger(__name__)
+from hydromodpy.core.logging import get_logger
+
+logger = get_logger(__name__)
+
+_TIME_UNIT_SECONDS: dict[str, float] = {
+    "UNKNOWN": 1.0,
+    "SECONDS": 1.0,
+    "MINUTES": 60.0,
+    "HOURS": 3600.0,
+    "DAYS": 86400.0,
+    "YEARS": 31557600.0,
+}
+
+
+def _read_time_units(tdis_path: Path) -> str:
+    """Return the MF6 TDIS TIME_UNITS option."""
+    if not tdis_path.is_file():
+        return "SECONDS"
+    try:
+        with tdis_path.open("r", encoding="utf-8") as fh:
+            for raw in fh:
+                tokens = raw.strip().split()
+                if len(tokens) >= 2 and tokens[0].upper() == "TIME_UNITS":
+                    return tokens[1].upper()
+    except OSError:
+        return "SECONDS"
+    return "SECONDS"
+
+
+def _write_time_coordinate(store: Any, sim_id: str, times: list[float], time_units: str) -> None:
+    """Persist solver times as CF seconds since epoch."""
+    writer = getattr(store, "write_time", None)
+    if writer is None:
+        raise TypeError("Simulation store must implement write_time().")
+    factor = _TIME_UNIT_SECONDS.get(time_units.upper(), 1.0)
+    values = np.rint(np.asarray(times, dtype=float) * factor).astype("int64")
+    writer(sim_id, values)
 
 
 class Modflow6OutputAdapter:
@@ -47,6 +82,10 @@ class Modflow6OutputAdapter:
         times = head_file.get_times()
         kstpkpers = head_file.get_kstpkper()
         n_timesteps = len(times)
+        tdis_path = solver_output_dir / f"{model_name}.tdis"
+        if not tdis_path.is_file():
+            tdis_path = next(iter(solver_output_dir.glob("*.tdis")), tdis_path)
+        _write_time_coordinate(store, sim_id, times, _read_time_units(tdis_path))
 
         head0 = head_file.get_data(totim=times[0])
         grid_shape: tuple[int, int] | None = None
@@ -71,7 +110,7 @@ class Modflow6OutputAdapter:
 
         for t, time in enumerate(times):
             head = head_file.get_data(totim=time)
-            values = head.reshape(nlay, n_cells)
+            values = head.reshape(nlay, n_cells) if head.ndim == 3 else head.reshape(nlay, n_cells)
             values = values.astype("float64")
             values[np.abs(values) > 1e20] = np.nan
             store.write_field(
@@ -162,8 +201,6 @@ class Modflow6OutputAdapter:
                         "component": component.lower().strip(),
                         "flux_in": flux_in,
                         "flux_out": abs(flux_out),
-                        # HydroModPy writes MODFLOW 6 TDIS in seconds and
-                        # converts hydraulic inputs to SI before assembly.
                         "unit": "m3/s",
                     }
                 )
@@ -324,35 +361,50 @@ class Modflow6OutputAdapter:
                 if geometry is not None:
                     vertices, face_node_connectivity = geometry
 
-            grp = store.open_zarr_group(sim_id)
-            if "mesh" not in grp:
-                grp.create_group("mesh")
-            mesh = grp["mesh"]
-            if vertices is not None and face_node_connectivity is not None:
-                mesh.create_array("vertices", data=vertices.astype("float64"), overwrite=True)
-                mesh.create_array(
-                    "face_node_connectivity",
-                    data=face_node_connectivity.astype("int32"),
-                    overwrite=True,
-                )
-            mesh.create_array("z_interfaces", data=z_flat, overwrite=True)
-            mesh.create_array("surface_top", data=top, overwrite=True)
-            mesh.attrs["n_cells"] = int(n_cells)
-            mesh.attrs["n_layers"] = int(nlay)
-            if grid_type:
-                mesh.attrs["grid_type"] = grid_type
-            structured_shape = self._structured_shape_from_vertices(vertices, n_cells=n_cells)
-            if (
-                structured_shape is None
-                and grid_shape is not None
-                and int(grid_shape[0]) * int(grid_shape[1]) == int(n_cells)
-            ):
-                structured_shape = (int(grid_shape[0]), int(grid_shape[1]))
-            if structured_shape is not None:
-                mesh.attrs["structured_shape"] = [
-                    int(structured_shape[0]),
-                    int(structured_shape[1]),
-                ]
+            sz = store.open_zarr(sim_id)
+            try:
+                mesh = sz.root.require_group("mesh")
+                if vertices is not None and face_node_connectivity is not None:
+                    mesh.create_array(
+                        "vertices",
+                        data=vertices.astype("float64"),
+                        overwrite=True,
+                    )
+                    mesh.create_array(
+                        "face_node_connectivity",
+                        data=face_node_connectivity.astype("int32"),
+                        overwrite=True,
+                    )
+                    topology = mesh.create_array(
+                        "topology",
+                        data=np.zeros((), dtype="int32"),
+                        overwrite=True,
+                    )
+                    topology.attrs["cf_role"] = "mesh_topology"
+                    topology.attrs["long_name"] = "UGRID 2D topology of the simulation mesh"
+                    topology.attrs["topology_dimension"] = 2
+                    topology.attrs["node_coordinates"] = "vertices"
+                    topology.attrs["face_node_connectivity"] = "face_node_connectivity"
+                mesh.create_array("z_interfaces", data=z_flat, overwrite=True)
+                mesh.create_array("surface_top", data=top, overwrite=True)
+                mesh.attrs["n_cells"] = int(n_cells)
+                mesh.attrs["n_layers"] = int(nlay)
+                if grid_type:
+                    mesh.attrs["grid_type"] = grid_type
+                structured_shape = self._structured_shape_from_vertices(vertices, n_cells=n_cells)
+                if (
+                    structured_shape is None
+                    and grid_shape is not None
+                    and int(grid_shape[0]) * int(grid_shape[1]) == int(n_cells)
+                ):
+                    structured_shape = (int(grid_shape[0]), int(grid_shape[1]))
+                if structured_shape is not None:
+                    mesh.attrs["structured_shape"] = [
+                        int(structured_shape[0]),
+                        int(structured_shape[1]),
+                    ]
+            finally:
+                sz.close()
         except Exception:
             logger.debug("Could not write surface elevation for sim %s", sim_id, exc_info=True)
 
@@ -368,8 +420,11 @@ class Modflow6OutputAdapter:
         if verts is not None and iverts is not None:
             vertices = np.asarray(verts, dtype="float64")
             if vertices.ndim == 2 and vertices.shape[1] == 2:
-                vertices = np.column_stack([vertices, np.zeros(vertices.shape[0], dtype="float64")])
-            connectivity = Modflow6OutputAdapter._padded_face_connectivity(iverts, n_cells=n_cells)
+                vertices = np.column_stack([vertices, np.zeros(vertices.shape[0])])
+            connectivity = Modflow6OutputAdapter._padded_face_connectivity(
+                iverts,
+                n_cells=n_cells,
+            )
             if connectivity is not None:
                 return vertices, connectivity
 
@@ -393,8 +448,7 @@ class Modflow6OutputAdapter:
                 np.zeros(xvertices.size, dtype="float64"),
             ]
         )
-        face_node_connectivity = Modflow6OutputAdapter._structured_face_connectivity(nrow, ncol)
-        return vertices, face_node_connectivity
+        return vertices, Modflow6OutputAdapter._structured_face_connectivity(nrow, ncol)
 
     @staticmethod
     def _padded_face_connectivity(

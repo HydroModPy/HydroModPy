@@ -88,6 +88,14 @@ def build_optimizer(name: str, space, **kwargs) -> Optimizer:
     raise KeyError(f"Unknown optimizer: {name!r}. Available built-ins: {sorted(_BUILTIN)}")
 
 
+def available_optimizers() -> tuple[str, ...]:
+    """Return registered optimizer names, including installed entry points."""
+    _ensure_builtins_loaded()
+    names = set(_BUILTIN)
+    names.update(ep.name for ep in entry_points(group="hydromodpy.optimizer"))
+    return tuple(sorted(names))
+
+
 _LOADED = False
 
 
@@ -103,12 +111,12 @@ def _ensure_builtins_loaded() -> None:
         return
 
     import importlib
-    import logging
     import pkgutil
 
     from hydromodpy.calibration import adapters
+    from hydromodpy.core.logging import get_logger
 
-    logger = logging.getLogger(__name__)
+    logger = get_logger(__name__)
     for module_info in pkgutil.iter_modules(adapters.__path__):
         name = module_info.name
         if name.startswith("_"):

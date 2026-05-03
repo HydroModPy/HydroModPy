@@ -52,7 +52,6 @@ EXACT_RULES = {
     "hydromodpy/calibration/cli.py": "orchestration",
     "hydromodpy/calibration/persistence.py": "results",
     "hydromodpy/calibration/report.py": "visualization",
-    "hydromodpy/results/display.py": "visualization",
 }
 
 PREFIX_RULES = [
@@ -89,7 +88,6 @@ PREFIX_RULES = [
     ("hydromodpy/core/", "orchestration"),
     ("hydromodpy/config/", "orchestration"),
     ("hydromodpy/schema/", "orchestration"),
-    ("hydromodpy/_cli/", "orchestration"),
     ("hydromodpy/runners/", "orchestration"),
     ("hydromodpy/watershed/", "orchestration"),
     ("hydromodpy/launchers/", "orchestration"),
@@ -124,7 +122,9 @@ def _iter_days(start: date, end: date):
 
 
 def _commit_before(day: date) -> str:
-    return _git_text("rev-list", "--first-parent", "-n", "1", f"--before={day.isoformat()} 23:59:59", "HEAD")
+    return _git_text(
+        "rev-list", "--first-parent", "-n", "1", f"--before={day.isoformat()} 23:59:59", "HEAD"
+    )
 
 
 def _short_sha(commit: str) -> str:
@@ -175,7 +175,9 @@ def _snapshot_category_counts(commit: str) -> dict[str, int]:
 
 def _head_file_assignments(commit: str) -> list[dict[str, str | int]]:
     tree_text = _git_text("ls-tree", "-r", "--name-only", commit)
-    grep_result = _git("grep", "-I", "--count", "-e", ".", commit, "--", PYTHON_PATHSPEC, check=False)
+    grep_result = _git(
+        "grep", "-I", "--count", "-e", ".", commit, "--", PYTHON_PATHSPEC, check=False
+    )
     if grep_result.returncode not in (0, 1):
         raise RuntimeError(grep_result.stderr.strip() or "git grep failed")
 
@@ -278,7 +280,9 @@ def _plot_stacked_area(
     )
     handles, legend_labels = ax.get_legend_handles_labels()
     handles_pct, labels_pct = ax_pct.get_legend_handles_labels()
-    ax.legend(handles + handles_pct, legend_labels + labels_pct, loc="upper left", ncol=2, fontsize=9)
+    ax.legend(
+        handles + handles_pct, legend_labels + labels_pct, loc="upper left", ncol=2, fontsize=9
+    )
     ax.text(
         0.99,
         0.02,
@@ -308,7 +312,9 @@ def _plot_delta_bars(
     plt.style.use("seaborn-v0_8-whitegrid")
     fig, ax = plt.subplots(figsize=(11.5, 6.5))
 
-    ordered_rows = sorted(summary_rows, key=lambda row: abs(int(row["delta_nonblank_lines"])), reverse=True)
+    ordered_rows = sorted(
+        summary_rows, key=lambda row: abs(int(row["delta_nonblank_lines"])), reverse=True
+    )
     y_labels = [str(row["category_label"]) for row in ordered_rows]
     delta_values = [int(row["delta_nonblank_lines"]) for row in ordered_rows]
     colors = [CATEGORY_BY_KEY[str(row["category_key"])].color for row in ordered_rows]
@@ -518,7 +524,9 @@ def main(argv: list[str] | None = None) -> int:
     _write_csv(daily_csv_path, daily_rows)
     _write_csv(head_files_csv_path, head_file_rows)
     _write_csv(summary_csv_path, summary_rows)
-    _plot_stacked_area(path_png=area_png_path, path_svg=area_svg_path, daily_rows=daily_rows, title=args.title)
+    _plot_stacked_area(
+        path_png=area_png_path, path_svg=area_svg_path, daily_rows=daily_rows, title=args.title
+    )
     _plot_delta_bars(
         path_png=delta_png_path,
         path_svg=delta_svg_path,
@@ -549,7 +557,9 @@ def main(argv: list[str] | None = None) -> int:
         "delta_svg": str(delta_svg_path),
         "markdown_summary": str(summary_md_path),
     }
-    summary_json_path.write_text(json.dumps(summary_payload, indent=2, ensure_ascii=False), encoding="utf-8")
+    summary_json_path.write_text(
+        json.dumps(summary_payload, indent=2, ensure_ascii=False), encoding="utf-8"
+    )
     _build_markdown_summary(
         path=summary_md_path,
         start=start,

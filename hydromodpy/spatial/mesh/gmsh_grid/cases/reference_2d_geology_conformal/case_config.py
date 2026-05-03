@@ -6,9 +6,8 @@ from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
 
-from hydromodpy.core.config.toml_loader import load_toml_with_base_config
-from hydromodpy.data.variables.geology.config import validate_geology_config_data
-from hydromodpy.solver.utils._config_helpers import get_nested_section
+from hydromodpy.core.toml_io.loader import load_toml_with_base_config
+from hydromodpy.core.toml_io.paths import get_nested_section
 from hydromodpy.spatial.mesh.gmsh_grid import (
     parse_zone_meshing_domain_config,
     parse_zone_meshing_settings,
@@ -16,15 +15,16 @@ from hydromodpy.spatial.mesh.gmsh_grid import (
 from hydromodpy.spatial.mesh.gmsh_grid.cases.reference_2d_geology_conformal.contracts import (
     ZoneConformalCaseConfig,
     ZoneConformalConstraintFamilies,
-    ZoneConformalDomainConfig,
     ZoneConformalGeologyConfig,
     ZoneConformalRiversConfig,
     ZoneConformalWatershedBoundaryConfig,
     ZoneConformalWatershedBoundarySmoothingConfig,
     ZoneConformalWatershedGeologyConformityConfig,
     ZoneConformalWatershedOutsideCoarseningConfig,
-    ZoneConformalZoneMeshingConfig,
 )
+from hydromodpy.spatial.mesh.gmsh_grid.zone_meshing.config import ZoneMeshingSettings
+from hydromodpy.spatial.mesh.gmsh_grid.zone_meshing.domain import ZoneMeshingDomainConfig
+from hydromodpy.spatial.protocols import get_geology_data_source
 
 
 def _resolve_constraints_mode(raw_value: Any) -> str:
@@ -127,20 +127,20 @@ def _validate_rivers_case_config(
 
 def _validate_zone_meshing_case_config(
     config_data: Mapping[str, Any],
-) -> ZoneConformalZoneMeshingConfig:
+) -> ZoneMeshingSettings:
     return parse_zone_meshing_settings(config_data)
 
 
 def _validate_domain_case_config(
     config_data: Mapping[str, Any],
-) -> ZoneConformalDomainConfig:
+) -> ZoneMeshingDomainConfig:
     return parse_zone_meshing_domain_config(config_data)
 
 
 def _validate_geology_case_config(
     config_data: Mapping[str, Any],
 ) -> ZoneConformalGeologyConfig:
-    raw = validate_geology_config_data(dict(config_data))
+    raw = get_geology_data_source().validate_config(dict(config_data))
     return ZoneConformalGeologyConfig.from_mapping(raw)
 
 

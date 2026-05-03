@@ -14,16 +14,16 @@
 import os
 from pathlib import Path
 
+from hydromodpy.core.io.filesystem import create_folder
 from hydromodpy.core.logging import get_logger, setup_simulation_log
-from hydromodpy.core.tools.cache import get_cache_bin_dir
-from hydromodpy.core.tools.filesystem import create_folder
+from hydromodpy.core.state.cache import get_cache_bin_dir
 from hydromodpy.core.workspace.config import WorkspaceConfig
 from hydromodpy.core.workspace.path_registry import WorkspacePathRegistry
 
 logger = get_logger(__name__)
 
 
-def _resolve_bin_path() -> str:
+def resolve_bin_path() -> str:
     """Resolve the folder that holds solver executables.
 
     Resolution order:
@@ -64,4 +64,4 @@ class Workspace:
         self.figure_folder = self.paths.figures_folder
         self.solver_scratch_folder = self.paths.solver_scratch_folder
 
-        self.bin_path = _resolve_bin_path()
+        self.bin_path = resolve_bin_path()

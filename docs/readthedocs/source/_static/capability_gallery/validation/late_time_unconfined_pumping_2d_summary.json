@@ -12,7 +12,7 @@
     "initial condition: uniform `30.0 m`,",
     "forcing: one constant pumping well at the domain center,",
     "simulated observable: `watertable_elevation`.",
-    "Available solver variants: MODFLOW-NWT, MODFLOW 6, MODFLOW 6 irregular triangles, Boussinesq."
+    "Available solver variants: MODFLOW-NWT, MODFLOW 6, Boussinesq."
   ],
   "key_parameters": [],
   "how_to_read": [],
@@ -49,30 +49,26 @@
     "validation_cases/analytical/transient/late_time_unconfined_pumping_2d/tolerances.toml",
     "validation_cases/analytical/transient/late_time_unconfined_pumping_2d/tolerances_boussinesq.toml",
     "validation_cases/analytical/transient/late_time_unconfined_pumping_2d/tolerances_modflow6.toml",
-    "validation_cases/analytical/transient/late_time_unconfined_pumping_2d/tolerances_modflow6_irregular_tri.toml",
     "validation_cases/analytical/transient/late_time_unconfined_pumping_2d/config_modflow6.toml",
-    "validation_cases/analytical/transient/late_time_unconfined_pumping_2d/config_modflow6_irregular_tri.toml",
     "validation_cases/analytical/transient/late_time_unconfined_pumping_2d/config_boussinesq.toml",
     "validation_cases/analytical/transient/common.py"
   ],
   "source_hashes": {
-    "validation_cases/README.md": "6954bbc12c427d8f32dc4ec659fa99518dc972708789e988cd3b39b37b82dfe5",
+    "validation_cases/README.md": "1965de83b961f1ab4e38d8194d51342e1286d0c2e1b779188903b84e3fc26f1c",
     "validation_cases/analytical/transient/late_time_unconfined_pumping_2d/README.md": "55a843fb5b17193e6835cd1d3174b0fb02f9eaea87c06dcfbc03099dad7f7004",
     "validation_cases/analytical/transient/late_time_unconfined_pumping_2d/reference.py": "524653744a680e8e5b00d7beb3cb6f46ad0bb6e522f2a13e41dd9eb98a7b3309",
     "validation_cases/analytical/transient/late_time_unconfined_pumping_2d/comparison.py": "f67531328a2a9bf597f51af387ed28c9a4231481ed47ea069862988bf27b087c",
     "validation_cases/analytical/transient/late_time_unconfined_pumping_2d/plotting.py": "2e050cc2359df2ea58152cdcca8ef10d45aebcf5c1667b838f6123712bf500fd",
     "validation_cases/analytical/transient/late_time_unconfined_pumping_2d/run_case.py": "6fe6385c997dfd57ceac4aeff504a7156b7934c73878a2a8f1888eb74497b92a",
-    "validation_cases/analytical/transient/late_time_unconfined_pumping_2d/metadata.toml": "3f7d617acc0eae183acf41dea15a559eb413619ff88af89e4f0cd112d8c316a8",
+    "validation_cases/analytical/transient/late_time_unconfined_pumping_2d/metadata.toml": "ba40719562302373b90742fcd4250e3f9f4028bab3ed1aece4cadc2dd845ecad",
     "validation_cases/analytical/transient/late_time_unconfined_pumping_2d/config_modflownwt.toml": "8f63d8ebf052fc177fd82c6cbe843023c0b4083a5d8d7cb9cfd32691d89e3c09",
     "validation_cases/analytical/transient/late_time_unconfined_pumping_2d/runtime_boussinesq.py": "674b0463f9c70cd67c400593abf27ed0b5329298a4769f59aaa4111dc1fa0fb8",
     "validation_cases/analytical/transient/late_time_unconfined_pumping_2d/tolerances.toml": "b7276cbee88d869e8858d0e5b18cd98bcb6a76e195f9be8363e1c622d14c89db",
     "validation_cases/analytical/transient/late_time_unconfined_pumping_2d/tolerances_boussinesq.toml": "97213f43c2236d26f6477e1bb8b1c023c6460def5191886f9f74341333497680",
     "validation_cases/analytical/transient/late_time_unconfined_pumping_2d/tolerances_modflow6.toml": "1cea8b825d8b0b900e8b4766c8bb4b53b508e47a578609577b1d1aa95ec41175",
-    "validation_cases/analytical/transient/late_time_unconfined_pumping_2d/tolerances_modflow6_irregular_tri.toml": "847949abb4bcdaa11d37c2ff984315067bbd51ff859d0b438848d4f08050c6a5",
     "validation_cases/analytical/transient/late_time_unconfined_pumping_2d/config_modflow6.toml": "c2c4343a64f46d1f7e049897084e9202c440b1f0069156f2799072b925918758",
-    "validation_cases/analytical/transient/late_time_unconfined_pumping_2d/config_modflow6_irregular_tri.toml": "b911b8f4f9a5504e4aa6a27c58b6bfded706b3e590903b985360c21932b6763e",
     "validation_cases/analytical/transient/late_time_unconfined_pumping_2d/config_boussinesq.toml": "c343d4093712f5df9d92d3c3de19d3dbf161cabb733536ef93ce693c44ab4278",
-    "validation_cases/analytical/transient/common.py": "c73f809dd5d4e39f9a000a92ccebdf09a08c89e99cafb4c26ad2867b99d24e5f"
+    "validation_cases/analytical/transient/common.py": "2baa0bffe1859130e3594e4cfb2e238c2da0fe3acc050cd552470e345d73136d"
   },
   "docname": "cases/late_time_unconfined_pumping_2d",
   "images": [
@@ -91,7 +87,6 @@
     "solver_variants": [
       "modflownwt",
       "modflow6",
-      "modflow6_irregular_tri",
       "boussinesq"
     ],
     "solver_details": {
@@ -106,12 +101,6 @@
         "config_path": "validation_cases/analytical/transient/late_time_unconfined_pumping_2d/config_modflow6.toml",
         "expected_output": "Expected output: 30 periods, spatial shape 101 x 101",
         "tolerance_path": "validation_cases/analytical/transient/late_time_unconfined_pumping_2d/tolerances_modflow6.toml"
-      },
-      "modflow6_irregular_tri": {
-        "display_name": "MODFLOW 6 irregular triangles",
-        "config_path": "validation_cases/analytical/transient/late_time_unconfined_pumping_2d/config_modflow6_irregular_tri.toml",
-        "expected_output": "Expected output: 30 periods, spatial shape 101 x 101",
-        "tolerance_path": "validation_cases/analytical/transient/late_time_unconfined_pumping_2d/tolerances_modflow6_irregular_tri.toml"
       },
       "boussinesq": {
         "display_name": "Boussinesq",
@@ -145,7 +134,6 @@
     "image_repo_paths": [
       "docs/readthedocs/source/_static/capability_gallery/validation/late_time_unconfined_pumping_2d__modflownwt.png",
       "docs/readthedocs/source/_static/capability_gallery/validation/late_time_unconfined_pumping_2d__modflow6.png",
-      "docs/readthedocs/source/_static/capability_gallery/validation/late_time_unconfined_pumping_2d__modflow6_irregular_tri.png",
       "docs/readthedocs/source/_static/capability_gallery/validation/late_time_unconfined_pumping_2d__boussinesq.png"
     ]
   },
@@ -185,7 +173,6 @@
           "config_files": {
             "modflownwt": "config_modflownwt.toml",
             "modflow6": "config_modflow6.toml",
-            "modflow6_irregular_tri": "config_modflow6_irregular_tri.toml",
             "boussinesq": "config_boussinesq.toml"
           },
           "workspace": {
@@ -274,7 +261,6 @@
           "config_files": {
             "modflownwt": "config_modflownwt.toml",
             "modflow6": "config_modflow6.toml",
-            "modflow6_irregular_tri": "config_modflow6_irregular_tri.toml",
             "boussinesq": "config_boussinesq.toml"
           },
           "workspace": {
@@ -329,95 +315,6 @@
       }
     },
     {
-      "solver": "modflow6_irregular_tri",
-      "solver_display_name": "MODFLOW 6 irregular triangles",
-      "is_default": false,
-      "config_path": "validation_cases/analytical/transient/late_time_unconfined_pumping_2d/config_modflow6_irregular_tri.toml",
-      "tolerance_path": "validation_cases/analytical/transient/late_time_unconfined_pumping_2d/tolerances_modflow6_irregular_tri.toml",
-      "expected_output": "Expected output: 30 periods, spatial shape 101 x 101",
-      "command": "python -m validation_cases.analytical.transient.late_time_unconfined_pumping_2d.run_case --no-show --solver modflow6_irregular_tri",
-      "metric_lines": [
-        "Space-time RMSE: 0.0134 m",
-        "Space-time max abs error: 0.0567 m",
-        "Final-time RMSE: 0.0084 m",
-        "Azimuthal spread: 8.83e-02 m"
-      ],
-      "image": {
-        "filename": "late_time_unconfined_pumping_2d__modflow6_irregular_tri.png",
-        "caption": "Late-Time Unconfined Pumping 2D rendered with MODFLOW 6 irregular triangles for the analytical gallery.",
-        "alt_text": "Late-Time Unconfined Pumping 2D validation figure for MODFLOW 6 irregular triangles",
-        "doc_path": "/_static/capability_gallery/validation/late_time_unconfined_pumping_2d__modflow6_irregular_tri.png",
-        "repo_path": "docs/readthedocs/source/_static/capability_gallery/validation/late_time_unconfined_pumping_2d__modflow6_irregular_tri.png"
-      },
-      "metadata": {
-        "observable_name": "watertable_elevation",
-        "case_metadata": {
-          "case_id": "late_time_unconfined_pumping_2d",
-          "category": "analytical",
-          "regime": "transient",
-          "dimension": "2d",
-          "launcher": "launcher_simulation",
-          "config_file": "config_modflownwt.toml",
-          "default_solver": "modflownwt",
-          "base_config": "config_modflownwt.toml",
-          "config_files": {
-            "modflownwt": "config_modflownwt.toml",
-            "modflow6": "config_modflow6.toml",
-            "modflow6_irregular_tri": "config_modflow6_irregular_tri.toml",
-            "boussinesq": "config_boussinesq.toml"
-          },
-          "workspace": {
-            "results_folder_name": "results_simulations"
-          },
-          "output": {
-            "observable_name": "watertable_elevation",
-            "expected_periods": 30,
-            "expected_spatial_shape": [
-              101,
-              101
-            ]
-          },
-          "time": {
-            "dt_seconds": 43200.0
-          },
-          "reference": {
-            "xmin": 0.0,
-            "xmax": 2000.0,
-            "ymin": 0.0,
-            "ymax": 2000.0,
-            "center_x_m": 1000.0,
-            "center_y_m": 1000.0,
-            "base_head_m": 30.0,
-            "hydraulic_conductivity_m_per_s": 0.0001,
-            "reference_saturated_thickness_m": 30.0,
-            "specific_yield": 0.15,
-            "pumping_rate_m3_day": 1000.0,
-            "compare_start_day": 4.0
-          },
-          "plot": {
-            "monitor_offsets_cells": [
-              3,
-              5,
-              8,
-              12
-            ]
-          }
-        },
-        "tolerances": {
-          "space_time": {
-            "rmse": 0.03,
-            "max_abs_error": 0.08,
-            "azimuthal_spread": 0.1
-          },
-          "final_time": {
-            "rmse": 0.02,
-            "max_abs_error": 0.03
-          }
-        },
-        "final_elapsed_days": 15.0
-      }
-    },
-    {
       "solver": "boussinesq",
       "solver_display_name": "Boussinesq",
       "is_default": false,
@@ -452,7 +349,6 @@
           "config_files": {
             "modflownwt": "config_modflownwt.toml",
             "modflow6": "config_modflow6.toml",
-            "modflow6_irregular_tri": "config_modflow6_irregular_tri.toml",
             "boussinesq": "config_boussinesq.toml"
           },
           "workspace": {
@@ -871,50 +767,6 @@
           "source": "validation_cases/analytical/transient/late_time_unconfined_pumping_2d/config_modflow6.toml"
         }
       ],
-      "modflow6_irregular_tri": [
-        {
-          "field": "modflow6.runtime.mf_verbose",
-          "meaning": "Solver-specific override applied to MODFLOW 6.",
-          "value": "false",
-          "source": "validation_cases/analytical/transient/late_time_unconfined_pumping_2d/config_modflow6_irregular_tri.toml"
-        },
-        {
-          "field": "modflow6.runtime.mf6_ims_complexity",
-          "meaning": "Linear-solver complexity preset used by MODFLOW 6.",
-          "value": "COMPLEX",
-          "source": "validation_cases/analytical/transient/late_time_unconfined_pumping_2d/config_modflow6_irregular_tri.toml"
-        },
-        {
-          "field": "modflow6.process_specific.vka",
-          "meaning": "Vertical anisotropy ratio passed to MODFLOW 6.",
-          "value": "1",
-          "source": "validation_cases/analytical/transient/late_time_unconfined_pumping_2d/config_modflow6_irregular_tri.toml"
-        },
-        {
-          "field": "modflow6.sgrid.vertical.nlay",
-          "meaning": "Number of vertical layers used by MODFLOW 6.",
-          "value": "1",
-          "source": "validation_cases/analytical/transient/late_time_unconfined_pumping_2d/config_modflow6_irregular_tri.toml"
-        },
-        {
-          "field": "modflow6.tgrid.firstpersteady",
-          "meaning": "Whether the first time period is treated as steady by MODFLOW 6.",
-          "value": "false",
-          "source": "validation_cases/analytical/transient/late_time_unconfined_pumping_2d/config_modflow6_irregular_tri.toml"
-        },
-        {
-          "field": "mesh_input.mesh_path",
-          "meaning": "Committed unstructured mesh file used by the irregular-mesh solver variant.",
-          "value": "../../../shared/mesh_bundles/late_time_unconfined_pumping_irregular_tri_refined_center/mesh_2d.msh",
-          "source": "validation_cases/analytical/transient/late_time_unconfined_pumping_2d/config_modflow6_irregular_tri.toml"
-        },
-        {
-          "field": "mesh_input.bundle_dir",
-          "meaning": "Committed mesh-bundle directory used to recover support metadata for the irregular-mesh solver variant.",
-          "value": "../../../shared/mesh_bundles/late_time_unconfined_pumping_irregular_tri_refined_center",
-          "source": "validation_cases/analytical/transient/late_time_unconfined_pumping_2d/config_modflow6_irregular_tri.toml"
-        }
-      ],
       "boussinesq": [
         {
           "field": "flow.runtime_backend",
@@ -1020,44 +872,6 @@
             "meaning": "Maximum accepted absolute error for final time.",
             "value": "0.015",
             "source": "validation_cases/analytical/transient/late_time_unconfined_pumping_2d/tolerances_modflow6.toml"
-          }
-        ],
-        "modflow6_irregular_tri": [
-          {
-            "field": "expected_output",
-            "meaning": "Expected output shape or time-space layout checked for this solver.",
-            "value": "Expected output: 30 periods, spatial shape 101 x 101",
-            "source": "validation_cases/analytical/transient/late_time_unconfined_pumping_2d/metadata.toml"
-          },
-          {
-            "field": "space_time.rmse",
-            "meaning": "Maximum accepted root-mean-square error for space time.",
-            "value": "0.03",
-            "source": "validation_cases/analytical/transient/late_time_unconfined_pumping_2d/tolerances_modflow6_irregular_tri.toml"
-          },
-          {
-            "field": "space_time.max_abs_error",
-            "meaning": "Maximum accepted absolute error for space time.",
-            "value": "0.08",
-            "source": "validation_cases/analytical/transient/late_time_unconfined_pumping_2d/tolerances_modflow6_irregular_tri.toml"
-          },
-          {
-            "field": "space_time.azimuthal_spread",
-            "meaning": "Acceptance threshold for `space_time.azimuthal_spread`.",
-            "value": "0.1",
-            "source": "validation_cases/analytical/transient/late_time_unconfined_pumping_2d/tolerances_modflow6_irregular_tri.toml"
-          },
-          {
-            "field": "final_time.rmse",
-            "meaning": "Maximum accepted root-mean-square error for final time.",
-            "value": "0.02",
-            "source": "validation_cases/analytical/transient/late_time_unconfined_pumping_2d/tolerances_modflow6_irregular_tri.toml"
-          },
-          {
-            "field": "final_time.max_abs_error",
-            "meaning": "Maximum accepted absolute error for final time.",
-            "value": "0.03",
-            "source": "validation_cases/analytical/transient/late_time_unconfined_pumping_2d/tolerances_modflow6_irregular_tri.toml"
           }
         ],
         "boussinesq": [

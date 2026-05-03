@@ -7,27 +7,30 @@ Covers Phase 3 of the calibration integration:
 - With ``outputs`` and ``objective_blocks`` the extractor routes through
   :func:`build_objective_from_config` and exposes per-block costs as
   components.
-- The point / boundary helpers degrade gracefully when the trial
-  context does not expose a flow run (returns ``[nan]`` instead of
-  raising).
+- The point / boundary helpers fail loudly when the trial context does
+  not expose a flow run.
 """
 
 from __future__ import annotations
 
-import math
 from types import SimpleNamespace
 
+import pandas as pd
 import pytest
 
+from hydromodpy.calibration import metrics as metrics_module
 from hydromodpy.calibration.config import (
     CalibObjectiveBlockDecl,
     CalibOutputDecl,
 )
 from hydromodpy.calibration.metrics import (
+    ObservedSeries,
     _coerce_length_to_m,
     _extract_boundary,
     _extract_cell,
     _extract_point,
+    _resolve_station_cells,
+    _score,
     _slice_time,
     build_metric_extractor,
 )
@@ -57,15 +60,14 @@ class TestLegacyFallback:
             outputs=None,
             objective_blocks=None,
         )
-        primary, components = metric_fn(ctx, objective="rmse", variable="head")
-        assert math.isnan(primary)
-        assert components == {}
+        with pytest.raises(NotImplementedError, match="No flow solver adapter"):
+            metric_fn(ctx, objective="rmse", variable="head")
 
     def test_falls_back_when_outputs_empty(self):
         ctx = _empty_ctx()
         metric_fn = build_metric_extractor("head", "rmse", ctx, outputs={}, objective_blocks=[])
-        primary, _ = metric_fn(ctx, objective="rmse", variable="head")
-        assert math.isnan(primary)
+        with pytest.raises(NotImplementedError, match="No flow solver adapter"):
+            metric_fn(ctx, objective="rmse", variable="head")
 
 
 # ---------------------------------------------------------------------------
@@ -80,6 +82,8 @@ class TestCompositeRouting:
                 {
                     "variable": "head",
                     "support": "cell",
+                    "row": 0,
+                    "col": 0,
                     "observed_values": [1.0, 2.0, 3.0],
                 }
             )
@@ -99,14 +103,8 @@ class TestCompositeRouting:
             outputs=outputs,
             objective_blocks=blocks,
         )
-        # ``_extract_cell`` returns [nan] on a stub context. The composite
-        # propagates that into a non-finite total but we still want the
-        # block components to be returned.
-        primary, components = metric_fn(ctx)
-        assert isinstance(primary, float)
-        # Either the cost is nan (insufficient data) or +inf (no data).
-        assert math.isnan(primary) or math.isinf(primary)
-        assert isinstance(components, dict)
+        with pytest.raises(RuntimeError, match="Output 'head_A' extraction failed"):
+            metric_fn(ctx)
 
     def test_composite_total_matches_block_when_simulated_provided(self):
         """When the extractor is replaced with a stub returning known
@@ -149,22 +147,65 @@ class TestHelpers:
         assert _slice_time(arr, "all", "sum")[0] == pytest.approx(10.0)
         assert _slice_time(arr, "all", "last") == [4.0]
 
-    def test_extract_point_returns_nan_when_no_flow_run(self):
+    def test_score_raises_when_series_do_not_overlap(self):
+        obs = pd.Series([1.0], index=pd.DatetimeIndex(["2020-01-01"]))
+        sim = pd.Series([1.0], index=pd.DatetimeIndex(["2021-01-01"]))
+        with pytest.raises(ValueError, match="No overlapping finite"):
+            _score(obs, sim, "rmse")
+
+    def test_extract_point_raises_when_no_flow_run(self):
         ctx = _empty_ctx()
         out = CalibOutputDecl.model_validate(
             {"variable": "head", "support": "point", "x": 1.0, "y": 2.0}
         )
-        assert _extract_point(ctx, out) == [float("nan")] or math.isnan(_extract_point(ctx, out)[0])
+        with pytest.raises(NotImplementedError, match="No flow solver adapter"):
+            _extract_point(ctx, out)
 
-    def test_extract_boundary_returns_nan_when_no_flow_run(self):
+    def test_extract_boundary_raises_when_no_flow_run(self):
         ctx = _empty_ctx()
         out = CalibOutputDecl.model_validate(
             {"variable": "discharge", "support": "boundary", "boundary_id": "outlet"}
         )
-        result = _extract_boundary(ctx, out)
-        assert len(result) == 1 and math.isnan(result[0])
+        with pytest.raises(NotImplementedError, match="No flow solver adapter"):
+            _extract_boundary(ctx, out)
 
-    def test_extract_cell_returns_nan(self):
-        out = CalibOutputDecl.model_validate({"variable": "head", "support": "cell"})
-        result = _extract_cell(_empty_ctx(), out)
-        assert len(result) == 1 and math.isnan(result[0])
+    def test_extract_boundary_requires_adapter_boundary_filter(self, monkeypatch):
+        class _Adapter:
+            def extract_calibration_series(self, ctx, store, *, variable, time_index=None):
+                del ctx, store, variable, time_index
+                return pd.Series([1.0])
+
+        run_ctx = SimpleNamespace(run=SimpleNamespace(solver="fake_solver"))
+        monkeypatch.setattr(
+            metrics_module,
+            "_resolve_flow_adapter",
+            lambda ctx: (_Adapter(), run_ctx),
+        )
+        out = CalibOutputDecl.model_validate(
+            {"variable": "discharge", "support": "boundary", "boundary_id": "outlet"}
+        )
+        with pytest.raises(NotImplementedError, match="cannot filter calibration boundary_id"):
+            _extract_boundary(_empty_ctx(), out)
+
+    def test_extract_cell_raises_when_no_flow_run(self):
+        out = CalibOutputDecl.model_validate(
+            {"variable": "head", "support": "cell", "row": 0, "col": 1}
+        )
+        with pytest.raises(NotImplementedError, match="No flow solver adapter"):
+            _extract_cell(_empty_ctx(), out)
+
+    def test_station_cells_uses_structural_metadata_without_mesh(self):
+        rec = SimpleNamespace(station_id="P1", cell_ij=(3, 4, 2))
+        ctx = SimpleNamespace(
+            setup=SimpleNamespace(mesh_planar=None, domain=None),
+            loaded_data=SimpleNamespace(piezometry=SimpleNamespace(points=[rec])),
+        )
+        observed = [
+            ObservedSeries(
+                station_id="P1",
+                variable="head",
+                series=pd.Series([1.0], index=pd.DatetimeIndex(["2020-01-01"])),
+            )
+        ]
+
+        assert _resolve_station_cells(ctx, observed) == {"P1": (2, 3, 4)}

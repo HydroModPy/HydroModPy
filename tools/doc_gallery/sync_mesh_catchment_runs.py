@@ -40,7 +40,10 @@ FAMILY_SPECS: tuple[ManagedMeshFamilySpec, ...] = (
         label="10 km2, Strahler 3",
         scale="10km2",
         variant="geology_rivers_buffer30",
-        launcher_config_path="old/launchers/mesh_catchment/scenarios/config_s3_10km2.toml",
+        launcher_config_path=(
+            "examples/projects/07_mesh_gallery/10km2/"
+            "mesh_s3_10km2_outlet_1_geology_rivers_buffer30/viewer_config.toml"
+        ),
         results_subdir="s3_10km2",
         featured_outlet_ids=(1,),
         deck=(
@@ -63,7 +66,10 @@ FAMILY_SPECS: tuple[ManagedMeshFamilySpec, ...] = (
         label="100 km2, headwater",
         scale="100km2",
         variant="geology_rivers_buffer30",
-        launcher_config_path="old/launchers/mesh_catchment/scenarios/config_headwater_100km2.toml",
+        launcher_config_path=(
+            "examples/projects/07_mesh_gallery/100km2/"
+            "mesh_headwater_100km2_outlet_27_geology_rivers_buffer30/viewer_config.toml"
+        ),
         results_subdir="headwater_100km2",
         featured_outlet_ids=(27,),
         deck=(
@@ -85,7 +91,10 @@ FAMILY_SPECS: tuple[ManagedMeshFamilySpec, ...] = (
         label="100 km2, Strahler 3",
         scale="100km2",
         variant="geology_rivers_buffer30",
-        launcher_config_path="old/launchers/mesh_catchment/scenarios/config_s3_100km2.toml",
+        launcher_config_path=(
+            "examples/projects/07_mesh_gallery/100km2/"
+            "mesh_s3_100km2_outlet_2_geology_rivers_buffer30/viewer_config.toml"
+        ),
         results_subdir="s3_100km2",
         featured_outlet_ids=(2,),
         deck=(
@@ -107,7 +116,10 @@ FAMILY_SPECS: tuple[ManagedMeshFamilySpec, ...] = (
         label="1000 km2",
         scale="1000km2",
         variant="geology_rivers_buffer30",
-        launcher_config_path="old/launchers/mesh_catchment/scenarios/config_1000km2.toml",
+        launcher_config_path=(
+            "examples/projects/07_mesh_gallery/1000km2/"
+            "mesh_1000km2_outlet_2_geology_rivers_buffer30/viewer_config.toml"
+        ),
         results_subdir="1000km2",
         featured_outlet_ids=(2,),
         deck=(

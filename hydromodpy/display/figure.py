@@ -15,6 +15,9 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, Literal, Protocol, runtime_checkable
 
+from hydromodpy.results import field_registry
+from hydromodpy.results.field_registry import FieldDescriptor
+
 if TYPE_CHECKING:
     from matplotlib.axes import Axes
     from matplotlib.figure import Figure as MplFigure
@@ -100,3 +103,20 @@ class BaseFigure(ABC):
         if path.suffix == "":
             path = path.with_suffix(".png")
         fig.savefig(path, dpi=dpi, bbox_inches="tight")
+
+    @staticmethod
+    def field_descriptor_for(variable: str) -> FieldDescriptor:
+        """Return the canonical descriptor for ``variable``.
+
+        Helper for figures that need ``long_name`` / ``units`` to label axes
+        or colorbars without hard-coding strings. Raises
+        :class:`~hydromodpy.core.exceptions.UnknownFieldError` if ``variable``
+        is not registered.
+        """
+        return field_registry.get(variable)
+
+    @staticmethod
+    def axis_label_for(variable: str) -> str:
+        """Return ``"<long_name> (<units>)"`` for ``variable`` from the registry."""
+        desc = field_registry.get(variable)
+        return f"{desc.long_name} ({desc.units})"

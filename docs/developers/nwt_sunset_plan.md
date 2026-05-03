@@ -15,7 +15,7 @@ HydroModPy embarque deux variantes MODFLOW :
 
 Chaque variante a son propre adaptateur de couplage flow :
 
-- `hydromodpy/solver/modflow_nwt/modflow/flow_to_modflow_adapter.py`
+- `hydromodpy/solver/modflow_nwt/nwt/flow_to_modflow_adapter.py`
   (environ 1400 lignes)
 - `hydromodpy/solver/modflow6/flow_to_modflow_adapter.py`
   (environ 570 lignes)
@@ -68,7 +68,7 @@ intégré côté MF6.
 ## Implications quotidiennes
 
 - **Ne pas** refactorer
-  `hydromodpy/solver/modflow_nwt/modflow/flow_to_modflow_adapter.py`
+  `hydromodpy/solver/modflow_nwt/nwt/flow_to_modflow_adapter.py`
   pour mutualiser les payload builders avec MF6.
 - Les nouvelles features de conditions limites sont à prototyper côté
   MF6 d'abord. Le portage NWT n'est requis que si un workflow breton en

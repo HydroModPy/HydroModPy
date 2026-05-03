@@ -59,6 +59,11 @@ class OptunaAdapter:
             trial = self._study.ask()
             values: dict[str, float] = {}
             for p in self.space.parameters:
+                trial.set_user_attr(f"{p.name}.prior", p.prior)
+                trial.set_user_attr(f"{p.name}.transform", p.transform)
+                if p.prior == "log_uniform" and p.transform == "identity":
+                    values[p.name] = trial.suggest_float(p.name, p.lower, p.upper, log=True)
+                    continue
                 y = trial.suggest_float(p.name, p.lower_transformed, p.upper_transformed)
                 values[p.name] = p.to_physical(y)
             self._trial_id += 1

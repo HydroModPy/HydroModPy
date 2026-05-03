@@ -2,14 +2,20 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from pathlib import Path
+from typing import Any
 
+import pandas as pd
+
+from hydromodpy.core.exceptions import SolverDivergedError
 from hydromodpy.simulation.adapters.transport_helpers import (
     required_flow_model,
     transport_output_suffix,
 )
 from hydromodpy.simulation.planning.plan import RunContext, RunExecutionResult
-from hydromodpy.solver.modflow6.modflow6 import Modflow6Transport
+from hydromodpy.solver.base.cleanup import cleanup_solver_files
+from hydromodpy.solver.modflow6.transport import Modflow6Transport
 
 
 class Modflow6GwtTransportAdapter:
@@ -19,6 +25,30 @@ class Modflow6GwtTransportAdapter:
     solver_name = "modflow6gwt"
     requires: tuple[tuple[str, str], ...] = (("flow", "modflow6"),)
     produces_concentration: bool = True
+
+    def validate(self, ctx: RunContext) -> None:
+        """No precondition checks for MODFLOW 6 GWT transport runs."""
+
+    def cleanup(self, ctx: RunContext) -> None:
+        """Remove the scratch directory written by this run, if any."""
+        solver_output_dir = ctx.state.execution.output_dirs_by_run_id.get(ctx.run.id)
+        if solver_output_dir is not None:
+            cleanup_solver_files(solver_output_dir)
+
+    def extract_calibration_series(
+        self,
+        ctx: RunContext,
+        store: Any,
+        *,
+        variable: str,
+        station_cells: Mapping[str, tuple[int, int, int]] | None = None,
+        time_index: pd.DatetimeIndex | None = None,
+    ) -> pd.Series:
+        """Fail explicitly because transport calibration is not implemented."""
+        del ctx, store, station_cells, time_index
+        raise NotImplementedError(
+            f"MODFLOW 6 GWT calibration extraction is not implemented for {variable!r}."
+        )
 
     def execute(self, ctx: RunContext) -> RunExecutionResult:
         """Instantiate and execute one MODFLOW 6 GWT concentration run."""
@@ -36,9 +66,10 @@ class Modflow6GwtTransportAdapter:
         model_transport.pre_processing()
         success = model_transport.processing(write_model=True, run_model=True, verbose=True)
         if not success:
-            raise RuntimeError(
-                f"Transport solver '{ctx.run.solver}' failed for run '{ctx.run.id}'. "
-                f"See {getattr(model_transport, 'full_path', '<unknown>')} for diagnostics."
+            raise SolverDivergedError(
+                f"[HMPY.E401] Transport solver '{ctx.run.solver}' failed for run '{ctx.run.id}'. "
+                f"See {getattr(model_transport, 'full_path', '<unknown>')} for diagnostics.",
+                run_id=ctx.run.id,
             )
         return RunExecutionResult(
             primary_model=model_transport,

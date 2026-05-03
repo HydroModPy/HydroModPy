@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 
-from hydromodpy.core.config.generate_toml import available_modules, generate_toml
+from hydromodpy.core.toml_io.generator import available_modules, generate_toml
 from hydromodpy.spatial.mesh.config import (
     parse_mesh_catchment_batch_config_data,
     parse_mesh_catchment_config_data,
@@ -181,17 +181,17 @@ def test_parse_mesh_catchment_config_accepts_watershed_boundary_settings() -> No
     )
 
     assert cfg.watershed_boundary.enabled is True
-    assert cfg.watershed_boundary.boundary_refinement_distance == 500.0
+    assert cfg.watershed_boundary.boundary_refinement_distance.to("m").magnitude == 500.0
     assert cfg.watershed_boundary.smoothing.enabled is True
-    assert cfg.watershed_boundary.smoothing.distance == 50.0
-    assert cfg.watershed_boundary.smoothing.river_buffer_distance == 100.0
-    assert cfg.watershed_boundary.smoothing.outer_bias_distance == 10.0
+    assert cfg.watershed_boundary.smoothing.distance.to("m").magnitude == 50.0
+    assert cfg.watershed_boundary.smoothing.river_buffer_distance.to("m").magnitude == 100.0
+    assert cfg.watershed_boundary.smoothing.outer_bias_distance.to("m").magnitude == 10.0
     assert cfg.watershed_boundary.outside_coarsening.enabled is True
     assert cfg.watershed_boundary.outside_coarsening.size_factor == 2.0
-    assert cfg.watershed_boundary.outside_coarsening.transition_distance == 500.0
-    assert cfg.watershed_boundary.outside_coarsening.grid_resolution == 250.0
+    assert cfg.watershed_boundary.outside_coarsening.transition_distance.to("m").magnitude == 500.0
+    assert cfg.watershed_boundary.outside_coarsening.grid_resolution.to("m").magnitude == 250.0
     assert cfg.watershed_boundary.geology_conformity.mode == "buffered_watershed_envelope"
-    assert cfg.watershed_boundary.geology_conformity.buffer_distance == 400.0
+    assert cfg.watershed_boundary.geology_conformity.buffer_distance.to("m").magnitude == 400.0
 
 
 def test_parse_mesh_catchment_config_rejects_buffered_geology_conformity_without_geology() -> None:
@@ -236,15 +236,9 @@ def test_generate_toml_exposes_mesh_catchment_sections() -> None:
     modules = available_modules()
 
     assert "mesh_catchment" in modules
-    assert "mesh_catchment_batch" in modules
 
-    content = generate_toml(
-        modules=["mesh_catchment", "mesh_catchment_batch"],
-        profile="user",
-    )
+    content = generate_toml(modules=["mesh_catchment"], profile="user")
 
     assert "[mesh_catchment]" in content
-    assert "[mesh_catchment_batch]" in content
     assert "Meshing compliance target" in content
-    assert "Enable batch mode" in content
     assert "hydraulic_properties" in content

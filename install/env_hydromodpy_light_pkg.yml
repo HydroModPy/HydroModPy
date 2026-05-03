@@ -3,14 +3,12 @@ channels:
   - conda-forge
 dependencies:
   - python>=3.11,<3.14
-  - colormap
   - contextily
   - flopy
   - geopandas
   - h5py
   - imageio
   - matplotlib
-  - matplotlib-scalebar
   - netcdf4
   - numpy>=2.0
   - pandas
@@ -28,8 +26,6 @@ dependencies:
   - cma
   - scikit-learn
   - scipy
-  - selenium
-  - sqlalchemy>=2.0
   - xarray
   - pysheds
   - dask

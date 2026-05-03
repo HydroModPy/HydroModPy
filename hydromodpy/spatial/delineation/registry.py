@@ -48,19 +48,16 @@ def _normalize(name: str | None) -> str:
         "workflows": "whitebox_workflows",
         "whitebox_workflows": "whitebox_workflows",
         "whitebox": "whitebox_workflows",
-        "cli": "whitebox_cli",
-        "whitebox_cli": "whitebox_cli",
-        "whiteboxtools": "whitebox_cli",
-        "pysheds": "pysheds",
         "synthetic": "synthetic",
         "synthetic_bv": "synthetic",
     }
-    if normalized not in aliases:
-        raise ValueError(
-            f"Unknown delineation backend {value!r}. "
-            f"Available: {', '.join(sorted(set(aliases.values())))}."
-        )
-    return aliases[normalized]
+    if normalized in aliases:
+        return aliases[normalized]
+    if normalized in _BACKEND_LOADERS:
+        return normalized
+    raise ValueError(
+        f"Unknown delineation backend {value!r}. Available: {', '.join(available_backends())}."
+    )
 
 
 @cache
@@ -97,16 +94,6 @@ _register(
     "whitebox_workflows",
     "hydromodpy.spatial.delineation.whitebox_workflows_backend",
     "WhiteboxWorkflowsBackend",
-)
-_register(
-    "whitebox_cli",
-    "hydromodpy.spatial.delineation.whitebox_cli_backend",
-    "WhiteboxCliBackend",
-)
-_register(
-    "pysheds",
-    "hydromodpy.spatial.delineation.pysheds_backend",
-    "PyshedsBackend",
 )
 _register(
     "synthetic",

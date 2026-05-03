@@ -5,7 +5,7 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-from hydromodpy.results.metrics import bias, correlation, kge, pbias, rmse
+from hydromodpy.core.metrics import bias, correlation, kge, pbias, rmse
 
 
 def test_kge_perfect_match_returns_one():

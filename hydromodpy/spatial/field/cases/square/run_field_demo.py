@@ -30,7 +30,7 @@ from matplotlib.patches import Patch
 
 from hydromodpy.spatial.field.cases.square.field_mesh_square import FieldMeshSquare
 from hydromodpy.spatial.field.cases.square.field_spatial_square import FieldSquare
-from hydromodpy.spatial.field.core.field_param import FieldParam
+from hydromodpy.spatial.field.core.field_param_io import field_param_from_toml
 from hydromodpy.spatial.mesh.plot_window_utils import maximize_figure_windows
 
 DEFAULT_FIELD_PARAM_CONFIG_FILE = "field_param_config.toml"
@@ -285,7 +285,7 @@ def load_field_demo_inputs_from_toml(
     field_param_config_path = _resolve_path(field_param_config_file)
     mesh_config_path = _resolve_path(mesh_config_file)
 
-    field_param = FieldParam.from_toml(field_param_config_path)
+    field_param = field_param_from_toml(field_param_config_path)
     mesh = FieldMeshSquare.from_toml(mesh_config_path, section=mesh_section)
     field = None
     if field_param.is_heterogeneous:

@@ -133,16 +133,6 @@ Current public implementation notes:
 - in the current Boussinesq slice, it is implemented as a top-drainage
   operator driven by conductance and activation above the top elevation.
 
-The simulated active network is a post-processed diagnostic built on top of
-this drainage outflow. It should be read as an emergent active-drainage signal,
-not as a prescribed stream boundary. See :doc:`simulated-active-network` for
-the distinction between local ``outflow_drain``, routed
-``accumulation_flux``, and a thresholded active-network mask.
-
-For the broader navigation map across observed stream networks, seepage, and
-simulation-derived active networks, see
-:doc:`../streams_and_seepage/index`.
-
 What They Are Not
 -----------------
 
@@ -198,7 +188,6 @@ Useful pages already exist to validate or inspect these semantics in context.
 - Drainage boundary in a closed-form linearized setting: :doc:`Linearized Unconfined Drainage 1D <../../capability_gallery/cases/linearized_unconfined_drainage_1d>`
 - Drainage boundary on sloping topography: :doc:`Linearized Unconfined Hillslope Drainage 1D <../../capability_gallery/cases/linearized_unconfined_hillslope_drainage_1d>`
 - Cross-code behaviour with recharge and emergent drainage: :doc:`Surface-Interaction Ramp Code Comparison <../../capability_gallery/cases/surface_interaction_ramp_code_comparison>`
-- MODFLOW package reading of the distributed drainage benchmark: :doc:`../solvers/worked-modflow-case-linearized-unconfined-drainage-1d`
 
 Current Source Anchors
 ----------------------
@@ -209,6 +198,5 @@ Current Source Anchors
 - ``hydromodpy.solver.boussinesq.forcing.dirichlet_support_resolution``
 - ``hydromodpy.solver.boussinesq.forcing.drainage_resolution``
 - :doc:`recharge-and-surface-exchange-semantics`
-- :doc:`simulated-active-network`
 - :doc:`../solvers/modflow-package-semantics-and-boundary-conditions`
 - :doc:`../solvers/boussinesq-mathematical-notes`

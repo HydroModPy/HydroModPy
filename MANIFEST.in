@@ -16,3 +16,9 @@ exclude .readthedocs.yaml
 recursive-exclude tests *
 recursive-exclude .git *
 recursive-exclude .venv *
+
+# Solver binaries are downloaded lazily into ~/.cache/hydromodpy/bin/.
+# Never ship MODFLOW/MODPATH/MT3D-USGS executables inside the wheel.
+prune bin
+recursive-exclude bin *
+global-exclude mf6 mf6.exe mfnwt mfnwt.exe mp6 mp6.exe mp7 mp7.exe mt3dusgs mt3dusgs.exe

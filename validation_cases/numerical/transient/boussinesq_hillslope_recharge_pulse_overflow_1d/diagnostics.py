@@ -138,36 +138,6 @@ def aggregate_cell_history_to_grid(
     return aggregated
 
 
-def _resolve_mean_head_profiles_m(
-    *,
-    result: ValidationRunResult,
-    state_history: dict[str, np.ndarray],
-    cell_x_m: np.ndarray,
-    cell_y_m: np.ndarray,
-    nx: int,
-    ny: int,
-    length_x_m: float,
-    width_y_m: float,
-) -> np.ndarray:
-    """Return one time-x mean head matrix aligned with the Boussinesq snapshots."""
-    head_history = np.asarray(state_history.get("head_history_m", ()), dtype=float)
-    if head_history.ndim == 2 and head_history.size > 0:
-        head_grid_m = aggregate_cell_history_to_grid(
-            head_history,
-            cell_x_m=cell_x_m,
-            cell_y_m=cell_y_m,
-            nx=nx,
-            ny=ny,
-            length_x_m=length_x_m,
-            width_y_m=width_y_m,
-        )
-        return np.mean(head_grid_m, axis=1)
-
-    # Fallback for older runs that only expose the reshaped postprocess export.
-    _, heads = load_npy_time_series_arrays(result.postprocess_dir, "watertable_elevation")
-    return np.mean(np.asarray(heads, dtype=float), axis=1)
-
-
 def compute_overflow_footprint_metrics(
     saturation_excess_profiles_mm_day: np.ndarray,
     *,
@@ -211,21 +181,33 @@ def _topography_profile(x_m: np.ndarray, *, geometry_cfg: dict[str, object]) -> 
     )
 
 
-def _infer_structured_shape(
+def _resolve_mean_head_profiles_m(
     *,
-    mean_head_profiles_m: np.ndarray,
+    result: ValidationRunResult,
+    state_history: dict[str, np.ndarray],
+    cell_x_m: np.ndarray,
     cell_y_m: np.ndarray,
-    geometry_cfg: dict[str, object],
-) -> tuple[int, int]:
-    """Infer the effective structured aggregation shape from the run outputs."""
-    nx = int(np.asarray(mean_head_profiles_m, dtype=float).shape[1])
-    unique_y = np.unique(np.round(np.asarray(cell_y_m, dtype=float), decimals=9))
-    ny = int(unique_y.size)
-    if nx <= 0:
-        nx = int(geometry_cfg["nx"])
-    if ny <= 0:
-        ny = int(geometry_cfg["ny"])
-    return nx, ny
+    nx: int,
+    ny: int,
+    length_x_m: float,
+    width_y_m: float,
+) -> np.ndarray:
+    """Return one time-x mean head matrix aligned with Boussinesq snapshots."""
+    head_history = np.asarray(state_history.get("head_history_m", ()), dtype=float)
+    if head_history.ndim == 2 and head_history.size > 0:
+        head_grid_m = aggregate_cell_history_to_grid(
+            head_history,
+            cell_x_m=cell_x_m,
+            cell_y_m=cell_y_m,
+            nx=nx,
+            ny=ny,
+            length_x_m=length_x_m,
+            width_y_m=width_y_m,
+        )
+        return np.mean(head_grid_m, axis=1)
+
+    _, heads = load_npy_time_series_arrays(result.postprocess_dir, "watertable_elevation")
+    return np.mean(np.asarray(heads, dtype=float), axis=1)
 
 
 def _resolve_recharge_series_mm_day(
@@ -299,6 +281,9 @@ def build_hillslope_overflow_diagnostics(
     cell_x_m, cell_y_m, cell_area_m2 = _load_cell_geometry(bundle_dir)
     nx = int(geometry_cfg["nx"])
     ny = int(geometry_cfg["ny"])
+    length_x_m = float(geometry_cfg["length_x_m"])
+    width_y_m = float(geometry_cfg["width_y_m"])
+    x_m = (np.arange(nx, dtype=float) + 0.5) * (length_x_m / float(nx))
     mean_head_profiles_m = _resolve_mean_head_profiles_m(
         result=result,
         state_history=state_history,
@@ -306,12 +291,9 @@ def build_hillslope_overflow_diagnostics(
         cell_y_m=cell_y_m,
         nx=nx,
         ny=ny,
-        length_x_m=float(geometry_cfg["length_x_m"]),
-        width_y_m=float(geometry_cfg["width_y_m"]),
+        length_x_m=length_x_m,
+        width_y_m=width_y_m,
     )
-    length_x_m = float(geometry_cfg["length_x_m"])
-    width_y_m = float(geometry_cfg["width_y_m"])
-    x_m = (np.arange(nx, dtype=float) + 0.5) * (length_x_m / float(nx))
     topography_profile_m = _topography_profile(x_m, geometry_cfg=geometry_cfg)
     mean_head_clearance_m = mean_head_profiles_m - topography_profile_m[None, :]
 

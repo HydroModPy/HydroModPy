@@ -53,7 +53,7 @@ def find_py_files(directory_path):
     file_name = []
 
     # Parcourir le répertoire et ses sous-répertoires
-    for root, dirs, files in os.walk(directory_path):
+    for root, _dirs, files in os.walk(directory_path):
         for file in files:
             if file.endswith(".py"):
                 py_files.append(os.path.join(root, file))

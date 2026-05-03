@@ -11,7 +11,7 @@ class InputFile:
     """Pydantic field marker for a user-provided input path.
 
     Attach as an ``Annotated`` metadata entry on any ``Path`` or ``str``
-    field that points to an on-disk input. The walker discovers these
+    field that points to an on-disk file or directory. The walker discovers these
     markers at runtime and produces tracked-file entries.
     """
 

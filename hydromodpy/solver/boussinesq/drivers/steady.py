@@ -12,6 +12,7 @@ from hydromodpy.solver.boussinesq.drivers.forcing import (
 )
 from hydromodpy.solver.boussinesq.drivers.state import build_steady_runtime_state
 from hydromodpy.solver.boussinesq.runtime_contract import SteadySolveInputs
+from hydromodpy.solver.boussinesq.runtime_summary import record_runtime_backend_summary
 
 if TYPE_CHECKING:
     from hydromodpy.solver.boussinesq.boussinesq import Boussinesq
@@ -25,7 +26,7 @@ def run_steady_runtime(solver: Boussinesq) -> bool:
         raise RuntimeError("Initial state must exist before steady solve.")
     contract = solver._resolve_solver_contract()
     runtime_backend = contract.runtime_backend
-    solver._record_runtime_backend_summary(contract)
+    record_runtime_backend_summary(solver, contract)
     solver._assert_runtime_mesh_size_supported(runtime_backend)
 
     runtime_forcing = resolve_runtime_forcing_by_period(solver, nper=1)

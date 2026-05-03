@@ -9,8 +9,8 @@ from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator, model_validator
 
-from hydromodpy.core.config.base import HydroModelBase
-from hydromodpy.solver.utils._config_helpers import get_nested_section, resolve_path
+from hydromodpy.core.config_kit.base import HydroModelBase
+from hydromodpy.core.toml_io.paths import get_nested_section, resolve_path
 from hydromodpy.solver.utils.temporal.tmesh_config import TMeshConfig
 
 
@@ -44,7 +44,10 @@ class TMeshCasesConfig(HydroModelBase):
 
     model_config = ConfigDict(extra="forbid")
 
-    scenarios: list[TMeshCaseScenarioConfig] = Field(default_factory=list)
+    scenarios: list[TMeshCaseScenarioConfig] = Field(
+        default_factory=list,
+        description="Named temporal-mesh demo scenarios declared in the TOML file.",
+    )
     output_summary_json: Path | None = None
     output_figures_dir: Path | None = None
 

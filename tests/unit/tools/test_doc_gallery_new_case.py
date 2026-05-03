@@ -44,7 +44,12 @@ def test_scaffold_copy_assets_case_updates_manifest_and_assets(tmp_path: Path) -
     assert updated_manifest_path == manifest_path
     assert (
         asset_dir_path
-        == tmp_path / "examples" / "capability_gallery" / "geographic" / "geographic_demo_case"
+        == tmp_path
+        / "examples"
+        / "projects"
+        / "09_capability_gallery"
+        / "geographic"
+        / "geographic_demo_case"
     )
     assert payload["cases"][0]["slug"] == "geographic_demo_case"
     assert "category" not in payload["cases"][0]
@@ -61,7 +66,8 @@ def test_scaffold_copy_assets_case_updates_manifest_and_assets(tmp_path: Path) -
     )
     assert specs[0].slug == "geographic_demo_case"
     assert specs[0].image_assets[0].source_path == (
-        "examples/capability_gallery/geographic/geographic_demo_case/geographic_demo_case.png"
+        "examples/projects/09_capability_gallery/geographic/"
+        "geographic_demo_case/geographic_demo_case.png"
     )
 
 

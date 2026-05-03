@@ -9,8 +9,8 @@ from typing import Annotated, Any, Literal
 
 from pydantic import ConfigDict, Field, ValidationError, field_validator, model_validator
 
-from hydromodpy.core.config.base import HydroModelBase
-from hydromodpy.core.config.profile import Profile
+from hydromodpy.core.config_kit.base import HydroModelBase
+from hydromodpy.core.config_kit.profile import Profile
 from hydromodpy.core.tracking import InputFile
 
 

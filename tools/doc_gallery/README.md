@@ -8,8 +8,8 @@ Sphinx documentation.
 Edit versioned inputs here:
 
 - `tools/doc_gallery/manifests/`
-- `examples/capability_gallery/`
-- `examples/mesh_gallery/`
+- `examples/projects/09_capability_gallery/`
+- `examples/projects/07_mesh_gallery/`
 - the source configs and launchers referenced by each case
 
 Do not hand-edit generated docs artifacts here:
@@ -29,30 +29,17 @@ python -m tools.doc_gallery
 
 For the whole Read the Docs refresh chain, use the dedicated orchestration
 script. It recomputes validation reports, the XT3D note payload, the gallery
-artifacts, runs the gallery drift check, then rebuilds Sphinx locally. Before
-rewriting gallery artifacts, it also runs the fast solver-intercomparison
-regressions under `tests/regression/fast/intercomparison/` so method-comparison
-pages are refreshed only after the corresponding numerical methods still pass
-their compact non-regression signatures:
+artifacts, runs the gallery drift check, then rebuilds Sphinx locally:
 
 ```bash
 python -m tools.refresh_readthedocs
 ```
 
 Add `--install-solver-binaries` on clean CI machines that do not already have
-the MODFLOW executables cached. The scheduled docs workflow uses this option so
-the intercomparison guard runs with a real MODFLOW 6 executable rather than
-being skipped because `mf6` is absent:
+the MODFLOW executables cached:
 
 ```bash
 python -m tools.refresh_readthedocs --install-solver-binaries
-```
-
-If you are editing only Sphinx prose and intentionally do not want to execute
-the numerical intercomparison guard, skip it explicitly:
-
-```bash
-python -m tools.refresh_readthedocs --skip-intercomparison-regressions
 ```
 
 To enforce that such a refresh only touched the generated docs artifacts, use:
@@ -156,12 +143,6 @@ python -m tools.doc_gallery.new_case \
   --title "Example Geographic Case"
 ```
 
-Generate versioned batch reports for the analytical validation suites:
-
-```bash
-python -m validation_cases.update_reports --no-show
-```
-
 Import one local mesh bundle into the canonical repository layout used by the
 gallery:
 
@@ -211,12 +192,12 @@ Each `GalleryCaseSpec` declares:
 - the image assets and displayed metrics
 
 For future mesh-gallery cases, the canonical repository input tree lives under
-`examples/mesh_gallery/`.
+`examples/projects/07_mesh_gallery/`.
 
 - `tools/doc_gallery/import_mesh_bundle.py` copies one local bundle into that tree
 - `tools/doc_gallery/sync_mesh_catchment_runs.py` bulk-refreshes repeated mesh families from `C:/results/Hydromodpy/mesh_catchment_runs/`
 - `tools/doc_gallery/mesh_case_registry.py` defines the shared case schema and naming
-- `tools/doc_gallery/gallery_manifest.py` auto-discovers `examples/mesh_gallery/**/case.json`
+- `tools/doc_gallery/gallery_manifest.py` auto-discovers `examples/projects/07_mesh_gallery/**/case.json`
 
 Simple committed asset-copy cases can also be declared through JSON manifests
 under `tools/doc_gallery/manifests/`.
@@ -240,7 +221,6 @@ Analytical validation cases are discovered automatically from
   tabs when a case exposes more than one backend
 - the validation landing page also reads committed batch reports from
   `validation_cases/reports/latest/*.json`
-  refreshed through `python -m validation_cases.update_reports`
 
 ## How To Add One Case
 
@@ -257,7 +237,7 @@ Analytical validation cases are discovered automatically from
 ## How To Add One Mesh Bundle Case
 
 1. Produce one local bundle with the mesh launcher.
-2. Import it into `examples/mesh_gallery/` with `python -m tools.doc_gallery.import_mesh_bundle ...`.
+2. Import it into `examples/projects/07_mesh_gallery/` with `python -m tools.doc_gallery.import_mesh_bundle ...`.
 3. Review the generated `case.json`, `viewer_config.toml`, and `README.md`.
 4. Run `python -m tools.doc_gallery`.
 5. Rebuild Sphinx and inspect the new page under `capability_gallery/mesh`.
@@ -288,18 +268,3 @@ Its job is intentionally narrow:
 This does not regenerate validation batch reports in CI. Those reports still
 depend on heavier scientific runtimes and are refreshed explicitly when the
 validation report content itself changes.
-
-## Solver Intercomparison Guard
-
-The generated capability gallery and the solver non-regression suite are linked
-by three fast intercomparison tests:
-
-- `tests/regression/fast/intercomparison/test_solver_intercomparison_fast_regression.py`
-- `tests/regression/fast/intercomparison/test_mf6_support_intercomparison_fast_regression.py`
-- `tests/regression/fast/intercomparison/test_xt3d_irregular_tri_fast_regression.py`
-
-These tests do not compare PNG files. They rerun selected MODFLOW 6 irregular
-triangle, structured MODFLOW 6, and Boussinesq cases, extract compact numerical
-signatures, and compare them with committed goldens. The nightly docs refresh
-runs them before regenerating the gallery artifacts; the fast CI workflow runs
-the same category explicitly with an installed `mf6` binary.

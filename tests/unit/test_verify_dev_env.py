@@ -6,7 +6,6 @@ from importlib import metadata
 from pathlib import Path
 from types import SimpleNamespace
 
-
 ROOT = Path(__file__).resolve().parents[2]
 MODULE_PATH = ROOT / "install" / "verify_dev_env.py"
 

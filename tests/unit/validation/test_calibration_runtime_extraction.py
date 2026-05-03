@@ -1,9 +1,9 @@
 """Tests for the head-at-point cell-index resolution in the twin runtime.
 
-Covers the lightweight v0.6 path where ``setup.mesh_planar`` is ``None``
-for sgrid simulations: the runtime helper must resolve the structured
-cell from the solver model registered in ``execution.models_by_run_id``
-instead of relying on a pre-existing planar mesh.
+Covers the lightweight v1 path where ``setup.mesh_planar`` is ``None`` for
+sgrid simulations: the runtime helper must resolve the structured cell from
+the solver model registered in ``execution.models_by_run_id`` instead of
+relying on a pre-existing planar mesh.
 """
 
 from __future__ import annotations

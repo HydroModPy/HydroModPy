@@ -38,11 +38,10 @@ def _short_digest(text: str, *, size: int = 8) -> str:
 def _compact_method_code(method_name: str) -> str:
     """Return one short readable code for a calibration method."""
     mapping = {
-        "grid_search": "gs",
+        "grid": "gs",
         "random_search": "rs",
-        "simplex": "sx",
         "cma_es": "cma",
-        "nelder_mead": "nm",
+        "scipy_nelder_mead": "snm",
         "gp_mapping": "gpm",
         "da_mh_gp": "damh",
         "truth": "tr",
@@ -64,6 +63,37 @@ def _compact_calibration_id(
     method_token = _compact_method_code(method_name)
     method_suffix = _short_digest(method_name, size=6)
     return f"{_compact_case_code(definition)}_{method_token}_{method_suffix}"
+
+
+def _parameter_payload_value(raw: Any) -> float:
+    """Return the physical value from one persisted parameter payload."""
+    if isinstance(raw, dict):
+        for key in ("value", "candidate_value", "transformed_value"):
+            if key in raw and raw[key] is not None:
+                return float(raw[key])
+        raise ValueError("Parameter payload has no numeric value")
+    return float(raw)
+
+
+def _normalize_parameter_payload(raw: Any) -> dict[str, float]:
+    """Return flat physical parameter values from persisted iteration payload."""
+    payload = raw or {}
+    if isinstance(payload, str):
+        try:
+            payload = json.loads(payload)
+        except json.JSONDecodeError:
+            payload = {}
+    if not isinstance(payload, dict):
+        return {}
+    values: dict[str, float] = {}
+    for name, value in dict(payload).items():
+        if value is None:
+            continue
+        try:
+            values[str(name)] = _parameter_payload_value(value)
+        except (TypeError, ValueError, KeyError):
+            continue
+    return values
 
 
 def _resolve_twin_benchmark_root(
@@ -320,20 +350,18 @@ def _apply_evaluation_budget(
 
     kwargs = dict(profile.method_kwargs)
     method = str(profile.name).strip().lower()
-    if method == "grid_search":
-        n_per_dim = max(1, int(budget ** (1.0 / max(1, n_parameters))))
-        kwargs["n_per_dim"] = int(n_per_dim)
+    if method == "grid":
+        points_per_dim = max(1, int(budget ** (1.0 / max(1, n_parameters))))
+        kwargs["points_per_dim"] = int(points_per_dim)
     elif method == "random_search":
-        kwargs["n_samples"] = int(budget)
+        kwargs["max_iter"] = int(budget)
     elif method == "cma_es":
         kwargs["max_evaluations"] = int(budget)
         if "popsize" in kwargs:
             kwargs["popsize"] = max(4, min(int(kwargs["popsize"]), int(budget)))
-    elif method == "simplex":
-        kwargs["max_iter"] = int(budget)
-        kwargs["max_fun"] = int(budget)
-    elif method == "nelder_mead":
-        kwargs["max_iter"] = int(budget)
+    elif method == "scipy_nelder_mead":
+        kwargs["maxiter"] = int(budget)
+        kwargs["maxfev"] = int(budget)
     elif method == "gp_mapping":
         batch_size = max(1, int(kwargs.get("batch_size", 1)))
         n_init_default = max(1, int(kwargs.get("n_init", batch_size)))
@@ -343,21 +371,21 @@ def _apply_evaluation_budget(
         kwargs["n_refine"] = int(remaining // batch_size)
     elif method == "da_mh_gp":
         base_init = max(1, int(kwargs.get("n_init", max(1, budget // 5))))
-        base_samples = max(1, int(kwargs.get("n_samples", max(1, budget))))
-        scale = float(budget) / float(base_init + base_samples)
+        base_iter = max(1, int(kwargs.get("max_iter", max(1, budget))))
+        scale = float(budget) / float(base_init + base_iter)
         kwargs["n_init"] = max(1, int(round(base_init * scale)))
-        kwargs["n_samples"] = max(1, int(round(base_samples * scale)))
+        kwargs["max_iter"] = max(1, int(round(base_iter * scale)))
         burn_in = kwargs.get("burn_in")
         if burn_in is not None:
-            kwargs["burn_in"] = min(int(burn_in), max(0, int(kwargs["n_samples"]) - 1))
+            kwargs["burn_in"] = min(int(burn_in), max(0, int(kwargs["max_iter"]) - 1))
         thin = max(1, int(kwargs.get("thin", 1)))
         retained_target = max(8, min(32, int(budget)))
         retained_count = max(
             0,
-            (int(kwargs["n_samples"]) - int(kwargs.get("burn_in", 0)) + thin - 1) // thin,
+            (int(kwargs["max_iter"]) - int(kwargs.get("burn_in", 0)) + thin - 1) // thin,
         )
         if retained_count < retained_target:
-            kwargs["n_samples"] = int(kwargs.get("burn_in", 0)) + thin * retained_target
+            kwargs["max_iter"] = int(kwargs.get("burn_in", 0)) + thin * retained_target
     else:
         raise ValueError(f"Unsupported evaluation-budget adaptation for method '{profile.name}'.")
 
@@ -433,8 +461,8 @@ def _distribution_truth_metrics(
     min_errors = {str(name): math.inf for name in truth_params}
     truth_in_distribution = False
     for sample in samples:
-        params_named = sample.get("params_named", {})
-        if not isinstance(params_named, dict):
+        params_named = _normalize_parameter_payload(sample.get("params_named", {}))
+        if not params_named:
             continue
         sample_ok = True
         for name, truth in truth_params.items():
@@ -442,7 +470,7 @@ def _distribution_truth_metrics(
             if raw_value is None:
                 sample_ok = False
                 continue
-            error = abs(float(raw_value) - float(truth))
+            error = abs(raw_value - float(truth))
             if error < min_errors[str(name)]:
                 min_errors[str(name)] = float(error)
             if error > float(abs_tolerances[str(name)]):
@@ -619,8 +647,8 @@ def _extract_head_at_point_from_run(run: Any, *, x: float, y: float) -> np.ndarr
         except Exception:
             mesh_payload = None
         if mesh_payload is not None:
-            vertices = np.asarray(mesh_payload.get("vertices", []), dtype=float)
-            connectivity = np.asarray(mesh_payload.get("face_node_connectivity", []), dtype=int)
+            vertices = np.asarray(mesh_payload.vertices, dtype=float)
+            connectivity = np.asarray(mesh_payload.face_node_connectivity, dtype=int)
             if connectivity.size and vertices.size >= 2:
                 valid = connectivity >= 0
                 gathered = np.where(
@@ -867,11 +895,11 @@ def _extract_head_at_point_from_dir(
     bit-identical to the truth observations when the unconfined head reaches
     the ground surface.
 
-    Resolves the cell index from the solver model's mesh first - the
-    lightweight v0.6 trial pipeline never populates ``setup.mesh_planar`` for
-    ``sgrid`` simulations, so the registered solver model is the only place
-    where the grid layout is exposed at trial time. Falls back to
-    ``mesh_planar`` for legacy callers (catchment-scale runs).
+    Resolves the cell index from the solver model's mesh first. The v1
+    lightweight trial path may not populate ``setup.mesh_planar`` for ``sgrid``
+    simulations, so the registered solver model is the canonical source for
+    the grid layout at trial time. Falls back to ``mesh_planar`` for
+    catchment-scale runs.
 
     Indexes the head array by inspecting its shape: structured DIS arrays
     are ``(nlay, nrow, ncol)`` while DISV arrays come back as
@@ -1081,33 +1109,6 @@ def _nearest_cell_index_legacy(
     return (layer, int(row), int(col), flat_index)
 
 
-def _make_instrumented_run_trial_light(
-    original_fn: Any,
-    state: dict[str, float],
-) -> Any:
-    """Wrap ``run_trial_light`` to record per-iteration timing into ``state``."""
-
-    def _instrumented(
-        trial_ctx: Any,
-        values: Any,
-        *,
-        objective: str = "nse",
-        variable: str = "head",
-        metric_fn: Any = None,
-    ) -> Any:
-        state["t_start"] = time.perf_counter()
-        state["t_run_start"] = time.perf_counter()
-        return original_fn(
-            trial_ctx,
-            values,
-            objective=objective,
-            variable=variable,
-            metric_fn=metric_fn,
-        )
-
-    return _instrumented
-
-
 def _normalise_outputs_for_extraction(
     outputs_cfg: Any,
     *,
@@ -1155,8 +1156,8 @@ def _write_calibration_toml_for_project(
     simulation_config_name: str,
     workspace_root: Path,
 ) -> Path:
-    """Materialise the v0.6 calibration TOML on disk next to the simulation."""
-    calibration_path = benchmark_root / f"calibration_v06_{method_instance_name}.toml"
+    """Materialise the calibration TOML on disk next to the simulation."""
+    calibration_path = benchmark_root / f"calibration_case_{method_instance_name}.toml"
     rendered: dict[str, Any] = {
         "base_config": str(simulation_config_name),
         "workspace": {"root": str(workspace_root)},
@@ -1202,17 +1203,7 @@ def _assess_method_result_from_report(
     if not completed_df.empty:
         best_idx = completed_df["objective_value"].astype(float).idxmin()
         best_row = iterations_df.loc[best_idx]
-        params_named = best_row.get("parameters") or {}
-        if isinstance(params_named, str):
-            try:
-                params_named = json.loads(params_named)
-            except json.JSONDecodeError:
-                params_named = {}
-        params_best = {
-            str(name): float(value)
-            for name, value in dict(params_named).items()
-            if value is not None
-        }
+        params_best = _normalize_parameter_payload(best_row.get("parameters"))
     param_abs_error = _param_abs_error(
         truth_params=truth_params,
         params_best=params_best,
@@ -1285,16 +1276,11 @@ def _assess_method_result_from_report(
     if method_profile.persist_model_distribution and not completed_df.empty:
         samples: list[dict[str, Any]] = []
         for _, row in completed_df.iterrows():
-            params_named = row.get("parameters") or {}
-            if isinstance(params_named, str):
-                try:
-                    params_named = json.loads(params_named)
-                except json.JSONDecodeError:
-                    params_named = {}
+            params_named = _normalize_parameter_payload(row.get("parameters"))
             samples.append(
                 {
                     "sample_id": f"iter_{int(row['iteration']):04d}",
-                    "params_named": {str(k): float(v) for k, v in dict(params_named).items()},
+                    "params_named": params_named,
                     "objective_total": (
                         None
                         if row["objective_value"] is None
@@ -1432,6 +1418,29 @@ def _summarize_candidate_timings_for_report(
     return summary
 
 
+def _candidate_timing_values_from_iterations(iterations_df: Any) -> list[dict[str, float]]:
+    """Build candidate timing summaries from persisted iteration durations."""
+    columns = getattr(iterations_df, "columns", ())
+    if "duration_s" not in columns:
+        return []
+    values: list[dict[str, float]] = []
+    for raw_value in iterations_df["duration_s"].tolist():
+        try:
+            duration = float(raw_value)
+        except (TypeError, ValueError):
+            continue
+        if not math.isfinite(duration):
+            continue
+        values.append(
+            {
+                "total_time_seconds": duration,
+                "prepare_time_seconds": 0.0,
+                "simulation_time_seconds": duration,
+            }
+        )
+    return values
+
+
 def _write_iteration_history_jsonl(
     *,
     path: Path,
@@ -1441,12 +1450,7 @@ def _write_iteration_history_jsonl(
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("w", encoding="utf-8") as stream:
         for _, row in iterations_df.iterrows():
-            params_named = row.get("parameters") or {}
-            if isinstance(params_named, str):
-                try:
-                    params_named = json.loads(params_named)
-                except json.JSONDecodeError:
-                    params_named = {}
+            params_named = _normalize_parameter_payload(row.get("parameters"))
             metrics_payload = row.get("metrics") or {}
             if isinstance(metrics_payload, str):
                 try:
@@ -1467,10 +1471,8 @@ def _write_iteration_history_jsonl(
                 json.dumps(
                     {
                         "iteration_id": f"iter_{int(row['iteration']):04d}",
-                        "params_named": dict(params_named),
-                        "params_vector": [
-                            float(v) for v in dict(params_named).values() if v is not None
-                        ],
+                        "params_named": params_named,
+                        "params_vector": [float(v) for v in params_named.values()],
                         "objective_total": obj_value,
                         "block_costs": block_costs,
                         "status": str(row.get("status") or "unknown"),
@@ -1536,7 +1538,6 @@ def synthesize_truth_observations_via_project_api(
         workspace_root=benchmark_root / "project_truth",
         extra_sections={
             "display": {"enabled": False, "show": False, "save": False},
-            "postprocess": {"enabled": False},
             "simulation": {"run_id": "twin_truth"},
         },
     )
@@ -1598,7 +1599,7 @@ def run_twin_benchmark_case(
 ) -> TwinCalibrationBenchmarkResult:
     """Run one twin benchmark via the :meth:`Project.calibrate` API.
 
-    Routes through the v0.6 ``[calibration]`` schema +
+    Routes through the v1 ``[calibration]`` schema and
     :class:`hydromodpy.Project`. The case definition must declare
     ``parameter_targets``, ``output_specs`` and ``objective_block_specs``
     so :func:`build_payload` can emit the enriched TOML.
@@ -1660,19 +1661,11 @@ def run_twin_benchmark_case(
     generate_case_figures = (
         definition.generate_case_figures if case_figures is None else bool(case_figures)
     )
+    del figure_format
     configuration_figure: Path | None = None
     reference_objective_path: Path | None = None
     if generate_case_figures:
-        from validation_cases.calibration.plotting import write_case_configuration_figure
-
-        configuration_figure = write_case_configuration_figure(
-            benchmark_root=benchmark_root,
-            definition=definition,
-            simulation_config_path=simulation_config_path,
-            truth_simulation_config_path=truth_simulation_config_path,
-            artifact_retention=retained_mode,
-            figure_format=str(figure_format),
-        )
+        configuration_figure = None
 
     method_results: list[TwinMethodBenchmarkResult] = []
     for method_run in _iter_selected_method_runs(selected_profiles):
@@ -1704,9 +1697,6 @@ def run_twin_benchmark_case(
             workspace_root=benchmark_root / "project",
         )
 
-        candidate_timing_values: list[dict[str, float]] = []
-        candidate_run_state: dict[str, float] = {"t_start": 0.0, "t_run_start": 0.0}
-
         output_decls = _normalise_outputs_for_extraction(
             definition.output_specs,
             observed_values=observations_used,
@@ -1716,73 +1706,23 @@ def run_twin_benchmark_case(
             objective_blocks=tuple(definition.objective_block_specs),
         )
 
-        def _make_timing_metric_fn(
-            inner_metric_fn: Any,
-            state: dict[str, float],
-            timings: list[dict[str, float]],
-        ) -> Any:
-            def _timing_metric_fn(
-                trial_ctx: Any,
-                *,
-                objective: str | None = None,
-                variable: str | None = None,
-            ) -> Any:
-                sim_end = time.perf_counter()
-                primary, components = inner_metric_fn(
-                    trial_ctx,
-                    objective=objective,
-                    variable=variable,
-                )
-                sim_total = sim_end - state["t_run_start"]
-                total = time.perf_counter() - state["t_start"]
-                timings.append(
-                    {
-                        "total_time_seconds": float(total),
-                        "prepare_time_seconds": max(0.0, float(total) - float(sim_total)),
-                        "simulation_time_seconds": float(sim_total),
-                    }
-                )
-                return primary, components
-
-            return _timing_metric_fn
-
-        timing_metric_fn = _make_timing_metric_fn(
-            custom_metric_fn,
-            candidate_run_state,
-            candidate_timing_values,
-        )
-
-        # Prepare timing wrapper: monkey-patch run_trial_light per call to
-        # capture per-iteration durations. Easier than modifying the engine.
-        from hydromodpy.simulation.execution import trial as _trial_mod
-
-        original_run_trial_light = _trial_mod.run_trial_light
-
-        instrumented_run_trial_light = _make_instrumented_run_trial_light(
-            original_run_trial_light,
-            candidate_run_state,
-        )
-
-        from hydromodpy.calibration.cli import run_calibration_cli
+        from hydromodpy.calibration.runner import run_calibration_cli
 
         session_prepare_t0 = time.perf_counter()
-        try:
-            _trial_mod.run_trial_light = instrumented_run_trial_light
-            report = run_calibration_cli(
-                calibration_path,
-                metric_fn=timing_metric_fn,
-                workspace=benchmark_root / "project",
-                project=str(definition.case_id),
-                return_report=True,
-            )
-        finally:
-            _trial_mod.run_trial_light = original_run_trial_light
+        report = run_calibration_cli(
+            calibration_path,
+            metric_fn=custom_metric_fn,
+            workspace=benchmark_root / "project",
+            project=str(definition.case_id),
+            return_report=True,
+        )
         session_prepare_time_seconds = float(time.perf_counter() - session_prepare_t0)
 
         from hydromodpy.results.catalog import SimulationCatalog
 
         with SimulationCatalog(benchmark_root / "project") as catalog:
             iterations_df = catalog.calibration_iterations(report.session_id)
+        candidate_timing_values = _candidate_timing_values_from_iterations(iterations_df)
 
         assessed_result = _assess_method_result_from_report(
             definition=definition,
@@ -1800,21 +1740,6 @@ def run_twin_benchmark_case(
             session_prepare_time_seconds=session_prepare_time_seconds,
             output_decls=output_decls,
         )
-        if generate_case_figures:
-            from validation_cases.calibration.plotting import write_case_method_figures
-
-            written_figures = write_case_method_figures(
-                benchmark_root=benchmark_root,
-                definition=definition,
-                result=assessed_result,
-                figure_format=str(figure_format),
-            )
-            assessed_result = replace(
-                assessed_result,
-                objective_trace_figure=written_figures.get("objective_trace"),
-                objective_landscape_figure=written_figures.get("objective_landscape"),
-                posterior_distribution_figure=written_figures.get("posterior_distribution"),
-            )
         method_results.append(assessed_result)
 
     pruned_artifacts = _prune_benchmark_artifacts(

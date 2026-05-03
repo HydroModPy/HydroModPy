@@ -2,7 +2,7 @@
 # Nançon - calibration of K against observed discharge
 # ----------------------------------------------------------------------
 # Overlay TOML. Inherits the project base config and runs an Optuna
-# campaign that searches log10(K) to maximise NSE between the simulated
+# campaign that searches log10(K) to maximise KGE between the simulated
 # drain discharge and the observed Nançon hydrograph.
 #
 # Sy, Ss and aquifer thickness are frozen at their baseline value.
@@ -31,7 +31,8 @@ workflow = "calibration"
 
 [simulation]
 name = "nancon_calibration_k"
-description = "Optuna calibration of K vs NSE(discharge), Sy/Ss frozen."
+description = "Optuna calibration of K vs KGE(discharge), Sy/Ss frozen."
+scientific_objective = "calibration"
 
 [simulation.time]
 # Same three-year window as the transient run.

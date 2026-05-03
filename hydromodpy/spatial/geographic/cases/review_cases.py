@@ -3,24 +3,20 @@
 This launcher executes each selected case runner one after another. It keeps
 figure display blocking and waits for the current window(s) to be closed before
 moving to the next case.
+
+Run with:
+    python -m hydromodpy.spatial.geographic.cases.review_cases
 """
 
 from __future__ import annotations
 
 import argparse
-import sys
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
 CASES_DIR = Path(__file__).resolve().parent
-
-# Allow direct script execution without requiring editable install.
-if __package__ in (None, ""):
-    _repo_root = Path(__file__).resolve().parents[3]
-    if str(_repo_root) not in sys.path:
-        sys.path.insert(0, str(_repo_root))
 
 
 @dataclass(frozen=True, slots=True)

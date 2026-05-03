@@ -34,16 +34,18 @@ from hydromodpy.spatial.mesh.gmsh_grid.cases.reference_2d_geology_conformal.case
     _resolve_constraints_mode,
 )
 from hydromodpy.spatial.mesh.gmsh_grid.cases.reference_2d_geology_conformal.contracts import (
-    ZoneConformalDomainConfig,
     ZoneConformalGeologyConfig,
-    ZoneConformalGeometryPayload,
     ZoneConformalRiversConfig,
-    ZoneConformalZoneMeshingConfig,
 )
 from hydromodpy.spatial.mesh.gmsh_grid.cases.reference_2d_geology_conformal.planning import (
     _build_zone_conformal_meshing_inputs,
     _clip_river_trace_to_domain,
     _resolve_river_trace_for_meshing,
+)
+from hydromodpy.spatial.mesh.gmsh_grid.zone_meshing.config import ZoneMeshingSettings
+from hydromodpy.spatial.mesh.gmsh_grid.zone_meshing.domain import (
+    ZoneMeshingDomainConfig,
+    ZoneMeshingDomainPayload,
 )
 
 GOLDEN_DIR = Path(__file__).resolve().parent / "golden"
@@ -115,7 +117,7 @@ def test_build_zone_source_inputs_loads_geology_once(monkeypatch) -> None:
     )
     call_count = 0
 
-    def _fake_load_vector_geology_dataframe(*args, **kwargs):
+    def _fake_load_vector_dataframe(*args, **kwargs):
         nonlocal call_count
         call_count += 1
         return {
@@ -129,15 +131,26 @@ def test_build_zone_source_inputs_loads_geology_once(monkeypatch) -> None:
         def to_mapping(self):
             return {"source": {"kind": "vector", "path": "geology.shp"}}
 
+    from hydromodpy.spatial import protocols as spatial_protocols
+
+    real_data_source = spatial_protocols.get_geology_data_source()
+
+    class _FakeDataSource:
+        def __getattr__(self, name):
+            return getattr(real_data_source, name)
+
+        def load_vector_dataframe(self, *args, **kwargs):
+            return _fake_load_vector_dataframe(*args, **kwargs)
+
     monkeypatch.setattr(
-        conformal_planning_module,
-        "load_vector_geology_dataframe",
-        _fake_load_vector_geology_dataframe,
+        spatial_protocols,
+        "_geology_data_source",
+        _FakeDataSource(),
     )
     monkeypatch.setattr(
         conformal_planning_module,
         "_load_effective_domain_payload",
-        lambda **_: ZoneConformalGeometryPayload(
+        lambda **_: ZoneMeshingDomainPayload(
             geometry=domain_gdf.geometry.iloc[0],
             gdf=domain_gdf,
             summary={},
@@ -552,8 +565,9 @@ def _build_reference_river_trace() -> SimpleNamespace:
 @_skip_no_gmsh
 def test_reference_2d_geology_conformal_case_non_regression(
     update_goldens: bool,
+    tmp_path: Path,
 ) -> None:
-    output_dir = Path.cwd() / "scratch_tests" / "reference_2d_geology_conformal" / "runtime"
+    output_dir = tmp_path / "runtime"
     output_dir.mkdir(parents=True, exist_ok=True)
 
     summary = run_reference_2d_zone_conformal_case_from_toml(
@@ -632,13 +646,8 @@ def test_reference_2d_geology_conformal_case_non_regression(
 
 
 @_skip_no_gmsh
-def test_reference_2d_geology_conformal_rejects_removed_clip_bbox_syntax() -> None:
-    output_dir = (
-        Path.cwd()
-        / "scratch_tests"
-        / "reference_2d_geology_conformal"
-        / "runtime_invalid_clip_bbox_domain"
-    )
+def test_reference_2d_geology_conformal_rejects_removed_clip_bbox_syntax(tmp_path: Path) -> None:
+    output_dir = tmp_path / "runtime_invalid_clip_bbox_domain"
     output_dir.mkdir(parents=True, exist_ok=True)
     invalid_toml = output_dir / "case_config_invalid_clip_bbox_domain.toml"
     _write_invalid_clip_bbox_domain_case_toml(invalid_toml)
@@ -762,8 +771,8 @@ def test_resolve_case_config_supports_base_config_inheritance(tmp_path: Path) ->
     assert cfg.figure_regional_dpi == 220
     assert isinstance(cfg.geology, ZoneConformalGeologyConfig)
     assert cfg.zone_meshing is not None
-    assert isinstance(cfg.zone_meshing, ZoneConformalZoneMeshingConfig)
-    assert isinstance(cfg.domain, ZoneConformalDomainConfig)
+    assert isinstance(cfg.zone_meshing, ZoneMeshingSettings)
+    assert isinstance(cfg.domain, ZoneMeshingDomainConfig)
 
 
 def test_resolve_case_config_accepts_prevalidated_launcher_section_defaults(
@@ -809,7 +818,7 @@ def test_resolve_case_config_accepts_prevalidated_launcher_section_defaults(
     assert cfg.constraints_mode_label == "geology_only"
     assert cfg.figure_dpi == 340
     assert cfg.figure_regional_dpi == 210
-    assert isinstance(cfg.domain, ZoneConformalDomainConfig)
+    assert isinstance(cfg.domain, ZoneMeshingDomainConfig)
     assert cfg.domain.kind == "geographic_box_buffer"
     assert cfg.domain.to_mapping()["kind"] == "geographic_box_buffer"
     assert isinstance(cfg.geology, ZoneConformalGeologyConfig)
@@ -1432,13 +1441,8 @@ def test_mesh_mode_key_is_rejected(tmp_path: Path) -> None:
 
 
 @_skip_no_gmsh
-def test_geographic_box_buffer_domain_uses_domain_geographic_support() -> None:
-    output_dir = (
-        Path.cwd()
-        / "scratch_tests"
-        / "reference_2d_geology_conformal"
-        / "runtime_geographic_box_buffer"
-    )
+def test_geographic_box_buffer_domain_uses_domain_geographic_support(tmp_path: Path) -> None:
+    output_dir = tmp_path / "runtime_geographic_box_buffer"
     output_dir.mkdir(parents=True, exist_ok=True)
     config_path = output_dir / "case_geographic_box_buffer.toml"
     _write_geographic_box_buffer_case_toml(config_path)
@@ -1462,13 +1466,8 @@ def test_geographic_box_buffer_domain_uses_domain_geographic_support() -> None:
 
 
 @_skip_no_gmsh
-def test_reference_case_accepts_watershed_boundary_section() -> None:
-    output_dir = (
-        Path.cwd()
-        / "scratch_tests"
-        / "reference_2d_geology_conformal"
-        / "runtime_geographic_box_buffer_watershed_boundary"
-    )
+def test_reference_case_accepts_watershed_boundary_section(tmp_path: Path) -> None:
+    output_dir = tmp_path / "runtime_geographic_box_buffer_watershed_boundary"
     output_dir.mkdir(parents=True, exist_ok=True)
     config_path = output_dir / "case_geographic_box_buffer_watershed_boundary.toml"
     _write_geographic_box_buffer_watershed_boundary_case_toml(config_path)
@@ -1505,10 +1504,8 @@ def test_reference_case_accepts_watershed_boundary_section() -> None:
 
 
 @_skip_no_gmsh
-def test_geology_rivers_mode_builds_combined_constraints_contract() -> None:
-    output_dir = (
-        Path.cwd() / "scratch_tests" / "reference_2d_geology_conformal" / "runtime_geology_rivers"
-    )
+def test_geology_rivers_mode_builds_combined_constraints_contract(tmp_path: Path) -> None:
+    output_dir = tmp_path / "runtime_geology_rivers"
     output_dir.mkdir(parents=True, exist_ok=True)
     case_toml = output_dir / "case_geology_rivers.toml"
     _write_mode_case_toml(
@@ -1541,13 +1538,8 @@ def test_geology_rivers_mode_builds_combined_constraints_contract() -> None:
     assert summary["river_trace"]["embedded_surface_curve_pairs"] > 0
 
 
-def test_reference_case_rejects_removed_scope_sections() -> None:
-    output_dir = (
-        Path.cwd()
-        / "scratch_tests"
-        / "reference_2d_geology_conformal"
-        / "runtime_geographic_scopes"
-    )
+def test_reference_case_rejects_removed_scope_sections(tmp_path: Path) -> None:
+    output_dir = tmp_path / "runtime_geographic_scopes"
     output_dir.mkdir(parents=True, exist_ok=True)
     config_path = output_dir / "case_geographic_scopes.toml"
     _write_geographic_scope_case_toml(config_path)
@@ -1565,10 +1557,8 @@ def test_reference_case_rejects_removed_scope_sections() -> None:
 
 
 @_skip_no_gmsh
-def test_rivers_only_mode_builds_river_constraints_contract() -> None:
-    output_dir = (
-        Path.cwd() / "scratch_tests" / "reference_2d_geology_conformal" / "runtime_rivers_only"
-    )
+def test_rivers_only_mode_builds_river_constraints_contract(tmp_path: Path) -> None:
+    output_dir = tmp_path / "runtime_rivers_only"
     output_dir.mkdir(parents=True, exist_ok=True)
     config_path = output_dir / "case_rivers_only.toml"
     config_path.write_text(

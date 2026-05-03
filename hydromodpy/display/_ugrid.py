@@ -34,8 +34,8 @@ def render_face_field(
     from matplotlib.collections import PolyCollection
 
     mesh = sim.mesh
-    vertices = np.asarray(mesh["vertices"])
-    fnc = np.asarray(mesh["face_node_connectivity"])
+    vertices = np.asarray(mesh.vertices)
+    fnc = np.asarray(mesh.face_node_connectivity)
 
     polygons = []
     for row in fnc:

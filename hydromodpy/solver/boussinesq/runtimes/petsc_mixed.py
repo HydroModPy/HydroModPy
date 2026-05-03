@@ -214,7 +214,7 @@ def _solve_mixed_problem(
             rate_scale_m_s=float(rate_scale_m_s),
         )
         residual = np.asarray(residual_vec.getArray(), dtype=float)
-        residual[:n_cells] = np.asarray(current_assembly.residual_m3_s, dtype=float)
+        residual[:n_cells] = np.asarray(current_assembly.solver_residual, dtype=float)
         residual[n_cells:] = complementarity_residual
         residual[n_cells:][prescribed_mask] = q_ex_rate_m_s[prescribed_mask]
 
@@ -320,7 +320,7 @@ def _solve_mixed_problem(
         complementarity_residual[prescribed_mask] = 0.0
     full_residual = np.concatenate(
         (
-            np.asarray(current_assembly.residual_m3_s, dtype=float),
+            np.asarray(current_assembly.solver_residual, dtype=float),
             np.asarray(complementarity_residual, dtype=float),
         )
     )

@@ -6,10 +6,7 @@ from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
 
-from hydromodpy.data.variables.geology.config import (
-    validate_geology_config_data,
-)
-from hydromodpy.solver.utils._config_helpers import resolve_path
+from hydromodpy.core.toml_io.paths import resolve_path
 from hydromodpy.spatial.field.core.field_param_config import (
     resolve_field_param_config_payload,
     validate_resolved_field_param_data,
@@ -19,6 +16,7 @@ from hydromodpy.spatial.mesh.gmsh_grid.cases._common import (
     load_case_section,
     resolve_case_config_path,
 )
+from hydromodpy.spatial.protocols import get_geology_data_source
 
 
 def resolve_reference_case_config_path(raw_config: str | Path) -> Path:
@@ -97,7 +95,7 @@ def resolve_reference_case_config(
 
     return {
         "mesh": mesh_cfg,
-        "geology": validate_geology_config_data(geology_cfg),
+        "geology": get_geology_data_source().validate_config(geology_cfg),
         "field_param": validate_resolved_field_param_data(field_param_resolved),
         "cell_samples_per_axis": (
             None

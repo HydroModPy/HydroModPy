@@ -5,12 +5,13 @@ from types import SimpleNamespace
 import numpy as np
 import pytest
 
-from hydromodpy.solver.modflow_common import (
+from hydromodpy.solver.modflow_grid import (
     build_spatial_discretization,
 )
-from hydromodpy.solver.modflow_nwt.modflow import Modflow
+from hydromodpy.solver.modflow_nwt.nwt import ModflowNwt
 from hydromodpy.spatial import RasterSupport, Surface
 from hydromodpy.spatial.domain import Domain, DomainConfig
+from hydromodpy.spatial.mesh import CellBlock, CellType, HydroMesh
 from hydromodpy.spatial.mesh.cartesian_grid.sgrid_config import (
     PlanarGridConfig,
     SolverSGridConfig,
@@ -62,11 +63,25 @@ def _build_domain_from_dem(dem: np.ndarray) -> Domain:
     )
 
 
+class _RuntimePlanarMesh:
+    def __init__(self, hydro_mesh: HydroMesh):
+        self._hydro_mesh = hydro_mesh
+
+    def cell_centroids(self) -> tuple[np.ndarray, np.ndarray]:
+        vertices = np.asarray(self._hydro_mesh.vertices, dtype=float)
+        connectivity = np.asarray(self._hydro_mesh.flat_connectivity, dtype=int)
+        centroids = np.asarray([vertices[cell_nodes].mean(axis=0) for cell_nodes in connectivity])
+        return centroids[:, 0], centroids[:, 1]
+
+    def to_hydro_mesh(self) -> HydroMesh:
+        return self._hydro_mesh
+
+
 def test_modflow_requires_domain_object_for_spatial_geometry():
     dem = np.array([[10.0, 11.0], [12.0, 13.0]], dtype=float)
     geo = _DummyGeographic(dem)
 
-    model = Modflow(
+    model = ModflowNwt(
         geographic=geo,
         model_folder=".",
     )
@@ -80,7 +95,7 @@ def test_modflow_domain_surfaces_are_required():
     domain = _build_domain_from_dem(dem)
 
     domain.substratum = None
-    model = Modflow(geographic=geo, model_folder=".")
+    model = ModflowNwt(geographic=geo, model_folder=".")
     model.domain = domain
     with pytest.raises(
         ValueError,
@@ -99,7 +114,7 @@ def test_modflow_validates_domain_support_match_on_surface_build():
         name="substratum",
     )
 
-    model = Modflow(
+    model = ModflowNwt(
         geographic=geo,
         model_folder=".",
     )
@@ -140,10 +155,68 @@ def test_build_spatial_discretization_resamples_to_solver_shape():
     assert ctx.grid.cell_area == pytest.approx((0.5) * (2.0 / 3.0))
 
 
+def test_build_spatial_discretization_uses_runtime_mesh_vertical_bounds():
+    top = np.full((2, 2), 100.0, dtype=float)
+    domain = _build_domain_from_dem(top)
+    domain.substratum = _build_surface(np.zeros((2, 2), dtype=float), name="substratum")
+    hydro_mesh = HydroMesh(
+        vertices=np.asarray(
+            [
+                [0.0, 0.0],
+                [1.0, 0.0],
+                [0.0, 1.0],
+                [1.0, 1.0],
+            ],
+            dtype=float,
+        ),
+        cell_blocks=(
+            CellBlock(
+                CellType.TRIANGLE,
+                np.asarray(
+                    [
+                        [0, 1, 2],
+                        [1, 3, 2],
+                    ],
+                    dtype=int,
+                ),
+            ),
+        ),
+    )
+    support = SimpleNamespace(
+        cell_z_top_m=np.asarray([30.0, 40.0], dtype=float),
+        cell_z_bottom_m=np.asarray([10.0, 20.0], dtype=float),
+    )
+
+    ctx = build_spatial_discretization(
+        domain=domain,
+        sgrid_config=SolverSGridConfig(
+            vertical=VerticalGridConfig(
+                genmtd_lay="constant",
+                nlay=2,
+                nodata=-9999.0,
+            ),
+        ),
+        runtime_planar_mesh=_RuntimePlanarMesh(hydro_mesh),
+        runtime_mesh_support=support,
+    )
+
+    np.testing.assert_allclose(ctx.solver_mesh.top, np.asarray([30.0, 40.0], dtype=float))
+    np.testing.assert_allclose(
+        ctx.solver_mesh.botm,
+        np.asarray(
+            [
+                [20.0, 30.0],
+                [10.0, 20.0],
+            ],
+            dtype=float,
+        ),
+    )
+
+
 def test_modflow_requires_canonical_time_grid_for_launcher_flow_preprocessing():
     dem = np.array([[10.0, 11.0], [12.0, 13.0]], dtype=float)
     geo = _DummyGeographic(dem)
-    model = Modflow(geographic=geo, model_folder=".")
+    model = ModflowNwt(geographic=geo, model_folder=".")
     model.flow = SimpleNamespace(config=SimpleNamespace(flow_regime="transient"))
     model.domain = object()
     model.sgrid_config = object()
@@ -160,10 +233,11 @@ def test_modflow_requires_canonical_time_grid_for_launcher_flow_preprocessing():
 def test_modflow_accepts_missing_time_grid_for_steady_launcher_flow_preprocessing():
     dem = np.array([[10.0, 11.0], [12.0, 13.0]], dtype=float)
     geo = _DummyGeographic(dem)
-    model = Modflow(geographic=geo, model_folder=".")
+    model = ModflowNwt(geographic=geo, model_folder=".")
     model.flow = SimpleNamespace(config=SimpleNamespace(flow_regime="steady"))
     model.domain = object()
     model.sgrid_config = object()
     model._apply_preprocess_options(model.preprocess_options)
 
-    model._validate_pre_processing_inputs()
+    # Steady flow should not require a time_grid; method must return None.
+    assert model._validate_pre_processing_inputs() is None

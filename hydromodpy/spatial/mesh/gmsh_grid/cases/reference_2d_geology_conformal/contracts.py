@@ -39,9 +39,6 @@ class ZoneConformalSourcePayload:
     n_source_features_before_domain_clip: int
 
 
-ZoneConformalGeometryPayload = ZoneMeshingDomainPayload
-
-
 @dataclass(frozen=True)
 class ZoneConformalGeologySourceConfig:
     """Validated geology source definition used by the conformal case."""
@@ -157,12 +154,6 @@ class ZoneConformalGeologyConfig:
         return payload
 
 
-ZoneConformalDomainConfig = ZoneMeshingDomainConfig
-
-
-ZoneConformalZoneMeshingConfig = ZoneMeshingSettings
-
-
 @dataclass(frozen=True)
 class ZoneConformalRiversConfig:
     """Validated river-constraint options for one run."""
@@ -222,8 +213,8 @@ class ZoneConformalCaseConfig:
     geology: ZoneConformalGeologyConfig | None
     rivers: ZoneConformalRiversConfig | None
     watershed_boundary: ZoneConformalWatershedBoundaryConfig
-    domain: ZoneConformalDomainConfig
-    zone_meshing: ZoneConformalZoneMeshingConfig
+    domain: ZoneMeshingDomainConfig
+    zone_meshing: ZoneMeshingSettings
     output_mesh: object | None
     output_summary_json: object | None
     output_figure: object | None
@@ -253,8 +244,8 @@ class ZoneConformalMeshingInputs:
     constraints_mode_label: str
     source_payload: ZoneConformalSourcePayload
     zone_gdf: gpd.GeoDataFrame
-    effective_domain_payload: ZoneConformalGeometryPayload
-    zone_meshing_cfg: ZoneConformalZoneMeshingConfig
+    effective_domain_payload: ZoneMeshingDomainPayload
+    zone_meshing_cfg: ZoneMeshingSettings
     linear_constraints: tuple[ZoneLinearConstraint, ...]
     regional_size_fields: tuple[ZoneRegionalSizeField, ...]
     diagnostics: ZoneConformalMeshingDiagnostics
@@ -263,11 +254,9 @@ class ZoneConformalMeshingInputs:
 __all__ = [
     "ZoneConformalCaseConfig",
     "ZoneConformalConstraintFamilies",
-    "ZoneConformalDomainConfig",
     "ZoneConformalGeologyConfig",
     "ZoneConformalGeologyLandSeaConfig",
     "ZoneConformalGeologySourceConfig",
-    "ZoneConformalGeometryPayload",
     "ZoneConformalMeshingDiagnostics",
     "ZoneConformalMeshingInputs",
     "ZoneConformalRiversConfig",
@@ -276,6 +265,5 @@ __all__ = [
     "ZoneConformalWatershedGeologyConformityConfig",
     "ZoneConformalWatershedOutsideCoarseningConfig",
     "ZoneConformalWatershedBoundarySmoothingConfig",
-    "ZoneConformalZoneMeshingConfig",
     "ZoneRegionalSizeField",
 ]

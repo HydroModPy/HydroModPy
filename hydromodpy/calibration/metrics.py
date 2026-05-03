@@ -4,28 +4,22 @@ During a calibration loop, each trial runs in ``lightweight`` mode: the
 solver still writes its binary output (``.hds``, ``.cbc``, ...) to the
 workspace scratch folder, but no Zarr / Parquet / catalog rows are
 created. The optimizer only needs a scalar objective value to drive the
-ask/tell loop - the metric extractor in this module reads the solver
-binaries directly, aligns the simulated series with the observations
-that were loaded once during ``prepare_trials``, and returns a
-``(primary_metric, per_component_metrics)`` tuple.
+ask/tell loop. This module loads observations once, then for every trial
+asks the run's :class:`SolverAdapter` to produce the simulated series via
+``extract_calibration_series`` and scores it against the observations.
 
-Current coverage:
-
-- **MODFLOW-NWT** - discharge (DRAIN budget summed over the catchment)
-  and head at observation points (read from the ``.hds`` file).
-
-MODFLOW-6 and other solvers are scheduled for a follow-up: the
-extractor returns ``(nan, {})`` for unsupported solvers so the trial
-reports ``status="completed"`` but its objective becomes ``nan`` and
-the optimizer naturally skips it.
+Solver coverage is owned by the adapters: the lightweight reader for
+MODFLOW-NWT and MODFLOW 6 lives in
+``hydromodpy.solver.modflow_common.calibration_extractors``. Unsupported
+adapters raise explicit errors so failed calibration trials do not look
+like valid NaN-scored evaluations.
 """
 
 from __future__ import annotations
 
-import logging
+import inspect
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
-from pathlib import Path
 from types import SimpleNamespace
 from typing import TYPE_CHECKING, Any
 
@@ -37,11 +31,18 @@ from hydromodpy.calibration.objective import (
     METRICS,
     build_objective_from_config,
 )
+from hydromodpy.core.logging import get_logger
+from hydromodpy.results.time_alignment import (
+    align_observed_simulated,
+    observed_on_simulation_index,
+)
+from hydromodpy.simulation.planning.plan import RunContext
+from hydromodpy.solver.base.registry import get_solver_adapter
 
 if TYPE_CHECKING:
     from hydromodpy.calibration.config import CalibObjectiveBlockDecl, CalibOutputDecl
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 # ---------------------------------------------------------------------------
@@ -103,87 +104,46 @@ def _load_observed(
 
 
 # ---------------------------------------------------------------------------
-# Simulated series extraction (solver-specific)
+# Adapter resolution: pick the active flow run and its SolverAdapter
 # ---------------------------------------------------------------------------
 
 
-def _find_flow_run(ctx: Any) -> tuple[str, Any, Path] | None:
-    """Return ``(run_id, model, output_dir)`` for the first flow run, else None.
+def _resolve_flow_adapter(trial_ctx: Any) -> tuple[Any, RunContext] | None:
+    """Return ``(adapter, run_ctx)`` for the active flow run, or ``None``.
 
-    The calibration trial runs one flow process by design, so we return
-    the earliest entry in ``models_by_run_id``. ``output_dir`` is pulled
-    from ``output_dirs_by_run_id`` (populated by ``SimulationRunner``)
-    and falls back to the model's ``full_path`` attribute when absent.
+    A calibration trial runs exactly one flow process by design; this helper
+    returns the first such ``ProcessRun`` it finds along with a freshly
+    instantiated ``SolverAdapter`` and a ``RunContext`` whose ``state`` is the
+    trial context itself (the adapter reads ``state.execution`` directly).
     """
-    registry = getattr(ctx, "execution", None)
-    if registry is None:
+    registry_state = getattr(trial_ctx, "execution", None)
+    if registry_state is None:
         return None
-    models = registry.models_by_run_id or {}
-    output_dirs = getattr(registry, "output_dirs_by_run_id", {}) or {}
+    models = registry_state.models_by_run_id or {}
     if not models:
         return None
-
-    # Pick the first flow run (process_type == "flow").
-    plan = registry.simulation_plan
-    flow_run_id = None
-    if plan is not None:
-        for run in plan.runs:
-            if run.process_type == "flow" and run.id in models:
-                flow_run_id = run.id
-                break
-    if flow_run_id is None:
-        flow_run_id = next(iter(models))
-
-    model = models[flow_run_id]
-    output_dir = output_dirs.get(flow_run_id)
-    if output_dir is None:
-        full_path = getattr(model, "full_path", None)
-        if full_path is not None:
-            output_dir = Path(full_path)
-    if output_dir is None:
+    plan = getattr(registry_state, "simulation_plan", None)
+    if plan is None:
         return None
-    return flow_run_id, model, Path(output_dir)
 
+    flow_run = None
+    for run in plan.runs:
+        if run.process_type == "flow" and run.id in models:
+            flow_run = run
+            break
+    if flow_run is None:
+        return None
+    if flow_run.solver == "boussinesq":
+        raise NotImplementedError(
+            "Calibration extraction is not implemented for solver 'boussinesq'"
+        )
 
-# MODFLOW ITMUNI codes -> seconds per native time unit. Used to convert
-# the CBC native flux unit (e.g. m³/d when itmuni=4) into m³/s before
-# comparing against observations stored in m³/s.
-_ITMUNI_TO_SECONDS: dict[int, float] = {
-    0: 1.0,  # undefined -> treat as seconds
-    1: 1.0,  # seconds
-    2: 60.0,  # minutes
-    3: 3600.0,  # hours
-    4: 86400.0,  # days
-    5: 31557600.0,  # years (365.25 days)
-}
-
-
-def _read_itmuni_from_dis(dis_path: Path) -> int:
-    """Return the ITMUNI integer declared in a MODFLOW DIS file.
-
-    Falls back to ``1`` (seconds) when the file is missing or the second
-    header line cannot be parsed.
-    """
-    if not dis_path.is_file():
-        return 1
     try:
-        with dis_path.open("r", encoding="utf-8") as fh:
-            header_lines: list[str] = []
-            for raw in fh:
-                stripped = raw.strip()
-                if not stripped or stripped.startswith("#"):
-                    continue
-                header_lines.append(stripped)
-                if len(header_lines) >= 2:
-                    break
-        if len(header_lines) < 2:
-            return 1
-        tokens = header_lines[1].split()
-        if len(tokens) >= 2:
-            return int(tokens[1])
-    except (OSError, ValueError):
-        return 1
-    return 1
+        adapter = get_solver_adapter(flow_run.process_type, flow_run.solver)
+    except KeyError:
+        return None
+    run_ctx = RunContext(plan=plan, run=flow_run, state=trial_ctx)
+    return adapter, run_ctx
 
 
 _RUNOFF_WARNING_EMITTED: set[int] = set()
@@ -247,111 +207,9 @@ def _add_runoff_to_discharge(
         runoff_mm_per_d = runoff_mm_per_d.tz_localize(None)
     elif runoff_index.tz is not None and target_index.tz is not None:
         runoff_mm_per_d = runoff_mm_per_d.tz_convert(target_index.tz)
-    aligned = runoff_mm_per_d.reindex(target_index, method="nearest")
+    aligned = observed_on_simulation_index(runoff_mm_per_d, pd.DatetimeIndex(target_index))
     runoff_m3_per_s = aligned * 1e-3 * catch_area_m2 / 86400.0
     return simulated.add(runoff_m3_per_s, fill_value=0.0)
-
-
-def _extract_discharge_modflownwt(
-    output_dir: Path,
-    model_name: str,
-    time_index: pd.DatetimeIndex | None = None,
-) -> pd.Series | None:
-    """Sum the DRAIN/DRN budget component per timestep and return a series.
-
-    MODFLOW-NWT writes DRN outflow as negative values in the CBC file;
-    we sum their absolute values cell-wise, layer-wise, per timestep,
-    then convert from the run's native time unit (per ITMUNI in the DIS
-    file) to ``m³/s`` so the result is directly comparable to the
-    hydrometry observations (which are always normalised to m³/s).
-    """
-    import flopy.utils.binaryfile as bf
-
-    cbc_path = output_dir / f"{model_name}.cbc"
-    if not cbc_path.exists():
-        # Some workflows use ``.cbb``
-        cbc_path = output_dir / f"{model_name}.cbb"
-    if not cbc_path.exists():
-        logger.debug("CBC file not found in %s", output_dir)
-        return None
-
-    itmuni = _read_itmuni_from_dis(output_dir / f"{model_name}.dis")
-    seconds_per_unit = _ITMUNI_TO_SECONDS.get(itmuni, 1.0)
-
-    cbb = bf.CellBudgetFile(str(cbc_path))
-    try:
-        record_names = [r.decode().strip() for r in cbb.get_unique_record_names()]
-        drain_key = next(
-            (key for key in record_names if key.lower() in {"drains", "drn", "drain"}),
-            None,
-        )
-        if drain_key is None:
-            logger.debug("No DRAIN component in CBC; components were %s", record_names)
-            return None
-
-        times = cbb.get_times()
-        kstpkpers = cbb.get_kstpkper()
-        n_timesteps = len(times)
-        values = np.zeros(n_timesteps, dtype=float)
-        for t, (time, ksk) in enumerate(zip(times, kstpkpers, strict=False)):
-            try:
-                data = cbb.get_data(text=drain_key, kstpkper=ksk, totim=time, full3D=True)
-            except Exception:
-                continue
-            if not data:
-                continue
-            arr = np.asarray(data[0], dtype=float)
-            values[t] = float(np.abs(np.minimum(arr, 0.0)).sum())
-    finally:
-        cbb.close()
-
-    # Native MODFLOW flux is volume / itmuni-time-unit. Divide by the
-    # number of seconds in that unit to obtain m³/s.
-    values = values / seconds_per_unit
-
-    if time_index is not None and len(time_index) == n_timesteps:
-        return pd.Series(values, index=time_index, name="discharge")
-    return pd.Series(values, name="discharge")
-
-
-def _extract_head_modflownwt(
-    output_dir: Path,
-    model_name: str,
-    *,
-    station_cells: Mapping[str, tuple[int, int, int]],
-    time_index: pd.DatetimeIndex | None = None,
-) -> dict[str, pd.Series]:
-    """Return head timeseries keyed by station at the given ``(k, i, j)`` cells."""
-    import flopy.utils.binaryfile as bf
-
-    hds_path = output_dir / f"{model_name}.hds"
-    if not hds_path.exists():
-        logger.debug("HDS file not found in %s", output_dir)
-        return {}
-
-    hf = bf.HeadFile(str(hds_path))
-    try:
-        times = hf.get_times()
-        n_t = len(times)
-        out: dict[str, pd.Series] = {}
-        # Cache full heads by timestep to avoid re-reading the file per station.
-        for station_id, (k, i, j) in station_cells.items():
-            values = np.full(n_t, np.nan, dtype=float)
-            for t, totim in enumerate(times):
-                try:
-                    head = hf.get_data(totim=totim)
-                    values[t] = float(head[k, i, j])
-                except Exception:
-                    pass
-            # Treat HDRY / HNOFLO sentinels as NaN (same thresholds as extractor)
-            values[np.abs(values) > 1e6] = np.nan
-            if time_index is not None and len(time_index) == n_t:
-                out[station_id] = pd.Series(values, index=time_index, name=f"head@{station_id}")
-            else:
-                out[station_id] = pd.Series(values, name=f"head@{station_id}")
-    finally:
-        hf.close()
-    return out
 
 
 # ---------------------------------------------------------------------------
@@ -388,55 +246,6 @@ def _resolve_time_index(ctx: Any, n_timesteps: int = 0) -> pd.DatetimeIndex | No
 # ---------------------------------------------------------------------------
 
 
-def _median_step(index: pd.DatetimeIndex) -> pd.Timedelta | None:
-    """Return the median spacing of a datetime index, or ``None`` when undefined."""
-    if len(index) < 2:
-        return None
-    deltas = index.to_series().diff().dropna()
-    if deltas.empty:
-        return None
-    return pd.Timedelta(deltas.median())
-
-
-def _align_to_simulation_step(obs: pd.Series, sim: pd.Series) -> tuple[pd.Series, pd.Series]:
-    """Match obs and sim on the simulation stress-period index.
-
-    The observed series is typically daily while the simulated series is
-    one value per stress period (e.g. monthly). Comparing them at the
-    daily index would broadcast each monthly sim value 30 times and bias
-    every metric. Instead we group obs into bins centered on the sim
-    timestamps and take the mean of every observation falling in the
-    bin. The simulated series stays at its native sampling.
-    """
-    if sim.empty or obs.empty:
-        return obs, sim
-
-    sim = sim.sort_index()
-    obs = obs.sort_index()
-
-    # Restrict obs to the simulated window.
-    obs = obs.loc[sim.index.min() : sim.index.max()]
-    if obs.empty:
-        return obs, sim
-
-    sim_step = _median_step(sim.index)
-    obs_step = _median_step(obs.index)
-    if sim_step is None or obs_step is None or sim_step <= obs_step:
-        # Nothing to bin (irregular index or sim is not coarser than obs).
-        sim_aligned = sim.reindex(obs.index, method="nearest", tolerance=sim_step)
-        return obs, sim_aligned
-
-    # Bin obs around each sim timestamp. Each sim point t covers
-    # [t - sim_step/2, t + sim_step/2). Use ``cut`` over the half-step
-    # boundaries derived from the simulation index.
-    half = sim_step / 2
-    bin_edges = pd.DatetimeIndex([sim.index[0] - half] + [t + half for t in sim.index])
-    binned = pd.cut(obs.index, bins=bin_edges, right=False)
-    obs_aligned = obs.groupby(binned, observed=True).mean()
-    obs_aligned.index = sim.index[: len(obs_aligned)]
-    return obs_aligned, sim.loc[obs_aligned.index]
-
-
 def _score(observed: pd.Series, simulated: pd.Series, objective: str) -> float:
     """Align both series at the simulation frequency, compute the scalar metric.
 
@@ -450,15 +259,12 @@ def _score(observed: pd.Series, simulated: pd.Series, objective: str) -> float:
             f"Unknown calibration objective {objective!r}. "
             f"Choices: {sorted(METRICS)} or a user callable via 'module.path:fn'."
         )
-    obs = observed.astype(float)
-    sim = simulated.astype(float)
-    obs_aligned, sim_aligned = _align_to_simulation_step(obs, sim)
-    paired = pd.concat([obs_aligned.rename("obs"), sim_aligned.rename("sim")], axis=1).dropna()
+    paired = align_observed_simulated(observed, simulated)
     if paired.empty:
-        return float("nan")
-    value = float(metric(paired["obs"].values, paired["sim"].values))
-    if np.isnan(value):
-        return float("nan")
+        raise ValueError("No overlapping finite observation/simulation samples for calibration")
+    value = float(metric(paired["sim"].values, paired["obs"].values))
+    if not np.isfinite(value):
+        raise ValueError(f"Calibration metric {objective!r} returned a non-finite value")
     return (1.0 - value) if objective.lower() in HIGHER_IS_BETTER else value
 
 
@@ -499,26 +305,29 @@ def build_metric_extractor(
 
     observed = _load_observed(ctx, variable) if variable else []
     if not observed:
-        logger.warning(
-            "No observations for variable=%r; metric extractor will return NaN.",
-            variable,
-        )
+        logger.warning("No observations for variable=%r.", variable)
 
     def metric_fn(trial_ctx: Any, *, objective: str = objective, variable: str = variable):
-        found = _find_flow_run(trial_ctx)
-        if found is None or not observed:
-            return float("nan"), {}
-        run_id, model, output_dir = found
-        model_name = getattr(model, "model_name", None) or getattr(model, "name", None)
-        if model_name is None:
-            return float("nan"), {}
+        resolved = _resolve_flow_adapter(trial_ctx)
+        if resolved is None:
+            raise NotImplementedError("No flow solver adapter available for calibration")
+        if not observed:
+            raise ValueError(f"No observations available for calibration variable {variable!r}")
+        adapter, run_ctx = resolved
 
         time_idx = _resolve_time_index(trial_ctx, n_timesteps=0)
         try:
             if variable == "discharge":
-                simulated = _extract_discharge_modflownwt(output_dir, model_name, time_idx)
-                if simulated is None:
-                    return float("nan"), {}
+                simulated = adapter.extract_calibration_series(
+                    run_ctx,
+                    None,
+                    variable="discharge",
+                    time_index=time_idx,
+                )
+                if simulated.empty:
+                    raise NotImplementedError(
+                        f"Solver {run_ctx.run.solver!r} returned no discharge calibration series"
+                    )
                 # Add the surface runoff forcing (data layer) to the
                 # baseflow component drained by MODFLOW so the simulated
                 # signal matches the total streamflow recorded by the
@@ -529,10 +338,10 @@ def build_metric_extractor(
                 for obs_rec in observed:
                     cost = _score(obs_rec.series, simulated, objective)
                     components[f"{objective}@{obs_rec.station_id}"] = cost
-                    if not np.isnan(cost):
+                    if np.isfinite(cost):
                         costs.append(cost)
                 if not costs:
-                    return float("nan"), components
+                    raise ValueError("No finite discharge calibration costs were produced")
                 return float(np.mean(costs)), components
 
             elif variable == "head":
@@ -541,32 +350,39 @@ def build_metric_extractor(
                 # flesh out a dedicated mapper.
                 station_cells = _resolve_station_cells(trial_ctx, observed)
                 if not station_cells:
-                    return float("nan"), {}
-                sim_series = _extract_head_modflownwt(
-                    output_dir, model_name, station_cells=station_cells, time_index=time_idx
-                )
+                    raise NotImplementedError(
+                        "No station-to-cell mapping available for head calibration"
+                    )
                 components = {}
                 costs = []
                 for obs_rec in observed:
-                    if obs_rec.station_id not in sim_series:
+                    cell = station_cells.get(obs_rec.station_id)
+                    if cell is None:
                         continue
-                    cost = _score(obs_rec.series, sim_series[obs_rec.station_id], objective)
+                    sim = adapter.extract_calibration_series(
+                        run_ctx,
+                        None,
+                        variable="head",
+                        station_cells={obs_rec.station_id: cell},
+                        time_index=time_idx,
+                    )
+                    if sim.empty:
+                        raise NotImplementedError(
+                            f"Solver {run_ctx.run.solver!r} returned no head calibration series"
+                        )
+                    cost = _score(obs_rec.series, sim, objective)
                     components[f"{objective}@{obs_rec.station_id}"] = cost
-                    if not np.isnan(cost):
+                    if np.isfinite(cost):
                         costs.append(cost)
                 if not costs:
-                    return float("nan"), components
+                    raise ValueError("No finite head calibration costs were produced")
                 return float(np.mean(costs)), components
 
             else:
-                logger.warning(
-                    "Calibration variable %r not supported yet (add a branch here).",
-                    variable,
-                )
-                return float("nan"), {}
-        except Exception as exc:
+                raise NotImplementedError(f"Calibration variable {variable!r} is not supported")
+        except Exception:
             logger.exception("Metric extractor failed")
-            return float("nan"), {"error": -1.0, "__error__": str(exc)}  # type: ignore[return-value]
+            raise
 
     return metric_fn
 
@@ -575,20 +391,7 @@ def _resolve_station_cells(
     ctx: Any,
     observed: list[ObservedSeries],
 ) -> dict[str, tuple[int, int, int]]:
-    """Best-effort station → ``(layer, row, col)`` mapping.
-
-    Reads lat/lon from the station metadata and intersects with the
-    model grid when available. Returns an empty dict when the mapping
-    cannot be resolved - head calibration then degrades to NaN which
-    the optimizer will skip.
-    """
-    domain = getattr(ctx.setup, "domain", None)
-    mesh = getattr(ctx.setup, "mesh_planar", None)
-    if mesh is None or domain is None:
-        return {}
-    # The real mapping lives in hydromodpy.data.variables.piezometry.* -
-    # we look up the station record directly from ctx.loaded_data.piezometry
-    # to avoid duplicating geometry logic here.
+    """Resolve station ids to structured ``(layer, row, col)`` cells."""
     piezo = getattr(ctx.loaded_data, "piezometry", None)
     if piezo is None:
         return {}
@@ -597,12 +400,72 @@ def _resolve_station_cells(
     for obs_rec in observed:
         for rec in points:
             if str(rec.station_id) == obs_rec.station_id:
-                cell = getattr(rec, "cell_ij", None) or getattr(rec, "cell", None)
-                if cell is not None and len(cell) >= 2:
-                    layer = int(cell[2]) if len(cell) >= 3 else 0
-                    cells[obs_rec.station_id] = (layer, int(cell[0]), int(cell[1]))
+                cell_ij = getattr(rec, "cell_ij", None)
+                cell = (
+                    _coerce_cell_ij(cell_ij)
+                    if cell_ij is not None
+                    else _coerce_structured_cell(
+                        getattr(rec, "cell", None) or getattr(rec, "station_cell", None)
+                    )
+                )
+                if cell is None:
+                    xy = _xy_from_record(rec)
+                    if xy is not None:
+                        cell = _find_cell_at_point(ctx, xy[0], xy[1])
+                if cell is not None:
+                    cells[obs_rec.station_id] = cell
                 break
     return cells
+
+
+def _coerce_cell_ij(value: Any) -> tuple[int, int, int] | None:
+    """Return ``(layer, row, col)`` from ``(row, col[, layer])`` metadata."""
+    try:
+        parts = tuple(value)
+    except TypeError:
+        return None
+    if len(parts) == 2:
+        return (0, int(parts[0]), int(parts[1]))
+    if len(parts) >= 3:
+        return (int(parts[2]), int(parts[0]), int(parts[1]))
+    return None
+
+
+def _coerce_structured_cell(value: Any) -> tuple[int, int, int] | None:
+    """Return ``(layer, row, col)`` from common station metadata shapes."""
+    if value is None:
+        return None
+    if isinstance(value, Mapping):
+        layer = value.get("layer", value.get("k", 0))
+        row = value.get("row", value.get("i"))
+        col = value.get("col", value.get("j"))
+        if row is None or col is None:
+            return None
+        return (int(layer), int(row), int(col))
+    try:
+        parts = tuple(value)
+    except TypeError:
+        return None
+    if len(parts) == 2:
+        return (0, int(parts[0]), int(parts[1]))
+    if len(parts) >= 3:
+        return (int(parts[0]), int(parts[1]), int(parts[2]))
+    return None
+
+
+def _xy_from_record(record: Any) -> tuple[float, float] | None:
+    """Extract planar x/y coordinates from an observation record."""
+    for x_name, y_name in (("x", "y"), ("easting", "northing"), ("longitude", "latitude")):
+        x_val = getattr(record, x_name, None)
+        y_val = getattr(record, y_name, None)
+        if x_val is not None and y_val is not None:
+            return float(x_val), float(y_val)
+    geometry = getattr(record, "geometry", None)
+    x_val = getattr(geometry, "x", None)
+    y_val = getattr(geometry, "y", None)
+    if x_val is not None and y_val is not None:
+        return float(x_val), float(y_val)
+    return None
 
 
 # ---------------------------------------------------------------------------
@@ -624,6 +487,53 @@ def _coerce_length_to_m(value: Any) -> float | None:
         except Exception:  # pragma: no cover - defensive: unexpected pint state
             pass
     return float(value)
+
+
+def _point_xy_from_output(output: CalibOutputDecl) -> tuple[float, float] | None:
+    """Return planar point coordinates from an output declaration."""
+    x_m = _coerce_length_to_m(output.x)
+    y_m = _coerce_length_to_m(output.y)
+    if x_m is not None and y_m is not None:
+        return x_m, y_m
+    geometry = output.geometry
+    if not geometry:
+        return None
+    if str(geometry.get("type", "")).lower() != "point":
+        raise ValueError("Point calibration geometry must be a GeoJSON Point")
+    coords = geometry.get("coordinates")
+    if not isinstance(coords, (list, tuple)) or len(coords) < 2:
+        raise ValueError("Point calibration geometry requires two coordinates")
+    return float(coords[0]), float(coords[1])
+
+
+def _call_extract_calibration_series(
+    adapter: Any,
+    run_ctx: RunContext,
+    *,
+    variable: str,
+    station_cells: Mapping[str, Any] | None = None,
+    boundary_id: str | None = None,
+    time_index: pd.DatetimeIndex | None = None,
+) -> pd.Series:
+    """Call an adapter while enforcing explicit boundary filtering support."""
+    kwargs: dict[str, Any] = {
+        "variable": variable,
+        "time_index": time_index,
+    }
+    if station_cells is not None:
+        kwargs["station_cells"] = station_cells
+    if boundary_id is not None:
+        signature = inspect.signature(adapter.extract_calibration_series)
+        supports_keyword = "boundary_id" in signature.parameters or any(
+            param.kind == inspect.Parameter.VAR_KEYWORD for param in signature.parameters.values()
+        )
+        if not supports_keyword:
+            raise NotImplementedError(
+                f"Solver {run_ctx.run.solver!r} cannot filter calibration boundary_id="
+                f"{boundary_id!r}"
+            )
+        kwargs["boundary_id"] = boundary_id
+    return adapter.extract_calibration_series(run_ctx, None, **kwargs)
 
 
 def _slice_time(values: np.ndarray, time: Any, reducer: str) -> list[float]:
@@ -654,73 +564,75 @@ def _extract_point(ctx: Any, output: CalibOutputDecl) -> list[float]:
     """Extract a head time series at the (x, y) point declared on ``output``.
 
     Resolves the closest cell in the structured MODFLOW-NWT grid (layer 0)
-    by searching the planar mesh centroids. When the trial context does
-    not expose a structured grid (MODFLOW 6 / unsupported solver) or the
-    ``.hds`` file is missing, returns ``[nan]`` so callers can keep
-    operating without crashing.
+    by searching the planar mesh centroids.
     """
-    found = _find_flow_run(ctx)
-    if found is None:
-        return [float("nan")]
-    _run_id, model, output_dir = found
-    model_name = getattr(model, "model_name", None) or getattr(model, "name", None)
-    if model_name is None:
-        return [float("nan")]
+    resolved = _resolve_flow_adapter(ctx)
+    if resolved is None:
+        raise NotImplementedError("No flow solver adapter available for point extraction")
+    adapter, run_ctx = resolved
 
-    x_m = _coerce_length_to_m(output.x)
-    y_m = _coerce_length_to_m(output.y)
-    if x_m is None or y_m is None:
-        return [float("nan")]
+    xy = _point_xy_from_output(output)
+    if xy is None:
+        raise ValueError("Point calibration output requires x/y or geometry")
 
-    cell = _find_cell_at_point(ctx, x_m, y_m)
+    cell = _find_cell_at_point(ctx, xy[0], xy[1])
     if cell is None:
-        return [float("nan")]
-    series = _extract_head_modflownwt(
-        output_dir,
-        model_name,
+        raise NotImplementedError("Could not map point calibration output to a solver cell")
+    sim = _call_extract_calibration_series(
+        adapter,
+        run_ctx,
+        variable="head",
         station_cells={"_pt": cell},
         time_index=None,
     )
-    sim = series.get("_pt")
-    if sim is None or sim.size == 0:
-        return [float("nan")]
+    if sim.empty:
+        raise NotImplementedError("Solver returned no point calibration series")
     return _slice_time(sim.values, output.time, output.reducer)
 
 
 def _extract_boundary(ctx: Any, output: CalibOutputDecl) -> list[float]:
-    """Extract a boundary time series filtered by ``boundary_id``.
+    """Extract a boundary time series filtered by ``boundary_id``."""
+    resolved = _resolve_flow_adapter(ctx)
+    if resolved is None:
+        raise NotImplementedError("No flow solver adapter available for boundary extraction")
+    adapter, run_ctx = resolved
 
-    The current implementation reuses the catchment-wide DRAIN summation
-    in :func:`_extract_discharge_modflownwt` and is solver-specific to
-    MODFLOW-NWT. Filtering by named boundary id requires a boundname-
-    aware reader; left as a follow-up. Returns ``[nan]`` when the CBC
-    file is absent.
-    """
-    found = _find_flow_run(ctx)
-    if found is None:
-        return [float("nan")]
-    _run_id, model, output_dir = found
-    model_name = getattr(model, "model_name", None) or getattr(model, "name", None)
-    if model_name is None:
-        return [float("nan")]
-
-    sim = _extract_discharge_modflownwt(output_dir, model_name, time_index=None)
-    if sim is None or sim.size == 0:
-        return [float("nan")]
+    sim = _call_extract_calibration_series(
+        adapter,
+        run_ctx,
+        variable="discharge",
+        boundary_id=str(output.boundary_id),
+        time_index=None,
+    )
+    if sim.empty:
+        raise NotImplementedError("Solver returned no boundary calibration series")
     return _slice_time(sim.values, output.time, output.reducer)
 
 
 def _extract_cell(ctx: Any, output: CalibOutputDecl) -> list[float]:
-    """Extract a head time series at a structured (row, col) cell.
-
-    The current schema does not expose ``row`` / ``col`` explicitly on
-    :class:`CalibOutputDecl` (twin benchmarks pass ``support="cell"`` to
-    bypass coordinate lookup). Returns ``[nan]`` until the schema gains
-    explicit indices; the API entry point is in place for callers that
-    pre-resolve a cell elsewhere.
-    """
-    del ctx, output
-    return [float("nan")]
+    """Extract a head time series at an explicit cell selector."""
+    resolved = _resolve_flow_adapter(ctx)
+    if resolved is None:
+        raise NotImplementedError("No flow solver adapter available for cell extraction")
+    adapter, run_ctx = resolved
+    if output.row is not None and output.col is not None:
+        selector: Any = (int(output.layer), int(output.row), int(output.col))
+    elif output.cell_id is not None:
+        raise NotImplementedError(
+            f"Solver {run_ctx.run.solver!r} does not expose flat cell_id calibration selectors"
+        )
+    else:
+        raise ValueError("Cell calibration output requires row/col or cell_id")
+    sim = _call_extract_calibration_series(
+        adapter,
+        run_ctx,
+        variable=output.variable,
+        station_cells={"_cell": selector},
+        time_index=None,
+    )
+    if sim.empty:
+        raise NotImplementedError("Solver returned no cell calibration series")
+    return _slice_time(sim.values, output.time, output.reducer)
 
 
 def _find_cell_at_point(ctx: Any, x: float, y: float) -> tuple[int, int, int] | None:
@@ -734,8 +646,8 @@ def _find_cell_at_point(ctx: Any, x: float, y: float) -> tuple[int, int, int] | 
        straight from ``[modflownwt.sgrid.planar]`` to the solver
        without building a planar mesh.
 
-    Returns ``None`` (caller emits NaN) when neither source resolves a
-    cell — typically MODFLOW 6 / unsupported grids.
+    Returns ``None`` when neither source resolves a cell, typically
+    MODFLOW 6 or unsupported grids.
     """
     mesh = getattr(getattr(ctx, "setup", None), "mesh_planar", None)
     if mesh is not None:
@@ -764,10 +676,13 @@ def _find_cell_in_modflow_grid(ctx: Any, x: float, y: float) -> tuple[int, int, 
     ``StructuredGrid``). Returns ``None`` if no MODFLOW-NWT model is
     attached or the grid does not expose ``xcellcenters`` / ``ycellcenters``.
     """
-    found = _find_flow_run(ctx)
-    if found is None:
+    resolved = _resolve_flow_adapter(ctx)
+    if resolved is None:
         return None
-    _run_id, model, _output_dir = found
+    _adapter, run_ctx = resolved
+    model = run_ctx.state.execution.models_by_run_id.get(run_ctx.run.id)
+    if model is None:
+        return None
     modelgrid = getattr(getattr(model, "mf", None), "modelgrid", None)
     if modelgrid is None:
         return None
@@ -809,13 +724,17 @@ def _build_composite_metric_extractor(
                     simulated_by_output[name] = _extract_cell(trial_ctx, decl)
             except Exception as exc:
                 logger.exception("Output %r extraction failed", name)
-                return float("nan"), {"__error__": f"{type(exc).__name__}: {exc}"}
+                raise RuntimeError(
+                    f"Output {name!r} extraction failed: {type(exc).__name__}: {exc}"
+                ) from exc
 
         try:
             value = composite.evaluate(simulated_by_output)
         except Exception as exc:
             logger.exception("Composite objective evaluation failed")
-            return float("nan"), {"__error__": f"{type(exc).__name__}: {exc}"}
+            raise RuntimeError(
+                f"Composite objective evaluation failed: {type(exc).__name__}: {exc}"
+            ) from exc
 
         components = {key: float(val) for key, val in value.components.items()}
         total = float(value.total)

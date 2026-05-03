@@ -25,8 +25,8 @@ Code map
 - ``hydromodpy/project.py``:
   the public ``Project`` facade. Holds the mutable runtime state and
   wires the pipeline phases.
-- ``hydromodpy/_cli/commands/run.py`` and
-  ``hydromodpy/_cli/workflows.py``:
+- ``hydromodpy/cli/commands/run.py`` and
+  ``hydromodpy/cli/workflows.py``:
   the ``hmp run <toml>`` entry point. Loads the TOML, builds a
   ``HydroModPyConfig``, and delegates to ``Project``.
 - ``hydromodpy/simulation/planning/planner.py`` and ``plan.py``:
@@ -39,7 +39,7 @@ Code map
 Recommended reading path
 ------------------------
 
-1. ``hydromodpy/_cli/commands/run.py``
+1. ``hydromodpy/cli/commands/run.py``
 2. ``hydromodpy/project.py``
 3. ``hydromodpy/simulation/planning/planner.py``
 4. ``hydromodpy/simulation/planning/plan.py``

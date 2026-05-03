@@ -1,8 +1,8 @@
 """DuckDB persistence for calibration sessions and iterations.
 
-Writes to the workspace-level ``hydromodpy.duckdb`` via a ``SimulationCatalog``
-connection. Each iteration becomes **one row** in ``calibration_iterations``
-regardless of ``save_runs`` mode.
+Writes through the injected calibration store connection. Each iteration
+becomes **one row** in ``calibration_iterations`` regardless of ``save_runs``
+mode.
 """
 
 from __future__ import annotations
@@ -10,22 +10,36 @@ from __future__ import annotations
 import json
 import uuid
 from datetime import UTC, datetime
-from typing import TYPE_CHECKING, Literal
+from typing import Any, Literal, Protocol
 
 from hydromodpy.calibration.optimizer import EvaluationResult, ParamSuggestion
-
-if TYPE_CHECKING:
-    from hydromodpy.results.catalog import SimulationCatalog
-
+from hydromodpy.core.config_kit.persistence import PersistenceConfig
 
 PersistDetail = Literal["none", "summary", "full"]
 
 
-class CalibrationPersistence:
-    """Idempotent writer for calibration rows."""
+class CalibrationStore(Protocol):
+    """Store surface required by calibration persistence."""
 
-    def __init__(self, catalog: SimulationCatalog):
+    @property
+    def connection(self) -> Any: ...
+
+
+class CalibrationPersistence:
+    """Idempotent writer for calibration rows.
+
+    The shared :class:`PersistenceConfig` gates every DuckDB write. When
+    ``persistence.save_catalog`` is False, every method becomes a no-op,
+    so calibration sessions can run fully in-memory.
+    """
+
+    def __init__(
+        self,
+        catalog: CalibrationStore,
+        persistence: PersistenceConfig | None = None,
+    ):
         self._conn = catalog.connection
+        self._persistence = persistence or PersistenceConfig()
 
     def start_session(
         self,
@@ -36,6 +50,8 @@ class CalibrationPersistence:
         objective_name: str,
         config: dict,
     ) -> None:
+        if not self._persistence.save_catalog:
+            return
         self._conn.execute(
             """
             INSERT INTO calibration_sessions
@@ -61,8 +77,15 @@ class CalibrationPersistence:
         *,
         detail: PersistDetail = "summary",
     ) -> None:
-        params_json = json.dumps(dict(suggestion.values))
+        if not self._persistence.save_catalog:
+            return
         metadata = result.metadata or {}
+        parameter_payload = metadata.get("parameters")
+        if not isinstance(parameter_payload, dict):
+            parameter_payload = {
+                name: {"value": value} for name, value in dict(suggestion.values).items()
+            }
+        params_json = json.dumps(parameter_payload, default=str)
         params_hash = metadata.get("params_hash")
         metrics_json = _build_metrics_json(result, metadata, detail)
         sid = uuid.UUID(session_id) if len(session_id) == 32 else session_id
@@ -115,7 +138,10 @@ class CalibrationPersistence:
         n_iterations: int,
         duration_s: float,
         status: str = "completed",
+        error: str | None = None,
     ) -> None:
+        if not self._persistence.save_catalog:
+            return
         sid = uuid.UUID(session_id) if len(session_id) == 32 else session_id
         best_sim_uuid = None
         if best and best.sim_id:
@@ -131,7 +157,8 @@ class CalibrationPersistence:
                    best_objective = ?,
                    ended_at = ?,
                    duration_s = ?,
-                   status = ?
+                   status = ?,
+                   error_message = ?
              WHERE session_id = ?
             """,
             [
@@ -141,6 +168,7 @@ class CalibrationPersistence:
                 datetime.now(UTC),
                 duration_s,
                 status,
+                error,
                 sid,
             ],
         )
@@ -226,6 +254,9 @@ def _build_metrics_json(
     payload: dict[str, object] = {}
     if result.components:
         payload.update({str(k): v for k, v in dict(result.components).items()})
+    overlay = metadata.get("materialized_overlay")
+    if overlay:
+        payload["materialized_overlay"] = str(overlay)
     if detail == "full":
         block_costs = metadata.get("block_costs")
         if isinstance(block_costs, dict) and block_costs:

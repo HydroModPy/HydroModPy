@@ -21,8 +21,8 @@ import inspect
 import sys
 from pathlib import Path
 
-from hydromodpy.core.config.base import HydroModelBase
-from hydromodpy.core.config.profile import Profile
+from hydromodpy.core.config_kit.base import HydroModelBase
+from hydromodpy.core.config_kit.profile import Profile
 
 
 def _runtime_has_profile(field_info) -> bool:

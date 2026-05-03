@@ -4,8 +4,8 @@ from typing import Annotated, Literal
 
 from pydantic import ConfigDict, Field, field_validator, model_validator
 
-from hydromodpy.core.config.base import HydroModelBase
-from hydromodpy.core.config.profile import Profile
+from hydromodpy.core.config_kit.base import HydroModelBase
+from hydromodpy.core.config_kit.profile import Profile
 from hydromodpy.core.units import parse_length_to_m
 
 
@@ -35,7 +35,11 @@ class GeneratedBandsSupportConfig(DomainSupportBaseConfig):
         default_factory=list,
         description="Ordered band labels. Length must be len(breaks)+1.",
     )
-    default_cell_samples_per_axis: Annotated[int, Profile.DEV] = Field(default=8, ge=2)
+    default_cell_samples_per_axis: Annotated[int, Profile.DEV] = Field(
+        default=8,
+        ge=2,
+        description="Sub-sampling resolution per cell axis used when rasterizing band masks.",
+    )
 
     @field_validator("breaks", mode="before")
     @classmethod
@@ -127,7 +131,11 @@ class GeneratedRingsSupportConfig(DomainSupportBaseConfig):
             "Defaults to the domain midpoint."
         ),
     )
-    default_cell_samples_per_axis: Annotated[int, Profile.DEV] = Field(default=8, ge=2)
+    default_cell_samples_per_axis: Annotated[int, Profile.DEV] = Field(
+        default=8,
+        ge=2,
+        description="Sub-sampling resolution per cell axis used when rasterizing ring masks.",
+    )
 
     @field_validator("radii", mode="before")
     @classmethod
@@ -208,7 +216,11 @@ class CatchmentZonesSupportConfig(DomainSupportBaseConfig):
         default="catchment",
         description="Domain zone id providing the source catchment zonation.",
     )
-    default_cell_samples_per_axis: Annotated[int, Profile.DEV] = Field(default=8, ge=2)
+    default_cell_samples_per_axis: Annotated[int, Profile.DEV] = Field(
+        default=8,
+        ge=2,
+        description="Sub-sampling resolution per cell axis used when rasterizing zone masks.",
+    )
 
     @field_validator("source_zone_id", mode="before")
     @classmethod
@@ -230,5 +242,8 @@ DomainSupportConfig = Annotated[
     | GeneratedRingsSupportConfig
     | CatchmentZonesSupportConfig
     | GeologySupportConfig,
-    Field(discriminator="provider"),
+    Field(
+        discriminator="provider",
+        description="Discriminated union of spatial-support providers selected by provider tag.",
+    ),
 ]

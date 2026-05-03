@@ -15,7 +15,7 @@ from hydromodpy.spatial.geographic.core.derived_features import (
 )
 from hydromodpy.spatial.geographic.geographic_config import GeographicConfig
 from hydromodpy.spatial.mesh.config import MeshCatchmentConfig
-from hydromodpy.spatial.mesh.gmsh_grid._bundle_export_contracts import (
+from hydromodpy.spatial.mesh.gmsh_grid.bundle_export_contracts import (
     CatchmentBundleGeologyExportConfig,
     CatchmentBundleHydraulicPropertiesConfig,
     CatchmentBundleSummaryReference,
@@ -354,9 +354,7 @@ def _export_exchange_bundle_if_possible(
     geology_cfg = (
         None
         if section_cfg.geology is None
-        else CatchmentBundleGeologyExportConfig.from_mapping(
-            section_cfg.geology.model_dump(mode="python")
-        )
+        else CatchmentBundleGeologyExportConfig.from_mapping(section_cfg.geology)
     )
     hydraulic_properties_cfg = (
         None

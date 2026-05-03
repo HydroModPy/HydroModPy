@@ -27,7 +27,7 @@ end_datetime = "2003-03-31 00:00:00"
 step_value = "10 day"
 coverage_policy = "warn"
 
-[capability_gallery]
+[analysis.capability_gallery]
 enabled = true
 case_slug = "modflow6_gmsh_mesh_catchment"
 output_dir = "../../capability_gallery/launcher_simulation/modflow6_gmsh_mesh_catchment"

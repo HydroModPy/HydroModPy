@@ -13,11 +13,6 @@ Use it when you want:
 - the code-level path from ``[data]`` config to consumed runtime
   payloads.
 
-For user-facing guidance on choosing providers, writing source blocks, using
-custom files, and locking cached data, read :doc:`../../user_guide/data/index`
-first. This architecture section is for contributors who need the planner and
-runtime handoff.
-
 .. toctree::
    :maxdepth: 2
 

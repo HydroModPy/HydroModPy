@@ -1,34 +1,22 @@
 # Piezometry Data Manager
 
-`hydromodpy.data.piezometry` provides tools to load, inspect, and export
-piezometric time series as station-level datasets.
+`hydromodpy.data.variables.piezometry` loads groundwater level time series
+from custom CSV files or from the Hub'Eau API.
 
 ## Current layout
 
-- `piezometer.py`: single station object (`Piezometer`).
-- `piezometer_set.py`: multi-station orchestrator (`PiezometerSet`).
-- `loaders_api.py` / `loaders_local.py`: source-specific loaders.
-- `piezometry_config.py`: TOML schema + validation.
-- `piezometry.py`: backward-compatible import location for legacy class.
-- `cases/run_piezometry_case.py`: executable case runner.
-- `cases/run_piezometry_config.toml`: case configuration file.
-- `cases/outputs/` and `cases/exports/`: case outputs.
+- `manager.py`: `PiezometryManager`, orchestrator that dispatches to the
+  configured source (`custom` or `hubeau`).
+- `config.py`: `PiezometrySourceConfig` and `PiezometryConfig` (Pydantic v2,
+  `extra="forbid"`).
+- `custom.py`: `load_custom`, loader for user-provided location and chronicle
+  CSVs.
+- `apis/hubeau.py`: Hub'Eau client (`level` and `depth` products).
+- `discovery.py`: spatial discovery helpers (bbox, nearest station).
+- `examples/run_examples.py`: runnable examples for each source mode.
 
-## Backward compatibility
-
-- `run_piezometry_example.py` is kept as a shim and delegates to
-  `cases/run_piezometry_case.py`.
-- Existing imports of `Piezometer` and `PiezometerSet` are unchanged.
-
-## Run the case
+## Run the examples
 
 ```bash
-python hydromodpy/data/piezometry/cases/run_piezometry_case.py
+python -m hydromodpy.data.variables.piezometry.examples.run_examples
 ```
-
-Or via legacy shim:
-
-```bash
-python hydromodpy/data/piezometry/run_piezometry_example.py
-```
-

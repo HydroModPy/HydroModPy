@@ -14,10 +14,10 @@ A standard first session looks like this:
 
 .. code-block:: bash
 
-   hmp init                          # scaffold the default workspace
-   hmp new my_basin                  # create a project inside it
-   hmp config template my_basin/run_demo.toml --profile user
-   hmp run my_basin/run_demo.toml    # execute the run
+   hmp init .                                      # scaffold this directory as a workspace
+   hmp new my_basin --workspace .                  # create projects/my_basin
+   hmp config template projects/my_basin/run_demo.toml --profile user
+   hmp run projects/my_basin/run_demo.toml         # execute the run
    hmp list                          # browse results
    hmp show <sim_id>                 # inspect one simulation
 
@@ -43,7 +43,7 @@ The command creates the canonical layout:
    |-- hydromodpy.duckdb     # simulation catalog (one per workspace)
    |-- data/                 # cached input data, one folder per variable
    |-- projects/             # one folder per project lives here
-   `-- simulations/          # Zarr stores, one per run
+   `-- simulations/          # finalized Zarr archives and Parquet tables
 
 See :doc:`workspace-layout` for the resolution rules and the role of
 each folder.
@@ -77,14 +77,14 @@ constraint.
    hmp config template config.toml --profile user          # minimal
    hmp config template config.toml --profile expert        # all knobs
    hmp config template config.toml --modules geographic flow modflownwt
-   hmp config --list-modules                               # available modules
+   hmp config template --list-modules                      # available modules
 
 The generated file is meant to be edited. Validation against the
 Pydantic schema is available with:
 
 .. code-block:: bash
 
-   hmp config check my_basin/run_demo.toml
+   hmp config check projects/my_basin/run_demo.toml
 
 4. Pre-fetch solver binaries (optional)
 ---------------------------------------
@@ -106,32 +106,21 @@ eagerly:
 
 ``hmp run`` reads the TOML, picks the workflow declared at the top
 level (``workflow = "simulation"``, ``"calibration"``, ``"batch"``,
-``"overview"``, ``"mesh"``, ``"comparison"``, or ``"testbed"``), and
-executes the full pipeline.
+``"overview"``, or ``"mesh"``), and executes the full pipeline.
 
 .. code-block:: bash
 
-   hmp run my_basin/run_demo.toml
-   hmp run my_basin/run_calibration.toml
-   hmp run my_basin/prototype.py    # also accepts a Python script
+   hmp run projects/my_basin/run_demo.toml
+   hmp run projects/my_basin/run_calibration.toml
 
 The catalog updates after every successful run.
 
-For simulation workflows, ``hmp run`` can also expose the explicit pipeline:
+Prototype Python scripts belong to the developer namespace, outside the
+stable ``hmp run`` reproducibility contract:
 
 .. code-block:: bash
 
-   hmp run my_basin/run_demo.toml --dry-run        # show the resolved plan
-   hmp run my_basin/run_demo.toml --until mesh     # stop after one step
-   hmp run my_basin/run_demo.toml --from solver    # resume from one step
-   hmp run my_basin/run_demo.toml --resume <run_id>
-   hmp run my_basin/run_demo.toml --no-checkpoint  # skip checkpoint writes
-   hmp run my_basin/run_demo.toml --frozen         # forbid fresh downloads
-   hmp run my_basin/run_demo.toml --no-display     # skip configured figures
-
-The step flags are only valid for ``workflow = "simulation"``. Other workflow
-families still use the same ``hmp run <config.toml>`` entry point, but they run
-their dedicated launcher directly.
+   hmp dev run-script projects/my_basin/prototype.py
 
 6. Browse and inspect results
 -----------------------------
@@ -144,10 +133,10 @@ The simulation catalog is queryable from the same CLI:
    hmp list --project my_basin                 # all runs of one project
    hmp show <sim_id>                           # metadata, metrics, params
    hmp inspect <sim_id>                        # files, mesh, status
-   hmp best my_basin --metric nse              # top-ranked run
-   hmp worst my_basin --metric nse             # bottom-ranked run
+   hmp rank my_basin --metric nse --top 1      # top-ranked run
+   hmp rank my_basin --metric nse --bottom 1   # bottom-ranked run
    hmp compare <sim_a> <sim_b>                 # side-by-side comparison
-   hmp display <sim_id>                        # render figures
+   hmp display <sim_id> <figure>               # render one figure
 
 A ``sim_id`` accepts a unique prefix, so ``hmp show ab12`` matches the
 single run starting with ``ab12``.
@@ -185,12 +174,13 @@ Tier definitions and tags are documented in :doc:`../contribute`.
 9. Share a simulation
 ---------------------
 
-A run can be exported to a portable archive (``.hmp``) and imported
-into another workspace:
+Simulation outputs can be exported from a project workspace and imported
+into another workspace when packaged:
 
 .. code-block:: bash
 
-   hmp export <sim_id> -o my_run.hmp           # bundle one run
+   hmp export projects/my_basin --sim run_demo --csv --output exports/run_demo
+   hmp export projects/my_basin --sim run_demo --geotiff --resolution 100 --output exports/maps
    hmp add my_run.hmp                          # import into current dir
    hmp add my_run.hmp -w /mnt/shared/hmp       # import into a workspace
    hmp add my_run.hmp --as renamed_run         # rename on import
@@ -216,10 +206,6 @@ Less common but documented for reference:
      - Inspect or manage custom data artefacts in the workspace.
    * - ``hmp lock``
      - Manage the reproducible data lockfile (``hydromodpy.lock``).
-   * - ``hmp import``
-     - Import a portable simulation package into a workspace.
-   * - ``hmp manage``
-     - Run workspace maintenance actions.
    * - ``hmp report``
      - Render the HTML report for a calibration session.
    * - ``hmp schema``

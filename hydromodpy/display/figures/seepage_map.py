@@ -29,7 +29,7 @@ class SeepageMap(BaseFigure):
         name="seepage_map",
         title="Seepage areas",
         kind="spatial",
-        required_fields=("seepage_areas",),
+        required_fields=("seepage_mask",),
         default_figsize=(7.0, 5.5),
     )
 
@@ -43,7 +43,7 @@ class SeepageMap(BaseFigure):
         **_,
     ) -> Axes:
         ts = last_timestep(sim) if timestep is None else timestep
-        mask = np.asarray(sim.field("seepage_areas", timestep=ts), dtype=float)
+        mask = np.asarray(sim.field("seepage_mask", timestep=ts), dtype=float)
         render_face_field(
             ax, sim, mask, cmap=cmap, vmin=0.0, vmax=1.0, cbar_label="Seepage (1 = at surface)"
         )

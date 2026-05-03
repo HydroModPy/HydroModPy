@@ -1,6 +1,6 @@
 """DuckDB schema for the HydroModPy simulation catalog.
 
-Schema v0.6: per-simulation ``timeseries``, ``budgets`` and ``mass_balance``
+Schema v1: per-simulation ``timeseries``, ``budgets`` and ``mass_balance``
 now live as Parquet files under ``simulations/<uuid>.parquet/`` and are
 exposed in DuckDB as views with the original table names. Every other
 per-sim table (``parameters``, ``metrics``, ``observation_points``,
@@ -9,11 +9,10 @@ per-sim table (``parameters``, ``metrics``, ``observation_points``,
 tables (``simulations``, ``stations``, ``observations``,
 ``calibration_sessions``, ``calibration_iterations``) stay in DuckDB.
 
-This module defines only DDL and helpers; it does not track historical schema
-versions. Each major release starts from a fresh schema. Migration principles
-for post-P13 evolutions are documented in
-``docs/developers/schema_evolution.md``. The Parquet layout and rationale
-are described in ``docs/developers/parquet_lakehouse_architecture.md``.
+This module defines DDL, additive migrations and the catalog schema marker.
+Migration principles are documented in ``docs/developers/schema_evolution.md``.
+The Parquet layout and rationale are described in
+``docs/developers/parquet_lakehouse_architecture.md``.
 
 Note on referential integrity: per-sim DuckDB tables carry ``sim_id UUID
 NOT NULL`` columns but **no** ``FOREIGN KEY`` clause. DuckDB's foreign-key
@@ -26,32 +25,45 @@ which gives equivalent semantics without the engine bug.
 
 from __future__ import annotations
 
-import logging
 from pathlib import Path
 
 import duckdb
 
-logger = logging.getLogger(__name__)
+from hydromodpy.core.logging import get_logger
+
+logger = get_logger(__name__)
 
 GLOBAL_ZONE = "__global__"
 OUTLET_STATION = "__outlet__"
+CATALOG_SCHEMA_VERSION = "1"
+
+_SCHEMA_VERSION_DDL = """
+CREATE TABLE IF NOT EXISTS _schema_version (
+    component  VARCHAR PRIMARY KEY,
+    version    VARCHAR NOT NULL,
+    applied_at TIMESTAMPTZ NOT NULL DEFAULT current_timestamp
+);
+"""
 
 
 def solver_category(solver_name: str) -> str | None:
-    """Return the physical category declared by a solver extractor.
-
-    Reads the ``category`` class attribute on the extractor registered for
-    ``solver_name`` (see :mod:`hydromodpy.solver.base.registry`). Unknown
-    solvers return ``None`` so the catalog column stays nullable rather than
-    invented.
-    """
-    from hydromodpy.solver.base.registry import get_extractor
-
-    try:
-        cls = get_extractor(solver_name)
-    except KeyError:
+    """Return the category for in-tree solvers without importing solver layers."""
+    known = {
+        "boussinesq": "integrated",
+        "gr4j": "lumped",
+        "modflow6": "distributed",
+        "modflow6gwt": "distributed",
+        "modflownwt": "distributed",
+        "modpath": "distributed",
+        "mt3dms": "distributed",
+    }
+    parts = [part.strip() for part in str(solver_name).split(",") if part.strip()]
+    if not parts:
         return None
-    return getattr(cls, "category", None)
+    categories = {known[part] for part in parts if part in known}
+    if len(categories) == 1 and len(categories) == len(parts):
+        return categories.pop()
+    return None
 
 
 # ---------------------------------------------------------------------------
@@ -70,7 +82,7 @@ CREATE TABLE IF NOT EXISTS simulations (
                flow_regime IN ('steady', 'transient', 'steady_then_transient')),
     status                  VARCHAR NOT NULL DEFAULT 'running'
         CHECK (status IN ('pending', 'running', 'completed',
-                          'failed', 'aborted')),
+                          'partial', 'failed', 'aborted')),
     mesh_topology           VARCHAR
         CHECK (mesh_topology IS NULL OR
                mesh_topology IN ('dis', 'disv', 'disu')),
@@ -104,6 +116,13 @@ CREATE TABLE IF NOT EXISTS simulations (
     updated_at              TIMESTAMPTZ NOT NULL DEFAULT current_timestamp,
     tags                    VARCHAR[],
     notes                   VARCHAR,
+    description             VARCHAR,
+    scientific_objective    VARCHAR,
+    contact_email           VARCHAR,
+    doi                     VARCHAR,
+    study_area_name         VARCHAR,
+    outlet_x                DOUBLE,
+    outlet_y                DOUBLE,
     CHECK (period_end IS NULL OR period_start IS NULL OR
            period_end >= period_start),
     CHECK (bbox_xmin IS NULL OR bbox_xmax IS NULL OR bbox_xmax >= bbox_xmin),
@@ -165,6 +184,8 @@ CREATE TABLE IF NOT EXISTS observation_points (
     y          DOUBLE NOT NULL,
     cell_id    INTEGER NOT NULL,
     layer      INTEGER NOT NULL DEFAULT 0,
+    crs_wkt    VARCHAR NOT NULL,
+    crs_epsg   INTEGER,
     PRIMARY KEY (sim_id, station_id)
 );
 CREATE INDEX IF NOT EXISTS ix_obs_cell
@@ -177,7 +198,7 @@ CREATE TABLE IF NOT EXISTS provenance (
     variable       VARCHAR NOT NULL,
     source_type    VARCHAR NOT NULL
         CHECK (source_type IN ('http_api', 'custom_file',
-                               'derived', 'cache')),
+                               'data_manager', 'derived', 'cache')),
     source_ref     VARCHAR NOT NULL,
     source_sha256  VARCHAR,
     payload_sha256 VARCHAR,
@@ -211,8 +232,9 @@ CREATE TABLE IF NOT EXISTS calibration_sessions (
     ended_at       TIMESTAMPTZ,
     duration_s     DOUBLE,
     status         VARCHAR DEFAULT 'pending'
-        CHECK (status IN ('pending', 'running', 'completed',
+        CHECK (status IN ('pending', 'running', 'completed', 'partial',
                           'failed', 'aborted')),
+    error_message  VARCHAR,
     created_at     TIMESTAMPTZ NOT NULL DEFAULT current_timestamp
 );
 CREATE INDEX IF NOT EXISTS ix_cal_project ON calibration_sessions(project);
@@ -255,7 +277,12 @@ CREATE TABLE IF NOT EXISTS runs_environment (
     cpu_info            JSON,
     memory_gb           DOUBLE,
     git_commit          VARCHAR,
+    project_git_commit  VARCHAR,
+    mf6_binary_sha256   VARCHAR,
+    mf6_version_text    VARCHAR,
+    conda_env_hash      VARCHAR,
     env_packages        JSON,
+    rng_seed            BIGINT,
     recorded_at         TIMESTAMPTZ NOT NULL DEFAULT current_timestamp,
     PRIMARY KEY (sim_id)
 );
@@ -463,6 +490,7 @@ _ALL_VIEW_DDL: tuple[str, ...] = (
 # ---------------------------------------------------------------------------
 
 TABLE_NAMES: tuple[str, ...] = (
+    "_schema_version",
     "simulations",
     "parameters",
     "metrics",
@@ -504,6 +532,7 @@ PARQUET_VIEW_NAMES: tuple[str, ...] = (
 )
 
 _ALL_DDL: tuple[str, ...] = (
+    _SCHEMA_VERSION_DDL,
     _SIMULATIONS_DDL,
     _PARAMETERS_DDL,
     _METRICS_DDL,
@@ -581,45 +610,29 @@ def _read_parquet_view_ddl(view_name: str, glob_path: str) -> str:
     )
 
 
-def _glob_for_view(workspace_path: Path, view_name: str) -> str:
-    return str(workspace_path / "simulations" / "*.parquet" / f"{view_name}.parquet")
+def _glob_for_view(simulations_dir: Path, view_name: str) -> str:
+    return str(simulations_dir / "*.parquet" / f"{view_name}.parquet")
 
 
-def _parquet_files_exist(workspace_path: Path, view_name: str) -> bool:
-    sim_root = workspace_path / "simulations"
-    if not sim_root.is_dir():
+def _parquet_files_exist(simulations_dir: Path, view_name: str) -> bool:
+    if not simulations_dir.is_dir():
         return False
-    return any(sim_root.glob(f"*.parquet/{view_name}.parquet"))
+    return any(simulations_dir.glob(f"*.parquet/{view_name}.parquet"))
 
 
-def ensure_parquet_views(conn: duckdb.DuckDBPyConnection, workspace_path: Path) -> None:
+def ensure_parquet_views(conn: duckdb.DuckDBPyConnection, simulations_dir: Path) -> None:
     """Create or refresh the three Parquet-backed views on ``conn``.
 
     If no matching Parquet file exists for a given view, an empty typed
     view is installed so that ``SELECT * FROM <view>`` still succeeds with
     the right columns on a fresh workspace. On the next write that creates
     the first file, the catalog calls this function again to swap the view
-    over to ``read_parquet``. If a legacy DuckDB table with the same name as
-    a target view still exists, view creation is skipped so the caller can
-    still query its rows; legacy workspaces should be regenerated.
+    over to ``read_parquet``.
     """
-    legacy_tables = {
-        r[0]
-        for r in conn.execute(
-            "SELECT table_name FROM information_schema.tables "
-            "WHERE table_schema='main' AND table_type='BASE TABLE'"
-        ).fetchall()
-    }
+    simulations_dir = Path(simulations_dir)
     for view in PARQUET_VIEW_NAMES:
-        if view in legacy_tables:
-            logger.warning(
-                "Skipping view %r: a legacy DuckDB table with that name still "
-                "exists. Regenerate the workspace to use the Parquet layout.",
-                view,
-            )
-            continue
-        if _parquet_files_exist(workspace_path, view):
-            ddl = _read_parquet_view_ddl(view, _glob_for_view(workspace_path, view))
+        if _parquet_files_exist(simulations_dir, view):
+            ddl = _read_parquet_view_ddl(view, _glob_for_view(simulations_dir, view))
         else:
             ddl = _empty_view_ddl(view)
         conn.execute(ddl)
@@ -632,7 +645,30 @@ def ensure_parquet_views(conn: duckdb.DuckDBPyConnection, workspace_path: Path) 
 # painless without introducing a full versioned migration system.
 _SIMULATIONS_ADDITIVE_COLUMNS: tuple[tuple[str, str], ...] = (
     ("config_source", "VARCHAR"),
+    ("zarr_packed", "BOOLEAN DEFAULT FALSE"),
     ("storage_basename", "VARCHAR"),
+    ("description", "VARCHAR"),
+    ("scientific_objective", "VARCHAR"),
+    ("contact_email", "VARCHAR"),
+    ("doi", "VARCHAR"),
+    ("study_area_name", "VARCHAR"),
+    ("outlet_x", "DOUBLE"),
+    ("outlet_y", "DOUBLE"),
+)
+
+
+_RUNS_ENVIRONMENT_ADDITIVE_COLUMNS: tuple[tuple[str, str], ...] = (
+    ("project_git_commit", "VARCHAR"),
+    ("mf6_binary_sha256", "VARCHAR"),
+    ("rng_seed", "BIGINT"),
+    ("mf6_version_text", "VARCHAR"),
+    ("conda_env_hash", "VARCHAR"),
+)
+
+
+_OBSERVATION_POINTS_ADDITIVE_COLUMNS: tuple[tuple[str, str], ...] = (
+    ("crs_wkt", "VARCHAR"),
+    ("crs_epsg", "INTEGER"),
 )
 
 
@@ -650,9 +686,108 @@ def _apply_simulations_additive_columns(conn: duckdb.DuckDBPyConnection) -> None
             logger.info("DuckDB schema upgrade: added simulations.%s", name)
 
 
+def _apply_runs_environment_additive_columns(conn: duckdb.DuckDBPyConnection) -> None:
+    """Add missing columns to ``runs_environment`` without touching existing rows."""
+    existing = {
+        row[0]
+        for row in conn.execute(
+            "SELECT column_name FROM information_schema.columns "
+            "WHERE table_name = 'runs_environment'"
+        ).fetchall()
+    }
+    for name, sql_type in _RUNS_ENVIRONMENT_ADDITIVE_COLUMNS:
+        if name not in existing:
+            conn.execute(f"ALTER TABLE runs_environment ADD COLUMN {name} {sql_type}")
+            logger.info("DuckDB schema upgrade: added runs_environment.%s", name)
+
+
+def _apply_observation_points_additive_columns(conn: duckdb.DuckDBPyConnection) -> None:
+    """Add missing columns to ``observation_points`` without touching existing rows."""
+    existing = {
+        row[0]
+        for row in conn.execute(
+            "SELECT column_name FROM information_schema.columns "
+            "WHERE table_name = 'observation_points'"
+        ).fetchall()
+    }
+    for name, sql_type in _OBSERVATION_POINTS_ADDITIVE_COLUMNS:
+        if name not in existing:
+            conn.execute(f"ALTER TABLE observation_points ADD COLUMN {name} {sql_type}")
+            logger.info("DuckDB schema upgrade: added observation_points.%s", name)
+
+
+def _apply_provenance_source_type_migration(conn: duckdb.DuckDBPyConnection) -> None:
+    """Rebuild legacy provenance tables whose CHECK omits ``data_manager``."""
+    rows = conn.execute(
+        "SELECT COUNT(*) FROM information_schema.tables WHERE table_name = 'provenance'"
+    ).fetchone()
+    if rows is None or rows[0] == 0:
+        return
+    try:
+        constraints = conn.execute(
+            """
+            SELECT constraint_text
+              FROM duckdb_constraints()
+             WHERE table_name = 'provenance'
+               AND constraint_type = 'CHECK'
+            """
+        ).fetchall()
+    except duckdb.Error:
+        return
+    if any("data_manager" in str(row[0]) for row in constraints):
+        return
+
+    columns = [
+        "sim_id",
+        "variable",
+        "source_type",
+        "source_ref",
+        "source_sha256",
+        "payload_sha256",
+        "loader_name",
+        "loader_version",
+        "fetched_at",
+        "period_start",
+        "period_end",
+        "n_records",
+        "stats",
+    ]
+    conn.execute("DROP INDEX IF EXISTS ix_prov_sha256")
+    conn.execute("ALTER TABLE provenance RENAME TO provenance__legacy")
+    try:
+        for stmt in _iter_statements_without_index(_PROVENANCE_DDL):
+            conn.execute(stmt)
+        existing = {
+            row[0]
+            for row in conn.execute(
+                "SELECT column_name FROM information_schema.columns "
+                "WHERE table_name = 'provenance__legacy'"
+            ).fetchall()
+        }
+        copy_cols = [col for col in columns if col in existing]
+        joined = ", ".join(copy_cols)
+        conn.execute(f"INSERT INTO provenance ({joined}) SELECT {joined} FROM provenance__legacy")
+    except Exception:
+        conn.execute("DROP TABLE IF EXISTS provenance")
+        conn.execute("ALTER TABLE provenance__legacy RENAME TO provenance")
+        raise
+    else:
+        conn.execute("DROP TABLE provenance__legacy")
+        logger.info("DuckDB schema upgrade: rebuilt provenance.source_type CHECK")
+
+
+def _record_schema_version(conn: duckdb.DuckDBPyConnection) -> None:
+    conn.execute("DELETE FROM _schema_version WHERE component = 'catalog'")
+    conn.execute(
+        "INSERT INTO _schema_version (component, version) VALUES ('catalog', ?)",
+        [CATALOG_SCHEMA_VERSION],
+    )
+
+
 def ensure_schema(
     conn: duckdb.DuckDBPyConnection,
     workspace_path: Path | None = None,
+    simulations_dir: Path | None = None,
 ) -> None:
     """Create the catalog tables and views if they do not already exist.
 
@@ -677,7 +812,10 @@ def ensure_schema(
 
     # Phase 2: migrate pre-existing tables to the current column set.
     _apply_simulations_additive_columns(conn)
-    _drop_legacy_parquet_tables(conn)
+    _apply_runs_environment_additive_columns(conn)
+    _apply_observation_points_additive_columns(conn)
+    _apply_provenance_source_type_migration(conn)
+    _record_schema_version(conn)
 
     # Phase 3: (re-)create indexes now that every referenced column exists.
     for ddl in _ALL_DDL:
@@ -687,8 +825,13 @@ def ensure_schema(
     for ddl in _ALL_VIEW_DDL:
         conn.execute(ddl)
 
-    if workspace_path is not None:
-        ensure_parquet_views(conn, Path(workspace_path))
+    if workspace_path is not None or simulations_dir is not None:
+        parquet_root = (
+            Path(simulations_dir)
+            if simulations_dir is not None
+            else Path(workspace_path) / "simulations"
+        )
+        ensure_parquet_views(conn, parquet_root)
 
     logger.debug(
         "DuckDB catalog schema ensured (%d tables, %d views, %d parquet views)",
@@ -696,34 +839,6 @@ def ensure_schema(
         len(VIEW_NAMES),
         len(PARQUET_VIEW_NAMES),
     )
-
-
-def _drop_legacy_parquet_tables(conn: duckdb.DuckDBPyConnection) -> None:
-    """Drop pre-refactor ``timeseries`` / ``budgets`` / ``mass_balance``
-    tables if they still exist in the DuckDB file.
-
-    A table and a view cannot share a name. When opening a pre-refactor
-    catalog, the old tables must be dropped before the Parquet views can
-    be created. This function is a no-op when the names are already bound
-    to views or are absent. Non-empty legacy tables are left in place and
-    log a warning; the workspace must be regenerated.
-    """
-    rows = conn.execute(
-        "SELECT table_name, table_type FROM information_schema.tables "
-        "WHERE table_schema='main' AND table_name IN ('timeseries', 'budgets', 'mass_balance')"
-    ).fetchall()
-    for name, kind in rows:
-        if kind == "BASE TABLE":
-            count = conn.execute(f'SELECT COUNT(*) FROM "{name}"').fetchone()[0]
-            if count:
-                logger.warning(
-                    "Catalog still has %d rows in legacy table %r - "
-                    "regenerate the workspace to migrate to the Parquet layout.",
-                    count,
-                    name,
-                )
-                continue
-            conn.execute(f'DROP TABLE "{name}"')
 
 
 def _iter_statements_without_index(ddl: str):

@@ -22,8 +22,8 @@ from typing import Annotated, Literal
 
 from pydantic import Field
 
-from hydromodpy.core.config.base import HydroModelBase
-from hydromodpy.core.config.profile import Profile
+from hydromodpy.core.config_kit.base import HydroModelBase
+from hydromodpy.core.config_kit.profile import Profile
 from hydromodpy.core.units import FlowRate, Time
 
 
@@ -95,7 +95,10 @@ class SyntheticForcing(HydroModelBase):
 
 Forcing = Annotated[
     ConstantForcing | CsvForcing | SyntheticForcing,
-    Field(discriminator="kind"),
+    Field(
+        discriminator="kind",
+        description="Discriminated union of flow-forcing payloads selected by the kind tag.",
+    ),
 ]
 """Discriminated union of flow-forcing payloads."""
 

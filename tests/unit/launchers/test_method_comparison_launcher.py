@@ -8,31 +8,72 @@ from pathlib import Path
 from types import SimpleNamespace
 
 import numpy as np
-import pandas as pd
 import pytest
 
-from hydromodpy.analysis.comparison.config import (
-    MethodComparisonConfig,
-    MethodComparisonObservable,
-    MethodComparisonVariant,
-)
-from hydromodpy.analysis.comparison.exports import (
-    _load_catalog_budget_rows,
-    write_budget_exports,
-)
-from hydromodpy.analysis.comparison.metrics import (
+from hydromodpy.analysis.comparison.config import MethodComparisonConfig
+from hydromodpy.analysis.comparison.exports import write_budget_exports
+from hydromodpy.analysis.comparison.metric_diff import (
     build_comparison_metrics,
     build_unmatched_groups,
 )
 from hydromodpy.analysis.comparison.orchestrator import MethodComparisonLauncher
-from hydromodpy.analysis.comparison.runtime import (
-    extract_observable_rows,
-    load_variable_series,
-    materialize_variant_config,
-)
-from hydromodpy.core.config.toml_loader import load_toml_with_base_config
+from hydromodpy.analysis.comparison.runtime_config import materialize_variant_config
+from hydromodpy.analysis.comparison.runtime_observables import extract_observable_rows
+from hydromodpy.analysis.comparison.runtime_series import load_variable_series
+from hydromodpy.core.toml_io.loader import load_toml_with_base_config
 
 OUTLET_CELL_AREA_M2 = 10.0
+SIM_ID = "sim-test"
+
+
+class _FakeCatalog:
+    def __init__(self, path: Path, root: dict[str, object]) -> None:
+        self.zarr_path = path
+        self._root = root
+        self.closed = False
+
+    def open_zarr(self, sim_id: str) -> SimpleNamespace:
+        if sim_id != SIM_ID:
+            raise KeyError(sim_id)
+        return SimpleNamespace(root=self._root, close=lambda: None)
+
+    def close(self) -> None:
+        self.closed = True
+
+
+def _patch_result_store(
+    monkeypatch: pytest.MonkeyPatch,
+    mapping: dict[Path, _FakeCatalog],
+) -> None:
+    def _discover(
+        config_path: Path | None,
+        *,
+        preferred_sim_id: str | None = None,
+        preferred_name: str | None = None,
+    ):
+        if config_path is None:
+            if len(mapping) == 1:
+                return next(iter(mapping.values())), SIM_ID
+            return None, None
+        store = mapping.get(Path(config_path).resolve())
+        if store is None and len(mapping) == 1:
+            store = next(iter(mapping.values()))
+        if store is None:
+            return None, None
+        return store, SIM_ID
+
+    monkeypatch.setattr(
+        "hydromodpy.analysis.comparison.orchestrator.discover_result_store",
+        _discover,
+    )
+    monkeypatch.setattr(
+        "hydromodpy.analysis.comparison.visuals_payloads.discover_result_store",
+        _discover,
+    )
+    monkeypatch.setattr(
+        "hydromodpy.analysis.comparison.runtime_metadata.discover_result_store",
+        _discover,
+    )
 
 
 def _write_base_simulation_config(path: Path) -> None:
@@ -74,7 +115,7 @@ def _write_structured_solver_config(path: Path, *, solver: str, nx: int, ny: int
 
 
 def _write_solver_grid_template(run_folder: Path, *, nx: int, ny: int) -> None:
-    rasterio = pytest.importorskip("rasterio")
+    import rasterio
     from rasterio.transform import from_origin
 
     run_folder.mkdir(parents=True, exist_ok=True)
@@ -269,21 +310,25 @@ def _write_fake_run_folder(
     *,
     head_offset: float = 0.0,
     accumulation_offset: float = 0.0,
-) -> None:
-    postprocess_dir = run_folder / "_postprocess"
-    postprocess_dir.mkdir(parents=True, exist_ok=True)
-    np.save(
-        postprocess_dir / "watertable_elevation.npy",
+) -> _FakeCatalog:
+    run_folder.mkdir(parents=True, exist_ok=True)
+    store = _FakeCatalog(
+        run_folder / "simulation.zarr",
         {
-            0: np.asarray([10.0, 20.0, 30.0]) + head_offset,
-            1: np.asarray([11.0, 21.0, 31.0]) + head_offset,
-        },
-    )
-    np.save(
-        postprocess_dir / "accumulation_flux.npy",
-        {
-            0: np.asarray([0.1, 0.4, 0.2]) + accumulation_offset,
-            1: np.asarray([0.3, 0.8, 0.5]) + accumulation_offset,
+            "watertable_elevation": np.asarray(
+                [
+                    np.asarray([10.0, 20.0, 30.0]) + head_offset,
+                    np.asarray([11.0, 21.0, 31.0]) + head_offset,
+                ],
+                dtype=float,
+            ),
+            "accumulation_flux": np.asarray(
+                [
+                    np.asarray([0.1, 0.4, 0.2]) + accumulation_offset,
+                    np.asarray([0.3, 0.8, 0.5]) + accumulation_offset,
+                ],
+                dtype=float,
+            ),
         },
     )
     bundle_dir.mkdir(parents=True, exist_ok=True)
@@ -303,14 +348,19 @@ def _write_fake_run_folder(
         json.dumps({"mesh_output_exchange_bundle_dir": str(bundle_dir)}),
         encoding="utf-8",
     )
+    return store
 
 
-def _write_direct_outlet_run_folder(run_folder: Path, *, outlet_value: float) -> None:
-    postprocess_dir = run_folder / "_postprocess"
-    postprocess_dir.mkdir(parents=True, exist_ok=True)
-    np.save(
-        postprocess_dir / "outlet_discharge_east_side_m3_s.npy",
-        {0: np.asarray([outlet_value]), 1: np.asarray([outlet_value + 0.25])},
+def _write_direct_outlet_run_folder(run_folder: Path, *, outlet_value: float) -> _FakeCatalog:
+    run_folder.mkdir(parents=True, exist_ok=True)
+    return _FakeCatalog(
+        run_folder / "simulation.zarr",
+        {
+            "outlet_discharge_east_side_m3_s": np.asarray(
+                [[outlet_value], [outlet_value + 0.25]],
+                dtype=float,
+            )
+        },
     )
 
 
@@ -333,7 +383,8 @@ def _write_native_timeseries_csv(
     )
 
 
-def _write_boussinesq_run_folder(run_folder: Path, bundle_dir: Path) -> None:
+def _write_boussinesq_run_folder(run_folder: Path, bundle_dir: Path) -> _FakeCatalog:
+    run_folder.mkdir(parents=True, exist_ok=True)
     bundle_dir.mkdir(parents=True, exist_ok=True)
     (bundle_dir / "cells.csv").write_text(
         "\n".join(
@@ -347,49 +398,34 @@ def _write_boussinesq_run_folder(run_folder: Path, bundle_dir: Path) -> None:
         + "\n",
         encoding="utf-8",
     )
-    np.savez(
-        run_folder / "_boussinesq_state_history.npz",
-        recharge_rate_history_m_s=np.asarray(
-            [
-                [1.0e-8, 2.0e-8, 1.5e-8],
-                [2.0e-8, 1.0e-8, 2.5e-8],
-            ],
+    state = {
+        "recharge_rate_history_m_s": np.asarray(
+            [[1.0e-8, 2.0e-8, 1.5e-8], [2.0e-8, 1.0e-8, 2.5e-8]],
             dtype=float,
         ),
-        well_flux_history_m3_s=np.asarray(
-            [
-                [-0.01, -0.02, 0.0],
-                [-0.01, -0.015, 0.0],
-            ],
+        "well_flux_history_m3_s": np.asarray(
+            [[-0.01, -0.02, 0.0], [-0.01, -0.015, 0.0]],
             dtype=float,
         ),
-        head_history_m=np.asarray(
-            [
-                [10.0, 11.0, 12.0],
-                [10.5, 11.25, 12.5],
-            ],
+        "head_history_m": np.asarray(
+            [[10.0, 11.0, 12.0], [10.5, 11.25, 12.5]],
             dtype=float,
         ),
-        saturation_excess_history_m_s=np.asarray(
-            [
-                [0.0, 0.02, 0.01],
-                [0.01, 0.03, 0.0],
-            ],
+        "saturation_excess_history_m_s": np.asarray(
+            [[0.0, 0.02, 0.01], [0.01, 0.03, 0.0]],
             dtype=float,
         ),
-        drainage_flux_history_m3_s=np.asarray(
-            [
-                [0.05, 0.15, 0.07],
-                [0.08, 0.3, 0.1],
-            ],
+        "drainage_flux_history_m3_s": np.asarray(
+            [[0.05, 0.15, 0.07], [0.08, 0.3, 0.1]],
             dtype=float,
         ),
-        period_lengths_seconds=np.asarray([3600.0], dtype=float),
-    )
+        "period_lengths_seconds": np.asarray([3600.0], dtype=float),
+    }
     (run_folder / "_boussinesq_summary.json").write_text(
         json.dumps({"bundle_dir": str(bundle_dir)}),
         encoding="utf-8",
     )
+    return _FakeCatalog(run_folder / "simulation.zarr", {"boussinesq_state": state})
 
 
 def _expected_outlet_flux(value_m_per_day: float) -> float:
@@ -499,7 +535,7 @@ def test_materialize_variant_config_writes_base_overlay(tmp_path: Path) -> None:
 def test_extract_observable_rows_reads_point_and_strict_outlet(tmp_path: Path) -> None:
     run_folder = tmp_path / "run"
     bundle_dir = tmp_path / "bundle"
-    _write_fake_run_folder(run_folder, bundle_dir)
+    store = _write_fake_run_folder(run_folder, bundle_dir)
     config_path = tmp_path / "config_method_comparison.toml"
     _write_method_comparison_config(config_path, run_folder)
     cfg = MethodComparisonConfig.from_toml(
@@ -513,6 +549,8 @@ def test_extract_observable_rows_reads_point_and_strict_outlet(tmp_path: Path) -
         variant=variant,
         run_folder=run_folder,
         observables=tuple(cfg.method_comparison.observable),
+        store=store,
+        sim_id=SIM_ID,
     )
 
     assert len(rows) == 2
@@ -533,7 +571,7 @@ def test_extract_observable_rows_reads_point_and_strict_outlet(tmp_path: Path) -
 
 
 def test_extract_observable_rows_resolves_structured_xy_from_config(tmp_path: Path) -> None:
-    rasterio = pytest.importorskip("rasterio")
+    import rasterio
     from rasterio.transform import from_origin
 
     project_root = tmp_path / "structured_project"
@@ -580,20 +618,18 @@ def test_extract_observable_rows_resolves_structured_xy_from_config(tmp_path: Pa
     )
 
     run_folder = tmp_path / "structured_run"
-    postprocess_dir = run_folder / "_postprocess"
-    postprocess_dir.mkdir(parents=True, exist_ok=True)
-    np.save(
-        postprocess_dir / "watertable_elevation.npy",
+    run_folder.mkdir(parents=True, exist_ok=True)
+    store = _FakeCatalog(
+        run_folder / "simulation.zarr",
         {
-            0: np.asarray([10.0, 20.0, 30.0, 40.0]),
-            1: np.asarray([11.0, 21.0, 31.0, 41.0]),
-        },
-    )
-    np.save(
-        postprocess_dir / "accumulation_flux.npy",
-        {
-            0: np.asarray([0.1, 0.4, 0.2, 0.3]),
-            1: np.asarray([0.3, 0.8, 0.5, 0.6]),
+            "watertable_elevation": np.asarray(
+                [[10.0, 20.0, 30.0, 40.0], [11.0, 21.0, 31.0, 41.0]],
+                dtype=float,
+            ),
+            "accumulation_flux": np.asarray(
+                [[0.1, 0.4, 0.2, 0.3], [0.3, 0.8, 0.5, 0.6]],
+                dtype=float,
+            ),
         },
     )
 
@@ -614,6 +650,8 @@ def test_extract_observable_rows_resolves_structured_xy_from_config(tmp_path: Pa
         run_folder=run_folder,
         observables=tuple(cfg.method_comparison.observable),
         config_path=cfg.resolve_variant_config_path(cfg.method_comparison.variant[0]),
+        store=store,
+        sim_id=SIM_ID,
     )
 
     head = next(row for row in rows if row["observable"] == "head_xy_point")
@@ -628,7 +666,7 @@ def test_extract_observable_rows_reads_direct_scalar_outlet_flux(tmp_path: Path)
     run_folder = tmp_path / "run_direct"
     config_path = tmp_path / "config_method_comparison.toml"
     _write_method_comparison_config(config_path, run_folder)
-    _write_direct_outlet_run_folder(run_folder, outlet_value=1.25)
+    store = _write_direct_outlet_run_folder(run_folder, outlet_value=1.25)
     cfg = MethodComparisonConfig.from_toml(
         load_toml_with_base_config(config_path),
         config_path=config_path,
@@ -639,6 +677,8 @@ def test_extract_observable_rows_reads_direct_scalar_outlet_flux(tmp_path: Path)
         variant=cfg.method_comparison.variant[0],
         run_folder=run_folder,
         observables=(cfg.method_comparison.observable[1],),
+        store=store,
+        sim_id=SIM_ID,
     )
 
     assert len(rows) == 1
@@ -653,8 +693,7 @@ def test_extract_observable_rows_reads_direct_scalar_outlet_flux(tmp_path: Path)
 def test_extract_observable_rows_reads_boussinesq_outlet_flux(tmp_path: Path) -> None:
     run_folder = tmp_path / "run_bouss"
     bundle_dir = tmp_path / "bundle_bouss"
-    run_folder.mkdir(parents=True, exist_ok=True)
-    _write_boussinesq_run_folder(run_folder, bundle_dir)
+    store = _write_boussinesq_run_folder(run_folder, bundle_dir)
     config_path = tmp_path / "config_method_comparison.toml"
     _write_method_comparison_config(config_path, run_folder)
     cfg = MethodComparisonConfig.from_toml(
@@ -667,6 +706,8 @@ def test_extract_observable_rows_reads_boussinesq_outlet_flux(tmp_path: Path) ->
         variant=cfg.method_comparison.variant[0],
         run_folder=run_folder,
         observables=(cfg.method_comparison.observable[1],),
+        store=store,
+        sim_id=SIM_ID,
     )
 
     assert len(rows) == 1
@@ -683,8 +724,7 @@ def test_extract_observable_rows_converts_boussinesq_drainage_map_to_outflow_dra
 ) -> None:
     run_folder = tmp_path / "run_bouss_map"
     bundle_dir = tmp_path / "bundle_bouss_map"
-    run_folder.mkdir(parents=True, exist_ok=True)
-    _write_boussinesq_run_folder(run_folder, bundle_dir)
+    store = _write_boussinesq_run_folder(run_folder, bundle_dir)
 
     config_path = tmp_path / "config_method_comparison_bouss_map.toml"
     config_path.write_text(
@@ -721,6 +761,8 @@ def test_extract_observable_rows_converts_boussinesq_drainage_map_to_outflow_dra
         variant=cfg.method_comparison.variant[0],
         run_folder=run_folder,
         observables=tuple(cfg.method_comparison.observable),
+        store=store,
+        sim_id=SIM_ID,
     )
 
     assert len(rows) == 3
@@ -736,12 +778,13 @@ def test_load_variable_series_derives_boussinesq_surface_excess_flux(
 ) -> None:
     run_folder = tmp_path / "run_bouss_surface_excess"
     bundle_dir = tmp_path / "bundle_bouss_surface_excess"
-    run_folder.mkdir(parents=True, exist_ok=True)
-    _write_boussinesq_run_folder(run_folder, bundle_dir)
+    store = _write_boussinesq_run_folder(run_folder, bundle_dir)
 
     series = load_variable_series(
         run_folder=run_folder,
         variable="surface_excess_flux",
+        store=store,
+        sim_id=SIM_ID,
     )
 
     assert series.variable_name == "surface_excess_total_m3_s"
@@ -755,8 +798,7 @@ def test_extract_observable_rows_reads_surface_excess_map_and_series(
 ) -> None:
     run_folder = tmp_path / "run_bouss_surface_compare"
     bundle_dir = tmp_path / "bundle_bouss_surface_compare"
-    run_folder.mkdir(parents=True, exist_ok=True)
-    _write_boussinesq_run_folder(run_folder, bundle_dir)
+    store = _write_boussinesq_run_folder(run_folder, bundle_dir)
 
     config_path = tmp_path / "config_method_comparison_surface_excess.toml"
     config_path.write_text(
@@ -801,6 +843,8 @@ def test_extract_observable_rows_reads_surface_excess_map_and_series(
         variant=cfg.method_comparison.variant[0],
         run_folder=run_folder,
         observables=tuple(cfg.method_comparison.observable),
+        store=store,
+        sim_id=SIM_ID,
     )
 
     series_rows = [row for row in rows if row["observable"] == "surface_excess_flux_series"]
@@ -816,13 +860,16 @@ def test_extract_observable_rows_reads_surface_excess_map_and_series(
 
 def test_write_budget_exports_derives_boussinesq_budget_timeseries(
     tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     run_folder = tmp_path / "run_bouss_budget"
     bundle_dir = tmp_path / "bundle_bouss_budget"
-    run_folder.mkdir(parents=True, exist_ok=True)
-    _write_boussinesq_run_folder(run_folder, bundle_dir)
+    store = _write_boussinesq_run_folder(run_folder, bundle_dir)
 
     comparison_root = tmp_path / "comparison"
+    config_path = tmp_path / "run_bouss_budget.toml"
+    config_path.write_text('[workspace]\nproject_root = "."\n', encoding="utf-8")
+    _patch_result_store(monkeypatch, {config_path.resolve(): store})
     artifacts, rows = write_budget_exports(
         comparison_root=comparison_root,
         variant_summaries=[
@@ -833,6 +880,7 @@ def test_write_budget_exports_derives_boussinesq_budget_timeseries(
                 "mesh_mode": "mesh_input",
                 "status": "completed",
                 "run_folder": str(run_folder),
+                "config_path": str(config_path),
             }
         ],
     )
@@ -860,137 +908,13 @@ def test_write_budget_exports_derives_boussinesq_budget_timeseries(
     assert math.isfinite(float(residual_row["value"]))
 
 
-def test_write_budget_exports_uses_child_config_bundle_when_run_folder_has_no_mesh_metadata(
-    tmp_path: Path,
-) -> None:
-    run_folder = tmp_path / "generated_configs"
-    bundle_dir = tmp_path / "bundle_from_child_config"
-    run_folder.mkdir(parents=True, exist_ok=True)
-    _write_boussinesq_run_folder(run_folder, bundle_dir)
-    (run_folder / "_boussinesq_summary.json").unlink()
-
-    config_dir = tmp_path / "comparison" / "_generated_configs"
-    config_dir.mkdir(parents=True)
-    config_path = config_dir / "bouss_candidate.toml"
-    config_path.write_text(
-        "\n".join(
-            [
-                "workflow = \"simulation\"",
-                "",
-                "[mesh_input]",
-                'bundle_dir = "../../bundle_from_child_config"',
-            ]
-        )
-        + "\n",
-        encoding="utf-8",
-    )
-
-    artifacts, rows = write_budget_exports(
-        comparison_root=tmp_path / "comparison",
-        variant_summaries=[
-            {
-                "id": "bouss_demo",
-                "label": "Bouss demo",
-                "solver": "boussinesq",
-                "mesh_mode": "mesh_input",
-                "status": "completed",
-                "run_folder": str(run_folder),
-                "config_path": str(config_path),
-            }
-        ],
-    )
-
-    assert artifacts
-    assert any(row["component"] == "recharge_total_m3_s" for row in rows)
-
-
-def test_catalog_budget_rows_are_normalized_to_elapsed_seconds_and_m3_s(tmp_path: Path) -> None:
-    config_path = tmp_path / "mf6_child.toml"
-    config_path.write_text(
-        "\n".join(
-            [
-                'workflow = "simulation"',
-                "",
-                "[simulation]",
-                'name = "mf6_budget_demo"',
-                "",
-                "[simulation.time]",
-                'start_datetime = "2020-01-01 00:00:00"',
-                'end_datetime = "2020-01-02 00:00:00"',
-                'step_value = "1 day"',
-            ]
-        )
-        + "\n",
-        encoding="utf-8",
-    )
-
-    class FakeBudgetStore:
-        def query_budget(self, sim_id: str) -> pd.DataFrame:
-            assert sim_id == "mf6-demo"
-            return pd.DataFrame(
-                [
-                    {
-                        "timestep": 0,
-                        "component": "rcha",
-                        "flux_in": 2.5,
-                        "flux_out": 0.0,
-                        "unit": "m3/d",
-                    },
-                    {
-                        "timestep": 0,
-                        "component": "chd",
-                        "flux_in": 0.1,
-                        "flux_out": 0.4,
-                        "unit": "m3/d",
-                    },
-                    {
-                        "timestep": 0,
-                        "component": "sto-sy",
-                        "flux_in": 0.2,
-                        "flux_out": 1.0,
-                        "unit": "m3/d",
-                    },
-                    {
-                        "timestep": 1,
-                        "component": "rcha",
-                        "flux_in": 0.0,
-                        "flux_out": 0.0,
-                        "unit": "m3/s",
-                    },
-                ]
-            )
-
-    rows = _load_catalog_budget_rows(
-        {
-            "id": "mf6_ref",
-            "label": "MF6 reference",
-            "solver": "modflow6",
-            "mesh_mode": "mesh_input",
-            "config_path": str(config_path),
-        },
-        FakeBudgetStore(),
-        "mf6-demo",
-    )
-
-    by_component = {
-        row["component"]: row for row in rows if int(row["time_index"]) == 0
-    }
-    assert by_component["recharge_total_m3_s"]["elapsed_seconds"] == pytest.approx(86400.0)
-    assert by_component["recharge_total_m3_s"]["unit"] == "m3/s"
-    assert by_component["recharge_total_m3_s"]["value"] == pytest.approx(2.5)
-    assert by_component["prescribed_head_out_total_m3_s"]["value"] == pytest.approx(0.3)
-    assert by_component["storage_change_total_m3_s"]["value"] == pytest.approx(0.8)
-    assert by_component["closure_residual_m3_s"]["value"] == pytest.approx(1.4)
-
-
 @pytest.mark.skipif(os.name != "nt", reason="WSL bundle-path normalization is Windows-specific")
 def test_extract_observable_rows_resolves_wsl_bundle_path_on_windows(
     tmp_path: Path,
 ) -> None:
     run_folder = tmp_path / "run_bouss_wsl"
     bundle_dir = tmp_path / "bundle_bouss_wsl"
-    run_folder.mkdir(parents=True, exist_ok=True)
-    _write_boussinesq_run_folder(run_folder, bundle_dir)
+    store = _write_boussinesq_run_folder(run_folder, bundle_dir)
 
     resolved_bundle = bundle_dir.resolve()
     drive = resolved_bundle.drive.rstrip(":").lower()
@@ -1037,6 +961,8 @@ def test_extract_observable_rows_resolves_wsl_bundle_path_on_windows(
         variant=cfg.method_comparison.variant[0],
         run_folder=run_folder,
         observables=tuple(cfg.method_comparison.observable),
+        store=store,
+        sim_id=SIM_ID,
     )
 
     outlet = rows[0]
@@ -1045,15 +971,19 @@ def test_extract_observable_rows_resolves_wsl_bundle_path_on_windows(
 
 def test_extract_observable_rows_masks_depth_using_head_nodata(tmp_path: Path) -> None:
     run_folder = tmp_path / "run_depth_mask"
-    postprocess_dir = run_folder / "_postprocess"
-    postprocess_dir.mkdir(parents=True, exist_ok=True)
-    np.save(
-        postprocess_dir / "watertable_elevation.npy",
-        {0: np.asarray([10.0, -9999.0, 12.0]), 1: np.asarray([11.0, -9999.0, 13.0])},
-    )
-    np.save(
-        postprocess_dir / "watertable_depth.npy",
-        {0: np.asarray([1.0, 10000.0, 3.0]), 1: np.asarray([2.0, 10001.0, 4.0])},
+    run_folder.mkdir(parents=True, exist_ok=True)
+    store = _FakeCatalog(
+        run_folder / "simulation.zarr",
+        {
+            "watertable_elevation": np.asarray(
+                [[10.0, -9999.0, 12.0], [11.0, -9999.0, 13.0]],
+                dtype=float,
+            ),
+            "watertable_depth": np.asarray(
+                [[1.0, 10000.0, 3.0], [2.0, 10001.0, 4.0]],
+                dtype=float,
+            ),
+        },
     )
 
     config_path = tmp_path / "config_method_comparison_depth.toml"
@@ -1090,6 +1020,8 @@ def test_extract_observable_rows_masks_depth_using_head_nodata(tmp_path: Path) -
         variant=cfg.method_comparison.variant[0],
         run_folder=run_folder,
         observables=tuple(cfg.method_comparison.observable),
+        store=store,
+        sim_id=SIM_ID,
     )
 
     assert len(rows) == 1
@@ -1127,12 +1059,16 @@ def test_outlet_without_location_requires_explicit_proxy_opt_in(tmp_path: Path) 
         )
 
 
-def test_method_comparison_launcher_reuses_existing_run_folder(tmp_path: Path) -> None:
+def test_method_comparison_launcher_reuses_existing_run_folder(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     run_folder = tmp_path / "run"
     bundle_dir = tmp_path / "bundle"
-    _write_fake_run_folder(run_folder, bundle_dir)
+    store = _write_fake_run_folder(run_folder, bundle_dir)
     config_path = tmp_path / "config_method_comparison.toml"
     _write_method_comparison_config(config_path, run_folder)
+    _patch_result_store(monkeypatch, {config_path.resolve(): store})
 
     summary = MethodComparisonLauncher(config_path).run()
 
@@ -1152,13 +1088,16 @@ def test_method_comparison_launcher_reuses_existing_run_folder(tmp_path: Path) -
     assert Path(summary["comparison_report_md"]).exists()
 
 
-def test_method_comparison_launcher_generates_visual_figures(tmp_path: Path) -> None:
+def test_method_comparison_launcher_generates_visual_figures(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     reference_run = tmp_path / "reference_run"
     candidate_run = tmp_path / "candidate_run"
     reference_bundle = tmp_path / "reference_bundle"
     candidate_bundle = tmp_path / "candidate_bundle"
-    _write_fake_run_folder(reference_run, reference_bundle)
-    _write_fake_run_folder(
+    reference_store = _write_fake_run_folder(reference_run, reference_bundle)
+    candidate_store = _write_fake_run_folder(
         candidate_run,
         candidate_bundle,
         head_offset=1.5,
@@ -1188,6 +1127,13 @@ def test_method_comparison_launcher_generates_visual_figures(tmp_path: Path) -> 
         reference_config_path=reference_solver_config,
         candidate_config_path=candidate_solver_config,
     )
+    _patch_result_store(
+        monkeypatch,
+        {
+            reference_solver_config.resolve(): reference_store,
+            candidate_solver_config.resolve(): candidate_store,
+        },
+    )
 
     summary = MethodComparisonLauncher(config_path).run()
 
@@ -1214,13 +1160,14 @@ def test_method_comparison_launcher_generates_visual_figures(tmp_path: Path) -> 
 
 def test_method_comparison_launcher_writes_chronicles_native_flux_and_runtime_outputs(
     tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     reference_run = tmp_path / "reference_run"
     candidate_run = tmp_path / "candidate_run"
     reference_bundle = tmp_path / "reference_bundle"
     candidate_bundle = tmp_path / "candidate_bundle"
-    _write_fake_run_folder(reference_run, reference_bundle)
-    _write_fake_run_folder(
+    reference_store = _write_fake_run_folder(reference_run, reference_bundle)
+    candidate_store = _write_fake_run_folder(
         candidate_run,
         candidate_bundle,
         head_offset=1.5,
@@ -1272,6 +1219,13 @@ def test_method_comparison_launcher_writes_chronicles_native_flux_and_runtime_ou
         reference_config_path=reference_solver_config,
         candidate_config_path=candidate_solver_config,
     )
+    _patch_result_store(
+        monkeypatch,
+        {
+            reference_solver_config.resolve(): reference_store,
+            candidate_solver_config.resolve(): candidate_store,
+        },
+    )
 
     summary = MethodComparisonLauncher(config_path).run()
 
@@ -1288,22 +1242,36 @@ def test_method_comparison_launcher_writes_chronicles_native_flux_and_runtime_ou
 
 def test_method_comparison_launcher_generates_structured_figures_from_run_folder_template(
     tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     reference_run = tmp_path / "reference_structured_run"
     candidate_run = tmp_path / "candidate_structured_run"
-    for run_folder in (reference_run, candidate_run):
-        postprocess_dir = run_folder / "_postprocess"
-        postprocess_dir.mkdir(parents=True, exist_ok=True)
-    np.save(
-        reference_run / "_postprocess" / "watertable_elevation.npy",
-        {0: np.asarray([10.0, 20.0, 30.0, 40.0]), 1: np.asarray([11.0, 21.0, 31.0, 41.0])},
+    reference_store = _FakeCatalog(
+        reference_run / "simulation.zarr",
+        {
+            "watertable_elevation": np.asarray(
+                [[10.0, 20.0, 30.0, 40.0], [11.0, 21.0, 31.0, 41.0]],
+                dtype=float,
+            )
+        },
     )
-    np.save(
-        candidate_run / "_postprocess" / "watertable_elevation.npy",
-        {0: np.asarray([10.5, 20.5, 30.5, 40.5]), 1: np.asarray([11.5, 21.5, 31.5, 41.5])},
+    candidate_store = _FakeCatalog(
+        candidate_run / "simulation.zarr",
+        {
+            "watertable_elevation": np.asarray(
+                [[10.5, 20.5, 30.5, 40.5], [11.5, 21.5, 31.5, 41.5]],
+                dtype=float,
+            )
+        },
     )
+    reference_run.mkdir(parents=True, exist_ok=True)
+    candidate_run.mkdir(parents=True, exist_ok=True)
     _write_solver_grid_template(reference_run, nx=2, ny=2)
     _write_solver_grid_template(candidate_run, nx=2, ny=2)
+    reference_solver_config = tmp_path / "structured_reference.toml"
+    candidate_solver_config = tmp_path / "structured_candidate.toml"
+    _write_structured_solver_config(reference_solver_config, solver="modflow6", nx=2, ny=2)
+    _write_structured_solver_config(candidate_solver_config, solver="modflownwt", nx=2, ny=2)
 
     config_path = tmp_path / "config_method_comparison_structured_reuse.toml"
     config_path.write_text(
@@ -1321,6 +1289,7 @@ def test_method_comparison_launcher_generates_structured_figures_from_run_folder
                 'solver = "modflow6"',
                 'mesh_mode = "structured"',
                 f'run_folder = "{reference_run.as_posix()}"',
+                f'simulation_config = "{reference_solver_config.as_posix()}"',
                 "",
                 "[[method_comparison.variant]]",
                 'id = "nwt_demo"',
@@ -1328,6 +1297,7 @@ def test_method_comparison_launcher_generates_structured_figures_from_run_folder
                 'solver = "modflownwt"',
                 'mesh_mode = "structured"',
                 f'run_folder = "{candidate_run.as_posix()}"',
+                f'simulation_config = "{candidate_solver_config.as_posix()}"',
                 "",
                 "[[method_comparison.observable]]",
                 'name = "head_map_last"',
@@ -1339,6 +1309,13 @@ def test_method_comparison_launcher_generates_structured_figures_from_run_folder
         )
         + "\n",
         encoding="utf-8",
+    )
+    _patch_result_store(
+        monkeypatch,
+        {
+            reference_solver_config.resolve(): reference_store,
+            candidate_solver_config.resolve(): candidate_store,
+        },
     )
 
     summary = MethodComparisonLauncher(config_path).run()
@@ -1411,7 +1388,7 @@ def test_method_comparison_launcher_prefers_model_full_path_for_completed_runs(
     class _FakeProject:
         def __init__(self, config_path: Path, **kwargs) -> None:
             self.config_path = config_path
-            self._ctx = SimpleNamespace(
+            self.workflow_context = SimpleNamespace(
                 setup=SimpleNamespace(
                     workspace=SimpleNamespace(simulations_folder=tmp_path / "results_simulations"),
                     run_id="demo_run",
@@ -1423,6 +1400,13 @@ def test_method_comparison_launcher_prefers_model_full_path_for_completed_runs(
 
         def run(self, **kwargs):
             return None
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, tb):
+            self.close()
+            return False
 
         def close(self):
             pass
@@ -1436,17 +1420,21 @@ def test_method_comparison_launcher_prefers_model_full_path_for_completed_runs(
     )
     import hydromodpy.analysis.comparison.orchestrator as launcher_module
 
-    monkeypatch.setattr(
-        launcher_module.HydroModPyConfig,
-        "from_toml",
-        classmethod(
-            lambda _cls, _config_path: SimpleNamespace(
+    monkeypatch.setattr(launcher_module, "Project", _FakeProject)
+
+    class _RootConfigProvider:
+        def from_toml(self, _config_path: Path):
+            return SimpleNamespace(
                 workspace=SimpleNamespace(
                     simulations_folder=tmp_path / "project_root" / "results_simulations"
                 ),
                 simulation=SimpleNamespace(run_id="demo_run_reuse"),
             )
-        ),
+
+    monkeypatch.setattr(
+        launcher_module,
+        "get_root_config_provider",
+        lambda: _RootConfigProvider(),
     )
 
     launcher = MethodComparisonLauncher(comparison_config)
@@ -1465,15 +1453,17 @@ def test_method_comparison_launcher_reuse_infers_process_output_folder(
 
     import hydromodpy.analysis.comparison.orchestrator as orchestrator_module
 
-    monkeypatch.setattr(
-        orchestrator_module.HydroModPyConfig,
-        "from_toml",
-        classmethod(
-            lambda _cls, _config_path: SimpleNamespace(
+    class _RootConfigProvider:
+        def from_toml(self, _config_path: Path):
+            return SimpleNamespace(
                 workspace=SimpleNamespace(solver_scratch_folder=scratch),
                 simulation=SimpleNamespace(run_id="ex12_demo_mod_bouss_tri"),
             )
-        ),
+
+    monkeypatch.setattr(
+        orchestrator_module,
+        "get_root_config_provider",
+        lambda: _RootConfigProvider(),
     )
 
     resolved = MethodComparisonLauncher._infer_run_folder_from_config(
@@ -1488,8 +1478,8 @@ def test_build_comparison_metrics_against_reference(tmp_path: Path) -> None:
     reference_run = tmp_path / "reference"
     candidate_run = tmp_path / "candidate"
     bundle_dir = tmp_path / "bundle"
-    _write_fake_run_folder(reference_run, bundle_dir)
-    _write_fake_run_folder(
+    reference_store = _write_fake_run_folder(reference_run, bundle_dir)
+    candidate_store = _write_fake_run_folder(
         candidate_run,
         bundle_dir,
         head_offset=2.0,
@@ -1513,6 +1503,8 @@ def test_build_comparison_metrics_against_reference(tmp_path: Path) -> None:
             variant=reference_variant,
             run_folder=reference_run,
             observables=tuple(cfg.method_comparison.observable),
+            store=reference_store,
+            sim_id=SIM_ID,
         )
     )
     rows.extend(
@@ -1521,6 +1513,8 @@ def test_build_comparison_metrics_against_reference(tmp_path: Path) -> None:
             variant=candidate_variant,
             run_folder=candidate_run,
             observables=tuple(cfg.method_comparison.observable),
+            store=candidate_store,
+            sim_id=SIM_ID,
         )
     )
 
@@ -1632,161 +1626,3 @@ def test_build_comparison_metrics_aligns_non_initial_steps_and_keeps_initial_unm
             "reason": "missing aligned reference row or unit mismatch",
         }
     ]
-
-
-def test_store_series_aligns_modflow_steps_with_boussinesq_snapshots(
-    tmp_path: Path,
-) -> None:
-    class FakeArray:
-        def __init__(self, values: object) -> None:
-            self._values = np.asarray(values, dtype=float)
-
-        def __getitem__(self, key: object) -> np.ndarray:
-            return self._values[key]
-
-    class FakeStore:
-        def __init__(self, roots: dict[str, dict[str, object]]) -> None:
-            self.roots = roots
-
-        def open_zarr_group(self, sim_id: str) -> dict[str, object]:
-            return self.roots[sim_id]
-
-        def zarr_path_for(self, sim_id: str) -> Path:
-            return Path(f"{sim_id}.zarr")
-
-    config_path = tmp_path / "transient_config.toml"
-    config_path.write_text(
-        "\n".join(
-            [
-                'workflow = "simulation"',
-                "",
-                "[simulation.time]",
-                'start_datetime = "2020-01-01 00:00:00"',
-                'end_datetime = "2020-01-03 00:00:00"',
-                'step_value = "1 day"',
-                'coverage_policy = "warn"',
-            ]
-        )
-        + "\n",
-        encoding="utf-8",
-    )
-
-    mf6_id = "mf6"
-    bouss_id = "bouss"
-    store = FakeStore(
-        {
-            mf6_id: {
-                "derived": {
-                    "watertable_elevation": FakeArray([[101.0], [102.0], [103.0]]),
-                },
-            },
-            bouss_id: {
-                "derived": {
-                    "watertable_elevation": FakeArray(
-                        [[100.0], [101.0], [102.0], [103.0]]
-                    ),
-                },
-                "boussinesq_state": {
-                    "period_lengths_seconds": FakeArray([86400.0, 86400.0, 86400.0]),
-                    "snapshot_elapsed_seconds": FakeArray(
-                        [0.0, 86400.0, 172800.0, 259200.0]
-                    ),
-                    "step_end_elapsed_seconds": FakeArray([86400.0, 172800.0, 259200.0]),
-                },
-            },
-        }
-    )
-
-    mf6_series = load_variable_series(
-        run_folder=tmp_path,
-        variable="watertable_elevation",
-        store=store,  # type: ignore[arg-type]
-        sim_id=mf6_id,
-        config_path=config_path,
-    )
-    bouss_series = load_variable_series(
-        run_folder=tmp_path,
-        variable="watertable_elevation",
-        store=store,  # type: ignore[arg-type]
-        sim_id=bouss_id,
-        config_path=config_path,
-    )
-
-    assert [item.elapsed_seconds for item in mf6_series.slices] == [
-        86400.0,
-        172800.0,
-        259200.0,
-    ]
-    assert [item.elapsed_seconds for item in bouss_series.slices] == [
-        0.0,
-        86400.0,
-        172800.0,
-        259200.0,
-    ]
-    assert bouss_series.slices[0].is_initial_state is True
-
-    observables = (
-        MethodComparisonObservable(
-            name="head_series",
-            variable="watertable_elevation",
-            support="point",
-            cell_index=0,
-            time="all",
-            unit="m",
-        ),
-        MethodComparisonObservable(
-            name="head_map_step_1",
-            variable="watertable_elevation",
-            support="map",
-            time=1,
-            unit="m",
-        ),
-    )
-    rows = []
-    rows.extend(
-        extract_observable_rows(
-            comparison_id="time_axis_demo",
-            variant=MethodComparisonVariant(id="reference", solver="modflow6"),
-            run_folder=tmp_path,
-            observables=observables,
-            config_path=config_path,
-            store=store,  # type: ignore[arg-type]
-            sim_id=mf6_id,
-        )
-    )
-    rows.extend(
-        extract_observable_rows(
-            comparison_id="time_axis_demo",
-            variant=MethodComparisonVariant(id="candidate", solver="boussinesq"),
-            run_folder=tmp_path,
-            observables=observables,
-            config_path=config_path,
-            store=store,  # type: ignore[arg-type]
-            sim_id=bouss_id,
-        )
-    )
-
-    detail, summary = build_comparison_metrics(rows, reference_variant="reference")
-    by_observable = {item["observable"]: item for item in summary}
-
-    assert by_observable["head_series"]["n_pairs"] == 3
-    assert by_observable["head_series"]["rmse"] == pytest.approx(0.0)
-    assert by_observable["head_map_step_1"]["n_pairs"] == 1
-    assert by_observable["head_map_step_1"]["rmse"] == pytest.approx(0.0)
-    assert {
-        item["comparison_time_key"]
-        for item in detail
-        if item["observable"] == "head_series"
-    } == {
-        "elapsed_seconds:86400",
-        "elapsed_seconds:172800",
-        "elapsed_seconds:259200",
-    }
-    assert all(item["reference_match_strategy"] == "exact_time_key" for item in detail)
-
-
-def test_public_compare_raises_helpful_not_implemented() -> None:
-    import hydromodpy as hmp
-
-    with pytest.raises(NotImplementedError, match="Project.compare"):
-        hmp.compare("sim_a", "sim_b")

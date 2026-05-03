@@ -1,26 +1,15 @@
-"""Iteratively run the visual cartesian-grid demos for manual review."""
+"""Iteratively run the visual cartesian-grid demos for manual review.
+
+Run with:
+    python -m hydromodpy.spatial.mesh.cartesian_grid.examples.review_examples
+"""
 
 from __future__ import annotations
 
 import argparse
-import sys
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
-from pathlib import Path
 from typing import Any
-
-
-def _find_repo_root() -> Path:
-    current = Path(__file__).resolve()
-    for parent in current.parents:
-        if (parent / "hydromodpy").is_dir():
-            return parent
-    return current.parents[0]
-
-
-REPO_ROOT = _find_repo_root()
-if str(REPO_ROOT) not in sys.path:
-    sys.path.insert(0, str(REPO_ROOT))
 
 
 @dataclass(frozen=True, slots=True)

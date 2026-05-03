@@ -63,7 +63,7 @@ Mesh contract
   in ``process_simulation``.
 
 That makes it the bridge between the shared MODFLOW postprocess/tooling stack
-and the newer runtime catchment-mesh runner.
+and the newer runtime catchment-mesh workflow.
 
 See also
 --------

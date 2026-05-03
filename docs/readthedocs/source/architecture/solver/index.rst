@@ -4,21 +4,11 @@ Solver Architecture
 This section documents software architecture for solver wrappers and backend
 orchestration.
 
-The navigation follows the same two-level hierarchy as the scientific solver
-pages:
-
-1. **process**: ``flow``, ``transport``, or workflow-stage processes;
-2. **solver type or family**: MODFLOW, Boussinesq, transport adapters,
-   postprocess adapters, or display adapters.
-
 Use it when you want:
 
-- the process/solver registry behind ``flow``, ``transport``,
-  ``postprocess``, and ``display`` stages,
-- the backend-specific code layout of ``boussinesq``, ``modflow6``,
-  ``modflownwt``, ``modpath``, ``mt3dms``, and ``modflow6gwt``,
-- the split between generic simulation adapters and concrete solver or
-  workflow-stage packages,
+- the backend-specific code layout of ``boussinesq``, ``modflow6``, and
+  ``modflownwt``,
+- the split between generic simulation adapters and concrete solver packages,
 - the current mesh contract supported by each flow backend.
 
 Scientific derivations and mathematical solver notes live under
@@ -26,33 +16,27 @@ Scientific derivations and mathematical solver notes live under
 
 .. tab-set::
 
-   .. tab-item:: Registry
+   .. tab-item:: Boussinesq
 
-      The canonical runtime key is ``(process_type, solver_name)``. This
-      supports ``flow`` and ``transport`` today and generalizes to
-      ``postprocess`` and ``display`` stages. See
-      :doc:`process-solver-registry`.
+      In-house triangular-mesh backend with its own runtime and numerical
+      formulations. See :doc:`boussinesq-uml-diagrams`.
 
-   .. tab-item:: Flow
+   .. tab-item:: MODFLOW 6
 
-      Flow solver architecture is grouped by MODFLOW family and Boussinesq
-      family. See :doc:`flow/index`.
+      FloPy-backed flow and transport stack that shares the MODFLOW-family
+      runtime lifecycle and can also consume runtime Gmsh meshes. See
+      :doc:`modflow6-architecture-notes`.
 
-   .. tab-item:: Transport
+   .. tab-item:: MODFLOW-NWT
 
-      Transport solver architecture is grouped around MODFLOW-linked
-      particle-tracking and concentration adapters. See
-      :doc:`transport/index`.
-
-   .. tab-item:: Workflow stages
-
-      Postprocess and display entries are registry-backed extension points,
-      not groundwater equation solvers. See :doc:`workflow-stages/index`.
+      Legacy MODFLOW-family backend used with structured ``sgrid`` supports
+      and the ``MT3DMS`` / ``MODPATH`` ecosystem. See
+      :doc:`modflownwt-architecture-notes`.
 
 .. toctree::
    :maxdepth: 2
 
-   process-solver-registry
-   Flow <flow/index>
-   Transport <transport/index>
-   Workflow stages <workflow-stages/index>
+   boussinesq-uml-diagrams
+   modflow6-architecture-notes
+   modflownwt-architecture-notes
+   boussinesq-mathematical-notes

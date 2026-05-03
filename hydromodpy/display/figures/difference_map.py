@@ -54,6 +54,7 @@ class DifferenceMap(BaseFigure):
             )
         diff = a - b
         vmax = float(np.nanmax(np.abs(diff))) or 1.0
+        descriptor = self.field_descriptor_for(field)
         render_face_field(
             ax,
             sim,
@@ -61,7 +62,7 @@ class DifferenceMap(BaseFigure):
             cmap=cmap,
             vmin=-vmax,
             vmax=vmax,
-            cbar_label=f"Δ {field}",
+            cbar_label=f"Δ {descriptor.long_name} ({descriptor.units})",
         )
         ax.set_title(f"Δ {field} - {sim.sim_id} - {reference.id}")
         ax.set_xlabel("x (m)")

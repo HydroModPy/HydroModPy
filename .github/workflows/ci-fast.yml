@@ -1,6 +1,5 @@
 # Fast checks for every push and pull request on dev or master.
-# Keeps feedback under ten minutes: lint, unit tests, fast regression, and the
-# fast solver-intercomparison guard.
+# Keeps feedback under ten minutes: lint, unit tests, fast regression.
 
 name: CI Fast
 
@@ -26,7 +25,7 @@ jobs:
   lint:
     name: Ruff lint and format
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
 
@@ -35,14 +34,30 @@ jobs:
           python-version: ${{ env.PYTHON_VERSION }}
           cache: pip
 
-      - name: Install ruff
-        run: pip install "ruff>=0.6"
+      - name: Install ruff and pip-audit
+        run: pip install "ruff>=0.6" "pip-audit>=2.7"
 
       - name: Check lint rules
         run: ruff check .
 
       - name: Check formatting
         run: ruff format --check .
+
+      - name: Audit declared dependencies for known vulnerabilities
+        run: pip-audit --strict --vulnerability-service osv .
+
+  gitleaks:
+    name: Gitleaks secret scan
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   unit:
     name: Unit tests
@@ -141,18 +156,13 @@ jobs:
               pth.unlink()
           "
 
+      - name: Install solver binaries for regression tests
+        run: python -m hydromodpy install-binaries --subset mf6,mfnwt,mp6,mt3dusgs --quiet
+
       - name: Run fast regression with coverage
         env:
           HYDROMODPY_COVERAGE: "1"
-        run: python -m pytest tests/regression/fast/ -m "not intercomparison" -n auto --dist loadgroup -q
-
-      - name: Install MODFLOW 6 binary for intercomparisons
-        run: python -m hydromodpy install-binaries --subset mf6 --quiet
-
-      - name: Run fast solver intercomparison regressions
-        env:
-          HYDROMODPY_COVERAGE: "1"
-        run: python -m pytest tests/regression/fast/intercomparison -q
+        run: python -m pytest tests/regression/fast/ -n auto --dist loadgroup -q
 
       - name: Combine and report coverage
         if: always()
@@ -169,3 +179,57 @@ jobs:
           files: coverage.xml
           flags: regression-fast
           fail_ci_if_error: false
+
+  wheel-smoke:
+    name: Wheel install smoke (hmp doctor)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+
+      - name: Install system libraries
+        run: sudo apt-get update && sudo apt-get install -y libglu1-mesa
+
+      - name: Install build tooling
+        run: pip install --upgrade pip "build>=1.2"
+
+      - name: Build wheel and sdist
+        run: python -m build
+
+      - name: Create fresh venv
+        run: python -m venv /tmp/hmp-smoke
+
+      - name: Install wheel into fresh venv
+        run: |
+          /tmp/hmp-smoke/bin/pip install --upgrade pip
+          /tmp/hmp-smoke/bin/pip install dist/*.whl
+
+      - name: Run hmp doctor against the freshly installed wheel
+        run: /tmp/hmp-smoke/bin/hmp doctor --json
+
+  type-check:
+    name: Static type check (mypy)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+
+      - name: Install package and mypy
+        run: |
+          pip install --upgrade pip
+          pip install -e "."
+          pip install "mypy>=1.13" "pydantic>=2.13"
+
+      - name: Run mypy (baseline, non-blocking)
+        run: mypy hydromodpy

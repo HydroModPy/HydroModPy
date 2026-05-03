@@ -22,15 +22,24 @@ MESH_GALLERY_REQUIRED_BUNDLE_FILES = (
 MESH_GALLERY_SCALE_SPECS: dict[str, dict[str, str]] = {
     "10km2": {
         "label": "10 km2",
-        "default_launcher_config": "old/launchers/mesh_catchment/scenarios/config_s3_10km2.toml",
+        "default_launcher_config": (
+            "examples/projects/07_mesh_gallery/10km2/"
+            "mesh_s3_10km2_outlet_1_geology_rivers_buffer30/viewer_config.toml"
+        ),
     },
     "100km2": {
         "label": "100 km2",
-        "default_launcher_config": "old/launchers/mesh_catchment/scenarios/config_headwater_100km2.toml",
+        "default_launcher_config": (
+            "examples/projects/07_mesh_gallery/100km2/"
+            "mesh_headwater_100km2_outlet_27_geology_rivers_buffer30/viewer_config.toml"
+        ),
     },
     "1000km2": {
         "label": "1000 km2",
-        "default_launcher_config": "old/launchers/mesh_catchment/scenarios/config_1000km2.toml",
+        "default_launcher_config": (
+            "examples/projects/07_mesh_gallery/1000km2/"
+            "mesh_1000km2_outlet_2_geology_rivers_buffer30/viewer_config.toml"
+        ),
     },
 }
 MESH_GALLERY_SCALE_ORDER = tuple(MESH_GALLERY_SCALE_SPECS)
@@ -243,7 +252,7 @@ def build_default_case_metadata(
     reproduction_value = (
         str(reproduction_command).strip()
         if reproduction_command is not None and str(reproduction_command).strip()
-        else f"python -m hydromodpy run {launcher_config_path}"
+        else "python -m tools.doc_gallery"
     )
 
     case_setup = [

@@ -21,24 +21,17 @@ Created on Thu Apr  3 13:06:53 2025
 # Python
 import os
 import shutil
-import sys
 from collections.abc import Mapping
-from os.path import abspath, dirname
 
 import flopy
 import flopy.utils.binaryfile as bf
 import numpy as np
 import rasterio
 
-# Root
-df = dirname(dirname(abspath(__file__)))
-sys.path.append(df)
-
 # HydroModPy
+from hydromodpy.core.io.filesystem import create_folder
 from hydromodpy.core.io.raster_io import export_tif
 from hydromodpy.core.logging import get_logger
-from hydromodpy.core.tools.display import plot_params
-from hydromodpy.core.tools.filesystem import create_folder
 from hydromodpy.solver.modflow_common import (
     ensure_solver_binary,
     masstransfer,
@@ -47,7 +40,6 @@ from hydromodpy.solver.modflow_common.runtime_arrays import (
     build_concentration_runtime_overrides,
 )
 
-fontprop = plot_params(8, 15, 18, 20)  # small, medium, interm, large
 MT3DMS_NORMAL_MESSAGES = ["normal termination", "program completed"]
 
 # %% CLASS
@@ -381,14 +373,24 @@ class Mt3dms:
         self.outflow_drain = getattr(self.model_modflow, "dict_outflow_drain", {})
 
         self.ucnobj = bf.UcnFile(self.path_file)
-        self.concobj_1c = self.ucnobj.get_alldata(mflay=None)  # 4D:[time, lay, row, col]
+        ucn_all_data = None
+        if hasattr(self.ucnobj, "get_times"):
+            ucn_times = list(self.ucnobj.get_times())
+        else:
+            ucn_all_data = np.asarray(self.ucnobj.get_alldata(), dtype=float)
+            ucn_times = list(range(int(ucn_all_data.shape[0])))
+        if not ucn_times:
+            raise RuntimeError(f"No MT3DMS concentration timesteps found in {self.path_file}")
 
-        concobj_1c_fil = self.concobj_1c.copy()
-        concobj_1c_fil[concobj_1c_fil >= 1e30] = np.nan
-        concobj_1c_fil = concobj_1c_fil[:]
-
-        the_mins = []
-        the_maxs = []
+        def _surface_concentration(period_index: int) -> np.ndarray:
+            time_index = min(period_index + 1, len(ucn_times) - 1)
+            if ucn_all_data is None:
+                values = np.asarray(self.ucnobj.get_data(totim=ucn_times[time_index]), dtype=float)
+            else:
+                values = np.asarray(ucn_all_data[time_index], dtype=float)
+            surface = values[0].copy()
+            surface[surface >= 1e30] = np.nan
+            return surface
 
         self.dict_concentration_seepage = {}
         self.dict_mass_seepage = {}
@@ -408,7 +410,7 @@ class Mt3dms:
             seep = self.outflow_drain[i]
 
             if concentration_seepage:
-                concobj_1c_fil_surf = concobj_1c_fil[i + 1][0]
+                concobj_1c_fil_surf = _surface_concentration(i)
                 # concobj_1c_fil_surf = np.ma.masked_where(seep <= 0, concobj_1c_fil_surf)
                 concobj_1c_fil_surf[seep <= 0] = -9999
                 concobj_1c_fil_surf[self.inactive_mask] = -9999
@@ -423,11 +425,8 @@ class Mt3dms:
                     )
                 self.dict_concentration_seepage[i] = concobj_1c_fil_surf
 
-                the_mins.append(np.nanmin(concobj_1c_fil_surf))
-                the_maxs.append(np.nanmax(concobj_1c_fil_surf))
-
             if mass_seepage:
-                massobj_1c_fil_surf = concobj_1c_fil[i + 1][0]
+                massobj_1c_fil_surf = _surface_concentration(i)
                 # massobj_1c_fil_surf = np.ma.masked_where(seep <= 0, massobj_1c_fil_surf)
                 massobj_1c_fil_surf[seep <= 0] = np.nan
                 massobj_1c_fil_surf = (
@@ -465,9 +464,6 @@ class Mt3dms:
                 with rasterio.open(output_path) as src:
                     self.dict_mass_accumulated[i] = src.read(1)
 
-        np.nanmin(the_mins)
-        np.nanmax(the_maxs)
-
         # concobj_1c_fil_surf = dict(list(concobj_1c_fil_surf.items())[:])
 
         if concentration_seepage:
@@ -480,6 +476,10 @@ class Mt3dms:
 
         if mass_accumulated:
             logger.info("Exported accumulated mass: %d timesteps", len(self.dict_mass_accumulated))
+
+        close = getattr(self.ucnobj, "close", None)
+        if callable(close):
+            close()
 
 
 # %% ---- NOTES

@@ -6,6 +6,7 @@ import json
 import shutil
 from pathlib import Path
 
+import numpy as np
 import pytest
 
 from tests.regression import golden_utils
@@ -86,6 +87,40 @@ def test_update_or_assert_goldens_accepts_legacy_unversioned(tmp_path: Path) -> 
         golden_reference_file=target,
         update_goldens=False,
     )
+
+
+def test_array_stats_masks_variable_nodata_sentinels() -> None:
+    """Stats should ignore nodata sentinels declared for the target variable."""
+    stats = golden_utils.array_stats(
+        np.array([1.0, -9999.0, 3.0, np.nan, 1.0e30]),
+        variable="watertable_elevation",
+    )
+
+    assert stats["count"] == 2
+    assert stats["nodata_count"] == 2
+    assert stats["mean"] == pytest.approx(2.0)
+    assert stats["p50"] == pytest.approx(2.0)
+
+
+def test_array_stats_preserves_same_values_for_unmapped_variables() -> None:
+    """Only variable-specific nodata masks should change numeric signatures."""
+    stats = golden_utils.array_stats(np.array([1.0, -9999.0, 3.0]), variable="time")
+
+    assert stats["count"] == 3
+    assert stats["nodata_count"] == 0
+    assert stats["p50"] == pytest.approx(1.0)
+
+
+def test_array_stats_masks_transport_nodata_limits() -> None:
+    """Transport outputs should mask propagated nodata magnitudes."""
+    stats = golden_utils.array_stats(
+        np.array([1.0e-9, 1.0e25, 3.0e-9]),
+        variable="mass_seepage",
+    )
+
+    assert stats["count"] == 2
+    assert stats["nodata_count"] == 1
+    assert stats["mean"] == pytest.approx(2.0e-9)
 
 
 def test_resolve_tiered_results_dir_retries_when_rmtree_onerror_hits_locked_file(

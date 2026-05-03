@@ -10,7 +10,6 @@ from __future__ import annotations
 
 import importlib
 from collections.abc import Mapping
-from dataclasses import dataclass
 from datetime import datetime as dt
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
@@ -20,6 +19,7 @@ from pydantic import BaseModel
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.time import resolve_simulation_time_window_dates
 from hydromodpy.core.workspace.path_registry import PREPROCESSING_DIR, WorkspacePathRegistry
+from hydromodpy.data._dispatch import VARIABLE_SPECS, VariableSpec
 from hydromodpy.data.common.progress import data_phase
 from hydromodpy.data.plan import DataLoadPlan
 from hydromodpy.data.registry.catalog_duckdb import DataCatalogDuckDB
@@ -31,134 +31,8 @@ if TYPE_CHECKING:
 logger = get_logger(__name__)
 
 
-@dataclass(frozen=True, slots=True)
-class _VariableSpec:
-    """Declarative spec for a generic data variable.
-
-    The 14 station/flux + climatic variables share the same load shape:
-    read TOML section → validate config → resolve date period → set
-    geographic masks → instantiate manager → store result.
-
-    ``period_source`` picks how to resolve ``project_period``:
-    - ``"config"``: read ``cfg.date_start`` / ``cfg.date_end``.
-    - ``"simulation_or_overview"``: try the simulation window first, then
-      fall back to ``[overview]`` dates (water_quality).
-
-    ``export_stable_subdir`` triggers a post-load ``manager.export`` into
-    ``<workspace>/<PREPROCESSING_DIR>/<subdir>/`` (currently intermittency).
-    """
-
-    config_module: str
-    config_class: str
-    manager_module: str
-    manager_class: str
-    apply_simulation_window: bool = True
-    period_source: str = "config"
-    export_stable_subdir: str | None = None
-
-
-# Registry shared by ``load_all`` and ``load_variable``. Entries cover
-# every data variable that follows the standard "config + manager" shape.
-# DEM / Geology / Hydrography have unique side-effects (field building,
-# workspace paths) and stay in dedicated methods below.
-_GENERIC_VARIABLE_SPECS: dict[str, _VariableSpec] = {
-    "oceanic": _VariableSpec(
-        config_module="hydromodpy.data.variables.oceanic.config",
-        config_class="OceanicConfig",
-        manager_module="hydromodpy.data.variables.oceanic.manager",
-        manager_class="OceanicManager",
-    ),
-    "intermittency": _VariableSpec(
-        config_module="hydromodpy.data.variables.intermittency.config",
-        config_class="IntermittencyConfig",
-        manager_module="hydromodpy.data.variables.intermittency.manager",
-        manager_class="IntermittencyManager",
-        export_stable_subdir="intermittency",
-    ),
-    "hydrometry": _VariableSpec(
-        config_module="hydromodpy.data.variables.hydrometry.config",
-        config_class="HydrometryConfig",
-        manager_module="hydromodpy.data.variables.hydrometry.manager",
-        manager_class="HydrometryManager",
-    ),
-    "piezometry": _VariableSpec(
-        config_module="hydromodpy.data.variables.piezometry.config",
-        config_class="PiezometryConfig",
-        manager_module="hydromodpy.data.variables.piezometry.manager",
-        manager_class="PiezometryManager",
-    ),
-    "water_quality": _VariableSpec(
-        config_module="hydromodpy.data.variables.water_quality.config",
-        config_class="WaterQualityConfig",
-        manager_module="hydromodpy.data.variables.water_quality.manager",
-        manager_class="WaterQualityManager",
-        apply_simulation_window=False,
-        period_source="simulation_or_overview",
-    ),
-    "recharge": _VariableSpec(
-        config_module="hydromodpy.data.variables.recharge.config",
-        config_class="RechargeConfig",
-        manager_module="hydromodpy.data.variables.recharge.manager",
-        manager_class="RechargeManager",
-    ),
-    "runoff": _VariableSpec(
-        config_module="hydromodpy.data.variables.runoff.config",
-        config_class="RunoffConfig",
-        manager_module="hydromodpy.data.variables.runoff.manager",
-        manager_class="RunoffManager",
-    ),
-    "precipitation": _VariableSpec(
-        config_module="hydromodpy.data.variables.precipitation.config",
-        config_class="PrecipitationConfig",
-        manager_module="hydromodpy.data.variables.precipitation.manager",
-        manager_class="PrecipitationManager",
-    ),
-    "etp": _VariableSpec(
-        config_module="hydromodpy.data.variables.etp.config",
-        config_class="EtpConfig",
-        manager_module="hydromodpy.data.variables.etp.manager",
-        manager_class="EtpManager",
-    ),
-    "temperature": _VariableSpec(
-        config_module="hydromodpy.data.variables.temperature.config",
-        config_class="TemperatureConfig",
-        manager_module="hydromodpy.data.variables.temperature.manager",
-        manager_class="TemperatureManager",
-    ),
-    "wind": _VariableSpec(
-        config_module="hydromodpy.data.variables.wind.config",
-        config_class="WindConfig",
-        manager_module="hydromodpy.data.variables.wind.manager",
-        manager_class="WindManager",
-    ),
-    "humidity": _VariableSpec(
-        config_module="hydromodpy.data.variables.humidity.config",
-        config_class="HumidityConfig",
-        manager_module="hydromodpy.data.variables.humidity.manager",
-        manager_class="HumidityManager",
-    ),
-    "radiation": _VariableSpec(
-        config_module="hydromodpy.data.variables.radiation.config",
-        config_class="RadiationConfig",
-        manager_module="hydromodpy.data.variables.radiation.manager",
-        manager_class="RadiationManager",
-    ),
-    "soil_moisture": _VariableSpec(
-        config_module="hydromodpy.data.variables.soil_moisture.config",
-        config_class="SoilMoistureConfig",
-        manager_module="hydromodpy.data.variables.soil_moisture.manager",
-        manager_class="SoilMoistureManager",
-    ),
-}
-
-
 class DataManagersRuntimeLoader:
     """Load runtime data objects from a resolved data-manager activation plan."""
-
-    _LEGACY_STATION_EXPORT_DEFAULTS: dict[str, str] = {
-        "hydrometry": "hydromodpy/data/hydrometry/exports",
-        "piezometry": "hydromodpy/data/piezometry/exports",
-    }
 
     def __init__(self, *, config_path: str | Path, data_plan: DataLoadPlan) -> None:
         self.config_path = Path(config_path).resolve()
@@ -182,22 +56,10 @@ class DataManagersRuntimeLoader:
         d.mkdir(parents=True, exist_ok=True)
         return d
 
-    # Variables with unique load side-effects keep a dedicated method. Every
-    # other entry falls through to the generic ``_load_generic_variable``
-    # branch driven by ``_GENERIC_VARIABLE_SPECS`` above.
-    _SPECIAL_LOADERS: dict[str, str] = {
-        "dem": "_load_dem_data",
-        "geology": "_load_geology_data",
-        "hydrography": "_load_hydrography_data",
-    }
-
-    # Types that must be loaded sequentially (have dependencies on earlier loads).
-    _SEQUENTIAL_TYPES = {"dem", "geology", "hydrography"}
-
     @classmethod
     def known_variables(cls) -> set[str]:
         """Return every variable name the loader can dispatch."""
-        return set(cls._SPECIAL_LOADERS) | set(_GENERIC_VARIABLE_SPECS)
+        return set(VARIABLE_SPECS)
 
     def load_all(self, result: WorkflowContext) -> None:
         """Load active data-manager families into ``result``.
@@ -212,7 +74,8 @@ class DataManagersRuntimeLoader:
         sequential = []
         parallel = []
         for type_name in self.data_plan.types:
-            if type_name in self._SEQUENTIAL_TYPES:
+            spec = VARIABLE_SPECS.get(type_name)
+            if spec is not None and spec.loader_method is not None:
                 sequential.append(type_name)
             else:
                 parallel.append(type_name)
@@ -236,21 +99,21 @@ class DataManagersRuntimeLoader:
 
     def _load_single(self, result: WorkflowContext, type_name: str) -> None:
         """Load a single data-manager type."""
-        special = self._SPECIAL_LOADERS.get(type_name)
-        if special is not None:
-            with data_phase(type_name):
-                getattr(self, special)(result)
+        spec = VARIABLE_SPECS.get(type_name)
+        if spec is None:
+            logger.warning("Unsupported data type '%s' in plan.", type_name)
             return
-        if type_name in _GENERIC_VARIABLE_SPECS:
-            with data_phase(type_name):
+        with data_phase(type_name):
+            if spec.loader_method is not None:
+                getattr(self, spec.loader_method)(result)
+            else:
                 self._load_generic_variable(result, type_name)
-            return
-        logger.warning("Unsupported data type '%s' in plan.", type_name)
 
     def _load_generic_variable(self, result: WorkflowContext, variable: str) -> None:
         """Generic load path for variables following the standard shape.
 
-        All variables in ``_GENERIC_VARIABLE_SPECS`` share this flow:
+        Every spec in :data:`VARIABLE_SPECS` whose ``loader_method`` is
+        ``None`` follows this flow:
 
         1. Fetch the ``[data.<variable>]`` section, bail out if absent.
         2. Apply the simulation time window (unless the spec opts out).
@@ -258,7 +121,7 @@ class DataManagersRuntimeLoader:
         4. Instantiate the manager and stash the result on ``loaded_data``.
         5. Run an optional post-load export hook (intermittency).
         """
-        spec = _GENERIC_VARIABLE_SPECS[variable]
+        spec = VARIABLE_SPECS[variable]
 
         raw_section = self._get_data_section(result, variable)
         if raw_section is None:
@@ -323,7 +186,7 @@ class DataManagersRuntimeLoader:
     def _resolve_period_for_spec(
         self,
         cfg: Any,
-        spec: _VariableSpec,
+        spec: VariableSpec,
         result: WorkflowContext,
     ) -> tuple[dt, dt] | None:
         if spec.period_source == "simulation_or_overview":
@@ -742,7 +605,8 @@ def load_variable(
     the underlying loader method yields (typically a ``LoadResult`` or
     variable-specific object).
     """
-    if variable_name not in DataManagersRuntimeLoader.known_variables():
+    spec = VARIABLE_SPECS.get(variable_name)
+    if spec is None:
         raise KeyError(f"Unknown variable: {variable_name!r}")
 
     plan = DataLoadPlan()
@@ -751,8 +615,7 @@ def load_variable(
         data_plan=plan,
     )
     loader._catalog = catalog
-    special = DataManagersRuntimeLoader._SPECIAL_LOADERS.get(variable_name)
-    if special is not None:
-        method = getattr(loader, special)
+    if spec.loader_method is not None:
+        method = getattr(loader, spec.loader_method)
         return method(config=config, context=context)
     return loader._load_generic_variable(context, variable_name)

@@ -59,21 +59,3 @@ value = 0.05
 [flow.param.Ss.field_homogeneous]
 # Specific storage in 1/m.
 value = 1e-5
-
-
-# ---- Stable documentation publication --------------------------------
-# Publish one compact, versionable figure set for the Read the Docs
-# capability gallery. These assets are rendered from the catalog-backed
-# run, so they can include figures that are not part of the default
-# [display].figures list.
-[capability_gallery]
-enabled = true
-output_dir = "../09_capability_gallery/launcher_simulation/nancon_transient_nwt"
-case_slug = "nancon_transient_nwt"
-assets = [
-    "hydrographic_network_comparison.png",
-    "simulated_active_network_reference_overlay.png",
-    "piezometric_map.png",
-    "hydrograph.png",
-    "water_budget.png",
-]

@@ -7,7 +7,7 @@ import os
 import numpy as np
 from shapely.geometry import LineString, MultiLineString
 
-from hydromodpy.spatial.mesh.gmsh_grid.zone_meshing._geometry_utils import (
+from hydromodpy.spatial.mesh.gmsh_grid.zone_meshing.geometry_utils import (
     iter_line_parts,
 )
 

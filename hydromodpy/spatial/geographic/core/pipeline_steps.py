@@ -20,8 +20,7 @@ from typing import TYPE_CHECKING
 
 import rasterio
 
-from hydromodpy.core.tools.filesystem import create_folder
-from hydromodpy.spatial.delineation import WhiteboxBackend, get_whitebox_backend
+from hydromodpy.core.io.filesystem import create_folder
 from hydromodpy.spatial.geographic.core.catchment_domain import (
     CatchmentDomainProducts,
     derive_catchment_domain,
@@ -31,6 +30,7 @@ from hydromodpy.spatial.geographic.core.catchment_from_point import (
     extract_catchment_from_point,
 )
 from hydromodpy.spatial.geographic.core.catchment_from_polygon import extract_catchment_from_polygon
+from hydromodpy.spatial.geographic.geographic_io import resolve_delineation_backend
 from hydromodpy.spatial.geographic.geographic_paths import GeographicPaths, build_geographic_paths
 
 if TYPE_CHECKING:
@@ -98,11 +98,11 @@ def build_standard_catchment(
     direc_data: object | None = None,
     acc_data: object | None = None,
     crs_project: str | None,
-    backend: WhiteboxBackend | None = None,
+    backend: object | None = None,
     unsupported_mode: str = "error",
 ) -> CatchmentFromPointProducts | str | None:
     """Build the canonical watershed geometry from outlet or polygon config."""
-    tool = get_whitebox_backend() if backend is None else backend
+    tool = resolve_delineation_backend(backend)
 
     if config.catch_def == "from_outlet_coord":
         if config.x_outlet is None or config.y_outlet is None or config.snap_dist is None:

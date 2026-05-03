@@ -1,6 +1,6 @@
 """Every subcommand in ``hmp`` must expose a working ``--help``.
 
-The tests drive :func:`hydromodpy._cli.main.main` directly so we catch
+The tests drive :func:`hydromodpy.cli.main.main` directly so we catch
 regressions in the argparse wiring without spawning a subprocess per case.
 """
 
@@ -11,16 +11,15 @@ import sys
 
 import pytest
 
-from hydromodpy._cli.commands import ALL_COMMANDS
+from hydromodpy.cli.commands import ALL_COMMANDS
 
 
 def _load_module():
-    return importlib.import_module("hydromodpy._cli.main")
+    return importlib.import_module("hydromodpy.cli.main")
 
 
 SUBCOMMANDS = [
-    getattr(module, "NAME", module.__name__.rsplit(".", 1)[-1])
-    for module in ALL_COMMANDS
+    getattr(module, "NAME", module.__name__.rsplit(".", 1)[-1]) for module in ALL_COMMANDS
 ]
 
 
@@ -54,6 +53,13 @@ def test_data_subcommands_help(monkeypatch, capsys) -> None:
         assert code == 0, f"data {sub} --help failed"
         out = capsys.readouterr().out
         assert "usage" in out.lower()
+
+
+def test_dev_subcommands_help(monkeypatch, capsys) -> None:
+    code = _run_help(monkeypatch, ["hmp", "dev", "run-script", "--help"])
+    assert code == 0
+    out = capsys.readouterr().out
+    assert "usage" in out.lower()
 
 
 def test_lock_subcommands_help(monkeypatch, capsys) -> None:

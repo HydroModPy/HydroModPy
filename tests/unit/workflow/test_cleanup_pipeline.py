@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from types import SimpleNamespace
 
-from hydromodpy.workflow import pipeline as pipeline_module
+from hydromodpy.workflow import orchestrator as pipeline_module
 
 
 def test_cleanup_run_explicit_keep_solver_files_overrides_results_config(tmp_path) -> None:

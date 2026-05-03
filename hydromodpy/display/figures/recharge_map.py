@@ -46,7 +46,7 @@ class RechargeMap(BaseFigure):
         rch = np.asarray(sim.field("recharge", timestep=ts))
         if rch.ndim == 2:
             rch = rch[0]
-        render_face_field(ax, sim, rch, cmap=cmap, cbar_label="Recharge (m/d)")
+        render_face_field(ax, sim, rch, cmap=cmap, cbar_label=self.axis_label_for("recharge"))
         overlay_watershed_contour(ax, sim)
         style_map_axes(ax)
         # Spatially uniform recharge produces a cosmetic colorbar with a

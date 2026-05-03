@@ -8,16 +8,20 @@ so that downstream consumers can read from the store directly.
 
 from __future__ import annotations
 
-import logging
 from pathlib import Path
 from typing import Any
 
+from hydromodpy.core.logging import get_logger
 from hydromodpy.spatial.geographic.core.hydrographic_network import (
     HYDROGRAPHIC_NETWORK_GENERATED_FEATURE_NAME,
     HYDROGRAPHIC_NETWORK_GENERATED_LEGACY_FEATURE_NAME,
 )
+from hydromodpy.spatial.geographic.geographic_io import (
+    backend_has_callables,
+    resolve_delineation_backend,
+)
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 # Only persist final rasters needed for display and derived variables.
 # Intermediate WhiteboxTools outputs (buff_direc, buff_dem, etc.) stay
@@ -65,9 +69,14 @@ def _ingest_rasters(geographic: Any, store: Any, sim_id: str | None) -> None:
     if sim_id is None:
         return
 
-    from hydromodpy.spatial.delineation import get_whitebox_backend
-
-    wb = get_whitebox_backend()
+    backend = resolve_delineation_backend()
+    raster_backend = getattr(backend, "raster", None)
+    has_cache = backend_has_callables(
+        backend,
+        "raster",
+        "get_cached_raster_numpy",
+        "get_cached_raster_metadata",
+    )
 
     for attr in _RASTER_ATTRS:
         path = getattr(geographic, attr, None)
@@ -77,9 +86,9 @@ def _ingest_rasters(geographic: Any, store: Any, sim_id: str | None) -> None:
 
         name = attr.removesuffix("_tif")
 
-        data = wb.get_cached_raster_numpy(path)
-        if data is not None:
-            meta = wb.get_cached_raster_metadata(path)
+        data = raster_backend.get_cached_raster_numpy(path) if has_cache else None
+        if data is not None and raster_backend is not None:
+            meta = raster_backend.get_cached_raster_metadata(path)
             store.write_geographic_raster(
                 sim_id,
                 name,
@@ -163,8 +172,8 @@ def _ingest_river_network(geographic: Any, store: Any, sim_id: str) -> None:
                 if path is None and generated_network is not None:
                     path = generated_network.vector_path
                 if generated_network is not None:
-                    generated_network_crs = (
-                        generated_network_crs or getattr(generated_network, "crs", None)
+                    generated_network_crs = generated_network_crs or getattr(
+                        generated_network, "crs", None
                     )
                 if path is None and derived.rivers is not None:
                     path = (
@@ -172,8 +181,8 @@ def _ingest_river_network(geographic: Any, store: Any, sim_id: str) -> None:
                         or derived.rivers.network_shp
                     )
                 if derived.rivers is not None:
-                    generated_network_crs = (
-                        generated_network_crs or getattr(derived.rivers, "network_crs", None)
+                    generated_network_crs = generated_network_crs or getattr(
+                        derived.rivers, "network_crs", None
                     )
         except Exception:
             pass
@@ -243,31 +252,33 @@ def _cleanup_intermediate_dirs(geographic: Any) -> None:
 
 
 def dump_cached_rasters_to_disk(geographic: Any) -> None:
-    from hydromodpy.spatial.delineation import get_whitebox_backend
-
-    wb = get_whitebox_backend()
-    if not wb._raster_cache:
+    backend = resolve_delineation_backend()
+    raster_backend = getattr(backend, "raster", None)
+    if raster_backend is None or not getattr(raster_backend, "_raster_cache", {}):
         return
 
-    for path, raster in wb._raster_cache.items():
-        wb._ensure_parent(path)
-        wb._run_env_operation(
-            wb._env.write_raster,
+    for path, raster in raster_backend._raster_cache.items():
+        raster_backend._ensure_parent(path)
+        raster_backend._run_env_operation(
+            raster_backend._env.write_raster,
             raster,
             path,
-            compress=wb._compress_rasters,
+            compress=raster_backend._compress_rasters,
         )
         logger.debug("Dumped cached raster to %s", path)
 
-    logger.info("Wrote %d cached rasters to disk (write_intermediates=True)", len(wb._raster_cache))
+    logger.info(
+        "Wrote %d cached rasters to disk (write_intermediates=True)",
+        len(raster_backend._raster_cache),
+    )
 
 
 def cleanup_stable_folder(geographic: Any) -> None:
     import shutil
 
-    from hydromodpy.spatial.delineation import get_whitebox_backend
-
-    get_whitebox_backend().clear_raster_cache()
+    backend = resolve_delineation_backend()
+    if backend_has_callables(backend, "raster", "clear_raster_cache"):
+        backend.raster.clear_raster_cache()
 
     stable = getattr(geographic, "stable_folder", None)
     if stable is not None:

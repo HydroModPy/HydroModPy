@@ -66,8 +66,10 @@ def _stable_signature(payload: dict) -> dict:
     }
 
 
-def test_comparison_cartesian_vs_gmsh_3d_non_regression(update_goldens: bool) -> None:
-    output_dir = Path.cwd() / "scratch_tests" / "comparison_cartesian_vs_gmsh_3d" / "runtime"
+def test_comparison_cartesian_vs_gmsh_3d_non_regression(
+    update_goldens: bool, tmp_path: Path
+) -> None:
+    output_dir = tmp_path / "runtime"
     output_dir.mkdir(parents=True, exist_ok=True)
 
     payload = run_comparison_case(

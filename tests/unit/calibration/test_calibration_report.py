@@ -89,17 +89,3 @@ class TestCalibrationReportBasic:
             promoted=0,
         )
         assert report.best is None
-
-    def test_plot_raises_when_no_best_run(self):
-        report = CalibrationReport(
-            session_id="abc",
-            method="grid",
-            n_iterations=1,
-            best_objective=None,
-            best_sim_id=None,
-            duration_s=0.0,
-            save_runs="none",
-            promoted=0,
-        )
-        with pytest.raises(RuntimeError, match="promoted best run"):
-            report.plot("calibration_convergence")

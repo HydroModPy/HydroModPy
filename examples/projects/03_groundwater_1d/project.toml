@@ -24,8 +24,8 @@
 # above. See `docs/developers/calibration_guide.md` for a walkthrough
 # (file will be created in Phase 3 of the calibration refactor).
 #
-# NOTE: unlike example 01_calibration, this project is NOT dispatched by
-# `hmp run` today: the analytical cases live under
+# DESIGN DRAFT: this project is not dispatched by `hmp run` in v1.
+# The analytical cases live under
 # `hydromodpy.calibration.cases` and are loaded directly from Python.
 # ======================================================================
 

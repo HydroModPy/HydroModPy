@@ -72,11 +72,6 @@ mode = "constant"
 value = -200.0
 ```
 
-Use `steady` when the scientific intent is to define a representative
-stationary state. In hydrographic-network diagnostics, this is the run regime
-to use when deriving a simulated active network intended to represent
-perennial behavior.
-
 
 ## 3. Parameter Section (`[flow.param.<id>]`)
 
@@ -323,7 +318,7 @@ value = -500.0
 
 ```python
 from pathlib import Path
-from hydromodpy.core.config import HydroModPyConfig
+from hydromodpy.master_config import HydroModPyConfig
 from hydromodpy.physics.flow import Flow
 
 cfg = HydroModPyConfig.from_toml(Path("examples_legacy/example12/config.toml"))

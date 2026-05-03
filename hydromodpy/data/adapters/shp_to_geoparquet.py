@@ -1,4 +1,4 @@
-"""Convert user-facing vector files into GeoParquet.
+"""Convert user-facing vector files into Parquet vector tables.
 
 Accepted inputs: Shapefile (``*.shp``), GeoJSON (``*.geojson``),
 GeoPackage (``*.gpkg``) and already-GeoParquet files (passthrough).
@@ -24,7 +24,7 @@ def convert_vector_to_geoparquet(
     *,
     layer: str | None = None,
 ) -> Path:
-    """Convert a vector file to GeoParquet.
+    """Convert a vector file to a Parquet table with WKB geometry.
 
     If geopandas/pyogrio is not installed, passthrough GeoParquet input
     (simple copy) and raise for other formats so the caller can decide
@@ -58,5 +58,31 @@ def convert_vector_to_geoparquet(
         raise VectorConversionError(
             f"{src} has no CRS; add a .prj sidecar or set gdf.crs before ingest"
         )
-    gdf.to_parquet(dest)
+    import duckdb
+
+    frame = gdf.drop(columns=[gdf.geometry.name]).copy()
+    for column in frame.columns:
+        frame[column] = frame[column].map(_plain_value)
+    frame["crs"] = str(gdf.crs)
+    frame["geometry_wkb"] = [
+        None if geom is None or geom.is_empty else bytes(geom.wkb) for geom in gdf.geometry
+    ]
+    frame["geometry_type"] = [
+        None if geom is None or geom.is_empty else str(geom.geom_type) for geom in gdf.geometry
+    ]
+    tmp = dest.with_name(dest.name + ".tmp")
+    conn = duckdb.connect(":memory:")
+    try:
+        conn.register("_hmp_vector", frame)
+        tmp_sql = str(tmp).replace("'", "''")
+        conn.execute(f"COPY (SELECT * FROM _hmp_vector) TO '{tmp_sql}' (FORMAT PARQUET)")
+    finally:
+        conn.close()
+    tmp.replace(dest)
     return dest
+
+
+def _plain_value(value: object) -> object:
+    if value is None or isinstance(value, (str, int, float, bool)):
+        return value
+    return str(value)

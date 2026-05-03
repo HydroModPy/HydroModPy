@@ -18,6 +18,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from hydromodpy.core.exceptions import UnknownFieldError
+
 # Supported shape literals, exposed as constants so callers don't have to
 # remember the exact strings. These are CF / UGRID shape signatures.
 SHAPE_TIME_LAYER_FACE = "time_layer_face"
@@ -33,6 +35,11 @@ _SHAPE_TO_COORDINATES = {
     SHAPE_FACE: "face",
     SHAPE_PARTICLES: "time particle",
 }
+
+# Face-aligned shapes also carry UGRID-1.0 ``mesh`` and ``location`` attrs
+# pointing at the simulation's mesh topology variable.
+_FACE_SHAPES = frozenset({SHAPE_TIME_LAYER_FACE, SHAPE_TIME_FACE, SHAPE_LAYER_FACE, SHAPE_FACE})
+UGRID_MESH_VARIABLE = "mesh/topology"
 
 
 @dataclass(frozen=True, slots=True)
@@ -138,16 +145,6 @@ FIELD_REGISTRY: dict[str, FieldDescriptor] = {
         cell_methods="time: point area: maximum",
         derived_by="core",
     ),
-    "seepage_areas": FieldDescriptor(
-        public_name="seepage_areas",
-        zarr_path="derived/seepage_areas",
-        standard_name="land_binary_mask",
-        long_name="Binary mask of seepage cells (1 where water table outcrops)",
-        units="1",
-        shape=SHAPE_TIME_FACE,
-        cell_methods="time: point area: maximum",
-        derived_by="core",
-    ),
     "seepage_rate": FieldDescriptor(
         public_name="seepage_rate",
         zarr_path="derived/seepage_rate",
@@ -172,9 +169,9 @@ FIELD_REGISTRY: dict[str, FieldDescriptor] = {
     "recharge": FieldDescriptor(
         public_name="recharge",
         zarr_path="budget/recharge",
-        standard_name="groundwater_recharge_rate",
-        long_name="Groundwater recharge flux",
-        units="m s-1",
+        standard_name="groundwater_recharge_flux",
+        long_name="Groundwater recharge volumetric flux",
+        units="m3 s-1",
         shape=SHAPE_TIME_FACE,
         cell_methods="time: mean area: mean",
         derived_by="solver",
@@ -193,7 +190,7 @@ FIELD_REGISTRY: dict[str, FieldDescriptor] = {
         public_name="outflow_drain",
         zarr_path="derived/outflow_drain",
         standard_name="water_flux_out_of_soil_layer_through_drains",
-        long_name="Positive groundwater discharge to drains",
+        long_name="Positive groundwater outflow to drains summed over layers",
         units="m3 s-1",
         shape=SHAPE_TIME_FACE,
         cell_methods="time: mean area: sum",
@@ -203,7 +200,7 @@ FIELD_REGISTRY: dict[str, FieldDescriptor] = {
         public_name="accumulation_flux",
         zarr_path="derived/accumulation_flux",
         standard_name="water_flux_out_of_soil_layer_through_drains",
-        long_name="Downstream accumulation of positive drain discharge",
+        long_name="Drain outflow accumulated along the drainage network",
         units="m3 s-1",
         shape=SHAPE_TIME_FACE,
         cell_methods="time: mean area: sum",
@@ -226,6 +223,16 @@ FIELD_REGISTRY: dict[str, FieldDescriptor] = {
         long_name="Well withdrawal or injection flux",
         units="m3 s-1",
         shape=SHAPE_TIME_LAYER_FACE,
+        cell_methods="time: mean area: mean",
+        derived_by="solver",
+    ),
+    "surface_excess": FieldDescriptor(
+        public_name="surface_excess",
+        zarr_path="budget/surface_excess",
+        standard_name="surface_runoff_flux",
+        long_name="Saturation-excess outflow volumetric flux",
+        units="m3 s-1",
+        shape=SHAPE_TIME_FACE,
         cell_methods="time: mean area: mean",
         derived_by="solver",
     ),
@@ -306,14 +313,14 @@ FIELD_REGISTRY: dict[str, FieldDescriptor] = {
 def get(name: str) -> FieldDescriptor:
     """Return the :class:`FieldDescriptor` registered under ``name``.
 
-    Raises :class:`KeyError` with the full list of available names when the
-    lookup fails, which makes typos immediately actionable.
+    Raises :class:`~hydromodpy.core.exceptions.UnknownFieldError` carrying the
+    full list of available names when the lookup fails, which makes typos
+    immediately actionable.
     """
     try:
         return FIELD_REGISTRY[name]
     except KeyError:
-        available = ", ".join(sorted(FIELD_REGISTRY))
-        raise KeyError(f"Field '{name}' is not registered. Available fields: {available}") from None
+        raise UnknownFieldError(name, FIELD_REGISTRY.keys()) from None
 
 
 def has(name: str) -> bool:
@@ -332,13 +339,16 @@ def all_zarr_paths() -> list[str]:
 
 
 def cf_attrs(name: str) -> dict[str, str]:
-    """Return a dict of CF-1.11 attributes for the given public name.
+    """Return a dict of CF-1.11 + UGRID-1.0 attributes for the given public name.
 
-    The resulting mapping is suitable for ``zarr.Array.attrs.update(...)``
-    or as an xarray ``attrs=`` argument when exporting.
+    Face-aligned variables additionally receive ``mesh`` and ``location``
+    UGRID attributes so that xugrid / xarray readers can resolve the
+    simulation topology automatically. The resulting mapping is suitable
+    for ``zarr.Array.attrs.update(...)`` or as an xarray ``attrs=``
+    argument when exporting.
     """
     desc = get(name)
-    return {
+    attrs: dict[str, str] = {
         "standard_name": desc.standard_name,
         "long_name": desc.long_name,
         "units": desc.units,
@@ -346,6 +356,10 @@ def cf_attrs(name: str) -> dict[str, str]:
         "grid_mapping": desc.grid_mapping,
         "coordinates": desc.coordinates,
     }
+    if desc.shape in _FACE_SHAPES:
+        attrs["mesh"] = UGRID_MESH_VARIABLE
+        attrs["location"] = "face"
+    return attrs
 
 
 __all__ = [
@@ -354,6 +368,7 @@ __all__ = [
     "SHAPE_LAYER_FACE",
     "SHAPE_FACE",
     "SHAPE_PARTICLES",
+    "UGRID_MESH_VARIABLE",
     "FieldDescriptor",
     "FIELD_REGISTRY",
     "get",

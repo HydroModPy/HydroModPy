@@ -7,10 +7,10 @@ from pathlib import Path
 from hydromodpy.spatial.mesh.gmsh_grid import (
     generate_zone_conformal_mesh_from_dataframe,
 )
-from hydromodpy.spatial.mesh.gmsh_grid._trace import trace_mesh_stage
 from hydromodpy.spatial.mesh.gmsh_grid.cases.reference_2d_geology_conformal.contracts import (
     ZoneConformalMeshingInputs,
 )
+from hydromodpy.spatial.mesh.gmsh_grid.trace import trace_mesh_stage
 
 
 def _run_zone_conformal_meshing(

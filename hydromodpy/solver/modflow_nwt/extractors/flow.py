@@ -2,24 +2,23 @@
 
 from __future__ import annotations
 
-import logging
 from pathlib import Path
 from typing import Any
 
 import numpy as np
 
-logger = logging.getLogger(__name__)
+from hydromodpy.core.logging import get_logger
 
-# Map MODFLOW ITMUNI codes to the canonical volumetric-flux unit label
-# the extractor writes to the catalog. Codes follow the MODFLOW
-# discretization-package convention (0 = undefined, 1 = seconds, …).
-_ITMUNI_FLUX_UNIT: dict[int, str] = {
-    0: "m3/s",
-    1: "m3/s",
-    2: "m3/min",
-    3: "m3/h",
-    4: "m3/d",
-    5: "m3/yr",
+logger = get_logger(__name__)
+
+# Map MODFLOW ITMUNI codes to seconds per model-time unit.
+_ITMUNI_SECONDS: dict[int, float] = {
+    0: 1.0,
+    1: 1.0,
+    2: 60.0,
+    3: 3600.0,
+    4: 86400.0,
+    5: 31557600.0,
 }
 
 
@@ -54,9 +53,33 @@ def _read_itmuni(dis_path: Path) -> int:
     return 1
 
 
-def _flux_unit_for(itmuni: int) -> str:
-    """Return the volumetric-flux unit label matching ``itmuni``."""
-    return _ITMUNI_FLUX_UNIT.get(itmuni, "m3/s")
+def _write_time_coordinate(store: Any, sim_id: str, times: list[float], itmuni: int) -> None:
+    """Persist solver times as CF seconds since epoch."""
+    writer = getattr(store, "write_time", None)
+    if writer is None:
+        raise TypeError("Simulation store must implement write_time().")
+    factor = _ITMUNI_SECONDS.get(itmuni, 1.0)
+    values = np.rint(np.asarray(times, dtype=float) * factor).astype("int64")
+    writer(sim_id, values)
+
+
+def _budget_key(name: str) -> str:
+    """Normalize a MODFLOW listing budget column name."""
+    return str(name).upper().replace("-", "_").replace(" ", "_")
+
+
+def _budget_field_lookup(names: tuple[str, ...]) -> dict[str, str]:
+    """Map normalized listing field names to their native dtype names."""
+    return {_budget_key(name): name for name in names}
+
+
+def _budget_value(row: np.void, fields: dict[str, str], *candidates: str) -> float:
+    """Return a listing-budget value or NaN when the field is absent."""
+    for candidate in candidates:
+        native = fields.get(_budget_key(candidate))
+        if native is not None:
+            return float(row[native])
+    return float("nan")
 
 
 class ModflowNwtOutputAdapter:
@@ -97,6 +120,9 @@ class ModflowNwtOutputAdapter:
         times = head_file.get_times()
         kstpkpers = head_file.get_kstpkper()
         n_timesteps = len(times)
+        itmuni = _read_itmuni(solver_output_dir / f"{model_name}.dis")
+        flux_scale_to_m3_s = 1.0 / float(_ITMUNI_SECONDS.get(itmuni, 1.0))
+        _write_time_coordinate(store, sim_id, times, itmuni)
 
         head0 = head_file.get_data(totim=times[0])
         nlay, nrow, ncol = head0.shape
@@ -125,7 +151,6 @@ class ModflowNwtOutputAdapter:
             )
 
         if cbc_path.exists():
-            itmuni = _read_itmuni(solver_output_dir / f"{model_name}.dis")
             self._extract_budget(
                 sim_id,
                 store,
@@ -136,12 +161,12 @@ class ModflowNwtOutputAdapter:
                 nrow,
                 ncol,
                 spatial_fields=budget_spatial_fields,
-                flux_unit=_flux_unit_for(itmuni),
+                flux_scale_to_m3_s=flux_scale_to_m3_s,
             )
 
         lst_path = solver_output_dir / f"{model_name}.lst"
         if lst_path.exists():
-            self._extract_mass_balance(sim_id, store, lst_path)
+            self._extract_mass_balance(sim_id, store, lst_path, flux_scale_to_m3_s)
 
         head_file.close()
 
@@ -161,7 +186,7 @@ class ModflowNwtOutputAdapter:
         ncol: int,
         *,
         spatial_fields: bool = False,
-        flux_unit: str = "m3/s",
+        flux_scale_to_m3_s: float = 1.0,
     ) -> None:
         """Extract cell budget data from .cbc file."""
         import flopy.utils.binaryfile as bf
@@ -190,7 +215,7 @@ class ModflowNwtOutputAdapter:
                     continue
                 if not data:
                     continue
-                arr = np.asarray(data[0], dtype="float64")
+                arr = np.asarray(data[0], dtype="float64") * float(flux_scale_to_m3_s)
                 if arr.ndim >= 2:
                     flux_in = float(np.maximum(arr, 0).sum())
                     flux_out = float(np.minimum(arr, 0).sum())
@@ -204,7 +229,7 @@ class ModflowNwtOutputAdapter:
                         "component": component.lower().strip(),
                         "flux_in": flux_in,
                         "flux_out": abs(flux_out),
-                        "unit": flux_unit,
+                        "unit": "m3/s",
                     }
                 )
                 if spatial_fields and arr.ndim >= 2:
@@ -227,6 +252,7 @@ class ModflowNwtOutputAdapter:
         sim_id: str,
         store: Any,
         lst_path: Path,
+        flux_scale_to_m3_s: float,
     ) -> None:
         """Parse MODFLOW listing file for mass balance summary."""
         try:
@@ -234,29 +260,44 @@ class ModflowNwtOutputAdapter:
 
             mf_list = MfListBudget(str(lst_path))
             inc, cum = mf_list.get_budget_from_list()
+            del cum
             if inc is not None:
                 records = []
+                fields = _budget_field_lookup(inc.dtype.names or ())
                 for t in range(len(inc)):
-                    total_in = float(inc[t]["IN-OUT"])
-                    total_out = 0.0
-                    pct_err = (
-                        float(inc[t]["PERCENT_DISCREPANCY"])
-                        if "PERCENT_DISCREPANCY" in inc.dtype.names
-                        else 0.0
+                    row = inc[t]
+                    total_in = (
+                        _budget_value(row, fields, "TOTAL_IN", "TOTAL IN") * flux_scale_to_m3_s
+                    )
+                    total_out = (
+                        _budget_value(row, fields, "TOTAL_OUT", "TOTAL OUT") * flux_scale_to_m3_s
+                    )
+                    storage_in = (
+                        _budget_value(row, fields, "STORAGE_IN", "STORAGE IN") * flux_scale_to_m3_s
+                    )
+                    storage_out = (
+                        _budget_value(row, fields, "STORAGE_OUT", "STORAGE OUT")
+                        * flux_scale_to_m3_s
+                    )
+                    pct_err = _budget_value(
+                        row,
+                        fields,
+                        "PERCENT_DISCREPANCY",
+                        "PERCENT DISCREPANCY",
                     )
                     records.append(
                         {
                             "timestep": t,
                             "total_in": total_in,
                             "total_out": total_out,
-                            "storage_in": 0.0,
-                            "storage_out": 0.0,
+                            "storage_in": storage_in,
+                            "storage_out": storage_out,
                             "percent_error": pct_err,
                         }
                     )
                 store.write_mass_balances(sim_id, records)
         except Exception:
-            logger.warning("Could not parse listing file %s", lst_path)
+            logger.warning("Could not parse listing file %s", lst_path, exc_info=True)
 
     def _write_surface_elevation(
         self,
@@ -319,16 +360,17 @@ class ModflowNwtOutputAdapter:
                     n0 = r * nc + c
                     fnc[i] = (n0, n0 + 1, n0 + nc + 1, n0 + nc)
 
-            grp = store.open_zarr_group(sim_id)
-            if "mesh" not in grp:
-                grp.create_group("mesh")
-            mesh = grp["mesh"]
-            mesh.create_array("vertices", data=vertices, overwrite=True)
-            mesh.create_array("face_node_connectivity", data=fnc, overwrite=True)
-            mesh.create_array("z_interfaces", data=z_flat, overwrite=True)
-            mesh.create_array("surface_top", data=top, overwrite=True)
-            mesh.attrs["n_cells"] = int(n_cells)
-            mesh.attrs["n_layers"] = int(nlay)
+            sz = store.open_zarr(sim_id)
+            try:
+                mesh = sz.root.require_group("mesh")
+                mesh.create_array("vertices", data=vertices, overwrite=True)
+                mesh.create_array("face_node_connectivity", data=fnc, overwrite=True)
+                mesh.create_array("z_interfaces", data=z_flat, overwrite=True)
+                mesh.create_array("surface_top", data=top, overwrite=True)
+                mesh.attrs["n_cells"] = int(n_cells)
+                mesh.attrs["n_layers"] = int(nlay)
+            finally:
+                sz.close()
         except Exception:
             logger.debug("Could not write surface elevation for sim %s", sim_id)
 

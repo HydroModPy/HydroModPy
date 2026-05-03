@@ -20,6 +20,7 @@ from validation_cases.shared import load_case_metadata
 from validation_cases.shared.loaders import merge_case_flow_section
 from validation_cases.shared.runtime import (
     ValidationRunResult,
+    materialize_postprocess_fields_to_store,
     resolve_validation_results_dir,
 )
 
@@ -380,6 +381,12 @@ def run_boussinesq_late_time_unconfined_pumping_case(
     model_ws = Path(model.full_path)
     postprocess_dir = model_ws / "_postprocess"
     particles_dir = postprocess_dir / "_particles"
+    store, sim_id = materialize_postprocess_fields_to_store(
+        out_path=out_path,
+        postprocess_dir=postprocess_dir,
+        solver_name="boussinesq",
+        flow_regime="transient",
+    )
     return ValidationRunResult(
         case_dir=CASE_DIR,
         solver_name="boussinesq",
@@ -390,6 +397,8 @@ def run_boussinesq_late_time_unconfined_pumping_case(
         run_returncode=0,
         run_stdout="",
         run_stderr="",
+        store=store,
+        sim_id=sim_id,
     )
 
 

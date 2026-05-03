@@ -1,25 +1,31 @@
-"""Data catalog backed by DuckDB (drop-in replacement for the SQLAlchemy catalog).
-
-Same public API as DataCatalog so that DataStore and all variable managers
-work without changes.
-"""
+"""Data catalog backed by DuckDB."""
 
 from __future__ import annotations
 
-import logging
 import time
 from datetime import datetime
+from hashlib import sha256
 from pathlib import Path
 
 import duckdb
 import pandas as pd
 
+from hydromodpy.core.logging import get_logger
 from hydromodpy.data.registry.constants import SENTINEL_CUSTOM, SENTINEL_EMPTY
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
-_RETRY = 3
-_BACKOFF = 0.1
+_RETRY = 8
+_BACKOFF = 0.05
+CATALOG_SCHEMA_VERSION = "1"
+
+_SCHEMA_VERSION_DDL = """
+CREATE TABLE IF NOT EXISTS _schema_version (
+    component  VARCHAR PRIMARY KEY,
+    version    VARCHAR NOT NULL,
+    applied_at TIMESTAMPTZ NOT NULL DEFAULT current_timestamp
+);
+"""
 
 _ENTRIES_DDL = """
 CREATE TABLE IF NOT EXISTS entries (
@@ -32,13 +38,14 @@ CREATE TABLE IF NOT EXISTS entries (
     bbox_xmax     DOUBLE,
     bbox_ymax     DOUBLE,
     crs           VARCHAR,
-    date_start    VARCHAR,
-    date_end      VARCHAR,
+    date_start    TIMESTAMPTZ,
+    date_end      TIMESTAMPTZ,
     frequency     VARCHAR,
     unit          VARCHAR,
     source_unit   VARCHAR,
     file_path     TEXT NOT NULL,
     file_mtime    DOUBLE,
+    sha256        VARCHAR,
     created_at    TIMESTAMP DEFAULT now(),
     is_custom     INTEGER DEFAULT 0,
     fetch_metadata JSON
@@ -179,6 +186,7 @@ class _CatalogEntry:
         "source_unit",
         "file_path",
         "file_mtime",
+        "sha256",
         "created_at",
         "is_custom",
         "fetch_metadata",
@@ -190,14 +198,16 @@ class _CatalogEntry:
 
 
 class DataCatalogDuckDB:
-    """DuckDB-backed data catalog with the same API as DataCatalog."""
+    """DuckDB-backed data catalog."""
 
     def __init__(self, db_path: Path | str | None = None):
+        self._db_path: Path | None = None
         if db_path is None:
             self._conn = duckdb.connect(":memory:")
         else:
             db_path = Path(db_path)
             db_path.parent.mkdir(parents=True, exist_ok=True)
+            self._db_path = db_path
             self._conn = duckdb.connect(str(db_path))
 
         self._conn.execute("CREATE SEQUENCE IF NOT EXISTS entries_seq START 1")
@@ -207,6 +217,7 @@ class DataCatalogDuckDB:
         self._conn.execute("CREATE SEQUENCE IF NOT EXISTS coverage_seq START 1")
         self._conn.execute("CREATE SEQUENCE IF NOT EXISTS failures_seq START 1")
         self._conn.execute("CREATE SEQUENCE IF NOT EXISTS validation_reports_seq START 1")
+        self._conn.execute(_SCHEMA_VERSION_DDL)
         self._conn.execute(_ENTRIES_DDL)
         self._conn.execute(_API_COVERAGE_DDL)
         self._conn.execute(_ARTIFACTS_DDL)
@@ -215,6 +226,9 @@ class DataCatalogDuckDB:
         self._conn.execute(_COVERAGE_DDL)
         self._conn.execute(_FAILURES_DDL)
         self._conn.execute(_VALIDATION_REPORTS_DDL)
+        self._ensure_entries_sha256_column()
+        self._ensure_entries_time_columns()
+        self._record_schema_version()
 
     @property
     def connection(self):
@@ -248,17 +262,28 @@ class DataCatalogDuckDB:
         source_unit: str | None = None,
         is_custom: bool = False,
         file_mtime: float | None = None,
+        file_sha256: str | None = None,
         fetch_metadata: dict | None = None,
     ) -> int:
         """Register or update a data file entry. Returns entry id (-1 on error)."""
         file_path = Path(file_path)
+        resolved_path = self._resolve_entry_path(file_path, variable=variable)
         if file_mtime is None:
             try:
-                mtime = file_path.stat().st_mtime if file_path.exists() else None
+                mtime = resolved_path.stat().st_mtime if resolved_path.exists() else None
             except OSError:
                 mtime = None
         else:
             mtime = file_mtime
+        digest = file_sha256 or _sha256_or_none(resolved_path)
+        self._reject_frozen_register(
+            variable=variable,
+            source=source,
+            station_id=station_id,
+            file_path=file_path,
+            file_sha256=digest,
+            is_custom=is_custom,
+        )
 
         ds = _dt_to_str(date_start)
         de = _dt_to_str(date_end)
@@ -285,7 +310,7 @@ class DataCatalogDuckDB:
                         """UPDATE entries SET
                            bbox_xmin=?, bbox_ymin=?, bbox_xmax=?, bbox_ymax=?,
                            crs=?, date_start=?, date_end=?, frequency=?,
-                           unit=?, source_unit=?, file_path=?, file_mtime=?,
+                           unit=?, source_unit=?, file_path=?, file_mtime=?, sha256=?,
                            is_custom=?, fetch_metadata=?
                            WHERE id=?""",
                         [
@@ -301,6 +326,7 @@ class DataCatalogDuckDB:
                             source_unit,
                             str(file_path),
                             mtime,
+                            digest,
                             1 if is_custom else 0,
                             _json_or_none(fetch_metadata),
                             eid,
@@ -313,9 +339,9 @@ class DataCatalogDuckDB:
                            (variable, source, station_id,
                             bbox_xmin, bbox_ymin, bbox_xmax, bbox_ymax,
                             crs, date_start, date_end, frequency,
-                            unit, source_unit, file_path, file_mtime,
+                            unit, source_unit, file_path, file_mtime, sha256,
                             is_custom, fetch_metadata)
-                           VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+                           VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
                         [
                             variable,
                             source,
@@ -332,6 +358,7 @@ class DataCatalogDuckDB:
                             source_unit,
                             str(file_path),
                             mtime,
+                            digest,
                             1 if is_custom else 0,
                             _json_or_none(fetch_metadata),
                         ],
@@ -384,10 +411,175 @@ class DataCatalogDuckDB:
         query += " ORDER BY id DESC LIMIT 1"
         row = self._conn.execute(query, params).fetchone()
         if row is None:
+            self._reject_frozen_cache_miss(
+                variable=variable,
+                source=source,
+                station_id=station_id,
+            )
             return None
 
         cols = [d[0] for d in self._conn.description]
-        return _CatalogEntry(**dict(zip(cols, row, strict=False)))
+        entry = _CatalogEntry(**dict(zip(cols, row, strict=False)))
+        self._reject_frozen_entry_mismatch(entry)
+        return entry
+
+    def _ensure_entries_sha256_column(self) -> None:
+        columns = {row[1] for row in self._conn.execute("PRAGMA table_info('entries')").fetchall()}
+        if "sha256" not in columns:
+            self._conn.execute("ALTER TABLE entries ADD COLUMN sha256 VARCHAR")
+
+    def _ensure_entries_time_columns(self) -> None:
+        rows = self._conn.execute("PRAGMA table_info('entries')").fetchall()
+        types = {str(row[1]): str(row[2]).upper() for row in rows}
+        for column in ("date_start", "date_end"):
+            if types.get(column) == "VARCHAR":
+                self._conn.execute(
+                    f"ALTER TABLE entries ALTER COLUMN {column} "
+                    f"TYPE TIMESTAMPTZ USING try_cast({column} AS TIMESTAMPTZ)"
+                )
+
+    def _record_schema_version(self) -> None:
+        self._conn.execute("DELETE FROM _schema_version WHERE component = 'data_catalog'")
+        self._conn.execute(
+            "INSERT INTO _schema_version (component, version) VALUES ('data_catalog', ?)",
+            [CATALOG_SCHEMA_VERSION],
+        )
+
+    def _workspace_lockfile_path(self) -> Path | None:
+        if self._db_path is None:
+            return None
+        from hydromodpy.data.data_freeze import LOCKFILE_NAME
+
+        candidates = (
+            self._db_path.parent.parent / LOCKFILE_NAME,
+            self._db_path.parent / LOCKFILE_NAME,
+        )
+        for candidate in candidates:
+            if candidate.is_file():
+                return candidate
+        return candidates[0]
+
+    def _resolve_entry_path(self, file_path: Path | str, *, variable: str | None = None) -> Path:
+        path = Path(file_path)
+        if path.is_absolute():
+            return path
+        candidates: list[Path] = []
+        if self._db_path is not None:
+            if variable:
+                candidates.append(self._db_path.parent / variable / path)
+            candidates.extend((self._db_path.parent / path, self._db_path.parent.parent / path))
+        candidates.append(path)
+        for candidate in candidates:
+            if candidate.is_file():
+                return candidate
+        return candidates[0]
+
+    @staticmethod
+    def _frozen_enabled() -> bool:
+        from hydromodpy.data.data_freeze import is_frozen_mode
+
+        return is_frozen_mode()
+
+    def _locked_artifacts(self):
+        lockfile = self._workspace_lockfile_path()
+        if lockfile is None or not lockfile.is_file():
+            raise RuntimeError("Frozen data mode requires an existing hydromodpy.lock file.")
+        from hydromodpy.data.data_freeze import read_lockfile
+
+        return read_lockfile(lockfile)
+
+    def _match_locked_artifact(
+        self,
+        *,
+        variable: str,
+        source: str,
+        station_id: str | None,
+        file_path: Path | str,
+    ):
+        path = Path(file_path)
+        resolved = self._resolve_entry_path(path, variable=variable)
+        artifacts = self._locked_artifacts()
+        for artifact in artifacts:
+            if (
+                artifact.variable == variable
+                and artifact.source == source
+                and artifact.station_id == station_id
+                and (
+                    Path(artifact.file_path) == path
+                    or Path(artifact.file_path) == resolved
+                    or self._resolve_entry_path(artifact.file_path, variable=variable) == resolved
+                )
+            ):
+                return artifact
+        return None
+
+    def _reject_frozen_cache_miss(
+        self,
+        *,
+        variable: str,
+        source: str,
+        station_id: str | None,
+    ) -> None:
+        if not self._frozen_enabled():
+            return
+        self._locked_artifacts()
+        raise RuntimeError(
+            "Frozen data mode forbids cache misses: "
+            f"{variable}/{source}/{station_id or '-'} is absent from the local catalog."
+        )
+
+    def _reject_frozen_entry_mismatch(self, entry: _CatalogEntry) -> None:
+        if not self._frozen_enabled():
+            return
+        artifact = self._match_locked_artifact(
+            variable=entry.variable,
+            source=entry.source,
+            station_id=entry.station_id,
+            file_path=entry.file_path,
+        )
+        if artifact is None:
+            raise RuntimeError(
+                "Frozen data mode forbids catalog entries absent from hydromodpy.lock: "
+                f"{entry.variable}/{entry.source}/{entry.station_id or '-'}."
+            )
+        observed = entry.sha256 or _sha256_or_none(
+            self._resolve_entry_path(entry.file_path, variable=entry.variable)
+        )
+        if observed != artifact.sha256:
+            raise RuntimeError(
+                "Frozen data mode detected a SHA-256 mismatch for "
+                f"{entry.variable}/{entry.source}/{entry.station_id or '-'}."
+            )
+
+    def _reject_frozen_register(
+        self,
+        *,
+        variable: str,
+        source: str,
+        station_id: str | None,
+        file_path: Path,
+        file_sha256: str | None,
+        is_custom: bool,
+    ) -> None:
+        if not self._frozen_enabled():
+            return
+        artifact = self._match_locked_artifact(
+            variable=variable,
+            source=source,
+            station_id=station_id,
+            file_path=file_path,
+        )
+        if artifact is None:
+            kind = "custom file" if is_custom else "downloaded artefact"
+            raise RuntimeError(
+                f"Frozen data mode forbids registering a {kind} absent from hydromodpy.lock: "
+                f"{variable}/{source}/{station_id or '-'}."
+            )
+        if file_sha256 != artifact.sha256:
+            raise RuntimeError(
+                "Frozen data mode forbids registering an artefact whose SHA-256 does not match "
+                f"hydromodpy.lock: {variable}/{source}/{station_id or '-'}."
+            )
 
     # -- list_entries ----------------------------------------------------------
 
@@ -400,7 +592,10 @@ class DataCatalogDuckDB:
         offset: int = 0,
     ) -> pd.DataFrame:
         """List catalog entries as a DataFrame."""
-        query = "SELECT id, variable, source, station_id, date_start, date_end, file_path, source_unit, is_custom, fetch_metadata FROM entries"
+        query = (
+            "SELECT id, variable, source, station_id, date_start, date_end, "
+            "file_path, file_mtime, sha256, source_unit, is_custom, fetch_metadata FROM entries"
+        )
         params: list = []
         clauses = []
         if variable:
@@ -418,6 +613,9 @@ class DataCatalogDuckDB:
         df = self._conn.execute(query, params).fetchdf()
         if "is_custom" in df.columns:
             df["is_custom"] = df["is_custom"].astype(bool)
+        for column in ("date_start", "date_end"):
+            if column in df.columns:
+                df[column] = df[column].map(_format_catalog_timestamp)
         return df
 
     # -- invalidate ------------------------------------------------------------
@@ -745,12 +943,31 @@ def _dt_to_str(dt: datetime | str | None) -> str | None:
     return str(dt)
 
 
+def _format_catalog_timestamp(value) -> str | None:
+    if value is None or pd.isna(value):
+        return None
+    ts = pd.Timestamp(value)
+    if ts.tz is not None:
+        ts = ts.tz_localize(None)
+    return ts.isoformat(timespec="seconds")
+
+
 def _json_or_none(d: dict | None) -> str | None:
     if d is None:
         return None
     import json
 
     return json.dumps(d)
+
+
+def _sha256_or_none(path: Path) -> str | None:
+    if not path.is_file():
+        return None
+    digest = sha256()
+    with open(path, "rb") as fh:
+        for chunk in iter(lambda: fh.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
 
 
 def _build_filter(variable, source, station_id):

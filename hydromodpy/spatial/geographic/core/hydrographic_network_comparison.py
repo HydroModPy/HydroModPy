@@ -83,7 +83,6 @@ def compare_hydrographic_networks(
     tolerance_m: float = 50.0,
 ) -> HydrographicNetworkComparison:
     """Compare two line networks using one tolerance buffer in metres."""
-    import geopandas as gpd
     import numpy as np
     from shapely.ops import unary_union
 
@@ -102,8 +101,10 @@ def compare_hydrographic_networks(
     if reference_gdf.crs is not None and candidate_gdf.crs is not None:
         if str(reference_gdf.crs) != str(candidate_gdf.crs):
             candidate_gdf = candidate_gdf.to_crs(reference_gdf.crs)
-    crs = str(reference_gdf.crs) if reference_gdf.crs is not None else (
-        None if candidate_gdf.crs is None else str(candidate_gdf.crs)
+    crs = (
+        str(reference_gdf.crs)
+        if reference_gdf.crs is not None
+        else (None if candidate_gdf.crs is None else str(candidate_gdf.crs))
     )
 
     reference_total_length_m = _network_length(reference_gdf)

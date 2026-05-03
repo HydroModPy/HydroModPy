@@ -1,20 +1,22 @@
-"""Workspace configuration with strict binary resolution.
+"""Workspace configuration with project-local result catalogs.
 
 Resolution order (first match wins):
 
-1. **Explicit** - the TOML declares at least one of ``root``,
-   ``catalog_path``, ``data_dir`` or ``simulations_dir`` under
-   ``[workspace]``. A declared ``root`` derives the other three unless
-   they are explicitly overridden.
+1. **Explicit** - the TOML declares ``root`` or ``data_dir`` under
+   ``[workspace]``. A declared ``root`` derives the shared data directory
+   unless ``data_dir`` is explicitly overridden.
 2. **Env var** - ``HYDROMODPY_WORKSPACE`` is set and points to a
-   directory.
+   directory used as the shared data workspace.
 3. **Scaffold** - the TOML lives at
    ``<workspace>/projects/<name>/project.toml`` and the grand-grand-parent
-   contains a ``hydromodpy.duckdb`` file or a ``data/`` directory.
+   contains a ``data/`` directory.
+4. **Standalone project** - the project directory itself is used as the
+   shared data workspace.
 
-Anything else raises :class:`WorkspaceError` with an actionable hint.
-There is no walk-up auto-discovery, no silent fallback to
-``project_root``.
+Result catalogs are project-local by default: ``catalog_path`` resolves to
+``<project_root>/hydromodpy.duckdb`` and ``simulations_dir`` resolves to
+``<project_root>/simulations``. The shared workspace root only owns input
+data caches.
 """
 
 from __future__ import annotations
@@ -25,11 +27,10 @@ from typing import Annotated, Literal
 
 from pydantic import ConfigDict, Field, model_validator
 
-from hydromodpy.core.config.base import HydroModelBase
-from hydromodpy.core.config.profile import Profile
-from hydromodpy.core.workspace.exceptions import WorkspaceError
+from hydromodpy.core.config_kit.base import HydroModelBase
+from hydromodpy.core.config_kit.profile import Profile
 
-ResolutionSource = Literal["explicit", "env", "scaffold"]
+ResolutionSource = Literal["explicit", "env", "scaffold", "project"]
 
 
 class WorkspaceConfig(HydroModelBase):
@@ -38,14 +39,14 @@ class WorkspaceConfig(HydroModelBase):
     The canonical workspace layout is::
 
         <workspace>/
-            hydromodpy.duckdb
             data/
                 cache.duckdb
-            simulations/
-                <uuid>.zarr/
             projects/
                 <name>/
                     project.toml   <- TOML lives here when using scaffold
+                    hydromodpy.duckdb
+                    simulations/
+                        <uuid>.zarr/
 
     Fields under ``[workspace]``:
 
@@ -54,13 +55,12 @@ class WorkspaceConfig(HydroModelBase):
         location by the loader.
 
     ``root`` (explicit workspace override)
-        When set, the workspace root. Derives ``catalog_path``,
-        ``data_dir`` and ``simulations_dir`` unless those are also set.
+        When set, the shared data workspace root. Derives ``data_dir``
+        unless it is explicitly overridden.
 
     ``catalog_path`` / ``data_dir`` / ``simulations_dir``
-        Per-component explicit overrides. Any of these three triggers the
-        "explicit" resolution branch and bypasses the scaffold and env
-        lookups.
+        Per-component explicit overrides. ``catalog_path`` and
+        ``simulations_dir`` are project-local by default.
 
     ``output_root``
         Optional redirect for heavy outputs (``.solver_scratch/`` and
@@ -76,14 +76,17 @@ class WorkspaceConfig(HydroModelBase):
     root: Annotated[Path | None, Profile.USER] = Field(
         default=None,
         description=(
-            "Explicit workspace root. When set, derives catalog_path, "
-            "data_dir and simulations_dir unless those are overridden."
+            "Explicit shared data workspace root. When set, derives data_dir unless "
+            "it is overridden. Result catalogs stay project-local by default."
         ),
     )
 
     catalog_path: Annotated[Path | None, Profile.DEV] = Field(
         default=None,
-        description=("Explicit path to hydromodpy.duckdb. Defaults to <root>/hydromodpy.duckdb."),
+        description=(
+            "Explicit path to the project hydromodpy.duckdb. Defaults to "
+            "<project_root>/hydromodpy.duckdb."
+        ),
     )
 
     data_dir: Annotated[Path | None, Profile.DEV] = Field(
@@ -94,7 +97,8 @@ class WorkspaceConfig(HydroModelBase):
     simulations_dir: Annotated[Path | None, Profile.DEV] = Field(
         default=None,
         description=(
-            "Explicit path to the simulations Zarr directory. Defaults to <root>/simulations."
+            "Explicit path to the simulations Zarr directory. Defaults to "
+            "<project_root>/simulations."
         ),
     )
 
@@ -125,7 +129,7 @@ class WorkspaceConfig(HydroModelBase):
         object.__setattr__(
             self,
             "catalog_path",
-            _finalize(self.catalog_path, root / "hydromodpy.duckdb"),
+            _finalize(self.catalog_path, project_root / "hydromodpy.duckdb"),
         )
         object.__setattr__(
             self,
@@ -135,7 +139,7 @@ class WorkspaceConfig(HydroModelBase):
         object.__setattr__(
             self,
             "simulations_dir",
-            _finalize(self.simulations_dir, root / "simulations"),
+            _finalize(self.simulations_dir, project_root / "simulations"),
         )
         if self.output_root is not None:
             object.__setattr__(
@@ -150,7 +154,7 @@ class WorkspaceConfig(HydroModelBase):
 
     @property
     def resolution_source(self) -> ResolutionSource:
-        """How the workspace was located ("explicit", "env", "scaffold")."""
+        """How the shared data workspace was located."""
         return getattr(self, "_resolution_source", "explicit")
 
     @property
@@ -195,38 +199,29 @@ def _resolve_root(
     data_dir: Path | None,
     simulations_dir: Path | None,
 ) -> tuple[Path, ResolutionSource]:
-    """Apply the strict binary resolution contract.
+    """Resolve the shared data workspace root.
 
-    Returns ``(workspace_root, source)``.
+    ``catalog_path`` and ``simulations_dir`` are accepted for signature
+    stability, but they do not define the shared data root anymore.
     """
-    # 1. Explicit [workspace] declaration wins.
     if root is not None:
         return Path(root).expanduser().resolve(), "explicit"
-    if any(p is not None for p in (catalog_path, data_dir, simulations_dir)):
-        # At least one component is explicit - derive the root from the
-        # first one that is set (catalog_path first, then data_dir, then
-        # simulations_dir), using its parent as the workspace root.
-        for component, _default_name in (
-            (catalog_path, "hydromodpy.duckdb"),
-            (data_dir, "data"),
-            (simulations_dir, "simulations"),
-        ):
-            if component is not None:
-                derived = Path(component).expanduser().resolve().parent
-                return derived, "explicit"
+    if data_dir is not None:
+        return Path(data_dir).expanduser().resolve().parent, "explicit"
 
-    # 2. Env var.
     env_root = os.environ.get("HYDROMODPY_WORKSPACE")
     if env_root:
         return Path(env_root).expanduser().resolve(), "env"
 
-    # 3. Scaffold layout - <workspace>/projects/<name>/project.toml.
     if project_root.parent.name == "projects":
         candidate = project_root.parent.parent
-        if (candidate / "hydromodpy.duckdb").exists() or (candidate / "data").is_dir():
+        if (candidate / "data").is_dir():
             return candidate.resolve(), "scaffold"
 
-    raise WorkspaceError(_format_hint(project_root))
+    if catalog_path is not None or simulations_dir is not None:
+        return project_root, "explicit"
+
+    return project_root, "project"
 
 
 def _format_hint(project_root: Path) -> str:

@@ -8,7 +8,7 @@ from typing import Any
 
 @dataclass(slots=True)
 class ModflowPreprocessOptions:
-    """Options consumed by ``Modflow.pre_processing``."""
+    """Options consumed by ``ModflowNwt.pre_processing``."""
 
     box: bool = True
     sink_fill: bool = False
@@ -18,7 +18,7 @@ class ModflowPreprocessOptions:
 
 @dataclass(slots=True)
 class ModflowRunOptions:
-    """Options consumed by ``Modflow.processing``."""
+    """Options consumed by ``ModflowNwt.processing``."""
 
     write_model: bool = True
     run_model: bool = False
@@ -28,7 +28,7 @@ class ModflowRunOptions:
 
 @dataclass(slots=True)
 class ModflowPostprocessOptions:
-    """Options consumed by ``Modflow.post_processing``."""
+    """Options consumed by ``ModflowNwt.post_processing``."""
 
     watertable_elevation: bool = True
     watertable_depth: bool = True

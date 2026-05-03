@@ -1,4 +1,8 @@
-"""Run one or multiple geographic-only cases from one TOML configuration."""
+"""Run one or multiple geographic-only cases from one TOML configuration.
+
+Run with:
+    python -m hydromodpy.spatial.geographic.cases.reference_catchment_delineation_case.run_case
+"""
 
 from __future__ import annotations
 
@@ -16,12 +20,12 @@ from matplotlib.ticker import ScalarFormatter
 
 # Allow direct script execution without requiring editable install.
 if __package__ in (None, ""):
-    _repo_root = Path(__file__).resolve().parents[4]
+    _repo_root = Path(__file__).resolve().parents[5]
     if str(_repo_root) not in sys.path:
         sys.path.insert(0, str(_repo_root))
 
-from hydromodpy.core.config.hydromodpy_config import HydroModPyConfig
 from hydromodpy.core.workspace import Workspace
+from hydromodpy.master_config.hydromodpy_config import HydroModPyConfig
 from hydromodpy.spatial.geographic.cases.plotting_utils import (
     ensure_interactive_backend_for_show,
     show_figures_blocking,
@@ -258,7 +262,6 @@ def run_geographic_cases_from_toml(
             ),
             "hydrographic_network_generated_shp": generated_network_shp,
             "hydrographic_network_generated_summary_json": river_network_summary_path,
-            "river_network_summary_json": river_network_summary_path,
             "river_network_summary": river_network_summary,
             "figure": None if fig_path is None else str(fig_path),
             **metrics,
@@ -396,23 +399,13 @@ def main(argv: list[str] | None = None) -> int:
     )
     for case_id in selected_case_ids:
         summary = summaries[case_id]
-        print(f"[{case_id}] project_root={summary['project_root']}")
+        print(f"[{case_id}] catch_folder={summary['catch_folder']}")
         print(f"[{case_id}] watershed_shp={summary['watershed_shp']}")
         print(f"[{case_id}] watershed_box_buff_dem={summary['watershed_box_buff_dem']}")
         print(
             f"[{case_id}] shape_box_buff_dem="
             f"{summary['shape_box_buff_dem'][0]}x{summary['shape_box_buff_dem'][1]}"
         )
-        if summary["hydrographic_network_generated_shp"] is not None:
-            print(
-                f"[{case_id}] hydrographic_network_generated_shp="
-                f"{summary['hydrographic_network_generated_shp']}"
-            )
-        if summary["hydrographic_network_generated_summary_json"] is not None:
-            print(
-                f"[{case_id}] hydrographic_network_generated_summary_json="
-                f"{summary['hydrographic_network_generated_summary_json']}"
-            )
         print(f"[{case_id}] catchment_area_km2={summary['catchment_area_km2']:.3f}")
         print(f"[{case_id}] mean_elevation_catchment_m={summary['mean_elevation_catchment_m']:.2f}")
         if summary["figure"] is not None:

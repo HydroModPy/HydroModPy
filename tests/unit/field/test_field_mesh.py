@@ -11,6 +11,7 @@ import numpy as np
 matplotlib.use("Agg")
 from matplotlib import pyplot as plt
 
+from hydromodpy.core.rng import RngManager
 from hydromodpy.spatial.field.cases.square.field_mesh_square import FieldMeshSquare
 from hydromodpy.spatial.field.meshes import (
     StructuredFieldMesh,
@@ -109,7 +110,7 @@ def test_unstructured_triangular_mesh_has_approx_target_cell_count():
     mesh = FieldMeshSquare.from_unit_square(
         target_n_cells=target,
         mesh_kind="triangular_unstructured",
-        seed=7,
+        rng_manager=RngManager(master_seed=7),
     )
     assert mesh.kind == "triangular_unstructured"
     assert mesh.triangulation is not None

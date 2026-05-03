@@ -9,6 +9,7 @@ import pytest
 import rasterio
 from rasterio.transform import from_origin
 
+from hydromodpy.core.rng import RngManager
 from hydromodpy.data.variables.geology.config import validate_geology_config_data
 from hydromodpy.spatial.field.cases.square.field_mesh_square import FieldMeshSquare
 from hydromodpy.spatial.field.core.field_param import FieldParam
@@ -157,7 +158,7 @@ def test_geology_field_on_mesh_matches_reference_implementation(
     mesh = FieldMeshSquare.from_unit_square(
         target_n_cells=target_n_cells,
         mesh_kind=mesh_kind,
-        seed=42,
+        rng_manager=RngManager(master_seed=42),
     )
 
     reference = _reference_on_mesh(field, mesh, cell_samples_per_axis=8)

@@ -1,8 +1,8 @@
 # HydroModPy - exemples
 
-Suite d'exemples alignés sur l'API **v0.6** :
+Suite d'exemples alignés sur l'API **v1** :
 
-- CLI `hmp` (`hmp run`, `hmp calibrate`, `hmp list`, `hmp show`, …).
+- CLI `hmp` (`hmp run`, `hmp list`, `hmp show`, `hmp report`, …).
 - API Python `import hydromodpy as hmp` (`hmp.Project`, `hmp.Run`,
   `hmp.run`, `hmp.calibrate`, `hmp.open`).
 - Stockage unifié via `SimulationCatalog` (DuckDB + Zarr).
@@ -10,7 +10,7 @@ Suite d'exemples alignés sur l'API **v0.6** :
 `examples/` est un **workspace HydroModPy scaffolded**. Ses projets
 vivent sous [`projects/`](projects/) et partagent les [données
 d'entrée](data/) et la base `hydromodpy.duckdb` via la résolution
-binaire de la v0.6.
+binaire v1.
 
 ## Prérequis
 
@@ -46,8 +46,8 @@ dans les TOML d'exemple y pointent via `../../data/...`.
 
 1. **00_getting_started** - structure minimale d'un `project.toml`,
    premier run, découverte du catalogue.
-2. **01_calibration** - bloc `[calibration]`, API `hmp.calibrate`,
-   `save_runs` (`best_n` / `all`).
+2. **01_calibration** - `workflow = "calibration"` via `hmp run`,
+   API `hmp.calibrate`, `save_runs` (`best_n` / `all`).
 3. **04_data_overview** - workflow « données seulement » (sans
    simulation) pour inventorier ce que charge le launcher.
 4. **02_nancon_watershed** - premier bassin réel, Nançon (~110 km²).
@@ -67,21 +67,25 @@ ML-ready exports.
 
 ## Conventions
 
-Chaque projet est un sous-dossier **auto-contenu** sous `projects/` :
+Chaque projet runnable est un sous-dossier **auto-contenu** sous `projects/` :
 
 ```
 examples/projects/<NN_nom>/
 ├── README.md          # description FR détaillée
-├── project.toml       # configuration valide
+├── project.toml       # configuration valide quand le dossier est runnable
 └── run*.py            # équivalent Python (optionnel)
 ```
+
+Les brouillons de conception sont conserves dans leur dossier source
+avec une mention explicite en en-tete. Ils ne doivent pas etre lances
+avec `hmp run` tant que le workflow correspondant n'est pas expose par
+`hydromodpy.cli.workflows.KNOWN_WORKFLOWS`.
 
 Les artefacts de run (`hydromodpy.duckdb`, Zarr) sont stockés au
 niveau du workspace `examples/` et ignorés par `.gitignore`.
 
-## Archive pré-v0.5
+## Archive
 
-Les exemples historiques qui ne s'alignent plus sur l'API actuelle
-sont conservés dans
-[`examples_legacy_2/`](../examples_legacy_2/README_LEGACY.md) et
-seront supprimés en v0.6.
+Les exemples qui ne s'alignent plus sur l'API actuelle ne font plus
+partie du parcours public. Les projets versionnés sous `projects/`
+restent la référence pour les nouveaux usages.

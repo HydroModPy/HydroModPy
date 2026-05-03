@@ -64,7 +64,7 @@ def _build_small_planar_mesh() -> GmshPlanarMesh2D:
 
 
 def test_exchange_api_can_read_reference_assets():
-    pytest.importorskip("meshio")
+    import meshio  # noqa: F401
 
     planar_mesh = load_planar_mesh(REFERENCE_PLANAR_MSH)
     extruded_mesh = load_extruded_mesh(REFERENCE_VALUES_VTU)
@@ -76,8 +76,8 @@ def test_exchange_api_can_read_reference_assets():
     assert np.asarray(mesh_with_values.values_3d, dtype=float).shape[0] == extruded_mesh.n_layers
 
 
-def test_exchange_api_roundtrip_with_meshio_available():
-    pytest.importorskip("meshio")
+def test_exchange_api_roundtrip_with_meshio_available(tmp_path):
+    import meshio  # noqa: F401
 
     planar_mesh = _build_small_planar_mesh()
     mesh_3d = ExtrudedPrismMesh3D.from_layer_thicknesses(
@@ -92,14 +92,11 @@ def test_exchange_api_roundtrip_with_meshio_available():
         prism_center_depths=np.array([[1.5, 1.5], [5.5, 5.5]], dtype=float),
     )
 
-    output_dir = Path.cwd() / "scratch_tests" / "gmsh_grid_exchange_api" / "runtime"
-    output_dir.mkdir(parents=True, exist_ok=True)
-
-    planar_path = output_dir / "mesh_2d.msh"
-    mesh_path = output_dir / "mesh_3d.vtu"
-    values_path = output_dir / "mesh_values_3d.vtu"
-    values_npy_path = output_dir / "mesh_values_3d.npy"
-    summary_json_path = output_dir / "mesh_values_3d_summary.json"
+    planar_path = tmp_path / "mesh_2d.msh"
+    mesh_path = tmp_path / "mesh_3d.vtu"
+    values_path = tmp_path / "mesh_values_3d.vtu"
+    values_npy_path = tmp_path / "mesh_values_3d.npy"
+    summary_json_path = tmp_path / "mesh_values_3d_summary.json"
 
     save_planar_mesh(planar_mesh, planar_path)
     save_extruded_mesh(mesh_3d, mesh_path)
@@ -119,7 +116,7 @@ def test_exchange_api_roundtrip_with_meshio_available():
 
 
 def test_read_only_example_builds_summary_from_reference_assets():
-    pytest.importorskip("meshio")
+    import meshio  # noqa: F401
 
     summary = build_read_only_summary(
         planar_mesh_path=REFERENCE_PLANAR_MSH,

@@ -194,8 +194,8 @@ The next concrete additions should now be:
    examples;
 3. add one short subsection on Newton behaviour and why the legacy NWT path
    still matters for some unconfined structured cases;
-4. add at least one transient worked case that exercises recharge aggregation
-   and storage more directly than the current Dupuit benchmark;
+4. connect this page to one public scientific ``modflow6`` versus
+   ``modflownwt`` comparison note;
 5. connect comparison workflow pages back to the exact method choices they are
    exercising.
 
@@ -209,7 +209,6 @@ Then readers should continue with:
 - :doc:`modflow6-vs-modflownwt-scientific-comparison`
 - :doc:`modflow-family-methods`
 - :doc:`modflow-package-semantics-and-boundary-conditions`
-- :doc:`worked-modflow-case-dupuit-fixed-head-1d`
 - :doc:`vertical-representation-and-storage-assumptions`
 - :doc:`xt3d-on-irregular-disv-meshes`
 - :doc:`../../architecture/solver/modflow6-architecture-notes`
@@ -218,16 +217,13 @@ Then readers should continue with:
 Current Limitation
 ------------------
 
-HydroModPy now has a first public chain from:
+HydroModPy already documents many MODFLOW choices in fragments, but still lacks
+one public note that fully walks from:
 
-- governing-equation framing,
-- to package semantics,
-- to one real worked MF6 case,
-- to backend-selection notes.
+- the governing equation,
+- to the MODFLOW control-volume formulation,
+- to the package subset actually used by the project,
+- to the scientific reason a user would choose one backend or mesh path over
+  another.
 
-What it still lacks is breadth rather than existence:
-
-- one transient worked case,
-- one fuller boundary/forcing worked case,
-- and a tighter end-to-end treatment of the maintained public package subset
-  across workflows.
+This page is intended to become that anchor.

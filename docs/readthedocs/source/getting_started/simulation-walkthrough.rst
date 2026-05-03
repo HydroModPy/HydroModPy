@@ -31,30 +31,6 @@ Run it
 The matching static gallery page is
 :doc:`../capability_gallery/cases/modflow6_gmsh_mesh_catchment`.
 
-Representative results
-----------------------
-
-.. figure:: /_static/capability_gallery/simulation/modflow6_gmsh_support_overview.png
-   :alt: Support overview for the irregular MODFLOW 6 simulation walkthrough
-   :width: 100%
-
-   The support overview shows the actual spatial support consumed by the run:
-   mesh, hydrography, and the main layout constraints.
-
-.. figure:: /_static/capability_gallery/simulation/modflow6_gmsh_flow_state_triptych.png
-   :alt: Flow-state triptych for the irregular MODFLOW 6 simulation walkthrough
-   :width: 100%
-
-   The flow-state triptych is the main state diagnostic: topography, simulated
-   head, and water-table depth stay readable on the same support.
-
-.. figure:: /_static/capability_gallery/simulation/modflow6_gmsh_recharge_discharge_cumulative.png
-   :alt: Cumulative recharge and discharge for the irregular MODFLOW 6 simulation walkthrough
-   :width: 100%
-
-   The cumulative curve is the first temporal synthesis to inspect once the
-   support and state maps look physically reasonable.
-
 How the files relate
 --------------------
 
@@ -151,8 +127,6 @@ How to read the outputs
 Where to go next
 ----------------
 
-- Open :doc:`read-real-basin-run` if you want one stricter reading path for
-  committed basin-result pages before branching into comparisons.
 - Open
   :doc:`../capability_gallery/cases/example12_map_method_comparison` to compare
   two solver families on the same saved support.

@@ -14,11 +14,12 @@ ask/tell loop until the optimizer converges or ``max_iter`` is reached.
 
 from __future__ import annotations
 
+import math
 import time
 import uuid
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field
-from typing import Protocol
+from typing import Any, Protocol
 
 from hydromodpy.calibration.cache import ParamsHashCache, params_hash
 from hydromodpy.calibration.optimizer import (
@@ -78,6 +79,7 @@ class CalibrationEngine:
     max_iter: int = 100
     batch_size: int = 1
     cache: ParamsHashCache | None = None
+    cache_context: Mapping[str, Any] | None = None
     progress: ProgressReporter | None = None
     session_id: str | None = None
     on_iteration: Callable[[EvaluationResult], None] | None = None
@@ -117,24 +119,53 @@ class CalibrationEngine:
 
     def _evaluate_with_cache(self, sugg: ParamSuggestion) -> EvaluationResult:
         if self.cache is None:
-            return self.evaluator(sugg)
-        key = params_hash(sugg.values)
+            return self._with_parameter_metadata(self.evaluator(sugg), sugg)
+        key = params_hash(sugg.values, context=self.cache_context)
         hit = self.cache.get(key)
         if hit is not None:
             return EvaluationResult(
                 trial_id=sugg.trial_id,
-                sim_id=hit,
-                objective_value=float("nan"),  # caller should refetch if needed
-                status="cached",
+                sim_id=hit.sim_id,
+                objective_value=hit.objective_value,
+                status="completed",
                 from_cache=True,
-                metadata={"params_hash": key},
+                components=hit.components,
+                metadata={
+                    "params_hash": key,
+                    "cached_status": hit.status,
+                    "parameters": self.space.describe_values(sugg.values),
+                },
             )
         result = self.evaluator(sugg)
-        if result.sim_id is not None and result.status == "completed":
-            self.cache.put(key, result.sim_id)
+        if result.status == "completed" and math.isfinite(result.objective_value):
+            self.cache.put(
+                key,
+                result.sim_id,
+                objective_value=result.objective_value,
+                components=result.components,
+            )
         # Enrich metadata with hash for persistence.
         meta = dict(result.metadata or {})
         meta.setdefault("params_hash", key)
+        meta.setdefault("parameters", self.space.describe_values(sugg.values))
+        return EvaluationResult(
+            trial_id=result.trial_id,
+            sim_id=result.sim_id,
+            objective_value=result.objective_value,
+            status=result.status,
+            duration_s=result.duration_s,
+            components=result.components,
+            from_cache=result.from_cache,
+            metadata=meta,
+        )
+
+    def _with_parameter_metadata(
+        self,
+        result: EvaluationResult,
+        sugg: ParamSuggestion,
+    ) -> EvaluationResult:
+        meta = dict(result.metadata or {})
+        meta.setdefault("parameters", self.space.describe_values(sugg.values))
         return EvaluationResult(
             trial_id=result.trial_id,
             sim_id=result.sim_id,

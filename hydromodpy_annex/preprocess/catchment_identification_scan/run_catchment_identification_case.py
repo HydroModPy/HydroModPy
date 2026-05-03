@@ -4,23 +4,14 @@ from __future__ import annotations
 
 import argparse
 import json
-import sys
 from pathlib import Path
 
-# Support direct execution from file path and ensure local package precedence.
-_repo_root = Path(__file__).resolve()
-for _parent in _repo_root.parents:
-    if (_parent / "hydromodpy").exists():
-        if str(_parent) not in sys.path:
-            sys.path.insert(0, str(_parent))
-        break
-
-from hydromodpy_annex.preprocess.catchment_identification_scan.config import (  # noqa: E402
+from hydromodpy_annex.preprocess.catchment_identification_scan.config import (
     DEFAULT_CONFIG_FILE,
     DEFAULT_SECTION,
     CatchmentIdentificationConfig,
 )
-from hydromodpy_annex.preprocess.catchment_identification_scan.workflow import (  # noqa: E402
+from hydromodpy_annex.preprocess.catchment_identification_scan.workflow import (
     run_catchment_identification_from_toml,
 )
 
