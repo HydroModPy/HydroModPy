@@ -8,6 +8,7 @@ from pathlib import Path
 from types import SimpleNamespace
 
 import numpy as np
+import pandas as pd
 import pytest
 
 from hydromodpy.analysis.comparison.config import (
@@ -426,14 +427,14 @@ def _write_boussinesq_run_folder(run_folder: Path, bundle_dir: Path) -> _FakeCat
             [[0.0, 0.02, 0.01], [0.01, 0.03, 0.0]],
             dtype=float,
         ),
-        dry_deficit_history_m_s=np.asarray(
+        "dry_deficit_history_m_s": np.asarray(
             [
                 [0.0, 0.0, 0.0],
                 [0.0, 0.005, 0.0],
             ],
             dtype=float,
         ),
-        drainage_flux_history_m3_s=np.asarray(
+        "drainage_flux_history_m3_s": np.asarray(
             [
                 [0.05, 0.15, 0.07],
                 [0.08, 0.3, 0.1],
@@ -954,12 +955,7 @@ def test_write_budget_exports_derives_boussinesq_budget_timeseries(
     assert float(dry_row["value"]) == pytest.approx(0.005 * OUTLET_CELL_AREA_M2)
     assert math.isfinite(float(residual_row["value"]))
     assert float(residual_row["value"]) == pytest.approx(
-        3.95e-7
-        - 0.025
-        + 0.005 * OUTLET_CELL_AREA_M2
-        - 0.48
-        - 0.35
-        - (0.68 / 3600.0)
+        3.95e-7 - 0.025 + 0.005 * OUTLET_CELL_AREA_M2 - 0.48 - 0.35 - (0.68 / 3600.0)
     )
 
 
@@ -978,7 +974,7 @@ def test_write_budget_exports_uses_child_config_bundle_when_run_folder_has_no_me
     config_path.write_text(
         "\n".join(
             [
-                "workflow = \"simulation\"",
+                'workflow = "simulation"',
                 "",
                 "[mesh_input]",
                 'bundle_dir = "../../bundle_from_child_config"',
@@ -1108,9 +1104,7 @@ def test_catalog_budget_rows_are_normalized_to_elapsed_seconds_and_m3_s(tmp_path
         "mf6-demo",
     )
 
-    by_component = {
-        row["component"]: row for row in rows if int(row["time_index"]) == 0
-    }
+    by_component = {row["component"]: row for row in rows if int(row["time_index"]) == 0}
     assert by_component["recharge_total_m3_s"]["elapsed_seconds"] == pytest.approx(86400.0)
     assert by_component["recharge_total_m3_s"]["unit"] == "m3/s"
     assert by_component["recharge_total_m3_s"]["value"] == pytest.approx(2.5)

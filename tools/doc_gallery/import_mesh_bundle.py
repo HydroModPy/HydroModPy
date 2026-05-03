@@ -24,6 +24,8 @@ from .mesh_case_registry import (
     validate_bundle_dir,
 )
 
+_WINDOWS_EXTENDED_PATH_FALLBACK_WINERRORS = {3, 206}
+
 
 def build_parser() -> argparse.ArgumentParser:
     """Build the public CLI parser for bundle imports."""

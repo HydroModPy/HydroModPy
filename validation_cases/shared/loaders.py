@@ -662,8 +662,7 @@ def load_npy_time_series_arrays_with_elapsed_seconds(
         elapsed = np.asarray([elapsed_by_key[int(key)] for key in indices.tolist()], dtype=float)
     except KeyError as exc:
         raise ValueError(
-            f"{sidecar_path} does not cover time key {int(exc.args[0])} "
-            f"from {payload_path}."
+            f"{sidecar_path} does not cover time key {int(exc.args[0])} from {payload_path}."
         ) from exc
     return indices, arrays, elapsed
 
@@ -685,14 +684,10 @@ def align_snapshot_series_to_expected_count(
     if arrays.ndim == 0:
         raise ValueError(f"{name} must expose one leading time dimension.")
     if int(arrays.shape[0]) != keys.size:
-        raise ValueError(
-            f"{name} has {arrays.shape[0]} value rows but {keys.size} time keys."
-        )
+        raise ValueError(f"{name} has {arrays.shape[0]} value rows but {keys.size} time keys.")
 
     elapsed = (
-        None
-        if elapsed_seconds is None
-        else np.asarray(elapsed_seconds, dtype=float).reshape(-1)
+        None if elapsed_seconds is None else np.asarray(elapsed_seconds, dtype=float).reshape(-1)
     )
     if elapsed is not None and elapsed.size != keys.size:
         raise ValueError(

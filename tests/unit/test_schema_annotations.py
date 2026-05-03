@@ -72,6 +72,7 @@ def test_exported_config_preserves_widget_metadata(tmp_path: Path) -> None:
     so the assertion uses the model-level exporter directly.
     """
     from hydromodpy.config.schema_export import export_schema
+    from hydromodpy.physics.flow.physical_properties import FlowPhysicalProperties
     from hydromodpy.schema.export import export_full_schema
 
     paths = export_full_schema(tmp_path)

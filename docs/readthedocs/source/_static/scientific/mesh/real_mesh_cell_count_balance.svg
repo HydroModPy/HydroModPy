@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="520" viewBox="0 0 1200 520" role="img" aria-labelledby="title desc">
+<title id="title">Cell-count balance for versioned catchment meshes</title>
+<desc id="desc">Horizontal bar chart comparing cell counts for selected versioned HydroModPy catchment meshes.</desc>
+<style>
+.bg{fill:#f7f8f4}.bar{fill:#6f8fa8}.bar2{fill:#b38447}.axis{stroke:#52616b;stroke-width:1}.title{font:700 27px Georgia,serif;fill:#21313a}.small{font:14px Georgia,serif;fill:#41515d}.mono{font:13px Consolas,monospace;fill:#2d3d47}.label{font:700 16px Georgia,serif;fill:#21313a}
+</style>
+<rect class="bg" width="1200" height="520"/>
+<text class="title" x="48.00" y="56.00">Cell-count balance for committed irregular catchment meshes</text>
+<text class="small" x="48.00" y="84.00">Counts are read from the capability-gallery summary JSON files; all cases shown here are triangular Gmsh-style catchment meshes.</text>
+<text class="label" x="60.00" y="154.00">10 km2</text>
+<rect class="bar" x="280" y="132" width="10.36" height="28" rx="6"/>
+<text class="mono" x="304.36" y="153.00">547 cells</text>
+<text class="small" x="280.00" y="180.00">nodes=283  river_edges=65  geology_edges=80</text>
+<text class="label" x="60.00" y="222.00">100 km2 floor 340</text>
+<rect class="bar" x="280" y="200" width="62.93" height="28" rx="6"/>
+<text class="mono" x="356.93" y="221.00">3 324 cells</text>
+<text class="small" x="280.00" y="248.00">nodes=1 684  river_edges=458  geology_edges=294</text>
+<text class="label" x="60.00" y="290.00">100 km2 floor 200</text>
+<rect class="bar" x="280" y="268" width="67.40" height="28" rx="6"/>
+<text class="mono" x="361.40" y="289.00">3 560 cells</text>
+<text class="small" x="280.00" y="316.00">nodes=1 802  river_edges=458  geology_edges=321</text>
+<text class="label" x="60.00" y="358.00">100 km2 default</text>
+<rect class="bar" x="280" y="336" width="74.25" height="28" rx="6"/>
+<text class="mono" x="368.25" y="357.00">3 922 cells</text>
+<text class="small" x="280.00" y="384.00">nodes=1 981  river_edges=631  geology_edges=332</text>
+<text class="label" x="60.00" y="426.00">1000 km2</text>
+<rect class="bar" x="280" y="404" width="720.00" height="28" rx="6"/>
+<text class="mono" x="1014.00" y="425.00">38 030 cells</text>
+<text class="small" x="280.00" y="452.00">nodes=19 078  river_edges=6 739  geology_edges=1 744</text>
+<text class="small" x="60.00" y="486.00">Use this as a mesh-budget view, not as a quality ranking: a larger cell count is only useful if the added cells resolve relevant constraints.</text>
+</svg>

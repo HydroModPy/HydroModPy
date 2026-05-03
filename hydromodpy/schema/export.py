@@ -35,6 +35,7 @@ from hydromodpy.config.schema_export import (
     _ensure_root_sections,
     export_schema,
 )
+from hydromodpy.core.config_kit.registry import root_scalar_fields
 
 SCHEMA_FILE = "config.json"
 META_FILE = "config_meta.json"

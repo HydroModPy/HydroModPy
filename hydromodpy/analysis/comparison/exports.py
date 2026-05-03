@@ -156,6 +156,9 @@ SIMULATED_ACTIVE_NETWORK_DISTANCE_METRICS_FIELDS = [
     "network_to_sim_distance_max_m",
     "bidirectional_distance_mean_m",
     "bidirectional_distance_quadratic_mean_m",
+    "bidirectional_distance_absolute_balance_m",
+    "planar_distance_balance_ratio",
+    "planar_distance_log10_balance",
 ]
 
 
@@ -1027,12 +1030,8 @@ def write_simulated_active_network_distance_metrics_export(
         preferred_run_name = summary.get("run_name")
         store, sim_id = discover_result_store(
             config_path,
-            preferred_sim_id=(
-                None if preferred_sim_id in (None, "") else str(preferred_sim_id)
-            ),
-            preferred_name=(
-                None if preferred_run_name in (None, "") else str(preferred_run_name)
-            ),
+            preferred_sim_id=(None if preferred_sim_id in (None, "") else str(preferred_sim_id)),
+            preferred_name=(None if preferred_run_name in (None, "") else str(preferred_run_name)),
         )
         if store is None or sim_id in (None, ""):
             skipped_variants.append(
@@ -1069,11 +1068,7 @@ def write_simulated_active_network_distance_metrics_export(
                 continue
             zarr_root = store.open_zarr(str(sim_id)).root
             mesh = zarr_root.get("mesh")
-            if (
-                mesh is None
-                or "vertices" not in mesh
-                or "face_node_connectivity" not in mesh
-            ):
+            if mesh is None or "vertices" not in mesh or "face_node_connectivity" not in mesh:
                 skipped_variants.append(
                     {
                         "variant_id": variant_id,
@@ -1166,9 +1161,7 @@ def write_simulated_active_network_distance_metrics_export(
 
     path = comparison_root / "simulated_active_network_distance_metrics.csv"
     _write_csv(path, rows, SIMULATED_ACTIVE_NETWORK_DISTANCE_METRICS_FIELDS)
-    artifacts.append(
-        {"kind": "simulated_active_network_distance_metrics_csv", "path": str(path)}
-    )
+    artifacts.append({"kind": "simulated_active_network_distance_metrics_csv", "path": str(path)})
     logger.info(
         "Wrote simulated-active network distance metrics export for %d variant(s) to %s",
         len(rows),
@@ -1217,12 +1210,8 @@ def write_simulated_active_network_reference_figure_export(
         preferred_run_name = summary.get("run_name")
         store, sim_id = discover_result_store(
             config_path,
-            preferred_sim_id=(
-                None if preferred_sim_id in (None, "") else str(preferred_sim_id)
-            ),
-            preferred_name=(
-                None if preferred_run_name in (None, "") else str(preferred_run_name)
-            ),
+            preferred_sim_id=(None if preferred_sim_id in (None, "") else str(preferred_sim_id)),
+            preferred_name=(None if preferred_run_name in (None, "") else str(preferred_run_name)),
         )
         if store is None or sim_id in (None, ""):
             skipped_variants.append(
@@ -2032,12 +2021,8 @@ def write_boussinesq_obstacle_diagnostics_export(
         preferred_run_name = summary.get("run_name")
         store, sim_id = discover_result_store(
             config_path,
-            preferred_sim_id=(
-                None if preferred_sim_id in (None, "") else str(preferred_sim_id)
-            ),
-            preferred_name=(
-                None if preferred_run_name in (None, "") else str(preferred_run_name)
-            ),
+            preferred_sim_id=(None if preferred_sim_id in (None, "") else str(preferred_sim_id)),
+            preferred_name=(None if preferred_run_name in (None, "") else str(preferred_run_name)),
         )
         try:
             rows.extend(

@@ -303,6 +303,7 @@ Related Pages
 -------------
 
 - :doc:`meshes-and-numerical-methods`
+- :doc:`../mesh/regular-vs-irregular-meshes`
 - :doc:`field-to-cell-parameter-transfer`
 - :doc:`vertical-representation-and-storage-assumptions`
 - :doc:`mesh-quality-and-acceptance-criteria`

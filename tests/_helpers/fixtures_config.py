@@ -19,7 +19,6 @@ def minimal_hmp_config(project_root: Path):
     Only the two required subsections (``workspace`` and ``geographic``)
     are populated; all others fall back to their factory defaults.
     """
-    from hydromodpy.config import HydroModPyConfig
     from hydromodpy.core.workspace.config import WorkspaceConfig
     from hydromodpy.master_config import HydroModPyConfig
     from hydromodpy.spatial.geographic.geographic_config import GeographicConfig

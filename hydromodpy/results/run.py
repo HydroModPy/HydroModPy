@@ -745,7 +745,7 @@ class Run:
 
         from hydromodpy.config import HydroModPyConfig
 
-        HydroModPyConfig.from_snapshot(snapshot, **overrides)
+        cfg = HydroModPyConfig.from_snapshot(snapshot, **overrides)
 
         from hydromodpy.project import Project
 

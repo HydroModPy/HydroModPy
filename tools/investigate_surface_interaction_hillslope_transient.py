@@ -73,8 +73,8 @@ from validation_cases.shared.boussinesq_uniform_strip import (
 )
 from validation_cases.shared.gmsh_irregular_strip import write_irregular_strip_bundle
 from validation_cases.shared.runtime import (
-    _dump_toml,
     _discover_result_store,
+    _dump_toml,
     remove_tree_with_retry,
     resolve_model_workspace,
     resolve_validation_results_dir,

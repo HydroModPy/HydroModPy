@@ -23,8 +23,6 @@ from typing import Any
 from pydantic import BaseModel, TypeAdapter, ValidationError
 from pydantic.fields import FieldInfo
 
-from hydromodpy.core.config_kit.root_config_protocol import get_root_config_provider
-
 
 @dataclass(frozen=True)
 class ValidationResult:
