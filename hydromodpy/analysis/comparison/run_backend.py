@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 import re
 import subprocess
 import sys
@@ -13,6 +14,17 @@ _SIM_ID_RE = re.compile(
     r"\bsim_id\s*:\s*([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-"
     r"[0-9a-fA-F]{4}-[0-9a-fA-F]{12})\b"
 )
+REPO_ROOT = Path(__file__).resolve().parents[3]
+
+
+def _subprocess_env() -> dict[str, str]:
+    env = os.environ.copy()
+    previous = env.get("PYTHONPATH")
+    parts = [str(REPO_ROOT)]
+    if previous:
+        parts.append(previous)
+    env["PYTHONPATH"] = os.pathsep.join(parts)
+    return env
 
 
 @dataclass(frozen=True, slots=True)
@@ -57,6 +69,7 @@ def run_child_with_hmp(
     completed = subprocess.run(
         command,
         cwd=str(config_path.parent),
+        env=_subprocess_env(),
         capture_output=True,
         text=True,
         timeout=timeout_seconds,

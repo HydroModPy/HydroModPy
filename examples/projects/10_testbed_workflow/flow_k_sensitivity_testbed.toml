@@ -1,0 +1,82 @@
+workflow = "testbed"
+
+[testbed]
+id = "flow_k_sensitivity"
+subject = "flow"
+purpose = "robustness"
+base_config = "../09_comparison_workflow/base_10km2_natural_mesh_recharge.toml"
+output_root = "outputs/flow_k_sensitivity"
+execute = false
+
+[testbed.runner]
+type = "simulation"
+no_display = true
+
+[[testbed.variant]]
+id = "low_k"
+axis = "hydraulic_conductivity"
+
+[testbed.variant.overlay.workspace]
+project_root = "outputs/flow_k_sensitivity/low_k_workspace"
+
+[testbed.variant.overlay.simulation]
+name = "flow_low_k"
+run_id = "flow_low_k"
+on_collision = "replace"
+
+[testbed.variant.overlay.flow.param.K.field_homogeneous]
+value = "5e-6 m/s"
+
+[[testbed.variant]]
+id = "reference_k"
+axis = "hydraulic_conductivity"
+
+[testbed.variant.overlay.workspace]
+project_root = "outputs/flow_k_sensitivity/reference_k_workspace"
+
+[testbed.variant.overlay.simulation]
+name = "flow_reference_k"
+run_id = "flow_reference_k"
+on_collision = "replace"
+
+[testbed.variant.overlay.flow.param.K.field_homogeneous]
+value = "1e-5 m/s"
+
+[[testbed.variant]]
+id = "high_k"
+axis = "hydraulic_conductivity"
+
+[testbed.variant.overlay.workspace]
+project_root = "outputs/flow_k_sensitivity/high_k_workspace"
+
+[testbed.variant.overlay.simulation]
+name = "flow_high_k"
+run_id = "flow_high_k"
+on_collision = "replace"
+
+[testbed.variant.overlay.flow.param.K.field_homogeneous]
+value = "2e-5 m/s"
+
+[[testbed.metric]]
+name = "duration_s"
+source = "flow_metrics.duration_s"
+
+[[testbed.metric]]
+name = "n_cells"
+source = "flow_metrics.n_cells"
+
+[[testbed.metric]]
+name = "param_K"
+source = "flow_metrics.param_K"
+
+[[testbed.metric]]
+name = "max_abs_balance_error"
+source = "flow_metrics.max_abs_mass_balance_percent_error"
+
+[[testbed.metric]]
+name = "head_range_m"
+source = "flow_metrics.head_range_m"
+
+[[testbed.metric]]
+name = "prescribed_head_out"
+source = "flow_metrics.budget_chd_total_out"

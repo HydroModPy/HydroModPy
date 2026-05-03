@@ -10,23 +10,23 @@ This activity diagram proposes a practical workflow to add a new
 Code map
 --------
 
-- ``hydromodpy/process/prototype``:
+- ``hydromodpy/physics/base``:
   base config and runtime contracts to extend.
-- ``hydromodpy/process/flow``:
+- ``hydromodpy/physics/flow``:
   current concrete specialization to copy for structure.
 - ``hydromodpy/simulation/adapters``:
   required integration point after the runtime class exists.
-- ``hydromodpy/solver/compatibility.py``:
-  planner-facing compatibility declaration for new process/solver pairs.
+- ``hydromodpy/solver/base/registry.py``:
+  planner-facing registry for new process/solver pairs.
 
 Recommended reading path
 ------------------------
 
-1. ``hydromodpy/process/prototype/process_spatial_config.py``
-2. ``hydromodpy/process/prototype/process_spatial.py``
-3. ``hydromodpy/process/flow/`` as the main concrete example
+1. ``hydromodpy/physics/base/process_spatial_config.py``
+2. ``hydromodpy/physics/base/process_spatial.py``
+3. ``hydromodpy/physics/flow/`` as the main concrete example
 4. ``hydromodpy/solver/base/registry.py``
-5. ``hydromodpy/solver/compatibility.py``
+5. :doc:`../solver/process-solver-registry`
 
 Diagram source
 --------------

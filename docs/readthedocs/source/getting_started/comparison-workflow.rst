@@ -186,6 +186,24 @@ The same pattern applies to the other shipped examples:
 - ``compare_10km2_natural_mesh_transient_pulse_mf6_bouss.toml``
 - ``compare_nancon_transient_seasonal_mf6_bouss.toml``
 
+Representative results
+----------------------
+
+.. figure:: /_static/workflows/comparison/dupuit_case_configuration.png
+   :alt: Configuration figure for the Dupuit MODFLOW 6 versus Boussinesq comparison workflow
+   :width: 100%
+
+   The configuration figure is the orientation panel for a comparison run: it
+   tells you which shared case, support, observables, and forcing layout are
+   being compared before you read any differences.
+
+.. figure:: /_static/workflows/comparison/dupuit_head_triptych.png
+   :alt: Head-map triptych for the Dupuit MODFLOW 6 versus Boussinesq comparison workflow
+   :width: 100%
+
+   The triptych places the reference field, the candidate field, and the
+   candidate-minus-reference difference in one compact visual sequence.
+
 What You Should Inspect First
 -----------------------------
 
@@ -219,6 +237,49 @@ When the runs expose both canonical hydrographic networks, also inspect:
 
 because it adds a geometric comparison beyond scalar field metrics.
 
+When one or more variants do not expose both required roles, also inspect:
+
+- ``hydrographic_network_metrics_skipped.json``
+
+because it records which variants were skipped and why, instead of silently
+leaving the hydrographic-network export incomplete.
+
+For the simulated active drainage signal, inspect:
+
+- ``simulated_active_network_metrics.csv``
+- ``simulated_active_network_metrics_skipped.json``
+- ``simulated_active_network_overlap_metrics.csv``
+- ``simulated_active_network_overlap_metrics_skipped.json``
+
+The first pair summarizes active-network occupancy from ``accumulation_flux``.
+The second pair compares that simulated active occupancy against the observed
+``reference`` network after rasterizing the vector network onto the simulation
+mesh. These files do not mean that a stored vector feature
+``hydrographic_network_simulated_active`` exists yet.
+
+For a single run with ``accumulation_flux`` and a plottable mesh, the display
+layer can also render:
+
+- ``simulated_active_network``
+- ``simulated_active_network_reference_overlay``
+
+The first is a computed cell-map figure. The second overlays the simulated
+active cells with the observed ``reference`` network and is the preferred
+validation figure when both are available. These figures are useful before
+deciding whether a canonical vectorized ``simulated_active`` network should be
+persisted.
+
+For a programmatic diagnostic against an existing vector role, use:
+
+- ``run.simulated_active_network_overlap_metrics(network_role="reference")``
+
+This compares cell occupancy after rasterizing the selected vector network onto
+the simulation mesh. This is the primary validation comparison for the
+simulated active network. You can also run the same diagnostic with
+``network_role="generated"`` to test agreement with the DEM/topography-derived
+network, but that is a secondary geomorphological diagnostic, not an
+observation-vs-simulation validation.
+
 For a single run that carries both networks, HydroModPy also exposes dedicated
 figures such as:
 
@@ -237,7 +298,9 @@ conservatively:
 - the comparison figures do not appear in ``run.display_capabilities``,
 - ``run.hydrographic_network_comparison()`` raises an explicit error saying
   which role is missing,
-- comparison exports such as ``hydrographic_network_metrics.csv`` are skipped.
+- comparison exports such as ``hydrographic_network_metrics.csv`` are skipped,
+- ``hydrographic_network_metrics_skipped.json`` records the skipped variants
+  and the missing-role reason.
 
 If you want a strict reading order once the run is finished, continue with
 :doc:`comparison-output-reading-order`.

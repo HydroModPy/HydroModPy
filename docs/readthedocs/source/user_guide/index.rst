@@ -31,12 +31,13 @@ Core concepts
 
    .. grid-item-card::
       :class-card: sd-shadow-sm sd-rounded-3 sd-p-4
-      :link: ../getting_started/workflow-families
+      :link: workflows/index
       :link-type: doc
 
       **Workflow families**
       ^^^
-      Overview, simulation, mesh, calibration, batch, and comparison workflows.
+      Overview, simulation, mesh, testbed, calibration, batch, and comparison
+      workflows.
 
    .. grid-item-card::
       :class-card: sd-shadow-sm sd-rounded-3 sd-p-4
@@ -96,6 +97,16 @@ Topic guides
 
    .. grid-item-card::
       :class-card: sd-shadow-sm sd-rounded-3 sd-p-4
+      :link: solver-process-map
+      :link-type: doc
+
+      **Solvers by process**
+      ^^^
+      Process-first map of flow, transport, postprocess, and display solver
+      families.
+
+   .. grid-item-card::
+      :class-card: sd-shadow-sm sd-rounded-3 sd-p-4
       :link: solver-choice
       :link-type: doc
 
@@ -119,12 +130,14 @@ Use these pages once you have generated or opened result pages:
    :hidden:
 
    Usage modes <../seven-modes>
-   Workflow families <../getting_started/workflow-families>
+   Workflow families <workflows/index>
+   Workflow quick map <../getting_started/workflow-families>
    Workspace layout <../getting_started/workspace-layout>
    Project vs run <../getting_started/project-vs-run>
    mesh
    comparison
    calibration
+   solver-process-map
    solver-choice
    Reading result pages <../getting_started/reading-results-pages>
    Comparison workflow <../getting_started/comparison-workflow>

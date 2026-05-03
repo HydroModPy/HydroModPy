@@ -188,6 +188,7 @@ Useful pages already exist to validate or inspect these semantics in context.
 - Drainage boundary in a closed-form linearized setting: :doc:`Linearized Unconfined Drainage 1D <../../capability_gallery/cases/linearized_unconfined_drainage_1d>`
 - Drainage boundary on sloping topography: :doc:`Linearized Unconfined Hillslope Drainage 1D <../../capability_gallery/cases/linearized_unconfined_hillslope_drainage_1d>`
 - Cross-code behaviour with recharge and emergent drainage: :doc:`Surface-Interaction Ramp Code Comparison <../../capability_gallery/cases/surface_interaction_ramp_code_comparison>`
+- MODFLOW package reading of the distributed drainage benchmark: :doc:`../solvers/worked-modflow-case-linearized-unconfined-drainage-1d`
 
 Current Source Anchors
 ----------------------

@@ -2,8 +2,8 @@
 
 Single CLI entry point: ``hmp run <toml>``. The TOML must declare a
 mandatory top-level ``workflow = "..."`` field (one of ``simulation``,
-``calibration``, ``batch``, ``overview``, ``mesh``, ``comparison``). Dispatches to the
-matching ``run_*`` adapter.
+``calibration``, ``batch``, ``overview``, ``mesh``, ``comparison``,
+``testbed``). Dispatches to the matching ``run_*`` adapter.
 
 The contract is enforced twice: here at CLI load time via
 :func:`resolve_workflow` for friendly error messages, and again at the
@@ -25,6 +25,7 @@ WorkflowName = Literal[
     "overview",
     "mesh",
     "comparison",
+    "testbed",
 ]
 
 KNOWN_WORKFLOWS: tuple[str, ...] = (
@@ -34,6 +35,7 @@ KNOWN_WORKFLOWS: tuple[str, ...] = (
     "overview",
     "mesh",
     "comparison",
+    "testbed",
 )
 
 
@@ -203,6 +205,13 @@ def run_comparison(config_path: str | Path) -> dict:
     return SimulationComparisonLauncher(config_path).run()
 
 
+def run_testbed(config_path: str | Path) -> dict:
+    """Run a method-testbed experiment from a TOML file."""
+    from hydromodpy.analysis.testbed.runtime import TestbedLauncher
+
+    return TestbedLauncher(config_path).run()
+
+
 DISPATCH: dict[str, callable] = {
     "simulation": run_simulation,
     "overview": run_overview,
@@ -210,6 +219,7 @@ DISPATCH: dict[str, callable] = {
     "calibration": run_calibration,
     "batch": run_batch,
     "comparison": run_comparison,
+    "testbed": run_testbed,
 }
 
 
@@ -284,5 +294,6 @@ __all__ = (
     "run_calibration",
     "run_batch",
     "run_comparison",
+    "run_testbed",
     "DISPATCH",
 )

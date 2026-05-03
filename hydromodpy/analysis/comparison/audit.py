@@ -2,13 +2,14 @@
 
 from __future__ import annotations
 
+import csv
 import json
 import math
 from collections.abc import Iterable, Mapping
 from pathlib import Path
 from typing import Any
 
-from hydromodpy.analysis.comparison.runtime import discover_result_store
+from hydromodpy.analysis.comparison.runtime import _bundle_dir_from_config, discover_result_store
 from hydromodpy.core.config.toml_loader import load_toml_with_base_config
 
 STRICT_METADATA_KEYS = (
@@ -47,6 +48,8 @@ PHYSICAL_CONFIG_SECTIONS: tuple[tuple[str, tuple[str, ...]], ...] = (
 RECHARGE_COMPONENT = "recharge_total_m3_s"
 RECHARGE_REL_TOL = 1.0e-2
 RECHARGE_ABS_TOL_M3_S = 1.0e-6
+HEAD_ABOVE_TOP_FRACTION_TOL = 5.0e-2
+HEAD_ABOVE_TOP_TOL_M = 0.1
 
 
 def _jsonable(value: Any) -> Any:
@@ -268,6 +271,118 @@ def _as_float(value: Any) -> float | None:
     except Exception:
         return None
     return parsed if math.isfinite(parsed) else None
+
+
+def _load_cell_vertical_bounds(config_path: Path | None) -> dict[int, tuple[float, float]]:
+    if config_path is None:
+        return {}
+    try:
+        bundle_dir = _bundle_dir_from_config(config_path)
+    except Exception:
+        return {}
+    if bundle_dir is None:
+        return {}
+    cells_path = bundle_dir / "cells.csv"
+    if not cells_path.exists():
+        return {}
+    bounds: dict[int, tuple[float, float]] = {}
+    try:
+        with cells_path.open("r", encoding="utf-8", newline="") as handle:
+            reader = csv.DictReader(handle)
+            for row in reader:
+                try:
+                    cell_id = int(row["cell_id"])
+                    top = float(row["z_top_centroid"])
+                    bottom = float(row["z_bottom_centroid"])
+                except Exception:
+                    continue
+                if math.isfinite(top) and math.isfinite(bottom):
+                    bounds[cell_id] = (top, bottom)
+    except Exception:
+        return {}
+    return bounds
+
+
+def _row_cell_index(row: Mapping[str, Any]) -> int | None:
+    candidates = (
+        row.get("selected_cell_index"),
+        row.get("value_index"),
+    )
+    for candidate in candidates:
+        if candidate in ("", None):
+            continue
+        try:
+            return int(candidate)
+        except Exception:
+            continue
+    return None
+
+
+def _head_bounds_diagnostics(
+    *,
+    observable_rows: Iterable[Mapping[str, Any]] | None,
+    variant_summaries: Iterable[Mapping[str, Any]],
+) -> list[dict[str, Any]]:
+    if observable_rows is None:
+        return []
+    config_by_variant: dict[str, Path] = {}
+    for summary in variant_summaries:
+        config_path_raw = summary.get("config_path")
+        if config_path_raw in ("", None):
+            continue
+        config_by_variant[str(summary.get("id", ""))] = Path(str(config_path_raw))
+    bounds_by_variant = {
+        variant_id: _load_cell_vertical_bounds(config_path)
+        for variant_id, config_path in config_by_variant.items()
+    }
+
+    grouped: dict[tuple[str, str], list[float]] = {}
+    below_grouped: dict[tuple[str, str], list[float]] = {}
+    counts: dict[tuple[str, str], int] = {}
+    for row in observable_rows:
+        variable = str(row.get("resolved_variable", row.get("variable", "")))
+        if variable != "watertable_elevation":
+            continue
+        value = _as_float(row.get("value"))
+        if value is None:
+            continue
+        variant_id = str(row.get("variant_id", ""))
+        cell_index = _row_cell_index(row)
+        if cell_index is None:
+            continue
+        bounds = bounds_by_variant.get(variant_id, {})
+        if cell_index not in bounds:
+            continue
+        top, bottom = bounds[cell_index]
+        key = (variant_id, str(row.get("observable", "")))
+        counts[key] = counts.get(key, 0) + 1
+        above = value - top
+        below = bottom - value
+        if above > 0.0:
+            grouped.setdefault(key, []).append(above)
+        if below > 0.0:
+            below_grouped.setdefault(key, []).append(below)
+
+    diagnostics: list[dict[str, Any]] = []
+    for key, n_values in sorted(counts.items()):
+        variant_id, observable = key
+        above_values = grouped.get(key, [])
+        below_values = below_grouped.get(key, [])
+        diagnostics.append(
+            {
+                "variant_id": variant_id,
+                "observable": observable,
+                "n_values": n_values,
+                "above_top_fraction": len(above_values) / n_values if n_values else None,
+                "above_top_mean_m": (
+                    sum(above_values) / len(above_values) if above_values else 0.0
+                ),
+                "above_top_max_m": max(above_values) if above_values else 0.0,
+                "below_bottom_fraction": len(below_values) / n_values if n_values else None,
+                "below_bottom_max_m": max(below_values) if below_values else 0.0,
+            }
+        )
+    return diagnostics
 
 
 def _correlation(left: list[float], right: list[float]) -> float | None:
@@ -507,6 +622,31 @@ def build_equivalence_audit(
                     }
                 )
 
+    head_bounds = _head_bounds_diagnostics(
+        observable_rows=observable_rows,
+        variant_summaries=completed,
+    )
+    for item in head_bounds:
+        above_fraction = _as_float(item.get("above_top_fraction")) or 0.0
+        above_max = _as_float(item.get("above_top_max_m")) or 0.0
+        if (
+            above_fraction > HEAD_ABOVE_TOP_FRACTION_TOL
+            and above_max > HEAD_ABOVE_TOP_TOL_M
+        ):
+            issues.append(
+                {
+                    "level": "error" if on_mismatch == "fail" else "warning",
+                    "kind": "watertable_above_top",
+                    "variant_id": item.get("variant_id", ""),
+                    "field": item.get("observable", ""),
+                    "message": "Watertable elevation is above the model top on a large fraction of cells.",
+                    "above_top_fraction": above_fraction,
+                    "above_top_max_m": above_max,
+                    "fraction_tolerance": HEAD_ABOVE_TOP_FRACTION_TOL,
+                    "height_tolerance_m": HEAD_ABOVE_TOP_TOL_M,
+                }
+            )
+
     has_error = any(issue.get("level") == "error" for issue in issues)
     has_warning = any(issue.get("level") == "warning" for issue in issues)
     status = "fail" if has_error else "warn" if has_warning else "pass"
@@ -523,6 +663,7 @@ def build_equivalence_audit(
         "status": status,
         "reference_variant": reference_id,
         "physical_config_sections": [label for label, _ in PHYSICAL_CONFIG_SECTIONS],
+        "head_bounds": head_bounds,
         "head_recharge_response": _head_recharge_response_diagnostics(
             observable_rows=observable_rows,
             recharge_by_variant=recharge_by_variant,
@@ -591,6 +732,20 @@ def write_audit_files(
         )
     if not wrote_check:
         lines.append("- No comparable recharge budget check was produced.")
+
+    head_bounds = list(audit.get("head_bounds", []))
+    lines.extend(["", "## Head Bounds"])
+    if not head_bounds:
+        lines.append("- No head/top-bottom diagnostic was produced.")
+    else:
+        for item in head_bounds:
+            lines.append(
+                "- "
+                f"`{item.get('variant_id', '')}` / `{item.get('observable', '')}`: "
+                f"above_top_fraction={item.get('above_top_fraction', '')}, "
+                f"above_top_max_m={item.get('above_top_max_m', '')}, "
+                f"below_bottom_fraction={item.get('below_bottom_fraction', '')}"
+            )
 
     diagnostics = list(audit.get("head_recharge_response", []))
     lines.extend(["", "## Head-Recharge Response"])

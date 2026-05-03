@@ -48,6 +48,7 @@ def build_refresh_steps(
     validation_solvers: tuple[str, ...] = DEFAULT_VALIDATION_SOLVERS,
     validation_regime: str = "both",
     validation_timeout: int = 1800,
+    include_intercomparison_regressions: bool = True,
     include_xt3d_diagnostics: bool = True,
     include_gallery_refresh: bool = True,
     include_gallery_check: bool = True,
@@ -70,6 +71,21 @@ def build_refresh_steps(
                 title="Install solver binaries",
                 working_directory=REPO_ROOT,
                 command=tuple(command),
+            )
+        )
+
+    if include_intercomparison_regressions:
+        steps.append(
+            RefreshStep(
+                title="Run fast solver intercomparison regressions",
+                working_directory=REPO_ROOT,
+                command=(
+                    python_command,
+                    "-m",
+                    "pytest",
+                    "tests/regression/fast/intercomparison",
+                    "-q",
+                ),
             )
         )
 
@@ -204,6 +220,14 @@ def build_parser() -> argparse.ArgumentParser:
         help="Per-case timeout forwarded to validation_cases.run_cases.",
     )
     parser.add_argument(
+        "--skip-intercomparison-regressions",
+        action="store_true",
+        help=(
+            "Skip the fast solver intercomparison regressions that lock the "
+            "capability-gallery numerical methods before artifact regeneration."
+        ),
+    )
+    parser.add_argument(
         "--skip-xt3d-diagnostics",
         action="store_true",
         help="Skip the dedicated XT3D irregular-triangle diagnostic report.",
@@ -248,6 +272,7 @@ def main(argv: list[str] | None = None) -> int:
         validation_solvers=tuple(str(solver) for solver in args.validation_solvers),
         validation_regime=str(args.validation_regime),
         validation_timeout=int(args.validation_timeout),
+        include_intercomparison_regressions=not bool(args.skip_intercomparison_regressions),
         include_xt3d_diagnostics=not bool(args.skip_xt3d_diagnostics),
         include_gallery_refresh=not bool(args.skip_gallery_refresh),
         include_gallery_check=not bool(args.skip_gallery_check),

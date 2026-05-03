@@ -1953,7 +1953,10 @@ def _generate_calibration_case(spec: GalleryCaseSpec, source_root: Path) -> dict
         image = _build_validation_image_summary(
             category=spec.category,
             filename=configuration_filename,
-            caption=f"{spec.title} configuration summary used by the calibration gallery.",
+            caption=(
+                f"Calibration setup summary for {spec.title}: truth parameters, observation block, "
+                "search bounds, and weighting used by the inverse benchmark."
+            ),
             alt_text=f"{spec.title} configuration figure",
         )
         images_override.append(image)
@@ -1978,7 +1981,8 @@ def _generate_calibration_case(spec: GalleryCaseSpec, source_root: Path) -> dict
                 filename=landscape_filename,
                 caption=(
                     f"Objective landscape or pairwise projection for `{result.method_instance_name}` "
-                    f"on {spec.title}."
+                    f"on {spec.title}. It shows where evaluated candidates concentrate relative "
+                    "to the truth and the best retained solution."
                 ),
                 alt_text=f"{spec.title} objective landscape for {result.method_instance_name}",
             )
@@ -2000,7 +2004,7 @@ def _generate_calibration_case(spec: GalleryCaseSpec, source_root: Path) -> dict
                 filename=trace_filename,
                 caption=(
                     f"Objective trace for `{result.method_instance_name}` on {spec.title}, "
-                    "showing the evaluated models in order."
+                    "showing the chronology of evaluated models and whether the search keeps improving or plateaus."
                 ),
                 alt_text=f"{spec.title} objective trace for {result.method_instance_name}",
             )
@@ -2021,7 +2025,9 @@ def _generate_calibration_case(spec: GalleryCaseSpec, source_root: Path) -> dict
                 category=spec.category,
                 filename=posterior_filename,
                 caption=(
-                    f"Parameter distribution for `{result.method_instance_name}` on {spec.title}."
+                    f"Posterior or retained parameter distribution for `{result.method_instance_name}` "
+                    f"on {spec.title}. It shows the full spread of plausible calibrated values, "
+                    "not only the single best fit."
                 ),
                 alt_text=f"{spec.title} posterior distribution for {result.method_instance_name}",
             )
@@ -4703,15 +4709,13 @@ def _generate_calibration_intercomparison_summary(
         figure_paths = write_suite_figures(rows, output_root=output_root)
         for path in figure_paths:
             relative_parts = path.relative_to(source_root / "_static" / "capability_gallery").parts
+            caption, alt_text = _calibration_intercomparison_caption(path.stem)
             figures.append(
                 _build_validation_image_summary(
                     category=str(Path(*relative_parts[:-1]).as_posix()),
                     filename=path.name,
-                    caption=(
-                        f"Calibration intercomparison figure `{path.stem}` derived from the "
-                        "curated capability-gallery cases."
-                    ),
-                    alt_text=f"Calibration intercomparison figure {path.stem}",
+                    caption=caption,
+                    alt_text=alt_text,
                 )
             )
 
@@ -4783,6 +4787,15 @@ def _build_calibration_intercomparison_page(
     if figures:
         lines.extend(
             [
+                "How To Read These Summary Figures",
+                "---------------------------------",
+                "",
+                "- ``benchmark_target_success_rates`` tells you which methods reliably reach their declared success criterion in this benchmark family.",
+                "- ``benchmark_cost_vs_budget`` compares final objective quality at similar search effort, so it is the right place to judge efficiency under a fixed evaluation budget.",
+                "- ``benchmark_time_vs_cost`` separates methods that are numerically effective from methods that are merely cheap because they evaluate fewer candidates.",
+                "- ``benchmark_calibration_time_closure`` is a bookkeeping check: the reported calibration time should roughly match candidate runtime plus method overhead.",
+                "- ``benchmark_candidate_timing_breakdown`` shows whether time is spent in the solver itself or in framework overhead such as candidate preparation and scoring.",
+                "",
                 "Summary Figures",
                 "---------------",
                 "",
@@ -5992,6 +6005,14 @@ def _build_category_page(category_slug: str, cases: list[dict[str, Any]]) -> str
                 )
                 + ".",
                 "",
+                "How To Read These Pages",
+                "-----------------------",
+                "",
+                "- Start with the configuration figure on each case page to identify the truth parameters, observation block, search bounds, and weighting before looking at method performance.",
+                "- Then use the objective landscape and objective trace together: the landscape shows where evaluated candidates concentrate, while the trace shows when the search stabilizes or keeps improving.",
+                "- On distribution-valued methods, the posterior figure shows the full retained ensemble of plausible parameter values. Its spread matters as much as its peak because it reveals identifiability and uncertainty.",
+                "- Use the benchmark-family pages to compare methods across several inverse problems, then open the individual case pages when you need parameter-level interpretation and timing details.",
+                "",
             ]
         )
         if primary_families:
@@ -6079,6 +6100,39 @@ def _append_figure(
             f"{indent}   {image['caption']}",
             "",
         ]
+    )
+
+
+def _calibration_intercomparison_caption(stem: str) -> tuple[str, str]:
+    """Return a human-readable caption and alt text for suite summary figures."""
+    figure_map = {
+        "benchmark_target_success_rates": (
+            "Success rate by method across the selected calibration cases. Read this first to see which methods consistently reach their declared target within the configured evaluation budget.",
+            "Calibration summary figure showing target success rates by method across cases",
+        ),
+        "benchmark_cost_vs_budget": (
+            "Best objective cost reached by each method relative to the evaluation budget. Lower is better, so this figure compares solution quality at comparable search effort.",
+            "Calibration summary figure showing best objective cost versus evaluation budget",
+        ),
+        "benchmark_time_vs_cost": (
+            "Calibration wall-clock time versus best objective cost. Use it to compare the trade-off between final fit quality and total time spent to obtain it.",
+            "Calibration summary figure showing calibration time versus best objective cost",
+        ),
+        "benchmark_calibration_time_closure": (
+            "Closure check comparing total calibration time with the sum of candidate runtime and algorithm overhead. Large mismatches indicate timing-accounting issues rather than better calibration.",
+            "Calibration summary figure checking calibration time closure",
+        ),
+        "benchmark_candidate_timing_breakdown": (
+            "Mean per-candidate timing breakdown split into actualization, launcher preparation, runtime patching, simulation, output selection, and objective scoring. Use it to see where each method really spends time.",
+            "Calibration summary figure showing per-candidate timing breakdown",
+        ),
+    }
+    return figure_map.get(
+        stem,
+        (
+            f"Calibration intercomparison figure `{stem}` derived from the curated capability-gallery cases.",
+            f"Calibration intercomparison figure {stem}",
+        ),
     )
 
 
@@ -7378,6 +7432,10 @@ def _build_case_page(case: dict[str, Any]) -> str:
     reference_highlights = list(case.get("reference_highlights", []))
     equations_rst = list(case.get("equations_rst", []))
     next_steps = list(case.get("next_steps", []))
+    images = list(case.get("images", []))
+    has_posterior_figures = any(
+        "_posterior" in str(image.get("filename", "")) for image in images
+    )
     lines = [
         AUTO_GENERATED_COMMENT,
         "",
@@ -7399,6 +7457,22 @@ def _build_case_page(case: dict[str, Any]) -> str:
                 "",
             ]
         )
+    if str(case.get("category", "")) == "calibration":
+        lines.extend(
+            [
+                "Figure Reading Order",
+                "--------------------",
+                "",
+                "- Read the configuration figure first: it summarizes the truth parameters, observations, bounds, and weighting that define the inverse problem.",
+                "- Read the objective landscape next: it shows where the evaluated candidates cluster, whether the objective is sharply constrained, and where the best retained solution sits relative to the truth.",
+                "- Read the objective trace as the chronology of the search. It shows whether the method quickly stabilizes, improves gradually, or keeps wandering through flat regions.",
+            ]
+        )
+        if has_posterior_figures:
+            lines.append(
+                "- Read the posterior figure as the full retained parameter distribution, not as a single answer. A wide or multi-modal posterior indicates residual ambiguity even when one candidate has the lowest cost."
+            )
+        lines.append("")
     solver_runs = list(case.get("solver_runs", []))
     solver_display_name_map = {
         str(run.get("solver", "")): str(run.get("solver_display_name", run.get("solver", "")))
@@ -7406,7 +7480,7 @@ def _build_case_page(case: dict[str, Any]) -> str:
     }
     parameter_sections = _normalize_parameter_sections(case)
     if not solver_runs:
-        image_map = {image["filename"]: image for image in case["images"]}
+        image_map = {image["filename"]: image for image in images}
         lead_image_filenames = [
             str(filename).strip()
             for filename in list(case.get("metadata", {}).get("lead_image_filenames", []))
@@ -7432,7 +7506,7 @@ def _build_case_page(case: dict[str, Any]) -> str:
                 if single_filename:
                     rendered_filenames.add(single_filename)
         else:
-            for image in case["images"]:
+            for image in images:
                 if image["filename"] in rendered_filenames:
                     continue
                 _append_figure(lines, image)

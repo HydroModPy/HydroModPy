@@ -1,8 +1,8 @@
 # Nightly refresh of the generated artifacts committed for the Read the Docs
-# project. The workflow recomputes the versioned reports and capability-gallery
-# inputs, verifies that Sphinx still builds, then pushes only the generated
-# artifacts back to the target branch. Read the Docs rebuilds online docs from
-# that new commit.
+# project. The workflow runs the fast solver-intercomparison guard, recomputes
+# the versioned reports and capability-gallery inputs, verifies that Sphinx
+# still builds, then pushes only the generated artifacts back to the target
+# branch. Read the Docs rebuilds online docs from that new commit.
 #
 # Important: hosted CI runners are acceptable for structural artifacts, but
 # runtime-sensitive figures (for example wall-clock comparisons) will be more

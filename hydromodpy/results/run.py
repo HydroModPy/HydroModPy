@@ -221,6 +221,21 @@ class Run:
             timestep = n_ts + timestep
         return sz.read_field(variable, timestep, layer=layer)
 
+    def has_field(self, variable: str, *, subgroup: str | None = None) -> bool:
+        """Return true when ``variable`` is persisted in the simulation Zarr."""
+        sz = self._catalog.open_zarr(self._sim_id)
+        try:
+            if subgroup is not None:
+                target = sz.root.get(subgroup)
+                return target is not None and variable in target
+            for loc_name in (None, "derived", "budget"):
+                target = sz.root if loc_name is None else sz.root.get(loc_name)
+                if target is not None and variable in target:
+                    return True
+            return False
+        finally:
+            sz.close()
+
     def at(self, timestep: int = -1, layer: int | None = None) -> _AtAccessor:
         """Return a chainable accessor bound to ``(timestep, layer)``.
 
@@ -394,19 +409,49 @@ class Run:
         return arr
 
     def fields(self, variable: str) -> np.ndarray:
-        """Stack per-timestep rasters of ``variable`` as ``(n_t, nrow, ncol)``.
+        """Stack all timesteps of ``variable``.
 
-        Reshapes each flat cell array to the DEM grid and stacks the
-        ``n_timesteps`` frames. Only defined for regular-in-plan meshes
-        (``dis`` / ``disv``); raises for ``disu`` via ``run.grid``.
-        Values are returned raw (no masking or NaN substitution) -
-        combine with ``run.catchment_mask`` to mask inactive cells.
+        When the field lives on the geographic DEM grid, returns
+        ``(n_t, nrow, ncol)`` using ``run.grid.shape``. When a solver uses a
+        resampled structured mesh, returns the solver-grid shape recorded in
+        ``mesh.attrs['structured_shape']``. If no regular 2D shape is known
+        (for example a native DISV/Gmsh mesh), returns ``(n_t, n_cells)``.
         """
-        grid = self.grid
+        if self._load_row().get("mesh_topology") == "disu":
+            _ = self.grid
+
         n = self.n_timesteps or 1
-        return np.stack(
-            [np.asarray(self.field(variable, timestep=t)).reshape(grid.shape) for t in range(n)]
-        )
+        frames = [np.asarray(self.field(variable, timestep=t)).ravel() for t in range(n)]
+        field_size = int(frames[0].size)
+        shape = self._regular_shape_for_field_size(field_size)
+        if shape is None:
+            return np.stack(frames)
+        return np.stack([frame.reshape(shape) for frame in frames])
+
+    def _regular_shape_for_field_size(self, field_size: int) -> tuple[int, int] | None:
+        """Return the regular 2D shape for a field size, if one is known."""
+        try:
+            grid = self.grid
+        except RuntimeError:
+            grid = None
+        if grid is not None and int(np.prod(grid.shape)) == int(field_size):
+            return grid.shape
+
+        sz = self._catalog.open_zarr(self._sim_id)
+        try:
+            mesh = sz.root.get("mesh")
+            if mesh is None:
+                return None
+            structured_shape = mesh.attrs.get("structured_shape")
+            if structured_shape is None:
+                return None
+            shape = tuple(int(v) for v in structured_shape)
+        finally:
+            sz.close()
+
+        if len(shape) == 2 and shape[0] * shape[1] == int(field_size):
+            return shape
+        return None
 
     @cached_property
     def time_index(self) -> pd.DatetimeIndex:
@@ -577,6 +622,24 @@ class Run:
 
         return views.persistence(self, **kwargs)
 
+    def simulated_active_network_mask(self, **kwargs) -> np.ndarray:
+        """Lazy per-cell active-network mask from accumulation flux."""
+        from hydromodpy.results import views
+
+        return views.simulated_active_network_mask(self, **kwargs)
+
+    def simulated_active_network_metrics(self, **kwargs) -> dict[str, float | int | str]:
+        """Lazy scalar summary of active drainage occupancy from accumulation flux."""
+        from hydromodpy.results import views
+
+        return views.simulated_active_network_metrics(self, **kwargs)
+
+    def simulated_active_network_overlap_metrics(self, **kwargs) -> dict[str, float | int | str]:
+        """Lazy cell-overlap metrics against one persisted vector network role."""
+        from hydromodpy.results import views
+
+        return views.simulated_active_network_overlap_metrics(self, **kwargs)
+
     def catchment_mean(self, variable: str, **kwargs) -> pd.Series:
         """Lazy arithmetic mean of a cell variable over active cells."""
         from hydromodpy.results import views
@@ -604,10 +667,26 @@ class Run:
             caps.append("hydrograph")
 
         sz = self._catalog.open_zarr(self._sim_id)
-        if "concentration" in sz.root:
-            caps.append("concentration_map")
-        if "pathlines" in sz.root:
-            caps.append("particle_tracks")
+        try:
+            if "concentration" in sz.root:
+                caps.append("concentration_map")
+            if "pathlines" in sz.root:
+                caps.append("particle_tracks")
+            mesh = sz.root.get("mesh")
+            if (
+                mesh is not None
+                and "vertices" in mesh
+                and "face_node_connectivity" in mesh
+                and self.has_field("accumulation_flux")
+            ):
+                caps.append("simulated_active_network")
+                try:
+                    if self.has_hydrographic_network("reference"):
+                        caps.append("simulated_active_network_reference_overlay")
+                except Exception:
+                    pass
+        finally:
+            sz.close()
 
         try:
             available_roles = set(self.available_hydrographic_network_roles())

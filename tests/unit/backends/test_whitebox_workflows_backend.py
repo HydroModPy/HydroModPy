@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import importlib
 import os
+import subprocess
 import sys
 from pathlib import Path
 
@@ -22,6 +23,14 @@ from hydromodpy.spatial.delineation.whitebox_workflows_backend import (
 # The whitebox_workflows native binding is not safe under pytest-xdist fork
 # distribution. Keep every test in this module on the same worker.
 pytestmark = pytest.mark.xdist_group(name="whitebox_backend")
+_REPO_ROOT = Path(__file__).resolve().parents[3]
+
+
+@pytest.fixture(autouse=True)
+def _clear_whitebox_backend_cache_between_tests():
+    _get_cached_whitebox_backend.cache_clear()
+    yield
+    _get_cached_whitebox_backend.cache_clear()
 
 
 def _write_raster(path: Path, data: np.ndarray, *, nodata: float = -9999.0) -> None:
@@ -31,13 +40,38 @@ def _write_raster(path: Path, data: np.ndarray, *, nodata: float = -9999.0) -> N
         "height": int(data.shape[0]),
         "width": int(data.shape[1]),
         "count": 1,
-        "dtype": data.dtype,
+        "dtype": str(data.dtype),
         "crs": "EPSG:2154",
         "transform": from_origin(0.0, float(data.shape[0]), 1.0, 1.0),
         "nodata": nodata,
     }
     with rasterio.open(path, "w", **profile) as dst:
         dst.write(data, 1)
+
+
+def _run_helper_in_subprocess(helper_name: str, tmp_path: Path) -> None:
+    code = (
+        "import sys\n"
+        "from pathlib import Path\n"
+        "from tests.unit.backends.test_whitebox_workflows_backend "
+        f"import {helper_name}\n"
+        f"{helper_name}(Path(sys.argv[1]))\n"
+    )
+    env = os.environ.copy()
+    env["HYDROMODPY_WHITEBOX_VERBOSE"] = "1"
+    completed = subprocess.run(
+        [sys.executable, "-c", code, str(tmp_path)],
+        cwd=_REPO_ROOT,
+        env=env,
+        text=True,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.PIPE,
+        check=False,
+    )
+    assert completed.returncode == 0, (
+        f"{helper_name} failed with exit code {completed.returncode}\n"
+        f"stderr:\n{completed.stderr}"
+    )
 
 
 def _count_active_cells(path: Path) -> int:
@@ -106,7 +140,12 @@ def test_whitebox_tools_backend_module_is_no_longer_importable() -> None:
         raise AssertionError("legacy whitebox_tools_backend module should be removed")
 
 
+@pytest.mark.allow_subprocess
 def test_whitebox_workflows_backend_smoke_operations(tmp_path: Path) -> None:
+    _run_helper_in_subprocess("_exercise_whitebox_workflows_backend_smoke_operations", tmp_path)
+
+
+def _exercise_whitebox_workflows_backend_smoke_operations(tmp_path: Path) -> None:
     backend = get_whitebox_backend("whitebox_workflows")
 
     dem = tmp_path / "dem.tif"
@@ -273,7 +312,12 @@ def test_whitebox_workflows_backend_smoke_operations(tmp_path: Path) -> None:
     assert not gpd.read_file(streams_vector).empty
 
 
+@pytest.mark.allow_subprocess
 def test_whitebox_workflows_backend_in_memory_chain(tmp_path: Path) -> None:
+    _run_helper_in_subprocess("_exercise_whitebox_workflows_backend_in_memory_chain", tmp_path)
+
+
+def _exercise_whitebox_workflows_backend_in_memory_chain(tmp_path: Path) -> None:
     backend = get_whitebox_backend()
     dem = tmp_path / "dem.tif"
     polygon = tmp_path / "polygon.shp"

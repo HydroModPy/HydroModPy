@@ -4,6 +4,7 @@ import os
 import random
 import shutil
 import tempfile
+import uuid
 from pathlib import Path
 
 import numpy as np
@@ -30,6 +31,9 @@ _LAYER_TIMEOUTS_SECONDS = {
     "regression": 300.0,
     "e2e": 1800.0,
 }
+_SCRATCH_OWNER_ENV = "HYDROMODPY_TEST_SCRATCH_OWNER"
+_SCRATCH_OWNER_TOKEN = f"{os.getpid()}-{uuid.uuid4().hex}"
+_OWNS_TEST_SCRATCH = not os.environ.get(_SCRATCH_OWNER_ENV)
 
 
 def _resolve_test_scratch_root() -> Path:
@@ -55,6 +59,8 @@ for _path in (_TEST_SCRATCH_ROOT, _TEST_TMP_ROOT, _TEST_PYTEST_ROOT):
 # Configure scratch locations at import time so pytest internals and spawned
 # subprocesses inherit one repository-external root by default.
 os.environ.setdefault("HYDROMODPY_TEST_SCRATCH_ROOT", str(_TEST_SCRATCH_ROOT))
+if _OWNS_TEST_SCRATCH:
+    os.environ[_SCRATCH_OWNER_ENV] = _SCRATCH_OWNER_TOKEN
 os.environ.setdefault("PYTEST_DEBUG_TEMPROOT", str(_TEST_PYTEST_ROOT))
 os.environ.setdefault("TMPDIR", str(_TEST_TMP_ROOT))
 os.environ.setdefault("TMP", str(_TEST_TMP_ROOT))
@@ -67,6 +73,19 @@ def _ensure_test_scratch_dirs() -> None:
         path.mkdir(parents=True, exist_ok=True)
 
 
+def _ensure_pytest_basetemp(config: pytest.Config) -> None:
+    """Materialize pytest's temp root and recreate it if cleanup removed it."""
+    _ensure_test_scratch_dirs()
+    tmp_path_factory = getattr(config, "_tmp_path_factory", None)
+    if tmp_path_factory is None:
+        return
+    try:
+        tmp_path_factory.getbasetemp().mkdir(parents=True, exist_ok=True)
+    except FileNotFoundError:
+        _ensure_test_scratch_dirs()
+        tmp_path_factory.getbasetemp().mkdir(parents=True, exist_ok=True)
+
+
 def pytest_addoption(parser):
     """Add a CLI switch to refresh regression golden references."""
     parser.addoption(
@@ -75,6 +94,11 @@ def pytest_addoption(parser):
         default=False,
         help="Rewrite regression golden JSON files with current outputs.",
     )
+
+
+def pytest_configure(config: pytest.Config) -> None:
+    """Create pytest temp roots before the first fixture asks for ``tmp_path``."""
+    _ensure_pytest_basetemp(config)
 
 
 @pytest.fixture(scope="session")
@@ -195,11 +219,7 @@ def pytest_collection_modifyitems(config, items):
 
 def pytest_runtest_setup(item):
     """Keep pytest's shared temp roots available even after test-side cleanup."""
-    _ensure_test_scratch_dirs()
-    tmp_path_factory = getattr(item.session.config, "_tmp_path_factory", None)
-    if tmp_path_factory is None:
-        return
-    tmp_path_factory.getbasetemp().mkdir(parents=True, exist_ok=True)
+    _ensure_pytest_basetemp(item.session.config)
 
 
 def pytest_sessionfinish(session, exitstatus):
@@ -209,7 +229,7 @@ def pytest_sessionfinish(session, exitstatus):
     races.  Silently ignores missing or locked files.
     """
     is_xdist_worker = hasattr(session.config, "workerinput")
-    if is_xdist_worker:
+    if is_xdist_worker or not _OWNS_TEST_SCRATCH:
         return
     scratch = _TEST_SCRATCH_ROOT
     if scratch.exists():

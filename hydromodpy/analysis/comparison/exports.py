@@ -61,6 +61,66 @@ HYDROGRAPHIC_NETWORK_METRICS_FIELDS = [
     "hausdorff_distance_m",
 ]
 
+SIMULATED_ACTIVE_NETWORK_METRICS_FIELDS = [
+    "comparison_id",
+    "variant_id",
+    "variant_label",
+    "solver",
+    "mesh_label",
+    "mesh_mode",
+    "sim_id",
+    "run_name",
+    "run_folder",
+    "source_variable",
+    "threshold",
+    "persistence_threshold",
+    "n_timesteps",
+    "catchment_cell_count",
+    "active_cell_count_mean",
+    "active_cell_count_max",
+    "active_cell_count_last",
+    "active_cell_count_any",
+    "persistent_cell_count",
+    "perennial_cell_count",
+    "drainage_density_mean_pct",
+    "drainage_density_max_pct",
+    "drainage_density_last_pct",
+    "active_any_ratio",
+    "persistent_ratio",
+    "perennial_ratio",
+    "persistence_mean",
+    "persistence_max",
+]
+
+SIMULATED_ACTIVE_NETWORK_OVERLAP_METRICS_FIELDS = [
+    "comparison_id",
+    "variant_id",
+    "variant_label",
+    "solver",
+    "mesh_label",
+    "mesh_mode",
+    "sim_id",
+    "run_name",
+    "run_folder",
+    "network_role",
+    "source_variable",
+    "threshold",
+    "mode",
+    "persistence_threshold",
+    "timestep",
+    "buffer_m",
+    "catchment_cell_count",
+    "active_cell_count",
+    "network_cell_count",
+    "overlap_cell_count",
+    "missing_network_cell_count",
+    "extra_active_cell_count",
+    "network_coverage_ratio",
+    "active_precision_ratio",
+    "cell_f1_ratio",
+    "cell_jaccard_ratio",
+]
+
 
 def _as_float(value: Any) -> float | None:
     if value in ("", None):
@@ -595,6 +655,309 @@ def write_hydrographic_network_metrics_export(
     artifacts.append({"kind": "hydrographic_network_metrics_csv", "path": str(path)})
     logger.info(
         "Wrote hydrographic-network metrics export for %d variant(s) to %s",
+        len(rows),
+        path,
+    )
+    return artifacts, rows
+
+
+def write_simulated_active_network_metrics_export(
+    *,
+    comparison_id: str,
+    comparison_root: Path,
+    variant_summaries: Iterable[Mapping[str, Any]],
+    variable: str = "accumulation_flux",
+    threshold: float = 0.0,
+    persistence_threshold: float = 0.5,
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    """Write scalar metrics for the simulated active drainage network.
+
+    The export summarizes time-varying cell fields. It does not imply that a
+    persisted ``hydrographic_network_simulated_active`` vector feature exists.
+    """
+    from hydromodpy.analysis.comparison.runtime import discover_result_store
+
+    rows: list[dict[str, Any]] = []
+    skipped_variants: list[dict[str, Any]] = []
+    for summary in _completed_variant_summaries(variant_summaries):
+        variant_id = str(summary.get("id", ""))
+        config_path_raw = summary.get("config_path")
+        config_path = None if config_path_raw in (None, "") else Path(str(config_path_raw))
+        preferred_sim_id = summary.get("sim_id")
+        preferred_run_name = summary.get("run_name")
+        store, sim_id = discover_result_store(
+            config_path,
+            preferred_sim_id=(
+                None if preferred_sim_id in (None, "") else str(preferred_sim_id)
+            ),
+            preferred_name=(
+                None if preferred_run_name in (None, "") else str(preferred_run_name)
+            ),
+        )
+        if store is None or sim_id in (None, ""):
+            skipped_variants.append(
+                {
+                    "variant_id": variant_id,
+                    "reason": "result_store_unavailable",
+                    "source_variable": variable,
+                }
+            )
+            continue
+        try:
+            run = store[str(sim_id)]
+            metrics = run.simulated_active_network_metrics(
+                variable=variable,
+                threshold=threshold,
+                persistence_threshold=persistence_threshold,
+            )
+            row = {
+                "comparison_id": comparison_id,
+                "variant_id": variant_id,
+                "variant_label": str(summary.get("label", summary.get("id", ""))),
+                "solver": str(summary.get("solver", "")),
+                "mesh_label": str(summary.get("mesh_label", "")),
+                "mesh_mode": str(summary.get("mesh_mode", "")),
+                "sim_id": str(sim_id),
+                "run_name": str(summary.get("run_name", "")),
+                "run_folder": str(summary.get("run_folder", "")),
+            }
+            row.update(metrics)
+            rows.append(row)
+        except Exception as exc:
+            skipped_variants.append(
+                {
+                    "variant_id": variant_id,
+                    "reason": "simulated_active_metrics_failed",
+                    "source_variable": variable,
+                    "error_type": type(exc).__name__,
+                    "error_message": str(exc),
+                }
+            )
+            logger.debug(
+                "Skipping simulated-active network metrics export for variant '%s'.",
+                variant_id,
+                exc_info=True,
+            )
+        finally:
+            try:
+                store.close()
+            except Exception:
+                pass
+
+    artifacts: list[dict[str, Any]] = []
+    if skipped_variants:
+        skipped_path = comparison_root / "simulated_active_network_metrics_skipped.json"
+        skipped_payload = {
+            "comparison_id": comparison_id,
+            "source_variable": variable,
+            "threshold": float(threshold),
+            "persistence_threshold": float(persistence_threshold),
+            "skipped_variants": skipped_variants,
+        }
+        skipped_path.parent.mkdir(parents=True, exist_ok=True)
+        skipped_path.write_text(
+            json.dumps(skipped_payload, indent=2, ensure_ascii=True) + "\n",
+            encoding="utf-8",
+        )
+        artifacts.append(
+            {
+                "kind": "simulated_active_network_metrics_skipped_json",
+                "path": str(skipped_path),
+                "note": (
+                    f"{len(skipped_variants)} variant(s) skipped for simulated-active "
+                    "network metrics export."
+                ),
+            }
+        )
+        logger.info(
+            "Simulated-active network metrics export skipped %d variant(s): %s",
+            len(skipped_variants),
+            ", ".join(str(item.get("variant_id", "")) for item in skipped_variants),
+        )
+    if not rows:
+        return artifacts, rows
+
+    path = comparison_root / "simulated_active_network_metrics.csv"
+    _write_csv(path, rows, SIMULATED_ACTIVE_NETWORK_METRICS_FIELDS)
+    artifacts.append({"kind": "simulated_active_network_metrics_csv", "path": str(path)})
+    logger.info(
+        "Wrote simulated-active network metrics export for %d variant(s) to %s",
+        len(rows),
+        path,
+    )
+    return artifacts, rows
+
+
+def write_simulated_active_network_overlap_metrics_export(
+    *,
+    comparison_id: str,
+    comparison_root: Path,
+    variant_summaries: Iterable[Mapping[str, Any]],
+    network_role: str = "reference",
+    variable: str = "accumulation_flux",
+    threshold: float = 0.0,
+    mode: str = "persistent",
+    persistence_threshold: float = 0.5,
+    timestep: int | None = None,
+    buffer_m: float = 0.0,
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    """Write cell-overlap metrics between simulated-active cells and a vector role."""
+    from hydromodpy.analysis.comparison.runtime import discover_result_store
+
+    rows: list[dict[str, Any]] = []
+    skipped_variants: list[dict[str, Any]] = []
+    for summary in _completed_variant_summaries(variant_summaries):
+        variant_id = str(summary.get("id", ""))
+        config_path_raw = summary.get("config_path")
+        config_path = None if config_path_raw in (None, "") else Path(str(config_path_raw))
+        preferred_sim_id = summary.get("sim_id")
+        preferred_run_name = summary.get("run_name")
+        store, sim_id = discover_result_store(
+            config_path,
+            preferred_sim_id=(
+                None if preferred_sim_id in (None, "") else str(preferred_sim_id)
+            ),
+            preferred_name=(
+                None if preferred_run_name in (None, "") else str(preferred_run_name)
+            ),
+        )
+        if store is None or sim_id in (None, ""):
+            skipped_variants.append(
+                {
+                    "variant_id": variant_id,
+                    "reason": "result_store_unavailable",
+                    "source_variable": variable,
+                    "network_role": network_role,
+                }
+            )
+            continue
+        try:
+            run = store[str(sim_id)]
+            if not run.has_hydrographic_network(network_role):
+                skipped_variants.append(
+                    {
+                        "variant_id": variant_id,
+                        "reason": "missing_vector_network_role",
+                        "network_role": network_role,
+                        "available_roles": run.available_hydrographic_network_roles(),
+                        "source_variable": variable,
+                    }
+                )
+                continue
+            if not run.has_field(variable):
+                skipped_variants.append(
+                    {
+                        "variant_id": variant_id,
+                        "reason": "missing_simulated_active_field",
+                        "network_role": network_role,
+                        "source_variable": variable,
+                    }
+                )
+                continue
+            zarr_root = store.open_zarr(str(sim_id)).root
+            mesh = zarr_root.get("mesh")
+            if (
+                mesh is None
+                or "vertices" not in mesh
+                or "face_node_connectivity" not in mesh
+            ):
+                skipped_variants.append(
+                    {
+                        "variant_id": variant_id,
+                        "reason": "missing_plottable_mesh",
+                        "network_role": network_role,
+                        "source_variable": variable,
+                    }
+                )
+                continue
+            metrics = run.simulated_active_network_overlap_metrics(
+                network_role=network_role,
+                variable=variable,
+                threshold=threshold,
+                mode=mode,
+                persistence_threshold=persistence_threshold,
+                timestep=timestep,
+                buffer_m=buffer_m,
+            )
+            row = {
+                "comparison_id": comparison_id,
+                "variant_id": variant_id,
+                "variant_label": str(summary.get("label", summary.get("id", ""))),
+                "solver": str(summary.get("solver", "")),
+                "mesh_label": str(summary.get("mesh_label", "")),
+                "mesh_mode": str(summary.get("mesh_mode", "")),
+                "sim_id": str(sim_id),
+                "run_name": str(summary.get("run_name", "")),
+                "run_folder": str(summary.get("run_folder", "")),
+            }
+            row.update(metrics)
+            rows.append(row)
+        except Exception as exc:
+            skipped_variants.append(
+                {
+                    "variant_id": variant_id,
+                    "reason": "simulated_active_overlap_metrics_failed",
+                    "source_variable": variable,
+                    "network_role": network_role,
+                    "error_type": type(exc).__name__,
+                    "error_message": str(exc),
+                }
+            )
+            logger.debug(
+                "Skipping simulated-active overlap metrics export for variant '%s'.",
+                variant_id,
+                exc_info=True,
+            )
+        finally:
+            try:
+                store.close()
+            except Exception:
+                pass
+
+    artifacts: list[dict[str, Any]] = []
+    if skipped_variants:
+        skipped_path = comparison_root / "simulated_active_network_overlap_metrics_skipped.json"
+        skipped_payload = {
+            "comparison_id": comparison_id,
+            "network_role": network_role,
+            "source_variable": variable,
+            "threshold": float(threshold),
+            "mode": mode,
+            "persistence_threshold": float(persistence_threshold),
+            "timestep": timestep,
+            "buffer_m": float(buffer_m),
+            "skipped_variants": skipped_variants,
+        }
+        skipped_path.parent.mkdir(parents=True, exist_ok=True)
+        skipped_path.write_text(
+            json.dumps(skipped_payload, indent=2, ensure_ascii=True) + "\n",
+            encoding="utf-8",
+        )
+        artifacts.append(
+            {
+                "kind": "simulated_active_network_overlap_metrics_skipped_json",
+                "path": str(skipped_path),
+                "note": (
+                    f"{len(skipped_variants)} variant(s) skipped for simulated-active "
+                    "network overlap metrics export."
+                ),
+            }
+        )
+        logger.info(
+            "Simulated-active network overlap metrics export skipped %d variant(s): %s",
+            len(skipped_variants),
+            ", ".join(str(item.get("variant_id", "")) for item in skipped_variants),
+        )
+    if not rows:
+        return artifacts, rows
+
+    path = comparison_root / "simulated_active_network_overlap_metrics.csv"
+    _write_csv(path, rows, SIMULATED_ACTIVE_NETWORK_OVERLAP_METRICS_FIELDS)
+    artifacts.append(
+        {"kind": "simulated_active_network_overlap_metrics_csv", "path": str(path)}
+    )
+    logger.info(
+        "Wrote simulated-active network overlap metrics export for %d variant(s) to %s",
         len(rows),
         path,
     )
@@ -1283,4 +1646,6 @@ __all__ = (
     "write_hydrographic_network_metrics_export",
     "write_native_timeseries_exports",
     "write_observable_chronicle_exports",
+    "write_simulated_active_network_metrics_export",
+    "write_simulated_active_network_overlap_metrics_export",
 )

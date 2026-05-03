@@ -13,22 +13,22 @@ This diagram shows runtime inheritance and composition for process objects:
 Code map
 --------
 
-- ``hydromodpy/process/prototype/process_spatial.py``:
+- ``hydromodpy/physics/base/process_spatial.py``:
   abstract runtime base.
-- ``hydromodpy/process/flow/flow.py``:
+- ``hydromodpy/physics/flow/flow.py``:
   concrete flow runtime object.
-- ``hydromodpy/process/transport/transport.py``:
+- ``hydromodpy/physics/transport/transport.py``:
   concrete transport runtime object.
-- ``hydromodpy/process/prototype/*``:
+- ``hydromodpy/physics/base/*``:
   shared initial-condition, boundary-condition, and sink/source contracts.
 
 Recommended reading path
 ------------------------
 
-1. ``hydromodpy/process/prototype/process_spatial.py``
-2. ``hydromodpy/process/flow/flow.py``
-3. ``hydromodpy/process/transport/transport.py``
-4. one prototype payload file under ``hydromodpy/process/prototype/``
+1. ``hydromodpy/physics/base/process_spatial.py``
+2. ``hydromodpy/physics/flow/flow.py``
+3. ``hydromodpy/physics/transport/transport.py``
+4. one base payload file under ``hydromodpy/physics/base/``
 
 Diagram source
 --------------
@@ -43,8 +43,8 @@ Notes
 -----
 
 - ``Flow`` and ``Transport`` both inherit from ``ProcessSpatial``.
-- ``FlowInitialCondition`` inherits from prototype ``InitialCondition``.
-- Runtime boundary conditions stored by ``ProcessSpatial`` use prototype ``BoundaryCondition``.
+- ``FlowInitialCondition`` inherits from base ``InitialCondition``.
+- Runtime boundary conditions stored by ``ProcessSpatial`` use base ``BoundaryCondition``.
 - Runtime sink/source storage is generic (``dict[str, object]``), with process-specific payloads
   injected by child classes.
 - Recharge chronicle preparation stays outside this inheritance tree and is

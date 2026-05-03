@@ -32,6 +32,11 @@ tests/
 | `regression/extensive` | ≤ 30 min | Deeper end-to-end golden checks with heavier fixtures. | `pytest tests/regression/extensive/` |
 | `validation` | ≤ 30 min | Numerical results vs analytical / MMS references with documented tolerances. | `pytest tests/validation/` |
 
+`tests/regression/fast/intercomparison/` holds the PR-gated
+solver-to-solver locks. `tests/regression/extensive/intercomparison/` is
+reserved for nightly/weekly intercomparisons that are too expensive for the fast
+tier.
+
 ## Markers
 
 Declared in `tests/pytest.ini`:
@@ -71,6 +76,7 @@ pytest -m "regression and intercomparison" -q -n 1
 
 # Regression - extensive tier (serial)
 pytest tests/regression/extensive/ -q -n 1
+pytest tests/regression/extensive/intercomparison/ -q -n 1
 
 # Validation - all analytical cases
 pytest tests/validation/ -q

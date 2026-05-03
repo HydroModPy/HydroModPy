@@ -8,6 +8,7 @@ from pathlib import Path
 
 import pytest
 
+from hydromodpy.core.config.toml_loader import load_toml_with_base_config
 from hydromodpy.project import Project
 
 
@@ -44,6 +45,10 @@ def _write_overlay_config(
                 f'mesh_path = "{mesh_path.as_posix()}"',
                 f'bundle_dir = "{bundle_dir.as_posix()}"',
                 "",
+                "[simulation.results]",
+                "store = false",
+                "keep_solver_files = true",
+                "",
                 "[display]",
                 "show = false",
                 "save = false",
@@ -53,6 +58,26 @@ def _write_overlay_config(
         encoding="utf-8",
     )
     return config_path
+
+
+def _path_for_message(path: Path, repo_root: Path) -> str:
+    try:
+        return path.relative_to(repo_root).as_posix()
+    except ValueError:
+        return path.as_posix()
+
+
+def _require_complete_fixture_config(base_config: Path, repo_root: Path) -> None:
+    try:
+        load_toml_with_base_config(base_config)
+    except FileNotFoundError as exc:
+        missing_path = Path(exc.filename) if exc.filename is not None else None
+        missing = _path_for_message(missing_path, repo_root) if missing_path else str(exc)
+        pytest.skip(
+            f"Fixture {_path_for_message(base_config, repo_root)} inherits from "
+            f"missing base_config {missing}. Restore the full headwater 100km2 "
+            "PETSc fixture chain to re-enable this test."
+        )
 
 
 def _run_transient_real_case_summary(
@@ -71,6 +96,7 @@ def _run_transient_real_case_summary(
             f"Fixture {base_config.relative_to(repo_root)} is missing. "
             "Restore the headwater 100km2 PETSc fixtures to re-enable this test."
         )
+    _require_complete_fixture_config(base_config, repo_root)
     project_root = tmp_path / base_config.stem
     config_path = _write_overlay_config(
         tmp_path=tmp_path,

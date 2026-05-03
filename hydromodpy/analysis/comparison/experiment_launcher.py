@@ -27,6 +27,8 @@ from hydromodpy.analysis.comparison.exports import (
     write_hydrographic_network_metrics_export,
     write_native_timeseries_exports,
     write_observable_chronicle_exports,
+    write_simulated_active_network_metrics_export,
+    write_simulated_active_network_overlap_metrics_export,
 )
 from hydromodpy.analysis.comparison.metrics import (
     DETAIL_METRIC_FIELDS,
@@ -138,6 +140,22 @@ class SimulationComparisonLauncher:
             variant_summaries=variant_summaries,
         )
         data_artifacts.extend(hydrographic_artifacts)
+        simulated_active_artifacts, _simulated_active_rows = (
+            write_simulated_active_network_metrics_export(
+                comparison_id=str(comparison.comparison_id),
+                comparison_root=comparison_root,
+                variant_summaries=variant_summaries,
+            )
+        )
+        data_artifacts.extend(simulated_active_artifacts)
+        simulated_active_overlap_artifacts, _simulated_active_overlap_rows = (
+            write_simulated_active_network_overlap_metrics_export(
+                comparison_id=str(comparison.comparison_id),
+                comparison_root=comparison_root,
+                variant_summaries=variant_summaries,
+            )
+        )
+        data_artifacts.extend(simulated_active_overlap_artifacts)
         budget_artifacts, budget_rows = write_budget_exports(
             comparison_root=comparison_root,
             variant_summaries=variant_summaries,
@@ -284,7 +302,7 @@ class SimulationComparisonLauncher:
         )
         if not result.succeeded:
             summary["error_type"] = "ChildProcessError"
-            summary["error_message"] = f"hmp run exited with code {result.returncode}"
+            summary["error_message"] = _format_child_process_error(result)
         return summary
 
     def _reuse_child_summary(self, child: GeneratedChildConfig) -> dict[str, Any]:
@@ -447,6 +465,18 @@ class SimulationComparisonLauncher:
             except Exception as exc:
                 errors.append(f"could not remove {generated_dir}: {exc}")
         return errors
+
+
+def _format_child_process_error(result: ChildRunResult) -> str:
+    """Return a concise error message with enough child output to diagnose."""
+    message = f"hmp run exited with code {result.returncode}"
+    stderr = result.stderr.strip()
+    stdout = result.stdout.strip()
+    if stderr:
+        return f"{message}\nstderr tail:\n{stderr[-2000:]}"
+    if stdout:
+        return f"{message}\nstdout tail:\n{stdout[-2000:]}"
+    return message
 
 
 __all__ = ("SimulationComparisonLauncher",)
