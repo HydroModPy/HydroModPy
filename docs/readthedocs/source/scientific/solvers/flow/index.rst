@@ -28,7 +28,8 @@ Current Flow Solver Families
        structure: :doc:`modflow/index`.
    * - Boussinesq family
      - ``boussinesq``
-     - In-house shallow-groundwater finite-volume backend.
+     - In-house shallow-groundwater finite-volume backend. Internal
+       structure: :doc:`boussinesq/index`.
    * - Shared flow numerics
      - Applies to several flow solvers.
      - Mesh, discretization, vertical representation, and field-to-cell

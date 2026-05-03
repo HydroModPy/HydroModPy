@@ -4,17 +4,39 @@ MODFLOW Internals
 This section structures the MODFLOW-family documentation inside the
 ``flow`` process.
 
-The hierarchy is:
+The hierarchy is intentionally split into three first-class sub-categories:
 
-1. **common MODFLOW concepts**: governing equation, package semantics,
-   boundary-condition mapping, and shared method vocabulary;
-2. **backend-specific flow solvers**: MODFLOW 6 and MODFLOW-NWT;
-3. **comparison and method choice**: when the two MODFLOW paths differ and how
-   to interpret those differences;
-4. **worked cases**: concrete examples that show the resolved TOML, package
-   choices, and generated outputs;
-5. **transport coupling**: how MODFLOW flow results feed MODPATH, MT3DMS, or
-   MODFLOW 6 GWT.
+1. **common MODFLOW part**: governing equation, package semantics,
+   boundary-condition mapping, stress periods, and shared method vocabulary;
+2. **MODFLOW 6 version**: modern MODFLOW 6 GWF path for ``flow/modflow6``;
+3. **MODFLOW-NWT version**: legacy structured-grid path for
+   ``flow/modflownwt``.
+
+Other pages then compare, illustrate, or connect these three blocks to
+transport.
+
+Three Sub-Categories
+--------------------
+
+.. list-table::
+   :header-rows: 1
+   :widths: 24 34 42
+
+   * - Sub-category
+     - Contains
+     - Use it when
+   * - Common MODFLOW part
+     - Equation, package vocabulary, forcing and boundary semantics, shared
+       numerical assumptions.
+     - You need the concepts that apply to both MODFLOW 6 and MODFLOW-NWT.
+   * - MODFLOW 6 version
+     - GWF package stack, structured and DISV-style support, XT3D, GWT
+       compatibility, MODFLOW 6 examples.
+     - You run or interpret ``flow/modflow6``.
+   * - MODFLOW-NWT version
+     - Structured-grid route, historical package behavior, MODPATH and MT3DMS
+       compatibility, legacy comparison examples.
+     - You run or interpret ``flow/modflownwt``.
 
 Current MODFLOW Flow Backends
 -----------------------------
@@ -37,11 +59,27 @@ Current MODFLOW Flow Backends
      - ``transport/modpath`` and ``transport/mt3dms``.
 
 .. toctree::
+   :caption: Common MODFLOW part
    :maxdepth: 2
 
    common-concepts
+
+.. toctree::
+   :caption: MODFLOW 6 version
+   :maxdepth: 2
+
    modflow6
+
+.. toctree::
+   :caption: MODFLOW-NWT version
+   :maxdepth: 2
+
    modflownwt
+
+.. toctree::
+   :caption: Comparison, cases, and coupling
+   :maxdepth: 1
+
    comparison-and-method-choice
    worked-cases
    transport-coupling

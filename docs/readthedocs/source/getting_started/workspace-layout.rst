@@ -90,6 +90,44 @@ What each part means:
      - Common location for workflow-specific reports or comparison outputs.
      - Use subfolders per workflow or scenario.
 
+Workspace As Documentation Spine
+--------------------------------
+
+Use the workspace layout as the first index into the documentation. The folder
+you are inspecting usually tells you which page to read next.
+
+.. list-table::
+   :header-rows: 1
+   :widths: 24 38 38
+
+   * - Workspace area
+     - What it represents
+     - Where to continue
+   * - ``data/``
+     - External or prepared inputs: DEM, geology, hydrography, hydrometry,
+       recharge, intermittency, and other data families.
+     - Start with :doc:`data-overview-walkthrough`, then use
+       :doc:`../user_guide/workflows/overview` for the full overview workflow.
+   * - ``projects/<name>/``
+     - Human-authored intent: base TOMLs, overlays, scenario files, and
+       workflow declarations.
+     - Read :doc:`workflow-families` and
+       :doc:`../user_guide/workflows/index`.
+   * - ``projects/<name>/outputs/``
+     - Human-readable evidence: overview cards, calibration reports, testbed
+       manifests, comparison metrics, and figures.
+     - Read the workflow-specific page first, then the capability gallery page
+       for a stable example of the same artifact family.
+   * - ``simulations/``
+     - Persisted numerical results indexed by the simulation catalog.
+     - Read :doc:`simulation-walkthrough`,
+       :doc:`project-vs-run`, and
+       :doc:`../user_guide/workflows/simulation`.
+   * - ``docs/readthedocs/source/_static/capability_gallery/``
+     - Committed example evidence used by the online documentation.
+     - Read :doc:`reading-results-pages` and the relevant
+       :doc:`../capability_gallery/index` page.
+
 Scaffold Example
 ----------------
 
@@ -226,12 +264,11 @@ Different workflows write different kinds of artifacts.
    * - ``simulation``
      - Geographic context, data cache, mesh input, solver options.
      - Catalog row, solver outputs, Zarr store, figures.
-   * - ``mesh``
-     - Geographic context, geology and river constraints.
-     - Mesh file, exchange bundle, mesh summary JSON, QA figures.
    * - ``testbed``
-     - One base TOML plus method-variant overlays.
-     - Generated child configs, case manifest, metrics CSV, report.
+     - One base TOML plus method-variant overlays, including mesh or flow
+       child-runner sections.
+     - Generated child configs, case manifest, metrics CSV, report, and links
+       to child artifacts such as mesh QA outputs or simulation runs.
    * - ``calibration``
      - Base simulation config, observations, optimizer settings.
      - Calibration history, objective traces, optional promoted best runs.
@@ -303,31 +340,12 @@ Read this folder from top to bottom:
 3. observables and metrics contain the numeric comparison;
 4. figures summarize the visual differences.
 
-Illustrated Example: Mesh Workflow
-----------------------------------
-
-A mesh-only or mesh-heavy workflow typically produces:
-
-.. code-block:: text
-
-   outputs/mesh_demo/
-   |-- mesh_catchment.msh
-   |-- mesh_catchment_summary.json
-   |-- mesh_catchment.png
-   |-- mesh_catchment_regional.png
-   `-- mesh_exchange_bundle/
-
-The recommended reading order is:
-
-1. regional figure to verify location;
-2. local figure to verify boundary, rivers, geology, and mesh density;
-3. summary JSON to inspect counts and diagnostics;
-4. exchange bundle only when the mesh will feed a solver.
-
 Illustrated Example: Testbed Workflow
 -------------------------------------
 
-A mesh testbed wraps several mesh variants without running a simulation:
+A mesh testbed wraps several mesh variants without running a simulation. The
+testbed folder is the evidence layer; each case row points to the generated
+mesh artifacts for one variant.
 
 .. code-block:: text
 
@@ -346,7 +364,10 @@ Read this folder in the same evidence-first order:
 1. generated configs show the exact child variants;
 2. cases CSV shows which variants ran and where artifacts landed;
 3. metrics CSV carries the extracted robustness indicators;
-4. report Markdown gives the compact human summary.
+4. report Markdown gives the compact human summary;
+5. child mesh artifacts, when present, are inspected as supporting evidence:
+   regional figure, local mesh QA figure, summary JSON, and exchange bundle if
+   a solver will consume the mesh.
 
 A flow testbed has the same evidence layer, but each generated child is a
 normal simulation config:

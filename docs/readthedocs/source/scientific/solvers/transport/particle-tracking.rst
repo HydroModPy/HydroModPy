@@ -4,6 +4,12 @@ Particle Tracking
 Particle tracking answers questions about advective travel paths and travel
 times through a previously solved flow field.
 
+Read this family as:
+
+1. common transport dependency rules in :doc:`common-concepts`,
+2. particle-tracking family structure in :doc:`particle-tracking/index`,
+3. MODPATH-specific assumptions in :doc:`particle-tracking/modpath`.
+
 Current Solver
 --------------
 
@@ -18,6 +24,14 @@ Current Solver
      - Earlier ``flow/modflownwt`` run.
      - Tracks particles using the MODFLOW-NWT flow model as the velocity
        source.
+
+Internal Structure
+------------------
+
+.. toctree::
+   :maxdepth: 2
+
+   particle-tracking/index
 
 Typical Plan
 ------------
@@ -57,6 +71,7 @@ Scientific Reading Notes
 Related Pages
 -------------
 
+- :doc:`common-concepts`
 - :doc:`../flow/modflow-family`
 - :doc:`../../../architecture/solver/transport/modflow-transport-adapters`
 - :doc:`../solver-capability-matrix`

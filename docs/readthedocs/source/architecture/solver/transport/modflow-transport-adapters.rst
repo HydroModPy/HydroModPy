@@ -54,9 +54,21 @@ The transport adapters declare ``requires`` at class level. The planner checks
 that a compatible flow run appears earlier in the plan. It does not reorder
 the user declaration.
 
+Internal Architecture Pages
+---------------------------
+
+.. toctree::
+   :maxdepth: 1
+
+   shared-lifecycle
+   modpath-stack
+   mt3dms-stack
+   modflow6gwt-stack
+
 Related Scientific Pages
 ------------------------
 
 - :doc:`../../../scientific/solvers/transport/particle-tracking`
 - :doc:`../../../scientific/solvers/transport/concentration-transport`
+- :doc:`../../../scientific/solvers/transport/common-concepts`
 - :doc:`../process-solver-registry`

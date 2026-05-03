@@ -315,6 +315,7 @@ def test_write_simulated_active_network_metrics_export_writes_csv(tmp_path: Path
     assert row["active_cell_count_mean"] == pytest.approx(5.0 / 3.0)
     assert row["drainage_density_mean_pct"] == pytest.approx(100.0 * 5.0 / 9.0)
     assert row["persistent_cell_count"] == 1
+    assert row["always_active_cell_count"] == 1
 
 
 def test_write_simulated_active_network_metrics_export_reports_missing_field(

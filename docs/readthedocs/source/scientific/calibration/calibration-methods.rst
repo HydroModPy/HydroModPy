@@ -55,12 +55,26 @@ Method Selection At A Glance
      - Problems where the start point dominates the outcome.
    * - ``gp_mapping``
      - Learns a surrogate of the objective and refines promising regions.
-     - Expensive simulators and approximate uncertainty mapping.
-     - Exact posterior inference or non-positive parameter bounds.
+     - Expensive simulators where a surrogate-guided optimizer is useful.
+     - Posterior inference or interpreting the evaluated candidate cloud as uncertainty.
    * - ``da_mh_gp``
      - Runs a delayed-acceptance MCMC chain with exact second-stage correction.
      - Posterior sampling, uncertainty, identifiability, parameter trade-offs.
      - Fast point estimation only, or objectives that are not RMSE-based.
+
+Which Methods Return A Parameter Distribution?
+----------------------------------------------
+
+In the current implementation, only ``da_mh_gp`` should be interpreted as
+returning a parameter distribution. Its result is an MCMC sample after burn-in
+and thinning, with a posterior mode used as the representative best point.
+
+The other methods are point-estimation methods. ``random_search`` and
+``grid_search`` evaluate many candidates, ``cma_es`` adapts a search
+distribution, and ``gp_mapping`` fits a surrogate, but those internal or
+diagnostic point clouds are not posterior samples. They can support objective
+landscape plots, but they should not be documented as calibrated parameter
+distributions.
 
 Grid Search
 -----------
@@ -251,16 +265,16 @@ GP Mapping
 What HydroModPy Does
 ^^^^^^^^^^^^^^^^^^^^
 
-``gp_mapping`` is HydroModPy's approximate surrogate-based method. In practice,
-it follows this sequence:
+``gp_mapping`` is HydroModPy's surrogate-guided optimizer. In practice, the
+current adapter follows this sequence:
 
 1. draw an initial Latin-hypercube design;
 2. evaluate the true objective on that design;
 3. fit a surrogate to the negative objective;
-4. score candidate pools with an upper-confidence-bound style criterion;
+4. score candidates with expected improvement, or with a lower-confidence
+   bound when ``kappa`` is configured;
 5. evaluate the most promising candidates with the true model;
-6. build a posterior-like sample cloud by importance resampling on the
-   surrogate.
+6. return the best truly evaluated point.
 
 The returned best parameters always come from true model evaluations, not from
 the surrogate alone.
@@ -268,25 +282,28 @@ the surrogate alone.
 When It Fits
 ^^^^^^^^^^^^
 
-Use ``gp_mapping`` when each forward run is expensive and you want more than a
-single point estimate, but you do not need an exact Bayesian posterior.
+Use ``gp_mapping`` when each forward run is expensive and you want an adaptive
+global search that learns from previous evaluations.
 
 Typical situations:
 
 - a simulator such as MODFLOW 6 is costly enough that blind sampling is wasteful;
 - the parameter count is still modest;
-- you want both a best-fit model and a quick reading of plausible parameter
-  regions.
+- you want an objective-landscape diagnostic from a surrogate-guided search,
+  while keeping the final result as a point estimate.
 
 What To Expect
 ^^^^^^^^^^^^^^
 
 The method is usually more sample-efficient than brute-force global search when
-the surrogate is informative. It remains approximate:
+the surrogate is informative. It remains an optimizer:
 
-- the sample cloud is posterior-like, not an exact posterior sample;
+- the evaluated candidate cloud is useful for diagnostics, but it is not a
+  posterior sample;
 - the quality of the answer depends on surrogate quality;
-- the current implementation requires strictly positive parameter bounds.
+- the current implementation accepts legacy ``n_posterior_pool`` and
+  ``n_posterior_samples`` arguments for compatibility, but the adapter does
+  not currently export a scientifically interpretable parameter posterior.
 
 Platform And Backend Note
 ^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -356,8 +373,8 @@ competing one-shot choices.
    for a local simplex to be trusted.
 3. Use ``simplex`` or ``nelder_mead`` when the problem already looks local and
    a best-fit point estimate is the main target.
-4. Use ``gp_mapping`` when the simulator is expensive and you want a practical,
-   approximate uncertainty picture.
+4. Use ``gp_mapping`` when the simulator is expensive and you want a
+   surrogate-guided point estimator with objective-landscape diagnostics.
 5. Use ``da_mh_gp`` when the final deliverable is a posterior sample and an
    uncertainty statement, not only one calibrated optimum.
 

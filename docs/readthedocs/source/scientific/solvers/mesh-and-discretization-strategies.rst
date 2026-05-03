@@ -145,11 +145,12 @@ distinguished:
 The second case is not wrong by itself, but it must be understood as a
 parameterization choice rather than as exact geometry preservation.
 
-Why A Dedicated Mesh Workflow Exists
-------------------------------------
+Why Mesh Deserves A Dedicated Testbed
+-------------------------------------
 
-The dedicated mesh workflow is justified scientifically, not only
-operationally.
+Mesh work is now documented as a testbed subject because the scientific issue
+is usually a controlled discretization choice rather than a single
+preprocessing step.
 
 Its main roles are:
 
@@ -159,8 +160,11 @@ Its main roles are:
   discretizations,
 - to perform mesh QA before mixing numerical and physical interpretation.
 
-This is why the mesh workflow should not be described as mere preprocessing.
-It is where one of the most consequential modelling choices becomes explicit.
+This is why mesh generation should not be described as mere preprocessing. In
+the user guide, the recommended route is ``workflow = "testbed"`` with
+``subject = "mesh"`` and ``runner.type = "mesh_catchment"`` so that mesh
+resolution, constraints, and conformity can be documented as variants with
+explicit evidence.
 
 What To Check Before Solving
 ----------------------------

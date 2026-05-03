@@ -221,7 +221,7 @@ def test_build_case_page_renders_calibration_parameter_sections() -> None:
     assert ".. tab-set::" in page
     assert "synthetic__configuration.png" in page
     assert "synthetic__random_search_landscape.png" in page
-    assert "synthetic__random_search_posterior.png" in page
+    assert "synthetic__random_search_posterior.png" not in page
     assert "synthetic__random_search_trace.png" in page
 
 

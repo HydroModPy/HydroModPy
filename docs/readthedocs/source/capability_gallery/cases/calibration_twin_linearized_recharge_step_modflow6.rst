@@ -32,24 +32,17 @@ Figure Reading Order
 
          Objective landscape or pairwise projection for `random_search` on Calibration Twin: Recharge-Step K+Sy 1D. It shows where evaluated candidates concentrate relative to the truth and the best retained solution.
 
-      .. figure:: /_static/capability_gallery/calibration/calibration_twin_linearized_recharge_step_modflow6__random_search_posterior.png
-         :alt: Calibration Twin: Recharge-Step K+Sy 1D posterior distribution for random_search
-         :width: 100%
-
-         Posterior or retained parameter distribution for `random_search` on Calibration Twin: Recharge-Step K+Sy 1D. It shows the full spread of plausible calibrated values, not only the single best fit.
-
       .. figure:: /_static/capability_gallery/calibration/calibration_twin_linearized_recharge_step_modflow6__random_search_trace.png
          :alt: Calibration Twin: Recharge-Step K+Sy 1D objective trace for random_search
          :width: 100%
 
          Objective trace for `random_search` on Calibration Twin: Recharge-Step K+Sy 1D, showing the chronology of evaluated models and whether the search keeps improving or plateaus.
 
-      - metric=best_fit
-      - target=False
-      - best_fit=False
+      - success_metric=best_fit
+      - meets_target=False
+      - truth_recovered=False
       - cost=0.529874
       - n_eval=16
-      - distribution_samples=16
       - calibration=50.36 s
       - candidate runtime=50.2 s
       - algorithm overhead=0.1557 s
@@ -74,12 +67,11 @@ Figure Reading Order
 
          Objective trace for `cma_es` on Calibration Twin: Recharge-Step K+Sy 1D, showing the chronology of evaluated models and whether the search keeps improving or plateaus.
 
-      - metric=best_fit
-      - target=True
-      - best_fit=True
+      - success_metric=best_fit
+      - meets_target=True
+      - truth_recovered=True
       - cost=0.214878
       - n_eval=40
-      - distribution_samples=0
       - calibration=134.2 s
       - candidate runtime=133.7 s
       - algorithm overhead=0.505 s
@@ -104,12 +96,11 @@ Figure Reading Order
 
          Objective trace for `simplex` on Calibration Twin: Recharge-Step K+Sy 1D, showing the chronology of evaluated models and whether the search keeps improving or plateaus.
 
-      - metric=best_fit
-      - target=True
-      - best_fit=True
+      - success_metric=best_fit
+      - meets_target=True
+      - truth_recovered=True
       - cost=0.219763
       - n_eval=12
-      - distribution_samples=0
       - calibration=106.3 s
       - candidate runtime=106.1 s
       - algorithm overhead=0.1661 s
@@ -128,24 +119,17 @@ Figure Reading Order
 
          Objective landscape or pairwise projection for `gp_mapping` on Calibration Twin: Recharge-Step K+Sy 1D. It shows where evaluated candidates concentrate relative to the truth and the best retained solution.
 
-      .. figure:: /_static/capability_gallery/calibration/calibration_twin_linearized_recharge_step_modflow6__gp_mapping_posterior.png
-         :alt: Calibration Twin: Recharge-Step K+Sy 1D posterior distribution for gp_mapping
-         :width: 100%
-
-         Posterior or retained parameter distribution for `gp_mapping` on Calibration Twin: Recharge-Step K+Sy 1D. It shows the full spread of plausible calibrated values, not only the single best fit.
-
       .. figure:: /_static/capability_gallery/calibration/calibration_twin_linearized_recharge_step_modflow6__gp_mapping_trace.png
          :alt: Calibration Twin: Recharge-Step K+Sy 1D objective trace for gp_mapping
          :width: 100%
 
          Objective trace for `gp_mapping` on Calibration Twin: Recharge-Step K+Sy 1D, showing the chronology of evaluated models and whether the search keeps improving or plateaus.
 
-      - metric=best_fit_or_distribution
-      - target=True
-      - best_fit=True
+      - success_metric=best_fit_or_distribution
+      - meets_target=True
+      - truth_recovered=True
       - cost=0.320649
       - n_eval=16
-      - distribution_samples=16
       - calibration=74.27 s
       - candidate runtime=68.21 s
       - algorithm overhead=6.054 s
@@ -176,12 +160,12 @@ Figure Reading Order
 
          Objective trace for `da_mh_gp` on Calibration Twin: Recharge-Step K+Sy 1D, showing the chronology of evaluated models and whether the search keeps improving or plateaus.
 
-      - metric=best_fit_or_distribution
-      - target=True
-      - best_fit=True
+      - success_metric=best_fit_or_distribution
+      - meets_target=True
+      - truth_recovered=True
       - cost=2.22364
       - n_eval=72
-      - distribution_samples=72
+      - posterior_samples=72
       - calibration=310.1 s
       - candidate runtime=300.9 s
       - algorithm overhead=9.273 s
@@ -221,7 +205,6 @@ Key Metrics
 
 - Methods: 5
 - Display method: gp_mapping
-- Distribution samples: 16
 - Calibration total: 74.27 s
 - Session prep: 78.49 s
 - Candidate runtime: 68.21 s
@@ -320,23 +303,23 @@ Methods And Timing
      - Source
    * - ``random_search``
      - Method result summary including target status, evaluation count, total time, and mean per-model actualize / launcher / simulation / objective timings.
-     - target=false, cost=0.529874, n_eval=16, distribution_samples=16, calib_s=50.3573, candidate_runtime_s=50.2016, algorithm_overhead_s=0.155745, actualize_s=0.231356, launcher_prep_s=0.231356, runtime_patch_s=0, model_sim_s=2.90624, output_select_s=0, objective_score_s=0
+     - meets_target=false, cost=0.529874, n_eval=16, calib_s=50.3573, candidate_runtime_s=50.2016, algorithm_overhead_s=0.155745, actualize_s=0.231356, launcher_prep_s=0.231356, runtime_patch_s=0, model_sim_s=2.90624, output_select_s=0, objective_score_s=0
      - ``docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_linearized_recharge_step_modflow6_summary.json``
    * - ``cma_es``
      - Method result summary including target status, evaluation count, total time, and mean per-model actualize / launcher / simulation / objective timings.
-     - target=true, cost=0.214878, n_eval=40, distribution_samples=0, calib_s=134.22, candidate_runtime_s=133.715, algorithm_overhead_s=0.504982, actualize_s=0.233398, launcher_prep_s=0.233398, runtime_patch_s=0, model_sim_s=3.10947, output_select_s=0, objective_score_s=0
+     - meets_target=true, cost=0.214878, n_eval=40, calib_s=134.22, candidate_runtime_s=133.715, algorithm_overhead_s=0.504982, actualize_s=0.233398, launcher_prep_s=0.233398, runtime_patch_s=0, model_sim_s=3.10947, output_select_s=0, objective_score_s=0
      - ``docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_linearized_recharge_step_modflow6_summary.json``
    * - ``simplex``
      - Method result summary including target status, evaluation count, total time, and mean per-model actualize / launcher / simulation / objective timings.
-     - target=true, cost=0.219763, n_eval=12, distribution_samples=0, calib_s=106.26, candidate_runtime_s=106.094, algorithm_overhead_s=0.166063, actualize_s=0.343487, launcher_prep_s=0.343487, runtime_patch_s=0, model_sim_s=8.49768, output_select_s=0, objective_score_s=0
+     - meets_target=true, cost=0.219763, n_eval=12, calib_s=106.26, candidate_runtime_s=106.094, algorithm_overhead_s=0.166063, actualize_s=0.343487, launcher_prep_s=0.343487, runtime_patch_s=0, model_sim_s=8.49768, output_select_s=0, objective_score_s=0
      - ``docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_linearized_recharge_step_modflow6_summary.json``
    * - ``gp_mapping``
      - Method result summary including target status, evaluation count, total time, and mean per-model actualize / launcher / simulation / objective timings.
-     - target=true, cost=0.320649, n_eval=16, distribution_samples=16, calib_s=74.2689, candidate_runtime_s=68.2146, algorithm_overhead_s=6.05423, actualize_s=0.224947, launcher_prep_s=0.224947, runtime_patch_s=0, model_sim_s=4.03847, output_select_s=0, objective_score_s=0
+     - meets_target=true, cost=0.320649, n_eval=16, calib_s=74.2689, candidate_runtime_s=68.2146, algorithm_overhead_s=6.05423, actualize_s=0.224947, launcher_prep_s=0.224947, runtime_patch_s=0, model_sim_s=4.03847, output_select_s=0, objective_score_s=0
      - ``docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_linearized_recharge_step_modflow6_summary.json``
    * - ``da_mh_gp``
      - Method result summary including target status, evaluation count, total time, and mean per-model actualize / launcher / simulation / objective timings.
-     - target=true, cost=2.22364, n_eval=72, distribution_samples=72, calib_s=310.144, candidate_runtime_s=300.871, algorithm_overhead_s=9.2731, actualize_s=0.296197, launcher_prep_s=0.296197, runtime_patch_s=0, model_sim_s=3.88257, output_select_s=0, objective_score_s=0
+     - meets_target=true, cost=2.22364, n_eval=72, posterior_samples=72, calib_s=310.144, candidate_runtime_s=300.871, algorithm_overhead_s=9.2731, actualize_s=0.296197, launcher_prep_s=0.296197, runtime_patch_s=0, model_sim_s=3.88257, output_select_s=0, objective_score_s=0
      - ``docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_linearized_recharge_step_modflow6_summary.json``
 
 Displayed Metrics
@@ -357,10 +340,6 @@ Displayed Metrics
    * - ``display_method_name``
      - Metric surfaced on the gallery page for the selected display method.
      - gp_mapping
-     - ``docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_linearized_recharge_step_modflow6_summary.json``
-   * - ``model_distribution_sample_count``
-     - Metric surfaced on the gallery page for the selected display method.
-     - 16
      - ``docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_linearized_recharge_step_modflow6_summary.json``
    * - ``calibration_time_seconds``
      - Metric surfaced on the gallery page for the selected display method.
@@ -430,14 +409,12 @@ Artifacts
 - ``docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_linearized_recharge_step_modflow6__configuration.png``
 - ``docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_linearized_recharge_step_modflow6__random_search_landscape.png``
 - ``docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_linearized_recharge_step_modflow6__random_search_trace.png``
-- ``docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_linearized_recharge_step_modflow6__random_search_posterior.png``
 - ``docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_linearized_recharge_step_modflow6__cma_es_landscape.png``
 - ``docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_linearized_recharge_step_modflow6__cma_es_trace.png``
 - ``docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_linearized_recharge_step_modflow6__simplex_landscape.png``
 - ``docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_linearized_recharge_step_modflow6__simplex_trace.png``
 - ``docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_linearized_recharge_step_modflow6__gp_mapping_landscape.png``
 - ``docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_linearized_recharge_step_modflow6__gp_mapping_trace.png``
-- ``docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_linearized_recharge_step_modflow6__gp_mapping_posterior.png``
 - ``docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_linearized_recharge_step_modflow6__da_mh_gp_landscape.png``
 - ``docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_linearized_recharge_step_modflow6__da_mh_gp_trace.png``
 - ``docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_linearized_recharge_step_modflow6__da_mh_gp_posterior.png``

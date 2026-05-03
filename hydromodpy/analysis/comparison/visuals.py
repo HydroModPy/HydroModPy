@@ -414,6 +414,59 @@ def _series_style(observable_name: str) -> dict[str, Any]:
     return {"linewidth": 1.8, "markersize": 3.0, "marker": "o"}
 
 
+def _surface_reference_lines(
+    rows: Iterable[Mapping[str, Any]],
+) -> list[tuple[str, str, float]]:
+    """Return stable surface-elevation reference lines for point plots."""
+    grouped: dict[tuple[str, str], list[float]] = {}
+    for row in rows:
+        top = _safe_float(row.get("surface_top_m"))
+        if top is None:
+            continue
+        key = (
+            str(row.get("variant_id", "")),
+            str(row.get("variant_label", row.get("variant_id", ""))),
+        )
+        grouped.setdefault(key, []).append(top)
+    lines: list[tuple[str, str, float]] = []
+    for (variant_id, variant_label), values in sorted(grouped.items()):
+        finite = [value for value in values if math.isfinite(value)]
+        if not finite:
+            continue
+        lines.append((variant_id, variant_label, float(np.nanmedian(finite))))
+    if len(lines) <= 1:
+        return lines
+    top_values = np.asarray([line[2] for line in lines], dtype=float)
+    if np.nanmax(top_values) - np.nanmin(top_values) <= 0.05:
+        return [("surface", "Surface", float(np.nanmean(top_values)))]
+    return lines
+
+
+def _plot_surface_reference_lines(ax: Any, rows: Iterable[Mapping[str, Any]]) -> int:
+    count = 0
+    for variant_id, variant_label, top in _surface_reference_lines(rows):
+        if variant_id == "surface":
+            color = "#111827"
+            label = "Surface"
+        else:
+            color = _solver_color(variant_id)
+            label = (
+                "Surface "
+                + _display_variant_label(variant_id=variant_id, variant_label=variant_label)
+            )
+        ax.axhline(
+            top,
+            color=color,
+            linestyle=(0, (5, 3)),
+            linewidth=1.15,
+            alpha=0.72,
+            label=label,
+            zorder=1,
+        )
+        count += 1
+    return count
+
+
 def _safe_config_payload(config_path: Path | None) -> Mapping[str, Any]:
     if config_path is None:
         return {}
@@ -1560,6 +1613,7 @@ def _write_timeseries_figure(
     if not ax.lines:
         plt.close(figure)
         return False
+    _plot_surface_reference_lines(ax, grouped_rows)
     ax.set_xlabel(x_label, fontsize=_LABEL_FONT_SIZE)
     ax.set_ylabel(unit or "value", fontsize=_LABEL_FONT_SIZE)
     ax.set_title(_pretty_label(observable_name), fontsize=_TITLE_FONT_SIZE, pad=8)
@@ -1695,6 +1749,9 @@ def _write_point_dashboard(
     tick_positions: list[float] = []
     for index, observable_name in enumerate(plotted_observables):
         ax = axes_flat[index]
+        observable_rows = [
+            row for row in point_rows if str(row.get("observable", "")) == observable_name
+        ]
         for (variant_id, variant_label), points in sorted(grouped.get(observable_name, {}).items()):
             ordered = sorted(points, key=lambda item: item[0])
             if len(ordered) < 2:
@@ -1710,6 +1767,7 @@ def _write_point_dashboard(
                 label=_display_variant_label(variant_id=variant_id, variant_label=variant_label),
                 **style,
             )
+        _plot_surface_reference_lines(ax, observable_rows)
         ax.set_title(
             _pretty_label(observable_name), fontsize=_PANEL_TITLE_FONT_SIZE, pad=5, loc="left"
         )

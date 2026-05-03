@@ -21,3 +21,4 @@ It is the right place for:
    forcing-time-aggregation-and-first-clim
    recharge-and-surface-exchange-semantics
    stream-ocean-and-drainage-semantics
+   simulated-active-network

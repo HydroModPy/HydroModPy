@@ -28,7 +28,8 @@ The canonical role already exists in the type contract:
 - ``HydrographicNetworks`` already has one optional ``simulated_active`` slot.
 - ``Run.available_hydrographic_network_roles()`` already knows about that role.
 
-What is missing today is not the name, but the population path:
+What is missing today is not the name, and not the cell-field population path,
+but the final canonical vector population path:
 
 - no workflow step currently writes a persisted
   ``hydrographic_network_simulated_active`` geographic feature,
@@ -36,6 +37,11 @@ What is missing today is not the name, but the population path:
   aggregation window should define that role,
 - no display figure currently treats the simulated-active network as a stored
   canonical line network.
+
+The computed cell-field path is implemented. HydroModPy can store positive
+``outflow_drain``, route it to ``accumulation_flux``, expose computed active
+masks, and render active-network cell-map figures when the run carries a
+plottable mesh.
 
 HydroModPy does now expose a conservative computed API layer:
 
@@ -49,6 +55,30 @@ These APIs compute cell masks, persistence maps, and scalar metrics from the
 persisted ``accumulation_flux`` field without declaring that a canonical vector
 feature exists.
 
+Perennial, Persistent, Permanent
+--------------------------------
+
+The terminology must stay explicit because three related ideas are easy to
+confuse:
+
+- ``permanent`` describes the model regime or scenario: a representative
+  steady-state/permanent flow computation.
+- ``persistent`` describes a transient occupancy rule: a cell is active for at
+  least a chosen fraction of timesteps, for example 50% or 80%.
+- ``always_active`` describes a stricter transient occupancy rule: a cell is
+  active at every stored timestep of the analysed window.
+
+HydroModPy keeps ``perennial`` as a backward-compatible alias for
+``always_active`` in the computed API, but it should not be interpreted as a
+true hydrological perennial-network definition. A hydrologically perennial
+simulated network should preferably be defined from a representative
+permanent/steady-state run, then compared to ``reference`` with
+``run.simulated_active_network_overlap_metrics(...)`` or visualized with
+``simulated_active_network_reference_overlay``.
+
+This avoids making a one-year transient chronicle, its spin-up, or an arbitrary
+drought period define what is meant by "perennial".
+
 What Already Exists In The Simulation Outputs
 ---------------------------------------------
 
@@ -61,19 +91,41 @@ Derived fields persisted in the simulation catalog
 The main ingredients are in
 ``hydromodpy/simulation/extraction/extractors/derived.py``:
 
+- ``outflow_drain``
+  - positive drain outflow per cell,
+  - summed over model layers,
+  - stored under ``derived/outflow_drain``,
+  - computed per timestep,
+  - normalized from raw MODFLOW budget signs where groundwater outflow may be
+    stored as a negative cell-budget contribution.
 - ``accumulation_flux``
-  - routed drain flux on the drainage network,
+  - downstream accumulation of positive drain outflow,
   - stored under ``derived/accumulation_flux``,
   - computed per timestep,
-  - routed with Whitebox D8 over ``mesh/surface_top`` when available,
-  - falls back to ``abs(drn)`` per cell when routing is unavailable.
-- ``outflow_drain``
-  - signed drain outflow per cell,
-  - stored under ``derived/outflow_drain``,
-  - also computed per timestep.
+  - routed with structured D8 support when a regular raster route is available,
+  - routed on mesh face connectivity for MODFLOW 6 / DISV-style supports when
+    topology is present,
+  - falls back to local positive ``outflow_drain`` when routing is unavailable.
 
 Those fields are persisted as cell arrays in the Zarr run store, not as
 geographic vector features.
+
+MODFLOW 6 mesh support
+^^^^^^^^^^^^^^^^^^^^^^
+
+The MODFLOW 6 output adapter now writes enough mesh topology for the active
+network view to be displayed on the solver support:
+
+- ``mesh/vertices``,
+- ``mesh/face_node_connectivity``,
+- ``mesh/surface_top``,
+- ``mesh/z_interfaces``,
+- ``mesh.attrs["structured_shape"]`` when a regular 2D solver shape can be
+  inferred.
+
+This matters when the MODFLOW 6 solver grid is not the same shape as the
+geographic DEM grid. In that case ``Run.fields("accumulation_flux")`` uses the
+solver-grid shape when it is known, instead of forcing a DEM reshape.
 
 Lazy result views already built on top of those fields
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -84,14 +136,17 @@ Lazy result views already built on top of those fields
   ``accumulation_flux``; useful as one occupancy metric of the active stream
   network.
 - ``run.persistence(variable="accumulation_flux")``: per-cell fraction of
-  timesteps above a threshold; useful for perennial vs intermittent behavior.
+  timesteps above a threshold; useful for transient persistent/intermittent
+  behavior.
 - ``run.simulated_active_network_mask()``: per-cell active-network view with
   explicit modes:
 
   - ``last`` for one timestep snapshot,
   - ``any`` for cells active at least once,
   - ``persistent`` for cells active above a declared persistence threshold,
-  - ``perennial`` for cells active at every timestep,
+  - ``always_active`` for cells active at every timestep of the analysed
+    transient window,
+  - ``perennial`` as a legacy alias for ``always_active``,
   - ``persistence`` for the continuous active-time fraction.
 
 - ``run.simulated_active_network_metrics()``: scalar occupancy summary over the
@@ -174,15 +229,14 @@ network:
   ``hydrographic_network_simulated_active``,
 - no vector shapefile or GeoDataFrame contract built automatically from
   ``accumulation_flux``,
-- no comparison helper between ``simulated_active`` and
-  ``reference/generated``,
 - no stable vectorization contract for choosing one timestep or one aggregation
   window,
 - no explicit distinction yet between:
 
   - instantaneous active network,
   - seasonal or event-specific active network,
-  - persistent or perennial active network.
+  - persistent transient active network,
+  - permanent-flow perennial active network.
 
 This is the main reason why the role exists in the class contract but stays
 empty in practice.
@@ -269,6 +323,8 @@ starting candidates are:
 
 - one thresholded snapshot at a declared timestep or season,
 - one persistence-based mask over the full simulation or one declared year.
+- one permanent/steady-state scenario with representative recharge, used as
+  the preferred basis for a simulated perennial network.
 
 That would avoid mixing two questions:
 
@@ -300,7 +356,8 @@ Natural next metrics after a canonical active-network representation exists:
 - missing and extra active branches,
 - precision / recall / F1 on raster occupancy,
 - Hausdorff-like distance for vectorized active lines,
-- seasonal persistence classes such as perennial vs intermittent branches.
+- seasonal persistence classes such as persistent vs intermittent branches,
+  separate from permanent-flow perennial behavior.
 
 Open Design Questions
 ---------------------
@@ -325,6 +382,7 @@ Until those questions are fixed, the safest position is:
 Related reading
 ---------------
 
+- :doc:`../../scientific/hydrology/simulated-active-network`
 - :doc:`mental-model-and-design-choices`
 - :doc:`hydrographic-network-uml-diagrams`
 - :doc:`../../getting_started/comparison-workflow`

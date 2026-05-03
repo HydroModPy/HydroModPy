@@ -29,6 +29,7 @@ from .brutsaert_reference import (
 _SOLVER_DISPLAY_NAMES = {
     "modflownwt": "MODFLOW-NWT",
     "modflow6": "MODFLOW 6",
+    "modflow6_irregular_tri": "MODFLOW 6 irregular triangles",
     "boussinesq": "Boussinesq",
 }
 
@@ -301,11 +302,22 @@ def build_brutsaert_recession_comparison(
     head_observable_name = str(output_cfg.get("head_observable_name", "")).strip()
     row_spread = 0.0
     if head_observable_name:
+        expected_head_shape = None
+        expected_shape_by_solver = output_cfg.get("expected_spatial_shape_by_solver", {})
+        if isinstance(expected_shape_by_solver, dict) and solver_name in expected_shape_by_solver:
+            expected_head_shape = tuple(expected_shape_by_solver[solver_name])
+        elif solver_name == "modflow6_irregular_tri":
+            geometry_cfg = dict(case_metadata.get("geometry", {}))
+            nx = int(geometry_cfg.get("nx", 0))
+            ny = int(geometry_cfg.get("ny", 0))
+            if nx > 0 and ny > 0:
+                expected_head_shape = (ny, nx)
         _, heads_all = load_time_series_fields(
             postprocess_dir=result.postprocess_dir,
             store=result.store,
             sim_id=result.sim_id,
             observable_name=head_observable_name,
+            expected_spatial_shape=expected_head_shape,
         )
         heads = np.asarray(heads_all, dtype=float)
         heads = heads[warmup_periods:]

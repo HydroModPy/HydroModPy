@@ -70,9 +70,9 @@ Representative Results
    :alt: Calibration posterior distribution for a distribution-valued method
    :width: 100%
 
-   When a method returns a distribution rather than a single best point, the
-   full posterior or ensemble must stay visible. This is the figure that shows
-   the complete distribution, not only the best-fit sample.
+   ``da_mh_gp`` is currently the built-in method whose result is a parameter
+   distribution. Its posterior figure shows the complete retained sample, not
+   only the posterior mode or the best-fit candidate.
 
 Minimal Shape
 -------------

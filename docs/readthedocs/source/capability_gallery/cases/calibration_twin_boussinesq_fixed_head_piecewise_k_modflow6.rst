@@ -14,7 +14,6 @@ Figure Reading Order
 - Read the configuration figure first: it summarizes the truth parameters, observations, bounds, and weighting that define the inverse problem.
 - Read the objective landscape next: it shows where the evaluated candidates cluster, whether the objective is sharply constrained, and where the best retained solution sits relative to the truth.
 - Read the objective trace as the chronology of the search. It shows whether the method quickly stabilizes, improves gradually, or keeps wandering through flat regions.
-- Read the posterior figure as the full retained parameter distribution, not as a single answer. A wide or multi-modal posterior indicates residual ambiguity even when one candidate has the lowest cost.
 
 .. figure:: /_static/capability_gallery/calibration/calibration_twin_boussinesq_fixed_head_piecewise_k_modflow6__configuration.png
    :alt: Calibration Twin: Piecewise-K 1D configuration figure
@@ -32,24 +31,17 @@ Figure Reading Order
 
          Objective landscape or pairwise projection for `random_search_seed017` on Calibration Twin: Piecewise-K 1D. It shows where evaluated candidates concentrate relative to the truth and the best retained solution.
 
-      .. figure:: /_static/capability_gallery/calibration/calibration_twin_boussinesq_fixed_head_piecewise_k_modflow6__random_search_seed017_posterior.png
-         :alt: Calibration Twin: Piecewise-K 1D posterior distribution for random_search_seed017
-         :width: 100%
-
-         Posterior or retained parameter distribution for `random_search_seed017` on Calibration Twin: Piecewise-K 1D. It shows the full spread of plausible calibrated values, not only the single best fit.
-
       .. figure:: /_static/capability_gallery/calibration/calibration_twin_boussinesq_fixed_head_piecewise_k_modflow6__random_search_seed017_trace.png
          :alt: Calibration Twin: Piecewise-K 1D objective trace for random_search_seed017
          :width: 100%
 
          Objective trace for `random_search_seed017` on Calibration Twin: Piecewise-K 1D, showing the chronology of evaluated models and whether the search keeps improving or plateaus.
 
-      - metric=distribution
-      - target=True
-      - best_fit=False
+      - success_metric=distribution
+      - meets_target=True
+      - truth_recovered=False
       - cost=0.0451974
       - n_eval=48
-      - distribution_samples=48
       - calibration=28.63 s
       - candidate runtime=28.21 s
       - algorithm overhead=0.4188 s
@@ -68,24 +60,17 @@ Figure Reading Order
 
          Objective landscape or pairwise projection for `random_search_seed029` on Calibration Twin: Piecewise-K 1D. It shows where evaluated candidates concentrate relative to the truth and the best retained solution.
 
-      .. figure:: /_static/capability_gallery/calibration/calibration_twin_boussinesq_fixed_head_piecewise_k_modflow6__random_search_seed029_posterior.png
-         :alt: Calibration Twin: Piecewise-K 1D posterior distribution for random_search_seed029
-         :width: 100%
-
-         Posterior or retained parameter distribution for `random_search_seed029` on Calibration Twin: Piecewise-K 1D. It shows the full spread of plausible calibrated values, not only the single best fit.
-
       .. figure:: /_static/capability_gallery/calibration/calibration_twin_boussinesq_fixed_head_piecewise_k_modflow6__random_search_seed029_trace.png
          :alt: Calibration Twin: Piecewise-K 1D objective trace for random_search_seed029
          :width: 100%
 
          Objective trace for `random_search_seed029` on Calibration Twin: Piecewise-K 1D, showing the chronology of evaluated models and whether the search keeps improving or plateaus.
 
-      - metric=distribution
-      - target=False
-      - best_fit=False
+      - success_metric=distribution
+      - meets_target=False
+      - truth_recovered=False
       - cost=0.0289115
       - n_eval=48
-      - distribution_samples=48
       - calibration=28.65 s
       - candidate runtime=28.22 s
       - algorithm overhead=0.4379 s
@@ -110,12 +95,11 @@ Figure Reading Order
 
          Objective trace for `cma_es` on Calibration Twin: Piecewise-K 1D, showing the chronology of evaluated models and whether the search keeps improving or plateaus.
 
-      - metric=best_fit
-      - target=False
-      - best_fit=False
+      - success_metric=best_fit
+      - meets_target=False
+      - truth_recovered=False
       - cost=0.0271745
       - n_eval=48
-      - distribution_samples=0
       - calibration=27.91 s
       - candidate runtime=27.4 s
       - algorithm overhead=0.5064 s
@@ -140,12 +124,11 @@ Figure Reading Order
 
          Objective trace for `simplex` on Calibration Twin: Piecewise-K 1D, showing the chronology of evaluated models and whether the search keeps improving or plateaus.
 
-      - metric=best_fit
-      - target=True
-      - best_fit=True
+      - success_metric=best_fit
+      - meets_target=True
+      - truth_recovered=True
       - cost=0.00225239
       - n_eval=48
-      - distribution_samples=0
       - calibration=31.71 s
       - candidate runtime=31.25 s
       - algorithm overhead=0.4651 s
@@ -185,7 +168,6 @@ Key Metrics
 
 - Methods: 4
 - Display method: random_search
-- Distribution samples: 48
 - Calibration total: 28.63 s
 - Session prep: 29.91 s
 - Candidate runtime: 28.21 s
@@ -292,19 +274,19 @@ Methods And Timing
      - Source
    * - ``random_search_seed017``
      - Method result summary including target status, evaluation count, total time, and mean per-model actualize / launcher / simulation / objective timings.
-     - target=true, cost=0.0451974, n_eval=48, distribution_samples=48, calib_s=28.6294, candidate_runtime_s=28.2106, algorithm_overhead_s=0.418823, actualize_s=0.048637, launcher_prep_s=0.048637, runtime_patch_s=0, model_sim_s=0.539083, output_select_s=0, objective_score_s=0
+     - meets_target=true, cost=0.0451974, n_eval=48, calib_s=28.6294, candidate_runtime_s=28.2106, algorithm_overhead_s=0.418823, actualize_s=0.048637, launcher_prep_s=0.048637, runtime_patch_s=0, model_sim_s=0.539083, output_select_s=0, objective_score_s=0
      - ``docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_boussinesq_fixed_head_piecewise_k_modflow6_summary.json``
    * - ``random_search_seed029``
      - Method result summary including target status, evaluation count, total time, and mean per-model actualize / launcher / simulation / objective timings.
-     - target=false, cost=0.0289115, n_eval=48, distribution_samples=48, calib_s=28.6542, candidate_runtime_s=28.2163, algorithm_overhead_s=0.437941, actualize_s=0.0499307, launcher_prep_s=0.0499307, runtime_patch_s=0, model_sim_s=0.537909, output_select_s=0, objective_score_s=0
+     - meets_target=false, cost=0.0289115, n_eval=48, calib_s=28.6542, candidate_runtime_s=28.2163, algorithm_overhead_s=0.437941, actualize_s=0.0499307, launcher_prep_s=0.0499307, runtime_patch_s=0, model_sim_s=0.537909, output_select_s=0, objective_score_s=0
      - ``docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_boussinesq_fixed_head_piecewise_k_modflow6_summary.json``
    * - ``cma_es``
      - Method result summary including target status, evaluation count, total time, and mean per-model actualize / launcher / simulation / objective timings.
-     - target=false, cost=0.0271745, n_eval=48, distribution_samples=0, calib_s=27.906, candidate_runtime_s=27.3996, algorithm_overhead_s=0.506364, actualize_s=0.049943, launcher_prep_s=0.049943, runtime_patch_s=0, model_sim_s=0.520882, output_select_s=0, objective_score_s=0
+     - meets_target=false, cost=0.0271745, n_eval=48, calib_s=27.906, candidate_runtime_s=27.3996, algorithm_overhead_s=0.506364, actualize_s=0.049943, launcher_prep_s=0.049943, runtime_patch_s=0, model_sim_s=0.520882, output_select_s=0, objective_score_s=0
      - ``docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_boussinesq_fixed_head_piecewise_k_modflow6_summary.json``
    * - ``simplex``
      - Method result summary including target status, evaluation count, total time, and mean per-model actualize / launcher / simulation / objective timings.
-     - target=true, cost=0.00225239, n_eval=48, distribution_samples=0, calib_s=31.7126, candidate_runtime_s=31.2475, algorithm_overhead_s=0.465106, actualize_s=0.0544934, launcher_prep_s=0.0544934, runtime_patch_s=0, model_sim_s=0.596497, output_select_s=0, objective_score_s=0
+     - meets_target=true, cost=0.00225239, n_eval=48, calib_s=31.7126, candidate_runtime_s=31.2475, algorithm_overhead_s=0.465106, actualize_s=0.0544934, launcher_prep_s=0.0544934, runtime_patch_s=0, model_sim_s=0.596497, output_select_s=0, objective_score_s=0
      - ``docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_boussinesq_fixed_head_piecewise_k_modflow6_summary.json``
 
 Displayed Metrics
@@ -325,10 +307,6 @@ Displayed Metrics
    * - ``display_method_name``
      - Metric surfaced on the gallery page for the selected display method.
      - random_search
-     - ``docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_boussinesq_fixed_head_piecewise_k_modflow6_summary.json``
-   * - ``model_distribution_sample_count``
-     - Metric surfaced on the gallery page for the selected display method.
-     - 48
      - ``docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_boussinesq_fixed_head_piecewise_k_modflow6_summary.json``
    * - ``calibration_time_seconds``
      - Metric surfaced on the gallery page for the selected display method.
@@ -398,10 +376,8 @@ Artifacts
 - ``docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_boussinesq_fixed_head_piecewise_k_modflow6__configuration.png``
 - ``docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_boussinesq_fixed_head_piecewise_k_modflow6__random_search_seed017_landscape.png``
 - ``docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_boussinesq_fixed_head_piecewise_k_modflow6__random_search_seed017_trace.png``
-- ``docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_boussinesq_fixed_head_piecewise_k_modflow6__random_search_seed017_posterior.png``
 - ``docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_boussinesq_fixed_head_piecewise_k_modflow6__random_search_seed029_landscape.png``
 - ``docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_boussinesq_fixed_head_piecewise_k_modflow6__random_search_seed029_trace.png``
-- ``docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_boussinesq_fixed_head_piecewise_k_modflow6__random_search_seed029_posterior.png``
 - ``docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_boussinesq_fixed_head_piecewise_k_modflow6__cma_es_landscape.png``
 - ``docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_boussinesq_fixed_head_piecewise_k_modflow6__cma_es_trace.png``
 - ``docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_boussinesq_fixed_head_piecewise_k_modflow6__simplex_landscape.png``

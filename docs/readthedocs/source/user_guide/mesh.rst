@@ -1,5 +1,5 @@
-Mesh Workflows
-==============
+Mesh Diagnostics And Discretization
+===================================
 
 This page is a user-facing map for mesh-related documentation. It does not
 replace the detailed scientific or architecture pages; it tells you which page
@@ -11,8 +11,9 @@ Start here when the question is:
 User path
 ---------
 
-1. Read :doc:`../getting_started/workflow-families` to see where the ``mesh``
-   workflow fits relative to ``overview`` and ``simulation``.
+1. Read :doc:`workflows/testbed` when the question is about mesh resolution,
+   constraints, or robustness. Mesh is documented as a ``testbed`` subject with
+   ``runner.type = "mesh_catchment"``.
 2. Open :doc:`../capability_gallery/mesh` to inspect stable mesh examples and
    diagnostics without running anything locally.
 3. Use :doc:`../scientific/solvers/meshes-and-numerical-methods` when you need

@@ -298,12 +298,14 @@ class TestSimulationData:
         assert metrics["active_cell_count_last"] == 2
         assert metrics["active_cell_count_any"] == 3
         assert metrics["persistent_cell_count"] == 1
+        assert metrics["always_active_cell_count"] == 1
         assert metrics["perennial_cell_count"] == 1
         assert metrics["drainage_density_mean_pct"] == pytest.approx(100.0 * 5.0 / 9.0)
         assert metrics["drainage_density_max_pct"] == pytest.approx(100.0 * 2.0 / 3.0)
         assert metrics["drainage_density_last_pct"] == pytest.approx(100.0 * 2.0 / 3.0)
         assert metrics["active_any_ratio"] == pytest.approx(1.0)
         assert metrics["persistent_ratio"] == pytest.approx(1.0 / 3.0)
+        assert metrics["always_active_ratio"] == pytest.approx(1.0 / 3.0)
         assert metrics["perennial_ratio"] == pytest.approx(1.0 / 3.0)
         assert metrics["persistence_mean"] == pytest.approx(5.0 / 9.0)
         assert metrics["persistence_max"] == pytest.approx(1.0)
@@ -328,6 +330,10 @@ class TestSimulationData:
                 mode="persistent",
                 persistence_threshold=0.5,
             ),
+            np.array([0.0, 1.0, np.nan, 0.0]),
+        )
+        np.testing.assert_allclose(
+            sim.simulated_active_network_mask(threshold=0.5, mode="always_active"),
             np.array([0.0, 1.0, np.nan, 0.0]),
         )
         np.testing.assert_allclose(

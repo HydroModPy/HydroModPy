@@ -126,6 +126,7 @@ The key scientific notes are:
 - :doc:`../scientific/solvers/xt3d-on-irregular-disv-meshes`
 - :doc:`../scientific/solvers/boussinesq-mathematical-notes`
 - :doc:`../scientific/hydrology/forcing-time-aggregation-and-first-clim`
+- :doc:`../scientific/hydrology/simulated-active-network`
 
 Recommended First Cases
 -----------------------
@@ -268,6 +269,13 @@ active cells with the observed ``reference`` network and is the preferred
 validation figure when both are available. These figures are useful before
 deciding whether a canonical vectorized ``simulated_active`` network should be
 persisted.
+
+For terminology, ``persistent`` is a transient occupancy rule, while
+``always_active`` means active at every timestep of the analysed transient
+window. The legacy name ``perennial`` is kept as an alias of
+``always_active``. A hydrologically perennial simulated network should instead
+be based on a representative permanent/steady-state run, then compared against
+``reference``.
 
 For a programmatic diagnostic against an existing vector role, use:
 

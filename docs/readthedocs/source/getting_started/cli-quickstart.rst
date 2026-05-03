@@ -106,7 +106,8 @@ eagerly:
 
 ``hmp run`` reads the TOML, picks the workflow declared at the top
 level (``workflow = "simulation"``, ``"calibration"``, ``"batch"``,
-``"overview"``, or ``"mesh"``), and executes the full pipeline.
+``"overview"``, ``"mesh"``, ``"comparison"``, or ``"testbed"``), and
+executes the full pipeline.
 
 .. code-block:: bash
 
@@ -115,6 +116,22 @@ level (``workflow = "simulation"``, ``"calibration"``, ``"batch"``,
    hmp run my_basin/prototype.py    # also accepts a Python script
 
 The catalog updates after every successful run.
+
+For simulation workflows, ``hmp run`` can also expose the explicit pipeline:
+
+.. code-block:: bash
+
+   hmp run my_basin/run_demo.toml --dry-run        # show the resolved plan
+   hmp run my_basin/run_demo.toml --until mesh     # stop after one step
+   hmp run my_basin/run_demo.toml --from solver    # resume from one step
+   hmp run my_basin/run_demo.toml --resume <run_id>
+   hmp run my_basin/run_demo.toml --no-checkpoint  # skip checkpoint writes
+   hmp run my_basin/run_demo.toml --frozen         # forbid fresh downloads
+   hmp run my_basin/run_demo.toml --no-display     # skip configured figures
+
+The step flags are only valid for ``workflow = "simulation"``. Other workflow
+families still use the same ``hmp run <config.toml>`` entry point, but they run
+their dedicated launcher directly.
 
 6. Browse and inspect results
 -----------------------------
@@ -199,8 +216,10 @@ Less common but documented for reference:
      - Inspect or manage custom data artefacts in the workspace.
    * - ``hmp lock``
      - Manage the reproducible data lockfile (``hydromodpy.lock``).
-   * - ``hmp migrate``
-     - Apply schema migrations on the simulation catalog.
+   * - ``hmp import``
+     - Import a portable simulation package into a workspace.
+   * - ``hmp manage``
+     - Run workspace maintenance actions.
    * - ``hmp report``
      - Render the HTML report for a calibration session.
    * - ``hmp schema``

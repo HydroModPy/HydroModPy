@@ -8,6 +8,13 @@ A testbed expands variants, delegates each variant to a child runner, then
 collects evidence artifacts such as generated configs, metrics, manifests, and
 reports.
 
+.. figure:: /_static/workflows/testbed/testbed_orchestration.svg
+   :alt: Testbed orchestration model
+   :align: center
+
+   ``testbed`` owns the variant matrix and evidence contract. Mesh, flow, and
+   future transport runners keep ownership of their own domain execution.
+
 The first supported subjects are:
 
 - ``mesh`` through the ``mesh_catchment`` runner;
@@ -17,6 +24,10 @@ This keeps the testbed detached from simulation internals. A mesh testbed can
 evaluate discretization choices without running a flow solver. A flow testbed
 delegates to ordinary generated ``workflow = "simulation"`` children, but the
 testbed itself only expands variants and gathers evidence.
+
+The implementation lives near the analysis workflows in
+``hydromodpy/analysis/testbed/``. The package README documents the internal
+contract for maintainers; this page documents the user-facing behavior.
 
 What This Workflow Is
 ---------------------
@@ -60,8 +71,9 @@ The launcher writes one child TOML per variant under:
 
    <output_root>/_generated_configs/
 
-Each generated child is an ordinary ``workflow = "mesh"`` TOML. The testbed
-does not call the simulation planner and does not persist solver runs.
+For mesh subjects, each generated child is delegated to the
+``mesh_catchment`` runner. The testbed does not call the simulation planner
+and does not persist solver runs.
 
 Flow Example
 ------------
@@ -138,6 +150,14 @@ Metric sources use dot paths into that summary. For example:
 ``flow_metrics.head_range_m``. The exact budget component name comes from the
 solver result catalog, for example ``chd`` for prescribed-head exchanges.
 
+The repository flow starter in
+``examples/projects/10_testbed_workflow/flow_k_sensitivity_testbed.toml`` has
+been smoke-tested with one executed MODFLOW 6 child. In that case, prescribed
+heads are exposed as ``flow_metrics.budget_chd_total_out`` and recharge as
+``flow_metrics.budget_rcha_total_in``. The example marks its key metrics as
+``required = true`` so switching from ``execute = false`` to ``execute = true``
+fails loudly if the catalog cannot provide the expected evidence.
+
 Runnable Example Files
 ----------------------
 
@@ -150,24 +170,27 @@ Both use ``execute = false`` so they first materialize generated child configs
 without spending solver time. Change that flag to ``true`` when the matrix has
 the intended variants.
 
-How It Differs From Mesh
-------------------------
+Mesh As A Testbed Subject
+-------------------------
 
-``workflow = "mesh"`` answers:
-"Build this one reusable mesh artifact."
+Mesh work is documented here rather than as a separate top-level user guide
+workflow. The user-facing question is usually not "build one mesh", but "how
+stable is the discretization choice?"
 
-``workflow = "testbed"`` answers:
-"Run this controlled set of method variants and collect evidence."
+For mesh studies, ``testbed`` answers:
+"Run this controlled set of mesh variants and collect evidence."
 
-For mesh work, this means:
+This means:
 
-- ``mesh`` remains the simple mono-case entry point;
-- ``testbed`` becomes the place for resolution ladders, constraint sensitivity,
-  conformity studies, and robustness checks;
-- ``flow`` testbeds can vary solver settings, flow parameters, forcing choices,
-  or boundary-condition alternatives by producing ordinary simulation children;
-- the same testbed contract can later support transport subjects without
-  turning those subjects into special workflow names.
+- use ``subject = "mesh"`` with ``runner.type = "mesh_catchment"`` for
+  resolution ladders, constraint sensitivity, conformity studies, and
+  robustness checks;
+- keep mono-case mesh artifacts as generated evidence inside the testbed output
+  tree;
+- use ``flow`` testbeds when the varied axis is solver settings, flow
+  parameters, forcing choices, or boundary-condition alternatives;
+- keep future transport subjects inside the same testbed contract instead of
+  creating a new workflow name for each method family.
 
 Output Files
 ------------
@@ -180,6 +203,31 @@ A testbed writes:
   values when no metrics are declared;
 - ``testbed_manifest.json``: machine-readable run manifest;
 - ``testbed_report.md``: compact human-readable summary.
+
+.. figure:: /_static/workflows/testbed/testbed_outputs.svg
+   :alt: Testbed evidence output tree
+   :align: center
+
+   A testbed output folder is designed to be read as evidence: generated
+   child configs first, then status, metrics, manifest, and report.
+
+Reading The Evidence
+--------------------
+
+Use this order when reviewing a testbed run:
+
+1. Open ``_generated_configs/`` to verify what each child actually received
+   after base-config loading and overlay merging.
+2. Read ``testbed_cases.csv`` to check which variants were planned, skipped,
+   completed, or failed.
+3. Read ``testbed_metrics.csv`` to compare the declared indicators across
+   variants.
+4. Read ``testbed_manifest.json`` when another tool needs the full
+   machine-readable contract.
+5. Read ``testbed_report.md`` for the compact human summary.
+
+This order matters because metrics only make sense after confirming that the
+generated child configs isolate the intended method axis.
 
 Dry Planning
 ------------
@@ -219,3 +267,26 @@ The current implementation deliberately supports only:
 
 This is intentional. The workflow establishes the orchestration contract while
 keeping comparison and future transport runners as separate extensions.
+
+Implementation Notes
+--------------------
+
+The code is intentionally split into two small modules:
+
+- ``hydromodpy.analysis.testbed.config`` validates the TOML contract, supported
+  subject/runner pairs, variants, metrics, and path resolution;
+- ``hydromodpy.analysis.testbed.runtime`` materializes child TOMLs, delegates
+  execution, extracts metrics, and writes evidence files.
+
+Adding a new subject should extend that contract rather than special-case the
+runner in user configuration. In practice, a new subject needs:
+
+- a subject name and allowed runner pair;
+- a mapping from runner to generated child workflow;
+- a runner branch in the launcher;
+- tests for dry planning, execution, and metric extraction;
+- a small documented example.
+
+The testbed layer should remain a thin evidence layer. Solver-specific logic
+belongs in child runners or result stores; the testbed can consume their
+summaries, but should not duplicate their physics.
