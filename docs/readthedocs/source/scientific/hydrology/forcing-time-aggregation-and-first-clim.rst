@@ -28,7 +28,7 @@ The current public behaviour is mainly implemented in:
 - ``hydromodpy/physics/flow/time_forcing.py``
 - ``hydromodpy/physics/flow/structure_binders.py``
 - ``hydromodpy/solver/modflow6/flow_to_modflow_adapter.py``
-- ``hydromodpy/solver/modflow_nwt/modflow/flow_to_modflow_adapter.py``
+- ``hydromodpy/solver/modflow_nwt/nwt/flow_to_modflow_adapter.py``
 
 The important point is that time aggregation happens before MODFLOW package
 assembly. Package semantics then consume already aligned process payloads.

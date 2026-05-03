@@ -80,6 +80,7 @@ units = "m"
 
 [flow.sinks_sources.recharge]
 first_clim = "first"
+negative_to_evt = true
 
 [data]
 types = ["recharge"]

@@ -44,9 +44,9 @@ Key Metrics
 
 - Cases with lower RMSE under XT3D: 9 / 11
 - Cases with >= 5x RMSE improvement: 4 / 11
-- Total local runtime without XT3D: 158.6 s
-- Total local runtime with XT3D auto default: 156.0 s
-- Total runtime ratio: x0.98
+- Total local runtime without XT3D: 215.3 s
+- Total local runtime with XT3D auto default: 197.7 s
+- Total runtime ratio: x0.92
 
 Why XT3D Changes These Cases
 ----------------------------
@@ -77,79 +77,79 @@ RMSE And Runtime By Case
      - 0.3765
      - 0.0327
      - x11.52 better
-     - 15.39
-     - 12.05
-     - x0.78
+     - 19.11
+     - 15.94
+     - x0.83
    * - Dupuit Divide-River 1D
      - 0.3023
      - 0.0268
      - x11.30 better
-     - 13.38
-     - 12.12
-     - x0.91
+     - 20.23
+     - 19.64
+     - x0.97
    * - Dupuit Uniform Recharge 1D
      - 0.2333
      - 0.0295
      - x7.91 better
-     - 13.66
-     - 16.93
-     - x1.24
+     - 16.81
+     - 18.74
+     - x1.11
    * - Boussinesq Uniform-Recharge Piecewise-K 1D
      - 0.2036
      - 0.0219
      - x9.32 better
-     - 12.98
-     - 13.37
-     - x1.03
+     - 26.14
+     - 21.20
+     - x0.81
    * - Boussinesq Sloping-Substratum Uniform-Recharge 1D
      - 0.1077
      - 0.0404
      - x2.66 better
-     - 16.33
-     - 16.35
-     - x1.00
+     - 28.45
+     - 21.89
+     - x0.77
    * - Boussinesq Sloping-Substratum Fixed-Head 1D
      - 0.0696
      - 0.0395
      - x1.76 better
-     - 13.71
-     - 12.35
-     - x0.90
+     - 17.17
+     - 14.30
+     - x0.83
    * - Boussinesq Sloping-Substratum Constant-Thickness 1D
      - 0.0384
      - 0.0200
      - x1.92 better
-     - 15.79
-     - 13.31
-     - x0.84
+     - 18.97
+     - 17.17
+     - x0.91
    * - Dupuit Fixed-Head 1D
      - 0.0328
      - 0.0195
      - x1.69 better
-     - 13.49
-     - 15.07
-     - x1.12
+     - 14.90
+     - 14.96
+     - x1.00
    * - Boussinesq Fixed-Head Piecewise-K 1D
      - 0.0321
      - 0.0237
      - x1.36 better
-     - 16.57
-     - 11.28
-     - x0.68
+     - 16.14
+     - 14.77
+     - x0.92
    * - Linearized Unconfined Drainage 1D
      - 0.0147
      - 0.0463
      - x0.32 worse
-     - 13.90
-     - 15.73
-     - x1.13
+     - 19.26
+     - 22.02
+     - x1.14
    * - Linearized Unconfined Hillslope Drainage 1D
      - 0.0111
      - 0.0203
      - x0.55 worse
-     - 13.36
-     - 17.40
-     - x1.30
+     - 18.14
+     - 17.08
+     - x0.94
 
 Default Choice Implemented In HydroModPy
 ----------------------------------------

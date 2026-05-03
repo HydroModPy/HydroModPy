@@ -251,12 +251,12 @@ class DataManagersConfig(HydroModelBase):
         base_dir: Path,
         workspace_data_dir: Path | None = None,
     ) -> DataManagersConfig:
-        """
-        Load one `[data]` TOML section and validate nested active sub-sections.
+        """Load one ``[data]`` TOML section and validate active sub-sections.
 
-        Dynamic validation rule:
-        - if a type is listed in `data.types` and has a dedicated Pydantic
-          model, that model is applied here,
+        Dynamic validation rules:
+
+        - if a type is listed in ``data.types`` and has a dedicated Pydantic
+          model, that model is applied here;
         - otherwise the section is validated as a plain mapping for now.
         """
         if section_data is None:

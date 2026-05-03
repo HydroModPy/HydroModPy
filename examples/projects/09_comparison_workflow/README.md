@@ -41,6 +41,12 @@ Nancon transient seasonal recharge run:
 python examples/projects/09_comparison_workflow/run_comparison_example.py --case nancon-seasonal --show
 ```
 
+Nancon transient seasonal recharge run with observed hydrography loaded:
+
+```powershell
+python examples/projects/09_comparison_workflow/run_comparison_example.py --case nancon-seasonal-hydrography --show
+```
+
 Run all examples:
 
 ```powershell
@@ -56,6 +62,7 @@ hmp run examples/projects/09_comparison_workflow/compare_10km2_natural_mesh_mf6_
 hmp run examples/projects/09_comparison_workflow/compare_10km2_natural_mesh_recharge_mf6_bouss.toml
 hmp run examples/projects/09_comparison_workflow/compare_10km2_natural_mesh_transient_pulse_mf6_bouss.toml
 hmp run examples/projects/09_comparison_workflow/compare_nancon_transient_seasonal_mf6_bouss.toml
+hmp run examples/projects/09_comparison_workflow/compare_nancon_transient_seasonal_hydrography_mf6_bouss.toml
 ```
 
 Synthetic outputs are written under:
@@ -94,6 +101,12 @@ Nancon transient seasonal outputs are written under:
 examples/projects/09_comparison_workflow/outputs/nancon_transient_seasonal_mf6_vs_bouss
 ```
 
+Nancon transient seasonal hydrography outputs are written under:
+
+```text
+examples/projects/09_comparison_workflow/outputs/nancon_transient_seasonal_hydrography_mf6_vs_bouss
+```
+
 Key files:
 
 - `comparison_manifest.json`
@@ -104,6 +117,8 @@ Key files:
 - `comparison_differences.csv`
 - `hydrographic_network_metrics.csv` when the compared runs expose both
   canonical hydrographic networks (`reference` and `generated`)
+- `simulated_active_network_overlap_metrics.csv` when the runs expose
+  `accumulation_flux`, a plottable mesh, and the observed `reference` network
 - `comparison_figures/*.png`
 
 Open `comparison_figures/case_configuration.png` first. It summarizes the

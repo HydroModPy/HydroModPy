@@ -52,7 +52,6 @@ EXACT_RULES = {
     "hydromodpy/calibration/cli.py": "orchestration",
     "hydromodpy/calibration/persistence.py": "results",
     "hydromodpy/calibration/report.py": "visualization",
-    "hydromodpy/results/display.py": "visualization",
 }
 
 PREFIX_RULES = [
@@ -89,7 +88,6 @@ PREFIX_RULES = [
     ("hydromodpy/core/", "orchestration"),
     ("hydromodpy/config/", "orchestration"),
     ("hydromodpy/schema/", "orchestration"),
-    ("hydromodpy/_cli/", "orchestration"),
     ("hydromodpy/runners/", "orchestration"),
     ("hydromodpy/watershed/", "orchestration"),
     ("hydromodpy/launchers/", "orchestration"),

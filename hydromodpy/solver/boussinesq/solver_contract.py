@@ -5,6 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from hydromodpy.physics.flow.boundary_conditions import SIDE_DIRICHLET_BC_IDS
+from hydromodpy.physics.flow.regime import normalize_flow_regime
 from hydromodpy.solver.boussinesq.methods import (
     resolve_surface_interaction_model_token,
 )
@@ -41,10 +42,7 @@ def resolve_flow_regime(flow: object) -> str:
     flow_regime = getattr(flow, "flow_regime", None)
     if flow_regime is None:
         raise ValueError("flow.flow_regime must be 'steady' or 'transient'.")
-    flow_regime_text = str(flow_regime).strip().lower()
-    if flow_regime_text not in {"steady", "transient"}:
-        raise ValueError("flow.flow_regime must be 'steady' or 'transient'.")
-    return flow_regime_text
+    return normalize_flow_regime(flow_regime)
 
 
 def resolve_surface_interaction_model(flow: object) -> str:

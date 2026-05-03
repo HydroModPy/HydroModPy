@@ -11,9 +11,8 @@ object exposing the same ``field`` / ``n_timesteps`` / ``mesh`` API) and
 the reduction parameters, and return a new object. They never mutate the
 catalog.
 
-Module-level functions are the canonical entry point: call
-``views.drainage_density(run)`` rather than expecting a method on
-:class:`Run` itself.
+Module-level functions are the canonical implementation. ``Run`` exposes
+thin lazy wrappers for notebook ergonomics.
 """
 
 from __future__ import annotations
@@ -25,6 +24,15 @@ import pandas as pd
 
 if TYPE_CHECKING:
     from hydromodpy.results.run import Run
+
+SimulatedActiveNetworkMode = Literal[
+    "last",
+    "any",
+    "persistent",
+    "always_active",
+    "perennial",
+    "persistence",
+]
 
 
 __all__ = [
@@ -219,14 +227,19 @@ def simulated_active_network_mask(
     *,
     variable: str = "accumulation_flux",
     threshold: float = 0.0,
-    mode: Literal["last", "any", "persistent", "perennial", "persistence"] = "persistent",
+    mode: SimulatedActiveNetworkMode = "persistent",
     persistence_threshold: float = 0.5,
     timestep: int | None = None,
 ) -> np.ndarray:
-    """Return a per-cell simulated active-network view."""
+    """Return a per-cell simulated active-network view.
+
+    ``perennial`` is a retained alias for ``always_active``. Both represent
+    cells active at every timestep of the available transient window.
+    """
     persistence_threshold = float(persistence_threshold)
     if not 0.0 <= persistence_threshold <= 1.0:
         raise ValueError("persistence_threshold must be between 0 and 1.")
+    normalized_mode = "always_active" if mode == "perennial" else mode
 
     stack, mask = _stack_field_with_mask(sim, variable)
     n_timesteps = stack.shape[0]
@@ -234,7 +247,7 @@ def simulated_active_network_mask(
         return np.full(stack.shape[1], np.nan, dtype="float64")
 
     active = np.asarray(stack, dtype="float64") > float(threshold)
-    if mode == "last":
+    if normalized_mode == "last":
         ts = n_timesteps - 1 if timestep is None else int(timestep)
         if ts < 0:
             ts = n_timesteps + ts
@@ -244,18 +257,18 @@ def simulated_active_network_mask(
                 f"[0, {n_timesteps - 1}]."
             )
         values = active[ts].astype("float64")
-    elif mode == "any":
+    elif normalized_mode == "any":
         values = active.any(axis=0).astype("float64")
-    elif mode == "persistent":
+    elif normalized_mode == "persistent":
         values = (active.mean(axis=0) >= persistence_threshold).astype("float64")
-    elif mode == "perennial":
+    elif normalized_mode == "always_active":
         values = (active.mean(axis=0) >= 1.0).astype("float64")
-    elif mode == "persistence":
+    elif normalized_mode == "persistence":
         values = active.mean(axis=0).astype("float64")
     else:
         raise ValueError(
             "Unknown simulated active-network mode. Expected one of: "
-            "last, any, persistent, perennial, persistence."
+            "last, any, persistent, always_active, perennial, persistence."
         )
 
     values[~mask] = np.nan
@@ -289,12 +302,14 @@ def simulated_active_network_metrics(
             "active_cell_count_last": 0,
             "active_cell_count_any": 0,
             "persistent_cell_count": 0,
+            "always_active_cell_count": 0,
             "perennial_cell_count": 0,
             "drainage_density_mean_pct": 0.0,
             "drainage_density_max_pct": 0.0,
             "drainage_density_last_pct": 0.0,
             "active_any_ratio": 0.0,
             "persistent_ratio": 0.0,
+            "always_active_ratio": 0.0,
             "perennial_ratio": 0.0,
             "persistence_mean": 0.0,
             "persistence_max": 0.0,
@@ -305,7 +320,7 @@ def simulated_active_network_metrics(
     persistence_fraction = active.mean(axis=0)
     active_any = persistence_fraction > 0.0
     persistent = persistence_fraction >= float(persistence_threshold)
-    perennial = persistence_fraction >= 1.0
+    always_active = persistence_fraction >= 1.0
 
     return {
         "source_variable": variable,
@@ -318,13 +333,15 @@ def simulated_active_network_metrics(
         "active_cell_count_last": int(active_counts[-1]),
         "active_cell_count_any": int(active_any.sum()),
         "persistent_cell_count": int(persistent.sum()),
-        "perennial_cell_count": int(perennial.sum()),
+        "always_active_cell_count": int(always_active.sum()),
+        "perennial_cell_count": int(always_active.sum()),
         "drainage_density_mean_pct": float(100.0 * np.mean(active_counts) / n_cells),
         "drainage_density_max_pct": float(100.0 * np.max(active_counts) / n_cells),
         "drainage_density_last_pct": float(100.0 * active_counts[-1] / n_cells),
         "active_any_ratio": float(active_any.sum() / n_cells),
         "persistent_ratio": float(persistent.sum() / n_cells),
-        "perennial_ratio": float(perennial.sum() / n_cells),
+        "always_active_ratio": float(always_active.sum() / n_cells),
+        "perennial_ratio": float(always_active.sum() / n_cells),
         "persistence_mean": float(np.mean(persistence_fraction[mask])),
         "persistence_max": float(np.max(persistence_fraction[mask])),
     }
@@ -336,7 +353,7 @@ def simulated_active_network_overlap_metrics(
     network_role: str = "reference",
     variable: str = "accumulation_flux",
     threshold: float = 0.0,
-    mode: Literal["last", "any", "persistent", "perennial", "persistence"] = "persistent",
+    mode: SimulatedActiveNetworkMode = "persistent",
     persistence_threshold: float = 0.5,
     timestep: int | None = None,
     buffer_m: float = 0.0,

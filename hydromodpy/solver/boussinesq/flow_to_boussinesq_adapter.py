@@ -19,6 +19,7 @@ from pathlib import Path
 
 import numpy as np
 
+from hydromodpy.physics.flow.regime import normalize_flow_regime
 from hydromodpy.solver.boussinesq.mesh import BoussinesqMesh
 from hydromodpy.solver.boussinesq.property_mapping import (
     resolve_flow_property_arrays,
@@ -198,7 +199,7 @@ def resolve_bundle_solver_mesh(
 ) -> BoussinesqMesh:
     """Build one solver mesh from a bundle, completing missing hydraulic terms."""
     flow = getattr(setup_state, "flow", None)
-    regime = str(getattr(flow, "flow_regime", "transient")).strip().lower()
+    regime = normalize_flow_regime(getattr(flow, "flow_regime", "transient"))
     metadata_view = bundle.metadata_view
     hydraulic_view = metadata_view.hydraulic_properties
 

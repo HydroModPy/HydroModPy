@@ -1,0 +1,71 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="960" height="420" viewBox="0 0 960 420" role="img" aria-labelledby="title desc">
+  <title id="title">HydroModPy testbed orchestration model</title>
+  <desc id="desc">A testbed configuration expands variants into generated child TOML files, delegates them to mesh or simulation runners, and writes evidence artifacts.</desc>
+  <defs>
+    <marker id="arrow" markerWidth="12" markerHeight="12" refX="10" refY="6" orient="auto">
+      <path d="M2,2 L10,6 L2,10 Z" fill="#355070"/>
+    </marker>
+    <style>
+      .page { fill: #f8fafc; }
+      .band { fill: #eef4f8; stroke: #c7d7e0; stroke-width: 1.2; }
+      .box { fill: #ffffff; stroke: #355070; stroke-width: 1.7; rx: 8; }
+      .box-alt { fill: #f6fbf8; stroke: #2d6a4f; stroke-width: 1.7; rx: 8; }
+      .box-warn { fill: #fff8ec; stroke: #b7791f; stroke-width: 1.7; rx: 8; }
+      .title { font: 700 20px Arial, sans-serif; fill: #102a43; }
+      .label { font: 700 15px Arial, sans-serif; fill: #102a43; }
+      .small { font: 13px Arial, sans-serif; fill: #334e68; }
+      .tiny { font: 12px Arial, sans-serif; fill: #526d82; }
+      .arrow { stroke: #355070; stroke-width: 2.2; fill: none; marker-end: url(#arrow); }
+      .dash { stroke: #78909c; stroke-width: 1.5; stroke-dasharray: 6 5; fill: none; }
+    </style>
+  </defs>
+
+  <rect class="page" x="0" y="0" width="960" height="420"/>
+  <text class="title" x="36" y="42">workflow = "testbed"</text>
+  <text class="small" x="36" y="66">Orchestrate method variants without embedding mesh, flow, or transport physics in the testbed layer.</text>
+
+  <rect class="band" x="30" y="92" width="426" height="272" rx="12"/>
+  <text class="label" x="52" y="122">Testbed layer</text>
+  <text class="tiny" x="52" y="144">Configuration, expansion, evidence contract</text>
+
+  <rect class="box" x="58" y="174" width="150" height="96" rx="8"/>
+  <text class="label" x="82" y="204">Testbed TOML</text>
+  <text class="small" x="82" y="228">subject</text>
+  <text class="small" x="82" y="248">runner</text>
+  <text class="small" x="82" y="268">variants</text>
+
+  <rect class="box" x="268" y="174" width="150" height="96" rx="8"/>
+  <text class="label" x="290" y="204">Config model</text>
+  <text class="small" x="290" y="228">validate</text>
+  <text class="small" x="290" y="248">resolve paths</text>
+  <text class="small" x="290" y="268">check metrics</text>
+
+  <line class="arrow" x1="210" y1="222" x2="258" y2="222"/>
+
+  <rect class="band" x="504" y="92" width="426" height="272" rx="12"/>
+  <text class="label" x="526" y="122">Child runners</text>
+  <text class="tiny" x="526" y="144">Domain-specific execution stays outside the testbed package</text>
+
+  <rect class="box-warn" x="530" y="174" width="158" height="96" rx="8"/>
+  <text class="label" x="555" y="204">Child TOMLs</text>
+  <text class="small" x="555" y="228">workflow = mesh</text>
+  <text class="small" x="555" y="248">or simulation</text>
+  <text class="small" x="555" y="268">no [testbed]</text>
+
+  <rect class="box-alt" x="740" y="130" width="150" height="78" rx="8"/>
+  <text class="label" x="768" y="160">Mesh runner</text>
+  <text class="small" x="768" y="184">mesh_catchment</text>
+
+  <rect class="box-alt" x="740" y="232" width="150" height="78" rx="8"/>
+  <text class="label" x="766" y="262">Flow runner</text>
+  <text class="small" x="766" y="286">simulation</text>
+
+  <line class="arrow" x1="420" y1="222" x2="520" y2="222"/>
+  <line class="arrow" x1="690" y1="208" x2="730" y2="176"/>
+  <line class="arrow" x1="690" y1="238" x2="730" y2="270"/>
+
+  <rect class="box" x="326" y="306" width="300" height="42" rx="8"/>
+  <text class="small" x="344" y="332">Evidence: plan, cases, metrics, manifest, report</text>
+  <path class="dash" d="M476 270 L476 306"/>
+  <path class="dash" d="M815 310 C815 352 700 362 626 334"/>
+</svg>

@@ -33,7 +33,7 @@ mesh_mode = "mesh_catchment"
 
 [comparison.simulation.overlay.workspace]
 project_root = "outputs/nancon_transient_seasonal/workspace_mf6"
-root = "../../"
+root = "outputs/nancon_transient_seasonal/workspace_mf6"
 
 [comparison.simulation.overlay.modflow6.runtime]
 mf6_ims_complexity = "COMPLEX"
@@ -58,7 +58,7 @@ mesh_mode = "mesh_catchment"
 
 [comparison.simulation.overlay.workspace]
 project_root = "outputs/nancon_transient_seasonal/workspace_bouss"
-root = "../../"
+root = "outputs/nancon_transient_seasonal/workspace_bouss"
 
 [comparison.simulation.overlay.flow]
 runtime_backend = "scipy_sparse"

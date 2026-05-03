@@ -66,8 +66,8 @@ def apply_recharge_load_result_to_flow(
     Uses the generic :func:`forcing_bridge.resolve_forcing` to handle
     spatial_mode dispatch (auto / homogeneous / heterogeneous).
 
-    Preserves solver-side recharge policy (first_clim, spatial_mode,
-    interpolation_method) from the existing flow configuration.
+    Preserves solver-side recharge policy (first_clim, negative_to_evt,
+    spatial_mode, interpolation_method) from the existing flow configuration.
 
     Returns True if recharge was successfully injected, False otherwise.
     """
@@ -83,10 +83,12 @@ def apply_recharge_load_result_to_flow(
     first_clim = "mean"
     spatial_mode = "auto"
     interpolation_method = "nearest"
+    negative_to_evt = True
     if recharge_cfg is not None:
         first_clim = getattr(recharge_cfg, "first_clim", "mean")
         spatial_mode = getattr(recharge_cfg, "spatial_mode", "auto")
         interpolation_method = getattr(recharge_cfg, "interpolation_method", "nearest")
+        negative_to_evt = bool(getattr(recharge_cfg, "negative_to_evt", True))
 
     # Data-manager output is always in mm/day (internal convention).
     # Flow._normalize_recharge_config has already converted recharge_cfg.units
@@ -112,6 +114,7 @@ def apply_recharge_load_result_to_flow(
             heterogeneous_source=resolved.heterogeneous_source,
             spatial_mode=resolved.spatial_mode,
             interpolation_method=resolved.interpolation_method,
+            negative_to_evt=negative_to_evt,
         )
     )
     return True

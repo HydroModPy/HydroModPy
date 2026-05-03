@@ -144,6 +144,27 @@ def test_recharge_scalar_broadcast_to_all_periods():
     assert all(rch_data[k] == pytest.approx(1.0e-6 / 86400.0) for k in range(3))
 
 
+def test_negative_recharge_routes_to_evt_and_clips_rch():
+    cfg = FlowRechargeConfig(
+        values=[0.1, -0.2, 0.3],
+        first_clim="first",
+        units="m/s",
+        negative_to_evt=True,
+    )
+    adapter = _make_adapter(cfg, "transient", nper=3)
+
+    rch_data = adapter._build_recharge_payload()
+    evt_spd, _, _ = adapter._build_etp_payload()
+
+    assert rch_data[0] == pytest.approx(0.1)
+    assert rch_data[1] == pytest.approx(0.0)
+    assert rch_data[2] == pytest.approx(0.3)
+    assert evt_spd is not None
+    assert evt_spd[0] == pytest.approx(0.0)
+    assert evt_spd[1] == pytest.approx(0.2)
+    assert evt_spd[2] == pytest.approx(0.0)
+
+
 def test_recharge_point_source_builds_period_arrays():
     point = _make_point_recharge_record(
         station_id="R1",

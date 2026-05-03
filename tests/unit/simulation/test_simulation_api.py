@@ -57,6 +57,32 @@ def _populate(catalog, sid):
     catalog.finalize(sid, "completed", 42.0)
 
 
+def _write_active_accumulation_flux_case(catalog, sid):
+    sz = catalog.open_zarr(sid)
+    try:
+        mesh = sz.root.require_group("mesh")
+        mesh.create_array(
+            "surface_top",
+            data=np.array([100.0, 100.0, -9999.0, 100.0], dtype="float64"),
+            overwrite=True,
+        )
+        frames = [
+            np.array([0.0, 2.0, 9.0, 0.0], dtype="float64"),
+            np.array([1.0, 2.0, 9.0, 0.0], dtype="float64"),
+            np.array([0.0, 2.0, 9.0, 4.0], dtype="float64"),
+        ]
+        for timestep, values in enumerate(frames):
+            sz.write_field(
+                "accumulation_flux",
+                timestep,
+                values,
+                n_timesteps=3 if timestep == 0 else None,
+                subgroup="derived",
+            )
+    finally:
+        sz.close()
+
+
 # ============================================================================
 # Simulation class tests
 # ============================================================================
@@ -238,6 +264,71 @@ class TestSimulationData:
             match="requires both requested roles to be present.*Missing: generated",
         ):
             sim.hydrographic_network_comparison(tolerance_m=25.0)
+
+    def test_simulated_active_network_metrics_from_accumulation_flux(self, catalog):
+        sid = _register(catalog, n_cells=4, n_layers=1, n_timesteps=3)
+        _write_active_accumulation_flux_case(catalog, sid)
+
+        sim = Run(sid, catalog)
+        metrics = sim.simulated_active_network_metrics(
+            threshold=0.5,
+            persistence_threshold=0.5,
+        )
+
+        assert metrics["source_variable"] == "accumulation_flux"
+        assert metrics["n_timesteps"] == 3
+        assert metrics["catchment_cell_count"] == 3
+        assert metrics["active_cell_count_mean"] == pytest.approx(5.0 / 3.0)
+        assert metrics["active_cell_count_max"] == 2
+        assert metrics["active_cell_count_last"] == 2
+        assert metrics["active_cell_count_any"] == 3
+        assert metrics["persistent_cell_count"] == 1
+        assert metrics["always_active_cell_count"] == 1
+        assert metrics["perennial_cell_count"] == 1
+        assert metrics["drainage_density_mean_pct"] == pytest.approx(100.0 * 5.0 / 9.0)
+        assert metrics["drainage_density_max_pct"] == pytest.approx(100.0 * 2.0 / 3.0)
+        assert metrics["drainage_density_last_pct"] == pytest.approx(100.0 * 2.0 / 3.0)
+        assert metrics["active_any_ratio"] == pytest.approx(1.0)
+        assert metrics["persistent_ratio"] == pytest.approx(1.0 / 3.0)
+        assert metrics["always_active_ratio"] == pytest.approx(1.0 / 3.0)
+        assert metrics["perennial_ratio"] == pytest.approx(1.0 / 3.0)
+        assert metrics["persistence_mean"] == pytest.approx(5.0 / 9.0)
+        assert metrics["persistence_max"] == pytest.approx(1.0)
+
+    def test_simulated_active_network_mask_modes(self, catalog):
+        sid = _register(catalog, n_cells=4, n_layers=1, n_timesteps=3)
+        _write_active_accumulation_flux_case(catalog, sid)
+
+        sim = Run(sid, catalog)
+
+        np.testing.assert_allclose(
+            sim.simulated_active_network_mask(threshold=0.5, mode="last"),
+            np.array([0.0, 1.0, np.nan, 1.0]),
+        )
+        np.testing.assert_allclose(
+            sim.simulated_active_network_mask(threshold=0.5, mode="any"),
+            np.array([1.0, 1.0, np.nan, 1.0]),
+        )
+        np.testing.assert_allclose(
+            sim.simulated_active_network_mask(
+                threshold=0.5,
+                mode="persistent",
+                persistence_threshold=0.5,
+            ),
+            np.array([0.0, 1.0, np.nan, 0.0]),
+        )
+        np.testing.assert_allclose(
+            sim.simulated_active_network_mask(threshold=0.5, mode="always_active"),
+            np.array([0.0, 1.0, np.nan, 0.0]),
+        )
+        np.testing.assert_allclose(
+            sim.simulated_active_network_mask(threshold=0.5, mode="perennial"),
+            np.array([0.0, 1.0, np.nan, 0.0]),
+        )
+        np.testing.assert_allclose(
+            sim.simulated_active_network_mask(threshold=0.5, mode="persistence"),
+            np.array([1.0 / 3.0, 1.0, np.nan, 1.0 / 3.0]),
+        )
 
 
 class TestSimulationField:

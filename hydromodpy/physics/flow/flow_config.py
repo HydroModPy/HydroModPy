@@ -33,6 +33,7 @@ from hydromodpy.physics.flow.param_config import (
     normalize_flow_param_payloads,
     parse_flow_param_sections,
 )
+from hydromodpy.physics.flow.regime import FlowRegime, normalize_flow_regime
 from hydromodpy.physics.flow.sinks_sources import (
     FlowSinksSourcesConfig,
     FlowWellConfig,
@@ -99,7 +100,7 @@ class FlowConfig(ProcessSpatialConfig):
     parameter payloads are stored in `param`.
     """
 
-    flow_regime: Annotated[Literal["steady", "transient"], Profile.USER] = Field(
+    flow_regime: Annotated[FlowRegime, Profile.USER] = Field(
         default="transient",
         description=(
             "Global flow simulation regime used by solvers consuming [flow] (steady or transient)."
@@ -109,7 +110,7 @@ class FlowConfig(ProcessSpatialConfig):
             "unit": "-",
             "display_name_fr": "Régime d'écoulement",
             "help_text_fr": (
-                "Régime permanent (steady) ou transitoire (transient). "
+                "Régime stationnaire (steady) ou transitoire (transient). "
                 "Le régime transitoire requiert une condition initiale [flow.ic]."
             ),
         },
@@ -298,10 +299,7 @@ class FlowConfig(ProcessSpatialConfig):
     @classmethod
     def _validate_flow_regime(cls, value):
         """Validate flow regime enumeration."""
-        text = str(value).strip().lower()
-        if text not in {"steady", "transient"}:
-            raise ValueError("flow.flow_regime must be 'steady' or 'transient'")
-        return text
+        return normalize_flow_regime(value)
 
     @field_validator("runtime_backend", mode="before")
     @classmethod
@@ -480,7 +478,7 @@ class FlowConfig(ProcessSpatialConfig):
     def homogeneous(
         cls,
         *,
-        flow_regime: Literal["steady", "transient"] = "transient",
+        flow_regime: FlowRegime = "transient",
         active_bc: list[str] | None = None,
         active_sinks_sources: list[str] | None = None,
         **parameters: float,

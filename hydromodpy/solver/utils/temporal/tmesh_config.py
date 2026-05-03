@@ -13,6 +13,7 @@ from pydantic import ConfigDict, Field, ValidationError, field_validator, model_
 from hydromodpy.core.config_kit.base import HydroModelBase
 from hydromodpy.core.config_kit.profile import Profile
 from hydromodpy.core.toml_io.paths import get_nested_section, resolve_path
+from hydromodpy.physics.flow.regime import FlowRegime, normalize_flow_regime
 
 
 class TMeshConfig(HydroModelBase):
@@ -29,7 +30,7 @@ class TMeshConfig(HydroModelBase):
             "come from [simulation.time], so this field is mirrored only for compatibility."
         ),
     )
-    flow_regime: Annotated[Literal["steady", "transient"], Profile.USER] = Field(
+    flow_regime: Annotated[FlowRegime, Profile.USER] = Field(
         default="transient",
         description=(
             "Flow regime used to derive the steady/transient stress-period flags. "
@@ -122,6 +123,11 @@ class TMeshConfig(HydroModelBase):
         if text == "":
             raise ValueError("value cannot be empty")
         return text
+
+    @field_validator("flow_regime", mode="before")
+    @classmethod
+    def _validate_flow_regime(cls, value):
+        return normalize_flow_regime(value)
 
     @field_validator("chron_colsep")
     @classmethod

@@ -373,7 +373,7 @@ class DerivedRegistry:
         names
             Optional subset of derivation names to run. Unknown names raise
             ``KeyError``.
-        **ctx
+        ctx
             Forwarded to each computation's ``compute`` method.
         """
         ordered = self.ordered_names()

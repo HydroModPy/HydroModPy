@@ -13,10 +13,12 @@ from .flow import Flow
 from .flow_config import FlowConfig
 from .initial_conditions import FlowInitialCondition, FlowInitialConditions
 from .physical_properties import FlowPhysicalProperties
+from .regime import FlowRegime, normalize_flow_regime
 from .sinks_sources import FlowSinksSourcesConfig, FlowWellConfig
 
 __all__ = [
     "Flow",
+    "FlowRegime",
     "FlowInitialCondition",
     "FlowInitialConditions",
     "FlowBoundaryConditionConfig",
@@ -24,4 +26,5 @@ __all__ = [
     "FlowSinksSourcesConfig",
     "FlowConfig",
     "FlowPhysicalProperties",
+    "normalize_flow_regime",
 ]

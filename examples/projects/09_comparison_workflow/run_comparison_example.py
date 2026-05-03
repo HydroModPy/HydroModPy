@@ -24,6 +24,15 @@ NATURAL_BOUSS_TRANSIENT_PULSE_CONFIG = Path(__file__).with_name(
 NANCON_SEASONAL_CONFIG = Path(__file__).with_name(
     "compare_nancon_transient_seasonal_mf6_bouss.toml"
 )
+NANCON_SEASONAL_HYDROGRAPHY_CONFIG = Path(__file__).with_name(
+    "compare_nancon_transient_seasonal_hydrography_mf6_bouss.toml"
+)
+NANCON_SEASONAL_HIGH_K_HYDROGRAPHY_CONFIG = Path(__file__).with_name(
+    "compare_nancon_transient_seasonal_high_k_hydrography_mf6_bouss.toml"
+)
+NANCON_SEASONAL_HIGH_K_HYDROGRAPHY_MF6_CONFIG = Path(__file__).with_name(
+    "compare_nancon_transient_seasonal_high_k_hydrography_mf6_only.toml"
+)
 CONFIG_BY_CASE = {
     "synthetic": DEFAULT_CONFIG,
     "natural": NATURAL_CONFIG,
@@ -31,6 +40,9 @@ CONFIG_BY_CASE = {
     "natural-bouss-recharge": NATURAL_BOUSS_RECHARGE_CONFIG,
     "natural-bouss-transient-pulse": NATURAL_BOUSS_TRANSIENT_PULSE_CONFIG,
     "nancon-seasonal": NANCON_SEASONAL_CONFIG,
+    "nancon-seasonal-hydrography": NANCON_SEASONAL_HYDROGRAPHY_CONFIG,
+    "nancon-seasonal-high-k-hydrography": NANCON_SEASONAL_HIGH_K_HYDROGRAPHY_CONFIG,
+    "nancon-seasonal-high-k-hydrography-mf6": NANCON_SEASONAL_HIGH_K_HYDROGRAPHY_MF6_CONFIG,
 }
 
 

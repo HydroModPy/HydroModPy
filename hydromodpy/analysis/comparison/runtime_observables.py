@@ -57,6 +57,50 @@ def _area_for_series_value(
     return area
 
 
+def _cell_id_for_series_value(
+    *,
+    series: VariableSeries,
+    cells: CellCentroidTable | None,
+    value_index: int,
+    details: Mapping[str, Any],
+) -> int | None:
+    selected_cell_raw = details.get("selected_cell_index")
+    if selected_cell_raw not in ("", None):
+        try:
+            return int(selected_cell_raw)
+        except Exception:
+            return None
+    if series.cell_ids is not None and value_index < int(series.cell_ids.size):
+        return int(series.cell_ids[int(value_index)])
+    if cells is not None and value_index < int(cells.cell_ids.size):
+        return int(cells.cell_ids[int(value_index)])
+    return None
+
+
+def _vertical_bounds_for_series_value(
+    *,
+    series: VariableSeries,
+    cells: CellCentroidTable | None,
+    value_index: int,
+    details: Mapping[str, Any],
+) -> tuple[float | str, float | str]:
+    if cells is None:
+        return "", ""
+    cell_id = _cell_id_for_series_value(
+        series=series,
+        cells=cells,
+        value_index=value_index,
+        details=details,
+    )
+    if cell_id is None:
+        return "", ""
+    bounds = cells.vertical_bounds_for_cell_id(cell_id)
+    if bounds is None:
+        return "", ""
+    top, bottom = bounds
+    return top, bottom
+
+
 def normalize_observable_value(
     *,
     observable: MethodComparisonObservable,
@@ -482,6 +526,12 @@ def extract_observable_rows(
                     details=details,
                     cells=cells,
                 )
+                surface_top_m, surface_bottom_m = _vertical_bounds_for_series_value(
+                    series=series,
+                    cells=cells,
+                    value_index=value_index,
+                    details=details,
+                )
                 is_nodata = is_nodata_value(normalized["value"])
                 rows.append(
                     {
@@ -524,6 +574,8 @@ def extract_observable_rows(
                         "derived_from_variable": normalized["derived_from_variable"],
                         "conversion_applied": normalized["conversion_applied"],
                         "cell_area_m2": normalized["cell_area_m2"],
+                        "surface_top_m": surface_top_m,
+                        "surface_bottom_m": surface_bottom_m,
                         "source_path": str(series.source_path),
                         "run_folder": str(run_folder),
                         "selection": str(details.get("selection", "")),
@@ -567,6 +619,8 @@ def write_observables_csv(path: Path, rows: list[dict[str, Any]]) -> None:
         "derived_from_variable",
         "conversion_applied",
         "cell_area_m2",
+        "surface_top_m",
+        "surface_bottom_m",
         "source_path",
         "run_folder",
         "selection",
