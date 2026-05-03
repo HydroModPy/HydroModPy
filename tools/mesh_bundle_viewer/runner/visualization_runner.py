@@ -15,6 +15,7 @@ entry point.
 from __future__ import annotations
 
 import json
+import os
 from collections.abc import Mapping
 from dataclasses import replace
 from pathlib import Path
@@ -44,10 +45,27 @@ from ..schema import (
 from ..visualization_summary import VisualizationSummary
 
 
+def _windows_extended_length_path(path: Path) -> str:
+    """Return a Windows long-path spelling while keeping normal paths unchanged."""
+    normalized = path.expanduser().resolve()
+    text = str(normalized)
+    if text.startswith("\\\\?\\"):
+        return text
+    if text.startswith("\\\\"):
+        return "\\\\?\\UNC\\" + text.lstrip("\\")
+    return "\\\\?\\" + text
+
+
+def _filesystem_path(path: Path) -> Path | str:
+    if os.name != "nt":
+        return path
+    return _windows_extended_length_path(path)
+
+
 def _write_json_file(path: Path, content: Mapping[str, Any]) -> None:
     """Write one stable, human-readable JSON file."""
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(
+    Path(_filesystem_path(path)).write_text(
         json.dumps(dict(content), indent=2, ensure_ascii=True) + "\n",
         encoding="utf-8",
     )
@@ -62,7 +80,7 @@ def _write_requested_outputs(
     """Write the figure and JSON summary requested by the config."""
     if data.config.figure_output_path is not None:
         data.config.figure_output_path.parent.mkdir(parents=True, exist_ok=True)
-        figure.savefig(data.config.figure_output_path)
+        figure.savefig(_filesystem_path(data.config.figure_output_path))
 
     if data.config.summary_output_path is not None:
         _write_json_file(data.config.summary_output_path, summary.to_mapping())

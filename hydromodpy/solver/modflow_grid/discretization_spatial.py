@@ -147,6 +147,12 @@ def _build_extruded_solver_mesh_from_runtime_planar(
     )
 
     x_centers, y_centers = mesh_2d.cell_centroids()
+    cfg = _coerce_vertical_config(vertical_config)
+    top_sampler = PreparedSurfaceSampler.from_surface(top_surface)
+    bottom_sampler = PreparedSurfaceSampler.from_surface(bottom_surface)
+    top_flat = np.asarray(top_sampler.sample(x_centers, y_centers), dtype=float).reshape(-1)
+    bottom_flat = np.asarray(bottom_sampler.sample(x_centers, y_centers), dtype=float).reshape(-1)
+
     support_top = np.asarray(
         getattr(runtime_mesh_support, "cell_z_top_m", ()),
         dtype=float,
@@ -161,17 +167,15 @@ def _build_extruded_solver_mesh_from_runtime_planar(
         and bool(np.any(np.isfinite(support_top) & np.isfinite(support_bottom)))
     )
     if support_has_vertical:
-        top_flat = support_top
-        bottom_flat = support_bottom
-    else:
-        top_sampler = PreparedSurfaceSampler.from_surface(top_surface)
-        bottom_sampler = PreparedSurfaceSampler.from_surface(bottom_surface)
-        top_flat = np.asarray(top_sampler.sample(x_centers, y_centers), dtype=float).reshape(-1)
-        bottom_flat = np.asarray(bottom_sampler.sample(x_centers, y_centers), dtype=float).reshape(
-            -1
+        sampled_missing = (
+            ~np.isfinite(top_flat)
+            | ~np.isfinite(bottom_flat)
+            | (top_flat <= float(nodata))
+            | (bottom_flat <= float(nodata))
         )
+        top_flat = np.where(sampled_missing, support_top, top_flat)
+        bottom_flat = np.where(sampled_missing, support_bottom, bottom_flat)
 
-    cfg = _coerce_vertical_config(vertical_config)
     invalid = (
         ~np.isfinite(top_flat)
         | ~np.isfinite(bottom_flat)

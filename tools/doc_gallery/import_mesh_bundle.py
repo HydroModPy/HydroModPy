@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import shutil
 import tempfile
 from pathlib import Path
@@ -104,6 +105,28 @@ def _write_json(path: Path, payload: dict[str, object]) -> None:
     path.write_text(json.dumps(payload, indent=2, ensure_ascii=True) + "\n", encoding="utf-8")
 
 
+def _windows_extended_length_path(path: Path) -> str:
+    """Return a Windows long-path spelling while keeping normal paths unchanged."""
+    normalized = path.expanduser().resolve()
+    text = str(normalized)
+    if not text.startswith("\\\\"):
+        return "\\\\?\\" + text
+    if text.startswith("\\\\?\\"):
+        return text
+    return "\\\\?\\UNC\\" + text.lstrip("\\")
+
+
+def _copy_file(source_path: Path, destination_path: Path) -> None:
+    """Copy one file, using extended-length paths on Windows."""
+    if os.name == "nt":
+        shutil.copy2(
+            _windows_extended_length_path(source_path),
+            _windows_extended_length_path(destination_path),
+        )
+        return
+    shutil.copy2(source_path, destination_path)
+
+
 def _resolve_existing_path(candidate: object, *, base_dir: Path) -> Path | None:
     token = "" if candidate is None else str(candidate).strip()
     if token == "":
@@ -123,7 +146,7 @@ def _copy_optional_figure(source_path: Path | None, destination_path: Path) -> P
     if source_path is None:
         return None
     destination_path.parent.mkdir(parents=True, exist_ok=True)
-    shutil.copy2(source_path, destination_path)
+    _copy_file(source_path, destination_path)
     return destination_path
 
 
@@ -192,7 +215,7 @@ def import_mesh_bundle_case(
         for child in sorted(bundle_dir.iterdir()):
             if not child.is_file():
                 continue
-            shutil.copy2(child, paths.bundle_dir / child.name)
+            _copy_file(child, paths.bundle_dir / child.name)
             copied_filenames.append(child.name)
 
         imported_summary = load_bundle_summary(paths.bundle_dir)

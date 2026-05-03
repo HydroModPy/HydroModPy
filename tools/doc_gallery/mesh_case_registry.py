@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import os
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -167,13 +168,39 @@ def repo_relative(path: Path, *, repo_root: Path = REPO_ROOT) -> str:
     return path.resolve().relative_to(repo_root.resolve()).as_posix()
 
 
+def _windows_extended_length_path(path: Path) -> str:
+    """Return a Windows long-path spelling while keeping normal paths unchanged."""
+    normalized = path.expanduser().resolve()
+    text = str(normalized)
+    if text.startswith("\\\\?\\"):
+        return text
+    if text.startswith("\\\\"):
+        return "\\\\?\\UNC\\" + text.lstrip("\\")
+    return "\\\\?\\" + text
+
+
+def _filesystem_path(path: Path) -> Path:
+    """Return a path object that can address long Windows paths."""
+    if os.name != "nt":
+        return path
+    return Path(_windows_extended_length_path(path))
+
+
+def _path_exists(path: Path) -> bool:
+    return _filesystem_path(path).exists()
+
+
+def _read_text(path: Path) -> str:
+    return _filesystem_path(path).read_text(encoding="utf-8")
+
+
 def validate_bundle_dir(bundle_dir: Path) -> None:
     """Ensure the imported bundle looks like one standard mesh bundle."""
 
     missing = [
         filename
         for filename in MESH_GALLERY_REQUIRED_BUNDLE_FILES
-        if not (bundle_dir / filename).exists()
+        if not _path_exists(bundle_dir / filename)
     ]
     if missing:
         raise FileNotFoundError(
@@ -186,7 +213,7 @@ def load_bundle_summary(bundle_dir: Path) -> dict[str, Any]:
 
     validate_bundle_dir(bundle_dir)
     summary_path = bundle_dir / "mesh_summary.json"
-    return json.loads(summary_path.read_text(encoding="utf-8"))
+    return json.loads(_read_text(summary_path))
 
 
 def iter_mesh_case_json_paths(*, repo_root: Path = REPO_ROOT) -> tuple[Path, ...]:
