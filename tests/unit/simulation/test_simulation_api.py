@@ -55,6 +55,58 @@ def _populate(catalog, sid):
     catalog.finalize(sid, "completed", 42.0)
 
 
+def _write_active_accumulation_flux_case(catalog, sid, *, write_plot_mesh=False):
+    sz = catalog.open_zarr(sid)
+    if write_plot_mesh:
+        vertices = np.array(
+            [
+                [0.0, 0.0, 0.0],
+                [1.0, 0.0, 0.0],
+                [2.0, 0.0, 0.0],
+                [0.0, 1.0, 0.0],
+                [1.0, 1.0, 0.0],
+                [2.0, 1.0, 0.0],
+                [0.0, 2.0, 0.0],
+                [1.0, 2.0, 0.0],
+                [2.0, 2.0, 0.0],
+            ],
+            dtype="float64",
+        )
+        face_node_connectivity = np.array(
+            [
+                [0, 1, 4, 3],
+                [1, 2, 5, 4],
+                [3, 4, 7, 6],
+                [4, 5, 8, 7],
+            ],
+            dtype="int32",
+        )
+        sz.write_mesh(
+            vertices,
+            face_node_connectivity,
+            np.array([100.0, 90.0], dtype="float64"),
+        )
+    mesh = sz.root.require_group("mesh")
+    mesh.create_array(
+        "surface_top",
+        data=np.array([100.0, 100.0, -9999.0, 100.0], dtype="float64"),
+        overwrite=True,
+    )
+    frames = [
+        np.array([0.0, 2.0, 9.0, 0.0], dtype="float64"),
+        np.array([1.0, 2.0, 9.0, 0.0], dtype="float64"),
+        np.array([0.0, 2.0, 9.0, 4.0], dtype="float64"),
+    ]
+    for timestep, values in enumerate(frames):
+        sz.write_field(
+            "accumulation_flux",
+            timestep,
+            values,
+            n_timesteps=3 if timestep == 0 else None,
+            subgroup="derived",
+        )
+
+
 # ============================================================================
 # Simulation class tests
 # ============================================================================
@@ -228,6 +280,97 @@ class TestSimulationData:
         ):
             sim.hydrographic_network_comparison(tolerance_m=25.0)
 
+    def test_simulated_active_network_metrics_from_accumulation_flux(self, catalog):
+        sid = _register(catalog, n_cells=4, n_layers=1, n_timesteps=3)
+        _write_active_accumulation_flux_case(catalog, sid)
+
+        sim = Run(sid, catalog)
+        metrics = sim.simulated_active_network_metrics(
+            threshold=0.5,
+            persistence_threshold=0.5,
+        )
+
+        assert metrics["source_variable"] == "accumulation_flux"
+        assert metrics["n_timesteps"] == 3
+        assert metrics["catchment_cell_count"] == 3
+        assert metrics["active_cell_count_mean"] == pytest.approx(5.0 / 3.0)
+        assert metrics["active_cell_count_max"] == 2
+        assert metrics["active_cell_count_last"] == 2
+        assert metrics["active_cell_count_any"] == 3
+        assert metrics["persistent_cell_count"] == 1
+        assert metrics["perennial_cell_count"] == 1
+        assert metrics["drainage_density_mean_pct"] == pytest.approx(100.0 * 5.0 / 9.0)
+        assert metrics["drainage_density_max_pct"] == pytest.approx(100.0 * 2.0 / 3.0)
+        assert metrics["drainage_density_last_pct"] == pytest.approx(100.0 * 2.0 / 3.0)
+        assert metrics["active_any_ratio"] == pytest.approx(1.0)
+        assert metrics["persistent_ratio"] == pytest.approx(1.0 / 3.0)
+        assert metrics["perennial_ratio"] == pytest.approx(1.0 / 3.0)
+        assert metrics["persistence_mean"] == pytest.approx(5.0 / 9.0)
+        assert metrics["persistence_max"] == pytest.approx(1.0)
+
+    def test_simulated_active_network_mask_modes(self, catalog):
+        sid = _register(catalog, n_cells=4, n_layers=1, n_timesteps=3)
+        _write_active_accumulation_flux_case(catalog, sid)
+
+        sim = Run(sid, catalog)
+
+        np.testing.assert_allclose(
+            sim.simulated_active_network_mask(threshold=0.5, mode="last"),
+            np.array([0.0, 1.0, np.nan, 1.0]),
+        )
+        np.testing.assert_allclose(
+            sim.simulated_active_network_mask(threshold=0.5, mode="any"),
+            np.array([1.0, 1.0, np.nan, 1.0]),
+        )
+        np.testing.assert_allclose(
+            sim.simulated_active_network_mask(
+                threshold=0.5,
+                mode="persistent",
+                persistence_threshold=0.5,
+            ),
+            np.array([0.0, 1.0, np.nan, 0.0]),
+        )
+        np.testing.assert_allclose(
+            sim.simulated_active_network_mask(threshold=0.5, mode="perennial"),
+            np.array([0.0, 1.0, np.nan, 0.0]),
+        )
+        np.testing.assert_allclose(
+            sim.simulated_active_network_mask(threshold=0.5, mode="persistence"),
+            np.array([1.0 / 3.0, 1.0, np.nan, 1.0 / 3.0]),
+        )
+
+    def test_simulated_active_network_overlap_metrics_against_reference_role_by_default(
+        self,
+        catalog,
+    ):
+        sid = _register(catalog, n_cells=4, n_layers=1, n_timesteps=3)
+        _write_active_accumulation_flux_case(catalog, sid, write_plot_mesh=True)
+        reference = gpd.GeoDataFrame(
+            {"id": [1]},
+            geometry=[LineString([(1.5, 0.5), (1.5, 1.5)])],
+            crs="EPSG:2154",
+        )
+        catalog.write_geographic_feature(sid, HYDROGRAPHIC_NETWORK_REFERENCE_FEATURE_NAME, reference)
+
+        sim = Run(sid, catalog)
+        metrics = sim.simulated_active_network_overlap_metrics(
+            threshold=0.5,
+            mode="persistent",
+            persistence_threshold=0.5,
+        )
+
+        assert metrics["network_role"] == "reference"
+        assert metrics["catchment_cell_count"] == 3
+        assert metrics["active_cell_count"] == 1
+        assert metrics["network_cell_count"] == 2
+        assert metrics["overlap_cell_count"] == 1
+        assert metrics["missing_network_cell_count"] == 1
+        assert metrics["extra_active_cell_count"] == 0
+        assert metrics["network_coverage_ratio"] == pytest.approx(0.5)
+        assert metrics["active_precision_ratio"] == pytest.approx(1.0)
+        assert metrics["cell_f1_ratio"] == pytest.approx(2.0 / 3.0)
+        assert metrics["cell_jaccard_ratio"] == pytest.approx(0.5)
+
 
 class TestSimulationField:
     def test_read_field(self, catalog):
@@ -270,6 +413,29 @@ class TestSimulationDisplayCapabilities:
         caps = sim.display_capabilities
         assert "hydrograph" in caps
 
+    def test_simulated_active_network_capability_requires_field_and_plot_mesh(self, catalog):
+        sid = _register(catalog, n_cells=4, n_layers=1, n_timesteps=3)
+        _write_active_accumulation_flux_case(catalog, sid, write_plot_mesh=True)
+        sim = Run(sid, catalog)
+
+        assert sim.has_field("accumulation_flux") is True
+        assert sim.has_field("not_a_field") is False
+        assert "simulated_active_network" in sim.display_capabilities
+        assert "simulated_active_network_reference_overlay" not in sim.display_capabilities
+
+    def test_simulated_active_network_reference_overlay_capability(self, catalog):
+        sid = _register(catalog, n_cells=4, n_layers=1, n_timesteps=3)
+        _write_active_accumulation_flux_case(catalog, sid, write_plot_mesh=True)
+        reference = gpd.GeoDataFrame(
+            {"id": [1]},
+            geometry=[LineString([(1.5, 0.5), (1.5, 1.5)])],
+            crs="EPSG:2154",
+        )
+        catalog.write_geographic_feature(sid, HYDROGRAPHIC_NETWORK_REFERENCE_FEATURE_NAME, reference)
+        sim = Run(sid, catalog)
+
+        assert "simulated_active_network_reference_overlay" in sim.display_capabilities
+
 
 class TestSimulationPlot:
     def test_plot_invalid_raises(self, catalog):
@@ -291,6 +457,38 @@ class TestSimulationPlot:
         out = tmp_path / "figures"
         sim.plot("water_budget", save=out)
         assert (out / "water_budget.png").exists()
+
+    def test_plot_simulated_active_network_save(self, catalog, tmp_path):
+        import matplotlib
+
+        matplotlib.use("Agg", force=True)
+        sid = _register(catalog, n_cells=4, n_layers=1, n_timesteps=3)
+        _write_active_accumulation_flux_case(catalog, sid, write_plot_mesh=True)
+        sim = Run(sid, catalog)
+        out = tmp_path / "figures"
+
+        sim.plot("simulated_active_network", save=out)
+
+        assert (out / "simulated_active_network.png").exists()
+
+    def test_plot_simulated_active_network_reference_overlay_save(self, catalog, tmp_path):
+        import matplotlib
+
+        matplotlib.use("Agg", force=True)
+        sid = _register(catalog, n_cells=4, n_layers=1, n_timesteps=3)
+        _write_active_accumulation_flux_case(catalog, sid, write_plot_mesh=True)
+        reference = gpd.GeoDataFrame(
+            {"id": [1]},
+            geometry=[LineString([(1.5, 0.5), (1.5, 1.5)])],
+            crs="EPSG:2154",
+        )
+        catalog.write_geographic_feature(sid, HYDROGRAPHIC_NETWORK_REFERENCE_FEATURE_NAME, reference)
+        sim = Run(sid, catalog)
+        out = tmp_path / "figures"
+
+        sim.plot("simulated_active_network_reference_overlay", save=out)
+
+        assert (out / "simulated_active_network_reference_overlay.png").exists()
 
 
 class TestSimulationRepr:

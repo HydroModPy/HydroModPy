@@ -523,6 +523,44 @@ def test_simulation_comparison_launcher_writes_manifest_with_mocked_runs(
     assert (tmp_path / "comparison_outputs" / "_generated_configs" / "mf6_ref.toml").exists()
 
 
+def test_simulation_comparison_child_failure_includes_output_tail(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _write_base_simulation_config(tmp_path / "base.toml")
+    config_path = tmp_path / "compare.toml"
+    _write_comparison_config(config_path, output_root="comparison_outputs")
+
+    import hydromodpy.analysis.comparison.experiment_launcher as launcher_module
+
+    def fake_run_child_with_hmp(
+        child_config_path: Path,
+        *,
+        python_executable: str | None = None,
+        timeout_seconds: float | None = None,
+    ) -> ChildRunResult:
+        del python_executable, timeout_seconds
+        return ChildRunResult(
+            config_path=child_config_path,
+            returncode=1,
+            wall_time_seconds=0.25,
+            sim_id=None,
+            stdout="",
+            stderr="duckdb.IOException: database is locked by another process",
+        )
+
+    monkeypatch.setattr(launcher_module, "run_child_with_hmp", fake_run_child_with_hmp)
+
+    with pytest.raises(RuntimeError) as excinfo:
+        SimulationComparisonLauncher(config_path).run()
+
+    message = str(excinfo.value)
+    assert "Comparison child 'mf6_ref' failed" in message
+    assert "hmp run exited with code 1" in message
+    assert "stderr tail:" in message
+    assert "database is locked by another process" in message
+
+
 def test_simulation_comparison_launcher_can_remove_generated_child_tomls(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,

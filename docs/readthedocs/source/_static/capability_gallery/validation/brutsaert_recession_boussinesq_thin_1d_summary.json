@@ -342,7 +342,7 @@
         "Characteristic time: 29.09 d",
         "Relative RMSE: 0.2189",
         "Relative max abs error: 0.2353",
-        "Cross-row head spread: 8.38e-16 m"
+        "Cross-row head spread: 8.12e-16 m"
       ],
       "image": {
         "filename": "brutsaert_recession_boussinesq_thin_1d__boussinesq.png",

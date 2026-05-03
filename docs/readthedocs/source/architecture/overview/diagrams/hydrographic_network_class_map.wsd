@@ -65,6 +65,9 @@ class Run {
   +has_hydrographic_network(role)
   +hydrographic_network(role)
   +hydrographic_network_comparison(...)
+  +simulated_active_network_mask(...)
+  +simulated_active_network_metrics(...)
+  +simulated_active_network_overlap_metrics(...)
 }
 
 HydrographyResult --> HydrographicNetwork : converted into\nrole=\"reference\"
@@ -92,5 +95,7 @@ note bottom of Run
 User-facing read facade over persisted runs.
 Comparison is only available when both
 reference and generated roles exist.
+Simulated-active masks and metrics are
+computed from fields, not persisted linework.
 end note
 @enduml

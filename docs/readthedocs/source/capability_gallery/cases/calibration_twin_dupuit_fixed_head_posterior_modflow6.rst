@@ -8,9 +8,41 @@ Calibration Twin: Dupuit Posterior 1D
 
 Same-solver posterior-oriented twin benchmark on dupuit_fixed_head_1d with one scalar K value and distribution-valued methods.
 
+Figure Reading Order
+--------------------
+
+- Read the configuration figure first: it summarizes the truth parameters, observations, bounds, and weighting that define the inverse problem.
+- Read the objective landscape next: it shows where the evaluated candidates cluster, whether the objective is sharply constrained, and where the best retained solution sits relative to the truth.
+- Read the objective trace as the chronology of the search. It shows whether the method quickly stabilizes, improves gradually, or keeps wandering through flat regions.
+- Read the posterior figure as the full retained parameter distribution, not as a single answer. A wide or multi-modal posterior indicates residual ambiguity even when one candidate has the lowest cost.
+
+.. figure:: /_static/capability_gallery/calibration/calibration_twin_dupuit_fixed_head_posterior_modflow6__configuration.png
+   :alt: Calibration Twin: Dupuit Posterior 1D configuration figure
+   :width: 100%
+
+   Calibration setup summary for Calibration Twin: Dupuit Posterior 1D: truth parameters, observation block, search bounds, and weighting used by the inverse benchmark.
+
 .. tab-set::
 
    .. tab-item:: random_search
+
+      .. figure:: /_static/capability_gallery/calibration/calibration_twin_dupuit_fixed_head_posterior_modflow6__random_search_landscape.png
+         :alt: Calibration Twin: Dupuit Posterior 1D objective landscape for random_search
+         :width: 100%
+
+         Objective landscape or pairwise projection for `random_search` on Calibration Twin: Dupuit Posterior 1D. It shows where evaluated candidates concentrate relative to the truth and the best retained solution.
+
+      .. figure:: /_static/capability_gallery/calibration/calibration_twin_dupuit_fixed_head_posterior_modflow6__random_search_posterior.png
+         :alt: Calibration Twin: Dupuit Posterior 1D posterior distribution for random_search
+         :width: 100%
+
+         Posterior or retained parameter distribution for `random_search` on Calibration Twin: Dupuit Posterior 1D. It shows the full spread of plausible calibrated values, not only the single best fit.
+
+      .. figure:: /_static/capability_gallery/calibration/calibration_twin_dupuit_fixed_head_posterior_modflow6__random_search_trace.png
+         :alt: Calibration Twin: Dupuit Posterior 1D objective trace for random_search
+         :width: 100%
+
+         Objective trace for `random_search` on Calibration Twin: Dupuit Posterior 1D, showing the chronology of evaluated models and whether the search keeps improving or plateaus.
 
       - metric=distribution
       - target=True
@@ -18,17 +50,29 @@ Same-solver posterior-oriented twin benchmark on dupuit_fixed_head_1d with one s
       - cost=0.063018
       - n_eval=18
       - distribution_samples=18
-      - calibration=12.76 s
-      - candidate runtime=12.58 s
-      - algorithm overhead=0.1797 s
-      - actualize=0.02267 s
-      - launcher prep=0.02267 s
+      - calibration=16.57 s
+      - candidate runtime=16.4 s
+      - algorithm overhead=0.1748 s
+      - actualize=0.01348 s
+      - launcher prep=0.01348 s
       - runtime patch=0 s
-      - simulate=0.6763 s
+      - simulate=0.8974 s
       - output select=0 s
       - objective score=0 s
 
    .. tab-item:: cma_es
+
+      .. figure:: /_static/capability_gallery/calibration/calibration_twin_dupuit_fixed_head_posterior_modflow6__cma_es_landscape.png
+         :alt: Calibration Twin: Dupuit Posterior 1D objective landscape for cma_es
+         :width: 100%
+
+         Objective landscape or pairwise projection for `cma_es` on Calibration Twin: Dupuit Posterior 1D. It shows where evaluated candidates concentrate relative to the truth and the best retained solution.
+
+      .. figure:: /_static/capability_gallery/calibration/calibration_twin_dupuit_fixed_head_posterior_modflow6__cma_es_trace.png
+         :alt: Calibration Twin: Dupuit Posterior 1D objective trace for cma_es
+         :width: 100%
+
+         Objective trace for `cma_es` on Calibration Twin: Dupuit Posterior 1D, showing the chronology of evaluated models and whether the search keeps improving or plateaus.
 
       - metric=best_fit
       - target=True
@@ -36,35 +80,71 @@ Same-solver posterior-oriented twin benchmark on dupuit_fixed_head_1d with one s
       - cost=0.0202463
       - n_eval=18
       - distribution_samples=0
-      - calibration=13.06 s
-      - candidate runtime=12.87 s
-      - algorithm overhead=0.1947 s
-      - actualize=0.01921 s
-      - launcher prep=0.01921 s
+      - calibration=13.9 s
+      - candidate runtime=13.73 s
+      - algorithm overhead=0.1681 s
+      - actualize=0.01551 s
+      - launcher prep=0.01551 s
       - runtime patch=0 s
-      - simulate=0.6956 s
+      - simulate=0.7474 s
       - output select=0 s
       - objective score=0 s
 
    .. tab-item:: gp_mapping
 
+      .. figure:: /_static/capability_gallery/calibration/calibration_twin_dupuit_fixed_head_posterior_modflow6__gp_mapping_landscape.png
+         :alt: Calibration Twin: Dupuit Posterior 1D objective landscape for gp_mapping
+         :width: 100%
+
+         Objective landscape or pairwise projection for `gp_mapping` on Calibration Twin: Dupuit Posterior 1D. It shows where evaluated candidates concentrate relative to the truth and the best retained solution.
+
+      .. figure:: /_static/capability_gallery/calibration/calibration_twin_dupuit_fixed_head_posterior_modflow6__gp_mapping_posterior.png
+         :alt: Calibration Twin: Dupuit Posterior 1D posterior distribution for gp_mapping
+         :width: 100%
+
+         Posterior or retained parameter distribution for `gp_mapping` on Calibration Twin: Dupuit Posterior 1D. It shows the full spread of plausible calibrated values, not only the single best fit.
+
+      .. figure:: /_static/capability_gallery/calibration/calibration_twin_dupuit_fixed_head_posterior_modflow6__gp_mapping_trace.png
+         :alt: Calibration Twin: Dupuit Posterior 1D objective trace for gp_mapping
+         :width: 100%
+
+         Objective trace for `gp_mapping` on Calibration Twin: Dupuit Posterior 1D, showing the chronology of evaluated models and whether the search keeps improving or plateaus.
+
       - metric=distribution
       - target=True
       - best_fit=True
-      - cost=0.0245887
+      - cost=0.0246078
       - n_eval=12
       - distribution_samples=12
-      - calibration=31.74 s
-      - candidate runtime=8.33 s
-      - algorithm overhead=23.41 s
-      - actualize=0.02001 s
-      - launcher prep=0.02001 s
+      - calibration=28.34 s
+      - candidate runtime=9.065 s
+      - algorithm overhead=19.27 s
+      - actualize=0.0153 s
+      - launcher prep=0.0153 s
       - runtime patch=0 s
-      - simulate=0.6741 s
+      - simulate=0.7401 s
       - output select=0 s
       - objective score=0 s
 
    .. tab-item:: da_mh_gp
+
+      .. figure:: /_static/capability_gallery/calibration/calibration_twin_dupuit_fixed_head_posterior_modflow6__da_mh_gp_landscape.png
+         :alt: Calibration Twin: Dupuit Posterior 1D objective landscape for da_mh_gp
+         :width: 100%
+
+         Objective landscape or pairwise projection for `da_mh_gp` on Calibration Twin: Dupuit Posterior 1D. It shows where evaluated candidates concentrate relative to the truth and the best retained solution.
+
+      .. figure:: /_static/capability_gallery/calibration/calibration_twin_dupuit_fixed_head_posterior_modflow6__da_mh_gp_posterior.png
+         :alt: Calibration Twin: Dupuit Posterior 1D posterior distribution for da_mh_gp
+         :width: 100%
+
+         Posterior or retained parameter distribution for `da_mh_gp` on Calibration Twin: Dupuit Posterior 1D. It shows the full spread of plausible calibrated values, not only the single best fit.
+
+      .. figure:: /_static/capability_gallery/calibration/calibration_twin_dupuit_fixed_head_posterior_modflow6__da_mh_gp_trace.png
+         :alt: Calibration Twin: Dupuit Posterior 1D objective trace for da_mh_gp
+         :width: 100%
+
+         Objective trace for `da_mh_gp` on Calibration Twin: Dupuit Posterior 1D, showing the chronology of evaluated models and whether the search keeps improving or plateaus.
 
       - metric=distribution
       - target=True
@@ -72,13 +152,13 @@ Same-solver posterior-oriented twin benchmark on dupuit_fixed_head_1d with one s
       - cost=0.94815
       - n_eval=53
       - distribution_samples=53
-      - calibration=36.34 s
-      - candidate runtime=34.79 s
-      - algorithm overhead=1.548 s
-      - actualize=0.01936 s
-      - launcher prep=0.01936 s
+      - calibration=34.49 s
+      - candidate runtime=32.34 s
+      - algorithm overhead=2.15 s
+      - actualize=0.01359 s
+      - launcher prep=0.01359 s
       - runtime patch=0 s
-      - simulate=0.6371 s
+      - simulate=0.5965 s
       - output select=0 s
       - objective score=0 s
 
@@ -112,16 +192,16 @@ Key Metrics
 - Methods: 4
 - Display method: da_mh_gp
 - Distribution samples: 53
-- Calibration total: 36.34 s
-- Session prep: 37.9 s
-- Candidate runtime: 34.79 s
-- Algorithm overhead: 1.548 s
-- Model total: 0.6565 s
-- Actualize: 0.01936 s
-- Launcher prep: 0.01936 s
+- Calibration total: 34.49 s
+- Session prep: 36.19 s
+- Candidate runtime: 32.34 s
+- Algorithm overhead: 2.15 s
+- Model total: 0.6101 s
+- Actualize: 0.01359 s
+- Launcher prep: 0.01359 s
 - Runtime patch: 0 s
-- Model prep: 0.01936 s
-- Model sim: 0.6371 s
+- Model prep: 0.01359 s
+- Model sim: 0.5965 s
 - Output select: 0 s
 - Objective score: 0 s
 
@@ -210,19 +290,19 @@ Methods And Timing
      - Source
    * - ``random_search``
      - Method result summary including target status, evaluation count, total time, and mean per-model actualize / launcher / simulation / objective timings.
-     - target=true, cost=0.063018, n_eval=18, distribution_samples=18, calib_s=12.7618, candidate_runtime_s=12.5821, algorithm_overhead_s=0.179715, actualize_s=0.0226729, launcher_prep_s=0.0226729, runtime_patch_s=0, model_sim_s=0.676332, output_select_s=0, objective_score_s=0
+     - target=true, cost=0.063018, n_eval=18, distribution_samples=18, calib_s=16.5704, candidate_runtime_s=16.3955, algorithm_overhead_s=0.174829, actualize_s=0.0134783, launcher_prep_s=0.0134783, runtime_patch_s=0, model_sim_s=0.897385, output_select_s=0, objective_score_s=0
      - ``docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_dupuit_fixed_head_posterior_modflow6_summary.json``
    * - ``cma_es``
      - Method result summary including target status, evaluation count, total time, and mean per-model actualize / launcher / simulation / objective timings.
-     - target=true, cost=0.0202463, n_eval=18, distribution_samples=0, calib_s=13.0611, candidate_runtime_s=12.8664, algorithm_overhead_s=0.194679, actualize_s=0.0192094, launcher_prep_s=0.0192094, runtime_patch_s=0, model_sim_s=0.695591, output_select_s=0, objective_score_s=0
+     - target=true, cost=0.0202463, n_eval=18, distribution_samples=0, calib_s=13.9007, candidate_runtime_s=13.7326, algorithm_overhead_s=0.168079, actualize_s=0.0155141, launcher_prep_s=0.0155141, runtime_patch_s=0, model_sim_s=0.747408, output_select_s=0, objective_score_s=0
      - ``docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_dupuit_fixed_head_posterior_modflow6_summary.json``
    * - ``gp_mapping``
      - Method result summary including target status, evaluation count, total time, and mean per-model actualize / launcher / simulation / objective timings.
-     - target=true, cost=0.0245887, n_eval=12, distribution_samples=12, calib_s=31.7426, candidate_runtime_s=8.3295, algorithm_overhead_s=23.4131, actualize_s=0.0200098, launcher_prep_s=0.0200098, runtime_patch_s=0, model_sim_s=0.674116, output_select_s=0, objective_score_s=0
+     - target=true, cost=0.0246078, n_eval=12, distribution_samples=12, calib_s=28.3355, candidate_runtime_s=9.06499, algorithm_overhead_s=19.2705, actualize_s=0.0152977, launcher_prep_s=0.0152977, runtime_patch_s=0, model_sim_s=0.740118, output_select_s=0, objective_score_s=0
      - ``docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_dupuit_fixed_head_posterior_modflow6_summary.json``
    * - ``da_mh_gp``
      - Method result summary including target status, evaluation count, total time, and mean per-model actualize / launcher / simulation / objective timings.
-     - target=true, cost=0.94815, n_eval=53, distribution_samples=53, calib_s=36.3398, candidate_runtime_s=34.792, algorithm_overhead_s=1.54775, actualize_s=0.0193589, launcher_prep_s=0.0193589, runtime_patch_s=0, model_sim_s=0.637094, output_select_s=0, objective_score_s=0
+     - target=true, cost=0.94815, n_eval=53, distribution_samples=53, calib_s=34.4863, candidate_runtime_s=32.3367, algorithm_overhead_s=2.14967, actualize_s=0.0135867, launcher_prep_s=0.0135867, runtime_patch_s=0, model_sim_s=0.596539, output_select_s=0, objective_score_s=0
      - ``docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_dupuit_fixed_head_posterior_modflow6_summary.json``
 
 Displayed Metrics
@@ -250,31 +330,31 @@ Displayed Metrics
      - ``docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_dupuit_fixed_head_posterior_modflow6_summary.json``
    * - ``calibration_time_seconds``
      - Metric surfaced on the gallery page for the selected display method.
-     - 36.34 s
+     - 34.49 s
      - ``docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_dupuit_fixed_head_posterior_modflow6_summary.json``
    * - ``session_prepare_time_seconds``
      - Metric surfaced on the gallery page for the selected display method.
-     - 37.9 s
+     - 36.19 s
      - ``docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_dupuit_fixed_head_posterior_modflow6_summary.json``
    * - ``estimated_candidate_runtime_seconds``
      - Metric surfaced on the gallery page for the selected display method.
-     - 34.79 s
+     - 32.34 s
      - ``docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_dupuit_fixed_head_posterior_modflow6_summary.json``
    * - ``algorithm_overhead_time_seconds``
      - Metric surfaced on the gallery page for the selected display method.
-     - 1.548 s
+     - 2.15 s
      - ``docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_dupuit_fixed_head_posterior_modflow6_summary.json``
    * - ``mean_candidate_total_time_seconds``
      - Metric surfaced on the gallery page for the selected display method.
-     - 0.6565 s
+     - 0.6101 s
      - ``docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_dupuit_fixed_head_posterior_modflow6_summary.json``
    * - ``mean_candidate_actualize_time_seconds``
      - Metric surfaced on the gallery page for the selected display method.
-     - 0.01936 s
+     - 0.01359 s
      - ``docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_dupuit_fixed_head_posterior_modflow6_summary.json``
    * - ``mean_candidate_launcher_prepare_time_seconds``
      - Metric surfaced on the gallery page for the selected display method.
-     - 0.01936 s
+     - 0.01359 s
      - ``docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_dupuit_fixed_head_posterior_modflow6_summary.json``
    * - ``mean_candidate_runtime_patch_time_seconds``
      - Metric surfaced on the gallery page for the selected display method.
@@ -282,11 +362,11 @@ Displayed Metrics
      - ``docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_dupuit_fixed_head_posterior_modflow6_summary.json``
    * - ``mean_candidate_preparation_time_seconds``
      - Metric surfaced on the gallery page for the selected display method.
-     - 0.01936 s
+     - 0.01359 s
      - ``docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_dupuit_fixed_head_posterior_modflow6_summary.json``
    * - ``mean_candidate_simulation_time_seconds``
      - Metric surfaced on the gallery page for the selected display method.
-     - 0.6371 s
+     - 0.5965 s
      - ``docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_dupuit_fixed_head_posterior_modflow6_summary.json``
    * - ``mean_candidate_output_selection_time_seconds``
      - Metric surfaced on the gallery page for the selected display method.
@@ -307,10 +387,22 @@ Source Pointers
 - ``validation_cases/calibration/shared/runtime.py``
 - ``validation_cases/calibration/twin/steady/dupuit_fixed_head_1d/run_case.py``
 - ``validation_cases/calibration/twin/steady/dupuit_fixed_head_1d/experiment.py``
-- ``hydromodpy/calibration/benchmark.py``
+- ``hydromodpy/calibration/cli.py``
 - ``hydromodpy/calibration/engine.py``
 
 Artifacts
 ---------
 
+- ``docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_dupuit_fixed_head_posterior_modflow6__configuration.png``
+- ``docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_dupuit_fixed_head_posterior_modflow6__random_search_landscape.png``
+- ``docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_dupuit_fixed_head_posterior_modflow6__random_search_trace.png``
+- ``docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_dupuit_fixed_head_posterior_modflow6__random_search_posterior.png``
+- ``docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_dupuit_fixed_head_posterior_modflow6__cma_es_landscape.png``
+- ``docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_dupuit_fixed_head_posterior_modflow6__cma_es_trace.png``
+- ``docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_dupuit_fixed_head_posterior_modflow6__gp_mapping_landscape.png``
+- ``docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_dupuit_fixed_head_posterior_modflow6__gp_mapping_trace.png``
+- ``docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_dupuit_fixed_head_posterior_modflow6__gp_mapping_posterior.png``
+- ``docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_dupuit_fixed_head_posterior_modflow6__da_mh_gp_landscape.png``
+- ``docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_dupuit_fixed_head_posterior_modflow6__da_mh_gp_trace.png``
+- ``docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_dupuit_fixed_head_posterior_modflow6__da_mh_gp_posterior.png``
 - ``docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_dupuit_fixed_head_posterior_modflow6_summary.json`` stores the displayed metrics plus source hashes used by ``python -m tools.doc_gallery --check``.

@@ -8,9 +8,41 @@ Calibration Twin: Piecewise-K 1D
 
 Same-solver twin benchmark on boussinesq_fixed_head_piecewise_k_1d with three zoned hydraulic-conductivity parameters and head/flux observables.
 
+Figure Reading Order
+--------------------
+
+- Read the configuration figure first: it summarizes the truth parameters, observations, bounds, and weighting that define the inverse problem.
+- Read the objective landscape next: it shows where the evaluated candidates cluster, whether the objective is sharply constrained, and where the best retained solution sits relative to the truth.
+- Read the objective trace as the chronology of the search. It shows whether the method quickly stabilizes, improves gradually, or keeps wandering through flat regions.
+- Read the posterior figure as the full retained parameter distribution, not as a single answer. A wide or multi-modal posterior indicates residual ambiguity even when one candidate has the lowest cost.
+
+.. figure:: /_static/capability_gallery/calibration/calibration_twin_boussinesq_fixed_head_piecewise_k_modflow6__configuration.png
+   :alt: Calibration Twin: Piecewise-K 1D configuration figure
+   :width: 100%
+
+   Calibration setup summary for Calibration Twin: Piecewise-K 1D: truth parameters, observation block, search bounds, and weighting used by the inverse benchmark.
+
 .. tab-set::
 
    .. tab-item:: random_search_seed017
+
+      .. figure:: /_static/capability_gallery/calibration/calibration_twin_boussinesq_fixed_head_piecewise_k_modflow6__random_search_seed017_landscape.png
+         :alt: Calibration Twin: Piecewise-K 1D objective landscape for random_search_seed017
+         :width: 100%
+
+         Objective landscape or pairwise projection for `random_search_seed017` on Calibration Twin: Piecewise-K 1D. It shows where evaluated candidates concentrate relative to the truth and the best retained solution.
+
+      .. figure:: /_static/capability_gallery/calibration/calibration_twin_boussinesq_fixed_head_piecewise_k_modflow6__random_search_seed017_posterior.png
+         :alt: Calibration Twin: Piecewise-K 1D posterior distribution for random_search_seed017
+         :width: 100%
+
+         Posterior or retained parameter distribution for `random_search_seed017` on Calibration Twin: Piecewise-K 1D. It shows the full spread of plausible calibrated values, not only the single best fit.
+
+      .. figure:: /_static/capability_gallery/calibration/calibration_twin_boussinesq_fixed_head_piecewise_k_modflow6__random_search_seed017_trace.png
+         :alt: Calibration Twin: Piecewise-K 1D objective trace for random_search_seed017
+         :width: 100%
+
+         Objective trace for `random_search_seed017` on Calibration Twin: Piecewise-K 1D, showing the chronology of evaluated models and whether the search keeps improving or plateaus.
 
       - metric=distribution
       - target=True
@@ -18,17 +50,35 @@ Same-solver twin benchmark on boussinesq_fixed_head_piecewise_k_1d with three zo
       - cost=0.0451974
       - n_eval=48
       - distribution_samples=48
-      - calibration=54.61 s
-      - candidate runtime=54.07 s
-      - algorithm overhead=0.5399 s
-      - actualize=0.05938 s
-      - launcher prep=0.05938 s
+      - calibration=28.63 s
+      - candidate runtime=28.21 s
+      - algorithm overhead=0.4188 s
+      - actualize=0.04864 s
+      - launcher prep=0.04864 s
       - runtime patch=0 s
-      - simulate=1.067 s
+      - simulate=0.5391 s
       - output select=0 s
       - objective score=0 s
 
    .. tab-item:: random_search_seed029
+
+      .. figure:: /_static/capability_gallery/calibration/calibration_twin_boussinesq_fixed_head_piecewise_k_modflow6__random_search_seed029_landscape.png
+         :alt: Calibration Twin: Piecewise-K 1D objective landscape for random_search_seed029
+         :width: 100%
+
+         Objective landscape or pairwise projection for `random_search_seed029` on Calibration Twin: Piecewise-K 1D. It shows where evaluated candidates concentrate relative to the truth and the best retained solution.
+
+      .. figure:: /_static/capability_gallery/calibration/calibration_twin_boussinesq_fixed_head_piecewise_k_modflow6__random_search_seed029_posterior.png
+         :alt: Calibration Twin: Piecewise-K 1D posterior distribution for random_search_seed029
+         :width: 100%
+
+         Posterior or retained parameter distribution for `random_search_seed029` on Calibration Twin: Piecewise-K 1D. It shows the full spread of plausible calibrated values, not only the single best fit.
+
+      .. figure:: /_static/capability_gallery/calibration/calibration_twin_boussinesq_fixed_head_piecewise_k_modflow6__random_search_seed029_trace.png
+         :alt: Calibration Twin: Piecewise-K 1D objective trace for random_search_seed029
+         :width: 100%
+
+         Objective trace for `random_search_seed029` on Calibration Twin: Piecewise-K 1D, showing the chronology of evaluated models and whether the search keeps improving or plateaus.
 
       - metric=distribution
       - target=False
@@ -36,17 +86,29 @@ Same-solver twin benchmark on boussinesq_fixed_head_piecewise_k_1d with three zo
       - cost=0.0289115
       - n_eval=48
       - distribution_samples=48
-      - calibration=50.19 s
-      - candidate runtime=49.56 s
-      - algorithm overhead=0.6215 s
-      - actualize=0.06425 s
-      - launcher prep=0.06425 s
+      - calibration=28.65 s
+      - candidate runtime=28.22 s
+      - algorithm overhead=0.4379 s
+      - actualize=0.04993 s
+      - launcher prep=0.04993 s
       - runtime patch=0 s
-      - simulate=0.9683 s
+      - simulate=0.5379 s
       - output select=0 s
       - objective score=0 s
 
    .. tab-item:: cma_es
+
+      .. figure:: /_static/capability_gallery/calibration/calibration_twin_boussinesq_fixed_head_piecewise_k_modflow6__cma_es_landscape.png
+         :alt: Calibration Twin: Piecewise-K 1D objective landscape for cma_es
+         :width: 100%
+
+         Objective landscape or pairwise projection for `cma_es` on Calibration Twin: Piecewise-K 1D. It shows where evaluated candidates concentrate relative to the truth and the best retained solution.
+
+      .. figure:: /_static/capability_gallery/calibration/calibration_twin_boussinesq_fixed_head_piecewise_k_modflow6__cma_es_trace.png
+         :alt: Calibration Twin: Piecewise-K 1D objective trace for cma_es
+         :width: 100%
+
+         Objective trace for `cma_es` on Calibration Twin: Piecewise-K 1D, showing the chronology of evaluated models and whether the search keeps improving or plateaus.
 
       - metric=best_fit
       - target=False
@@ -54,17 +116,29 @@ Same-solver twin benchmark on boussinesq_fixed_head_piecewise_k_1d with three zo
       - cost=0.0271745
       - n_eval=48
       - distribution_samples=0
-      - calibration=54.06 s
-      - candidate runtime=53.5 s
-      - algorithm overhead=0.5649 s
-      - actualize=0.0572 s
-      - launcher prep=0.0572 s
+      - calibration=27.91 s
+      - candidate runtime=27.4 s
+      - algorithm overhead=0.5064 s
+      - actualize=0.04994 s
+      - launcher prep=0.04994 s
       - runtime patch=0 s
-      - simulate=1.057 s
+      - simulate=0.5209 s
       - output select=0 s
       - objective score=0 s
 
    .. tab-item:: simplex
+
+      .. figure:: /_static/capability_gallery/calibration/calibration_twin_boussinesq_fixed_head_piecewise_k_modflow6__simplex_landscape.png
+         :alt: Calibration Twin: Piecewise-K 1D objective landscape for simplex
+         :width: 100%
+
+         Objective landscape or pairwise projection for `simplex` on Calibration Twin: Piecewise-K 1D. It shows where evaluated candidates concentrate relative to the truth and the best retained solution.
+
+      .. figure:: /_static/capability_gallery/calibration/calibration_twin_boussinesq_fixed_head_piecewise_k_modflow6__simplex_trace.png
+         :alt: Calibration Twin: Piecewise-K 1D objective trace for simplex
+         :width: 100%
+
+         Objective trace for `simplex` on Calibration Twin: Piecewise-K 1D, showing the chronology of evaluated models and whether the search keeps improving or plateaus.
 
       - metric=best_fit
       - target=True
@@ -72,13 +146,13 @@ Same-solver twin benchmark on boussinesq_fixed_head_piecewise_k_1d with three zo
       - cost=0.00225239
       - n_eval=48
       - distribution_samples=0
-      - calibration=60.17 s
-      - candidate runtime=59.37 s
-      - algorithm overhead=0.8059 s
-      - actualize=0.07837 s
-      - launcher prep=0.07837 s
+      - calibration=31.71 s
+      - candidate runtime=31.25 s
+      - algorithm overhead=0.4651 s
+      - actualize=0.05449 s
+      - launcher prep=0.05449 s
       - runtime patch=0 s
-      - simulate=1.158 s
+      - simulate=0.5965 s
       - output select=0 s
       - objective score=0 s
 
@@ -112,16 +186,16 @@ Key Metrics
 - Methods: 4
 - Display method: random_search
 - Distribution samples: 48
-- Calibration total: 54.61 s
-- Session prep: 55.93 s
-- Candidate runtime: 54.07 s
-- Algorithm overhead: 0.5399 s
-- Model total: 1.127 s
-- Actualize: 0.05938 s
-- Launcher prep: 0.05938 s
+- Calibration total: 28.63 s
+- Session prep: 29.91 s
+- Candidate runtime: 28.21 s
+- Algorithm overhead: 0.4188 s
+- Model total: 0.5877 s
+- Actualize: 0.04864 s
+- Launcher prep: 0.04864 s
 - Runtime patch: 0 s
-- Model prep: 0.05938 s
-- Model sim: 1.067 s
+- Model prep: 0.04864 s
+- Model sim: 0.5391 s
 - Output select: 0 s
 - Objective score: 0 s
 
@@ -218,19 +292,19 @@ Methods And Timing
      - Source
    * - ``random_search_seed017``
      - Method result summary including target status, evaluation count, total time, and mean per-model actualize / launcher / simulation / objective timings.
-     - target=true, cost=0.0451974, n_eval=48, distribution_samples=48, calib_s=54.6129, candidate_runtime_s=54.073, algorithm_overhead_s=0.539897, actualize_s=0.0593789, launcher_prep_s=0.0593789, runtime_patch_s=0, model_sim_s=1.06714, output_select_s=0, objective_score_s=0
+     - target=true, cost=0.0451974, n_eval=48, distribution_samples=48, calib_s=28.6294, candidate_runtime_s=28.2106, algorithm_overhead_s=0.418823, actualize_s=0.048637, launcher_prep_s=0.048637, runtime_patch_s=0, model_sim_s=0.539083, output_select_s=0, objective_score_s=0
      - ``docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_boussinesq_fixed_head_piecewise_k_modflow6_summary.json``
    * - ``random_search_seed029``
      - Method result summary including target status, evaluation count, total time, and mean per-model actualize / launcher / simulation / objective timings.
-     - target=false, cost=0.0289115, n_eval=48, distribution_samples=48, calib_s=50.1862, candidate_runtime_s=49.5647, algorithm_overhead_s=0.621538, actualize_s=0.064254, launcher_prep_s=0.064254, runtime_patch_s=0, model_sim_s=0.968344, output_select_s=0, objective_score_s=0
+     - target=false, cost=0.0289115, n_eval=48, distribution_samples=48, calib_s=28.6542, candidate_runtime_s=28.2163, algorithm_overhead_s=0.437941, actualize_s=0.0499307, launcher_prep_s=0.0499307, runtime_patch_s=0, model_sim_s=0.537909, output_select_s=0, objective_score_s=0
      - ``docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_boussinesq_fixed_head_piecewise_k_modflow6_summary.json``
    * - ``cma_es``
      - Method result summary including target status, evaluation count, total time, and mean per-model actualize / launcher / simulation / objective timings.
-     - target=false, cost=0.0271745, n_eval=48, distribution_samples=0, calib_s=54.0648, candidate_runtime_s=53.4999, algorithm_overhead_s=0.564882, actualize_s=0.0572004, launcher_prep_s=0.0572004, runtime_patch_s=0, model_sim_s=1.05738, output_select_s=0, objective_score_s=0
+     - target=false, cost=0.0271745, n_eval=48, distribution_samples=0, calib_s=27.906, candidate_runtime_s=27.3996, algorithm_overhead_s=0.506364, actualize_s=0.049943, launcher_prep_s=0.049943, runtime_patch_s=0, model_sim_s=0.520882, output_select_s=0, objective_score_s=0
      - ``docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_boussinesq_fixed_head_piecewise_k_modflow6_summary.json``
    * - ``simplex``
      - Method result summary including target status, evaluation count, total time, and mean per-model actualize / launcher / simulation / objective timings.
-     - target=true, cost=0.00225239, n_eval=48, distribution_samples=0, calib_s=60.173, candidate_runtime_s=59.3671, algorithm_overhead_s=0.805936, actualize_s=0.0783716, launcher_prep_s=0.0783716, runtime_patch_s=0, model_sim_s=1.15844, output_select_s=0, objective_score_s=0
+     - target=true, cost=0.00225239, n_eval=48, distribution_samples=0, calib_s=31.7126, candidate_runtime_s=31.2475, algorithm_overhead_s=0.465106, actualize_s=0.0544934, launcher_prep_s=0.0544934, runtime_patch_s=0, model_sim_s=0.596497, output_select_s=0, objective_score_s=0
      - ``docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_boussinesq_fixed_head_piecewise_k_modflow6_summary.json``
 
 Displayed Metrics
@@ -258,31 +332,31 @@ Displayed Metrics
      - ``docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_boussinesq_fixed_head_piecewise_k_modflow6_summary.json``
    * - ``calibration_time_seconds``
      - Metric surfaced on the gallery page for the selected display method.
-     - 54.61 s
+     - 28.63 s
      - ``docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_boussinesq_fixed_head_piecewise_k_modflow6_summary.json``
    * - ``session_prepare_time_seconds``
      - Metric surfaced on the gallery page for the selected display method.
-     - 55.93 s
+     - 29.91 s
      - ``docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_boussinesq_fixed_head_piecewise_k_modflow6_summary.json``
    * - ``estimated_candidate_runtime_seconds``
      - Metric surfaced on the gallery page for the selected display method.
-     - 54.07 s
+     - 28.21 s
      - ``docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_boussinesq_fixed_head_piecewise_k_modflow6_summary.json``
    * - ``algorithm_overhead_time_seconds``
      - Metric surfaced on the gallery page for the selected display method.
-     - 0.5399 s
+     - 0.4188 s
      - ``docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_boussinesq_fixed_head_piecewise_k_modflow6_summary.json``
    * - ``mean_candidate_total_time_seconds``
      - Metric surfaced on the gallery page for the selected display method.
-     - 1.127 s
+     - 0.5877 s
      - ``docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_boussinesq_fixed_head_piecewise_k_modflow6_summary.json``
    * - ``mean_candidate_actualize_time_seconds``
      - Metric surfaced on the gallery page for the selected display method.
-     - 0.05938 s
+     - 0.04864 s
      - ``docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_boussinesq_fixed_head_piecewise_k_modflow6_summary.json``
    * - ``mean_candidate_launcher_prepare_time_seconds``
      - Metric surfaced on the gallery page for the selected display method.
-     - 0.05938 s
+     - 0.04864 s
      - ``docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_boussinesq_fixed_head_piecewise_k_modflow6_summary.json``
    * - ``mean_candidate_runtime_patch_time_seconds``
      - Metric surfaced on the gallery page for the selected display method.
@@ -290,11 +364,11 @@ Displayed Metrics
      - ``docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_boussinesq_fixed_head_piecewise_k_modflow6_summary.json``
    * - ``mean_candidate_preparation_time_seconds``
      - Metric surfaced on the gallery page for the selected display method.
-     - 0.05938 s
+     - 0.04864 s
      - ``docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_boussinesq_fixed_head_piecewise_k_modflow6_summary.json``
    * - ``mean_candidate_simulation_time_seconds``
      - Metric surfaced on the gallery page for the selected display method.
-     - 1.067 s
+     - 0.5391 s
      - ``docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_boussinesq_fixed_head_piecewise_k_modflow6_summary.json``
    * - ``mean_candidate_output_selection_time_seconds``
      - Metric surfaced on the gallery page for the selected display method.
@@ -315,10 +389,21 @@ Source Pointers
 - ``validation_cases/calibration/shared/runtime.py``
 - ``validation_cases/calibration/twin/steady/boussinesq_fixed_head_piecewise_k_1d/run_case.py``
 - ``validation_cases/calibration/twin/steady/boussinesq_fixed_head_piecewise_k_1d/experiment.py``
-- ``hydromodpy/calibration/benchmark.py``
+- ``hydromodpy/calibration/cli.py``
 - ``hydromodpy/calibration/engine.py``
 
 Artifacts
 ---------
 
+- ``docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_boussinesq_fixed_head_piecewise_k_modflow6__configuration.png``
+- ``docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_boussinesq_fixed_head_piecewise_k_modflow6__random_search_seed017_landscape.png``
+- ``docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_boussinesq_fixed_head_piecewise_k_modflow6__random_search_seed017_trace.png``
+- ``docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_boussinesq_fixed_head_piecewise_k_modflow6__random_search_seed017_posterior.png``
+- ``docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_boussinesq_fixed_head_piecewise_k_modflow6__random_search_seed029_landscape.png``
+- ``docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_boussinesq_fixed_head_piecewise_k_modflow6__random_search_seed029_trace.png``
+- ``docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_boussinesq_fixed_head_piecewise_k_modflow6__random_search_seed029_posterior.png``
+- ``docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_boussinesq_fixed_head_piecewise_k_modflow6__cma_es_landscape.png``
+- ``docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_boussinesq_fixed_head_piecewise_k_modflow6__cma_es_trace.png``
+- ``docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_boussinesq_fixed_head_piecewise_k_modflow6__simplex_landscape.png``
+- ``docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_boussinesq_fixed_head_piecewise_k_modflow6__simplex_trace.png``
 - ``docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_boussinesq_fixed_head_piecewise_k_modflow6_summary.json`` stores the displayed metrics plus source hashes used by ``python -m tools.doc_gallery --check``.

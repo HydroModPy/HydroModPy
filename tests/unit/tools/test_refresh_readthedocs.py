@@ -17,6 +17,7 @@ def test_build_refresh_steps_full_pipeline() -> None:
 
     assert [step.title for step in steps] == [
         "Install solver binaries",
+        "Run fast solver intercomparison regressions",
         "Refresh validation reports",
         "Refresh XT3D irregular-triangle diagnostics",
         "Refresh capability gallery artifacts",
@@ -33,6 +34,14 @@ def test_build_refresh_steps_full_pipeline() -> None:
         "mf6,mfnwt",
         "--quiet",
     )
+    assert steps[1].working_directory == REPO_ROOT
+    assert steps[1].command == (
+        str(Path("/tmp/python").resolve()),
+        "-m",
+        "pytest",
+        "tests/regression/fast/intercomparison",
+        "-q",
+    )
     assert steps[-1].working_directory == DOCS_ROOT
     assert steps[-1].command[-2:] == ("source", "build/html")
 
@@ -40,6 +49,7 @@ def test_build_refresh_steps_full_pipeline() -> None:
 def test_build_refresh_steps_respects_skip_flags() -> None:
     steps = build_refresh_steps(
         python_executable=Path("/tmp/python"),
+        include_intercomparison_regressions=False,
         include_validation_reports=False,
         include_xt3d_diagnostics=False,
         include_gallery_check=False,

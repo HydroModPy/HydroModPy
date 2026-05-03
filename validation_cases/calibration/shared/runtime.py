@@ -1660,13 +1660,19 @@ def run_twin_benchmark_case(
     generate_case_figures = (
         definition.generate_case_figures if case_figures is None else bool(case_figures)
     )
-    del figure_format  # case figures are skipped by default for the v0.6 path
     configuration_figure: Path | None = None
     reference_objective_path: Path | None = None
     if generate_case_figures:
-        # Reuse the legacy plotting helpers when explicitly requested. Fall
-        # back to None on the v0.6 path until the figure pipeline is ported.
-        configuration_figure = None
+        from validation_cases.calibration.plotting import write_case_configuration_figure
+
+        configuration_figure = write_case_configuration_figure(
+            benchmark_root=benchmark_root,
+            definition=definition,
+            simulation_config_path=simulation_config_path,
+            truth_simulation_config_path=truth_simulation_config_path,
+            artifact_retention=retained_mode,
+            figure_format=str(figure_format),
+        )
 
     method_results: list[TwinMethodBenchmarkResult] = []
     for method_run in _iter_selected_method_runs(selected_profiles):
@@ -1794,6 +1800,21 @@ def run_twin_benchmark_case(
             session_prepare_time_seconds=session_prepare_time_seconds,
             output_decls=output_decls,
         )
+        if generate_case_figures:
+            from validation_cases.calibration.plotting import write_case_method_figures
+
+            written_figures = write_case_method_figures(
+                benchmark_root=benchmark_root,
+                definition=definition,
+                result=assessed_result,
+                figure_format=str(figure_format),
+            )
+            assessed_result = replace(
+                assessed_result,
+                objective_trace_figure=written_figures.get("objective_trace"),
+                objective_landscape_figure=written_figures.get("objective_landscape"),
+                posterior_distribution_figure=written_figures.get("posterior_distribution"),
+            )
         method_results.append(assessed_result)
 
     pruned_artifacts = _prune_benchmark_artifacts(

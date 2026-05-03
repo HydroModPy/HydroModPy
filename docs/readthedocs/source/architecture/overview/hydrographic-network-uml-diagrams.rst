@@ -32,6 +32,9 @@ Code map
   read facade and comparison accessors.
 - ``hydromodpy/display/figures/hydrographic_network*.py``:
   standalone and comparison figures.
+- ``hydromodpy/results/views.py`` and
+  ``hydromodpy/display/figures/simulated_active_network.py``:
+  computed simulated-active masks, metrics, and cell-map figure.
 
 Recommended reading path
 ------------------------
@@ -81,6 +84,19 @@ Use this diagram when the main question is:
 .. literalinclude:: diagrams/hydrographic_network_runtime_sequence.wsd
    :language: text
    :caption: PlantUML (.wsd) source - hydrographic-network runtime sequence diagram
+
+Simulated-Active Pipeline Diagram
+---------------------------------
+
+Use this diagram when the main question is:
+"how do simulated flux fields become a computed active-network view, and what
+is still missing before a stored vector role exists?"
+
+.. uml:: diagrams/hydrographic_network_simulated_active_pipeline.wsd
+
+.. literalinclude:: diagrams/hydrographic_network_simulated_active_pipeline.wsd
+   :language: text
+   :caption: PlantUML (.wsd) source - simulated-active network pipeline
 
 Availability Activity Diagram
 -----------------------------
@@ -143,8 +159,10 @@ For this topic, the highest-value diagrams are:
    "missing role" branch.
 4. An activity diagram for the availability branches and output gating.
 5. A developer-facing sequence diagram for persistence and ``Run`` behavior.
+6. A simulated-active pipeline diagram for the distinction between computed
+   masks and a future persisted vector role.
 
-These three diagrams answer the most common maintenance questions:
+These diagrams answer the most common maintenance questions:
 
 - where should a new field live?
 - where should a conversion happen?
@@ -173,5 +191,6 @@ Related reading
 ---------------
 
 - :doc:`mental-model-and-design-choices`
+- :doc:`hydrographic-network-simulated-active-inventory`
 - :doc:`code-reading-guide`
 - :doc:`../../getting_started/comparison-workflow`

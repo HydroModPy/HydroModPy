@@ -3,11 +3,17 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+import pytest
+
 from tests.regression.intercomparison_helpers import (
     build_intercomparison_signature,
     metric_key,
     write_isolated_comparison_config,
 )
+from tests.regression.validation_profile_intercomparison_helpers import (
+    build_validation_profile_intercomparison_signature,
+)
+from tests.regression.xt3d_intercomparison_helpers import build_xt3d_method_choice_signature
 
 
 def test_build_intercomparison_signature_is_compact_and_ordered(tmp_path: Path) -> None:
@@ -114,3 +120,66 @@ def test_write_isolated_comparison_config_redirects_outputs_and_workspace(
     assert text.count("[comparison.simulation.overlay.workspace]") == 2
     assert f'root = "{expected_workspace}"' in text
     assert "timeout_seconds = 123.0" in text
+
+
+def test_build_xt3d_method_choice_signature_drops_runtime_fields() -> None:
+    signature = build_xt3d_method_choice_signature(
+        {
+            "comparison_label": "XT3D comparison",
+            "case_count": 1,
+            "improved_count": 1,
+            "regressed_count": 0,
+            "strong_improvement_count": 1,
+            "rows": [
+                {
+                    "slug": "case_a",
+                    "title": "Case A",
+                    "improved": True,
+                    "rmse_without_xt3d": 0.2,
+                    "rmse_with_xt3d": 0.02,
+                    "rmse_delta": -0.18,
+                    "rmse_improvement_factor": 10.0,
+                    "max_error_without_xt3d": 0.3,
+                    "max_error_with_xt3d": 0.04,
+                    "time_without_xt3d_s": 10.0,
+                    "time_with_xt3d_s": 12.0,
+                }
+            ],
+        }
+    )
+
+    row = signature["rows"]["case_a"]
+    assert signature["case_count"] == 1
+    assert row["improved"] is True
+    assert row["rmse_improvement_factor"] == 10.0
+    assert "time_without_xt3d_s" not in row
+    assert "time_with_xt3d_s" not in row
+
+
+def test_build_validation_profile_intercomparison_signature() -> None:
+    class _Comparison:
+        observable_name = "watertable_elevation"
+        numerical_profile = [1.0, 2.0, 3.0]
+        rms_error = 0.1
+        max_error = 0.2
+        row_spread = 0.0
+
+    class _Candidate:
+        observable_name = "watertable_elevation"
+        numerical_profile = [1.0, 2.1, 2.8]
+        rms_error = 0.12
+        max_error = 0.25
+        row_spread = 0.01
+
+    signature = build_validation_profile_intercomparison_signature(
+        case_id="case_a",
+        reference_solver="modflow6",
+        candidate_solver="modflow6_irregular_tri",
+        reference_comparison=_Comparison(),
+        candidate_comparison=_Candidate(),
+    )
+
+    assert signature["case_id"] == "case_a"
+    assert signature["profile_pair"]["n_points"] == 3
+    assert signature["profile_pair"]["max_abs_error"] == pytest.approx(0.2)
+    assert signature["candidate_against_analytical"]["rmse"] == 0.12

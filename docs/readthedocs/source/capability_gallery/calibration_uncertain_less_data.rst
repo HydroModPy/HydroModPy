@@ -18,38 +18,47 @@ Coverage
 - Method rows: 5
 - Timing now separates candidate runtime from calibration-method overhead, and further splits actualize, launcher preparation, runtime patch, simulation, output selection, and objective scoring.
 
+How To Read These Summary Figures
+---------------------------------
+
+- ``benchmark_target_success_rates`` tells you which methods reliably reach their declared success criterion in this benchmark family.
+- ``benchmark_cost_vs_budget`` compares final objective quality at similar search effort, so it is the right place to judge efficiency under a fixed evaluation budget.
+- ``benchmark_time_vs_cost`` separates methods that are numerically effective from methods that are merely cheap because they evaluate fewer candidates.
+- ``benchmark_calibration_time_closure`` is a bookkeeping check: the reported calibration time should roughly match candidate runtime plus method overhead.
+- ``benchmark_candidate_timing_breakdown`` shows whether time is spent in the solver itself or in framework overhead such as candidate preparation and scoring.
+
 Summary Figures
 ---------------
 
 .. figure:: /_static/capability_gallery/calibration/intercomparison/calibration_uncertain_less_data/benchmark_target_success_rates.png
-   :alt: Calibration intercomparison figure benchmark_target_success_rates
+   :alt: Calibration summary figure showing target success rates by method across cases
    :width: 100%
 
-   Calibration intercomparison figure `benchmark_target_success_rates` derived from the curated capability-gallery cases.
+   Success rate by method across the selected calibration cases. Read this first to see which methods consistently reach their declared target within the configured evaluation budget.
 
 .. figure:: /_static/capability_gallery/calibration/intercomparison/calibration_uncertain_less_data/benchmark_cost_vs_budget.png
-   :alt: Calibration intercomparison figure benchmark_cost_vs_budget
+   :alt: Calibration summary figure showing best objective cost versus evaluation budget
    :width: 100%
 
-   Calibration intercomparison figure `benchmark_cost_vs_budget` derived from the curated capability-gallery cases.
+   Best objective cost reached by each method relative to the evaluation budget. Lower is better, so this figure compares solution quality at comparable search effort.
 
 .. figure:: /_static/capability_gallery/calibration/intercomparison/calibration_uncertain_less_data/benchmark_time_vs_cost.png
-   :alt: Calibration intercomparison figure benchmark_time_vs_cost
+   :alt: Calibration summary figure showing calibration time versus best objective cost
    :width: 100%
 
-   Calibration intercomparison figure `benchmark_time_vs_cost` derived from the curated capability-gallery cases.
+   Calibration wall-clock time versus best objective cost. Use it to compare the trade-off between final fit quality and total time spent to obtain it.
 
 .. figure:: /_static/capability_gallery/calibration/intercomparison/calibration_uncertain_less_data/benchmark_calibration_time_closure.png
-   :alt: Calibration intercomparison figure benchmark_calibration_time_closure
+   :alt: Calibration summary figure checking calibration time closure
    :width: 100%
 
-   Calibration intercomparison figure `benchmark_calibration_time_closure` derived from the curated capability-gallery cases.
+   Closure check comparing total calibration time with the sum of candidate runtime and algorithm overhead. Large mismatches indicate timing-accounting issues rather than better calibration.
 
 .. figure:: /_static/capability_gallery/calibration/intercomparison/calibration_uncertain_less_data/benchmark_candidate_timing_breakdown.png
-   :alt: Calibration intercomparison figure benchmark_candidate_timing_breakdown
+   :alt: Calibration summary figure showing per-candidate timing breakdown
    :width: 100%
 
-   Calibration intercomparison figure `benchmark_candidate_timing_breakdown` derived from the curated capability-gallery cases.
+   Mean per-candidate timing breakdown split into actualization, launcher preparation, runtime patching, simulation, output selection, and objective scoring. Use it to see where each method really spends time.
 
 Linked Cases
 ------------
@@ -93,13 +102,13 @@ Method Rows
      - 1
      - 0.410218
      - 24
-     - 93.31 s
-     - 92.95 s
-     - 0.3619 s
-     - 0.2663 s
-     - 0.2663 s
+     - 36.49 s
+     - 36.3 s
+     - 0.1984 s
+     - 0.07844 s
+     - 0.07844 s
      - 0 s
-     - 3.607 s
+     - 1.434 s
      - 0 s
      - 0 s
    * - :doc:`Calibration Twin: Recharge-Step Flux-Only K+Sy 1D <cases/calibration_twin_linearized_recharge_step_flux_only_noisy_modflow6>`
@@ -108,13 +117,13 @@ Method Rows
      - 0
      - 0.407793
      - 56
-     - 213.9 s
-     - 213.2 s
-     - 0.6246 s
-     - 0.2522 s
-     - 0.2522 s
+     - 77.04 s
+     - 76.62 s
+     - 0.4215 s
+     - 0.06914 s
+     - 0.06914 s
      - 0 s
-     - 3.555 s
+     - 1.299 s
      - 0 s
      - 0 s
    * - :doc:`Calibration Twin: Recharge-Step Flux-Only K+Sy 1D <cases/calibration_twin_linearized_recharge_step_flux_only_noisy_modflow6>`
@@ -123,13 +132,13 @@ Method Rows
      - 0
      - 0.407768
      - 16
-     - 62.44 s
-     - 62.23 s
-     - 0.2112 s
-     - 0.2403 s
-     - 0.2403 s
+     - 29.18 s
+     - 29.04 s
+     - 0.1378 s
+     - 0.1065 s
+     - 0.1065 s
      - 0 s
-     - 3.649 s
+     - 1.709 s
      - 0 s
      - 0 s
    * - :doc:`Calibration Twin: Recharge-Step Flux-Only K+Sy 1D <cases/calibration_twin_linearized_recharge_step_flux_only_noisy_modflow6>`
@@ -138,13 +147,13 @@ Method Rows
      - 1
      - 0.410619
      - 20
-     - 99.48 s
-     - 77.04 s
-     - 22.44 s
-     - 0.2517 s
-     - 0.2517 s
+     - 52.45 s
+     - 41.24 s
+     - 11.21 s
+     - 0.1458 s
+     - 0.1458 s
      - 0 s
-     - 3.6 s
+     - 1.916 s
      - 0 s
      - 0 s
    * - :doc:`Calibration Twin: Recharge-Step Flux-Only K+Sy 1D <cases/calibration_twin_linearized_recharge_step_flux_only_noisy_modflow6>`
@@ -153,13 +162,13 @@ Method Rows
      - 1
      - 0.649032
      - 140
-     - 581.8 s
-     - 572 s
-     - 9.797 s
-     - 0.264 s
-     - 0.264 s
+     - 383.3 s
+     - 363.5 s
+     - 19.84 s
+     - 0.1584 s
+     - 0.1584 s
      - 0 s
-     - 3.822 s
+     - 2.438 s
      - 0 s
      - 0 s
 

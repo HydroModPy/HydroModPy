@@ -28,6 +28,8 @@ Valeurs reconnues (voir `hydromodpy/_cli/workflows.py`, constante
 | `"batch"` | Campagne régionale multi-sites, expansion sites × recettes |
 | `"overview"` | Fiche d'identité du bassin (data et géographie, sans solveur) |
 | `"mesh"` | Génération du maillage de bassin uniquement |
+| `"comparison"` | Comparaison post-hoc de simulations enfants issues d'un cas de base |
+| `"testbed"` | Banc d'essai méthodologique, variantes enfants et preuves de robustesse |
 
 Exemple minimal de TOML :
 

@@ -1,0 +1,330 @@
+Hydrographic Network Simulated-Active Inventory
+===============================================
+
+Purpose
+-------
+
+This page records what HydroModPy already exposes for the hydrographic network
+that emerges from simulated flow fields, and what is still missing before that
+output can become one first-class canonical role:
+
+- ``HydrographicNetwork(role="simulated_active")``
+
+It is intentionally different from the existing ``reference`` and
+``generated`` roles.
+
+- ``reference`` is loaded from external hydrography data.
+- ``generated`` is derived from the DEM and persisted as one geographic
+  network feature.
+- ``simulated_active`` would come from time-varying simulated drainage or
+  stream activity fields.
+
+Current Contract Status
+-----------------------
+
+The canonical role already exists in the type contract:
+
+- ``HydrographicNetworkRole = "reference" | "generated" | "mesh_constraint" | "simulated_active"``
+- ``HydrographicNetworks`` already has one optional ``simulated_active`` slot.
+- ``Run.available_hydrographic_network_roles()`` already knows about that role.
+
+What is missing today is not the name, but the population path:
+
+- no workflow step currently writes a persisted
+  ``hydrographic_network_simulated_active`` geographic feature,
+- no vectorization contract currently decides which timestep, threshold or
+  aggregation window should define that role,
+- no display figure currently treats the simulated-active network as a stored
+  canonical line network.
+
+HydroModPy does now expose a conservative computed API layer:
+
+- ``run.simulated_active_network_mask()``
+- ``run.simulated_active_network_metrics()``
+- ``run.simulated_active_network_overlap_metrics()``
+- the ``simulated_active_network`` display figure
+- the ``simulated_active_network_reference_overlay`` validation figure
+
+These APIs compute cell masks, persistence maps, and scalar metrics from the
+persisted ``accumulation_flux`` field without declaring that a canonical vector
+feature exists.
+
+What Already Exists In The Simulation Outputs
+---------------------------------------------
+
+Several outputs already describe the active drainage or stream behavior of a
+simulation.
+
+Derived fields persisted in the simulation catalog
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The main ingredients are in
+``hydromodpy/simulation/extraction/extractors/derived.py``:
+
+- ``accumulation_flux``
+  - routed drain flux on the drainage network,
+  - stored under ``derived/accumulation_flux``,
+  - computed per timestep,
+  - routed with Whitebox D8 over ``mesh/surface_top`` when available,
+  - falls back to ``abs(drn)`` per cell when routing is unavailable.
+- ``outflow_drain``
+  - signed drain outflow per cell,
+  - stored under ``derived/outflow_drain``,
+  - also computed per timestep.
+
+Those fields are persisted as cell arrays in the Zarr run store, not as
+geographic vector features.
+
+Lazy result views already built on top of those fields
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+``hydromodpy/results/views.py`` already exposes catchment-scale summaries:
+
+- ``run.drainage_density()``: fraction of active catchment cells with positive
+  ``accumulation_flux``; useful as one occupancy metric of the active stream
+  network.
+- ``run.persistence(variable="accumulation_flux")``: per-cell fraction of
+  timesteps above a threshold; useful for perennial vs intermittent behavior.
+- ``run.simulated_active_network_mask()``: per-cell active-network view with
+  explicit modes:
+
+  - ``last`` for one timestep snapshot,
+  - ``any`` for cells active at least once,
+  - ``persistent`` for cells active above a declared persistence threshold,
+  - ``perennial`` for cells active at every timestep,
+  - ``persistence`` for the continuous active-time fraction.
+
+- ``run.simulated_active_network_metrics()``: scalar occupancy summary over the
+  same active field.
+- ``run.simulated_active_network_overlap_metrics()``: cell-overlap diagnostic
+  between the simulated active cells and one existing vector network role such
+  as ``reference`` or, secondarily, ``generated``.
+
+Those views are already scientifically meaningful, but they remain scalar or
+raster-like summaries, not one canonical stored network object.
+
+Display support already present
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The display registry now includes:
+
+- ``simulated_active_network``
+- ``simulated_active_network_reference_overlay``
+
+The first figure renders the computed cell mask over the simulation mesh when
+``accumulation_flux`` and a plottable mesh are present. The second overlays
+that simulated active mask with the observed ``reference`` linework and displays
+coverage / precision / F1 / Jaccard metrics in the figure. Both are deliberately
+cell-map views. They are not a stored ``hydrographic_network_simulated_active``
+line feature and should not be interpreted as a vectorized river network.
+
+Comparison workflow support already present
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The comparison stack already knows a lot about those simulated flux outputs:
+
+- ``hydromodpy/analysis/comparison/runtime.py`` supports observables based on
+  ``accumulation_flux`` and ``outflow_drain``.
+- ``hydromodpy/analysis/comparison/visuals.py`` already produces maps and
+  other figures for those fields.
+- example scripts such as
+  ``examples/projects/02_nancon_watershed/run_transient_prototype.py`` already
+  use:
+
+  - ``run.fields("accumulation_flux")``
+  - ``run.fields("outflow_drain")``
+  - ``run.drainage_density()``
+
+This means the scientific signal is already present. What is still absent is a
+shared hydrographic-network storage contract.
+
+The comparison workflow can also write:
+
+- ``simulated_active_network_metrics.csv``
+- ``simulated_active_network_metrics_skipped.json``
+- ``simulated_active_network_overlap_metrics.csv``
+- ``simulated_active_network_overlap_metrics_skipped.json``
+
+The metrics export summarizes active-network occupancy signatures between
+variants. The overlap export compares the simulated active cells with the
+observed ``reference`` network by rasterizing that vector network onto the mesh.
+Both are intentionally separate from ``hydrographic_network_metrics.csv``,
+which compares persisted vector linework roles.
+
+There is also a Run-level overlap diagnostic:
+
+- ``run.simulated_active_network_overlap_metrics(network_role="reference")``
+- ``run.simulated_active_network_overlap_metrics(network_role="generated")``
+
+This does not vectorize the simulated network. It rasterizes the selected
+persisted vector role onto mesh cells by intersection, then compares that cell
+occupancy with the computed simulated-active mask. This is the right
+intermediate comparison before committing to a canonical vectorization rule.
+The primary scientific comparison is against ``reference``. Comparing against
+``generated`` is still useful, but it answers a different question: whether the
+simulated active cells follow the DEM/topography-derived network.
+
+What Does Not Yet Exist
+-----------------------
+
+HydroModPy does not yet provide the following for the simulated-active vector
+network:
+
+- no persisted canonical geographic feature named
+  ``hydrographic_network_simulated_active``,
+- no vector shapefile or GeoDataFrame contract built automatically from
+  ``accumulation_flux``,
+- no comparison helper between ``simulated_active`` and
+  ``reference/generated``,
+- no stable vectorization contract for choosing one timestep or one aggregation
+  window,
+- no explicit distinction yet between:
+
+  - instantaneous active network,
+  - seasonal or event-specific active network,
+  - persistent or perennial active network.
+
+This is the main reason why the role exists in the class contract but stays
+empty in practice.
+
+Storage And Representation Options
+----------------------------------
+
+The main design choice is not "should HydroModPy store simulated activity?",
+but "which representation should become canonical?".
+
+Option A - Keep raw fields only
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Keep ``accumulation_flux`` and ``outflow_drain`` as raw persisted fields and do
+not introduce one stored hydrographic network feature.
+
+Pros:
+
+- minimal change,
+- no ambiguity about thresholds,
+- naturally keeps the time dimension.
+
+Cons:
+
+- cannot compare with ``reference`` and ``generated`` using the same
+  hydrographic-network API,
+- makes figures and metrics remain ad hoc and field-specific.
+
+Option B - Add one raster-like canonical active network
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Persist one thresholded 2D mask derived from ``accumulation_flux`` or from a
+time-aggregated persistence field.
+
+Pros:
+
+- easy overlap metrics against other raster masks,
+- simpler than full vectorization,
+- keeps a close link with the raw cell fields.
+
+Cons:
+
+- still not one true line network,
+- comparison with vector reference/generated networks remains indirect.
+
+Current status:
+
+- a non-persisted computed version now exists via
+  ``run.simulated_active_network_mask()`` and the
+  ``simulated_active_network`` figure;
+- the persisted canonical-mask contract is still undecided.
+
+Option C - Add one vectorized canonical active network
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Threshold and vectorize one selected simulated-active representation, then
+persist it as ``hydrographic_network_simulated_active``.
+
+Pros:
+
+- aligns well with the existing canonical network comparison API,
+- allows length-based metrics and geometry diff views,
+- makes the three roles structurally comparable.
+
+Cons:
+
+- requires explicit threshold and time-window rules,
+- vectorization quality may vary strongly with mesh type and routing quality.
+
+Recommended Direction
+---------------------
+
+The cleanest next step is a staged approach:
+
+1. Keep the raw per-timestep fields exactly as they are.
+2. Use the documented computed mask API for development and visual inspection.
+3. Decide whether to persist one canonical mask, one vectorized network, or
+   both.
+4. Only then derive one canonical persisted hydrographic network role from
+   that aggregated mask.
+
+The first aggregation contract should stay simple and deterministic. Two good
+starting candidates are:
+
+- one thresholded snapshot at a declared timestep or season,
+- one persistence-based mask over the full simulation or one declared year.
+
+That would avoid mixing two questions:
+
+- "what did the solver simulate at each timestep?"
+- "which one network representation should HydroModPy compare with the
+  loaded and DEM-derived networks?"
+
+Metrics Already Available Or Easy To Add
+----------------------------------------
+
+Already available without changing storage:
+
+- drainage density timeseries,
+- persistence maps,
+- ``run.simulated_active_network_mask()`` for cell-level active-network views,
+- ``run.simulated_active_network_metrics()`` scalar occupancy metrics,
+- ``run.simulated_active_network_overlap_metrics()`` against an existing
+  vector role,
+- ``simulated_active_network`` display figure,
+- ``simulated_active_network_reference_overlay`` validation figure,
+- comparison export ``simulated_active_network_metrics.csv``,
+- outlet flux and drainage-field comparisons through the comparison workflow,
+- active-cell fraction and activity timing.
+
+Natural next metrics after a canonical active-network representation exists:
+
+- active-network total length,
+- overlap with ``reference`` and ``generated``,
+- missing and extra active branches,
+- precision / recall / F1 on raster occupancy,
+- Hausdorff-like distance for vectorized active lines,
+- seasonal persistence classes such as perennial vs intermittent branches.
+
+Open Design Questions
+---------------------
+
+Before implementing the role, a few questions need one explicit answer:
+
+1. What should define the canonical time window?
+2. What threshold should turn ``accumulation_flux`` into active linework?
+3. Should the first comparison be raster-based, vector-based, or both?
+4. How should the contract behave on unstructured meshes when routing support
+   differs from structured cases?
+5. Should ``simulated_active`` represent one instantaneous network or one
+   persistent network summary?
+
+Until those questions are fixed, the safest position is:
+
+- keep the role declared in the class model,
+- keep the raw simulated fields persisted and comparable,
+- expose computed masks and maps for development,
+- do not yet auto-populate ``hydrographic_network_simulated_active``.
+
+Related reading
+---------------
+
+- :doc:`mental-model-and-design-choices`
+- :doc:`hydrographic-network-uml-diagrams`
+- :doc:`../../getting_started/comparison-workflow`

@@ -2,8 +2,8 @@
 
 Single CLI entry point. The TOML must carry a top-level
 ``workflow = "..."`` field (one of ``simulation``, ``calibration``,
-``batch``, ``overview``, ``mesh``, ``comparison``). Absence raises
-``WorkflowMissingError``.
+``batch``, ``overview``, ``mesh``, ``comparison``, ``testbed``). Absence
+raises ``WorkflowMissingError``.
 
 Also supports ``.py`` scripts, executed as-is in a subprocess for
 prototyping (no workflow involved).
@@ -197,6 +197,7 @@ def _run_toml(config_path: Path, *, args: argparse.Namespace) -> None:
         "calibration": module.run_calibration,
         "batch": module.run_batch,
         "comparison": module.run_comparison,
+        "testbed": module.run_testbed,
     }
     runner = dispatch[workflow]
 
@@ -331,6 +332,8 @@ def _infer_workflow_from_sections(raw_toml: dict) -> str:
     from hydromodpy._cli.legacy_calibration import normalize_legacy_calibration_section
 
     raw_toml = normalize_legacy_calibration_section(raw_toml)
+    if "testbed" in raw_toml:
+        return "testbed"
     if "comparison" in raw_toml:
         return "comparison"
     if "calibration" in raw_toml:

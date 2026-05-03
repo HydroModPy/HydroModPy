@@ -10,9 +10,9 @@ runtime object from creation to solver execution and post-processing.
 Code map
 --------
 
-- ``hydromodpy/process/prototype/process_spatial.py``:
+- ``hydromodpy/physics/base/process_spatial.py``:
   lifecycle root for process runtime objects.
-- ``hydromodpy/process/flow/structure_binders.py``:
+- ``hydromodpy/physics/flow/structure_binders.py``:
   one example of hydration from domain and loaded data.
 - ``hydromodpy/solver/<backend>/adapters/``:
   preparation boundary before solver calls.
@@ -20,9 +20,9 @@ Code map
 Recommended reading path
 ------------------------
 
-1. ``hydromodpy/process/prototype/process_spatial.py``
-2. ``hydromodpy/process/flow/flow.py``
-3. ``hydromodpy/process/flow/structure_binders.py``
+1. ``hydromodpy/physics/base/process_spatial.py``
+2. ``hydromodpy/physics/flow/flow.py``
+3. ``hydromodpy/physics/flow/structure_binders.py``
 4. one adapter under ``hydromodpy/solver/<backend>/adapters/``
 
 Diagram source

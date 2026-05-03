@@ -609,7 +609,44 @@
           "source": "validation_cases/analytical/steady/linearized_unconfined_drainage_1d/config_modflow6.toml"
         }
       ],
-      "modflow6_irregular_tri": []
+      "modflow6_irregular_tri": [
+        {
+          "field": "modflow6.runtime.mf_verbose",
+          "meaning": "Solver-specific override applied to MODFLOW 6.",
+          "value": "false",
+          "source": "validation_cases/analytical/steady/linearized_unconfined_drainage_1d/config_modflow6_irregular_tri.toml"
+        },
+        {
+          "field": "modflow6.runtime.mf6_ims_complexity",
+          "meaning": "Linear-solver complexity preset used by MODFLOW 6.",
+          "value": "COMPLEX",
+          "source": "validation_cases/analytical/steady/linearized_unconfined_drainage_1d/config_modflow6_irregular_tri.toml"
+        },
+        {
+          "field": "modflow6.process_specific.vka",
+          "meaning": "Vertical anisotropy ratio passed to MODFLOW 6.",
+          "value": "1",
+          "source": "validation_cases/analytical/steady/linearized_unconfined_drainage_1d/config_modflow6_irregular_tri.toml"
+        },
+        {
+          "field": "modflow6.sgrid.vertical.nlay",
+          "meaning": "Number of vertical layers used by MODFLOW 6.",
+          "value": "1",
+          "source": "validation_cases/analytical/steady/linearized_unconfined_drainage_1d/config_modflow6_irregular_tri.toml"
+        },
+        {
+          "field": "mesh_input.mesh_path",
+          "meaning": "Committed unstructured mesh file used by the irregular-mesh solver variant.",
+          "value": "../../../shared/mesh_bundles/linearized_unconfined_drainage_irregular_tri_100x10/mesh_2d.msh",
+          "source": "validation_cases/analytical/steady/linearized_unconfined_drainage_1d/config_modflow6_irregular_tri.toml"
+        },
+        {
+          "field": "mesh_input.bundle_dir",
+          "meaning": "Committed mesh-bundle directory used to recover support metadata for the irregular-mesh solver variant.",
+          "value": "../../../shared/mesh_bundles/linearized_unconfined_drainage_irregular_tri_100x10",
+          "source": "validation_cases/analytical/steady/linearized_unconfined_drainage_1d/config_modflow6_irregular_tri.toml"
+        }
+      ]
     },
     "acceptance_criteria": {
       "common": [

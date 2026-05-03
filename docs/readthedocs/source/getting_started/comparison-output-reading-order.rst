@@ -28,24 +28,36 @@ Reading Order
 
 Use the order above for a first pass.
 
-1. ``comparison_audit.md``
+#. ``comparison_audit.md``
    Read this first. It tells you whether the workflow still considers the
    child runs to be one comparable physical case.
-2. ``comparison_report.md``
+#. ``comparison_report.md``
    Read this next for context: reference variant, candidate variants,
    observables, and main outputs.
-3. ``comparison_figures/case_configuration.png``
+#. ``comparison_figures/case_configuration.png``
    Open this before judging numerical differences. It shows the support,
    topography when available, detected fixed-head boundaries, point/outlet
    observables, and recharge forcing.
-4. ``comparison_metrics.csv``
+#. ``comparison_metrics.csv``
    Use this to quantify the gap: bias, MAE, RMSE, and max error.
-5. ``comparison_figures/*triptych*.png``
+#. ``comparison_figures/*triptych*.png``
    Use the figures to see where the discrepancy is concentrated.
-6. ``hydrographic_network_metrics.csv``
+#. ``hydrographic_network_metrics.csv``
    Inspect this when the compared runs both expose canonical hydrographic
    networks and geometry matters to the question.
-7. ``comparison_manifest.json``
+#. ``simulated_active_network_metrics.csv``
+   Inspect this when the compared runs expose ``accumulation_flux`` and you
+   want active drainage occupancy metrics rather than vector linework metrics.
+#. ``simulated_active_network_overlap_metrics.csv``
+   Inspect this when the compared runs also expose the observed ``reference``
+   network; it is the main observation-vs-simulation network diagnostic.
+#. ``simulated_active_network`` figure on an individual run
+   Use this when you need to see the computed active cells before interpreting
+   scalar occupancy metrics.
+#. ``*_skipped.json`` diagnostic files
+   Open these when one expected export is missing. They explain which variants
+   were skipped and why.
+#. ``comparison_manifest.json``
    Keep this for traceability. It is the index that points to the report,
    metrics, generated configs, and child run folders.
 
@@ -198,4 +210,6 @@ Related Reading
 - :doc:`comparison-workflow`
 - :doc:`reading-results-pages`
 - :doc:`../scientific/solvers/mesh-and-discretization-strategies`
+- :doc:`../scientific/solvers/modflow-package-semantics-and-boundary-conditions`
+- :doc:`../scientific/hydrology/forcing-time-aggregation-and-first-clim`
 - :doc:`../scientific/hydrology/recharge-and-surface-exchange-semantics`

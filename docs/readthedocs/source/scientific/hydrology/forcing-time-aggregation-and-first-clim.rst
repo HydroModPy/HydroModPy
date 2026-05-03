@@ -189,6 +189,7 @@ Related Pages
 - :doc:`recharge-and-surface-exchange-semantics`
 - :doc:`stream-ocean-and-drainage-semantics`
 - :doc:`../solvers/modflow-package-semantics-and-boundary-conditions`
+- :doc:`../solvers/worked-modflow-case-linearized-unconfined-recharge-periodic-1d`
 - :doc:`../../getting_started/comparison-workflow`
 
 Current Limitation

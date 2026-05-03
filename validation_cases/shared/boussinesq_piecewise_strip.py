@@ -405,8 +405,52 @@ def aggregate_piecewise_strip_postprocess(
     ny: int = PIECEWISE_STRIP_NY,
 ) -> None:
     """Rewrite launcher-produced vector `.npy` outputs to `(ny, nx)` grids."""
+    postprocess_dir = Path(postprocess_dir)
+    head_path = postprocess_dir / "watertable_elevation.npy"
+    if not head_path.exists():
+        state_history_path = postprocess_dir.parent / "_boussinesq_state_history.npz"
+        if not state_history_path.exists():
+            raise FileNotFoundError(head_path)
+
+        with np.load(state_history_path) as payload:
+            head_history = np.asarray(payload["head_history_m"], dtype=float)
+        if head_history.ndim == 1:
+            head_history = head_history.reshape(1, -1)
+
+        (
+            centroid_x_m,
+            centroid_y_m,
+            z_top_m,
+            x_min_m,
+            x_max_m,
+            y_min_m,
+            y_max_m,
+        ) = _load_piecewise_strip_bundle_geometry(Path(bundle_dir))
+        if centroid_x_m.size != int(head_history.shape[1]):
+            raise AssertionError(
+                "Bundle cell count does not match launcher Boussinesq state-history length."
+            )
+
+        watertable_elevation, watertable_depth = _aggregate_triangle_history(
+            head_history=head_history,
+            time_keys=list(range(head_history.shape[0])),
+            cell_centroid_x_m=centroid_x_m,
+            cell_centroid_y_m=centroid_y_m,
+            z_top_m=z_top_m,
+            x_min_m=x_min_m,
+            x_max_m=x_max_m,
+            y_min_m=y_min_m,
+            y_max_m=y_max_m,
+            nx=int(nx),
+            ny=int(ny),
+        )
+        postprocess_dir.mkdir(parents=True, exist_ok=True)
+        np.save(postprocess_dir / "watertable_elevation.npy", watertable_elevation)
+        np.save(postprocess_dir / "watertable_depth.npy", watertable_depth)
+        return
+
     head_payload = np.load(
-        Path(postprocess_dir) / "watertable_elevation.npy",
+        head_path,
         allow_pickle=True,
     ).item()
     if not head_payload:
@@ -456,8 +500,8 @@ def aggregate_piecewise_strip_postprocess(
         nx=int(nx),
         ny=int(ny),
     )
-    np.save(Path(postprocess_dir) / "watertable_elevation.npy", watertable_elevation)
-    np.save(Path(postprocess_dir) / "watertable_depth.npy", watertable_depth)
+    np.save(postprocess_dir / "watertable_elevation.npy", watertable_elevation)
+    np.save(postprocess_dir / "watertable_depth.npy", watertable_depth)
 
 
 def write_piecewise_strip_launcher_config(
@@ -473,6 +517,7 @@ def write_piecewise_strip_launcher_config(
     east_head_m: float | None = None,
     recharge_rate_m_s: float | None = None,
     runtime_backend: str = "scipy_sparse",
+    store_results: bool = True,
 ) -> Path:
     """Write one minimal self-contained launcher config for the strip bundle."""
     active_bc: list[str] = []
@@ -565,6 +610,7 @@ def write_piecewise_strip_launcher_config(
         [
             "",
             "[simulation.results]",
+            f"store = {str(bool(store_results)).lower()}",
             "keep_solver_files = true",
             "",
             "[data]",
@@ -612,6 +658,7 @@ def run_piecewise_strip_boussinesq_launcher_case(
         east_head_m=None if east_head_m is None else float(east_head_m),
         recharge_rate_m_s=(None if recharge_rate_m_s is None else float(recharge_rate_m_s)),
         runtime_backend=runtime_backend,
+        store_results=False,
     )
 
     import subprocess as _sp
@@ -637,27 +684,22 @@ def run_piecewise_strip_boussinesq_launcher_case(
             f"Stderr:\n{completed.stderr}"
         )
 
-    from validation_cases.shared.runtime import _discover_result_store
-
-    store, sim_id = _discover_result_store(out_path)
-
-    try:
+    store = None
+    sim_id = None
+    model_ws = out_path / ".solver_scratch" / f"{process_id}__boussinesq"
+    if not model_ws.is_dir():
         model_ws, postprocess_dir, particles_dir = resolve_model_workspace(
             out_path,
             results_folder_name="results_simulations",
             model_name=f"{process_id}__boussinesq",
         )
-        aggregate_piecewise_strip_postprocess(
-            postprocess_dir,
-            bundle_dir=bundle_dir,
-        )
-    except AssertionError:
-        if store is not None and sim_id is not None:
-            model_ws = out_path
-            postprocess_dir = out_path
-            particles_dir = out_path
-        else:
-            raise
+    else:
+        postprocess_dir = model_ws / "_postprocess"
+        particles_dir = postprocess_dir / "_particles"
+    aggregate_piecewise_strip_postprocess(
+        postprocess_dir,
+        bundle_dir=bundle_dir,
+    )
 
     return ValidationRunResult(
         case_dir=Path(case_dir),

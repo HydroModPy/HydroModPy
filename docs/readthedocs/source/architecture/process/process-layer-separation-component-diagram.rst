@@ -11,11 +11,11 @@ solver backends.
 Code map
 --------
 
-- ``hydromodpy/process/prototype`` and ``contracts.py``:
+- ``hydromodpy/physics/base`` and ``contracts.py``:
   generic process-layer contracts.
-- ``hydromodpy/process/flow`` and ``transport``:
+- ``hydromodpy/physics/flow`` and ``transport``:
   concrete runtime specializations.
-- ``hydromodpy/process/hydrology`` and ``forcing``:
+- ``hydromodpy/physics/hydrology`` and ``forcing``:
   conceptual forcing and hydrology helpers outside solver code.
 - ``hydromodpy/simulation/adapters``:
   translation boundary.
@@ -25,10 +25,10 @@ Code map
 Recommended reading path
 ------------------------
 
-1. ``hydromodpy/process/contracts.py``
-2. ``hydromodpy/process/prototype/__init__.py``
-3. ``hydromodpy/process/flow/__init__.py``
-4. ``hydromodpy/process/forcing/__init__.py``
+1. ``hydromodpy/physics/contracts.py``
+2. ``hydromodpy/physics/base/__init__.py``
+3. ``hydromodpy/physics/flow/__init__.py``
+4. ``hydromodpy/physics/forcing/__init__.py``
 5. ``hydromodpy/solver/base/registry.py``
 
 Diagram source

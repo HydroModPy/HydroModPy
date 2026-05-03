@@ -29,6 +29,7 @@ They are deliberately complementary to the package-level sections in
    test-families-and-quality-roles
    mental-model-and-design-choices
    hydrographic-network-uml-diagrams
+   hydrographic-network-simulated-active-inventory
    code-reading-guide
    tests-and-validation
    compatibility-facades

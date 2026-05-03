@@ -37,7 +37,7 @@ class DerivedConfig(HydroModelBase):
     )
     outflow_drain: Annotated[bool, Profile.DEV] = Field(
         default=True,
-        description="Per-cell drain outflow preserving sign convention.",
+        description="Per-cell positive drain outflow summed over layers.",
     )
     concentration_seepage: Annotated[bool, Profile.DEV] = Field(
         default=False,

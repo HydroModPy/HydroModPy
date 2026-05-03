@@ -5,221 +5,102 @@ Use this page when the question is not:
 "How do I launch HydroModPy?"
 
 but rather:
-"Which kind of user-facing workflow exists, and what does it teach?"
+"Which kind of user-facing workflow exists, and which detailed page should I
+read next?"
 
-This page complements :doc:`../seven-modes`:
-
-- :doc:`../seven-modes` explains usage modes;
-- this page explains workflow families;
-- :doc:`../scientific/index` explains equations, assumptions, and methods;
-- :doc:`../architecture/index` explains runtime structure and package
-  boundaries.
+This page is now a compact map. The detailed workflow documentation lives in
+:doc:`../user_guide/workflows/index`.
 
 Quick Map
 ---------
 
 .. list-table::
    :header-rows: 1
-   :widths: 14 28 28 30
+   :widths: 14 28 30 28
 
    * - Workflow
      - Primary goal
      - First concrete entry point
-     - Best current next page
+     - Detailed documentation
    * - ``overview``
      - Inspect one basin, extract support, and load the main geographic and
-       observed data before any solver run
+       observed data before any solver run.
      - ``examples/projects/04_data_overview/project.toml``
-     - :doc:`data-overview-walkthrough`
+     - :doc:`../user_guide/workflows/overview`
    * - ``simulation``
      - Run one forward model end to end from support construction to solver
-       outputs
+       outputs.
      - ``examples/projects/06_vire_selune/run_vire_mf6_irregular.toml``
-     - :doc:`simulation-walkthrough`
+     - :doc:`../user_guide/workflows/simulation`
    * - ``mesh``
-     - Build and export a catchment mesh as a reusable discretization artifact
-     - public example set still thin; current runtime anchor lives in the mesh
-       architecture pages and regression fixtures
-     - :doc:`../architecture/mesh/index`
+     - Build and export one catchment mesh as a reusable discretization
+       artifact.
+     - ``[mesh_catchment]`` examples in
+       ``examples/projects/06_vire_selune/*.toml``
+     - :doc:`../user_guide/workflows/mesh`
+   * - ``testbed``
+     - Expand controlled method variants and collect robustness evidence.
+     - ``examples/projects/10_testbed_workflow/mesh_resolution_testbed.toml``
+       or ``flow_k_sensitivity_testbed.toml``
+     - :doc:`../user_guide/workflows/testbed`
    * - ``calibration``
-     - Run parameter estimation against one or several observables
-     - ``examples/projects/01_calibration/project.toml``
-     - :doc:`../scientific/calibration/index`
+     - Estimate parameters against one or several observables.
+     - ``examples/projects/02_nancon_watershed/run_calibration_k.toml``
+     - :doc:`../user_guide/workflows/calibration`
    * - ``batch``
-     - Launch a multi-site or campaign-style execution over several cases
-     - no polished public example yet
-     - :doc:`../architecture/index`
+     - Launch a multi-site or campaign-style execution over several cases.
+     - A ``workflow = "batch"`` TOML with ``[regional_lab]``
+     - :doc:`../user_guide/workflows/batch`
    * - ``comparison``
      - Compare several child simulations built from one shared physical base
-       case
+       case.
      - ``examples/projects/09_comparison_workflow/compare_dupuit_mf6_bouss.toml``
-     - :doc:`comparison-workflow`
+     - :doc:`../user_guide/workflows/comparison`
 
 Why This Split Matters
 ----------------------
 
-HydroModPy already distinguishes ``workflow`` from ``Pipeline`` and from
-usage modes in both the code and the glossary.
+HydroModPy distinguishes three concepts that are easy to confuse:
 
-Keeping that distinction visible in the public docs avoids three common
-confusions:
+- a workflow is the user-facing operation requested by ``workflow = "..."``;
+- a usage mode is the entry interface, such as CLI TOML, Python, JSON, or
+  notebook cells;
+- a solver is one numerical backend used by some workflows.
 
-- a workflow is not a solver;
-- a workflow is not an entry interface;
-- a workflow page should not try to replace a scientific method note.
+For example, ``simulation`` is a workflow. ``modflow6`` is a solver that can be
+used by that workflow. ``hmp run`` is one usage mode for launching it.
+Similarly, ``mesh`` is a concrete child workflow for one discretization
+artifact, while ``testbed`` is the orchestration workflow for method variants
+such as mesh-resolution, constraint-sensitivity, or flow-parameter robustness
+studies.
 
-Recommended Editorial Split
----------------------------
+Recommended Reading Order
+-------------------------
 
-The most robust documentation split is:
+1. Read :doc:`choose-your-first-workflow` if you are still choosing your first
+   example.
+2. Use this page to identify the workflow family.
+3. Open the detailed page in :doc:`../user_guide/workflows/index`.
+4. Jump to :doc:`../scientific/index` for equations and assumptions.
+5. Jump to :doc:`../architecture/index` for package boundaries and runtime
+   diagrams.
 
-- ``seven-modes`` answers how HydroModPy is driven;
-- ``workflow-families`` answers what the user is trying to do;
-- ``scientific/*`` answers which physical and numerical methods are used;
-- ``architecture/*`` answers where those responsibilities live in code.
+Related Pages
+-------------
 
-That split stays coherent with ``hydromodpy/_cli/workflows.py`` and with the
-developer glossary.
+- :doc:`../seven-modes` explains how HydroModPy is driven.
+- :doc:`../user_guide/workflows/index` explains each workflow in detail.
+- :doc:`../scientific/index` explains scientific methods.
+- :doc:`../architecture/index` explains implementation structure.
 
-Workflow Profiles
------------------
+.. toctree::
+   :hidden:
+   :maxdepth: 1
 
-Overview Workflow
-^^^^^^^^^^^^^^^^^
-
-This workflow is the right starting point when the first question is:
-"What basin am I about to model, and what input data exist?"
-
-It is mainly about:
-
-- catchment delineation,
-- support construction,
-- geographic overlays,
-- observed data loading and caching.
-
-It is not yet about:
-
-- solver comparison,
-- calibration,
-- numerical-method trade-offs.
-
-Current best public anchors:
-
-- :doc:`data-overview-walkthrough`
-- :doc:`choose-your-first-workflow`
-- :doc:`../architecture/spatial_support/index`
-
-Simulation Workflow
-^^^^^^^^^^^^^^^^^^^
-
-This is the canonical forward-model workflow. It is where HydroModPy turns one
-scientific configuration into one persisted run.
-
-It is mainly about:
-
-- physical configuration of ``[flow]``,
-- support and discretization choices,
-- forcing preparation,
-- backend execution,
-- result persistence and reading.
-
-It should link out to scientific pages rather than restating them in full.
-The main scientific companion pages are:
-
-- :doc:`../scientific/foundations/groundwater-flow-problem-definition`
-- :doc:`../scientific/hydrology/hydrological-forcing-chain`
-- :doc:`../scientific/solvers/index`
-
-Current best public anchors:
-
-- :doc:`simulation-walkthrough`
-- :doc:`../architecture/simulation/toml-to-solver-walkthrough`
-
-Mesh Workflow
-^^^^^^^^^^^^^
-
-This workflow deserves its own explicit public narrative because it is not
-just a preprocessing convenience. It is where discretization choices become
-visible and testable.
-
-It should explain:
-
-- why a mesh is generated separately from the solver in some workflows,
-- how structured and catchment-conformal meshes differ,
-- which artifacts are exported for reuse,
-- which mesh diagnostics matter before any physical interpretation.
-
-Today, the code clearly exposes the workflow, but the public example path is
-still thinner than for ``overview`` or ``simulation``.
-
-Current best public anchors:
-
-- :doc:`../architecture/mesh/index`
-- :doc:`../scientific/solvers/meshes-and-numerical-methods`
-
-Calibration Workflow
-^^^^^^^^^^^^^^^^^^^^
-
-This workflow sits at the boundary between forward modelling and inverse
-problem solving.
-
-It should explain:
-
-- which observables can constrain the model,
-- which objective functions or posterior logic are used,
-- which parameters are estimated,
-- which uncertainties remain outside the calibration layer.
-
-Current best public anchors:
-
-- :doc:`../scientific/calibration/index`
-- :doc:`../architecture/calibration/index`
-
-Batch Workflow
-^^^^^^^^^^^^^^
-
-This workflow is important conceptually because HydroModPy was designed for
-repeated deployment across many basins, not only for one-off local runs.
-
-It should eventually document:
-
-- campaign-scale execution,
-- per-site reproducibility,
-- aggregation of outputs across basins,
-- what remains shared versus site-specific.
-
-Current public documentation is still sparse. A dedicated user-facing example
-page is still missing.
-
-Comparison Workflow
-^^^^^^^^^^^^^^^^^^^
-
-This workflow is especially valuable for method assessment because it compares
-several child simulations while keeping the physical case as constant as
-possible.
-
-It should be the main public place for:
-
-- solver-to-solver comparison,
-- structured-versus-irregular discretization comparison,
-- controlled comparison of numerical options on the same case.
-
-The main public entry point is now:
-
-- :doc:`comparison-workflow`
-
-The most useful companion sources remain:
-
-- :doc:`reading-results-pages`
-- ``docs/developers/simulation_comparison_workflow.md``
-- ``examples/projects/09_comparison_workflow/README.md``
-
-Next Public Pages Worth Adding
-------------------------------
-
-The highest-value additions after this workflow map would be:
-
-1. one public ``mesh`` walkthrough that starts from a single catchment and
-   ends with a reusable mesh bundle,
-2. one public ``batch`` example page so the campaign-scale purpose of
-   HydroModPy is visible outside the code and developer notes.
+   Overview workflow <../user_guide/workflows/overview>
+   Simulation workflow <../user_guide/workflows/simulation>
+   Mesh workflow <../user_guide/workflows/mesh>
+   Testbed workflow <../user_guide/workflows/testbed>
+   Calibration workflow <../user_guide/workflows/calibration>
+   Batch workflow <../user_guide/workflows/batch>
+   Comparison workflow <../user_guide/workflows/comparison>

@@ -22,7 +22,7 @@ The current ``hydromodpy.physics`` stack is split into six distinct concerns:
   public compatibility facade that re-exports the main process symbols.
 - ``hydromodpy.physics.contracts``:
   explicit import path for generic process-layer contracts reused internally.
-- ``hydromodpy.physics.prototype``:
+- ``hydromodpy.physics.base``:
   process-agnostic building blocks such as ``ProcessSpatial``,
   ``ProcessSpatialConfig``, ``InitialCondition``, ``BoundaryCondition``, and
   ``SinkSource``.
@@ -45,18 +45,18 @@ Generic process contracts
 
 When the question is "what is the shared contract behind process objects?":
 
-1. ``hydromodpy/process/contracts.py``
-2. ``hydromodpy/process/prototype/__init__.py``
-3. the files under ``hydromodpy/process/prototype/``
+1. ``hydromodpy/physics/contracts.py``
+2. ``hydromodpy/physics/base/__init__.py``
+3. the files under ``hydromodpy/physics/base/``
 
 Flow process
 ^^^^^^^^^^^^
 
 When the question is "what does the project materialize before a flow solve?":
 
-1. ``hydromodpy/process/flow/__init__.py``
-2. ``hydromodpy/process/flow/flow.py``
-3. ``hydromodpy/process/flow/flow_config.py``
+1. ``hydromodpy/physics/flow/__init__.py``
+2. ``hydromodpy/physics/flow/flow.py``
+3. ``hydromodpy/physics/flow/flow_config.py``
 4. initial/boundary/sinks-source payload files under the same package
 
 Transport process
@@ -64,16 +64,16 @@ Transport process
 
 When the question is "what transport runtime object is passed to the adapter?":
 
-1. ``hydromodpy/process/transport/transport.py``
-2. ``hydromodpy/process/transport/transport_config.py``
+1. ``hydromodpy/physics/transport/transport.py``
+2. ``hydromodpy/physics/transport/transport_config.py``
 
 Forcing bridge
 ^^^^^^^^^^^^^^
 
 When the question is "how do loaded data become solver-ready time series?":
 
-1. ``hydromodpy/process/forcing/forcing_bridge.py``
-2. ``hydromodpy/process/forcing/time_alignment.py``
+1. ``hydromodpy/physics/forcing/forcing_bridge.py``
+2. ``hydromodpy/physics/forcing/time_alignment.py``
 
 Runtime role in the full stack
 ------------------------------
@@ -103,4 +103,5 @@ See also
 
 - :doc:`process-runtime-class-diagram`
 - :doc:`process-runtime-to-solver-sequence-diagram`
+- :doc:`../solver/process-solver-registry`
 - :doc:`../simulation/toml-to-solver-walkthrough`

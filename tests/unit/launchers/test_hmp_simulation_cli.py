@@ -196,6 +196,71 @@ def test_hmp_run_dispatches_comparison_workflow(monkeypatch, tmp_path) -> None:
     assert captured["run_called"] is True
 
 
+def test_hmp_run_dispatches_testbed_workflow(monkeypatch, tmp_path) -> None:
+    """``hmp run`` with workflow=testbed dispatches to run_testbed."""
+    config = _write_toml(
+        tmp_path / "testbed.toml",
+        'workflow = "testbed"\n'
+        "[testbed]\n"
+        'id = "mesh_resolution"\n'
+        "\n"
+        "[[testbed.variant]]\n"
+        'id = "coarse"\n',
+    )
+
+    captured: dict = {}
+
+    def fake_run(config_path):
+        captured["config_path"] = Path(config_path)
+        captured["run_called"] = True
+        return {"mode": "testbed"}
+
+    monkeypatch.setattr("hydromodpy._cli.workflows.run_testbed", fake_run)
+    monkeypatch.setattr("sys.argv", ["hmp", "run", str(config)])
+
+    main()
+
+    assert captured["config_path"] == config.resolve()
+    assert captured["run_called"] is True
+
+
+def test_hmp_run_executes_testbed_dry_plan(monkeypatch, tmp_path) -> None:
+    """``hmp run`` can execute a real testbed plan without child execution."""
+    config = _write_toml(
+        tmp_path / "testbed.toml",
+        'workflow = "testbed"\n'
+        "\n"
+        "[workspace]\n"
+        'project_root = "mesh_outputs/base"\n'
+        "\n"
+        "[mesh_catchment]\n"
+        'constraints_mode = "rivers_only"\n'
+        "\n"
+        "[testbed]\n"
+        'id = "mesh_resolution"\n'
+        'output_root = "outputs/testbed"\n'
+        "execute = false\n"
+        "\n"
+        "[[testbed.variant]]\n"
+        'id = "coarse"\n'
+        'axis = "resolution"\n'
+        "\n"
+        "[testbed.variant.overlay.mesh_catchment.zone_meshing]\n"
+        "global_size = 400.0\n",
+    )
+
+    monkeypatch.setattr("hydromodpy._cli.commands.run.auto_scan_workspace", lambda _: None)
+    monkeypatch.setattr("hydromodpy.core.tools.display.print_hydromodpy", lambda: None)
+    monkeypatch.setattr("sys.argv", ["hmp", "run", str(config)])
+
+    main()
+
+    output_root = tmp_path / "outputs" / "testbed"
+    assert (output_root / "_generated_configs" / "coarse.toml").exists()
+    assert (output_root / "testbed_plan.json").exists()
+    assert (output_root / "testbed_manifest.json").exists()
+
+
 def test_hmp_run_crashes_on_unknown_workflow_value(monkeypatch, tmp_path) -> None:
     """``hmp run`` rejects a workflow value outside the known set."""
     config = _write_toml(

@@ -215,6 +215,34 @@ class TestFields:
             frame = np.asarray(run.field("head", timestep=t)).reshape(5, 4)
             np.testing.assert_array_equal(stack[t], frame)
 
+    def test_fields_uses_solver_structured_shape_when_dem_shape_differs(self, catalog):
+        sid = _register_sim(catalog, nrow=5, ncol=4, n_timesteps=2)
+        sz = catalog.open_zarr(sid)
+        try:
+            mesh = sz.root.require_group("mesh")
+            mesh.attrs["structured_shape"] = [3, 2]
+            mesh.create_array(
+                "surface_top",
+                data=np.ones(6, dtype="float64"),
+                overwrite=True,
+            )
+            for t in range(2):
+                sz.write_field(
+                    "accumulation_flux",
+                    t,
+                    np.arange(t * 6, (t + 1) * 6, dtype="float64"),
+                    n_timesteps=2 if t == 0 else None,
+                    subgroup="derived",
+                )
+        finally:
+            sz.close()
+
+        run = Run(sid, catalog)
+        stack = run.fields("accumulation_flux")
+
+        assert stack.shape == (2, 3, 2)
+        np.testing.assert_array_equal(stack[1], np.arange(6, 12, dtype="float64").reshape(3, 2))
+
     def test_fields_raises_on_disu(self, catalog):
         sid = _register_sim(catalog, mesh_topology="disu")
         run = Run(sid, catalog)

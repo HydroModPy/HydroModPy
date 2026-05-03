@@ -17,9 +17,9 @@ It focuses on:
 Code map
 --------
 
-- ``hydromodpy/process/flow/flow.py``:
+- ``hydromodpy/physics/flow/flow.py``:
   runtime object assembled before solver dispatch.
-- ``hydromodpy/process/flow/time_forcing.py``:
+- ``hydromodpy/physics/flow/time_forcing.py``:
   forcing preparation before solver assembly.
 - ``hydromodpy/solver/<backend>/adapters/``:
   adapter layer that translates process objects into backend payloads.
@@ -29,8 +29,8 @@ Code map
 Recommended reading path
 ------------------------
 
-1. ``hydromodpy/process/flow/flow.py``
-2. ``hydromodpy/process/flow/time_forcing.py``
+1. ``hydromodpy/physics/flow/flow.py``
+2. ``hydromodpy/physics/flow/time_forcing.py``
 3. ``hydromodpy/solver/modflow_common/flow_adapter_helpers.py``
 4. one backend adapter such as ``modflow6.py`` or ``modflownwt.py``
 5. the matching solver package under ``hydromodpy/solver/``

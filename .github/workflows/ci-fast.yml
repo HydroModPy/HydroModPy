@@ -1,5 +1,6 @@
 # Fast checks for every push and pull request on dev or master.
-# Keeps feedback under ten minutes: lint, unit tests, fast regression.
+# Keeps feedback under ten minutes: lint, unit tests, fast regression, and the
+# fast solver-intercomparison guard.
 
 name: CI Fast
 
@@ -143,7 +144,15 @@ jobs:
       - name: Run fast regression with coverage
         env:
           HYDROMODPY_COVERAGE: "1"
-        run: python -m pytest tests/regression/fast/ -n auto --dist loadgroup -q
+        run: python -m pytest tests/regression/fast/ -m "not intercomparison" -n auto --dist loadgroup -q
+
+      - name: Install MODFLOW 6 binary for intercomparisons
+        run: python -m hydromodpy install-binaries --subset mf6 --quiet
+
+      - name: Run fast solver intercomparison regressions
+        env:
+          HYDROMODPY_COVERAGE: "1"
+        run: python -m pytest tests/regression/fast/intercomparison -q
 
       - name: Combine and report coverage
         if: always()

@@ -7,6 +7,13 @@ from typing import Any
 
 import numpy as np
 
+from hydromodpy.results.derived import (
+    accumulate_downhill_on_mesh,
+    active_surface_mask,
+    drain_budget_to_positive_outflow,
+    find_drain_budget_key,
+)
+
 logger = logging.getLogger(__name__)
 
 
@@ -327,9 +334,9 @@ def _compute_accumulation_flux(
 ) -> None:
     """Drain flux routed on the drainage network.
 
-    Tries to route via whitebox d8_mass_flux using the geographic fill DEM
-    from the store (produces a connected stream network). Falls back to
-    simple ``abs(drn)`` per cell if geographic data or whitebox is unavailable.
+    Tries the structured D8/Masstransfer-like raster path first, then a
+    mesh-graph path for DISV/unstructured grids. Falls back to the local
+    positive drain outflow if no routing support is available.
     """
     grp = store.open_zarr_group(sim_id, mode="r")
     budget_grp = grp.get("budget")
@@ -337,17 +344,11 @@ def _compute_accumulation_flux(
         logger.debug("No budget fields, skipping accumulation_flux for sim %s", sim_id)
         return
 
-    drn_key = None
-    for candidate in ("drn", "drain", "drains", "DRN", "DRAINS"):
-        if candidate in budget_grp:
-            drn_key = candidate
-            break
-
+    drn_key = find_drain_budget_key(budget_grp)
     if drn_key is None:
         logger.debug("No DRN budget field for accumulation_flux, sim %s", sim_id)
         return
 
-    # Try whitebox D8 routing with fill DEM from geographic store
     try:
         _accumulation_flux_routed(
             sim_id,
@@ -361,17 +362,32 @@ def _compute_accumulation_flux(
         return
     except Exception:
         logger.debug(
-            "Whitebox routing unavailable for sim %s, falling back to abs(drn)",
+            "Structured D8 routing unavailable for sim %s, trying mesh graph routing",
             sim_id,
+            exc_info=True,
         )
 
-    # Fallback: simple abs(drn) without routing
+    try:
+        _accumulation_flux_mesh_graph(
+            sim_id,
+            store,
+            budget_grp,
+            drn_key,
+            n_timesteps,
+            n_cells,
+        )
+        logger.debug("Derived accumulation_flux (mesh graph) for sim %s", sim_id)
+        return
+    except Exception:
+        logger.debug(
+            "Mesh graph routing unavailable for sim %s, falling back to local DRN outflow",
+            sim_id,
+            exc_info=True,
+        )
+
     for t in range(n_timesteps):
         drn = budget_grp[drn_key][t]
-        if drn.ndim == 2:
-            flux = np.abs(drn).sum(axis=0)
-        else:
-            flux = np.abs(drn)
+        flux = drain_budget_to_positive_outflow(drn, n_cells=n_cells)
         store.write_field(
             sim_id,
             "accumulation_flux",
@@ -401,10 +417,6 @@ def _accumulation_flux_routed(
     import tempfile
     from pathlib import Path
 
-    import rasterio
-
-    from hydromodpy.spatial.delineation import get_whitebox_backend
-
     # Read surface_top from mesh (solver resolution) and infer 2D shape.
     grp = store.open_zarr_group(sim_id, mode="r")
     mesh = grp.get("mesh")
@@ -419,12 +431,19 @@ def _accumulation_flux_routed(
     if nrow * ncol == n_cells:
         grid_shape = (nrow, ncol)
     else:
-        # Resampled grid - infer from n_cells (square grids or from DuckDB).
+        # Resampled structured grid - infer from n_cells only when there is
+        # no explicit UGRID topology. DISV/Gmsh meshes must use graph routing.
+        if mesh is not None and "face_node_connectivity" in mesh:
+            raise ValueError("No structured grid shape for D8 routing")
         side = int(np.sqrt(n_cells))
         if side * side == n_cells:
             grid_shape = (side, side)
         else:
             raise ValueError(f"Cannot infer 2D grid shape from n_cells={n_cells}")
+
+    import rasterio
+
+    from hydromodpy.spatial.delineation import get_whitebox_backend
 
     wb = get_whitebox_backend()
 
@@ -442,12 +461,13 @@ def _accumulation_flux_routed(
 
         eff_path = str(Path(tmp) / "eff.tif")
         abs_path = str(Path(tmp) / "abs.tif")
-        _write_bare_tif(eff_path, np.where(fill_data >= 0, 1.0, -99999), -99999.0)
-        _write_bare_tif(abs_path, np.where(fill_data >= 0, 0.0, -99999), -99999.0)
+        valid_routing_cell = np.isfinite(fill_data) & (fill_data > -9000.0)
+        _write_bare_tif(eff_path, np.where(valid_routing_cell, 1.0, -99999), -99999.0)
+        _write_bare_tif(abs_path, np.where(valid_routing_cell, 0.0, -99999), -99999.0)
 
         for t in range(n_timesteps):
             drn = budget_grp[drn_key][t]
-            drain_abs = np.abs(drn).sum(axis=0) if drn.ndim == 2 else np.abs(drn)
+            drain_abs = drain_budget_to_positive_outflow(drn, n_cells=n_cells)
             drain_2d = drain_abs.reshape(grid_shape)
             drain_2d[~np.isfinite(drain_2d)] = 0.0
 
@@ -470,38 +490,68 @@ def _accumulation_flux_routed(
             )
 
 
+def _accumulation_flux_mesh_graph(
+    sim_id: str,
+    store: Any,
+    budget_grp: Any,
+    drn_key: str,
+    n_timesteps: int,
+    n_cells: int,
+) -> None:
+    """Route positive drain outflow on a downhill cell-adjacency graph."""
+    grp = store.open_zarr_group(sim_id, mode="r")
+    mesh = grp.get("mesh")
+    if mesh is None or "surface_top" not in mesh or "face_node_connectivity" not in mesh:
+        raise KeyError("mesh/surface_top and mesh/face_node_connectivity are required")
+
+    surface_top = np.asarray(mesh["surface_top"][:], dtype="float64").reshape(-1)[:n_cells]
+    if surface_top.size != n_cells:
+        raise ValueError(f"surface_top has {surface_top.size} cells, expected {n_cells}")
+    face_node_connectivity = np.asarray(mesh["face_node_connectivity"][:], dtype="int64")
+    vertices = np.asarray(mesh["vertices"][:], dtype="float64") if "vertices" in mesh else None
+    inactive_mask = ~active_surface_mask(surface_top)
+
+    for t in range(n_timesteps):
+        drn = budget_grp[drn_key][t]
+        outflow = drain_budget_to_positive_outflow(drn, n_cells=n_cells)
+        accumulated = accumulate_downhill_on_mesh(
+            outflow,
+            surface_top,
+            face_node_connectivity,
+            vertices=vertices,
+            inactive_mask=inactive_mask,
+        )
+        store.write_field(
+            sim_id,
+            "accumulation_flux",
+            t,
+            accumulated.astype("float64"),
+            n_timesteps=n_timesteps if t == 0 else None,
+            subgroup="derived",
+        )
+
+
 def _compute_outflow_drain(
     sim_id: str,
     store: Any,
     n_timesteps: int,
     n_cells: int,
 ) -> None:
-    """Per-cell drain outflow preserving sign convention.
-
-    Like accumulation_flux but keeps the physical sign (negative = outflow).
-    """
+    """Per-cell positive drain outflow summed over layers."""
     grp = store.open_zarr_group(sim_id, mode="r")
     budget_grp = grp.get("budget")
     if budget_grp is None:
         logger.debug("No budget fields, skipping outflow_drain for sim %s", sim_id)
         return
 
-    drn_key = None
-    for candidate in ("drn", "drain", "drains", "DRN", "DRAINS"):
-        if candidate in budget_grp:
-            drn_key = candidate
-            break
-
+    drn_key = find_drain_budget_key(budget_grp)
     if drn_key is None:
         logger.debug("No DRN budget field for outflow_drain, sim %s", sim_id)
         return
 
     for t in range(n_timesteps):
         drn = budget_grp[drn_key][t]
-        if drn.ndim == 2:
-            flux = drn.sum(axis=0)
-        else:
-            flux = drn
+        flux = drain_budget_to_positive_outflow(drn, n_cells=n_cells)
         store.write_field(
             sim_id,
             "outflow_drain",

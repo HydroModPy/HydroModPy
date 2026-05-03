@@ -29,17 +29,30 @@ python -m tools.doc_gallery
 
 For the whole Read the Docs refresh chain, use the dedicated orchestration
 script. It recomputes validation reports, the XT3D note payload, the gallery
-artifacts, runs the gallery drift check, then rebuilds Sphinx locally:
+artifacts, runs the gallery drift check, then rebuilds Sphinx locally. Before
+rewriting gallery artifacts, it also runs the fast solver-intercomparison
+regressions under `tests/regression/fast/intercomparison/` so method-comparison
+pages are refreshed only after the corresponding numerical methods still pass
+their compact non-regression signatures:
 
 ```bash
 python -m tools.refresh_readthedocs
 ```
 
 Add `--install-solver-binaries` on clean CI machines that do not already have
-the MODFLOW executables cached:
+the MODFLOW executables cached. The scheduled docs workflow uses this option so
+the intercomparison guard runs with a real MODFLOW 6 executable rather than
+being skipped because `mf6` is absent:
 
 ```bash
 python -m tools.refresh_readthedocs --install-solver-binaries
+```
+
+If you are editing only Sphinx prose and intentionally do not want to execute
+the numerical intercomparison guard, skip it explicitly:
+
+```bash
+python -m tools.refresh_readthedocs --skip-intercomparison-regressions
 ```
 
 To enforce that such a refresh only touched the generated docs artifacts, use:
@@ -275,3 +288,18 @@ Its job is intentionally narrow:
 This does not regenerate validation batch reports in CI. Those reports still
 depend on heavier scientific runtimes and are refreshed explicitly when the
 validation report content itself changes.
+
+## Solver Intercomparison Guard
+
+The generated capability gallery and the solver non-regression suite are linked
+by three fast intercomparison tests:
+
+- `tests/regression/fast/intercomparison/test_solver_intercomparison_fast_regression.py`
+- `tests/regression/fast/intercomparison/test_mf6_support_intercomparison_fast_regression.py`
+- `tests/regression/fast/intercomparison/test_xt3d_irregular_tri_fast_regression.py`
+
+These tests do not compare PNG files. They rerun selected MODFLOW 6 irregular
+triangle, structured MODFLOW 6, and Boussinesq cases, extract compact numerical
+signatures, and compare them with committed goldens. The nightly docs refresh
+runs them before regenerating the gallery artifacts; the fast CI workflow runs
+the same category explicitly with an installed `mf6` binary.

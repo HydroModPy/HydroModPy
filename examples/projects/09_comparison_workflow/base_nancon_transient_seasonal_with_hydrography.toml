@@ -1,0 +1,19 @@
+# Nancon transient seasonal base with observed hydrography loaded.
+#
+# This overlay keeps the existing seasonal simulation benchmark unchanged and
+# only adds the reference stream network required for simulated-active vs
+# observed-network overlap diagnostics.
+
+base_config = "base_nancon_transient_seasonal.toml"
+workflow = "simulation"
+
+[simulation]
+name = "nancon_transient_seasonal_hydrography_shared_case"
+description = "Nancon transient seasonal benchmark with observed hydrography loaded."
+
+[data]
+types = ["dem", "hydrography", "recharge"]
+
+[[data.hydrography.sources]]
+source = "bdtopage"
+rasterize_field = "FID"

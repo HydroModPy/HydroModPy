@@ -49,6 +49,23 @@ How the files relate
   republishes the minimal `BD Topage only` variant when you want to inspect the
   river network overlay in isolation.
 
+Representative results
+----------------------
+
+.. figure:: /_static/capability_gallery/geographic/geographic_watershed_dem.png
+   :alt: DEM-oriented watershed overview
+   :width: 100%
+
+   The DEM-oriented panel is the first figure to check: outlet placement,
+   catchment extent, and surrounding terrain context should all look coherent.
+
+.. figure:: /_static/capability_gallery/geographic/geographic_watershed_local.png
+   :alt: Local watershed overview
+   :width: 100%
+
+   The local overview confirms which basin-scale overlays are actually present
+   before any meshing or groundwater solving stage begins.
+
 Read the config in this order
 -----------------------------
 

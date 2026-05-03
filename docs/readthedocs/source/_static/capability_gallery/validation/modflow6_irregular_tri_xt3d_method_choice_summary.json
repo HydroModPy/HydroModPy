@@ -47,9 +47,9 @@
   ],
   "source_hashes": {
     "tools/doc_gallery/gallery_validation_notes_specs.py": "fe62a0e1550fadac6958025cf85d36295459349fa4833fa6b92fe07bae4a4cdf",
-    "tools/doc_gallery/xt3d_irregular_tri_diagnostics.py": "4b6be07a80647bf6cc12f631be79e70ef146823488b5dcccabe5ca60b452b70b",
+    "tools/doc_gallery/xt3d_irregular_tri_diagnostics.py": "9417f8b6f594d91050cd6293a2216598508bee01a189cbfd6f59f77677a63add",
     "tools/doc_gallery/disable_xt3d_sitecustomize/sitecustomize.py": "e8cd5b99a167e61f5b555eb6d792f156b0280c52421035eda241255a9bafb183",
-    "tools/doc_gallery/manifests/xt3d_irregular_tri_method_choice_report.json": "46a32b01a411c6fe0a8f2d7857cbf689156a8ae3c79118bb0560afadc9a102ca",
+    "tools/doc_gallery/manifests/xt3d_irregular_tri_method_choice_report.json": "8fc9ee49eeeb4e76af8fac8e8a15d0c8a9d3a94751669d8c2291989bd12223bd",
     "tools/doc_gallery/update_gallery.py": "fbf4d17b135801369038098aad3d8fd02984565ae8f953c0ae3003f88faa013a",
     "hydromodpy/solver/modflow6/modflow6.py": "0da16f0e56d8bd0129f2022b5d87753488bac651e47c04401dc5fb882a8cd637",
     "hydromodpy/solver/modflow6/modflow6_config.py": "c1b75857ed49b27f5a0aaea96af9772813561d8d5b5a1373555d216d3b2a406c",
@@ -83,20 +83,20 @@
     {
       "label": "Total local runtime without XT3D",
       "key": "total_time_without_xt3d_s",
-      "value": 158.56,
-      "display": "158.6 s"
+      "value": 215.3,
+      "display": "215.3 s"
     },
     {
       "label": "Total local runtime with XT3D auto default",
       "key": "total_time_with_xt3d_s",
-      "value": 155.96,
-      "display": "156.0 s"
+      "value": 197.72,
+      "display": "197.7 s"
     },
     {
       "label": "Total runtime ratio",
       "key": "total_time_ratio",
-      "value": 0.9836,
-      "display": "x0.98"
+      "value": 0.9183,
+      "display": "x0.92"
     }
   ],
   "metadata": {
@@ -117,9 +117,9 @@
     "improved_count": 9,
     "regressed_count": 2,
     "strong_improvement_count": 4,
-    "total_time_without_xt3d_s": 158.56,
-    "total_time_with_xt3d_s": 155.96,
-    "total_time_ratio": 0.9836,
+    "total_time_without_xt3d_s": 215.3,
+    "total_time_with_xt3d_s": 197.72,
+    "total_time_ratio": 0.9183,
     "payload_report_filename": "modflow6_irregular_tri_xt3d_method_choice_report.json"
   },
   "artifacts": {
@@ -197,99 +197,99 @@
           "0.3765",
           "0.0327",
           "x11.52 better",
-          "15.39",
-          "12.05",
-          "x0.78"
+          "19.11",
+          "15.94",
+          "x0.83"
         ],
         [
           "Dupuit Divide-River 1D",
           "0.3023",
           "0.0268",
           "x11.30 better",
-          "13.38",
-          "12.12",
-          "x0.91"
+          "20.23",
+          "19.64",
+          "x0.97"
         ],
         [
           "Dupuit Uniform Recharge 1D",
           "0.2333",
           "0.0295",
           "x7.91 better",
-          "13.66",
-          "16.93",
-          "x1.24"
+          "16.81",
+          "18.74",
+          "x1.11"
         ],
         [
           "Boussinesq Uniform-Recharge Piecewise-K 1D",
           "0.2036",
           "0.0219",
           "x9.32 better",
-          "12.98",
-          "13.37",
-          "x1.03"
+          "26.14",
+          "21.20",
+          "x0.81"
         ],
         [
           "Boussinesq Sloping-Substratum Uniform-Recharge 1D",
           "0.1077",
           "0.0404",
           "x2.66 better",
-          "16.33",
-          "16.35",
-          "x1.00"
+          "28.45",
+          "21.89",
+          "x0.77"
         ],
         [
           "Boussinesq Sloping-Substratum Fixed-Head 1D",
           "0.0696",
           "0.0395",
           "x1.76 better",
-          "13.71",
-          "12.35",
-          "x0.90"
+          "17.17",
+          "14.30",
+          "x0.83"
         ],
         [
           "Boussinesq Sloping-Substratum Constant-Thickness 1D",
           "0.0384",
           "0.0200",
           "x1.92 better",
-          "15.79",
-          "13.31",
-          "x0.84"
+          "18.97",
+          "17.17",
+          "x0.91"
         ],
         [
           "Dupuit Fixed-Head 1D",
           "0.0328",
           "0.0195",
           "x1.69 better",
-          "13.49",
-          "15.07",
-          "x1.12"
+          "14.90",
+          "14.96",
+          "x1.00"
         ],
         [
           "Boussinesq Fixed-Head Piecewise-K 1D",
           "0.0321",
           "0.0237",
           "x1.36 better",
-          "16.57",
-          "11.28",
-          "x0.68"
+          "16.14",
+          "14.77",
+          "x0.92"
         ],
         [
           "Linearized Unconfined Drainage 1D",
           "0.0147",
           "0.0463",
           "x0.32 worse",
-          "13.90",
-          "15.73",
-          "x1.13"
+          "19.26",
+          "22.02",
+          "x1.14"
         ],
         [
           "Linearized Unconfined Hillslope Drainage 1D",
           "0.0111",
           "0.0203",
           "x0.55 worse",
-          "13.36",
-          "17.40",
-          "x1.30"
+          "18.14",
+          "17.08",
+          "x0.94"
         ]
       ]
     },
@@ -320,9 +320,9 @@
         "rmse_improvement_factor": 11.5223,
         "max_error_without_xt3d": 0.504008,
         "max_error_with_xt3d": 0.048713,
-        "time_without_xt3d_s": 15.39,
-        "time_with_xt3d_s": 12.05,
-        "time_ratio": 0.7828,
+        "time_without_xt3d_s": 19.11,
+        "time_with_xt3d_s": 15.94,
+        "time_ratio": 0.8342,
         "improved": true
       },
       {
@@ -334,9 +334,9 @@
         "rmse_improvement_factor": 11.2951,
         "max_error_without_xt3d": 0.397011,
         "max_error_with_xt3d": 0.036481,
-        "time_without_xt3d_s": 13.38,
-        "time_with_xt3d_s": 12.12,
-        "time_ratio": 0.9054,
+        "time_without_xt3d_s": 20.23,
+        "time_with_xt3d_s": 19.64,
+        "time_ratio": 0.971,
         "improved": true
       },
       {
@@ -348,9 +348,9 @@
         "rmse_improvement_factor": 7.9144,
         "max_error_without_xt3d": 0.32501,
         "max_error_with_xt3d": 0.046404,
-        "time_without_xt3d_s": 13.66,
-        "time_with_xt3d_s": 16.93,
-        "time_ratio": 1.2402,
+        "time_without_xt3d_s": 16.81,
+        "time_with_xt3d_s": 18.74,
+        "time_ratio": 1.1147,
         "improved": true
       },
       {
@@ -362,9 +362,9 @@
         "rmse_improvement_factor": 9.3175,
         "max_error_without_xt3d": 0.317653,
         "max_error_with_xt3d": 0.040083,
-        "time_without_xt3d_s": 12.98,
-        "time_with_xt3d_s": 13.37,
-        "time_ratio": 1.0303,
+        "time_without_xt3d_s": 26.14,
+        "time_with_xt3d_s": 21.2,
+        "time_ratio": 0.8112,
         "improved": true
       },
       {
@@ -376,9 +376,9 @@
         "rmse_improvement_factor": 2.6635,
         "max_error_without_xt3d": 0.236144,
         "max_error_with_xt3d": 0.094798,
-        "time_without_xt3d_s": 16.33,
-        "time_with_xt3d_s": 16.35,
-        "time_ratio": 1.0011,
+        "time_without_xt3d_s": 28.45,
+        "time_with_xt3d_s": 21.89,
+        "time_ratio": 0.7695,
         "improved": true
       },
       {
@@ -390,9 +390,9 @@
         "rmse_improvement_factor": 1.7639,
         "max_error_without_xt3d": 0.163941,
         "max_error_with_xt3d": 0.083205,
-        "time_without_xt3d_s": 13.71,
-        "time_with_xt3d_s": 12.35,
-        "time_ratio": 0.9011,
+        "time_without_xt3d_s": 17.17,
+        "time_with_xt3d_s": 14.3,
+        "time_ratio": 0.8328,
         "improved": true
       },
       {
@@ -404,9 +404,9 @@
         "rmse_improvement_factor": 1.9213,
         "max_error_without_xt3d": 0.07967,
         "max_error_with_xt3d": 0.04399,
-        "time_without_xt3d_s": 15.79,
-        "time_with_xt3d_s": 13.31,
-        "time_ratio": 0.8431,
+        "time_without_xt3d_s": 18.97,
+        "time_with_xt3d_s": 17.17,
+        "time_ratio": 0.9053,
         "improved": true
       },
       {
@@ -418,9 +418,9 @@
         "rmse_improvement_factor": 1.6869,
         "max_error_without_xt3d": 0.085216,
         "max_error_with_xt3d": 0.045315,
-        "time_without_xt3d_s": 13.49,
-        "time_with_xt3d_s": 15.07,
-        "time_ratio": 1.1167,
+        "time_without_xt3d_s": 14.9,
+        "time_with_xt3d_s": 14.96,
+        "time_ratio": 1.0046,
         "improved": true
       },
       {
@@ -432,9 +432,9 @@
         "rmse_improvement_factor": 1.3579,
         "max_error_without_xt3d": 0.089704,
         "max_error_with_xt3d": 0.070076,
-        "time_without_xt3d_s": 16.57,
-        "time_with_xt3d_s": 11.28,
-        "time_ratio": 0.6809,
+        "time_without_xt3d_s": 16.14,
+        "time_with_xt3d_s": 14.77,
+        "time_ratio": 0.9153,
         "improved": true
       },
       {
@@ -446,9 +446,9 @@
         "rmse_improvement_factor": 0.3165,
         "max_error_without_xt3d": 0.023528,
         "max_error_with_xt3d": 0.063985,
-        "time_without_xt3d_s": 13.9,
-        "time_with_xt3d_s": 15.73,
-        "time_ratio": 1.1314,
+        "time_without_xt3d_s": 19.26,
+        "time_with_xt3d_s": 22.02,
+        "time_ratio": 1.1433,
         "improved": false
       },
       {
@@ -460,9 +460,9 @@
         "rmse_improvement_factor": 0.5478,
         "max_error_without_xt3d": 0.024581,
         "max_error_with_xt3d": 0.032036,
-        "time_without_xt3d_s": 13.36,
-        "time_with_xt3d_s": 17.4,
-        "time_ratio": 1.3022,
+        "time_without_xt3d_s": 18.14,
+        "time_with_xt3d_s": 17.08,
+        "time_ratio": 0.9418,
         "improved": false
       }
     ],
@@ -478,7 +478,7 @@
           "rms_error": 0.376508,
           "max_error": 0.504008,
           "row_spread": 0.0,
-          "duration_seconds": 15.39
+          "duration_seconds": 19.11
         },
         {
           "slug": "boussinesq_fixed_head_piecewise_k_1d",
@@ -488,7 +488,7 @@
           "rms_error": 0.032125,
           "max_error": 0.089704,
           "row_spread": 0.0,
-          "duration_seconds": 16.57
+          "duration_seconds": 16.14
         },
         {
           "slug": "boussinesq_sloping_substratum_constant_thickness_1d",
@@ -498,7 +498,7 @@
           "rms_error": 0.038362,
           "max_error": 0.07967,
           "row_spread": 0.0,
-          "duration_seconds": 15.79
+          "duration_seconds": 18.97
         },
         {
           "slug": "boussinesq_sloping_substratum_fixed_head_1d",
@@ -508,7 +508,7 @@
           "rms_error": 0.069589,
           "max_error": 0.163941,
           "row_spread": 0.0,
-          "duration_seconds": 13.71
+          "duration_seconds": 17.17
         },
         {
           "slug": "boussinesq_sloping_substratum_uniform_recharge_1d",
@@ -518,7 +518,7 @@
           "rms_error": 0.107728,
           "max_error": 0.236144,
           "row_spread": 0.0,
-          "duration_seconds": 16.33
+          "duration_seconds": 28.45
         },
         {
           "slug": "boussinesq_uniform_recharge_piecewise_k_1d",
@@ -528,7 +528,7 @@
           "rms_error": 0.20361,
           "max_error": 0.317653,
           "row_spread": 0.0,
-          "duration_seconds": 12.98
+          "duration_seconds": 26.14
         },
         {
           "slug": "dupuit_divide_river_1d",
@@ -538,7 +538,7 @@
           "rms_error": 0.302265,
           "max_error": 0.397011,
           "row_spread": 0.0,
-          "duration_seconds": 13.38
+          "duration_seconds": 20.23
         },
         {
           "slug": "dupuit_fixed_head_1d",
@@ -548,7 +548,7 @@
           "rms_error": 0.032826,
           "max_error": 0.085216,
           "row_spread": 0.0,
-          "duration_seconds": 13.49
+          "duration_seconds": 14.9
         },
         {
           "slug": "dupuit_uniform_recharge_1d",
@@ -558,7 +558,7 @@
           "rms_error": 0.233314,
           "max_error": 0.32501,
           "row_spread": 0.0,
-          "duration_seconds": 13.66
+          "duration_seconds": 16.81
         },
         {
           "slug": "linearized_unconfined_drainage_1d",
@@ -568,7 +568,7 @@
           "rms_error": 0.014667,
           "max_error": 0.023528,
           "row_spread": 0.0,
-          "duration_seconds": 13.9
+          "duration_seconds": 19.26
         },
         {
           "slug": "linearized_unconfined_hillslope_drainage_1d",
@@ -578,10 +578,10 @@
           "rms_error": 0.011099,
           "max_error": 0.024581,
           "row_spread": 0.0,
-          "duration_seconds": 13.36
+          "duration_seconds": 18.14
         }
       ],
-      "total_duration_seconds": 158.56
+      "total_duration_seconds": 215.3
     },
     "current": {
       "label": "xt3d_auto",
@@ -595,7 +595,7 @@
           "rms_error": 0.032676,
           "max_error": 0.048713,
           "row_spread": 0.0,
-          "duration_seconds": 12.05
+          "duration_seconds": 15.94
         },
         {
           "slug": "boussinesq_fixed_head_piecewise_k_1d",
@@ -605,7 +605,7 @@
           "rms_error": 0.023658,
           "max_error": 0.070076,
           "row_spread": 0.0,
-          "duration_seconds": 11.28
+          "duration_seconds": 14.77
         },
         {
           "slug": "boussinesq_sloping_substratum_constant_thickness_1d",
@@ -615,7 +615,7 @@
           "rms_error": 0.019966,
           "max_error": 0.04399,
           "row_spread": 0.0,
-          "duration_seconds": 13.31
+          "duration_seconds": 17.17
         },
         {
           "slug": "boussinesq_sloping_substratum_fixed_head_1d",
@@ -625,7 +625,7 @@
           "rms_error": 0.039451,
           "max_error": 0.083205,
           "row_spread": 0.0,
-          "duration_seconds": 12.35
+          "duration_seconds": 14.3
         },
         {
           "slug": "boussinesq_sloping_substratum_uniform_recharge_1d",
@@ -635,7 +635,7 @@
           "rms_error": 0.040446,
           "max_error": 0.094798,
           "row_spread": 0.0,
-          "duration_seconds": 16.35
+          "duration_seconds": 21.89
         },
         {
           "slug": "boussinesq_uniform_recharge_piecewise_k_1d",
@@ -645,7 +645,7 @@
           "rms_error": 0.021853,
           "max_error": 0.040083,
           "row_spread": 0.0,
-          "duration_seconds": 13.37
+          "duration_seconds": 21.2
         },
         {
           "slug": "dupuit_divide_river_1d",
@@ -655,7 +655,7 @@
           "rms_error": 0.026761,
           "max_error": 0.036481,
           "row_spread": 0.0,
-          "duration_seconds": 12.12
+          "duration_seconds": 19.64
         },
         {
           "slug": "dupuit_fixed_head_1d",
@@ -665,7 +665,7 @@
           "rms_error": 0.01946,
           "max_error": 0.045315,
           "row_spread": 0.0,
-          "duration_seconds": 15.07
+          "duration_seconds": 14.96
         },
         {
           "slug": "dupuit_uniform_recharge_1d",
@@ -675,7 +675,7 @@
           "rms_error": 0.02948,
           "max_error": 0.046404,
           "row_spread": 0.0,
-          "duration_seconds": 16.93
+          "duration_seconds": 18.74
         },
         {
           "slug": "linearized_unconfined_drainage_1d",
@@ -685,7 +685,7 @@
           "rms_error": 0.046343,
           "max_error": 0.063985,
           "row_spread": 0.0,
-          "duration_seconds": 15.73
+          "duration_seconds": 22.02
         },
         {
           "slug": "linearized_unconfined_hillslope_drainage_1d",
@@ -695,17 +695,17 @@
           "rms_error": 0.020263,
           "max_error": 0.032036,
           "row_spread": 0.0,
-          "duration_seconds": 17.4
+          "duration_seconds": 17.08
         }
       ],
-      "total_duration_seconds": 155.96
+      "total_duration_seconds": 197.72
     },
     "improved_count": 9,
     "regressed_count": 2,
     "strong_improvement_count": 4,
-    "total_time_without_xt3d_s": 158.56,
-    "total_time_with_xt3d_s": 155.96,
-    "total_time_ratio": 0.9836,
+    "total_time_without_xt3d_s": 215.3,
+    "total_time_with_xt3d_s": 197.72,
+    "total_time_ratio": 0.9183,
     "improved_case_slugs": [
       "boussinesq_divide_fixed_head_piecewise_k_1d",
       "dupuit_divide_river_1d",
