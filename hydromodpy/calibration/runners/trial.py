@@ -15,13 +15,12 @@ Three public entry points:
   ``execution.lightweight = True`` so no Zarr / Parquet / provenance
   artefacts are written, extract the objective in RAM, and return a
   :class:`TrialResult`.
-- :func:`promote_trial` - re-run the full pipeline (``00..11``) via
-  :class:`hydromodpy.Project`, persisting Zarr + Parquet + catalog rows.
-  Used once the calibration loop has finished to materialise the top-N
-  best iterations.
+- :func:`promote_prepared_trial` - run the persistent downstream pipeline
+  from the prepared context, writing Zarr + Parquet + catalog rows for
+  the top-N iterations without repeating setup work.
 
 The storage contract is strict: ``run_trial_light`` never writes to
-disk. Only ``promote_trial`` creates simulation artefacts.
+disk. Only promotion creates simulation artefacts.
 
 Workflow access goes through :func:`get_trial_pipeline_provider` so the
 calibration package never imports the workflow package directly.
@@ -109,7 +108,7 @@ class TrialContext:
         Parameter name → dotted config path for :meth:`fork` value
         injection.
     workspace : Path
-        Project catalog root (for :func:`promote_trial` and reporting).
+        Project catalog root (for promotion and reporting).
     cfg_path : Path
         Source TOML path.
     raw_toml : Mapping[str, Any]
@@ -125,6 +124,9 @@ class TrialContext:
     cfg_path: Path
     raw_toml: Mapping[str, Any] = field(default_factory=dict)
     parameter_space: Any = None
+    requested_spatial_support_ids: tuple[str, ...] = ()
+    requested_domain_supports: Mapping[str, object] = field(default_factory=dict)
+    spatial_support_registry: Any = None
 
     def fork(self, values: Mapping[str, float]) -> TrialContext:
         """Return a new trial context isolated for one evaluation.
@@ -175,7 +177,10 @@ class TrialContext:
         new_ctx.data_plan = self.ctx.data_plan
         new_ctx.setup = new_setup
         new_ctx.loaded_data = self.ctx.loaded_data
-        new_ctx.execution = ExecutionRegistry(lightweight=True)
+        new_ctx.execution = ExecutionRegistry(
+            lightweight=True,
+            rng=getattr(self.ctx.execution, "rng", None),
+        )
 
         # Rebuild flow / transport from the patched cfg and re-bind the
         # loaded forcings (recharge, oceanic) to the fresh objects. Without
@@ -198,6 +203,9 @@ class TrialContext:
             cfg_path=self.cfg_path,
             raw_toml=self.raw_toml,
             parameter_space=self.parameter_space,
+            requested_spatial_support_ids=self.requested_spatial_support_ids,
+            requested_domain_supports=self.requested_domain_supports,
+            spatial_support_registry=self.spatial_support_registry,
         )
 
 
@@ -321,6 +329,9 @@ def prepare_trials(
         cfg_path=cfg_path,
         raw_toml=raw_toml,
         parameter_space=parameter_space,
+        requested_spatial_support_ids=requested_support_ids,
+        requested_domain_supports=requested_domain_supports,
+        spatial_support_registry=spatial_support_registry,
     )
 
 
@@ -379,7 +390,7 @@ def run_trial_light(
         )
 
     # Trials only run [earliest..8]. Derive/export/display are reserved
-    # for promote_trial (steps 09-11).
+    # for promotion (steps 09-11).
     downstream_slice = forked.downstream_steps[forked.earliest : 9]
     state = provider.make_state(
         "calibration-trial",
@@ -464,6 +475,63 @@ def _default_metric_extractor(
 # ---------------------------------------------------------------------------
 
 
+def promote_prepared_trial(
+    trial_ctx: TrialContext,
+    values: Mapping[str, float],
+    *,
+    name: str | None = None,
+    tags: Sequence[str] = (),
+    session_id: str | None = None,
+) -> str:
+    """Run a full promoted simulation from an already prepared trial context."""
+    provider = get_trial_pipeline_provider()
+    forked = trial_ctx.fork(values)
+    ctx = forked.ctx
+    ctx.execution.lightweight = False
+    ctx.execution.simulation_plan = None
+    ctx.setup.run_id = name or "promoted"
+    ctx.store = None
+    ctx.sim_id = None
+
+    state = provider.make_state(
+        f"calibration-promote-{ctx.setup.run_id}",
+        {
+            "cfg": ctx.cfg,
+            "config_path": forked.cfg_path,
+            "raw_toml": dict(forked.raw_toml),
+            "ctx": ctx,
+            "skip_display": False,
+            "spatial_support_registry": forked.spatial_support_registry,
+            "requested_spatial_support_ids": forked.requested_spatial_support_ids,
+            "requested_domain_supports": forked.requested_domain_supports,
+        },
+    )
+    prepare_index = _step_index_by_name(forked.downstream_steps, "prepare_solver")
+    start_index = (
+        min(forked.earliest, prepare_index) if prepare_index is not None else forked.earliest
+    )
+    downstream_slice = forked.downstream_steps[start_index:]
+
+    try:
+        final = provider.make_pipeline(downstream_slice).run(state)
+    except Exception:
+        _finalize_failed_context(ctx)
+        raise
+
+    final_ctx = final.get("ctx") if final is not None else None
+    sim_id = getattr(final_ctx, "sim_id", None) if final_ctx is not None else None
+    if sim_id is None:
+        raise RuntimeError("Promoted calibration trial did not produce a simulation id")
+
+    tag_list: list[str] = list(tags)
+    if session_id:
+        tag_list.append(f"calibration:{session_id}")
+    if tag_list:
+        _attach_tags_to_simulation(final_ctx, sim_id, tag_list)
+
+    return str(sim_id)
+
+
 def promote_trial(
     cfg_path: Path | str,
     values: Mapping[str, float],
@@ -528,6 +596,37 @@ def promote_trial(
     return sim_id
 
 
+def _attach_tags_to_simulation(ctx: WorkflowContext, sim_id: str, tags: Sequence[str]) -> None:
+    workspace = getattr(getattr(ctx, "setup", None), "workspace", None)
+    if workspace is None:
+        return
+    from hydromodpy.results.catalog import SimulationCatalog
+
+    with SimulationCatalog.from_workspace(workspace) as catalog:
+        writer = getattr(catalog, "write_tags", None)
+        if callable(writer):
+            writer(sim_id, list(tags))
+
+
+def _finalize_failed_context(ctx: WorkflowContext) -> None:
+    store = getattr(ctx, "store", None)
+    sim_id = getattr(ctx, "sim_id", None)
+    if store is None or sim_id is None:
+        return
+    try:
+        store.finalize(sim_id, status="failed")
+    finally:
+        store.close()
+        ctx.store = None
+
+
+def _step_index_by_name(steps: Sequence[TrialStep], name: str) -> int | None:
+    for index, step in enumerate(steps):
+        if getattr(step, "name", None) == name:
+            return index
+    return None
+
+
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
@@ -560,5 +659,6 @@ __all__ = (
     "TrialMetricFn",
     "prepare_trials",
     "run_trial_light",
+    "promote_prepared_trial",
     "promote_trial",
 )

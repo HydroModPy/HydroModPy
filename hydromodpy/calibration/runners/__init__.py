@@ -10,6 +10,7 @@ from hydromodpy.calibration.runners.trial import (
     TrialMetricFn,
     TrialResult,
     prepare_trials,
+    promote_prepared_trial,
     promote_trial,
     run_trial_light,
 )
@@ -19,6 +20,7 @@ __all__ = [
     "TrialMetricFn",
     "TrialResult",
     "prepare_trials",
+    "promote_prepared_trial",
     "promote_trial",
     "run_trial_light",
 ]

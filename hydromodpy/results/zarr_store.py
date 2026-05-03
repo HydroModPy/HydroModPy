@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import shutil
+import warnings
 import zipfile
 from collections.abc import Callable
 from datetime import UTC, datetime
@@ -658,7 +659,16 @@ class SimulationZarr:
         if not isinstance(self._store, zarr.storage.LocalStore):
             return
         try:
-            zarr.consolidate_metadata(self._store)
+            with warnings.catch_warnings():
+                warnings.filterwarnings(
+                    "ignore",
+                    message=(
+                        "Consolidated metadata is currently not part .* "
+                        "Zarr format 3 specification.*"
+                    ),
+                    category=UserWarning,
+                )
+                zarr.consolidate_metadata(self._store)
         except Exception as exc:  # pragma: no cover - best effort
             logger.debug("consolidate_metadata failed: %s", exc)
 

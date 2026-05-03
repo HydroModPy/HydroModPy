@@ -1,7 +1,7 @@
 """Unit tests for the rewritten :mod:`hydromodpy.calibration.runner`.
 
 Exercises the end-to-end wiring of ``run_calibration_cli`` without
-touching MODFLOW: ``prepare_trials`` and ``promote_trial`` are
+touching MODFLOW: ``prepare_trials`` and ``promote_prepared_trial`` are
 monkey-patched to return deterministic stubs, and a custom ``metric_fn``
 is injected so each trial returns a closed-form objective. This lets us
 verify:
@@ -81,7 +81,7 @@ def calib_toml(tmp_path: Path) -> Path:
 
 @pytest.fixture
 def fake_pipeline(monkeypatch, tmp_path):
-    """Monkey-patch prepare_trials + promote_trial so the CLI runs in seconds."""
+    """Monkey-patch prepare_trials + promote_prepared_trial so the CLI runs in seconds."""
     from hydromodpy.calibration.runners.trial import TrialContext
 
     promoted: list[dict] = []
@@ -152,7 +152,8 @@ def fake_pipeline(monkeypatch, tmp_path):
             raw_toml=raw,
         )
 
-    def _fake_promote(cfg_path, values, *, paths=None, name=None, tags=(), session_id=None):
+    def _fake_promote(trial_ctx, values, *, name=None, tags=(), session_id=None):
+        del trial_ctx, tags
         sim_id = uuid.uuid4().hex
         promoted.append(
             {
@@ -165,7 +166,7 @@ def fake_pipeline(monkeypatch, tmp_path):
         return sim_id
 
     monkeypatch.setattr(runner_module, "prepare_trials", _fake_prepare)
-    monkeypatch.setattr(runner_module, "promote_trial", _fake_promote)
+    monkeypatch.setattr(runner_module, "promote_prepared_trial", _fake_promote)
     return promoted
 
 

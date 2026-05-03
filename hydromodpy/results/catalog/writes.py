@@ -45,6 +45,24 @@ def _sha256_streaming(path: Path, chunk_size: int = 65536) -> str:
     return h.hexdigest()
 
 
+def _sha256_directory(root: Path) -> str:
+    """Compute a deterministic SHA-256 over a directory tree."""
+    h = hashlib.sha256()
+    for path in sorted(item for item in root.rglob("*") if item.is_file()):
+        h.update(path.relative_to(root).as_posix().encode("utf-8"))
+        h.update(b"\0")
+        h.update(_sha256_streaming(path).encode("ascii"))
+        h.update(b"\0")
+    return h.hexdigest()
+
+
+def _path_size_bytes(path: Path) -> int:
+    """Return file size or cumulative directory file size."""
+    if path.is_file():
+        return path.stat().st_size
+    return sum(item.stat().st_size for item in path.rglob("*") if item.is_file())
+
+
 def _coerce_timestamp(value: Any) -> Any:
     """Return a value suitable for a ``TIMESTAMPTZ`` column."""
     if value is None:
@@ -748,9 +766,9 @@ class WritesMixin:
         Each entry must expose ``role``, ``category``, ``original_path``,
         ``canonical_path``, and ``portable`` (as produced by
         :func:`hydromodpy.core.tracking.collect_input_files`). The SHA-256
-        and size are computed here from the canonical path. Files that
-        disappeared between walker-resolution and this call are skipped
-        with a logger warning to keep the setup step non-fatal.
+        and size are computed here from the canonical file or directory.
+        Paths that disappeared between walker-resolution and this call are
+        skipped with a logger warning to keep the setup step non-fatal.
         """
         if not self._persistence.save_catalog:
             return 0
@@ -758,15 +776,18 @@ class WritesMixin:
         written = 0
         for entry in entries:
             canonical = Path(entry.canonical_path)
-            if not canonical.is_file():
+            if canonical.is_file():
+                sha = _sha256_streaming(canonical)
+            elif canonical.is_dir():
+                sha = _sha256_directory(canonical)
+            else:
                 logger.warning(
-                    "Tracked input '%s' missing on disk, skipping: %s",
+                    "Tracked input '%s' does not exist, skipping: %s",
                     entry.role,
                     canonical,
                 )
                 continue
-            sha = _sha256_streaming(canonical)
-            size = canonical.stat().st_size
+            size = _path_size_bytes(canonical)
             self._db.execute(
                 """INSERT OR REPLACE INTO tracked_files
                    (sim_id, role, category, original_path, canonical_path,

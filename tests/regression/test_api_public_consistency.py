@@ -23,6 +23,7 @@ _DIRECT_EXPORTS = frozenset(
         "open",
         "run",
         "calibrate",
+        "catalog",
         "overview",
         "batch",
         "compare_pair",

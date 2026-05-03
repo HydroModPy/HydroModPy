@@ -28,7 +28,7 @@ def test_dupuit_irregular_mesh_mf6_boussinesq_intercomparison_regression(
         test_file=__file__,
         source_config=COMPARISON_DIR / "compare_dupuit_irregular_mf6_bouss.toml",
         base_simulation_config=COMPARISON_DIR / "base_dupuit_shared_mesh.toml",
-        golden_filename="intercomparison_dupuit_irregular_mf6_bouss_signatures.json",
+        golden_filename="intercomparison/intercomparison_dupuit_irregular_mf6_bouss_signatures.json",
         run_name="intercomparison_dupuit_irregular_mf6_bouss_outputs",
         update_goldens=update_goldens,
         require_modflow6=True,

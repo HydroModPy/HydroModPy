@@ -437,7 +437,13 @@ class TestSimulationGroup:
         )
         monkeypatch.setattr("hydromodpy.workflow.runner.Pipeline", _Pipeline)
 
-        workspace = SimpleNamespace(root=tmp_path / "workspace", project_root=tmp_path / "project")
+        project_root = tmp_path / "project"
+        workspace = SimpleNamespace(
+            root=tmp_path / "workspace",
+            project_root=project_root,
+            catalog_path=project_root / "hydromodpy.duckdb",
+            simulations_dir=project_root / "simulations",
+        )
         ctx = SimpleNamespace(
             setup=SimpleNamespace(
                 workspace=workspace,

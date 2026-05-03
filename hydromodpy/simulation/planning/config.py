@@ -272,6 +272,30 @@ class SimulationConfig(HydroModelBase):
         default="",
         description="Short free-text description of the simulation intent.",
     )
+    scientific_objective: Annotated[str | None, Profile.USER] = Field(
+        default=None,
+        description="Scientific objective used for catalog and ML stratification.",
+    )
+    contact_email: Annotated[str | None, Profile.USER] = Field(
+        default=None,
+        description="Contact email for the simulation metadata.",
+    )
+    doi: Annotated[str | None, Profile.USER] = Field(
+        default=None,
+        description="DOI or reference identifier for the simulation metadata.",
+    )
+    study_area_name: Annotated[str | None, Profile.USER] = Field(
+        default=None,
+        description="Human-readable study area name.",
+    )
+    outlet_x: Annotated[float | None, Profile.USER] = Field(
+        default=None,
+        description="Outlet X coordinate in the project CRS units.",
+    )
+    outlet_y: Annotated[float | None, Profile.USER] = Field(
+        default=None,
+        description="Outlet Y coordinate in the project CRS units.",
+    )
     time: Annotated[SimulationTimeConfig | None, Profile.USER] = Field(
         default=None,
         description=(

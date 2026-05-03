@@ -165,6 +165,23 @@ def collect_registration_kwargs(ctx: WorkflowContext) -> dict:
     kwargs["config"] = ctx.cfg.model_dump(mode="json")
     kwargs["config_snapshot"] = collect_effective_config_snapshot(ctx)
 
+    sim_cfg = getattr(ctx.cfg, "simulation", None)
+    if sim_cfg is not None:
+        description = getattr(sim_cfg, "description", "")
+        if description:
+            kwargs["description"] = description
+        for field_name in (
+            "scientific_objective",
+            "contact_email",
+            "doi",
+            "study_area_name",
+            "outlet_x",
+            "outlet_y",
+        ):
+            value = getattr(sim_cfg, field_name, None)
+            if value is not None and value != "":
+                kwargs[field_name] = value
+
     mesh = ctx.setup.mesh_planar
     if mesh is not None:
         kwargs["n_cells"] = mesh.n_cells

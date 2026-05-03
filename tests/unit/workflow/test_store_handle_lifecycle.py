@@ -65,6 +65,11 @@ def test_step_open_store_closes_unused_bootstrap_zarr(monkeypatch, tmp_path: Pat
             self.workspace_root = workspace_root
             self.persistence = persistence
 
+        @classmethod
+        def from_workspace(cls, workspace, *, persistence=None, register_global=False):
+            del register_global
+            return cls(workspace.project_root, persistence=persistence)
+
         def register_simulation(self, *args, **kwargs):
             return registration
 
