@@ -1,0 +1,19 @@
+base_config = "compare_nancon_transient_seasonal_high_k_hydrography_mf6_bouss.toml"
+workflow = "comparison"
+
+[comparison]
+comparison_id = "nancon_transient_seasonal_high_k_hydrography_mf6"
+output_root = "outputs/nancon_transient_seasonal_high_k_hydrography_mf6"
+reference_simulation = "mf6_ref"
+continue_on_error = false
+
+[[comparison.simulation]]
+id = "mf6_ref"
+
+[comparison.simulation.overlay.workspace]
+project_root = "outputs/nancon_transient_seasonal_high_k_hydrography_mf6/workspace_mf6"
+root = "outputs/nancon_transient_seasonal_high_k_hydrography_mf6/workspace_mf6"
+
+[[comparison.simulation]]
+id = "bouss_candidate"
+enabled = false

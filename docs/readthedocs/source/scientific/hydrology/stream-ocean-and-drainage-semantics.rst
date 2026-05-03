@@ -133,6 +133,12 @@ Current public implementation notes:
 - in the current Boussinesq slice, it is implemented as a top-drainage
   operator driven by conductance and activation above the top elevation.
 
+The simulated active network is a post-processed diagnostic built on top of
+this drainage outflow. It should be read as an emergent active-drainage signal,
+not as a prescribed stream boundary. See :doc:`simulated-active-network` for
+the distinction between local ``outflow_drain``, routed
+``accumulation_flux``, and a thresholded active-network mask.
+
 What They Are Not
 -----------------
 
@@ -199,5 +205,6 @@ Current Source Anchors
 - ``hydromodpy.solver.boussinesq.forcing.dirichlet_support_resolution``
 - ``hydromodpy.solver.boussinesq.forcing.drainage_resolution``
 - :doc:`recharge-and-surface-exchange-semantics`
+- :doc:`simulated-active-network`
 - :doc:`../solvers/modflow-package-semantics-and-boundary-conditions`
 - :doc:`../solvers/boussinesq-mathematical-notes`

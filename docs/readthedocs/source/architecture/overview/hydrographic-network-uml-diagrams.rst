@@ -192,5 +192,6 @@ Related reading
 
 - :doc:`mental-model-and-design-choices`
 - :doc:`hydrographic-network-simulated-active-inventory`
+- :doc:`../../scientific/hydrology/simulated-active-network`
 - :doc:`code-reading-guide`
 - :doc:`../../getting_started/comparison-workflow`

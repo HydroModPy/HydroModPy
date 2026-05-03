@@ -28,10 +28,58 @@ Current Scope
      - Active validation path; use comparison and validation pages before
        making production claims.
 
-Reading Order
--------------
+Internal Structure
+------------------
+
+The detailed Boussinesq navigation is now organized under:
 
 .. toctree::
+   :maxdepth: 2
+
+   boussinesq/index
+
+Quick Reading Order
+-------------------
+
+If you do not know where to start, read the internal pages in this order:
+
+1. :doc:`boussinesq/equation-and-unknowns`,
+2. :doc:`boussinesq/boussinesq-method`,
+3. :doc:`boussinesq/surface-interaction`,
+4. :doc:`boussinesq/solver-engines`,
+5. :doc:`boussinesq/possibility-map`.
+
+Current Possibilities
+---------------------
+
+.. list-table::
+   :header-rows: 1
+   :widths: 28 34 38
+
+   * - Possibility
+     - Main choice
+     - When to use it
+   * - Head-only baseline
+     - ``regularized_partition`` surface closure with ``local``, ``scipy``,
+       ``scipy_sparse`` or ``petsc``.
+     - Validation, cross-platform studies, and comparison against historical
+       Boussinesq outputs.
+   * - Sparse cross-platform route
+     - ``scipy_sparse`` on the head-only regularized method.
+     - Larger triangular meshes when PETSc is not required.
+   * - PETSc partition route
+     - ``petsc`` on the head-only regularized method.
+     - Linux/PETSc sparse baseline.
+   * - PETSc complementarity route
+     - ``petsc`` with ``complementarity`` surface closure.
+     - Explicit on/off surface-threshold behavior and saturation-excess
+       diagnostics.
+
+Direct Reference Note
+---------------------
+
+.. toctree::
+   :caption: Direct note links
    :maxdepth: 1
 
    ../boussinesq-mathematical-notes

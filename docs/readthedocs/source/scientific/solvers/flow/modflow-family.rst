@@ -3,22 +3,68 @@ MODFLOW Flow Family
 
 This page groups the scientific notes for MODFLOW-family ``flow`` solvers.
 
-In HydroModPy, this family currently contains:
+Read this family as three explicit sub-categories:
+
+.. list-table::
+   :header-rows: 1
+   :widths: 24 34 42
+
+   * - Sub-category
+     - Main page
+     - Purpose
+   * - Common MODFLOW part
+     - :doc:`modflow/common-concepts`
+     - Shared groundwater-flow vocabulary: governing equation, package
+       semantics, boundary mapping, stress periods, vertical assumptions, and
+       comparison discipline.
+   * - MODFLOW 6 version
+     - :doc:`modflow/modflow6`
+     - Modern MODFLOW 6 GWF route for ``flow/modflow6``: structured and
+       runtime DISV-style supports, XT3D choices, and MODFLOW 6 GWT coupling.
+   * - MODFLOW-NWT version
+     - :doc:`modflow/modflownwt`
+     - Legacy MODFLOW-NWT route for ``flow/modflownwt``: structured ``sgrid``
+       support, continuity with historical studies, MODPATH, and MT3DMS.
+
+In HydroModPy, the two active MODFLOW-family flow versions are:
 
 - ``flow/modflownwt``: legacy MODFLOW-NWT route, structured ``sgrid`` support,
   and compatibility with MODPATH and MT3DMS.
 - ``flow/modflow6``: modern MODFLOW 6 route, including structured grids and
   runtime DISV-style unstructured meshes where supported.
 
-Internal Structure
-------------------
+Three-Part Internal Structure
+-----------------------------
 
-The detailed MODFLOW navigation is now organized under:
+The detailed MODFLOW navigation is organized so that the common part comes
+first, then each backend version is readable independently:
 
 .. toctree::
+   :caption: Common MODFLOW part
    :maxdepth: 2
 
+   modflow/common-concepts
+
+.. toctree::
+   :caption: MODFLOW 6 version
+   :maxdepth: 2
+
+   modflow/modflow6
+
+.. toctree::
+   :caption: MODFLOW-NWT version
+   :maxdepth: 2
+
+   modflow/modflownwt
+
+.. toctree::
+   :caption: Cross-cutting MODFLOW pages
+   :maxdepth: 1
+
    modflow/index
+   modflow/comparison-and-method-choice
+   modflow/worked-cases
+   modflow/transport-coupling
 
 Quick Reading Order
 -------------------
@@ -26,10 +72,35 @@ Quick Reading Order
 If you do not know where to start, read the internal pages in this order:
 
 1. :doc:`modflow/common-concepts`,
-2. :doc:`modflow/modflow6` or :doc:`modflow/modflownwt`,
-3. :doc:`modflow/comparison-and-method-choice`,
-4. :doc:`modflow/worked-cases`,
-5. :doc:`modflow/transport-coupling` when transport is involved.
+2. :doc:`modflow/modflow6` if you use the modern MODFLOW 6 path,
+3. :doc:`modflow/modflownwt` if you use the legacy MODFLOW-NWT path,
+4. :doc:`modflow/comparison-and-method-choice` when choosing or comparing,
+5. :doc:`modflow/worked-cases`,
+6. :doc:`modflow/transport-coupling` when transport is involved.
+
+Backend Version Summary
+-----------------------
+
+.. list-table::
+   :header-rows: 1
+   :widths: 20 28 28 24
+
+   * - Version
+     - Shared MODFLOW concepts repeated in that page
+     - Version-specific emphasis
+     - Downstream transport
+   * - ``flow/modflow6``
+     - Flow equation, recharge, wells, storage, imposed heads, drainage,
+       stress periods, package semantics.
+     - MODFLOW 6 package stack, structured or DISV-style support, XT3D,
+       modern output and GWT compatibility.
+     - ``transport/modflow6gwt``.
+   * - ``flow/modflownwt``
+     - Flow equation, recharge, wells, storage, imposed heads, drainage,
+       stress periods, package semantics.
+     - Structured-grid continuity, historical MODFLOW-NWT behavior, legacy
+       package assumptions, MODPATH and MT3DMS compatibility.
+     - ``transport/modpath`` and ``transport/mt3dms``.
 
 .. toctree::
    :caption: Direct note links

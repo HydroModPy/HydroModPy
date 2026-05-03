@@ -23,6 +23,7 @@ from validation_cases.calibration.shared.definitions import (
     CalibrationMethodProfile,
     TwinCalibrationCaseDefinition,
     TwinMethodBenchmarkResult,
+    method_returns_parameter_distribution,
 )
 
 SUITE_TITLE_FONTSIZE = 10.0
@@ -2046,7 +2047,11 @@ def write_case_method_figures(
     if not points:
         return {}
 
-    distribution_samples = _distribution_named_samples(result.model_distribution_path)
+    distribution_samples = (
+        _distribution_named_samples(result.model_distribution_path)
+        if method_returns_parameter_distribution(result.method_name)
+        else []
+    )
     reference_payload = _load_reference_objective_payload(
         benchmark_root=benchmark_root,
         definition=definition,

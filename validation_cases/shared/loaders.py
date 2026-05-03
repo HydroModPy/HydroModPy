@@ -49,6 +49,8 @@ def _aggregate_triangles_to_grid(
             return data
         col_idx = np.clip(((centroids_x - x_min) / dx).astype(int), 0, ncol - 1)
         flat = np.asarray(data, dtype=float).reshape(-1)
+        if flat.size != col_idx.size:
+            return data
 
         total_col = np.zeros(ncol, dtype=float)
         counts_col = np.zeros(ncol, dtype=int)
@@ -71,6 +73,28 @@ def _aggregate_triangles_to_grid(
     except Exception:
         logger.debug("Triangle-to-grid aggregation failed, returning raw data")
         return data
+
+
+def _aggregate_triangle_history_to_grid(
+    data: np.ndarray,
+    target_shape: tuple[int, ...],
+    store: Any,
+    sim_id: str,
+) -> np.ndarray:
+    """Collapse a time-cell triangular history onto an x-profile grid."""
+    history = np.asarray(data, dtype=float)
+    if history.ndim == 1:
+        return _aggregate_triangles_to_grid(history, target_shape, store, sim_id)
+    if history.ndim != 2 or len(target_shape) != 2:
+        return data
+
+    mapped_steps: list[np.ndarray] = []
+    for values in history:
+        mapped = _aggregate_triangles_to_grid(values, target_shape, store, sim_id)
+        if tuple(mapped.shape) != tuple(target_shape):
+            return data
+        mapped_steps.append(np.asarray(mapped, dtype=float))
+    return np.stack(mapped_steps, axis=0)
 
 
 def _load_toml(path: Path) -> dict:
@@ -451,6 +475,18 @@ def load_time_series_fields(
                     and int(np.prod(data.shape[1:])) == int(np.prod(eff_shape))
                 ):
                     data = data.reshape(n_ts, *eff_shape)
+                elif (
+                    eff_shape is not None
+                    and tuple(data.shape[1:]) != eff_shape
+                    and data.ndim == 2
+                    and data[:1].size > 0
+                ):
+                    data = _aggregate_triangle_history_to_grid(
+                        data,
+                        eff_shape,
+                        store,
+                        sim_id,
+                    )
                 return indices, data
         except Exception:
             logger.debug(

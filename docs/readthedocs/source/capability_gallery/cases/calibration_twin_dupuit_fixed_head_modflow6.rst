@@ -14,7 +14,6 @@ Figure Reading Order
 - Read the configuration figure first: it summarizes the truth parameters, observations, bounds, and weighting that define the inverse problem.
 - Read the objective landscape next: it shows where the evaluated candidates cluster, whether the objective is sharply constrained, and where the best retained solution sits relative to the truth.
 - Read the objective trace as the chronology of the search. It shows whether the method quickly stabilizes, improves gradually, or keeps wandering through flat regions.
-- Read the posterior figure as the full retained parameter distribution, not as a single answer. A wide or multi-modal posterior indicates residual ambiguity even when one candidate has the lowest cost.
 
 .. figure:: /_static/capability_gallery/calibration/calibration_twin_dupuit_fixed_head_modflow6__configuration.png
    :alt: Calibration Twin: Dupuit Fixed-Head 1D configuration figure
@@ -38,12 +37,11 @@ Figure Reading Order
 
          Objective trace for `grid_search` on Calibration Twin: Dupuit Fixed-Head 1D, showing the chronology of evaluated models and whether the search keeps improving or plateaus.
 
-      - metric=best_fit
-      - target=True
-      - best_fit=True
+      - success_metric=best_fit
+      - meets_target=True
+      - truth_recovered=True
       - cost=0
       - n_eval=11
-      - distribution_samples=0
       - calibration=11.22 s
       - candidate runtime=11.1 s
       - algorithm overhead=0.1221 s
@@ -62,24 +60,17 @@ Figure Reading Order
 
          Objective landscape or pairwise projection for `random_search` on Calibration Twin: Dupuit Fixed-Head 1D. It shows where evaluated candidates concentrate relative to the truth and the best retained solution.
 
-      .. figure:: /_static/capability_gallery/calibration/calibration_twin_dupuit_fixed_head_modflow6__random_search_posterior.png
-         :alt: Calibration Twin: Dupuit Fixed-Head 1D posterior distribution for random_search
-         :width: 100%
-
-         Posterior or retained parameter distribution for `random_search` on Calibration Twin: Dupuit Fixed-Head 1D. It shows the full spread of plausible calibrated values, not only the single best fit.
-
       .. figure:: /_static/capability_gallery/calibration/calibration_twin_dupuit_fixed_head_modflow6__random_search_trace.png
          :alt: Calibration Twin: Dupuit Fixed-Head 1D objective trace for random_search
          :width: 100%
 
          Objective trace for `random_search` on Calibration Twin: Dupuit Fixed-Head 1D, showing the chronology of evaluated models and whether the search keeps improving or plateaus.
 
-      - metric=best_fit
-      - target=True
-      - best_fit=True
+      - success_metric=best_fit
+      - meets_target=True
+      - truth_recovered=True
       - cost=0.0382717
       - n_eval=24
-      - distribution_samples=24
       - calibration=28.41 s
       - candidate runtime=28.05 s
       - algorithm overhead=0.3577 s
@@ -104,12 +95,11 @@ Figure Reading Order
 
          Objective trace for `cma_es` on Calibration Twin: Dupuit Fixed-Head 1D, showing the chronology of evaluated models and whether the search keeps improving or plateaus.
 
-      - metric=best_fit
-      - target=True
-      - best_fit=True
+      - success_metric=best_fit
+      - meets_target=True
+      - truth_recovered=True
       - cost=0.0116379
       - n_eval=28
-      - distribution_samples=0
       - calibration=26.65 s
       - candidate runtime=26.29 s
       - algorithm overhead=0.3634 s
@@ -134,12 +124,11 @@ Figure Reading Order
 
          Objective trace for `simplex` on Calibration Twin: Dupuit Fixed-Head 1D, showing the chronology of evaluated models and whether the search keeps improving or plateaus.
 
-      - metric=best_fit
-      - target=True
-      - best_fit=True
+      - success_metric=best_fit
+      - meets_target=True
+      - truth_recovered=True
       - cost=0
       - n_eval=30
-      - distribution_samples=0
       - calibration=24.23 s
       - candidate runtime=23.91 s
       - algorithm overhead=0.3176 s
@@ -164,12 +153,11 @@ Figure Reading Order
 
          Objective trace for `nelder_mead` on Calibration Twin: Dupuit Fixed-Head 1D, showing the chronology of evaluated models and whether the search keeps improving or plateaus.
 
-      - metric=best_fit
-      - target=True
-      - best_fit=True
+      - success_metric=best_fit
+      - meets_target=True
+      - truth_recovered=True
       - cost=0
       - n_eval=18
-      - distribution_samples=0
       - calibration=16.49 s
       - candidate runtime=16.29 s
       - algorithm overhead=0.2053 s
@@ -209,7 +197,6 @@ Key Metrics
 
 - Methods: 5
 - Display method: random_search
-- Distribution samples: 24
 - Calibration total: 28.41 s
 - Session prep: 29.98 s
 - Candidate runtime: 28.05 s
@@ -304,23 +291,23 @@ Methods And Timing
      - Source
    * - ``grid_search``
      - Method result summary including target status, evaluation count, total time, and mean per-model actualize / launcher / simulation / objective timings.
-     - target=true, cost=0, n_eval=11, distribution_samples=0, calib_s=11.223, candidate_runtime_s=11.1009, algorithm_overhead_s=0.122142, actualize_s=0.0156029, launcher_prep_s=0.0156029, runtime_patch_s=0, model_sim_s=0.993566, output_select_s=0, objective_score_s=0
+     - meets_target=true, cost=0, n_eval=11, calib_s=11.223, candidate_runtime_s=11.1009, algorithm_overhead_s=0.122142, actualize_s=0.0156029, launcher_prep_s=0.0156029, runtime_patch_s=0, model_sim_s=0.993566, output_select_s=0, objective_score_s=0
      - ``docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_dupuit_fixed_head_modflow6_summary.json``
    * - ``random_search``
      - Method result summary including target status, evaluation count, total time, and mean per-model actualize / launcher / simulation / objective timings.
-     - target=true, cost=0.0382717, n_eval=24, distribution_samples=24, calib_s=28.4106, candidate_runtime_s=28.0529, algorithm_overhead_s=0.357668, actualize_s=0.0168222, launcher_prep_s=0.0168222, runtime_patch_s=0, model_sim_s=1.15205, output_select_s=0, objective_score_s=0
+     - meets_target=true, cost=0.0382717, n_eval=24, calib_s=28.4106, candidate_runtime_s=28.0529, algorithm_overhead_s=0.357668, actualize_s=0.0168222, launcher_prep_s=0.0168222, runtime_patch_s=0, model_sim_s=1.15205, output_select_s=0, objective_score_s=0
      - ``docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_dupuit_fixed_head_modflow6_summary.json``
    * - ``cma_es``
      - Method result summary including target status, evaluation count, total time, and mean per-model actualize / launcher / simulation / objective timings.
-     - target=true, cost=0.0116379, n_eval=28, distribution_samples=0, calib_s=26.6515, candidate_runtime_s=26.2882, algorithm_overhead_s=0.363368, actualize_s=0.0140536, launcher_prep_s=0.0140536, runtime_patch_s=0, model_sim_s=0.924809, output_select_s=0, objective_score_s=0
+     - meets_target=true, cost=0.0116379, n_eval=28, calib_s=26.6515, candidate_runtime_s=26.2882, algorithm_overhead_s=0.363368, actualize_s=0.0140536, launcher_prep_s=0.0140536, runtime_patch_s=0, model_sim_s=0.924809, output_select_s=0, objective_score_s=0
      - ``docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_dupuit_fixed_head_modflow6_summary.json``
    * - ``simplex``
      - Method result summary including target status, evaluation count, total time, and mean per-model actualize / launcher / simulation / objective timings.
-     - target=true, cost=0, n_eval=30, distribution_samples=0, calib_s=24.2252, candidate_runtime_s=23.9076, algorithm_overhead_s=0.31756, actualize_s=0.0148355, launcher_prep_s=0.0148355, runtime_patch_s=0, model_sim_s=0.782085, output_select_s=0, objective_score_s=0
+     - meets_target=true, cost=0, n_eval=30, calib_s=24.2252, candidate_runtime_s=23.9076, algorithm_overhead_s=0.31756, actualize_s=0.0148355, launcher_prep_s=0.0148355, runtime_patch_s=0, model_sim_s=0.782085, output_select_s=0, objective_score_s=0
      - ``docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_dupuit_fixed_head_modflow6_summary.json``
    * - ``nelder_mead``
      - Method result summary including target status, evaluation count, total time, and mean per-model actualize / launcher / simulation / objective timings.
-     - target=true, cost=0, n_eval=18, distribution_samples=0, calib_s=16.4948, candidate_runtime_s=16.2896, algorithm_overhead_s=0.205264, actualize_s=0.0154713, launcher_prep_s=0.0154713, runtime_patch_s=0, model_sim_s=0.889505, output_select_s=0, objective_score_s=0
+     - meets_target=true, cost=0, n_eval=18, calib_s=16.4948, candidate_runtime_s=16.2896, algorithm_overhead_s=0.205264, actualize_s=0.0154713, launcher_prep_s=0.0154713, runtime_patch_s=0, model_sim_s=0.889505, output_select_s=0, objective_score_s=0
      - ``docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_dupuit_fixed_head_modflow6_summary.json``
 
 Displayed Metrics
@@ -341,10 +328,6 @@ Displayed Metrics
    * - ``display_method_name``
      - Metric surfaced on the gallery page for the selected display method.
      - random_search
-     - ``docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_dupuit_fixed_head_modflow6_summary.json``
-   * - ``model_distribution_sample_count``
-     - Metric surfaced on the gallery page for the selected display method.
-     - 24
      - ``docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_dupuit_fixed_head_modflow6_summary.json``
    * - ``calibration_time_seconds``
      - Metric surfaced on the gallery page for the selected display method.
@@ -416,7 +399,6 @@ Artifacts
 - ``docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_dupuit_fixed_head_modflow6__grid_search_trace.png``
 - ``docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_dupuit_fixed_head_modflow6__random_search_landscape.png``
 - ``docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_dupuit_fixed_head_modflow6__random_search_trace.png``
-- ``docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_dupuit_fixed_head_modflow6__random_search_posterior.png``
 - ``docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_dupuit_fixed_head_modflow6__cma_es_landscape.png``
 - ``docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_dupuit_fixed_head_modflow6__cma_es_trace.png``
 - ``docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_dupuit_fixed_head_modflow6__simplex_landscape.png``

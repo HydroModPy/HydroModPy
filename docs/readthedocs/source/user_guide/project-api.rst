@@ -1,0 +1,101 @@
+Project API
+===========
+
+The ``Project`` facade is the Python path for users who want the same behavior
+as TOML workflows but need programmatic control.
+
+Minimal paths
+-------------
+
+.. code-block:: python
+
+   import hydromodpy as hmp
+
+   result = hmp.run("examples/projects/00_getting_started/run_demo.toml")
+   catalog = hmp.open("~/hydromodpy")
+
+For explicit lifecycle control:
+
+.. code-block:: python
+
+   import hydromodpy as hmp
+
+   with hmp.Project.lazy("project.toml") as project:
+       project.setup_workspace()
+       project.build_geographic()
+       project.load_data()
+       project.build_mesh()
+       run = project.run()
+
+Lifecycle methods
+-----------------
+
+.. list-table::
+   :header-rows: 1
+   :widths: 28 72
+
+   * - Method
+     - Role
+   * - ``Project.lazy(config)``
+     - Build the facade without immediately running setup/data/mesh phases.
+   * - ``setup_workspace()``
+     - Resolve workspace paths and prepare durable runtime folders.
+   * - ``build_geographic()``
+     - Run geographic preprocessing and catchment support construction.
+   * - ``load_data()`` / ``reload_data()``
+     - Load configured data managers and refresh normalized records.
+   * - ``rebuild_geographic()``
+     - Rerun geographic preprocessing and invalidate dependent mesh state.
+   * - ``build_mesh()``
+     - Build or load the mesh used by the solver.
+   * - ``prepare()``
+     - Run the setup/data/mesh phases needed before execution.
+   * - ``execute()``
+     - Run the configured solver or process execution phase.
+   * - ``ingest()``
+     - Persist solver outputs into the result store.
+   * - ``render()``
+     - Render configured display figures.
+   * - ``cleanup()``
+     - Close runtime resources and temporary state.
+   * - ``run()``
+     - Execute the complete workflow path.
+
+Workflow helpers
+----------------
+
+.. list-table::
+   :header-rows: 1
+   :widths: 28 72
+
+   * - Method
+     - Role
+   * - ``overview()``
+     - Generate a data/geographic overview without a solver run.
+   * - ``simulate()``
+     - Run a standard simulation workflow.
+   * - ``compare()``
+     - Launch pairwise or workflow-level comparison logic.
+   * - ``batch()``
+     - Run regional or multi-case batches.
+   * - ``calibrate()``
+     - Run calibration from the project configuration.
+   * - ``sweep()``
+     - Execute controlled parameter or configuration sweeps.
+
+State accessors
+---------------
+
+Useful read-only properties include ``phase``, ``status``, ``data``, ``runs``,
+``geographic``, ``domain``, ``store``, ``time_grid``, and ``loaded_data``.
+They expose the same runtime state that TOML workflows populate through the
+pipeline.
+
+When to prefer the CLI
+----------------------
+
+Use TOML plus ``hmp run`` for reproducible research, teaching material, and CI.
+Use ``Project`` when a notebook, calibration method, custom analysis loop, or
+application needs to orchestrate the same steps directly.
+
+For autosummary references, see :doc:`../api/hydromodpy-project-results`.

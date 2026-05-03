@@ -49,6 +49,7 @@ def test_build_validation_case_records_discovers_solver_coverage() -> None:
     assert records["linearized_unconfined_boundary_piecewise_1d"].metadata["solver_variants"] == (
         "modflownwt",
         "modflow6",
+        "modflow6_irregular_tri",
         "boussinesq",
     )
     assert records["boussinesq_fixed_head_piecewise_k_1d"].metadata["solver_variants"] == (
@@ -106,11 +107,13 @@ def test_build_validation_case_records_discovers_solver_coverage() -> None:
     assert records["brutsaert_recession_linearized_deep_1d"].metadata["solver_variants"] == (
         "modflownwt",
         "modflow6",
+        "modflow6_irregular_tri",
         "boussinesq",
     )
     assert records["brutsaert_recession_boussinesq_thin_1d"].metadata["solver_variants"] == (
         "modflownwt",
         "modflow6",
+        "modflow6_irregular_tri",
         "boussinesq",
     )
     assert records["boussinesq_sloping_substratum_constant_thickness_1d"].equations_rst

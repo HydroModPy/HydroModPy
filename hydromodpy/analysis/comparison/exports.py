@@ -81,12 +81,14 @@ SIMULATED_ACTIVE_NETWORK_METRICS_FIELDS = [
     "active_cell_count_last",
     "active_cell_count_any",
     "persistent_cell_count",
+    "always_active_cell_count",
     "perennial_cell_count",
     "drainage_density_mean_pct",
     "drainage_density_max_pct",
     "drainage_density_last_pct",
     "active_any_ratio",
     "persistent_ratio",
+    "always_active_ratio",
     "perennial_ratio",
     "persistence_mean",
     "persistence_max",
@@ -286,6 +288,8 @@ def write_observable_chronicle_exports(
                 "elapsed_seconds",
                 "value_index",
                 "value",
+                "surface_top_m",
+                "surface_bottom_m",
             ],
         )
         artifacts.append({"kind": "timeseries_long_csv", "path": str(path)})

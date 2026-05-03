@@ -51,29 +51,57 @@ Reference examples:
 - ``examples/projects/06_vire_selune/run_vire_nwt.toml``
 - ``examples/projects/09_comparison_workflow/base_dupuit_shared_mesh.toml``
 
+The figures below use the committed gallery case
+``headwater_100km2_outlet_2_mf6_transient_reference``. It is a more complete
+transient MODFLOW 6 example than a minimal launcher run: it combines a natural
+headwater support, a transient recharge chronology, integrated discharge
+response, and water-table diagnostics.
+
 Representative Results
 ----------------------
 
-.. figure:: /_static/capability_gallery/simulation/modflow6_gmsh_support_overview.png
-   :alt: Support overview figure for a simulation workflow
+.. figure:: /_static/capability_gallery/simulation/headwater_100km2_outlet_2_mf6_transient_reference_support_overview.png
+   :alt: Support overview for a 100 km2 transient MODFLOW 6 simulation
    :width: 100%
 
-   A simulation page should expose the support that the solver actually used,
-   not only the input TOML that asked for it.
+   The support overview shows the spatial support that the solver actually
+   used: watershed, outlet, hydrographic context, and discretization footprint.
+   This is the first figure to inspect when a simulation result looks
+   suspicious, because many numerical symptoms start as support-definition
+   errors.
 
-.. figure:: /_static/capability_gallery/simulation/modflow6_gmsh_flow_state_triptych.png
-   :alt: Flow-state triptych for a simulation workflow
+.. figure:: /_static/capability_gallery/simulation/headwater_100km2_outlet_2_mf6_transient_reference_flow_state_triptych.png
+   :alt: Flow-state triptych for a 100 km2 transient MODFLOW 6 simulation
    :width: 100%
 
-   The triptych is the main state diagnostic for one forward run: it keeps the
-   spatial response readable before moving to budgets or downstream analytics.
+   The triptych is the main state diagnostic for one forward run. It puts the
+   spatial response, active domain, and hydraulic state side by side so that
+   the user can read the simulated behaviour before moving to budgets or
+   downstream analytics.
 
-.. figure:: /_static/capability_gallery/simulation/modflow6_gmsh_recharge_discharge_cumulative.png
-   :alt: Cumulative recharge and discharge figure for a simulation workflow
+.. figure:: /_static/capability_gallery/simulation/headwater_100km2_outlet_2_mf6_transient_reference_recharge_discharge_cumulative.png
+   :alt: Cumulative recharge and discharge for a transient MODFLOW 6 simulation
    :width: 100%
 
-   The cumulative curve is the fastest way to sanity-check the forcing
-   chronology against the integrated hydraulic response.
+   The cumulative recharge/discharge curve checks whether the transient
+   forcing chronology produces a plausible integrated hydraulic response. It
+   is a compact mass-balance diagnostic, not only a pretty hydrograph.
+
+.. figure:: /_static/capability_gallery/simulation/headwater_100km2_outlet_2_mf6_transient_reference_watertable_elevation.png
+   :alt: Water-table elevation map for a transient MODFLOW 6 simulation
+   :width: 100%
+
+   Water-table elevation makes the hydraulic gradient visible in physical
+   coordinates. Use it to check whether the simulated heads are consistent
+   with terrain, outlet position, and expected flow direction.
+
+.. figure:: /_static/capability_gallery/simulation/headwater_100km2_outlet_2_mf6_transient_reference_watertable_depth.png
+   :alt: Water-table depth map for a transient MODFLOW 6 simulation
+   :width: 100%
+
+   Water-table depth is often the more operational view: it shows where the
+   simulated aquifer is near the surface or deep below ground, which is useful
+   for diagnosing dry cells, drainage assumptions, and recharge sensitivity.
 
 Minimal Shape
 -------------

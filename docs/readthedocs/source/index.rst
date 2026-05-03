@@ -142,8 +142,8 @@ Documentation map
 
       **API reference**
       ^^^
-      Browse the package tree exactly as in ``hydromodpy/`` (spatial, solver,
-      display, pyhelp, and tooling APIs).
+      Browse the public Python surfaces for projects, runs, catalogs, data,
+      solvers, workflows, display, schemas, and tooling.
 
    .. grid-item-card::
       :class-card: sd-shadow-sm sd-rounded-3 sd-p-4

@@ -4,6 +4,13 @@ Concentration Transport
 Concentration transport answers questions about species movement, dispersive
 spreading, input concentration, and decay after flow has been solved.
 
+Read this family as:
+
+1. common transport dependency rules in :doc:`common-concepts`,
+2. concentration-family structure in :doc:`concentration-transport/index`,
+3. backend-specific pages for :doc:`concentration-transport/mt3dms` and
+   :doc:`concentration-transport/modflow6gwt`.
+
 Current Solvers
 ---------------
 
@@ -20,6 +27,14 @@ Current Solvers
    * - ``modflow6gwt``
      - Earlier ``flow/modflow6`` run.
      - MODFLOW 6 GWT concentration transport route.
+
+Internal Structure
+------------------
+
+.. toctree::
+   :maxdepth: 2
+
+   concentration-transport/index
 
 Typical MODFLOW-NWT + MT3DMS Plan
 ---------------------------------
@@ -91,6 +106,7 @@ Scientific Reading Notes
 Related Pages
 -------------
 
+- :doc:`common-concepts`
 - :doc:`../flow/modflow-family`
 - :doc:`../../../architecture/solver/transport/modflow-transport-adapters`
 - :doc:`../solver-capability-matrix`

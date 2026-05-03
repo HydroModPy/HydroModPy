@@ -32,14 +32,9 @@ Quick Map
        outputs.
      - ``examples/projects/06_vire_selune/run_vire_mf6_irregular.toml``
      - :doc:`../user_guide/workflows/simulation`
-   * - ``mesh``
-     - Build and export one catchment mesh as a reusable discretization
-       artifact.
-     - ``[mesh_catchment]`` examples in
-       ``examples/projects/06_vire_selune/*.toml``
-     - :doc:`../user_guide/workflows/mesh`
    * - ``testbed``
-     - Expand controlled method variants and collect robustness evidence.
+     - Expand controlled method variants and collect robustness evidence,
+       including mesh-resolution and mesh-constraint studies.
      - ``examples/projects/10_testbed_workflow/mesh_resolution_testbed.toml``
        or ``flow_k_sensitivity_testbed.toml``
      - :doc:`../user_guide/workflows/testbed`
@@ -69,10 +64,10 @@ HydroModPy distinguishes three concepts that are easy to confuse:
 
 For example, ``simulation`` is a workflow. ``modflow6`` is a solver that can be
 used by that workflow. ``hmp run`` is one usage mode for launching it.
-Similarly, ``mesh`` is a concrete child workflow for one discretization
-artifact, while ``testbed`` is the orchestration workflow for method variants
-such as mesh-resolution, constraint-sensitivity, or flow-parameter robustness
-studies.
+Similarly, meshing is now documented as a ``testbed`` subject rather than as a
+separate user guide workflow. Use ``subject = "mesh"`` with
+``runner.type = "mesh_catchment"`` when the scientific question is about
+resolution, constraints, or discretization robustness.
 
 Recommended Reading Order
 -------------------------
@@ -99,7 +94,6 @@ Related Pages
 
    Overview workflow <../user_guide/workflows/overview>
    Simulation workflow <../user_guide/workflows/simulation>
-   Mesh workflow <../user_guide/workflows/mesh>
    Testbed workflow <../user_guide/workflows/testbed>
    Calibration workflow <../user_guide/workflows/calibration>
    Batch workflow <../user_guide/workflows/batch>

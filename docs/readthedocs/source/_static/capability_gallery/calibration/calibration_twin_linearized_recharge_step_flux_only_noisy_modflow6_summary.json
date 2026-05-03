@@ -85,13 +85,6 @@
       "repo_path": "docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_linearized_recharge_step_flux_only_noisy_modflow6__random_search_trace.png"
     },
     {
-      "filename": "calibration_twin_linearized_recharge_step_flux_only_noisy_modflow6__random_search_posterior.png",
-      "caption": "Posterior or retained parameter distribution for `random_search` on Calibration Twin: Recharge-Step Flux-Only K+Sy 1D. It shows the full spread of plausible calibrated values, not only the single best fit.",
-      "alt_text": "Calibration Twin: Recharge-Step Flux-Only K+Sy 1D posterior distribution for random_search",
-      "doc_path": "/_static/capability_gallery/calibration/calibration_twin_linearized_recharge_step_flux_only_noisy_modflow6__random_search_posterior.png",
-      "repo_path": "docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_linearized_recharge_step_flux_only_noisy_modflow6__random_search_posterior.png"
-    },
-    {
       "filename": "calibration_twin_linearized_recharge_step_flux_only_noisy_modflow6__cma_es_landscape.png",
       "caption": "Objective landscape or pairwise projection for `cma_es` on Calibration Twin: Recharge-Step Flux-Only K+Sy 1D. It shows where evaluated candidates concentrate relative to the truth and the best retained solution.",
       "alt_text": "Calibration Twin: Recharge-Step Flux-Only K+Sy 1D objective landscape for cma_es",
@@ -134,13 +127,6 @@
       "repo_path": "docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_linearized_recharge_step_flux_only_noisy_modflow6__gp_mapping_trace.png"
     },
     {
-      "filename": "calibration_twin_linearized_recharge_step_flux_only_noisy_modflow6__gp_mapping_posterior.png",
-      "caption": "Posterior or retained parameter distribution for `gp_mapping` on Calibration Twin: Recharge-Step Flux-Only K+Sy 1D. It shows the full spread of plausible calibrated values, not only the single best fit.",
-      "alt_text": "Calibration Twin: Recharge-Step Flux-Only K+Sy 1D posterior distribution for gp_mapping",
-      "doc_path": "/_static/capability_gallery/calibration/calibration_twin_linearized_recharge_step_flux_only_noisy_modflow6__gp_mapping_posterior.png",
-      "repo_path": "docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_linearized_recharge_step_flux_only_noisy_modflow6__gp_mapping_posterior.png"
-    },
-    {
       "filename": "calibration_twin_linearized_recharge_step_flux_only_noisy_modflow6__da_mh_gp_landscape.png",
       "caption": "Objective landscape or pairwise projection for `da_mh_gp` on Calibration Twin: Recharge-Step Flux-Only K+Sy 1D. It shows where evaluated candidates concentrate relative to the truth and the best retained solution.",
       "alt_text": "Calibration Twin: Recharge-Step Flux-Only K+Sy 1D objective landscape for da_mh_gp",
@@ -176,8 +162,8 @@
       "display": "da_mh_gp"
     },
     {
-      "label": "Distribution samples",
-      "key": "model_distribution_sample_count",
+      "label": "Posterior samples",
+      "key": "posterior_sample_count",
       "value": 140,
       "display": "140"
     },
@@ -339,7 +325,7 @@
         },
         "objective_landscape_filename": "calibration_twin_linearized_recharge_step_flux_only_noisy_modflow6__random_search_landscape.png",
         "objective_trace_filename": "calibration_twin_linearized_recharge_step_flux_only_noisy_modflow6__random_search_trace.png",
-        "posterior_distribution_filename": "calibration_twin_linearized_recharge_step_flux_only_noisy_modflow6__random_search_posterior.png"
+        "posterior_distribution_filename": null
       },
       {
         "method_name": "cma_es",
@@ -444,7 +430,7 @@
         },
         "objective_landscape_filename": "calibration_twin_linearized_recharge_step_flux_only_noisy_modflow6__gp_mapping_landscape.png",
         "objective_trace_filename": "calibration_twin_linearized_recharge_step_flux_only_noisy_modflow6__gp_mapping_trace.png",
-        "posterior_distribution_filename": "calibration_twin_linearized_recharge_step_flux_only_noisy_modflow6__gp_mapping_posterior.png"
+        "posterior_distribution_filename": null
       },
       {
         "method_name": "da_mh_gp",
@@ -490,16 +476,14 @@
         "title": "random_search",
         "filenames": [
           "calibration_twin_linearized_recharge_step_flux_only_noisy_modflow6__random_search_landscape.png",
-          "calibration_twin_linearized_recharge_step_flux_only_noisy_modflow6__random_search_posterior.png",
           "calibration_twin_linearized_recharge_step_flux_only_noisy_modflow6__random_search_trace.png"
         ],
         "body_lines": [
-          "metric=best_fit_or_distribution",
-          "target=True",
-          "best_fit=False",
+          "success_metric=best_fit_or_distribution",
+          "meets_target=True",
+          "truth_recovered=False",
           "cost=0.410218",
           "n_eval=24",
-          "distribution_samples=24",
           "calibration=36.49 s",
           "candidate runtime=36.3 s",
           "algorithm overhead=0.1984 s",
@@ -518,12 +502,11 @@
           "calibration_twin_linearized_recharge_step_flux_only_noisy_modflow6__cma_es_trace.png"
         ],
         "body_lines": [
-          "metric=best_fit",
-          "target=False",
-          "best_fit=False",
+          "success_metric=best_fit",
+          "meets_target=False",
+          "truth_recovered=False",
           "cost=0.407793",
           "n_eval=56",
-          "distribution_samples=0",
           "calibration=77.04 s",
           "candidate runtime=76.62 s",
           "algorithm overhead=0.4215 s",
@@ -542,12 +525,11 @@
           "calibration_twin_linearized_recharge_step_flux_only_noisy_modflow6__simplex_trace.png"
         ],
         "body_lines": [
-          "metric=best_fit",
-          "target=False",
-          "best_fit=False",
+          "success_metric=best_fit",
+          "meets_target=False",
+          "truth_recovered=False",
           "cost=0.407768",
           "n_eval=16",
-          "distribution_samples=0",
           "calibration=29.18 s",
           "candidate runtime=29.04 s",
           "algorithm overhead=0.1378 s",
@@ -563,16 +545,14 @@
         "title": "gp_mapping",
         "filenames": [
           "calibration_twin_linearized_recharge_step_flux_only_noisy_modflow6__gp_mapping_landscape.png",
-          "calibration_twin_linearized_recharge_step_flux_only_noisy_modflow6__gp_mapping_posterior.png",
           "calibration_twin_linearized_recharge_step_flux_only_noisy_modflow6__gp_mapping_trace.png"
         ],
         "body_lines": [
-          "metric=best_fit_or_distribution",
-          "target=True",
-          "best_fit=False",
+          "success_metric=best_fit_or_distribution",
+          "meets_target=True",
+          "truth_recovered=False",
           "cost=0.410619",
           "n_eval=20",
-          "distribution_samples=20",
           "calibration=52.45 s",
           "candidate runtime=41.24 s",
           "algorithm overhead=11.21 s",
@@ -592,12 +572,12 @@
           "calibration_twin_linearized_recharge_step_flux_only_noisy_modflow6__da_mh_gp_trace.png"
         ],
         "body_lines": [
-          "metric=best_fit_or_distribution",
-          "target=True",
-          "best_fit=False",
+          "success_metric=best_fit_or_distribution",
+          "meets_target=True",
+          "truth_recovered=False",
           "cost=0.649032",
           "n_eval=140",
-          "distribution_samples=140",
+          "posterior_samples=140",
           "calibration=383.3 s",
           "candidate runtime=363.5 s",
           "algorithm overhead=19.84 s",
@@ -619,14 +599,12 @@
       "docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_linearized_recharge_step_flux_only_noisy_modflow6__configuration.png",
       "docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_linearized_recharge_step_flux_only_noisy_modflow6__random_search_landscape.png",
       "docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_linearized_recharge_step_flux_only_noisy_modflow6__random_search_trace.png",
-      "docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_linearized_recharge_step_flux_only_noisy_modflow6__random_search_posterior.png",
       "docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_linearized_recharge_step_flux_only_noisy_modflow6__cma_es_landscape.png",
       "docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_linearized_recharge_step_flux_only_noisy_modflow6__cma_es_trace.png",
       "docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_linearized_recharge_step_flux_only_noisy_modflow6__simplex_landscape.png",
       "docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_linearized_recharge_step_flux_only_noisy_modflow6__simplex_trace.png",
       "docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_linearized_recharge_step_flux_only_noisy_modflow6__gp_mapping_landscape.png",
       "docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_linearized_recharge_step_flux_only_noisy_modflow6__gp_mapping_trace.png",
-      "docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_linearized_recharge_step_flux_only_noisy_modflow6__gp_mapping_posterior.png",
       "docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_linearized_recharge_step_flux_only_noisy_modflow6__da_mh_gp_landscape.png",
       "docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_linearized_recharge_step_flux_only_noisy_modflow6__da_mh_gp_trace.png",
       "docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_linearized_recharge_step_flux_only_noisy_modflow6__da_mh_gp_posterior.png"
@@ -666,7 +644,7 @@
       },
       "objective_landscape_filename": "calibration_twin_linearized_recharge_step_flux_only_noisy_modflow6__random_search_landscape.png",
       "objective_trace_filename": "calibration_twin_linearized_recharge_step_flux_only_noisy_modflow6__random_search_trace.png",
-      "posterior_distribution_filename": "calibration_twin_linearized_recharge_step_flux_only_noisy_modflow6__random_search_posterior.png"
+      "posterior_distribution_filename": null
     },
     {
       "method_name": "cma_es",
@@ -771,7 +749,7 @@
       },
       "objective_landscape_filename": "calibration_twin_linearized_recharge_step_flux_only_noisy_modflow6__gp_mapping_landscape.png",
       "objective_trace_filename": "calibration_twin_linearized_recharge_step_flux_only_noisy_modflow6__gp_mapping_trace.png",
-      "posterior_distribution_filename": "calibration_twin_linearized_recharge_step_flux_only_noisy_modflow6__gp_mapping_posterior.png"
+      "posterior_distribution_filename": null
     },
     {
       "method_name": "da_mh_gp",
@@ -869,31 +847,31 @@
           {
             "field": "random_search",
             "meaning": "Method result summary including target status, evaluation count, total time, and mean per-model actualize / launcher / simulation / objective timings.",
-            "value": "target=true, cost=0.410218, n_eval=24, distribution_samples=24, calib_s=36.4947, candidate_runtime_s=36.2963, algorithm_overhead_s=0.198431, actualize_s=0.0784446, launcher_prep_s=0.0784446, runtime_patch_s=0, model_sim_s=1.4339, output_select_s=0, objective_score_s=0",
+            "value": "meets_target=true, cost=0.410218, n_eval=24, calib_s=36.4947, candidate_runtime_s=36.2963, algorithm_overhead_s=0.198431, actualize_s=0.0784446, launcher_prep_s=0.0784446, runtime_patch_s=0, model_sim_s=1.4339, output_select_s=0, objective_score_s=0",
             "source": "docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_linearized_recharge_step_flux_only_noisy_modflow6_summary.json"
           },
           {
             "field": "cma_es",
             "meaning": "Method result summary including target status, evaluation count, total time, and mean per-model actualize / launcher / simulation / objective timings.",
-            "value": "target=false, cost=0.407793, n_eval=56, distribution_samples=0, calib_s=77.0399, candidate_runtime_s=76.6184, algorithm_overhead_s=0.421502, actualize_s=0.0691418, launcher_prep_s=0.0691418, runtime_patch_s=0, model_sim_s=1.29904, output_select_s=0, objective_score_s=0",
+            "value": "meets_target=false, cost=0.407793, n_eval=56, calib_s=77.0399, candidate_runtime_s=76.6184, algorithm_overhead_s=0.421502, actualize_s=0.0691418, launcher_prep_s=0.0691418, runtime_patch_s=0, model_sim_s=1.29904, output_select_s=0, objective_score_s=0",
             "source": "docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_linearized_recharge_step_flux_only_noisy_modflow6_summary.json"
           },
           {
             "field": "simplex",
             "meaning": "Method result summary including target status, evaluation count, total time, and mean per-model actualize / launcher / simulation / objective timings.",
-            "value": "target=false, cost=0.407768, n_eval=16, distribution_samples=0, calib_s=29.1811, candidate_runtime_s=29.0434, algorithm_overhead_s=0.137763, actualize_s=0.106476, launcher_prep_s=0.106476, runtime_patch_s=0, model_sim_s=1.70874, output_select_s=0, objective_score_s=0",
+            "value": "meets_target=false, cost=0.407768, n_eval=16, calib_s=29.1811, candidate_runtime_s=29.0434, algorithm_overhead_s=0.137763, actualize_s=0.106476, launcher_prep_s=0.106476, runtime_patch_s=0, model_sim_s=1.70874, output_select_s=0, objective_score_s=0",
             "source": "docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_linearized_recharge_step_flux_only_noisy_modflow6_summary.json"
           },
           {
             "field": "gp_mapping",
             "meaning": "Method result summary including target status, evaluation count, total time, and mean per-model actualize / launcher / simulation / objective timings.",
-            "value": "target=true, cost=0.410619, n_eval=20, distribution_samples=20, calib_s=52.4479, candidate_runtime_s=41.2383, algorithm_overhead_s=11.2096, actualize_s=0.145772, launcher_prep_s=0.145772, runtime_patch_s=0, model_sim_s=1.91614, output_select_s=0, objective_score_s=0",
+            "value": "meets_target=true, cost=0.410619, n_eval=20, calib_s=52.4479, candidate_runtime_s=41.2383, algorithm_overhead_s=11.2096, actualize_s=0.145772, launcher_prep_s=0.145772, runtime_patch_s=0, model_sim_s=1.91614, output_select_s=0, objective_score_s=0",
             "source": "docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_linearized_recharge_step_flux_only_noisy_modflow6_summary.json"
           },
           {
             "field": "da_mh_gp",
             "meaning": "Method result summary including target status, evaluation count, total time, and mean per-model actualize / launcher / simulation / objective timings.",
-            "value": "target=true, cost=0.649032, n_eval=140, distribution_samples=140, calib_s=383.292, candidate_runtime_s=363.457, algorithm_overhead_s=19.8351, actualize_s=0.158424, launcher_prep_s=0.158424, runtime_patch_s=0, model_sim_s=2.43769, output_select_s=0, objective_score_s=0",
+            "value": "meets_target=true, cost=0.649032, n_eval=140, posterior_samples=140, calib_s=383.292, candidate_runtime_s=363.457, algorithm_overhead_s=19.8351, actualize_s=0.158424, launcher_prep_s=0.158424, runtime_patch_s=0, model_sim_s=2.43769, output_select_s=0, objective_score_s=0",
             "source": "docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_linearized_recharge_step_flux_only_noisy_modflow6_summary.json"
           }
         ]
@@ -914,7 +892,7 @@
             "source": "docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_linearized_recharge_step_flux_only_noisy_modflow6_summary.json"
           },
           {
-            "field": "model_distribution_sample_count",
+            "field": "posterior_sample_count",
             "meaning": "Metric surfaced on the gallery page for the selected display method.",
             "value": "140",
             "source": "docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_linearized_recharge_step_flux_only_noisy_modflow6_summary.json"

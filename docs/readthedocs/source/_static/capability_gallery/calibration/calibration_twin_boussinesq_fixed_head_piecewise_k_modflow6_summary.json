@@ -85,13 +85,6 @@
       "repo_path": "docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_boussinesq_fixed_head_piecewise_k_modflow6__random_search_seed017_trace.png"
     },
     {
-      "filename": "calibration_twin_boussinesq_fixed_head_piecewise_k_modflow6__random_search_seed017_posterior.png",
-      "caption": "Posterior or retained parameter distribution for `random_search_seed017` on Calibration Twin: Piecewise-K 1D. It shows the full spread of plausible calibrated values, not only the single best fit.",
-      "alt_text": "Calibration Twin: Piecewise-K 1D posterior distribution for random_search_seed017",
-      "doc_path": "/_static/capability_gallery/calibration/calibration_twin_boussinesq_fixed_head_piecewise_k_modflow6__random_search_seed017_posterior.png",
-      "repo_path": "docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_boussinesq_fixed_head_piecewise_k_modflow6__random_search_seed017_posterior.png"
-    },
-    {
       "filename": "calibration_twin_boussinesq_fixed_head_piecewise_k_modflow6__random_search_seed029_landscape.png",
       "caption": "Objective landscape or pairwise projection for `random_search_seed029` on Calibration Twin: Piecewise-K 1D. It shows where evaluated candidates concentrate relative to the truth and the best retained solution.",
       "alt_text": "Calibration Twin: Piecewise-K 1D objective landscape for random_search_seed029",
@@ -104,13 +97,6 @@
       "alt_text": "Calibration Twin: Piecewise-K 1D objective trace for random_search_seed029",
       "doc_path": "/_static/capability_gallery/calibration/calibration_twin_boussinesq_fixed_head_piecewise_k_modflow6__random_search_seed029_trace.png",
       "repo_path": "docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_boussinesq_fixed_head_piecewise_k_modflow6__random_search_seed029_trace.png"
-    },
-    {
-      "filename": "calibration_twin_boussinesq_fixed_head_piecewise_k_modflow6__random_search_seed029_posterior.png",
-      "caption": "Posterior or retained parameter distribution for `random_search_seed029` on Calibration Twin: Piecewise-K 1D. It shows the full spread of plausible calibrated values, not only the single best fit.",
-      "alt_text": "Calibration Twin: Piecewise-K 1D posterior distribution for random_search_seed029",
-      "doc_path": "/_static/capability_gallery/calibration/calibration_twin_boussinesq_fixed_head_piecewise_k_modflow6__random_search_seed029_posterior.png",
-      "repo_path": "docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_boussinesq_fixed_head_piecewise_k_modflow6__random_search_seed029_posterior.png"
     },
     {
       "filename": "calibration_twin_boussinesq_fixed_head_piecewise_k_modflow6__cma_es_landscape.png",
@@ -153,12 +139,6 @@
       "key": "display_method_name",
       "value": "random_search",
       "display": "random_search"
-    },
-    {
-      "label": "Distribution samples",
-      "key": "model_distribution_sample_count",
-      "value": 48,
-      "display": "48"
     },
     {
       "label": "Calibration total",
@@ -327,7 +307,7 @@
         },
         "objective_landscape_filename": "calibration_twin_boussinesq_fixed_head_piecewise_k_modflow6__random_search_seed017_landscape.png",
         "objective_trace_filename": "calibration_twin_boussinesq_fixed_head_piecewise_k_modflow6__random_search_seed017_trace.png",
-        "posterior_distribution_filename": "calibration_twin_boussinesq_fixed_head_piecewise_k_modflow6__random_search_seed017_posterior.png"
+        "posterior_distribution_filename": null
       },
       {
         "method_name": "random_search",
@@ -364,7 +344,7 @@
         },
         "objective_landscape_filename": "calibration_twin_boussinesq_fixed_head_piecewise_k_modflow6__random_search_seed029_landscape.png",
         "objective_trace_filename": "calibration_twin_boussinesq_fixed_head_piecewise_k_modflow6__random_search_seed029_trace.png",
-        "posterior_distribution_filename": "calibration_twin_boussinesq_fixed_head_piecewise_k_modflow6__random_search_seed029_posterior.png"
+        "posterior_distribution_filename": null
       },
       {
         "method_name": "cma_es",
@@ -449,16 +429,14 @@
         "title": "random_search_seed017",
         "filenames": [
           "calibration_twin_boussinesq_fixed_head_piecewise_k_modflow6__random_search_seed017_landscape.png",
-          "calibration_twin_boussinesq_fixed_head_piecewise_k_modflow6__random_search_seed017_posterior.png",
           "calibration_twin_boussinesq_fixed_head_piecewise_k_modflow6__random_search_seed017_trace.png"
         ],
         "body_lines": [
-          "metric=distribution",
-          "target=True",
-          "best_fit=False",
+          "success_metric=distribution",
+          "meets_target=True",
+          "truth_recovered=False",
           "cost=0.0451974",
           "n_eval=48",
-          "distribution_samples=48",
           "calibration=28.63 s",
           "candidate runtime=28.21 s",
           "algorithm overhead=0.4188 s",
@@ -474,16 +452,14 @@
         "title": "random_search_seed029",
         "filenames": [
           "calibration_twin_boussinesq_fixed_head_piecewise_k_modflow6__random_search_seed029_landscape.png",
-          "calibration_twin_boussinesq_fixed_head_piecewise_k_modflow6__random_search_seed029_posterior.png",
           "calibration_twin_boussinesq_fixed_head_piecewise_k_modflow6__random_search_seed029_trace.png"
         ],
         "body_lines": [
-          "metric=distribution",
-          "target=False",
-          "best_fit=False",
+          "success_metric=distribution",
+          "meets_target=False",
+          "truth_recovered=False",
           "cost=0.0289115",
           "n_eval=48",
-          "distribution_samples=48",
           "calibration=28.65 s",
           "candidate runtime=28.22 s",
           "algorithm overhead=0.4379 s",
@@ -502,12 +478,11 @@
           "calibration_twin_boussinesq_fixed_head_piecewise_k_modflow6__cma_es_trace.png"
         ],
         "body_lines": [
-          "metric=best_fit",
-          "target=False",
-          "best_fit=False",
+          "success_metric=best_fit",
+          "meets_target=False",
+          "truth_recovered=False",
           "cost=0.0271745",
           "n_eval=48",
-          "distribution_samples=0",
           "calibration=27.91 s",
           "candidate runtime=27.4 s",
           "algorithm overhead=0.5064 s",
@@ -526,12 +501,11 @@
           "calibration_twin_boussinesq_fixed_head_piecewise_k_modflow6__simplex_trace.png"
         ],
         "body_lines": [
-          "metric=best_fit",
-          "target=True",
-          "best_fit=True",
+          "success_metric=best_fit",
+          "meets_target=True",
+          "truth_recovered=True",
           "cost=0.00225239",
           "n_eval=48",
-          "distribution_samples=0",
           "calibration=31.71 s",
           "candidate runtime=31.25 s",
           "algorithm overhead=0.4651 s",
@@ -553,10 +527,8 @@
       "docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_boussinesq_fixed_head_piecewise_k_modflow6__configuration.png",
       "docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_boussinesq_fixed_head_piecewise_k_modflow6__random_search_seed017_landscape.png",
       "docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_boussinesq_fixed_head_piecewise_k_modflow6__random_search_seed017_trace.png",
-      "docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_boussinesq_fixed_head_piecewise_k_modflow6__random_search_seed017_posterior.png",
       "docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_boussinesq_fixed_head_piecewise_k_modflow6__random_search_seed029_landscape.png",
       "docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_boussinesq_fixed_head_piecewise_k_modflow6__random_search_seed029_trace.png",
-      "docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_boussinesq_fixed_head_piecewise_k_modflow6__random_search_seed029_posterior.png",
       "docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_boussinesq_fixed_head_piecewise_k_modflow6__cma_es_landscape.png",
       "docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_boussinesq_fixed_head_piecewise_k_modflow6__cma_es_trace.png",
       "docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_boussinesq_fixed_head_piecewise_k_modflow6__simplex_landscape.png",
@@ -599,7 +571,7 @@
       },
       "objective_landscape_filename": "calibration_twin_boussinesq_fixed_head_piecewise_k_modflow6__random_search_seed017_landscape.png",
       "objective_trace_filename": "calibration_twin_boussinesq_fixed_head_piecewise_k_modflow6__random_search_seed017_trace.png",
-      "posterior_distribution_filename": "calibration_twin_boussinesq_fixed_head_piecewise_k_modflow6__random_search_seed017_posterior.png"
+      "posterior_distribution_filename": null
     },
     {
       "method_name": "random_search",
@@ -636,7 +608,7 @@
       },
       "objective_landscape_filename": "calibration_twin_boussinesq_fixed_head_piecewise_k_modflow6__random_search_seed029_landscape.png",
       "objective_trace_filename": "calibration_twin_boussinesq_fixed_head_piecewise_k_modflow6__random_search_seed029_trace.png",
-      "posterior_distribution_filename": "calibration_twin_boussinesq_fixed_head_piecewise_k_modflow6__random_search_seed029_posterior.png"
+      "posterior_distribution_filename": null
     },
     {
       "method_name": "cma_es",
@@ -779,25 +751,25 @@
           {
             "field": "random_search_seed017",
             "meaning": "Method result summary including target status, evaluation count, total time, and mean per-model actualize / launcher / simulation / objective timings.",
-            "value": "target=true, cost=0.0451974, n_eval=48, distribution_samples=48, calib_s=28.6294, candidate_runtime_s=28.2106, algorithm_overhead_s=0.418823, actualize_s=0.048637, launcher_prep_s=0.048637, runtime_patch_s=0, model_sim_s=0.539083, output_select_s=0, objective_score_s=0",
+            "value": "meets_target=true, cost=0.0451974, n_eval=48, calib_s=28.6294, candidate_runtime_s=28.2106, algorithm_overhead_s=0.418823, actualize_s=0.048637, launcher_prep_s=0.048637, runtime_patch_s=0, model_sim_s=0.539083, output_select_s=0, objective_score_s=0",
             "source": "docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_boussinesq_fixed_head_piecewise_k_modflow6_summary.json"
           },
           {
             "field": "random_search_seed029",
             "meaning": "Method result summary including target status, evaluation count, total time, and mean per-model actualize / launcher / simulation / objective timings.",
-            "value": "target=false, cost=0.0289115, n_eval=48, distribution_samples=48, calib_s=28.6542, candidate_runtime_s=28.2163, algorithm_overhead_s=0.437941, actualize_s=0.0499307, launcher_prep_s=0.0499307, runtime_patch_s=0, model_sim_s=0.537909, output_select_s=0, objective_score_s=0",
+            "value": "meets_target=false, cost=0.0289115, n_eval=48, calib_s=28.6542, candidate_runtime_s=28.2163, algorithm_overhead_s=0.437941, actualize_s=0.0499307, launcher_prep_s=0.0499307, runtime_patch_s=0, model_sim_s=0.537909, output_select_s=0, objective_score_s=0",
             "source": "docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_boussinesq_fixed_head_piecewise_k_modflow6_summary.json"
           },
           {
             "field": "cma_es",
             "meaning": "Method result summary including target status, evaluation count, total time, and mean per-model actualize / launcher / simulation / objective timings.",
-            "value": "target=false, cost=0.0271745, n_eval=48, distribution_samples=0, calib_s=27.906, candidate_runtime_s=27.3996, algorithm_overhead_s=0.506364, actualize_s=0.049943, launcher_prep_s=0.049943, runtime_patch_s=0, model_sim_s=0.520882, output_select_s=0, objective_score_s=0",
+            "value": "meets_target=false, cost=0.0271745, n_eval=48, calib_s=27.906, candidate_runtime_s=27.3996, algorithm_overhead_s=0.506364, actualize_s=0.049943, launcher_prep_s=0.049943, runtime_patch_s=0, model_sim_s=0.520882, output_select_s=0, objective_score_s=0",
             "source": "docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_boussinesq_fixed_head_piecewise_k_modflow6_summary.json"
           },
           {
             "field": "simplex",
             "meaning": "Method result summary including target status, evaluation count, total time, and mean per-model actualize / launcher / simulation / objective timings.",
-            "value": "target=true, cost=0.00225239, n_eval=48, distribution_samples=0, calib_s=31.7126, candidate_runtime_s=31.2475, algorithm_overhead_s=0.465106, actualize_s=0.0544934, launcher_prep_s=0.0544934, runtime_patch_s=0, model_sim_s=0.596497, output_select_s=0, objective_score_s=0",
+            "value": "meets_target=true, cost=0.00225239, n_eval=48, calib_s=31.7126, candidate_runtime_s=31.2475, algorithm_overhead_s=0.465106, actualize_s=0.0544934, launcher_prep_s=0.0544934, runtime_patch_s=0, model_sim_s=0.596497, output_select_s=0, objective_score_s=0",
             "source": "docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_boussinesq_fixed_head_piecewise_k_modflow6_summary.json"
           }
         ]
@@ -815,12 +787,6 @@
             "field": "display_method_name",
             "meaning": "Metric surfaced on the gallery page for the selected display method.",
             "value": "random_search",
-            "source": "docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_boussinesq_fixed_head_piecewise_k_modflow6_summary.json"
-          },
-          {
-            "field": "model_distribution_sample_count",
-            "meaning": "Metric surfaced on the gallery page for the selected display method.",
-            "value": "48",
             "source": "docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_boussinesq_fixed_head_piecewise_k_modflow6_summary.json"
           },
           {

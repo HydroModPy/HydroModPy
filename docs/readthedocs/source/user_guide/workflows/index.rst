@@ -33,15 +33,12 @@ interface.
      - ``[simulation]``, ``[[simulation.process]]``, ``[flow]``,
        ``[solver]``, backend sections
      - :doc:`simulation`
-   * - ``mesh``
-     - Generate a reusable catchment mesh without solving.
-     - ``[geographic]``, ``[domain]``, ``[mesh_catchment]``,
-       optional ``[mesh_catchment_batch]``
-     - :doc:`mesh`
    * - ``testbed``
-     - Expand controlled method variants and collect evidence.
+     - Expand controlled method variants and collect evidence, including mesh
+       resolution or constraint studies.
      - ``[testbed]``, ``[testbed.runner]``, ``[[testbed.variant]]``,
-       child-runner sections such as ``[mesh_catchment]``
+       child-runner sections such as ``[mesh_catchment]`` or
+       ``[simulation]``
      - :doc:`testbed`
    * - ``calibration``
      - Estimate parameters by running repeated candidate simulations.
@@ -74,7 +71,6 @@ The CLI dispatch is intentionally simple:
         +-- dispatch to one launcher
               simulation  -> Project(config).run()
               overview    -> DataOverviewLauncher
-              mesh        -> MeshCatchmentLauncher
               testbed     -> TestbedLauncher
               calibration -> calibration ask/tell loop
               batch       -> RegionalLabLauncher
@@ -96,13 +92,12 @@ inventories, and pre-solver QA.
 Use ``simulation`` when the physical setup is clear and you want one forward
 run with persisted model outputs.
 
-Use ``mesh`` when discretization is the object being inspected or exported,
-especially before reusing a catchment-conformal mesh in several solver runs.
-
 Use ``testbed`` when the question is about robustness across method variants,
 for example mesh resolution, mesh constraints, hydraulic-parameter sensitivity,
-or future transport method axes. A testbed delegates to child runners and
-gathers evidence; it is not a simulation by default.
+or future transport method axes. Mesh work is now documented through
+``testbed`` with ``subject = "mesh"`` and ``runner.type = "mesh_catchment"``;
+the mesh runner remains an implementation detail rather than a separate user
+guide workflow.
 
 Use ``calibration`` when parameters are uncertain and the goal is to optimize
 or sample them against observations or synthetic targets.
@@ -119,7 +114,6 @@ controlled.
 
    overview
    simulation
-   mesh
    testbed
    calibration
    batch

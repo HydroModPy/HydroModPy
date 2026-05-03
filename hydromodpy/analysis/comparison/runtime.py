@@ -71,6 +71,8 @@ class CellCentroidTable:
     y: np.ndarray
     area_m2: np.ndarray | None = None
     storage_coefficient: np.ndarray | None = None
+    z_top_m: np.ndarray | None = None
+    z_bottom_m: np.ndarray | None = None
 
     def nearest_cell_id(self, *, x: float, y: float) -> int:
         """Return the cell id whose centroid is closest to ``(x, y)``."""
@@ -102,6 +104,23 @@ class CellCentroidTable:
         if not np.isfinite(storage):
             return None
         return storage
+
+    def vertical_bounds_for_cell_id(self, cell_id: int) -> tuple[float | None, float | None]:
+        """Return top and bottom elevations for one cell id when available."""
+        matches = np.flatnonzero(self.cell_ids == int(cell_id))
+        if matches.size == 0:
+            return None, None
+        position = int(matches[0])
+        top = _finite_array_value(self.z_top_m, position)
+        bottom = _finite_array_value(self.z_bottom_m, position)
+        return top, bottom
+
+
+def _finite_array_value(values: np.ndarray | None, index: int) -> float | None:
+    if values is None or index >= int(values.size):
+        return None
+    value = float(values[index])
+    return value if np.isfinite(value) else None
 
 
 def _candidate_solver_sections(solver_name: str | None = None) -> tuple[str, ...]:
@@ -567,6 +586,8 @@ def _load_bundle_cells(cells_path: Path) -> CellCentroidTable | None:
     ys: list[float] = []
     areas: list[float] = []
     storage_coefficients: list[float] = []
+    z_tops: list[float] = []
+    z_bottoms: list[float] = []
     with cells_path.open("r", encoding="utf-8", newline="") as handle:
         reader = csv.DictReader(handle)
         for row in reader:
@@ -580,6 +601,12 @@ def _load_bundle_cells(cells_path: Path) -> CellCentroidTable | None:
                 storage_coefficients.append(
                     float(storage_value) if storage_value not in (None, "") else math.nan
                 )
+                top_value = row.get("z_top_centroid") or row.get("z_top_mean")
+                z_tops.append(float(top_value) if top_value not in (None, "") else math.nan)
+                bottom_value = row.get("z_bottom_centroid") or row.get("z_bottom_mean")
+                z_bottoms.append(
+                    float(bottom_value) if bottom_value not in (None, "") else math.nan
+                )
             except Exception:
                 continue
 
@@ -591,12 +618,20 @@ def _load_bundle_cells(cells_path: Path) -> CellCentroidTable | None:
     storage_array = np.asarray(storage_coefficients, dtype=float)
     if storage_array.size != len(cell_ids) or not np.any(np.isfinite(storage_array)):
         storage_array = None
+    top_array = np.asarray(z_tops, dtype=float)
+    if top_array.size != len(cell_ids) or not np.any(np.isfinite(top_array)):
+        top_array = None
+    bottom_array = np.asarray(z_bottoms, dtype=float)
+    if bottom_array.size != len(cell_ids) or not np.any(np.isfinite(bottom_array)):
+        bottom_array = None
     return CellCentroidTable(
         cell_ids=np.asarray(cell_ids, dtype=int),
         x=np.asarray(xs, dtype=float),
         y=np.asarray(ys, dtype=float),
         area_m2=area_array,
         storage_coefficient=storage_array,
+        z_top_m=top_array,
+        z_bottom_m=bottom_array,
     )
 
 
@@ -857,6 +892,47 @@ def _area_for_series_value(
     if not np.isfinite(area) or area <= 0.0:
         return None
     return area
+
+
+def _cell_id_for_series_value(
+    *,
+    series: VariableSeries,
+    cells: CellCentroidTable | None,
+    value_index: int,
+    details: Mapping[str, Any],
+) -> int | None:
+    selected_cell_raw = details.get("selected_cell_index")
+    if selected_cell_raw not in ("", None):
+        try:
+            return int(selected_cell_raw)
+        except Exception:
+            return None
+    if series.cell_ids is not None and value_index < int(series.cell_ids.size):
+        return int(series.cell_ids[int(value_index)])
+    if cells is not None and value_index < int(cells.cell_ids.size):
+        return int(cells.cell_ids[int(value_index)])
+    return None
+
+
+def _vertical_bounds_for_series_value(
+    *,
+    series: VariableSeries,
+    cells: CellCentroidTable | None,
+    value_index: int,
+    details: Mapping[str, Any],
+) -> tuple[float | str, float | str]:
+    if cells is None:
+        return "", ""
+    cell_id = _cell_id_for_series_value(
+        series=series,
+        cells=cells,
+        value_index=value_index,
+        details=details,
+    )
+    if cell_id is None:
+        return "", ""
+    top, bottom = cells.vertical_bounds_for_cell_id(cell_id)
+    return ("" if top is None else top, "" if bottom is None else bottom)
 
 
 _NODATA_SENTINELS = (-9999.0, -99999.0, -999999.0)
@@ -2083,6 +2159,12 @@ def extract_observable_rows(
                     details=details,
                     cells=cells,
                 )
+                surface_top_m, surface_bottom_m = _vertical_bounds_for_series_value(
+                    series=series,
+                    cells=cells,
+                    value_index=value_index,
+                    details=details,
+                )
                 is_nodata = is_nodata_value(normalized["value"])
                 rows.append(
                     {
@@ -2125,6 +2207,8 @@ def extract_observable_rows(
                         "derived_from_variable": normalized["derived_from_variable"],
                         "conversion_applied": normalized["conversion_applied"],
                         "cell_area_m2": normalized["cell_area_m2"],
+                        "surface_top_m": surface_top_m,
+                        "surface_bottom_m": surface_bottom_m,
                         "source_path": str(series.source_path),
                         "run_folder": str(run_folder),
                         "selection": str(details.get("selection", "")),
@@ -2230,6 +2314,8 @@ def write_observables_csv(path: Path, rows: list[dict[str, Any]]) -> None:
         "derived_from_variable",
         "conversion_applied",
         "cell_area_m2",
+        "surface_top_m",
+        "surface_bottom_m",
         "source_path",
         "run_folder",
         "selection",

@@ -57,6 +57,106 @@ Representative Results
    The local figure then confirms which basin overlays and loaded data layers
    are actually available before moving on to meshing or solving.
 
+Data Families And Representations
+---------------------------------
+
+The overview workflow is not only a map generator. It is the place where
+HydroModPy makes heterogeneous input data visible before they become modelling
+assumptions. A single report can combine local files, cached workspace assets,
+and API-backed sources, but each family should be represented in the form that
+best exposes its modelling role.
+
+.. list-table::
+   :header-rows: 1
+   :widths: 24 28 28 20
+
+   * - Family
+     - Typical sources
+     - Report representation
+     - What it validates
+   * - Terrain and watershed support
+     - DEM rasters, outlet coordinates, precomputed watershed polygons.
+     - DEM map, watershed boundary, outlet marker, derived slope or extent
+       summary.
+     - CRS consistency, outlet snapping, catchment scale, and the spatial
+       support used by later workflows.
+   * - Hydrography and drainage network
+     - Local river layers, national hydrographic APIs, workspace-cached network
+       extracts.
+     - River overlay, stream ordering, station-to-network context, optional
+       buffered constraints.
+     - Whether the drainage network is spatially coherent with the watershed
+       and usable for mesh constraints or boundary diagnostics.
+   * - Geology, zones, and domain masks
+     - Geological polygons, interpreted hydrogeological zones, manual masks.
+     - Zone map, polygon inventory, area shares, conflict warnings.
+     - Whether heterogeneity should enter the support, the mesh, calibration
+       parameters, or only remain contextual.
+   * - Observation stations
+     - Hydrometry, piezometry, intermittency, water-quality inventories from
+       APIs or local station tables.
+     - Station inventory table, map markers, distance-to-network checks,
+       coverage counts.
+     - Which observations are actually inside or near the model domain and
+       which stations should be excluded before calibration.
+   * - Time-series observations
+     - Discharge, head, intermittency state, chemistry, or other measured
+       chronicles.
+     - Time-series panels, availability bars, missing-data summaries,
+       observation-window statistics.
+     - Whether the requested date window has enough information for transient
+       simulation, comparison, or calibration.
+   * - Forcing and boundary context
+     - Meteorology, recharge proxies, sea level, imposed hydraulic heads,
+       upstream/downstream conditions.
+     - Forcing summaries, cumulative curves, date coverage checks, boundary
+       context panels.
+     - Whether forcing chronology and boundary assumptions are compatible with
+       the intended simulation period.
+   * - Derived or interpreted products
+     - Cached transformations, inferred recharge, simplified zones, cleaned
+       station selections.
+     - Provenance cards, derived-layer overlays, before/after inventories.
+     - Which modelling choices were computed by HydroModPy rather than supplied
+       directly by an external source.
+
+Source Modes
+------------
+
+The same conceptual family can enter the workspace through several routes.
+The overview report should make that route explicit because it changes how the
+result is audited.
+
+.. list-table::
+   :header-rows: 1
+   :widths: 24 36 40
+
+   * - Source mode
+     - Typical use
+     - Practical consequence
+   * - Local file
+     - Stable DEM, shapefile, GeoPackage, CSV, NetCDF, or Zarr input owned by
+       the study.
+     - The report mainly checks projection, extent, schema, and temporal
+       coverage. Reproducibility depends on keeping the file under the project
+       or workspace convention.
+   * - API-backed download
+     - Hydrometric stations, public hydrography, meteorological or piezometric
+       services.
+     - The report should expose date of access, query extent, station counts,
+       and missing responses. Cache the result before using it in a calibrated
+       or published run.
+   * - Workspace cache
+     - Previously downloaded or normalized assets reused across several
+       workflows.
+     - The report verifies that later simulations read the same data object,
+       not a silently refreshed API response.
+   * - Generated product
+     - Watershed delineation, cleaned station selection, derived forcing,
+       support masks, or mesh-preparation layers.
+     - The report must show provenance and enough visual evidence to decide
+       whether the derived product can become part of a solver workflow.
+
 Minimal Shape
 -------------
 
@@ -114,8 +214,9 @@ Important Parameters
        support even before solving.
    * - ``[data].types``
      - Declares data families to load.
-     - Start small, then add hydrometry, intermittency, oceanic, piezometry,
-       or climate sources as needed.
+     - Start with support-defining layers, then add station inventories,
+       observation time series, forcing, and boundary-context sources as the
+       question becomes more specific.
    * - ``[overview]``
      - Names and dates the report.
      - Match the date range to the observation families you request.

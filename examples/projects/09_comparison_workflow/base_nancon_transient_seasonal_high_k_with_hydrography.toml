@@ -1,0 +1,12 @@
+# Nancon transient seasonal case with observed hydrography and higher hydraulic
+# conductivity, used to reduce the simulated saturated/active network extent.
+
+base_config = "base_nancon_transient_seasonal_with_hydrography.toml"
+workflow = "simulation"
+
+[simulation]
+name = "nancon_transient_seasonal_high_k_hydrography_shared_case"
+description = "Nancon transient seasonal benchmark with observed hydrography and higher K."
+
+[flow.param.K.field_homogeneous]
+value = "5e-4 m/s"

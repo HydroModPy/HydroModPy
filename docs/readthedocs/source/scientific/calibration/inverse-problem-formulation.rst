@@ -194,23 +194,27 @@ Best-fit methods
 - ``cma_es``
 - ``nelder_mead``
 - ``simplex``
+- ``gp_mapping``
 
 These methods answer:
 
   "Which tested parameter set looked best under the chosen objective?"
 
-Distribution-valued methods
-^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Distribution-valued method
+^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-- ``gp_mapping`` returns an approximate posterior-like cloud built from a
-  surrogate model;
 - ``da_mh_gp`` returns MCMC samples from an explicit posterior target defined
   by its prior and RMSE-based likelihood.
 
-These methods answer a richer question:
+This method answers a richer question:
 
   "Which ranges of parameter values remain plausible, and how strongly are
   they constrained?"
+
+``gp_mapping`` is sometimes tempting to read as uncertainty quantification
+because it uses a Gaussian-process surrogate. In the current implementation it
+is still a surrogate-guided optimizer: its evaluated candidate cloud can help
+explain the objective landscape, but it is not a posterior distribution.
 
 Interpretation Checklist
 ------------------------

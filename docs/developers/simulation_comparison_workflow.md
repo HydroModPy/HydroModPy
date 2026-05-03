@@ -190,6 +190,17 @@ du DEM/topographie. Quand le run porte un maillage exploitable, la figure
 observe `reference`. La comparaison peut exporter les metriques d'occupation
 dans `simulated_active_network_metrics.csv`.
 
+Terminologie a respecter pour ces vues:
+
+- `persistent` signifie actif pendant au moins une fraction declaree des pas de
+  temps transitoires;
+- `always_active` signifie actif a tous les pas de temps de la fenetre
+  transitoire analysee;
+- `perennial` reste un alias legacy de `always_active`, mais ne doit pas etre
+  compris comme une definition hydrologique forte du reseau perenne;
+- un reseau simule perenne devrait de preference venir d'un run
+  permanent/steady-state representatif, puis etre compare a `reference`.
+
 Lire d'abord `case_configuration.png` pour comprendre le cas teste, puis les
 figures `*triptych*.png` pour valider rapidement les champs: champ de
 reference, champ candidat, puis difference candidat moins reference.
