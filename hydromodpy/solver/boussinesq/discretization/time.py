@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from hydromodpy.physics.flow.regime import normalize_flow_regime
+
 
 @dataclass(frozen=True)
 class TimeSchemeSpec:
@@ -33,12 +35,14 @@ BACKWARD_EULER = TimeSchemeSpec(
 def resolve_time_scheme(flow_regime: str | None) -> TimeSchemeSpec:
     """Return the canonical time-discretization descriptor for one regime."""
 
-    regime = str(flow_regime or "transient").strip().lower() or "transient"
+    regime = normalize_flow_regime(flow_regime or "transient")
     if regime == "steady":
         return STEADY_BALANCE
     if regime == "transient":
         return BACKWARD_EULER
-    raise ValueError("Unsupported Boussinesq flow regime. Expected one of: steady, transient.")
+    raise ValueError(
+        "Unsupported Boussinesq flow regime. Expected one of: steady, permanent, transient."
+    )
 
 
 __all__ = [
