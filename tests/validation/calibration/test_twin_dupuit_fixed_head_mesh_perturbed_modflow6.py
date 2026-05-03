@@ -57,7 +57,7 @@ def test_calibration_twin_dupuit_fixed_head_mesh_perturbed_modflow6_recovers_tru
     deterministic = [
         result
         for result in benchmark.method_results
-        if result.method_name in {"grid_search", "simplex", "cma_es"}
+        if result.method_name in {"grid", "simplex", "cma_es"}
     ]
     assert all(result.recovered_truth for result in deterministic)
 

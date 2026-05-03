@@ -8,7 +8,7 @@
 # WARNING: `workflow = "sweep"` is NOT IMPLEMENTED YET. This TOML is a
 # specification / design draft for the future workflow. It will NOT
 # pass the current dispatcher (see KNOWN_WORKFLOWS in
-# `hydromodpy/_cli/workflows.py`) until:
+# `hydromodpy/cli/workflows.py`) until:
 #   1. "sweep" is added to KNOWN_WORKFLOWS,
 #   2. a `hydromodpy/sweep/` package (config + runner) is implemented,
 #   3. `run_sweep()` is wired into DISPATCH.
@@ -16,10 +16,7 @@
 # Today the same effect is obtained from Python via
 # `run_transient_prototype.py` or `Project.sweep(...)`.
 #
-# Target launch (when implemented):
-#   hmp run examples/projects/02_nancon_watershed/run_sweep_sy.toml
-#   -> launches 3 full runs (Zarr + Parquet each), tagged under a
-#      shared `sweep_id` to make comparison easy.
+# Status: design draft only. Do not launch with `hmp run` in v1.
 # ======================================================================
 
 

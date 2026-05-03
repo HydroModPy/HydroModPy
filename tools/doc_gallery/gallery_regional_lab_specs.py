@@ -24,11 +24,26 @@ _REGIONAL_LAB_RECIPE_METRIC_SPECS = (
     GalleryMetricSpec("Coverage gaps", "skipped_case_count", _format_int),
     GalleryMetricSpec("Pending cases", "pending_case_count", _format_int),
 )
+_SIMULATION_STATIC_ROOT = "docs/readthedocs/source/_static/capability_gallery/simulation"
 
 _DEFAULT_REGIONAL_LAB_NEXT_STEPS = (
     "Switch `execute = true` in the focused overlay config when the dry plan looks correct and you want to launch the child workflow.",
     "Use these orchestration pages as the planning complement to the individual simulation and method-comparison cases already exposed elsewhere in the gallery.",
 )
+
+
+def _static_regional_lab_assets(slug: str) -> tuple[str, ...]:
+    root = f"{_SIMULATION_STATIC_ROOT}/{slug}"
+    return (
+        f"{root}_summary.json",
+        f"{root}_plan.json",
+        f"{root}_report.json",
+        f"{root}_summary.md",
+        f"{root}_site_inventory.csv",
+        f"{root}_recipe_summary.csv",
+        f"{root}_cluster_summary.csv",
+        f"{root}_case_matrix.csv",
+    )
 
 
 def _build_regional_lab_case_spec(
@@ -58,9 +73,9 @@ def _build_regional_lab_case_spec(
         deck=deck,
         summary=summary,
         what_it_shows=what_it_shows,
-        reproduction_command=(f"python -m hydromodpy run {regional_lab_config_path}"),
-        source_paths=(regional_lab_config_path, *source_paths),
-        generator="regional_lab_case",
+        reproduction_command="python -m tools.doc_gallery",
+        source_paths=_static_regional_lab_assets(slug) + source_paths,
+        generator="copy_assets",
         image_assets=(
             GalleryImageAsset(
                 filename=f"{slug}.png",
@@ -69,6 +84,7 @@ def _build_regional_lab_case_spec(
                     "recipe summary, and planning metrics."
                 ),
                 alt_text=f"Regional lab dry-plan synthesis for {title}",
+                source_path=f"{_SIMULATION_STATIC_ROOT}/{slug}.png",
             ),
         ),
         metric_specs=metric_specs,
@@ -79,7 +95,8 @@ def _build_regional_lab_case_spec(
         walkthrough_doc="getting_started/simulation-walkthrough",
         walkthrough_title="the Simulation walkthrough",
         metadata={
-            "regional_lab_config_path": regional_lab_config_path,
+            "static_summary_path": f"{_SIMULATION_STATIC_ROOT}/{slug}_summary.json",
+            "regional_lab_summary_path": f"{_SIMULATION_STATIC_ROOT}/{slug}_summary.json",
             "study_area": "Brittany regional laboratory",
             "process_families": list(process_families),
             "workflow_family_key": "regional_orchestration",
@@ -118,19 +135,14 @@ def build_regional_lab_specs() -> tuple[GalleryCaseSpec, ...]:
                 "How one selected site population expands into planned child runs plus explicit coverage gaps when required configs are missing.",
                 "How a dry-run can be used as a planning and coverage-audit tool before any child simulation is actually launched.",
             ),
-            reproduction_command=(
-                "python -m hydromodpy run "
-                "examples_legacy_2/projects/launcher_simulation/regional_lab/config_headwater_100km2_lab.toml"
-            ),
+            reproduction_command="python -m tools.doc_gallery",
             source_paths=(
                 "hydromodpy/analysis/batch/__init__.py",
                 "hydromodpy/analysis/batch/config.py",
                 "hydromodpy/analysis/batch/runtime.py",
-                "examples_legacy_2/projects/launcher_simulation/regional_lab/README.md",
-                "examples_legacy_2/projects/launcher_simulation/regional_lab/config_headwater_100km2_lab.toml",
-                "examples_legacy_2/projects/launcher_simulation/regional_lab/site_catalog.csv",
+                *_static_regional_lab_assets("regional_lab_headwater_100km2_dry_plan"),
             ),
-            generator="regional_lab_case",
+            generator="copy_assets",
             image_assets=(
                 GalleryImageAsset(
                     filename="regional_lab_headwater_100km2_dry_plan.png",
@@ -139,6 +151,10 @@ def build_regional_lab_specs() -> tuple[GalleryCaseSpec, ...]:
                         "matrix, recipe coverage, and planning summary."
                     ),
                     alt_text="Regional lab dry-plan synthesis for the headwater 100 km2 example",
+                    source_path=(
+                        "docs/readthedocs/source/_static/capability_gallery/simulation/"
+                        "regional_lab_headwater_100km2_dry_plan.png"
+                    ),
                 ),
             ),
             metric_specs=_REGIONAL_LAB_METRIC_SPECS,
@@ -166,7 +182,14 @@ def build_regional_lab_specs() -> tuple[GalleryCaseSpec, ...]:
             walkthrough_doc="getting_started/simulation-walkthrough",
             walkthrough_title="the Simulation walkthrough",
             metadata={
-                "regional_lab_config_path": "examples_legacy_2/projects/launcher_simulation/regional_lab/config_headwater_100km2_lab.toml",
+                "static_summary_path": (
+                    "docs/readthedocs/source/_static/capability_gallery/simulation/"
+                    "regional_lab_headwater_100km2_dry_plan_summary.json"
+                ),
+                "regional_lab_summary_path": (
+                    "docs/readthedocs/source/_static/capability_gallery/simulation/"
+                    "regional_lab_headwater_100km2_dry_plan_summary.json"
+                ),
                 "study_area": "Brittany regional laboratory",
                 "process_families": ["planning", "simulation", "method_comparison", "reporting"],
                 "workflow_family_key": "regional_orchestration",
@@ -203,17 +226,12 @@ def build_regional_lab_specs() -> tuple[GalleryCaseSpec, ...]:
                 "How recipe-specific overlay configs keep the reproduction command precise without duplicating the whole laboratory definition.",
             ),
             regional_lab_config_path=(
-                "examples_legacy_2/projects/launcher_simulation/regional_lab/"
-                "config_headwater_100km2_lab_mf6_reference.toml"
+                f"{_SIMULATION_STATIC_ROOT}/regional_lab_headwater_100km2_mf6_reference_recipe_summary.json"
             ),
             source_paths=(
                 "hydromodpy/analysis/batch/__init__.py",
                 "hydromodpy/analysis/batch/config.py",
                 "hydromodpy/analysis/batch/runtime.py",
-                "examples_legacy_2/projects/launcher_simulation/regional_lab/README.md",
-                "examples_legacy_2/projects/launcher_simulation/regional_lab/config_headwater_100km2_lab.toml",
-                "examples_legacy_2/projects/launcher_simulation/regional_lab/site_catalog.csv",
-                "examples_legacy_2/projects/launcher_simulation/run_headwater_100km2_outlet_2_mf6_transient_reference.toml",
             ),
             metric_specs=_REGIONAL_LAB_RECIPE_METRIC_SPECS,
             case_setup=(
@@ -261,17 +279,12 @@ def build_regional_lab_specs() -> tuple[GalleryCaseSpec, ...]:
                 "How the dry plan remains useful even when only one site is currently comparison-ready.",
             ),
             regional_lab_config_path=(
-                "examples_legacy_2/projects/launcher_simulation/regional_lab/"
-                "config_headwater_100km2_lab_backend_compare.toml"
+                f"{_SIMULATION_STATIC_ROOT}/regional_lab_headwater_100km2_backend_compare_recipe_summary.json"
             ),
             source_paths=(
                 "hydromodpy/analysis/batch/__init__.py",
                 "hydromodpy/analysis/batch/config.py",
                 "hydromodpy/analysis/batch/runtime.py",
-                "examples_legacy_2/projects/launcher_simulation/regional_lab/README.md",
-                "examples_legacy_2/projects/launcher_simulation/regional_lab/config_headwater_100km2_lab.toml",
-                "examples_legacy_2/projects/launcher_simulation/regional_lab/site_catalog.csv",
-                "examples_legacy_2/projects/launcher_simulation/run_method_comparison_headwater_100km2_outlet_2_backends.toml",
             ),
             metric_specs=_REGIONAL_LAB_RECIPE_METRIC_SPECS,
             case_setup=(
@@ -318,17 +331,12 @@ def build_regional_lab_specs() -> tuple[GalleryCaseSpec, ...]:
                 "How recipe overlays can document a more specific transient workflow without cloning the site catalog or cluster rules.",
             ),
             regional_lab_config_path=(
-                "examples_legacy_2/projects/launcher_simulation/regional_lab/"
-                "config_headwater_100km2_lab_transient_backend_compare.toml"
+                f"{_SIMULATION_STATIC_ROOT}/regional_lab_headwater_100km2_transient_backend_compare_recipe_summary.json"
             ),
             source_paths=(
                 "hydromodpy/analysis/batch/__init__.py",
                 "hydromodpy/analysis/batch/config.py",
                 "hydromodpy/analysis/batch/runtime.py",
-                "examples_legacy_2/projects/launcher_simulation/regional_lab/README.md",
-                "examples_legacy_2/projects/launcher_simulation/regional_lab/config_headwater_100km2_lab.toml",
-                "examples_legacy_2/projects/launcher_simulation/regional_lab/site_catalog.csv",
-                "examples_legacy_2/projects/launcher_simulation/run_method_comparison_headwater_100km2_outlet_2_transient_pulsed_recharge_backends.toml",
             ),
             metric_specs=_REGIONAL_LAB_RECIPE_METRIC_SPECS,
             case_setup=(

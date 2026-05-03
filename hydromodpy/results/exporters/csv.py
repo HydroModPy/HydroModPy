@@ -2,16 +2,17 @@
 
 from __future__ import annotations
 
-import logging
 from pathlib import Path
 from typing import TYPE_CHECKING
 
 import pandas as pd
 
+from hydromodpy.core.logging import get_logger
+
 if TYPE_CHECKING:
     import duckdb
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 def export_csv(

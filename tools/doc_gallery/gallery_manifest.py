@@ -48,7 +48,7 @@ def _validate_gallery_specs(specs: tuple[GalleryCaseSpec, ...]) -> tuple[Gallery
 
 
 def build_repo_mesh_gallery_case_specs(*, repo_root=None) -> tuple[GalleryCaseSpec, ...]:
-    """Discover versioned mesh-gallery cases imported under ``examples/mesh_gallery``."""
+    """Discover versioned mesh-gallery cases under ``examples/projects/07_mesh_gallery``."""
 
     scale_rank = {scale: index for index, scale in enumerate(MESH_GALLERY_SCALE_ORDER)}
     optional_metadata_keys = (

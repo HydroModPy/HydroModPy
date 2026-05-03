@@ -2,6 +2,18 @@
 
 HydroModPy: A Python toolbox for deploying catchment-scale shallow groundwater models.
 
+Three engineering claims back the platform:
+
+- **Bit-exact reproducibility** thanks to a frozen `hydromodpy.lock` and the
+  `runs_environment` provenance table (Python version, package manifest, git
+  commit, host CPU/memory, recorded timestamp).
+- **ML-friendly storage** built on a DuckDB catalog, per-simulation Parquet
+  tables and per-simulation Zarr chunks, so simulation results plug directly
+  into sklearn / PyTorch / xgboost / JAX / xarray / xugrid pipelines.
+- **Scientific provenance** kept end-to-end: every solver run, calibration
+  iteration and derived metric is traceable from the catalog back to its
+  configuration, inputs and binaries.
+
 <!-- Continuous integration (dev branch) -->
 [![CI Fast](https://github.com/HydroModPy/HydroModPy/actions/workflows/ci-fast.yml/badge.svg?branch=dev)](https://github.com/HydroModPy/HydroModPy/actions/workflows/ci-fast.yml?query=branch%3Adev)
 [![CI Nightly](https://github.com/HydroModPy/HydroModPy/actions/workflows/ci-nightly.yml/badge.svg?branch=dev)](https://github.com/HydroModPy/HydroModPy/actions/workflows/ci-nightly.yml?query=branch%3Adev)
@@ -171,42 +183,96 @@ cd HydroModPy
 
 ## Getting started
 
-The fastest route is the self-contained example under
-`examples/getting_started/` - a synthetic 1D Dupuit aquifer that
-requires no external DEM or downloaded data.
+The fastest route is to scaffold a project, generate a v1 TOML template,
+and run it through the single workflow dispatcher.
 
 ```bash
-# CLI
-hmp run examples/getting_started/project.toml
-
-# Python
-python examples/getting_started/run_sim.py
+hmp init .
+hmp new getting_started --workspace .
+hmp run projects/getting_started/run_demo.toml
 ```
 
 Outputs land in a workspace next to the config:
 
 - `hydromodpy.duckdb` - the unified simulation catalog.
-- `simulations/<uuid>.zarr/` - spatial fields and metadata per run.
+- `simulations/<basename>.zarr.zip` - finalized spatial fields and metadata per run.
 
 Open the results programmatically:
 
 ```python
 import hydromodpy as hmp
 
-catalog = hmp.open("examples/getting_started")
+catalog = hmp.open(".")
 print(catalog.simulations)              # DataFrame of all sims
 sim = catalog.best("getting_started")   # best by default metric
+print(catalog.zarr_path_for(sim.sim_id))
 sim.plot("watertable_map", save=".")
 ```
 
+## Machine Learning access
+
+Simulation results are stored in three formats so a machine learning pipeline
+can pick whichever fits its workload:
+
+- **Query the catalog in SQL via DuckDB.** The workspace ships with a single
+  `hydromodpy.duckdb` file holding the `simulations`, `parameters`, `metrics`,
+  `runs_environment`, `calibration_sessions` and `calibration_iterations`
+  tables (plus parquet-backed views for `timeseries`, `budgets` and
+  `mass_balance`). Connect read-only and run arbitrary SQL:
+
+  ```python
+  import duckdb
+
+  con = duckdb.connect("workspace/hydromodpy.duckdb", read_only=True)
+  features = con.sql(
+      "SELECT s.sim_id, p.K, p.Sy, m.nse "
+      "FROM simulations s "
+      "JOIN parameters p USING (sim_id) "
+      "JOIN metrics m USING (sim_id) "
+      "WHERE m.metric_name = 'nse'"
+  ).df()
+  ```
+
+- **Load batches via Parquet for sklearn / PyTorch pipelines.** Each
+  simulation writes its Parquet artefacts under
+  `workspace/simulations/<basename>.parquet/<view>.parquet` (`<view>` is one of
+  `timeseries`, `budgets`, `mass_balance`). Files are independent, so a
+  `pandas` / `pyarrow` reader can fan-out across hundreds of runs without
+  hitting the catalog:
+
+  ```python
+  import pandas as pd
+
+  ts = pd.read_parquet(
+      "workspace/simulations/getting_started__synthetic__a1b2c3d4.parquet/"
+      "timeseries.parquet"
+  )
+  ```
+
+- **Per-simulation Zarr chunks for tensor-friendly access.** Finalized spatial fields
+  live in `workspace/simulations/<basename>.zarr.zip` and load straight into
+  `xarray` / `xugrid`, ready for `torch.utils.data.Dataset` wrappers:
+
+  ```python
+  from hydromodpy.results.zarr_store import SimulationZarr
+
+  sz = SimulationZarr(catalog.zarr_path_for(sim.sim_id))
+  try:
+      ds = sz.to_xarray()
+      head = ds["head"]
+  finally:
+      sz.close()
+  ```
+
+The full walkthrough (DuckDB SQL recipes, Parquet batch loading, Zarr
+DataLoader example, `runs_environment` provenance schema, train/val/test
+split convention) lives in
+[`docs/developers/ML_ACCESS_PATTERN.md`](docs/developers/ML_ACCESS_PATTERN.md).
+
 ## Usage Examples
 
-- `examples/getting_started/` - minimal synthetic example (start here).
-- `examples/projects/01_canut/` - delineated catchment from a regional DEM.
-- `examples/projects/data_overview/` - data-only overview workflow.
-- `examples/projects/04_nancon/` - transient case with piezometry data.
-
-More examples live alongside each validation case under
+Runnable datasets and reference inputs live under `examples/data/`.
+Executable examples live alongside each validation case under
 `validation_cases/analytical/` and `validation_cases/numerical/`.
 
 ## Annex Tooling (`hydromodpy_annex`)

@@ -31,7 +31,6 @@ if TYPE_CHECKING:
 
     from geopandas import GeoDataFrame
 
-    from hydromodpy.data.variables.hydrography.result import HydrographyResult
     from hydromodpy.spatial.geographic.core.river_network import RiverNetworkProducts
 
 
@@ -249,7 +248,9 @@ def default_vector_filename_for_role(role: HydrographicNetworkRole | str) -> str
     return _ROLE_TO_VECTOR_FILENAME.get(str(role).strip())
 
 
-def hydrographic_network_naming_contract(role: HydrographicNetworkRole | str) -> dict[str, str | None]:
+def hydrographic_network_naming_contract(
+    role: HydrographicNetworkRole | str,
+) -> dict[str, str | None]:
     """Return canonical and legacy naming hints for one hydrographic-network role."""
     role_token = str(role).strip()
     return {
@@ -319,7 +320,7 @@ class HydrographicNetwork:
     @classmethod
     def from_hydrography_result(
         cls,
-        hydrography_result: HydrographyResult,
+        hydrography_result,
         *,
         watershed_shp: str | Path | None = None,
         source_kind: str = "hydrography_loaded",

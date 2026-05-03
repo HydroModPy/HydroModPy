@@ -9,7 +9,7 @@ import pytest
 
 
 def test_export_schema_returns_dict_for_root():
-    from hydromodpy.core.config.schema_export import export_schema
+    from hydromodpy.core.config_kit.schema_export import export_schema
 
     schema = export_schema()
     assert isinstance(schema, dict)
@@ -20,7 +20,7 @@ def test_export_schema_returns_dict_for_root():
 
 
 def test_export_schema_by_section_name():
-    from hydromodpy.core.config.schema_export import export_schema
+    from hydromodpy.core.config_kit.schema_export import export_schema
 
     schema = export_schema(section="flow")
     assert isinstance(schema, dict)
@@ -30,14 +30,14 @@ def test_export_schema_by_section_name():
 
 
 def test_export_schema_unknown_section_raises():
-    from hydromodpy.core.config.schema_export import export_schema
+    from hydromodpy.core.config_kit.schema_export import export_schema
 
     with pytest.raises(ValueError):
         export_schema(section="not_a_real_section")
 
 
 def test_flow_physical_properties_schema_has_rich_annotations():
-    from hydromodpy.core.config.schema_export import export_schema
+    from hydromodpy.core.config_kit.schema_export import export_schema
     from hydromodpy.physics.flow.physical_properties import FlowPhysicalProperties
 
     schema = export_schema(FlowPhysicalProperties)
@@ -59,7 +59,7 @@ def test_flow_physical_properties_schema_has_rich_annotations():
 
 
 def test_write_schema_creates_valid_json_file(tmp_path: Path):
-    from hydromodpy.core.config.schema_export import write_schema
+    from hydromodpy.core.config_kit.schema_export import write_schema
 
     out = tmp_path / "subdir" / "schema.json"
     written = write_schema(out, section="flow")
@@ -70,18 +70,22 @@ def test_write_schema_creates_valid_json_file(tmp_path: Path):
 
 
 def test_root_sections_lists_expected_keys():
-    from hydromodpy.core.config.schema_export import _ensure_root_sections
+    from hydromodpy.core.config_kit.registry import root_scalar_fields
+    from hydromodpy.core.config_kit.schema_export import _ensure_root_sections
 
     sections = _ensure_root_sections()
-    # Minimum viable set for P03 wiring.
+    scalars = root_scalar_fields()
+    # Registry derives from HydroModPyConfig.model_fields; nested
+    # ``flow_physical_properties`` is reachable via FlowConfig, not as a
+    # root section.
     for key in (
         "workspace",
         "geographic",
         "domain",
         "data",
         "flow",
-        "flow_physical_properties",
         "simulation",
         "solver",
     ):
         assert key in sections, f"missing section {key!r}"
+    assert "workflow" in scalars

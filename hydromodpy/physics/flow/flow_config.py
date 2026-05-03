@@ -13,8 +13,8 @@ from typing import Annotated, ClassVar, Literal
 
 from pydantic import Field, field_validator, model_validator
 
-from hydromodpy.core.config.base import HydroModelBase
-from hydromodpy.core.config.profile import Profile
+from hydromodpy.core.config_kit.base import HydroModelBase
+from hydromodpy.core.config_kit.profile import Profile
 from hydromodpy.physics.base import ProcessSpatialConfig
 from hydromodpy.physics.flow.boundary_conditions import (
     DIRICHLET_BC_CANONICAL_DOMAINS,
@@ -103,15 +103,14 @@ class FlowConfig(ProcessSpatialConfig):
     flow_regime: Annotated[FlowRegime, Profile.USER] = Field(
         default="transient",
         description=(
-            "Global flow simulation regime used by solvers consuming [flow] "
-            "(steady or transient)."
+            "Global flow simulation regime used by solvers consuming [flow] (steady or transient)."
         ),
         json_schema_extra={
             "widget_type": "select",
             "unit": "-",
             "display_name_fr": "Régime d'écoulement",
             "help_text_fr": (
-                "Régime permanent (steady) ou transitoire (transient). "
+                "Régime stationnaire (steady) ou transitoire (transient). "
                 "Le régime transitoire requiert une condition initiale [flow.ic]."
             ),
         },
@@ -479,7 +478,7 @@ class FlowConfig(ProcessSpatialConfig):
     def homogeneous(
         cls,
         *,
-        flow_regime: Literal["steady", "transient"] = "transient",
+        flow_regime: FlowRegime = "transient",
         active_bc: list[str] | None = None,
         active_sinks_sources: list[str] | None = None,
         **parameters: float,
@@ -530,6 +529,10 @@ class FlowConfig(ProcessSpatialConfig):
             return cls()
         if not isinstance(flow_section, Mapping):
             raise ValueError("TOML section 'flow' must be a mapping when provided")
+        known_keys = set(cls.model_fields) | {"param_values"}
+        unknown_keys = sorted(set(flow_section) - known_keys)
+        if unknown_keys:
+            raise ValueError(f"Unknown TOML key(s) in [flow]: {', '.join(unknown_keys)}")
 
         raw_param_list = flow_section.get("param_list", [])
         if raw_param_list is None:

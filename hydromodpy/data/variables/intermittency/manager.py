@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from hydromodpy.data.base_manager import BaseVariableManager
+from hydromodpy.data.base_manager_variable import BaseVariableManager
 from hydromodpy.data.contracts.timeseries import PointRecord
 from hydromodpy.data.variables.intermittency.config import (
     IntermittencySourceConfig,

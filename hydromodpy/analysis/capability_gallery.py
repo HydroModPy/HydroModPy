@@ -2,13 +2,15 @@
 
 Two production paths are supported:
 
-1. **Render on demand** (preferred) - when a ``Run`` is provided, each asset
-   name is interpreted as ``<figure_name>.png`` and rendered through
-   ``run.plot(figure_name, save=...)``. Figure names come from the canonical
-   registry in ``hydromodpy.display``.
-2. **Copy existing file** (fallback) - if no ``Run`` is available or the
-   figure cannot be rendered, the publisher looks for a matching PNG in one
-   of the candidate subdirectories of the run folder
+1. **Render on demand** (preferred) - when a ``Run`` and a render callback
+   are provided, each asset name is interpreted as ``<figure_name>.png``
+   and rendered by ``render_figure(figure_name, run, save=...)``. The
+   callback is supplied by a higher layer (typically
+   :func:`hydromodpy.display.runs.render_figure`) so analysis stays
+   decoupled from the display package.
+2. **Copy existing file** (fallback) - if no callback is available or the
+   figure cannot be rendered, the publisher looks for a matching PNG in
+   one of the candidate subdirectories of the run folder
    (``_postprocess/_figures``, ``figures``, ``_figures``) and copies it
    verbatim. Missing assets are listed in the manifest.
 """
@@ -17,17 +19,20 @@ from __future__ import annotations
 
 import json
 import shutil
+from collections.abc import Callable
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import TYPE_CHECKING, Annotated
+from typing import TYPE_CHECKING, Annotated, Any
 
 from pydantic import ConfigDict, Field
 
-from hydromodpy.core.config.base import HydroModelBase
-from hydromodpy.core.config.profile import Profile
+from hydromodpy.core.config_kit.base import HydroModelBase
+from hydromodpy.core.config_kit.profile import Profile
 
 if TYPE_CHECKING:
     from hydromodpy.results.run import Run
+
+RenderFigureCallable = Callable[[str, Any, Path], None]
 
 DEFAULT_FLOW_GALLERY_ASSETS: tuple[str, ...] = (
     "piezometric_map.png",
@@ -67,9 +72,9 @@ class CapabilityGalleryConfig(HydroModelBase):
     assets: Annotated[tuple[str, ...], Profile.USER] = Field(
         default=DEFAULT_FLOW_GALLERY_ASSETS,
         description=(
-            "Asset filenames. Each ``<name>.png`` is first rendered via "
-            "``run.plot(<name>)`` when a Run is available, otherwise copied "
-            "from one of the standard figure subdirs of the run folder."
+            "Asset filenames. Each ``<name>.png`` is first rendered through "
+            "the injected render callback when a Run is available, otherwise "
+            "copied from one of the standard figure subdirs of the run folder."
         ),
     )
 
@@ -98,7 +103,13 @@ def _find_existing_asset(run_folder: Path, asset_name: str) -> Path | None:
     return None
 
 
-def _try_render(run: Run, figure_name: str, target_path: Path) -> bool:
+def _try_render(
+    run: Run,
+    figure_name: str,
+    target_path: Path,
+    *,
+    render_figure: RenderFigureCallable,
+) -> bool:
     try:
         capabilities = list(run.display_capabilities)
     except Exception:
@@ -106,7 +117,7 @@ def _try_render(run: Run, figure_name: str, target_path: Path) -> bool:
     if figure_name not in capabilities:
         return False
     try:
-        run.plot(figure_name, save=target_path)
+        render_figure(figure_name, run, target_path)
     except Exception:
         return False
     return target_path.exists()
@@ -119,14 +130,14 @@ def publish_run_to_capability_gallery(
     config: CapabilityGalleryConfig,
     solvers: tuple[str, ...] = (),
     run: Run | None = None,
+    render_figure: RenderFigureCallable | None = None,
 ) -> dict[str, object] | None:
     """Publish selected figures into the versioned gallery folder.
 
     Each asset named ``<figure_name>.png`` is produced as follows:
 
-    - if ``run`` is provided and ``figure_name`` is in
-      ``run.display_capabilities``, it is rendered through
-      ``run.plot(figure_name, save=...)``;
+    - if ``run`` and ``render_figure`` are provided and ``figure_name`` is
+      in ``run.display_capabilities``, the callback renders the figure;
     - otherwise, the publisher looks for a pre-existing PNG of the same
       name in standard subfolders of ``run_folder`` and copies it;
     - otherwise, the asset is listed as missing in the manifest.
@@ -146,9 +157,14 @@ def publish_run_to_capability_gallery(
         target_path = output_dir / asset_name
 
         rendered = False
-        if run is not None:
+        if run is not None and render_figure is not None:
             figure_name = Path(asset_name).stem
-            rendered = _try_render(run, figure_name, target_path)
+            rendered = _try_render(
+                run,
+                figure_name,
+                target_path,
+                render_figure=render_figure,
+            )
 
         if rendered:
             copied_assets.append(
@@ -195,5 +211,6 @@ def publish_run_to_capability_gallery(
 __all__ = [
     "CapabilityGalleryConfig",
     "DEFAULT_FLOW_GALLERY_ASSETS",
+    "RenderFigureCallable",
     "publish_run_to_capability_gallery",
 ]

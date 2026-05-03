@@ -1,1 +1,1 @@
-"""Display phase adapters (stubs - to be implemented)."""
+"""Display runs are workflow steps, not solver registry adapters."""

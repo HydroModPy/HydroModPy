@@ -74,14 +74,15 @@ Section: `[catchment_identification_scan]`
 Comportement par defaut:
 
 - si `output_dir` est omis, les resultats partent maintenant vers `~/HydroModPy/catchment_identification_scan/<nom_config>`
-- si un ancien TOML utilise encore un chemin relatif du type `./outputs/...`, ce chemin est automatiquement redirige vers `~/HydroModPy/catchment_identification_scan/...`
+- un `output_dir` relatif commencant par `outputs/` est redirige vers `~/HydroModPy/catchment_identification_scan/...`
+- les cles inconnues dans `[catchment_identification_scan]` sont refusees.
 
 ## Lancement
 
 Depuis la racine du repo:
 
 ```bash
-python hydromodpy_annex/preprocess/catchment_identification_scan/run_catchment_identification_case.py --config hydromodpy_annex/preprocess/catchment_identification_scan/config_s3_100km2.toml
+python -m hydromodpy_annex.preprocess.catchment_identification_scan.run_catchment_identification_case --config hydromodpy_annex/preprocess/catchment_identification_scan/config_s3_100km2.toml
 ```
 
 ## Notes donnees

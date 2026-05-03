@@ -533,3 +533,62 @@ def load_vector_geology_as_gpkg(
         gdf.to_file(str(output_path), driver="GPKG")
 
     return output_path
+
+
+class GeologyDataIO:
+    """Concrete ``GeologyDataSource`` backed by ``data.variables.geology``."""
+
+    def validate_config(self, config: Mapping[str, Any]) -> dict[str, Any]:
+        from hydromodpy.data.variables.geology.config import (
+            validate_geology_config_data,
+        )
+
+        return validate_geology_config_data(config)
+
+    def load_encoded_grid(self, config: Mapping[str, Any]) -> dict[str, Any]:
+        return load_geology_encoded_grid(config)
+
+    def load_encoded_grid_on_raster_support(
+        self,
+        config: Mapping[str, Any],
+        *,
+        raster_support: object,
+    ) -> dict[str, Any]:
+        return load_geology_encoded_grid_on_raster_support(
+            config,
+            raster_support=raster_support,
+        )
+
+    def load_toml(self, toml_path: str | Path, section: str = "geology") -> dict[str, Any]:
+        from hydromodpy.data.variables.geology.config import load_geology_toml
+
+        return load_geology_toml(toml_path, section=section)
+
+    def load_vector_dataframe(
+        self,
+        config: Mapping[str, Any],
+        *,
+        config_path: str | Path | None = None,
+        zone_key_column: str = "zone_key",
+    ) -> dict[str, Any]:
+        return load_vector_geology_dataframe(
+            config,
+            config_path=config_path,
+            zone_key_column=zone_key_column,
+        )
+
+    def resolve_data_path(
+        self,
+        data_path: str,
+        *,
+        config_path: str | Path | None = None,
+    ) -> str:
+        return resolve_data_path(data_path, config_path=config_path)
+
+    def normalize_zone_key(self, raw: Any) -> str:
+        return normalize_zone_key(raw)
+
+
+def default_geology_data_source() -> GeologyDataIO:
+    """Return the default geology data source backed by ``data.variables.geology``."""
+    return GeologyDataIO()

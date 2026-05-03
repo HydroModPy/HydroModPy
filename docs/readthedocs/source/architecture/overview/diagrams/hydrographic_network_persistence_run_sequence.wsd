@@ -5,17 +5,17 @@ skinparam wrapWidth 180
 skinparam maxMessageSize 180
 
 participant "WorkflowContext\nloaded_data + geographic_features" as Ctx
-participant "result_ingestion.py" as ResultIngestion
+participant "prepare_solver.py" as ReferencePersistence
 participant "store_ingestion.py" as StoreIngestion
 database "SimulationCatalog" as Catalog
 participant "Run" as Run
 participant "Display / comparison caller" as Caller
 
 alt loaded reference hydrography exists
-  Ctx -> ResultIngestion : _persist_reference_hydrographic_feature(...)
-  ResultIngestion -> Catalog : write_geographic_feature(\n\"hydrographic_network_reference\", gdf)
+  Ctx -> ReferencePersistence : _persist_reference_hydrographic_feature(...)
+  ReferencePersistence -> Catalog : write_geographic_feature(\n\"hydrographic_network_reference\", gdf)
 else no loaded reference hydrography
-  ResultIngestion --> Ctx : skip reference persistence
+  ReferencePersistence --> Ctx : skip reference persistence
 end
 
 alt generated geographic network exists

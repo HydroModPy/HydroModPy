@@ -9,7 +9,7 @@ Supersedes the "timeseries / budgets / mass_balance" portions of
 
 ## What moved and what did not
 
-Before the v0.6 refactor, every per-simulation table sat inside the
+Before the v1 Parquet lakehouse refactor, every per-simulation table sat inside the
 workspace-level `hydromodpy.duckdb` file:
 
 - `timeseries`: 70 years of daily rows per station per variable per sim.

@@ -25,7 +25,8 @@ TOML
 -> Project
 -> SimulationPlan (ProcessRun...)
 -> Pipeline (Step, PipelineState)
--> SolverRunner
+-> SimulationRunner
+-> SolverAdapter
 -> SimulationCatalog
 -> Run
 ```
@@ -54,19 +55,20 @@ Quand on lit ou debogue HydroModPy, le parcours le plus utile est :
    compose de `ProcessRun`.
 5. Le `Pipeline` fait avancer l'execution technique et transporte un
    `PipelineState` entre ses `Step`.
-6. Un `SolverRunner` traduit chaque `ProcessRun` en appels a un solveur
-   concret.
+6. `SimulationRunner` parcourt les `ProcessRun` et choisit le `SolverAdapter`
+   qui appelle le solveur concret.
 7. Les sorties sont persistees dans le `SimulationCatalog`.
 8. L'utilisateur relit ensuite les resultats via un `Run`.
 
 Si la question est "comment un TOML devient un resultat ?", suivre cet
 ordre de lecture :
 
-- `hydromodpy/_cli/workflows.py`
+- `hydromodpy/cli/commands/run.py`
+- `hydromodpy/workflow/dispatch.py`
 - `hydromodpy/project.py`
 - `hydromodpy/simulation/planning/`
-- `hydromodpy/pipeline/`
-- `hydromodpy/simulation/adapters/`
+- `hydromodpy/workflow/`
+- `hydromodpy/solver/base/`
 - `hydromodpy/results/`
 
 ## Objets de facade
@@ -143,6 +145,14 @@ Ne pas confondre :
 - `SimulationCatalog` = sorties de simulation
 - `DataCatalogDuckDB` = cache d'entree
 
+### SolverAdapter
+
+Interface Protocol qui lie une paire `(process_type, solver_name)` à un
+solveur concret. Module : `hydromodpy.solver.base.protocol`. Contrat
+structurel : trois ClassVars (`process_type`, `solver_name`, `requires`)
+plus trois methods (`validate`, `execute`, `cleanup`) qu'un adaptateur
+doit exposer pour passer `isinstance(obj, SolverAdapter)`.
+
 ### SimulationGroup
 
 Vue de groupe sur plusieurs `Run`, utile pour comparer plusieurs
@@ -163,11 +173,12 @@ Aller plus loin :
 ### workflow
 
 Mode d'execution declare dans le TOML ou resolu par le CLI :
-`simulation`, `calibration`, `batch`, `overview`, `mesh`.
+`simulation`, `calibration`, `batch`, `overview`, `mesh`, `comparison`,
+`method-comparison`.
 
 Reference :
 - voir [CLI.md](CLI.md)
-- implementation dans `hydromodpy/_cli/workflows.py`
+- implementation dans `hydromodpy/workflow/dispatch.py`
 
 Important :
 - `workflow` designe le mode utilisateur
@@ -193,7 +204,7 @@ Module : `hydromodpy.simulation.planning.plan.ProcessRun`.
 
 Relation :
 - appartient a un `SimulationPlan`
-- sera execute par un `SolverRunner`
+- sera execute par `SimulationRunner`
 
 Attention :
 - `ProcessRun` n'est pas un `Run`
@@ -204,7 +215,7 @@ Attention :
 
 Sequence ordonnee d'etapes techniques qui fait avancer l'execution.
 
-Module : `hydromodpy.pipeline.pipeline.Pipeline`.
+Module : `hydromodpy.workflow.runner.Pipeline`.
 
 Relation :
 - orchestre des `Step`
@@ -215,7 +226,7 @@ Relation :
 Contrat canonique d'une etape du pipeline. Un `Step` prend un
 `PipelineState` en entree et renvoie un nouvel etat en sortie.
 
-Module : `hydromodpy.pipeline.step.Step`.
+Module : `hydromodpy.workflow.internals.step.Step`.
 
 Note :
 - d'anciens textes parlent de `PipelineStep`
@@ -226,26 +237,23 @@ Note :
 Etat immutable qui circule entre les `Step`. Il porte un `run_id`,
 un index d'etape, un nom d'etape, un temps ecoule, et un payload `data`.
 
-Module : `hydromodpy.pipeline.state.PipelineState`.
+Module : `hydromodpy.workflow.internals.state.PipelineState`.
 
 Relation :
 - est consomme par un `Step`
 - est remplace par un nouvel etat a chaque etape
 
-### SolverRunner
+### SimulationRunner
 
-Adaptateur entre un `ProcessRun` generique et une implementation concrete
-de solveur.
+Orchestrateur runtime qui parcourt les `ProcessRun` et delegue chaque run
+au `SolverAdapter` enregistre.
 
-Module : `hydromodpy.simulation.adapters.base`.
+Module : `hydromodpy.simulation.execution.runner.SimulationRunner`.
 
 Relation :
-- prend un `ProcessRun` via le contexte de run
-- appelle un backend concret
-
-Note :
-- certains documents plus anciens parlent encore de `SolverAdapter`
-- le nom courant dans le code est `SolverRunner`
+- execute le `SimulationPlan` dans l'ordre resolu
+- recupere le bon `SolverAdapter` depuis le registre
+- stocke les modeles produits dans l'etat runtime
 
 ### Backend
 
@@ -261,19 +269,19 @@ Exemples :
 
 Stockage des checkpoints du pipeline pour reprendre apres interruption.
 
-Module : `hydromodpy.pipeline.checkpoint.CheckpointStore`.
+Module : `hydromodpy.workflow.internals.checkpoint.CheckpointStore`.
 
 ### StepsLedger
 
 Journal DuckDB des executions d'etapes.
 
-Module : `hydromodpy.pipeline.ledger.StepsLedger`.
+Module : `hydromodpy.workflow.internals.ledger.StepsLedger`.
 
 ### DerivedRegistry
 
 Registre ordonne des calculs derives appliques apres extraction.
 
-Module : `hydromodpy.pipeline.derived.DerivedRegistry`.
+Module : `hydromodpy.workflow.internals.derived.DerivedRegistry`.
 
 Aller plus loin :
 [CLI.md](CLI.md),
@@ -363,9 +371,8 @@ Resume :
 
 ### Profile
 
-Niveau de visibilite d'un champ de configuration.
-
-Module : `hydromodpy.core.config.profile.Profile`.
+Nom canonique : `Profile` (IntEnum). Module :
+`hydromodpy.core.config_kit.profile.Profile`. Trois niveaux :
 
 Niveaux :
 - `Profile.USER` : surface utilisateur
@@ -375,16 +382,6 @@ Niveaux :
 Relation :
 - pilote la generation de TOML
 - pilote aussi certains schemas et formulaires
-
-### ParamLevel
-
-Shim legacy de compatibilite autour de la visibilite de configuration.
-
-Module : `hydromodpy.core.config.param_level.ParamLevel`.
-
-Regle :
-- nouveau code : utiliser `Profile`
-- `ParamLevel` existe seulement pour compatibilite
 
 Aller plus loin :
 [frontend_hooks.md](frontend_hooks.md),

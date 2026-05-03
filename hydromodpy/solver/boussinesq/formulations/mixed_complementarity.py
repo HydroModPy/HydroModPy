@@ -2,10 +2,6 @@
 
 from __future__ import annotations
 
-from hydromodpy.solver.boussinesq.assembly import (
-    assemble_steady_residual_with_saturation_excess,
-    assemble_transient_residual_with_saturation_excess,
-)
 from hydromodpy.solver.boussinesq.formulations.common import (
     BoussinesqFormulationSpec,
 )
@@ -22,12 +18,7 @@ MIXED_COMPLEMENTARITY = BoussinesqFormulationSpec(
     ),
 )
 
-assemble_steady_mixed_complementarity = assemble_steady_residual_with_saturation_excess
-assemble_transient_mixed_complementarity = assemble_transient_residual_with_saturation_excess
-
 
 __all__ = [
     "MIXED_COMPLEMENTARITY",
-    "assemble_steady_mixed_complementarity",
-    "assemble_transient_mixed_complementarity",
 ]

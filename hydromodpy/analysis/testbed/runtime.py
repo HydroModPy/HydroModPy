@@ -18,8 +18,12 @@ from hydromodpy.analysis.testbed.config import (
     TestbedMetricConfig,
     TestbedVariantConfig,
 )
-from hydromodpy.core.config.path_resolution import is_declared_absolute_path
-from hydromodpy.core.config.toml_loader import load_toml_with_base_config, merge_toml_payloads
+from hydromodpy.analysis.testbed.contracts import get_testbed_runner_provider
+from hydromodpy.core.toml_io import (
+    is_declared_absolute_path,
+    load_toml_with_base_config,
+    merge_toml_payloads,
+)
 
 PATH_KEY_HINTS = ("path", "root", "dir", "folder", "file", "mask")
 RUNNER_WORKFLOWS = {
@@ -89,8 +93,7 @@ def _absolutize_relative_path_values(value: Any, *, source_dir: Path, key: str =
         }
     if isinstance(value, list):
         return [
-            _absolutize_relative_path_values(item, source_dir=source_dir, key=key)
-            for item in value
+            _absolutize_relative_path_values(item, source_dir=source_dir, key=key) for item in value
         ]
     if not isinstance(value, str) or not _looks_like_path_key(key):
         return value
@@ -436,7 +439,7 @@ def _extract_simulation_catalog_summary(
 ) -> dict[str, Any]:
     """Collect scalar flow evidence from a completed child simulation."""
     try:
-        from hydromodpy.analysis.comparison.runtime import discover_result_store
+        from hydromodpy.analysis.comparison.runtime_metadata import discover_result_store
     except Exception:
         return {}
 
@@ -632,7 +635,9 @@ class TestbedLauncher:
         cases: list[TestbedPlannedCase] = []
         for variant in self.cfg.variants:
             if not variant.enabled:
-                cases.append(TestbedPlannedCase(variant=variant, config_path=None, status="disabled"))
+                cases.append(
+                    TestbedPlannedCase(variant=variant, config_path=None, status="disabled")
+                )
                 continue
             cases.append(
                 TestbedPlannedCase(
@@ -646,18 +651,12 @@ class TestbedLauncher:
     def _run_case(self, case: TestbedPlannedCase) -> dict[str, Any]:
         if case.config_path is None:
             return {}
+        provider = get_testbed_runner_provider()
         if self.cfg.runner.type == "mesh_catchment":
-            from hydromodpy.workflow.pipelines.mesh import MeshCatchmentLauncher
-
-            return dict(MeshCatchmentLauncher(case.config_path).run())
+            return dict(provider.run_mesh_catchment(case.config_path))
         if self.cfg.runner.type == "simulation":
-            from hydromodpy._cli.workflows import run_simulation
-
             return dict(
-                run_simulation(
-                    case.config_path,
-                    no_display=self.cfg.runner.no_display,
-                )
+                provider.run_simulation(case.config_path, no_display=self.cfg.runner.no_display)
             )
         raise ValueError(f"Unsupported testbed runner: {self.cfg.runner.type}")
 
@@ -707,7 +706,11 @@ class TestbedLauncher:
         for case in cases:
             execution = execution_by_variant.get(case.variant.id)
             status = case.status if execution is None else execution.status
-            duration = "" if execution is None or execution.duration_seconds is None else execution.duration_seconds
+            duration = (
+                ""
+                if execution is None or execution.duration_seconds is None
+                else execution.duration_seconds
+            )
             lines.append(
                 f"| {case.variant.id} | {case.variant.axis or ''} | {status} | {duration} |"
             )

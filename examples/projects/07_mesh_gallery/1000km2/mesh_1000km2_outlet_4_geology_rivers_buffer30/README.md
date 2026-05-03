@@ -20,5 +20,5 @@ This family captures repeated conformal meshing runs on the 1000 km2 selection s
 ## Reproduction
 
 ```bash
-python -m launchers mesh-catchment run launchers/mesh_catchment/scenarios/config_1000km2.toml
+python -m tools.doc_gallery
 ```

@@ -15,8 +15,8 @@ from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import MagicMock
 
-from hydromodpy.pipeline.state import PipelineState
-from hydromodpy.pipeline.steps.step_11_display import DisplayStep
+from hydromodpy.workflow.internals.state import PipelineState
+from hydromodpy.workflow.steps.display import DisplayStep
 
 
 def _make_ctx(*, enabled: bool, figures: list[str], project_root: Path) -> SimpleNamespace:
@@ -46,11 +46,11 @@ def test_display_step_skips_when_flag_set(monkeypatch, tmp_path):
 
     renderer = MagicMock()
     monkeypatch.setattr(
-        "hydromodpy.pipeline.steps.step_11_display.DisplayStep",
+        "hydromodpy.workflow.steps.display.DisplayStep",
         DisplayStep,
     )
     monkeypatch.setattr(
-        "hydromodpy.results.display.render_figures_for_run",
+        "hydromodpy.display.runs.render_figures_for_run",
         renderer,
     )
     final = DisplayStep().run(state)
@@ -64,7 +64,7 @@ def test_display_step_skips_when_disabled(monkeypatch, tmp_path):
 
     renderer = MagicMock()
     monkeypatch.setattr(
-        "hydromodpy.results.display.render_figures_for_run",
+        "hydromodpy.display.runs.render_figures_for_run",
         renderer,
     )
     final = DisplayStep().run(state)
@@ -78,7 +78,7 @@ def test_display_step_skips_when_empty_figure_list(monkeypatch, tmp_path):
 
     renderer = MagicMock()
     monkeypatch.setattr(
-        "hydromodpy.results.display.render_figures_for_run",
+        "hydromodpy.display.runs.render_figures_for_run",
         renderer,
     )
     final = DisplayStep().run(state)
@@ -97,13 +97,16 @@ def test_display_step_invokes_renderer_when_enabled(monkeypatch, tmp_path):
     fake_catalog.__exit__.return_value = False
     fake_catalog.__getitem__.return_value = fake_run
 
-    monkeypatch.setattr(
-        "hydromodpy.results.catalog.SimulationCatalog",
-        lambda *args, **kw: fake_catalog,
-    )
+    class FakeCatalog:
+        @classmethod
+        def from_workspace(cls, *args, **kwargs):
+            del args, kwargs
+            return fake_catalog
+
+    monkeypatch.setattr("hydromodpy.results.catalog.SimulationCatalog", FakeCatalog)
     renderer = MagicMock(return_value=[tmp_path / "figures" / "baseline" / "piezometric_map.png"])
     monkeypatch.setattr(
-        "hydromodpy.results.display.render_figures_for_run",
+        "hydromodpy.display.runs.render_figures_for_run",
         renderer,
     )
 
@@ -117,7 +120,7 @@ def test_display_step_invokes_renderer_when_enabled(monkeypatch, tmp_path):
 
 
 def test_display_step_standard_pipeline_contains_it():
-    from hydromodpy.pipeline.steps import standard_steps
+    from hydromodpy.workflow.orchestrator import standard_steps
 
     names = [type(s).__name__ for s in standard_steps()]
     assert names[-1] == "DisplayStep"

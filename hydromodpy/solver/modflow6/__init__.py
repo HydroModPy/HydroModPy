@@ -1,13 +1,14 @@
 """MODFLOW 6 solver package."""
 
-from . import diagnostics, flow_to_modflow_adapter, postprocess
-from .modflow6 import Modflow6, Modflow6RuntimeParams, Modflow6Transport
+from . import builders, diagnostics, postprocess
+from .modflow6 import Modflow6, Modflow6RuntimeParams
 from .modflow6_config import (
     Modflow6Config,
     Modflow6ProcessSpecificConfig,
     Modflow6RuntimeConfig,
     Modflow6SpecifParams,
 )
+from .transport import Modflow6Transport
 
 __all__ = [
     "Modflow6",
@@ -17,7 +18,7 @@ __all__ = [
     "Modflow6RuntimeConfig",
     "Modflow6ProcessSpecificConfig",
     "Modflow6SpecifParams",
+    "builders",
     "diagnostics",
-    "flow_to_modflow_adapter",
     "postprocess",
 ]

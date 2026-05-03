@@ -8,8 +8,8 @@ from typing import Annotated
 
 from pydantic import ConfigDict, Field
 
-from hydromodpy.core.config.base import HydroModelBase
-from hydromodpy.core.config.profile import Profile
+from hydromodpy.core.config_kit.base import HydroModelBase
+from hydromodpy.core.config_kit.profile import Profile
 from hydromodpy.solver.utils.temporal.tmesh_config import TMeshConfig
 from hydromodpy.spatial.mesh.cartesian_grid.sgrid_config import SolverSGridConfig
 

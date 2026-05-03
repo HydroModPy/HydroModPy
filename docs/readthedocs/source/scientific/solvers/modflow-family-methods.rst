@@ -97,34 +97,19 @@ The scientific material now branches into more focused notes:
 What This Page Still Needs To Add
 ---------------------------------
 
-The full version should later cover more than the first public synthesis:
+The full version should later cover:
 
-1. one tighter package-by-package synthesis spanning ``IMS``, ``NPF``, ``STO``,
-   ``RCHA``, ``EVT``, ``CHD``, ``DRN``, ``WEL``, and ``OC``,
-2. transport coupling boundaries and the exact current public MT3DMS / GWT
-   story,
-3. more explicit reasons for keeping MODFLOW-NWT alive and for planning its
-   sunset,
-4. at least one worked case that follows a real HydroModPy TOML to final
-   solver package payloads.
+1. a synthesized reading of governing equations and approximations at the
+   HydroModPy level,
+2. package-by-package guidance that synthesizes those companion pages,
+3. transport coupling boundaries,
+4. documented reasons for keeping MODFLOW-NWT alive and for planning its
+   sunset.
 
 Current Documentation Gap
 -------------------------
 
-The gap is narrower than before.
-
-HydroModPy now has a first public scientific block for:
-
-- governing-equation framing,
-- MF6 versus NWT comparison,
-- package semantics and option selection,
-- XT3D rationale,
-- mesh and parameter-transfer context.
-
-What still remains missing is not the existence of a scientific narrative, but
-its next level of consolidation:
-
-- one worked end-to-end MODFLOW case,
-- fuller transport-coupling coverage,
-- and a clearer statement of the public package subset actually maintained
-  across workflows.
+Today, HydroModPy explains reasonably well how the MODFLOW backends are wired
+in software. What is still missing is the scientific note that explains, in one
+place, the modelling meaning and the method-selection rationale behind those
+backends.

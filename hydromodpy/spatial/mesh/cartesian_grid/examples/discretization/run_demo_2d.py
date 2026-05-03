@@ -1,4 +1,8 @@
-"""CLI demo for standalone FieldParam discretization on SGrid (2D views)."""
+"""CLI demo for standalone FieldParam discretization on SGrid (2D views).
+
+Run with:
+    python -m hydromodpy.spatial.mesh.cartesian_grid.examples.discretization.run_demo_2d
+"""
 
 from __future__ import annotations
 
@@ -29,19 +33,6 @@ import matplotlib.pyplot as plt
 
 plt.switch_backend("Agg")
 
-
-# Ensure repository root is importable when script is launched directly.
-def _find_repo_root() -> Path:
-    current = Path(__file__).resolve()
-    for parent in current.parents:
-        if (parent / "hydromodpy").is_dir():
-            return parent
-    return current.parents[0]
-
-
-REPO_ROOT = _find_repo_root()
-if str(REPO_ROOT) not in sys.path:
-    sys.path.insert(0, str(REPO_ROOT))
 
 from hydromodpy.spatial.field.core.field_param import FieldParam
 from hydromodpy.spatial.field.geology.geology_field import GeologyField

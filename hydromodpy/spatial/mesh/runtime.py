@@ -12,7 +12,7 @@ from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
 
-import hydromodpy as hmp
+from hydromodpy.core.workspace import Workspace
 from hydromodpy.spatial.geographic.core.domain_geographic_pipeline import (
     build_domain_geographic_context,
     build_geographic_derived_features,
@@ -143,7 +143,7 @@ def run_single_mesh_catchment_workflow(
         domain_geographic=domain_geographic,
         section_name=section_name,
         deps=MeshCatchmentSingleRunDependencies(
-            workspace_factory=hmp.Workspace,
+            workspace_factory=Workspace,
             build_domain_geographic_context_fn=build_domain_geographic_context,
             build_geographic_derived_features_fn=build_geographic_derived_features,
             run_reference_case_fn=run_reference_2d_zone_conformal_case_from_toml,
@@ -180,7 +180,7 @@ def run_single_mesh_catchment_workflow_with_runtime_artifacts(
         domain_geographic=domain_geographic,
         section_name=section_name,
         deps=MeshCatchmentSingleRunDependencies(
-            workspace_factory=hmp.Workspace,
+            workspace_factory=Workspace,
             build_domain_geographic_context_fn=build_domain_geographic_context,
             build_geographic_derived_features_fn=build_geographic_derived_features,
             run_reference_case_fn=run_reference_2d_zone_conformal_case_from_toml,

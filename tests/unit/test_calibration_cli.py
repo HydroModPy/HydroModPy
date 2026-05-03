@@ -1,7 +1,7 @@
-"""Unit tests for the rewritten :mod:`hydromodpy.calibration.cli`.
+"""Unit tests for the rewritten :mod:`hydromodpy.calibration.runner`.
 
 Exercises the end-to-end wiring of ``run_calibration_cli`` without
-touching MODFLOW: ``prepare_trials`` and ``promote_trial`` are
+touching MODFLOW: ``prepare_trials`` and ``promote_prepared_trial`` are
 monkey-patched to return deterministic stubs, and a custom ``metric_fn``
 is injected so each trial returns a closed-form objective. This lets us
 verify:
@@ -11,8 +11,8 @@ verify:
   expected number of trials,
 - promoted ``sim_id`` values are back-filled into
   ``calibration_iterations``,
-- the ``ParamsHashCache`` preloads previously-promoted
-  ``params_hash → sim_id`` mappings at the start of a new session,
+- the ``ParamsHashCache`` preloads previously-promoted objective values
+  at the start of a new session,
 - the ``objective="module.path:fn"`` escape hatch resolves and invokes
   the user-supplied callable.
 """
@@ -24,9 +24,10 @@ from pathlib import Path
 
 import pytest
 
-from hydromodpy.calibration import cli as cli_module
-from hydromodpy.calibration.cli import run_calibration_cli
+from hydromodpy.calibration import runner as runner_module
+from hydromodpy.calibration.cache import ParamsHashCache
 from hydromodpy.calibration.config import CalibrationConfig
+from hydromodpy.calibration.runner import run_calibration_cli
 
 # ---------------------------------------------------------------------------
 # Fixtures
@@ -80,14 +81,18 @@ def calib_toml(tmp_path: Path) -> Path:
 
 @pytest.fixture
 def fake_pipeline(monkeypatch, tmp_path):
-    """Monkey-patch prepare_trials + promote_trial so the CLI runs in seconds."""
-    from hydromodpy.simulation.execution.trial import TrialContext
+    """Monkey-patch prepare_trials + promote_prepared_trial so the CLI runs in seconds."""
+    from hydromodpy.calibration.runners.trial import TrialContext
 
     promoted: list[dict] = []
 
     class _FakeSetup:
         def __init__(self):
-            self.workspace = type("_WS", (), {"root": tmp_path / "ws"})()
+            self.workspace = type(
+                "_WS",
+                (),
+                {"root": tmp_path / "ws", "project_root": tmp_path},
+            )()
             self.flow = None
             self.transport = None
             self.flow_runtime_overrides = None
@@ -142,12 +147,13 @@ def fake_pipeline(monkeypatch, tmp_path):
             earliest=9,  # never run downstream - our metric_fn ignores ctx
             downstream_steps=(),
             override_paths=paths,
-            workspace=tmp_path / "ws",
+            workspace=tmp_path,
             cfg_path=cfg_path,
             raw_toml=raw,
         )
 
-    def _fake_promote(cfg_path, values, *, paths=None, name=None, tags=(), session_id=None):
+    def _fake_promote(trial_ctx, values, *, name=None, tags=(), session_id=None):
+        del trial_ctx, tags
         sim_id = uuid.uuid4().hex
         promoted.append(
             {
@@ -159,8 +165,8 @@ def fake_pipeline(monkeypatch, tmp_path):
         )
         return sim_id
 
-    monkeypatch.setattr(cli_module, "prepare_trials", _fake_prepare)
-    monkeypatch.setattr(cli_module, "promote_trial", _fake_promote)
+    monkeypatch.setattr(runner_module, "prepare_trials", _fake_prepare)
+    monkeypatch.setattr(runner_module, "promote_prepared_trial", _fake_promote)
     return promoted
 
 
@@ -233,7 +239,7 @@ class TestRunCalibrationCli:
         summary = run_calibration_cli(calib_toml, metric_fn=quadratic_metric)
         from hydromodpy.results.catalog import SimulationCatalog
 
-        workspace_root = calib_toml.parent / "ws"
+        workspace_root = calib_toml.parent
         with SimulationCatalog(workspace_root) as catalog:
             rows = catalog.connection.execute(
                 "SELECT COUNT(*) FROM calibration_iterations WHERE session_id = ?",
@@ -252,7 +258,7 @@ class TestRunCalibrationCli:
         summary = run_calibration_cli(calib_toml, metric_fn=quadratic_metric)
         from hydromodpy.results.catalog import SimulationCatalog
 
-        workspace_root = calib_toml.parent / "ws"
+        workspace_root = calib_toml.parent
         with SimulationCatalog(workspace_root) as catalog:
             row = catalog.connection.execute(
                 "SELECT status, n_iterations, best_objective, best_sim_id "
@@ -303,20 +309,51 @@ class TestCachePreload:
 
         # Intercept cache to observe what gets preloaded.
         preloaded_snapshot: dict = {}
-        real_preload = cli_module._preload_hash_cache
+        real_preload = runner_module._preload_hash_cache
 
         def spy(conn, cache):
             n = real_preload(conn, cache)
             preloaded_snapshot.update(cache._hits)
             return n
 
-        monkeypatch.setattr(cli_module, "_preload_hash_cache", spy)
+        monkeypatch.setattr(runner_module, "_preload_hash_cache", spy)
 
         # Session 2 - same TOML, cache should preload.
         run_calibration_cli(calib_toml, metric_fn=quadratic_metric)
-        # Each of the 2 promoted rows should have left a params_hash → sim_id
-        # mapping that the second session's preload picked up.
+        # Each promoted row should have left a params_hash cache entry that
+        # the second session's preload picked up.
         assert len(preloaded_snapshot) >= 2
+        assert all(key.startswith("v2:") for key in preloaded_snapshot)
+
+    def test_preload_ignores_legacy_unscoped_hashes(self):
+        import duckdb
+
+        conn = duckdb.connect(":memory:")
+        conn.execute(
+            """
+            CREATE TABLE calibration_iterations (
+                params_hash VARCHAR,
+                sim_id VARCHAR,
+                objective_value DOUBLE,
+                status VARCHAR,
+                metrics JSON
+            )
+            """
+        )
+        conn.execute(
+            """
+            INSERT INTO calibration_iterations VALUES
+                ('legacyhash', NULL, 1.0, 'completed', NULL),
+                ('v2:scopedhash', NULL, 2.0, 'completed', '{"rmse": 2.0}')
+            """
+        )
+
+        cache = ParamsHashCache()
+        n_preloaded = runner_module._preload_hash_cache(conn, cache)
+
+        assert n_preloaded == 1
+        assert "legacyhash" not in cache
+        assert "v2:scopedhash" in cache
 
 
 class TestObjectiveEscapeHatch:
@@ -349,9 +386,9 @@ class TestObjectiveEscapeHatch:
 class TestDefaultEvaluatorIsGone:
     def test_no_default_evaluator_is_exported(self):
         """The P1→P2 contract: the user-facing path must not use the mock."""
-        import hydromodpy.calibration.cli as cli
+        import hydromodpy.calibration.runner as runner
 
-        assert not hasattr(cli, "_default_evaluator")
+        assert not hasattr(runner, "_default_evaluator")
 
 
 class TestConfigOverridePaths:
@@ -375,7 +412,7 @@ class TestConfigOverridePaths:
                 },
             }
         )
-        assert cli_module._override_paths(cfg) == {
+        assert runner_module._override_paths(cfg) == {
             "K": "flow.param.K.value",
             "Sy": "flow.param.Sy.value",
         }
@@ -393,4 +430,81 @@ class TestConfigOverridePaths:
             }
         )
         with pytest.raises(ValueError, match="must declare a 'path'"):
-            cli_module._override_paths(cfg)
+            runner_module._override_paths(cfg)
+
+
+class TestSessionLifecycle:
+    """No zombie ``status='running'`` rows: failures and aborts must finalize."""
+
+    def _read_session(self, workspace_root, session_id):
+        from hydromodpy.results.catalog import SimulationCatalog
+
+        with SimulationCatalog(workspace_root) as catalog:
+            return catalog.connection.execute(
+                "SELECT status, error_message, n_iterations "
+                "FROM calibration_sessions WHERE session_id = ?",
+                [uuid.UUID(session_id)],
+            ).fetchone()
+
+    def test_engine_failure_marks_session_failed(self, calib_toml, fake_pipeline, monkeypatch):
+        from hydromodpy.calibration import engine as engine_mod
+
+        def boom(self):
+            raise RuntimeError("boom from engine")
+
+        monkeypatch.setattr(engine_mod.CalibrationEngine, "run", boom)
+
+        from hydromodpy.calibration.persistence import CalibrationPersistence
+
+        captured: list[str] = []
+        real_start = CalibrationPersistence.start_session
+
+        def spy_start(self, *, session_id, **kw):
+            captured.append(session_id)
+            return real_start(self, session_id=session_id, **kw)
+
+        monkeypatch.setattr(CalibrationPersistence, "start_session", spy_start)
+
+        with pytest.raises(RuntimeError, match="boom from engine"):
+            run_calibration_cli(calib_toml)
+
+        assert captured, "start_session should have been invoked"
+        row = self._read_session(calib_toml.parent, captured[-1])
+        assert row[0] == "failed"
+        assert row[1] == "boom from engine"
+        assert row[2] == 0
+
+    def test_keyboard_interrupt_marks_session_aborted(self, calib_toml, fake_pipeline, monkeypatch):
+        from hydromodpy.calibration import engine as engine_mod
+
+        def boom(self):
+            raise KeyboardInterrupt
+
+        monkeypatch.setattr(engine_mod.CalibrationEngine, "run", boom)
+
+        from hydromodpy.calibration.persistence import CalibrationPersistence
+
+        captured: list[str] = []
+        real_start = CalibrationPersistence.start_session
+
+        def spy_start(self, *, session_id, **kw):
+            captured.append(session_id)
+            return real_start(self, session_id=session_id, **kw)
+
+        monkeypatch.setattr(CalibrationPersistence, "start_session", spy_start)
+
+        with pytest.raises(KeyboardInterrupt):
+            run_calibration_cli(calib_toml)
+
+        row = self._read_session(calib_toml.parent, captured[-1])
+        assert row[0] == "aborted"
+        assert row[1] == "SIGINT"
+
+    def test_all_iterations_crashed_marks_failed(self, calib_toml, fake_pipeline):
+        def crashing_metric(ctx, *, objective, variable):
+            raise RuntimeError("metric blew up")
+
+        summary = run_calibration_cli(calib_toml, metric_fn=crashing_metric)
+        row = self._read_session(calib_toml.parent, summary["session_id"])
+        assert row[0] == "failed"
+        assert row[2] == 5

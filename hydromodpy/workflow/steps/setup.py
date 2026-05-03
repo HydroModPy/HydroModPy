@@ -1,32 +1,36 @@
-"""Setup step - structural bootstrap (workspace, geographic, domain, flow, transport).
-
-This module contains the functions that build the shared structural objects
-(workspace, geographic context, domain, flow/transport configs) used by all
-later process runs.
-"""
+"""Setup step - structural bootstrap, geographic, spatial supports, process objects."""
 
 from __future__ import annotations
 
-import logging
 from collections.abc import Callable
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, ClassVar
 
-import hydromodpy as hmp
+from hydromodpy.core.exceptions import ConfigError
+from hydromodpy.core.logging import get_logger
+from hydromodpy.core.rng import RngManager
+from hydromodpy.core.workspace import Workspace
 from hydromodpy.core.workspace.path_registry import PREPROCESSING_DIR
 from hydromodpy.simulation import ensure_flow, ensure_transport
 from hydromodpy.spatial.domain import Domain
 from hydromodpy.spatial.domain.spatial_support import SupportBuildContext
+from hydromodpy.spatial.geographic.catchment_delineation import CatchmentDelineation
 from hydromodpy.spatial.geographic.core.derived_features import (
     coerce_geographic_derived_features,
 )
 from hydromodpy.spatial.geographic.structure_binders import apply_catchment_zones_to_domain
 from hydromodpy.spatial.geographic.synthetic import build_synthetic_geographic
+from hydromodpy.workflow.internals.state import (
+    LoadedState,
+    MeshedState,
+    PipelineState,
+    SetupState,
+)
 
 if TYPE_CHECKING:
     from hydromodpy.core.state.run_state import WorkflowContext
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 # ---------------------------------------------------------------------------
@@ -44,7 +48,7 @@ def build_geographic_runtime(cfg: object, workspace: object) -> object:
             output_dir=Path(workspace.project_root) / PREPROCESSING_DIR / "geographic",
             workspace=workspace,
         )
-    return hmp.CatchmentDelineation(geographic_cfg, workspace)
+    return CatchmentDelineation(geographic_cfg, workspace)
 
 
 def resolve_dem_init_path(cfg: object, run_state: WorkflowContext) -> None:
@@ -62,7 +66,9 @@ def resolve_dem_init_path(cfg: object, run_state: WorkflowContext) -> None:
         return
 
     existing = getattr(geographic_cfg, "dem_init_path", None)
-    if existing is not None and Path(existing).name != "__DEM_API_BOOTSTRAP__":
+    if existing is not None:
+        return
+    if not _cfg_declares_dem_source(cfg):
         return
 
     from hydromodpy.data.variables.dem.resolver import (
@@ -71,7 +77,10 @@ def resolve_dem_init_path(cfg: object, run_state: WorkflowContext) -> None:
 
     config_path = run_state.config_path
     if config_path is None:
-        return
+        raise ConfigError(
+            "geographic.dem_init_path is missing and no config path is available "
+            "to resolve [[data.dem.sources]]."
+        )
 
     cache_dir = None
     workspace = run_state.setup.workspace
@@ -87,6 +96,16 @@ def resolve_dem_init_path(cfg: object, run_state: WorkflowContext) -> None:
     )
     if resolved is not None:
         geographic_cfg.dem_init_path = resolved
+        return
+    raise ConfigError(
+        "geographic.dem_init_path is missing and [[data.dem.sources]] did not resolve."
+    )
+
+
+def _cfg_declares_dem_source(cfg: object) -> bool:
+    data_cfg = getattr(cfg, "data", None)
+    dem_cfg = getattr(data_cfg, "dem", None)
+    return bool(getattr(dem_cfg, "sources", None))
 
 
 # ---------------------------------------------------------------------------
@@ -110,7 +129,7 @@ def collect_requested_support_ids(flow_cfg: object) -> tuple[str, ...]:
             continue
         support_id = str(param_cfg.get("field_spatial_id", "")).strip()
         if support_id == "":
-            raise ValueError("Heterogeneous flow parameters require a non-empty field_spatial_id.")
+            raise ConfigError("Heterogeneous flow parameters require a non-empty field_spatial_id.")
         normalized = support_id.lower()
         if normalized in seen:
             continue
@@ -157,7 +176,7 @@ def resolve_support_configs(
         if support_cfg is not None:
             resolved[support_id] = support_cfg
             continue
-        raise ValueError(
+        raise ConfigError(
             f"Missing domain support declaration for '{support_id}'. "
             "Declare [domain.supports.<id>] with an explicit provider."
         )
@@ -226,7 +245,7 @@ def validate_domain_support_contract(
             continue
         support_id = str(getattr(param, "field_spatial_id", "")).strip()
         if support_id == "":
-            raise ValueError("Heterogeneous flow parameters require a non-empty field_spatial_id.")
+            raise ConfigError("Heterogeneous flow parameters require a non-empty field_spatial_id.")
         normalized_support_id = support_id.lower()
         if normalized_support_id in declared_supports or normalized_support_id in seen:
             continue
@@ -234,7 +253,7 @@ def validate_domain_support_contract(
         missing_supports.append(support_id)
 
     if missing_supports:
-        raise ValueError(
+        raise ConfigError(
             "Heterogeneous flow parameters require explicit "
             "[domain.supports.<id>] declarations for: " + ", ".join(missing_supports) + "."
         )
@@ -320,14 +339,14 @@ def run_setup(
 
     setup_state = run_state.setup
 
-    setup_state.workspace = hmp.Workspace(config=cfg.workspace)
+    setup_state.workspace = Workspace(config=cfg.workspace)
     resolve_dem_init_path(cfg, run_state)
     setup_state.geographic = build_geographic_fn(cfg, setup_state.workspace)
     setup_state.geographic_features = coerce_geographic_derived_features(
         geographic=setup_state.geographic,
     )
     if setup_state.geographic_features is None:
-        raise ValueError(
+        raise ConfigError(
             "Could not resolve geographic derived features from the runtime geographic object."
         )
     setup_state.domain_geographic = setup_state.geographic_features.to_domain_geographic_context()
@@ -352,6 +371,11 @@ def run_setup(
 
         toml_path = run_state.config_path
         setup_state.run_id = re.sub(r"^run_", "", Path(toml_path).stem) if toml_path else "default"
+
+    rng_seed = getattr(cfg.simulation, "rng_seed", None)
+    run_state.execution.rng = (
+        RngManager(master_seed=int(rng_seed)) if rng_seed is not None else None
+    )
 
     # Eagerly create Flow/Transport so data binders can reference them.
     ensure_flow(run_state)
@@ -381,3 +405,110 @@ def step_setup(
         requested_spatial_support_ids=requested_spatial_support_ids,
         requested_domain_supports=requested_domain_supports,
     )
+
+
+# ---------------------------------------------------------------------------
+# Spatial supports phase
+# ---------------------------------------------------------------------------
+
+
+def step_spatial_supports(
+    ctx: WorkflowContext,
+    *,
+    phase: str,
+    requested_domain_supports: dict[str, object] | None = None,
+    registry: object | None = None,
+) -> None:
+    """Materialize declared spatial supports for the given build *phase*."""
+    if requested_domain_supports is None:
+        requested_domain_supports = {}
+    if not requested_domain_supports:
+        return
+
+    if registry is None:
+        from hydromodpy.spatial.domain.spatial_support import (
+            build_default_spatial_support_provider_registry,
+        )
+
+        registry = build_default_spatial_support_provider_registry()
+
+    build_domain_spatial_supports(
+        cfg=ctx.cfg,
+        run_state=ctx,
+        requested_domain_supports=requested_domain_supports,
+        registry=registry,
+        phase=phase,
+    )
+
+
+# ---------------------------------------------------------------------------
+# Pipeline steps
+# ---------------------------------------------------------------------------
+
+
+class BuildGeographicStep:
+    """Build geographic runtime, domain, and setup-phase spatial supports."""
+
+    name = "build_geographic"
+    tin: ClassVar[type] = LoadedState
+    tout: ClassVar[type] = MeshedState
+    config_sections: ClassVar[tuple[str, ...]] = ("geographic", "data.dem")
+
+    def run(self, state: PipelineState) -> PipelineState:
+        ctx = state.get("ctx")
+        if ctx is None:
+            raise ConfigError("BuildGeographicStep requires 'ctx' in state.data")
+
+        requested_supports = state.get("requested_domain_supports") or {}
+        requested_support_ids = state.get("requested_spatial_support_ids", ())
+        registry = state.get("spatial_support_registry")
+
+        step_setup(
+            ctx,
+            requested_spatial_support_ids=requested_support_ids,
+            requested_domain_supports=requested_supports,
+        )
+        step_spatial_supports(
+            ctx,
+            phase="setup",
+            requested_domain_supports=requested_supports,
+            registry=registry,
+        )
+
+        return state.advance(
+            step_index=state.step_index + 1,
+            step_name=self.name,
+            ctx=ctx,
+        )
+
+
+class SetupProcessStep:
+    """Instantiate flow / transport process objects bound to the domain."""
+
+    name = "setup_process"
+    tin: ClassVar[type] = MeshedState
+    tout: ClassVar[type] = SetupState
+    config_sections: ClassVar[tuple[str, ...]] = (
+        "domain.depth_model",
+        "flow.ic",
+        "simulation",
+    )
+
+    def run(self, state: PipelineState) -> PipelineState:
+        ctx = state.get("ctx")
+        if ctx is None:
+            raise ConfigError("SetupProcessStep requires 'ctx' in state.data")
+
+        if getattr(ctx.setup, "domain", None) is not None:
+            flow_cfg = getattr(ctx.cfg, "flow", None)
+            if flow_cfg is not None:
+                ensure_flow(ctx)
+            transport_cfg = getattr(ctx.cfg, "transport", None)
+            if transport_cfg is not None:
+                ensure_transport(ctx)
+
+        return state.advance(
+            step_index=state.step_index + 1,
+            step_name=self.name,
+            ctx=ctx,
+        )

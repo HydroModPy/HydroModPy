@@ -40,12 +40,3 @@ rate_decay = 0.00136986301369863
 genmtd_lay = "decay"
 nlay = 2
 lay_decay = 1.2
-
-[postprocess]
-enabled = true
-
-[postprocess.flow]
-native_mesh_npz = true
-native_mesh_csv = true
-native_mesh_vtu = true
-native_mesh_png = true

@@ -7,79 +7,42 @@ from typing import Annotated, Literal
 
 from pydantic import ConfigDict, Field, field_validator, model_validator
 
-from hydromodpy.core.config.base import HydroModelBase
-from hydromodpy.core.config.profile import Profile
+from hydromodpy.core.config_kit.base import HydroModelBase
+from hydromodpy.core.config_kit.profile import Profile
 from hydromodpy.core.units import normalize_time_unit, parse_scalar_and_unit
-from hydromodpy.results.config import ResultsConfig
-from hydromodpy.solver.base.registry import known_process_types
+from hydromodpy.simulation._solver_protocol import get_solver_registry_provider
+from hydromodpy.simulation.planning.results_config import ResultsConfig
 
 _VALID_STEP_UNITS = {"hour", "day", "month", "year"}
+_STEP_UNIT_ALIASES = {
+    "m": "month",
+    "mo": "month",
+    "mon": "month",
+    "month": "month",
+    "months": "month",
+    "hours": "hour",
+    "days": "day",
+    "years": "year",
+}
 
 
-def _normalize_step_unit_token(raw_step_unit: object) -> Literal["hour", "day", "month", "year"]:
-    token = str(raw_step_unit).strip().lower()
-    if token == "":
+def _coerce_step_unit(token: str) -> Literal["hour", "day", "month", "year"]:
+    """Resolve one user-facing step-unit token to the canonical literal."""
+    cleaned = token.strip().lower()
+    if cleaned == "":
         raise ValueError("simulation.time.step_unit cannot be empty.")
-    if token in {"m", "mo", "mon", "month", "months"}:
-        return "month"
-
+    if cleaned in _STEP_UNIT_ALIASES:
+        return _STEP_UNIT_ALIASES[cleaned]  # type: ignore[return-value]
     try:
-        canonical = normalize_time_unit(token)
+        canonical = normalize_time_unit(cleaned)
     except ValueError as exc:
         raise ValueError(
             "simulation.time.step_unit must be one of: hour, day, month, year."
         ) from exc
-
-    map_to_step_unit = {
-        "hours": "hour",
-        "days": "day",
-        "years": "year",
-    }
-    step_unit = map_to_step_unit.get(canonical)
-    if step_unit is None:
+    resolved = _STEP_UNIT_ALIASES.get(canonical, canonical)
+    if resolved not in _VALID_STEP_UNITS:
         raise ValueError("simulation.time.step_unit must be one of: hour, day, month, year.")
-    return step_unit
-
-
-def _normalize_step_value_scalar(raw_step_value: object) -> int:
-    if isinstance(raw_step_value, bool):
-        raise ValueError("simulation.time.step_value must be a positive integer.")
-    try:
-        parsed = float(raw_step_value)
-    except Exception as exc:
-        raise ValueError("simulation.time.step_value must be a positive integer.") from exc
-    if not parsed.is_integer() or parsed <= 0:
-        raise ValueError("simulation.time.step_value must be a positive integer.")
-    return int(parsed)
-
-
-def _parse_step_spec(
-    *,
-    raw_step_value: object,
-    raw_step_unit: object,
-) -> tuple[int, Literal["hour", "day", "month", "year"]]:
-    explicit_unit_raw: str | None = None
-    if raw_step_unit is not None and str(raw_step_unit).strip() != "":
-        explicit_unit_raw = str(raw_step_unit).strip()
-
-    default_unit = explicit_unit_raw or "day"
-    scalar, resolved_unit = parse_scalar_and_unit(
-        raw_step_value,
-        location="simulation.time.step_value",
-        default_unit=default_unit,
-    )
-    step_value = _normalize_step_value_scalar(scalar)
-    parsed_step_unit = _normalize_step_unit_token(resolved_unit)
-
-    if explicit_unit_raw is not None:
-        explicit_step_unit = _normalize_step_unit_token(explicit_unit_raw)
-        if parsed_step_unit != explicit_step_unit:
-            raise ValueError(
-                "simulation.time.step_value unit conflicts with simulation.time.step_unit."
-            )
-    if parsed_step_unit not in _VALID_STEP_UNITS:
-        raise ValueError("simulation.time.step_unit must be one of: hour, day, month, year.")
-    return step_value, parsed_step_unit
+    return resolved  # type: ignore[return-value]
 
 
 class SimulationTimeConfig(HydroModelBase):
@@ -137,12 +100,33 @@ class SimulationTimeConfig(HydroModelBase):
 
     @model_validator(mode="after")
     def _validate_window_order(self):
-        step_value, step_unit = _parse_step_spec(
-            raw_step_value=self.step_value,
-            raw_step_unit=self.step_unit,
+        explicit_unit_raw: str | None = None
+        if self.step_unit is not None and str(self.step_unit).strip() != "":
+            explicit_unit_raw = str(self.step_unit).strip()
+
+        scalar, resolved_unit = parse_scalar_and_unit(
+            self.step_value,
+            location="simulation.time.step_value",
+            default_unit=explicit_unit_raw or "day",
         )
-        object.__setattr__(self, "step_value", int(step_value))
-        object.__setattr__(self, "step_unit", step_unit)
+        if isinstance(scalar, bool):
+            raise ValueError("simulation.time.step_value must be a positive integer.")
+        try:
+            scalar_float = float(scalar)
+        except Exception as exc:
+            raise ValueError("simulation.time.step_value must be a positive integer.") from exc
+        if not scalar_float.is_integer() or scalar_float <= 0:
+            raise ValueError("simulation.time.step_value must be a positive integer.")
+        parsed_step_unit = _coerce_step_unit(resolved_unit)
+        if explicit_unit_raw is not None:
+            expected_unit = _coerce_step_unit(explicit_unit_raw)
+            if parsed_step_unit != expected_unit:
+                raise ValueError(
+                    "simulation.time.step_value unit conflicts with simulation.time.step_unit."
+                )
+
+        object.__setattr__(self, "step_value", int(scalar_float))
+        object.__setattr__(self, "step_unit", parsed_step_unit)
 
         if self.start_datetime is None or self.end_datetime is None:
             raise ValueError(
@@ -188,7 +172,7 @@ class SimulationProcessConfig(HydroModelBase):
         cleaned = value.strip().lower()
         if not cleaned:
             raise ValueError("Process type cannot be empty.")
-        registered = known_process_types()
+        registered = get_solver_registry_provider().known_process_types()
         if cleaned not in registered:
             raise ValueError(
                 f"Unknown process type '{cleaned}'. "
@@ -229,7 +213,6 @@ class SimulationConfig(HydroModelBase):
                     id="transport_main",
                     type="transport",
                     solvers=[transport],
-                    depends_on=["flow_main"],
                 )
             )
         return cls(
@@ -289,6 +272,30 @@ class SimulationConfig(HydroModelBase):
         default="",
         description="Short free-text description of the simulation intent.",
     )
+    scientific_objective: Annotated[str | None, Profile.USER] = Field(
+        default=None,
+        description="Scientific objective used for catalog and ML stratification.",
+    )
+    contact_email: Annotated[str | None, Profile.USER] = Field(
+        default=None,
+        description="Contact email for the simulation metadata.",
+    )
+    doi: Annotated[str | None, Profile.USER] = Field(
+        default=None,
+        description="DOI or reference identifier for the simulation metadata.",
+    )
+    study_area_name: Annotated[str | None, Profile.USER] = Field(
+        default=None,
+        description="Human-readable study area name.",
+    )
+    outlet_x: Annotated[float | None, Profile.USER] = Field(
+        default=None,
+        description="Outlet X coordinate in the project CRS units.",
+    )
+    outlet_y: Annotated[float | None, Profile.USER] = Field(
+        default=None,
+        description="Outlet Y coordinate in the project CRS units.",
+    )
     time: Annotated[SimulationTimeConfig | None, Profile.USER] = Field(
         default=None,
         description=(
@@ -311,6 +318,18 @@ class SimulationConfig(HydroModelBase):
             "Results storage and export configuration loaded from "
             "[simulation.results]. Controls SimulationCatalog, derived variables, "
             "and automated exports."
+        ),
+    )
+    rng_seed: Annotated[int | None, Profile.USER] = Field(
+        default=None,
+        ge=0,
+        description=(
+            "Master RNG seed for the simulation. When set, every stochastic "
+            "consumer (mesh point sampling, synthetic forcing, ...) derives "
+            "its own deterministic sub-seed via "
+            "``hydromodpy.core.rng.RngManager``. Persisted in "
+            "``runs_environment.rng_seed`` so the run can be re-executed "
+            "from the catalog snapshot."
         ),
     )
 

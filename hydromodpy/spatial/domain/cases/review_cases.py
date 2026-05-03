@@ -3,21 +3,18 @@
 This script runs every discovered domain-case config one after another and,
 by default, keeps figures in blocking mode so each window must be closed
 before moving to the next case.
+
+Run with:
+    python -m hydromodpy.spatial.domain.cases.review_cases
 """
 
 from __future__ import annotations
 
 import argparse
-import sys
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
-
-# Ensure repository root is importable when script is launched directly.
-REPO_ROOT = Path(__file__).resolve().parents[3]
-if str(REPO_ROOT) not in sys.path:
-    sys.path.insert(0, str(REPO_ROOT))
 
 from hydromodpy.spatial.domain.cases.run_domain_case import (
     plot_domain_summary,

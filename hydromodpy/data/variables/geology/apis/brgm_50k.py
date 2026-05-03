@@ -15,7 +15,6 @@ Workflow:
 from __future__ import annotations
 
 import hashlib
-import logging
 import urllib.request
 import zipfile
 from pathlib import Path
@@ -23,7 +22,9 @@ from pathlib import Path
 import geopandas as gpd
 from shapely.geometry import box
 
-logger = logging.getLogger(__name__)
+from hydromodpy.core.logging import get_logger
+
+logger = get_logger(__name__)
 
 BRGM_50K_URL_TEMPLATE = "http://infoterre.brgm.fr/telechargements/BDCharm50/GEO050K_HARM_{dept}.zip"
 FGEOL_LAYER_PATTERN = "S_FGEOL_2154"

@@ -9,16 +9,14 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Annotated, Literal
 
-from pydantic import ConfigDict, Field
+from pydantic import Field
 
-from hydromodpy.core.config.base import HydroModelBase
-from hydromodpy.core.config.profile import Profile
+from hydromodpy.core.config_kit.base import HydroModelBase
+from hydromodpy.core.config_kit.profile import Profile
 
 
 class DisplayConfig(HydroModelBase):
     """Display behaviour resolved from the ``[display]`` TOML section."""
-
-    model_config = ConfigDict(extra="ignore")
 
     enabled: Annotated[bool, Profile.USER] = Field(
         default=True,

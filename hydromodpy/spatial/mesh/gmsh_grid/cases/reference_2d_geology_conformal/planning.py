@@ -18,14 +18,12 @@ from types import SimpleNamespace
 import geopandas as gpd
 from shapely.ops import unary_union
 
-from hydromodpy.data.variables.geology.io import load_vector_geology_dataframe
 from hydromodpy.spatial.geographic.core.river_mesh_trace import (
     build_river_mesh_trace_from_vector,
 )
 from hydromodpy.spatial.mesh.gmsh_grid.cases.reference_2d_geology_conformal.contracts import (
     ZoneConformalCaseConfig,
     ZoneConformalConstraintFamilies,
-    ZoneConformalGeometryPayload,
     ZoneConformalMeshingDiagnostics,
     ZoneConformalMeshingInputs,
     ZoneConformalRiversConfig,
@@ -41,15 +39,17 @@ from hydromodpy.spatial.mesh.gmsh_grid.zone_meshing import (
     ZoneLinearConstraint,
     build_zone_conformal_partition_from_dataframe,
 )
-from hydromodpy.spatial.mesh.gmsh_grid.zone_meshing._geometry_utils import (
+from hydromodpy.spatial.mesh.gmsh_grid.zone_meshing.config import (
+    ZoneMeshingRefinementPolicy,
+    ZoneMeshingSettings,
+)
+from hydromodpy.spatial.mesh.gmsh_grid.zone_meshing.domain import ZoneMeshingDomainPayload
+from hydromodpy.spatial.mesh.gmsh_grid.zone_meshing.geometry_utils import (
     iter_polygon_parts,
     make_valid_geometry,
     make_valid_linework,
 )
-from hydromodpy.spatial.mesh.gmsh_grid.zone_meshing.config import (
-    ZoneMeshingRefinementPolicySchema,
-    ZoneMeshingSettings,
-)
+from hydromodpy.spatial.protocols import get_geology_data_source
 
 
 def _resolve_river_trace_for_meshing(
@@ -175,12 +175,12 @@ def _load_geology_dataframe(
     *,
     geology_cfg,
     config_path: Path,
-    effective_domain_payload: ZoneConformalGeometryPayload,
+    effective_domain_payload: ZoneMeshingDomainPayload,
     loaded_payload: dict[str, object] | None = None,
 ) -> tuple[ZoneConformalSourcePayload, gpd.GeoDataFrame]:
     payload = loaded_payload
     if payload is None:
-        payload = load_vector_geology_dataframe(
+        payload = get_geology_data_source().load_vector_dataframe(
             geology_cfg.to_mapping(),
             config_path=config_path,
             zone_key_column="zone_key",
@@ -201,7 +201,7 @@ def _load_geology_dataframe(
 
 def _build_domain_zone_dataframe(
     *,
-    effective_domain_payload: ZoneConformalGeometryPayload,
+    effective_domain_payload: ZoneMeshingDomainPayload,
 ) -> tuple[ZoneConformalSourcePayload, gpd.GeoDataFrame]:
     domain_gdf = effective_domain_payload.gdf[["geometry"]].copy()
     domain_gdf = domain_gdf.explode(index_parts=False).reset_index(drop=True)
@@ -225,7 +225,7 @@ def _load_effective_domain_payload(
     config_path: Path,
     domain_geographic: object | None,
     target_crs: object,
-) -> ZoneConformalGeometryPayload:
+) -> ZoneMeshingDomainPayload:
     return _load_domain_payload(
         domain_cfg=cfg.domain,
         config_path=config_path,
@@ -308,7 +308,7 @@ def _build_watershed_boundary_geometry(
 def _build_watershed_boundary_constraint(
     *,
     watershed_geometry,
-    effective_domain_payload: ZoneConformalGeometryPayload,
+    effective_domain_payload: ZoneMeshingDomainPayload,
 ) -> ZoneLinearConstraint | None:
     return _normalize_linear_constraint(
         name="watershed::boundary",
@@ -324,7 +324,7 @@ def _build_watershed_boundary_constraint(
 def _build_watershed_boundary_plot_gdf(
     *,
     watershed_geometry,
-    effective_domain_payload: ZoneConformalGeometryPayload,
+    effective_domain_payload: ZoneMeshingDomainPayload,
 ) -> gpd.GeoDataFrame:
     boundary_lines = _iter_line_geometries((watershed_geometry.boundary,))
     return gpd.GeoDataFrame(
@@ -422,7 +422,7 @@ def _build_buffered_geology_interface_constraint(
     zone_gdf: gpd.GeoDataFrame,
     clip_geometry,
     zone_meshing_cfg: ZoneMeshingSettings,
-    effective_domain_payload: ZoneConformalGeometryPayload,
+    effective_domain_payload: ZoneMeshingDomainPayload,
 ) -> tuple[ZoneLinearConstraint | None, gpd.GeoDataFrame]:
     clipped_gdf = _clip_zone_dataframe_to_geometry(
         zone_gdf=zone_gdf,
@@ -460,7 +460,7 @@ def _build_buffered_geology_interface_constraint(
 def _apply_geology_conformity_mode(
     *,
     zone_gdf: gpd.GeoDataFrame,
-    effective_domain_payload: ZoneConformalGeometryPayload,
+    effective_domain_payload: ZoneMeshingDomainPayload,
     zone_meshing_cfg: ZoneMeshingSettings,
     watershed_boundary_cfg: ZoneConformalWatershedBoundaryConfig,
     watershed_geometry,
@@ -525,9 +525,7 @@ def _derive_watershed_runtime_zone_meshing_config(
 
     refinement_policy = runtime_payload.get("refinement_policy")
     if refinement_policy is None:
-        refinement_policy = ZoneMeshingRefinementPolicySchema(enabled=True).model_dump(
-            mode="python"
-        )
+        refinement_policy = ZoneMeshingRefinementPolicy(enabled=True).model_dump(mode="python")
     else:
         refinement_policy = dict(refinement_policy)
         refinement_policy["enabled"] = True
@@ -558,7 +556,7 @@ def _build_watershed_boundary_inputs(
     cfg: ZoneConformalCaseConfig,
     domain_geographic: object | None,
     river_trace: object | None,
-    effective_domain_payload: ZoneConformalGeometryPayload,
+    effective_domain_payload: ZoneMeshingDomainPayload,
     target_crs: object | None,
     zone_meshing_cfg: ZoneMeshingSettings,
 ) -> tuple[
@@ -712,7 +710,7 @@ def _build_linear_constraint_inputs(
     config_path: Path,
     river_trace: object | None,
     domain_geographic: object | None,
-    effective_domain_payload: ZoneConformalGeometryPayload,
+    effective_domain_payload: ZoneMeshingDomainPayload,
 ) -> tuple[object | None, tuple[ZoneLinearConstraint, ...]]:
     constraints: list[ZoneLinearConstraint] = []
     resolved_river_trace = None
@@ -767,11 +765,11 @@ def _build_zone_source_inputs(
 ) -> tuple[
     ZoneConformalSourcePayload,
     gpd.GeoDataFrame,
-    ZoneConformalGeometryPayload,
+    ZoneMeshingDomainPayload,
     gpd.GeoDataFrame,
 ]:
     if cfg.geology is not None:
-        source_payload_raw = load_vector_geology_dataframe(
+        source_payload_raw = get_geology_data_source().load_vector_dataframe(
             cfg.geology.to_mapping(),
             config_path=config_path,
             zone_key_column="zone_key",

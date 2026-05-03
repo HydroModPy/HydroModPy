@@ -14,6 +14,8 @@ from typing import Any, Protocol, runtime_checkable
 
 import numpy as np
 
+from hydromodpy.core.metrics import kge, mae, nse, rmse
+
 
 @dataclass(frozen=True, slots=True)
 class ObservationSet:
@@ -60,57 +62,16 @@ class Objective(Protocol):
 # ---------------------------------------------------------------------------
 
 
-def nse(obs: np.ndarray, sim: np.ndarray) -> float:
-    obs = np.asarray(obs, dtype=float)
-    sim = np.asarray(sim, dtype=float)
-    mask = np.isfinite(obs) & np.isfinite(sim)
-    if mask.sum() < 2:
-        return float("nan")
-    o, s = obs[mask], sim[mask]
-    denom = float(np.sum((o - o.mean()) ** 2))
-    if denom == 0.0:
-        return float("nan")
-    return 1.0 - float(np.sum((s - o) ** 2)) / denom
+def _kge_score(sim: np.ndarray, obs: np.ndarray) -> float:
+    """Scalar KGE score; calibration needs a single number, not the decomposition."""
+    return float(kge(sim, obs)["kge"])
 
 
-def rmse(obs: np.ndarray, sim: np.ndarray) -> float:
-    obs = np.asarray(obs, dtype=float)
-    sim = np.asarray(sim, dtype=float)
-    mask = np.isfinite(obs) & np.isfinite(sim)
-    if mask.sum() == 0:
-        return float("nan")
-    return float(np.sqrt(np.mean((sim[mask] - obs[mask]) ** 2)))
-
-
-def mae(obs: np.ndarray, sim: np.ndarray) -> float:
-    obs = np.asarray(obs, dtype=float)
-    sim = np.asarray(sim, dtype=float)
-    mask = np.isfinite(obs) & np.isfinite(sim)
-    if mask.sum() == 0:
-        return float("nan")
-    return float(np.mean(np.abs(sim[mask] - obs[mask])))
-
-
-def kge(obs: np.ndarray, sim: np.ndarray) -> float:
-    obs = np.asarray(obs, dtype=float)
-    sim = np.asarray(sim, dtype=float)
-    mask = np.isfinite(obs) & np.isfinite(sim)
-    if mask.sum() < 2:
-        return float("nan")
-    o, s = obs[mask], sim[mask]
-    if o.std() == 0.0 or o.mean() == 0.0:
-        return float("nan")
-    r = float(np.corrcoef(o, s)[0, 1])
-    alpha = float(s.std() / o.std())
-    beta = float(s.mean() / o.mean())
-    return 1.0 - float(np.sqrt((r - 1) ** 2 + (alpha - 1) ** 2 + (beta - 1) ** 2))
-
-
-METRICS: dict[str, callable] = {
+METRICS: dict[str, Callable[[np.ndarray, np.ndarray], float]] = {
     "nse": nse,
     "rmse": rmse,
     "mae": mae,
-    "kge": kge,
+    "kge": _kge_score,
 }
 
 HIGHER_IS_BETTER: frozenset[str] = frozenset({"nse", "kge"})
@@ -144,7 +105,7 @@ class ScalarObjective:
             s = sim.values.get(station)
             if s is None:
                 continue
-            value = float(self._metric_fn(o, s))
+            value = float(self._metric_fn(s, o))
             cost = (1.0 - value) if self._higher_is_better else value
             components[f"{self.name}@{station}"] = cost
             costs.append(cost)
@@ -181,24 +142,21 @@ def _transform_identity(cost: float) -> float:
 
 
 def _transform_log(cost: float, *, epsilon: float = 1.0e-6) -> float:
-    """Apply ``log10(cost + epsilon)``; flips small costs into large positive values."""
+    """Apply a monotone log transform to a minimization cost."""
     value = float(cost) + float(epsilon)
     if value <= 0.0:
         raise ValueError(
             f"log transform requires cost + epsilon > 0 (got cost={cost}, epsilon={epsilon})"
         )
-    # ``-log10`` so that small costs (near-zero) map to *large* penalty values
-    # while large costs map to small penalty values. This matches the intent of
-    # emphasising near-zero departures as "bad" when the user asks for log.
-    return -float(np.log10(value))
+    return float(np.log10(value))
 
 
 def _transform_inverse(cost: float, *, epsilon: float = 1.0e-6) -> float:
-    """Apply ``1 / (cost + epsilon)``; flips near-zero costs into large values."""
+    """Apply a monotone inverse transform to a minimization cost."""
     value = float(cost) + float(epsilon)
     if value == 0.0:
         raise ValueError("inverse transform requires cost + epsilon != 0")
-    return 1.0 / value
+    return -1.0 / value
 
 
 _TRANSFORMS: dict[str, Callable[[float], float]] = {
@@ -403,12 +361,15 @@ class ConfigBlockObjective:
                 )
             simulated_parts.append(np.asarray(list(part), dtype=float).ravel())
         simulated = np.concatenate(simulated_parts) if simulated_parts else np.empty(0)
-        n = int(min(self._observed.size, simulated.size))
-        if n == 0:
+        if self._observed.size == 0 or simulated.size == 0:
             return ObjectiveValue(total=float("inf"), components={})
-        observed = self._observed[:n]
-        simulated = simulated[:n]
-        raw = float(self._metric_fn(observed, simulated))
+        if simulated.size != self._observed.size:
+            raise ValueError(
+                f"Block {self.name!r}: simulated length {simulated.size} does not match "
+                f"observed length {self._observed.size}"
+            )
+        observed = self._observed
+        raw = float(self._metric_fn(simulated, observed))
         if not np.isfinite(raw):
             return ObjectiveValue(
                 total=float("inf"),
@@ -421,7 +382,7 @@ class ConfigBlockObjective:
             f"{self.name}.raw_cost": float(cost),
             f"{self.name}.normalized_cost": float(normalized),
             f"{self.name}.reference_scale": float(self._reference_scale),
-            f"{self.name}.n_values": float(n),
+            f"{self.name}.n_values": float(self._observed.size),
         }
         return ObjectiveValue(total=float(transformed), components=components)
 
@@ -485,8 +446,4 @@ __all__ = [
     "METRICS",
     "HIGHER_IS_BETTER",
     "evaluate_objective",
-    "nse",
-    "rmse",
-    "mae",
-    "kge",
 ]

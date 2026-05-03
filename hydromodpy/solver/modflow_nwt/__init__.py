@@ -7,7 +7,7 @@ from importlib import import_module
 __all__ = [
     "FlowModflowInputs",
     "FlowToModflowAdapter",
-    "Modflow",
+    "ModflowNwt",
     "ModflowConfig",
     "ModflowSpecifParams",
     "ModflowPreprocessOptions",
@@ -18,14 +18,14 @@ __all__ = [
 ]
 
 _LAZY_IMPORTS = {
-    "FlowModflowInputs": "hydromodpy.solver.modflow_nwt.modflow:FlowModflowInputs",
-    "FlowToModflowAdapter": "hydromodpy.solver.modflow_nwt.modflow:FlowToModflowAdapter",
-    "Modflow": "hydromodpy.solver.modflow_nwt.modflow:Modflow",
-    "ModflowConfig": "hydromodpy.solver.modflow_nwt.modflow:ModflowConfig",
-    "ModflowSpecifParams": "hydromodpy.solver.modflow_nwt.modflow:ModflowSpecifParams",
-    "ModflowPreprocessOptions": "hydromodpy.solver.modflow_nwt.modflow:ModflowPreprocessOptions",
-    "ModflowRunOptions": "hydromodpy.solver.modflow_nwt.modflow:ModflowRunOptions",
-    "ModflowPostprocessOptions": "hydromodpy.solver.modflow_nwt.modflow:ModflowPostprocessOptions",
+    "FlowModflowInputs": "hydromodpy.solver.modflow_nwt.nwt:FlowModflowInputs",
+    "FlowToModflowAdapter": "hydromodpy.solver.modflow_nwt.nwt:FlowToModflowAdapter",
+    "ModflowNwt": "hydromodpy.solver.modflow_nwt.nwt:ModflowNwt",
+    "ModflowConfig": "hydromodpy.solver.modflow_nwt.nwt:ModflowConfig",
+    "ModflowSpecifParams": "hydromodpy.solver.modflow_nwt.nwt:ModflowSpecifParams",
+    "ModflowPreprocessOptions": "hydromodpy.solver.modflow_nwt.nwt:ModflowPreprocessOptions",
+    "ModflowRunOptions": "hydromodpy.solver.modflow_nwt.nwt:ModflowRunOptions",
+    "ModflowPostprocessOptions": "hydromodpy.solver.modflow_nwt.nwt:ModflowPostprocessOptions",
     "Modpath": "hydromodpy.solver.modflow_nwt.modpath:Modpath",
     "Mt3dms": "hydromodpy.solver.modflow_nwt.mt3dms:Mt3dms",
 }

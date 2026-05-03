@@ -1,10 +1,13 @@
-"""Run a deterministic oceanic-only case from a TOML configuration."""
+"""Run a deterministic oceanic-only case from a TOML configuration.
+
+Run with:
+    python -m hydromodpy.data.variables.oceanic.cases.run_oceanic_case
+"""
 
 from __future__ import annotations
 
 import argparse
 import json
-import sys
 import time
 import tomllib
 from dataclasses import dataclass
@@ -12,10 +15,6 @@ from pathlib import Path
 from typing import Any
 
 import pandas as pd
-
-repo_root = Path(__file__).resolve().parents[5]
-if (repo_root / "hydromodpy").exists() and str(repo_root) not in sys.path:
-    sys.path.insert(0, str(repo_root))
 
 from hydromodpy.data.variables.oceanic.config import OceanicConfig, OceanicSourceConfig
 from hydromodpy.data.variables.oceanic.manager import OceanicManager

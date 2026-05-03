@@ -4,8 +4,8 @@ Meshes And Numerical Methods
 Purpose
 -------
 
-This page is still a perspective page rather than a solver manual, but it now
-points to a real first public scientific block instead of only proposing one.
+This page is not a solver manual yet. It is a structured perspective for how
+the scientific documentation should grow beyond basic backend descriptions.
 
 The main gap today is not only missing prose on MODFLOW. It is the absence of
 one coherent map that separates:
@@ -101,11 +101,13 @@ The mesh and discretization branch now separates the following public pages.
    Explain which metrics matter numerically and what failure modes they are
    meant to prevent.
 
-Current MODFLOW Documentation Block
+Proposed MODFLOW Documentation Block
 ------------------------------------
 
-The MODFLOW branch is now anchored by the following public pages and should
-keep expanding from there:
+The MODFLOW branch should become much more explicit than a backend overview.
+
+It is now anchored by the following public pages and should keep expanding from
+there:
 
 1. one solver-agnostic governing equation statement and its MODFLOW
    interpretation,
@@ -162,10 +164,11 @@ Recommended Immediate Additions
 The next highest-value additions after this perspective page are now:
 
 1. one public mesh-walkthrough page,
-2. one worked MODFLOW case from TOML to final package payloads,
-3. one explicit note on the maintained public boundary-condition subset versus
-   not-yet-public package families,
-4. one reviewer-style checklist page for interpreting transient comparisons.
+2. one tighter public note on MODFLOW package subset and current project
+   simplifications,
+3. one public note on forcing-time aggregation to stress periods,
+4. one comparison-reading page that turns these method notes into a strict
+   interpretation checklist.
 
 Current Best Anchors In The Repository
 --------------------------------------

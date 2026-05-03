@@ -105,6 +105,4 @@ def test_build_geographic_paths_exposes_river_network_outputs():
     assert paths.river_network_shp.endswith("river_network.shp")
     assert paths.river_network_summary_json.endswith("river_network_summary.json")
     assert paths.hydrographic_network_generated_shp.endswith("river_network.shp")
-    assert paths.hydrographic_network_generated_summary_json.endswith(
-        "river_network_summary.json"
-    )
+    assert paths.hydrographic_network_generated_summary_json.endswith("river_network_summary.json")

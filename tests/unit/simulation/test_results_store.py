@@ -8,8 +8,8 @@ import numpy as np
 import pandas as pd
 import pytest
 
+from hydromodpy.results.array_fingerprint import fingerprint
 from hydromodpy.results.catalog import SimulationCatalog
-from hydromodpy.results.provenance import fingerprint
 
 
 @pytest.fixture
@@ -90,8 +90,8 @@ class TestFullCycle:
         )
         assert reg.zarr is not None
 
-        grp = catalog.open_zarr_group(sid, mode="a")
-        mesh = grp["mesh"]
+        sz = catalog.open_zarr(sid)
+        mesh = sz.root["mesh"]
         mesh.create_array("surface_top", data=np.array([10.0, 10.0, 10.0, 10.0]), overwrite=True)
 
         values = np.array([[1.0, 2.0, 3.0, 4.0]], dtype="float64")

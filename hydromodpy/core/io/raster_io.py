@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import datetime
-import logging
 import os
 import re
 
@@ -20,14 +19,14 @@ from pyproj.database import query_utm_crs_info
 from rasterio.warp import calculate_default_transform, reproject
 from shapely.geometry import Point
 
-logger = logging.getLogger(__name__)
+from hydromodpy.core.logging import get_logger
+
+logger = get_logger(__name__)
 
 
-def clip_tif(tif_path, shp_path, out_path, maintain_dimensions):
-    """Clip a raster by a shapefile polygon via Whitebox."""
-    from hydromodpy.spatial.delineation import get_whitebox_backend
-
-    get_whitebox_backend().clip_raster_to_polygon(
+def clip_tif(tif_path, shp_path, out_path, maintain_dimensions, *, backend):
+    """Clip a raster by a shapefile polygon using the supplied Whitebox backend."""
+    backend.raster.clip_raster_to_polygon(
         tif_path,
         shp_path,
         out_path,

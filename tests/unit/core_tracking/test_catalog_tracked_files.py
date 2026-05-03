@@ -63,6 +63,42 @@ def test_register_tracked_files_writes_rows(tmp_path: Path) -> None:
     assert isinstance(row["sha256"], str) and len(row["sha256"]) == 64
 
 
+def test_register_tracked_files_writes_directory_rows(tmp_path: Path) -> None:
+    src = tmp_path / "hydrometry"
+    src.mkdir()
+    (src / "hydrometry_custom_LOC.csv").write_text("id,x,y\nA,0,0\n")
+    (src / "hydrometry_custom_A_20200101_20200101_D.csv").write_text(
+        "datetime,value\n2020-01-01,1.0\n"
+    )
+    sid = str(uuid4())
+
+    with _make_catalog(tmp_path) as catalog:
+        catalog.register_simulation(
+            sim_id=sid,
+            project="proj",
+            solver="modflow_nwt",
+        )
+        n = catalog.register_tracked_files(
+            sid,
+            [
+                _Entry(
+                    role="hydrometry",
+                    category="data",
+                    original_path="hydrometry",
+                    canonical_path=src.resolve(),
+                )
+            ],
+        )
+        assert n == 1
+        df = catalog.list_tracked_files(sid)
+
+    assert len(df) == 1
+    row = df.iloc[0]
+    assert row["role"] == "hydrometry"
+    assert row["size_bytes"] > 0
+    assert isinstance(row["sha256"], str) and len(row["sha256"]) == 64
+
+
 def test_register_tracked_files_is_idempotent(tmp_path: Path) -> None:
     src = tmp_path / "dem.tif"
     src.write_bytes(b"x")

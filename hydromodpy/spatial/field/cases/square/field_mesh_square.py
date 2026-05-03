@@ -8,6 +8,7 @@ from typing import Any
 import matplotlib.tri as mtri
 import numpy as np
 
+from hydromodpy.core.rng import RngManager
 from hydromodpy.spatial.field.core.field_mesh import BaseFieldMesh, FieldMesh
 from hydromodpy.spatial.field.meshes import (
     StructuredFieldMesh,
@@ -20,6 +21,9 @@ SUPPORTED_MESH_KINDS = (
     "triangular_structured",
     "triangular_unstructured",
 )
+
+_UNSTRUCTURED_RNG_LABEL = "spatial.field.square.unstructured_points"
+_DEFAULT_UNSTRUCTURED_SEED = 42
 
 
 def _build_unit_square_grid(n_grid: int):
@@ -61,7 +65,7 @@ def _build_unstructured_boundary(n_per_edge: int):
     return xb, yb
 
 
-def _build_unstructured_points(target_n_cells: int, *, seed: int):
+def _build_unstructured_points(target_n_cells: int, *, rng: np.random.Generator):
     target = max(8, int(target_n_cells))
     n_per_edge = max(3, int(np.ceil(np.sqrt(float(target)) / 2.0)) + 1)
     xb, yb = _build_unstructured_boundary(n_per_edge)
@@ -69,7 +73,6 @@ def _build_unstructured_points(target_n_cells: int, *, seed: int):
 
     # Planar triangulation heuristic: n_triangles ~= 2*n_points - 2 - n_boundary
     n_interior = max(0, int(np.ceil((float(target) - float(n_boundary) + 2.0) / 2.0)))
-    rng = np.random.default_rng(int(seed))
     if n_interior > 0:
         xi = rng.uniform(1e-6, 1.0 - 1e-6, size=n_interior)
         yi = rng.uniform(1e-6, 1.0 - 1e-6, size=n_interior)
@@ -81,6 +84,21 @@ def _build_unstructured_points(target_n_cells: int, *, seed: int):
     return x, y, n_per_edge
 
 
+def _resolve_unstructured_rng(
+    rng_manager: RngManager | None,
+) -> tuple[np.random.Generator, int]:
+    """Return ``(rng, seed)`` for the unstructured-points generator.
+
+    With a manager: seed is derived from ``master_seed`` via blake2b.
+    Without a manager: the default seed ``42`` keeps existing fixtures
+    deterministic.
+    """
+    if rng_manager is None:
+        return np.random.default_rng(_DEFAULT_UNSTRUCTURED_SEED), _DEFAULT_UNSTRUCTURED_SEED
+    seed = rng_manager.child_seed(_UNSTRUCTURED_RNG_LABEL)
+    return np.random.default_rng(seed), seed
+
+
 class FieldMeshSquare(FieldMesh):
     """Concrete factory for unit-square meshes."""
 
@@ -90,7 +108,7 @@ class FieldMeshSquare(FieldMesh):
         *,
         target_n_cells: int,
         mesh_kind: str = "structured",
-        seed: int = 42,
+        rng_manager: RngManager | None = None,
     ) -> BaseFieldMesh:
         kind_key = str(mesh_kind).strip().lower()
         target = max(1, int(target_n_cells))
@@ -118,7 +136,8 @@ class FieldMeshSquare(FieldMesh):
             )
 
         if kind_key == "triangular_unstructured":
-            x, y, n_per_edge = _build_unstructured_points(target, seed=int(seed))
+            rng, seed_used = _resolve_unstructured_rng(rng_manager)
+            x, y, n_per_edge = _build_unstructured_points(target, rng=rng)
             triang = mtri.Triangulation(x, y)
             return TriangularUnstructuredFieldMesh(
                 x_plot=x,
@@ -126,7 +145,7 @@ class FieldMeshSquare(FieldMesh):
                 triangulation=triang,
                 target_n_cells=target,
                 resolution_hint=n_per_edge,
-                seed=int(seed),
+                seed=seed_used,
             )
 
         allowed = ", ".join(SUPPORTED_MESH_KINDS)
@@ -134,7 +153,12 @@ class FieldMeshSquare(FieldMesh):
 
     @classmethod
     def from_dict(cls, config: Mapping[str, Any]) -> BaseFieldMesh:
-        """Build one unit-square mesh from a plain mapping."""
+        """Build one unit-square mesh from a plain mapping.
+
+        The optional ``rng_seed`` (or legacy ``seed``) entry in ``config``
+        seeds an ad-hoc :class:`RngManager` so a TOML file remains
+        self-contained when no top-level master seed is available.
+        """
         if not isinstance(config, Mapping):
             raise TypeError("config must be a mapping")
         mesh_kind = str(config.get("mesh_kind", config.get("kind", "structured")))
@@ -151,9 +175,13 @@ class FieldMeshSquare(FieldMesh):
                 "(aliases: 'approx_n_cells', 'target_cell_count')"
             )
 
-        seed = int(config.get("seed", 42))
+        seed_value = config.get("rng_seed", config.get("seed"))
+        rng_manager: RngManager | None = None
+        if seed_value is not None:
+            rng_manager = RngManager(master_seed=int(seed_value))
+
         return cls.from_unit_square(
             target_n_cells=target_n_cells,
             mesh_kind=mesh_kind,
-            seed=seed,
+            rng_manager=rng_manager,
         )

@@ -13,16 +13,16 @@ import numpy as np
 from shapely.geometry.base import BaseGeometry
 from shapely.ops import unary_union
 
-from hydromodpy.spatial.mesh.gmsh_grid.zone_meshing._geometry_utils import (
-    iter_polygon_parts,
-    make_valid_geometry,
-)
 from hydromodpy.spatial.mesh.gmsh_grid.zone_meshing._gmsh_driver import (
     iter_river_lines_from_trace,
 )
 from hydromodpy.spatial.mesh.gmsh_grid.zone_meshing.contracts import (
     ZoneLinearConstraint,
     ZoneRegionalSizeField,
+)
+from hydromodpy.spatial.mesh.gmsh_grid.zone_meshing.geometry_utils import (
+    iter_polygon_parts,
+    make_valid_geometry,
 )
 
 

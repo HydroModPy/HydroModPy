@@ -158,6 +158,32 @@ def _transient_residual(
     return np.asarray(assembly.residual_m3_s, dtype=float)
 
 
+def _transient_solver_residual(
+    mesh: _MiniMesh,
+    head_m: np.ndarray,
+    *,
+    head_prev_m: np.ndarray,
+    dt_seconds: float,
+    boundary_head_m_by_edge: np.ndarray | None = None,
+    prescribed_head_m_by_cell: np.ndarray | None = None,
+    drainage_conductance_m2_s: np.ndarray | float | None = None,
+) -> np.ndarray:
+    assembly = assemble_transient_residual_with_saturation_excess_generic(
+        mesh,
+        head_m=head_m,
+        head_prev_m=head_prev_m,
+        dt_seconds=dt_seconds,
+        saturation_excess_rate_m_s=0.0,
+        recharge_rate_m_s=0.0,
+        well_flux_m3_s=0.0,
+        boundary_head_m_by_edge=boundary_head_m_by_edge,
+        prescribed_head_m_by_cell=prescribed_head_m_by_cell,
+        drainage_conductance_m2_s=drainage_conductance_m2_s,
+        regularization_radius=0.25,
+    )
+    return np.asarray(assembly.solver_residual, dtype=float)
+
+
 def test_boussinesq_package_keeps_mesh_import_lightweight() -> None:
     import hydromodpy.solver.boussinesq as package
 
@@ -318,14 +344,14 @@ def test_operator_triplets_match_finite_difference_with_prescribed_identity() ->
     for col in range(mesh.n_cells):
         direction = np.zeros(mesh.n_cells, dtype=float)
         direction[col] = step
-        plus = _transient_residual(
+        plus = _transient_solver_residual(
             mesh,
             head + direction,
             head_prev_m=head_prev,
             dt_seconds=dt_seconds,
             prescribed_head_m_by_cell=prescribed,
         )
-        minus = _transient_residual(
+        minus = _transient_solver_residual(
             mesh,
             head - direction,
             head_prev_m=head_prev,

@@ -20,5 +20,5 @@ This case is reserved for a conformal catchment mesh where HydroModPy keeps both
 ## Reproduction
 
 ```bash
-python -m launchers mesh-catchment run launchers/mesh_catchment/scenarios/config_headwater_100km2_outlet_27_geology_rivers_min200.toml
+python -m tools.doc_gallery
 ```

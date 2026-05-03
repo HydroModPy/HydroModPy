@@ -37,9 +37,28 @@ from hydromodpy.physics.base.boundary_conditions import BoundaryCondition
 from hydromodpy.physics.base.initial_conditions import InitialCondition
 from hydromodpy.physics.base.process_spatial_config import ProcessSpatialConfig
 from hydromodpy.physics.base.sinks_sources import SinkSource
-from hydromodpy.spatial.field.core.field_param import FieldParam
 
 TInitialConditions = TypeVar("TInitialConditions")
+
+
+def _coerce_field_param(parameter_id: str, raw_parameter: object) -> object:
+    """Coerce one raw config value into a runtime parameter object.
+
+    Uses the registered ``FieldParamLike`` factory so this module never
+    imports the spatial package.
+    """
+    from hydromodpy.physics.contracts import FieldParamLike, get_field_param_factory
+
+    if isinstance(raw_parameter, FieldParamLike):
+        return raw_parameter
+    if not isinstance(raw_parameter, Mapping):
+        return raw_parameter
+
+    payload = dict(raw_parameter)
+    payload.setdefault("id", parameter_id)
+    if "kind" not in payload and "mode" not in payload:
+        return raw_parameter
+    return get_field_param_factory()(payload)
 
 
 class ProcessSpatial(ABC, Generic[TInitialConditions]):
@@ -64,16 +83,7 @@ class ProcessSpatial(ABC, Generic[TInitialConditions]):
     @staticmethod
     def _coerce_parameter_from_config(parameter_id: str, raw_parameter: object) -> object:
         """Coerce one raw config value into a runtime parameter object."""
-        if isinstance(raw_parameter, FieldParam):
-            return raw_parameter
-        if not isinstance(raw_parameter, Mapping):
-            return raw_parameter
-
-        payload = dict(raw_parameter)
-        payload.setdefault("id", parameter_id)
-        if "kind" not in payload and "mode" not in payload:
-            return raw_parameter
-        return FieldParam.from_dict(payload)
+        return _coerce_field_param(parameter_id, raw_parameter)
 
     def set_parameters_from_config(
         self,

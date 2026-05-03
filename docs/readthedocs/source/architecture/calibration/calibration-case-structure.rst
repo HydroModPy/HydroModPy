@@ -28,6 +28,6 @@ Notes
 - Case packages under ``hydromodpy/calibration/cases`` are expected to
   stay thin adapters around the shared engine.
 - CLI-specific concerns such as manifests, reruns, and report
-  persistence are owned by ``hydromodpy/calibration/cli.py`` and the
+  persistence are owned by ``hydromodpy/calibration/runner.py`` and the
   reporting helpers in ``hydromodpy/calibration/persistence.py`` and
   ``report.py``.

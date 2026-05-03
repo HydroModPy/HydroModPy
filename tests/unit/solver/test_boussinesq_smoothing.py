@@ -18,8 +18,6 @@ import numpy as np
 import pytest
 
 from hydromodpy.solver.boussinesq.smoothing import (
-    _EPS_DRAINAGE_M,
-    _EPS_THICKNESS_M,
     dsmooth_positive_part,
     dsmooth_positive_thickness_dh,
     smooth_clip_01,
@@ -175,7 +173,7 @@ def test_thickness_jacobian_consistency_via_smoothing() -> None:
     """dsmooth_positive_thickness_dh is the exact FD derivative of smooth_positive_thickness."""
     bmax = np.array([0.0, 0.0, 20.0, 20.0, 20.0, 20.0, 20.0])
     raw = np.array([-5.0, 5.0, -2.0, 0.5, 10.0, 19.5, 25.0])
-    eps = _EPS_THICKNESS_M
+    eps = 5.0e-3
     h = 1e-6
     fd = (
         smooth_positive_thickness(raw + h, bmax, eps)
@@ -189,7 +187,7 @@ def test_drainage_jacobian_consistency_via_smoothing() -> None:
     """dsmooth_positive_part is the exact FD derivative of smooth_positive_part (drainage case)."""
 
     head_minus_ztop = np.linspace(-0.5, 0.5, 51)
-    eps = _EPS_DRAINAGE_M
+    eps = 0.01
     h = 1e-6
     fd = (
         smooth_positive_part(head_minus_ztop + h, eps)

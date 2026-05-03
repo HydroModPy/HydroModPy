@@ -130,13 +130,14 @@ def _make_simulation_window(
     end: str,
     step_value: int = 1,
     step_unit: str = "month",
+    coverage_policy: str = "ignore",
 ) -> ResolvedSimulationTimeWindow:
     return ResolvedSimulationTimeWindow(
         start=pd.Timestamp(start),
         end=pd.Timestamp(end),
         step_value=step_value,
         step_unit=step_unit,
-        coverage_policy="ignore",
+        coverage_policy=coverage_policy,
     )
 
 
@@ -296,6 +297,32 @@ class TestTemporalFieldTransient:
         # slicing falls back to nearest when no data in period bounds.
         # All three periods should have values since nearest-neighbor is used.
 
+    def test_missing_period_raises_with_coverage_policy_error(self):
+        nrow, ncol = 2, 2
+        sgrid = _make_sgrid(nrow, ncol)
+        field_rec = _make_temporal_field_record(
+            nrow,
+            ncol,
+            values_per_day=[5.0] * 10,
+            start_date="2020-01-01",
+            unit="mm/day",
+        )
+        window = _make_simulation_window(
+            "2020-01-01",
+            "2020-03-31",
+            step_value=1,
+            step_unit="month",
+            coverage_policy="error",
+        )
+
+        with pytest.raises(ValueError, match="no gridded forcing values"):
+            discretize_fields_on_sgrid(
+                load_result=LoadResult(fields=[field_rec]),
+                sgrid=sgrid,
+                nper=3,
+                simulation_window=window,
+            )
+
 
 # ---------------------------------------------------------------------------
 # 4. GeoTIFF file reference - steady
@@ -305,7 +332,7 @@ class TestTemporalFieldTransient:
 class TestGeoTIFFDiscretization:
     def test_geotiff_static_field_steady(self, tmp_path: Path):
         """A GeoTIFF with uniform recharge should produce correct m/s values."""
-        rasterio = pytest.importorskip("rasterio")
+        import rasterio
         from rasterio.transform import from_origin
 
         nrow, ncol = 4, 5
@@ -573,7 +600,6 @@ class TestFlowRechargeConfigHeterogeneousSource:
             heterogeneous_source=lr,
             first_clim="mean",
             units="m/s",
-            negative_to_evt=True,
         )
 
         assert cfg.heterogeneous_source is lr
@@ -802,7 +828,7 @@ class TestSpatialMeanFromFields:
 class TestMultiBandGeoTIFF:
     def test_multiband_tif_produces_per_band_arrays(self, tmp_path: Path):
         """A multi-band GeoTIFF should produce one array per band."""
-        rasterio = pytest.importorskip("rasterio")
+        import rasterio
         from rasterio.transform import from_origin
 
         nrow, ncol = 3, 4

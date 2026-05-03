@@ -4,8 +4,8 @@ from typing import Annotated, Literal, TypeAlias
 
 from pydantic import ConfigDict, Field, field_validator
 
-from hydromodpy.core.config.base import HydroModelBase
-from hydromodpy.core.config.profile import Profile
+from hydromodpy.core.config_kit.base import HydroModelBase
+from hydromodpy.core.config_kit.profile import Profile
 from hydromodpy.core.units.length import parse_length_to_m
 
 
@@ -66,5 +66,8 @@ class FlatSubstratumDepthModel(HydroModelBase):
 
 DepthModelConfig: TypeAlias = Annotated[
     ConstantThicknessDepthModel | FlatSubstratumDepthModel,
-    Field(discriminator="type"),
+    Field(
+        discriminator="type",
+        description="Discriminated union of depth-model variants selected by the type tag.",
+    ),
 ]

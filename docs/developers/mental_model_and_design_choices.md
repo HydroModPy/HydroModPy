@@ -31,7 +31,7 @@ TOML
 -> SimulationPlanner
 -> SimulationPlan (ProcessRun...)
 -> Pipeline / SimulationRunner
--> SolverRunner
+-> SolverAdapter
 -> solveur concret
 -> SimulationCatalog
 -> Run
@@ -165,12 +165,13 @@ Si on utilise le meme mot pour les deux :
 - les identifiants deviennent ambigus,
 - les frontieres entre orchestration et analyse aval disparaissent.
 
-## Pourquoi un `SolverRunner`
+## Pourquoi `SimulationRunner` et `SolverAdapter`
 
 Le solveur concret ne doit pas etre appele directement par les couches
 hautes a chaque fois.
 
-`SolverRunner` sert d'adaptateur entre :
+`SimulationRunner` parcourt les `ProcessRun` dans l'ordre resolu. Le
+`SolverAdapter` enregistre sert d'adaptateur entre :
 
 - un `ProcessRun` generique,
 - un contexte runtime commun,
@@ -358,7 +359,7 @@ But :
 montrer une execution nominale :
 
 `hmp run` -> `Project` -> `SimulationPlanner` -> `Pipeline` ->
-`SolverRunner` -> solveur -> `SimulationCatalog` -> `Run`
+`SimulationRunner` -> `SolverAdapter` -> solveur -> `SimulationCatalog` -> `Run`
 
 Valeur :
 ideal pour relier les objets du glossaire a une histoire concrete.

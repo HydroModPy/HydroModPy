@@ -1,13 +1,19 @@
-"""Abstract base class for HydroModPy solvers (Modflow, Modpath, Mt3dms).
+"""Internal convention for HydroModPy numerical model classes.
 
-Defines the common interface that every concrete solver must implement.
+Concrete numerical model classes (ModflowNwt, Modflow6, Modpath, Boussinesq)
+inherit from :class:`Solver` to share the same ``pre_processing``,
+``processing`` and ``post_processing`` hooks. This is **not** the public
+solver-adapter contract: the adapter contract is the structural
+:class:`SolverAdapter` Protocol declared in
+:mod:`hydromodpy.solver.base.protocol`. ``Solver`` only standardises the
+private lifecycle of the in-tree numerical model classes themselves.
 """
 
 from abc import ABC, abstractmethod
 
 
 class Solver(ABC):
-    """Abstract base class for HydroModPy solvers."""
+    """Internal lifecycle convention for HydroModPy numerical model classes."""
 
     @abstractmethod
     def pre_processing(self) -> None:
@@ -33,25 +39,3 @@ class Solver(ABC):
     @abstractmethod
     def post_processing(self, *args, **kwargs) -> None:
         """Analyse and export results (figures, rasters, etc.)."""
-
-    def validate_config(self) -> None:  # noqa: B027 - intentional optional hook
-        """Validate solver-specific configuration before execution.
-
-        Subclasses should override this to check parameter ranges, file
-        existence, etc. The default implementation is a no-op.
-        """
-
-    def get_results(self) -> dict:
-        """Return a summary of solver outputs.
-
-        Subclasses should override this to return paths to output files,
-        convergence metrics, etc. The default returns an empty dict.
-        """
-        return {}
-
-    def cleanup(self) -> None:  # noqa: B027 - intentional optional hook
-        """Release resources and remove temporary files.
-
-        Subclasses should override this when the solver creates large
-        scratch files that should be removed after post-processing.
-        """

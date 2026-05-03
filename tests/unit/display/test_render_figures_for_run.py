@@ -1,4 +1,4 @@
-"""Coverage for ``hydromodpy.results.display`` - the shared helper used by
+"""Coverage for ``hydromodpy.display.runs`` - the shared helper used by
 both ``hmp display`` and the pipeline ``DisplayStep``.
 
 These tests exercise policy, not rendering:
@@ -12,15 +12,10 @@ These tests exercise policy, not rendering:
 from __future__ import annotations
 
 from pathlib import Path
-from types import SimpleNamespace
 
 import pytest
 
 from hydromodpy.display.config import DisplayConfig
-from hydromodpy.results.display import (
-    render_figures_for_run,
-    resolve_run_output_dir,
-)
 
 
 class _StubRun:
@@ -44,7 +39,16 @@ class _StubFigure:
 
 
 @pytest.fixture
-def patched_registry(monkeypatch):
+def runs_module():
+    # Import inside the fixture so each test sees the live module instance,
+    # even when a sibling test drops `hydromodpy.display.*` from sys.modules.
+    import hydromodpy.display.runs as mod
+
+    return mod
+
+
+@pytest.fixture
+def patched_registry(monkeypatch, runs_module):
     """Patch the figure lookup so the test never imports matplotlib."""
     stubs: dict[str, _StubFigure] = {}
 
@@ -55,56 +59,54 @@ def patched_registry(monkeypatch):
             stubs[name] = _StubFigure(name)
         return stubs[name]
 
-    import hydromodpy.results.display as mod
-
-    monkeypatch.setattr(mod, "_get_figure", _fake_get)
+    monkeypatch.setattr(runs_module, "_get_figure", _fake_get)
     return stubs
 
 
-def test_disabled_config_renders_nothing(tmp_path, patched_registry):
+def test_disabled_config_renders_nothing(tmp_path, patched_registry, runs_module):
     cfg = DisplayConfig(enabled=False, figures=["piezometric_map"])
     out = tmp_path / "figures" / "baseline"
-    written = render_figures_for_run(_StubRun(), cfg, output_dir=out)
+    written = runs_module.render_figures_for_run(_StubRun(), cfg, output_dir=out)
     assert written == []
     assert not out.exists()
 
 
-def test_empty_figures_list_renders_nothing(tmp_path, patched_registry):
+def test_empty_figures_list_renders_nothing(tmp_path, patched_registry, runs_module):
     cfg = DisplayConfig(enabled=True, figures=[])
     out = tmp_path / "figures" / "baseline"
-    written = render_figures_for_run(_StubRun(), cfg, output_dir=out)
+    written = runs_module.render_figures_for_run(_StubRun(), cfg, output_dir=out)
     assert written == []
 
 
-def test_writes_one_file_per_figure(tmp_path, patched_registry):
+def test_writes_one_file_per_figure(tmp_path, patched_registry, runs_module):
     cfg = DisplayConfig(enabled=True, figures=["piezometric_map", "hydrograph"])
     out = tmp_path / "figures" / "baseline"
-    written = render_figures_for_run(_StubRun(), cfg, output_dir=out)
+    written = runs_module.render_figures_for_run(_StubRun(), cfg, output_dir=out)
     assert sorted(p.name for p in written) == ["hydrograph.png", "piezometric_map.png"]
     assert all(p.exists() for p in written)
 
 
-def test_unknown_figure_is_skipped_not_raised(tmp_path, patched_registry):
+def test_unknown_figure_is_skipped_not_raised(tmp_path, patched_registry, runs_module):
     # The helper must swallow KeyError for unknown figures and keep going -
     # one typo in the TOML must not abort an otherwise-good render batch.
     cfg = DisplayConfig(enabled=True, figures=["bad_missing", "piezometric_map"])
     out = tmp_path / "figures" / "baseline"
-    written = render_figures_for_run(_StubRun(), cfg, output_dir=out)
+    written = runs_module.render_figures_for_run(_StubRun(), cfg, output_dir=out)
     assert [p.name for p in written] == ["piezometric_map.png"]
 
 
-def test_save_false_skips_filesystem(tmp_path, patched_registry):
+def test_save_false_skips_filesystem(tmp_path, patched_registry, runs_module):
     cfg = DisplayConfig(enabled=True, save=False, figures=["piezometric_map"])
     out = tmp_path / "figures" / "baseline"
-    written = render_figures_for_run(_StubRun(), cfg, output_dir=out)
+    written = runs_module.render_figures_for_run(_StubRun(), cfg, output_dir=out)
     assert written == []
     assert not out.exists()
 
 
-def test_figure_names_override_shadows_config(tmp_path, patched_registry):
+def test_figure_names_override_shadows_config(tmp_path, patched_registry, runs_module):
     cfg = DisplayConfig(enabled=True, figures=["piezometric_map", "hydrograph"])
     out = tmp_path / "figures" / "baseline"
-    written = render_figures_for_run(
+    written = runs_module.render_figures_for_run(
         _StubRun(),
         cfg,
         output_dir=out,
@@ -113,9 +115,9 @@ def test_figure_names_override_shadows_config(tmp_path, patched_registry):
     assert [p.name for p in written] == ["hydrograph.png"]
 
 
-def test_resolve_run_output_dir_prefers_run_name(tmp_path):
+def test_resolve_run_output_dir_prefers_run_name(tmp_path, runs_module):
     cfg = DisplayConfig(output_dir=Path("figures"))
-    path = resolve_run_output_dir(
+    path = runs_module.resolve_run_output_dir(
         cfg,
         project_root=tmp_path,
         run_name="calib_best",
@@ -124,9 +126,9 @@ def test_resolve_run_output_dir_prefers_run_name(tmp_path):
     assert path == tmp_path / "figures" / "calib_best"
 
 
-def test_resolve_run_output_dir_falls_back_to_short_sim_id(tmp_path):
+def test_resolve_run_output_dir_falls_back_to_short_sim_id(tmp_path, runs_module):
     cfg = DisplayConfig(output_dir=Path("figures"))
-    path = resolve_run_output_dir(
+    path = runs_module.resolve_run_output_dir(
         cfg,
         project_root=tmp_path,
         run_name=None,

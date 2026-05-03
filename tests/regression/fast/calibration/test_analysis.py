@@ -1,7 +1,7 @@
 """Regression test for calibration diagnostics and figure rendering.
 
 Runs :func:`hydromodpy.calibration.cases.recession_brutsaert.calibrate_brutsaert`
-for each runnable legacy method, builds a synthetic iteration trace matching the
+for each runnable method, builds a synthetic iteration trace matching the
 ``calibration_iterations`` schema, and verifies:
 
 1. :func:`hydromodpy.calibration.diagnostics.parameter_correlation` returns a
@@ -41,13 +41,13 @@ from hydromodpy.calibration.diagnostics import (  # noqa: E402
     iterations_to_dataframe,
     parameter_correlation,
 )
-from hydromodpy.calibration.objective import kge as _kge_metric  # noqa: E402
+from hydromodpy.core.metrics import kge as _kge_metric  # noqa: E402
 from hydromodpy.display import get as get_figure  # noqa: E402
 
 GOLDEN_FILE = (
     Path(__file__).resolve().parent / "golden" / "calibration_brutsaert_methods_golden.json"
 )
-RUNNABLE_METHODS = ("grid_search", "random_search", "nelder_mead", "simplex")
+RUNNABLE_METHODS = ("grid_search", "random_search", "scipy_nelder_mead")
 FIGURE_NAMES = (
     "calibration_convergence",
     "calibration_trace",
@@ -64,7 +64,7 @@ _FIGURE_KWARGS: dict[str, dict] = {"calibration_pairplot": {"parameters": ["K", 
 
 def _kge_cost(observed: np.ndarray, simulated: np.ndarray) -> float:
     """Mirror ``calibrate_brutsaert`` which minimises ``1 - KGE``."""
-    return 1.0 - float(_kge_metric(observed, simulated))
+    return 1.0 - float(_kge_metric(simulated, observed)["kge"])
 
 
 @pytest.fixture(scope="module")
@@ -179,8 +179,8 @@ def test_calibrate_brutsaert_runs_and_yields_valid_diagnostics(
     _chronicle,
     _golden,
 ) -> None:
-    if method in ("nelder_mead", "simplex"):
-        pytest.importorskip("scipy")
+    if method == "scipy_nelder_mead":
+        import scipy  # noqa: F401
 
     # Confirm the calibration still runs through the new architecture.
     result = calibrate_brutsaert(method=method, objective_metric="kge")

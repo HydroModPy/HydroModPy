@@ -18,6 +18,7 @@ from __future__ import annotations
 from collections.abc import Mapping
 from pathlib import Path
 
+from hydromodpy.core.exceptions import SolverDivergedError, SolverInputError
 from hydromodpy.simulation.planning.plan import (
     ProcessRun,
     RunContext,
@@ -56,7 +57,9 @@ def _run_label(plan: SimulationPlan, run: ProcessRun) -> str:
             }.get(run.process_type, "r")
             return f"{prefix}{index}"
 
-    raise ValueError(f"Process run '{run.id}' is not present in the provided simulation plan.")
+    raise SolverInputError(
+        f"[HMPY.E405] Process run '{run.id}' is not present in the provided simulation plan."
+    )
 
 
 def flow_model_name(plan: SimulationPlan, base_name: str, run: ProcessRun) -> str:
@@ -110,6 +113,16 @@ def build_preprocess_options(state) -> ModflowPreprocessOptions:
     return ModflowPreprocessOptions(time_grid=time_grid)
 
 
+def _requires_mt3dms_link(ctx: RunContext) -> bool:
+    """Return whether one downstream MT3DMS run consumes this flow output."""
+    return any(
+        planned.process_type == "transport"
+        and planned.solver == "mt3dms"
+        and ctx.run.id in planned.depends_on
+        for planned in ctx.plan.runs
+    )
+
+
 def run_flow_model(ctx: RunContext, model_modflow, preprocess_options) -> RunExecutionResult:
     """Execute the shared lifecycle for one already-instantiated flow model.
 
@@ -135,17 +148,23 @@ def run_flow_model(ctx: RunContext, model_modflow, preprocess_options) -> RunExe
     )
 
     # The numerical run is shared across flow backends: write files, execute
-    # the solver, and link MT3DMS-compatible outputs when available.
+    # the solver, and link MT3DMS-compatible outputs only when a downstream
+    # MT3DMS transport run depends on this flow run.
     success = model_modflow.processing(
-        options=ModflowRunOptions(write_model=True, run_model=True, link_mt3dms=True)
+        options=ModflowRunOptions(
+            write_model=True,
+            run_model=True,
+            link_mt3dms=_requires_mt3dms_link(ctx),
+        )
     )
     if not success:
         diagnostics_path = Path(getattr(model_modflow, "full_path", "")).resolve()
         if ctx.run.solver == "modflow6":
             diagnostics_path = diagnostics_path / "mfsim.lst"
-        raise RuntimeError(
-            f"Flow solver '{ctx.run.solver}' failed for run '{ctx.run.id}'. "
-            f"See {diagnostics_path} for diagnostics."
+        raise SolverDivergedError(
+            f"[HMPY.E401] Flow solver '{ctx.run.solver}' failed for run '{ctx.run.id}'. "
+            f"See {diagnostics_path} for diagnostics.",
+            run_id=ctx.run.id,
         )
     return RunExecutionResult(
         primary_model=model_modflow,

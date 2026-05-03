@@ -27,7 +27,7 @@ Le point important qui ressort de l'analyse du dépôt est le suivant:
 
 Cette note répond aussi à une autre question importante: comment réorganiser
 `hydromodpy/solver/modflow6` pour le rapprocher au maximum de la structure
-déjà mise en place dans `hydromodpy/solver/modflow_nwt/modflow`, avec des
+déjà mise en place dans `hydromodpy/solver/modflow_nwt/nwt`, avec des
 modules de responsabilité similaire et, autant que possible, les mêmes noms.
 
 ## Sources de référence
@@ -53,8 +53,8 @@ Fichiers locaux principalement concernés:
 - `hydromodpy/solver/modflow6/modflow6_config.py`
 - `hydromodpy/solver/modflow_common/solver_mesh.py`
 - `hydromodpy/spatial/mesh/adapters/flopy_adapter.py`
-- `hydromodpy/solver/modflow_nwt/modflow/discretization.py`
-- `hydromodpy/solver/modflow_nwt/modflow/property_mapping.py`
+- `hydromodpy/solver/modflow_nwt/nwt/discretization.py`
+- `hydromodpy/solver/modflow_nwt/nwt/property_mapping.py`
 - `hydromodpy/solver/modflow_common/runtime_arrays.py`
 - `hydromodpy/process/flow/sinks_sources.py`
 - `hydromodpy/process/flow/boundary_conditions.py`
@@ -147,7 +147,7 @@ Oui.
 
 L'analyse du dépôt confirme que:
 
-- `hydromodpy/solver/modflow_nwt/modflow` est déjà découpé en plusieurs
+- `hydromodpy/solver/modflow_nwt/nwt` est déjà découpé en plusieurs
   modules cohérents,
 - `hydromodpy/solver/modflow6` concentre encore presque toute la logique dans
   `modflow6.py`,
@@ -262,7 +262,7 @@ Le point de blocage principal n'est pas `to_disv_kwargs()`, mais
 
 Aujourd'hui, cette fonction:
 
-- vit dans `hydromodpy/solver/modflow_nwt/modflow/discretization.py`,
+- vit dans `hydromodpy/solver/modflow_nwt/nwt/discretization.py`,
 - est utilisée à la fois par `modflow_nwt` et par `modflow6`,
 - résout les surfaces du domaine,
 - construit une grille structurée via `StructuredGridBuilder`,
@@ -329,7 +329,7 @@ Elle est donc mal rangée conceptuellement.
 La recommandation est nette:
 
 - cette logique doit être commune à `modflow_nwt` et `modflow6`,
-- elle doit sortir de `hydromodpy/solver/modflow_nwt/modflow/discretization.py`
+- elle doit sortir de `hydromodpy/solver/modflow_nwt/nwt/discretization.py`
   vers `hydromodpy/solver/modflow_common/discretization.py`, ou un module
   équivalent de niveau commun.
 
@@ -540,7 +540,7 @@ Le meilleur état cible est:
 
 - une implémentation dans `modflow_common/discretization.py`,
 - des éventuels re-exports minces depuis
-  `modflow_nwt/modflow/discretization.py` et `modflow6/discretization.py`
+  `modflow_nwt/nwt/discretization.py` et `modflow6/discretization.py`
   pour préserver la lisibilité et limiter les ruptures.
 
 Pour garder une lecture simple, il est pertinent de séparer cette
@@ -804,7 +804,7 @@ Fichier principal:
 
 Fichiers principaux:
 
-- `hydromodpy/solver/modflow_nwt/modflow/discretization.py`
+- `hydromodpy/solver/modflow_nwt/nwt/discretization.py`
 - `hydromodpy/solver/modflow_common/solver_mesh.py`
 - `hydromodpy/spatial/mesh/gmsh_grid/gmsh_planar_mesh.py`
 
@@ -818,7 +818,7 @@ Fichiers principaux:
 
 Fichiers principaux:
 
-- `hydromodpy/solver/modflow_nwt/modflow/property_mapping.py`
+- `hydromodpy/solver/modflow_nwt/nwt/property_mapping.py`
 - futur `hydromodpy/solver/modflow6/property_mapping.py`
 
 À traiter:
@@ -875,7 +875,7 @@ Fichiers principaux:
 
 ### Constat de départ
 
-`modflow_nwt/modflow` est déjà découpé en:
+`modflow_nwt/nwt` est déjà découpé en:
 
 - `discretization.py`
 - `property_mapping.py`
@@ -1165,7 +1165,7 @@ La meilleure cible me semble être:
 
 1. `modflow_common`
    contient les abstractions vraiment communes
-2. `modflow_nwt/modflow`
+2. `modflow_nwt/nwt`
    contient l'adaptation structurée spécifique NWT
 3. `modflow6`
    contient l'adaptation `DISV` spécifique MF6

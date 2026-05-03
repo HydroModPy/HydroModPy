@@ -146,47 +146,36 @@ def convert_timeseries_csv_to_parquet(
     src: str | Path,
     dest: str | Path,
 ) -> Path:
-    """Convert a validated timeseries CSV into a Parquet file.
-
-    Returns the destination path. If pyarrow is not available, falls back
-    to writing a canonical CSV with the same columns (for environments
-    where Parquet is not installed). In both cases the caller sees a
-    ``.parquet`` suffix, consistent with internal pivot semantics.
-    """
+    """Convert a validated timeseries CSV into a Parquet file."""
     src = Path(src)
     dest = Path(dest)
     artifact = read_timeseries_csv(src)
 
     dest.parent.mkdir(parents=True, exist_ok=True)
 
-    try:
-        import pyarrow as pa  # type: ignore
-        import pyarrow.parquet as pq  # type: ignore
-    except ModuleNotFoundError:
-        _write_timeseries_as_csv(artifact, dest)
-        return dest
+    import duckdb
+    import pandas as pd
 
-    table = pa.table(
+    frame = pd.DataFrame(
         {
-            "datetime": [r[0] for r in artifact.records],
-            "value": [r[1] for r in artifact.records],
+            "datetime": [record[0] for record in artifact.records],
+            "value": [record[1] for record in artifact.records],
             "station_id": [artifact.station_id] * len(artifact.records),
-        }
+        },
     )
-    pq.write_table(table, dest, compression="zstd")
+    tmp = dest.with_name(dest.name + ".tmp")
+    conn = duckdb.connect(":memory:")
+    try:
+        conn.register("_hmp_timeseries_csv", frame)
+        tmp_sql = str(tmp).replace("'", "''")
+        conn.execute(
+            f"COPY (SELECT * FROM _hmp_timeseries_csv) TO '{tmp_sql}' "
+            "(FORMAT PARQUET, COMPRESSION ZSTD)"
+        )
+    finally:
+        conn.close()
+    tmp.replace(dest)
     return dest
-
-
-def _write_timeseries_as_csv(
-    artifact: TimeSeriesArtifact,
-    dest: Path,
-) -> None:
-    """CSV fallback for environments lacking pyarrow/parquet."""
-    with dest.open("w", encoding="utf-8", newline="") as fh:
-        writer = csv.writer(fh)
-        writer.writerow(("datetime", "value", "station_id"))
-        for dt, val in artifact.records:
-            writer.writerow((dt.isoformat(), "" if val is None else repr(val), artifact.station_id))
 
 
 def read_locations_csv(path: str | Path) -> LocationsArtifact:
@@ -270,11 +259,7 @@ def convert_locations_csv_to_geoparquet(
     src: str | Path,
     dest: str | Path,
 ) -> Path:
-    """Convert a locations CSV into a GeoParquet file.
-
-    When ``geopandas`` is unavailable (e.g. minimal env), writes a
-    canonical Parquet-compatible CSV as a fallback with the same columns.
-    """
+    """Convert a locations CSV into a Parquet vector table with WKB geometry."""
     src = Path(src)
     dest = Path(dest)
     artifact = read_locations_csv(src)
@@ -283,35 +268,32 @@ def convert_locations_csv_to_geoparquet(
 
     dest.parent.mkdir(parents=True, exist_ok=True)
 
-    try:
-        import geopandas as gpd  # type: ignore
-        from shapely.geometry import Point  # type: ignore
-    except ModuleNotFoundError:
-        _write_locations_as_csv(artifact, dest)
-        return dest
+    import duckdb
+    import pandas as pd
+    from shapely.geometry import Point
 
     geoms = [Point(s["x"], s["y"]) for s in artifact.stations]
-    gdf = gpd.GeoDataFrame(
+    frame = pd.DataFrame(
         {
             "id": [s["id"] for s in artifact.stations],
             "unit": [s["unit"] for s in artifact.stations],
+            "crs": [artifact.crs] * len(artifact.stations),
+            "geometry_wkb": [bytes(geom.wkb) for geom in geoms],
         },
-        geometry=geoms,
-        crs=artifact.crs or None,
     )
-    gdf.to_parquet(dest)
+    tmp = dest.with_name(dest.name + ".tmp")
+    conn = duckdb.connect(":memory:")
+    try:
+        conn.register("_hmp_locations_csv", frame)
+        tmp_sql = str(tmp).replace("'", "''")
+        conn.execute(
+            f"COPY (SELECT * FROM _hmp_locations_csv) TO '{tmp_sql}' "
+            "(FORMAT PARQUET, COMPRESSION ZSTD)"
+        )
+    finally:
+        conn.close()
+    tmp.replace(dest)
     return dest
-
-
-def _write_locations_as_csv(
-    artifact: LocationsArtifact,
-    dest: Path,
-) -> None:
-    with dest.open("w", encoding="utf-8", newline="") as fh:
-        writer = csv.writer(fh)
-        writer.writerow(("id", "x", "y", "crs", "unit"))
-        for s in artifact.stations:
-            writer.writerow((s["id"], s["x"], s["y"], s["crs"], s["unit"]))
 
 
 def iter_chronicle_files(custom_dir: Path) -> Iterable[Path]:

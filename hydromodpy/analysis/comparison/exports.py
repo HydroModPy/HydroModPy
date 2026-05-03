@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import csv
 import json
-import logging
 import math
 from collections.abc import Iterable, Mapping
 from pathlib import Path
@@ -13,8 +12,9 @@ from typing import TYPE_CHECKING, Any
 
 import numpy as np
 
-from hydromodpy.analysis.comparison.runtime import resolve_bundle_cells
-from hydromodpy.core.config.toml_loader import load_toml_with_base_config
+from hydromodpy.analysis.comparison.runtime_mesh import resolve_bundle_cells
+from hydromodpy.core.logging import get_logger
+from hydromodpy.core.toml_io.loader import load_toml_with_base_config
 from hydromodpy.core.units.scalar import parse_scalar_and_unit
 from hydromodpy.core.units.volumetric_flow import factor_to_m3_per_s
 from hydromodpy.physics.flow.history_contract import build_transient_time_axes
@@ -22,7 +22,7 @@ from hydromodpy.physics.flow.history_contract import build_transient_time_axes
 if TYPE_CHECKING:
     from hydromodpy.results.catalog import SimulationCatalog
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 HYDROGRAPHIC_NETWORK_METRICS_FIELDS = [
     "comparison_id",
@@ -220,12 +220,13 @@ def write_observable_chronicle_exports(
         and _as_float(row.get("value")) is not None
     ]
 
-    wide_index: dict[tuple[str, str, str, str], dict[str, Any]] = {}
+    wide_index: dict[tuple[str, str, str, str, str], dict[str, Any]] = {}
     for row in long_rows:
         key = (
             str(row.get("observable", "")),
             str(row.get("unit", "")),
             str(row.get("comparison_time_key", "")),
+            str(row.get("time_index", "")),
             str(row.get("value_index", "")),
         )
         item = wide_index.setdefault(
@@ -528,26 +529,14 @@ def write_hydrographic_network_metrics_export(
     reference_role: str = "reference",
     candidate_role: str = "generated",
 ) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
-    """Write one flat CSV of per-run hydrographic-network comparison metrics.
-
-    The export is opportunistic: variants are skipped when their resolved run
-    does not expose both canonical hydrographic-network features.
-    """
-    from hydromodpy.analysis.comparison.runtime import discover_result_store
-    from hydromodpy.spatial.geographic.core.hydrographic_network import (
-        canonical_feature_name_for_role,
-    )
-
-    reference_feature_name = canonical_feature_name_for_role(reference_role)
-    candidate_feature_name = canonical_feature_name_for_role(candidate_role)
-    if reference_feature_name is None or candidate_feature_name is None:
-        raise ValueError(
-            "Unknown hydrographic-network role. Expected canonical roles such as "
-            "'reference' and 'generated'."
-        )
+    """Write one flat CSV of per-run hydrographic-network comparison metrics."""
+    from hydromodpy.analysis.comparison.runtime_metadata import discover_result_store
 
     rows: list[dict[str, Any]] = []
     skipped_variants: list[dict[str, Any]] = []
+    reference_feature_name: str | None = None
+    candidate_feature_name: str | None = None
+
     for summary in _completed_variant_summaries(variant_summaries):
         variant_id = str(summary.get("id", ""))
         config_path_raw = summary.get("config_path")
@@ -556,12 +545,8 @@ def write_hydrographic_network_metrics_export(
         preferred_run_name = summary.get("run_name")
         store, sim_id = discover_result_store(
             config_path,
-            preferred_sim_id=(
-                None if preferred_sim_id in (None, "") else str(preferred_sim_id)
-            ),
-            preferred_name=(
-                None if preferred_run_name in (None, "") else str(preferred_run_name)
-            ),
+            preferred_sim_id=(None if preferred_sim_id in (None, "") else str(preferred_sim_id)),
+            preferred_name=(None if preferred_run_name in (None, "") else str(preferred_run_name)),
         )
         if store is None or sim_id in (None, ""):
             skipped_variants.append(
@@ -574,6 +559,10 @@ def write_hydrographic_network_metrics_export(
             continue
         try:
             run = store[str(sim_id)]
+            reference_contract = run.hydrographic_network_naming(reference_role)
+            candidate_contract = run.hydrographic_network_naming(candidate_role)
+            reference_feature_name = reference_contract.get("canonical_feature_name")
+            candidate_feature_name = candidate_contract.get("canonical_feature_name")
             available_roles = run.available_hydrographic_network_roles()
             if not {reference_role, candidate_role}.issubset(set(available_roles)):
                 skipped_variants.append(
@@ -676,12 +665,9 @@ def write_simulated_active_network_metrics_export(
     threshold: float = 0.0,
     persistence_threshold: float = 0.5,
 ) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
-    """Write scalar metrics for the simulated active drainage network.
-
-    The export summarizes time-varying cell fields. It does not imply that a
-    persisted ``hydrographic_network_simulated_active`` vector feature exists.
-    """
-    from hydromodpy.analysis.comparison.runtime import discover_result_store
+    """Write scalar metrics for the simulated active drainage network."""
+    from hydromodpy.analysis.comparison.runtime_metadata import discover_result_store
+    from hydromodpy.results import views
 
     rows: list[dict[str, Any]] = []
     skipped_variants: list[dict[str, Any]] = []
@@ -693,12 +679,8 @@ def write_simulated_active_network_metrics_export(
         preferred_run_name = summary.get("run_name")
         store, sim_id = discover_result_store(
             config_path,
-            preferred_sim_id=(
-                None if preferred_sim_id in (None, "") else str(preferred_sim_id)
-            ),
-            preferred_name=(
-                None if preferred_run_name in (None, "") else str(preferred_run_name)
-            ),
+            preferred_sim_id=(None if preferred_sim_id in (None, "") else str(preferred_sim_id)),
+            preferred_name=(None if preferred_run_name in (None, "") else str(preferred_run_name)),
         )
         if store is None or sim_id in (None, ""):
             skipped_variants.append(
@@ -711,7 +693,17 @@ def write_simulated_active_network_metrics_export(
             continue
         try:
             run = store[str(sim_id)]
-            metrics = run.simulated_active_network_metrics(
+            if not run.has_field(variable):
+                skipped_variants.append(
+                    {
+                        "variant_id": variant_id,
+                        "reason": "missing_simulated_active_field",
+                        "source_variable": variable,
+                    }
+                )
+                continue
+            metrics = views.simulated_active_network_metrics(
+                run,
                 variable=variable,
                 threshold=threshold,
                 persistence_threshold=persistence_threshold,
@@ -802,18 +794,14 @@ def write_simulated_active_network_overlap_metrics_export(
     network_role: str = "reference",
     variable: str = "accumulation_flux",
     threshold: float = 0.0,
-    mode: str | None = None,
+    mode: str = "persistent",
     persistence_threshold: float = 0.5,
     timestep: int | None = None,
     buffer_m: float = 0.0,
 ) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
-    """Write cell-overlap metrics between simulated-active cells and a vector role.
-
-    When ``mode`` is omitted, each run resolves its default from ``flow_regime``:
-    steady runs use their steady-state field, transient runs use the persistent
-    occupancy rule for backward compatibility.
-    """
-    from hydromodpy.analysis.comparison.runtime import discover_result_store
+    """Write cell-overlap metrics between simulated-active cells and a vector role."""
+    from hydromodpy.analysis.comparison.runtime_metadata import discover_result_store
+    from hydromodpy.results import views
 
     rows: list[dict[str, Any]] = []
     skipped_variants: list[dict[str, Any]] = []
@@ -825,12 +813,8 @@ def write_simulated_active_network_overlap_metrics_export(
         preferred_run_name = summary.get("run_name")
         store, sim_id = discover_result_store(
             config_path,
-            preferred_sim_id=(
-                None if preferred_sim_id in (None, "") else str(preferred_sim_id)
-            ),
-            preferred_name=(
-                None if preferred_run_name in (None, "") else str(preferred_run_name)
-            ),
+            preferred_sim_id=(None if preferred_sim_id in (None, "") else str(preferred_sim_id)),
+            preferred_name=(None if preferred_run_name in (None, "") else str(preferred_run_name)),
         )
         if store is None or sim_id in (None, ""):
             skipped_variants.append(
@@ -865,13 +849,15 @@ def write_simulated_active_network_overlap_metrics_export(
                     }
                 )
                 continue
-            zarr_root = store.open_zarr(str(sim_id)).root
-            mesh = zarr_root.get("mesh")
-            if (
-                mesh is None
-                or "vertices" not in mesh
-                or "face_node_connectivity" not in mesh
-            ):
+            sz = store.open_zarr(str(sim_id))
+            try:
+                mesh = sz.root.get("mesh")
+                has_mesh = (
+                    mesh is not None and "vertices" in mesh and "face_node_connectivity" in mesh
+                )
+            finally:
+                sz.close()
+            if not has_mesh:
                 skipped_variants.append(
                     {
                         "variant_id": variant_id,
@@ -881,7 +867,8 @@ def write_simulated_active_network_overlap_metrics_export(
                     }
                 )
                 continue
-            metrics = run.simulated_active_network_overlap_metrics(
+            metrics = views.simulated_active_network_overlap_metrics(
+                run,
                 network_role=network_role,
                 variable=variable,
                 threshold=threshold,
@@ -933,7 +920,7 @@ def write_simulated_active_network_overlap_metrics_export(
             "network_role": network_role,
             "source_variable": variable,
             "threshold": float(threshold),
-            "mode": mode or "auto",
+            "mode": mode,
             "persistence_threshold": float(persistence_threshold),
             "timestep": timestep,
             "buffer_m": float(buffer_m),
@@ -964,9 +951,7 @@ def write_simulated_active_network_overlap_metrics_export(
 
     path = comparison_root / "simulated_active_network_overlap_metrics.csv"
     _write_csv(path, rows, SIMULATED_ACTIVE_NETWORK_OVERLAP_METRICS_FIELDS)
-    artifacts.append(
-        {"kind": "simulated_active_network_overlap_metrics_csv", "path": str(path)}
-    )
+    artifacts.append({"kind": "simulated_active_network_overlap_metrics_csv", "path": str(path)})
     logger.info(
         "Wrote simulated-active network overlap metrics export for %d variant(s) to %s",
         len(rows),
@@ -1000,7 +985,6 @@ def _elapsed_seconds_axis(period_lengths: np.ndarray, *, n_snapshots: int) -> np
 
 
 def _namespace_from_mapping(value: Any) -> Any:
-    """Return an attribute-access view for one TOML/JSON mapping."""
     if isinstance(value, Mapping):
         return SimpleNamespace(
             **{str(key): _namespace_from_mapping(item) for key, item in value.items()}
@@ -1085,12 +1069,7 @@ def _flux_factor_to_m3_s(unit: str) -> float:
 
 
 def _catalog_budget_factor_to_m3_s(*, solver: str, unit: str) -> float:
-    """Return the catalog budget conversion factor for one solver row.
-
-    Older MODFLOW 6 catalog rows were labelled ``m3/d`` even though the
-    HydroModPy MF6 wrapper runs TDIS in seconds and stores SI flux magnitudes.
-    Treat those legacy labels as already-normalized for MF6 only.
-    """
+    """Return the catalog budget conversion factor for one solver row."""
     unit_text = str(unit or "").strip().lower()
     solver_key = str(solver or "").strip().lower()
     if solver_key == "modflow6" and unit_text in {"m3/d", "m3/day", "m^3/day"}:
@@ -1156,22 +1135,25 @@ def _load_boussinesq_state_from_store(
     Returns a dict-like mapping of array names to numpy arrays (same
     interface as ``np.load(...)``), or ``None`` if unavailable.
     """
+    sz = None
     try:
-        grp = store.open_zarr_group(sim_id)
+        sz = store.open_zarr(sim_id)
+        grp = sz.root
     except (KeyError, Exception):
         return None
 
-    state_grp = grp.get("boussinesq_state")
-    if state_grp is None:
-        return None
-
-    # Build a lazy dict reading arrays on demand.
-    result: dict[str, np.ndarray] = {}
     try:
+        state_grp = grp.get("boussinesq_state")
+        if state_grp is None:
+            return None
+        result: dict[str, np.ndarray] = {}
         for key in state_grp:
             result[key] = np.asarray(state_grp[key][:])
     except Exception:
         return None
+    finally:
+        if sz is not None:
+            sz.close()
 
     return result if result else None
 
@@ -1184,8 +1166,6 @@ def _load_boussinesq_budget_rows(
     run_folder = Path(str(summary.get("run_folder", "")))
     config_path_raw = summary.get("config_path")
     config_path = None if config_path_raw in (None, "") else Path(str(config_path_raw))
-
-    # --- Try SimulationCatalog first ------------------------------------------------
     payload: Mapping[str, Any] | None = None
     source_label: str = ""
     if store is not None and sim_id is not None:
@@ -1197,13 +1177,8 @@ def _load_boussinesq_budget_rows(
                 sim_id,
             )
 
-    # --- Fallback to legacy .npz file -----------------------------------------
     if payload is None:
-        npz_path = run_folder / "_boussinesq_state_history.npz"
-        if not npz_path.exists():
-            return []
-        payload = np.load(npz_path, allow_pickle=True)
-        source_label = str(npz_path)
+        return []
 
     recharge_history = _history_matrix(payload, "recharge_rate_history_m_s")
     well_history = _history_matrix(payload, "well_flux_history_m3_s")
@@ -1386,9 +1361,7 @@ def _mf_budget_component_name(component: str) -> str:
         "evt": "evapotranspiration_total_m3_s",
         "et": "evapotranspiration_total_m3_s",
     }
-    if key.startswith("sto"):
-        return "storage_change_total_m3_s"
-    if key.startswith("storage"):
+    if key.startswith("sto") or key.startswith("storage"):
         return "storage_change_total_m3_s"
     return aliases.get(key, "")
 
@@ -1475,9 +1448,7 @@ def _load_catalog_budget_rows(
     rows: list[dict[str, Any]] = []
     for timestep, values in sorted(grouped_by_time.items()):
         elapsed = (
-            float(elapsed_axis[timestep])
-            if timestep < int(elapsed_axis.size)
-            else float(timestep)
+            float(elapsed_axis[timestep]) if timestep < int(elapsed_axis.size) else float(timestep)
         )
         time_label = f"{elapsed / 86400.0:.1f} d" if math.isfinite(elapsed) else str(timestep)
         for component, value in sorted(values.items()):
@@ -1507,7 +1478,7 @@ def write_budget_exports(
     variant_summaries: Iterable[Mapping[str, Any]],
 ) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
     """Write budget diagnostics derived from Boussinesq state histories."""
-    from hydromodpy.analysis.comparison.runtime import discover_result_store
+    from hydromodpy.analysis.comparison.runtime_metadata import discover_result_store
 
     rows: list[dict[str, Any]] = []
     for summary in _completed_variant_summaries(variant_summaries):
@@ -1517,12 +1488,8 @@ def write_budget_exports(
         preferred_run_name = summary.get("run_name")
         store, sim_id = discover_result_store(
             config_path,
-            preferred_sim_id=(
-                None if preferred_sim_id in (None, "") else str(preferred_sim_id)
-            ),
-            preferred_name=(
-                None if preferred_run_name in (None, "") else str(preferred_run_name)
-            ),
+            preferred_sim_id=(None if preferred_sim_id in (None, "") else str(preferred_sim_id)),
+            preferred_name=(None if preferred_run_name in (None, "") else str(preferred_run_name)),
         )
         try:
             catalog_rows = _load_catalog_budget_rows(summary, store, sim_id)
@@ -1562,19 +1529,12 @@ def write_budget_exports(
 
     wide_index: dict[tuple[str, str], dict[str, Any]] = {}
     for row in rows:
-        elapsed = _as_float(row.get("elapsed_seconds"))
-        time_key = (
-            f"elapsed_seconds:{elapsed:.9g}"
-            if elapsed is not None
-            else f"time_index:{int(row['time_index'])}"
-        )
-        key = (str(row["component"]), time_key)
+        key = (str(row["component"]), str(row.get("elapsed_seconds", row.get("time_index", ""))))
         item = wide_index.setdefault(
             key,
             {
                 "component": row["component"],
                 "unit": row["unit"],
-                "comparison_time_key": time_key,
                 "time_index": row["time_index"],
                 "elapsed_seconds": row["elapsed_seconds"],
                 "time_label": row["time_label"],
@@ -1587,8 +1547,7 @@ def write_budget_exports(
     _write_csv(
         wide_path,
         wide_rows,
-        ["component", "unit", "comparison_time_key", "time_index", "elapsed_seconds", "time_label"]
-        + variant_columns,
+        ["component", "unit", "time_index", "elapsed_seconds", "time_label"] + variant_columns,
     )
     artifacts.append({"kind": "budget_timeseries_wide_csv", "path": str(wide_path)})
     return artifacts, rows

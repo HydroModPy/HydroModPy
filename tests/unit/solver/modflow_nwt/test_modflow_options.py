@@ -3,7 +3,7 @@ from __future__ import annotations
 import pytest
 
 from hydromodpy.physics.flow.sinks_sources import FlowRechargeConfig
-from hydromodpy.solver.modflow_nwt.modflow import (
+from hydromodpy.solver.modflow_nwt.nwt import (
     ModflowPostprocessOptions,
     ModflowPreprocessOptions,
     ModflowRunOptions,
@@ -82,14 +82,25 @@ def test_recharge_config_first_clim_rejects_unknown_keyword():
         FlowRechargeConfig(values=0.001, first_clim="median")
 
 
-def test_recharge_config_accepts_list_values():
-    cfg = FlowRechargeConfig(values=[0.001, 0.0008, -0.0002], negative_to_evt=True)
+def test_recharge_config_accepts_non_negative_list_values():
+    cfg = FlowRechargeConfig(values=[0.001, 0.0008, 0.0002])
 
-    assert cfg.values == [0.001, 0.0008, -0.0002]
+    assert cfg.values == [0.001, 0.0008, 0.0002]
+
+
+@pytest.mark.parametrize("value", [None, float("nan"), float("inf")])
+def test_recharge_config_rejects_invalid_numeric_values(value):
+    with pytest.raises(ValueError):
+        FlowRechargeConfig(values=value)
+
+
+def test_recharge_config_accepts_negative_values_when_routed_to_evt():
+    cfg = FlowRechargeConfig(values=[0.001, -0.0002])
+
     assert cfg.negative_to_evt is True
+    assert cfg.values == [0.001, -0.0002]
 
 
-def test_recharge_config_negative_to_evt_default_true():
-    cfg = FlowRechargeConfig(values=0.001)
-
-    assert cfg.negative_to_evt is True
+def test_recharge_config_rejects_negative_values_when_evt_routing_disabled():
+    with pytest.raises(ValueError, match="non-negative"):
+        FlowRechargeConfig(values=[0.001, -0.0002], negative_to_evt=False)

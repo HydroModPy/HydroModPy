@@ -20,6 +20,6 @@ def configure_whitebox_single_thread(monkeypatch: pytest.MonkeyPatch) -> None:
 
     clear_whitebox_backend_cache()
     tool = get_whitebox_backend()
-    env = getattr(tool, "_env", None)
+    env = getattr(tool.raster, "_env", None)
     if env is not None and hasattr(env, "max_procs"):
         env.max_procs = 1

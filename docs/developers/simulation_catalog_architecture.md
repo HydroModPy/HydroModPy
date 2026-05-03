@@ -10,11 +10,10 @@ toutes les simulations du workspace.
 Liens : [glossary.md](glossary.md),
 [parquet_lakehouse_architecture.md](parquet_lakehouse_architecture.md),
 [parquet_lakehouse_concurrency.md](parquet_lakehouse_concurrency.md),
-[parquet_lakehouse_migration_guide.md](parquet_lakehouse_migration_guide.md),
 [schema_evolution.md](schema_evolution.md),
 [calibration_guide.md](calibration_guide.md).
 
-Note v0.6 (refactor Parquet lakehouse) : les tables `timeseries`,
+Note v1 (refactor Parquet lakehouse) : les tables `timeseries`,
 `budgets` et `mass_balance` ne sont plus stockées dans
 `hydromodpy.duckdb`. Elles vivent désormais en Parquet par simulation
 sous `simulations/<uuid>.parquet/`, exposées comme des vues DuckDB du

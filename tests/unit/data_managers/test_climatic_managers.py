@@ -6,6 +6,7 @@ RechargeSourceConfig validation, and custom grid loaders.
 
 from __future__ import annotations
 
+import builtins
 import hashlib
 from datetime import datetime
 from pathlib import Path
@@ -16,7 +17,7 @@ import pandas as pd
 import pytest
 import xarray as xr
 
-from hydromodpy.data.base_manager import BaseFieldManager
+from hydromodpy.data.base_manager_field import BaseFieldManager
 from hydromodpy.data.common.custom_grid_loader import (
     _find_coord,
     _find_time_dim,
@@ -519,6 +520,8 @@ class TestLoadCustomNc:
             },
         )
         ds["recharge"].attrs["units"] = "m/day"
+        ds["recharge"].attrs["nodata"] = -9999.0
+        ds.attrs["crs"] = "EPSG:4326"
         nc_path = tmp_path / "test_recharge.nc"
         ds.to_netcdf(nc_path)
 
@@ -558,6 +561,8 @@ class TestLoadCustomNc:
                 "y": [10.0, 20.0],
             },
         )
+        ds["etp"].attrs["nodata"] = -9999.0
+        ds.attrs["crs"] = "EPSG:4326"
         nc_path = tmp_path / "etp_explicit_source_unit.nc"
         ds.to_netcdf(nc_path)
 
@@ -588,6 +593,8 @@ class TestLoadCustomNc:
                 "y": [10.0, 20.0, 30.0],
             },
         )
+        ds["etp"].attrs["nodata"] = -9999.0
+        ds.attrs["crs"] = "EPSG:4326"
         nc_path = tmp_path / "etp.nc"
         ds.to_netcdf(nc_path)
 
@@ -613,6 +620,8 @@ class TestLoadCustomNc:
                 "y": np.arange(5),
             },
         )
+        ds["soil_k"].attrs["nodata"] = -9999.0
+        ds.attrs["crs"] = "EPSG:4326"
         nc_path = tmp_path / "soil.nc"
         ds.to_netcdf(nc_path)
 
@@ -622,22 +631,48 @@ class TestLoadCustomNc:
         assert rec.date_end is None
         assert rec.frequency is None
 
+    def test_load_rejects_missing_crs(self, tmp_path):
+        ds = xr.Dataset(
+            {"soil_k": (["x", "y"], np.ones((2, 2)))},
+            coords={"x": [0.0, 1.0], "y": [0.0, 1.0]},
+        )
+        ds["soil_k"].attrs["nodata"] = -9999.0
+        nc_path = tmp_path / "missing_crs.nc"
+        ds.to_netcdf(nc_path)
+
+        with pytest.raises(ValueError, match="CRS"):
+            load_custom_nc(nc_path, variable="soil_k", unit="m/s")
+
+    def test_load_rejects_missing_nodata(self, tmp_path):
+        ds = xr.Dataset(
+            {"soil_k": (["x", "y"], np.ones((2, 2)))},
+            coords={"x": [0.0, 1.0], "y": [0.0, 1.0]},
+            attrs={"crs": "EPSG:4326"},
+        )
+        nc_path = tmp_path / "missing_nodata.nc"
+        ds.to_netcdf(nc_path)
+
+        with pytest.raises(ValueError, match="nodata"):
+            load_custom_nc(nc_path, variable="soil_k", unit="m/s")
+
 
 @pytest.mark.fast
 class TestLoadCustomTif:
-    def test_skip_if_rioxarray_not_available(self):
+    def test_raises_import_error_when_rioxarray_not_available(self, monkeypatch):
         """If rioxarray is not installed, load_custom_tif should raise ImportError."""
-        try:
-            import rioxarray  # noqa: F401
+        real_import = builtins.__import__
 
-            pytest.skip("rioxarray is available; skip-test not applicable")
-        except ImportError:
-            from hydromodpy.data.common.custom_grid_loader import (
-                load_custom_tif,
-            )
+        def block_rioxarray_import(name, globals=None, locals=None, fromlist=(), level=0):
+            if name == "rioxarray":
+                raise ImportError("rioxarray import blocked by test")
+            return real_import(name, globals, locals, fromlist, level)
 
-            with pytest.raises(ImportError):
-                load_custom_tif(Path("/fake.tif"), variable="x", unit="y")
+        monkeypatch.setattr(builtins, "__import__", block_rioxarray_import)
+
+        from hydromodpy.data.common.custom_grid_loader import load_custom_tif
+
+        with pytest.raises(ImportError, match="rioxarray import blocked by test"):
+            load_custom_tif(Path("/fake.tif"), variable="x", unit="y")
 
 
 @pytest.mark.fast

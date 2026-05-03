@@ -17,14 +17,14 @@ Current Coverage
 - Process families populated today: Flow (24).
 - Benchmark families: Core 1D Dupuit Baselines (3), Steady 1D Boussinesq with Heterogeneous Conductivity (3), Steady 1D Boussinesq with Topography or Sloping Substratum (6), Steady 2D Radial or Island Cases (2), Transient 1D Boundary or Recharge Forcing (5), Transient 1D Recession or Interception Dynamics (3), Transient 2D Radial Response (1), XT3D Choice For Irregular MF6 Meshes (1).
 - Reference styles: Analytical Exact (10), Analytical Series (11), Diagnostic Comparison (1), Semi-Analytical / Diagnostic (2).
-- Solver variants discovered: MODFLOW-NWT (21), MODFLOW 6 (21), MODFLOW 6 irregular triangles (18), Boussinesq (21).
+- Solver variants discovered: MODFLOW-NWT (21), MODFLOW 6 (21), MODFLOW 6 irregular triangles (11), Boussinesq (21).
 
 Latest Batch Reports
 --------------------
 
 - MODFLOW-NWT: 21/21 cases passed on 2026-05-02T17:32:36.764494+00:00 (848.5 s), report ``validation_cases/reports/latest/modflownwt_both.json``.
 - MODFLOW 6: 21/21 cases passed on 2026-05-02T17:43:05.264506+00:00 (627.5 s), report ``validation_cases/reports/latest/modflow6_both.json``.
-- MODFLOW 6 irregular triangles: 18/18 cases passed on 2026-05-03T13:16:02.603625+00:00 (827.0 s), report ``validation_cases/reports/latest/modflow6_irregular_tri_both.json``.
+- MODFLOW 6 irregular triangles: 11/11 cases passed on 2026-05-02T17:53:35.365133+00:00 (627.9 s), report ``validation_cases/reports/latest/modflow6_irregular_tri_both.json``.
 - MODFLOW 6 irregular triangles: 11/11 cases passed on 2026-05-02T00:31:05.408573+00:00 (168.9 s), report ``validation_cases/reports/latest/modflow6_irregular_tri_steady.json``.
 - Boussinesq: 21/21 cases passed on 2026-05-02T18:09:32.157662+00:00 (947.9 s), report ``validation_cases/reports/latest/boussinesq_both.json``.
 

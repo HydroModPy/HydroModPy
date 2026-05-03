@@ -60,7 +60,7 @@ Filenames must be unique inside one case.
   "defaults": {
     "category": "geographic",
     "generator": "copy_assets",
-    "reproduction_command": "python examples/projects/data_overview/run_data_overview.py"
+    "reproduction_command": "hmp run examples/projects/05_nancon_data_overview/config_overview.toml"
   },
   "cases": [
     {
@@ -73,14 +73,14 @@ Filenames must be unique inside one case.
         "Second reading point."
       ],
       "source_paths": [
-        "examples/capability_gallery/geographic/example_case/example_case.png"
+        "examples/projects/09_capability_gallery/geographic/example_case/example_case.png"
       ],
       "image_assets": [
         {
           "filename": "example_case.png",
           "caption": "Committed figure copied into the docs gallery.",
           "alt_text": "Example gallery case",
-          "source_path": "examples/capability_gallery/geographic/example_case/example_case.png"
+          "source_path": "examples/projects/09_capability_gallery/geographic/example_case/example_case.png"
         }
       ]
     }

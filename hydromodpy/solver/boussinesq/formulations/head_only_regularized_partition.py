@@ -2,10 +2,6 @@
 
 from __future__ import annotations
 
-from hydromodpy.solver.boussinesq.assembly import (
-    assemble_steady_residual,
-    assemble_transient_residual,
-)
 from hydromodpy.solver.boussinesq.formulations.common import (
     BoussinesqFormulationSpec,
 )
@@ -22,12 +18,7 @@ HEAD_ONLY_REGULARIZED_PARTITION = BoussinesqFormulationSpec(
     ),
 )
 
-assemble_steady_head_only_regularized_partition = assemble_steady_residual
-assemble_transient_head_only_regularized_partition = assemble_transient_residual
-
 
 __all__ = [
     "HEAD_ONLY_REGULARIZED_PARTITION",
-    "assemble_steady_head_only_regularized_partition",
-    "assemble_transient_head_only_regularized_partition",
 ]

@@ -17,33 +17,19 @@ This page explains the three levels that should not be confused:
 2. downstream accumulation of that outflow,
 3. a thresholded or persistence-based active-network mask.
 
-Quick Visual Reading
---------------------
-
-Read the simulated active network from the groundwater state toward the
-interpretation layer. The figure below is the shortest path through the
-concept:
-
-.. figure:: /_static/workflows/simulated_active_network/modflow6_active_network_four_panel.png
-   :alt: Four-panel reading path from MODFLOW 6 head to drain outflow, accumulation flux, and simulated active network mask
-   :width: 100%
-
-   The practical reading order is: solved water table, local positive drain
-   outflow, routed accumulation, then thresholded or persistent active-network
-   view. Only the first two panels should be read as groundwater state or local
-   flux. The last two panels are network diagnostics.
-
 Conceptual Contract
 -------------------
 
 HydroModPy keeps the raw simulated drainage signal as cell fields before any
 vector network is declared.
 
-For a perennial-network question, distinguish the steady-state scenario from
-the transient occupancy rule. A simulated perennial network should preferably
-be derived from a representative ``flow_regime = "steady"`` run, then compared
-with the observed ``reference`` network. The transient ``always_active`` mask
-only means active at all timesteps of the analysed chronicle.
+For a perennial-network question, distinguish the hydrological scenario from
+the transient occupancy rule. A representative steady-state computation uses
+``flow_regime = "steady"``. A simulated perennial network should be derived
+from such a steady-state run whenever possible, then compared with the observed
+``reference`` network. The transient
+``always_active`` mask only means active at all timesteps of the analysed
+chronicle.
 
 .. list-table::
    :header-rows: 1
@@ -62,22 +48,12 @@ only means active at all timesteps of the analysed chronicle.
        drainage contributions.
    * - ``simulated_active_network_mask``
      - Boolean or continuous mask derived from ``accumulation_flux``.
-     - Display and metric layer. The threshold must be explicit; the time rule
-       is implicit for ``steady`` runs and explicit for ``transient`` runs.
+     - Display and metric layer. The threshold and time rule must be explicit.
 
 The sign convention is intentionally normalized at the HydroModPy result level:
 ``outflow_drain`` is positive when water leaves the groundwater system. This is
 different from raw MODFLOW cell-budget records, where leaving the aquifer is
 usually stored with a negative sign.
-
-The same contract can be read as a processing ladder:
-
-.. uml:: diagrams/simulated_active_network_concept_ladder.wsd
-
-The main safety rule is simple: ``outflow_drain`` is the local mass-exchange
-quantity, while ``accumulation_flux`` is a routed network diagnostic. A
-thresholded mask derived from ``accumulation_flux`` is a display or comparison
-view, not a new observed river dataset.
 
 Why Accumulation Is Not Just Another Drain Map
 ----------------------------------------------
@@ -105,9 +81,6 @@ HydroModPy simulation workflow. The run has three stored timesteps and a
 structured 60 x 60 MODFLOW 6 support. The MODFLOW 6 extractor writes the solver
 mesh topology from the grid binary file, so the result layer can reshape fields
 on the solver grid instead of forcing the original DEM shape.
-
-The four-panel figure at the top of the page is the compact reading guide. The
-individual panels below keep the legends large enough for detailed inspection.
 
 .. figure:: /_static/workflows/simulated_active_network/modflow6_piezometric_map.png
    :alt: MODFLOW 6 water table map used as context for the simulated active network example
@@ -193,15 +166,6 @@ For ``flow/modflow6``, HydroModPy now uses the following result path:
 7. The display layer enables ``simulated_active_network`` when both
    ``accumulation_flux`` and plottable mesh topology are present.
 
-The runtime path is:
-
-.. uml:: diagrams/simulated_active_network_mf6_runtime.wsd
-
-This is the implementation detail that makes MODFLOW 6 different from a simple
-regular-raster postprocess. The solver support can be different from the source
-DEM support, so the output adapter must persist enough mesh topology for later
-views to know what each cell means.
-
 Programmatic Reading
 --------------------
 
@@ -221,16 +185,6 @@ Render the active-network figure when the capability is available:
 
    if "simulated_active_network" in run.display_capabilities:
        run.plot("simulated_active_network", save="figures")
-
-For steady runs, do not pass a time mode unless you intentionally want to force
-a diagnostic snapshot. The default is the steady-state active-network field:
-
-.. code-block:: python
-
-   mask = run.simulated_active_network_mask(
-       variable="accumulation_flux",
-       threshold=0.0,
-   )
 
 For transient runs, select the time rule explicitly:
 
@@ -252,12 +206,8 @@ The main modes are:
 - ``persistence``: continuous active-time fraction.
 
 ``perennial`` is kept as a legacy alias for ``always_active``. A hydrological
-perennial network should preferably come from a representative
-``flow_regime = "steady"`` scenario, not from an arbitrary transient window.
-
-The transient modes can be read as:
-
-.. uml:: diagrams/simulated_active_network_time_modes.wsd
+perennial network should preferably come from a representative steady-state
+scenario, not from an arbitrary transient window.
 
 What This Is Not Yet
 --------------------

@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from hydromodpy.pipeline import (
+from hydromodpy.workflow.internals.state import (
     DerivedState,
     ExportedState,
     ExtractedState,
@@ -133,7 +133,7 @@ def test_pipeline_state_mapping_payload_still_supported() -> None:
 
 
 def test_each_step_class_declares_tin_tout() -> None:
-    from hydromodpy.pipeline.steps import (
+    from hydromodpy.workflow.steps import (
         BuildGeographicStep,
         BuildMeshStep,
         DeriveStep,

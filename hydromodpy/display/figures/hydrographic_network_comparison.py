@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from hydromodpy.display._map_axes import overlay_watershed_contour, style_map_axes
 from hydromodpy.display.catalog import register
@@ -14,9 +14,6 @@ if TYPE_CHECKING:
     from matplotlib.figure import Figure as MplFigure
 
     from hydromodpy.results.run import Run
-    from hydromodpy.spatial.geographic.core.hydrographic_network_comparison import (
-        HydrographicNetworkComparison,
-    )
 
 
 @register
@@ -124,7 +121,7 @@ class HydrographicNetworkComparisonFigure(GeoFigureMixin, BaseFigure):
         self,
         ax: Axes,
         sim: Run,
-        comparison: HydrographicNetworkComparison,
+        comparison: Any,
         *,
         gdf,
         color: str,
@@ -161,7 +158,7 @@ class HydrographicNetworkComparisonFigure(GeoFigureMixin, BaseFigure):
         self,
         ax: Axes,
         sim: Run,
-        comparison: HydrographicNetworkComparison,
+        comparison: Any,
     ) -> None:
         self._plot_tolerance_buffer(
             ax,
@@ -199,7 +196,7 @@ class HydrographicNetworkComparisonFigure(GeoFigureMixin, BaseFigure):
         self,
         ax: Axes,
         sim: Run,
-        comparison: HydrographicNetworkComparison,
+        comparison: Any,
     ) -> None:
         self._plot_tolerance_buffer(
             ax,
@@ -263,7 +260,7 @@ class HydrographicNetworkComparisonFigure(GeoFigureMixin, BaseFigure):
         self,
         ax: Axes,
         sim: Run,
-        comparison: HydrographicNetworkComparison,
+        comparison: Any,
         *,
         title: str,
     ) -> None:
@@ -309,7 +306,7 @@ class HydrographicNetworkComparisonFigure(GeoFigureMixin, BaseFigure):
     @staticmethod
     def _plot_tolerance_buffer(
         ax: Axes,
-        comparison: HydrographicNetworkComparison,
+        comparison: Any,
         *,
         facecolor: str,
         alpha: float,
@@ -398,7 +395,7 @@ class _HydrographicNetworkDifferenceRoleFigure(HydrographicNetworkComparisonFigu
         self,
         ax: Axes,
         sim: Run,
-        comparison: HydrographicNetworkComparison,
+        comparison: Any,
     ) -> None:
         raise NotImplementedError
 
@@ -417,7 +414,7 @@ class HydrographicNetworkReferenceMissingOnlyFigure(_HydrographicNetworkDifferen
         self,
         ax: Axes,
         sim: Run,
-        comparison: HydrographicNetworkComparison,
+        comparison: Any,
     ) -> None:
         self._plot_tolerance_buffer(
             ax,
@@ -491,7 +488,7 @@ class HydrographicNetworkGeneratedExtraOnlyFigure(_HydrographicNetworkDifference
         self,
         ax: Axes,
         sim: Run,
-        comparison: HydrographicNetworkComparison,
+        comparison: Any,
     ) -> None:
         self._plot_tolerance_buffer(
             ax,
@@ -586,7 +583,7 @@ def _buffer_gdf(gdf, *, tolerance_m: float):
     return gpd.GeoDataFrame(geometry=[polygon], crs=gdf.crs)
 
 
-def _comparison_summary_text(comparison: HydrographicNetworkComparison) -> str:
+def _comparison_summary_text(comparison: Any) -> str:
     return "\n".join(
         [
             f"ref length: {_fmt_km(comparison.reference_total_length_m)}",
@@ -635,7 +632,12 @@ def _overlay_legend_handles(tolerance_m: float):
     from matplotlib.patches import Patch
 
     return [
-        Patch(facecolor="#9ecae1", edgecolor="none", alpha=0.18, label=f"ref tolerance ({tolerance_m:.0f} m)"),
+        Patch(
+            facecolor="#9ecae1",
+            edgecolor="none",
+            alpha=0.18,
+            label=f"ref tolerance ({tolerance_m:.0f} m)",
+        ),
         Line2D([0], [0], color="#222222", linewidth=1.4, label="reference"),
         Line2D([0], [0], color="#2a6f97", linewidth=1.15, label="generated"),
     ]
@@ -646,7 +648,12 @@ def _diff_legend_handles(tolerance_m: float):
     from matplotlib.patches import Patch
 
     return [
-        Patch(facecolor="#d9ecf7", edgecolor="none", alpha=0.14, label=f"ref tolerance ({tolerance_m:.0f} m)"),
+        Patch(
+            facecolor="#d9ecf7",
+            edgecolor="none",
+            alpha=0.14,
+            label=f"ref tolerance ({tolerance_m:.0f} m)",
+        ),
         Line2D([0], [0], color="#c4c4c4", linewidth=1.1, label="reference matched"),
         Line2D([0], [0], color="#6ea8c7", linewidth=0.9, label="generated near ref"),
         Line2D([0], [0], color="#c0392b", linewidth=1.5, label="reference missing"),
@@ -659,7 +666,12 @@ def _reference_missing_legend_handles(tolerance_m: float):
     from matplotlib.patches import Patch
 
     return [
-        Patch(facecolor="#f4e5e2", edgecolor="none", alpha=0.18, label=f"ref tolerance ({tolerance_m:.0f} m)"),
+        Patch(
+            facecolor="#f4e5e2",
+            edgecolor="none",
+            alpha=0.18,
+            label=f"ref tolerance ({tolerance_m:.0f} m)",
+        ),
         Line2D([0], [0], color="#bbbbbb", linewidth=1.2, label="reference context"),
         Line2D([0], [0], color="#9dc2d7", linewidth=0.9, label="generated context"),
         Line2D([0], [0], color="#c0392b", linewidth=1.8, label="reference missing"),
@@ -671,7 +683,12 @@ def _generated_extra_legend_handles(tolerance_m: float):
     from matplotlib.patches import Patch
 
     return [
-        Patch(facecolor="#fff0d9", edgecolor="none", alpha=0.18, label=f"ref tolerance ({tolerance_m:.0f} m)"),
+        Patch(
+            facecolor="#fff0d9",
+            edgecolor="none",
+            alpha=0.18,
+            label=f"ref tolerance ({tolerance_m:.0f} m)",
+        ),
         Line2D([0], [0], color="#b0b0b0", linewidth=1.1, label="reference context"),
         Line2D([0], [0], color="#9dc2d7", linewidth=0.95, label="generated context"),
         Line2D([0], [0], color="#d97706", linewidth=1.8, label="generated extra"),

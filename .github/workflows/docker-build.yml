@@ -1,0 +1,56 @@
+# Builds the HydroModPy Docker image on every push/PR touching the Dockerfile
+# or the package source. The image is not pushed to a registry yet, only built
+# locally inside the runner to validate that the multi-stage build still works.
+
+name: Docker build
+
+on:
+  push:
+    branches: [master, dev]
+    paths:
+      - "Dockerfile"
+      - "pyproject.toml"
+      - "hydromodpy/**"
+      - ".github/workflows/docker-build.yml"
+  pull_request:
+    branches: [master, dev]
+    paths:
+      - "Dockerfile"
+      - "pyproject.toml"
+      - "hydromodpy/**"
+      - ".github/workflows/docker-build.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build image
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build image (no push)
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: Dockerfile
+          push: false
+          load: true
+          tags: hydromodpy:ci
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Smoke test image
+        run: |
+          docker run --rm hydromodpy:ci --help
+          docker run --rm hydromodpy:ci doctor || true

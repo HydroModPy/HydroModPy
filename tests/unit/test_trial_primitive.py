@@ -1,4 +1,4 @@
-"""Unit tests for :mod:`hydromodpy.simulation.execution.trial`.
+"""Unit tests for :mod:`hydromodpy.calibration.runners.trial`.
 
 Phase 1 introduces the lightweight trial primitive that the
 calibration loop forks from. The surface tested here is intentionally
@@ -25,15 +25,15 @@ from typing import Any, ClassVar
 
 import pytest
 
-from hydromodpy.core.state.execution import ExecutionRegistry
-from hydromodpy.pipeline.state import PipelineState
-from hydromodpy.pipeline.step import Step  # noqa: F401
-from hydromodpy.simulation.execution.trial import (
+from hydromodpy.calibration.runners.trial import (
     TrialContext,
     TrialResult,
     _set_by_path,
     run_trial_light,
 )
+from hydromodpy.core.state.execution import ExecutionRegistry
+from hydromodpy.workflow.internals.state import PipelineState
+from hydromodpy.workflow.internals.step import Step  # noqa: F401
 
 # ---------------------------------------------------------------------------
 # Tiny cfg/ctx doubles that look enough like the real thing for the tests
@@ -219,7 +219,11 @@ class TestRunTrialLight:
     def test_runs_only_downstream_slice(self, tmp_path: Path) -> None:
         trial_ctx, steps = _make_trial_context(tmp_path, earliest=6)
         # First trial
-        result = run_trial_light(trial_ctx, {"K": 1.0})
+        result = run_trial_light(
+            trial_ctx,
+            {"K": 1.0},
+            metric_fn=lambda ctx, *, objective, variable: (0.0, {}),
+        )
         assert isinstance(result, TrialResult)
         assert result.status == "completed"
         # steps[0..5] must NOT have been called (they are the shared prep)
@@ -249,15 +253,17 @@ class TestRunTrialLight:
         assert result.primary_metric != result.primary_metric  # NaN
         assert "solver crashed" in (result.error or "")
 
-    def test_default_metric_returns_nan(self, tmp_path: Path) -> None:
-        """Phase 1 ships a stub metric extractor (NaN + empty metrics).
+    def test_default_metric_returns_failed_result(self, tmp_path: Path) -> None:
+        """The stub metric extractor fails the trial with a non-finite objective.
 
         The real extractor is swapped in by the calibration CLI in Phase 2.
         """
         trial_ctx, _ = _make_trial_context(tmp_path, earliest=6)
         result = run_trial_light(trial_ctx, {"K": 1.0})
+        assert result.status == "failed"
         assert result.primary_metric != result.primary_metric  # NaN
         assert result.metrics == {}
+        assert result.error == "metric_fn returned a non-finite objective"
 
     def test_custom_metric_fn_is_used_when_supplied(self, tmp_path: Path) -> None:
         trial_ctx, _ = _make_trial_context(tmp_path, earliest=6)

@@ -11,13 +11,13 @@ from typing import Annotated, ClassVar
 
 from pydantic import ConfigDict, Field, field_validator, model_validator
 
-from hydromodpy.core.config.base import HydroModelBase
-from hydromodpy.core.config.path_resolution import resolve_declared_path
-from hydromodpy.core.config.profile import Profile
+from hydromodpy.core.config_kit.base import HydroModelBase
+from hydromodpy.core.config_kit.profile import Profile
+from hydromodpy.core.toml_io.paths import resolve_declared_path
 
 
 def _load_toml(path: Path) -> dict:
-    """Load a TOML file, with Python 3.10 fallback to ``tomli``."""
+    """Load a TOML file."""
     import tomllib
 
     with open(path, "rb") as f:

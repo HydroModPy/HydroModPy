@@ -23,6 +23,7 @@ if TYPE_CHECKING:
     from matplotlib.axes import Axes
     from matplotlib.figure import Figure as MplFigure
 
+    from hydromodpy.results.contracts import RasterField
     from hydromodpy.results.run import Run
 
 
@@ -103,7 +104,7 @@ class WatershedIdCardFigure(GeoFigureMixin, BaseFigure):
     # ------------------------------------------------------------------
 
     def _draw_topography(self, ax: Axes, sim: Run) -> None:
-        dem, meta = self._load_dem(sim)
+        dem, raster = self._load_dem(sim)
         if dem is None:
             ax.set_axis_off()
             ax.text(
@@ -119,10 +120,10 @@ class WatershedIdCardFigure(GeoFigureMixin, BaseFigure):
             ax.set_title("Topography")
             return
 
-        extent = _extent_from_transform(meta, dem.shape) if meta else None
+        extent = _extent_from_transform(raster, dem.shape) if raster else None
         # Mask nodata (stored as very-negative sentinel by HMP) so imshow
         # does not smear the colormap across void pixels.
-        nodata = meta.get("nodata") if meta else None
+        nodata = raster.nodata if raster else None
         dem_plot = dem.astype(float)
         if nodata is not None:
             dem_plot = np.where(np.isclose(dem_plot, float(nodata)), np.nan, dem_plot)
@@ -144,17 +145,17 @@ class WatershedIdCardFigure(GeoFigureMixin, BaseFigure):
     def _load_dem(self, sim: Run):
         for name in _DEM_RASTER_CANDIDATES:
             try:
-                data, meta = sim.geographic_raster(name)
+                raster = sim.geographic_raster(name)
             except Exception:
                 continue
-            if data is None:
+            if raster.data is None:
                 continue
-            arr = np.asarray(data)
+            arr = np.asarray(raster.data)
             if arr.ndim == 3 and arr.shape[0] == 1:
                 arr = arr[0]
             if arr.size == 0:
                 continue
-            return arr, meta
+            return arr, raster
         return None, None
 
     def _mark_outlet(self, ax: Axes, sim: Run) -> None:
@@ -244,14 +245,14 @@ class WatershedIdCardFigure(GeoFigureMixin, BaseFigure):
 # ---------------------------------------------------------------------------
 
 
-def _extent_from_transform(meta: dict, shape: tuple[int, ...]) -> list[float] | None:
+def _extent_from_transform(raster: RasterField, shape: tuple[int, ...]) -> list[float] | None:
     """Compute a matplotlib ``extent`` from a rasterio-style affine transform.
 
-    ``meta['transform']`` is stored as a flat 6-tuple (a, b, c, d, e, f). The
+    ``raster.transform`` is stored as a flat 6-tuple (a, b, c, d, e, f). The
     grid extent for ``imshow`` with ``origin='upper'`` is
     ``[xmin, xmax, ymin, ymax]``.
     """
-    t = meta.get("transform") if isinstance(meta, dict) else None
+    t = raster.transform
     if not t or len(t) < 6:
         return None
     a, b, c, d, e, f = (float(v) for v in t[:6])

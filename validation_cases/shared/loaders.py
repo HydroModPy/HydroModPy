@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-import logging
+import os
 import tomllib
 from collections.abc import Mapping
 from pathlib import Path
@@ -10,12 +10,18 @@ from typing import TYPE_CHECKING, Any
 
 import numpy as np
 
-from hydromodpy.core.config.toml_loader import load_toml_with_base_config, merge_toml_payloads
+from hydromodpy.core.logging import get_logger
+from hydromodpy.core.toml_io.loader import load_toml_with_base_config, merge_toml_payloads
 
 if TYPE_CHECKING:
     from hydromodpy.results.store import ResultStore
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
+
+
+def _legacy_npy_enabled() -> bool:
+    """Return whether legacy validation .npy loading is explicitly enabled."""
+    return os.environ.get("HYDROMODPY_ALLOW_LEGACY_NPY_VALIDATION") == "1"
 
 
 def _aggregate_triangles_to_grid(
@@ -36,6 +42,7 @@ def _aggregate_triangles_to_grid(
     if len(target_shape) != 2:
         return data
     nrow, ncol = target_shape
+    sz = None
     try:
         sz = store.open_zarr(sim_id)
         vertices = sz.root["mesh"]["vertices"][:]
@@ -73,6 +80,9 @@ def _aggregate_triangles_to_grid(
     except Exception:
         logger.debug("Triangle-to-grid aggregation failed, returning raw data")
         return data
+    finally:
+        if sz is not None:
+            sz.close()
 
 
 def _aggregate_triangle_history_to_grid(
@@ -146,6 +156,12 @@ def load_case_tolerances(case_dir: Path, solver: str | None = None) -> dict:
 
 def load_npy_dict(path: Path) -> dict:
     """Load one HydroModPy dictionary payload serialized in ``.npy`` format."""
+    if not _legacy_npy_enabled():
+        raise RuntimeError(
+            "Legacy validation .npy loading is disabled. Read validation outputs "
+            "through the result store, or set HYDROMODPY_ALLOW_LEGACY_NPY_VALIDATION=1 "
+            "for archived pre-v1 artifacts."
+        )
     return np.load(path, allow_pickle=True).item()
 
 
@@ -167,12 +183,14 @@ def _load_last_array_from_store_or_npy(
 ) -> tuple[int, np.ndarray]:
     """Return ``(timestep, values)`` for the last timestep of one variable.
 
-    Prefers the :class:`ResultStore` when ``store`` and ``sim_id`` are set;
-    otherwise falls back to the legacy ``.npy`` loader.
+    Uses the :class:`ResultStore` when ``store`` and ``sim_id`` are set.
+    Legacy ``.npy`` loading is used only when no store context is provided.
     """
     if store is not None and sim_id is not None:
+        sz = None
         try:
-            grp = store.open_zarr_group(sim_id)
+            sz = store.open_zarr(sim_id)
+            grp = sz.root
             arr = None
             for loc in (grp, grp.get("derived"), grp.get("budget")):
                 if loc is not None and observable_name in loc:
@@ -192,14 +210,16 @@ def _load_last_array_from_store_or_npy(
                 ):
                     last_values = last_values.reshape(tuple(eff_shape))
                 return n_ts - 1, last_values
-        except Exception:
-            logger.debug(
-                "Store query failed for last-timestep '%s' (sim_id=%s), "
-                "falling back to legacy .npy loader.",
-                observable_name,
-                sim_id,
-                exc_info=True,
+            raise KeyError(
+                f"Variable '{observable_name}' not found in result store for sim_id={sim_id}."
             )
+        except Exception as exc:
+            raise RuntimeError(
+                f"ResultStore query failed for last-timestep '{observable_name}' (sim_id={sim_id})."
+            ) from exc
+        finally:
+            if sz is not None:
+                sz.close()
 
     if postprocess_dir is None:
         raise ValueError(
@@ -233,7 +253,7 @@ def load_last_npy_array_on_expected_grid(
     when ``collapse_y_to_x_profile`` is requested.
 
     When a :class:`ResultStore` and ``sim_id`` are provided, values are read
-    from the store first; the legacy ``.npy`` loader is used only as a fallback.
+    from the store. Legacy ``.npy`` loading is used only without store context.
     """
 
     timestep, values = _load_last_array_from_store_or_npy(
@@ -371,14 +391,15 @@ def load_field(
     resolved_ts: int
     data: np.ndarray
 
-    # --- Try the store first -------------------------------------------------
     if store is not None and sim_id is not None:
         try:
             raw = store.query_field(sim_id, observable_name, timestep)
             resolved_ts = timestep
             if timestep < 0:
+                sz = None
                 try:
-                    grp = store.open_zarr_group(sim_id)
+                    sz = store.open_zarr(sim_id)
+                    grp = sz.root
                     for loc in (grp, grp.get("derived"), grp.get("budget")):
                         if loc is not None and observable_name in loc:
                             n_ts = loc[observable_name].shape[0]
@@ -386,6 +407,9 @@ def load_field(
                             break
                 except Exception:
                     resolved_ts = timestep
+                finally:
+                    if sz is not None:
+                        sz.close()
             data = np.asarray(raw, dtype=float)
             eff_shape = expected_shape
             if eff_shape is None and data.ndim == 1:
@@ -415,16 +439,11 @@ def load_field(
                     sim_id,
                 )
             return int(resolved_ts), data
-        except Exception:
-            logger.debug(
-                "ResultStore query failed for variable '%s' (sim_id=%s), "
-                "falling back to legacy .npy loader.",
-                observable_name,
-                sim_id,
-                exc_info=True,
-            )
+        except Exception as exc:
+            raise RuntimeError(
+                f"ResultStore query failed for variable '{observable_name}' (sim_id={sim_id})."
+            ) from exc
 
-    # --- Fallback to legacy .npy loader --------------------------------------
     if postprocess_dir is None:
         raise ValueError(
             f"Cannot load field '{observable_name}': no store provided and postprocess_dir is None."
@@ -451,8 +470,11 @@ def load_time_series_fields(
     ``stacked_arrays`` has shape ``(n_timesteps, *spatial_shape)``.
     """
     if store is not None and sim_id is not None:
+        errors: list[Exception] = []
+        sz = None
         try:
-            grp = store.open_zarr_group(sim_id)
+            sz = store.open_zarr(sim_id)
+            grp = sz.root
             arr = None
             for loc in (grp, grp.get("derived"), grp.get("budget")):
                 if loc is not None and observable_name in loc:
@@ -513,13 +535,11 @@ def load_time_series_fields(
                             sim_id,
                         )
                 return indices, data
-        except Exception:
-            logger.debug(
-                "Store Zarr query failed for '%s' (sim_id=%s), trying DuckDB timeseries.",
-                observable_name,
-                sim_id,
-                exc_info=True,
-            )
+        except Exception as exc:
+            errors.append(exc)
+        finally:
+            if sz is not None:
+                sz.close()
 
         # Try DuckDB timeseries (scalar per timestep, e.g. outlet discharge)
         try:
@@ -527,8 +547,8 @@ def load_time_series_fields(
             values = np.asarray(ts.values, dtype=float)
             indices = np.arange(values.shape[0], dtype=int)
             return indices, values
-        except Exception:
-            pass
+        except Exception as exc:
+            errors.append(exc)
 
         # Derive outlet discharge from budget table (constant head flux_out).
         # NOTE: the ``unit`` column is a free-text label and does not reliably
@@ -547,14 +567,13 @@ def load_time_series_fields(
                         values = np.asarray(chd_sorted["flux_out"].values, dtype=float)
                         indices = np.arange(values.shape[0], dtype=int)
                         return indices, values
-            except Exception:
-                pass
+            except Exception as exc:
+                errors.append(exc)
 
-        logger.debug(
-            "Store queries failed for '%s' (sim_id=%s), falling back to legacy .npy loader.",
-            observable_name,
-            sim_id,
-        )
+        cause = errors[-1] if errors else None
+        raise RuntimeError(
+            f"ResultStore queries failed for time-series '{observable_name}' (sim_id={sim_id})."
+        ) from cause
 
     if postprocess_dir is None:
         raise ValueError(

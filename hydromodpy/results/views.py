@@ -11,10 +11,8 @@ object exposing the same ``field`` / ``n_timesteps`` / ``mesh`` API) and
 the reduction parameters, and return a new object. They never mutate the
 catalog.
 
-Standard Python pattern: the module-level function is the source of
-truth; :class:`Run` exposes thin delegate methods for
-ergonomics (``sim.drainage_density(...)`` calls
-:func:`drainage_density`).
+Module-level functions are the canonical implementation. ``Run`` exposes
+thin lazy wrappers for notebook ergonomics.
 """
 
 from __future__ import annotations
@@ -41,8 +39,6 @@ __all__ = [
     "saturated_fraction",
     "drainage_density",
     "persistence",
-    "resolve_simulated_active_network_mode",
-    "simulated_active_network_mode_label",
     "simulated_active_network_mask",
     "simulated_active_network_metrics",
     "simulated_active_network_overlap_metrics",
@@ -68,11 +64,14 @@ def _time_index(sim: Run, n: int) -> pd.DatetimeIndex:
 def _catchment_mask(sim: Run) -> np.ndarray | None:
     """Boolean mask of active cells from ``mesh/surface_top``."""
     sz = sim._catalog.open_zarr(sim._sim_id)
-    mesh = sz.root.get("mesh")
-    if mesh is None or "surface_top" not in mesh:
-        return None
-    top = np.asarray(mesh["surface_top"][:], dtype="float64").ravel()
-    return np.isfinite(top) & (top > -9000.0)
+    try:
+        mesh = sz.root.get("mesh")
+        if mesh is None or "surface_top" not in mesh:
+            return None
+        top = np.asarray(mesh["surface_top"][:], dtype="float64").ravel()
+        return np.isfinite(top) & (top > -9000.0)
+    finally:
+        sz.close()
 
 
 def _stack_field(sim: Run, variable: str) -> np.ndarray:
@@ -83,7 +82,7 @@ def _stack_field(sim: Run, variable: str) -> np.ndarray:
 
 
 def _stack_field_with_mask(sim: Run, variable: str) -> tuple[np.ndarray, np.ndarray]:
-    """Return ``(stack, active_cell_mask)`` and validate their cell dimensions."""
+    """Return ``(stack, active_cell_mask)`` and validate cell dimensions."""
     stack = _stack_field(sim, variable)
     mask = _catchment_mask(sim)
     if mask is None:
@@ -103,8 +102,8 @@ def _mesh_face_polygons(sim: Run) -> np.ndarray:
     from shapely.geometry import Polygon
 
     mesh = sim.mesh
-    vertices = np.asarray(mesh["vertices"])
-    face_node_connectivity = np.asarray(mesh["face_node_connectivity"])
+    vertices = np.asarray(mesh.vertices)
+    face_node_connectivity = np.asarray(mesh.face_node_connectivity)
     polygons = []
     for row in face_node_connectivity:
         nodes = row[row >= 0] if row.dtype.kind in "iu" else row[~np.isnan(row)]
@@ -117,7 +116,7 @@ def _mesh_face_polygons(sim: Run) -> np.ndarray:
 
 
 def _network_cell_mask(sim: Run, network_gdf, *, buffer_m: float = 0.0) -> np.ndarray:
-    """Boolean mask of mesh cells intersected by one vector hydrographic network."""
+    """Boolean mask of mesh cells intersected by one vector network."""
     polygons = _mesh_face_polygons(sim)
     mask = np.zeros(polygons.shape[0], dtype=bool)
     if network_gdf is None or network_gdf.empty:
@@ -145,52 +144,6 @@ def _safe_ratio(numerator: int, denominator: int) -> float:
     return float(numerator / denominator) if denominator else 0.0
 
 
-def _flow_regime(sim: Run) -> str:
-    """Return the normalized flow regime recorded for a run, if any."""
-    return str(getattr(sim, "flow_regime", "") or "").strip().lower()
-
-
-def resolve_simulated_active_network_mode(
-    sim: Run,
-    mode: SimulatedActiveNetworkMode | None = None,
-) -> SimulatedActiveNetworkMode:
-    """Resolve the concrete active-network selection mode for a run.
-
-    ``mode`` is a temporal aggregation rule. It is therefore only required for
-    transient runs. For steady runs, the default is the steady-state cell field,
-    implemented as ``last`` because persisted fields use the same timestep API.
-    """
-    if mode is None:
-        return "last" if _flow_regime(sim) == "steady" else "persistent"
-    if mode == "perennial":
-        return "always_active"
-    if mode in {"last", "any", "persistent", "always_active", "persistence"}:
-        return mode
-    raise ValueError(
-        "Unknown simulated active-network mode. Expected one of: "
-        "last, any, persistent, always_active, perennial, persistence."
-    )
-
-
-def simulated_active_network_mode_label(
-    sim: Run,
-    *,
-    mode: SimulatedActiveNetworkMode | None = None,
-    persistence_threshold: float = 0.5,
-) -> str:
-    """Human-readable label for the resolved active-network selection."""
-    resolved_mode = resolve_simulated_active_network_mode(sim, mode)
-    if mode is None and _flow_regime(sim) == "steady":
-        return "steady-state"
-    if resolved_mode == "persistent":
-        return f"persistent >= {float(persistence_threshold):g}"
-    if resolved_mode == "always_active":
-        return "always active over transient window"
-    if resolved_mode == "persistence":
-        return "active persistence (0-1)"
-    return resolved_mode
-
-
 # --------------------------------------------------------------------------
 # Views
 # --------------------------------------------------------------------------
@@ -203,12 +156,12 @@ def saturated_fraction(
 ) -> pd.Series:
     """Fraction of active catchment cells where seepage exceeds ``threshold``.
 
-    Reads ``derived/seepage_areas`` (m) from the simulation Zarr and
+    Reads ``derived/seepage_mask`` from the simulation Zarr and
     reduces each timestep to the percentage of active cells above the
     threshold. Unit: ``%``.
     """
     mask = _catchment_mask(sim)
-    stack = _stack_field(sim, "seepage_areas")
+    stack = _stack_field(sim, "seepage_mask")
     if mask is None:
         mask = np.ones(stack.shape[1], dtype=bool)
     n_active = int(mask.sum())
@@ -226,7 +179,7 @@ def drainage_density(
 ) -> pd.Series:
     """Fraction of active catchment cells whose routed drain flux is positive.
 
-    Reads ``derived/accumulation_flux`` from the simulation Zarr
+    Reads ``derived/accumulation_flux`` (m³/d) from the simulation Zarr
     and returns the fraction of active cells above ``threshold``, per
     timestep. Unit: ``%``.
 
@@ -274,42 +227,19 @@ def simulated_active_network_mask(
     *,
     variable: str = "accumulation_flux",
     threshold: float = 0.0,
-    mode: SimulatedActiveNetworkMode | None = None,
+    mode: SimulatedActiveNetworkMode = "persistent",
     persistence_threshold: float = 0.5,
     timestep: int | None = None,
 ) -> np.ndarray:
     """Return a per-cell simulated active-network view.
 
-    The view is computed from a persisted cell field, usually
-    ``derived/accumulation_flux``. It does not persist a vector network.
-
-    Default:
-    - ``flow_regime='steady'``: the steady-state active network, using the
-      persisted steady state field.
-    - ``flow_regime='transient'`` or unknown: ``persistent`` with the declared
-      ``persistence_threshold`` for backward compatibility.
-
-    Explicit modes:
-    - ``last``: cells active at the selected timestep, defaulting to the last one.
-    - ``any``: cells active at least once over the simulation.
-    - ``persistent``: cells active for at least ``persistence_threshold`` of timesteps.
-    - ``always_active``: cells active at every timestep of the available transient window.
-    - ``perennial``: backward-compatible alias for ``always_active``; this is
-      a temporal occupancy rule, not a steady-state definition.
-    - ``persistence``: continuous active-time fraction in ``[0, 1]``.
-
-    A hydrologically steady network is better defined from a representative
-    ``flow_regime='steady'`` run. The transient ``always_active`` rule is a
-    stricter diagnostic over the simulated time window and can be biased by
-    spin-up, drought periods, or the chosen chronicle length.
-
-    Inactive catchment cells are returned as ``0`` for binary modes. Cells
-    outside the active catchment mask are returned as ``NaN`` for plotting.
+    ``perennial`` is a retained alias for ``always_active``. Both represent
+    cells active at every timestep of the available transient window.
     """
     persistence_threshold = float(persistence_threshold)
     if not 0.0 <= persistence_threshold <= 1.0:
         raise ValueError("persistence_threshold must be between 0 and 1.")
-    resolved_mode = resolve_simulated_active_network_mode(sim, mode)
+    normalized_mode = "always_active" if mode == "perennial" else mode
 
     stack, mask = _stack_field_with_mask(sim, variable)
     n_timesteps = stack.shape[0]
@@ -317,7 +247,7 @@ def simulated_active_network_mask(
         return np.full(stack.shape[1], np.nan, dtype="float64")
 
     active = np.asarray(stack, dtype="float64") > float(threshold)
-    if resolved_mode == "last":
+    if normalized_mode == "last":
         ts = n_timesteps - 1 if timestep is None else int(timestep)
         if ts < 0:
             ts = n_timesteps + ts
@@ -327,14 +257,19 @@ def simulated_active_network_mask(
                 f"[0, {n_timesteps - 1}]."
             )
         values = active[ts].astype("float64")
-    elif resolved_mode == "any":
+    elif normalized_mode == "any":
         values = active.any(axis=0).astype("float64")
-    elif resolved_mode == "persistent":
+    elif normalized_mode == "persistent":
         values = (active.mean(axis=0) >= persistence_threshold).astype("float64")
-    elif resolved_mode == "always_active":
+    elif normalized_mode == "always_active":
         values = (active.mean(axis=0) >= 1.0).astype("float64")
-    elif resolved_mode == "persistence":
+    elif normalized_mode == "persistence":
         values = active.mean(axis=0).astype("float64")
+    else:
+        raise ValueError(
+            "Unknown simulated active-network mode. Expected one of: "
+            "last, any, persistent, always_active, perennial, persistence."
+        )
 
     values[~mask] = np.nan
     return values
@@ -347,13 +282,7 @@ def simulated_active_network_metrics(
     threshold: float = 0.0,
     persistence_threshold: float = 0.5,
 ) -> dict[str, float | int | str]:
-    """Return scalar metrics for the simulated active drainage network.
-
-    This is a computed view over a persisted cell field, not a persisted
-    ``HydrographicNetwork(role="simulated_active")``. The default contract
-    interprets cells with ``accumulation_flux > threshold`` as active at one
-    timestep, then summarizes active occupancy through time.
-    """
+    """Return scalar metrics for the simulated active drainage network."""
     if not 0.0 <= float(persistence_threshold) <= 1.0:
         raise ValueError("persistence_threshold must be between 0 and 1.")
 
@@ -424,31 +353,22 @@ def simulated_active_network_overlap_metrics(
     network_role: str = "reference",
     variable: str = "accumulation_flux",
     threshold: float = 0.0,
-    mode: SimulatedActiveNetworkMode | None = None,
+    mode: SimulatedActiveNetworkMode = "persistent",
     persistence_threshold: float = 0.5,
     timestep: int | None = None,
     buffer_m: float = 0.0,
 ) -> dict[str, float | int | str]:
-    """Compare simulated active cells with an existing vector network role.
-
-    This is a cell-overlap diagnostic. It rasterizes the selected persisted
-    vector network role onto mesh cells by intersection, then compares that
-    occupancy mask with ``simulated_active_network_mask``. The default target
-    is ``reference`` because the primary validation question is whether the
-    simulated active network matches observed hydrography. ``generated`` is
-    still useful as a secondary topographic/DEM-derived diagnostic.
-    """
-    resolved_mode = resolve_simulated_active_network_mode(sim, mode)
+    """Compare simulated active cells with an existing vector network role."""
     values = simulated_active_network_mask(
         sim,
         variable=variable,
         threshold=threshold,
-        mode=resolved_mode,
+        mode=mode,
         persistence_threshold=persistence_threshold,
         timestep=timestep,
     )
     valid = np.isfinite(values)
-    if resolved_mode == "persistence":
+    if mode == "persistence":
         active = values >= float(persistence_threshold)
     else:
         active = values > 0.5
@@ -479,7 +399,7 @@ def simulated_active_network_overlap_metrics(
         "network_role": network_role,
         "source_variable": variable,
         "threshold": float(threshold),
-        "mode": resolved_mode,
+        "mode": mode,
         "persistence_threshold": float(persistence_threshold),
         "timestep": int(timestep) if timestep is not None else -1,
         "buffer_m": float(buffer_m),
@@ -525,21 +445,24 @@ def recharge_forcing(sim: Run) -> pd.Series:
     budget; constant within a period by the forcing contract.
     """
     sz = sim._catalog.open_zarr(sim._sim_id)
-    budget = sz.root.get("budget")
-    if budget is None:
-        return pd.Series(dtype="float64", name="recharge_forcing")
-    rch_key = next((k for k in ("recharge", "rch") if k in budget), None)
-    if rch_key is None:
-        return pd.Series(dtype="float64", name="recharge_forcing")
+    try:
+        budget = sz.root.get("budget")
+        if budget is None:
+            return pd.Series(dtype="float64", name="recharge_forcing")
+        rch_key = next((k for k in ("recharge", "rch") if k in budget), None)
+        if rch_key is None:
+            return pd.Series(dtype="float64", name="recharge_forcing")
 
-    arr = budget[rch_key]
-    n_t = arr.shape[0]
-    mask = _catchment_mask(sim)
-    means = []
-    for t in range(n_t):
-        field = np.asarray(arr[t], dtype="float64").ravel()
-        if mask is not None and mask.size == field.size:
-            field = np.where(mask, field, np.nan)
-        means.append(float(np.nanmean(field)))
+        arr = budget[rch_key]
+        n_t = arr.shape[0]
+        mask = _catchment_mask(sim)
+        means = []
+        for t in range(n_t):
+            field = np.asarray(arr[t], dtype="float64").ravel()
+            if mask is not None and mask.size == field.size:
+                field = np.where(mask, field, np.nan)
+            means.append(float(np.nanmean(field)))
+    finally:
+        sz.close()
 
     return pd.Series(means, index=_time_index(sim, n_t), name="recharge_forcing")

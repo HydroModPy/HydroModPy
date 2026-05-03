@@ -93,5 +93,7 @@ def build_geographic_paths(
         river_stream_order_strahler_tif=str(geographic_path / "river_stream_order_strahler.tif"),
         river_stream_link_id_tif=str(geographic_path / "river_stream_link_id.tif"),
         river_network_shp=str(geographic_path / HYDROGRAPHIC_NETWORK_GENERATED_VECTOR_FILENAME),
-        river_network_summary_json=str(geographic_path / HYDROGRAPHIC_NETWORK_GENERATED_SUMMARY_FILENAME),
+        river_network_summary_json=str(
+            geographic_path / HYDROGRAPHIC_NETWORK_GENERATED_SUMMARY_FILENAME
+        ),
     )

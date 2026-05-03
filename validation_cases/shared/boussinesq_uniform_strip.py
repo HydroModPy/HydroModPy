@@ -12,6 +12,7 @@ import numpy as np
 
 from hydromodpy.physics.flow import Flow
 from hydromodpy.physics.flow.flow_config import FlowConfig
+from hydromodpy.physics.flow.regime import normalize_flow_regime
 from hydromodpy.simulation.planning.plan import (
     ProcessRun,
     RunContext,
@@ -21,6 +22,7 @@ from hydromodpy.solver.boussinesq.adapters.flow import BoussinesqFlowAdapter
 from validation_cases.shared.loaders import merge_case_flow_section
 from validation_cases.shared.runtime import (
     ValidationRunResult,
+    materialize_postprocess_fields_to_store,
     resolve_validation_results_dir,
 )
 
@@ -401,9 +403,7 @@ def run_boussinesq_uniform_strip_case(
     """Run one Boussinesq validation case on a small homogeneous strip mesh."""
     del timeout
 
-    normalized_regime = str(flow_regime).strip().lower()
-    if normalized_regime not in {"steady", "transient"}:
-        raise ValueError("flow_regime must be 'steady' or 'transient'.")
+    normalized_regime = normalize_flow_regime(flow_regime)
     if normalized_regime == "transient":
         if nper is None or dt_seconds is None:
             raise ValueError("Transient strip cases require nper and dt_seconds.")
@@ -478,6 +478,11 @@ def run_boussinesq_uniform_strip_case(
     model_ws = Path(model.full_path)
     postprocess_dir = model_ws / "_postprocess"
     particles_dir = postprocess_dir / "_particles"
+    store, sim_id = materialize_postprocess_fields_to_store(
+        out_path=out_path,
+        postprocess_dir=postprocess_dir,
+        solver_name="boussinesq",
+    )
     return ValidationRunResult(
         case_dir=case_dir,
         solver_name="boussinesq",
@@ -488,6 +493,8 @@ def run_boussinesq_uniform_strip_case(
         run_returncode=0,
         run_stdout="",
         run_stderr="",
+        store=store,
+        sim_id=sim_id,
     )
 
 

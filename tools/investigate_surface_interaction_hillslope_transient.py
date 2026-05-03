@@ -5,7 +5,6 @@ from __future__ import annotations
 import argparse
 import json
 import os
-import sys
 import time
 from dataclasses import dataclass
 from datetime import datetime, timedelta
@@ -18,10 +17,8 @@ matplotlib.use("Agg")
 import numpy as np
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
-if str(REPO_ROOT) not in sys.path:
-    sys.path.insert(0, str(REPO_ROOT))
 
-from hydromodpy.core.config.toml_loader import merge_toml_payloads
+from hydromodpy.core.toml_io.loader import merge_toml_payloads
 from tools.surface_interaction_reporting import (
     write_csv as reporting_write_csv,
 )
@@ -331,7 +328,7 @@ def _apply_transient_payload(
     flow["active_sinks_sources"] = ["recharge"]
     flow["active_bc"] = ["east_side", "drainage"]
     flow["ic"] = {"type": "custom", "value": f"{INITIAL_HEAD_M:.6f} m"}
-    flow["sinks_sources"] = {"recharge": {"first_clim": "first", "negative_to_evt": False}}
+    flow["sinks_sources"] = {"recharge": {"first_clim": "first"}}
 
     bc = dict(flow.get("bc", {}))
     dirichlet = dict(bc.get("dirichlet", {}))

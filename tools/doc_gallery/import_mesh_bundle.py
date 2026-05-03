@@ -77,8 +77,8 @@ def build_parser() -> argparse.ArgumentParser:
         "--destination-root",
         default=None,
         help=(
-            "Optional destination root overriding the canonical examples/mesh_gallery directory. "
-            "Mostly useful for tests."
+            "Optional destination root overriding the canonical examples/projects/07_mesh_gallery "
+            "directory. Mostly useful for tests."
         ),
     )
     parser.add_argument(

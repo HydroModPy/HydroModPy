@@ -1,25 +1,19 @@
-hydromodpy.core.tools
-========================
+hydromodpy.tools (relocated)
+============================
 
-Helper routines used across the notebooks for filesystem handling, raster
-processing, and plotting presets.
-
-Toolbox overview
-----------------
+Helper routines previously gathered under ``hydromodpy.core.tools`` now live
+in their canonical homes:
 
 .. autosummary::
    :nosignatures:
    :toctree: generated/tools
 
-   ~hydromodpy.core.tools.filesystem.create_folder
-   ~hydromodpy.core.tools.statistics.efficiency_criteria
-   ~hydromodpy.core.tools.statistics.date_range
-   ~hydromodpy.core.tools.display.plot_params
+   ~hydromodpy.core.io.filesystem.create_folder
+   ~hydromodpy.display.theme.plot_params
 
 I/O note
 --------
 
-Raster and CRS helpers now live under ``hydromodpy.core.io``. They are kept
+Raster and CRS helpers live under ``hydromodpy.core.io``. They are kept
 out of this autosummary page because their import chain depends on the wider
 runtime stack used by the documentation build.
-

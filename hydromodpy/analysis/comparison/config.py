@@ -8,8 +8,8 @@ from typing import Any, Literal
 
 from pydantic import ConfigDict, Field, field_validator, model_validator
 
-from hydromodpy.core.config.base import HydroModelBase
-from hydromodpy.core.config.toml_loader import load_toml_with_base_config
+from hydromodpy.core.config_kit.base import HydroModelBase
+from hydromodpy.core.toml_io.loader import load_toml_with_base_config
 
 
 def _clean_optional_text(value: object) -> str | None:
@@ -40,7 +40,10 @@ class MethodComparisonVariant(HydroModelBase):
         "unstructured",
         "unknown",
     ] = "unknown"
-    overlay: dict[str, Any] = Field(default_factory=dict)
+    overlay: dict[str, Any] = Field(
+        default_factory=dict,
+        description="TOML overlay applied on top of the base simulation config for this variant.",
+    )
 
     @field_validator("id")
     @classmethod
@@ -207,8 +210,14 @@ class MethodComparisonSection(HydroModelBase):
     continue_on_error: bool = False
     reference_variant: str | None = None
     fine_raster: MethodComparisonFineRaster | None = None
-    variant: list[MethodComparisonVariant] = Field(default_factory=list)
-    observable: list[MethodComparisonObservable] = Field(default_factory=list)
+    variant: list[MethodComparisonVariant] = Field(
+        default_factory=list,
+        description="Solver/mesh method variants to run or reuse for the comparison.",
+    )
+    observable: list[MethodComparisonObservable] = Field(
+        default_factory=list,
+        description="Quantities of interest extracted from each variant run folder.",
+    )
 
     @field_validator(
         "comparison_id",
@@ -288,7 +297,10 @@ class MethodComparisonConfig(HydroModelBase):
     comparison_root: Path
     base_simulation_config_path: Path | None = None
     anchors_path: Path | None = None
-    anchors: dict[str, tuple[float, float]] = Field(default_factory=dict)
+    anchors: dict[str, tuple[float, float]] = Field(
+        default_factory=dict,
+        description="Resolved anchor id to (x, y) coordinates loaded from anchors_file.",
+    )
     method_comparison: MethodComparisonSection
 
     @classmethod
@@ -301,12 +313,13 @@ class MethodComparisonConfig(HydroModelBase):
         """Validate one raw TOML payload and resolve launcher-owned paths."""
         if not isinstance(raw_toml, Mapping):
             raise ValueError("configuration must be a mapping")
-        if "method_comparison" not in raw_toml:
-            raise KeyError("Missing required section 'method_comparison'")
 
         resolved_config_path = Path(config_path).expanduser().resolve()
         base_dir = resolved_config_path.parent
-        section = MethodComparisonSection.model_validate(raw_toml["method_comparison"])
+        section_payload = (
+            raw_toml["method_comparison"] if "method_comparison" in raw_toml else raw_toml
+        )
+        section = MethodComparisonSection.model_validate(section_payload)
 
         comparison_id = section.comparison_id or resolved_config_path.stem
         section.comparison_id = comparison_id

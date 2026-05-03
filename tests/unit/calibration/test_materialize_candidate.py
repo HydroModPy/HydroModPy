@@ -120,6 +120,30 @@ class TestMaterializeCandidateScale:
         # base value was 1e-4, scale 3.0 → 3e-4
         assert payload["flow"]["param"]["K"]["field_homogeneous"]["value"] == pytest.approx(3.0e-4)
 
+    def test_scale_reads_base_config_inheritance(self, space_scale: ParameterSpace, tmp_path: Path):
+        parent = tmp_path / "parent.toml"
+        parent.write_text(
+            """\
+[flow.param.K]
+field_homogeneous = { value = 1.0e-4 }
+""",
+            encoding="utf-8",
+        )
+        child = tmp_path / "child.toml"
+        child.write_text(f'base_config = "{parent.as_posix()}"\n', encoding="utf-8")
+
+        overlay_path = materialize_candidate(
+            base_config=child,
+            params={"K_mult": 4.0},
+            space=space_scale,
+            out_dir=tmp_path / "candidates",
+            candidate_label="scaled_from_parent",
+        )
+        with open(overlay_path, "rb") as f:
+            payload = tomllib.load(f)
+        assert payload["base_config"] == str(child.resolve())
+        assert payload["flow"]["param"]["K"]["field_homogeneous"]["value"] == pytest.approx(4.0e-4)
+
 
 class TestMaterializeCandidateErrors:
     def test_requires_label_or_index(
@@ -153,6 +177,28 @@ class TestMaterializeCandidateErrors:
                 space=space_replace,
                 out_dir=tmp_path / "candidates",
                 candidate_label="truth",
+            )
+
+    def test_in_memory_config_requires_base_dir(
+        self, space_replace: ParameterSpace, tmp_path: Path
+    ):
+        from hydromodpy.core.workspace.config import WorkspaceConfig
+        from hydromodpy.master_config.hydromodpy_config import HydroModPyConfig
+        from hydromodpy.spatial.geographic.geographic_config import GeographicConfig
+
+        cfg = HydroModPyConfig(
+            workflow="simulation",
+            workspace=WorkspaceConfig(project_root=str(tmp_path), root=str(tmp_path)),
+            geographic=GeographicConfig(source_mode="synthetic"),
+        )
+
+        with pytest.raises(ValueError, match="requires base_dir"):
+            materialize_candidate(
+                base_config=cfg,
+                params={"K": 7.5e-5},
+                space=space_replace,
+                out_dir=tmp_path / "candidates",
+                candidate_label="from_obj",
             )
 
 
@@ -194,8 +240,8 @@ class TestReimportableByTomllib:
 
 class TestMaterializeCandidateHydroModPyConfig:
     def test_accepts_in_memory_config(self, space_replace: ParameterSpace, tmp_path: Path):
-        from hydromodpy.core.config.hydromodpy_config import HydroModPyConfig
         from hydromodpy.core.workspace.config import WorkspaceConfig
+        from hydromodpy.master_config.hydromodpy_config import HydroModPyConfig
         from hydromodpy.spatial.geographic.geographic_config import GeographicConfig
 
         cfg = HydroModPyConfig(
@@ -249,7 +295,7 @@ class TestOverlayReloadableViaHydroModPyConfig:
     ):
         """End-to-end: a schema-complete base TOML produces an overlay that
         HydroModPyConfig.from_toml validates without errors."""
-        from hydromodpy.core.config.hydromodpy_config import HydroModPyConfig
+        from hydromodpy.master_config.hydromodpy_config import HydroModPyConfig
 
         full_base = tmp_path / "full_base.toml"
         full_base.write_text(
@@ -317,7 +363,7 @@ class TestMaterializeHookFromCli:
         """Smoke-test the ``materialize_candidates`` hook in isolation.
 
         We rebuild a minimal evaluator that mirrors the structure used by
-        :mod:`hydromodpy.calibration.cli` so the test exercises the same
+        :mod:`hydromodpy.calibration.runner` so the test exercises the same
         materialize call path without needing a full DuckDB / solver run.
         """
         from hydromodpy.calibration.materialize import materialize_candidate

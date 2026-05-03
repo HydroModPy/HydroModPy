@@ -29,13 +29,13 @@ The shortest code-reading path for one ``flow/modflownwt`` run is:
 3. ``hydromodpy/simulation/execution/runner.py``
 4. ``hydromodpy/solver/modflow_nwt/adapters/flow.py``
 5. ``hydromodpy/solver/modflow_common/flow_adapter_helpers.py``
-6. ``hydromodpy/solver/modflow_nwt/modflow/nwt_solver.py``
+6. ``hydromodpy/solver/modflow_nwt/nwt/nwt_solver.py``
 
 Main packages and responsibilities
 ----------------------------------
 
 - ``hydromodpy/solver/modflow_nwt/adapters/flow.py`` owns only the
-  backend-specific bridge from one generic ``ProcessRun`` to one ``Modflow``
+  backend-specific bridge from one generic ``ProcessRun`` to one ``ModflowNwt``
   instance.
 - ``hydromodpy/solver/modflow_common/flow_adapter_helpers.py`` owns the shared
   MODFLOW-family execution lifecycle used by both ``modflownwt`` and
@@ -43,11 +43,11 @@ Main packages and responsibilities
 - ``hydromodpy/solver/modflow_common`` centralizes grid context, temporal
   discretization, routing helpers, runtime arrays, and raster export shared by
   both MODFLOW-family backends.
-- ``hydromodpy/solver/modflow_nwt/modflow/nwt_config.py`` validates the
+- ``hydromodpy/solver/modflow_nwt/nwt/nwt_config.py`` validates the
   ``[modflownwt.*]`` configuration tree.
-- ``hydromodpy/solver/modflow_nwt/modflow/flow_to_modflow_adapter.py``
+- ``hydromodpy/solver/modflow_nwt/nwt/flow_to_modflow_adapter.py``
   translates HydroModPy runtime state into package-ready MODFLOW inputs.
-- ``hydromodpy/solver/modflow_nwt/modflow/nwt_solver.py`` owns concrete FloPy
+- ``hydromodpy/solver/modflow_nwt/nwt/nwt_solver.py`` owns concrete FloPy
   model creation, execution, and output shaping.
 - ``hydromodpy/solver/modflow_nwt/modpath`` and
   ``hydromodpy/solver/modflow_nwt/mt3dms`` stay next to the flow backend

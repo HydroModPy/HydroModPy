@@ -11,13 +11,14 @@ from .sgrid_fieldparam_discretization import (
     discretize_fieldparam_on_sgrid,
 )
 from .sgrid_from_config import build_sgrid_from_config
-from .sgrid_generation import StructuredGridBuilder
+from .sgrid_generation import StructuredGridBuilder, StructuredGridSpec
 from .sgrid_mesh_adapter import build_field_mesh_from_sgrid, extract_structured_vertices
 from .utils.planar_discretizer import PlanarDiscretizer
 from .utils.raster_grid_reader import RasterGridReader, TopRasterGrid
 
 __all__ = [
     "StructuredGridBuilder",
+    "StructuredGridSpec",
     "PlanarGridConfig",
     "SolverSGridConfig",
     "VerticalGridConfig",

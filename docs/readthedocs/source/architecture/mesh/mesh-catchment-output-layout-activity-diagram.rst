@@ -4,10 +4,8 @@ Mesh Catchment Output Layout
 Scope
 -----
 
-This diagram documents how the mesh-catchment runner resolves final artifacts
-and cleanup behavior. In the user guide, mesh studies are routed through the
-testbed workflow; this architecture page describes the lower-level runner that
-the testbed delegates to.
+This diagram documents how the dedicated mesh workflow resolves final
+artifacts and cleanup behavior.
 
 It focuses on:
 
@@ -46,7 +44,7 @@ Diagram source
 Notes
 -----
 
-- ``flat`` layout is a convenience for mesh-catchment runner executions. It
+- ``flat`` layout is a convenience for the dedicated mesh workflow. It
   writes the final mesh artifacts directly under
   ``workspace.project_root`` while the intermediate runtime workspace
   lives elsewhere and can be deleted afterwards.

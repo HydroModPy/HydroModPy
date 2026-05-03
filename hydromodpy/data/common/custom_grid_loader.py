@@ -38,7 +38,11 @@ def load_custom_nc(
         target_unit=unit,
     )
 
-    bbox, crs = _extract_bbox_and_crs(ds)
+    bbox, crs = _extract_bbox_and_crs(ds, data_var=data_var)
+    nodata = _extract_nodata_from_attrs(ds[data_var].attrs)
+    if nodata is None:
+        raise ValueError(f"Custom grid dataset {path} must declare nodata metadata.")
+    ds[data_var].attrs["nodata"] = nodata
 
     time_dim = _find_time_dim(ds)
     if time_dim is not None and time_dim in ds.dims:
@@ -54,9 +58,12 @@ def load_custom_nc(
         times = ds[time_dim].values
         import pandas as pd
 
-        date_start = pd.Timestamp(times[0]).to_pydatetime()
-        date_end = pd.Timestamp(times[-1]).to_pydatetime()
-        frequency = "D"
+        time_index = pd.DatetimeIndex(times)
+        date_start = time_index[0].to_pydatetime()
+        date_end = time_index[-1].to_pydatetime()
+        frequency = pd.infer_freq(time_index)
+        if len(time_index) > 1 and frequency is None:
+            raise ValueError(f"Custom grid dataset {path} must declare a regular time axis.")
     else:
         date_start = None
         date_end = None
@@ -101,10 +108,15 @@ def load_custom_tif(
         target_unit=unit,
     )
 
-    crs = str(da.rio.crs) if da.rio.crs is not None else "EPSG:4326"
+    if da.rio.crs is None:
+        raise ValueError(f"Custom GeoTIFF {path} must declare a CRS.")
+    if da.rio.nodata is None:
+        raise ValueError(f"Custom GeoTIFF {path} must declare a nodata value.")
+    crs = str(da.rio.crs)
     bounds = da.rio.bounds()
     bbox = (bounds[0], bounds[1], bounds[2], bounds[3])
     ds = da.to_dataset(name=variable)
+    ds[variable].attrs["nodata"] = da.rio.nodata
 
     return [
         FieldRecord(
@@ -122,19 +134,20 @@ def load_custom_tif(
     ]
 
 
-def _extract_bbox_and_crs(ds) -> tuple[tuple, str]:
+def _extract_bbox_and_crs(ds, *, data_var: str) -> tuple[tuple, str]:
     """Extract bounding box and CRS from an xarray Dataset."""
-    crs = "EPSG:4326"
-
     try:
         import rioxarray  # noqa: F401
 
         if hasattr(ds, "rio") and ds.rio.crs is not None:
-            crs = str(ds.rio.crs)
             bounds = ds.rio.bounds()
-            return (bounds[0], bounds[1], bounds[2], bounds[3]), crs
+            return (bounds[0], bounds[1], bounds[2], bounds[3]), str(ds.rio.crs)
     except ImportError:
         pass
+
+    crs = _extract_crs_from_attrs(ds, data_var)
+    if crs is None:
+        raise ValueError("Custom grid dataset must declare CRS metadata.")
 
     x_coord = _find_coord(ds, ("x", "lon", "longitude", "LAMBX", "X"))
     y_coord = _find_coord(ds, ("y", "lat", "latitude", "LAMBY", "Y"))
@@ -148,11 +161,9 @@ def _extract_bbox_and_crs(ds) -> tuple[tuple, str]:
             float(x_vals.max()),
             float(y_vals.max()),
         )
-        if abs(x_vals.max()) <= 180 and abs(y_vals.max()) <= 90:
-            crs = "EPSG:4326"
         return bbox, crs
 
-    return (0.0, 0.0, 0.0, 0.0), crs
+    raise ValueError("Custom grid dataset must expose x/y or lon/lat coordinates.")
 
 
 def _resolve_data_var(ds, variable: str) -> str:
@@ -163,15 +174,42 @@ def _resolve_data_var(ds, variable: str) -> str:
     data_vars = list(ds.data_vars)
     if not data_vars:
         raise ValueError(f"No data variable found in custom grid dataset for {variable!r}.")
+    raise ValueError(
+        f"Custom grid dataset does not contain variable {variable!r}; "
+        f"available variables: {data_vars!r}."
+    )
 
-    selected = data_vars[0]
-    if len(data_vars) > 1:
-        logger.debug(
-            "Custom grid dataset for %s contains multiple variables; using %s.",
-            variable,
-            selected,
-        )
-    return selected
+
+def _extract_crs_from_attrs(ds, data_var: str) -> str | None:
+    candidates = (ds[data_var].attrs, ds.attrs)
+    for attrs in candidates:
+        if not isinstance(attrs, dict):
+            continue
+        for key in ("crs", "crs_wkt", "spatial_ref"):
+            raw_value = attrs.get(key)
+            if raw_value is not None and str(raw_value).strip():
+                return str(raw_value).strip()
+    grid_mapping = ds[data_var].attrs.get("grid_mapping")
+    if grid_mapping and grid_mapping in ds:
+        attrs = ds[grid_mapping].attrs
+        for key in ("crs_wkt", "spatial_ref", "crs"):
+            raw_value = attrs.get(key)
+            if raw_value is not None and str(raw_value).strip():
+                return str(raw_value).strip()
+        epsg = attrs.get("epsg_code")
+        if epsg is not None:
+            return f"EPSG:{int(epsg)}"
+    return None
+
+
+def _extract_nodata_from_attrs(attrs: object) -> float | int | str | None:
+    if not isinstance(attrs, dict):
+        return None
+    for key in ("nodata", "_FillValue", "missing_value"):
+        raw_value = attrs.get(key)
+        if raw_value is not None and str(raw_value).strip():
+            return raw_value
+    return None
 
 
 def _extract_unit_from_attrs(attrs: object) -> str | None:

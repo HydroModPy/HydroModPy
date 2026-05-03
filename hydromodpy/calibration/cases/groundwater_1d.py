@@ -40,13 +40,13 @@ from typing import Any
 import numpy as np
 
 from hydromodpy.calibration.engine import CalibrationEngine
-from hydromodpy.calibration.objective import rmse
 from hydromodpy.calibration.optimizer import (
     EvaluationResult,
     ParamSuggestion,
     build_optimizer,
 )
 from hydromodpy.calibration.parameters import CalibParameter, ParameterSpace
+from hydromodpy.core.metrics import rmse
 from hydromodpy.physics.hydrology.synthetic.forcing import (
     build_hydrological_step_series,
     build_hydrological_year_dates,
@@ -666,7 +666,7 @@ def _make_tracking_evaluator(
                 status="crashed",
                 metadata={"error": repr(exc)},
             )
-        cost = float(rmse(observed, np.asarray(simulated, dtype=float)))
+        cost = float(rmse(np.asarray(simulated, dtype=float), observed))
         if not np.isfinite(cost):
             return EvaluationResult(
                 trial_id=sugg.trial_id,

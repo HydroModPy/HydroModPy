@@ -10,10 +10,11 @@ Three optional backends:
 from __future__ import annotations
 
 import base64
-import logging
 from pathlib import Path
 
-logger = logging.getLogger(__name__)
+from hydromodpy.core.logging import get_logger
+
+logger = get_logger(__name__)
 
 
 def build_gif(

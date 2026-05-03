@@ -21,5 +21,5 @@ This family captures repeated conformal meshing runs on the 100 km2 headwater se
 ## Reproduction
 
 ```bash
-python -m launchers mesh-catchment run launchers/mesh_catchment/scenarios/config_headwater_100km2.toml
+python -m tools.doc_gallery
 ```

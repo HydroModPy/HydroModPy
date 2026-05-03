@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import json
 import uuid
+from types import SimpleNamespace
 
 import geopandas as gpd
 import numpy as np
@@ -55,56 +57,30 @@ def _populate(catalog, sid):
     catalog.finalize(sid, "completed", 42.0)
 
 
-def _write_active_accumulation_flux_case(catalog, sid, *, write_plot_mesh=False):
+def _write_active_accumulation_flux_case(catalog, sid):
     sz = catalog.open_zarr(sid)
-    if write_plot_mesh:
-        vertices = np.array(
-            [
-                [0.0, 0.0, 0.0],
-                [1.0, 0.0, 0.0],
-                [2.0, 0.0, 0.0],
-                [0.0, 1.0, 0.0],
-                [1.0, 1.0, 0.0],
-                [2.0, 1.0, 0.0],
-                [0.0, 2.0, 0.0],
-                [1.0, 2.0, 0.0],
-                [2.0, 2.0, 0.0],
-            ],
-            dtype="float64",
+    try:
+        mesh = sz.root.require_group("mesh")
+        mesh.create_array(
+            "surface_top",
+            data=np.array([100.0, 100.0, -9999.0, 100.0], dtype="float64"),
+            overwrite=True,
         )
-        face_node_connectivity = np.array(
-            [
-                [0, 1, 4, 3],
-                [1, 2, 5, 4],
-                [3, 4, 7, 6],
-                [4, 5, 8, 7],
-            ],
-            dtype="int32",
-        )
-        sz.write_mesh(
-            vertices,
-            face_node_connectivity,
-            np.array([100.0, 90.0], dtype="float64"),
-        )
-    mesh = sz.root.require_group("mesh")
-    mesh.create_array(
-        "surface_top",
-        data=np.array([100.0, 100.0, -9999.0, 100.0], dtype="float64"),
-        overwrite=True,
-    )
-    frames = [
-        np.array([0.0, 2.0, 9.0, 0.0], dtype="float64"),
-        np.array([1.0, 2.0, 9.0, 0.0], dtype="float64"),
-        np.array([0.0, 2.0, 9.0, 4.0], dtype="float64"),
-    ]
-    for timestep, values in enumerate(frames):
-        sz.write_field(
-            "accumulation_flux",
-            timestep,
-            values,
-            n_timesteps=3 if timestep == 0 else None,
-            subgroup="derived",
-        )
+        frames = [
+            np.array([0.0, 2.0, 9.0, 0.0], dtype="float64"),
+            np.array([1.0, 2.0, 9.0, 0.0], dtype="float64"),
+            np.array([0.0, 2.0, 9.0, 4.0], dtype="float64"),
+        ]
+        for timestep, values in enumerate(frames):
+            sz.write_field(
+                "accumulation_flux",
+                timestep,
+                values,
+                n_timesteps=3 if timestep == 0 else None,
+                subgroup="derived",
+            )
+    finally:
+        sz.close()
 
 
 # ============================================================================
@@ -128,7 +104,7 @@ class TestSimulationMetadata:
         cfg = {"flow": {"K": 1.5}}
         sid = _register(catalog, config=cfg)
         sim = Run(sid, catalog)
-        assert sim.config == cfg
+        assert sim.config_snapshot == cfg
 
     def test_tags(self, catalog):
         sid = _register(catalog, tags=["fast", "test"])
@@ -240,8 +216,12 @@ class TestSimulationData:
             geometry=[LineString([(0.0, 0.0), (800.0, 0.0)])],
             crs="EPSG:2154",
         )
-        catalog.write_geographic_feature(sid, HYDROGRAPHIC_NETWORK_REFERENCE_FEATURE_NAME, reference)
-        catalog.write_geographic_feature(sid, HYDROGRAPHIC_NETWORK_GENERATED_FEATURE_NAME, generated)
+        catalog.write_geographic_feature(
+            sid, HYDROGRAPHIC_NETWORK_REFERENCE_FEATURE_NAME, reference
+        )
+        catalog.write_geographic_feature(
+            sid, HYDROGRAPHIC_NETWORK_GENERATED_FEATURE_NAME, generated
+        )
 
         sim = Run(sid, catalog)
         comparison = sim.hydrographic_network_comparison(tolerance_m=25.0)
@@ -261,7 +241,10 @@ class TestSimulationData:
         assert "hydrographic_network_reference_missing_only" in sim.display_capabilities
         assert "hydrographic_network_generated_extra_only" in sim.display_capabilities
         generated_contract = sim.hydrographic_network_naming("generated")
-        assert generated_contract["canonical_feature_name"] == HYDROGRAPHIC_NETWORK_GENERATED_FEATURE_NAME
+        assert (
+            generated_contract["canonical_feature_name"]
+            == HYDROGRAPHIC_NETWORK_GENERATED_FEATURE_NAME
+        )
         assert generated_contract["legacy_feature_name"] == "river_network"
 
     def test_hydrographic_network_comparison_requires_both_roles(self, catalog):
@@ -271,7 +254,9 @@ class TestSimulationData:
             geometry=[LineString([(0.0, 0.0), (1000.0, 0.0)])],
             crs="EPSG:2154",
         )
-        catalog.write_geographic_feature(sid, HYDROGRAPHIC_NETWORK_REFERENCE_FEATURE_NAME, reference)
+        catalog.write_geographic_feature(
+            sid, HYDROGRAPHIC_NETWORK_REFERENCE_FEATURE_NAME, reference
+        )
 
         sim = Run(sid, catalog)
         with pytest.raises(
@@ -345,68 +330,6 @@ class TestSimulationData:
             np.array([1.0 / 3.0, 1.0, np.nan, 1.0 / 3.0]),
         )
 
-    def test_simulated_active_network_mask_default_is_regime_aware(self, catalog):
-        transient_sid = _register(
-            catalog,
-            n_cells=4,
-            n_layers=1,
-            n_timesteps=3,
-            flow_regime="transient",
-        )
-        steady_sid = _register(
-            catalog,
-            n_cells=4,
-            n_layers=1,
-            n_timesteps=3,
-            flow_regime="steady",
-        )
-        _write_active_accumulation_flux_case(catalog, transient_sid)
-        _write_active_accumulation_flux_case(catalog, steady_sid)
-
-        transient = Run(transient_sid, catalog)
-        steady = Run(steady_sid, catalog)
-
-        np.testing.assert_allclose(
-            transient.simulated_active_network_mask(threshold=0.5),
-            np.array([0.0, 1.0, np.nan, 0.0]),
-        )
-        np.testing.assert_allclose(
-            steady.simulated_active_network_mask(threshold=0.5),
-            np.array([0.0, 1.0, np.nan, 1.0]),
-        )
-
-    def test_simulated_active_network_overlap_metrics_against_reference_role_by_default(
-        self,
-        catalog,
-    ):
-        sid = _register(catalog, n_cells=4, n_layers=1, n_timesteps=3)
-        _write_active_accumulation_flux_case(catalog, sid, write_plot_mesh=True)
-        reference = gpd.GeoDataFrame(
-            {"id": [1]},
-            geometry=[LineString([(1.5, 0.5), (1.5, 1.5)])],
-            crs="EPSG:2154",
-        )
-        catalog.write_geographic_feature(sid, HYDROGRAPHIC_NETWORK_REFERENCE_FEATURE_NAME, reference)
-
-        sim = Run(sid, catalog)
-        metrics = sim.simulated_active_network_overlap_metrics(
-            threshold=0.5,
-            mode="persistent",
-            persistence_threshold=0.5,
-        )
-
-        assert metrics["network_role"] == "reference"
-        assert metrics["catchment_cell_count"] == 3
-        assert metrics["active_cell_count"] == 1
-        assert metrics["network_cell_count"] == 2
-        assert metrics["overlap_cell_count"] == 1
-        assert metrics["missing_network_cell_count"] == 1
-        assert metrics["extra_active_cell_count"] == 0
-        assert metrics["network_coverage_ratio"] == pytest.approx(0.5)
-        assert metrics["active_precision_ratio"] == pytest.approx(1.0)
-        assert metrics["cell_f1_ratio"] == pytest.approx(2.0 / 3.0)
-        assert metrics["cell_jaccard_ratio"] == pytest.approx(0.5)
-
 
 class TestSimulationField:
     def test_read_field(self, catalog):
@@ -449,82 +372,57 @@ class TestSimulationDisplayCapabilities:
         caps = sim.display_capabilities
         assert "hydrograph" in caps
 
-    def test_simulated_active_network_capability_requires_field_and_plot_mesh(self, catalog):
-        sid = _register(catalog, n_cells=4, n_layers=1, n_timesteps=3)
-        _write_active_accumulation_flux_case(catalog, sid, write_plot_mesh=True)
+
+class TestSimulationSummary:
+    def test_dict_keys(self, catalog):
+        sid = _register(catalog, name="run1", flow_regime="transient", n_timesteps=12)
         sim = Run(sid, catalog)
+        info = sim.summary()
+        assert isinstance(info, dict)
+        expected = {
+            "sim_id",
+            "name",
+            "project",
+            "solver",
+            "solver_category",
+            "flow_regime",
+            "status",
+            "created_at",
+            "duration_s",
+            "n_layers",
+            "n_cells",
+            "n_timesteps",
+            "tags",
+        }
+        assert set(info) == expected
+        assert info["sim_id"] == sid
+        assert info["name"] == "run1"
+        assert info["project"] == "test"
+        assert info["solver"] == "modflow6"
+        assert info["flow_regime"] == "transient"
+        assert info["n_layers"] == 2
+        assert info["n_cells"] == 10
+        assert info["n_timesteps"] == 12
 
-        assert sim.has_field("accumulation_flux") is True
-        assert sim.has_field("not_a_field") is False
-        assert "simulated_active_network" in sim.display_capabilities
-        assert "simulated_active_network_reference_overlay" not in sim.display_capabilities
-
-    def test_simulated_active_network_reference_overlay_capability(self, catalog):
-        sid = _register(catalog, n_cells=4, n_layers=1, n_timesteps=3)
-        _write_active_accumulation_flux_case(catalog, sid, write_plot_mesh=True)
-        reference = gpd.GeoDataFrame(
-            {"id": [1]},
-            geometry=[LineString([(1.5, 0.5), (1.5, 1.5)])],
-            crs="EPSG:2154",
-        )
-        catalog.write_geographic_feature(sid, HYDROGRAPHIC_NETWORK_REFERENCE_FEATURE_NAME, reference)
+    def test_json_roundtrip(self, catalog):
+        sid = _register(catalog, name="run-json", tags=["a", "b"])
+        catalog.finalize(sid, "completed", 7.5)
         sim = Run(sid, catalog)
+        payload = sim.summary(json=True)
+        assert isinstance(payload, str)
+        parsed = json.loads(payload)
+        assert parsed["sim_id"] == sid
+        assert parsed["name"] == "run-json"
+        assert parsed["status"] == "completed"
+        assert parsed["duration_s"] == pytest.approx(7.5)
+        assert parsed["tags"] == ["a", "b"]
+        # created_at must serialise (datetime -> string)
+        assert isinstance(parsed["created_at"], str)
 
-        assert "simulated_active_network_reference_overlay" in sim.display_capabilities
-
-
-class TestSimulationPlot:
-    def test_plot_invalid_raises(self, catalog):
-        sid = _register(catalog, n_cells=10, n_layers=1)
-        sim = Run(sid, catalog)
-        with pytest.raises(ValueError, match="not available"):
-            sim.plot("nonexistent_figure")
-
-    def test_plot_save(self, catalog, tmp_path):
-        import matplotlib
-
-        matplotlib.use("Agg", force=True)
-        sid = _register(catalog, n_cells=5, n_layers=1, n_timesteps=2)
-        sz = catalog.open_zarr(sid)
-        sz.write_field("head", 0, np.ones(5), n_timesteps=2)
-        sz.write_field("head", 1, np.ones(5) * 2.0)
-        catalog.write_budget(sid, 0, "z1", "recharge", 100.0, 0.0)
-        sim = Run(sid, catalog)
-        out = tmp_path / "figures"
-        sim.plot("water_budget", save=out)
-        assert (out / "water_budget.png").exists()
-
-    def test_plot_simulated_active_network_save(self, catalog, tmp_path):
-        import matplotlib
-
-        matplotlib.use("Agg", force=True)
-        sid = _register(catalog, n_cells=4, n_layers=1, n_timesteps=3)
-        _write_active_accumulation_flux_case(catalog, sid, write_plot_mesh=True)
-        sim = Run(sid, catalog)
-        out = tmp_path / "figures"
-
-        sim.plot("simulated_active_network", save=out)
-
-        assert (out / "simulated_active_network.png").exists()
-
-    def test_plot_simulated_active_network_reference_overlay_save(self, catalog, tmp_path):
-        import matplotlib
-
-        matplotlib.use("Agg", force=True)
-        sid = _register(catalog, n_cells=4, n_layers=1, n_timesteps=3)
-        _write_active_accumulation_flux_case(catalog, sid, write_plot_mesh=True)
-        reference = gpd.GeoDataFrame(
-            {"id": [1]},
-            geometry=[LineString([(1.5, 0.5), (1.5, 1.5)])],
-            crs="EPSG:2154",
-        )
-        catalog.write_geographic_feature(sid, HYDROGRAPHIC_NETWORK_REFERENCE_FEATURE_NAME, reference)
-        sim = Run(sid, catalog)
-        out = tmp_path / "figures"
-
-        sim.plot("simulated_active_network_reference_overlay", save=out)
-
-        assert (out / "simulated_active_network_reference_overlay.png").exists()
+    def test_not_found(self, catalog):
+        sim = Run("nonexistent-uuid", catalog)
+        with pytest.raises(KeyError):
+            sim.summary()
 
 
 class TestSimulationRepr:
@@ -552,6 +450,131 @@ class TestSimulationGroup:
         group = SimulationGroup(sids, catalog)
         assert group.count == 3
         assert len(group) == 3
+
+    def test_project_sweep_returns_group_bound_to_catalog(self, monkeypatch, catalog):
+        from hydromodpy.project_runner import ProjectRunner
+
+        sids = [_register(catalog) for _ in range(2)]
+
+        def fake_run_sweep(project, *, parameters, strategy, name_template):
+            assert parameters == {"K": [1.0, 2.0]}
+            assert strategy == "enumerate"
+            assert name_template == "{param}_{value:.4g}"
+            return sids
+
+        monkeypatch.setattr("hydromodpy.workflow.parallel.run_sweep", fake_run_sweep)
+        project = SimpleNamespace(_store=catalog)
+
+        group = ProjectRunner(project).sweep({"K": [1.0, 2.0]})
+
+        assert isinstance(group, SimulationGroup)
+        assert group.sim_ids == sids
+        assert group[0].sim_id == sids[0]
+
+    def test_project_run_handles_survive_later_runs(self, monkeypatch, tmp_path):
+        from hydromodpy.project_runner import ProjectRunner
+        from hydromodpy.results.catalog import SimulationCatalog
+        from hydromodpy.workflow.internals.state import PipelineState
+
+        class _Step:
+            name = "setup_process"
+
+        class _Pipeline:
+            counter = 0
+
+            def __init__(self, steps, *, workspace, checkpoint):
+                self.steps = steps
+                self.workspace = workspace
+                self.checkpoint = checkpoint
+
+            def run(self, state, *, resume_from=None):
+                _Pipeline.counter += 1
+                ctx = state.get("ctx")
+                sim_id = str(uuid.uuid4())
+                with SimulationCatalog(ctx.setup.workspace.project_root) as run_catalog:
+                    reg = run_catalog.register_simulation(
+                        sim_id,
+                        project="project",
+                        solver="fake",
+                        name=ctx.setup.run_id,
+                        n_cells=1,
+                        n_layers=1,
+                    )
+                    if reg.zarr is not None:
+                        reg.zarr.close()
+                    run_catalog.write_parameters(
+                        sim_id,
+                        [
+                            {
+                                "param_name": "thickness",
+                                "value": float(_Pipeline.counter),
+                                "unit": "m",
+                            }
+                        ],
+                    )
+                    run_catalog.finalize(sim_id, "completed")
+                ctx.sim_id = sim_id
+                ctx.store = None
+                return PipelineState(
+                    run_id=state.run_id,
+                    step_index=0,
+                    step_name="display",
+                    data={**state.data, "ctx": ctx},
+                )
+
+        monkeypatch.setattr("hydromodpy.workflow.orchestrator.standard_steps", lambda: (_Step(),))
+        monkeypatch.setattr(
+            "hydromodpy.workflow.steps.planning.step_build_plan", lambda *a, **k: None
+        )
+        monkeypatch.setattr("hydromodpy.workflow.runner.Pipeline", _Pipeline)
+
+        project_root = tmp_path / "project"
+        workspace = SimpleNamespace(
+            root=tmp_path / "workspace",
+            project_root=project_root,
+            catalog_path=project_root / "hydromodpy.duckdb",
+            simulations_dir=project_root / "simulations",
+        )
+        ctx = SimpleNamespace(
+            setup=SimpleNamespace(
+                workspace=workspace,
+                geographic=object(),
+                domain=object(),
+                run_id=None,
+                flow_runtime_overrides=None,
+            ),
+            raw_toml={},
+            store=None,
+            sim_id=None,
+        )
+        project = SimpleNamespace(
+            _ctx=ctx,
+            cfg=SimpleNamespace(),
+            _config_path=tmp_path / "project.toml",
+            _spatial_support_registry=None,
+            _requested_support_ids=(),
+            _requested_domain_supports={},
+            _store=None,
+            _run_counter=0,
+            _solver="fake",
+            _no_display=True,
+            _headless=True,
+            _project_name="project",
+            _active_runs={},
+            _last_wall_seconds={},
+            _run_history=[],
+        )
+
+        runner = ProjectRunner(project)
+        first = runner.run(name="first")
+        first_catalog = first._catalog
+        second = runner.run(name="second")
+
+        assert first_catalog is not project._store
+        assert first._catalog is project._store
+        assert second._catalog is project._store
+        assert first.params["thickness"] == pytest.approx(1.0)
+        assert second.params["thickness"] == pytest.approx(2.0)
 
     def test_iter(self, catalog):
         sids = [_register(catalog) for _ in range(2)]

@@ -430,12 +430,12 @@ def test_boussinesq_flow_adapter_maps_runtime_mesh_from_heterogeneous_flow_param
                 "param": {
                     "K": {
                         "kind": "heterogeneous",
-                        "values_by_key": {"west": 2.0e-5, "east": 5.0e-6},
+                        "values": {"west": 2.0e-5, "east": 5.0e-6},
                         "field_spatial_id": "field_geology",
                     },
                     "Sy": {
                         "kind": "heterogeneous",
-                        "values_by_key": {"west": 0.22, "east": 0.08},
+                        "values": {"west": 0.22, "east": 0.08},
                         "field_spatial_id": "field_geology",
                     },
                 },
@@ -507,12 +507,12 @@ def test_boussinesq_flow_adapter_falls_back_to_bundle_and_overrides_properties(
                 "param": {
                     "K": {
                         "kind": "heterogeneous",
-                        "values_by_key": {"west": 3.0e-4, "east": 8.0e-7},
+                        "values": {"west": 3.0e-4, "east": 8.0e-7},
                         "field_spatial_id": "field_hydrofacies",
                     },
                     "Sy": {
                         "kind": "heterogeneous",
-                        "values_by_key": {"west": 0.21, "east": 0.03},
+                        "values": {"west": 0.21, "east": 0.03},
                         "field_spatial_id": "field_hydrofacies",
                     },
                 },

@@ -12,7 +12,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from hydromodpy.core.config.toml_loader import load_toml_with_base_config
+from hydromodpy.core.toml_io import load_toml_with_base_config
 
 SUPPORTED_RUNNERS = {"mesh_catchment", "simulation"}
 SUPPORTED_SUBJECTS = {"flow", "mesh"}

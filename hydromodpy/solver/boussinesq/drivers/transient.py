@@ -15,6 +15,7 @@ from hydromodpy.solver.boussinesq.drivers.state import (
     build_transient_activity_flags,
 )
 from hydromodpy.solver.boussinesq.runtime_contract import TransientStepInputs
+from hydromodpy.solver.boussinesq.runtime_summary import record_runtime_backend_summary
 
 if TYPE_CHECKING:
     from hydromodpy.solver.boussinesq.boussinesq import Boussinesq
@@ -28,7 +29,7 @@ def run_transient_runtime(solver: Boussinesq) -> bool:
         raise RuntimeError("Initial state must exist before time integration.")
     contract = solver._resolve_solver_contract()
     runtime_backend = contract.runtime_backend
-    solver._record_runtime_backend_summary(contract)
+    record_runtime_backend_summary(solver, contract)
     solver._assert_runtime_mesh_size_supported(runtime_backend)
 
     period_lengths = tuple(

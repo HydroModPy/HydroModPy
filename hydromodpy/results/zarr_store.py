@@ -1,9 +1,11 @@
 from __future__ import annotations
 
-import logging
 import shutil
+import warnings
 import zipfile
 from collections.abc import Callable
+from datetime import UTC, datetime
+from os import replace
 from pathlib import Path
 from typing import Any
 
@@ -11,9 +13,11 @@ import numpy as np
 import zarr
 import zarr.codecs
 
+from hydromodpy.core.logging import get_logger
+from hydromodpy.core.version import __version__ as _HMP_VERSION
 from hydromodpy.results import field_registry
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 BLOSC_ZSTD = zarr.codecs.BloscCodec(cname="zstd", clevel=3)
 
@@ -22,6 +26,7 @@ _SUBGROUPS = ("mesh", "derived", "budget", "pathlines", "geographic", "forcing")
 # CF-1.11 + UGRID-1.0 root conventions string attached to every simulation
 # Zarr store (see :mod:`hydromodpy.results.field_registry`).
 CF_CONVENTIONS = "CF-1.11 UGRID-1.0"
+ZARR_SCHEMA_VERSION = "1"
 
 # Target balanced-chunk size in bytes. Chosen so that compressed chunks sit
 # in the typical local-disk / S3 object-store sweet spot (~1 MiB).
@@ -118,6 +123,9 @@ class SimulationZarr:
         root = zarr.open_group(store, mode="w")
         root_attrs: dict[str, object] = {
             "Conventions": CF_CONVENTIONS,
+            "hydromodpy_version": _HMP_VERSION,
+            "zarr_schema_version": ZARR_SCHEMA_VERSION,
+            "created_at": datetime.now(UTC).isoformat(),
             "n_cells": n_cells,
             "n_layers": n_layers,
         }
@@ -582,6 +590,7 @@ class SimulationZarr:
         coordinate variables so that downstream consumers can round-trip
         through xarray without losing CF metadata.
         """
+        import dask.array as da
         import xarray as xr
 
         data_vars: dict[str, xr.Variable] = {}
@@ -613,9 +622,10 @@ class SimulationZarr:
                 # fall back to generic dims when the shape does not match the
                 # stored array (e.g. a field was written with an extra axis)
                 dims = tuple(f"dim_{i}" for i in range(arr.ndim))
+            chunks = arr.chunks if arr.chunks else "auto"
             data_vars[name] = xr.Variable(
                 dims,
-                np.asarray(arr[:]),
+                da.from_array(arr, chunks=chunks),
                 attrs=dict(arr.attrs),
             )
 
@@ -649,7 +659,16 @@ class SimulationZarr:
         if not isinstance(self._store, zarr.storage.LocalStore):
             return
         try:
-            zarr.consolidate_metadata(self._store)
+            with warnings.catch_warnings():
+                warnings.filterwarnings(
+                    "ignore",
+                    message=(
+                        "Consolidated metadata is currently not part .* "
+                        "Zarr format 3 specification.*"
+                    ),
+                    category=UserWarning,
+                )
+                zarr.consolidate_metadata(self._store)
         except Exception as exc:  # pragma: no cover - best effort
             logger.debug("consolidate_metadata failed: %s", exc)
 
@@ -667,13 +686,27 @@ class SimulationZarr:
         self.close()
 
         zip_path = self._path.with_suffix(".zarr.zip")
-        with zipfile.ZipFile(str(zip_path), "w", compression=zipfile.ZIP_STORED) as zf:
+        tmp_path = zip_path.with_name(f"{zip_path.name}.tmp")
+        if tmp_path.exists():
+            tmp_path.unlink()
+
+        with zipfile.ZipFile(str(tmp_path), "w", compression=zipfile.ZIP_STORED) as zf:
             for fpath in sorted(self._path.rglob("*")):
                 if fpath.is_file():
                     arcname = str(fpath.relative_to(self._path))
                     zf.write(str(fpath), arcname)
 
-        shutil.rmtree(self._path, ignore_errors=True)
+        with zipfile.ZipFile(str(tmp_path), "r") as zf:
+            corrupt = zf.testzip()
+            if corrupt is not None:
+                tmp_path.unlink(missing_ok=True)
+                raise RuntimeError(f"Corrupt Zarr zip member: {corrupt}")
+
+        replace(tmp_path, zip_path)
+        check = SimulationZarr(zip_path)
+        check.close()
+
+        shutil.rmtree(self._path)
         logger.debug("Packed %s -> %s", self._path.name, zip_path.name)
 
         self._path = zip_path

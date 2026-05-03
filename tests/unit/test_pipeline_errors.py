@@ -12,7 +12,8 @@ from hydromodpy.core.exceptions import (
     ResumeError,
     StepError,
 )
-from hydromodpy.pipeline import Pipeline, PipelineState
+from hydromodpy.workflow.internals.state import PipelineState
+from hydromodpy.workflow.runner import Pipeline
 
 
 class _RaisesValueError:

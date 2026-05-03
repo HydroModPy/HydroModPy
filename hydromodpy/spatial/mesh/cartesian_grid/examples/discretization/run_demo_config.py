@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import sys
 import tomllib
 from collections.abc import Mapping
 from pathlib import Path
@@ -10,23 +9,8 @@ from typing import Any
 
 from pydantic import ConfigDict, Field, ValidationError, field_validator
 
-from hydromodpy.core.config.base import HydroModelBase
-
-
-def _find_repo_root() -> Path:
-    current = Path(__file__).resolve()
-    for parent in current.parents:
-        if (parent / "hydromodpy").is_dir():
-            return parent
-    return current.parents[0]
-
-
-REPO_ROOT = _find_repo_root()
-if str(REPO_ROOT) not in sys.path:
-    sys.path.insert(0, str(REPO_ROOT))
-
-from hydromodpy.data.variables.geology.config import validate_geology_config_data
-from hydromodpy.solver.utils._config_helpers import get_nested_section, resolve_path
+from hydromodpy.core.config_kit.base import HydroModelBase
+from hydromodpy.core.toml_io.paths import get_nested_section, resolve_path
 from hydromodpy.spatial.field.core.field_param_config import (
     resolve_field_param_config_payload,
     validate_resolved_field_param_data,
@@ -34,6 +18,7 @@ from hydromodpy.spatial.field.core.field_param_config import (
 from hydromodpy.spatial.mesh.cartesian_grid.sgrid_config import (
     validate_sgrid_config_data,
 )
+from hydromodpy.spatial.protocols import get_geology_data_source
 
 
 def _resolve_optional_mapping_path(
@@ -154,7 +139,7 @@ class SGridFieldParamDiscretizationConfig(HydroModelBase):
     def _validate_geology_payload(cls, value):
         if not isinstance(value, Mapping):
             raise ValueError("geology must be a mapping")
-        return validate_geology_config_data(value)
+        return get_geology_data_source().validate_config(value)
 
     @field_validator("field_param", mode="before")
     @classmethod

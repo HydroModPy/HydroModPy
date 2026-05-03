@@ -2,13 +2,14 @@
 
 from __future__ import annotations
 
-import logging
 from typing import Any
 
 import numpy as np
 import pandas as pd
 
-logger = logging.getLogger(__name__)
+from hydromodpy.core.logging import get_logger
+
+logger = get_logger(__name__)
 
 _CATCHMENT_STATION = "_catchment"
 
@@ -24,7 +25,7 @@ VARIABLE_UNITS: dict[str, str] = {
 # calibration pipelines consume as-is. Catchment-scale reductions of
 # spatial fields (drainage density, saturated fraction, water-table
 # means, recharge means) are computed lazily on demand through
-# ``hydromodpy.results.metrics`` / ``Run`` methods, so the
+# ``hydromodpy.core.metrics`` / ``Run`` methods, so the
 # catalog stays focused on observation-comparable point series.
 _AGGREGATION_SPEC: list[tuple[str, str, str]] = [
     # Outlet discharge (m3/s) - sum of |drain flux| over the catchment,
@@ -52,36 +53,47 @@ def aggregate_catchment_timeseries(
     time_index : pd.DatetimeIndex, optional
         Datetime labels for each timestep. When None, integer indices are used.
     """
-    grp = store.open_zarr_group(sim_id, mode="r")
+    sz = store.open_zarr(sim_id)
+    try:
+        grp = sz.root
 
-    n_timesteps = _detect_n_timesteps(grp)
-    if n_timesteps == 0:
-        logger.debug("No timesteps found for sim %s, skipping aggregation", sim_id)
-        return
+        n_timesteps = _detect_n_timesteps(grp)
+        if n_timesteps == 0:
+            raise RuntimeError(f"No timesteps found for sim {sim_id}; cannot aggregate catchment")
 
-    active_mask = _build_active_mask(grp)
+        active_mask = _build_active_mask(grp)
 
-    # Resolve a DatetimeIndex - DuckDB timeseries table requires TIMESTAMP.
-    if time_index is not None and len(time_index) == n_timesteps:
-        ts_index = time_index
-    else:
-        # Try to read period from simulation metadata.
-        ts_index = _resolve_time_index(store, sim_id, n_timesteps)
+        pending: list[tuple[str, list[float]]] = []
+        for store_var, output_var, reducer in _AGGREGATION_SPEC:
+            values = _aggregate_variable(
+                store, sim_id, grp, store_var, n_timesteps, active_mask, reducer
+            )
+            if values is None:
+                continue
+            pending.append((output_var, values))
 
-    written = 0
-    for store_var, output_var, reducer in _AGGREGATION_SPEC:
-        values = _aggregate_variable(
-            store, sim_id, grp, store_var, n_timesteps, active_mask, reducer
-        )
-        if values is None:
-            continue
+        if not pending:
+            return
 
-        ts = pd.Series(values, index=ts_index, name=output_var, dtype="float64")
-        if output_var == "discharge":
-            ts = _add_runoff_to_discharge_series(ts, sim_id, store, grp)
-        unit = VARIABLE_UNITS.get(output_var, "")
-        store.write_timeseries(sim_id, _CATCHMENT_STATION, output_var, ts, unit=unit)
-        written += 1
+        if time_index is not None and len(time_index) == n_timesteps:
+            ts_index = time_index
+        else:
+            try:
+                ts_index = _resolve_time_index(store, sim_id, n_timesteps)
+            except RuntimeError as exc:
+                logger.warning("Skipping catchment timeseries for sim %s: %s", sim_id, exc)
+                return
+
+        written = 0
+        for output_var, values in pending:
+            ts = pd.Series(values, index=ts_index, name=output_var, dtype="float64")
+            if output_var == "discharge":
+                ts = _add_runoff_to_discharge_series(ts, sim_id, store, grp)
+            unit = VARIABLE_UNITS.get(output_var, "")
+            store.write_timeseries(sim_id, _CATCHMENT_STATION, output_var, ts, unit=unit)
+            written += 1
+    finally:
+        sz.close()
 
     if written:
         logger.info("Wrote %d catchment-aggregated timeseries for sim %s", written, sim_id)
@@ -161,16 +173,13 @@ _RUNOFF_WARNING_EMITTED: set[str] = set()
 
 def _read_catchment_area_m2(store: Any, sim_id: str) -> float:
     """Return the catchment area in m² from ``geographic_metadata``."""
-    try:
-        conn = getattr(store, "connection", None) or store._db
-        row = conn.execute(
-            "SELECT value FROM geographic_metadata WHERE sim_id = ? AND key = 'catch_area'",
-            [str(sim_id)],
-        ).fetchone()
-        if row is not None and row[0] is not None:
-            return float(row[0]) * 1e6
-    except Exception:
-        return 0.0
+    conn = getattr(store, "connection", None) or store._db
+    row = conn.execute(
+        "SELECT value FROM geographic_metadata WHERE sim_id = ? AND key = 'catch_area'",
+        [str(sim_id)],
+    ).fetchone()
+    if row is not None and row[0] is not None:
+        return float(row[0]) * 1e6
     return 0.0
 
 
@@ -222,21 +231,17 @@ def _aggregate_variable(
 
 def _resolve_time_index(store: Any, sim_id: str, n_timesteps: int) -> pd.DatetimeIndex:
     """Build a DatetimeIndex from simulation metadata or synthetic."""
-    try:
-        conn = getattr(store, "connection", None) or store._db
-        row = conn.execute(
-            "SELECT period_start, period_end, time_unit FROM simulations WHERE sim_id = ?",
-            [str(sim_id)],
-        ).fetchone()
-        if row is not None and row[0] is not None and row[1] is not None:
-            return pd.date_range(start=row[0], end=row[1], periods=n_timesteps)
-    except Exception:
-        pass
-    # Fallback: evenly spaced synthetic dates over 1 year.
-    if n_timesteps <= 12:
-        return pd.date_range("2000-01-01", periods=n_timesteps, freq="MS")
-    # Spread n_timesteps evenly across 12 months
-    return pd.date_range("2000-01-01", "2000-12-31", periods=n_timesteps)
+    conn = getattr(store, "connection", None) or store._db
+    row = conn.execute(
+        "SELECT period_start, period_end, time_unit FROM simulations WHERE sim_id = ?",
+        [str(sim_id)],
+    ).fetchone()
+    if row is not None and row[0] is not None and row[1] is not None:
+        return pd.date_range(start=row[0], end=row[1], periods=n_timesteps)
+    raise RuntimeError(
+        f"Simulation {sim_id} is missing period_start/period_end; "
+        "cannot write catchment timeseries with synthetic timestamps."
+    )
 
 
 def _detect_n_timesteps(grp) -> int:
