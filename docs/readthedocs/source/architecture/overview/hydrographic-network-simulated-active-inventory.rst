@@ -62,7 +62,9 @@ The terminology must stay explicit because three related ideas are easy to
 confuse:
 
 - ``permanent`` describes the model regime or scenario: a representative
-  steady-state/permanent flow computation.
+  steady-state/permanent flow computation. In TOML, ``flow_regime =
+  "permanent"`` is accepted as the user-facing hydrological name and normalized
+  internally to the solver-facing ``steady`` regime.
 - ``persistent`` describes a transient occupancy rule: a cell is active for at
   least a chosen fraction of timesteps, for example 50% or 80%.
 - ``always_active`` describes a stricter transient occupancy rule: a cell is
@@ -91,21 +93,16 @@ Derived fields persisted in the simulation catalog
 The main ingredients are in
 ``hydromodpy/simulation/extraction/extractors/derived.py``:
 
-- ``outflow_drain``
-  - positive drain outflow per cell,
-  - summed over model layers,
-  - stored under ``derived/outflow_drain``,
-  - computed per timestep,
-  - normalized from raw MODFLOW budget signs where groundwater outflow may be
-    stored as a negative cell-budget contribution.
-- ``accumulation_flux``
-  - downstream accumulation of positive drain outflow,
-  - stored under ``derived/accumulation_flux``,
-  - computed per timestep,
-  - routed with structured D8 support when a regular raster route is available,
-  - routed on mesh face connectivity for MODFLOW 6 / DISV-style supports when
-    topology is present,
-  - falls back to local positive ``outflow_drain`` when routing is unavailable.
+- ``outflow_drain`` is positive drain outflow per cell, summed over model
+  layers, stored under ``derived/outflow_drain``, and computed per timestep.
+  It is normalized from raw MODFLOW budget signs where groundwater outflow may
+  be stored as a negative cell-budget contribution.
+- ``accumulation_flux`` is the downstream accumulation of positive drain
+  outflow, stored under ``derived/accumulation_flux`` and computed per
+  timestep. It uses structured D8 support when a regular raster route is
+  available, mesh face connectivity for MODFLOW 6 / DISV-style supports when
+  topology is present, and local positive ``outflow_drain`` as a conservative
+  fallback when routing is unavailable.
 
 Those fields are persisted as cell arrays in the Zarr run store, not as
 geographic vector features.

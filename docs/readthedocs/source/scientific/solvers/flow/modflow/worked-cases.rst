@@ -17,6 +17,7 @@ Available Worked Cases
    ../../worked-modflow-case-dupuit-fixed-head-1d
    ../../worked-modflow-case-linearized-unconfined-recharge-periodic-1d
    ../../worked-modflow-case-linearized-unconfined-drainage-1d
+   ../../worked-modflow-case-nancon-transient-nwt-etp-evt
 
 Case Selection
 --------------
@@ -37,6 +38,10 @@ Case Selection
    * - Linearized unconfined drainage 1D
      - ``DRN`` semantics in one steady analytical setting.
      - Distributed top drainage as a head-dependent release operator.
+   * - Nancon transient NWT with ETP to EVT
+     - Real-basin NWT reading path with explicit evapotranspiration forcing.
+     - How HydroModPy turns ``data.etp`` and ``active_sinks_sources`` into
+       combined ``RCH`` and ``EVT`` package payloads.
 
 Reading Rule
 ------------

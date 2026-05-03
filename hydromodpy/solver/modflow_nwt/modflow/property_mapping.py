@@ -35,7 +35,10 @@ logger = get_logger(__name__)
 
 def resolve_required_flow_properties(*, flow_regime: str) -> frozenset[str]:
     """Return the minimal hydraulic-property set required for one flow regime."""
-    regime = normalize_flow_regime(flow_regime)
+    try:
+        regime = normalize_flow_regime(flow_regime)
+    except ValueError:
+        return frozenset({"K", "Sy", "Ss"})
     if regime == "steady":
         return frozenset({"K"})
     return frozenset({"K", "Sy", "Ss"})

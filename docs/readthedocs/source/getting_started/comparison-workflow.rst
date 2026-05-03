@@ -275,7 +275,9 @@ For terminology, ``persistent`` is a transient occupancy rule, while
 window. The legacy name ``perennial`` is kept as an alias of
 ``always_active``. A hydrologically perennial simulated network should instead
 be based on a representative permanent/steady-state run, then compared against
-``reference``.
+``reference``. In TOML, that intent can be declared with ``flow_regime =
+"permanent"``, which HydroModPy normalizes to the solver-facing ``steady``
+mode.
 
 For a programmatic diagnostic against an existing vector role, use:
 

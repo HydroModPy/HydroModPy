@@ -10,7 +10,7 @@
     "steady uniform recharge used only to build the initial saturated state,",
     "transient recession started by switching recharge off,",
     "comparison performed on outlet discharge `Q(t)`.",
-    "Available solver variants: MODFLOW-NWT, MODFLOW 6, Boussinesq."
+    "Available solver variants: MODFLOW-NWT, MODFLOW 6, MODFLOW 6 irregular triangles, Boussinesq."
   ],
   "key_parameters": [],
   "how_to_read": [],
@@ -39,9 +39,11 @@
     "validation_cases/analytical/transient/brutsaert_recession_linearized_deep_1d/config_common.toml",
     "validation_cases/analytical/transient/brutsaert_recession_linearized_deep_1d/runtime_boussinesq.py",
     "validation_cases/analytical/transient/brutsaert_recession_linearized_deep_1d/tolerances.toml",
+    "validation_cases/analytical/transient/brutsaert_recession_linearized_deep_1d/tolerances_modflow6_irregular_tri.toml",
     "validation_cases/analytical/transient/brutsaert_recession_linearized_deep_1d/tolerances_modflownwt.toml",
     "validation_cases/analytical/transient/brutsaert_recession_linearized_deep_1d/config_modflownwt.toml",
     "validation_cases/analytical/transient/brutsaert_recession_linearized_deep_1d/config_modflow6.toml",
+    "validation_cases/analytical/transient/brutsaert_recession_linearized_deep_1d/config_modflow6_irregular_tri.toml",
     "validation_cases/analytical/transient/brutsaert_recession_linearized_deep_1d/config_boussinesq.toml",
     "validation_cases/analytical/transient/brutsaert_common.py",
     "validation_cases/analytical/transient/brutsaert_reference.py",
@@ -54,15 +56,17 @@
     "validation_cases/analytical/transient/brutsaert_recession_linearized_deep_1d/comparison.py": "e7b785d36eb1eeb7c0c562f0c78e52bcc1704e10c1cb0bb931f99584c09a8d3a",
     "validation_cases/analytical/transient/brutsaert_recession_linearized_deep_1d/plotting.py": "c2c92c3189f72bf276eee5f3df8f56a889c76fbf11930f741e23bf93f68a7d31",
     "validation_cases/analytical/transient/brutsaert_recession_linearized_deep_1d/run_case.py": "8cdb0aa3f09364554b655da1451d8caaa821ec9108b77dcb669a0adf20d203bf",
-    "validation_cases/analytical/transient/brutsaert_recession_linearized_deep_1d/metadata.toml": "8e74af0c1b4b398116a5521acc01f163b6248414b225c200d3c176e3531d9dee",
+    "validation_cases/analytical/transient/brutsaert_recession_linearized_deep_1d/metadata.toml": "4650a0722f8caa9ba5115aa12e208cc949f7600535e7846c8bfc807462ec971e",
     "validation_cases/analytical/transient/brutsaert_recession_linearized_deep_1d/config_common.toml": "d6b8b829ea8cf0421e7aabd6921fb05cc098ee6231cab46441213a1f24c9df85",
     "validation_cases/analytical/transient/brutsaert_recession_linearized_deep_1d/runtime_boussinesq.py": "dc91a86d89214feeddab96050ea975dca56a2e005c176d2d1ee912bf217c0551",
     "validation_cases/analytical/transient/brutsaert_recession_linearized_deep_1d/tolerances.toml": "6b4a663c3b3021a3c05ff6a2d72da1e23cefe53028cb279ec24d8e2de87a05bd",
+    "validation_cases/analytical/transient/brutsaert_recession_linearized_deep_1d/tolerances_modflow6_irregular_tri.toml": "b9483f4d7d0e1a40c58cfd363baa7021bc88990bd9bccc6acd5adde58430dad7",
     "validation_cases/analytical/transient/brutsaert_recession_linearized_deep_1d/tolerances_modflownwt.toml": "8c739213fe73b0d6d7e3f165a59cd510b3380a4671b126f8d4db6b7822c56f07",
     "validation_cases/analytical/transient/brutsaert_recession_linearized_deep_1d/config_modflownwt.toml": "ccd609db7215862be977cbbb19d4e219e67f6fb0c901cd30e53e8eb7d58ebe5a",
     "validation_cases/analytical/transient/brutsaert_recession_linearized_deep_1d/config_modflow6.toml": "b0ace93b0771f31991493e0bf31bb61a434646a86b3d258e2d14e3b710cf91d7",
+    "validation_cases/analytical/transient/brutsaert_recession_linearized_deep_1d/config_modflow6_irregular_tri.toml": "6b270444ada924601e630a42eb373ff11d0651703c8d3bf982444033d5898d66",
     "validation_cases/analytical/transient/brutsaert_recession_linearized_deep_1d/config_boussinesq.toml": "6f68bf8bb4da181014cdc8fc3d802958f0c056f4675490e309cfaa280b586156",
-    "validation_cases/analytical/transient/brutsaert_common.py": "f482c83f5b719701941d028505ec0ee6f7ec7023a2a793b2abcdabe47003ac7e",
+    "validation_cases/analytical/transient/brutsaert_common.py": "4c79443e31b9554497b06bf146027fa0ef49b3f5e5e4b9e3d2cb393d0cfb0238",
     "validation_cases/analytical/transient/brutsaert_reference.py": "971b3a11b10643e89902b700399d14835f60ed4498858553912fff2453132616",
     "validation_cases/analytical/transient/runtime_boussinesq_brutsaert_1d.py": "f02baf9a83e20bc9ba018ea3579931d37ab5afac6252df0889b81aaae6154606"
   },
@@ -83,6 +87,7 @@
     "solver_variants": [
       "modflownwt",
       "modflow6",
+      "modflow6_irregular_tri",
       "boussinesq"
     ],
     "solver_details": {
@@ -97,6 +102,12 @@
         "config_path": "validation_cases/analytical/transient/brutsaert_recession_linearized_deep_1d/config_modflow6.toml",
         "expected_output": null,
         "tolerance_path": "validation_cases/analytical/transient/brutsaert_recession_linearized_deep_1d/tolerances.toml"
+      },
+      "modflow6_irregular_tri": {
+        "display_name": "MODFLOW 6 irregular triangles",
+        "config_path": "validation_cases/analytical/transient/brutsaert_recession_linearized_deep_1d/config_modflow6_irregular_tri.toml",
+        "expected_output": null,
+        "tolerance_path": "validation_cases/analytical/transient/brutsaert_recession_linearized_deep_1d/tolerances_modflow6_irregular_tri.toml"
       },
       "boussinesq": {
         "display_name": "Boussinesq",
@@ -130,6 +141,7 @@
     "image_repo_paths": [
       "docs/readthedocs/source/_static/capability_gallery/validation/brutsaert_recession_linearized_deep_1d__modflownwt.png",
       "docs/readthedocs/source/_static/capability_gallery/validation/brutsaert_recession_linearized_deep_1d__modflow6.png",
+      "docs/readthedocs/source/_static/capability_gallery/validation/brutsaert_recession_linearized_deep_1d__modflow6_irregular_tri.png",
       "docs/readthedocs/source/_static/capability_gallery/validation/brutsaert_recession_linearized_deep_1d__boussinesq.png"
     ]
   },
@@ -171,6 +183,7 @@
           "config_files": {
             "modflownwt": "config_modflownwt.toml",
             "modflow6": "config_modflow6.toml",
+            "modflow6_irregular_tri": "config_modflow6_irregular_tri.toml",
             "boussinesq": "config_boussinesq.toml"
           },
           "workspace": {
@@ -183,6 +196,7 @@
             "warmup_periods_by_solver": {
               "modflownwt": 1,
               "modflow6": 1,
+              "modflow6_irregular_tri": 1,
               "boussinesq": 0
             }
           },
@@ -267,6 +281,7 @@
           "config_files": {
             "modflownwt": "config_modflownwt.toml",
             "modflow6": "config_modflow6.toml",
+            "modflow6_irregular_tri": "config_modflow6_irregular_tri.toml",
             "boussinesq": "config_boussinesq.toml"
           },
           "workspace": {
@@ -279,6 +294,7 @@
             "warmup_periods_by_solver": {
               "modflownwt": 1,
               "modflow6": 1,
+              "modflow6_irregular_tri": 1,
               "boussinesq": 0
             }
           },
@@ -327,6 +343,104 @@
       }
     },
     {
+      "solver": "modflow6_irregular_tri",
+      "solver_display_name": "MODFLOW 6 irregular triangles",
+      "is_default": false,
+      "config_path": "validation_cases/analytical/transient/brutsaert_recession_linearized_deep_1d/config_modflow6_irregular_tri.toml",
+      "tolerance_path": "validation_cases/analytical/transient/brutsaert_recession_linearized_deep_1d/tolerances_modflow6_irregular_tri.toml",
+      "expected_output": null,
+      "command": "python -m validation_cases.analytical.transient.brutsaert_recession_linearized_deep_1d.run_case --no-show --solver modflow6_irregular_tri",
+      "metric_lines": [
+        "Solution: exponential",
+        "Initial discharge: 2.751283e-04 m3/s",
+        "Characteristic time: 15.01 d",
+        "Relative RMSE: 0.0202",
+        "Relative max abs error: 0.0349",
+        "Cross-row head spread: 7.11e-15 m"
+      ],
+      "image": {
+        "filename": "brutsaert_recession_linearized_deep_1d__modflow6_irregular_tri.png",
+        "caption": "Brutsaert Recession Validation: Deep Linearized Aquifer rendered with MODFLOW 6 irregular triangles for the analytical gallery.",
+        "alt_text": "Brutsaert Recession Validation: Deep Linearized Aquifer validation figure for MODFLOW 6 irregular triangles",
+        "doc_path": "/_static/capability_gallery/validation/brutsaert_recession_linearized_deep_1d__modflow6_irregular_tri.png",
+        "repo_path": "docs/readthedocs/source/_static/capability_gallery/validation/brutsaert_recession_linearized_deep_1d__modflow6_irregular_tri.png"
+      },
+      "metadata": {
+        "observable_name": "outlet_discharge_east_side_m3_s",
+        "case_metadata": {
+          "case_id": "brutsaert_recession_linearized_deep_1d",
+          "category": "analytical",
+          "regime": "transient",
+          "dimension": "1d",
+          "launcher": "launcher_simulation",
+          "config_file": "config_modflownwt.toml",
+          "default_solver": "modflownwt",
+          "base_config": "config_common.toml",
+          "config_files": {
+            "modflownwt": "config_modflownwt.toml",
+            "modflow6": "config_modflow6.toml",
+            "modflow6_irregular_tri": "config_modflow6_irregular_tri.toml",
+            "boussinesq": "config_boussinesq.toml"
+          },
+          "workspace": {
+            "results_folder_name": "results_simulations"
+          },
+          "output": {
+            "observable_name": "outlet_discharge_east_side_m3_s",
+            "expected_periods": 12,
+            "head_observable_name": "watertable_elevation",
+            "warmup_periods_by_solver": {
+              "modflownwt": 1,
+              "modflow6": 1,
+              "modflow6_irregular_tri": 1,
+              "boussinesq": 0
+            }
+          },
+          "time": {
+            "nper": 12,
+            "dt_seconds": 864000.0
+          },
+          "geometry": {
+            "nx": 40,
+            "ny": 3,
+            "length_x_m": 400.0,
+            "width_y_m": 30.0,
+            "z_top_m": 100.0,
+            "z_bottom_m": 0.0
+          },
+          "runtime": {
+            "east_head_m": 50.0,
+            "steady_recharge_mm_day": 2.0,
+            "acceptable_steady_residual_inf": 1e-06
+          },
+          "reference": {
+            "solution": "exponential",
+            "hydraulic_conductivity_m_per_s": 0.0001,
+            "specific_yield": 0.1,
+            "aquifer_thickness_m": 50.0,
+            "watershed_area_m2": 12000.0,
+            "channel_length_m": 30.0,
+            "active_drainage_fraction": 1.0,
+            "linearization_constant": 0.25,
+            "compare_start_day": 0.0
+          }
+        },
+        "tolerances": {
+          "discharge": {
+            "relative_rmse": 0.03,
+            "relative_max_error": 0.05
+          },
+          "uniformity": {
+            "row_spread": 1e-06
+          },
+          "monotonicity": {
+            "max_positive_increment_m3_s": 1e-07
+          }
+        },
+        "final_elapsed_days": 120.0
+      }
+    },
+    {
       "solver": "boussinesq",
       "solver_display_name": "Boussinesq",
       "is_default": false,
@@ -363,6 +477,7 @@
           "config_files": {
             "modflownwt": "config_modflownwt.toml",
             "modflow6": "config_modflow6.toml",
+            "modflow6_irregular_tri": "config_modflow6_irregular_tri.toml",
             "boussinesq": "config_boussinesq.toml"
           },
           "workspace": {
@@ -375,6 +490,7 @@
             "warmup_periods_by_solver": {
               "modflownwt": 1,
               "modflow6": 1,
+              "modflow6_irregular_tri": 1,
               "boussinesq": 0
             }
           },
@@ -775,6 +891,50 @@
           "source": "validation_cases/analytical/transient/brutsaert_recession_linearized_deep_1d/config_modflow6.toml"
         }
       ],
+      "modflow6_irregular_tri": [
+        {
+          "field": "modflow6.runtime.mf_verbose",
+          "meaning": "Solver-specific override applied to MODFLOW 6.",
+          "value": "false",
+          "source": "validation_cases/analytical/transient/brutsaert_recession_linearized_deep_1d/config_modflow6_irregular_tri.toml"
+        },
+        {
+          "field": "modflow6.runtime.mf6_ims_complexity",
+          "meaning": "Linear-solver complexity preset used by MODFLOW 6.",
+          "value": "COMPLEX",
+          "source": "validation_cases/analytical/transient/brutsaert_recession_linearized_deep_1d/config_modflow6_irregular_tri.toml"
+        },
+        {
+          "field": "modflow6.process_specific.vka",
+          "meaning": "Vertical anisotropy ratio passed to MODFLOW 6.",
+          "value": "1",
+          "source": "validation_cases/analytical/transient/brutsaert_recession_linearized_deep_1d/config_modflow6_irregular_tri.toml"
+        },
+        {
+          "field": "modflow6.sgrid.vertical.nlay",
+          "meaning": "Number of vertical layers used by MODFLOW 6.",
+          "value": "1",
+          "source": "validation_cases/analytical/transient/brutsaert_recession_linearized_deep_1d/config_modflow6_irregular_tri.toml"
+        },
+        {
+          "field": "modflow6.tgrid.firstpersteady",
+          "meaning": "Whether the first time period is treated as steady by MODFLOW 6.",
+          "value": "true",
+          "source": "validation_cases/analytical/transient/brutsaert_recession_linearized_deep_1d/config_modflow6_irregular_tri.toml"
+        },
+        {
+          "field": "mesh_input.mesh_path",
+          "meaning": "Committed unstructured mesh file used by the irregular-mesh solver variant.",
+          "value": "../../../shared/mesh_bundles/brutsaert_recession_linearized_deep_irregular_tri_400x30/mesh_2d.msh",
+          "source": "validation_cases/analytical/transient/brutsaert_recession_linearized_deep_1d/config_modflow6_irregular_tri.toml"
+        },
+        {
+          "field": "mesh_input.bundle_dir",
+          "meaning": "Committed mesh-bundle directory used to recover support metadata for the irregular-mesh solver variant.",
+          "value": "../../../shared/mesh_bundles/brutsaert_recession_linearized_deep_irregular_tri_400x30",
+          "source": "validation_cases/analytical/transient/brutsaert_recession_linearized_deep_1d/config_modflow6_irregular_tri.toml"
+        }
+      ],
       "boussinesq": []
     },
     "acceptance_criteria": {
@@ -795,6 +955,12 @@
           "field": "output.head_observable_name",
           "meaning": "Head-like observable used when the case exposes more than one comparison target.",
           "value": "watertable_elevation",
+          "source": "validation_cases/analytical/transient/brutsaert_recession_linearized_deep_1d/metadata.toml"
+        },
+        {
+          "field": "output.warmup_periods_by_solver.modflow6_irregular_tri",
+          "meaning": "Warmup periods dropped before comparing `modflow6_irregular_tri` to the reference.",
+          "value": "1",
           "source": "validation_cases/analytical/transient/brutsaert_recession_linearized_deep_1d/metadata.toml"
         }
       ],
@@ -861,6 +1027,38 @@
             "meaning": "Acceptance threshold for `monotonicity.max_positive_increment_m3_s`.",
             "value": "1e-12",
             "source": "validation_cases/analytical/transient/brutsaert_recession_linearized_deep_1d/tolerances.toml"
+          }
+        ],
+        "modflow6_irregular_tri": [
+          {
+            "field": "expected_output",
+            "meaning": "Expected output shape or time-space layout checked for this solver.",
+            "value": "None",
+            "source": "validation_cases/analytical/transient/brutsaert_recession_linearized_deep_1d/metadata.toml"
+          },
+          {
+            "field": "discharge.relative_rmse",
+            "meaning": "Acceptance threshold for `discharge.relative_rmse`.",
+            "value": "0.03",
+            "source": "validation_cases/analytical/transient/brutsaert_recession_linearized_deep_1d/tolerances_modflow6_irregular_tri.toml"
+          },
+          {
+            "field": "discharge.relative_max_error",
+            "meaning": "Acceptance threshold for `discharge.relative_max_error`.",
+            "value": "0.05",
+            "source": "validation_cases/analytical/transient/brutsaert_recession_linearized_deep_1d/tolerances_modflow6_irregular_tri.toml"
+          },
+          {
+            "field": "uniformity.row_spread",
+            "meaning": "Maximum accepted cross-row spread for uniformity.",
+            "value": "1e-06",
+            "source": "validation_cases/analytical/transient/brutsaert_recession_linearized_deep_1d/tolerances_modflow6_irregular_tri.toml"
+          },
+          {
+            "field": "monotonicity.max_positive_increment_m3_s",
+            "meaning": "Acceptance threshold for `monotonicity.max_positive_increment_m3_s`.",
+            "value": "1e-07",
+            "source": "validation_cases/analytical/transient/brutsaert_recession_linearized_deep_1d/tolerances_modflow6_irregular_tri.toml"
           }
         ],
         "boussinesq": [

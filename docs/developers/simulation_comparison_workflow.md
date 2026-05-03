@@ -199,7 +199,9 @@ Terminologie a respecter pour ces vues:
 - `perennial` reste un alias legacy de `always_active`, mais ne doit pas etre
   compris comme une definition hydrologique forte du reseau perenne;
 - un reseau simule perenne devrait de preference venir d'un run
-  permanent/steady-state representatif, puis etre compare a `reference`.
+  permanent/steady-state representatif, puis etre compare a `reference`;
+- `flow_regime = "permanent"` est accepte comme nom hydrologique public et
+  normalise en interne vers le mode solveur `steady`.
 
 Lire d'abord `case_configuration.png` pour comprendre le cas teste, puis les
 figures `*triptych*.png` pour valider rapidement les champs: champ de
