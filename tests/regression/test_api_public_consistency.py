@@ -29,6 +29,7 @@ _DIRECT_EXPORTS = frozenset(
         "compare_pair",
         "compare_methods",
         "mesh",
+        "testbed",
         "report",
         "doctor",
         "bootstrap_proj",

@@ -37,7 +37,9 @@ def test_export_full_schema_produces_valid_json(tmp_path: Path) -> None:
     validators = json.loads(paths["validators"].read_text(encoding="utf-8"))
 
     assert "properties" in config
+    assert "comparison" in config["properties"]["workflow"]["enum"]
     assert "method-comparison" in config["properties"]["workflow"]["enum"]
+    assert "testbed" in config["properties"]["workflow"]["enum"]
     assert "flow" in config["properties"]
     assert isinstance(meta.get("sections"), list)
     assert isinstance(meta.get("root_fields"), list)

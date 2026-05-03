@@ -16,6 +16,7 @@ from hydromodpy._api import (
     overview,
     report,
     run,
+    testbed,
 )
 from hydromodpy._bootstrap import bootstrap
 from hydromodpy._lazy import LAZY_IMPORTS as _LAZY_IMPORTS
@@ -63,6 +64,7 @@ __all__ = [
     "compare_pair",
     "compare_methods",
     "mesh",
+    "testbed",
     "report",
     "bootstrap_proj",
     "doctor",

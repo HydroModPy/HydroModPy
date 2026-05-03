@@ -22,6 +22,7 @@ EXPECTED_TOP_LEVEL = [
     "batch",
     "compare_pair",
     "compare_methods",
+    "testbed",
     "doctor",
     # Project / run / catalog API
     "Project",

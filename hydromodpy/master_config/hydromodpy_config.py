@@ -87,6 +87,7 @@ _KNOWN_TOP_LEVEL_KEYS = frozenset(
         "overview",
         "mesh_catchment",
         "mesh_input",
+        "testbed",
         "calibration",
     }
 )
@@ -106,13 +107,22 @@ class HydroModPyConfig(HydroModelBase):
     model_config = ConfigDict(extra="forbid", arbitrary_types_allowed=True)
 
     workflow: Annotated[
-        Literal["simulation", "calibration", "batch", "overview", "mesh", "method-comparison"],
+        Literal[
+            "simulation",
+            "calibration",
+            "batch",
+            "overview",
+            "mesh",
+            "comparison",
+            "method-comparison",
+            "testbed",
+        ],
         Profile.USER,
     ] = Field(
         description=(
             "Workflow selector (mandatory). Must be one of "
             "'simulation', 'calibration', 'batch', 'overview', 'mesh', "
-            "'method-comparison'. "
+            "'comparison', 'method-comparison', 'testbed'. "
             "Drives dispatch in `hmp run <toml>` and in API-driven callers "
             "that instantiate `HydroModPyConfig` from a frontend form."
         ),
