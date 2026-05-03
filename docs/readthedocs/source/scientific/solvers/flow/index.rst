@@ -25,7 +25,9 @@ Current Flow Solver Families
    * - MODFLOW family
      - ``modflownwt``, ``modflow6``
      - Structured-grid and MODFLOW 6 groundwater-flow backends. Internal
-       structure: :doc:`modflow/index`.
+       structure: common MODFLOW part, :doc:`MODFLOW 6 version
+       <modflow/modflow6-version/index>`, and :doc:`MODFLOW-NWT version
+       <modflow/modflownwt-version/index>`.
    * - Boussinesq family
      - ``boussinesq``
      - In-house shallow-groundwater finite-volume backend. Internal

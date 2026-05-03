@@ -14,6 +14,10 @@ network concept introduced to unify:
 They focus on responsibilities, runtime handoffs, and the difference between
 canonical concepts and legacy-compatible technical bundles.
 
+For the scientific reading map around observed streams, seepage, drainage
+outflow, and simulated active networks, start with
+:doc:`../../scientific/streams_and_seepage/index`.
+
 Code map
 --------
 

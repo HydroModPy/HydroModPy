@@ -139,6 +139,10 @@ not as a prescribed stream boundary. See :doc:`simulated-active-network` for
 the distinction between local ``outflow_drain``, routed
 ``accumulation_flux``, and a thresholded active-network mask.
 
+For the broader navigation map across observed stream networks, seepage, and
+simulation-derived active networks, see
+:doc:`../streams_and_seepage/index`.
+
 What They Are Not
 -----------------
 

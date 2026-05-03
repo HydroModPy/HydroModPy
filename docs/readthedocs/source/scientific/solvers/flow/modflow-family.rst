@@ -13,16 +13,16 @@ Read this family as three explicit sub-categories:
      - Main page
      - Purpose
    * - Common MODFLOW part
-     - :doc:`modflow/common-concepts`
+     - :doc:`modflow/common/index`
      - Shared groundwater-flow vocabulary: governing equation, package
        semantics, boundary mapping, stress periods, vertical assumptions, and
        comparison discipline.
    * - MODFLOW 6 version
-     - :doc:`modflow/modflow6`
+     - :doc:`modflow/modflow6-version/index`
      - Modern MODFLOW 6 GWF route for ``flow/modflow6``: structured and
        runtime DISV-style supports, XT3D choices, and MODFLOW 6 GWT coupling.
    * - MODFLOW-NWT version
-     - :doc:`modflow/modflownwt`
+     - :doc:`modflow/modflownwt-version/index`
      - Legacy MODFLOW-NWT route for ``flow/modflownwt``: structured ``sgrid``
        support, continuity with historical studies, MODPATH, and MT3DMS.
 
@@ -43,19 +43,19 @@ first, then each backend version is readable independently:
    :caption: Common MODFLOW part
    :maxdepth: 2
 
-   modflow/common-concepts
+   modflow/common/index
 
 .. toctree::
    :caption: MODFLOW 6 version
    :maxdepth: 2
 
-   modflow/modflow6
+   modflow/modflow6-version/index
 
 .. toctree::
    :caption: MODFLOW-NWT version
    :maxdepth: 2
 
-   modflow/modflownwt
+   modflow/modflownwt-version/index
 
 .. toctree::
    :caption: Cross-cutting MODFLOW pages
@@ -71,9 +71,10 @@ Quick Reading Order
 
 If you do not know where to start, read the internal pages in this order:
 
-1. :doc:`modflow/common-concepts`,
-2. :doc:`modflow/modflow6` if you use the modern MODFLOW 6 path,
-3. :doc:`modflow/modflownwt` if you use the legacy MODFLOW-NWT path,
+1. :doc:`modflow/common/index`,
+2. :doc:`modflow/modflow6-version/index` if you use the modern MODFLOW 6 path,
+3. :doc:`modflow/modflownwt-version/index` if you use the legacy MODFLOW-NWT
+   path,
 4. :doc:`modflow/comparison-and-method-choice` when choosing or comparing,
 5. :doc:`modflow/worked-cases`,
 6. :doc:`modflow/transport-coupling` when transport is involved.

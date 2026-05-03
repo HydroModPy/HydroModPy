@@ -30,7 +30,7 @@ package "Persisted vector networks" {
 
 package "Future canonical role" {
   component "aggregation contract\nthreshold + window + mode" as Contract
-  component "steady-state scenario\npreferred basis for perennial network" as SteadyScenario
+  component "steady scenario\npreferred basis for steady active network" as SteadyScenario
   component "optional persisted mask" as PersistedMask
   component "optional vectorization" as Vectorization
   component "hydrographic_network_simulated_active\nGeoDataFrame linework" as SimulatedActiveRole
@@ -52,7 +52,7 @@ GeneratedNetwork --> OverlapMetrics
 OverlapMetrics --> OverlapExport
 
 ActiveMask --> Contract : informs
-SteadyScenario --> Contract : preferred perennial definition
+SteadyScenario --> Contract : preferred steady definition
 Contract --> PersistedMask
 PersistedMask --> Vectorization
 Vectorization --> SimulatedActiveRole
@@ -72,7 +72,7 @@ end note
 
 note bottom of SteadyScenario
 Use a representative flow_regime="steady" run to define
-hydrological perennial behavior. Do not infer it
-only from one arbitrary transient chronicle.
+the steady active network. Do not infer it only
+from one arbitrary transient chronicle.
 end note
 @enduml

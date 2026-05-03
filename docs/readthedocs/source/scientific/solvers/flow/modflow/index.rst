@@ -1,12 +1,12 @@
 MODFLOW Internals
 =================
 
-This section structures the MODFLOW-family documentation inside the
-``flow`` process.
+This section structures the MODFLOW-family documentation inside the ``flow``
+process.
 
 The hierarchy is intentionally split into three first-class sub-categories:
 
-1. **common MODFLOW part**: governing equation, package semantics,
+1. **Common MODFLOW part**: governing equation, package semantics,
    boundary-condition mapping, stress periods, and shared method vocabulary;
 2. **MODFLOW 6 version**: modern MODFLOW 6 GWF path for ``flow/modflow6``;
 3. **MODFLOW-NWT version**: legacy structured-grid path for
@@ -26,16 +26,13 @@ Three Sub-Categories
      - Contains
      - Use it when
    * - Common MODFLOW part
-     - Equation, package vocabulary, forcing and boundary semantics, shared
-       numerical assumptions.
+     - :doc:`common/index`
      - You need the concepts that apply to both MODFLOW 6 and MODFLOW-NWT.
    * - MODFLOW 6 version
-     - GWF package stack, structured and DISV-style support, XT3D, GWT
-       compatibility, MODFLOW 6 examples.
+     - :doc:`modflow6-version/index`
      - You run or interpret ``flow/modflow6``.
    * - MODFLOW-NWT version
-     - Structured-grid route, historical package behavior, MODPATH and MT3DMS
-       compatibility, legacy comparison examples.
+     - :doc:`modflownwt-version/index`
      - You run or interpret ``flow/modflownwt``.
 
 Current MODFLOW Flow Backends
@@ -62,19 +59,19 @@ Current MODFLOW Flow Backends
    :caption: Common MODFLOW part
    :maxdepth: 2
 
-   common-concepts
+   common/index
 
 .. toctree::
    :caption: MODFLOW 6 version
    :maxdepth: 2
 
-   modflow6
+   modflow6-version/index
 
 .. toctree::
    :caption: MODFLOW-NWT version
    :maxdepth: 2
 
-   modflownwt
+   modflownwt-version/index
 
 .. toctree::
    :caption: Comparison, cases, and coupling

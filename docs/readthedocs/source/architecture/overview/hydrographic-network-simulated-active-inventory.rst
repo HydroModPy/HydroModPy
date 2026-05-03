@@ -68,10 +68,10 @@ confuse:
 - ``always_active`` describes a stricter transient occupancy rule: a cell is
   active at every stored timestep of the analysed window.
 
-HydroModPy keeps ``perennial`` as a backward-compatible alias for
-``always_active`` in the computed API, but it should not be interpreted as a
-true hydrological perennial-network definition. A hydrologically perennial
-simulated network should preferably be defined from a representative
+HydroModPy keeps ``perennial`` only as a backward-compatible alias for
+``always_active`` in the computed API. New code and documentation should use
+``steady`` for the representative steady-flow concept. A simulated steady
+active network should preferably be defined from a representative
 ``flow_regime = "steady"`` run, then compared to ``reference`` with
 ``run.simulated_active_network_overlap_metrics(...)`` or visualized with
 ``simulated_active_network_reference_overlay``.
@@ -86,7 +86,7 @@ The computed API is now regime-aware when no ``mode`` is provided:
   transient diagnostics.
 
 This avoids making a one-year transient chronicle, its spin-up, or an arbitrary
-drought period define what is meant by "perennial".
+drought period define the representative steady active network.
 
 What Already Exists In The Simulation Outputs
 ---------------------------------------------
@@ -150,14 +150,13 @@ Lazy result views already built on top of those fields
   - ``persistent`` for cells active above a declared persistence threshold,
   - ``always_active`` for cells active at every timestep of the analysed
     transient window,
-  - ``perennial`` as a legacy alias for ``always_active``,
   - ``persistence`` for the continuous active-time fraction.
 
 - ``run.simulated_active_network_metrics()``: scalar occupancy summary over the
   same active field.
 - ``run.simulated_active_network_overlap_metrics()``: cell-overlap diagnostic
-  between the simulated active cells and one existing vector network role such
-  as ``reference`` or, secondarily, ``generated``.
+  between the simulated active cells and the observed ``reference`` vector
+  network.
 
 Those views are already scientifically meaningful, but they remain scalar or
 raster-like summaries, not one canonical stored network object.
@@ -213,15 +212,15 @@ which compares persisted vector linework roles.
 There is also a Run-level overlap diagnostic:
 
 - ``run.simulated_active_network_overlap_metrics(network_role="reference")``
-- ``run.simulated_active_network_overlap_metrics(network_role="generated")``
 
 This does not vectorize the simulated network. It rasterizes the selected
 persisted vector role onto mesh cells by intersection, then compares that cell
 occupancy with the computed simulated-active mask. This is the right
 intermediate comparison before committing to a canonical vectorization rule.
-The primary scientific comparison is against ``reference``. Comparing against
-``generated`` is still useful, but it answers a different question: whether the
-simulated active cells follow the DEM/topography-derived network.
+The scientific validation comparison is against ``reference``. If ``reference``
+is missing, the comparison should be skipped. HydroModPy should not silently
+fall back to ``generated`` because that would replace an observation-vs-model
+question with a topography-vs-model diagnostic.
 
 What Does Not Yet Exist
 -----------------------
@@ -240,7 +239,7 @@ network:
   - instantaneous active network,
   - seasonal or event-specific active network,
   - persistent transient active network,
-  - steady-state perennial active network.
+  - steady active network.
 
 This is the main reason why the role exists in the class contract but stays
 empty in practice.
@@ -265,7 +264,7 @@ Pros:
 
 Cons:
 
-- cannot compare with ``reference`` and ``generated`` using the same
+- cannot compare with observed ``reference`` using the same
   hydrographic-network API,
 - makes figures and metrics remain ad hoc and field-specific.
 
@@ -284,7 +283,7 @@ Pros:
 Cons:
 
 - still not one true line network,
-- comparison with vector reference/generated networks remains indirect.
+- comparison with the vector ``reference`` network remains indirect.
 
 Current status:
 
@@ -326,9 +325,13 @@ The first aggregation contract should stay simple and deterministic. Two good
 starting candidates are:
 
 - one thresholded snapshot at a declared timestep or season,
-- one persistence-based mask over the full simulation or one declared year.
-- one steady-state scenario with representative recharge, used as the preferred
-  basis for a simulated perennial network.
+- one persistence-based mask over the full simulation or one declared year,
+- one steady scenario with representative recharge.
+
+The implementation should also leave room for several named simulated-active
+representations instead of forcing one global answer too early. A project may
+need, for example, one ``steady`` network plus one or more transient
+``persistent`` variants.
 
 That would avoid mixing two questions:
 
@@ -356,12 +359,12 @@ Already available without changing storage:
 Natural next metrics after a canonical active-network representation exists:
 
 - active-network total length,
-- overlap with ``reference`` and ``generated``,
+- overlap with ``reference``,
 - missing and extra active branches,
 - precision / recall / F1 on raster occupancy,
 - Hausdorff-like distance for vectorized active lines,
 - seasonal persistence classes such as persistent vs intermittent branches,
-  separate from steady-state perennial behavior.
+  separate from the steady active-network concept.
 
 Open Design Questions
 ---------------------
@@ -373,8 +376,9 @@ Before implementing the role, a few questions need one explicit answer:
 3. Should the first comparison be raster-based, vector-based, or both?
 4. How should the contract behave on unstructured meshes when routing support
    differs from structured cases?
-5. Should ``simulated_active`` represent one instantaneous network or one
-   persistent network summary?
+5. Should ``simulated_active`` represent one canonical network, or a named set
+   of networks such as ``steady``, ``transient_persistent_50`` and
+   ``event_snapshot``?
 
 Until those questions are fixed, the safest position is:
 

@@ -77,7 +77,8 @@ Read the config in this order
    would inherit.
 3. ``[data]``:
    The ``types`` list tells you which thematic layers should exist in the
-   result.
+   result. Use :doc:`../user_guide/data/index` for the full guide to data
+   retrieval, providers, custom files, cache behavior, and lockfiles.
 4. Source blocks such as ``[[data.geology.sources]]`` or
    ``[[data.hydrometry.sources]]``:
    These blocks tell you where each layer comes from and which query window is
@@ -128,5 +129,8 @@ Where to go next
 - Open :doc:`../capability_gallery/cases/geographic_bdtopage_hydrography_overlay`
   if you want the hydrography-only variant with the loaded BD Topage network
   documented panel by panel.
+- Continue with :doc:`../user_guide/data/index` when you want to adapt the
+  retrieval layer to a new basin, local data archive, or frozen reproducibility
+  workflow.
 - Continue with :doc:`simulation-walkthrough` once the basin framing and data
   loading logic are clear.

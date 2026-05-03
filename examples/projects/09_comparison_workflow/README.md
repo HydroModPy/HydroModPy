@@ -47,6 +47,12 @@ Nancon transient seasonal recharge run with observed hydrography loaded:
 python examples/projects/09_comparison_workflow/run_comparison_example.py --case nancon-seasonal-hydrography --show
 ```
 
+Nancon MF6-only hydraulic-conductivity sweep with observed hydrography loaded:
+
+```powershell
+python examples/projects/09_comparison_workflow/run_comparison_example.py --case nancon-seasonal-hydrography-k-sweep-mf6 --show
+```
+
 Run all examples:
 
 ```powershell
@@ -63,6 +69,7 @@ hmp run examples/projects/09_comparison_workflow/compare_10km2_natural_mesh_rech
 hmp run examples/projects/09_comparison_workflow/compare_10km2_natural_mesh_transient_pulse_mf6_bouss.toml
 hmp run examples/projects/09_comparison_workflow/compare_nancon_transient_seasonal_mf6_bouss.toml
 hmp run examples/projects/09_comparison_workflow/compare_nancon_transient_seasonal_hydrography_mf6_bouss.toml
+hmp run examples/projects/09_comparison_workflow/compare_nancon_transient_seasonal_hydrography_k_sweep_mf6_only.toml
 ```
 
 Synthetic outputs are written under:
@@ -105,6 +112,12 @@ Nancon transient seasonal hydrography outputs are written under:
 
 ```text
 examples/projects/09_comparison_workflow/outputs/nancon_transient_seasonal_hydrography_mf6_vs_bouss
+```
+
+Nancon MF6-only K-sweep outputs are written under:
+
+```text
+examples/projects/09_comparison_workflow/outputs/nancon_transient_seasonal_hydrography_k_sweep_mf6_stable
 ```
 
 Key files:

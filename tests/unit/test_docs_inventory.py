@@ -13,3 +13,7 @@ def test_authored_docs_do_not_reference_removed_paths_or_commands() -> None:
 
 def test_api_reference_lists_required_public_api_pages() -> None:
     assert check_docs_inventory.check_api_reference_pages() == []
+
+
+def test_user_guide_lists_required_topic_pages() -> None:
+    assert check_docs_inventory.check_user_guide_pages() == []

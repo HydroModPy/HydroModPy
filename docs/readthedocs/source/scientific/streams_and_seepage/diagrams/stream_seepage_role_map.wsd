@@ -1,0 +1,62 @@
+@startuml
+title Streams And Seepage - Concept Map
+left to right direction
+skinparam componentStyle rectangle
+skinparam wrapWidth 180
+skinparam maxMessageSize 170
+
+package "External or topographic networks" {
+  component "reference stream network\nobserved / loaded linework" as Reference
+  component "generated stream network\nDEM-derived linework" as Generated
+}
+
+package "Groundwater model supports" {
+  component "stream support\ncells/edges carrying imposed stage" as StreamSupport
+  component "drainage or seepage support\ncells that can release water" as DrainSupport
+  component "surface / mesh topology\nrouting context" as Surface
+}
+
+package "Boundary or exchange meaning" {
+  component "stream boundary\nprescribed stage/head" as StreamBoundary
+  component "seepage/drainage operator\nhead-dependent release" as DrainOperator
+}
+
+package "Solver outputs" {
+  component "head / water table" as Head
+  component "local outflow\noutflow_drain" as Outflow
+  component "routed activity\naccumulation_flux" as Accum
+}
+
+package "Interpretation products" {
+  component "simulated active mask\nthreshold + time rule" as Mask
+  component "overlap metrics vs reference" as Overlap
+  component "optional future vector role\nhydrographic_network_simulated_active" as Vector
+}
+
+Reference --> StreamSupport : possible support source
+Generated --> StreamSupport : possible support source
+Generated --> DrainSupport : possible support source
+StreamSupport --> StreamBoundary
+DrainSupport --> DrainOperator
+StreamBoundary --> Head
+DrainOperator --> Head
+Head --> Outflow : activation depends on solved head
+Outflow --> Accum : route downstream
+Surface --> Accum
+Accum --> Mask
+Reference --> Overlap
+Mask --> Overlap
+Mask --> Vector : future contract only
+
+note bottom of StreamBoundary
+Stream is currently a stage/head
+support in the public model path.
+It is not a surface-routing model.
+end note
+
+note bottom of DrainOperator
+Seepage/drainage is not prescribed
+water leaving the model. It activates
+when solved head satisfies the release law.
+end note
+@enduml

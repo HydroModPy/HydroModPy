@@ -10,6 +10,7 @@ ROOT = Path(__file__).resolve().parents[1]
 DOC_SOURCE = ROOT / "docs" / "readthedocs" / "source"
 CLI_REFERENCE = DOC_SOURCE / "user_guide" / "cli-reference.rst"
 API_REFERENCE = DOC_SOURCE / "api-reference.rst"
+USER_GUIDE_INDEX = DOC_SOURCE / "user_guide" / "index.rst"
 
 COMMAND_PATTERN = re.compile(r"``hmp ([a-z0-9-]+)``")
 
@@ -30,6 +31,11 @@ REQUIRED_API_PAGES = {
     "api/hydromodpy-workflow-pipeline",
     "api/hydromodpy-analysis-calibration",
     "api/hydromodpy-schema",
+}
+
+REQUIRED_USER_GUIDE_PAGES = {
+    "data/index",
+    "data-sources",
 }
 
 if str(ROOT) not in sys.path:
@@ -93,11 +99,20 @@ def check_api_reference_pages() -> list[str]:
     return []
 
 
+def check_user_guide_pages() -> list[str]:
+    text = USER_GUIDE_INDEX.read_text(encoding="utf-8")
+    missing = sorted(page for page in REQUIRED_USER_GUIDE_PAGES if page not in text)
+    if missing:
+        return [f"user_guide/index.rst is missing required guide pages: {', '.join(missing)}"]
+    return []
+
+
 def run_checks() -> list[str]:
     errors: list[str] = []
     errors.extend(check_cli_reference())
     errors.extend(check_banned_authored_references())
     errors.extend(check_api_reference_pages())
+    errors.extend(check_user_guide_pages())
     return errors
 
 
