@@ -28,6 +28,7 @@ from hydromodpy.core.units.volumetric_flow import (
     convert_to_m3_per_s,
     normalize_m3_per_s_unit,
 )
+from hydromodpy.physics.flow.regime import normalize_flow_regime
 from hydromodpy.physics.flow.time_forcing import resolve_period_values_from_forcing
 from hydromodpy.solver import Solver
 from hydromodpy.solver.modflow6.modflow6_config import (
@@ -204,10 +205,7 @@ class Modflow6(Solver):
         if flow_regime is None:
             return None
 
-        flow_regime_text = str(flow_regime).strip().lower()
-        if flow_regime_text not in {"steady", "transient"}:
-            raise ValueError("flow.flow_regime must be 'steady' or 'transient'")
-        return flow_regime_text
+        return normalize_flow_regime(flow_regime)
 
     def _validate_pre_processing_inputs(self) -> None:
         if self.flow is None:
