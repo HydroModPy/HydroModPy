@@ -169,13 +169,13 @@ Capability and API-oriented guides
 
    .. grid-item-card::
       :class-card: sd-shadow-sm sd-rounded-3 sd-p-4
-      :link: data-sources
+      :link: data/index
       :link-type: doc
 
-      **Data sources**
+      **Data loading**
       ^^^
-      User-facing matrix of data families, supported providers, source blocks,
-      cache behavior, and typical consumers.
+      Retrieval workflow, provider matrix, local custom data conventions, cache
+      inspection, lockfiles, and frozen runs.
 
    .. grid-item-card::
       :class-card: sd-shadow-sm sd-rounded-3 sd-p-4
@@ -231,6 +231,7 @@ Use these pages once you have generated or opened result pages:
    calibration
    cli-reference
    capability-matrix
+   Data loading <data/index>
    data-sources
    results-and-exports
    figures

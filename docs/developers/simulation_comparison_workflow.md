@@ -183,8 +183,10 @@ par cellule, `simulated_active_network_metrics()` pour le resumer depuis
 `accumulation_flux`, et `simulated_active_network_overlap_metrics()` pour une
 comparaison cellule-a-cellule avec un role vectoriel existant. La cible
 principale est `reference`, car on compare alors simulation et observation.
-`generated` reste utile comme diagnostic secondaire vis-a-vis du reseau derive
-du DEM/topographie. Quand le run porte un maillage exploitable, la figure
+S'il n'y a pas de role `reference`, cette comparaison doit etre ignoree plutot
+que de basculer automatiquement vers `generated`. `generated` reste utile comme
+diagnostic secondaire vis-a-vis du reseau derive du DEM/topographie, mais ce
+n'est pas une observation. Quand le run porte un maillage exploitable, la figure
 `simulated_active_network` permet de rendre cette vue calculee, et
 `simulated_active_network_reference_overlay` superpose cette vue avec le reseau
 observe `reference`. La comparaison peut exporter les metriques d'occupation
@@ -199,10 +201,14 @@ Terminologie a respecter pour ces vues:
   temps transitoires;
 - `always_active` signifie actif a tous les pas de temps de la fenetre
   transitoire analysee;
-- `perennial` reste un alias legacy de `always_active`, mais ne doit pas etre
-  compris comme une definition hydrologique forte du reseau perenne;
-- un reseau simule perenne devrait de preference venir d'un run
-  `flow_regime = "steady"` representatif, puis etre compare a `reference`.
+- `steady` est le concept a utiliser pour un etat de reference permanent au
+  sens du solveur;
+- `perennial` reste seulement un alias legacy de `always_active` dans l'API
+  calculee;
+- un reseau simule steady devrait de preference venir d'un run
+  `flow_regime = "steady"` representatif, puis etre compare a `reference`;
+- il faut laisser la porte ouverte a plusieurs reseaux simules nommes
+  (`steady`, `transient_persistent_50`, `event_snapshot`, etc.).
 
 Lire d'abord `case_configuration.png` pour comprendre le cas teste, puis les
 figures `*triptych*.png` pour valider rapidement les champs: champ de

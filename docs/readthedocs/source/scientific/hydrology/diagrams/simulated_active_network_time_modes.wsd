@@ -44,9 +44,8 @@ Always --> Strict
 Persistence --> Continuous
 
 note bottom
-Hydrological perennial behavior should preferably be defined
-from a representative steady-state run. The transient
-always_active mode only says "active at every stored timestep"
-of the chosen analysis window.
+Use steady for the representative steady-flow concept.
+The transient always_active mode only says "active at every
+stored timestep" of the chosen analysis window.
 end note
 @enduml

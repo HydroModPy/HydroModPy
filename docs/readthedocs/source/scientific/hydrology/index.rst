@@ -10,9 +10,12 @@ It is the right place for:
 - recharge-generation narratives,
 - PyHELP coupling notes,
 - runoff, evapotranspiration, and climatic forcing chains,
-- semantic distinctions between recharge, runoff, ETP, and boundary exchange,
-- stream, ocean, and drainage semantics at the groundwater interface,
+- semantic distinctions between recharge, runoff, ETP, and surface exchange,
 - unit-conversion and time-aggregation conventions.
+
+If you are looking for stream networks, seepage, drainage outflow, or
+simulation-derived active streams, use the sibling section
+:doc:`../streams_and_seepage/index`.
 
 .. toctree::
    :maxdepth: 2
@@ -20,5 +23,3 @@ It is the right place for:
    hydrological-forcing-chain
    forcing-time-aggregation-and-first-clim
    recharge-and-surface-exchange-semantics
-   stream-ocean-and-drainage-semantics
-   simulated-active-network

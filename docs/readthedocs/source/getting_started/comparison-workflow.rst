@@ -270,15 +270,14 @@ validation figure when both are available. These figures are useful before
 deciding whether a canonical vectorized ``simulated_active`` network should be
 persisted.
 
-For terminology, ``persistent`` is a transient occupancy rule, while
+For terminology, ``steady`` is the representative steady-flow concept, while
+``persistent`` and ``always_active`` are transient occupancy rules.
 ``always_active`` means active at every timestep of the analysed transient
-window. The legacy name ``perennial`` is kept as an alias of
-``always_active``. A hydrologically perennial simulated network should instead
-be based on a representative ``flow_regime = "steady"`` run, then compared
-against ``reference``. When no active-network ``mode`` is supplied,
-HydroModPy resolves the default from the run regime: ``steady`` uses the
-steady-state active field, while ``transient`` uses ``persistent`` for
-backward compatibility.
+window. A steady simulated active network should be based on a representative
+``flow_regime = "steady"`` run, then compared against ``reference``. When no
+active-network ``mode`` is supplied, HydroModPy resolves the default from the
+run regime: ``steady`` uses the steady-state active field, while ``transient``
+uses ``persistent`` for backward compatibility.
 
 For a programmatic diagnostic against an existing vector role, use:
 
@@ -286,10 +285,9 @@ For a programmatic diagnostic against an existing vector role, use:
 
 This compares cell occupancy after rasterizing the selected vector network onto
 the simulation mesh. This is the primary validation comparison for the
-simulated active network. You can also run the same diagnostic with
-``network_role="generated"`` to test agreement with the DEM/topography-derived
-network, but that is a secondary geomorphological diagnostic, not an
-observation-vs-simulation validation.
+simulated active network. If ``reference`` is not available, the validation
+comparison is skipped. It should not silently fall back to ``generated``,
+because that would no longer be an observation-vs-simulation validation.
 
 For a single run that carries both networks, HydroModPy also exposes dedicated
 figures such as:

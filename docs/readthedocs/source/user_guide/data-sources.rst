@@ -1,116 +1,60 @@
 Data Sources
 ============
 
-HydroModPy data loading is configured through ``[data]`` and
-``[[data.<family>.sources]]`` TOML sections. Each family accepts one or more
-sources. Managers normalize the loaded records into internal field, point, or
-timeseries contracts before workflows consume them.
+This page is a compact compatibility entry point for older links. The complete
+data documentation now lives in :doc:`data/index`.
 
-Provider matrix
----------------
+HydroModPy data loading is configured through ``[data]`` and
+``[[data.<family>.sources]]`` TOML sections. Managers can load public API
+providers, local custom files, synthetic forcing, and constants, then normalize
+the result into internal field, point, or timeseries contracts.
+
+Quick provider matrix
+---------------------
 
 .. list-table::
    :header-rows: 1
-   :widths: 18 25 22 35
+   :widths: 18 28 26 28
 
    * - Family
      - Sources
      - Typical payload
-     - Notes
+     - Deep reference
    * - ``dem``
      - ``custom``, ``ign_bdalti``
      - Raster elevation
-     - Used by geographic preprocessing and catchment extraction.
+     - :doc:`data/provider-matrix`
    * - ``geology``
      - ``custom``, ``brgm_1m``, ``brgm_50k``
-     - Vector or raster geology zones
-     - Custom vector sources require a geology-code column.
+     - Geology zones
+     - :doc:`data/provider-matrix`
    * - ``hydrography``
      - ``custom``, ``osm``, ``bdtopage``, ``euhydro``
      - Stream-network geometries
-     - API sources are clipped by a resolved bounding box and cached.
-   * - ``hydrometry``
-     - ``custom``, ``hubeau``
-     - Streamflow stations and chronicles
-     - Used by data overviews, calibration, validation, and reports.
-   * - ``piezometry``
-     - ``custom``, ``hubeau``
-     - Head observation wells and chronicles
-     - Can constrain calibration and result diagnostics.
-   * - ``intermittency``
-     - ``custom``, ``hubeau``
-     - Flow-state observations
-     - Useful for stream-network calibration and validation.
-   * - ``water_quality``
-     - ``custom``, ``hubeau``
-     - Chemistry samples and chronicles
-     - Supports transport and diagnostic workflows.
+     - :doc:`data/provider-matrix`
+   * - ``hydrometry``, ``piezometry``, ``intermittency``, ``water_quality``
+     - ``custom`` and Hub'Eau-backed sources
+     - Observation stations and chronicles
+     - :doc:`data/provider-matrix`
+   * - ``recharge``, ``runoff``, ``precipitation``, ``etp``, ``temperature``,
+       ``wind``, ``humidity``, ``radiation``, ``soil_moisture``
+     - ``custom`` and SIM2-backed sources, plus ``synthetic`` recharge
+     - Gridded or point forcing
+     - :doc:`data/provider-matrix`
    * - ``oceanic``
      - ``custom``, ``shom``, ``constant``
-     - Sea-level or coastal boundary timeseries
-     - ``constant`` is useful for controlled coastal tests.
-   * - ``recharge``
-     - ``custom``, ``sim2``, ``synthetic``
-     - Gridded or point recharge
-     - ``synthetic`` creates controlled forcing series for tests.
-   * - ``precipitation``
-     - ``custom``, ``sim2``
-     - Gridded or point climate forcing
-     - Components include liquid, solid, or total precipitation.
-   * - ``etp``
-     - ``custom``, ``sim2``
-     - Potential evapotranspiration
-     - Shares the standard gridded/time-series source contract.
-   * - ``temperature``
-     - ``custom``, ``sim2``
-     - Air temperature
-     - Used by hydrological preprocessing and diagnostics.
-   * - ``wind``
-     - ``custom``, ``sim2``
-     - Wind forcing
-     - Uses the common climate manager pattern.
-   * - ``humidity``
-     - ``custom``, ``sim2``
-     - Humidity forcing
-     - Uses the common climate manager pattern.
-   * - ``radiation``
-     - ``custom``, ``sim2``
-     - Atmospheric or visible radiation
-     - Components are selected in the source block.
-   * - ``soil_moisture``
-     - ``custom``, ``sim2``
-     - Soil-moisture fields or timeseries
-     - Used by data overviews and forcing checks.
-   * - ``runoff``
-     - ``custom``, ``sim2``
-     - Runoff fields or chronicles
-     - Uses the common hydrometeorological source contract.
+     - Coastal boundary time series or fixed sea level
+     - :doc:`data/provider-matrix`
 
-Common source fields
---------------------
-
-Most source blocks share the same ideas even when exact fields differ:
-
-- ``source`` selects the provider.
-- ``path`` points to user data for ``custom`` sources.
-- ``mask_path`` or ``extent`` constrains API downloads.
-- ``force_refresh`` bypasses cached API artifacts when available.
-- ``source_unit`` documents or overrides units for custom gridded inputs.
-- ``stations`` or equivalent id lists restrict point/time-series sources.
-- ``date_start`` and ``date_end`` may be inferred from the project period, but
-  explicit dates make external downloads easier to audit.
-
-Minimal TOML patterns
----------------------
-
-Most projects start by declaring the active data families, then one or more
-source blocks for each family:
+Minimal public-data pattern
+---------------------------
 
 .. code-block:: toml
 
    [data]
    project_crs = "EPSG:2154"
-   types = ["dem", "geology", "hydrography", "hydrometry", "piezometry", "recharge"]
+   inference_mode = "strict"
+   types = ["dem", "geology", "hydrography", "hydrometry", "recharge"]
 
    [[data.dem.sources]]
    source = "ign_bdalti"
@@ -122,22 +66,30 @@ source blocks for each family:
 
    [[data.hydrography.sources]]
    source = "bdtopage"
-   extent = "watershed"
+
+   [data.hydrometry]
+   date_start = "2020-01-01"
+   date_end = "2020-12-31"
 
    [[data.hydrometry.sources]]
    source = "hubeau"
+   product = "QmnJ"
    extent = "watershed"
 
-   [[data.piezometry.sources]]
-   source = "hubeau"
-   extent = "watershed"
+   [data.recharge]
+   date_start = "2020-01-01"
+   date_end = "2020-12-31"
 
    [[data.recharge.sources]]
    source = "sim2"
    extent = "watershed"
 
-Use ``custom`` when the project should read local files instead of external
-services:
+``hydrography`` is intentionally shown without ``extent`` here: its source
+config does not expose that field. The runtime passes the project geographic
+context to the hydrography manager.
+
+Minimal custom pattern
+----------------------
 
 .. code-block:: toml
 
@@ -158,72 +110,21 @@ services:
    source = "custom"
    path = "data/hydrography/rivers.gpkg"
 
+   [data.recharge]
+   date_start = "2000-01-01"
+   date_end = "2002-12-31"
+
    [[data.recharge.sources]]
    source = "custom"
    path = "data/recharge/recharge.nc"
    source_unit = "mm/day"
 
-Controlled synthetic or constant sources are useful for tests and teaching:
+Where to continue
+-----------------
 
-.. code-block:: toml
-
-   [data]
-   types = ["recharge", "oceanic"]
-
-   [[data.recharge.sources]]
-   source = "synthetic"
-   values = [0.8, 1.2, 0.6]
-
-   [[data.oceanic.sources]]
-   source = "constant"
-   value = 0.0
-
-Provider choice
----------------
-
-.. list-table::
-   :header-rows: 1
-   :widths: 26 37 37
-
-   * - Goal
-     - Prefer
-     - Why
-   * - First watershed overview in France
-     - ``ign_bdalti``, ``brgm_1m``, ``bdtopage``, Hub'Eau, ``sim2``
-     - Minimizes local files and exercises the standard public-data path.
-   * - Reproducible teaching case
-     - ``custom``, ``synthetic``, ``constant``
-     - Avoids external API availability and makes expected values explicit.
-   * - Local production project
-     - ``custom`` for validated in-house datasets, API sources as fallback
-     - Keeps institutionally curated inputs authoritative.
-   * - CI or offline validation
-     - ``custom`` plus ``hmp run --frozen``
-     - Fails early if an input is missing instead of downloading silently.
-
-Cache and reproducibility
--------------------------
-
-API-backed sources persist reusable artifacts in the workspace data cache.
-Lockfile commands then record the identity of downloaded or imported data:
-
-.. code-block:: bash
-
-   hmp data
-   hmp lock
-   hmp run project.toml --frozen
-
-Use ``--frozen`` when a workflow must fail instead of downloading fresh data.
-This is the right mode for CI, teaching material, and reproducibility checks.
-Use ``force_refresh = true`` only when you intentionally want to bypass cached
-API artifacts and refresh provider data.
-
-Where data appears in workflows
--------------------------------
-
-Overview workflows use data managers to build identity cards before any solver
-run. Simulation workflows use them during setup and persistence. Calibration,
-comparison, and batch workflows reuse the same normalized records through the
-workspace catalog and run stores.
-
-For API details, see :doc:`../api/hydromodpy-data`.
+- :doc:`data/retrieval-workflow` explains the end-to-end retrieval lifecycle.
+- :doc:`data/provider-matrix` lists supported families, providers, and fields.
+- :doc:`data/custom-data` documents local files and CSV conventions.
+- :doc:`data/cache-and-lockfiles` explains cache inspection, locking, frozen
+  runs, and data archives.
+- :doc:`../api/hydromodpy-data` exposes the generated Python API reference.
