@@ -650,10 +650,10 @@ class Project:
 
         Two modes are supported:
 
-        * **TOML mode** (``config_path`` supplied): delegate to
+        * TOML mode (``config_path`` supplied): delegate to
           :func:`hydromodpy.calibration.cli.run_calibration_cli` with the
-          given TOML path. Extra ``**kwargs`` are forwarded.
-        * **Python mode** (``parameters`` supplied): build a
+          given TOML path. Extra keyword arguments are forwarded.
+        * Python mode (``parameters`` supplied): build a
           :class:`CalibrationConfig` in memory from the declarations
           below and run the same loop. The project's own ``config_path``
           becomes the simulation TOML, so the caller does not need to
@@ -775,7 +775,7 @@ class Project:
             tuple. Patches ``cfg.simulation.process``.
         name : str, optional
             Run name. Auto-generated if absent.
-        **overrides
+        overrides
             Flow parameter overrides forwarded to :meth:`run`.
         """
         from hydromodpy.simulation.planning.config import (
