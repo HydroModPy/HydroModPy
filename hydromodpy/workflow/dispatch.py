@@ -187,6 +187,10 @@ def run_comparison(config_path: str | Path) -> dict[str, Any]:
 
 def run_testbed(config_path: str | Path) -> dict[str, Any]:
     """Run a method-testbed workflow from a TOML file."""
+    from hydromodpy.workflow.testbed import register_default_testbed_runner_provider
+
+    register_default_testbed_runner_provider()
+
     from hydromodpy.analysis.testbed.runtime import TestbedLauncher
 
     return TestbedLauncher(config_path).run()

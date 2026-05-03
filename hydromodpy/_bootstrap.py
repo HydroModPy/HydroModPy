@@ -112,15 +112,20 @@ def _register_calibration_contracts() -> None:
 
 
 def _register_analysis_contracts() -> None:
-    """Wire the solver registry into analysis comparison helpers.
+    """Wire runtime providers into analysis helpers.
 
     Analysis cannot import the solver layer (cf. layer matrix), so the
     distributed flow solver lookup is injected here through the
     ``SolverRegistryProvider`` Protocol declared in
     :mod:`hydromodpy.analysis.comparison._solver_protocol`.
+
+    Testbed child workflow execution is injected through
+    ``TestbedRunnerProvider`` so the analysis package never imports the
+    workflow package.
     """
     from hydromodpy.analysis.comparison import _solver_protocol
     from hydromodpy.solver.base import registry as _registry
+    from hydromodpy.workflow.testbed import register_default_testbed_runner_provider
 
     class _RegistryProvider:
         def distributed_flow_solver_sections(self) -> tuple[str, ...]:
@@ -138,6 +143,7 @@ def _register_analysis_contracts() -> None:
             return tuple(sections)
 
     _solver_protocol.set_solver_registry_provider(_RegistryProvider())
+    register_default_testbed_runner_provider()
 
 
 def _register_simulation_contracts() -> None:

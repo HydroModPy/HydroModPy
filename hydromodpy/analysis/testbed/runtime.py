@@ -18,6 +18,7 @@ from hydromodpy.analysis.testbed.config import (
     TestbedMetricConfig,
     TestbedVariantConfig,
 )
+from hydromodpy.analysis.testbed.contracts import get_testbed_runner_provider
 from hydromodpy.core.toml_io import (
     is_declared_absolute_path,
     load_toml_with_base_config,
@@ -650,18 +651,12 @@ class TestbedLauncher:
     def _run_case(self, case: TestbedPlannedCase) -> dict[str, Any]:
         if case.config_path is None:
             return {}
+        provider = get_testbed_runner_provider()
         if self.cfg.runner.type == "mesh_catchment":
-            from hydromodpy.workflow.pipelines.mesh import MeshCatchmentLauncher
-
-            return dict(MeshCatchmentLauncher(case.config_path).run())
+            return dict(provider.run_mesh_catchment(case.config_path))
         if self.cfg.runner.type == "simulation":
-            from hydromodpy.workflow.dispatch import run_simulation
-
             return dict(
-                run_simulation(
-                    case.config_path,
-                    no_display=self.cfg.runner.no_display,
-                )
+                provider.run_simulation(case.config_path, no_display=self.cfg.runner.no_display)
             )
         raise ValueError(f"Unsupported testbed runner: {self.cfg.runner.type}")
 
