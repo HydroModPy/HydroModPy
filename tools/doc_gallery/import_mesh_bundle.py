@@ -24,6 +24,8 @@ from .mesh_case_registry import (
     validate_bundle_dir,
 )
 
+_WINDOWS_EXTENDED_PATH_FALLBACK_WINERRORS = {3, 206}
+
 
 def build_parser() -> argparse.ArgumentParser:
     """Build the public CLI parser for bundle imports."""
@@ -117,14 +119,23 @@ def _windows_extended_length_path(path: Path) -> str:
 
 
 def _copy_file(source_path: Path, destination_path: Path) -> None:
-    """Copy one file, using extended-length paths on Windows."""
-    if os.name == "nt":
-        shutil.copy2(
-            _windows_extended_length_path(source_path),
-            _windows_extended_length_path(destination_path),
-        )
-        return
-    shutil.copy2(source_path, destination_path)
+    """Copy one file, falling back to extended-length paths on Windows."""
+    try:
+        shutil.copy2(source_path, destination_path)
+    except OSError as copy_error:
+        if (
+            os.name != "nt"
+            or getattr(copy_error, "winerror", None)
+            not in _WINDOWS_EXTENDED_PATH_FALLBACK_WINERRORS
+        ):
+            raise
+        try:
+            shutil.copy2(
+                _windows_extended_length_path(source_path),
+                _windows_extended_length_path(destination_path),
+            )
+        except OSError as fallback_error:
+            raise copy_error from fallback_error
 
 
 def _resolve_existing_path(candidate: object, *, base_dir: Path) -> Path | None:

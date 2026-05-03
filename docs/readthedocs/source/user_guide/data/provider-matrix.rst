@@ -5,6 +5,9 @@ This page lists the public and local source values accepted by the data
 configuration models. The details are derived from the ``*SourceConfig`` classes
 under ``hydromodpy.data.variables``.
 
+For operational details, examples, and source-specific checks, use the expanded
+:doc:`families/index` section. This page remains the compact inventory.
+
 Family inventory
 ----------------
 

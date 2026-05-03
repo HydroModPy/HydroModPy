@@ -3,8 +3,8 @@
   "output_mesh": "C:\\codes\\HydroModPy\\_workspace\\projects\\reference_river_network_nancon\\mesh\\mesh_catchment.msh",
   "mesh_kind": "gmsh_2d",
   "cell_type": "triangle",
-  "n_nodes": 3133,
-  "n_cells": 6192,
+  "n_nodes": 3132,
+  "n_cells": 6190,
   "n_partition_faces": 2,
   "zone_keys": [
     "domain"
@@ -76,8 +76,8 @@
       "provided": true,
       "kind": "watershed_boundary",
       "line_count": 1,
-      "curve_count": 74,
-      "embedded_surface_curve_pairs": 74,
+      "curve_count": 73,
+      "embedded_surface_curve_pairs": 73,
       "embed_failures": 0,
       "refined_with_interface_field": true,
       "participates_in_refinement": true
@@ -118,7 +118,7 @@
   "mesh_size_fields": {
     "interface_refinement": {
       "enabled": true,
-      "interface_curve_count": 757,
+      "interface_curve_count": 756,
       "active_families": [
         "river",
         "watershed_boundary"
@@ -142,7 +142,7 @@
         "watershed_boundary": {
           "enabled": true,
           "priority": 100,
-          "interface_curve_count": 74,
+          "interface_curve_count": 73,
           "interface_size": 180.0,
           "interface_distance": 300.0,
           "interface_sampling": 64,
@@ -157,8 +157,8 @@
           4
         ]
       },
-      "candidate_interface_curve_count": 757,
-      "scope_filtered_interface_curve_count": 757,
+      "candidate_interface_curve_count": 756,
+      "scope_filtered_interface_curve_count": 756,
       "refinement_scope_applied": false
     },
     "regional_background": {
@@ -223,22 +223,22 @@
       "tag": 4,
       "name": "watershed::boundary",
       "group_kind": "watershed_boundary_curve",
-      "entity_count": 74,
+      "entity_count": 73,
       "zone_keys": []
     }
   ],
   "refinement_policy": {
-    "candidate_curve_count": 757,
-    "active_curve_count": 757,
+    "candidate_curve_count": 756,
+    "active_curve_count": 756,
     "filtered_curve_count": 0,
     "family_curve_counts_before": {
       "river": 683,
-      "watershed_boundary": 74
+      "watershed_boundary": 73
     },
     "family_curve_counts_after": {
       "geology_interface": 0,
       "river": 683,
-      "watershed_boundary": 74
+      "watershed_boundary": 73
     },
     "family_curve_counts_filtered": {
       "geology_interface": 0,
@@ -270,8 +270,8 @@
   "domain_source_path": "C:\\codes\\HydroModPy\\_workspace\\projects\\reference_river_network_nancon\\.solver_scratch\\_preprocessing\\geographic\\watershed_box_buff.shp",
   "domain_source_feature_count": 1,
   "domain_crs": "EPSG:2154",
-  "n_cells_in_watershed": 4893,
-  "n_cells_outside_watershed": 1299,
+  "n_cells_in_watershed": 4894,
+  "n_cells_outside_watershed": 1296,
   "constraints_mode": "rivers_only",
   "effective_domain": {
     "domain_kind": "geographic_box_buffer",
@@ -290,8 +290,8 @@
   "watershed_boundary": {
     "enabled": true,
     "smoothing_enabled": true,
-    "boundary_length": 41168.50191374836,
-    "boundary_area_source": 64699401.34666604,
+    "boundary_length": 41327.204128661295,
+    "boundary_area_source": 64672481.375385,
     "boundary_refinement_distance": 300.0,
     "smoothing": {
       "distance": 100.0,

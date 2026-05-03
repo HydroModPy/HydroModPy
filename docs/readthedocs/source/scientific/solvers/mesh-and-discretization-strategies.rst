@@ -106,28 +106,6 @@ is simpler:
 - avoid interpreting a map discrepancy as "physics" before checking whether it
   is partly a support/discretization effect.
 
-Runtime Mesh Contrast
----------------------
-
-The committed MODFLOW 6 Gmsh case illustrates a different situation: the
-support itself is generated as a runtime catchment mesh. It is a useful
-contrast to Nancon because the mesh is the first-order object to inspect before
-reading the flow state.
-
-.. figure:: /_static/capability_gallery/simulation/modflow6_gmsh_support_overview.png
-   :alt: Runtime Gmsh support overview for a MODFLOW 6 basin run
-   :width: 100%
-
-   Runtime support overview for a MODFLOW 6 basin run. This figure answers
-   "what geometry did the solver consume?"
-
-.. figure:: /_static/capability_gallery/simulation/modflow6_gmsh_flow_state_triptych.png
-   :alt: MODFLOW 6 runtime mesh flow-state triptych
-   :width: 100%
-
-   The flow-state triptych then answers "what did the solver compute on that
-   support?"
-
 Planar Support Families
 -----------------------
 
@@ -307,6 +285,7 @@ Related Pages
 -------------
 
 - :doc:`meshes-and-numerical-methods`
+- :doc:`../mesh/regular-vs-irregular-meshes`
 - :doc:`field-to-cell-parameter-transfer`
 - :doc:`vertical-representation-and-storage-assumptions`
 - :doc:`mesh-quality-and-acceptance-criteria`
