@@ -279,8 +279,8 @@ _LAZY_IMPORTS = {
     # Core infrastructure
     "Workspace": "hydromodpy.core.workspace",
     "WorkspaceConfig": "hydromodpy.core.workspace",
-    "HydroModPyConfig": "hydromodpy.core.config.hydromodpy_config",
-    "Config": "hydromodpy.core.config.hydromodpy_config:HydroModPyConfig",
+    "HydroModPyConfig": "hydromodpy.config:HydroModPyConfig",
+    "Config": "hydromodpy.config:HydroModPyConfig",
     # Simulation orchestration
     "SimulationConfig": "hydromodpy.simulation.planning.config",
     "Sim": "hydromodpy.simulation.planning.config:SimulationConfig",

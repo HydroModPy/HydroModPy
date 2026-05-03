@@ -51,7 +51,7 @@
     "validation_cases/analytical/transient/linearized_unconfined_1d.py"
   ],
   "source_hashes": {
-    "validation_cases/README.md": "1965de83b961f1ab4e38d8194d51342e1286d0c2e1b779188903b84e3fc26f1c",
+    "validation_cases/README.md": "6954bbc12c427d8f32dc4ec659fa99518dc972708789e988cd3b39b37b82dfe5",
     "validation_cases/analytical/transient/linearized_unconfined_boundary_piecewise_1d/README.md": "a262b8fa7de56bbe60b46f96413a7511ee18525f08dc56fe1edce4b2ea544847",
     "validation_cases/analytical/transient/linearized_unconfined_boundary_piecewise_1d/reference.py": "2b8e665043995b57a4738db7ae375b7417f932b5f452222d4d5b296b8cd640a6",
     "validation_cases/analytical/transient/linearized_unconfined_boundary_piecewise_1d/comparison.py": "0721f97555a7dd0e27a2f1038cf0cf536d7e35d00bc1aed4e35c4332ae57a73d",
@@ -389,10 +389,10 @@
       "expected_output": "Expected output: 24 periods, spatial shape 5 x 50",
       "command": "python -m validation_cases.analytical.transient.linearized_unconfined_boundary_piecewise_1d.run_case --no-show --solver modflow6_irregular_tri",
       "metric_lines": [
-        "Space-time RMSE: 0.0055 m",
-        "Space-time max abs error: 0.0320 m",
-        "Final-profile RMSE: 0.0023 m",
-        "Cross-row head spread: 0.00e+00 m"
+        "Space-time RMSE: 0.0298 m",
+        "Space-time max abs error: 0.1155 m",
+        "Final-profile RMSE: 0.0063 m",
+        "Cross-row head spread: 2.32e-03 m"
       ],
       "image": {
         "filename": "linearized_unconfined_boundary_piecewise_1d__modflow6_irregular_tri.png",

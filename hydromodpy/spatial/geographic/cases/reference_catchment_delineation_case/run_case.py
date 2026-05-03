@@ -20,7 +20,7 @@ if __package__ in (None, ""):
     if str(_repo_root) not in sys.path:
         sys.path.insert(0, str(_repo_root))
 
-from hydromodpy.core.config.hydromodpy_config import HydroModPyConfig
+from hydromodpy.config import HydroModPyConfig
 from hydromodpy.core.workspace import Workspace
 from hydromodpy.spatial.geographic.cases.plotting_utils import (
     ensure_interactive_backend_for_show,

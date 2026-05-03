@@ -2044,6 +2044,7 @@ def _budget_component_label(component: str) -> str:
         "prescribed_head_out_total_m3_s": "Fixed-head outflow",
         "evapotranspiration_total_m3_s": "Evapotranspiration",
         "surface_excess_total_m3_s": "Surface excess",
+        "dry_deficit_total_m3_s": "Dry deficit",
         "storage_change_total_m3_s": "Storage change",
         "closure_residual_m3_s": "Closure residual",
     }
@@ -2058,6 +2059,7 @@ def _budget_component_color(component: str) -> str:
         "prescribed_head_out_total_m3_s": "#9467bd",
         "evapotranspiration_total_m3_s": "#17becf",
         "surface_excess_total_m3_s": "#d62728",
+        "dry_deficit_total_m3_s": "#b45309",
         "storage_change_total_m3_s": "#2ca02c",
         "closure_residual_m3_s": "#6b7280",
         "outlet_flux_series": "#111827",
@@ -2129,6 +2131,7 @@ def _write_budget_diagnostic_figure(
         for component in (
             "recharge_total_m3_s",
             "well_total_m3_s",
+            "dry_deficit_total_m3_s",
             "evapotranspiration_total_m3_s",
             "storage_change_total_m3_s",
             "closure_residual_m3_s",

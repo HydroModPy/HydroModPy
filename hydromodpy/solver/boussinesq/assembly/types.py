@@ -23,6 +23,7 @@ class BoussinesqAssembly:
     boundary_edge_flux_m3_s: np.ndarray
     drainage_flux_m3_s: np.ndarray
     residual_m3_s: np.ndarray
+    dry_deficit_rate_m_s: np.ndarray | None = None
 
 
 @dataclass(frozen=True)

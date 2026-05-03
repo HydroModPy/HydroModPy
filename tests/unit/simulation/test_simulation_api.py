@@ -407,6 +407,38 @@ class TestSimulationData:
         assert metrics["cell_f1_ratio"] == pytest.approx(2.0 / 3.0)
         assert metrics["cell_jaccard_ratio"] == pytest.approx(0.5)
 
+    def test_simulated_active_network_distance_metrics_against_reference_role(
+        self,
+        catalog,
+    ):
+        sid = _register(catalog, n_cells=4, n_layers=1, n_timesteps=3)
+        _write_active_accumulation_flux_case(catalog, sid, write_plot_mesh=True)
+        reference = gpd.GeoDataFrame(
+            {"id": [1]},
+            geometry=[LineString([(1.5, 0.5), (1.5, 1.5)])],
+            crs="EPSG:2154",
+        )
+        catalog.write_geographic_feature(sid, HYDROGRAPHIC_NETWORK_REFERENCE_FEATURE_NAME, reference)
+
+        sim = Run(sid, catalog)
+        metrics = sim.simulated_active_network_distance_metrics(
+            threshold=0.5,
+            mode="persistent",
+            persistence_threshold=0.5,
+        )
+
+        assert metrics["network_role"] == "reference"
+        assert metrics["distance_method"] == "planar_cell_centroid_to_network"
+        assert metrics["catchment_cell_count"] == 3
+        assert metrics["active_cell_count"] == 1
+        assert metrics["network_cell_count"] == 2
+        assert metrics["sim_to_network_sample_count"] == 1
+        assert metrics["network_to_sim_sample_count"] == 2
+        assert metrics["sim_to_network_distance_mean_m"] == pytest.approx(0.0)
+        assert metrics["network_to_sim_distance_mean_m"] == pytest.approx(0.25)
+        assert metrics["network_to_sim_distance_max_m"] == pytest.approx(0.5)
+        assert metrics["bidirectional_distance_mean_m"] == pytest.approx(0.125)
+
 
 class TestSimulationField:
     def test_read_field(self, catalog):

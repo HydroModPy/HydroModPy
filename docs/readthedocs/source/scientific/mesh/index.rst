@@ -39,6 +39,28 @@ on different supports:
 - a triangular finite-volume support used by the Boussinesq backend;
 - a saved mesh bundle reused by comparison and gallery workflows.
 
+Representative gallery evidence
+--------------------------------
+
+Mesh concepts are easier to read with concrete artifacts next to the text. The
+full case pages remain in :doc:`/capability_gallery/mesh`; the figures below
+are the minimum evidence to keep in mind while reading this section.
+
+.. figure:: /_static/capability_gallery/mesh/mesh_quality_diagnostics_naizin_10km2.png
+   :alt: Mesh quality diagnostics on a Naizin support
+   :width: 100%
+
+   Mesh quality diagnostics are not decorative. They are the checks that decide
+   whether a discretization is acceptable before solver results are trusted.
+
+.. figure:: /_static/capability_gallery/mesh/mesh_constraint_balance_scale_ladder.png
+   :alt: Mesh constraint balance across catchment scales
+   :width: 100%
+
+   Constraint-balance figures show why mesh choices should be discussed as
+   modelling assumptions, especially when hydrography, geology, and basin
+   boundary constraints compete.
+
 Main Questions
 --------------
 

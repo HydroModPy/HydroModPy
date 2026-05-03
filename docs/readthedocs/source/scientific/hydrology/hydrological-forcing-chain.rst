@@ -41,6 +41,27 @@ Runoff currently follows a different path and is mostly reused on the
 observation, calibration, or comparison side rather than injected directly
 into the groundwater solve.
 
+One basin example
+-----------------
+
+On the Nancon reference case, the data-overview workflow first exposes the
+climatic and observation context. The simulation workflow then turns selected
+forcing families into solver inputs and result diagnostics.
+
+.. figure:: /_static/capability_gallery/geographic/geographic_nancon_identity_card_climatic_summary.png
+   :alt: Nancon climatic summary before simulation
+   :width: 100%
+
+   The climatic panel is still pre-solver evidence: it documents the forcing
+   context that will later be normalized and bound to ``Flow``.
+
+.. figure:: /_static/capability_gallery/simulation/nancon_transient_nwt_water_budget.png
+   :alt: Nancon water budget after simulation
+   :width: 100%
+
+   The water budget is post-solver evidence. It shows how normalized recharge,
+   ETP, storage, and drainage choices appear after backend assembly and solve.
+
 Main Families Involved
 ----------------------
 

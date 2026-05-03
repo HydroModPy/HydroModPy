@@ -7,6 +7,15 @@ catalogs, and run outputs are stored.
 
 The most useful mental model is:
 
+.. figure:: /_static/concepts/results/workspace_layout.svg
+   :alt: HydroModPy workspace layout with catalog, data cache, projects, simulations, and outputs
+   :width: 100%
+
+   The workspace separates human-authored intent, reusable input data, persisted
+   run stores, and user-facing evidence. That separation is what keeps repeated
+   workflows inspectable instead of turning one project folder into an
+   unstructured output dump.
+
 .. code-block:: text
 
    workspace = shared working area

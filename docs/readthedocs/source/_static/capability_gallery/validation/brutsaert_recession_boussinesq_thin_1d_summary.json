@@ -16,7 +16,7 @@
   "how_to_read": [],
   "next_steps": [],
   "what_it_shows": [
-    "Integrated-discharge recession behavior across MODFLOW-NWT, MODFLOW 6, and the local Boussinesq runtime in the nonlinear regime",
+    "Integrated-discharge recession behavior across MODFLOW-NWT, MODFLOW 6, MODFLOW 6 irregular triangles, and the local Boussinesq runtime in the nonlinear regime",
     "Primary metrics: relative discharge RMSE, relative discharge max abs error, cross-row spread, positive-increment check.",
     "Solver-specific figures and metrics are shown side by side so the same benchmark can be read across backends."
   ],
@@ -52,7 +52,7 @@
     "validation_cases/analytical/transient/runtime_boussinesq_brutsaert_1d.py"
   ],
   "source_hashes": {
-    "validation_cases/README.md": "1965de83b961f1ab4e38d8194d51342e1286d0c2e1b779188903b84e3fc26f1c",
+    "validation_cases/README.md": "6954bbc12c427d8f32dc4ec659fa99518dc972708789e988cd3b39b37b82dfe5",
     "validation_cases/analytical/transient/brutsaert_recession_boussinesq_thin_1d/README.md": "08fe443980aaada1e30a213323ace0f47040d026c97cf6c1cc570f8b218bf295",
     "validation_cases/analytical/transient/brutsaert_recession_boussinesq_thin_1d/reference.py": "4b5bf03d4cfa8ba52e90125d886b8cb149da78acf800e1a8e5f427c61151f730",
     "validation_cases/analytical/transient/brutsaert_recession_boussinesq_thin_1d/comparison.py": "3ad4e5f96844cb363cffdb3f7030186819b9cbbb6210fd2e48367d9c40073fd9",
@@ -127,7 +127,7 @@
       "numerical_setup": "Homogeneous strip, west divide, east fixed head, steady recharge pre-run followed by recession",
       "analytical_target": "Nonlinear Brutsaert recession law for a thin aquifer",
       "primary_metrics": "relative discharge RMSE, relative discharge max abs error, cross-row spread, positive-increment check",
-      "what_it_validates": "Integrated-discharge recession behavior across MODFLOW-NWT, MODFLOW 6, and the local Boussinesq runtime in the nonlinear regime"
+      "what_it_validates": "Integrated-discharge recession behavior across MODFLOW-NWT, MODFLOW 6, MODFLOW 6 irregular triangles, and the local Boussinesq runtime in the nonlinear regime"
     },
     "process_family": "flow",
     "process_family_label": "Flow",

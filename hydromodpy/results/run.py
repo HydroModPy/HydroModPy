@@ -541,7 +541,7 @@ class Run:
         if snapshot is None:
             raise ValueError(f"Simulation '{self._sim_id}' has no config snapshot - cannot rerun")
 
-        from hydromodpy.core.config.hydromodpy_config import HydroModPyConfig
+        from hydromodpy.config import HydroModPyConfig
 
         HydroModPyConfig.from_snapshot(snapshot, **overrides)
 
@@ -639,6 +639,17 @@ class Run:
         from hydromodpy.results import views
 
         return views.simulated_active_network_overlap_metrics(self, **kwargs)
+
+    def simulated_active_network_distance_metrics(
+        self,
+        **kwargs,
+    ) -> dict[str, float | int | str | None]:
+        """Lazy planar distance metrics against one persisted vector network role."""
+        from hydromodpy.analysis.stream_networks import (
+            simulated_active_network_distance_metrics,
+        )
+
+        return simulated_active_network_distance_metrics(self, **kwargs)
 
     def catchment_mean(self, variable: str, **kwargs) -> pd.Series:
         """Lazy arithmetic mean of a cell variable over active cells."""

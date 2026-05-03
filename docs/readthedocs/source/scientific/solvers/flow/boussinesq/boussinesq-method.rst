@@ -62,7 +62,7 @@ Current Method Families
      - ``head_only``
      - ``regularized_partition``
    * - ``mixed_complementarity``
-     - ``head_plus_qex``
+     - ``head_plus_qex_qdry``
      - ``complementarity``
 
 The method id is the physically meaningful combination. A runtime backend such
@@ -87,13 +87,20 @@ Use it when:
 Mixed Complementarity
 ---------------------
 
-This method adds one cellwise saturation-excess unknown:
+This method adds two cellwise algebraic unknowns:
 
 .. math::
 
    q_i^{ex}
 
-and solves head and surface excess together under a complementarity relation.
+for saturation excess at the surface, and:
+
+.. math::
+
+   q_i^{dry}
+
+for the lower drying obstacle. The PETSc runtime solves head, surface excess
+and dry deficit together as a double-obstacle complementarity problem.
 
 Use it when:
 
@@ -101,10 +108,12 @@ Use it when:
 - the question is specifically about on/off surface-threshold behavior;
 - dry-down and repeated activation/deactivation of the surface threshold are
   important diagnostics.
+- lower-obstacle drying must be enforced explicitly.
 
 Related Pages
 -------------
 
 - :doc:`equation-and-unknowns`
 - :doc:`surface-interaction`
+- :doc:`lower-obstacle-drying`
 - :doc:`solver-engines`

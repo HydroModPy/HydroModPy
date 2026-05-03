@@ -571,6 +571,7 @@ def _run_boussinesq_irregular(*, timeout: int) -> ValidationRunResult:
             "recharge": {
                 "values": [mm_day_to_m_s(float(value)) for value in RECHARGE_SERIES_MM_DAY],
                 "first_clim": "first",
+                "units": "m/s",
             }
         },
         "bc": {

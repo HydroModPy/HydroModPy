@@ -69,7 +69,7 @@ class HydroModelBase(BaseModel):
         """Serialise this config to a TOML file filtered by *profile*.
 
         Round-trip guarantee: when ``profile="expert"`` is used on a fully
-        resolved :class:`~hydromodpy.core.config.hydromodpy_config.HydroModPyConfig`,
+        resolved :class:`~hydromodpy.config.hydromodpy_config.HydroModPyConfig`,
         calling :meth:`HydroModPyConfig.from_toml` on the written path yields
         an equivalent config.
 

@@ -84,9 +84,9 @@ Related sections
   solver-choice routing.
 - :doc:`../user_guide/data/index` explains data retrieval, public providers,
   custom files, cache inspection, lockfiles, and frozen runs.
-- :doc:`read-real-basin-run` explains how to read one committed real-basin run
-  page and how versioned gallery assets are promoted from heavier runtime
-  folders.
+- :doc:`read-real-basin-run` inventories what one committed real-basin run
+  actually exposes through the Python API, and which outputs matter first when
+  the question becomes ``EVT`` sensitivity rather than just page reading.
 - :doc:`../examples` lists the full notebook and script inventory.
 - :doc:`../capability_gallery/index` shows static, versioned result pages built
   from reproducible cases.

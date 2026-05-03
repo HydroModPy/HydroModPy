@@ -47,7 +47,7 @@ def _split_path(path: str) -> list[str]:
 
 
 def _root_model() -> type[BaseModel]:
-    from hydromodpy.core.config.hydromodpy_config import HydroModPyConfig
+    from hydromodpy.config import HydroModPyConfig
 
     return HydroModPyConfig
 

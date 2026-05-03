@@ -101,10 +101,10 @@ Solver Coverage
          Linearized Unconfined 1D Recharge Step (Deep Aquifer) rendered with MODFLOW 6 irregular triangles for the analytical gallery.
 
       **Metrics**
-      - Space-time RMSE: 0.0006 m
-      - Space-time max abs error: 0.0031 m
-      - Final-profile RMSE: 0.0005 m
-      - Cross-row head spread: 0.00e+00 m
+      - Space-time RMSE: 0.0396 m
+      - Space-time max abs error: 0.0551 m
+      - Final-profile RMSE: 0.0396 m
+      - Cross-row head spread: 2.29e-03 m
 
       - Config file: ``validation_cases/analytical/transient/linearized_unconfined_recharge_step_deep_1d/config_modflow6_irregular_tri.toml``
       - Tolerances: ``validation_cases/analytical/transient/linearized_unconfined_recharge_step_deep_1d/tolerances.toml``

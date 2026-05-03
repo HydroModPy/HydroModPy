@@ -117,7 +117,7 @@ examples/projects/09_comparison_workflow/outputs/nancon_transient_seasonal_hydro
 Nancon MF6-only K-sweep outputs are written under:
 
 ```text
-examples/projects/09_comparison_workflow/outputs/nancon_transient_seasonal_hydrography_k_sweep_mf6_stable
+examples/projects/09_comparison_workflow/outputs/nancon_transient_seasonal_hydrography_wide_k_sweep_mf6
 ```
 
 Key files:

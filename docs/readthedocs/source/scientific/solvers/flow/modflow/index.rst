@@ -1,3 +1,5 @@
+:orphan:
+
 MODFLOW Internals
 =================
 
@@ -12,8 +14,8 @@ The hierarchy is intentionally split into three first-class sub-categories:
 3. **MODFLOW-NWT version**: legacy structured-grid path for
    ``flow/modflownwt``.
 
-Other pages then compare, illustrate, or connect these three blocks to
-transport.
+The fourth block groups cross-cutting material that compares, illustrates, or
+connects these three blocks to transport.
 
 Three Sub-Categories
 --------------------
@@ -34,6 +36,9 @@ Three Sub-Categories
    * - MODFLOW-NWT version
      - :doc:`modflownwt-version/index`
      - You run or interpret ``flow/modflownwt``.
+   * - Cross-cutting pages
+     - :doc:`cross-cutting/index`
+     - You need comparisons, worked cases, or transport coupling.
 
 Current MODFLOW Flow Backends
 -----------------------------
@@ -54,32 +59,6 @@ Current MODFLOW Flow Backends
      - MODFLOW-NWT.
      - Structured ``sgrid`` support.
      - ``transport/modpath`` and ``transport/mt3dms``.
-
-.. toctree::
-   :caption: Common MODFLOW part
-   :maxdepth: 2
-
-   common/index
-
-.. toctree::
-   :caption: MODFLOW 6 version
-   :maxdepth: 2
-
-   modflow6-version/index
-
-.. toctree::
-   :caption: MODFLOW-NWT version
-   :maxdepth: 2
-
-   modflownwt-version/index
-
-.. toctree::
-   :caption: Comparison, cases, and coupling
-   :maxdepth: 1
-
-   comparison-and-method-choice
-   worked-cases
-   transport-coupling
 
 Related Pages
 -------------

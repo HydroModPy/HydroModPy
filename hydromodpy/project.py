@@ -80,7 +80,7 @@ class Project:
 
     Full Python, no TOML — build the config with Pydantic directly::
 
-        from hydromodpy.core.config.hydromodpy_config import HydroModPyConfig
+        from hydromodpy.config import HydroModPyConfig
 
         cfg = HydroModPyConfig(...)
         project = hmp.Project(cfg)
@@ -142,7 +142,7 @@ class Project:
     @classmethod
     def from_json(cls, payload: dict, **kwargs) -> Project:
         """Build a Project from a JSON payload validated against HydroModPyConfig."""
-        from hydromodpy.core.config.hydromodpy_config import HydroModPyConfig
+        from hydromodpy.config import HydroModPyConfig
 
         cfg = HydroModPyConfig.model_validate(payload)
         return cls(cfg, **kwargs)
@@ -156,7 +156,7 @@ class Project:
         no_display: bool,
     ) -> None:
         """Resolve the config, time grid and data plan, then build an empty ctx."""
-        from hydromodpy.core.config.hydromodpy_config import HydroModPyConfig
+        from hydromodpy.config import HydroModPyConfig
         from hydromodpy.core.config.toml_loader import load_toml_with_base_config
         from hydromodpy.core.time import (
             apply_explicit_time_window_to_tgrids,

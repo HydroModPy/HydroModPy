@@ -14,13 +14,16 @@ from typing import Any
 
 from hydromodpy.analysis.comparison.config import MethodComparisonConfig
 from hydromodpy.analysis.comparison.exports import (
+    write_boussinesq_obstacle_diagnostics_export,
     write_budget_exports,
     write_execution_summary_csv,
     write_hydrographic_network_metrics_export,
     write_native_timeseries_exports,
     write_observable_chronicle_exports,
+    write_simulated_active_network_distance_metrics_export,
     write_simulated_active_network_metrics_export,
     write_simulated_active_network_overlap_metrics_export,
+    write_simulated_active_network_reference_figure_export,
 )
 from hydromodpy.analysis.comparison.metrics import (
     DETAIL_METRIC_FIELDS,
@@ -40,7 +43,7 @@ from hydromodpy.analysis.comparison.runtime import (
     write_observables_csv,
 )
 from hydromodpy.analysis.comparison.visuals import generate_comparison_figures
-from hydromodpy.core.config.hydromodpy_config import HydroModPyConfig
+from hydromodpy.config import HydroModPyConfig
 from hydromodpy.core.config.toml_loader import load_toml_with_base_config
 
 
@@ -210,11 +213,24 @@ class MethodComparisonLauncher:
             )
         )
         data_artifacts.extend(simulated_active_overlap_artifacts)
+        simulated_active_distance_artifacts, _simulated_active_distance_rows = (
+            write_simulated_active_network_distance_metrics_export(
+                comparison_id=str(section.comparison_id),
+                comparison_root=comparison_root,
+                variant_summaries=variant_summaries,
+            )
+        )
+        data_artifacts.extend(simulated_active_distance_artifacts)
         budget_artifacts, budget_rows = write_budget_exports(
             comparison_root=comparison_root,
             variant_summaries=variant_summaries,
         )
         data_artifacts.extend(budget_artifacts)
+        obstacle_artifacts, _obstacle_rows = write_boussinesq_obstacle_diagnostics_export(
+            comparison_root=comparison_root,
+            variant_summaries=variant_summaries,
+        )
+        data_artifacts.extend(obstacle_artifacts)
         execution_artifacts, execution_rows = write_execution_summary_csv(
             comparison_root=comparison_root,
             variant_summaries=variant_summaries,
@@ -233,6 +249,13 @@ class MethodComparisonLauncher:
             budget_rows=budget_rows,
             execution_rows=execution_rows,
         )
+        simulated_active_figure_artifacts, _simulated_active_figure_rows = (
+            write_simulated_active_network_reference_figure_export(
+                comparison_root=comparison_root,
+                variant_summaries=variant_summaries,
+            )
+        )
+        figure_artifacts.extend(simulated_active_figure_artifacts)
         report_path = comparison_root / "comparison_report.md"
         report_path.write_text(
             build_comparison_report(

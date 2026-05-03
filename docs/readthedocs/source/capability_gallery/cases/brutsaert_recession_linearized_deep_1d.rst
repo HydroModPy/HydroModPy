@@ -20,7 +20,7 @@ Case Setup
 What It Shows
 -------------
 
-- Integrated-discharge recession behavior across MODFLOW-NWT, MODFLOW 6, and the local Boussinesq runtime in the near-linear regime
+- Integrated-discharge recession behavior across MODFLOW-NWT, MODFLOW 6, MODFLOW 6 irregular triangles, and the local Boussinesq runtime in the near-linear regime
 - Primary metrics: relative discharge RMSE, relative discharge max abs error, cross-row spread, positive-increment check.
 - Solver-specific figures and metrics are shown side by side so the same benchmark can be read across backends.
 

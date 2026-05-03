@@ -323,7 +323,7 @@ value = -500.0
 
 ```python
 from pathlib import Path
-from hydromodpy.core.config import HydroModPyConfig
+from hydromodpy.config import HydroModPyConfig
 from hydromodpy.physics.flow import Flow
 
 cfg = HydroModPyConfig.from_toml(Path("examples_legacy/example12/config.toml"))

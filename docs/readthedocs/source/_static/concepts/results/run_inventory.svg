@@ -1,0 +1,77 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="520" viewBox="0 0 1200 520" role="img" aria-labelledby="title desc">
+  <title id="title">Run inventory map</title>
+  <desc id="desc">Conceptual map showing the main data families exposed by one persisted HydroModPy run.</desc>
+  <defs>
+    <marker id="arrow" markerWidth="12" markerHeight="12" refX="10" refY="6" orient="auto">
+      <path d="M2,2 L10,6 L2,10 Z" fill="#31506a"/>
+    </marker>
+    <style>
+      .bg { fill: #f6f8f5; }
+      .panel { fill: #ffffff; stroke: #b8c4bc; stroke-width: 2; rx: 18; }
+      .core { fill: #dcebd7; stroke: #66825f; stroke-width: 2; rx: 18; }
+      .store { fill: #eef4fb; stroke: #6380a1; stroke-width: 2; rx: 16; }
+      .out { fill: #fff1dd; stroke: #b8853c; stroke-width: 2; rx: 16; }
+      .title { font: 700 26px Georgia, serif; fill: #22313a; }
+      .subtitle { font: 15px Georgia, serif; fill: #52616b; }
+      .label { font: 700 18px Georgia, serif; fill: #22313a; }
+      .small { font: 14px Georgia, serif; fill: #41515d; }
+      .mono { font: 13px Consolas, monospace; fill: #2e3d47; }
+      .arrow { stroke: #31506a; stroke-width: 3; fill: none; marker-end: url(#arrow); }
+    </style>
+  </defs>
+
+  <rect class="bg" width="1200" height="520"/>
+  <text x="48" y="54" class="title">What one real run gives back</text>
+  <text x="48" y="82" class="subtitle">A gallery page shows selected figures; the persisted run exposes a larger inventory through the Python API.</text>
+
+  <rect x="56" y="166" width="220" height="160" class="core"/>
+  <text x="86" y="211" class="label">Run</text>
+  <text x="86" y="239" class="small">one persisted simulation</text>
+  <text x="86" y="268" class="mono">catalog.latest(...)</text>
+  <text x="86" y="292" class="mono">project.runs.latest()</text>
+
+  <path class="arrow" d="M286,246 C330,246 335,132 382,132"/>
+  <path class="arrow" d="M286,246 C332,246 336,218 382,218"/>
+  <path class="arrow" d="M286,246 C332,246 336,304 382,304"/>
+  <path class="arrow" d="M286,246 C330,246 335,390 382,390"/>
+
+  <rect x="390" y="92" width="270" height="76" class="store"/>
+  <text x="414" y="122" class="label">Spatial fields</text>
+  <text x="414" y="148" class="mono">head, watertable_depth, seepage</text>
+
+  <rect x="390" y="178" width="270" height="76" class="store"/>
+  <text x="414" y="208" class="label">Time series</text>
+  <text x="414" y="234" class="mono">discharge, observed discharge</text>
+
+  <rect x="390" y="264" width="270" height="76" class="store"/>
+  <text x="414" y="294" class="label">Budgets</text>
+  <text x="414" y="320" class="mono">recharge, ET, drains, storage</text>
+
+  <rect x="390" y="350" width="270" height="76" class="store"/>
+  <text x="414" y="380" class="label">Geographic layers</text>
+  <text x="414" y="406" class="mono">basin, DEM, networks, masks</text>
+
+  <path class="arrow" d="M670,132 C720,132 724,132 770,132"/>
+  <path class="arrow" d="M670,216 C720,216 724,216 770,216"/>
+  <path class="arrow" d="M670,302 C720,302 724,302 770,302"/>
+  <path class="arrow" d="M670,388 C720,388 724,388 770,388"/>
+
+  <rect x="780" y="92" width="322" height="76" class="out"/>
+  <text x="804" y="122" class="label">Maps and diagnostics</text>
+  <text x="804" y="148" class="small">piezometry, active network, seepage areas</text>
+
+  <rect x="780" y="178" width="322" height="76" class="out"/>
+  <text x="804" y="208" class="label">Hydrograph reading</text>
+  <text x="804" y="234" class="small">simulated vs observed outlet response</text>
+
+  <rect x="780" y="264" width="322" height="76" class="out"/>
+  <text x="804" y="294" class="label">Water-balance reading</text>
+  <text x="804" y="320" class="small">which components explain the response</text>
+
+  <rect x="780" y="350" width="322" height="76" class="out"/>
+  <text x="804" y="380" class="label">Support checks</text>
+  <text x="804" y="406" class="small">reference vs generated hydrography</text>
+
+  <rect x="56" y="454" width="1046" height="40" class="panel"/>
+  <text x="80" y="480" class="small">Reading rule: inspect budgets and state fields before interpreting downstream overlay figures.</text>
+</svg>

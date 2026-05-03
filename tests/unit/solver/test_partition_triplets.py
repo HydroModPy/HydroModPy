@@ -65,6 +65,23 @@ def _build_mesh() -> _MiniMesh:
     )
 
 
+def _build_single_cell_mesh() -> _MiniMesh:
+    return _MiniMesh(
+        cell_area_m2=np.asarray([1.0], dtype=float),
+        z_top_m=np.asarray([2.0], dtype=float),
+        z_bottom_m=np.asarray([0.0], dtype=float),
+        hydraulic_conductivity_m_s=np.asarray([1.0], dtype=float),
+        storage_coefficient=np.asarray([0.2], dtype=float),
+        edge_ids=np.asarray([], dtype=int),
+        edge_cell_a=np.asarray([], dtype=int),
+        edge_cell_b=np.asarray([], dtype=int),
+        edge_length_m=np.asarray([], dtype=float),
+        edge_distance_m=np.asarray([], dtype=float),
+        edge_midpoint_distance_to_cell_a_m=np.asarray([], dtype=float),
+        edge_midpoint_distance_to_cell_b_m=np.asarray([], dtype=float),
+    )
+
+
 def _build_mesh_with_boundary_edge() -> _MiniMesh:
     return _MiniMesh(
         cell_area_m2=np.asarray([1.0, 1.0], dtype=float),
@@ -287,6 +304,62 @@ def test_operator_triplets_match_finite_difference_transient_residual() -> None:
         fd[:, col] = (plus - minus) / (2.0 * step)
 
     np.testing.assert_allclose(dense, fd, rtol=1.0e-5, atol=1.0e-7)
+
+
+def test_transient_storage_uses_lower_bounded_saturated_thickness() -> None:
+    mesh = _build_single_cell_mesh()
+    dt_seconds = 10.0
+
+    residual = _transient_residual(
+        mesh,
+        np.asarray([-0.5], dtype=float),
+        head_prev_m=np.asarray([0.5], dtype=float),
+        dt_seconds=dt_seconds,
+    )
+    np.testing.assert_allclose(residual, np.asarray([-0.01], dtype=float))
+
+    residual = _transient_residual(
+        mesh,
+        np.asarray([-0.5], dtype=float),
+        head_prev_m=np.asarray([-0.2], dtype=float),
+        dt_seconds=dt_seconds,
+    )
+    np.testing.assert_allclose(residual, np.asarray([0.0], dtype=float))
+
+    residual = _transient_residual(
+        mesh,
+        np.asarray([3.0], dtype=float),
+        head_prev_m=np.asarray([1.5], dtype=float),
+        dt_seconds=dt_seconds,
+    )
+    np.testing.assert_allclose(residual, np.asarray([0.03], dtype=float))
+
+
+def test_operator_storage_diagonal_keeps_memory_above_surface() -> None:
+    mesh = _build_single_cell_mesh()
+    dt_seconds = 10.0
+
+    def _storage_jacobian(head_value: float) -> np.ndarray:
+        return _dense_from_triplets(
+            mesh,
+            build_sparse_semianalytic_triplets(
+                mesh,
+                np.asarray([head_value], dtype=float),
+                dt_seconds=dt_seconds,
+                boundary_head_m_by_edge=None,
+                prescribed_head_m_by_cell=None,
+                drainage_conductance_m2_s=None,
+                include_storage=True,
+                include_internal_flux=False,
+                include_boundary_head_flux=False,
+                include_drainage=False,
+                include_prescribed_identity=False,
+            ),
+        )
+
+    np.testing.assert_allclose(_storage_jacobian(1.0), np.asarray([[0.02]], dtype=float))
+    np.testing.assert_allclose(_storage_jacobian(-0.5), np.asarray([[0.0]], dtype=float))
+    np.testing.assert_allclose(_storage_jacobian(3.0), np.asarray([[0.02]], dtype=float))
 
 
 def test_operator_triplets_match_finite_difference_with_prescribed_identity() -> None:

@@ -32,6 +32,11 @@ Each release section includes the following standard categories:
 
 ## [Unreleased]
 
+### Removed
+- Removed the application-level config compatibility aliases under
+  `hydromodpy.core`. Use `hydromodpy.config.HydroModPyConfig` and
+  `hydromodpy.config.schema_export` instead.
+
 ### Changed
 - Per-simulation `timeseries`, `budgets`, and `mass_balance` rows now live as
   Parquet files under `simulations/<uuid>.parquet/` instead of DuckDB tables

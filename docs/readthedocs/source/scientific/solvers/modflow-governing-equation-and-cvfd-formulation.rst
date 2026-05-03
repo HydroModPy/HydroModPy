@@ -113,6 +113,14 @@ The key scientific ideas that HydroModPy should explain here are:
 - storage and stress terms added to that cell balance,
 - geometry carried by one discretization package such as ``DIS`` or ``DISV``.
 
+.. figure:: /_static/scientific/modflow/modflow_cell_balance.svg
+   :alt: MODFLOW control-volume cell balance with internal flow and stress terms
+   :width: 100%
+
+   This is the minimal mental model used by the HydroModPy documentation: one
+   head unknown per cell, intercell exchanges through conductance-like terms,
+   and package stresses added to the same cell balance.
+
 At the cell-balance level, a useful schematic reading is:
 
 .. math::
@@ -131,6 +139,28 @@ where:
 
 This is not meant to replace the official derivations in TM 6-A55. It is the
 minimum common mathematical picture HydroModPy needs in public documentation.
+
+From Equation To Published Results
+----------------------------------
+
+The equation and the cell balance above should always be connected back to
+actual model outputs. Two useful result anchors are:
+
+.. figure:: /_static/capability_gallery/validation/dupuit_fixed_head_1d__modflow6.png
+   :alt: MODFLOW 6 Dupuit fixed-head validation result
+   :width: 100%
+
+   A small validation result is the cleanest way to read the cell balance. The
+   geometry, boundary heads, recharge, and analytical profile are controlled,
+   so discrepancies are easier to interpret than on a real basin.
+
+.. figure:: /_static/capability_gallery/simulation/nancon_transient_nwt_piezometric_map.png
+   :alt: Piezometric map from the Nancon transient MODFLOW-NWT run
+   :width: 100%
+
+   A real-basin result shows the other end of the same chain: after package
+   assembly and execution, the primary state is still a hydraulic-head field
+   that must be read together with the support, forcing, and boundary choices.
 
 Scientific Questions HydroModPy Must Answer Explicitly
 ------------------------------------------------------

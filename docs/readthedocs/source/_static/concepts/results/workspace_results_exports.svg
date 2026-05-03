@@ -1,0 +1,74 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="560" viewBox="0 0 1200 560" role="img" aria-labelledby="title desc">
+  <title id="title">Workspace result and export map</title>
+  <desc id="desc">Conceptual map showing catalog metadata, per-run stores, reading APIs, and export formats.</desc>
+  <defs>
+    <marker id="arrow" markerWidth="12" markerHeight="12" refX="10" refY="6" orient="auto">
+      <path d="M2,2 L10,6 L2,10 Z" fill="#314d63"/>
+    </marker>
+    <style>
+      .bg { fill: #f7f7f3; }
+      .box { fill: #ffffff; stroke: #b9c1bd; stroke-width: 2; rx: 18; }
+      .catalog { fill: #e7f0dc; stroke: #6f8b5d; stroke-width: 2; rx: 18; }
+      .store { fill: #eaf2fb; stroke: #5d7d9c; stroke-width: 2; rx: 18; }
+      .api { fill: #fff3e2; stroke: #b78642; stroke-width: 2; rx: 18; }
+      .export { fill: #f1e7ef; stroke: #8c6c8a; stroke-width: 2; rx: 18; }
+      .title { font: 700 26px Georgia, serif; fill: #22313a; }
+      .label { font: 700 18px Georgia, serif; fill: #22313a; }
+      .small { font: 14px Georgia, serif; fill: #43515a; }
+      .mono { font: 13px Consolas, monospace; fill: #2e3d47; }
+      .arrow { stroke: #314d63; stroke-width: 3; fill: none; marker-end: url(#arrow); }
+    </style>
+  </defs>
+
+  <rect class="bg" width="1200" height="560"/>
+  <text x="48" y="56" class="title">Workspace result model</text>
+
+  <rect x="64" y="120" width="250" height="150" class="catalog"/>
+  <text x="92" y="154" class="label">DuckDB catalog</text>
+  <text x="92" y="184" class="small">workspace-level registry</text>
+  <text x="92" y="214" class="mono">runs, metrics, budgets</text>
+  <text x="92" y="238" class="mono">parameters, provenance</text>
+
+  <rect x="64" y="322" width="250" height="150" class="store"/>
+  <text x="92" y="356" class="label">Per-run store</text>
+  <text x="92" y="386" class="small">arrays and spatial objects</text>
+  <text x="92" y="416" class="mono">fields, rasters, meshes</text>
+  <text x="92" y="440" class="mono">timeseries, derived data</text>
+
+  <path class="arrow" d="M324,196 C390,196 410,186 470,186"/>
+  <path class="arrow" d="M324,396 C390,396 410,386 470,386"/>
+
+  <rect x="482" y="104" width="270" height="112" class="api"/>
+  <text x="510" y="138" class="label">Catalog queries</text>
+  <text x="510" y="168" class="mono">list_simulations()</text>
+  <text x="510" y="192" class="mono">query_budget(), sql()</text>
+
+  <rect x="482" y="254" width="270" height="112" class="api"/>
+  <text x="510" y="288" class="label">Run view</text>
+  <text x="510" y="318" class="mono">run.field(...)</text>
+  <text x="510" y="342" class="mono">run.timeseries(...)</text>
+
+  <rect x="482" y="404" width="270" height="112" class="api"/>
+  <text x="510" y="438" class="label">Display layer</text>
+  <text x="510" y="468" class="mono">run.plot(...)</text>
+  <text x="510" y="492" class="mono">display_capabilities</text>
+
+  <path class="arrow" d="M762,160 C820,160 834,160 892,160"/>
+  <path class="arrow" d="M762,310 C820,310 834,310 892,310"/>
+  <path class="arrow" d="M762,460 C820,460 834,460 892,460"/>
+
+  <rect x="904" y="104" width="232" height="112" class="export"/>
+  <text x="932" y="138" class="label">Tables</text>
+  <text x="932" y="168" class="small">CSV, SQL extracts</text>
+  <text x="932" y="192" class="mono">metrics, budgets, logs</text>
+
+  <rect x="904" y="254" width="232" height="112" class="export"/>
+  <text x="932" y="288" class="label">Scientific files</text>
+  <text x="932" y="318" class="small">GeoTIFF, NetCDF, VTU</text>
+  <text x="932" y="342" class="mono">fields and meshes</text>
+
+  <rect x="904" y="404" width="232" height="112" class="export"/>
+  <text x="932" y="438" class="label">Reports</text>
+  <text x="932" y="468" class="small">PNG figures and packages</text>
+  <text x="932" y="492" class="mono">.hmp exchange</text>
+</svg>

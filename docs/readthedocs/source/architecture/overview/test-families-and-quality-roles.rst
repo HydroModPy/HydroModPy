@@ -344,6 +344,14 @@ Typical commands:
    pytest tests/validation/numerical -q
    pytest -m petsc -q
 
+The PETSc subset is Linux-only. On a Windows development machine, run it
+through the WSL helper instead of trying to install PETSc in the Windows
+documentation environment:
+
+.. code-block:: powershell
+
+   wsl.exe bash -lc "cd /mnt/c/codes/HydroModPy && bash install/enter_wsl_dev.sh --headless -- bash tools/ci/run_boussinesq_petsc_smoke.sh"
+
 Calibration Twin Validation
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
 

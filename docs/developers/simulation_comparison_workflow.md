@@ -139,6 +139,11 @@ Un run de comparaison produit notamment:
   supports existent;
 - `simulated_active_network_overlap_metrics_skipped.json`: diagnostic des
   variants sautes pour cette comparaison observation-vs-simulation;
+- `simulated_active_network_distance_metrics.csv`: distances planaires
+  bidirectionnelles entre les centroïdes des cellules actives simulees et le
+  role vectoriel `reference`;
+- `simulated_active_network_distance_metrics_skipped.json`: diagnostic des
+  variants sautes pour cette comparaison de distance;
 - `comparison_figures/case_configuration.png`: figure d'orientation du cas
   compare, avec support spatial, conditions aux limites detectees, points
   observables et chronique de recharge quand elle existe;
@@ -180,17 +185,21 @@ Le role canonique `simulated_active` n'est pas encore persiste comme feature
 vectorielle. En revanche, l'API `Run` expose maintenant
 `simulated_active_network_mask()` pour visualiser le signal actif simule cellule
 par cellule, `simulated_active_network_metrics()` pour le resumer depuis
-`accumulation_flux`, et `simulated_active_network_overlap_metrics()` pour une
-comparaison cellule-a-cellule avec un role vectoriel existant. La cible
-principale est `reference`, car on compare alors simulation et observation.
-S'il n'y a pas de role `reference`, cette comparaison doit etre ignoree plutot
-que de basculer automatiquement vers `generated`. `generated` reste utile comme
-diagnostic secondaire vis-a-vis du reseau derive du DEM/topographie, mais ce
-n'est pas une observation. Quand le run porte un maillage exploitable, la figure
-`simulated_active_network` permet de rendre cette vue calculee, et
+`accumulation_flux`, `simulated_active_network_overlap_metrics()` pour une
+comparaison cellule-a-cellule avec un role vectoriel existant, et
+`simulated_active_network_distance_metrics()` pour une distance planaire
+bidirectionnelle. La cible principale est `reference`, car on compare alors
+simulation et observation. S'il n'y a pas de role `reference`, cette
+comparaison doit etre ignoree plutot que de basculer automatiquement vers
+`generated`. `generated` reste utile comme diagnostic secondaire vis-a-vis du
+reseau derive du DEM/topographie, mais ce n'est pas une observation. Quand le
+run porte un maillage exploitable, la figure `simulated_active_network` permet
+de rendre cette vue calculee, et
 `simulated_active_network_reference_overlay` superpose cette vue avec le reseau
 observe `reference`. La comparaison peut exporter les metriques d'occupation
-dans `simulated_active_network_metrics.csv`.
+dans `simulated_active_network_metrics.csv`, les metriques de recouvrement dans
+`simulated_active_network_overlap_metrics.csv`, et les distances planaires dans
+`simulated_active_network_distance_metrics.csv`.
 
 Terminologie a respecter pour ces vues:
 

@@ -75,6 +75,54 @@ Be explicit when:
 - observations or validation profiles are compared after spatial aggregation;
 - transport results depend on this upstream flow field.
 
+Surface-Seepage Baseline Example
+--------------------------------
+
+For this work, the most useful MODFLOW-NWT example is the committed Nancon
+transient basin page:
+
+- :doc:`/capability_gallery/cases/nancon_transient_nwt`
+
+Use it as a legacy baseline because it already places the important evidence in
+one reading sequence:
+
+1. hydrographic ``reference`` versus ``generated`` linework;
+2. simulated active-network overlay against ``reference``;
+3. piezometric map;
+4. hydrograph;
+5. water budget.
+
+.. figure:: /_static/capability_gallery/simulation/nancon_transient_nwt_piezometric_map.png
+   :alt: Piezometric map from the Nancon MODFLOW-NWT run
+   :width: 100%
+
+   The piezometric map is the first state figure for this legacy structured
+   MODFLOW-NWT baseline.
+
+.. figure:: /_static/capability_gallery/simulation/nancon_transient_nwt_hydrograph.png
+   :alt: Hydrograph from the Nancon MODFLOW-NWT run
+   :width: 100%
+
+   The hydrograph connects the structured-grid solve to observed discharge at
+   basin scale.
+
+.. figure:: /_static/capability_gallery/simulation/nancon_transient_nwt_water_budget.png
+   :alt: Water budget from the Nancon MODFLOW-NWT run
+   :width: 100%
+
+   The budget is where recharge, ET, storage, and drainage package behaviour
+   should be checked before drawing conclusions from one map.
+
+That is the discipline to preserve when comparing with MODFLOW 6. Copy the
+scientific reading order, not every backend assumption. MODFLOW-NWT remains
+structured-grid and legacy-package oriented, while MODFLOW 6 must also document
+mesh topology, package extraction, and active-network result fields.
+
+For the cross-backend examples and commands, see
+:doc:`../../../streams_and_seepage/worked-examples`. For current contracts and
+non-contracts around simulated active networks, see
+:doc:`../../../streams_and_seepage/status-and-limitations`.
+
 Scientific Checklist
 --------------------
 

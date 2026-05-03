@@ -46,8 +46,10 @@ If you do not know where to start, read the internal pages in this order:
 1. :doc:`boussinesq/equation-and-unknowns`,
 2. :doc:`boussinesq/boussinesq-method`,
 3. :doc:`boussinesq/surface-interaction`,
-4. :doc:`boussinesq/solver-engines`,
-5. :doc:`boussinesq/possibility-map`.
+4. :doc:`boussinesq/lower-obstacle-drying`,
+5. :doc:`boussinesq/formulation-comparison`,
+6. :doc:`boussinesq/solver-engines`,
+7. :doc:`boussinesq/possibility-map`.
 
 Current Possibilities
 ---------------------
@@ -73,7 +75,11 @@ Current Possibilities
    * - PETSc complementarity route
      - ``petsc`` with ``complementarity`` surface closure.
      - Explicit on/off surface-threshold behavior and saturation-excess
-       diagnostics.
+       diagnostics, with a lower drying obstacle in the mixed PETSc runtime.
+   * - Formulation comparison route
+     - ``workflow = "comparison"`` with Boussinesq-only child overlays.
+     - Document surface-closure and runtime sensitivity close to the
+       Boussinesq method pages while keeping result production centralized.
 
 Direct Reference Note
 ---------------------

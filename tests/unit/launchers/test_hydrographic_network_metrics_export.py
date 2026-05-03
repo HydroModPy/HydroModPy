@@ -10,6 +10,7 @@ from shapely.geometry import LineString
 
 from hydromodpy.analysis.comparison.exports import (
     write_hydrographic_network_metrics_export,
+    write_simulated_active_network_distance_metrics_export,
     write_simulated_active_network_metrics_export,
     write_simulated_active_network_overlap_metrics_export,
 )
@@ -417,6 +418,65 @@ def test_write_simulated_active_network_overlap_metrics_export_writes_csv(
     assert row["active_precision_ratio"] == pytest.approx(1.0)
     assert row["cell_f1_ratio"] == pytest.approx(1.0)
     assert row["cell_jaccard_ratio"] == pytest.approx(1.0)
+
+
+def test_write_simulated_active_network_distance_metrics_export_writes_csv(
+    tmp_path: Path,
+) -> None:
+    workspace_root = tmp_path / "workspace"
+    reference_gdf = gpd.GeoDataFrame(
+        {"id": [1]},
+        geometry=[LineString([(1.25, 0.5), (1.75, 0.5)])],
+        crs="EPSG:2154",
+    )
+    config_path, sim_id = _register_completed_run(
+        workspace_root,
+        reference_length_m=None,
+        generated_length_m=None,
+        reference_gdf=reference_gdf,
+        accumulation_flux=[
+            np.array([0.0, 2.0, 0.0], dtype="float64"),
+            np.array([1.0, 2.0, 0.0], dtype="float64"),
+            np.array([0.0, 2.0, 4.0], dtype="float64"),
+        ],
+    )
+
+    artifacts, rows = write_simulated_active_network_distance_metrics_export(
+        comparison_id="demo_compare",
+        comparison_root=tmp_path / "comparison_outputs",
+        variant_summaries=[
+            {
+                "id": "mf6_demo",
+                "label": "MF6 demo",
+                "solver": "modflow6",
+                "mesh_mode": "structured",
+                "config_path": str(config_path),
+                "run_folder": str(tmp_path / "run_folder"),
+                "sim_id": sim_id,
+                "run_name": "network_demo",
+                "status": "completed",
+            }
+        ],
+        threshold=0.5,
+        persistence_threshold=0.5,
+    )
+
+    assert len(artifacts) == 1
+    assert artifacts[0]["kind"] == "simulated_active_network_distance_metrics_csv"
+    assert Path(str(artifacts[0]["path"])).exists()
+    assert len(rows) == 1
+    row = rows[0]
+    assert row["variant_id"] == "mf6_demo"
+    assert row["network_role"] == "reference"
+    assert row["mode"] == "persistent"
+    assert row["distance_method"] == "planar_cell_centroid_to_network"
+    assert row["active_cell_count"] == 1
+    assert row["network_cell_count"] == 1
+    assert row["sim_to_network_sample_count"] == 1
+    assert row["network_to_sim_sample_count"] == 1
+    assert row["sim_to_network_distance_mean_m"] == pytest.approx(0.0)
+    assert row["network_to_sim_distance_mean_m"] == pytest.approx(0.0)
+    assert row["bidirectional_distance_mean_m"] == pytest.approx(0.0)
 
 
 def test_write_simulated_active_network_overlap_metrics_export_uses_steady_default(

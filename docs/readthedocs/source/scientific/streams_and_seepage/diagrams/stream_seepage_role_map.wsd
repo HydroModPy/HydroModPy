@@ -30,6 +30,7 @@ package "Solver outputs" {
 package "Interpretation products" {
   component "simulated active mask\nthreshold + time rule" as Mask
   component "overlap metrics vs reference" as Overlap
+  component "planar distance metrics\ncell centroids vs reference" as Distance
   component "optional future vector role\nhydrographic_network_simulated_active" as Vector
 }
 
@@ -46,6 +47,8 @@ Surface --> Accum
 Accum --> Mask
 Reference --> Overlap
 Mask --> Overlap
+Reference --> Distance
+Mask --> Distance
 Mask --> Vector : future contract only
 
 note bottom of StreamBoundary

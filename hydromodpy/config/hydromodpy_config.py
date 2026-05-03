@@ -7,7 +7,7 @@ to the user's home directory.
 
 Usage::
 
-    from hydromodpy.core.config import HydroModPyConfig
+    from hydromodpy.config import HydroModPyConfig
 
     cfg = HydroModPyConfig.from_toml(
         "examples/projects/01_canut/run_steady_nwt.toml"
@@ -38,10 +38,10 @@ from hydromodpy.core.config.profile import Profile
 from hydromodpy.core.config.toml_loader import load_toml_with_base_config
 from hydromodpy.core.workspace.config import WorkspaceConfig
 
-# ``core`` is a leaf of the import DAG: non-core sibling configs are referenced
-# via forward references below and resolved through a deferred ``model_rebuild``
-# at module import time. Imports listed here serve IDE/static-type-checker
-# consumption only; the real runtime imports happen in ``_rebuild_forward_refs``.
+# This module is the application-level config root. It is allowed to assemble
+# sibling package configs, while the generic helpers remain in ``core.config``.
+# Imports listed here serve IDE/static-type-checker consumption only; the real
+# runtime imports happen in ``_rebuild_forward_refs``.
 if TYPE_CHECKING:
     from hydromodpy.analysis.capability_gallery import CapabilityGalleryConfig
     from hydromodpy.calibration.config import CalibrationConfig
@@ -526,11 +526,8 @@ def _load_optional_mesh_catchment_section(
 def _rebuild_forward_refs() -> None:
     """Resolve forward references once all sibling packages can be imported.
 
-    Kept inside a function so the ``from hydromodpy.<non-core>`` imports live
-    at an indented scope and do not appear in a ``^from hydromodpy`` grep.
-    This preserves the ``core/`` package as a leaf of the import DAG while
-    still exposing every sibling config class to Pydantic and to the
-    module-level loader helpers.
+    Kept inside a function so package assembly happens in the config root,
+    not in the generic ``core.config`` helpers.
     """
     from hydromodpy.analysis.capability_gallery import CapabilityGalleryConfig
     from hydromodpy.calibration.config import CalibrationConfig

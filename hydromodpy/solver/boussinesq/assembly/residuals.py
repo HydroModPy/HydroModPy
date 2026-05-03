@@ -88,13 +88,9 @@ def _transient_raw_residual_from_spatial_terms(
     dt_seconds: float,
 ) -> np.ndarray:
     """Return the transient residual before Dirichlet-cell constraint application."""
-    head_prev = np.asarray(head_prev_m, dtype=float)
-    temporal_term = (
-        mesh.cell_area_m2
-        * mesh.storage_coefficient
-        * (spatial_terms.head_m - head_prev)
-        / float(dt_seconds)
-    )
+    storage_new_m3 = _stored_saturated_volume_m3(mesh, spatial_terms.head_m)
+    storage_prev_m3 = _stored_saturated_volume_m3(mesh, np.asarray(head_prev_m, dtype=float))
+    temporal_term = (storage_new_m3 - storage_prev_m3) / float(dt_seconds)
     return (
         temporal_term
         + spatial_terms.internal_flux_residual_m3_s
@@ -103,6 +99,28 @@ def _transient_raw_residual_from_spatial_terms(
         + mesh.cell_area_m2 * spatial_terms.saturation_excess_rate_m_s
         - mesh.cell_area_m2 * spatial_terms.recharge_rate_m_s
         - spatial_terms.well_flux_m3_s
+    )
+
+
+def _stored_saturated_volume_m3(
+    mesh: BoussinesqMesh,
+    head_m: np.ndarray,
+) -> np.ndarray:
+    """Return cellwise drainable storage volume with a lower dry bound.
+
+    The transmissive thickness is capped at the land surface, but the transient
+    head-only formulations may still carry a pressure-like head above ``z_top``.
+    Keeping storage only lower-bounded preserves that transient memory while
+    still preventing negative saturated storage when ``h < z_bottom``.
+    """
+    lower_bounded_thickness = np.maximum(
+        np.asarray(head_m, dtype=float) - np.asarray(mesh.z_bottom_m, dtype=float),
+        0.0,
+    )
+    return (
+        np.asarray(mesh.cell_area_m2, dtype=float)
+        * np.asarray(mesh.storage_coefficient, dtype=float)
+        * lower_bounded_thickness
     )
 
 

@@ -68,8 +68,8 @@ MIXED_COMPLEMENTARITY_METHOD = BoussinesqMethodSpec(
     supported_time_scheme_ids=(STEADY_BALANCE.id, BACKWARD_EULER.id),
     supported_runtime_backends=frozenset({"petsc"}),
     description=(
-        "Mixed formulation where head and saturation-excess are co-solved "
-        "under a complementarity closure."
+        "Mixed formulation where head, saturation-excess and dry-deficit rates "
+        "are co-solved under a double-obstacle complementarity closure."
     ),
 )
 

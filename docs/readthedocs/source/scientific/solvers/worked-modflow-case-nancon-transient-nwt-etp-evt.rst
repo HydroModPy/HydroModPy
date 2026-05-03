@@ -306,6 +306,102 @@ Read them in that order:
 4. ``recharge_map`` for forcing context,
 5. ``seepage_map`` for the drainage response on the basin support.
 
+Committed Simulation Results
+----------------------------
+
+The stable gallery case publishes the most useful result figures for this run.
+They are repeated here because this page explains the package path that
+produced them.
+
+.. figure:: /_static/capability_gallery/simulation/nancon_transient_nwt_piezometric_map.png
+   :alt: Piezometric map for the Nancon transient NWT run
+   :width: 100%
+
+   The piezometric map is the direct spatial expression of the solved head
+   field after the NWT package assembly has run.
+
+.. figure:: /_static/capability_gallery/simulation/nancon_transient_nwt_water_budget.png
+   :alt: Water budget for the Nancon transient NWT run
+   :width: 100%
+
+   The budget is where the ``RCH``, ``EVT``, storage, and ``DRN`` choices become
+   visible as integrated flow components.
+
+.. figure:: /_static/capability_gallery/simulation/nancon_transient_nwt_hydrograph.png
+   :alt: Observed and simulated hydrograph for the Nancon transient NWT run
+   :width: 100%
+
+   The hydrograph shows whether the package assembly produces a coherent
+   outlet-scale response over the monthly transient window.
+
+.. figure:: /_static/capability_gallery/simulation/nancon_transient_nwt_simulated_active_network_reference_overlay.png
+   :alt: Simulated active network compared with observed hydrography on Nancon
+   :width: 100%
+
+   The active-network overlay should be read after the budget and hydrograph:
+   it is a downstream spatial diagnostic of the drainage response.
+
+How To Make EVT Matter In The Docs
+----------------------------------
+
+If the goal is to document the **effect** of activating ``EVT``, this single
+worked case is not enough by itself.
+
+The right documentation object is a small sensitivity family built on the same
+Nancon basin:
+
+.. figure:: /_static/scientific/modflow/evt_sensitivity_reading_order.svg
+   :alt: Recommended reading order for a Nancon EVT sensitivity comparison
+   :width: 100%
+
+   The comparison should first isolate the hydrological mechanism: ET and DRN
+   budgets, outlet hydrograph, and water-table depth. Spatial overlays are
+   useful only after those primary diagnostics explain what changed.
+
+1. one run without explicit ``etp`` activation,
+2. one baseline run with ``active_sinks_sources = ["recharge", "etp"]``,
+3. one or two additional runs changing ``surface_offset`` and
+   ``extinction_depth``.
+
+In other words, the first contrast should be:
+
+- **No EVT**:
+  ``flow.active_sinks_sources = ["recharge"]``
+- **Baseline EVT**:
+  ``flow.active_sinks_sources = ["recharge", "etp"]``
+
+Only after that should the docs add one second layer such as:
+
+.. code-block:: toml
+
+   [flow.sinks_sources.etp]
+   surface_offset = 0.5
+   extinction_depth = 0.5
+
+versus:
+
+.. code-block:: toml
+
+   [flow.sinks_sources.etp]
+   surface_offset = 2.0
+   extinction_depth = 3.0
+
+The outputs that should carry that comparison are, in order:
+
+1. ``run.budget(component="et")`` and ``run.budget(component="drains")``
+2. ``run.timeseries("discharge", station="_catchment")``
+3. ``run.catchment_mean("watertable_depth")``
+4. timestep maps of ``watertable_depth``, ``outflow_drain``, and ``seepage_areas``
+5. only then the hydrographic overlay figures and active-network metrics
+
+That ordering is important. If the comparison starts directly with one map
+overlay, the documentation will hide the real hydrological question, which is
+first the partition between:
+
+- atmospheric extraction through ``EVT``,
+- head-dependent release through ``DRN``,
+- and the resulting outlet discharge response.
+
 Why This Page Still Matters Beyond The Committed Gallery Page
 -------------------------------------------------------------
 

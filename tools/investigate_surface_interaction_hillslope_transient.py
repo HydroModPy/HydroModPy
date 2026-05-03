@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import subprocess
 import sys
 import time
 from dataclasses import dataclass
@@ -22,6 +23,11 @@ if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
 from hydromodpy.core.config.toml_loader import merge_toml_payloads
+from hydromodpy.physics.flow.history_contract import write_time_series_npy
+from hydromodpy.results.derived import (
+    drain_budget_to_positive_outflow,
+    find_drain_budget_key,
+)
 from tools.surface_interaction_reporting import (
     write_csv as reporting_write_csv,
 )
@@ -70,6 +76,7 @@ from validation_cases.shared.boussinesq_uniform_strip import (
 from validation_cases.shared.gmsh_irregular_strip import write_irregular_strip_bundle
 from validation_cases.shared.runtime import (
     _dump_toml,
+    _discover_result_store,
     remove_tree_with_retry,
     resolve_model_workspace,
     resolve_validation_results_dir,
@@ -378,6 +385,19 @@ def _apply_transient_payload(
         "step_value": f"{int(DT_DAYS)} day",
         "coverage_policy": "ignore",
     }
+    simulation_results = dict(simulation.get("results", {}))
+    derived_results = dict(simulation_results.get("derived", {}))
+    derived_results.update(
+        {
+            "watertable_elevation": True,
+            "watertable_depth": True,
+            "seepage_areas": True,
+            "accumulation_flux": False,
+            "outflow_drain": True,
+        }
+    )
+    simulation_results["derived"] = derived_results
+    simulation["results"] = simulation_results
 
     payload["simulation"] = simulation
     payload["geographic"] = geographic
@@ -398,6 +418,136 @@ def _apply_transient_payload(
     solver_section["tgrid"] = {"firstpersteady": False}
     payload[solver] = solver_section
     return payload
+
+
+def _catalog_structured_shape(store: Any, sim_id: str) -> tuple[int, int] | None:
+    try:
+        geographic_metadata = store.read_geographic_metadata(sim_id)
+        nrow = int(float(geographic_metadata.get("nrow", 0)))
+        ncol = int(float(geographic_metadata.get("ncol", 0)))
+    except Exception:
+        return None
+    if nrow <= 0 or ncol <= 0:
+        return None
+    return nrow, ncol
+
+
+def _catalog_array(store: Any, sim_id: str, field_name: str) -> np.ndarray:
+    grp = store.open_zarr_group(sim_id)
+    for loc in (grp, grp.get("derived"), grp.get("budget")):
+        if loc is not None and field_name in loc:
+            return np.asarray(loc[field_name][:], dtype=float)
+    raise KeyError(f"SimulationCatalog field not found: {field_name}")
+
+
+def _catalog_drain_outflow_history(store: Any, sim_id: str) -> np.ndarray:
+    grp = store.open_zarr_group(sim_id)
+    budget_grp = grp.get("budget")
+    if budget_grp is None:
+        raise KeyError("SimulationCatalog budget group not found.")
+    drn_key = find_drain_budget_key(budget_grp)
+    if drn_key is None:
+        raise KeyError("SimulationCatalog drain budget field not found.")
+
+    drain_budget = np.asarray(budget_grp[drn_key][:], dtype=float)
+    head = np.asarray(grp["head"][:], dtype=float)
+    n_cells = int(head.shape[-1])
+    return np.stack(
+        [
+            drain_budget_to_positive_outflow(drain_budget[t], n_cells=n_cells)
+            for t in range(int(drain_budget.shape[0]))
+        ],
+        axis=0,
+    )
+
+
+def _legacy_spatial_history_from_catalog(
+    store: Any,
+    sim_id: str,
+    field_name: str,
+) -> np.ndarray:
+    try:
+        data = _catalog_array(store, sim_id, field_name)
+    except KeyError:
+        if field_name not in {"accumulation_flux", "outflow_drain"}:
+            raise
+        data = _catalog_drain_outflow_history(store, sim_id)
+    if data.ndim == 3 and data.shape[1] == 1:
+        data = data[:, 0, :]
+
+    structured_shape = _catalog_structured_shape(store, sim_id)
+    if structured_shape is None or data.ndim != 2:
+        return np.asarray(data, dtype=float)
+
+    nrow, ncol = structured_shape
+    if int(data.shape[1]) != nrow * ncol:
+        return np.asarray(data, dtype=float)
+    return np.asarray(data, dtype=float).reshape(int(data.shape[0]), nrow, ncol)
+
+
+def _constant_head_outflow_from_catalog(
+    store: Any,
+    sim_id: str,
+    *,
+    n_steps: int,
+) -> np.ndarray:
+    budgets = store.query_budget(sim_id)
+    values = np.zeros(int(n_steps), dtype=float)
+    if budgets.empty:
+        return values
+
+    component = budgets["component"].astype(str).str.lower()
+    constant_head = budgets.loc[component.isin(("constant head", "chd"))]
+    if constant_head.empty:
+        return values
+
+    grouped = constant_head.groupby("timestep", sort=True)["flux_out"].sum()
+    for timestep, flux_out in grouped.items():
+        index = int(timestep)
+        if 0 <= index < values.size:
+            values[index] = float(flux_out)
+    return values
+
+
+def _materialize_launcher_catalog_postprocess(
+    *,
+    store: Any,
+    sim_id: str,
+    out_path: Path,
+) -> tuple[Path, Path]:
+    postprocess_dir = out_path / "_postprocess"
+    postprocess_dir.mkdir(parents=True, exist_ok=True)
+
+    histories: dict[str, np.ndarray] = {}
+    for field_name in ("watertable_elevation", "outflow_drain", "accumulation_flux"):
+        histories[field_name] = _legacy_spatial_history_from_catalog(
+            store,
+            sim_id,
+            field_name,
+        )
+
+    n_steps = int(histories["watertable_elevation"].shape[0])
+    time_keys = np.arange(n_steps, dtype=int)
+    elapsed_seconds = np.arange(1, n_steps + 1, dtype=float) * DT_DAYS * SECONDS_PER_DAY
+
+    for field_name, values in histories.items():
+        write_time_series_npy(
+            postprocess_dir / f"{field_name}.npy",
+            values,
+            time_keys=time_keys,
+            elapsed_seconds=elapsed_seconds,
+        )
+
+    write_time_series_npy(
+        postprocess_dir / "outlet_discharge_east_side_m3_s.npy",
+        _constant_head_outflow_from_catalog(store, sim_id, n_steps=n_steps),
+        time_keys=time_keys,
+        elapsed_seconds=elapsed_seconds,
+    )
+
+    particles_dir = postprocess_dir / "_particles"
+    particles_dir.mkdir(parents=True, exist_ok=True)
+    return postprocess_dir, particles_dir
 
 
 def _run_launcher_solver(
@@ -467,17 +617,45 @@ def _run_launcher_solver(
     config_path = runtime_configs_dir / f"transient__{normalized_solver_key}.toml"
     config_path.write_text(_dump_toml(payload), encoding="utf-8", newline="\n")
 
-    completed = run_example_script(
-        script_path=LAUNCHER_SCRIPT,
-        out_path=out_path,
-        out_env_var="HYDROMODPY_OUT_PATH",
-        extra_env={"MPLBACKEND": "Agg"},
-        script_args=[str(config_path)],
+    env = os.environ.copy()
+    env["HYDROMODPY_OUT_PATH"] = str(out_path)
+    env["HYDROMODPY_PROJECT_ROOT"] = str(out_path)
+    env["HYDROMODPY_WORKSPACE"] = str(out_path)
+    env.setdefault("MPLBACKEND", "Agg")
+    completed = subprocess.run(
+        [sys.executable, "-m", "hydromodpy", "run", str(config_path)],
+        cwd=str(REPO_ROOT),
+        env=env,
+        text=True,
+        capture_output=True,
         timeout=timeout,
     )
     if completed.returncode != 0:
         raise AssertionError(
-            f"Launcher run failed for {solver}.\nStdout:\n{completed.stdout}\nStderr:\n{completed.stderr}"
+            f"Launcher run failed for {solver} with return code {completed.returncode}.\n"
+            f"Stdout:\n{completed.stdout}\nStderr:\n{completed.stderr}"
+        )
+
+    store, sim_id = _discover_result_store(out_path)
+    if store is not None and sim_id is not None:
+        try:
+            postprocess_dir, particles_dir = _materialize_launcher_catalog_postprocess(
+                store=store,
+                sim_id=sim_id,
+                out_path=out_path,
+            )
+        finally:
+            store.close()
+        return ValidationRunResult(
+            case_dir=CASE_DIR,
+            solver_name=normalized_solver_key,
+            out_path=out_path,
+            model_ws=out_path,
+            postprocess_dir=postprocess_dir,
+            particles_dir=particles_dir,
+            run_returncode=int(completed.returncode),
+            run_stdout=str(completed.stdout),
+            run_stderr=str(completed.stderr),
         )
 
     model_ws, postprocess_dir, particles_dir = resolve_model_workspace(
@@ -567,6 +745,7 @@ def _run_boussinesq(
                 "recharge": {
                     "values": recharge_series_m_s,
                     "first_clim": "first",
+                    "units": "m/s",
                 }
             },
             "bc": {

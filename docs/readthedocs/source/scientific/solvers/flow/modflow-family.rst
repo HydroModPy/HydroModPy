@@ -3,6 +3,15 @@ MODFLOW Flow Family
 
 This page groups the scientific notes for MODFLOW-family ``flow`` solvers.
 
+.. figure:: /_static/scientific/modflow/modflow_family_map.svg
+   :alt: Reading map for the HydroModPy MODFLOW flow family
+   :width: 100%
+
+   Start from the shared MODFLOW concepts, then choose the modern MODFLOW 6
+   route, the legacy MODFLOW-NWT route, or the cross-cutting comparison pages.
+   This avoids mixing backend-specific details before the common groundwater
+   balance and package vocabulary are clear.
+
 Read this family as three explicit sub-categories:
 
 .. list-table::
@@ -33,38 +42,46 @@ In HydroModPy, the two active MODFLOW-family flow versions are:
 - ``flow/modflow6``: modern MODFLOW 6 route, including structured grids and
   runtime DISV-style unstructured meshes where supported.
 
-Three-Part Internal Structure
------------------------------
+Result Examples
+---------------
 
-The detailed MODFLOW navigation is organized so that the common part comes
-first, then each backend version is readable independently:
+The MODFLOW family pages should be read with real output figures in mind. The
+two examples below are useful first anchors:
+
+.. tab-set::
+
+   .. tab-item:: MODFLOW 6 basin state
+
+      .. figure:: /_static/capability_gallery/simulation/headwater_100km2_outlet_2_mf6_transient_reference_flow_state_triptych.png
+         :alt: MODFLOW 6 transient basin flow-state triptych
+         :width: 100%
+
+         A MODFLOW 6 basin run can be inspected through aligned maps of
+         topography, hydraulic head, and water-table depth.
+
+   .. tab-item:: MODFLOW-NWT basin response
+
+      .. figure:: /_static/capability_gallery/simulation/nancon_transient_nwt_hydrograph.png
+         :alt: Nancon transient MODFLOW-NWT observed and simulated hydrograph
+         :width: 100%
+
+         A MODFLOW-NWT basin run can be read through outlet response and budget
+         diagnostics before more specialized spatial overlays are interpreted.
+
+Hierarchical Internal Structure
+-------------------------------
+
+The left navigation exposes only four MODFLOW categories. Detailed notes remain
+inside those category pages instead of appearing directly under the family:
 
 .. toctree::
-   :caption: Common MODFLOW part
-   :maxdepth: 2
-
-   modflow/common/index
-
-.. toctree::
-   :caption: MODFLOW 6 version
-   :maxdepth: 2
-
-   modflow/modflow6-version/index
-
-.. toctree::
-   :caption: MODFLOW-NWT version
-   :maxdepth: 2
-
-   modflow/modflownwt-version/index
-
-.. toctree::
-   :caption: Cross-cutting MODFLOW pages
+   :caption: MODFLOW categories
    :maxdepth: 1
 
-   modflow/index
-   modflow/comparison-and-method-choice
-   modflow/worked-cases
-   modflow/transport-coupling
+   modflow/common/index
+   modflow/modflow6-version/index
+   modflow/modflownwt-version/index
+   modflow/cross-cutting/index
 
 Quick Reading Order
 -------------------
@@ -75,9 +92,31 @@ If you do not know where to start, read the internal pages in this order:
 2. :doc:`modflow/modflow6-version/index` if you use the modern MODFLOW 6 path,
 3. :doc:`modflow/modflownwt-version/index` if you use the legacy MODFLOW-NWT
    path,
-4. :doc:`modflow/comparison-and-method-choice` when choosing or comparing,
-5. :doc:`modflow/worked-cases`,
-6. :doc:`modflow/transport-coupling` when transport is involved.
+4. :doc:`modflow/cross-cutting/index` for comparison, worked cases, and
+   transport coupling.
+
+Surface Exchange And Active-Network Reading
+-------------------------------------------
+
+For stream supports, seepage, drainage outflow, and simulated active-network
+diagnostics, use the dedicated scientific section before reading backend
+details:
+
+- :doc:`../../streams_and_seepage/conceptual-model` explains the modelling
+  decisions: stream boundary, seepage/drainage operator, and post-solve active
+  network.
+- :doc:`../../streams_and_seepage/worked-examples` lists the examples that
+  connect those decisions to commands, files, and figures.
+- :doc:`../../streams_and_seepage/status-and-limitations` states what is
+  implemented, what is demonstrated, and what is still a non-contract.
+- :doc:`../../hydrology/simulated-active-network` explains the MODFLOW 6 result
+  ladder from ``outflow_drain`` to ``accumulation_flux`` and the thresholded
+  active-network view.
+
+This separation matters for MODFLOW-family comparisons. MODFLOW-NWT is the
+legacy structured baseline. MODFLOW 6 is the modern path where mesh topology
+and result extraction must be explicit enough to support routed active-network
+diagnostics.
 
 Backend Version Summary
 -----------------------
@@ -102,18 +141,6 @@ Backend Version Summary
      - Structured-grid continuity, historical MODFLOW-NWT behavior, legacy
        package assumptions, MODPATH and MT3DMS compatibility.
      - ``transport/modpath`` and ``transport/mt3dms``.
-
-.. toctree::
-   :caption: Direct note links
-   :maxdepth: 1
-
-   ../modflow-governing-equation-and-cvfd-formulation
-   ../modflow-package-semantics-and-boundary-conditions
-   ../modflow-family-methods
-   ../modflow6-vs-modflownwt-scientific-comparison
-   ../xt3d-on-irregular-disv-meshes
-   ../worked-modflow-case-dupuit-fixed-head-1d
-   ../worked-modflow-case-linearized-unconfined-recharge-periodic-1d
 
 Selection Notes
 ---------------

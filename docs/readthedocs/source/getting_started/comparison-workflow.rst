@@ -187,6 +187,38 @@ The same pattern applies to the other shipped examples:
 - ``compare_10km2_natural_mesh_transient_pulse_mf6_bouss.toml``
 - ``compare_nancon_transient_seasonal_mf6_bouss.toml``
 
+Windows Documentation, WSL Simulations
+--------------------------------------
+
+For PETSc-backed Boussinesq comparisons, use a split local workflow:
+
+- run numerical simulations and PETSc validation tests in WSL,
+- build the Sphinx documentation in Windows,
+- let the documentation consume generated figures, CSV files, and JSON files
+  rather than launching PETSc during the HTML build.
+
+The canonical WSL command from a Windows checkout is:
+
+.. code-block:: powershell
+
+   wsl.exe bash -lc "cd /mnt/c/codes/HydroModPy && bash install/enter_wsl_dev.sh --headless -- bash tools/ci/run_boussinesq_petsc_smoke.sh"
+
+For the Boussinesq lower-obstacle drying case only:
+
+.. code-block:: powershell
+
+   wsl.exe bash -lc "cd /mnt/c/codes/HydroModPy && bash install/enter_wsl_dev.sh --headless -- python -m pytest tests/validation/numerical/transient/test_boussinesq_drying_petsc.py -q"
+
+The corresponding Windows documentation build stays independent from PETSc:
+
+.. code-block:: powershell
+
+   conda run --no-capture-output -n hydromodpy-kpg python -m sphinx -E -a -W -b html docs/readthedocs/source docs/readthedocs/build/html
+
+This separation is intentional. PETSc, MPI, and Linux solver dependencies stay
+in the WSL environment, while the Windows documentation environment only needs
+the Sphinx stack and the already materialized documentation assets.
+
 Representative results
 ----------------------
 
@@ -251,11 +283,15 @@ For the simulated active drainage signal, inspect:
 - ``simulated_active_network_metrics_skipped.json``
 - ``simulated_active_network_overlap_metrics.csv``
 - ``simulated_active_network_overlap_metrics_skipped.json``
+- ``simulated_active_network_distance_metrics.csv``
+- ``simulated_active_network_distance_metrics_skipped.json``
 
 The first pair summarizes active-network occupancy from ``accumulation_flux``.
 The second pair compares that simulated active occupancy against the observed
 ``reference`` network after rasterizing the vector network onto the simulation
-mesh. These files do not mean that a stored vector feature
+mesh. The third pair adds planar bidirectional cell-centroid distances between
+active simulated cells and the same ``reference`` network. These files do not
+mean that a stored vector feature
 ``hydrographic_network_simulated_active`` exists yet.
 
 For a single run with ``accumulation_flux`` and a plottable mesh, the display
@@ -282,12 +318,14 @@ uses ``persistent`` for backward compatibility.
 For a programmatic diagnostic against an existing vector role, use:
 
 - ``run.simulated_active_network_overlap_metrics(network_role="reference")``
+- ``run.simulated_active_network_distance_metrics(network_role="reference")``
 
 This compares cell occupancy after rasterizing the selected vector network onto
-the simulation mesh. This is the primary validation comparison for the
-simulated active network. If ``reference`` is not available, the validation
-comparison is skipped. It should not silently fall back to ``generated``,
-because that would no longer be an observation-vs-simulation validation.
+the simulation mesh, then adds a planar distance diagnostic. This is the
+primary validation comparison for the simulated active network. If
+``reference`` is not available, the validation comparison is skipped. It should
+not silently fall back to ``generated``, because that would no longer be an
+observation-vs-simulation validation.
 
 For a single run that carries both networks, HydroModPy also exposes dedicated
 figures such as:
@@ -318,6 +356,10 @@ For transient MODFLOW 6 versus Boussinesq examples, inspect the budget
 diagnostics before interpreting head metrics alone. The same physical case can
 still expose solver-specific accounting semantics, for example whether recharge
 is applied on fixed-head cells or exported as prescribed-head outflow.
+When the Boussinesq run exposes lower-obstacle state histories, also inspect
+``boussinesq_obstacle_diagnostics.csv``. It reports ``min(h-z_bot)``,
+potential negative storage volume, active ``q_dry`` cells, and surface-excess
+cells for each saved snapshot.
 
 Allowed Variant Overlays
 ------------------------

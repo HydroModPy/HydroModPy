@@ -21,11 +21,13 @@ class BoussinesqState:
     recharge_rate_m_s: np.ndarray | None = None
     well_flux_m3_s: np.ndarray | None = None
     saturation_excess_rate_m_s: np.ndarray | None = None
+    dry_deficit_rate_m_s: np.ndarray | None = None
     recharge_rate_history_m_s: np.ndarray | None = None
     well_flux_history_m3_s: np.ndarray | None = None
     head_history_m: np.ndarray | None = None
     saturated_thickness_history_m: np.ndarray | None = None
     saturation_excess_history_m_s: np.ndarray | None = None
+    dry_deficit_history_m_s: np.ndarray | None = None
     internal_edge_flux_m3_s: np.ndarray | None = None
     internal_edge_flux_history_m3_s: np.ndarray | None = None
     boundary_edge_flux_m3_s: np.ndarray | None = None
@@ -66,11 +68,13 @@ class BoussinesqState:
             "recharge_rate_m_s",
             "well_flux_m3_s",
             "saturation_excess_rate_m_s",
+            "dry_deficit_rate_m_s",
             "recharge_rate_history_m_s",
             "well_flux_history_m3_s",
             "head_history_m",
             "saturated_thickness_history_m",
             "saturation_excess_history_m_s",
+            "dry_deficit_history_m_s",
             "internal_edge_flux_m3_s",
             "internal_edge_flux_history_m3_s",
             "boundary_edge_flux_m3_s",

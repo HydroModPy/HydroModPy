@@ -121,6 +121,12 @@
       ],
       "image_assets": [
         {
+          "filename": "surface_interaction_no_seepage_configuration.png",
+          "caption": "Configuration schematic for the no-seepage benchmark, where the surface is lifted above the imposed east head.",
+          "alt_text": "Configuration schematic for the no-seepage surface-interaction benchmark",
+          "source_path": "examples/projects/09_capability_gallery/code_comparison/surface_interaction_no_seepage/surface_interaction_no_seepage_configuration.png"
+        },
+        {
           "filename": "no_seepage_reference_k.png",
           "caption": "No-seepage benchmark on the four committed cross-code methods.",
           "alt_text": "No seepage code comparison on the four-method benchmark",
@@ -179,6 +185,9 @@
               "Methods: MODFLOW-NWT, MODFLOW 6, MODFLOW 6 irregular triangles, Boussinesq local partition"
             ]
           }
+        ],
+        "lead_image_filenames": [
+          "surface_interaction_no_seepage_configuration.png"
         ]
       }
     }

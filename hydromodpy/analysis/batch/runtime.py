@@ -878,7 +878,7 @@ def _safe_float(value: object) -> float | None:
 
 def _extract_simulation_child_artifacts(config_path: Path) -> dict[str, Any]:
     """Extract compact simulation artifacts from one child launcher config."""
-    from hydromodpy.core.config.hydromodpy_config import HydroModPyConfig
+    from hydromodpy.config import HydroModPyConfig
     from hydromodpy.core.workspace.path_registry import WorkspacePathRegistry
 
     artifacts: dict[str, Any] = {

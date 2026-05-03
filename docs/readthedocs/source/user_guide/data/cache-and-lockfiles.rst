@@ -24,6 +24,27 @@ The DuckDB catalog stores variable, source, station id, spatial coverage,
 period, unit, source unit, file path, and file modification time. Managers query
 this catalog before downloading again.
 
+What cache stability protects
+-----------------------------
+
+The cache is not an administrative detail. It protects the data evidence behind
+published figures: which stations were found, which time window was loaded, and
+which forcing or observation files were reused.
+
+.. figure:: /_static/capability_gallery/geographic/geographic_nancon_identity_card_station_inventory.png
+   :alt: Station inventory protected by cache and lockfile discipline
+   :width: 100%
+
+   A station inventory should remain stable between a documented run and a
+   later frozen replay unless the provider refresh is intentional.
+
+.. figure:: /_static/capability_gallery/geographic/geographic_nancon_timeseries_discharge.png
+   :alt: Discharge chronicle protected by cache and lockfile discipline
+   :width: 100%
+
+   The same applies to observation chronicles. A silently refreshed API result
+   can change a comparison even when the solver TOML did not change.
+
 Inspect and repair the cache
 ----------------------------
 
@@ -121,4 +142,3 @@ Recommended policy
    * - Provider refresh
      - Refresh one source intentionally.
      - Add ``force_refresh = true`` to that source, run, then update the lock.
-

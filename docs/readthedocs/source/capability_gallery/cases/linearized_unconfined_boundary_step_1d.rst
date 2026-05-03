@@ -100,10 +100,10 @@ Solver Coverage
          Linearized Unconfined 1D Boundary Step rendered with MODFLOW 6 irregular triangles for the analytical gallery.
 
       **Metrics**
-      - Space-time RMSE: 0.0013 m
-      - Space-time max abs error: 0.0116 m
-      - Final-profile RMSE: 0.0003 m
-      - Cross-row head spread: 0.00e+00 m
+      - Space-time RMSE: 0.0061 m
+      - Space-time max abs error: 0.0427 m
+      - Final-profile RMSE: 0.0002 m
+      - Cross-row head spread: 9.24e-04 m
 
       - Config file: ``validation_cases/analytical/transient/linearized_unconfined_boundary_step_1d/config_modflow6_irregular_tri.toml``
       - Tolerances: ``validation_cases/analytical/transient/linearized_unconfined_boundary_step_1d/tolerances.toml``

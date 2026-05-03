@@ -38,7 +38,7 @@ Shared Scientific Contract
        and package mapping.
 
 .. toctree::
-   :maxdepth: 2
+   :maxdepth: 1
 
    Shared MODFLOW concepts <../common-concepts>
    Governing equation and CVFD formulation <../../../modflow-governing-equation-and-cvfd-formulation>
