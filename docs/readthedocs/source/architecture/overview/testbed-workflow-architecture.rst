@@ -133,6 +133,31 @@ mass-balance percent error in the extracted catalog metrics. The observed
 the expected direction for this controlled hydraulic-conductivity sensitivity
 test.
 
+.. list-table::
+   :header-rows: 1
+   :widths: 18 18 18 22 24
+
+   * - Variant
+     - ``param_K``
+     - ``n_cells``
+     - ``head_range_m``
+     - ``budget_chd_total_out``
+   * - ``low_k``
+     - ``5e-06``
+     - ``547``
+     - ``61.95``
+     - ``0.05158187``
+   * - ``reference_k``
+     - ``1e-05``
+     - ``547``
+     - ``47.55``
+     - ``0.05158152``
+   * - ``high_k``
+     - ``2e-05``
+     - ``547``
+     - ``40.91``
+     - ``0.05158121``
+
 Extension Point
 ---------------
 

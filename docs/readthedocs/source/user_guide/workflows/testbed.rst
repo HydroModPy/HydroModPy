@@ -158,6 +158,38 @@ heads are exposed as ``flow_metrics.budget_chd_total_out`` and recharge as
 ``required = true`` so switching from ``execute = false`` to ``execute = true``
 fails loudly if the catalog cannot provide the expected evidence.
 
+The full three-variant matrix was also executed locally with ``execute = true``.
+All children completed successfully with 547 cells and zero mass-balance
+percent error:
+
+.. list-table::
+   :header-rows: 1
+   :widths: 18 18 18 22 24
+
+   * - Variant
+     - ``param_K``
+     - ``n_cells``
+     - ``head_range_m``
+     - ``prescribed_head_out``
+   * - ``low_k``
+     - ``5e-06``
+     - ``547``
+     - ``61.95``
+     - ``0.05158187``
+   * - ``reference_k``
+     - ``1e-05``
+     - ``547``
+     - ``47.55``
+     - ``0.05158152``
+   * - ``high_k``
+     - ``2e-05``
+     - ``547``
+     - ``40.91``
+     - ``0.05158121``
+
+These values are not committed as generated outputs; they document the current
+smoke-tested behavior of the starter configuration.
+
 Runnable Example Files
 ----------------------
 
