@@ -6,7 +6,7 @@ Typed initial-condition structures for the flow process.
 
 This module defines:
 - `FlowInitialCondition`: one validated payload describing how head values are
-  initialized (`top`, `bottom`, `top_offset`, or `custom`).
+  initialized (`top`, `bottom`, or `custom`).
 - `FlowInitialConditions`: the runtime container currently exposing the `h`
   initial condition consumed by the flow process and solver adapters.
 
@@ -23,9 +23,9 @@ from typing import Annotated, ClassVar, Literal
 
 from pydantic import ConfigDict, Field, model_validator
 
-from hydromodpy.core.config.base import HydroModelBase
-from hydromodpy.core.config.profile import Profile
-from hydromodpy.core.units import check_unit_compatible
+from hydromodpy.core.config_kit.base import HydroModelBase
+from hydromodpy.core.config_kit.profile import Profile
+from hydromodpy.core.units import Length, check_unit_compatible
 from hydromodpy.physics.base import InitialCondition as BaseInitialCondition
 
 
@@ -37,7 +37,6 @@ class FlowInitialCondition(BaseInitialCondition):
     ---------
     - `type="top"`: initialize head at top surface.
     - `type="bottom"`: initialize head at bottom surface.
-    - `type="top_offset"`: initialize below top surface by `value` meters.
     - `type="custom"`: initialize with one explicit numeric value.
     """
 
@@ -48,30 +47,23 @@ class FlowInitialCondition(BaseInitialCondition):
         "h", description="id of the initial condition (forced to 'h' for flow)"
     )
 
-    type: Annotated[Literal["top", "bottom", "top_offset", "custom"], Profile.USER] = Field(
+    type: Annotated[Literal["top", "bottom", "custom"], Profile.USER] = Field(
         "custom",
         description=(
-            "Type of initial condition ('top', 'bottom', 'top_offset', or 'custom'). "
+            "Type of initial condition ('top', 'bottom', or 'custom'). "
             "'top' means a full aquifer, 'bottom' means an empty aquifer."
         ),
     )
-    value: Annotated[float | None, Profile.USER] = Field(
+    value: Annotated[Length | None, Profile.USER] = Field(
         None,
-        description=(
-            "Initial hydraulic-head value. Required when type='custom'. "
-            "Depth below top surface when type='top_offset'."
-        ),
+        description="Initial hydraulic-head value. Required when type='custom'.",
     )
 
     @model_validator(mode="after")
     def _validate_custom_value(self) -> FlowInitialCondition:
-        """Require `value` whenever the IC type needs one scalar magnitude."""
-        if self.type in {"custom", "top_offset"} and self.value is None:
-            raise ValueError(
-                "flow.ic.value is required when flow.ic.type is 'custom' or 'top_offset'"
-            )
-        if self.type == "top_offset" and self.value is not None and self.value < 0.0:
-            raise ValueError("flow.ic.value must be non-negative when flow.ic.type='top_offset'")
+        """Require `value` whenever `type='custom'`."""
+        if self.type == "custom" and self.value is None:
+            raise ValueError("flow.ic.value is required when flow.ic.type='custom'")
         raw_units = str(self.units).strip() or "m"
         # Runtime invariant: IC values are stored in meters (magnitude) and the
         # label must already reflect that; anything else is a normalization bug

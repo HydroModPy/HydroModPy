@@ -1,3 +1,15 @@
-from hydromodpy.solver.base import Solver, SolverConfig, SolverEngine
+from hydromodpy.solver.base import (
+    RunResult,
+    Solver,
+    SolverAdapter,
+    SolverConfig,
+    registry,
+)
 
-__all__ = ["Solver", "SolverConfig", "SolverEngine"]
+__all__ = [
+    "RunResult",
+    "Solver",
+    "SolverAdapter",
+    "SolverConfig",
+    "registry",
+]

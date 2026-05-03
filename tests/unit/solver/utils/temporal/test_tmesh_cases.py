@@ -123,7 +123,7 @@ def test_load_tmesh_cases_toml_resolves_relative_paths(tmp_path: Path):
 
 def test_run_tmesh_cases_from_toml_builds_summaries_and_writes_json(tmp_path: Path):
     run_module = _load_module("hydromodpy/solver/utils/temporal/cases/run_tmesh_case.py")
-    run_module.TMesh_Generation = _FakeTMeshGeneration
+    run_module.TmeshGenerator = _FakeTMeshGeneration
 
     chron = tmp_path / "chron.csv"
     chron.write_text(

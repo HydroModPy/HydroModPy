@@ -16,12 +16,12 @@ import os
 
 import rasterio
 
+from hydromodpy.core.io.filesystem import create_folder
 from hydromodpy.core.io.raster_io import export_tif
 
 # HydroModPy
 from hydromodpy.core.logging import get_logger
-from hydromodpy.core.tools.filesystem import create_folder
-from hydromodpy.spatial.delineation import WhiteboxBackend, get_whitebox_backend
+from hydromodpy.spatial.delineation import WhiteboxWorkflowsBackend, get_whitebox_backend
 
 logger = get_logger(__name__)
 
@@ -45,7 +45,7 @@ class Masstransfer:
         label: str = "conc",
         routing_fill_path: str | None = None,
         routing_direc_path: str | None = None,
-        backend: WhiteboxBackend | None = None,
+        backend: WhiteboxWorkflowsBackend | None = None,
     ):
         """
         Parameters
@@ -140,7 +140,7 @@ class Masstransfer:
         im[im >= 0] = 0
         export_tif(self.watershed_buff_fill_surflow, im, self.abs_rast_path, -99999)
         ### d8massflux ###
-        self._backend.d8_mass_flux(
+        self._backend.flow.d8_mass_flux(
             self.watershed_buff_fill_surflow,
             self.load_rast_path,
             self.eff_rast_path,
@@ -155,19 +155,19 @@ class Masstransfer:
         Generate continuous hydrographic network with downslope flowpaths.
         """
         # Sim to points
-        self._backend.raster_to_vector_points(self.raw_rast_path, self.raw_pt_path)
+        self._backend.delineation.raster_to_vector_points(self.raw_rast_path, self.raw_pt_path)
         logger.info(
             "raster_to_vector_points: created %s from %s", self.raw_pt_path, self.raw_rast_path
         )
 
         # Trace downslope sim
-        self._backend.trace_downslope_flowpaths(
+        self._backend.flow.trace_downslope_flowpaths(
             self.raw_pt_path, self.watershed_direc_surflow, self.out_rast_path
         )
         logger.info("trace_downslope_flowpaths: traced flowpaths to %s", self.out_rast_path)
 
         # Simflow to points
-        self._backend.raster_to_vector_points(self.out_rast_path, self.out_pt_path)
+        self._backend.delineation.raster_to_vector_points(self.out_rast_path, self.out_pt_path)
         logger.info(
             "raster_to_vector_points: created %s from %s", self.out_pt_path, self.out_rast_path
         )

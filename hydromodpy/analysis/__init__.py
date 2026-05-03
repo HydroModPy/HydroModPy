@@ -3,10 +3,10 @@
 The legacy ``display`` and ``postprocess`` subpackages were removed in P08:
 
 - Figures live in :mod:`hydromodpy.display` (catalog of registered classes).
-- Metrics live in :mod:`hydromodpy.results.metrics`.
+- Metrics live in :mod:`hydromodpy.core.metrics`.
 - Derived fields live in :mod:`hydromodpy.results.derived`.
 - The launcher-managed postprocess workflow is now part of the simulation
-  pipeline (see :mod:`hydromodpy.pipeline.steps`).
+  pipeline (see :mod:`hydromodpy.workflow.steps`).
 
 The legacy ``calibration`` subpackage was removed in P09 - calibration now
 lives at :mod:`hydromodpy.calibration` (Optuna-first, lightweight, TOML-
@@ -21,6 +21,7 @@ from typing import Any
 _SUBMODULES = {
     "comparison": "hydromodpy.analysis.comparison",
     "batch": "hydromodpy.analysis.batch",
+    "testbed": "hydromodpy.analysis.testbed",
 }
 
 

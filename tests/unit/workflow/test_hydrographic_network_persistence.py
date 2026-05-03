@@ -5,6 +5,7 @@ from types import SimpleNamespace
 
 import geopandas as gpd
 import numpy as np
+import pytest
 from shapely.geometry import LineString, box
 
 from hydromodpy.core.state.data import LoadedDataContext
@@ -20,8 +21,8 @@ from hydromodpy.spatial.geographic.core.hydrographic_network import (
     HydrographicNetworks,
 )
 from hydromodpy.spatial.geographic.store_ingestion import persist_geographic_to_store
-from hydromodpy.workflow.steps.data_loading import apply_structural_updates_from_data
-from hydromodpy.workflow.steps.result_ingestion import step_persist_forcings
+from hydromodpy.workflow.steps.data import apply_structural_updates_from_data
+from hydromodpy.workflow.steps.prepare_solver import step_persist_forcings
 
 
 def _write_network_vector(path: Path, *, crs: str | None = "EPSG:2154") -> Path:
@@ -30,7 +31,11 @@ def _write_network_vector(path: Path, *, crs: str | None = "EPSG:2154") -> Path:
         geometry=[LineString([(0.0, 0.0), (1000.0, 0.0)])],
         crs=crs,
     )
-    gdf.to_file(path)
+    if crs is None:
+        with pytest.warns(UserWarning, match="'crs' was not provided"):
+            gdf.to_file(path)
+    else:
+        gdf.to_file(path)
     return path
 
 
@@ -144,36 +149,35 @@ def test_apply_structural_updates_from_data_attaches_reference_network(
     )
 
     monkeypatch.setattr(
-        "hydromodpy.workflow.steps.data_loading.apply_geology_to_domain",
+        "hydromodpy.workflow.steps.data.apply_geology_to_domain",
         lambda **kwargs: None,
     )
     monkeypatch.setattr(
-        "hydromodpy.workflow.steps.data_loading.ensure_flow",
+        "hydromodpy.workflow.steps.data.ensure_flow",
         lambda run_state: None,
     )
     monkeypatch.setattr(
-        "hydromodpy.workflow.steps.data_loading.apply_oceanic_to_flow",
+        "hydromodpy.workflow.steps.data.apply_oceanic_to_flow",
         lambda **kwargs: None,
     )
     monkeypatch.setattr(
-        "hydromodpy.workflow.steps.data_loading.apply_recharge_load_result_to_flow",
+        "hydromodpy.workflow.steps.data.apply_recharge_load_result_to_flow",
         lambda **kwargs: None,
     )
     monkeypatch.setattr(
-        "hydromodpy.workflow.steps.data_loading.apply_etp_load_result_to_flow",
+        "hydromodpy.workflow.steps.data.apply_etp_load_result_to_flow",
         lambda **kwargs: None,
     )
     monkeypatch.setattr(
-        "hydromodpy.workflow.steps.data_loading.resolve_simulation_time_window",
+        "hydromodpy.workflow.steps.data.resolve_simulation_time_window",
         lambda cfg: None,
     )
 
     apply_structural_updates_from_data(ctx)
 
     assert ctx.setup.geographic_features.reference_hydrographic_network is not None
-    assert (
-        ctx.setup.geographic_features.reference_hydrographic_network.vector_path
-        == str(streams_path)
+    assert ctx.setup.geographic_features.reference_hydrographic_network.vector_path == str(
+        streams_path
     )
 
 

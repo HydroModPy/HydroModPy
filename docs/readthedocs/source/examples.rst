@@ -83,11 +83,6 @@ Choose the right entry point
      - :ref:`examples-notebook-gallery`
      - This is the full inventory, useful once you already know which family
        of examples you need.
-   * - Browse TOML project workflows
-     - :doc:`examples-projects`
-     - This is the current inventory of project-level examples under
-       ``examples/projects/``: overview, simulation, calibration, comparison,
-       mesh gallery, capability gallery, and testbed workflows.
    * - Understand usage modes and workflow families
      - :doc:`user_guide/index`
      - This is the operational guide between the quickstart and the lower-level
@@ -106,13 +101,6 @@ versioned figures generated from reproducible examples, comparisons,
 validation cases, and calibration benchmarks.
 The documentation build does not execute these cases; it only reads the
 committed PNG and JSON artifacts produced by ``python -m tools.doc_gallery``.
-
-Project workflow examples
--------------------------
-
-The repository also ships project-level TOML examples under
-``examples/projects/``. Use :doc:`examples-projects` when you want runnable
-workspace examples rather than notebook-first teaching material.
 
 .. _examples-notebook-gallery:
 
@@ -147,5 +135,4 @@ settings, and any parameter sweeps explored later in the notebook.
 
    getting_started/index
    user_guide/index
-   examples-projects
    capability_gallery/index

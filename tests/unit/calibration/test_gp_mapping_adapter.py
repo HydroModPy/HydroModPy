@@ -15,8 +15,7 @@ Tests cover three slices:
 from __future__ import annotations
 
 import pytest
-
-pytest.importorskip("sklearn")
+import sklearn  # noqa: F401
 
 from hydromodpy.calibration.optimizer import (
     EvaluationResult,
@@ -112,9 +111,9 @@ class TestGPMappingAdapter:
         assert best.objective_value < 0.1
 
 
-class TestGPMappingLegacyKwargs:
-    def test_accepts_full_legacy_kwargs(self):
-        """Adapter must construct cleanly with the full set of legacy kwargs."""
+class TestGPMappingAdvancedKwargs:
+    def test_accepts_full_canonical_kwargs(self):
+        """Adapter must construct cleanly with the full canonical option set."""
         space = _quadratic_space()
         opt = build_optimizer(
             "gp_mapping",
@@ -123,35 +122,30 @@ class TestGPMappingLegacyKwargs:
             n_init=4,
             n_refine=3,
             batch_size=2,
-            n_candidates=12,
+            n_restarts=12,
             kappa=2.0,
             alpha=1.0e-6,
             jitter=1.0e-8,
-            n_posterior_pool=64,
-            n_posterior_samples=16,
-            log_transform=False,
         )
         assert opt.name == "gp_mapping"
-        # n_refine + batch_size lifts max_iter to satisfy the legacy semantics.
         assert opt._max_iter >= 4 + 3 * 2
         assert opt._batch_size == 2
         assert opt._n_restarts >= 12
         assert opt._kappa == pytest.approx(2.0)
         assert opt._alpha_eff == pytest.approx(1.0e-6 + 1.0e-8)
-        assert opt._n_posterior_pool == 64
-        assert opt._n_posterior_samples == 16
 
-    def test_log_transform_warns_when_no_transform_declared(self):
-        """log_transform=True without per-parameter transforms triggers a warning."""
+    @pytest.mark.parametrize(
+        "kwarg",
+        ["n_candidates", "log_transform", "n_posterior_pool", "n_posterior_samples"],
+    )
+    def test_removed_compatibility_kwargs_are_rejected(self, kwarg: str):
+        """Removed compatibility kwargs are not accepted."""
         space = _quadratic_space()
-        with pytest.warns(RuntimeWarning, match="log_transform"):
+        with pytest.raises(TypeError, match=kwarg):
             build_optimizer(
                 "gp_mapping",
                 space,
-                seed=0,
-                n_init=2,
-                max_iter=4,
-                log_transform=True,
+                **{kwarg: 1},
             )
 
     def test_kappa_switches_to_lcb_acquisition(self):
@@ -182,3 +176,6 @@ class TestGPMappingLegacyKwargs:
             )
         best = opt.best()
         assert best is not None
+        assert best.status == "completed"
+        assert isinstance(best.objective_value, float)
+        assert best.trial_id >= 0

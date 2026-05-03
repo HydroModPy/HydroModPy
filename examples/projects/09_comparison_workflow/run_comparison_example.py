@@ -33,9 +33,6 @@ NANCON_SEASONAL_HIGH_K_HYDROGRAPHY_CONFIG = Path(__file__).with_name(
 NANCON_SEASONAL_HIGH_K_HYDROGRAPHY_MF6_CONFIG = Path(__file__).with_name(
     "compare_nancon_transient_seasonal_high_k_hydrography_mf6_only.toml"
 )
-NANCON_SEASONAL_HYDROGRAPHY_K_SWEEP_MF6_CONFIG = Path(__file__).with_name(
-    "compare_nancon_transient_seasonal_hydrography_k_sweep_mf6_only.toml"
-)
 CONFIG_BY_CASE = {
     "synthetic": DEFAULT_CONFIG,
     "natural": NATURAL_CONFIG,
@@ -46,7 +43,6 @@ CONFIG_BY_CASE = {
     "nancon-seasonal-hydrography": NANCON_SEASONAL_HYDROGRAPHY_CONFIG,
     "nancon-seasonal-high-k-hydrography": NANCON_SEASONAL_HIGH_K_HYDROGRAPHY_CONFIG,
     "nancon-seasonal-high-k-hydrography-mf6": NANCON_SEASONAL_HIGH_K_HYDROGRAPHY_MF6_CONFIG,
-    "nancon-seasonal-hydrography-k-sweep-mf6": NANCON_SEASONAL_HYDROGRAPHY_K_SWEEP_MF6_CONFIG,
 }
 
 

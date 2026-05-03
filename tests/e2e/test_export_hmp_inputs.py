@@ -204,21 +204,19 @@ def test_export_bundles_directory_input(tmp_path: Path) -> None:
             n_layers=1,
         )
 
-        # Directory inputs need a workaround: the registry uses is_file for hash,
-        # so we register a synthetic tar entry by packaging the dir ourselves.
-        # For the walker this is irrelevant: the real pipeline registers
-        # directory-typed inputs via the walker -> catalog.register_tracked_files
-        # after sha256 on individual files. For this test we instead insert
-        # a row manually with a sentinel sha256.
-        import hashlib as _h
+        from dataclasses import dataclass
 
-        sha = _h.sha256(b"dir").hexdigest()
-        catalog.connection.execute(
-            """INSERT INTO tracked_files
-               (sim_id, role, category, original_path, canonical_path,
-                sha256, size_bytes, portable)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
-            [sim_id, "hydrometry", "data", str(src_dir), str(src_dir.resolve()), sha, 0, True],
+        @dataclass
+        class _E:
+            role: str
+            category: str
+            original_path: str
+            canonical_path: Path
+            portable: bool = True
+
+        catalog.register_tracked_files(
+            sim_id,
+            [_E("hydrometry", "data", str(src_dir), src_dir.resolve())],
         )
         sz = catalog.open_zarr(sim_id)
         sz.write_field(

@@ -23,6 +23,8 @@ from typing import Any
 from pydantic import BaseModel, TypeAdapter, ValidationError
 from pydantic.fields import FieldInfo
 
+from hydromodpy.core.config_kit.root_config_protocol import get_root_config_provider
+
 
 @dataclass(frozen=True)
 class ValidationResult:
@@ -47,9 +49,7 @@ def _split_path(path: str) -> list[str]:
 
 
 def _root_model() -> type[BaseModel]:
-    from hydromodpy.core.config.hydromodpy_config import HydroModPyConfig
-
-    return HydroModPyConfig
+    return get_root_config_provider().root_model()
 
 
 def _resolve_field(path: str) -> tuple[type[BaseModel], str, FieldInfo]:

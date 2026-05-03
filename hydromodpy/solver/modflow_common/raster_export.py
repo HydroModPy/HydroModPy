@@ -8,7 +8,7 @@ import numpy as np
 import rasterio
 from rasterio.transform import from_origin
 
-from .grid_context import GridReference
+from hydromodpy.core.grid_reference import GridReference
 
 
 def write_grid_array_to_raster(

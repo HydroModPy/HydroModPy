@@ -10,14 +10,40 @@ Orchestrates four phases:
 
 from __future__ import annotations
 
-import logging
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from hydromodpy.core.config import HydroModPyConfig
-from hydromodpy.workflow.pipelines.overview_config import DataOverviewState
+from hydromodpy.core.contracts.overview import DataOverviewState
+from hydromodpy.core.exceptions import ConfigError, ConfigMissingError
+from hydromodpy.core.logging import get_logger
+from hydromodpy.master_config import HydroModPyConfig
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
+
+
+@dataclass(frozen=True, slots=True)
+class _OverviewLoaderConfig:
+    data: Any
+    workspace: Any
+    simulation: Any
+    overview: Any
+
+
+@dataclass(frozen=True, slots=True)
+class _OverviewLoaderSetup:
+    workspace: Any
+    geographic: Any
+    domain: Any
+
+
+@dataclass(frozen=True, slots=True)
+class _OverviewLoaderContext:
+    cfg: _OverviewLoaderConfig
+    setup: _OverviewLoaderSetup
+    loaded_data: Any
+    config_path: Path
+    data_plan: Any
 
 
 class DataOverviewLauncher:
@@ -84,11 +110,7 @@ class DataOverviewLauncher:
         )
 
         geo_cfg = state.cfg.geographic
-        if (
-            geo_cfg.dem_init_path is not None
-            and Path(geo_cfg.dem_init_path).name != "__DEM_API_BOOTSTRAP__"
-            and geo_cfg.dem_init_path.exists()
-        ):
+        if geo_cfg.dem_init_path is not None and geo_cfg.dem_init_path.exists():
             return
 
         cache_dir = None
@@ -101,7 +123,7 @@ class DataOverviewLauncher:
             cache_dir=cache_dir,
         )
         if resolved is None:
-            raise ValueError(
+            raise ConfigMissingError(
                 "No dem_init_path and no [data.dem] source configured. "
                 "Either set geographic.dem_init_path or add:\n"
                 '  [data]\n  types = [..., "dem"]\n'
@@ -130,7 +152,7 @@ class DataOverviewLauncher:
             geographic=geographic,
         )
         if geographic_features is None:
-            raise ValueError(
+            raise ConfigError(
                 "Could not resolve geographic derived features from the overview geographic runtime."
             )
         state.geographic_features = geographic_features
@@ -152,8 +174,6 @@ class DataOverviewLauncher:
         mimics ``WorkflowContext``. Overview dates from ``[overview]`` are
         injected into data sections that have no explicit dates of their own.
         """
-        from types import SimpleNamespace
-
         from hydromodpy.data.loader import DataManagersRuntimeLoader
         from hydromodpy.data.plan import DataLoadPlan
         from hydromodpy.spatial.geographic.core.derived_features import (
@@ -168,14 +188,14 @@ class DataOverviewLauncher:
 
         self._inject_overview_dates(state)
 
-        proxy = SimpleNamespace(
-            cfg=SimpleNamespace(
+        proxy = _OverviewLoaderContext(
+            cfg=_OverviewLoaderConfig(
                 data=state.cfg.data,
                 workspace=state.cfg.workspace,
                 simulation=None,
                 overview=state.cfg.overview,
             ),
-            setup=SimpleNamespace(
+            setup=_OverviewLoaderSetup(
                 workspace=state.workspace,
                 geographic=state.geographic,
                 domain=None,

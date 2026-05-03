@@ -5,7 +5,7 @@ from __future__ import annotations
 import pytest
 from pydantic import ValidationError
 
-from hydromodpy.results.config import (
+from hydromodpy.simulation.planning.results_config import (
     BudgetConfig,
     DerivedConfig,
     ExportConfig,
@@ -17,7 +17,10 @@ from hydromodpy.results.config import (
 class TestResultsConfigDefaults:
     def test_default_values(self):
         cfg = ResultsConfig()
-        assert cfg.store is True
+        assert cfg.persistence.save_catalog is True
+        assert cfg.persistence.save_zarr is True
+        assert cfg.persistence.save_parquet is True
+        assert cfg.persistence.save_lock is True
         assert cfg.keep_solver_files is False
         assert cfg.derived.watertable_elevation is True
         assert cfg.derived.watertable_depth is True
@@ -29,12 +32,14 @@ class TestResultsConfigDefaults:
     def test_from_dict(self):
         cfg = ResultsConfig.model_validate(
             {
-                "store": True,
+                "persistence": {"save_catalog": True, "save_zarr": False},
                 "keep_solver_files": True,
                 "derived": {"watertable_depth": False},
                 "export": {"netcdf": True, "csv_timeseries": True},
             }
         )
+        assert cfg.persistence.save_catalog is True
+        assert cfg.persistence.save_zarr is False
         assert cfg.keep_solver_files is True
         assert cfg.derived.watertable_depth is False
         assert cfg.derived.watertable_elevation is True
@@ -103,14 +108,14 @@ class TestIntegrationWithSimulationConfig:
         cfg = SimulationConfig.model_validate(
             {
                 "results": {
-                    "store": True,
+                    "persistence": {"save_catalog": True},
                     "keep_solver_files": True,
                     "derived": {"seepage_areas": False},
                     "export": {"netcdf": True},
                 },
             }
         )
-        assert cfg.results.store is True
+        assert cfg.results.persistence.save_catalog is True
         assert cfg.results.keep_solver_files is True
         assert cfg.results.derived.seepage_areas is False
         assert cfg.results.export.netcdf is True
@@ -119,5 +124,5 @@ class TestIntegrationWithSimulationConfig:
         from hydromodpy.simulation.planning.config import SimulationConfig
 
         cfg = SimulationConfig()
-        assert cfg.results.store is True
+        assert cfg.results.persistence.save_catalog is True
         assert cfg.results.derived.watertable_depth is True

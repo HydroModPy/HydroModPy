@@ -11,6 +11,7 @@ Concrete square-domain implementations are provided in
 
 from __future__ import annotations
 
+import tomllib
 from abc import ABC, abstractmethod
 from collections.abc import Mapping
 from dataclasses import dataclass
@@ -19,10 +20,7 @@ from typing import Any
 
 import numpy as np
 
-try:  # Python 3.11+
-    import tomllib
-except ModuleNotFoundError:  # pragma: no cover - fallback for older Python
-    import tomli as tomllib  # type: ignore[no-redef]
+from hydromodpy.core.rng import RngManager
 
 
 @dataclass(frozen=True)
@@ -220,9 +218,15 @@ class FieldMesh(ABC):
         *,
         target_n_cells: int,
         mesh_kind: str = "structured",
-        seed: int = 42,
+        rng_manager: RngManager | None = None,
     ) -> BaseFieldMesh:
-        """Build a mesh instance from unit-square settings."""
+        """Build a mesh instance from unit-square settings.
+
+        ``rng_manager`` drives stochastic mesh kinds (e.g.
+        ``triangular_unstructured``). When omitted, a fixed default seed is
+        used for compatibility with non-stochastic mesh kinds and
+        deterministic test fixtures.
+        """
 
     @classmethod
     @abstractmethod

@@ -9,7 +9,6 @@ It is the right place for:
 - mathematical formulations,
 - project-level physical scope and modelling assumptions,
 - hydrological and recharge-generation chains,
-- mesh and spatial-support choices,
 - modelling assumptions and simplifications,
 - solver-specific scientific notes,
 - inverse-problem and calibration notes.
@@ -26,7 +25,5 @@ documented elsewhere:
 
    foundations/index
    hydrology/index
-   streams_and_seepage/index
-   mesh/index
    calibration/index
    solvers/index

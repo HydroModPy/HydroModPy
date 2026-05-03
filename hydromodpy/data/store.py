@@ -19,6 +19,7 @@ from pathlib import Path
 
 import pandas as pd
 
+from hydromodpy.data._dispatch import get_manager_class
 from hydromodpy.data.contracts.load_result import LoadResult
 from hydromodpy.data.contracts.timeseries import PointRecord
 from hydromodpy.data.registry.catalog_duckdb import DataCatalogDuckDB
@@ -88,43 +89,9 @@ class DataStore:
         d.mkdir(parents=True, exist_ok=True)
         return d
 
-    # Registry: variable_name → (module_path, class_name)
-    _MANAGER_REGISTRY: dict[str, tuple[str, str]] = {
-        "dem": ("hydromodpy.data.variables.dem.manager", "DemManager"),
-        "geology": ("hydromodpy.data.variables.geology.manager", "GeologyManager"),
-        "hydrography": ("hydromodpy.data.variables.hydrography.manager", "HydrographyManager"),
-        "oceanic": ("hydromodpy.data.variables.oceanic.manager", "OceanicManager"),
-        "hydrometry": ("hydromodpy.data.variables.hydrometry.manager", "HydrometryManager"),
-        "piezometry": ("hydromodpy.data.variables.piezometry.manager", "PiezometryManager"),
-        "water_quality": ("hydromodpy.data.variables.water_quality.manager", "WaterQualityManager"),
-        "intermittency": (
-            "hydromodpy.data.variables.intermittency.manager",
-            "IntermittencyManager",
-        ),
-        "recharge": ("hydromodpy.data.variables.recharge.manager", "RechargeManager"),
-        "runoff": ("hydromodpy.data.variables.runoff.manager", "RunoffManager"),
-        "precipitation": (
-            "hydromodpy.data.variables.precipitation.manager",
-            "PrecipitationManager",
-        ),
-        "etp": ("hydromodpy.data.variables.etp.manager", "EtpManager"),
-        "temperature": ("hydromodpy.data.variables.temperature.manager", "TemperatureManager"),
-        "wind": ("hydromodpy.data.variables.wind.manager", "WindManager"),
-        "humidity": ("hydromodpy.data.variables.humidity.manager", "HumidityManager"),
-        "radiation": ("hydromodpy.data.variables.radiation.manager", "RadiationManager"),
-        "soil_moisture": ("hydromodpy.data.variables.soil_moisture.manager", "SoilMoistureManager"),
-    }
-
     def _load_variable(self, variable_name: str, config, **extra_kwargs) -> LoadResult:
         """Instantiate the right manager and load data."""
-        import importlib
-
-        entry = self._MANAGER_REGISTRY.get(variable_name)
-        if entry is None:
-            raise ValueError(f"Unknown variable: {variable_name}")
-        module_path, class_name = entry
-        mod = importlib.import_module(module_path)
-        cls = getattr(mod, class_name)
+        cls = get_manager_class(variable_name)
         mgr = cls(
             config=config,
             catalog=self.catalog,

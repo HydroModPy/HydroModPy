@@ -7,11 +7,13 @@ field declared in the TOML (no implicit section-based detection).
 from __future__ import annotations
 
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
-from hydromodpy._cli import main
-from hydromodpy._cli.helpers import EXIT_CONFIG, EXIT_NOT_FOUND
+from hydromodpy.cli import main
+from hydromodpy.cli.helpers import EXIT_CONFIG, EXIT_NOT_FOUND
+from hydromodpy.workflow import dispatch as workflow_dispatch
 
 
 def _write_toml(path: Path, content: str) -> Path:
@@ -34,7 +36,7 @@ def test_hmp_run_dispatches_simulation_workflow(monkeypatch, tmp_path) -> None:
         captured["kwargs"] = kwargs
         return {"name": "test", "sim_id": "abc"}
 
-    monkeypatch.setattr("hydromodpy._cli.workflows.run_simulation", fake_run)
+    monkeypatch.setitem(workflow_dispatch.DISPATCH, "simulation", fake_run)
     monkeypatch.setattr("sys.argv", ["hmp", "run", str(config)])
 
     main()
@@ -43,6 +45,7 @@ def test_hmp_run_dispatches_simulation_workflow(monkeypatch, tmp_path) -> None:
     assert captured["run_called"] is True
     # --no-display was not passed so the CLI forwards no_display=False.
     assert captured["kwargs"].get("no_display") is False
+    assert captured["kwargs"].get("checkpoint") is False
 
 
 def test_hmp_run_forwards_no_display_flag(monkeypatch, tmp_path) -> None:
@@ -58,12 +61,54 @@ def test_hmp_run_forwards_no_display_flag(monkeypatch, tmp_path) -> None:
         captured["kwargs"] = kwargs
         return {"name": "test", "sim_id": "abc"}
 
-    monkeypatch.setattr("hydromodpy._cli.workflows.run_simulation", fake_run)
+    monkeypatch.setitem(workflow_dispatch.DISPATCH, "simulation", fake_run)
     monkeypatch.setattr("sys.argv", ["hmp", "run", str(config), "--no-display"])
 
     main()
 
     assert captured["kwargs"].get("no_display") is True
+
+
+def test_hmp_run_forwards_checkpoint_flag(monkeypatch, tmp_path) -> None:
+    """``hmp run --checkpoint`` must opt into checkpoint persistence."""
+    config = _write_toml(
+        tmp_path / "config.toml",
+        'workflow = "simulation"\n[workspace]\nproject_root = "."\n[simulation]\nname = "test"\n',
+    )
+
+    captured: dict = {}
+
+    def fake_run(config_path, **kwargs):
+        captured["kwargs"] = kwargs
+        return {"name": "test", "sim_id": "abc"}
+
+    monkeypatch.setitem(workflow_dispatch.DISPATCH, "simulation", fake_run)
+    monkeypatch.setattr("sys.argv", ["hmp", "run", str(config), "--checkpoint"])
+
+    main()
+
+    assert captured["kwargs"].get("checkpoint") is True
+
+
+def test_hmp_run_resume_enables_checkpoint(monkeypatch, tmp_path) -> None:
+    """``--resume`` implies checkpoint reads even without ``--checkpoint``."""
+    config = _write_toml(
+        tmp_path / "config.toml",
+        'workflow = "simulation"\n[workspace]\nproject_root = "."\n[simulation]\nname = "test"\n',
+    )
+
+    captured: dict = {}
+
+    def fake_run(config_path, **kwargs):
+        captured["kwargs"] = kwargs
+        return {"name": "test", "sim_id": "abc"}
+
+    monkeypatch.setitem(workflow_dispatch.DISPATCH, "simulation", fake_run)
+    monkeypatch.setattr("sys.argv", ["hmp", "run", str(config), "--resume", "run-1"])
+
+    main()
+
+    assert captured["kwargs"].get("checkpoint") is True
 
 
 def test_hmp_run_dispatches_overview_workflow(monkeypatch, tmp_path) -> None:
@@ -80,7 +125,7 @@ def test_hmp_run_dispatches_overview_workflow(monkeypatch, tmp_path) -> None:
         captured["run_called"] = True
         return {"mode": "data_overview"}
 
-    monkeypatch.setattr("hydromodpy._cli.workflows.run_overview", fake_run)
+    monkeypatch.setitem(workflow_dispatch.DISPATCH, "overview", fake_run)
     monkeypatch.setattr("sys.argv", ["hmp", "run", str(config)])
 
     main()
@@ -105,7 +150,7 @@ def test_hmp_run_dispatches_mesh_workflow(monkeypatch, tmp_path) -> None:
         captured["run_called"] = True
         return {"mode": "mesh"}
 
-    monkeypatch.setattr("hydromodpy._cli.workflows.run_mesh", fake_run)
+    monkeypatch.setitem(workflow_dispatch.DISPATCH, "mesh", fake_run)
     monkeypatch.setattr("sys.argv", ["hmp", "run", str(config)])
 
     main()
@@ -128,7 +173,7 @@ def test_hmp_run_dispatches_calibration_workflow(monkeypatch, tmp_path) -> None:
         captured["run_called"] = True
         return {"mode": "calibration"}
 
-    monkeypatch.setattr("hydromodpy._cli.workflows.run_calibration", fake_run)
+    monkeypatch.setitem(workflow_dispatch.DISPATCH, "calibration", fake_run)
     monkeypatch.setattr("sys.argv", ["hmp", "run", str(config)])
 
     main()
@@ -151,7 +196,7 @@ def test_hmp_run_dispatches_batch_workflow(monkeypatch, tmp_path) -> None:
         captured["run_called"] = True
         return {"mode": "batch"}
 
-    monkeypatch.setattr("hydromodpy._cli.workflows.run_batch", fake_run)
+    monkeypatch.setitem(workflow_dispatch.DISPATCH, "batch", fake_run)
     monkeypatch.setattr("sys.argv", ["hmp", "run", str(config)])
 
     main()
@@ -187,7 +232,7 @@ def test_hmp_run_dispatches_comparison_workflow(monkeypatch, tmp_path) -> None:
         captured["run_called"] = True
         return {"mode": "comparison"}
 
-    monkeypatch.setattr("hydromodpy._cli.workflows.run_comparison", fake_run)
+    monkeypatch.setitem(workflow_dispatch.DISPATCH, "comparison", fake_run)
     monkeypatch.setattr("sys.argv", ["hmp", "run", str(config)])
 
     main()
@@ -200,12 +245,7 @@ def test_hmp_run_dispatches_testbed_workflow(monkeypatch, tmp_path) -> None:
     """``hmp run`` with workflow=testbed dispatches to run_testbed."""
     config = _write_toml(
         tmp_path / "testbed.toml",
-        'workflow = "testbed"\n'
-        "[testbed]\n"
-        'id = "mesh_resolution"\n'
-        "\n"
-        "[[testbed.variant]]\n"
-        'id = "coarse"\n',
+        'workflow = "testbed"\n[testbed]\nid = "demo"\n',
     )
 
     captured: dict = {}
@@ -215,50 +255,13 @@ def test_hmp_run_dispatches_testbed_workflow(monkeypatch, tmp_path) -> None:
         captured["run_called"] = True
         return {"mode": "testbed"}
 
-    monkeypatch.setattr("hydromodpy._cli.workflows.run_testbed", fake_run)
+    monkeypatch.setitem(workflow_dispatch.DISPATCH, "testbed", fake_run)
     monkeypatch.setattr("sys.argv", ["hmp", "run", str(config)])
 
     main()
 
     assert captured["config_path"] == config.resolve()
     assert captured["run_called"] is True
-
-
-def test_hmp_run_executes_testbed_dry_plan(monkeypatch, tmp_path) -> None:
-    """``hmp run`` can execute a real testbed plan without child execution."""
-    config = _write_toml(
-        tmp_path / "testbed.toml",
-        'workflow = "testbed"\n'
-        "\n"
-        "[workspace]\n"
-        'project_root = "mesh_outputs/base"\n'
-        "\n"
-        "[mesh_catchment]\n"
-        'constraints_mode = "rivers_only"\n'
-        "\n"
-        "[testbed]\n"
-        'id = "mesh_resolution"\n'
-        'output_root = "outputs/testbed"\n'
-        "execute = false\n"
-        "\n"
-        "[[testbed.variant]]\n"
-        'id = "coarse"\n'
-        'axis = "resolution"\n'
-        "\n"
-        "[testbed.variant.overlay.mesh_catchment.zone_meshing]\n"
-        "global_size = 400.0\n",
-    )
-
-    monkeypatch.setattr("hydromodpy._cli.commands.run.auto_scan_workspace", lambda _: None)
-    monkeypatch.setattr("hydromodpy.core.tools.display.print_hydromodpy", lambda: None)
-    monkeypatch.setattr("sys.argv", ["hmp", "run", str(config)])
-
-    main()
-
-    output_root = tmp_path / "outputs" / "testbed"
-    assert (output_root / "_generated_configs" / "coarse.toml").exists()
-    assert (output_root / "testbed_plan.json").exists()
-    assert (output_root / "testbed_manifest.json").exists()
 
 
 def test_hmp_run_crashes_on_unknown_workflow_value(monkeypatch, tmp_path) -> None:
@@ -281,3 +284,40 @@ def test_hmp_run_exits_on_missing_file(monkeypatch, tmp_path) -> None:
     with pytest.raises(SystemExit) as exc_info:
         main()
     assert exc_info.value.code == EXIT_NOT_FOUND
+
+
+def test_hmp_run_rejects_python_scripts(monkeypatch, tmp_path, capsys) -> None:
+    script = tmp_path / "prototype.py"
+    script.write_text("print('prototype')\n", encoding="utf-8")
+    monkeypatch.setattr("sys.argv", ["hmp", "run", str(script)])
+
+    with pytest.raises(SystemExit) as exc_info:
+        main()
+
+    assert exc_info.value.code == EXIT_CONFIG
+    err = capsys.readouterr().err
+    assert "hmp dev run-script" in err
+
+
+def test_hmp_dev_run_script_executes_python_scripts(monkeypatch, tmp_path) -> None:
+    script = tmp_path / "prototype.py"
+    script.write_text("print('prototype')\n", encoding="utf-8")
+    captured: dict = {}
+
+    def fake_run(cmd, cwd):
+        captured["cmd"] = cmd
+        captured["cwd"] = cwd
+        return SimpleNamespace(returncode=0)
+
+    monkeypatch.setattr("hydromodpy.cli.commands.dev.subprocess.run", fake_run)
+    monkeypatch.setattr(
+        "sys.argv",
+        ["hmp", "dev", "run-script", str(script), "--case", "demo"],
+    )
+
+    with pytest.raises(SystemExit) as exc_info:
+        main()
+
+    assert exc_info.value.code == 0
+    assert captured["cmd"][1:] == [str(script.resolve()), "--case", "demo"]
+    assert captured["cwd"] == str(tmp_path)

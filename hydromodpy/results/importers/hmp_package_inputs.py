@@ -3,13 +3,14 @@
 from __future__ import annotations
 
 import hashlib
-import logging
 import shutil
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-logger = logging.getLogger(__name__)
+from hydromodpy.core.logging import get_logger
+
+logger = get_logger(__name__)
 
 
 class InputCollisionError(RuntimeError):
@@ -52,9 +53,8 @@ def _sha256_directory(root: Path) -> str:
         rel = str(p.relative_to(root)).replace("\\", "/").encode("utf-8")
         h.update(rel)
         h.update(b"\0")
-        with open(p, "rb") as fh:
-            for chunk in iter(lambda: fh.read(65536), b""):
-                h.update(chunk)
+        h.update(_sha256_file(p).encode("ascii"))
+        h.update(b"\0")
     return h.hexdigest()
 
 

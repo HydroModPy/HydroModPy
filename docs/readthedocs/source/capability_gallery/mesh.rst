@@ -8,9 +8,6 @@ Mesh Gallery
 
 These cases focus on the geometry side of HydroModPy: bundle reading, geology overlays, river constraints, and compact mesh summaries.
 
-.. seealso::
-   Read :doc:`Scientific mesh and spatial-support documentation </scientific/mesh/index>` if you want a guided entry point before opening the case pages below.
-
 Current Coverage
 ----------------
 

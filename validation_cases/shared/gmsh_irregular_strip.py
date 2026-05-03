@@ -351,7 +351,7 @@ def write_gmsh22_triangle_mesh_from_bundle_csv(
     *,
     mesh_filename: str = "mesh_2d.msh",
 ) -> Path:
-    """Write a minimal Gmsh 2.2 triangle mesh from bundle ``nodes``/``cells`` CSV files."""
+    """Write a minimal Gmsh 2.2 triangle mesh from bundle CSV files."""
 
     bundle_dir = Path(bundle_dir)
     nodes = np.genfromtxt(

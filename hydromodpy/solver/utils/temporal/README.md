@@ -3,9 +3,9 @@
 `hydromodpy/solver/utils/temporal/` contains the time-discretization layer used
 to build solver stress periods.
 
-- `tmesh_generation.py`: temporal mesh/grid generation class (`TMesh_Generation`).
+- `tmesh_generation.py`: temporal mesh/grid generation class (`TmeshGenerator`).
 - `tmesh_config.py`: Pydantic model (`TMeshConfig`) + TOML helpers.
-- `tmesh_config.toml`: minimal template with all `TMesh_Generation` entries.
+- `tmesh_config.toml`: minimal template with all `TmeshGenerator` entries.
 - `cases/`: runnable demo cases (`run_tmesh_case.py`) and sample TOML.
 
 ## Launcher Time-Scale Diagnostic
@@ -54,14 +54,19 @@ Input schema is `TMeshConfig` with key fields:
 - `itmuni`, `genmtd`, `nper`, `lenper`, `chron_*`, `start_datetime`,
   `end_datetime`, `firstpersteady`, `ntsp`, `tsmult`.
 
-Generated runtime object (`flopy.discretization.modeltime.ModelTime`) exposes:
+Generated runtime object (`TimeGrid`, HydroModPy-native frozen dataclass) exposes:
 
 - `time_units`: textual time-unit label,
 - `start_datetime`: origin timestamp,
 - `perlen`: stress-period lengths,
 - `nstp`: time steps per stress period,
 - `tsmult`: per-period time-step multiplier,
-- `steady_state`: steady/transient flags per stress period.
+- `steady_state`: steady/transient flags per stress period,
+- `totim`: cumulative period lengths (in `time_units`),
+- `datetimes`: tuple of period-end timestamps (empty when `start_datetime` is None).
+
+Backends translate this POPO to their own structures (FloPy `ModelTime`,
+MODFLOW DIS/TDIS payloads, ...). No FloPy import survives at this layer.
 
 ### Mapping To MODFLOW-NWT
 

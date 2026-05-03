@@ -8,8 +8,7 @@ introduites.
 
 Liens :
 [simulation_catalog_architecture.md](simulation_catalog_architecture.md),
-[parquet_lakehouse_architecture.md](parquet_lakehouse_architecture.md),
-[parquet_lakehouse_migration_guide.md](parquet_lakehouse_migration_guide.md).
+[parquet_lakehouse_architecture.md](parquet_lakehouse_architecture.md).
 
 ## Portée
 

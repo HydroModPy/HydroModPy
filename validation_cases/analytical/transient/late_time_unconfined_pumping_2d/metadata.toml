@@ -41,4 +41,3 @@ compare_start_day = 4.0
 
 [plot]
 monitor_offsets_cells = [3, 5, 8, 12]
-

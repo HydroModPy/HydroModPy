@@ -26,7 +26,8 @@ package "Input data loading" {
 }
 
 package "Solver execution" {
-  component "SolverRunner" as SolverRunner
+  component "SimulationRunner" as SimulationRunner
+  component "SolverAdapter registry" as AdapterRegistry
   component "Concrete solver\nMODFLOW-NWT / MODFLOW 6 /\nBoussinesq" as Solver
 }
 
@@ -52,8 +53,9 @@ DataCatalog --> Managers : cached inputs
 Managers --> Pipeline : normalized runtime inputs
 
 Project --> Pipeline : execute phases
-Pipeline --> SolverRunner : dispatch ProcessRun
-SolverRunner --> Solver
+Pipeline --> SimulationRunner : dispatch ProcessRun
+SimulationRunner --> AdapterRegistry : resolve adapter
+AdapterRegistry --> Solver
 
 Solver --> SimulationCatalog : persist outputs
 Pipeline --> SimulationCatalog : ingest metadata\nand derived artifacts

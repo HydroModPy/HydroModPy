@@ -5,7 +5,7 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-from hydromodpy.results.metrics import log_nse, nse
+from hydromodpy.core.metrics import log_nse, nse
 
 
 def test_nse_perfect_match_is_one():

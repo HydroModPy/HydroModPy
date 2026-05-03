@@ -2,10 +2,11 @@
 
 from __future__ import annotations
 
-import logging
 import warnings
 
 import numpy as np
+
+from hydromodpy.core.logging import get_logger
 
 try:
     from shapely import STRtree
@@ -14,7 +15,7 @@ except ImportError:
     STRtree = None
     Polygon = None
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 def point_in_cell(

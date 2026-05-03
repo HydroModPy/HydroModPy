@@ -5,10 +5,10 @@ from types import SimpleNamespace
 import numpy as np
 import pytest
 
-from hydromodpy.solver.modflow_common.solver_mesh import SolverMesh
-from hydromodpy.solver.modflow_nwt.modflow.property_mapping import (
+from hydromodpy.solver.modflow_common.property_mapping import (
     resolve_flow_property_arrays,
 )
+from hydromodpy.solver.modflow_grid.solver_mesh import SolverMesh
 from hydromodpy.spatial.field.core.field_param import FieldParam
 from hydromodpy.spatial.field.core.field_spatial_weighted_discretization import (
     WeightedAverageFieldDiscretization,

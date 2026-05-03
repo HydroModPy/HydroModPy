@@ -7,12 +7,13 @@ cell-center arrays.
 
 from __future__ import annotations
 
-import logging
 from typing import Literal
 
 import numpy as np
 
-logger = logging.getLogger(__name__)
+from hydromodpy.core.logging import get_logger
+
+logger = get_logger(__name__)
 
 InterpolationMethod = Literal["nearest", "linear", "idw"]
 

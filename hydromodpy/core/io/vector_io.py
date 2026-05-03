@@ -2,11 +2,11 @@
 
 from __future__ import annotations
 
-import logging
-
 import geopandas as gpd
 
-logger = logging.getLogger(__name__)
+from hydromodpy.core.logging import get_logger
+
+logger = get_logger(__name__)
 
 
 def load_shapefile(shapefile_path: str) -> gpd.GeoDataFrame | None:

@@ -1018,7 +1018,6 @@ def _should_include_common_config_field(field: str) -> bool:
         "simulation.time.coverage_policy",
         "flow.ic.type",
         "flow.sinks_sources.recharge.first_clim",
-        "flow.sinks_sources.recharge.negative_to_evt",
     }
     if field in excluded_fields:
         return False

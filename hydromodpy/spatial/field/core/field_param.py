@@ -1,29 +1,20 @@
 """
 Field parameter container supporting homogeneous and heterogeneous values.
 
-`FieldParam` can be built directly from Python mappings or from TOML.
-For heterogeneous fields, values are indexed by keys and can be mapped onto an
-independent zone-id array (for example produced by `Field.on_mesh(mesh)`).
-
-Didactic overview
------------------
 A field can be described in two ways:
 
-1) Homogeneous:
-   - one scalar value everywhere.
-   - example: hydraulic conductivity K = 1e-4 everywhere.
+1) Homogeneous: one scalar value everywhere
+   (example: hydraulic conductivity K = 1e-4 everywhere).
+2) Heterogeneous: one value per zone/material key
+   (example: {"alluvium": 2e-4, "bedrock": 1e-6}).
 
-2) Heterogeneous:
-   - one value per zone/material key.
-   - example: {"alluvium": 2e-4, "bedrock": 1e-6}.
-   - spatial assignment is handled outside this class.
+Values are always stored in SI internally; the user-provided unit string is
+preserved on `original_unit` for round-trip introspection.
 """
 
 from __future__ import annotations
 
-import csv
 from collections.abc import Mapping
-from pathlib import Path
 from typing import Any
 
 import numpy as np
@@ -35,23 +26,6 @@ from hydromodpy.core.units.hydraulic_conductivity import (
 )
 from hydromodpy.core.units.length import parse_length_to_m
 from hydromodpy.core.units.scalar import parse_scalar_and_unit
-
-try:
-    from hydromodpy.spatial.field.core.field_param_config import (
-        validate_field_param_toml_data,
-        validate_resolved_field_param_data,
-    )
-except ModuleNotFoundError:  # pragma: no cover - direct script fallback
-    from field_param_config import (  # type: ignore
-        validate_field_param_toml_data,
-        validate_resolved_field_param_data,
-    )
-
-try:  # Python 3.11+
-    import tomllib
-except ModuleNotFoundError:  # pragma: no cover - fallback for older Python
-    import tomli as tomllib  # type: ignore[no-redef]
-
 
 SUPPORTED_KINDS = ("homogeneous", "heterogeneous")
 SUPPORTED_VERTICAL_PROFILE_MODES = ("none", "exponential", "tabulated")
@@ -93,159 +67,12 @@ _DEFAULT_SI_UNIT_BY_PARAM_ID = {
 }
 
 
-def _get_nested_section(payload: Mapping[str, Any], dotted_path: str) -> Mapping[str, Any]:
-    """
-    Resolve a nested TOML section from a dotted path.
-
-    Example:
-        dotted_path = "field"
-        payload["field"] is returned.
-    """
-    current: Any = payload
-    for token in str(dotted_path).split("."):
-        # Move deeper level by level and fail with explicit message on missing key.
-        if not isinstance(current, Mapping) or token not in current:
-            raise KeyError(f"Missing TOML section '{dotted_path}'")
-        current = current[token]
-    if not isinstance(current, Mapping):
-        raise ValueError(f"TOML section '{dotted_path}' must be a mapping")
-    return current
-
-
-def _optional_nested_section(
-    payload: Mapping[str, Any], dotted_path: str
-) -> Mapping[str, Any] | None:
-    """Return section mapping if present, else None."""
-    try:
-        return _get_nested_section(payload, dotted_path)
-    except (KeyError, ValueError):
-        return None
-
-
-def _resolve_relative_to(path_like: str | Path, *, base_dir: Path) -> Path:
-    """
-    Resolve one path relative to a base directory if not absolute.
-    """
-    raw = Path(str(path_like))
-    if raw.is_absolute():
-        return raw
-    return (base_dir / raw).resolve()
-
-
-def _load_values_mapping_csv(
-    csv_path: str | Path,
-    *,
-    key_column: str = "zone_key",
-    value_column: str = "value",
-) -> dict[str, float]:
-    """
-    Load one key->value mapping from CSV.
-
-    The CSV must contain at least two columns:
-    - one key column (`key_column`),
-    - one numeric value column (`value_column`).
-
-    Duplicate keys are rejected to avoid ambiguous parameter assignment.
-    """
-    key_col = str(key_column).strip()
-    val_col = str(value_column).strip()
-    if key_col == "" or val_col == "":
-        raise ValueError("CSV key/value column names cannot be empty")
-
-    path = Path(csv_path)
-    if not path.exists():
-        raise FileNotFoundError(f"CSV values file not found: {path}")
-
-    # `utf-8-sig` gracefully handles files saved with BOM.
-    with path.open("r", encoding="utf-8-sig", newline="") as stream:
-        reader = csv.DictReader(stream)
-        headers = [str(h).strip() for h in (reader.fieldnames or [])]
-        if key_col not in headers:
-            raise KeyError(
-                f"CSV values file '{path}' is missing key column '{key_col}'. "
-                f"Available columns: {headers}"
-            )
-        if val_col not in headers:
-            raise KeyError(
-                f"CSV values file '{path}' is missing value column '{val_col}'. "
-                f"Available columns: {headers}"
-            )
-
-        values: dict[str, float] = {}
-        for i, row in enumerate(reader, start=2):  # 1=header
-            key_raw = row.get(key_col, "")
-            key = str(key_raw).strip()
-            if key == "":
-                continue
-            if key in values:
-                raise ValueError(f"Duplicate key '{key}' in CSV mapping '{path}' at line {i}.")
-            raw_value = row.get(val_col, "")
-            try:
-                value = float(raw_value)
-            except Exception as exc:
-                raise ValueError(
-                    f"Invalid numeric value in CSV mapping '{path}' line {i}: "
-                    f"column '{val_col}' -> {raw_value!r}"
-                ) from exc
-            values[key] = value
-
-    if len(values) == 0:
-        raise ValueError(f"CSV values file '{path}' does not define any key/value pair")
-    return values
-
-
 class FieldParam:
-    """
-    Describe scalar field values (homogeneous or heterogeneous).
+    """Scalar field values (homogeneous or heterogeneous), stored in SI.
 
-    Parameters
-    ----------
-    identifier : str
-        Logical parameter identifier (examples: `"K"`, `"Sy"`).
-    kind : str
-        Either `"homogeneous"` or `"heterogeneous"`.
-    unit : str | None
-        Unit of provided values. Values are converted to SI internally.
-        Typical units:
-        - `K`: `"m/s"` (also supports `"m/day"`, `"cm/s"`, `"cm/day"`),
-        - `Sy`: `"-"` (dimensionless),
-        - `Ss`: `"m-1"` (also supports `"cm-1"`).
-    value : float | None
-        Single scalar value for homogeneous fields.
-    values_by_key : mapping | None
-        Per-key values for heterogeneous fields.
-    field_spatial_id : str | None
-        Identifier of the geometry field this heterogeneous parameter set must
-        be mapped on (example: "field_square").
-    vertical_profile : mapping | None
-        Optional depth dependency shared across the full domain.
-        Values defined in `value`/`values_by_key` are interpreted at surface
-        (depth = 0). The vertical profile provides a multiplicative factor:
-
-        `value(x, y, z) = value_surface(x, y) * f(z)`
-
-        For exponential mode, an optional `min_factor` can be provided to cap
-        the decay floor:
-
-        `f(z) = max(exp(-z/characteristic_depth), min_factor)`
-
-    Examples
-    --------
-    Homogeneous:
-        >>> p = FieldParam(identifier="K", kind="homogeneous", value=10.0)
-        >>> p.to_array(shape=(2, 2))
-        array([[10., 10.],
-               [10., 10.]])
-
-    Heterogeneous:
-        >>> p = FieldParam(
-        ...     identifier="K",
-        ...     kind="heterogeneous",
-        ...     values_by_key={"granite": 12.0, "micaschists": 4.0},
-        ...     field_spatial_id="field_square",
-        ... )
-        >>> p.to_array(zone_ids=["micaschists", "granite"])
-        array([ 4., 12.])
+    `unit` exposes the canonical SI unit; `original_unit` preserves the raw
+    user-provided unit string for round-trip introspection. `vertical_profile`
+    introduces an optional depth-dependent multiplicative factor f(z).
     """
 
     @staticmethod
@@ -276,18 +103,7 @@ class FieldParam:
         identifier: str,
         unit: str | None,
     ) -> tuple[str, str, float]:
-        """
-        Resolve input unit and SI conversion.
-
-        Returns
-        -------
-        input_unit : str
-            Canonical unit provided by user (or inferred default).
-        si_unit : str
-            SI unit used internally for storage.
-        factor_to_si : float
-            Multiplicative conversion factor from input unit to SI unit.
-        """
+        """Resolve input unit, SI unit, and SI conversion factor."""
         expected_si = cls._expected_si_unit_for_identifier(identifier)
         input_unit = cls._normalize_unit(unit) if unit is not None else (expected_si or "-")
         if input_unit not in _UNIT_TO_SI_UNIT:
@@ -317,7 +133,6 @@ class FieldParam:
             raise ValueError("FieldParam requires a non-empty 'identifier'")
         self.identifier = ident
 
-        # Normalize/validate mode first.
         kind_key = str(kind).strip().lower()
         if kind_key not in SUPPORTED_KINDS:
             allowed = ", ".join(SUPPORTED_KINDS)
@@ -329,13 +144,13 @@ class FieldParam:
             self.unit,
             self._unit_factor_to_si,
         ) = self._resolve_unit_system(identifier=self.identifier, unit=unit)
+        self.original_unit: str | None = None if unit is None else str(unit)
         self.value: float | None = None
         self.values_by_key: dict[str, float] | None = None
         self.field_spatial_id: str | None = None
         explicit_unit_is_set = unit is not None
 
         if self.kind == "homogeneous":
-            # Homogeneous case: exactly one scalar value is required.
             if value is None:
                 raise ValueError("Homogeneous field requires 'value'")
             self.value = self._convert_scalar_payload_to_si(
@@ -348,7 +163,6 @@ class FieldParam:
             self.vertical_profile = self._normalize_vertical_profile(vertical_profile)
             return
 
-        # Heterogeneous case: dictionary key -> value is required.
         if values_by_key is None:
             raise ValueError("Heterogeneous field requires 'values_by_key'")
         values: dict[str, float] = {}
@@ -387,7 +201,6 @@ class FieldParam:
         if canonical_unit not in _UNIT_TO_SI_UNIT:
             allowed = ", ".join(SUPPORTED_PARAM_UNITS)
             raise ValueError(f"Unsupported unit '{resolved_unit}'. Allowed units: {allowed}")
-
         resolved_si_unit = _UNIT_TO_SI_UNIT[canonical_unit]
         if resolved_si_unit != self.unit:
             raise ValueError(
@@ -569,27 +382,8 @@ class FieldParam:
         zone_field=None,
         depth=0.0,
     ):
-        """
-        Materialize field values as a numeric array.
-
-        For homogeneous fields:
-        - if `shape` is provided: returns `np.full(shape, value)`,
-        - if (`x`, `y`) are provided: uses their shape,
-        - if `zone_ids` is provided: uses its shape,
-        - else returns scalar `float(value)`.
-
-        For heterogeneous fields:
-        - requires `zone_ids`,
-        - maps each zone id to its configured value.
-        - optional `depth` applies vertical profile factors.
-
-        Practical rule
-        --------------
-        - homogeneous = value-driven,
-        - heterogeneous = structure-driven.
-        """
+        """Materialize field values as a numeric array (homogeneous = value-driven, heterogeneous = structure-driven; `depth` applies vertical factors)."""
         if self.is_homogeneous:
-            # If structure is available, fill it with one constant value.
             if x is not None or y is not None:
                 if x is None or y is None:
                     raise ValueError("For homogeneous field with coordinates, provide both x and y")
@@ -607,10 +401,8 @@ class FieldParam:
                 shape_tuple = tuple(int(v) for v in shape)
                 surface_values = np.full(shape_tuple, float(self.value), dtype=float)
                 return self._apply_vertical_profile(surface_values, depth=depth)
-            # No shape requested: return scalar.
             return self._apply_vertical_profile(float(self.value), depth=depth)
 
-        # Heterogeneous values are mapped independently from geometry.
         if zone_field is not None:
             if not hasattr(zone_field, "cell_values"):
                 raise TypeError("zone_field must expose 'cell_values'")
@@ -628,38 +420,8 @@ class FieldParam:
         label: str | None = None,
         depth=0.0,
     ):
-        """
-        Convert parameter values into one value per mesh cell.
-
-        Important shape contract
-        ------------------------
-        This method always returns values on the provided mesh support
-        (`MeshWithValues.cell_values`), i.e. one scalar per mesh cell.
-        For the current structured SGrid bridge, that support is planar
-        `(nrow, ncol)` and **not** a volumetric `(nlay, nrow, ncol)` tensor.
-
-        In other words, depth-dependent correction is applied *on that 2D mesh*
-        for the provided `depth` argument. A caller that needs a 3D tensor must
-        call this method multiple times (for example one call per layer-depth)
-        and stack the returned 2D maps.
-
-        Parameters
-        ----------
-        field_discretization :
-            Discretization object returned by `Field.on_mesh(mesh)`.
-            Required for heterogeneous fields.
-        mesh :
-            Target mesh. Required for homogeneous fields when no
-            `field_discretization` is provided.
-        label : str | None
-            Optional label for the returned value field.
-        depth :
-            Depth coordinate(s) where values are materialized.
-            `0` corresponds to surface and positive values go downward.
-        """
+        """Convert parameter values into one value per mesh cell on the planar 2D support; for a 3D tensor, stack results from multiple calls (one per depth layer)."""
         if self.is_homogeneous:
-            # Homogeneous mode does not require any spatial field split:
-            # one scalar value is assigned to every mesh cell directly.
             target_mesh = mesh
             if target_mesh is None and field_discretization is not None:
                 target_mesh = getattr(field_discretization, "mesh", None)
@@ -738,15 +500,7 @@ class FieldParam:
         return str(raw)
 
     def map_zone_ids(self, zone_ids):
-        """
-        Map one value per zone key onto a zone-id array.
-
-        Parameters
-        ----------
-        zone_ids : array-like
-            Zone labels (int/float/string). Each unique label must be present
-            in `values_by_key` after key normalization.
-        """
+        """Map one value per zone key onto a zone-id array."""
         if not self.is_heterogeneous:
             raise ValueError("map_zone_ids is only valid for heterogeneous fields")
 
@@ -767,14 +521,7 @@ class FieldParam:
         return out
 
     def as_dict(self):
-        """
-        Serialize field parameters to a plain mapping.
-
-        This is useful for:
-        - debugging,
-        - JSON/TOML export,
-        - reproducibility logs.
-        """
+        """Serialize field parameters to a plain mapping."""
         if self.is_homogeneous:
             payload = {
                 "id": str(self.identifier),
@@ -790,43 +537,33 @@ class FieldParam:
                 "values": dict(self.values_by_key),
                 "field_spatial_id": str(self.field_spatial_id),
             }
+        if self.original_unit is not None:
+            payload["original_unit"] = str(self.original_unit)
         if self.has_vertical_variation:
             payload["vertical_profile"] = dict(self.vertical_profile)
         return payload
 
     @classmethod
-    def from_dict(
-        cls,
-        config: Mapping[str, Any],
-    ) -> FieldParam:
+    def from_dict(cls, config: Mapping[str, Any]) -> FieldParam:
         """
         Build `FieldParam` from a plain mapping.
 
-        Accepted aliases
-        ----------------
-        - `id` or `identifier` for parameter id,
-        - `kind` or `mode` for field mode,
-        - `unit` or `units` for parameter unit,
-        - `values` or `values_by_key` for heterogeneous values.
-        - `field_spatial_id` for the target spatial field identifier.
-        - `vertical_profile` for depth-dependent global factor.
+        Required keys: `id`, `kind`. Optional: `unit`, `values`,
+        `field_spatial_id`, `vertical_profile`.
         """
         if not isinstance(config, Mapping):
             raise TypeError("config must be a mapping")
 
-        identifier = config.get("id", config.get("identifier"))
+        identifier = config.get("id")
         if identifier is None or str(identifier).strip() == "":
-            raise KeyError("Missing required key 'id' (or alias 'identifier')")
+            raise KeyError("Missing required key 'id'")
 
-        kind = config.get("kind", config.get("mode"))
+        kind = config.get("kind")
         if kind is None:
-            raise KeyError("Missing required key 'kind' (or alias 'mode')")
+            raise KeyError("Missing required key 'kind'")
         kind_key = str(kind).strip().lower()
-        unit = config.get("unit", config.get("units"))
-        vertical_profile = config.get(
-            "vertical_profile",
-            config.get("field_vertical_profile"),
-        )
+        unit = config.get("unit")
+        vertical_profile = config.get("vertical_profile")
 
         if kind_key == "homogeneous":
             if "value" not in config:
@@ -839,7 +576,7 @@ class FieldParam:
                 vertical_profile=vertical_profile,
             )
 
-        values_cfg = config.get("values", config.get("values_by_key"))
+        values_cfg = config.get("values")
         if not isinstance(values_cfg, Mapping):
             raise KeyError("Heterogeneous field requires mapping key 'values'")
         if "field_spatial_id" not in config:
@@ -852,175 +589,3 @@ class FieldParam:
             field_spatial_id=str(config["field_spatial_id"]),
             vertical_profile=vertical_profile,
         )
-
-    @classmethod
-    def from_toml(cls, toml_path: str | Path, section: str = "field") -> FieldParam:
-        """
-        Build `FieldParam` from TOML section.
-
-        Expected TOML examples:
-
-        Single-section homogeneous:
-            [field]
-            id = "K"
-            kind = "homogeneous"
-            unit = "m/s"
-            value = 10.0
-
-        Single-section heterogeneous:
-            [field]
-            id = "S"
-            kind = "heterogeneous"
-            unit = "-"
-            values = { granite = 10.0, micaschists = 3.5 }
-            field_spatial_id = "field_square"
-
-        Base + mode-specific sections (recommended):
-            [field]
-            id = "K"
-            kind = "heterogeneous"
-            unit = "m/s"
-
-            [field_homogeneous]
-            value = 12.5
-
-            [field_heterogeneous]
-            values = { granite = 10.0, micaschists = 2.0 }
-            field_spatial_id = "field_square"
-
-            [field_vertical_profile]
-            mode = "exponential"
-            characteristic_depth = 30.0
-            # optional exponential floor
-            # min_factor = 1e-3
-
-        Heterogeneous values from CSV (for long geology-property tables):
-            [field]
-            id = "K"
-            kind = "heterogeneous"
-
-            [field_heterogeneous]
-            values_source = "csv"
-            values_csv_file = "geology_property_values.csv"
-            csv_key_column = "zone_key"
-            csv_value_column = "property_value"
-            field_spatial_id = "field_geology"
-
-        Loader workflow
-        ---------------
-        The loader uses:
-        - a base section (`[field]`) with `kind`,
-        - mode-specific sections (`[field_homogeneous]`, `[field_heterogeneous]`),
-        - optional vertical section (`[field_vertical_profile]`).
-        """
-        path = Path(toml_path).resolve()
-        with path.open("rb") as stream:
-            payload = tomllib.load(stream)
-        payload = validate_field_param_toml_data(payload)
-        section_key = str(section).strip()
-        section_cfg = _get_nested_section(payload, section_key)
-
-        merged: dict[str, Any] = {}
-
-        if "." in section_key:
-            parent = section_key.rsplit(".", 1)[0]
-            common_parent = _optional_nested_section(payload, f"{parent}.field_common")
-            if common_parent is not None:
-                raise ValueError(
-                    f"TOML section '{parent}.field_common' is no longer supported. "
-                    f"Move shared keys to '{parent}.field'."
-                )
-        common_root = _optional_nested_section(payload, "field_common")
-        if common_root is not None:
-            raise ValueError(
-                "TOML section 'field_common' is no longer supported. Move shared keys to 'field'."
-            )
-
-        # Backward-compatible root [field] common block (only when another
-        # section is explicitly requested).
-        if section_key != "field":
-            common_field = _optional_nested_section(payload, "field")
-            if common_field is not None:
-                merged.update(dict(common_field))
-
-        merged.update(dict(section_cfg))
-
-        # Section name can imply the kind and should take precedence.
-        leaf = section_key.rsplit(".", 1)[-1].strip().lower()
-        if leaf in ("field_homogeneous", "homogeneous"):
-            merged["kind"] = "homogeneous"
-        elif leaf in ("field_heterogeneous", "heterogeneous"):
-            merged["kind"] = "heterogeneous"
-
-        # If kind is declared in the selected section (typically [field]),
-        # enrich with a mode-specific section when available.
-        kind_raw = merged.get("kind")
-        if kind_raw is not None:
-            kind_key = str(kind_raw).strip().lower()
-            if kind_key in SUPPORTED_KINDS:
-                target_leaf = f"field_{kind_key}"
-                if leaf not in {target_leaf, kind_key}:
-                    candidate_sections: list[str] = []
-                    if "." in section_key:
-                        parent = section_key.rsplit(".", 1)[0]
-                        candidate_sections.append(f"{parent}.{target_leaf}")
-                    candidate_sections.append(target_leaf)
-                    for candidate in candidate_sections:
-                        specific_cfg = _optional_nested_section(payload, candidate)
-                        if specific_cfg is not None:
-                            merged.update(dict(specific_cfg))
-                            break
-
-        # Optional vertical profile section:
-        # - root: [field_vertical_profile] or [vertical_profile],
-        # - parent-scoped for dotted sections.
-        if leaf not in ("field_vertical_profile", "vertical_profile"):
-            vertical_sections: list[str] = []
-            if "." in section_key:
-                parent = section_key.rsplit(".", 1)[0]
-                vertical_sections.extend(
-                    [
-                        f"{parent}.field_vertical_profile",
-                        f"{parent}.vertical_profile",
-                    ]
-                )
-            vertical_sections.extend(("field_vertical_profile", "vertical_profile"))
-            for candidate in vertical_sections:
-                vertical_cfg = _optional_nested_section(payload, candidate)
-                if vertical_cfg is not None:
-                    merged["vertical_profile"] = dict(vertical_cfg)
-                    break
-
-        # Resolve heterogeneous values source:
-        # - inline: keep dictionary defined in TOML,
-        # - csv: load key/value mapping from a CSV file.
-        kind_raw = merged.get("kind")
-        if kind_raw is not None and str(kind_raw).strip().lower() == "heterogeneous":
-            value_source = str(merged.get("values_source", "inline")).strip().lower()
-            if value_source == "csv":
-                csv_file = merged.get("values_csv_file")
-                if csv_file is None or str(csv_file).strip() == "":
-                    raise KeyError(
-                        "Heterogeneous field with values_source='csv' requires 'values_csv_file'"
-                    )
-                csv_path = _resolve_relative_to(csv_file, base_dir=path.parent)
-                csv_key_column = str(merged.get("csv_key_column", "zone_key"))
-                csv_value_column = str(merged.get("csv_value_column", "value"))
-                merged["values"] = _load_values_mapping_csv(
-                    csv_path,
-                    key_column=csv_key_column,
-                    value_column=csv_value_column,
-                )
-
-        # Runtime-only helper keys are removed before schema validation and
-        # object construction.
-        for helper_key in (
-            "values_source",
-            "values_csv_file",
-            "csv_key_column",
-            "csv_value_column",
-        ):
-            merged.pop(helper_key, None)
-
-        resolved = validate_resolved_field_param_data(merged)
-        return cls.from_dict(resolved)

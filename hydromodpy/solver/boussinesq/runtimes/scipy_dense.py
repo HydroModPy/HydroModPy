@@ -101,7 +101,7 @@ def _solve_nonlinear_system(
 
     def _residual(candidate_head: np.ndarray) -> np.ndarray:
         assembly = assembly_for(np.asarray(candidate_head, dtype=float))
-        return np.asarray(assembly.residual_m3_s, dtype=float)
+        return np.asarray(assembly.solver_residual, dtype=float)
 
     def _jacobian(candidate_head: np.ndarray) -> np.ndarray:
         return build_dense_semianalytic_regularized_partition_jacobian(
@@ -129,7 +129,7 @@ def _solve_nonlinear_system(
     # Reassemble once at the accepted state so the returned fluxes and residual
     # are fully consistent with the final head vector.
     assembly = assembly_for(head)
-    residual_norm = residual_norm_inf(assembly.residual_m3_s)
+    residual_norm = residual_norm_inf(assembly.solver_residual)
     converged, termination_reason = apply_residual_tolerance(
         success=bool(result.success),
         residual_norm_inf_value=residual_norm,

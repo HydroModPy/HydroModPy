@@ -3,7 +3,7 @@
 Minimal TOML::
 
     [calibration]
-    method       = "optuna"
+    method       = "grid"
     max_iter     = 200
     save_runs    = "best_n"
     save_best_n  = 10
@@ -47,8 +47,9 @@ from typing import Annotated, Any, Literal
 
 from pydantic import ConfigDict, Field, field_validator, model_validator
 
-from hydromodpy.core.config.base import HydroModelBase
-from hydromodpy.core.config.profile import Profile
+from hydromodpy.core.config_kit.base import HydroModelBase
+from hydromodpy.core.config_kit.persistence import PersistenceConfig
+from hydromodpy.core.config_kit.profile import Profile
 from hydromodpy.core.units import Length
 
 SaveRunsMode = Literal["none", "best_n", "all"]
@@ -58,19 +59,7 @@ OutputReducer = Literal["mean", "sum", "last", "none"]
 ObjectiveTransform = Literal["identity", "log", "inverse"]
 PersistIterationDetail = Literal["none", "summary", "full"]
 MetricKind = Literal["rmse", "nse", "kge", "mae"]
-CalibrationMethod = Literal[
-    "optuna",
-    "scipy_de",
-    "scipy_nelder_mead",
-    "grid",
-    "grid_search",
-    "random_search",
-    "simplex",
-    "cma_es",
-    "nelder_mead",
-    "gp_mapping",
-    "da_mh_gp",
-]
+CalibrationMethod = str
 
 
 class CalibParameterDecl(HydroModelBase):
@@ -129,6 +118,10 @@ class CalibOutputDecl(HydroModelBase):
         description="'point' reads at (x, y); 'boundary' sums flux at boundary_id; "
         "'cell' reads a single cell.",
     )
+    geometry: Annotated[dict[str, Any] | None, Profile.USER] = Field(
+        default=None,
+        description="GeoJSON point geometry when support='point'. Coordinates are in metres.",
+    )
     x: Annotated[Length | None, Profile.USER] = Field(
         default=None,
         description="X coordinate when support='point'. Accepts a bare number "
@@ -142,6 +135,26 @@ class CalibOutputDecl(HydroModelBase):
     boundary_id: Annotated[str | None, Profile.USER] = Field(
         default=None,
         description="Boundary package identifier when support='boundary'.",
+    )
+    cell_id: Annotated[int | None, Profile.USER] = Field(
+        default=None,
+        ge=0,
+        description="Flat cell index when support='cell' and the backend exposes one.",
+    )
+    row: Annotated[int | None, Profile.USER] = Field(
+        default=None,
+        ge=0,
+        description="Structured row index when support='cell'.",
+    )
+    col: Annotated[int | None, Profile.USER] = Field(
+        default=None,
+        ge=0,
+        description="Structured column index when support='cell'.",
+    )
+    layer: Annotated[int, Profile.USER] = Field(
+        default=0,
+        ge=0,
+        description="Structured layer index when support='cell'.",
     )
     time: Annotated[Literal["all", "last", "first"] | list[str], Profile.USER] = Field(
         default="all",
@@ -159,10 +172,16 @@ class CalibOutputDecl(HydroModelBase):
 
     @model_validator(mode="after")
     def _check_support_required_fields(self) -> CalibOutputDecl:
-        if self.support == "point" and (self.x is None or self.y is None):
-            raise ValueError("support='point' requires both 'x' and 'y' to be set.")
+        if self.support == "point" and (self.x is None or self.y is None) and self.geometry is None:
+            raise ValueError("support='point' requires both 'x' and 'y', or 'geometry'.")
         if self.support == "boundary" and self.boundary_id is None:
             raise ValueError("support='boundary' requires 'boundary_id' to be set.")
+        if (
+            self.support == "cell"
+            and self.cell_id is None
+            and (self.row is None or self.col is None)
+        ):
+            raise ValueError("support='cell' requires 'cell_id' or both 'row' and 'col'.")
         return self
 
 
@@ -204,8 +223,8 @@ class CalibrationConfig(HydroModelBase):
     model_config = ConfigDict(extra="forbid")
 
     method: Annotated[CalibrationMethod, Profile.USER] = Field(
-        default="optuna",
-        description="Optimization method. 'optuna' is the recommended default.",
+        default="grid",
+        description="Optimization method. Install the calibration extra for optuna or cma_es.",
     )
     max_iter: Annotated[int, Profile.USER] = Field(
         default=100,
@@ -273,10 +292,6 @@ class CalibrationConfig(HydroModelBase):
         default=False,
         description="Persist the candidate distribution alongside the session.",
     )
-    resume_session: Annotated[str | None, Profile.DEV] = Field(
-        default=None,
-        description="Session id to resume. When set, prior iterations seed the loop.",
-    )
     rerun_best_with_outputs: Annotated[bool, Profile.USER] = Field(
         default=False,
         description="Replay the best candidate with full outputs after the loop.",
@@ -291,6 +306,25 @@ class CalibrationConfig(HydroModelBase):
         description="Directory for per-candidate overlay TOMLs. "
         "Required when materialize_candidates is True.",
     )
+    persistence: Annotated[PersistenceConfig, Profile.USER] = Field(
+        default_factory=PersistenceConfig,
+        description="Single switch governing every persistence sink "
+        "(catalog, Zarr, Parquet, lockfile) for calibration outputs.",
+    )
+
+    @field_validator("method")
+    @classmethod
+    def _validate_method(cls, value: str) -> str:
+        """Validate optimizer names through the runtime registry."""
+        method = str(value).strip()
+        from hydromodpy.calibration.optimizer import available_optimizers
+
+        available = available_optimizers()
+        if method not in available:
+            raise ValueError(
+                f"Unknown calibration method {method!r}. Available methods: {available}"
+            )
+        return method
 
     @field_validator("candidates_root", mode="before")
     @classmethod

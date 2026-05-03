@@ -12,9 +12,9 @@ from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
 
-from hydromodpy.spatial.field.core.field_param_config import (
-    resolve_field_param_config_payload,
-    validate_resolved_field_param_data,
+from hydromodpy.physics.contracts import (
+    get_field_param_payload_resolver,
+    get_field_param_payload_validator,
 )
 
 __all__ = [
@@ -48,6 +48,9 @@ def normalize_flow_param_payloads(
     if not isinstance(value, Mapping):
         raise ValueError(f"{location_prefix} must be a mapping of parameter id to payload")
 
+    resolve_payload = get_field_param_payload_resolver()
+    validate_resolved = get_field_param_payload_validator()
+
     out: dict[str, dict[str, object]] = {}
     for raw_key, raw_payload in value.items():
         param_id = str(raw_key).strip()
@@ -59,7 +62,7 @@ def normalize_flow_param_payloads(
         payload = dict(raw_payload)
         # Sectioned grammar (`field_*` blocks) is resolved first.
         if any(key in payload for key in _FIELD_PARAM_SECTION_KEYS):
-            out[param_id] = resolve_field_param_config_payload(
+            out[param_id] = resolve_payload(
                 payload,
                 param_id=param_id,
                 section_label=f"{location_prefix}.{param_id}",
@@ -67,7 +70,7 @@ def normalize_flow_param_payloads(
         else:
             # Compact payloads are validated as already-resolved dictionaries.
             payload.setdefault("id", param_id)
-            out[param_id] = validate_resolved_field_param_data(payload)
+            out[param_id] = validate_resolved(payload)
     return out
 
 
@@ -109,7 +112,8 @@ def field_param_config_from_flow_payload(
     This is a thin wrapper around the shared field-param resolver, keeping a
     flow-specific section prefix for precise error messages.
     """
-    return resolve_field_param_config_payload(
+    resolve_payload = get_field_param_payload_resolver()
+    return resolve_payload(
         payload,
         param_id=param_id,
         base_dir=base_dir,

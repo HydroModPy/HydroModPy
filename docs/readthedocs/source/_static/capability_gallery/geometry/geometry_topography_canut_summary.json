@@ -34,7 +34,7 @@
     "examples/data/masks/canut.shp": "31931653587ad6b644b86e43138ce9a648ed98c4787cddf8262bf2cec42f2efd",
     "examples/data/hydrography/regional_stream_network.shp": "7ea4ba0714d8674a55070527ca9236052c1832036c8303b4afc40e5f7ce184e9",
     "examples/data/dem/regional_dem_naizin.tif": "826a5fcfeafced373c228cb26cd177f0b2879bfc4e773aa04da57aba01f081ae",
-    "tools/doc_gallery/update_gallery.py": "fbf4d17b135801369038098aad3d8fd02984565ae8f953c0ae3003f88faa013a"
+    "tools/doc_gallery/update_gallery.py": "f8302641e411e0e693b53cfbaac5cbb06ff30492d159ea0c0dcedc114b439174"
   },
   "docname": "cases/geometry_topography_canut",
   "images": [

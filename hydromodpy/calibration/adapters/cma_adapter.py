@@ -1,9 +1,6 @@
 """CMA-ES optimizer adapter backed by the `cma` package.
 
-Matches the numeric behaviour of the legacy ``_driver_cma_es`` (the
-twin-benchmark bridge kept under ``validation_cases/calibration/shared/``
-for reproducibility of the scientific goldens). The adapter runs the
-CMA-ES search in the transformed parameter space exposed by
+The adapter runs the CMA-ES search in the transformed parameter space exposed by
 :class:`~hydromodpy.calibration.parameters.ParameterSpace` and optionally
 normalises the search domain into the unit cube.
 
@@ -14,8 +11,7 @@ The ask/tell contract:
 - ``tell(results)`` writes costs into the current-batch slot; once every
   slot is filled, the adapter feeds the batch back to CMA and resets.
 
-This matches the exact legacy order: CMA generates ``popsize`` points,
-all points are scored, CMA updates, repeat.
+CMA generates ``popsize`` points, all points are scored, CMA updates, repeat.
 """
 
 from __future__ import annotations
@@ -24,6 +20,7 @@ import math
 
 import numpy as np
 
+from hydromodpy.calibration.adapters._prior_sampling import transformed_prior_center
 from hydromodpy.calibration.optimizer import (
     FAILED_EVAL_COST,
     EvaluationResult,
@@ -42,14 +39,14 @@ class CmaEsAdapter:
     space
         The transformed parameter space.
     sigma0
-        Initial step size. Default ``0.25`` (matches legacy).
+        Initial step size.
     popsize
-        Population size. Default ``6`` (matches legacy).
+        Population size.
     max_evaluations
-        Evaluation budget. Default ``30`` (matches legacy).
+        Evaluation budget.
     normalize
         When ``True`` (default), rescale bounds to the unit cube before
-        driving CMA-ES. Required to keep the legacy numeric behaviour.
+        driving CMA-ES.
     seed
         RNG seed forwarded to ``cma``.
     restarts
@@ -96,12 +93,13 @@ class CmaEsAdapter:
 
         self._lower = np.asarray([p.lower_transformed for p in space.parameters], dtype=float)
         self._upper = np.asarray([p.upper_transformed for p in space.parameters], dtype=float)
+        center = transformed_prior_center(space)
 
         if self._normalize:
             span = self._upper - self._lower
             span = np.where(span > 0.0, span, 1.0)
             self._span = span
-            self._x0_t = (0.5 * (self._lower + self._upper) - self._lower) / span
+            self._x0_t = (center - self._lower) / span
             self._bounds_t = [
                 np.zeros_like(self._lower).tolist(),
                 np.ones_like(self._upper).tolist(),
@@ -110,7 +108,7 @@ class CmaEsAdapter:
             self._upper_t = np.ones_like(self._upper)
         else:
             self._span = np.ones_like(self._upper)
-            self._x0_t = 0.5 * (self._lower + self._upper)
+            self._x0_t = center
             self._bounds_t = [self._lower.tolist(), self._upper.tolist()]
             self._lower_t = self._lower
             self._upper_t = self._upper
@@ -135,8 +133,7 @@ class CmaEsAdapter:
             "verbose": -9,
             # Disable convergence criteria that cause premature stops or
             # internal cma library failures (``set_i`` "dimension needed")
-            # on tiny 1-D problems. Mirrors the legacy ``_driver_cma_es``
-            # safe defaults so the evaluation budget is the only stop.
+            # on tiny 1-D problems so the evaluation budget is the only stop.
             "tolx": 1e-20,
             "tolfun": 1e-20,
             "tolfacupx": 1e20,

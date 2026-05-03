@@ -16,7 +16,11 @@ if TYPE_CHECKING:
 
 @register
 class Hydrograph(BaseFigure):
-    """Time series of discharge at a station, with optional observed series."""
+    """Time series of simulated discharge at a station.
+
+    Sim-only view. For a sim+obs overlay, use the dedicated
+    :class:`hydromodpy.display.figures.hydrograph_sim_obs.HydrographSimObs`.
+    """
 
     spec = FigureSpec(
         name="hydrograph",

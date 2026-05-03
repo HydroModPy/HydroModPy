@@ -1,34 +1,34 @@
-"""Unit tests for Modpath zone_partic runtime resolution."""
+"""Unit tests for Modpath runtime resolvers."""
 
 from pathlib import Path
 from types import SimpleNamespace
 
-import numpy as np
 import pytest
 
-from hydromodpy.solver.modflow_nwt.modpath.modpath import Modpath
+from hydromodpy.solver.modflow_nwt.modpath import _resolvers
 
 
-def _make_modpath_stub(tmp_path: Path) -> Modpath:
-    model = Modpath.__new__(Modpath)
-    model.full_path = str(tmp_path)
-    model.model_name = "test_model"
-    return model
-
-
-def test_modpath_resolve_zone_partic_returns_domain_raster(
+def test_resolve_zone_partic_returns_domain_raster(
     tmp_path: Path,
 ) -> None:
-    model = _make_modpath_stub(tmp_path)
-    model._resolve_domain_raster = lambda: "domain_raster.tif"
-    assert model._resolve_zone_partic("domain") == "domain_raster.tif"
+    model_modflow = SimpleNamespace(
+        geographic=SimpleNamespace(watershed_box_buff_dem="domain_raster.tif")
+    )
+
+    assert (
+        _resolvers.resolve_zone_partic(
+            "domain",
+            full_path=str(tmp_path),
+            model_modflow=model_modflow,
+        )
+        == "domain_raster.tif"
+    )
 
 
-def test_modpath_resolve_zone_partic_clips_seepage_raster(
+def test_resolve_zone_partic_clips_seepage_raster(
     tmp_path: Path,
     monkeypatch,
 ) -> None:
-    model = _make_modpath_stub(tmp_path)
     rasters_dir = tmp_path / "_postprocess" / "_rasters"
     rasters_dir.mkdir(parents=True, exist_ok=True)
     seepage_tif = rasters_dir / "seepage_areas_t(0).tif"
@@ -36,11 +36,11 @@ def test_modpath_resolve_zone_partic_clips_seepage_raster(
 
     watershed_shp = tmp_path / "watershed.shp"
     watershed_shp.write_text("dummy")
-    model._get_watershed_shp = lambda: str(watershed_shp)
+    model_modflow = SimpleNamespace(geographic=SimpleNamespace(watershed_shp=str(watershed_shp)))
 
     calls: dict[str, object] = {}
 
-    class _FakeWhiteboxBackend:
+    class _FakeRaster:
         def clip_raster_to_polygon(
             self,
             in_raster: str,
@@ -54,12 +54,20 @@ def test_modpath_resolve_zone_partic_clips_seepage_raster(
             calls["maintain_dimensions"] = maintain_dimensions
             Path(out_raster).write_text("dummy")
 
+    class _FakeWhiteboxBackend:
+        def __init__(self) -> None:
+            self.raster = _FakeRaster()
+
     monkeypatch.setattr(
-        "hydromodpy.solver.modflow_nwt.modpath.modpath.get_whitebox_backend",
+        "hydromodpy.solver.modflow_nwt.modpath._resolvers.get_whitebox_backend",
         lambda: _FakeWhiteboxBackend(),
     )
 
-    resolved = model._resolve_zone_partic("seepage_clip")
+    resolved = _resolvers.resolve_zone_partic(
+        "seepage_clip",
+        full_path=str(tmp_path),
+        model_modflow=model_modflow,
+    )
 
     expected_clip = tmp_path / "_postprocess" / "_rasters" / "seepage_areas_t(0)_clip.tif"
     assert resolved == str(expected_clip)
@@ -70,123 +78,24 @@ def test_modpath_resolve_zone_partic_clips_seepage_raster(
     assert calls["maintain_dimensions"] is True
 
 
-def test_modpath_resolve_zone_partic_fails_when_seepage_raster_missing(
+def test_resolve_zone_partic_fails_when_seepage_raster_missing(
     tmp_path: Path,
 ) -> None:
+    model_modflow = SimpleNamespace(
+        geographic=SimpleNamespace(watershed_shp=str(tmp_path / "watershed.shp"))
+    )
+
     with pytest.raises(FileNotFoundError, match="missing seepage raster"):
-        model = _make_modpath_stub(tmp_path)
-        model._get_watershed_shp = lambda: str(tmp_path / "watershed.shp")
-        model._resolve_zone_partic("seepage_clip")
+        _resolvers.resolve_zone_partic(
+            "seepage_clip",
+            full_path=str(tmp_path),
+            model_modflow=model_modflow,
+        )
 
 
-def test_modpath_resolve_zone_partic_rebuilds_seepage_raster_from_store(
-    tmp_path: Path,
-    monkeypatch,
-) -> None:
-    model = _make_modpath_stub(tmp_path)
-    model.model_folder = str(tmp_path)
-    postprocess_dir = tmp_path / "_postprocess"
-    rasters_dir = postprocess_dir / "_rasters"
-    rasters_dir.mkdir(parents=True, exist_ok=True)
-
-    seepage_array = np.array([[1.0, 0.0], [0.0, -9999.0]], dtype=float)
-
-    base_raster = tmp_path / "base.tif"
-    base_raster.write_text("dummy")
-    model._get_base_raster_path = lambda: str(base_raster)
-
-    watershed_shp = tmp_path / "watershed.shp"
-    watershed_shp.write_text("dummy")
-    model._get_watershed_shp = lambda: str(watershed_shp)
-
-    export_calls: dict[str, object] = {}
-    clip_calls: dict[str, object] = {}
-
-    def _fake_export_tif(
-        base_dem_path, data_to_tif, data_tif_path, data_nodata_val=None, data_crs=None
-    ):
-        export_calls["base_dem_path"] = base_dem_path
-        export_calls["data_to_tif"] = np.asarray(data_to_tif, dtype=float)
-        export_calls["data_tif_path"] = data_tif_path
-        export_calls["data_nodata_val"] = data_nodata_val
-        Path(data_tif_path).write_text("dummy")
-
-    class _FakeWhiteboxBackend:
-        def clip_raster_to_polygon(
-            self,
-            in_raster: str,
-            in_polygon: str,
-            out_raster: str,
-            maintain_dimensions: bool = True,
-        ) -> None:
-            clip_calls["in_raster"] = in_raster
-            clip_calls["in_polygon"] = in_polygon
-            clip_calls["out_raster"] = out_raster
-            clip_calls["maintain_dimensions"] = maintain_dimensions
-            Path(out_raster).write_text("dummy")
-
-    class _FakeStore:
-        def list_simulations(self):
-            import pandas as pd
-
-            return pd.DataFrame([{"sim_id": "fake-uuid"}])
-
-        def query_field(self, sim_id, name, timestep):
-            return seepage_array.ravel()
-
-        def close(self):
-            pass
-
-    class _FakeRasterSrc:
-        height = 2
-        width = 2
-
-        def __enter__(self):
-            return self
-
-        def __exit__(self, *a):
-            pass
-
-    monkeypatch.setattr(
-        "hydromodpy.solver.modflow_nwt.modpath.modpath.export_tif",
-        _fake_export_tif,
-    )
-    monkeypatch.setattr(
-        "hydromodpy.solver.modflow_nwt.modpath.modpath.get_whitebox_backend",
-        lambda: _FakeWhiteboxBackend(),
-    )
-    import hydromodpy.results.catalog as _catalog_mod
-
-    class _FakeSimulationCatalog:
-        def __new__(cls, *a, **kw):
-            return _FakeStore()
-
-    monkeypatch.setattr(_catalog_mod, "SimulationCatalog", _FakeSimulationCatalog)
-    import rasterio as _rio_mod
-
-    monkeypatch.setattr(
-        _rio_mod,
-        "open",
-        lambda *a, **kw: _FakeRasterSrc(),
-    )
-
-    resolved = model._resolve_zone_partic("seepage_clip")
-
-    seepage_tif = rasters_dir / "seepage_areas_t(0).tif"
-    expected_clip = rasters_dir / "seepage_areas_t(0)_clip.tif"
-    assert resolved == str(expected_clip)
-    assert seepage_tif.exists()
-    assert expected_clip.exists()
-    assert export_calls["base_dem_path"] == str(base_raster)
-    np.testing.assert_array_equal(export_calls["data_to_tif"], seepage_array)
-    assert export_calls["data_tif_path"] == str(seepage_tif)
-    assert export_calls["data_nodata_val"] == -9999.0
-
-
-def test_modpath_ensure_modflow_name_file_rebuilds_missing_namefile(
+def test_ensure_modflow_name_file_rebuilds_missing_namefile(
     tmp_path: Path,
 ) -> None:
-    model = _make_modpath_stub(tmp_path)
     namefile_path = tmp_path / "test_model.nam"
     write_calls: list[str] = []
 
@@ -199,9 +108,13 @@ def test_modpath_ensure_modflow_name_file_rebuilds_missing_namefile(
             write_calls.append(self.model_ws)
             namefile_path.write_text("dummy name file", encoding="utf-8")
 
-    model.model_modflow = SimpleNamespace(mf=_FakeMf())
+    model_modflow = SimpleNamespace(mf=_FakeMf())
 
-    resolved = model._ensure_modflow_name_file()
+    resolved = _resolvers.ensure_modflow_name_file(
+        full_path=str(tmp_path),
+        model_name="test_model",
+        model_modflow=model_modflow,
+    )
 
     assert resolved == str(namefile_path)
     assert namefile_path.exists()

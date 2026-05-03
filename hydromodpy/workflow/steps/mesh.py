@@ -1,16 +1,13 @@
-"""Mesh step - optional catchment meshing or external mesh loading.
-
-This module contains the functions that handle the optional catchment meshing
-phase, including both embedded mesh generation and external mesh loading.
-"""
+"""Mesh step - optional catchment meshing or external mesh loading."""
 
 from __future__ import annotations
 
-import logging
 from collections.abc import Mapping
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, ClassVar
 
+from hydromodpy.core.exceptions import ConfigError, MeshError
+from hydromodpy.core.logging import get_logger
 from hydromodpy.spatial.mesh.gmsh_grid import load_planar_mesh
 from hydromodpy.spatial.mesh.gmsh_grid.catchment_mesh_bundle_reader import (
     load_catchment_mesh_bundle,
@@ -18,12 +15,13 @@ from hydromodpy.spatial.mesh.gmsh_grid.catchment_mesh_bundle_reader import (
 from hydromodpy.spatial.mesh.gmsh_grid.runtime_support import (
     build_gmsh_support_metadata,
 )
+from hydromodpy.workflow.internals.state import MeshedState, PipelineState
 
 if TYPE_CHECKING:
     from hydromodpy.core.state.run_state import WorkflowContext
     from hydromodpy.spatial.mesh.config import MeshCatchmentConfig
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 # ---------------------------------------------------------------------------
@@ -44,7 +42,7 @@ def resolve_optional_mesh_section(
         return section
     batch_cfg = parse_mesh_catchment_batch_config_data(batch_section)
     if batch_cfg.enabled:
-        raise ValueError(
+        raise ConfigError(
             "Embedded [mesh_catchment_batch] is not supported in process_simulation. "
             "Use the dedicated mesh-catchment launcher for batch runs."
         )
@@ -60,7 +58,7 @@ def resolve_optional_mesh_input(
     if section is None:
         return None
     if not isinstance(section, Mapping):
-        raise ValueError("[mesh_input] configuration must be a mapping when provided.")
+        raise ConfigError("[mesh_input] configuration must be a mapping when provided.")
 
     config_path = Path(config_path)
 
@@ -76,7 +74,7 @@ def resolve_optional_mesh_input(
     mesh_path = _resolve_optional_path(section.get("mesh_path"))
     bundle_dir = _resolve_optional_path(section.get("bundle_dir"))
     if mesh_path == "" and bundle_dir == "":
-        raise ValueError("[mesh_input] requires at least one of 'mesh_path' or 'bundle_dir'.")
+        raise ConfigError("[mesh_input] requires at least one of 'mesh_path' or 'bundle_dir'.")
     return {
         "mesh_path": mesh_path,
         "bundle_dir": bundle_dir,
@@ -162,7 +160,7 @@ def load_mesh_artifacts_from_summary(
     mesh_summary = setup_state.mesh_summary
     if not isinstance(mesh_summary, Mapping):
         if strict:
-            raise ValueError("Mesh loading requires setup.mesh_summary to be a mapping.")
+            raise MeshError("Mesh loading requires setup.mesh_summary to be a mapping.")
         return
 
     bundle_dir = str(mesh_summary.get("output_exchange_bundle_dir", "")).strip()
@@ -177,7 +175,7 @@ def load_mesh_artifacts_from_summary(
     mesh_path = str(mesh_summary.get("output_mesh", "")).strip()
     if mesh_path == "":
         if strict and setup_state.mesh_bundle is None and setup_state.mesh_planar is None:
-            raise ValueError(
+            raise MeshError(
                 "Mesh loading requires one 'output_mesh' path or "
                 "'output_exchange_bundle_dir' in setup.mesh_summary."
             )
@@ -221,3 +219,46 @@ def step_mesh_input(
 ) -> None:
     """Load one pre-existing external mesh declared in ``[mesh_input]``."""
     run_mesh_input_phase(ctx, external_mesh_input)
+
+
+# ---------------------------------------------------------------------------
+# Pipeline step
+# ---------------------------------------------------------------------------
+
+
+class BuildMeshStep:
+    """Build / import the mesh and complete the spatial supports."""
+
+    name = "build_mesh"
+    tin: ClassVar[type] = MeshedState
+    tout: ClassVar[type] = MeshedState
+    config_sections: ClassVar[tuple[str, ...]] = ("domain.supports",)
+
+    def run(self, state: PipelineState) -> PipelineState:
+        from hydromodpy.workflow.steps.setup import step_spatial_supports
+
+        ctx = state.get("ctx")
+        if ctx is None:
+            raise ConfigError("BuildMeshStep requires 'ctx' in state.data")
+
+        requested_supports = state.get("requested_domain_supports") or {}
+        registry = state.get("spatial_support_registry")
+
+        step_spatial_supports(
+            ctx,
+            phase="data",
+            requested_domain_supports=requested_supports,
+            registry=registry,
+        )
+        step_mesh(
+            ctx,
+            mesh_section_data=state.get("mesh_section_data"),
+            constraints_mode=state.get("constraints_mode"),
+        )
+        step_mesh_input(ctx, external_mesh_input=state.get("external_mesh_input"))
+
+        return state.advance(
+            step_index=state.step_index + 1,
+            step_name=self.name,
+            ctx=ctx,
+        )

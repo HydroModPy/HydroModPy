@@ -6,8 +6,8 @@ from typing import Annotated, Any
 
 from pydantic import ConfigDict, Field
 
-from hydromodpy.core.config.base import HydroModelBase
-from hydromodpy.core.config.profile import Profile
+from hydromodpy.core.config_kit.base import HydroModelBase
+from hydromodpy.core.config_kit.profile import Profile
 from hydromodpy.physics.base import ProcessSpatial
 from hydromodpy.physics.transport.transport_config import TransportConfig
 

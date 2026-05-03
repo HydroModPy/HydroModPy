@@ -1,9 +1,9 @@
 from __future__ import annotations
 
 import tomllib
-from datetime import datetime, timezone
+from datetime import UTC, datetime, timezone
 
-from hydromodpy.core.config.toml_write import dumps
+from hydromodpy.core.toml_io.writer import dumps
 
 
 def test_dumps_round_trips_nested_tables_and_arrays() -> None:
@@ -38,7 +38,7 @@ def test_dumps_round_trips_nested_tables_and_arrays() -> None:
 def test_dumps_serializes_datetimes_and_inline_tables() -> None:
     payload = {
         "meta": {
-            "created_at": datetime(2026, 4, 26, 21, 10, tzinfo=timezone.utc),
+            "created_at": datetime(2026, 4, 26, 21, 10, tzinfo=UTC),
             "limits": [{"min": 1.0, "max": 2.5}],
         }
     }
@@ -46,5 +46,5 @@ def test_dumps_serializes_datetimes_and_inline_tables() -> None:
     rendered = dumps(payload)
     parsed = tomllib.loads(rendered)
 
-    assert parsed["meta"]["created_at"] == datetime(2026, 4, 26, 21, 10, tzinfo=timezone.utc)
+    assert parsed["meta"]["created_at"] == datetime(2026, 4, 26, 21, 10, tzinfo=UTC)
     assert parsed["meta"]["limits"][0] == {"min": 1.0, "max": 2.5}

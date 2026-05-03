@@ -8,13 +8,12 @@ from pathlib import Path
 import rasterio
 
 from hydromodpy.core.io.raster_io import export_tif
-from hydromodpy.spatial.delineation import (
-    WhiteboxBackend,
-    WhiteboxWorkflowsBackend,
-    get_whitebox_backend,
-)
 from hydromodpy.spatial.geographic.core.domain_dem import clip_dem_to_box_buffer
-from hydromodpy.spatial.geographic.geographic_io import ensure_crs
+from hydromodpy.spatial.geographic.geographic_io import (
+    backend_has_callables,
+    ensure_crs,
+    resolve_delineation_backend,
+)
 from hydromodpy.spatial.geographic.geographic_paths import GeographicPaths
 
 
@@ -42,11 +41,11 @@ def _clip_raster(
     maintain_dimensions: bool,
     crs_project: str | None,
     nodata: float | None,
-    backend: WhiteboxBackend,
+    backend: object,
 ) -> None:
     """Clip one raster and enforce CRS / nodata conventions."""
     dst_path = str(dst)
-    backend.clip_raster_to_polygon(
+    backend.raster.clip_raster_to_polygon(
         str(src),
         str(polygon),
         dst_path,
@@ -54,7 +53,7 @@ def _clip_raster(
     )
     ensure_crs(dst_path, crs_project)
     if nodata is not None:
-        backend.modify_no_data_value(dst_path, new_value=float(nodata))
+        backend.raster.modify_no_data_value(dst_path, new_value=float(nodata))
 
 
 def _export_reshaped_rasters(
@@ -90,35 +89,46 @@ def build_domain_rasters(
     watershed_buff_shp: str | Path,
     paths: GeographicPaths,
     crs_project: str | None = None,
-    backend: WhiteboxBackend | None = None,
+    backend: object | None = None,
 ) -> DomainRasterProducts:
     """
     Build the raster bundle still consumed by legacy solvers and postprocess.
 
     The generated files preserve historical names and nodata conventions.
     """
-    tool = get_whitebox_backend() if backend is None else backend
+    tool = resolve_delineation_backend(backend)
 
-    if isinstance(tool, WhiteboxWorkflowsBackend):
-        dem_init_raster = tool.read_raster(str(dem_init_path))
+    if backend_has_callables(
+        tool,
+        "raster",
+        "read_raster",
+        "read_vector",
+        "clip_raster_to_polygon_raster",
+        "modify_no_data_value_raster",
+        "write_raster",
+        "vector_lines_to_raster",
+    ):
+        dem_init_raster = tool.raster.read_raster(str(dem_init_path))
         correc_raster = (
-            correc_data if correc_data is not None else tool.read_raster(str(correc_path))
+            correc_data if correc_data is not None else tool.raster.read_raster(str(correc_path))
         )
-        direc_raster = direc_data if direc_data is not None else tool.read_raster(str(direc_path))
-        box_buff_vector = tool.read_vector(str(paths.box_buff))
-        watershed_buff_vector = tool.read_vector(str(watershed_buff_shp))
-        watershed_vector = tool.read_vector(str(watershed_shp))
+        direc_raster = (
+            direc_data if direc_data is not None else tool.raster.read_raster(str(direc_path))
+        )
+        box_buff_vector = tool.raster.read_vector(str(paths.box_buff))
+        watershed_buff_vector = tool.raster.read_vector(str(watershed_buff_shp))
+        watershed_vector = tool.raster.read_vector(str(watershed_shp))
 
-        watershed_box_buff_dem = tool.clip_raster_to_polygon_raster(
+        watershed_box_buff_dem = tool.raster.clip_raster_to_polygon_raster(
             dem_init_raster,
             box_buff_vector,
             maintain_dimensions=False,
         )
-        watershed_box_buff_dem = tool.modify_no_data_value_raster(
+        watershed_box_buff_dem = tool.raster.modify_no_data_value_raster(
             watershed_box_buff_dem,
             new_value=-9999.0,
         )
-        tool.write_raster(watershed_box_buff_dem, str(paths.watershed_box_buff_dem))
+        tool.raster.write_raster(watershed_box_buff_dem, str(paths.watershed_box_buff_dem))
         ensure_crs(paths.watershed_box_buff_dem, crs_project)
 
         raster_sources: dict[str, object] = {
@@ -149,16 +159,16 @@ def build_domain_rasters(
             (direc_path, watershed_shp, paths.watershed_direc, False, None),
         ]
         for src, polygon, dst, maintain_dimensions, nodata in jobs:
-            clipped = tool.clip_raster_to_polygon_raster(
+            clipped = tool.raster.clip_raster_to_polygon_raster(
                 raster_sources[str(src)],
                 polygon_sources[str(polygon)],
                 maintain_dimensions=maintain_dimensions,
             )
             if nodata is not None:
-                clipped = tool.modify_no_data_value_raster(clipped, new_value=float(nodata))
-            tool.write_raster(clipped, str(dst))
+                clipped = tool.raster.modify_no_data_value_raster(clipped, new_value=float(nodata))
+            tool.raster.write_raster(clipped, str(dst))
             ensure_crs(dst, crs_project)
-        tool.vector_lines_to_raster(
+        tool.raster.vector_lines_to_raster(
             str(watershed_shp),
             str(paths.watershed_contour_tif),
             base=str(paths.watershed_dem),
@@ -200,7 +210,7 @@ def build_domain_rasters(
                 backend=tool,
             )
 
-        tool.vector_lines_to_raster(
+        tool.raster.vector_lines_to_raster(
             str(watershed_shp),
             str(paths.watershed_contour_tif),
             base=str(paths.watershed_dem),

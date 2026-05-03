@@ -5,7 +5,7 @@ start
 
 :Parse CLI arguments;
 :Resolve config and output paths;
-:Load field parameters\nFieldParam.from_toml(...);
+:Load field parameters\nfield_param_from_toml(...);
 :Load mesh\nFieldMeshSquare.from_toml(...);
 
 if (field_param.is_heterogeneous?) then (yes)

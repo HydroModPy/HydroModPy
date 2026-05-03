@@ -123,18 +123,21 @@ def finalize_boundary_constrained_residual(
     head_m: np.ndarray,
     raw_residual_m3_s: np.ndarray,
     prescribed_head_m_by_cell: np.ndarray,
-) -> tuple[np.ndarray, np.ndarray]:
-    """Return residual plus diagnostic prescribed-head flux after constraint enforcement."""
+) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+    """Return solver, flux and head-constraint residual blocks."""
     prescribed_mask = np.isfinite(np.asarray(prescribed_head_m_by_cell, dtype=float))
     prescribed_head_flux = np.zeros_like(np.asarray(raw_residual_m3_s, dtype=float))
-    residual = np.asarray(raw_residual_m3_s, dtype=float).copy()
+    flow_residual = np.asarray(raw_residual_m3_s, dtype=float).copy()
+    solver_residual = flow_residual.copy()
+    head_constraint_residual = np.zeros_like(flow_residual, dtype=float)
     if np.any(prescribed_mask):
-        prescribed_head_flux[prescribed_mask] = -residual[prescribed_mask]
-        residual[prescribed_mask] = (
+        prescribed_head_flux[prescribed_mask] = -flow_residual[prescribed_mask]
+        head_constraint_residual[prescribed_mask] = (
             np.asarray(head_m, dtype=float)[prescribed_mask]
             - np.asarray(prescribed_head_m_by_cell, dtype=float)[prescribed_mask]
         )
-    return residual, prescribed_head_flux
+        solver_residual[prescribed_mask] = head_constraint_residual[prescribed_mask]
+    return solver_residual, prescribed_head_flux, head_constraint_residual, flow_residual
 
 
 __all__ = [

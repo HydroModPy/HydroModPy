@@ -119,39 +119,7 @@ y_rel = 0.33
 [flow.sinks_sources.wells.W2.forcing]
 path_file = "../../../../../examples/data/wells/normal_wells_2003.csv"
 
-[postprocess]
-enabled = true
-
-[postprocess.flow]
-enabled = true
-display = true
-matching_streams = false
-native_mesh_npz = true
-native_mesh_csv = true
-native_mesh_vtu = false
-native_mesh_png = true
-
-[postprocess.flow.timeseries]
-enabled = true
-
-[postprocess.transport]
-enabled = true
-display_particles = false
-display_transport = false
-
-[postprocess.transport.timeseries]
-enabled = false
-
 [display]
 enabled = true
 show = false
 save = true
-
-[display.flow]
-enabled = true
-state_triptych = true
-recharge_discharge_cumulative = true
-watertable_map = true
-cross_section = false
-streamflow = false
-piezometry = false

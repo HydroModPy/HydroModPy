@@ -141,9 +141,7 @@ def write_isolated_comparison_config(
             workspace_inserted = True
 
         if stripped.startswith("base_simulation_config"):
-            output_lines.append(
-                f'base_simulation_config = "{_toml_path(base_simulation_config)}"'
-            )
+            output_lines.append(f'base_simulation_config = "{_toml_path(base_simulation_config)}"')
             continue
         if stripped.startswith("output_root"):
             output_lines.append(f'output_root = "{_toml_path(comparison_root)}"')

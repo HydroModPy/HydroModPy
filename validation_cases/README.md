@@ -52,7 +52,6 @@ List the selected cases without running them:
 ```powershell
 python -m validation_cases.run_cases --solver modflownwt --regime both --list
 python -m validation_cases.run_cases --solver modflow6 --regime both --list
-python -m validation_cases.run_cases --solver modflow6_irregular_tri --regime both --list
 ```
 
 Run all steady or transient cases without interactive figures:
@@ -62,8 +61,6 @@ python -m validation_cases.run_cases --solver modflownwt --regime steady --no-sh
 python -m validation_cases.run_cases --solver modflownwt --regime transient --no-show
 python -m validation_cases.run_cases --solver modflow6 --regime steady --no-show
 python -m validation_cases.run_cases --solver modflow6 --regime transient --no-show
-python -m validation_cases.run_cases --solver modflow6_irregular_tri --regime steady --no-show
-python -m validation_cases.run_cases --solver modflow6_irregular_tri --regime transient --no-show
 ```
 
 Run the full analytical inventory for one solver:
@@ -71,14 +68,7 @@ Run the full analytical inventory for one solver:
 ```powershell
 python -m validation_cases.run_cases --solver modflownwt --regime both --no-show
 python -m validation_cases.run_cases --solver modflow6 --regime both --no-show
-python -m validation_cases.run_cases --solver modflow6_irregular_tri --regime both --no-show
 python -m validation_cases.run_cases --solver boussinesq --regime both --no-show
-```
-
-Refresh the committed JSON batch reports consumed by the documentation gallery:
-
-```powershell
-python -m validation_cases.update_reports --no-show
 ```
 
 Run with figures enabled:
@@ -103,9 +93,8 @@ Current cases are mostly:
 - groundwater-flow oriented,
 - shared across `modflownwt`, `modflow6`, and the in-house `boussinesq`
   backend where the benchmark physics remains defensible,
-- mirrored on `modflow6_irregular_tri` for the 21 analytical cases that also
-  expose a `modflow6` variant, using either 1D strip reductions or dedicated
-  2D irregular meshes for radial/circular benchmarks.
+- mirrored on `modflow6_irregular_tri` when a compatible triangular mesh and
+  a defensible comparison reduction exist.
 
 Numerical exploratory cases that are intentionally not part of the analytical
 batch inventory live under `validation_cases/numerical/`. They are used for
@@ -123,8 +112,6 @@ Launcher-backed case directories typically contain:
   `modflownwt` variant,
 - `config_modflow6.toml`: optional `modflow6` variant for the same benchmark
   when solver parity is under validation,
-- `config_modflow6_irregular_tri.toml`: optional MODFLOW 6 DISV/triangular
-  variant when an irregular mesh is part of the validation target,
 - `reference.py`: analytical solution and literature references,
 - `comparison.py`: case-specific execution and comparison logic,
 - `metadata.toml`: benchmark metadata used to rebuild reference geometry and
@@ -211,8 +198,8 @@ comparison goal.
 | Path | Type | Regime | Reference | Purpose |
 | --- | --- | --- | --- | --- |
 | `analytical/transient/boussinesq_hillslope_recharge_step_interception_1d` | launcher-backed | transient | linearized hillslope interception onset | 1D sloping-topography benchmark for transient interception onset on the dense in-house Boussinesq runtime. |
-| `analytical/transient/brutsaert_recession_linearized_deep_1d` | launcher-backed | transient | Brutsaert linearized recession | 1D outlet-discharge benchmark for deep-aquifer recession across MODFLOW-NWT, MODFLOW 6, MODFLOW 6 irregular triangles, and the local Boussinesq backend. |
-| `analytical/transient/brutsaert_recession_boussinesq_thin_1d` | launcher-backed | transient | Brutsaert nonlinear recession | 1D outlet-discharge benchmark for thin-aquifer nonlinear recession across MODFLOW-NWT, MODFLOW 6, MODFLOW 6 irregular triangles, and the local Boussinesq backend. |
+| `analytical/transient/brutsaert_recession_linearized_deep_1d` | launcher-backed | transient | Brutsaert linearized recession | 1D outlet-discharge benchmark for deep-aquifer recession across MODFLOW-NWT, MODFLOW 6, and the local Boussinesq backend. |
+| `analytical/transient/brutsaert_recession_boussinesq_thin_1d` | launcher-backed | transient | Brutsaert nonlinear recession | 1D outlet-discharge benchmark for thin-aquifer nonlinear recession across MODFLOW-NWT, MODFLOW 6, and the local Boussinesq backend. |
 
 #### Transient 2D Radial Response
 
@@ -292,8 +279,8 @@ Some recurring conventions apply across several cases:
 | Case | Numerical setup | Analytical target | Primary metrics | What the case validates |
 | --- | --- | --- | --- | --- |
 | `boussinesq_hillslope_recharge_step_interception_1d` | Sloping strip, east fixed head, recharge step from the first transient period | Linearized onset approximation for the moving interception front | onset-time error, interception-trajectory RMSE, interception-trajectory max abs error, cross-row spread | Transient appearance of seepage/interception on a hillslope with the dense in-house Boussinesq runtime |
-| `brutsaert_recession_linearized_deep_1d` | Homogeneous strip, west divide, east fixed head, steady recharge pre-run followed by recession | Exponential Brutsaert recession law for a deep aquifer | relative discharge RMSE, relative discharge max abs error, cross-row spread, positive-increment check | Integrated-discharge recession behavior across MODFLOW-NWT, MODFLOW 6, MODFLOW 6 irregular triangles, and the local Boussinesq runtime in the near-linear regime |
-| `brutsaert_recession_boussinesq_thin_1d` | Homogeneous strip, west divide, east fixed head, steady recharge pre-run followed by recession | Nonlinear Brutsaert recession law for a thin aquifer | relative discharge RMSE, relative discharge max abs error, cross-row spread, positive-increment check | Integrated-discharge recession behavior across MODFLOW-NWT, MODFLOW 6, MODFLOW 6 irregular triangles, and the local Boussinesq runtime in the nonlinear regime |
+| `brutsaert_recession_linearized_deep_1d` | Homogeneous strip, west divide, east fixed head, steady recharge pre-run followed by recession | Exponential Brutsaert recession law for a deep aquifer | relative discharge RMSE, relative discharge max abs error, cross-row spread, positive-increment check | Integrated-discharge recession behavior across MODFLOW-NWT, MODFLOW 6, and the local Boussinesq runtime in the near-linear regime |
+| `brutsaert_recession_boussinesq_thin_1d` | Homogeneous strip, west divide, east fixed head, steady recharge pre-run followed by recession | Nonlinear Brutsaert recession law for a thin aquifer | relative discharge RMSE, relative discharge max abs error, cross-row spread, positive-increment check | Integrated-discharge recession behavior across MODFLOW-NWT, MODFLOW 6, and the local Boussinesq runtime in the nonlinear regime |
 
 #### Transient 2D Radial Response
 
@@ -329,11 +316,8 @@ Scientifically, the current suite provides direct validation for:
 - uniform and transient recharge forcing,
 - one deep-aquifer transient benchmark used to suppress linearization error when validating the Boussinesq transient path,
 - one transient hillslope-interception onset benchmark for the dense in-house `boussinesq` runtime,
-- two transient integrated-discharge Brutsaert recession benchmarks available on
-  `modflownwt`, `modflow6`, `modflow6_irregular_tri`, and `boussinesq`,
-- MODFLOW 6 irregular triangular meshes for the 1D steady strip,
-  transient boundary/recharge, Brutsaert recession, circular-island, and
-  late-time radial-pumping families,
+- two transient integrated-discharge Brutsaert recession benchmarks available on `modflownwt`, `modflow6`, `modflow6_irregular_tri`, and `boussinesq`,
+- MODFLOW 6 irregular triangular meshes for the 1D strip, transient boundary/recharge, Brutsaert recession, circular-island, and late-time radial-pumping families,
 - top `ocean` boundary condition,
 - top distributed `drainage` behavior,
 - steady sloping-substratum flow under three 1D references, including constant-thickness, no-recharge fixed-head, and recharge-driven hillslope regimes,

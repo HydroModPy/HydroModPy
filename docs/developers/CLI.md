@@ -2,8 +2,8 @@
 
 Après `pip install -e .`, deux commandes équivalentes sont disponibles :
 `hmp` et `hydromodpy`. Le dispatch principal est dans
-`hydromodpy/_cli/main.py`, les sous-commandes dans
-`hydromodpy/_cli/commands/`.
+`hydromodpy/cli/main.py`, les sous-commandes dans
+`hydromodpy/cli/commands/`.
 
 Liens : [glossary.md](glossary.md),
 [frontend_hooks.md](frontend_hooks.md),
@@ -18,7 +18,7 @@ hmp run chemin/vers/project.toml
 ```
 
 Le TOML doit déclarer un champ `workflow = "..."` au premier niveau.
-Valeurs reconnues (voir `hydromodpy/_cli/workflows.py`, constante
+Valeurs reconnues (voir `hydromodpy/cli/workflows.py`, constante
 `KNOWN_WORKFLOWS`) :
 
 | Valeur | Rôle |
@@ -28,8 +28,6 @@ Valeurs reconnues (voir `hydromodpy/_cli/workflows.py`, constante
 | `"batch"` | Campagne régionale multi-sites, expansion sites × recettes |
 | `"overview"` | Fiche d'identité du bassin (data et géographie, sans solveur) |
 | `"mesh"` | Génération du maillage de bassin uniquement |
-| `"comparison"` | Comparaison post-hoc de simulations enfants issues d'un cas de base |
-| `"testbed"` | Banc d'essai méthodologique, variantes enfants et preuves de robustesse |
 
 Exemple minimal de TOML :
 
@@ -49,20 +47,21 @@ Si `workflow` est absent ou prend une valeur inconnue, la commande
 appliquée côté Pydantic (`HydroModPyConfig`) afin que les frontaux
 (Angular, React) voient le champ comme un enum requis.
 
-Les scripts Python peuvent aussi être passés à `hmp run`, ils sont
-exécutés comme sous-processus :
+Les scripts Python de prototypage ne passent pas par `hmp run`.
+Ils vivent dans l'espace développeur pour garder `hmp run` strictement
+reproductible depuis une configuration validée :
 
 ```bash
-hmp run prototype_script.py
+hmp dev run-script prototype_script.py
 ```
 
 ## Génération d'un fichier de configuration
 
 ```bash
-hmp config mon_config.toml
-hmp config mon_config.toml --profile user
-hmp config --list-modules
-hmp config --modules flow transport
+hmp config template mon_config.toml
+hmp config template mon_config.toml --profile user
+hmp config template --list-modules
+hmp config template --modules flow transport
 ```
 
 `--profile` contrôle la verbosité du TOML produit :
@@ -155,13 +154,13 @@ La cible `validation` ajoute automatiquement le marqueur pytest
 | `hmp list` | Liste les projets et runs |
 | `hmp show <sim_id>` | Affiche les métadonnées d'un run |
 | `hmp inspect <sim_id>` | Inspection détaillée d'un run |
-| `hmp best` / `hmp worst` | Meilleur ou pire run selon métrique |
+| `hmp rank <project> --metric <name> --top N` / `hmp rank <project> --metric <name> --bottom N` | Top ou bottom N runs selon métrique |
 | `hmp compare <sim_a> <sim_b>` | Comparaison de deux runs |
-| `hmp display <config.toml>` | Production des figures |
-| `hmp export <sim_id>` | Export vers un format externe ou un `.hmp` |
+| `hmp display <config.toml>` / `hmp display <sim_id> <figure>` | Production des figures |
+| `hmp export <project> --sim <name> --csv --output <dir>` / `hmp export <project> --sim <name> --geotiff --resolution <dx>` | Export vers un format externe |
 | `hmp import <package.hmp>` | Import d'un `.hmp` dans le workspace |
 | `hmp delete <sim_id>` | Suppression d'un run |
-| `hmp migrate` | Migration v0.5 vers v0.6 (voir [parquet_lakehouse_migration_guide.md](parquet_lakehouse_migration_guide.md)) |
+| `hmp install-binaries [--subset mf6,mfnwt]` | Précharge les binaires solveur dans le cache local |
 | `hmp schema export` | Export JSON Schema (voir [frontend_hooks.md](frontend_hooks.md)) |
 | `hmp schema validate-field` | Validation partielle d'un champ |
 | `hmp lock` | Verrou workspace |

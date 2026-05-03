@@ -1,10 +1,11 @@
 from __future__ import annotations
 
-import logging
-import os
 import shutil
+import warnings
 import zipfile
 from collections.abc import Callable
+from datetime import UTC, datetime
+from os import replace
 from pathlib import Path
 from typing import Any
 
@@ -12,9 +13,11 @@ import numpy as np
 import zarr
 import zarr.codecs
 
+from hydromodpy.core.logging import get_logger
+from hydromodpy.core.version import __version__ as _HMP_VERSION
 from hydromodpy.results import field_registry
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 BLOSC_ZSTD = zarr.codecs.BloscCodec(cname="zstd", clevel=3)
 
@@ -23,6 +26,7 @@ _SUBGROUPS = ("mesh", "derived", "budget", "pathlines", "geographic", "forcing")
 # CF-1.11 + UGRID-1.0 root conventions string attached to every simulation
 # Zarr store (see :mod:`hydromodpy.results.field_registry`).
 CF_CONVENTIONS = "CF-1.11 UGRID-1.0"
+ZARR_SCHEMA_VERSION = "1"
 
 # Target balanced-chunk size in bytes. Chosen so that compressed chunks sit
 # in the typical local-disk / S3 object-store sweet spot (~1 MiB).
@@ -91,50 +95,6 @@ def _update_attrs(node: Any, attrs: dict[str, object]) -> Any:
     return node.update_attributes(attrs)
 
 
-def _is_zip_store_path(path: Path) -> bool:
-    return path.suffix == ".zip" or str(path).endswith(".zarr.zip")
-
-
-def _windows_long_path(path: Path) -> Path:
-    """Return a Windows extended-length path when needed by local stores."""
-    if os.name != "nt":
-        return path
-    text = str(path.resolve())
-    if text.startswith("\\\\?\\"):
-        return Path(text)
-    if text.startswith("\\\\"):
-        return Path("\\\\?\\UNC\\" + text.lstrip("\\"))
-    return Path("\\\\?\\" + text)
-
-
-def _local_store_path_arg(path: Path) -> str:
-    """Return the path string passed to ``zarr.storage.LocalStore``."""
-    return str(_windows_long_path(path)) if os.name == "nt" else str(path)
-
-
-def _ensure_local_zarr_node_dir(store_path: Path, zarr_path: str | None = None) -> None:
-    """Create the local directory backing a Zarr node before metadata writes.
-
-    Some Zarr LocalStore versions write metadata through an atomic
-    ``zarr.<hash>.partial`` file in the target node directory, but do not create
-    that directory first on Windows. Creating it explicitly is format-neutral:
-    Zarr still owns the metadata files and chunk layout.
-    """
-    if _is_zip_store_path(store_path):
-        return
-    if zarr_path:
-        target = store_path.joinpath(*zarr_path.split("/"))
-    else:
-        target = store_path
-    target = _windows_long_path(target)
-    target.mkdir(parents=True, exist_ok=True)
-
-
-def _child_zarr_path(target: zarr.Group, name: str) -> str:
-    base = target.path or ""
-    return f"{base}/{name}" if base else name
-
-
 class SimulationZarr:
     def __init__(self, path: Path | str, *, balanced: bool = False) -> None:
         self._path = Path(path)
@@ -144,7 +104,7 @@ class SimulationZarr:
             self._store = zarr.storage.ZipStore(str(self._path), mode="r")
             self._root = zarr.open_group(self._store, mode="r")
         else:
-            self._store = zarr.storage.LocalStore(_local_store_path_arg(self._path))
+            self._store = zarr.storage.LocalStore(str(self._path))
             self._root = zarr.open_group(self._store, mode="a")
 
     @classmethod
@@ -159,11 +119,13 @@ class SimulationZarr:
         balanced: bool = False,
     ) -> SimulationZarr:
         path = Path(path)
-        _ensure_local_zarr_node_dir(path)
-        store = zarr.storage.LocalStore(_local_store_path_arg(path))
+        store = zarr.storage.LocalStore(str(path))
         root = zarr.open_group(store, mode="w")
         root_attrs: dict[str, object] = {
             "Conventions": CF_CONVENTIONS,
+            "hydromodpy_version": _HMP_VERSION,
+            "zarr_schema_version": ZARR_SCHEMA_VERSION,
+            "created_at": datetime.now(UTC).isoformat(),
             "n_cells": n_cells,
             "n_layers": n_layers,
         }
@@ -180,7 +142,6 @@ class SimulationZarr:
         # (see :mod:`hydromodpy.results.geographic_cache`). Resolution goes
         # through the fingerprint attribute above.
         for sub in _SUBGROUPS:
-            _ensure_local_zarr_node_dir(path, sub)
             root.create_group(sub)
 
         instance = cls.__new__(cls)
@@ -190,9 +151,6 @@ class SimulationZarr:
         instance._balanced = bool(balanced)
         instance._on_close = None
         return instance
-
-    def _ensure_child_dir(self, target: zarr.Group, name: str) -> None:
-        _ensure_local_zarr_node_dir(self._path, _child_zarr_path(target, name))
 
     @property
     def root(self) -> zarr.Group:
@@ -250,7 +208,6 @@ class SimulationZarr:
     ) -> None:
         mesh = self._root.require_group("mesh")
 
-        self._ensure_child_dir(mesh, "vertices")
         vertices_arr = mesh.create_array(
             "vertices",
             data=vertices.astype("float64"),
@@ -265,7 +222,6 @@ class SimulationZarr:
             },
         )
 
-        self._ensure_child_dir(mesh, "face_node_connectivity")
         fnc = mesh.create_array(
             "face_node_connectivity",
             data=face_node_connectivity.astype("int32"),
@@ -280,7 +236,6 @@ class SimulationZarr:
             },
         )
 
-        self._ensure_child_dir(mesh, "z_interfaces")
         z_arr = mesh.create_array(
             "z_interfaces",
             data=z_interfaces.astype("float64"),
@@ -297,14 +252,12 @@ class SimulationZarr:
         )
 
         if layer_indices is not None:
-            self._ensure_child_dir(mesh, "layer_indices")
             mesh.create_array(
                 "layer_indices",
                 data=layer_indices.astype("int32"),
                 overwrite=True,
             )
         if source_cell_indices is not None:
-            self._ensure_child_dir(mesh, "source_cell_indices")
             mesh.create_array(
                 "source_cell_indices",
                 data=source_cell_indices.astype("int32"),
@@ -324,7 +277,6 @@ class SimulationZarr:
         # UGRID-1.0 topology: create a scalar "mesh" array (value 0) that
         # carries the topology attributes. Downstream xarray readers resolve
         # node_coordinates / face_node_connectivity via these attrs.
-        self._ensure_child_dir(mesh, "topology")
         topo = mesh.create_array(
             "topology",
             data=np.zeros((), dtype="int32"),
@@ -357,7 +309,6 @@ class SimulationZarr:
         overwrites) a ``time`` array with the CF ``units``, ``calendar`` and
         ``standard_name`` attributes required to round-trip through xarray.
         """
-        self._ensure_child_dir(self._root, "time")
         time_arr = self._root.create_array(
             "time",
             data=np.asarray(values, dtype="int64"),
@@ -390,7 +341,6 @@ class SimulationZarr:
         field, so this variable makes exported Zarr stores self-describing
         for CF-aware consumers (xarray, IRIS, CDO, ...).
         """
-        self._ensure_child_dir(self._root, "crs")
         crs_arr = self._root.create_array(
             "crs",
             data=np.zeros((), dtype="int32"),
@@ -420,7 +370,6 @@ class SimulationZarr:
     ) -> None:
         if subgroup:
             if subgroup not in self._root:
-                self._ensure_child_dir(self._root, subgroup)
                 self._root.create_group(subgroup)
             target = self._root[subgroup]
         else:
@@ -455,7 +404,6 @@ class SimulationZarr:
         if variable not in target:
             if n_timesteps is None:
                 raise ValueError(f"n_timesteps required on first write of '{variable}'")
-            self._ensure_child_dir(target, variable)
             target.create_array(
                 variable,
                 shape=full_shape,
@@ -530,7 +478,6 @@ class SimulationZarr:
         nodata: float = -99999.0,
     ) -> None:
         geo = self._root.require_group("geographic")
-        self._ensure_child_dir(geo, name)
         geo.create_array(
             name,
             data=data,
@@ -575,17 +522,12 @@ class SimulationZarr:
         source: str = "",
     ) -> None:
         """Persist one input forcing timeseries into ``forcing/<variable>/<station_id>``."""
-        self._ensure_child_dir(self._root, "forcing")
         forcing = self._root.require_group("forcing")
-        self._ensure_child_dir(forcing, variable)
         var_grp = forcing.require_group(variable)
-        self._ensure_child_dir(var_grp, station_id)
         sta_grp = var_grp.require_group(station_id)
 
         ts_bytes = np.asarray(timestamps, dtype="datetime64[ns]").view("int64")
-        self._ensure_child_dir(sta_grp, "timestamps")
         sta_grp.create_array("timestamps", data=ts_bytes, overwrite=True)
-        self._ensure_child_dir(sta_grp, "values")
         sta_grp.create_array("values", data=np.asarray(values, dtype="float64"), overwrite=True)
         _update_attrs(
             sta_grp,
@@ -605,9 +547,7 @@ class SimulationZarr:
         source: str = "",
     ) -> None:
         """Persist one static forcing field (e.g. geology zones) into ``forcing/<variable>``."""
-        self._ensure_child_dir(self._root, "forcing")
         forcing = self._root.require_group("forcing")
-        self._ensure_child_dir(forcing, variable)
         forcing.create_array(
             variable,
             data=data,
@@ -650,6 +590,7 @@ class SimulationZarr:
         coordinate variables so that downstream consumers can round-trip
         through xarray without losing CF metadata.
         """
+        import dask.array as da
         import xarray as xr
 
         data_vars: dict[str, xr.Variable] = {}
@@ -681,9 +622,10 @@ class SimulationZarr:
                 # fall back to generic dims when the shape does not match the
                 # stored array (e.g. a field was written with an extra axis)
                 dims = tuple(f"dim_{i}" for i in range(arr.ndim))
+            chunks = arr.chunks if arr.chunks else "auto"
             data_vars[name] = xr.Variable(
                 dims,
-                np.asarray(arr[:]),
+                da.from_array(arr, chunks=chunks),
                 attrs=dict(arr.attrs),
             )
 
@@ -717,7 +659,16 @@ class SimulationZarr:
         if not isinstance(self._store, zarr.storage.LocalStore):
             return
         try:
-            zarr.consolidate_metadata(self._store)
+            with warnings.catch_warnings():
+                warnings.filterwarnings(
+                    "ignore",
+                    message=(
+                        "Consolidated metadata is currently not part .* "
+                        "Zarr format 3 specification.*"
+                    ),
+                    category=UserWarning,
+                )
+                zarr.consolidate_metadata(self._store)
         except Exception as exc:  # pragma: no cover - best effort
             logger.debug("consolidate_metadata failed: %s", exc)
 
@@ -735,13 +686,27 @@ class SimulationZarr:
         self.close()
 
         zip_path = self._path.with_suffix(".zarr.zip")
-        with zipfile.ZipFile(str(zip_path), "w", compression=zipfile.ZIP_STORED) as zf:
+        tmp_path = zip_path.with_name(f"{zip_path.name}.tmp")
+        if tmp_path.exists():
+            tmp_path.unlink()
+
+        with zipfile.ZipFile(str(tmp_path), "w", compression=zipfile.ZIP_STORED) as zf:
             for fpath in sorted(self._path.rglob("*")):
                 if fpath.is_file():
                     arcname = str(fpath.relative_to(self._path))
                     zf.write(str(fpath), arcname)
 
-        shutil.rmtree(self._path, ignore_errors=True)
+        with zipfile.ZipFile(str(tmp_path), "r") as zf:
+            corrupt = zf.testzip()
+            if corrupt is not None:
+                tmp_path.unlink(missing_ok=True)
+                raise RuntimeError(f"Corrupt Zarr zip member: {corrupt}")
+
+        replace(tmp_path, zip_path)
+        check = SimulationZarr(zip_path)
+        check.close()
+
+        shutil.rmtree(self._path)
         logger.debug("Packed %s -> %s", self._path.name, zip_path.name)
 
         self._path = zip_path

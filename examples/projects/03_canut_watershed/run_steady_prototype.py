@@ -8,15 +8,12 @@ streamflow statistics, and recharge plots.
 
 from __future__ import annotations
 
-import sys
 from pathlib import Path
 
 import matplotlib.dates as mdates
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-
-sys.path.insert(0, str(Path(__file__).resolve().parents[4]))
 
 import hydromodpy as hmp
 

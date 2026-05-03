@@ -39,7 +39,7 @@ When regenerating regression goldens under this contract, expect
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 
 import numpy as np
 
@@ -57,15 +57,15 @@ class NonlinearRuntimeOptions:
     tolerance before advertising success.
     """
 
-    regularization_radius: float = 0.05
-    max_iterations: int = 20
-    tol_residual_inf: float = 1.0e-9
+    regularization_radius: float
+    max_iterations: int
+    tol_residual_inf: float
     tol_state_update_inf: float = 1.0e-9
     fd_rel_step: float = 1.0e-7
     min_damping: float = 1.0e-4
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, kw_only=True)
 class TransientStepInputs:
     """Inputs for one fully implicit transient step.
 
@@ -81,15 +81,15 @@ class TransientStepInputs:
     mesh: BoussinesqMesh
     head_prev_m: np.ndarray
     dt_seconds: float
+    options: NonlinearRuntimeOptions
     head_initial_guess_m: np.ndarray | None = None
     recharge_rate_m_s: np.ndarray | float | None = None
     well_flux_m3_s: np.ndarray | float | None = None
     prescribed_head_m_by_cell: np.ndarray | None = None
     drainage_conductance_m2_s: np.ndarray | float | None = None
-    options: NonlinearRuntimeOptions = field(default_factory=NonlinearRuntimeOptions)
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, kw_only=True)
 class SteadySolveInputs:
     """Inputs for one steady nonlinear balance.
 
@@ -104,11 +104,11 @@ class SteadySolveInputs:
 
     mesh: BoussinesqMesh
     head_initial_guess_m: np.ndarray
+    options: NonlinearRuntimeOptions
     recharge_rate_m_s: np.ndarray | float | None = None
     well_flux_m3_s: np.ndarray | float | None = None
     prescribed_head_m_by_cell: np.ndarray | None = None
     drainage_conductance_m2_s: np.ndarray | float | None = None
-    options: NonlinearRuntimeOptions = field(default_factory=NonlinearRuntimeOptions)
 
 
 @dataclass(frozen=True)

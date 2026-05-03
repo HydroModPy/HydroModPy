@@ -82,9 +82,7 @@ def build_validation_note_specs() -> tuple[GalleryCaseSpec, ...]:
                 "regime": "steady",
                 "dimension": "1d",
                 "report_source_path": "tools/doc_gallery/manifests/xt3d_irregular_tri_method_choice_report.json",
-                "lead_image_filenames": [
-                    "modflow6_irregular_tri_xt3d_method_choice_tradeoff.png"
-                ],
+                "lead_image_filenames": ["modflow6_irregular_tri_xt3d_method_choice_tradeoff.png"],
             },
         ),
     )

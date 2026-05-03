@@ -16,7 +16,7 @@ from shapely.geometry import LineString, MultiPolygon, Polygon
 from shapely.geometry.base import BaseGeometry
 
 from hydromodpy.spatial.mesh.gmsh_grid.gmsh_planar_mesh import GmshPlanarMesh2D
-from hydromodpy.spatial.mesh.gmsh_grid.zone_meshing._geometry_utils import (
+from hydromodpy.spatial.mesh.gmsh_grid.zone_meshing.geometry_utils import (
     iter_line_parts,
 )
 

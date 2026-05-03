@@ -47,6 +47,8 @@ __pypackages__/
 .idea/
 .claude/
 CLAUDE.md
+.codex
+AGENTS.md
 .spyderproject
 .spyproject
 .ropeproject
@@ -118,12 +120,18 @@ out/
 **/exports/
 **/projects/**/figures/
 **/project_results.zarr.db
+**/.hmp/
 **/.solver_scratch/
 examples/results/
 catalog.db
 hydromodpy_debug.log
-hydromodpy/data_managers/*/cases/outputs/**
-!hydromodpy/data_managers/*/cases/outputs/.gitkeep
+hydromodpy/data/variables/*/cases/outputs/**
+hydromodpy/data/variables/*/outputs/**
+hydromodpy/spatial/**/cases/outputs/**
+hydromodpy/spatial/**/outputs/**
+hydromodpy/solver/**/cases/outputs/**
+**/.ipynb_checkpoints/
+examples/*.duckdb
 hydromodpy_annex/preprocess/catchment_identification_scan/outputs/
 
 # Generated images from output directories
@@ -215,7 +223,6 @@ lib64/
 parts/
 var/
 examples/Exemple_11_Imene/11_for run from scratch without plots/data/regional dem 2.tif
-.gitignore
 examples/Exemple_11_Imene/11_for run from scratch without plots/data/regional dem 2.tif.aux.xml
 examples/Exemple_11_Imene/11_for run from scratch without plots/data/regional dem.tif
 examples/Exemple_11_Imene/11_for run from scratch without plots/data/regional dem.tif.aux.xml

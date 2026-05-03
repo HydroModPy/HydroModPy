@@ -18,16 +18,16 @@ from shapely.ops import polygonize, unary_union
 from hydromodpy.spatial.mesh.gmsh_grid.zone_meshing._geometry_contracts import (
     ZoneDomainCleaningDiagnostics,
 )
-from hydromodpy.spatial.mesh.gmsh_grid.zone_meshing._geometry_utils import (
-    as_metric_tolerance,
-    iter_polygon_parts,
-    make_valid_geometry,
-)
 from hydromodpy.spatial.mesh.gmsh_grid.zone_meshing._polygon_cleaning import (
     clean_domain_geometry,
     clean_zone_rows,
     group_zone_geometries,
     resolve_zone_overlaps,
+)
+from hydromodpy.spatial.mesh.gmsh_grid.zone_meshing.geometry_utils import (
+    as_metric_tolerance,
+    iter_polygon_parts,
+    make_valid_geometry,
 )
 
 

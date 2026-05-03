@@ -4,13 +4,12 @@ from pathlib import Path
 
 import pytest
 
-from hydromodpy.core.config.hydromodpy_config import HydroModPyConfig
-from hydromodpy.solver.base.solver_engine import SolverEngine
-from hydromodpy.solver.modflow_nwt.modflow import (
+from hydromodpy.master_config.hydromodpy_config import HydroModPyConfig
+from hydromodpy.solver.modflow6 import Modflow6Config
+from hydromodpy.solver.modflow_nwt.nwt import (
     ModflowConfig,
     ModflowSpecifParams,
 )
-from hydromodpy.solver.modflow6 import Modflow6Config
 from hydromodpy.solver.utils.temporal.tmesh_config import TMeshConfig
 from hydromodpy.spatial.mesh.cartesian_grid.sgrid_config import SolverSGridConfig
 
@@ -102,7 +101,7 @@ def test_hydromodpy_config_loads_modflow_nested_sections(tmp_path: Path):
 
     cfg = HydroModPyConfig.from_toml(toml_path)
 
-    assert cfg.solver.solver_engine == SolverEngine.MODFLOW_NWT
+    assert cfg.solver.solver_engine == "modflownwt"
     assert cfg.modflownwt.process_specific.vka == 2.5
     assert cfg.modflownwt.process_specific.exdp == 3.0
     assert cfg.modflownwt.runtime.nwt_options == "SIMPLE"
@@ -249,6 +248,34 @@ def test_hydromodpy_config_rejects_legacy_flat_modflow_schema(tmp_path: Path):
         HydroModPyConfig.from_toml(toml_path)
 
 
+def test_hydromodpy_config_rejects_unknown_top_level_sections(tmp_path: Path):
+    dem_path = tmp_path / "dem.tif"
+    dem_path.touch()
+
+    toml_path = tmp_path / "config.toml"
+    toml_path.write_text(
+        "\n".join(
+            [
+                'workflow = "simulation"',
+                "[workspace]",
+                f'project_root = "{tmp_path}"',
+                f'root = "{tmp_path}"',
+                "",
+                "[geographic]",
+                'catch_def = "dem"',
+                'dem_init_path = "dem.tif"',
+                "",
+                "[unexpected]",
+                "enabled = true",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError, match="Unknown top-level TOML section"):
+        HydroModPyConfig.from_toml(toml_path)
+
+
 def test_hydromodpy_config_loads_independent_modflow6_runtime(tmp_path: Path):
     dem_path = tmp_path / "dem.tif"
     dem_path.touch()
@@ -284,7 +311,7 @@ def test_hydromodpy_config_loads_independent_modflow6_runtime(tmp_path: Path):
     )
 
     cfg = HydroModPyConfig.from_toml(toml_path)
-    assert cfg.solver.solver_engine == SolverEngine.MODFLOW6
+    assert cfg.solver.solver_engine == "modflow6"
     assert cfg.modflow6.runtime.mf6_executable_name == "mf6_custom"
     assert cfg.modflow6.runtime.mf6_ims_complexity == "SIMPLE"
     assert cfg.modflow6.runtime.mf6_enable_rewet is True

@@ -3,15 +3,15 @@
 from __future__ import annotations
 
 import os
-from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from hydromodpy.core.config.toml_loader import load_toml_with_base_config
+from pydantic import BaseModel, ConfigDict, Field
+
+from hydromodpy.core.toml_io.loader import load_toml_with_base_config
 
 DEFAULT_CONFIG_FILE = "config_s3_100km2.toml"
 DEFAULT_SECTION = "catchment_identification_scan"
-LEGACY_SECTION = "watershed_threshold_scan"
 DEFAULT_RESULTS_ROOT = str(Path.home() / "HydroModPy")
 DEFAULT_RESULTS_SUBDIR = "catchment_identification_scan"
 
@@ -56,9 +56,114 @@ def _resolve_output_dir(raw_value: Any, *, base_dir: Path, config_path: Path) ->
     return (base_dir / path).resolve()
 
 
-@dataclass(slots=True)
-class CatchmentIdentificationConfig:
+class _CatchmentIdentificationSection(BaseModel):
+    """Raw TOML payload for one catchment-identification run."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    launcher_script: str | Path | None = Field(
+        default=None,
+        description="Optional launcher script path recorded for run traceability.",
+    )
+    dem_path: str | Path = Field(description="Projected DEM path.")
+    region_polygon_path: str | Path | None = Field(
+        default=None,
+        description="Optional region polygon path used to clip the DEM.",
+    )
+    output_dir: str | Path | None = Field(
+        default=None,
+        description="Output directory path.",
+    )
+    accumulation_area_km2: float = Field(
+        default=100.0,
+        description="Minimum contributing area in km2.",
+    )
+    outlet_selection_mode: str = Field(
+        default="border",
+        description="Outlet selection mode: 'border' or 'scan_global'.",
+    )
+    scan_tile_size_km: float = Field(
+        default=25.0,
+        description="Tile size in km for scan_global outlet search.",
+    )
+    scan_max_outlets_per_tile: int = Field(
+        default=1,
+        description="Maximum outlet count retained per scan tile.",
+    )
+    scan_min_outlet_spacing_km: float = Field(
+        default=8.0,
+        description="Minimum spacing between retained outlets in km.",
+    )
+    scan_max_total_outlets: int = Field(
+        default=200,
+        description="Global outlet count cap for scan_global mode.",
+    )
+    basin_selection_mode: str = Field(
+        default="all_min_area",
+        description="Basin selection mode: 'all_min_area' or 'headwater_target'.",
+    )
+    headwater_max_strahler_order: int = Field(
+        default=1,
+        description="Maximum Strahler order retained for headwater_target mode.",
+    )
+    headwater_min_target_ratio: float = Field(
+        default=0.50,
+        description="Minimum target-area ratio retained for headwater_target mode.",
+    )
+    target_basin_area_km2: float | None = Field(
+        default=None,
+        description="Optional target basin area in km2.",
+    )
+    target_area_tolerance_ratio: float = Field(
+        default=0.30,
+        description="Relative target-area tolerance.",
+    )
+    max_basin_overlap_ratio: float = Field(
+        default=0.05,
+        description="Maximum accepted overlap ratio between retained basins.",
+    )
+    dem_correction: str = Field(
+        default="breach",
+        description="DEM correction mode: 'fill' or 'breach'.",
+    )
+    snap_dist: int = Field(
+        default=0,
+        description="Outlet snapping distance in m.",
+    )
+    gpkg_name: str = Field(
+        default="watersheds_100km2.gpkg",
+        description="Output GeoPackage filename.",
+    )
+    basins_layer: str = Field(
+        default="bassins_100km2",
+        description="Output basin layer name.",
+    )
+    outlets_layer: str = Field(
+        default="exutoires_100km2",
+        description="Output outlet layer name.",
+    )
+    outlets_csv_name: str = Field(
+        default="exutoires_100km2.csv",
+        description="Output outlet CSV filename.",
+    )
+    save_diagnostic_figures: bool = Field(
+        default=True,
+        description="Whether diagnostic figures are written.",
+    )
+    figures_dir_name: str = Field(
+        default="figures",
+        description="Diagnostic figures subdirectory name.",
+    )
+    keep_intermediate: bool = Field(
+        default=True,
+        description="Whether intermediate rasters are kept.",
+    )
+
+
+class CatchmentIdentificationConfig(BaseModel):
     """Typed config payload loaded from one TOML section."""
+
+    model_config = ConfigDict(extra="forbid", arbitrary_types_allowed=True)
 
     config_path: Path
     launcher_script: Path | None
@@ -99,81 +204,73 @@ class CatchmentIdentificationConfig:
 
         raw_section = payload.get(section)
         if not isinstance(raw_section, dict):
-            if section == DEFAULT_SECTION:
-                raw_section = payload.get(LEGACY_SECTION)
-            elif section == LEGACY_SECTION:
-                raw_section = payload.get(DEFAULT_SECTION)
-        if not isinstance(raw_section, dict):
             raise KeyError(f"Missing TOML section [{section}] in file: {config_path}")
 
+        section_data = _CatchmentIdentificationSection.model_validate(raw_section)
         base_dir = config_path.parent
         launcher_script = _resolve_optional_path(
-            raw_section.get("launcher_script"),
+            section_data.launcher_script,
             base_dir=base_dir,
         )
         if launcher_script is not None and not launcher_script.exists():
             raise FileNotFoundError(f"launcher_script not found: {launcher_script}")
 
-        dem_path = _resolve_optional_path(raw_section.get("dem_path"), base_dir=base_dir)
+        dem_path = _resolve_optional_path(section_data.dem_path, base_dir=base_dir)
         if dem_path is None:
             raise ValueError(f"[{section}] requires dem_path")
         if not dem_path.exists():
             raise FileNotFoundError(f"DEM file not found: {dem_path}")
 
         region_polygon_path = _resolve_optional_path(
-            raw_section.get("region_polygon_path"),
+            section_data.region_polygon_path,
             base_dir=base_dir,
         )
         if region_polygon_path is not None and not region_polygon_path.exists():
             raise FileNotFoundError(f"region_polygon_path not found: {region_polygon_path}")
 
         output_dir = _resolve_output_dir(
-            raw_section.get("output_dir"),
+            section_data.output_dir,
             base_dir=base_dir,
             config_path=config_path,
         )
 
-        accumulation_area_km2 = float(raw_section.get("accumulation_area_km2", 100.0))
+        accumulation_area_km2 = float(section_data.accumulation_area_km2)
         if accumulation_area_km2 <= 0.0:
             raise ValueError("accumulation_area_km2 must be strictly positive")
 
-        outlet_selection_mode = (
-            str(raw_section.get("outlet_selection_mode", "border")).strip().lower()
-        )
+        outlet_selection_mode = str(section_data.outlet_selection_mode).strip().lower()
         if outlet_selection_mode not in {"border", "scan_global"}:
             raise ValueError("outlet_selection_mode must be 'border' or 'scan_global'")
 
-        scan_tile_size_km = float(raw_section.get("scan_tile_size_km", 25.0))
+        scan_tile_size_km = float(section_data.scan_tile_size_km)
         if scan_tile_size_km <= 0.0:
             raise ValueError("scan_tile_size_km must be > 0")
 
-        scan_max_outlets_per_tile = int(raw_section.get("scan_max_outlets_per_tile", 1))
+        scan_max_outlets_per_tile = int(section_data.scan_max_outlets_per_tile)
         if scan_max_outlets_per_tile <= 0:
             raise ValueError("scan_max_outlets_per_tile must be >= 1")
 
-        scan_min_outlet_spacing_km = float(raw_section.get("scan_min_outlet_spacing_km", 8.0))
+        scan_min_outlet_spacing_km = float(section_data.scan_min_outlet_spacing_km)
         if scan_min_outlet_spacing_km < 0.0:
             raise ValueError("scan_min_outlet_spacing_km must be >= 0")
 
-        scan_max_total_outlets = int(raw_section.get("scan_max_total_outlets", 200))
+        scan_max_total_outlets = int(section_data.scan_max_total_outlets)
         if scan_max_total_outlets <= 0:
             raise ValueError("scan_max_total_outlets must be >= 1")
 
-        basin_selection_mode = (
-            str(raw_section.get("basin_selection_mode", "all_min_area")).strip().lower()
-        )
+        basin_selection_mode = str(section_data.basin_selection_mode).strip().lower()
         if basin_selection_mode not in {"all_min_area", "headwater_target"}:
             raise ValueError("basin_selection_mode must be 'all_min_area' or 'headwater_target'")
 
-        headwater_max_strahler_order = int(raw_section.get("headwater_max_strahler_order", 1))
+        headwater_max_strahler_order = int(section_data.headwater_max_strahler_order)
         if headwater_max_strahler_order < 1:
             raise ValueError("headwater_max_strahler_order must be >= 1")
 
-        headwater_min_target_ratio = float(raw_section.get("headwater_min_target_ratio", 0.50))
+        headwater_min_target_ratio = float(section_data.headwater_min_target_ratio)
         if (headwater_min_target_ratio < 0.0) or (headwater_min_target_ratio > 1.0):
             raise ValueError("headwater_min_target_ratio must be in [0, 1]")
 
-        raw_target_basin_area_km2 = raw_section.get("target_basin_area_km2")
+        raw_target_basin_area_km2 = section_data.target_basin_area_km2
         target_basin_area_km2: float | None
         if raw_target_basin_area_km2 is None:
             target_basin_area_km2 = None
@@ -187,29 +284,29 @@ class CatchmentIdentificationConfig:
                     f"({accumulation_area_km2:.3f})"
                 )
 
-        target_area_tolerance_ratio = float(raw_section.get("target_area_tolerance_ratio", 0.30))
+        target_area_tolerance_ratio = float(section_data.target_area_tolerance_ratio)
         if target_area_tolerance_ratio < 0.0:
             raise ValueError("target_area_tolerance_ratio must be >= 0")
 
-        max_basin_overlap_ratio = float(raw_section.get("max_basin_overlap_ratio", 0.05))
+        max_basin_overlap_ratio = float(section_data.max_basin_overlap_ratio)
         if (max_basin_overlap_ratio < 0.0) or (max_basin_overlap_ratio > 1.0):
             raise ValueError("max_basin_overlap_ratio must be in [0, 1]")
 
-        dem_correction = str(raw_section.get("dem_correction", "breach")).strip().lower()
+        dem_correction = str(section_data.dem_correction).strip().lower()
         if dem_correction not in {"fill", "breach"}:
             raise ValueError("dem_correction must be 'fill' or 'breach'")
 
-        snap_dist = int(raw_section.get("snap_dist", 0))
+        snap_dist = int(section_data.snap_dist)
         if snap_dist < 0:
             raise ValueError("snap_dist must be >= 0")
 
-        gpkg_name = str(raw_section.get("gpkg_name", "watersheds_100km2.gpkg"))
-        basins_layer = str(raw_section.get("basins_layer", "bassins_100km2"))
-        outlets_layer = str(raw_section.get("outlets_layer", "exutoires_100km2"))
-        outlets_csv_name = str(raw_section.get("outlets_csv_name", "exutoires_100km2.csv"))
-        save_diagnostic_figures = bool(raw_section.get("save_diagnostic_figures", True))
-        figures_dir_name = str(raw_section.get("figures_dir_name", "figures")).strip() or "figures"
-        keep_intermediate = bool(raw_section.get("keep_intermediate", True))
+        gpkg_name = str(section_data.gpkg_name)
+        basins_layer = str(section_data.basins_layer)
+        outlets_layer = str(section_data.outlets_layer)
+        outlets_csv_name = str(section_data.outlets_csv_name)
+        save_diagnostic_figures = bool(section_data.save_diagnostic_figures)
+        figures_dir_name = str(section_data.figures_dir_name).strip() or "figures"
+        keep_intermediate = bool(section_data.keep_intermediate)
 
         return cls(
             config_path=config_path,
@@ -239,7 +336,3 @@ class CatchmentIdentificationConfig:
             figures_dir_name=figures_dir_name,
             keep_intermediate=keep_intermediate,
         )
-
-
-# Backward-compatible alias.
-WatershedThresholdScanConfig = CatchmentIdentificationConfig

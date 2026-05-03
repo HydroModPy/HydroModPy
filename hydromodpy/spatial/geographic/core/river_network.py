@@ -26,9 +26,12 @@ import numpy as np
 import rasterio
 from shapely.geometry import LineString, MultiLineString
 
-from hydromodpy.spatial.delineation import WhiteboxBackend, get_whitebox_backend
 from hydromodpy.spatial.geographic.core.river_mesh_trace import RiverMeshTrace
 from hydromodpy.spatial.geographic.geographic_config import RiverNetworkConfig
+from hydromodpy.spatial.geographic.geographic_io import (
+    backend_has_callables,
+    resolve_delineation_backend,
+)
 
 if TYPE_CHECKING:
     from shapely.geometry.base import BaseGeometry
@@ -313,13 +316,36 @@ def build_river_network_products(
     network_shp_path: str | Path,
     summary_json_path: str | Path,
     network_crs: str | None = None,
-    backend: WhiteboxBackend | None = None,
+    backend: object | None = None,
 ) -> RiverNetworkProducts:
     """Build stream rasters, stream vectors and one summary JSON payload."""
     if not bool(river_network.enabled):
         return RiverNetworkProducts(enabled=False)
 
-    tool = get_whitebox_backend() if backend is None else backend
+    tool = resolve_delineation_backend(backend)
+    if not (
+        backend_has_callables(
+            tool,
+            "raster",
+            "read_raster",
+            "read_vector",
+            "clip_raster_to_polygon",
+            "clip_vector",
+            "write_vector",
+        )
+        and backend_has_callables(
+            tool,
+            "flow",
+            "d8_flow_accumulation",
+        )
+        and backend_has_callables(
+            tool,
+            "delineation",
+            "extract_streams",
+            "raster_streams_to_vector_raster",
+        )
+    ):
+        raise TypeError("River network extraction requires a delineation backend with raster APIs.")
 
     geo_dir = Path(geographic_dir)
     correc_dir = Path(correcflow_dir)
@@ -347,18 +373,18 @@ def build_river_network_products(
     stream_order_full_tif = correc_dir / "dem_stream_order_strahler_full.tif"
     stream_link_full_tif = correc_dir / "dem_stream_link_id_full.tif"
 
-    tool.d8_flow_accumulation(
+    tool.flow.d8_flow_accumulation(
         str(dem_correc_path),
         str(flow_acc_cells_tif),
         log=False,
     )
-    tool.extract_streams(
+    tool.delineation.extract_streams(
         str(flow_acc_cells_tif),
         str(streams_full_tif),
         threshold=float(threshold_cells),
         zero_background=True,
     )
-    tool.clip_raster_to_polygon(
+    tool.raster.clip_raster_to_polygon(
         str(streams_full_tif),
         str(watershed_shp),
         str(streams_tif),
@@ -369,13 +395,13 @@ def build_river_network_products(
     active_streams_full_tif = streams_full_tif
     output_pruned_tif: str | None = None
     if bool(river_network.prune_short_streams):
-        tool.remove_short_streams(
+        tool.delineation.remove_short_streams(
             str(d8_pointer_path),
             str(streams_full_tif),
             str(streams_pruned_full_tif),
             min_length=float(river_network.min_stream_length_m),
         )
-        tool.clip_raster_to_polygon(
+        tool.raster.clip_raster_to_polygon(
             str(streams_pruned_full_tif),
             str(watershed_shp),
             str(streams_pruned_tif),
@@ -387,13 +413,13 @@ def build_river_network_products(
 
     output_stream_order_tif: str | None = None
     if bool(river_network.compute_strahler_order):
-        tool.strahler_stream_order(
+        tool.delineation.strahler_stream_order(
             str(d8_pointer_path),
             str(active_streams_full_tif),
             str(stream_order_full_tif),
             zero_background=True,
         )
-        tool.clip_raster_to_polygon(
+        tool.raster.clip_raster_to_polygon(
             str(stream_order_full_tif),
             str(watershed_shp),
             str(stream_order_tif),
@@ -403,13 +429,13 @@ def build_river_network_products(
 
     output_stream_link_tif: str | None = None
     if bool(river_network.compute_stream_links):
-        tool.stream_link_identifier(
+        tool.delineation.stream_link_identifier(
             str(d8_pointer_path),
             str(active_streams_full_tif),
             str(stream_link_full_tif),
             zero_background=True,
         )
-        tool.clip_raster_to_polygon(
+        tool.raster.clip_raster_to_polygon(
             str(stream_link_full_tif),
             str(watershed_shp),
             str(stream_link_tif),
@@ -417,34 +443,15 @@ def build_river_network_products(
         )
         output_stream_link_tif = str(stream_link_tif)
 
-    tool_any = tool
-    required_in_memory_methods = (
-        "read_raster",
-        "read_vector",
-        "write_vector",
-        "raster_streams_to_vector_raster",
-        "clip_vector",
-    )
-    missing_methods = [
-        method_name
-        for method_name in required_in_memory_methods
-        if not hasattr(tool_any, method_name)
-    ]
-    if missing_methods:
-        missing_list = ", ".join(missing_methods)
-        raise RuntimeError(
-            f"River network generation requires in-memory backend methods; missing: {missing_list}."
-        )
-
-    streams_raster_obj = tool_any.read_raster(str(active_streams_full_tif))
-    d8_pointer_obj = tool_any.read_raster(str(d8_pointer_path))
-    raw_vector_obj = tool_any.raster_streams_to_vector_raster(
+    streams_raster_obj = tool.raster.read_raster(str(active_streams_full_tif))
+    d8_pointer_obj = tool.raster.read_raster(str(d8_pointer_path))
+    raw_vector_obj = tool.delineation.raster_streams_to_vector_raster(
         streams_raster_obj,
         d8_pointer_obj,
         all_vertices=bool(river_network.all_vertices),
     )
-    watershed_vector_obj = tool_any.read_vector(str(watershed_shp))
-    clipped_vector_obj = tool_any.clip_vector(raw_vector_obj, watershed_vector_obj)
+    watershed_vector_obj = tool.raster.read_vector(str(watershed_shp))
+    clipped_vector_obj = tool.raster.clip_vector(raw_vector_obj, watershed_vector_obj)
     network_gdf = _build_network_gdf_from_whitebox_vector(
         vector_obj=clipped_vector_obj,
         network_crs=network_crs_value,
@@ -453,7 +460,7 @@ def build_river_network_products(
     if network_gdf.empty:
         _remove_vector_sidecars(network_shp)
     else:
-        tool_any.write_vector(clipped_vector_obj, str(network_shp))
+        tool.raster.write_vector(clipped_vector_obj, str(network_shp))
         output_network_shp = str(network_shp)
     river_mesh_trace = _build_river_mesh_trace_from_network_gdf(
         network_gdf=network_gdf,

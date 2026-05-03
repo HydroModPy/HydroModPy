@@ -275,7 +275,8 @@ class TestEngineCacheIntegration:
         assert session.history[0].from_cache is False
         assert session.history[1].from_cache is True
         assert session.history[2].from_cache is True
-        assert session.history[1].status == "cached"
+        assert session.history[1].status == "completed"
+        assert session.history[1].objective_value == 0.5
         # Cache is keyed by hash of the suggested values.
         assert params_hash({"x": 0.5}) in cache
 
@@ -302,7 +303,10 @@ class TestEngineCacheIntegration:
         )
         engine.run()
         key = params_hash({"x": 0.42})
-        assert cache.get(key) == "sim-abc"
+        hit = cache.get(key)
+        assert hit is not None
+        assert hit.sim_id == "sim-abc"
+        assert hit.objective_value == 0.1
 
     def test_no_cache_means_every_trial_runs(self):
         """When ``cache=None`` the engine never inspects or stores results."""
@@ -342,3 +346,24 @@ class TestEngineCacheIntegration:
         result = session.history[0]
         assert "params_hash" in result.metadata
         assert result.metadata["params_hash"] == params_hash({"x": 0.25})
+
+    def test_cache_context_scopes_params_hash_in_metadata(self):
+        space = _unit_space()
+        opt = _StubOptimizer([{"x": 0.25}])
+        cache = ParamsHashCache()
+        context = {"objective": "kge", "bounds": [0.0, 1.0]}
+
+        engine = CalibrationEngine(
+            space=space,
+            optimizer=opt,
+            evaluator=_simple_evaluator,
+            max_iter=5,
+            cache=cache,
+            cache_context=context,
+        )
+        session = engine.run()
+
+        key = params_hash({"x": 0.25}, context=context)
+        assert session.history[0].metadata["params_hash"] == key
+        assert key.startswith("v2:")
+        assert key in cache

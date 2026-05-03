@@ -2,8 +2,8 @@
   "schema_version": "regional_lab_plan_v2",
   "generated_at_utc": "<generated_at_utc>",
   "lab_id": "headwater_100km2_lab_backend_compare",
-  "config_path": "examples_legacy_2/projects/launcher_simulation/regional_lab/config_headwater_100km2_lab_backend_compare.toml",
-  "site_catalog_path": "examples_legacy_2/projects/launcher_simulation/regional_lab/site_catalog.csv",
+  "config_path": "docs/readthedocs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_backend_compare_recipe_summary.json",
+  "site_catalog_path": "docs/readthedocs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_backend_compare_recipe_summary.json",
   "output_root": "<regional_lab_output_root>",
   "selected_site_count": 5,
   "planned_case_count": 1,
@@ -35,9 +35,9 @@
       ],
       "enabled": true,
       "resolved_paths": {
-        "simulation_reference_config": "examples_legacy_2/projects/launcher_simulation/run_headwater_100km2_outlet_2_mf6_transient_reference.toml",
-        "backend_comparison_config": "examples_legacy_2/projects/launcher_simulation/run_method_comparison_headwater_100km2_outlet_2_backends.toml",
-        "transient_backend_comparison_config": "examples_legacy_2/projects/launcher_simulation/run_method_comparison_headwater_100km2_outlet_2_transient_pulsed_recharge_backends.toml"
+        "simulation_reference_config": "docs/readthedocs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_backend_compare_recipe_summary.json",
+        "backend_comparison_config": "docs/readthedocs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_backend_compare_recipe_summary.json",
+        "transient_backend_comparison_config": "docs/readthedocs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_backend_compare_recipe_summary.json"
       },
       "raw": {
         "site_id": "headwater_100km2_outlet_2",
@@ -365,7 +365,7 @@
       "recipe_id": "backend_compare",
       "recipe_label": "Backend comparison",
       "launcher": "method-comparison",
-      "config_path": "examples_legacy_2/projects/launcher_simulation/run_method_comparison_headwater_100km2_outlet_2_backends.toml"
+      "config_path": "docs/readthedocs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_backend_compare_recipe_summary.json"
     }
   ],
   "skipped_cases": [
@@ -419,5 +419,11 @@
       ],
       "config_path": null
     }
-  ]
+  ],
+  "source_paths": [
+    "docs/readthedocs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_backend_compare_recipe_summary.json"
+  ],
+  "source_hashes": {
+    "docs/readthedocs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_backend_compare_recipe_summary.json": "1589d5f2f7846e82660d5c8b1d3da9480e7c24fb826064042a7bee5f015d3449"
+  }
 }

@@ -6,14 +6,16 @@ tool that understands the UGRID-1.0 convention.
 
 from __future__ import annotations
 
-import logging
 from pathlib import Path
 
 import numpy as np
 import xarray as xr
-import zarr
 
-logger = logging.getLogger(__name__)
+from hydromodpy.core.logging import get_logger
+from hydromodpy.results import field_registry
+from hydromodpy.results.zarr_store import SimulationZarr
+
+logger = get_logger(__name__)
 
 
 def export_netcdf(
@@ -47,18 +49,25 @@ def export_netcdf(
     output_path = Path(output_path)
     output_path.parent.mkdir(parents=True, exist_ok=True)
 
-    root = zarr.open_group(str(zarr_path), mode="r")
-    grp = root
+    descriptors = {name: field_registry.get(name) for name in variables}
 
-    mesh = grp.get("mesh")
-    if mesh is None or "vertices" not in mesh or "face_node_connectivity" not in mesh:
-        raise KeyError(
-            f"UGRID mesh (vertices, face_node_connectivity) not found for sim={sim_id}. "
-            "NetCDF-UGRID export requires a full mesh. Use GeoTIFF or CSV export instead."
-        )
-    vertices = mesh["vertices"][:]
-    connectivity = mesh["face_node_connectivity"][:]
-    z_interfaces = mesh["z_interfaces"][:]
+    sz = SimulationZarr(zarr_path)
+    try:
+        grp = sz.root
+        crs_attrs = dict(grp["crs"].attrs) if "crs" in grp else {}
+
+        mesh = grp.get("mesh")
+        if mesh is None or "vertices" not in mesh or "face_node_connectivity" not in mesh:
+            raise KeyError(
+                f"UGRID mesh (vertices, face_node_connectivity) not found for sim={sim_id}. "
+                "NetCDF-UGRID export requires a full mesh. Use GeoTIFF or CSV export instead."
+            )
+        vertices = mesh["vertices"][:]
+        connectivity = mesh["face_node_connectivity"][:]
+        z_interfaces = mesh["z_interfaces"][:]
+        start_index = int(mesh.attrs.get("start_index", 0))
+    finally:
+        sz.close()
     n_nodes = vertices.shape[0]
     connectivity.shape[0]
     connectivity.shape[1]
@@ -91,11 +100,13 @@ def export_netcdf(
         dims=("n_face", "max_vertices_per_face"),
         attrs={
             "cf_role": "face_node_connectivity",
-            "start_index": int(mesh.attrs.get("start_index", 0)),
+            "start_index": start_index,
             "_FillValue": -1,
         },
     )
     ds["z_interfaces"] = xr.DataArray(z_interfaces, dims=("n_z_interface",))
+    if crs_attrs:
+        ds["crs"] = xr.DataArray(np.int32(0), attrs=crs_attrs)
 
     # Compute face centroids for spatial reference
     valid_mask = connectivity >= 0
@@ -104,37 +115,48 @@ def export_netcdf(
     ds["face_x"] = xr.DataArray(np.nanmean(cx, axis=1), dims=("n_face",))
     ds["face_y"] = xr.DataArray(np.nanmean(cy, axis=1), dims=("n_face",))
 
-    # Locate each requested variable in the Zarr hierarchy
-    for var_name in variables:
-        arr = _find_variable(grp, var_name)
-        if arr is None:
-            logger.warning("Variable '%s' not found in sim %s, skipping", var_name, sim_id)
-            continue
+    zarr_time: np.ndarray | None = None
+    zarr_time_attrs: dict[str, object] = {}
+    sz = SimulationZarr(zarr_path)
+    try:
+        grp = sz.root
+        if "time" in grp:
+            zarr_time = np.asarray(grp["time"][:])
+            zarr_time_attrs = dict(grp["time"].attrs)
+        # Locate each requested variable in the Zarr hierarchy
+        for var_name in variables:
+            descriptor = descriptors[var_name]
+            arr = _resolve_zarr_path(grp, descriptor.zarr_path)
+            if arr is None:
+                logger.warning(
+                    "Variable '%s' (zarr_path=%r) not present in sim %s, skipping",
+                    var_name,
+                    descriptor.zarr_path,
+                    sim_id,
+                )
+                continue
 
-        data = arr[:]
-        ts_idx = list(range(data.shape[0])) if timesteps is None else timesteps
-        data = data[ts_idx]
+            data = arr[:]
+            ts_idx = list(range(data.shape[0])) if timesteps is None else timesteps
+            data = data[ts_idx]
 
-        if data.ndim == 3:
-            # (timestep, layer, cell) → 3D field
-            ds[var_name] = xr.DataArray(
-                data,
-                dims=("time", "layer", "n_face"),
-                attrs={"mesh": "mesh2d", "location": "face"},
-            )
-        elif data.ndim == 2:
-            # (timestep, cell) → 2D field
-            ds[var_name] = xr.DataArray(
-                data,
-                dims=("time", "n_face"),
-                attrs={"mesh": "mesh2d", "location": "face"},
-            )
+            attrs = {**field_registry.cf_attrs(var_name), "mesh": "mesh2d", "location": "face"}
+            if data.ndim == 3:
+                ds[var_name] = xr.DataArray(data, dims=("time", "layer", "n_face"), attrs=attrs)
+            elif data.ndim == 2:
+                ds[var_name] = xr.DataArray(data, dims=("time", "n_face"), attrs=attrs)
+    finally:
+        sz.close()
 
     if "time" in ds.dims:
+        time_indices = list(range(ds.sizes["time"])) if timesteps is None else list(timesteps)
+        if zarr_time is None or max(time_indices, default=-1) >= len(zarr_time):
+            raise ValueError("NetCDF export requires a Zarr time coordinate.")
+        time_values = zarr_time[time_indices]
         ds["time"] = xr.DataArray(
-            np.arange(ds.sizes["time"]),
+            time_values,
             dims=("time",),
-            attrs={"units": "timestep index"},
+            attrs={"standard_name": "time", **zarr_time_attrs},
         )
     if "layer" in ds.dims:
         ds["layer"] = xr.DataArray(np.arange(ds.sizes["layer"]), dims=("layer",))
@@ -144,12 +166,16 @@ def export_netcdf(
     return output_path
 
 
-def _find_variable(grp, var_name: str):
-    """Search for a variable in the simulation group and its subgroups."""
-    if var_name in grp:
-        return grp[var_name]
-    for sub in ("derived", "budget"):
-        sg = grp.get(sub)
-        if sg is not None and var_name in sg:
-            return sg[var_name]
+def _resolve_zarr_path(grp, zarr_path: str):
+    """Resolve a registry zarr_path inside the simulation group, or None if absent."""
+    parts = zarr_path.split("/")
+    cursor = grp
+    for part in parts[:-1]:
+        sub = cursor.get(part)
+        if sub is None:
+            return None
+        cursor = sub
+    leaf = parts[-1]
+    if leaf in cursor:
+        return cursor[leaf]
     return None

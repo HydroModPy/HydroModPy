@@ -12,7 +12,7 @@ Case Setup
 ----------
 
 - Circular island with concentric piecewise-constant `K`, uniform recharge, `ocean` top BC
-- Available solver variants: MODFLOW-NWT, MODFLOW 6, MODFLOW 6 irregular triangles, Boussinesq.
+- Available solver variants: MODFLOW-NWT, MODFLOW 6, Boussinesq.
 
 What It Shows
 -------------
@@ -42,7 +42,7 @@ Solver Coverage
 ---------------
 
 - Default solver: MODFLOW-NWT
-- Available variants: MODFLOW-NWT, MODFLOW 6, MODFLOW 6 irregular triangles, Boussinesq
+- Available variants: MODFLOW-NWT, MODFLOW 6, Boussinesq
 
 .. tab-set::
 
@@ -91,29 +91,6 @@ Solver Coverage
       .. code-block:: bash
 
          python -m validation_cases.analytical.steady.boussinesq_circular_island_piecewise_k_2d.run_case --no-show --solver modflow6
-
-   .. tab-item:: MODFLOW 6 irregular triangles
-
-      .. figure:: /_static/capability_gallery/validation/boussinesq_circular_island_piecewise_k_2d__modflow6_irregular_tri.png
-         :alt: Boussinesq Circular-Island Piecewise-K 2D validation figure for MODFLOW 6 irregular triangles
-         :width: 100%
-
-         Boussinesq Circular-Island Piecewise-K 2D rendered with MODFLOW 6 irregular triangles for the analytical gallery.
-
-      **Metrics**
-      - Radial head-profile RMSE: 0.0502 m
-      - Radial head-profile max abs error: 0.1203 m
-      - Azimuthal spread: 0.1220 m
-      - Ocean head max abs error: 0.00e+00 m
-      - Minimum land freeboard: 0.9350 m
-
-      - Config file: ``validation_cases/analytical/steady/boussinesq_circular_island_piecewise_k_2d/config_modflow6_irregular_tri.toml``
-      - Tolerances: ``validation_cases/analytical/steady/boussinesq_circular_island_piecewise_k_2d/tolerances.toml``
-      - Expected shape: 61 x 61
-
-      .. code-block:: bash
-
-         python -m validation_cases.analytical.steady.boussinesq_circular_island_piecewise_k_2d.run_case --no-show --solver modflow6_irregular_tri
 
    .. tab-item:: Boussinesq
 
@@ -479,41 +456,6 @@ Solver-Specific Overrides
            - 1
            - ``validation_cases/analytical/steady/boussinesq_circular_island_piecewise_k_2d/config_modflow6.toml``
 
-   .. tab-item:: MODFLOW 6 irregular triangles
-
-      .. list-table::
-         :header-rows: 1
-         :widths: 26 42 20 12
-
-         * - Field
-           - Meaning
-           - Value
-           - Source
-         * - ``modflow6.runtime.mf_verbose``
-           - Solver-specific override applied to MODFLOW 6.
-           - false
-           - ``validation_cases/analytical/steady/boussinesq_circular_island_piecewise_k_2d/config_modflow6_irregular_tri.toml``
-         * - ``modflow6.runtime.mf6_ims_complexity``
-           - Linear-solver complexity preset used by MODFLOW 6.
-           - COMPLEX
-           - ``validation_cases/analytical/steady/boussinesq_circular_island_piecewise_k_2d/config_modflow6_irregular_tri.toml``
-         * - ``modflow6.process_specific.vka``
-           - Vertical anisotropy ratio passed to MODFLOW 6.
-           - 1
-           - ``validation_cases/analytical/steady/boussinesq_circular_island_piecewise_k_2d/config_modflow6_irregular_tri.toml``
-         * - ``modflow6.sgrid.vertical.nlay``
-           - Number of vertical layers used by MODFLOW 6.
-           - 1
-           - ``validation_cases/analytical/steady/boussinesq_circular_island_piecewise_k_2d/config_modflow6_irregular_tri.toml``
-         * - ``mesh_input.mesh_path``
-           - Committed unstructured mesh file used by the irregular-mesh solver variant.
-           - ../../../shared/mesh_bundles/boussinesq_circular_island_piecewise_k_irregular_tri_radial_48/mesh_2d.msh
-           - ``validation_cases/analytical/steady/boussinesq_circular_island_piecewise_k_2d/config_modflow6_irregular_tri.toml``
-         * - ``mesh_input.bundle_dir``
-           - Committed mesh-bundle directory used to recover support metadata for the irregular-mesh solver variant.
-           - ../../../shared/mesh_bundles/boussinesq_circular_island_piecewise_k_irregular_tri_radial_48
-           - ``validation_cases/analytical/steady/boussinesq_circular_island_piecewise_k_2d/config_modflow6_irregular_tri.toml``
-
    .. tab-item:: Boussinesq
 
       .. list-table::
@@ -624,41 +566,6 @@ Acceptance Criteria by Solver
            - 0.75
            - ``validation_cases/analytical/steady/boussinesq_circular_island_piecewise_k_2d/tolerances_modflow6.toml``
 
-   .. tab-item:: MODFLOW 6 irregular triangles
-
-      .. list-table::
-         :header-rows: 1
-         :widths: 26 42 20 12
-
-         * - Field
-           - Meaning
-           - Value
-           - Source
-         * - ``expected_output``
-           - Expected output shape or time-space layout checked for this solver.
-           - Expected shape: 61 x 61
-           - ``validation_cases/analytical/steady/boussinesq_circular_island_piecewise_k_2d/metadata.toml``
-         * - ``radial_profile.rmse``
-           - Maximum accepted root-mean-square error for radial profile.
-           - 0.35
-           - ``validation_cases/analytical/steady/boussinesq_circular_island_piecewise_k_2d/tolerances.toml``
-         * - ``radial_profile.max_abs_error``
-           - Maximum accepted absolute error for radial profile.
-           - 0.7
-           - ``validation_cases/analytical/steady/boussinesq_circular_island_piecewise_k_2d/tolerances.toml``
-         * - ``radial_profile.azimuthal_spread``
-           - Acceptance threshold for `radial_profile.azimuthal_spread`.
-           - 0.35
-           - ``validation_cases/analytical/steady/boussinesq_circular_island_piecewise_k_2d/tolerances.toml``
-         * - ``radial_profile.ocean_head_max_error``
-           - Acceptance threshold for `radial_profile.ocean_head_max_error`.
-           - 1e-06
-           - ``validation_cases/analytical/steady/boussinesq_circular_island_piecewise_k_2d/tolerances.toml``
-         * - ``radial_profile.min_land_clearance``
-           - Acceptance threshold for `radial_profile.min_land_clearance`.
-           - 0.1
-           - ``validation_cases/analytical/steady/boussinesq_circular_island_piecewise_k_2d/tolerances.toml``
-
    .. tab-item:: Boussinesq
 
       .. list-table::
@@ -710,7 +617,6 @@ Source Pointers
 - ``validation_cases/analytical/steady/boussinesq_circular_island_piecewise_k_2d/tolerances_boussinesq.toml``
 - ``validation_cases/analytical/steady/boussinesq_circular_island_piecewise_k_2d/tolerances_modflow6.toml``
 - ``validation_cases/analytical/steady/boussinesq_circular_island_piecewise_k_2d/config_modflow6.toml``
-- ``validation_cases/analytical/steady/boussinesq_circular_island_piecewise_k_2d/config_modflow6_irregular_tri.toml``
 - ``validation_cases/analytical/steady/boussinesq_circular_island_piecewise_k_2d/config_boussinesq.toml``
 - ``validation_cases/analytical/steady/boussinesq_piecewise.py``
 
@@ -719,6 +625,5 @@ Artifacts
 
 - ``docs/readthedocs/source/_static/capability_gallery/validation/boussinesq_circular_island_piecewise_k_2d__modflownwt.png``
 - ``docs/readthedocs/source/_static/capability_gallery/validation/boussinesq_circular_island_piecewise_k_2d__modflow6.png``
-- ``docs/readthedocs/source/_static/capability_gallery/validation/boussinesq_circular_island_piecewise_k_2d__modflow6_irregular_tri.png``
 - ``docs/readthedocs/source/_static/capability_gallery/validation/boussinesq_circular_island_piecewise_k_2d__boussinesq.png``
 - ``docs/readthedocs/source/_static/capability_gallery/validation/boussinesq_circular_island_piecewise_k_2d_summary.json`` stores the displayed metrics plus source hashes used by ``python -m tools.doc_gallery --check``.

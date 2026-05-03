@@ -38,13 +38,15 @@ from hydromodpy.calibration.objective import (
 def _cfg_one_block() -> CalibrationConfig:
     return CalibrationConfig.model_validate(
         {
-            "method": "optuna",
+            "method": "grid",
             "objective": "rmse",
             "variable": "head",
             "outputs": {
                 "head_A": {
                     "variable": "head",
                     "support": "cell",
+                    "row": 0,
+                    "col": 0,
                     "observed_values": [1.0, 2.0, 3.0],
                 }
             },
@@ -68,6 +70,8 @@ def _cfg_two_blocks_weighted() -> CalibrationConfig:
                 "head_A": {
                     "variable": "head",
                     "support": "cell",
+                    "row": 0,
+                    "col": 0,
                     "observed_values": [1.0, 2.0, 3.0],
                 },
                 "outlet": {
@@ -131,6 +135,8 @@ class TestSingleBlock:
                     "head_A": {
                         "variable": "head",
                         "support": "cell",
+                        "row": 0,
+                        "col": 0,
                         "observed_values": [1.0, 2.0, 3.0],
                     }
                 },
@@ -185,6 +191,8 @@ class TestNormalizeCost:
                     "head_A": {
                         "variable": "head",
                         "support": "cell",
+                        "row": 0,
+                        "col": 0,
                         "observed_values": [1.0, 2.0, 3.0],
                     }
                 },
@@ -208,13 +216,15 @@ class TestNormalizeCost:
 
 
 class TestTransform:
-    def test_inverse_transform_flips_zero_cost_into_infinity(self):
+    def test_inverse_transform_keeps_minimization_order(self):
         cfg = CalibrationConfig.model_validate(
             {
                 "outputs": {
                     "head_A": {
                         "variable": "head",
                         "support": "cell",
+                        "row": 0,
+                        "col": 0,
                         "observed_values": [1.0, 2.0, 3.0],
                     }
                 },
@@ -229,9 +239,9 @@ class TestTransform:
             }
         )
         obj = build_objective_from_config(cfg)
-        # Perfect match → cost 0 → 1/(0 + eps) = 1/eps = large positive
-        result = obj.evaluate({"head_A": [1.0, 2.0, 3.0]})
-        assert result.total > 1e5
+        perfect = obj.evaluate({"head_A": [1.0, 2.0, 3.0]})
+        worse = obj.evaluate({"head_A": [2.0, 3.0, 4.0]})
+        assert perfect.total < worse.total
 
     def test_identity_transform_is_passthrough(self):
         cfg = CalibrationConfig.model_validate(
@@ -240,6 +250,8 @@ class TestTransform:
                     "head_A": {
                         "variable": "head",
                         "support": "cell",
+                        "row": 0,
+                        "col": 0,
                         "observed_values": [1.0, 2.0, 3.0],
                     }
                 },
@@ -268,7 +280,7 @@ class TestErrors:
         cfg = CalibrationConfig.model_validate(
             {
                 "outputs": {
-                    "head_A": {"variable": "head", "support": "cell"},
+                    "head_A": {"variable": "head", "support": "cell", "row": 0, "col": 0},
                 },
                 "objective_blocks": [
                     {"name": "b", "uses_outputs": ["head_A"]},
@@ -282,3 +294,8 @@ class TestErrors:
         obj = build_objective_from_config(_cfg_one_block())
         result = obj.evaluate({"other_output": [1.0, 2.0, 3.0]})
         assert math.isinf(result.total)
+
+    def test_mismatched_simulated_length_raises(self):
+        obj = build_objective_from_config(_cfg_one_block())
+        with pytest.raises(ValueError, match="simulated length 2 does not match observed length 3"):
+            obj.evaluate({"head_A": [1.0, 2.0]})

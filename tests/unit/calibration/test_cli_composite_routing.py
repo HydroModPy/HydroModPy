@@ -9,12 +9,11 @@ verify that:
   would pass yields a callable that returns the composite components when
   fed simulated values directly via the underlying objective.
 - Calling :func:`build_metric_extractor` with ``cfg.outputs is None``
-  (typical for the bare-minimum TOML) returns the legacy extractor.
+  (typical for the bare-minimum TOML) returns the single-metric extractor.
 """
 
 from __future__ import annotations
 
-import math
 from types import SimpleNamespace
 
 import pytest
@@ -36,13 +35,15 @@ class TestCliWiring:
     def test_cli_args_engage_composite_when_blocks_declared(self):
         cfg = CalibrationConfig.model_validate(
             {
-                "method": "optuna",
+                "method": "grid",
                 "variable": "head",
                 "objective": "rmse",
                 "outputs": {
                     "head_A": {
                         "variable": "head",
                         "support": "cell",
+                        "row": 0,
+                        "col": 0,
                         "observed_values": [1.0, 2.0, 3.0],
                     }
                 },
@@ -63,13 +64,8 @@ class TestCliWiring:
             outputs=cfg.outputs or None,
             objective_blocks=cfg.objective_blocks or None,
         )
-        # Engaging the composite path should never fall back to the
-        # legacy single-metric extractor that warns about missing
-        # observations (the legacy fallback would still return nan but
-        # would not have access to observed_values declared on outputs).
-        primary, components = metric_fn(ctx)
-        assert isinstance(primary, float)
-        assert isinstance(components, dict)
+        with pytest.raises(RuntimeError, match="Output 'head_A' extraction failed"):
+            metric_fn(ctx)
 
     def test_composite_evaluates_when_simulated_provided(self):
         """End-to-end check: feed simulated values directly into the
@@ -82,6 +78,8 @@ class TestCliWiring:
                     "head_A": {
                         "variable": "head",
                         "support": "cell",
+                        "row": 0,
+                        "col": 0,
                         "observed_values": [10.0, 20.0, 30.0],
                     }
                 },
@@ -94,7 +92,7 @@ class TestCliWiring:
 
     def test_cli_args_keep_legacy_when_no_blocks(self):
         cfg = CalibrationConfig.model_validate(
-            {"method": "optuna", "variable": "head", "objective": "rmse"}
+            {"method": "grid", "variable": "head", "objective": "rmse"}
         )
         ctx = _empty_ctx()
         metric_fn = build_metric_extractor(
@@ -104,6 +102,5 @@ class TestCliWiring:
             outputs=cfg.outputs or None,
             objective_blocks=cfg.objective_blocks or None,
         )
-        primary, components = metric_fn(ctx, objective="rmse", variable="head")
-        assert math.isnan(primary)
-        assert components == {}
+        with pytest.raises(NotImplementedError, match="No flow solver adapter"):
+            metric_fn(ctx, objective="rmse", variable="head")

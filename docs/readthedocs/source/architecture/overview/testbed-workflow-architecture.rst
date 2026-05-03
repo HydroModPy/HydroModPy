@@ -39,7 +39,7 @@ The implementation is intentionally narrow:
    * - ``hydromodpy.analysis.testbed.runtime``
      - Load the base TOML, materialize generated child TOMLs, delegate child
        execution, extract metrics, and persist evidence files.
-   * - ``hydromodpy._cli.workflows``
+   * - ``hydromodpy.workflow.dispatch``
      - Expose ``run_testbed`` as the CLI adapter.
    * - Child runner packages
      - Keep ownership of mesh generation, simulation execution, solver
@@ -132,31 +132,6 @@ mass-balance percent error in the extracted catalog metrics. The observed
 ``head_range_m`` decreased from the low-K case to the high-K case, which is
 the expected direction for this controlled hydraulic-conductivity sensitivity
 test.
-
-.. list-table::
-   :header-rows: 1
-   :widths: 18 18 18 22 24
-
-   * - Variant
-     - ``param_K``
-     - ``n_cells``
-     - ``head_range_m``
-     - ``budget_chd_total_out``
-   * - ``low_k``
-     - ``5e-06``
-     - ``547``
-     - ``61.95``
-     - ``0.05158187``
-   * - ``reference_k``
-     - ``1e-05``
-     - ``547``
-     - ``47.55``
-     - ``0.05158152``
-   * - ``high_k``
-     - ``2e-05``
-     - ``547``
-     - ``40.91``
-     - ``0.05158121``
 
 Extension Point
 ---------------

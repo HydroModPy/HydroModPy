@@ -16,6 +16,15 @@ def test_validate_field_valid_enum() -> None:
     assert result.path == "flow.flow_regime"
 
 
+def test_validate_field_rejects_noncanonical_flow_regime() -> None:
+    from hydromodpy.schema import validate_field
+
+    result = validate_field("flow.flow_regime", "permanent")
+    assert result.valid is False
+    assert result.error is not None
+    assert "steady" in result.error or "transient" in result.error
+
+
 def test_validate_field_invalid_enum() -> None:
     from hydromodpy.schema import validate_field
 
@@ -31,6 +40,7 @@ def test_validate_field_unknown_path() -> None:
     result = validate_field("flow.does_not_exist", 42)
     assert result.valid is False
     assert result.error is not None
+    assert "does_not_exist" in result.error or "unknown" in result.error.lower()
 
 
 def test_validate_field_empty_path() -> None:
@@ -91,7 +101,7 @@ def test_validate_field_nested_path() -> None:
     # (it is nested under flow_physical_properties via another module),
     # so a path like 'flow.flow_regime' stays the stable smoke test.
     # This case walks a nested BaseModel one level deep.
-    from hydromodpy.core.config.hydromodpy_config import HydroModPyConfig
+    from hydromodpy.master_config.hydromodpy_config import HydroModPyConfig
     from hydromodpy.schema import validate_field
 
     # Pick any nested BaseModel child to confirm traversal works.
@@ -105,4 +115,4 @@ def test_validate_field_nested_path() -> None:
                 # can traverse without crashing.
                 validate_field(path, None)
                 return
-    pytest.skip("no nested BaseModel under HydroModPyConfig")
+    pytest.fail("HydroModPyConfig exposes no nested BaseModel field to validate")

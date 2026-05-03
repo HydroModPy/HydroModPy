@@ -19,11 +19,11 @@ import pytest
 
 
 def _load_helpers():
-    return importlib.import_module("hydromodpy._cli.helpers")
+    return importlib.import_module("hydromodpy.cli.helpers")
 
 
 def _load_main_module():
-    return importlib.import_module("hydromodpy._cli.main")
+    return importlib.import_module("hydromodpy.cli.main")
 
 
 def _run(monkeypatch, argv: list[str]) -> int:

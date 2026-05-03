@@ -7,7 +7,7 @@ import importlib
 import json
 import os
 import time
-from collections.abc import Iterable, Iterator
+from collections.abc import Iterator
 from contextlib import contextmanager
 from pathlib import Path
 from typing import Any
@@ -28,32 +28,17 @@ DEFAULT_REPORT_PATH = (
     / "manifests"
     / "xt3d_irregular_tri_method_choice_report.json"
 )
-DISABLE_XT3D_SITECUSTOMIZE_DIR = (
-    REPO_ROOT / "tools" / "doc_gallery" / "disable_xt3d_sitecustomize"
-)
+DISABLE_XT3D_SITECUSTOMIZE_DIR = REPO_ROOT / "tools" / "doc_gallery" / "disable_xt3d_sitecustomize"
 
 
-def _selected_records(
-    *,
-    case_slugs: Iterable[str] | None = None,
-) -> tuple[ValidationCaseRecord, ...]:
-    requested_slugs = None if case_slugs is None else {str(slug) for slug in case_slugs}
+def _selected_records() -> tuple[ValidationCaseRecord, ...]:
     records = build_validation_case_records(repo_root=REPO_ROOT)
     selected = [
         record
         for record in records
         if record.regime == "steady"
         and "modflow6_irregular_tri" in tuple(record.metadata.get("solver_variants", ()))
-        and (requested_slugs is None or record.slug in requested_slugs)
     ]
-    if requested_slugs is not None:
-        found_slugs = {record.slug for record in selected}
-        missing_slugs = sorted(requested_slugs - found_slugs)
-        if missing_slugs:
-            raise ValueError(
-                "Unknown or unsupported steady modflow6_irregular_tri validation cases: "
-                + ", ".join(missing_slugs)
-            )
     return tuple(sorted(selected, key=lambda item: item.slug))
 
 
@@ -82,23 +67,18 @@ def _patched_pythonpath(extra_path: Path | None) -> Iterator[None]:
             os.environ["PYTHONPATH"] = previous
 
 
-def collect_irregular_tri_metrics(
-    *,
-    force_xt3d_disabled: bool,
-    case_slugs: Iterable[str] | None = None,
-    timeout: int = 1800,
-) -> dict[str, Any]:
+def collect_irregular_tri_metrics(*, force_xt3d_disabled: bool) -> dict[str, Any]:
     rows: list[dict[str, Any]] = []
     extra_path = DISABLE_XT3D_SITECUSTOMIZE_DIR if force_xt3d_disabled else None
 
     with _patched_pythonpath(extra_path):
-        for record in _selected_records(case_slugs=case_slugs):
+        for record in _selected_records():
             runner = _comparison_runner(record)
             started = time.perf_counter()
             comparison = runner(
                 caller_file=__file__,
                 solver="modflow6_irregular_tri",
-                timeout=timeout,
+                timeout=1800,
             )
             duration_seconds = time.perf_counter() - started
             rows.append(
@@ -122,21 +102,9 @@ def collect_irregular_tri_metrics(
     }
 
 
-def build_xt3d_method_choice_payload(
-    *,
-    case_slugs: Iterable[str] | None = None,
-    timeout: int = 1800,
-) -> dict[str, Any]:
-    baseline = collect_irregular_tri_metrics(
-        force_xt3d_disabled=True,
-        case_slugs=case_slugs,
-        timeout=timeout,
-    )
-    current = collect_irregular_tri_metrics(
-        force_xt3d_disabled=False,
-        case_slugs=case_slugs,
-        timeout=timeout,
-    )
+def build_xt3d_method_choice_payload() -> dict[str, Any]:
+    baseline = collect_irregular_tri_metrics(force_xt3d_disabled=True)
+    current = collect_irregular_tri_metrics(force_xt3d_disabled=False)
     current_by_slug = {item["slug"]: item for item in current["cases"]}
 
     rows: list[dict[str, Any]] = []
@@ -259,16 +227,9 @@ def rounded_xt3d_method_choice_payload(payload: dict[str, Any]) -> dict[str, Any
     }
 
 
-def write_xt3d_method_choice_report(
-    output_path: Path | None = None,
-    *,
-    case_slugs: Iterable[str] | None = None,
-    timeout: int = 1800,
-) -> Path:
+def write_xt3d_method_choice_report(output_path: Path | None = None) -> Path:
     resolved_path = DEFAULT_REPORT_PATH if output_path is None else Path(output_path).resolve()
-    payload = rounded_xt3d_method_choice_payload(
-        build_xt3d_method_choice_payload(case_slugs=case_slugs, timeout=timeout)
-    )
+    payload = rounded_xt3d_method_choice_payload(build_xt3d_method_choice_payload())
     resolved_path.parent.mkdir(parents=True, exist_ok=True)
     resolved_path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
     return resolved_path

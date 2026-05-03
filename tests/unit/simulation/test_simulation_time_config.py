@@ -29,6 +29,26 @@ def test_simulation_time_window_parses_from_mapping() -> None:
     assert cfg.time.coverage_policy == "warn"
 
 
+def test_simulation_catalog_metadata_parses_from_mapping() -> None:
+    cfg = SimulationConfig.model_validate(
+        {
+            "name": "metadata",
+            "description": "test",
+            "scientific_objective": "calibration",
+            "contact_email": "user@example.org",
+            "doi": "10.5281/zenodo.0",
+            "study_area_name": "Nancon",
+            "outlet_x": 350000.0,
+            "outlet_y": 6780000.0,
+            "process": [],
+        }
+    )
+
+    assert cfg.scientific_objective == "calibration"
+    assert cfg.outlet_x == 350000.0
+    assert cfg.outlet_y == 6780000.0
+
+
 def test_simulation_time_window_parses_inline_step_value_unit() -> None:
     cfg = SimulationConfig.model_validate(
         {
@@ -121,3 +141,15 @@ def test_simulation_time_window_rejects_conflicting_inline_and_explicit_units() 
                 "process": [],
             }
         )
+
+
+def test_simulation_transient_helper_builds_flow_transport_processes() -> None:
+    cfg = SimulationConfig.transient(
+        time=("2020-01-01", "2020-01-02", "1 day"),
+        flow="modflownwt",
+        transport="mt3dms",
+    )
+
+    assert [process.id for process in cfg.process] == ["flow_main", "transport_main"]
+    assert [process.type for process in cfg.process] == ["flow", "transport"]
+    assert cfg.process[1].solvers == ["mt3dms"]

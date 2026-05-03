@@ -8,10 +8,6 @@ from hydromodpy.display._map_axes import overlay_watershed_contour, style_map_ax
 from hydromodpy.display.catalog import register
 from hydromodpy.display.figure import BaseFigure, FigureSpec
 from hydromodpy.display.geo import GeoFigureMixin
-from hydromodpy.spatial.geographic.core.hydrographic_network import (
-    measure_linework_length_m,
-    project_gdf_for_metric_operations,
-)
 
 if TYPE_CHECKING:
     from matplotlib.axes import Axes
@@ -37,7 +33,7 @@ class _HydrographicNetworkRoleFigure(GeoFigureMixin, BaseFigure):
 
         watershed = _read_watershed(sim)
         fallback_crs = None if watershed is None else watershed.crs
-        gdf = project_gdf_for_metric_operations(raw_gdf, fallback_crs=fallback_crs)
+        gdf = _project_gdf_for_metric_operations(raw_gdf, fallback_crs=fallback_crs)
         if watershed is not None and gdf.crs is not None and watershed.crs is not None:
             if str(watershed.crs) != str(gdf.crs):
                 watershed = watershed.to_crs(gdf.crs)
@@ -80,7 +76,7 @@ class _HydrographicNetworkRoleFigure(GeoFigureMixin, BaseFigure):
                 [
                     self.subtitle,
                     f"segments: {int(len(gdf.index))}",
-                    f"length: {_fmt_km(measure_linework_length_m(gdf))}",
+                    f"length: {_fmt_km(_measure_linework_length_m(gdf))}",
                 ]
             ),
             transform=ax.transAxes,
@@ -139,6 +135,50 @@ def _read_watershed(sim: Run):
     if gdf is None or gdf.empty:
         return None
     return gdf
+
+
+def _project_gdf_for_metric_operations(gdf, *, fallback_crs: str | object | None = None):
+    if gdf is None or gdf.empty:
+        return gdf
+
+    out = gdf.copy()
+    source_crs = _coerce_crs(out.crs)
+    fallback = _coerce_crs(fallback_crs)
+    if source_crs is None and fallback is not None:
+        out = out.set_crs(fallback, allow_override=True)
+        source_crs = fallback
+
+    if source_crs is None or getattr(source_crs, "is_projected", False):
+        return out
+
+    target = None
+    try:
+        target = out.estimate_utm_crs()
+    except Exception:
+        target = None
+    if target is None and fallback is not None and getattr(fallback, "is_projected", False):
+        target = fallback
+    return out if target is None else out.to_crs(target)
+
+
+def _measure_linework_length_m(gdf) -> float:
+    import numpy as np
+
+    if gdf is None or gdf.empty:
+        return 0.0
+    metric_gdf = _project_gdf_for_metric_operations(gdf)
+    return float(np.sum(np.asarray(metric_gdf.length, dtype=float)))
+
+
+def _coerce_crs(crs_like) -> object | None:
+    if crs_like in (None, ""):
+        return None
+    try:
+        from pyproj import CRS
+
+        return CRS.from_user_input(crs_like)
+    except Exception:
+        return None
 
 
 def _fmt_km(length_m: float | None) -> str:

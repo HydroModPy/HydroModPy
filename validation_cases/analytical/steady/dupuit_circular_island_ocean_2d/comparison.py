@@ -150,7 +150,7 @@ def build_dupuit_circular_island_ocean_comparison(
     output_cfg = dict(case_metadata.get("output", {}))
     reference_cfg = dict(case_metadata.get("reference", {}))
     observable_name = str(output_cfg.get("observable_name", "watertable_elevation"))
-    expected_shape = tuple(output_cfg.get("expected_shape", ())) or None
+    expected_shape = tuple(output_cfg.get("expected_shape", ()))
     timestep, heads = load_last_npy_array_on_expected_grid(
         postprocess_dir=result.postprocess_dir,
         observable_name=observable_name,

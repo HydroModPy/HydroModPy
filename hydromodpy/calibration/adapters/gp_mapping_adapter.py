@@ -1,8 +1,5 @@
 """Gaussian-process surrogate adapter with Expected Improvement acquisition.
 
-Ported from the legacy ``gp_mapping`` calibration method (see
-``old/hydromodpy/analysis/calibration/core/methods/gp_mapping.py``).
-
 The adapter works in the transformed parameter space exposed by
 :class:`~hydromodpy.calibration.parameters.ParameterSpace`. An initial
 Latin-hypercube design is sampled and evaluated; subsequent iterations
@@ -21,6 +18,7 @@ from collections.abc import Sequence
 
 import numpy as np
 
+from hydromodpy.calibration.adapters._prior_sampling import transformed_prior_samples
 from hydromodpy.calibration.optimizer import (
     EvaluationResult,
     ParamSuggestion,
@@ -44,15 +42,6 @@ except ImportError:  # pragma: no cover - tested via sklearn availability guard
     RBF = None
     _scipy_minimize = None
     _scipy_norm = None
-
-
-def _lhs_unit(n: int, d: int, rng: np.random.Generator) -> np.ndarray:
-    """Return ``n`` Latin-hypercube samples in the unit hypercube ``[0, 1)^d``."""
-    u = np.empty((n, d), dtype=float)
-    for j in range(d):
-        perm = rng.permutation(n)
-        u[:, j] = (perm + rng.random(n)) / float(n)
-    return u
 
 
 def _expected_improvement(
@@ -100,49 +89,27 @@ class GPMappingOptimizer:
     n_restarts
         Number of restarts for the EI maximiser (``scipy.optimize.minimize``).
     n_refine
-        Legacy hyperparameter. Number of refinement rounds beyond the
-        initial Latin-hypercube design. When provided, the effective budget
+        Number of refinement rounds beyond the initial Latin-hypercube
+        design. When provided, the effective budget
         becomes ``max(max_iter, n_init + n_refine * batch_size)`` so callers
-        used to the legacy semantics get the requested refinement passes.
+        get the requested refinement passes.
     batch_size
-        Legacy hyperparameter. Number of EI candidates returned per
-        refinement round. Default ``1``. When ``> 1`` the adapter caches
+        Number of EI candidates returned per refinement round. Default
+        ``1``. When ``> 1`` the adapter caches
         ``batch_size`` distinct EI maximisers (top-``batch_size`` of the
         random multi-start pool) and serves them sequentially before fitting
         the GP again.
-    n_candidates
-        Legacy hyperparameter. Number of random multi-starts used when
-        maximising EI. Maps to ``n_restarts`` (the larger of the two wins
-        so explicit values keep their meaning).
     kappa
-        Legacy hyperparameter. UCB-style exploration constant. When
-        non-zero the acquisition switches from Expected Improvement to
-        Lower Confidence Bound ``mu - kappa * sigma`` (minimisation).
-        Default ``0.0`` keeps the EI behaviour.
+        UCB-style exploration constant. When non-zero the acquisition
+        switches from Expected Improvement to Lower Confidence Bound
+        ``mu - kappa * sigma`` (minimisation). Default ``0.0`` keeps the
+        EI behaviour.
     alpha
-        Legacy hyperparameter. Noise floor of the GP regressor (passed
-        directly to :class:`sklearn.gaussian_process.GaussianProcessRegressor`).
-        Default ``1e-6`` matches the previous hard-coded value.
+        Noise floor of the GP regressor (passed directly to
+        :class:`sklearn.gaussian_process.GaussianProcessRegressor`).
     jitter
-        Legacy hyperparameter. Additive Cholesky jitter. The effective GP
-        nugget is ``alpha + jitter``. Default ``0.0``.
-    log_transform
-        Legacy hyperparameter. Hint that parameters should be searched in
-        log space. The new ``ParameterSpace`` exposes per-parameter
-        transforms (``Calibrable(transform="log")``); this flag is accepted
-        for back-compat. When ``True`` and **no** parameter declares a
-        non-identity transform, a ``RuntimeWarning`` is emitted because the
-        adapter cannot retroactively apply log-scaling without re-resolving
-        the parameter space. Set transforms on the parameters themselves
-        for the actual scaling.
-    n_posterior_pool, n_posterior_samples
-        Legacy hyperparameters. Sizes used by the legacy ``gp_mapping``
-        post-processing step that drew posterior samples from the fitted
-        GP for ``model_distribution`` exports. The adapter records these
-        on the instance (``self._n_posterior_pool``,
-        ``self._n_posterior_samples``) so downstream consumers (the
-        calibration distribution writer) can read them, but they do not
-        steer the EI search. Accepted as no-op for the optimiser proper.
+        Additive Cholesky jitter. The effective GP nugget is
+        ``alpha + jitter``.
     """
 
     name = "gp_mapping"
@@ -160,13 +127,9 @@ class GPMappingOptimizer:
         n_restarts: int = 5,
         n_refine: int | None = None,
         batch_size: int = 1,
-        n_candidates: int | None = None,
         kappa: float = 0.0,
         alpha: float = 1e-6,
         jitter: float = 0.0,
-        log_transform: bool = False,
-        n_posterior_pool: int = 0,
-        n_posterior_samples: int = 0,
     ):
         if not _SKLEARN_AVAILABLE:
             raise ImportError(
@@ -186,30 +149,11 @@ class GPMappingOptimizer:
         self._ei_tol = float(ei_tol)
         self._ei_patience = max(1, int(ei_patience))
         self._xi = float(xi)
-        # ``n_candidates`` is the legacy synonym for ``n_restarts``; honour
-        # whichever is larger so explicit user intent is never silently
-        # downgraded.
-        n_restarts_eff = int(n_restarts)
-        if n_candidates is not None:
-            n_restarts_eff = max(n_restarts_eff, int(n_candidates))
-        self._n_restarts = max(1, n_restarts_eff)
+        self._n_restarts = max(1, int(n_restarts))
         self._kappa = float(kappa)
         self._alpha = float(alpha)
         self._jitter = float(jitter)
         self._alpha_eff = float(alpha) + max(0.0, float(jitter))
-        self._n_posterior_pool = max(0, int(n_posterior_pool))
-        self._n_posterior_samples = max(0, int(n_posterior_samples))
-        if log_transform and not any(
-            getattr(p, "transform", "identity") != "identity" for p in space.parameters
-        ):
-            warnings.warn(
-                "gp_mapping received log_transform=True but no parameter in the "
-                "space declares a non-identity transform; set transform='log' on "
-                "the relevant CalibParameter entries instead.",
-                RuntimeWarning,
-                stacklevel=2,
-            )
-        self._log_transform_hint = bool(log_transform)
         # Cached batch of EI candidates served sequentially when batch_size > 1.
         self._batch_queue: list[np.ndarray] = []
 
@@ -219,13 +163,8 @@ class GPMappingOptimizer:
             [(p.lower_transformed, p.upper_transformed) for p in space.parameters],
             dtype=float,
         )
-        # Pre-sample the initial Latin-hypercube design.
-        u = _lhs_unit(self._n_init, self._dim, self._rng)
-        lower = self._bounds_t[:, 0]
-        upper = self._bounds_t[:, 1]
-        self._initial_points: list[np.ndarray] = [
-            (lower + u[i] * (upper - lower)) for i in range(self._n_init)
-        ]
+        initial_design = transformed_prior_samples(space, self._rng, self._n_init)
+        self._initial_points = [initial_design[i] for i in range(self._n_init)]
 
         self._trial_id = 0
         self._pending: dict[int, np.ndarray] = {}  # trial_id -> transformed x
@@ -307,7 +246,7 @@ class GPMappingOptimizer:
             return self._initial_points[n_served]
 
         # Serve a queued candidate from the previously fitted batch before
-        # retraining the GP - this preserves the legacy "batch_size" semantics.
+        # retraining the GP.
         if self._batch_queue:
             return self._batch_queue.pop(0)
 
@@ -339,8 +278,7 @@ class GPMappingOptimizer:
         x_train: np.ndarray,
         y_train: np.ndarray,
     ) -> GaussianProcessRegressor | None:
-        # RBF matches the legacy gp_mapping kernel (nu=infinity analogue of
-        # Matern), which the Brutsaert golden was generated against.
+        # RBF provides a smooth stationary surrogate for the transformed space.
         kernel = ConstantKernel(1.0, (1e-3, 1e3)) * RBF(
             length_scale=np.ones(self._dim, dtype=float),
             length_scale_bounds=(1e-3, 1e3),

@@ -86,8 +86,6 @@ them inside one ``pip install`` command, for example
        extensions used to build this documentation.
    * - ``[ide]``
      - ``ipykernel``, ``jupyterlab``, Spyder, and PySide6.
-   * - ``[ugrid]``
-     - ``xugrid`` for unstructured mesh handling.
    * - ``[viewer3d]``
      - ``pyvista`` for 3D mesh visualization.
 
@@ -129,18 +127,15 @@ that matches your workflow.
          conda env create -n <env> -f install/env_hydromodpy.yml
          conda activate <env>
 
-      When running scripts or notebooks inside this repository, append the
-      project root to ``sys.path`` so the runtime-only environment sees the
-      package:
+      When running scripts or notebooks from a cloned repository, install the
+      package into the active environment instead of mutating ``sys.path``:
 
-      .. code-block:: python
+      .. code-block:: bash
 
-         # ROOT DIRECTORY
-         import sys
-         sys.path.append(r"/absolute/path/to/your/HydroModPy")
+         python -m pip install -e /absolute/path/to/your/HydroModPy
 
-      Pip-based installs expose ``hydromodpy`` globally, so the snippet is not
-      required outside this workflow.
+      Wheel-based installs expose ``hydromodpy`` globally and do not need
+      any repository path at runtime.
 
    .. tab-item:: Conda (Editable stack)
 
@@ -342,11 +337,11 @@ Check the installation
 .. code-block:: python
 
    import hydromodpy
-   from hydromodpy.core.config import HydroModPyConfig
+   from hydromodpy.master_config import HydroModPyConfig
    from hydromodpy.spatial.geographic import CatchmentDelineation
    # Examples of submodule imports
    from hydromodpy.display import get, list_figures
-   from hydromodpy.core.tools.display import plot_params
+   from hydromodpy.display.theme import plot_params
 
    font_sizes = plot_params(8, 15, 18, 20)  # small, medium, intermediate, large
    print([spec.name for spec in list_figures()[:3]])

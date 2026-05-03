@@ -46,23 +46,14 @@ First visit
 Use :doc:`getting_started/index` when you want the shortest first-run path.
 Use :doc:`user_guide/index` when you need operational concepts such as usage
 modes, workflow families, workspace layout, comparison, calibration, meshes, or
-solver choice. Use :doc:`user_guide/data/index` when your main question is how
-HydroModPy retrieves public data, ingests local inputs, caches artifacts, and
-locks data for reproducible runs. Use :doc:`examples` when you already know
-that you want the full notebook and script inventory. Use
-:doc:`capability_gallery/index` when you want stable, curated result pages
-before running anything locally.
+solver choice. Use :doc:`examples` when you already know that you want the full
+notebook and script inventory. Use :doc:`capability_gallery/index` when you
+want stable, curated result pages before running anything locally.
 
 If you are looking for technical documentation, code-reading guides, module
 diagrams, or UML pages, use :doc:`architecture/index`. If you are looking for
 equations, modelling assumptions, or method notes, use
 :doc:`scientific/index`.
-
-If you are specifically looking for streams, seepage, observed hydrography, or
-simulation-derived active networks, use the map
-:doc:`scientific/hydrology/streams-and-seepage`. It points to the scientific
-semantics, the computed ``simulated_active`` views, comparison outputs,
-developer diagrams, and example figures from one place.
 
 If you specifically want the quality ladder used in the repository, including
 the usual commands for unit, integration, regression, validation, PETSc, and
@@ -106,16 +97,6 @@ Documentation map
 
    .. grid-item-card::
       :class-card: sd-shadow-sm sd-rounded-3 sd-p-4
-      :link: user_guide/data/index
-      :link-type: doc
-
-      **Data loading**
-      ^^^
-      Public provider retrieval, custom inputs, cache inspection, lockfiles,
-      and frozen reproducibility workflows.
-
-   .. grid-item-card::
-      :class-card: sd-shadow-sm sd-rounded-3 sd-p-4
       :link: examples
       :link-type: doc
 
@@ -146,16 +127,6 @@ Documentation map
 
    .. grid-item-card::
       :class-card: sd-shadow-sm sd-rounded-3 sd-p-4
-      :link: scientific/hydrology/streams-and-seepage
-      :link-type: doc
-
-      **Streams and seepage**
-      ^^^
-      One map for observed stream networks, seepage, drainage outflow,
-      simulated active networks, figures, metrics, and developer diagrams.
-
-   .. grid-item-card::
-      :class-card: sd-shadow-sm sd-rounded-3 sd-p-4
       :link: architecture/index
       :link-type: doc
 
@@ -171,8 +142,8 @@ Documentation map
 
       **API reference**
       ^^^
-      Browse the public Python surfaces for projects, runs, catalogs, data,
-      solvers, workflows, display, schemas, and tooling.
+      Browse the package tree exactly as in ``hydromodpy/`` (spatial, solver,
+      display, pyhelp, and tooling APIs).
 
    .. grid-item-card::
       :class-card: sd-shadow-sm sd-rounded-3 sd-p-4

@@ -33,9 +33,10 @@ def _load_json(path: Path) -> dict:
         return json.load(stream)
 
 
-def test_reference_2d_geology_base_case_non_regression(update_goldens: bool) -> None:
-    scratch_root = Path.cwd() / "scratch_tests" / "reference_2d_geology_base"
-    output_dir = scratch_root / "runtime"
+def test_reference_2d_geology_base_case_non_regression(
+    update_goldens: bool, tmp_path: Path
+) -> None:
+    output_dir = tmp_path / "runtime"
     output_dir.mkdir(parents=True, exist_ok=True)
 
     summary = run_reference_case_from_toml(

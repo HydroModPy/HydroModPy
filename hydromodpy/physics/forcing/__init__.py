@@ -4,7 +4,6 @@ from hydromodpy.physics.forcing.forcing_bridge import (
     ResolvedForcing,
     build_forcing_series,
     extract_homogeneous_series,
-    extract_homogeneous_series_from_fields,
     has_located_points,
     resolve_forcing,
 )
@@ -17,7 +16,6 @@ __all__ = [
     "align_forcing_series_to_simulation_window",
     "build_forcing_series",
     "extract_homogeneous_series",
-    "extract_homogeneous_series_from_fields",
     "has_located_points",
     "resolve_forcing",
 ]

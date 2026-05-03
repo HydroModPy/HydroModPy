@@ -12,8 +12,6 @@ Use it when you want:
 - the package map behind ``Flow`` / ``Transport`` / forcing builders,
 - the split between generic contracts and process-specific business objects,
 - the runtime handoff from process objects to solver adapters.
-- the way process types generalize into the process/solver registry documented
-  under :doc:`../solver/process-solver-registry`.
 
 .. toctree::
    :maxdepth: 2

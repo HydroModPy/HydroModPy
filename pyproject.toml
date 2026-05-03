@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "hydromodpy"
-version = "0.5.0"
+version = "1.0.0"
 description = "A Python toolbox for deploying catchment-scale shallow groundwater models"
 readme = "README.md"
 requires-python = ">=3.11,<3.14"
@@ -27,9 +27,13 @@ keywords = [
     "watershed",
     "modeling",
     "catchment",
+    "machine-learning",
+    "ml-friendly-storage",
+    "queryable-results",
+    "reproducible-ml",
 ]
 classifiers = [
-    "Development Status :: 4 - Beta",
+    "Development Status :: 5 - Production/Stable",
     "Intended Audience :: Science/Research",
     "Operating System :: OS Independent",
     "Programming Language :: Python :: 3",
@@ -41,50 +45,47 @@ classifiers = [
 ]
 
 dependencies = [
-    "colormap",
-    "contextily",
-    "flopy",
-    "geopandas",
-    "gmsh",
-    "h5py",
-    "imageio",
-    "matplotlib",
-    "matplotlib-scalebar",
-    "meshio",
-    "netCDF4",
-    "numpy>=2.0",
-    "pandas",
-    "plotly",
-    "pint",
-    "pydantic-pint",
-    "pyproj",
-    "pysheds",
-    "rasterio",
-    "rioxarray",
-    "scikit-learn",
-    "scipy",
-    "cma",
-    "optuna",
-    "selenium",
-    "ultraplot",
-    "vedo",
-    "whitebox-workflows",
-    "xarray",
-    "pydantic>=2.0",
-    "duckdb",
-    "dask",
-    "sqlalchemy>=2.0",
-    "tqdm",
-    "zarr>=3.0",
-    "zstandard>=0.22",
-    "tomlkit",
-    "tomli-w",
-    "pytest",
-    "pandera>=0.20",
+    "contextily>=1.7.0,<2",
+    "flopy>=3.10.0,<4",
+    "geopandas>=1.1.3,<2",
+    "h5py>=3.16.0,<4",
+    "imageio>=2.37.3,<3",
+    "matplotlib>=3.10.8,<4",
+    "meshio>=5.3.5,<6",
+    "netCDF4>=1.7.4,<2",
+    "numpy>=2.4.4,<3",
+    "pandas>=2.3.3,<3",
+    "Pillow>=12.0.0,<13",
+    "plotly>=6.7.0,<7",
+    "pint>=0.25.3,<1",
+    "pydantic-pint>=0.4,<1",
+    "pyarrow>=22.0.0,<23",
+    "pyproj>=3.7.2,<4",
+    "rasterio>=1.5.0,<2",
+    "requests>=2.32.5,<3",
+    "rioxarray>=0.22.0,<1",
+    "scikit-learn>=1.8.0,<2",
+    "scipy>=1.17.1,<2",
+    "shapely>=2,<3",
+    "xarray>=2026.4.0,<2027",
+    "xugrid>=0.15.2,<1",
+    "pydantic>=2.13.3,<3",
+    "duckdb>=1.5.2,<2",
+    "dask>=2026.3.0,<2027",
+    "tqdm>=4.67.3,<5",
+    "zarr>=3.1.6,<4",
+    "zstandard>=0.25.0,<1",
+    "tomlkit>=0.14.0,<1",
+    "tomli-w>=1.2.0,<2",
+    "pandera>=0.31.1,<1",
 ]
 
 [project.optional-dependencies]
-test = ["pytest", "pytest-xdist", "pytest-timeout", "coverage[toml]>=7.0"]
+calibration = ["cma>=4.4.4,<5", "cmaes>=0.12.0,<1", "optuna>=4.8.0,<5"]
+delineation = ["whitebox-workflows>=1.3.5,<2"]
+mesh = ["gmsh>=4.15.2,<5"]
+ui = ["streamlit>=1.51.0,<2"]
+test = ["pytest", "pytest-xdist", "pytest-timeout", "coverage[toml]>=7.0", "pyyaml"]
 docs = [
     "sphinx>=7.0",
     "sphinx-rtd-theme",
@@ -113,7 +114,6 @@ ide = [
     "spyder>=6.0",
     "spyder-kernels",
 ]
-ugrid = ["xugrid"]
 viewer3d = ["pyvista"]
 dev = [
     "ruff>=0.15",
@@ -121,8 +121,8 @@ dev = [
 ]
 
 [project.scripts]
-hmp = "hydromodpy._cli:main"
-hydromodpy = "hydromodpy._cli:main"
+hmp = "hydromodpy.cli:main"
+hydromodpy = "hydromodpy.cli:main"
 
 [project.entry-points."hydromodpy.solver"]
 flow_modflownwt = "hydromodpy.solver.modflow_nwt.adapters.flow:ModflowNwtFlowAdapter"
@@ -141,6 +141,7 @@ include-package-data = true
 
 [tool.setuptools.packages.find]
 include = ["hydromodpy*"]
+exclude = ["hydromodpy_annex*"]
 
 [tool.setuptools.package-data]
 hydromodpy = ["py.typed"]
@@ -150,13 +151,18 @@ hydromodpy = ["py.typed"]
 [tool.coverage.run]
 source = [
     "hydromodpy.core",
+    "hydromodpy.schema",
+    "hydromodpy.master_config",
     "hydromodpy.spatial",
     "hydromodpy.physics",
     "hydromodpy.data",
     "hydromodpy.results",
     "hydromodpy.simulation",
     "hydromodpy.solver",
+    "hydromodpy.calibration",
+    "hydromodpy.display",
     "hydromodpy.analysis",
+    "hydromodpy.workflow",
 ]
 parallel = true
 omit = [
@@ -188,7 +194,6 @@ target-version = "py311"
 line-length = 100
 
 extend-exclude = [
-    "examples_legacy_2",
     "hydromodpy.egg-info",
     "docs",              # Sphinx conf + doc examples aren't production code
     "bin",
@@ -202,12 +207,13 @@ extend-exclude = [
 # Classic starter set - the six rule groups most Python projects enable.
 # Extend later (C4, SIM, NPY, RUF, D, ANN…) once the core is clean.
 select = [
-    "E",   # pycodestyle errors
-    "W",   # pycodestyle warnings
-    "F",   # pyflakes (unused imports/variables, undefined names…)
-    "I",   # isort (import sorting)
-    "UP",  # pyupgrade (modernize syntax for your target Python)
-    "B",   # flake8-bugbear (likely-bug patterns)
+    "E",     # pycodestyle errors
+    "W",     # pycodestyle warnings
+    "F",     # pyflakes (unused imports/variables, undefined names…)
+    "I",     # isort (import sorting)
+    "UP",    # pyupgrade (modernize syntax for your target Python)
+    "B",     # flake8-bugbear (likely-bug patterns)
+    "TID251", # flake8-tidy-imports banned-api (block stdlib logging.getLogger)
 ]
 
 ignore = [
@@ -217,11 +223,13 @@ ignore = [
 
 [tool.ruff.lint.per-file-ignores]
 # Package __init__ files commonly re-export symbols and set up paths.
-"__init__.py" = ["F401", "E402"]
+"__init__.py" = ["F401", "E402", "TID251"]
+# Logging subsystem is the canonical wrapper around stdlib `logging.getLogger`.
+"hydromodpy/core/logging/**" = ["TID251"]
 # Tests can use idiomatic pytest patterns: bare pytest.raises(Exception),
 # zip without strict=, kept assignments for readability, etc.
 "tests/**/*.py" = ["E402", "F401", "B011", "B017", "B905", "F841"]
-# tools/ scripts do `sys.path.insert(0, REPO_ROOT)` before imports - legit pattern.
+# tools/ scripts may set repo-root import precedence before imports.
 "tools/**" = ["E402", "F401", "B007", "B905", "F841"]
 # Annex: legacy/peripheral code, minimal linting.
 "hydromodpy_annex/**" = ["E402", "F401", "B006", "B007"]
@@ -231,18 +239,24 @@ ignore = [
 "validation_cases/**" = ["E402", "F401", "B007", "B905"]
 "examples/**" = ["E402", "F401", "B007"]
 # CLI shells can do argparse-style late imports.
-"hydromodpy/_cli/**" = ["E402"]
+"hydromodpy/cli/**" = ["E402"]
 # Pydantic `model_rebuild(_types_namespace=...)` pattern: forward refs are
 # resolved at runtime via an explicit namespace dict, so ruff can't see them
 # with static analysis. Known-good, silencing F821 in these files.
 "hydromodpy/data/data_managers_config.py" = ["F821"]
-"hydromodpy/core/config/hydromodpy_config.py" = ["F821"]
-# Legacy MODFLOW-NWT subtree: uses `sys.path` manipulation and double-docstring
-# license headers that technically break import ordering. Not worth rewriting.
+"hydromodpy/master_config/hydromodpy_config.py" = ["F821"]
+# MODFLOW-NWT solver subtree: import ordering and double-docstring license
+# headers are handled separately from this release cleanup.
 "hydromodpy/solver/modflow_nwt/**" = ["E402"]
 
 [tool.ruff.lint.isort]
 known-first-party = ["hydromodpy", "hydromodpy_annex"]
+
+[tool.ruff.lint.flake8-tidy-imports.banned-api]
+# Force every module-level logger to go through hydromodpy.core.logging.get_logger
+# so that the LogManager hierarchy ("hydromodpy.<sub>") stays consistent.
+# Allowed only inside core/logging/ (the wrapper) and in __init__.py re-exports.
+"logging.getLogger".msg = "Use `from hydromodpy.core.logging import get_logger` instead."
 
 [tool.ruff.lint.flake8-type-checking]
 # Tell ruff that pydantic's BaseModel is inspected at runtime, so forward
@@ -263,3 +277,50 @@ line-ending = "auto"
 # Also format code blocks inside docstrings (``>>>`` examples etc.).
 docstring-code-format = true
 docstring-code-line-length = 80
+
+[tool.mypy]
+# Baseline non-blocking type-check. Tighten incrementally as the codebase
+# grows type coverage. The CI gate runs with continue-on-error so failures
+# surface as annotations without blocking merges.
+python_version = "3.11"
+ignore_missing_imports = true
+follow_imports = "silent"
+no_implicit_optional = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+plugins = ["pydantic.mypy"]
+exclude = [
+    "hydromodpy_annex/",
+    "_archive/",
+    "examples/projects/",
+    "tests/",
+]
+
+[[tool.mypy.overrides]]
+module = [
+    "flopy.*",
+    "rasterio.*",
+    "shapely.*",
+    "geopandas.*",
+    "pyproj.*",
+    "rioxarray.*",
+    "xarray.*",
+    "xugrid.*",
+    "whitebox_workflows.*",
+    "vedo.*",
+    "ultraplot.*",
+    "pyvista.*",
+    "gmsh.*",
+    "cma.*",
+    "optuna.*",
+    "duckdb.*",
+    "zarr.*",
+    "dask.*",
+    "tomlkit.*",
+    "tomli_w.*",
+    "matplotlib_scalebar.*",
+    "colormap.*",
+    "contextily.*",
+    "imageio.*",
+]
+ignore_missing_imports = true

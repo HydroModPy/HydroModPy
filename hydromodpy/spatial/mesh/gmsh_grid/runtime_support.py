@@ -413,18 +413,14 @@ def build_gmsh_support_metadata(bundle: object | None) -> GmshSupportMetadata | 
     cell_centroid_y_m = np.asarray([float(cell.centroid_y) for cell in cells], dtype=float)
     cell_z_top_m = np.asarray(
         [
-            np.nan
-            if getattr(cell, "z_top_mean", None) is None
-            else float(getattr(cell, "z_top_mean"))
+            np.nan if getattr(cell, "z_top_mean", None) is None else float(cell.z_top_mean)
             for cell in cells
         ],
         dtype=float,
     )
     cell_z_bottom_m = np.asarray(
         [
-            np.nan
-            if getattr(cell, "z_bottom_mean", None) is None
-            else float(getattr(cell, "z_bottom_mean"))
+            np.nan if getattr(cell, "z_bottom_mean", None) is None else float(cell.z_bottom_mean)
             for cell in cells
         ],
         dtype=float,

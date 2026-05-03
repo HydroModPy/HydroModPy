@@ -17,9 +17,9 @@ earlier run.
 
 from __future__ import annotations
 
+from hydromodpy.simulation._solver_protocol import get_solver_registry_provider
 from hydromodpy.simulation.planning.config import SimulationConfig
 from hydromodpy.simulation.planning.plan import ProcessRun, SimulationPlan
-from hydromodpy.solver.base.registry import required_bindings
 
 
 class SimulationPlanner:
@@ -51,6 +51,7 @@ class SimulationPlanner:
         and each transport run is bound to the earlier compatible flow run
         required by the solver compatibility rules.
         """
+        provider = get_solver_registry_provider()
         runs: list[ProcessRun] = []
         # Track the produced runs for each (process_type, solver) capability so
         # later runs can bind to the most recent compatible provider.
@@ -75,7 +76,7 @@ class SimulationPlanner:
                 # only depend on capabilities already planned earlier. If
                 # ``transport_main::mt3dms`` appears before any compatible
                 # ``flow::*`` provider, planning fails instead of reordering.
-                for required_type, required_solver in required_bindings(
+                for required_type, required_solver in provider.required_bindings(
                     process_cfg.type, solver_name
                 ):
                     providers = runs_by_capability.get((required_type, required_solver), [])

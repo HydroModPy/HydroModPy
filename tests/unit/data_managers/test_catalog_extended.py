@@ -9,6 +9,7 @@ def test_extended_tables_present():
     cat = DataCatalogDuckDB()
     names = set(cat.table_names())
     assert {
+        "_schema_version",
         "entries",
         "artifacts",
         "provenance",
@@ -17,6 +18,14 @@ def test_extended_tables_present():
         "failures",
         "validation_reports",
     } <= names
+
+
+def test_schema_version_table_records_data_catalog_version():
+    cat = DataCatalogDuckDB()
+    row = cat.connection.execute(
+        "SELECT version FROM _schema_version WHERE component = 'data_catalog'"
+    ).fetchone()
+    assert row == ("1",)
 
 
 def test_artifact_and_provenance_roundtrip():

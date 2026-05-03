@@ -49,23 +49,6 @@ How the files relate
   republishes the minimal `BD Topage only` variant when you want to inspect the
   river network overlay in isolation.
 
-Representative results
-----------------------
-
-.. figure:: /_static/capability_gallery/geographic/geographic_watershed_dem.png
-   :alt: DEM-oriented watershed overview
-   :width: 100%
-
-   The DEM-oriented panel is the first figure to check: outlet placement,
-   catchment extent, and surrounding terrain context should all look coherent.
-
-.. figure:: /_static/capability_gallery/geographic/geographic_watershed_local.png
-   :alt: Local watershed overview
-   :width: 100%
-
-   The local overview confirms which basin-scale overlays are actually present
-   before any meshing or groundwater solving stage begins.
-
 Read the config in this order
 -----------------------------
 
@@ -77,8 +60,7 @@ Read the config in this order
    would inherit.
 3. ``[data]``:
    The ``types`` list tells you which thematic layers should exist in the
-   result. Use :doc:`../user_guide/data/index` for the full guide to data
-   retrieval, providers, custom files, cache behavior, and lockfiles.
+   result.
 4. Source blocks such as ``[[data.geology.sources]]`` or
    ``[[data.hydrometry.sources]]``:
    These blocks tell you where each layer comes from and which query window is
@@ -129,8 +111,5 @@ Where to go next
 - Open :doc:`../capability_gallery/cases/geographic_bdtopage_hydrography_overlay`
   if you want the hydrography-only variant with the loaded BD Topage network
   documented panel by panel.
-- Continue with :doc:`../user_guide/data/index` when you want to adapt the
-  retrieval layer to a new basin, local data archive, or frozen reproducibility
-  workflow.
 - Continue with :doc:`simulation-walkthrough` once the basin framing and data
   loading logic are clear.

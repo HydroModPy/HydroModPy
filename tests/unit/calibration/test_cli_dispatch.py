@@ -8,18 +8,17 @@ resolved workflow is ``"calibration"``.
 
 from __future__ import annotations
 
-import tomllib
 from pathlib import Path
 
 import pytest
 
-from hydromodpy._cli.workflows import (
+from hydromodpy.calibration.config import CalibrationConfig
+from hydromodpy.workflow.dispatch import (
     KNOWN_WORKFLOWS,
     extract_workflow_field,
     load_raw_toml,
     resolve_workflow,
 )
-from hydromodpy.calibration.config import CalibrationConfig
 
 
 def _write_rich_calibration_toml(path: Path) -> Path:
@@ -27,7 +26,7 @@ def _write_rich_calibration_toml(path: Path) -> Path:
 workflow = "calibration"
 
 [calibration]
-method = "cma_es"
+method = "grid"
 max_iter = 20
 seed = 42
 objective = "rmse"
@@ -69,7 +68,7 @@ class TestDispatchCalibrationEnriched:
         path = _write_rich_calibration_toml(tmp_path / "calib.toml")
         data = load_raw_toml(path)
         cfg = CalibrationConfig.model_validate(data["calibration"])
-        assert cfg.method == "cma_es"
+        assert cfg.method == "grid"
         assert "K_aquifer" in cfg.parameters
         assert cfg.parameters["K_aquifer"].target == "flow.param.K.value"
         assert cfg.parameters["K_aquifer"].mode == "replace"
@@ -86,7 +85,7 @@ class TestDispatchCalibrationEnriched:
     def test_toml_without_workflow_field_requires_it(self, tmp_path: Path):
         path = tmp_path / "no_workflow.toml"
         path.write_text("[calibration]\nmethod = 'grid'\n", encoding="utf-8")
-        from hydromodpy._cli.workflows import WorkflowMissingError
+        from hydromodpy.workflow.dispatch import WorkflowMissingError
 
         with pytest.raises(WorkflowMissingError):
             resolve_workflow(path, cli_workflow=None, require_toml_field=True)

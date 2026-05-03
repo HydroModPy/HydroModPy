@@ -14,11 +14,11 @@ from shapely.prepared import prep
 
 from hydromodpy.spatial.mesh.gmsh_grid.cases.reference_2d_geology_conformal.contracts import (
     ZoneConformalConstraintFamilies,
-    ZoneConformalGeometryPayload,
     ZoneConformalMeshingInputs,
     ZoneConformalRiversConfig,
     ZoneConformalSourcePayload,
 )
+from hydromodpy.spatial.mesh.gmsh_grid.zone_meshing.domain import ZoneMeshingDomainPayload
 
 
 def _build_watershed_cell_counts(
@@ -49,7 +49,7 @@ def _build_summary(
     result,
     source_payload: ZoneConformalSourcePayload,
     clipped_gdf: gpd.GeoDataFrame,
-    domain_payload: ZoneConformalGeometryPayload,
+    domain_payload: ZoneMeshingDomainPayload,
     watershed_geometry: object | None = None,
 ) -> dict[str, Any]:
     zone_feature_counts = clipped_gdf["zone_key"].astype(str).value_counts().sort_index()

@@ -29,7 +29,6 @@ from __future__ import annotations
 import hashlib
 import io
 import json
-import logging
 import shutil
 import tarfile
 import tempfile
@@ -38,6 +37,7 @@ from importlib import metadata as _importlib_metadata
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
+from hydromodpy.core.logging import get_logger
 from hydromodpy.results.geographic_cache import (
     CACHE_DIRNAME,
     MANIFEST_FILENAME,
@@ -47,7 +47,7 @@ from hydromodpy.results.geographic_cache import (
 if TYPE_CHECKING:
     import duckdb
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 MANIFEST_NAME = "manifest.json"
 README_NAME = "README.md"
@@ -764,7 +764,7 @@ def import_hmp_package(
             _rewrite_snapshot_project(snap_path, as_project)
         _rewrite_snapshot_paths(snap_path, rewrites)
 
-        from hydromodpy.results.storage_naming import build_storage_basename
+        from hydromodpy.results.catalog.storage_paths import build_storage_basename
 
         catalog.connection.begin()
         try:
@@ -787,8 +787,7 @@ def import_hmp_package(
             catalog.connection.rollback()
             raise
 
-        if hasattr(catalog, "_basename_cache"):
-            catalog._basename_cache[sid] = basename
+        catalog._paths.cache_basename(sid, basename)
 
         dst = workspace / zarr_path
         dst.parent.mkdir(parents=True, exist_ok=True)
@@ -800,7 +799,7 @@ def import_hmp_package(
         # caller's catalog connection.
         from hydromodpy.results.catalog_schema import ensure_parquet_views
 
-        ensure_parquet_views(catalog.connection, workspace)
+        ensure_parquet_views(catalog.connection, catalog.simulations_dir)
 
         _dematerialise_geographic(
             pkg,

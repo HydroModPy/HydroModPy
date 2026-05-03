@@ -22,7 +22,7 @@ if __package__ is None or __package__ == "":
     sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
 
 from hydromodpy.analysis.comparison.experiment_launcher import SimulationComparisonLauncher
-from hydromodpy.core.config.toml_loader import load_toml_with_base_config
+from hydromodpy.core.toml_io.loader import load_toml_with_base_config
 
 PROJECT_DIR = Path(__file__).resolve().parent
 EXAMPLES_ROOT = PROJECT_DIR.parents[1]
@@ -211,8 +211,8 @@ def _materialize_base_config(case_id: str, spec: dict[str, Any]) -> Path:
     payload["workspace"]["project_root"] = str((case_root / "workspace").resolve())
     payload["workspace"]["root"] = str(EXAMPLES_ROOT.resolve())
     payload["simulation"]["name"] = f"nancon_transient_seasonal_{case_id}"
-    payload["simulation"]["description"] = (
-        "Nancon seasonal benchmark parameter sweep case: " + str(spec["label"])
+    payload["simulation"]["description"] = "Nancon seasonal benchmark parameter sweep case: " + str(
+        spec["label"]
     )
     payload["geographic"]["dem_init_path"] = str(
         (EXAMPLES_ROOT / "data" / "dem" / "DEM_armorican_massif.tif").resolve()
@@ -306,9 +306,10 @@ def _head_response(
     field: str,
 ) -> float:
     for item in audit.get("head_recharge_response", []):
-        if str(item.get("variant_id", "")) == variant_id and str(
-            item.get("observable", "")
-        ) == observable:
+        if (
+            str(item.get("variant_id", "")) == variant_id
+            and str(item.get("observable", "")) == observable
+        ):
             value = item.get(field)
             if value in (None, ""):
                 return float("nan")
@@ -319,7 +320,9 @@ def _head_response(
     return float("nan")
 
 
-def summarize_case(case_id: str, spec: dict[str, Any], manifest: dict[str, Any] | None) -> dict[str, Any]:
+def summarize_case(
+    case_id: str, spec: dict[str, Any], manifest: dict[str, Any] | None
+) -> dict[str, Any]:
     comparison_root = SWEEP_ROOT / case_id / "comparison"
     if manifest is not None and manifest.get("comparison_root"):
         comparison_root = Path(str(manifest["comparison_root"]))
@@ -327,9 +330,7 @@ def summarize_case(case_id: str, spec: dict[str, Any], manifest: dict[str, Any] 
     recharge_check = {}
     for subject in audit.get("subjects", []):
         if str(subject.get("id", "")) == "bouss_candidate":
-            recharge_check = (
-                subject.get("budget_checks", {}).get("recharge_total_m3_s", {}) or {}
-            )
+            recharge_check = subject.get("budget_checks", {}).get("recharge_total_m3_s", {}) or {}
             break
 
     return {

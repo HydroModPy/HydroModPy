@@ -64,8 +64,8 @@ Quick comparison
      - ``Project("project.toml")``
      - ``run_sweep_sy.toml``
    * - 4
-     - Full Python, no TOML
-     - ``hmp.Config(...)``
+     - Python API with validated config
+     - ``HydroModPyConfig.from_toml(...)``
      - ``run_full_python.py``
    * - 5
      - Step-by-step debug run
@@ -129,34 +129,25 @@ calibration scaffolds before moving to Mode 4.
        project.run(Sy=sy, name=f"sy_{sy}")
 
 The companion file
-``examples/projects/02_nancon_watershed/run_sweep_sy.toml`` shows the
-TOML-only equivalent driven through ``[simulation.sweep]``.
+``examples/projects/02_nancon_watershed/run_sweep_sy.toml`` is kept as a
+design draft for a future TOML sweep workflow. It is not accepted by
+``hmp run`` in v1.
 
-Mode 4. Full Python
--------------------
+Mode 4. Python API
+------------------
 
-No TOML at all. All Pydantic configs are built inline with the factory
-methods exposed at the top level (``hmp.Config``, ``hmp.Geographic``,
-``hmp.Domain``, ``hmp.Flow``, ``hmp.Sim``).
+The TOML file remains the reproducible source of truth. Python code can
+load the resolved Pydantic model, keep it in memory, and hand it to
+``Project``.
 
 .. code-block:: python
 
    from pathlib import Path
    import hydromodpy as hmp
-   from hydromodpy.core import WorkspaceConfig
+   from hydromodpy.master_config.hydromodpy_config import HydroModPyConfig
 
    HERE = Path(__file__).parent
-
-   cfg = hmp.Config(
-       workspace=WorkspaceConfig(project_root=HERE),
-       geographic=hmp.Geographic.from_outlet(x=..., y=..., dem=...),
-       domain=hmp.Domain.with_thickness(30.0),
-       flow=hmp.Flow.homogeneous(K=5e-5, Sy=0.05),
-       simulation=hmp.Sim.transient(
-           time=("2000-01-01", "2002-12-31", "1 month"),
-           flow="modflownwt",
-       ),
-   )
+   cfg = HydroModPyConfig.from_toml(HERE / "run_transient_nwt.toml")
    hmp.Project(cfg).run()
 
 The reference file is
@@ -191,9 +182,7 @@ build and the simulation can iterate without re-downloading data.
    project = hmp.Project.lazy(cfg)
    project.build_geographic()  # slow, runs once
    project.load_data()         # slow, runs once
-   for size in [30, 50, 100, 200, 500]:
-       project.cfg.mesh_catchment.cell_size = size
-       project.build_mesh()    # fast, runs per size
+   project.build_mesh()
 
 The reference file is ``run_cellular.py`` in the nancon example.
 

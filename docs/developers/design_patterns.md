@@ -84,19 +84,18 @@ config `[display]` (`DisplayConfig` dans
 
 Emplacement : `hydromodpy/spatial/delineation/`.
 
-La délinéation est agnostique du backend. `WhiteboxCLIBackend`
-(`whitebox_cli_backend.py`) encapsule le binaire standalone ;
-`WhiteboxWorkflowsBackend` (`whitebox_workflows_backend.py`) encapsule le
-paquet pip. Les deux exposent le même Protocol `WhiteboxBackend`
-(`base.py`) consommé par les steps d'analyse de flux.
+La délinéation est agnostique du backend. Les backends integrés sont
+`whitebox_workflows` et `synthetic`; les autres implementations passent
+par `register_backend()` puis `get_backend()`. `DelineationBackend`
+(`base.py`) decrit le contrat minimal consomme par les steps d'analyse
+de flux.
 
 ```python
-backend = get_whitebox_backend(preferred="wheel")
-backend.breach_depressions(input_dem, output_dem)
+backend = get_backend("whitebox_workflows")
+backend.flow.breach_depressions(input_dem, output_dem)
 ```
 
-Raison : permuter les binaires au runtime (CI sur wheel, prod sur
-binaire). Le code aval ne touche jamais au chemin du binaire.
+Raison : ajouter un backend au runtime sans publier de placeholder public.
 
 ## 5. Data Manager
 
@@ -123,7 +122,7 @@ variable revient à écrire un manager et l'enregistrer.
 
 ## 6. Config Pydantic avec Annotated
 
-Emplacement : `hydromodpy/core/config/` et chaque `*_config.py`.
+Emplacement : `hydromodpy/master_config/` et chaque `*_config.py`.
 
 Toute la configuration est exprimée en modèles Pydantic avec
 `ConfigDict(extra="forbid")`. Les champs porteurs de quantités physiques
@@ -132,9 +131,8 @@ utilisent des alias `Annotated` de `hydromodpy/core/units/` :
 `SpecificYield`, `Area`, `Volume`, `Dimensionless`. L'utilisateur peut
 écrire `"50 m"` ou `"0.1 km"`.
 
-`Profile` (`core/config/profile.py`, un `IntEnum`) contrôle la visibilité
-des champs dans les TOML générés. Le shim legacy `ParamLevel("user")`
-reste fonctionnel en v0.6.
+`Profile` (`hydromodpy.core.config_kit.profile.Profile`, un `IntEnum`)
+contrôle la visibilité des champs dans les TOML générés.
 
 ```python
 class DomainConfig(BaseModel):
@@ -186,8 +184,9 @@ piézo-débit, moyenne multi-site) sans toucher à l'engine.
 
 ## 9. Metric
 
-Emplacement : `hydromodpy/calibration/metrics.py` (registre),
-`hydromodpy/results/metrics.py` (persistance).
+Emplacement : `hydromodpy/core/metrics/` (canon : NSE, KGE, RMSE, MAE,
+log-NSE, bias, pbias, correlation), `hydromodpy/calibration/metrics.py`
+(extracteur trial-side `build_metric_extractor`).
 
 Une `Metric` est un callable qui compare une série simulée à une série
 observée :

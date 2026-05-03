@@ -10,7 +10,7 @@ Lookup strategy (first match wins):
 1. ``HYDROMODPY_WORKSPACE`` environment variable if it points at a
    directory.
 2. ``<project_root>/../..`` when ``project_root.parent.name == "projects"``
-   and the grand-grand-parent contains ``hydromodpy.duckdb`` or ``data/``.
+   and the grand-grand-parent contains ``data/``.
 
 Returns ``None`` when no workspace can be found - callers fall back to
 the project_root directly.
@@ -33,6 +33,6 @@ def locate_workspace_root(project_root: Path | str) -> Path | None:
     resolved = Path(project_root).expanduser().resolve()
     if resolved.parent.name == "projects":
         candidate = resolved.parent.parent
-        if (candidate / "hydromodpy.duckdb").exists() or (candidate / "data").is_dir():
+        if (candidate / "data").is_dir():
             return candidate
     return None
