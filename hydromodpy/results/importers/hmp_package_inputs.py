@@ -53,9 +53,8 @@ def _sha256_directory(root: Path) -> str:
         rel = str(p.relative_to(root)).replace("\\", "/").encode("utf-8")
         h.update(rel)
         h.update(b"\0")
-        with open(p, "rb") as fh:
-            for chunk in iter(lambda: fh.read(65536), b""):
-                h.update(chunk)
+        h.update(_sha256_file(p).encode("ascii"))
+        h.update(b"\0")
     return h.hexdigest()
 
 

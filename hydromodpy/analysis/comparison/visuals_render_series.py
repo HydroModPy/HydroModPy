@@ -604,11 +604,14 @@ def _write_budget_diagnostic_figure(
     release_ax.tick_params(labelsize=_TICK_FONT_SIZE)
     release_ax.grid(True, alpha=0.18, linewidth=0.6)
     release_ax.axhline(0.0, color="#9ca3af", linewidth=0.8, alpha=0.8)
-    if release_ax.lines:
+    release_handles, release_labels = release_ax.get_legend_handles_labels()
+    if release_labels:
         legend = release_ax.legend(
+            release_handles,
+            release_labels,
             loc="upper center",
             bbox_to_anchor=(0.5, 1.32),
-            ncol=_legend_ncols(len(release_ax.lines)),
+            ncol=_legend_ncols(len(release_labels)),
             frameon=False,
             fontsize=_LEGEND_FONT_SIZE,
         )
@@ -636,11 +639,14 @@ def _write_budget_diagnostic_figure(
     balance_ax.tick_params(labelsize=_TICK_FONT_SIZE)
     balance_ax.grid(True, alpha=0.18, linewidth=0.6)
     balance_ax.axhline(0.0, color="#9ca3af", linewidth=0.8, alpha=0.8)
-    if balance_ax.lines:
+    balance_handles, balance_labels = balance_ax.get_legend_handles_labels()
+    if balance_labels:
         legend = balance_ax.legend(
+            balance_handles,
+            balance_labels,
             loc="upper center",
             bbox_to_anchor=(0.5, -0.2),
-            ncol=_legend_ncols(len(balance_ax.lines)),
+            ncol=_legend_ncols(len(balance_labels)),
             frameon=False,
             fontsize=_LEGEND_FONT_SIZE,
         )

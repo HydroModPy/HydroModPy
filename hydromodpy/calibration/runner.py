@@ -13,8 +13,8 @@ Workflow:
    :func:`hydromodpy.calibration.metrics.build_metric_extractor`.
 4. Persist every iteration into the DuckDB ``calibration_iterations``
    table (``sim_id`` left ``NULL`` by default).
-5. Honor ``save_runs`` - ``"best_n"`` / ``"all"`` replay the chosen
-   trials through :func:`promote_trial` and back-fill ``sim_id`` in the
+5. Honor ``save_runs`` - ``"best_n"`` / ``"all"`` promote the chosen
+   trials from the prepared context and back-fill ``sim_id`` in the
    iterations table. ``"none"`` (the default) leaves the trace-only.
 
 The ``objective`` argument is a Python escape hatch
@@ -49,7 +49,7 @@ from hydromodpy.calibration.parameters import ParameterSpace
 from hydromodpy.calibration.runners.trial import (
     TrialMetricFn,
     prepare_trials,
-    promote_trial,
+    promote_prepared_trial,
 )
 from hydromodpy.core.logging import get_logger
 
@@ -253,7 +253,7 @@ def _input_file_fingerprints(config: object) -> list[dict[str, object]]:
         from hydromodpy.core.tracking import collect_input_files
     except Exception:
         return []
-    if not hasattr(config, "model_fields"):
+    if not getattr(type(config), "model_fields", None):
         return []
     try:
         entries = collect_input_files(config)
@@ -606,10 +606,9 @@ def _run_calibration(
                     if name in row["parameters"]
                 }
                 try:
-                    sim_id = promote_trial(
-                        cfg_path,
+                    sim_id = promote_prepared_trial(
+                        trial_ctx,
                         values,
-                        paths=override_paths,
                         name=f"{cfg.method}_iter_{row['iteration']:04d}",
                         session_id=session_id,
                     )

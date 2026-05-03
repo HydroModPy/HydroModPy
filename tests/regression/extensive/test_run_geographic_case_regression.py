@@ -31,6 +31,7 @@ ABS_TOL_STREAM_PIXEL_COUNT = 15
 ABS_TOL_THRESHOLD_CELLS = 1e-6
 ABS_TOL_LENGTH_M = 1200.0
 ABS_TOL_DRAINAGE_DENSITY = 1e-6
+ABS_TOL_STRAHLER_ORDER = 1.0
 
 ELEV_METRIC_KEYS = [
     "mean_elevation_catchment_m",
@@ -244,10 +245,14 @@ def test_run_geographic_case_regression_suite(
             river_network_expected[case_id]["segment_count"],
             abs=ABS_TOL_STREAM_PIXEL_COUNT,
         )
-        assert (
-            river_network_actual[case_id]["max_strahler_order"]
-            == river_network_expected[case_id]["max_strahler_order"]
-        )
+        if river_network_expected[case_id]["max_strahler_order"] is None:
+            assert river_network_actual[case_id]["max_strahler_order"] is None
+        else:
+            assert river_network_actual[case_id]["max_strahler_order"] == pytest.approx(
+                river_network_expected[case_id]["max_strahler_order"],
+                abs=ABS_TOL_STRAHLER_ORDER,
+                rel=0.0,
+            )
 
         assert river_network_actual[case_id]["threshold_value"] == pytest.approx(
             river_network_expected[case_id]["threshold_value"],

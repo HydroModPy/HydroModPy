@@ -121,7 +121,7 @@ class LifecycleMixin:
                     [sid],
                 ).fetchone()
                 if existing is not None and not existing[0]:
-                    logger.warning(
+                    logger.debug(
                         "Simulation %s completed without a scientific_objective; "
                         "defaulting to 'unspecified'. Set one with "
                         "Catalog.write_scientific_objective() to enable ML stratification.",

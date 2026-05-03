@@ -5,6 +5,7 @@ from types import SimpleNamespace
 
 import geopandas as gpd
 import numpy as np
+import pytest
 from shapely.geometry import LineString, box
 
 from hydromodpy.core.state.data import LoadedDataContext
@@ -30,7 +31,11 @@ def _write_network_vector(path: Path, *, crs: str | None = "EPSG:2154") -> Path:
         geometry=[LineString([(0.0, 0.0), (1000.0, 0.0)])],
         crs=crs,
     )
-    gdf.to_file(path)
+    if crs is None:
+        with pytest.warns(UserWarning, match="'crs' was not provided"):
+            gdf.to_file(path)
+    else:
+        gdf.to_file(path)
     return path
 
 

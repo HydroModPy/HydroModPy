@@ -8,7 +8,7 @@ delegates to :func:`run_calibration_cli` when a ``config_path`` is
 supplied.
 
 The Project setup is intentionally minimal: we monkey-patch
-:func:`prepare_trials` and :func:`promote_trial` (the same fakes used
+:func:`prepare_trials` and :func:`promote_prepared_trial` (the same fakes used
 by ``test_calibration_cli``) so the calibration loop runs without
 touching MODFLOW, while the catalog persistence and
 :class:`CalibrationReport` assembly remain real. A duck-typed
@@ -82,7 +82,7 @@ class _FakeProject:
 
 @pytest.fixture
 def fake_pipeline(monkeypatch, tmp_path):
-    """Monkey-patch prepare_trials + promote_trial so calls run in seconds."""
+    """Monkey-patch prepare_trials + promote_prepared_trial so calls run in seconds."""
     from hydromodpy.calibration.runners.trial import TrialContext
 
     promoted: list[dict] = []
@@ -152,7 +152,8 @@ def fake_pipeline(monkeypatch, tmp_path):
             raw_toml=raw,
         )
 
-    def _fake_promote(cfg_path, values, *, paths=None, name=None, tags=(), session_id=None):
+    def _fake_promote(trial_ctx, values, *, name=None, tags=(), session_id=None):
+        del trial_ctx, tags
         sim_id = uuid.uuid4().hex
         promoted.append(
             {
@@ -165,7 +166,7 @@ def fake_pipeline(monkeypatch, tmp_path):
         return sim_id
 
     monkeypatch.setattr(runner_module, "prepare_trials", _fake_prepare)
-    monkeypatch.setattr(runner_module, "promote_trial", _fake_promote)
+    monkeypatch.setattr(runner_module, "promote_prepared_trial", _fake_promote)
     return promoted
 
 
@@ -326,7 +327,7 @@ class TestRunCalibrationProgrammatic:
             del args, kwargs
             raise RuntimeError("promotion unavailable")
 
-        monkeypatch.setattr(runner_module, "promote_trial", _fail_promote)
+        monkeypatch.setattr(runner_module, "promote_prepared_trial", _fail_promote)
         cfg = _baseline_cfg().model_copy(update={"save_runs": "all"})
 
         report = run_calibration_programmatic(
