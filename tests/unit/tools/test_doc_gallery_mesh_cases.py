@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import os
 import shutil
 from pathlib import Path
 
@@ -11,12 +12,23 @@ from tools.doc_gallery.gallery_manifest import build_repo_mesh_gallery_case_spec
 from tools.doc_gallery.import_mesh_bundle import import_mesh_bundle_case
 from tools.doc_gallery.mesh_case_registry import (
     MESH_GALLERY_CASE_SCHEMA_VERSION,
-    MESH_GALLERY_REQUIRED_BUNDLE_FILES,
     REPO_ROOT,
+    validate_bundle_dir,
 )
 from tools.doc_gallery.update_gallery import _build_category_page, _generate_mesh_viewer_case
 
 SAMPLE_BUNDLE = REPO_ROOT / "examples" / "projects" / "08_mesh_viewer" / "sample_bundle"
+
+
+def _read_bytes(path: Path) -> bytes:
+    if os.name != "nt":
+        return path.read_bytes()
+    text = str(path.expanduser().resolve())
+    if text.startswith("\\\\?\\"):
+        return Path(text).read_bytes()
+    if text.startswith("\\\\"):
+        return Path("\\\\?\\UNC\\" + text.lstrip("\\")).read_bytes()
+    return Path("\\\\?\\" + text).read_bytes()
 
 
 def _write_dummy_launcher_config(repo_root: Path, relative_path: str) -> None:
@@ -78,8 +90,7 @@ def test_import_mesh_bundle_case_creates_canonical_layout(tmp_path: Path) -> Non
     assert case_json_path.exists()
     assert viewer_config_path.exists()
     assert (expected_case_dir / "README.md").exists()
-    for filename in MESH_GALLERY_REQUIRED_BUNDLE_FILES:
-        assert (bundle_dir / filename).exists()
+    validate_bundle_dir(bundle_dir)
 
     payload = json.loads(case_json_path.read_text(encoding="utf-8"))
     assert payload["case_schema_version"] == MESH_GALLERY_CASE_SCHEMA_VERSION
@@ -158,8 +169,8 @@ def test_imported_mesh_case_prefers_copied_mesher_figures_when_available(tmp_pat
     case_payload = json.loads((case_dir / "case.json").read_text(encoding="utf-8"))
     assert case_payload["preferred_doc_figure_path"].endswith("/figures/mesh_overview.png")
     assert case_payload["preferred_doc_regional_figure_path"].endswith("/figures/mesh_regional.png")
-    assert (case_dir / "figures" / "mesh_overview.png").read_bytes() == overview_png.read_bytes()
-    assert (case_dir / "figures" / "mesh_regional.png").read_bytes() == regional_png.read_bytes()
+    assert _read_bytes(case_dir / "figures" / "mesh_overview.png") == overview_png.read_bytes()
+    assert _read_bytes(case_dir / "figures" / "mesh_regional.png") == regional_png.read_bytes()
 
     specs = build_repo_mesh_gallery_case_specs(repo_root=repo_root)
     assert len(specs) == 1
@@ -206,8 +217,8 @@ def test_generate_mesh_viewer_case_uses_preferred_doc_figure_when_available(
         / "mesh"
         / "mesh_100km2_outlet_27_geology_rivers_buffer30_regional.png"
     )
-    assert generated_overview.read_bytes() == overview_png.read_bytes()
-    assert generated_regional.read_bytes() == regional_png.read_bytes()
+    assert _read_bytes(generated_overview) == overview_png.read_bytes()
+    assert _read_bytes(generated_regional) == regional_png.read_bytes()
     assert summary["metrics"][0]["key"] == "node_count"
     assert len(summary["images"]) == 2
     assert summary["metadata"]["scale"] == "100km2"
