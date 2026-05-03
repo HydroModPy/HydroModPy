@@ -113,6 +113,7 @@ _PANEL_TITLE_FONT_SIZE = 9
 _LABEL_FONT_SIZE = 9
 _TICK_FONT_SIZE = 8
 _LEGEND_FONT_SIZE = 9
+_SECONDS_PER_DAY = 86_400.0
 
 
 def _slug(value: str) -> str:
@@ -271,15 +272,18 @@ def _rows_have_elapsed_seconds(rows: Iterable[Mapping[str, Any]]) -> bool:
 
 
 def _row_time_value(row: Mapping[str, Any], *, use_elapsed_seconds: bool) -> float | None:
-    return (
+    value = (
         _safe_float(row.get("elapsed_seconds"))
         if use_elapsed_seconds
         else _safe_float(row.get("time_index"))
     )
+    if value is None:
+        return None
+    return value / _SECONDS_PER_DAY if use_elapsed_seconds else value
 
 
 def _time_axis_label(*, use_elapsed_seconds: bool) -> str:
-    return "Elapsed time [s]" if use_elapsed_seconds else "Time step"
+    return "Elapsed time [d]" if use_elapsed_seconds else "Time step"
 
 
 def _mask_nodata(values: np.ndarray) -> np.ndarray:
@@ -1565,18 +1569,14 @@ def _write_timeseries_figure(
     use_elapsed_seconds = all(
         _safe_float(row.get("elapsed_seconds")) is not None for row in grouped_rows
     )
-    x_label = "Elapsed time [s]" if use_elapsed_seconds else "Time index"
+    x_label = _time_axis_label(use_elapsed_seconds=use_elapsed_seconds)
 
     series_payloads: dict[tuple[str, str, int], list[tuple[float, float]]] = {}
     for row in grouped_rows:
         value = _safe_float(row.get("value"))
         if value is None:
             continue
-        x_value = (
-            _safe_float(row.get("elapsed_seconds"))
-            if use_elapsed_seconds
-            else _safe_float(row.get("time_index"))
-        )
+        x_value = _row_time_value(row, use_elapsed_seconds=use_elapsed_seconds)
         if x_value is None:
             continue
         key = (
@@ -2085,13 +2085,15 @@ def _write_budget_diagnostic_figure(
         _safe_float(row.get("elapsed_seconds")) is not None for row in variant_budget_rows
     )
     x_field = "elapsed_seconds" if use_elapsed_seconds else "time_index"
-    x_label = "Elapsed time [s]" if use_elapsed_seconds else "Time step"
+    x_label = _time_axis_label(use_elapsed_seconds=use_elapsed_seconds)
 
     component_groups: dict[str, list[tuple[float, float]]] = {}
     time_labels: dict[float, str] = {}
     for row in variant_budget_rows:
         component = str(row.get("component", "")).strip()
         x_value = _safe_float(row.get(x_field))
+        if x_value is not None and use_elapsed_seconds:
+            x_value = x_value / _SECONDS_PER_DAY
         value = _safe_float(row.get("value"))
         if not component or x_value is None or value is None:
             continue
@@ -2112,6 +2114,8 @@ def _write_budget_diagnostic_figure(
         if str(row.get("unit", "")) != "m3/s":
             continue
         x_value = _safe_float(row.get(x_field))
+        if x_value is not None and use_elapsed_seconds:
+            x_value = x_value / _SECONDS_PER_DAY
         value = _safe_float(row.get("value"))
         if x_value is None or value is None:
             continue
