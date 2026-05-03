@@ -89,14 +89,32 @@ def _fischer_burmeister_residual_and_derivatives(
     rate_scale_m_s: float,
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     """Return the NCP residual and its diagonal derivatives."""
-    a = np.asarray(q_ex_rate_m_s, dtype=float) / float(rate_scale_m_s)
-    b = np.asarray(surface_gap_m, dtype=float) / float(head_scale_m)
+    residual, dphi_dgap, dphi_dq = _fischer_burmeister_residual_and_gap_derivatives(
+        q_ex_rate_m_s,
+        surface_gap_m,
+        head_scale_m=head_scale_m,
+        rate_scale_m_s=rate_scale_m_s,
+    )
+    dphi_dh = -dphi_dgap
+    return residual, dphi_dh, dphi_dq
+
+
+def _fischer_burmeister_residual_and_gap_derivatives(
+    rate_m_s: np.ndarray,
+    gap_m: np.ndarray,
+    *,
+    head_scale_m: float,
+    rate_scale_m_s: float,
+) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """Return the NCP residual and derivatives with respect to ``gap`` and rate."""
+    a = np.asarray(rate_m_s, dtype=float) / float(rate_scale_m_s)
+    b = np.asarray(gap_m, dtype=float) / float(head_scale_m)
     radius = np.hypot(a, b)
     denominator = np.maximum(radius, _FB_JACOBIAN_EPS)
     residual = radius - a - b
     dphi_dq = (a / denominator - 1.0) / float(rate_scale_m_s)
-    dphi_dh = (1.0 - b / denominator) / float(head_scale_m)
-    return residual, dphi_dh, dphi_dq
+    dphi_dgap = (b / denominator - 1.0) / float(head_scale_m)
+    return residual, dphi_dgap, dphi_dq
 
 
 def _stack_state(head_m: np.ndarray, q_ex_rate_m_s: np.ndarray) -> np.ndarray:
@@ -237,6 +255,7 @@ def _initial_transient_q_ex_guess(
 __all__ = [
     "_apply_prescribed_head_constraints",
     "_complementarity_scales",
+    "_fischer_burmeister_residual_and_gap_derivatives",
     "_fischer_burmeister_residual_and_derivatives",
     "_initial_steady_q_ex_guess",
     "_initial_transient_q_ex_guess",

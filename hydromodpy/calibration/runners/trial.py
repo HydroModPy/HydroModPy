@@ -45,7 +45,9 @@ from hydromodpy.core.state.execution import ExecutionRegistry
 from hydromodpy.project import Project
 
 if TYPE_CHECKING:
-    from pydantic import BaseModel
+    from hydromodpy.config import HydroModPyConfig
+    from hydromodpy.core.state.run_state import WorkflowContext
+    from hydromodpy.pipeline.step import Step
 
     from hydromodpy.core.state.run_state import WorkflowContext
 
@@ -241,10 +243,17 @@ def prepare_trials(
         calibration helper (``mode="replace"``/``"scale"``). Otherwise, it
         falls back to the raw dotted-path writer.
     """
-    from hydromodpy.core.config_kit.root_config_protocol import get_root_config_provider
-    from hydromodpy.core.toml_io.loader import load_toml_with_base_config
-
-    provider = get_trial_pipeline_provider()
+    from hydromodpy.config import HydroModPyConfig
+    from hydromodpy.core.config.toml_loader import load_toml_with_base_config
+    from hydromodpy.pipeline.pipeline import Pipeline
+    from hydromodpy.pipeline.steps import standard_steps
+    from hydromodpy.spatial.domain.spatial_support import (
+        build_default_spatial_support_provider_registry,
+    )
+    from hydromodpy.workflow.steps.setup import (
+        collect_requested_support_ids,
+        resolve_support_configs,
+    )
 
     cfg_path = Path(cfg_path).expanduser().resolve()
     raw_toml = load_toml_with_base_config(cfg_path)

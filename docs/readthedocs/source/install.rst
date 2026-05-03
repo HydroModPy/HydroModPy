@@ -109,6 +109,30 @@ before each commit. See :doc:`contribute` for the full contributor
 workflow (issue filing, coding style, test tiers, doc build, pull request
 conventions).
 
+Windows plus WSL development
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+For PETSc-backed Boussinesq work on Windows, use two environments instead of
+forcing every dependency into one environment:
+
+- WSL ``hydromodpy-wsl`` for PETSc simulations and numerical validation tests,
+- Windows ``hydromodpy-kpg`` or another docs-capable environment for Sphinx.
+
+Run the PETSc smoke suite from PowerShell through WSL:
+
+.. code-block:: powershell
+
+   wsl.exe bash -lc "cd /mnt/c/codes/HydroModPy && bash install/enter_wsl_dev.sh --headless -- bash tools/ci/run_boussinesq_petsc_smoke.sh"
+
+Then rebuild the documentation in Windows:
+
+.. code-block:: powershell
+
+   conda run --no-capture-output -n hydromodpy-kpg python -m sphinx -E -a -W -b html docs/readthedocs/source docs/readthedocs/build/html
+
+The documentation build should consume existing figures and reports; it should
+not require PETSc or rerun Linux-only simulations.
+
 Install with conda
 ------------------
 
@@ -337,7 +361,7 @@ Check the installation
 .. code-block:: python
 
    import hydromodpy
-   from hydromodpy.master_config import HydroModPyConfig
+   from hydromodpy.config import HydroModPyConfig
    from hydromodpy.spatial.geographic import CatchmentDelineation
    # Examples of submodule imports
    from hydromodpy.display import get, list_figures

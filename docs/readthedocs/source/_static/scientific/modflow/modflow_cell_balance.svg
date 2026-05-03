@@ -1,0 +1,70 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="620" viewBox="0 0 1200 620" role="img" aria-labelledby="title desc">
+  <title id="title">MODFLOW cell balance schematic</title>
+  <desc id="desc">Schematic of a control-volume cell balance with intercell flow, recharge, EVT, drainage, imposed head, wells, and storage.</desc>
+  <defs>
+    <marker id="arrow" markerWidth="12" markerHeight="12" refX="10" refY="6" orient="auto">
+      <path d="M2,2 L10,6 L2,10 Z" fill="#344b5b"/>
+    </marker>
+    <marker id="arrowRed" markerWidth="12" markerHeight="12" refX="10" refY="6" orient="auto">
+      <path d="M2,2 L10,6 L2,10 Z" fill="#9a4a34"/>
+    </marker>
+    <style>
+      .bg { fill: #f7f8f4; }
+      .cell { fill: #e7f0fb; stroke: #4f7598; stroke-width: 3; }
+      .neighbor { fill: #ffffff; stroke: #aab7b0; stroke-width: 2; }
+      .surface { stroke: #6e8054; stroke-width: 4; fill: none; }
+      .water { stroke: #4f83a8; stroke-width: 3; stroke-dasharray: 9 7; fill: none; }
+      .in { stroke: #326b4c; stroke-width: 4; fill: none; marker-end: url(#arrow); }
+      .out { stroke: #9a4a34; stroke-width: 4; fill: none; marker-end: url(#arrowRed); }
+      .flow { stroke: #344b5b; stroke-width: 4; fill: none; marker-end: url(#arrow); }
+      .title { font: 700 26px Georgia, serif; fill: #22313a; }
+      .label { font: 700 18px Georgia, serif; fill: #22313a; }
+      .small { font: 14px Georgia, serif; fill: #43515a; }
+      .mono { font: 14px Consolas, monospace; fill: #2e3d47; }
+    </style>
+  </defs>
+
+  <rect class="bg" width="1200" height="620"/>
+  <text x="48" y="56" class="title">Control-volume reading of a MODFLOW cell</text>
+
+  <path d="M250,148 C420,120 585,132 758,108 C900,88 1010,104 1110,84" class="surface"/>
+  <text x="820" y="72" class="small">land surface / top</text>
+
+  <rect x="490" y="220" width="260" height="220" class="cell"/>
+  <text x="570" y="322" class="label">cell i</text>
+  <text x="560" y="352" class="mono">unknown h_i</text>
+  <path d="M500,286 L740,286" class="water"/>
+  <text x="760" y="290" class="small">head</text>
+
+  <rect x="208" y="248" width="180" height="164" class="neighbor"/>
+  <text x="244" y="338" class="mono">cell j</text>
+  <rect x="854" y="248" width="180" height="164" class="neighbor"/>
+  <text x="890" y="338" class="mono">cell k</text>
+
+  <path d="M388,330 L478,330" class="flow"/>
+  <path d="M750,330 L840,330" class="flow"/>
+  <text x="394" y="304" class="mono">C_ij(h_j-h_i)</text>
+  <text x="764" y="304" class="mono">C_ik(h_k-h_i)</text>
+
+  <path d="M620,130 L620,205" class="in"/>
+  <text x="646" y="170" class="label">RCH</text>
+  <text x="646" y="194" class="small">diffuse input</text>
+
+  <path d="M690,210 C728,176 750,140 770,98" class="out"/>
+  <text x="786" y="144" class="label">EVT</text>
+  <text x="786" y="168" class="small">atmospheric sink</text>
+
+  <path d="M682,412 C724,456 780,478 846,486" class="out"/>
+  <text x="860" y="492" class="label">DRN</text>
+  <text x="860" y="516" class="small">head-dependent outflow</text>
+
+  <path d="M382,430 C420,462 454,476 500,492" class="flow"/>
+  <text x="250" y="480" class="label">CHD / WEL</text>
+  <text x="250" y="504" class="small">external boundary or source</text>
+
+  <path d="M562,448 L562,534" class="out"/>
+  <text x="592" y="492" class="label">STO</text>
+  <text x="592" y="516" class="small">transient storage term</text>
+
+  <text x="76" y="572" class="small">HydroModPy normalizes the scientific intent first; the MODFLOW backend then turns it into package-specific cell terms.</text>
+</svg>

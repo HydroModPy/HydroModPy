@@ -49,7 +49,9 @@ def _split_path(path: str) -> list[str]:
 
 
 def _root_model() -> type[BaseModel]:
-    return get_root_config_provider().root_model()
+    from hydromodpy.config import HydroModPyConfig
+
+    return HydroModPyConfig
 
 
 def _resolve_field(path: str) -> tuple[type[BaseModel], str, FieldInfo]:

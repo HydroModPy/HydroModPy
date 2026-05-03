@@ -26,6 +26,7 @@ class BoussinesqAssembly:
     flow_residual_m3_s: np.ndarray
     solver_residual: np.ndarray
     residual_m3_s: np.ndarray
+    dry_deficit_rate_m_s: np.ndarray | None = None
 
 
 @dataclass(frozen=True)

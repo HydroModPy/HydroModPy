@@ -10,17 +10,28 @@ from types import SimpleNamespace
 import numpy as np
 import pytest
 
-from hydromodpy.analysis.comparison.config import MethodComparisonConfig
-from hydromodpy.analysis.comparison.exports import write_budget_exports
-from hydromodpy.analysis.comparison.metric_diff import (
+from hydromodpy.analysis.comparison.config import (
+    MethodComparisonConfig,
+    MethodComparisonObservable,
+    MethodComparisonVariant,
+)
+from hydromodpy.analysis.comparison.exports import (
+    _load_catalog_budget_rows,
+    write_boussinesq_obstacle_diagnostics_export,
+    write_budget_exports,
+)
+from hydromodpy.analysis.comparison.metrics import (
     build_comparison_metrics,
     build_unmatched_groups,
 )
 from hydromodpy.analysis.comparison.orchestrator import MethodComparisonLauncher
-from hydromodpy.analysis.comparison.runtime_config import materialize_variant_config
-from hydromodpy.analysis.comparison.runtime_observables import extract_observable_rows
-from hydromodpy.analysis.comparison.runtime_series import load_variable_series
-from hydromodpy.core.toml_io.loader import load_toml_with_base_config
+from hydromodpy.analysis.comparison.runtime import (
+    _resolve_recorded_output_path,
+    extract_observable_rows,
+    load_variable_series,
+    materialize_variant_config,
+)
+from hydromodpy.core.config.toml_loader import load_toml_with_base_config
 
 OUTLET_CELL_AREA_M2 = 10.0
 SIM_ID = "sim-test"
@@ -389,10 +400,10 @@ def _write_boussinesq_run_folder(run_folder: Path, bundle_dir: Path) -> _FakeCat
     (bundle_dir / "cells.csv").write_text(
         "\n".join(
             [
-                "cell_id,centroid_x,centroid_y,area_m2,storage_coefficient",
-                "0,0.0,0.0,5.0,0.08",
-                f"1,10.0,0.0,{OUTLET_CELL_AREA_M2},0.08",
-                "2,20.0,0.0,7.0,0.08",
+                "cell_id,centroid_x,centroid_y,area_m2,storage_coefficient,z_top_mean,z_bottom_mean",
+                "0,0.0,0.0,5.0,0.08,11.0,9.8",
+                f"1,10.0,0.0,{OUTLET_CELL_AREA_M2},0.08,12.2,11.55",
+                "2,20.0,0.0,7.0,0.08,13.0,11.8",
             ]
         )
         + "\n",
@@ -415,8 +426,18 @@ def _write_boussinesq_run_folder(run_folder: Path, bundle_dir: Path) -> _FakeCat
             [[0.0, 0.02, 0.01], [0.01, 0.03, 0.0]],
             dtype=float,
         ),
-        "drainage_flux_history_m3_s": np.asarray(
-            [[0.05, 0.15, 0.07], [0.08, 0.3, 0.1]],
+        dry_deficit_history_m_s=np.asarray(
+            [
+                [0.0, 0.0, 0.0],
+                [0.0, 0.005, 0.0],
+            ],
+            dtype=float,
+        ),
+        drainage_flux_history_m3_s=np.asarray(
+            [
+                [0.05, 0.15, 0.07],
+                [0.08, 0.3, 0.1],
+            ],
             dtype=float,
         ),
         "period_lengths_seconds": np.asarray([3600.0], dtype=float),
@@ -793,6 +814,25 @@ def test_load_variable_series_derives_boussinesq_surface_excess_flux(
     assert float(series.slices[1].values[0]) == pytest.approx(0.35)
 
 
+def test_load_variable_series_derives_boussinesq_dry_deficit_flux(
+    tmp_path: Path,
+) -> None:
+    run_folder = tmp_path / "run_bouss_dry_deficit"
+    bundle_dir = tmp_path / "bundle_bouss_dry_deficit"
+    run_folder.mkdir(parents=True, exist_ok=True)
+    _write_boussinesq_run_folder(run_folder, bundle_dir)
+
+    series = load_variable_series(
+        run_folder=run_folder,
+        variable="dry_deficit_flux",
+    )
+
+    assert series.variable_name == "dry_deficit_total_m3_s"
+    assert len(series.slices) == 2
+    assert float(series.slices[0].values[0]) == pytest.approx(0.0)
+    assert float(series.slices[1].values[0]) == pytest.approx(0.005 * OUTLET_CELL_AREA_M2)
+
+
 def test_extract_observable_rows_reads_surface_excess_map_and_series(
     tmp_path: Path,
 ) -> None:
@@ -887,6 +927,7 @@ def test_write_budget_exports_derives_boussinesq_budget_timeseries(
 
     assert artifacts
     assert any(row["component"] == "surface_excess_total_m3_s" for row in rows)
+    assert any(row["component"] == "dry_deficit_total_m3_s" for row in rows)
     assert any(row["component"] == "storage_change_total_m3_s" for row in rows)
     recharge_row = next(
         row
@@ -903,9 +944,190 @@ def test_write_budget_exports_derives_boussinesq_budget_timeseries(
         for row in rows
         if row["component"] == "closure_residual_m3_s" and int(row["time_index"]) == 1
     )
+    dry_row = next(
+        row
+        for row in rows
+        if row["component"] == "dry_deficit_total_m3_s" and int(row["time_index"]) == 1
+    )
     assert float(recharge_row["value"]) == pytest.approx(3.55e-7)
     assert float(storage_row["value"]) == pytest.approx(0.68 / 3600.0)
+    assert float(dry_row["value"]) == pytest.approx(0.005 * OUTLET_CELL_AREA_M2)
     assert math.isfinite(float(residual_row["value"]))
+    assert float(residual_row["value"]) == pytest.approx(
+        3.95e-7
+        - 0.025
+        + 0.005 * OUTLET_CELL_AREA_M2
+        - 0.48
+        - 0.35
+        - (0.68 / 3600.0)
+    )
+
+
+def test_write_budget_exports_uses_child_config_bundle_when_run_folder_has_no_mesh_metadata(
+    tmp_path: Path,
+) -> None:
+    run_folder = tmp_path / "generated_configs"
+    bundle_dir = tmp_path / "bundle_from_child_config"
+    run_folder.mkdir(parents=True, exist_ok=True)
+    _write_boussinesq_run_folder(run_folder, bundle_dir)
+    (run_folder / "_boussinesq_summary.json").unlink()
+
+    config_dir = tmp_path / "comparison" / "_generated_configs"
+    config_dir.mkdir(parents=True)
+    config_path = config_dir / "bouss_candidate.toml"
+    config_path.write_text(
+        "\n".join(
+            [
+                "workflow = \"simulation\"",
+                "",
+                "[mesh_input]",
+                'bundle_dir = "../../bundle_from_child_config"',
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    artifacts, rows = write_budget_exports(
+        comparison_root=tmp_path / "comparison",
+        variant_summaries=[
+            {
+                "id": "bouss_demo",
+                "label": "Bouss demo",
+                "solver": "boussinesq",
+                "mesh_mode": "mesh_input",
+                "status": "completed",
+                "run_folder": str(run_folder),
+                "config_path": str(config_path),
+            }
+        ],
+    )
+
+    assert artifacts
+    assert any(row["component"] == "recharge_total_m3_s" for row in rows)
+
+
+def test_write_boussinesq_obstacle_diagnostics_exports_bounds_and_dry_deficit(
+    tmp_path: Path,
+) -> None:
+    run_folder = tmp_path / "run_bouss_obstacles"
+    bundle_dir = tmp_path / "bundle_bouss_obstacles"
+    run_folder.mkdir(parents=True, exist_ok=True)
+    _write_boussinesq_run_folder(run_folder, bundle_dir)
+
+    artifacts, rows = write_boussinesq_obstacle_diagnostics_export(
+        comparison_root=tmp_path / "comparison",
+        variant_summaries=[
+            {
+                "id": "bouss_demo",
+                "label": "Bouss demo",
+                "solver": "boussinesq",
+                "mesh_mode": "mesh_input",
+                "status": "completed",
+                "run_folder": str(run_folder),
+            }
+        ],
+    )
+
+    assert artifacts
+    assert rows
+    last = next(row for row in rows if int(row["time_index"]) == 1)
+    assert float(last["min_head_above_bottom_m"]) == pytest.approx(-0.3)
+    assert float(last["max_head_below_bottom_m"]) == pytest.approx(0.3)
+    assert int(last["head_below_bottom_cell_count"]) == 1
+    assert float(last["negative_storage_volume_m3"]) == pytest.approx(0.24)
+    assert int(last["dry_deficit_active_cell_count"]) == 1
+    assert float(last["dry_deficit_total_m3_s"]) == pytest.approx(0.005 * OUTLET_CELL_AREA_M2)
+
+
+def test_catalog_budget_rows_are_normalized_to_elapsed_seconds_and_m3_s(tmp_path: Path) -> None:
+    config_path = tmp_path / "mf6_child.toml"
+    config_path.write_text(
+        "\n".join(
+            [
+                'workflow = "simulation"',
+                "",
+                "[simulation]",
+                'name = "mf6_budget_demo"',
+                "",
+                "[simulation.time]",
+                'start_datetime = "2020-01-01 00:00:00"',
+                'end_datetime = "2020-01-02 00:00:00"',
+                'step_value = "1 day"',
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    class FakeBudgetStore:
+        def query_budget(self, sim_id: str) -> pd.DataFrame:
+            assert sim_id == "mf6-demo"
+            return pd.DataFrame(
+                [
+                    {
+                        "timestep": 0,
+                        "component": "rcha",
+                        "flux_in": 2.5,
+                        "flux_out": 0.0,
+                        "unit": "m3/d",
+                    },
+                    {
+                        "timestep": 0,
+                        "component": "chd",
+                        "flux_in": 0.1,
+                        "flux_out": 0.4,
+                        "unit": "m3/d",
+                    },
+                    {
+                        "timestep": 0,
+                        "component": "sto-sy",
+                        "flux_in": 0.2,
+                        "flux_out": 1.0,
+                        "unit": "m3/d",
+                    },
+                    {
+                        "timestep": 1,
+                        "component": "rcha",
+                        "flux_in": 0.0,
+                        "flux_out": 0.0,
+                        "unit": "m3/s",
+                    },
+                ]
+            )
+
+    rows = _load_catalog_budget_rows(
+        {
+            "id": "mf6_ref",
+            "label": "MF6 reference",
+            "solver": "modflow6",
+            "mesh_mode": "mesh_input",
+            "config_path": str(config_path),
+        },
+        FakeBudgetStore(),
+        "mf6-demo",
+    )
+
+    by_component = {
+        row["component"]: row for row in rows if int(row["time_index"]) == 0
+    }
+    assert by_component["recharge_total_m3_s"]["elapsed_seconds"] == pytest.approx(86400.0)
+    assert by_component["recharge_total_m3_s"]["unit"] == "m3/s"
+    assert by_component["recharge_total_m3_s"]["value"] == pytest.approx(2.5)
+    assert by_component["prescribed_head_out_total_m3_s"]["value"] == pytest.approx(0.3)
+    assert by_component["storage_change_total_m3_s"]["value"] == pytest.approx(0.8)
+    assert by_component["closure_residual_m3_s"]["value"] == pytest.approx(1.4)
+
+
+@pytest.mark.skipif(os.name == "nt", reason="POSIX keeps WSL mount paths unchanged")
+def test_resolve_recorded_output_path_keeps_wsl_mount_path_on_posix() -> None:
+    path = _resolve_recorded_output_path(
+        "/mnt/c/codes/HydroModPy/examples",
+        base_dir=Path("/tmp"),
+    )
+
+    assert path is not None
+    assert path.as_posix() == "/mnt/c/codes/HydroModPy/examples"
 
 
 @pytest.mark.skipif(os.name != "nt", reason="WSL bundle-path normalization is Windows-specific")
@@ -1146,6 +1368,7 @@ def test_method_comparison_launcher_generates_visual_figures(
         "map_triptych",
         "timeseries",
         "point_dashboard",
+        "simulated_active_network_figures_skipped_json",
     }
     for item in figures:
         figure_path = Path(item["path"])
@@ -1326,6 +1549,7 @@ def test_method_comparison_launcher_generates_structured_figures_from_run_folder
         "map_comparison",
         "difference_map",
         "map_triptych",
+        "simulated_active_network_figures_skipped_json",
     }
     for item in figures:
         figure_path = Path(item["path"])

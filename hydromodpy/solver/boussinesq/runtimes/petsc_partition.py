@@ -5,7 +5,7 @@ PETSc SNES. Surface interaction follows the regularized partition law
 
 ``q_ex = G_r(theta) R(balance)``
 
-instead of the mixed complementarity ``(h, q_ex)`` formulation, and its
+instead of the mixed complementarity ``(h, q_ex, q_dry)`` formulation, and its
 Jacobian is assembled analytically almost everywhere.
 """
 

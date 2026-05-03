@@ -2,7 +2,7 @@
 
 from pathlib import Path
 
-from hydromodpy.master_config import HydroModPyConfig
+from hydromodpy.config import HydroModPyConfig
 
 
 def test_tmp_workspace_creates_layout(tmp_workspace: Path) -> None:

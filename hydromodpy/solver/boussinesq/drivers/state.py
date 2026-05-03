@@ -21,6 +21,7 @@ class TransientRuntimeHistory:
     head_history: list[np.ndarray] = field(default_factory=list)
     thickness_history: list[np.ndarray] = field(default_factory=list)
     saturation_excess_history: list[np.ndarray] = field(default_factory=list)
+    dry_deficit_history: list[np.ndarray] = field(default_factory=list)
     recharge_rate_history: list[np.ndarray] = field(default_factory=list)
     well_flux_history: list[np.ndarray] = field(default_factory=list)
     internal_edge_flux_history: list[np.ndarray] = field(default_factory=list)
@@ -42,6 +43,7 @@ class TransientRuntimeHistory:
             head_history=[np.asarray(head_m, dtype=float).copy()],
             thickness_history=[np.asarray(saturated_thickness_m, dtype=float).copy()],
             saturation_excess_history=[np.zeros(mesh.n_cells, dtype=float)],
+            dry_deficit_history=[np.zeros(mesh.n_cells, dtype=float)],
             recharge_rate_history=[np.zeros(mesh.n_cells, dtype=float)],
             well_flux_history=[np.zeros(mesh.n_cells, dtype=float)],
             internal_edge_flux_history=[np.zeros(mesh.n_edges, dtype=float)],
@@ -77,6 +79,12 @@ class TransientRuntimeHistory:
         self.saturation_excess_history.append(
             np.asarray(assembly.saturation_excess_rate_m_s, dtype=float).copy()
         )
+        dry_deficit = assembly.dry_deficit_rate_m_s
+        self.dry_deficit_history.append(
+            np.zeros(mesh.n_cells, dtype=float)
+            if dry_deficit is None
+            else np.asarray(dry_deficit, dtype=float).copy()
+        )
         self.recharge_rate_history.append(
             np.asarray(assembly.recharge_rate_m_s, dtype=float).copy()
         )
@@ -111,6 +119,10 @@ class TransientRuntimeHistory:
             self.saturation_excess_history[-1],
             dtype=float,
         )
+        final_dry_deficit = np.asarray(
+            self.dry_deficit_history[-1],
+            dtype=float,
+        )
         final_internal_flux = np.asarray(
             self.internal_edge_flux_history[-1],
             dtype=float,
@@ -131,11 +143,13 @@ class TransientRuntimeHistory:
             recharge_rate_m_s=final_recharge_rate.copy(),
             well_flux_m3_s=final_well_flux.copy(),
             saturation_excess_rate_m_s=final_saturation_excess.copy(),
+            dry_deficit_rate_m_s=final_dry_deficit.copy(),
             recharge_rate_history_m_s=np.vstack(self.recharge_rate_history),
             well_flux_history_m3_s=np.vstack(self.well_flux_history),
             head_history_m=np.vstack(self.head_history),
             saturated_thickness_history_m=np.vstack(self.thickness_history),
             saturation_excess_history_m_s=np.vstack(self.saturation_excess_history),
+            dry_deficit_history_m_s=np.vstack(self.dry_deficit_history),
             internal_edge_flux_m3_s=final_internal_flux.copy(),
             internal_edge_flux_history_m3_s=np.vstack(self.internal_edge_flux_history),
             boundary_edge_flux_m3_s=final_boundary_edge_flux.copy(),
@@ -184,6 +198,11 @@ def build_steady_runtime_state(
             assembly.saturation_excess_rate_m_s,
             dtype=float,
         ).copy(),
+        dry_deficit_rate_m_s=(
+            np.zeros(mesh.n_cells, dtype=float)
+            if assembly.dry_deficit_rate_m_s is None
+            else np.asarray(assembly.dry_deficit_rate_m_s, dtype=float).copy()
+        ),
         recharge_rate_history_m_s=np.asarray([assembly.recharge_rate_m_s], dtype=float),
         well_flux_history_m3_s=np.asarray([assembly.well_flux_m3_s], dtype=float),
         head_history_m=np.asarray([head_m], dtype=float),
@@ -193,6 +212,14 @@ def build_steady_runtime_state(
         ),
         saturation_excess_history_m_s=np.asarray(
             [assembly.saturation_excess_rate_m_s],
+            dtype=float,
+        ),
+        dry_deficit_history_m_s=np.asarray(
+            [
+                np.zeros(mesh.n_cells, dtype=float)
+                if assembly.dry_deficit_rate_m_s is None
+                else assembly.dry_deficit_rate_m_s
+            ],
             dtype=float,
         ),
         internal_edge_flux_m3_s=np.asarray(

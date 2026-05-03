@@ -6,6 +6,7 @@ Streams And Seepage
 This page has moved to the sibling scientific section:
 
 - :doc:`../streams_and_seepage/index`
+- :doc:`../streams_and_seepage/nancon-k-sweep-results`
 
 The move is intentional. Streams and seepage are not only hydrological forcing
 inputs; they are groundwater-surface exchange and result-interpretation

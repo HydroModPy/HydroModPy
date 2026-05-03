@@ -94,6 +94,27 @@ every backend into one identical continuous formulation:
 - the Boussinesq backend makes thickness dependence and surface-interaction
   operators explicit in its finite-volume residual.
 
+What This Looks Like In Results
+-------------------------------
+
+The shared problem definition is abstract, but the persisted outputs are not.
+On a basin run, the first two result families to inspect are usually the state
+field and the water budget.
+
+.. figure:: /_static/capability_gallery/simulation/nancon_transient_nwt_piezometric_map.png
+   :alt: Piezometric map from the Nancon transient MODFLOW-NWT run
+   :width: 100%
+
+   The piezometric map is a direct view of the primary unknown: hydraulic head
+   on the discretized basin support.
+
+.. figure:: /_static/capability_gallery/simulation/nancon_transient_nwt_water_budget.png
+   :alt: Water budget from the Nancon transient MODFLOW-NWT run
+   :width: 100%
+
+   The water budget is the basin-scale reading of the source, sink, storage,
+   and boundary-exchange terms listed in the schematic balance.
+
 Canonical Unknown And Parameters
 --------------------------------
 

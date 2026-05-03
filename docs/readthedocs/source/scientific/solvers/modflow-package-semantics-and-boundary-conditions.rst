@@ -55,6 +55,15 @@ Current Public Package Subset
 
 HydroModPy intentionally uses a compact MODFLOW subset in its public flow path.
 
+.. figure:: /_static/scientific/modflow/modflow_package_stack.svg
+   :alt: Diagram from HydroModPy flow contract to MODFLOW package families
+   :width: 100%
+
+   The important documentation boundary is the adapter. Upstream of it,
+   HydroModPy stores solver-agnostic scientific intent. Downstream of it, each
+   MODFLOW backend receives package-specific payloads and output-control
+   requests.
+
 .. list-table::
    :header-rows: 1
    :widths: 18 22 28 32
@@ -329,6 +338,15 @@ of land-surface evapotranspiration.
 
 CHD, DRN, WEL, and OC
 ^^^^^^^^^^^^^^^^^^^^^
+
+.. figure:: /_static/scientific/modflow/modflow_boundary_semantics.svg
+   :alt: MODFLOW boundary and forcing semantics for RCH EVT DRN CHD and WEL
+   :width: 100%
+
+   The current public path deliberately separates diffuse forcing, atmospheric
+   extraction, imposed-head supports, head-dependent drainage, and localized
+   wells. This matters when comparing basin studies because equal-looking
+   map overlays may come from different physical boundary semantics.
 
 HydroModPy currently makes the following public choices:
 

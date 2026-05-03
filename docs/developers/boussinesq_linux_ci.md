@@ -49,6 +49,8 @@ supportées :
 Cas couverts :
 
 - Benchmark Dupuit analytique en régime permanent (sanity check).
+- Scénario transitoire de versant pentu avec assèchement puis rewetting
+  (vérifie la contrainte basse `h >= b` et l'activation de `q_dry`).
 - Scénario transitoire hillslope recharge pulse overflow (vérifie
   l'activation du seuil de surface).
 - Scénario transitoire réel `headwater_100km2_outlet_2` cycling recharge
@@ -86,8 +88,8 @@ apt-get install -y libxft2 libglu1-mesa libgl1 libxcursor1 libxinerama1 libxrand
 Bootstrap d'un env PETSc conda-forge depuis PowerShell :
 
 ```powershell
-wsl.exe bash -lc "source ~/miniforge3/etc/profile.d/conda.sh && mamba create -y -n hydromodpy-petsc -c conda-forge --strict-channel-priority python=3.12 pip petsc petsc4py mpi4py dask plotly numpy scipy pytest pytest-xdist pandas xarray pydantic matplotlib shapely pyproj geopandas rasterio rioxarray flopy h5py netcdf4 pint pyshp scikit-learn meshio imageio requests geopy tqdm sqlalchemy"
-wsl.exe bash -lc "cd /mnt/c/codes/HydroModPy-GH && source ~/miniforge3/etc/profile.d/conda.sh && conda activate hydromodpy-petsc && python -m pip install tomli-w whitebox-workflows && python -m pip install -e . --no-deps"
+wsl.exe bash -lc "source ~/miniforge3/etc/profile.d/conda.sh && mamba create -y -n hydromodpy-petsc -c conda-forge --strict-channel-priority python=3.12 pip petsc petsc4py mpi4py dask plotly numpy scipy pytest pytest-xdist pandas xarray pydantic pydantic-pint matplotlib shapely pyproj geopandas rasterio rioxarray flopy h5py netcdf4 pint pyshp scikit-learn meshio imageio requests geopy selenium tqdm sqlalchemy duckdb zarr zstandard"
+wsl.exe bash -lc "cd /mnt/c/codes/HydroModPy-GH && source ~/miniforge3/etc/profile.d/conda.sh && conda activate hydromodpy-petsc && python -m pip install pysheds tomli-w whitebox-workflows && python -m pip install -e . --no-deps"
 ```
 
 Commande smoke non-PETSc depuis PowerShell :
@@ -100,6 +102,40 @@ Commande PETSc :
 
 ```powershell
 wsl.exe bash -lc "cd /mnt/c/codes/HydroModPy-GH && source ~/miniforge3/etc/profile.d/conda.sh && conda activate hydromodpy-petsc && bash tools/ci/run_boussinesq_petsc_smoke.sh"
+```
+
+Commande recommandée sur la machine de développement actuelle, depuis le
+dépôt Windows partagé :
+
+```powershell
+wsl.exe bash -lc "cd /mnt/c/codes/HydroModPy && bash install/enter_wsl_dev.sh --headless -- bash tools/ci/run_boussinesq_petsc_smoke.sh"
+```
+
+Pour ne rejouer que le diagnostic d'assèchement :
+
+```powershell
+wsl.exe bash -lc "cd /mnt/c/codes/HydroModPy && bash install/enter_wsl_dev.sh --headless -- python -m pytest tests/validation/numerical/transient/test_boussinesq_drying_petsc.py -q"
+```
+
+## Séparation calcul Linux / documentation Windows
+
+La règle locale recommandée est :
+
+- exécuter les simulations PETSc et les validations numériques lourdes dans
+  WSL, via `install/enter_wsl_dev.sh` et l'environnement `hydromodpy-wsl` ;
+- générer la documentation HTML dans Windows, avec l'environnement qui contient
+  déjà la pile Sphinx, typiquement `hydromodpy-kpg` ;
+- ne pas faire dépendre le build Sphinx Windows de PETSc ou de `petsc4py`.
+
+Les figures et fichiers JSON/CSV produits par WSL sous `/mnt/c/codes/HydroModPy`
+sont immédiatement visibles côté Windows sous `C:\codes\HydroModPy`. La
+documentation doit donc consommer ces artefacts versionnés ou copiés, pas
+relancer les solveurs PETSc pendant le build.
+
+Build Sphinx Windows typique :
+
+```powershell
+conda run --no-capture-output -n hydromodpy-kpg python -m sphinx -E -a -W -b html docs/readthedocs/source docs/readthedocs/build/html
 ```
 
 ## Benchmarks validés

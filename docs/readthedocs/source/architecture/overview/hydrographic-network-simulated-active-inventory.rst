@@ -48,6 +48,7 @@ HydroModPy does now expose a conservative computed API layer:
 - ``run.simulated_active_network_mask()``
 - ``run.simulated_active_network_metrics()``
 - ``run.simulated_active_network_overlap_metrics()``
+- ``run.simulated_active_network_distance_metrics()``
 - the ``simulated_active_network`` display figure
 - the ``simulated_active_network_reference_overlay`` validation figure
 
@@ -156,6 +157,14 @@ Lazy result views already built on top of those fields
   between the simulated active cells and the observed ``reference`` vector
   network.
 
+``hydromodpy/analysis/stream_networks/metrics.py`` now exposes a comparison
+analysis that combines the active mask, mesh geometry, and the persisted
+``reference`` network:
+
+- ``run.simulated_active_network_distance_metrics()``: planar bidirectional
+  cell-centroid distances between active simulated cells and the selected
+  vector role, usually ``reference``.
+
 Those views are already scientifically meaningful, but they remain scalar or
 raster-like summaries, not one canonical stored network object.
 
@@ -200,25 +209,30 @@ The comparison workflow can also write:
 - ``simulated_active_network_metrics_skipped.json``
 - ``simulated_active_network_overlap_metrics.csv``
 - ``simulated_active_network_overlap_metrics_skipped.json``
+- ``simulated_active_network_distance_metrics.csv``
+- ``simulated_active_network_distance_metrics_skipped.json``
 
 The metrics export summarizes active-network occupancy signatures between
 variants. The overlap export compares the simulated active cells with the
 observed ``reference`` network by rasterizing that vector network onto the mesh.
-Both are intentionally separate from ``hydrographic_network_metrics.csv``,
+The distance export adds bidirectional planar cell-centroid distances. These
+exports are intentionally separate from ``hydrographic_network_metrics.csv``,
 which compares persisted vector linework roles.
 
 There is also a Run-level overlap diagnostic:
 
 - ``run.simulated_active_network_overlap_metrics(network_role="reference")``
+- ``run.simulated_active_network_distance_metrics(network_role="reference")``
 
 This does not vectorize the simulated network. It rasterizes the selected
 persisted vector role onto mesh cells by intersection, then compares that cell
-occupancy with the computed simulated-active mask. This is the right
-intermediate comparison before committing to a canonical vectorization rule.
-The scientific validation comparison is against ``reference``. If ``reference``
-is missing, the comparison should be skipped. HydroModPy should not silently
-fall back to ``generated`` because that would replace an observation-vs-model
-question with a topography-vs-model diagnostic.
+occupancy with the computed simulated-active mask and can also summarize
+planar distances. This is the right intermediate comparison before committing
+to a canonical vectorization rule. The scientific validation comparison is
+against ``reference``. If ``reference`` is missing, the comparison should be
+skipped. HydroModPy should not silently fall back to ``generated`` because that
+would replace an observation-vs-model question with a topography-vs-model
+diagnostic.
 
 What Does Not Yet Exist
 -----------------------

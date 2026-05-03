@@ -11,12 +11,9 @@ The overlay is rendered through :mod:`hydromodpy.core.toml_io.writer`
 so the output remains valid TOML and round-trips through :mod:`tomllib`
 even in lightweight environments where external TOML writer packages are
 not installed. The ``base_config`` argument accepts either a path to a
-TOML file on disk or an in-memory ``HydroModPyConfig`` Pydantic instance;
-the latter is useful when the calibration loop is driven from Python
-code. The Pydantic class is reached through the
-``RootConfigProvider`` Protocol declared in
-:mod:`hydromodpy.core.config_kit.root_config_protocol` so this module
-keeps the layer matrix ``calibration -> master_config`` edge at zero.
+TOML file on disk or an in-memory
+:class:`~hydromodpy.config.HydroModPyConfig` instance; the latter is
+useful when the calibration loop is driven from Python code.
 """
 
 from __future__ import annotations
@@ -33,7 +30,7 @@ from hydromodpy.core.toml_io.loader import load_toml_with_base_config
 from hydromodpy.core.toml_io.writer import dump as dump_toml
 
 if TYPE_CHECKING:
-    from pydantic import BaseModel
+    from hydromodpy.config import HydroModPyConfig
 
 
 def _sanitize_label(label: str) -> str:
@@ -140,7 +137,7 @@ def _load_base_payload(
     ``base_path`` is ``None`` when the caller passed an in-memory config
     without a backing file.
     """
-    root_cls = get_root_config_provider().root_model()
+    from hydromodpy.config import HydroModPyConfig
 
     if isinstance(base_config, root_cls):
         payload = base_config.model_dump(mode="json", by_alias=True, exclude_none=True)
@@ -204,10 +201,10 @@ def materialize_candidate(
     ----------
     base_config
         Path to the target simulation TOML or an in-memory
-        ``HydroModPyConfig`` instance (any Pydantic ``BaseModel`` returned
-        by the installed ``RootConfigProvider``). When a config object is
-        passed, the rendered TOML is complete and does not rely on a
-        ``base_config`` pointer.
+        :class:`~hydromodpy.config.HydroModPyConfig` instance. When a
+        config object is passed, the overlay is built from
+        ``model_dump`` and ``base_config`` in the overlay falls back to
+        ``base_dir`` (when supplied) so the file remains rechargeable.
     params
         Candidate values keyed by parameter name (must cover every
         parameter in ``space`` that has a ``target`` or ``path``).

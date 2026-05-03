@@ -4,9 +4,10 @@ from pathlib import Path
 
 import pytest
 
-from hydromodpy.master_config.hydromodpy_config import HydroModPyConfig
+from hydromodpy.config import HydroModPyConfig
+from hydromodpy.solver.base.solver_engine import SolverEngine
 from hydromodpy.solver.modflow6 import Modflow6Config
-from hydromodpy.solver.modflow_nwt.nwt import (
+from hydromodpy.solver.modflow_nwt.modflow import (
     ModflowConfig,
     ModflowSpecifParams,
 )

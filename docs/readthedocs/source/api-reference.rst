@@ -7,8 +7,8 @@ the dedicated API section where classes, functions, and modules are documented.
 Module overview
 ---------------
 
-- :doc:`hydromodpy.master_config <api/hydromodpy-config>` - Pydantic parameter contracts
-  (:class:`~hydromodpy.master_config.hydromodpy_config.HydroModPyConfig`,
+- :doc:`hydromodpy.config <api/hydromodpy-config>` - Pydantic parameter contracts
+  (:class:`~hydromodpy.config.hydromodpy_config.HydroModPyConfig`,
   :class:`~hydromodpy.core.workspace.config.WorkspaceConfig`,
   :class:`~hydromodpy.spatial.geographic.geographic_config.GeographicConfig`)
   with validated fields, type constraints, and cross-field rules.
@@ -30,7 +30,20 @@ Module overview
 Key entry points
 ----------------
 
-- :class:`hydromodpy.master_config.HydroModPyConfig` - top-level Pydantic config
+- :func:`hydromodpy.open` - open a workspace and return a
+  :class:`~hydromodpy.results.catalog.SimulationCatalog`.
+- :func:`hydromodpy.run` - execute the same TOML workflow as ``hmp run`` from
+  Python.
+- :func:`hydromodpy.calibrate` - launch a calibration session from a TOML file.
+- :func:`hydromodpy.compare` - compare two simulations by object or id.
+- :func:`hydromodpy.doctor` - return a lightweight environment diagnostic.
+- :class:`hydromodpy.project.Project` - Python facade for workspace setup,
+  data loading, mesh construction, simulation, calibration, batch, comparison,
+  and cleanup.
+- :class:`hydromodpy.results.run.Run` - one persisted simulation run.
+- :class:`hydromodpy.results.catalog.SimulationCatalog` - workspace-level run
+  registry and result-query surface.
+- :class:`hydromodpy.config.HydroModPyConfig` - top-level Pydantic config
   loaded from a TOML file.
 - :class:`hydromodpy.spatial.geographic.CatchmentDelineation` - catchment
   delineation runtime, exposed by the geographic preprocessing pipeline.

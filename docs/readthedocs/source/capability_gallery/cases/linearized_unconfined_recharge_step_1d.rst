@@ -91,6 +91,28 @@ Solver Coverage
 
          python -m validation_cases.analytical.transient.linearized_unconfined_recharge_step_1d.run_case --no-show --solver modflow6
 
+   .. tab-item:: MODFLOW 6 irregular triangles
+
+      .. figure:: /_static/capability_gallery/validation/linearized_unconfined_recharge_step_1d__modflow6_irregular_tri.png
+         :alt: Linearized Unconfined 1D Recharge Step validation figure for MODFLOW 6 irregular triangles
+         :width: 100%
+
+         Linearized Unconfined 1D Recharge Step rendered with MODFLOW 6 irregular triangles for the analytical gallery.
+
+      **Metrics**
+      - Space-time RMSE: 0.0524 m
+      - Space-time max abs error: 0.0752 m
+      - Final-profile RMSE: 0.0545 m
+      - Cross-row head spread: 2.29e-03 m
+
+      - Config file: ``validation_cases/analytical/transient/linearized_unconfined_recharge_step_1d/config_modflow6_irregular_tri.toml``
+      - Tolerances: ``validation_cases/analytical/transient/linearized_unconfined_recharge_step_1d/tolerances.toml``
+      - Expected output: 60 periods, spatial shape 5 x 50
+
+      .. code-block:: bash
+
+         python -m validation_cases.analytical.transient.linearized_unconfined_recharge_step_1d.run_case --no-show --solver modflow6_irregular_tri
+
    .. tab-item:: Boussinesq
 
       .. figure:: /_static/capability_gallery/validation/linearized_unconfined_recharge_step_1d__boussinesq.png

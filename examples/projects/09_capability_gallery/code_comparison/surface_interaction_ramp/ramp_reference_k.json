@@ -5,42 +5,68 @@
     "Progressive recharge ramp followed by dry recovery.",
     "Six methods: three MODFLOW variants plus three Boussinesq formulations."
   ],
+  "configuration": {
+    "geometry": "400 m x 30 m synthetic strip aquifer",
+    "topography": "5 m linear rise from east outlet to west divide",
+    "boundaries": "west no-flow, east fixed head, top drainage",
+    "east_fixed_head_m": 5.0625,
+    "time_step_days": 15.0,
+    "specific_yield": 0.1,
+    "hydraulic_conductivity_scale": 0.2,
+    "drainage_conductance_m2_s": 0.0001,
+    "forcing": "progressive recharge ramp followed by dry recovery",
+    "methods": "MODFLOW-NWT, MODFLOW 6, MODFLOW 6 irregular triangles, Boussinesq local partition, PETSc partition, PETSc complementarity"
+  },
+  "execution_times_csv": "out/sih_tx_6cmp_linux_ramp_dirichlet_cell_20260416/execution_times.csv",
+  "execution_times_available": true,
   "solvers": [
     {
       "solver": "modflownwt",
       "solver_label": "MODFLOW-NWT",
       "peak_total_outflow_m3_day": 81.69943243028683,
-      "final_storage_change_m3_day": -2.0326407750447593
+      "final_storage_change_m3_day": -2.0326407750447593,
+      "wall_time_seconds": 399.7381801989977,
+      "results_dir": "/mnt/c/codes/HydroModPy/out/sih_tx_6cmp_linux_ramp_dirichlet_cell_20260416/validation/investigate_surfa_062b168c50/transient_modflownwt_7196ca0d"
     },
     {
       "solver": "modflow6",
       "solver_label": "MODFLOW 6",
       "peak_total_outflow_m3_day": 81.70936904155977,
-      "final_storage_change_m3_day": -2.016822929916704
+      "final_storage_change_m3_day": -2.016822929916704,
+      "wall_time_seconds": 374.18490483800997,
+      "results_dir": "/mnt/c/codes/HydroModPy/out/sih_tx_6cmp_linux_ramp_dirichlet_cell_20260416/validation/investigate_surfa_062b168c50/transient_modflow6"
     },
     {
       "solver": "modflow6_irregular_tri",
       "solver_label": "MODFLOW 6 irregular triangles",
-      "peak_total_outflow_m3_day": 78.5219034477474,
-      "final_storage_change_m3_day": -1.0383323573151462
+      "peak_total_outflow_m3_day": 81.92270071291112,
+      "final_storage_change_m3_day": -2.0155058561240735,
+      "wall_time_seconds": 351.4145696380001,
+      "results_dir": "/mnt/c/codes/HydroModPy/out/sih_tx_6cmp_linux_ramp_dirichlet_cell_20260416/validation/investigate_surfa_062b168c50/transient_modflow_30d11bbf32"
     },
     {
       "solver": "boussinesq",
       "solver_label": "Boussinesq",
-      "peak_total_outflow_m3_day": 78.33696880460478,
-      "final_storage_change_m3_day": -2.037627229557901
+      "peak_total_outflow_m3_day": 1.986094979360638e-07,
+      "final_storage_change_m3_day": 0.0,
+      "wall_time_seconds": 5.018394056009129,
+      "results_dir": "/mnt/c/codes/HydroModPy/out/sih_tx_6cmp_linux_ramp_dirichlet_cell_20260416/validation/investigate_surfa_062b168c50/hillslope_surface_f108cc98ca"
     },
     {
       "solver": "petsc_partition",
       "solver_label": "Boussinesq PETSc partition",
-      "peak_total_outflow_m3_day": 76.36139605835281,
-      "final_storage_change_m3_day": -1.8527270023997162
+      "peak_total_outflow_m3_day": 1.986094979360638e-07,
+      "final_storage_change_m3_day": 0.0,
+      "wall_time_seconds": 4.8939367170096375,
+      "results_dir": "/mnt/c/codes/HydroModPy/out/sih_tx_6cmp_linux_ramp_dirichlet_cell_20260416/validation/investigate_surfa_062b168c50/hillslope_surface_f92706c853"
     },
     {
       "solver": "petsc",
       "solver_label": "Boussinesq PETSc complementarity",
-      "peak_total_outflow_m3_day": 84.14797406063106,
-      "final_storage_change_m3_day": -2.048989296460246
+      "peak_total_outflow_m3_day": 1.986094979360638e-07,
+      "final_storage_change_m3_day": 0.0,
+      "wall_time_seconds": 3.9381167800165713,
+      "results_dir": "/mnt/c/codes/HydroModPy/out/sih_tx_6cmp_linux_ramp_dirichlet_cell_20260416/validation/investigate_surfa_062b168c50/hillslope_surface_2f97515d25"
     }
   ]
 }

@@ -43,6 +43,7 @@ ALLOWED_SIMULATION_OVERLAY_KEYS = {
 }
 
 ALLOWED_FLOW_OVERLAY_KEYS = {
+    "bc",
     "param",
     "runtime_backend",
 }

@@ -63,6 +63,28 @@ Where this fits
 - :doc:`../../architecture/data_loading/index` documents the internal planner
   and runtime handoff for contributors.
 
+Illustrated reference
+---------------------
+
+The pages in this chapter use the Nancon data-overview case as the practical
+reference. It is a no-solver workflow: the figures below are data and support
+diagnostics, not simulation results. For the complete case page, open
+:doc:`../../capability_gallery/cases/geographic_nancon_identity_card`.
+
+.. figure:: /_static/capability_gallery/geographic/geographic_nancon_identity_card_map_dem.png
+   :alt: Nancon DEM and watershed support
+   :width: 100%
+
+   Data retrieval first has to produce a credible basin support: DEM, watershed
+   boundary, outlet context, and common CRS.
+
+.. figure:: /_static/capability_gallery/geographic/geographic_nancon_identity_card_station_inventory.png
+   :alt: Nancon station inventory from data overview
+   :width: 100%
+
+   The same retrieval workflow also exposes which observation stations are
+   available before any model run is launched.
+
 .. toctree::
    :maxdepth: 2
 

@@ -14,6 +14,11 @@ It is the right place for:
 - stream, ocean, and drainage semantics at the groundwater interface,
 - unit-conversion and time-aggregation conventions.
 
+If you are looking for stream networks, seepage, drainage outflow, or
+simulation-derived active streams, use the sibling section
+:doc:`../streams_and_seepage/index`. For a concrete run with figures and
+metrics, see :doc:`../streams_and_seepage/nancon-k-sweep-results`.
+
 .. toctree::
    :maxdepth: 2
 

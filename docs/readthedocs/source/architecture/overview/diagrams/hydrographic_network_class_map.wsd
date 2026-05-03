@@ -53,6 +53,10 @@ class HydrographicNetworkComparison {
   +to_metrics_record(...)
 }
 
+class StreamNetworkMetrics {
+  +simulated_active_network_distance_metrics(...)
+}
+
 class GeographicDerivedFeatures {
   +surface_topo
   +boundaries
@@ -65,6 +69,10 @@ class Run {
   +has_hydrographic_network(role)
   +hydrographic_network(role)
   +hydrographic_network_comparison(...)
+  +simulated_active_network_mask(...)
+  +simulated_active_network_metrics(...)
+  +simulated_active_network_overlap_metrics(...)
+  +simulated_active_network_distance_metrics(...)
 }
 
 HydrographyResult --> HydrographicNetwork : converted into\nrole=\"reference\"
@@ -76,6 +84,7 @@ GeographicDerivedFeatures o-- RiverNetworkProducts : technical bundle
 GeographicDerivedFeatures o-- HydrographicNetworks : canonical bundle
 Run --> HydrographicNetworks : reads persisted roles
 Run --> HydrographicNetworkComparison : computes
+Run --> StreamNetworkMetrics : delegates distance metrics
 HydrographicNetworkComparison --> HydrographicNetwork : compares two networks
 
 note bottom of RiverNetworkProducts
@@ -92,5 +101,12 @@ note bottom of Run
 User-facing read facade over persisted runs.
 Comparison is only available when both
 reference and generated roles exist.
+end note
+
+note bottom of StreamNetworkMetrics
+Package hydromodpy.analysis.stream_networks.
+The current distance metric is planar and
+cell-based; it is not yet the downslope
+DEM-routing criterion.
 end note
 @enduml

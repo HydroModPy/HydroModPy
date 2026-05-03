@@ -33,8 +33,38 @@ diffuse hydrological forcing is normalized into the ``Flow`` contract, while
 runoff mainly remains an observation-side quantity for comparison and
 calibration.
 
-Quantities That Should Not Be Confused
---------------------------------------
+Result anchors
+--------------
+
+The semantic distinction becomes easier to keep straight when the reader sees
+where each quantity appears in a result. The Nancon run is the practical
+anchor; the analytical validation cases remain the precise mathematical
+anchors listed near the end of the page.
+
+.. figure:: /_static/capability_gallery/geographic/geographic_nancon_identity_card_climatic_summary.png
+   :alt: Climatic forcing context before a groundwater solve
+   :width: 100%
+
+   Climate and recharge-like quantities start as data-layer evidence. They are
+   not yet groundwater states or boundary fluxes.
+
+.. figure:: /_static/capability_gallery/simulation/nancon_transient_nwt_water_budget.png
+   :alt: Water budget showing recharge, ET, storage, and drainage components
+   :width: 100%
+
+   After the solve, recharge, ET, storage, and drainage appear as budget
+   components. This is where imposed forcing and head-dependent exchange should
+   be interpreted together.
+
+.. figure:: /_static/capability_gallery/simulation/nancon_transient_nwt_hydrograph.png
+   :alt: Observed and simulated outlet hydrograph on Nancon
+   :width: 100%
+
+   The outlet hydrograph is an integrated response. It should not be read as a
+   direct measurement of recharge, ETP, runoff, or drainage alone.
+
+Hydrological Quantities
+-----------------------
 
 HydroModPy already manipulates several water-related variables that belong to
 different conceptual levels.

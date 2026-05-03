@@ -24,6 +24,28 @@ Conceptual Diagram
 
 .. uml:: diagrams/surface_exchange_semantics_context.wsd
 
+Drainage result example
+-----------------------
+
+On the Nancon reference run, ``drainage`` is not a prescribed stream network.
+It is a head-dependent release mechanism whose active cells are derived after
+the groundwater solve.
+
+.. figure:: /_static/capability_gallery/simulation/nancon_transient_nwt_hydrographic_network_comparison.png
+   :alt: Reference and generated hydrographic networks on the Nancon basin
+   :width: 100%
+
+   The reference and generated hydrographic networks provide structural context
+   before reading simulated drainage.
+
+.. figure:: /_static/capability_gallery/simulation/nancon_transient_nwt_simulated_active_network_reference_overlay.png
+   :alt: Simulated active network compared with observed hydrography
+   :width: 100%
+
+   The simulated active network is a post-processed drainage diagnostic. It can
+   be compared with observed hydrography, but it is not itself a prescribed
+   ``stream`` boundary.
+
 Why This Distinction Matters
 ----------------------------
 

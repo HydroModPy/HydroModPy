@@ -85,6 +85,35 @@ Family inventory
      - Surface-runoff forcing
      - ``path``, ``mask_path``, ``extent``
 
+Reading the matrix as figures
+-----------------------------
+
+The matrix is easier to use if each provider group is tied to one expected
+visual outcome. On the Nancon reference overview, public geographic layers,
+Hub'Eau-style observations, and SIM2-style forcing context appear on the same
+basin report.
+
+.. figure:: /_static/capability_gallery/geographic/geographic_nancon_identity_card_map_geology.png
+   :alt: Geology provider output on the Nancon basin
+   :width: 100%
+
+   Geographic providers should first produce inspectable spatial layers:
+   terrain, geology, hydrography, and basin masks.
+
+.. figure:: /_static/capability_gallery/geographic/geographic_nancon_identity_card_station_inventory.png
+   :alt: Observation station inventory on the Nancon basin
+   :width: 100%
+
+   Observation providers should produce both station inventories and
+   time-series records, not only raw downloaded files.
+
+.. figure:: /_static/capability_gallery/geographic/geographic_nancon_identity_card_climatic_summary.png
+   :alt: Climatic forcing summary on the Nancon basin
+   :width: 100%
+
+   Forcing providers should be checked through period coverage and aggregate
+   forcing summaries before their values are sent to a solver.
+
 Provider families
 -----------------
 

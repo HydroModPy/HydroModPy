@@ -171,6 +171,17 @@ The generator rewrites:
 The documentation build does not execute the gallery cases. It only reads the
 committed `.rst`, `.png`, and `.json` artifacts generated ahead of time.
 
+For PETSc-backed Boussinesq figures, keep the same rule locally. Produce the
+numerical artifacts in WSL, then rebuild the documentation in Windows:
+
+```powershell
+wsl.exe bash -lc "cd /mnt/c/codes/HydroModPy && bash install/enter_wsl_dev.sh --headless -- bash tools/ci/run_boussinesq_petsc_smoke.sh"
+wsl.exe bash -lc "cd /mnt/c/codes/HydroModPy && bash install/enter_wsl_dev.sh --headless -- python -m tools.doc_gallery.generate_boussinesq_drying_assets"
+conda run --no-capture-output -n hydromodpy-kpg python -m sphinx -E -a -W -b html docs/readthedocs/source docs/readthedocs/build/html
+```
+
+The Sphinx step should not import `petsc4py` or rerun PETSc simulations.
+
 ## How Cases Are Declared
 
 Case inventory now lives in two places:

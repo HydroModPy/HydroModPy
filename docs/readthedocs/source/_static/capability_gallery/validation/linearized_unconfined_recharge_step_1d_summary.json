@@ -51,7 +51,7 @@
     "validation_cases/analytical/transient/linearized_unconfined_1d.py"
   ],
   "source_hashes": {
-    "validation_cases/README.md": "1965de83b961f1ab4e38d8194d51342e1286d0c2e1b779188903b84e3fc26f1c",
+    "validation_cases/README.md": "6954bbc12c427d8f32dc4ec659fa99518dc972708789e988cd3b39b37b82dfe5",
     "validation_cases/analytical/transient/linearized_unconfined_recharge_step_1d/README.md": "9ee0752433ad79296830dab94db408182ad40a60d3b36128698ad41d5cea6284",
     "validation_cases/analytical/transient/linearized_unconfined_recharge_step_1d/reference.py": "93225a2a70620a222ad74bc4122c6865b4206587915ef28155281a19b49745db",
     "validation_cases/analytical/transient/linearized_unconfined_recharge_step_1d/comparison.py": "de5b95ad380d002dcd2ae51bf3772eb8173c2337e7eb9ba6c222a4e3848bb520",
@@ -324,6 +324,104 @@
           "final_profile": {
             "rmse": 0.007,
             "max_abs_error": 0.01
+          }
+        },
+        "final_elapsed_days": 30.0
+      }
+    },
+    {
+      "solver": "modflow6_irregular_tri",
+      "solver_display_name": "MODFLOW 6 irregular triangles",
+      "is_default": false,
+      "config_path": "validation_cases/analytical/transient/linearized_unconfined_recharge_step_1d/config_modflow6_irregular_tri.toml",
+      "tolerance_path": "validation_cases/analytical/transient/linearized_unconfined_recharge_step_1d/tolerances.toml",
+      "expected_output": "Expected output: 60 periods, spatial shape 5 x 50",
+      "command": "python -m validation_cases.analytical.transient.linearized_unconfined_recharge_step_1d.run_case --no-show --solver modflow6_irregular_tri",
+      "metric_lines": [
+        "Space-time RMSE: 0.0524 m",
+        "Space-time max abs error: 0.0752 m",
+        "Final-profile RMSE: 0.0545 m",
+        "Cross-row head spread: 2.29e-03 m"
+      ],
+      "image": {
+        "filename": "linearized_unconfined_recharge_step_1d__modflow6_irregular_tri.png",
+        "caption": "Linearized Unconfined 1D Recharge Step rendered with MODFLOW 6 irregular triangles for the analytical gallery.",
+        "alt_text": "Linearized Unconfined 1D Recharge Step validation figure for MODFLOW 6 irregular triangles",
+        "doc_path": "/_static/capability_gallery/validation/linearized_unconfined_recharge_step_1d__modflow6_irregular_tri.png",
+        "repo_path": "docs/readthedocs/source/_static/capability_gallery/validation/linearized_unconfined_recharge_step_1d__modflow6_irregular_tri.png"
+      },
+      "metadata": {
+        "observable_name": "watertable_elevation",
+        "case_metadata": {
+          "case_id": "lu_recharge_step_1d",
+          "category": "analytical",
+          "regime": "transient",
+          "dimension": "1d",
+          "launcher": "launcher_simulation",
+          "config_file": "config_modflownwt.toml",
+          "default_solver": "modflownwt",
+          "base_config": "config_modflownwt.toml",
+          "config_files": {
+            "modflownwt": "config_modflownwt.toml",
+            "modflow6": "config_modflow6.toml",
+            "modflow6_irregular_tri": "config_modflow6_irregular_tri.toml",
+            "boussinesq": "config_boussinesq.toml"
+          },
+          "workspace": {
+            "results_folder_name": "results_simulations"
+          },
+          "output": {
+            "observable_name": "watertable_elevation",
+            "expected_periods": 60,
+            "expected_spatial_shape": [
+              5,
+              50
+            ],
+            "expected_spatial_shape_by_solver": {
+              "boussinesq": [
+                3,
+                40
+              ]
+            }
+          },
+          "time": {
+            "dt_seconds": 43200.0
+          },
+          "reference": {
+            "xmin": 0.0,
+            "xmax": 100.0,
+            "base_head_m": 10.0,
+            "recharge_mm_day": 10.0,
+            "hydraulic_conductivity_m_per_s": 0.0001,
+            "reference_saturated_thickness_m": 10.0,
+            "specific_yield": 0.1,
+            "profile_axis": 0,
+            "n_terms": 400
+          },
+          "plot": {
+            "profile_times_days": [
+              0.5,
+              2.0,
+              7.0,
+              20.0,
+              30.0
+            ],
+            "monitor_positions_m": [
+              25.0,
+              50.0,
+              75.0
+            ]
+          }
+        },
+        "tolerances": {
+          "space_time": {
+            "rmse": 0.02,
+            "max_abs_error": 0.03,
+            "row_spread": 0.0001
+          },
+          "final_profile": {
+            "rmse": 0.02,
+            "max_abs_error": 0.03
           }
         },
         "final_elapsed_days": 30.0

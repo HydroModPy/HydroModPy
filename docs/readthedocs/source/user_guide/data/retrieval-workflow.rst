@@ -69,6 +69,34 @@ Read it from top to bottom:
   config; the runtime uses the geographic context passed to the hydrography
   manager.
 
+What the stack produces
+-----------------------
+
+On the Nancon reference basin, the same kind of declaration produces visible
+data diagnostics before any solver is executed.
+
+.. figure:: /_static/capability_gallery/geographic/geographic_nancon_identity_card_map_dem.png
+   :alt: Nancon DEM and watershed support produced by data overview
+   :width: 100%
+
+   DEM retrieval and watershed setup define the spatial support that later
+   data families use for clipping, station discovery, and reporting.
+
+.. figure:: /_static/capability_gallery/geographic/geographic_nancon_identity_card_map_hydrography.png
+   :alt: Nancon hydrography overlay produced by data overview
+   :width: 100%
+
+   Hydrography is loaded as a spatial data family. In a data-overview run it is
+   rendered directly so that network coverage can be checked before meshing or
+   simulation.
+
+.. figure:: /_static/capability_gallery/geographic/geographic_nancon_identity_card_station_inventory.png
+   :alt: Nancon station inventory produced by data overview
+   :width: 100%
+
+   Observation-source discovery is not only an internal step. The station
+   inventory makes the discovered records auditable by a user.
+
 Active families and inference
 -----------------------------
 
@@ -172,6 +200,26 @@ Use ``force_refresh = true`` only on the source that should bypass the cache:
 
 Use ``hmp run --frozen`` when the run must not download or ingest anything that
 is not already present and locked.
+
+Observation panels
+------------------
+
+Once the data is loaded, the overview workflow can also render the observation
+chronicles that later serve comparison or calibration work.
+
+.. figure:: /_static/capability_gallery/geographic/geographic_nancon_timeseries_discharge.png
+   :alt: Nancon observed discharge time series
+   :width: 100%
+
+   Hydrometry retrieval should be judged through both station discovery and
+   the actual chronicle coverage over the requested period.
+
+.. figure:: /_static/capability_gallery/geographic/geographic_nancon_timeseries_piezometry.png
+   :alt: Nancon observed piezometry time series
+   :width: 100%
+
+   Piezometry follows the same pattern: discover candidate wells, normalize the
+   records, then inspect the time-series panel before using it downstream.
 
 Failure triage
 --------------

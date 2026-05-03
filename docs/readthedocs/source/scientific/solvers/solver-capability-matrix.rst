@@ -9,8 +9,49 @@ This page is meant to become the compact comparison sheet that answers:
 "Which backend should I use for which kind of HydroModPy problem, and how well
 is that path currently documented and validated?"
 
-Current Backend Matrix
-----------------------
+The first selection axis is now the process type. Backend-family comparisons
+remain useful, but they should not hide the distinction between ``flow``,
+``transport``, ``postprocess``, and ``display``.
+
+Visual Anchors
+--------------
+
+The matrix below is easier to read if each solver family is connected to a
+real result artifact. These figures are representative anchors, not exhaustive
+capability claims.
+
+.. tab-set::
+
+   .. tab-item:: MODFLOW 6 basin run
+
+      .. figure:: /_static/capability_gallery/simulation/headwater_100km2_outlet_2_mf6_transient_reference_flow_state_triptych.png
+         :alt: MODFLOW 6 transient basin flow-state triptych
+         :width: 100%
+
+         A modern MODFLOW 6 run can publish basin-scale state fields such as
+         topography, hydraulic head, and water-table depth.
+
+   .. tab-item:: MODFLOW-NWT basin run
+
+      .. figure:: /_static/capability_gallery/simulation/nancon_transient_nwt_water_budget.png
+         :alt: Water budget from the Nancon transient MODFLOW-NWT run
+         :width: 100%
+
+         The NWT path remains useful for structured legacy-style simulations
+         where budgets, heads, and hydrographs can be read with established
+         MODFLOW conventions.
+
+   .. tab-item:: Boussinesq validation run
+
+      .. figure:: /_static/capability_gallery/validation/boussinesq_hillslope_recharge_step_interception_1d__boussinesq.png
+         :alt: Boussinesq hillslope recharge-step interception validation result
+         :width: 100%
+
+         The in-house Boussinesq backend is best read through controlled
+         validation figures before broad production claims are made.
+
+Process-Level Matrix
+--------------------
 
 .. list-table::
    :header-rows: 1
