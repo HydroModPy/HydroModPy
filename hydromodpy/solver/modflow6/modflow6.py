@@ -214,7 +214,7 @@ class Modflow6(Solver):
             raise ValueError("pre_processing requires a configured Domain object.")
         flow_regime = self._resolve_flow_regime()
         if flow_regime is None:
-            raise ValueError("flow.flow_regime must be 'steady', 'permanent', or 'transient'")
+            raise ValueError("flow.flow_regime must be 'steady' or 'transient'")
         self.flow_regime = flow_regime
         if self.time_grid is None and self.flow_regime != "steady":
             raise ValueError(
@@ -660,6 +660,10 @@ class Modflow6(Solver):
             strt = np.tile(top_flat, (self.nlay, 1))
         elif initial_type in {"bot", "bottom"}:
             strt = np.tile(botm_flat[-1], (self.nlay, 1))
+        elif initial_type == "top_offset":
+            offset_m = float(self._initial_condition_field(h_ic, "value"))
+            start_head = np.maximum(top_flat - offset_m, botm_flat[-1] + 1e-6)
+            strt = np.tile(start_head, (self.nlay, 1))
         elif initial_type == "custom":
             strt = np.full(
                 (self.nlay, ncpl),
@@ -667,7 +671,10 @@ class Modflow6(Solver):
                 dtype=float,
             )
         else:
-            raise ValueError("flow.initial_conditions.h.type must be one of: top, bottom, custom")
+            raise ValueError(
+                "flow.initial_conditions.h.type must be one of: "
+                "top, bottom, top_offset, custom"
+            )
         ocean_series = self._resolve_ocean_boundary_series()
         ocean_support_mask = self._ocean_chd_support_mask(ocean_series)
         if np.any(ocean_support_mask):

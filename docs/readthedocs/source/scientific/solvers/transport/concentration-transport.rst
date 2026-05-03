@@ -6,9 +6,10 @@ spreading, input concentration, and decay after flow has been solved.
 
 Read this family as:
 
-1. common transport dependency rules in :doc:`common-concepts`,
-2. concentration-family structure in :doc:`concentration-transport/index`,
-3. backend-specific pages for :doc:`concentration-transport/mt3dms` and
+1. transport equations and unknowns in :doc:`equations-and-unknowns`,
+2. common transport dependency rules in :doc:`common-concepts`,
+3. concentration-family structure in :doc:`concentration-transport/index`,
+4. backend-specific pages for :doc:`concentration-transport/mt3dms` and
    :doc:`concentration-transport/modflow6gwt`.
 
 Current Solvers
@@ -34,6 +35,7 @@ Internal Structure
 .. toctree::
    :maxdepth: 2
 
+   equations-and-unknowns
    concentration-transport/index
 
 Typical MODFLOW-NWT + MT3DMS Plan
@@ -107,6 +109,8 @@ Related Pages
 -------------
 
 - :doc:`common-concepts`
+- :doc:`modflow-nwt-transport`
+- :doc:`modflow6-transport`
 - :doc:`../flow/modflow-family`
 - :doc:`../../../architecture/solver/transport/modflow-transport-adapters`
 - :doc:`../solver-capability-matrix`

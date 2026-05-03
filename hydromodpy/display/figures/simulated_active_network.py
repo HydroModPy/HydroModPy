@@ -8,7 +8,11 @@ from hydromodpy.display._map_axes import overlay_watershed_contour, style_map_ax
 from hydromodpy.display._ugrid import render_face_field
 from hydromodpy.display.catalog import register
 from hydromodpy.display.figure import BaseFigure, FigureSpec
-from hydromodpy.results.views import SimulatedActiveNetworkMode
+from hydromodpy.results.views import (
+    SimulatedActiveNetworkMode,
+    resolve_simulated_active_network_mode,
+    simulated_active_network_mode_label,
+)
 from hydromodpy.spatial.geographic.core.hydrographic_network import (
     project_gdf_for_metric_operations,
 )
@@ -17,14 +21,6 @@ if TYPE_CHECKING:
     from matplotlib.axes import Axes
 
     from hydromodpy.results.run import Run
-
-
-def _mode_label(mode: str, persistence_threshold: float) -> str:
-    if mode == "persistent":
-        return f"persistent >= {persistence_threshold:g}"
-    if mode in {"always_active", "perennial"}:
-        return "always active over transient window"
-    return mode
 
 
 @register
@@ -46,7 +42,7 @@ class SimulatedActiveNetworkMap(BaseFigure):
         *,
         variable: str = "accumulation_flux",
         threshold: float = 0.0,
-        mode: SimulatedActiveNetworkMode = "persistent",
+        mode: SimulatedActiveNetworkMode | None = None,
         persistence_threshold: float = 0.5,
         timestep: int | None = None,
         cmap: str | None = None,
@@ -59,7 +55,8 @@ class SimulatedActiveNetworkMap(BaseFigure):
             persistence_threshold=persistence_threshold,
             timestep=timestep,
         )
-        is_persistence = mode == "persistence"
+        resolved_mode = resolve_simulated_active_network_mode(sim, mode)
+        is_persistence = resolved_mode == "persistence"
         label = "Active persistence (0-1)" if is_persistence else "Active network (1 = active)"
         render_face_field(
             ax,
@@ -72,7 +69,11 @@ class SimulatedActiveNetworkMap(BaseFigure):
         )
         overlay_watershed_contour(ax, sim)
         style_map_axes(ax)
-        mode_label = _mode_label(mode, persistence_threshold)
+        mode_label = simulated_active_network_mode_label(
+            sim,
+            mode=mode,
+            persistence_threshold=persistence_threshold,
+        )
         ax.set_title(f"Simulated active network ({mode_label}) - {sim.name or sim.sim_id}")
         return ax
 
@@ -96,7 +97,7 @@ class SimulatedActiveNetworkReferenceOverlay(BaseFigure):
         *,
         variable: str = "accumulation_flux",
         threshold: float = 0.0,
-        mode: SimulatedActiveNetworkMode = "persistent",
+        mode: SimulatedActiveNetworkMode | None = None,
         persistence_threshold: float = 0.5,
         timestep: int | None = None,
         buffer_m: float = 0.0,
@@ -107,9 +108,9 @@ class SimulatedActiveNetworkReferenceOverlay(BaseFigure):
         **_,
     ) -> Axes:
         import matplotlib.pyplot as plt
+        from matplotlib.colors import ListedColormap
         from matplotlib.lines import Line2D
         from matplotlib.patches import Patch
-        from matplotlib.colors import ListedColormap
 
         values = sim.simulated_active_network_mask(
             variable=variable,
@@ -118,11 +119,12 @@ class SimulatedActiveNetworkReferenceOverlay(BaseFigure):
             persistence_threshold=persistence_threshold,
             timestep=timestep,
         )
+        resolved_mode = resolve_simulated_active_network_mode(sim, mode)
         display_values = values.astype("float64", copy=True)
-        if mode != "persistence":
+        if resolved_mode != "persistence":
             display_values[display_values <= 0.0] = float("nan")
 
-        if mode == "persistence":
+        if resolved_mode == "persistence":
             active_cmap = plt.get_cmap(cmap).copy()
         else:
             active_cmap = ListedColormap([active_color])
@@ -136,7 +138,7 @@ class SimulatedActiveNetworkReferenceOverlay(BaseFigure):
             vmax=1.0,
             cbar_label=(
                 "Active persistence (0-1)"
-                if mode == "persistence"
+                if resolved_mode == "persistence"
                 else "Simulated active cells"
             ),
         )
@@ -158,7 +160,11 @@ class SimulatedActiveNetworkReferenceOverlay(BaseFigure):
         )
         overlay_watershed_contour(ax, sim, color="#404040", linewidth=0.9, alpha=0.65)
         style_map_axes(ax)
-        mode_label = _mode_label(mode, persistence_threshold)
+        mode_label = simulated_active_network_mode_label(
+            sim,
+            mode=mode,
+            persistence_threshold=persistence_threshold,
+        )
         ax.set_title(f"Simulated active vs reference ({mode_label}) - {sim.name or sim.sim_id}")
 
         try:
@@ -166,7 +172,7 @@ class SimulatedActiveNetworkReferenceOverlay(BaseFigure):
                 network_role="reference",
                 variable=variable,
                 threshold=threshold,
-                mode=mode,
+                mode=resolved_mode,
                 persistence_threshold=persistence_threshold,
                 timestep=timestep,
                 buffer_m=buffer_m,

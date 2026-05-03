@@ -16,7 +16,9 @@ def test_display_import_does_not_mutate_rcparams() -> None:
 
     before = dict(matplotlib.rcParams)
     display_modules = {
-        name: module for name, module in sys.modules.items() if name.startswith("hydromodpy.display")
+        name: module
+        for name, module in sys.modules.items()
+        if name.startswith("hydromodpy.display")
     }
 
     try:

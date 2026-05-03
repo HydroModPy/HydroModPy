@@ -16,14 +16,6 @@ def test_validate_field_valid_enum() -> None:
     assert result.path == "flow.flow_regime"
 
 
-def test_validate_field_accepts_permanent_flow_regime_alias() -> None:
-    from hydromodpy.schema import validate_field
-
-    result = validate_field("flow.flow_regime", "permanent")
-    assert result.valid is True
-    assert result.error is None
-
-
 def test_validate_field_invalid_enum() -> None:
     from hydromodpy.schema import validate_field
 

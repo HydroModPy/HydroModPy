@@ -88,6 +88,15 @@ Running any of the entries above creates or updates:
 - `<workspace>/simulations/<sim_id>.zarr` - per-run gridded outputs.
 - `figures/<run_name>/` - figures listed in `[display].figures`.
 
+The transient NWT TOML also enables one `[capability_gallery]` publication
+block. When that run completes, HydroModPy republishes a smaller stable asset
+set under:
+
+- `examples/projects/09_capability_gallery/launcher_simulation/nancon_transient_nwt/`
+
+Those PNGs and the companion `manifest.json` are the committed inputs used by
+the Read the Docs capability-gallery page for the Nancon basin run.
+
 For the hydrographic-network demo run, the main artifact is:
 
 - `figures/nancon_hydrographic_network_compare/hydrographic_network_reference.png`

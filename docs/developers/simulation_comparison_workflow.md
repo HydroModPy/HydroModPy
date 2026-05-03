@@ -192,6 +192,9 @@ dans `simulated_active_network_metrics.csv`.
 
 Terminologie a respecter pour ces vues:
 
+- sans `mode` explicite, `flow_regime = "steady"` utilise le champ actif
+  steady-state, tandis que `flow_regime = "transient"` utilise `persistent`
+  par compatibilite;
 - `persistent` signifie actif pendant au moins une fraction declaree des pas de
   temps transitoires;
 - `always_active` signifie actif a tous les pas de temps de la fenetre
@@ -199,9 +202,7 @@ Terminologie a respecter pour ces vues:
 - `perennial` reste un alias legacy de `always_active`, mais ne doit pas etre
   compris comme une definition hydrologique forte du reseau perenne;
 - un reseau simule perenne devrait de preference venir d'un run
-  permanent/steady-state representatif, puis etre compare a `reference`;
-- `flow_regime = "permanent"` est accepte comme nom hydrologique public et
-  normalise en interne vers le mode solveur `steady`.
+  `flow_regime = "steady"` representatif, puis etre compare a `reference`.
 
 Lire d'abord `case_configuration.png` pour comprendre le cas teste, puis les
 figures `*triptych*.png` pour valider rapidement les champs: champ de

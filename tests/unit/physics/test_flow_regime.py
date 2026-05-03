@@ -5,7 +5,6 @@ import pytest
 
 from hydromodpy.physics.flow import (
     FlowConfig,
-    is_permanent_flow_regime,
     normalize_flow_regime,
 )
 from hydromodpy.solver.boussinesq.discretization.time import resolve_time_scheme
@@ -30,51 +29,49 @@ class _TimeGrid:
     window = _Window()
 
 
-def test_permanent_flow_regime_normalizes_to_steady() -> None:
-    assert normalize_flow_regime("permanent") == "steady"
-    assert is_permanent_flow_regime("permanent") is True
-    assert is_permanent_flow_regime("steady") is True
-    assert is_permanent_flow_regime("transient") is False
+def test_flow_regime_normalizes_supported_values() -> None:
+    assert normalize_flow_regime("steady") == "steady"
+    assert normalize_flow_regime("transient") == "transient"
 
 
-def test_flow_config_accepts_permanent_alias() -> None:
-    cfg = FlowConfig(flow_regime="permanent")
+def test_flow_config_accepts_steady() -> None:
+    cfg = FlowConfig(flow_regime="steady")
     assert cfg.flow_regime == "steady"
 
 
-def test_flow_config_permanent_constructor_returns_steady_config() -> None:
-    cfg = FlowConfig.permanent(K=5e-5)
+def test_flow_config_steady_constructor_returns_steady_config() -> None:
+    cfg = FlowConfig.steady(K=5e-5)
     assert cfg.flow_regime == "steady"
     assert cfg.param_list == ["K"]
 
 
-def test_temporal_mesh_accepts_permanent_alias() -> None:
-    builder = TMesh_Generation(flow_regime="permanent", nper=2, lenper=1)
+def test_temporal_mesh_accepts_steady() -> None:
+    builder = TMesh_Generation(flow_regime="steady", nper=2, lenper=1)
     assert builder.flow_regime == "steady"
     mesh = builder.run()
     assert np.all(mesh.steady_state)
 
 
-def test_temporal_mesh_setter_validates_permanent_alias() -> None:
+def test_temporal_mesh_setter_validates_steady() -> None:
     builder = TMesh_Generation(flow_regime="transient", nper=2, lenper=1)
-    builder.flow_regime = "permanent"
+    builder.flow_regime = "steady"
     assert builder.flow_regime == "steady"
     mesh = builder.run()
     assert np.all(mesh.steady_state)
 
 
-def test_solver_helpers_treat_permanent_as_steady() -> None:
-    assert resolve_time_scheme("permanent").id == "steady_balance"
-    assert resolve_modflow_required_properties(flow_regime="permanent") == frozenset({"K"})
-    assert resolve_boussinesq_required_properties(flow_regime="permanent") == frozenset({"K"})
+def test_solver_helpers_treat_steady_as_steady_state() -> None:
+    assert resolve_time_scheme("steady").id == "steady_balance"
+    assert resolve_modflow_required_properties(flow_regime="steady") == frozenset({"K"})
+    assert resolve_boussinesq_required_properties(flow_regime="steady") == frozenset({"K"})
     temporal = build_temporal_discretization_from_time_grid(
         time_grid=_TimeGrid(),
-        flow_regime="permanent",
+        flow_regime="steady",
         firstpersteady=False,
     )
     assert np.all(temporal.steady)
 
 
 def test_unknown_flow_regime_still_fails() -> None:
-    with pytest.raises(ValueError, match="steady.*permanent.*transient"):
+    with pytest.raises(ValueError, match="steady.*transient"):
         normalize_flow_regime("unknown")

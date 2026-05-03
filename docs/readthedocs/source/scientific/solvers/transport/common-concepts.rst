@@ -45,6 +45,26 @@ Current Transport Families
      - ``flow/modflow6``
      - Concentration fields.
 
+Transport Solver Routes
+-----------------------
+
+The practical documentation split is by MODFLOW route:
+
+.. list-table::
+   :header-rows: 1
+   :widths: 28 36 36
+
+   * - Route
+     - Solvers
+     - Main use
+   * - :doc:`modflow-nwt-transport`
+     - ``flow/modflownwt`` followed by ``transport/modpath`` or
+       ``transport/mt3dms``.
+     - Legacy structured-grid particle tracking and concentration transport.
+   * - :doc:`modflow6-transport`
+     - ``flow/modflow6`` followed by ``transport/modflow6gwt``.
+     - MODFLOW 6 GWF + GWT concentration transport.
+
 Dependency Semantics
 --------------------
 
@@ -92,6 +112,9 @@ When documenting or comparing a transport result, record:
 Related Pages
 -------------
 
+- :doc:`equations-and-unknowns`
+- :doc:`modflow-nwt-transport`
+- :doc:`modflow6-transport`
 - :doc:`particle-tracking`
 - :doc:`concentration-transport`
 - :doc:`../flow/modflow/transport-coupling`

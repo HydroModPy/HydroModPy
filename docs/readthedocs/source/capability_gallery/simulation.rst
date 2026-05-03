@@ -14,13 +14,13 @@ These cases show complete launcher workflows: preprocessing, solver execution, t
 Current Coverage
 ----------------
 
-- Study areas: Brittany regional laboratory, Headwater 100 km2 outlet 2, Naizin catchment.
-- Process families shown: Display, Flow, Method Comparison, Planning, Postprocess, Reporting, Simulation, Transport.
-- Mesh supports: Committed Triangular Mesh Input, Runtime Gmsh Triangular Mesh.
-- Flow solvers: MODFLOW 6.
+- Study areas: Brittany regional laboratory, Headwater 100 km2 outlet 2, Naizin catchment, Nancon watershed.
+- Process families shown: Display, Flow, Method Comparison, Observed hydrography diagnostics, Planning, Postprocess, Reporting, Simulation, Transport.
+- Mesh supports: Committed Triangular Mesh Input, Project Scoped basin support, Runtime Gmsh Triangular Mesh.
+- Flow solvers: MODFLOW 6, MODFLOW-NWT.
 - Transport solvers: MODFLOW 6 GWT.
-- Postprocess outputs surfaced: Coverage Gap Summary, Flow State Triptych, Recharge Discharge Cumulative, Recipe Coverage Summary, Site Recipe Matrix, Support Overview, Watertable Depth, Watertable Elevation.
-- Workflow families: Runtime Mesh Build (1), Committed Mesh Replays (1), Regional Orchestration (4).
+- Postprocess outputs surfaced: Coverage Gap Summary, Flow State Triptych, Hydrograph, Hydrographic network comparison, Piezometric map, Recharge Discharge Cumulative, Recipe Coverage Summary, Simulated active network overlay, Site Recipe Matrix, Support Overview, Water budget, Watertable Depth, Watertable Elevation.
+- Workflow families: Runtime Mesh Build (1), Committed Mesh Replays (1), Observed Basin Diagnostics (1), Regional Orchestration (4).
 - Grow this category by workflow family rather than by one flat list of runs; add new pages where the reading objective really changes.
 
 Workflow Families
@@ -62,6 +62,24 @@ These cases keep the spatial support fixed and focus on how forcing, hydraulic p
       **Headwater 100 km2 MF6 Transient Reference**
       ^^^
       Committed-mesh MODFLOW 6 replay on the 100 km2 outlet-2 basin, published as stable transient postprocess figures.
+
+
+Observed Basin Diagnostics
+~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+These cases stay close to one observed basin and use stable figures to connect solver response, reference hydrography, and integrated basin diagnostics.
+
+.. grid:: 1 1 2 2
+   :gutter: 2 2 3 3
+
+   .. grid-item-card::
+      :class-card: sd-shadow-sm sd-rounded-3 sd-p-4
+      :link: cases/nancon_transient_nwt
+      :link-type: doc
+
+      **Nancon Transient NWT Basin Diagnostics**
+      ^^^
+      Observed-basin transient MODFLOW-NWT run with stable figures linking hydrography diagnostics, groundwater state, hydrograph, and basin budget.
 
 
 Regional Orchestration
@@ -115,6 +133,7 @@ These cases do not focus on one child solver run. They document how one populati
 
    cases/modflow6_gmsh_mesh_catchment
    cases/headwater_100km2_outlet_2_mf6_transient_reference
+   cases/nancon_transient_nwt
    cases/regional_lab_headwater_100km2_dry_plan
    cases/regional_lab_headwater_100km2_mf6_reference_recipe
    cases/regional_lab_headwater_100km2_backend_compare_recipe

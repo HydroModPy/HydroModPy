@@ -41,7 +41,7 @@ def resolve_flow_regime(flow: object) -> str:
     """Return the normalized flow regime expected by the Boussinesq driver."""
     flow_regime = getattr(flow, "flow_regime", None)
     if flow_regime is None:
-        raise ValueError("flow.flow_regime must be 'steady', 'permanent', or 'transient'.")
+        raise ValueError("flow.flow_regime must be 'steady' or 'transient'.")
     return normalize_flow_regime(flow_regime)
 
 

@@ -151,6 +151,8 @@ How to read the outputs
 Where to go next
 ----------------
 
+- Open :doc:`read-real-basin-run` if you want one stricter reading path for
+  committed basin-result pages before branching into comparisons.
 - Open
   :doc:`../capability_gallery/cases/example12_map_method_comparison` to compare
   two solver families on the same saved support.

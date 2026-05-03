@@ -3,6 +3,11 @@ MODFLOW-Linked Transport Adapters
 
 This page groups the architecture of current ``transport`` process adapters.
 
+The adapters are split by MODFLOW route:
+
+- MODFLOW-NWT route: ``transport/modpath`` and ``transport/mt3dms``;
+- MODFLOW 6 route: ``transport/modflow6gwt``.
+
 Current Adapter Pairs
 ---------------------
 
@@ -71,4 +76,7 @@ Related Scientific Pages
 - :doc:`../../../scientific/solvers/transport/particle-tracking`
 - :doc:`../../../scientific/solvers/transport/concentration-transport`
 - :doc:`../../../scientific/solvers/transport/common-concepts`
+- :doc:`../../../scientific/solvers/transport/equations-and-unknowns`
+- :doc:`../../../scientific/solvers/transport/modflow-nwt-transport`
+- :doc:`../../../scientific/solvers/transport/modflow6-transport`
 - :doc:`../process-solver-registry`

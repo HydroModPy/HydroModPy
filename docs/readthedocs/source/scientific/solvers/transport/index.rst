@@ -4,21 +4,21 @@ Transport Solvers
 This section groups solver documentation for the ``transport`` process.
 
 Transport is downstream from flow: the current transport solvers need a
-previous compatible ``flow`` run. HydroModPy therefore documents transport by
-transport type first, then by solver implementation.
+previous compatible ``flow`` run. HydroModPy therefore documents transport in
+the same classical structure used for ``flow``.
 
 The hierarchy is:
 
 1. process: ``transport``,
-2. solver type or family: common transport contract, particle tracking, or
-   concentration transport;
-3. solver implementation: MODPATH, MT3DMS, or MODFLOW 6 GWT.
+2. equations and unknowns: particle paths or concentration fields;
+3. solver route: MODFLOW-NWT transport or MODFLOW 6 transport;
+4. solver implementation: MODPATH, MT3DMS, or MODFLOW 6 GWT.
 
-This mirrors the ``flow`` documentation: first understand the process, then
-open the relevant family, then read the backend-specific page.
+This mirrors the ``flow`` documentation: first understand the governing
+problem, then open the relevant solver route, then read backend-specific pages.
 
-Three-Part Transport Structure
-------------------------------
+Four-Part Transport Structure
+-----------------------------
 
 .. list-table::
    :header-rows: 1
@@ -31,43 +31,55 @@ Three-Part Transport Structure
      - :doc:`common-concepts`
      - Shared dependency contract, process ordering, parameter layout, and
        interpretation rules for all transport solvers.
-   * - Particle tracking family
-     - :doc:`particle-tracking`
-     - Advective path and travel-time analysis, currently through MODPATH.
-   * - Concentration transport family
-     - :doc:`concentration-transport`
-     - Species concentration, dispersivity, diffusion, input concentration,
-       and decay through MT3DMS or MODFLOW 6 GWT.
+   * - Equations and unknowns
+     - :doc:`equations-and-unknowns`
+     - Particle trajectory equation, concentration transport equation, and
+       mapping from equation families to current solvers.
+   * - MODFLOW-NWT transport route
+     - :doc:`modflow-nwt-transport`
+     - ``flow/modflownwt`` followed by ``transport/modpath`` and/or
+       ``transport/mt3dms``.
+   * - MODFLOW 6 transport route
+     - :doc:`modflow6-transport`
+     - ``flow/modflow6`` followed by ``transport/modflow6gwt``.
 
-Current Transport Solver Families
----------------------------------
+Current Transport Solver Routes
+-------------------------------
 
 .. list-table::
    :header-rows: 1
-   :widths: 24 28 28 20
+   :widths: 24 26 28 22
 
-   * - Solver type
-     - Solver names
+   * - Route
      - Required upstream flow
-     - Detailed internals
-   * - Particle tracking
-     - ``modpath``
+     - Transport solvers
+     - Detailed pages
+   * - MODFLOW-NWT route
      - ``flow/modflownwt``.
-     - :doc:`particle-tracking/index`
-   * - Concentration transport
-     - ``mt3dms``, ``modflow6gwt``
-     - ``mt3dms`` requires ``flow/modflownwt``;
-       ``modflow6gwt`` requires ``flow/modflow6``.
-     - :doc:`concentration-transport/index`
+     - ``transport/modpath`` for particle tracking;
+       ``transport/mt3dms`` for concentration transport.
+     - :doc:`modflow-nwt-transport`
+   * - MODFLOW 6 route
+     - ``flow/modflow6``.
+     - ``transport/modflow6gwt`` for concentration transport.
+     - :doc:`modflow6-transport`
 
 .. toctree::
-   :caption: Common transport part
+   :caption: Common formulation
    :maxdepth: 2
 
    common-concepts
+   equations-and-unknowns
 
 .. toctree::
-   :caption: Transport families
+   :caption: Solver routes
+   :maxdepth: 2
+
+   modflow-nwt-transport
+   modflow6-transport
+
+.. toctree::
+   :caption: Transport mechanisms
    :maxdepth: 2
 
    particle-tracking

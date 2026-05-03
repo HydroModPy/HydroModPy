@@ -1,0 +1,52 @@
+@startuml
+title Simulated Active Network - Time Modes
+left to right direction
+skinparam componentStyle rectangle
+skinparam wrapWidth 170
+
+package "Per-timestep field" {
+  component "accumulation_flux[t]\nper cell" as Flux
+}
+
+package "Activation rule" {
+  component "threshold\nflux > value" as Threshold
+  component "active[t]\nboolean per timestep" as Active
+}
+
+package "Mode" {
+  component "last\nselected timestep" as Last
+  component "any\nactive at least once" as Any
+  component "persistent\nactive fraction >= p" as Persistent
+  component "always_active\nactive at every timestep" as Always
+  component "persistence\nactive-time fraction" as Persistence
+}
+
+package "Interpretation" {
+  component "instantaneous network" as Instant
+  component "event or seasonal footprint" as Event
+  component "transient persistent network" as Persisted
+  component "strict full-window occupancy" as Strict
+  component "continuous intermittency map" as Continuous
+}
+
+Flux --> Threshold
+Threshold --> Active
+Active --> Last
+Active --> Any
+Active --> Persistent
+Active --> Always
+Active --> Persistence
+
+Last --> Instant
+Any --> Event
+Persistent --> Persisted
+Always --> Strict
+Persistence --> Continuous
+
+note bottom
+Hydrological perennial behavior should preferably be defined
+from a representative steady-state run. The transient
+always_active mode only says "active at every stored timestep"
+of the chosen analysis window.
+end note
+@enduml
