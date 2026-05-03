@@ -34,6 +34,8 @@ class TestRegistryContents:
             "storage_change",
             "recharge",
             "drain",
+            "outflow_drain",
+            "accumulation_flux",
             "river",
             "well",
             "cell_budget",

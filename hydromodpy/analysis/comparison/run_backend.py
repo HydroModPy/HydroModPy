@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 import re
 import subprocess
 import sys
@@ -13,6 +14,18 @@ _SIM_ID_RE = re.compile(
     r"\bsim_id\s*:\s*([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-"
     r"[0-9a-fA-F]{4}-[0-9a-fA-F]{12})\b"
 )
+_REPO_ROOT = Path(__file__).resolve().parents[3]
+
+
+def _subprocess_env() -> dict[str, str]:
+    """Return an environment that imports the current checkout first."""
+    env = os.environ.copy()
+    current = env.get("PYTHONPATH", "")
+    paths = [str(_REPO_ROOT)]
+    if current:
+        paths.append(current)
+    env["PYTHONPATH"] = os.pathsep.join(paths)
+    return env
 
 
 @dataclass(frozen=True, slots=True)
@@ -60,6 +73,7 @@ def run_child_with_hmp(
         capture_output=True,
         text=True,
         timeout=timeout_seconds,
+        env=_subprocess_env(),
     )
     wall_time_seconds = time.monotonic() - start
     return ChildRunResult(

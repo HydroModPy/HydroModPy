@@ -394,6 +394,23 @@ class Run:
         finally:
             sz.close()
 
+    def has_field(self, variable: str, *, subgroup: str | None = None) -> bool:
+        """Return true when a field array is persisted in this run's Zarr store."""
+        sz = self._catalog.open_zarr(self._sim_id)
+        try:
+            if subgroup is not None:
+                group = sz.root.get(subgroup)
+                return group is not None and variable in group
+            if field_registry.has(variable):
+                return lookup_zarr_path(sz.root, field_registry.get(variable).zarr_path) is not None
+            return any(
+                variable in group
+                for group in (sz.root, sz.root.get("derived"), sz.root.get("budget"))
+                if group is not None
+            )
+        finally:
+            sz.close()
+
     @property
     def mesh(self) -> Mesh:
         if self._load_row().get("solver_category") == "lumped":
@@ -592,7 +609,6 @@ class Run:
             field_registry.SHAPE_TIME_LAYER_FACE,
         ):
             raise ValueError(f"Field '{variable}' is not a time-varying face field")
-        grid = self.grid
         sz = self._catalog.open_zarr(self._sim_id)
         try:
             arr = lookup_zarr_path(sz.root, desc.zarr_path)
@@ -607,17 +623,38 @@ class Run:
                         "use run.array.to_xarray_batch() for multi-layer data."
                     )
                 data = data[:, 0, :]
-            nrow, ncol = grid.shape
+            nrow, ncol = self._regular_shape_for_field_size(sz.root, int(data.shape[-1]))
             if data.shape[-1] != nrow * ncol:
                 raise ValueError(
                     f"Field '{variable}' has {data.shape[-1]} cells; "
-                    f"grid shape {grid.shape} requires {nrow * ncol} cells."
+                    f"grid shape {(nrow, ncol)} requires {nrow * ncol} cells."
                 )
             data = data.reshape((data.shape[0], nrow, ncol))
         except Exception:
             sz.close()
             raise
         return Stack(data=data, variable=variable)
+
+    def _regular_shape_for_field_size(self, root, n_cells: int) -> tuple[int, int]:
+        mesh = root.get("mesh")
+        if mesh is not None:
+            raw_shape = mesh.attrs.get("structured_shape")
+            if raw_shape is not None:
+                shape = tuple(int(v) for v in raw_shape)
+                if len(shape) == 2 and shape[0] * shape[1] == int(n_cells):
+                    return shape[0], shape[1]
+        try:
+            grid_shape = self.grid.shape
+        except Exception as exc:
+            raise ValueError(
+                f"Field has {n_cells} cells but this run has no regular grid shape metadata."
+            ) from exc
+        if int(grid_shape[0]) * int(grid_shape[1]) != int(n_cells):
+            raise ValueError(
+                f"Field has {n_cells} cells; grid shape {grid_shape} "
+                f"requires {int(grid_shape[0]) * int(grid_shape[1])} cells."
+            )
+        return int(grid_shape[0]), int(grid_shape[1])
 
     @cached_property
     def time_index(self) -> pd.DatetimeIndex:
@@ -737,6 +774,18 @@ class Run:
                 caps.append("concentration_map")
             if "pathlines" in sz.root:
                 caps.append("particle_tracks")
+            mesh = sz.root.get("mesh")
+            derived = sz.root.get("derived")
+            if (
+                mesh is not None
+                and "vertices" in mesh
+                and "face_node_connectivity" in mesh
+                and derived is not None
+                and "accumulation_flux" in derived
+            ):
+                caps.append("simulated_active_network")
+                if self.has_hydrographic_network("reference"):
+                    caps.append("simulated_active_network_reference_overlay")
         finally:
             sz.close()
 

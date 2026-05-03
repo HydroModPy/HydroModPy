@@ -36,6 +36,8 @@ class CellCentroidTable:
     y: np.ndarray
     area_m2: np.ndarray | None = None
     storage_coefficient: np.ndarray | None = None
+    z_top: np.ndarray | None = None
+    z_bottom: np.ndarray | None = None
 
     def nearest_cell_id(self, *, x: float, y: float) -> int:
         """Return the cell id whose centroid is closest to ``(x, y)``."""
@@ -67,6 +69,25 @@ class CellCentroidTable:
         if not np.isfinite(storage):
             return None
         return storage
+
+    def vertical_bounds_for_cell_id(self, cell_id: int) -> tuple[float, float] | None:
+        """Return ``(top, bottom)`` elevations for one cell id when available."""
+        if (
+            self.z_top is None
+            or self.z_bottom is None
+            or self.z_top.size != self.cell_ids.size
+            or self.z_bottom.size != self.cell_ids.size
+        ):
+            return None
+        matches = np.flatnonzero(self.cell_ids == int(cell_id))
+        if matches.size == 0:
+            return None
+        index = int(matches[0])
+        top = float(self.z_top[index])
+        bottom = float(self.z_bottom[index])
+        if not (np.isfinite(top) and np.isfinite(bottom)):
+            return None
+        return top, bottom
 
 
 def _candidate_solver_sections(solver_name: str | None = None) -> tuple[str, ...]:
@@ -271,6 +292,8 @@ def _bundle_cells_from_dir(bundle_dir: Path) -> CellCentroidTable | None:
     ys: list[float] = []
     areas: list[float] = []
     storage_coefficients: list[float] = []
+    z_tops: list[float] = []
+    z_bottoms: list[float] = []
     with cells_path.open("r", encoding="utf-8", newline="") as handle:
         reader = csv.DictReader(handle)
         for row in reader:
@@ -284,6 +307,12 @@ def _bundle_cells_from_dir(bundle_dir: Path) -> CellCentroidTable | None:
                 storage_coefficients.append(
                     float(storage_value) if storage_value not in (None, "") else math.nan
                 )
+                top_value = row.get("z_top_centroid") or row.get("z_top")
+                bottom_value = row.get("z_bottom_centroid") or row.get("z_bottom")
+                z_tops.append(float(top_value) if top_value not in (None, "") else math.nan)
+                z_bottoms.append(
+                    float(bottom_value) if bottom_value not in (None, "") else math.nan
+                )
             except Exception:
                 continue
 
@@ -295,12 +324,20 @@ def _bundle_cells_from_dir(bundle_dir: Path) -> CellCentroidTable | None:
     storage_array: Any = np.asarray(storage_coefficients, dtype=float)
     if storage_array.size != len(cell_ids) or not np.any(np.isfinite(storage_array)):
         storage_array = None
+    z_top_array: Any = np.asarray(z_tops, dtype=float)
+    if z_top_array.size != len(cell_ids) or not np.any(np.isfinite(z_top_array)):
+        z_top_array = None
+    z_bottom_array: Any = np.asarray(z_bottoms, dtype=float)
+    if z_bottom_array.size != len(cell_ids) or not np.any(np.isfinite(z_bottom_array)):
+        z_bottom_array = None
     return CellCentroidTable(
         cell_ids=np.asarray(cell_ids, dtype=int),
         x=np.asarray(xs, dtype=float),
         y=np.asarray(ys, dtype=float),
         area_m2=area_array,
         storage_coefficient=storage_array,
+        z_top=z_top_array,
+        z_bottom=z_bottom_array,
     )
 
 

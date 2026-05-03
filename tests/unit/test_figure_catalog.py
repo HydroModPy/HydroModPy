@@ -27,6 +27,8 @@ EXPECTED_FIGURES = {
     "piezometric_map",
     "recharge_map",
     "seepage_map",
+    "simulated_active_network",
+    "simulated_active_network_reference_overlay",
     "water_budget",
 }
 

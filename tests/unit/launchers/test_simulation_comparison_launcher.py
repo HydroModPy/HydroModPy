@@ -403,6 +403,102 @@ def test_equivalence_audit_flags_physical_config_mismatch(
     )
 
 
+def test_equivalence_audit_flags_watertable_above_model_top(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    bundle_dir = tmp_path / "bundle"
+    bundle_dir.mkdir()
+    (bundle_dir / "cells.csv").write_text(
+        "\n".join(
+            [
+                "cell_id,centroid_x,centroid_y,z_top_centroid,z_bottom_centroid",
+                "0,0.0,0.0,10.0,0.0",
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    for folder_name in ("run_ref", "run_candidate"):
+        run_folder = tmp_path / folder_name
+        run_folder.mkdir()
+        (run_folder / "_metrics.json").write_text(
+            json.dumps({"mesh_output_exchange_bundle_dir": str(bundle_dir)}),
+            encoding="utf-8",
+        )
+
+    class FakeStore:
+        def __init__(self, sim_id: str) -> None:
+            self.sim_id = sim_id
+
+        @property
+        def connection(self) -> object:
+            raise AttributeError("no parameter table")
+
+        def list_simulations(self) -> pd.DataFrame:
+            return pd.DataFrame(
+                [
+                    {
+                        "sim_id": self.sim_id,
+                        "mesh_hash": "same",
+                        "n_cells": 1,
+                        "n_timesteps": 1,
+                        "crs_epsg": 2154,
+                    }
+                ]
+            )
+
+        def query_budget(self, sim_id: str) -> pd.DataFrame:
+            assert sim_id == self.sim_id
+            return pd.DataFrame()
+
+        def close(self) -> None:
+            pass
+
+    def fake_discover_result_store(
+        config_path: Path | None,
+        *,
+        preferred_sim_id: str | None = None,
+        preferred_name: str | None = None,
+    ) -> tuple[FakeStore, str]:
+        del config_path, preferred_name
+        sim_id = preferred_sim_id or "sim"
+        return FakeStore(sim_id), sim_id
+
+    monkeypatch.setattr(audit_module, "discover_result_store", fake_discover_result_store)
+
+    audit = build_equivalence_audit(
+        variant_summaries=[
+            {
+                "id": "mf6_ref",
+                "status": "completed",
+                "sim_id": "ref",
+                "run_folder": str(tmp_path / "run_ref"),
+            },
+            {
+                "id": "bouss_candidate",
+                "status": "completed",
+                "sim_id": "candidate",
+                "run_folder": str(tmp_path / "run_candidate"),
+            },
+        ],
+        reference_variant="mf6_ref",
+        on_mismatch="warn",
+        observable_rows=[
+            {
+                "variant_id": "bouss_candidate",
+                "observable": "head_probe",
+                "resolved_variable": "watertable_elevation",
+                "value_index": "0",
+                "value": "11.0",
+            }
+        ],
+    )
+
+    assert audit["head_bounds"][0]["above_top_max_m"] == pytest.approx(1.0)
+    assert any(issue["kind"] == "watertable_above_top" for issue in audit["issues"])
+
+
 def test_simulation_comparison_launcher_writes_manifest_with_mocked_runs(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
