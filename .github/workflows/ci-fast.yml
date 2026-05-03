@@ -156,6 +156,9 @@ jobs:
               pth.unlink()
           "
 
+      - name: Install solver binaries for regression tests
+        run: python -m hydromodpy install-binaries --subset mf6,mfnwt,mp6,mt3dusgs --quiet
+
       - name: Run fast regression with coverage
         env:
           HYDROMODPY_COVERAGE: "1"

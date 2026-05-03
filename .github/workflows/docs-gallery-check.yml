@@ -66,4 +66,4 @@ jobs:
       - name: Verify committed gallery artifacts
         run: >
           python -m tools.doc_gallery --check
-          --category mesh,geographic,code_comparison
+          --category mesh,geographic,method_comparison,code_comparison
