@@ -108,6 +108,7 @@ from hydromodpy.core.units.volumetric_flow import (
     convert_to_m3_per_s,
     normalize_m3_per_s_unit,
 )
+from hydromodpy.physics.flow.regime import normalize_flow_regime
 from hydromodpy.physics.flow.time_forcing import resolve_period_values_from_forcing
 from hydromodpy.solver.modflow_common.grid_context import GridReference
 from hydromodpy.solver.modflow_common.solver_mesh import SolverMesh
@@ -1063,10 +1064,7 @@ class FlowToModflowAdapter:
             regime = getattr(self.flow, "flow_regime", None)
         if regime is None:
             raise ValueError("flow.flow_regime is required to build recharge payloads.")
-        flow_regime = str(regime).strip().lower()
-        if flow_regime not in {"steady", "transient"}:
-            raise ValueError("flow.flow_regime must be 'steady' or 'transient'.")
-        return flow_regime
+        return normalize_flow_regime(regime)
 
     def _build_recharge_payload(self) -> tuple[object, dict[int, object] | None]:
         """

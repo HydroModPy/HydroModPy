@@ -33,7 +33,7 @@ from hydromodpy.physics.flow.param_config import (
     normalize_flow_param_payloads,
     parse_flow_param_sections,
 )
-from hydromodpy.physics.flow.regime import FlowRegime, normalize_flow_regime
+from hydromodpy.physics.flow.regime import FlowRegimeInput, normalize_flow_regime
 from hydromodpy.physics.flow.sinks_sources import (
     FlowSinksSourcesConfig,
     FlowWellConfig,
@@ -100,7 +100,7 @@ class FlowConfig(ProcessSpatialConfig):
     parameter payloads are stored in `param`.
     """
 
-    flow_regime: Annotated[FlowRegime, Profile.USER] = Field(
+    flow_regime: Annotated[FlowRegimeInput, Profile.USER] = Field(
         default="transient",
         description=(
             "Global flow simulation regime used by solvers consuming [flow] "

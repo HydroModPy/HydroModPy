@@ -16,6 +16,7 @@ import numpy as np
 import pandas as pd
 
 from hydromodpy.core.units import factor_to_seconds, to_pandas_timedelta_unit
+from hydromodpy.physics.flow.regime import normalize_flow_regime
 from hydromodpy.solver.utils.temporal.tmesh_config import TMeshConfig
 
 try:
@@ -80,7 +81,8 @@ def _inclusive_end_candidate(
 def _validate_config(config: TMeshConfig) -> None:
     if str(config.itmuni).strip() == "":
         raise ValueError("itmuni cannot be empty.")
-    if config.flow_regime not in _VALID_FLOW_REGIMES:
+    flow_regime = normalize_flow_regime(config.flow_regime)
+    if flow_regime not in _VALID_FLOW_REGIMES:
         raise ValueError(
             f"Invalid flow_regime={config.flow_regime!r}. Expected one of: {_VALID_FLOW_REGIMES}."
         )
@@ -251,9 +253,10 @@ def _build_period_lengths(config: TMeshConfig) -> tuple[Any, str, np.ndarray]:
 
 
 def _build_steady_state(config: TMeshConfig, perlen: np.ndarray) -> np.ndarray:
-    if config.flow_regime == "steady":
+    flow_regime = normalize_flow_regime(config.flow_regime)
+    if flow_regime == "steady":
         return np.ones(len(perlen), dtype=bool)
-    if config.flow_regime == "transient":
+    if flow_regime == "transient":
         steady_state = np.zeros(len(perlen), dtype=bool)
         if bool(config.firstpersteady):
             steady_state[0] = True
@@ -347,7 +350,9 @@ class TMesh_Generation:
         self._tmesh = None
 
     def _set_config_value(self, key: str, value: Any) -> None:
-        new_config = self._config.model_copy(update={key: value})
+        payload = self._config.model_dump(mode="python")
+        payload[key] = value
+        new_config = TMeshConfig.model_validate(payload)
         _validate_config(new_config)
         self._config = new_config
         self._invalidate_mesh()

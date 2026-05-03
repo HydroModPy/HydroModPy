@@ -7,6 +7,7 @@ from dataclasses import dataclass
 import numpy as np
 
 from hydromodpy.core.units import to_modflow_itmuni
+from hydromodpy.physics.flow.regime import normalize_flow_regime
 
 
 @dataclass(slots=True)
@@ -67,7 +68,7 @@ def build_temporal_discretization_from_time_grid(
         raise ValueError("simulation.time grid produced an empty perlen vector.")
 
     nstp = np.ones((nper,), dtype=int)
-    flow_regime_text = str(flow_regime).strip().lower()
+    flow_regime_text = normalize_flow_regime(flow_regime)
     if flow_regime_text == "steady":
         steady = np.ones((nper,), dtype=bool)
     else:

@@ -13,6 +13,7 @@ from __future__ import annotations
 import numpy as np
 
 from hydromodpy.core.logging import get_logger
+from hydromodpy.physics.flow.regime import normalize_flow_regime
 
 logger = get_logger(__name__)
 _DEFAULT_CELL_SAMPLES_PER_AXIS = 8
@@ -20,7 +21,7 @@ _DEFAULT_CELL_SAMPLES_PER_AXIS = 8
 
 def resolve_required_flow_properties(*, flow_regime: str) -> frozenset[str]:
     """Return the minimal hydraulic-property set required by Boussinesq."""
-    regime = str(flow_regime).strip().lower()
+    regime = normalize_flow_regime(flow_regime)
     if regime == "steady":
         return frozenset({"K"})
     return frozenset({"K", "Sy"})

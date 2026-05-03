@@ -22,6 +22,7 @@ from dataclasses import dataclass
 import numpy as np
 
 from hydromodpy.core.logging import get_logger
+from hydromodpy.physics.flow.regime import normalize_flow_regime
 from hydromodpy.solver.modflow_common.runtime_arrays import (
     resolve_flow_property_runtime_overrides,
 )
@@ -34,7 +35,7 @@ logger = get_logger(__name__)
 
 def resolve_required_flow_properties(*, flow_regime: str) -> frozenset[str]:
     """Return the minimal hydraulic-property set required for one flow regime."""
-    regime = str(flow_regime).strip().lower()
+    regime = normalize_flow_regime(flow_regime)
     if regime == "steady":
         return frozenset({"K"})
     return frozenset({"K", "Sy", "Ss"})
