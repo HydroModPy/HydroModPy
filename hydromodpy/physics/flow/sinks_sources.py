@@ -30,6 +30,7 @@ Typical TOML usage
 
     [flow.sinks_sources.recharge]
     values      = [0.001, 0.0008, -0.0002]   # one value per stress period [m/s]
+    units       = "m/s"
     first_clim  = "mean"                      # period-0 policy: mean of series
     negative_to_evt = true                    # negative → EVT, clip RCH to 0
 
