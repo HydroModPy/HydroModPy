@@ -1140,8 +1140,10 @@ def test_method_comparison_launcher_generates_visual_figures(
     figures = summary["comparison_figures"]
     assert summary["comparison_figures_dir"]
     assert {item["kind"] for item in figures} == {
+        "case_configuration",
         "map_comparison",
         "difference_map",
+        "map_triptych",
         "timeseries",
         "point_dashboard",
     }
@@ -1319,7 +1321,12 @@ def test_method_comparison_launcher_generates_structured_figures_from_run_folder
     summary = MethodComparisonLauncher(config_path).run()
 
     figures = summary["comparison_figures"]
-    assert {item["kind"] for item in figures} == {"map_comparison", "difference_map"}
+    assert {item["kind"] for item in figures} == {
+        "case_configuration",
+        "map_comparison",
+        "difference_map",
+        "map_triptych",
+    }
     for item in figures:
         figure_path = Path(item["path"])
         assert figure_path.exists()

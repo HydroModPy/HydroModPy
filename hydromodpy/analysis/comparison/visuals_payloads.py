@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+import csv
+import math
+from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -19,7 +22,11 @@ from hydromodpy.analysis.comparison.runtime_mesh import (
     resolve_structured_shape_from_config,
     resolve_structured_shape_from_run_folder,
 )
-from hydromodpy.analysis.comparison.runtime_metadata import discover_result_store
+from hydromodpy.analysis.comparison.runtime_metadata import (
+    _resolve_recorded_output_path,
+    discover_result_store,
+    read_json_file,
+)
 from hydromodpy.analysis.comparison.runtime_observables import select_time_slices
 from hydromodpy.analysis.comparison.runtime_series import (
     VariableSeries,
@@ -27,6 +34,7 @@ from hydromodpy.analysis.comparison.runtime_series import (
     mask_depth_series_from_head_nodata,
 )
 from hydromodpy.analysis.comparison.visuals_style import _mask_nodata
+from hydromodpy.core.toml_io.loader import load_toml_with_base_config
 
 try:
     from scipy.interpolate import griddata
@@ -70,6 +78,25 @@ class DifferencePayload:
     x: np.ndarray | None = None
     y: np.ndarray | None = None
     extent: tuple[float, float, float, float] | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class CaseConfigurationPayload:
+    """Visual summary of the physical support used by one comparison."""
+
+    comparison_id: str
+    reference_variant: str
+    variant_lines: tuple[str, ...]
+    metadata_lines: tuple[str, ...]
+    boundary_sides: tuple[tuple[str, str], ...]
+    observable_points: tuple[tuple[float, float, str], ...]
+    vertices: np.ndarray | None = None
+    faces: np.ndarray | None = None
+    surface_top: np.ndarray | None = None
+    centroid_x: np.ndarray | None = None
+    centroid_y: np.ndarray | None = None
+    recharge_values: np.ndarray | None = None
+    recharge_unit: str = ""
 
 
 def _estimate_extent_from_centroids(
@@ -125,6 +152,440 @@ def _payload_samples(payload: MapPayload) -> tuple[np.ndarray, np.ndarray, np.nd
     if not np.any(finite):
         return None
     return x[finite], y[finite], values[finite]
+
+
+def _safe_config_payload(config_path: Path | None) -> Mapping[str, Any]:
+    if config_path is None:
+        return {}
+    try:
+        payload = load_toml_with_base_config(config_path)
+    except Exception:
+        return {}
+    return payload if isinstance(payload, Mapping) else {}
+
+
+def _read_zarr_array(group: Any, name: str) -> np.ndarray | None:
+    try:
+        if group is None or name not in group:
+            return None
+        values = group[name]
+        return np.asarray(values[:] if hasattr(values, "__getitem__") else values)
+    except Exception:
+        return None
+
+
+def _open_store_root(store: Any, sim_id: str) -> tuple[Any, Any]:
+    if hasattr(store, "open_zarr_group"):
+        return store.open_zarr_group(sim_id), None
+    handle = store.open_zarr(sim_id)
+    return getattr(handle, "root", None), handle
+
+
+def _mesh_payload_from_store(store: Any, sim_id: str) -> tuple[np.ndarray | None, ...]:
+    handle = None
+    try:
+        grp, handle = _open_store_root(store, sim_id)
+        mesh = grp.get("mesh") if grp is not None else None
+        vertices = _read_zarr_array(mesh, "vertices")
+        faces = _read_zarr_array(mesh, "face_node_connectivity")
+        surface_top = _read_zarr_array(mesh, "surface_top")
+    except Exception:
+        return None, None, None
+    finally:
+        if handle is not None:
+            try:
+                handle.close()
+            except Exception:
+                pass
+    if vertices is not None:
+        vertices = np.asarray(vertices, dtype=float)
+    if faces is not None:
+        faces = np.asarray(faces, dtype=int)
+    if surface_top is not None:
+        surface_top = np.asarray(surface_top, dtype=float).reshape(-1)
+    return vertices, faces, surface_top
+
+
+def _bundle_dir_from_config(config_path: Path) -> Path | None:
+    payload = _safe_config_payload(config_path)
+    mesh_input = payload.get("mesh_input")
+    if not isinstance(mesh_input, Mapping):
+        return None
+    bundle_dir_raw = mesh_input.get("bundle_dir")
+    if bundle_dir_raw in (None, ""):
+        return None
+    return _resolve_recorded_output_path(bundle_dir_raw, base_dir=config_path.parent)
+
+
+def _bundle_dir_for_case(run_folder: Path, config_path: Path | None) -> Path | None:
+    metrics = read_json_file(run_folder / "_metrics.json")
+    boussinesq_summary = read_json_file(run_folder / "_boussinesq_summary.json")
+    bundle_dir_raw = metrics.get("mesh_output_exchange_bundle_dir") or boussinesq_summary.get(
+        "bundle_dir"
+    )
+    if bundle_dir_raw:
+        bundle_dir = _resolve_recorded_output_path(bundle_dir_raw, base_dir=run_folder)
+        if bundle_dir is not None and bundle_dir.exists():
+            return bundle_dir
+    if config_path is None:
+        return None
+    bundle_dir = _bundle_dir_from_config(config_path)
+    if bundle_dir is not None and bundle_dir.exists():
+        return bundle_dir
+    return None
+
+
+def _mesh_payload_from_bundle(bundle_dir: Path | None) -> tuple[np.ndarray | None, ...]:
+    if bundle_dir is None:
+        return None, None, None
+    nodes_path = bundle_dir / "nodes.csv"
+    cells_path = bundle_dir / "cells.csv"
+    if not nodes_path.exists() or not cells_path.exists():
+        return None, None, None
+
+    node_ids: list[int] = []
+    vertices: list[tuple[float, float, float]] = []
+    with nodes_path.open("r", encoding="utf-8", newline="") as handle:
+        reader = csv.DictReader(handle)
+        for row in reader:
+            try:
+                node_ids.append(int(row["node_id"]))
+                z_raw = row.get("z_top")
+                z_value = float(z_raw) if z_raw not in (None, "") else math.nan
+                vertices.append((float(row["x"]), float(row["y"]), z_value))
+            except Exception:
+                continue
+    if not vertices:
+        return None, None, None
+
+    node_index = {node_id: index for index, node_id in enumerate(node_ids)}
+    faces: list[list[int]] = []
+    surface_top: list[float] = []
+    with cells_path.open("r", encoding="utf-8", newline="") as handle:
+        reader = csv.DictReader(handle)
+        for row in reader:
+            face: list[int] = []
+            for key in ("n0", "n1", "n2", "n3"):
+                raw = row.get(key)
+                if raw in (None, ""):
+                    continue
+                try:
+                    face.append(node_index[int(raw)])
+                except Exception:
+                    continue
+            if len(face) < 3:
+                continue
+            faces.append(face)
+            top_raw = row.get("z_top_mean") or row.get("z_top_centroid")
+            try:
+                surface_top.append(float(top_raw))
+            except Exception:
+                surface_top.append(math.nan)
+    if not faces:
+        return None, None, None
+
+    max_face_size = max(len(face) for face in faces)
+    face_array = np.full((len(faces), max_face_size), -1, dtype=int)
+    for index, face in enumerate(faces):
+        face_array[index, : len(face)] = np.asarray(face, dtype=int)
+    return (
+        np.asarray(vertices, dtype=float),
+        face_array,
+        np.asarray(surface_top, dtype=float),
+    )
+
+
+def _recharge_payload_from_store(store: Any, sim_id: str) -> tuple[np.ndarray | None, str]:
+    handle = None
+    try:
+        grp, handle = _open_store_root(store, sim_id)
+        forcing = grp.get("forcing") if grp is not None else None
+        recharge = (
+            forcing.get("recharge") if forcing is not None and "recharge" in forcing else None
+        )
+        if recharge is None:
+            return None, ""
+
+        candidate_groups = [recharge]
+        try:
+            candidate_groups.extend(
+                recharge[key] for key in recharge.keys() if not hasattr(recharge[key], "shape")
+            )
+        except Exception:
+            pass
+        for candidate in candidate_groups:
+            values = _read_zarr_array(candidate, "values")
+            if values is None:
+                continue
+            arr = np.asarray(values, dtype=float).reshape(-1)
+            if arr.size == 0:
+                continue
+            unit = ""
+            try:
+                unit = str(candidate.attrs.get("unit", ""))
+            except Exception:
+                unit = ""
+            return arr, unit
+        return None, ""
+    except Exception:
+        return None, ""
+    finally:
+        if handle is not None:
+            try:
+                handle.close()
+            except Exception:
+                pass
+
+
+def _recharge_payload_from_config(
+    config_payload: Mapping[str, Any],
+) -> tuple[np.ndarray | None, str]:
+    data = config_payload.get("data")
+    if not isinstance(data, Mapping):
+        return None, ""
+    recharge = data.get("recharge")
+    if not isinstance(recharge, Mapping):
+        return None, ""
+    sources = recharge.get("sources")
+    if not isinstance(sources, list):
+        return None, ""
+    for source in sources:
+        if not isinstance(source, Mapping):
+            continue
+        values = source.get("values")
+        if values is None:
+            continue
+        try:
+            arr = np.asarray(values, dtype=float).reshape(-1)
+        except Exception:
+            continue
+        if arr.size:
+            return arr, str(source.get("source_unit") or "mm/day")
+    return None, ""
+
+
+def _side_from_text(value: str) -> str | None:
+    text = str(value).strip().lower().replace("-", "_").replace(" ", "_")
+    for side in ("west", "east", "north", "south"):
+        if side in text:
+            return side
+    return None
+
+
+def _boundary_sides_from_config(config_payload: Mapping[str, Any]) -> tuple[tuple[str, str], ...]:
+    flow = config_payload.get("flow")
+    if not isinstance(flow, Mapping):
+        return ()
+    active = {str(item).strip() for item in (flow.get("active_bc") or ()) if str(item).strip()}
+    bc = flow.get("bc")
+    dirichlet = bc.get("dirichlet") if isinstance(bc, Mapping) else None
+    if not isinstance(dirichlet, Mapping):
+        return ()
+    resolved: list[tuple[str, str]] = []
+    for bc_id, payload in dirichlet.items():
+        bc_name = str(bc_id).strip()
+        if active and bc_name not in active:
+            continue
+        text_parts = [bc_name]
+        if isinstance(payload, Mapping):
+            text_parts.extend(str(payload.get(key, "")) for key in ("application_domain", "type"))
+            value = payload.get("value", "")
+        else:
+            value = ""
+        side = _side_from_text(" ".join(text_parts))
+        if side is not None:
+            label = f"{bc_name}={value}" if str(value).strip() else bc_name
+            resolved.append((side, label))
+    return tuple(resolved)
+
+
+def _flow_param_summary_lines(config_payload: Mapping[str, Any]) -> tuple[str, ...]:
+    flow = config_payload.get("flow")
+    if not isinstance(flow, Mapping):
+        return ()
+    params = flow.get("param")
+    if not isinstance(params, Mapping):
+        return ()
+    lines: list[str] = []
+    for name in ("K", "Sy", "Ss"):
+        payload = params.get(name)
+        if not isinstance(payload, Mapping):
+            continue
+        value = ""
+        section = payload.get("field_homogeneous")
+        if isinstance(section, Mapping):
+            value = str(section.get("value", ""))
+        elif "value" in payload:
+            value = str(payload.get("value", ""))
+        unit = ""
+        field = payload.get("field")
+        if isinstance(field, Mapping):
+            unit = str(field.get("unit", ""))
+        if value:
+            lines.append(f"{name}: {value}{(' ' + unit) if unit and unit not in value else ''}")
+    return tuple(lines)
+
+
+def _simulation_time_summary_lines(config_payload: Mapping[str, Any]) -> tuple[str, ...]:
+    simulation = config_payload.get("simulation")
+    if not isinstance(simulation, Mapping):
+        return ()
+    time_cfg = simulation.get("time")
+    if not isinstance(time_cfg, Mapping):
+        return ()
+    lines: list[str] = []
+    start = str(time_cfg.get("start_datetime", "")).strip()
+    end = str(time_cfg.get("end_datetime", "")).strip()
+    step = str(time_cfg.get("step_value", "")).strip()
+    unit = str(time_cfg.get("step_unit", "")).strip()
+    if start or end:
+        lines.append(f"time: {start or '?'} -> {end or '?'}")
+    if step:
+        lines.append(f"step: {step}{(' ' + unit) if unit and unit not in step else ''}")
+    return tuple(lines)
+
+
+def _face_centroids(
+    vertices: np.ndarray | None, faces: np.ndarray | None
+) -> tuple[np.ndarray, np.ndarray]:
+    if vertices is None or faces is None or vertices.ndim != 2 or faces.ndim != 2:
+        return np.asarray([], dtype=float), np.asarray([], dtype=float)
+    valid_faces = []
+    for face in np.asarray(faces, dtype=int):
+        face = face[(face >= 0) & (face < vertices.shape[0])]
+        if face.size >= 3:
+            valid_faces.append(face)
+    if not valid_faces:
+        return np.asarray([], dtype=float), np.asarray([], dtype=float)
+    centroids = np.asarray([vertices[face, :2].mean(axis=0) for face in valid_faces], dtype=float)
+    return centroids[:, 0], centroids[:, 1]
+
+
+def _observable_points_for_case(
+    cfg: MethodComparisonConfig,
+    *,
+    centroid_x: np.ndarray | None,
+    centroid_y: np.ndarray | None,
+) -> tuple[tuple[float, float, str], ...]:
+    points: list[tuple[float, float, str]] = []
+    for observable in cfg.method_comparison.observable:
+        if observable.support not in {"point", "outlet"}:
+            continue
+        x = observable.x
+        y = observable.y
+        if x is None or y is None:
+            if (
+                observable.cell_index is not None
+                and centroid_x is not None
+                and centroid_y is not None
+                and 0 <= int(observable.cell_index) < int(centroid_x.size)
+            ):
+                x = float(centroid_x[int(observable.cell_index)])
+                y = float(centroid_y[int(observable.cell_index)])
+        if x is None or y is None:
+            continue
+        points.append((float(x), float(y), observable.name))
+    return tuple(points[:12])
+
+
+def _build_case_configuration_payload(
+    *,
+    cfg: MethodComparisonConfig,
+    variant_summaries: list[dict[str, Any]],
+    reference_variant: str | None,
+) -> CaseConfigurationPayload | None:
+    completed = [
+        summary
+        for summary in variant_summaries
+        if str(summary.get("status", "")) in {"completed", "reused"}
+    ]
+    if not completed:
+        return None
+    selected = next(
+        (summary for summary in completed if str(summary.get("id", "")) == str(reference_variant)),
+        completed[0],
+    )
+    config_path_raw = selected.get("config_path")
+    config_path = None if config_path_raw in (None, "") else Path(str(config_path_raw))
+    config_payload = _safe_config_payload(config_path)
+
+    vertices = faces = surface_top = None
+    recharge_values = None
+    recharge_unit = ""
+    store = None
+    sim_id = None
+    try:
+        store, sim_id = discover_result_store(
+            config_path,
+            preferred_sim_id=(
+                None if selected.get("sim_id") in (None, "") else str(selected.get("sim_id"))
+            ),
+            preferred_name=(
+                None if selected.get("run_name") in (None, "") else str(selected.get("run_name"))
+            ),
+        )
+        if store is not None and sim_id is not None:
+            vertices, faces, surface_top = _mesh_payload_from_store(store, sim_id)
+            recharge_values, recharge_unit = _recharge_payload_from_store(store, sim_id)
+    finally:
+        if store is not None:
+            try:
+                store.close()
+            except Exception:
+                pass
+
+    run_folder = Path(str(selected.get("run_folder", "")))
+    if vertices is None or faces is None:
+        vertices, faces, surface_top = _mesh_payload_from_bundle(
+            _bundle_dir_for_case(run_folder, config_path)
+        )
+    cells = resolve_bundle_cells(run_folder, config_path=config_path)
+    centroid_x = centroid_y = None
+    if vertices is not None and faces is not None:
+        centroid_x, centroid_y = _face_centroids(vertices, faces)
+    if (centroid_x is None or centroid_x.size == 0) and cells is not None:
+        centroid_x = np.asarray(cells.x, dtype=float)
+        centroid_y = np.asarray(cells.y, dtype=float)
+    if recharge_values is None:
+        recharge_values, recharge_unit = _recharge_payload_from_config(config_payload)
+
+    n_cells = (
+        int(surface_top.size)
+        if surface_top is not None and surface_top.size
+        else int(centroid_x.size)
+        if centroid_x is not None
+        else 0
+    )
+    variant_lines = tuple(
+        f"{summary.get('id', '')}: {summary.get('solver', '') or 'n/a'} / {summary.get('mesh_mode', '')}"
+        for summary in completed
+    )
+    metadata_lines = (
+        f"comparison: {cfg.method_comparison.comparison_id}",
+        f"reference: {reference_variant or selected.get('id', '')}",
+        f"n_cells: {n_cells}" if n_cells else "n_cells: n/a",
+        *_simulation_time_summary_lines(config_payload),
+        *_flow_param_summary_lines(config_payload),
+    )
+    return CaseConfigurationPayload(
+        comparison_id=str(cfg.method_comparison.comparison_id),
+        reference_variant=str(reference_variant or selected.get("id", "")),
+        variant_lines=variant_lines,
+        metadata_lines=tuple(metadata_lines),
+        boundary_sides=_boundary_sides_from_config(config_payload),
+        observable_points=_observable_points_for_case(
+            cfg,
+            centroid_x=centroid_x,
+            centroid_y=centroid_y,
+        ),
+        vertices=vertices,
+        faces=faces,
+        surface_top=surface_top,
+        centroid_x=centroid_x,
+        centroid_y=centroid_y,
+        recharge_values=recharge_values,
+        recharge_unit=recharge_unit,
+    )
 
 
 def _choose_map_slice(

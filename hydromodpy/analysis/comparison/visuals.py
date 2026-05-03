@@ -10,6 +10,7 @@ import numpy as np
 from hydromodpy.analysis.comparison.config import MethodComparisonConfig
 from hydromodpy.analysis.comparison.visuals_payloads import (
     MapPayload,
+    _build_case_configuration_payload,
     _build_difference_payload,
     _build_fine_grid,
     _build_map_payload,
@@ -18,11 +19,14 @@ from hydromodpy.analysis.comparison.visuals_payloads import (
     griddata,
 )
 from hydromodpy.analysis.comparison.visuals_render_maps import (
+    _write_case_configuration_figure,
     _write_difference_figure,
     _write_geotiff,
     _write_map_comparison_figure,
+    _write_map_triptych_figure,
     _write_regridded_difference_figure,
     _write_regridded_map_figure,
+    _write_regridded_triptych_figure,
 )
 from hydromodpy.analysis.comparison.visuals_render_series import (
     _write_budget_diagnostic_figure,
@@ -67,6 +71,24 @@ def generate_comparison_figures(
 
     artifacts: list[dict[str, Any]] = []
     fine_raster = cfg.method_comparison.fine_raster
+    try:
+        case_payload = _build_case_configuration_payload(
+            cfg=cfg,
+            variant_summaries=variant_summaries,
+            reference_variant=reference_variant,
+        )
+    except Exception:
+        case_payload = None
+    if case_payload is not None:
+        case_path = figure_root / "case_configuration.png"
+        if _write_case_configuration_figure(path=case_path, payload=case_payload):
+            artifacts.append(
+                {
+                    "kind": "case_configuration",
+                    "observable": "case_configuration",
+                    "path": str(case_path),
+                }
+            )
 
     for observable in cfg.method_comparison.observable:
         if observable.support != "map":
@@ -135,6 +157,25 @@ def generate_comparison_figures(
                         "reference_variant": reference_variant,
                         "candidate_variant": candidate.variant_id,
                         "path": str(diff_path),
+                    }
+                )
+            triptych_path = figure_root / (
+                f"{_slug(observable.name)}__triptych__"
+                f"{_slug(reference_variant)}__vs__{_slug(candidate.variant_id)}.png"
+            )
+            if _write_map_triptych_figure(
+                path=triptych_path,
+                reference=reference_payload,
+                candidate=candidate,
+                difference=difference,
+            ):
+                artifacts.append(
+                    {
+                        "kind": "map_triptych",
+                        "observable": observable.name,
+                        "reference_variant": reference_variant,
+                        "candidate_variant": candidate.variant_id,
+                        "path": str(triptych_path),
                     }
                 )
 
@@ -215,6 +256,28 @@ def generate_comparison_figures(
                                 if payload.variant_id == reference_variant:
                                     continue
                                 difference_array = np.asarray(array - reference_array, dtype=float)
+                                triptych_path = figure_root / (
+                                    f"{_slug(observable.name)}__fine_raster_triptych__"
+                                    f"{_slug(reference_variant)}__vs__{_slug(payload.variant_id)}.png"
+                                )
+                                if _write_regridded_triptych_figure(
+                                    path=triptych_path,
+                                    observable_name=observable.name,
+                                    reference_payload=reference_payload,
+                                    candidate_payload=payload,
+                                    reference_array=reference_array,
+                                    candidate_array=array,
+                                    extent=grid_extent,
+                                ):
+                                    artifacts.append(
+                                        {
+                                            "kind": "fine_raster_triptych",
+                                            "observable": observable.name,
+                                            "reference_variant": reference_variant,
+                                            "candidate_variant": payload.variant_id,
+                                            "path": str(triptych_path),
+                                        }
+                                    )
                                 diff_path = figure_root / (
                                     f"{_slug(observable.name)}__fine_raster_difference__"
                                     f"{_slug(reference_variant)}__vs__{_slug(payload.variant_id)}.png"
