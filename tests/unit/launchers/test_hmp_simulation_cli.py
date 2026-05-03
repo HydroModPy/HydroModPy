@@ -241,6 +241,29 @@ def test_hmp_run_dispatches_comparison_workflow(monkeypatch, tmp_path) -> None:
     assert captured["run_called"] is True
 
 
+def test_hmp_run_dispatches_testbed_workflow(monkeypatch, tmp_path) -> None:
+    """``hmp run`` with workflow=testbed dispatches to run_testbed."""
+    config = _write_toml(
+        tmp_path / "testbed.toml",
+        'workflow = "testbed"\n[testbed]\nid = "demo"\n',
+    )
+
+    captured: dict = {}
+
+    def fake_run(config_path):
+        captured["config_path"] = Path(config_path)
+        captured["run_called"] = True
+        return {"mode": "testbed"}
+
+    monkeypatch.setitem(workflow_dispatch.DISPATCH, "testbed", fake_run)
+    monkeypatch.setattr("sys.argv", ["hmp", "run", str(config)])
+
+    main()
+
+    assert captured["config_path"] == config.resolve()
+    assert captured["run_called"] is True
+
+
 def test_hmp_run_crashes_on_unknown_workflow_value(monkeypatch, tmp_path) -> None:
     """``hmp run`` rejects a workflow value outside the known set."""
     config = _write_toml(

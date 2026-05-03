@@ -106,6 +106,13 @@ def compare_methods(toml_path: Any) -> Any:
     return MethodComparisonLauncher(toml_path).run()
 
 
+def testbed(toml_path: Any) -> Any:
+    """Run a TOML-driven method testbed."""
+    from hydromodpy.analysis.testbed.runtime import TestbedLauncher
+
+    return TestbedLauncher(toml_path).run()
+
+
 def mesh(toml_path: Any) -> dict:
     """Functional facade for the mesh-only workflow.
 
