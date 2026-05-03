@@ -133,6 +133,10 @@ Current public implementation notes:
 - in the current Boussinesq slice, it is implemented as a top-drainage
   operator driven by conductance and activation above the top elevation.
 
+For the broader navigation map across observed stream networks, seepage, and
+simulation-derived active networks, see
+:doc:`../streams_and_seepage/index`.
+
 What They Are Not
 -----------------
 

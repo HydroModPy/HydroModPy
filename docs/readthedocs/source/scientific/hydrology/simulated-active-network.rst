@@ -23,13 +23,11 @@ Conceptual Contract
 HydroModPy keeps the raw simulated drainage signal as cell fields before any
 vector network is declared.
 
-For a perennial-network question, distinguish the hydrological scenario from
-the transient occupancy rule. A representative steady-state computation uses
-``flow_regime = "steady"``. A simulated perennial network should be derived
-from such a steady-state run whenever possible, then compared with the observed
-``reference`` network. The transient
-``always_active`` mask only means active at all timesteps of the analysed
-chronicle.
+For a steady-network question, distinguish the steady-flow scenario from the
+transient occupancy rule. A simulated steady active network should preferably
+be derived from a representative ``flow_regime = "steady"`` run, then compared
+with the observed ``reference`` network. The transient ``always_active`` mask
+only means active at all timesteps of the analysed chronicle.
 
 .. list-table::
    :header-rows: 1
@@ -205,9 +203,10 @@ The main modes are:
 - ``always_active``: active at every analysed timestep;
 - ``persistence``: continuous active-time fraction.
 
-``perennial`` is kept as a legacy alias for ``always_active``. A hydrological
-perennial network should preferably come from a representative steady-state
-scenario, not from an arbitrary transient window.
+Use ``steady`` for the representative steady-flow concept. The transient
+``always_active`` mode only means active at every stored timestep of the chosen
+analysis window, and should not be used as a synonym for a steady active
+network.
 
 What This Is Not Yet
 --------------------
@@ -222,7 +221,8 @@ Before vectorization becomes a stable contract, the project still needs to
 choose:
 
 - the default activation threshold;
-- whether the canonical network is instantaneous, persistent, or steady-state;
+- whether the canonical representation is one steady network, one transient
+  summary, or several named networks;
 - how much simplification or line extraction should be applied;
 - whether the first canonical representation should be raster-like, vector-like,
   or both.
@@ -238,6 +238,7 @@ Related Reading
 ---------------
 
 - :doc:`stream-ocean-and-drainage-semantics`
-- :doc:`../solvers/flow/modflow/modflow6`
+- :doc:`../solvers/modflow-family-methods`
+- :doc:`../solvers/modflow-package-semantics-and-boundary-conditions`
 - :doc:`../../architecture/overview/hydrographic-network-simulated-active-inventory`
 - :doc:`../../getting_started/comparison-workflow`

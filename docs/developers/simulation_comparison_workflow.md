@@ -72,13 +72,17 @@ physique du cas par accident. Les sections autorisees sont:
 - `solver`: parametres generiques solveur;
 - `modflow6`: options propres MODFLOW 6;
 - `modflownwt`: options propres MODFLOW-NWT;
-- `flow`: `runtime_backend` uniquement;
+- `flow`: `runtime_backend` et `param` pour les balayages de parametres;
 - `display`: sortie graphique.
 
 Les sections physiques comme domaine, recharge, proprietes hydrauliques ou
 conditions aux limites ne doivent pas etre changees dans les variantes V1.
 Si la physique doit changer, il faut creer un autre cas de simulation de base
 ou etendre explicitement le contrat.
+
+`flow.param` est autorise pour les comparaisons de sensibilite explicites,
+par exemple un balayage de conductivite hydraulique. Les autres sections
+physiques restent interdites par defaut.
 
 ## Garde-fous V1
 

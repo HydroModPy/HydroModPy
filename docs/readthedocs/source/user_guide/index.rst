@@ -96,6 +96,16 @@ Topic guides
 
    .. grid-item-card::
       :class-card: sd-shadow-sm sd-rounded-3 sd-p-4
+      :link: data/index
+      :link-type: doc
+
+      **Data loading**
+      ^^^
+      Retrieval workflow, provider matrix, local custom data conventions,
+      cache inspection, lockfiles, and reproducible runs.
+
+   .. grid-item-card::
+      :class-card: sd-shadow-sm sd-rounded-3 sd-p-4
       :link: solver-choice
       :link-type: doc
 
@@ -125,6 +135,7 @@ Use these pages once you have generated or opened result pages:
    mesh
    comparison
    calibration
+   Data loading <data/index>
    solver-choice
    Reading result pages <../getting_started/reading-results-pages>
    Comparison workflow <../getting_started/comparison-workflow>

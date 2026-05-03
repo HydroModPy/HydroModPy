@@ -17,7 +17,7 @@ Case Setup
 - initial condition: uniform `30.0 m`,
 - forcing: one constant pumping well at the domain center,
 - simulated observable: `watertable_elevation`.
-- Available solver variants: MODFLOW-NWT, MODFLOW 6, Boussinesq.
+- Available solver variants: MODFLOW-NWT, MODFLOW 6, MODFLOW 6 irregular triangles, Boussinesq.
 
 What It Shows
 -------------
@@ -46,7 +46,7 @@ Solver Coverage
 ---------------
 
 - Default solver: MODFLOW-NWT
-- Available variants: MODFLOW-NWT, MODFLOW 6, Boussinesq
+- Available variants: MODFLOW-NWT, MODFLOW 6, MODFLOW 6 irregular triangles, Boussinesq
 
 .. tab-set::
 
@@ -93,6 +93,28 @@ Solver Coverage
       .. code-block:: bash
 
          python -m validation_cases.analytical.transient.late_time_unconfined_pumping_2d.run_case --no-show --solver modflow6
+
+   .. tab-item:: MODFLOW 6 irregular triangles
+
+      .. figure:: /_static/capability_gallery/validation/late_time_unconfined_pumping_2d__modflow6_irregular_tri.png
+         :alt: Late-Time Unconfined Pumping 2D validation figure for MODFLOW 6 irregular triangles
+         :width: 100%
+
+         Late-Time Unconfined Pumping 2D rendered with MODFLOW 6 irregular triangles for the analytical gallery.
+
+      **Metrics**
+      - Space-time RMSE: 0.0134 m
+      - Space-time max abs error: 0.0567 m
+      - Final-time RMSE: 0.0084 m
+      - Azimuthal spread: 8.83e-02 m
+
+      - Config file: ``validation_cases/analytical/transient/late_time_unconfined_pumping_2d/config_modflow6_irregular_tri.toml``
+      - Tolerances: ``validation_cases/analytical/transient/late_time_unconfined_pumping_2d/tolerances_modflow6_irregular_tri.toml``
+      - Expected output: 30 periods, spatial shape 101 x 101
+
+      .. code-block:: bash
+
+         python -m validation_cases.analytical.transient.late_time_unconfined_pumping_2d.run_case --no-show --solver modflow6_irregular_tri
 
    .. tab-item:: Boussinesq
 
@@ -421,6 +443,45 @@ Solver-Specific Overrides
            - false
            - ``validation_cases/analytical/transient/late_time_unconfined_pumping_2d/config_modflow6.toml``
 
+   .. tab-item:: MODFLOW 6 irregular triangles
+
+      .. list-table::
+         :header-rows: 1
+         :widths: 26 42 20 12
+
+         * - Field
+           - Meaning
+           - Value
+           - Source
+         * - ``modflow6.runtime.mf_verbose``
+           - Solver-specific override applied to MODFLOW 6.
+           - false
+           - ``validation_cases/analytical/transient/late_time_unconfined_pumping_2d/config_modflow6_irregular_tri.toml``
+         * - ``modflow6.runtime.mf6_ims_complexity``
+           - Linear-solver complexity preset used by MODFLOW 6.
+           - COMPLEX
+           - ``validation_cases/analytical/transient/late_time_unconfined_pumping_2d/config_modflow6_irregular_tri.toml``
+         * - ``modflow6.process_specific.vka``
+           - Vertical anisotropy ratio passed to MODFLOW 6.
+           - 1
+           - ``validation_cases/analytical/transient/late_time_unconfined_pumping_2d/config_modflow6_irregular_tri.toml``
+         * - ``modflow6.sgrid.vertical.nlay``
+           - Number of vertical layers used by MODFLOW 6.
+           - 1
+           - ``validation_cases/analytical/transient/late_time_unconfined_pumping_2d/config_modflow6_irregular_tri.toml``
+         * - ``modflow6.tgrid.firstpersteady``
+           - Whether the first time period is treated as steady by MODFLOW 6.
+           - false
+           - ``validation_cases/analytical/transient/late_time_unconfined_pumping_2d/config_modflow6_irregular_tri.toml``
+         * - ``mesh_input.mesh_path``
+           - Committed unstructured mesh file used by the irregular-mesh solver variant.
+           - ../../../shared/mesh_bundles/late_time_unconfined_pumping_irregular_tri_refined_center/mesh_2d.msh
+           - ``validation_cases/analytical/transient/late_time_unconfined_pumping_2d/config_modflow6_irregular_tri.toml``
+         * - ``mesh_input.bundle_dir``
+           - Committed mesh-bundle directory used to recover support metadata for the irregular-mesh solver variant.
+           - ../../../shared/mesh_bundles/late_time_unconfined_pumping_irregular_tri_refined_center
+           - ``validation_cases/analytical/transient/late_time_unconfined_pumping_2d/config_modflow6_irregular_tri.toml``
+
    .. tab-item:: Boussinesq
 
       .. list-table::
@@ -535,6 +596,41 @@ Acceptance Criteria by Solver
            - 0.015
            - ``validation_cases/analytical/transient/late_time_unconfined_pumping_2d/tolerances_modflow6.toml``
 
+   .. tab-item:: MODFLOW 6 irregular triangles
+
+      .. list-table::
+         :header-rows: 1
+         :widths: 26 42 20 12
+
+         * - Field
+           - Meaning
+           - Value
+           - Source
+         * - ``expected_output``
+           - Expected output shape or time-space layout checked for this solver.
+           - Expected output: 30 periods, spatial shape 101 x 101
+           - ``validation_cases/analytical/transient/late_time_unconfined_pumping_2d/metadata.toml``
+         * - ``space_time.rmse``
+           - Maximum accepted root-mean-square error for space time.
+           - 0.03
+           - ``validation_cases/analytical/transient/late_time_unconfined_pumping_2d/tolerances_modflow6_irregular_tri.toml``
+         * - ``space_time.max_abs_error``
+           - Maximum accepted absolute error for space time.
+           - 0.08
+           - ``validation_cases/analytical/transient/late_time_unconfined_pumping_2d/tolerances_modflow6_irregular_tri.toml``
+         * - ``space_time.azimuthal_spread``
+           - Acceptance threshold for `space_time.azimuthal_spread`.
+           - 0.1
+           - ``validation_cases/analytical/transient/late_time_unconfined_pumping_2d/tolerances_modflow6_irregular_tri.toml``
+         * - ``final_time.rmse``
+           - Maximum accepted root-mean-square error for final time.
+           - 0.02
+           - ``validation_cases/analytical/transient/late_time_unconfined_pumping_2d/tolerances_modflow6_irregular_tri.toml``
+         * - ``final_time.max_abs_error``
+           - Maximum accepted absolute error for final time.
+           - 0.03
+           - ``validation_cases/analytical/transient/late_time_unconfined_pumping_2d/tolerances_modflow6_irregular_tri.toml``
+
    .. tab-item:: Boussinesq
 
       .. list-table::
@@ -585,7 +681,9 @@ Source Pointers
 - ``validation_cases/analytical/transient/late_time_unconfined_pumping_2d/tolerances.toml``
 - ``validation_cases/analytical/transient/late_time_unconfined_pumping_2d/tolerances_boussinesq.toml``
 - ``validation_cases/analytical/transient/late_time_unconfined_pumping_2d/tolerances_modflow6.toml``
+- ``validation_cases/analytical/transient/late_time_unconfined_pumping_2d/tolerances_modflow6_irregular_tri.toml``
 - ``validation_cases/analytical/transient/late_time_unconfined_pumping_2d/config_modflow6.toml``
+- ``validation_cases/analytical/transient/late_time_unconfined_pumping_2d/config_modflow6_irregular_tri.toml``
 - ``validation_cases/analytical/transient/late_time_unconfined_pumping_2d/config_boussinesq.toml``
 - ``validation_cases/analytical/transient/common.py``
 
@@ -594,5 +692,6 @@ Artifacts
 
 - ``docs/readthedocs/source/_static/capability_gallery/validation/late_time_unconfined_pumping_2d__modflownwt.png``
 - ``docs/readthedocs/source/_static/capability_gallery/validation/late_time_unconfined_pumping_2d__modflow6.png``
+- ``docs/readthedocs/source/_static/capability_gallery/validation/late_time_unconfined_pumping_2d__modflow6_irregular_tri.png``
 - ``docs/readthedocs/source/_static/capability_gallery/validation/late_time_unconfined_pumping_2d__boussinesq.png``
 - ``docs/readthedocs/source/_static/capability_gallery/validation/late_time_unconfined_pumping_2d_summary.json`` stores the displayed metrics plus source hashes used by ``python -m tools.doc_gallery --check``.
