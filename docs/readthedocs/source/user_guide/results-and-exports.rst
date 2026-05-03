@@ -6,6 +6,18 @@ stores run metadata, metrics, parameters, budgets, provenance, and lookup
 tables. Per-run stores hold fields, meshes, rasters, timeseries, and derived
 arrays.
 
+Result Store Map
+----------------
+
+.. figure:: /_static/concepts/results/workspace_results_exports.svg
+   :alt: Map of the HydroModPy workspace result model and export paths
+   :width: 100%
+
+   Read the result system in three layers: the workspace catalog records
+   metadata and tabular diagnostics, each run store carries arrays and spatial
+   objects, and the reading/export APIs convert those objects into tables,
+   scientific files, figures, or portable packages.
+
 Core objects
 ------------
 

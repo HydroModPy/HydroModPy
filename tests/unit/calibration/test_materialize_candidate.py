@@ -194,7 +194,7 @@ class TestReimportableByTomllib:
 
 class TestMaterializeCandidateHydroModPyConfig:
     def test_accepts_in_memory_config(self, space_replace: ParameterSpace, tmp_path: Path):
-        from hydromodpy.core.config.hydromodpy_config import HydroModPyConfig
+        from hydromodpy.config import HydroModPyConfig
         from hydromodpy.core.workspace.config import WorkspaceConfig
         from hydromodpy.spatial.geographic.geographic_config import GeographicConfig
 
@@ -249,7 +249,7 @@ class TestOverlayReloadableViaHydroModPyConfig:
     ):
         """End-to-end: a schema-complete base TOML produces an overlay that
         HydroModPyConfig.from_toml validates without errors."""
-        from hydromodpy.core.config.hydromodpy_config import HydroModPyConfig
+        from hydromodpy.config import HydroModPyConfig
 
         full_base = tmp_path / "full_base.toml"
         full_base.write_text(

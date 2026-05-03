@@ -12,8 +12,12 @@ The useful reading hierarchy is:
    the equation into steady or transient residuals;
 3. **surface interaction**: how near-surface interception, drainage, and
    saturation excess are represented;
-4. **solver engines**: which nonlinear runtime can solve which method;
-5. **possibility map**: which combination is relevant for validation,
+4. **lower obstacle drying**: how bounded saturated thickness, dry deficit,
+   and drying/rewetting validation are handled;
+5. **formulation comparison**: how to compare Boussinesq choices without
+   scattering custom scripts through the documentation;
+6. **solver engines**: which nonlinear runtime can solve which method;
+7. **possibility map**: which combination is relevant for validation,
    comparison, larger meshes, or PETSc-only experiments.
 
 Current Boussinesq Flow Route
@@ -51,6 +55,8 @@ Current Boussinesq Flow Route
    equation-and-unknowns
    boussinesq-method
    surface-interaction
+   lower-obstacle-drying
+   formulation-comparison
    solver-engines
    possibility-map
 

@@ -3,7 +3,7 @@ from __future__ import annotations
 import tomllib
 from pathlib import Path
 
-from hydromodpy.core.config import HydroModPyConfig
+from hydromodpy.config import HydroModPyConfig
 
 
 def test_overview_config_respects_project_root_env_override(

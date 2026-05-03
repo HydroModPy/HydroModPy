@@ -85,11 +85,18 @@ where :math:`s_i(h)` is the selected surface-interaction contribution.
 Transient Equation
 ------------------
 
-Transient runs add a backward-Euler storage term:
+Transient runs add a backward-Euler storage term based on a lower-bounded
+saturated thickness:
 
 .. math::
 
-   A_i S_i \frac{h_i^{n+1} - h_i^n}{\Delta t}
+   M_i(h) = A_i S_i \max(h_i - z_i^{bot}, 0)
+
+The transient storage contribution is therefore:
+
+.. math::
+
+   \frac{M_i(h^{n+1}) - M_i(h^n)}{\Delta t}
 
 so the transient residual is:
 
@@ -99,6 +106,12 @@ so the transient residual is:
 
 with the same exchange, forcing, and surface terms evaluated at the new time
 level.
+
+This matters during drying. A head update below the substratum must not create
+a negative saturated thickness or a negative storage volume. The head remains
+the primary unknown. Transmissivity uses the capped admissible thickness, while
+storage is only lower-bounded so head-only transient formulations do not lose
+their time-step memory when they temporarily carry heads above the top surface.
 
 What This Equation Does Not Claim
 ---------------------------------
@@ -114,3 +127,4 @@ Detailed Reference
 - :doc:`../../boussinesq-mathematical-notes`
 - :doc:`boussinesq-method`
 - :doc:`surface-interaction`
+- :doc:`lower-obstacle-drying`

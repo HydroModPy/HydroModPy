@@ -1,285 +1,312 @@
 Read One Real Basin Run
 =======================
 
-This page sits between the editable walkthroughs and the static capability
-gallery.
+The previous versions of this page mixed several gallery families.
 
-Use it when you already understand how to launch one simulation, and now want
-to read one **committed, versioned basin result page** without confusing:
+That was not a good teaching page if the real question is:
 
-- basin setup,
-- support construction,
-- solver state,
-- and published documentation assets.
+   "What does one actual basin run give me back, and what can I
+   inspect or extract from it?"
 
-Stable Reference Runs
----------------------
+This page now uses one single run as the reference example:
 
-The current documentation now contains three useful committed basin runs:
-
-- :doc:`../capability_gallery/cases/modflow6_gmsh_mesh_catchment`
-  for a **runtime-meshed** MODFLOW 6 case
-- :doc:`../capability_gallery/cases/headwater_100km2_outlet_2_mf6_transient_reference`
-  for a **committed-mesh replay**
 - :doc:`../capability_gallery/cases/nancon_transient_nwt`
-  for an **observed-basin transient NWT diagnostic case**
 
-They do not answer exactly the same question.
+Why This Example Is Better
+--------------------------
+
+The Nancon transient NWT run is a better onboarding case than the older mixed
+"real basin" page because it exposes several kinds of retrievable data at
+once:
+
+- one observed basin,
+- one public project folder,
+- one transient MODFLOW-NWT run,
+- one observed discharge series,
+- one reference hydrographic network,
+- one generated hydrographic network,
+- one active-network diagnostic derived from the simulated state,
+- one committed capability-gallery page for stable reading.
+
+So this page is not mainly about "which picture looks nice".
+
+It is about:
+
+- what the run stores,
+- what the Python API can recover,
+- and which outputs are actually useful when the scientific question changes.
+
+Reference Case
+--------------
+
+Use these two pages together:
+
+- :doc:`../capability_gallery/cases/nancon_transient_nwt`
+- :doc:`../scientific/solvers/worked-modflow-case-nancon-transient-nwt-etp-evt`
+
+The gallery page is the committed visual reading path.
+
+The scientific page explains why this run builds ``EVT`` at all and how
+``data.etp`` reaches the MODFLOW-NWT package layer.
+
+Visual Reading Path
+-------------------
+
+The same run can be read directly from the figures below. The full reference
+page remains :doc:`../capability_gallery/cases/nancon_transient_nwt`; this
+page reuses only the figures needed to connect the result to the Python
+inventory.
+
+.. figure:: /_static/capability_gallery/simulation/nancon_transient_nwt_hydrographic_network_comparison.png
+   :alt: Reference and generated hydrographic networks on the Nancon basin
+   :width: 100%
+
+   Start with the two hydrographic networks. This tells you whether the
+   generated structural network and the observed reference network are close
+   enough before interpreting simulated drainage.
+
+.. figure:: /_static/capability_gallery/simulation/nancon_transient_nwt_simulated_active_network_reference_overlay.png
+   :alt: Simulated active network compared with observed hydrography on Nancon
+   :width: 100%
+
+   The active-network overlay is a simulation result, not an input layer. It
+   turns stored drainage fluxes into a spatial diagnostic that can be compared
+   with observed hydrography.
+
+.. figure:: /_static/capability_gallery/simulation/nancon_transient_nwt_piezometric_map.png
+   :alt: Piezometric map for the Nancon transient NWT run
+   :width: 100%
+
+   The piezometric map is the first groundwater-state figure to inspect when a
+   spatial diagnostic looks surprising.
+
+.. figure:: /_static/capability_gallery/simulation/nancon_transient_nwt_hydrograph.png
+   :alt: Observed and simulated hydrograph for the Nancon transient NWT run
+   :width: 100%
+
+   The hydrograph moves from spatial state to basin response. It is the compact
+   view of how the simulated outlet discharge compares with the observed
+   chronicle.
+
+.. figure:: /_static/capability_gallery/simulation/nancon_transient_nwt_water_budget.png
+   :alt: Water budget for the Nancon transient NWT run
+   :width: 100%
+
+   The water budget closes the reading path: it explains which inflow and
+   outflow components produced the simulated response.
+
+Inventory Of Retrievable Data
+-----------------------------
+
+The current committed Nancon run exposes the following categories.
+
+.. figure:: /_static/concepts/results/run_inventory.svg
+   :alt: Inventory map of data families exposed by one persisted HydroModPy run
+   :width: 100%
+
+   Use this figure as the reading map for the table below. The committed
+   gallery shows selected result figures; the persisted run also exposes
+   fields, time series, budgets, geographic layers, metrics, and provenance.
 
 .. list-table::
    :header-rows: 1
-   :widths: 28 30 42
+   :widths: 24 34 42
 
-   * - Case family
-     - Best first question
-     - What the page is mainly teaching
-   * - Runtime mesh build
-     - "What support did the run actually build and consume?"
-     - Mesh construction, support diagnostics, and first solver synthesis on a runtime support
-   * - Committed mesh replay
-     - "How does one stable basin replay behave once the support is already fixed?"
-     - Solver response, cumulative forcing/discharge reading, and direct map interpretation on a versioned support
-   * - Observed basin diagnostics
-     - "How does one real basin run connect hydrography, active drainage patterns, and integrated response?"
-     - Reference-vs-generated hydrography, simulated active-network overlap, then classical solver figures on one observed basin
+   * - Category
+     - Current Nancon inventory
+     - Main access path
+   * - Provenance inputs
+     - ``etp:etp``, ``hydrometry:discharge``, ``recharge:recharge``, ``runoff:runoff``
+     - ``run.provenance``
+   * - Geographic features
+     - ``watershed``, ``watershed_box_buff``, ``watershed_contour``, ``hydrographic_network_reference``, ``hydrographic_network_generated``
+     - ``run.geographic(...)`` and ``run.hydrographic_network(...)``
+   * - Geographic rasters
+     - ``watershed_dem``, ``watershed_fill``
+     - ``run.geographic_raster(...)``, ``run.dem``, ``run.catchment_mask``
+   * - Raw solver field
+     - ``head``
+     - ``run.field(\"head\", timestep=...)``
+   * - Derived spatial fields
+     - ``watertable_elevation``, ``watertable_depth``, ``accumulation_flux``, ``outflow_drain``, ``seepage_areas``
+     - ``run.field(...)`` or ``run.fields(...)``
+   * - Budget rasters / components
+     - ``constant head``, ``drains``, ``et``, ``flow front face``, ``flow right face``, ``recharge``, ``storage``
+     - ``run.budget(...)`` and Zarr ``budget/``
+   * - Mass-balance table
+     - total in/out, storage in/out, percent error
+     - ``run.mass_balance``
+   * - Time series
+     - simulated ``_catchment / discharge`` and observed ``NANCON / discharge_obs``
+     - ``run.timeseries(variable, station=...)``
+   * - Derived series
+     - catchment means of stored fields, plus recharge forcing
+     - ``run.catchment_mean(...)`` and ``run.recharge_forcing()``
+   * - Hydrography metrics
+     - reference-vs-generated length and coverage metrics
+     - ``run.hydrographic_network_comparison_metrics()``
+   * - Active-network overlap metrics
+     - overlap, coverage, precision, F1, Jaccard against reference hydrography
+     - ``run.simulated_active_network_overlap_metrics()``
+   * - Pre-rendered figures
+     - ``piezometric_map``, ``water_budget``, ``hydrograph``, ``simulated_active_network``, ``simulated_active_network_reference_overlay``, and hydrographic-network figures
+     - ``run.display_capabilities`` then ``run.plot(...)``
 
-Read The Figures In This Order
-------------------------------
+The key point is that the gallery page only shows a subset of this inventory.
 
-1. Support overview
-2. Flow-state triptych
-3. Direct water-table maps
-4. Cumulative recharge/discharge
+The run itself gives you more than the committed figures.
 
-If you reverse that order, it becomes too easy to over-interpret one curve
-before checking whether the support and state fields are even coherent.
+Minimal Python Inventory
+------------------------
 
-1. Support Overview
--------------------
+.. code-block:: python
 
-Start with the support, not the solver curve.
+   from hydromodpy.project import Project
 
-.. figure:: /_static/capability_gallery/simulation/modflow6_gmsh_support_overview.png
-   :alt: Support overview for one committed real-basin simulation page
-   :width: 100%
+   project = Project("examples/projects/02_nancon_watershed/project.toml")
+   run = project.runs.latest()
 
-   Runtime support overview from the committed MODFLOW 6 plus Gmsh basin case.
+   print(run.display_capabilities)
+   print(run.provenance)
+   print(run.budget().component.unique())
+   print(run.mass_balance.columns)
+   print(run.available_hydrographic_network_roles())
 
-Read this figure to answer:
+   q_sim = run.timeseries("discharge", station="_catchment")
+   q_obs = run.timeseries("discharge_obs", station="NANCON")
 
-- what mesh or grid the solver actually consumed,
-- whether hydrography and support labels are where you expect,
-- whether the run is a runtime-mesh build or a replay on a saved support.
+   wt_depth = run.field("watertable_depth", timestep=-1)
+   wt_depth_mean = run.catchment_mean("watertable_depth")
+   recharge = run.recharge_forcing()
 
-Do **not** use this figure to decide whether the physics is already correct.
-Its role is structural first.
+   hydro_metrics = run.hydrographic_network_comparison_metrics()
+   active_metrics = run.simulated_active_network_overlap_metrics()
 
-2. Flow-State Triptych
+   project.close()
+
+What This Run Really Shows Well
+-------------------------------
+
+This run is especially useful for four kinds of questions.
+
+1. "What came in and out of the basin?"
+
+- ``run.budget()``
+- ``run.mass_balance``
+- ``run.recharge_forcing()``
+
+2. "How did the outlet response react in time?"
+
+- ``run.timeseries("discharge", station="_catchment")``
+- ``run.timeseries("discharge_obs", station="NANCON")``
+- the committed ``hydrograph`` figure
+
+3. "What did the groundwater state look like in space?"
+
+- ``run.field("watertable_elevation", timestep=...)``
+- ``run.field("watertable_depth", timestep=...)``
+- ``run.field("seepage_areas", timestep=...)``
+- the committed ``piezometric_map`` figure
+
+4. "How does the simulated drainage structure compare to observed hydrography?"
+
+- ``run.hydrographic_network_comparison_metrics()``
+- ``run.simulated_active_network_overlap_metrics()``
+- the committed ``hydrographic_network_comparison`` figure
+- the committed ``simulated_active_network_reference_overlay`` figure
+
+If The Question Is EVT
 ----------------------
 
-Only after the support looks coherent should you read the first solver-state
-summary.
+If the scientific question is specifically:
 
-.. figure:: /_static/capability_gallery/simulation/modflow6_gmsh_flow_state_triptych.png
-   :alt: Flow-state triptych for one committed real-basin simulation page
-   :width: 100%
+   "What is the effect of activating EVT on this basin?"
 
-   Topography, hydraulic head, and water-table depth on the same real-basin support.
+then the first outputs to inspect are **not** the same as for a generic basin
+walkthrough.
 
-This is usually the highest-value single figure because it aligns:
+Use this order instead:
 
-- topography,
-- simulated head,
-- and water-table depth
+1. ``run.budget(component="et")`` and ``run.budget(component="drains")``
+2. ``run.timeseries("discharge", station="_catchment")``
+3. ``run.catchment_mean("watertable_depth")``
+4. timestep maps of ``watertable_depth``, ``outflow_drain``, and ``seepage_areas``
+5. only then the active-network overlay and hydrographic metrics
 
-on the same support.
+Why this order matters:
 
-Use it to ask:
+- ``ET`` and ``DRN`` are the two outflow channels most likely to trade off
+  against each other when EVT changes.
+- the hydrograph tells you whether the basin-integrated response changes in a
+  way that matters for calibration or interpretation.
+- catchment-mean water-table depth tells you whether the basin dries slightly
+  everywhere or strongly in a few places.
+- spatial maps tell you where the shift actually happens.
+- the hydrographic overlays are useful, but they are too downstream to be the
+  first EVT diagnostic.
 
-- does the hydraulic state follow the basin structure sensibly?
-- are shallow and deep zones where they should be?
-- do surprising areas come from forcing, parameters, or the support itself?
+Recommended EVT Sensitivity Ladder
+----------------------------------
 
-3. Direct Water-Table Maps
---------------------------
+If the goal is to make the effect of EVT visible in the documentation, one
+single run is not enough.
 
-When the triptych shows something interesting, isolate the variable before
-making claims.
+The cleanest mini-study is:
 
-.. tab-set::
+1. **No EVT**
+   :
+   ``flow.active_sinks_sources = ["recharge"]``
+2. **Baseline EVT**
+   :
+   ``flow.active_sinks_sources = ["recharge", "etp"]``
+3. **Shallow EVT**
+   :
+   same as baseline, but with a smaller ``surface_offset`` and
+   ``extinction_depth`` in ``[flow.sinks_sources.etp]``
+4. **Deeper EVT**
+   :
+   same as baseline, but with a larger ``extinction_depth``
 
-   .. tab-item:: Water-Table Elevation
-
-      .. figure:: /_static/capability_gallery/simulation/headwater_100km2_outlet_2_mf6_transient_reference_watertable_elevation.png
-         :alt: Water-table elevation on a committed real-basin replay
-         :width: 100%
-
-         Direct water-table elevation map from the committed headwater replay.
-
-   .. tab-item:: Water-Table Depth
-
-      .. figure:: /_static/capability_gallery/simulation/headwater_100km2_outlet_2_mf6_transient_reference_watertable_depth.png
-         :alt: Water-table depth on a committed real-basin replay
-         :width: 100%
-
-         Direct water-table depth map from the same replay.
-
-The elevation map answers:
-
-- where is the groundwater surface high or low in absolute terms?
-
-The depth map answers:
-
-- where is the groundwater surface close to the land surface?
-
-Those are not the same question. A basin can have high heads and still deep
-water tables where topography is also high.
-
-4. Cumulative Recharge And Discharge
-------------------------------------
-
-Read the cumulative curve only after the maps.
-
-.. figure:: /_static/capability_gallery/simulation/headwater_100km2_outlet_2_mf6_transient_reference_recharge_discharge_cumulative.png
-   :alt: Cumulative recharge and discharge on a committed real-basin replay
-   :width: 100%
-
-   Cumulative recharge and discharge for the committed headwater transient replay.
-
-This figure is best for:
-
-- checking whether the forcing chronology and basin response stay coherent,
-- comparing broad runoff/drainage behaviour across runs,
-- reading integrated behaviour over the full time window.
-
-It is **not** the best first figure for diagnosing one local spatial anomaly.
-
-Runtime-Meshed Versus Committed-Mesh Pages
-------------------------------------------
-
-When two pages both look like "real basin simulation", separate these two
-families immediately:
-
-- **runtime-meshed page**
-  :
-  support creation is part of the workflow being documented
-- **committed-mesh replay page**
-  :
-  support creation is already frozen, so the page is mostly about solver and
-  forcing interpretation
-
-That distinction changes what a discrepancy means.
-
-If the support is built at runtime, one surprising map may come from:
-
-- meshing constraints,
-- refinement policy,
-- support transfer,
-- or solver behaviour.
-
-If the support is already committed, the same surprise is more likely to come
-from:
-
-- forcing,
-- parameters,
-- package semantics,
-- or solver behaviour.
-
-Where The Stable Assets Come From
----------------------------------
-
-The committed pages above are backed by versioned asset folders under:
-
-- ``examples/projects/09_capability_gallery/launcher_simulation/modflow6_gmsh_mesh_catchment/``
-- ``examples/projects/09_capability_gallery/launcher_simulation/headwater_100km2_outlet_2_mf6_transient_reference/``
-- ``examples/projects/09_capability_gallery/launcher_simulation/nancon_transient_nwt/``
-
-Each folder contains a ``manifest.json`` that records at least:
-
-- ``run_id``
-- ``source_run_folder``
-- ``solvers``
-- copied asset filenames
-
-This is the key bridge between "one heavy runtime folder" and "one stable RTD
-page".
-
-One practical nuance:
-
-- several already-committed simulation cases use a manifest with schema
-  ``v1``
-- the current publisher code in
-  ``hydromodpy/analysis/capability_gallery.py`` writes schema ``v2``
-
-The user-facing contract is still the same:
-
-- selected figures are copied or rendered into a versioned folder,
-- one manifest records provenance,
-- the doc page then points only to those committed assets.
-
-How To Promote A New Run Into The Gallery
------------------------------------------
-
-The stable user-side pattern is:
-
-1. run one case normally,
-2. enable one ``[capability_gallery]`` block in the TOML,
-3. select the PNG assets worth publishing,
-4. rerun and commit the resulting asset folder plus ``manifest.json``.
-
-Minimal example:
+For example, the explicit runtime block could be documented as:
 
 .. code-block:: toml
 
-   [capability_gallery]
-   enabled = true
-   output_dir = "examples/projects/09_capability_gallery/launcher_simulation/my_basin_case"
-   case_slug = "my_basin_case"
-   assets = [
-       "flow_support_overview.png",
-       "flow_state_triptych.png",
-       "watertable_elevation.png",
-       "watertable_depth.png",
-       "recharge_discharge_cumulative.png",
-   ]
+   [flow.sinks_sources.etp]
+   surface_offset = 0.5
+   extinction_depth = 0.5
 
-The important rule is not the exact filenames. It is this:
+or:
 
-- choose assets that actually exist in the run figure folder,
-- or assets that the runtime can render through the capability-gallery
-  publisher.
+.. code-block:: toml
 
-For the current public simulation pages, the typical publication source is a
-run folder figure directory such as ``_postprocess/_figures/`` and the
-publisher writes a stable ``manifest.json`` next to the copied PNGs.
+   [flow.sinks_sources.etp]
+   surface_offset = 2.0
+   extinction_depth = 3.0
 
-Nancon Status
--------------
+The first comparison to publish should be **No EVT vs Baseline EVT**.
 
-The new scientific worked case
-:doc:`../scientific/solvers/worked-modflow-case-nancon-transient-nwt-etp-evt`
-explains the **package path** for a real Nancon MODFLOW-NWT run, and the new
-gallery page :doc:`../capability_gallery/cases/nancon_transient_nwt` now adds
-one stable committed result page for the same public example.
+Only after that should the docs add a second layer about
+``surface_offset / extinction_depth`` sensitivity.
 
-The current Nancon coverage is therefore split on purpose:
+What The Current Docs Still Do Not Show Well
+--------------------------------------------
 
-- the scientific worked case explains how the run is assembled and why `ETP`
-  becomes `EVT`,
-- the capability-gallery case explains how to read the committed basin figures,
-- this page explains where that case sits relative to the other real-basin
-  simulation pages.
+The current RTD pages still do not make three things visible enough:
 
-What is still missing is a broader Nancon postprocess family with the same
-compact `flow_state_triptych / support_overview / cumulative` bundle used by
-some MF6 gallery cases. The current committed Nancon page emphasizes
-hydrographic-network diagnostics instead.
+- that one real run exposes a richer API than the committed figures alone,
+- that ``ET`` can be analysed as a budget component and not only as a package
+  name in the scientific text,
+- that one EVT sensitivity study should be read primarily through
+  budget / hydrograph / water-table diagnostics before any fancy overlay map.
+
+That is the right base to improve next.
 
 Where To Go Next
 ----------------
 
-- Use :doc:`simulation-walkthrough` when you want the editable run path.
-- Use :doc:`reading-results-pages` when you want to distinguish walkthrough,
-  comparison, validation, and gallery pages more generally.
-- Use :doc:`../capability_gallery/simulation` when you want to browse the full
-  current simulation gallery.
+- Use :doc:`../capability_gallery/cases/nancon_transient_nwt` for the stable
+  committed figures.
+- Use :doc:`../scientific/solvers/worked-modflow-case-nancon-transient-nwt-etp-evt`
+  for the package-path explanation.
+- Use :doc:`reading-results-pages` if you want to distinguish gallery pages,
+  validation pages, and comparison pages more generally.

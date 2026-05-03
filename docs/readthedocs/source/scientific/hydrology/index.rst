@@ -15,7 +15,8 @@ It is the right place for:
 
 If you are looking for stream networks, seepage, drainage outflow, or
 simulation-derived active streams, use the sibling section
-:doc:`../streams_and_seepage/index`.
+:doc:`../streams_and_seepage/index`. For a concrete run with figures and
+metrics, see :doc:`../streams_and_seepage/nancon-k-sweep-results`.
 
 .. toctree::
    :maxdepth: 2

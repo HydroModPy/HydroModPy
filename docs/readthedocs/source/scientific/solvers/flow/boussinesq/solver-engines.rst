@@ -41,7 +41,8 @@ Engine Matrix
    * - ``petsc``
      - Sparse
      - ``head_only_regularized_partition`` or ``mixed_complementarity``
-     - Linux/PETSc route for sparse SNES solves and complementarity tests.
+     - Linux/PETSc route for sparse SNES solves, surface complementarity and
+       lower-obstacle drying tests.
 
 Surface Model Resolution
 ------------------------
@@ -119,4 +120,5 @@ Related Pages
 
 - :doc:`boussinesq-method`
 - :doc:`surface-interaction`
+- :doc:`lower-obstacle-drying`
 - :doc:`possibility-map`

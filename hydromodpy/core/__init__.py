@@ -9,7 +9,6 @@ from __future__ import annotations
 from importlib import import_module
 
 __all__ = [
-    "HydroModPyConfig",
     "Workspace",
     "WorkspaceConfig",
     "WorkspacePathRegistry",
@@ -25,7 +24,6 @@ __all__ = [
 ]
 
 _LAZY_IMPORTS = {
-    "HydroModPyConfig": "hydromodpy.core.config:HydroModPyConfig",
     "Workspace": "hydromodpy.core.workspace:Workspace",
     "WorkspaceConfig": "hydromodpy.core.workspace:WorkspaceConfig",
     "WorkspacePathRegistry": "hydromodpy.core.workspace:WorkspacePathRegistry",

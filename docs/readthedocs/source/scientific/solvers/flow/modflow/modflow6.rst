@@ -83,6 +83,34 @@ Be explicit when:
 - changing XT3D;
 - comparing raw cell outputs against collapsed profiles or observations.
 
+Surface-Seepage Example Path
+----------------------------
+
+When ``flow/modflow6`` is used for drainage activation or simulated active
+network diagnostics, read the evidence in this order:
+
+1. :doc:`../../../streams_and_seepage/conceptual-model` to decide whether the
+   case is a stream boundary, seepage/drainage operator, or post-solve active
+   network question.
+2. :doc:`../../../hydrology/simulated-active-network` to check the MODFLOW 6
+   output contract: raw DRN budget is normalized to positive
+   ``outflow_drain``, then routed to ``accumulation_flux``, then displayed as
+   ``simulated_active_network`` when the mesh is plottable.
+3. :doc:`../../../streams_and_seepage/nancon-k-sweep-results` for a real-basin
+   MODFLOW 6 example where active-network overlap is compared against the
+   observed ``reference`` hydrographic network.
+4. :doc:`../../../streams_and_seepage/worked-examples` for the exact commands
+   and files to open.
+5. :doc:`../../../streams_and_seepage/status-and-limitations` for the current
+   distinction between implemented result fields, demonstrated examples, and
+   future contracts such as a persisted
+   ``hydrographic_network_simulated_active`` vector role.
+
+This is the example path that demonstrates the MODFLOW 6 work. It is stronger
+than only showing a head map because it follows the full interpretation chain:
+head, local seepage or drain outflow, routed network signal, and validation
+overlay.
+
 Scientific Checklist
 --------------------
 

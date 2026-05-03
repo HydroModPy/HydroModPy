@@ -7,6 +7,7 @@ import json
 import logging
 import math
 import numbers
+import os
 from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
@@ -529,7 +530,13 @@ def _resolve_recorded_output_path(
         return None
 
     normalized = text
-    if len(text) > 7 and text.startswith("/mnt/") and text[5].isalpha() and text[6] == "/":
+    if (
+        os.name == "nt"
+        and len(text) > 7
+        and text.startswith("/mnt/")
+        and text[5].isalpha()
+        and text[6] == "/"
+    ):
         drive = text[5].upper()
         tail = text[7:].replace("/", "\\")
         normalized = f"{drive}:\\{tail}"
@@ -807,6 +814,16 @@ def _variable_candidates(variable: str) -> tuple[str, ...]:
         "surface_excess_map": [
             "saturation_excess_history_m_s",
         ],
+        "dry_deficit_flux": [
+            "dry_deficit_total_m3_s",
+            "dry_deficit_history_m_s",
+        ],
+        "dry_deficit_rate": [
+            "dry_deficit_history_m_s",
+        ],
+        "dry_deficit_map": [
+            "dry_deficit_history_m_s",
+        ],
         "head": ["watertable_elevation"],
         "depth": ["watertable_depth"],
         "drainage_flux": ["drainage_flux_history_m3_s", "drainage_flux_m3_s"],
@@ -825,13 +842,15 @@ def _native_unit_for_variable(variable_name: str) -> str:
         "surface_excess_total_m3_s",
         "surface_threshold_total_m3_s",
         "saturation_excess_total_m3_s",
+        "dry_deficit_flux",
+        "dry_deficit_total_m3_s",
     }:
         return "m3/s"
     if key in {"watertable_elevation", "head"}:
         return "m"
     if key == "watertable_depth":
         return "m"
-    if key in {"surface_excess_rate", "surface_excess_map"}:
+    if key in {"surface_excess_rate", "surface_excess_map", "dry_deficit_rate", "dry_deficit_map"}:
         return "m/day"
     if key in {"accumulation_flux", "outflow_drain", "seepage_areas"}:
         return "m/day"
@@ -850,6 +869,11 @@ def _is_canonical_outlet_flux(variable_name: str) -> bool:
 def _is_canonical_surface_excess_flux(variable_name: str) -> bool:
     key = variable_name.strip().lower()
     return key in {"surface_excess_flux", "surface_excess_total_m3_s"}
+
+
+def _is_canonical_dry_deficit_flux(variable_name: str) -> bool:
+    key = variable_name.strip().lower()
+    return key in {"dry_deficit_flux", "dry_deficit_total_m3_s"}
 
 
 def _convert_accumulation_rate_to_m3_s(
@@ -1024,12 +1048,18 @@ def normalize_observable_value(
         in {
             "surface_excess_rate",
             "surface_excess_map",
+            "dry_deficit_rate",
+            "dry_deficit_map",
         }
-        and series.variable_name == "saturation_excess_history_m_s"
+        and series.variable_name in {"saturation_excess_history_m_s", "dry_deficit_history_m_s"}
     ):
         output_value = _convert_rate_m_s_to_m_per_day(value_m_s=output_value)
         native_unit = "m/s"
-        conversion_applied = "surface_excess_m_s_to_m_per_day"
+        conversion_applied = (
+            "surface_excess_m_s_to_m_per_day"
+            if series.variable_name == "saturation_excess_history_m_s"
+            else "dry_deficit_m_s_to_m_per_day"
+        )
 
     return {
         "value": output_value,
@@ -1221,32 +1251,32 @@ def _elapsed_seconds_from_period_lengths(
     return [None for _ in range(n_snapshots)]
 
 
-def _load_boussinesq_surface_excess_total_series(
+def _load_boussinesq_rate_total_series(
     run_folder: Path,
     path: Path,
     *,
     variable_name: str,
+    source_variable_name: str,
+    diagnostic_label: str,
 ) -> VariableSeries:
     payload = np.load(path, allow_pickle=True)
-    if "saturation_excess_history_m_s" not in payload:
+    if source_variable_name not in payload:
         raise KeyError(variable_name)
-    values = np.asarray(payload["saturation_excess_history_m_s"], dtype=float)
+    values = np.asarray(payload[source_variable_name], dtype=float)
     if values.ndim == 1:
         values = values.reshape(1, -1)
     if values.ndim != 2:
-        raise ValueError(
-            "saturation_excess_history_m_s must be 2-D to derive surface-excess totals"
-        )
+        raise ValueError(f"{source_variable_name} must be 2-D to derive {diagnostic_label} totals")
 
     cells = resolve_bundle_cells(
         run_folder,
         expected_size=int(values.shape[1]),
     )
     if cells is None or cells.area_m2 is None:
-        raise ValueError("Cannot derive surface_excess_total_m3_s without bundle cell areas")
+        raise ValueError(f"Cannot derive {diagnostic_label} total without bundle cell areas")
     area_m2 = np.asarray(cells.area_m2, dtype=float).reshape(-1)
     if area_m2.size != values.shape[1]:
-        raise ValueError("Bundle cell areas do not match saturation_excess_history_m_s width")
+        raise ValueError(f"Bundle cell areas do not match {source_variable_name} width")
 
     positive = np.maximum(values, 0.0)
     totals_m3_s = np.sum(positive * area_m2[None, :], axis=1, dtype=float)
@@ -1289,6 +1319,36 @@ def _load_boussinesq_surface_excess_total_series(
         source_path=path,
         slices=slices,
         cell_ids=None,
+    )
+
+
+def _load_boussinesq_surface_excess_total_series(
+    run_folder: Path,
+    path: Path,
+    *,
+    variable_name: str,
+) -> VariableSeries:
+    return _load_boussinesq_rate_total_series(
+        run_folder,
+        path,
+        variable_name=variable_name,
+        source_variable_name="saturation_excess_history_m_s",
+        diagnostic_label="surface_excess",
+    )
+
+
+def _load_boussinesq_dry_deficit_total_series(
+    run_folder: Path,
+    path: Path,
+    *,
+    variable_name: str,
+) -> VariableSeries:
+    return _load_boussinesq_rate_total_series(
+        run_folder,
+        path,
+        variable_name=variable_name,
+        source_variable_name="dry_deficit_history_m_s",
+        diagnostic_label="dry_deficit",
     )
 
 
@@ -1569,31 +1629,27 @@ def _load_store_boussinesq_state_series(
     )
 
 
-def _load_store_surface_excess_total_series(
+def _load_store_rate_total_series(
     store: SimulationCatalog,
     sim_id: str,
     *,
     variable_name: str,
+    source_variable_name: str,
     run_folder: Path,
 ) -> VariableSeries | None:
-    """Try loading surface-excess totals from the store.
-
-    Mirrors ``_load_boussinesq_surface_excess_total_series`` but reads
-    the ``saturation_excess_history_m_s`` array from the Zarr
-    ``boussinesq_state`` group.
-    """
+    """Try loading an integrated cell-rate diagnostic from the store."""
     try:
         grp = store.open_zarr_group(sim_id)
     except (KeyError, Exception):
         return None
 
     state_grp = grp.get("boussinesq_state")
-    if state_grp is None or "saturation_excess_history_m_s" not in state_grp:
+    if state_grp is None or source_variable_name not in state_grp:
         return None
 
     try:
         values = np.asarray(
-            state_grp["saturation_excess_history_m_s"][:],
+            state_grp[source_variable_name][:],
             dtype=float,
         )
     except Exception:
@@ -1649,6 +1705,40 @@ def _load_store_surface_excess_total_series(
     )
 
 
+def _load_store_surface_excess_total_series(
+    store: SimulationCatalog,
+    sim_id: str,
+    *,
+    variable_name: str,
+    run_folder: Path,
+) -> VariableSeries | None:
+    """Try loading surface-excess totals from the store."""
+    return _load_store_rate_total_series(
+        store,
+        sim_id,
+        variable_name=variable_name,
+        source_variable_name="saturation_excess_history_m_s",
+        run_folder=run_folder,
+    )
+
+
+def _load_store_dry_deficit_total_series(
+    store: SimulationCatalog,
+    sim_id: str,
+    *,
+    variable_name: str,
+    run_folder: Path,
+) -> VariableSeries | None:
+    """Try loading dry-deficit totals from the store."""
+    return _load_store_rate_total_series(
+        store,
+        sim_id,
+        variable_name=variable_name,
+        source_variable_name="dry_deficit_history_m_s",
+        run_folder=run_folder,
+    )
+
+
 def load_variable_series(
     *,
     run_folder: Path,
@@ -1690,6 +1780,13 @@ def load_variable_series(
                 "saturation_excess_total_m3_s",
             }:
                 series = _load_store_surface_excess_total_series(
+                    store,
+                    sim_id,
+                    variable_name=variable_name,
+                    run_folder=run_folder,
+                )
+            elif variable_name == "dry_deficit_total_m3_s":
+                series = _load_store_dry_deficit_total_series(
                     store,
                     sim_id,
                     variable_name=variable_name,
@@ -1740,6 +1837,12 @@ def load_variable_series(
                     "saturation_excess_total_m3_s",
                 }:
                     return _load_boussinesq_surface_excess_total_series(
+                        run_folder,
+                        boussinesq_path,
+                        variable_name=variable_name,
+                    )
+                if variable_name == "dry_deficit_total_m3_s":
+                    return _load_boussinesq_dry_deficit_total_series(
                         run_folder,
                         boussinesq_path,
                         variable_name=variable_name,

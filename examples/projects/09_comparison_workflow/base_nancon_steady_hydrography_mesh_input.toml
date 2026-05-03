@@ -1,0 +1,126 @@
+workflow = "simulation"
+
+[workspace]
+project_root = "outputs/nancon_steady_mf6_disv_vs_nwt/shared_workspace"
+root = "../../"
+
+[simulation]
+name = "nancon_steady_hydrography_shared_case"
+description = "Nancon steady comparison case with observed hydrography and a precomputed river-constrained mesh."
+on_collision = "replace"
+
+[simulation.time]
+start_datetime = "2020-01-01 00:00:00"
+end_datetime = "2020-12-31 00:00:00"
+step_value = "1 year"
+coverage_policy = "warn"
+
+[[simulation.process]]
+id = "flow_main"
+type = "flow"
+solvers = ["modflow6"]
+
+[geographic]
+source_mode = "standard"
+catch_def = "from_outlet_coord"
+dem_init_path = "../../data/dem/DEM_armorican_massif.tif"
+x_outlet = 389285.91
+y_outlet = 6816518.749
+snap_dist = "150 m"
+buff_area = "10%"
+crs_project = "EPSG:2154"
+dem_correc_type = "breach"
+reuse_existing_outputs = false
+
+[geographic.river_network]
+enabled = true
+threshold_mode = "area_km2"
+threshold_area_km2 = 0.5
+prune_short_streams = false
+compute_strahler_order = true
+compute_stream_links = true
+all_vertices = true
+
+[mesh_input]
+bundle_dir = "outputs/nancon_transient_seasonal_hydrography/workspace_mf6/mesh/mesh_catchment_bundle"
+
+[domain]
+
+[domain.depth_model]
+type = "constant_thickness"
+thickness = "30.0 m"
+
+[flow]
+flow_regime = "steady"
+active_sinks_sources = ["recharge"]
+active_bc = ["drainage"]
+param_list = ["K", "Ss", "Sy"]
+runtime_max_iterations = 120
+runtime_tol_residual_inf = 1.0e-8
+runtime_tol_state_update_inf = 1.0e-8
+
+[flow.param.K.field]
+id = "K"
+kind = "homogeneous"
+unit = "m/s"
+
+[flow.param.K.field_homogeneous]
+value = "5e-5 m/s"
+
+[flow.param.Ss.field]
+id = "Ss"
+kind = "homogeneous"
+unit = "m-1"
+
+[flow.param.Ss.field_homogeneous]
+value = "1e-5 m-1"
+
+[flow.param.Sy.field]
+id = "Sy"
+kind = "homogeneous"
+unit = "-"
+
+[flow.param.Sy.field_homogeneous]
+value = "0.05 -"
+
+[flow.ic]
+type = "top"
+
+[flow.bc.cauchy.drainage]
+id = "drainage"
+type = "cauchy"
+application_domain = "top"
+description = "Cauchy drainage on the aquifer top face."
+value = "1e-5 m2/s"
+
+[flow.sinks_sources.recharge]
+first_clim = "mean"
+negative_to_evt = true
+
+[data]
+project_crs = "EPSG:2154"
+types = ["dem", "hydrography", "recharge"]
+inference_mode = "warn"
+
+[[data.dem.sources]]
+source = "custom"
+path = "../../data/dem/DEM_armorican_massif.tif"
+
+[[data.hydrography.sources]]
+source = "bdtopage"
+rasterize_field = "FID"
+
+[data.recharge]
+date_start = "2020-01-01"
+date_end = "2020-12-31"
+
+[[data.recharge.sources]]
+source = "synthetic"
+freq = "YE"
+start_date = "2020-01-01"
+periods = 1
+values = [0.49026346153846156]
+runoff_ratio = 0.0
+
+[display]
+enabled = false

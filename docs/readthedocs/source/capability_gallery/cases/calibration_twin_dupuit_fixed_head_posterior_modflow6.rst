@@ -26,18 +26,6 @@ Figure Reading Order
 
    .. tab-item:: random_search
 
-      .. figure:: /_static/capability_gallery/calibration/calibration_twin_dupuit_fixed_head_posterior_modflow6__random_search_landscape.png
-         :alt: Calibration Twin: Dupuit Posterior 1D objective landscape for random_search
-         :width: 100%
-
-         Objective landscape or pairwise projection for `random_search` on Calibration Twin: Dupuit Posterior 1D. It shows where evaluated candidates concentrate relative to the truth and the best retained solution.
-
-      .. figure:: /_static/capability_gallery/calibration/calibration_twin_dupuit_fixed_head_posterior_modflow6__random_search_trace.png
-         :alt: Calibration Twin: Dupuit Posterior 1D objective trace for random_search
-         :width: 100%
-
-         Objective trace for `random_search` on Calibration Twin: Dupuit Posterior 1D, showing the chronology of evaluated models and whether the search keeps improving or plateaus.
-
       - success_metric=distribution
       - meets_target=True
       - truth_recovered=True
@@ -55,18 +43,6 @@ Figure Reading Order
 
    .. tab-item:: cma_es
 
-      .. figure:: /_static/capability_gallery/calibration/calibration_twin_dupuit_fixed_head_posterior_modflow6__cma_es_landscape.png
-         :alt: Calibration Twin: Dupuit Posterior 1D objective landscape for cma_es
-         :width: 100%
-
-         Objective landscape or pairwise projection for `cma_es` on Calibration Twin: Dupuit Posterior 1D. It shows where evaluated candidates concentrate relative to the truth and the best retained solution.
-
-      .. figure:: /_static/capability_gallery/calibration/calibration_twin_dupuit_fixed_head_posterior_modflow6__cma_es_trace.png
-         :alt: Calibration Twin: Dupuit Posterior 1D objective trace for cma_es
-         :width: 100%
-
-         Objective trace for `cma_es` on Calibration Twin: Dupuit Posterior 1D, showing the chronology of evaluated models and whether the search keeps improving or plateaus.
-
       - success_metric=best_fit
       - meets_target=True
       - truth_recovered=True
@@ -83,18 +59,6 @@ Figure Reading Order
       - objective score=0 s
 
    .. tab-item:: gp_mapping
-
-      .. figure:: /_static/capability_gallery/calibration/calibration_twin_dupuit_fixed_head_posterior_modflow6__gp_mapping_landscape.png
-         :alt: Calibration Twin: Dupuit Posterior 1D objective landscape for gp_mapping
-         :width: 100%
-
-         Objective landscape or pairwise projection for `gp_mapping` on Calibration Twin: Dupuit Posterior 1D. It shows where evaluated candidates concentrate relative to the truth and the best retained solution.
-
-      .. figure:: /_static/capability_gallery/calibration/calibration_twin_dupuit_fixed_head_posterior_modflow6__gp_mapping_trace.png
-         :alt: Calibration Twin: Dupuit Posterior 1D objective trace for gp_mapping
-         :width: 100%
-
-         Objective trace for `gp_mapping` on Calibration Twin: Dupuit Posterior 1D, showing the chronology of evaluated models and whether the search keeps improving or plateaus.
 
       - success_metric=distribution
       - meets_target=True

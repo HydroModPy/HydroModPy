@@ -1,0 +1,111 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 740" width="1280" height="740" role="img">
+
+<defs>
+  <marker id="arrowBlue" viewBox="0 0 10 10" refX="8.6" refY="5"
+          markerWidth="12" markerHeight="12" orient="auto-start-reverse"
+          markerUnits="userSpaceOnUse">
+    <path d="M 0 0 L 10 5 L 0 10 z" fill="#1f5d86"/>
+  </marker>
+  <marker id="arrowOrange" viewBox="0 0 10 10" refX="8.6" refY="5"
+          markerWidth="12" markerHeight="12" orient="auto-start-reverse"
+          markerUnits="userSpaceOnUse">
+    <path d="M 0 0 L 10 5 L 0 10 z" fill="#a16207"/>
+  </marker>
+  <filter id="shadow" x="-10%" y="-10%" width="130%" height="130%">
+    <feDropShadow dx="0" dy="4" stdDeviation="5" flood-color="#0f172a" flood-opacity="0.12"/>
+  </filter>
+  <style>
+    .bg { fill: #f8fafc; }
+    .title { font: 700 32px Segoe UI, Arial, sans-serif; fill: #10253d; }
+    .subtitle { font: 400 18px Segoe UI, Arial, sans-serif; fill: #52657a; }
+    .card { fill: #ffffff; stroke: #cbd8e6; stroke-width: 1.5; filter: url(#shadow); }
+    .card-title { font: 700 15px Segoe UI, Arial, sans-serif; fill: #10253d; letter-spacing: .4px; }
+    .card-text { font: 400 16px Segoe UI, Arial, sans-serif; fill: #26384d; }
+    .eq-card { fill: #10253d; stroke: #10253d; stroke-width: 1.5; filter: url(#shadow); }
+    .eq-title { font: 700 15px Segoe UI, Arial, sans-serif; fill: #dbeafe; letter-spacing: .4px; }
+    .eq-text { font: 600 19px Consolas, Menlo, monospace; fill: #ffffff; }
+    .eq-note { font: 400 14px Segoe UI, Arial, sans-serif; fill: #bfdbfe; }
+    .panel { fill: #ffffff; stroke: #d5e0eb; stroke-width: 1.4; }
+    .soil { fill: #dec99c; }
+    .base { fill: #bec8be; opacity: .82; }
+    .ground { fill: none; stroke: #66583a; stroke-width: 5; stroke-linecap: round; stroke-linejoin: round; }
+    .head { fill: none; stroke: #1d78b8; stroke-width: 5; stroke-linecap: round; stroke-linejoin: round; }
+    .surface-support { fill: none; stroke: #0f766e; stroke-width: 6; stroke-linecap: round; stroke-linejoin: round; }
+    .stage-line { fill: none; stroke: #1d78b8; stroke-width: 3; stroke-dasharray: 8 7; }
+    .surface-marker { fill: #ffffff; stroke: #0f766e; stroke-width: 3; }
+    .head-marker { fill: #ffffff; stroke: #1d78b8; stroke-width: 3; }
+    .flow { fill: none; stroke: #1f5d86; stroke-width: 4; stroke-linecap: round; stroke-linejoin: round; }
+    .thin-flow { fill: none; stroke: #1f5d86; stroke-width: 3; stroke-linecap: round; stroke-linejoin: round; }
+    .orange-flow { fill: none; stroke: #a16207; stroke-width: 4; stroke-linecap: round; stroke-linejoin: round; }
+    .muted { fill: none; stroke: #94a3b8; stroke-width: 2; }
+    .compare { fill: none; stroke: #1d78b8; stroke-width: 2.5; stroke-dasharray: 5 6; }
+    .dash { fill: none; stroke: #a16207; stroke-width: 3; stroke-dasharray: 9 8; }
+    .label { font: 700 15px Segoe UI, Arial, sans-serif; fill: #10253d; }
+    .small { font: 400 14px Segoe UI, Arial, sans-serif; fill: #334155; }
+    .hint { font: 600 16px Segoe UI, Arial, sans-serif; fill: #10253d; }
+    .tag { fill: #e0f2fe; stroke: #b9dcf2; stroke-width: 1.2; }
+    .tag-orange { fill: #fff7ed; stroke: #fed7aa; stroke-width: 1.2; }
+    .grid { stroke: #dbe5ef; stroke-width: 1.2; }
+    .source { fill: #ffdc73; stroke: #a16207; stroke-width: 3; }
+    .cell-on { fill: #ffdc73; stroke: #a16207; stroke-width: 2.5; }
+    .cell-off { fill: #f1f5f9; stroke: #94a3b8; stroke-width: 2.2; }
+    .mask-active { fill: none; stroke: #1f5d86; stroke-width: 8; stroke-linecap: round; }
+    .mask-inactive { fill: none; stroke: #cbd5e1; stroke-width: 8; stroke-linecap: round; }
+    .concept { fill: #e8f3fb; stroke: #c6def0; stroke-width: 1.3; }
+    .concept-text { font: 700 17px Segoe UI, Arial, sans-serif; fill: #10253d; }
+  </style>
+</defs>
+<rect x="0" y="0" width="1280" height="740" rx="0" class="bg"/>
+<text x="48" y="52" class="title">Seepage: surface-controlled emergence</text>
+<text x="48" y="84" class="subtitle">Water emerges where groundwater head reaches the local ground or channel surface.</text>
+<rect x="48" y="118" width="285" height="158" rx="14" class="card"/>
+<text x="70" y="152" class="card-title">INPUT OBJECT</text>
+<text x="70" y="188" class="card-text"><tspan x="70" dy="0">surface support S_seep</tspan><tspan x="70" dy="25">local surface z_s,i</tspan><tspan x="70" dy="25">conductance C_seep</tspan></text>
+<line x1="352" y1="197" x2="405" y2="197" class="thin-flow" marker-end="url(#arrowBlue)"/>
+<rect x="426" y="118" width="365" height="158" rx="14" class="eq-card"/>
+<text x="448" y="152" class="eq-title">CONCEPTUAL LAW</text>
+<text x="448" y="193" class="eq-text"><tspan x="448" dy="0">q_seep,i = C_i</tspan><tspan x="448" dy="30">       * max(h_i - z_s,i, 0)</tspan></text>
+<text x="448" y="252" class="eq-note">Positive q_seep is groundwater outflow.</text>
+<line x1="812" y1="197" x2="865" y2="197" class="thin-flow" marker-end="url(#arrowBlue)"/>
+<rect x="886" y="118" width="346" height="158" rx="14" class="card"/>
+<text x="908" y="152" class="card-title">SOLVER OR DIAGNOSTIC OUTPUT</text>
+<text x="908" y="188" class="card-text"><tspan x="908" dy="0">zero where h_i &lt;= z_s,i</tspan><tspan x="908" dy="25">positive where h_i &gt; z_s,i</tspan><tspan x="908" dy="25">local outflow_drain field</tspan></text>
+<rect x="82" y="287" width="112" height="31" rx="16" class="tag"/>
+<text x="138" y="308" class="label" text-anchor="middle">support</text>
+<rect x="520" y="287" width="112" height="31" rx="16" class="tag"/>
+<text x="576" y="308" class="label" text-anchor="middle">switch</text>
+<rect x="1022" y="287" width="112" height="31" rx="16" class="tag"/>
+<text x="1078" y="308" class="label" text-anchor="middle">outflow</text>
+<path d="M 295 415 C 308.333 417, 350 421.167, 375 427 C 400 432.833, 422.5 437.667, 445 450 C 467.5 462.333, 490.833 487.5, 510 501 C 529.167 514.5, 538.333 523.667, 560 531 C 581.667 538.333, 612.5 548.5, 640 545 C 667.5 541.5, 696.667 522.5, 725 510 C 753.333 497.5, 778.333 480.5, 810 470 C 841.667 459.5, 897.5 450.833, 915 447 L 915 675 L 295 675 Z" class="soil"/>
+<rect x="295" y="605.0" width="620.0" height="70.0" rx="0" class="base"/>
+<path d="M 295 415 C 308.333 417, 350 421.167, 375 427 C 400 432.833, 422.5 437.667, 445 450 C 467.5 462.333, 490.833 487.5, 510 501 C 529.167 514.5, 538.333 523.667, 560 531 C 581.667 538.333, 612.5 548.5, 640 545 C 667.5 541.5, 696.667 522.5, 725 510 C 753.333 497.5, 778.333 480.5, 810 470 C 841.667 459.5, 897.5 450.833, 915 447" class="ground"/>
+<path d="M 330 463 C 344.167 466.167, 386.667 472.667, 415 482 C 443.333 491.333, 472.5 510.333, 500 519 C 527.5 527.667, 555.833 533.167, 580 534 C 604.167 534.833, 623.333 529, 645 524 C 666.667 519, 688.333 511.167, 710 504 C 731.667 496.833, 744.5 482.833, 775 481 C 805.5 479.167, 873.333 491, 893 493" class="head"/>
+<text x="315.0" y="400.0" class="small">surface z_s(x)</text>
+<text x="391.0" y="493.0" class="small">water-table head h(x)</text>
+<path d="M 535 530 C 544.167 531.333, 572.5 535.5, 590 538 C 607.5 540.5, 620.833 548.333, 640 545 C 659.167 541.667, 684.167 527.833, 705 518 C 725.833 508.167, 745 494, 765 486 C 785 478, 815 472.667, 825 470" class="surface-support"/>
+<rect x="830" y="558" width="218" height="36" rx="10" class="tag-orange"/>
+<text x="846" y="582" class="label">local surface z_s,i</text>
+<circle cx="549" cy="540" r="8" class="surface-marker"/>
+<rect x="525" y="520" width="48" height="40" rx="4" class="cell-off"/>
+<circle cx="629" cy="545" r="8" class="surface-marker"/>
+<rect x="605" y="525" width="48" height="40" rx="4" class="cell-on"/>
+<path d="M 629 545 C 629 515, 615 491, 629 463" class="orange-flow" marker-end="url(#arrowOrange)"/>
+<circle cx="709" cy="526" r="8" class="surface-marker"/>
+<rect x="685" y="506" width="48" height="40" rx="4" class="cell-on"/>
+<path d="M 709 526 C 709 496, 695 472, 709 444" class="orange-flow" marker-end="url(#arrowOrange)"/>
+<circle cx="789" cy="505" r="8" class="surface-marker"/>
+<rect x="765" y="485" width="48" height="40" rx="4" class="cell-off"/>
+<line x1="650" y1="524" x2="650" y2="545" class="compare"/>
+<circle cx="650" cy="524" r="7" class="head-marker"/>
+<circle cx="650" cy="545" r="7" class="surface-marker"/>
+<text x="662" y="526" class="small">h_i</text>
+<text x="662" y="551" class="small">z_s,i</text>
+<text x="584" y="432" class="label">h_i &gt; z_s,i</text>
+<text x="684" y="432" class="label">seepage</text>
+<text x="506" y="585" class="small">dry</text>
+<text x="768" y="585" class="small">dry</text>
+<path d="M 430 480 C 500 505, 560 525, 610 545" class="flow" marker-end="url(#arrowBlue)"/>
+<path d="M 890 455 C 820 482, 755 505, 709 526" class="flow" marker-end="url(#arrowBlue)"/>
+<rect x="48" y="660" width="1184" height="48" rx="12" class="concept"/>
+<text x="74" y="691" class="concept-text">Read this as seepage through a surface line: solve h, compare with z_s,i, release only where h_i exceeds the surface.</text>
+</svg>

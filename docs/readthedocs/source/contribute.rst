@@ -135,6 +135,16 @@ failure, use
 The PETSc Boussinesq backend is Linux only. Tests tagged
 ``pytest.mark.petsc`` are skipped on Windows by design.
 
+On a Windows workstation with WSL configured, keep the numerical and
+documentation environments separate. Run PETSc-backed simulations in WSL:
+
+.. code-block:: powershell
+
+   wsl.exe bash -lc "cd /mnt/c/codes/HydroModPy && bash install/enter_wsl_dev.sh --headless -- bash tools/ci/run_boussinesq_petsc_smoke.sh"
+
+and keep the Windows environment for documentation builds. This avoids adding
+PETSc, MPI, or ``petsc4py`` as implicit requirements of the Sphinx build.
+
 Build the documentation
 -----------------------
 
@@ -147,6 +157,13 @@ ships every required extension.
    python tools/setup_plantuml.py
    cd docs/readthedocs
    python -m sphinx -E -a -W -b html source _build/html
+
+On the reference Windows setup, the same build can be run directly from the
+repository root with the documentation environment:
+
+.. code-block:: powershell
+
+   conda run --no-capture-output -n hydromodpy-kpg python -m sphinx -E -a -W -b html docs/readthedocs/source docs/readthedocs/build/html
 
 ``tools/setup_plantuml.py`` downloads a pinned PlantUML jar with SHA256
 verification and installs the local Graphviz bundle on Windows. Pass

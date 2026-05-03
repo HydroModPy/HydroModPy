@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -11,6 +12,19 @@ from hydromodpy.solver.modflow_common.solver_mesh import SolverMesh
 from hydromodpy.solver.modflow_nwt.modflow import ModflowPostprocessOptions
 from hydromodpy.spatial.mesh import CellBlock, CellType, HydroMesh
 from hydromodpy.spatial.mesh.gmsh_grid.runtime_support import GmshSupportMetadata
+
+
+def _path_exists(path: Path) -> bool:
+    if path.exists():
+        return True
+    if os.name != "nt":
+        return False
+    absolute = str(path.absolute())
+    if absolute.startswith("\\\\?\\"):
+        return Path(absolute).exists()
+    if absolute.startswith("\\\\"):
+        return Path("\\\\?\\UNC\\" + absolute.lstrip("\\")).exists()
+    return Path("\\\\?\\" + absolute).exists()
 
 
 class _DummyGeographic:
@@ -474,7 +488,7 @@ def test_modflow6_post_processing_exports_native_unstructured_mesh_outputs(
         "watertable_depth",
         "watertable_elevation",
     ]
-    assert (figure_dir / "flow_watertable_elevation_t(0).png").exists()
+    assert _path_exists(figure_dir / "flow_watertable_elevation_t(0).png")
 
 
 def test_modflow6_post_processing_accumulates_unstructured_flow_on_mesh(
@@ -585,7 +599,7 @@ def test_modflow6_transport_post_processing_exports_native_unstructured_mesh_out
         "mass_seepage",
         "top_elevation",
     ]
-    assert (figure_dir / "transport_concentration_seepage_t(0).png").exists()
+    assert _path_exists(figure_dir / "transport_concentration_seepage_t(0).png")
 
 
 def test_modflow6_transport_post_processing_accumulates_unstructured_mass(
@@ -674,7 +688,7 @@ def test_modflow6_post_processing_tolerates_missing_meshio_for_vtu_export(
     )
 
     figure_dir = Path(model.full_path) / "_postprocess" / "_figures" / "native_mesh"
-    assert (figure_dir / "flow_watertable_elevation_t(0).png").exists()
+    assert _path_exists(figure_dir / "flow_watertable_elevation_t(0).png")
 
 
 def test_modflow6_post_processing_exports_runtime_support_overview(
@@ -733,4 +747,4 @@ def test_modflow6_post_processing_exports_runtime_support_overview(
         / "native_mesh"
         / "flow_support_overview.png"
     )
-    assert overview_path.exists()
+    assert _path_exists(overview_path)

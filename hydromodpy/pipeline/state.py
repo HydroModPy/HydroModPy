@@ -39,7 +39,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any, Generic, TypeVar
 
 if TYPE_CHECKING:
-    from hydromodpy.core.config.hydromodpy_config import HydroModPyConfig
+    from hydromodpy.config import HydroModPyConfig
     from hydromodpy.core.state.data import LoadedDataContext
     from hydromodpy.core.state.setup import SetupContext
     from hydromodpy.data.plan import DataLoadPlan

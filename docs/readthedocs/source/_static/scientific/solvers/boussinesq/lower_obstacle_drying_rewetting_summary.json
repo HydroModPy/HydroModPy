@@ -1,0 +1,34 @@
+{
+  "case": "boussinesq_lower_obstacle_drying_rewetting",
+  "elapsed_days": [
+    0.0,
+    30.0,
+    60.0,
+    70.0
+  ],
+  "labels": [
+    "initial",
+    "30 d dry",
+    "60 d dry",
+    "70 d rewet"
+  ],
+  "min_head_above_bottom_m": [
+    1.0,
+    -7.673861546209082e-13,
+    -4.596891756136756e-10,
+    0.0
+  ],
+  "dry_deficit_active_cell_count": [
+    0,
+    1,
+    3,
+    0
+  ],
+  "dry_deficit_total_m3_day": [
+    0.0,
+    7.514927488664994,
+    2.7803376169659857,
+    4.7131138607640617e-14
+  ],
+  "max_recharge_mm_day": 172.79999999999998
+}

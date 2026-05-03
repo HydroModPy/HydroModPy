@@ -11,7 +11,7 @@ Python:
                                so the frontend can pick a widget + a local
                                validator without re-parsing the schema.
 
-The exporter reuses :mod:`hydromodpy.core.config.schema_export` for the raw
+The exporter reuses :mod:`hydromodpy.config.schema_export` for the raw
 Pydantic schema and adds the two companion documents on top.
 
 Usage::
@@ -31,7 +31,7 @@ import json
 from pathlib import Path
 from typing import Any
 
-from hydromodpy.core.config.schema_export import (
+from hydromodpy.config.schema_export import (
     _ensure_root_sections,
     export_schema,
 )
@@ -48,7 +48,7 @@ def build_config_meta() -> dict[str, Any]:
     for easy consumption by a frontend:
 
     * ``sections`` lists the root TOML sections in the canonical order
-      produced by :func:`hydromodpy.core.config.schema_export.export_schema`.
+      produced by :func:`hydromodpy.config.schema_export.export_schema`.
     * ``groups`` aggregates ``json_schema_extra.group`` across all annotated
       fields so a UI can render tabs / accordions.
     """

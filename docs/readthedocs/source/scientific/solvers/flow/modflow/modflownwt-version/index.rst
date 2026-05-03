@@ -31,7 +31,7 @@ What Belongs Here
        Boussinesq.
 
 .. toctree::
-   :maxdepth: 2
+   :maxdepth: 1
 
    MODFLOW-NWT flow page <../modflownwt>
    MODFLOW 6 versus MODFLOW-NWT comparison <../../../modflow6-vs-modflownwt-scientific-comparison>
@@ -41,6 +41,4 @@ Related Common And Comparison Pages
 -----------------------------------
 
 - :doc:`../common/index`
-- :doc:`../comparison-and-method-choice`
-- :doc:`../transport-coupling`
-- :doc:`../worked-cases`
+- :doc:`../cross-cutting/index`

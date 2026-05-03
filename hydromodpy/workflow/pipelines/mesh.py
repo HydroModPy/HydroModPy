@@ -24,7 +24,7 @@ from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
 
-from hydromodpy.core.config.hydromodpy_config import _load_standard_section
+from hydromodpy.config.hydromodpy_config import _load_standard_section
 from hydromodpy.core.config.toml_loader import load_toml_with_base_config
 from hydromodpy.core.workspace.config import WorkspaceConfig
 from hydromodpy.spatial.domain.domain_config import DomainConfig

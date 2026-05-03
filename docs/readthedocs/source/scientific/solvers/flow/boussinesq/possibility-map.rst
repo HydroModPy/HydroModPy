@@ -31,7 +31,11 @@ Main Possibilities
      - ``regularized_partition``
      - ``petsc``
    * - Surface-threshold activation study
-     - Mixed head-plus-saturation-excess route.
+     - Mixed head-plus-saturation-excess-plus-dry-deficit route.
+     - ``complementarity``
+     - ``petsc``
+   * - Drying and rewetting study
+     - PETSc mixed double-obstacle route.
      - ``complementarity``
      - ``petsc``
    * - MODFLOW/Boussinesq method comparison
@@ -63,7 +67,8 @@ The Boussinesq route should be described along these axes:
      - Changes transmissivity and transient response.
    * - Surface closure
      - ``regularized_partition`` or ``complementarity``.
-     - Changes how surface interception and saturation excess are represented.
+     - Changes how surface interception, saturation excess and lower-obstacle
+       drying are represented.
    * - Runtime engine
      - ``local``, ``scipy``, ``scipy_sparse``, ``petsc``.
      - Changes nonlinear solve strategy and scalability.
@@ -93,5 +98,6 @@ Related Pages
 - :doc:`equation-and-unknowns`
 - :doc:`boussinesq-method`
 - :doc:`surface-interaction`
+- :doc:`lower-obstacle-drying`
 - :doc:`solver-engines`
 - :doc:`../../solver-capability-matrix`

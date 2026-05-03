@@ -29,7 +29,7 @@ What Belongs Here
      - ``transport/modflow6gwt``.
 
 .. toctree::
-   :maxdepth: 2
+   :maxdepth: 1
 
    MODFLOW 6 flow page <../modflow6>
    XT3D on irregular DISV meshes <../../../xt3d-on-irregular-disv-meshes>
@@ -40,6 +40,4 @@ Related Common And Comparison Pages
 -----------------------------------
 
 - :doc:`../common/index`
-- :doc:`../comparison-and-method-choice`
-- :doc:`../transport-coupling`
-- :doc:`../worked-cases`
+- :doc:`../cross-cutting/index`

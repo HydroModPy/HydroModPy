@@ -14,7 +14,7 @@ import logging
 from pathlib import Path
 from typing import Any
 
-from hydromodpy.core.config import HydroModPyConfig
+from hydromodpy.config import HydroModPyConfig
 from hydromodpy.workflow.pipelines.overview_config import DataOverviewState
 
 logger = logging.getLogger(__name__)

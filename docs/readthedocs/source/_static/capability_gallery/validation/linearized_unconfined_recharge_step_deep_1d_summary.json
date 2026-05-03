@@ -52,7 +52,7 @@
     "validation_cases/analytical/transient/linearized_unconfined_1d.py"
   ],
   "source_hashes": {
-    "validation_cases/README.md": "1965de83b961f1ab4e38d8194d51342e1286d0c2e1b779188903b84e3fc26f1c",
+    "validation_cases/README.md": "6954bbc12c427d8f32dc4ec659fa99518dc972708789e988cd3b39b37b82dfe5",
     "validation_cases/analytical/transient/linearized_unconfined_recharge_step_deep_1d/README.md": "eee004c7fa7eb7da52800657719e5c85cd7d53cb1f5afe1d350d6e9d8e3a8355",
     "validation_cases/analytical/transient/linearized_unconfined_recharge_step_deep_1d/reference.py": "5bf63f280145d91a86144e33070a167f1ef02aa8b35196d49b10afb5aa70ea9e",
     "validation_cases/analytical/transient/linearized_unconfined_recharge_step_deep_1d/comparison.py": "7a029e1572f1e12a034ff8c5cbb967ba9e4b1cc7cbd014f21091a031bb3a9e8f",
@@ -349,10 +349,10 @@
       "expected_output": "Expected output: 60 periods, spatial shape 5 x 50",
       "command": "python -m validation_cases.analytical.transient.linearized_unconfined_recharge_step_deep_1d.run_case --no-show --solver modflow6_irregular_tri",
       "metric_lines": [
-        "Space-time RMSE: 0.0006 m",
-        "Space-time max abs error: 0.0031 m",
-        "Final-profile RMSE: 0.0005 m",
-        "Cross-row head spread: 0.00e+00 m"
+        "Space-time RMSE: 0.0396 m",
+        "Space-time max abs error: 0.0551 m",
+        "Final-profile RMSE: 0.0396 m",
+        "Cross-row head spread: 2.29e-03 m"
       ],
       "image": {
         "filename": "linearized_unconfined_recharge_step_deep_1d__modflow6_irregular_tri.png",

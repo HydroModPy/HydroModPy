@@ -8,6 +8,12 @@ No-Seepage Surface-Interaction Comparison
 
 This page isolates the same synthetic hillslope after moving the surface well above the imposed east boundary head. The goal is to test whether the methods converge once seepage and surface overflow are intentionally removed from the physical picture.
 
+.. figure:: /_static/capability_gallery/code_comparison/surface_interaction_no_seepage_configuration.png
+   :alt: Configuration schematic for the no-seepage surface-interaction benchmark
+   :width: 100%
+
+   Configuration schematic for the no-seepage benchmark, where the surface is lifted above the imposed east head.
+
 .. tab-set::
 
    .. tab-item:: Reference K
@@ -96,6 +102,7 @@ Source Pointers
 Artifacts
 ---------
 
+- ``docs/readthedocs/source/_static/capability_gallery/code_comparison/surface_interaction_no_seepage_configuration.png``
 - ``docs/readthedocs/source/_static/capability_gallery/code_comparison/no_seepage_reference_k.png``
 - ``docs/readthedocs/source/_static/capability_gallery/code_comparison/no_seepage_high_k.png``
 - ``docs/readthedocs/source/_static/capability_gallery/code_comparison/surface_interaction_no_seepage_code_comparison_summary.json`` stores the displayed metrics plus source hashes used by ``python -m tools.doc_gallery --check``.

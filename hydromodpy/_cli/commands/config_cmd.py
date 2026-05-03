@@ -155,7 +155,7 @@ def _cmd_config_check(args: argparse.Namespace) -> None:
     """
     import tomllib
 
-    from hydromodpy.core.config.hydromodpy_config import HydroModPyConfig
+    from hydromodpy.config import HydroModPyConfig
 
     path = Path(args.file).expanduser().resolve()
     if not path.is_file():
@@ -186,7 +186,7 @@ def _cmd_config_check(args: argparse.Namespace) -> None:
 
 def _cmd_config_schema(args: argparse.Namespace) -> None:
     """Export the JSON Schema for the HydroModPy configuration."""
-    from hydromodpy.core.config.schema_export import (
+    from hydromodpy.config.schema_export import (
         _ensure_root_sections,
         export_schema,
         write_schema,

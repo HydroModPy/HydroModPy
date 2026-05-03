@@ -73,6 +73,25 @@ The implementation uses a Fischer-Burmeister residual in the PETSc mixed
 runtime. This route is the most explicit way to represent surface interception
 as an on/off threshold constraint.
 
+Lower Drying Obstacle
+---------------------
+
+The same PETSc mixed route also enforces the lower head obstacle:
+
+.. math::
+
+   h_i - z_i^{bot} \ge 0
+
+through a dry-deficit unknown :math:`q_i^{dry}`. This quantity is not a
+physical leakage through the substratum. It is a numerical unmet-demand term:
+when the cell is already dry, it prevents the balance from removing more water
+than the saturated storage can provide.
+
+The head-only ``regularized_partition`` route does not solve this explicit
+lower complementarity constraint. It still uses bounded saturated thickness in
+transmissivity, lower-bounded saturated thickness in transient storage, and it
+reports diagnostics if the head itself drops below the lower obstacle.
+
 Selection Rule
 --------------
 
@@ -106,4 +125,5 @@ Related Pages
 -------------
 
 - :doc:`boussinesq-method`
+- :doc:`lower-obstacle-drying`
 - :doc:`solver-engines`

@@ -1,0 +1,56 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="520" viewBox="0 0 1200 520" role="img" aria-labelledby="title desc">
+  <title id="title">MODFLOW family reading map</title>
+  <desc id="desc">Map of the common MODFLOW concepts, the MODFLOW 6 route, the MODFLOW-NWT route, and cross-cutting comparisons.</desc>
+  <defs>
+    <marker id="arrow" markerWidth="12" markerHeight="12" refX="10" refY="6" orient="auto">
+      <path d="M2,2 L10,6 L2,10 Z" fill="#304d63"/>
+    </marker>
+    <style>
+      .bg { fill: #f6f8f5; }
+      .box { fill: #ffffff; stroke: #aebbb5; stroke-width: 2; rx: 18; }
+      .common { fill: #e6f0df; stroke: #67875f; stroke-width: 2; rx: 18; }
+      .mf6 { fill: #e7f0fb; stroke: #5579a0; stroke-width: 2; rx: 18; }
+      .nwt { fill: #fff0d9; stroke: #b27c32; stroke-width: 2; rx: 18; }
+      .cross { fill: #f0e8f1; stroke: #846b86; stroke-width: 2; rx: 18; }
+      .title { font: 700 26px Georgia, serif; fill: #22313a; }
+      .label { font: 700 18px Georgia, serif; fill: #22313a; }
+      .small { font: 14px Georgia, serif; fill: #43515a; }
+      .mono { font: 13px Consolas, monospace; fill: #2e3d47; }
+      .arrow { stroke: #304d63; stroke-width: 3; fill: none; marker-end: url(#arrow); }
+    </style>
+  </defs>
+
+  <rect class="bg" width="1200" height="520"/>
+  <text x="48" y="56" class="title">MODFLOW in HydroModPy: reading order</text>
+
+  <rect x="70" y="154" width="260" height="190" class="common"/>
+  <text x="102" y="190" class="label">Common concepts</text>
+  <text x="102" y="222" class="small">one head unknown per cell</text>
+  <text x="102" y="250" class="small">cell water balance</text>
+  <text x="102" y="278" class="small">RCH, EVT, DRN, CHD, WEL</text>
+  <text x="102" y="306" class="mono">flow/* shared contract</text>
+
+  <path class="arrow" d="M342,222 C400,188 430,170 492,156"/>
+  <path class="arrow" d="M342,276 C400,314 430,338 492,360"/>
+
+  <rect x="504" y="88" width="292" height="160" class="mf6"/>
+  <text x="536" y="124" class="label">MODFLOW 6 route</text>
+  <text x="536" y="156" class="small">modern GWF package stack</text>
+  <text x="536" y="184" class="small">structured and DISV-style supports</text>
+  <text x="536" y="212" class="mono">flow/modflow6</text>
+
+  <rect x="504" y="300" width="292" height="160" class="nwt"/>
+  <text x="536" y="336" class="label">MODFLOW-NWT route</text>
+  <text x="536" y="368" class="small">legacy structured baseline</text>
+  <text x="536" y="396" class="small">NWT, UPW, MODPATH, MT3DMS</text>
+  <text x="536" y="424" class="mono">flow/modflownwt</text>
+
+  <path class="arrow" d="M808,168 C868,168 888,238 948,238"/>
+  <path class="arrow" d="M808,380 C868,380 888,282 948,282"/>
+
+  <rect x="960" y="190" width="190" height="150" class="cross"/>
+  <text x="986" y="226" class="label">Cross-cutting</text>
+  <text x="986" y="258" class="small">method comparisons</text>
+  <text x="986" y="286" class="small">worked cases</text>
+  <text x="986" y="314" class="small">result diagnostics</text>
+</svg>

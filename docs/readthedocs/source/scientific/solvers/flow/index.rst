@@ -38,7 +38,7 @@ Current Flow Solver Families
        parameter transfer notes.
 
 .. toctree::
-   :maxdepth: 2
+   :maxdepth: 1
 
    modflow-family
    boussinesq-family

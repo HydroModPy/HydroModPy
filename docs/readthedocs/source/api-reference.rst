@@ -8,8 +8,8 @@ reference is organized by user-facing role rather than by every internal file.
 Module overview
 ---------------
 
-- :doc:`hydromodpy.core.config <api/hydromodpy-config>` - Pydantic parameter contracts
-  (:class:`~hydromodpy.core.config.hydromodpy_config.HydroModPyConfig`,
+- :doc:`hydromodpy.config <api/hydromodpy-config>` - Pydantic parameter contracts
+  (:class:`~hydromodpy.config.hydromodpy_config.HydroModPyConfig`,
   :class:`~hydromodpy.core.workspace.config.WorkspaceConfig`,
   :class:`~hydromodpy.spatial.geographic.geographic_config.GeographicConfig`)
   with validated fields, type constraints, and cross-field rules.
@@ -58,7 +58,7 @@ Key entry points
 - :class:`hydromodpy.results.run.Run` - one persisted simulation run.
 - :class:`hydromodpy.results.catalog.SimulationCatalog` - workspace-level run
   registry and result-query surface.
-- :class:`hydromodpy.core.config.HydroModPyConfig` - top-level Pydantic config
+- :class:`hydromodpy.config.HydroModPyConfig` - top-level Pydantic config
   loaded from a TOML file.
 - :class:`hydromodpy.spatial.geographic.CatchmentDelineation` - catchment
   delineation runtime, exposed by the geographic preprocessing pipeline.

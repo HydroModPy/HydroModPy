@@ -16,6 +16,7 @@ python -m pytest \
   tests/unit/solver/test_boussinesq_method_catalog.py \
   tests/unit/validation/test_dupuit_fixed_head_petsc_alias.py \
   tests/validation/analytical/steady/test_dupuit_fixed_head_petsc_1d.py \
+  tests/validation/numerical/transient/test_boussinesq_drying_petsc.py \
   tests/validation/numerical/transient/test_boussinesq_hillslope_recharge_pulse_overflow_petsc.py \
   tests/validation/numerical/transient/test_boussinesq_headwater_100km2_petsc_transient.py \
   -q

@@ -32,7 +32,7 @@ class ValidateStep:
     config_sections: ClassVar[tuple[str, ...]] = ("workspace", "simulation")
 
     def run(self, state: PipelineState) -> PipelineState:
-        from hydromodpy.core.config import HydroModPyConfig
+        from hydromodpy.config import HydroModPyConfig
 
         cfg = state.get("cfg")
         config_path = state.get("config_path")

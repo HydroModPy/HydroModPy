@@ -276,8 +276,15 @@ computes useful summaries such as:
 - ``run.simulated_active_network_mask()``
 - ``run.simulated_active_network_metrics()``
 - ``run.simulated_active_network_overlap_metrics()``
+- ``run.simulated_active_network_distance_metrics()``
 - the ``simulated_active_network`` figure when the run has
   ``accumulation_flux`` and a plottable mesh
+
+The first two are result views in ``hydromodpy.results.views`` because they
+are direct reductions of persisted fields. The planar bidirectional distance
+metric is placed in ``hydromodpy.analysis.stream_networks`` because it is a
+comparison analysis that combines a computed active mask, mesh geometry, and a
+persisted hydrographic-network role.
 
 What is still missing is the canonical storage rule that decides which
 thresholded or aggregated active network should become the persisted

@@ -50,7 +50,7 @@
     "validation_cases/analytical/transient/linearized_unconfined_1d.py"
   ],
   "source_hashes": {
-    "validation_cases/README.md": "1965de83b961f1ab4e38d8194d51342e1286d0c2e1b779188903b84e3fc26f1c",
+    "validation_cases/README.md": "6954bbc12c427d8f32dc4ec659fa99518dc972708789e988cd3b39b37b82dfe5",
     "validation_cases/analytical/steady/linearized_unconfined_hillslope_drainage_1d/README.md": "122557ec9d6063b12d591d086e3f021021bd8fdb71571cb8a36c78247f498b2f",
     "validation_cases/analytical/steady/linearized_unconfined_hillslope_drainage_1d/reference.py": "4e6b5d14c06179b326ce9caf3a9957ffe735a1947a3f2c6b9481c45c2c35e451",
     "validation_cases/analytical/steady/linearized_unconfined_hillslope_drainage_1d/comparison.py": "e80eed46958418616e1cb7f1ad686b88b3121e301bd43ca31461a891475a63a1",
@@ -287,10 +287,10 @@
       "expected_output": "Expected shape: 5 x 50",
       "command": "python -m validation_cases.analytical.steady.linearized_unconfined_hillslope_drainage_1d.run_case --no-show --solver modflow6_irregular_tri",
       "metric_lines": [
-        "Head-profile RMSE: 0.0203 m",
-        "Head-profile max abs error: 0.0320 m",
+        "Head-profile RMSE: 0.0204 m",
+        "Head-profile max abs error: 0.0322 m",
         "Cross-row head spread: 8.88e-16 m",
-        "Min numerical clearance above topography: 0.0801 m"
+        "Min numerical clearance above topography: 0.0800 m"
       ],
       "image": {
         "filename": "linearized_unconfined_hillslope_drainage_1d__modflow6_irregular_tri.png",

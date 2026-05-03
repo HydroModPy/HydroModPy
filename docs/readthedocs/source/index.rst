@@ -60,9 +60,11 @@ equations, modelling assumptions, or method notes, use
 
 If you are specifically looking for streams, seepage, observed hydrography, or
 simulation-derived active networks, use the map
-:doc:`scientific/hydrology/streams-and-seepage`. It points to the scientific
+:doc:`scientific/streams_and_seepage/index`. It points to the scientific
 semantics, the computed ``simulated_active`` views, comparison outputs,
-developer diagrams, and example figures from one place.
+developer diagrams, and example figures from one place. For a concrete
+simulation result, open
+:doc:`scientific/streams_and_seepage/nancon-k-sweep-results`.
 
 If you specifically want the quality ladder used in the repository, including
 the usual commands for unit, integration, regression, validation, PETSc, and
@@ -146,7 +148,7 @@ Documentation map
 
    .. grid-item-card::
       :class-card: sd-shadow-sm sd-rounded-3 sd-p-4
-      :link: scientific/hydrology/streams-and-seepage
+      :link: scientific/streams_and_seepage/index
       :link-type: doc
 
       **Streams and seepage**

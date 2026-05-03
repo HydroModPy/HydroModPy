@@ -1,0 +1,56 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="560" viewBox="0 0 1200 560" role="img" aria-labelledby="title desc">
+  <title id="title">MODFLOW boundary and forcing semantics</title>
+  <desc id="desc">Schematic showing the different meanings of RCH, EVT, DRN, CHD, and WEL in the HydroModPy public MODFLOW path.</desc>
+  <defs>
+    <marker id="arrow" markerWidth="12" markerHeight="12" refX="10" refY="6" orient="auto">
+      <path d="M2,2 L10,6 L2,10 Z" fill="#2f6549"/>
+    </marker>
+    <marker id="arrowOut" markerWidth="12" markerHeight="12" refX="10" refY="6" orient="auto">
+      <path d="M2,2 L10,6 L2,10 Z" fill="#9a4a34"/>
+    </marker>
+    <style>
+      .bg { fill: #f7f8f4; }
+      .aquifer { fill: #e7f0fb; stroke: #5c7f9e; stroke-width: 3; }
+      .surface { stroke: #71885d; stroke-width: 5; fill: none; }
+      .stage { stroke: #4e82aa; stroke-width: 4; fill: none; stroke-dasharray: 10 7; }
+      .in { stroke: #2f6549; stroke-width: 4; fill: none; marker-end: url(#arrow); }
+      .out { stroke: #9a4a34; stroke-width: 4; fill: none; marker-end: url(#arrowOut); }
+      .box { fill: #ffffff; stroke: #aebbb5; stroke-width: 2; rx: 16; }
+      .title { font: 700 26px Georgia, serif; fill: #22313a; }
+      .label { font: 700 18px Georgia, serif; fill: #22313a; }
+      .small { font: 14px Georgia, serif; fill: #43515a; }
+      .mono { font: 14px Consolas, monospace; fill: #2e3d47; }
+    </style>
+  </defs>
+
+  <rect class="bg" width="1200" height="560"/>
+  <text x="48" y="56" class="title">Boundary and forcing semantics in the public MODFLOW path</text>
+
+  <path d="M100,154 C250,126 430,144 585,118 C760,88 930,112 1090,82" class="surface"/>
+  <rect x="118" y="250" width="950" height="190" class="aquifer"/>
+  <path d="M130,294 C270,278 420,296 560,276 C770,246 930,282 1060,262" class="stage"/>
+  <text x="916" y="246" class="small">head / water table</text>
+
+  <path d="M292,112 L292,236" class="in"/>
+  <text x="214" y="108" class="label">RCH</text>
+  <text x="214" y="132" class="small">diffuse input</text>
+
+  <path d="M438,238 C464,188 492,138 524,98" class="out"/>
+  <text x="536" y="120" class="label">EVT</text>
+  <text x="536" y="144" class="small">atmospheric extraction</text>
+
+  <path d="M760,346 C820,372 870,392 938,404" class="out"/>
+  <text x="952" y="410" class="label">DRN</text>
+  <text x="952" y="434" class="small">head-dependent release</text>
+
+  <path d="M118,312 L62,312" class="out"/>
+  <text x="46" y="274" class="label">CHD</text>
+  <text x="46" y="298" class="small">imposed stage</text>
+
+  <path d="M654,190 L654,250" class="out"/>
+  <text x="680" y="208" class="label">WEL</text>
+  <text x="680" y="232" class="small">localized sink/source</text>
+
+  <rect x="156" y="470" width="850" height="54" class="box"/>
+  <text x="184" y="504" class="small">Scientific caution: CHD is an imposed-head support, while DRN is head-dependent. They should not be described as equivalent stream physics.</text>
+</svg>

@@ -21,6 +21,7 @@ from typing import Any
 _SUBMODULES = {
     "comparison": "hydromodpy.analysis.comparison",
     "batch": "hydromodpy.analysis.batch",
+    "stream_networks": "hydromodpy.analysis.stream_networks",
 }
 
 

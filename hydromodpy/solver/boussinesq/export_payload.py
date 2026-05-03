@@ -32,6 +32,7 @@ def build_state_history_export_payload(
         "head_history_m": as_export_array(state.head_history_m),
         "saturated_thickness_history_m": as_export_array(state.saturated_thickness_history_m),
         "saturation_excess_history_m_s": as_export_array(state.saturation_excess_history_m_s),
+        "dry_deficit_history_m_s": as_export_array(state.dry_deficit_history_m_s),
         "final_head_m": np.asarray(state.head_m, dtype=float),
         "final_saturated_thickness_m": np.asarray(
             state.saturated_thickness_m,
@@ -40,6 +41,7 @@ def build_state_history_export_payload(
         "final_recharge_rate_m_s": as_export_array(state.recharge_rate_m_s),
         "final_well_flux_m3_s": as_export_array(state.well_flux_m3_s),
         "final_saturation_excess_rate_m_s": as_export_array(state.saturation_excess_rate_m_s),
+        "final_dry_deficit_rate_m_s": as_export_array(state.dry_deficit_rate_m_s),
         "internal_edge_flux_m3_s": as_export_array(state.internal_edge_flux_m3_s),
         "internal_edge_flux_history_m3_s": as_export_array(state.internal_edge_flux_history_m3_s),
         "prescribed_head_flux_m3_s": as_export_array(state.prescribed_head_flux_m3_s),

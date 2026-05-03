@@ -97,6 +97,21 @@ This distinction matters because a downstream cell may have a small local drain
 outflow but a large accumulated flux if many upstream cells drain toward it. In
 figures, this usually makes confluences and persistent branches easier to see.
 
+Where This Page Fits In The Examples
+------------------------------------
+
+Use this page as the MODFLOW 6 result-contract example. It shows how a solver
+run becomes an interpretable active-network diagnostic:
+
+.. code-block:: text
+
+   head -> outflow_drain -> accumulation_flux -> simulated_active_network
+
+For the complete list of examples, commands, and files to open, see
+:doc:`../streams_and_seepage/worked-examples`. For the current distinction
+between supported fields, demonstrated examples, and non-contracts, see
+:doc:`../streams_and_seepage/status-and-limitations`.
+
 MODFLOW 6 Validation Example
 ----------------------------
 
@@ -222,6 +237,31 @@ Render the active-network figure when the capability is available:
    if "simulated_active_network" in run.display_capabilities:
        run.plot("simulated_active_network", save="figures")
 
+Compare the same active-network view against the observed ``reference``
+network when that role exists:
+
+.. code-block:: python
+
+   overlap = run.simulated_active_network_overlap_metrics(
+       network_role="reference",
+       variable="accumulation_flux",
+       mode="persistent",
+       threshold=0.0,
+       persistence_threshold=0.5,
+   )
+
+   distance = run.simulated_active_network_distance_metrics(
+       network_role="reference",
+       variable="accumulation_flux",
+       mode="persistent",
+       threshold=0.0,
+       persistence_threshold=0.5,
+   )
+
+``overlap`` gives coverage, precision, F1 and Jaccard on mesh cells.
+``distance`` gives bidirectional planar cell-centroid distances. It is a
+current diagnostic, not the future downslope DEM-routing criterion.
+
 For steady runs, do not pass a time mode unless you intentionally want to force
 a diagnostic snapshot. The default is the steady-state active-network field:
 
@@ -292,6 +332,7 @@ Related Reading
 
 - :doc:`../streams_and_seepage/index`
 - :doc:`../streams_and_seepage/conceptual-model`
+- :doc:`../streams_and_seepage/status-and-limitations`
 - :doc:`stream-ocean-and-drainage-semantics`
 - :doc:`../solvers/flow/modflow/modflow6`
 - :doc:`../../architecture/overview/hydrographic-network-simulated-active-inventory`

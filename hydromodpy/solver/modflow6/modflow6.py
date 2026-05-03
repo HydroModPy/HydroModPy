@@ -69,6 +69,18 @@ def _mf6_safe_name(name: str, max_len: int = 16) -> str:
     return f"{text[:prefix_len]}_{digest}"
 
 
+def _windows_extended_length_path(path: str) -> str:
+    """Return a Windows long-path spelling while keeping normal paths unchanged."""
+    if os.name != "nt":
+        return path
+    normalized = os.path.normpath(os.path.abspath(path))
+    if normalized.startswith("\\\\?\\"):
+        return normalized
+    if normalized.startswith("\\\\"):
+        return "\\\\?\\UNC\\" + normalized.lstrip("\\")
+    return "\\\\?\\" + normalized
+
+
 @dataclass(frozen=True)
 class Modflow6RuntimeParams:
     """Minimal runtime parameters for MODFLOW 6 simulation."""
@@ -2129,11 +2141,13 @@ class Modflow6(Solver):
                     cbar.update_ticks()
 
                     fig.subplots_adjust(left=0.08, right=0.94, bottom=0.11, top=0.9)
+                    output_path = os.path.join(
+                        figure_dir,
+                        f"{prefix}_{name}_t({int(tidx)}).png",
+                    )
+                    os.makedirs(os.path.dirname(output_path), exist_ok=True)
                     fig.savefig(
-                        os.path.join(
-                            figure_dir,
-                            f"{prefix}_{name}_t({int(tidx)}).png",
-                        ),
+                        _windows_extended_length_path(output_path),
                         bbox_inches="tight",
                     )
                     plt.close(fig)
@@ -2500,10 +2514,9 @@ class Modflow6(Solver):
 
         fig.suptitle("Runtime support overview", fontsize=11.5, y=0.96)
         fig.subplots_adjust(left=0.055, right=0.985, bottom=0.2, top=0.88, wspace=0.12)
-        fig.savefig(
-            os.path.join(figure_dir, "flow_support_overview.png"),
-            bbox_inches="tight",
-        )
+        output_path = os.path.join(figure_dir, "flow_support_overview.png")
+        os.makedirs(os.path.dirname(output_path), exist_ok=True)
+        fig.savefig(_windows_extended_length_path(output_path), bbox_inches="tight")
         plt.close(fig)
 
     def _east_side_cell_ids(self) -> set[int]:

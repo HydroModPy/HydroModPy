@@ -603,3 +603,90 @@ def load_npy_time_series_arrays(
     indices = np.asarray([key for key, _ in ordered_items], dtype=int)
     arrays = np.stack([value for _, value in ordered_items], axis=0)
     return indices, arrays
+
+
+def load_npy_time_series_arrays_with_elapsed_seconds(
+    postprocess_dir: Path,
+    observable_name: str,
+) -> tuple[np.ndarray, np.ndarray, np.ndarray | None]:
+    """Load one time series and its optional elapsed-seconds sidecar."""
+    payload_path = Path(postprocess_dir) / f"{observable_name}.npy"
+    indices, arrays = load_npy_time_series_arrays(postprocess_dir, observable_name)
+
+    from hydromodpy.physics.flow.history_contract import time_axis_sidecar_path
+
+    sidecar_path = time_axis_sidecar_path(payload_path)
+    if not sidecar_path.exists():
+        return indices, arrays, None
+
+    sidecar = load_npy_dict(sidecar_path)
+    raw_time_keys = sidecar.get("time_keys")
+    raw_elapsed_seconds = sidecar.get("elapsed_seconds")
+    if raw_time_keys is None or raw_elapsed_seconds is None:
+        return indices, arrays, None
+
+    sidecar_keys = np.asarray(raw_time_keys, dtype=int).reshape(-1)
+    sidecar_elapsed = np.asarray(raw_elapsed_seconds, dtype=float).reshape(-1)
+    if sidecar_keys.size != sidecar_elapsed.size:
+        raise ValueError(
+            f"{sidecar_path} has {sidecar_keys.size} time keys but "
+            f"{sidecar_elapsed.size} elapsed-second values."
+        )
+    if np.array_equal(sidecar_keys, indices):
+        return indices, arrays, sidecar_elapsed
+
+    elapsed_by_key = {
+        int(key): float(elapsed)
+        for key, elapsed in zip(sidecar_keys.tolist(), sidecar_elapsed.tolist(), strict=True)
+    }
+    try:
+        elapsed = np.asarray([elapsed_by_key[int(key)] for key in indices.tolist()], dtype=float)
+    except KeyError as exc:
+        raise ValueError(
+            f"{sidecar_path} does not cover time key {int(exc.args[0])} "
+            f"from {payload_path}."
+        ) from exc
+    return indices, arrays, elapsed
+
+
+def align_snapshot_series_to_expected_count(
+    time_keys: np.ndarray,
+    values: np.ndarray,
+    elapsed_seconds: np.ndarray | None,
+    *,
+    expected_count: int,
+    name: str,
+) -> tuple[np.ndarray, np.ndarray, np.ndarray | None]:
+    """Align snapshot-like ``t0..tN`` histories to one expected row count."""
+    keys = np.asarray(time_keys, dtype=int).reshape(-1)
+    arrays = np.asarray(values, dtype=float)
+    expected = int(expected_count)
+    if expected < 0:
+        raise ValueError(f"{name} expected_count must be non-negative.")
+    if arrays.ndim == 0:
+        raise ValueError(f"{name} must expose one leading time dimension.")
+    if int(arrays.shape[0]) != keys.size:
+        raise ValueError(
+            f"{name} has {arrays.shape[0]} value rows but {keys.size} time keys."
+        )
+
+    elapsed = (
+        None
+        if elapsed_seconds is None
+        else np.asarray(elapsed_seconds, dtype=float).reshape(-1)
+    )
+    if elapsed is not None and elapsed.size != keys.size:
+        raise ValueError(
+            f"{name} has {keys.size} time keys but {elapsed.size} elapsed-second values."
+        )
+
+    if keys.size == expected:
+        return keys, arrays, elapsed
+    if keys.size == expected + 1:
+        aligned_elapsed = None if elapsed is None else elapsed[1:]
+        return keys[1:], arrays[1:], aligned_elapsed
+
+    raise ValueError(
+        f"{name} has {keys.size} rows, expected {expected} step rows or "
+        f"{expected + 1} snapshot rows."
+    )
