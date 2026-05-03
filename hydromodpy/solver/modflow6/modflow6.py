@@ -255,7 +255,7 @@ class Modflow6(Solver):
             raise ValueError("pre_processing requires a configured Domain object.")
         flow_regime = self._resolve_flow_regime()
         if flow_regime is None:
-            raise ValueError("flow.flow_regime must be 'steady', 'permanent', or 'transient'")
+            raise ValueError("flow.flow_regime must be 'steady' or 'transient'")
         self.flow_regime = flow_regime
         if self.time_grid is None and self.flow_regime != "steady":
             raise ValueError(

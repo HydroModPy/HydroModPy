@@ -24,11 +24,10 @@ HydroModPy keeps the raw simulated drainage signal as cell fields before any
 vector network is declared.
 
 For a perennial-network question, distinguish the hydrological scenario from
-the transient occupancy rule. ``flow_regime = "permanent"`` is now accepted as
-the user-facing name for a representative steady-state flow computation and is
-normalized internally to the solver-facing ``steady`` regime. A simulated
-perennial network should be derived from such a permanent run whenever
-possible, then compared with the observed ``reference`` network. The transient
+the transient occupancy rule. A representative steady-state computation uses
+``flow_regime = "steady"``. A simulated perennial network should be derived
+from such a steady-state run whenever possible, then compared with the observed
+``reference`` network. The transient
 ``always_active`` mask only means active at all timesteps of the analysed
 chronicle.
 
@@ -207,8 +206,8 @@ The main modes are:
 - ``persistence``: continuous active-time fraction.
 
 ``perennial`` is kept as a legacy alias for ``always_active``. A hydrological
-perennial network should preferably come from a representative steady-state or
-permanent-flow scenario, not from an arbitrary transient window.
+perennial network should preferably come from a representative steady-state
+scenario, not from an arbitrary transient window.
 
 What This Is Not Yet
 --------------------

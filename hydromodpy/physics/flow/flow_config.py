@@ -33,7 +33,7 @@ from hydromodpy.physics.flow.param_config import (
     normalize_flow_param_payloads,
     parse_flow_param_sections,
 )
-from hydromodpy.physics.flow.regime import FlowRegimeInput, normalize_flow_regime
+from hydromodpy.physics.flow.regime import FlowRegime, normalize_flow_regime
 from hydromodpy.physics.flow.sinks_sources import (
     FlowSinksSourcesConfig,
     FlowWellConfig,
@@ -100,18 +100,17 @@ class FlowConfig(ProcessSpatialConfig):
     parameter payloads are stored in `param`.
     """
 
-    flow_regime: Annotated[FlowRegimeInput, Profile.USER] = Field(
+    flow_regime: Annotated[FlowRegime, Profile.USER] = Field(
         default="transient",
         description=(
-            "Global flow simulation regime used by solvers consuming [flow] "
-            "(steady/permanent or transient). 'permanent' is normalized to 'steady'."
+            "Global flow simulation regime used by solvers consuming [flow] (steady or transient)."
         ),
         json_schema_extra={
             "widget_type": "select",
             "unit": "-",
             "display_name_fr": "Régime d'écoulement",
             "help_text_fr": (
-                "Régime permanent (steady) ou transitoire (transient). "
+                "Régime stationnaire (steady) ou transitoire (transient). "
                 "Le régime transitoire requiert une condition initiale [flow.ic]."
             ),
         },
@@ -479,7 +478,7 @@ class FlowConfig(ProcessSpatialConfig):
     def homogeneous(
         cls,
         *,
-        flow_regime: Literal["steady", "permanent", "transient"] = "transient",
+        flow_regime: FlowRegime = "transient",
         active_bc: list[str] | None = None,
         active_sinks_sources: list[str] | None = None,
         **parameters: float,
@@ -504,11 +503,6 @@ class FlowConfig(ProcessSpatialConfig):
     def steady(cls, **parameters: float) -> FlowConfig:
         """Shortcut for a steady-state FlowConfig with homogeneous parameters."""
         return cls.homogeneous(flow_regime="steady", **parameters)
-
-    @classmethod
-    def permanent(cls, **parameters: float) -> FlowConfig:
-        """Shortcut for a permanent-flow FlowConfig."""
-        return cls.homogeneous(flow_regime="permanent", **parameters)
 
     @classmethod
     def transient(cls, **parameters: float) -> FlowConfig:
