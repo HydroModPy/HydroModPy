@@ -135,6 +135,7 @@ def _build_extruded_solver_mesh_from_runtime_planar(
     bottom_surface: Surface,
     vertical_config: VerticalGridConfig | None,
     nodata: float,
+    runtime_mesh_support: object | None = None,
 ) -> SolverMesh:
     mesh_2d = planar_mesh
     hydro_mesh = (
@@ -142,10 +143,29 @@ def _build_extruded_solver_mesh_from_runtime_planar(
     )
 
     x_centers, y_centers = mesh_2d.cell_centroids()
-    top_sampler = PreparedSurfaceSampler.from_surface(top_surface)
-    bottom_sampler = PreparedSurfaceSampler.from_surface(bottom_surface)
-    top_flat = np.asarray(top_sampler.sample(x_centers, y_centers), dtype=float).reshape(-1)
-    bottom_flat = np.asarray(bottom_sampler.sample(x_centers, y_centers), dtype=float).reshape(-1)
+    support_top = np.asarray(
+        getattr(runtime_mesh_support, "cell_z_top_m", ()),
+        dtype=float,
+    ).reshape(-1)
+    support_bottom = np.asarray(
+        getattr(runtime_mesh_support, "cell_z_bottom_m", ()),
+        dtype=float,
+    ).reshape(-1)
+    support_has_vertical = (
+        support_top.size == x_centers.size
+        and support_bottom.size == x_centers.size
+        and bool(np.any(np.isfinite(support_top) & np.isfinite(support_bottom)))
+    )
+    if support_has_vertical:
+        top_flat = support_top
+        bottom_flat = support_bottom
+    else:
+        top_sampler = PreparedSurfaceSampler.from_surface(top_surface)
+        bottom_sampler = PreparedSurfaceSampler.from_surface(bottom_surface)
+        top_flat = np.asarray(top_sampler.sample(x_centers, y_centers), dtype=float).reshape(-1)
+        bottom_flat = np.asarray(bottom_sampler.sample(x_centers, y_centers), dtype=float).reshape(
+            -1
+        )
 
     cfg = _coerce_vertical_config(vertical_config)
     invalid = (
@@ -183,8 +203,6 @@ def build_spatial_discretization(
     runtime_mesh_support: object | None = None,
 ) -> SolverGridContext:
     """Build normalized spatial discretization from domain surfaces or runtime mesh."""
-    del runtime_mesh_support
-
     vertical_config: VerticalGridConfig | None = None
     planar_config: PlanarGridConfig | None = None
     if sgrid_config is not None:
@@ -225,6 +243,7 @@ def build_spatial_discretization(
             bottom_surface=bottom_surface,
             vertical_config=vertical_config,
             nodata=nodata,
+            runtime_mesh_support=runtime_mesh_support,
         )
 
     return SolverGridContext(

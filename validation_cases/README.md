@@ -103,14 +103,9 @@ Current cases are mostly:
 - groundwater-flow oriented,
 - shared across `modflownwt`, `modflow6`, and the in-house `boussinesq`
   backend where the benchmark physics remains defensible,
-- progressively mirrored on `modflow6_irregular_tri` when a compatible
-  irregular triangular mesh and a defensible comparison reduction exist.
-
-At present, `modflow6_irregular_tri` covers 18 of the 21 analytical cases that
-also expose a `modflow6` variant. The remaining gaps are the three true 2D
-radial/circular benchmarks, which require dedicated 2D irregular meshes and
-radial interpolation rather than the 1D strip reduction used by the existing
-irregular cases.
+- mirrored on `modflow6_irregular_tri` for the 21 analytical cases that also
+  expose a `modflow6` variant, using either 1D strip reductions or dedicated
+  2D irregular meshes for radial/circular benchmarks.
 
 Numerical exploratory cases that are intentionally not part of the analytical
 batch inventory live under `validation_cases/numerical/`. They are used for
@@ -336,8 +331,9 @@ Scientifically, the current suite provides direct validation for:
 - one transient hillslope-interception onset benchmark for the dense in-house `boussinesq` runtime,
 - two transient integrated-discharge Brutsaert recession benchmarks available on
   `modflownwt`, `modflow6`, `modflow6_irregular_tri`, and `boussinesq`,
-- MODFLOW 6 irregular triangular meshes for the 1D steady strip, transient
-  boundary/recharge, and Brutsaert recession families,
+- MODFLOW 6 irregular triangular meshes for the 1D steady strip,
+  transient boundary/recharge, Brutsaert recession, circular-island, and
+  late-time radial-pumping families,
 - top `ocean` boundary condition,
 - top distributed `drainage` behavior,
 - steady sloping-substratum flow under three 1D references, including constant-thickness, no-recharge fixed-head, and recharge-driven hillslope regimes,
@@ -354,8 +350,6 @@ validation for:
 
 - broad `modflow6` parity across the same benchmarks beyond the currently
   enabled dual-solver cases,
-- `modflow6_irregular_tri` coverage for the two circular-island steady 2D
-  cases and the late-time radial pumping transient 2D case,
 - a distinct `stream` top-boundary benchmark,
 - a truly differentiated `robin` drainage benchmark,
 - multi-layer analytical benchmarks,

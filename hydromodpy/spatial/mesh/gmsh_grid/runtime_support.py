@@ -144,6 +144,10 @@ class GmshSupportMetadata:
     cell_centroid_y_m: np.ndarray = field(
         default_factory=lambda: np.empty(0, dtype=float), repr=False
     )
+    cell_z_top_m: np.ndarray = field(default_factory=lambda: np.empty(0, dtype=float), repr=False)
+    cell_z_bottom_m: np.ndarray = field(
+        default_factory=lambda: np.empty(0, dtype=float), repr=False
+    )
     edge_ids: np.ndarray = field(default_factory=lambda: np.empty(0, dtype=int), repr=False)
     edge_node_a_index: np.ndarray = field(
         default_factory=lambda: np.empty(0, dtype=int), repr=False
@@ -407,6 +411,24 @@ def build_gmsh_support_metadata(bundle: object | None) -> GmshSupportMetadata | 
     )
     cell_centroid_x_m = np.asarray([float(cell.centroid_x) for cell in cells], dtype=float)
     cell_centroid_y_m = np.asarray([float(cell.centroid_y) for cell in cells], dtype=float)
+    cell_z_top_m = np.asarray(
+        [
+            np.nan
+            if getattr(cell, "z_top_mean", None) is None
+            else float(getattr(cell, "z_top_mean"))
+            for cell in cells
+        ],
+        dtype=float,
+    )
+    cell_z_bottom_m = np.asarray(
+        [
+            np.nan
+            if getattr(cell, "z_bottom_mean", None) is None
+            else float(getattr(cell, "z_bottom_mean"))
+            for cell in cells
+        ],
+        dtype=float,
+    )
 
     edge_ids: list[int] = []
     edge_node_a_index: list[int] = []
@@ -466,6 +488,8 @@ def build_gmsh_support_metadata(bundle: object | None) -> GmshSupportMetadata | 
         cell_node_indices=cell_node_indices,
         cell_centroid_x_m=cell_centroid_x_m,
         cell_centroid_y_m=cell_centroid_y_m,
+        cell_z_top_m=cell_z_top_m,
+        cell_z_bottom_m=cell_z_bottom_m,
         edge_ids=np.asarray(edge_ids, dtype=int),
         edge_node_a_index=np.asarray(edge_node_a_index, dtype=int),
         edge_node_b_index=np.asarray(edge_node_b_index, dtype=int),

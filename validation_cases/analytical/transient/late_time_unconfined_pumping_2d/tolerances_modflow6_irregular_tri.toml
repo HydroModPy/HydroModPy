@@ -1,0 +1,8 @@
+[space_time]
+rmse = 0.03
+max_abs_error = 0.08
+azimuthal_spread = 0.10
+
+[final_time]
+rmse = 0.02
+max_abs_error = 0.03

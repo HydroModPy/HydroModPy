@@ -1,0 +1,6 @@
+{
+  "constraints_mode": "geology_only",
+  "generator": "radial_island_manual_triangles_48_sectors",
+  "n_cells": 1200,
+  "n_nodes": 625
+}

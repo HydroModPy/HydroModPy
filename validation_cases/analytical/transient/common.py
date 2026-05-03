@@ -10,6 +10,7 @@ import numpy as np
 
 from validation_cases.shared import (
     ValidationRunResult,
+    load_case_config,
     load_case_metadata,
     load_case_tolerances,
     load_time_series_fields,
@@ -18,6 +19,35 @@ from validation_cases.shared import (
 )
 
 SECONDS_PER_DAY = 86400.0
+
+
+def _resolve_mesh_bundle_dir_for_solver(
+    *,
+    case_dir: Path,
+    metadata: dict,
+    solver_name: str | None,
+) -> Path | None:
+    """Return the external mesh bundle for solvers that declare ``[mesh_input]``."""
+
+    normalized_solver = str(solver_name or "").strip().lower()
+    config_files = metadata.get("config_files")
+    if normalized_solver == "" or not isinstance(config_files, dict):
+        return None
+    config_name = str(config_files.get(normalized_solver, "")).strip()
+    if config_name == "":
+        return None
+
+    config_payload = load_case_config(case_dir, config_name)
+    mesh_input = config_payload.get("mesh_input")
+    if not isinstance(mesh_input, dict):
+        return None
+    bundle_dir_raw = str(mesh_input.get("bundle_dir", "")).strip()
+    if bundle_dir_raw == "":
+        return None
+    bundle_dir = Path(bundle_dir_raw).expanduser()
+    if not bundle_dir.is_absolute():
+        bundle_dir = (case_dir / bundle_dir).resolve()
+    return bundle_dir
 
 
 @dataclass(frozen=True, slots=True)
@@ -128,12 +158,23 @@ def load_transient_profile_outputs(
     else:
         expected_spatial_shape_raw = tuple(output_cfg.get("expected_spatial_shape", ()))
 
+    reference_cfg = dict(case_metadata.get("reference", {}))
+    mesh_bundle_dir = _resolve_mesh_bundle_dir_for_solver(
+        case_dir=case_dir,
+        metadata=case_metadata,
+        solver_name=solver_name,
+    )
     period_indices, heads = load_time_series_fields(
         postprocess_dir=result.postprocess_dir,
         store=result.store,
         sim_id=result.sim_id,
         observable_name=observable_name,
         expected_spatial_shape=expected_spatial_shape_raw or None,
+        mesh_bundle_dir=mesh_bundle_dir,
+        x_min_m=reference_cfg.get("xmin"),
+        x_max_m=reference_cfg.get("xmax"),
+        y_min_m=reference_cfg.get("ymin"),
+        y_max_m=reference_cfg.get("ymax"),
     )
 
     expected_periods_by_solver = output_cfg.get("expected_periods_by_solver", {})

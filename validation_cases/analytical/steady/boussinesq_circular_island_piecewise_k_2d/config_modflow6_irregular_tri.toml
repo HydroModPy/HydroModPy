@@ -1,0 +1,22 @@
+workflow = "simulation"
+
+[[simulation.process]]
+solvers = ["modflow6"]
+
+[modflow6.runtime]
+mf_verbose = false
+mf6_ims_complexity = "COMPLEX"
+
+[modflow6.process_specific]
+vka = 1.0
+
+[modflow6.sgrid.vertical]
+nlay = 1
+
+[geographic.synthetic.grid]
+xmin = 265400.0
+ymin = 6784100.0
+
+[mesh_input]
+mesh_path = "../../../shared/mesh_bundles/boussinesq_circular_island_piecewise_k_irregular_tri_radial_48/mesh_2d.msh"
+bundle_dir = "../../../shared/mesh_bundles/boussinesq_circular_island_piecewise_k_irregular_tri_radial_48"

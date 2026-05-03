@@ -1,0 +1,33 @@
+workflow = "simulation"
+
+[[simulation.process]]
+solvers = ["modflow6"]
+
+[modflow6.runtime]
+mf_verbose = false
+mf6_ims_complexity = "COMPLEX"
+
+[modflow6.process_specific]
+vka = 1.0
+
+[modflow6.sgrid.vertical]
+nlay = 1
+
+[modflow6.tgrid]
+firstpersteady = false
+
+[flow.sinks_sources.wells.P1]
+location_mode = "absolute_xy"
+layer = 0
+x = 1000.0
+y = 1000.0
+units = "m3/day"
+description = "Central pumping well on irregular triangular mesh"
+
+[flow.sinks_sources.wells.P1.forcing]
+mode = "constant"
+value = -1000.0
+
+[mesh_input]
+mesh_path = "../../../shared/mesh_bundles/late_time_unconfined_pumping_irregular_tri_refined_center/mesh_2d.msh"
+bundle_dir = "../../../shared/mesh_bundles/late_time_unconfined_pumping_irregular_tri_refined_center"

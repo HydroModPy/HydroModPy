@@ -110,11 +110,13 @@ tree clean:
 | Variable | Default | Purpose |
 |----------|---------|---------|
 | `HYDROMODPY_TEST_SCRATCH_ROOT` | `/tmp/hydromodpy_tests/` | Shared scratch root; set this to redirect all test artifacts. |
+| `HYDROMODPY_TEST_SESSION_SCRATCH_ROOT` | `<scratch>/sessions/<session-id>/` | Per-session scratch root; pytest temp files and cleanup are isolated here. |
 | `HYDROMODPY_COVERAGE`          | unset | When `1`, enables coverage collection during regression runs. |
-| `PYTEST_DEBUG_TEMPROOT`        | `<scratch>/pytest` | Points pytest's `tmp_path` generator inside the scratch root. |
+| `PYTEST_DEBUG_TEMPROOT`        | `<session-scratch>/pytest` | Points pytest's `tmp_path` generator inside the session scratch root. |
 
-The conftest sets `TMPDIR`/`TMP`/`TEMP` to a subdirectory of the scratch root
-so spawned subprocesses inherit the same cleanup policy.
+The conftest sets `TMPDIR`/`TMP`/`TEMP` to a subdirectory of the session scratch
+root so spawned subprocesses inherit the same cleanup policy without sharing an
+active pytest `tmp_path` base with unrelated test runs.
 
 ## Golden references
 

@@ -93,6 +93,8 @@ CATEGORY_SPECS: dict[str, GalleryCategorySpec] = {
             "These cases focus on the geometry side of HydroModPy: bundle reading, "
             "geology overlays, river constraints, and compact mesh summaries."
         ),
+        guide_doc="scientific/mesh/index",
+        guide_title="Scientific mesh and spatial-support documentation",
     ),
     "validation": GalleryCategorySpec(
         slug="validation",

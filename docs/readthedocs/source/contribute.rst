@@ -166,6 +166,17 @@ artifacts before committing:
    python -m tools.doc_gallery
    python -m tools.doc_gallery --check
 
+If the change adds, removes, or renames public commands or API guide pages,
+run the documentation inventory check too:
+
+.. code-block:: bash
+
+   python tools/check_docs_inventory.py
+
+That check keeps the authored CLI reference aligned with the registered
+``hmp`` commands and catches removed public paths that should not reappear in
+hand-written documentation.
+
 Submit a pull request
 ---------------------
 

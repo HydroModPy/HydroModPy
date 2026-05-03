@@ -100,6 +100,107 @@ Most source blocks share the same ideas even when exact fields differ:
 - ``date_start`` and ``date_end`` may be inferred from the project period, but
   explicit dates make external downloads easier to audit.
 
+Minimal TOML patterns
+---------------------
+
+Most projects start by declaring the active data families, then one or more
+source blocks for each family:
+
+.. code-block:: toml
+
+   [data]
+   project_crs = "EPSG:2154"
+   types = ["dem", "geology", "hydrography", "hydrometry", "piezometry", "recharge"]
+
+   [[data.dem.sources]]
+   source = "ign_bdalti"
+   extent = "watershed"
+
+   [[data.geology.sources]]
+   source = "brgm_1m"
+   extent = "watershed"
+
+   [[data.hydrography.sources]]
+   source = "bdtopage"
+   extent = "watershed"
+
+   [[data.hydrometry.sources]]
+   source = "hubeau"
+   extent = "watershed"
+
+   [[data.piezometry.sources]]
+   source = "hubeau"
+   extent = "watershed"
+
+   [[data.recharge.sources]]
+   source = "sim2"
+   extent = "watershed"
+
+Use ``custom`` when the project should read local files instead of external
+services:
+
+.. code-block:: toml
+
+   [data]
+   project_crs = "EPSG:2154"
+   types = ["dem", "geology", "hydrography", "recharge"]
+
+   [[data.dem.sources]]
+   source = "custom"
+   path = "data/dem/catchment_dem.tif"
+
+   [[data.geology.sources]]
+   source = "custom"
+   path = "data/geology/geology.gpkg"
+   code_field = "CODE_LEG"
+
+   [[data.hydrography.sources]]
+   source = "custom"
+   path = "data/hydrography/rivers.gpkg"
+
+   [[data.recharge.sources]]
+   source = "custom"
+   path = "data/recharge/recharge.nc"
+   source_unit = "mm/day"
+
+Controlled synthetic or constant sources are useful for tests and teaching:
+
+.. code-block:: toml
+
+   [data]
+   types = ["recharge", "oceanic"]
+
+   [[data.recharge.sources]]
+   source = "synthetic"
+   values = [0.8, 1.2, 0.6]
+
+   [[data.oceanic.sources]]
+   source = "constant"
+   value = 0.0
+
+Provider choice
+---------------
+
+.. list-table::
+   :header-rows: 1
+   :widths: 26 37 37
+
+   * - Goal
+     - Prefer
+     - Why
+   * - First watershed overview in France
+     - ``ign_bdalti``, ``brgm_1m``, ``bdtopage``, Hub'Eau, ``sim2``
+     - Minimizes local files and exercises the standard public-data path.
+   * - Reproducible teaching case
+     - ``custom``, ``synthetic``, ``constant``
+     - Avoids external API availability and makes expected values explicit.
+   * - Local production project
+     - ``custom`` for validated in-house datasets, API sources as fallback
+     - Keeps institutionally curated inputs authoritative.
+   * - CI or offline validation
+     - ``custom`` plus ``hmp run --frozen``
+     - Fails early if an input is missing instead of downloading silently.
+
 Cache and reproducibility
 -------------------------
 
@@ -114,6 +215,8 @@ Lockfile commands then record the identity of downloaded or imported data:
 
 Use ``--frozen`` when a workflow must fail instead of downloading fresh data.
 This is the right mode for CI, teaching material, and reproducibility checks.
+Use ``force_refresh = true`` only when you intentionally want to bypass cached
+API artifacts and refresh provider data.
 
 Where data appears in workflows
 -------------------------------

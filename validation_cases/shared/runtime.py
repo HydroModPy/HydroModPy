@@ -140,6 +140,9 @@ def _merge_toml_payloads(
             merged[key] = list(value)
         else:
             merged[key] = value
+    location_mode = str(override.get("location_mode", "") or "").strip().lower()
+    if location_mode in {"absolute_xy", "relative_xy"} and "cell" not in override:
+        merged.pop("cell", None)
     return merged
 
 
