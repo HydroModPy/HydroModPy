@@ -84,12 +84,16 @@ def DEM_correcflow_analysis(
 
 
 class CatchmentDelineation:
-    """
-    Initializes the model domain (watershed) by performing geospatial operations.
+    """Build the geographic runtime for one model domain.
 
-    Constructor signature is ``CatchmentDelineation(config, initializing)``.
-    Produces a public attribute payload describing the delineated catchment
-    (DEM metadata, watershed/box-buffer shapefiles, derived features).
+    The constructor receives a ``GeographicConfig`` and a workspace-like
+    initialization object. It runs geographic preprocessing immediately and
+    exposes the historical public attributes used by domain, solver, and
+    post-processing code.
+
+    The resulting payload includes DEM metadata, watershed and buffer polygons,
+    clipped rasters, derived boundary features, optional river-network products,
+    and georeferencing information.
     """
 
     def __init__(self, config: GeographicConfig, initializing):
@@ -196,9 +200,7 @@ class CatchmentDelineation:
         )
 
     def get_domain_geographic_context(self) -> DomainGeographicContext:
-        """
-        Return the narrow geographic payload consumed by `Domain`.
-        """
+        """Return the narrow geographic payload consumed by ``Domain``."""
         return self.get_geographic_derived_features().to_domain_geographic_context()
 
     def processing(self):

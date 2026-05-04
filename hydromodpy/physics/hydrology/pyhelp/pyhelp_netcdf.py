@@ -1,3 +1,9 @@
+"""NetCDF preprocessing entry points for HELP land-surface coupling.
+
+The module exposes the public functions used to prepare forcing data, run HELP,
+and export gridded outputs.
+"""
+
 from .preprocessing.pipeline import (
     export_netcdf,
     prepare_inputs,

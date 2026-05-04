@@ -14,7 +14,12 @@ from hydromodpy.data.base_config import BaseVariableConfig
 
 
 class RadiationSourceConfig(HydroModelBase):
-    """Configuration for ONE radiation data source."""
+    """Configuration for one radiation data source.
+
+    Radiation sources load atmospheric and/or visible radiation from custom
+    files or SIM2 EDR products. Components select the radiation signals used by
+    downstream forcing and HELP coupling.
+    """
 
     model_config = ConfigDict(extra="forbid")
 
@@ -94,7 +99,12 @@ class RadiationSourceConfig(HydroModelBase):
 
 
 class RadiationConfig(BaseVariableConfig):
-    """Top-level radiation configuration."""
+    """Top-level radiation configuration.
+
+    The section groups radiation sources and an optional date window. Loaded
+    data can support atmospheric forcing, potential evapotranspiration context,
+    and HELP coupling.
+    """
 
     _TOML_SECTION = "radiation"
 

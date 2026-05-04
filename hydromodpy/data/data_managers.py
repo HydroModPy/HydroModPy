@@ -19,7 +19,12 @@ from hydromodpy.data.plan import DataLoadPlan
 
 @dataclass(slots=True)
 class DataManagers:
-    """Runtime view of active data-manager types."""
+    """Runtime view of active data-manager families.
+
+    The container stores the resolved ordered type list used by orchestration.
+    It can be built directly from declarative config or from a planner result
+    that combines explicit and inferred data dependencies.
+    """
 
     types: list[str]
 

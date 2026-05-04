@@ -14,7 +14,12 @@ from hydromodpy.data.base_config import BaseVariableConfig
 
 
 class IntermittencySourceConfig(HydroModelBase):
-    """Configuration for ONE intermittency data source."""
+    """Configuration for one intermittency data source.
+
+    Intermittency sources load stream flow-state observations from local files
+    or from the Hub'Eau ONDE API. The source can restrict stations by id,
+    department code, project extent, or a spatial mask.
+    """
 
     model_config = ConfigDict(extra="forbid")
 
@@ -96,7 +101,12 @@ class IntermittencySourceConfig(HydroModelBase):
 
 
 class IntermittencyConfig(BaseVariableConfig):
-    """Top-level intermittency configuration (list of sources)."""
+    """Top-level intermittency configuration.
+
+    The section groups flow-state observation sources and an optional date
+    window. Loaded data can be used to compare simulated drying or active
+    stream behavior against observed intermittency states.
+    """
 
     _TOML_SECTION = "intermittency"
 

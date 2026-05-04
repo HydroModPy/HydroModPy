@@ -14,7 +14,12 @@ from hydromodpy.data.base_config import BaseVariableConfig
 
 
 class SoilMoistureSourceConfig(HydroModelBase):
-    """Configuration for ONE soil moisture data source."""
+    """Configuration for one soil-moisture data source.
+
+    Soil-moisture sources load station or gridded soil-moisture indices from
+    custom files or SIM2 EDR products. Source-level fields define file paths,
+    station columns, masks, units, and cache refresh behavior.
+    """
 
     model_config = ConfigDict(extra="forbid")
 
@@ -88,7 +93,12 @@ class SoilMoistureSourceConfig(HydroModelBase):
 
 
 class SoilMoistureConfig(BaseVariableConfig):
-    """Top-level soil moisture configuration."""
+    """Top-level soil-moisture configuration.
+
+    The section groups soil-moisture sources and an optional date window.
+    Loaded data can support hydrological diagnostics and land-surface forcing
+    analyses.
+    """
 
     _TOML_SECTION = "soil_moisture"
 

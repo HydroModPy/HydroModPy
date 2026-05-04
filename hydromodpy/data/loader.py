@@ -32,7 +32,12 @@ logger = get_logger(__name__)
 
 
 class DataManagersRuntimeLoader:
-    """Load runtime data objects from a resolved data-manager activation plan."""
+    """Load data products for the resolved active manager families.
+
+    The loader owns the shared DuckDB data catalog, resolves each configured
+    variable section, applies the simulation time window when relevant, and
+    stores loaded products on the workflow context.
+    """
 
     def __init__(self, *, config_path: str | Path, data_plan: DataLoadPlan) -> None:
         self.config_path = Path(config_path).resolve()

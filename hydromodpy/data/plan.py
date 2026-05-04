@@ -15,6 +15,10 @@ class DataLoadPlan:
 
     ``explicit_types`` come from ``[data].types``.
     ``inferred_types`` are appended by planner rules.
+
+    ``reasons_by_type`` records why each inferred family was activated, for
+    example a geology support requested by the domain or an ocean boundary
+    condition requested by flow.
     """
 
     explicit_types: tuple[str, ...] = field(default_factory=tuple)

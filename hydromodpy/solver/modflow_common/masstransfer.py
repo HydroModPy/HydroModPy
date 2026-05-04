@@ -34,9 +34,12 @@ logger = get_logger(__name__)
 
 
 class Masstransfer:
-    """
-    Class for topographically-driven surface runoff of discharge outflows
-    from groundwater flow model.
+    """Route groundwater outflow mass on DEM-derived surface flow paths.
+
+    The class converts a raw outflow raster to point sources, traces downslope
+    paths with the watershed D8 direction raster, and accumulates routed mass
+    with Whitebox mass-flux tools. It is used by MODFLOW post-processing to map
+    drainage or concentration outflows onto surface supports.
     """
 
     def __init__(
@@ -126,10 +129,7 @@ class Masstransfer:
     # %% MASS FLUX FROM OUTFLOW
 
     def trace_cumulated(self):
-        """
-        Mass flux of discharge outflows according to the DEM.
-        Need to have DEM, flux, efficiency and adsorption rasters.
-        """
+        """Accumulate outflow mass along the DEM-derived routing raster."""
         ### Loading ###
         with rasterio.open(self.raw_rast_path) as src:
             im = src.read(1)
@@ -157,9 +157,7 @@ class Masstransfer:
     # %% TRACE DOWNSLOPE FLOWPATHS
 
     def trace_downslope(self):
-        """
-        Generate continuous hydrographic network with downslope flowpaths.
-        """
+        """Trace downslope flow paths from the raw outflow raster points."""
         # Sim to points
         self._backend.delineation.raster_to_vector_points(self.raw_rast_path, self.raw_pt_path)
         logger.info(

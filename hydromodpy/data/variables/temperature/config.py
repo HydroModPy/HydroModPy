@@ -14,7 +14,12 @@ from hydromodpy.data.base_config import BaseVariableConfig
 
 
 class TemperatureSourceConfig(HydroModelBase):
-    """Configuration for ONE temperature data source."""
+    """Configuration for one air-temperature data source.
+
+    Temperature sources load station or gridded air-temperature time series
+    from custom files or SIM2 EDR products. Source-level fields define file
+    paths, station columns, masks, units, and cache refresh behavior.
+    """
 
     model_config = ConfigDict(extra="forbid")
 
@@ -88,7 +93,12 @@ class TemperatureSourceConfig(HydroModelBase):
 
 
 class TemperatureConfig(BaseVariableConfig):
-    """Top-level temperature configuration."""
+    """Top-level air-temperature configuration.
+
+    The section groups temperature sources and an optional date window. Loaded
+    data can support atmospheric forcing, HELP coupling, and diagnostic
+    analyses.
+    """
 
     _TOML_SECTION = "temperature"
 

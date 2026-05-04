@@ -14,7 +14,12 @@ from hydromodpy.data.base_config import BaseVariableConfig
 
 
 class EtpSourceConfig(HydroModelBase):
-    """Configuration for ONE ETP data source."""
+    """Configuration for one potential evapotranspiration data source.
+
+    ETP sources load potential evapotranspiration from custom files or SIM2
+    EDR products. Source-level fields define station columns, gridded file
+    paths, masks, units, and cache refresh behavior.
+    """
 
     model_config = ConfigDict(extra="forbid")
 
@@ -87,7 +92,12 @@ class EtpSourceConfig(HydroModelBase):
 
 
 class EtpConfig(BaseVariableConfig):
-    """Top-level ETP configuration."""
+    """Top-level potential evapotranspiration configuration.
+
+    The section groups ETP sources and an optional date window. Loaded data can
+    be used by land-surface coupling, recharge estimation, or atmospheric
+    forcing workflows.
+    """
 
     _TOML_SECTION = "etp"
 

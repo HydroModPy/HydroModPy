@@ -49,8 +49,7 @@ from hydromodpy.data.variables.oceanic.config import OceanicConfig  # noqa: E402
 
 
 class DataManagersConfig(HydroModelBase):
-    """
-    Top-level configuration for data-manager families.
+    """Top-level ``[data]`` configuration for manager families.
 
     The `types` list declares user-requested data families. The effective
     active set can also include planner-inferred families deduced from other
@@ -60,6 +59,9 @@ class DataManagersConfig(HydroModelBase):
     - `geology` already uses its dedicated Pydantic model (`GeologyConfig`),
     - `oceanic` uses `OceanicConfig`,
     - the other data families are kept as validated mappings for now.
+
+    Use this model for validation only. Runtime activation order is represented
+    by ``DataLoadPlan`` and loaded by ``DataManagersRuntimeLoader``.
     """
 
     model_config = ConfigDict(extra="forbid")

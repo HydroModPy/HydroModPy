@@ -14,7 +14,13 @@ from hydromodpy.data.base_config import BaseVariableConfig
 
 
 class HydrometrySourceConfig(HydroModelBase):
-    """Configuration for ONE hydrometry data source."""
+    """Configuration for one hydrometry data source.
+
+    Hydrometry sources load river discharge or stage time series. Use
+    ``custom`` for local station files and ``hubeau`` for the French Hub'Eau
+    hydrometry API. Station filters, spatial masks, and units are declared at
+    source level.
+    """
 
     model_config = ConfigDict(extra="forbid")
 
@@ -98,7 +104,12 @@ class HydrometrySourceConfig(HydroModelBase):
 
 
 class HydrometryConfig(BaseVariableConfig):
-    """Top-level hydrometry configuration (list of sources)."""
+    """Top-level hydrometry configuration.
+
+    The section groups hydrometric sources and the optional simulation date
+    window inherited from ``BaseVariableConfig``. Loaded data is stored as
+    station time series for calibration, boundary checks, or reporting.
+    """
 
     _TOML_SECTION = "hydrometry"
 

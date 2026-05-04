@@ -14,7 +14,12 @@ from hydromodpy.data.base_config import BaseVariableConfig
 
 
 class WindSourceConfig(HydroModelBase):
-    """Configuration for ONE wind data source."""
+    """Configuration for one wind-speed data source.
+
+    Wind sources load station or gridded wind-speed time series from custom
+    files or SIM2 EDR products. Source-level fields define file paths, station
+    columns, masks, units, and cache refresh behavior.
+    """
 
     model_config = ConfigDict(extra="forbid")
 
@@ -88,7 +93,11 @@ class WindSourceConfig(HydroModelBase):
 
 
 class WindConfig(BaseVariableConfig):
-    """Top-level wind configuration."""
+    """Top-level wind-speed configuration.
+
+    The section groups wind sources and an optional date window. Loaded data can
+    support atmospheric forcing, evapotranspiration context, and HELP coupling.
+    """
 
     _TOML_SECTION = "wind"
 

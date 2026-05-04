@@ -14,7 +14,12 @@ from hydromodpy.data.base_config import BaseVariableConfig
 
 
 class PiezometrySourceConfig(HydroModelBase):
-    """Configuration for ONE piezometry data source."""
+    """Configuration for one piezometry data source.
+
+    Piezometry sources load groundwater-level or depth observations from local
+    station files or from the Hub'Eau piezometry API. Station filters, nearest
+    station selection, and source units are declared here.
+    """
 
     model_config = ConfigDict(extra="forbid")
 
@@ -101,7 +106,12 @@ class PiezometrySourceConfig(HydroModelBase):
 
 
 class PiezometryConfig(BaseVariableConfig):
-    """Top-level piezometry configuration."""
+    """Top-level piezometry configuration.
+
+    The section groups groundwater observation sources and an optional date
+    window. Loaded piezometric series can support calibration targets,
+    diagnostics, and hydrogeological context.
+    """
 
     _TOML_SECTION = "piezometry"
 

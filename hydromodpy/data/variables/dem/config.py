@@ -13,13 +13,15 @@ from hydromodpy.core.tracking import InputFile
 
 
 class DemSourceConfig(HydroModelBase):
-    """Configuration for ONE DEM data source.
+    """Configuration for one DEM data source.
 
     Supported sources:
 
     - ``custom``: user-provided raster file (GeoTIFF, Esri ASCII Grid, NetCDF).
     - ``ign_bdalti``: IGN BD ALTI® 25 m - French national MNT downloaded
       per-department from the GéoPlateforme.
+
+    The optional mask or extent controls spatial clipping during data loading.
     """
 
     model_config = ConfigDict(extra="forbid")
@@ -68,6 +70,9 @@ class DemSourceConfig(HydroModelBase):
 
 class DemConfig(HydroModelBase):
     """Top-level DEM variable configuration.
+
+    The section declares one or more elevation sources. The loaded DEM can feed
+    geographic preprocessing directly or be cached as a reusable data product.
 
     Example TOML::
 

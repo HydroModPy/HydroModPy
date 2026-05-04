@@ -14,7 +14,12 @@ from hydromodpy.data.base_config import BaseVariableConfig
 
 
 class PrecipitationSourceConfig(HydroModelBase):
-    """Configuration for ONE precipitation data source."""
+    """Configuration for one precipitation data source.
+
+    Precipitation sources provide rainfall, snowfall, or total precipitation
+    from custom files or SIM2 EDR products. Components select which
+    precipitation signal is loaded from the provider.
+    """
 
     model_config = ConfigDict(extra="forbid")
 
@@ -94,7 +99,12 @@ class PrecipitationSourceConfig(HydroModelBase):
 
 
 class PrecipitationConfig(BaseVariableConfig):
-    """Top-level precipitation configuration."""
+    """Top-level precipitation configuration.
+
+    The section groups precipitation sources and an optional date window.
+    Loaded data can drive hydrological forcing, recharge derivation, or
+    diagnostic comparisons.
+    """
 
     _TOML_SECTION = "precipitation"
 

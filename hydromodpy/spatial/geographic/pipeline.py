@@ -59,7 +59,13 @@ class _CachedGeographicProducts:
 
 @dataclass(frozen=True)
 class GeographicRuntimeContext:
-    """Full geographic payload used to hydrate the ``CatchmentDelineation`` runtime."""
+    """Compatibility payload produced by geographic preprocessing.
+
+    The context groups canonical paths, regional flow products, clipped rasters,
+    DEM metadata, optional river-network products, and area/CRS information.
+    ``CatchmentDelineation`` converts it to public runtime attributes through
+    ``runtime_attributes``.
+    """
 
     paths: GeographicPaths
     flow_products: FlowProducts
@@ -386,11 +392,15 @@ def build_geographic_runtime_context(
     backend: object | None = None,
     locator_factory: object = Nominatim,
 ) -> GeographicRuntimeContext:
-    """
-    Build the full compatibility geographic payload from config + output folder.
+    """Build the full geographic runtime context from config and workspace.
 
     This is the compatibility-oriented counterpart to
     ``build_domain_geographic_context``.
+
+    The function prepares regional flow rasters, standard or direct DEM domain
+    polygons, clipped domain rasters, DEM metadata, and optional river-network
+    products. When cache reuse is enabled, it validates the cache fingerprint
+    and reconstructs the same context from existing artifacts.
     """
     setup = prepare_geographic_run(
         config=config,
