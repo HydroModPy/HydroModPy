@@ -30,3 +30,15 @@ Visual reference
 
    This figure isolates the BD Topage layer so the provider result can be read
    independently from geology or station panels.
+
+Provider replay
+---------------
+
+.. figure:: /_static/user_guide/data/hydrography_provider_replay_examples.png
+   :alt: Hydrography provider replay including BD Topage samples
+   :width: 100%
+
+   The provider replay shows committed BD Topage samples separately from the
+   broader local river network. This keeps the source under test readable
+   before it is clipped, rasterized, or compared with simulated active
+   networks.

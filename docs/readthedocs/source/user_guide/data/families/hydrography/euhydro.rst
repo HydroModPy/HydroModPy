@@ -25,6 +25,14 @@ Operational checks
 Gallery status
 --------------
 
-No dedicated committed EU-Hydro figure is currently available. A future
-non-Nancon gallery case should isolate this provider the same way the current
-BD Topage overlay isolates ``bdtopage``.
+No dedicated committed EU-Hydro replay artifact is currently available. A
+future non-Nancon gallery case should isolate this provider the same way the
+current BD Topage overlay isolates ``bdtopage``.
+
+.. figure:: /_static/user_guide/data/hydrography_provider_replay_examples.png
+   :alt: Hydrography provider replay showing the current EU-Hydro gallery gap
+   :width: 100%
+
+   The replay figure marks the current EU-Hydro gap explicitly. The stable
+   version should use a bbox where a continental-scale river product is
+   meaningful, then publish the cached provider payload and density comparison.

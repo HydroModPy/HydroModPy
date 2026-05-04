@@ -23,3 +23,15 @@ Operational checks
   interpretable.
 - Always inspect units and station metadata before comparing values across
   providers or sites.
+
+Provider replay
+---------------
+
+.. figure:: /_static/user_guide/data/hubeau_provider_replay_examples.png
+   :alt: Hub'Eau water-quality replay with station inventory and chronicle coverage
+   :width: 100%
+
+   The water-quality part of the Hub'Eau replay is intentionally plotted with
+   the other observation families: chemistry shares the station/time-series
+   contract, but parameter identity and units decide whether the values are
+   usable.

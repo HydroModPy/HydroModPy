@@ -62,8 +62,9 @@ The current communication assets can be regenerated with:
 
    python docs/readthedocs/source/user_guide/data/render_data_communication_assets.py
 
-For the complete list of generated figures, local cases, and remaining gallery
-gaps, read :doc:`../runs-and-figures`.
+For the complete list of generated figures and local cases, read
+:doc:`../runs-and-figures`. For provider-specific replay figures, read
+:doc:`../provider-replay-cases`.
 
 Current families
 ----------------

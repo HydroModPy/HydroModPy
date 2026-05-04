@@ -24,6 +24,15 @@ Operational checks
 Gallery status
 --------------
 
-No dedicated committed OSM figure is currently available. Until one is added,
-use the generic hydrography panel as the visual contract and document the
-provider choice in the case narrative.
+No dedicated committed OSM replay artifact is currently available. Until one
+is added, use the generic hydrography panel as the visual contract and document
+the provider choice in the case narrative.
+
+.. figure:: /_static/user_guide/data/hydrography_provider_replay_examples.png
+   :alt: Hydrography provider replay showing the current OSM gallery gap
+   :width: 100%
+
+   The replay figure marks the current OSM gap explicitly. The next stable OSM
+   page should fetch one small bbox, persist the raw GPKG in the cache, record
+   the lockfile identity, and compare network density against a local or BD
+   Topage reference.
