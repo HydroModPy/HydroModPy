@@ -13,8 +13,7 @@ Functional Role
 
 The batch workflow is about campaign orchestration, not about one solver
 method. A batch recipe can point to simulation or comparison launchers.
-Legacy ``method-comparison`` recipes remain supported for old catalogs, but new
-recipes should use ``comparison``.
+The accepted launcher names are ``simulation`` and ``comparison``.
 
 The launcher performs this type of expansion:
 

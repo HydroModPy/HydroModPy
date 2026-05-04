@@ -12,10 +12,10 @@ from typing import Any
 import numpy as np
 
 from hydromodpy.analysis.comparison.config import (
-    MethodComparisonConfig,
-    MethodComparisonFineRaster,
-    MethodComparisonObservable,
-    MethodComparisonVariant,
+    ComparisonConfig,
+    ComparisonFineRaster,
+    ComparisonObservable,
+    ComparisonVariant,
 )
 from hydromodpy.analysis.comparison.runtime_mesh import (
     resolve_bundle_cells,
@@ -462,13 +462,13 @@ def _face_centroids(
 
 
 def _observable_points_for_case(
-    cfg: MethodComparisonConfig,
+    cfg: ComparisonConfig,
     *,
     centroid_x: np.ndarray | None,
     centroid_y: np.ndarray | None,
 ) -> tuple[tuple[float, float, str], ...]:
     points: list[tuple[float, float, str]] = []
-    for observable in cfg.method_comparison.observable:
+    for observable in cfg.comparison.observable:
         if observable.support not in {"point", "outlet"}:
             continue
         x = observable.x
@@ -490,7 +490,7 @@ def _observable_points_for_case(
 
 def _build_case_configuration_payload(
     *,
-    cfg: MethodComparisonConfig,
+    cfg: ComparisonConfig,
     variant_summaries: list[dict[str, Any]],
     reference_variant: str | None,
 ) -> CaseConfigurationPayload | None:
@@ -561,14 +561,14 @@ def _build_case_configuration_payload(
         for summary in completed
     )
     metadata_lines = (
-        f"comparison: {cfg.method_comparison.comparison_id}",
+        f"comparison: {cfg.comparison.comparison_id}",
         f"reference: {reference_variant or selected.get('id', '')}",
         f"n_cells: {n_cells}" if n_cells else "n_cells: n/a",
         *_simulation_time_summary_lines(config_payload),
         *_flow_param_summary_lines(config_payload),
     )
     return CaseConfigurationPayload(
-        comparison_id=str(cfg.method_comparison.comparison_id),
+        comparison_id=str(cfg.comparison.comparison_id),
         reference_variant=str(reference_variant or selected.get("id", "")),
         variant_lines=variant_lines,
         metadata_lines=tuple(metadata_lines),
@@ -591,7 +591,7 @@ def _build_case_configuration_payload(
 def _choose_map_slice(
     *,
     series: VariableSeries,
-    observable: MethodComparisonObservable,
+    observable: ComparisonObservable,
 ) -> tuple[np.ndarray, str] | None:
     slices = select_time_slices(series, observable)
     if not slices:
@@ -613,10 +613,10 @@ def _choose_map_slice(
 
 def _build_map_payload(
     *,
-    cfg: MethodComparisonConfig,
-    variant: MethodComparisonVariant,
+    cfg: ComparisonConfig,
+    variant: ComparisonVariant,
     summary: dict[str, Any],
-    observable: MethodComparisonObservable,
+    observable: ComparisonObservable,
     rows: list[dict[str, Any]],
 ) -> MapPayload | None:
     reducer_key = str(observable.reducer or "identity").strip().lower()
@@ -788,7 +788,7 @@ def _build_difference_payload(
 def _resolve_fine_grid_bounds(
     *,
     payloads: list[MapPayload],
-    fine_raster: MethodComparisonFineRaster,
+    fine_raster: ComparisonFineRaster,
     reference_variant: str | None,
 ) -> tuple[float, float, float, float] | None:
     extents = [

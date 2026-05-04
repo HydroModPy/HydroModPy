@@ -28,7 +28,7 @@ _SIMULATION_STATIC_ROOT = "docs/readthedocs/source/_static/capability_gallery/si
 
 _DEFAULT_REGIONAL_LAB_NEXT_STEPS = (
     "Switch `execute = true` in the focused overlay config when the dry plan looks correct and you want to launch the child workflow.",
-    "Use these orchestration pages as the planning complement to the individual simulation and method-comparison cases already exposed elsewhere in the gallery.",
+    "Use these orchestration pages as the planning complement to the individual simulation and comparison cases already exposed elsewhere in the gallery.",
 )
 
 
@@ -123,7 +123,7 @@ def build_regional_lab_specs() -> tuple[GalleryCaseSpec, ...]:
             slug="regional_lab_headwater_100km2_dry_plan",
             title="Regional Lab Dry Plan on Headwater 100 km2",
             category="simulation",
-            deck="Dry-run orchestration example showing how one regional site catalog expands into simulation and method-comparison recipes.",
+            deck="Dry-run orchestration example showing how one regional site catalog expands into simulation and comparison recipes.",
             summary=(
                 "This case documents the orchestration layer rather than one child run. It uses the "
                 "first committed `regional_lab` example in dry-plan mode to show how a small site "
@@ -159,7 +159,7 @@ def build_regional_lab_specs() -> tuple[GalleryCaseSpec, ...]:
             ),
             metric_specs=_REGIONAL_LAB_METRIC_SPECS,
             case_setup=(
-                "Launcher family: `regional_lab`, sitting above child `simulation` and `method-comparison` launchers.",
+                "Launcher family: `regional_lab`, sitting above child `simulation` and `comparison` launchers.",
                 "Example scope: one small Brittany site catalog with one fully runnable headwater site and several inventory-only or screening sites.",
                 "The committed example starts with `execute = false`, so the page documents planning, selection, and reporting rather than child-run results.",
             ),
@@ -177,7 +177,7 @@ def build_regional_lab_specs() -> tuple[GalleryCaseSpec, ...]:
             ),
             next_steps=(
                 "Switch `execute = true` in the example config when the dry plan looks correct and you want to launch the child workflows.",
-                "Use this page as the orchestration complement to the individual simulation and method-comparison cases already exposed elsewhere in the gallery.",
+                "Use this page as the orchestration complement to the individual simulation and comparison cases already exposed elsewhere in the gallery.",
             ),
             walkthrough_doc="getting_started/simulation-walkthrough",
             walkthrough_title="the Simulation walkthrough",
@@ -191,7 +191,7 @@ def build_regional_lab_specs() -> tuple[GalleryCaseSpec, ...]:
                     "regional_lab_headwater_100km2_dry_plan_summary.json"
                 ),
                 "study_area": "Brittany regional laboratory",
-                "process_families": ["planning", "simulation", "method_comparison", "reporting"],
+                "process_families": ["planning", "simulation", "comparison", "reporting"],
                 "workflow_family_key": "regional_orchestration",
                 "workflow_family_label": "Regional Orchestration",
                 "workflow_family_deck": (
@@ -269,12 +269,12 @@ def build_regional_lab_specs() -> tuple[GalleryCaseSpec, ...]:
             ),
             summary=(
                 "This page narrows the committed `regional_lab` example to the `backend_compare` "
-                "recipe. It shows how one method-comparison workflow is carried as a reusable recipe, "
+                "recipe. It shows how one comparison workflow is carried as a reusable recipe, "
                 "planned only where the catalog exposes one backend-comparison config, and reported "
                 "with explicit gaps on the remaining headwater sites."
             ),
             what_it_shows=(
-                "How `regional_lab` can orchestrate `method-comparison` launchers, not only single-run simulations.",
+                "How `regional_lab` can orchestrate `comparison` launchers, not only single-run simulations.",
                 "How one comparison recipe reuses the same headwater site selection while depending on a different catalog field than the MF6 replay recipe.",
                 "How the dry plan remains useful even when only one site is currently comparison-ready.",
             ),
@@ -290,10 +290,10 @@ def build_regional_lab_specs() -> tuple[GalleryCaseSpec, ...]:
             case_setup=(
                 "Base lab config: the same selected headwater population is reused, so the page isolates recipe logic rather than changing the site inventory.",
                 "Overlay config: `config_headwater_100km2_lab_backend_compare.toml` keeps only the `backend_compare` recipe enabled and writes to its own output root.",
-                "Child-run contract: the recipe reads `backend_comparison_config` from each site row and expands into `method-comparison` child runs.",
+                "Child-run contract: the recipe reads `backend_comparison_config` from each site row and expands into `comparison` child runs.",
             ),
             key_parameters=(
-                '`launcher = "method-comparison"` shows that `regional_lab` can plan solver-comparison suites as first-class child workflows.',
+                '`launcher = "comparison"` shows that `regional_lab` can plan solver-comparison suites as first-class child workflows.',
                 '`required_fields = ["backend_comparison_config"]` is what turns the two inventory-only headwater sites into visible comparison gaps.',
                 '`config_path_template = "{backend_comparison_config}"` keeps the recipe generic while the site catalog remains the source of truth for child inputs.',
                 "The overlay keeps the other recipes disabled so the page documents one comparison workflow rather than the full laboratory at once.",
@@ -303,7 +303,7 @@ def build_regional_lab_specs() -> tuple[GalleryCaseSpec, ...]:
                 "Use the coverage summary to separate recipe reach from recipe quality: one planned case can still be valuable if the gaps stay explicit.",
                 "Read the text panel last to connect those gaps to catalog maturity rather than to launcher failure.",
             ),
-            process_families=("planning", "method_comparison", "reporting"),
+            process_families=("planning", "comparison", "reporting"),
             workflow_case_order=30,
             metadata={
                 "regional_lab_view_kind": "recipe",
@@ -326,7 +326,7 @@ def build_regional_lab_specs() -> tuple[GalleryCaseSpec, ...]:
                 "its own child config field and remains explicit about current coverage gaps."
             ),
             what_it_shows=(
-                "How two method-comparison recipes can coexist in one laboratory while pointing to different child configs and modelling questions.",
+                "How two comparison recipes can coexist in one laboratory while pointing to different child configs and modelling questions.",
                 "How the transient backend-comparison recipe stays separate from the simpler backend-comparison recipe instead of overloading one flat page.",
                 "How recipe overlays can document a more specific transient workflow without cloning the site catalog or cluster rules.",
             ),
@@ -347,7 +347,7 @@ def build_regional_lab_specs() -> tuple[GalleryCaseSpec, ...]:
             key_parameters=(
                 '`id = "transient_backend_compare"` keeps the transient question separate from the simpler backend-comparison recipe instead of collapsing both into one card.',
                 '`required_fields = ["transient_backend_comparison_config"]` makes the missing transient child configs visible as coverage gaps rather than silent filtering.',
-                '`launcher = "method-comparison"` plus the recipe-specific config path field is what lets one lab coordinate several comparison families in parallel.',
+                '`launcher = "comparison"` plus the recipe-specific config path field is what lets one lab coordinate several comparison families in parallel.',
                 "The overlay config gives this page one exact reproduction command while preserving the shared base laboratory definition.",
             ),
             how_to_read=(
@@ -355,7 +355,7 @@ def build_regional_lab_specs() -> tuple[GalleryCaseSpec, ...]:
                 "Use the coverage bar next to compare this transient slice with the simpler backend-comparison slice: same population, different child contract.",
                 "Use the planning summary last to keep the interpretation at the orchestration level before diving into the child comparison page itself.",
             ),
-            process_families=("planning", "method_comparison", "reporting"),
+            process_families=("planning", "comparison", "reporting"),
             workflow_case_order=40,
             metadata={
                 "regional_lab_view_kind": "recipe",

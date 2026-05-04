@@ -306,8 +306,8 @@ class RegionalLabRecipeConfig(HydroModelBase):
 
     id: Annotated[str, Profile.USER] = Field(description="Unique recipe identifier.")
     label: Annotated[str, Profile.USER] = Field(description="Human-readable recipe label.")
-    launcher: Annotated[Literal["simulation", "comparison", "method-comparison"], Profile.USER] = (
-        Field(description="Child launcher dispatched per site.")
+    launcher: Annotated[Literal["simulation", "comparison"], Profile.USER] = Field(
+        description="Child launcher dispatched per site."
     )
     config_path_template: Annotated[str, Profile.USER] = Field(
         description="Template producing the child config path from a site context."
@@ -544,10 +544,10 @@ class RegionalLabConfig(HydroModelBase):
                 recipe_mapping.get("launcher"),
                 label=f"regional_lab.recipe[{recipe_id}].launcher",
             ).lower()
-            if launcher not in {"simulation", "comparison", "method-comparison"}:
+            if launcher not in {"simulation", "comparison"}:
                 raise ValueError(
                     f"Unsupported regional_lab.recipe launcher '{launcher}'. "
-                    "Use 'simulation', 'comparison', or legacy 'method-comparison'."
+                    "Use 'simulation' or 'comparison'."
                 )
 
             recipes.append(

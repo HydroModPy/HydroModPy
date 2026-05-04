@@ -99,13 +99,6 @@ def compare_pair(sim_a: Any, sim_b: Any, *, workspace: Any = None) -> Any:
     return _compare_pair(sim_a, sim_b, workspace=workspace)
 
 
-def compare_methods(toml_path: Any) -> Any:
-    """Run a TOML-driven multi-variant method comparison."""
-    from hydromodpy.analysis.comparison.orchestrator import MethodComparisonLauncher
-
-    return MethodComparisonLauncher(toml_path).run()
-
-
 def testbed(toml_path: Any) -> Any:
     """Run a TOML-driven method testbed."""
     from hydromodpy.analysis.testbed.runtime import TestbedLauncher

@@ -1,5 +1,5 @@
 {
-  "schema_version": "method_comparison_metrics_v1",
+  "schema_version": "comparison_metrics_v1",
   "comparison_id": "lu_boundary_step_same_support",
   "reference_variant": "modflow6",
   "summary": [

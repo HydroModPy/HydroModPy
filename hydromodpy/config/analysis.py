@@ -17,7 +17,7 @@ from hydromodpy.core.config_kit.profile import Profile
 if TYPE_CHECKING:
     from hydromodpy.analysis.batch.config import RegionalLabConfig
     from hydromodpy.analysis.capability_gallery import CapabilityGalleryConfig
-    from hydromodpy.analysis.comparison.config import MethodComparisonSection
+    from hydromodpy.analysis.comparison.config import ComparisonSection
 
 
 class AnalysisConfig(HydroModelBase):
@@ -26,7 +26,7 @@ class AnalysisConfig(HydroModelBase):
     Each field is optional: enabling ``[analysis.batch]`` triggers the
     regional-lab launcher, ``[analysis.capability_gallery]`` selects
     figures for the versionable gallery, and ``[analysis.comparison]``
-    drives the method-comparison launcher.
+    drives the comparison launcher.
     """
 
     model_config = ConfigDict(extra="forbid")
@@ -47,12 +47,11 @@ class AnalysisConfig(HydroModelBase):
             "[analysis.capability_gallery]."
         ),
     )
-    comparison: Annotated[MethodComparisonSection | None, Profile.USER] = Field(
+    comparison: Annotated[ComparisonSection | None, Profile.USER] = Field(
         default=None,
         description=(
-            "Optional method-comparison block loaded from [analysis.comparison]. "
-            "Parsed standalone via MethodComparisonConfig under the section "
-            "name [method_comparison]."
+            "Optional variant-comparison block loaded from [analysis.comparison]. "
+            "Parsed standalone via ComparisonConfig under the section name [comparison]."
         ),
     )
 

@@ -1,4 +1,4 @@
-"""Orchestrator for solver/mesh method comparisons.
+"""Orchestrator for solver/mesh variant comparisons.
 
 Runs or reuses variant simulations via :class:`~hydromodpy.simulation.Simulation`,
 then extracts configured observables, computes metrics, and generates
@@ -27,8 +27,8 @@ from hydromodpy.core.toml_io.loader import load_toml_with_base_config
 from hydromodpy.project import Project
 
 
-class MethodComparisonLauncher:
-    """Run or reuse method variants and compare configured observables."""
+class VariantComparisonLauncher:
+    """Run or reuse variants and compare configured observables."""
 
     def __init__(self, config_path: str | Path) -> None:
         self.config_path = Path(config_path).expanduser().resolve()
@@ -67,8 +67,7 @@ class MethodComparisonLauncher:
                 if section.continue_on_error:
                     continue
                 raise RuntimeError(
-                    f"Method comparison variant '{variant.id}' failed: "
-                    f"{summary.get('error_message', status)}"
+                    f"Comparison variant '{variant.id}' failed: {summary.get('error_message', status)}"
                 )
 
             run_folder = Path(str(summary["run_folder"]))
@@ -124,11 +123,11 @@ class MethodComparisonLauncher:
             observables=section.observable,
             rows=all_rows,
             reference_variant=reference_variant,
-            metrics_schema_version="method_comparison_metrics_v1",
+            metrics_schema_version="comparison_metrics_v1",
         )
 
         manifest = {
-            "schema_version": "method_comparison_manifest_v2",
+            "schema_version": "comparison_manifest_v1",
             "comparison_id": section.comparison_id,
             "config_path": str(self.config_path),
             "comparison_root": str(comparison_root),
@@ -376,7 +375,7 @@ class MethodComparisonLauncher:
         """Infer one existing run folder from a simulation config path."""
         cfg = get_root_config_provider().from_toml(config_path)
         base_folder = Path(cfg.workspace.solver_scratch_folder) / str(cfg.simulation.run_id)
-        return MethodComparisonLauncher._resolve_existing_run_folder(
+        return VariantComparisonLauncher._resolve_existing_run_folder(
             base_folder,
             solver_name=solver_name,
         )
@@ -394,14 +393,14 @@ class MethodComparisonLauncher:
 
         full_path = Path(str(getattr(model, "full_path", "") or "")).expanduser()
         if str(full_path).strip() != "":
-            return MethodComparisonLauncher._resolve_existing_run_folder(
+            return VariantComparisonLauncher._resolve_existing_run_folder(
                 full_path,
                 solver_name=solver_name,
             )
 
         workspace = run_state.setup.workspace
         run_id = run_state.setup.run_id
-        return MethodComparisonLauncher._resolve_existing_run_folder(
+        return VariantComparisonLauncher._resolve_existing_run_folder(
             Path(workspace.solver_scratch_folder) / str(run_id),
             solver_name=solver_name,
         )
@@ -423,13 +422,13 @@ class MethodComparisonLauncher:
         The public ``hydromodpy.compare(...)`` facade points here. The
         pairwise helper is not implemented in this checkout yet; callers should
         use a TOML-driven comparison through :meth:`Project.compare` or invoke
-        :class:`MethodComparisonLauncher` directly with a config path.
+        :class:`VariantComparisonLauncher` directly with a config path.
         """
         raise NotImplementedError(
             "hydromodpy.compare(sim_a, sim_b) is not implemented in this checkout. "
             "Use Project.compare(config_path=...) or "
-            "MethodComparisonLauncher(config_path).run() instead."
+            "VariantComparisonLauncher(config_path).run() instead."
         )
 
 
-__all__ = ("MethodComparisonLauncher",)
+__all__ = ("VariantComparisonLauncher",)

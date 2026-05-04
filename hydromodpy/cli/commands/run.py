@@ -2,8 +2,8 @@
 
 Single CLI entry point. The TOML must carry a top-level
 ``workflow = "..."`` field (one of ``simulation``, ``calibration``,
-``batch``, ``overview``, ``mesh``, ``comparison``, ``method-comparison``,
-``testbed``). Absence raises ``WorkflowMissingError``.
+``batch``, ``overview``, ``mesh``, ``comparison``, ``testbed``). Absence
+raises ``WorkflowMissingError``.
 """
 
 from __future__ import annotations
@@ -247,8 +247,6 @@ def _infer_workflow_from_sections(raw_toml: dict) -> str:
         return "mesh"
     if "comparison" in raw_toml:
         return "comparison"
-    if "method_comparison" in raw_toml:
-        return "method-comparison"
     if "testbed" in raw_toml:
         return "testbed"
     return "simulation"

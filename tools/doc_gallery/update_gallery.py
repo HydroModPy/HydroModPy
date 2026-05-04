@@ -2441,7 +2441,7 @@ def _add_horizontal_colorbar(fig, mappable, *, axes, label: str):
 def _load_committed_method_comparison_payload(
     comparison_root: Path,
 ) -> tuple[dict[str, Any], dict[str, Any], list[dict[str, Any]]] | None:
-    """Reuse committed method-comparison artifacts when they already exist."""
+    """Reuse committed variant-comparison artifacts when they already exist."""
 
     manifest_path = comparison_root / "comparison_manifest.json"
     metrics_path = comparison_root / "comparison_metrics.json"
@@ -2480,7 +2480,7 @@ def _build_method_comparison_payload(
     committed_manifest_path = cfg.comparison_root / "comparison_manifest.json"
     if section.run_variants and not committed_manifest_path.exists():
         raise ValueError(
-            "Capability-gallery method comparison cases with run_variants=true "
+            "Capability-gallery variant comparison cases with run_variants=true "
             "must reuse one committed comparison_manifest.json."
         )
     if committed_manifest_path.exists():
@@ -2516,7 +2516,7 @@ def _build_method_comparison_payload(
                     run_folder = (cfg.base_dir / run_folder).resolve()
         if run_folder is None:
             raise ValueError(
-                f"Capability-gallery method comparison case '{config_path}' requires "
+                f"Capability-gallery variant comparison case '{config_path}' requires "
                 f"a committed run_folder for variant '{variant.id}'."
             )
         if not run_folder.exists():
@@ -2560,7 +2560,7 @@ def _build_method_comparison_payload(
     )
 
     manifest = {
-        "schema_version": "method_comparison_manifest_v1",
+        "schema_version": "comparison_manifest_v1",
         "comparison_id": section.comparison_id,
         "config_path": str(config_path),
         "run_variants": section.run_variants,
@@ -2573,7 +2573,7 @@ def _build_method_comparison_payload(
         "observables": [observable.model_dump(mode="json") for observable in section.observable],
     }
     metrics_payload = {
-        "schema_version": "method_comparison_metrics_v1",
+        "schema_version": "comparison_metrics_v1",
         "comparison_id": section.comparison_id,
         "reference_variant": reference_variant,
         "summary": summary_metrics,
@@ -4225,7 +4225,7 @@ def _generate_method_comparison_case(spec: GalleryCaseSpec, source_root: Path) -
             return _build_unavailable_case_summary(
                 spec,
                 reason=(
-                    "The method-comparison config and committed comparison artifacts needed "
+                    "The variant-comparison config and committed comparison artifacts needed "
                     "to regenerate this page are not available in the current checkout."
                 ),
                 missing_paths=spec.source_paths,
@@ -4246,7 +4246,7 @@ def _generate_method_comparison_case(spec: GalleryCaseSpec, source_root: Path) -
     )
     if focus_variant_id == "":
         raise ValueError(
-            f"No non-reference variant available for method comparison case '{spec.slug}'"
+            f"No non-reference variant available for variant comparison case '{spec.slug}'"
         )
 
     variant_labels = {
@@ -6825,28 +6825,28 @@ def _build_method_comparison_parameter_docs(case: dict[str, Any]) -> dict[str, A
     if not config_path:
         config_path = _find_first_source_path(case, suffix=".toml") or ""
     payload = _load_plain_toml(config_path)
-    comparison_cfg = dict(payload.get("method_comparison", {}))
+    comparison_cfg = dict(payload.get("comparison", {}))
     if not comparison_cfg:
         return {}
 
     setup_rows: list[dict[str, Any]] = []
     _add_parameter_row(
         setup_rows,
-        field="[method_comparison] comparison_id",
+        field="[comparison] comparison_id",
         meaning="Stable identifier used to collect outputs and summary artifacts for the comparison.",
         value=comparison_cfg.get("comparison_id"),
         source=config_path,
     )
     _add_parameter_row(
         setup_rows,
-        field="[method_comparison] reference_variant",
+        field="[comparison] reference_variant",
         meaning="Variant used as the baseline when computing map-wise differences and error metrics.",
         value=comparison_cfg.get("reference_variant"),
         source=config_path,
     )
     _add_parameter_row(
         setup_rows,
-        field="[method_comparison] run_variants",
+        field="[comparison] run_variants",
         meaning="Whether the launcher reruns the variants or only reuses committed run folders.",
         value=comparison_cfg.get("run_variants"),
         source=config_path,
@@ -6871,7 +6871,7 @@ def _build_method_comparison_parameter_docs(case: dict[str, Any]) -> dict[str, A
         _add_parameter_row(
             variant_rows,
             field=f"variant.{variant_id}",
-            meaning="Compared run folder and solver definition used by the method-comparison launcher.",
+            meaning="Compared run folder and solver definition used by the variant-comparison launcher.",
             value=value,
             source=config_path,
         )

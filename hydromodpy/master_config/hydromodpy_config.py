@@ -118,7 +118,6 @@ class HydroModPyConfig(HydroModelBase):
             "overview",
             "mesh",
             "comparison",
-            "method-comparison",
             "testbed",
         ],
         Profile.USER,
@@ -126,7 +125,7 @@ class HydroModPyConfig(HydroModelBase):
         description=(
             "Workflow selector (mandatory). Must be one of "
             "'simulation', 'calibration', 'batch', 'overview', 'mesh', "
-            "'comparison', 'method-comparison', 'testbed'. "
+            "'comparison', 'testbed'. "
             "Drives dispatch in `hmp run <toml>` and in API-driven callers "
             "that instantiate `HydroModPyConfig` from a frontend form."
         ),
@@ -218,7 +217,7 @@ class HydroModPyConfig(HydroModelBase):
             "Optional analysis hub loaded from [analysis]. Aggregates "
             "[analysis.batch] (regional-lab launcher), "
             "[analysis.capability_gallery] (figure publication), and "
-            "[analysis.comparison] (method-comparison launcher)."
+            "[analysis.comparison] (variant-comparison launcher)."
         ),
     )
 
@@ -692,7 +691,7 @@ def _load_optional_analysis_section(
 
     from hydromodpy.analysis.batch.config import RegionalLabConfig
     from hydromodpy.analysis.capability_gallery import CapabilityGalleryConfig
-    from hydromodpy.analysis.comparison.config import MethodComparisonSection
+    from hydromodpy.analysis.comparison.config import ComparisonSection
 
     parsed: dict[str, Any] = {}
 
@@ -715,7 +714,7 @@ def _load_optional_analysis_section(
     if raw_comparison is not None:
         if not isinstance(raw_comparison, Mapping):
             raise ValueError("[analysis.comparison] must be a mapping")
-        parsed["comparison"] = MethodComparisonSection.model_validate(raw_comparison)
+        parsed["comparison"] = ComparisonSection.model_validate(raw_comparison)
 
     extra_keys = set(section_data) - {"batch", "capability_gallery", "comparison"}
     if extra_keys:

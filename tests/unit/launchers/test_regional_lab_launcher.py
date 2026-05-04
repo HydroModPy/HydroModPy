@@ -7,10 +7,7 @@ from pathlib import Path
 from types import SimpleNamespace
 
 from hydromodpy.analysis.batch.batch_catalog import load_site_catalog
-from hydromodpy.analysis.batch.batch_execution import (
-    _extract_comparison_child_artifacts,
-    _extract_method_comparison_child_artifacts,
-)
+from hydromodpy.analysis.batch.batch_execution import _extract_comparison_child_artifacts
 from hydromodpy.analysis.batch.batch_planning import (
     build_regional_lab_plan,
     build_run_command,
@@ -429,7 +426,7 @@ def test_regional_lab_build_run_command_dispatches_launchers(tmp_path: Path) -> 
     ]
 
 
-def test_regional_lab_keeps_legacy_method_comparison_command(tmp_path: Path) -> None:
+def test_regional_lab_rejects_removed_method_comparison_launcher(tmp_path: Path) -> None:
     config_path = _write_regional_lab_config(tmp_path, execute=False)
     config_path.write_text(
         config_path.read_text(encoding="utf-8").replace(
@@ -440,22 +437,16 @@ def test_regional_lab_keeps_legacy_method_comparison_command(tmp_path: Path) -> 
     )
     _write_csv_catalog(tmp_path)
     _write_planned_configs(tmp_path)
-    cfg = RegionalLabConfig.from_file(config_path)
-    _, planned_cases, _ = build_regional_lab_plan(cfg, load_site_catalog(cfg.catalog))
 
-    command = build_run_command(planned_cases[2], python_executable=Path("python"))
-
-    assert command == [
-        "python",
-        "-m",
-        "launchers",
-        "method-comparison",
-        "run",
-        str((tmp_path / "configs" / "compare_headwater_100km2_outlet_2.toml").resolve()),
-    ]
+    try:
+        RegionalLabConfig.from_file(config_path)
+    except ValueError as exc:
+        assert "Unsupported regional_lab.recipe launcher 'method-comparison'" in str(exc)
+    else:
+        raise AssertionError("method-comparison launcher should be rejected")
 
 
-def test_regional_lab_extracts_method_comparison_child_artifacts(tmp_path: Path) -> None:
+def test_regional_lab_extracts_variant_comparison_child_artifacts(tmp_path: Path) -> None:
     config_path = tmp_path / "compare_case.toml"
     comparison_root = tmp_path / "comparison_outputs"
     comparison_root.mkdir(parents=True, exist_ok=True)
@@ -495,15 +486,15 @@ def test_regional_lab_extracts_method_comparison_child_artifacts(tmp_path: Path)
     config_path.write_text(
         "\n".join(
             [
-                "[method_comparison]",
+                "[comparison]",
                 'comparison_id = "demo_compare"',
                 f'output_root = "{comparison_root.as_posix()}"',
                 "",
-                "[[method_comparison.variant]]",
+                "[[comparison.variant]]",
                 'id = "reference"',
                 'run_folder = "runs/reference"',
                 "",
-                "[[method_comparison.observable]]",
+                "[[comparison.observable]]",
                 'name = "head"',
                 'variable = "head"',
                 'support = "point"',
@@ -514,8 +505,9 @@ def test_regional_lab_extracts_method_comparison_child_artifacts(tmp_path: Path)
         encoding="utf-8",
     )
 
-    artifacts = _extract_method_comparison_child_artifacts(config_path)
+    artifacts = _extract_comparison_child_artifacts(config_path)
 
+    assert artifacts["child_artifact_kind"] == "comparison"
     assert artifacts["child_artifact_status"] == "resolved"
     assert artifacts["child_comparison_id"] == "demo_compare"
     assert artifacts["child_reference_variant"] == "reference"

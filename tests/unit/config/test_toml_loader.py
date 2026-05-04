@@ -411,14 +411,13 @@ def test_hydromodpy_config_from_json_uses_toml_normalization(tmp_path: Path) -> 
     assert cfg.geographic.dem_init_path == dem_path.resolve()
 
 
-def test_hydromodpy_config_accepts_method_comparison_workflow(tmp_path: Path) -> None:
-    cfg = HydroModPyConfig.from_dict(
-        {
-            "workflow": "method-comparison",
-            "workspace": {"root": str(tmp_path)},
-            "geographic": {"source_mode": "synthetic"},
-        },
-        base_dir=tmp_path,
-    )
-
-    assert cfg.workflow == "method-comparison"
+def test_hydromodpy_config_rejects_removed_variant_comparison_workflow(tmp_path: Path) -> None:
+    with pytest.raises(ValueError, match="variant-comparison"):
+        HydroModPyConfig.from_dict(
+            {
+                "workflow": "variant-comparison",
+                "workspace": {"root": str(tmp_path)},
+                "geographic": {"source_mode": "synthetic"},
+            },
+            base_dir=tmp_path,
+        )

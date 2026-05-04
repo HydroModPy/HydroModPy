@@ -134,26 +134,26 @@ def test_generate_method_comparison_case_smoke(tmp_path: Path) -> None:
         assert source_path.exists()
         copyfile(source_path, committed_root / target_name)
 
-    config_path = tmp_path / "run_method_comparison_example12_map_existing.toml"
+    config_path = tmp_path / "run_comparison_example12_map_existing.toml"
     config_path.write_text(
         f"""
-[method_comparison]
+[comparison]
 comparison_id = "example12_map_method_comparison"
 output_root = "{committed_root.as_posix()}"
 run_variants = false
 reference_variant = "mf6_gmsh_existing"
 
-[[method_comparison.variant]]
+[[comparison.variant]]
 id = "mf6_gmsh_existing"
 label = "MODFLOW 6"
 run_folder = "mf6_gmsh_existing"
 
-[[method_comparison.variant]]
+[[comparison.variant]]
 id = "boussinesq_reused_gmsh"
 label = "Boussinesq"
 run_folder = "boussinesq_reused_gmsh"
 
-[[method_comparison.observable]]
+[[comparison.observable]]
 name = "watertable_elevation_map"
 variable = "watertable_elevation"
 support = "map"

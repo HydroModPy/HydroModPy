@@ -15,7 +15,7 @@ import numpy as np
 import pytest
 
 from hydromodpy.analysis.comparison import visuals_render_maps
-from hydromodpy.analysis.comparison.config import MethodComparisonFineRaster
+from hydromodpy.analysis.comparison.config import ComparisonFineRaster
 from hydromodpy.analysis.comparison.visuals_format import (
     _apply_time_ticks,
     _format_time_tick_label,
@@ -574,7 +574,7 @@ def test_build_fine_grid_resolution_too_large_returns_none() -> None:
 
 
 def test_resolve_fine_grid_bounds_too_few_extents_returns_none() -> None:
-    fine = MethodComparisonFineRaster(enabled=True, resolution=1.0, extent_mode="union")
+    fine = ComparisonFineRaster(enabled=True, resolution=1.0, extent_mode="union")
     payloads = [_scatter_payload(extent=(0.0, 1.0, 0.0, 1.0))]
     assert (
         _resolve_fine_grid_bounds(payloads=payloads, fine_raster=fine, reference_variant=None)
@@ -583,7 +583,7 @@ def test_resolve_fine_grid_bounds_too_few_extents_returns_none() -> None:
 
 
 def test_resolve_fine_grid_bounds_intersection() -> None:
-    fine = MethodComparisonFineRaster(enabled=True, resolution=1.0, extent_mode="intersection")
+    fine = ComparisonFineRaster(enabled=True, resolution=1.0, extent_mode="intersection")
     payloads = [
         _scatter_payload(variant_id="a", extent=(0.0, 4.0, 0.0, 4.0)),
         _scatter_payload(variant_id="b", extent=(2.0, 6.0, 2.0, 6.0)),
@@ -593,7 +593,7 @@ def test_resolve_fine_grid_bounds_intersection() -> None:
 
 
 def test_resolve_fine_grid_bounds_intersection_disjoint_returns_none() -> None:
-    fine = MethodComparisonFineRaster(enabled=True, resolution=1.0, extent_mode="intersection")
+    fine = ComparisonFineRaster(enabled=True, resolution=1.0, extent_mode="intersection")
     payloads = [
         _scatter_payload(variant_id="a", extent=(0.0, 1.0, 0.0, 1.0)),
         _scatter_payload(variant_id="b", extent=(5.0, 6.0, 5.0, 6.0)),
@@ -605,7 +605,7 @@ def test_resolve_fine_grid_bounds_intersection_disjoint_returns_none() -> None:
 
 
 def test_resolve_fine_grid_bounds_union() -> None:
-    fine = MethodComparisonFineRaster(enabled=True, resolution=1.0, extent_mode="union")
+    fine = ComparisonFineRaster(enabled=True, resolution=1.0, extent_mode="union")
     payloads = [
         _scatter_payload(variant_id="a", extent=(0.0, 4.0, 0.0, 4.0)),
         _scatter_payload(variant_id="b", extent=(2.0, 6.0, 2.0, 6.0)),
@@ -615,7 +615,7 @@ def test_resolve_fine_grid_bounds_union() -> None:
 
 
 def test_resolve_fine_grid_bounds_reference_uses_reference_extent() -> None:
-    fine = MethodComparisonFineRaster(enabled=True, resolution=1.0, extent_mode="reference")
+    fine = ComparisonFineRaster(enabled=True, resolution=1.0, extent_mode="reference")
     payloads = [
         _scatter_payload(variant_id="a", extent=(0.0, 4.0, 0.0, 4.0)),
         _scatter_payload(variant_id="b", extent=(2.0, 6.0, 2.0, 6.0)),

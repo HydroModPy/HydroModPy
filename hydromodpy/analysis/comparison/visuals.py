@@ -1,4 +1,4 @@
-"""Top-level orchestrator for method-comparison visual outputs."""
+"""Top-level orchestrator for variant-comparison visual outputs."""
 
 from __future__ import annotations
 
@@ -7,7 +7,7 @@ from typing import Any
 
 import numpy as np
 
-from hydromodpy.analysis.comparison.config import MethodComparisonConfig
+from hydromodpy.analysis.comparison.config import ComparisonConfig
 from hydromodpy.analysis.comparison.visuals_payloads import (
     MapPayload,
     _build_case_configuration_payload,
@@ -41,7 +41,7 @@ from hydromodpy.analysis.comparison.visuals_style import _is_flux_like_name, _sl
 
 def generate_comparison_figures(
     *,
-    cfg: MethodComparisonConfig,
+    cfg: ComparisonConfig,
     variant_summaries: list[dict[str, Any]],
     rows: list[dict[str, Any]],
     detail_metrics: list[dict[str, Any]],
@@ -67,10 +67,10 @@ def generate_comparison_figures(
         for summary in variant_summaries
         if summary.get("status") in {"completed", "reused"}
     }
-    variants = {variant.id: variant for variant in cfg.method_comparison.variant if variant.enabled}
+    variants = {variant.id: variant for variant in cfg.comparison.variant if variant.enabled}
 
     artifacts: list[dict[str, Any]] = []
-    fine_raster = cfg.method_comparison.fine_raster
+    fine_raster = cfg.comparison.fine_raster
     try:
         case_payload = _build_case_configuration_payload(
             cfg=cfg,
@@ -90,7 +90,7 @@ def generate_comparison_figures(
                 }
             )
 
-    for observable in cfg.method_comparison.observable:
+    for observable in cfg.comparison.observable:
         if observable.support != "map":
             continue
         payloads: list[MapPayload] = []
