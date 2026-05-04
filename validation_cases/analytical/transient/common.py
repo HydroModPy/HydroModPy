@@ -175,6 +175,10 @@ def load_transient_profile_outputs(
         x_max_m=reference_cfg.get("xmax"),
         y_min_m=reference_cfg.get("ymin"),
         y_max_m=reference_cfg.get("ymax"),
+        collapse_y_to_x_profile=(
+            str(case_metadata.get("dimension", "")).strip().lower() == "1d"
+            and mesh_bundle_dir is not None
+        ),
     )
 
     expected_periods_by_solver = output_cfg.get("expected_periods_by_solver", {})

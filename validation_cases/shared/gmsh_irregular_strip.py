@@ -35,6 +35,23 @@ def _load_bundle_cell_centroids(bundle_dir: Path) -> tuple[np.ndarray, np.ndarra
     )
 
 
+def _load_bundle_cell_centroids_and_areas(
+    bundle_dir: Path,
+) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    cells = np.genfromtxt(
+        bundle_dir / "cells.csv",
+        delimiter=",",
+        names=True,
+        dtype=None,
+        encoding="utf-8",
+    )
+    return (
+        np.asarray(cells["centroid_x"], dtype=float).reshape(-1),
+        np.asarray(cells["centroid_y"], dtype=float).reshape(-1),
+        np.asarray(cells["area_m2"], dtype=float).reshape(-1),
+    )
+
+
 def _load_bundle_xy_extents(bundle_dir: Path) -> tuple[float, float, float, float]:
     nodes = np.genfromtxt(
         bundle_dir / "nodes.csv",
@@ -423,6 +440,61 @@ def write_gmsh22_triangle_mesh_from_bundle_csv(
     return mesh_path
 
 
+def _collapse_bundle_history_to_x_profile_grids(
+    history: np.ndarray,
+    *,
+    bundle_dir: Path,
+    nx: int,
+    ny: int,
+    x_min_m: float | None = None,
+    x_max_m: float | None = None,
+) -> np.ndarray:
+    """Reduce cell histories to area-weighted x profiles tiled across rows."""
+
+    centroid_x, _centroid_y, cell_area = _load_bundle_cell_centroids_and_areas(bundle_dir)
+    if history.shape[1] != centroid_x.size:
+        raise ValueError(
+            f"History cell count {history.shape[1]} does not match bundle cell count {centroid_x.size}."
+        )
+
+    inferred_x_min_m, inferred_x_max_m, _inferred_y_min_m, _inferred_y_max_m = (
+        _load_bundle_xy_extents(bundle_dir)
+    )
+    x_min = inferred_x_min_m if x_min_m is None else float(x_min_m)
+    x_max = inferred_x_max_m if x_max_m is None else float(x_max_m)
+    x_edges = np.linspace(x_min, x_max, int(nx) + 1, dtype=float)
+    profiles = np.full((history.shape[0], int(nx)), np.nan, dtype=float)
+
+    for col_idx in range(int(nx)):
+        left = float(x_edges[col_idx])
+        right = float(x_edges[col_idx + 1])
+        if col_idx == int(nx) - 1:
+            mask = (centroid_x >= left) & (centroid_x <= right)
+        else:
+            mask = (centroid_x >= left) & (centroid_x < right)
+        if np.any(mask):
+            profiles[:, col_idx] = np.average(
+                history[:, mask],
+                axis=1,
+                weights=cell_area[mask],
+            )
+
+    for time_idx in range(profiles.shape[0]):
+        profile = profiles[time_idx]
+        if not np.isnan(profile).any():
+            continue
+        valid_idx = np.flatnonzero(~np.isnan(profile))
+        if valid_idx.size == 0:
+            raise ValueError("Cannot collapse bundle history: no x bin contains a cell centroid.")
+        profiles[time_idx] = np.interp(
+            np.arange(profile.size, dtype=float),
+            valid_idx.astype(float),
+            profile[valid_idx],
+        )
+
+    return np.repeat(profiles[:, None, :], int(ny), axis=1)
+
+
 def interpolate_bundle_history_to_structured_grids(
     values: np.ndarray,
     *,
@@ -433,13 +505,16 @@ def interpolate_bundle_history_to_structured_grids(
     x_max_m: float | None = None,
     y_min_m: float | None = None,
     y_max_m: float | None = None,
+    collapse_y_to_x_profile: bool = False,
 ) -> np.ndarray:
     """Project one time-cell history onto a regular ``ny x nx`` validation grid.
 
     The projection uses nearest-cell assignment from the irregular triangle
     centroids onto the structured cell centers. This is intentionally the same
     light-touch reduction used by the transient sloping-hillslope investigation
-    utilities.
+    utilities. When ``collapse_y_to_x_profile`` is true, values are first reduced
+    to one area-weighted x profile and then tiled across rows for 1D analytical
+    comparisons on an unstructured strip.
     """
 
     history = np.asarray(values, dtype=float)
@@ -447,6 +522,16 @@ def interpolate_bundle_history_to_structured_grids(
         history = history.reshape(1, -1)
     if history.ndim != 2:
         raise ValueError("Bundle interpolation expects a time-cell history array.")
+
+    if collapse_y_to_x_profile:
+        return _collapse_bundle_history_to_x_profile_grids(
+            history,
+            bundle_dir=Path(bundle_dir),
+            nx=nx,
+            ny=ny,
+            x_min_m=x_min_m,
+            x_max_m=x_max_m,
+        )
 
     centroid_x, centroid_y = _load_bundle_cell_centroids(Path(bundle_dir))
     if history.shape[1] != centroid_x.size:

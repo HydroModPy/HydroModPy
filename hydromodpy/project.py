@@ -35,6 +35,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+from hydromodpy.core.exceptions import ConfigError
 from hydromodpy.core.logging import get_logger
 from hydromodpy.project_accessors import ProjectDataAccessor, ProjectRunsAccessor
 from hydromodpy.project_catalog import ProjectCatalog
@@ -375,6 +376,33 @@ class Project:
             name_template=name_template,
             parallel=parallel,
         )
+
+    def overview(self, *, config_path: str | Path | None = None):
+        """Generate the watershed identity card."""
+        from hydromodpy.workflow.pipelines.overview import DataOverviewLauncher
+
+        path = config_path if config_path is not None else self._config_path
+        if path is None:
+            raise ConfigError("project.overview() requires a TOML path for now")
+        return DataOverviewLauncher(path).run()
+
+    def compare(self, *, config_path: str | Path | None = None):
+        """Run the comparison workflow declared in a TOML config."""
+        from hydromodpy.analysis.comparison.dispatch import run_comparison_config
+
+        path = config_path if config_path is not None else self._config_path
+        if path is None:
+            raise ConfigError("project.compare() requires a TOML path for now")
+        return run_comparison_config(path)
+
+    def batch(self, *, config_path: str | Path | None = None, **kwargs):
+        """Run the regional-batch workflow."""
+        from hydromodpy.analysis.batch.runtime import RegionalLabLauncher
+
+        path = config_path if config_path is not None else self._config_path
+        if path is None:
+            raise ConfigError("project.batch() requires a TOML path for now")
+        return RegionalLabLauncher(path).run(**kwargs)
 
     def calibrate(
         self,

@@ -65,6 +65,14 @@ providers: a readable DEM, a coherent watershed boundary, and no CRS surprise.
    shifted, cropped, inverted, or empty, fix the local file metadata before
    changing solver settings.
 
+.. figure:: /_static/user_guide/data/spatial_local_dem_hydrography_example.png
+   :alt: Local custom DEM and hydrography example
+   :width: 100%
+
+   The generated local example shows the same custom-data principle on a
+   smaller support: the raster and vector layers must agree spatially before
+   any downstream workflow trusts them.
+
 Local vectors
 -------------
 
@@ -111,6 +119,13 @@ the loaded river layer must make sense on the basin support.
 
    Custom river data is authoritative only after it has passed this spatial
    check. A correct file path is not enough.
+
+.. figure:: /_static/user_guide/data/geology_property_brittany_local.png
+   :alt: Local custom geology property transfer example
+   :width: 100%
+
+   Local vector data can also become model-facing parameters. Here the geology
+   code joins to a ``K`` table, then the result is transferred to a mesh field.
 
 Local point and time-series folders
 -----------------------------------
@@ -161,6 +176,14 @@ instead of reshaping source files:
    col_datetime = "date"
    col_value = "Q"
    station_ids = ["J1234010"]
+
+.. figure:: /_static/user_guide/data/observations_local_timeseries_examples.png
+   :alt: Local custom observation chronicles
+   :width: 100%
+
+   The same directory convention can carry discharge, groundwater level, or
+   chemistry. The chronicle figure is where units, gaps, and temporal coverage
+   become visible.
 
 The overview panels should then show both the selected stations and the
 chronicles that were actually ingested.

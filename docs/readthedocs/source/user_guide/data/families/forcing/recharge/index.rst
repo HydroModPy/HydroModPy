@@ -44,6 +44,21 @@ Visual check
 Use the climatic summary for source-period checks and the water budget for
 post-solver confirmation that recharge was consumed as intended.
 
+.. figure:: /_static/user_guide/data/forcing_local_recharge_runoff_example.png
+   :alt: Local custom recharge source series
+   :width: 100%
+
+   For ``custom`` recharge, this is the first useful figure: the chronicle
+   shows coverage and aggregate input before stress-period aggregation.
+
+.. figure:: /_static/user_guide/data/sim2_grid_forcing_example.png
+   :alt: SIM2 recharge grid and climate cycle
+   :width: 100%
+
+   For ``sim2`` recharge, inspect the grid support as well as the temporal
+   forcing context. A valid file path is not enough if the spatial support or
+   selected period is wrong.
+
 .. toctree::
    :maxdepth: 1
 

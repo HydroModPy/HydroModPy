@@ -46,6 +46,14 @@ Visual check
    The discharge chronicle should show station identity, date coverage, gaps,
    and magnitude before it is used for calibration or comparison.
 
+.. figure:: /_static/user_guide/data/observations_local_timeseries_examples.png
+   :alt: Local hydrometry chronicle alongside other observation families
+   :width: 100%
+
+   The first panel is a local hydrometry chronicle. It illustrates the
+   minimum custom-source check: the station has a readable period, magnitude,
+   and event structure before it becomes a calibration or comparison target.
+
 Downstream uses
 ---------------
 

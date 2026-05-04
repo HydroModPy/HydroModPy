@@ -1,0 +1,176 @@
+schema_version = "comparison_stability_targets_v1"
+
+# Minimal stabilized Boussinesq/MODFLOW 6 cases.
+# These checks validate already materialized outputs; they do not run solvers.
+
+[[case]]
+id = "dupuit_mf6_vs_bouss"
+comparison_root = "outputs/dupuit_mf6_vs_bouss"
+allowed_audit_status = ["pass"]
+required_variants = ["mf6_ref", "bouss_candidate"]
+required_figures = [
+  "case_configuration.png",
+  "head_map_last__triptych__mf6_ref__vs__bouss_candidate.png",
+  "head_map_last__difference__mf6_ref__vs__bouss_candidate.png",
+  "bouss_candidate__budget_diagnostics.png",
+]
+
+[[case.metric]]
+variant_id = "bouss_candidate"
+observable = "head_map_last"
+n_pairs_min = 100
+mae_max = 0.03
+rmse_max = 0.04
+max_abs_error_max = 0.12
+
+[[case.metric]]
+variant_id = "bouss_candidate"
+observable = "head_west_last"
+n_pairs_min = 1
+max_abs_error_max = 0.01
+
+[[case.metric]]
+variant_id = "bouss_candidate"
+observable = "head_middle_last"
+n_pairs_min = 1
+max_abs_error_max = 0.01
+
+[[case.metric]]
+variant_id = "bouss_candidate"
+observable = "head_east_last"
+n_pairs_min = 1
+max_abs_error_max = 0.01
+
+[[case]]
+id = "natural_mesh_10km2_transient_pulse_mf6_vs_bouss"
+comparison_root = "outputs/natural_mesh_10km2_transient_pulse_mf6_vs_bouss"
+# This case intentionally allows warn because the current audit reports known
+# head-above-top and recharge-budget semantic warnings while the head comparison
+# itself remains close. Those warnings should stay visible, not hidden.
+allowed_audit_status = ["pass", "warn"]
+required_variants = ["mf6_ref", "bouss_candidate"]
+required_figures = [
+  "case_configuration.png",
+  "head_points_dashboard.png",
+  "head_map_pulse__triptych__mf6_ref__vs__bouss_candidate.png",
+  "head_map_last__triptych__mf6_ref__vs__bouss_candidate.png",
+  "head_east_series__timeseries.png",
+  "bouss_candidate__budget_diagnostics.png",
+]
+
+[[case.metric]]
+variant_id = "bouss_candidate"
+observable = "head_map_initial"
+n_pairs_min = 500
+rmse_max = 0.001
+max_abs_error_max = 0.001
+
+[[case.metric]]
+variant_id = "bouss_candidate"
+observable = "head_map_pulse"
+n_pairs_min = 500
+mae_max = 0.03
+rmse_max = 0.04
+max_abs_error_max = 0.08
+
+[[case.metric]]
+variant_id = "bouss_candidate"
+observable = "head_map_last"
+n_pairs_min = 500
+mae_max = 0.05
+rmse_max = 0.06
+max_abs_error_max = 0.60
+
+[[case.metric]]
+variant_id = "bouss_candidate"
+observable = "head_west_series"
+n_pairs_min = 25
+rmse_max = 0.04
+max_abs_error_max = 0.05
+
+[[case.metric]]
+variant_id = "bouss_candidate"
+observable = "head_middle_series"
+n_pairs_min = 25
+rmse_max = 0.04
+max_abs_error_max = 0.05
+
+[[case.metric]]
+variant_id = "bouss_candidate"
+observable = "head_east_series"
+n_pairs_min = 25
+rmse_max = 0.04
+max_abs_error_max = 0.05
+
+[[case]]
+id = "nancon_transient_seasonal_hydrography_mf6_vs_bouss"
+comparison_root = "outputs/nancon_transient_seasonal_hydrography_mf6_vs_bouss"
+# Nancon is kept as a broad stress-test lock. The thresholds are intentionally
+# loose because the current case still mixes strong topographic interception,
+# hydrography loading, and solver-specific surface accounting.
+allowed_audit_status = ["pass", "warn"]
+required_variants = ["mf6_ref", "bouss_candidate"]
+required_figures = [
+  "case_configuration.png",
+  "head_points_dashboard.png",
+  "head_map_wet_winter__fine_raster_triptych__mf6_ref__vs__bouss_candidate.png",
+  "head_map_last__fine_raster_triptych__mf6_ref__vs__bouss_candidate.png",
+  "head_outlet_series__timeseries.png",
+  "bouss_candidate__budget_diagnostics.png",
+]
+
+[[case.metric]]
+variant_id = "bouss_candidate"
+observable = "head_map_after_first_week"
+n_pairs_min = 6000
+rmse_max = 26.0
+max_abs_error_max = 85.0
+
+[[case.metric]]
+variant_id = "bouss_candidate"
+observable = "head_map_wet_winter"
+n_pairs_min = 6000
+rmse_max = 45.0
+max_abs_error_max = 130.0
+
+[[case.metric]]
+variant_id = "bouss_candidate"
+observable = "head_map_spring_recession"
+n_pairs_min = 6000
+rmse_max = 28.0
+max_abs_error_max = 90.0
+
+[[case.metric]]
+variant_id = "bouss_candidate"
+observable = "head_map_summer_storm"
+n_pairs_min = 6000
+rmse_max = 28.0
+max_abs_error_max = 90.0
+
+[[case.metric]]
+variant_id = "bouss_candidate"
+observable = "head_map_last"
+n_pairs_min = 6000
+rmse_max = 32.0
+max_abs_error_max = 95.0
+
+[[case.metric]]
+variant_id = "bouss_candidate"
+observable = "head_eastern_plateau_series"
+n_pairs_min = 45
+rmse_max = 10.0
+max_abs_error_max = 25.0
+
+[[case.metric]]
+variant_id = "bouss_candidate"
+observable = "head_mid_catchment_series"
+n_pairs_min = 45
+rmse_max = 24.0
+max_abs_error_max = 40.0
+
+[[case.metric]]
+variant_id = "bouss_candidate"
+observable = "head_outlet_series"
+n_pairs_min = 45
+rmse_max = 45.0
+max_abs_error_max = 65.0

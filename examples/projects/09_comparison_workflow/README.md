@@ -134,3 +134,39 @@ observables, and the recharge chronicle.
 
 Then open the `*triptych*.png` figures. They show the reference head field, the
 candidate head field, and the candidate-minus-reference difference in one panel.
+
+## Stability checks
+
+Once a comparison has been run, the post-run stability checker verifies that the
+materialized outputs still satisfy explicit thresholds. It does not launch any
+solver; it reads `comparison_manifest.json`, `comparison_audit.json`,
+`comparison_metrics.json`, and selected figures.
+
+```powershell
+python examples/projects/09_comparison_workflow/check_comparison_stability.py
+```
+
+The default target file is:
+
+```text
+examples/projects/09_comparison_workflow/stability_targets.toml
+```
+
+Run one stabilized case only:
+
+```powershell
+python examples/projects/09_comparison_workflow/check_comparison_stability.py --case natural_mesh_10km2_transient_pulse_mf6_vs_bouss
+```
+
+The first stabilized cases are:
+
+- `dupuit_mf6_vs_bouss`: compact synthetic shared-mesh MF6/Boussinesq lock.
+- `natural_mesh_10km2_transient_pulse_mf6_vs_bouss`: natural transient pulse
+  lock with known audit warnings kept visible.
+- `nancon_transient_seasonal_hydrography_mf6_vs_bouss`: broad Nancon stress
+  test lock. Its thresholds are intentionally loose because the case still
+  exposes large configuration-sensitive MF6/Boussinesq differences.
+
+The Nancon target is not a tight accuracy claim. It is a stability sentinel: it
+flags sudden regressions while keeping the current audit warnings and large
+head discrepancies visible.

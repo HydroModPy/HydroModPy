@@ -46,6 +46,14 @@ Visual check
    Piezometry records should be checked for product meaning, date coverage,
    gaps, and vertical reference before they are compared to simulated heads.
 
+.. figure:: /_static/user_guide/data/observations_local_timeseries_examples.png
+   :alt: Local piezometry chronicle alongside other observation families
+   :width: 100%
+
+   The middle panel is a local piezometry chronicle. It keeps the groundwater
+   level semantics separate from discharge and chemistry even though the file
+   convention is similar.
+
 Downstream uses
 ---------------
 

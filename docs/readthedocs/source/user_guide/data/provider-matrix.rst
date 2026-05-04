@@ -8,6 +8,21 @@ under ``hydromodpy.data.variables``.
 For operational details, examples, and source-specific checks, use the expanded
 :doc:`families/index` section. This page remains the compact inventory.
 
+Visual source matrix
+--------------------
+
+The table below is the same information in a more visual form. Read it from
+left to right: source values are useful only after the payload shape, first
+diagnostic, and downstream use are clear.
+
+.. figure:: /_static/user_guide/data/data_family_source_matrix.png
+   :alt: Matrix of HydroModPy data families and supported source groups
+   :width: 100%
+
+   The colored cells group sources by role: local files, public geographic
+   providers, Hub'Eau observations, SIM2 forcing, SHOM coastal data, and
+   controlled sources such as synthetic or constant values.
+
 Family inventory
 ----------------
 
@@ -116,6 +131,31 @@ basin report.
 
    Forcing providers should be checked through period coverage and aggregate
    forcing summaries before their values are sent to a solver.
+
+Provider replay cases
+---------------------
+
+The compact matrix tells which providers exist. The replay cases show what
+their committed artifacts look like and which providers still need a locked
+network refresh before they deserve a stable gallery page.
+
+.. figure:: /_static/user_guide/data/hubeau_provider_replay_examples.png
+   :alt: Hub'Eau provider replay across observation families
+   :width: 100%
+
+   Hub'Eau covers several observation families. Treating all of them as one
+   generic time series would hide the station metadata, quality fields, and
+   different semantics.
+
+.. figure:: /_static/user_guide/data/hydrography_provider_replay_examples.png
+   :alt: Hydrography provider replay for custom and BD Topage data
+   :width: 100%
+
+   Hydrography provider examples need source-specific comparisons. The current
+   replay is stable for custom and BD Topage; OSM and EU-Hydro still need
+   committed replay artifacts.
+
+Open :doc:`provider-replay-cases` for the complete provider replay page.
 
 Provider families
 -----------------

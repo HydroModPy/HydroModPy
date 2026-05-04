@@ -1,0 +1,23 @@
+# Nancon monthly transient diagnostic base.
+#
+# This case keeps the same monthly recharge and physical parameters as the
+# first transient MF6/NWT pilot, but replaces the saturated-at-top start by a
+# common initial water table 10 m below each model top. It is meant to isolate
+# whether the large head differences are driven by the effective first state
+# created by firstpersteady.
+
+base_config = "base_nancon_transient_monthly_hydrography_mesh_input.toml"
+workflow = "simulation"
+
+[workspace]
+project_root = "outputs/nancon_transient_monthly_mf6_disv_vs_nwt_ic_diagnostic/shared_workspace"
+root = "../../"
+
+[simulation]
+name = "nancon_transient_monthly_hydrography_mesh_input_ic10m_shared_case"
+description = "Nancon monthly transient diagnostic with observed hydrography, same recharge, and initial head 10 m below top."
+on_collision = "replace"
+
+[flow.ic]
+type = "top_offset"
+value = "10 m"

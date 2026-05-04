@@ -358,6 +358,42 @@ When the Boussinesq run exposes lower-obstacle state histories, also inspect
 potential negative storage volume, active ``q_dry`` cells, and surface-excess
 cells for each saved snapshot.
 
+Post-Run Stability Checks
+-------------------------
+
+After a comparison has been materialized, use the stability checker when you
+want a quick non-regression answer without relaunching the solvers:
+
+.. code-block:: powershell
+
+   python examples/projects/09_comparison_workflow/check_comparison_stability.py
+
+The checker reads the already written comparison outputs:
+
+- ``comparison_manifest.json`` for completed variants,
+- ``comparison_audit.json`` for the accepted audit status,
+- ``comparison_metrics.json`` for explicit metric thresholds,
+- selected files under ``comparison_figures/``.
+
+The default targets live in:
+
+.. code-block:: text
+
+   examples/projects/09_comparison_workflow/stability_targets.toml
+
+Those targets are deliberately narrower than the full example set. The first
+locked cases are:
+
+- ``dupuit_mf6_vs_bouss`` for a compact synthetic shared-mesh check,
+- ``natural_mesh_10km2_transient_pulse_mf6_vs_bouss`` for the controlled
+  transient pulse case,
+- ``nancon_transient_seasonal_hydrography_mf6_vs_bouss`` as a broad Nancon
+  stress-test sentinel.
+
+The Nancon target is deliberately loose. It is useful for detecting sudden
+regressions in a realistic workflow, but it is not yet a tight accuracy claim:
+current MF6/Boussinesq differences remain large and configuration-sensitive.
+
 Allowed Variant Overlays
 ------------------------
 

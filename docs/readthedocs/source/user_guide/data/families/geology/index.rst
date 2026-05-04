@@ -60,6 +60,16 @@ Visual check
 Property transfer check
 -----------------------
 
+.. figure:: /_static/user_guide/data/geology_property_brittany_local.png
+   :alt: Local geology-to-hydraulic-conductivity transfer case
+   :width: 100%
+
+   This generated data-doc case starts from a versioned BRGM-style geology
+   vector, joins a local property table, rasterizes the geology support on a
+   mesh, and displays the resulting ``K`` field. It is the most direct
+   documentation proof that geology can become a solver-facing parameter
+   support instead of remaining a background map.
+
 .. figure:: /_static/capability_gallery/hydraulic_properties/hydraulic_conductivity_geology_transfer_brittany.png
    :alt: Geology-driven hydraulic conductivity transfer
    :width: 100%

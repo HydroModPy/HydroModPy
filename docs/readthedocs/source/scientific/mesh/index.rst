@@ -88,7 +88,7 @@ Main Questions
      - :doc:`/capability_gallery/cases/modflow6_irregular_tri_xt3d_method_choice`
    * - How does vertical representation affect storage and thickness?
      - :doc:`../solvers/vertical-representation-and-storage-assumptions`
-     - Validation and method-comparison cases that reuse the same support.
+     - Validation and comparison cases that reuse the same support.
 
 Capability Gallery Contract
 ---------------------------

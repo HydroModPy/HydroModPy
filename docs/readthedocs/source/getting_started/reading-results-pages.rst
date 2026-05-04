@@ -32,17 +32,17 @@ Know which question the page answers
    * - Capability-gallery case
      - What does this workflow or artifact look like as a stable, curated snapshot?
      - It is not the full run workspace and not always the best place to learn the editable config from scratch.
-   * - Method-comparison page
+   * - Comparison page
      - How different are two solver outputs on the same saved support?
      - A small discrepancy is not the same thing as analytical correctness.
    * - Validation page
      - Does one numerical path reproduce an analytical or trusted reference within explicit tolerances?
      - Good validation does not automatically mean every complex real-case setup is configured correctly.
 
-Method-comparison pages
------------------------
+Comparison pages
+----------------
 
-Use a method-comparison page such as
+Use a comparison page such as
 :doc:`../capability_gallery/cases/example12_map_method_comparison` when the
 main question is solver agreement.
 

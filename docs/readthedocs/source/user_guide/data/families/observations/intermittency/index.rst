@@ -46,6 +46,22 @@ Visual check
    coding, dates, and stations readable before it is compared with a simulated
    active network.
 
+Local deterministic run
+-----------------------
+
+The repository also includes a local intermittency-only case under
+``hydromodpy/data/variables/intermittency/cases``. It is useful for explaining
+the custom file convention without relying on an online Hub'Eau request.
+
+.. figure:: /_static/user_guide/data/intermittency_local_state_example.png
+   :alt: Local custom intermittency state timeline and state-count histogram
+   :width: 100%
+
+   The timeline checks whether station identifiers, dates, and categorical
+   state codes were loaded as intended. The histogram makes the balance between
+   dry, transitional, and flowing states visible before the data are compared
+   with a simulated active network.
+
 Downstream uses
 ---------------
 

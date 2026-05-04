@@ -1,0 +1,67 @@
+{
+  "_schema_version": "1.0",
+  "intercomparison_expected": {
+    "signature_schema_version": "intercomparison_signature_v1",
+    "metrics_schema_version": "simulation_comparison_metrics_v1",
+    "audit_schema_version": "simulation_comparison_audit_v1",
+    "comparison_id": "natural_mesh_10km2_transient_pulse_mf6_vs_bouss",
+    "reference_variant": "mf6_ref",
+    "audit_status": "warn",
+    "summary": {
+      "bouss_candidate::head_east_series": {
+        "unit": "m",
+        "n_pairs": 31,
+        "bias": 0.021149289174492342,
+        "mae": 0.021149289174492342,
+        "rmse": 0.024538341784328437,
+        "max_abs_error": 0.029867334084542563,
+        "mean_relative_error": 9.562686809214962e-05
+      },
+      "bouss_candidate::head_map_initial": {
+        "unit": "m",
+        "n_pairs": 547,
+        "bias": 0.0,
+        "mae": 0.0,
+        "rmse": 0.0,
+        "max_abs_error": 0.0,
+        "mean_relative_error": 0.0
+      },
+      "bouss_candidate::head_map_last": {
+        "unit": "m",
+        "n_pairs": 547,
+        "bias": 0.02663082469727193,
+        "mae": 0.027294059049941567,
+        "rmse": 0.034834954202452466,
+        "max_abs_error": 0.44278996470697507,
+        "mean_relative_error": 0.00012339491452739612
+      },
+      "bouss_candidate::head_map_pulse": {
+        "unit": "m",
+        "n_pairs": 547,
+        "bias": 0.020065663762578335,
+        "mae": 0.020065663762578335,
+        "rmse": 0.020471249253725735,
+        "max_abs_error": 0.04122050210341399,
+        "mean_relative_error": 9.0803892950862e-05
+      },
+      "bouss_candidate::head_middle_series": {
+        "unit": "m",
+        "n_pairs": 31,
+        "bias": 0.019632918090344044,
+        "mae": 0.019632918090344044,
+        "rmse": 0.02278247389983293,
+        "max_abs_error": 0.02768157766010404,
+        "mean_relative_error": 8.87694804760104e-05
+      },
+      "bouss_candidate::head_west_series": {
+        "unit": "m",
+        "n_pairs": 31,
+        "bias": 0.016309259032207212,
+        "mae": 0.016309259032207212,
+        "rmse": 0.01892757822160465,
+        "max_abs_error": 0.023003499580454445,
+        "mean_relative_error": 7.374008262750184e-05
+      }
+    }
+  }
+}

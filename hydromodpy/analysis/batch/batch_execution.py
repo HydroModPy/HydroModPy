@@ -116,33 +116,20 @@ def _extract_simulation_child_artifacts(config_path: Path) -> dict[str, Any]:
     return artifacts
 
 
-def _extract_method_comparison_child_artifacts(config_path: Path) -> dict[str, Any]:
-    """Extract compact method-comparison artifacts from one child launcher config."""
-    from hydromodpy.analysis.comparison.config import MethodComparisonConfig
-    from hydromodpy.core.toml_io.loader import load_toml_with_base_config
-
+def _extract_comparison_output_artifacts(
+    *,
+    comparison_root: Path,
+    child_kind: str,
+) -> dict[str, Any]:
+    """Extract compact comparison artifacts from one resolved output folder."""
+    resolved_root = comparison_root.resolve()
     artifacts: dict[str, Any] = {
-        "child_artifact_kind": "method_comparison",
-        "child_artifact_status": "unavailable",
+        "child_artifact_kind": child_kind,
+        "child_artifact_status": "resolved",
+        "child_comparison_root": str(resolved_root),
     }
-    try:
-        payload = load_toml_with_base_config(config_path)
-        cfg = MethodComparisonConfig.from_toml(payload, config_path=config_path)
-    except Exception as exc:
-        artifacts["child_artifact_status"] = "config_parse_failed"
-        artifacts["child_artifact_error_type"] = type(exc).__name__
-        artifacts["child_artifact_error_message"] = str(exc)
-        return artifacts
 
-    comparison_root = cfg.comparison_root.resolve()
-    artifacts.update(
-        {
-            "child_artifact_status": "resolved",
-            "child_comparison_root": str(comparison_root),
-        }
-    )
-
-    manifest_path = comparison_root / "comparison_manifest.json"
+    manifest_path = resolved_root / "comparison_manifest.json"
     manifest_payload = _read_json_file_if_exists(manifest_path)
     if manifest_payload is not None:
         artifacts["child_comparison_manifest_json"] = str(manifest_path.resolve())
@@ -172,7 +159,7 @@ def _extract_method_comparison_child_artifacts(config_path: Path) -> dict[str, A
             artifacts["child_completed_variant_count"] = completed_count
             artifacts["child_failed_variant_count"] = failed_count
 
-    metrics_path = comparison_root / "comparison_metrics.json"
+    metrics_path = resolved_root / "comparison_metrics.json"
     metrics_payload = _read_json_file_if_exists(metrics_path)
     if metrics_payload is not None:
         artifacts["child_comparison_metrics_json"] = str(metrics_path.resolve())
@@ -199,10 +186,60 @@ def _extract_method_comparison_child_artifacts(config_path: Path) -> dict[str, A
     return artifacts
 
 
+def _extract_comparison_child_artifacts(config_path: Path) -> dict[str, Any]:
+    """Extract compact comparison artifacts from one child launcher config."""
+    from hydromodpy.analysis.comparison.experiment_config import SimulationComparisonConfig
+    from hydromodpy.core.toml_io.loader import load_toml_with_base_config
+
+    artifacts: dict[str, Any] = {
+        "child_artifact_kind": "comparison",
+        "child_artifact_status": "unavailable",
+    }
+    try:
+        payload = load_toml_with_base_config(config_path)
+        cfg = SimulationComparisonConfig.from_toml(payload, config_path=config_path)
+    except Exception as exc:
+        artifacts["child_artifact_status"] = "config_parse_failed"
+        artifacts["child_artifact_error_type"] = type(exc).__name__
+        artifacts["child_artifact_error_message"] = str(exc)
+        return artifacts
+
+    return _extract_comparison_output_artifacts(
+        comparison_root=cfg.comparison_root,
+        child_kind="comparison",
+    )
+
+
+def _extract_method_comparison_child_artifacts(config_path: Path) -> dict[str, Any]:
+    """Extract compact method-comparison artifacts from one child launcher config."""
+    from hydromodpy.analysis.comparison.config import ComparisonConfig
+    from hydromodpy.core.toml_io.loader import load_toml_with_base_config
+
+    artifacts: dict[str, Any] = {
+        "child_artifact_kind": "method_comparison",
+        "child_artifact_status": "unavailable",
+    }
+    try:
+        payload = load_toml_with_base_config(config_path)
+        cfg = ComparisonConfig.from_toml(payload, config_path=config_path)
+    except Exception as exc:
+        artifacts["child_artifact_status"] = "config_parse_failed"
+        artifacts["child_artifact_error_type"] = type(exc).__name__
+        artifacts["child_artifact_error_message"] = str(exc)
+        return artifacts
+
+    return _extract_comparison_output_artifacts(
+        comparison_root=cfg.comparison_root,
+        child_kind="method_comparison",
+    )
+
+
 def _extract_child_case_artifacts(case: RegionalLabPlannedCase) -> dict[str, Any]:
     """Extract launcher-specific child artifacts for one planned case."""
     if case.launcher == "simulation":
         return _extract_simulation_child_artifacts(case.config_path)
+    if case.launcher == "comparison":
+        return _extract_comparison_child_artifacts(case.config_path)
     if case.launcher == "method-comparison":
         return _extract_method_comparison_child_artifacts(case.config_path)
     return {
