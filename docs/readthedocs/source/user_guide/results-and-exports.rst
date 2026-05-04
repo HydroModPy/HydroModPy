@@ -17,6 +17,11 @@ its heavy payloads live beside it under ``simulations/``:
 - ``simulations/<basename>.parquet/*.parquet``: per-simulation tabular payloads
   such as timeseries, budgets, and mass balance, exposed through DuckDB views.
 
+``<basename>`` is normally ``<project>__<name>__<shortuuid>``. Older
+workspaces may still use the full raw ``sim_id`` on disk; they remain readable,
+and can be normalized explicitly with
+``catalog.normalize_storage_names(dry_run=False)`` or from ``hmp manage``.
+
 Result Store Map
 ----------------
 

@@ -65,6 +65,8 @@ Canonical Layout
 The ``simulations`` filenames use a human-readable basename built from
 ``project``, ``name``, and the first characters of ``sim_id``. The database
 identity remains the full ``sim_id`` stored in ``hydromodpy.duckdb``.
+Legacy workspaces that still use the raw UUID as filename remain readable;
+``hmp manage`` can preview and explicitly normalize those names.
 
 Scaffold a workspace with ``hmp init``:
 

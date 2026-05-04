@@ -91,7 +91,8 @@ Command inventory
    * - ``hmp manage``
      - Local catalog UI
      - Open a local browser UI for DuckDB tables, result diagnostics, and
-       explicit cleanup of selected simulation/orphan artefacts.
+       explicit cleanup or legacy-name normalization of selected result
+       artefacts.
    * - ``hmp install-binaries``
      - Solver binaries
      - Download MODFLOW, MODPATH, and MT3D-USGS binaries into the managed
