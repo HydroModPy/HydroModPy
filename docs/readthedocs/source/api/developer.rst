@@ -47,9 +47,12 @@ Developer pages may expose objects that are not stable user API. If an
 internal object becomes useful for users or scientific scripts, promote it to
 the user or scientific layer and document the canonical import path there.
 
+Developer API Pages
+-------------------
+
 .. toctree::
-   :hidden:
    :maxdepth: 2
+   :titlesonly:
 
    hydromodpy-workflow-pipeline
    hydromodpy-tools

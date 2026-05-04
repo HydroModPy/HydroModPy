@@ -94,9 +94,12 @@ objects should follow :doc:`api/docstring-policy`: a direct first sentence,
 clear parameters, returned objects, raised errors, a short example, and related
 objects when useful.
 
+API Navigation
+--------------
+
 .. toctree::
-   :hidden:
    :maxdepth: 2
+   :titlesonly:
 
    User API <api/user>
    Scientific API <api/scientific>

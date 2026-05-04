@@ -68,9 +68,12 @@ The scientific API is not a shortcut around validation. Build objects through
 documented config models when possible. Direct internal imports are for
 developer work and belong in :doc:`developer`.
 
+Scientific API Pages
+--------------------
+
 .. toctree::
-   :hidden:
    :maxdepth: 2
+   :titlesonly:
 
    hydromodpy-geographic
    hydromodpy-data

@@ -87,9 +87,12 @@ Import Rule
 Prefer the documented public path. If two paths expose the same concept, the
 path shown in this API section is the one to use in user code.
 
+User API Pages
+--------------
+
 .. toctree::
-   :hidden:
    :maxdepth: 2
+   :titlesonly:
 
    hydromodpy-project-results
    hydromodpy-config
