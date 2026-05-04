@@ -15,7 +15,7 @@ import os
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
-from uuid import UUID
+from uuid import UUID, uuid4
 
 import numpy as np
 import pandas as pd
@@ -27,6 +27,8 @@ from hydromodpy.results.array_fingerprint import fingerprint
 from hydromodpy.results.catalog.storage_paths import sanitize_segment
 from hydromodpy.results.catalog_schema import GLOBAL_ZONE, ensure_parquet_views
 from hydromodpy.results.spatial_index import point_in_cell
+from hydromodpy.results.storage_contract import PARQUET_FILE_SUFFIX
+from hydromodpy.results.zarr_store import _windows_long_path
 
 PARQUET_SCHEMA_VERSION = "v1.0"
 
@@ -880,11 +882,17 @@ class WritesMixin:
             path = Path(geoparquet_path)
             return path if path.is_absolute() else self._workspace / path
         safe_name = sanitize_segment(feature_name)
-        return self._paths.parquet_dir_for(sim_id) / f"geographic_{safe_name}.parquet"
+        target = (
+            self._paths.parquet_dir_for(sim_id) / f"geographic_{safe_name}{PARQUET_FILE_SUFFIX}"
+        )
+        if os.name == "nt" and len(str(target.resolve())) >= 240:
+            digest = hashlib.sha1(safe_name.encode("utf-8")).hexdigest()[:16]
+            return self._paths.parquet_dir_for(sim_id) / f"geographic_{digest}{PARQUET_FILE_SUFFIX}"
+        return target
 
     def _write_geographic_feature_parquet(self, gdf: gpd.GeoDataFrame, target: Path) -> None:
-        target.parent.mkdir(parents=True, exist_ok=True)
-        tmp = target.with_name(target.name + ".tmp")
+        _windows_long_path(target.parent).mkdir(parents=True, exist_ok=True)
+        tmp = target.parent / f".hmp-{uuid4().hex[:8]}.tmp"
         if tmp.exists():
             tmp.unlink()
         plain = gdf.drop(columns=[gdf.geometry.name]).copy()
@@ -898,13 +906,13 @@ class WritesMixin:
         ]
         self._db.register("_hmp_geographic_feature", plain)
         try:
-            tmp_sql = str(tmp).replace("'", "''")
+            tmp_sql = tmp.as_posix().replace("'", "''")
             self._db.execute(
                 f"COPY (SELECT * FROM _hmp_geographic_feature) TO '{tmp_sql}' (FORMAT PARQUET)"
             )
         finally:
             self._db.unregister("_hmp_geographic_feature")
-        os.replace(tmp, target)
+        os.replace(_windows_long_path(tmp), _windows_long_path(target))
 
     @with_lock_retry()
     def write_geographic_metadata(

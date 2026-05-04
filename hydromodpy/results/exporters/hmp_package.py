@@ -43,6 +43,12 @@ from hydromodpy.results.geographic_cache import (
     MANIFEST_FILENAME,
     GeographicCache,
 )
+from hydromodpy.results.storage_contract import (
+    PARQUET_DIR_SUFFIX,
+    PARQUET_FILE_SUFFIX,
+    SIMULATIONS_DIRNAME,
+    ZARR_ZIP_SUFFIX,
+)
 
 if TYPE_CHECKING:
     import duckdb
@@ -52,7 +58,7 @@ logger = get_logger(__name__)
 MANIFEST_NAME = "manifest.json"
 README_NAME = "README.md"
 CATALOG_SNAPSHOT_NAME = "catalog_snapshot.duckdb"
-ZARR_ARCHIVE_NAME = "simulation.zarr.zip"
+ZARR_ARCHIVE_NAME = f"simulation{ZARR_ZIP_SUFFIX}"
 GEOGRAPHIC_SUBDIR = "geographic"
 INPUTS_SUBDIR = "inputs"
 INPUTS_MANIFEST_NAME = "manifest.json"
@@ -106,7 +112,7 @@ def _materialise_parquet(
     dst_dir = staging / PARQUET_SUBDIR
     copied: list[str] = []
     for view in PARQUET_VIEW_NAMES:
-        src = src_dir / f"{view}.parquet"
+        src = src_dir / f"{view}{PARQUET_FILE_SUFFIX}"
         if not src.is_file():
             continue
         dst_dir.mkdir(parents=True, exist_ok=True)
@@ -129,7 +135,7 @@ def _dematerialise_parquet(
     dst_dir.mkdir(parents=True, exist_ok=True)
     copied: list[str] = []
     for src in sorted(src_dir.iterdir()):
-        if src.suffix != ".parquet":
+        if src.suffix != PARQUET_FILE_SUFFIX:
             continue
         shutil.copy2(src, dst_dir / src.name)
         copied.append(src.name)
@@ -793,7 +799,7 @@ def import_hmp_package(
             project_final = row[0] if row else None
             name_final = row[1] if row else None
             basename = build_storage_basename(project_final, name_final, sid)
-            zarr_path = f"simulations/{basename}.zarr.zip"
+            zarr_path = f"{SIMULATIONS_DIRNAME}/{basename}{ZARR_ZIP_SUFFIX}"
             catalog.connection.execute(
                 "UPDATE simulations SET zarr_path = ?, storage_basename = ? WHERE sim_id = ?",
                 [zarr_path, basename, sid],
@@ -809,7 +815,10 @@ def import_hmp_package(
         dst.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(pkg / ZARR_ARCHIVE_NAME, dst)
 
-        _dematerialise_parquet(pkg, workspace / "simulations" / f"{basename}.parquet")
+        _dematerialise_parquet(
+            pkg,
+            workspace / SIMULATIONS_DIRNAME / f"{basename}{PARQUET_DIR_SUFFIX}",
+        )
         # Refresh Parquet views so the freshly-materialised files become
         # visible to subsequent ``SELECT ... FROM <view>`` calls on the
         # caller's catalog connection.

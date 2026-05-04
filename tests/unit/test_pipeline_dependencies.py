@@ -30,8 +30,8 @@ def _toy_pipeline() -> tuple[_StubStep, ...]:
     return (
         _StubStep("validate", ("workspace", "simulation")),
         _StubStep("resolve", ("workspace", "simulation")),
-        _StubStep("load_data", ("data",)),
         _StubStep("build_geographic", ("geographic", "data.dem")),
+        _StubStep("load_data", ("data",)),
         _StubStep("build_mesh", ("domain.supports",)),
         _StubStep("setup_process", ("domain.depth_model", "flow.ic", "simulation")),
         _StubStep("prepare_solver", ("flow", "transport", "solver")),
@@ -52,7 +52,7 @@ class TestEarliestAffectedStep:
     def test_geographic_override_lands_on_build_geographic(self) -> None:
         steps = _toy_pipeline()
         idx = earliest_affected_step({"geographic.buff_area"}, steps)
-        assert idx == 3
+        assert idx == 2
 
     def test_domain_supports_cell_size_hits_build_mesh(self) -> None:
         steps = _toy_pipeline()
@@ -64,11 +64,11 @@ class TestEarliestAffectedStep:
         idx = earliest_affected_step(
             {
                 "flow.param.K.field_homogeneous.value",  # hits step 6
-                "geographic.buff_area",  # hits step 3
+                "geographic.buff_area",  # hits step 2
             },
             steps,
         )
-        assert idx == 3
+        assert idx == 2
 
     def test_dotted_section_matches_exact_only_with_boundary(self) -> None:
         """`flow_rate` must NOT match the section `flow`.

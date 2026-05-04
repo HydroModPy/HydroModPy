@@ -10,6 +10,7 @@ from hydromodpy.workflow.internals.state import (
     DerivedState,
     ExportedState,
     ExtractedState,
+    GeographicState,
     LoadedState,
     MeshedState,
     OpenStoreState,
@@ -27,7 +28,8 @@ from hydromodpy.workflow.internals.state import (
 
 def test_state_inheritance_chain_is_linear() -> None:
     assert issubclass(ResolvedState, ValidatedState)
-    assert issubclass(LoadedState, ResolvedState)
+    assert issubclass(GeographicState, ResolvedState)
+    assert issubclass(LoadedState, GeographicState)
     assert issubclass(MeshedState, LoadedState)
     assert issubclass(SetupState, MeshedState)
     assert issubclass(OpenStoreState, SetupState)
@@ -63,6 +65,7 @@ def test_resolved_state_extends_validated_with_plans() -> None:
     [
         ValidatedState,
         ResolvedState,
+        GeographicState,
         LoadedState,
         MeshedState,
         SetupState,
@@ -150,9 +153,9 @@ def test_each_step_class_declares_tin_tout() -> None:
     expected = [
         (ValidateStep, None, ValidatedState),
         (ResolveStep, ValidatedState, ResolvedState),
-        (LoadDataStep, ResolvedState, LoadedState),
-        (BuildGeographicStep, LoadedState, MeshedState),
-        (BuildMeshStep, MeshedState, MeshedState),
+        (BuildGeographicStep, ResolvedState, GeographicState),
+        (LoadDataStep, GeographicState, LoadedState),
+        (BuildMeshStep, LoadedState, MeshedState),
         (SetupProcessStep, MeshedState, SetupState),
         (PrepareSolverStep, SetupState, OpenStoreState),
         (RunSolverStep, OpenStoreState, SolverRanState),
@@ -163,3 +166,10 @@ def test_each_step_class_declares_tin_tout() -> None:
     for cls, tin, tout in expected:
         assert cls.tin is tin, f"{cls.__name__}.tin"
         assert cls.tout is tout, f"{cls.__name__}.tout"
+
+
+def test_standard_step_order_matches_phase_contract() -> None:
+    from hydromodpy.workflow.orchestrator import standard_steps
+    from hydromodpy.workflow.phases import STANDARD_PIPELINE_STEP_NAMES
+
+    assert tuple(step.name for step in standard_steps()) == STANDARD_PIPELINE_STEP_NAMES

@@ -289,10 +289,10 @@ def cleanup_run(
 def standard_steps() -> tuple:
     """Return the canonical ordered tuple of simulation pipeline steps.
 
-    Order matches the ``Project`` model phase: build the geographic
-    runtime (which populates ``setup.domain``), load the external
-    forcings (which need ``setup.domain``), then build the mesh and the
-    process objects, then prepare and run the solver.
+    Order matches the shared phase contract in
+    :mod:`hydromodpy.workflow.phases`: build the geographic/domain runtime,
+    load data into that runtime, build/import the mesh, bind processes, then
+    prepare and run the solver.
     """
     from hydromodpy.workflow.steps import (
         BuildGeographicStep,

@@ -36,6 +36,8 @@ from typing import TYPE_CHECKING
 
 import pandas as pd
 
+from hydromodpy.results.storage_contract import ZARR_ZIP_SUFFIX
+
 if TYPE_CHECKING:
     from collections.abc import Iterator
     from pathlib import Path
@@ -62,7 +64,7 @@ def _open_simulation_lazy(catalog: SimulationCatalog, sim_id: str) -> xr.Dataset
     from hydromodpy.results import field_registry
 
     zarr_path = catalog.zarr_path_for(sim_id)
-    if str(zarr_path).endswith(".zarr.zip"):
+    if str(zarr_path).endswith(ZARR_ZIP_SUFFIX):
         store = zarr.storage.ZipStore(str(zarr_path), mode="r")
         root = zarr.open_group(store, mode="r")
     else:

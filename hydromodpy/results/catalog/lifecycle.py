@@ -14,6 +14,7 @@ from uuid import UUID
 from hydromodpy.core.io.db_retry import with_lock_retry
 from hydromodpy.core.logging import get_logger
 from hydromodpy.results.catalog_schema import PER_SIM_TABLE_NAMES, ensure_parquet_views
+from hydromodpy.results.storage_contract import SIMULATIONS_DIRNAME, ZARR_SUFFIX, ZARR_ZIP_SUFFIX
 from hydromodpy.results.zarr_store import SimulationZarr
 
 if TYPE_CHECKING:
@@ -52,10 +53,12 @@ class LifecycleMixin:
 
     def open_zarr(self, sim_id: str | UUID) -> SimulationZarr:
         basename = self._paths.basename_for(sim_id)
-        zarr_zip = self._simulations_dir / f"{basename}.zarr.zip"
+        zarr_zip = self._simulations_dir / f"{basename}{ZARR_ZIP_SUFFIX}"
         if zarr_zip.exists():
             return self._track_zarr_handle(SimulationZarr(zarr_zip))
-        return self._track_zarr_handle(SimulationZarr(self._simulations_dir / f"{basename}.zarr"))
+        return self._track_zarr_handle(
+            SimulationZarr(self._simulations_dir / f"{basename}{ZARR_SUFFIX}")
+        )
 
     def cleanup(
         self,
@@ -89,7 +92,7 @@ class LifecycleMixin:
         zarr_packed = False
         if status == "completed":
             basename = self._paths.basename_for(sid)
-            zarr_dir = self._simulations_dir / f"{basename}.zarr"
+            zarr_dir = self._simulations_dir / f"{basename}{ZARR_SUFFIX}"
             if zarr_dir.is_dir():
                 try:
                     self._close_open_zarr_handles()
@@ -97,7 +100,7 @@ class LifecycleMixin:
                     try:
                         sz.consolidate_metadata()
                         zip_path = sz.pack_to_zip()
-                        rel_zarr_path = f"simulations/{zip_path.name}"
+                        rel_zarr_path = f"{SIMULATIONS_DIRNAME}/{zip_path.name}"
                         zarr_packed = True
                     finally:
                         sz.close()
