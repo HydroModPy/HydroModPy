@@ -34,6 +34,24 @@ _log_manager = LogManager(mode="verbose", log_dir=None, overwrite=False)
 # Public access to log manager for users
 log_manager = _log_manager
 
+_DIRECT_EXPORTS = [
+    "open",
+    "run",
+    "calibrate",
+    "catalog",
+    "overview",
+    "batch",
+    "compare",
+    "compare_pair",
+    "mesh",
+    "testbed",
+    "report",
+    "bootstrap_proj",
+    "doctor",
+    "log_manager",
+    "__version__",
+]
+
 
 def __getattr__(name: str):
     if name in _MODULE_EXPORTS:
@@ -53,78 +71,6 @@ def __getattr__(name: str):
     raise AttributeError(f"module 'hydromodpy' has no attribute {name!r}")
 
 
-__all__ = [
-    # Entry points
-    "open",
-    "run",
-    "calibrate",
-    "catalog",
-    "overview",
-    "batch",
-    "compare",
-    "compare_pair",
-    "mesh",
-    "testbed",
-    "report",
-    "bootstrap_proj",
-    "doctor",
-    # Core infrastructure
-    "Workspace",
-    "WorkspaceConfig",
-    "HydroModPyConfig",
-    # Spatial / physics
-    "CatchmentDelineation",
-    "GeographicConfig",
-    "HydroMesh",
-    "DomainConfig",
-    "Subbasin",
-    "FlowConfig",
-    "FlowProcess",
-    "TransportConfig",
-    "TransportProcess",
-    # Solvers
-    "ModflowNwt",
-    "Modflow6",
-    "Modpath",
-    "Mt3dms",
-    "Boussinesq",
-    # Project / run / catalog API
-    "Project",
-    "Run",
-    "SimulationConfig",
-    "SimulationPlan",
-    "SimulationCatalog",
-    "CatalogIndex",
-    "SimulationGroup",
-    # Data variables
-    "DataManagersConfig",
-    "DemConfig",
-    "GeologyConfig",
-    "HydrometryConfig",
-    "PiezometryConfig",
-    "RechargeConfig",
-    "HydrographyConfig",
-    "HydrographyManager",
-    "IntermittencyConfig",
-    "IntermittencyManager",
-    "OceanicConfig",
-    "OceanicManager",
-    # Sub-modules
-    "analysis",
-    "calibration",
-    "core",
-    "data",
-    "master_config",
-    "physics",
-    "pipeline",
-    "results",
-    "simulation",
-    "solver",
-    "spatial",
-    "workflow",
-    # Misc
-    "log_manager",
-    "__version__",
-]
+__all__ = [*_DIRECT_EXPORTS, *_LAZY_IMPORTS, *_MODULE_EXPORTS]
 
 bootstrap()
