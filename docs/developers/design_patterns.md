@@ -38,7 +38,7 @@ ligne dans le registre.
 ## 2. Pipeline Step
 
 Emplacement : `hydromodpy/workflow/steps/`, base dans
-`hydromodpy/pipeline/step.py`.
+`hydromodpy/workflow/internals/step.py`.
 
 Un step est une fonction pure `(WorkflowContext) -> WorkflowContext` (ou
 un sous-contexte restreint). Chaque step met à jour exactement une scope

@@ -360,7 +360,7 @@ to re-run even if its own sections did not match (step 08 Extract, for
 instance, has empty `config_sections`, yet it re-runs because it
 consumes the state produced by step 07).
 
-Implementation: `hydromodpy/pipeline/dependencies.py:earliest_affected_step`.
+Implementation: `hydromodpy/workflow/internals/dependencies.py:earliest_affected_step`.
 Per-step annotations: `config_sections: ClassVar[tuple[str, ...]]` on
 each of the 12 `step_<nn>_*.py` modules.
 
