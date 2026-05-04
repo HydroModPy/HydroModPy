@@ -29,7 +29,7 @@ Project and run objects
    ~hydromodpy.results.run.Run
    ~hydromodpy.results.catalog.SimulationCatalog
    ~hydromodpy.results.simulation_group.SimulationGroup
-   ~hydromodpy.results.config.ResultsConfig
+   ~hydromodpy.simulation.planning.results_config.ResultsConfig
 
 Export helpers
 --------------

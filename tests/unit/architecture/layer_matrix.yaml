@@ -35,7 +35,6 @@ tolerances:
   - {src: cli,         tgt: "<root>", reason: "CLI dispatch delegates to public Project facade"}
   - {src: master_config, tgt: "<root>", reason: "module entrypoint delegates to hydromodpy.__main__"}
   - {src: results,     tgt: "<root>", reason: "Run.rerun launches public Project facade"}
-  - {src: results,     tgt: simulation, reason: "results.config compatibility facade re-exports simulation planning config"}
   - {src: workflow,    tgt: "<root>", reason: "sweep helper accepts Project facade instances"}
   - {src: analysis,    tgt: display,  reason: "comparison exports reuse plot mesh loading"}
   - {src: analysis,    tgt: solver,   reason: "comparison runtime resolves solver families"}
