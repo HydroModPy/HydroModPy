@@ -21,11 +21,13 @@ For the standard simulation workflow, the runtime path is:
 2. ``HydroModPyConfig.from_toml(...)`` builds the typed config tree
 3. ``hydromodpy/project.py`` instantiates the public ``Project``
    facade and runs setup, data, and optional mesh preparation
-4. ``hydromodpy/simulation/planning/planner.py``
-5. ``hydromodpy/simulation/execution/runner.py``
-6. one registered adapter under ``hydromodpy/simulation/adapters/``
-7. one concrete solver package under ``hydromodpy/solver/``
-8. solver-side postprocess and catalog persistence through
+4. ``hydromodpy/workflow/runner.py`` executes the canonical Pipeline
+   step sequence when checkpoint/resume is needed
+5. ``hydromodpy/simulation/planning/planner.py``
+6. ``hydromodpy/simulation/execution/runner.py``
+7. one registered adapter under ``hydromodpy/simulation/adapters/``
+8. one concrete solver package under ``hydromodpy/solver/``
+9. solver-side postprocess and catalog persistence through
    ``hydromodpy/results/catalog.py``
 
 Step 1: config loading and project bootstrap
@@ -33,7 +35,8 @@ Step 1: config loading and project bootstrap
 
 The CLI is a thin entry point. ``hmp run`` reads the TOML, dispatches
 based on the top-level ``workflow = "..."`` field, then instantiates
-``Project``. ``Project`` owns the bootstrap:
+``Project`` or dispatches to a workflow launcher. ``Project`` owns the
+user-facing session bootstrap:
 
 - it validates the typed config tree,
 - it keeps the raw TOML for optional top-level sections,
@@ -43,6 +46,7 @@ based on the top-level ``workflow = "..."`` field, then instantiates
 
 This stays project-level code because these concerns mix paths,
 workspaces, optional top-level sections, and runtime state assembly.
+Ordered execution itself belongs to ``Pipeline``.
 
 Step 2: setup, data, and optional mesh phases
 ---------------------------------------------
@@ -50,12 +54,12 @@ Step 2: setup, data, and optional mesh phases
 Before any solver run is planned, ``Project`` prepares the shared
 runtime context:
 
-- ``setup_workspace`` creates the workspace catalog and the project
-  layout,
-- ``build_geographic`` builds the catchment delineation, DEM, and
-  domain-facing state,
+- ``setup_workspace`` bootstraps the workspace anchor, geographic runtime,
+  domain, and process objects,
+- ``build_geographic`` marks that geographic/domain runtime ready and
+  invalidates downstream state when rerun,
 - ``load_data`` resolves the required forcing and observation
-  families,
+  families and binds them to the runtime,
 - ``build_mesh`` either builds a runtime Gmsh mesh or loads one from
   disk.
 
@@ -130,6 +134,16 @@ Current flow backends are:
 - ``hydromodpy/solver/modflow6``
 - ``hydromodpy/solver/boussinesq``
 
+Step 7: result persistence
+--------------------------
+
+The result layer keeps one DuckDB catalog per workspace. ``prepare_solver``
+opens ``SimulationCatalog``, registers the current ``sim_id``, and creates the
+per-simulation Zarr/Parquet artefact paths. ``extract`` writes solver outputs
+into those artefacts. ``derive`` computes derived fields. ``export`` finalizes
+the catalog row, optionally packs the Zarr store, and removes transient solver
+scratch when configured to do so.
+
 Where to change what
 --------------------
 
@@ -148,6 +162,8 @@ on the kind of change:
   ``hydromodpy/simulation/adapters/``
 - change the numerical backend itself:
   ``hydromodpy/solver/<backend>/``
+- change result indexing, Zarr/Parquet storage, or finalization:
+  ``hydromodpy/results/`` and ``hydromodpy/workflow/steps/export.py``
 
 See also
 --------

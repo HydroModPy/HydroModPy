@@ -174,8 +174,10 @@ Mode 6. Cellular notebook
 -------------------------
 
 Lazy construction lets a notebook re-run only the phase that changed.
-The geographic preprocessing and the data loading run once. The mesh
-build and the simulation can iterate without re-downloading data.
+The geographic/domain runtime and the data loading run once. The mesh
+build and the simulation can iterate without re-downloading data. These
+Project verbs call the same ``workflow.steps`` helpers used by the full
+Pipeline; they are just exposed one by one for interactive work.
 
 .. code-block:: python
 

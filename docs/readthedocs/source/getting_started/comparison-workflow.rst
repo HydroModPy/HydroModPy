@@ -359,10 +359,20 @@ For transient MODFLOW 6 versus Boussinesq examples, inspect the budget
 diagnostics before interpreting head metrics alone. The same physical case can
 still expose solver-specific accounting semantics, for example whether recharge
 is applied on fixed-head cells or exported as prescribed-head outflow.
+The workflow also writes ``comparable_outflow_total_m3_s`` in the budget
+exports. This derived comparison quantity is
+``drainage_total_m3_s + surface_excess_total_m3_s`` and should be preferred
+when the question is the total groundwater release rather than the native
+mechanism that produced it.
 When the Boussinesq run exposes lower-obstacle state histories, also inspect
 ``boussinesq_obstacle_diagnostics.csv``. It reports ``min(h-z_bot)``,
 potential negative storage volume, active ``q_dry`` cells, and surface-excess
 cells for each saved snapshot.
+
+Each materialized comparison can also expose a browser-readable page at
+``web/index.html``. Treat it as the standard access point for a first review:
+it links the audit, metrics, key figures, flux dashboard, and CSV exports
+without replacing the underlying machine-readable files.
 
 Post-Run Stability Checks
 -------------------------
@@ -414,7 +424,7 @@ The main allowed overlay families are:
 - a narrow ``flow`` overlay used for runtime-backend selection.
 
 The workflow is deliberately conservative here. If the physical case changes
-too much between children, the result is no longer a clear method comparison.
+too much between children, the result is no longer a clear simulation comparison.
 
 When To Use This Workflow
 -------------------------

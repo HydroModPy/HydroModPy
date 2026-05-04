@@ -108,7 +108,7 @@ What to open first
    - ``comparison_report.md``
    - ``simulated_active_network_metrics.csv``
    - ``simulated_active_network_overlap_metrics.csv``
-   - ``run_figures/<variant>/simulated_active_network_reference_overlay.png``
+   - ``run_figures/<simulation_id>/simulated_active_network_reference_overlay.png``
 
 Where the committed result is explained
    :doc:`nancon-k-sweep-results`

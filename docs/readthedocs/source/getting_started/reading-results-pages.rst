@@ -43,7 +43,7 @@ Comparison pages
 ----------------
 
 Use a comparison page such as
-:doc:`../capability_gallery/cases/example12_map_method_comparison` when the
+:doc:`../capability_gallery/cases/example12_map_simulation_comparison` when the
 main question is solver agreement.
 
 Read them in this order:

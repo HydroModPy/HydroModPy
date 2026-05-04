@@ -174,7 +174,7 @@ Aller plus loin :
 
 Mode d'execution declare dans le TOML ou resolu par le CLI :
 `simulation`, `calibration`, `batch`, `overview`, `mesh`, `comparison`,
-`method-comparison`.
+`comparison`.
 
 Reference :
 - voir [CLI.md](CLI.md)

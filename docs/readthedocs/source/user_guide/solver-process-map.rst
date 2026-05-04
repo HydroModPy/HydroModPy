@@ -70,7 +70,7 @@ behaviour.
    * - ``boussinesq``
      - In-house shallow-groundwater flow.
      - Triangular runtime meshes.
-     - Useful for method comparisons and explicit Boussinesq-style
+     - Useful for simulation comparisons and explicit Boussinesq-style
        formulations; still under active validation.
 
 Minimal flow plan:

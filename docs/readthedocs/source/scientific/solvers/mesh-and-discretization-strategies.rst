@@ -182,7 +182,7 @@ family.
      - Triangular planar mesh
      - Shallow-groundwater finite-volume balance with explicit
        groundwater/surface-interaction closures
-     - Strong for method comparison on a shared natural mesh, but not identical
+     - Strong for simulation comparison on a shared natural mesh, but not identical
        in physical scope to a full layered MODFLOW model
 
 Why Mesh Choice Matters Scientifically

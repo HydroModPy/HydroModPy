@@ -83,13 +83,15 @@ Command inventory
      - Import a portable ``.hmp`` package into a workspace.
    * - ``hmp doctor``
      - Environment diagnosis
-     - Check Python, dependencies, solver binaries, workspace, and data cache.
+     - Check Python, dependencies, solver binaries, workspace, data cache, and
+       result-storage consistency.
    * - ``hmp inspect``
      - Run inspection
      - Inspect metadata, mesh, status, files, and persisted artifacts.
    * - ``hmp manage``
      - Local catalog UI
-     - Open a local browser UI for DuckDB tables and simulation management.
+     - Open a local browser UI for DuckDB tables, result diagnostics, and
+       explicit cleanup of selected simulation/orphan artefacts.
    * - ``hmp install-binaries``
      - Solver binaries
      - Download MODFLOW, MODPATH, and MT3D-USGS binaries into the managed

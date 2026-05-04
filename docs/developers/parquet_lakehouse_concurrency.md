@@ -12,7 +12,7 @@ cheap and writes don't re-contend.
 
 Our catalog retries at two places:
 
-- `connect_with_retry` (`hydromodpy/results/_db_retry.py`) loops over
+- `connect_with_retry` (`hydromodpy/core/io/db_retry.py`) loops over
   `duckdb.connect` with exponential backoff. Used by
   `SimulationCatalog.__init__`.
 - `@with_lock_retry()` wraps every `SimulationCatalog` write method
@@ -53,11 +53,11 @@ Every Parquet write goes through `_atomic_write_parquet`:
 The glob used by the view (`simulations/*.parquet/timeseries.parquet`)
 never matches the `.tmp` file, so a crash between step 2 and step 3
 leaves a harmless orphan. `hmp doctor` reports the orphan under
-`parquet:orphan_dirs` when the sim_id is unknown to the catalog.
+`results:parquet_tmp`.
 
 ## Concurrent writers to different sims
 
-Because each simulation owns its own `<uuid>.parquet/` directory, two
+Because each simulation owns its own `<basename>.parquet/` directory, two
 writers aimed at two different sims never contend on the Parquet files
 themselves. They do share the DuckDB catalog for metadata (the
 `simulations` row, parameter and metric inserts, and the view DDL

@@ -158,6 +158,7 @@ def test_manage_backend_exposes_and_cleans_diagnostic_paths(tmp_path):
 
     assert str(tmp_file) in cleanup_paths
     assert str(orphan) in cleanup_paths
+    assert backend.summary()["diagnostic_warning_count"] >= 1
 
     result = backend.delete_orphans(None, [str(tmp_file), str(orphan)])
 

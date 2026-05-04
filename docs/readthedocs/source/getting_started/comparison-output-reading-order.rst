@@ -28,24 +28,27 @@ Reading Order
 
 Use the order above for a first pass.
 
-1. ``comparison_audit.md``
+1. ``web/index.html``
+   Open this first when it exists. It is the generated reading page that links
+   the audit, metrics, key figures, budget tables, and child outputs.
+2. ``comparison_audit.md``
    Read this first. It tells you whether the workflow still considers the
    child runs to be one comparable physical case.
-2. ``comparison_report.md``
+3. ``comparison_report.md``
    Read this next for context: reference variant, candidate variants,
    observables, and main outputs.
-3. ``comparison_figures/case_configuration.png``
+4. ``comparison_figures/case_configuration.png``
    Open this before judging numerical differences. It shows the support,
    topography when available, detected fixed-head boundaries, point/outlet
    observables, and recharge forcing.
-4. ``comparison_metrics.csv``
+5. ``comparison_metrics.csv``
    Use this to quantify the gap: bias, MAE, RMSE, and max error.
-5. ``comparison_figures/*triptych*.png``
+6. ``comparison_figures/*triptych*.png``
    Use the figures to see where the discrepancy is concentrated.
-6. ``hydrographic_network_metrics.csv``
+7. ``hydrographic_network_metrics.csv``
    Inspect this when the compared runs both expose canonical hydrographic
    networks and geometry matters to the question.
-7. ``comparison_manifest.json``
+8. ``comparison_manifest.json``
    Keep this for traceability. It is the index that points to the report,
    metrics, generated configs, and child run folders.
 
@@ -145,6 +148,24 @@ For ``period_value`` rows, ``elapsed_seconds`` is the end of the period. Budget
 exports also carry ``period_index``, ``period_start_seconds``, and
 ``period_end_seconds`` so that interval quantities are not confused with
 instantaneous states.
+
+Comparable Outflow
+------------------
+
+For transient MODFLOW/Boussinesq comparisons, do not read drainage and surface
+excess as interchangeable native variables.
+
+- ``drainage_total_m3_s`` is the outflow through the drainage operator.
+- ``surface_excess_total_m3_s`` is the outflow associated with saturation or
+  surface excess when the backend exposes it.
+- ``comparable_outflow_total_m3_s`` is a post-processed comparison quantity:
+  ``drainage_total_m3_s + surface_excess_total_m3_s`` with missing components
+  treated as zero.
+
+Use ``comparison_figures/comparable_outflow_dashboard.png`` and
+``budget_timeseries_wide.csv`` when the question is "how much water leaves the
+groundwater system?" Keep the native components visible when the question is
+"which numerical mechanism produced the outflow?"
 
 Synthetic Shared-Mesh Case
 --------------------------
