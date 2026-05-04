@@ -26,5 +26,6 @@ documented elsewhere:
    foundations/index
    hydrology/index
    streams_and_seepage/index
+   mesh/index
    calibration/index
    solvers/index

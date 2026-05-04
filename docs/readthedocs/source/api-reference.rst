@@ -9,8 +9,7 @@ Module overview
 ---------------
 
 - :doc:`hydromodpy.config <api/hydromodpy-config>` - Pydantic parameter contracts
-  (:class:`~hydromodpy.config.hydromodpy_config.HydroModPyConfig`,
-  :class:`~hydromodpy.core.workspace.config.WorkspaceConfig`,
+  (``HydroModPyConfig``, ``WorkspaceConfig``,
   :class:`~hydromodpy.spatial.geographic.geographic_config.GeographicConfig`)
   with validated fields, type constraints, and cross-field rules.
 - :doc:`hydromodpy.spatial.geographic <api/hydromodpy-geographic>` - catchment
@@ -23,8 +22,7 @@ Module overview
   plans, variable configuration objects, and provider-specific source blocks.
 - :doc:`numerical engines and postprocess <api/hydromodpy-modeling>` - solver
   engines (MODFLOW-NWT, MODFLOW 6, Boussinesq), transport helpers, and the
-  postprocess surfaces under :mod:`hydromodpy.solver` and
-  :mod:`hydromodpy.results`.
+  postprocess surfaces under ``hydromodpy.solver`` and ``hydromodpy.results``.
 - :doc:`simulation, workflow, and pipeline <api/hydromodpy-workflow-pipeline>` -
   simulation planning objects, workflow context, explicit pipeline steps,
   checkpointing, and resume support.
@@ -58,7 +56,7 @@ Key entry points
 - :class:`hydromodpy.results.run.Run` - one persisted simulation run.
 - :class:`hydromodpy.results.catalog.SimulationCatalog` - workspace-level run
   registry and result-query surface.
-- :class:`hydromodpy.config.HydroModPyConfig` - top-level Pydantic config
+- ``HydroModPyConfig`` - top-level Pydantic config
   loaded from a TOML file.
 - :class:`hydromodpy.spatial.geographic.CatchmentDelineation` - catchment
   delineation runtime, exposed by the geographic preprocessing pipeline.

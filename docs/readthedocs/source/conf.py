@@ -274,6 +274,50 @@ autodoc_typehints = "description"
 autodoc_pydantic_settings_show_config_summary = False
 autodoc_pydantic_settings_show_json = False
 
+nitpick_ignore_regex = [
+    ("py:class", r"Annotated\[.*"),
+    ("py:class", r"Profile\..*"),
+    ("py:class", r"_?duckdb\..*"),
+    ("py:class", r"abc\.ABC"),
+    ("py:class", r"collections\.abc\..*"),
+    ("py:class", r"datetime"),
+    ("py:class", r"gpd\..*"),
+    ("py:class", r"matplotlib\..*"),
+    ("py:class", r"numpy\..*"),
+    ("py:class", r"pandas(?:\.|$).*"),
+    ("py:class", r"pathlib\..*Path"),
+    ("py:class", r"Path"),
+    ("py:class", r"pydantic(?:\.main)?\..*"),
+    ("py:class", r"torch(?:\.|$).*"),
+    ("py:class", r"UUID"),
+    ("py:class", r"xarray\..*"),
+    ("py:class", r"xr\..*"),
+    (
+        "py:class",
+        r"(AnalysisConfig|Axes|BaseModel|CalibrationConfig|ConfigError|DerivedComputation|"
+        r"DerivedResult|DisplayConfig|Domain|DomainConfig|FlowConfig|Grid|HydroModPyConfig|"
+        r"LoadedDataContext|MeshCatchmentConfig|Modflow6Config|ModflowConfig|"
+        r"ModflowPreprocessOptions|MplFigure|Objective|OverviewSection|PersistenceConfig|"
+        r"ResolvedSimulationTimeGrid|ResolvedSteadySimulationTimeGrid|Run|RunResult|"
+        r"ScalarObjective|SetupContext|SimulationCatalog|SimulationZarr|SolverConfig|Stack|"
+        r"StoragePathResolver|SyntheticGeographicConfig|TransportConfig|WhiteboxWorkflowsBackend|"
+        r"WorkspaceConfig)",
+    ),
+    (
+        "py:class",
+        r"hydromodpy\.(calibration|config|core|data|project_accessors|results|simulation|solver|"
+        r"spatial|workflow)\..*",
+    ),
+    ("py:func", r"hydromodpy\.config\.schema_export\.export_schema"),
+    (
+        "py:func",
+        r"hydromodpy\.simulation\.extraction\.extractors\.observation_ingest\.ingest_observations",
+    ),
+    ("py:mod", r"hydromodpy\.results\.field_registry"),
+    ("py:mod", r"torch"),
+    ("py:obj", r"hydromodpy\.workflow\.internals\.(state\.T|step\.TIn|step\.TOut)"),
+]
+
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ["_templates"]
 

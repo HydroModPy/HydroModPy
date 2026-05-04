@@ -54,7 +54,7 @@ class SimulationCatalog(
 
     - ``_db``: the DuckDB connection (re-acquired with retry on contention).
     - ``_workspace``: the project catalog root.
-    - ``_paths``: a :class:`StoragePathResolver` translating ``sim_id``s to
+    - ``_paths``: a :class:`StoragePathResolver` translating simulation ids to
       on-disk basenames and Parquet/Zarr paths.
     - ``_open_zarr_handles``: live :class:`SimulationZarr` handles, tracked
       so ``finalize`` and ``close`` can release them deterministically.

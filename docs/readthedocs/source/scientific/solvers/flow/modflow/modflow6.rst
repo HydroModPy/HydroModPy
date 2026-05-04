@@ -59,8 +59,7 @@ Focused Reading
    ../../xt3d-on-irregular-disv-meshes
    ../../modflow6-vs-modflownwt-scientific-comparison
    ../../../hydrology/simulated-active-network
-   ../../worked-modflow-case-dupuit-fixed-head-1d
-   ../../worked-modflow-case-linearized-unconfined-recharge-periodic-1d
+   MF6 transient reference case </capability_gallery/cases/headwater_100km2_outlet_2_mf6_transient_reference>
 
 Typical Use Cases
 -----------------
@@ -165,6 +164,5 @@ The short TOML shape above means:
 Related Architecture
 --------------------
 
-- :doc:`/architecture/solver/flow/modflow/modflow6-stack`
 - :doc:`../../../../architecture/solver/modflow6-architecture-notes`
 - :doc:`../../../../architecture/overview/hydrographic-network-simulated-active-inventory`

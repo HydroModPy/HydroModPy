@@ -165,5 +165,6 @@ Selection Notes
 Related Architecture
 --------------------
 
-- :doc:`../../../architecture/solver/flow/modflow-family`
-- :doc:`../../../architecture/solver/process-solver-registry`
+- :doc:`../../../architecture/solver/index`
+- :doc:`../../../architecture/solver/modflow6-architecture-notes`
+- :doc:`../../../architecture/solver/modflownwt-architecture-notes`

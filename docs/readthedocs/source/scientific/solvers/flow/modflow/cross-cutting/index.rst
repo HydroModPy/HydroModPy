@@ -33,9 +33,9 @@ Cross-Cutting Topics
 .. toctree::
    :maxdepth: 1
 
-   Comparison and method choice <../comparison-and-method-choice>
-   Worked cases <../worked-cases>
-   Transport coupling <../transport-coupling>
+   Comparison and method choice <../../../modflow6-vs-modflownwt-scientific-comparison>
+   Nancon transient NWT worked case <../../../worked-modflow-case-nancon-transient-nwt-etp-evt>
+   Package semantics and boundary conditions <../../../modflow-package-semantics-and-boundary-conditions>
 
 Related Sub-Categories
 ----------------------

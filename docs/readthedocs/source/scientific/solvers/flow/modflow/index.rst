@@ -66,6 +66,5 @@ Related Pages
 - :doc:`../modflow-family`
 - :doc:`../../solver-capability-matrix`
 - :doc:`../../modflow6-vs-modflownwt-scientific-comparison`
-- :doc:`../../worked-modflow-case-dupuit-fixed-head-1d`
-- :doc:`../../worked-modflow-case-linearized-unconfined-recharge-periodic-1d`
-- :doc:`../../../../architecture/solver/flow/modflow/index`
+- :doc:`../../worked-modflow-case-nancon-transient-nwt-etp-evt`
+- :doc:`../../../../architecture/solver/index`

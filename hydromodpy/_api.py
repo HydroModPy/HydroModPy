@@ -54,7 +54,7 @@ def run(config: Any, **kwargs: Any) -> Any:
 
 
 def calibrate(config: Any, **kwargs: Any) -> Any:
-    """Functional facade for :meth:`hydromodpy.Project.calibrate`."""
+    """Functional facade for ``Project.calibrate``."""
     from hydromodpy.project import Project
 
     if isinstance(config, (str, Path)):

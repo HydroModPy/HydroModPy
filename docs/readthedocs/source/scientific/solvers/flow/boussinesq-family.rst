@@ -96,5 +96,5 @@ is about mesh support, parameter transfer, or vertical representation.
 Related Architecture
 --------------------
 
-- :doc:`../../../architecture/solver/flow/boussinesq-family`
-- :doc:`../../../architecture/solver/process-solver-registry`
+- :doc:`../../../architecture/solver/index`
+- :doc:`../../../architecture/solver/boussinesq-uml-diagrams`

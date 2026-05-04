@@ -91,9 +91,9 @@ it answers "where is the workspace" by trying three branches in order:
    ``<workspace>/projects/<name>/project.toml`` and ``<workspace>`` contains
    a ``hydromodpy.duckdb`` file or a ``data/`` directory.
 
-Anything else raises :class:`~hydromodpy.core.workspace.WorkspaceError`
-with an actionable hint listing the three options. There is no walk-up
-auto-discovery and no silent fallback to ``project_root``.
+Anything else raises ``WorkspaceError`` with an actionable hint listing
+the three options. There is no walk-up auto-discovery and no silent
+fallback to ``project_root``.
 
 Diagnose resolution
 -------------------

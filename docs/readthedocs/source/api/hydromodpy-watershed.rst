@@ -10,16 +10,12 @@ split across the modern geographic, spatial-field, and data-manager packages.
 Modern replacements
 -------------------
 
-.. autosummary::
-   :nosignatures:
-   :toctree: generated/watershed
-
-   ~hydromodpy.spatial.geographic.CatchmentDelineation
-   ~hydromodpy.spatial.field.geology.GeologyField
-   ~hydromodpy.data.variables.hydrometry.manager.HydrometryManager
-   ~hydromodpy.data.variables.intermittency.manager.IntermittencyManager
-   ~hydromodpy.data.variables.piezometry.manager.PiezometryManager
-   ~hydromodpy.data.variables.oceanic.manager.OceanicManager
+- ``hydromodpy.spatial.geographic.CatchmentDelineation``
+- ``hydromodpy.spatial.field.geology.GeologyField``
+- ``hydromodpy.data.variables.hydrometry.manager.HydrometryManager``
+- ``hydromodpy.data.variables.intermittency.manager.IntermittencyManager``
+- ``hydromodpy.data.variables.piezometry.manager.PiezometryManager``
+- ``hydromodpy.data.variables.oceanic.manager.OceanicManager``
 
 Migration map
 -------------

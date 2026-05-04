@@ -13,5 +13,4 @@ Class overview
 
    ~hydromodpy.solver.modflow_nwt.nwt.ModflowNwt
    ~hydromodpy.solver.modflow_nwt.modpath.Modpath
-   ~hydromodpy.results.run.Run
    ~hydromodpy.solver.modflow_common.masstransfer.Masstransfer

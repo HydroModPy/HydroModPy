@@ -71,6 +71,6 @@ Related Pages
 -------------
 
 - :doc:`../boussinesq-family`
-- :doc:`../shared-flow-numerics`
+- :doc:`../../mesh-and-discretization-strategies`
 - :doc:`../../solver-capability-matrix`
-- :doc:`../../../../architecture/solver/flow/boussinesq-family`
+- :doc:`../../../../architecture/solver/boussinesq-uml-diagrams`

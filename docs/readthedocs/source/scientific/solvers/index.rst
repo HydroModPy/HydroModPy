@@ -16,6 +16,7 @@ The section should also become the main place for:
 .. toctree::
    :maxdepth: 2
 
+   flow/index
    boussinesq-mathematical-notes
    meshes-and-numerical-methods
    mesh-and-discretization-strategies

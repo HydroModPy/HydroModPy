@@ -38,6 +38,7 @@ Explicit pipeline
    ~hydromodpy.workflow.runner.Pipeline
    ~hydromodpy.workflow.internals.state.PipelineState
    ~hydromodpy.workflow.internals.step.Step
+   ~hydromodpy.workflow.internals.derived.DerivedComputation
    ~hydromodpy.workflow.internals.derived.DerivedRegistry
    ~hydromodpy.workflow.internals.state.ResolvedState
    ~hydromodpy.workflow.internals.state.LoadedState

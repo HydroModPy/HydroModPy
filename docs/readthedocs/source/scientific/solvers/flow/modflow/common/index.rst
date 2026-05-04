@@ -40,7 +40,6 @@ Shared Scientific Contract
 .. toctree::
    :maxdepth: 1
 
-   Shared MODFLOW concepts <../common-concepts>
    Governing equation and CVFD formulation <../../../modflow-governing-equation-and-cvfd-formulation>
    Package semantics and boundary conditions <../../../modflow-package-semantics-and-boundary-conditions>
    MODFLOW family methods <../../../modflow-family-methods>
@@ -50,4 +49,4 @@ Related Version Pages
 
 - :doc:`../modflow6-version/index`
 - :doc:`../modflownwt-version/index`
-- :doc:`../comparison-and-method-choice`
+- :doc:`../cross-cutting/index`
