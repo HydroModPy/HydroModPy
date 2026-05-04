@@ -146,9 +146,9 @@ CATEGORY_SPECS: dict[str, GalleryCategorySpec] = {
             "properties: inline units, heterogeneous zoning, depth profiles, and geology-driven transfers."
         ),
     ),
-    "method_comparison": GalleryCategorySpec(
-        slug="method_comparison",
-        title="Method Comparison",
+    "simulation_comparison": GalleryCategorySpec(
+        slug="simulation_comparison",
+        title="Simulation Comparison",
         deck="Reusable solver comparisons built from committed run folders on shared supports.",
         intro=(
             "These cases compare multiple modelling methods on the same saved support. "

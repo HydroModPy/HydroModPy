@@ -1,0 +1,87 @@
+{
+  "summary_schema_version": "capability_gallery_case_v1",
+  "slug": "ex12_mf6_nwt_moderate_same_s60",
+  "title": "MF6 vs NWT on the Same 60x60 Grid",
+  "category": "simulation_comparison",
+  "deck": "Annual moderate comparison on one shared structured grid, isolating MODFLOW-family differences from mesh effects.",
+  "summary": "This case compares MODFLOW 6 and MODFLOW-NWT on the exact same 60x60 structured support. It keeps the more readable annual moderate forcing while removing the mesh family difference, so the page focuses on solver behaviour, native flux diagnostics, and execution-time spread.",
+  "case_setup": [
+    "Reference simulation: MODFLOW 6 on the 60x60 structured grid.",
+    "Candidate simulation: MODFLOW-NWT on the same 60x60 structured grid.",
+    "Compared observables mix full maps (`head`, `depth`, `outflow_drain`), three head probes, one outlet-flux chronicle, native flux panels, and execution-time bars."
+  ],
+  "key_parameters": [
+    "Support equality is the main control knob here: both simulations use the same `mesh_label = \"sgrid_60x60\"`, so disagreements are not attributable to a mesh-family change.",
+    "`run_comparison_mf6_vs_nwt_same_regular_mesh_moderate.toml` selects the observables that stay comparable across the two MODFLOW families.",
+    "Use the outlet-flux and native-flux observables together: the outlet curve shows integrated export, while the native panels reveal how each code reports internal drainage/accumulation terms."
+  ],
+  "how_to_read": [
+    "Start with the map and point metrics because this is the cleanest solver-only comparison in the section.",
+    "Then inspect the flux and execution-time observables to see whether numerical agreement and runtime cost move together or not.",
+    "If a discrepancy looks large, do not blame the mesh first: this page is intentionally built to remove that degree of freedom."
+  ],
+  "next_steps": [
+    "Use :doc:`the gallery and validation reading guide </getting_started/reading-results-pages>` to distinguish example pages, comparison pages, and validation pages.",
+    "Go back to :doc:`the simulation walkthrough </getting_started/simulation-walkthrough>` when you need to inspect one contributing run in isolation."
+  ],
+  "what_it_shows": [
+    "How MODFLOW 6 and MODFLOW-NWT diverge when the spatial support is held strictly constant.",
+    "How point chronicles, outlet flux, map snapshots, and native flux panels complement one another on the same benchmark.",
+    "How execution-time bars look when the comparison does not mix structured and triangular supports."
+  ],
+  "reference_highlights": [],
+  "equations_rst": [],
+  "walkthrough_doc": "getting_started/reading-results-pages",
+  "walkthrough_title": "the gallery and validation reading guide",
+  "reproduction_command": "python -m tools.doc_gallery",
+  "gallery_update_command": "python -m tools.doc_gallery",
+  "source_paths": [
+    "docs/readthedocs/source/_static/capability_gallery/simulation_comparison/ex12_mf6_nwt_moderate_same_s60_comparison_manifest.json",
+    "docs/readthedocs/source/_static/capability_gallery/simulation_comparison/ex12_mf6_nwt_moderate_same_s60_comparison_metrics.json",
+    "docs/readthedocs/source/_static/capability_gallery/simulation_comparison/ex12_mf6_nwt_moderate_same_s60_observables.csv",
+    "docs/readthedocs/source/_static/capability_gallery/simulation_comparison/ex12_mf6_nwt_moderate_same_s60_summary_metrics.csv",
+    "docs/readthedocs/source/_static/capability_gallery/simulation_comparison/ex12_mf6_nwt_moderate_same_s60_difference_metrics.csv"
+  ],
+  "source_hashes": {
+    "docs/readthedocs/source/_static/capability_gallery/simulation_comparison/ex12_mf6_nwt_moderate_same_s60_comparison_manifest.json": "a3b04a65a9752b52896019bc1dba8a83881e9cbdc0baa61c24ed209f0ab91d97",
+    "docs/readthedocs/source/_static/capability_gallery/simulation_comparison/ex12_mf6_nwt_moderate_same_s60_comparison_metrics.json": "9c8f4dd2ae0c5a8ee64a9cf38c1f49036fbc5203445b5dd31e52f9b89341051b",
+    "docs/readthedocs/source/_static/capability_gallery/simulation_comparison/ex12_mf6_nwt_moderate_same_s60_observables.csv": "dac66191a34d8da0c034c9fee0482bf7a7db24b9218a336aa472af9d71ff0a13",
+    "docs/readthedocs/source/_static/capability_gallery/simulation_comparison/ex12_mf6_nwt_moderate_same_s60_summary_metrics.csv": "0feb0079abe467213b2792cfd11b460067ddbde72be50ae339b34344fbdc24fb",
+    "docs/readthedocs/source/_static/capability_gallery/simulation_comparison/ex12_mf6_nwt_moderate_same_s60_difference_metrics.csv": "ce520882507401b77c569218b5bc97ed8965c38b373a7cad72a7f895e0394a2f"
+  },
+  "docname": "cases/ex12_mf6_nwt_moderate_same_s60",
+  "images": [
+    {
+      "filename": "ex12_mf6_nwt_moderate_same_s60.png",
+      "caption": "Summary comparison figure for mf6 vs nwt on the same 60x60 grid.",
+      "alt_text": "Simulation comparison summary for MF6 vs NWT on the Same 60x60 Grid",
+      "doc_path": "/_static/capability_gallery/simulation_comparison/ex12_mf6_nwt_moderate_same_s60.png",
+      "repo_path": "docs/readthedocs/source/_static/capability_gallery/simulation_comparison/ex12_mf6_nwt_moderate_same_s60.png"
+    }
+  ],
+  "metrics": [],
+  "metadata": {
+    "static_summary_path": "docs/readthedocs/source/_static/capability_gallery/simulation_comparison/ex12_mf6_nwt_moderate_same_s60_summary.json",
+    "comparison_summary_path": "docs/readthedocs/source/_static/capability_gallery/simulation_comparison/ex12_mf6_nwt_moderate_same_s60_summary.json",
+    "study_area": "Example12 / Naizin",
+    "focus_simulation_id": "nwt_mod_s60",
+    "comparison_family_key": "shared_support_cross_solver",
+    "comparison_family_label": "Same Support, Different Solvers",
+    "comparison_family_deck": "These cases keep the spatial support fixed so the main signal comes from solver-family differences rather than from a support change.",
+    "comparison_family_order": 10,
+    "comparison_case_order": 20,
+    "copied_assets": [
+      {
+        "source_path": "docs/readthedocs/source/_static/capability_gallery/simulation_comparison/ex12_mf6_nwt_moderate_same_s60.png",
+        "copied_to": "docs/readthedocs/source/_static/capability_gallery/simulation_comparison/ex12_mf6_nwt_moderate_same_s60.png"
+      }
+    ]
+  },
+  "artifacts": {
+    "summary_json_doc_path": "/_static/capability_gallery/simulation_comparison/ex12_mf6_nwt_moderate_same_s60_summary.json",
+    "summary_json_repo_path": "docs/readthedocs/source/_static/capability_gallery/simulation_comparison/ex12_mf6_nwt_moderate_same_s60_summary.json",
+    "image_repo_paths": [
+      "docs/readthedocs/source/_static/capability_gallery/simulation_comparison/ex12_mf6_nwt_moderate_same_s60.png"
+    ]
+  }
+}

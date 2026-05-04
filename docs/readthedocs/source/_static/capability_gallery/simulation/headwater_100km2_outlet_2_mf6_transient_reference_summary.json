@@ -6,8 +6,8 @@
   "deck": "Committed-mesh MODFLOW 6 replay on the 100 km2 outlet-2 basin, published as stable transient postprocess figures.",
   "summary": "This case reuses the committed 100 km2 outlet-2 triangular mesh instead of meshing at runtime. It exposes the reference three-year MODFLOW 6 replay used as the baseline for the newer realistic-scenario family, with a compact set of flow-state, support, and cumulative budget figures copied into the gallery.",
   "case_setup": [
-    "Base config: `config_headwater_100km2_mf6_transient_common.toml` keeps the committed triangular mesh, the flow-only process chain, and the common postprocess/display switches.",
-    "Overlay config: `run_headwater_100km2_outlet_2_mf6_transient_reference.toml` injects the three-year monthly recharge chronology and homogeneous K/Sy/Ss values.",
+    "Static gallery manifest: the committed capability-gallery manifest records the published assets and their generation context.",
+    "The source run used a committed triangular mesh, the flow-only process chain, and common postprocess/display switches.",
     "Execution chain: committed `mesh_input` bundle -> MODFLOW 6 transient flow -> postprocess rasters and synthesis figures -> gallery publication."
   ],
   "key_parameters": [
@@ -23,7 +23,7 @@
   ],
   "next_steps": [
     "Read :doc:`the simulation walkthrough </getting_started/simulation-walkthrough>` for the general mapping between config sections and displayed figures.",
-    "Use the committed-mesh comparison pages in :doc:`the method-comparison section </capability_gallery/method_comparison>` when you want to compare this style of replay against other supports or solver families."
+    "Use the committed-mesh comparison pages in :doc:`the simulation-comparison section </capability_gallery/simulation_comparison>` when you want to compare this style of replay against other supports or solver families."
   ],
   "what_it_shows": [
     "How a committed mesh-input workflow differs from the runtime-meshed simulation pages.",
@@ -34,21 +34,17 @@
   "equations_rst": [],
   "walkthrough_doc": "getting_started/simulation-walkthrough",
   "walkthrough_title": "the Simulation walkthrough",
-  "reproduction_command": "python -m hydromodpy run examples_legacy_2/projects/launcher_simulation/run_headwater_100km2_outlet_2_mf6_transient_reference.toml",
+  "reproduction_command": "python -m tools.doc_gallery",
   "gallery_update_command": "python -m tools.doc_gallery",
   "source_paths": [
-    "examples_legacy_2/projects/launcher_simulation/run_headwater_100km2_outlet_2_mf6_transient_reference.toml",
-    "examples_legacy_2/projects/launcher_simulation/config_headwater_100km2_mf6_transient_common.toml",
-    "examples_legacy_2/projects/launcher_simulation/README.md",
+    "examples/projects/09_capability_gallery/README.md",
     "examples/projects/09_capability_gallery/launcher_simulation/headwater_100km2_outlet_2_mf6_transient_reference/manifest.json",
     "hydromodpy/analysis/capability_gallery.py"
   ],
   "source_hashes": {
-    "examples_legacy_2/projects/launcher_simulation/run_headwater_100km2_outlet_2_mf6_transient_reference.toml": "__missing__",
-    "examples_legacy_2/projects/launcher_simulation/config_headwater_100km2_mf6_transient_common.toml": "__missing__",
-    "examples_legacy_2/projects/launcher_simulation/README.md": "__missing__",
+    "examples/projects/09_capability_gallery/README.md": "b876daec8dcd95f259dd5d915975024fd548a6297f93fd8850ce20743259d874",
     "examples/projects/09_capability_gallery/launcher_simulation/headwater_100km2_outlet_2_mf6_transient_reference/manifest.json": "b69756e136c8b1c94cee0af1259384ea817fbcf189790e83041e6eed6fbfee40",
-    "hydromodpy/analysis/capability_gallery.py": "38f3ad0d3b9b9ef635a9cc9e333222d42e52b481a4173918d21db8db475c84fa"
+    "hydromodpy/analysis/capability_gallery.py": "d4c536bb55217e483551d7688f6da6c7628dc206aa7e169f768aba8f60d1deec"
   },
   "docname": "cases/headwater_100km2_outlet_2_mf6_transient_reference",
   "images": [

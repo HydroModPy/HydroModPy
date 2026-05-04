@@ -11,6 +11,12 @@ This page narrows the committed `regional_lab` example to the `mf6_reference` re
 .. seealso::
    Read :doc:`the Simulation walkthrough </getting_started/simulation-walkthrough>` if you want the parameter mapping, a recommended reading order, and the first modifications to try.
 
+.. figure:: /_static/capability_gallery/simulation/regional_lab_headwater_100km2_mf6_reference_recipe.png
+   :alt: Regional lab dry-plan synthesis for Regional Lab MF6 Reference Recipe on Headwater 100 km2
+   :width: 100%
+
+   Dry-plan synthesis for regional lab mf6 reference recipe on headwater 100 km2: site or candidate coverage, recipe summary, and planning metrics.
+
 Case Setup
 ----------
 
@@ -40,29 +46,11 @@ How To Read It
 - Use the coverage bar next to judge how far the committed catalog already goes for this replay workflow before adding more child configs.
 - Finish with the planning summary to connect the remaining gaps to site maturity and cluster scope.
 
-Local Regeneration Note
------------------------
-
-This local checkout cannot fully rebuild the original gallery artefacts for this case because one or more legacy source files are not present.
-
-The page is still generated so that the capability-gallery structure, cross-links, and reading guides remain valid during a full documentation rebuild.
-
-Reason: The regional-lab overlay config needed to regenerate this page is not available in the current checkout.
-
-Missing Local Inputs
---------------------
-
-- ``examples_legacy_2/projects/launcher_simulation/regional_lab/config_headwater_100km2_lab_mf6_reference.toml``
-- ``examples_legacy_2/projects/launcher_simulation/regional_lab/README.md``
-- ``examples_legacy_2/projects/launcher_simulation/regional_lab/config_headwater_100km2_lab.toml``
-- ``examples_legacy_2/projects/launcher_simulation/regional_lab/site_catalog.csv``
-- ``examples_legacy_2/projects/launcher_simulation/run_headwater_100km2_outlet_2_mf6_transient_reference.toml``
-
 Next Steps
 ----------
 
 - Switch `execute = true` in the focused overlay config when the dry plan looks correct and you want to launch the child workflow.
-- Use these orchestration pages as the planning complement to the individual simulation and method-comparison cases already exposed elsewhere in the gallery.
+- Use these orchestration pages as the planning complement to the individual simulation and comparison cases already exposed elsewhere in the gallery.
 
 Reproduce
 ---------
@@ -71,7 +59,7 @@ Run the underlying example or validation case with:
 
 .. code-block:: bash
 
-   python -m hydromodpy run examples_legacy_2/projects/launcher_simulation/regional_lab/config_headwater_100km2_lab_mf6_reference.toml
+   python -m tools.doc_gallery
 
 Refresh the committed gallery artifacts with:
 
@@ -82,16 +70,19 @@ Refresh the committed gallery artifacts with:
 Source Pointers
 ---------------
 
-- ``examples_legacy_2/projects/launcher_simulation/regional_lab/config_headwater_100km2_lab_mf6_reference.toml``
+- ``docs/readthedocs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_mf6_reference_recipe_plan.json``
+- ``docs/readthedocs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_mf6_reference_recipe_report.json``
+- ``docs/readthedocs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_mf6_reference_recipe_summary.md``
+- ``docs/readthedocs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_mf6_reference_recipe_site_inventory.csv``
+- ``docs/readthedocs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_mf6_reference_recipe_recipe_summary.csv``
+- ``docs/readthedocs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_mf6_reference_recipe_cluster_summary.csv``
+- ``docs/readthedocs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_mf6_reference_recipe_case_matrix.csv``
 - ``hydromodpy/analysis/batch/__init__.py``
 - ``hydromodpy/analysis/batch/config.py``
 - ``hydromodpy/analysis/batch/runtime.py``
-- ``examples_legacy_2/projects/launcher_simulation/regional_lab/README.md``
-- ``examples_legacy_2/projects/launcher_simulation/regional_lab/config_headwater_100km2_lab.toml``
-- ``examples_legacy_2/projects/launcher_simulation/regional_lab/site_catalog.csv``
-- ``examples_legacy_2/projects/launcher_simulation/run_headwater_100km2_outlet_2_mf6_transient_reference.toml``
 
 Artifacts
 ---------
 
+- ``docs/readthedocs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_mf6_reference_recipe.png``
 - ``docs/readthedocs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_mf6_reference_recipe_summary.json`` stores the displayed metrics plus source hashes used by ``python -m tools.doc_gallery --check``.
