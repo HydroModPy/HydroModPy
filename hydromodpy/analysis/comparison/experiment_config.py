@@ -210,7 +210,7 @@ class ComparisonSection(HydroModelBase):
 class SimulationComparisonConfig(HydroModelBase):
     """Resolved comparison experiment config with absolute paths."""
 
-    model_config = ConfigDict(arbitrary_types_allowed=True, extra="forbid")
+    model_config = ConfigDict(extra="forbid")
 
     config_path: Path
     base_dir: Path

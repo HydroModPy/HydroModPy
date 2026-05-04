@@ -279,7 +279,7 @@ class ComparisonFineRaster(HydroModelBase):
 class ComparisonConfig(HydroModelBase):
     """Validated top-level configuration for TOML-compatible comparisons."""
 
-    model_config = ConfigDict(arbitrary_types_allowed=True, extra="forbid")
+    model_config = ConfigDict(extra="forbid")
 
     config_path: Path
     base_dir: Path
