@@ -44,11 +44,19 @@ class ComparisonExecutionConfig(HydroModelBase):
     model_config = ConfigDict(extra="forbid")
 
     backend: Literal["subprocess_hmp_run"] = "subprocess_hmp_run"
-    max_parallel_runs: int = Field(default=1, ge=1)
+    max_parallel_runs: int = Field(
+        default=1,
+        ge=1,
+        description="Number of child simulations executed in parallel. Forced to 1 in V1.",
+    )
     keep_generated_configs: bool = True
     run_simulations: bool = True
     python_executable: str | None = None
-    timeout_seconds: float | None = Field(default=None, gt=0)
+    timeout_seconds: float | None = Field(
+        default=None,
+        gt=0,
+        description="Optional per-child timeout in seconds. None disables the timeout.",
+    )
 
     @field_validator("python_executable")
     @classmethod
@@ -91,7 +99,10 @@ class ComparisonSimulationConfig(HydroModelBase):
         "unstructured",
         "unknown",
     ] = "unknown"
-    overlay: dict[str, Any] = Field(default_factory=dict)
+    overlay: dict[str, Any] = Field(
+        default_factory=dict,
+        description="Free-form TOML overlay merged into the base simulation config when this child runs.",
+    )
 
     @field_validator("id")
     @classmethod
@@ -140,11 +151,23 @@ class ComparisonSection(HydroModelBase):
     output_root: str | None = None
     reference_simulation: str | None = None
     continue_on_error: bool = False
-    execution: ComparisonExecutionConfig = Field(default_factory=ComparisonExecutionConfig)
-    audit: ComparisonAuditConfig = Field(default_factory=ComparisonAuditConfig)
+    execution: ComparisonExecutionConfig = Field(
+        default_factory=ComparisonExecutionConfig,
+        description="Execution settings for the comparison child runs.",
+    )
+    audit: ComparisonAuditConfig = Field(
+        default_factory=ComparisonAuditConfig,
+        description="Post-run audit policy applied to each child simulation.",
+    )
     fine_raster: ComparisonFineRaster | None = None
-    simulation: list[ComparisonSimulationConfig] = Field(default_factory=list)
-    observable: list[ComparisonObservable] = Field(default_factory=list)
+    simulation: list[ComparisonSimulationConfig] = Field(
+        default_factory=list,
+        description="Generated child simulations to run in the comparison. At least one entry required.",
+    )
+    observable: list[ComparisonObservable] = Field(
+        default_factory=list,
+        description="Observables to compare across the declared simulations. At least one entry required.",
+    )
 
     @field_validator(
         "base_simulation_config",
@@ -217,7 +240,10 @@ class SimulationComparisonConfig(HydroModelBase):
     comparison_root: Path
     base_simulation_config_path: Path | None = None
     anchors_path: Path | None = None
-    anchors: dict[str, tuple[float, float]] = Field(default_factory=dict)
+    anchors: dict[str, tuple[float, float]] = Field(
+        default_factory=dict,
+        description="Anchor points loaded from anchors_file, keyed by anchor id, as (x, y) pairs.",
+    )
     comparison: ComparisonSection
 
     @classmethod

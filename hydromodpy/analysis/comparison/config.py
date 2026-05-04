@@ -40,7 +40,10 @@ class ComparisonSimulation(HydroModelBase):
         "unstructured",
         "unknown",
     ] = "unknown"
-    overlay: dict[str, Any] = Field(default_factory=dict)
+    overlay: dict[str, Any] = Field(
+        default_factory=dict,
+        description="Free-form TOML overlay merged into the base simulation config when this child runs.",
+    )
 
     @field_validator("id")
     @classmethod
@@ -205,8 +208,14 @@ class ComparisonSection(HydroModelBase):
     continue_on_error: bool = False
     reference_simulation: str | None = None
     fine_raster: ComparisonFineRaster | None = None
-    simulation: list[ComparisonSimulation] = Field(default_factory=list)
-    observable: list[ComparisonObservable] = Field(default_factory=list)
+    simulation: list[ComparisonSimulation] = Field(
+        default_factory=list,
+        description="Simulations to run or reuse in the comparison. At least one entry required.",
+    )
+    observable: list[ComparisonObservable] = Field(
+        default_factory=list,
+        description="Observables to compare across the declared simulations. At least one entry required.",
+    )
 
     @field_validator(
         "comparison_id",
@@ -286,7 +295,10 @@ class ComparisonConfig(HydroModelBase):
     comparison_root: Path
     base_simulation_config_path: Path | None = None
     anchors_path: Path | None = None
-    anchors: dict[str, tuple[float, float]] = Field(default_factory=dict)
+    anchors: dict[str, tuple[float, float]] = Field(
+        default_factory=dict,
+        description="Anchor points loaded from anchors_file, keyed by anchor id, as (x, y) pairs.",
+    )
     comparison: ComparisonSection
 
     @classmethod
