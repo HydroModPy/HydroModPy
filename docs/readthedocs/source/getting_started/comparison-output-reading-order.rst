@@ -51,7 +51,7 @@ Use the order above for a first pass.
 
 1. ``web/index.html``
    Open this first when it exists. It is the generated reading page that links
-   the audit, metrics, key figures, budget tables, and child outputs.
+   the audit, metrics, categorized figures, budget tables, and child outputs.
 2. ``comparison_audit.md``
    Read this first. It tells you whether the workflow still considers the
    child runs to be one comparable physical case.
@@ -92,9 +92,10 @@ observable, or physical setup.
 Case Configuration Figure
 -------------------------
 
-``comparison_figures/case_configuration.png`` is the orientation view. It is
-not a solver result; it is a compact description of the case that produced the
-results.
+``comparison_figures/case_configuration.png`` is the orientation view. In the
+HTML report, it appears in the dedicated ``Configuration du cas`` section. It
+is not a solver result; it is a compact description of the case that produced
+the results.
 
 Use it to answer:
 
@@ -106,6 +107,16 @@ Use it to answer:
 
 Triptych Figures
 ----------------
+
+In ``web/index.html``, solver-output figures are grouped by category before
+being listed:
+
+- charges hydrauliques;
+- flux, drainage, surface excess and seepage;
+- budgets and balance diagnostics;
+- networks and spatial diagnostics;
+- performance;
+- uncategorized figures when no standard rule applies.
 
 The most useful visual artifact is usually one triptych image:
 

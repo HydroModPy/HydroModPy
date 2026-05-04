@@ -16,8 +16,11 @@ Liens : [glossary.md](glossary.md),
 Note v1 (refactor Parquet lakehouse) : les tables `timeseries`,
 `budgets` et `mass_balance` ne sont plus stockées dans
 `hydromodpy.duckdb`. Elles vivent désormais en Parquet par simulation
-sous `simulations/<uuid>.parquet/`, exposées comme des vues DuckDB du
-même nom afin que le code SQL existant reste valide.
+sous `simulations/<basename>.parquet/`, exposées comme des vues DuckDB du
+même nom afin que le code SQL existant reste valide. `<basename>` est le
+nom lisible `<project>__<name>__<shortuuid>` ; les anciens workspaces qui
+utilisent l'UUID brut restent lisibles et peuvent être normalisés
+explicitement.
 
 ## 1. Structure physique du workspace
 
@@ -33,9 +36,11 @@ workspace/
 │       ├── piezometry/
 │       ├── recharge/
 │       └── ...
-├── simulations/                   # un Zarr par simulation (isolation physique)
-│   ├── <uuid-aaa>.zarr/
-│   ├── <uuid-bbb>.zarr/
+├── simulations/                   # artefacts par simulation (isolation physique)
+│   ├── <basename-aaa>.zarr/ ou .zarr.zip
+│   ├── <basename-aaa>.parquet/
+│   ├── <basename-bbb>.zarr/ ou .zarr.zip
+│   ├── <basename-bbb>.parquet/
 │   └── ...
 └── configs/                       # TOMLs utilisateur (organisation libre)
     ├── canut/
@@ -48,7 +53,8 @@ workspace/
 
 Apres `hmp run config.toml` :
 - une ligne est ajoutee dans `hydromodpy.duckdb`
-- un dossier `simulations/<uuid>.zarr/` est cree
+- un artefact `simulations/<basename>.zarr/` est cree, puis peut être packé
+  en `.zarr.zip`
 - aucun fichier intermediaire ne persiste sur disque
 
 ## 2. Pourquoi une seule base DuckDB
@@ -343,7 +349,7 @@ Chaque simulation a son propre dossier Zarr. Le nommage des variables est identi
 quel que soit le solver (modflownwt, modflow6, boussinesq).
 
 ```
-simulations/<uuid>.zarr/
+simulations/<basename>.zarr/
 ├── zarr.json                        # Zarr v3 root metadata
 │
 ├── mesh/
@@ -431,7 +437,7 @@ hmp run config.toml
 ├─ Phase 2 : Geographic preprocessing
 │  ├─ Pipeline WhiteboxTools en memoire (breach → D8 → accumulation → watershed)
 │  ├─ Stockage des features dans hydromodpy.duckdb (geographic_features)
-│  ├─ Stockage des rasters dans <uuid>.zarr/geographic/
+│  ├─ Stockage des rasters dans <basename>.zarr/geographic/
 │  └─ Rien sur disque (sauf option write_intermediates pour debug)
 │
 ├─ Phase 3 : Chargement des donnees
@@ -444,15 +450,15 @@ hmp run config.toml
 │  ├─ INSERT INTO simulations (status = 'running')
 │  ├─ INSERT INTO parameters (normalise depuis le TOML)
 │  ├─ INSERT INTO provenance (fingerprints des donnees d'entree)
-│  └─ Creation du dossier simulations/<uuid>.zarr/
+│  └─ Creation du dossier simulations/<basename>.zarr/
 │
 ├─ Phase 5 : Execution solver
 │  ├─ Creation de .solver_scratch/<uuid>/ (temporaire)
 │  ├─ Adapter FloPy ecrit les inputs MODFLOW
 │  ├─ MODFLOW resout → .hds, .cbc
 │  ├─ Extraction → hydromodpy.duckdb (timeseries, budgets, mass_balance, metrics)
-│  ├─ Extraction → <uuid>.zarr/ (head, budget spatial)
-│  ├─ Calcul des derived → <uuid>.zarr/derived/
+│  ├─ Extraction → <basename>.zarr/ (head, budget spatial)
+│  ├─ Calcul des derived → <basename>.zarr/derived/
 │  ├─ Suppression de .solver_scratch/<uuid>/
 │  └─ Repetition pour chaque process (flow → transport)
 │
@@ -743,7 +749,7 @@ nancon_best.hmp/
 │   ├── provenance
 │   ├── geographic_features
 │   └── geographic_metadata
-└── results.zarr/                  # copie du <uuid>.zarr/
+└── results.zarr/                  # copie du <basename>.zarr/
     ├── mesh/
     ├── head/
     ├── derived/
@@ -761,7 +767,7 @@ Internally :
 2. `ATTACH hydromodpy.duckdb AS src`
 3. pour chaque table : `CREATE TABLE ... AS SELECT * FROM src.{table} WHERE sim_id = ?`
 4. `geographic_features` et `geographic_metadata` : filtre par `project`
-5. copie du dossier Zarr (`shutil.copytree`)
+5. copie du dossier Zarr (`shutil.copytree`) ou de l'archive `.zarr.zip`
 
 ### 10.3. Import
 
@@ -773,7 +779,7 @@ Internally :
 1. `ATTACH simulation.duckdb AS pkg`
 2. pour chaque table : `INSERT INTO {table} SELECT * FROM pkg.{table}`
 3. verification : si `sim_id` existe deja, erreur (ou option `force=True`)
-4. copie du Zarr dans `simulations/<uuid>.zarr/`
+4. copie du Zarr dans `simulations/<basename>.zarr/` ou `.zarr.zip`
 5. mise a jour de `zarr_path` dans la ligne importee
 
 ## 11. Concurrence et robustesse
@@ -1017,7 +1023,7 @@ Le JSON original reste comme archive. La table normalisee sert aux requetes.
 Zarr est schema-less. Ajouter une variable spatiale = creer un dossier :
 
 ```
-<uuid>.zarr/
+<basename>.zarr/
 ├── head/                    # v1
 ├── derived/                 # v1
 ├── velocity/                # v2 : nouveau, aucune migration
@@ -1064,7 +1070,7 @@ Les elements suivants sont geles et ne changeront pas :
 | `simulations.sim_id` (UUID, PK) | Cle universelle, jamais modifiee |
 | FK `sim_id` dans toutes les tables | Jointure standard, jamais modifiee |
 | Nom du fichier `hydromodpy.duckdb` | Point d'entree unique |
-| Structure `simulations/<uuid>.zarr/` | Un Zarr par simulation |
+| Structure `simulations/<basename>.zarr/` ou `.zarr.zip` | Un artefact Zarr par simulation |
 | Noms des tables existantes | Jamais renommees, jamais supprimees |
 | Colonnes existantes | Jamais renommees, jamais supprimees |
 

@@ -384,8 +384,8 @@ flowchart LR
     end
 
     subgraph FS["Filesystem"]
-        ZARR[simulations/uuid.zarr/]
-        PARQ[simulations/uuid.parquet/<br/>timeseries, budgets, mass_balance]
+        ZARR[simulations/basename.zarr/]
+        PARQ[simulations/basename.parquet/<br/>timeseries, budgets, mass_balance]
         FIG[projects/name/figures/session_id/]
         HTML[reports/session_id/report.html]
     end
@@ -419,8 +419,8 @@ Parquet only for promoted runs.**
 | Session metadata | `calibration_sessions` (1 row / session) | Start + finalize |
 | Parameters + scalar objective | `calibration_iterations` (sim_id NULL by default) | After each trial |
 | `params_hash` | Column in `calibration_iterations` | After each trial |
-| Spatial fields `head(x, y, t)` | `simulations/<sim_id>.zarr/` | **Only** via `promote_trial` |
-| Detailed timeseries (head, Q) | `simulations/<sim_id>.parquet/timeseries.parquet` | **Only** via `promote_trial` |
+| Spatial fields `head(x, y, t)` | `simulations/<basename>.zarr/` or `.zarr.zip` | **Only** via `promote_trial` |
+| Detailed timeseries (head, Q) | `simulations/<basename>.parquet/timeseries.parquet` | **Only** via `promote_trial` |
 | Figures (PNG) | `<workspace>/projects/<name>/figures/<session_id>/` | Post-loop via Display registry |
 | HTML report | `<workspace>/reports/<session_id>/report.html` | `hmp report <session_id>` |
 

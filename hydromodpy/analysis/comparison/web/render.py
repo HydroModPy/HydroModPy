@@ -105,6 +105,9 @@ _STYLE = """    :root {
     .fact span { display: block; color: var(--muted); font-size: 0.82rem; }
     .fact strong { display: block; margin-top: 4px; font-size: 1.08rem; }
     .figure-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+    .figure-grid.compact { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    .figure-category { margin-top: 14px; }
+    .figure-category h3 { display: flex; justify-content: space-between; gap: 12px; align-items: baseline; }
     figure { margin: 0; background: var(--panel); border: 1px solid var(--line); border-radius: 18px; padding: 12px; }
     figure img { width: 100%; display: block; border-radius: 12px; background: var(--soft); }
     figcaption { margin-top: 9px; color: var(--muted); font-size: 0.9rem; }
@@ -114,7 +117,7 @@ _STYLE = """    :root {
     code { background: rgba(15, 118, 110, 0.1); padding: 2px 5px; border-radius: 5px; }
     .warning { color: var(--warn); font-weight: 700; }
     @media (max-width: 880px) {
-      .grid, .facts, .figure-grid { grid-template-columns: 1fr; }
+      .grid, .facts, .figure-grid, .figure-grid.compact { grid-template-columns: 1fr; }
       main { padding: 18px 12px 42px; }
     }"""
 

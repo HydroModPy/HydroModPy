@@ -46,7 +46,7 @@ class WorkspaceConfig(HydroModelBase):
                     project.toml   <- TOML lives here when using scaffold
                     hydromodpy.duckdb
                     simulations/
-                        <uuid>.zarr/
+                        <basename>.zarr/ or <basename>.zarr.zip
 
     Fields under ``[workspace]``:
 
