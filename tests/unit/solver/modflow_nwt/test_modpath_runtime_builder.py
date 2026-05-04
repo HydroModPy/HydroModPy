@@ -59,7 +59,7 @@ def test_resolve_zone_partic_clips_seepage_raster(
             self.raster = _FakeRaster()
 
     monkeypatch.setattr(
-        "hydromodpy.solver.modflow_nwt.modpath._resolvers.get_whitebox_backend",
+        "hydromodpy.spatial.delineation.get_whitebox_backend",
         lambda: _FakeWhiteboxBackend(),
     )
 
