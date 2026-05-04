@@ -156,7 +156,7 @@ Fonctions publiques effectivement utilisées :
 - Persistence unifiée dans le catalog DuckDB — les iterations sont
   requêtables avec les mêmes outils que les simulations normales.
 - Élimination d'un parse TOML en direct qui court-circuite Pydantic
-  (viole `CLAUDE.md` : « Pydantic partout »).
+  (viole les conventions projet : « Pydantic partout »).
 
 ---
 
