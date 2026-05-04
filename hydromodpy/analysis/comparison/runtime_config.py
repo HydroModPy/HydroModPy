@@ -119,8 +119,7 @@ def _build_solver_process_overlay(
     flow_indices = [
         index
         for index, process in enumerate(processes)
-        if isinstance(process, Mapping)
-        and str(process.get("type", "")).strip().lower() == "flow"
+        if isinstance(process, Mapping) and str(process.get("type", "")).strip().lower() == "flow"
     ]
     if len(flow_indices) != 1:
         return None
@@ -160,9 +159,7 @@ def materialize_simulation_config(
         {"base_config": base_config_path.as_posix()},
         overlay,
     )
-    generated_path = (
-        cfg.comparison_root / "_generated_configs" / f"{simulation.id}.toml"
-    )
+    generated_path = cfg.comparison_root / "_generated_configs" / f"{simulation.id}.toml"
     write_toml_payload(generated_path, payload)
     return generated_path
 

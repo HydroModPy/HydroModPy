@@ -66,9 +66,7 @@ def categorize_figures(figures: list[dict[str, Any]]) -> list[FigureCategory]:
         grouped.setdefault(category_id, []).append(item)
     categories: list[FigureCategory] = []
     for category_id, items in grouped.items():
-        title, description, priority = _CATEGORY_META.get(
-            category_id, _CATEGORY_META["other"]
-        )
+        title, description, priority = _CATEGORY_META.get(category_id, _CATEGORY_META["other"])
         categories.append(
             FigureCategory(
                 category_id=category_id,

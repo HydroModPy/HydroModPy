@@ -185,14 +185,10 @@ def normalize_observable_value(
             cell_area_m2 = area_m2
         elif native_unit == "":
             native_unit = "m3/s"
-    elif (
-        observable.variable.strip().lower() == "outflow_drain"
-        and series.variable_name
-        in {
-            "drainage_flux_history_m3_s",
-            "drainage_flux_m3_s",
-        }
-    ):
+    elif observable.variable.strip().lower() == "outflow_drain" and series.variable_name in {
+        "drainage_flux_history_m3_s",
+        "drainage_flux_m3_s",
+    }:
         area_m2 = _area_for_series_value(
             series=series,
             cells=cells,
@@ -248,9 +244,7 @@ def _select_time_slices(
             ]
         else:
             selected = [
-                item
-                for item in series.slices
-                if str(start) <= str(item.time_key) <= str(end)
+                item for item in series.slices if str(start) <= str(item.time_key) <= str(end)
             ]
         return tuple(selected or series.slices)
 
@@ -344,9 +338,7 @@ def _select_cell_values(
     values: np.ndarray,
     cell_ids: list[int],
 ) -> np.ndarray:
-    positions = [
-        _cell_position_for_cell_id(series, cell_id=cell_id) for cell_id in cell_ids
-    ]
+    positions = [_cell_position_for_cell_id(series, cell_id=cell_id) for cell_id in cell_ids]
     if any(position >= values.size for position in positions):
         raise IndexError(
             f"cell index outside variable '{series.variable_name}' values (size={values.size})"
@@ -368,9 +360,7 @@ def _select_spatial_values(
     if observable.support == "point":
         if observable.cell_index is not None:
             selected_cell_id = int(observable.cell_index)
-        elif (
-            cells is not None and observable.x is not None and observable.y is not None
-        ):
+        elif cells is not None and observable.x is not None and observable.y is not None:
             selected_cell_id = cells.nearest_cell_id(x=observable.x, y=observable.y)
         elif values.size == 1:
             return (float(values[0]),), {"selection": "scalar"}
@@ -392,9 +382,7 @@ def _select_spatial_values(
         if observable.cell_index is not None:
             selected_cell_ids = [int(observable.cell_index)]
             details["selection"] = "declared_cell"
-        elif (
-            observable.x is not None and observable.y is not None and cells is not None
-        ):
+        elif observable.x is not None and observable.y is not None and cells is not None:
             selected_cell_ids = [cells.nearest_cell_id(x=observable.x, y=observable.y)]
             details["selection"] = "nearest_declared_outlet_point"
         else:
@@ -459,9 +447,7 @@ def _time_match_key(time_slice: TimeSlice) -> str:
     """Return a stable key used to align rows across simulations."""
     if str(time_slice.time_key) == "reduced":
         return "reduced"
-    if time_slice.elapsed_seconds is not None and np.isfinite(
-        time_slice.elapsed_seconds
-    ):
+    if time_slice.elapsed_seconds is not None and np.isfinite(time_slice.elapsed_seconds):
         return f"elapsed_seconds:{time_slice.elapsed_seconds:.9g}"
     return f"time_index:{time_slice.time_index}"
 
@@ -513,9 +499,7 @@ def extract_observable_rows(
     rows: list[dict[str, Any]] = []
     cells: CellCentroidTable | None = None
     for observable in observables:
-        if observable.simulations is not None and simulation.id not in set(
-            observable.simulations
-        ):
+        if observable.simulations is not None and simulation.id not in set(observable.simulations):
             continue
         series = load_variable_series(
             run_folder=run_folder,
@@ -530,16 +514,12 @@ def extract_observable_rows(
             sim_id=sim_id,
         )
         if cells is None:
-            first_slice_size = (
-                int(series.slices[0].values.size) if series.slices else None
-            )
+            first_slice_size = int(series.slices[0].values.size) if series.slices else None
             cells = resolve_bundle_cells(
                 run_folder,
                 config_path=config_path,
                 expected_size=(
-                    None
-                    if first_slice_size is None or first_slice_size <= 1
-                    else first_slice_size
+                    None if first_slice_size is None or first_slice_size <= 1 else first_slice_size
                 ),
                 solver_name=simulation.solver,
             )
@@ -578,9 +558,7 @@ def extract_observable_rows(
             per_time_values = [(reduced_slice, reduced_values, reduced_details)]
 
         non_initial_counter = 0
-        for selection_time_order, (time_slice, values, details) in enumerate(
-            per_time_values
-        ):
+        for selection_time_order, (time_slice, values, details) in enumerate(per_time_values):
             non_initial_time_order: int | None
             if time_slice.is_initial_state:
                 non_initial_time_order = None
@@ -637,15 +615,11 @@ def extract_observable_rows(
                             "all" if observable.time is None else str(observable.time)
                         ),
                         "requested_time_reducer": (
-                            ""
-                            if observable.time_reducer is None
-                            else str(observable.time_reducer)
+                            "" if observable.time_reducer is None else str(observable.time_reducer)
                         ),
                         "selection_time_order": selection_time_order,
                         "non_initial_time_order": (
-                            ""
-                            if non_initial_time_order is None
-                            else non_initial_time_order
+                            "" if non_initial_time_order is None else non_initial_time_order
                         ),
                         "is_initial_state": bool(time_slice.is_initial_state),
                         "comparison_time_key": _time_match_key(time_slice),
@@ -665,12 +639,8 @@ def extract_observable_rows(
                         "run_folder": str(run_folder),
                         "selection": str(details.get("selection", "")),
                         "allow_domain_proxy": bool(observable.allow_domain_proxy),
-                        "selected_cell_index": str(
-                            details.get("selected_cell_index", "")
-                        ),
-                        "selected_cell_indices": str(
-                            details.get("selected_cell_indices", "")
-                        ),
+                        "selected_cell_index": str(details.get("selected_cell_index", "")),
+                        "selected_cell_indices": str(details.get("selected_cell_indices", "")),
                     }
                 )
     return rows

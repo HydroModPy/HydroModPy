@@ -34,9 +34,7 @@ def _display_simulation_label(*, simulation_id: str, simulation_label: str) -> s
     return simulation_id.strip() or text
 
 
-def _simulation_panel_title(
-    *, simulation_id: str, simulation_label: str, solver: str
-) -> str:
+def _simulation_panel_title(*, simulation_id: str, simulation_label: str, solver: str) -> str:
     label = _display_simulation_label(
         simulation_id=simulation_id, simulation_label=simulation_label
     )

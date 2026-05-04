@@ -42,12 +42,8 @@ def _rows_have_elapsed_seconds(rows: Iterable[Mapping[str, Any]]) -> bool:
     return seen
 
 
-def _row_time_value(
-    row: Mapping[str, Any], *, use_elapsed_seconds: bool
-) -> float | None:
-    value = _safe_float(
-        row.get("elapsed_seconds" if use_elapsed_seconds else "time_index")
-    )
+def _row_time_value(row: Mapping[str, Any], *, use_elapsed_seconds: bool) -> float | None:
+    value = _safe_float(row.get("elapsed_seconds" if use_elapsed_seconds else "time_index"))
     if value is None:
         return None
     return value / _SECONDS_PER_DAY if use_elapsed_seconds else value
@@ -148,9 +144,7 @@ def _write_timeseries_figure(
 
     figure, ax = plt.subplots(1, 1, figsize=(7.0, 4.1))
     tick_positions: list[float] = []
-    for (simulation_id, simulation_label, value_index), points in sorted(
-        series_payloads.items()
-    ):
+    for (simulation_id, simulation_label, value_index), points in sorted(series_payloads.items()):
         ordered = sorted(points, key=lambda item: item[0])
         if len(ordered) < 2:
             continue
@@ -206,22 +200,14 @@ def _write_runtime_bar_figure(
     execution_rows: list[Mapping[str, Any]],
     reference_simulation: str | None,
 ) -> bool:
-    rows = [
-        row
-        for row in execution_rows
-        if _safe_float(row.get("runtime_seconds")) is not None
-    ]
+    rows = [row for row in execution_rows if _safe_float(row.get("runtime_seconds")) is not None]
     if len(rows) < 2:
         return False
-    ordered = sorted(
-        rows, key=lambda item: float(item["runtime_seconds"]), reverse=True
-    )
+    ordered = sorted(rows, key=lambda item: float(item["runtime_seconds"]), reverse=True)
     labels = [
         _display_simulation_label(
             simulation_id=str(row.get("simulation_id", "")),
-            simulation_label=str(
-                row.get("simulation_label", row.get("simulation_id", ""))
-            ),
+            simulation_label=str(row.get("simulation_label", row.get("simulation_id", ""))),
         )
         for row in ordered
     ]
@@ -295,9 +281,7 @@ def _write_point_dashboard(
             str(row.get("simulation_id", "")),
             str(row.get("simulation_label", row.get("simulation_id", ""))),
         )
-        grouped.setdefault(observable_name, {}).setdefault(key, []).append(
-            (x_value, value)
-        )
+        grouped.setdefault(observable_name, {}).setdefault(key, []).append((x_value, value))
 
     plotted_observables = [
         name
@@ -319,9 +303,7 @@ def _write_point_dashboard(
     for index, observable_name in enumerate(plotted_observables):
         ax = axes_flat[index]
         observable_rows = [
-            row
-            for row in point_rows
-            if str(row.get("observable", "")) == observable_name
+            row for row in point_rows if str(row.get("observable", "")) == observable_name
         ]
         for (simulation_id, simulation_label), points in sorted(
             grouped.get(observable_name, {}).items()
@@ -469,9 +451,7 @@ def _write_native_flux_panel(
             time_value = _row_time_value(row, use_elapsed_seconds=use_elapsed_seconds)
             if time_value is None:
                 continue
-            delta_groups.setdefault(key, []).append(
-                (time_value, float(row["signed_error"]))
-            )
+            delta_groups.setdefault(key, []).append((time_value, float(row["signed_error"])))
             label = str(row.get("time_label", "")).strip()
             if label and not use_elapsed_seconds:
                 time_label_lookup[int(time_value)] = label
@@ -506,9 +486,7 @@ def _write_native_flux_panel(
             tick_labels=(tick_labels if tick_labels else None),
         )
 
-    figure.suptitle(
-        f"{_pretty_label(variable)} hydrograph", fontsize=_TITLE_FONT_SIZE, y=0.97
-    )
+    figure.suptitle(f"{_pretty_label(variable)} hydrograph", fontsize=_TITLE_FONT_SIZE, y=0.97)
     figure.subplots_adjust(left=0.12, right=0.98, top=0.9, bottom=0.18, hspace=0.25)
     path.parent.mkdir(parents=True, exist_ok=True)
     figure.savefig(path, dpi=180, bbox_inches="tight")
@@ -526,9 +504,7 @@ def _write_flux_dashboard(
         tuple[str, dict[tuple[str, str], list[tuple[float, float]]], list[str] | None]
     ] = []
 
-    outlet_rows = [
-        row for row in rows if str(row.get("observable", "")) == "outlet_flux_series"
-    ]
+    outlet_rows = [row for row in rows if str(row.get("observable", "")) == "outlet_flux_series"]
     native_flux_rows = [
         row
         for row in native_long_rows
@@ -569,11 +545,7 @@ def _write_flux_dashboard(
             if label and not use_elapsed_seconds:
                 time_labels[int(x_value)] = label
         if any(len(points) >= 2 for points in grouped_native.values()):
-            labels = (
-                [time_labels[index] for index in sorted(time_labels)]
-                if time_labels
-                else None
-            )
+            labels = [time_labels[index] for index in sorted(time_labels)] if time_labels else None
             panels.append((_pretty_label(variable), grouped_native, labels))
 
     if len(panels) < 2:
@@ -632,9 +604,7 @@ def _write_flux_dashboard(
         fontsize=_LABEL_FONT_SIZE,
     )
     if not use_elapsed_seconds:
-        _apply_time_ticks(
-            axes_flat[-1], tick_positions=tick_positions, tick_labels=tick_labels
-        )
+        _apply_time_ticks(axes_flat[-1], tick_positions=tick_positions, tick_labels=tick_labels)
     figure.suptitle("Flux overview", fontsize=_TITLE_FONT_SIZE, y=0.985)
     figure.subplots_adjust(left=0.11, right=0.98, top=0.86, bottom=0.13, hspace=0.34)
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -685,13 +655,11 @@ def _write_comparable_outflow_dashboard(
         simulation_id = str(row.get("simulation_id", ""))
         simulation_label = str(row.get("simulation_label", simulation_id))
         if component == "comparable_outflow_total_m3_s":
-            grouped_total.setdefault((simulation_id, simulation_label), []).append(
+            grouped_total.setdefault((simulation_id, simulation_label), []).append((x_value, value))
+        else:
+            grouped_components.setdefault((simulation_id, simulation_label, component), []).append(
                 (x_value, value)
             )
-        else:
-            grouped_components.setdefault(
-                (simulation_id, simulation_label, component), []
-            ).append((x_value, value))
         time_index = _safe_float(row.get("time_index"))
         label = str(row.get("time_label", "")).strip()
         if time_index is not None and label:
@@ -738,9 +706,7 @@ def _write_comparable_outflow_dashboard(
                 simulation_label=simulation_label,
             ),
         )
-    for (simulation_id, simulation_label), points in sorted(
-        outlet_points_by_sim.items()
-    ):
+    for (simulation_id, simulation_label), points in sorted(outlet_points_by_sim.items()):
         ordered = sorted(points, key=lambda item: item[0])
         if len(ordered) < 2:
             continue
@@ -786,9 +752,7 @@ def _write_comparable_outflow_dashboard(
         for line in legend.get_lines():
             line.set_linewidth(1.8)
 
-    for (simulation_id, simulation_label, component), points in sorted(
-        grouped_components.items()
-    ):
+    for (simulation_id, simulation_label, component), points in sorted(grouped_components.items()):
         ordered = sorted(points, key=lambda item: item[0])
         if len(ordered) < 2:
             continue
@@ -837,13 +801,9 @@ def _write_comparable_outflow_dashboard(
         for line in legend.get_lines():
             line.set_linewidth(1.55)
 
-    tick_labels = (
-        [time_labels[index] for index in sorted(time_labels)] if time_labels else None
-    )
+    tick_labels = [time_labels[index] for index in sorted(time_labels)] if time_labels else None
     if not use_elapsed_seconds:
-        _apply_time_ticks(
-            component_ax, tick_positions=tick_positions, tick_labels=tick_labels
-        )
+        _apply_time_ticks(component_ax, tick_positions=tick_positions, tick_labels=tick_labels)
     figure.suptitle("Comparable outflow diagnostics", fontsize=_TITLE_FONT_SIZE, y=0.98)
     figure.subplots_adjust(left=0.11, right=0.98, top=0.84, bottom=0.2, hspace=0.38)
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -867,8 +827,7 @@ def _write_budget_diagnostic_figure(
         return False
 
     use_elapsed_seconds = all(
-        _safe_float(row.get("elapsed_seconds")) is not None
-        for row in simulation_budget_rows
+        _safe_float(row.get("elapsed_seconds")) is not None for row in simulation_budget_rows
     )
     x_field = "elapsed_seconds" if use_elapsed_seconds else "time_index"
     x_label = "Elapsed time [d]" if use_elapsed_seconds else "Time step"
@@ -961,9 +920,7 @@ def _write_budget_diagnostic_figure(
             color=_budget_component_color("outlet_flux_series"),
             label="Compared outlet flux",
         )
-    release_ax.set_title(
-        "Release terms", fontsize=_PANEL_TITLE_FONT_SIZE, pad=5, loc="left"
-    )
+    release_ax.set_title("Release terms", fontsize=_PANEL_TITLE_FONT_SIZE, pad=5, loc="left")
     release_ax.set_ylabel("m3/s", fontsize=_LABEL_FONT_SIZE)
     release_ax.tick_params(labelsize=_TICK_FONT_SIZE)
     release_ax.grid(True, alpha=0.18, linewidth=0.6)
@@ -997,9 +954,7 @@ def _write_budget_diagnostic_figure(
             color=_budget_component_color(component),
             label=_budget_component_label(component),
         )
-    balance_ax.set_title(
-        "Inputs and storage", fontsize=_PANEL_TITLE_FONT_SIZE, pad=5, loc="left"
-    )
+    balance_ax.set_title("Inputs and storage", fontsize=_PANEL_TITLE_FONT_SIZE, pad=5, loc="left")
     balance_ax.set_ylabel("m3/s", fontsize=_LABEL_FONT_SIZE)
     balance_ax.set_xlabel(x_label, fontsize=_LABEL_FONT_SIZE)
     balance_ax.tick_params(labelsize=_TICK_FONT_SIZE)
@@ -1018,12 +973,8 @@ def _write_budget_diagnostic_figure(
         )
         for line in legend.get_lines():
             line.set_linewidth(1.8)
-    tick_labels = (
-        [time_labels[index] for index in sorted(time_labels)] if time_labels else None
-    )
-    _apply_time_ticks(
-        balance_ax, tick_positions=tick_positions, tick_labels=tick_labels
-    )
+    tick_labels = [time_labels[index] for index in sorted(time_labels)] if time_labels else None
+    _apply_time_ticks(balance_ax, tick_positions=tick_positions, tick_labels=tick_labels)
     figure.suptitle(
         f"Budget diagnostics: {_display_simulation_label(simulation_id=simulation_id, simulation_label=simulation_label)}",
         fontsize=_TITLE_FONT_SIZE,

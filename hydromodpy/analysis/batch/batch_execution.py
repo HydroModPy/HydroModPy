@@ -73,9 +73,7 @@ def _extract_simulation_child_artifacts(config_path: Path) -> dict[str, Any]:
     metrics_payload = _read_json_file_if_exists(metrics_path)
     if metrics_payload is not None:
         artifacts["child_metrics_json"] = str(metrics_path.resolve())
-        artifacts["child_wall_time_seconds"] = _safe_float(
-            metrics_payload.get("wall_time_seconds")
-        )
+        artifacts["child_wall_time_seconds"] = _safe_float(metrics_payload.get("wall_time_seconds"))
         artifacts["child_success"] = metrics_payload.get("success")
         artifacts["child_mesh_output_mesh"] = _normalize_text(
             metrics_payload.get("mesh_output_mesh")
@@ -101,9 +99,7 @@ def _extract_simulation_child_artifacts(config_path: Path) -> dict[str, Any]:
                 summary_payload.get("runtime_engine")
             )
             artifacts["child_n_cells"] = summary_payload.get("n_cells")
-            artifacts["child_solve_stage"] = _normalize_text(
-                summary_payload.get("solve_stage")
-            )
+            artifacts["child_solve_stage"] = _normalize_text(summary_payload.get("solve_stage"))
             artifacts["child_steady_residual_norm_inf"] = _safe_float(
                 summary_payload.get("steady_residual_norm_inf")
             )
@@ -140,9 +136,7 @@ def _extract_comparison_output_artifacts(
         artifacts["child_wall_time_seconds"] = _safe_float(
             manifest_payload.get("wall_time_seconds")
         )
-        artifacts["child_comparison_id"] = _normalize_text(
-            manifest_payload.get("comparison_id")
-        )
+        artifacts["child_comparison_id"] = _normalize_text(manifest_payload.get("comparison_id"))
         artifacts["child_reference_simulation"] = _normalize_text(
             manifest_payload.get("reference_simulation")
         )
@@ -186,16 +180,11 @@ def _extract_comparison_output_artifacts(
             mae_values = [
                 value
                 for item in summary_rows
-                if isinstance(item, Mapping)
-                and (value := _safe_float(item.get("mae"))) is not None
+                if isinstance(item, Mapping) and (value := _safe_float(item.get("mae"))) is not None
             ]
             artifacts["child_summary_metric_row_count"] = len(summary_rows)
-            artifacts["child_summary_max_rmse"] = (
-                None if not rmse_values else max(rmse_values)
-            )
-            artifacts["child_summary_max_mae"] = (
-                None if not mae_values else max(mae_values)
-            )
+            artifacts["child_summary_max_rmse"] = None if not rmse_values else max(rmse_values)
+            artifacts["child_summary_max_mae"] = None if not mae_values else max(mae_values)
         if isinstance(differences_rows, list):
             artifacts["child_difference_metric_row_count"] = len(differences_rows)
 

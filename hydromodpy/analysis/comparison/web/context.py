@@ -113,9 +113,7 @@ def _figure_items(*, root: Path, manifest: Mapping[str, Any]) -> list[dict[str, 
         for path in sorted(figure_root.glob("*.png")):
             key = str(path.resolve())
             if key not in known:
-                items.append(
-                    {"kind": "figure", "observable": path.stem, "path": str(path)}
-                )
+                items.append({"kind": "figure", "observable": path.stem, "path": str(path)})
     return items
 
 

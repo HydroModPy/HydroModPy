@@ -27,9 +27,7 @@ def test_neutral_comparison_config_exports_only_canonical_names() -> None:
     assert ComparisonSimulation.__name__ == "ComparisonSimulation"
 
 
-def test_dispatch_prefers_canonical_comparison_launcher(
-    monkeypatch, tmp_path: Path
-) -> None:
+def test_dispatch_prefers_canonical_comparison_launcher(monkeypatch, tmp_path: Path) -> None:
     config_path = _write_toml(
         tmp_path / "comparison.toml",
         "[comparison]\nbase_simulation_config = 'base.toml'\n"

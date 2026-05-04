@@ -579,9 +579,7 @@ def test_write_simulated_active_network_overlap_metrics_export_reports_missing_r
     )
 
     assert len(artifacts) == 1
-    assert (
-        artifacts[0]["kind"] == "simulated_active_network_overlap_metrics_skipped_json"
-    )
+    assert artifacts[0]["kind"] == "simulated_active_network_overlap_metrics_skipped_json"
     assert Path(str(artifacts[0]["path"])).exists()
     assert rows == []
     payload = Path(str(artifacts[0]["path"])).read_text(encoding="utf-8")

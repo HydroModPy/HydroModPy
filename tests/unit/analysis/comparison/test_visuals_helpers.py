@@ -60,9 +60,9 @@ from hydromodpy.analysis.comparison.visuals_style import (
     _robust_symmetric_limit,
     _safe_float,
     _series_style,
+    _simulation_panel_title,
     _slug,
     _solver_color,
-    _simulation_panel_title,
 )
 
 # -- helpers --------------------------------------------------------------
@@ -163,37 +163,25 @@ def test_pretty_label_empty_returns_value_sentinel() -> None:
 
 
 def test_display_simulation_label_short_keeps_label() -> None:
-    assert (
-        _display_simulation_label(simulation_id="vid", simulation_label="My label")
-        == "My label"
-    )
+    assert _display_simulation_label(simulation_id="vid", simulation_label="My label") == "My label"
 
 
 def test_display_simulation_label_long_falls_back_to_id() -> None:
     long_label = "x" * 30
-    assert (
-        _display_simulation_label(simulation_id="vid", simulation_label=long_label)
-        == "vid"
-    )
+    assert _display_simulation_label(simulation_id="vid", simulation_label=long_label) == "vid"
 
 
 def test_display_simulation_label_empty_label_uses_id() -> None:
-    assert (
-        _display_simulation_label(simulation_id="vid", simulation_label="   ") == "vid"
-    )
+    assert _display_simulation_label(simulation_id="vid", simulation_label="   ") == "vid"
 
 
 def test_simulation_panel_title_includes_solver_lower() -> None:
-    title = _simulation_panel_title(
-        simulation_id="vid", simulation_label="lab", solver="MODFLOW6"
-    )
+    title = _simulation_panel_title(simulation_id="vid", simulation_label="lab", solver="MODFLOW6")
     assert title == "lab\nmodflow6"
 
 
 def test_simulation_panel_title_no_solver_returns_label_only() -> None:
-    title = _simulation_panel_title(
-        simulation_id="vid", simulation_label="lab", solver=""
-    )
+    title = _simulation_panel_title(simulation_id="vid", simulation_label="lab", solver="")
     assert title == "lab"
 
 
@@ -595,17 +583,13 @@ def test_resolve_fine_grid_bounds_too_few_extents_returns_none() -> None:
     fine = ComparisonFineRaster(enabled=True, resolution=1.0, extent_mode="union")
     payloads = [_scatter_payload(extent=(0.0, 1.0, 0.0, 1.0))]
     assert (
-        _resolve_fine_grid_bounds(
-            payloads=payloads, fine_raster=fine, reference_simulation=None
-        )
+        _resolve_fine_grid_bounds(payloads=payloads, fine_raster=fine, reference_simulation=None)
         is None
     )
 
 
 def test_resolve_fine_grid_bounds_intersection() -> None:
-    fine = ComparisonFineRaster(
-        enabled=True, resolution=1.0, extent_mode="intersection"
-    )
+    fine = ComparisonFineRaster(enabled=True, resolution=1.0, extent_mode="intersection")
     payloads = [
         _scatter_payload(simulation_id="a", extent=(0.0, 4.0, 0.0, 4.0)),
         _scatter_payload(simulation_id="b", extent=(2.0, 6.0, 2.0, 6.0)),
@@ -617,17 +601,13 @@ def test_resolve_fine_grid_bounds_intersection() -> None:
 
 
 def test_resolve_fine_grid_bounds_intersection_disjoint_returns_none() -> None:
-    fine = ComparisonFineRaster(
-        enabled=True, resolution=1.0, extent_mode="intersection"
-    )
+    fine = ComparisonFineRaster(enabled=True, resolution=1.0, extent_mode="intersection")
     payloads = [
         _scatter_payload(simulation_id="a", extent=(0.0, 1.0, 0.0, 1.0)),
         _scatter_payload(simulation_id="b", extent=(5.0, 6.0, 5.0, 6.0)),
     ]
     assert (
-        _resolve_fine_grid_bounds(
-            payloads=payloads, fine_raster=fine, reference_simulation=None
-        )
+        _resolve_fine_grid_bounds(payloads=payloads, fine_raster=fine, reference_simulation=None)
         is None
     )
 
@@ -663,9 +643,7 @@ def test_regrid_payload_linear_against_grid() -> None:
         y=np.array([0.0, 0.0, 1.0, 1.0]),
     )
     grid_x, grid_y = np.meshgrid(np.linspace(0.1, 0.9, 3), np.linspace(0.1, 0.9, 3))
-    array = _regrid_payload(
-        payload=payload, grid_x=grid_x, grid_y=grid_y, interpolation="linear"
-    )
+    array = _regrid_payload(payload=payload, grid_x=grid_x, grid_y=grid_y, interpolation="linear")
     assert array is not None
     assert array.shape == (3, 3)
     assert np.all(np.isfinite(array))
@@ -678,9 +656,7 @@ def test_regrid_payload_returns_none_when_no_finite_samples() -> None:
         y=np.array([0.0, 0.0, 1.0, 1.0]),
     )
     grid_x, grid_y = np.meshgrid([0.5], [0.5])
-    array = _regrid_payload(
-        payload=payload, grid_x=grid_x, grid_y=grid_y, interpolation="linear"
-    )
+    array = _regrid_payload(payload=payload, grid_x=grid_x, grid_y=grid_y, interpolation="linear")
     assert array is None
 
 
@@ -689,9 +665,7 @@ def test_regrid_payload_returns_none_when_no_finite_samples() -> None:
 
 def test_write_map_comparison_figure_creates_png(tmp_path: Path) -> None:
     payloads = [
-        _structured_payload(
-            simulation_id="ref", shape=(3, 3), values=np.arange(9, dtype=float)
-        ),
+        _structured_payload(simulation_id="ref", shape=(3, 3), values=np.arange(9, dtype=float)),
         _structured_payload(
             simulation_id="cand", shape=(3, 3), values=np.arange(9, dtype=float) * 2.0
         ),
@@ -755,9 +729,7 @@ def test_write_timeseries_figure_returns_false_when_too_few_points(
     rows = [{"simulation_id": "ref", "value": 1.0, "time_index": 0, "value_index": 0}]
     out = tmp_path / "ts.png"
     assert (
-        _write_timeseries_figure(
-            path=out, observable_name="head", unit="m", grouped_rows=rows
-        )
+        _write_timeseries_figure(path=out, observable_name="head", unit="m", grouped_rows=rows)
         is False
     )
 
@@ -779,10 +751,7 @@ def test_write_runtime_bar_figure_creates_png(tmp_path: Path) -> None:
     ]
     out = tmp_path / "rt.png"
     assert (
-        _write_runtime_bar_figure(
-            path=out, execution_rows=rows, reference_simulation="a"
-        )
-        is True
+        _write_runtime_bar_figure(path=out, execution_rows=rows, reference_simulation="a") is True
     )
     assert out.exists()
 
@@ -791,10 +760,7 @@ def test_write_runtime_bar_figure_returns_false_when_below_two(tmp_path: Path) -
     rows = [{"simulation_id": "a", "runtime_seconds": 1.0, "solver": "x"}]
     out = tmp_path / "rt.png"
     assert (
-        _write_runtime_bar_figure(
-            path=out, execution_rows=rows, reference_simulation=None
-        )
-        is False
+        _write_runtime_bar_figure(path=out, execution_rows=rows, reference_simulation=None) is False
     )
 
 

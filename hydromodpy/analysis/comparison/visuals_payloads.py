@@ -222,9 +222,9 @@ def _bundle_dir_from_config(config_path: Path) -> Path | None:
 def _bundle_dir_for_case(run_folder: Path, config_path: Path | None) -> Path | None:
     metrics = read_json_file(run_folder / "_metrics.json")
     boussinesq_summary = read_json_file(run_folder / "_boussinesq_summary.json")
-    bundle_dir_raw = metrics.get(
-        "mesh_output_exchange_bundle_dir"
-    ) or boussinesq_summary.get("bundle_dir")
+    bundle_dir_raw = metrics.get("mesh_output_exchange_bundle_dir") or boussinesq_summary.get(
+        "bundle_dir"
+    )
     if bundle_dir_raw:
         bundle_dir = _resolve_recorded_output_path(bundle_dir_raw, base_dir=run_folder)
         if bundle_dir is not None and bundle_dir.exists():
@@ -297,17 +297,13 @@ def _mesh_payload_from_bundle(bundle_dir: Path | None) -> tuple[np.ndarray | Non
     )
 
 
-def _recharge_payload_from_store(
-    store: Any, sim_id: str
-) -> tuple[np.ndarray | None, str]:
+def _recharge_payload_from_store(store: Any, sim_id: str) -> tuple[np.ndarray | None, str]:
     handle = None
     try:
         grp, handle = _open_store_root(store, sim_id)
         forcing = grp.get("forcing") if grp is not None else None
         recharge = (
-            forcing.get("recharge")
-            if forcing is not None and "recharge" in forcing
-            else None
+            forcing.get("recharge") if forcing is not None and "recharge" in forcing else None
         )
         if recharge is None:
             return None, ""
@@ -315,9 +311,7 @@ def _recharge_payload_from_store(
         candidate_groups = [recharge]
         try:
             candidate_groups.extend(
-                recharge[key]
-                for key in recharge.keys()
-                if not hasattr(recharge[key], "shape")
+                recharge[key] for key in recharge.keys() if not hasattr(recharge[key], "shape")
             )
         except Exception:
             pass
@@ -386,9 +380,7 @@ def _boundary_sides_from_config(
     flow = config_payload.get("flow")
     if not isinstance(flow, Mapping):
         return ()
-    active = {
-        str(item).strip() for item in (flow.get("active_bc") or ()) if str(item).strip()
-    }
+    active = {str(item).strip() for item in (flow.get("active_bc") or ()) if str(item).strip()}
     bc = flow.get("bc")
     dirichlet = bc.get("dirichlet") if isinstance(bc, Mapping) else None
     if not isinstance(dirichlet, Mapping):
@@ -400,9 +392,7 @@ def _boundary_sides_from_config(
             continue
         text_parts = [bc_name]
         if isinstance(payload, Mapping):
-            text_parts.extend(
-                str(payload.get(key, "")) for key in ("application_domain", "type")
-            )
+            text_parts.extend(str(payload.get(key, "")) for key in ("application_domain", "type"))
             value = payload.get("value", "")
         else:
             value = ""
@@ -436,9 +426,7 @@ def _flow_param_summary_lines(config_payload: Mapping[str, Any]) -> tuple[str, .
         if isinstance(field, Mapping):
             unit = str(field.get("unit", ""))
         if value:
-            lines.append(
-                f"{name}: {value}{(' ' + unit) if unit and unit not in value else ''}"
-            )
+            lines.append(f"{name}: {value}{(' ' + unit) if unit and unit not in value else ''}")
     return tuple(lines)
 
 
@@ -475,9 +463,7 @@ def _face_centroids(
             valid_faces.append(face)
     if not valid_faces:
         return np.asarray([], dtype=float), np.asarray([], dtype=float)
-    centroids = np.asarray(
-        [vertices[face, :2].mean(axis=0) for face in valid_faces], dtype=float
-    )
+    centroids = np.asarray([vertices[face, :2].mean(axis=0) for face in valid_faces], dtype=float)
     return centroids[:, 0], centroids[:, 1]
 
 
@@ -542,14 +528,10 @@ def _build_case_configuration_payload(
         store, sim_id = discover_result_store(
             config_path,
             preferred_sim_id=(
-                None
-                if selected.get("sim_id") in (None, "")
-                else str(selected.get("sim_id"))
+                None if selected.get("sim_id") in (None, "") else str(selected.get("sim_id"))
             ),
             preferred_name=(
-                None
-                if selected.get("run_name") in (None, "")
-                else str(selected.get("run_name"))
+                None if selected.get("run_name") in (None, "") else str(selected.get("run_name"))
             ),
         )
         if store is not None and sim_id is not None:
@@ -580,7 +562,9 @@ def _build_case_configuration_payload(
     n_cells = (
         int(surface_top.size)
         if surface_top is not None and surface_top.size
-        else int(centroid_x.size) if centroid_x is not None else 0
+        else int(centroid_x.size)
+        if centroid_x is not None
+        else 0
     )
     simulation_lines = tuple(
         f"{summary.get('id', '')}: {summary.get('solver', '') or 'n/a'} / {summary.get('mesh_mode', '')}"
@@ -768,19 +752,12 @@ def _build_difference_payload(
         if reference.cell_ids.size != candidate.cell_ids.size:
             return None
         candidate_positions = {
-            int(cell_id): index
-            for index, cell_id in enumerate(candidate.cell_ids.tolist())
+            int(cell_id): index for index, cell_id in enumerate(candidate.cell_ids.tolist())
         }
-        if any(
-            int(cell_id) not in candidate_positions
-            for cell_id in reference.cell_ids.tolist()
-        ):
+        if any(int(cell_id) not in candidate_positions for cell_id in reference.cell_ids.tolist()):
             return None
         ordered = np.asarray(
-            [
-                candidate.values[candidate_positions[int(cell_id)]]
-                for cell_id in reference.cell_ids
-            ],
+            [candidate.values[candidate_positions[int(cell_id)]] for cell_id in reference.cell_ids],
             dtype=float,
         )
         reference_values = _mask_nodata(reference.values)
@@ -834,11 +811,7 @@ def _resolve_fine_grid_bounds(
         return None
     if fine_raster.extent_mode == "reference" and reference_simulation is not None:
         reference_payload = next(
-            (
-                payload
-                for payload in payloads
-                if payload.simulation_id == reference_simulation
-            ),
+            (payload for payload in payloads if payload.simulation_id == reference_simulation),
             None,
         )
         if reference_payload is not None:

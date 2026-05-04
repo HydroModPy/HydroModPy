@@ -84,7 +84,6 @@ PREFIX_RULES = [
     ("hydromodpy/modeling/", "solver_connectors"),
     ("hydromodpy/simulation/", "orchestration"),
     ("hydromodpy/workflow/", "orchestration"),
-    ("hydromodpy/pipeline/", "orchestration"),
     ("hydromodpy/core/", "orchestration"),
     ("hydromodpy/config/", "orchestration"),
     ("hydromodpy/schema/", "orchestration"),

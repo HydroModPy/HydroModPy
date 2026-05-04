@@ -12,7 +12,6 @@ MODULE_EXPORTS: dict[str, str] = {
     "data": "hydromodpy.data",
     "master_config": "hydromodpy.master_config",
     "physics": "hydromodpy.physics",
-    "pipeline": "hydromodpy.pipeline",
     "results": "hydromodpy.results",
     "simulation": "hydromodpy.simulation",
     "solver": "hydromodpy.solver",

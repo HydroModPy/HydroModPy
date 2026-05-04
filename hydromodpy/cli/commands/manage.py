@@ -268,8 +268,6 @@ _HTML = """<!doctype html>
         <h2>Result diagnostics</h2>
         <div class="controls">
           <button class="secondary" id="diag-refresh">Refresh diagnostics</button>
-          <button class="secondary" id="norm-preview">Preview legacy names</button>
-          <button class="warn" id="norm-apply">Normalize legacy names</button>
           <button class="warn" id="diag-clean">Delete selected cleanup paths</button>
         </div>
       </div>
@@ -712,39 +710,6 @@ _HTML = """<!doctype html>
       await Promise.all([loadSummary(), loadOrphans(), loadDiagnostics()]);
     }
 
-    async function previewStorageNormalization() {
-      const payload = await getJson(`/api/storage-normalization?${workspaceQuery()}`);
-      setStatus(
-        "diag-status",
-        `${payload.rows.length} legacy row(s), ${payload.ready_count} ready, ${payload.blocked_count} blocked.`
-      );
-    }
-
-    async function applyStorageNormalization() {
-      const preview = await getJson(`/api/storage-normalization?${workspaceQuery()}`);
-      if (!preview.ready_count) {
-        setStatus(
-          "diag-status",
-          `${preview.rows.length} legacy row(s), ${preview.ready_count} ready, ${preview.blocked_count} blocked.`,
-          preview.blocked_count > 0
-        );
-        return;
-      }
-      const ok = window.confirm(
-        `Normalize ${preview.ready_count} legacy simulation storage name(s)? This renames files under simulations/ and updates the catalog.`
-      );
-      if (!ok) return;
-      const payload = await postJson("/api/normalize-storage", {
-        workspace: state.currentWorkspace,
-        dry_run: false,
-      });
-      setStatus(
-        "diag-status",
-        `Normalized ${payload.applied_count} legacy storage name(s); ${payload.blocked_count} blocked.`
-      );
-      await Promise.all([loadSummary(), loadOrphans(), loadDiagnostics(), loadSimulations()]);
-    }
-
     async function refreshAll() {
       try {
         await Promise.all([loadSummary(), loadSimulations(), loadOrphans(), loadDiagnostics()]);
@@ -765,20 +730,6 @@ _HTML = """<!doctype html>
     document.getElementById("diag-clean").addEventListener("click", async () => {
       try {
         await deleteSelectedDiagnosticPaths();
-      } catch (error) {
-        setStatus("diag-status", error.message, true);
-      }
-    });
-    document.getElementById("norm-preview").addEventListener("click", async () => {
-      try {
-        await previewStorageNormalization();
-      } catch (error) {
-        setStatus("diag-status", error.message, true);
-      }
-    });
-    document.getElementById("norm-apply").addEventListener("click", async () => {
-      try {
-        await applyStorageNormalization();
       } catch (error) {
         setStatus("diag-status", error.message, true);
       }
@@ -1000,28 +951,6 @@ class _WorkspaceManagerBackend:
             record["cleanup_bytes"] = sum(_path_size(Path(path)) for path in paths)
             rows.append(record)
         return {"rows": rows}
-
-    def storage_name_normalization(
-        self,
-        workspace_ref: str | None = None,
-        *,
-        dry_run: bool = True,
-    ) -> dict[str, Any]:
-        from hydromodpy.results.catalog import SimulationCatalog
-
-        workspace_root = self._resolve_workspace(workspace_ref)
-        with SimulationCatalog(workspace_root) as catalog:
-            actions = catalog.normalize_storage_names(dry_run=dry_run)
-        rows = [action.to_dict() for action in actions]
-        ready_count = sum(1 for action in actions if action.ready)
-        blocked_count = sum(1 for action in actions if not action.ready)
-        return {
-            "dry_run": dry_run,
-            "rows": rows,
-            "ready_count": ready_count,
-            "blocked_count": blocked_count,
-            "applied_count": 0 if dry_run else ready_count,
-        }
 
     def list_simulations(self, workspace_ref: str | None = None) -> dict[str, Any]:
         from hydromodpy.results.catalog import SimulationCatalog
@@ -1269,9 +1198,6 @@ class _WorkspaceManagerHandler(BaseHTTPRequestHandler):
         if parsed.path == "/api/diagnostics":
             self._write_json(200, self.backend.result_diagnostics(workspace_ref))
             return
-        if parsed.path == "/api/storage-normalization":
-            self._write_json(200, self.backend.storage_name_normalization(workspace_ref))
-            return
         if parsed.path == "/api/tables":
             database = query.get("database", ["catalog"])[0]
             self._write_json(200, self.backend.list_tables(workspace_ref, database))
@@ -1317,17 +1243,6 @@ class _WorkspaceManagerHandler(BaseHTTPRequestHandler):
                     self.backend.delete_orphans(
                         str(workspace_ref) if workspace_ref is not None else None,
                         paths,
-                    ),
-                )
-                return
-            if parsed.path == "/api/normalize-storage":
-                workspace_ref = payload.get("workspace")
-                dry_run = bool(payload.get("dry_run", False))
-                self._write_json(
-                    200,
-                    self.backend.storage_name_normalization(
-                        str(workspace_ref) if workspace_ref is not None else None,
-                        dry_run=dry_run,
                     ),
                 )
                 return

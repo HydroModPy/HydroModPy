@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import csv
 import os
-from pathlib import Path
 from collections.abc import Mapping
+from pathlib import Path
 
 import numpy as np
 

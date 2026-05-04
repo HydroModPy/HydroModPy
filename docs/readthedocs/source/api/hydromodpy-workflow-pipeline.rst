@@ -36,14 +36,14 @@ Explicit pipeline
    :nosignatures:
    :toctree: generated/workflow-pipeline
 
-   ~hydromodpy.pipeline.Pipeline
-   ~hydromodpy.pipeline.PipelineState
-   ~hydromodpy.pipeline.Step
-   ~hydromodpy.pipeline.DerivedRegistry
-   ~hydromodpy.pipeline.ResolvedState
-   ~hydromodpy.pipeline.LoadedState
-   ~hydromodpy.pipeline.MeshedState
-   ~hydromodpy.pipeline.SolverRanState
-   ~hydromodpy.pipeline.ExtractedState
-   ~hydromodpy.pipeline.DerivedState
-   ~hydromodpy.pipeline.ExportedState
+   ~hydromodpy.workflow.runner.Pipeline
+   ~hydromodpy.workflow.internals.state.PipelineState
+   ~hydromodpy.workflow.internals.step.Step
+   ~hydromodpy.workflow.internals.derived.DerivedRegistry
+   ~hydromodpy.workflow.internals.state.ResolvedState
+   ~hydromodpy.workflow.internals.state.LoadedState
+   ~hydromodpy.workflow.internals.state.MeshedState
+   ~hydromodpy.workflow.internals.state.SolverRanState
+   ~hydromodpy.workflow.internals.state.ExtractedState
+   ~hydromodpy.workflow.internals.state.DerivedState
+   ~hydromodpy.workflow.internals.state.ExportedState
