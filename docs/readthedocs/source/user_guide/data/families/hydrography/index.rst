@@ -67,6 +67,17 @@ Provider-specific overlay
    A source-specific overlay is useful when the question is about the provider
    itself rather than the complete basin identity card.
 
+Provider comparison
+-------------------
+
+.. figure:: /_static/user_guide/data/hydrography_provider_couesnon_comparison.png
+   :alt: BD Topage, OSM, and EU-Hydro comparison on the same bbox
+   :width: 100%
+
+   When several public providers can load the same family, compare them before
+   choosing one. The Couesnon replay makes the density and continuity
+   differences visible without running a solver.
+
 Local spatial smoke test
 ------------------------
 

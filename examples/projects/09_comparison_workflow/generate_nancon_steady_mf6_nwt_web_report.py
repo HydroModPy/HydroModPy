@@ -27,11 +27,23 @@ TRANSIENT_MONTHLY_BASE_CONFIG_PATH = (
     ROOT / "base_nancon_transient_monthly_hydrography_mesh_input.toml"
 )
 TRANSIENT_CONFIG_PATH = ROOT / "compare_nancon_transient_monthly_mf6_disv_vs_nwt.toml"
+TRANSIENT_DIAGNOSTIC_CONFIG_PATH = (
+    ROOT / "compare_nancon_transient_monthly_mf6_disv_vs_nwt_ic_diagnostic.toml"
+)
+TRANSIENT_DIAGNOSTIC_BASE_CONFIG_PATH = (
+    ROOT / "base_nancon_transient_monthly_hydrography_mesh_input_ic10m.toml"
+)
 COMPARISON_ROOT = ROOT / "outputs" / "nancon_steady_mf6_disv_vs_nwt"
 TRANSIENT_COMPARISON_ROOT = ROOT / "outputs" / "nancon_transient_monthly_mf6_disv_vs_nwt"
+TRANSIENT_DIAGNOSTIC_COMPARISON_ROOT = (
+    ROOT / "outputs" / "nancon_transient_monthly_mf6_disv_vs_nwt_ic_diagnostic"
+)
 WEB_DIR = COMPARISON_ROOT / "web"
 WEB_FIGURES_DIR = COMPARISON_ROOT / "web_figures"
 TRANSIENT_WEB_FIGURES_DIR = TRANSIENT_COMPARISON_ROOT / "web_figures"
+TRANSIENT_DIAGNOSTIC_WEB_FIGURES_DIR = (
+    TRANSIENT_DIAGNOSTIC_COMPARISON_ROOT / "web_figures"
+)
 
 
 def _load_toml(path: Path) -> dict[str, Any]:
@@ -1868,6 +1880,7 @@ def _build_transient_results_page() -> Path | None:
     <div class="pillrow">
       <span class="pill"><a href="index.html">Retour steady</a></span>
       <span class="pill"><a href="transient_proposal.html">Protocole transitoire</a></span>
+      <span class="pill"><a href="transient_ic_diagnostic.html">Diagnostic IC</a></span>
       <span class="pill">Config: <code>{_safe_text(TRANSIENT_CONFIG_PATH.relative_to(ROOT))}</code></span>
       <span class="pill">Audit: <code>{_safe_text(manifest.get("audit_status", ""))}</code></span>
     </div>
@@ -1958,6 +1971,579 @@ def _build_transient_results_page() -> Path | None:
     return out
 
 
+def _series_values(
+    rows: list[dict[str, str]],
+    observable: str,
+    variant_id: str,
+) -> list[float]:
+    values: list[float] = []
+    key = f"value__{variant_id}"
+    for row in rows:
+        if row.get("observable") != observable:
+            continue
+        parsed = _float(row.get(key))
+        if parsed is not None:
+            values.append(parsed)
+    return values
+
+
+def _head_diagnostic_rows(rows: list[dict[str, str]]) -> list[dict[str, str]]:
+    labels = {
+        "head_outlet_series": "Exutoire",
+        "head_mid_catchment_series": "Milieu bassin",
+        "head_eastern_plateau_series": "Plateau est",
+    }
+    variants = ("nwt_structured_120", "nwt_structured_180")
+    output: list[dict[str, str]] = []
+    for observable, label in labels.items():
+        reference = _series_values(rows, observable, "mf6_disv_ref")
+        if not reference:
+            continue
+        ref_anomaly = [value - reference[0] for value in reference]
+        for variant_id in variants:
+            candidate = _series_values(rows, observable, variant_id)
+            if len(candidate) != len(reference) or not candidate:
+                continue
+            diffs = [cand - ref for cand, ref in zip(candidate, reference, strict=False)]
+            cand_anomaly = [value - candidate[0] for value in candidate]
+            anomaly_diffs = [
+                cand - ref
+                for cand, ref in zip(cand_anomaly, ref_anomaly, strict=False)
+            ]
+            anomaly_rmse = math.sqrt(
+                sum(value * value for value in anomaly_diffs) / len(anomaly_diffs)
+            )
+            output.append(
+                {
+                    "point": label,
+                    "variant": variant_id,
+                    "diff_first": _format_float(diffs[0]),
+                    "diff_last": _format_float(diffs[-1]),
+                    "range_ref": _format_float(max(reference) - min(reference)),
+                    "range_variant": _format_float(max(candidate) - min(candidate)),
+                    "anomaly_rmse": _format_float(anomaly_rmse),
+                    "anomaly_last": _format_float(anomaly_diffs[-1]),
+                }
+            )
+    return output
+
+
+def _budget_delta_rows(rows: list[dict[str, str]]) -> list[dict[str, str]]:
+    components = (
+        ("recharge_total_m3_s", "Recharge"),
+        ("drainage_total_m3_s", "Drainage"),
+        ("storage_change_total_m3_s", "Stockage"),
+        ("closure_residual_m3_s", "Fermeture"),
+    )
+    variants = ("nwt_structured_120", "nwt_structured_180")
+    output: list[dict[str, str]] = []
+    for component, label in components:
+        component_rows = [row for row in rows if row.get("component") == component]
+        for variant_id in variants:
+            abs_diffs: list[float] = []
+            rel_diffs: list[float] = []
+            for row in component_rows:
+                reference = _float(row.get("value__mf6_disv_ref"))
+                candidate = _float(row.get(f"value__{variant_id}"))
+                if reference is None or candidate is None:
+                    continue
+                diff = abs(candidate - reference)
+                abs_diffs.append(diff)
+                if abs(reference) > 1.0e-12:
+                    rel_diffs.append(diff / abs(reference))
+            output.append(
+                {
+                    "component_label": label,
+                    "variant": variant_id,
+                    "max_abs": _format_float(max(abs_diffs) if abs_diffs else None),
+                    "max_rel": _format_float(max(rel_diffs) if rel_diffs else None),
+                }
+            )
+    return output
+
+
+def _diagnostic_config_rows(
+    manifest: dict[str, Any],
+    cell_counts: dict[str, str],
+) -> list[dict[str, str]]:
+    rows: list[dict[str, str]] = []
+    for variant in manifest.get("variants", []):
+        if not isinstance(variant, dict):
+            continue
+        config_path_raw = variant.get("config_path")
+        config_path = Path(str(config_path_raw)) if config_path_raw else None
+        payload = _load_toml(config_path) if config_path is not None else {}
+        solver = str(variant.get("solver", ""))
+        solver_section = payload.get(solver, {}) if isinstance(payload, dict) else {}
+        tgrid = solver_section.get("tgrid", {}) if isinstance(solver_section, dict) else {}
+        ic = payload.get("flow", {}).get("ic", {}) if isinstance(payload, dict) else {}
+        rows.append(
+            {
+                "variant_id": str(variant.get("id", "")),
+                "solver": solver,
+                "cell_count": cell_counts.get(str(variant.get("id", "")), ""),
+                "ic": f"{ic.get('type', '')} {ic.get('value', '')}".strip(),
+                "firstpersteady": str(tgrid.get("firstpersteady", "")),
+                "status": str(variant.get("status", "")),
+            }
+        )
+    return rows
+
+
+def _diagnostic_overview_rows(base: dict[str, Any], config: dict[str, Any]) -> list[dict[str, Any]]:
+    flow = base.get("flow", {})
+    simulation_time = base.get("simulation", {}).get("time", {})
+    geo = base.get("geographic", {})
+    depth = base.get("domain", {}).get("depth_model", {})
+    recharge_sources = base.get("data", {}).get("recharge", {}).get("sources", [])
+    recharge = recharge_sources[0] if recharge_sources else {}
+    recharge_values = [
+        value for value in recharge.get("values", []) if _float(value) is not None
+    ]
+    recharge_mean = (
+        sum(float(value) for value in recharge_values) / len(recharge_values)
+        if recharge_values
+        else None
+    )
+    fine = config.get("comparison", {}).get("fine_raster", {})
+    observables = config.get("comparison", {}).get("observable", [])
+    map_count = sum(
+        1 for observable in observables if isinstance(observable, dict) and observable.get("support") == "map"
+    )
+    point_count = sum(
+        1 for observable in observables if isinstance(observable, dict) and observable.get("support") == "point"
+    )
+    outlet_count = sum(
+        1 for observable in observables if isinstance(observable, dict) and observable.get("support") == "outlet"
+    )
+    tgrid_values: list[str] = []
+    for simulation in config.get("comparison", {}).get("simulation", []):
+        if not isinstance(simulation, dict):
+            continue
+        solver = str(simulation.get("solver", ""))
+        solver_overlay = simulation.get("overlay", {}).get(solver, {})
+        tgrid = solver_overlay.get("tgrid", {}) if isinstance(solver_overlay, dict) else {}
+        if "firstpersteady" in tgrid:
+            tgrid_values.append(f"{simulation.get('id')}: {tgrid.get('firstpersteady')}")
+
+    return [
+        {
+            "item": "Objectif",
+            "value": "Isoler recharge, condition initiale et extraction ponctuelle",
+            "comment": "Meme recharge que le pilote mensuel; comparaison MF6 DISV vs deux grilles NWT.",
+        },
+        {
+            "item": "Fenetre temporelle",
+            "value": (
+                f"{simulation_time.get('start_datetime', '')} -> "
+                f"{simulation_time.get('end_datetime', '')}; pas {simulation_time.get('step_value', '')}"
+            ),
+            "comment": "Douze periodes mensuelles en regime transitoire.",
+        },
+        {
+            "item": "Condition initiale",
+            "value": (
+                f"{flow.get('ic', {}).get('type', '')}; "
+                f"value={flow.get('ic', {}).get('value', '')}; "
+                f"firstpersteady={'; '.join(tgrid_values)}"
+            ),
+            "comment": "On evite le premier equilibre steady propre a chaque maillage.",
+        },
+        {
+            "item": "Recharge",
+            "value": (
+                f"{len(recharge_values)} valeurs mensuelles; "
+                f"moyenne={_format_float(recharge_mean)} mm/j; "
+                f"equivalent={_format_float(None if recharge_mean is None else recharge_mean * 365.25)} mm/an"
+            ),
+            "comment": f"Source {recharge.get('source', '')}; runoff_ratio={recharge.get('runoff_ratio', '')}.",
+        },
+        {
+            "item": "Parametres aquifere",
+            "value": (
+                f"K={flow.get('param', {}).get('K', {}).get('field_homogeneous', {}).get('value', '')}; "
+                f"Sy={flow.get('param', {}).get('Sy', {}).get('field_homogeneous', {}).get('value', '')}; "
+                f"Ss={flow.get('param', {}).get('Ss', {}).get('field_homogeneous', {}).get('value', '')}; "
+                f"epaisseur={depth.get('thickness', '')}"
+            ),
+            "comment": "Valeurs communes aux trois variantes.",
+        },
+        {
+            "item": "Drainage",
+            "value": flow.get("bc", {}).get("cauchy", {}).get("drainage", {}).get("value", ""),
+            "comment": "Condition de Cauchy appliquee sur le toit.",
+        },
+        {
+            "item": "Domaine",
+            "value": (
+                f"CRS {geo.get('crs_project', '')}; exutoire "
+                f"({geo.get('x_outlet', '')}, {geo.get('y_outlet', '')}); "
+                f"snap={geo.get('snap_dist', '')}"
+            ),
+            "comment": "Meme bassin du Nancon et hydrographie BD TOPAGE.",
+        },
+        {
+            "item": "Comparaison spatiale",
+            "value": (
+                f"Raster commun {fine.get('resolution', '')} m; "
+                f"extent={fine.get('extent_mode', '')}; interpolation={fine.get('interpolation', '')}"
+            ),
+            "comment": "Les cartes completes conservent aussi les maillages natifs superposes.",
+        },
+        {
+            "item": "Observables",
+            "value": f"{map_count} cartes; {point_count} points de charge; {outlet_count} flux outlet",
+            "comment": "Charges, zones de suintement, drainage, reseau actif et flux.",
+        },
+    ]
+
+
+def _diagnostic_recharge_rows(base: dict[str, Any]) -> list[dict[str, str]]:
+    recharge_sources = base.get("data", {}).get("recharge", {}).get("sources", [])
+    recharge = recharge_sources[0] if recharge_sources else {}
+    values = recharge.get("values", [])
+    rows: list[dict[str, str]] = []
+    for index, value in enumerate(values, start=1):
+        rows.append(
+            {
+                "period": str(index),
+                "recharge_mm_day": _format_float(value, digits=4),
+                "source": str(recharge.get("source", "")),
+                "freq": str(recharge.get("freq", "")),
+            }
+        )
+    return rows
+
+
+def _build_transient_diagnostic_page() -> Path | None:
+    manifest_path = TRANSIENT_DIAGNOSTIC_COMPARISON_ROOT / "comparison_manifest.json"
+    if not manifest_path.exists():
+        return None
+    WEB_DIR.mkdir(parents=True, exist_ok=True)
+    config = _load_resolved_toml(TRANSIENT_DIAGNOSTIC_CONFIG_PATH)
+    base = _load_resolved_toml(TRANSIENT_DIAGNOSTIC_BASE_CONFIG_PATH)
+    manifest = _load_json(manifest_path)
+    audit = _load_json(TRANSIENT_DIAGNOSTIC_COMPARISON_ROOT / "comparison_audit.json")
+    figures = _figure_artifacts(manifest)
+    active_metrics_rows = _load_csv(
+        TRANSIENT_DIAGNOSTIC_COMPARISON_ROOT / "simulated_active_network_metrics.csv"
+    )
+    cell_counts = _cell_counts_from_rows(active_metrics_rows)
+    execution_rows = _enrich_execution_rows(
+        _load_csv(TRANSIENT_DIAGNOSTIC_COMPARISON_ROOT / "execution_times.csv"),
+        manifest,
+        cell_counts,
+    )
+    timeseries_rows = _load_csv(TRANSIENT_DIAGNOSTIC_COMPARISON_ROOT / "timeseries_wide.csv")
+    budget_rows = _load_csv(
+        TRANSIENT_DIAGNOSTIC_COMPARISON_ROOT / "budget_timeseries_wide.csv"
+    )
+    metrics_rows = _load_csv(TRANSIENT_DIAGNOSTIC_COMPARISON_ROOT / "comparison_metrics.csv")
+    overlap_rows = _load_csv(
+        TRANSIENT_DIAGNOSTIC_COMPARISON_ROOT
+        / "simulated_active_network_overlap_metrics.csv"
+    )
+    watershed_overlay = _load_watershed_overlay(config, manifest, base)
+    mesh_geometries = _mesh_geometries_from_zarr(config, manifest)
+    complete_case_maps = _generate_three_case_map_figures(
+        config=config,
+        manifest=manifest,
+        cell_counts=cell_counts,
+        overlay=watershed_overlay,
+        mesh_geometries=mesh_geometries,
+        output_dir=TRANSIENT_DIAGNOSTIC_WEB_FIGURES_DIR,
+        config_path=TRANSIENT_DIAGNOSTIC_CONFIG_PATH,
+        base_config_path=TRANSIENT_DIAGNOSTIC_BASE_CONFIG_PATH,
+        comparison_root=TRANSIENT_DIAGNOSTIC_COMPARISON_ROOT,
+    )
+
+    config_table = _render_table(
+        _diagnostic_config_rows(manifest, cell_counts),
+        (
+            ("variant_id", "Variante"),
+            ("solver", "Solver"),
+            ("cell_count", "Mailles"),
+            ("ic", "Condition initiale"),
+            ("firstpersteady", "firstpersteady"),
+            ("status", "Statut"),
+        ),
+        empty="Configuration diagnostic non disponible.",
+        max_rows=10,
+    )
+    overview_table = _render_table(
+        _diagnostic_overview_rows(base, config),
+        (
+            ("item", "Element"),
+            ("value", "Configuration"),
+            ("comment", "Role dans le diagnostic"),
+        ),
+        empty="Resume de configuration non disponible.",
+        max_rows=12,
+    )
+    recharge_table = _render_table(
+        _diagnostic_recharge_rows(base),
+        (
+            ("period", "Periode"),
+            ("recharge_mm_day", "Recharge mm/j"),
+            ("source", "Source"),
+            ("freq", "Freq."),
+        ),
+        empty="Chronique de recharge non disponible.",
+        max_rows=12,
+    )
+    head_table = _render_table(
+        _head_diagnostic_rows(timeseries_rows),
+        (
+            ("point", "Point"),
+            ("variant", "Variante"),
+            ("diff_first", "Ecart t1 m"),
+            ("diff_last", "Ecart final m"),
+            ("range_ref", "Amplitude MF6 m"),
+            ("range_variant", "Amplitude NWT m"),
+            ("anomaly_rmse", "RMSE anomalie m"),
+            ("anomaly_last", "Anomalie finale m"),
+        ),
+        empty="Series de charge non disponibles.",
+        max_rows=10,
+    )
+    budget_delta_table = _render_table(
+        _budget_delta_rows(budget_rows),
+        (
+            ("component_label", "Composante"),
+            ("variant", "Variante"),
+            ("max_abs", "Max abs. m3/s"),
+            ("max_rel", "Max relatif"),
+        ),
+        empty="Bilan non disponible.",
+        max_rows=12,
+    )
+    execution_table = _render_table(
+        execution_rows,
+        (
+            ("variant_id", "Variante"),
+            ("solver", "Solver"),
+            ("mesh_mode", "Maillage"),
+            ("cell_count", "Mailles"),
+            ("status", "Statut"),
+            ("runtime_seconds", "Temps s"),
+        ),
+        empty="Temps d'execution non disponibles.",
+        max_rows=10,
+    )
+    metrics_table = _render_table(
+        metrics_rows,
+        (
+            ("variant_id", "Variante"),
+            ("observable", "Observable"),
+            ("unit", "Unite"),
+            ("n_pairs", "Paires"),
+            ("rmse", "RMSE"),
+            ("max_abs_error", "Max abs."),
+        ),
+        empty="Metriques non disponibles.",
+        max_rows=18,
+    )
+    overlap_table = _render_table(
+        overlap_rows,
+        (
+            ("variant_id", "Variante"),
+            ("network_role", "Reseau"),
+            ("active_cell_count", "Cellules actives"),
+            ("network_coverage_ratio", "Coverage"),
+            ("cell_f1_ratio", "F1"),
+        ),
+        empty="Metriques de reseau actif non disponibles.",
+        max_rows=10,
+    )
+    point_figures = [
+        _figure_by_filename(figures, "head_points_dashboard.png"),
+        _figure_by_filename(figures, "head_outlet_series__timeseries.png"),
+        _figure_by_filename(figures, "head_mid_catchment_series__timeseries.png"),
+        _figure_by_filename(figures, "head_eastern_plateau_series__timeseries.png"),
+    ]
+    flux_figures = [
+        _figure_by_filename(figures, "outlet_flux_series__timeseries.png"),
+        _figure_by_filename(figures, "mf6_disv_ref__budget_diagnostics.png"),
+        _figure_by_filename(figures, "nwt_structured_120__budget_diagnostics.png"),
+        _figure_by_filename(figures, "nwt_structured_180__budget_diagnostics.png"),
+    ]
+    audit_table = _render_table(
+        _audit_issue_rows(audit),
+        (
+            ("level", "Niveau"),
+            ("kind", "Type"),
+            ("variant_id", "Variante"),
+            ("field", "Champ"),
+            ("fraction", "Fraction"),
+            ("max_m", "Max m"),
+            ("message", "Message"),
+        ),
+        empty="Aucun avertissement d'audit.",
+        max_rows=14,
+    )
+
+    html_text = f"""<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Nancon diagnostic initial MF6 DISV vs MODFLOW-NWT</title>
+  <style>
+    :root {{
+      --bg: #f7f7f4;
+      --ink: #1d2528;
+      --muted: #667174;
+      --panel: #ffffff;
+      --line: #d7ddd7;
+      --blue: #1f6b8f;
+      --orange: #a55d2a;
+    }}
+    * {{ box-sizing: border-box; }}
+    body {{ margin: 0; background: var(--bg); color: var(--ink); font-family: Arial, Helvetica, sans-serif; line-height: 1.45; }}
+    main {{ max-width: 1760px; margin: 0 auto; padding: 28px 24px 64px; }}
+    header {{ border-bottom: 1px solid var(--line); padding: 18px 0 22px; margin-bottom: 22px; }}
+    h1, h2, h3 {{ margin: 0; line-height: 1.15; }}
+    h1 {{ font-size: 2.05rem; max-width: 980px; }}
+    h2 {{ font-size: 1.25rem; margin-bottom: 12px; }}
+    h3 {{ font-size: 0.95rem; color: var(--blue); }}
+    p {{ margin: 8px 0 0; color: var(--muted); }}
+    a {{ color: var(--blue); text-decoration-thickness: 1px; }}
+    code {{ font-family: Consolas, "Courier New", monospace; font-size: 0.9em; color: var(--blue); }}
+    .section {{ background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 18px; margin-top: 18px; }}
+    .comment-grid {{ display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }}
+    .comment-card {{ border: 1px solid var(--line); border-radius: 8px; padding: 12px; background: #fbfcfb; min-width: 0; }}
+    .table-wrap {{ overflow-x: auto; }}
+    table {{ width: 100%; border-collapse: collapse; font-size: 0.88rem; }}
+    th, td {{ text-align: left; padding: 7px 8px; border-bottom: 1px solid #e8ece8; }}
+    th {{ color: var(--muted); font-weight: 600; white-space: nowrap; }}
+    .fig-grid, .wide-fig-grid, .figure-deck {{ display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }}
+    .wide-fig-grid {{ margin-top: 12px; }}
+    figure {{ margin: 0; border: 1px solid var(--line); border-radius: 8px; background: #fbfcfb; padding: 10px; }}
+    img {{ width: 100%; display: block; border-radius: 6px; border: 1px solid #e2e7e2; background: white; }}
+    figcaption {{ margin-top: 7px; color: var(--muted); font-size: 0.88rem; }}
+    figcaption strong {{ display: block; color: var(--ink); font-size: 0.92rem; }}
+    .callout {{ border-left: 4px solid var(--blue); padding: 10px 12px; background: #f2f6f7; color: var(--ink); margin-top: 12px; }}
+    .warn {{ border-left-color: var(--orange); background: #fbf4ee; }}
+    .pillrow {{ display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }}
+    .pill {{ border: 1px solid var(--line); border-radius: 999px; padding: 5px 9px; background: #fbfcfb; font-size: 0.86rem; }}
+    .muted {{ color: var(--muted); }}
+    @media (max-width: 980px) {{
+      main {{ padding: 18px 14px 44px; }}
+      .comment-grid, .fig-grid, .wide-fig-grid, .figure-deck {{ grid-template-columns: 1fr; }}
+    }}
+  </style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>Nancon transitoire: diagnostic condition initiale et extraction des points</h1>
+    <p>
+      Variante voisine du pilote mensuel: meme recharge, memes parametres physiques, mais condition initiale
+      top - 10 m et aucun premier pas steady. Les series ponctuelles utilisent l'extraction corrigee depuis
+      le maillage reel stocke dans le Zarr.
+    </p>
+    <div class="pillrow">
+      <span class="pill"><a href="index.html">Retour steady</a></span>
+      <span class="pill"><a href="transient_results.html">Pilote transitoire</a></span>
+      <span class="pill">Config: <code>{_safe_text(TRANSIENT_DIAGNOSTIC_CONFIG_PATH.relative_to(ROOT))}</code></span>
+      <span class="pill">Audit: <code>{_safe_text(manifest.get("audit_status", ""))}</code></span>
+    </div>
+  </header>
+
+  <section class="section">
+    <h2>Configuration du diagnostic</h2>
+    <p>
+      Ce bloc fixe le protocole lu dans les fichiers TOML: meme forcage de recharge, meme physique,
+      condition initiale explicite a 10 m sous le toit et aucun premier pas steady. Les variantes ne
+      changent que le code et le support de maillage.
+    </p>
+    {overview_table}
+    <h3 style="margin-top:16px;">Variantes, mailles et etat initial</h3>
+    {config_table}
+    <h3 style="margin-top:16px;">Recharge mensuelle imposee</h3>
+    {recharge_table}
+    <h3 style="margin-top:16px;">Execution</h3>
+    {execution_table}
+  </section>
+
+  <section class="section">
+    <h2>Conclusion du diagnostic</h2>
+    <div class="comment-grid">
+      <article class="comment-card">
+        <h3>Recharge</h3>
+        <p>La recharge reste equivalente entre les codes. Les ecarts max restent de l'ordre de 0.0065 m3/s, soit moins de 0.5%.</p>
+      </article>
+      <article class="comment-card">
+        <h3>Charges ponctuelles</h3>
+        <p>Apres correction de l'extraction, le cas sans firstpersteady rapproche fortement les points: les ecarts finaux sont metriques a quelques metres, pas plusieurs dizaines.</p>
+      </article>
+      <article class="comment-card">
+        <h3>Difference restante</h3>
+        <p>Les divergences residuelles portent surtout sur le drainage, le stockage et l'exutoire. Elles relevent du support de drainage et du maillage, pas d'une recharge differente.</p>
+      </article>
+    </div>
+    <p class="callout warn">
+      Le pilote precedent etait donc contamine par deux effets: un etat initial effectif different via firstpersteady,
+      et une extraction ponctuelle NWT qui reutilisait le bundle DISV herite. Les cartes restent a lire, mais les
+      anciennes series ponctuelles NWT ne doivent pas etre interpretees telles quelles.
+    </p>
+  </section>
+
+  <section class="section">
+    <h2>Charges aux points corriges</h2>
+    <p>
+      Les anomalies h(t)-h(t1) retirent l'offset initial local et comparent la dynamique. Elles confirment que
+      le diagnostic sans firstpersteady donne une reponse beaucoup plus comparable aux points de controle.
+    </p>
+    {head_table}
+    {_figure_grid([figure for figure in point_figures if figure], empty="Aucune serie de charge disponible.")}
+  </section>
+
+  <section class="section">
+    <h2>Recharge, drainage et flux</h2>
+    <p>
+      La recharge appliquee reste pratiquement identique. Les ecarts de drainage et stockage restent les vrais
+      indicateurs a travailler pour rapprocher MF6 DISV et NWT.
+    </p>
+    {budget_delta_table}
+    {_figure_grid([figure for figure in flux_figures if figure], empty="Aucune figure de flux disponible.")}
+  </section>
+
+  <section class="section">
+    <h2>Cartes comparables</h2>
+    {_wide_figure_grid(complete_case_maps, empty="Aucune carte complete diagnostic disponible.")}
+  </section>
+
+  <section class="section">
+    <h2>Reseau actif et metriques</h2>
+    {overlap_table}
+    {metrics_table}
+  </section>
+
+  <section class="section">
+    <h2>Audit</h2>
+    {audit_table}
+  </section>
+
+  <section class="section">
+    <h2>Fichiers produits</h2>
+    <div class="pillrow">
+      <span class="pill"><code>{_safe_text(TRANSIENT_DIAGNOSTIC_COMPARISON_ROOT.relative_to(ROOT))}</code></span>
+      <span class="pill"><code>timeseries_wide.csv</code></span>
+      <span class="pill"><code>budget_timeseries_wide.csv</code></span>
+      <span class="pill"><code>comparison_metrics.csv</code></span>
+      <span class="pill"><code>web_figures/</code></span>
+    </div>
+  </section>
+</main>
+</body>
+</html>
+"""
+    out = WEB_DIR / "transient_ic_diagnostic.html"
+    out.write_text(html_text, encoding="utf-8")
+    return out
+
+
 def build_report() -> Path:
     WEB_DIR.mkdir(parents=True, exist_ok=True)
     config = _load_toml(CONFIG_PATH)
@@ -1973,10 +2559,17 @@ def build_report() -> Path:
     cfg_summary = _config_summary(base)
     transient_page = _build_transient_proposal_page(base, config)
     transient_results_page = _build_transient_results_page()
+    transient_diagnostic_page = _build_transient_diagnostic_page()
     transient_results_pill = (
         f'<span class="pill"><a href="{_safe_text(transient_results_page.name)}">'
         "Resultats transitoires</a></span>"
         if transient_results_page is not None
+        else ""
+    )
+    transient_diagnostic_pill = (
+        f'<span class="pill"><a href="{_safe_text(transient_diagnostic_page.name)}">'
+        "Diagnostic IC</a></span>"
+        if transient_diagnostic_page is not None
         else ""
     )
     watershed_overlay = _load_watershed_overlay(config, manifest, base)
@@ -2318,6 +2911,7 @@ def build_report() -> Path:
       <span class="pill">Audit: <code>{_safe_text(manifest.get("audit_status", "pending"))}</code></span>
       <span class="pill"><a href="{_safe_text(transient_page.name)}">Proposition transitoire</a></span>
       {transient_results_pill}
+      {transient_diagnostic_pill}
     </div>
   </header>
 
@@ -2442,6 +3036,7 @@ def build_report() -> Path:
       <span class="pill"><code>comparison_figures/</code></span>
       <span class="pill"><code>{_safe_text(transient_page.name)}</code></span>
       {f'<span class="pill"><code>{_safe_text(transient_results_page.name)}</code></span>' if transient_results_page is not None else ""}
+      {f'<span class="pill"><code>{_safe_text(transient_diagnostic_page.name)}</code></span>' if transient_diagnostic_page is not None else ''}
     </div>
   </section>
 </main>

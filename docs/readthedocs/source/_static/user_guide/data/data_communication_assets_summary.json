@@ -12,6 +12,7 @@
     "hubeau_provider_replay": "_static\\user_guide\\data\\hubeau_provider_replay_examples.png",
     "shom_provider_replay": "_static\\user_guide\\data\\shom_provider_replay_example.png",
     "hydrography_provider_replay": "_static\\user_guide\\data\\hydrography_provider_replay_examples.png",
+    "hydrography_provider_comparison": "_static\\user_guide\\data\\hydrography_provider_couesnon_comparison.png",
     "oceanic_local_stage": "_static\\user_guide\\data\\oceanic_local_stage_example.png",
     "intermittency_local_state": "_static\\user_guide\\data\\intermittency_local_state_example.png"
   },
@@ -435,19 +436,51 @@
     },
     "hydrography": {
       "regional_feature_count": 452,
-      "bdtopage_samples": [
+      "provider_samples": [
         {
           "path": "examples\\data\\hydrography\\bdtopage_-1.2451_48.3618_-1.1072_48.4651.gpkg",
           "feature_count": 99,
           "crs": "EPSG:4326"
         },
         {
-          "path": "examples\\data\\hydrography\\bdtopage_-4.4591_48.5793_-4.4280_48.5959.gpkg",
-          "feature_count": 2,
+          "path": "examples\\data\\hydrography\\osm_-1.2451_48.3618_-1.1072_48.4651.gpkg",
+          "feature_count": 257,
+          "crs": "EPSG:4326"
+        },
+        {
+          "path": "examples\\data\\hydrography\\euhydro_-1.2451_48.3618_-1.1072_48.4651.gpkg",
+          "feature_count": 17,
           "crs": "EPSG:4326"
         }
+      ]
+    },
+    "hydrography_comparison": {
+      "bbox_wgs84": [
+        -1.2451,
+        48.3618,
+        -1.1072,
+        48.4651
       ],
-      "osm_euhydro_status": "no versioned replay artifact yet"
+      "stats": [
+        {
+          "provider": "BD Topage",
+          "feature_count": 99,
+          "length_km": 162.359,
+          "path": "examples\\data\\hydrography\\bdtopage_-1.2451_48.3618_-1.1072_48.4651.gpkg"
+        },
+        {
+          "provider": "OSM",
+          "feature_count": 257,
+          "length_km": 108.366,
+          "path": "examples\\data\\hydrography\\osm_-1.2451_48.3618_-1.1072_48.4651.gpkg"
+        },
+        {
+          "provider": "EU-Hydro",
+          "feature_count": 17,
+          "length_km": 29.994,
+          "path": "examples\\data\\hydrography\\euhydro_-1.2451_48.3618_-1.1072_48.4651.gpkg"
+        }
+      ]
     }
   },
   "oceanic_case": {
@@ -460,7 +493,7 @@
     "min_msl_m": 0.9,
     "max_msl_m": 1.3,
     "returned_msl_m": 1.125,
-    "fetch_seconds": 0.038011
+    "fetch_seconds": 0.05583
   },
   "intermittency_case": {
     "source": "custom",

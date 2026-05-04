@@ -90,6 +90,14 @@ data diagnostics before any solver is executed.
    rendered directly so that network coverage can be checked before meshing or
    simulation.
 
+.. figure:: /_static/user_guide/data/hydrography_provider_couesnon_comparison.png
+   :alt: Provider-specific hydrography comparison on a small bbox
+   :width: 100%
+
+   The provider choice itself can change the loaded network. The Couesnon
+   replay compares BD Topage, OSM, and EU-Hydro after clipping them to the same
+   bbox, which is the kind of check to do before selecting a hydrography source.
+
 .. figure:: /_static/capability_gallery/geographic/geographic_nancon_identity_card_station_inventory.png
    :alt: Nancon station inventory produced by data overview
    :width: 100%

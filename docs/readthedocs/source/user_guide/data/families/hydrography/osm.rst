@@ -21,18 +21,25 @@ Operational checks
 - OSM completeness can vary by region, so visual inspection is mandatory.
 - Avoid treating OSM density as a hydrological truth without local validation.
 
-Gallery status
---------------
-
-No dedicated committed OSM replay artifact is currently available. Until one
-is added, use the generic hydrography panel as the visual contract and document
-the provider choice in the case narrative.
+Provider replay
+---------------
 
 .. figure:: /_static/user_guide/data/hydrography_provider_replay_examples.png
-   :alt: Hydrography provider replay showing the current OSM gallery gap
+   :alt: Hydrography provider replay including OSM
    :width: 100%
 
-   The replay figure marks the current OSM gap explicitly. The next stable OSM
-   page should fetch one small bbox, persist the raw GPKG in the cache, record
-   the lockfile identity, and compare network density against a local or BD
-   Topage reference.
+   The replay figure includes a committed OSM GPKG on the Couesnon bbox. It
+   should be read as a provider payload check, not as proof that OSM is always
+   complete enough for modeling.
+
+Provider comparison
+-------------------
+
+.. figure:: /_static/user_guide/data/hydrography_provider_couesnon_comparison.png
+   :alt: Couesnon hydrography comparison including OSM
+   :width: 100%
+
+   On this bbox, OSM contributes the densest small-stream network. That can be
+   valuable for screening, but it also reinforces why OSM needs visual
+   validation against local knowledge or an institutional reference before it
+   becomes a modeling constraint.

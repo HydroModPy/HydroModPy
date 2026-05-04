@@ -42,3 +42,15 @@ Provider replay
    broader local river network. This keeps the source under test readable
    before it is clipped, rasterized, or compared with simulated active
    networks.
+
+Provider comparison
+-------------------
+
+.. figure:: /_static/user_guide/data/hydrography_provider_couesnon_comparison.png
+   :alt: Couesnon hydrography comparison including BD Topage
+   :width: 100%
+
+   In the Couesnon replay bbox, BD Topage provides an intermediate network
+   density between OSM and EU-Hydro. This is the kind of first-order provider
+   effect that should be visible before a network is used as a meshing or
+   drainage reference.

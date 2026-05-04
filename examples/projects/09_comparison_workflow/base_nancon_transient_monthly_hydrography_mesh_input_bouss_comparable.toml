@@ -20,9 +20,13 @@ name = "nancon_transient_monthly_hydrography_mesh_input_bouss_comparable"
 description = "Nancon monthly transient MF6/Boussinesq comparability pilot on one precomputed mesh."
 on_collision = "replace"
 
+[flow]
+runtime_tol_residual_inf = 1.0e-6
+runtime_tol_state_update_inf = 1.0e-6
+
 [flow.ic]
 type = "top_offset"
 value = "10 m"
 
 [flow.bc.cauchy.drainage]
-value = "1.0e-3 m2/s"
+value = "1.0e-4 m2/s"

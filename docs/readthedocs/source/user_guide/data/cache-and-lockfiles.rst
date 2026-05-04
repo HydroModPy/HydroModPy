@@ -39,6 +39,16 @@ which forcing or observation files were reused.
    live API refresh is needed, the refreshed payload should be cached, locked,
    and only then promoted to a documentation figure.
 
+The documentation hydrography comparison follows the same discipline with a
+small explicit refresh script. It writes provider GPKG artifacts plus a JSON
+manifest containing feature counts, lengths, sizes, and SHA-256 hashes:
+
+.. code-block:: powershell
+
+   python docs/readthedocs/source/user_guide/data/refresh_hydrography_provider_replays.py --case couesnon --providers bdtopage osm euhydro
+
+The normal figure renderer then reads those files without touching the network.
+
 .. figure:: /_static/capability_gallery/geographic/geographic_nancon_identity_card_station_inventory.png
    :alt: Station inventory protected by cache and lockfile discipline
    :width: 100%

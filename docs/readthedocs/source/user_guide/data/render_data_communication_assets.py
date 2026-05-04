@@ -709,24 +709,35 @@ def render_hydrography_provider_replay() -> tuple[Path, dict[str, object]]:
     import geopandas as gpd
 
     regional_path = REPO_ROOT / "examples" / "data" / "hydrography" / "regional_stream_network.shp"
-    bdtopage_paths = sorted((REPO_ROOT / "examples" / "data" / "hydrography").glob("bdtopage_*.gpkg"))
+    hydro_dir = REPO_ROOT / "examples" / "data" / "hydrography"
+    provider_paths = {
+        "BD Topage": hydro_dir / "bdtopage_-1.2451_48.3618_-1.1072_48.4651.gpkg",
+        "OSM": hydro_dir / "osm_-1.2451_48.3618_-1.1072_48.4651.gpkg",
+        "EU-Hydro": hydro_dir / "euhydro_-1.2451_48.3618_-1.1072_48.4651.gpkg",
+    }
     regional = gpd.read_file(regional_path)
-    bdtopage = [gpd.read_file(path) for path in bdtopage_paths]
+    provider_gdfs = {
+        name: gpd.read_file(path)
+        for name, path in provider_paths.items()
+        if path.exists()
+    }
 
     fig, axes = plt.subplots(2, 2, figsize=(12.8, 9.0), dpi=140)
-    ax_regional, ax_bdtopage_1, ax_bdtopage_2, ax_gap = axes.ravel()
+    ax_regional, ax_bdtopage, ax_osm, ax_euhydro = axes.ravel()
 
     regional.plot(ax=ax_regional, color="#175C7D", linewidth=0.7)
     ax_regional.set_title("Custom replay: regional stream network", loc="left", weight="bold")
     _format_projected_axes_km(ax_regional)
     ax_regional.set_aspect("equal")
 
-    colors = ["#2E6F9E", "#7BAA64", "#C78B48"]
-    for idx, ax in enumerate((ax_bdtopage_1, ax_bdtopage_2)):
-        if idx < len(bdtopage):
-            gdf = bdtopage[idx]
-            gdf.plot(ax=ax, color=colors[idx % len(colors)], linewidth=1.1, alpha=0.9)
-            ax.set_title(f"BD Topage replay: provider sample {idx + 1}", loc="left", weight="bold")
+    colors = {"BD Topage": "#2E6F9E", "OSM": "#7BAA64", "EU-Hydro": "#C78B48"}
+    axes_by_provider = {"BD Topage": ax_bdtopage, "OSM": ax_osm, "EU-Hydro": ax_euhydro}
+    for name, ax in axes_by_provider.items():
+        path = provider_paths[name]
+        gdf = provider_gdfs.get(name)
+        if gdf is not None and not gdf.empty:
+            gdf.plot(ax=ax, color=colors[name], linewidth=1.1, alpha=0.9)
+            ax.set_title(f"{name} replay: Couesnon bbox", loc="left", weight="bold")
             ax.text(
                 0.02,
                 0.03,
@@ -740,47 +751,126 @@ def render_hydrography_provider_replay() -> tuple[Path, dict[str, object]]:
             )
         else:
             ax.axis("off")
-            ax.text(0.5, 0.5, "No BD Topage replay file", transform=ax.transAxes, ha="center", va="center")
+            ax.text(
+                0.5,
+                0.5,
+                f"No {name} replay file\n{path.name}",
+                transform=ax.transAxes,
+                ha="center",
+                va="center",
+                fontsize=9,
+            )
         ax.set_xlabel("longitude")
         ax.set_ylabel("latitude")
         ax.grid(True, color="#DDDDDD", linewidth=0.7)
 
-    ax_gap.axis("off")
-    ax_gap.set_title("OSM / EU-Hydro gallery gap", loc="left", weight="bold")
-    gap_text = (
-        "No versioned OSM or EU-Hydro replay file is present yet.\n\n"
-        "Next safe case:\n"
-        "1. fetch one small bbox;\n"
-        "2. persist raw GPKG in cache;\n"
-        "3. record lockfile/hash;\n"
-        "4. compare network density and geometry;\n"
-        "5. publish source-specific page."
-    )
-    ax_gap.text(
-        0.02,
-        0.82,
-        gap_text,
-        transform=ax_gap.transAxes,
-        ha="left",
-        va="top",
-        fontsize=10,
-        color="#333333",
-        bbox={"boxstyle": "round,pad=0.55", "fc": "#F7F7F7", "ec": "#CCCCCC"},
-    )
     fig.tight_layout()
     summary = {
         "regional_feature_count": int(len(regional)),
-        "bdtopage_samples": [
+        "provider_samples": [
             {
                 "path": str(path.relative_to(REPO_ROOT)),
                 "feature_count": int(len(gdf)),
                 "crs": str(gdf.crs),
             }
-            for path, gdf in zip(bdtopage_paths, bdtopage, strict=True)
+            for name, path in provider_paths.items()
+            if (gdf := provider_gdfs.get(name)) is not None
         ],
-        "osm_euhydro_status": "no versioned replay artifact yet",
     }
     return _save(fig, "hydrography_provider_replay_examples.png"), summary
+
+
+def _clip_to_bbox_wgs84(gdf, bbox: tuple[float, float, float, float]):
+    import geopandas as gpd
+    from shapely.geometry import box
+
+    if gdf.empty:
+        return gdf
+    source = gdf if str(gdf.crs) == "EPSG:4326" else gdf.to_crs("EPSG:4326")
+    mask = gpd.GeoDataFrame(geometry=[box(*bbox)], crs="EPSG:4326")
+    return gpd.clip(source, mask)
+
+
+def _line_length_km(gdf) -> float:
+    if gdf.empty:
+        return 0.0
+    projected = gdf.to_crs("EPSG:2154")
+    return float(projected.geometry.length.sum() / 1000.0)
+
+
+def render_hydrography_provider_comparison() -> tuple[Path, dict[str, object]]:
+    import geopandas as gpd
+    from shapely.geometry import box
+
+    hydro_dir = REPO_ROOT / "examples" / "data" / "hydrography"
+    bbox = (-1.2451, 48.3618, -1.1072, 48.4651)
+    providers = [
+        ("BD Topage", hydro_dir / "bdtopage_-1.2451_48.3618_-1.1072_48.4651.gpkg", "#2E6F9E"),
+        ("OSM", hydro_dir / "osm_-1.2451_48.3618_-1.1072_48.4651.gpkg", "#7BAA64"),
+        ("EU-Hydro", hydro_dir / "euhydro_-1.2451_48.3618_-1.1072_48.4651.gpkg", "#C78B48"),
+    ]
+    clipped = {}
+    stats = []
+    for name, path, color in providers:
+        if not path.exists():
+            continue
+        gdf = gpd.read_file(path)
+        gdf_clip = _clip_to_bbox_wgs84(gdf, bbox)
+        clipped[name] = (gdf_clip, color)
+        stats.append(
+            {
+                "provider": name,
+                "feature_count": int(len(gdf_clip)),
+                "length_km": round(_line_length_km(gdf_clip), 3),
+                "path": str(path.relative_to(REPO_ROOT)),
+            }
+        )
+
+    fig = plt.figure(figsize=(13.2, 6.4), dpi=140)
+    gs = fig.add_gridspec(1, 2, width_ratios=[1.35, 1.0])
+    ax_map = fig.add_subplot(gs[0, 0])
+    ax_stats = fig.add_subplot(gs[0, 1])
+
+    bbox_gdf = gpd.GeoDataFrame(geometry=[box(*bbox)], crs="EPSG:4326")
+    bbox_gdf.boundary.plot(ax=ax_map, color="#333333", linewidth=1.4, linestyle="--")
+    for name, (gdf_clip, color) in clipped.items():
+        if not gdf_clip.empty:
+            gdf_clip.plot(ax=ax_map, color=color, linewidth=1.4, alpha=0.78, label=name)
+    ax_map.set_title("Couesnon hydrography provider comparison", loc="left", weight="bold")
+    ax_map.set_xlabel("longitude")
+    ax_map.set_ylabel("latitude")
+    ax_map.grid(True, color="#DDDDDD", linewidth=0.7)
+    ax_map.legend(frameon=False, loc="upper right")
+    ax_map.set_aspect("equal")
+
+    labels = [row["provider"] for row in stats]
+    counts = [row["feature_count"] for row in stats]
+    lengths = [row["length_km"] for row in stats]
+    y = np.arange(len(stats))
+    colors = [dict((name, color) for name, _path, color in providers)[label] for label in labels]
+    ax_stats.barh(y - 0.18, counts, height=0.32, color=colors, alpha=0.85, label="features")
+    ax_len = ax_stats.twiny()
+    ax_len.barh(y + 0.18, lengths, height=0.32, color=colors, alpha=0.42, label="km")
+    ax_stats.set_yticks(y)
+    ax_stats.set_yticklabels(labels)
+    ax_stats.invert_yaxis()
+    ax_stats.set_xlabel("feature count in bbox")
+    ax_len.set_xlabel("line length in bbox (km)")
+    ax_stats.set_title("Density changes by provider", loc="left", weight="bold")
+    ax_stats.grid(True, axis="x", color="#DDDDDD", linewidth=0.7)
+    if counts:
+        ax_stats.set_xlim(0, max(counts) * 1.18)
+    if lengths:
+        ax_len.set_xlim(0, max(lengths) * 1.18)
+    for idx, row in enumerate(stats):
+        ax_stats.text(row["feature_count"] + max(counts) * 0.02, idx - 0.18, str(row["feature_count"]), va="center", fontsize=8)
+        ax_len.text(row["length_km"] + max(lengths) * 0.02, idx + 0.18, f"{row['length_km']:.1f}", va="center", fontsize=8)
+
+    fig.tight_layout()
+    return _save(fig, "hydrography_provider_couesnon_comparison.png"), {
+        "bbox_wgs84": list(bbox),
+        "stats": stats,
+    }
 
 
 def render_provider_case_ladder() -> Path:
@@ -928,6 +1018,7 @@ def main() -> int:
     hubeau_provider_path, hubeau_provider_summary = render_hubeau_provider_replay()
     shom_provider_path, shom_provider_summary = render_shom_provider_replay()
     hydrography_provider_path, hydrography_provider_summary = render_hydrography_provider_replay()
+    hydrography_comparison_path, hydrography_comparison_summary = render_hydrography_provider_comparison()
     oceanic_path, oceanic_summary = render_oceanic_example()
     intermittency_path, intermittency_summary = render_intermittency_example()
     outputs["spatial_local_dem_hydrography"] = str(spatial_path.relative_to(SOURCE_ROOT))
@@ -939,6 +1030,7 @@ def main() -> int:
     outputs["hubeau_provider_replay"] = str(hubeau_provider_path.relative_to(SOURCE_ROOT))
     outputs["shom_provider_replay"] = str(shom_provider_path.relative_to(SOURCE_ROOT))
     outputs["hydrography_provider_replay"] = str(hydrography_provider_path.relative_to(SOURCE_ROOT))
+    outputs["hydrography_provider_comparison"] = str(hydrography_comparison_path.relative_to(SOURCE_ROOT))
     outputs["oceanic_local_stage"] = str(oceanic_path.relative_to(SOURCE_ROOT))
     outputs["intermittency_local_state"] = str(intermittency_path.relative_to(SOURCE_ROOT))
 
@@ -955,6 +1047,7 @@ def main() -> int:
             "hubeau": hubeau_provider_summary,
             "shom": shom_provider_summary,
             "hydrography": hydrography_provider_summary,
+            "hydrography_comparison": hydrography_comparison_summary,
         },
         "oceanic_case": oceanic_summary,
         "intermittency_case": intermittency_summary,

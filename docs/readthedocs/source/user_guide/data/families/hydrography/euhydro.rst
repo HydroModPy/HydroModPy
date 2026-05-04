@@ -22,17 +22,25 @@ Operational checks
 - Inspect the river overlay before using the network as a mesh or drainage
   target.
 
-Gallery status
---------------
-
-No dedicated committed EU-Hydro replay artifact is currently available. A
-future non-Nancon gallery case should isolate this provider the same way the
-current BD Topage overlay isolates ``bdtopage``.
+Provider replay
+---------------
 
 .. figure:: /_static/user_guide/data/hydrography_provider_replay_examples.png
-   :alt: Hydrography provider replay showing the current EU-Hydro gallery gap
+   :alt: Hydrography provider replay including EU-Hydro
    :width: 100%
 
-   The replay figure marks the current EU-Hydro gap explicitly. The stable
-   version should use a bbox where a continental-scale river product is
-   meaningful, then publish the cached provider payload and density comparison.
+   The replay figure includes a committed EU-Hydro GPKG on the Couesnon bbox.
+   This keeps the provider visible in the documentation while making clear that
+   it is coarser than local or national hydrography on small headwater windows.
+
+Provider comparison
+-------------------
+
+.. figure:: /_static/user_guide/data/hydrography_provider_couesnon_comparison.png
+   :alt: Couesnon hydrography comparison including EU-Hydro
+   :width: 100%
+
+   EU-Hydro retrieves fewer line features on this bbox. That is useful
+   evidence: continental coverage is not automatically the right support for a
+   small basin, and the comparison should be inspected before selecting it as a
+   network reference.

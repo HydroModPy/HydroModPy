@@ -47,6 +47,19 @@ Nancon transient seasonal recharge run with observed hydrography loaded:
 python examples/projects/09_comparison_workflow/run_comparison_example.py --case nancon-seasonal-hydrography --show
 ```
 
+Nancon monthly MF6/Boussinesq run with one precomputed mesh and aligned
+transient observables:
+
+```powershell
+python examples/projects/09_comparison_workflow/run_comparison_example.py --case nancon-monthly-bouss-comparable --show
+```
+
+Nancon MF6-only hydraulic-conductivity sweep with observed hydrography loaded:
+
+```powershell
+python examples/projects/09_comparison_workflow/run_comparison_example.py --case nancon-seasonal-hydrography-k-sweep-mf6 --show
+```
+
 Run all examples:
 
 ```powershell
@@ -63,6 +76,8 @@ hmp run examples/projects/09_comparison_workflow/compare_10km2_natural_mesh_rech
 hmp run examples/projects/09_comparison_workflow/compare_10km2_natural_mesh_transient_pulse_mf6_bouss.toml
 hmp run examples/projects/09_comparison_workflow/compare_nancon_transient_seasonal_mf6_bouss.toml
 hmp run examples/projects/09_comparison_workflow/compare_nancon_transient_seasonal_hydrography_mf6_bouss.toml
+hmp run examples/projects/09_comparison_workflow/compare_nancon_transient_monthly_mf6_bouss_comparable.toml
+hmp run examples/projects/09_comparison_workflow/compare_nancon_transient_seasonal_hydrography_k_sweep_mf6_only.toml
 ```
 
 Synthetic outputs are written under:
@@ -105,6 +120,12 @@ Nancon transient seasonal hydrography outputs are written under:
 
 ```text
 examples/projects/09_comparison_workflow/outputs/nancon_transient_seasonal_hydrography_mf6_vs_bouss
+```
+
+Nancon monthly MF6/Boussinesq comparable outputs are written under:
+
+```text
+examples/projects/09_comparison_workflow/outputs/nancon_transient_monthly_mf6_bouss_comparable
 ```
 
 Nancon MF6-only K-sweep outputs are written under:
@@ -163,10 +184,14 @@ The first stabilized cases are:
 - `dupuit_mf6_vs_bouss`: compact synthetic shared-mesh MF6/Boussinesq lock.
 - `natural_mesh_10km2_transient_pulse_mf6_vs_bouss`: natural transient pulse
   lock with known audit warnings kept visible.
+- `nancon_transient_monthly_mf6_bouss_comparable`: controlled Nancon natural
+  benchmark with one precomputed mesh, aligned monthly times, lower initial
+  heads, and stronger top drainage.
 - `nancon_transient_seasonal_hydrography_mf6_vs_bouss`: broad Nancon stress
   test lock. Its thresholds are intentionally loose because the case still
   exposes large configuration-sensitive MF6/Boussinesq differences.
 
-The Nancon target is not a tight accuracy claim. It is a stability sentinel: it
-flags sudden regressions while keeping the current audit warnings and large
-head discrepancies visible.
+The controlled Nancon target is the preferred natural MF6/Boussinesq benchmark.
+The older seasonal Nancon target remains a broad stress sentinel: it flags
+sudden regressions while keeping its current audit warnings and large head
+discrepancies visible.

@@ -157,6 +157,11 @@ The public example set already contains several useful starting points.
      - Same natural shared mesh with one controlled transient recharge pulse
      - Best first transient comparison when you want differences that stay
        interpretable
+   * - ``compare_nancon_transient_monthly_mf6_bouss_comparable.toml``
+     - MODFLOW 6 versus Boussinesq on the Nancon catchment with one saved
+       river-constrained mesh and monthly recharge
+     - Preferred natural Nancon benchmark when you want a realistic case but
+       still want aligned supports, aligned times, and explicit audit warnings
    * - ``compare_nancon_transient_seasonal_mf6_bouss.toml``
      - MODFLOW 6 versus Boussinesq on a Nancon catchment setup with a
        synthetic weekly seasonal recharge chronicle
@@ -184,6 +189,7 @@ The same pattern applies to the other shipped examples:
 - ``compare_10km2_natural_mesh_mf6_bouss.toml``
 - ``compare_10km2_natural_mesh_recharge_mf6_bouss.toml``
 - ``compare_10km2_natural_mesh_transient_pulse_mf6_bouss.toml``
+- ``compare_nancon_transient_monthly_mf6_bouss_comparable.toml``
 - ``compare_nancon_transient_seasonal_mf6_bouss.toml``
 
 Windows Documentation, WSL Simulations
