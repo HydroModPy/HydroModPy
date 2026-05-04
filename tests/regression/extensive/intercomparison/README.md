@@ -18,6 +18,13 @@ Good candidates:
 - The full XT3D irregular-triangle method-choice matrix used by the capability
   gallery.
 
+Currently committed:
+
+- `test_boussinesq_natural_transient_intercomparison_extensive.py` relaunches
+  the controlled 10 km2 natural transient recharge-pulse MF6/Boussinesq
+  comparison and checks a compact metric signature. Its audit status may be
+  `warn`, because known semantic warnings are intentionally kept visible.
+
 Expected goldens live under
 `tests/regression/reference/golden_references/extensive/intercomparison/`.
 

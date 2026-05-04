@@ -142,22 +142,24 @@ def _merged_metrics(spec: SweepSpec) -> list[dict[str, object]]:
     return rows
 
 
-def _distance_log10_balance(row: dict[str, object]) -> float:
+def _distance_ratio(row: dict[str, object]) -> float:
     as_str = {key: str(value) for key, value in row.items()}
-    value = _float(as_str, "planar_distance_log10_balance")
+    value = _float(as_str, "planar_distance_ratio")
     if math.isfinite(value):
         return value
     sim_to_ref = _float(as_str, "sim_to_network_distance_mean_m")
     ref_to_sim = _float(as_str, "network_to_sim_distance_mean_m")
     if sim_to_ref <= 0.0 or ref_to_sim <= 0.0:
         return float("nan")
-    return float(math.log10(sim_to_ref / ref_to_sim))
+    return float(sim_to_ref / ref_to_sim)
 
 
-def _format_log_balance(value: float) -> str:
+def _format_distance_ratio(value: float) -> str:
     if not math.isfinite(value):
         return "n/a"
-    return f"{value:+.2f}"
+    if value < 0.1 or value >= 10.0:
+        return f"{value:.2e}"
+    return f"{value:.2f}"
 
 
 def _metric_items(row: dict[str, object]) -> list[tuple[str, str]]:
@@ -173,15 +175,15 @@ def _metric_items(row: dict[str, object]) -> list[tuple[str, str]]:
         (r"$P_a$", _format_ratio(_float(as_str, "active_precision_ratio"))),
         (r"$F_1$", _format_ratio(_float(as_str, "cell_f1_ratio"))),
         (
-            r"$D^{plan}_{s\to ref}$",
+            r"$D^{plan}_{s\to o}$",
             _format_distance(_float(as_str, "sim_to_network_distance_mean_m")),
         ),
         (
-            r"$D^{plan}_{ref\to s}$",
+            r"$D^{plan}_{o\to s}$",
             _format_distance(_float(as_str, "network_to_sim_distance_mean_m")),
         ),
         (r"$\bar{D}^{plan}$", _format_distance(_float(as_str, "bidirectional_distance_mean_m"))),
-        (r"$\log_{10} R_D^{plan}$", _format_log_balance(_distance_log10_balance(row))),
+        (r"$R_D^{plan}$", _format_distance_ratio(_distance_ratio(row))),
     ]
 
 
@@ -222,7 +224,7 @@ def _render_metric_band(ax: plt.Axes, row: dict[str, object]) -> None:
             r"Persistent mode: $p \geq 0.5$; "
             r"$C_{ref}=N_{ov}/N_{ref}$; "
             r"$P_a=N_{ov}/N_a$; "
-            r"$R_D^{plan}=D^{plan}_{s\to ref}/D^{plan}_{ref\to s}$."
+            r"$R_D^{plan}=D^{plan}_{s\to o}/D^{plan}_{o\to s}$."
         ),
         ha="center",
         va="center",
@@ -339,14 +341,14 @@ def _render_trend_graph(spec: SweepSpec, rows: list[dict[str, object]]) -> Path:
         _series(rows, "sim_to_network_distance_mean_m"),
         "o-",
         color="#d62728",
-        label=r"$D^{plan}_{s\to ref}$",
+        label=r"$D^{plan}_{s\to o}$",
     )
     axes[2].plot(
         x_values,
         _series(rows, "network_to_sim_distance_mean_m"),
         "o-",
         color="#9467bd",
-        label=r"$D^{plan}_{ref\to s}$",
+        label=r"$D^{plan}_{o\to s}$",
     )
     axes[2].plot(
         x_values,
@@ -358,17 +360,18 @@ def _render_trend_graph(spec: SweepSpec, rows: list[dict[str, object]]) -> Path:
     axes[2].set_ylabel("Distance (m)")
     axes[2].set_title("Planar distance diagnostics")
 
-    log_balance = [_distance_log10_balance(row) for row in rows]
+    distance_ratio = [_distance_ratio(row) for row in rows]
     axes[3].plot(
         x_values,
-        log_balance,
+        distance_ratio,
         "o-",
         color="#2ca02c",
-        label=r"$\log_{10} R_D^{plan}$",
+        label=r"$R_D^{plan}$",
     )
-    axes[3].axhline(0.0, color="#444444", linestyle="--", linewidth=1.0, label="balance")
-    axes[3].set_ylabel("Distance balance")
-    axes[3].set_title("Planar distance balance proxy")
+    axes[3].axhline(1.0, color="#444444", linestyle="--", linewidth=1.0, label=r"$R_D=1$")
+    axes[3].set_yscale("log")
+    axes[3].set_ylabel("Distance ratio")
+    axes[3].set_title("Planar distance ratio")
     axes[3].set_xlabel(r"Hydraulic conductivity $K$ (m/s)")
 
     for ax in axes:
@@ -386,7 +389,7 @@ def _render_trend_graph(spec: SweepSpec, rows: list[dict[str, object]]) -> Path:
             r"$N_a$ active simulated cells; $N_{miss}$ reference cells not captured; "
             r"$N_{extra}$ active cells outside reference; "
             r"$C_{ref}$ coverage; $P_a$ precision; $F_1$ harmonic score; "
-            r"$R_D^{plan}=D^{plan}_{s\to ref}/D^{plan}_{ref\to s}$."
+            r"$R_D^{plan}=D^{plan}_{s\to o}/D^{plan}_{o\to s}$."
         ),
         ha="center",
         fontsize=8.6,

@@ -1,0 +1,393 @@
+{
+  "outputs": {
+    "source_matrix": "_static\\user_guide\\data\\data_family_source_matrix.png",
+    "contract_ladder": "_static\\user_guide\\data\\data_contract_ladder.png",
+    "run_roadmap": "_static\\user_guide\\data\\data_run_figure_roadmap.png",
+    "spatial_local_dem_hydrography": "_static\\user_guide\\data\\spatial_local_dem_hydrography_example.png",
+    "geology_property_local": "_static\\user_guide\\data\\geology_property_brittany_local.png",
+    "forcing_local_recharge_runoff": "_static\\user_guide\\data\\forcing_local_recharge_runoff_example.png",
+    "sim2_grid_forcing": "_static\\user_guide\\data\\sim2_grid_forcing_example.png",
+    "observations_local_timeseries": "_static\\user_guide\\data\\observations_local_timeseries_examples.png",
+    "oceanic_local_stage": "_static\\user_guide\\data\\oceanic_local_stage_example.png",
+    "intermittency_local_state": "_static\\user_guide\\data\\intermittency_local_state_example.png"
+  },
+  "families": [
+    {
+      "name": "dem",
+      "group": "Spatial",
+      "sources": [
+        "custom",
+        "ign_bdalti"
+      ],
+      "shape": "Raster",
+      "diagnostic": "DEM + basin",
+      "downstream": "support"
+    },
+    {
+      "name": "geology",
+      "group": "Spatial",
+      "sources": [
+        "custom",
+        "brgm_1m",
+        "brgm_50k"
+      ],
+      "shape": "Zones",
+      "diagnostic": "map + legend",
+      "downstream": "zones/K"
+    },
+    {
+      "name": "hydrography",
+      "group": "Spatial",
+      "sources": [
+        "custom",
+        "bdtopage",
+        "osm",
+        "euhydro"
+      ],
+      "shape": "Vector network",
+      "diagnostic": "river overlay",
+      "downstream": "mesh/drainage"
+    },
+    {
+      "name": "hydrometry",
+      "group": "Observed",
+      "sources": [
+        "custom",
+        "hubeau"
+      ],
+      "shape": "Stations + series",
+      "diagnostic": "hydrograph",
+      "downstream": "calibration"
+    },
+    {
+      "name": "piezometry",
+      "group": "Observed",
+      "sources": [
+        "custom",
+        "hubeau"
+      ],
+      "shape": "Wells + series",
+      "diagnostic": "level/depth",
+      "downstream": "head checks"
+    },
+    {
+      "name": "intermittency",
+      "group": "Observed",
+      "sources": [
+        "custom",
+        "hubeau"
+      ],
+      "shape": "States",
+      "diagnostic": "state timeline",
+      "downstream": "active net"
+    },
+    {
+      "name": "water_quality",
+      "group": "Observed",
+      "sources": [
+        "custom",
+        "hubeau"
+      ],
+      "shape": "Chemistry",
+      "diagnostic": "parameter series",
+      "downstream": "transport"
+    },
+    {
+      "name": "oceanic",
+      "group": "Boundary",
+      "sources": [
+        "custom",
+        "shom",
+        "constant"
+      ],
+      "shape": "Sea level",
+      "diagnostic": "stage series",
+      "downstream": "coast BC"
+    },
+    {
+      "name": "recharge",
+      "group": "Forcing",
+      "sources": [
+        "custom",
+        "sim2",
+        "synthetic"
+      ],
+      "shape": "Grid/series",
+      "diagnostic": "forcing curve",
+      "downstream": "RCH"
+    },
+    {
+      "name": "precipitation",
+      "group": "Forcing",
+      "sources": [
+        "custom",
+        "sim2"
+      ],
+      "shape": "Grid/series",
+      "diagnostic": "climate summary",
+      "downstream": "preprocess"
+    },
+    {
+      "name": "etp",
+      "group": "Forcing",
+      "sources": [
+        "custom",
+        "sim2"
+      ],
+      "shape": "Grid/series",
+      "diagnostic": "ETP summary",
+      "downstream": "EVT"
+    },
+    {
+      "name": "temperature",
+      "group": "Forcing",
+      "sources": [
+        "custom",
+        "sim2"
+      ],
+      "shape": "Grid/series",
+      "diagnostic": "climate summary",
+      "downstream": "preprocess"
+    },
+    {
+      "name": "wind",
+      "group": "Forcing",
+      "sources": [
+        "custom",
+        "sim2"
+      ],
+      "shape": "Grid/series",
+      "diagnostic": "climate summary",
+      "downstream": "preprocess"
+    },
+    {
+      "name": "humidity",
+      "group": "Forcing",
+      "sources": [
+        "custom",
+        "sim2"
+      ],
+      "shape": "Grid/series",
+      "diagnostic": "climate summary",
+      "downstream": "preprocess"
+    },
+    {
+      "name": "radiation",
+      "group": "Forcing",
+      "sources": [
+        "custom",
+        "sim2"
+      ],
+      "shape": "Grid/series",
+      "diagnostic": "climate summary",
+      "downstream": "preprocess"
+    },
+    {
+      "name": "soil_moisture",
+      "group": "Forcing",
+      "sources": [
+        "custom",
+        "sim2"
+      ],
+      "shape": "Grid/series",
+      "diagnostic": "soil summary",
+      "downstream": "diagnostic"
+    },
+    {
+      "name": "runoff",
+      "group": "Forcing",
+      "sources": [
+        "custom",
+        "sim2"
+      ],
+      "shape": "Grid/series",
+      "diagnostic": "runoff summary",
+      "downstream": "balance"
+    }
+  ],
+  "code_sources": {
+    "dem": [
+      "custom",
+      "ign_bdalti"
+    ],
+    "etp": [
+      "custom",
+      "sim2"
+    ],
+    "geology": [
+      "custom",
+      "brgm_1m",
+      "brgm_50k"
+    ],
+    "humidity": [
+      "custom",
+      "sim2"
+    ],
+    "hydrography": [
+      "custom",
+      "osm",
+      "bdtopage",
+      "euhydro"
+    ],
+    "hydrometry": [
+      "custom",
+      "hubeau"
+    ],
+    "intermittency": [
+      "custom",
+      "hubeau"
+    ],
+    "oceanic": [
+      "custom",
+      "shom",
+      "constant"
+    ],
+    "piezometry": [
+      "custom",
+      "hubeau"
+    ],
+    "precipitation": [
+      "custom",
+      "sim2"
+    ],
+    "radiation": [
+      "custom",
+      "sim2"
+    ],
+    "recharge": [
+      "custom",
+      "sim2",
+      "synthetic"
+    ],
+    "runoff": [
+      "custom",
+      "sim2"
+    ],
+    "soil_moisture": [
+      "custom",
+      "sim2"
+    ],
+    "temperature": [
+      "custom",
+      "sim2"
+    ],
+    "water_quality": [
+      "custom",
+      "hubeau"
+    ],
+    "wind": [
+      "custom",
+      "sim2"
+    ]
+  },
+  "spatial_case": {
+    "dem_path": "examples\\data\\dem\\regional_dem_aber.tif",
+    "hydrography_path": "examples\\data\\hydrography\\regional_stream_network.shp",
+    "dem_shape": [
+      682,
+      617
+    ],
+    "hydrography_feature_count": 452,
+    "crs": "EPSG:2154"
+  },
+  "geology_case": {
+    "geology_config": "hydromodpy/data/variables/geology/cases/gallery_geology_config_brittany.toml",
+    "field_param_config": "hydromodpy/data/variables/geology/cases/gallery_field_param_brittany.toml",
+    "window_km": 10,
+    "target_n_cells": 400
+  },
+  "forcing_case": {
+    "recharge": {
+      "row_count": 36,
+      "first_timestamp": "2000-01-31T00:00:00",
+      "last_timestamp": "2002-12-31T00:00:00",
+      "min": 0.016125,
+      "mean": 0.7840674722222222,
+      "max": 4.119638
+    },
+    "runoff": {
+      "row_count": 36,
+      "first_timestamp": "2000-01-31T00:00:00",
+      "last_timestamp": "2002-12-31T00:00:00",
+      "min": 0.022074,
+      "mean": 0.24751380555555555,
+      "max": 0.964756
+    }
+  },
+  "sim2_case": {
+    "recharge": {
+      "shape": [
+        366,
+        3,
+        2
+      ],
+      "mean": 0.8938524631515335,
+      "max": 8.300000190734863
+    },
+    "precipitation": {
+      "days": 366,
+      "annual_total_mean_grid": 747.4888891958528
+    },
+    "temperature": {
+      "days": 366,
+      "annual_mean_grid": 11.194687318056822
+    }
+  },
+  "observation_cases": {
+    "hydrometry": {
+      "row_count": 14604,
+      "first_timestamp": "1982-02-01T00:00:00",
+      "last_timestamp": "2022-01-25T00:00:00",
+      "min": 0.058,
+      "mean": 0.6595747055601205,
+      "max": 10.094
+    },
+    "piezometry": {
+      "row_count": 1096,
+      "first_timestamp": "1990-01-01T00:00:00",
+      "last_timestamp": "1992-12-31T00:00:00",
+      "min": 41.72,
+      "mean": 43.505857664233574,
+      "max": 45.35
+    },
+    "water_quality": {
+      "row_count": 1096,
+      "first_timestamp": "1990-01-01T00:00:00",
+      "last_timestamp": "1992-12-31T00:00:00",
+      "min": 5.6,
+      "mean": 25.07828467153285,
+      "max": 45.2
+    }
+  },
+  "oceanic_case": {
+    "source": "local",
+    "local_csv_name": "oceanic_local_sample.csv",
+    "row_count": 4,
+    "first_timestamp": "2003-01-01 00:00:00",
+    "last_timestamp": "2003-01-01 03:00:00",
+    "mean_msl_m": 1.125,
+    "min_msl_m": 0.9,
+    "max_msl_m": 1.3,
+    "returned_msl_m": 1.125,
+    "fetch_seconds": 0.039251
+  },
+  "intermittency_case": {
+    "source": "custom",
+    "station_count": 3,
+    "station_ids": [
+      "ONDE001",
+      "ONDE002",
+      "ONDE003"
+    ],
+    "total_observations": 90,
+    "date_start": "2018-05-25",
+    "date_end": "2023-09-25",
+    "flow_code_hist": {
+      "1": 14,
+      "2": 9,
+      "3": 10,
+      "4": 13,
+      "5": 44
+    }
+  }
+}

@@ -31,6 +31,10 @@ Reading map
      - :doc:`families/index`
      - Inspect the operational contract, examples, checks, and source-specific
        pages for each data type.
+   * - Connect pages with generated figures
+     - :doc:`runs-and-figures`
+     - Use the lightest run that explains the data: local file checks,
+       provider grids, overview maps, or solver response.
    * - Use institutionally curated local datasets
      - :doc:`custom-data`
      - Match local rasters, vectors, or station time series to HydroModPy's
@@ -95,5 +99,6 @@ diagnostics, not simulation results. For the complete case page, open
    retrieval-workflow
    provider-matrix
    families/index
+   runs-and-figures
    custom-data
    cache-and-lockfiles

@@ -197,12 +197,10 @@ def run_batch(config_path: str | Path) -> dict:
 
 
 def run_comparison(config_path: str | Path) -> dict:
-    """Run an external simulation-comparison experiment from a TOML file."""
-    from hydromodpy.analysis.comparison.experiment_launcher import (
-        SimulationComparisonLauncher,
-    )
+    """Run a simulation-comparison config, with legacy method compatibility."""
+    from hydromodpy.analysis.comparison.dispatch import run_comparison_config
 
-    return SimulationComparisonLauncher(config_path).run()
+    return run_comparison_config(config_path)
 
 
 def run_testbed(config_path: str | Path) -> dict:

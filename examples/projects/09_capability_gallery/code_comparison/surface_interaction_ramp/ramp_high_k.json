@@ -26,16 +26,16 @@
       "solver_label": "MODFLOW 6",
       "peak_total_outflow_m3_day": 75.5258550540919,
       "final_storage_change_m3_day": -0.0022521940950515074,
-      "wall_time_seconds": 432.2024606800114,
-      "results_dir": "/mnt/c/codes/HydroModPy/out/sih_tx_highk_linux_mf6_petsc_comp_20260416/validation/investigate_surfa_062b168c50/transient_modflow6"
+      "wall_time_seconds": 295.41670324699953,
+      "results_dir": "/mnt/c/codes/HydroModPy/out/sih_tx_highk_linux_mf6_petsc_comp_20260416/validation/investigate_surfa_062b168c50/transient_modflow6_5bd0ab35"
     },
     {
       "solver": "petsc",
       "solver_label": "Boussinesq PETSc complementarity",
-      "peak_total_outflow_m3_day": 1.986094979360638e-07,
+      "peak_total_outflow_m3_day": 76.61230289506517,
       "final_storage_change_m3_day": 0.0,
-      "wall_time_seconds": 4.253429132979363,
-      "results_dir": "/mnt/c/codes/HydroModPy/out/sih_tx_highk_linux_mf6_petsc_comp_20260416/validation/investigate_surfa_062b168c50/hillslope_surface_2f97515d25"
+      "wall_time_seconds": 4.857249513006536,
+      "results_dir": "/mnt/c/codes/HydroModPy/out/sih_tx_highk_linux_mf6_petsc_comp_20260416/validation/investigate_surfa_062b168c50/hillslope_surface_2f97515d25_ebdd57e0"
     }
   ]
 }

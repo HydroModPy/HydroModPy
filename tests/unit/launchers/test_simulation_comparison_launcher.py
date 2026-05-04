@@ -7,6 +7,7 @@ import pandas as pd
 import pytest
 
 import hydromodpy.analysis.comparison.audit as audit_module
+import hydromodpy.analysis.comparison.output_pipeline as output_pipeline_module
 from hydromodpy._cli.commands.run import _infer_workflow_from_sections
 from hydromodpy._cli.workflows import resolve_workflow
 from hydromodpy.analysis.comparison.audit import build_equivalence_audit
@@ -113,6 +114,171 @@ def test_simulation_comparison_materializes_child_tomls(tmp_path: Path) -> None:
     assert mf6_raw["simulation"]["process"][0]["solvers"] == ["modflow6"]
     assert bouss_raw["simulation"]["run_id"] == "demo_sim_compare__bouss_candidate"
     assert bouss_raw["simulation"]["process"][0]["solvers"] == ["boussinesq"]
+
+
+def test_simulation_comparison_accepts_existing_run_folders_without_base_config(
+    tmp_path: Path,
+) -> None:
+    config_path = tmp_path / "compare_existing.toml"
+    run_a = tmp_path / "runs" / "mf6"
+    run_b = tmp_path / "runs" / "bouss"
+    run_a.mkdir(parents=True)
+    run_b.mkdir(parents=True)
+    config_path.write_text(
+        "\n".join(
+            [
+                'workflow = "comparison"',
+                "",
+                "[comparison]",
+                'comparison_id = "existing_runs"',
+                'reference_simulation = "mf6_ref"',
+                "",
+                "[comparison.execution]",
+                "run_simulations = false",
+                "",
+                "[[comparison.simulation]]",
+                'id = "mf6_ref"',
+                'label = "MF6 existing"',
+                'solver = "modflow6"',
+                'run_folder = "runs/mf6"',
+                "",
+                "[[comparison.simulation]]",
+                'id = "bouss_candidate"',
+                'label = "Boussinesq existing"',
+                'solver = "boussinesq"',
+                'run_folder = "runs/bouss"',
+                "",
+                "[[comparison.observable]]",
+                'name = "head_mid"',
+                'variable = "watertable_elevation"',
+                'support = "point"',
+                "cell_index = 0",
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    cfg = _load_comparison_cfg(config_path)
+    children = materialize_child_configs(cfg)
+
+    assert cfg.base_simulation_config_path is None
+    assert [child.config_path for child in children] == [None, None]
+    assert [child.run_folder for child in children] == [run_a.resolve(), run_b.resolve()]
+    assert not (tmp_path / "comparison" / "existing_runs" / "_generated_configs").exists()
+
+
+def test_simulation_comparison_launcher_reuses_existing_run_folders(
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
+    import hydromodpy.analysis.comparison.experiment_launcher as launcher_module
+
+    config_path = tmp_path / "compare_existing.toml"
+    for run_name in ("mf6", "bouss"):
+        (tmp_path / "runs" / run_name).mkdir(parents=True)
+    config_path.write_text(
+        "\n".join(
+            [
+                'workflow = "comparison"',
+                "",
+                "[comparison]",
+                'comparison_id = "existing_runs"',
+                'output_root = "comparison_outputs"',
+                'reference_simulation = "mf6_ref"',
+                "",
+                "[comparison.execution]",
+                "run_simulations = false",
+                "",
+                "[[comparison.simulation]]",
+                'id = "mf6_ref"',
+                'solver = "modflow6"',
+                'run_folder = "runs/mf6"',
+                "",
+                "[[comparison.simulation]]",
+                'id = "bouss_candidate"',
+                'solver = "boussinesq"',
+                'run_folder = "runs/bouss"',
+                "",
+                "[[comparison.observable]]",
+                'name = "head_mid"',
+                'variable = "watertable_elevation"',
+                'support = "point"',
+                "cell_index = 0",
+                'time = "last"',
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    def fake_extract_observables(
+        self: SimulationComparisonLauncher,
+        comparison_cfg,
+        variant_summaries,
+    ) -> list[dict[str, object]]:
+        assert [summary["config_path"] for summary in variant_summaries] == [None, None]
+        assert [Path(str(summary["run_folder"])).name for summary in variant_summaries] == [
+            "mf6",
+            "bouss",
+        ]
+        assert [variant.id for variant in comparison_cfg.comparison.variant] == [
+            "mf6_ref",
+            "bouss_candidate",
+        ]
+        return [
+            {
+                "comparison_id": "existing_runs",
+                "variant": "mf6_ref",
+                "variant_label": "mf6_ref",
+                "solver": "modflow6",
+                "observable": "head_mid",
+                "variable": "watertable_elevation",
+                "support": "point",
+                "time": "last",
+                "time_index": 0,
+                "comparison_time_key": "time_index:0",
+                "value_index": 0,
+                "value": 10.0,
+                "is_nodata": False,
+            },
+            {
+                "comparison_id": "existing_runs",
+                "variant": "bouss_candidate",
+                "variant_label": "bouss_candidate",
+                "solver": "boussinesq",
+                "observable": "head_mid",
+                "variable": "watertable_elevation",
+                "support": "point",
+                "time": "last",
+                "time_index": 0,
+                "comparison_time_key": "time_index:0",
+                "value_index": 0,
+                "value": 11.0,
+                "is_nodata": False,
+            },
+        ]
+
+    monkeypatch.setattr(SimulationComparisonLauncher, "_extract_observables", fake_extract_observables)
+    monkeypatch.setattr(
+        launcher_module,
+        "build_equivalence_audit",
+        lambda **kwargs: {
+            "schema_version": "simulation_comparison_audit_v1",
+            "status": "pass",
+            "reference_variant": kwargs["reference_variant"],
+            "issues": [],
+        },
+    )
+    monkeypatch.setattr(output_pipeline_module, "generate_comparison_figures", lambda **kwargs: [])
+
+    manifest = SimulationComparisonLauncher(config_path).run()
+
+    assert manifest["base_simulation_config"] is None
+    assert manifest["generated_config_paths"] == []
+    assert manifest["variants"][0]["status"] == "reused"
+    assert manifest["variants"][0]["config_path"] is None
+    assert manifest["n_observable_rows"] == 2
 
 
 def test_simulation_comparison_rejects_physical_overlay_changes(tmp_path: Path) -> None:
@@ -570,7 +736,7 @@ def test_simulation_comparison_launcher_writes_manifest_with_mocked_runs(
         },
     )
     monkeypatch.setattr(
-        launcher_module,
+        output_pipeline_module,
         "generate_comparison_figures",
         lambda **kwargs: [
             {
@@ -726,7 +892,7 @@ def test_simulation_comparison_launcher_can_remove_generated_child_tomls(
             "issues": [],
         },
     )
-    monkeypatch.setattr(launcher_module, "generate_comparison_figures", lambda **kwargs: [])
+    monkeypatch.setattr(output_pipeline_module, "generate_comparison_figures", lambda **kwargs: [])
 
     manifest = SimulationComparisonLauncher(config_path).run()
 

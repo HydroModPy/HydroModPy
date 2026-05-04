@@ -67,6 +67,18 @@ Provider-specific overlay
    A source-specific overlay is useful when the question is about the provider
    itself rather than the complete basin identity card.
 
+Local spatial smoke test
+------------------------
+
+.. figure:: /_static/user_guide/data/spatial_local_dem_hydrography_example.png
+   :alt: Local DEM and hydrography stack
+   :width: 100%
+
+   The local data-doc run reads a versioned DEM and a versioned river-network
+   vector. It is a compact check for CRS agreement, network density, and
+   whether a custom hydrography file is spatially plausible before it is used
+   for mesh constraints or active-network interpretation.
+
 Downstream uses
 ---------------
 

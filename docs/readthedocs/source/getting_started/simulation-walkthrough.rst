@@ -157,4 +157,4 @@ Where to go next
   :doc:`../capability_gallery/cases/example12_map_method_comparison` to compare
   two solver families on the same saved support.
 - Use :doc:`reading-results-pages` to distinguish example pages,
-  method-comparison pages, and analytical validation pages.
+  comparison pages, and analytical validation pages.

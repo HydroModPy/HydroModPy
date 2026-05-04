@@ -1,4 +1,4 @@
-"""Visual comparison outputs for method-comparison runs."""
+"""Visual comparison outputs shared by comparison launchers."""
 
 from __future__ import annotations
 
@@ -15,10 +15,10 @@ import matplotlib
 import numpy as np
 
 from hydromodpy.analysis.comparison.config import (
-    MethodComparisonConfig,
-    MethodComparisonFineRaster,
-    MethodComparisonObservable,
-    MethodComparisonVariant,
+    ComparisonConfig,
+    ComparisonFineRaster,
+    ComparisonObservable,
+    ComparisonVariant,
 )
 from hydromodpy.analysis.comparison.runtime import (
     VariableSeries,
@@ -750,13 +750,13 @@ def _face_centroids(vertices: np.ndarray | None, faces: np.ndarray | None) -> tu
 
 
 def _observable_points_for_case(
-    cfg: MethodComparisonConfig,
+    cfg: ComparisonConfig,
     *,
     centroid_x: np.ndarray | None,
     centroid_y: np.ndarray | None,
 ) -> tuple[tuple[float, float, str], ...]:
     points: list[tuple[float, float, str]] = []
-    for observable in cfg.method_comparison.observable:
+    for observable in cfg.comparison.observable:
         if observable.support not in {"point", "outlet"}:
             continue
         x = observable.x
@@ -778,7 +778,7 @@ def _observable_points_for_case(
 
 def _build_case_configuration_payload(
     *,
-    cfg: MethodComparisonConfig,
+    cfg: ComparisonConfig,
     variant_summaries: list[dict[str, Any]],
     reference_variant: str | None,
 ) -> CaseConfigurationPayload | None:
@@ -849,14 +849,14 @@ def _build_case_configuration_payload(
         for summary in completed
     )
     metadata_lines = (
-        f"comparison: {cfg.method_comparison.comparison_id}",
+        f"comparison: {cfg.comparison.comparison_id}",
         f"reference: {reference_variant or selected.get('id', '')}",
         f"n_cells: {n_cells}" if n_cells else "n_cells: n/a",
         *_simulation_time_summary_lines(config_payload),
         *_flow_param_summary_lines(config_payload),
     )
     return CaseConfigurationPayload(
-        comparison_id=str(cfg.method_comparison.comparison_id),
+        comparison_id=str(cfg.comparison.comparison_id),
         reference_variant=str(reference_variant or selected.get("id", "")),
         variant_lines=variant_lines,
         metadata_lines=tuple(metadata_lines),
@@ -1054,7 +1054,7 @@ def _write_case_configuration_figure(
 def _choose_map_slice(
     *,
     series: VariableSeries,
-    observable: MethodComparisonObservable,
+    observable: ComparisonObservable,
 ) -> tuple[np.ndarray, str] | None:
     slices = select_time_slices(series, observable)
     if not slices:
@@ -1076,10 +1076,10 @@ def _choose_map_slice(
 
 def _build_map_payload(
     *,
-    cfg: MethodComparisonConfig,
-    variant: MethodComparisonVariant,
+    cfg: ComparisonConfig,
+    variant: ComparisonVariant,
     summary: dict[str, Any],
-    observable: MethodComparisonObservable,
+    observable: ComparisonObservable,
     rows: list[dict[str, Any]],
 ) -> MapPayload | None:
     reducer_key = str(observable.reducer or "identity").strip().lower()
@@ -2256,7 +2256,7 @@ def _write_budget_diagnostic_figure(
 def _resolve_fine_grid_bounds(
     *,
     payloads: list[MapPayload],
-    fine_raster: MethodComparisonFineRaster,
+    fine_raster: ComparisonFineRaster,
     reference_variant: str | None,
 ) -> tuple[float, float, float, float] | None:
     extents = [
@@ -2633,7 +2633,7 @@ def _write_geotiff(
 
 def generate_comparison_figures(
     *,
-    cfg: MethodComparisonConfig,
+    cfg: ComparisonConfig,
     variant_summaries: list[dict[str, Any]],
     rows: list[dict[str, Any]],
     detail_metrics: list[dict[str, Any]],
@@ -2659,10 +2659,10 @@ def generate_comparison_figures(
         for summary in variant_summaries
         if summary.get("status") in {"completed", "reused"}
     }
-    variants = {variant.id: variant for variant in cfg.method_comparison.variant if variant.enabled}
+    variants = {variant.id: variant for variant in cfg.comparison.variant if variant.enabled}
 
     artifacts: list[dict[str, Any]] = []
-    fine_raster = cfg.method_comparison.fine_raster
+    fine_raster = cfg.comparison.fine_raster
     try:
         case_payload = _build_case_configuration_payload(
             cfg=cfg,
@@ -2682,7 +2682,7 @@ def generate_comparison_figures(
                 }
             )
 
-    for observable in cfg.method_comparison.observable:
+    for observable in cfg.comparison.observable:
         if observable.support != "map":
             continue
         payloads: list[MapPayload] = []
@@ -2913,8 +2913,8 @@ def generate_comparison_figures(
                                         )
 
     grouped_rows: dict[tuple[str, str], list[dict[str, Any]]] = {}
-    {observable.name: observable.support for observable in cfg.method_comparison.observable}
-    {observable.name: observable.variable for observable in cfg.method_comparison.observable}
+    {observable.name: observable.support for observable in cfg.comparison.observable}
+    {observable.name: observable.variable for observable in cfg.comparison.observable}
     for row in rows:
         if str(row.get("support", "")) == "map":
             continue

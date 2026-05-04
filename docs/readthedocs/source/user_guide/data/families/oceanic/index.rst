@@ -48,8 +48,25 @@ Checks
 - For SHOM or custom time series, check station location, date coverage, and
   units before the data are mapped to a boundary condition.
 
-Gallery status
---------------
+Local deterministic run
+-----------------------
+
+The repository includes a small local ``oceanic`` case under
+``hydromodpy/data/variables/oceanic/cases``. It is not a coastal basin study;
+it is a communication and regression asset that proves the custom source can be
+loaded, summarized, and plotted without requiring network access.
+
+.. figure:: /_static/user_guide/data/oceanic_local_stage_example.png
+   :alt: Local custom oceanic sea-level chronicle
+   :width: 100%
+
+   The figure shows the loaded stage values and the returned mean sea level
+   used by the data-only case. This is the minimum useful visual contract for
+   ``custom`` oceanic data: timestamps, values, units, and summary level are
+   visible.
+
+Remaining gallery gap
+---------------------
 
 The current Nancon reference is inland, so it is not the right practical case
 for oceanic data. A future gallery case should use a coastal basin and show the

@@ -1,0 +1,28 @@
+# Nancon monthly transient MF6/Boussinesq comparability pilot.
+#
+# Compared with the exploratory Nancon seasonal case, this base intentionally
+# reduces configuration ambiguity:
+#
+# - both variants reuse the same precomputed river-constrained mesh bundle;
+# - the transient starts below the surface instead of exactly at topography;
+# - the top drainage conductance is increased to reduce persistent ponding;
+# - the monthly recharge chronicle stays synthetic and compact.
+
+base_config = "base_nancon_transient_monthly_hydrography_mesh_input.toml"
+workflow = "simulation"
+
+[workspace]
+project_root = "outputs/nancon_transient_monthly_mf6_bouss_comparable/shared_workspace"
+root = "../../"
+
+[simulation]
+name = "nancon_transient_monthly_hydrography_mesh_input_bouss_comparable"
+description = "Nancon monthly transient MF6/Boussinesq comparability pilot on one precomputed mesh."
+on_collision = "replace"
+
+[flow.ic]
+type = "top_offset"
+value = "10 m"
+
+[flow.bc.cauchy.drainage]
+value = "1.0e-3 m2/s"

@@ -1,4 +1,4 @@
-"""Configuration contract for the method-comparison launcher."""
+"""Shared comparison configuration models and legacy TOML compatibility."""
 
 from __future__ import annotations
 
@@ -6,7 +6,7 @@ from collections.abc import Mapping
 from pathlib import Path
 from typing import Any, Literal
 
-from pydantic import ConfigDict, Field, field_validator, model_validator
+from pydantic import AliasChoices, ConfigDict, Field, field_validator, model_validator
 
 from hydromodpy.core.config.base import HydroModelBase
 from hydromodpy.core.config.toml_loader import load_toml_with_base_config
@@ -20,8 +20,8 @@ def _clean_optional_text(value: object) -> str | None:
     return text or None
 
 
-class MethodComparisonVariant(HydroModelBase):
-    """One solver/mesh method variant to run or reuse."""
+class ComparisonVariant(HydroModelBase):
+    """One solver/mesh variant to run or reuse."""
 
     model_config = ConfigDict(extra="forbid")
 
@@ -73,7 +73,7 @@ class MethodComparisonVariant(HydroModelBase):
         return dict(value)
 
 
-class MethodComparisonObservable(HydroModelBase):
+class ComparisonObservable(HydroModelBase):
     """One quantity of interest extracted from each variant run folder."""
 
     model_config = ConfigDict(extra="forbid")
@@ -147,7 +147,7 @@ class MethodComparisonObservable(HydroModelBase):
         return cleaned
 
     @model_validator(mode="after")
-    def _validate_support_specific_fields(self) -> MethodComparisonObservable:
+    def _validate_support_specific_fields(self) -> ComparisonObservable:
         if self.time is not None and self.time_window is not None:
             raise ValueError(
                 "method_comparison.observable cannot declare both time and time_window"
@@ -194,8 +194,8 @@ class MethodComparisonObservable(HydroModelBase):
         return self
 
 
-class MethodComparisonSection(HydroModelBase):
-    """Launcher-owned method-comparison section."""
+class ComparisonSection(HydroModelBase):
+    """Launcher-owned comparison section."""
 
     model_config = ConfigDict(extra="forbid")
 
@@ -206,9 +206,9 @@ class MethodComparisonSection(HydroModelBase):
     run_variants: bool = True
     continue_on_error: bool = False
     reference_variant: str | None = None
-    fine_raster: MethodComparisonFineRaster | None = None
-    variant: list[MethodComparisonVariant] = Field(default_factory=list)
-    observable: list[MethodComparisonObservable] = Field(default_factory=list)
+    fine_raster: ComparisonFineRaster | None = None
+    variant: list[ComparisonVariant] = Field(default_factory=list)
+    observable: list[ComparisonObservable] = Field(default_factory=list)
 
     @field_validator(
         "comparison_id",
@@ -222,7 +222,7 @@ class MethodComparisonSection(HydroModelBase):
         return _clean_optional_text(value)
 
     @model_validator(mode="after")
-    def _validate_non_empty_lists(self) -> MethodComparisonSection:
+    def _validate_non_empty_lists(self) -> ComparisonSection:
         if not self.variant:
             raise ValueError("method_comparison.variant must contain at least one item")
         if not self.observable:
@@ -248,7 +248,7 @@ class MethodComparisonSection(HydroModelBase):
         return self
 
 
-class MethodComparisonFineRaster(HydroModelBase):
+class ComparisonFineRaster(HydroModelBase):
     """Optional common regular-grid rasterization for map comparisons."""
 
     model_config = ConfigDict(extra="forbid")
@@ -270,7 +270,7 @@ class MethodComparisonFineRaster(HydroModelBase):
         return resolution
 
     @model_validator(mode="after")
-    def _validate_when_enabled(self) -> MethodComparisonFineRaster:
+    def _validate_when_enabled(self) -> ComparisonFineRaster:
         if self.enabled and self.resolution is None:
             raise ValueError(
                 "method_comparison.fine_raster.resolution is required when fine_raster.enabled=true"
@@ -278,10 +278,10 @@ class MethodComparisonFineRaster(HydroModelBase):
         return self
 
 
-class MethodComparisonConfig(HydroModelBase):
-    """Validated top-level configuration for the method-comparison launcher."""
+class ComparisonConfig(HydroModelBase):
+    """Validated top-level configuration for TOML-compatible comparisons."""
 
-    model_config = ConfigDict(arbitrary_types_allowed=True)
+    model_config = ConfigDict(arbitrary_types_allowed=True, populate_by_name=True)
 
     config_path: Path
     base_dir: Path
@@ -289,7 +289,9 @@ class MethodComparisonConfig(HydroModelBase):
     base_simulation_config_path: Path | None = None
     anchors_path: Path | None = None
     anchors: dict[str, tuple[float, float]] = Field(default_factory=dict)
-    method_comparison: MethodComparisonSection
+    comparison: ComparisonSection = Field(
+        validation_alias=AliasChoices("comparison", "method_comparison")
+    )
 
     @classmethod
     def from_toml(
@@ -297,7 +299,7 @@ class MethodComparisonConfig(HydroModelBase):
         raw_toml: Mapping[str, Any],
         *,
         config_path: str | Path,
-    ) -> MethodComparisonConfig:
+    ) -> ComparisonConfig:
         """Validate one raw TOML payload and resolve launcher-owned paths."""
         if not isinstance(raw_toml, Mapping):
             raise ValueError("configuration must be a mapping")
@@ -306,7 +308,7 @@ class MethodComparisonConfig(HydroModelBase):
 
         resolved_config_path = Path(config_path).expanduser().resolve()
         base_dir = resolved_config_path.parent
-        section = MethodComparisonSection.model_validate(raw_toml["method_comparison"])
+        section = ComparisonSection.model_validate(raw_toml["method_comparison"])
 
         comparison_id = section.comparison_id or resolved_config_path.stem
         section.comparison_id = comparison_id
@@ -347,14 +349,19 @@ class MethodComparisonConfig(HydroModelBase):
             base_simulation_config_path=base_simulation_config_path,
             anchors_path=anchors_path,
             anchors=anchors,
-            method_comparison=section,
+            comparison=section,
         )
         cfg._validate_variant_inputs()
         return cfg
 
+    @property
+    def method_comparison(self) -> ComparisonSection:
+        """Legacy accessor for callers not yet migrated to ``comparison``."""
+        return self.comparison
+
     def _validate_variant_inputs(self) -> None:
         """Validate path modes requiring top-level base-config context."""
-        for variant in self.method_comparison.variant:
+        for variant in self.comparison.variant:
             if not variant.enabled:
                 continue
             has_direct_config = variant.simulation_config is not None
@@ -371,7 +378,7 @@ class MethodComparisonConfig(HydroModelBase):
 
     def resolve_variant_config_path(
         self,
-        variant: MethodComparisonVariant,
+        variant: ComparisonVariant,
     ) -> Path | None:
         """Resolve a variant's declared simulation config path, if any."""
         if variant.simulation_config is None:
@@ -383,7 +390,7 @@ class MethodComparisonConfig(HydroModelBase):
 
     def resolve_variant_run_folder(
         self,
-        variant: MethodComparisonVariant,
+        variant: ComparisonVariant,
     ) -> Path | None:
         """Resolve a variant's declared existing run folder, if any."""
         if variant.run_folder is None:
@@ -394,8 +401,21 @@ class MethodComparisonConfig(HydroModelBase):
         return path.resolve()
 
 
+MethodComparisonConfig = ComparisonConfig
+MethodComparisonFineRaster = ComparisonFineRaster
+MethodComparisonObservable = ComparisonObservable
+MethodComparisonSection = ComparisonSection
+MethodComparisonVariant = ComparisonVariant
+
+
 __all__ = (
+    "ComparisonConfig",
+    "ComparisonFineRaster",
+    "ComparisonObservable",
+    "ComparisonSection",
+    "ComparisonVariant",
     "MethodComparisonConfig",
+    "MethodComparisonFineRaster",
     "MethodComparisonObservable",
     "MethodComparisonSection",
     "MethodComparisonVariant",
@@ -433,7 +453,7 @@ def _collect_anchor_nodes(
 
 
 def _apply_observable_anchors(
-    observables: list[MethodComparisonObservable],
+    observables: list[ComparisonObservable],
     anchors: Mapping[str, tuple[float, float]],
 ) -> None:
     for observable in observables:

@@ -379,10 +379,10 @@ class RegionalLabConfig:
                 recipe_mapping.get("launcher"),
                 label=f"regional_lab.recipe[{recipe_id}].launcher",
             ).lower()
-            if launcher not in {"simulation", "method-comparison"}:
+            if launcher not in {"simulation", "comparison", "method-comparison"}:
                 raise ValueError(
                     f"Unsupported regional_lab.recipe launcher '{launcher}'. "
-                    "Use 'simulation' or 'method-comparison'."
+                    "Use 'simulation', 'comparison', or legacy 'method-comparison'."
                 )
 
             recipes.append(

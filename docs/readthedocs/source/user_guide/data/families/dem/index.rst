@@ -54,6 +54,17 @@ Visual check
    readable at the same time. If the basin is shifted, cropped, empty, or
    inverted, fix the DEM source before looking at solver settings.
 
+Local spatial smoke test
+------------------------
+
+.. figure:: /_static/user_guide/data/spatial_local_dem_hydrography_example.png
+   :alt: Local DEM and hydrography stack
+   :width: 100%
+
+   This generated data-doc figure is smaller than the Nancon overview and
+   focuses on one practical question: does the raster support align with a
+   vector hydrography layer in the same projected CRS?
+
 Downstream uses
 ---------------
 

@@ -8,6 +8,21 @@ under ``hydromodpy.data.variables``.
 For operational details, examples, and source-specific checks, use the expanded
 :doc:`families/index` section. This page remains the compact inventory.
 
+Visual source matrix
+--------------------
+
+The table below is the same information in a more visual form. Read it from
+left to right: source values are useful only after the payload shape, first
+diagnostic, and downstream use are clear.
+
+.. figure:: /_static/user_guide/data/data_family_source_matrix.png
+   :alt: Matrix of HydroModPy data families and supported source groups
+   :width: 100%
+
+   The colored cells group sources by role: local files, public geographic
+   providers, Hub'Eau observations, SIM2 forcing, SHOM coastal data, and
+   controlled sources such as synthetic or constant values.
+
 Family inventory
 ----------------
 

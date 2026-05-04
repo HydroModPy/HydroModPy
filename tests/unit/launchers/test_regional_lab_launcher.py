@@ -10,6 +10,7 @@ from hydromodpy.analysis.batch.bootstrap import build_site_catalog_from_outlet_t
 from hydromodpy.analysis.batch.config import RegionalLabConfig
 from hydromodpy.analysis.batch.runtime import (
     RegionalLabLauncher,
+    _extract_comparison_child_artifacts,
     _extract_method_comparison_child_artifacts,
     build_regional_lab_plan,
     build_run_command,
@@ -71,7 +72,7 @@ def _write_regional_lab_config(
                 "",
                 "[[regional_lab.recipe]]",
                 'id = "backend_compare"',
-                'launcher = "method-comparison"',
+                'launcher = "comparison"',
                 'families = ["headwater"]',
                 'required_fields = ["compare_config"]',
                 'config_path_template = "{compare_config}"',
@@ -138,7 +139,25 @@ def _write_planned_configs(tmp_path: Path) -> None:
             encoding="utf-8",
         )
     (configs_dir / "compare_headwater_100km2_outlet_2.toml").write_text(
-        '[method_comparison]\ncomparison_id = "demo"\n',
+        "\n".join(
+            [
+                'workflow = "comparison"',
+                "",
+                "[comparison]",
+                'comparison_id = "demo"',
+                "",
+                "[[comparison.simulation]]",
+                'id = "reference"',
+                'run_folder = "runs/reference"',
+                "",
+                "[[comparison.observable]]",
+                'name = "head"',
+                'variable = "head"',
+                'support = "point"',
+                "cell_index = 0",
+            ]
+        )
+        + "\n",
         encoding="utf-8",
     )
 
@@ -260,9 +279,9 @@ def test_regional_lab_recipe_can_skip_unsupported_platform(tmp_path: Path) -> No
     unsupported_platform = "linux" if sys.platform.startswith("win") else "windows"
     config_path.write_text(
         config_path.read_text(encoding="utf-8").replace(
-            'id = "backend_compare"\nlauncher = "method-comparison"\n',
+            'id = "backend_compare"\nlauncher = "comparison"\n',
             'id = "backend_compare"\n'
-            'launcher = "method-comparison"\n'
+            'launcher = "comparison"\n'
             f'allowed_platforms = ["{unsupported_platform}"]\n',
         ),
         encoding="utf-8",
@@ -402,6 +421,31 @@ def test_regional_lab_build_run_command_dispatches_launchers(tmp_path: Path) -> 
     assert commands[2] == [
         "python",
         "-m",
+        "hydromodpy",
+        "run",
+        str((tmp_path / "configs" / "compare_headwater_100km2_outlet_2.toml").resolve()),
+    ]
+
+
+def test_regional_lab_keeps_legacy_method_comparison_command(tmp_path: Path) -> None:
+    config_path = _write_regional_lab_config(tmp_path, execute=False)
+    config_path.write_text(
+        config_path.read_text(encoding="utf-8").replace(
+            'launcher = "comparison"',
+            'launcher = "method-comparison"',
+        ),
+        encoding="utf-8",
+    )
+    _write_csv_catalog(tmp_path)
+    _write_planned_configs(tmp_path)
+    cfg = RegionalLabConfig.from_file(config_path)
+    _, planned_cases, _ = build_regional_lab_plan(cfg, load_site_catalog(cfg.catalog))
+
+    command = build_run_command(planned_cases[2], python_executable=Path("python"))
+
+    assert command == [
+        "python",
+        "-m",
         "launchers",
         "method-comparison",
         "run",
@@ -479,6 +523,73 @@ def test_regional_lab_extracts_method_comparison_child_artifacts(tmp_path: Path)
     assert artifacts["child_failed_variant_count"] == 1
     assert artifacts["child_summary_max_rmse"] == 2.0
     assert artifacts["child_summary_max_mae"] == 1.1
+
+
+def test_regional_lab_extracts_canonical_comparison_child_artifacts(tmp_path: Path) -> None:
+    config_path = tmp_path / "compare_case.toml"
+    comparison_root = tmp_path / "comparison_outputs"
+    comparison_root.mkdir(parents=True, exist_ok=True)
+    (comparison_root / "comparison_manifest.json").write_text(
+        json.dumps(
+            {
+                "comparison_id": "demo_compare",
+                "reference_variant": "reference",
+                "wall_time_seconds": 12.5,
+                "n_metric_rows": 3,
+                "n_difference_rows": 2,
+                "n_observable_rows": 1,
+                "variants": [
+                    {"id": "reference", "status": "completed"},
+                    {"id": "candidate", "status": "failed"},
+                ],
+            },
+            ensure_ascii=True,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    (comparison_root / "comparison_metrics.json").write_text(
+        json.dumps(
+            {
+                "summary": [{"observable": "head", "rmse": 1.5, "mae": 0.8}],
+                "differences": [{"observable": "head"}],
+            },
+            ensure_ascii=True,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    config_path.write_text(
+        "\n".join(
+            [
+                'workflow = "comparison"',
+                "",
+                "[comparison]",
+                'comparison_id = "demo_compare"',
+                f'output_root = "{comparison_root.as_posix()}"',
+                "",
+                "[[comparison.simulation]]",
+                'id = "reference"',
+                'run_folder = "runs/reference"',
+                "",
+                "[[comparison.observable]]",
+                'name = "head"',
+                'variable = "head"',
+                'support = "point"',
+                "cell_index = 0",
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    artifacts = _extract_comparison_child_artifacts(config_path)
+
+    assert artifacts["child_artifact_kind"] == "comparison"
+    assert artifacts["child_artifact_status"] == "resolved"
+    assert artifacts["child_comparison_id"] == "demo_compare"
+    assert artifacts["child_reference_variant"] == "reference"
+    assert artifacts["child_summary_max_rmse"] == 1.5
 
 
 def test_regional_lab_bootstrap_catalog_merges_manifest(tmp_path: Path) -> None:

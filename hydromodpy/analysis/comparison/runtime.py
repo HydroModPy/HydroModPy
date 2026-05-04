@@ -1,4 +1,4 @@
-"""Runtime helpers for the method-comparison launcher."""
+"""Runtime helpers shared by comparison launchers."""
 
 from __future__ import annotations
 
@@ -17,9 +17,9 @@ from typing import TYPE_CHECKING, Any
 import numpy as np
 
 from hydromodpy.analysis.comparison.config import (
-    MethodComparisonConfig,
-    MethodComparisonObservable,
-    MethodComparisonVariant,
+    ComparisonConfig,
+    ComparisonObservable,
+    ComparisonVariant,
 )
 from hydromodpy.core.config.toml_loader import (
     load_toml_with_base_config,
@@ -473,8 +473,8 @@ def _build_solver_process_overlay(
 
 def materialize_variant_config(
     *,
-    cfg: MethodComparisonConfig,
-    variant: MethodComparisonVariant,
+    cfg: ComparisonConfig,
+    variant: ComparisonVariant,
 ) -> Path | None:
     """Return the config path used by one variant, generating it if needed."""
     direct_config = cfg.resolve_variant_config_path(variant)
@@ -978,7 +978,7 @@ def is_nodata_value(value: Any) -> bool:
 
 def normalize_observable_value(
     *,
-    observable: MethodComparisonObservable,
+    observable: ComparisonObservable,
     series: VariableSeries,
     value: float,
     value_index: int,
@@ -1919,7 +1919,7 @@ def mask_depth_series_from_head_nodata(
 
 def _select_time_slices(
     series: VariableSeries,
-    observable: MethodComparisonObservable,
+    observable: ComparisonObservable,
 ) -> tuple[TimeSlice, ...]:
     """Select time slices requested by one observable."""
     if observable.time_window is not None:
@@ -1967,7 +1967,7 @@ def _select_time_slices(
 
 def select_time_slices(
     series: VariableSeries,
-    observable: MethodComparisonObservable,
+    observable: ComparisonObservable,
 ) -> tuple[TimeSlice, ...]:
     """Public wrapper exposing observable time selection for reuse."""
     return _select_time_slices(series, observable)
@@ -2039,7 +2039,7 @@ def _select_spatial_values(
     *,
     series: VariableSeries,
     time_slice: TimeSlice,
-    observable: MethodComparisonObservable,
+    observable: ComparisonObservable,
     cells: CellCentroidTable | None,
 ) -> tuple[tuple[float, ...], dict[str, Any]]:
     """Apply spatial selection for one observable/time slice."""
@@ -2134,7 +2134,7 @@ def _time_match_key(time_slice: TimeSlice) -> str:
 
 def _fallback_time_key(
     *,
-    observable: MethodComparisonObservable,
+    observable: ComparisonObservable,
     time_slice: TimeSlice,
     selection_time_order: int,
     non_initial_time_order: int | None,
@@ -2168,9 +2168,9 @@ def _fallback_time_key(
 def extract_observable_rows(
     *,
     comparison_id: str,
-    variant: MethodComparisonVariant,
+    variant: ComparisonVariant,
     run_folder: Path,
-    observables: tuple[MethodComparisonObservable, ...],
+    observables: tuple[ComparisonObservable, ...],
     config_path: Path | None = None,
     store: SimulationCatalog | None = None,
     sim_id: str | None = None,
