@@ -50,7 +50,7 @@ Key entry points
 - :func:`hydromodpy.run` - execute the same TOML workflow as ``hmp run`` from
   Python.
 - :func:`hydromodpy.calibrate` - launch a calibration session from a TOML file.
-- :func:`hydromodpy.compare` - compare two simulations by object or id.
+- :func:`hydromodpy.compare_pair` - compare two simulations by object or id.
 - :func:`hydromodpy.doctor` - return a lightweight environment diagnostic.
 - :class:`hydromodpy.project.Project` - Python facade for workspace setup,
   data loading, mesh construction, simulation, calibration, batch, comparison,
