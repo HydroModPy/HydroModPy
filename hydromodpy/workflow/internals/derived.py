@@ -238,7 +238,11 @@ def _run_seepage_mask(sim_zarr: SimulationZarr) -> DerivedResult:
     wt_arr = derived_grp["watertable_elevation"]
     for t in range(n_timesteps):
         wt = np.asarray(wt_arr[t], dtype="float64").ravel()[:n_cells]
-        mask = (wt >= top).astype("int8")
+        surface_excess_mask = _surface_excess_seepage_mask(sim_zarr, t, n_cells)
+        if surface_excess_mask is not None:
+            mask = surface_excess_mask
+        else:
+            mask = wt >= top
         _write_derived(
             sim_zarr,
             "seepage_mask",
@@ -247,6 +251,31 @@ def _run_seepage_mask(sim_zarr: SimulationZarr) -> DerivedResult:
             n_timesteps=n_timesteps if t == 0 else None,
         )
     return DerivedResult(name="seepage_mask", status="computed")
+
+
+def _surface_excess_seepage_mask(
+    sim_zarr: SimulationZarr,
+    timestep: int,
+    n_cells: int,
+) -> np.ndarray | None:
+    """Return seepage cells declared by solver surface-excess fields.
+
+    This is intentionally authoritative when present. It lets Boussinesq
+    constrained formulations expose active seepage through their solver-produced
+    surface-excess flux, while legacy runs without such a field fall back to the
+    geometric head/topography criterion.
+    """
+    derived_grp = sim_zarr.root.get("derived")
+    if derived_grp is not None and "seepage_rate" in derived_grp:
+        rate = np.asarray(derived_grp["seepage_rate"][timestep], dtype="float64")
+        return np.asarray(rate).reshape(-1)[:n_cells] > 0.0
+
+    budget_grp = sim_zarr.root.get("budget")
+    if budget_grp is not None and "surface_excess" in budget_grp:
+        flux = np.asarray(budget_grp["surface_excess"][timestep], dtype="float64")
+        return np.asarray(flux).reshape(-1)[:n_cells] > 0.0
+
+    return None
 
 
 def _run_fluxes_from_budget(sim_zarr: SimulationZarr) -> DerivedResult:

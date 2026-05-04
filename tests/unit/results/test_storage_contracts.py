@@ -137,6 +137,39 @@ def test_simulation_zarr_to_xarray_is_dask_backed(catalog):
         sz.close()
 
 
+def test_virtual_seepage_mask_prefers_surface_excess_budget(catalog):
+    sid = _sim_id()
+    reg = catalog.register_simulation(
+        sid,
+        project="p",
+        solver="boussinesq",
+        n_cells=2,
+        n_layers=1,
+        n_timesteps=1,
+    )
+    assert reg.zarr is not None
+    reg.zarr.close()
+    catalog.write_mesh(
+        sid,
+        vertices=np.array([[0.0, 0.0, 10.0], [1.0, 0.0, 10.0], [0.0, 1.0, 10.0]]),
+        face_node_connectivity=np.array([[0, 1, 2], [0, 2, 1]], dtype="int32"),
+        z_interfaces=np.array([10.0, 0.0], dtype=float),
+    )
+    catalog.write_field(sid, "head", 0, np.array([[11.0, 11.0]]), n_timesteps=1)
+    catalog.write_field(
+        sid,
+        "surface_excess",
+        0,
+        np.array([0.0, 1.0e-5]),
+        n_timesteps=1,
+        subgroup="budget",
+    )
+
+    mask = catalog.query_field(sid, "seepage_mask", 0)
+
+    np.testing.assert_array_equal(mask, np.array([0.0, 1.0]))
+
+
 def test_register_observation_points_stores_simulation_crs(catalog):
     sid = _sim_id()
     reg = catalog.register_simulation(

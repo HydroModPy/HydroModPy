@@ -43,11 +43,11 @@
     "docs/readthedocs/source/_static/capability_gallery/simulation_comparison/ex12_mf6_nwt_moderate_same_s60_difference_metrics.csv"
   ],
   "source_hashes": {
-    "docs/readthedocs/source/_static/capability_gallery/simulation_comparison/ex12_mf6_nwt_moderate_same_s60_comparison_manifest.json": "a3b04a65a9752b52896019bc1dba8a83881e9cbdc0baa61c24ed209f0ab91d97",
+    "docs/readthedocs/source/_static/capability_gallery/simulation_comparison/ex12_mf6_nwt_moderate_same_s60_comparison_manifest.json": "763ad968820253aaccfdeac652fd9c879cf57de5c0859b2841462941c9d7a03b",
     "docs/readthedocs/source/_static/capability_gallery/simulation_comparison/ex12_mf6_nwt_moderate_same_s60_comparison_metrics.json": "9c8f4dd2ae0c5a8ee64a9cf38c1f49036fbc5203445b5dd31e52f9b89341051b",
-    "docs/readthedocs/source/_static/capability_gallery/simulation_comparison/ex12_mf6_nwt_moderate_same_s60_observables.csv": "dac66191a34d8da0c034c9fee0482bf7a7db24b9218a336aa472af9d71ff0a13",
-    "docs/readthedocs/source/_static/capability_gallery/simulation_comparison/ex12_mf6_nwt_moderate_same_s60_summary_metrics.csv": "0feb0079abe467213b2792cfd11b460067ddbde72be50ae339b34344fbdc24fb",
-    "docs/readthedocs/source/_static/capability_gallery/simulation_comparison/ex12_mf6_nwt_moderate_same_s60_difference_metrics.csv": "ce520882507401b77c569218b5bc97ed8965c38b373a7cad72a7f895e0394a2f"
+    "docs/readthedocs/source/_static/capability_gallery/simulation_comparison/ex12_mf6_nwt_moderate_same_s60_observables.csv": "4b85a70367689e5ad745c968eb187427d0b0dd2d710753d75805d12eb0106a33",
+    "docs/readthedocs/source/_static/capability_gallery/simulation_comparison/ex12_mf6_nwt_moderate_same_s60_summary_metrics.csv": "ab2aaf5be3f5bd80a80a51138f1149055c66b015698c2088a7b8189773243580",
+    "docs/readthedocs/source/_static/capability_gallery/simulation_comparison/ex12_mf6_nwt_moderate_same_s60_difference_metrics.csv": "db4a65725d7d7bf0eb301e7df44f4a703cea2216beb6b42e3b5eb9b991a2a4a1"
   },
   "docname": "cases/ex12_mf6_nwt_moderate_same_s60",
   "images": [

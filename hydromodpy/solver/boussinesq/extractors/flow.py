@@ -204,6 +204,56 @@ class BoussinesqOutputAdapter:
                     n_timesteps=n_timesteps if timestep == 0 else None,
                     subgroup="budget",
                 )
+            BoussinesqOutputAdapter._write_surface_excess_seepage_fields(
+                sim_id,
+                store,
+                saturation_excess,
+                n_timesteps=n_timesteps,
+            )
+
+    @staticmethod
+    def _write_surface_excess_seepage_fields(
+        sim_id: str,
+        store: Any,
+        surface_excess_rate_m_s: np.ndarray,
+        *,
+        n_timesteps: int,
+    ) -> None:
+        """Expose Boussinesq saturation excess through canonical seepage fields.
+
+        ``surface_excess`` is the Boussinesq surface-interaction flux. It is the
+        physically relevant seepage signal for constrained formulations where
+        the solved head may be kept at, or just below, the surface. Persisting it
+        as ``seepage_rate`` and ``seepage_mask`` lets generic readers and figures
+        discover active seepage without knowing Boussinesq internals.
+        """
+        rates = np.asarray(surface_excess_rate_m_s, dtype=float)
+        if rates.ndim == 1:
+            rates = rates.reshape(1, -1)
+        if rates.shape[0] < int(n_timesteps):
+            raise ValueError(
+                "Boussinesq surface excess history has fewer timesteps than head "
+                f"history: {rates.shape[0]} < {int(n_timesteps)}"
+            )
+        for timestep, values in enumerate(rates[:n_timesteps]):
+            positive_rate = np.maximum(np.asarray(values, dtype=float).reshape(-1), 0.0)
+            active_mask = (positive_rate > 0.0).astype("float64")
+            store.write_field(
+                sim_id,
+                "seepage_rate",
+                timestep,
+                positive_rate,
+                n_timesteps=n_timesteps if timestep == 0 else None,
+                subgroup="derived",
+            )
+            store.write_field(
+                sim_id,
+                "seepage_mask",
+                timestep,
+                active_mask,
+                n_timesteps=n_timesteps if timestep == 0 else None,
+                subgroup="derived",
+            )
 
     def _write_surface_elevation(
         self,
@@ -284,3 +334,32 @@ class BoussinesqOutputAdapter:
             "mass_accumulated": False,
         }
         compute_derived(sim_id, store, boussinesq_cfg)
+        self._restore_surface_excess_seepage_fields(sim_id, store)
+
+    @staticmethod
+    def _restore_surface_excess_seepage_fields(sim_id: str, store: Any) -> None:
+        """Rewrite canonical seepage fields from persisted Boussinesq state.
+
+        Some legacy derived paths recompute ``seepage_mask`` from ``h >= z_s``.
+        For Boussinesq, the stronger contract is that positive
+        ``saturation_excess`` is active seepage, so this hook restores that
+        solver-specific signal after adapter-level derivations.
+        """
+        sz = store.open_zarr(sim_id)
+        try:
+            state_grp = sz.root.get("boussinesq_state")
+            if state_grp is None or "saturation_excess_history_m_s" not in state_grp:
+                return
+            rates = np.asarray(
+                state_grp["saturation_excess_history_m_s"][:],
+                dtype=float,
+            )
+            n_timesteps = int(rates.shape[0]) if rates.ndim > 1 else 1
+        finally:
+            sz.close()
+        BoussinesqOutputAdapter._write_surface_excess_seepage_fields(
+            sim_id,
+            store,
+            rates,
+            n_timesteps=n_timesteps,
+        )

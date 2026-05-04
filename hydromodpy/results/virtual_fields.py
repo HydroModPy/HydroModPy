@@ -57,10 +57,38 @@ def _watertable_depth(store: Any, sim_id: str, timestep: int) -> np.ndarray:
 
 
 def _seepage_mask(store: Any, sim_id: str, timestep: int) -> np.ndarray:
-    """Binary seepage indicator: 1 where watertable >= surface."""
-    wt = store.query_field(sim_id, "watertable_elevation", timestep)
+    """Binary seepage indicator.
+
+    Prefer solver-declared seepage when available. Constrained Boussinesq
+    formulations can keep the head at the surface obstacle over broad areas,
+    while actual seepage is carried by the positive surface-excess flux.
+    Falling back to the geometric criterion keeps legacy runs readable.
+    """
     top = _get_surface_top(store, sim_id)
-    return (wt >= top).astype("float64")
+    excess = _surface_excess_mask(store, sim_id, timestep, top.size)
+    if excess is not None:
+        return excess.astype("float64")
+    wt = store.query_field(sim_id, "watertable_elevation", timestep)
+    mask = wt >= top
+    return mask.astype("float64")
+
+
+def _surface_excess_mask(
+    store: Any,
+    sim_id: str,
+    timestep: int,
+    n_cells: int,
+) -> np.ndarray | None:
+    """Read solver-declared seepage from ``budget/surface_excess`` if present."""
+    sz = store.open_zarr(sim_id)
+    try:
+        budget = sz.root.get("budget")
+        if budget is None or "surface_excess" not in budget:
+            return None
+        values = np.asarray(budget["surface_excess"][timestep], dtype="float64")
+        return values.reshape(-1)[:n_cells] > 0.0
+    finally:
+        sz.close()
 
 
 def _drn_budget_field(store: Any, sim_id: str, timestep: int) -> np.ndarray:

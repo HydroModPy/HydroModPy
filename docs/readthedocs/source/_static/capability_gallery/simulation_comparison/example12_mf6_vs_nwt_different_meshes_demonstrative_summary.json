@@ -43,11 +43,11 @@
     "docs/readthedocs/source/_static/capability_gallery/simulation_comparison/example12_mf6_vs_nwt_different_meshes_demonstrative_difference_metrics.csv"
   ],
   "source_hashes": {
-    "docs/readthedocs/source/_static/capability_gallery/simulation_comparison/example12_mf6_vs_nwt_different_meshes_demonstrative_comparison_manifest.json": "4f8ab5ea5444ed2684a23d0ca2c848f711991e97f17262dc0be5e9bbbeb5aef3",
+    "docs/readthedocs/source/_static/capability_gallery/simulation_comparison/example12_mf6_vs_nwt_different_meshes_demonstrative_comparison_manifest.json": "4b7c103fc0897f1779b2b7cbfad82e489a6e73cc05bf09a80fd916047ce9361c",
     "docs/readthedocs/source/_static/capability_gallery/simulation_comparison/example12_mf6_vs_nwt_different_meshes_demonstrative_comparison_metrics.json": "be0e231d30d10eaaaa257914c25879f77210e7b49dfe8eba58104b7c9acb262c",
-    "docs/readthedocs/source/_static/capability_gallery/simulation_comparison/example12_mf6_vs_nwt_different_meshes_demonstrative_observables.csv": "511a896f1f6ef9b12648c6df55561ef3bb4bb8cebb9c8d5ca4ba8c327fc21db2",
-    "docs/readthedocs/source/_static/capability_gallery/simulation_comparison/example12_mf6_vs_nwt_different_meshes_demonstrative_summary_metrics.csv": "adafac9662c141946022e6180717ad2544f84d1bc8d5613339d2feb865be5463",
-    "docs/readthedocs/source/_static/capability_gallery/simulation_comparison/example12_mf6_vs_nwt_different_meshes_demonstrative_difference_metrics.csv": "92140edd3e799b48e76c98269894ec8ff3816d85b39ac03cbb666ef5da462bec"
+    "docs/readthedocs/source/_static/capability_gallery/simulation_comparison/example12_mf6_vs_nwt_different_meshes_demonstrative_observables.csv": "8a36e0919244941652f51f4d9c66bab024faeb7b086bdad3147bae6702dfb758",
+    "docs/readthedocs/source/_static/capability_gallery/simulation_comparison/example12_mf6_vs_nwt_different_meshes_demonstrative_summary_metrics.csv": "2a0b7e92d0001aaa1d7f8f0bda92030ae9ed0971276110aa593ccf5fefa867ef",
+    "docs/readthedocs/source/_static/capability_gallery/simulation_comparison/example12_mf6_vs_nwt_different_meshes_demonstrative_difference_metrics.csv": "4a41c7ecaac26ab045d420b1b68c8b1d0465b61c1928af35daa1b4bfda68112b"
   },
   "docname": "cases/example12_mf6_vs_nwt_different_meshes_demonstrative",
   "images": [

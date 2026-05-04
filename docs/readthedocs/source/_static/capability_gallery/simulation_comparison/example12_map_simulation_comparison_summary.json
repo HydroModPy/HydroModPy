@@ -48,11 +48,11 @@
     "docs/readthedocs/source/_static/capability_gallery/simulation_comparison/example12_map_simulation_comparison_difference_metrics.csv"
   ],
   "source_hashes": {
-    "docs/readthedocs/source/_static/capability_gallery/simulation_comparison/example12_map_simulation_comparison_comparison_manifest.json": "aba956c197a08cee559112f8882b17066da9389a54919b9deecb58f1de50df7d",
-    "docs/readthedocs/source/_static/capability_gallery/simulation_comparison/example12_map_simulation_comparison_comparison_metrics.json": "9c94febd5fd5e0dfae3abc6ea37a87421dc119459d3326fed0cf53b73da71546",
-    "docs/readthedocs/source/_static/capability_gallery/simulation_comparison/example12_map_simulation_comparison_observables.csv": "8d209c3bf051792251d262c50afbe99f9949147a03607b13895520b66f3010de",
-    "docs/readthedocs/source/_static/capability_gallery/simulation_comparison/example12_map_simulation_comparison_summary_metrics.csv": "2a9b94243f370f395c1c10cca8e43e7361aef7206a682541c66b04f916e4bed5",
-    "docs/readthedocs/source/_static/capability_gallery/simulation_comparison/example12_map_simulation_comparison_difference_metrics.csv": "c472046a7ea9fe3ac2947fd2fdc35d1b7d60d70cedb1f0382f78cf524f863f9d"
+    "docs/readthedocs/source/_static/capability_gallery/simulation_comparison/example12_map_simulation_comparison_comparison_manifest.json": "15df69fdfef9930a36572a6be6e4cd4ad77c709aa5f8024beab1b4b6d4dd5dd8",
+    "docs/readthedocs/source/_static/capability_gallery/simulation_comparison/example12_map_simulation_comparison_comparison_metrics.json": "67fec76be47f370987e1998f92af10505fb1d8be987fd06d05c7e1faba2832f7",
+    "docs/readthedocs/source/_static/capability_gallery/simulation_comparison/example12_map_simulation_comparison_observables.csv": "06d5ed346105cfa029d1b3b010367978b50a2c783e1804cb90e9e56248fabdca",
+    "docs/readthedocs/source/_static/capability_gallery/simulation_comparison/example12_map_simulation_comparison_summary_metrics.csv": "81699024350482306b57df98b1f587d9990ec8f3c66e4ef893e1344dd5f119bc",
+    "docs/readthedocs/source/_static/capability_gallery/simulation_comparison/example12_map_simulation_comparison_difference_metrics.csv": "5903dd0990314e6d4f770ec78b35a08df760720411d4ba276a79ebdaf115368e"
   },
   "docname": "cases/example12_map_simulation_comparison",
   "images": [

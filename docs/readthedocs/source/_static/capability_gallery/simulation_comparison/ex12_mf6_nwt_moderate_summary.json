@@ -43,11 +43,11 @@
     "docs/readthedocs/source/_static/capability_gallery/simulation_comparison/ex12_mf6_nwt_moderate_difference_metrics.csv"
   ],
   "source_hashes": {
-    "docs/readthedocs/source/_static/capability_gallery/simulation_comparison/ex12_mf6_nwt_moderate_comparison_manifest.json": "4b3c1768a1e95262accde6a29debbf0ad5f9fd38e0e0723bd04bb69815ba22c3",
+    "docs/readthedocs/source/_static/capability_gallery/simulation_comparison/ex12_mf6_nwt_moderate_comparison_manifest.json": "ea25a9ac7daed940e4ef93730e2666c281b3d3483f9e9ee3dc01a6c05b7a5182",
     "docs/readthedocs/source/_static/capability_gallery/simulation_comparison/ex12_mf6_nwt_moderate_comparison_metrics.json": "32325d712521903d8c62a875332de1159c718ca630ae0dcaf5eb0f62408f7ced",
-    "docs/readthedocs/source/_static/capability_gallery/simulation_comparison/ex12_mf6_nwt_moderate_observables.csv": "99fa3f3b614721bc36124c0c660c4ac5ebe7212d9966c062980ac117f0fabd15",
-    "docs/readthedocs/source/_static/capability_gallery/simulation_comparison/ex12_mf6_nwt_moderate_summary_metrics.csv": "b2178b4bcaff929d657439d2e10db0f98d63b24f59ad8bb6faac077e832ec078",
-    "docs/readthedocs/source/_static/capability_gallery/simulation_comparison/ex12_mf6_nwt_moderate_difference_metrics.csv": "cfdccb9898a67f806cbf5665234ca7bd6241df8f2652586525d3d70c8a342f6c"
+    "docs/readthedocs/source/_static/capability_gallery/simulation_comparison/ex12_mf6_nwt_moderate_observables.csv": "4aee2d67f9fbbef22f10916a879ac4c23f818ccea837eea7d5f619ac96779828",
+    "docs/readthedocs/source/_static/capability_gallery/simulation_comparison/ex12_mf6_nwt_moderate_summary_metrics.csv": "7080de686896b9225d87c50ca1e0800c2610653a76c8391630562e95ad0ba9ea",
+    "docs/readthedocs/source/_static/capability_gallery/simulation_comparison/ex12_mf6_nwt_moderate_difference_metrics.csv": "e99f3626a59e4973d5c40bcec84ba392677e121f8023913890c4ef2af100bada"
   },
   "docname": "cases/ex12_mf6_nwt_moderate",
   "images": [
