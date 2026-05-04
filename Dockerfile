@@ -28,8 +28,9 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     PATH="/home/hmp/.local/bin:${PATH}"
 
 # libglu1-mesa is needed by gmsh / pyvista at import time.
+# libexpat1 is needed by rasterio's runtime libraries.
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends libglu1-mesa \
+    && apt-get install -y --no-install-recommends libglu1-mesa libexpat1 \
     && rm -rf /var/lib/apt/lists/* \
     && groupadd -r hmp \
     && useradd -r -g hmp -m -d /home/hmp -s /usr/sbin/nologin hmp
