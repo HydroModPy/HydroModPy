@@ -17,7 +17,6 @@ from hydromodpy.data.variables.hydrography.config import (
     HydrographySourceConfig,
 )
 from hydromodpy.data.variables.hydrography.result import HydrographyResult
-from hydromodpy.spatial.delineation import get_whitebox_backend
 from hydromodpy.spatial.geographic.core.hydrographic_network import (
     HYDROGRAPHIC_NETWORK_REFERENCE_RASTER_FILENAME,
     HYDROGRAPHIC_NETWORK_REFERENCE_VECTOR_FILENAME,
@@ -47,6 +46,7 @@ class HydrographyManager:
         self.config = config
         self.geographic = geographic
         from hydromodpy.core.workspace.path_registry import PREPROCESSING_DIR
+        from hydromodpy.spatial.delineation import get_whitebox_backend
 
         base = Path(stable_folder) if stable_folder else Path(out_path) / PREPROCESSING_DIR
         self._data_folder = base / "hydrography"

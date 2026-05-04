@@ -75,9 +75,6 @@ Command inventory
    * - ``hmp compare``
      - Pairwise comparison
      - Compare two simulations by id, prefix, or name.
-   * - ``hmp compare-methods``
-     - Method comparison
-     - Launch shared-case solver comparisons and write comparison artifacts.
    * - ``hmp add``
      - Package import
      - Import a portable ``.hmp`` archive and dematerialize bundled inputs.

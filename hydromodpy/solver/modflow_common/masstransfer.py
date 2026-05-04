@@ -9,10 +9,12 @@
 * SPDX-License-Identifier: EPL-2.0 OR Apache-2.0
 """
 
-# %% LIBRAIRIES
+from __future__ import annotations
 
+# %% LIBRAIRIES
 # Python
 import os
+from typing import TYPE_CHECKING
 
 import rasterio
 
@@ -21,7 +23,9 @@ from hydromodpy.core.io.raster_io import export_tif
 
 # HydroModPy
 from hydromodpy.core.logging import get_logger
-from hydromodpy.spatial.delineation import WhiteboxWorkflowsBackend, get_whitebox_backend
+
+if TYPE_CHECKING:
+    from hydromodpy.spatial.delineation.whitebox_workflows_backend import WhiteboxWorkflowsBackend
 
 logger = get_logger(__name__)
 
@@ -41,7 +45,7 @@ class Masstransfer:
         raw_rast_name: str,
         trace_shp_name: str,
         mass_rast_name: str,
-        extraction_folder: str = None,
+        extraction_folder: str | None = None,
         label: str = "conc",
         routing_fill_path: str | None = None,
         routing_direc_path: str | None = None,
@@ -64,6 +68,8 @@ class Masstransfer:
             Optional tag injected into intermediate filenames to distinguish
             runs (default keeps historical '_conc' suffixes).
         """
+        from hydromodpy.spatial.delineation import get_whitebox_backend
+
         self.geographic = geographic
         self.extraction_folder = extraction_folder
         self._backend = get_whitebox_backend() if backend is None else backend

@@ -1,0 +1,22 @@
+title = "HydroModPy Gitleaks config"
+
+[extend]
+useDefault = true
+
+[[rules]]
+id = "generic-api-key"
+
+[[rules.allowlists]]
+description = "Generated gallery metadata keys are not credentials."
+condition = "AND"
+regexTarget = "line"
+paths = [
+    '''(^|/)docs/readthedocs/source/_static/capability_gallery/.*_summary\.json$''',
+    '''(^|/)examples/projects/07_mesh_gallery/.*/case\.json$''',
+    '''(^|/)tools/doc_gallery/sync_mesh_catchment_runs\.py$''',
+]
+regexes = [
+    '''^\s*"key":\s*"[A-Za-z0-9_.:-]+",?\s*$''',
+    '''^\s*"case_family_key":\s*"[A-Za-z0-9_.:-]+",?\s*$''',
+    '''^\s*key="[A-Za-z0-9_.:-]+",?\s*$''',
+]

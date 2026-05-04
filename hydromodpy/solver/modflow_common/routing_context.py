@@ -4,9 +4,12 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
+from typing import TYPE_CHECKING
 
-from hydromodpy.spatial.delineation import WhiteboxWorkflowsBackend
 from hydromodpy.spatial.geographic.core.flow_products import build_regional_flow_products
+
+if TYPE_CHECKING:
+    from hydromodpy.spatial.delineation.whitebox_workflows_backend import WhiteboxWorkflowsBackend
 
 
 @dataclass(frozen=True, slots=True)

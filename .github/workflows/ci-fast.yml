@@ -52,8 +52,6 @@ jobs:
     timeout-minutes: 5
     steps:
       - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
 
       - name: Run Gitleaks CLI
         run: |
@@ -61,7 +59,9 @@ jobs:
             --user "$(id -u):$(id -g)" \
             --volume "$PWD:/repo" \
             ghcr.io/gitleaks/gitleaks:v8.21.2 \
-            git --no-banner --redact --verbose /repo
+            detect --no-banner --redact --verbose \
+              --config /repo/.gitleaks.toml \
+              --source /repo
 
   unit:
     name: Unit tests
@@ -81,7 +81,7 @@ jobs:
       - name: Install package and test extras
         run: |
           pip install --upgrade pip
-          pip install -e ".[test]"
+          pip install -e ".[test,calibration,delineation]"
 
       # The coverage .pth shim breaks numpy C extensions on CI runners.
       - name: Drop coverage .pth shim
@@ -149,7 +149,7 @@ jobs:
       - name: Install package and test extras
         run: |
           pip install --upgrade pip
-          pip install -e ".[test]"
+          pip install -e ".[test,calibration,delineation]"
 
       - name: Drop coverage .pth shim
         run: |
@@ -233,7 +233,7 @@ jobs:
         run: |
           pip install --upgrade pip
           pip install -e "."
-          pip install "mypy>=1.13" "pydantic>=2.13"
+          pip install "mypy>=1.13" "pydantic>=2.13" "types-requests"
 
       - name: Run mypy (baseline, non-blocking)
         run: mypy hydromodpy

@@ -16,12 +16,19 @@ Runtime entry points:
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 from hydromodpy.spatial.delineation.base import DelineationBackend
 from hydromodpy.spatial.delineation.registry import (
     available_backends,
     get_backend,
     register_backend,
 )
+
+if TYPE_CHECKING:
+    from hydromodpy.spatial.delineation.whitebox_workflows_backend import (
+        WhiteboxWorkflowsBackend,
+    )
 
 __all__ = [
     "DelineationBackend",
@@ -37,22 +44,36 @@ __all__ = [
 ]
 
 
+def clear_whitebox_backend_cache() -> None:
+    """Clear the shared workflows backend singleton."""
+    from hydromodpy.spatial.delineation.whitebox_workflows_backend import (
+        clear_whitebox_backend_cache as _clear_whitebox_backend_cache,
+    )
+
+    _clear_whitebox_backend_cache()
+
+
+def get_whitebox_backend(kind: str | None = None) -> WhiteboxWorkflowsBackend:
+    """Return the shared workflows backend used by runtime code."""
+    from hydromodpy.spatial.delineation.whitebox_workflows_backend import (
+        get_whitebox_backend as _get_whitebox_backend,
+    )
+
+    return _get_whitebox_backend(kind)
+
+
 def __getattr__(name: str):
     if name in {
         "WhiteboxDelineationBackend",
         "WhiteboxFlowBackend",
         "WhiteboxRasterBackend",
         "WhiteboxWorkflowsBackend",
-        "clear_whitebox_backend_cache",
-        "get_whitebox_backend",
     }:
         from hydromodpy.spatial.delineation.whitebox_workflows_backend import (
             WhiteboxDelineationBackend,
             WhiteboxFlowBackend,
             WhiteboxRasterBackend,
             WhiteboxWorkflowsBackend,
-            clear_whitebox_backend_cache,
-            get_whitebox_backend,
         )
 
         mapping = {
@@ -60,8 +81,6 @@ def __getattr__(name: str):
             "WhiteboxFlowBackend": WhiteboxFlowBackend,
             "WhiteboxRasterBackend": WhiteboxRasterBackend,
             "WhiteboxWorkflowsBackend": WhiteboxWorkflowsBackend,
-            "clear_whitebox_backend_cache": clear_whitebox_backend_cache,
-            "get_whitebox_backend": get_whitebox_backend,
         }
         return mapping[name]
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
