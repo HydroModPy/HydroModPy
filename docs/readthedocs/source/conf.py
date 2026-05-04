@@ -298,10 +298,10 @@ nitpick_ignore_regex = [
         r"DerivedResult|DisplayConfig|Domain|DomainConfig|FlowConfig|Grid|HydroModPyConfig|"
         r"LoadedDataContext|MeshCatchmentConfig|Modflow6Config|ModflowConfig|"
         r"ModflowPreprocessOptions|MplFigure|Objective|OverviewSection|PersistenceConfig|"
-        r"ResolvedSimulationTimeGrid|ResolvedSteadySimulationTimeGrid|Run|RunResult|"
+        r"ResolvedSimulationTimeGrid|ResolvedSteadySimulationTimeGrid|RiverMeshTrace|Run|RunResult|"
         r"ScalarObjective|SetupContext|SimulationCatalog|SimulationZarr|SolverConfig|Stack|"
-        r"StoragePathResolver|SyntheticGeographicConfig|TransportConfig|WhiteboxWorkflowsBackend|"
-        r"WorkspaceConfig)",
+        r"StoragePathResolver|Surface|SyntheticGeographicConfig|TransportConfig|"
+        r"WhiteboxWorkflowsBackend|WorkspaceConfig)",
     ),
     (
         "py:class",

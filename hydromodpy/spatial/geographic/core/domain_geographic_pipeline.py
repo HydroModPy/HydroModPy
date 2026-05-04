@@ -54,34 +54,40 @@ logger = get_logger(__name__)
 
 @dataclass(frozen=True)
 class DomainGeographicContext:
-    """Geographic payload consumed by the domain execution pipeline.
+    """Geographic handoff object consumed by the domain execution pipeline.
+
+    The context is the compact object returned by
+    ``CatchmentDelineation.get_domain_geographic_context()``. It contains the
+    topographic surface, domain polygons, area, outlet metadata, zone mode, and
+    optional river trace needed to build a domain without passing the full
+    ``CatchmentDelineation`` runtime object.
 
     Attributes
     ----------
-    surface_topo:
+    surface_topo
         DEM-derived topographic surface on the buffered rectangular support.
-    watershed_shp:
+    watershed_shp
         Catchment polygon path (canonical ``watershed.shp`` output).
-    catchment_area_km2:
+    catchment_area_km2
         Catchment area used by domain parameterization.
-    catch_def:
+    catch_def
         Catchment definition mode from configuration.
-    x_outlet, y_outlet:
+    x_outlet, y_outlet
         Outlet coordinates when catchment is outlet-derived, else ``None``.
-    watershed_box_buff_dem:
+    watershed_box_buff_dem
         DEM clipped to buffered rectangular support.
-    watershed_box_shp:
+    watershed_box_shp
         Bounding-box support polygon before external buffer.
-    box_buff_shp:
+    box_buff_shp
         Buffered rectangular support polygon.
-    zone_kind:
+    zone_kind
         ``"catchment"`` for the historical 3-zone raster, ``"uniform"`` for
         direct-DEM domains with no catchment/buffer notion.
-    river_mesh_trace:
+    river_mesh_trace
         Compatibility alias of ``GeographicDerivedFeatures.rivers.river_mesh_trace``.
         New orchestration code should prefer the richer geographic-features
         bundle instead of attaching river products directly to the domain view.
-    regional_dem_path:
+    regional_dem_path
         Full-resolution regional DEM used to contextualize the catchment on
         a broader map when needed.
     """

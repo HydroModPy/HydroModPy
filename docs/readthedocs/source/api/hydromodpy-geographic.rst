@@ -17,6 +17,7 @@ Class overview
    ~hydromodpy.spatial.geographic.dem_metadata.DemMetadata
    ~hydromodpy.spatial.geographic.domain_rasters.DomainRasterProducts
    ~hydromodpy.spatial.geographic.pipeline.GeographicRuntimeContext
+   ~hydromodpy.spatial.geographic.core.domain_geographic_pipeline.DomainGeographicContext
 
 Function overview
 -----------------
