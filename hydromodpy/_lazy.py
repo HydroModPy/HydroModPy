@@ -16,6 +16,7 @@ MODULE_EXPORTS: dict[str, str] = {
     "simulation": "hydromodpy.simulation",
     "solver": "hydromodpy.solver",
     "spatial": "hydromodpy.spatial",
+    "workflow": "hydromodpy.workflow",
 }
 
 LAZY_IMPORTS: dict[str, str] = {

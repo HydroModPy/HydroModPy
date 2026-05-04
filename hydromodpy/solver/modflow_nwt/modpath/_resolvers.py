@@ -6,7 +6,6 @@ import os
 from typing import Any
 
 from hydromodpy.core.logging import get_logger
-from hydromodpy.spatial.delineation import get_whitebox_backend
 
 logger = get_logger(__name__)
 
@@ -47,6 +46,8 @@ def resolve_domain_raster(model_modflow: Any) -> str:
 
 def resolve_seepage_clip_raster(*, full_path: str, model_modflow: Any) -> str:
     """Build and return clipped seepage raster path for particle injection."""
+    from hydromodpy.spatial.delineation import get_whitebox_backend
+
     seepage_tif = os.path.join(
         full_path,
         "_postprocess",

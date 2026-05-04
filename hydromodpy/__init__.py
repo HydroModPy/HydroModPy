@@ -119,6 +119,7 @@ __all__ = [
     "simulation",
     "solver",
     "spatial",
+    "workflow",
     # Misc
     "log_manager",
     "__version__",
