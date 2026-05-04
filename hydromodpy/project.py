@@ -614,15 +614,17 @@ class Project:
     def compare(self, *, config_path: str | Path | None = None):
         """Compare simulations as declared in a TOML config.
 
-        Delegates to :class:`MethodComparisonLauncher`. Pairwise ad-hoc comparison
-        stays available via the top-level :func:`hydromodpy.compare` shortcut.
+        Uses the canonical ``[comparison]`` workflow and keeps
+        ``[method_comparison]`` as a legacy compatibility path. Pairwise ad-hoc
+        comparison stays available via the top-level :func:`hydromodpy.compare`
+        shortcut.
         """
-        from hydromodpy.analysis.comparison.orchestrator import MethodComparisonLauncher
+        from hydromodpy.analysis.comparison.dispatch import run_comparison_config
 
         path = config_path if config_path is not None else self._config_path
         if path is None:
             raise ValueError("project.compare() requires a TOML path for now")
-        return MethodComparisonLauncher(path).run()
+        return run_comparison_config(path)
 
     def batch(self, *, config_path: str | Path | None = None, **kwargs):
         """Run the regional-batch workflow. Delegates to :class:`RegionalLabLauncher`."""

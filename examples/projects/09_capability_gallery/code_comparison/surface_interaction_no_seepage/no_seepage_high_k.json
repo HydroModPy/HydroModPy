@@ -24,32 +24,32 @@
       "solver_label": "MODFLOW-NWT",
       "peak_total_outflow_m3_day": 62.017328571528196,
       "final_storage_change_m3_day": -0.06196784973144531,
-      "wall_time_seconds": 155.39619588799542,
-      "results_dir": "/mnt/c/codes/HydroModPy/out/sih_tx_4cmp_linux_no_seepage_kx8_20260416/validation/investigate_surfa_062b168c50/transient_modflownwt_124d7238"
+      "wall_time_seconds": 253.70679374202155,
+      "results_dir": "/mnt/c/codes/HydroModPy/out/sih_tx_4cmp_linux_no_seepage_kx8_20260416/validation/investigate_surfa_062b168c50/transient_modflownwt_20c9a283"
     },
     {
       "solver": "modflow6",
       "solver_label": "MODFLOW 6",
       "peak_total_outflow_m3_day": 67.42683883232449,
       "final_storage_change_m3_day": -0.04185350452021375,
-      "wall_time_seconds": 159.09929606999503,
-      "results_dir": "/mnt/c/codes/HydroModPy/out/sih_tx_4cmp_linux_no_seepage_kx8_20260416/validation/investigate_surfa_062b168c50/transient_modflow6"
+      "wall_time_seconds": 248.85457370299264,
+      "results_dir": "/mnt/c/codes/HydroModPy/out/sih_tx_4cmp_linux_no_seepage_kx8_20260416/validation/investigate_surfa_062b168c50/transient_modflow6_e2fe7719"
     },
     {
       "solver": "modflow6_irregular_tri",
       "solver_label": "MODFLOW 6 irregular triangles",
       "peak_total_outflow_m3_day": 67.43161907351842,
       "final_storage_change_m3_day": -0.03841815916400234,
-      "wall_time_seconds": 160.1768880120071,
-      "results_dir": "/mnt/c/codes/HydroModPy/out/sih_tx_4cmp_linux_no_seepage_kx8_20260416/validation/investigate_surfa_062b168c50/transient_modflow_30d11bbf32"
+      "wall_time_seconds": 268.29532862699125,
+      "results_dir": "/mnt/c/codes/HydroModPy/out/sih_tx_4cmp_linux_no_seepage_kx8_20260416/validation/investigate_surfa_062b168c50/transient_modflow_30d11bbf32_80aa10eb"
     },
     {
       "solver": "boussinesq",
       "solver_label": "Boussinesq",
-      "peak_total_outflow_m3_day": 9.016857256459678e-12,
+      "peak_total_outflow_m3_day": 68.26168188921339,
       "final_storage_change_m3_day": 0.0,
-      "wall_time_seconds": 1.0678037379984744,
-      "results_dir": "/mnt/c/codes/HydroModPy/out/sih_tx_4cmp_linux_no_seepage_kx8_20260416/validation/investigate_surfa_062b168c50/hillslope_surface_f108cc98ca"
+      "wall_time_seconds": 27.918245123000816,
+      "results_dir": "/mnt/c/codes/HydroModPy/out/sih_tx_4cmp_linux_no_seepage_kx8_20260416/validation/investigate_surfa_062b168c50/hillslope_surface_f108cc98ca_0a7bb789"
     }
   ]
 }

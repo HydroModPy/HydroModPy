@@ -25,48 +25,48 @@
       "solver_label": "MODFLOW-NWT",
       "peak_total_outflow_m3_day": 81.69943243028683,
       "final_storage_change_m3_day": -2.0326407750447593,
-      "wall_time_seconds": 399.7381801989977,
-      "results_dir": "/mnt/c/codes/HydroModPy/out/sih_tx_6cmp_linux_ramp_dirichlet_cell_20260416/validation/investigate_surfa_062b168c50/transient_modflownwt_7196ca0d"
+      "wall_time_seconds": 334.9827436930209,
+      "results_dir": "/mnt/c/codes/HydroModPy/out/sih_tx_6cmp_linux_ramp_dirichlet_cell_20260416/validation/investigate_surfa_062b168c50/transient_modflownwt_59598c3f"
     },
     {
       "solver": "modflow6",
       "solver_label": "MODFLOW 6",
       "peak_total_outflow_m3_day": 81.70936904155977,
       "final_storage_change_m3_day": -2.016822929916704,
-      "wall_time_seconds": 374.18490483800997,
-      "results_dir": "/mnt/c/codes/HydroModPy/out/sih_tx_6cmp_linux_ramp_dirichlet_cell_20260416/validation/investigate_surfa_062b168c50/transient_modflow6"
+      "wall_time_seconds": 380.58506410298287,
+      "results_dir": "/mnt/c/codes/HydroModPy/out/sih_tx_6cmp_linux_ramp_dirichlet_cell_20260416/validation/investigate_surfa_062b168c50/transient_modflow6_67004768"
     },
     {
       "solver": "modflow6_irregular_tri",
       "solver_label": "MODFLOW 6 irregular triangles",
-      "peak_total_outflow_m3_day": 81.92270071291112,
-      "final_storage_change_m3_day": -2.0155058561240735,
-      "wall_time_seconds": 351.4145696380001,
-      "results_dir": "/mnt/c/codes/HydroModPy/out/sih_tx_6cmp_linux_ramp_dirichlet_cell_20260416/validation/investigate_surfa_062b168c50/transient_modflow_30d11bbf32"
+      "peak_total_outflow_m3_day": 81.58902333281688,
+      "final_storage_change_m3_day": -2.0072205550226485,
+      "wall_time_seconds": 375.18896321498323,
+      "results_dir": "/mnt/c/codes/HydroModPy/out/sih_tx_6cmp_linux_ramp_dirichlet_cell_20260416/validation/investigate_surfa_062b168c50/transient_modflow_30d11bbf32_308e90a9"
     },
     {
       "solver": "boussinesq",
       "solver_label": "Boussinesq",
-      "peak_total_outflow_m3_day": 1.986094979360638e-07,
-      "final_storage_change_m3_day": 0.0,
-      "wall_time_seconds": 5.018394056009129,
-      "results_dir": "/mnt/c/codes/HydroModPy/out/sih_tx_6cmp_linux_ramp_dirichlet_cell_20260416/validation/investigate_surfa_062b168c50/hillslope_surface_f108cc98ca"
+      "peak_total_outflow_m3_day": 76.7169774429668,
+      "final_storage_change_m3_day": -2.037627230121439,
+      "wall_time_seconds": 73.7232008529827,
+      "results_dir": "/mnt/c/codes/HydroModPy/out/sih_tx_6cmp_linux_ramp_dirichlet_cell_20260416/validation/investigate_surfa_062b168c50/hillslope_surface_f108cc98ca_ff3306f8"
     },
     {
       "solver": "petsc_partition",
       "solver_label": "Boussinesq PETSc partition",
-      "peak_total_outflow_m3_day": 1.986094979360638e-07,
-      "final_storage_change_m3_day": 0.0,
-      "wall_time_seconds": 4.8939367170096375,
-      "results_dir": "/mnt/c/codes/HydroModPy/out/sih_tx_6cmp_linux_ramp_dirichlet_cell_20260416/validation/investigate_surfa_062b168c50/hillslope_surface_f92706c853"
+      "peak_total_outflow_m3_day": 74.92143643332282,
+      "final_storage_change_m3_day": -1.8434210862797673,
+      "wall_time_seconds": 136.56299013100215,
+      "results_dir": "/mnt/c/codes/HydroModPy/out/sih_tx_6cmp_linux_ramp_dirichlet_cell_20260416/validation/investigate_surfa_062b168c50/hillslope_surface_f92706c853_ffb147b4"
     },
     {
       "solver": "petsc",
       "solver_label": "Boussinesq PETSc complementarity",
-      "peak_total_outflow_m3_day": 1.986094979360638e-07,
-      "final_storage_change_m3_day": 0.0,
-      "wall_time_seconds": 3.9381167800165713,
-      "results_dir": "/mnt/c/codes/HydroModPy/out/sih_tx_6cmp_linux_ramp_dirichlet_cell_20260416/validation/investigate_surfa_062b168c50/hillslope_surface_2f97515d25"
+      "peak_total_outflow_m3_day": 83.06797406063143,
+      "final_storage_change_m3_day": -2.0483711424996467,
+      "wall_time_seconds": 50.313977884012274,
+      "results_dir": "/mnt/c/codes/HydroModPy/out/sih_tx_6cmp_linux_ramp_dirichlet_cell_20260416/validation/investigate_surfa_062b168c50/hillslope_surface_2f97515d25_8db1b48a"
     }
   ]
 }

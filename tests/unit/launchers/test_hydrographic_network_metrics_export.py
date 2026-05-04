@@ -477,9 +477,9 @@ def test_write_simulated_active_network_distance_metrics_export_writes_csv(
     assert row["sim_to_network_distance_mean_m"] == pytest.approx(0.0)
     assert row["network_to_sim_distance_mean_m"] == pytest.approx(0.0)
     assert row["bidirectional_distance_mean_m"] == pytest.approx(0.0)
-    assert row["bidirectional_distance_absolute_balance_m"] == pytest.approx(0.0)
-    assert row["planar_distance_balance_ratio"] == pytest.approx(1.0)
-    assert row["planar_distance_log10_balance"] == pytest.approx(0.0)
+    assert row["bidirectional_distance_absolute_difference_m"] == pytest.approx(0.0)
+    assert row["planar_distance_ratio"] == pytest.approx(1.0)
+    assert row["planar_distance_log10_ratio"] == pytest.approx(0.0)
 
 
 def test_write_simulated_active_network_overlap_metrics_export_uses_steady_default(

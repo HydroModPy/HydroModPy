@@ -1,4 +1,4 @@
-"""Comparison metrics for method-comparison observables."""
+"""Comparison metrics for extracted observables."""
 
 from __future__ import annotations
 

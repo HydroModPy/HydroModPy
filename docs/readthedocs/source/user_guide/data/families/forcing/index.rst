@@ -54,8 +54,32 @@ Common checks
 - aggregation to solver stress periods should be checked when the variable is
   consumed by a solver.
 
+What to show first
+------------------
+
+For forcing data, a complete solver run is not the first diagnostic. Start with
+coverage, units, and aggregate behavior. Then add solver response figures only
+when the page explains how the forcing reaches a package such as recharge or
+evapotranspiration.
+
 Visual reference
 ----------------
+
+.. figure:: /_static/user_guide/data/forcing_local_recharge_runoff_example.png
+   :alt: Local custom recharge and runoff source series
+   :width: 100%
+
+   The local custom forcing run shows the pre-solver contract: period coverage,
+   magnitude, and cumulative behaviour are visible before recharge or runoff is
+   interpreted as a model flux.
+
+.. figure:: /_static/user_guide/data/sim2_grid_forcing_example.png
+   :alt: SIM2 local gridded forcing example
+   :width: 100%
+
+   The SIM2 local NetCDF figure adds the gridded part of the contract: spatial
+   support and monthly climate summaries should be inspected before any solver
+   package consumes the forcing.
 
 .. figure:: /_static/capability_gallery/geographic/geographic_nancon_identity_card_climatic_summary.png
    :alt: Nancon climatic forcing summary

@@ -57,9 +57,11 @@ class GeneratedChildConfig:
 
     simulation_id: str
     label: str
-    solver: str
-    config_path: Path
+    solver: str | None
+    config_path: Path | None
     run_name: str
+    run_folder: Path | None = None
+    generated_config: bool = True
     mesh_label: str | None = None
     mesh_mode: str = "unknown"
 
@@ -161,6 +163,10 @@ def build_child_payload(
     simulation_overlay.setdefault("on_collision", "replace")
 
     if not _overlay_defines_process(overlay):
+        if cfg.base_simulation_config_path is None:
+            raise ValueError("comparison.base_simulation_config is required")
+        if simulation.solver is None:
+            raise ValueError("comparison.simulation.solver is required")
         process_overlay = _build_solver_process_overlay(
             base_config_path=cfg.base_simulation_config_path,
             solver=simulation.solver,
@@ -172,6 +178,8 @@ def build_child_payload(
             )
         simulation_overlay["process"] = process_overlay
 
+    if cfg.base_simulation_config_path is None:
+        raise ValueError("comparison.base_simulation_config is required")
     base_payload = _load_self_contained_base_payload(cfg.base_simulation_config_path)
     base_payload["workflow"] = "simulation"
     payload = merge_toml_payloads(base_payload, overlay)
@@ -187,6 +195,49 @@ def materialize_child_configs(
     for simulation in cfg.comparison.simulation:
         if not simulation.enabled:
             continue
+        declared_config_path = _resolve_optional_path(
+            simulation.simulation_config,
+            base_dir=cfg.base_dir,
+        )
+        declared_run_folder = _resolve_optional_path(
+            simulation.run_folder,
+            base_dir=cfg.base_dir,
+        )
+        if declared_config_path is not None:
+            child_run_folder = declared_run_folder or declared_config_path.parent
+            run_name = _child_run_name(
+                comparison_id=str(cfg.comparison.comparison_id or cfg.config_path.stem),
+                simulation_id=simulation.id,
+            )
+            children.append(
+                GeneratedChildConfig(
+                    simulation_id=simulation.id,
+                    label=simulation.label or simulation.id,
+                    solver=simulation.solver,
+                    config_path=declared_config_path,
+                    run_folder=child_run_folder,
+                    run_name=run_name,
+                    generated_config=False,
+                    mesh_label=simulation.mesh_label,
+                    mesh_mode=simulation.mesh_mode,
+                )
+            )
+            continue
+        if declared_run_folder is not None:
+            children.append(
+                GeneratedChildConfig(
+                    simulation_id=simulation.id,
+                    label=simulation.label or simulation.id,
+                    solver=simulation.solver,
+                    config_path=None,
+                    run_folder=declared_run_folder,
+                    run_name=simulation.id,
+                    generated_config=False,
+                    mesh_label=simulation.mesh_label,
+                    mesh_mode=simulation.mesh_mode,
+                )
+            )
+            continue
         payload, run_name = build_child_payload(cfg=cfg, simulation=simulation)
         path = generated_dir / f"{simulation.id}.toml"
         write_toml_payload(path, payload)
@@ -196,12 +247,23 @@ def materialize_child_configs(
                 label=simulation.label or simulation.id,
                 solver=simulation.solver,
                 config_path=path,
+                run_folder=path.parent,
                 run_name=run_name,
+                generated_config=True,
                 mesh_label=simulation.mesh_label,
                 mesh_mode=simulation.mesh_mode,
             )
         )
     return children
+
+
+def _resolve_optional_path(value: str | None, *, base_dir: Path) -> Path | None:
+    if value is None:
+        return None
+    path = Path(value).expanduser()
+    if not path.is_absolute():
+        path = base_dir / path
+    return path.resolve()
 
 
 __all__ = (

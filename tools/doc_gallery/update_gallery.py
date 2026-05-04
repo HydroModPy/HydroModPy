@@ -2480,7 +2480,7 @@ def _load_committed_method_comparison_payload(
 def _build_method_comparison_payload(
     config_path: Path,
 ) -> tuple[dict[str, Any], dict[str, Any], list[dict[str, Any]]]:
-    from hydromodpy.analysis.comparison.config import MethodComparisonConfig
+    from hydromodpy.analysis.comparison.config import ComparisonConfig
     from hydromodpy.analysis.comparison.metrics import build_comparison_metrics
     from hydromodpy.analysis.comparison.runtime import (
         compact_run_metrics,
@@ -2491,8 +2491,8 @@ def _build_method_comparison_payload(
     from hydromodpy.core.config.toml_loader import load_toml_with_base_config
 
     raw_toml = load_toml_with_base_config(config_path)
-    cfg = MethodComparisonConfig.from_toml(raw_toml, config_path=config_path)
-    section = cfg.method_comparison
+    cfg = ComparisonConfig.from_toml(raw_toml, config_path=config_path)
+    section = cfg.comparison
     committed_payload = _load_committed_method_comparison_payload(cfg.comparison_root)
     if committed_payload is not None:
         return committed_payload

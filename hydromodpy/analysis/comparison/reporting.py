@@ -1,4 +1,4 @@
-"""Human-readable reporting helpers for method-comparison runs."""
+"""Human-readable reporting helpers for comparison runs."""
 
 from __future__ import annotations
 

@@ -278,15 +278,15 @@ together:
 - :math:`C_{ref}=N_{ov}/N_{ref}`: reference-network coverage.
 - :math:`P_a=N_{ov}/N_a`: simulated-active precision.
 - :math:`F_1=2 C_{ref} P_a/(C_{ref}+P_a)`: harmonic overlap score.
-- :math:`D^{plan}_{s\to ref}`: simulated-active to observed-reference
+- :math:`D^{plan}_{s\to o}`: simulated-active to observed-reference
   planar distance.
-- :math:`D^{plan}_{ref\to s}`: observed-reference to simulated-active
+- :math:`D^{plan}_{o\to s}`: observed-reference to simulated-active
   planar distance.
 - :math:`\bar{D}^{plan}`: symmetric mean of those two directional planar
   distances.
-- :math:`R_D^{plan}=D^{plan}_{s\to ref}/D^{plan}_{ref\to s}`:
-  planar distance-balance ratio. It is the current proxy for reading an
-  optimum-like crossing; the article uses downslope distances instead.
+- :math:`R_D^{plan}=D^{plan}_{s\to o}/D^{plan}_{o\to s}`:
+  planar distance ratio. It is the current proxy for reading an optimum-like
+  crossing; the article uses downslope distances instead.
 
 Visual Sweep
 ------------
@@ -350,8 +350,8 @@ Metric Evolution
    :width: 100%
 
    Evolution of support size, overlap quality, planar distance metrics, and
-   :math:`\log_{10} R_D^{plan}` across the completed extreme ``K`` values.
-   Crossing 0 marks a planar balance between the two directional distances.
+   the positive distance ratio :math:`R_D^{plan}` across the completed extreme
+   ``K`` values. The horizontal reference line marks :math:`R_D^{plan}=1`.
    The failed ``k_2e3`` solve is excluded from the curve because no valid
    simulated-active network was produced for that variant.
 
@@ -383,26 +383,28 @@ how far simulated seepage must be routed to reach observed streams, and how far
 observed streams are from simulated seepage. That is the next implementation
 step if this diagnostic is promoted from visual development to calibration.
 
-The current planar metrics do contain an optimum-style balance proxy:
-``planar_distance_balance_ratio`` and ``planar_distance_log10_balance``. The
-proxy is useful for inspecting whether the two directional distances cross as
-``K`` changes. It is not :math:`r_{optim}` from Abherve et al. (2023), because
-the paper computes :math:`D_{optim}` from downslope flowpath distances and then
+The current planar metrics do contain an optimum-style distance ratio:
+``planar_distance_ratio`` and ``planar_distance_log10_ratio``. The ratio is
+useful for inspecting whether the two directional distances cross as ``K``
+changes. It is not :math:`r_{optim}` from Abherve et al. (2023), because the
+paper computes :math:`D_{optim}` from downslope flowpath distances and then
 normalizes it by the DEM resolution.
 
 The current code now adds a safer intermediate CSV,
 ``simulated_active_network_distance_metrics.csv``. It contains:
 
-- ``sim_to_network_*``: :math:`D^{plan}_{s\to ref}` distances from active
+- ``sim_to_network_*``: :math:`D^{plan}_{s\to o}` distances from active
   simulated cell centroids to the selected network role, usually
   ``reference``;
-- ``network_to_sim_*``: :math:`D^{plan}_{ref\to s}` distances from cells
+- ``network_to_sim_*``: :math:`D^{plan}_{o\to s}` distances from cells
   intersected by the selected network to the simulated-active support;
 - ``bidirectional_distance_mean_m`` and
   ``bidirectional_distance_quadratic_mean_m`` as compact symmetric planar
   summaries;
-- ``planar_distance_balance_ratio`` and
-  ``planar_distance_log10_balance`` as the current planar crossing proxy;
+- ``bidirectional_distance_absolute_difference_m`` as the absolute difference
+  between the two directional planar means;
+- ``planar_distance_ratio`` and ``planar_distance_log10_ratio`` as the current
+  planar crossing proxy;
 - ``distance_method = "planar_cell_centroid_to_network"`` to make clear that
   these are planar mesh diagnostics, not downslope DEM distances.
 

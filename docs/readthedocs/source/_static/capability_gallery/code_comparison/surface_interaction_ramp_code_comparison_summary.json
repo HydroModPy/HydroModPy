@@ -49,14 +49,14 @@
   ],
   "source_hashes": {
     "tools/doc_gallery/manifests/code_comparison_cases.json": "13e452e62518f33430b2a880bb7b09ee85a3f5ba960d5fa83ba3fb2eff16f758",
-    "tools/investigate_surface_interaction_hillslope_transient.py": "8139787d7310078131791413acf05dce72fa405d48848f42beb22d30d0591af3",
+    "tools/investigate_surface_interaction_hillslope_transient.py": "7f6cc8385bbf8a9dae801ee8268df206b7e9be10ba82d96095f046c053137f49",
     "tools/investigate_surface_interaction_highk_linux.py": "820ff188f7ca3083cedd0738b28d289da87fe522b8bcab1d2e77aacd3737acc7",
     "tools/doc_gallery/generate_code_comparison_assets.py": "0a28391589ff47d1ec7a07e43aa640ee0f57f84aed3886248da2578e9dacdb2a",
     "validation_cases/shared/boussinesq_budget.py": "160b26530c3675508f30fd61b432eefd0b715f2b39e54afbb58fabfd4413d38b",
-    "examples/projects/09_capability_gallery/code_comparison/surface_interaction_ramp/ramp_reference_k.png": "0998b1a0bfadbf48ee90ff3057a6ea6915c7e96cd4d5753bf1144af2f20e6b78",
-    "examples/projects/09_capability_gallery/code_comparison/surface_interaction_ramp/ramp_reference_k.json": "2aaa9f1246f34e223882dd82ea474790f387af254ab50c4c0045f7a20f2697e7",
-    "examples/projects/09_capability_gallery/code_comparison/surface_interaction_ramp/ramp_high_k.png": "6b52a0a195cf4616bede88e2c199713670f1ee2e49211f19168c0288579d31e1",
-    "examples/projects/09_capability_gallery/code_comparison/surface_interaction_ramp/ramp_high_k.json": "d876cbb2e2c0f57ac6d36c94ffe6cbbedca9cc3d537dcc74e155e8bd05bebaa0"
+    "examples/projects/09_capability_gallery/code_comparison/surface_interaction_ramp/ramp_reference_k.png": "ee453b5a92852e54c9180cffd4a20a7f3effd17483de883730c0322aa34d2dd5",
+    "examples/projects/09_capability_gallery/code_comparison/surface_interaction_ramp/ramp_reference_k.json": "2b61b120c8d6a39256b7aea42c51049f70d9dda57c53d5195a6d492b2324cbd6",
+    "examples/projects/09_capability_gallery/code_comparison/surface_interaction_ramp/ramp_high_k.png": "438f7311428e43cc91b1560f255ad4b93892c56ed3a1c45adca13d1f303af7bc",
+    "examples/projects/09_capability_gallery/code_comparison/surface_interaction_ramp/ramp_high_k.json": "d6bedfa72476005546985c3e9bc6ae7e3f1b8a7bbf3e105a25a5e0a18894067b"
   },
   "docname": "cases/surface_interaction_ramp_code_comparison",
   "images": [

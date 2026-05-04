@@ -798,6 +798,14 @@ def build_run_command(
             "run",
             str(case.config_path),
         ]
+    if case.launcher == "comparison":
+        return [
+            str(python_executable),
+            "-m",
+            "hydromodpy",
+            "run",
+            str(case.config_path),
+        ]
     raise ValueError(f"Unsupported regional-lab launcher: {case.launcher}")
 
 
@@ -954,18 +962,25 @@ def _extract_simulation_child_artifacts(config_path: Path) -> dict[str, Any]:
     return artifacts
 
 
-def _extract_method_comparison_child_artifacts(config_path: Path) -> dict[str, Any]:
-    """Extract compact method-comparison artifacts from one child launcher config."""
-    from hydromodpy.analysis.comparison.config import MethodComparisonConfig
+def _extract_comparison_child_artifacts(config_path: Path) -> dict[str, Any]:
+    """Extract compact comparison artifacts from one child launcher config."""
+    from hydromodpy.analysis.comparison.config import ComparisonConfig
+    from hydromodpy.analysis.comparison.experiment_config import SimulationComparisonConfig
     from hydromodpy.core.config.toml_loader import load_toml_with_base_config
 
     artifacts: dict[str, Any] = {
-        "child_artifact_kind": "method_comparison",
+        "child_artifact_kind": "comparison",
         "child_artifact_status": "unavailable",
     }
     try:
         payload = load_toml_with_base_config(config_path)
-        cfg = MethodComparisonConfig.from_toml(payload, config_path=config_path)
+        if "comparison" in payload:
+            cfg = SimulationComparisonConfig.from_toml(payload, config_path=config_path)
+        elif "method_comparison" in payload:
+            cfg = ComparisonConfig.from_toml(payload, config_path=config_path)
+            artifacts["child_artifact_kind"] = "method_comparison"
+        else:
+            raise KeyError("Missing required section 'comparison'")
     except Exception as exc:
         artifacts["child_artifact_status"] = "config_parse_failed"
         artifacts["child_artifact_error_type"] = type(exc).__name__
@@ -1037,12 +1052,19 @@ def _extract_method_comparison_child_artifacts(config_path: Path) -> dict[str, A
     return artifacts
 
 
+def _extract_method_comparison_child_artifacts(config_path: Path) -> dict[str, Any]:
+    """Compatibility wrapper for legacy regional-lab tests/extensions."""
+    return _extract_comparison_child_artifacts(config_path)
+
+
 def _extract_child_case_artifacts(case: RegionalLabPlannedCase) -> dict[str, Any]:
     """Extract launcher-specific child artifacts for one planned case."""
     if case.launcher == "simulation":
         return _extract_simulation_child_artifacts(case.config_path)
+    if case.launcher == "comparison":
+        return _extract_comparison_child_artifacts(case.config_path)
     if case.launcher == "method-comparison":
-        return _extract_method_comparison_child_artifacts(case.config_path)
+        return _extract_comparison_child_artifacts(case.config_path)
     return {
         "child_artifact_kind": case.launcher,
         "child_artifact_status": "unsupported_launcher",

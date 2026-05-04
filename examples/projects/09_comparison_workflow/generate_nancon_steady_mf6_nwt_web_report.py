@@ -6,6 +6,7 @@ import csv
 import html
 import json
 import math
+import os
 import sys
 import tomllib
 from pathlib import Path
@@ -18,9 +19,19 @@ if str(REPO_ROOT) not in sys.path:
 
 CONFIG_PATH = ROOT / "compare_nancon_steady_mf6_disv_vs_nwt.toml"
 BASE_CONFIG_PATH = ROOT / "base_nancon_steady_hydrography_mesh_input.toml"
+TRANSIENT_BASE_CONFIG_PATH = ROOT / "base_nancon_transient_seasonal.toml"
+TRANSIENT_HYDROGRAPHY_BASE_CONFIG_PATH = (
+    ROOT / "base_nancon_transient_seasonal_with_hydrography.toml"
+)
+TRANSIENT_MONTHLY_BASE_CONFIG_PATH = (
+    ROOT / "base_nancon_transient_monthly_hydrography_mesh_input.toml"
+)
+TRANSIENT_CONFIG_PATH = ROOT / "compare_nancon_transient_monthly_mf6_disv_vs_nwt.toml"
 COMPARISON_ROOT = ROOT / "outputs" / "nancon_steady_mf6_disv_vs_nwt"
+TRANSIENT_COMPARISON_ROOT = ROOT / "outputs" / "nancon_transient_monthly_mf6_disv_vs_nwt"
 WEB_DIR = COMPARISON_ROOT / "web"
 WEB_FIGURES_DIR = COMPARISON_ROOT / "web_figures"
+TRANSIENT_WEB_FIGURES_DIR = TRANSIENT_COMPARISON_ROOT / "web_figures"
 
 
 def _load_toml(path: Path) -> dict[str, Any]:
@@ -46,6 +57,17 @@ def _load_csv(path: Path) -> list[dict[str, str]]:
         return list(csv.DictReader(handle))
 
 
+def _load_resolved_toml(path: Path) -> dict[str, Any]:
+    if not path.exists():
+        return {}
+    try:
+        from hydromodpy.core.config.toml_loader import load_toml_with_base_config
+
+        return load_toml_with_base_config(path)
+    except Exception:
+        return _load_toml(path)
+
+
 def _rel(path: str | Path) -> str:
     try:
         return Path(path).resolve().relative_to(WEB_DIR.resolve()).as_posix()
@@ -53,7 +75,10 @@ def _rel(path: str | Path) -> str:
         try:
             return Path(path).resolve().relative_to(COMPARISON_ROOT.resolve()).as_posix()
         except Exception:
-            return Path(path).as_posix()
+            try:
+                return Path(os.path.relpath(Path(path).resolve(), WEB_DIR.resolve())).as_posix()
+            except Exception:
+                return Path(path).as_posix()
 
 
 def _link_from_web(path: str | Path) -> str:
@@ -66,7 +91,10 @@ def _link_from_web(path: str | Path) -> str:
         try:
             return ("../" + target.relative_to(COMPARISON_ROOT.resolve()).as_posix())
         except Exception:
-            return target.as_posix()
+            try:
+                return Path(os.path.relpath(target.resolve(), WEB_DIR.resolve())).as_posix()
+            except Exception:
+                return target.as_posix()
 
 
 def _float(value: Any) -> float | None:
@@ -478,14 +506,19 @@ def _config_detail_table(base: dict[str, Any], config: dict[str, Any]) -> str:
     )
 
 
-def _method_comparison_cfg_from_manifest(
-    config: dict[str, Any], manifest: dict[str, Any]
+def _comparison_cfg_from_manifest(
+    config: dict[str, Any],
+    manifest: dict[str, Any],
+    *,
+    config_path: Path = CONFIG_PATH,
+    base_config_path: Path = BASE_CONFIG_PATH,
+    comparison_root: Path = COMPARISON_ROOT,
 ) -> Any | None:
     try:
         from hydromodpy.analysis.comparison.config import (
-            MethodComparisonConfig,
-            MethodComparisonSection,
-            MethodComparisonVariant,
+            ComparisonConfig,
+            ComparisonSection,
+            ComparisonVariant,
         )
     except Exception:
         return None
@@ -496,7 +529,7 @@ def _method_comparison_cfg_from_manifest(
         if not isinstance(item, dict) or not item.get("enabled", True):
             continue
         variants.append(
-            MethodComparisonVariant(
+            ComparisonVariant(
                 id=str(item.get("id", "")),
                 label=str(item.get("label", item.get("id", ""))),
                 solver=str(item.get("solver", "")),
@@ -509,10 +542,10 @@ def _method_comparison_cfg_from_manifest(
     if not variants:
         return None
     try:
-        section = MethodComparisonSection(
+        section = ComparisonSection(
             comparison_id=str(comparison.get("comparison_id", "")),
-            base_simulation_config=str(BASE_CONFIG_PATH),
-            output_root=str(COMPARISON_ROOT),
+            base_simulation_config=str(base_config_path),
+            output_root=str(comparison_root),
             run_variants=False,
             continue_on_error=bool(comparison.get("continue_on_error", False)),
             reference_variant=comparison.get("reference_simulation"),
@@ -520,14 +553,14 @@ def _method_comparison_cfg_from_manifest(
             variant=variants,
             observable=comparison.get("observable", []),
         )
-        return MethodComparisonConfig(
-            config_path=CONFIG_PATH.resolve(),
+        return ComparisonConfig(
+            config_path=config_path.resolve(),
             base_dir=ROOT.resolve(),
-            comparison_root=COMPARISON_ROOT.resolve(),
-            base_simulation_config_path=BASE_CONFIG_PATH.resolve(),
+            comparison_root=comparison_root.resolve(),
+            base_simulation_config_path=base_config_path.resolve(),
             anchors_path=None,
             anchors={},
-            method_comparison=section,
+            comparison=section,
         )
     except Exception:
         return None
@@ -540,15 +573,17 @@ def _write_three_case_map_figure(
     payloads: list[Any],
     cell_counts: dict[str, str],
     overlay: dict[str, Any] | None,
+    mesh_geometries: dict[str, dict[str, Any]],
 ) -> bool:
     try:
+        import matplotlib.pyplot as plt
         import numpy as np
+
         from hydromodpy.analysis.comparison.visuals import (
             _finite_limits,
             _pretty_label,
             _robust_limits,
         )
-        import matplotlib.pyplot as plt
     except Exception:
         return False
 
@@ -576,6 +611,7 @@ def _write_three_case_map_figure(
             cmap="viridis",
             vmin=vmin,
             vmax=vmax,
+            mesh_geometries=mesh_geometries,
         )
         _overlay_watershed_context(ax, overlay)
         count = cell_counts.get(str(payload.variant_id), "")
@@ -614,24 +650,35 @@ def _generate_three_case_map_figures(
     manifest: dict[str, Any],
     cell_counts: dict[str, str],
     overlay: dict[str, Any] | None,
+    mesh_geometries: dict[str, dict[str, Any]],
+    output_dir: Path = WEB_FIGURES_DIR,
+    config_path: Path = CONFIG_PATH,
+    base_config_path: Path = BASE_CONFIG_PATH,
+    comparison_root: Path = COMPARISON_ROOT,
 ) -> list[dict[str, Any]]:
     try:
         from hydromodpy.analysis.comparison.visuals import _build_map_payload, _slug
     except Exception:
         return []
 
-    method_cfg = _method_comparison_cfg_from_manifest(config, manifest)
-    if method_cfg is None:
+    comparison_cfg = _comparison_cfg_from_manifest(
+        config,
+        manifest,
+        config_path=config_path,
+        base_config_path=base_config_path,
+        comparison_root=comparison_root,
+    )
+    if comparison_cfg is None:
         return []
     summaries = {
         str(item.get("id", "")): item
         for item in manifest.get("variants", [])
         if isinstance(item, dict) and item.get("status") in {"completed", "reused"}
     }
-    WEB_FIGURES_DIR.mkdir(parents=True, exist_ok=True)
-    variants = [variant for variant in method_cfg.method_comparison.variant if variant.enabled]
+    output_dir.mkdir(parents=True, exist_ok=True)
+    variants = [variant for variant in comparison_cfg.comparison.variant if variant.enabled]
     artifacts: list[dict[str, Any]] = []
-    for observable in method_cfg.method_comparison.observable:
+    for observable in comparison_cfg.comparison.observable:
         if observable.support != "map":
             continue
         payloads: list[Any] = []
@@ -641,7 +688,7 @@ def _generate_three_case_map_figures(
                 continue
             try:
                 payload = _build_map_payload(
-                    cfg=method_cfg,
+                    cfg=comparison_cfg,
                     variant=variant,
                     summary=summary,
                     observable=observable,
@@ -653,13 +700,14 @@ def _generate_three_case_map_figures(
                 payloads.append(payload)
         if len(payloads) < 2:
             continue
-        path = WEB_FIGURES_DIR / f"{_slug(observable.name)}__three_cases_complete.png"
+        path = output_dir / f"{_slug(observable.name)}__three_cases_complete.png"
         if _write_three_case_map_figure(
             path=path,
             observable_name=observable.name,
             payloads=payloads,
             cell_counts=cell_counts,
             overlay=overlay,
+            mesh_geometries=mesh_geometries,
         ):
             artifacts.append(
                 {
@@ -805,6 +853,68 @@ def _load_watershed_overlay(
     return None
 
 
+def _variant_zarr_path(config: dict[str, Any], manifest: dict[str, Any], variant_id: str) -> Path | None:
+    variant = next(
+        (
+            item
+            for item in manifest.get("variants", [])
+            if isinstance(item, dict) and item.get("id") == variant_id
+        ),
+        None,
+    )
+    if not isinstance(variant, dict):
+        return None
+    workspace = _variant_workspace_path(config, variant_id)
+    if workspace is None:
+        return None
+    sim_id = str(variant.get("sim_id", ""))
+    sim_dir = workspace / "simulations"
+    candidates: list[Path] = []
+    if sim_id:
+        candidates.extend(sorted(sim_dir.glob(f"*{sim_id[:8]}*.zarr.zip")))
+        candidates.extend(sorted(sim_dir.glob(f"*{sim_id[:8]}*.zarr")))
+    candidates.extend(sorted(sim_dir.glob("*.zarr.zip"), key=lambda p: p.stat().st_mtime, reverse=True))
+    candidates.extend(sorted(sim_dir.glob("*.zarr"), key=lambda p: p.stat().st_mtime, reverse=True))
+    return candidates[0] if candidates else None
+
+
+def _mesh_geometries_from_zarr(config: dict[str, Any], manifest: dict[str, Any]) -> dict[str, dict[str, Any]]:
+    try:
+        import numpy as np
+    except Exception:
+        return {}
+    geometries: dict[str, dict[str, Any]] = {}
+    for variant in manifest.get("variants", []):
+        if not isinstance(variant, dict):
+            continue
+        variant_id = str(variant.get("id", ""))
+        zarr_path = _variant_zarr_path(config, manifest, variant_id)
+        if zarr_path is None:
+            continue
+        group, store = _open_zarr_group(zarr_path)
+        try:
+            if group is None or "mesh" not in group:
+                continue
+            mesh = group["mesh"]
+            if "vertices" not in mesh or "face_node_connectivity" not in mesh:
+                continue
+            vertices = np.asarray(mesh["vertices"][:], dtype=float)
+            faces = np.asarray(mesh["face_node_connectivity"][:], dtype=int)
+            if vertices.ndim != 2 or vertices.shape[1] < 2 or faces.ndim != 2:
+                continue
+            geometries[variant_id] = {
+                "vertices": vertices[:, :2],
+                "faces": faces,
+            }
+        finally:
+            if store is not None:
+                try:
+                    store.close()
+                except Exception:
+                    pass
+    return geometries
+
+
 def _mask_values(values: Any) -> Any:
     import numpy as np
 
@@ -821,11 +931,49 @@ def _render_payload_georef_subplot(
     cmap: str,
     vmin: float,
     vmax: float,
+    mesh_geometries: dict[str, dict[str, Any]] | None = None,
 ) -> Any:
     import numpy as np
+    from matplotlib.collections import PolyCollection
+
     from hydromodpy.analysis.comparison.visuals import _render_map_subplot
 
     values = _mask_values(payload.values).ravel()
+    geometry = (mesh_geometries or {}).get(str(payload.variant_id))
+    if geometry is not None:
+        vertices = np.asarray(geometry["vertices"], dtype=float)
+        faces = np.asarray(geometry["faces"], dtype=int)
+        if faces.shape[0] == values.size:
+            polygons = []
+            valid_values = []
+            for face, value in zip(faces, values, strict=False):
+                valid_nodes = face[(face >= 0) & (face < vertices.shape[0])]
+                if valid_nodes.size < 3 or not np.isfinite(value):
+                    continue
+                polygon = vertices[valid_nodes, :2]
+                if np.all(np.isfinite(polygon)):
+                    polygons.append(polygon)
+                    valid_values.append(float(value))
+            if polygons:
+                n_polygons = len(polygons)
+                edge_width = 0.10
+                if n_polygons > 30000:
+                    edge_width = 0.035
+                elif n_polygons > 10000:
+                    edge_width = 0.055
+                collection = PolyCollection(
+                    polygons,
+                    array=np.asarray(valid_values, dtype=float),
+                    cmap=cmap,
+                    edgecolors=(1.0, 1.0, 1.0, 0.38),
+                    linewidths=edge_width,
+                    antialiaseds=True,
+                )
+                collection.set_clim(vmin, vmax)
+                ax.add_collection(collection)
+                ax.autoscale_view()
+                return collection
+
     x = getattr(payload, "x", None)
     y = getattr(payload, "y", None)
     if x is not None and y is not None:
@@ -882,12 +1030,17 @@ def _overlay_watershed_context(ax: Any, overlay: dict[str, Any] | None) -> None:
         ax.set_xlim(xmin, xmax)
         ax.set_ylim(ymin, ymax)
     ax.set_aspect("equal", adjustable="box")
+    ax.set_xticks([])
+    ax.set_yticks([])
+    for spine in ax.spines.values():
+        spine.set_linewidth(0.8)
+        spine.set_color("#222222")
 
 
 def _write_mesh_runtime_figure(rows: list[dict[str, str]]) -> dict[str, Any] | None:
     try:
-        import numpy as np
         import matplotlib.pyplot as plt
+        import numpy as np
     except Exception:
         return None
     valid_rows = [
@@ -1033,6 +1186,783 @@ def _config_summary(base: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def _comparison_point_rows(config: dict[str, Any]) -> list[dict[str, Any]]:
+    rows: list[dict[str, Any]] = []
+    seen: set[tuple[str, str]] = set()
+    labels = {
+        "outlet_head": "Exutoire",
+        "head_outlet_series": "Exutoire",
+        "mid_catchment_head": "Milieu de bassin",
+        "head_mid_catchment_series": "Milieu de bassin",
+        "eastern_plateau_head": "Plateau est",
+        "head_eastern_plateau_series": "Plateau est",
+    }
+    for observable in config.get("comparison", {}).get("observable", []):
+        if not isinstance(observable, dict):
+            continue
+        if observable.get("support") != "point":
+            continue
+        if observable.get("variable") != "watertable_elevation":
+            continue
+        x = str(observable.get("x", ""))
+        y = str(observable.get("y", ""))
+        if not x or not y:
+            continue
+        key = (x, y)
+        if key in seen:
+            continue
+        seen.add(key)
+        name = str(observable.get("name", ""))
+        rows.append(
+            {
+                "point": labels.get(name, name),
+                "observable": name,
+                "x": x,
+                "y": y,
+                "usage": "serie de charge h(t)",
+            }
+        )
+    return rows
+
+
+def _transient_source_rows() -> list[dict[str, Any]]:
+    base = _load_toml(TRANSIENT_BASE_CONFIG_PATH)
+    sim_time = base.get("simulation", {}).get("time", {})
+    recharge_sources = base.get("data", {}).get("recharge", {}).get("sources", [])
+    recharge = recharge_sources[0] if recharge_sources else {}
+    recharge_values = recharge.get("values", [])
+    rows = [
+        {
+            "item": "Base disponible",
+            "value": TRANSIENT_HYDROGRAPHY_BASE_CONFIG_PATH.name,
+            "comment": "Cas Nancon transitoire avec hydrographie observee deja present dans le depot.",
+        },
+        {
+            "item": "Chronique source",
+            "value": f"{sim_time.get('start_datetime', '')} -> {sim_time.get('end_datetime', '')}",
+            "comment": "Fenetre d'un an hydrologique utilisable pour le pilote.",
+        },
+        {
+            "item": "Pas source",
+            "value": sim_time.get("step_value", ""),
+            "comment": "La proposition commence par une aggregation mensuelle, puis revient a ce pas si le pilote converge.",
+        },
+        {
+            "item": "Recharge source",
+            "value": f"{len(recharge_values)} valeurs" if isinstance(recharge_values, list) else "",
+            "comment": "Chronique saisonniere synthetique; a conserver identique pour MF6 et NWT.",
+        },
+    ]
+    return rows
+
+
+def _build_transient_proposal_page(base: dict[str, Any], config: dict[str, Any]) -> Path:
+    WEB_DIR.mkdir(parents=True, exist_ok=True)
+    cfg_summary = _config_summary(base)
+    point_rows = _comparison_point_rows(config)
+    source_rows = _transient_source_rows()
+    source_table = _render_table(
+        source_rows,
+        (
+            ("item", "Element"),
+            ("value", "Valeur"),
+            ("comment", "Commentaire"),
+        ),
+        empty="Aucune base transitoire Nancon detectee.",
+        max_rows=8,
+    )
+    point_table = _render_table(
+        point_rows,
+        (
+            ("point", "Point"),
+            ("observable", "Observable steady"),
+            ("x", "X Lambert-93"),
+            ("y", "Y Lambert-93"),
+            ("usage", "Usage transitoire"),
+        ),
+        empty="Aucun point de charge n'est declare dans la comparaison steady.",
+        max_rows=8,
+    )
+    proposal_snippet = html.escape(
+        "\n".join(
+            [
+                "# compare_nancon_transient_seasonal_mf6_disv_vs_nwt.toml",
+                'base_simulation_config = "base_nancon_transient_seasonal_with_hydrography.toml"',
+                'output_root = "outputs/nancon_transient_seasonal_mf6_disv_vs_nwt"',
+                'reference_simulation = "mf6_disv_ref"',
+                "",
+                "# Variante 1: MF6 DISV, meme maillage hydrographie que la page steady",
+                "# Variante 2: MODFLOW-NWT 120 x 120, grille structuree",
+                "# Variante 3: MODFLOW-NWT 180 x 180, grille structuree",
+                "",
+                "# Observables minimum",
+                '# - head_*_series: support="point", time="all"',
+                '# - recharge_total, storage_change, drainage_total, outlet_flux: time="all"',
+                "# - head/depth/seepage/outflow/active-network maps: high water, recession, low water, last",
+            ]
+        )
+    )
+    html_text = f"""<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Nancon transitoire MF6 DISV vs MODFLOW-NWT - proposition</title>
+  <style>
+    :root {{
+      --bg: #f7f7f4;
+      --ink: #1d2528;
+      --muted: #667174;
+      --panel: #ffffff;
+      --line: #d7ddd7;
+      --blue: #1f6b8f;
+      --green: #57785d;
+      --orange: #a55d2a;
+    }}
+    * {{ box-sizing: border-box; }}
+    body {{
+      margin: 0;
+      background: var(--bg);
+      color: var(--ink);
+      font-family: Arial, Helvetica, sans-serif;
+      line-height: 1.45;
+    }}
+    main {{
+      max-width: 1480px;
+      margin: 0 auto;
+      padding: 28px 24px 64px;
+    }}
+    header {{
+      border-bottom: 1px solid var(--line);
+      padding: 18px 0 22px;
+      margin-bottom: 22px;
+    }}
+    h1, h2, h3 {{ margin: 0; line-height: 1.15; }}
+    h1 {{ font-size: 2.0rem; max-width: 980px; }}
+    h2 {{ font-size: 1.22rem; margin-bottom: 12px; }}
+    h3 {{ font-size: 0.98rem; color: var(--blue); }}
+    p {{ margin: 8px 0 0; color: var(--muted); }}
+    a {{ color: var(--blue); text-decoration-thickness: 1px; }}
+    code, pre {{
+      font-family: Consolas, "Courier New", monospace;
+      font-size: 0.9em;
+    }}
+    pre {{
+      margin: 12px 0 0;
+      padding: 12px;
+      overflow-x: auto;
+      background: #f2f6f7;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      color: var(--ink);
+    }}
+    .section {{
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 18px;
+      margin-top: 18px;
+    }}
+    .grid {{
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 14px;
+    }}
+    .cards {{
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 12px;
+    }}
+    .card {{
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #fbfcfb;
+      padding: 12px;
+      min-width: 0;
+    }}
+    .card strong {{
+      display: block;
+      margin-bottom: 5px;
+      color: var(--ink);
+    }}
+    .callout {{
+      border-left: 4px solid var(--blue);
+      padding: 10px 12px;
+      background: #f2f6f7;
+      color: var(--ink);
+      margin-top: 12px;
+    }}
+    .warn {{ border-left-color: var(--orange); background: #fbf4ee; }}
+    .pillrow {{
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 12px;
+    }}
+    .pill {{
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      padding: 5px 9px;
+      background: #fbfcfb;
+      font-size: 0.86rem;
+    }}
+    .table-wrap {{ overflow-x: auto; }}
+    table {{ width: 100%; border-collapse: collapse; font-size: 0.88rem; }}
+    th, td {{ text-align: left; padding: 7px 8px; border-bottom: 1px solid #e8ece8; }}
+    th {{ color: var(--muted); font-weight: 600; white-space: nowrap; }}
+    .muted {{ color: var(--muted); }}
+    @media (max-width: 980px) {{
+      main {{ padding: 18px 14px 44px; }}
+      .grid, .cards {{ grid-template-columns: 1fr; }}
+    }}
+  </style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>Nancon transitoire: proposition de comparaison MF6 DISV vs MODFLOW-NWT</h1>
+    <p>
+      Cette page est une proposition de protocole, pas une page de resultats calcules.
+      Elle decrit comment passer de la comparaison steady actuelle a une comparaison transitoire lisible sur les
+      charges, les flux, les zones de suintement et le reseau actif.
+    </p>
+    <div class="pillrow">
+      <span class="pill"><a href="index.html">Retour page steady</a></span>
+      <span class="pill"><a href="transient_results.html">Resultats pilotes si disponibles</a></span>
+      <span class="pill">Parametres physiques steady: K={_safe_text(cfg_summary["k"])}, Sy={_safe_text(cfg_summary["sy"])}, Ss={_safe_text(cfg_summary["ss"])}</span>
+      <span class="pill">Drainage: {_safe_text(cfg_summary["drain"])}</span>
+    </div>
+  </header>
+
+  <section class="section">
+    <h2>Ce que l'on veut trancher</h2>
+    <div class="cards">
+      <div class="card">
+        <strong>Effet de representation</strong>
+        <p>Verifier si les ecarts steady viennent surtout du support spatial: DISV suit mieux les rivieres, NWT les approxime par une grille reguliere.</p>
+      </div>
+      <div class="card">
+        <strong>Effet dynamique</strong>
+        <p>Comparer phase, amplitude et retour a l'etiage des charges et des flux, pas seulement la derniere carte.</p>
+      </div>
+      <div class="card">
+        <strong>Effet solveur</strong>
+        <p>Suivre convergence, temps de calcul et bilan de stockage pour detecter les cas ou NWT devient couteux ou instable.</p>
+      </div>
+    </div>
+    <p class="callout">
+      Proposition clarifiee: on ne lance pas tout de suite un transitoire lourd. On fait d'abord un pilote court,
+      avec les memes parametres physiques que le steady et les memes trois variantes. La page de resultats
+      transitoires ne sera produite qu'apres ce pilote.
+    </p>
+  </section>
+
+  <section class="section">
+    <h2>Base transitoire disponible</h2>
+    <p>
+      Le depot contient deja un cas Nancon transitoire saisonnier. Pour une comparaison MF6 DISV vs NWT,
+      il faut le reprendre en remplacant la comparaison MF6/Boussinesq par les trois variantes de la page steady.
+    </p>
+    {source_table}
+  </section>
+
+  <section class="section">
+    <h2>Plan de calcul propose</h2>
+    <div class="grid">
+      <div class="card">
+        <strong>Phase 1 - pilote mensuel</strong>
+        <p>Agreger la chronique hebdomadaire disponible en 12 periodes mensuelles. Objectif: valider les sorties, la fermeture de bilan et la convergence NWT sans cout excessif.</p>
+      </div>
+      <div class="card">
+        <strong>Phase 2 - resolution hebdomadaire</strong>
+        <p>Revenir au pas 7 jours deja present si le pilote est stable. Objectif: lire les pics de drainage, les dephasages de charge et les episodes de reseau actif.</p>
+      </div>
+      <div class="card">
+        <strong>Phase 3 - sensibilite NWT</strong>
+        <p>Conserver MF6 DISV comme reference et tester NWT 120, NWT 180, puis eventuellement une grille plus fine ou un raffinement cible pres des thalwegs.</p>
+      </div>
+      <div class="card">
+        <strong>Condition initiale</strong>
+        <p>Utiliser un steady de warm-up coherent pour les trois variantes. Cela evite de comparer des transitoires contamines par des etats initiaux differents.</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="section">
+    <h2>Configuration candidate</h2>
+    <p>
+      Le fichier a creer serait voisin de <code>compare_nancon_steady_mf6_disv_vs_nwt.toml</code>,
+      mais avec la base transitoire et des observables <code>time="all"</code> pour les series.
+    </p>
+    <pre><code>{proposal_snippet}</code></pre>
+  </section>
+
+  <section class="section">
+    <h2>Charges aux points</h2>
+    <p>
+      Les memes points que dans le steady peuvent devenir des series h(t). Il faut garder les points fixes en
+      Lambert-93, puis extraire dans chaque modele la cellule qui contient le point ou la valeur interpolee.
+    </p>
+    {point_table}
+  </section>
+
+  <section class="section">
+    <h2>Flux et cartes a comparer</h2>
+    <div class="grid">
+      <div class="card">
+        <strong>Series de flux</strong>
+        <p>Recharge totale, drainage total, variation de stockage, erreur de bilan et flux a l'exutoire. Ces courbes doivent etre tracees cote a cote pour les trois variantes.</p>
+      </div>
+      <div class="card">
+        <strong>Cartes aux dates clefs</strong>
+        <p>Haute eau, recession, basse eau et derniere date. Pour chaque date: charge, profondeur de nappe, suintement, drainage distribue et flux accumule.</p>
+      </div>
+      <div class="card">
+        <strong>Reseau actif</strong>
+        <p>Comparer l'extension active par date et une carte de persistance: fraction du temps ou chaque secteur est actif.</p>
+      </div>
+      <div class="card">
+        <strong>Performance</strong>
+        <p>Tableau unique avec nombre de mailles, nombre de periodes, temps total, temps par periode, statut et indicateurs de convergence.</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="section">
+    <h2>Risques a controler</h2>
+    <p class="callout warn">
+      La principale difficulte n'est pas de lancer du transitoire: NWT et MF6 savent le faire dans le depot.
+      Le point sensible est l'equivalence du support. Le flux d'exutoire et le reseau actif doivent etre extraits
+      sur une geometrie commune, sinon les ecarts peuvent venir du post-traitement plutot que du modele.
+    </p>
+    <div class="cards">
+      <div class="card">
+        <strong>Support outlet</strong>
+        <p>Definir une zone d'extraction commune autour de l'exutoire, pas seulement une cellule differente par modele.</p>
+      </div>
+      <div class="card">
+        <strong>Stockage</strong>
+        <p>Verifier que Sy et Ss sont interpretes de facon comparable dans les deux solveurs sur les cellules seches/humides.</p>
+      </div>
+      <div class="card">
+        <strong>Cout calcul</strong>
+        <p>Ne passer au pas hebdomadaire qu'apres validation mensuelle, surtout pour la grille NWT la plus fine.</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="section">
+    <h2>Sortie attendue</h2>
+    <p>
+      La page de resultats transitoires devrait reprendre la meme logique que la page steady:
+      configuration en tete, comparaison du nombre de mailles et du temps de calcul, courbes de charge,
+      courbes de flux, puis planches de cartes avec le bassin versant, l'exutoire et le maillage visibles.
+    </p>
+  </section>
+</main>
+</body>
+</html>
+"""
+    out = WEB_DIR / "transient_proposal.html"
+    out.write_text(html_text, encoding="utf-8")
+    return out
+
+
+def _audit_issue_rows(audit: dict[str, Any]) -> list[dict[str, Any]]:
+    rows: list[dict[str, Any]] = []
+    for issue in audit.get("issues", [])[:18]:
+        if not isinstance(issue, dict):
+            continue
+        rows.append(
+            {
+                "level": issue.get("level", ""),
+                "kind": issue.get("kind", ""),
+                "variant_id": issue.get("variant_id", ""),
+                "field": issue.get("field", ""),
+                "fraction": _format_float(issue.get("above_top_fraction")),
+                "max_m": _format_float(issue.get("above_top_max_m")),
+                "message": issue.get("message", ""),
+            }
+        )
+    return rows
+
+
+def _transient_interpretation_cards(
+    *,
+    manifest: dict[str, Any],
+    metrics: list[dict[str, str]],
+    execution_rows: list[dict[str, str]],
+) -> str:
+    h_out_120 = _metric_value(metrics, "nwt_structured_120", "head_outlet_series", "rmse")
+    h_out_180 = _metric_value(metrics, "nwt_structured_180", "head_outlet_series", "rmse")
+    h_plateau_120 = _metric_value(
+        metrics, "nwt_structured_120", "head_eastern_plateau_series", "rmse"
+    )
+    h_plateau_180 = _metric_value(
+        metrics, "nwt_structured_180", "head_eastern_plateau_series", "rmse"
+    )
+    q_120 = _metric_value(metrics, "nwt_structured_120", "outlet_flux_series", "rmse")
+    q_180 = _metric_value(metrics, "nwt_structured_180", "outlet_flux_series", "rmse")
+    speed_120 = _runtime_value(execution_rows, "nwt_structured_120", "speedup_vs_reference")
+    speed_180 = _runtime_value(execution_rows, "nwt_structured_180", "speedup_vs_reference")
+    completed = sum(
+        1
+        for variant in manifest.get("variants", [])
+        if isinstance(variant, dict) and variant.get("status") == "completed"
+    )
+    total = len([item for item in manifest.get("variants", []) if isinstance(item, dict)])
+    cards = [
+        (
+            "Executions",
+            f"{completed}/{total} variantes terminees; audit={manifest.get('audit_status', '')}. "
+            f"NWT120 speedup={speed_120}, NWT180 speedup={speed_180}.",
+        ),
+        (
+            "Charges h(t)",
+            f"RMSE a l'exutoire: NWT120={h_out_120} m, NWT180={h_out_180} m. "
+            f"Sur le plateau est: NWT120={h_plateau_120} m, NWT180={h_plateau_180} m.",
+        ),
+        (
+            "Flux outlet",
+            f"RMSE du flux d'exutoire: NWT120={q_120} m3/s, NWT180={q_180} m3/s. "
+            "La lecture doit rester prudente car l'extraction outlet depend du support.",
+        ),
+        (
+            "Statut physique",
+            "Le pilote calcule, mais l'audit signale des charges souvent au-dessus du toit. "
+            "La page sert donc d'abord a diagnostiquer les ecarts et les reglages a corriger.",
+        ),
+    ]
+    return (
+        "<div class=\"comment-grid\">"
+        + "\n".join(
+            f"""
+            <article class="comment-card">
+              <h3>{_safe_text(title)}</h3>
+              <p>{_safe_text(text)}</p>
+            </article>
+            """
+            for title, text in cards
+        )
+        + "</div>"
+    )
+
+
+def _build_transient_results_page() -> Path | None:
+    manifest_path = TRANSIENT_COMPARISON_ROOT / "comparison_manifest.json"
+    if not manifest_path.exists():
+        return None
+    WEB_DIR.mkdir(parents=True, exist_ok=True)
+    config = _load_resolved_toml(TRANSIENT_CONFIG_PATH)
+    base = _load_resolved_toml(TRANSIENT_MONTHLY_BASE_CONFIG_PATH)
+    manifest = _load_json(manifest_path)
+    audit = _load_json(TRANSIENT_COMPARISON_ROOT / "comparison_audit.json")
+    figures = _figure_artifacts(manifest)
+    active_metrics_rows = _load_csv(
+        TRANSIENT_COMPARISON_ROOT / "simulated_active_network_metrics.csv"
+    )
+    cell_counts = _cell_counts_from_rows(active_metrics_rows)
+    execution_rows = _enrich_execution_rows(
+        _load_csv(TRANSIENT_COMPARISON_ROOT / "execution_times.csv"),
+        manifest,
+        cell_counts,
+    )
+    metrics_rows = _load_csv(TRANSIENT_COMPARISON_ROOT / "comparison_metrics.csv")
+    overlap_rows = _load_csv(
+        TRANSIENT_COMPARISON_ROOT / "simulated_active_network_overlap_metrics.csv"
+    )
+    budget_rows = _load_csv(TRANSIENT_COMPARISON_ROOT / "budget_timeseries_wide.csv")
+    watershed_overlay = _load_watershed_overlay(config, manifest, base)
+    mesh_geometries = _mesh_geometries_from_zarr(config, manifest)
+    complete_case_maps = _generate_three_case_map_figures(
+        config=config,
+        manifest=manifest,
+        cell_counts=cell_counts,
+        overlay=watershed_overlay,
+        mesh_geometries=mesh_geometries,
+        output_dir=TRANSIENT_WEB_FIGURES_DIR,
+        config_path=TRANSIENT_CONFIG_PATH,
+        base_config_path=TRANSIENT_MONTHLY_BASE_CONFIG_PATH,
+        comparison_root=TRANSIENT_COMPARISON_ROOT,
+    )
+
+    execution_table = _render_table(
+        execution_rows,
+        (
+            ("variant_id", "Variante"),
+            ("solver", "Solver"),
+            ("mesh_mode", "Maillage"),
+            ("cell_count", "Mailles"),
+            ("status", "Statut"),
+            ("runtime_seconds", "Temps s"),
+            ("speedup_vs_reference", "Speedup"),
+        ),
+        empty="Les temps d'execution ne sont pas disponibles.",
+        max_rows=10,
+    )
+    metrics_table = _render_table(
+        metrics_rows,
+        (
+            ("variant_id", "Variante"),
+            ("observable", "Observable"),
+            ("unit", "Unite"),
+            ("n_pairs", "Paires"),
+            ("bias", "Biais"),
+            ("mae", "MAE"),
+            ("rmse", "RMSE"),
+            ("max_abs_error", "Max abs."),
+        ),
+        empty="Les metriques ne sont pas disponibles.",
+        max_rows=24,
+    )
+    overlap_table = _render_table(
+        overlap_rows,
+        (
+            ("variant_id", "Variante"),
+            ("network_role", "Reseau"),
+            ("active_cell_count", "Cellules actives"),
+            ("network_coverage_ratio", "Coverage"),
+            ("active_precision_ratio", "Precision"),
+            ("cell_f1_ratio", "F1"),
+            ("cell_jaccard_ratio", "Jaccard"),
+        ),
+        empty="Les metriques de reseau actif ne sont pas disponibles.",
+        max_rows=12,
+    )
+    audit_table = _render_table(
+        _audit_issue_rows(audit),
+        (
+            ("level", "Niveau"),
+            ("kind", "Type"),
+            ("variant_id", "Variante"),
+            ("field", "Champ"),
+            ("fraction", "Fraction"),
+            ("max_m", "Max m"),
+            ("message", "Message"),
+        ),
+        empty="Aucun avertissement d'audit.",
+        max_rows=18,
+    )
+    budget_table = _render_table(
+        budget_rows,
+        (
+            ("time_label", "Temps"),
+            ("component", "Composante"),
+            ("unit", "Unite"),
+            ("value__mf6_disv_ref", "MF6 DISV"),
+            ("value__nwt_structured_120", "NWT 120"),
+            ("value__nwt_structured_180", "NWT 180"),
+        ),
+        empty="Le bilan transitoire n'est pas disponible.",
+        max_rows=18,
+    )
+    point_figures = [
+        _figure_by_filename(figures, "head_points_dashboard.png"),
+        _figure_by_filename(figures, "head_outlet_series__timeseries.png"),
+        _figure_by_filename(figures, "head_mid_catchment_series__timeseries.png"),
+        _figure_by_filename(figures, "head_eastern_plateau_series__timeseries.png"),
+    ]
+    flux_figures = [
+        _figure_by_filename(figures, "outlet_flux_series__timeseries.png"),
+        _figure_by_filename(figures, "mf6_disv_ref__budget_diagnostics.png"),
+        _figure_by_filename(figures, "nwt_structured_120__budget_diagnostics.png"),
+        _figure_by_filename(figures, "nwt_structured_180__budget_diagnostics.png"),
+    ]
+    runtime_figures = [
+        _figure_by_filename(figures, "execution_time_comparison.png"),
+        _figure_by_filename(figures, "case_configuration.png"),
+    ]
+    network_deck = _figure_deck(
+        [
+            (
+                _figure_by_variant_name(
+                    figures, "mf6_disv_ref", "simulated_active_network_reference_overlay"
+                ),
+                "MF6 DISV - reseau actif",
+                "Overlay avec hydrographie de reference.",
+            ),
+            (
+                _figure_by_variant_name(
+                    figures, "nwt_structured_120", "simulated_active_network_reference_overlay"
+                ),
+                "NWT 120 x 120 - reseau actif",
+                "Lecture sur grille structuree.",
+            ),
+            (
+                _figure_by_variant_name(
+                    figures, "nwt_structured_180", "simulated_active_network_reference_overlay"
+                ),
+                "NWT 180 x 180 - reseau actif",
+                "Lecture apres raffinement.",
+            ),
+        ]
+    )
+    cfg_summary = _config_summary(base)
+    html_text = f"""<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Nancon transitoire mensuel MF6 DISV vs MODFLOW-NWT</title>
+  <style>
+    :root {{
+      --bg: #f7f7f4;
+      --ink: #1d2528;
+      --muted: #667174;
+      --panel: #ffffff;
+      --line: #d7ddd7;
+      --blue: #1f6b8f;
+      --orange: #a55d2a;
+    }}
+    * {{ box-sizing: border-box; }}
+    body {{
+      margin: 0;
+      background: var(--bg);
+      color: var(--ink);
+      font-family: Arial, Helvetica, sans-serif;
+      line-height: 1.45;
+    }}
+    main {{ max-width: 1760px; margin: 0 auto; padding: 28px 24px 64px; }}
+    header {{ border-bottom: 1px solid var(--line); padding: 18px 0 22px; margin-bottom: 22px; }}
+    h1, h2, h3 {{ margin: 0; line-height: 1.15; }}
+    h1 {{ font-size: 2.05rem; max-width: 980px; }}
+    h2 {{ font-size: 1.25rem; margin-bottom: 12px; }}
+    h3 {{ font-size: 0.95rem; color: var(--blue); }}
+    p {{ margin: 8px 0 0; color: var(--muted); }}
+    a {{ color: var(--blue); text-decoration-thickness: 1px; }}
+    code {{ font-family: Consolas, "Courier New", monospace; font-size: 0.9em; color: var(--blue); }}
+    .section {{ background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 18px; margin-top: 18px; }}
+    .facts, .comment-grid {{ display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }}
+    .fact, .comment-card {{ border: 1px solid var(--line); border-radius: 8px; padding: 12px; background: #fbfcfb; min-width: 0; }}
+    .fact span {{ display: block; color: var(--muted); font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.04em; }}
+    .fact strong {{ display: block; margin-top: 4px; overflow-wrap: anywhere; }}
+    .table-wrap {{ overflow-x: auto; }}
+    table {{ width: 100%; border-collapse: collapse; font-size: 0.88rem; }}
+    th, td {{ text-align: left; padding: 7px 8px; border-bottom: 1px solid #e8ece8; }}
+    th {{ color: var(--muted); font-weight: 600; white-space: nowrap; }}
+    .fig-grid, .wide-fig-grid, .figure-deck {{
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 14px;
+    }}
+    .wide-fig-grid {{ margin-top: 12px; }}
+    .figure-deck {{ grid-template-columns: repeat(3, minmax(0, 1fr)); }}
+    figure {{ margin: 0; border: 1px solid var(--line); border-radius: 8px; background: #fbfcfb; padding: 10px; }}
+    img {{ width: 100%; display: block; border-radius: 6px; border: 1px solid #e2e7e2; background: white; }}
+    figcaption {{ margin-top: 7px; color: var(--muted); font-size: 0.88rem; }}
+    figcaption strong {{ display: block; color: var(--ink); font-size: 0.92rem; }}
+    .callout {{ border-left: 4px solid var(--blue); padding: 10px 12px; background: #f2f6f7; color: var(--ink); margin-top: 12px; }}
+    .warn {{ border-left-color: var(--orange); background: #fbf4ee; }}
+    .pillrow {{ display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }}
+    .pill {{ border: 1px solid var(--line); border-radius: 999px; padding: 5px 9px; background: #fbfcfb; font-size: 0.86rem; }}
+    .muted {{ color: var(--muted); }}
+    @media (max-width: 980px) {{
+      main {{ padding: 18px 14px 44px; }}
+      .facts, .comment-grid, .fig-grid, .wide-fig-grid, .figure-deck {{ grid-template-columns: 1fr; }}
+    }}
+  </style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>Nancon transitoire mensuel: MF6 DISV vs MODFLOW-NWT</h1>
+    <p>
+      Resultats du pilote mensuel autonome. Les trois variantes ont ete lancees sur les memes parametres physiques,
+      avec MF6 sur maillage DISV contraint par les rivieres et NWT sur grilles 120 x 120 puis 180 x 180.
+    </p>
+    <div class="pillrow">
+      <span class="pill"><a href="index.html">Retour steady</a></span>
+      <span class="pill"><a href="transient_proposal.html">Protocole transitoire</a></span>
+      <span class="pill">Config: <code>{_safe_text(TRANSIENT_CONFIG_PATH.relative_to(ROOT))}</code></span>
+      <span class="pill">Audit: <code>{_safe_text(manifest.get("audit_status", ""))}</code></span>
+    </div>
+  </header>
+
+  <section class="section">
+    <h2>Lecture rapide</h2>
+    {_transient_interpretation_cards(manifest=manifest, metrics=metrics_rows, execution_rows=execution_rows)}
+    <p class="callout warn">
+      Point important: l'audit signale des charges au-dessus du toit du modele sur de larges fractions de cellules.
+      Les sorties ci-dessous sont donc utiles pour comparer les comportements numeriques et les supports, mais le
+      cas doit encore etre stabilise physiquement avant d'etre presente comme simulation definitive.
+    </p>
+  </section>
+
+  <section class="section">
+    <h2>Configuration</h2>
+    <div class="facts">
+      <div class="fact"><span>Regime</span><strong>{_safe_text(cfg_summary["regime"])}</strong></div>
+      <div class="fact"><span>Pas</span><strong>12 mois</strong></div>
+      <div class="fact"><span>K homogene</span><strong>{_safe_text(cfg_summary["k"])}</strong></div>
+      <div class="fact"><span>Drainage top</span><strong>{_safe_text(cfg_summary["drain"])}</strong></div>
+      <div class="fact"><span>Sy</span><strong>{_safe_text(cfg_summary["sy"])}</strong></div>
+      <div class="fact"><span>Ss</span><strong>{_safe_text(cfg_summary["ss"])}</strong></div>
+      <div class="fact"><span>Observables</span><strong>{_safe_text(len(config.get("comparison", {}).get("observable", [])))}</strong></div>
+      <div class="fact"><span>Lignes extraites</span><strong>{_safe_text(manifest.get("n_observable_rows", ""))}</strong></div>
+    </div>
+  </section>
+
+  <section class="section">
+    <h2>Mailles et temps de calcul</h2>
+    {execution_table}
+    {_figure_grid([figure for figure in runtime_figures if figure], empty="Aucune figure runtime disponible.")}
+  </section>
+
+  <section class="section">
+    <h2>Charges transitoires aux points</h2>
+    <p>Les courbes utilisent les trois points du steady: exutoire, milieu de bassin et plateau est.</p>
+    {_figure_grid([figure for figure in point_figures if figure], empty="Aucune serie de charge disponible.")}
+  </section>
+
+  <section class="section">
+    <h2>Flux et bilan</h2>
+    <p>Les flux comparent le drainage, le stockage et le flux extrait a l'exutoire sur les 12 periodes mensuelles.</p>
+    {_figure_grid([figure for figure in flux_figures if figure], empty="Aucune figure de flux disponible.")}
+    {budget_table}
+  </section>
+
+  <section class="section">
+    <h2>Cartes comparables</h2>
+    <p>
+      Ces planches sont generees a partir des resultats natifs, avec le contour du bassin, l'exutoire et les aretes
+      de maillage visibles pour DISV comme pour NWT. Elles completent les figures standards du workflow.
+    </p>
+    {_wide_figure_grid(complete_case_maps, empty="Aucune carte complete transitoire disponible.")}
+  </section>
+
+  <section class="section">
+    <h2>Reseau actif</h2>
+    {overlap_table}
+    {network_deck}
+  </section>
+
+  <section class="section">
+    <h2>Metriques et audit</h2>
+    {metrics_table}
+    <h3 style="margin-top:16px;">Avertissements d'audit</h3>
+    {audit_table}
+  </section>
+
+  <section class="section">
+    <h2>Fichiers produits</h2>
+    <div class="pillrow">
+      <span class="pill"><code>{_safe_text(TRANSIENT_COMPARISON_ROOT.relative_to(ROOT))}</code></span>
+      <span class="pill"><code>timeseries_wide.csv</code></span>
+      <span class="pill"><code>budget_timeseries_wide.csv</code></span>
+      <span class="pill"><code>comparison_metrics.csv</code></span>
+      <span class="pill"><code>comparison_figures/</code></span>
+      <span class="pill"><code>web_figures/</code></span>
+    </div>
+  </section>
+</main>
+</body>
+</html>
+"""
+    out = WEB_DIR / "transient_results.html"
+    out.write_text(html_text, encoding="utf-8")
+    return out
+
+
 def build_report() -> Path:
     WEB_DIR.mkdir(parents=True, exist_ok=True)
     config = _load_toml(CONFIG_PATH)
@@ -1046,19 +1976,24 @@ def build_report() -> Path:
     budget_rows = _load_csv(COMPARISON_ROOT / "budget_timeseries_wide.csv")
     figures = _figure_artifacts(manifest)
     cfg_summary = _config_summary(base)
+    transient_page = _build_transient_proposal_page(base, config)
+    transient_results_page = _build_transient_results_page()
+    transient_results_pill = (
+        f'<span class="pill"><a href="{_safe_text(transient_results_page.name)}">'
+        "Resultats transitoires</a></span>"
+        if transient_results_page is not None
+        else ""
+    )
     watershed_overlay = _load_watershed_overlay(config, manifest, base)
+    mesh_geometries = _mesh_geometries_from_zarr(config, manifest)
     complete_case_maps = _generate_three_case_map_figures(
         config=config,
         manifest=manifest,
         cell_counts=cell_counts,
         overlay=watershed_overlay,
+        mesh_geometries=mesh_geometries,
     )
 
-    selected_network = _figures_by_keywords(
-        figures,
-        ("simulated_active", "active_network", "reference_overlay"),
-        limit=8,
-    )
     selected_runtime = _figures_by_keywords(figures, ("execution_time",), limit=2)
     mesh_runtime_figure = _write_mesh_runtime_figure(execution_rows)
     runtime_figures = (
@@ -1073,55 +2008,6 @@ def build_report() -> Path:
         timeseries_rows=timeseries_rows,
     )
     configuration_table = _config_detail_table(base, config)
-    map_theme_panels = "\n".join(
-        [
-            _theme_panel(
-                figures,
-                observable="head_map_last",
-                title="Charge hydraulique",
-                reading=(
-                    "Comparer d'abord le raster commun: il neutralise une partie de l'effet de support. "
-                    "Le diagnostic brut sur maillages natifs reste utile pour reperer ou les ecarts se forment."
-                ),
-            ),
-            _theme_panel(
-                figures,
-                observable="watertable_depth_map_last",
-                title="Profondeur de nappe",
-                reading=(
-                    "Cette carte montre si les ecarts de charge se traduisent en zones trop humides ou trop profondes. "
-                    "Elle est plus directement interpretable pour les zones de suintement."
-                ),
-            ),
-            _theme_panel(
-                figures,
-                observable="seepage_map_last",
-                title="Zones de suintement",
-                reading=(
-                    "La variable est binaire ou quasi binaire; de petits decalages geometriques peuvent produire "
-                    "des erreurs fortes. Le cote a cote raster commun / maillage natif aide a distinguer effet numerique et effet support."
-                ),
-            ),
-            _theme_panel(
-                figures,
-                observable="outflow_drain_map_last",
-                title="Drainage distribue",
-                reading=(
-                    "Ce panneau localise les sorties vers la condition de drainage. Les differences expliquent en partie "
-                    "les debits d'exutoire tres differents entre MF6 et NWT."
-                ),
-            ),
-            _theme_panel(
-                figures,
-                observable="active_network_flux_map_last",
-                title="Flux accumule et reseau actif",
-                reading=(
-                    "Le flux accumule est une lecture operationnelle du reseau simule. C'est le meilleur panneau pour "
-                    "discuter la continuite des rivieres obtenues."
-                ),
-            ),
-        ]
-    )
     network_deck = _figure_deck(
         [
             (
@@ -1275,6 +2161,7 @@ def build_report() -> Path:
     h2 {{ font-size: 1.25rem; margin-bottom: 12px; }}
     h3 {{ font-size: 0.95rem; color: var(--blue); }}
     p {{ margin: 8px 0 0; color: var(--muted); }}
+    a {{ color: var(--blue); text-decoration-thickness: 1px; }}
     code {{
       font-family: Consolas, "Courier New", monospace;
       font-size: 0.9em;
@@ -1434,6 +2321,8 @@ def build_report() -> Path:
       <span class="pill">Config: <code>{_safe_text(CONFIG_PATH.relative_to(ROOT))}</code></span>
       <span class="pill">Sorties: <code>{_safe_text(COMPARISON_ROOT.relative_to(ROOT))}</code></span>
       <span class="pill">Audit: <code>{_safe_text(manifest.get("audit_status", "pending"))}</code></span>
+      <span class="pill"><a href="{_safe_text(transient_page.name)}">Proposition transitoire</a></span>
+      {transient_results_pill}
     </div>
   </header>
 
@@ -1515,7 +2404,8 @@ def build_report() -> Path:
     <p>
       Chaque planche affiche les trois cas dans le meme sens et dans le meme cadre: nord en haut,
       limites communes, contour du bassin versant en noir et exutoire en etoile rouge. Les panneaux
-      restent sur leur support spatial complet, avec une echelle de couleur commune par variable.
+      restent sur leur support spatial complet, avec une echelle de couleur commune par variable. Les
+      aretes de cellules sont superposees pour le maillage DISV et pour les grilles regulieres NWT.
     </p>
     <p class="callout">
       Le nombre de mailles est indique dans le titre de chaque panneau. Cette disposition remplace les
@@ -1555,6 +2445,8 @@ def build_report() -> Path:
       <span class="pill"><code>execution_times.csv</code></span>
       <span class="pill"><code>simulated_active_network_overlap_metrics.csv</code></span>
       <span class="pill"><code>comparison_figures/</code></span>
+      <span class="pill"><code>{_safe_text(transient_page.name)}</code></span>
+      {f'<span class="pill"><code>{_safe_text(transient_results_page.name)}</code></span>' if transient_results_page is not None else ''}
     </div>
   </section>
 </main>

@@ -12,27 +12,8 @@ import time
 from pathlib import Path
 from typing import Any
 
-from hydromodpy.analysis.comparison.config import MethodComparisonConfig
-from hydromodpy.analysis.comparison.exports import (
-    write_boussinesq_obstacle_diagnostics_export,
-    write_budget_exports,
-    write_execution_summary_csv,
-    write_hydrographic_network_metrics_export,
-    write_native_timeseries_exports,
-    write_observable_chronicle_exports,
-    write_simulated_active_network_distance_metrics_export,
-    write_simulated_active_network_metrics_export,
-    write_simulated_active_network_overlap_metrics_export,
-    write_simulated_active_network_reference_figure_export,
-)
-from hydromodpy.analysis.comparison.metrics import (
-    DETAIL_METRIC_FIELDS,
-    SUMMARY_METRIC_FIELDS,
-    build_comparison_metrics,
-    write_metrics_csv,
-    write_metrics_json,
-)
-from hydromodpy.analysis.comparison.reporting import build_comparison_report
+from hydromodpy.analysis.comparison.config import ComparisonConfig
+from hydromodpy.analysis.comparison.output_pipeline import write_comparison_output_bundle
 from hydromodpy.analysis.comparison.runtime import (
     compact_run_metrics,
     discover_result_store,
@@ -40,9 +21,7 @@ from hydromodpy.analysis.comparison.runtime import (
     materialize_variant_config,
     read_json_file,
     read_variant_run_metadata,
-    write_observables_csv,
 )
-from hydromodpy.analysis.comparison.visuals import generate_comparison_figures
 from hydromodpy.config import HydroModPyConfig
 from hydromodpy.core.config.toml_loader import load_toml_with_base_config
 
@@ -53,14 +32,14 @@ class MethodComparisonLauncher:
     def __init__(self, config_path: str | Path) -> None:
         self.config_path = Path(config_path).expanduser().resolve()
         raw_toml = load_toml_with_base_config(self.config_path)
-        self.cfg = MethodComparisonConfig.from_toml(
+        self.cfg = ComparisonConfig.from_toml(
             raw_toml,
             config_path=self.config_path,
         )
 
     def run(self) -> dict[str, Any]:
         """Execute the comparison session and persist summary artefacts."""
-        section = self.cfg.method_comparison
+        section = self.cfg.comparison
         comparison_root = self.cfg.comparison_root
         comparison_root.mkdir(parents=True, exist_ok=True)
 
@@ -137,140 +116,18 @@ class MethodComparisonLauncher:
             all_rows.extend(rows)
             summary["n_observable_rows"] = len(rows)
 
-        observables_csv = comparison_root / "observables.csv"
-        write_observables_csv(observables_csv, all_rows)
-
         reference_variant = section.reference_variant or self._first_completed_variant_id(
             variant_summaries
         )
-        detail_metrics, summary_metrics = build_comparison_metrics(
-            all_rows,
-            reference_variant=reference_variant,
-        )
-        metrics_csv = comparison_root / "comparison_metrics.csv"
-        differences_csv = comparison_root / "comparison_differences.csv"
-        metrics_json = comparison_root / "comparison_metrics.json"
-        write_metrics_csv(
-            metrics_csv,
-            summary_metrics,
-            fieldnames=SUMMARY_METRIC_FIELDS,
-        )
-        write_metrics_csv(
-            differences_csv,
-            detail_metrics,
-            fieldnames=DETAIL_METRIC_FIELDS,
-        )
-        write_metrics_json(
-            metrics_json,
-            {
-                "schema_version": "method_comparison_metrics_v1",
-                "comparison_id": section.comparison_id,
-                "reference_variant": reference_variant,
-                "summary": summary_metrics,
-                "differences": detail_metrics,
-            },
-        )
-        data_artifacts: list[dict[str, Any]] = []
-        observable_artifacts, observable_long_rows, _observable_wide_rows, observable_delta_rows = (
-            write_observable_chronicle_exports(
-                comparison_root=comparison_root,
-                rows=all_rows,
-                detail_metrics=detail_metrics,
-                observables=[
-                    observable.model_dump(mode="json") for observable in section.observable
-                ],
-            )
-        )
-        data_artifacts.extend(observable_artifacts)
-        native_artifacts, native_long_rows, _native_wide_rows, native_delta_rows = (
-            write_native_timeseries_exports(
-                comparison_id=str(section.comparison_id),
-                comparison_root=comparison_root,
-                variant_summaries=variant_summaries,
-                reference_variant=reference_variant,
-            )
-        )
-        data_artifacts.extend(native_artifacts)
-        hydrographic_artifacts, _hydrographic_rows = write_hydrographic_network_metrics_export(
+        outputs = write_comparison_output_bundle(
+            cfg=self.cfg,
             comparison_id=str(section.comparison_id),
             comparison_root=comparison_root,
             variant_summaries=variant_summaries,
-        )
-        data_artifacts.extend(hydrographic_artifacts)
-        simulated_active_artifacts, _simulated_active_rows = (
-            write_simulated_active_network_metrics_export(
-                comparison_id=str(section.comparison_id),
-                comparison_root=comparison_root,
-                variant_summaries=variant_summaries,
-            )
-        )
-        data_artifacts.extend(simulated_active_artifacts)
-        simulated_active_overlap_artifacts, _simulated_active_overlap_rows = (
-            write_simulated_active_network_overlap_metrics_export(
-                comparison_id=str(section.comparison_id),
-                comparison_root=comparison_root,
-                variant_summaries=variant_summaries,
-            )
-        )
-        data_artifacts.extend(simulated_active_overlap_artifacts)
-        simulated_active_distance_artifacts, _simulated_active_distance_rows = (
-            write_simulated_active_network_distance_metrics_export(
-                comparison_id=str(section.comparison_id),
-                comparison_root=comparison_root,
-                variant_summaries=variant_summaries,
-            )
-        )
-        data_artifacts.extend(simulated_active_distance_artifacts)
-        budget_artifacts, budget_rows = write_budget_exports(
-            comparison_root=comparison_root,
-            variant_summaries=variant_summaries,
-        )
-        data_artifacts.extend(budget_artifacts)
-        obstacle_artifacts, _obstacle_rows = write_boussinesq_obstacle_diagnostics_export(
-            comparison_root=comparison_root,
-            variant_summaries=variant_summaries,
-        )
-        data_artifacts.extend(obstacle_artifacts)
-        execution_artifacts, execution_rows = write_execution_summary_csv(
-            comparison_root=comparison_root,
-            variant_summaries=variant_summaries,
-            reference_variant=reference_variant,
-        )
-        data_artifacts.extend(execution_artifacts)
-        figure_artifacts = generate_comparison_figures(
-            cfg=self.cfg,
-            variant_summaries=variant_summaries,
+            observables=section.observable,
             rows=all_rows,
-            detail_metrics=detail_metrics,
             reference_variant=reference_variant,
-            comparison_root=comparison_root,
-            native_timeseries_rows=native_long_rows,
-            native_timeseries_delta_rows=native_delta_rows,
-            budget_rows=budget_rows,
-            execution_rows=execution_rows,
-        )
-        simulated_active_figure_artifacts, _simulated_active_figure_rows = (
-            write_simulated_active_network_reference_figure_export(
-                comparison_root=comparison_root,
-                variant_summaries=variant_summaries,
-            )
-        )
-        figure_artifacts.extend(simulated_active_figure_artifacts)
-        report_path = comparison_root / "comparison_report.md"
-        report_path.write_text(
-            build_comparison_report(
-                comparison_id=str(section.comparison_id),
-                reference_variant=reference_variant,
-                variant_summaries=variant_summaries,
-                observables=[
-                    observable.model_dump(mode="json") for observable in section.observable
-                ],
-                rows=all_rows,
-                summary_metrics=summary_metrics,
-                figure_artifacts=figure_artifacts,
-                data_artifacts=data_artifacts,
-            ),
-            encoding="utf-8",
+            metrics_schema_version="method_comparison_metrics_v1",
         )
 
         manifest = {
@@ -286,17 +143,17 @@ class MethodComparisonLauncher:
             "run_variants": section.run_variants,
             "continue_on_error": section.continue_on_error,
             "reference_variant": reference_variant,
-            "observables_csv": str(observables_csv),
-            "comparison_metrics_csv": str(metrics_csv),
-            "comparison_differences_csv": str(differences_csv),
-            "comparison_metrics_json": str(metrics_json),
-            "comparison_report_md": str(report_path),
+            "observables_csv": str(outputs.observables_csv),
+            "comparison_metrics_csv": str(outputs.metrics_csv),
+            "comparison_differences_csv": str(outputs.differences_csv),
+            "comparison_metrics_json": str(outputs.metrics_json),
+            "comparison_report_md": str(outputs.report_path),
             "comparison_figures_dir": str(comparison_root / "comparison_figures"),
-            "comparison_figures": figure_artifacts,
-            "comparison_data_artifacts": data_artifacts,
+            "comparison_figures": outputs.figure_artifacts,
+            "comparison_data_artifacts": outputs.data_artifacts,
             "n_observable_rows": len(all_rows),
-            "n_metric_rows": len(summary_metrics),
-            "n_difference_rows": len(detail_metrics),
+            "n_metric_rows": len(outputs.summary_metrics),
+            "n_difference_rows": len(outputs.detail_metrics),
             "wall_time_seconds": round(time.monotonic() - started_at, 2),
             "variants": variant_summaries,
             "observables": [
@@ -313,7 +170,7 @@ class MethodComparisonLauncher:
 
     def _run_or_reuse_variant(self, variant) -> dict[str, Any]:
         """Run a variant simulation or resolve an existing run folder."""
-        section = self.cfg.method_comparison
+        section = self.cfg.comparison
         config_path: Path | None = None
         run_folder = self.cfg.resolve_variant_run_folder(variant)
         status = "reused"
