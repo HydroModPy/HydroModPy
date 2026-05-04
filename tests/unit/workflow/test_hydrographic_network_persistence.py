@@ -6,10 +6,12 @@ from types import SimpleNamespace
 import geopandas as gpd
 import numpy as np
 import pytest
+import xarray as xr
 from shapely.geometry import LineString, box
 
 from hydromodpy.core.state.data import LoadedDataContext
-from hydromodpy.data.variables.hydrography.result import HydrographyResult
+from hydromodpy.data.contracts.load_result import LoadResult
+from hydromodpy.data.contracts.spatial_field import FieldRecord
 from hydromodpy.spatial.geographic.core.derived_features import (
     GeographicBoundaryFeatures,
     GeographicDerivedFeatures,
@@ -17,6 +19,7 @@ from hydromodpy.spatial.geographic.core.derived_features import (
 from hydromodpy.spatial.geographic.core.hydrographic_network import (
     HYDROGRAPHIC_NETWORK_GENERATED_FEATURE_NAME,
     HYDROGRAPHIC_NETWORK_REFERENCE_FEATURE_NAME,
+    HYDROGRAPHIC_NETWORK_REFERENCE_RASTER_FORCING_NAME,
     HydrographicNetwork,
     HydrographicNetworks,
 )
@@ -47,6 +50,36 @@ def _write_watershed(path: Path) -> Path:
     )
     gdf.to_file(path)
     return path
+
+
+def _hydrography_load_result(
+    *,
+    vector_path: Path,
+    raster_path: Path,
+    array: np.ndarray,
+) -> LoadResult:
+    data = xr.Dataset(
+        {
+            HYDROGRAPHIC_NETWORK_REFERENCE_RASTER_FORCING_NAME: (
+                ("y", "x"),
+                array,
+            )
+        }
+    )
+    record = FieldRecord(
+        variable=HYDROGRAPHIC_NETWORK_REFERENCE_RASTER_FORCING_NAME,
+        source="hydrography",
+        unit="",
+        data=data,
+        bbox=(0.0, 0.0, float(array.shape[1]), float(array.shape[0])),
+        crs="EPSG:2154",
+        metadata={
+            "raster_path": str(raster_path),
+            "vector_path": str(vector_path),
+            "array_name": HYDROGRAPHIC_NETWORK_REFERENCE_RASTER_FORCING_NAME,
+        },
+    )
+    return LoadResult(fields=[record])
 
 
 class _FakeZarr:
@@ -101,10 +134,10 @@ def test_step_persist_forcings_writes_reference_network_feature(tmp_path: Path):
         store=_FakeStore(),
         sim_id="sim-1",
         loaded_data=LoadedDataContext(
-            hydrography=HydrographyResult(
-                streams=str(streams_path),
-                tif_streams=str(tmp_path / "streams.tif"),
-                streams_array=np.asarray([[1.0, 0.0]], dtype=float),
+            hydrography=_hydrography_load_result(
+                vector_path=streams_path,
+                raster_path=tmp_path / "streams.tif",
+                array=np.asarray([[1.0, 0.0]], dtype=float),
             )
         ),
         setup=SimpleNamespace(geographic_features=features),
@@ -139,10 +172,10 @@ def test_apply_structural_updates_from_data_attaches_reference_network(
             geographic_features=features,
         ),
         loaded_data=LoadedDataContext(
-            hydrography=HydrographyResult(
-                streams=str(streams_path),
-                tif_streams=str(tmp_path / "streams.tif"),
-                streams_array=np.asarray([[1.0, 0.0]], dtype=float),
+            hydrography=_hydrography_load_result(
+                vector_path=streams_path,
+                raster_path=tmp_path / "streams.tif",
+                array=np.asarray([[1.0, 0.0]], dtype=float),
             ),
         ),
         cfg=SimpleNamespace(),

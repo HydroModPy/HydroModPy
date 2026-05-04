@@ -43,11 +43,10 @@ def test_load_generic_oceanic_variable_passes_geographic_to_manager(
     def fake_import_module(name: str):
         if name == "hydromodpy.data.variables.oceanic.config":
             return SimpleNamespace(OceanicConfig=FakeConfig)
-        if name == "hydromodpy.data.variables.oceanic.manager":
-            return SimpleNamespace(OceanicManager=FakeManager)
         raise AssertionError(f"Unexpected import: {name}")
 
     monkeypatch.setattr("hydromodpy.data.loader.importlib.import_module", fake_import_module)
+    monkeypatch.setattr("hydromodpy.data.store.get_manager_class", lambda variable: FakeManager)
 
     result = SimpleNamespace(
         cfg=SimpleNamespace(

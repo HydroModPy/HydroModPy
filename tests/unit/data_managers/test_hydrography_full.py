@@ -29,10 +29,10 @@ Covers:
   - Clip to watershed
   - Synthetic FID field creation
   - Geometry type dispatch (Line, Polygon, Point)
-  - Result dataclass contract
+  - LoadResult field contract
 
-- HydrographyResult
-  - Dataclass fields and types
+- Hydrography LoadResult
+  - FieldRecord metadata and array payload
 
 - Catalog registration (SQL)
   - Register hydrography entry
@@ -44,7 +44,6 @@ from __future__ import annotations
 
 import json
 import textwrap
-from dataclasses import fields as dc_fields
 from pathlib import Path
 from typing import Annotated, Literal, get_args, get_origin
 from unittest.mock import MagicMock, patch
@@ -53,15 +52,20 @@ import geopandas as gpd
 import numpy as np
 import pandas as pd
 import pytest
+import xarray as xr
 from pydantic import BaseModel, ValidationError
 from shapely.geometry import LineString, MultiLineString, Point, Polygon
 
 from hydromodpy.core.config_kit.profile import Profile
+from hydromodpy.data.contracts.load_result import LoadResult
+from hydromodpy.data.contracts.spatial_field import FieldRecord
 from hydromodpy.data.variables.hydrography.config import (
     HydrographyConfig,
     HydrographySourceConfig,
 )
-from hydromodpy.data.variables.hydrography.result import HydrographyResult
+from hydromodpy.spatial.geographic.core.hydrographic_network import (
+    HYDROGRAPHIC_NETWORK_REFERENCE_RASTER_FORCING_NAME,
+)
 
 # =====================================================================
 # Helpers
@@ -144,6 +148,60 @@ def _write_dummy_tif(path, crs="EPSG:2154", shape=(100, 100)):
         transform=transform,
     ) as ds:
         ds.write(np.ones(shape, dtype=np.float32), 1)
+
+
+def _make_hydrography_load_result(
+    *,
+    array: np.ndarray | None = None,
+    raster_path: str = "/tmp/streams.tif",
+    vector_path: str | None = None,
+    crs: str = "EPSG:2154",
+) -> LoadResult:
+    values = np.zeros((5, 5), dtype=float) if array is None else array
+    data = xr.Dataset(
+        {
+            HYDROGRAPHIC_NETWORK_REFERENCE_RASTER_FORCING_NAME: (
+                ("y", "x"),
+                values,
+            )
+        }
+    )
+    record = FieldRecord(
+        variable=HYDROGRAPHIC_NETWORK_REFERENCE_RASTER_FORCING_NAME,
+        source="hydrography",
+        unit="",
+        data=data,
+        bbox=(0.0, 0.0, float(values.shape[1]), float(values.shape[0])),
+        crs=crs,
+        metadata={
+            "raster_path": raster_path,
+            "vector_path": vector_path,
+            "array_name": HYDROGRAPHIC_NETWORK_REFERENCE_RASTER_FORCING_NAME,
+        },
+    )
+    return LoadResult(fields=[record])
+
+
+def _hydrography_record(result: LoadResult) -> FieldRecord:
+    assert isinstance(result, LoadResult)
+    assert len(result.fields) == 1
+    return result.fields[0]
+
+
+def _hydrography_array(result: LoadResult) -> np.ndarray:
+    record = _hydrography_record(result)
+    return np.asarray(record.data[record.variable].values)
+
+
+def _hydrography_vector_path(result: LoadResult) -> str | None:
+    metadata = _hydrography_record(result).metadata
+    value = metadata.get("vector_path")
+    return None if value is None else str(value)
+
+
+def _hydrography_raster_path(result: LoadResult) -> str:
+    value = _hydrography_record(result).metadata["raster_path"]
+    return str(value)
 
 
 class WhiteboxStubBackend:
@@ -454,26 +512,24 @@ class TestDataManagersConfigIntegration:
 
 
 # =====================================================================
-# 5. Result dataclass
+# 5. LoadResult contract
 # =====================================================================
 
 
 @pytest.mark.fast
-class TestHydrographyResult:
-    def test_fields(self):
-        names = {f.name for f in dc_fields(HydrographyResult)}
-        assert names == {"streams", "tif_streams", "streams_array"}
-
+class TestHydrographyLoadResult:
     def test_construction(self, tmp_path):
         arr = np.zeros((10, 10))
-        r = HydrographyResult(
-            streams=str(tmp_path / "s.shp"),
-            tif_streams=str(tmp_path / "s.tif"),
-            streams_array=arr,
+        result = _make_hydrography_load_result(
+            array=arr,
+            raster_path=str(tmp_path / "s.tif"),
+            vector_path=str(tmp_path / "s.shp"),
         )
-        assert r.streams.endswith("s.shp")
-        assert r.tif_streams.endswith("s.tif")
-        assert r.streams_array.shape == (10, 10)
+        record = _hydrography_record(result)
+        assert record.variable == HYDROGRAPHIC_NETWORK_REFERENCE_RASTER_FORCING_NAME
+        assert record.metadata["vector_path"] == str(tmp_path / "s.shp")
+        assert record.metadata["raster_path"] == str(tmp_path / "s.tif")
+        assert _hydrography_array(result).shape == (10, 10)
 
 
 # =====================================================================
@@ -931,10 +987,10 @@ class TestHydrographyManager:
 
         result = mgr.load()
 
-        assert isinstance(result, HydrographyResult)
-        assert result.streams.endswith("streams.shp")
-        assert result.tif_streams.endswith("streams.tif")
-        assert isinstance(result.streams_array, np.ndarray)
+        assert isinstance(result, LoadResult)
+        assert _hydrography_vector_path(result).endswith("streams.shp")
+        assert _hydrography_raster_path(result).endswith("streams.tif")
+        assert isinstance(_hydrography_array(result), np.ndarray)
 
         # Stub backend dispatched to the line rasteriser, not polygon/point.
         method_names = backend.method_names()
@@ -974,7 +1030,7 @@ class TestHydrographyManager:
         method_names = backend.method_names()
         assert "vector_polygons_to_raster" in method_names
         assert "vector_lines_to_raster" not in method_names
-        assert isinstance(result, HydrographyResult)
+        assert isinstance(result, LoadResult)
 
     @patch("hydromodpy.data.variables.hydrography.manager.HydrographyManager._fetch_from_source")
     @patch("hydromodpy.spatial.delineation.get_whitebox_backend")
@@ -999,7 +1055,7 @@ class TestHydrographyManager:
         method_names = backend.method_names()
         assert "vector_points_to_raster" in method_names
         assert "vector_lines_to_raster" not in method_names
-        assert isinstance(result, HydrographyResult)
+        assert isinstance(result, LoadResult)
 
     @patch("hydromodpy.data.variables.hydrography.manager.HydrographyManager._fetch_from_source")
     @patch("hydromodpy.spatial.delineation.get_whitebox_backend")
@@ -1083,7 +1139,7 @@ class TestHydrographyManager:
         result = mgr.load()
 
         # The saved shapefile should be in project CRS, not WGS84
-        saved_gdf = gpd.read_file(result.streams)
+        saved_gdf = gpd.read_file(_hydrography_vector_path(result))
         assert saved_gdf.crs is not None
         assert "2154" in str(saved_gdf.crs)
 
@@ -1325,10 +1381,9 @@ class TestDocumentedContracts:
         assert "*.gpkg" in _VECTOR_EXTENSIONS
         assert "*.geojson" in _VECTOR_EXTENSIONS
 
-    def test_result_is_dataclass(self):
+    def test_config_is_not_dataclass(self):
         import dataclasses
 
-        assert dataclasses.is_dataclass(HydrographyResult)
         assert not dataclasses.is_dataclass(HydrographyConfig)
 
     def test_all_apis_return_epsg4326(self):
@@ -1352,7 +1407,6 @@ class TestDocumentedContracts:
         assert hasattr(pkg, "HydrographyConfig")
         assert hasattr(pkg, "HydrographySourceConfig")
         assert hasattr(pkg, "HydrographyManager")
-        assert hasattr(pkg, "HydrographyResult")
 
 
 # =====================================================================
@@ -1457,16 +1511,16 @@ class TestManagerTifPipeline:
         mgr = HydrographyManager(config=cfg, geographic=geo, out_path=tmp_path)
         result = mgr.load()
 
-        assert isinstance(result, HydrographyResult)
-        assert result.streams is None
-        assert result.tif_streams.endswith("streams.tif")
-        assert isinstance(result.streams_array, np.ndarray)
+        assert isinstance(result, LoadResult)
+        assert _hydrography_vector_path(result) is None
+        assert _hydrography_raster_path(result).endswith("streams.tif")
+        assert isinstance(_hydrography_array(result), np.ndarray)
         # Vector rasterisation backend should NOT have been called
         backend.raster.vector_lines_to_raster.assert_not_called()
 
     @patch("hydromodpy.spatial.delineation.get_whitebox_backend")
     def test_tif_array_negative_to_nan(self, mock_backend_factory, tmp_path):
-        """Negative values in the TIF should become NaN in streams_array."""
+        """Negative values in the TIF should become NaN in the field array."""
         import rasterio
         from rasterio.transform import from_bounds
 
@@ -1502,7 +1556,7 @@ class TestManagerTifPipeline:
         mgr = HydrographyManager(config=cfg, geographic=geo, out_path=tmp_path)
         result = mgr.load()
 
-        assert np.any(np.isnan(result.streams_array))
+        assert np.any(np.isnan(_hydrography_array(result)))
 
 
 # =====================================================================
@@ -1705,30 +1759,30 @@ class TestCatalogCacheManager:
 
 
 # =====================================================================
-# 18. Result with optional streams
+# 18. LoadResult with optional vector path
 # =====================================================================
 
 
 @pytest.mark.fast
-class TestResultOptionalStreams:
-    def test_streams_none_allowed(self):
+class TestHydrographyMetadata:
+    def test_vector_path_none_allowed(self):
         arr = np.zeros((10, 10))
-        result = HydrographyResult(
-            streams=None,
-            tif_streams="/tmp/s.tif",
-            streams_array=arr,
+        result = _make_hydrography_load_result(
+            array=arr,
+            raster_path="/tmp/s.tif",
+            vector_path=None,
         )
-        assert result.streams is None
-        assert result.tif_streams == "/tmp/s.tif"
+        assert _hydrography_vector_path(result) is None
+        assert _hydrography_raster_path(result) == "/tmp/s.tif"
 
-    def test_streams_str_still_works(self):
+    def test_vector_path_str(self):
         arr = np.zeros((10, 10))
-        result = HydrographyResult(
-            streams="/tmp/s.shp",
-            tif_streams="/tmp/s.tif",
-            streams_array=arr,
+        result = _make_hydrography_load_result(
+            array=arr,
+            raster_path="/tmp/s.tif",
+            vector_path="/tmp/s.shp",
         )
-        assert result.streams == "/tmp/s.shp"
+        assert _hydrography_vector_path(result) == "/tmp/s.shp"
 
 
 # =====================================================================
@@ -1777,10 +1831,9 @@ class TestDataStoreHydrography:
     def test_load_hydrography_delegates(self, mock_backend, mock_load, tmp_path):
         from hydromodpy.data.store import DataStore
 
-        mock_load.return_value = HydrographyResult(
-            streams=None,
-            tif_streams="/tmp/s.tif",
-            streams_array=np.zeros((5, 5)),
+        mock_load.return_value = _make_hydrography_load_result(
+            raster_path="/tmp/s.tif",
+            vector_path=None,
         )
 
         # Create minimal workspace
@@ -1790,5 +1843,5 @@ class TestDataStoreHydrography:
         geo = _fake_geographic(tmp_path)
         cfg = HydrographyConfig(sources=[{"source": "osm"}])
         result = store.load_hydrography(cfg, geographic=geo, out_path=tmp_path)
-        assert isinstance(result, HydrographyResult)
+        assert isinstance(result, LoadResult)
         mock_load.assert_called_once()
