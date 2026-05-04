@@ -15,8 +15,8 @@ Coverage Snapshot
 -----------------
 
 - Category pages available today: 9.
-- Curated gallery cases available today: 84.
-- Most populated sections: Mesh Gallery (29), Validation Benchmarks (24), Method Comparison (6).
+- Curated gallery cases available today: 85.
+- Most populated sections: Mesh Gallery (29), Validation Benchmarks (24), Simulation Workflows (7).
 
 Browse By Intent
 ----------------
@@ -82,14 +82,14 @@ Move here once the spatial support is understood and you want to inspect one ful
 
       **Simulation Workflows**
       ^^^
-      End-to-end solver runs rendered as stable documentation artifacts. 6 cases.
+      End-to-end solver runs rendered as stable documentation artifacts. 7 cases.
 
    .. grid-item-card::
       :class-card: sd-shadow-sm sd-rounded-3 sd-p-4
-      :link: method_comparison
+      :link: simulation_comparison
       :link-type: doc
 
-      **Method Comparison**
+      **Simulation Comparison**
       ^^^
       Reusable solver comparisons built from committed run folders on shared supports. 6 cases.
 
@@ -138,6 +138,6 @@ Use these pages when the goal is not demonstration only, but numerical trust or 
    geographic
    geometry
    hydraulic_properties
-   method_comparison
+   simulation_comparison
    code_comparison
    simulation

@@ -11,10 +11,16 @@ This case documents the orchestration layer rather than one child run. It uses t
 .. seealso::
    Read :doc:`the Simulation walkthrough </getting_started/simulation-walkthrough>` if you want the parameter mapping, a recommended reading order, and the first modifications to try.
 
+.. figure:: /_static/capability_gallery/simulation/regional_lab_headwater_100km2_dry_plan.png
+   :alt: Regional lab dry-plan synthesis for the headwater 100 km2 example
+   :width: 100%
+
+   Dry-plan synthesis for the committed regional-lab example: site/recipe matrix, recipe coverage, and planning summary.
+
 Case Setup
 ----------
 
-- Launcher family: `regional_lab`, sitting above child `simulation` and `method-comparison` launchers.
+- Launcher family: `regional_lab`, sitting above child `simulation` and `comparison` launchers.
 - Example scope: one small Brittany site catalog with one fully runnable headwater site and several inventory-only or screening sites.
 - The committed example starts with `execute = false`, so the page documents planning, selection, and reporting rather than child-run results.
 
@@ -41,27 +47,11 @@ How To Read It
 - Use the recipe bars next to understand how much of the selected population each recipe actually covers.
 - Read the text summary last: it explains why the example is valuable even with zero executed child runs.
 
-Local Regeneration Note
------------------------
-
-This local checkout cannot fully rebuild the original gallery artefacts for this case because one or more legacy source files are not present.
-
-The page is still generated so that the capability-gallery structure, cross-links, and reading guides remain valid during a full documentation rebuild.
-
-Reason: The regional-lab overlay config needed to regenerate this page is not available in the current checkout.
-
-Missing Local Inputs
---------------------
-
-- ``examples_legacy_2/projects/launcher_simulation/regional_lab/README.md``
-- ``examples_legacy_2/projects/launcher_simulation/regional_lab/config_headwater_100km2_lab.toml``
-- ``examples_legacy_2/projects/launcher_simulation/regional_lab/site_catalog.csv``
-
 Next Steps
 ----------
 
 - Switch `execute = true` in the example config when the dry plan looks correct and you want to launch the child workflows.
-- Use this page as the orchestration complement to the individual simulation and method-comparison cases already exposed elsewhere in the gallery.
+- Use this page as the orchestration complement to the individual simulation and comparison cases already exposed elsewhere in the gallery.
 
 Reproduce
 ---------
@@ -70,7 +60,7 @@ Run the underlying example or validation case with:
 
 .. code-block:: bash
 
-   python -m hydromodpy run examples_legacy_2/projects/launcher_simulation/regional_lab/config_headwater_100km2_lab.toml
+   python -m tools.doc_gallery
 
 Refresh the committed gallery artifacts with:
 
@@ -84,11 +74,16 @@ Source Pointers
 - ``hydromodpy/analysis/batch/__init__.py``
 - ``hydromodpy/analysis/batch/config.py``
 - ``hydromodpy/analysis/batch/runtime.py``
-- ``examples_legacy_2/projects/launcher_simulation/regional_lab/README.md``
-- ``examples_legacy_2/projects/launcher_simulation/regional_lab/config_headwater_100km2_lab.toml``
-- ``examples_legacy_2/projects/launcher_simulation/regional_lab/site_catalog.csv``
+- ``docs/readthedocs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_dry_plan_plan.json``
+- ``docs/readthedocs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_dry_plan_report.json``
+- ``docs/readthedocs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_dry_plan_summary.md``
+- ``docs/readthedocs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_dry_plan_site_inventory.csv``
+- ``docs/readthedocs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_dry_plan_recipe_summary.csv``
+- ``docs/readthedocs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_dry_plan_cluster_summary.csv``
+- ``docs/readthedocs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_dry_plan_case_matrix.csv``
 
 Artifacts
 ---------
 
+- ``docs/readthedocs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_dry_plan.png``
 - ``docs/readthedocs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_dry_plan_summary.json`` stores the displayed metrics plus source hashes used by ``python -m tools.doc_gallery --check``.

@@ -15,7 +15,7 @@ Current Coverage
 ----------------
 
 - Study areas: Brittany regional laboratory, Headwater 100 km2 outlet 2, Naizin catchment, Nancon watershed.
-- Process families shown: Display, Flow, Method Comparison, Observed hydrography diagnostics, Planning, Postprocess, Reporting, Simulation, Transport.
+- Process families shown: Comparison, Display, Flow, Observed hydrography diagnostics, Planning, Postprocess, Reporting, Simulation, Transport.
 - Mesh supports: Committed Triangular Mesh Input, Project Scoped basin support, Runtime Gmsh Triangular Mesh.
 - Flow solvers: MODFLOW 6, MODFLOW-NWT.
 - Transport solvers: MODFLOW 6 GWT.
@@ -97,7 +97,7 @@ These cases do not focus on one child solver run. They document how one populati
 
       **Regional Lab Dry Plan on Headwater 100 km2**
       ^^^
-      Dry-run orchestration example showing how one regional site catalog expands into simulation and method-comparison recipes.
+      Dry-run orchestration example showing how one regional site catalog expands into simulation and comparison recipes.
 
    .. grid-item-card::
       :class-card: sd-shadow-sm sd-rounded-3 sd-p-4
@@ -133,8 +133,8 @@ These cases do not focus on one child solver run. They document how one populati
 
    cases/modflow6_gmsh_mesh_catchment
    cases/headwater_100km2_outlet_2_mf6_transient_reference
-   cases/nancon_transient_nwt
    cases/regional_lab_headwater_100km2_dry_plan
    cases/regional_lab_headwater_100km2_mf6_reference_recipe
    cases/regional_lab_headwater_100km2_backend_compare_recipe
    cases/regional_lab_headwater_100km2_transient_backend_compare_recipe
+   cases/nancon_transient_nwt

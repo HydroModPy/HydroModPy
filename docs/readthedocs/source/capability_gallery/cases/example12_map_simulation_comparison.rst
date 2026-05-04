@@ -11,11 +11,17 @@ This case reuses two committed run folders for the same Naizin catchment mesh. I
 .. seealso::
    Read :doc:`the gallery and validation reading guide </getting_started/reading-results-pages>` if you want the parameter mapping, a recommended reading order, and the first modifications to try.
 
+.. figure:: /_static/capability_gallery/simulation_comparison/example12_map_simulation_comparison.png
+   :alt: Simulation comparison figure for the shared Naizin mesh
+   :width: 100%
+
+   Parity plots and error bars comparing the committed MODFLOW 6 and Boussinesq runs on the shared Naizin mesh.
+
 Case Setup
 ----------
 
-- Reference variant: MODFLOW 6 on the committed Gmsh catchment mesh.
-- Candidate variant: Boussinesq reusing the exact same mesh bundle.
+- Reference simulation: MODFLOW 6 on the committed Gmsh catchment mesh.
+- Candidate simulation: Boussinesq reusing the exact same mesh bundle.
 - Compared observables: full `watertable_elevation` and `watertable_depth` maps at the last saved time step.
 - Three head probes sample contrasted response zones: outlet lowland, mid-basin storage, and upstream ridge.
 
@@ -31,9 +37,9 @@ Key Parameters
 --------------
 
 - The most important modelling choice is not a scalar parameter but support equality: both runs must use the same saved mesh if you want a fair map-wide comparison.
-- `run_method_comparison_example12_map_existing.toml` defines which run folders are compared and which observables are sampled from them.
+- `run_comparison_example12_map_existing.toml` defines which run folders are compared and which observables are sampled from them.
 - The compared observables (`watertable_elevation`, `watertable_depth`) determine whether the figure emphasizes absolute state mismatch or near-surface response mismatch.
-- The three point observables reuse anchors from `method_comparison_points.toml` so the same physical locations are compared across methods.
+- The three point observables reuse anchors from `comparison_points.toml` so the same physical locations are compared across simulations.
 - Interpret RMSE and MAE together: RMSE highlights stronger local mismatches while MAE gives the typical cell-wise discrepancy.
 
 How To Read It
@@ -44,29 +50,10 @@ How To Read It
 - Use the error bars and scalar metrics to judge whether disagreement is diffuse or concentrated in specific ranges of the state variable.
 - Do not read this page as a validation benchmark: it is a solver-to-solver comparison, not a comparison against an analytical truth.
 
-Local Regeneration Note
------------------------
-
-This local checkout cannot fully rebuild the original gallery artefacts for this case because one or more legacy source files are not present.
-
-The page is still generated so that the capability-gallery structure, cross-links, and reading guides remain valid during a full documentation rebuild.
-
-Reason: The method-comparison config and committed comparison artifacts needed to regenerate this page are not available in the current checkout.
-
-Missing Local Inputs
---------------------
-
-- ``examples_legacy_2/projects/launcher_simulation/run_method_comparison_example12_map_existing.toml``
-- ``examples_legacy_2/projects/launcher_simulation/run_fast_mf6_mesh_catchment.toml``
-- ``examples_legacy_2/projects/launcher_simulation/run_fast_boussinesq_precomputed_mesh_input.toml``
-- ``examples_legacy_2/projects/launcher_simulation/method_comparison/example12_map_method_comparison/comparison_manifest.json``
-- ``examples_legacy_2/projects/launcher_simulation/method_comparison/example12_map_method_comparison/comparison_metrics.json``
-- ``examples_legacy_2/projects/launcher_simulation/method_comparison/example12_map_method_comparison/observables.csv``
-
 Next Steps
 ----------
 
-- Use :doc:`the gallery and validation reading guide </getting_started/reading-results-pages>` to distinguish example pages, method-comparison pages, and validation pages.
+- Use :doc:`the gallery and validation reading guide </getting_started/reading-results-pages>` to distinguish example pages, comparison pages, and validation pages.
 - If you need to understand the reference MODFLOW 6 run itself, go back to :doc:`the simulation walkthrough </getting_started/simulation-walkthrough>`.
 
 Reproduce
@@ -76,7 +63,7 @@ Run the underlying example or validation case with:
 
 .. code-block:: bash
 
-   python -m hydromodpy run examples_legacy_2/projects/launcher_simulation/run_method_comparison_example12_map_existing.toml
+   python -m tools.doc_gallery
 
 Refresh the committed gallery artifacts with:
 
@@ -87,14 +74,14 @@ Refresh the committed gallery artifacts with:
 Source Pointers
 ---------------
 
-- ``examples_legacy_2/projects/launcher_simulation/run_method_comparison_example12_map_existing.toml``
-- ``examples_legacy_2/projects/launcher_simulation/run_fast_mf6_mesh_catchment.toml``
-- ``examples_legacy_2/projects/launcher_simulation/run_fast_boussinesq_precomputed_mesh_input.toml``
-- ``examples_legacy_2/projects/launcher_simulation/method_comparison/example12_map_method_comparison/comparison_manifest.json``
-- ``examples_legacy_2/projects/launcher_simulation/method_comparison/example12_map_method_comparison/comparison_metrics.json``
-- ``examples_legacy_2/projects/launcher_simulation/method_comparison/example12_map_method_comparison/observables.csv``
+- ``docs/readthedocs/source/_static/capability_gallery/simulation_comparison/example12_map_simulation_comparison_comparison_manifest.json``
+- ``docs/readthedocs/source/_static/capability_gallery/simulation_comparison/example12_map_simulation_comparison_comparison_metrics.json``
+- ``docs/readthedocs/source/_static/capability_gallery/simulation_comparison/example12_map_simulation_comparison_observables.csv``
+- ``docs/readthedocs/source/_static/capability_gallery/simulation_comparison/example12_map_simulation_comparison_summary_metrics.csv``
+- ``docs/readthedocs/source/_static/capability_gallery/simulation_comparison/example12_map_simulation_comparison_difference_metrics.csv``
 
 Artifacts
 ---------
 
-- ``docs/readthedocs/source/_static/capability_gallery/method_comparison/example12_map_method_comparison_summary.json`` stores the displayed metrics plus source hashes used by ``python -m tools.doc_gallery --check``.
+- ``docs/readthedocs/source/_static/capability_gallery/simulation_comparison/example12_map_simulation_comparison.png``
+- ``docs/readthedocs/source/_static/capability_gallery/simulation_comparison/example12_map_simulation_comparison_summary.json`` stores the displayed metrics plus source hashes used by ``python -m tools.doc_gallery --check``.

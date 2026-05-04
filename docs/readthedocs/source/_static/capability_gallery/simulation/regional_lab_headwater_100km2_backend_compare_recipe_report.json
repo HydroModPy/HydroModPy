@@ -63,8 +63,8 @@
         "tags": "mesh_ready",
         "enabled": "true",
         "simulation_reference_config": "../run_headwater_100km2_outlet_2_mf6_transient_reference.toml",
-        "backend_comparison_config": "../run_method_comparison_headwater_100km2_outlet_2_backends.toml",
-        "transient_backend_comparison_config": "../run_method_comparison_headwater_100km2_outlet_2_transient_pulsed_recharge_backends.toml",
+        "backend_comparison_config": "../run_comparison_headwater_100km2_outlet_2_backends.toml",
+        "transient_backend_comparison_config": "../run_comparison_headwater_100km2_outlet_2_transient_pulsed_recharge_backends.toml",
         "notes": "real committed 100 km2 outlet 2"
       }
     },
@@ -273,13 +273,13 @@
       ],
       "recipe_id": "backend_compare",
       "recipe_label": "Backend comparison",
-      "launcher": "method-comparison",
+      "launcher": "comparison",
       "config_path": "docs/readthedocs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_backend_compare_recipe_summary.json",
       "command": [
         "/home/bb/miniforge3/envs/hmp_refact/bin/python",
         "-m",
         "launchers",
-        "method-comparison",
+        "comparison",
         "run",
         "/home/bb/Documents/01_Git_Repository/02-HydroModPy-dev/docs/readthedocs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_backend_compare_recipe_summary.json"
       ],
@@ -308,7 +308,7 @@
       ],
       "recipe_id": "backend_compare",
       "recipe_label": "Backend comparison",
-      "launcher": "method-comparison",
+      "launcher": "comparison",
       "reason": "missing_required_fields",
       "detail": "Missing required field(s): backend_comparison_config",
       "missing_fields": [
@@ -333,7 +333,7 @@
       ],
       "recipe_id": "backend_compare",
       "recipe_label": "Backend comparison",
-      "launcher": "method-comparison",
+      "launcher": "comparison",
       "reason": "missing_required_fields",
       "detail": "Missing required field(s): backend_comparison_config",
       "missing_fields": [

@@ -44,8 +44,8 @@ This case reuses the committed 100 km2 outlet-2 triangular mesh instead of meshi
 Case Setup
 ----------
 
-- Base config: `config_headwater_100km2_mf6_transient_common.toml` keeps the committed triangular mesh, the flow-only process chain, and the common postprocess/display switches.
-- Overlay config: `run_headwater_100km2_outlet_2_mf6_transient_reference.toml` injects the three-year monthly recharge chronology and homogeneous K/Sy/Ss values.
+- Static gallery manifest: the committed capability-gallery manifest records the published assets and their generation context.
+- The source run used a committed triangular mesh, the flow-only process chain, and common postprocess/display switches.
 - Execution chain: committed `mesh_input` bundle -> MODFLOW 6 transient flow -> postprocess rasters and synthesis figures -> gallery publication.
 
 What It Shows
@@ -74,7 +74,7 @@ Next Steps
 ----------
 
 - Read :doc:`the simulation walkthrough </getting_started/simulation-walkthrough>` for the general mapping between config sections and displayed figures.
-- Use the committed-mesh comparison pages in :doc:`the method-comparison section </capability_gallery/method_comparison>` when you want to compare this style of replay against other supports or solver families.
+- Use the committed-mesh comparison pages in :doc:`the simulation-comparison section </capability_gallery/simulation_comparison>` when you want to compare this style of replay against other supports or solver families.
 
 Reproduce
 ---------
@@ -83,7 +83,7 @@ Run the underlying example or validation case with:
 
 .. code-block:: bash
 
-   python -m hydromodpy run examples_legacy_2/projects/launcher_simulation/run_headwater_100km2_outlet_2_mf6_transient_reference.toml
+   python -m tools.doc_gallery
 
 Refresh the committed gallery artifacts with:
 
@@ -94,9 +94,7 @@ Refresh the committed gallery artifacts with:
 Source Pointers
 ---------------
 
-- ``examples_legacy_2/projects/launcher_simulation/run_headwater_100km2_outlet_2_mf6_transient_reference.toml``
-- ``examples_legacy_2/projects/launcher_simulation/config_headwater_100km2_mf6_transient_common.toml``
-- ``examples_legacy_2/projects/launcher_simulation/README.md``
+- ``examples/projects/09_capability_gallery/README.md``
 - ``examples/projects/09_capability_gallery/launcher_simulation/headwater_100km2_outlet_2_mf6_transient_reference/manifest.json``
 - ``hydromodpy/analysis/capability_gallery.py``
 

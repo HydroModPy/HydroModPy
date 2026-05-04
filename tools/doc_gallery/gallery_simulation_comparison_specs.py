@@ -1,4 +1,4 @@
-"""Method-comparison gallery family extracted from the main manifest."""
+"""Simulation-comparison gallery family extracted from the main manifest."""
 
 from __future__ import annotations
 
@@ -7,17 +7,18 @@ from typing import Any
 
 from .gallery_schema import GalleryCaseSpec, GalleryImageAsset
 
-_METHOD_STATIC_ROOT = "docs/readthedocs/source/_static/capability_gallery/method_comparison"
-_DEFAULT_METHOD_COMPARISON_NEXT_STEPS = (
+_SIMULATION_COMPARISON_STATIC_ROOT = (
+    "docs/readthedocs/source/_static/capability_gallery/simulation_comparison"
+)
+_DEFAULT_SIMULATION_COMPARISON_NEXT_STEPS = (
     "Use :doc:`the gallery and validation reading guide </getting_started/reading-results-pages>` to distinguish example pages, comparison pages, and validation pages.",
     "Go back to :doc:`the simulation walkthrough </getting_started/simulation-walkthrough>` when you need to inspect one contributing run in isolation.",
 )
 
 
-def _static_method_assets(slug: str) -> tuple[str, ...]:
-    root = f"{_METHOD_STATIC_ROOT}/{slug}"
+def _static_simulation_comparison_assets(slug: str) -> tuple[str, ...]:
+    root = f"{_SIMULATION_COMPARISON_STATIC_ROOT}/{slug}"
     return (
-        f"{root}_summary.json",
         f"{root}_comparison_manifest.json",
         f"{root}_comparison_metrics.json",
         f"{root}_observables.csv",
@@ -26,7 +27,7 @@ def _static_method_assets(slug: str) -> tuple[str, ...]:
     )
 
 
-def _augment_method_comparison_source_paths(
+def _augment_simulation_comparison_source_paths(
     comparison_config_path: str,
     source_paths: tuple[str, ...],
 ) -> tuple[str, ...]:
@@ -44,7 +45,7 @@ def _augment_method_comparison_source_paths(
     return tuple(expanded_paths)
 
 
-def _build_method_comparison_case_spec(
+def _build_simulation_comparison_case_spec(
     *,
     slug: str,
     title: str,
@@ -57,33 +58,33 @@ def _build_method_comparison_case_spec(
     key_parameters: tuple[str, ...],
     how_to_read: tuple[str, ...],
     study_area: str,
-    focus_variant_id: str,
+    focus_simulation_id: str,
     comparison_family_key: str,
     comparison_family_label: str,
     comparison_family_deck: str,
     comparison_family_order: int,
     comparison_case_order: int,
-    next_steps: tuple[str, ...] = _DEFAULT_METHOD_COMPARISON_NEXT_STEPS,
+    next_steps: tuple[str, ...] = _DEFAULT_SIMULATION_COMPARISON_NEXT_STEPS,
     metadata: dict[str, Any] | None = None,
 ) -> GalleryCaseSpec:
-    """Build one method-comparison gallery spec with shared defaults."""
+    """Build one simulation-comparison gallery spec with shared defaults."""
 
     return GalleryCaseSpec(
         slug=slug,
         title=title,
-        category="method_comparison",
+        category="simulation_comparison",
         deck=deck,
         summary=summary,
         what_it_shows=what_it_shows,
         reproduction_command="python -m tools.doc_gallery",
-        source_paths=_static_method_assets(slug) + source_paths,
+        source_paths=_static_simulation_comparison_assets(slug) + source_paths,
         generator="copy_assets",
         image_assets=(
             GalleryImageAsset(
                 filename=f"{slug}.png",
                 caption=f"Summary comparison figure for {title.lower()}.",
-                alt_text=f"Method comparison summary for {title}",
-                source_path=f"{_METHOD_STATIC_ROOT}/{slug}.png",
+                alt_text=f"Simulation comparison summary for {title}",
+                source_path=f"{_SIMULATION_COMPARISON_STATIC_ROOT}/{slug}.png",
             ),
         ),
         case_setup=case_setup,
@@ -93,10 +94,10 @@ def _build_method_comparison_case_spec(
         walkthrough_doc="getting_started/reading-results-pages",
         walkthrough_title="the gallery and validation reading guide",
         metadata={
-            "static_summary_path": f"{_METHOD_STATIC_ROOT}/{slug}_summary.json",
-            "comparison_summary_path": f"{_METHOD_STATIC_ROOT}/{slug}_summary.json",
+            "static_summary_path": f"{_SIMULATION_COMPARISON_STATIC_ROOT}/{slug}_summary.json",
+            "comparison_summary_path": f"{_SIMULATION_COMPARISON_STATIC_ROOT}/{slug}_summary.json",
             "study_area": study_area,
-            "focus_variant_id": focus_variant_id,
+            "focus_simulation_id": focus_simulation_id,
             "comparison_family_key": comparison_family_key,
             "comparison_family_label": comparison_family_label,
             "comparison_family_deck": comparison_family_deck,
@@ -107,12 +108,12 @@ def _build_method_comparison_case_spec(
     )
 
 
-def build_method_comparison_specs() -> tuple[GalleryCaseSpec, ...]:
+def build_simulation_comparison_specs() -> tuple[GalleryCaseSpec, ...]:
     return (
         GalleryCaseSpec(
-            slug="example12_map_method_comparison",
+            slug="example12_map_simulation_comparison",
             title="Shared-Mesh Solver Comparison on Naizin",
-            category="method_comparison",
+            category="simulation_comparison",
             deck="Shared-mesh comparison of MODFLOW 6 and Boussinesq on Naizin, combining map snapshots and three head chronicle probes.",
             summary=(
                 "This case reuses two committed run folders for the same Naizin catchment mesh. It compares full "
@@ -126,25 +127,27 @@ def build_method_comparison_specs() -> tuple[GalleryCaseSpec, ...]:
                 "How comparison figures can be regenerated from committed run folders without rerunning the solvers.",
             ),
             reproduction_command="python -m tools.doc_gallery",
-            source_paths=_static_method_assets("example12_map_method_comparison"),
+            source_paths=_static_simulation_comparison_assets(
+                "example12_map_simulation_comparison"
+            ),
             generator="copy_assets",
             image_assets=(
                 GalleryImageAsset(
-                    filename="example12_map_method_comparison.png",
+                    filename="example12_map_simulation_comparison.png",
                     caption=(
                         "Parity plots and error bars comparing the committed MODFLOW 6 and Boussinesq "
                         "runs on the shared Naizin mesh."
                     ),
-                    alt_text="Method comparison figure for the shared Naizin mesh",
+                    alt_text="Simulation comparison figure for the shared Naizin mesh",
                     source_path=(
-                        "docs/readthedocs/source/_static/capability_gallery/method_comparison/"
-                        "example12_map_method_comparison.png"
+                        "docs/readthedocs/source/_static/capability_gallery/simulation_comparison/"
+                        "example12_map_simulation_comparison.png"
                     ),
                 ),
             ),
             case_setup=(
-                "Reference variant: MODFLOW 6 on the committed Gmsh catchment mesh.",
-                "Candidate variant: Boussinesq reusing the exact same mesh bundle.",
+                "Reference simulation: MODFLOW 6 on the committed Gmsh catchment mesh.",
+                "Candidate simulation: Boussinesq reusing the exact same mesh bundle.",
                 "Compared observables: full `watertable_elevation` and `watertable_depth` maps at the last saved time step.",
                 "Three head probes sample contrasted response zones: outlet lowland, mid-basin storage, and upstream ridge.",
             ),
@@ -152,7 +155,7 @@ def build_method_comparison_specs() -> tuple[GalleryCaseSpec, ...]:
                 "The most important modelling choice is not a scalar parameter but support equality: both runs must use the same saved mesh if you want a fair map-wide comparison.",
                 "`run_comparison_example12_map_existing.toml` defines which run folders are compared and which observables are sampled from them.",
                 "The compared observables (`watertable_elevation`, `watertable_depth`) determine whether the figure emphasizes absolute state mismatch or near-surface response mismatch.",
-                "The three point observables reuse anchors from `comparison_points.toml` so the same physical locations are compared across methods.",
+                "The three point observables reuse anchors from `comparison_points.toml` so the same physical locations are compared across simulations.",
                 "Interpret RMSE and MAE together: RMSE highlights stronger local mismatches while MAE gives the typical cell-wise discrepancy.",
             ),
             how_to_read=(
@@ -169,15 +172,15 @@ def build_method_comparison_specs() -> tuple[GalleryCaseSpec, ...]:
             walkthrough_title="the gallery and validation reading guide",
             metadata={
                 "static_summary_path": (
-                    "docs/readthedocs/source/_static/capability_gallery/method_comparison/"
-                    "example12_map_method_comparison_summary.json"
+                    "docs/readthedocs/source/_static/capability_gallery/simulation_comparison/"
+                    "example12_map_simulation_comparison_summary.json"
                 ),
                 "comparison_summary_path": (
-                    "docs/readthedocs/source/_static/capability_gallery/method_comparison/"
-                    "example12_map_method_comparison_summary.json"
+                    "docs/readthedocs/source/_static/capability_gallery/simulation_comparison/"
+                    "example12_map_simulation_comparison_summary.json"
                 ),
                 "study_area": "Naizin catchment",
-                "focus_variant_id": "boussinesq_reused_gmsh",
+                "focus_simulation_id": "boussinesq_reused_gmsh",
                 "comparison_family_key": "shared_support_cross_solver",
                 "comparison_family_label": "Same Support, Different Solvers",
                 "comparison_family_deck": (
@@ -186,14 +189,18 @@ def build_method_comparison_specs() -> tuple[GalleryCaseSpec, ...]:
                 ),
                 "comparison_family_order": 10,
                 "comparison_case_order": 10,
-                "observable_names": ["watertable_elevation", "watertable_depth", "head_timeseries"],
-                "variant_labels": {
+                "observable_names": [
+                    "watertable_elevation",
+                    "watertable_depth",
+                    "head_timeseries",
+                ],
+                "simulation_labels": {
                     "mf6_reference_gmsh": "MODFLOW 6 on committed Gmsh mesh",
                     "boussinesq_reused_gmsh": "Boussinesq reusing the same mesh",
                 },
             },
         ),
-        _build_method_comparison_case_spec(
+        _build_simulation_comparison_case_spec(
             slug="ex12_mf6_nwt_moderate_same_s60",
             title="MF6 vs NWT on the Same 60x60 Grid",
             deck="Annual moderate comparison on one shared structured grid, isolating MODFLOW-family differences from mesh effects.",
@@ -209,16 +216,16 @@ def build_method_comparison_specs() -> tuple[GalleryCaseSpec, ...]:
                 "How execution-time bars look when the comparison does not mix structured and triangular supports.",
             ),
             comparison_config_path=(
-                f"{_METHOD_STATIC_ROOT}/ex12_mf6_nwt_moderate_same_s60_summary.json"
+                f"{_SIMULATION_COMPARISON_STATIC_ROOT}/ex12_mf6_nwt_moderate_same_s60_summary.json"
             ),
             source_paths=(),
             case_setup=(
-                "Reference variant: MODFLOW 6 on the 60x60 structured grid.",
-                "Candidate variant: MODFLOW-NWT on the same 60x60 structured grid.",
+                "Reference simulation: MODFLOW 6 on the 60x60 structured grid.",
+                "Candidate simulation: MODFLOW-NWT on the same 60x60 structured grid.",
                 "Compared observables mix full maps (`head`, `depth`, `outflow_drain`), three head probes, one outlet-flux chronicle, native flux panels, and execution-time bars.",
             ),
             key_parameters=(
-                'Support equality is the main control knob here: both variants use the same `mesh_label = "sgrid_60x60"`, so disagreements are not attributable to a mesh-family change.',
+                'Support equality is the main control knob here: both simulations use the same `mesh_label = "sgrid_60x60"`, so disagreements are not attributable to a mesh-family change.',
                 "`run_comparison_mf6_vs_nwt_same_regular_mesh_moderate.toml` selects the observables that stay comparable across the two MODFLOW families.",
                 "Use the outlet-flux and native-flux observables together: the outlet curve shows integrated export, while the native panels reveal how each code reports internal drainage/accumulation terms.",
             ),
@@ -228,7 +235,7 @@ def build_method_comparison_specs() -> tuple[GalleryCaseSpec, ...]:
                 "If a discrepancy looks large, do not blame the mesh first: this page is intentionally built to remove that degree of freedom.",
             ),
             study_area="Example12 / Naizin",
-            focus_variant_id="nwt_mod_s60",
+            focus_simulation_id="nwt_mod_s60",
             comparison_family_key="shared_support_cross_solver",
             comparison_family_label="Same Support, Different Solvers",
             comparison_family_deck=(
@@ -238,7 +245,7 @@ def build_method_comparison_specs() -> tuple[GalleryCaseSpec, ...]:
             comparison_family_order=10,
             comparison_case_order=20,
         ),
-        _build_method_comparison_case_spec(
+        _build_simulation_comparison_case_spec(
             slug="ex12_mf6_nwt_moderate",
             title="MF6 Triangular vs NWT Structured on Moderate Forcing",
             deck="Annual moderate comparison where both solver family and mesh family change, with a common fine raster used for map alignment.",
@@ -253,11 +260,11 @@ def build_method_comparison_specs() -> tuple[GalleryCaseSpec, ...]:
                 "How a fine common raster and an intersection extent make map comparisons possible across incompatible supports.",
                 "How point chronicles and outlet flux help decide whether disagreement is local, diffuse, or tied to basin export.",
             ),
-            comparison_config_path=f"{_METHOD_STATIC_ROOT}/ex12_mf6_nwt_moderate_summary.json",
+            comparison_config_path=f"{_SIMULATION_COMPARISON_STATIC_ROOT}/ex12_mf6_nwt_moderate_summary.json",
             source_paths=(),
             case_setup=(
-                "Reference variant: MODFLOW 6 on the committed triangular mesh.",
-                "Candidate variant: MODFLOW-NWT on the 60x60 structured grid.",
+                "Reference simulation: MODFLOW 6 on the committed triangular mesh.",
+                "Candidate simulation: MODFLOW-NWT on the 60x60 structured grid.",
                 "Map observables are resampled on a shared fine raster over the support intersection before parity metrics are computed.",
             ),
             key_parameters=(
@@ -271,7 +278,7 @@ def build_method_comparison_specs() -> tuple[GalleryCaseSpec, ...]:
                 "Use this page to understand what changes when you leave the shared-support regime used by the tighter comparison cases.",
             ),
             study_area="Example12 / Naizin",
-            focus_variant_id="nwt_mod_s60",
+            focus_simulation_id="nwt_mod_s60",
             comparison_family_key="mixed_support_regime",
             comparison_family_label="Different Supports, Same Regime",
             comparison_family_deck=(
@@ -281,7 +288,7 @@ def build_method_comparison_specs() -> tuple[GalleryCaseSpec, ...]:
             comparison_family_order=20,
             comparison_case_order=10,
         ),
-        _build_method_comparison_case_spec(
+        _build_simulation_comparison_case_spec(
             slug="example12_mf6_vs_nwt_different_meshes_demonstrative",
             title="MF6 Triangular vs NWT Structured on Demonstrative Forcing",
             deck="Different-support comparison on the more expressive demonstrative annual setup, including flux and timing diagnostics.",
@@ -297,12 +304,12 @@ def build_method_comparison_specs() -> tuple[GalleryCaseSpec, ...]:
                 "How execution-time bars and flux panels behave on a more showcase-oriented scenario.",
             ),
             comparison_config_path=(
-                f"{_METHOD_STATIC_ROOT}/example12_mf6_vs_nwt_different_meshes_demonstrative_summary.json"
+                f"{_SIMULATION_COMPARISON_STATIC_ROOT}/example12_mf6_vs_nwt_different_meshes_demonstrative_summary.json"
             ),
             source_paths=(),
             case_setup=(
-                "Reference variant: MODFLOW 6 on the committed triangular support.",
-                "Candidate variant: MODFLOW-NWT on the 60x60 structured support.",
+                "Reference simulation: MODFLOW 6 on the committed triangular support.",
+                "Candidate simulation: MODFLOW-NWT on the 60x60 structured support.",
                 "Compared observables mirror the moderate different-support case so the main reading change is the forcing regime, not the observable list.",
             ),
             key_parameters=(
@@ -316,7 +323,7 @@ def build_method_comparison_specs() -> tuple[GalleryCaseSpec, ...]:
                 "Do not read the demonstrative label as 'more correct'; it is a more expressive scenario, not a stronger validation claim.",
             ),
             study_area="Example12 / Naizin",
-            focus_variant_id="nwt_demo_structured",
+            focus_simulation_id="nwt_demo_structured",
             comparison_family_key="mixed_support_regime",
             comparison_family_label="Different Supports, Same Regime",
             comparison_family_deck=(
@@ -326,90 +333,90 @@ def build_method_comparison_specs() -> tuple[GalleryCaseSpec, ...]:
             comparison_family_order=20,
             comparison_case_order=20,
         ),
-        _build_method_comparison_case_spec(
-            slug="ex12_multi_method_moderate",
-            title="Four-Method Moderate Suite on Example12",
+        _build_simulation_comparison_case_spec(
+            slug="ex12_multi_simulation_moderate",
+            title="Four-Simulation Moderate Suite on Example12",
             deck="One annual moderate suite spanning MF6 and NWT on structured support plus MF6 and Boussinesq on committed triangles.",
             summary=(
-                "This case expands the comparison from two variants to four. It combines one same-grid "
+                "This case expands the comparison from two simulations to four. It combines one same-grid "
                 "solver comparison (MF6 vs NWT on 60x60) with one same-solver support comparison "
                 "(MF6 structured vs MF6 triangular), then adds Boussinesq on the committed triangular "
-                "mesh to expose a broader method family spread under the same moderate forcing."
+                "mesh to expose a broader simulation spread under the same moderate forcing."
             ),
             what_it_shows=(
-                "How one page can separate solver-family effects, support-family effects, and a broader method-family spread.",
-                "How multi-variant map comparisons and point chronicles stay interpretable when one reference variant is kept explicit.",
-                "How outlet flux, native flux panels, and execution times complement the map-based metrics in a four-variant suite.",
+                "How one page can separate solver-family effects, support-family effects, and a broader simulation spread.",
+                "How multi-simulation map comparisons and point chronicles stay interpretable when one reference simulation is kept explicit.",
+                "How outlet flux, native flux panels, and execution times complement the map-based metrics in a four-simulation suite.",
             ),
-            comparison_config_path=f"{_METHOD_STATIC_ROOT}/ex12_multi_method_moderate_summary.json",
+            comparison_config_path=f"{_SIMULATION_COMPARISON_STATIC_ROOT}/ex12_multi_simulation_moderate_summary.json",
             source_paths=(),
             case_setup=(
-                "Reference variant: MODFLOW 6 on the 60x60 structured grid.",
-                "Additional variants: MODFLOW-NWT on the same grid, MODFLOW 6 on committed triangles, and Boussinesq on the same committed triangles.",
-                "The case keeps one observable family across all variants so the page can separate solver and support effects without changing the reading frame.",
+                "Reference simulation: MODFLOW 6 on the 60x60 structured grid.",
+                "Additional simulations: MODFLOW-NWT on the same grid, MODFLOW 6 on committed triangles, and Boussinesq on the same committed triangles.",
+                "The case keeps one observable family across all simulations so the page can separate solver and support effects without changing the reading frame.",
             ),
             key_parameters=(
-                "The chosen reference variant matters more here than in the two-variant pages because every metric is read relative to `mf6_mod_s60`.",
-                "The two triangular variants share the same committed support, which helps isolate the solver-family jump from MF6 to Boussinesq once you are already off the structured grid.",
+                "The chosen reference simulation matters more here than in the two-simulation pages because every metric is read relative to `mf6_mod_s60`.",
+                "The two triangular simulations share the same committed support, which helps isolate the solver-family jump from MF6 to Boussinesq once you are already off the structured grid.",
                 "Use the execution-time bars as a complement, not a ranking by itself: the suite mixes different support families and solver implementations on purpose.",
             ),
             how_to_read=(
-                "Start with the same-grid MF6/NWT interpretation, then move to the same-solver MF6 structured-vs-triangular shift, then read the Boussinesq triangular variant last.",
+                "Start with the same-grid MF6/NWT interpretation, then move to the same-solver MF6 structured-vs-triangular shift, then read the Boussinesq triangular simulation last.",
                 "This page is not meant to collapse everything into one scalar ranking; it is meant to show which comparison axis explains each mismatch.",
-                "If the suite feels dense, use the dedicated two-variant cases first and come back here for synthesis.",
+                "If the suite feels dense, use the dedicated two-simulation cases first and come back here for synthesis.",
             ),
             study_area="Example12 / Naizin",
-            focus_variant_id="bouss_mod_tri",
-            comparison_family_key="multi_method_suites",
-            comparison_family_label="Multi-Method Suites",
+            focus_simulation_id="bouss_mod_tri",
+            comparison_family_key="multi_simulation_suites",
+            comparison_family_label="Multi-Simulation Suites",
             comparison_family_deck=(
-                "These cases keep more than two variants on one page so the reader can separate "
+                "These cases keep more than two simulations on one page so the reader can separate "
                 "solver-family, support-family, and runtime-family effects without opening several "
                 "independent comparisons."
             ),
             comparison_family_order=30,
             comparison_case_order=10,
         ),
-        _build_method_comparison_case_spec(
-            slug="ex12_multi_method_moderate_causes",
-            title="Four-Method Moderate Suite with Surface-Excess Diagnostics",
-            deck="Diagnostic extension of the four-method moderate suite, adding surface-excess observables and Boussinesq budget diagnostics.",
+        _build_simulation_comparison_case_spec(
+            slug="ex12_multi_simulation_moderate_causes",
+            title="Four-Simulation Moderate Suite with Surface-Excess Diagnostics",
+            deck="Diagnostic extension of the four-simulation moderate suite, adding surface-excess observables and Boussinesq budget diagnostics.",
             summary=(
-                "This case keeps the same four variants as the moderate suite but adds observables "
+                "This case keeps the same four simulations as the moderate suite but adds observables "
                 "that only make sense for the triangular/Boussinesq side of the comparison: surface-"
                 "excess time series, a surface-excess map, and an explicit budget-diagnostics figure. "
-                "It is the diagnostic companion page for understanding where the multi-method spread comes from."
+                "It is the diagnostic companion page for understanding where the multi-simulation spread comes from."
             ),
             what_it_shows=(
-                "How a multi-method suite can be extended with targeted diagnostic observables instead of only repeating the same state metrics.",
-                "How Boussinesq-specific surface-excess and budget views help explain disagreements seen in the more generic four-method page.",
+                "How a multi-simulation suite can be extended with targeted diagnostic observables instead of only repeating the same state metrics.",
+                "How Boussinesq-specific surface-excess and budget views help explain disagreements seen in the more generic four-simulation page.",
                 "How the same comparison backbone can support both a compact synthesis page and a more causal diagnostic page.",
             ),
             comparison_config_path=(
-                f"{_METHOD_STATIC_ROOT}/ex12_multi_method_moderate_causes_summary.json"
+                f"{_SIMULATION_COMPARISON_STATIC_ROOT}/ex12_multi_simulation_moderate_causes_summary.json"
             ),
             source_paths=(),
             case_setup=(
-                "Base variants are identical to the four-method moderate suite: MF6 structured, NWT structured, MF6 triangular, and Boussinesq triangular.",
+                "Base simulations are identical to the four-simulation moderate suite: MF6 structured, NWT structured, MF6 triangular, and Boussinesq triangular.",
                 "Additional observables expose surface-excess response and Boussinesq budget structure rather than only the shared state variables.",
                 "The page is intentionally denser because it is meant for diagnosis after reading the simpler synthesis page.",
             ),
             key_parameters=(
-                "This config keeps the multi-method backbone but adds observables that are diagnostic rather than universally shared across all methods.",
-                "Use the surface-excess series and map to explain why the Boussinesq triangular variant departs from the MODFLOW variants under moderate forcing.",
-                "The budget diagnostics are explanatory aids, not a replacement for the comparable cross-variant metrics shown on the simpler suite page.",
+                "This config keeps the multi-simulation backbone but adds observables that are diagnostic rather than universally shared across all simulations.",
+                "Use the surface-excess series and map to explain why the Boussinesq triangular simulation departs from the MODFLOW simulations under moderate forcing.",
+                "The budget diagnostics are explanatory aids, not a replacement for the comparable cross-simulation metrics shown on the simpler suite page.",
             ),
             how_to_read=(
-                "Read this page after the simpler four-method suite, not before it.",
+                "Read this page after the simpler four-simulation suite, not before it.",
                 "Use it when you need a causal explanation for one mismatch, especially on the Boussinesq triangular branch, rather than a first-pass comparison overview.",
-                "Keep in mind that not every diagnostic observable exists for every method, so this page is partly asymmetric by design.",
+                "Keep in mind that not every diagnostic observable exists for every simulation, so this page is partly asymmetric by design.",
             ),
             study_area="Example12 / Naizin",
-            focus_variant_id="bouss_mod_tri",
-            comparison_family_key="multi_method_suites",
-            comparison_family_label="Multi-Method Suites",
+            focus_simulation_id="bouss_mod_tri",
+            comparison_family_key="multi_simulation_suites",
+            comparison_family_label="Multi-Simulation Suites",
             comparison_family_deck=(
-                "These cases keep more than two variants on one page so the reader can separate "
+                "These cases keep more than two simulations on one page so the reader can separate "
                 "solver-family, support-family, and runtime-family effects without opening several "
                 "independent comparisons."
             ),
@@ -419,4 +426,4 @@ def build_method_comparison_specs() -> tuple[GalleryCaseSpec, ...]:
     )
 
 
-__all__ = ["build_method_comparison_specs"]
+__all__ = ["build_simulation_comparison_specs"]

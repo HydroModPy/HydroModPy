@@ -23,12 +23,11 @@
   "equations_rst": [],
   "walkthrough_doc": null,
   "walkthrough_title": null,
-  "reproduction_command": "python -m launchers mesh-catchment run old/launchers/mesh_catchment/scenarios/config_s3_10km2_outlet_1_rivers_only.toml",
+  "reproduction_command": "python -m tools.doc_gallery",
   "gallery_update_command": "python -m tools.doc_gallery",
   "source_paths": [
-    "old/launchers/mesh_catchment/scenarios/config_s3_10km2_outlet_1_rivers_only.toml",
-    "examples/projects/07_mesh_gallery/10km2/mesh_s3_10km2_outlet_1_rivers_only_buffer30/case.json",
     "examples/projects/07_mesh_gallery/10km2/mesh_s3_10km2_outlet_1_rivers_only_buffer30/viewer_config.toml",
+    "examples/projects/07_mesh_gallery/10km2/mesh_s3_10km2_outlet_1_rivers_only_buffer30/case.json",
     "examples/projects/07_mesh_gallery/10km2/mesh_s3_10km2_outlet_1_rivers_only_buffer30/README.md",
     "examples/projects/07_mesh_gallery/10km2/mesh_s3_10km2_outlet_1_rivers_only_buffer30/bundle/mesh_2d.msh",
     "examples/projects/07_mesh_gallery/10km2/mesh_s3_10km2_outlet_1_rivers_only_buffer30/bundle/nodes.csv",
@@ -42,10 +41,9 @@
     "examples/projects/07_mesh_gallery/10km2/mesh_s3_10km2_outlet_1_rivers_only_buffer30/figures/mesh_regional.png"
   ],
   "source_hashes": {
-    "old/launchers/mesh_catchment/scenarios/config_s3_10km2_outlet_1_rivers_only.toml": "__missing__",
-    "examples/projects/07_mesh_gallery/10km2/mesh_s3_10km2_outlet_1_rivers_only_buffer30/case.json": "61f48761198a2e8cd0670815843341de648f59fb1e5c44eaf0d78466f9ef1c0b",
     "examples/projects/07_mesh_gallery/10km2/mesh_s3_10km2_outlet_1_rivers_only_buffer30/viewer_config.toml": "ca5e66c821e8a500c660c6bd9c549a4f38612cc632eb8b3235ec4d7a538cf3da",
-    "examples/projects/07_mesh_gallery/10km2/mesh_s3_10km2_outlet_1_rivers_only_buffer30/README.md": "aa951302efcce243a9d18f858acb146ee31f4e3b3afe74bcbd8d26811f39c7e9",
+    "examples/projects/07_mesh_gallery/10km2/mesh_s3_10km2_outlet_1_rivers_only_buffer30/case.json": "41a5a795581dbce5984543b91d441ac968f1aff6ebe0a6a31e707cb05cd40275",
+    "examples/projects/07_mesh_gallery/10km2/mesh_s3_10km2_outlet_1_rivers_only_buffer30/README.md": "646b9f6d3c3aa0899b403d69fcb5eb69bb37bea4f8c1133e9ae54a79593facd5",
     "examples/projects/07_mesh_gallery/10km2/mesh_s3_10km2_outlet_1_rivers_only_buffer30/bundle/mesh_2d.msh": "31627f943d8207576c1a636066ce42ec49a4c0d3a0491950319cde18806d3e19",
     "examples/projects/07_mesh_gallery/10km2/mesh_s3_10km2_outlet_1_rivers_only_buffer30/bundle/nodes.csv": "649cba4f82703c150cb8954ab545672b665f45cb46c9c148a5fc4238258ce14b",
     "examples/projects/07_mesh_gallery/10km2/mesh_s3_10km2_outlet_1_rivers_only_buffer30/bundle/cells.csv": "320fb274e0c5fcca6144c6a82ee20934be19d4a773adcfea786a52daeb3c5293",

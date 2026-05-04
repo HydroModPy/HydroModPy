@@ -1,0 +1,87 @@
+{
+  "summary_schema_version": "capability_gallery_case_v1",
+  "slug": "ex12_multi_simulation_moderate",
+  "title": "Four-Simulation Moderate Suite on Example12",
+  "category": "simulation_comparison",
+  "deck": "One annual moderate suite spanning MF6 and NWT on structured support plus MF6 and Boussinesq on committed triangles.",
+  "summary": "This case expands the comparison from two simulations to four. It combines one same-grid solver comparison (MF6 vs NWT on 60x60) with one same-solver support comparison (MF6 structured vs MF6 triangular), then adds Boussinesq on the committed triangular mesh to expose a broader simulation spread under the same moderate forcing.",
+  "case_setup": [
+    "Reference simulation: MODFLOW 6 on the 60x60 structured grid.",
+    "Additional simulations: MODFLOW-NWT on the same grid, MODFLOW 6 on committed triangles, and Boussinesq on the same committed triangles.",
+    "The case keeps one observable family across all simulations so the page can separate solver and support effects without changing the reading frame."
+  ],
+  "key_parameters": [
+    "The chosen reference simulation matters more here than in the two-simulation pages because every metric is read relative to `mf6_mod_s60`.",
+    "The two triangular simulations share the same committed support, which helps isolate the solver-family jump from MF6 to Boussinesq once you are already off the structured grid.",
+    "Use the execution-time bars as a complement, not a ranking by itself: the suite mixes different support families and solver implementations on purpose."
+  ],
+  "how_to_read": [
+    "Start with the same-grid MF6/NWT interpretation, then move to the same-solver MF6 structured-vs-triangular shift, then read the Boussinesq triangular simulation last.",
+    "This page is not meant to collapse everything into one scalar ranking; it is meant to show which comparison axis explains each mismatch.",
+    "If the suite feels dense, use the dedicated two-simulation cases first and come back here for synthesis."
+  ],
+  "next_steps": [
+    "Use :doc:`the gallery and validation reading guide </getting_started/reading-results-pages>` to distinguish example pages, comparison pages, and validation pages.",
+    "Go back to :doc:`the simulation walkthrough </getting_started/simulation-walkthrough>` when you need to inspect one contributing run in isolation."
+  ],
+  "what_it_shows": [
+    "How one page can separate solver-family effects, support-family effects, and a broader simulation spread.",
+    "How multi-simulation map comparisons and point chronicles stay interpretable when one reference simulation is kept explicit.",
+    "How outlet flux, native flux panels, and execution times complement the map-based metrics in a four-simulation suite."
+  ],
+  "reference_highlights": [],
+  "equations_rst": [],
+  "walkthrough_doc": "getting_started/reading-results-pages",
+  "walkthrough_title": "the gallery and validation reading guide",
+  "reproduction_command": "python -m tools.doc_gallery",
+  "gallery_update_command": "python -m tools.doc_gallery",
+  "source_paths": [
+    "docs/readthedocs/source/_static/capability_gallery/simulation_comparison/ex12_multi_simulation_moderate_comparison_manifest.json",
+    "docs/readthedocs/source/_static/capability_gallery/simulation_comparison/ex12_multi_simulation_moderate_comparison_metrics.json",
+    "docs/readthedocs/source/_static/capability_gallery/simulation_comparison/ex12_multi_simulation_moderate_observables.csv",
+    "docs/readthedocs/source/_static/capability_gallery/simulation_comparison/ex12_multi_simulation_moderate_summary_metrics.csv",
+    "docs/readthedocs/source/_static/capability_gallery/simulation_comparison/ex12_multi_simulation_moderate_difference_metrics.csv"
+  ],
+  "source_hashes": {
+    "docs/readthedocs/source/_static/capability_gallery/simulation_comparison/ex12_multi_simulation_moderate_comparison_manifest.json": "3634276629af3bfdd1f60b070b8d0316df619b50a881a7e890ec2cb9d9466726",
+    "docs/readthedocs/source/_static/capability_gallery/simulation_comparison/ex12_multi_simulation_moderate_comparison_metrics.json": "b6046c5c9f40866a4e02a13515498189e5c127dff11cada3dbf35aa83261aab6",
+    "docs/readthedocs/source/_static/capability_gallery/simulation_comparison/ex12_multi_simulation_moderate_observables.csv": "42920662935736c937fde89d45a5b3806b20935335ccefd9048aa091bf6cce83",
+    "docs/readthedocs/source/_static/capability_gallery/simulation_comparison/ex12_multi_simulation_moderate_summary_metrics.csv": "ac6c7ea54c2b91a3baa8211d8dd176305aaa6d36a27d2529b982043d4133bb49",
+    "docs/readthedocs/source/_static/capability_gallery/simulation_comparison/ex12_multi_simulation_moderate_difference_metrics.csv": "6a174bc32a9b9809b2c4a1e00d676eb16264d02fea709e3ccc7a99cb371ae21c"
+  },
+  "docname": "cases/ex12_multi_simulation_moderate",
+  "images": [
+    {
+      "filename": "ex12_multi_simulation_moderate.png",
+      "caption": "Summary comparison figure for four-simulation moderate suite on example12.",
+      "alt_text": "Simulation comparison summary for Four-Simulation Moderate Suite on Example12",
+      "doc_path": "/_static/capability_gallery/simulation_comparison/ex12_multi_simulation_moderate.png",
+      "repo_path": "docs/readthedocs/source/_static/capability_gallery/simulation_comparison/ex12_multi_simulation_moderate.png"
+    }
+  ],
+  "metrics": [],
+  "metadata": {
+    "static_summary_path": "docs/readthedocs/source/_static/capability_gallery/simulation_comparison/ex12_multi_simulation_moderate_summary.json",
+    "comparison_summary_path": "docs/readthedocs/source/_static/capability_gallery/simulation_comparison/ex12_multi_simulation_moderate_summary.json",
+    "study_area": "Example12 / Naizin",
+    "focus_simulation_id": "bouss_mod_tri",
+    "comparison_family_key": "multi_simulation_suites",
+    "comparison_family_label": "Multi-Simulation Suites",
+    "comparison_family_deck": "These cases keep more than two simulations on one page so the reader can separate solver-family, support-family, and runtime-family effects without opening several independent comparisons.",
+    "comparison_family_order": 30,
+    "comparison_case_order": 10,
+    "copied_assets": [
+      {
+        "source_path": "docs/readthedocs/source/_static/capability_gallery/simulation_comparison/ex12_multi_simulation_moderate.png",
+        "copied_to": "docs/readthedocs/source/_static/capability_gallery/simulation_comparison/ex12_multi_simulation_moderate.png"
+      }
+    ]
+  },
+  "artifacts": {
+    "summary_json_doc_path": "/_static/capability_gallery/simulation_comparison/ex12_multi_simulation_moderate_summary.json",
+    "summary_json_repo_path": "docs/readthedocs/source/_static/capability_gallery/simulation_comparison/ex12_multi_simulation_moderate_summary.json",
+    "image_repo_paths": [
+      "docs/readthedocs/source/_static/capability_gallery/simulation_comparison/ex12_multi_simulation_moderate.png"
+    ]
+  }
+}

@@ -48,10 +48,10 @@
     "examples/projects/09_capability_gallery/code_comparison/surface_interaction_ramp/ramp_high_k.json"
   ],
   "source_hashes": {
-    "tools/doc_gallery/manifests/code_comparison_cases.json": "13e452e62518f33430b2a880bb7b09ee85a3f5ba960d5fa83ba3fb2eff16f758",
-    "tools/investigate_surface_interaction_hillslope_transient.py": "7f6cc8385bbf8a9dae801ee8268df206b7e9be10ba82d96095f046c053137f49",
-    "tools/investigate_surface_interaction_highk_linux.py": "820ff188f7ca3083cedd0738b28d289da87fe522b8bcab1d2e77aacd3737acc7",
-    "tools/doc_gallery/generate_code_comparison_assets.py": "0a28391589ff47d1ec7a07e43aa640ee0f57f84aed3886248da2578e9dacdb2a",
+    "tools/doc_gallery/manifests/code_comparison_cases.json": "6a5e969188ea5667537872db09584f8f0b4c4f702da08a0c1f2d861f9e3a1a42",
+    "tools/investigate_surface_interaction_hillslope_transient.py": "ac410886d5178f26287fdff98f178b1017de76d1ea4458e3bc186a6d5d9d38e4",
+    "tools/investigate_surface_interaction_highk_linux.py": "cb038323d44e1262ec4a20709410c2df17c68fefb97e7311c1acfcf78738b810",
+    "tools/doc_gallery/generate_code_comparison_assets.py": "37413421db8ac3e85a382ce778d74984fce06254cb452474e740190c70abbf29",
     "validation_cases/shared/boussinesq_budget.py": "160b26530c3675508f30fd61b432eefd0b715f2b39e54afbb58fabfd4413d38b",
     "examples/projects/09_capability_gallery/code_comparison/surface_interaction_ramp/ramp_reference_k.png": "ee453b5a92852e54c9180cffd4a20a7f3effd17483de883730c0322aa34d2dd5",
     "examples/projects/09_capability_gallery/code_comparison/surface_interaction_ramp/ramp_reference_k.json": "2b61b120c8d6a39256b7aea42c51049f70d9dda57c53d5195a6d492b2324cbd6",
