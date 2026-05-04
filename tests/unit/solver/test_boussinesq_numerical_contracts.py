@@ -127,6 +127,15 @@ def test_boussinesq_extractor_writes_cellwise_interfaces_and_volumetric_budgets(
                 budget["surface_excess"][1],
                 np.asarray([0.0, 4.0e-7], dtype=float),
             )
+            derived = zarr_store.root["derived"]
+            np.testing.assert_allclose(
+                derived["seepage_rate"][:],
+                np.asarray([[1.0e-9, 0.0], [0.0, 2.0e-9]], dtype=float),
+            )
+            np.testing.assert_allclose(
+                derived["seepage_mask"][:],
+                np.asarray([[1.0, 0.0], [0.0, 1.0]], dtype=float),
+            )
         finally:
             zarr_store.close()
     finally:

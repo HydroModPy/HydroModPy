@@ -43,11 +43,11 @@
     "docs/readthedocs/source/_static/capability_gallery/simulation_comparison/ex12_multi_simulation_moderate_difference_metrics.csv"
   ],
   "source_hashes": {
-    "docs/readthedocs/source/_static/capability_gallery/simulation_comparison/ex12_multi_simulation_moderate_comparison_manifest.json": "3634276629af3bfdd1f60b070b8d0316df619b50a881a7e890ec2cb9d9466726",
+    "docs/readthedocs/source/_static/capability_gallery/simulation_comparison/ex12_multi_simulation_moderate_comparison_manifest.json": "ea9b6a27efbbae3f046357d1dcc0f89b9f19ed67c311b8645b6ecf6c569bc96a",
     "docs/readthedocs/source/_static/capability_gallery/simulation_comparison/ex12_multi_simulation_moderate_comparison_metrics.json": "b6046c5c9f40866a4e02a13515498189e5c127dff11cada3dbf35aa83261aab6",
-    "docs/readthedocs/source/_static/capability_gallery/simulation_comparison/ex12_multi_simulation_moderate_observables.csv": "42920662935736c937fde89d45a5b3806b20935335ccefd9048aa091bf6cce83",
-    "docs/readthedocs/source/_static/capability_gallery/simulation_comparison/ex12_multi_simulation_moderate_summary_metrics.csv": "ac6c7ea54c2b91a3baa8211d8dd176305aaa6d36a27d2529b982043d4133bb49",
-    "docs/readthedocs/source/_static/capability_gallery/simulation_comparison/ex12_multi_simulation_moderate_difference_metrics.csv": "6a174bc32a9b9809b2c4a1e00d676eb16264d02fea709e3ccc7a99cb371ae21c"
+    "docs/readthedocs/source/_static/capability_gallery/simulation_comparison/ex12_multi_simulation_moderate_observables.csv": "b519f69e362c2f46dd849bb0adb2e377b2844cfcb92c86779265d30ed4318a51",
+    "docs/readthedocs/source/_static/capability_gallery/simulation_comparison/ex12_multi_simulation_moderate_summary_metrics.csv": "92e8e13dd4105a7762ceee1937cf1b7da515d872bad254d4cbe3b6b2a3323d11",
+    "docs/readthedocs/source/_static/capability_gallery/simulation_comparison/ex12_multi_simulation_moderate_difference_metrics.csv": "00a7e6299a1eac9b6f0a82000da444b4e3a503d30129cce982a3d78d2023d25d"
   },
   "docname": "cases/ex12_multi_simulation_moderate",
   "images": [

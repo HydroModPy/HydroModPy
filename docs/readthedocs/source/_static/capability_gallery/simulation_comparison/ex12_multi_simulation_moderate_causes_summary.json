@@ -43,11 +43,11 @@
     "docs/readthedocs/source/_static/capability_gallery/simulation_comparison/ex12_multi_simulation_moderate_causes_difference_metrics.csv"
   ],
   "source_hashes": {
-    "docs/readthedocs/source/_static/capability_gallery/simulation_comparison/ex12_multi_simulation_moderate_causes_comparison_manifest.json": "adea35ee9a02e28ba304a76a6511689f338b9296b3175d920bd180d0d46de1e9",
+    "docs/readthedocs/source/_static/capability_gallery/simulation_comparison/ex12_multi_simulation_moderate_causes_comparison_manifest.json": "8edd05a766eafa641ea37ce0161b2ca1c1f2611fa6c80ad85cc6aa2c2d3a591a",
     "docs/readthedocs/source/_static/capability_gallery/simulation_comparison/ex12_multi_simulation_moderate_causes_comparison_metrics.json": "b6046c5c9f40866a4e02a13515498189e5c127dff11cada3dbf35aa83261aab6",
-    "docs/readthedocs/source/_static/capability_gallery/simulation_comparison/ex12_multi_simulation_moderate_causes_observables.csv": "f5c35852fd203466b4b8e1f96c9965985b75c1a4dd5b82565a8a77c3147c4477",
-    "docs/readthedocs/source/_static/capability_gallery/simulation_comparison/ex12_multi_simulation_moderate_causes_summary_metrics.csv": "ac6c7ea54c2b91a3baa8211d8dd176305aaa6d36a27d2529b982043d4133bb49",
-    "docs/readthedocs/source/_static/capability_gallery/simulation_comparison/ex12_multi_simulation_moderate_causes_difference_metrics.csv": "6a174bc32a9b9809b2c4a1e00d676eb16264d02fea709e3ccc7a99cb371ae21c"
+    "docs/readthedocs/source/_static/capability_gallery/simulation_comparison/ex12_multi_simulation_moderate_causes_observables.csv": "f4cf18694f05ed16e6fe0f49090d1264557e7b9f2a1b83e7dd43493637b22f02",
+    "docs/readthedocs/source/_static/capability_gallery/simulation_comparison/ex12_multi_simulation_moderate_causes_summary_metrics.csv": "92e8e13dd4105a7762ceee1937cf1b7da515d872bad254d4cbe3b6b2a3323d11",
+    "docs/readthedocs/source/_static/capability_gallery/simulation_comparison/ex12_multi_simulation_moderate_causes_difference_metrics.csv": "00a7e6299a1eac9b6f0a82000da444b4e3a503d30129cce982a3d78d2023d25d"
   },
   "docname": "cases/ex12_multi_simulation_moderate_causes",
   "images": [

@@ -39,6 +39,8 @@ def _make_zarr(
     head_values=None,
     cell_area=None,
     drn=None,
+    surface_excess=None,
+    seepage_rate=None,
 ):
     path = tmp_path / "sim.zarr"
     sz = SimulationZarr.create(path, n_cells=n_cells, n_layers=1)
@@ -80,6 +82,30 @@ def _make_zarr(
         )
         for t in range(n_timesteps):
             budget["drn"][t, :] = drn[t]
+
+    if surface_excess is not None:
+        budget = sz.root["budget"]
+        budget.create_array(
+            "surface_excess",
+            shape=(n_timesteps, n_cells),
+            chunks=(1, n_cells),
+            dtype="float64",
+            overwrite=True,
+        )
+        for t in range(n_timesteps):
+            budget["surface_excess"][t, :] = surface_excess[t]
+
+    if seepage_rate is not None:
+        derived = sz.root["derived"]
+        derived.create_array(
+            "seepage_rate",
+            shape=(n_timesteps, n_cells),
+            chunks=(1, n_cells),
+            dtype="float64",
+            overwrite=True,
+        )
+        for t in range(n_timesteps):
+            derived["seepage_rate"][t, :] = seepage_rate[t]
 
     return sz
 
@@ -207,6 +233,40 @@ def test_seepage_mask_flags_overflowing_cells(tmp_path):
     # Expect 1 where wt_elev >= top (10.0), 0 otherwise.
     np.testing.assert_array_equal(mask[0], [0.0, 1.0, 1.0, 0.0])
     np.testing.assert_array_equal(mask[1], [0.0, 1.0, 1.0, 1.0])
+
+
+def test_seepage_mask_prefers_solver_surface_excess_rate(tmp_path):
+    sz = _make_zarr(
+        tmp_path,
+        head_values=np.array([[11.0, 11.0, 11.0, 11.0], [11.0, 11.0, 11.0, 11.0]]),
+        seepage_rate=np.array([[0.0, 1.0e-8, 0.0, 0.0], [0.0, 0.0, 2.0e-8, 0.0]]),
+    )
+    registry.apply(
+        sz,
+        names=["watertable_elevation", "seepage_mask"],
+    )
+
+    mask = np.asarray(sz.root["derived"]["seepage_mask"][:])
+
+    np.testing.assert_array_equal(mask[0], [0.0, 1.0, 0.0, 0.0])
+    np.testing.assert_array_equal(mask[1], [0.0, 0.0, 1.0, 0.0])
+
+
+def test_seepage_mask_prefers_solver_surface_excess_budget(tmp_path):
+    sz = _make_zarr(
+        tmp_path,
+        head_values=np.array([[11.0, 11.0, 11.0, 11.0], [11.0, 11.0, 11.0, 11.0]]),
+        surface_excess=np.array([[0.0, 0.0, 1.0e-5, 0.0], [0.0, 3.0e-5, 0.0, 0.0]]),
+    )
+    registry.apply(
+        sz,
+        names=["watertable_elevation", "seepage_mask"],
+    )
+
+    mask = np.asarray(sz.root["derived"]["seepage_mask"][:])
+
+    np.testing.assert_array_equal(mask[0], [0.0, 0.0, 1.0, 0.0])
+    np.testing.assert_array_equal(mask[1], [0.0, 1.0, 0.0, 0.0])
 
 
 def test_fluxes_from_budget_divides_by_cell_area(tmp_path):
