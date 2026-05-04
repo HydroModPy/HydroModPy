@@ -27,7 +27,7 @@ _DIRECT_EXPORTS = frozenset(
         "overview",
         "batch",
         "compare_pair",
-        "compare_methods",
+        "compare",
         "mesh",
         "testbed",
         "report",

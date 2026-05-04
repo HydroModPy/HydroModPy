@@ -116,6 +116,7 @@ __all__ = [
     "data",
     "master_config",
     "physics",
+    "pipeline",
     "results",
     "simulation",
     "solver",
