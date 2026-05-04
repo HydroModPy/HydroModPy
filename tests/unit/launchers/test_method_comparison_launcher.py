@@ -21,7 +21,7 @@ from hydromodpy.analysis.comparison.exports import (
     write_boussinesq_obstacle_diagnostics_export,
     write_budget_exports,
 )
-from hydromodpy.analysis.comparison.metrics import (
+from hydromodpy.analysis.comparison.metric_diff import (
     build_comparison_metrics,
     build_unmatched_groups,
 )
@@ -32,7 +32,7 @@ from hydromodpy.analysis.comparison.runtime import (
     load_variable_series,
     materialize_variant_config,
 )
-from hydromodpy.core.config.toml_loader import load_toml_with_base_config
+from hydromodpy.core.toml_io.loader import load_toml_with_base_config
 
 OUTLET_CELL_AREA_M2 = 10.0
 SIM_ID = "sim-test"
@@ -447,6 +447,7 @@ def _write_boussinesq_run_folder(run_folder: Path, bundle_dir: Path) -> _FakeCat
         json.dumps({"bundle_dir": str(bundle_dir)}),
         encoding="utf-8",
     )
+    np.savez(run_folder / "_boussinesq_state_history.npz", **state)
     return _FakeCatalog(run_folder / "simulation.zarr", {"boussinesq_state": state})
 
 

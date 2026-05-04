@@ -120,13 +120,16 @@ def _windows_extended_length_path(path: Path) -> str:
 
 def _copy_file(source_path: Path, destination_path: Path) -> None:
     """Copy one file, using extended-length paths on Windows."""
-    if os.name == "nt":
-        shutil.copy2(
-            _windows_extended_length_path(source_path),
-            _windows_extended_length_path(destination_path),
-        )
-        return
-    shutil.copy2(source_path, destination_path)
+    try:
+        shutil.copy2(source_path, destination_path)
+    except OSError as exc:
+        if os.name == "nt" and getattr(exc, "winerror", None) == 206:
+            shutil.copy2(
+                _windows_extended_length_path(source_path),
+                _windows_extended_length_path(destination_path),
+            )
+            return
+        raise
 
 
 def _resolve_existing_path(candidate: object, *, base_dir: Path) -> Path | None:

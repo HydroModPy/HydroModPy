@@ -161,6 +161,11 @@ class Project:
         )
 
     @classmethod
+    def from_toml(cls, config_path: str | Path, **kwargs) -> Project:
+        """Build a Project from a TOML path."""
+        return cls(Path(config_path), **kwargs)
+
+    @classmethod
     def from_json(
         cls,
         payload: str | bytes,
@@ -169,7 +174,7 @@ class Project:
         **kwargs,
     ) -> Project:
         """Build a Project from a JSON string validated against HydroModPyConfig."""
-        from hydromodpy.master_config.hydromodpy_config import HydroModPyConfig
+        from hydromodpy.config import HydroModPyConfig
 
         cfg = HydroModPyConfig.from_json(payload, base_dir=base_dir)
         return cls(cfg, **kwargs)
@@ -183,7 +188,7 @@ class Project:
         **kwargs,
     ) -> Project:
         """Build a Project from a dict payload validated against HydroModPyConfig."""
-        from hydromodpy.master_config.hydromodpy_config import HydroModPyConfig
+        from hydromodpy.config import HydroModPyConfig
 
         cfg = HydroModPyConfig.from_dict(payload, base_dir=base_dir)
         return cls(cfg, **kwargs)

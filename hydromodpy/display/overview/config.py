@@ -6,8 +6,8 @@ from typing import Annotated
 
 from pydantic import ConfigDict, Field
 
-from hydromodpy.core.config.base import HydroModelBase
-from hydromodpy.core.config.profile import Profile
+from hydromodpy.core.config_kit.base import HydroModelBase
+from hydromodpy.core.config_kit.profile import Profile
 
 
 class OverviewPanelsConfig(HydroModelBase):

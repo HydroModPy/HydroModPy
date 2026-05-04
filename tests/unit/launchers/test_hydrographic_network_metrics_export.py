@@ -49,6 +49,9 @@ def _register_completed_run(
     *,
     reference_length_m: float | None,
     generated_length_m: float | None,
+    reference_gdf: gpd.GeoDataFrame | None = None,
+    accumulation_flux: list[np.ndarray] | None = None,
+    flow_regime: str = "transient",
 ) -> tuple[Path, str]:
     config_path = workspace_root.parent / f"run_{uuid.uuid4().hex[:8]}.toml"
     _write_simulation_config(config_path, workspace_root)
@@ -60,16 +63,70 @@ def _register_completed_run(
         project="demo_compare",
         solver="modflow6",
         name="network_demo",
-        n_cells=2,
+        n_cells=3 if accumulation_flux is not None else 2,
         n_layers=1,
+        n_timesteps=len(accumulation_flux) if accumulation_flux is not None else None,
+        flow_regime=flow_regime,
     )
     if reg.zarr is not None:
         reg.zarr.close()
+    if accumulation_flux is not None:
+        vertices = np.array(
+            [
+                [0.0, 0.0, 0.0],
+                [1.0, 0.0, 0.0],
+                [2.0, 0.0, 0.0],
+                [3.0, 0.0, 0.0],
+                [0.0, 1.0, 0.0],
+                [1.0, 1.0, 0.0],
+                [2.0, 1.0, 0.0],
+                [3.0, 1.0, 0.0],
+            ],
+            dtype="float64",
+        )
+        face_node_connectivity = np.array(
+            [
+                [0, 1, 5, 4],
+                [1, 2, 6, 5],
+                [2, 3, 7, 6],
+            ],
+            dtype="int32",
+        )
+        catalog.write_mesh(
+            sim_id,
+            vertices,
+            face_node_connectivity,
+            np.array([10.0, 9.0, 8.0], dtype="float64"),
+        )
+        sz = catalog.open_zarr(sim_id)
+        try:
+            sz.root["mesh"].create_array(
+                "surface_top",
+                data=np.array([10.0, 9.0, 8.0], dtype="float64"),
+                overwrite=True,
+            )
+        finally:
+            sz.close()
+        for timestep, values in enumerate(accumulation_flux):
+            catalog.write_field(
+                sim_id,
+                "accumulation_flux",
+                timestep,
+                values,
+                n_timesteps=len(accumulation_flux) if timestep == 0 else None,
+                subgroup="derived",
+            )
     if reference_length_m is not None:
         catalog.write_geographic_feature(
             sim_id,
             HYDROGRAPHIC_NETWORK_REFERENCE_FEATURE_NAME,
             _line_gdf(reference_length_m),
+        )
+    if reference_gdf is not None:
+        catalog.write_geographic_feature(
+            sim_id,
+            HYDROGRAPHIC_NETWORK_REFERENCE_FEATURE_NAME,
+            reference_gdf,
         )
     if generated_length_m is not None:
         catalog.write_geographic_feature(
@@ -93,7 +150,7 @@ def _register_completed_active_network_run(workspace_root: Path) -> tuple[Path, 
         project="demo_compare",
         solver="modflow6",
         name="active_network_demo",
-        n_cells=2,
+        n_cells=3,
         n_layers=1,
         n_timesteps=2,
     )
@@ -104,16 +161,19 @@ def _register_completed_active_network_run(workspace_root: Path) -> tuple[Path, 
             [0.0, 0.0, 0.0],
             [1.0, 0.0, 0.0],
             [2.0, 0.0, 0.0],
+            [3.0, 0.0, 0.0],
             [0.0, 1.0, 0.0],
             [1.0, 1.0, 0.0],
             [2.0, 1.0, 0.0],
+            [3.0, 1.0, 0.0],
         ],
         dtype="float64",
     )
     face_node_connectivity = np.array(
         [
-            [0, 1, 4, 3],
-            [1, 2, 5, 4],
+            [0, 1, 5, 4],
+            [1, 2, 6, 5],
+            [2, 3, 7, 6],
         ],
         dtype="int32",
     )
@@ -121,13 +181,13 @@ def _register_completed_active_network_run(workspace_root: Path) -> tuple[Path, 
         sim_id,
         vertices,
         face_node_connectivity,
-        np.array([10.0, 0.0], dtype="float64"),
+        np.array([10.0, 9.0, 8.0], dtype="float64"),
     )
     sz = catalog.open_zarr(sim_id)
     try:
         sz.root["mesh"].create_array(
             "surface_top",
-            data=np.array([10.0, 9.0], dtype="float64"),
+            data=np.array([10.0, 9.0, 8.0], dtype="float64"),
             overwrite=True,
         )
     finally:
@@ -136,7 +196,7 @@ def _register_completed_active_network_run(workspace_root: Path) -> tuple[Path, 
         sim_id,
         "accumulation_flux",
         0,
-        np.array([1.0, 0.0], dtype="float64"),
+        np.array([0.0, 1.0, 0.0], dtype="float64"),
         n_timesteps=2,
         subgroup="derived",
     )
@@ -144,13 +204,17 @@ def _register_completed_active_network_run(workspace_root: Path) -> tuple[Path, 
         sim_id,
         "accumulation_flux",
         1,
-        np.array([1.0, 1.0], dtype="float64"),
+        np.array([0.0, 1.0, 0.0], dtype="float64"),
         subgroup="derived",
     )
     catalog.write_geographic_feature(
         sim_id,
         HYDROGRAPHIC_NETWORK_REFERENCE_FEATURE_NAME,
-        _line_gdf(1.8),
+        gpd.GeoDataFrame(
+            {"id": [1]},
+            geometry=[LineString([(1.25, 0.5), (1.75, 0.5)])],
+            crs="EPSG:2154",
+        ),
     )
     catalog.finalize(sim_id, "completed", 1.0)
     catalog.close()
@@ -314,10 +378,10 @@ def test_write_simulated_active_network_metrics_export_writes_csv(tmp_path: Path
     assert artifacts[0]["kind"] == "simulated_active_network_metrics_csv"
     assert Path(artifacts[0]["path"]).exists()
     assert len(rows) == 1
-    assert rows[0]["catchment_cell_count"] == 2
-    assert rows[0]["active_cell_count_max"] == 2
+    assert rows[0]["catchment_cell_count"] == 3
+    assert rows[0]["active_cell_count_max"] == 1
     assert rows[0]["always_active_cell_count"] == 1
-    assert rows[0]["drainage_density_last_pct"] == pytest.approx(100.0)
+    assert rows[0]["drainage_density_last_pct"] == pytest.approx(100.0 / 3.0)
 
 
 def test_write_simulated_active_network_overlap_metrics_export_writes_csv(

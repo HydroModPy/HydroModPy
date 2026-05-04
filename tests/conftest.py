@@ -137,8 +137,8 @@ def minimal_config(tmp_path: Path):
     ``default_factory``.  Tests that need a specific flow/solver block
     should extend the returned instance via ``model_copy(update=...)``.
     """
+    from hydromodpy.config import HydroModPyConfig
     from hydromodpy.core.workspace.config import WorkspaceConfig
-    from hydromodpy.master_config import HydroModPyConfig
     from hydromodpy.spatial.geographic.geographic_config import GeographicConfig
 
     return HydroModPyConfig(

@@ -39,6 +39,8 @@ __all__ = [
     "saturated_fraction",
     "drainage_density",
     "persistence",
+    "resolve_simulated_active_network_mode",
+    "simulated_active_network_mode_label",
     "simulated_active_network_mask",
     "simulated_active_network_metrics",
     "simulated_active_network_overlap_metrics",
@@ -144,6 +146,56 @@ def _safe_ratio(numerator: int, denominator: int) -> float:
     return float(numerator / denominator) if denominator else 0.0
 
 
+def _flow_regime(sim: Run) -> str:
+    direct_value = getattr(sim, "flow_regime", None)
+    if isinstance(direct_value, str) and direct_value:
+        return direct_value.lower()
+
+    try:
+        row = sim._load_row()
+    except Exception:
+        return "unknown"
+
+    getter = getattr(row, "get", None)
+    value = getter("flow_regime") if callable(getter) else getattr(row, "flow_regime", None)
+    return value.lower() if isinstance(value, str) and value else "unknown"
+
+
+def resolve_simulated_active_network_mode(
+    sim: Run, mode: SimulatedActiveNetworkMode | None = None
+) -> str:
+    """Resolve the active-network mode from an optional user override."""
+    if mode is None:
+        return "last" if _flow_regime(sim) == "steady" else "persistent"
+    if mode == "perennial":
+        return "always_active"
+    if mode in {"last", "any", "persistent", "always_active", "persistence"}:
+        return mode
+    raise ValueError(
+        "Unknown simulated active-network mode. Expected one of: "
+        "last, any, persistent, always_active, perennial, persistence."
+    )
+
+
+def simulated_active_network_mode_label(
+    sim: Run,
+    *,
+    mode: SimulatedActiveNetworkMode | None = None,
+    persistence_threshold: float = 0.5,
+) -> str:
+    """Return a display label for an active-network mode."""
+    resolved_mode = resolve_simulated_active_network_mode(sim, mode)
+    if resolved_mode == "last":
+        return "steady active cells" if _flow_regime(sim) == "steady" else "last active step"
+    if resolved_mode == "any":
+        return "any active step"
+    if resolved_mode == "persistent":
+        return "persistent active cells"
+    if resolved_mode == "always_active":
+        return "always active cells"
+    return f"persistence >= {persistence_threshold:g}"
+
+
 # --------------------------------------------------------------------------
 # Views
 # --------------------------------------------------------------------------
@@ -227,19 +279,19 @@ def simulated_active_network_mask(
     *,
     variable: str = "accumulation_flux",
     threshold: float = 0.0,
-    mode: SimulatedActiveNetworkMode = "persistent",
+    mode: SimulatedActiveNetworkMode | None = None,
     persistence_threshold: float = 0.5,
     timestep: int | None = None,
 ) -> np.ndarray:
     """Return a per-cell simulated active-network view.
 
-    ``perennial`` is a retained alias for ``always_active``. Both represent
-    cells active at every timestep of the available transient window.
+    The default mode is regime-aware: steady simulations use the last active
+    step, transient or unknown simulations use persistent active cells.
     """
     persistence_threshold = float(persistence_threshold)
     if not 0.0 <= persistence_threshold <= 1.0:
         raise ValueError("persistence_threshold must be between 0 and 1.")
-    normalized_mode = "always_active" if mode == "perennial" else mode
+    normalized_mode = resolve_simulated_active_network_mode(sim, mode)
 
     stack, mask = _stack_field_with_mask(sim, variable)
     n_timesteps = stack.shape[0]
@@ -353,22 +405,23 @@ def simulated_active_network_overlap_metrics(
     network_role: str = "reference",
     variable: str = "accumulation_flux",
     threshold: float = 0.0,
-    mode: SimulatedActiveNetworkMode = "persistent",
+    mode: SimulatedActiveNetworkMode | None = None,
     persistence_threshold: float = 0.5,
     timestep: int | None = None,
     buffer_m: float = 0.0,
 ) -> dict[str, float | int | str]:
     """Compare simulated active cells with an existing vector network role."""
+    resolved_mode = resolve_simulated_active_network_mode(sim, mode)
     values = simulated_active_network_mask(
         sim,
         variable=variable,
         threshold=threshold,
-        mode=mode,
+        mode=resolved_mode,
         persistence_threshold=persistence_threshold,
         timestep=timestep,
     )
     valid = np.isfinite(values)
-    if mode == "persistence":
+    if resolved_mode == "persistence":
         active = values >= float(persistence_threshold)
     else:
         active = values > 0.5
@@ -399,7 +452,7 @@ def simulated_active_network_overlap_metrics(
         "network_role": network_role,
         "source_variable": variable,
         "threshold": float(threshold),
-        "mode": mode,
+        "mode": resolved_mode,
         "persistence_threshold": float(persistence_threshold),
         "timestep": int(timestep) if timestep is not None else -1,
         "buffer_m": float(buffer_m),

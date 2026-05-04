@@ -21,7 +21,7 @@ References frequently cited:
 - Anderson, Woessner & Hunt 2015, *Applied Groundwater Modeling*, 2nd ed.
 - ASME V&V 20-2009 terminology (verification vs validation).
 
-The table below records the 24 tolerances enforced today. Every tolerance
+The table below records the 29 tolerances enforced today. Every tolerance
 must carry a rationale before it is merged.
 
 ## Table of tolerances
@@ -51,7 +51,12 @@ must carry a rationale before it is merged.
 | 21 | Mesh vertex/connectivity | exact equality | `n/a` | Integer connectivity | No float tolerance |
 | 22 | Bootstrap CI on metrics | bootstrap `rtol` | `2 %` | Sampling noise | 1000 resamples |
 | 23 | Geographic catchment golden | boundary area, elevation sum, and pixel-count drift | `0.03 km2`, `1000 m`, `5 px` | Whitebox raster boundary tie envelope on fixed DEM/outlet | Shapes, CRS, elevation distribution, and counts remain constrained |
-| 24 | Geographic DEM processing golden | D8/floating raster stat drift | `0.02 m` for elevation stats, `256` for integer sums, `20 m` for float sums | Whitebox D8 tie ordering on fixed DEM/outlet | Per-raster shape, dtype, nodata, counts, min/max, and quantiles remain constrained |
+| 24 | Geographic DEM processing golden | D8/floating raster stat drift | `0.03 m` for elevation stats, `512` for integer sums, `20 m` for float sums | Whitebox D8 tie ordering on fixed DEM/outlet | Per-raster shape, dtype, nodata, counts, min/max, and quantiles remain constrained |
+| 25 | Linearized transient recharge step 1D (MF6 irregular tri) | cross-row spread | `< 0.006 m` | Triangular mesh lateral asymmetry envelope | RMSE and max-abs thresholds stay identical to the structured transient benchmark |
+| 26 | Linearized transient recharge periodic 1D (MF6 irregular tri) | cross-row spread | `< 0.006 m` | Triangular mesh lateral asymmetry envelope | RMSE and max-abs thresholds stay identical to the structured transient benchmark |
+| 27 | Linearized transient boundary piecewise 1D (MF6 irregular tri) | cross-row spread | `< 0.012 m` | Triangular mesh lateral asymmetry envelope under multi-step boundary forcing | RMSE and max-abs thresholds stay identical to the structured transient benchmark |
+| 28 | Linearized transient boundary step 1D (MF6 irregular tri) | cross-row spread | `< 0.005 m` | Triangular mesh lateral asymmetry envelope | RMSE and max-abs thresholds stay identical to the structured transient benchmark |
+| 29 | Linearized transient recharge step deep 1D (MF6 irregular tri) | cross-row spread | `< 0.0007 m` | Triangular mesh lateral asymmetry envelope in the near-linear deep case | RMSE and max-abs thresholds stay identical to the structured transient benchmark |
 
 ## Update policy
 

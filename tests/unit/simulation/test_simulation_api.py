@@ -57,7 +57,37 @@ def _populate(catalog, sid):
     catalog.finalize(sid, "completed", 42.0)
 
 
-def _write_active_accumulation_flux_case(catalog, sid):
+def _write_active_accumulation_flux_case(catalog, sid, *, write_plot_mesh=False):
+    if write_plot_mesh:
+        vertices = np.array(
+            [
+                [0.0, 0.0, 0.0],
+                [1.0, 0.0, 0.0],
+                [2.0, 0.0, 0.0],
+                [0.0, 1.0, 0.0],
+                [1.0, 1.0, 0.0],
+                [2.0, 1.0, 0.0],
+                [0.0, 2.0, 0.0],
+                [1.0, 2.0, 0.0],
+                [2.0, 2.0, 0.0],
+            ],
+            dtype="float64",
+        )
+        face_node_connectivity = np.array(
+            [
+                [0, 1, 4, 3],
+                [1, 2, 5, 4],
+                [3, 4, 7, 6],
+                [4, 5, 8, 7],
+            ],
+            dtype="int32",
+        )
+        catalog.write_mesh(
+            sid,
+            vertices,
+            face_node_connectivity,
+            np.array([100.0, 100.0, -9999.0, 100.0], dtype="float64"),
+        )
     sz = catalog.open_zarr(sid)
     try:
         mesh = sz.root.require_group("mesh")

@@ -1,0 +1,37 @@
+base_config = "C:/codes/HydroModPy/validation_cases/analytical/transient/linearized_unconfined_boundary_step_1d/config_modflownwt.toml"
+
+[workspace]
+project_root = "C:/codes/HydroModPy/validation_cases/analytical/transient/linearized_unconfined_boundary_step_1d"
+root = "C:/codes/HydroModPy/tmp/lu_boundary_step_same_support_workspace"
+output_root = "C:/codes/HydroModPy/tmp/lu_boundary_step_same_support_workspace"
+
+[flow]
+[flow.bc]
+[flow.bc.dirichlet]
+[flow.bc.dirichlet.west_side]
+[flow.bc.dirichlet.west_side.forcing]
+path_file = "C:/codes/HydroModPy/validation_cases/analytical/transient/linearized_unconfined_boundary_step_1d/west_head_step.csv"
+
+[modflow6]
+[modflow6.runtime]
+mf_verbose = false
+mf6_ims_complexity = "COMPLEX"
+
+[modflow6.sgrid]
+[modflow6.sgrid.planar]
+mode = "resample_to_shape"
+nx = 50
+ny = 5
+resampling = "nearest"
+
+[modflow6.sgrid.vertical]
+nlay = 1
+
+[modflow6.tgrid]
+firstpersteady = false
+
+[simulation]
+run_id = "modflow6"
+
+[[simulation.process]]
+solvers = ["modflow6"]

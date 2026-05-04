@@ -43,6 +43,9 @@ def _assembly(residual_m3_s: np.ndarray) -> BoussinesqAssembly:
         boundary_edge_flux_m3_s=np.asarray([], dtype=float),
         drainage_flux_m3_s=zeros_cells.copy(),
         residual_m3_s=np.asarray(residual_m3_s, dtype=float),
+        head_constraint_residual_m=zeros_cells.copy(),
+        flow_residual_m3_s=np.asarray(residual_m3_s, dtype=float),
+        solver_residual=np.asarray(residual_m3_s, dtype=float),
     )
 
 

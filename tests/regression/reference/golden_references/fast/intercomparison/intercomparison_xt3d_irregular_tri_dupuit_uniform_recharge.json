@@ -1,0 +1,23 @@
+{
+  "_schema_version": "1.0",
+  "intercomparison_expected": {
+    "signature_schema_version": "xt3d_method_choice_signature_v1",
+    "comparison_label": "MODFLOW 6 irregular triangles with and without XT3D",
+    "case_count": 1,
+    "improved_count": 1,
+    "regressed_count": 0,
+    "strong_improvement_count": 1,
+    "rows": {
+      "dupuit_uniform_recharge_1d": {
+        "title": "Dupuit Uniform Recharge 1D",
+        "improved": true,
+        "rmse_without_xt3d": 0.233314,
+        "rmse_with_xt3d": 0.02948,
+        "rmse_delta": -0.203834,
+        "rmse_improvement_factor": 7.9144,
+        "max_error_without_xt3d": 0.32501,
+        "max_error_with_xt3d": 0.046404
+      }
+    }
+  }
+}

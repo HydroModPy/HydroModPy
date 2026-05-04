@@ -83,7 +83,7 @@ def test_project_from_dict_validates_and_passes_config(
     tmp_path: Path,
     stub_project_phases: dict,
 ) -> None:
-    from hydromodpy.master_config.hydromodpy_config import HydroModPyConfig
+    from hydromodpy.config import HydroModPyConfig
     from hydromodpy.project import Project
 
     payload = _build_payload(tmp_path)
@@ -95,7 +95,7 @@ def test_project_from_json_validates_and_passes_config(
     tmp_path: Path,
     stub_project_phases: dict,
 ) -> None:
-    from hydromodpy.master_config.hydromodpy_config import HydroModPyConfig
+    from hydromodpy.config import HydroModPyConfig
     from hydromodpy.project import Project
 
     payload = json.dumps(_build_payload(tmp_path))

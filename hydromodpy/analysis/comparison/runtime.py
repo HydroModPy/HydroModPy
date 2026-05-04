@@ -20,11 +20,11 @@ from hydromodpy.analysis.comparison.config import (
     MethodComparisonObservable,
     MethodComparisonVariant,
 )
-from hydromodpy.core.config.toml_loader import (
+from hydromodpy.core.logging import get_logger
+from hydromodpy.core.toml_io.loader import (
     load_toml_with_base_config,
     merge_toml_payloads,
 )
-from hydromodpy.core.logging import get_logger
 from hydromodpy.physics.flow.history_contract import (
     build_transient_time_axes,
     snapshot_elapsed_seconds_from_payload,
@@ -1359,6 +1359,9 @@ def _store_variable_mapping(variable_name: str) -> str | None:
         "seepage_areas": "seepage_areas",
         "head": "head",
         "accumulation_flux": "accumulation_flux",
+        "outlet_discharge_east_side_m3_s": "outlet_discharge_east_side_m3_s",
+        "drainage_flux_history_m3_s": "drainage_flux_history_m3_s",
+        "drainage_flux_m3_s": "drainage_flux_m3_s",
         "outflow_drain": "outflow_drain",
         "groundwater_flux": "groundwater_flux",
         "concentration_seepage": "concentration_seepage",
@@ -1475,6 +1478,42 @@ def _elapsed_axis_for_store_field(
     return [None for _ in range(max(int(n_slices), 0))], False
 
 
+def _open_store_root(store: SimulationCatalog, sim_id: str) -> tuple[Any | None, Any | None]:
+    """Open the root Zarr group from either current or lightweight store APIs."""
+    try:
+        return store.open_zarr_group(sim_id), None
+    except Exception:
+        pass
+
+    try:
+        handle = store.open_zarr(sim_id)
+    except Exception:
+        return None, None
+    return getattr(handle, "root", handle), handle
+
+
+def _close_store_handle(handle: Any | None) -> None:
+    if handle is None:
+        return
+    close = getattr(handle, "close", None)
+    if callable(close):
+        try:
+            close()
+        except Exception:
+            pass
+
+
+def _store_source_path(store: SimulationCatalog, sim_id: str) -> Path:
+    zarr_path_for = getattr(store, "zarr_path_for", None)
+    if callable(zarr_path_for):
+        try:
+            return Path(zarr_path_for(sim_id))
+        except Exception:
+            pass
+    raw_path = getattr(store, "zarr_path", None)
+    return Path(raw_path) if raw_path is not None else Path(str(sim_id))
+
+
 def _load_store_series(
     store: SimulationCatalog,
     sim_id: str,
@@ -1491,26 +1530,28 @@ def _load_store_series(
     if store_field is None:
         return None
 
-    try:
-        grp = store.open_zarr_group(sim_id)
-    except (KeyError, Exception):
-        return None
-
-    # Locate the Zarr array across root and subgroups.
-    arr = None
-    for loc in (grp, grp.get("derived"), grp.get("budget")):
-        if loc is not None and store_field in loc:
-            arr = loc[store_field]
-            break
-    if arr is None:
+    grp, handle = _open_store_root(store, sim_id)
+    if grp is None:
         return None
 
     try:
+        # Locate the Zarr array across root and subgroups.
+        arr = None
+        for loc in (grp, grp.get("derived"), grp.get("budget")):
+            if loc is not None and store_field in loc:
+                arr = loc[store_field]
+                break
+        if arr is None:
+            _close_store_handle(handle)
+            return None
+
         data = arr[:]
     except Exception:
+        _close_store_handle(handle)
         return None
 
     if data.ndim == 0:
+        _close_store_handle(handle)
         return None
 
     n_slices = 1 if data.ndim == 1 else int(data.shape[0])
@@ -1519,6 +1560,7 @@ def _load_store_series(
         n_slices=n_slices,
         config_path=config_path,
     )
+    _close_store_handle(handle)
 
     # Build TimeSlice list from the stored array.
     if data.ndim == 1:
@@ -1551,7 +1593,7 @@ def _load_store_series(
 
     return VariableSeries(
         variable_name=variable_name,
-        source_path=Path(store.zarr_path_for(sim_id)),
+        source_path=_store_source_path(store, sim_id),
         slices=slices,
         cell_ids=None,
     )
@@ -1570,18 +1612,18 @@ def _load_store_boussinesq_state_series(
     of ``_load_boussinesq_npz_series`` but reads from Zarr instead of
     the on-disk ``.npz`` file.
     """
-    try:
-        grp = store.open_zarr_group(sim_id)
-    except (KeyError, Exception):
-        return None
-
-    state_grp = grp.get("boussinesq_state")
-    if state_grp is None or variable_name not in state_grp:
+    grp, handle = _open_store_root(store, sim_id)
+    if grp is None:
         return None
 
     try:
+        state_grp = grp.get("boussinesq_state")
+        if state_grp is None or variable_name not in state_grp:
+            _close_store_handle(handle)
+            return None
         values = np.asarray(state_grp[variable_name][:], dtype=float)
     except Exception:
+        _close_store_handle(handle)
         return None
 
     period_lengths = np.asarray([], dtype=float)
@@ -1590,6 +1632,7 @@ def _load_store_boussinesq_state_series(
             period_lengths = np.asarray(state_grp["period_lengths_seconds"][:], dtype=float).ravel()
         except Exception:
             pass
+    _close_store_handle(handle)
 
     if values.ndim <= 1:
         elapsed = float(np.nansum(period_lengths)) if period_lengths.size > 0 else None
@@ -1619,7 +1662,7 @@ def _load_store_boussinesq_state_series(
 
     return VariableSeries(
         variable_name=variable_name,
-        source_path=Path(store.zarr_path_for(sim_id)),
+        source_path=_store_source_path(store, sim_id),
         slices=slices,
         cell_ids=None,
     )
@@ -1634,21 +1677,21 @@ def _load_store_rate_total_series(
     run_folder: Path,
 ) -> VariableSeries | None:
     """Try loading an integrated cell-rate diagnostic from the store."""
-    try:
-        grp = store.open_zarr_group(sim_id)
-    except (KeyError, Exception):
-        return None
-
-    state_grp = grp.get("boussinesq_state")
-    if state_grp is None or source_variable_name not in state_grp:
+    grp, handle = _open_store_root(store, sim_id)
+    if grp is None:
         return None
 
     try:
+        state_grp = grp.get("boussinesq_state")
+        if state_grp is None or source_variable_name not in state_grp:
+            _close_store_handle(handle)
+            return None
         values = np.asarray(
             state_grp[source_variable_name][:],
             dtype=float,
         )
     except Exception:
+        _close_store_handle(handle)
         return None
 
     if values.ndim == 1:
@@ -1678,6 +1721,7 @@ def _load_store_rate_total_series(
             ).ravel()
         except Exception:
             pass
+    _close_store_handle(handle)
 
     elapsed_by_index = _elapsed_seconds_from_period_lengths(
         n_snapshots=int(totals_m3_s.size),
@@ -1695,7 +1739,7 @@ def _load_store_rate_total_series(
     )
     return VariableSeries(
         variable_name=variable_name,
-        source_path=Path(store.zarr_path_for(sim_id)),
+        source_path=_store_source_path(store, sim_id),
         slices=slices,
         cell_ids=None,
     )

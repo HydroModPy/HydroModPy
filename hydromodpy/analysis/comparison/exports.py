@@ -258,13 +258,12 @@ def write_observable_chronicle_exports(
         and _as_float(row.get("value")) is not None
     ]
 
-    wide_index: dict[tuple[str, str, str, str, str], dict[str, Any]] = {}
+    wide_index: dict[tuple[str, str, str, str], dict[str, Any]] = {}
     for row in long_rows:
         key = (
             str(row.get("observable", "")),
             str(row.get("unit", "")),
             str(row.get("comparison_time_key", "")),
-            str(row.get("time_index", "")),
             str(row.get("value_index", "")),
         )
         item = wide_index.setdefault(
@@ -832,12 +831,15 @@ def write_simulated_active_network_overlap_metrics_export(
     network_role: str = "reference",
     variable: str = "accumulation_flux",
     threshold: float = 0.0,
-    mode: str = "persistent",
+    mode: str | None = None,
     persistence_threshold: float = 0.5,
     timestep: int | None = None,
     buffer_m: float = 0.0,
 ) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
-    """Write cell-overlap metrics between simulated-active cells and a vector role."""
+    """Write cell-overlap metrics between simulated-active cells and a vector role.
+
+    The default mode is resolved from each run flow regime.
+    """
     from hydromodpy.analysis.comparison.runtime_metadata import discover_result_store
     from hydromodpy.results import views
 
@@ -1550,7 +1552,11 @@ def _load_boussinesq_budget_rows(
             )
 
     if payload is None:
-        return []
+        npz_path = run_folder / "_boussinesq_state_history.npz"
+        if not npz_path.exists():
+            return []
+        payload = np.load(npz_path, allow_pickle=True)
+        source_label = str(npz_path)
 
     recharge_history = _history_matrix(payload, "recharge_rate_history_m_s")
     well_history = _history_matrix(payload, "well_flux_history_m3_s")
@@ -1924,10 +1930,10 @@ def _load_boussinesq_obstacle_diagnostic_rows(
     if cells is None:
         return []
     if (
-        cells.z_top_m is None
-        or cells.z_bottom_m is None
-        or cells.z_top_m.size != n_cells
-        or cells.z_bottom_m.size != n_cells
+        cells.z_top is None
+        or cells.z_bottom is None
+        or cells.z_top.size != n_cells
+        or cells.z_bottom.size != n_cells
     ):
         return []
 
@@ -1942,13 +1948,13 @@ def _load_boussinesq_obstacle_diagnostic_rows(
         else np.full(n_cells, np.nan, dtype=float)
     )
     z_top = (
-        np.asarray(cells.z_top_m, dtype=float).reshape(-1)
-        if cells.z_top_m is not None and cells.z_top_m.size == n_cells
+        np.asarray(cells.z_top, dtype=float).reshape(-1)
+        if cells.z_top is not None and cells.z_top.size == n_cells
         else np.full(n_cells, np.nan, dtype=float)
     )
     z_bottom = (
-        np.asarray(cells.z_bottom_m, dtype=float).reshape(-1)
-        if cells.z_bottom_m is not None and cells.z_bottom_m.size == n_cells
+        np.asarray(cells.z_bottom, dtype=float).reshape(-1)
+        if cells.z_bottom is not None and cells.z_bottom.size == n_cells
         else np.full(n_cells, np.nan, dtype=float)
     )
 
@@ -2106,12 +2112,19 @@ def write_budget_exports(
 
     wide_index: dict[tuple[str, str], dict[str, Any]] = {}
     for row in rows:
-        key = (str(row["component"]), str(row.get("elapsed_seconds", row.get("time_index", ""))))
+        elapsed = _as_float(row.get("elapsed_seconds"))
+        time_key = (
+            f"elapsed_seconds:{elapsed:.9g}"
+            if elapsed is not None
+            else f"time_index:{int(row['time_index'])}"
+        )
+        key = (str(row["component"]), time_key)
         item = wide_index.setdefault(
             key,
             {
                 "component": row["component"],
                 "unit": row["unit"],
+                "comparison_time_key": time_key,
                 "time_index": row["time_index"],
                 "elapsed_seconds": row["elapsed_seconds"],
                 "time_label": row["time_label"],
@@ -2124,7 +2137,8 @@ def write_budget_exports(
     _write_csv(
         wide_path,
         wide_rows,
-        ["component", "unit", "time_index", "elapsed_seconds", "time_label"] + variant_columns,
+        ["component", "unit", "comparison_time_key", "time_index", "elapsed_seconds", "time_label"]
+        + variant_columns,
     )
     artifacts.append({"kind": "budget_timeseries_wide_csv", "path": str(wide_path)})
     return artifacts, rows

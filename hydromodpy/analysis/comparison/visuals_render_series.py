@@ -33,6 +33,26 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt  # noqa: E402
 
 
+def _rows_have_elapsed_seconds(rows: Iterable[Mapping[str, Any]]) -> bool:
+    seen = False
+    for row in rows:
+        seen = True
+        if _safe_float(row.get("elapsed_seconds")) is None:
+            return False
+    return seen
+
+
+def _row_time_value(row: Mapping[str, Any], *, use_elapsed_seconds: bool) -> float | None:
+    value = _safe_float(row.get("elapsed_seconds" if use_elapsed_seconds else "time_index"))
+    if value is None:
+        return None
+    return value / _SECONDS_PER_DAY if use_elapsed_seconds else value
+
+
+def _time_axis_label(*, use_elapsed_seconds: bool) -> str:
+    return "Elapsed time [d]" if use_elapsed_seconds else "Time step"
+
+
 def _surface_reference_lines(
     rows: Iterable[Mapping[str, Any]],
 ) -> list[tuple[str, str, float]]:
@@ -249,11 +269,12 @@ def _write_point_dashboard(
     if len(observables) < 2:
         return False
 
+    use_elapsed_seconds = _rows_have_elapsed_seconds(point_rows)
     grouped: dict[str, dict[tuple[str, str], list[tuple[float, float]]]] = {}
     for row in point_rows:
         observable_name = str(row.get("observable", ""))
         value = _safe_float(row.get("value"))
-        x_value = _safe_float(row.get("time_index"))
+        x_value = _row_time_value(row, use_elapsed_seconds=use_elapsed_seconds)
         if not observable_name or value is None or x_value is None:
             continue
         key = (
@@ -329,8 +350,12 @@ def _write_point_dashboard(
             for line in legend.get_lines():
                 line.set_linewidth(1.8)
 
-    axes_flat[-1].set_xlabel("Time step", fontsize=_LABEL_FONT_SIZE)
-    _apply_time_ticks(axes_flat[-1], tick_positions=tick_positions)
+    axes_flat[-1].set_xlabel(
+        _time_axis_label(use_elapsed_seconds=use_elapsed_seconds),
+        fontsize=_LABEL_FONT_SIZE,
+    )
+    if not use_elapsed_seconds:
+        _apply_time_ticks(axes_flat[-1], tick_positions=tick_positions)
     figure.suptitle("Head chronicle comparison", fontsize=_TITLE_FONT_SIZE, y=0.985)
     figure.subplots_adjust(left=0.11, right=0.98, top=0.86, bottom=0.13, hspace=0.34)
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -353,10 +378,11 @@ def _write_native_flux_panel(
     if len(variant_keys) < 2:
         return False
 
-    series_payloads: dict[tuple[str, str], list[tuple[int, float]]] = {}
+    use_elapsed_seconds = _rows_have_elapsed_seconds(flux_rows)
+    series_payloads: dict[tuple[str, str], list[tuple[float, float]]] = {}
     for row in flux_rows:
         value = _safe_float(row.get("value"))
-        x_value = _safe_float(row.get("time_index"))
+        x_value = _row_time_value(row, use_elapsed_seconds=use_elapsed_seconds)
         if value is None or x_value is None:
             continue
         key = (
@@ -372,7 +398,7 @@ def _write_native_flux_panel(
         for row in delta_rows
         if str(row.get("variable", "")) == variable
         and _safe_float(row.get("signed_error")) is not None
-        and _safe_float(row.get("time_index")) is not None
+        and _row_time_value(row, use_elapsed_seconds=use_elapsed_seconds) is not None
     ]
 
     figure, axes = plt.subplots(2, 1, figsize=(7.5, 6.2), sharex=True)
@@ -409,15 +435,17 @@ def _write_native_flux_panel(
         line.set_linewidth(1.8)
 
     if relevant_delta:
-        delta_groups: dict[str, list[tuple[int, float]]] = {}
+        delta_groups: dict[str, list[tuple[float, float]]] = {}
         time_label_lookup: dict[int, str] = {}
         for row in relevant_delta:
             key = str(row.get("variant_id", ""))
-            time_index = int(float(row["time_index"]))
-            delta_groups.setdefault(key, []).append((time_index, float(row["signed_error"])))
+            time_value = _row_time_value(row, use_elapsed_seconds=use_elapsed_seconds)
+            if time_value is None:
+                continue
+            delta_groups.setdefault(key, []).append((time_value, float(row["signed_error"])))
             label = str(row.get("time_label", "")).strip()
-            if label:
-                time_label_lookup[time_index] = label
+            if label and not use_elapsed_seconds:
+                time_label_lookup[int(time_value)] = label
         for variant_id, points in sorted(delta_groups.items()):
             ordered = sorted(points, key=lambda item: item[0])
             delta_ax.step(
@@ -433,15 +461,19 @@ def _write_native_flux_panel(
             for value in sorted(time_label_lookup)
         ]
         delta_ax.axhline(0.0, color="#111827", linewidth=0.8, alpha=0.65)
-    delta_ax.set_xlabel("Time step", fontsize=_LABEL_FONT_SIZE)
+    delta_ax.set_xlabel(
+        _time_axis_label(use_elapsed_seconds=use_elapsed_seconds),
+        fontsize=_LABEL_FONT_SIZE,
+    )
     delta_ax.set_ylabel("Delta vs ref", fontsize=_LABEL_FONT_SIZE)
     delta_ax.tick_params(labelsize=_TICK_FONT_SIZE)
     delta_ax.grid(True, alpha=0.22, linewidth=0.6)
-    _apply_time_ticks(
-        delta_ax,
-        tick_positions=tick_positions,
-        tick_labels=(tick_labels if tick_labels else None),
-    )
+    if not use_elapsed_seconds:
+        _apply_time_ticks(
+            delta_ax,
+            tick_positions=tick_positions,
+            tick_labels=(tick_labels if tick_labels else None),
+        )
 
     figure.suptitle(f"{_pretty_label(variable)} hydrograph", fontsize=_TITLE_FONT_SIZE, y=0.97)
     figure.subplots_adjust(left=0.12, right=0.98, top=0.9, bottom=0.18, hspace=0.25)
@@ -462,11 +494,17 @@ def _write_flux_dashboard(
     ] = []
 
     outlet_rows = [row for row in rows if str(row.get("observable", "")) == "outlet_flux_series"]
+    native_flux_rows = [
+        row
+        for row in native_long_rows
+        if str(row.get("variable", "")) in {"accumulation_flux", "outflow_drain"}
+    ]
+    use_elapsed_seconds = _rows_have_elapsed_seconds(outlet_rows + native_flux_rows)
     if outlet_rows:
         grouped: dict[tuple[str, str], list[tuple[float, float]]] = {}
         for row in outlet_rows:
             value = _safe_float(row.get("value"))
-            x_value = _safe_float(row.get("time_index"))
+            x_value = _row_time_value(row, use_elapsed_seconds=use_elapsed_seconds)
             if value is None or x_value is None:
                 continue
             key = (
@@ -480,11 +518,11 @@ def _write_flux_dashboard(
     for variable in ("accumulation_flux", "outflow_drain"):
         grouped_native: dict[tuple[str, str], list[tuple[float, float]]] = {}
         time_labels: dict[int, str] = {}
-        for row in native_long_rows:
+        for row in native_flux_rows:
             if str(row.get("variable", "")) != variable:
                 continue
             value = _safe_float(row.get("value"))
-            x_value = _safe_float(row.get("time_index"))
+            x_value = _row_time_value(row, use_elapsed_seconds=use_elapsed_seconds)
             if value is None or x_value is None:
                 continue
             key = (
@@ -493,7 +531,7 @@ def _write_flux_dashboard(
             )
             grouped_native.setdefault(key, []).append((x_value, value))
             label = str(row.get("time_label", "")).strip()
-            if label:
+            if label and not use_elapsed_seconds:
                 time_labels[int(x_value)] = label
         if any(len(points) >= 2 for points in grouped_native.values()):
             labels = [time_labels[index] for index in sorted(time_labels)] if time_labels else None
@@ -548,8 +586,12 @@ def _write_flux_dashboard(
             for line in legend.get_lines():
                 line.set_linewidth(1.8)
 
-    axes_flat[-1].set_xlabel("Time step", fontsize=_LABEL_FONT_SIZE)
-    _apply_time_ticks(axes_flat[-1], tick_positions=tick_positions, tick_labels=tick_labels)
+    axes_flat[-1].set_xlabel(
+        _time_axis_label(use_elapsed_seconds=use_elapsed_seconds),
+        fontsize=_LABEL_FONT_SIZE,
+    )
+    if not use_elapsed_seconds:
+        _apply_time_ticks(axes_flat[-1], tick_positions=tick_positions, tick_labels=tick_labels)
     figure.suptitle("Flux overview", fontsize=_TITLE_FONT_SIZE, y=0.985)
     figure.subplots_adjust(left=0.11, right=0.98, top=0.86, bottom=0.13, hspace=0.34)
     path.parent.mkdir(parents=True, exist_ok=True)

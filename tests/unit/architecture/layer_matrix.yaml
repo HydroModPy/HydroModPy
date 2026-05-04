@@ -5,21 +5,22 @@
 # Packages absent from the row's list are forbidden (CI flags them).
 
 allowed:
-  "<root>":      ["<root>", core, schema, physics, data, spatial, simulation, solver, calibration, results, display, analysis, workflow, master_config, cli]
+  "<root>":      ["<root>", core, schema, config, physics, data, spatial, simulation, solver, calibration, results, display, analysis, workflow, master_config, cli]
   core:          [core]
-  schema:        [core, schema]
+  schema:        [core, schema, config]
+  config:        [core, schema, config, physics, data, spatial, simulation, solver, calibration, results, display, analysis, workflow]
   physics:       [core, schema, physics]
   data:          [core, schema, data]
   spatial:       [core, schema, spatial]
   simulation:    [core, schema, physics, spatial, data, simulation]
   solver:        [core, schema, physics, spatial, solver, simulation]
   calibration:   [core, schema, physics, data, spatial, solver, simulation, calibration]
-  results:       [core, schema, results]
+  results:       [core, schema, config, results]
   display:       [core, schema, results, display]
   analysis:      [core, schema, data, results, analysis]
-  workflow:      [core, schema, physics, data, spatial, simulation, solver, calibration, results, display, analysis, workflow, master_config]
+  workflow:      [core, schema, config, physics, data, spatial, simulation, solver, calibration, results, display, analysis, workflow, master_config]
   master_config: [core, schema, physics, data, spatial, simulation, solver, calibration, results, display, analysis, workflow, master_config]
-  cli:           [core, schema, physics, data, spatial, simulation, solver, calibration, results, display, analysis, workflow, master_config, cli]
+  cli:           [core, schema, config, physics, data, spatial, simulation, solver, calibration, results, display, analysis, workflow, master_config, cli]
 
 # Cross-edges tolerated for now. Each tolerance must point at a documented
 # rationale. Empty until R0 lands. Tighten over time.
@@ -35,6 +36,9 @@ tolerances:
   - {src: master_config, tgt: "<root>", reason: "module entrypoint delegates to hydromodpy.__main__"}
   - {src: results,     tgt: "<root>", reason: "Run.rerun launches public Project facade"}
   - {src: workflow,    tgt: "<root>", reason: "sweep helper accepts Project facade instances"}
+  - {src: analysis,    tgt: display,  reason: "comparison exports reuse plot mesh loading"}
+  - {src: analysis,    tgt: solver,   reason: "comparison runtime resolves solver families"}
+  - {src: results,     tgt: analysis, reason: "Run exposes stream-network diagnostics"}
 
 # Files exempt from the layer rule. Bootstrap shims that wire forward refs,
 # plus *.cases.run_*case.py CLI entrypoints that load HydroModPyConfig from a
