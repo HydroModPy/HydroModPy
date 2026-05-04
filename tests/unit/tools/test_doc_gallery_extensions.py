@@ -140,15 +140,17 @@ def test_generate_method_comparison_case_smoke(tmp_path: Path) -> None:
 [comparison]
 comparison_id = "example12_map_method_comparison"
 output_root = "{committed_root.as_posix()}"
-run_variants = false
-reference_variant = "mf6_gmsh_existing"
+reference_simulation = "mf6_gmsh_existing"
 
-[[comparison.variant]]
+[comparison.execution]
+run_simulations = false
+
+[[comparison.simulation]]
 id = "mf6_gmsh_existing"
 label = "MODFLOW 6"
 run_folder = "mf6_gmsh_existing"
 
-[[comparison.variant]]
+[[comparison.simulation]]
 id = "boussinesq_reused_gmsh"
 label = "Boussinesq"
 run_folder = "boussinesq_reused_gmsh"

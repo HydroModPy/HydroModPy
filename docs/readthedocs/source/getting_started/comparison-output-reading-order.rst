@@ -128,6 +128,24 @@ Use the metrics file to answer magnitude questions before making causal claims.
      - Flag the worst local mismatch
      - One peak does not mean the whole field is poor
 
+Time Columns In CSV Files
+-------------------------
+
+When reading ``observables.csv``, ``timeseries_long.csv``,
+``comparison_differences.csv``, or ``budget_timeseries_long.csv``, first check
+``time_role``.
+
+- ``initial_state`` is the explicit state before the first transient period.
+- ``state_snapshot`` is an instantaneous state such as head or watertable.
+- ``period_value`` is an interval value such as recharge, drainage, or a budget
+  component.
+- ``reduced`` is a statistic computed from several time rows.
+
+For ``period_value`` rows, ``elapsed_seconds`` is the end of the period. Budget
+exports also carry ``period_index``, ``period_start_seconds``, and
+``period_end_seconds`` so that interval quantities are not confused with
+instantaneous states.
+
 Synthetic Shared-Mesh Case
 --------------------------
 

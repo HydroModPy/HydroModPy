@@ -28,5 +28,8 @@ runtime_tol_state_update_inf = 1.0e-6
 type = "top_offset"
 value = "10 m"
 
+[flow.sinks_sources.recharge]
+first_clim = "first"
+
 [flow.bc.cauchy.drainage]
-value = "1.0e-4 m2/s"
+value = "1.0e-3 m2/s"

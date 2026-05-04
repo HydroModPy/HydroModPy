@@ -16,7 +16,7 @@ DEFAULT_OUTPUT_ROOT = CASE_DIR / "comparison" / DEFAULT_COMPARISON_ID
 DEFAULT_CONFIG_PATH = CASE_DIR / ".__runtime_comparison_boundary_step.toml"
 
 
-def _build_payload(*, output_root: Path, run_variants: bool) -> dict[str, Any]:
+def _build_payload(*, output_root: Path, run_simulations: bool) -> dict[str, Any]:
     workspace_root = REPO_ROOT / "tmp" / f"{DEFAULT_COMPARISON_ID}_workspace"
     west_head_csv = CASE_DIR / "west_head_step.csv"
 
@@ -47,7 +47,7 @@ def _build_payload(*, output_root: Path, run_variants: bool) -> dict[str, Any]:
             "output_root": str(output_root),
             "reference_simulation": "modflow6",
             "execution": {
-                "run_simulations": bool(run_variants),
+                "run_simulations": bool(run_simulations),
             },
             "simulation": [
                 {
@@ -161,7 +161,7 @@ def main(argv: list[str] | None = None) -> int:
     (workspace_root / "data").mkdir(parents=True, exist_ok=True)
     (workspace_root / "simulations").mkdir(parents=True, exist_ok=True)
 
-    payload = _build_payload(output_root=output_root, run_variants=not bool(args.reuse))
+    payload = _build_payload(output_root=output_root, run_simulations=not bool(args.reuse))
     write_toml_payload(DEFAULT_CONFIG_PATH, payload)
     summary = SimulationComparisonLauncher(DEFAULT_CONFIG_PATH).run()
 

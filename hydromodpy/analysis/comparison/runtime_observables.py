@@ -38,6 +38,44 @@ if TYPE_CHECKING:
     from hydromodpy.results.catalog import SimulationCatalog
 
 
+_PERIOD_VALUE_VARIABLES = {
+    "accumulation_flux",
+    "drainage_flux_history_m3_s",
+    "drainage_flux_m3_s",
+    "dry_deficit_history_m_s",
+    "groundwater_flux",
+    "outflow_drain",
+    "outlet_flux",
+    "recharge_rate_history_m_s",
+    "saturation_excess_history_m_s",
+    "surface_excess_flux",
+    "surface_excess_map",
+    "surface_excess_rate",
+    "surface_excess_total_m3_s",
+    "well_flux_history_m3_s",
+}
+
+
+def _observable_time_role(
+    *,
+    observable: ComparisonObservable,
+    series: VariableSeries,
+    time_slice: TimeSlice,
+) -> str:
+    """Describe how the row time should be interpreted in tabular exports."""
+    if str(time_slice.time_key).strip().lower() == "reduced":
+        return "reduced"
+    if time_slice.is_initial_state:
+        return "initial_state"
+    variable_keys = {
+        str(observable.variable).strip().lower(),
+        str(series.variable_name).strip().lower(),
+    }
+    if variable_keys & _PERIOD_VALUE_VARIABLES:
+        return "period_value"
+    return "state_snapshot"
+
+
 def _area_for_series_value(
     *,
     series: VariableSeries,
@@ -218,6 +256,13 @@ def _select_time_slices(
         return (series.slices[-1],)
     if selector_text == "first":
         return (series.slices[0],)
+
+    if isinstance(time_selector, numbers.Integral):
+        index = int(time_selector)
+        if index >= 0 and any(item.is_initial_state for item in series.slices):
+            non_initial = [item for item in series.slices if not item.is_initial_state]
+            if index < len(non_initial):
+                return (non_initial[index],)
 
     for item in series.slices:
         if str(item.time_key) == str(time_selector):
@@ -552,6 +597,11 @@ def extract_observable_rows(
                             if time_slice.elapsed_seconds is None
                             else float(time_slice.elapsed_seconds)
                         ),
+                        "time_role": _observable_time_role(
+                            observable=observable,
+                            series=series,
+                            time_slice=time_slice,
+                        ),
                         "requested_time": (
                             "all" if observable.time is None else str(observable.time)
                         ),
@@ -603,6 +653,7 @@ def write_observables_csv(path: Path, rows: list[dict[str, Any]]) -> None:
         "time",
         "time_index",
         "elapsed_seconds",
+        "time_role",
         "requested_time",
         "requested_time_reducer",
         "selection_time_order",

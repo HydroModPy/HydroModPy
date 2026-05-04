@@ -134,6 +134,15 @@ def build_initial_heads_and_sides(
     initial_type = str(getattr(initial_condition, "type", "")).strip().lower()
     if initial_type == "top":
         strt = np.ones((adapter.nlay, adapter.nrow, adapter.ncol), dtype=float) * adapter.dem
+    elif initial_type == "top_offset":
+        head_value = initial_condition.value
+        if head_value is None:
+            raise ValueError("flow.initial_conditions.h.value is required for top_offset")
+        offset_m = float(getattr(head_value, "magnitude", head_value))
+        strt = (
+            np.ones((adapter.nlay, adapter.nrow, adapter.ncol), dtype=float)
+            * (adapter.dem - offset_m)
+        )
     elif initial_type == "bottom":
         strt = (
             np.ones((adapter.nlay, adapter.nrow, adapter.ncol), dtype=float) * adapter.bottom_layer
@@ -145,7 +154,9 @@ def build_initial_heads_and_sides(
             head_magnitude
         )
     else:
-        raise ValueError("flow.initial_conditions.h.type must be one of: top, bottom, custom")
+        raise ValueError(
+            "flow.initial_conditions.h.type must be one of: top, top_offset, bottom, custom"
+        )
 
     boundary_conditions = adapter._boundary_conditions
     west_side = boundary_conditions.get("west_side") if adapter._is_bc_active("west_side") else None

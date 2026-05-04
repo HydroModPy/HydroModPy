@@ -26,7 +26,9 @@ from hydromodpy.analysis.comparison.run_backend import ChildRunResult, run_child
 from hydromodpy.analysis.comparison.runtime import (
     discover_result_store,
     extract_observable_rows,
+    read_variant_run_metadata,
 )
+from hydromodpy.core.config_kit.root_config_protocol import get_root_config_provider
 from hydromodpy.core.toml_io.loader import load_toml_with_base_config
 
 
@@ -236,7 +238,13 @@ class SimulationComparisonLauncher:
         *,
         status: str,
     ) -> dict[str, Any]:
-        return {
+        run_folder = child.run_folder
+        if run_folder is None and child.config_path is not None:
+            run_folder = self._infer_run_folder_from_config(
+                child.config_path,
+                solver_name=child.solver,
+            )
+        summary = {
             "id": child.simulation_id,
             "label": child.label,
             "status": status,
@@ -245,9 +253,12 @@ class SimulationComparisonLauncher:
             "mesh_label": child.mesh_label,
             "mesh_mode": child.mesh_mode,
             "config_path": None if child.config_path is None else str(child.config_path),
-            "run_folder": None if child.run_folder is None else str(child.run_folder),
+            "run_folder": None if run_folder is None else str(run_folder),
             "run_name": child.run_name,
         }
+        if run_folder is not None and status in {"completed", "reused"}:
+            summary.update(read_variant_run_metadata(run_folder))
+        return summary
 
     def _build_comparison_cfg(
         self,
@@ -281,8 +292,8 @@ class SimulationComparisonLauncher:
             base_dir=self.cfg.base_dir,
             comparison_root=self.cfg.comparison_root,
             base_simulation_config_path=self.cfg.base_simulation_config_path,
-            anchors_path=None,
-            anchors={},
+            anchors_path=self.cfg.anchors_path,
+            anchors=self.cfg.anchors,
             comparison=section,
         )
 
@@ -376,6 +387,109 @@ class SimulationComparisonLauncher:
             except Exception as exc:
                 errors.append(f"could not remove {generated_dir}: {exc}")
         return errors
+
+    @staticmethod
+    def _looks_like_run_folder(candidate: Path) -> bool:
+        """Return whether a folder contains comparison-readable run outputs."""
+        return (
+            (candidate / "_postprocess").exists()
+            or (candidate / "_boussinesq_state_history.npz").exists()
+            or (candidate / "_metrics.json").exists()
+        )
+
+    @classmethod
+    def _resolve_existing_run_folder(
+        cls,
+        base_folder: Path,
+        *,
+        solver_name: str | None = None,
+    ) -> Path:
+        """Resolve one concrete run folder from a root, child, or sibling path."""
+        base_folder = Path(base_folder).expanduser()
+        solver_key = str(solver_name or "").strip().lower()
+
+        def _append_dir(targets: list[Path], candidate: Path) -> None:
+            if not candidate.exists() or not candidate.is_dir():
+                return
+            if any(existing == candidate for existing in targets):
+                return
+            targets.append(candidate)
+
+        candidates: list[Path] = []
+        _append_dir(candidates, base_folder)
+        if solver_key:
+            _append_dir(candidates, base_folder / solver_key)
+
+        first_ring: list[Path] = []
+        if base_folder.exists():
+            for child in sorted(base_folder.iterdir()):
+                _append_dir(first_ring, child)
+
+        parent = base_folder.parent
+        if parent.exists():
+            for sibling in sorted(parent.iterdir()):
+                _append_dir(first_ring, sibling)
+
+        ordered_children = sorted(
+            first_ring,
+            key=lambda path: (
+                0 if solver_key and (solver_key in path.name.strip().lower()) else 1,
+                len(path.parts),
+                str(path),
+            ),
+        )
+        for child in ordered_children:
+            _append_dir(candidates, child)
+
+        second_ring: list[Path] = []
+        for container in ordered_children:
+            try:
+                for grandchild in sorted(container.iterdir()):
+                    _append_dir(second_ring, grandchild)
+            except Exception:
+                continue
+        ordered_grandchildren = sorted(
+            second_ring,
+            key=lambda path: (
+                0
+                if solver_key
+                and (
+                    solver_key in path.name.strip().lower()
+                    or solver_key in path.parent.name.strip().lower()
+                )
+                else 1,
+                len(path.parts),
+                str(path),
+            ),
+        )
+        for grandchild in ordered_grandchildren:
+            _append_dir(candidates, grandchild)
+
+        for candidate in candidates:
+            if cls._looks_like_run_folder(candidate):
+                return candidate.resolve()
+        return base_folder.resolve()
+
+    @staticmethod
+    def _infer_run_folder_from_config(
+        config_path: Path,
+        *,
+        solver_name: str | None = None,
+    ) -> Path:
+        """Infer one existing run folder from a simulation config path."""
+        try:
+            cfg = get_root_config_provider().from_toml(config_path)
+            scratch_folder = getattr(cfg.workspace, "solver_scratch_folder", None)
+            run_id = getattr(cfg.simulation, "run_id", None)
+        except Exception:
+            return Path(config_path).expanduser().resolve().parent
+        if scratch_folder in (None, "") or run_id in (None, ""):
+            return Path(config_path).expanduser().resolve().parent
+        base_folder = Path(scratch_folder) / str(run_id)
+        return SimulationComparisonLauncher._resolve_existing_run_folder(
+            base_folder,
+            solver_name=solver_name,
+        )
 
 
 def _format_child_process_error(result: ChildRunResult) -> str:

@@ -244,6 +244,7 @@ def write_observable_chronicle_exports(
             "variant_id": row.get("variant_id", ""),
             "variant_label": row.get("variant_label", ""),
             "comparison_time_key": row.get("comparison_time_key", ""),
+            "time_role": row.get("time_role", ""),
             "time": row.get("time", ""),
             "time_index": row.get("time_index", ""),
             "elapsed_seconds": row.get("elapsed_seconds", ""),
@@ -275,6 +276,7 @@ def write_observable_chronicle_exports(
                 "support": row.get("support", ""),
                 "unit": row.get("unit", ""),
                 "comparison_time_key": row.get("comparison_time_key", ""),
+                "time_role": row.get("time_role", ""),
                 "time": row.get("time", ""),
                 "time_index": row.get("time_index", ""),
                 "elapsed_seconds": row.get("elapsed_seconds", ""),
@@ -293,6 +295,8 @@ def write_observable_chronicle_exports(
             "variant_id": row.get("variant_id", ""),
             "reference_variant": row.get("reference_variant", ""),
             "comparison_time_key": row.get("comparison_time_key", ""),
+            "time_role": row.get("time_role", ""),
+            "reference_time_role": row.get("reference_time_role", ""),
             "time": row.get("time", ""),
             "time_index": row.get("time_index", ""),
             "elapsed_seconds": row.get("elapsed_seconds", ""),
@@ -323,6 +327,7 @@ def write_observable_chronicle_exports(
                 "variant_id",
                 "variant_label",
                 "comparison_time_key",
+                "time_role",
                 "time",
                 "time_index",
                 "elapsed_seconds",
@@ -348,6 +353,7 @@ def write_observable_chronicle_exports(
                 "support",
                 "unit",
                 "comparison_time_key",
+                "time_role",
                 "time",
                 "time_index",
                 "elapsed_seconds",
@@ -369,6 +375,8 @@ def write_observable_chronicle_exports(
                 "variant_id",
                 "reference_variant",
                 "comparison_time_key",
+                "time_role",
+                "reference_time_role",
                 "time",
                 "time_index",
                 "elapsed_seconds",
@@ -1350,6 +1358,42 @@ def _elapsed_seconds_axis(period_lengths: np.ndarray, *, n_snapshots: int) -> np
     return np.arange(n_snapshots, dtype=float)
 
 
+def _budget_period_metadata(
+    *,
+    elapsed_seconds: np.ndarray,
+    period_lengths_seconds: np.ndarray,
+    n_snapshots: int,
+    time_index: int,
+) -> tuple[int, float, float] | None:
+    """Return period index and bounds for one budget row.
+
+    Boussinesq histories may include an explicit initial state at index 0.
+    Budgets are interval values, so that initial state is not a budget period.
+    """
+    has_initial_state = period_lengths_seconds.size == n_snapshots - 1
+    if has_initial_state:
+        if time_index <= 0:
+            return None
+        period_index = time_index - 1
+        period_start = float(elapsed_seconds[time_index - 1])
+        period_end = float(elapsed_seconds[time_index])
+        return period_index, period_start, period_end
+
+    period_index = time_index
+    period_end = (
+        float(elapsed_seconds[time_index])
+        if time_index < int(elapsed_seconds.size)
+        else float(time_index)
+    )
+    if time_index > 0 and time_index - 1 < int(elapsed_seconds.size):
+        period_start = float(elapsed_seconds[time_index - 1])
+    elif period_lengths_seconds.size > 0:
+        period_start = period_end - float(period_lengths_seconds[0])
+    else:
+        period_start = 0.0
+    return period_index, period_start, period_end
+
+
 def _namespace_from_mapping(value: Any) -> Any:
     if isinstance(value, Mapping):
         return SimpleNamespace(
@@ -1727,6 +1771,15 @@ def _load_boussinesq_budget_rows(
         for time_index, value in enumerate(values.tolist()):
             if not math.isfinite(float(value)):
                 continue
+            period_metadata = _budget_period_metadata(
+                elapsed_seconds=elapsed_seconds,
+                period_lengths_seconds=period_lengths,
+                n_snapshots=n_snapshots,
+                time_index=time_index,
+            )
+            if period_metadata is None:
+                continue
+            period_index, period_start, period_end = period_metadata
             rows.append(
                 {
                     "variant_id": summary.get("id", ""),
@@ -1735,9 +1788,14 @@ def _load_boussinesq_budget_rows(
                     "mesh_mode": summary.get("mesh_mode", ""),
                     "component": component,
                     "unit": "m3/s",
+                    "time_role": "period_value",
+                    "period_index": period_index,
+                    "period_start_seconds": period_start,
+                    "period_end_seconds": period_end,
                     "time_index": time_index,
                     "elapsed_seconds": float(elapsed_seconds[time_index]),
                     "time_label": time_labels[time_index],
+                    "is_initial_state": False,
                     "value": float(value),
                     "source": source_label,
                 }
@@ -1849,6 +1907,11 @@ def _load_catalog_budget_rows(
         elapsed = (
             float(elapsed_axis[timestep]) if timestep < int(elapsed_axis.size) else float(timestep)
         )
+        period_start = (
+            float(elapsed_axis[timestep - 1])
+            if timestep > 0 and timestep - 1 < int(elapsed_axis.size)
+            else 0.0
+        )
         time_label = f"{elapsed / 86400.0:.1f} d" if math.isfinite(elapsed) else str(timestep)
         for component, value in sorted(values.items()):
             if not math.isfinite(float(value)):
@@ -1861,9 +1924,14 @@ def _load_catalog_budget_rows(
                     "mesh_mode": summary.get("mesh_mode", ""),
                     "component": component,
                     "unit": "m3/s",
+                    "time_role": "period_value",
+                    "period_index": timestep,
+                    "period_start_seconds": period_start,
+                    "period_end_seconds": elapsed,
                     "time_index": timestep,
                     "elapsed_seconds": elapsed,
                     "time_label": time_label,
+                    "is_initial_state": False,
                     "value": float(value),
                     "source": f"SimulationCatalog budgets(sim_id={sim_id})",
                 }
@@ -1878,6 +1946,7 @@ BOUSSINESQ_OBSTACLE_DIAGNOSTICS_FIELDS = [
     "mesh_mode",
     "time_index",
     "elapsed_seconds",
+    "time_role",
     "time_label",
     "min_head_above_bottom_m",
     "max_head_below_bottom_m",
@@ -1994,6 +2063,11 @@ def _load_boussinesq_obstacle_diagnostic_rows(
                 "mesh_mode": summary.get("mesh_mode", ""),
                 "time_index": time_index,
                 "elapsed_seconds": float(elapsed_seconds[time_index]),
+                "time_role": (
+                    "initial_state"
+                    if period_lengths.size == n_snapshots - 1 and time_index == 0
+                    else "state_snapshot"
+                ),
                 "time_label": time_labels[time_index],
                 "min_head_above_bottom_m": float(np.nanmin(bottom_gap)),
                 "max_head_below_bottom_m": float(np.nanmax(bottom_violation)),
@@ -2101,9 +2175,14 @@ def write_budget_exports(
             "mesh_mode",
             "component",
             "unit",
+            "time_role",
+            "period_index",
+            "period_start_seconds",
+            "period_end_seconds",
             "time_index",
             "elapsed_seconds",
             "time_label",
+            "is_initial_state",
             "value",
             "source",
         ],
@@ -2125,6 +2204,10 @@ def write_budget_exports(
                 "component": row["component"],
                 "unit": row["unit"],
                 "comparison_time_key": time_key,
+                "time_role": row.get("time_role", ""),
+                "period_index": row.get("period_index", ""),
+                "period_start_seconds": row.get("period_start_seconds", ""),
+                "period_end_seconds": row.get("period_end_seconds", ""),
                 "time_index": row["time_index"],
                 "elapsed_seconds": row["elapsed_seconds"],
                 "time_label": row["time_label"],
@@ -2137,7 +2220,18 @@ def write_budget_exports(
     _write_csv(
         wide_path,
         wide_rows,
-        ["component", "unit", "comparison_time_key", "time_index", "elapsed_seconds", "time_label"]
+        [
+            "component",
+            "unit",
+            "comparison_time_key",
+            "time_role",
+            "period_index",
+            "period_start_seconds",
+            "period_end_seconds",
+            "time_index",
+            "elapsed_seconds",
+            "time_label",
+        ]
         + variant_columns,
     )
     artifacts.append({"kind": "budget_timeseries_wide_csv", "path": str(wide_path)})

@@ -28,22 +28,18 @@ def resolve_comparison_launcher(config_path: str | Path) -> Any:
         raise ValueError("[comparison] must be a mapping")
     has_simulation = "simulation" in section
     has_variant = "variant" in section
-    if has_simulation and has_variant:
-        raise ValueError("[comparison] cannot declare both simulation and variant entries.")
-    if has_simulation:
-        from hydromodpy.analysis.comparison.experiment_launcher import (
-            SimulationComparisonLauncher,
-        )
-
-        return SimulationComparisonLauncher(resolved_path)
     if has_variant:
-        from hydromodpy.analysis.comparison.orchestrator import VariantComparisonLauncher
+        raise ValueError(
+            "[[comparison.variant]] has been removed; use [[comparison.simulation]]."
+        )
+    if not has_simulation:
+        raise KeyError("Comparison config must declare [[comparison.simulation]].")
 
-        return VariantComparisonLauncher(resolved_path)
-
-    raise KeyError(
-        "Comparison config must declare [[comparison.simulation]] or [[comparison.variant]]."
+    from hydromodpy.analysis.comparison.experiment_launcher import (
+        SimulationComparisonLauncher,
     )
+
+    return SimulationComparisonLauncher(resolved_path)
 
 
 __all__ = ("resolve_comparison_launcher", "run_comparison_config")

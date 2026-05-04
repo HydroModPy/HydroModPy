@@ -8,9 +8,22 @@ from collections.abc import Iterable, Mapping
 from pathlib import Path
 from typing import Any
 
+from hydromodpy.analysis.comparison import runtime_metadata
 from hydromodpy.analysis.comparison.runtime_mesh import resolve_bundle_cells
-from hydromodpy.analysis.comparison.runtime_metadata import discover_result_store
 from hydromodpy.core.toml_io.loader import load_toml_with_base_config
+
+_ORIGINAL_DISCOVER_RESULT_STORE = runtime_metadata.discover_result_store
+discover_result_store = _ORIGINAL_DISCOVER_RESULT_STORE
+
+
+def _discover_result_store(*args: Any, **kwargs: Any) -> Any:
+    """Resolve stores while preserving old test monkeypatch entry points."""
+    local_func = globals().get("discover_result_store", _ORIGINAL_DISCOVER_RESULT_STORE)
+    module_func = runtime_metadata.discover_result_store
+    if local_func is not _ORIGINAL_DISCOVER_RESULT_STORE and local_func is not module_func:
+        return local_func(*args, **kwargs)
+    return module_func(*args, **kwargs)
+
 
 STRICT_METADATA_KEYS = (
     "mesh_hash",
@@ -50,6 +63,7 @@ RECHARGE_REL_TOL = 1.0e-2
 RECHARGE_ABS_TOL_M3_S = 1.0e-6
 HEAD_ABOVE_TOP_FRACTION_TOL = 5.0e-2
 HEAD_ABOVE_TOP_TOL_M = 0.1
+INITIAL_STATE_MISMATCH_SELECTORS = {"", "all", "first"}
 
 
 def _jsonable(value: Any) -> Any:
@@ -437,12 +451,104 @@ def _head_recharge_response_diagnostics(
     return diagnostics
 
 
+def _is_true_flag(value: Any) -> bool:
+    if isinstance(value, bool):
+        return value
+    return str(value).strip().lower() in {"true", "1", "yes", "y"}
+
+
+def _initial_state_policy_diagnostics(
+    *,
+    observable_rows: Iterable[Mapping[str, Any]] | None,
+) -> list[dict[str, Any]]:
+    """Summarize whether extracted observables include solver-specific t0 rows."""
+    if observable_rows is None:
+        return []
+
+    grouped: dict[tuple[str, str, str, str], dict[str, dict[str, Any]]] = {}
+    for row in observable_rows:
+        observable = str(row.get("observable", ""))
+        if observable == "":
+            continue
+        variant_id = str(row.get("variant_id", ""))
+        if variant_id == "":
+            continue
+        key = (
+            observable,
+            str(row.get("support", "")),
+            str(row.get("requested_time", "")),
+            str(row.get("resolved_variable", row.get("variable", ""))),
+        )
+        variant_stats = grouped.setdefault(key, {}).setdefault(
+            variant_id,
+            {
+                "n_rows": 0,
+                "n_initial_rows": 0,
+                "n_step_end_rows": 0,
+                "first_elapsed_seconds": None,
+                "first_non_initial_elapsed_seconds": None,
+            },
+        )
+        variant_stats["n_rows"] += 1
+        elapsed = _as_float(row.get("elapsed_seconds"))
+        if (
+            elapsed is not None
+            and variant_stats["first_elapsed_seconds"] is None
+        ):
+            variant_stats["first_elapsed_seconds"] = elapsed
+        if _is_true_flag(row.get("is_initial_state")):
+            variant_stats["n_initial_rows"] += 1
+        else:
+            variant_stats["n_step_end_rows"] += 1
+            if (
+                elapsed is not None
+                and variant_stats["first_non_initial_elapsed_seconds"] is None
+            ):
+                variant_stats["first_non_initial_elapsed_seconds"] = elapsed
+
+    diagnostics: list[dict[str, Any]] = []
+    for (observable, support, requested_time, variable), by_variant in sorted(grouped.items()):
+        if len(by_variant) < 2:
+            continue
+        variants_with_initial = sorted(
+            variant_id
+            for variant_id, stats in by_variant.items()
+            if int(stats.get("n_initial_rows", 0)) > 0
+        )
+        variants_without_initial = sorted(
+            variant_id
+            for variant_id, stats in by_variant.items()
+            if int(stats.get("n_initial_rows", 0)) == 0
+        )
+        if not variants_with_initial or not variants_without_initial:
+            continue
+        selector = str(requested_time).strip().lower()
+        severity = "warning" if selector in INITIAL_STATE_MISMATCH_SELECTORS else "info"
+        diagnostics.append(
+            {
+                "observable": observable,
+                "support": support,
+                "requested_time": requested_time,
+                "resolved_variable": variable,
+                "severity": severity,
+                "variants_with_initial_state": variants_with_initial,
+                "variants_without_initial_state": variants_without_initial,
+                "variant_stats": by_variant,
+                "message": (
+                    "Some variants expose an explicit initial-state row while others "
+                    "start at the first computed step."
+                ),
+            }
+        )
+    return diagnostics
+
+
 def _load_audit_subject(summary: Mapping[str, Any]) -> dict[str, Any]:
     config_path_raw = summary.get("config_path")
     config_path = None if config_path_raw in (None, "") else Path(str(config_path_raw))
     preferred_sim_id = summary.get("sim_id")
     preferred_name = summary.get("run_name")
-    store, sim_id = discover_result_store(
+    store, sim_id = _discover_result_store(
         config_path,
         preferred_sim_id=None if preferred_sim_id in (None, "") else str(preferred_sim_id),
         preferred_name=None if preferred_name in (None, "") else str(preferred_name),
@@ -615,6 +721,27 @@ def build_equivalence_audit(
                 }
             )
 
+    initial_state_policy = _initial_state_policy_diagnostics(
+        observable_rows=observable_rows,
+    )
+    for item in initial_state_policy:
+        if str(item.get("severity", "")) != "warning":
+            continue
+        issues.append(
+            {
+                "level": "warning",
+                "kind": "initial_state_policy_mismatch",
+                "variant_id": ",".join(item.get("variants_with_initial_state", [])),
+                "field": item.get("observable", ""),
+                "message": item.get("message", ""),
+                "requested_time": item.get("requested_time", ""),
+                "variants_with_initial_state": item.get("variants_with_initial_state", []),
+                "variants_without_initial_state": item.get(
+                    "variants_without_initial_state", []
+                ),
+            }
+        )
+
     has_error = any(issue.get("level") == "error" for issue in issues)
     has_warning = any(issue.get("level") == "warning" for issue in issues)
     status = "fail" if has_error else "warn" if has_warning else "pass"
@@ -631,6 +758,7 @@ def build_equivalence_audit(
         "status": status,
         "reference_variant": reference_id,
         "physical_config_sections": [label for label, _ in PHYSICAL_CONFIG_SECTIONS],
+        "initial_state_policy": initial_state_policy,
         "head_bounds": head_bounds,
         "head_recharge_response": _head_recharge_response_diagnostics(
             observable_rows=observable_rows,
@@ -700,6 +828,21 @@ def write_audit_files(
         )
     if not wrote_check:
         lines.append("- No comparable recharge budget check was produced.")
+
+    initial_policy = list(audit.get("initial_state_policy", []))
+    lines.extend(["", "## Initial-State Policy"])
+    if not initial_policy:
+        lines.append("- No mixed initial-state policy was detected.")
+    else:
+        for item in initial_policy:
+            with_initial = ", ".join(item.get("variants_with_initial_state", []))
+            without_initial = ", ".join(item.get("variants_without_initial_state", []))
+            lines.append(
+                "- "
+                f"`{item.get('observable', '')}` requested_time=`{item.get('requested_time', '')}`: "
+                f"with_initial=`{with_initial}`, without_initial=`{without_initial}`, "
+                f"severity=`{item.get('severity', '')}`"
+            )
 
     head_bounds = list(audit.get("head_bounds", []))
     lines.extend(["", "## Head Bounds"])

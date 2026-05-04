@@ -54,42 +54,15 @@ def test_dispatch_prefers_canonical_comparison_launcher(monkeypatch, tmp_path: P
     assert summary == {"launcher": "simulation_comparison"}
 
 
-def test_dispatch_routes_variant_comparison_launcher(monkeypatch, tmp_path: Path) -> None:
+def test_dispatch_rejects_removed_variant_comparison_entries(tmp_path: Path) -> None:
     config_path = _write_toml(
         tmp_path / "variant_comparison.toml",
         "[comparison]\ncomparison_id = 'variant_demo'\n"
         "[[comparison.variant]]\nid = 'reference'\nrun_folder = 'runs/reference'\n"
         "[[comparison.observable]]\nname = 'head'\nvariable = 'head'\ncell_index = 0\n",
     )
-    captured: dict[str, object] = {}
 
-    class FakeVariantComparisonLauncher:
-        def __init__(self, path: str | Path) -> None:
-            captured["path"] = Path(path)
-
-        def run(self) -> dict[str, str]:
-            return {"launcher": "variant_comparison"}
-
-    monkeypatch.setattr(
-        "hydromodpy.analysis.comparison.orchestrator.VariantComparisonLauncher",
-        FakeVariantComparisonLauncher,
-    )
-
-    summary = run_comparison_config(config_path)
-
-    assert captured["path"] == config_path.resolve()
-    assert summary == {"launcher": "variant_comparison"}
-
-
-def test_dispatch_rejects_ambiguous_comparison_config(tmp_path: Path) -> None:
-    config_path = _write_toml(
-        tmp_path / "ambiguous.toml",
-        "[comparison]\nbase_simulation_config = 'base.toml'\n"
-        "[[comparison.simulation]]\nid = 'sim_a'\nsolver = 'modflow6'\n"
-        "[[comparison.variant]]\nid = 'variant_a'\nrun_folder = 'runs/a'\n",
-    )
-
-    with pytest.raises(ValueError, match="both simulation and variant"):
+    with pytest.raises(ValueError, match="comparison\\.variant.*removed"):
         resolve_comparison_launcher(config_path)
 
 
@@ -100,6 +73,16 @@ def test_dispatch_rejects_non_comparison_config(tmp_path: Path) -> None:
     )
 
     with pytest.raises(KeyError, match="\\[comparison\\]"):
+        resolve_comparison_launcher(config_path)
+
+
+def test_dispatch_rejects_comparison_without_simulations(tmp_path: Path) -> None:
+    config_path = _write_toml(
+        tmp_path / "empty_comparison.toml",
+        "[comparison]\ncomparison_id = 'empty'\n",
+    )
+
+    with pytest.raises(KeyError, match="comparison\\.simulation"):
         resolve_comparison_launcher(config_path)
 
 
