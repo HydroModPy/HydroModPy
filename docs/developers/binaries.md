@@ -21,12 +21,12 @@ flat layout produced by `flopy.utils.get_modflow`:
 └── .manifest.json
 ```
 
-`.manifest.json` records the USGS release tag and the download
+`.manifest.json` records the MODFLOW-ORG/executables release tag and the download
 timestamp:
 
 ```json
 {
-  "release": "6.7.0",
+  "release": "23.0",
   "downloaded_at": "2026-04-29T12:34:56+00:00",
   "solvers": ["mf6", "mfnwt", "mp6", "mp7", "mt3dusgs"]
 }
@@ -53,7 +53,7 @@ hmp install-binaries --upgrade
 hmp install-binaries --release 18.0
 ```
 
-The default release is `6.7.0`. Once a binary lands in the cache it is
+The default release is `23.0`. Once a binary lands in the cache it is
 **not** auto-refreshed: the same version stays in place for the lifetime
 of the cache so a run started today yields the same results a year from
 now. Upgrades are explicit (`--upgrade`).
@@ -70,8 +70,8 @@ provisioning so subsequent runs are deterministic and offline-safe.
 
 ## Source and integrity
 
-The binaries are pulled from the USGS Executables release on GitHub
-(`MODFLOW-USGS/executables`) by `flopy.utils.get_modflow`. Integrity is
+The binaries are pulled from the MODFLOW-ORG Executables release on GitHub
+(`MODFLOW-ORG/executables`) by `flopy.utils.get_modflow`. Integrity is
 guaranteed by GitHub TLS (HTTPS) plus the release tag pin. We do not
 ship a separate SHA-256 manifest because the upstream release is the
 authoritative source, and pinning `--release` to a specific tag is the

@@ -85,7 +85,7 @@ calibration = ["cma>=4.4.4,<5", "cmaes>=0.12.0,<1", "optuna>=4.8.0,<5"]
 delineation = ["whitebox-workflows>=1.3.5,<2"]
 mesh = ["gmsh>=4.15.2,<5"]
 ui = ["streamlit>=1.51.0,<2"]
-test = ["pytest", "pytest-xdist", "pytest-timeout", "coverage[toml]>=7.0", "pyyaml"]
+test = ["pytest", "pytest-xdist", "pytest-timeout", "pytest-cov", "coverage[toml]>=7.0", "pyyaml"]
 docs = [
     "sphinx>=7.0",
     "sphinx-rtd-theme",

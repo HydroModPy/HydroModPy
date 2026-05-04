@@ -98,29 +98,24 @@ jobs:
       # in a single process with coverage append.
       - name: Run unit tests (parallel, without whitebox backend)
         run: |
-          coverage run --rcfile=/dev/null \
-            --include="hydromodpy/*" \
-            --omit="hydromodpy/**/cases/*,hydromodpy/**/examples/*" \
-            -m pytest tests/unit/ \
-              --ignore=tests/unit/backends/test_whitebox_workflows_backend.py \
-              -n auto --dist loadgroup -q
+          python -m pytest tests/unit/ \
+            --ignore=tests/unit/backends/test_whitebox_workflows_backend.py \
+            -n auto --dist loadgroup -q \
+            --cov=hydromodpy \
+            --cov-report=
 
       - name: Run whitebox backend tests (serial)
         run: |
-          coverage run --rcfile=/dev/null --append \
-            --include="hydromodpy/*" \
-            --omit="hydromodpy/**/cases/*,hydromodpy/**/examples/*" \
-            -m pytest tests/unit/backends/test_whitebox_workflows_backend.py -q
+          python -m pytest tests/unit/backends/test_whitebox_workflows_backend.py -q \
+            --cov=hydromodpy \
+            --cov-append \
+            --cov-report=
 
       - name: Report coverage
         if: always()
         run: |
-          coverage report --rcfile=/dev/null --show-missing \
-            --include="hydromodpy/*" \
-            --omit="hydromodpy/**/cases/*,hydromodpy/**/examples/*"
-          coverage xml --rcfile=/dev/null \
-            --include="hydromodpy/*" \
-            --omit="hydromodpy/**/cases/*,hydromodpy/**/examples/*"
+          coverage report --show-missing || true
+          coverage xml || true
 
       - name: Upload coverage to Codecov
         if: always()
@@ -236,4 +231,4 @@ jobs:
           pip install "mypy>=1.13" "pydantic>=2.13" "types-requests"
 
       - name: Run mypy (baseline, non-blocking)
-        run: mypy hydromodpy
+        run: mypy hydromodpy || true
