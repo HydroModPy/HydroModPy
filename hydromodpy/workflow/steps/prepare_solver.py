@@ -8,6 +8,8 @@ import json
 from pathlib import Path
 from typing import TYPE_CHECKING, ClassVar
 
+import numpy as np
+
 from hydromodpy.core.exceptions import ConfigError, MeshError, PipelineError
 from hydromodpy.core.logging import get_logger
 from hydromodpy.workflow.internals.state import OpenStoreState, PipelineState, SetupState
@@ -461,6 +463,12 @@ def step_open_store(ctx: WorkflowContext) -> None:
 
 
 def _record_source_path(record: object) -> Path | None:
+    metadata = getattr(record, "metadata", None)
+    if isinstance(metadata, dict):
+        for key in ("source_path", "raster_path", "vector_path"):
+            value = metadata.get(key)
+            if value not in (None, ""):
+                return Path(str(value))
     file_path = getattr(record, "file_path", None)
     if file_path is not None:
         return Path(file_path)
@@ -478,6 +486,37 @@ def _sha256_file_or_none(path: Path | None) -> str | None:
         for chunk in iter(lambda: fh.read(1024 * 1024), b""):
             digest.update(chunk)
     return digest.hexdigest()
+
+
+def _field_data_array(record: object) -> np.ndarray | None:
+    data = getattr(record, "data", None)
+    if isinstance(data, (str, Path)):
+        return None
+    if hasattr(data, "data_vars"):
+        metadata = getattr(record, "metadata", None)
+        var_name = str(getattr(record, "variable", ""))
+        if isinstance(metadata, dict):
+            var_name = str(metadata.get("array_name") or var_name)
+        if var_name in data.data_vars:
+            return np.asarray(data[var_name].values, dtype="float64")
+        if data.data_vars:
+            first_name = next(iter(data.data_vars))
+            return np.asarray(data[first_name].values, dtype="float64")
+        return None
+    if hasattr(data, "values"):
+        return np.asarray(data.values, dtype="float64")
+    return None
+
+
+def _hydrography_field_record(load_result: object) -> object | None:
+    from hydromodpy.spatial.geographic.core.hydrographic_network import (
+        HYDROGRAPHIC_NETWORK_REFERENCE_RASTER_FORCING_NAME,
+    )
+
+    for record in getattr(load_result, "fields", None) or ():
+        if getattr(record, "variable", None) == HYDROGRAPHIC_NETWORK_REFERENCE_RASTER_FORCING_NAME:
+            return record
+    return None
 
 
 def _loader_name(scope_name: str, record: object) -> str:
@@ -524,17 +563,11 @@ def step_write_provenance(ctx: WorkflowContext) -> None:
         if fields:
             for rec in fields:
                 try:
-                    data = rec.data
                     source_path = _record_source_path(rec)
-                    if hasattr(data, "values"):
-                        var_name = list(data.data_vars)[0] if data.data_vars else None
-                        if var_name is not None:
-                            arr = np.asarray(data[var_name].values, dtype="float64")
-                        else:
-                            continue
-                    elif source_path is not None and source_path.is_file():
+                    arr = _field_data_array(rec)
+                    if arr is None and source_path is not None and source_path.is_file():
                         arr = np.frombuffer(source_path.read_bytes(), dtype="uint8")
-                    else:
+                    if arr is None:
                         continue
                     ctx.store.write_provenance(
                         ctx.sim_id,
@@ -567,10 +600,8 @@ def step_persist_forcings(ctx: WorkflowContext) -> None:
 
     Handles three data shapes from LoadedDataContext:
 
-    - ``LoadResult`` with ``.points`` (PointRecord timeseries) and
-      ``.fields`` (FieldRecord grids) - most variables
+    - ``LoadResult`` with ``.points`` and ``.fields``
     - ``GeologyField`` - encoded raster + zone mapping
-    - ``HydrographyResult`` - stream raster array
     """
     if ctx.store is None or ctx.sim_id is None:
         return
@@ -635,22 +666,24 @@ def step_persist_forcings(ctx: WorkflowContext) -> None:
                 logger.debug("Failed to persist geology forcing")
             continue
 
-        if hasattr(obj, "streams_array"):
+        if f.name == "hydrography":
             try:
-                arr = np.asarray(obj.streams_array)
-                if arr.size > 0:
-                    from hydromodpy.spatial.geographic.core.hydrographic_network import (
-                        HYDROGRAPHIC_NETWORK_REFERENCE_RASTER_FORCING_NAME,
-                    )
+                record = _hydrography_field_record(obj)
+                if record is not None:
+                    arr = _field_data_array(record)
+                    if arr is not None and arr.size > 0:
+                        from hydromodpy.spatial.geographic.core.hydrographic_network import (
+                            HYDROGRAPHIC_NETWORK_REFERENCE_RASTER_FORCING_NAME,
+                        )
 
-                    sz.write_forcing_field(
-                        HYDROGRAPHIC_NETWORK_REFERENCE_RASTER_FORCING_NAME,
-                        arr,
-                        unit="",
-                        source="hydrography",
-                    )
-                    written += 1
-                _persist_reference_hydrographic_feature(ctx, obj)
+                        sz.write_forcing_field(
+                            HYDROGRAPHIC_NETWORK_REFERENCE_RASTER_FORCING_NAME,
+                            arr,
+                            unit=getattr(record, "unit", ""),
+                            source=getattr(record, "source", ""),
+                        )
+                        written += 1
+                    _persist_reference_hydrographic_feature(ctx, obj)
             except Exception:
                 logger.debug("Failed to persist hydrography forcing")
             continue
@@ -681,17 +714,8 @@ def step_persist_forcings(ctx: WorkflowContext) -> None:
         if fields_list:
             for rec in fields_list:
                 try:
-                    data = rec.data
-                    if isinstance(data, (str, Path)):
-                        continue
-                    if hasattr(data, "data_vars"):
-                        var_name = list(data.data_vars)[0] if data.data_vars else None
-                        if var_name is None:
-                            continue
-                        arr = np.asarray(data[var_name].values, dtype="float64")
-                    elif hasattr(data, "values"):
-                        arr = np.asarray(data.values, dtype="float64")
-                    else:
+                    arr = _field_data_array(rec)
+                    if arr is None:
                         continue
                     sz.write_forcing_field(
                         f"{f.name}_{rec.variable}",
@@ -713,7 +737,7 @@ def step_persist_forcings(ctx: WorkflowContext) -> None:
 
 def _persist_reference_hydrographic_feature(
     ctx: WorkflowContext,
-    hydrography_result: object,
+    hydrography_load_result: object,
 ) -> bool:
     """Persist the imported hydrography vector as one canonical feature."""
     if ctx.store is None or ctx.sim_id is None:
@@ -731,7 +755,7 @@ def _persist_reference_hydrographic_feature(
         getattr(features, "reference_hydrographic_network", None) if features is not None else None
     )
     if network is None:
-        network = HydrographicNetwork.from_hydrography_result(hydrography_result)
+        network = HydrographicNetwork.from_hydrography_load_result(hydrography_load_result)
 
     vector_path = getattr(network, "vector_path", None)
     if vector_path in (None, "") or not Path(str(vector_path)).exists():
