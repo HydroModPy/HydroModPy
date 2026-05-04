@@ -24,3 +24,14 @@ Operational checks
   too strict.
 - Verify date coverage and station placement before using the data in
   calibration.
+
+Provider replay
+---------------
+
+.. figure:: /_static/user_guide/data/hubeau_provider_replay_examples.png
+   :alt: Hub'Eau piezometry replay with station inventory and chronicle coverage
+   :width: 100%
+
+   The piezometry part of the Hub'Eau replay keeps groundwater-level semantics
+   separate from discharge and chemistry. This matters before comparing
+   observations to simulated heads.

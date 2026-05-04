@@ -713,8 +713,8 @@ def render_hydrography_provider_replay() -> tuple[Path, dict[str, object]]:
     regional = gpd.read_file(regional_path)
     bdtopage = [gpd.read_file(path) for path in bdtopage_paths]
 
-    fig, axes = plt.subplots(1, 3, figsize=(15.0, 4.8), dpi=140)
-    ax_regional, ax_bdtopage, ax_gap = axes
+    fig, axes = plt.subplots(2, 2, figsize=(12.8, 9.0), dpi=140)
+    ax_regional, ax_bdtopage_1, ax_bdtopage_2, ax_gap = axes.ravel()
 
     regional.plot(ax=ax_regional, color="#175C7D", linewidth=0.7)
     ax_regional.set_title("Custom replay: regional stream network", loc="left", weight="bold")
@@ -722,13 +722,28 @@ def render_hydrography_provider_replay() -> tuple[Path, dict[str, object]]:
     ax_regional.set_aspect("equal")
 
     colors = ["#2E6F9E", "#7BAA64", "#C78B48"]
-    for idx, gdf in enumerate(bdtopage):
-        gdf.plot(ax=ax_bdtopage, color=colors[idx % len(colors)], linewidth=1.0, alpha=0.85, label=f"BD Topage sample {idx + 1}")
-    ax_bdtopage.set_title("BD Topage replay: provider samples", loc="left", weight="bold")
-    ax_bdtopage.set_xlabel("longitude")
-    ax_bdtopage.set_ylabel("latitude")
-    ax_bdtopage.grid(True, color="#DDDDDD", linewidth=0.7)
-    ax_bdtopage.legend(frameon=False, fontsize=8, loc="best")
+    for idx, ax in enumerate((ax_bdtopage_1, ax_bdtopage_2)):
+        if idx < len(bdtopage):
+            gdf = bdtopage[idx]
+            gdf.plot(ax=ax, color=colors[idx % len(colors)], linewidth=1.1, alpha=0.9)
+            ax.set_title(f"BD Topage replay: provider sample {idx + 1}", loc="left", weight="bold")
+            ax.text(
+                0.02,
+                0.03,
+                f"{len(gdf)} line features\nCRS {gdf.crs}",
+                transform=ax.transAxes,
+                ha="left",
+                va="bottom",
+                fontsize=8,
+                color="#333333",
+                bbox={"boxstyle": "round,pad=0.35", "fc": "white", "ec": "#DDDDDD", "alpha": 0.9},
+            )
+        else:
+            ax.axis("off")
+            ax.text(0.5, 0.5, "No BD Topage replay file", transform=ax.transAxes, ha="center", va="center")
+        ax.set_xlabel("longitude")
+        ax.set_ylabel("latitude")
+        ax.grid(True, color="#DDDDDD", linewidth=0.7)
 
     ax_gap.axis("off")
     ax_gap.set_title("OSM / EU-Hydro gallery gap", loc="left", weight="bold")
@@ -769,24 +784,24 @@ def render_hydrography_provider_replay() -> tuple[Path, dict[str, object]]:
 
 
 def render_provider_case_ladder() -> Path:
-    fig, ax = plt.subplots(figsize=(12.5, 5.2), dpi=140)
+    fig, ax = plt.subplots(figsize=(15.2, 5.4), dpi=140)
     ax.axis("off")
-    ax.set_xlim(0, 12.5)
+    ax.set_xlim(0, 15.2)
     ax.set_ylim(0, 5.2)
 
     cards = [
-        ("Replay", "Read committed provider files\nand plot the contract", "#5578A6"),
-        ("Refresh", "Call network provider only\nwhen explicitly refreshing", "#7BAA64"),
-        ("Cache", "Persist raw provider payload\nunder workspace/data", "#C78B48"),
-        ("Lock", "Record hashes, period,\nprovider and file identity", "#6A8EC9"),
-        ("Compare", "Publish provider figure\nand source-specific narrative", "#B66A72"),
+        ("Replay", "Read committed\nprovider files\nand plot contract", "#5578A6"),
+        ("Refresh", "Call provider only\nfor intentional\nrefresh runs", "#7BAA64"),
+        ("Cache", "Persist raw payload\nunder workspace\n/data", "#C78B48"),
+        ("Lock", "Record hashes,\nperiod, provider\nand file identity", "#6A8EC9"),
+        ("Compare", "Publish figure\nand source-specific\nnarrative", "#B66A72"),
     ]
     for idx, (title, body, color) in enumerate(cards):
-        x = 0.45 + idx * 2.35
+        x = 0.55 + idx * 2.85
         ax.add_patch(
             FancyBboxPatch(
                 (x, 1.8),
-                1.95,
+                2.35,
                 1.65,
                 boxstyle="round,pad=0.08,rounding_size=0.06",
                 facecolor=color,
@@ -794,13 +809,13 @@ def render_provider_case_ladder() -> Path:
                 alpha=0.96,
             )
         )
-        ax.text(x + 0.975, 3.03, title, ha="center", va="center", color="white", weight="bold", fontsize=11)
-        ax.text(x + 0.975, 2.45, body, ha="center", va="center", color="white", fontsize=8.7)
+        ax.text(x + 1.175, 3.03, title, ha="center", va="center", color="white", weight="bold", fontsize=11)
+        ax.text(x + 1.175, 2.43, body, ha="center", va="center", color="white", fontsize=8.2, linespacing=1.05)
         if idx < len(cards) - 1:
             ax.annotate(
                 "",
-                xy=(x + 2.18, 2.63),
-                xytext=(x + 1.98, 2.63),
+                xy=(x + 2.62, 2.63),
+                xytext=(x + 2.38, 2.63),
                 arrowprops={"arrowstyle": "->", "color": "#333333", "lw": 1.2},
             )
 

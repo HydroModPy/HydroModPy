@@ -31,6 +31,14 @@ The cache is not an administrative detail. It protects the data evidence behind
 published figures: which stations were found, which time window was loaded, and
 which forcing or observation files were reused.
 
+.. figure:: /_static/user_guide/data/provider_gallery_policy_ladder.png
+   :alt: Provider replay policy linking cache and lockfiles
+   :width: 100%
+
+   Provider-specific pages should show replayable artifacts by default. When a
+   live API refresh is needed, the refreshed payload should be cached, locked,
+   and only then promoted to a documentation figure.
+
 .. figure:: /_static/capability_gallery/geographic/geographic_nancon_identity_card_station_inventory.png
    :alt: Station inventory protected by cache and lockfile discipline
    :width: 100%

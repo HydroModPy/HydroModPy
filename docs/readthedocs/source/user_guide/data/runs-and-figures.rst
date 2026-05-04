@@ -71,6 +71,22 @@ Current Run Set
      - ``intermittency``
      - ``intermittency_local_state_example.png``
      - Check categorical station states.
+   * - Provider replay ladder
+     - All API-backed families
+     - ``provider_gallery_policy_ladder.png``
+     - Separate stable replay from live refresh.
+   * - Hub'Eau replay
+     - Observation families
+     - ``hubeau_provider_replay_examples.png``
+     - Compare station metadata and chronicles by observation family.
+   * - SHOM replay
+     - ``oceanic``
+     - ``shom_provider_replay_example.png``
+     - Show coastal station selection and sea-level chronicle.
+   * - Hydrography replay
+     - ``hydrography``
+     - ``hydrography_provider_replay_examples.png``
+     - Show custom and BD Topage examples and name OSM/EU-Hydro gaps.
 
 Spatial Support Example
 -----------------------
@@ -112,6 +128,19 @@ Observation Examples
    The same file convention produces different semantics. Discharge,
    groundwater level, and chemistry all need station identity, units, period
    coverage, and gaps checked before they become objectives or diagnostics.
+
+Provider Replay Examples
+------------------------
+
+.. figure:: /_static/user_guide/data/provider_gallery_policy_ladder.png
+   :alt: Provider gallery policy
+   :width: 100%
+
+   Provider examples should be replayable by default. Live downloads are
+   appropriate for intentional refreshes, but the published page should point
+   to cached and locked artifacts.
+
+For provider-specific figures and next cases, open :doc:`provider-replay-cases`.
 
 Remaining Gaps
 --------------

@@ -70,9 +70,14 @@ l'interface canonique `[comparison]`.
   (`ComparisonConfig`, `ComparisonVariant`, `ComparisonObservable`, etc.).
   Les noms `MethodComparison*` restent seulement comme imports de
   compatibilite.
+- `ComparisonConfig` porte maintenant un champ canonique `comparison`; l'attribut
+  `method_comparison` est un acces de compatibilite pour les tests et extensions
+  non migres.
 - Le cas de validation boundary-step expose maintenant un point d'entree
   canonique `run_comparison.py`; `run_method_comparison.py` n'est plus qu'un
   relais de compatibilite.
+- L'appel public `hmp.compare(sim_a, sim_b)` ne depend plus du lanceur legacy
+  pour signaler que la comparaison pairwise directe n'est pas implementee.
 
 **Statut :** compatibilite transitoire. Le batch/regional-lab sait utiliser
 `launcher = "comparison"` et garde `launcher = "method-comparison"` pour les

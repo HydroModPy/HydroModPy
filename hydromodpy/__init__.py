@@ -367,11 +367,11 @@ def calibrate(config, **kwargs):
 
 def compare(sim_a, sim_b, **kwargs):
     """Compare two simulations (by object or sim_id)."""
-    from hydromodpy.analysis.comparison.orchestrator import (
-        MethodComparisonLauncher,
+    raise NotImplementedError(
+        "hydromodpy.compare(sim_a, sim_b) is not implemented in this checkout. "
+        "Use Project.compare(config_path=...) with a workflow='comparison' TOML "
+        "or run a comparison config through hmp.run(config_path)."
     )
-
-    return MethodComparisonLauncher.pairwise(sim_a, sim_b, **kwargs)
 
 
 __all__ = [

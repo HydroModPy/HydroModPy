@@ -113,7 +113,7 @@ Disabling XT3D can still be scientifically reasonable in controlled cases:
 - quick debugging runs where only model wiring is being checked,
 - structured or nearly orthogonal meshes where the irregular-mesh argument is
   weak,
-- explicit method-comparison experiments whose goal is precisely to measure the
+- explicit comparison experiments whose goal is precisely to measure the
   impact of XT3D itself.
 
 If XT3D is disabled on a runtime irregular mesh, the result should usually be

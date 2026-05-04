@@ -132,6 +132,31 @@ basin report.
    Forcing providers should be checked through period coverage and aggregate
    forcing summaries before their values are sent to a solver.
 
+Provider replay cases
+---------------------
+
+The compact matrix tells which providers exist. The replay cases show what
+their committed artifacts look like and which providers still need a locked
+network refresh before they deserve a stable gallery page.
+
+.. figure:: /_static/user_guide/data/hubeau_provider_replay_examples.png
+   :alt: Hub'Eau provider replay across observation families
+   :width: 100%
+
+   Hub'Eau covers several observation families. Treating all of them as one
+   generic time series would hide the station metadata, quality fields, and
+   different semantics.
+
+.. figure:: /_static/user_guide/data/hydrography_provider_replay_examples.png
+   :alt: Hydrography provider replay for custom and BD Topage data
+   :width: 100%
+
+   Hydrography provider examples need source-specific comparisons. The current
+   replay is stable for custom and BD Topage; OSM and EU-Hydro still need
+   committed replay artifacts.
+
+Open :doc:`provider-replay-cases` for the complete provider replay page.
+
 Provider families
 -----------------
 
