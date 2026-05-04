@@ -20,7 +20,7 @@ import numpy as np
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 
-from hydromodpy.core.config.toml_loader import merge_toml_payloads
+from hydromodpy.core.toml_io.loader import merge_toml_payloads
 from hydromodpy.physics.flow.history_contract import write_time_series_npy
 from hydromodpy.results.derived import (
     drain_budget_to_positive_outflow,

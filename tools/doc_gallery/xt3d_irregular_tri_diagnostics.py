@@ -7,7 +7,7 @@ import importlib
 import json
 import os
 import time
-from collections.abc import Iterator
+from collections.abc import Iterable, Iterator
 from contextlib import contextmanager
 from pathlib import Path
 from typing import Any
@@ -31,13 +31,19 @@ DEFAULT_REPORT_PATH = (
 DISABLE_XT3D_SITECUSTOMIZE_DIR = REPO_ROOT / "tools" / "doc_gallery" / "disable_xt3d_sitecustomize"
 
 
-def _selected_records() -> tuple[ValidationCaseRecord, ...]:
+def _selected_records(
+    selected_case_slugs: Iterable[str] | None = None,
+) -> tuple[ValidationCaseRecord, ...]:
+    selected_slug_set = None
+    if selected_case_slugs is not None:
+        selected_slug_set = {str(slug) for slug in selected_case_slugs}
     records = build_validation_case_records(repo_root=REPO_ROOT)
     selected = [
         record
         for record in records
         if record.regime == "steady"
         and "modflow6_irregular_tri" in tuple(record.metadata.get("solver_variants", ()))
+        and (selected_slug_set is None or record.slug in selected_slug_set)
     ]
     return tuple(sorted(selected, key=lambda item: item.slug))
 
@@ -67,18 +73,87 @@ def _patched_pythonpath(extra_path: Path | None) -> Iterator[None]:
             os.environ["PYTHONPATH"] = previous
 
 
-def collect_irregular_tri_metrics(*, force_xt3d_disabled: bool) -> dict[str, Any]:
+@contextmanager
+def _patched_modflow6_xt3d_disabled(enabled: bool) -> Iterator[None]:
+    if not enabled:
+        yield
+        return
+
+    from hydromodpy.solver.modflow6 import modflow6 as modflow6_module
+    from hydromodpy.solver.modflow6.builders import solver_options
+
+    Modflow6 = modflow6_module.Modflow6
+    original_enabled = getattr(Modflow6, "_xt3d_is_enabled", None)
+    original_mode = getattr(Modflow6, "_xt3d_activation_mode", None)
+    original_resolve = getattr(Modflow6, "_resolve_xt3d_npf_options", None)
+    original_builder_enabled = solver_options.xt3d_is_enabled
+    original_builder_mode = solver_options.xt3d_activation_mode
+    original_builder_resolve = solver_options.resolve_xt3d_npf_options
+    original_module_enabled = modflow6_module.xt3d_is_enabled
+    original_module_mode = modflow6_module.xt3d_activation_mode
+    original_module_resolve = modflow6_module.resolve_xt3d_npf_options
+
+    def _xt3d_disabled(self, solver_mesh=None) -> bool:
+        return False
+
+    def _xt3d_disabled_mode(self, solver_mesh=None) -> str:
+        return "forced_disabled_for_doc_gallery"
+
+    def _xt3d_disabled_options(self, solver_mesh=None) -> None:
+        return None
+
+    Modflow6._xt3d_is_enabled = _xt3d_disabled
+    Modflow6._xt3d_activation_mode = _xt3d_disabled_mode
+    Modflow6._resolve_xt3d_npf_options = _xt3d_disabled_options
+    solver_options.xt3d_is_enabled = _xt3d_disabled
+    solver_options.xt3d_activation_mode = _xt3d_disabled_mode
+    solver_options.resolve_xt3d_npf_options = _xt3d_disabled_options
+    modflow6_module.xt3d_is_enabled = _xt3d_disabled
+    modflow6_module.xt3d_activation_mode = _xt3d_disabled_mode
+    modflow6_module.resolve_xt3d_npf_options = _xt3d_disabled_options
+    try:
+        yield
+    finally:
+        if original_enabled is None:
+            delattr(Modflow6, "_xt3d_is_enabled")
+        else:
+            Modflow6._xt3d_is_enabled = original_enabled
+        if original_mode is None:
+            delattr(Modflow6, "_xt3d_activation_mode")
+        else:
+            Modflow6._xt3d_activation_mode = original_mode
+        if original_resolve is None:
+            delattr(Modflow6, "_resolve_xt3d_npf_options")
+        else:
+            Modflow6._resolve_xt3d_npf_options = original_resolve
+        solver_options.xt3d_is_enabled = original_builder_enabled
+        solver_options.xt3d_activation_mode = original_builder_mode
+        solver_options.resolve_xt3d_npf_options = original_builder_resolve
+        modflow6_module.xt3d_is_enabled = original_module_enabled
+        modflow6_module.xt3d_activation_mode = original_module_mode
+        modflow6_module.resolve_xt3d_npf_options = original_module_resolve
+
+
+def collect_irregular_tri_metrics(
+    *,
+    force_xt3d_disabled: bool,
+    selected_case_slugs: Iterable[str] | None = None,
+    timeout: int = 1800,
+) -> dict[str, Any]:
     rows: list[dict[str, Any]] = []
     extra_path = DISABLE_XT3D_SITECUSTOMIZE_DIR if force_xt3d_disabled else None
 
-    with _patched_pythonpath(extra_path):
-        for record in _selected_records():
+    with (
+        _patched_pythonpath(extra_path),
+        _patched_modflow6_xt3d_disabled(force_xt3d_disabled),
+    ):
+        for record in _selected_records(selected_case_slugs):
             runner = _comparison_runner(record)
             started = time.perf_counter()
             comparison = runner(
                 caller_file=__file__,
                 solver="modflow6_irregular_tri",
-                timeout=1800,
+                timeout=timeout,
             )
             duration_seconds = time.perf_counter() - started
             rows.append(
@@ -102,9 +177,21 @@ def collect_irregular_tri_metrics(*, force_xt3d_disabled: bool) -> dict[str, Any
     }
 
 
-def build_xt3d_method_choice_payload() -> dict[str, Any]:
-    baseline = collect_irregular_tri_metrics(force_xt3d_disabled=True)
-    current = collect_irregular_tri_metrics(force_xt3d_disabled=False)
+def build_xt3d_method_choice_payload(
+    *,
+    selected_case_slugs: Iterable[str] | None = None,
+    timeout: int = 1800,
+) -> dict[str, Any]:
+    baseline = collect_irregular_tri_metrics(
+        force_xt3d_disabled=True,
+        selected_case_slugs=selected_case_slugs,
+        timeout=timeout,
+    )
+    current = collect_irregular_tri_metrics(
+        force_xt3d_disabled=False,
+        selected_case_slugs=selected_case_slugs,
+        timeout=timeout,
+    )
     current_by_slug = {item["slug"]: item for item in current["cases"]}
 
     rows: list[dict[str, Any]] = []

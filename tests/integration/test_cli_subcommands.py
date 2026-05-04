@@ -108,7 +108,7 @@ def test_config_template_writes_toml(monkeypatch, tmp_path) -> None:
 
 
 def test_new_project_scaffold_writes_valid_run_config(monkeypatch, tmp_path) -> None:
-    from hydromodpy.master_config import HydroModPyConfig
+    from hydromodpy.config import HydroModPyConfig
 
     (tmp_path / "data").mkdir()
     monkeypatch.setattr(sys, "argv", ["hmp", "new", "demo", "--workspace", str(tmp_path)])

@@ -125,3 +125,5 @@ __all__ = [
     "log_manager",
     "__version__",
 ]
+
+bootstrap()

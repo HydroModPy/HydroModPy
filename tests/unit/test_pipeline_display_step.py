@@ -15,6 +15,7 @@ from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import MagicMock
 
+import hydromodpy.display.runs as display_runs
 from hydromodpy.workflow.internals.state import PipelineState
 from hydromodpy.workflow.steps.display import DisplayStep
 
@@ -49,10 +50,7 @@ def test_display_step_skips_when_flag_set(monkeypatch, tmp_path):
         "hydromodpy.workflow.steps.display.DisplayStep",
         DisplayStep,
     )
-    monkeypatch.setattr(
-        "hydromodpy.display.runs.render_figures_for_run",
-        renderer,
-    )
+    monkeypatch.setattr(display_runs, "render_figures_for_run", renderer)
     final = DisplayStep().run(state)
     assert final.get("rendered_figures") == []
     renderer.assert_not_called()
@@ -63,10 +61,7 @@ def test_display_step_skips_when_disabled(monkeypatch, tmp_path):
     state = PipelineState(run_id="r", data={"ctx": ctx})
 
     renderer = MagicMock()
-    monkeypatch.setattr(
-        "hydromodpy.display.runs.render_figures_for_run",
-        renderer,
-    )
+    monkeypatch.setattr(display_runs, "render_figures_for_run", renderer)
     final = DisplayStep().run(state)
     assert final.get("rendered_figures") == []
     renderer.assert_not_called()
@@ -77,10 +72,7 @@ def test_display_step_skips_when_empty_figure_list(monkeypatch, tmp_path):
     state = PipelineState(run_id="r", data={"ctx": ctx})
 
     renderer = MagicMock()
-    monkeypatch.setattr(
-        "hydromodpy.display.runs.render_figures_for_run",
-        renderer,
-    )
+    monkeypatch.setattr(display_runs, "render_figures_for_run", renderer)
     final = DisplayStep().run(state)
     assert final.get("rendered_figures") == []
     renderer.assert_not_called()
@@ -105,10 +97,7 @@ def test_display_step_invokes_renderer_when_enabled(monkeypatch, tmp_path):
 
     monkeypatch.setattr("hydromodpy.results.catalog.SimulationCatalog", FakeCatalog)
     renderer = MagicMock(return_value=[tmp_path / "figures" / "baseline" / "piezometric_map.png"])
-    monkeypatch.setattr(
-        "hydromodpy.display.runs.render_figures_for_run",
-        renderer,
-    )
+    monkeypatch.setattr(display_runs, "render_figures_for_run", renderer)
 
     final = DisplayStep().run(state)
     renderer.assert_called_once()

@@ -243,7 +243,7 @@ def prepare_trials(
         calibration helper (``mode="replace"``/``"scale"``). Otherwise, it
         falls back to the raw dotted-path writer.
     """
-    from hydromodpy.core.config.toml_loader import load_toml_with_base_config
+    from hydromodpy.core.toml_io.loader import load_toml_with_base_config
 
     cfg_path = Path(cfg_path).expanduser().resolve()
     raw_toml = load_toml_with_base_config(cfg_path)

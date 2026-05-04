@@ -34,13 +34,13 @@ from typing import TYPE_CHECKING, Annotated, Any, Literal
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 from pydantic.fields import FieldInfo
 
+from hydromodpy.config.analysis import AnalysisConfig
 from hydromodpy.core.config_kit.base import HydroModelBase
 from hydromodpy.core.config_kit.persistence import PersistenceConfig
 from hydromodpy.core.config_kit.profile import Profile
 from hydromodpy.core.toml_io.loader import load_toml_with_base_config
 from hydromodpy.core.toml_io.paths import resolve_declared_path
 from hydromodpy.core.workspace.config import WorkspaceConfig
-from hydromodpy.master_config.analysis import AnalysisConfig
 
 # This module is the application-level config root. It is allowed to assemble
 # sibling package configs, while the generic helpers remain in ``core.config``.

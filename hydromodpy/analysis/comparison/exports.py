@@ -1552,7 +1552,11 @@ def _load_boussinesq_budget_rows(
             )
 
     if payload is None:
-        return []
+        npz_path = run_folder / "_boussinesq_state_history.npz"
+        if not npz_path.exists():
+            return []
+        payload = np.load(npz_path, allow_pickle=True)
+        source_label = str(npz_path)
 
     recharge_history = _history_matrix(payload, "recharge_rate_history_m_s")
     well_history = _history_matrix(payload, "well_flux_history_m3_s")
@@ -1926,10 +1930,10 @@ def _load_boussinesq_obstacle_diagnostic_rows(
     if cells is None:
         return []
     if (
-        cells.z_top_m is None
-        or cells.z_bottom_m is None
-        or cells.z_top_m.size != n_cells
-        or cells.z_bottom_m.size != n_cells
+        cells.z_top is None
+        or cells.z_bottom is None
+        or cells.z_top.size != n_cells
+        or cells.z_bottom.size != n_cells
     ):
         return []
 
@@ -1944,13 +1948,13 @@ def _load_boussinesq_obstacle_diagnostic_rows(
         else np.full(n_cells, np.nan, dtype=float)
     )
     z_top = (
-        np.asarray(cells.z_top_m, dtype=float).reshape(-1)
-        if cells.z_top_m is not None and cells.z_top_m.size == n_cells
+        np.asarray(cells.z_top, dtype=float).reshape(-1)
+        if cells.z_top is not None and cells.z_top.size == n_cells
         else np.full(n_cells, np.nan, dtype=float)
     )
     z_bottom = (
-        np.asarray(cells.z_bottom_m, dtype=float).reshape(-1)
-        if cells.z_bottom_m is not None and cells.z_bottom_m.size == n_cells
+        np.asarray(cells.z_bottom, dtype=float).reshape(-1)
+        if cells.z_bottom is not None and cells.z_bottom.size == n_cells
         else np.full(n_cells, np.nan, dtype=float)
     )
 

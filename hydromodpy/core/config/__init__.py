@@ -1,6 +1,3 @@
-"""HydroModPy configuration module."""
+"""Legacy-free core configuration namespace."""
 
-from hydromodpy.core.config.base import HydroModelBase
-from hydromodpy.core.config.profile import Profile
-
-__all__ = ["HydroModelBase", "Profile"]
+__all__: list[str] = []

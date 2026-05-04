@@ -17,17 +17,18 @@ def _rebuild_forward_refs() -> None:
 
     Pydantic resolves forward references at ``model_rebuild()`` time by name
     lookup against the defining module's globals, so the sibling classes are
-    written into ``hydromodpy.master_config.hydromodpy_config.__dict__``.
+    written into the public and legacy root-config module globals.
     """
     from hydromodpy.analysis.batch.config import RegionalLabConfig
     from hydromodpy.analysis.capability_gallery import CapabilityGalleryConfig
     from hydromodpy.analysis.comparison.config import MethodComparisonSection
     from hydromodpy.calibration.config import CalibrationConfig
+    from hydromodpy.config import hydromodpy_config as public_cfg_module
     from hydromodpy.data.data_managers_config import DataManagersConfig
     from hydromodpy.display.config import DisplayConfig
     from hydromodpy.display.overview.config import OverviewSection
     from hydromodpy.master_config import analysis as analysis_module
-    from hydromodpy.master_config import hydromodpy_config as cfg_module
+    from hydromodpy.master_config import hydromodpy_config as master_cfg_module
     from hydromodpy.physics.flow.flow_config import FlowConfig
     from hydromodpy.physics.transport.transport_config import TransportConfig
     from hydromodpy.simulation.planning.config import SimulationConfig
@@ -44,22 +45,25 @@ def _rebuild_forward_refs() -> None:
         MethodComparisonSection=MethodComparisonSection,
     )
     analysis_module.AnalysisConfig.model_rebuild()
-    cfg_module.__dict__.update(
-        CalibrationConfig=CalibrationConfig,
-        DataManagersConfig=DataManagersConfig,
-        DisplayConfig=DisplayConfig,
-        FlowConfig=FlowConfig,
-        TransportConfig=TransportConfig,
-        SimulationConfig=SimulationConfig,
-        SolverConfig=SolverConfig,
-        Modflow6Config=Modflow6Config,
-        ModflowConfig=ModflowConfig,
-        DomainConfig=DomainConfig,
-        GeographicConfig=GeographicConfig,
-        MeshCatchmentConfig=MeshCatchmentConfig,
-        OverviewSection=OverviewSection,
-    )
-    cfg_module.HydroModPyConfig.model_rebuild()
+    refs = {
+        "CalibrationConfig": CalibrationConfig,
+        "DataManagersConfig": DataManagersConfig,
+        "DisplayConfig": DisplayConfig,
+        "FlowConfig": FlowConfig,
+        "TransportConfig": TransportConfig,
+        "SimulationConfig": SimulationConfig,
+        "SolverConfig": SolverConfig,
+        "Modflow6Config": Modflow6Config,
+        "ModflowConfig": ModflowConfig,
+        "DomainConfig": DomainConfig,
+        "GeographicConfig": GeographicConfig,
+        "MeshCatchmentConfig": MeshCatchmentConfig,
+        "OverviewSection": OverviewSection,
+    }
+    public_cfg_module.__dict__.update(refs)
+    public_cfg_module.HydroModPyConfig.model_rebuild()
+    master_cfg_module.__dict__.update(refs)
+    master_cfg_module.HydroModPyConfig.model_rebuild()
 
 
 def _register_physics_contracts() -> None:
@@ -190,8 +194,8 @@ def _register_root_config_contracts() -> None:
     from pathlib import Path
     from typing import Any
 
+    from hydromodpy.config.hydromodpy_config import HydroModPyConfig
     from hydromodpy.core.config_kit import root_config_protocol
-    from hydromodpy.master_config.hydromodpy_config import HydroModPyConfig
 
     class _RootConfigProvider:
         def root_model(self) -> type[HydroModPyConfig]:

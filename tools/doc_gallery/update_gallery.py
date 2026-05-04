@@ -133,13 +133,16 @@ def _filesystem_path(path: Path) -> Path | str:
 
 
 def _copy_file(source_path: Path, destination_path: Path) -> None:
-    if os.name == "nt":
-        shutil.copy2(
-            _windows_extended_length_path(source_path),
-            _windows_extended_length_path(destination_path),
-        )
-        return
-    shutil.copy2(source_path, destination_path)
+    try:
+        shutil.copy2(source_path, destination_path)
+    except OSError as exc:
+        if os.name == "nt" and getattr(exc, "winerror", None) == 206:
+            shutil.copy2(
+                _windows_extended_length_path(source_path),
+                _windows_extended_length_path(destination_path),
+            )
+            return
+        raise
 
 
 def _read_bytes(path: Path) -> bytes:

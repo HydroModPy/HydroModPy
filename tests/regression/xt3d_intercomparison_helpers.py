@@ -93,7 +93,10 @@ def run_xt3d_method_choice_regression(
         )
 
         payload = rounded_xt3d_method_choice_payload(
-            build_xt3d_method_choice_payload(case_slugs=tuple(case_slugs), timeout=timeout)
+            build_xt3d_method_choice_payload(
+                selected_case_slugs=tuple(case_slugs),
+                timeout=timeout,
+            )
         )
     except ModuleNotFoundError as exc:
         pytest.skip(f"XT3D comparison dependency is missing: {exc.name}")

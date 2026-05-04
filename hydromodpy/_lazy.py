@@ -39,7 +39,7 @@ LAZY_IMPORTS: dict[str, str] = {
     # Core infrastructure
     "Workspace": "hydromodpy.core.workspace",
     "WorkspaceConfig": "hydromodpy.core.workspace",
-    "HydroModPyConfig": "hydromodpy.master_config.hydromodpy_config",
+    "HydroModPyConfig": "hydromodpy.config.hydromodpy_config",
     # Simulation orchestration
     "SimulationConfig": "hydromodpy.simulation.planning.config",
     # Data variables (public surface)

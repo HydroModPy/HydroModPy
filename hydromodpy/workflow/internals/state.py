@@ -39,10 +39,10 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any, ClassVar, Generic, TypeVar
 
 if TYPE_CHECKING:
+    from hydromodpy.config import HydroModPyConfig
     from hydromodpy.core.state.data import LoadedDataContext
     from hydromodpy.core.state.setup import SetupContext
     from hydromodpy.data.plan import DataLoadPlan
-    from hydromodpy.master_config.hydromodpy_config import HydroModPyConfig
     from hydromodpy.results.zarr_store import SimulationZarr
     from hydromodpy.simulation.planning.plan import SimulationPlan
     from hydromodpy.solver.base.protocol import RunResult

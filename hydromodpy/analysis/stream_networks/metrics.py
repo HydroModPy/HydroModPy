@@ -30,8 +30,8 @@ def _mesh_face_polygons(sim: Run) -> np.ndarray:
     from shapely.geometry import Polygon
 
     mesh = sim.mesh
-    vertices = np.asarray(mesh["vertices"])
-    face_node_connectivity = np.asarray(mesh["face_node_connectivity"])
+    vertices = np.asarray(mesh.vertices)
+    face_node_connectivity = np.asarray(mesh.face_node_connectivity)
     polygons = []
     for row in face_node_connectivity:
         nodes = row[row >= 0] if row.dtype.kind in "iu" else row[~np.isnan(row)]

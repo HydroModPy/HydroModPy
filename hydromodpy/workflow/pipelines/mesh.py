@@ -24,10 +24,10 @@ from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
 
-from hydromodpy.core.config.toml_loader import load_toml_with_base_config
+from hydromodpy.config.hydromodpy_config import load_standard_section
 from hydromodpy.core.exceptions import PipelineError
+from hydromodpy.core.toml_io.loader import load_toml_with_base_config
 from hydromodpy.core.workspace.config import WorkspaceConfig
-from hydromodpy.master_config.hydromodpy_config import load_standard_section
 from hydromodpy.spatial.domain.domain_config import DomainConfig
 from hydromodpy.spatial.geographic.geographic_config import GeographicConfig
 from hydromodpy.spatial.mesh import runtime as mesh_runtime
