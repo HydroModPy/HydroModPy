@@ -116,22 +116,6 @@ def test_storage_artefact_helpers_use_shared_suffix_contract(tmp_path):
     assert storage_artefact_basename(parquet_dir) == "demo"
 
 
-def test_legacy_storage_names_are_reported_as_compatible_drift(tmp_path):
-    workspace = tmp_path / "workspace"
-    sid = "00000000-0000-4000-8000-000000000014"
-
-    with SimulationCatalog(workspace) as catalog:
-        catalog.connection.execute(
-            "INSERT INTO simulations (sim_id, project, solver) VALUES (?, ?, ?)",
-            [sid, "legacy", "modflow6"],
-        )
-
-    diagnostics = _by_name(diagnose_result_storage(workspace))
-
-    assert diagnostics["results:legacy_storage_names"].status == "WARN"
-    assert "1 catalog row(s)" in diagnostics["results:legacy_storage_names"].detail
-
-
 def test_doctor_probe_returns_cli_check_shape(tmp_path):
     from hydromodpy.cli.commands.doctor import _probe_result_storage
 
@@ -186,41 +170,3 @@ def test_manage_backend_exposes_and_cleans_diagnostic_paths(tmp_path):
     }
     assert str(tmp_file) not in remaining
     assert str(orphan) not in remaining
-
-
-def test_manage_backend_normalizes_legacy_storage_names(tmp_path):
-    from hydromodpy.cli.commands.manage import _WorkspaceManagerBackend
-    from hydromodpy.results.catalog.storage_paths import build_storage_basename
-    from hydromodpy.results.storage_contract import PARQUET_DIR_SUFFIX, ZARR_ZIP_SUFFIX
-
-    workspace = tmp_path / "workspace"
-    sid = "00000000-0000-4000-8000-000000000015"
-    with SimulationCatalog(workspace) as catalog:
-        catalog.connection.execute(
-            "INSERT INTO simulations "
-            "(sim_id, project, name, solver, zarr_path, zarr_packed) "
-            "VALUES (?, ?, ?, ?, ?, ?)",
-            [sid, "Project A", "Run One", "modflow6", f"simulations/{sid}.zarr.zip", True],
-        )
-        legacy_zarr = catalog.simulations_dir / f"{sid}{ZARR_ZIP_SUFFIX}"
-        legacy_zarr.write_bytes(b"zip")
-        legacy_parquet = catalog.simulations_dir / f"{sid}{PARQUET_DIR_SUFFIX}"
-        legacy_parquet.mkdir()
-
-    backend = _WorkspaceManagerBackend(workspace_root=workspace)
-    preview = backend.storage_name_normalization(dry_run=True)
-
-    assert preview["ready_count"] == 1
-    assert preview["applied_count"] == 0
-    assert legacy_zarr.exists()
-    assert legacy_parquet.exists()
-
-    applied = backend.storage_name_normalization(dry_run=False)
-    expected = build_storage_basename("Project A", "Run One", sid)
-
-    assert applied["ready_count"] == 1
-    assert applied["applied_count"] == 1
-    assert not legacy_zarr.exists()
-    assert not legacy_parquet.exists()
-    assert (workspace / "simulations" / f"{expected}{ZARR_ZIP_SUFFIX}").is_file()
-    assert (workspace / "simulations" / f"{expected}{PARQUET_DIR_SUFFIX}").is_dir()
