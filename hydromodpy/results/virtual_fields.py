@@ -59,10 +59,16 @@ def _watertable_depth(store: Any, sim_id: str, timestep: int) -> np.ndarray:
 def _seepage_mask(store: Any, sim_id: str, timestep: int) -> np.ndarray:
     """Binary seepage indicator.
 
-    Prefer solver-declared seepage when available. Constrained Boussinesq
-    formulations can keep the head at the surface obstacle over broad areas,
-    while actual seepage is carried by the positive surface-excess flux.
-    Falling back to the geometric criterion keeps legacy runs readable.
+    Method dispatched on what the producing solver wrote to the store:
+
+    * Boussinesq runs store ``budget/surface_excess`` and we read it
+      directly. Constrained formulations can clamp the head at the surface
+      obstacle over broad areas while actual seepage flows through that
+      surface-excess flux, so the geometric criterion would over-report
+      seepage for those runs.
+    * MODFLOW 6 / MODFLOW-NWT runs do not write a surface-excess field;
+      seepage is then derived from the geometric criterion
+      ``head >= surface_top``.
     """
     top = _get_surface_top(store, sim_id)
     excess = _surface_excess_mask(store, sim_id, timestep, top.size)
@@ -79,7 +85,11 @@ def _surface_excess_mask(
     timestep: int,
     n_cells: int,
 ) -> np.ndarray | None:
-    """Read solver-declared seepage from ``budget/surface_excess`` if present."""
+    """Return solver-declared seepage from ``budget/surface_excess``.
+
+    Returns ``None`` for solvers that do not write that field (MODFLOW 6,
+    MODFLOW-NWT); the caller is responsible for the geometric fallback.
+    """
     sz = store.open_zarr(sim_id)
     try:
         budget = sz.root.get("budget")
