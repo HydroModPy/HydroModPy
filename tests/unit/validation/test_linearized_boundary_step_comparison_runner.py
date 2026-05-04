@@ -10,7 +10,7 @@ from validation_cases.analytical.transient.linearized_unconfined_boundary_step_1
 
 
 def test_boundary_step_comparison_runner_uses_canonical_section(tmp_path: Path) -> None:
-    payload = run_comparison._build_payload(output_root=tmp_path, run_variants=True)
+    payload = run_comparison._build_payload(output_root=tmp_path, run_simulations=True)
 
     assert payload["workflow"] == "comparison"
     assert "comparison" in payload
@@ -27,6 +27,6 @@ def test_boundary_step_comparison_runner_uses_canonical_section(tmp_path: Path) 
 
 
 def test_boundary_step_comparison_runner_can_disable_child_runs(tmp_path: Path) -> None:
-    payload = run_comparison._build_payload(output_root=tmp_path, run_variants=False)
+    payload = run_comparison._build_payload(output_root=tmp_path, run_simulations=False)
 
     assert payload["comparison"]["execution"]["run_simulations"] is False

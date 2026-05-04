@@ -51,6 +51,12 @@ def build_start_heads(model, solver_mesh) -> np.ndarray:
     initial_type = str(initial_condition_field(h_ic, "type", "")).strip().lower()
     if initial_type == "top":
         strt = np.tile(top_flat, (model.nlay, 1))
+    elif initial_type == "top_offset":
+        head_value = initial_condition_field(h_ic, "value")
+        if head_value is None:
+            raise ValueError("flow.initial_conditions.h.value is required for top_offset")
+        offset_m = float(getattr(head_value, "magnitude", head_value))
+        strt = np.tile(top_flat - offset_m, (model.nlay, 1))
     elif initial_type in {"bot", "bottom"}:
         strt = np.tile(botm_flat[-1], (model.nlay, 1))
     elif initial_type == "custom":
@@ -62,7 +68,9 @@ def build_start_heads(model, solver_mesh) -> np.ndarray:
             dtype=float,
         )
     else:
-        raise ValueError("flow.initial_conditions.h.type must be one of: top, bottom, custom")
+        raise ValueError(
+            "flow.initial_conditions.h.type must be one of: top, top_offset, bottom, custom"
+        )
     ocean_series = resolve_ocean_boundary_series(model)
     ocean_mask = ocean_chd_support_mask(model, ocean_series)
     if np.any(ocean_mask):

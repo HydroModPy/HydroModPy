@@ -301,7 +301,7 @@ class ComparisonConfig(HydroModelBase):
             raise ValueError("configuration must be a mapping")
         if "comparison" not in raw_toml:
             raise KeyError("Missing required section 'comparison'")
-        section_payload = raw_toml["comparison"]
+        section_payload = _as_internal_comparison_payload(raw_toml["comparison"])
 
         resolved_config_path = Path(config_path).expanduser().resolve()
         base_dir = resolved_config_path.parent
@@ -441,3 +441,25 @@ def _apply_observable_anchors(
         if anchor_id not in anchors:
             raise KeyError(f"Unknown comparison anchor_id '{anchor_id}'")
         observable.x, observable.y = anchors[anchor_id]
+
+
+def _as_internal_comparison_payload(section_payload: Any) -> Any:
+    """Map public simulation-comparison TOML to the internal comparison model."""
+    if not isinstance(section_payload, Mapping):
+        return section_payload
+    if "simulation" not in section_payload or "variant" in section_payload:
+        return section_payload
+
+    normalized = dict(section_payload)
+    normalized["variant"] = normalized.pop("simulation")
+
+    reference_simulation = normalized.pop("reference_simulation", None)
+    if reference_simulation is not None:
+        normalized["reference_variant"] = reference_simulation
+
+    execution = normalized.pop("execution", None)
+    if isinstance(execution, Mapping) and "run_simulations" in execution:
+        normalized["run_variants"] = bool(execution["run_simulations"])
+
+    normalized.pop("audit", None)
+    return normalized

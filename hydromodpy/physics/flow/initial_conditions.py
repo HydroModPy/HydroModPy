@@ -6,7 +6,7 @@ Typed initial-condition structures for the flow process.
 
 This module defines:
 - `FlowInitialCondition`: one validated payload describing how head values are
-  initialized (`top`, `bottom`, or `custom`).
+  initialized (`top`, `top_offset`, `bottom`, or `custom`).
 - `FlowInitialConditions`: the runtime container currently exposing the `h`
   initial condition consumed by the flow process and solver adapters.
 
@@ -36,6 +36,7 @@ class FlowInitialCondition(BaseInitialCondition):
     Semantics
     ---------
     - `type="top"`: initialize head at top surface.
+    - `type="top_offset"`: initialize head at top surface minus `value`.
     - `type="bottom"`: initialize head at bottom surface.
     - `type="custom"`: initialize with one explicit numeric value.
     """
@@ -47,23 +48,27 @@ class FlowInitialCondition(BaseInitialCondition):
         "h", description="id of the initial condition (forced to 'h' for flow)"
     )
 
-    type: Annotated[Literal["top", "bottom", "custom"], Profile.USER] = Field(
+    type: Annotated[Literal["top", "top_offset", "bottom", "custom"], Profile.USER] = Field(
         "custom",
         description=(
-            "Type of initial condition ('top', 'bottom', or 'custom'). "
-            "'top' means a full aquifer, 'bottom' means an empty aquifer."
+            "Type of initial condition ('top', 'top_offset', 'bottom', or 'custom'). "
+            "'top' means a full aquifer, 'top_offset' means top minus value, "
+            "'bottom' means an empty aquifer."
         ),
     )
     value: Annotated[Length | None, Profile.USER] = Field(
         None,
-        description="Initial hydraulic-head value. Required when type='custom'.",
+        description=(
+            "Initial hydraulic-head value. Required when type='custom'; "
+            "vertical offset below top when type='top_offset'."
+        ),
     )
 
     @model_validator(mode="after")
     def _validate_custom_value(self) -> FlowInitialCondition:
-        """Require `value` whenever `type='custom'`."""
-        if self.type == "custom" and self.value is None:
-            raise ValueError("flow.ic.value is required when flow.ic.type='custom'")
+        """Require `value` whenever the selected IC semantics needs it."""
+        if self.type in {"custom", "top_offset"} and self.value is None:
+            raise ValueError(f"flow.ic.value is required when flow.ic.type='{self.type}'")
         raw_units = str(self.units).strip() or "m"
         # Runtime invariant: IC values are stored in meters (magnitude) and the
         # label must already reflect that; anything else is a normalization bug

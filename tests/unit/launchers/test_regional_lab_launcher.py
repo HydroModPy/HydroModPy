@@ -446,7 +446,7 @@ def test_regional_lab_rejects_removed_method_comparison_launcher(tmp_path: Path)
         raise AssertionError("method-comparison launcher should be rejected")
 
 
-def test_regional_lab_extracts_variant_comparison_child_artifacts(tmp_path: Path) -> None:
+def test_regional_lab_extracts_simulation_comparison_child_artifacts(tmp_path: Path) -> None:
     config_path = tmp_path / "compare_case.toml"
     comparison_root = tmp_path / "comparison_outputs"
     comparison_root.mkdir(parents=True, exist_ok=True)
@@ -490,7 +490,7 @@ def test_regional_lab_extracts_variant_comparison_child_artifacts(tmp_path: Path
                 'comparison_id = "demo_compare"',
                 f'output_root = "{comparison_root.as_posix()}"',
                 "",
-                "[[comparison.variant]]",
+                "[[comparison.simulation]]",
                 'id = "reference"',
                 'run_folder = "runs/reference"',
                 "",

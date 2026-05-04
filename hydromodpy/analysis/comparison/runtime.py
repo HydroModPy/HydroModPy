@@ -908,6 +908,7 @@ def _variable_candidates(variable: str) -> tuple[str, ...]:
         ],
         "head": ["watertable_elevation"],
         "depth": ["watertable_depth"],
+        "seepage_areas": ["seepage_mask"],
         "drainage_flux": ["drainage_flux_history_m3_s", "drainage_flux_m3_s"],
     }
     candidates.extend(alias_map.get(lowered, []))
@@ -936,6 +937,8 @@ def _native_unit_for_variable(variable_name: str) -> str:
         return "m/day"
     if key in {"accumulation_flux", "outflow_drain", "seepage_areas"}:
         return "m/day"
+    if key == "seepage_mask":
+        return "1"
     if key.endswith("_m3_s") or "_m3_s" in key:
         return "m3/s"
     if key.endswith("_m_s") or "_m_s" in key:
@@ -1439,6 +1442,7 @@ def _store_variable_mapping(variable_name: str) -> str | None:
         "watertable_elevation": "watertable_elevation",
         "watertable_depth": "watertable_depth",
         "seepage_areas": "seepage_areas",
+        "seepage_mask": "seepage_mask",
         "head": "head",
         "accumulation_flux": "accumulation_flux",
         "outlet_discharge_east_side_m3_s": "outlet_discharge_east_side_m3_s",
@@ -2530,6 +2534,7 @@ def write_observables_csv(path: Path, rows: list[dict[str, Any]]) -> None:
         "time",
         "time_index",
         "elapsed_seconds",
+        "time_role",
         "requested_time",
         "requested_time_reducer",
         "selection_time_order",

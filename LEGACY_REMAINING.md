@@ -63,11 +63,14 @@ Ancienne interface TOML supprimee.
 **Decision :**
 - La seule section runtime acceptee est `[comparison]`.
 - Les comparaisons de simulations declarent `[[comparison.simulation]]`.
-- Les comparaisons de variantes ou de dossiers existants declarent
-  `[[comparison.variant]]`.
+- Les comparaisons de dossiers existants sont aussi exprimees comme des
+  simulations, via `[[comparison.simulation]]` avec `simulation_config` et/ou
+  `run_folder`.
 - Les noms `MethodComparison*`, le workflow `method-comparison`, la commande
   `compare-methods`, et le relais `run_method_comparison.py` ne font plus partie
   du contrat public.
+- Le lanceur historique `VariantComparisonLauncher` a ete retire ; le
+  dispatcher refuse explicitement `[[comparison.variant]]`.
 - Les chemins statiques de galerie qui contiennent `method_comparison` restent
   des identifiants documentaires, pas des interfaces runtime.
 

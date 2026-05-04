@@ -116,6 +116,44 @@ def test_simulation_comparison_materializes_child_tomls(tmp_path: Path) -> None:
     assert bouss_raw["simulation"]["process"][0]["solvers"] == ["boussinesq"]
 
 
+def test_simulation_comparison_generated_child_run_folder_uses_workspace_root(
+    tmp_path: Path,
+) -> None:
+    _write_base_simulation_config(tmp_path / "base.toml")
+    config_path = tmp_path / "compare_workspace.toml"
+    config_path.write_text(
+        "\n".join(
+            [
+                'workflow = "comparison"',
+                "",
+                "[comparison]",
+                'comparison_id = "demo_workspace_root"',
+                'base_simulation_config = "base.toml"',
+                "",
+                "[[comparison.simulation]]",
+                'id = "mf6_ref"',
+                'solver = "modflow6"',
+                "",
+                "[comparison.simulation.overlay.workspace]",
+                'root = "runs/mf6"',
+                "",
+                "[[comparison.observable]]",
+                'name = "head_mid"',
+                'variable = "watertable_elevation"',
+                'support = "point"',
+                "cell_index = 0",
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    cfg = _load_comparison_cfg(config_path)
+    children = materialize_child_configs(cfg)
+
+    assert children[0].run_folder == (tmp_path / "runs" / "mf6").resolve()
+
+
 def test_simulation_comparison_accepts_existing_run_folders_without_base_config(
     tmp_path: Path,
 ) -> None:
@@ -639,6 +677,71 @@ def test_equivalence_audit_flags_physical_config_mismatch(
     assert audit["status"] == "warn"
     assert any(
         issue["kind"] == "config_section_mismatch" and issue["field"] == "data.recharge"
+        for issue in audit["issues"]
+    )
+
+
+def test_equivalence_audit_flags_mixed_initial_state_policy(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def fake_load_audit_subject(summary: dict[str, object]) -> dict[str, object]:
+        return {
+            "id": summary["id"],
+            "status": "loaded",
+            "metadata": {},
+            "parameters": [],
+            "physical_config": {"fingerprints": {}},
+            "budget_components": {
+                audit_module.RECHARGE_COMPONENT: {
+                    "series": {"elapsed_seconds:86400": 1.0}
+                }
+            },
+        }
+
+    monkeypatch.setattr(audit_module, "_load_audit_subject", fake_load_audit_subject)
+
+    audit = build_equivalence_audit(
+        variant_summaries=[
+            {"id": "mf6_ref", "status": "completed"},
+            {"id": "bouss_candidate", "status": "completed"},
+        ],
+        reference_variant="mf6_ref",
+        on_mismatch="warn",
+        observable_rows=[
+            {
+                "variant_id": "mf6_ref",
+                "observable": "head_point_series",
+                "support": "point",
+                "requested_time": "all",
+                "resolved_variable": "watertable_elevation",
+                "elapsed_seconds": 86400.0,
+                "is_initial_state": False,
+            },
+            {
+                "variant_id": "bouss_candidate",
+                "observable": "head_point_series",
+                "support": "point",
+                "requested_time": "all",
+                "resolved_variable": "watertable_elevation",
+                "elapsed_seconds": 0.0,
+                "is_initial_state": True,
+            },
+            {
+                "variant_id": "bouss_candidate",
+                "observable": "head_point_series",
+                "support": "point",
+                "requested_time": "all",
+                "resolved_variable": "watertable_elevation",
+                "elapsed_seconds": 86400.0,
+                "is_initial_state": False,
+            },
+        ],
+    )
+
+    assert audit["status"] == "warn"
+    assert audit["initial_state_policy"][0]["severity"] == "warning"
+    assert any(
+        issue["kind"] == "initial_state_policy_mismatch"
         for issue in audit["issues"]
     )
 

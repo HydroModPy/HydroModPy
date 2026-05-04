@@ -14,8 +14,8 @@ import pytest
 from hydromodpy.analysis.comparison.config import (
     ComparisonConfig,
     ComparisonObservable,
-    ComparisonVariant,
 )
+from hydromodpy.analysis.comparison.child_materialization import materialize_child_configs
 from hydromodpy.analysis.comparison.exports import (
     _load_catalog_budget_rows,
     write_boussinesq_obstacle_diagnostics_export,
@@ -25,13 +25,16 @@ from hydromodpy.analysis.comparison.metric_diff import (
     build_comparison_metrics,
     build_unmatched_groups,
 )
-from hydromodpy.analysis.comparison.orchestrator import VariantComparisonLauncher
+from hydromodpy.analysis.comparison.experiment_config import SimulationComparisonConfig
+from hydromodpy.analysis.comparison.experiment_launcher import SimulationComparisonLauncher
 from hydromodpy.analysis.comparison.runtime import (
     _resolve_recorded_output_path,
     extract_observable_rows,
     load_variable_series,
-    materialize_variant_config,
 )
+from hydromodpy.analysis.comparison.run_backend import ChildRunResult
+from hydromodpy.analysis.comparison.runtime_observables import select_time_slices
+from hydromodpy.analysis.comparison.runtime_series import TimeSlice, VariableSeries
 from hydromodpy.core.toml_io.loader import load_toml_with_base_config
 
 OUTLET_CELL_AREA_M2 = 10.0
@@ -48,6 +51,23 @@ class _FakeCatalog:
         if sim_id != SIM_ID:
             raise KeyError(sim_id)
         return SimpleNamespace(root=self._root, close=lambda: None)
+
+    @property
+    def connection(self) -> object:
+        raise AttributeError("fake catalog does not expose SQL parameters")
+
+    def list_simulations(self) -> pd.DataFrame:
+        return pd.DataFrame(
+            [
+                {
+                    "sim_id": SIM_ID,
+                    "mesh_hash": "same",
+                    "n_cells": 3,
+                    "n_timesteps": 2,
+                    "crs_epsg": 2154,
+                }
+            ]
+        )
 
     def close(self) -> None:
         self.closed = True
@@ -75,7 +95,7 @@ def _patch_result_store(
         return store, SIM_ID
 
     monkeypatch.setattr(
-        "hydromodpy.analysis.comparison.orchestrator.discover_result_store",
+        "hydromodpy.analysis.comparison.experiment_launcher.discover_result_store",
         _discover,
     )
     monkeypatch.setattr(
@@ -146,19 +166,34 @@ def _write_solver_grid_template(run_folder: Path, *, nx: int, ny: int) -> None:
         dataset.write(np.ones((ny, nx), dtype="float32"), 1)
 
 
-def _write_variant_comparison_config(path: Path, run_folder: Path) -> None:
+def _write_simulation_comparison_config(path: Path, run_folder: Path) -> None:
+    simulation_config = path.parent / f"{path.stem}_mf6_demo.toml"
+    simulation_config.write_text(
+        "\n".join(
+            [
+                'workflow = "simulation"',
+                "",
+                "[simulation]",
+                'run_id = "mf6_demo"',
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
     path.write_text(
         "\n".join(
             [
                 "[comparison]",
                 'comparison_id = "demo_compare"',
                 'output_root = "comparison_outputs"',
-                "run_variants = false",
+                "[comparison.execution]",
+                "run_simulations = false",
                 "",
-                "[[comparison.variant]]",
+                "[[comparison.simulation]]",
                 'id = "mf6_demo"',
                 'solver = "modflow6"',
                 'mesh_mode = "mesh_catchment"',
+                f'simulation_config = "{simulation_config.as_posix()}"',
                 f'run_folder = "{run_folder.as_posix()}"',
                 "",
                 "[[comparison.observable]]",
@@ -201,7 +236,7 @@ def _write_comparison_anchors(path: Path) -> None:
     )
 
 
-def _write_visual_variant_comparison_config(
+def _write_visual_simulation_comparison_config(
     path: Path,
     *,
     reference_run_folder: Path,
@@ -215,10 +250,14 @@ def _write_visual_variant_comparison_config(
                 "[comparison]",
                 'comparison_id = "demo_visual_compare"',
                 'output_root = "comparison_outputs"',
-                "run_variants = false",
-                'reference_variant = "mf6_demo"',
+                'reference_simulation = "mf6_demo"',
+                "[comparison.execution]",
+                "run_simulations = false",
                 "",
-                "[[comparison.variant]]",
+                "[comparison.audit]",
+                'on_mismatch = "warn"',
+                "",
+                "[[comparison.simulation]]",
                 'id = "mf6_demo"',
                 'label = "MF6 reference"',
                 'solver = "modflow6"',
@@ -226,7 +265,7 @@ def _write_visual_variant_comparison_config(
                 f'simulation_config = "{reference_config_path.as_posix()}"',
                 f'run_folder = "{reference_run_folder.as_posix()}"',
                 "",
-                "[[comparison.variant]]",
+                "[[comparison.simulation]]",
                 'id = "nwt_demo"',
                 'label = "NWT candidate"',
                 'solver = "modflownwt"',
@@ -272,7 +311,7 @@ def _write_visual_variant_comparison_config(
     )
 
 
-def _write_structured_xy_variant_comparison_config(
+def _write_structured_xy_simulation_comparison_config(
     path: Path,
     *,
     run_folder: Path,
@@ -283,9 +322,10 @@ def _write_structured_xy_variant_comparison_config(
             [
                 "[comparison]",
                 'comparison_id = "demo_structured_xy"',
-                "run_variants = false",
+                "[comparison.execution]",
+                "run_simulations = false",
                 "",
-                "[[comparison.variant]]",
+                "[[comparison.simulation]]",
                 'id = "nwt_demo"',
                 'solver = "modflownwt"',
                 'mesh_mode = "structured"',
@@ -338,6 +378,13 @@ def _write_fake_run_folder(
                 [
                     np.asarray([0.1, 0.4, 0.2]) + accumulation_offset,
                     np.asarray([0.3, 0.8, 0.5]) + accumulation_offset,
+                ],
+                dtype=float,
+            ),
+            "seepage_mask": np.asarray(
+                [
+                    np.asarray([0.0, 1.0, 0.0]),
+                    np.asarray([1.0, 1.0, 0.0]),
                 ],
                 dtype=float,
             ),
@@ -458,7 +505,7 @@ def _expected_outlet_flux(value_m_per_day: float) -> float:
 def test_comparison_config_resolves_paths(tmp_path: Path) -> None:
     run_folder = tmp_path / "runs" / "mf6_demo"
     config_path = tmp_path / "config_comparison.toml"
-    _write_variant_comparison_config(config_path, run_folder)
+    _write_simulation_comparison_config(config_path, run_folder)
 
     cfg = ComparisonConfig.from_toml(
         load_toml_with_base_config(config_path),
@@ -481,9 +528,10 @@ def test_comparison_config_applies_anchor_file(tmp_path: Path) -> None:
                 "[comparison]",
                 'comparison_id = "demo_anchor_compare"',
                 'anchors_file = "comparison_points.toml"',
-                "run_variants = false",
+                "[comparison.execution]",
+                "run_simulations = false",
                 "",
-                "[[comparison.variant]]",
+                "[[comparison.simulation]]",
                 'id = "mf6_demo"',
                 'run_folder = "run"',
                 "",
@@ -529,9 +577,10 @@ def test_comparison_config_accepts_canonical_anchor_file(tmp_path: Path) -> None
                 "[comparison]",
                 'comparison_id = "demo_anchor_compare"',
                 'anchors_file = "comparison_points.toml"',
-                "run_variants = false",
+                "[comparison.execution]",
+                "run_simulations = false",
                 "",
-                "[[comparison.variant]]",
+                "[[comparison.simulation]]",
                 'id = "mf6_demo"',
                 'run_folder = "run"',
                 "",
@@ -556,7 +605,7 @@ def test_comparison_config_accepts_canonical_anchor_file(tmp_path: Path) -> None
     assert cfg.comparison.observable[0].y == 1.0
 
 
-def test_materialize_variant_config_writes_base_overlay(tmp_path: Path) -> None:
+def test_materialize_simulation_config_writes_base_overlay(tmp_path: Path) -> None:
     base_config = tmp_path / "run_flow_common.toml"
     _write_base_simulation_config(base_config)
     config_path = tmp_path / "config_comparison.toml"
@@ -566,13 +615,14 @@ def test_materialize_variant_config_writes_base_overlay(tmp_path: Path) -> None:
                 "[comparison]",
                 'comparison_id = "demo_compare"',
                 'base_simulation_config = "run_flow_common.toml"',
-                "run_variants = false",
+                "[comparison.execution]",
+                "run_simulations = false",
                 "",
-                "[[comparison.variant]]",
+                "[[comparison.simulation]]",
                 'id = "bouss_demo"',
                 'solver = "boussinesq"',
                 "",
-                "[comparison.variant.overlay.mesh_input]",
+                "[comparison.simulation.overlay.mesh_input]",
                 'bundle_dir = "results_stable/mesh/bundle"',
                 "",
                 "[[comparison.observable]]",
@@ -585,21 +635,20 @@ def test_materialize_variant_config_writes_base_overlay(tmp_path: Path) -> None:
         + "\n",
         encoding="utf-8",
     )
-    cfg = ComparisonConfig.from_toml(
+    cfg = SimulationComparisonConfig.from_toml(
         load_toml_with_base_config(config_path),
         config_path=config_path,
     )
 
-    generated = materialize_variant_config(
-        cfg=cfg,
-        variant=cfg.comparison.variant[0],
-    )
+    generated = materialize_child_configs(cfg)[0].config_path
 
     assert generated is not None
     raw = load_toml_with_base_config(generated)
-    assert raw["simulation"]["run_id"] == "bouss_demo"
+    assert raw["simulation"]["run_id"] == "demo_compare__bouss_demo"
     assert raw["simulation"]["process"][0]["solvers"] == ["boussinesq"]
-    assert raw["mesh_input"]["bundle_dir"] == "results_stable/mesh/bundle"
+    assert raw["mesh_input"]["bundle_dir"] == (
+        tmp_path / "results_stable" / "mesh" / "bundle"
+    ).resolve().as_posix()
 
 
 def test_extract_observable_rows_reads_point_and_strict_outlet(tmp_path: Path) -> None:
@@ -607,7 +656,7 @@ def test_extract_observable_rows_reads_point_and_strict_outlet(tmp_path: Path) -
     bundle_dir = tmp_path / "bundle"
     store = _write_fake_run_folder(run_folder, bundle_dir)
     config_path = tmp_path / "config_comparison.toml"
-    _write_variant_comparison_config(config_path, run_folder)
+    _write_simulation_comparison_config(config_path, run_folder)
     cfg = ComparisonConfig.from_toml(
         load_toml_with_base_config(config_path),
         config_path=config_path,
@@ -638,6 +687,57 @@ def test_extract_observable_rows_reads_point_and_strict_outlet(tmp_path: Path) -
     assert outlet["derived_from_variable"] == "accumulation_flux"
     assert outlet["conversion_applied"] == "accumulation_flux_m_per_day_to_m3_s"
     assert float(outlet["cell_area_m2"]) == OUTLET_CELL_AREA_M2
+
+
+def test_extract_observable_rows_reads_seepage_areas_from_seepage_mask(
+    tmp_path: Path,
+) -> None:
+    run_folder = tmp_path / "run_seepage_alias"
+    bundle_dir = tmp_path / "bundle_seepage_alias"
+    store = _write_fake_run_folder(run_folder, bundle_dir)
+    config_path = tmp_path / "config_seepage_alias.toml"
+    config_path.write_text(
+        "\n".join(
+            [
+                "[comparison]",
+                'comparison_id = "demo_seepage_alias"',
+                "[comparison.execution]",
+                "run_simulations = false",
+                "",
+                "[[comparison.simulation]]",
+                'id = "mf6_demo"',
+                'solver = "modflow6"',
+                'mesh_mode = "mesh_input"',
+                f'run_folder = "{run_folder.as_posix()}"',
+                "",
+                "[[comparison.observable]]",
+                'name = "seepage_last"',
+                'variable = "seepage_areas"',
+                'support = "map"',
+                'time = "last"',
+                'unit = "-"',
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    cfg = ComparisonConfig.from_toml(
+        load_toml_with_base_config(config_path),
+        config_path=config_path,
+    )
+
+    rows = extract_observable_rows(
+        comparison_id="demo_seepage_alias",
+        variant=cfg.comparison.variant[0],
+        run_folder=run_folder,
+        observables=tuple(cfg.comparison.observable),
+        store=store,
+        sim_id=SIM_ID,
+    )
+
+    assert len(rows) == 3
+    assert all(row["resolved_variable"] == "seepage_mask" for row in rows)
+    assert [float(row["value"]) for row in rows] == pytest.approx([1.0, 1.0, 0.0])
 
 
 def test_extract_observable_rows_resolves_structured_xy_from_config(tmp_path: Path) -> None:
@@ -704,7 +804,7 @@ def test_extract_observable_rows_resolves_structured_xy_from_config(tmp_path: Pa
     )
 
     comparison_config = tmp_path / "config_structured_xy.toml"
-    _write_structured_xy_variant_comparison_config(
+    _write_structured_xy_simulation_comparison_config(
         comparison_config,
         run_folder=run_folder,
         simulation_config_path=simulation_config,
@@ -735,7 +835,7 @@ def test_extract_observable_rows_resolves_structured_xy_from_config(tmp_path: Pa
 def test_extract_observable_rows_reads_direct_scalar_outlet_flux(tmp_path: Path) -> None:
     run_folder = tmp_path / "run_direct"
     config_path = tmp_path / "config_comparison.toml"
-    _write_variant_comparison_config(config_path, run_folder)
+    _write_simulation_comparison_config(config_path, run_folder)
     store = _write_direct_outlet_run_folder(run_folder, outlet_value=1.25)
     cfg = ComparisonConfig.from_toml(
         load_toml_with_base_config(config_path),
@@ -765,7 +865,7 @@ def test_extract_observable_rows_reads_boussinesq_outlet_flux(tmp_path: Path) ->
     bundle_dir = tmp_path / "bundle_bouss"
     store = _write_boussinesq_run_folder(run_folder, bundle_dir)
     config_path = tmp_path / "config_comparison.toml"
-    _write_variant_comparison_config(config_path, run_folder)
+    _write_simulation_comparison_config(config_path, run_folder)
     cfg = ComparisonConfig.from_toml(
         load_toml_with_base_config(config_path),
         config_path=config_path,
@@ -802,9 +902,10 @@ def test_extract_observable_rows_converts_boussinesq_drainage_map_to_outflow_dra
             [
                 "[comparison]",
                 'comparison_id = "demo_bouss_map"',
-                "run_variants = false",
+                "[comparison.execution]",
+                "run_simulations = false",
                 "",
-                "[[comparison.variant]]",
+                "[[comparison.simulation]]",
                 'id = "bouss_demo"',
                 'solver = "boussinesq"',
                 'mesh_mode = "mesh_input"',
@@ -895,9 +996,10 @@ def test_extract_observable_rows_reads_surface_excess_map_and_series(
             [
                 "[comparison]",
                 'comparison_id = "demo_surface_excess"',
-                "run_variants = false",
+                "[comparison.execution]",
+                "run_simulations = false",
                 "",
-                "[[comparison.variant]]",
+                "[[comparison.simulation]]",
                 'id = "bouss_demo"',
                 'solver = "boussinesq"',
                 'mesh_mode = "mesh_input"',
@@ -981,29 +1083,34 @@ def test_write_budget_exports_derives_boussinesq_budget_timeseries(
     recharge_row = next(
         row
         for row in rows
-        if row["component"] == "recharge_total_m3_s" and int(row["time_index"]) == 0
+        if row["component"] == "recharge_total_m3_s" and int(row["period_index"]) == 0
     )
     storage_row = next(
         row
         for row in rows
-        if row["component"] == "storage_change_total_m3_s" and int(row["time_index"]) == 1
+        if row["component"] == "storage_change_total_m3_s" and int(row["period_index"]) == 0
     )
     residual_row = next(
         row
         for row in rows
-        if row["component"] == "closure_residual_m3_s" and int(row["time_index"]) == 1
+        if row["component"] == "closure_residual_m3_s" and int(row["period_index"]) == 0
     )
     dry_row = next(
         row
         for row in rows
-        if row["component"] == "dry_deficit_total_m3_s" and int(row["time_index"]) == 1
+        if row["component"] == "dry_deficit_total_m3_s" and int(row["period_index"]) == 0
     )
-    assert float(recharge_row["value"]) == pytest.approx(3.55e-7)
+    assert int(recharge_row["time_index"]) == 1
+    assert recharge_row["time_role"] == "period_value"
+    assert recharge_row["period_start_seconds"] == pytest.approx(0.0)
+    assert recharge_row["period_end_seconds"] == pytest.approx(3600.0)
+    assert not recharge_row["is_initial_state"]
+    assert float(recharge_row["value"]) == pytest.approx(3.75e-7)
     assert float(storage_row["value"]) == pytest.approx(0.68 / 3600.0)
     assert float(dry_row["value"]) == pytest.approx(0.005 * OUTLET_CELL_AREA_M2)
     assert math.isfinite(float(residual_row["value"]))
     assert float(residual_row["value"]) == pytest.approx(
-        3.95e-7 - 0.025 + 0.005 * OUTLET_CELL_AREA_M2 - 0.48 - 0.35 - (0.68 / 3600.0)
+        3.75e-7 - 0.025 + 0.005 * OUTLET_CELL_AREA_M2 - 0.48 - 0.35 - (0.68 / 3600.0)
     )
 
 
@@ -1154,6 +1261,11 @@ def test_catalog_budget_rows_are_normalized_to_elapsed_seconds_and_m3_s(tmp_path
 
     by_component = {row["component"]: row for row in rows if int(row["time_index"]) == 0}
     assert by_component["recharge_total_m3_s"]["elapsed_seconds"] == pytest.approx(86400.0)
+    assert by_component["recharge_total_m3_s"]["time_role"] == "period_value"
+    assert by_component["recharge_total_m3_s"]["period_index"] == 0
+    assert by_component["recharge_total_m3_s"]["period_start_seconds"] == pytest.approx(0.0)
+    assert by_component["recharge_total_m3_s"]["period_end_seconds"] == pytest.approx(86400.0)
+    assert not by_component["recharge_total_m3_s"]["is_initial_state"]
     assert by_component["recharge_total_m3_s"]["unit"] == "m3/s"
     assert by_component["recharge_total_m3_s"]["value"] == pytest.approx(2.5)
     assert by_component["prescribed_head_out_total_m3_s"]["value"] == pytest.approx(0.3)
@@ -1195,9 +1307,10 @@ def test_extract_observable_rows_resolves_wsl_bundle_path_on_windows(
             [
                 "[comparison]",
                 'comparison_id = "demo_compare_wsl_bundle"',
-                "run_variants = false",
+                "[comparison.execution]",
+                "run_simulations = false",
                 "",
-                "[[comparison.variant]]",
+                "[[comparison.simulation]]",
                 'id = "bouss_demo"',
                 'solver = "boussinesq"',
                 f'run_folder = "{run_folder.as_posix()}"',
@@ -1256,9 +1369,10 @@ def test_extract_observable_rows_masks_depth_using_head_nodata(tmp_path: Path) -
             [
                 "[comparison]",
                 'comparison_id = "demo_depth_mask"',
-                "run_variants = false",
+                "[comparison.execution]",
+                "run_simulations = false",
                 "",
-                "[[comparison.variant]]",
+                "[[comparison.simulation]]",
                 'id = "mf6_demo"',
                 f'run_folder = "{run_folder.as_posix()}"',
                 "",
@@ -1300,9 +1414,10 @@ def test_outlet_without_location_requires_explicit_proxy_opt_in(tmp_path: Path) 
             [
                 "[comparison]",
                 'comparison_id = "demo_compare"',
-                "run_variants = false",
+                "[comparison.execution]",
+                "run_simulations = false",
                 "",
-                "[[comparison.variant]]",
+                "[[comparison.simulation]]",
                 'id = "mf6_demo"',
                 'run_folder = "run"',
                 "",
@@ -1323,7 +1438,7 @@ def test_outlet_without_location_requires_explicit_proxy_opt_in(tmp_path: Path) 
         )
 
 
-def test_variant_comparison_launcher_reuses_existing_run_folder(
+def test_simulation_comparison_launcher_reuses_existing_run_folder(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -1331,10 +1446,10 @@ def test_variant_comparison_launcher_reuses_existing_run_folder(
     bundle_dir = tmp_path / "bundle"
     store = _write_fake_run_folder(run_folder, bundle_dir)
     config_path = tmp_path / "config_comparison.toml"
-    _write_variant_comparison_config(config_path, run_folder)
+    _write_simulation_comparison_config(config_path, run_folder)
     _patch_result_store(monkeypatch, {config_path.resolve(): store})
 
-    summary = VariantComparisonLauncher(config_path).run()
+    summary = SimulationComparisonLauncher(config_path).run()
 
     manifest_path = Path(summary["manifest_path"])
     observables_csv = Path(summary["observables_csv"])
@@ -1352,7 +1467,7 @@ def test_variant_comparison_launcher_reuses_existing_run_folder(
     assert Path(summary["comparison_report_md"]).exists()
 
 
-def test_variant_comparison_launcher_generates_visual_figures(
+def test_simulation_comparison_launcher_generates_visual_figures(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -1384,7 +1499,7 @@ def test_variant_comparison_launcher_generates_visual_figures(
     )
 
     config_path = tmp_path / "config_comparison_visuals.toml"
-    _write_visual_variant_comparison_config(
+    _write_visual_simulation_comparison_config(
         config_path,
         reference_run_folder=reference_run,
         candidate_run_folder=candidate_run,
@@ -1399,7 +1514,7 @@ def test_variant_comparison_launcher_generates_visual_figures(
         },
     )
 
-    summary = VariantComparisonLauncher(config_path).run()
+    summary = SimulationComparisonLauncher(config_path).run()
 
     figures = summary["comparison_figures"]
     assert summary["comparison_figures_dir"]
@@ -1423,7 +1538,7 @@ def test_variant_comparison_launcher_generates_visual_figures(
     assert "outlet_flux_series" in report_text
 
 
-def test_variant_comparison_launcher_writes_chronicles_native_flux_and_runtime_outputs(
+def test_simulation_comparison_launcher_writes_chronicles_native_flux_and_runtime_outputs(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -1477,7 +1592,7 @@ def test_variant_comparison_launcher_writes_chronicles_native_flux_and_runtime_o
     _write_structured_solver_config(candidate_solver_config, solver="modflownwt", nx=3, ny=1)
 
     config_path = tmp_path / "config_comparison_outputs.toml"
-    _write_visual_variant_comparison_config(
+    _write_visual_simulation_comparison_config(
         config_path,
         reference_run_folder=reference_run,
         candidate_run_folder=candidate_run,
@@ -1492,7 +1607,7 @@ def test_variant_comparison_launcher_writes_chronicles_native_flux_and_runtime_o
         },
     )
 
-    summary = VariantComparisonLauncher(config_path).run()
+    summary = SimulationComparisonLauncher(config_path).run()
 
     artifact_kinds = {item["kind"] for item in summary["comparison_data_artifacts"]}
     assert "timeseries_long_csv" in artifact_kinds
@@ -1505,7 +1620,7 @@ def test_variant_comparison_launcher_writes_chronicles_native_flux_and_runtime_o
     assert "point_dashboard" in figure_kinds
 
 
-def test_variant_comparison_launcher_generates_structured_figures_from_run_folder_template(
+def test_simulation_comparison_launcher_generates_structured_figures_from_run_folder_template(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -1545,10 +1660,14 @@ def test_variant_comparison_launcher_generates_structured_figures_from_run_folde
                 "[comparison]",
                 'comparison_id = "demo_structured_reuse_visuals"',
                 'output_root = "comparison_outputs"',
-                "run_variants = false",
-                'reference_variant = "mf6_demo"',
+                'reference_simulation = "mf6_demo"',
+                "[comparison.execution]",
+                "run_simulations = false",
                 "",
-                "[[comparison.variant]]",
+                "[comparison.audit]",
+                'on_mismatch = "warn"',
+                "",
+                "[[comparison.simulation]]",
                 'id = "mf6_demo"',
                 'label = "MF6 reference"',
                 'solver = "modflow6"',
@@ -1556,7 +1675,7 @@ def test_variant_comparison_launcher_generates_structured_figures_from_run_folde
                 f'run_folder = "{reference_run.as_posix()}"',
                 f'simulation_config = "{reference_solver_config.as_posix()}"',
                 "",
-                "[[comparison.variant]]",
+                "[[comparison.simulation]]",
                 'id = "nwt_demo"',
                 'label = "NWT candidate"',
                 'solver = "modflownwt"',
@@ -1583,7 +1702,7 @@ def test_variant_comparison_launcher_generates_structured_figures_from_run_folde
         },
     )
 
-    summary = VariantComparisonLauncher(config_path).run()
+    summary = SimulationComparisonLauncher(config_path).run()
 
     figures = summary["comparison_figures"]
     assert {item["kind"] for item in figures} == {
@@ -1599,10 +1718,11 @@ def test_variant_comparison_launcher_generates_structured_figures_from_run_folde
         assert figure_path.stat().st_size > 0
 
 
-def test_variant_comparison_launcher_prefers_model_full_path_for_completed_runs(
+def test_simulation_comparison_launcher_infers_completed_run_folder_from_declared_config(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    scratch = tmp_path / "solver_scratch"
     simulation_config = tmp_path / "run_solver.toml"
     simulation_config.write_text(
         "\n".join(
@@ -1610,6 +1730,7 @@ def test_variant_comparison_launcher_prefers_model_full_path_for_completed_runs(
                 'workflow = "simulation"',
                 "[workspace]",
                 'project_root = "project/demo"',
+                f'solver_scratch_folder = "{scratch.as_posix()}"',
                 "",
                 "[simulation]",
                 'run_id = "demo_run"',
@@ -1624,7 +1745,7 @@ def test_variant_comparison_launcher_prefers_model_full_path_for_completed_runs(
         encoding="utf-8",
     )
 
-    actual_run_folder = tmp_path / "results_simulations" / "flow_main__boussinesq"
+    actual_run_folder = scratch / "demo_run" / "flow_main__boussinesq"
     actual_run_folder.mkdir(parents=True, exist_ok=True)
     (actual_run_folder / "_metrics.json").write_text("{}", encoding="utf-8")
     comparison_config = tmp_path / "config_comparison.toml"
@@ -1633,9 +1754,10 @@ def test_variant_comparison_launcher_prefers_model_full_path_for_completed_runs(
             [
                 "[comparison]",
                 'comparison_id = "demo_compare"',
-                "run_variants = true",
+                "[comparison.execution]",
+                "run_simulations = true",
                 "",
-                "[[comparison.variant]]",
+                "[[comparison.simulation]]",
                 'id = "bouss_demo"',
                 'solver = "boussinesq"',
                 f'simulation_config = "{simulation_config.as_posix()}"',
@@ -1651,50 +1773,13 @@ def test_variant_comparison_launcher_prefers_model_full_path_for_completed_runs(
         encoding="utf-8",
     )
 
-    class _FakeProject:
-        def __init__(self, config_path: Path, **kwargs) -> None:
-            self.config_path = config_path
-            self.workflow_context = SimpleNamespace(
-                setup=SimpleNamespace(
-                    workspace=SimpleNamespace(simulations_folder=tmp_path / "results_simulations"),
-                    run_id="demo_run",
-                ),
-                get_model_for_solver=lambda _solver_name: SimpleNamespace(
-                    full_path=actual_run_folder
-                ),
-            )
-
-        def run(self, **kwargs):
-            return None
-
-        def __enter__(self):
-            return self
-
-        def __exit__(self, exc_type, exc, tb):
-            self.close()
-            return False
-
-        def close(self):
-            pass
-
-    import hydromodpy.project as project_module
-
-    monkeypatch.setattr(project_module, "Project", _FakeProject)
-    monkeypatch.setattr(
-        "hydromodpy.analysis.comparison.orchestrator.read_variant_run_metadata",
-        lambda _run_folder: {},
-    )
-    import hydromodpy.analysis.comparison.orchestrator as launcher_module
-
-    monkeypatch.setattr(launcher_module, "Project", _FakeProject)
+    import hydromodpy.analysis.comparison.experiment_launcher as launcher_module
 
     class _RootConfigProvider:
         def from_toml(self, _config_path: Path):
             return SimpleNamespace(
-                workspace=SimpleNamespace(
-                    simulations_folder=tmp_path / "project_root" / "results_simulations"
-                ),
-                simulation=SimpleNamespace(run_id="demo_run_reuse"),
+                workspace=SimpleNamespace(solver_scratch_folder=scratch),
+                simulation=SimpleNamespace(run_id="demo_run"),
             )
 
     monkeypatch.setattr(
@@ -1703,21 +1788,32 @@ def test_variant_comparison_launcher_prefers_model_full_path_for_completed_runs(
         lambda: _RootConfigProvider(),
     )
 
-    launcher = VariantComparisonLauncher(comparison_config)
-    summary = launcher._run_or_reuse_variant(launcher.cfg.comparison.variant[0])
+    launcher = SimulationComparisonLauncher(comparison_config)
+    child = materialize_child_configs(launcher.cfg)[0]
+    summary = launcher._summary_from_run_result(
+        child,
+        ChildRunResult(
+            config_path=simulation_config,
+            returncode=0,
+            wall_time_seconds=0.25,
+            sim_id=SIM_ID,
+            stdout="",
+            stderr="",
+        ),
+    )
 
     assert summary["status"] == "completed"
-    assert Path(summary["run_folder"]) == actual_run_folder
+    assert Path(summary["run_folder"]) == actual_run_folder.resolve()
 
 
-def test_variant_comparison_launcher_reuse_infers_process_output_folder(
+def test_simulation_comparison_launcher_reuse_infers_process_output_folder(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     scratch = tmp_path / "solver_scratch"
     scratch.mkdir(parents=True, exist_ok=True)
 
-    import hydromodpy.analysis.comparison.orchestrator as orchestrator_module
+    import hydromodpy.analysis.comparison.experiment_launcher as launcher_module
 
     class _RootConfigProvider:
         def from_toml(self, _config_path: Path):
@@ -1727,12 +1823,12 @@ def test_variant_comparison_launcher_reuse_infers_process_output_folder(
             )
 
     monkeypatch.setattr(
-        orchestrator_module,
+        launcher_module,
         "get_root_config_provider",
         lambda: _RootConfigProvider(),
     )
 
-    resolved = VariantComparisonLauncher._infer_run_folder_from_config(
+    resolved = SimulationComparisonLauncher._infer_run_folder_from_config(
         tmp_path / "config.toml",
         solver_name="boussinesq",
     )
@@ -1752,13 +1848,13 @@ def test_build_comparison_metrics_against_reference(tmp_path: Path) -> None:
         accumulation_offset=0.1,
     )
     config_path = tmp_path / "config_comparison.toml"
-    _write_variant_comparison_config(config_path, reference_run)
+    _write_simulation_comparison_config(config_path, reference_run)
     cfg = ComparisonConfig.from_toml(
         load_toml_with_base_config(config_path),
         config_path=config_path,
     )
-    reference_variant = cfg.comparison.variant[0]
-    candidate_variant = reference_variant.model_copy(
+    reference_simulation = cfg.comparison.variant[0]
+    candidate_variant = reference_simulation.model_copy(
         update={"id": "candidate", "label": "candidate"}
     )
 
@@ -1766,7 +1862,7 @@ def test_build_comparison_metrics_against_reference(tmp_path: Path) -> None:
     rows.extend(
         extract_observable_rows(
             comparison_id="demo_compare",
-            variant=reference_variant,
+            variant=reference_simulation,
             run_folder=reference_run,
             observables=tuple(cfg.comparison.observable),
             store=reference_store,
@@ -1892,3 +1988,45 @@ def test_build_comparison_metrics_aligns_non_initial_steps_and_keeps_initial_unm
             "reason": "missing aligned reference row or unit mismatch",
         }
     ]
+
+
+def test_runtime_observables_integer_time_selects_non_initial_snapshot() -> None:
+    series = VariableSeries(
+        variable_name="watertable_elevation",
+        source_path=Path("memory"),
+        slices=(
+            TimeSlice(
+                time_key=0,
+                time_index=0,
+                values=np.array([10.0]),
+                elapsed_seconds=0.0,
+                is_initial_state=True,
+            ),
+            TimeSlice(
+                time_key=1,
+                time_index=1,
+                values=np.array([11.0]),
+                elapsed_seconds=86400.0,
+                is_initial_state=False,
+            ),
+            TimeSlice(
+                time_key=2,
+                time_index=2,
+                values=np.array([12.0]),
+                elapsed_seconds=172800.0,
+                is_initial_state=False,
+            ),
+        ),
+    )
+    observable = ComparisonObservable(
+        name="head_after_first_step",
+        variable="watertable_elevation",
+        support="map",
+        time=0,
+    )
+
+    selected = select_time_slices(series, observable)
+
+    assert len(selected) == 1
+    assert selected[0].time_index == 1
+    assert not selected[0].is_initial_state

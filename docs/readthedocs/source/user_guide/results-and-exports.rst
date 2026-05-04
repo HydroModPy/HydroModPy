@@ -190,6 +190,38 @@ Export formats
      - ``hmp export`` / ``hmp add`` / ``hmp import``
      - Portable run package containing config, inputs, results, and manifest.
 
+Temporal conventions in CSV exports
+-----------------------------------
+
+Comparison CSV files distinguish state snapshots from period values explicitly.
+Use the ``time_role`` column before interpreting ``time_index`` or
+``elapsed_seconds``.
+
+.. list-table::
+   :header-rows: 1
+   :widths: 24 76
+
+   * - ``time_role``
+     - Meaning
+   * - ``initial_state``
+     - Explicit state before the first transient period. It is useful for
+       initial-condition diagnostics, but it is not a budget period.
+   * - ``state_snapshot``
+     - Instantaneous model state at the reported elapsed time, for example a
+       hydraulic-head or watertable map.
+   * - ``period_value``
+     - Value associated with a completed period. Budget tables also provide
+       ``period_index``, ``period_start_seconds``, and
+       ``period_end_seconds``.
+   * - ``reduced``
+     - Row obtained by reducing several time rows, for example with a mean,
+       min, max, or sum reducer.
+
+For budgets, ``elapsed_seconds`` is the period end time. Do not compare a
+``period_value`` row to an ``initial_state`` row. Boussinesq histories may store
+an explicit initial state at ``t = 0``; comparison budget exports skip that row
+instead of treating it as a zero-duration budget.
+
 Package exchange
 ----------------
 
