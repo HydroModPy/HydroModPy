@@ -47,9 +47,9 @@ class ComparisonVariant(HydroModelBase):
     def _validate_id(cls, value: object) -> str:
         text = str(value).strip()
         if not text:
-            raise ValueError("method_comparison.variant.id cannot be empty")
+            raise ValueError("comparison.variant.id cannot be empty")
         if any(token in text for token in ("/", "\\")):
-            raise ValueError("method_comparison.variant.id cannot contain path separators")
+            raise ValueError("comparison.variant.id cannot contain path separators")
         return text
 
     @field_validator(
@@ -69,7 +69,7 @@ class ComparisonVariant(HydroModelBase):
         if value is None:
             return {}
         if not isinstance(value, Mapping):
-            raise ValueError("method_comparison.variant.overlay must be a mapping")
+            raise ValueError("comparison.variant.overlay must be a mapping")
         return dict(value)
 
 
@@ -101,7 +101,7 @@ class ComparisonObservable(HydroModelBase):
     def _validate_required_text(cls, value: object) -> str:
         text = str(value).strip()
         if not text:
-            raise ValueError("method_comparison.observable value cannot be empty")
+            raise ValueError("comparison.observable value cannot be empty")
         return text
 
     @field_validator("anchor_id", "boundary_id", "reducer", "time_reducer", "unit")
@@ -116,7 +116,7 @@ class ComparisonObservable(HydroModelBase):
             return None
         index = int(value)
         if index < 0:
-            raise ValueError("method_comparison.observable.cell_index must be >= 0")
+            raise ValueError("comparison.observable.cell_index must be >= 0")
         return index
 
     @field_validator("cell_indices")
@@ -125,10 +125,10 @@ class ComparisonObservable(HydroModelBase):
         if value is None:
             return None
         if not isinstance(value, list) or not value:
-            raise ValueError("method_comparison.observable.cell_indices must be a non-empty list")
+            raise ValueError("comparison.observable.cell_indices must be a non-empty list")
         indices = [int(item) for item in value]
         if any(index < 0 for index in indices):
-            raise ValueError("method_comparison.observable.cell_indices must be >= 0")
+            raise ValueError("comparison.observable.cell_indices must be >= 0")
         return indices
 
     @field_validator("variants")
@@ -137,12 +137,12 @@ class ComparisonObservable(HydroModelBase):
         if value is None:
             return None
         if not isinstance(value, list) or not value:
-            raise ValueError("method_comparison.observable.variants must be a non-empty list")
+            raise ValueError("comparison.observable.variants must be a non-empty list")
         cleaned = []
         for item in value:
             text = str(item).strip()
             if not text:
-                raise ValueError("method_comparison.observable.variants cannot contain empty ids")
+                raise ValueError("comparison.observable.variants cannot contain empty ids")
             cleaned.append(text)
         return cleaned
 
@@ -150,7 +150,7 @@ class ComparisonObservable(HydroModelBase):
     def _validate_support_specific_fields(self) -> ComparisonObservable:
         if self.time is not None and self.time_window is not None:
             raise ValueError(
-                "method_comparison.observable cannot declare both time and time_window"
+                "comparison.observable cannot declare both time and time_window"
             )
         if self.support == "point":
             has_coordinates = self.x is not None and self.y is not None
@@ -224,17 +224,17 @@ class ComparisonSection(HydroModelBase):
     @model_validator(mode="after")
     def _validate_non_empty_lists(self) -> ComparisonSection:
         if not self.variant:
-            raise ValueError("method_comparison.variant must contain at least one item")
+            raise ValueError("comparison.variant must contain at least one item")
         if not self.observable:
-            raise ValueError("method_comparison.observable must contain at least one item")
+            raise ValueError("comparison.observable must contain at least one item")
         ids = [variant.id for variant in self.variant]
         if len(set(ids)) != len(ids):
-            raise ValueError("method_comparison.variant ids must be unique")
+            raise ValueError("comparison.variant ids must be unique")
         observable_names = [observable.name for observable in self.observable]
         if len(set(observable_names)) != len(observable_names):
-            raise ValueError("method_comparison.observable names must be unique")
+            raise ValueError("comparison.observable names must be unique")
         if self.reference_variant is not None and self.reference_variant not in set(ids):
-            raise ValueError("method_comparison.reference_variant must match a declared variant id")
+            raise ValueError("comparison.reference_variant must match a declared variant id")
         variant_ids = set(ids)
         for observable in self.observable:
             if observable.variants is None:
@@ -243,7 +243,7 @@ class ComparisonSection(HydroModelBase):
             if missing:
                 missing_text = ", ".join(missing)
                 raise ValueError(
-                    f"method_comparison.observable.variants contains unknown ids: {missing_text}"
+                    f"comparison.observable.variants contains unknown ids: {missing_text}"
                 )
         return self
 
@@ -266,14 +266,14 @@ class ComparisonFineRaster(HydroModelBase):
             return None
         resolution = float(value)
         if resolution <= 0.0:
-            raise ValueError("method_comparison.fine_raster.resolution must be > 0")
+            raise ValueError("comparison.fine_raster.resolution must be > 0")
         return resolution
 
     @model_validator(mode="after")
     def _validate_when_enabled(self) -> ComparisonFineRaster:
         if self.enabled and self.resolution is None:
             raise ValueError(
-                "method_comparison.fine_raster.resolution is required when fine_raster.enabled=true"
+                "comparison.fine_raster.resolution is required when fine_raster.enabled=true"
             )
         return self
 
@@ -335,11 +335,11 @@ class ComparisonConfig(HydroModelBase):
             if not anchors_path.is_absolute():
                 anchors_path = base_dir / anchors_path
             anchors_path = anchors_path.resolve()
-            anchors = _load_method_comparison_anchors(anchors_path)
+            anchors = _load_comparison_anchors(anchors_path)
             _apply_observable_anchors(section.observable, anchors)
         elif any(observable.anchor_id is not None for observable in section.observable):
             raise ValueError(
-                "method_comparison.observable.anchor_id requires method_comparison.anchors_file"
+                "comparison.observable.anchor_id requires comparison.anchors_file"
             )
 
         cfg = cls(
@@ -371,7 +371,7 @@ class ComparisonConfig(HydroModelBase):
             has_run_folder = variant.run_folder is not None
             if not (has_direct_config or has_generated_config or has_run_folder):
                 raise ValueError(
-                    "Each enabled method_comparison.variant requires "
+                    "Each enabled comparison.variant requires "
                     "simulation_config, run_folder, or base_simulation_config "
                     "with overlay/solver"
                 )
@@ -422,12 +422,17 @@ __all__ = (
 )
 
 
-def _load_method_comparison_anchors(path: Path) -> dict[str, tuple[float, float]]:
+def _load_comparison_anchors(path: Path) -> dict[str, tuple[float, float]]:
     """Load flattened XY anchors from one TOML file."""
     raw_toml = load_toml_with_base_config(path)
-    raw_anchors = raw_toml.get("method_comparison_anchors")
+    raw_anchors = raw_toml.get("comparison_anchors")
+    if raw_anchors is None:
+        raw_anchors = raw_toml.get("method_comparison_anchors")
     if not isinstance(raw_anchors, Mapping):
-        raise KeyError(f"Anchors file '{path}' must expose a [method_comparison_anchors] tree")
+        raise KeyError(
+            f"Anchors file '{path}' must expose a [comparison_anchors] tree "
+            "or legacy [method_comparison_anchors] tree"
+        )
     anchors: dict[str, tuple[float, float]] = {}
     _collect_anchor_nodes(raw_anchors, anchors=anchors, prefix=())
     if not anchors:
@@ -461,5 +466,5 @@ def _apply_observable_anchors(
         if anchor_id is None or (observable.x is not None and observable.y is not None):
             continue
         if anchor_id not in anchors:
-            raise KeyError(f"Unknown method_comparison anchor_id '{anchor_id}'")
+            raise KeyError(f"Unknown comparison anchor_id '{anchor_id}'")
         observable.x, observable.y = anchors[anchor_id]

@@ -8,6 +8,10 @@
     "forcing_local_recharge_runoff": "_static\\user_guide\\data\\forcing_local_recharge_runoff_example.png",
     "sim2_grid_forcing": "_static\\user_guide\\data\\sim2_grid_forcing_example.png",
     "observations_local_timeseries": "_static\\user_guide\\data\\observations_local_timeseries_examples.png",
+    "provider_gallery_policy": "_static\\user_guide\\data\\provider_gallery_policy_ladder.png",
+    "hubeau_provider_replay": "_static\\user_guide\\data\\hubeau_provider_replay_examples.png",
+    "shom_provider_replay": "_static\\user_guide\\data\\shom_provider_replay_example.png",
+    "hydrography_provider_replay": "_static\\user_guide\\data\\hydrography_provider_replay_examples.png",
     "oceanic_local_stage": "_static\\user_guide\\data\\oceanic_local_stage_example.png",
     "intermittency_local_state": "_static\\user_guide\\data\\intermittency_local_state_example.png"
   },
@@ -359,6 +363,93 @@
       "max": 45.2
     }
   },
+  "provider_replay_cases": {
+    "hubeau": {
+      "hydrometry": {
+        "locations": 4,
+        "series": {
+          "row_count": 90,
+          "first_timestamp": "2022-01-01T00:00:00",
+          "last_timestamp": "2022-03-31T00:00:00",
+          "min": 1.987,
+          "mean": 7.1311333333333335,
+          "max": 32.121
+        },
+        "source_file": "examples\\data\\hydrometry\\hydrometry_hubeau_J709063002_20220101_20220331_D.csv"
+      },
+      "piezometry": {
+        "locations": 2,
+        "series": {
+          "row_count": 89,
+          "first_timestamp": "2022-01-01T00:00:00",
+          "last_timestamp": "2022-03-30T00:00:00",
+          "min": 32.31,
+          "mean": 32.375617977528094,
+          "max": 32.44
+        },
+        "source_file": "examples\\data\\piezometry\\piezometry_hubeau_03172X0088_PZ_20220101_20220331_D.csv"
+      },
+      "water_quality": {
+        "locations": 4,
+        "series": {
+          "row_count": 54,
+          "first_timestamp": "2007-01-10T00:00:00",
+          "last_timestamp": "2024-07-02T00:00:00",
+          "min": 0.00015,
+          "mean": 0.03195925925925926,
+          "max": 1.0
+        },
+        "source_file": "examples\\data\\water_quality\\waterquality_hubeau_04161595_20070110_20240702_irregular.csv"
+      },
+      "intermittency": {
+        "locations": 2,
+        "series": {
+          "row_count": 102,
+          "first_timestamp": "2012-05-25T00:00:00",
+          "last_timestamp": "2025-10-24T00:00:00",
+          "min": 3.0,
+          "mean": 4.0,
+          "max": 5.0
+        },
+        "source_file": "examples\\data\\intermittency\\intermittency_hubeau_J0014011_20000101_20251231_irregular.csv"
+      }
+    },
+    "shom": {
+      "station_count": 1,
+      "shom": {
+        "row_count": 7,
+        "first_timestamp": "2003-01-01T00:00:00",
+        "last_timestamp": "2003-01-30T00:00:00",
+        "min": 4.49,
+        "mean": 4.5528571428571425,
+        "max": 4.61
+      },
+      "custom_mirror": {
+        "row_count": 7,
+        "first_timestamp": "2003-01-01T00:00:00",
+        "last_timestamp": "2003-01-30T00:00:00",
+        "min": 4.49,
+        "mean": 4.5528571428571425,
+        "max": 4.61
+      }
+    },
+    "hydrography": {
+      "regional_feature_count": 452,
+      "bdtopage_samples": [
+        {
+          "path": "examples\\data\\hydrography\\bdtopage_-1.2451_48.3618_-1.1072_48.4651.gpkg",
+          "feature_count": 99,
+          "crs": "EPSG:4326"
+        },
+        {
+          "path": "examples\\data\\hydrography\\bdtopage_-4.4591_48.5793_-4.4280_48.5959.gpkg",
+          "feature_count": 2,
+          "crs": "EPSG:4326"
+        }
+      ],
+      "osm_euhydro_status": "no versioned replay artifact yet"
+    }
+  },
   "oceanic_case": {
     "source": "local",
     "local_csv_name": "oceanic_local_sample.csv",
@@ -369,7 +460,7 @@
     "min_msl_m": 0.9,
     "max_msl_m": 1.3,
     "returned_msl_m": 1.125,
-    "fetch_seconds": 0.039251
+    "fetch_seconds": 0.042912
   },
   "intermittency_case": {
     "source": "custom",

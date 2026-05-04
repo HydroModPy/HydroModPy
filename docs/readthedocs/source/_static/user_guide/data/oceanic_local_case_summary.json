@@ -8,5 +8,5 @@
   "min_msl_m": 0.9,
   "max_msl_m": 1.3,
   "returned_msl_m": 1.125,
-  "fetch_seconds": 0.039251
+  "fetch_seconds": 0.042912
 }
