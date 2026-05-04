@@ -26,7 +26,8 @@ from hydromodpy.results.catalog.storage_paths import build_storage_basename
 from hydromodpy.results.catalog_schema import (
     solver_category as _resolve_solver_category,
 )
-from hydromodpy.results.zarr_store import SimulationZarr
+from hydromodpy.results.storage_contract import SIMULATIONS_DIRNAME, ZARR_SUFFIX
+from hydromodpy.results.zarr_store import SimulationZarr, _windows_long_path
 
 logger = get_logger(__name__)
 
@@ -233,17 +234,18 @@ class RegistrationMixin:
             p_end = _coerce_timestamp(period_end)
 
             storage_basename = build_storage_basename(project, final_name, sid)
-            zarr_path = f"simulations/{storage_basename}.zarr"
+            zarr_path = f"{SIMULATIONS_DIRNAME}/{storage_basename}{ZARR_SUFFIX}"
             parent_sid = str(parent_sim_id) if parent_sim_id else None
             config_source_str = str(config_source) if config_source is not None else None
 
             if n_cells is not None and n_layers is not None:
                 zarr_final = self._workspace / zarr_path
-                zarr_tmp = zarr_final.with_name(f"{zarr_final.name}.staging-{sid}")
+                _windows_long_path(zarr_final.parent).mkdir(parents=True, exist_ok=True)
+                zarr_tmp = zarr_final.with_name(f".{_short_id(sid)}.staging.zarr")
                 if zarr_final.exists():
                     raise FileExistsError(f"Zarr store already exists: {zarr_final}")
                 if zarr_tmp.exists():
-                    shutil.rmtree(zarr_tmp)
+                    shutil.rmtree(_windows_long_path(zarr_tmp))
                 staged = SimulationZarr.create(
                     zarr_tmp,
                     n_cells=n_cells,
@@ -252,7 +254,7 @@ class RegistrationMixin:
                     geographic_fingerprint=geographic_fingerprint,
                 )
                 staged.close()
-                zarr_tmp.rename(zarr_final)
+                _windows_long_path(zarr_tmp).rename(_windows_long_path(zarr_final))
 
             self._db.execute(
                 """INSERT INTO simulations

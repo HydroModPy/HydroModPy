@@ -6,7 +6,6 @@ import uuid
 import geopandas as gpd
 import numpy as np
 import pytest
-from dask.array import Array as DaskArray
 from shapely.geometry import Polygon
 
 from hydromodpy.results.catalog import SimulationCatalog
@@ -107,6 +106,7 @@ def test_register_simulation_rolls_back_name_collision_when_zarr_staging_fails(
 
 
 def test_run_array_batch_is_dask_backed(catalog):
+    DaskArray = pytest.importorskip("dask.array").Array
     sid = _seed_field(catalog)
 
     ds = catalog[sid].array.to_xarray_batch(("head",))
@@ -116,6 +116,7 @@ def test_run_array_batch_is_dask_backed(catalog):
 
 
 def test_run_fields_is_dask_backed(catalog):
+    DaskArray = pytest.importorskip("dask.array").Array
     sid = _seed_field(catalog)
 
     stack = catalog[sid].fields("head")
@@ -126,6 +127,7 @@ def test_run_fields_is_dask_backed(catalog):
 
 
 def test_simulation_zarr_to_xarray_is_dask_backed(catalog):
+    DaskArray = pytest.importorskip("dask.array").Array
     sid = _seed_field(catalog)
     sz = catalog.open_zarr(sid)
     try:

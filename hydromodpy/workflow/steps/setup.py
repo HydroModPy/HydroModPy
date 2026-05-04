@@ -21,9 +21,10 @@ from hydromodpy.spatial.geographic.core.derived_features import (
 from hydromodpy.spatial.geographic.structure_binders import apply_catchment_zones_to_domain
 from hydromodpy.spatial.geographic.synthetic import build_synthetic_geographic
 from hydromodpy.workflow.internals.state import (
-    LoadedState,
+    GeographicState,
     MeshedState,
     PipelineState,
+    ResolvedState,
     SetupState,
 )
 
@@ -450,8 +451,8 @@ class BuildGeographicStep:
     """Build geographic runtime, domain, and setup-phase spatial supports."""
 
     name = "build_geographic"
-    tin: ClassVar[type] = LoadedState
-    tout: ClassVar[type] = MeshedState
+    tin: ClassVar[type] = ResolvedState
+    tout: ClassVar[type] = GeographicState
     config_sections: ClassVar[tuple[str, ...]] = ("geographic", "data.dem")
 
     def run(self, state: PipelineState) -> PipelineState:

@@ -26,6 +26,7 @@ from hydromodpy.results.catalog.registration import RegistrationMixin
 from hydromodpy.results.catalog.storage_paths import StoragePathResolver
 from hydromodpy.results.catalog.writes import WritesMixin
 from hydromodpy.results.catalog_schema import ensure_schema
+from hydromodpy.results.storage_contract import CATALOG_FILENAME, SIMULATIONS_DIRNAME
 from hydromodpy.results.zarr_store import SimulationZarr
 
 if TYPE_CHECKING:
@@ -104,7 +105,7 @@ class SimulationCatalog(
             catalog = (
                 Path(catalog_path).expanduser().resolve()
                 if catalog_path is not None
-                else root / "hydromodpy.duckdb"
+                else root / CATALOG_FILENAME
             )
 
         self._workspace = root
@@ -118,7 +119,7 @@ class SimulationCatalog(
         self._simulations_dir = (
             Path(simulations_dir).expanduser().resolve()
             if simulations_dir is not None
-            else self._workspace / "simulations"
+            else self._workspace / SIMULATIONS_DIRNAME
         )
         self._simulations_dir.mkdir(parents=True, exist_ok=True)
         self._open_zarr_handles: list[SimulationZarr] = []

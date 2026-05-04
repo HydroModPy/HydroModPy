@@ -13,6 +13,7 @@ import zarr
 
 from hydromodpy.core.logging import get_logger
 from hydromodpy.results import field_registry
+from hydromodpy.results.storage_contract import ZARR_ZIP_SUFFIX
 
 logger = get_logger(__name__)
 
@@ -47,7 +48,7 @@ def import_zarr_field(
     if not zarr_path.exists():
         raise FileNotFoundError(f"Zarr store not found: {zarr_path}")
 
-    if zarr_path.suffix == ".zip" or str(zarr_path).endswith(".zarr.zip"):
+    if zarr_path.suffix == ".zip" or str(zarr_path).endswith(ZARR_ZIP_SUFFIX):
         store = zarr.storage.ZipStore(str(zarr_path), mode="r")
     else:
         store = zarr.storage.LocalStore(str(zarr_path))
