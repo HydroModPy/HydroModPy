@@ -5,7 +5,7 @@
 # Packages absent from the row's list are forbidden (CI flags them).
 
 allowed:
-  "<root>":      ["<root>", core, schema, config, physics, data, spatial, simulation, solver, calibration, results, display, analysis, workflow, master_config, cli, _cli]
+  "<root>":      ["<root>", core, schema, config, physics, data, spatial, simulation, solver, calibration, results, display, analysis, workflow, master_config, cli]
   core:          [core]
   schema:        [core, schema, config]
   config:        [core, schema, config, physics, data, spatial, simulation, solver, calibration, results, display, analysis, workflow]
@@ -21,7 +21,6 @@ allowed:
   workflow:      [core, schema, config, physics, data, spatial, simulation, solver, calibration, results, display, analysis, workflow, master_config]
   master_config: [core, schema, physics, data, spatial, simulation, solver, calibration, results, display, analysis, workflow, master_config]
   cli:           [core, schema, config, physics, data, spatial, simulation, solver, calibration, results, display, analysis, workflow, master_config, cli]
-  _cli:          [core, schema, config, physics, data, spatial, simulation, solver, calibration, results, display, analysis, workflow, master_config, cli, _cli]
 
 # Cross-edges tolerated for now. Each tolerance must point at a documented
 # rationale. Empty until R0 lands. Tighten over time.
