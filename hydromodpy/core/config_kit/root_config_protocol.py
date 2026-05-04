@@ -1,12 +1,12 @@
-"""Protocol decoupling core helpers from the master_config aggregate.
+"""Protocol decoupling core helpers from the config aggregate.
 
-The 14x14 layer matrix forbids ``core -> master_config``. The config_kit
+The 14x14 layer matrix forbids ``core -> config``. The config_kit
 registry and JSON Schema exporter need the root Pydantic model to introspect
 its fields. They consume that information through this Protocol; the concrete
 provider is wired in at package bootstrap by :mod:`hydromodpy._bootstrap`.
 
 Other layers consume the same Protocol when they need to build or validate a
-root config from raw payloads without depending on master_config.
+root config from raw payloads without depending on config.
 """
 
 from __future__ import annotations

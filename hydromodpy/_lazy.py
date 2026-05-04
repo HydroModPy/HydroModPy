@@ -8,9 +8,9 @@ from __future__ import annotations
 MODULE_EXPORTS: dict[str, str] = {
     "analysis": "hydromodpy.analysis",
     "calibration": "hydromodpy.calibration",
+    "config": "hydromodpy.config",
     "core": "hydromodpy.core",
     "data": "hydromodpy.data",
-    "master_config": "hydromodpy.master_config",
     "physics": "hydromodpy.physics",
     "results": "hydromodpy.results",
     "simulation": "hydromodpy.simulation",

@@ -24,7 +24,7 @@ class DataOverviewState:
 
     ``cfg`` is the root :class:`HydroModPyConfig` instance. It is typed
     ``Any`` so this module stays in the ``core`` leaf layer (the architecture
-    contract forbids ``core -> master_config`` even under TYPE_CHECKING).
+    contract forbids ``core -> config`` even under TYPE_CHECKING).
     """
 
     cfg: Any

@@ -152,7 +152,7 @@ hydromodpy = ["py.typed"]
 source = [
     "hydromodpy.core",
     "hydromodpy.schema",
-    "hydromodpy.master_config",
+    "hydromodpy.config",
     "hydromodpy.spatial",
     "hydromodpy.physics",
     "hydromodpy.data",
@@ -244,7 +244,7 @@ ignore = [
 # resolved at runtime via an explicit namespace dict, so ruff can't see them
 # with static analysis. Known-good, silencing F821 in these files.
 "hydromodpy/data/data_managers_config.py" = ["F821"]
-"hydromodpy/master_config/hydromodpy_config.py" = ["F821"]
+"hydromodpy/config/hydromodpy_config.py" = ["F821"]
 # MODFLOW-NWT solver subtree: import ordering and double-docstring license
 # headers are handled separately from this release cleanup.
 "hydromodpy/solver/modflow_nwt/**" = ["E402"]
