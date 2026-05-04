@@ -642,6 +642,88 @@ def _load_bundle_cells(cells_path: Path) -> CellCentroidTable | None:
     )
 
 
+def _cells_match_expected_size(
+    cells: CellCentroidTable,
+    expected_size: int | None,
+) -> bool:
+    if expected_size is None:
+        return True
+    return int(cells.cell_ids.size) == int(expected_size)
+
+
+def _cell_area_from_polygon(polygon: np.ndarray) -> float:
+    if polygon.ndim != 2 or polygon.shape[0] < 3 or polygon.shape[1] < 2:
+        return math.nan
+    x = np.asarray(polygon[:, 0], dtype=float)
+    y = np.asarray(polygon[:, 1], dtype=float)
+    if not (np.all(np.isfinite(x)) and np.all(np.isfinite(y))):
+        return math.nan
+    return float(0.5 * abs(np.dot(x, np.roll(y, -1)) - np.dot(y, np.roll(x, -1))))
+
+
+def _mesh_cells_from_store(
+    store: SimulationCatalog | None,
+    sim_id: str | None,
+    *,
+    expected_size: int | None = None,
+) -> CellCentroidTable | None:
+    """Build cell centroids from the actual mesh persisted in a Zarr result."""
+    if store is None or sim_id is None:
+        return None
+    try:
+        grp = store.open_zarr_group(sim_id)
+    except Exception:
+        return None
+    mesh = grp.get("mesh") if grp is not None else None
+    if mesh is None or "vertices" not in mesh or "face_node_connectivity" not in mesh:
+        return None
+    try:
+        vertices = np.asarray(mesh["vertices"][:], dtype=float)
+        faces = np.asarray(mesh["face_node_connectivity"][:], dtype=int)
+    except Exception:
+        return None
+    if vertices.ndim != 2 or vertices.shape[1] < 2 or faces.ndim != 2:
+        return None
+    if expected_size is not None and int(faces.shape[0]) != int(expected_size):
+        return None
+
+    centroid_x: list[float] = []
+    centroid_y: list[float] = []
+    area_m2: list[float] = []
+    for face in faces:
+        valid_nodes = face[(face >= 0) & (face < vertices.shape[0])]
+        if valid_nodes.size < 3:
+            centroid_x.append(math.nan)
+            centroid_y.append(math.nan)
+            area_m2.append(math.nan)
+            continue
+        polygon = vertices[valid_nodes, :2]
+        centroid_x.append(float(np.nanmean(polygon[:, 0])))
+        centroid_y.append(float(np.nanmean(polygon[:, 1])))
+        area_m2.append(_cell_area_from_polygon(polygon))
+
+    z_top_m: np.ndarray | None = None
+    for name in ("surface_top", "top"):
+        if name in mesh:
+            try:
+                candidate = np.asarray(mesh[name][:], dtype=float).reshape(-1)
+            except Exception:
+                candidate = np.asarray([], dtype=float)
+            if candidate.size == int(faces.shape[0]):
+                z_top_m = candidate
+                break
+
+    return CellCentroidTable(
+        cell_ids=np.arange(int(faces.shape[0]), dtype=int),
+        x=np.asarray(centroid_x, dtype=float),
+        y=np.asarray(centroid_y, dtype=float),
+        area_m2=np.asarray(area_m2, dtype=float),
+        storage_coefficient=None,
+        z_top_m=z_top_m,
+        z_bottom_m=None,
+    )
+
+
 def compact_run_metrics(metrics: Mapping[str, Any]) -> dict[str, Any]:
     """Keep only comparison-relevant scalar/list metrics in manifests."""
     keys = (
@@ -735,7 +817,7 @@ def resolve_bundle_cells(
         cells_path = None if bundle_dir is None else (bundle_dir / "cells.csv")
         if cells_path is not None:
             cells = _load_bundle_cells(cells_path)
-            if cells is not None:
+            if cells is not None and _cells_match_expected_size(cells, expected_size):
                 return cells
 
     if config_path is not None:
@@ -743,7 +825,7 @@ def resolve_bundle_cells(
         cells_path = None if bundle_dir is None else (bundle_dir / "cells.csv")
         if cells_path is not None:
             cells = _load_bundle_cells(cells_path)
-            if cells is not None:
+            if cells is not None and _cells_match_expected_size(cells, expected_size):
                 return cells
 
     if config_path is None:
@@ -2237,14 +2319,21 @@ def extract_observable_rows(
         )
         if cells is None:
             first_slice_size = int(series.slices[0].values.size) if series.slices else None
-            cells = resolve_bundle_cells(
-                run_folder,
-                config_path=config_path,
-                expected_size=(
-                    None if first_slice_size is None or first_slice_size <= 1 else first_slice_size
-                ),
-                solver_name=variant.solver,
+            expected_size = (
+                None if first_slice_size is None or first_slice_size <= 1 else first_slice_size
             )
+            cells = _mesh_cells_from_store(
+                store,
+                sim_id,
+                expected_size=expected_size,
+            )
+            if cells is None:
+                cells = resolve_bundle_cells(
+                    run_folder,
+                    config_path=config_path,
+                    expected_size=expected_size,
+                    solver_name=variant.solver,
+                )
         selected_slices = _select_time_slices(series, observable)
 
         per_time_values: list[tuple[TimeSlice, tuple[float, ...], dict[str, Any]]] = []

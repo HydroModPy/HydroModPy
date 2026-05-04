@@ -45,13 +45,28 @@ Hydrography Replay
 ------------------
 
 .. figure:: /_static/user_guide/data/hydrography_provider_replay_examples.png
-   :alt: Hydrography provider replay for custom and BD Topage data
+   :alt: Hydrography provider replay for custom, BD Topage, OSM, and EU-Hydro data
    :width: 100%
 
-   The current committed replay covers local/custom hydrography and BD Topage
-   samples. OSM and EU-Hydro are deliberately marked as a remaining gallery gap
-   until a small bbox can be fetched, cached, locked, and published as a stable
-   replay artifact.
+   The committed replay now covers the local/custom regional network and a
+   small Couesnon bbox for BD Topage, OSM, and EU-Hydro. The three public
+   provider files are stored as GPKG artifacts in ``examples/data/hydrography``.
+
+.. figure:: /_static/user_guide/data/hydrography_provider_couesnon_comparison.png
+   :alt: Couesnon hydrography comparison between BD Topage, OSM, and EU-Hydro
+   :width: 100%
+
+   The comparison clips all three provider payloads to the same bbox before
+   plotting density. This makes the provider choice visible: OSM is denser in
+   small tributaries, EU-Hydro is coarser, and BD Topage sits between them for
+   this local case.
+
+The provider refresh script is intentionally separate from the replay-only
+figure renderer:
+
+.. code-block:: powershell
+
+   python docs/readthedocs/source/user_guide/data/refresh_hydrography_provider_replays.py --case couesnon --providers bdtopage osm euhydro
 
 SIM2 Replay
 -----------
@@ -69,10 +84,11 @@ Next Provider Cases
 
 The remaining provider-specific gallery work should be done in this order:
 
-- OSM versus BD Topage on one small bbox, with network density and geometry
-  differences made explicit.
-- EU-Hydro on the same bbox or a larger basin where a continental product is
-  meaningful.
+- Repeat the hydrography comparison on a second basin where OSM completeness
+  is less favorable, so the documentation does not imply that one density
+  result generalizes everywhere.
+- Add a larger EU-Hydro basin where the continental product is used at its
+  intended scale rather than only as a contrast on a small bbox.
 - A coastal SHOM basin where the stage chronicle is connected to an actual
   coastal boundary condition rather than only a data replay.
 - A Hub'Eau refresh case that displays downloaded station discovery next to a

@@ -24,6 +24,17 @@ The script only uses versioned local examples and committed sample files. It
 does not call online providers, so it is suitable for documentation refreshes,
 offline checks, and CI-style validation.
 
+Provider refresh scripts are separate from this renderer. For the small
+hydrography comparison case:
+
+.. code-block:: powershell
+
+   python docs/readthedocs/source/user_guide/data/refresh_hydrography_provider_replays.py --case couesnon --providers bdtopage osm euhydro
+
+Run that command only when the provider artifacts should intentionally be
+updated; the generated GPKG files and manifest then become replay inputs for
+the stable documentation renderer.
+
 Current Run Set
 ---------------
 
@@ -86,7 +97,11 @@ Current Run Set
    * - Hydrography replay
      - ``hydrography``
      - ``hydrography_provider_replay_examples.png``
-     - Show custom and BD Topage examples and name OSM/EU-Hydro gaps.
+     - Show custom, BD Topage, OSM, and EU-Hydro replay artifacts.
+   * - Hydrography provider comparison
+     - ``hydrography``
+     - ``hydrography_provider_couesnon_comparison.png``
+     - Compare provider density and geometry on one locked bbox.
 
 Spatial Support Example
 -----------------------
@@ -142,6 +157,14 @@ Provider Replay Examples
 
 For provider-specific figures and next cases, open :doc:`provider-replay-cases`.
 
+.. figure:: /_static/user_guide/data/hydrography_provider_couesnon_comparison.png
+   :alt: Couesnon hydrography provider comparison
+   :width: 100%
+
+   The hydrography comparison is a provider-specific replay: BD Topage, OSM,
+   and EU-Hydro are read from committed GPKG files, clipped to the same bbox,
+   and compared through both map geometry and simple density metrics.
+
 Remaining Gaps
 --------------
 
@@ -149,7 +172,8 @@ The current local assets deliberately avoid network calls. The next complete
 gallery cases should target provider-specific questions:
 
 - a coastal basin for ``shom`` and ``oceanic`` boundary stages;
-- a non-Nancon hydrography comparison that contrasts ``osm`` and ``euhydro``;
+- a second non-Nancon hydrography comparison that tests another OSM/EU-Hydro
+  context;
 - a SIM2-focused data overview that shows each forcing variable separately;
 - a Hub'Eau observation case that displays downloaded station discovery and
   cached replay side by side.

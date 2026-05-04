@@ -136,8 +136,8 @@ Provider replay cases
 ---------------------
 
 The compact matrix tells which providers exist. The replay cases show what
-their committed artifacts look like and which providers still need a locked
-network refresh before they deserve a stable gallery page.
+their committed artifacts look like and where provider-specific comparisons
+already exist.
 
 .. figure:: /_static/user_guide/data/hubeau_provider_replay_examples.png
    :alt: Hub'Eau provider replay across observation families
@@ -148,12 +148,19 @@ network refresh before they deserve a stable gallery page.
    different semantics.
 
 .. figure:: /_static/user_guide/data/hydrography_provider_replay_examples.png
-   :alt: Hydrography provider replay for custom and BD Topage data
+   :alt: Hydrography provider replay for custom, BD Topage, OSM, and EU-Hydro data
    :width: 100%
 
    Hydrography provider examples need source-specific comparisons. The current
-   replay is stable for custom and BD Topage; OSM and EU-Hydro still need
-   committed replay artifacts.
+   replay is stable for custom, BD Topage, OSM, and EU-Hydro artifacts.
+
+.. figure:: /_static/user_guide/data/hydrography_provider_couesnon_comparison.png
+   :alt: Couesnon hydrography comparison between BD Topage, OSM, and EU-Hydro
+   :width: 100%
+
+   A source value is a modeling decision, not just a loader switch. On this
+   bbox, the public hydrography providers produce visibly different density
+   and continuity.
 
 Open :doc:`provider-replay-cases` for the complete provider replay page.
 

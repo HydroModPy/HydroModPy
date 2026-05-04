@@ -66,10 +66,10 @@ root = "outputs/nancon_transient_monthly_mf6_bouss_comparable/workspace_bouss"
 runtime_backend = "scipy_sparse"
 
 [[comparison.observable]]
-name = "head_map_initial"
+name = "head_map_after_first_month"
 variable = "watertable_elevation"
 support = "map"
-time = "first"
+time = 0
 unit = "m"
 
 [[comparison.observable]]
@@ -157,8 +157,8 @@ unit = "m"
 name = "head_eastern_plateau_series"
 variable = "watertable_elevation"
 support = "point"
-x = 396713.1740067336
-y = 6816807.001469235
+x = 396287.5136922192
+y = 6817290.185968083
 time = "all"
 unit = "m"
 
