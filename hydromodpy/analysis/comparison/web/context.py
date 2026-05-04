@@ -9,6 +9,12 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+from hydromodpy.analysis.comparison.web.figures import (
+    FigureCategory,
+    categorize_figures,
+    configuration_figures,
+)
+
 
 @dataclass(frozen=True)
 class ComparisonWebContext:
@@ -23,6 +29,8 @@ class ComparisonWebContext:
     budget_rows: list[dict[str, str]]
     figure_items: list[dict[str, Any]]
     key_figures: list[dict[str, Any]]
+    configuration_figures: list[dict[str, Any]]
+    figure_categories: list[FigureCategory]
     simulations: list[dict[str, Any]]
     data_links: list[Path]
     comparable_budget_rows: list[dict[str, str]]
@@ -61,6 +69,8 @@ def load_comparison_web_context(
         budget_rows=budget_rows,
         figure_items=figure_items,
         key_figures=_select_key_figures(figure_items),
+        configuration_figures=configuration_figures(figure_items),
+        figure_categories=categorize_figures(figure_items),
         simulations=[dict(item) for item in simulations if isinstance(item, Mapping)],
         data_links=_data_links(root),
         comparable_budget_rows=comparable_budget_rows,

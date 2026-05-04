@@ -63,6 +63,9 @@ def test_write_comparison_web_report_links_key_outputs(tmp_path: Path) -> None:
 
     text = path.read_text(encoding="utf-8")
     assert "demo_compare" in text
+    assert "Configuration du cas" in text
+    assert "Figures par categorie" in text
+    assert "Flux, drainage et suintement" in text
     assert "comparable_outflow_total_m3_s" in text
     assert "comparable_outflow_dashboard.png" in text
     assert "Persistance des sorties" in text

@@ -46,11 +46,18 @@ def default_sections() -> list[ReportSection]:
         ),
         ReportSection("audit", "Audit format", 20, _render_audit),
         ReportSection(
-            "key_figures",
-            "Figures cles",
+            "case_configuration",
+            "Configuration du cas",
             30,
-            _render_key_figures,
-            lambda ctx: bool(ctx.key_figures),
+            _render_case_configuration,
+            lambda ctx: bool(ctx.configuration_figures),
+        ),
+        ReportSection(
+            "categorized_figures",
+            "Figures par categorie",
+            35,
+            _render_categorized_figures,
+            lambda ctx: bool(ctx.figure_categories),
         ),
         ReportSection("simulations", "Simulations", 40, _render_simulations),
         ReportSection("files", "Fichiers", 45, _render_files),
@@ -98,7 +105,7 @@ def render_facts(ctx: ComparisonWebContext) -> str:
     <div class="fact"><span>Simulations</span><strong>{safe(len(ctx.simulations))}</strong></div>
     <div class="fact"><span>Metriques</span><strong>{safe(len(ctx.metrics_rows))}</strong></div>
     <div class="fact"><span>Lignes budget</span><strong>{safe(len(ctx.budget_rows))}</strong></div>
-    <div class="fact"><span>Flux comparable</span><strong>{safe(len(ctx.comparable_budget_rows))}</strong></div>
+    <div class="fact"><span>Categories figures</span><strong>{safe(len(ctx.figure_categories))}</strong></div>
   </section>
 """
 
@@ -140,13 +147,46 @@ def _render_audit(ctx: ComparisonWebContext) -> str:
 """
 
 
-def _render_key_figures(ctx: ComparisonWebContext) -> str:
+def _render_case_configuration(ctx: ComparisonWebContext) -> str:
     return f"""
   <section>
-    <h2>Figures cles</h2>
+    <h2>Configuration du cas</h2>
+    <p class="muted">A ouvrir avant les resultats: ces figures decrivent le support, les limites, les points, les forcages et le contexte spatial du benchmark.</p>
     <div class="figure-grid">
-      {_render_figures(ctx=ctx, figures=ctx.key_figures)}
+      {_render_figures(ctx=ctx, figures=ctx.configuration_figures)}
     </div>
+  </section>
+"""
+
+
+def _render_categorized_figures(ctx: ComparisonWebContext) -> str:
+    category_blocks: list[str] = []
+    for category in ctx.figure_categories:
+        if category.category_id == "configuration":
+            continue
+        category_blocks.append(
+            f"""
+    <article class="card figure-category" id="figures-{safe(category.category_id)}">
+      <h3>{safe(category.title)} <span class="muted">({safe(len(category.figures))})</span></h3>
+      <p class="muted">{safe(category.description)}</p>
+      <div class="figure-grid compact">
+        {_render_figures(ctx=ctx, figures=category.figures)}
+      </div>
+    </article>
+"""
+        )
+    if not category_blocks:
+        return """
+  <section>
+    <h2>Figures par categorie</h2>
+    <p class="muted">Aucune figure de resultat hors configuration.</p>
+  </section>
+"""
+    return f"""
+  <section>
+    <h2>Figures par categorie</h2>
+    <p class="muted">Les figures sont classees par usage de lecture. Les categories gardent les noms de fichiers originaux pour rester tracables vers le dossier <code>comparison_figures/</code>.</p>
+    {"".join(category_blocks)}
   </section>
 """
 

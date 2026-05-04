@@ -376,9 +376,16 @@ without replacing the underlying machine-readable files.
 
 The generated page is intentionally modular. Its sections are assembled from
 the comparison manifest and the files found under the comparison output folder:
-summary counters, persistence convention, audit, key figures, simulations,
-important files, comparable fluxes, and main metrics. The report therefore
-remains a presentation layer over explicit artifacts, not a hidden database.
+summary counters, persistence convention, audit, case configuration, categorized
+figures, simulations, important files, comparable fluxes, and main metrics.
+The report therefore remains a presentation layer over explicit artifacts, not
+a hidden database.
+
+Figure categorization is deliberately rule-based and conservative. The
+configuration figure is separated from solver results; the remaining figures are
+grouped into hydraulic heads, flux/drainage/seepage, budgets, networks/spatial
+diagnostics, performance, and fallback uncategorized figures. File names are
+kept visible so that every image remains traceable to ``comparison_figures/``.
 
 Persisted child simulations still belong to the normal simulation catalog.
 The comparison folder itself is indexed locally by ``comparison_manifest.json``.
