@@ -576,6 +576,252 @@ def render_observation_local_examples() -> tuple[Path, dict[str, object]]:
     return _save(fig, "observations_local_timeseries_examples.png"), summaries
 
 
+def _read_locations(path: Path) -> list[dict[str, str]]:
+    with path.open("r", encoding="utf-8") as stream:
+        return list(csv.DictReader(stream))
+
+
+def render_hubeau_provider_replay() -> tuple[Path, dict[str, object]]:
+    providers = [
+        (
+            "Hydrometry",
+            REPO_ROOT / "examples" / "data" / "hydrometry" / "hydrometry_hubeau_LOC.csv",
+            REPO_ROOT / "examples" / "data" / "hydrometry" / "hydrometry_hubeau_J709063002_20220101_20220331_D.csv",
+            "#2E6F9E",
+        ),
+        (
+            "Piezometry",
+            REPO_ROOT / "examples" / "data" / "piezometry" / "piezometry_hubeau_LOC.csv",
+            REPO_ROOT / "examples" / "data" / "piezometry" / "piezometry_hubeau_03172X0088_PZ_20220101_20220331_D.csv",
+            "#7BAA64",
+        ),
+        (
+            "Water quality",
+            REPO_ROOT / "examples" / "data" / "water_quality" / "waterquality_hubeau_LOC.csv",
+            REPO_ROOT / "examples" / "data" / "water_quality" / "waterquality_hubeau_04161595_20070110_20240702_irregular.csv",
+            "#7A6EA8",
+        ),
+        (
+            "Intermittency",
+            REPO_ROOT / "examples" / "data" / "intermittency" / "intermittency_hubeau_LOC.csv",
+            REPO_ROOT / "examples" / "data" / "intermittency" / "intermittency_hubeau_J0014011_20000101_20251231_irregular.csv",
+            "#C78B48",
+        ),
+    ]
+
+    fig = plt.figure(figsize=(13.0, 8.4), dpi=140)
+    gs = fig.add_gridspec(2, 2, height_ratios=[1.0, 1.25])
+    ax_map = fig.add_subplot(gs[0, 0])
+    ax_coverage = fig.add_subplot(gs[0, 1])
+    ax_series = fig.add_subplot(gs[1, :])
+
+    summaries: dict[str, dict[str, object]] = {}
+    for family, loc_path, series_path, color in providers:
+        locs = _read_locations(loc_path)
+        xs = [float(row["x"]) for row in locs]
+        ys = [float(row["y"]) for row in locs]
+        ax_map.scatter(xs, ys, s=46, color=color, label=f"{family} stations", edgecolor="white", linewidth=0.8)
+        for row in locs[:4]:
+            ax_map.text(float(row["x"]), float(row["y"]), str(row["id"]).split("/")[0], fontsize=7, color="#333333")
+
+        dates, values = _read_timeseries_csv(series_path)
+        key = family.lower().replace(" ", "_")
+        summaries[key] = {
+            "locations": int(len(locs)),
+            "series": _series_summary(dates, values),
+            "source_file": str(series_path.relative_to(REPO_ROOT)),
+        }
+        ax_coverage.barh(
+            family,
+            max(1, len(values)),
+            color=color,
+            alpha=0.78,
+            edgecolor="white",
+        )
+
+        if family == "Water quality":
+            plot_dates = dates[-60:]
+            plot_values = values[-60:]
+        else:
+            plot_dates = dates[:120]
+            plot_values = values[:120]
+        scaled = np.asarray(plot_values, dtype=float)
+        if scaled.size and float(np.nanmax(scaled) - np.nanmin(scaled)) > 0.0:
+            scaled = (scaled - np.nanmin(scaled)) / (np.nanmax(scaled) - np.nanmin(scaled))
+        ax_series.plot(plot_dates, scaled, color=color, linewidth=1.7, label=family)
+
+    ax_map.set_title("Hub'Eau replay: discovered station files", loc="left", weight="bold")
+    ax_map.set_xlabel("longitude")
+    ax_map.set_ylabel("latitude")
+    ax_map.grid(True, color="#DDDDDD", linewidth=0.7)
+    ax_map.legend(frameon=False, fontsize=8, loc="best")
+
+    ax_coverage.set_title("Chronicle rows in replay files", loc="left", weight="bold")
+    ax_coverage.set_xlabel("row count (log scale)")
+    ax_coverage.set_xscale("log")
+    ax_coverage.grid(True, axis="x", color="#DDDDDD", linewidth=0.7)
+
+    ax_series.set_title("Normalized first-look chronicles by Hub'Eau family", loc="left", weight="bold")
+    ax_series.set_ylabel("scaled value")
+    ax_series.set_xlabel("date")
+    ax_series.grid(True, color="#DDDDDD", linewidth=0.7)
+    ax_series.legend(frameon=False, ncols=4, loc="upper right")
+    fig.autofmt_xdate()
+    fig.tight_layout()
+    return _save(fig, "hubeau_provider_replay_examples.png"), summaries
+
+
+def render_shom_provider_replay() -> tuple[Path, dict[str, object]]:
+    loc_path = REPO_ROOT / "examples" / "data" / "oceanic" / "oceanic_custom_LOC.csv"
+    shom_path = REPO_ROOT / "examples" / "data" / "oceanic" / "sealevel_shom_152_20030101_20030130_H.csv"
+    custom_path = REPO_ROOT / "examples" / "data" / "oceanic" / "oceanic_custom_152_20030101_20030130_H.csv"
+    locs = _read_locations(loc_path)
+    shom_dates, shom_values = _read_timeseries_csv(shom_path, date_column="timestamp")
+    custom_dates, custom_values = _read_timeseries_csv(custom_path, date_column="timestamp")
+
+    fig, (ax_map, ax_series) = plt.subplots(1, 2, figsize=(11.8, 4.4), dpi=140)
+    for row in locs:
+        ax_map.scatter(float(row["x"]), float(row["y"]), s=90, color="#2E6F9E", edgecolor="white", linewidth=1.2)
+        ax_map.text(float(row["x"]) + 0.015, float(row["y"]) + 0.015, f"station {row['id']}", fontsize=9)
+    ax_map.set_title("SHOM replay: station selected for coastal stage", loc="left", weight="bold")
+    ax_map.set_xlabel("longitude")
+    ax_map.set_ylabel("latitude")
+    ax_map.grid(True, color="#DDDDDD", linewidth=0.7)
+
+    ax_series.plot(shom_dates, shom_values, marker="o", color="#2E6F9E", linewidth=2.0, label="SHOM replay")
+    ax_series.plot(custom_dates, custom_values, marker="x", color="#C78B48", linestyle="--", linewidth=1.3, label="custom mirror")
+    ax_series.set_title("Sea-level chronicle: provider replay vs custom mirror", loc="left", weight="bold")
+    ax_series.set_ylabel("stage (m)")
+    ax_series.set_xlabel("timestamp")
+    ax_series.grid(True, color="#DDDDDD", linewidth=0.7)
+    ax_series.legend(frameon=False, loc="best")
+    fig.autofmt_xdate()
+    fig.tight_layout()
+    summary = {
+        "station_count": int(len(locs)),
+        "shom": _series_summary(shom_dates, shom_values),
+        "custom_mirror": _series_summary(custom_dates, custom_values),
+    }
+    return _save(fig, "shom_provider_replay_example.png"), summary
+
+
+def render_hydrography_provider_replay() -> tuple[Path, dict[str, object]]:
+    import geopandas as gpd
+
+    regional_path = REPO_ROOT / "examples" / "data" / "hydrography" / "regional_stream_network.shp"
+    bdtopage_paths = sorted((REPO_ROOT / "examples" / "data" / "hydrography").glob("bdtopage_*.gpkg"))
+    regional = gpd.read_file(regional_path)
+    bdtopage = [gpd.read_file(path) for path in bdtopage_paths]
+
+    fig, axes = plt.subplots(1, 3, figsize=(15.0, 4.8), dpi=140)
+    ax_regional, ax_bdtopage, ax_gap = axes
+
+    regional.plot(ax=ax_regional, color="#175C7D", linewidth=0.7)
+    ax_regional.set_title("Custom replay: regional stream network", loc="left", weight="bold")
+    _format_projected_axes_km(ax_regional)
+    ax_regional.set_aspect("equal")
+
+    colors = ["#2E6F9E", "#7BAA64", "#C78B48"]
+    for idx, gdf in enumerate(bdtopage):
+        gdf.plot(ax=ax_bdtopage, color=colors[idx % len(colors)], linewidth=1.0, alpha=0.85, label=f"BD Topage sample {idx + 1}")
+    ax_bdtopage.set_title("BD Topage replay: provider samples", loc="left", weight="bold")
+    ax_bdtopage.set_xlabel("longitude")
+    ax_bdtopage.set_ylabel("latitude")
+    ax_bdtopage.grid(True, color="#DDDDDD", linewidth=0.7)
+    ax_bdtopage.legend(frameon=False, fontsize=8, loc="best")
+
+    ax_gap.axis("off")
+    ax_gap.set_title("OSM / EU-Hydro gallery gap", loc="left", weight="bold")
+    gap_text = (
+        "No versioned OSM or EU-Hydro replay file is present yet.\n\n"
+        "Next safe case:\n"
+        "1. fetch one small bbox;\n"
+        "2. persist raw GPKG in cache;\n"
+        "3. record lockfile/hash;\n"
+        "4. compare network density and geometry;\n"
+        "5. publish source-specific page."
+    )
+    ax_gap.text(
+        0.02,
+        0.82,
+        gap_text,
+        transform=ax_gap.transAxes,
+        ha="left",
+        va="top",
+        fontsize=10,
+        color="#333333",
+        bbox={"boxstyle": "round,pad=0.55", "fc": "#F7F7F7", "ec": "#CCCCCC"},
+    )
+    fig.tight_layout()
+    summary = {
+        "regional_feature_count": int(len(regional)),
+        "bdtopage_samples": [
+            {
+                "path": str(path.relative_to(REPO_ROOT)),
+                "feature_count": int(len(gdf)),
+                "crs": str(gdf.crs),
+            }
+            for path, gdf in zip(bdtopage_paths, bdtopage, strict=True)
+        ],
+        "osm_euhydro_status": "no versioned replay artifact yet",
+    }
+    return _save(fig, "hydrography_provider_replay_examples.png"), summary
+
+
+def render_provider_case_ladder() -> Path:
+    fig, ax = plt.subplots(figsize=(12.5, 5.2), dpi=140)
+    ax.axis("off")
+    ax.set_xlim(0, 12.5)
+    ax.set_ylim(0, 5.2)
+
+    cards = [
+        ("Replay", "Read committed provider files\nand plot the contract", "#5578A6"),
+        ("Refresh", "Call network provider only\nwhen explicitly refreshing", "#7BAA64"),
+        ("Cache", "Persist raw provider payload\nunder workspace/data", "#C78B48"),
+        ("Lock", "Record hashes, period,\nprovider and file identity", "#6A8EC9"),
+        ("Compare", "Publish provider figure\nand source-specific narrative", "#B66A72"),
+    ]
+    for idx, (title, body, color) in enumerate(cards):
+        x = 0.45 + idx * 2.35
+        ax.add_patch(
+            FancyBboxPatch(
+                (x, 1.8),
+                1.95,
+                1.65,
+                boxstyle="round,pad=0.08,rounding_size=0.06",
+                facecolor=color,
+                edgecolor="none",
+                alpha=0.96,
+            )
+        )
+        ax.text(x + 0.975, 3.03, title, ha="center", va="center", color="white", weight="bold", fontsize=11)
+        ax.text(x + 0.975, 2.45, body, ha="center", va="center", color="white", fontsize=8.7)
+        if idx < len(cards) - 1:
+            ax.annotate(
+                "",
+                xy=(x + 2.18, 2.63),
+                xytext=(x + 1.98, 2.63),
+                arrowprops={"arrowstyle": "->", "color": "#333333", "lw": 1.2},
+            )
+
+    ax.text(0.45, 4.45, "Provider gallery policy", fontsize=15, weight="bold", color="#222222")
+    ax.text(
+        0.45,
+        4.05,
+        "Documentation pages should use replayable provider artifacts by default; live downloads belong to intentional refresh runs.",
+        fontsize=10,
+        color="#333333",
+    )
+    ax.text(
+        0.45,
+        0.82,
+        "This keeps SHOM, Hub'Eau, SIM2, BD Topage, OSM, and EU-Hydro examples auditable instead of silently changing with provider state.",
+        fontsize=10,
+        color="#333333",
+    )
+    return _save(fig, "provider_gallery_policy_ladder.png")
+
+
 def render_oceanic_example() -> tuple[Path, dict[str, object]]:
     from hydromodpy.data.variables.oceanic.cases.run_oceanic_case import (
         run_oceanic_case_from_toml,
@@ -663,6 +909,10 @@ def main() -> int:
     forcing_path, forcing_summary = render_forcing_local_example()
     sim2_path, sim2_summary = render_sim2_grid_example()
     observations_path, observations_summary = render_observation_local_examples()
+    provider_policy_path = render_provider_case_ladder()
+    hubeau_provider_path, hubeau_provider_summary = render_hubeau_provider_replay()
+    shom_provider_path, shom_provider_summary = render_shom_provider_replay()
+    hydrography_provider_path, hydrography_provider_summary = render_hydrography_provider_replay()
     oceanic_path, oceanic_summary = render_oceanic_example()
     intermittency_path, intermittency_summary = render_intermittency_example()
     outputs["spatial_local_dem_hydrography"] = str(spatial_path.relative_to(SOURCE_ROOT))
@@ -670,6 +920,10 @@ def main() -> int:
     outputs["forcing_local_recharge_runoff"] = str(forcing_path.relative_to(SOURCE_ROOT))
     outputs["sim2_grid_forcing"] = str(sim2_path.relative_to(SOURCE_ROOT))
     outputs["observations_local_timeseries"] = str(observations_path.relative_to(SOURCE_ROOT))
+    outputs["provider_gallery_policy"] = str(provider_policy_path.relative_to(SOURCE_ROOT))
+    outputs["hubeau_provider_replay"] = str(hubeau_provider_path.relative_to(SOURCE_ROOT))
+    outputs["shom_provider_replay"] = str(shom_provider_path.relative_to(SOURCE_ROOT))
+    outputs["hydrography_provider_replay"] = str(hydrography_provider_path.relative_to(SOURCE_ROOT))
     outputs["oceanic_local_stage"] = str(oceanic_path.relative_to(SOURCE_ROOT))
     outputs["intermittency_local_state"] = str(intermittency_path.relative_to(SOURCE_ROOT))
 
@@ -682,6 +936,11 @@ def main() -> int:
         "forcing_case": forcing_summary,
         "sim2_case": sim2_summary,
         "observation_cases": observations_summary,
+        "provider_replay_cases": {
+            "hubeau": hubeau_provider_summary,
+            "shom": shom_provider_summary,
+            "hydrography": hydrography_provider_summary,
+        },
         "oceanic_case": oceanic_summary,
         "intermittency_case": intermittency_summary,
     }

@@ -12,6 +12,7 @@ import pandas as pd
 import pytest
 
 from hydromodpy.analysis.comparison.config import (
+    ComparisonConfig,
     MethodComparisonConfig,
     MethodComparisonObservable,
     MethodComparisonVariant,
@@ -457,6 +458,53 @@ def test_method_comparison_config_applies_anchor_file(tmp_path: Path) -> None:
     assert observable.anchor_id == "demo.reference"
     assert observable.x == 10.0
     assert observable.y == 0.0
+
+
+def test_comparison_config_accepts_canonical_anchor_file(tmp_path: Path) -> None:
+    anchors_path = tmp_path / "comparison_points.toml"
+    anchors_path.write_text(
+        "\n".join(
+            [
+                "[comparison_anchors.demo.reference]",
+                "x = 11.0",
+                "y = 1.0",
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    config_path = tmp_path / "config_method_comparison.toml"
+    config_path.write_text(
+        "\n".join(
+            [
+                "[method_comparison]",
+                'comparison_id = "demo_anchor_compare"',
+                'anchors_file = "comparison_points.toml"',
+                "run_variants = false",
+                "",
+                "[[method_comparison.variant]]",
+                'id = "mf6_demo"',
+                'run_folder = "run"',
+                "",
+                "[[method_comparison.observable]]",
+                'name = "head_at_anchor"',
+                'variable = "watertable_elevation"',
+                'support = "point"',
+                'anchor_id = "demo.reference"',
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    cfg = ComparisonConfig.from_toml(
+        load_toml_with_base_config(config_path),
+        config_path=config_path,
+    )
+
+    assert cfg.method_comparison is cfg.comparison
+    assert cfg.comparison.observable[0].x == 11.0
+    assert cfg.comparison.observable[0].y == 1.0
 
 
 def test_materialize_variant_config_writes_base_overlay(tmp_path: Path) -> None:
