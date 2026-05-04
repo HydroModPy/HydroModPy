@@ -1,19 +1,58 @@
 {
-  "schema_version": "comparison_manifest_v2",
+  "schema_version": "simulation_comparison_manifest_v1",
   "comparison_id": "lu_boundary_step_same_support",
   "config_path": "C:\\codes\\HydroModPy\\validation_cases\\analytical\\transient\\linearized_unconfined_boundary_step_1d\\.__runtime_comparison_boundary_step.toml",
-  "comparison_root": "C:\\codes\\HydroModPy\\validation_cases\\analytical\\transient\\linearized_unconfined_boundary_step_1d\\comparison\\lu_boundary_step_same_support",
   "base_simulation_config": "C:\\codes\\HydroModPy\\validation_cases\\analytical\\transient\\linearized_unconfined_boundary_step_1d\\config_modflownwt.toml",
-  "run_variants": true,
-  "continue_on_error": false,
-  "reference_variant": "modflow6",
+  "comparison_root": "C:\\codes\\HydroModPy\\validation_cases\\analytical\\transient\\linearized_unconfined_boundary_step_1d\\comparison\\lu_boundary_step_same_support",
+  "reference_simulation": "modflow6",
+  "audit_status": "pass",
   "observables_csv": "C:\\codes\\HydroModPy\\validation_cases\\analytical\\transient\\linearized_unconfined_boundary_step_1d\\comparison\\lu_boundary_step_same_support\\observables.csv",
   "comparison_metrics_csv": "C:\\codes\\HydroModPy\\validation_cases\\analytical\\transient\\linearized_unconfined_boundary_step_1d\\comparison\\lu_boundary_step_same_support\\comparison_metrics.csv",
   "comparison_differences_csv": "C:\\codes\\HydroModPy\\validation_cases\\analytical\\transient\\linearized_unconfined_boundary_step_1d\\comparison\\lu_boundary_step_same_support\\comparison_differences.csv",
   "comparison_metrics_json": "C:\\codes\\HydroModPy\\validation_cases\\analytical\\transient\\linearized_unconfined_boundary_step_1d\\comparison\\lu_boundary_step_same_support\\comparison_metrics.json",
+  "comparison_audit_json": "C:\\codes\\HydroModPy\\validation_cases\\analytical\\transient\\linearized_unconfined_boundary_step_1d\\comparison\\lu_boundary_step_same_support\\comparison_audit.json",
+  "comparison_audit_md": "C:\\codes\\HydroModPy\\validation_cases\\analytical\\transient\\linearized_unconfined_boundary_step_1d\\comparison\\lu_boundary_step_same_support\\comparison_audit.md",
   "comparison_report_md": "C:\\codes\\HydroModPy\\validation_cases\\analytical\\transient\\linearized_unconfined_boundary_step_1d\\comparison\\lu_boundary_step_same_support\\comparison_report.md",
   "comparison_figures_dir": "C:\\codes\\HydroModPy\\validation_cases\\analytical\\transient\\linearized_unconfined_boundary_step_1d\\comparison\\lu_boundary_step_same_support\\comparison_figures",
   "comparison_figures": [
+    {
+      "kind": "map_comparison",
+      "observable": "head_map_last",
+      "path": "C:\\codes\\HydroModPy\\validation_cases\\analytical\\transient\\linearized_unconfined_boundary_step_1d\\comparison\\lu_boundary_step_same_support\\comparison_figures\\head_map_last__map_comparison.png"
+    },
+    {
+      "kind": "difference_map",
+      "observable": "head_map_last",
+      "reference_simulation": "modflow6",
+      "candidate_simulation": "modflownwt",
+      "path": "C:\\codes\\HydroModPy\\validation_cases\\analytical\\transient\\linearized_unconfined_boundary_step_1d\\comparison\\lu_boundary_step_same_support\\comparison_figures\\head_map_last__difference__modflow6__vs__modflownwt.png"
+    },
+    {
+      "kind": "map_triptych",
+      "observable": "head_map_last",
+      "reference_simulation": "modflow6",
+      "candidate_simulation": "modflownwt",
+      "path": "C:\\codes\\HydroModPy\\validation_cases\\analytical\\transient\\linearized_unconfined_boundary_step_1d\\comparison\\lu_boundary_step_same_support\\comparison_figures\\head_map_last__triptych__modflow6__vs__modflownwt.png"
+    },
+    {
+      "kind": "map_comparison",
+      "observable": "depth_map_last",
+      "path": "C:\\codes\\HydroModPy\\validation_cases\\analytical\\transient\\linearized_unconfined_boundary_step_1d\\comparison\\lu_boundary_step_same_support\\comparison_figures\\depth_map_last__map_comparison.png"
+    },
+    {
+      "kind": "difference_map",
+      "observable": "depth_map_last",
+      "reference_simulation": "modflow6",
+      "candidate_simulation": "modflownwt",
+      "path": "C:\\codes\\HydroModPy\\validation_cases\\analytical\\transient\\linearized_unconfined_boundary_step_1d\\comparison\\lu_boundary_step_same_support\\comparison_figures\\depth_map_last__difference__modflow6__vs__modflownwt.png"
+    },
+    {
+      "kind": "map_triptych",
+      "observable": "depth_map_last",
+      "reference_simulation": "modflow6",
+      "candidate_simulation": "modflownwt",
+      "path": "C:\\codes\\HydroModPy\\validation_cases\\analytical\\transient\\linearized_unconfined_boundary_step_1d\\comparison\\lu_boundary_step_same_support\\comparison_figures\\depth_map_last__triptych__modflow6__vs__modflownwt.png"
+    },
     {
       "kind": "timeseries",
       "observable": "head_east_response",
@@ -38,12 +77,32 @@
       "path": "C:\\codes\\HydroModPy\\validation_cases\\analytical\\transient\\linearized_unconfined_boundary_step_1d\\comparison\\lu_boundary_step_same_support\\comparison_figures\\head_points_dashboard.png"
     },
     {
-      "kind": "execution_time_bars",
-      "observable": "execution_time",
-      "path": "C:\\codes\\HydroModPy\\validation_cases\\analytical\\transient\\linearized_unconfined_boundary_step_1d\\comparison\\lu_boundary_step_same_support\\comparison_figures\\execution_time_comparison.png"
+      "kind": "budget_diagnostics",
+      "observable": "budget",
+      "simulation_id": "modflow6",
+      "path": "C:\\codes\\HydroModPy\\validation_cases\\analytical\\transient\\linearized_unconfined_boundary_step_1d\\comparison\\lu_boundary_step_same_support\\comparison_figures\\modflow6__budget_diagnostics.png"
+    },
+    {
+      "kind": "budget_diagnostics",
+      "observable": "budget",
+      "simulation_id": "modflownwt",
+      "path": "C:\\codes\\HydroModPy\\validation_cases\\analytical\\transient\\linearized_unconfined_boundary_step_1d\\comparison\\lu_boundary_step_same_support\\comparison_figures\\modflownwt__budget_diagnostics.png"
+    },
+    {
+      "kind": "simulated_active_network_figures_skipped_json",
+      "path": "C:\\codes\\HydroModPy\\validation_cases\\analytical\\transient\\linearized_unconfined_boundary_step_1d\\comparison\\lu_boundary_step_same_support\\simulated_active_network_figures_skipped.json",
+      "note": "2 simulation(s) skipped for simulated-active network figure export."
     }
   ],
   "comparison_data_artifacts": [
+    {
+      "kind": "comparison_audit_json",
+      "path": "C:\\codes\\HydroModPy\\validation_cases\\analytical\\transient\\linearized_unconfined_boundary_step_1d\\comparison\\lu_boundary_step_same_support\\comparison_audit.json"
+    },
+    {
+      "kind": "comparison_audit_md",
+      "path": "C:\\codes\\HydroModPy\\validation_cases\\analytical\\transient\\linearized_unconfined_boundary_step_1d\\comparison\\lu_boundary_step_same_support\\comparison_audit.md"
+    },
     {
       "kind": "timeseries_long_csv",
       "path": "C:\\codes\\HydroModPy\\validation_cases\\analytical\\transient\\linearized_unconfined_boundary_step_1d\\comparison\\lu_boundary_step_same_support\\timeseries_long.csv"
@@ -57,47 +116,75 @@
       "path": "C:\\codes\\HydroModPy\\validation_cases\\analytical\\transient\\linearized_unconfined_boundary_step_1d\\comparison\\lu_boundary_step_same_support\\timeseries_delta.csv"
     },
     {
-      "kind": "execution_times_csv",
-      "path": "C:\\codes\\HydroModPy\\validation_cases\\analytical\\transient\\linearized_unconfined_boundary_step_1d\\comparison\\lu_boundary_step_same_support\\execution_times.csv"
+      "kind": "hydrographic_network_metrics_skipped_json",
+      "path": "C:\\codes\\HydroModPy\\validation_cases\\analytical\\transient\\linearized_unconfined_boundary_step_1d\\comparison\\lu_boundary_step_same_support\\hydrographic_network_metrics_skipped.json",
+      "note": "2 simulation(s) skipped for hydrographic-network metrics export."
+    },
+    {
+      "kind": "simulated_active_network_metrics_skipped_json",
+      "path": "C:\\codes\\HydroModPy\\validation_cases\\analytical\\transient\\linearized_unconfined_boundary_step_1d\\comparison\\lu_boundary_step_same_support\\simulated_active_network_metrics_skipped.json",
+      "note": "2 simulation(s) skipped for simulated-active network metrics export."
+    },
+    {
+      "kind": "simulated_active_network_overlap_metrics_skipped_json",
+      "path": "C:\\codes\\HydroModPy\\validation_cases\\analytical\\transient\\linearized_unconfined_boundary_step_1d\\comparison\\lu_boundary_step_same_support\\simulated_active_network_overlap_metrics_skipped.json",
+      "note": "2 simulation(s) skipped for simulated-active network overlap metrics export."
+    },
+    {
+      "kind": "simulated_active_network_distance_metrics_skipped_json",
+      "path": "C:\\codes\\HydroModPy\\validation_cases\\analytical\\transient\\linearized_unconfined_boundary_step_1d\\comparison\\lu_boundary_step_same_support\\simulated_active_network_distance_metrics_skipped.json",
+      "note": "2 simulation(s) skipped for simulated-active network distance metrics export."
+    },
+    {
+      "kind": "budget_timeseries_long_csv",
+      "path": "C:\\codes\\HydroModPy\\validation_cases\\analytical\\transient\\linearized_unconfined_boundary_step_1d\\comparison\\lu_boundary_step_same_support\\budget_timeseries_long.csv"
+    },
+    {
+      "kind": "budget_timeseries_wide_csv",
+      "path": "C:\\codes\\HydroModPy\\validation_cases\\analytical\\transient\\linearized_unconfined_boundary_step_1d\\comparison\\lu_boundary_step_same_support\\budget_timeseries_wide.csv"
+    },
+    {
+      "kind": "comparison_web_report_html",
+      "path": "C:\\codes\\HydroModPy\\validation_cases\\analytical\\transient\\linearized_unconfined_boundary_step_1d\\comparison\\lu_boundary_step_same_support\\web\\index.html"
     }
   ],
   "n_observable_rows": 1240,
   "n_metric_rows": 5,
   "n_difference_rows": 620,
-  "wall_time_seconds": 23.36,
-  "variants": [
+  "wall_time_seconds": 16.66,
+  "generated_configs_kept": true,
+  "generated_config_paths": [
+    "C:\\codes\\HydroModPy\\validation_cases\\analytical\\transient\\linearized_unconfined_boundary_step_1d\\comparison\\lu_boundary_step_same_support\\_generated_configs\\modflownwt.toml",
+    "C:\\codes\\HydroModPy\\validation_cases\\analytical\\transient\\linearized_unconfined_boundary_step_1d\\comparison\\lu_boundary_step_same_support\\_generated_configs\\modflow6.toml"
+  ],
+  "generated_config_cleanup_errors": [],
+  "simulations": [
     {
       "id": "modflownwt",
       "label": "MODFLOW-NWT 50x5",
-      "status": "completed",
+      "status": "reused",
       "enabled": true,
       "solver": "modflownwt",
       "mesh_label": null,
       "mesh_mode": "structured",
       "config_path": "C:\\codes\\HydroModPy\\validation_cases\\analytical\\transient\\linearized_unconfined_boundary_step_1d\\comparison\\lu_boundary_step_same_support\\_generated_configs\\modflownwt.toml",
-      "run_folder": "C:\\codes\\HydroModPy\\tmp\\lu_boundary_step_same_support_workspace\\.solver_scratch\\modflownwt",
-      "sim_id": "4c414e06-3c3e-43bf-815c-91cdee7be2c2",
-      "run_name": "modflownwt",
-      "wall_time_seconds": 6.58,
-      "metrics": {},
-      "run_metadata": {},
+      "run_folder": "C:\\codes\\HydroModPy\\tmp\\lu_boundary_step_same_support_workspace",
+      "run_name": "lu_boundary_step_same_support__modflownwt",
+      "sim_id": "3039ca08-2512-4e36-8ca8-fdea4b6ecb1c",
       "n_observable_rows": 620
     },
     {
       "id": "modflow6",
       "label": "MODFLOW 6 50x5",
-      "status": "completed",
+      "status": "reused",
       "enabled": true,
       "solver": "modflow6",
       "mesh_label": null,
       "mesh_mode": "structured",
       "config_path": "C:\\codes\\HydroModPy\\validation_cases\\analytical\\transient\\linearized_unconfined_boundary_step_1d\\comparison\\lu_boundary_step_same_support\\_generated_configs\\modflow6.toml",
-      "run_folder": "C:\\codes\\HydroModPy\\tmp\\lu_boundary_step_same_support_workspace\\.solver_scratch\\modflow6",
+      "run_folder": "C:\\codes\\HydroModPy\\tmp\\lu_boundary_step_same_support_workspace",
+      "run_name": "lu_boundary_step_same_support__modflow6",
       "sim_id": "3039ca08-2512-4e36-8ca8-fdea4b6ecb1c",
-      "run_name": "modflow6",
-      "wall_time_seconds": 9.0,
-      "metrics": {},
-      "run_metadata": {},
       "n_observable_rows": 620
     }
   ],
@@ -106,7 +193,7 @@
       "name": "head_west_response",
       "variable": "watertable_elevation",
       "source": "disk",
-      "variants": null,
+      "simulations": null,
       "support": "point",
       "anchor_id": null,
       "x": null,
@@ -125,7 +212,7 @@
       "name": "head_mid_response",
       "variable": "watertable_elevation",
       "source": "disk",
-      "variants": null,
+      "simulations": null,
       "support": "point",
       "anchor_id": null,
       "x": null,
@@ -144,7 +231,7 @@
       "name": "head_east_response",
       "variable": "watertable_elevation",
       "source": "disk",
-      "variants": null,
+      "simulations": null,
       "support": "point",
       "anchor_id": null,
       "x": null,
@@ -163,7 +250,7 @@
       "name": "head_map_last",
       "variable": "watertable_elevation",
       "source": "disk",
-      "variants": null,
+      "simulations": null,
       "support": "map",
       "anchor_id": null,
       "x": null,
@@ -182,7 +269,7 @@
       "name": "depth_map_last",
       "variable": "watertable_depth",
       "source": "disk",
-      "variants": null,
+      "simulations": null,
       "support": "map",
       "anchor_id": null,
       "x": null,
@@ -197,5 +284,7 @@
       "time_reducer": null,
       "unit": "m"
     }
-  ]
+  ],
+  "manifest_path": "C:\\codes\\HydroModPy\\validation_cases\\analytical\\transient\\linearized_unconfined_boundary_step_1d\\comparison\\lu_boundary_step_same_support\\comparison_manifest.json",
+  "comparison_web_report": "C:\\codes\\HydroModPy\\validation_cases\\analytical\\transient\\linearized_unconfined_boundary_step_1d\\comparison\\lu_boundary_step_same_support\\web\\index.html"
 }

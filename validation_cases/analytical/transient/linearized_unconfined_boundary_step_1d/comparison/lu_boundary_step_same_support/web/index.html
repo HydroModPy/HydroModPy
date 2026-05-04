@@ -1,0 +1,155 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>lu_boundary_step_same_support</title>
+  <style>
+    :root {
+      --ink: #162033;
+      --muted: #617086;
+      --line: #d8e0ea;
+      --panel: #ffffff;
+      --soft: #eef4f8;
+      --accent: #0f766e;
+      --warn: #b45309;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: linear-gradient(135deg, #edf7f4 0%, #f7f1e6 42%, #eef3fb 100%);
+      color: var(--ink);
+      font-family: "Aptos", "Segoe UI", sans-serif;
+      line-height: 1.48;
+    }
+    main { max-width: 1180px; margin: 0 auto; padding: 30px 22px 60px; }
+    header {
+      padding: 28px;
+      border: 1px solid rgba(22, 32, 51, 0.12);
+      border-radius: 26px;
+      background: rgba(255, 255, 255, 0.78);
+      box-shadow: 0 18px 60px rgba(22, 32, 51, 0.11);
+      backdrop-filter: blur(6px);
+    }
+    h1 { margin: 0 0 8px; font-size: clamp(2rem, 4vw, 4rem); letter-spacing: -0.05em; }
+    h2 { margin: 0 0 14px; font-size: 1.35rem; letter-spacing: -0.02em; }
+    h3 { margin: 0 0 8px; font-size: 1.0rem; }
+    p { margin: 0 0 10px; }
+    a { color: var(--accent); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    .muted { color: var(--muted); }
+    .pillrow { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 16px; }
+    .pill {
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 6px 10px; border-radius: 999px;
+      background: #e4f1ef; color: #0f4f49; font-weight: 650; font-size: 0.88rem;
+    }
+    section { margin-top: 22px; }
+    .grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+    .facts { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; margin-top: 18px; }
+    .card, .fact {
+      background: rgba(255, 255, 255, 0.86);
+      border: 1px solid rgba(22, 32, 51, 0.11);
+      border-radius: 18px; padding: 16px;
+      box-shadow: 0 10px 28px rgba(22, 32, 51, 0.07);
+    }
+    .fact span { display: block; color: var(--muted); font-size: 0.82rem; }
+    .fact strong { display: block; margin-top: 4px; font-size: 1.08rem; }
+    .figure-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+    figure { margin: 0; background: var(--panel); border: 1px solid var(--line); border-radius: 18px; padding: 12px; }
+    figure img { width: 100%; display: block; border-radius: 12px; background: var(--soft); }
+    figcaption { margin-top: 9px; color: var(--muted); font-size: 0.9rem; }
+    table { width: 100%; border-collapse: collapse; background: var(--panel); border-radius: 14px; overflow: hidden; }
+    th, td { padding: 8px 10px; border-bottom: 1px solid var(--line); text-align: left; font-size: 0.9rem; }
+    th { background: #edf4f2; font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.04em; }
+    code { background: rgba(15, 118, 110, 0.1); padding: 2px 5px; border-radius: 5px; }
+    .warning { color: var(--warn); font-weight: 700; }
+    @media (max-width: 880px) { .grid, .facts, .figure-grid { grid-template-columns: 1fr; } main { padding: 18px 12px 42px; } }
+  </style>
+</head>
+<body>
+<main>
+  <header>
+    <p class="muted">Rapport HTML standard genere depuis les sorties de comparaison.</p>
+    <h1>lu_boundary_step_same_support</h1>
+    <p>Lecture rapide des simulations, metriques, figures et flux comparables. Cette page ne relance aucun solveur.</p>
+    <div class="pillrow">
+      <span class="pill">Audit: pass</span>
+      <span class="pill">Reference: modflow6</span>
+      <span class="pill">Figures: 13</span>
+      <span class="pill">Web root: web</span>
+    </div>
+  </header>
+
+  <section class="facts">
+    <div class="fact"><span>Simulations</span><strong>2</strong></div>
+    <div class="fact"><span>Metriques</span><strong>5</strong></div>
+    <div class="fact"><span>Lignes budget</span><strong>160</strong></div>
+    <div class="fact"><span>Flux comparable</span><strong>0</strong></div>
+  </section>
+
+  <section class="grid">
+    <div class="card">
+      <h2>Principe de lecture</h2>
+      <p>Les sorties natives restent visibles. Pour comparer les flux entre solveurs, utiliser <code>comparable_outflow_total_m3_s</code>.</p>
+      <p>Definition: <code>drainage_total_m3_s + surface_excess_total_m3_s</code>. Une composante absente vaut zero.</p>
+      <p class="muted">Cela evite de comparer directement un drain MF6 a un excedent de surface Boussinesq, qui ne portent pas exactement la meme semantique.</p>
+    </div>
+    <div class="card">
+      <h2>Audit format</h2>
+      <p>Status: <strong class="">pass</strong></p>
+<p>Issues: <strong>0</strong></p>
+    </div>
+  </section>
+
+  <section>
+    <h2>Figures cles</h2>
+    <div class="figure-grid">
+      <figure><a href="../comparison_figures/head_points_dashboard.png"><img src="../comparison_figures/head_points_dashboard.png" alt="head_points_dashboard.png"></a><figcaption>head_points_dashboard.png - point_dashboard</figcaption></figure>
+<figure><a href="../comparison_figures/head_map_last__triptych__modflow6__vs__modflownwt.png"><img src="../comparison_figures/head_map_last__triptych__modflow6__vs__modflownwt.png" alt="head_map_last__triptych__modflow6__vs__modflownwt.png"></a><figcaption>head_map_last__triptych__modflow6__vs__modflownwt.png - map_triptych</figcaption></figure>
+<figure><a href="../comparison_figures/depth_map_last__difference__modflow6__vs__modflownwt.png"><img src="../comparison_figures/depth_map_last__difference__modflow6__vs__modflownwt.png" alt="depth_map_last__difference__modflow6__vs__modflownwt.png"></a><figcaption>depth_map_last__difference__modflow6__vs__modflownwt.png - difference_map</figcaption></figure>
+<figure><a href="../comparison_figures/depth_map_last__map_comparison.png"><img src="../comparison_figures/depth_map_last__map_comparison.png" alt="depth_map_last__map_comparison.png"></a><figcaption>depth_map_last__map_comparison.png - map_comparison</figcaption></figure>
+<figure><a href="../comparison_figures/depth_map_last__triptych__modflow6__vs__modflownwt.png"><img src="../comparison_figures/depth_map_last__triptych__modflow6__vs__modflownwt.png" alt="depth_map_last__triptych__modflow6__vs__modflownwt.png"></a><figcaption>depth_map_last__triptych__modflow6__vs__modflownwt.png - map_triptych</figcaption></figure>
+<figure><a href="../comparison_figures/head_east_response__timeseries.png"><img src="../comparison_figures/head_east_response__timeseries.png" alt="head_east_response__timeseries.png"></a><figcaption>head_east_response__timeseries.png - timeseries</figcaption></figure>
+<figure><a href="../comparison_figures/head_map_last__difference__modflow6__vs__modflownwt.png"><img src="../comparison_figures/head_map_last__difference__modflow6__vs__modflownwt.png" alt="head_map_last__difference__modflow6__vs__modflownwt.png"></a><figcaption>head_map_last__difference__modflow6__vs__modflownwt.png - difference_map</figcaption></figure>
+<figure><a href="../comparison_figures/head_map_last__map_comparison.png"><img src="../comparison_figures/head_map_last__map_comparison.png" alt="head_map_last__map_comparison.png"></a><figcaption>head_map_last__map_comparison.png - map_comparison</figcaption></figure>
+<figure><a href="../comparison_figures/head_mid_response__timeseries.png"><img src="../comparison_figures/head_mid_response__timeseries.png" alt="head_mid_response__timeseries.png"></a><figcaption>head_mid_response__timeseries.png - timeseries</figcaption></figure>
+<figure><a href="../comparison_figures/head_west_response__timeseries.png"><img src="../comparison_figures/head_west_response__timeseries.png" alt="head_west_response__timeseries.png"></a><figcaption>head_west_response__timeseries.png - timeseries</figcaption></figure>
+<figure><a href="../comparison_figures/modflow6__budget_diagnostics.png"><img src="../comparison_figures/modflow6__budget_diagnostics.png" alt="modflow6__budget_diagnostics.png"></a><figcaption>modflow6__budget_diagnostics.png - budget_diagnostics</figcaption></figure>
+<figure><a href="../comparison_figures/modflownwt__budget_diagnostics.png"><img src="../comparison_figures/modflownwt__budget_diagnostics.png" alt="modflownwt__budget_diagnostics.png"></a><figcaption>modflownwt__budget_diagnostics.png - budget_diagnostics</figcaption></figure>
+<figure><a href="../simulated_active_network_figures_skipped.json"><img src="../simulated_active_network_figures_skipped.json" alt="simulated_active_network_figures_skipped.json"></a><figcaption>simulated_active_network_figures_skipped.json - simulated_active_network_figures_skipped_json</figcaption></figure>
+    </div>
+  </section>
+
+  <section class="grid">
+    <div class="card">
+      <h2>Simulations</h2>
+      <table><thead><tr><th>id</th><th>solver</th><th>mesh</th><th>status</th><th>runtime s</th></tr></thead><tbody><tr><td>modflownwt</td><td>modflownwt</td><td>structured</td><td>reused</td><td></td></tr><tr><td>modflow6</td><td>modflow6</td><td>structured</td><td>reused</td><td></td></tr></tbody></table>
+    </div>
+    <div class="card">
+      <h2>Fichiers</h2>
+      <p><a href="../comparison_report.md">comparison_report.md</a></p>
+<p><a href="../comparison_audit.md">comparison_audit.md</a></p>
+<p><a href="../comparison_manifest.json">comparison_manifest.json</a></p>
+<p><a href="../comparison_metrics.csv">comparison_metrics.csv</a></p>
+<p><a href="../comparison_differences.csv">comparison_differences.csv</a></p>
+<p><a href="../observables.csv">observables.csv</a></p>
+<p><a href="../budget_timeseries_wide.csv">budget_timeseries_wide.csv</a></p>
+<p><a href="../budget_timeseries_long.csv">budget_timeseries_long.csv</a></p>
+<p><a href="../timeseries_wide.csv">timeseries_wide.csv</a></p>
+<p><a href="../timeseries_long.csv">timeseries_long.csv</a></p>
+    </div>
+  </section>
+
+  <section>
+    <h2>Flux sortant comparable</h2>
+    <p class="muted">Aucune ligne comparable_outflow_total_m3_s trouvee.</p>
+  </section>
+
+  <section>
+    <h2>Metriques principales</h2>
+    <table><thead><tr><th>simulation</th><th>observable</th><th>n</th><th>mae</th><th>rmse</th><th>max abs</th></tr></thead><tbody><tr><td>modflownwt</td><td>depth_map_last</td><td>250</td><td>0.0</td><td>0.0</td><td>0.0</td></tr><tr><td>modflownwt</td><td>head_east_response</td><td>40</td><td>0.0</td><td>0.0</td><td>0.0</td></tr><tr><td>modflownwt</td><td>head_map_last</td><td>250</td><td>0.0</td><td>0.0</td><td>0.0</td></tr><tr><td>modflownwt</td><td>head_mid_response</td><td>40</td><td>0.0</td><td>0.0</td><td>0.0</td></tr><tr><td>modflownwt</td><td>head_west_response</td><td>40</td><td>0.0</td><td>0.0</td><td>0.0</td></tr></tbody></table>
+  </section>
+</main>
+</body>
+</html>
