@@ -21,7 +21,7 @@ References frequently cited:
 - Anderson, Woessner & Hunt 2015, *Applied Groundwater Modeling*, 2nd ed.
 - ASME V&V 20-2009 terminology (verification vs validation).
 
-The table below records the 29 tolerances enforced today. Every tolerance
+The table below records the 30 tolerances enforced today. Every tolerance
 must carry a rationale before it is merged.
 
 ## Table of tolerances
@@ -57,6 +57,7 @@ must carry a rationale before it is merged.
 | 27 | Linearized transient boundary piecewise 1D (MF6 irregular tri) | cross-row spread | `< 0.012 m` | Triangular mesh lateral asymmetry envelope under multi-step boundary forcing | RMSE and max-abs thresholds stay identical to the structured transient benchmark |
 | 28 | Linearized transient boundary step 1D (MF6 irregular tri) | cross-row spread | `< 0.005 m` | Triangular mesh lateral asymmetry envelope | RMSE and max-abs thresholds stay identical to the structured transient benchmark |
 | 29 | Linearized transient recharge step deep 1D (MF6 irregular tri) | cross-row spread | `< 0.0007 m` | Triangular mesh lateral asymmetry envelope in the near-linear deep case | RMSE and max-abs thresholds stay identical to the structured transient benchmark |
+| 30 | Brutsaert fast calibration golden | `x_best` component drift | `cma_es: [1e-4, 2.5e-2]`, deterministic methods tighter | Fixed-seed stochastic optimizer envelope across Optuna/cmaes versions | `cma_es` can choose nearby recession exponents with indistinguishable objective values |
 
 ## Update policy
 

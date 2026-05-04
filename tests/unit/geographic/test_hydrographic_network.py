@@ -6,9 +6,11 @@ from pathlib import Path
 import geopandas as gpd
 import numpy as np
 import pytest
+import xarray as xr
 from shapely.geometry import LineString, box
 
-from hydromodpy.data.variables.hydrography.result import HydrographyResult
+from hydromodpy.data.contracts.load_result import LoadResult
+from hydromodpy.data.contracts.spatial_field import FieldRecord
 from hydromodpy.spatial.geographic.core.derived_features import (
     GeographicBoundaryFeatures,
     GeographicDerivedFeatures,
@@ -18,6 +20,7 @@ from hydromodpy.spatial.geographic.core.hydrographic_network import (
     HYDROGRAPHIC_NETWORK_GENERATED_FEATURE_NAME,
     HYDROGRAPHIC_NETWORK_GENERATED_LEGACY_FEATURE_NAME,
     HYDROGRAPHIC_NETWORK_REFERENCE_FEATURE_NAME,
+    HYDROGRAPHIC_NETWORK_REFERENCE_RASTER_FORCING_NAME,
     HydrographicNetwork,
     HydrographicNetworks,
     canonical_feature_name_for_role,
@@ -56,17 +59,47 @@ def _write_watershed(path: Path) -> Path:
     return path
 
 
-def test_from_hydrography_result_builds_reference_network(tmp_path: Path):
+def _hydrography_load_result(
+    *,
+    vector_path: Path | None,
+    raster_path: Path,
+    array: np.ndarray,
+) -> LoadResult:
+    data = xr.Dataset(
+        {
+            HYDROGRAPHIC_NETWORK_REFERENCE_RASTER_FORCING_NAME: (
+                ("y", "x"),
+                array,
+            )
+        }
+    )
+    record = FieldRecord(
+        variable=HYDROGRAPHIC_NETWORK_REFERENCE_RASTER_FORCING_NAME,
+        source="hydrography",
+        unit="",
+        data=data,
+        bbox=(0.0, 0.0, float(array.shape[1]), float(array.shape[0])),
+        crs="EPSG:2154",
+        metadata={
+            "raster_path": str(raster_path),
+            "vector_path": str(vector_path) if vector_path is not None else None,
+            "array_name": HYDROGRAPHIC_NETWORK_REFERENCE_RASTER_FORCING_NAME,
+        },
+    )
+    return LoadResult(fields=[record])
+
+
+def test_from_hydrography_load_result_builds_reference_network(tmp_path: Path):
     streams_path = _write_network_vector(tmp_path / "streams.shp", strahler=3)
     watershed_path = _write_watershed(tmp_path / "watershed.shp")
 
-    result = HydrographyResult(
-        streams=str(streams_path),
-        tif_streams=str(tmp_path / "streams.tif"),
-        streams_array=np.asarray([[1.0, 0.0], [np.nan, 0.0]], dtype=float),
+    result = _hydrography_load_result(
+        vector_path=streams_path,
+        raster_path=tmp_path / "streams.tif",
+        array=np.asarray([[1.0, 0.0], [np.nan, 0.0]], dtype=float),
     )
 
-    network = HydrographicNetwork.from_hydrography_result(
+    network = HydrographicNetwork.from_hydrography_load_result(
         result,
         watershed_shp=watershed_path,
     )
@@ -84,14 +117,14 @@ def test_from_hydrography_result_builds_reference_network(tmp_path: Path):
     assert network.metrics["stream_pixel_count"] == 1
 
 
-def test_from_hydrography_result_handles_raster_only_payload(tmp_path: Path):
-    result = HydrographyResult(
-        streams=None,
-        tif_streams=str(tmp_path / "streams.tif"),
-        streams_array=np.asarray([[1.0, 0.0], [2.0, np.nan]], dtype=float),
+def test_from_hydrography_load_result_handles_raster_only_payload(tmp_path: Path):
+    result = _hydrography_load_result(
+        vector_path=None,
+        raster_path=tmp_path / "streams.tif",
+        array=np.asarray([[1.0, 0.0], [2.0, np.nan]], dtype=float),
     )
 
-    network = HydrographicNetwork.from_hydrography_result(result)
+    network = HydrographicNetwork.from_hydrography_load_result(result)
 
     assert network.role == "reference"
     assert network.vector_path is None
@@ -189,10 +222,10 @@ def test_geographic_derived_features_can_attach_reference_network(tmp_path: Path
 
     updated = attach_reference_hydrographic_network(
         features,
-        HydrographyResult(
-            streams=str(streams_path),
-            tif_streams=str(tmp_path / "streams.tif"),
-            streams_array=np.asarray([[1.0, 0.0]], dtype=float),
+        _hydrography_load_result(
+            vector_path=streams_path,
+            raster_path=tmp_path / "streams.tif",
+            array=np.asarray([[1.0, 0.0]], dtype=float),
         ),
     )
 

@@ -239,3 +239,6 @@ examples/data/cache.duckdb
 examples/data/cache.duckdb
 
 old/*
+
+
+_workspace/*

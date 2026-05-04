@@ -329,19 +329,17 @@ Une variable par manager. Attributs de classe :
 - `VARIABLE_NAME: str` : identifiant canonique (`hydrometry`,
   `piezometry`, `geology`, `dem`, `precipitation`, `etp`, ...).
 
-Constructeur :
+Point d'entree public :
 
 ```python
-manager = HydrometryManager(
-    config=config,                # SourceConfigProtocol
-    catalog=data_catalog,         # DataCatalogDuckDB
+store = DataStore(
     project_extent=(x1, y1, x2, y2),
     project_period=(start, end),
-    data_dir=Path("data/hydrometry/"),
 )
+result = store.load_hydrometry(config)
 ```
 
-API publique :
+Contrat manager interne :
 
 - `load() -> LoadResult` : itère les sources configurées, déduplique via
   `catalog`, renvoie un `LoadResult` normalisé.

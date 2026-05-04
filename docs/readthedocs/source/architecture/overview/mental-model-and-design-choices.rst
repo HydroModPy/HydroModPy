@@ -176,7 +176,7 @@ used as the conceptual center anymore:
 
 - ``river_network`` is the legacy generated-feature alias
 - ``streams.shp`` is the legacy reference vector filename
-- ``hydrography_streams`` is the legacy forcing-raster name
+- ``hydrography_streams`` is the canonical reference forcing-raster name
 
 This split is intentional. A manager may still write a historical filename on
 disk, while the runtime and comparison layers rely on the canonical feature

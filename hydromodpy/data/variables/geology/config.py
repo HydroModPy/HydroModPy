@@ -15,7 +15,12 @@ from hydromodpy.core.tracking import InputFile
 
 
 class GeologySourceConfig(HydroModelBase):
-    """Configuration for ONE geology data source."""
+    """Configuration for one geology data source.
+
+    Sources can be user-provided vector, raster, or CSV files, or BRGM
+    geological maps at 1:1M or 1:50K scale. Custom vector sources need a code
+    field so HydroModPy can map lithological units to model parameters.
+    """
 
     model_config = ConfigDict(extra="forbid")
 
@@ -108,6 +113,11 @@ class GeologySourceConfig(HydroModelBase):
 
 class GeologyConfig(HydroModelBase):
     """Top-level geology variable configuration.
+
+    The section defines one or more geology sources and the sampling density
+    used when categorical geology is projected onto mesh cells. By default,
+    HydroModPy uses the BRGM 1:1M source so geology can be activated by
+    planner inference without a long user section.
 
     Example TOML::
 

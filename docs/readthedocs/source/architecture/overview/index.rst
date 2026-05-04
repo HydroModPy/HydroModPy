@@ -10,8 +10,6 @@ The pages below focus on the recurring maintenance boundaries:
 - the quality ladder from local unit checks to scientific benchmark
   validation, with the routine commands used to run each level,
 - the split between reusable scientific benchmarks and pytest entrypoints,
-- the compatibility layers that keep legacy or simplified imports alive
-  while internals are reorganized,
 - the root data-manager orchestration layer that decides what is loaded,
   from where, and under which external constraints,
 - the dual DuckDB layout that holds the input cache and the simulation
@@ -33,6 +31,5 @@ They are deliberately complementary to the package-level sections in
    hydrographic-network-simulated-active-inventory
    code-reading-guide
    tests-and-validation
-   compatibility-facades
    data-managers-and-external-dependencies
    two-databases

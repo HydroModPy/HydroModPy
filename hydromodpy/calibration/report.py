@@ -3,8 +3,7 @@
 Two concerns live here, both purely data-side:
 
 1. :class:`CalibrationReport` - structured return type of
-   :func:`hydromodpy.calibration.runner.run_calibration_cli` and
-   :meth:`hydromodpy.Project.calibrate`. Exposes session metadata plus
+   ``run_calibration_cli`` and ``Project.calibrate``. Exposes session metadata plus
    lazy accessors for the iteration history and the best :class:`Run`.
 2. :class:`SessionReportData` + :func:`load_session_report_data` - read
    one calibration session out of the workspace catalog and return a
@@ -38,8 +37,8 @@ logger = get_logger(__name__)
 class CalibrationReport:
     """Structured summary of one calibration session.
 
-    Returned by :meth:`hydromodpy.Project.calibrate` and by the
-    :func:`run_calibration_cli` helper (both keep a ``to_dict`` shim so
+    Returned by ``Project.calibrate`` and by the ``run_calibration_cli`` helper (both keep a
+    ``to_dict`` shim so
     existing callers keep working).
 
     Attributes

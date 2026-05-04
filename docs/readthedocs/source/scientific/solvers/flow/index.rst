@@ -42,11 +42,10 @@ Current Flow Solver Families
 
    modflow-family
    boussinesq-family
-   shared-flow-numerics
 
 Related Pages
 -------------
 
 - :doc:`../solver-capability-matrix`
 - :doc:`../../../user_guide/solver-process-map`
-- :doc:`../../../architecture/solver/flow/index`
+- :doc:`../../../architecture/solver/index`

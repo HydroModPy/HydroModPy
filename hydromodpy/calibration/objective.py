@@ -19,7 +19,12 @@ from hydromodpy.core.metrics import kge, mae, nse, rmse
 
 @dataclass(frozen=True, slots=True)
 class ObservationSet:
-    """Observed values, indexed by station."""
+    """Observed time series used to score one simulated variable.
+
+    ``stations`` defines the station order, ``times`` defines the common time
+    axis, and ``values`` maps each station id to its observed vector. Optional
+    weights can be used by objectives that combine several stations.
+    """
 
     stations: tuple[str, ...]
     times: np.ndarray
@@ -30,7 +35,12 @@ class ObservationSet:
 
 @dataclass(frozen=True, slots=True)
 class SimulationOutput:
-    """Simulated values aligned with an ObservationSet."""
+    """Simulated values aligned with an ``ObservationSet``.
+
+    The payload is intentionally small: a simulation id, station ids, a time
+    axis, and one vector per station. Metadata can carry backend-specific
+    details without changing the objective Protocol.
+    """
 
     sim_id: str
     stations: tuple[str, ...]
@@ -41,7 +51,12 @@ class SimulationOutput:
 
 @dataclass(frozen=True, slots=True)
 class ObjectiveValue:
-    """Cost (minimizable) plus per-component breakdown."""
+    """Minimization cost returned by an objective.
+
+    ``total`` is the scalar value minimized by the optimizer. ``components``
+    stores named diagnostics such as station costs or block totals. ``vector``
+    is available for optimizers that need a multi-objective representation.
+    """
 
     total: float
     components: Mapping[str, float] = field(default_factory=dict)
@@ -50,7 +65,12 @@ class ObjectiveValue:
 
 @runtime_checkable
 class Objective(Protocol):
-    """Contract: measure distance between observed and simulated."""
+    """Protocol for calibration objectives.
+
+    Implementations expose a ``name`` and an ``evaluate`` method accepting a
+    ``SimulationOutput``. The return value may be an ``ObjectiveValue``, a
+    scalar cost, or a mapping with a ``total`` key.
+    """
 
     name: str
 
@@ -78,7 +98,12 @@ HIGHER_IS_BETTER: frozenset[str] = frozenset({"nse", "kge"})
 
 
 class ScalarObjective:
-    """One metric over one ObservationSet, optionally multi-station."""
+    """Single metric objective over one observation set.
+
+    The objective evaluates one metric such as NSE, KGE, RMSE, or MAE for each
+    available station, converts scores to minimization costs when needed, and
+    returns the weighted station average.
+    """
 
     def __init__(
         self,

@@ -246,7 +246,7 @@ def _render_panel(save_path: Path, *, figsize: tuple[float, float], render_fn, *
 def _load_streams_gdf(hydrography):
     if hydrography is None:
         return None
-    streams_path = getattr(hydrography, "streams", None)
+    streams_path = _hydrography_vector_path(hydrography)
     if streams_path is None:
         return None
     try:
@@ -255,6 +255,16 @@ def _load_streams_gdf(hydrography):
         return gpd.read_file(streams_path)
     except Exception:
         return None
+
+
+def _hydrography_vector_path(hydrography) -> str | None:
+    for record in getattr(hydrography, "fields", None) or ():
+        metadata = getattr(record, "metadata", None)
+        if isinstance(metadata, dict):
+            path = metadata.get("vector_path")
+            if path not in (None, ""):
+                return str(path)
+    return None
 
 
 def _load_geology_gdf(geology):

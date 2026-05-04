@@ -14,7 +14,12 @@ from hydromodpy.data.base_config import BaseVariableConfig
 
 
 class OceanicSourceConfig(HydroModelBase):
-    """Configuration for ONE oceanic data source."""
+    """Configuration for one oceanic boundary data source.
+
+    Oceanic sources describe sea-level information for coastal boundary
+    conditions. Use ``custom`` for local files, ``shom`` for tide-gauge data,
+    or ``constant`` for a fixed mean sea-level value.
+    """
 
     model_config = ConfigDict(extra="forbid")
 
@@ -112,7 +117,12 @@ class OceanicSourceConfig(HydroModelBase):
 
 
 class OceanicConfig(BaseVariableConfig):
-    """Top-level oceanic configuration."""
+    """Top-level oceanic configuration.
+
+    The section groups sea-level sources and an optional date window. It is
+    commonly inferred when ``flow.active_bc`` contains an ocean boundary
+    condition.
+    """
 
     _TOML_SECTION = "oceanic"
 

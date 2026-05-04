@@ -1,8 +1,8 @@
-Project, Run, and Catalog API
-=============================
+Project And Results API
+=======================
 
-Programmatic surfaces for opening a workspace, driving project workflows, and
-reading persisted simulation results.
+Generated reference for the main user API: workspace opening, project
+execution, persisted runs, catalogs, simulation groups, and export helpers.
 
 Facade functions
 ----------------
@@ -14,7 +14,7 @@ Facade functions
    ~hydromodpy.open
    ~hydromodpy.run
    ~hydromodpy.calibrate
-   ~hydromodpy.compare
+   ~hydromodpy.compare_pair
    ~hydromodpy.doctor
 
 Project and run objects
@@ -28,7 +28,7 @@ Project and run objects
    ~hydromodpy.results.run.Run
    ~hydromodpy.results.catalog.SimulationCatalog
    ~hydromodpy.results.simulation_group.SimulationGroup
-   ~hydromodpy.results.config.ResultsConfig
+   ~hydromodpy.simulation.planning.results_config.ResultsConfig
 
 Export helpers
 --------------

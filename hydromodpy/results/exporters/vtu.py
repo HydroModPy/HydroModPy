@@ -45,6 +45,17 @@ def export_vtu(
     -------
     Path
         The written file path.
+
+    Raises
+    ------
+    ImportError
+        Raised when ``meshio`` is not installed.
+    KeyError
+        Raised when ``variable`` is not stored in the Zarr hierarchy.
+
+    Examples
+    --------
+    >>> export_vtu(run_zarr, run.sim_id, "head", -1, "head.vtu")
     """
     try:
         import meshio

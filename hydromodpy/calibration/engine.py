@@ -44,7 +44,12 @@ class _NoopProgress:
 
 @dataclass
 class CalibrationSession:
-    """Outcome of a calibration run."""
+    """Runtime result returned after a calibration loop.
+
+    The session keeps the optimizer instance, the calibrated parameter space,
+    every evaluation result, and timing metadata. Use ``best`` for the current
+    minimum-cost evaluation and ``duration_s`` for elapsed wall-clock time.
+    """
 
     session_id: str
     optimizer: Optimizer
@@ -71,6 +76,10 @@ class CalibrationEngine:
     engine only decides *when* to stop and which results to forward to the
     optimizer. Everything else (simulation, catalog, promotion) happens in
     the ``evaluator`` closure.
+
+    The evaluator receives a ``ParamSuggestion`` and returns an
+    ``EvaluationResult``. Optional caching uses a parameter hash so repeated
+    candidates can reuse previous objective values.
     """
 
     space: ParameterSpace

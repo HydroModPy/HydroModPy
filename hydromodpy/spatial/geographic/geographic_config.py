@@ -14,7 +14,13 @@ from hydromodpy.spatial.geographic.synthetic.config import SyntheticGeographicCo
 
 
 class RiverNetworkConfig(HydroModelBase):
-    """Optional stream-network extraction settings for geographic preprocessing."""
+    """Optional DEM-based river network extraction settings.
+
+    Enable this block when geographic preprocessing must derive streams from
+    flow accumulation. Thresholds can be expressed as contributing area
+    (``area_km2``) or contributing cell count (``cells``), with optional
+    pruning and Strahler/link rasters for downstream diagnostics.
+    """
 
     model_config = ConfigDict(extra="forbid")
 
@@ -135,11 +141,15 @@ class RiverNetworkConfig(HydroModelBase):
 
 
 class GeographicConfig(HydroModelBase):
-    """
-    Geographic configuration for watershed delineation.
+    """Geographic configuration for watershed delineation.
 
     This model stores parameters used to extract and prepare the physical domain
     (watershed geometry and rasters) based on various possible input definitions.
+
+    Standard mode uses an external DEM with one of the catchment definitions:
+    direct DEM, XYZ text grid, outlet coordinate, or polygon shapefile.
+    Synthetic mode builds an analytical support and bypasses external DEM
+    delineation.
     """
 
     model_config = ConfigDict(extra="forbid")

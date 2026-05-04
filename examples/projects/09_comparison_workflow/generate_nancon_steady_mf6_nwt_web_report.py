@@ -41,9 +41,7 @@ TRANSIENT_DIAGNOSTIC_COMPARISON_ROOT = (
 WEB_DIR = COMPARISON_ROOT / "web"
 WEB_FIGURES_DIR = COMPARISON_ROOT / "web_figures"
 TRANSIENT_WEB_FIGURES_DIR = TRANSIENT_COMPARISON_ROOT / "web_figures"
-TRANSIENT_DIAGNOSTIC_WEB_FIGURES_DIR = (
-    TRANSIENT_DIAGNOSTIC_COMPARISON_ROOT / "web_figures"
-)
+TRANSIENT_DIAGNOSTIC_WEB_FIGURES_DIR = TRANSIENT_DIAGNOSTIC_COMPARISON_ROOT / "web_figures"
 
 
 def _load_toml(path: Path) -> dict[str, Any]:
@@ -2007,8 +2005,7 @@ def _head_diagnostic_rows(rows: list[dict[str, str]]) -> list[dict[str, str]]:
             diffs = [cand - ref for cand, ref in zip(candidate, reference, strict=False)]
             cand_anomaly = [value - candidate[0] for value in candidate]
             anomaly_diffs = [
-                cand - ref
-                for cand, ref in zip(cand_anomaly, ref_anomaly, strict=False)
+                cand - ref for cand, ref in zip(cand_anomaly, ref_anomaly, strict=False)
             ]
             anomaly_rmse = math.sqrt(
                 sum(value * value for value in anomaly_diffs) / len(anomaly_diffs)
@@ -2097,9 +2094,7 @@ def _diagnostic_overview_rows(base: dict[str, Any], config: dict[str, Any]) -> l
     depth = base.get("domain", {}).get("depth_model", {})
     recharge_sources = base.get("data", {}).get("recharge", {}).get("sources", [])
     recharge = recharge_sources[0] if recharge_sources else {}
-    recharge_values = [
-        value for value in recharge.get("values", []) if _float(value) is not None
-    ]
+    recharge_values = [value for value in recharge.get("values", []) if _float(value) is not None]
     recharge_mean = (
         sum(float(value) for value in recharge_values) / len(recharge_values)
         if recharge_values
@@ -2108,13 +2103,19 @@ def _diagnostic_overview_rows(base: dict[str, Any], config: dict[str, Any]) -> l
     fine = config.get("comparison", {}).get("fine_raster", {})
     observables = config.get("comparison", {}).get("observable", [])
     map_count = sum(
-        1 for observable in observables if isinstance(observable, dict) and observable.get("support") == "map"
+        1
+        for observable in observables
+        if isinstance(observable, dict) and observable.get("support") == "map"
     )
     point_count = sum(
-        1 for observable in observables if isinstance(observable, dict) and observable.get("support") == "point"
+        1
+        for observable in observables
+        if isinstance(observable, dict) and observable.get("support") == "point"
     )
     outlet_count = sum(
-        1 for observable in observables if isinstance(observable, dict) and observable.get("support") == "outlet"
+        1
+        for observable in observables
+        if isinstance(observable, dict) and observable.get("support") == "outlet"
     )
     tgrid_values: list[str] = []
     for simulation in config.get("comparison", {}).get("simulation", []):
@@ -2235,13 +2236,10 @@ def _build_transient_diagnostic_page() -> Path | None:
         cell_counts,
     )
     timeseries_rows = _load_csv(TRANSIENT_DIAGNOSTIC_COMPARISON_ROOT / "timeseries_wide.csv")
-    budget_rows = _load_csv(
-        TRANSIENT_DIAGNOSTIC_COMPARISON_ROOT / "budget_timeseries_wide.csv"
-    )
+    budget_rows = _load_csv(TRANSIENT_DIAGNOSTIC_COMPARISON_ROOT / "budget_timeseries_wide.csv")
     metrics_rows = _load_csv(TRANSIENT_DIAGNOSTIC_COMPARISON_ROOT / "comparison_metrics.csv")
     overlap_rows = _load_csv(
-        TRANSIENT_DIAGNOSTIC_COMPARISON_ROOT
-        / "simulated_active_network_overlap_metrics.csv"
+        TRANSIENT_DIAGNOSTIC_COMPARISON_ROOT / "simulated_active_network_overlap_metrics.csv"
     )
     watershed_overlay = _load_watershed_overlay(config, manifest, base)
     mesh_geometries = _mesh_geometries_from_zarr(config, manifest)
@@ -3036,7 +3034,7 @@ def build_report() -> Path:
       <span class="pill"><code>comparison_figures/</code></span>
       <span class="pill"><code>{_safe_text(transient_page.name)}</code></span>
       {f'<span class="pill"><code>{_safe_text(transient_results_page.name)}</code></span>' if transient_results_page is not None else ""}
-      {f'<span class="pill"><code>{_safe_text(transient_diagnostic_page.name)}</code></span>' if transient_diagnostic_page is not None else ''}
+      {f'<span class="pill"><code>{_safe_text(transient_diagnostic_page.name)}</code></span>' if transient_diagnostic_page is not None else ""}
     </div>
   </section>
 </main>

@@ -16,8 +16,8 @@ from typing import Any
 
 import pandas as pd
 
+from hydromodpy.data.store import DataStore
 from hydromodpy.data.variables.oceanic.config import OceanicConfig, OceanicSourceConfig
-from hydromodpy.data.variables.oceanic.manager import OceanicManager
 
 
 @dataclass(slots=True)
@@ -139,12 +139,13 @@ def run_oceanic_case_from_toml(
     )
 
     fetch_start = time.perf_counter()
-    manager = OceanicManager(
-        config=oceanic_cfg,
+    store = DataStore(
         project_period=(start, end),
+    )
+    load_result = store.load_oceanic(
+        oceanic_cfg,
         geographic=cfg["geographic"],
     )
-    load_result = manager.load()
     fetch_seconds = time.perf_counter() - fetch_start
 
     sea_records = [r for r in load_result.points if r.variable in ("sea_level", "oceanic")]

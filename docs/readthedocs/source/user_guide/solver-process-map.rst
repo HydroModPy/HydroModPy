@@ -224,9 +224,8 @@ Related Pages
 
 - :doc:`../scientific/solvers/flow/index`
 - :doc:`../scientific/solvers/flow/modflow/index`
-- :doc:`../scientific/solvers/transport/index`
-- :doc:`../scientific/solvers/workflow-stages/index`
+- :doc:`workflows/index`
 - :doc:`../scientific/solvers/solver-capability-matrix`
-- :doc:`../scientific/solvers/process-solver-taxonomy`
-- :doc:`../architecture/solver/process-solver-registry`
+- :doc:`../scientific/solvers/index`
+- :doc:`../architecture/solver/index`
 - :doc:`../architecture/process/index`

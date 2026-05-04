@@ -55,6 +55,15 @@ def _resolve_target(target: str) -> tuple[str, Path | None]:
         if exists:
             return "symbol-ok", symbol_file
         return "symbol-missing", symbol_file
+    if len(parts) > 1:
+        module_name = parts[0]
+        module_file = _module_file(module_name)
+        if module_file is not None:
+            symbol_name = parts[1]
+            exists, symbol_file = _symbol_exists(module_name, symbol_name)
+            if exists:
+                return "symbol-ok", symbol_file
+            return "symbol-missing", symbol_file
     return "module-missing", None
 
 

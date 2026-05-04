@@ -17,7 +17,13 @@ from hydromodpy.data.plan import DataLoadPlan
 
 
 class DataPlanner:
-    """Build a deterministic data-manager activation plan."""
+    """Infer the active data-manager families for one run.
+
+    The planner starts from ``DataManagersConfig.types`` and appends
+    dependencies implied by domain supports or flow boundary conditions. The
+    output is deterministic and carries human-readable reasons for inferred
+    families.
+    """
 
     def build(
         self,

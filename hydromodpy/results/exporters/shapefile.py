@@ -46,6 +46,19 @@ def export_shapefile(
     -------
     Path
         The written file path.
+
+    Raises
+    ------
+    ValueError
+        Raised when ``crs`` is missing.
+    KeyError
+        Raised when ``variable`` is not stored in the Zarr hierarchy.
+
+    Examples
+    --------
+    >>> export_shapefile(
+    ...     run_zarr, run.sim_id, "head", -1, "head_cells.shp", crs="EPSG:2154"
+    ... )
     """
     import geopandas as gpd
     from shapely.geometry import Polygon

@@ -1,11 +1,9 @@
-hydromodpy.config - Parameter Contracts
-=======================================
+Configuration API
+=================
 
-All configuration parameters are defined as :class:`~pydantic.BaseModel` classes
-loaded from a TOML file. Each field is validated at instantiation time: type,
-value constraints (min / max, allowed literals ...) and cross-field rules are
-enforced automatically - a :class:`~pydantic.ValidationError` is raised with a
-precise message when a contract is violated.
+Configuration parameters are Pydantic models loaded from TOML files. Fields are
+validated at instantiation time: type, value constraints, allowed literals, and
+cross-field rules.
 
 .. note::
 
@@ -21,8 +19,8 @@ precise message when a contract is violated.
    cfg.workspace.catch_name      # validated str
    cfg.geographic.catch_def      # validated Literal
 
-hydromodpy.config.hydromodpy_config
------------------------------------
+Root configuration
+------------------
 
 .. autopydantic_model:: hydromodpy.config.hydromodpy_config.HydroModPyConfig
    :members:
@@ -30,8 +28,8 @@ hydromodpy.config.hydromodpy_config
    :member-order: bysource
    :no-index:
 
-hydromodpy.core.workspace.config
---------------------------------
+Workspace configuration
+-----------------------
 
 .. autopydantic_model:: hydromodpy.core.workspace.config.WorkspaceConfig
    :members:
@@ -39,8 +37,8 @@ hydromodpy.core.workspace.config
    :member-order: bysource
    :no-index:
 
-hydromodpy.spatial.geographic.geographic_config
------------------------------------------------
+Geographic configuration
+------------------------
 
 .. autopydantic_model:: hydromodpy.spatial.geographic.geographic_config.GeographicConfig
    :members:

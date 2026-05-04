@@ -21,7 +21,13 @@ from pyproj import Transformer
 
 @dataclass(frozen=True)
 class DemMetadata:
-    """DEM-derived runtime attributes consumed across HydroModPy."""
+    """DEM-derived raster metadata for the geographic runtime.
+
+    The dataclass stores the clipped DEM arrays, geotransform, pixel size,
+    projected bounds, centroid, optional WGS84 corner coordinates, and optional
+    French department code. ``CatchmentDelineation`` uses it to expose the
+    legacy runtime attributes expected by domain and solver code.
+    """
 
     crs: str | None
     dem_box_buff_data: np.ndarray = field(repr=False)
@@ -182,7 +188,13 @@ def read_dem_metadata(
     crs_project: str | None,
     locator_factory: object = Nominatim,
 ) -> DemMetadata:
-    """Read DEM rasters and rebuild the historical ``CatchmentDelineation`` metadata."""
+    """Read clipped DEM rasters and return normalized geographic metadata.
+
+    The function extracts grid shape, nodata, projected bounds, resolution,
+    centroid coordinates, optional WGS84 coordinates, and optional department
+    code. It returns a ``DemMetadata`` object instead of mutating the
+    ``CatchmentDelineation`` instance directly.
+    """
     with rasterio.open(str(watershed_box_buff_dem_path)) as box_buff_dem_src:
         dem_box_buff_data = box_buff_dem_src.read(1)
     with rasterio.open(str(watershed_buff_dem_path)) as buff_dem_src:

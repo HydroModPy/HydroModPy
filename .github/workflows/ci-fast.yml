@@ -93,14 +93,13 @@ jobs:
               pth.unlink()
           "
 
-      # The whitebox_workflows native library segfaults under pytest-xdist.
-      # Run the rest of the unit tier in parallel, then the whitebox tests
-      # in a single process with coverage append.
-      - name: Run unit tests (parallel, without whitebox backend)
+      # Keep the unit tier serial on CI: xdist workers can terminate inside
+      # native geospatial stacks and leave the job stuck near completion.
+      - name: Run unit tests (without whitebox backend)
         run: |
           python -m pytest tests/unit/ \
             --ignore=tests/unit/backends/test_whitebox_workflows_backend.py \
-            -n auto --dist loadgroup -q \
+            -q \
             --cov=hydromodpy \
             --cov-report=
 
@@ -119,6 +118,7 @@ jobs:
 
       - name: Upload coverage to Codecov
         if: always()
+        continue-on-error: true
         uses: codecov/codecov-action@v5
         with:
           token: ${{ secrets.CODECOV_TOKEN }}

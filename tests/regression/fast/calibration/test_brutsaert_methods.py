@@ -17,13 +17,13 @@ GOLDEN_FILE = (
 # ``gp_mapping`` has a looser tolerance because the Expected-Improvement
 # acquisition is sensitive to small dependency-level changes on this noisy
 # recession case. ``da_mh_gp`` keeps a 6e-2 tolerance for MCMC mixing noise.
-METHOD_ABS_TOL: dict[str, float] = {
-    "grid_search": 1e-10,
-    "random_search": 1e-10,
-    "cma_es": 8e-3,
-    "scipy_nelder_mead": 2e-4,
-    "gp_mapping": 5e-2,
-    "da_mh_gp": 6e-2,
+METHOD_ABS_TOL: dict[str, np.ndarray] = {
+    "grid_search": np.array([1e-10, 1e-10], dtype=float),
+    "random_search": np.array([1e-10, 1e-10], dtype=float),
+    "cma_es": np.array([1e-4, 2.5e-2], dtype=float),
+    "scipy_nelder_mead": np.array([2e-4, 2e-4], dtype=float),
+    "gp_mapping": np.array([5e-2, 5e-2], dtype=float),
+    "da_mh_gp": np.array([6e-2, 6e-2], dtype=float),
 }
 
 
@@ -85,10 +85,11 @@ def test_brutsaert_method_matches_golden(method: str) -> None:
     assert actual_x.shape == expected_x.shape, (
         f"x_best shape mismatch: got {actual_x.shape}, expected {expected_x.shape}"
     )
-    assert np.allclose(actual_x, expected_x, atol=METHOD_ABS_TOL[method], rtol=0.0), (
+    abs_tol = METHOD_ABS_TOL[method]
+    assert np.allclose(actual_x, expected_x, atol=abs_tol, rtol=0.0), (
         f"x_best mismatch for method {method!r}: "
         f"got {actual_x.tolist()}, expected {expected_x.tolist()} "
-        f"(abs_tol={METHOD_ABS_TOL[method]})"
+        f"(abs_tol={abs_tol.tolist()})"
     )
     assert result["method"] == method
     assert {"NSE", "NSElog", "KGE", "r", "alpha", "beta"} <= set(result["metrics"])

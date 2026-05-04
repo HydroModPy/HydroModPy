@@ -1,7 +1,8 @@
-Analysis and Calibration API
+Analysis And Calibration API
 ============================
 
-Comparison, batch/testbed analysis, and calibration public surfaces.
+Generated reference for calibration, objective functions, optimizers,
+comparison, and batch analysis surfaces.
 
 Calibration
 -----------

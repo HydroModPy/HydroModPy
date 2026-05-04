@@ -64,7 +64,7 @@ def _count_points(lr) -> int:
 def _count_streams(hydro) -> int:
     if hydro is None:
         return 0
-    streams_path = getattr(hydro, "streams", None)
+    streams_path = _hydrography_vector_path(hydro)
     if streams_path is None:
         return 0
     try:
@@ -74,3 +74,13 @@ def _count_streams(hydro) -> int:
         return len(gdf)
     except Exception:
         return 0
+
+
+def _hydrography_vector_path(hydro) -> str | None:
+    for record in getattr(hydro, "fields", None) or ():
+        metadata = getattr(record, "metadata", None)
+        if isinstance(metadata, dict):
+            path = metadata.get("vector_path")
+            if path not in (None, ""):
+                return str(path)
+    return None

@@ -8,9 +8,9 @@ Input cache - ``workspace/data/cache.duckdb``
 
 Tracks downloaded or custom datasets. Exposed through:
 
-- :class:`~hydromodpy.data.registry.catalog_duckdb.DataCatalogDuckDB` (low-level)
-- :class:`~hydromodpy.data.DataStore` (façade)
-- :class:`~hydromodpy.data.entry.DataEntry` (view on one row)
+- ``DataCatalogDuckDB`` (low-level)
+- ``DataStore`` (facade)
+- ``DataEntry`` (view on one row)
 - ``project.data`` / ``workspace.data`` accessors
 
 Output catalog - ``workspace/hydromodpy.duckdb``

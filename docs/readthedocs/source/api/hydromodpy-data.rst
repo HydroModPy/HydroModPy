@@ -1,7 +1,8 @@
-hydromodpy.data
-===============
+Data API
+========
 
-Data-manager facade and provider configuration objects.
+Generated reference for data plans, data manager configuration, and source
+configuration objects.
 
 Core data API
 -------------

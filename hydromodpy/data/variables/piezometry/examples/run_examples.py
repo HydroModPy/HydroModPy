@@ -18,9 +18,8 @@ import pandas as pd
 def example_custom_csv():
     """Load piezometry from custom CSV files."""
     print("\n=== Example: Piezometry Custom CSV ===")
-    from hydromodpy.data.registry.catalog_duckdb import DataCatalogDuckDB as DataCatalog
+    from hydromodpy.data.store import DataStore
     from hydromodpy.data.variables.piezometry.config import PiezometryConfig, PiezometrySourceConfig
-    from hydromodpy.data.variables.piezometry.manager import PiezometryManager
 
     with tempfile.TemporaryDirectory() as tmpdir:
         data_dir = Path(tmpdir)
@@ -49,13 +48,10 @@ def example_custom_csv():
             df.to_csv(data_dir / f"piezometry_custom_{sid}_20200101_20201231_D.csv", index=False)
 
         cfg = PiezometryConfig(sources=[PiezometrySourceConfig(source="custom", path=data_dir)])
-        catalog = DataCatalog()
-        mgr = PiezometryManager(
-            config=cfg,
-            catalog=catalog,
+        store = DataStore(
             project_period=(datetime(2020, 1, 1), datetime(2020, 12, 31)),
         )
-        records = mgr.load()
+        records = store.load_piezometry(cfg).points
 
         print(f"  Loaded {len(records)} records")
         for r in records:
@@ -65,9 +61,8 @@ def example_custom_csv():
 def example_custom_constant():
     """Load piezometry with a single-line CSV (constant value)."""
     print("\n=== Example: Piezometry Constant (single-line CSV) ===")
-    from hydromodpy.data.registry.catalog_duckdb import DataCatalogDuckDB as DataCatalog
+    from hydromodpy.data.store import DataStore
     from hydromodpy.data.variables.piezometry.config import PiezometryConfig, PiezometrySourceConfig
-    from hydromodpy.data.variables.piezometry.manager import PiezometryManager
 
     with tempfile.TemporaryDirectory() as tmpdir:
         data_dir = Path(tmpdir)
@@ -87,13 +82,10 @@ def example_custom_constant():
         )
 
         cfg = PiezometryConfig(sources=[PiezometrySourceConfig(source="custom", path=data_dir)])
-        catalog = DataCatalog()
-        mgr = PiezometryManager(
-            config=cfg,
-            catalog=catalog,
+        store = DataStore(
             project_period=(datetime(2020, 1, 1), datetime(2020, 3, 31)),
         )
-        records = mgr.load()
+        records = store.load_piezometry(cfg).points
 
         for r in records:
             print(
@@ -108,9 +100,8 @@ def example_hubeau_api():
     """
     print("\n=== Example: Piezometry Hub'Eau API ===")
     print("  (requires internet connection)")
-    from hydromodpy.data.registry.catalog_duckdb import DataCatalogDuckDB as DataCatalog
+    from hydromodpy.data.store import DataStore
     from hydromodpy.data.variables.piezometry.config import PiezometryConfig, PiezometrySourceConfig
-    from hydromodpy.data.variables.piezometry.manager import PiezometryManager
 
     cfg = PiezometryConfig(
         sources=[
@@ -121,15 +112,12 @@ def example_hubeau_api():
             )
         ]
     )
-    catalog = DataCatalog()
-    mgr = PiezometryManager(
-        config=cfg,
-        catalog=catalog,
+    store = DataStore(
         project_period=(datetime(2022, 1, 1), datetime(2022, 3, 31)),
     )
 
     try:
-        records = mgr.load()
+        records = store.load_piezometry(cfg).points
         print(f"  Loaded {len(records)} records")
         for r in records:
             print(f"    {r.station_id}: {r.n_records} points, variable={r.variable}")

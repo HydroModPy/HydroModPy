@@ -1,8 +1,8 @@
-hydromodpy.physics.hydrology.pyhelp
-===================================
+HELP Coupling API
+=================
 
-Coupling layer that runs the HELP land-surface model and exposes utilities to
-convert its outputs for HydroModPy.
+Generated reference for HELP land-surface coupling utilities and output
+conversion helpers.
 
 Overview
 --------

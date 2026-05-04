@@ -20,9 +20,8 @@ import pandas as pd
 def example_custom_csv():
     """Load hydrometry from custom CSV files (location CSV + chronicles)."""
     print("\n=== Example: Custom CSV ===")
-    from hydromodpy.data.registry.catalog_duckdb import DataCatalogDuckDB as DataCatalog
+    from hydromodpy.data.store import DataStore
     from hydromodpy.data.variables.hydrometry.config import HydrometryConfig, HydrometrySourceConfig
-    from hydromodpy.data.variables.hydrometry.manager import HydrometryManager
 
     with tempfile.TemporaryDirectory() as tmpdir:
         data_dir = Path(tmpdir)
@@ -61,13 +60,10 @@ def example_custom_csv():
                 )
             ]
         )
-        catalog = DataCatalog()  # in-memory
-        mgr = HydrometryManager(
-            config=cfg,
-            catalog=catalog,
+        store = DataStore(
             project_period=(datetime(2020, 1, 1), datetime(2020, 12, 31)),
         )
-        records = mgr.load()
+        records = store.load_hydrometry(cfg).points
 
         print(f"  Loaded {len(records)} records")
         for r in records:
@@ -82,9 +78,8 @@ def example_custom_csv():
 def example_custom_csv_one_line():
     """Load hydrometry with a single-line CSV (constant value in file)."""
     print("\n=== Example: Custom CSV Single Line (Constant) ===")
-    from hydromodpy.data.registry.catalog_duckdb import DataCatalogDuckDB as DataCatalog
+    from hydromodpy.data.store import DataStore
     from hydromodpy.data.variables.hydrometry.config import HydrometryConfig, HydrometrySourceConfig
-    from hydromodpy.data.variables.hydrometry.manager import HydrometryManager
 
     with tempfile.TemporaryDirectory() as tmpdir:
         data_dir = Path(tmpdir)
@@ -109,13 +104,10 @@ def example_custom_csv_one_line():
         ).to_csv(data_dir / "hydrometry_custom_CONST01_20200101_20201231_D.csv", index=False)
 
         cfg = HydrometryConfig(sources=[HydrometrySourceConfig(source="custom", path=data_dir)])
-        catalog = DataCatalog()
-        mgr = HydrometryManager(
-            config=cfg,
-            catalog=catalog,
+        store = DataStore(
             project_period=(datetime(2020, 1, 1), datetime(2020, 12, 31)),
         )
-        records = mgr.load()
+        records = store.load_hydrometry(cfg).points
 
         print(f"  Loaded {len(records)} records")
         for r in records:
@@ -125,9 +117,8 @@ def example_custom_csv_one_line():
 def example_custom_unit_conversion():
     """Load hydrometry with unit conversion (L/s → m³/s)."""
     print("\n=== Example: Custom with Unit Conversion ===")
-    from hydromodpy.data.registry.catalog_duckdb import DataCatalogDuckDB as DataCatalog
+    from hydromodpy.data.store import DataStore
     from hydromodpy.data.variables.hydrometry.config import HydrometryConfig, HydrometrySourceConfig
-    from hydromodpy.data.variables.hydrometry.manager import HydrometryManager
 
     with tempfile.TemporaryDirectory() as tmpdir:
         data_dir = Path(tmpdir)
@@ -159,13 +150,10 @@ def example_custom_unit_conversion():
                 )
             ]
         )
-        catalog = DataCatalog()
-        mgr = HydrometryManager(
-            config=cfg,
-            catalog=catalog,
+        store = DataStore(
             project_period=(datetime(2020, 1, 1), datetime(2020, 1, 10)),
         )
-        records = mgr.load()
+        records = store.load_hydrometry(cfg).points
 
         for r in records:
             val = r.data["value"].iloc[0]
@@ -179,9 +167,8 @@ def example_hubeau_api():
     """
     print("\n=== Example: Hub'Eau API ===")
     print("  (requires internet connection)")
-    from hydromodpy.data.registry.catalog_duckdb import DataCatalogDuckDB as DataCatalog
+    from hydromodpy.data.store import DataStore
     from hydromodpy.data.variables.hydrometry.config import HydrometryConfig, HydrometrySourceConfig
-    from hydromodpy.data.variables.hydrometry.manager import HydrometryManager
 
     cfg = HydrometryConfig(
         sources=[
@@ -192,15 +179,12 @@ def example_hubeau_api():
             )
         ]
     )
-    catalog = DataCatalog()
-    mgr = HydrometryManager(
-        config=cfg,
-        catalog=catalog,
+    store = DataStore(
         project_period=(datetime(2022, 1, 1), datetime(2022, 3, 31)),
     )
 
     try:
-        records = mgr.load()
+        records = store.load_hydrometry(cfg).points
         print(f"  Loaded {len(records)} records")
         for r in records:
             print(f"    {r.station_id}: {r.n_records} points, unit={r.unit}")

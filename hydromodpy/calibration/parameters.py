@@ -90,7 +90,13 @@ def _inverse(transform: str, y: float) -> float:
 
 @dataclass(frozen=True, slots=True)
 class CalibParameter:
-    """A single calibration dimension resolved from TOML + annotations."""
+    """Resolved calibration dimension in physical and transformed space.
+
+    The object combines user TOML declarations with optional ``Calibrable``
+    field metadata. Bounds are stored in physical units, while helper
+    properties expose transformed bounds for optimizers that sample in log or
+    logit space.
+    """
 
     name: str
     lower: float
@@ -123,7 +129,12 @@ class CalibParameter:
 
 
 class ParameterSpace:
-    """Ordered collection of CalibParameter."""
+    """Ordered collection of calibrated parameters.
+
+    The space preserves declaration order, exposes transformed bounds for
+    optimizers, and can describe one candidate as serializable metadata for
+    persistence and reporting.
+    """
 
     def __init__(self, parameters: Iterable[CalibParameter]):
         self._params = tuple(parameters)

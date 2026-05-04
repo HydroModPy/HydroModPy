@@ -14,7 +14,12 @@ from hydromodpy.data.base_config import BaseVariableConfig
 
 
 class RunoffSourceConfig(HydroModelBase):
-    """Configuration for ONE runoff data source."""
+    """Configuration for one runoff data source.
+
+    Runoff sources load station or gridded surface-runoff time series from
+    custom files or SIM2 EDR products. Source-level fields define file paths,
+    station columns, masks, units, and cache refresh behavior.
+    """
 
     model_config = ConfigDict(extra="forbid")
 
@@ -88,7 +93,12 @@ class RunoffSourceConfig(HydroModelBase):
 
 
 class RunoffConfig(BaseVariableConfig):
-    """Top-level runoff configuration."""
+    """Top-level runoff configuration.
+
+    The section groups runoff sources and an optional date window. Loaded data
+    can support hydrological forcing, recharge/runoff partitioning checks, and
+    diagnostic comparisons.
+    """
 
     _TOML_SECTION = "runoff"
 

@@ -15,8 +15,8 @@ nbformat==5.10.4
 nbconvert==7.16.4
 jupyter-client==8.6.2
 
-numpy==2.1.2
-pandas==2.2.3
-scipy==1.14.1
-matplotlib==3.8.4
-shapely==2.0.6
+numpy>=2.4.4,<3
+pandas>=2.3.3,<3
+scipy>=1.17.1,<2
+matplotlib>=3.10.8,<4
+shapely>=2,<3

@@ -14,7 +14,13 @@ from hydromodpy.data.base_config import BaseVariableConfig
 
 
 class RechargeSourceConfig(HydroModelBase):
-    """Configuration for ONE recharge data source."""
+    """Configuration for one recharge data source.
+
+    Recharge sources provide water input to the subsurface as custom files,
+    SIM2 gridded products, or synthetic series. Synthetic fields can be
+    constant, time-varying, or sinusoidal depending on the declared values and
+    optional amplitude settings.
+    """
 
     model_config = ConfigDict(extra="forbid")
 
@@ -127,7 +133,12 @@ class RechargeSourceConfig(HydroModelBase):
 
 
 class RechargeConfig(BaseVariableConfig):
-    """Top-level recharge configuration."""
+    """Top-level recharge configuration.
+
+    The section groups recharge sources and an optional date window. Loaded
+    recharge is used by groundwater and coupled flow workflows as a time-series
+    or gridded forcing.
+    """
 
     _TOML_SECTION = "recharge"
 

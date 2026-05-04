@@ -14,7 +14,12 @@ from hydromodpy.data.base_config import BaseVariableConfig
 
 
 class HumiditySourceConfig(HydroModelBase):
-    """Configuration for ONE humidity data source."""
+    """Configuration for one relative-humidity data source.
+
+    Humidity sources load station or gridded relative-humidity time series from
+    custom files or SIM2 EDR products. Source-level fields define file paths,
+    station columns, masks, units, and cache refresh behavior.
+    """
 
     model_config = ConfigDict(extra="forbid")
 
@@ -88,7 +93,12 @@ class HumiditySourceConfig(HydroModelBase):
 
 
 class HumidityConfig(BaseVariableConfig):
-    """Top-level humidity configuration."""
+    """Top-level relative-humidity configuration.
+
+    The section groups humidity sources and an optional date window. Loaded data
+    can support atmospheric forcing, evapotranspiration context, and HELP
+    coupling.
+    """
 
     _TOML_SECTION = "humidity"
 

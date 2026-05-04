@@ -10,12 +10,15 @@ in ``data/cache.duckdb`` under the workspace root. Custom data stays at the
 path specified by the user in the TOML.
 
 If *workspace_root* is None, data is loaded in memory only (no persistence).
+Runtime callers may pass an existing catalog and data root so the simulation
+loader and interactive facade share the same manager instantiation path.
 """
 
 from __future__ import annotations
 
 from datetime import datetime
 from pathlib import Path
+from typing import Any
 
 import pandas as pd
 
@@ -63,96 +66,187 @@ class DataStore:
         self,
         *,
         workspace_root: str | Path | None = None,
+        data_root: str | Path | None = None,
+        catalog: DataCatalogDuckDB | None = None,
         project_extent: tuple | None = None,
         project_period: tuple[datetime, datetime] | None = None,
     ):
-        if workspace_root is not None:
+        if data_root is not None:
+            self.data_root = Path(data_root).expanduser().resolve()
+            self.data_root.mkdir(parents=True, exist_ok=True)
+            self.workspace_root = (
+                Path(workspace_root).expanduser().resolve()
+                if workspace_root is not None
+                else self.data_root.parent
+            )
+        elif workspace_root is not None:
             self.workspace_root = Path(workspace_root).expanduser().resolve()
             if not (self.workspace_root / "data").is_dir():
                 raise FileNotFoundError(
                     f"Workspace invalide : dossier 'data/' introuvable dans "
                     f"{self.workspace_root}. Lancez 'hmp init' ou verifiez le chemin."
                 )
-            self.catalog = DataCatalogDuckDB(self.workspace_root / "data" / "cache.duckdb")
+            self.data_root = self.workspace_root / "data"
         else:
             self.workspace_root = None
-            self.catalog = DataCatalogDuckDB()  # in-memory
+            self.data_root = None
+
+        if catalog is not None:
+            self.catalog = catalog
+        elif self.data_root is not None:
+            self.catalog = DataCatalogDuckDB(self.data_root / "cache.duckdb")
+        else:
+            self.catalog = DataCatalogDuckDB()
 
         self.project_extent = project_extent
         self.project_period = project_period
 
     def _data_dir(self, variable_name: str) -> Path | None:
-        """Return ``workspace_root/data/<variable>/`` or None."""
-        if self.workspace_root is None:
+        """Return ``data/<variable>/`` or None."""
+        if self.data_root is None:
             return None
-        d = self.workspace_root / "data" / variable_name
+        d = self.data_root / variable_name
         d.mkdir(parents=True, exist_ok=True)
         return d
 
-    def _load_variable(self, variable_name: str, config, **extra_kwargs) -> LoadResult:
+    def load_variable(
+        self,
+        variable_name: str,
+        config: Any,
+        *,
+        project_extent: tuple | None = None,
+        project_period: tuple[datetime, datetime] | None = None,
+        export_dir: str | Path | None = None,
+        **extra_kwargs: Any,
+    ) -> LoadResult:
         """Instantiate the right manager and load data."""
         cls = get_manager_class(variable_name)
         mgr = cls(
             config=config,
             catalog=self.catalog,
-            project_extent=self.project_extent,
-            project_period=self.project_period,
+            project_extent=self.project_extent if project_extent is None else project_extent,
+            project_period=self.project_period if project_period is None else project_period,
             data_dir=self._data_dir(variable_name),
             **extra_kwargs,
         )
-        return mgr.load()
+        result = mgr.load()
+        if export_dir is not None:
+            mgr.export(result, Path(export_dir))
+        return result
 
-    def load_hydrography(self, config, *, geographic, out_path):
+    def load_dem(
+        self,
+        config: Any,
+        *,
+        geographic: Any = None,
+        project_extent: tuple | None = None,
+    ) -> LoadResult:
+        """Load DEM data."""
+        from hydromodpy.data.variables.dem.manager import DemManager
+
+        manager = DemManager(
+            config=config,
+            catalog=self.catalog,
+            project_extent=self.project_extent if project_extent is None else project_extent,
+            data_dir=self._data_dir("dem"),
+            geographic=geographic,
+        )
+        return manager.load()
+
+    def load_geology(
+        self,
+        config: Any,
+        *,
+        geographic: Any = None,
+        project_extent: tuple | None = None,
+    ) -> LoadResult:
+        """Load geology data."""
+        from hydromodpy.data.variables.geology.manager import GeologyManager
+
+        manager = GeologyManager(
+            config=config,
+            catalog=self.catalog,
+            project_extent=self.project_extent if project_extent is None else project_extent,
+            data_dir=self._data_dir("geology"),
+            geographic=geographic,
+        )
+        return manager.load()
+
+    def load_hydrography(
+        self,
+        config: Any,
+        *,
+        geographic: Any,
+        out_path: str | Path,
+        stable_folder: str | Path | None = None,
+    ) -> LoadResult:
         """Load hydrography data (vector or raster) with catalog caching."""
         from hydromodpy.data.variables.hydrography.manager import HydrographyManager
 
-        mgr = HydrographyManager(
+        manager = HydrographyManager(
             config=config,
             geographic=geographic,
             out_path=out_path,
             catalog=self.catalog,
             data_dir=self._data_dir("hydrography"),
+            stable_folder=stable_folder,
         )
-        return mgr.load()
+        return manager.load()
+
+    def load_oceanic(
+        self,
+        config: Any,
+        *,
+        geographic: Any = None,
+        project_extent: tuple | None = None,
+        project_period: tuple[datetime, datetime] | None = None,
+    ) -> LoadResult:
+        return self.load_variable(
+            "oceanic",
+            config,
+            project_extent=project_extent,
+            project_period=project_period,
+            geographic=geographic,
+        )
 
     def load_hydrometry(self, config) -> LoadResult:
-        return self._load_variable("hydrometry", config)
+        return self.load_variable("hydrometry", config)
 
     def load_piezometry(self, config) -> LoadResult:
-        return self._load_variable("piezometry", config)
+        return self.load_variable("piezometry", config)
 
     def load_water_quality(self, config) -> LoadResult:
-        return self._load_variable("water_quality", config)
+        return self.load_variable("water_quality", config)
 
     def load_intermittency(self, config) -> LoadResult:
-        return self._load_variable("intermittency", config)
+        return self.load_variable("intermittency", config)
 
     def load_recharge(self, config) -> LoadResult:
-        return self._load_variable("recharge", config)
+        return self.load_variable("recharge", config)
 
     def load_runoff(self, config) -> LoadResult:
-        return self._load_variable("runoff", config)
+        return self.load_variable("runoff", config)
 
     def load_precipitation(self, config) -> LoadResult:
-        return self._load_variable("precipitation", config)
+        return self.load_variable("precipitation", config)
 
     def load_etp(self, config) -> LoadResult:
-        return self._load_variable("etp", config)
+        return self.load_variable("etp", config)
 
     def load_temperature(self, config) -> LoadResult:
-        return self._load_variable("temperature", config)
+        return self.load_variable("temperature", config)
 
     def load_wind(self, config) -> LoadResult:
-        return self._load_variable("wind", config)
+        return self.load_variable("wind", config)
 
     def load_humidity(self, config) -> LoadResult:
-        return self._load_variable("humidity", config)
+        return self.load_variable("humidity", config)
 
     def load_radiation(self, config) -> LoadResult:
-        return self._load_variable("radiation", config)
+        return self.load_variable("radiation", config)
 
     def load_soil_moisture(self, config) -> LoadResult:
-        return self._load_variable("soil_moisture", config)
+        return self.load_variable("soil_moisture", config)
 
     def cache_info(self, variable: str | None = None) -> pd.DataFrame:
         """Show catalog entries."""

@@ -67,6 +67,35 @@ if TYPE_CHECKING:
 
 
 class Run:
+    """Read one persisted simulation from a HydroModPy catalog.
+
+    ``Run`` is a lightweight view over one row in the ``simulations`` table.
+    It exposes metadata, tabular outputs, field arrays, geographic features,
+    and convenience helpers without requiring callers to know whether data are
+    stored in DuckDB, Parquet, or Zarr.
+
+    Parameters
+    ----------
+    sim_id
+        Simulation UUID stored in the catalog.
+    catalog
+        Open ``SimulationCatalog`` that owns the run metadata and storage paths.
+
+    Examples
+    --------
+    >>> catalog = hmp.open("~/hmp_workspace")
+    >>> run = catalog.latest()
+    >>> run.summary()
+    >>> run.field("head", timestep=-1)
+
+    See Also
+    --------
+    hydromodpy.results.catalog.SimulationCatalog
+        Workspace-level catalog that creates ``Run`` instances.
+    hydromodpy.results.simulation_group.SimulationGroup
+        Collection view for many runs.
+    """
+
     def __init__(self, sim_id: str, catalog: SimulationCatalog) -> None:
         self._sim_id = sim_id
         self._catalog = catalog
@@ -100,38 +129,47 @@ class Run:
 
     @property
     def sim_id(self) -> str:
+        """Simulation UUID persisted in the catalog."""
         return self._sim_id
 
     @property
     def name(self) -> str | None:
+        """Optional human-readable run name."""
         return self._load_row().get("name")
 
     @property
     def project(self) -> str:
+        """Project label associated with this run."""
         return self._load_row()["project"]
 
     @property
     def solver(self) -> str | None:
+        """Flow solver name recorded for this run."""
         return self._load_row().get("solver")
 
     @property
     def solver_category(self) -> str | None:
+        """Solver family category, such as ``"distributed"`` or ``"lumped"``."""
         return self._load_row().get("solver_category")
 
     @property
     def flow_regime(self) -> str | None:
+        """Flow regime recorded by the workflow, such as steady or transient."""
         return self._load_row().get("flow_regime")
 
     @property
     def status(self) -> str | None:
+        """Run status stored in the catalog."""
         return self._load_row().get("status")
 
     @property
     def created_at(self):
+        """Catalog timestamp for run creation."""
         return self._load_row().get("created_at")
 
     @property
     def duration_s(self) -> float | None:
+        """Wall-clock run duration in seconds when available."""
         return self._load_row().get("duration_s")
 
     @property
@@ -165,18 +203,22 @@ class Run:
 
     @property
     def tags(self) -> list[str] | None:
+        """Optional tags attached to this simulation."""
         return self._load_row().get("tags")
 
     @property
     def n_layers(self) -> int | None:
+        """Number of vertical layers in the persisted simulation mesh."""
         return self._load_row().get("n_layers")
 
     @property
     def n_cells(self) -> int | None:
+        """Number of active cells or faces in the persisted simulation mesh."""
         return self._load_row().get("n_cells")
 
     @property
     def n_timesteps(self) -> int | None:
+        """Number of persisted timesteps when the workflow is time-dependent."""
         return self._load_row().get("n_timesteps")
 
     # -- Summary -------------------------------------------------------------
@@ -245,6 +287,13 @@ class Run:
 
     @property
     def metrics(self) -> pd.DataFrame:
+        """Performance and diagnostic metrics recorded for this run.
+
+        Returns
+        -------
+        pandas.DataFrame
+            Long-form table with ``station_id``, ``metric_name``, and ``value``.
+        """
         return self._catalog.connection.execute(
             "SELECT station_id, metric_name, value "
             "FROM metrics WHERE sim_id = ? ORDER BY station_id, metric_name",
@@ -253,6 +302,14 @@ class Run:
 
     @property
     def provenance(self) -> pd.DataFrame:
+        """Input-data provenance rows consumed by this run.
+
+        Returns
+        -------
+        pandas.DataFrame
+            Long-form table with source references, checksums, periods, and
+            record counts.
+        """
         return self._catalog.connection.execute(
             "SELECT variable, source_type, source_ref, "
             "payload_sha256 AS checksum, "
@@ -269,6 +326,27 @@ class Run:
         station: str,
         period: tuple | None = None,
     ) -> pd.Series:
+        """Return one simulated time series.
+
+        Parameters
+        ----------
+        variable
+            Catalog variable name, such as ``"discharge"`` or ``"head"``.
+        station
+            Station id stored in the timeseries table.
+        period
+            Optional ``(start, end)`` datetime bounds.
+
+        Returns
+        -------
+        pandas.Series
+            Time-indexed values with timezone-normalized UTC timestamps.
+
+        Raises
+        ------
+        KeyError
+            Raised when no matching time series exists.
+        """
         query = (
             "SELECT datetime, value FROM timeseries "
             "WHERE sim_id = ? AND station_id = ? AND variable = ?"
@@ -359,6 +437,22 @@ class Run:
         zone_id: str | None = None,
         period: tuple[int, int] | None = None,
     ) -> pd.DataFrame:
+        """Return water budget rows for this simulation.
+
+        Parameters
+        ----------
+        component
+            Optional budget component filter.
+        zone_id
+            Optional zone filter.
+        period
+            Optional inclusive timestep range ``(start, end)``.
+
+        Returns
+        -------
+        pandas.DataFrame
+            Budget rows matching the filters.
+        """
         query = "SELECT * FROM budgets WHERE sim_id = ?"
         params: list = [self._sim_id]
         if component is not None:
@@ -374,6 +468,7 @@ class Run:
 
     @property
     def mass_balance(self) -> pd.DataFrame:
+        """Mass-balance diagnostics ordered by timestep."""
         return self._catalog.connection.execute(
             "SELECT * FROM mass_balance WHERE sim_id = ? ORDER BY timestep",
             [self._sim_id],
@@ -385,6 +480,27 @@ class Run:
         timestep: int = -1,
         layer: int | None = None,
     ) -> np.ndarray:
+        """Read one field array from the simulation Zarr store.
+
+        Parameters
+        ----------
+        variable
+            Public field name registered in ``hydromodpy.results.field_registry``.
+        timestep
+            Timestep index. Negative values count from the end.
+        layer
+            Optional layer index for three-dimensional fields.
+
+        Returns
+        -------
+        numpy.ndarray
+            Field values for the requested time and layer selection.
+
+        See Also
+        --------
+        Run.array
+            Chainable array provider for xarray-oriented access.
+        """
         sz = self._catalog.open_zarr(self._sim_id)
         try:
             n_ts = self._load_row().get("n_timesteps")
@@ -413,6 +529,13 @@ class Run:
 
     @property
     def mesh(self) -> Mesh:
+        """Unstructured simulation mesh used by field arrays.
+
+        Raises
+        ------
+        RuntimeError
+            Raised for lumped simulations that have no spatial grid.
+        """
         if self._load_row().get("solver_category") == "lumped":
             raise RuntimeError("lumped simulation has no spatial grid")
         sz = self._catalog.open_zarr(self._sim_id)
@@ -429,6 +552,18 @@ class Run:
     # -- Geographic ----------------------------------------------------------
 
     def geographic(self, feature_name: str) -> gpd.GeoDataFrame:
+        """Return a persisted geographic feature for this run.
+
+        Parameters
+        ----------
+        feature_name
+            Feature table name stored in the catalog.
+
+        Returns
+        -------
+        geopandas.GeoDataFrame
+            Geographic feature rows for this simulation.
+        """
         return self._catalog.read_geographic_feature(self._sim_id, feature_name)
 
     def available_hydrographic_network_roles(self) -> list[str]:
@@ -538,6 +673,18 @@ class Run:
         )
 
     def geographic_raster(self, name: str) -> RasterField:
+        """Return one geographic raster persisted for this run.
+
+        Parameters
+        ----------
+        name
+            Raster name stored in the simulation Zarr store.
+
+        Returns
+        -------
+        RasterField
+            Array data and raster metadata.
+        """
         sz = self._catalog.open_zarr(self._sim_id)
         try:
             data, meta = sz.read_geographic_raster(name)
@@ -718,6 +865,7 @@ class Run:
 
     @property
     def parent_sim_id(self) -> str | None:
+        """Parent simulation id when this run was created from another run."""
         val = self._load_row().get("parent_sim_id")
         return str(val) if val is not None else None
 
@@ -821,6 +969,7 @@ class Run:
 
     @property
     def display_capabilities(self) -> list[str]:
+        """Figure capability names that can be rendered for this run."""
         caps = ["piezometric_map", "water_budget"]
         row = self._load_row()
 

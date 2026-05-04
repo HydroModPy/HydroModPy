@@ -54,7 +54,6 @@ Focused Reading
    :maxdepth: 1
 
    ../../modflow6-vs-modflownwt-scientific-comparison
-   ../../worked-modflow-case-linearized-unconfined-recharge-periodic-1d
    ../../worked-modflow-case-nancon-transient-nwt-etp-evt
 
 Typical Use Cases
@@ -174,5 +173,4 @@ The short TOML shape above means:
 Related Architecture
 --------------------
 
-- :doc:`/architecture/solver/flow/modflow/modflownwt-stack`
 - :doc:`../../../../architecture/solver/modflownwt-architecture-notes`

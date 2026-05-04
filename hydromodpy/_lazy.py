@@ -52,7 +52,6 @@ LAZY_IMPORTS: dict[str, str] = {
     "DemConfig": "hydromodpy.data.variables.dem.config",
     "HydrographyConfig": "hydromodpy.data.variables.hydrography.config",
     "HydrographyManager": "hydromodpy.data.variables.hydrography.manager",
-    "HydrographyResult": "hydromodpy.data.variables.hydrography.result",
     "IntermittencyConfig": "hydromodpy.data.variables.intermittency.config",
     "IntermittencyManager": "hydromodpy.data.variables.intermittency.manager",
     "OceanicConfig": "hydromodpy.data.variables.oceanic",

@@ -63,7 +63,15 @@ CalibrationMethod = str
 
 
 class CalibParameterDecl(HydroModelBase):
-    """Declaration of one calibratable parameter in the TOML."""
+    """User declaration for one calibrated parameter.
+
+    The declaration is read from ``[calibration.parameters.<name>]``. It
+    defines the physical bounds, the sampling transform, and optionally the
+    target path in ``HydroModPyConfig`` that receives each sampled value.
+
+    Use ``mode="replace"`` for direct parameter values and ``mode="scale"``
+    for multiplicative factors applied to an existing config value.
+    """
 
     model_config = ConfigDict(extra="forbid")
 
@@ -106,7 +114,15 @@ class CalibParameterDecl(HydroModelBase):
 
 
 class CalibOutputDecl(HydroModelBase):
-    """Declaration of one observable extracted from a calibration run."""
+    """Observable extracted from every candidate simulation.
+
+    Outputs connect model results to objective blocks. A declaration selects
+    the simulated variable, the spatial support used for extraction, the time
+    slice, and optional observed values for synthetic or benchmark cases.
+
+    Supported spatial supports are ``"point"``, ``"boundary"``, and
+    ``"cell"``. Each support validates the fields it needs.
+    """
 
     model_config = ConfigDict(extra="forbid")
 
@@ -186,7 +202,13 @@ class CalibOutputDecl(HydroModelBase):
 
 
 class CalibObjectiveBlockDecl(HydroModelBase):
-    """Declaration of one weighted block inside a composite objective."""
+    """Weighted metric block used by a composite objective.
+
+    A block consumes one or more named outputs, applies one metric, and
+    contributes ``weight`` to the final minimization cost. Blocks make mixed
+    objectives explicit, for example combining heads, discharge, and transport
+    signals in one calibration session.
+    """
 
     model_config = ConfigDict(extra="forbid")
 
@@ -218,7 +240,16 @@ class CalibObjectiveBlockDecl(HydroModelBase):
 
 
 class CalibrationConfig(HydroModelBase):
-    """Top-level ``[calibration]`` configuration."""
+    """Top-level ``[calibration]`` section.
+
+    The config selects the optimizer, iteration budget, candidate persistence
+    policy, parameter declarations, observable outputs, and objective blocks.
+    It is the stable user-facing schema used by CLI calibration and
+    ``Project.calibrate``.
+
+    When no explicit objective block is declared, HydroModPy can synthesize one
+    from ``objective`` and ``variable`` if the matching output exists.
+    """
 
     model_config = ConfigDict(extra="forbid")
 

@@ -14,7 +14,12 @@ from hydromodpy.data.base_config import BaseVariableConfig
 
 
 class WaterQualitySourceConfig(HydroModelBase):
-    """Configuration for ONE water quality data source."""
+    """Configuration for one water quality data source.
+
+    Water-quality sources load physico-chemical observations for river or
+    piezometer sites. The source selects local files or Hub'Eau, optional
+    parameter filters, station filters, and spatial discovery rules.
+    """
 
     model_config = ConfigDict(extra="forbid")
 
@@ -104,7 +109,12 @@ class WaterQualitySourceConfig(HydroModelBase):
 
 
 class WaterQualityConfig(BaseVariableConfig):
-    """Top-level water quality configuration (list of sources)."""
+    """Top-level water quality configuration.
+
+    The section groups water-quality sources and an optional date window. It is
+    designed for post-processing, model evaluation, and calibration workflows
+    that compare simulated variables against observed chemistry.
+    """
 
     _TOML_SECTION = "water_quality"
 

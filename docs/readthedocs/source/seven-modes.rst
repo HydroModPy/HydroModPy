@@ -1,7 +1,7 @@
 Usage Modes
 ===========
 
-HydroModPy exposes a single :class:`~hydromodpy.Project` facade and seven
+HydroModPy exposes a single :class:`~hydromodpy.project.Project` facade and seven
 supported usage modes. Every mode feeds the same pipeline. Only the
 construction layer differs. Pick the mode that matches your workflow:
 TOML for reproducible runs, Python for prototyping, notebook cells for
@@ -189,7 +189,7 @@ The reference file is ``run_cellular.py`` in the nancon example.
 Mode 7. Primitive objects
 -------------------------
 
-Use the underlying primitives without a :class:`~hydromodpy.Project`
+Use the underlying primitives without a :class:`~hydromodpy.project.Project`
 facade. Useful for unit tests, for one-off geographic preprocessing, or
 for embedding a single component in another workflow.
 

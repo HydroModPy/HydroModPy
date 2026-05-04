@@ -19,7 +19,13 @@ from hydromodpy.spatial.geographic.geographic_paths import GeographicPaths
 
 @dataclass(frozen=True)
 class DomainRasterProducts:
-    """Raster artifacts produced by the historical watershed pipeline."""
+    """Raster bundle produced on the watershed support.
+
+    The fields are file paths for the box-buffer, watershed-buffer, and
+    watershed-only DEM, corrected DEM, D8 direction raster, and watershed
+    contour raster. Names intentionally match the historical artifacts consumed
+    by legacy solver and post-processing code.
+    """
 
     watershed_box_buff_dem: str
     watershed_box_buff_fill: str
@@ -91,10 +97,12 @@ def build_domain_rasters(
     crs_project: str | None = None,
     backend: object | None = None,
 ) -> DomainRasterProducts:
-    """
-    Build the raster bundle still consumed by legacy solvers and postprocess.
+    """Build the raster bundle consumed by solvers and post-processing.
 
-    The generated files preserve historical names and nodata conventions.
+    Inputs are the regional DEM/flow products, watershed polygons, and
+    canonical geographic paths. Outputs preserve historical filenames, CRS
+    handling, and nodata conventions so existing MODFLOW and reporting code can
+    consume the artifacts unchanged.
     """
     tool = resolve_delineation_backend(backend)
 

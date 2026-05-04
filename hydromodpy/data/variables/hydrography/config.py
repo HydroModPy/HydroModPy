@@ -13,7 +13,13 @@ from hydromodpy.core.tracking import InputFile
 
 
 class HydrographySourceConfig(HydroModelBase):
-    """Configuration for ONE hydrography data source."""
+    """Configuration for one hydrography data source.
+
+    Hydrography sources describe river-network vector or raster data. Use
+    ``custom`` for local files, ``osm`` for OpenStreetMap waterways,
+    ``bdtopage`` for the Sandre WFS service, or ``euhydro`` for the EEA
+    EU-Hydro service.
+    """
 
     model_config = ConfigDict(extra="forbid")
 
@@ -75,7 +81,12 @@ class HydrographySourceConfig(HydroModelBase):
 
 
 class HydrographyConfig(HydroModelBase):
-    """Top-level hydrography configuration (list of sources)."""
+    """Top-level hydrography configuration.
+
+    The section lists stream-network sources used by data loading and boundary
+    preparation. It is commonly inferred when ``flow.active_bc`` contains a
+    stream boundary condition.
+    """
 
     model_config = ConfigDict(extra="forbid")
 

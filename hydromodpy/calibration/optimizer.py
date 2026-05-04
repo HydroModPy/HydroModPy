@@ -22,7 +22,12 @@ adapters; NaN would poison their internal updates.
 
 @dataclass(frozen=True, slots=True)
 class ParamSuggestion:
-    """A candidate parameter point proposed by an optimizer."""
+    """Candidate parameter point proposed by an optimizer.
+
+    ``values`` maps calibrated parameter names to physical values, not
+    transformed coordinates. ``trial_id`` is stable within one optimizer run
+    and is used to join suggestions, evaluations, and persisted iterations.
+    """
 
     trial_id: int
     values: Mapping[str, float]
@@ -31,7 +36,12 @@ class ParamSuggestion:
 
 @dataclass(frozen=True, slots=True)
 class EvaluationResult:
-    """Outcome of evaluating one suggestion."""
+    """Objective result produced after evaluating one suggestion.
+
+    The result stores the scalar minimization cost, the optional simulation id,
+    execution status, timing, component diagnostics, cache provenance, and any
+    backend-specific metadata needed for reports.
+    """
 
     trial_id: int
     sim_id: str | None
@@ -45,7 +55,12 @@ class EvaluationResult:
 
 @runtime_checkable
 class Optimizer(Protocol):
-    """Ask/tell Protocol that every optimizer adapter implements."""
+    """Ask/tell Protocol implemented by optimizer adapters.
+
+    ``ask`` proposes one or more parameter points. ``tell`` feeds completed
+    evaluations back to the optimizer. ``best`` and ``converged`` expose the
+    state needed by ``CalibrationEngine``.
+    """
 
     name: str
 
@@ -64,7 +79,11 @@ _BUILTIN: dict[str, Callable[..., Optimizer]] = {}
 
 
 def register_optimizer(name: str) -> Callable[[type], type]:
-    """Decorator to register a built-in optimizer under ``name``."""
+    """Register a built-in optimizer adapter under a public method name.
+
+    Adapter modules call this decorator at import time. The registered name is
+    the value accepted by ``CalibrationConfig.method`` and ``build_optimizer``.
+    """
 
     def deco(cls: type) -> type:
         _BUILTIN[name] = cls

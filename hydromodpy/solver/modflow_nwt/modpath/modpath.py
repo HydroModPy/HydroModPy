@@ -44,7 +44,16 @@ logger = get_logger(__name__)
 
 
 class Modpath(Solver):
-    """Particle tracking driver coordinating MODPATH-6 around a MODFLOW-NWT run."""
+    """Particle tracking driver around a completed MODFLOW-NWT run.
+
+    ``Modpath`` builds a MODPATH-6 input deck from the paired groundwater flow
+    model, resolves particle starting zones, runs pathline tracking, filters
+    results, and exports shapefiles for post-processing.
+
+    A finished ``ModflowNwt`` instance must be supplied through
+    ``model_modflow`` because MODPATH reuses the MODFLOW grid, head file, and
+    cell-by-cell budget.
+    """
 
     def __init__(
         self,
@@ -64,7 +73,12 @@ class Modpath(Solver):
         sel_random: int | None = None,
         sel_slice: int | None = None,
     ) -> None:
-        """Configure the MODPATH driver from a paired MODFLOW-NWT model."""
+        """Configure particle tracking from a paired MODFLOW-NWT model.
+
+        Parameters select the working folder, executable location, tracking
+        direction, particle zone, bore depth, cell subdivision, and optional
+        random or slice-based particle selection.
+        """
         if model_modflow is None:
             raise ValueError("model_modflow must be provided to initialize Modpath")
         if not hasattr(model_modflow, "mf"):
