@@ -8,7 +8,6 @@ from typing import Any
 from .gallery_geometry_specs import build_geometry_specs
 from .gallery_hydraulic_property_specs import build_hydraulic_property_specs
 from .gallery_mesh_specs import MESH_GALLERY_METRIC_SPECS, build_mesh_static_specs
-from .gallery_simulation_comparison_specs import build_simulation_comparison_specs
 from .gallery_regional_lab_specs import build_regional_lab_specs
 from .gallery_schema import (
     CATEGORY_SPECS,
@@ -17,6 +16,7 @@ from .gallery_schema import (
     GalleryImageAsset,
     GalleryMetricSpec,
 )
+from .gallery_simulation_comparison_specs import build_simulation_comparison_specs
 from .gallery_simulation_specs import build_simulation_specs
 from .gallery_validation_notes_specs import build_validation_note_specs
 from .manifest_loader import (
@@ -49,9 +49,7 @@ def _validate_gallery_specs(
     return _validate_gallery_specs_from_module(specs)
 
 
-def build_repo_mesh_gallery_case_specs(
-    *, repo_root=None
-) -> tuple[GalleryCaseSpec, ...]:
+def build_repo_mesh_gallery_case_specs(*, repo_root=None) -> tuple[GalleryCaseSpec, ...]:
     """Discover versioned mesh-gallery cases under ``examples/projects/07_mesh_gallery``."""
 
     scale_rank = {scale: index for index, scale in enumerate(MESH_GALLERY_SCALE_ORDER)}
@@ -81,9 +79,7 @@ def build_repo_mesh_gallery_case_specs(
         variant_label = str(payload.get("variant_label", variant))
         family_order = int(payload.get("case_family_order", scale_rank.get(scale, 999)))
         site_tabs_order = int(payload.get("site_tabs_order", 999))
-        preferred_doc_figure_path = str(
-            payload.get("preferred_doc_figure_path", "")
-        ).strip()
+        preferred_doc_figure_path = str(payload.get("preferred_doc_figure_path", "")).strip()
         preferred_doc_regional_figure_path = str(
             payload.get("preferred_doc_regional_figure_path", "")
         ).strip()
@@ -113,9 +109,7 @@ def build_repo_mesh_gallery_case_specs(
                             )
                         ),
                         alt_text=str(
-                            payload.get(
-                                "regional_image_alt_text", f"{title} regional context"
-                            )
+                            payload.get("regional_image_alt_text", f"{title} regional context")
                         ),
                         source_path=preferred_doc_regional_figure_path,
                     )
@@ -141,8 +135,7 @@ def build_repo_mesh_gallery_case_specs(
             if family_key != "":
                 comparison_group = f"{family_key}::outlet::{outlet_id}"
                 comparison_group_title = (
-                    comparison_group_title
-                    or f"{family_label or scale_label}, outlet {outlet_id}"
+                    comparison_group_title or f"{family_label or scale_label}, outlet {outlet_id}"
                 )
             else:
                 comparison_group = f"{scale}::outlet::{outlet_id}"
@@ -186,28 +179,16 @@ def build_repo_mesh_gallery_case_specs(
                     generator="mesh_viewer",
                     image_assets=tuple(image_assets),
                     metric_specs=MESH_GALLERY_METRIC_SPECS,
-                    case_setup=tuple(
-                        str(item) for item in payload.get("case_setup", ())
-                    ),
-                    key_parameters=tuple(
-                        str(item) for item in payload.get("key_parameters", ())
-                    ),
-                    how_to_read=tuple(
-                        str(item) for item in payload.get("how_to_read", ())
-                    ),
-                    next_steps=tuple(
-                        str(item) for item in payload.get("next_steps", ())
-                    ),
+                    case_setup=tuple(str(item) for item in payload.get("case_setup", ())),
+                    key_parameters=tuple(str(item) for item in payload.get("key_parameters", ())),
+                    how_to_read=tuple(str(item) for item in payload.get("how_to_read", ())),
+                    next_steps=tuple(str(item) for item in payload.get("next_steps", ())),
                     reference_highlights=tuple(
                         str(item) for item in payload.get("reference_highlights", ())
                     ),
-                    equations_rst=tuple(
-                        str(item) for item in payload.get("equations_rst", ())
-                    ),
+                    equations_rst=tuple(str(item) for item in payload.get("equations_rst", ())),
                     walkthrough_doc=(
-                        str(payload["walkthrough_doc"])
-                        if payload.get("walkthrough_doc")
-                        else None
+                        str(payload["walkthrough_doc"]) if payload.get("walkthrough_doc") else None
                     ),
                     walkthrough_title=(
                         str(payload["walkthrough_title"])
@@ -306,9 +287,7 @@ def build_gallery_specs(
     validation_specs = _build_validation_gallery_specs() if needs_validation else ()
     calibration_specs = _build_calibration_gallery_specs() if needs_calibration else ()
 
-    return _validate_gallery_specs(
-        static_specs + validation_specs + calibration_specs + mesh_specs
-    )
+    return _validate_gallery_specs(static_specs + validation_specs + calibration_specs + mesh_specs)
 
 
 __all__ = [

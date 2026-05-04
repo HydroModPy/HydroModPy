@@ -69,9 +69,7 @@ def generate_comparison_figures(
         if summary.get("status") in {"completed", "reused"}
     }
     simulations = {
-        simulation.id: simulation
-        for simulation in cfg.comparison.simulation
-        if simulation.enabled
+        simulation.id: simulation for simulation in cfg.comparison.simulation if simulation.enabled
     }
 
     artifacts: list[dict[str, Any]] = []
@@ -135,11 +133,7 @@ def generate_comparison_figures(
         if reference_simulation is None:
             continue
         reference_payload = next(
-            (
-                payload
-                for payload in payloads
-                if payload.simulation_id == reference_simulation
-            ),
+            (payload for payload in payloads if payload.simulation_id == reference_simulation),
             None,
         )
         if reference_payload is None:
@@ -217,9 +211,7 @@ def generate_comparison_figures(
                                 f"{_slug(observable.name)}__fine_raster__"
                                 f"{_slug(payload.simulation_id)}.tif"
                             )
-                            if _write_geotiff(
-                                path=raster_path, array=array, extent=grid_extent
-                            ):
+                            if _write_geotiff(path=raster_path, array=array, extent=grid_extent):
                                 artifacts.append(
                                     {
                                         "kind": "fine_raster_geotiff",
@@ -262,16 +254,11 @@ def generate_comparison_figures(
                             ),
                             None,
                         )
-                        if (
-                            reference_array is not None
-                            and reference_payload is not None
-                        ):
+                        if reference_array is not None and reference_payload is not None:
                             for payload, array in regridded:
                                 if payload.simulation_id == reference_simulation:
                                     continue
-                                difference_array = np.asarray(
-                                    array - reference_array, dtype=float
-                                )
+                                difference_array = np.asarray(array - reference_array, dtype=float)
                                 triptych_path = figure_root / (
                                     f"{_slug(observable.name)}__fine_raster_triptych__"
                                     f"{_slug(reference_simulation)}__vs__{_slug(payload.simulation_id)}.png"

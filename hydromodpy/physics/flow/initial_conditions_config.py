@@ -81,16 +81,13 @@ def _normalize_single_ic_payload(
     ic_type = str(raw_type).strip().lower()
     if ic_type not in {"top", "top_offset", "bottom", "custom"}:
         raise ValueError(
-            f"{location_prefix}.type must be one of: "
-            "'top', 'top_offset', 'bottom', 'custom'"
+            f"{location_prefix}.type must be one of: 'top', 'top_offset', 'bottom', 'custom'"
         )
 
     explicit_units = _extract_explicit_units(payload_dict)
     if ic_type in {"custom", "top_offset"}:
         if "value" not in payload_dict:
-            raise ValueError(
-                f"{location_prefix}.value is required when type='{ic_type}'"
-            )
+            raise ValueError(f"{location_prefix}.value is required when type='{ic_type}'")
         payload_dict["value"] = parse_to_canonical_magnitude(
             payload_dict["value"],
             location=f"{location_prefix}.value",

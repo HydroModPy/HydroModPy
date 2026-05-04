@@ -125,9 +125,7 @@ class ComparisonObservable(HydroModelBase):
         if value is None:
             return None
         if not isinstance(value, list) or not value:
-            raise ValueError(
-                "comparison.observable.cell_indices must be a non-empty list"
-            )
+            raise ValueError("comparison.observable.cell_indices must be a non-empty list")
         indices = [int(item) for item in value]
         if any(index < 0 for index in indices):
             raise ValueError("comparison.observable.cell_indices must be >= 0")
@@ -139,25 +137,19 @@ class ComparisonObservable(HydroModelBase):
         if value is None:
             return None
         if not isinstance(value, list) or not value:
-            raise ValueError(
-                "comparison.observable.simulations must be a non-empty list"
-            )
+            raise ValueError("comparison.observable.simulations must be a non-empty list")
         cleaned = []
         for item in value:
             text = str(item).strip()
             if not text:
-                raise ValueError(
-                    "comparison.observable.simulations cannot contain empty ids"
-                )
+                raise ValueError("comparison.observable.simulations cannot contain empty ids")
             cleaned.append(text)
         return cleaned
 
     @model_validator(mode="after")
     def _validate_support_specific_fields(self) -> ComparisonObservable:
         if self.time is not None and self.time_window is not None:
-            raise ValueError(
-                "comparison.observable cannot declare both time and time_window"
-            )
+            raise ValueError("comparison.observable cannot declare both time and time_window")
         if self.support == "point":
             has_coordinates = self.x is not None and self.y is not None
             has_anchor = self.anchor_id is not None
@@ -188,9 +180,7 @@ class ComparisonObservable(HydroModelBase):
                 )
         elif self.support == "boundary":
             if self.boundary_id is None and not self.cell_indices:
-                raise ValueError(
-                    "boundary observables require boundary_id or cell_indices"
-                )
+                raise ValueError("boundary observables require boundary_id or cell_indices")
             if self.reducer is None:
                 object.__setattr__(self, "reducer", "sum")
         elif self.support == "cell_mask":
@@ -241,13 +231,8 @@ class ComparisonSection(HydroModelBase):
         observable_names = [observable.name for observable in self.observable]
         if len(set(observable_names)) != len(observable_names):
             raise ValueError("comparison.observable names must be unique")
-        if (
-            self.reference_simulation is not None
-            and self.reference_simulation not in set(ids)
-        ):
-            raise ValueError(
-                "comparison.reference_simulation must match a declared simulation id"
-            )
+        if self.reference_simulation is not None and self.reference_simulation not in set(ids):
+            raise ValueError("comparison.reference_simulation must match a declared simulation id")
         simulation_ids = set(ids)
         for observable in self.observable:
             if observable.simulations is None:
@@ -335,9 +320,7 @@ class ComparisonConfig(HydroModelBase):
 
         base_simulation_config_path: Path | None = None
         if section.base_simulation_config is not None:
-            base_simulation_config_path = Path(
-                section.base_simulation_config
-            ).expanduser()
+            base_simulation_config_path = Path(section.base_simulation_config).expanduser()
             if not base_simulation_config_path.is_absolute():
                 base_simulation_config_path = base_dir / base_simulation_config_path
             base_simulation_config_path = base_simulation_config_path.resolve()
@@ -352,9 +335,7 @@ class ComparisonConfig(HydroModelBase):
             anchors = _load_comparison_anchors(anchors_path)
             _apply_observable_anchors(section.observable, anchors)
         elif any(observable.anchor_id is not None for observable in section.observable):
-            raise ValueError(
-                "comparison.observable.anchor_id requires comparison.anchors_file"
-            )
+            raise ValueError("comparison.observable.anchor_id requires comparison.anchors_file")
 
         cfg = cls(
             config_path=resolved_config_path,
@@ -374,9 +355,8 @@ class ComparisonConfig(HydroModelBase):
             if not simulation.enabled:
                 continue
             has_direct_config = simulation.simulation_config is not None
-            has_generated_config = (
-                self.base_simulation_config_path is not None
-                and bool(simulation.overlay or simulation.solver)
+            has_generated_config = self.base_simulation_config_path is not None and bool(
+                simulation.overlay or simulation.solver
             )
             has_run_folder = simulation.run_folder is not None
             if not (has_direct_config or has_generated_config or has_run_folder):

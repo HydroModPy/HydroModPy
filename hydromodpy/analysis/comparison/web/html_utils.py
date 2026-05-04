@@ -3,8 +3,9 @@
 from __future__ import annotations
 
 import html
+from collections.abc import Iterable, Mapping
 from pathlib import Path
-from typing import Any, Iterable, Mapping
+from typing import Any
 
 
 def safe(value: Any) -> str:
@@ -36,9 +37,7 @@ def link_relative(web_dir: Path, path: Path) -> str:
         try:
             import os
 
-            return os.path.relpath(Path(path).resolve(), web_dir.resolve()).replace(
-                "\\", "/"
-            )
+            return os.path.relpath(Path(path).resolve(), web_dir.resolve()).replace("\\", "/")
         except Exception:
             return str(path)
 
@@ -56,14 +55,9 @@ def render_table(
     header = "".join(f"<th>{safe(label)}</th>" for _, label in columns)
     body_rows: list[str] = []
     for row in materialized:
-        cells = "".join(
-            f"<td>{safe(short(row.get(key, '')))}</td>" for key, _ in columns
-        )
+        cells = "".join(f"<td>{safe(short(row.get(key, '')))}</td>" for key, _ in columns)
         body_rows.append(f"<tr>{cells}</tr>")
-    return (
-        f"<table><thead><tr>{header}</tr></thead>"
-        f"<tbody>{''.join(body_rows)}</tbody></table>"
-    )
+    return f"<table><thead><tr>{header}</tr></thead><tbody>{''.join(body_rows)}</tbody></table>"
 
 
 def render_links(*, root: Path, web_dir: Path, links: Iterable[Path]) -> str:

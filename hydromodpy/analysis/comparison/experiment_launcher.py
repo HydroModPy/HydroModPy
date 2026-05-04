@@ -62,9 +62,8 @@ class SimulationComparisonLauncher:
         comparison_cfg = self._build_comparison_cfg(children)
         all_rows = self._extract_observables(comparison_cfg, simulation_summaries)
 
-        reference_simulation = (
-            comparison.reference_simulation
-            or self._first_completed_id(simulation_summaries)
+        reference_simulation = comparison.reference_simulation or self._first_completed_id(
+            simulation_summaries
         )
 
         audit = build_equivalence_audit(
@@ -136,8 +135,7 @@ class SimulationComparisonLauncher:
             "generated_config_cleanup_errors": cleanup_errors,
             "simulations": simulation_summaries,
             "observables": [
-                observable.model_dump(mode="json")
-                for observable in comparison.observable
+                observable.model_dump(mode="json") for observable in comparison.observable
             ],
         }
         manifest_path = comparison_root / "comparison_manifest.json"
@@ -184,10 +182,7 @@ class SimulationComparisonLauncher:
             except Exception as exc:
                 summary = self._failed_child_summary(child, exc)
             summaries.append(summary)
-            if (
-                summary["status"] == "failed"
-                and not self.cfg.comparison.continue_on_error
-            ):
+            if summary["status"] == "failed" and not self.cfg.comparison.continue_on_error:
                 raise RuntimeError(
                     f"Comparison child '{child.simulation_id}' failed: "
                     f"{summary.get('error_message', '')}"
@@ -200,9 +195,7 @@ class SimulationComparisonLauncher:
         result: ChildRunResult,
     ) -> dict[str, Any]:
         if child.config_path is None:
-            raise ValueError(
-                f"Comparison child '{child.simulation_id}' has no config_path"
-            )
+            raise ValueError(f"Comparison child '{child.simulation_id}' has no config_path")
         sim_id = result.sim_id
         if result.succeeded and sim_id is None:
             store, discovered = discover_result_store(child.config_path)
@@ -276,9 +269,7 @@ class SimulationComparisonLauncher:
             "solver": child.solver,
             "mesh_label": child.mesh_label,
             "mesh_mode": child.mesh_mode,
-            "config_path": (
-                None if child.config_path is None else str(child.config_path)
-            ),
+            "config_path": (None if child.config_path is None else str(child.config_path)),
             "run_folder": None if run_folder is None else str(run_folder),
             "run_name": child.run_name,
         }
@@ -297,9 +288,7 @@ class SimulationComparisonLauncher:
                 solver=child.solver,
                 mesh_label=child.mesh_label,
                 mesh_mode=child.mesh_mode,  # type: ignore[arg-type]
-                simulation_config=(
-                    None if child.config_path is None else str(child.config_path)
-                ),
+                simulation_config=(None if child.config_path is None else str(child.config_path)),
                 run_folder=None if child.run_folder is None else str(child.run_folder),
             )
             for child in children
@@ -332,8 +321,7 @@ class SimulationComparisonLauncher:
     ) -> list[dict[str, Any]]:
         rows: list[dict[str, Any]] = []
         simulations = {
-            simulation.id: simulation
-            for simulation in comparison_cfg.comparison.simulation
+            simulation.id: simulation for simulation in comparison_cfg.comparison.simulation
         }
         for summary in simulation_summaries:
             if summary.get("status") not in {"completed", "reused"}:
@@ -345,11 +333,7 @@ class SimulationComparisonLauncher:
             sim_id = None
             try:
                 raw_config_path = summary.get("config_path")
-                config_path = (
-                    None
-                    if raw_config_path in (None, "")
-                    else Path(str(raw_config_path))
-                )
+                config_path = None if raw_config_path in (None, "") else Path(str(raw_config_path))
                 preferred_sim_id = summary.get("sim_id")
                 store = None
                 sim_id = None
@@ -357,17 +341,11 @@ class SimulationComparisonLauncher:
                     store, sim_id = discover_result_store(
                         config_path,
                         preferred_sim_id=(
-                            None
-                            if preferred_sim_id in (None, "")
-                            else str(preferred_sim_id)
+                            None if preferred_sim_id in (None, "") else str(preferred_sim_id)
                         ),
                     )
                 else:
-                    sim_id = (
-                        None
-                        if preferred_sim_id in (None, "")
-                        else str(preferred_sim_id)
-                    )
+                    sim_id = None if preferred_sim_id in (None, "") else str(preferred_sim_id)
                 simulation_rows = extract_observable_rows(
                     comparison_id=str(self.cfg.comparison.comparison_id),
                     simulation=simulation,
@@ -410,9 +388,7 @@ class SimulationComparisonLauncher:
         """Remove generated child TOMLs when the comparison config requests it."""
         errors: list[str] = []
         generated_children = [
-            child
-            for child in children
-            if child.generated_config and child.config_path is not None
+            child for child in children if child.generated_config and child.config_path is not None
         ]
         generated_dirs = {child.config_path.parent for child in generated_children}
         for child in generated_children:

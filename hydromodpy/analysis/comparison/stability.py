@@ -119,9 +119,7 @@ def load_stability_targets(
                     payload.get("required_files", _DEFAULT_REQUIRED_FILES)
                 ),
                 required_figures=_as_string_tuple(payload.get("required_figures", [])),
-                required_simulations=_as_string_tuple(
-                    payload.get("required_simulations", [])
-                ),
+                required_simulations=_as_string_tuple(payload.get("required_simulations", [])),
                 metric_limits=metric_limits,
             )
         )
@@ -178,9 +176,7 @@ def validate_stability_target(
             f"{audit_status!r} is not in allowed_audit_status={target.allowed_audit_status!r}"
         )
 
-    manifest = _load_json_if_present(
-        target.comparison_root / "comparison_manifest.json"
-    )
+    manifest = _load_json_if_present(target.comparison_root / "comparison_manifest.json")
     if target.required_simulations:
         _check_required_simulations(
             target=target,
@@ -324,9 +320,7 @@ def _check_metric_limit(
     for field, upper_bound in metric_limit.limits.items():
         value = row.get(field)
         if value is None:
-            add_error(
-                f"{metric_limit.simulation_id}::{metric_limit.observable}.{field} is missing"
-            )
+            add_error(f"{metric_limit.simulation_id}::{metric_limit.observable}.{field} is missing")
             continue
         if abs(float(value)) > float(upper_bound):
             add_error(

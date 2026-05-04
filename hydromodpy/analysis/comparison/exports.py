@@ -429,9 +429,7 @@ def write_native_timeseries_exports(
     tables: dict[str, dict[str, Any]] = {}
     for summary in _completed_simulation_summaries(simulation_summaries):
         run_folder = Path(str(summary.get("run_folder", "")))
-        source_path = (
-            run_folder / "_postprocess" / "_timeseries" / "_simulated_timeseries.csv"
-        )
+        source_path = run_folder / "_postprocess" / "_timeseries" / "_simulated_timeseries.csv"
         loaded = _load_simulated_timeseries_csv(source_path)
         if loaded is None:
             continue
@@ -439,8 +437,7 @@ def write_native_timeseries_exports(
         numeric_columns = {
             key
             for key in raw_rows[0].keys()
-            if key != "date"
-            and any(_as_float(row.get(key)) is not None for row in raw_rows)
+            if key != "date" and any(_as_float(row.get(key)) is not None for row in raw_rows)
         }
         tables[str(summary.get("id", ""))] = {
             "simulation_id": str(summary.get("id", "")),
@@ -505,17 +502,13 @@ def write_native_timeseries_exports(
         for row in long_rows:
             if str(row["simulation_id"]) == reference_simulation:
                 continue
-            reference_row = reference_index.get(
-                (str(row["variable"]), int(row["time_index"]))
-            )
+            reference_row = reference_index.get((str(row["variable"]), int(row["time_index"])))
             if reference_row is None:
                 continue
             signed_error = float(row["value"]) - float(reference_row["value"])
             absolute_error = abs(signed_error)
             ref_value = float(reference_row["value"])
-            relative_error = (
-                absolute_error / abs(ref_value) if ref_value != 0.0 else math.nan
-            )
+            relative_error = absolute_error / abs(ref_value) if ref_value != 0.0 else math.nan
             delta_rows.append(
                 {
                     "comparison_id": comparison_id,
@@ -558,8 +551,7 @@ def write_native_timeseries_exports(
         _write_csv(
             path,
             wide_rows,
-            ["comparison_id", "variable", "time_index", "time_label"]
-            + simulation_columns,
+            ["comparison_id", "variable", "time_index", "time_label"] + simulation_columns,
         )
         artifacts.append({"kind": "native_timeseries_wide_csv", "path": str(path)})
     if delta_rows:
@@ -605,19 +597,13 @@ def write_hydrographic_network_metrics_export(
     for summary in _completed_simulation_summaries(simulation_summaries):
         simulation_id = str(summary.get("id", ""))
         config_path_raw = summary.get("config_path")
-        config_path = (
-            None if config_path_raw in (None, "") else Path(str(config_path_raw))
-        )
+        config_path = None if config_path_raw in (None, "") else Path(str(config_path_raw))
         preferred_sim_id = summary.get("sim_id")
         preferred_run_name = summary.get("run_name")
         store, sim_id = discover_result_store(
             config_path,
-            preferred_sim_id=(
-                None if preferred_sim_id in (None, "") else str(preferred_sim_id)
-            ),
-            preferred_name=(
-                None if preferred_run_name in (None, "") else str(preferred_run_name)
-            ),
+            preferred_sim_id=(None if preferred_sim_id in (None, "") else str(preferred_sim_id)),
+            preferred_name=(None if preferred_run_name in (None, "") else str(preferred_run_name)),
         )
         if store is None or sim_id in (None, ""):
             skipped_simulations.append(
@@ -711,9 +697,7 @@ def write_hydrographic_network_metrics_export(
         logger.info(
             "Hydrographic-network metrics export skipped %d simulation(s): %s",
             len(skipped_simulations),
-            ", ".join(
-                str(item.get("simulation_id", "")) for item in skipped_simulations
-            ),
+            ", ".join(str(item.get("simulation_id", "")) for item in skipped_simulations),
         )
     if not rows:
         return artifacts, rows
@@ -747,19 +731,13 @@ def write_simulated_active_network_metrics_export(
     for summary in _completed_simulation_summaries(simulation_summaries):
         simulation_id = str(summary.get("id", ""))
         config_path_raw = summary.get("config_path")
-        config_path = (
-            None if config_path_raw in (None, "") else Path(str(config_path_raw))
-        )
+        config_path = None if config_path_raw in (None, "") else Path(str(config_path_raw))
         preferred_sim_id = summary.get("sim_id")
         preferred_run_name = summary.get("run_name")
         store, sim_id = discover_result_store(
             config_path,
-            preferred_sim_id=(
-                None if preferred_sim_id in (None, "") else str(preferred_sim_id)
-            ),
-            preferred_name=(
-                None if preferred_run_name in (None, "") else str(preferred_run_name)
-            ),
+            preferred_sim_id=(None if preferred_sim_id in (None, "") else str(preferred_sim_id)),
+            preferred_name=(None if preferred_run_name in (None, "") else str(preferred_run_name)),
         )
         if store is None or sim_id in (None, ""):
             skipped_simulations.append(
@@ -849,18 +827,14 @@ def write_simulated_active_network_metrics_export(
         logger.info(
             "Simulated-active network metrics export skipped %d simulation(s): %s",
             len(skipped_simulations),
-            ", ".join(
-                str(item.get("simulation_id", "")) for item in skipped_simulations
-            ),
+            ", ".join(str(item.get("simulation_id", "")) for item in skipped_simulations),
         )
     if not rows:
         return artifacts, rows
 
     path = comparison_root / "simulated_active_network_metrics.csv"
     _write_csv(path, rows, SIMULATED_ACTIVE_NETWORK_METRICS_FIELDS)
-    artifacts.append(
-        {"kind": "simulated_active_network_metrics_csv", "path": str(path)}
-    )
+    artifacts.append({"kind": "simulated_active_network_metrics_csv", "path": str(path)})
     logger.info(
         "Wrote simulated-active network metrics export for %d simulation(s) to %s",
         len(rows),
@@ -894,19 +868,13 @@ def write_simulated_active_network_overlap_metrics_export(
     for summary in _completed_simulation_summaries(simulation_summaries):
         simulation_id = str(summary.get("id", ""))
         config_path_raw = summary.get("config_path")
-        config_path = (
-            None if config_path_raw in (None, "") else Path(str(config_path_raw))
-        )
+        config_path = None if config_path_raw in (None, "") else Path(str(config_path_raw))
         preferred_sim_id = summary.get("sim_id")
         preferred_run_name = summary.get("run_name")
         store, sim_id = discover_result_store(
             config_path,
-            preferred_sim_id=(
-                None if preferred_sim_id in (None, "") else str(preferred_sim_id)
-            ),
-            preferred_name=(
-                None if preferred_run_name in (None, "") else str(preferred_run_name)
-            ),
+            preferred_sim_id=(None if preferred_sim_id in (None, "") else str(preferred_sim_id)),
+            preferred_name=(None if preferred_run_name in (None, "") else str(preferred_run_name)),
         )
         if store is None or sim_id in (None, ""):
             skipped_simulations.append(
@@ -945,9 +913,7 @@ def write_simulated_active_network_overlap_metrics_export(
             try:
                 mesh = sz.root.get("mesh")
                 has_mesh = (
-                    mesh is not None
-                    and "vertices" in mesh
-                    and "face_node_connectivity" in mesh
+                    mesh is not None and "vertices" in mesh and "face_node_connectivity" in mesh
                 )
             finally:
                 sz.close()
@@ -1008,9 +974,7 @@ def write_simulated_active_network_overlap_metrics_export(
 
     artifacts: list[dict[str, Any]] = []
     if skipped_simulations:
-        skipped_path = (
-            comparison_root / "simulated_active_network_overlap_metrics_skipped.json"
-        )
+        skipped_path = comparison_root / "simulated_active_network_overlap_metrics_skipped.json"
         skipped_payload = {
             "comparison_id": comparison_id,
             "network_role": network_role,
@@ -1040,18 +1004,14 @@ def write_simulated_active_network_overlap_metrics_export(
         logger.info(
             "Simulated-active network overlap metrics export skipped %d simulation(s): %s",
             len(skipped_simulations),
-            ", ".join(
-                str(item.get("simulation_id", "")) for item in skipped_simulations
-            ),
+            ", ".join(str(item.get("simulation_id", "")) for item in skipped_simulations),
         )
     if not rows:
         return artifacts, rows
 
     path = comparison_root / "simulated_active_network_overlap_metrics.csv"
     _write_csv(path, rows, SIMULATED_ACTIVE_NETWORK_OVERLAP_METRICS_FIELDS)
-    artifacts.append(
-        {"kind": "simulated_active_network_overlap_metrics_csv", "path": str(path)}
-    )
+    artifacts.append({"kind": "simulated_active_network_overlap_metrics_csv", "path": str(path)})
     logger.info(
         "Wrote simulated-active network overlap metrics export for %d simulation(s) to %s",
         len(rows),
@@ -1087,19 +1047,13 @@ def write_simulated_active_network_distance_metrics_export(
     for summary in _completed_simulation_summaries(simulation_summaries):
         simulation_id = str(summary.get("id", ""))
         config_path_raw = summary.get("config_path")
-        config_path = (
-            None if config_path_raw in (None, "") else Path(str(config_path_raw))
-        )
+        config_path = None if config_path_raw in (None, "") else Path(str(config_path_raw))
         preferred_sim_id = summary.get("sim_id")
         preferred_run_name = summary.get("run_name")
         store, sim_id = discover_result_store(
             config_path,
-            preferred_sim_id=(
-                None if preferred_sim_id in (None, "") else str(preferred_sim_id)
-            ),
-            preferred_name=(
-                None if preferred_run_name in (None, "") else str(preferred_run_name)
-            ),
+            preferred_sim_id=(None if preferred_sim_id in (None, "") else str(preferred_sim_id)),
+            preferred_name=(None if preferred_run_name in (None, "") else str(preferred_run_name)),
         )
         if store is None or sim_id in (None, ""):
             skipped_simulations.append(
@@ -1136,11 +1090,7 @@ def write_simulated_active_network_distance_metrics_export(
                 continue
             zarr_root = store.open_zarr(str(sim_id)).root
             mesh = zarr_root.get("mesh")
-            if (
-                mesh is None
-                or "vertices" not in mesh
-                or "face_node_connectivity" not in mesh
-            ):
+            if mesh is None or "vertices" not in mesh or "face_node_connectivity" not in mesh:
                 skipped_simulations.append(
                     {
                         "simulation_id": simulation_id,
@@ -1196,9 +1146,7 @@ def write_simulated_active_network_distance_metrics_export(
 
     artifacts: list[dict[str, Any]] = []
     if skipped_simulations:
-        skipped_path = (
-            comparison_root / "simulated_active_network_distance_metrics_skipped.json"
-        )
+        skipped_path = comparison_root / "simulated_active_network_distance_metrics_skipped.json"
         skipped_payload = {
             "comparison_id": comparison_id,
             "network_role": network_role,
@@ -1228,18 +1176,14 @@ def write_simulated_active_network_distance_metrics_export(
         logger.info(
             "Simulated-active network distance metrics export skipped %d simulation(s): %s",
             len(skipped_simulations),
-            ", ".join(
-                str(item.get("simulation_id", "")) for item in skipped_simulations
-            ),
+            ", ".join(str(item.get("simulation_id", "")) for item in skipped_simulations),
         )
     if not rows:
         return artifacts, rows
 
     path = comparison_root / "simulated_active_network_distance_metrics.csv"
     _write_csv(path, rows, SIMULATED_ACTIVE_NETWORK_DISTANCE_METRICS_FIELDS)
-    artifacts.append(
-        {"kind": "simulated_active_network_distance_metrics_csv", "path": str(path)}
-    )
+    artifacts.append({"kind": "simulated_active_network_distance_metrics_csv", "path": str(path)})
     logger.info(
         "Wrote simulated-active network distance metrics export for %d simulation(s) to %s",
         len(rows),
@@ -1283,19 +1227,13 @@ def write_simulated_active_network_reference_figure_export(
     for summary in _completed_simulation_summaries(simulation_summaries):
         simulation_id = str(summary.get("id", ""))
         config_path_raw = summary.get("config_path")
-        config_path = (
-            None if config_path_raw in (None, "") else Path(str(config_path_raw))
-        )
+        config_path = None if config_path_raw in (None, "") else Path(str(config_path_raw))
         preferred_sim_id = summary.get("sim_id")
         preferred_run_name = summary.get("run_name")
         store, sim_id = discover_result_store(
             config_path,
-            preferred_sim_id=(
-                None if preferred_sim_id in (None, "") else str(preferred_sim_id)
-            ),
-            preferred_name=(
-                None if preferred_run_name in (None, "") else str(preferred_run_name)
-            ),
+            preferred_sim_id=(None if preferred_sim_id in (None, "") else str(preferred_sim_id)),
+            preferred_name=(None if preferred_run_name in (None, "") else str(preferred_run_name)),
         )
         if store is None or sim_id in (None, ""):
             skipped_simulations.append(
@@ -1419,9 +1357,7 @@ def _history_matrix(payload: Mapping[str, Any], key: str) -> np.ndarray | None:
     return None
 
 
-def _elapsed_seconds_axis(
-    period_lengths: np.ndarray, *, n_snapshots: int
-) -> np.ndarray:
+def _elapsed_seconds_axis(period_lengths: np.ndarray, *, n_snapshots: int) -> np.ndarray:
     if n_snapshots <= 0:
         return np.asarray([], dtype=float)
     if period_lengths.size == n_snapshots - 1:
@@ -1516,9 +1452,7 @@ def _homogeneous_sy_from_config(config_path: Path | None) -> float | None:
     params = flow.get("param")
     if not isinstance(params, Mapping):
         return None
-    sy_payload = (
-        params.get("Sy") or params.get("sy") or params.get("S") or params.get("s")
-    )
+    sy_payload = params.get("Sy") or params.get("sy") or params.get("S") or params.get("s")
     if not isinstance(sy_payload, Mapping):
         return None
 
@@ -1603,8 +1537,7 @@ def _storage_change_series_m3_s(
                 continue
             delta_storage_state_m = storage_state_m[index] - storage_state_m[index - 1]
             storage_change[index] = float(
-                np.nansum(area_m2 * storage_coefficient * delta_storage_state_m)
-                / dt_seconds
+                np.nansum(area_m2 * storage_coefficient * delta_storage_state_m) / dt_seconds
             )
         return storage_change
 
@@ -1616,8 +1549,7 @@ def _storage_change_series_m3_s(
                 continue
             delta_storage_state_m = storage_state_m[index] - storage_state_m[index - 1]
             storage_change[index] = float(
-                np.nansum(area_m2 * storage_coefficient * delta_storage_state_m)
-                / dt_seconds
+                np.nansum(area_m2 * storage_coefficient * delta_storage_state_m) / dt_seconds
             )
         return storage_change
 
@@ -1687,13 +1619,9 @@ def _load_boussinesq_budget_rows(
     drainage_history = _history_matrix(payload, "drainage_flux_history_m3_s")
     surface_history = _history_matrix(payload, "saturation_excess_history_m_s")
     dry_deficit_history = _history_matrix(payload, "dry_deficit_history_m_s")
-    prescribed_head_history = _history_matrix(
-        payload, "prescribed_head_flux_history_m3_s"
-    )
+    prescribed_head_history = _history_matrix(payload, "prescribed_head_flux_history_m3_s")
     head_history = _history_matrix(payload, "head_history_m")
-    saturated_thickness_history = _history_matrix(
-        payload, "saturated_thickness_history_m"
-    )
+    saturated_thickness_history = _history_matrix(payload, "saturated_thickness_history_m")
 
     n_snapshots = max(
         (
@@ -1907,9 +1835,7 @@ def _mf_budget_component_name(component: str) -> str:
     return aliases.get(key, "")
 
 
-def _mf_budget_component_value_m3_s(
-    component: str, flux_in: float, flux_out: float
-) -> float:
+def _mf_budget_component_value_m3_s(component: str, flux_in: float, flux_out: float) -> float:
     target = _mf_budget_component_name(component)
     if target == "storage_change_total_m3_s":
         return float(flux_out) - float(flux_in)
@@ -1991,18 +1917,14 @@ def _load_catalog_budget_rows(
     rows: list[dict[str, Any]] = []
     for timestep, values in sorted(grouped_by_time.items()):
         elapsed = (
-            float(elapsed_axis[timestep])
-            if timestep < int(elapsed_axis.size)
-            else float(timestep)
+            float(elapsed_axis[timestep]) if timestep < int(elapsed_axis.size) else float(timestep)
         )
         period_start = (
             float(elapsed_axis[timestep - 1])
             if timestep > 0 and timestep - 1 < int(elapsed_axis.size)
             else 0.0
         )
-        time_label = (
-            f"{elapsed / 86400.0:.1f} d" if math.isfinite(elapsed) else str(timestep)
-        )
+        time_label = f"{elapsed / 86400.0:.1f} d" if math.isfinite(elapsed) else str(timestep)
         for component, value in sorted(values.items()):
             if not math.isfinite(float(value)):
                 continue
@@ -2103,8 +2025,7 @@ def _load_boussinesq_obstacle_diagnostic_rows(
     )
     storage_coefficient = (
         np.asarray(cells.storage_coefficient, dtype=float).reshape(-1)
-        if cells.storage_coefficient is not None
-        and cells.storage_coefficient.size == n_cells
+        if cells.storage_coefficient is not None and cells.storage_coefficient.size == n_cells
         else np.full(n_cells, np.nan, dtype=float)
     )
     z_top = (
@@ -2187,19 +2108,13 @@ def write_boussinesq_obstacle_diagnostics_export(
     rows: list[dict[str, Any]] = []
     for summary in _completed_simulation_summaries(simulation_summaries):
         config_path_raw = summary.get("config_path")
-        config_path = (
-            None if config_path_raw in (None, "") else Path(str(config_path_raw))
-        )
+        config_path = None if config_path_raw in (None, "") else Path(str(config_path_raw))
         preferred_sim_id = summary.get("sim_id")
         preferred_run_name = summary.get("run_name")
         store, sim_id = discover_result_store(
             config_path,
-            preferred_sim_id=(
-                None if preferred_sim_id in (None, "") else str(preferred_sim_id)
-            ),
-            preferred_name=(
-                None if preferred_run_name in (None, "") else str(preferred_run_name)
-            ),
+            preferred_sim_id=(None if preferred_sim_id in (None, "") else str(preferred_sim_id)),
+            preferred_name=(None if preferred_run_name in (None, "") else str(preferred_run_name)),
         )
         try:
             rows.extend(
@@ -2237,27 +2152,19 @@ def write_budget_exports(
     rows: list[dict[str, Any]] = []
     for summary in _completed_simulation_summaries(simulation_summaries):
         config_path_raw = summary.get("config_path")
-        config_path = (
-            None if config_path_raw in (None, "") else Path(str(config_path_raw))
-        )
+        config_path = None if config_path_raw in (None, "") else Path(str(config_path_raw))
         preferred_sim_id = summary.get("sim_id")
         preferred_run_name = summary.get("run_name")
         store, sim_id = discover_result_store(
             config_path,
-            preferred_sim_id=(
-                None if preferred_sim_id in (None, "") else str(preferred_sim_id)
-            ),
-            preferred_name=(
-                None if preferred_run_name in (None, "") else str(preferred_run_name)
-            ),
+            preferred_sim_id=(None if preferred_sim_id in (None, "") else str(preferred_sim_id)),
+            preferred_name=(None if preferred_run_name in (None, "") else str(preferred_run_name)),
         )
         try:
             catalog_rows = _load_catalog_budget_rows(summary, store, sim_id)
             if catalog_rows:
                 rows.extend(catalog_rows)
-            rows.extend(
-                _load_boussinesq_budget_rows(summary, store=store, sim_id=sim_id)
-            )
+            rows.extend(_load_boussinesq_budget_rows(summary, store=store, sim_id=sim_id))
         finally:
             if store is not None:
                 try:
@@ -2356,9 +2263,7 @@ def _with_comparable_outflow_rows(
     only a post-processing comparison aid: drainage plus saturation/surface
     excess when available, with missing terms treated as zero.
     """
-    if any(
-        str(row.get("component", "")) == "comparable_outflow_total_m3_s" for row in rows
-    ):
+    if any(str(row.get("component", "")) == "comparable_outflow_total_m3_s" for row in rows):
         return rows
 
     grouped: dict[tuple[str, str], dict[str, Any]] = {}
@@ -2391,9 +2296,7 @@ def _with_comparable_outflow_rows(
     derived_rows: list[dict[str, Any]] = []
     for item in grouped.values():
         template = dict(item["template"])
-        value = float(item["drainage_total_m3_s"]) + float(
-            item["surface_excess_total_m3_s"]
-        )
+        value = float(item["drainage_total_m3_s"]) + float(item["surface_excess_total_m3_s"])
         template.update(
             {
                 "component": "comparable_outflow_total_m3_s",

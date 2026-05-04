@@ -139,9 +139,8 @@ def build_initial_heads_and_sides(
         if head_value is None:
             raise ValueError("flow.initial_conditions.h.value is required for top_offset")
         offset_m = float(getattr(head_value, "magnitude", head_value))
-        strt = (
-            np.ones((adapter.nlay, adapter.nrow, adapter.ncol), dtype=float)
-            * (adapter.dem - offset_m)
+        strt = np.ones((adapter.nlay, adapter.nrow, adapter.ncol), dtype=float) * (
+            adapter.dem - offset_m
         )
     elif initial_type == "bottom":
         strt = (

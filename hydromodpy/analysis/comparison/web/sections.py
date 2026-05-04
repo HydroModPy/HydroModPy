@@ -263,9 +263,7 @@ def _audit_block(audit: Mapping[str, Any]) -> str:
     if not isinstance(issues, list):
         issues = []
     klass = "warning" if status == "warn" else ""
-    lines = [
-        f'<p>Status: <strong class="{klass}">{safe(status or "unknown")}</strong></p>'
-    ]
+    lines = [f'<p>Status: <strong class="{klass}">{safe(status or "unknown")}</strong></p>']
     lines.append(f"<p>Issues: <strong>{safe(len(issues))}</strong></p>")
     for issue in issues[:5]:
         if isinstance(issue, Mapping):

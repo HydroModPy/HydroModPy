@@ -117,9 +117,7 @@ def test_hydromodpy_config_from_toml_supports_base_config(tmp_path: Path) -> Non
     assert cfg.flow.active_bc == ["ocean", "drainage"]
 
 
-def test_launcher_simulation_example_config_inheritance_keeps_only_relevant_data_types() -> (
-    None
-):
+def test_launcher_simulation_example_config_inheritance_keeps_only_relevant_data_types() -> None:
     example_config = (
         Path(__file__).resolve().parents[3]
         / "tests"
@@ -155,13 +153,8 @@ def test_launcher_simulation_mf6_precomputed_mesh_input_config_uses_runtime_mesh
 
     payload = load_toml_with_base_config(example_config)
 
-    assert (
-        payload["mesh_input"]["mesh_path"] == "results_stable/mesh/mesh_catchment.msh"
-    )
-    assert (
-        payload["mesh_input"]["bundle_dir"]
-        == "results_stable/mesh/mesh_catchment_bundle"
-    )
+    assert payload["mesh_input"]["mesh_path"] == "results_stable/mesh/mesh_catchment.msh"
+    assert payload["mesh_input"]["bundle_dir"] == "results_stable/mesh/mesh_catchment_bundle"
     assert "planar" not in payload["modflow6"]["sgrid"]
     assert payload["modflow6"]["sgrid"]["vertical"]["nlay"] == 2
     assert "postprocess" not in payload
@@ -198,10 +191,7 @@ def test_launcher_simulation_mf6_mesh_catchment_config_embeds_mesh_generation(
     assert payload["data"]["recharge"]["sources"][0]["freq"] == "10D"
     assert "postprocess" not in payload
     assert payload["analysis"]["capability_gallery"]["enabled"] is True
-    assert (
-        payload["analysis"]["capability_gallery"]["case_slug"]
-        == "modflow6_gmsh_mesh_catchment"
-    )
+    assert payload["analysis"]["capability_gallery"]["case_slug"] == "modflow6_gmsh_mesh_catchment"
 
     monkeypatch.setenv("HYDROMODPY_WORKSPACE", str(tmp_path))
     cfg = HydroModPyConfig.from_toml(example_config)

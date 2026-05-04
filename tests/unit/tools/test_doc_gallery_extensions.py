@@ -21,35 +21,21 @@ def test_build_gallery_specs_exposes_extended_categories() -> None:
     assert specs["geometry_topography_canut"].category == "geometry"
     assert specs["geometry_indicators_canut"].category == "geometry"
     assert (
-        specs["hydraulic_conductivity_square_parameterizations"].category
-        == "hydraulic_properties"
+        specs["hydraulic_conductivity_square_parameterizations"].category == "hydraulic_properties"
+    )
+    assert specs["hydraulic_conductivity_irregular_mesh"].category == "hydraulic_properties"
+    assert specs["hydraulic_conductivity_depth_dependence"].category == "hydraulic_properties"
+    assert (
+        specs["hydraulic_conductivity_geology_transfer_brittany"].category == "hydraulic_properties"
     )
     assert (
-        specs["hydraulic_conductivity_irregular_mesh"].category
-        == "hydraulic_properties"
-    )
-    assert (
-        specs["hydraulic_conductivity_depth_dependence"].category
-        == "hydraulic_properties"
-    )
-    assert (
-        specs["hydraulic_conductivity_geology_transfer_brittany"].category
-        == "hydraulic_properties"
-    )
-    assert (
-        specs["hydraulic_conductivity_geology_transfer_variants"].category
-        == "hydraulic_properties"
+        specs["hydraulic_conductivity_geology_transfer_variants"].category == "hydraulic_properties"
     )
     assert specs["mesh_constraint_balance_scale_ladder"].category == "mesh"
     assert specs["mesh_resolution_sensitivity_scale_ladder"].category == "mesh"
     assert specs["mesh_zoom_panels_naizin_10km2"].category == "mesh"
-    assert (
-        specs["example12_map_simulation_comparison"].category == "simulation_comparison"
-    )
-    assert (
-        "comparison_summary_path"
-        in specs["example12_map_simulation_comparison"].metadata
-    )
+    assert specs["example12_map_simulation_comparison"].category == "simulation_comparison"
+    assert "comparison_summary_path" in specs["example12_map_simulation_comparison"].metadata
     assert not any(
         path.endswith(
             "example12_map_simulation_comparison_summary.json",
@@ -151,9 +137,7 @@ def test_generate_simulation_comparison_case_smoke(tmp_path: Path) -> None:
         "example12_map_simulation_comparison_comparison_metrics.json": "comparison_metrics.json",
         "example12_map_simulation_comparison_observables.csv": "observables.csv",
     }
-    committed_root = (
-        tmp_path / "simulation_comparison" / "example12_map_simulation_comparison"
-    )
+    committed_root = tmp_path / "simulation_comparison" / "example12_map_simulation_comparison"
     committed_root.mkdir(parents=True)
     for source_name, target_name in artifact_map.items():
         source_path = static_root / source_name

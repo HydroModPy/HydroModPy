@@ -113,12 +113,10 @@ def write_comparison_output_bundle(
         )
     )
     data_artifacts.extend(native_artifacts)
-    hydrographic_artifacts, _hydrographic_rows = (
-        write_hydrographic_network_metrics_export(
-            comparison_id=comparison_id,
-            comparison_root=comparison_root,
-            simulation_summaries=summaries,
-        )
+    hydrographic_artifacts, _hydrographic_rows = write_hydrographic_network_metrics_export(
+        comparison_id=comparison_id,
+        comparison_root=comparison_root,
+        simulation_summaries=summaries,
     )
     data_artifacts.extend(hydrographic_artifacts)
     simulated_active_artifacts, _simulated_active_rows = (

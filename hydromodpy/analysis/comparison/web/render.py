@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from pathlib import Path
-from typing import Any, Mapping
+from typing import Any
 
 from hydromodpy.analysis.comparison.web.context import load_comparison_web_context
 from hydromodpy.analysis.comparison.web.html_utils import safe

@@ -116,10 +116,7 @@ class CellCentroidTable:
 
     def storage_for_cell_id(self, cell_id: int) -> float | None:
         """Return the storage coefficient for one cell id when available."""
-        if (
-            self.storage_coefficient is None
-            or self.storage_coefficient.size != self.cell_ids.size
-        ):
+        if self.storage_coefficient is None or self.storage_coefficient.size != self.cell_ids.size:
             return None
         matches = np.flatnonzero(self.cell_ids == int(cell_id))
         if matches.size == 0:
@@ -129,9 +126,7 @@ class CellCentroidTable:
             return None
         return storage
 
-    def vertical_bounds_for_cell_id(
-        self, cell_id: int
-    ) -> tuple[float | None, float | None]:
+    def vertical_bounds_for_cell_id(self, cell_id: int) -> tuple[float | None, float | None]:
         """Return top and bottom elevations for one cell id when available."""
         matches = np.flatnonzero(self.cell_ids == int(cell_id))
         if matches.size == 0:
@@ -490,8 +485,7 @@ def _build_solver_process_overlay(
     flow_indices = [
         index
         for index, process in enumerate(processes)
-        if isinstance(process, Mapping)
-        and str(process.get("type", "")).strip().lower() == "flow"
+        if isinstance(process, Mapping) and str(process.get("type", "")).strip().lower() == "flow"
     ]
     if len(flow_indices) != 1:
         return None
@@ -531,9 +525,7 @@ def materialize_simulation_config(
         {"base_config": base_config_path.as_posix()},
         overlay,
     )
-    generated_path = (
-        cfg.comparison_root / "_generated_configs" / f"{simulation.id}.toml"
-    )
+    generated_path = cfg.comparison_root / "_generated_configs" / f"{simulation.id}.toml"
     write_toml_payload(generated_path, payload)
     return generated_path
 
@@ -590,9 +582,7 @@ def _bundle_dir_from_config(config_path: Path) -> Path | None:
     if isinstance(mesh_input, Mapping):
         bundle_dir_raw = mesh_input.get("bundle_dir")
         if bundle_dir_raw not in (None, ""):
-            return _resolve_recorded_output_path(
-                bundle_dir_raw, base_dir=config_path.parent
-            )
+            return _resolve_recorded_output_path(bundle_dir_raw, base_dir=config_path.parent)
 
     mesh_catchment = payload.get("mesh_catchment")
     if not isinstance(mesh_catchment, Mapping):
@@ -601,9 +591,7 @@ def _bundle_dir_from_config(config_path: Path) -> Path | None:
     output_mesh_raw = mesh_catchment.get("output_mesh")
     candidates: list[Path] = []
     if output_mesh_raw not in (None, ""):
-        output_mesh = _resolve_recorded_output_path(
-            output_mesh_raw, base_dir=config_path.parent
-        )
+        output_mesh = _resolve_recorded_output_path(output_mesh_raw, base_dir=config_path.parent)
         if output_mesh is not None:
             candidates.append(output_mesh.parent / "mesh_catchment_bundle")
 
@@ -639,19 +627,13 @@ def _load_bundle_cells(cells_path: Path) -> CellCentroidTable | None:
                 xs.append(float(row["centroid_x"]))
                 ys.append(float(row["centroid_y"]))
                 area_value = row.get("area_m2")
-                areas.append(
-                    float(area_value) if area_value not in (None, "") else math.nan
-                )
+                areas.append(float(area_value) if area_value not in (None, "") else math.nan)
                 storage_value = row.get("storage_coefficient")
                 storage_coefficients.append(
-                    float(storage_value)
-                    if storage_value not in (None, "")
-                    else math.nan
+                    float(storage_value) if storage_value not in (None, "") else math.nan
                 )
                 top_value = row.get("z_top_centroid") or row.get("z_top_mean")
-                z_tops.append(
-                    float(top_value) if top_value not in (None, "") else math.nan
-                )
+                z_tops.append(float(top_value) if top_value not in (None, "") else math.nan)
                 bottom_value = row.get("z_bottom_centroid") or row.get("z_bottom_mean")
                 z_bottoms.append(
                     float(bottom_value) if bottom_value not in (None, "") else math.nan
@@ -811,9 +793,9 @@ def read_simulation_run_metadata(run_folder: Path) -> dict[str, Any]:
             if key in boussinesq_summary:
                 payload[key] = boussinesq_summary.get(key)
 
-    bundle_dir_raw = metrics.get(
-        "mesh_output_exchange_bundle_dir"
-    ) or boussinesq_summary.get("bundle_dir")
+    bundle_dir_raw = metrics.get("mesh_output_exchange_bundle_dir") or boussinesq_summary.get(
+        "bundle_dir"
+    )
     if bundle_dir_raw:
         bundle_dir = _resolve_recorded_output_path(bundle_dir_raw, base_dir=run_folder)
         if bundle_dir is None:
@@ -1154,14 +1136,10 @@ def normalize_observable_value(
             cell_area_m2 = area_m2
         elif native_unit == "":
             native_unit = "m3/s"
-    elif (
-        observable.variable.strip().lower() == "outflow_drain"
-        and series.variable_name
-        in {
-            "drainage_flux_history_m3_s",
-            "drainage_flux_m3_s",
-        }
-    ):
+    elif observable.variable.strip().lower() == "outflow_drain" and series.variable_name in {
+        "drainage_flux_history_m3_s",
+        "drainage_flux_m3_s",
+    }:
         area_m2 = _area_for_series_value(
             series=series,
             cells=cells,
@@ -1276,13 +1254,9 @@ def _load_mesh_npz_series(path: Path, *, variable_name: str) -> VariableSeries:
     else:
         time_keys = list(range(values.shape[0] if values.ndim > 1 else 1))
     elapsed_seconds = (
-        np.asarray(payload["times"], dtype=float).ravel()
-        if "times" in payload
-        else None
+        np.asarray(payload["times"], dtype=float).ravel() if "times" in payload else None
     )
-    cell_ids = (
-        np.asarray(payload["cell_ids"], dtype=int) if "cell_ids" in payload else None
-    )
+    cell_ids = np.asarray(payload["cell_ids"], dtype=int) if "cell_ids" in payload else None
     if values.ndim <= 1:
         elapsed = (
             float(elapsed_seconds[0])
@@ -1359,8 +1333,7 @@ def _load_boussinesq_npz_series(
             elapsed_by_index = [None for _ in range(values.shape[0])]
         else:
             elapsed_by_index = [
-                float(value)
-                for value in np.asarray(elapsed_seconds, dtype=float).tolist()
+                float(value) for value in np.asarray(elapsed_seconds, dtype=float).tolist()
             ]
         slices = tuple(
             TimeSlice(
@@ -1406,18 +1379,14 @@ def _load_boussinesq_rate_total_series(
     if values.ndim == 1:
         values = values.reshape(1, -1)
     if values.ndim != 2:
-        raise ValueError(
-            f"{source_variable_name} must be 2-D to derive {diagnostic_label} totals"
-        )
+        raise ValueError(f"{source_variable_name} must be 2-D to derive {diagnostic_label} totals")
 
     cells = resolve_bundle_cells(
         run_folder,
         expected_size=int(values.shape[1]),
     )
     if cells is None or cells.area_m2 is None:
-        raise ValueError(
-            f"Cannot derive {diagnostic_label} total without bundle cell areas"
-        )
+        raise ValueError(f"Cannot derive {diagnostic_label} total without bundle cell areas")
     area_m2 = np.asarray(cells.area_m2, dtype=float).reshape(-1)
     if area_m2.size != values.shape[1]:
         raise ValueError(f"Bundle cell areas do not match {source_variable_name} width")
@@ -1446,8 +1415,7 @@ def _load_boussinesq_rate_total_series(
             float(value) for value in np.asarray(elapsed_seconds, dtype=float).tolist()
         ]
         has_initial_state = int(len(elapsed_by_index)) == int(totals_m3_s.size) and (
-            bool(period_lengths.size)
-            and int(totals_m3_s.size) == int(period_lengths.size) + 1
+            bool(period_lengths.size) and int(totals_m3_s.size) == int(period_lengths.size) + 1
         )
     slices = tuple(
         TimeSlice(
@@ -1631,9 +1599,7 @@ def _elapsed_axis_for_store_field(
     return [None for _ in range(max(int(n_slices), 0))], False
 
 
-def _open_store_root(
-    store: SimulationCatalog, sim_id: str
-) -> tuple[Any | None, Any | None]:
+def _open_store_root(store: SimulationCatalog, sim_id: str) -> tuple[Any | None, Any | None]:
     """Open the root Zarr group from either current or lightweight store APIs."""
     try:
         return store.open_zarr_group(sim_id), None
@@ -1737,9 +1703,7 @@ def _load_store_series(
                 time_key=t,
                 time_index=t,
                 values=np.asarray(data[t], dtype=float).ravel(),
-                elapsed_seconds=(
-                    elapsed_by_index[t] if t < len(elapsed_by_index) else None
-                ),
+                elapsed_seconds=(elapsed_by_index[t] if t < len(elapsed_by_index) else None),
                 is_initial_state=has_initial_state and t == 0,
             )
             for t in range(data.shape[0])
@@ -1786,9 +1750,7 @@ def _load_store_boussinesq_state_series(
     period_lengths = np.asarray([], dtype=float)
     if "period_lengths_seconds" in state_grp:
         try:
-            period_lengths = np.asarray(
-                state_grp["period_lengths_seconds"][:], dtype=float
-            ).ravel()
+            period_lengths = np.asarray(state_grp["period_lengths_seconds"][:], dtype=float).ravel()
         except Exception:
             pass
     _close_store_handle(handle)
@@ -1814,8 +1776,7 @@ def _load_store_boussinesq_state_series(
                 time_index=index,
                 values=values[index].ravel(),
                 elapsed_seconds=elapsed_by_index[index],
-                is_initial_state=period_lengths.size == values.shape[0] - 1
-                and index == 0,
+                is_initial_state=period_lengths.size == values.shape[0] - 1 and index == 0,
             )
             for index in range(values.shape[0])
         )
@@ -2133,9 +2094,7 @@ def _select_time_slices(
             ]
         else:
             selected = [
-                item
-                for item in series.slices
-                if str(start) <= str(item.time_key) <= str(end)
+                item for item in series.slices if str(start) <= str(item.time_key) <= str(end)
             ]
         return tuple(selected or series.slices)
 
@@ -2229,9 +2188,7 @@ def _select_cell_values(
     values: np.ndarray,
     cell_ids: list[int],
 ) -> np.ndarray:
-    positions = [
-        _cell_position_for_cell_id(series, cell_id=cell_id) for cell_id in cell_ids
-    ]
+    positions = [_cell_position_for_cell_id(series, cell_id=cell_id) for cell_id in cell_ids]
     if any(position >= values.size for position in positions):
         raise IndexError(
             f"cell index outside variable '{series.variable_name}' values (size={values.size})"
@@ -2253,9 +2210,7 @@ def _select_spatial_values(
     if observable.support == "point":
         if observable.cell_index is not None:
             selected_cell_id = int(observable.cell_index)
-        elif (
-            cells is not None and observable.x is not None and observable.y is not None
-        ):
+        elif cells is not None and observable.x is not None and observable.y is not None:
             selected_cell_id = cells.nearest_cell_id(x=observable.x, y=observable.y)
         elif values.size == 1:
             return (float(values[0]),), {"selection": "scalar"}
@@ -2277,9 +2232,7 @@ def _select_spatial_values(
         if observable.cell_index is not None:
             selected_cell_ids = [int(observable.cell_index)]
             details["selection"] = "declared_cell"
-        elif (
-            observable.x is not None and observable.y is not None and cells is not None
-        ):
+        elif observable.x is not None and observable.y is not None and cells is not None:
             selected_cell_ids = [cells.nearest_cell_id(x=observable.x, y=observable.y)]
             details["selection"] = "nearest_declared_outlet_point"
         else:
@@ -2344,9 +2297,7 @@ def _time_match_key(time_slice: TimeSlice) -> str:
     """Return a stable key used to align rows across simulations."""
     if str(time_slice.time_key) == "reduced":
         return "reduced"
-    if time_slice.elapsed_seconds is not None and np.isfinite(
-        time_slice.elapsed_seconds
-    ):
+    if time_slice.elapsed_seconds is not None and np.isfinite(time_slice.elapsed_seconds):
         return f"elapsed_seconds:{time_slice.elapsed_seconds:.9g}"
     return f"time_index:{time_slice.time_index}"
 
@@ -2418,9 +2369,7 @@ def extract_observable_rows(
     rows: list[dict[str, Any]] = []
     cells: CellCentroidTable | None = None
     for observable in observables:
-        if observable.simulations is not None and simulation.id not in set(
-            observable.simulations
-        ):
+        if observable.simulations is not None and simulation.id not in set(observable.simulations):
             continue
         series = load_variable_series(
             run_folder=run_folder,
@@ -2437,13 +2386,9 @@ def extract_observable_rows(
             config_path=config_path,
         )
         if cells is None:
-            first_slice_size = (
-                int(series.slices[0].values.size) if series.slices else None
-            )
+            first_slice_size = int(series.slices[0].values.size) if series.slices else None
             expected_size = (
-                None
-                if first_slice_size is None or first_slice_size <= 1
-                else first_slice_size
+                None if first_slice_size is None or first_slice_size <= 1 else first_slice_size
             )
             cells = _mesh_cells_from_store(
                 store,
@@ -2492,9 +2437,7 @@ def extract_observable_rows(
             per_time_values = [(reduced_slice, reduced_values, reduced_details)]
 
         non_initial_counter = 0
-        for selection_time_order, (time_slice, values, details) in enumerate(
-            per_time_values
-        ):
+        for selection_time_order, (time_slice, values, details) in enumerate(per_time_values):
             non_initial_time_order: int | None
             if time_slice.is_initial_state:
                 non_initial_time_order = None
@@ -2551,15 +2494,11 @@ def extract_observable_rows(
                             "all" if observable.time is None else str(observable.time)
                         ),
                         "requested_time_reducer": (
-                            ""
-                            if observable.time_reducer is None
-                            else str(observable.time_reducer)
+                            "" if observable.time_reducer is None else str(observable.time_reducer)
                         ),
                         "selection_time_order": selection_time_order,
                         "non_initial_time_order": (
-                            ""
-                            if non_initial_time_order is None
-                            else non_initial_time_order
+                            "" if non_initial_time_order is None else non_initial_time_order
                         ),
                         "is_initial_state": bool(time_slice.is_initial_state),
                         "comparison_time_key": _time_match_key(time_slice),
@@ -2579,12 +2518,8 @@ def extract_observable_rows(
                         "run_folder": str(run_folder),
                         "selection": str(details.get("selection", "")),
                         "allow_domain_proxy": bool(observable.allow_domain_proxy),
-                        "selected_cell_index": str(
-                            details.get("selected_cell_index", "")
-                        ),
-                        "selected_cell_indices": str(
-                            details.get("selected_cell_indices", "")
-                        ),
+                        "selected_cell_index": str(details.get("selected_cell_index", "")),
+                        "selected_cell_indices": str(details.get("selected_cell_indices", "")),
                     }
                 )
     return rows
@@ -2640,9 +2575,7 @@ def discover_result_store(
                 return catalog, str(matches.iloc[-1]["sim_id"])
         if "config_source" in sims.columns:
             config_key = str(config_path_resolved).casefold()
-            config_sources = (
-                sims["config_source"].fillna("").map(_normalize_catalog_path)
-            )
+            config_sources = sims["config_source"].fillna("").map(_normalize_catalog_path)
             matches = sims.loc[config_sources == config_key]
             if not matches.empty:
                 return catalog, str(matches.iloc[-1]["sim_id"])
@@ -2650,9 +2583,7 @@ def discover_result_store(
         sim_id = str(sims.iloc[-1]["sim_id"])
         return catalog, sim_id
     except Exception:
-        logger.debug(
-            "Could not open SimulationCatalog from %s", workspace_root, exc_info=True
-        )
+        logger.debug("Could not open SimulationCatalog from %s", workspace_root, exc_info=True)
         return None, None
 
 

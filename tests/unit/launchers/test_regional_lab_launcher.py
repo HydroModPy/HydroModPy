@@ -291,9 +291,7 @@ def test_regional_lab_recipe_can_skip_unsupported_platform(tmp_path: Path) -> No
     _write_planned_configs(tmp_path)
 
     cfg = RegionalLabConfig.from_file(config_path)
-    _, planned_cases, skipped_cases = build_regional_lab_plan(
-        cfg, load_site_catalog(cfg.catalog)
-    )
+    _, planned_cases, skipped_cases = build_regional_lab_plan(cfg, load_site_catalog(cfg.catalog))
 
     assert [case.case_id for case in planned_cases] == [
         "sim_reference::headwater_100km2_outlet_2",
@@ -307,9 +305,7 @@ def test_regional_lab_recipe_can_skip_unsupported_platform(tmp_path: Path) -> No
     assert unsupported_platform in skipped_cases[0].detail
 
 
-def test_regional_lab_execution_stops_on_first_failure(
-    monkeypatch, tmp_path: Path
-) -> None:
+def test_regional_lab_execution_stops_on_first_failure(monkeypatch, tmp_path: Path) -> None:
     config_path = _write_regional_lab_config(
         tmp_path,
         execute=True,
@@ -357,10 +353,7 @@ def test_regional_lab_execution_stops_on_first_failure(
     assert report["cases"][0]["status"] == "ok"
     assert report["cases"][1]["status"] == "failed"
     assert report["cases"][2]["status"] == "planned"
-    assert (
-        report["skipped_cases"][0]["case_id"]
-        == "backend_compare::headwater_100km2_outlet_3"
-    )
+    assert report["skipped_cases"][0]["case_id"] == "backend_compare::headwater_100km2_outlet_3"
 
 
 def test_regional_lab_resume_skips_completed_cases(monkeypatch, tmp_path: Path) -> None:
@@ -417,10 +410,7 @@ def test_regional_lab_build_run_command_dispatches_launchers(tmp_path: Path) -> 
     cfg = RegionalLabConfig.from_file(config_path)
     _, planned_cases, _ = build_regional_lab_plan(cfg, load_site_catalog(cfg.catalog))
 
-    commands = [
-        build_run_command(case, python_executable=Path("python"))
-        for case in planned_cases
-    ]
+    commands = [build_run_command(case, python_executable=Path("python")) for case in planned_cases]
 
     assert commands[0] == [
         "python",
@@ -434,9 +424,7 @@ def test_regional_lab_build_run_command_dispatches_launchers(tmp_path: Path) -> 
         "-m",
         "hydromodpy",
         "run",
-        str(
-            (tmp_path / "configs" / "compare_headwater_100km2_outlet_2.toml").resolve()
-        ),
+        str((tmp_path / "configs" / "compare_headwater_100km2_outlet_2.toml").resolve()),
     ]
 
 
@@ -671,18 +659,14 @@ def test_regional_lab_bootstrap_catalog_scans_mesh_run_root(tmp_path: Path) -> N
     (mesh_run_root / "mesh_outlet_3" / "mesh_catchment_outlet_3.msh").write_text(
         "", encoding="utf-8"
     )
-    (
-        mesh_run_root / "mesh_outlet_3" / "mesh_catchment_outlet_3_summary.json"
-    ).write_text(
+    (mesh_run_root / "mesh_outlet_3" / "mesh_catchment_outlet_3_summary.json").write_text(
         "{}\n",
         encoding="utf-8",
     )
     (mesh_run_root / "mesh_outlet_3" / "mesh_catchment_outlet_3.png").write_text(
         "", encoding="utf-8"
     )
-    (
-        mesh_run_root / "mesh_outlet_3" / "mesh_catchment_outlet_3_regional.png"
-    ).write_text(
+    (mesh_run_root / "mesh_outlet_3" / "mesh_catchment_outlet_3_regional.png").write_text(
         "",
         encoding="utf-8",
     )
