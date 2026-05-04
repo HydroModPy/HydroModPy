@@ -133,17 +133,6 @@ def diagnose_result_storage(
     tmp_files = _scan_tmp_parquet_files(sims_dir)
     registered = {row.basename for row in rows}
 
-    legacy_storage_rows = [row for row in rows if row.storage_basename is None]
-    if legacy_storage_rows:
-        diagnostics.append(
-            StorageDiagnostic(
-                "results:legacy_storage_names",
-                "WARN",
-                (f"{len(legacy_storage_rows)} catalog row(s) still use raw UUID storage names"),
-                "Use SimulationCatalog.normalize_storage_names(dry_run=False) to rename them.",
-            )
-        )
-
     missing_zarr = [
         row
         for row in rows

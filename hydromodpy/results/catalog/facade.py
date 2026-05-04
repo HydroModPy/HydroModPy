@@ -16,18 +16,13 @@ import duckdb
 
 from hydromodpy.core.config_kit.persistence import PersistenceConfig
 from hydromodpy.core.config_kit.root_config_protocol import get_root_config_provider
-from hydromodpy.core.io.db_retry import connect_with_retry, with_lock_retry
+from hydromodpy.core.io.db_retry import connect_with_retry
 from hydromodpy.core.logging import get_logger
 from hydromodpy.results.catalog.discovery import DiscoveryMixin
 from hydromodpy.results.catalog.lifecycle import LifecycleMixin
 from hydromodpy.results.catalog.package_io import PackageIOMixin
 from hydromodpy.results.catalog.reads import ReadsMixin
 from hydromodpy.results.catalog.registration import RegistrationMixin
-from hydromodpy.results.catalog.storage_normalization import (
-    StorageNormalizationAction,
-    apply_storage_name_normalization,
-    plan_storage_name_normalization,
-)
 from hydromodpy.results.catalog.storage_paths import StoragePathResolver
 from hydromodpy.results.catalog.writes import WritesMixin
 from hydromodpy.results.catalog_schema import ensure_schema
@@ -260,45 +255,6 @@ class SimulationCatalog(
     def parquet_dir_for(self, sim_id: str | UUID) -> Path:
         """Return the per-simulation Parquet directory (public accessor)."""
         return self._paths.parquet_dir_for(sim_id)
-
-    def plan_storage_name_normalization(self) -> tuple[StorageNormalizationAction, ...]:
-        """Return a dry-run plan for legacy raw-UUID artefact names.
-
-        The plan only targets catalog rows where ``storage_basename`` is
-        missing. Applying it keeps ``sim_id`` unchanged, renames existing
-        ``<sim_id>.zarr(.zip)`` / ``<sim_id>.parquet`` artefacts to the
-        current human-readable basename, and updates the catalog row.
-        """
-        return plan_storage_name_normalization(
-            self._db,
-            self._workspace,
-            self._simulations_dir,
-        )
-
-    @with_lock_retry()
-    def normalize_storage_names(
-        self,
-        *,
-        dry_run: bool = True,
-    ) -> tuple[StorageNormalizationAction, ...]:
-        """Normalize legacy raw-UUID artefact names.
-
-        ``dry_run=True`` returns the same read-only plan as
-        :meth:`plan_storage_name_normalization`. Set ``dry_run=False`` to move
-        files and update catalog rows. Blocked actions are returned unchanged
-        and are not applied.
-        """
-        actions = self.plan_storage_name_normalization()
-        if dry_run:
-            return actions
-        return apply_storage_name_normalization(
-            self._db,
-            self._workspace,
-            self._simulations_dir,
-            actions,
-            close_open_zarr_handles=self._close_open_zarr_handles,
-            cache_basename=self._paths.cache_basename,
-        )
 
     def load_dataset(
         self,
