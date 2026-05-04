@@ -11,7 +11,9 @@ from hydromodpy.analysis.comparison.stability import (
 )
 
 
-def test_validate_stability_targets_accepts_materialized_outputs(tmp_path: Path) -> None:
+def test_validate_stability_targets_accepts_materialized_outputs(
+    tmp_path: Path,
+) -> None:
     root = tmp_path / "outputs" / "demo_compare"
     _write_minimal_comparison_output(root)
     targets = tmp_path / "stability_targets.toml"
@@ -22,11 +24,11 @@ def test_validate_stability_targets_accepts_materialized_outputs(tmp_path: Path)
                 'id = "demo_compare"',
                 'comparison_root = "outputs/demo_compare"',
                 'allowed_audit_status = ["pass"]',
-                'required_variants = ["mf6_ref", "bouss_candidate"]',
+                'required_simulations = ["mf6_ref", "bouss_candidate"]',
                 'required_figures = ["head_map_last__triptych.png"]',
                 "",
                 "[[case.metric]]",
-                'variant_id = "bouss_candidate"',
+                'simulation_id = "bouss_candidate"',
                 'observable = "head_map_last"',
                 "n_pairs_min = 3",
                 "rmse_max = 0.05",
@@ -56,7 +58,7 @@ def test_validate_stability_targets_reports_metric_regression(tmp_path: Path) ->
                 'allowed_audit_status = ["pass"]',
                 "",
                 "[[case.metric]]",
-                'variant_id = "bouss_candidate"',
+                'simulation_id = "bouss_candidate"',
                 'observable = "head_map_last"',
                 "rmse_max = 0.005",
             ]
@@ -71,7 +73,38 @@ def test_validate_stability_targets_reports_metric_regression(tmp_path: Path) ->
     assert "exceeds" in format_stability_report(report)
 
 
-def _write_minimal_comparison_output(root: Path) -> None:
+def test_validate_stability_targets_reads_legacy_materialized_variant_outputs(
+    tmp_path: Path,
+) -> None:
+    root = tmp_path / "outputs" / "demo_compare"
+    _write_minimal_comparison_output(root, legacy_schema=True)
+    targets = tmp_path / "stability_targets.toml"
+    targets.write_text(
+        "\n".join(
+            [
+                "[[case]]",
+                'id = "demo_compare"',
+                'comparison_root = "outputs/demo_compare"',
+                'allowed_audit_status = ["pass"]',
+                'required_simulations = ["mf6_ref", "bouss_candidate"]',
+                "",
+                "[[case.metric]]",
+                'simulation_id = "bouss_candidate"',
+                'observable = "head_map_last"',
+                "n_pairs_min = 3",
+                "rmse_max = 0.05",
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    report = validate_stability_targets(targets)
+
+    assert report.ok
+
+
+def _write_minimal_comparison_output(root: Path, *, legacy_schema: bool = False) -> None:
     root.mkdir(parents=True)
     (root / "comparison_report.md").write_text("# Demo\n", encoding="utf-8")
     figure_root = root / "comparison_figures"
@@ -90,7 +123,7 @@ def _write_minimal_comparison_output(root: Path) -> None:
         json.dumps(
             {
                 "schema_version": "simulation_comparison_manifest_v1",
-                "variants": [
+                "variants" if legacy_schema else "simulations": [
                     {"id": "mf6_ref", "status": "completed"},
                     {"id": "bouss_candidate", "status": "completed"},
                 ],
@@ -104,7 +137,9 @@ def _write_minimal_comparison_output(root: Path) -> None:
                 "schema_version": "simulation_comparison_metrics_v1",
                 "summary": [
                     {
-                        "variant_id": "bouss_candidate",
+                        "variant_id" if legacy_schema else "simulation_id": (
+                            "bouss_candidate"
+                        ),
                         "observable": "head_map_last",
                         "n_pairs": 3,
                         "rmse": 0.02,

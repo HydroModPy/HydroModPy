@@ -12,8 +12,8 @@ from typing import Any
 import numpy as np
 
 SUMMARY_METRIC_FIELDS = [
-    "variant_id",
-    "reference_variant",
+    "simulation_id",
+    "reference_simulation",
     "observable",
     "unit",
     "n_pairs",
@@ -26,8 +26,8 @@ SUMMARY_METRIC_FIELDS = [
 
 DETAIL_METRIC_FIELDS = [
     "comparison_id",
-    "variant_id",
-    "reference_variant",
+    "simulation_id",
+    "reference_simulation",
     "observable",
     "comparison_time_key",
     "time_role",
@@ -74,6 +74,11 @@ def _row_is_nodata(row: dict[str, Any]) -> bool:
     return _as_bool(row.get("is_nodata", False))
 
 
+def _row_simulation_id(row: dict[str, Any]) -> str:
+    """Return the simulation identifier from an observable row."""
+    return str(row.get("simulation_id", ""))
+
+
 def _exact_row_key(row: dict[str, Any]) -> tuple[str, str, str, str]:
     """Return the observable/time/value key used for exact reference matching."""
     return (
@@ -108,7 +113,7 @@ def _is_comparable_metric_row(row: dict[str, Any]) -> bool:
 def _build_reference_indexes(
     rows: list[dict[str, Any]],
     *,
-    reference_variant: str,
+    reference_simulation: str,
 ) -> tuple[
     dict[tuple[str, str, str, str], dict[str, Any]],
     dict[tuple[str, str, str, str], dict[str, Any]],
@@ -116,7 +121,7 @@ def _build_reference_indexes(
     exact_index: dict[tuple[str, str, str, str], dict[str, Any]] = {}
     fallback_index: dict[tuple[str, str, str, str], dict[str, Any]] = {}
     for row in rows:
-        if str(row.get("variant_id", "")) != reference_variant:
+        if _row_simulation_id(row) != reference_simulation:
             continue
         if not _is_comparable_metric_row(row):
             continue
@@ -148,20 +153,20 @@ def _match_reference_row(
 def build_unmatched_groups(
     rows: list[dict[str, Any]],
     *,
-    reference_variant: str | None,
+    reference_simulation: str | None,
 ) -> list[dict[str, Any]]:
     """Group candidate rows that still have no aligned reference row."""
-    if not rows or reference_variant is None:
+    if not rows or reference_simulation is None:
         return []
 
     exact_index, fallback_index = _build_reference_indexes(
         rows,
-        reference_variant=reference_variant,
+        reference_simulation=reference_simulation,
     )
     grouped: dict[tuple[str, str, str], list[dict[str, Any]]] = defaultdict(list)
     for row in rows:
-        variant_id = str(row.get("variant_id", ""))
-        if variant_id == reference_variant:
+        simulation_id = _row_simulation_id(row)
+        if simulation_id == reference_simulation:
             continue
         if not _is_comparable_metric_row(row):
             continue
@@ -174,17 +179,17 @@ def build_unmatched_groups(
             continue
         grouped[
             (
-                variant_id,
+                simulation_id,
                 str(row.get("observable", "")),
                 str(row.get("unit", "")),
             )
         ].append(row)
 
     items: list[dict[str, Any]] = []
-    for (variant_id, observable, unit), group in sorted(grouped.items()):
+    for (simulation_id, observable, unit), group in sorted(grouped.items()):
         items.append(
             {
-                "variant_id": variant_id,
+                "simulation_id": simulation_id,
                 "observable": observable,
                 "unit": unit,
                 "n_rows": len(group),
@@ -197,21 +202,21 @@ def build_unmatched_groups(
 def build_comparison_metrics(
     rows: list[dict[str, Any]],
     *,
-    reference_variant: str | None,
+    reference_simulation: str | None,
 ) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
-    """Build detail and summary metrics against one reference variant."""
-    if not rows or reference_variant is None:
+    """Build detail and summary metrics against one reference simulation."""
+    if not rows or reference_simulation is None:
         return [], []
 
     exact_index, fallback_index = _build_reference_indexes(
         rows,
-        reference_variant=reference_variant,
+        reference_simulation=reference_simulation,
     )
 
     detail_rows: list[dict[str, Any]] = []
     for row in rows:
-        variant_id = str(row.get("variant_id", ""))
-        if variant_id == reference_variant:
+        simulation_id = _row_simulation_id(row)
+        if simulation_id == reference_simulation:
             continue
         if not _is_comparable_metric_row(row):
             continue
@@ -229,13 +234,15 @@ def build_comparison_metrics(
         signed_error = value - reference_value
         absolute_error = abs(signed_error)
         relative_error = (
-            absolute_error / abs(reference_value) if reference_value != 0.0 else math.nan
+            absolute_error / abs(reference_value)
+            if reference_value != 0.0
+            else math.nan
         )
         detail_rows.append(
             {
                 "comparison_id": row.get("comparison_id", ""),
-                "variant_id": variant_id,
-                "reference_variant": reference_variant,
+                "simulation_id": simulation_id,
+                "reference_simulation": reference_simulation,
                 "observable": row.get("observable", ""),
                 "comparison_time_key": row.get("comparison_time_key", ""),
                 "time_role": row.get("time_role", ""),
@@ -261,22 +268,22 @@ def build_comparison_metrics(
     for row in detail_rows:
         grouped[
             (
-                str(row["variant_id"]),
+                str(row["simulation_id"]),
                 str(row["observable"]),
                 str(row.get("unit", "")),
             )
         ].append(row)
 
     summary_rows: list[dict[str, Any]] = []
-    for (variant_id, observable, unit), group in sorted(grouped.items()):
+    for (simulation_id, observable, unit), group in sorted(grouped.items()):
         signed = np.asarray([row["signed_error"] for row in group], dtype=float)
         abs_err = np.abs(signed)
         rel_err = np.asarray([row["relative_error"] for row in group], dtype=float)
         finite_rel = rel_err[np.isfinite(rel_err)]
         summary_rows.append(
             {
-                "variant_id": variant_id,
-                "reference_variant": reference_variant,
+                "simulation_id": simulation_id,
+                "reference_simulation": reference_simulation,
                 "observable": observable,
                 "unit": unit,
                 "n_pairs": int(signed.size),
@@ -299,7 +306,9 @@ def write_metrics_csv(
     fieldnames: list[str] | None = None,
 ) -> None:
     """Write metrics rows to CSV."""
-    resolved_fieldnames = fieldnames or (list(rows[0].keys()) if rows else SUMMARY_METRIC_FIELDS)
+    resolved_fieldnames = fieldnames or (
+        list(rows[0].keys()) if rows else SUMMARY_METRIC_FIELDS
+    )
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("w", encoding="utf-8", newline="") as handle:
         writer = csv.DictWriter(handle, fieldnames=resolved_fieldnames)

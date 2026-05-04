@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import csv
 import os
+from pathlib import Path
 from collections.abc import Mapping
 
 import numpy as np
@@ -15,6 +16,17 @@ from hydromodpy.solver.modflow_common.options import ModflowPostprocessOptions
 from ._models import NODATA, FlowPostprocessModel
 
 logger = get_logger(__name__)
+
+
+def _windows_extended_length_path(path: Path) -> str:
+    if os.name != "nt":
+        return str(path)
+    normalized = str(path.resolve())
+    if normalized.startswith("\\\\?\\"):
+        return normalized
+    if normalized.startswith("\\\\"):
+        return "\\\\?\\UNC\\" + normalized.lstrip("\\")
+    return "\\\\?\\" + normalized
 
 
 def native_mesh_exports_enabled(options: ModflowPostprocessOptions) -> bool:
@@ -225,13 +237,12 @@ def _write_png(
             cbar.update_ticks()
 
             fig.subplots_adjust(left=0.08, right=0.94, bottom=0.11, top=0.9)
-            fig.savefig(
-                os.path.join(
-                    model.save_file,
-                    "_figures",
-                    "native_mesh",
-                    f"{prefix}_{name}_t({int(tidx)}).png",
-                ),
-                bbox_inches="tight",
+            output_path = (
+                Path(model.save_file)
+                / "_figures"
+                / "native_mesh"
+                / f"{prefix}_{name}_t({int(tidx)}).png"
             )
+            output_path.parent.mkdir(parents=True, exist_ok=True)
+            fig.savefig(_windows_extended_length_path(output_path), bbox_inches="tight")
             plt.close(fig)

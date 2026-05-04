@@ -1,4 +1,4 @@
-"""Configuration models for variant-based comparison workflows."""
+"""Internal configuration models for simulation-comparison workflows."""
 
 from __future__ import annotations
 
@@ -20,8 +20,8 @@ def _clean_optional_text(value: object) -> str | None:
     return text or None
 
 
-class ComparisonVariant(HydroModelBase):
-    """One solver/mesh variant to run or reuse."""
+class ComparisonSimulation(HydroModelBase):
+    """One simulation to run or reuse in a comparison."""
 
     model_config = ConfigDict(extra="forbid")
 
@@ -47,9 +47,9 @@ class ComparisonVariant(HydroModelBase):
     def _validate_id(cls, value: object) -> str:
         text = str(value).strip()
         if not text:
-            raise ValueError("comparison.variant.id cannot be empty")
+            raise ValueError("comparison.simulation.id cannot be empty")
         if any(token in text for token in ("/", "\\")):
-            raise ValueError("comparison.variant.id cannot contain path separators")
+            raise ValueError("comparison.simulation.id cannot contain path separators")
         return text
 
     @field_validator(
@@ -69,19 +69,19 @@ class ComparisonVariant(HydroModelBase):
         if value is None:
             return {}
         if not isinstance(value, Mapping):
-            raise ValueError("comparison.variant.overlay must be a mapping")
+            raise ValueError("comparison.simulation.overlay must be a mapping")
         return dict(value)
 
 
 class ComparisonObservable(HydroModelBase):
-    """One quantity of interest extracted from each variant run folder."""
+    """One quantity of interest extracted from each simulation run folder."""
 
     model_config = ConfigDict(extra="forbid")
 
     name: str
     variable: str
     source: Literal["disk"] = "disk"
-    variants: list[str] | None = None
+    simulations: list[str] | None = None
     support: Literal["point", "outlet", "boundary", "cell_mask", "map"] = "point"
     anchor_id: str | None = None
     x: float | None = None
@@ -125,31 +125,39 @@ class ComparisonObservable(HydroModelBase):
         if value is None:
             return None
         if not isinstance(value, list) or not value:
-            raise ValueError("comparison.observable.cell_indices must be a non-empty list")
+            raise ValueError(
+                "comparison.observable.cell_indices must be a non-empty list"
+            )
         indices = [int(item) for item in value]
         if any(index < 0 for index in indices):
             raise ValueError("comparison.observable.cell_indices must be >= 0")
         return indices
 
-    @field_validator("variants")
+    @field_validator("simulations")
     @classmethod
-    def _validate_variants(cls, value: object) -> list[str] | None:
+    def _validate_simulations(cls, value: object) -> list[str] | None:
         if value is None:
             return None
         if not isinstance(value, list) or not value:
-            raise ValueError("comparison.observable.variants must be a non-empty list")
+            raise ValueError(
+                "comparison.observable.simulations must be a non-empty list"
+            )
         cleaned = []
         for item in value:
             text = str(item).strip()
             if not text:
-                raise ValueError("comparison.observable.variants cannot contain empty ids")
+                raise ValueError(
+                    "comparison.observable.simulations cannot contain empty ids"
+                )
             cleaned.append(text)
         return cleaned
 
     @model_validator(mode="after")
     def _validate_support_specific_fields(self) -> ComparisonObservable:
         if self.time is not None and self.time_window is not None:
-            raise ValueError("comparison.observable cannot declare both time and time_window")
+            raise ValueError(
+                "comparison.observable cannot declare both time and time_window"
+            )
         if self.support == "point":
             has_coordinates = self.x is not None and self.y is not None
             has_anchor = self.anchor_id is not None
@@ -180,7 +188,9 @@ class ComparisonObservable(HydroModelBase):
                 )
         elif self.support == "boundary":
             if self.boundary_id is None and not self.cell_indices:
-                raise ValueError("boundary observables require boundary_id or cell_indices")
+                raise ValueError(
+                    "boundary observables require boundary_id or cell_indices"
+                )
             if self.reducer is None:
                 object.__setattr__(self, "reducer", "sum")
         elif self.support == "cell_mask":
@@ -201,11 +211,11 @@ class ComparisonSection(HydroModelBase):
     base_simulation_config: str | None = None
     anchors_file: str | None = None
     output_root: str | None = None
-    run_variants: bool = True
+    run_simulations: bool = True
     continue_on_error: bool = False
-    reference_variant: str | None = None
+    reference_simulation: str | None = None
     fine_raster: ComparisonFineRaster | None = None
-    variant: list[ComparisonVariant] = Field(default_factory=list)
+    simulation: list[ComparisonSimulation] = Field(default_factory=list)
     observable: list[ComparisonObservable] = Field(default_factory=list)
 
     @field_validator(
@@ -213,7 +223,7 @@ class ComparisonSection(HydroModelBase):
         "base_simulation_config",
         "anchors_file",
         "output_root",
-        "reference_variant",
+        "reference_simulation",
     )
     @classmethod
     def _validate_optional_text(cls, value: object) -> str | None:
@@ -221,27 +231,32 @@ class ComparisonSection(HydroModelBase):
 
     @model_validator(mode="after")
     def _validate_non_empty_lists(self) -> ComparisonSection:
-        if not self.variant:
-            raise ValueError("comparison.variant must contain at least one item")
+        if not self.simulation:
+            raise ValueError("comparison.simulation must contain at least one item")
         if not self.observable:
             raise ValueError("comparison.observable must contain at least one item")
-        ids = [variant.id for variant in self.variant]
+        ids = [simulation.id for simulation in self.simulation]
         if len(set(ids)) != len(ids):
-            raise ValueError("comparison.variant ids must be unique")
+            raise ValueError("comparison.simulation ids must be unique")
         observable_names = [observable.name for observable in self.observable]
         if len(set(observable_names)) != len(observable_names):
             raise ValueError("comparison.observable names must be unique")
-        if self.reference_variant is not None and self.reference_variant not in set(ids):
-            raise ValueError("comparison.reference_variant must match a declared variant id")
-        variant_ids = set(ids)
+        if (
+            self.reference_simulation is not None
+            and self.reference_simulation not in set(ids)
+        ):
+            raise ValueError(
+                "comparison.reference_simulation must match a declared simulation id"
+            )
+        simulation_ids = set(ids)
         for observable in self.observable:
-            if observable.variants is None:
+            if observable.simulations is None:
                 continue
-            missing = sorted(set(observable.variants) - variant_ids)
+            missing = sorted(set(observable.simulations) - simulation_ids)
             if missing:
                 missing_text = ", ".join(missing)
                 raise ValueError(
-                    f"comparison.observable.variants contains unknown ids: {missing_text}"
+                    f"comparison.observable.simulations contains unknown ids: {missing_text}"
                 )
         return self
 
@@ -320,7 +335,9 @@ class ComparisonConfig(HydroModelBase):
 
         base_simulation_config_path: Path | None = None
         if section.base_simulation_config is not None:
-            base_simulation_config_path = Path(section.base_simulation_config).expanduser()
+            base_simulation_config_path = Path(
+                section.base_simulation_config
+            ).expanduser()
             if not base_simulation_config_path.is_absolute():
                 base_simulation_config_path = base_dir / base_simulation_config_path
             base_simulation_config_path = base_simulation_config_path.resolve()
@@ -335,7 +352,9 @@ class ComparisonConfig(HydroModelBase):
             anchors = _load_comparison_anchors(anchors_path)
             _apply_observable_anchors(section.observable, anchors)
         elif any(observable.anchor_id is not None for observable in section.observable):
-            raise ValueError("comparison.observable.anchor_id requires comparison.anchors_file")
+            raise ValueError(
+                "comparison.observable.anchor_id requires comparison.anchors_file"
+            )
 
         cfg = cls(
             config_path=resolved_config_path,
@@ -346,46 +365,47 @@ class ComparisonConfig(HydroModelBase):
             anchors=anchors,
             comparison=section,
         )
-        cfg._validate_variant_inputs()
+        cfg._validate_simulation_inputs()
         return cfg
 
-    def _validate_variant_inputs(self) -> None:
+    def _validate_simulation_inputs(self) -> None:
         """Validate path modes requiring top-level base-config context."""
-        for variant in self.comparison.variant:
-            if not variant.enabled:
+        for simulation in self.comparison.simulation:
+            if not simulation.enabled:
                 continue
-            has_direct_config = variant.simulation_config is not None
-            has_generated_config = self.base_simulation_config_path is not None and bool(
-                variant.overlay or variant.solver
+            has_direct_config = simulation.simulation_config is not None
+            has_generated_config = (
+                self.base_simulation_config_path is not None
+                and bool(simulation.overlay or simulation.solver)
             )
-            has_run_folder = variant.run_folder is not None
+            has_run_folder = simulation.run_folder is not None
             if not (has_direct_config or has_generated_config or has_run_folder):
                 raise ValueError(
-                    "Each enabled comparison.variant requires "
+                    "Each enabled comparison.simulation requires "
                     "simulation_config, run_folder, or base_simulation_config "
                     "with overlay/solver"
                 )
 
-    def resolve_variant_config_path(
+    def resolve_simulation_config_path(
         self,
-        variant: ComparisonVariant,
+        simulation: ComparisonSimulation,
     ) -> Path | None:
-        """Resolve a variant's declared simulation config path, if any."""
-        if variant.simulation_config is None:
+        """Resolve a simulation's declared config path, if any."""
+        if simulation.simulation_config is None:
             return None
-        path = Path(variant.simulation_config).expanduser()
+        path = Path(simulation.simulation_config).expanduser()
         if not path.is_absolute():
             path = self.base_dir / path
         return path.resolve()
 
-    def resolve_variant_run_folder(
+    def resolve_simulation_run_folder(
         self,
-        variant: ComparisonVariant,
+        simulation: ComparisonSimulation,
     ) -> Path | None:
-        """Resolve a variant's declared existing run folder, if any."""
-        if variant.run_folder is None:
+        """Resolve a simulation's declared existing run folder, if any."""
+        if simulation.run_folder is None:
             return None
-        path = Path(variant.run_folder).expanduser()
+        path = Path(simulation.run_folder).expanduser()
         if not path.is_absolute():
             path = self.base_dir / path
         return path.resolve()
@@ -396,7 +416,7 @@ __all__ = (
     "ComparisonFineRaster",
     "ComparisonObservable",
     "ComparisonSection",
-    "ComparisonVariant",
+    "ComparisonSimulation",
 )
 
 
@@ -447,19 +467,11 @@ def _as_internal_comparison_payload(section_payload: Any) -> Any:
     """Map public simulation-comparison TOML to the internal comparison model."""
     if not isinstance(section_payload, Mapping):
         return section_payload
-    if "simulation" not in section_payload or "variant" in section_payload:
-        return section_payload
-
     normalized = dict(section_payload)
-    normalized["variant"] = normalized.pop("simulation")
-
-    reference_simulation = normalized.pop("reference_simulation", None)
-    if reference_simulation is not None:
-        normalized["reference_variant"] = reference_simulation
 
     execution = normalized.pop("execution", None)
     if isinstance(execution, Mapping) and "run_simulations" in execution:
-        normalized["run_variants"] = bool(execution["run_simulations"])
+        normalized["run_simulations"] = bool(execution["run_simulations"])
 
     normalized.pop("audit", None)
     return normalized

@@ -15,7 +15,9 @@ from hydromodpy.analysis.comparison.config import (
     ComparisonConfig,
     ComparisonObservable,
 )
-from hydromodpy.analysis.comparison.child_materialization import materialize_child_configs
+from hydromodpy.analysis.comparison.child_materialization import (
+    materialize_child_configs,
+)
 from hydromodpy.analysis.comparison.exports import (
     _load_catalog_budget_rows,
     write_boussinesq_obstacle_diagnostics_export,
@@ -26,7 +28,9 @@ from hydromodpy.analysis.comparison.metric_diff import (
     build_unmatched_groups,
 )
 from hydromodpy.analysis.comparison.experiment_config import SimulationComparisonConfig
-from hydromodpy.analysis.comparison.experiment_launcher import SimulationComparisonLauncher
+from hydromodpy.analysis.comparison.experiment_launcher import (
+    SimulationComparisonLauncher,
+)
 from hydromodpy.analysis.comparison.runtime import (
     _resolve_recorded_output_path,
     extract_observable_rows,
@@ -130,7 +134,9 @@ def _write_base_simulation_config(path: Path) -> None:
     )
 
 
-def _write_structured_solver_config(path: Path, *, solver: str, nx: int, ny: int) -> None:
+def _write_structured_solver_config(
+    path: Path, *, solver: str, nx: int, ny: int
+) -> None:
     path.write_text(
         "\n".join(
             [
@@ -410,7 +416,9 @@ def _write_fake_run_folder(
     return store
 
 
-def _write_direct_outlet_run_folder(run_folder: Path, *, outlet_value: float) -> _FakeCatalog:
+def _write_direct_outlet_run_folder(
+    run_folder: Path, *, outlet_value: float
+) -> _FakeCatalog:
     run_folder.mkdir(parents=True, exist_ok=True)
     return _FakeCatalog(
         run_folder / "simulation.zarr",
@@ -434,7 +442,9 @@ def _write_native_timeseries_csv(
     rows = [
         "date;accumulation_flux;outflow_drain",
     ]
-    for index, (accumulation, drain) in enumerate(zip(accumulation_values, drain_values)):
+    for index, (accumulation, drain) in enumerate(
+        zip(accumulation_values, drain_values)
+    ):
         rows.append(f"{index};{accumulation};{drain}")
     (timeseries_dir / "_simulated_timeseries.csv").write_text(
         "\n".join(rows) + "\n",
@@ -514,7 +524,10 @@ def test_comparison_config_resolves_paths(tmp_path: Path) -> None:
 
     assert cfg.comparison_root == (tmp_path / "comparison_outputs").resolve()
     assert cfg.comparison.comparison_id == "demo_compare"
-    assert cfg.resolve_variant_run_folder(cfg.comparison.variant[0]) == run_folder.resolve()
+    assert (
+        cfg.resolve_simulation_run_folder(cfg.comparison.simulation[0])
+        == run_folder.resolve()
+    )
     assert cfg.comparison.observable[1].reducer == "sum"
 
 
@@ -646,9 +659,10 @@ def test_materialize_simulation_config_writes_base_overlay(tmp_path: Path) -> No
     raw = load_toml_with_base_config(generated)
     assert raw["simulation"]["run_id"] == "demo_compare__bouss_demo"
     assert raw["simulation"]["process"][0]["solvers"] == ["boussinesq"]
-    assert raw["mesh_input"]["bundle_dir"] == (
-        tmp_path / "results_stable" / "mesh" / "bundle"
-    ).resolve().as_posix()
+    assert (
+        raw["mesh_input"]["bundle_dir"]
+        == (tmp_path / "results_stable" / "mesh" / "bundle").resolve().as_posix()
+    )
 
 
 def test_extract_observable_rows_reads_point_and_strict_outlet(tmp_path: Path) -> None:
@@ -661,11 +675,11 @@ def test_extract_observable_rows_reads_point_and_strict_outlet(tmp_path: Path) -
         load_toml_with_base_config(config_path),
         config_path=config_path,
     )
-    variant = cfg.comparison.variant[0]
+    simulation = cfg.comparison.simulation[0]
 
     rows = extract_observable_rows(
         comparison_id="demo_compare",
-        variant=variant,
+        simulation=simulation,
         run_folder=run_folder,
         observables=tuple(cfg.comparison.observable),
         store=store,
@@ -682,6 +696,8 @@ def test_extract_observable_rows_reads_point_and_strict_outlet(tmp_path: Path) -
     assert outlet["selected_cell_index"] == "1"
     assert outlet["time_index"] == 1
     assert outlet["comparison_time_key"] == "time_index:1"
+    assert head["time_role"] == "state_snapshot"
+    assert outlet["time_role"] == "period_value"
     assert outlet["unit"] == "m3/s"
     assert outlet["native_unit"] == "m3/s"
     assert outlet["derived_from_variable"] == "accumulation_flux"
@@ -728,7 +744,7 @@ def test_extract_observable_rows_reads_seepage_areas_from_seepage_mask(
 
     rows = extract_observable_rows(
         comparison_id="demo_seepage_alias",
-        variant=cfg.comparison.variant[0],
+        simulation=cfg.comparison.simulation[0],
         run_folder=run_folder,
         observables=tuple(cfg.comparison.observable),
         store=store,
@@ -740,7 +756,9 @@ def test_extract_observable_rows_reads_seepage_areas_from_seepage_mask(
     assert [float(row["value"]) for row in rows] == pytest.approx([1.0, 1.0, 0.0])
 
 
-def test_extract_observable_rows_resolves_structured_xy_from_config(tmp_path: Path) -> None:
+def test_extract_observable_rows_resolves_structured_xy_from_config(
+    tmp_path: Path,
+) -> None:
     import rasterio
     from rasterio.transform import from_origin
 
@@ -816,10 +834,10 @@ def test_extract_observable_rows_resolves_structured_xy_from_config(tmp_path: Pa
 
     rows = extract_observable_rows(
         comparison_id="demo_structured_xy",
-        variant=cfg.comparison.variant[0],
+        simulation=cfg.comparison.simulation[0],
         run_folder=run_folder,
         observables=tuple(cfg.comparison.observable),
-        config_path=cfg.resolve_variant_config_path(cfg.comparison.variant[0]),
+        config_path=cfg.resolve_simulation_config_path(cfg.comparison.simulation[0]),
         store=store,
         sim_id=SIM_ID,
     )
@@ -832,7 +850,9 @@ def test_extract_observable_rows_resolves_structured_xy_from_config(tmp_path: Pa
     assert outlet["selected_cell_index"] == "1"
 
 
-def test_extract_observable_rows_reads_direct_scalar_outlet_flux(tmp_path: Path) -> None:
+def test_extract_observable_rows_reads_direct_scalar_outlet_flux(
+    tmp_path: Path,
+) -> None:
     run_folder = tmp_path / "run_direct"
     config_path = tmp_path / "config_comparison.toml"
     _write_simulation_comparison_config(config_path, run_folder)
@@ -844,7 +864,7 @@ def test_extract_observable_rows_reads_direct_scalar_outlet_flux(tmp_path: Path)
 
     rows = extract_observable_rows(
         comparison_id="demo_compare",
-        variant=cfg.comparison.variant[0],
+        simulation=cfg.comparison.simulation[0],
         run_folder=run_folder,
         observables=(cfg.comparison.observable[1],),
         store=store,
@@ -873,7 +893,7 @@ def test_extract_observable_rows_reads_boussinesq_outlet_flux(tmp_path: Path) ->
 
     rows = extract_observable_rows(
         comparison_id="demo_compare",
-        variant=cfg.comparison.variant[0],
+        simulation=cfg.comparison.simulation[0],
         run_folder=run_folder,
         observables=(cfg.comparison.observable[1],),
         store=store,
@@ -929,7 +949,7 @@ def test_extract_observable_rows_converts_boussinesq_drainage_map_to_outflow_dra
 
     rows = extract_observable_rows(
         comparison_id="demo_bouss_map",
-        variant=cfg.comparison.variant[0],
+        simulation=cfg.comparison.simulation[0],
         run_folder=run_folder,
         observables=tuple(cfg.comparison.observable),
         store=store,
@@ -939,7 +959,9 @@ def test_extract_observable_rows_converts_boussinesq_drainage_map_to_outflow_dra
     assert len(rows) == 3
     assert all(row["resolved_variable"] == "drainage_flux_history_m3_s" for row in rows)
     assert all(row["unit"] == "m/day" for row in rows)
-    assert all(row["conversion_applied"] == "drainage_flux_m3_s_to_m_per_day" for row in rows)
+    assert all(
+        row["conversion_applied"] == "drainage_flux_m3_s_to_m_per_day" for row in rows
+    )
     first_value = float(rows[0]["value"])
     assert first_value == pytest.approx((0.08 / 5.0) * 86400.0)
 
@@ -980,7 +1002,9 @@ def test_load_variable_series_derives_boussinesq_dry_deficit_flux(
     assert series.variable_name == "dry_deficit_total_m3_s"
     assert len(series.slices) == 2
     assert float(series.slices[0].values[0]) == pytest.approx(0.0)
-    assert float(series.slices[1].values[0]) == pytest.approx(0.005 * OUTLET_CELL_AREA_M2)
+    assert float(series.slices[1].values[0]) == pytest.approx(
+        0.005 * OUTLET_CELL_AREA_M2
+    )
 
 
 def test_extract_observable_rows_reads_surface_excess_map_and_series(
@@ -1031,21 +1055,30 @@ def test_extract_observable_rows_reads_surface_excess_map_and_series(
 
     rows = extract_observable_rows(
         comparison_id="demo_surface_excess",
-        variant=cfg.comparison.variant[0],
+        simulation=cfg.comparison.simulation[0],
         run_folder=run_folder,
         observables=tuple(cfg.comparison.observable),
         store=store,
         sim_id=SIM_ID,
     )
 
-    series_rows = [row for row in rows if row["observable"] == "surface_excess_flux_series"]
+    series_rows = [
+        row for row in rows if row["observable"] == "surface_excess_flux_series"
+    ]
     map_rows = [row for row in rows if row["observable"] == "surface_excess_map_last"]
     assert [float(row["value"]) for row in series_rows] == pytest.approx([0.27, 0.35])
     assert all(row["unit"] == "m3/s" for row in series_rows)
-    assert all(row["resolved_variable"] == "surface_excess_total_m3_s" for row in series_rows)
+    assert all(
+        row["resolved_variable"] == "surface_excess_total_m3_s" for row in series_rows
+    )
     assert len(map_rows) == 3
-    assert all(row["resolved_variable"] == "saturation_excess_history_m_s" for row in map_rows)
-    assert all(row["conversion_applied"] == "surface_excess_m_s_to_m_per_day" for row in map_rows)
+    assert all(
+        row["resolved_variable"] == "saturation_excess_history_m_s" for row in map_rows
+    )
+    assert all(
+        row["conversion_applied"] == "surface_excess_m_s_to_m_per_day"
+        for row in map_rows
+    )
     assert float(map_rows[0]["value"]) == pytest.approx(0.01 * 86400.0)
 
 
@@ -1063,7 +1096,7 @@ def test_write_budget_exports_derives_boussinesq_budget_timeseries(
     _patch_result_store(monkeypatch, {config_path.resolve(): store})
     artifacts, rows = write_budget_exports(
         comparison_root=comparison_root,
-        variant_summaries=[
+        simulation_summaries=[
             {
                 "id": "bouss_demo",
                 "label": "Bouss demo",
@@ -1078,6 +1111,7 @@ def test_write_budget_exports_derives_boussinesq_budget_timeseries(
 
     assert artifacts
     assert any(row["component"] == "surface_excess_total_m3_s" for row in rows)
+    assert any(row["component"] == "comparable_outflow_total_m3_s" for row in rows)
     assert any(row["component"] == "dry_deficit_total_m3_s" for row in rows)
     assert any(row["component"] == "storage_change_total_m3_s" for row in rows)
     recharge_row = next(
@@ -1088,7 +1122,8 @@ def test_write_budget_exports_derives_boussinesq_budget_timeseries(
     storage_row = next(
         row
         for row in rows
-        if row["component"] == "storage_change_total_m3_s" and int(row["period_index"]) == 0
+        if row["component"] == "storage_change_total_m3_s"
+        and int(row["period_index"]) == 0
     )
     residual_row = next(
         row
@@ -1098,7 +1133,14 @@ def test_write_budget_exports_derives_boussinesq_budget_timeseries(
     dry_row = next(
         row
         for row in rows
-        if row["component"] == "dry_deficit_total_m3_s" and int(row["period_index"]) == 0
+        if row["component"] == "dry_deficit_total_m3_s"
+        and int(row["period_index"]) == 0
+    )
+    comparable_row = next(
+        row
+        for row in rows
+        if row["component"] == "comparable_outflow_total_m3_s"
+        and int(row["period_index"]) == 0
     )
     assert int(recharge_row["time_index"]) == 1
     assert recharge_row["time_role"] == "period_value"
@@ -1108,6 +1150,7 @@ def test_write_budget_exports_derives_boussinesq_budget_timeseries(
     assert float(recharge_row["value"]) == pytest.approx(3.75e-7)
     assert float(storage_row["value"]) == pytest.approx(0.68 / 3600.0)
     assert float(dry_row["value"]) == pytest.approx(0.005 * OUTLET_CELL_AREA_M2)
+    assert float(comparable_row["value"]) == pytest.approx(0.35 + 0.48)
     assert math.isfinite(float(residual_row["value"]))
     assert float(residual_row["value"]) == pytest.approx(
         3.75e-7 - 0.025 + 0.005 * OUTLET_CELL_AREA_M2 - 0.48 - 0.35 - (0.68 / 3600.0)
@@ -1141,7 +1184,7 @@ def test_write_budget_exports_uses_child_config_bundle_when_run_folder_has_no_me
 
     artifacts, rows = write_budget_exports(
         comparison_root=tmp_path / "comparison",
-        variant_summaries=[
+        simulation_summaries=[
             {
                 "id": "bouss_demo",
                 "label": "Bouss demo",
@@ -1168,7 +1211,7 @@ def test_write_boussinesq_obstacle_diagnostics_exports_bounds_and_dry_deficit(
 
     artifacts, rows = write_boussinesq_obstacle_diagnostics_export(
         comparison_root=tmp_path / "comparison",
-        variant_summaries=[
+        simulation_summaries=[
             {
                 "id": "bouss_demo",
                 "label": "Bouss demo",
@@ -1188,10 +1231,14 @@ def test_write_boussinesq_obstacle_diagnostics_exports_bounds_and_dry_deficit(
     assert int(last["head_below_bottom_cell_count"]) == 1
     assert float(last["negative_storage_volume_m3"]) == pytest.approx(0.24)
     assert int(last["dry_deficit_active_cell_count"]) == 1
-    assert float(last["dry_deficit_total_m3_s"]) == pytest.approx(0.005 * OUTLET_CELL_AREA_M2)
+    assert float(last["dry_deficit_total_m3_s"]) == pytest.approx(
+        0.005 * OUTLET_CELL_AREA_M2
+    )
 
 
-def test_catalog_budget_rows_are_normalized_to_elapsed_seconds_and_m3_s(tmp_path: Path) -> None:
+def test_catalog_budget_rows_are_normalized_to_elapsed_seconds_and_m3_s(
+    tmp_path: Path,
+) -> None:
     config_path = tmp_path / "mf6_child.toml"
     config_path.write_text(
         "\n".join(
@@ -1259,12 +1306,20 @@ def test_catalog_budget_rows_are_normalized_to_elapsed_seconds_and_m3_s(tmp_path
         "mf6-demo",
     )
 
-    by_component = {row["component"]: row for row in rows if int(row["time_index"]) == 0}
-    assert by_component["recharge_total_m3_s"]["elapsed_seconds"] == pytest.approx(86400.0)
+    by_component = {
+        row["component"]: row for row in rows if int(row["time_index"]) == 0
+    }
+    assert by_component["recharge_total_m3_s"]["elapsed_seconds"] == pytest.approx(
+        86400.0
+    )
     assert by_component["recharge_total_m3_s"]["time_role"] == "period_value"
     assert by_component["recharge_total_m3_s"]["period_index"] == 0
-    assert by_component["recharge_total_m3_s"]["period_start_seconds"] == pytest.approx(0.0)
-    assert by_component["recharge_total_m3_s"]["period_end_seconds"] == pytest.approx(86400.0)
+    assert by_component["recharge_total_m3_s"]["period_start_seconds"] == pytest.approx(
+        0.0
+    )
+    assert by_component["recharge_total_m3_s"]["period_end_seconds"] == pytest.approx(
+        86400.0
+    )
     assert not by_component["recharge_total_m3_s"]["is_initial_state"]
     assert by_component["recharge_total_m3_s"]["unit"] == "m3/s"
     assert by_component["recharge_total_m3_s"]["value"] == pytest.approx(2.5)
@@ -1284,7 +1339,9 @@ def test_resolve_recorded_output_path_keeps_wsl_mount_path_on_posix() -> None:
     assert path.as_posix() == "/mnt/c/codes/HydroModPy/examples"
 
 
-@pytest.mark.skipif(os.name != "nt", reason="WSL bundle-path normalization is Windows-specific")
+@pytest.mark.skipif(
+    os.name != "nt", reason="WSL bundle-path normalization is Windows-specific"
+)
 def test_extract_observable_rows_resolves_wsl_bundle_path_on_windows(
     tmp_path: Path,
 ) -> None:
@@ -1335,7 +1392,7 @@ def test_extract_observable_rows_resolves_wsl_bundle_path_on_windows(
 
     rows = extract_observable_rows(
         comparison_id="demo_compare_wsl_bundle",
-        variant=cfg.comparison.variant[0],
+        simulation=cfg.comparison.simulation[0],
         run_folder=run_folder,
         observables=tuple(cfg.comparison.observable),
         store=store,
@@ -1395,7 +1452,7 @@ def test_extract_observable_rows_masks_depth_using_head_nodata(tmp_path: Path) -
 
     rows = extract_observable_rows(
         comparison_id="demo_depth_mask",
-        variant=cfg.comparison.variant[0],
+        simulation=cfg.comparison.simulation[0],
         run_folder=run_folder,
         observables=tuple(cfg.comparison.observable),
         store=store,
@@ -1588,8 +1645,12 @@ def test_simulation_comparison_launcher_writes_chronicles_native_flux_and_runtim
 
     reference_solver_config = tmp_path / "run_reference_solver.toml"
     candidate_solver_config = tmp_path / "run_candidate_solver.toml"
-    _write_structured_solver_config(reference_solver_config, solver="modflow6", nx=3, ny=1)
-    _write_structured_solver_config(candidate_solver_config, solver="modflownwt", nx=3, ny=1)
+    _write_structured_solver_config(
+        reference_solver_config, solver="modflow6", nx=3, ny=1
+    )
+    _write_structured_solver_config(
+        candidate_solver_config, solver="modflownwt", nx=3, ny=1
+    )
 
     config_path = tmp_path / "config_comparison_outputs.toml"
     _write_visual_simulation_comparison_config(
@@ -1650,8 +1711,12 @@ def test_simulation_comparison_launcher_generates_structured_figures_from_run_fo
     _write_solver_grid_template(candidate_run, nx=2, ny=2)
     reference_solver_config = tmp_path / "structured_reference.toml"
     candidate_solver_config = tmp_path / "structured_candidate.toml"
-    _write_structured_solver_config(reference_solver_config, solver="modflow6", nx=2, ny=2)
-    _write_structured_solver_config(candidate_solver_config, solver="modflownwt", nx=2, ny=2)
+    _write_structured_solver_config(
+        reference_solver_config, solver="modflow6", nx=2, ny=2
+    )
+    _write_structured_solver_config(
+        candidate_solver_config, solver="modflownwt", nx=2, ny=2
+    )
 
     config_path = tmp_path / "config_comparison_structured_reuse.toml"
     config_path.write_text(
@@ -1853,8 +1918,8 @@ def test_build_comparison_metrics_against_reference(tmp_path: Path) -> None:
         load_toml_with_base_config(config_path),
         config_path=config_path,
     )
-    reference_simulation = cfg.comparison.variant[0]
-    candidate_variant = reference_simulation.model_copy(
+    reference_simulation = cfg.comparison.simulation[0]
+    candidate_simulation = reference_simulation.model_copy(
         update={"id": "candidate", "label": "candidate"}
     )
 
@@ -1862,7 +1927,7 @@ def test_build_comparison_metrics_against_reference(tmp_path: Path) -> None:
     rows.extend(
         extract_observable_rows(
             comparison_id="demo_compare",
-            variant=reference_simulation,
+            simulation=reference_simulation,
             run_folder=reference_run,
             observables=tuple(cfg.comparison.observable),
             store=reference_store,
@@ -1872,7 +1937,7 @@ def test_build_comparison_metrics_against_reference(tmp_path: Path) -> None:
     rows.extend(
         extract_observable_rows(
             comparison_id="demo_compare",
-            variant=candidate_variant,
+            simulation=candidate_simulation,
             run_folder=candidate_run,
             observables=tuple(cfg.comparison.observable),
             store=candidate_store,
@@ -1880,19 +1945,21 @@ def test_build_comparison_metrics_against_reference(tmp_path: Path) -> None:
         )
     )
 
-    detail, summary = build_comparison_metrics(rows, reference_variant="mf6_demo")
+    detail, summary = build_comparison_metrics(rows, reference_simulation="mf6_demo")
 
     assert len(detail) == 2
     summary_by_observable = {row["observable"]: row for row in summary}
     assert summary_by_observable["head_at_point"]["mae"] == 2.0
-    assert summary_by_observable["outlet_flux"]["mae"] == pytest.approx(_expected_outlet_flux(0.1))
+    assert summary_by_observable["outlet_flux"]["mae"] == pytest.approx(
+        _expected_outlet_flux(0.1)
+    )
 
 
 def test_build_comparison_metrics_aligns_last_selection_across_time_indices() -> None:
     rows = [
         {
             "comparison_id": "demo_compare",
-            "variant_id": "reference",
+            "simulation_id": "reference",
             "observable": "head_map_last",
             "comparison_time_key": "time_index:2",
             "match_fallback_key": "time_selector:last",
@@ -1904,7 +1971,7 @@ def test_build_comparison_metrics_aligns_last_selection_across_time_indices() ->
         },
         {
             "comparison_id": "demo_compare",
-            "variant_id": "candidate",
+            "simulation_id": "candidate",
             "observable": "head_map_last",
             "comparison_time_key": "time_index:3",
             "match_fallback_key": "time_selector:last",
@@ -1916,7 +1983,7 @@ def test_build_comparison_metrics_aligns_last_selection_across_time_indices() ->
         },
     ]
 
-    detail, summary = build_comparison_metrics(rows, reference_variant="reference")
+    detail, summary = build_comparison_metrics(rows, reference_simulation="reference")
 
     assert len(detail) == 1
     assert detail[0]["reference_match_strategy"] == "fallback_time_key"
@@ -1925,13 +1992,15 @@ def test_build_comparison_metrics_aligns_last_selection_across_time_indices() ->
     assert summary[0]["mae"] == 2.0
 
 
-def test_build_comparison_metrics_aligns_non_initial_steps_and_keeps_initial_unmatched() -> None:
+def test_build_comparison_metrics_aligns_non_initial_steps_and_keeps_initial_unmatched() -> (
+    None
+):
     rows = []
     for index, value in enumerate((1.0, 2.0, 3.0)):
         rows.append(
             {
                 "comparison_id": "demo_compare",
-                "variant_id": "reference",
+                "simulation_id": "reference",
                 "observable": "outlet_flux_series",
                 "comparison_time_key": f"time_index:{index}",
                 "match_fallback_key": f"non_initial_order:{index}",
@@ -1946,7 +2015,7 @@ def test_build_comparison_metrics_aligns_non_initial_steps_and_keeps_initial_unm
     rows.append(
         {
             "comparison_id": "demo_compare",
-            "variant_id": "candidate",
+            "simulation_id": "candidate",
             "observable": "outlet_flux_series",
             "comparison_time_key": "elapsed_seconds:0",
             "match_fallback_key": "initial_state",
@@ -1961,7 +2030,7 @@ def test_build_comparison_metrics_aligns_non_initial_steps_and_keeps_initial_unm
         rows.append(
             {
                 "comparison_id": "demo_compare",
-                "variant_id": "candidate",
+                "simulation_id": "candidate",
                 "observable": "outlet_flux_series",
                 "comparison_time_key": f"elapsed_seconds:{(index + 1) * 1000}",
                 "match_fallback_key": f"non_initial_order:{index}",
@@ -1973,15 +2042,15 @@ def test_build_comparison_metrics_aligns_non_initial_steps_and_keeps_initial_unm
             }
         )
 
-    detail, summary = build_comparison_metrics(rows, reference_variant="reference")
-    unmatched = build_unmatched_groups(rows, reference_variant="reference")
+    detail, summary = build_comparison_metrics(rows, reference_simulation="reference")
+    unmatched = build_unmatched_groups(rows, reference_simulation="reference")
 
     assert len(detail) == 3
     assert summary[0]["n_pairs"] == 3
     assert summary[0]["mae"] == 0.5
     assert unmatched == [
         {
-            "variant_id": "candidate",
+            "simulation_id": "candidate",
             "observable": "outlet_flux_series",
             "unit": "m3/s",
             "n_rows": 1,

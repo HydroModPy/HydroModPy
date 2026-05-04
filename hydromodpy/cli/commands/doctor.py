@@ -253,6 +253,7 @@ def _probe_workspace(workspace_arg: str | None, *, toml: str | None) -> list[dic
         from hydromodpy.core.workspace.config import WorkspaceConfig
         from hydromodpy.core.workspace.exceptions import WorkspaceError
         from hydromodpy.data.scaffold import DEFAULT_ROOT
+        from hydromodpy.results.storage_contract import CATALOG_FILENAME
     except Exception as exc:  # pragma: no cover
         return [
             {
@@ -296,83 +297,39 @@ def _probe_workspace(workspace_arg: str | None, *, toml: str | None) -> list[dic
     projects_dir = ws / "projects"
     if projects_dir.is_dir():
         project_roots.extend(p for p in sorted(projects_dir.iterdir()) if p.is_dir())
-    elif (ws / "hydromodpy.duckdb").is_file():
+    elif (ws / CATALOG_FILENAME).is_file():
         project_roots.append(ws)
     for project_root in project_roots:
-        checks.extend(_probe_parquet_layout(project_root))
+        checks.extend(_probe_result_storage(project_root))
     return checks
 
 
-def _probe_parquet_layout(ws: Path) -> list[dict]:
-    """Report on the per-sim Parquet directories and flag inconsistencies."""
-    db = ws / "hydromodpy.duckdb"
-    if not db.is_file():
-        return []
+def _probe_result_storage(
+    ws: Path,
+    *,
+    catalog_path: Path | None = None,
+    simulations_dir: Path | None = None,
+) -> list[dict]:
+    """Report on the catalog/Zarr/Parquet storage layout."""
     try:
-        import duckdb as _duckdb
-    except ImportError:
-        return []
-    try:
-        conn = _duckdb.connect(str(db), read_only=True)
-    except _duckdb.IOException as exc:
+        from hydromodpy.results.storage_diagnostics import diagnose_result_storage
+    except Exception as exc:  # pragma: no cover - defensive
         return [
             {
-                "name": "parquet:catalog",
-                "status": "WARN",
-                "detail": f"catalog busy: {exc}",
-                "hint": "Close other HydroModPy sessions and retry",
+                "name": "results:diagnostics",
+                "status": "KO",
+                "detail": f"storage diagnostics import failed: {exc}",
+                "hint": "Reinstall hydromodpy",
             }
         ]
-    try:
-        tables = {
-            r[0]
-            for r in conn.execute(
-                "SELECT table_name FROM information_schema.tables "
-                "WHERE table_schema='main' AND table_type='BASE TABLE'"
-            ).fetchall()
-        }
-        registered = {
-            str(r[0])
-            for r in conn.execute("SELECT CAST(sim_id AS VARCHAR) FROM simulations").fetchall()
-        }
-    finally:
-        conn.close()
-
-    out: list[dict] = []
-    legacy = {"timeseries", "budgets", "mass_balance"} & tables
-    if legacy:
-        out.append(
-            {
-                "name": "parquet:layout",
-                "status": "WARN",
-                "detail": f"legacy tables present: {', '.join(sorted(legacy))}",
-                "hint": "Regenerate the workspace; legacy DuckDB tables are no longer supported.",
-            }
+    return [
+        diagnostic.to_check()
+        for diagnostic in diagnose_result_storage(
+            ws,
+            catalog_path=catalog_path,
+            simulations_dir=simulations_dir,
         )
-    sims_dir = ws / "simulations"
-    if not sims_dir.is_dir():
-        return out
-    parquet_dirs = {p.name[: -len(".parquet")]: p for p in sims_dir.glob("*.parquet") if p.is_dir()}
-    orphan = sorted(set(parquet_dirs) - registered)
-    if orphan:
-        out.append(
-            {
-                "name": "parquet:orphan_dirs",
-                "status": "WARN",
-                "detail": f"{len(orphan)} parquet dir(s) without a catalog row",
-                "hint": f"first: {orphan[0]} (rm or re-register)",
-            }
-        )
-    else:
-        out.append(
-            {
-                "name": "parquet:layout",
-                "status": "OK",
-                "detail": f"{len(parquet_dirs)} per-sim Parquet dir(s)",
-                "hint": None,
-            }
-        )
-    return out
+    ]
 
 
 def _probe_from_toml(toml_path: Path, WorkspaceConfig, WorkspaceError) -> list[dict]:
@@ -425,7 +382,7 @@ def _probe_from_toml(toml_path: Path, WorkspaceConfig, WorkspaceError) -> list[d
             }
         ]
 
-    return [
+    checks = [
         {
             "name": "workspace",
             "status": "OK",
@@ -437,6 +394,14 @@ def _probe_from_toml(toml_path: Path, WorkspaceConfig, WorkspaceError) -> list[d
         _path_check("data_dir", cfg.data_dir),
         _path_check("simulations_dir", cfg.simulations_dir),
     ]
+    checks.extend(
+        _probe_result_storage(
+            cfg.project_root,
+            catalog_path=cfg.catalog_path,
+            simulations_dir=cfg.simulations_dir,
+        )
+    )
+    return checks
 
 
 def _path_check(name: str, path: Path, *, required: bool = True) -> dict:

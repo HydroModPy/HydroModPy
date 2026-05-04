@@ -3,6 +3,8 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+import pytest
+
 from tests.regression.intercomparison_helpers import (
     build_intercomparison_signature,
     metric_key,
@@ -18,11 +20,11 @@ def test_build_intercomparison_signature_is_compact_and_ordered(tmp_path: Path) 
             {
                 "schema_version": "simulation_comparison_metrics_v1",
                 "comparison_id": "case_a",
-                "reference_variant": "mf6_ref",
+                "reference_simulation": "mf6_ref",
                 "summary": [
                     {
-                        "variant_id": "bouss_candidate",
-                        "reference_variant": "mf6_ref",
+                        "simulation_id": "bouss_candidate",
+                        "reference_simulation": "mf6_ref",
                         "observable": "head_point",
                         "unit": "m",
                         "n_pairs": 1,
@@ -53,12 +55,59 @@ def test_build_intercomparison_signature_is_compact_and_ordered(tmp_path: Path) 
         audit_json=audit_path,
     )
 
-    key = metric_key(variant_id="bouss_candidate", observable="head_point")
+    key = metric_key(simulation_id="bouss_candidate", observable="head_point")
     assert signature["comparison_id"] == "case_a"
+    assert signature["reference_simulation"] == "mf6_ref"
     assert signature["audit_status"] == "pass"
     assert list(signature["summary"]) == [key]
     assert signature["summary"][key]["max_abs_error"] == 0.1
     assert "differences" not in signature
+
+
+def test_build_intercomparison_signature_requires_current_simulation_id_schema(
+    tmp_path: Path,
+) -> None:
+    metrics_path = tmp_path / "comparison_metrics.json"
+    audit_path = tmp_path / "comparison_audit.json"
+    metrics_path.write_text(
+        json.dumps(
+            {
+                "schema_version": "simulation_comparison_metrics_v1",
+                "comparison_id": "case_a",
+                "reference_simulation": "mf6_ref",
+                "summary": [
+                    {
+                        "reference_simulation": "mf6_ref",
+                        "observable": "head_point",
+                        "unit": "m",
+                        "n_pairs": 1,
+                        "bias": 0.1,
+                        "mae": 0.1,
+                        "rmse": 0.1,
+                        "max_abs_error": 0.1,
+                        "mean_relative_error": 0.01,
+                    }
+                ],
+                "differences": [{"large": "not retained"}],
+            }
+        ),
+        encoding="utf-8",
+    )
+    audit_path.write_text(
+        json.dumps(
+            {
+                "schema_version": "simulation_comparison_audit_v1",
+                "status": "pass",
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError, match="simulation_id"):
+        build_intercomparison_signature(
+            metrics_json=metrics_path,
+            audit_json=audit_path,
+        )
 
 
 def test_write_isolated_comparison_config_redirects_outputs_and_workspace(

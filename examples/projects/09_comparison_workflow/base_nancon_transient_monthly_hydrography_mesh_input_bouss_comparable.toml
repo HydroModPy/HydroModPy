@@ -3,7 +3,7 @@
 # Compared with the exploratory Nancon seasonal case, this base intentionally
 # reduces configuration ambiguity:
 #
-# - both variants reuse the same precomputed river-constrained mesh bundle;
+# - both simulations reuse the same precomputed river-constrained mesh bundle;
 # - the transient starts below the surface instead of exactly at topography;
 # - the top drainage conductance is increased to reduce persistent ponding;
 # - the monthly recharge chronicle stays synthetic and compact.

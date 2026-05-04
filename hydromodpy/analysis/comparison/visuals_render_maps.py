@@ -25,7 +25,7 @@ from hydromodpy.analysis.comparison.visuals_style import (
     _robust_limits,
     _robust_symmetric_limit,
     _style_map_axes,
-    _variant_panel_title,
+    _simulation_panel_title,
 )
 
 matplotlib.use("Agg")
@@ -65,7 +65,9 @@ def _render_map_subplot(
         _style_map_axes(ax)
         return artist
 
-    image = _mask_nodata(np.asarray(payload.values, dtype=float)).reshape(payload.structured_shape)
+    image = _mask_nodata(np.asarray(payload.values, dtype=float)).reshape(
+        payload.structured_shape
+    )
     imshow_kwargs: dict[str, Any] = {
         "origin": "lower",
         "cmap": cmap,
@@ -109,7 +111,9 @@ def _render_difference_subplot(
         _style_map_axes(ax)
         return artist
 
-    image = _mask_nodata(np.asarray(payload.values, dtype=float)).reshape(payload.structured_shape)
+    image = _mask_nodata(np.asarray(payload.values, dtype=float)).reshape(
+        payload.structured_shape
+    )
     imshow_kwargs: dict[str, Any] = {
         "origin": "lower",
         "cmap": cmap,
@@ -150,7 +154,12 @@ def _boundary_edges_by_side(
     span_y = max(float(ymax - ymin), 1.0)
     tol_x = span_x * 0.03
     tol_y = span_y * 0.03
-    result: dict[str, list[np.ndarray]] = {"west": [], "east": [], "south": [], "north": []}
+    result: dict[str, list[np.ndarray]] = {
+        "west": [],
+        "east": [],
+        "south": [],
+        "north": [],
+    }
     for edge in boundary:
         segment = xy[np.asarray(edge, dtype=int)]
         midpoint = segment.mean(axis=0)
@@ -186,7 +195,11 @@ def _write_case_configuration_figure(
     figure, axes = plt.subplots(2, 2, figsize=(12.6, 8.4), squeeze=False)
     mesh_ax, recharge_ax, meta_ax, semantics_ax = np.asarray(axes, dtype=object).ravel()
 
-    if payload.vertices is not None and payload.faces is not None and payload.vertices.size:
+    if (
+        payload.vertices is not None
+        and payload.faces is not None
+        and payload.vertices.size
+    ):
         polygons: list[np.ndarray] = []
         colors: list[float] = []
         surface = payload.surface_top
@@ -244,7 +257,9 @@ def _write_case_configuration_figure(
                 )
     elif payload.centroid_x is not None and payload.centroid_y is not None:
         values = np.arange(payload.centroid_x.size, dtype=float)
-        mesh_ax.scatter(payload.centroid_x, payload.centroid_y, c=values, s=22, cmap="viridis")
+        mesh_ax.scatter(
+            payload.centroid_x, payload.centroid_y, c=values, s=22, cmap="viridis"
+        )
 
     for x, y, label in payload.observable_points:
         mesh_ax.scatter(
@@ -257,7 +272,9 @@ def _write_case_configuration_figure(
             linewidths=0.8,
         )
         mesh_ax.text(x, y, f" {label}", fontsize=7, color="#111827", va="center")
-    mesh_ax.set_title("Spatial support, topography, boundaries", fontsize=_TITLE_FONT_SIZE)
+    mesh_ax.set_title(
+        "Spatial support, topography, boundaries", fontsize=_TITLE_FONT_SIZE
+    )
     mesh_ax.set_aspect("equal", adjustable="box")
     mesh_ax.tick_params(labelsize=_TICK_FONT_SIZE)
     if payload.boundary_sides:
@@ -275,16 +292,22 @@ def _write_case_configuration_figure(
             color="#99f6e4",
             alpha=0.45,
         )
-        recharge_ax.set_ylabel(payload.recharge_unit or "recharge", fontsize=_LABEL_FONT_SIZE)
+        recharge_ax.set_ylabel(
+            payload.recharge_unit or "recharge", fontsize=_LABEL_FONT_SIZE
+        )
         recharge_ax.set_xlabel("forcing record", fontsize=_LABEL_FONT_SIZE)
     else:
-        recharge_ax.text(0.5, 0.5, "No recharge forcing found", ha="center", va="center")
+        recharge_ax.text(
+            0.5, 0.5, "No recharge forcing found", ha="center", va="center"
+        )
     recharge_ax.set_title("Recharge forcing", fontsize=_TITLE_FONT_SIZE)
     recharge_ax.grid(True, alpha=0.18, linewidth=0.6)
     recharge_ax.tick_params(labelsize=_TICK_FONT_SIZE)
 
     meta_ax.axis("off")
-    meta_text = "\n".join([*payload.metadata_lines, "", "variants:", *payload.variant_lines])
+    meta_text = "\n".join(
+        [*payload.metadata_lines, "", "simulations:", *payload.simulation_lines]
+    )
     meta_ax.text(
         0.02,
         0.98,
@@ -298,7 +321,9 @@ def _write_case_configuration_figure(
     meta_ax.set_title("Case metadata", fontsize=_TITLE_FONT_SIZE, loc="left")
 
     semantics_ax.axis("off")
-    boundary_text = "\n".join(f"- {label} ({side})" for side, label in payload.boundary_sides)
+    boundary_text = "\n".join(
+        f"- {label} ({side})" for side, label in payload.boundary_sides
+    )
     if not boundary_text:
         boundary_text = "- no side Dirichlet boundary detected"
     semantics = (
@@ -319,10 +344,16 @@ def _write_case_configuration_figure(
         fontsize=9,
         linespacing=1.35,
     )
-    semantics_ax.set_title("Comparison semantics", fontsize=_TITLE_FONT_SIZE, loc="left")
+    semantics_ax.set_title(
+        "Comparison semantics", fontsize=_TITLE_FONT_SIZE, loc="left"
+    )
 
-    figure.suptitle(f"Comparison case configuration: {payload.comparison_id}", fontsize=13, y=0.985)
-    figure.subplots_adjust(left=0.06, right=0.98, top=0.92, bottom=0.07, hspace=0.32, wspace=0.2)
+    figure.suptitle(
+        f"Comparison case configuration: {payload.comparison_id}", fontsize=13, y=0.985
+    )
+    figure.subplots_adjust(
+        left=0.06, right=0.98, top=0.92, bottom=0.07, hspace=0.32, wspace=0.2
+    )
     path.parent.mkdir(parents=True, exist_ok=True)
     figure.savefig(path, dpi=180, bbox_inches="tight")
     plt.close(figure)
@@ -360,9 +391,9 @@ def _write_map_comparison_figure(
     for ax, payload in zip(used_axes, payloads, strict=False):
         artist = _render_map_subplot(ax, payload, cmap="viridis", vmin=vmin, vmax=vmax)
         ax.set_title(
-            _variant_panel_title(
-                variant_id=payload.variant_id,
-                variant_label=payload.variant_label,
+            _simulation_panel_title(
+                simulation_id=payload.simulation_id,
+                simulation_label=payload.simulation_label,
                 solver=payload.solver or payload.mesh_mode,
             ),
             fontsize=_PANEL_TITLE_FONT_SIZE,
@@ -420,7 +451,7 @@ def _write_difference_figure(
     figure, ax = plt.subplots(1, 1, figsize=(5.3, 4.8))
     artist = _render_difference_subplot(ax, payload, cmap="coolwarm", vmax=vmax)
     ax.set_title(
-        f"{payload.candidate_variant} minus {payload.reference_variant}",
+        f"{payload.candidate_simulation} minus {payload.reference_simulation}",
         fontsize=_PANEL_TITLE_FONT_SIZE,
         pad=6,
     )
@@ -432,7 +463,9 @@ def _write_difference_figure(
         fraction=0.06,
         aspect=40,
     )
-    colorbar.set_label(payload.unit or "difference", fontsize=_LABEL_FONT_SIZE, labelpad=4)
+    colorbar.set_label(
+        payload.unit or "difference", fontsize=_LABEL_FONT_SIZE, labelpad=4
+    )
     colorbar.ax.tick_params(labelsize=_TICK_FONT_SIZE)
     figure.suptitle(
         f"{_pretty_label(payload.observable_name)} difference",
@@ -474,7 +507,9 @@ def _write_map_triptych_figure(
 
     figure, axes = plt.subplots(1, 3, figsize=(13.8, 4.9), squeeze=False)
     ref_ax, cand_ax, diff_ax = np.asarray(axes, dtype=object).ravel().tolist()
-    ref_artist = _render_map_subplot(ref_ax, reference, cmap="viridis", vmin=vmin, vmax=vmax)
+    ref_artist = _render_map_subplot(
+        ref_ax, reference, cmap="viridis", vmin=vmin, vmax=vmax
+    )
     _render_map_subplot(cand_ax, candidate, cmap="viridis", vmin=vmin, vmax=vmax)
     diff_artist = _render_difference_subplot(
         diff_ax,
@@ -483,25 +518,25 @@ def _write_map_triptych_figure(
         vmax=diff_vmax,
     )
     ref_ax.set_title(
-        _variant_panel_title(
-            variant_id=reference.variant_id,
-            variant_label=reference.variant_label,
+        _simulation_panel_title(
+            simulation_id=reference.simulation_id,
+            simulation_label=reference.simulation_label,
             solver=reference.solver or reference.mesh_mode,
         ),
         fontsize=_PANEL_TITLE_FONT_SIZE,
         pad=6,
     )
     cand_ax.set_title(
-        _variant_panel_title(
-            variant_id=candidate.variant_id,
-            variant_label=candidate.variant_label,
+        _simulation_panel_title(
+            simulation_id=candidate.simulation_id,
+            simulation_label=candidate.simulation_label,
             solver=candidate.solver or candidate.mesh_mode,
         ),
         fontsize=_PANEL_TITLE_FONT_SIZE,
         pad=6,
     )
     diff_ax.set_title(
-        f"{candidate.variant_id} minus {reference.variant_id}",
+        f"{candidate.simulation_id} minus {reference.simulation_id}",
         fontsize=_PANEL_TITLE_FONT_SIZE,
         pad=6,
     )
@@ -513,7 +548,9 @@ def _write_map_triptych_figure(
         fraction=0.055,
         aspect=38,
     )
-    value_colorbar.set_label(reference.unit or "value", fontsize=_LABEL_FONT_SIZE, labelpad=4)
+    value_colorbar.set_label(
+        reference.unit or "value", fontsize=_LABEL_FONT_SIZE, labelpad=4
+    )
     value_colorbar.ax.tick_params(labelsize=_TICK_FONT_SIZE)
     diff_colorbar = figure.colorbar(
         diff_artist,
@@ -523,7 +560,9 @@ def _write_map_triptych_figure(
         fraction=0.055,
         aspect=28,
     )
-    diff_colorbar.set_label(reference.unit or "difference", fontsize=_LABEL_FONT_SIZE, labelpad=4)
+    diff_colorbar.set_label(
+        reference.unit or "difference", fontsize=_LABEL_FONT_SIZE, labelpad=4
+    )
     diff_colorbar.ax.tick_params(labelsize=_TICK_FONT_SIZE)
     figure.suptitle(
         f"{_pretty_label(reference.observable_name)} [{reference.unit or 'native'}]  "
@@ -574,9 +613,9 @@ def _write_regridded_map_figure(
         )
         _style_map_axes(ax)
         ax.set_title(
-            _variant_panel_title(
-                variant_id=payload.variant_id,
-                variant_label=payload.variant_label,
+            _simulation_panel_title(
+                simulation_id=payload.simulation_id,
+                simulation_label=payload.simulation_label,
                 solver=payload.solver or payload.mesh_mode,
             ),
             fontsize=_PANEL_TITLE_FONT_SIZE,
@@ -593,14 +632,18 @@ def _write_regridded_map_figure(
             fraction=0.05,
             aspect=40,
         )
-        colorbar.set_label(arrays[0][0].unit or "value", fontsize=_LABEL_FONT_SIZE, labelpad=4)
+        colorbar.set_label(
+            arrays[0][0].unit or "value", fontsize=_LABEL_FONT_SIZE, labelpad=4
+        )
         colorbar.ax.tick_params(labelsize=_TICK_FONT_SIZE)
     figure.suptitle(
         f"{_pretty_label(observable_name)} on fine raster",
         fontsize=_TITLE_FONT_SIZE,
         y=0.97,
     )
-    figure.subplots_adjust(left=0.03, right=0.98, top=0.84, bottom=0.14, wspace=0.05, hspace=0.12)
+    figure.subplots_adjust(
+        left=0.03, right=0.98, top=0.84, bottom=0.14, wspace=0.05, hspace=0.12
+    )
     path.parent.mkdir(parents=True, exist_ok=True)
     figure.savefig(path, dpi=180, bbox_inches="tight")
     plt.close(figure)
@@ -611,8 +654,8 @@ def _write_regridded_difference_figure(
     *,
     path: Path,
     observable_name: str,
-    candidate_variant: str,
-    reference_variant: str,
+    candidate_simulation: str,
+    reference_simulation: str,
     array: np.ndarray,
     unit: str,
     extent: tuple[float, float, float, float],
@@ -637,7 +680,7 @@ def _write_regridded_difference_figure(
     )
     _style_map_axes(ax)
     ax.set_title(
-        f"{candidate_variant} minus {reference_variant}",
+        f"{candidate_simulation} minus {reference_simulation}",
         fontsize=_PANEL_TITLE_FONT_SIZE,
         pad=6,
     )
@@ -726,25 +769,25 @@ def _write_regridded_triptych_figure(
     for ax in (ref_ax, cand_ax, diff_ax):
         _style_map_axes(ax)
     ref_ax.set_title(
-        _variant_panel_title(
-            variant_id=reference_payload.variant_id,
-            variant_label=reference_payload.variant_label,
+        _simulation_panel_title(
+            simulation_id=reference_payload.simulation_id,
+            simulation_label=reference_payload.simulation_label,
             solver=reference_payload.solver or reference_payload.mesh_mode,
         ),
         fontsize=_PANEL_TITLE_FONT_SIZE,
         pad=6,
     )
     cand_ax.set_title(
-        _variant_panel_title(
-            variant_id=candidate_payload.variant_id,
-            variant_label=candidate_payload.variant_label,
+        _simulation_panel_title(
+            simulation_id=candidate_payload.simulation_id,
+            simulation_label=candidate_payload.simulation_label,
             solver=candidate_payload.solver or candidate_payload.mesh_mode,
         ),
         fontsize=_PANEL_TITLE_FONT_SIZE,
         pad=6,
     )
     diff_ax.set_title(
-        f"{candidate_payload.variant_id} minus {reference_payload.variant_id}",
+        f"{candidate_payload.simulation_id} minus {reference_payload.simulation_id}",
         fontsize=_PANEL_TITLE_FONT_SIZE,
         pad=6,
     )

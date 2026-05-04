@@ -50,7 +50,7 @@ class AnalysisConfig(HydroModelBase):
     comparison: Annotated[ComparisonSection | None, Profile.USER] = Field(
         default=None,
         description=(
-            "Optional variant-comparison block loaded from [analysis.comparison]. "
+            "Optional simulation-comparison block loaded from [analysis.comparison]. "
             "Parsed standalone via ComparisonConfig under the section name [comparison]."
         ),
     )
