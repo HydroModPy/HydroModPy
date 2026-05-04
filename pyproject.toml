@@ -277,6 +277,9 @@ line-ending = "auto"
 # Also format code blocks inside docstrings (``>>>`` examples etc.).
 docstring-code-format = true
 docstring-code-line-length = 80
+# User-managed project scripts: kept in sync with mypy's exclude list above
+# so users own the layout of their own examples without auto-reformatting.
+exclude = ["examples/projects/**"]
 
 [tool.mypy]
 # Baseline non-blocking type-check. Tighten incrementally as the codebase

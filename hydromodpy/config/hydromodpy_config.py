@@ -34,7 +34,7 @@ from typing import TYPE_CHECKING, Annotated, Any, Literal
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 from pydantic.fields import FieldInfo
 
-from hydromodpy.config.analysis import AnalysisConfig
+from hydromodpy.analysis.config import AnalysisConfig
 from hydromodpy.core.config_kit.base import HydroModelBase
 from hydromodpy.core.config_kit.persistence import PersistenceConfig
 from hydromodpy.core.config_kit.profile import Profile
