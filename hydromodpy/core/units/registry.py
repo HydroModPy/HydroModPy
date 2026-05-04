@@ -51,17 +51,8 @@ def get_registry() -> UnitRegistry:
     # it with convenient aliases for hydrogeology.
     reg.define("percent = 1e-2 = %")
     reg.define("permille = 1e-3")
-    # Some datasets use "day" abbreviated as "d" - pint supports ``day`` but
-    # mixed "d" occurs in legacy configs. Register as alias where safe.
-    # NOTE: do not alias "d" to day - pint already uses "d" for day.
 
-    # Default application-level formatting. Prefer ``formatter.default_format``
-    # (introduced in pint >= 0.24); fall back to the deprecated attribute for
-    # older pint versions.
-    try:
-        reg.formatter.default_format = "~P"  # compact pretty format (e.g. "m/s")
-    except AttributeError:
-        reg.default_format = "~P"
+    reg.formatter.default_format = "~P"  # compact pretty format (e.g. "m/s")
 
     return reg
 
