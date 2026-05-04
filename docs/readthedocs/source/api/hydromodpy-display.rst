@@ -1,7 +1,8 @@
-hydromodpy.display
-==================
+Display API
+===========
 
-Solver-agnostic display helpers for HydroModPy simulations.
+Generated reference for solver-independent figures and display registry
+helpers.
 
 Overview
 --------

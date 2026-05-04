@@ -1,79 +1,114 @@
 API Reference
 =============
 
-This page documents the stable public surfaces exposed by ``hydromodpy``. The
-package contains more implementation modules than are listed here; the API
-reference is organized by user-facing role rather than by every internal file.
+HydroModPy has a small public API and a larger set of scientific and developer
+interfaces. This reference keeps those layers separate. Most object pages are
+generated from curated ``autosummary`` manifests and Python docstrings.
 
-Module overview
----------------
+Choose the smallest layer that fits your work.
 
-- :doc:`hydromodpy.config <api/hydromodpy-config>` - Pydantic parameter contracts
-  (``HydroModPyConfig``, ``WorkspaceConfig``,
-  :class:`~hydromodpy.spatial.geographic.geographic_config.GeographicConfig`)
-  with validated fields, type constraints, and cross-field rules.
-- :doc:`hydromodpy.spatial.geographic <api/hydromodpy-geographic>` - catchment
-  delineation, DEM-derived supports, and the geographic runtime payloads
-  consumed by the simulation pipeline.
-- :doc:`project, run, and catalog API <api/hydromodpy-project-results>` -
-  programmatic entry points for opening a workspace, launching a project,
-  browsing runs, querying fields, and exporting persisted results.
-- :doc:`hydromodpy.data <api/hydromodpy-data>` - data-manager facade, loading
-  plans, variable configuration objects, and provider-specific source blocks.
-- :doc:`numerical engines and postprocess <api/hydromodpy-modeling>` - solver
-  engines (MODFLOW-NWT, MODFLOW 6, Boussinesq), transport helpers, and the
-  postprocess surfaces under ``hydromodpy.solver`` and ``hydromodpy.results``.
-- :doc:`simulation, workflow, and pipeline <api/hydromodpy-workflow-pipeline>` -
-  simulation planning objects, workflow context, explicit pipeline steps,
-  checkpointing, and resume support.
-- :doc:`analysis and calibration <api/hydromodpy-analysis-calibration>` -
-  comparison launchers, batch/testbed analysis surfaces, calibration engine,
-  objectives, optimizers, reports, and parameter discovery helpers.
-- :doc:`hydromodpy.display <api/hydromodpy-display>` - figure catalog, rendering
-  contracts, and solver-agnostic display entry points.
-- :doc:`hydromodpy.schema <api/hydromodpy-schema>` - JSON Schema export and
-  partial field validation hooks used by external user interfaces.
-- :doc:`hydromodpy.physics.hydrology.pyhelp <api/hydromodpy-pyhelp>` - coupling layer with the HELP
-  land-surface model, NetCDF conversion tools, rainfall-runoff post-processing,
-  and CLI entry points.
-- :doc:`hydromodpy.core.tools <api/hydromodpy-tools>` - shared toolbox for filesystem
-  helpers, raster reprojection, geomorphology metrics, ERA5 ingestion, and plot
-  presets.
+.. grid:: 1 1 3 3
+   :gutter: 2 2 3 3
 
-Key entry points
+   .. grid-item-card::
+      :class-card: hmp-api-card sd-shadow-sm sd-rounded-3 sd-p-4
+      :link: api/user
+      :link-type: doc
+
+      **User API**
+      ^^^
+      Drive projects, run TOML workflows, read persisted results, export data,
+      and validate configuration files.
+
+   .. grid-item-card::
+      :class-card: hmp-api-card sd-shadow-sm sd-rounded-3 sd-p-4
+      :link: api/scientific
+      :link-type: doc
+
+      **Scientific API**
+      ^^^
+      Work directly with catchment preprocessing, data managers, solvers,
+      calibration objects, and analysis modules.
+
+   .. grid-item-card::
+      :class-card: hmp-api-card sd-shadow-sm sd-rounded-3 sd-p-4
+      :link: api/developer
+      :link-type: doc
+
+      **Developer API**
+      ^^^
+      Extend the workflow engine, pipeline states, derived computations, helper
+      tools, and internal contracts.
+
+Layer Policy
+------------
+
+The public API is organized by role, not by file path.
+
+.. list-table::
+   :header-rows: 1
+   :widths: 18 42 40
+
+   * - Layer
+     - Use it when
+     - Stability
+   * - User API
+     - You run HydroModPy as a model user or script author.
+     - Stable first. Breaking changes need migration notes.
+   * - Scientific API
+     - You test methods, compare solvers, tune calibration, or call a domain
+       component directly.
+     - Stable where documented. More technical detail is exposed.
+   * - Developer API
+     - You change HydroModPy itself or add a new workflow, step, backend, or
+       derived product.
+     - Internal contracts can move with architecture changes.
+
+Generation Model
 ----------------
 
-- :func:`hydromodpy.open` - open a workspace and return a
-  :class:`~hydromodpy.results.catalog.SimulationCatalog`.
-- :func:`hydromodpy.run` - execute the same TOML workflow as ``hmp run`` from
-  Python.
-- :func:`hydromodpy.calibrate` - launch a calibration session from a TOML file.
-- :func:`hydromodpy.compare_pair` - compare two simulations by object or id.
-- :func:`hydromodpy.doctor` - return a lightweight environment diagnostic.
-- :class:`hydromodpy.project.Project` - Python facade for workspace setup,
-  data loading, mesh construction, simulation, calibration, batch, comparison,
-  and cleanup.
-- :class:`hydromodpy.results.run.Run` - one persisted simulation run.
-- :class:`hydromodpy.results.catalog.SimulationCatalog` - workspace-level run
-  registry and result-query surface.
-- ``HydroModPyConfig`` - top-level Pydantic config
-  loaded from a TOML file.
-- :class:`hydromodpy.spatial.geographic.CatchmentDelineation` - catchment
-  delineation runtime, exposed by the geographic preprocessing pipeline.
+The navigation pages are handwritten because they encode the intended user
+path. The object pages are generated by Sphinx from a curated set of objects.
+This keeps maintenance low without turning the reference into a dump of every
+module under ``hydromodpy/``.
 
-Detailed documentation
-----------------------
+The manifests are the source of truth for generated API pages:
+
+- :doc:`api/hydromodpy-project-results`
+- :doc:`api/hydromodpy-config`
+- :doc:`api/hydromodpy-data`
+- :doc:`api/hydromodpy-geographic`
+- :doc:`api/hydromodpy-modeling`
+- :doc:`api/hydromodpy-analysis-calibration`
+- :doc:`api/hydromodpy-workflow-pipeline`
+- :doc:`api/hydromodpy-display`
+- :doc:`api/hydromodpy-schema`
+- :doc:`api/hydromodpy-pyhelp`
+- :doc:`api/hydromodpy-tools`
+
+Docstring Contract
+------------------
+
+Generated pages are only as useful as their docstrings. New public or advanced
+objects should follow :doc:`api/docstring-policy`: a direct first sentence,
+clear parameters, returned objects, raised errors, a short example, and related
+objects when useful.
 
 .. toctree::
+   :hidden:
    :maxdepth: 2
 
-   api/hydromodpy-config
-   api/hydromodpy-geographic
+   User API <api/user>
+   Scientific API <api/scientific>
+   Developer API <api/developer>
+   Docstring Policy <api/docstring-policy>
    api/hydromodpy-project-results
+   api/hydromodpy-config
    api/hydromodpy-data
+   api/hydromodpy-geographic
    api/hydromodpy-modeling
-   api/hydromodpy-workflow-pipeline
    api/hydromodpy-analysis-calibration
+   api/hydromodpy-workflow-pipeline
    api/hydromodpy-display
    api/hydromodpy-schema
    api/hydromodpy-pyhelp

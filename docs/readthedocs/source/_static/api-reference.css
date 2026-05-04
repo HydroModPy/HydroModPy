@@ -1,0 +1,27 @@
+.hmp-api-card {
+  height: 100%;
+}
+
+.hmp-api-card .sd-card-title {
+  font-weight: 650;
+}
+
+.hmp-api-card p {
+  margin-bottom: 0;
+}
+
+.bd-content .autosummary {
+  width: 100%;
+}
+
+.bd-content .autosummary td {
+  vertical-align: top;
+}
+
+@media (max-width: 640px) {
+  .bd-content table.docutils {
+    display: block;
+    overflow-x: auto;
+    width: 100%;
+  }
+}

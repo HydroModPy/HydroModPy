@@ -1,8 +1,8 @@
-hydromodpy.schema
-=================
+Schema API
+==========
 
-JSON Schema export and partial field-validation hooks for external user
-interfaces.
+Generated reference for JSON Schema export and field validation hooks used by
+external interfaces.
 
 .. autosummary::
    :nosignatures:

@@ -1,8 +1,8 @@
-Project, Run, and Catalog API
-=============================
+Project And Results API
+=======================
 
-Programmatic surfaces for opening a workspace, driving project workflows, and
-reading persisted simulation results.
+Generated reference for the main user API: workspace opening, project
+execution, persisted runs, catalogs, simulation groups, and export helpers.
 
 Facade functions
 ----------------

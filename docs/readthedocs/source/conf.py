@@ -401,7 +401,7 @@ html_theme_options = {
 # relative to this directory. They are copied after the builtin static files,
 # so a file named "default.css" will overwrite the builtin "default.css".
 html_static_path = ["_static"]
-html_css_files = ["uml-diagrams.css"]
+html_css_files = ["uml-diagrams.css", "api-reference.css"]
 html_js_files = ["uml-diagrams.js"]
 copybutton_prompt_text = r">>> |\$ |In \[\d+\]: | {2,5}\.\.\.:"
 copybutton_prompt_is_regexp = True

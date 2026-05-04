@@ -1,7 +1,8 @@
-Simulation, Workflow, and Pipeline API
-======================================
+Workflow And Pipeline API
+=========================
 
-Simulation planning and explicit pipeline orchestration surfaces.
+Generated reference for simulation planning, workflow context, pipeline states,
+steps, and derived computation contracts.
 
 Simulation planning
 -------------------

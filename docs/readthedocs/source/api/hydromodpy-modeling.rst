@@ -1,8 +1,8 @@
-Numerical Engines And Postprocess
-=================================
+Numerical Engine API
+====================
 
-Numerical engines and result-access surfaces used by HydroModPy to run
-groundwater flow, particle tracking, and transport simulations.
+Generated reference for solver-facing classes used by groundwater flow,
+particle tracking, and transport workflows.
 
 Class overview
 --------------

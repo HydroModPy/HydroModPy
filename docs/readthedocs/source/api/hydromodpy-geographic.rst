@@ -1,9 +1,8 @@
-hydromodpy.spatial.geographic
-=============================
+Geographic API
+==============
 
-Geographic preprocessing entry points used to derive catchment supports, DEM
-products, and the runtime payload exposed by
-``hydromodpy.spatial.geographic.CatchmentDelineation``.
+Generated reference for catchment preprocessing, DEM products, river network
+configuration, and geographic runtime payloads.
 
 Class overview
 --------------

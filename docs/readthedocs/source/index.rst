@@ -160,8 +160,8 @@ Documentation map
 
       **API reference**
       ^^^
-      Browse the package tree exactly as in ``hydromodpy/`` (spatial, solver,
-      display, pyhelp, and tooling APIs).
+      User, scientific, and developer API layers with generated object pages
+      from curated manifests.
 
    .. grid-item-card::
       :class-card: sd-shadow-sm sd-rounded-3 sd-p-4

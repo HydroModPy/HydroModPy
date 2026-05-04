@@ -1,5 +1,5 @@
-hydromodpy.tools (relocated)
-============================
+Tools API
+=========
 
 Helper routines previously gathered under ``hydromodpy.core.tools`` now live
 in their canonical homes:
