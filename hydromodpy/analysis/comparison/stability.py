@@ -266,7 +266,7 @@ def _summary_metrics_by_key(
     for row in rows:
         if not isinstance(row, Mapping):
             continue
-        simulation_id = str(row.get("simulation_id") or row.get("variant_id", ""))
+        simulation_id = _row_simulation_id(row)
         summary[(simulation_id, str(row.get("observable", "")))] = row
     return summary
 
@@ -282,7 +282,7 @@ def _check_required_simulations(
         add_error("comparison_manifest.json has no simulations or variants list")
         return
     simulations = {
-        str(row.get("id", "")): str(row.get("status", ""))
+        _row_simulation_id(row): str(row.get("status", ""))
         for row in simulation_rows
         if isinstance(row, Mapping)
     }
@@ -292,6 +292,11 @@ def _check_required_simulations(
             add_error(f"required simulation is missing from manifest: {simulation_id}")
         elif status not in {"completed", "reused"}:
             add_error(f"simulation {simulation_id!r} status is {status!r}")
+
+
+def _row_simulation_id(row: Mapping[str, Any]) -> str:
+    """Return the canonical simulation identifier from current or legacy rows."""
+    return str(row.get("simulation_id", row.get("variant_id", row.get("id", ""))))
 
 
 def _check_metric_limit(

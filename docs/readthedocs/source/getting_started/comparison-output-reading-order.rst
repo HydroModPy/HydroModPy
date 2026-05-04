@@ -21,6 +21,27 @@ One comparison run usually leaves two kinds of artifacts:
 The comparison output folder is the right place to start. Its role is to make
 the evidence readable without reopening each child simulation manually.
 
+Persistence Model
+-----------------
+
+Child simulations keep the normal HydroModPy persistence model: simulation
+metadata are stored in the workspace/project catalog, while fields and tabular
+products live in the result storage controlled by that catalog.
+
+The comparison folder is different. It is a post-processing layer above those
+runs, not a simulation run of its own. Its HTML, CSV, JSON, Markdown, and PNG
+files are therefore written as standalone artifacts under the comparison output
+root and indexed by ``comparison_manifest.json``.
+
+That means:
+
+- the child run results remain queryable through the simulation catalog;
+- comparison artifacts are discoverable from ``comparison_manifest.json``;
+- ``web/index.html`` is a human-readable entry point, not the source of truth;
+- if fleet-scale queries over many comparison reports become necessary, the
+  right extension is a dedicated comparison catalog rather than storing report
+  HTML and images inside the simulation catalog.
+
 Reading Order
 -------------
 

@@ -65,6 +65,7 @@ def test_write_comparison_web_report_links_key_outputs(tmp_path: Path) -> None:
     assert "demo_compare" in text
     assert "comparable_outflow_total_m3_s" in text
     assert "comparable_outflow_dashboard.png" in text
+    assert "Persistance des sorties" in text
     assert "comparison_report.md" in text
 
 

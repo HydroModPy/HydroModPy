@@ -374,6 +374,18 @@ Each materialized comparison can also expose a browser-readable page at
 it links the audit, metrics, key figures, flux dashboard, and CSV exports
 without replacing the underlying machine-readable files.
 
+The generated page is intentionally modular. Its sections are assembled from
+the comparison manifest and the files found under the comparison output folder:
+summary counters, persistence convention, audit, key figures, simulations,
+important files, comparable fluxes, and main metrics. The report therefore
+remains a presentation layer over explicit artifacts, not a hidden database.
+
+Persisted child simulations still belong to the normal simulation catalog.
+The comparison folder itself is indexed locally by ``comparison_manifest.json``.
+If a future workflow needs global SQL queries over many comparisons, use a
+dedicated comparison catalog rather than registering each comparison as a fake
+simulation run.
+
 Post-Run Stability Checks
 -------------------------
 
