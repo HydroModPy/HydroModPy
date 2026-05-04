@@ -12,7 +12,9 @@ Functional Role
 ---------------
 
 The batch workflow is about campaign orchestration, not about one solver
-method. A batch recipe can point to simulation or method-comparison launchers.
+method. A batch recipe can point to simulation or comparison launchers.
+Legacy ``method-comparison`` recipes remain supported for old catalogs, but new
+recipes should use ``comparison``.
 
 The launcher performs this type of expansion:
 
@@ -130,7 +132,7 @@ Important Parameters
      - Use regions, clusters, tags, statuses, maturity levels, or ``limit``.
    * - ``[[regional_lab.recipe]]``
      - Declares one operation expanded over selected sites.
-     - ``launcher`` is currently ``simulation`` or ``method-comparison``.
+     - ``launcher`` is currently ``simulation`` or ``comparison``.
 
 Catalog Mental Model
 --------------------

@@ -55,3 +55,31 @@ Docstrings de traçabilité dans :
   pas d'import mort.
 
 **Statut :** documentation de provenance scientifique, conservée telle quelle.
+
+## 4. Compatibilite `[method_comparison]`
+
+Ancienne interface TOML de comparaison, conservee pendant la migration vers
+l'interface canonique `[comparison]`.
+
+**Conserve parce que :**
+- Des pages de galerie historiques pointent encore explicitement vers
+  `[method_comparison]` et vers des artefacts `examples_legacy_2/...`.
+- L'interface `[comparison]` reprend progressivement ses capacites, notamment
+  la reutilisation de dossiers de resultats existants via `run_folder`.
+- Les classes internes canoniques portent maintenant des noms neutres
+  (`ComparisonConfig`, `ComparisonVariant`, `ComparisonObservable`, etc.).
+  Les noms `MethodComparison*` restent seulement comme imports de
+  compatibilite.
+- `ComparisonConfig` porte maintenant un champ canonique `comparison`; l'attribut
+  `method_comparison` est un acces de compatibilite pour les tests et extensions
+  non migres.
+- Le cas de validation boundary-step expose maintenant un point d'entree
+  canonique `run_comparison.py`; `run_method_comparison.py` n'est plus qu'un
+  relais de compatibilite.
+- L'appel public `hmp.compare(sim_a, sim_b)` ne depend plus du lanceur legacy
+  pour signaler que la comparaison pairwise directe n'est pas implementee.
+
+**Statut :** compatibilite transitoire. Le batch/regional-lab sait utiliser
+`launcher = "comparison"` et garde `launcher = "method-comparison"` pour les
+anciennes recettes. A supprimer quand la galerie et les tests historiques auront
+ete migres vers `[comparison]`.

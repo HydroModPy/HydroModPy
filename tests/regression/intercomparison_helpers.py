@@ -177,6 +177,7 @@ def run_intercomparison_regression(
     require_modpath: bool = False,
     require_mt3dms: bool = False,
     timeout_seconds: float | None = 1800.0,
+    allowed_audit_status: tuple[str, ...] = ("pass",),
 ) -> dict[str, Any]:
     """Run one comparison workflow and compare its compact metric signature."""
     assert_required_executables(
@@ -209,7 +210,7 @@ def run_intercomparison_regression(
         metrics_json=Path(str(manifest["comparison_metrics_json"])),
         audit_json=Path(str(manifest["comparison_audit_json"])),
     )
-    assert signature["audit_status"] == "pass"
+    assert signature["audit_status"] in allowed_audit_status
     assert_intercomparison_limits(signature, limits=limits)
     update_or_assert_goldens(
         actual={"intercomparison_expected": signature},

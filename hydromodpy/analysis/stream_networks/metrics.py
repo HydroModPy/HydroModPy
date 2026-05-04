@@ -229,22 +229,22 @@ def simulated_active_network_distance_metrics(
     if sim_mean is None or network_mean is None:
         bidirectional_mean = None
         bidirectional_quadratic_mean = None
-        bidirectional_absolute_balance_m = None
-        distance_balance_ratio = None
-        distance_log10_balance = None
+        bidirectional_absolute_difference_m = None
+        distance_ratio = None
+        distance_log10_ratio = None
     else:
         bidirectional_mean = float(0.5 * (sim_mean + network_mean))
         bidirectional_quadratic_mean = float(np.hypot(sim_mean, network_mean))
-        bidirectional_absolute_balance_m = float(abs(sim_mean - network_mean))
+        bidirectional_absolute_difference_m = float(abs(sim_mean - network_mean))
         if sim_mean == 0.0 and network_mean == 0.0:
-            distance_balance_ratio = 1.0
-            distance_log10_balance = 0.0
+            distance_ratio = 1.0
+            distance_log10_ratio = 0.0
         elif network_mean > 0.0 and sim_mean > 0.0:
-            distance_balance_ratio = float(sim_mean / network_mean)
-            distance_log10_balance = float(np.log10(distance_balance_ratio))
+            distance_ratio = float(sim_mean / network_mean)
+            distance_log10_ratio = float(np.log10(distance_ratio))
         else:
-            distance_balance_ratio = None
-            distance_log10_balance = None
+            distance_ratio = None
+            distance_log10_ratio = None
 
     return {
         "network_role": network_role,
@@ -262,7 +262,7 @@ def simulated_active_network_distance_metrics(
         **network_to_sim,
         "bidirectional_distance_mean_m": bidirectional_mean,
         "bidirectional_distance_quadratic_mean_m": bidirectional_quadratic_mean,
-        "bidirectional_distance_absolute_balance_m": bidirectional_absolute_balance_m,
-        "planar_distance_balance_ratio": distance_balance_ratio,
-        "planar_distance_log10_balance": distance_log10_balance,
+        "bidirectional_distance_absolute_difference_m": bidirectional_absolute_difference_m,
+        "planar_distance_ratio": distance_ratio,
+        "planar_distance_log10_ratio": distance_log10_ratio,
     }

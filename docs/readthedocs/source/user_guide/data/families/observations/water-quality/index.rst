@@ -47,6 +47,14 @@ Visual check
    Chemistry records should expose parameter identity, unit, station, and date
    coverage before being used in a workflow.
 
+.. figure:: /_static/user_guide/data/observations_local_timeseries_examples.png
+   :alt: Local water-quality chronicle alongside other observation families
+   :width: 100%
+
+   The lower panel is a local chemistry chronicle. This kind of figure should
+   name the parameter and make the concentration scale visible before the
+   record is reused in transport or diagnostic workflows.
+
 Downstream uses
 ---------------
 

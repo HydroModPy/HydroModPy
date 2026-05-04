@@ -63,6 +63,18 @@ Station inventory
    The inventory figure answers the first question: which observations exist
    around the basin before any model result is inspected?
 
+Local chronicle checks
+----------------------
+
+.. figure:: /_static/user_guide/data/observations_local_timeseries_examples.png
+   :alt: Local hydrometry, piezometry, and water-quality chronicles
+   :width: 100%
+
+   Once station identity is clear, the next check is the chronicle itself.
+   Hydrometry, piezometry, and chemistry reuse a similar point/time-series
+   contract, but the plotted values have different semantics and should not be
+   mixed without an explicit objective.
+
 .. toctree::
    :maxdepth: 3
 

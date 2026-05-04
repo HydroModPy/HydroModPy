@@ -9,8 +9,8 @@ from typing import Any, Literal
 from pydantic import ConfigDict, Field, field_validator, model_validator
 
 from hydromodpy.analysis.comparison.config import (
-    MethodComparisonFineRaster,
-    MethodComparisonObservable,
+    ComparisonFineRaster,
+    ComparisonObservable,
 )
 from hydromodpy.core.config_kit.base import HydroModelBase
 
@@ -77,7 +77,9 @@ class ComparisonSimulationConfig(HydroModelBase):
     id: str
     label: str | None = None
     enabled: bool = True
-    solver: str
+    solver: str | None = None
+    simulation_config: str | None = None
+    run_folder: str | None = None
     mesh_label: str | None = None
     mesh_mode: Literal[
         "mesh_catchment",
@@ -96,10 +98,12 @@ class ComparisonSimulationConfig(HydroModelBase):
 
     @field_validator("solver")
     @classmethod
-    def _validate_solver_text(cls, value: object) -> str:
+    def _validate_solver_text(cls, value: object) -> str | None:
+        if value is None:
+            return None
         return _clean_text(value)
 
-    @field_validator("label", "mesh_label")
+    @field_validator("label", "simulation_config", "run_folder", "mesh_label")
     @classmethod
     def _validate_optional_text(cls, value: object) -> str | None:
         return _clean_optional_text(value)
@@ -115,8 +119,11 @@ class ComparisonSimulationConfig(HydroModelBase):
 
     @model_validator(mode="after")
     def _validate_solver(self) -> ComparisonSimulationConfig:
-        if not self.solver:
-            raise ValueError("comparison.simulation.solver is required")
+        if not self.solver and not self.simulation_config and not self.run_folder:
+            raise ValueError(
+                "comparison.simulation.solver is required unless simulation_config "
+                "or run_folder is provided"
+            )
         return self
 
 
@@ -126,15 +133,15 @@ class ComparisonSection(HydroModelBase):
     model_config = ConfigDict(extra="forbid")
 
     comparison_id: str | None = None
-    base_simulation_config: str
+    base_simulation_config: str | None = None
     output_root: str | None = None
     reference_simulation: str | None = None
     continue_on_error: bool = False
     execution: ComparisonExecutionConfig = Field(default_factory=ComparisonExecutionConfig)
     audit: ComparisonAuditConfig = Field(default_factory=ComparisonAuditConfig)
-    fine_raster: MethodComparisonFineRaster | None = None
+    fine_raster: ComparisonFineRaster | None = None
     simulation: list[ComparisonSimulationConfig] = Field(default_factory=list)
-    observable: list[MethodComparisonObservable] = Field(default_factory=list)
+    observable: list[ComparisonObservable] = Field(default_factory=list)
 
     @field_validator(
         "base_simulation_config",
@@ -154,8 +161,6 @@ class ComparisonSection(HydroModelBase):
 
     @model_validator(mode="after")
     def _validate_lists(self) -> ComparisonSection:
-        if not self.base_simulation_config:
-            raise ValueError("comparison.base_simulation_config is required")
         if not self.simulation:
             raise ValueError("comparison.simulation must contain at least one item")
         if not self.observable:
@@ -184,6 +189,16 @@ class ComparisonSection(HydroModelBase):
                 raise ValueError(
                     f"comparison.observable.variants contains unknown or disabled ids: {missing_text}"
                 )
+        needs_generated_config = any(
+            simulation.enabled
+            and simulation.simulation_config is None
+            and simulation.run_folder is None
+            for simulation in self.simulation
+        )
+        if needs_generated_config and not self.base_simulation_config:
+            raise ValueError(
+                "comparison.base_simulation_config is required for generated simulations"
+            )
         return self
 
 
@@ -195,7 +210,7 @@ class SimulationComparisonConfig(HydroModelBase):
     config_path: Path
     base_dir: Path
     comparison_root: Path
-    base_simulation_config_path: Path
+    base_simulation_config_path: Path | None = None
     comparison: ComparisonSection
 
     @classmethod
@@ -217,14 +232,16 @@ class SimulationComparisonConfig(HydroModelBase):
         comparison_id = section.comparison_id or resolved_config_path.stem
         section.comparison_id = comparison_id
 
-        base_simulation_config = Path(section.base_simulation_config).expanduser()
-        if not base_simulation_config.is_absolute():
-            base_simulation_config = base_dir / base_simulation_config
-        base_simulation_config = base_simulation_config.resolve()
-        if not base_simulation_config.is_file():
-            raise FileNotFoundError(
-                f"comparison.base_simulation_config not found: {base_simulation_config}"
-            )
+        base_simulation_config: Path | None = None
+        if section.base_simulation_config is not None:
+            base_simulation_config = Path(section.base_simulation_config).expanduser()
+            if not base_simulation_config.is_absolute():
+                base_simulation_config = base_dir / base_simulation_config
+            base_simulation_config = base_simulation_config.resolve()
+            if not base_simulation_config.is_file():
+                raise FileNotFoundError(
+                    f"comparison.base_simulation_config not found: {base_simulation_config}"
+                )
 
         if section.output_root is None:
             comparison_root = base_dir / "comparison" / comparison_id

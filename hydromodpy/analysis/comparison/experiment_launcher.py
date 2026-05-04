@@ -16,38 +16,17 @@ from hydromodpy.analysis.comparison.child_materialization import (
     materialize_child_configs,
 )
 from hydromodpy.analysis.comparison.config import (
-    MethodComparisonConfig,
-    MethodComparisonSection,
-    MethodComparisonVariant,
+    ComparisonConfig,
+    ComparisonSection,
+    ComparisonVariant,
 )
 from hydromodpy.analysis.comparison.experiment_config import SimulationComparisonConfig
-from hydromodpy.analysis.comparison.exports import (
-    write_boussinesq_obstacle_diagnostics_export,
-    write_budget_exports,
-    write_execution_summary_csv,
-    write_hydrographic_network_metrics_export,
-    write_native_timeseries_exports,
-    write_observable_chronicle_exports,
-    write_simulated_active_network_distance_metrics_export,
-    write_simulated_active_network_metrics_export,
-    write_simulated_active_network_overlap_metrics_export,
-    write_simulated_active_network_reference_figure_export,
-)
-from hydromodpy.analysis.comparison.metric_diff import (
-    DETAIL_METRIC_FIELDS,
-    SUMMARY_METRIC_FIELDS,
-    build_comparison_metrics,
-    write_metrics_csv,
-    write_metrics_json,
-)
-from hydromodpy.analysis.comparison.reporting import build_comparison_report
+from hydromodpy.analysis.comparison.output_pipeline import write_comparison_output_bundle
 from hydromodpy.analysis.comparison.run_backend import ChildRunResult, run_child_with_hmp
-from hydromodpy.analysis.comparison.runtime_metadata import discover_result_store
-from hydromodpy.analysis.comparison.runtime_observables import (
+from hydromodpy.analysis.comparison.runtime import (
+    discover_result_store,
     extract_observable_rows,
-    write_observables_csv,
 )
-from hydromodpy.analysis.comparison.visuals import generate_comparison_figures
 from hydromodpy.core.toml_io.loader import load_toml_with_base_config
 
 
@@ -72,32 +51,11 @@ class SimulationComparisonLauncher:
         children = materialize_child_configs(self.cfg)
         variant_summaries = self._run_children(children)
 
-        method_cfg = self._build_method_comparison_cfg(children)
-        all_rows = self._extract_observables(method_cfg, variant_summaries)
-        observables_csv = comparison_root / "observables.csv"
-        write_observables_csv(observables_csv, all_rows)
+        comparison_cfg = self._build_comparison_cfg(children)
+        all_rows = self._extract_observables(comparison_cfg, variant_summaries)
 
         reference_variant = comparison.reference_simulation or self._first_completed_id(
             variant_summaries
-        )
-        detail_metrics, summary_metrics = build_comparison_metrics(
-            all_rows,
-            reference_variant=reference_variant,
-        )
-        metrics_csv = comparison_root / "comparison_metrics.csv"
-        differences_csv = comparison_root / "comparison_differences.csv"
-        metrics_json = comparison_root / "comparison_metrics.json"
-        write_metrics_csv(metrics_csv, summary_metrics, fieldnames=SUMMARY_METRIC_FIELDS)
-        write_metrics_csv(differences_csv, detail_metrics, fieldnames=DETAIL_METRIC_FIELDS)
-        write_metrics_json(
-            metrics_json,
-            {
-                "schema_version": "simulation_comparison_metrics_v1",
-                "comparison_id": comparison.comparison_id,
-                "reference_variant": reference_variant,
-                "summary": summary_metrics,
-                "differences": detail_metrics,
-            },
         )
 
         audit = build_equivalence_audit(
@@ -112,113 +70,27 @@ class SimulationComparisonLauncher:
             audit=audit,
         )
 
-        data_artifacts: list[dict[str, Any]] = [
-            {"kind": "comparison_audit_json", "path": str(audit_json)},
-            {"kind": "comparison_audit_md", "path": str(audit_md)},
-        ]
-        observable_artifacts, observable_long_rows, _observable_wide_rows, observable_delta_rows = (
-            write_observable_chronicle_exports(
-                comparison_root=comparison_root,
-                rows=all_rows,
-                detail_metrics=detail_metrics,
-                observables=[
-                    observable.model_dump(mode="json") for observable in comparison.observable
-                ],
-            )
-        )
-        data_artifacts.extend(observable_artifacts)
-        native_artifacts, native_long_rows, _native_wide_rows, native_delta_rows = (
-            write_native_timeseries_exports(
-                comparison_id=str(comparison.comparison_id),
-                comparison_root=comparison_root,
-                variant_summaries=variant_summaries,
-                reference_variant=reference_variant,
-            )
-        )
-        data_artifacts.extend(native_artifacts)
-        hydrographic_artifacts, _hydrographic_rows = write_hydrographic_network_metrics_export(
+        outputs = write_comparison_output_bundle(
+            cfg=comparison_cfg,
             comparison_id=str(comparison.comparison_id),
             comparison_root=comparison_root,
             variant_summaries=variant_summaries,
-        )
-        data_artifacts.extend(hydrographic_artifacts)
-        simulated_active_artifacts, _simulated_active_rows = (
-            write_simulated_active_network_metrics_export(
-                comparison_id=str(comparison.comparison_id),
-                comparison_root=comparison_root,
-                variant_summaries=variant_summaries,
-            )
-        )
-        data_artifacts.extend(simulated_active_artifacts)
-        simulated_active_overlap_artifacts, _simulated_active_overlap_rows = (
-            write_simulated_active_network_overlap_metrics_export(
-                comparison_id=str(comparison.comparison_id),
-                comparison_root=comparison_root,
-                variant_summaries=variant_summaries,
-            )
-        )
-        data_artifacts.extend(simulated_active_overlap_artifacts)
-        simulated_active_distance_artifacts, _simulated_active_distance_rows = (
-            write_simulated_active_network_distance_metrics_export(
-                comparison_id=str(comparison.comparison_id),
-                comparison_root=comparison_root,
-                variant_summaries=variant_summaries,
-            )
-        )
-        data_artifacts.extend(simulated_active_distance_artifacts)
-        budget_artifacts, budget_rows = write_budget_exports(
-            comparison_root=comparison_root,
-            variant_summaries=variant_summaries,
-        )
-        data_artifacts.extend(budget_artifacts)
-        obstacle_artifacts, _obstacle_rows = write_boussinesq_obstacle_diagnostics_export(
-            comparison_root=comparison_root,
-            variant_summaries=variant_summaries,
-        )
-        data_artifacts.extend(obstacle_artifacts)
-        execution_artifacts, execution_rows = write_execution_summary_csv(
-            comparison_root=comparison_root,
-            variant_summaries=variant_summaries,
-            reference_variant=reference_variant,
-        )
-        data_artifacts.extend(execution_artifacts)
-
-        figure_artifacts = generate_comparison_figures(
-            cfg=method_cfg,
-            variant_summaries=variant_summaries,
+            observables=comparison.observable,
             rows=all_rows,
-            detail_metrics=detail_metrics,
             reference_variant=reference_variant,
-            comparison_root=comparison_root,
-            native_timeseries_rows=native_long_rows,
-            native_timeseries_delta_rows=native_delta_rows,
-            budget_rows=budget_rows,
-            execution_rows=execution_rows,
-        )
-        simulated_active_figure_artifacts, _simulated_active_figure_rows = (
-            write_simulated_active_network_reference_figure_export(
-                comparison_root=comparison_root,
-                variant_summaries=variant_summaries,
-            )
-        )
-        figure_artifacts.extend(simulated_active_figure_artifacts)
-
-        report_path = comparison_root / "comparison_report.md"
-        report_text = build_comparison_report(
-            comparison_id=str(comparison.comparison_id),
-            reference_variant=reference_variant,
-            variant_summaries=variant_summaries,
-            observables=[
-                observable.model_dump(mode="json") for observable in comparison.observable
+            metrics_schema_version="simulation_comparison_metrics_v1",
+            initial_data_artifacts=[
+                {"kind": "comparison_audit_json", "path": str(audit_json)},
+                {"kind": "comparison_audit_md", "path": str(audit_md)},
             ],
-            rows=all_rows,
-            summary_metrics=summary_metrics,
-            figure_artifacts=figure_artifacts,
-            data_artifacts=data_artifacts,
+            report_text_transform=lambda text: self._prepend_audit_summary(text, audit),
         )
-        report_path.write_text(self._prepend_audit_summary(report_text, audit), encoding="utf-8")
 
-        generated_config_paths = [str(child.config_path) for child in children]
+        generated_config_paths = [
+            str(child.config_path)
+            for child in children
+            if child.generated_config and child.config_path is not None
+        ]
         generated_configs_kept = bool(comparison.execution.keep_generated_configs)
         cleanup_errors: list[str] = []
         if not generated_configs_kept:
@@ -228,23 +100,27 @@ class SimulationComparisonLauncher:
             "schema_version": "simulation_comparison_manifest_v1",
             "comparison_id": comparison.comparison_id,
             "config_path": str(self.config_path),
-            "base_simulation_config": str(self.cfg.base_simulation_config_path),
+            "base_simulation_config": (
+                None
+                if self.cfg.base_simulation_config_path is None
+                else str(self.cfg.base_simulation_config_path)
+            ),
             "comparison_root": str(comparison_root),
             "reference_variant": reference_variant,
             "audit_status": audit.get("status"),
-            "observables_csv": str(observables_csv),
-            "comparison_metrics_csv": str(metrics_csv),
-            "comparison_differences_csv": str(differences_csv),
-            "comparison_metrics_json": str(metrics_json),
+            "observables_csv": str(outputs.observables_csv),
+            "comparison_metrics_csv": str(outputs.metrics_csv),
+            "comparison_differences_csv": str(outputs.differences_csv),
+            "comparison_metrics_json": str(outputs.metrics_json),
             "comparison_audit_json": str(audit_json),
             "comparison_audit_md": str(audit_md),
-            "comparison_report_md": str(report_path),
+            "comparison_report_md": str(outputs.report_path),
             "comparison_figures_dir": str(comparison_root / "comparison_figures"),
-            "comparison_figures": figure_artifacts,
-            "comparison_data_artifacts": data_artifacts,
+            "comparison_figures": outputs.figure_artifacts,
+            "comparison_data_artifacts": outputs.data_artifacts,
             "n_observable_rows": len(all_rows),
-            "n_metric_rows": len(summary_metrics),
-            "n_difference_rows": len(detail_metrics),
+            "n_metric_rows": len(outputs.summary_metrics),
+            "n_difference_rows": len(outputs.detail_metrics),
             "wall_time_seconds": round(time.monotonic() - started_at, 2),
             "generated_configs_kept": generated_configs_kept,
             "generated_config_paths": generated_config_paths,
@@ -274,7 +150,7 @@ class SimulationComparisonLauncher:
         summaries: list[dict[str, Any]] = []
         execution = self.cfg.comparison.execution
         for child in children:
-            if not execution.run_simulations:
+            if not execution.run_simulations or child.config_path is None:
                 summaries.append(self._reuse_child_summary(child))
                 continue
             try:
@@ -299,6 +175,8 @@ class SimulationComparisonLauncher:
         child: GeneratedChildConfig,
         result: ChildRunResult,
     ) -> dict[str, Any]:
+        if child.config_path is None:
+            raise ValueError(f"Comparison child '{child.simulation_id}' has no config_path")
         sim_id = result.sim_id
         if result.succeeded and sim_id is None:
             store, discovered = discover_result_store(child.config_path)
@@ -323,11 +201,14 @@ class SimulationComparisonLauncher:
         )
         if not result.succeeded:
             summary["error_type"] = "ChildProcessError"
-            summary["error_message"] = f"hmp run exited with code {result.returncode}"
+            summary["error_message"] = _format_child_process_error(result)
         return summary
 
     def _reuse_child_summary(self, child: GeneratedChildConfig) -> dict[str, Any]:
-        store, sim_id = discover_result_store(child.config_path)
+        store = None
+        sim_id = None
+        if child.config_path is not None:
+            store, sim_id = discover_result_store(child.config_path)
         try:
             summary = self._base_child_summary(child, status="reused")
             summary["sim_id"] = sim_id
@@ -363,28 +244,28 @@ class SimulationComparisonLauncher:
             "solver": child.solver,
             "mesh_label": child.mesh_label,
             "mesh_mode": child.mesh_mode,
-            "config_path": str(child.config_path),
-            "run_folder": str(child.config_path.parent),
+            "config_path": None if child.config_path is None else str(child.config_path),
+            "run_folder": None if child.run_folder is None else str(child.run_folder),
             "run_name": child.run_name,
         }
 
-    def _build_method_comparison_cfg(
+    def _build_comparison_cfg(
         self,
         children: list[GeneratedChildConfig],
-    ) -> MethodComparisonConfig:
+    ) -> ComparisonConfig:
         variants = [
-            MethodComparisonVariant(
+            ComparisonVariant(
                 id=child.simulation_id,
                 label=child.label,
                 solver=child.solver,
                 mesh_label=child.mesh_label,
                 mesh_mode=child.mesh_mode,  # type: ignore[arg-type]
-                simulation_config=str(child.config_path),
-                run_folder=str(child.config_path.parent),
+                simulation_config=None if child.config_path is None else str(child.config_path),
+                run_folder=None if child.run_folder is None else str(child.run_folder),
             )
             for child in children
         ]
-        section = MethodComparisonSection(
+        section = ComparisonSection(
             comparison_id=self.cfg.comparison.comparison_id,
             base_simulation_config=str(self.cfg.base_simulation_config_path),
             output_root=str(self.cfg.comparison_root),
@@ -395,23 +276,23 @@ class SimulationComparisonLauncher:
             variant=variants,
             observable=self.cfg.comparison.observable,
         )
-        return MethodComparisonConfig(
+        return ComparisonConfig(
             config_path=self.cfg.config_path,
             base_dir=self.cfg.base_dir,
             comparison_root=self.cfg.comparison_root,
             base_simulation_config_path=self.cfg.base_simulation_config_path,
             anchors_path=None,
             anchors={},
-            method_comparison=section,
+            comparison=section,
         )
 
     def _extract_observables(
         self,
-        method_cfg: MethodComparisonConfig,
+        comparison_cfg: ComparisonConfig,
         variant_summaries: list[dict[str, Any]],
     ) -> list[dict[str, Any]]:
         rows: list[dict[str, Any]] = []
-        variants = {variant.id: variant for variant in method_cfg.method_comparison.variant}
+        variants = {variant.id: variant for variant in comparison_cfg.comparison.variant}
         for summary in variant_summaries:
             if summary.get("status") not in {"completed", "reused"}:
                 continue
@@ -421,19 +302,25 @@ class SimulationComparisonLauncher:
             store = None
             sim_id = None
             try:
-                config_path = Path(str(summary["config_path"]))
+                raw_config_path = summary.get("config_path")
+                config_path = None if raw_config_path in (None, "") else Path(str(raw_config_path))
                 preferred_sim_id = summary.get("sim_id")
-                store, sim_id = discover_result_store(
-                    config_path,
-                    preferred_sim_id=(
-                        None if preferred_sim_id in (None, "") else str(preferred_sim_id)
-                    ),
-                )
+                store = None
+                sim_id = None
+                if config_path is not None:
+                    store, sim_id = discover_result_store(
+                        config_path,
+                        preferred_sim_id=(
+                            None if preferred_sim_id in (None, "") else str(preferred_sim_id)
+                        ),
+                    )
+                else:
+                    sim_id = None if preferred_sim_id in (None, "") else str(preferred_sim_id)
                 variant_rows = extract_observable_rows(
                     comparison_id=str(self.cfg.comparison.comparison_id),
                     variant=variant,
                     run_folder=Path(str(summary["run_folder"])),
-                    observables=tuple(method_cfg.method_comparison.observable),
+                    observables=tuple(comparison_cfg.comparison.observable),
                     config_path=config_path,
                     store=store,
                     sim_id=sim_id,
@@ -470,8 +357,11 @@ class SimulationComparisonLauncher:
     def _cleanup_generated_configs(children: list[GeneratedChildConfig]) -> list[str]:
         """Remove generated child TOMLs when the comparison config requests it."""
         errors: list[str] = []
-        generated_dirs = {child.config_path.parent for child in children}
-        for child in children:
+        generated_children = [
+            child for child in children if child.generated_config and child.config_path is not None
+        ]
+        generated_dirs = {child.config_path.parent for child in generated_children}
+        for child in generated_children:
             path = child.config_path
             try:
                 path.unlink(missing_ok=True)
@@ -486,6 +376,18 @@ class SimulationComparisonLauncher:
             except Exception as exc:
                 errors.append(f"could not remove {generated_dir}: {exc}")
         return errors
+
+
+def _format_child_process_error(result: ChildRunResult) -> str:
+    """Return a concise error message with enough child output to diagnose."""
+    message = f"hmp run exited with code {result.returncode}"
+    stderr = result.stderr.strip()
+    stdout = result.stdout.strip()
+    if stderr:
+        return f"{message}\nstderr tail:\n{stderr[-2000:]}"
+    if stdout:
+        return f"{message}\nstdout tail:\n{stdout[-2000:]}"
+    return message
 
 
 __all__ = ("SimulationComparisonLauncher",)

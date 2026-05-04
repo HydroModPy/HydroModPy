@@ -28,6 +28,17 @@ Checks
 - Date coverage and units should be checked before comparing with recharge or
   runoff.
 
+Visual check
+------------
+
+.. figure:: /_static/user_guide/data/sim2_grid_forcing_example.png
+   :alt: SIM2 precipitation and temperature monthly summary
+   :width: 100%
+
+   The right panel shows the kind of monthly total that should be inspected for
+   SIM2 precipitation before it is compared with recharge, runoff, or solver
+   budget terms.
+
 .. toctree::
    :maxdepth: 1
 

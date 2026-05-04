@@ -463,6 +463,7 @@ def load_time_series_fields(
     x_max_m: float | None = None,
     y_min_m: float | None = None,
     y_max_m: float | None = None,
+    collapse_y_to_x_profile: bool = False,
 ) -> tuple[np.ndarray, np.ndarray]:
     """Load all timesteps for one variable, preferring the store.
 
@@ -526,6 +527,7 @@ def load_time_series_fields(
                             x_max_m=x_max_m,
                             y_min_m=y_min_m,
                             y_max_m=y_max_m,
+                            collapse_y_to_x_profile=collapse_y_to_x_profile,
                         )
                     else:
                         data = _aggregate_triangle_history_to_grid(
@@ -602,6 +604,7 @@ def load_time_series_fields(
                 x_max_m=x_max_m,
                 y_min_m=y_min_m,
                 y_max_m=y_max_m,
+                collapse_y_to_x_profile=collapse_y_to_x_profile,
             )
         elif arrays[:1].size > 0 and int(np.prod(arrays.shape[1:])) == int(np.prod(eff_shape)):
             arrays = arrays.reshape(arrays.shape[0], *tuple(eff_shape))

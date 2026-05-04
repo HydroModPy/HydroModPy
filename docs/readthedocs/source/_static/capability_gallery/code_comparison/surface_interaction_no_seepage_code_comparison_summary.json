@@ -47,13 +47,13 @@
   ],
   "source_hashes": {
     "tools/doc_gallery/manifests/code_comparison_cases.json": "13e452e62518f33430b2a880bb7b09ee85a3f5ba960d5fa83ba3fb2eff16f758",
-    "tools/investigate_surface_interaction_hillslope_transient.py": "8139787d7310078131791413acf05dce72fa405d48848f42beb22d30d0591af3",
+    "tools/investigate_surface_interaction_hillslope_transient.py": "7f6cc8385bbf8a9dae801ee8268df206b7e9be10ba82d96095f046c053137f49",
     "tools/doc_gallery/generate_code_comparison_assets.py": "0a28391589ff47d1ec7a07e43aa640ee0f57f84aed3886248da2578e9dacdb2a",
     "validation_cases/shared/boussinesq_budget.py": "160b26530c3675508f30fd61b432eefd0b715f2b39e54afbb58fabfd4413d38b",
-    "examples/projects/09_capability_gallery/code_comparison/surface_interaction_no_seepage/no_seepage_reference_k.png": "dc5e646f68446ca4fd04de883373b81e4a378200a6f0734cebaab01e1613e193",
-    "examples/projects/09_capability_gallery/code_comparison/surface_interaction_no_seepage/no_seepage_reference_k.json": "747e412479fb3333bc28490bbb419e8fe3cdc773d5d81d0e57aea0936f0c2c88",
-    "examples/projects/09_capability_gallery/code_comparison/surface_interaction_no_seepage/no_seepage_high_k.png": "bf538fd500af59f6dc6fa75b96cebe04bea0cf9f8f5f31745201d8c677f824db",
-    "examples/projects/09_capability_gallery/code_comparison/surface_interaction_no_seepage/no_seepage_high_k.json": "db362750433bae413e720aded5b6162f77f645c0edf125d70fa181f9a4f57a99"
+    "examples/projects/09_capability_gallery/code_comparison/surface_interaction_no_seepage/no_seepage_reference_k.png": "b60fbacd061aff3836bda3672a27ec0ac5bbc8db1b15b26a6bbd13dcb767358a",
+    "examples/projects/09_capability_gallery/code_comparison/surface_interaction_no_seepage/no_seepage_reference_k.json": "850cdbbba28d270b549b7d30df47f5b3340900998158ec4c1c52dbc85fe28a2e",
+    "examples/projects/09_capability_gallery/code_comparison/surface_interaction_no_seepage/no_seepage_high_k.png": "2fc32bc3c05d926a8b82b9fe87c7faba7d817f272f9bc82ac8847eeeeab83d7d",
+    "examples/projects/09_capability_gallery/code_comparison/surface_interaction_no_seepage/no_seepage_high_k.json": "5ee7662b5b903fb04c349c917ea61209a5a337370a662e7cb629c7180096a46d"
   },
   "docname": "cases/surface_interaction_no_seepage_code_comparison",
   "images": [

@@ -302,6 +302,14 @@ def build_run_command(
             "simulation",
             str(case.config_path),
         ]
+    if case.launcher == "comparison":
+        return [
+            str(python_executable),
+            "-m",
+            "hydromodpy",
+            "run",
+            str(case.config_path),
+        ]
     if case.launcher == "method-comparison":
         return [
             str(python_executable),

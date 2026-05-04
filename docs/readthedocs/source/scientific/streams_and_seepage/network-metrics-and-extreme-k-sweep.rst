@@ -69,10 +69,13 @@ them:
 To make it fully compatible with Abherve et al. (2023), HydroModPy should
 modernize that logic into a result view and CSV export that computes at least:
 
-- ``D_so``: average simulated-to-observed downslope distance.
-- ``D_os``: average observed-to-simulated downslope distance.
-- ``D_optim``: combined distance criterion.
-- ``r_optim``: ``D_optim`` normalized by the DEM or analysis resolution.
+- :math:`D^{down}_{s\to o}`: average simulated-to-observed downslope
+  distance.
+- :math:`D^{down}_{o\to s}`: average observed-to-simulated downslope
+  distance.
+- :math:`D_{optim}`: combined downslope-distance criterion.
+- :math:`r_{optim}`: :math:`D_{optim}` normalized by the DEM or analysis
+  resolution.
 
 Current Extreme Sweep
 ---------------------
@@ -132,6 +135,15 @@ The most useful files are:
 - ``run_figures/<variant>/simulated_active_network_reference_overlay.png``
 - ``comparison_report.md``
 - ``comparison_audit.md``
+
+After rerunning the workflow, refresh the committed documentation figures with:
+
+.. code-block:: powershell
+
+   python docs/readthedocs/source/scientific/streams_and_seepage/diagrams/render_nancon_k_sweep_doc_figures.py --sweep extreme
+
+The script reads the exported CSV metrics and recomposes the map figures with
+their metric bands, then writes the trend and tradeoff graphs shown below.
 
 Case Configuration
 ------------------
@@ -252,8 +264,37 @@ does not replace the downslope DEM-routing metric described below.
      - 1116.8
      - 2141.6
 
+Metric Notation
+---------------
+
+The generated figures use compact notation so the map and metrics can be read
+together:
+
+- :math:`N_a`: persistent simulated-active cells.
+- :math:`N_{ref}`: cells intersected by the observed ``reference`` network.
+- :math:`N_{ov}`: overlap cells, active and reference at the same time.
+- :math:`N_{miss}`: reference cells not captured by simulated activity.
+- :math:`N_{extra}`: active cells outside the reference-network support.
+- :math:`C_{ref}=N_{ov}/N_{ref}`: reference-network coverage.
+- :math:`P_a=N_{ov}/N_a`: simulated-active precision.
+- :math:`F_1=2 C_{ref} P_a/(C_{ref}+P_a)`: harmonic overlap score.
+- :math:`D^{plan}_{s\to o}`: simulated-active to observed-reference
+  planar distance.
+- :math:`D^{plan}_{o\to s}`: observed-reference to simulated-active
+  planar distance.
+- :math:`\bar{D}^{plan}`: symmetric mean of those two directional planar
+  distances.
+- :math:`R_D^{plan}=D^{plan}_{s\to o}/D^{plan}_{o\to s}`:
+  planar distance ratio. It is the current proxy for reading an optimum-like
+  crossing; the article uses downslope distances instead.
+
 Visual Sweep
 ------------
+
+Each map below is regenerated from the workflow outputs by
+``render_nancon_k_sweep_doc_figures.py``. The metric band is intentionally
+placed below the map so the spatial pattern and scalar diagnostics stay
+together.
 
 ``K = 2e-6 m/s``: 100x lower than reference
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -262,12 +303,20 @@ Visual Sweep
    :alt: Simulated active network versus reference network for K equals 2e-6 m/s
    :width: 100%
 
+   ``k_2e6``: :math:`N_a=3033`, :math:`C_{ref}=0.820`,
+   :math:`P_a=0.454`, :math:`F_1=0.584`,
+   :math:`\bar{D}^{plan}=160` m.
+
 ``K = 2e-5 m/s``: 10x lower than reference
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. figure:: /_static/workflows/simulated_active_network/nancon_extreme_k_sweep/k_2e5_reference_overlay.png
    :alt: Simulated active network versus reference network for K equals 2e-5 m/s
    :width: 100%
+
+   ``k_2e5``: :math:`N_a=1496`, :math:`C_{ref}=0.529`,
+   :math:`P_a=0.591`, :math:`F_1=0.558`,
+   :math:`\bar{D}^{plan}=173` m.
 
 ``K = 2e-4 m/s``: reference variant
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -276,6 +325,10 @@ Visual Sweep
    :alt: Simulated active network versus reference network for K equals 2e-4 m/s
    :width: 100%
 
+   ``k_2e4``: :math:`N_a=811`, :math:`C_{ref}=0.305`,
+   :math:`P_a=0.629`, :math:`F_1=0.410`,
+   :math:`\bar{D}^{plan}=288` m.
+
 ``K = 2e-2 m/s``: 100x higher than reference
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
@@ -283,7 +336,32 @@ Visual Sweep
    :alt: Simulated active network versus reference network for K equals 2e-2 m/s
    :width: 100%
 
+   ``k_2e2``: :math:`N_a=174`, :math:`C_{ref}=0.060`,
+   :math:`P_a=0.580`, :math:`F_1=0.109`,
+   :math:`\bar{D}^{plan}=1117` m.
+
 There is no figure for ``k_2e3`` because the MODFLOW 6 solve did not converge.
+
+Metric Evolution
+^^^^^^^^^^^^^^^^
+
+.. figure:: /_static/workflows/simulated_active_network/nancon_extreme_k_sweep/metric_trends.png
+   :alt: Evolution of Nancon extreme K-sweep active-network metrics with hydraulic conductivity
+   :width: 100%
+
+   Evolution of support size, overlap quality, planar distance metrics, and
+   the positive distance ratio :math:`R_D^{plan}` across the completed extreme
+   ``K`` values. The horizontal reference line marks :math:`R_D^{plan}=1`.
+   The failed ``k_2e3`` solve is excluded from the curve because no valid
+   simulated-active network was produced for that variant.
+
+.. figure:: /_static/workflows/simulated_active_network/nancon_extreme_k_sweep/metric_tradeoff.png
+   :alt: Nancon extreme K-sweep overlap and distance tradeoff graph
+   :width: 100%
+
+   Tradeoff view: coverage versus precision, then
+   :math:`\bar{D}^{plan}` versus :math:`F_1`. Point size is proportional to
+   :math:`N_a`.
 
 Current Reading
 ---------------
@@ -305,15 +383,28 @@ how far simulated seepage must be routed to reach observed streams, and how far
 observed streams are from simulated seepage. That is the next implementation
 step if this diagnostic is promoted from visual development to calibration.
 
+The current planar metrics do contain an optimum-style distance ratio:
+``planar_distance_ratio`` and ``planar_distance_log10_ratio``. The ratio is
+useful for inspecting whether the two directional distances cross as ``K``
+changes. It is not :math:`r_{optim}` from Abherve et al. (2023), because the
+paper computes :math:`D_{optim}` from downslope flowpath distances and then
+normalizes it by the DEM resolution.
+
 The current code now adds a safer intermediate CSV,
 ``simulated_active_network_distance_metrics.csv``. It contains:
 
-- ``sim_to_network_*``: distances from active simulated cell centroids to the
-  selected network role, usually ``reference``;
-- ``network_to_sim_*``: distances from cells intersected by the selected
-  network to the union of active simulated cells;
+- ``sim_to_network_*``: :math:`D^{plan}_{s\to o}` distances from active
+  simulated cell centroids to the selected network role, usually
+  ``reference``;
+- ``network_to_sim_*``: :math:`D^{plan}_{o\to s}` distances from cells
+  intersected by the selected network to the simulated-active support;
 - ``bidirectional_distance_mean_m`` and
-  ``bidirectional_distance_quadratic_mean_m`` as compact symmetric summaries;
+  ``bidirectional_distance_quadratic_mean_m`` as compact symmetric planar
+  summaries;
+- ``bidirectional_distance_absolute_difference_m`` as the absolute difference
+  between the two directional planar means;
+- ``planar_distance_ratio`` and ``planar_distance_log10_ratio`` as the current
+  planar crossing proxy;
 - ``distance_method = "planar_cell_centroid_to_network"`` to make clear that
   these are planar mesh diagnostics, not downslope DEM distances.
 
@@ -323,6 +414,9 @@ Related Reading
 - :doc:`nancon-k-sweep-results`
 - :doc:`conceptual-model`
 - :doc:`../hydrology/simulated-active-network`
-- Abherve, R. et al. (2023), `Calibration of groundwater seepage against the
-  spatial distribution of the stream network to assess catchment-scale
-  hydraulic properties <https://doi.org/10.5194/hess-27-3221-2023>`_.
+- Abherve, R., Roques, C., Gauvain, A., Longuevergne, L., Louaisil, S.,
+  Aquilina, L., and de Dreuzy, J.-R. (2023), `Calibration of groundwater
+  seepage against the spatial distribution of the stream network to assess
+  catchment-scale hydraulic properties
+  <https://doi.org/10.5194/hess-27-3221-2023>`_, Hydrol. Earth Syst. Sci.,
+  27, 3221-3239.

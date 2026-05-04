@@ -145,15 +145,15 @@ value = "0.05 -"
 value = "3e-3 m2/s"
 
 [[comparison.simulation]]
-id = "k_2e3"
-label = "MF6 Nancon hydrography K=2e-3 m/s, 10x higher than reference"
+id = "k_3e4"
+label = "MF6 Nancon hydrography K=3e-4 m/s, near planar distance-ratio target"
 solver = "modflow6"
 mesh_label = "Nancon generated catchment support"
 mesh_mode = "mesh_catchment"
 
 [comparison.simulation.overlay.workspace]
-project_root = "outputs/nancon_transient_seasonal_hydrography_extreme_k_sweep_mf6/workspace_k_2e3"
-root = "outputs/nancon_transient_seasonal_hydrography_extreme_k_sweep_mf6/workspace_k_2e3"
+project_root = "outputs/nancon_transient_seasonal_hydrography_extreme_k_sweep_mf6/workspace_k_3e4"
+root = "outputs/nancon_transient_seasonal_hydrography_extreme_k_sweep_mf6/workspace_k_3e4"
 
 [comparison.simulation.overlay.modflow6.runtime]
 mf6_ims_complexity = "COMPLEX"
@@ -173,7 +173,7 @@ nlay = 1
 firstpersteady = false
 
 [comparison.simulation.overlay.flow.param.K.field_homogeneous]
-value = "2e-3 m/s"
+value = "3e-4 m/s"
 
 [comparison.simulation.overlay.flow.param.Ss.field_homogeneous]
 value = "1e-4 m-1"
@@ -214,6 +214,46 @@ firstpersteady = false
 
 [comparison.simulation.overlay.flow.param.K.field_homogeneous]
 value = "2e-2 m/s"
+
+[comparison.simulation.overlay.flow.param.Ss.field_homogeneous]
+value = "1e-4 m-1"
+
+[comparison.simulation.overlay.flow.param.Sy.field_homogeneous]
+value = "0.05 -"
+
+[comparison.simulation.overlay.flow.bc.cauchy.drainage]
+value = "3e-3 m2/s"
+
+[[comparison.simulation]]
+id = "k_1e1"
+label = "MF6 Nancon hydrography K=1e-1 m/s, 500x higher than reference"
+solver = "modflow6"
+mesh_label = "Nancon generated catchment support"
+mesh_mode = "mesh_catchment"
+
+[comparison.simulation.overlay.workspace]
+project_root = "outputs/nancon_transient_seasonal_hydrography_extreme_k_sweep_mf6/workspace_k_1e1"
+root = "outputs/nancon_transient_seasonal_hydrography_extreme_k_sweep_mf6/workspace_k_1e1"
+
+[comparison.simulation.overlay.modflow6.runtime]
+mf6_ims_complexity = "COMPLEX"
+mf6_outer_dvclose = 0.0001
+mf6_inner_dvclose = 0.0001
+mf6_outer_maximum = 500
+mf6_inner_maximum = 500
+mf_verbose = false
+
+[comparison.simulation.overlay.modflow6.process_specific]
+vka = 1.0
+
+[comparison.simulation.overlay.modflow6.sgrid.vertical]
+nlay = 1
+
+[comparison.simulation.overlay.modflow6.tgrid]
+firstpersteady = false
+
+[comparison.simulation.overlay.flow.param.K.field_homogeneous]
+value = "1e-1 m/s"
 
 [comparison.simulation.overlay.flow.param.Ss.field_homogeneous]
 value = "1e-4 m-1"

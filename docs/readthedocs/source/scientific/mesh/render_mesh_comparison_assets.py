@@ -114,6 +114,8 @@ def _summary_metrics(filename: str) -> dict[str, float | int | str]:
 def render_real_mesh_cell_budget() -> str:
     cases = [
         ("10 km2", "mesh_s3_10km2_outlet_1_geology_rivers_buffer30_summary.json"),
+        ("10 km2 rivers only", "mesh_s3_10km2_outlet_1_rivers_only_buffer30_summary.json"),
+        ("100 km2 rivers only", "mesh_100km2_outlet_27_rivers_only_buffer30_summary.json"),
         ("100 km2 floor 340", "mesh_headwater_100km2_outlet_27_geology_rivers_buffer30_floor340_target200_summary.json"),
         ("100 km2 floor 200", "mesh_headwater_100km2_outlet_27_geology_rivers_buffer30_floor200_target200_summary.json"),
         ("100 km2 default", "mesh_headwater_100km2_outlet_27_geology_rivers_buffer30_summary.json"),
@@ -122,13 +124,13 @@ def render_real_mesh_cell_budget() -> str:
     rows = [(label, _summary_metrics(path)) for label, path in cases]
     max_cells = max(row[1]["cells"] for row in rows)
     svg: list[str] = [
-        '<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="520" viewBox="0 0 1200 520" role="img" aria-labelledby="title desc">',
+        '<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="660" viewBox="0 0 1200 660" role="img" aria-labelledby="title desc">',
         '<title id="title">Cell-count balance for versioned catchment meshes</title>',
         '<desc id="desc">Horizontal bar chart comparing cell counts for selected versioned HydroModPy catchment meshes.</desc>',
         "<style>",
         ".bg{fill:#f7f8f4}.bar{fill:#6f8fa8}.bar2{fill:#b38447}.axis{stroke:#52616b;stroke-width:1}.title{font:700 27px Georgia,serif;fill:#21313a}.small{font:14px Georgia,serif;fill:#41515d}.mono{font:13px Consolas,monospace;fill:#2d3d47}.label{font:700 16px Georgia,serif;fill:#21313a}",
         "</style>",
-        '<rect class="bg" width="1200" height="520"/>',
+        '<rect class="bg" width="1200" height="660"/>',
         _text(48, 56, "Cell-count balance for committed irregular catchment meshes", "title"),
         _text(48, 84, "Counts are read from the capability-gallery summary JSON files; all cases shown here are triangular Gmsh-style catchment meshes.", "small"),
     ]
@@ -140,7 +142,7 @@ def render_real_mesh_cell_budget() -> str:
         svg.append(f'<rect class="bar" x="{x0}" y="{y}" width="{w:.2f}" height="28" rx="6"/>')
         svg.append(_text(x0 + w + 14, y + 21, f'{metrics["cells"]:,} cells'.replace(",", " "), "mono"))
         svg.append(_text(x0, y + 48, f'nodes={metrics["nodes"]:,}  river_edges={metrics["river_edges"]:,}  geology_edges={metrics["geology_edges"]:,}'.replace(",", " "), "small"))
-    svg.append(_text(60, 486, "Use this as a mesh-budget view, not as a quality ranking: a larger cell count is only useful if the added cells resolve relevant constraints.", "small"))
+    svg.append(_text(60, 626, "Use this as a mesh-budget view, not as a quality ranking: a larger cell count is only useful if the added cells resolve relevant constraints.", "small"))
     svg.append("</svg>")
     return "\n".join(svg)
 

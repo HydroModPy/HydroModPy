@@ -1,0 +1,52 @@
+# Nancon monthly transient base for MF6 DISV vs MODFLOW-NWT comparison.
+#
+# This pilot keeps the steady comparison geometry and parameters, switches the
+# flow regime to transient, and aggregates the existing seasonal weekly
+# recharge chronicle to 12 monthly values. The DISV run reuses the precomputed
+# river-constrained mesh bundle used by the steady Nancon page.
+
+base_config = "base_nancon_steady_hydrography_mesh_input.toml"
+workflow = "simulation"
+
+[workspace]
+project_root = "outputs/nancon_transient_monthly_mf6_disv_vs_nwt/shared_workspace"
+root = "../../"
+
+[simulation]
+name = "nancon_transient_monthly_hydrography_mesh_input_shared_case"
+description = "Nancon monthly transient pilot with observed hydrography and precomputed river-constrained mesh."
+on_collision = "replace"
+
+[simulation.time]
+start_datetime = "2020-10-01 00:00:00"
+end_datetime = "2021-09-30 00:00:00"
+step_value = "1 month"
+coverage_policy = "warn"
+
+[flow]
+flow_regime = "transient"
+
+[data.recharge]
+date_start = "2020-10-01"
+date_end = "2021-09-30"
+
+[[data.recharge.sources]]
+source = "synthetic"
+freq = "MS"
+start_date = "2020-10-01"
+periods = 12
+values = [
+  1.267280,
+  1.298275,
+  0.600300,
+  0.360450,
+  0.418950,
+  0.030900,
+  0.005720,
+  0.037600,
+  0.055650,
+  0.437620,
+  0.380875,
+  0.902075,
+]
+runoff_ratio = 0.0
