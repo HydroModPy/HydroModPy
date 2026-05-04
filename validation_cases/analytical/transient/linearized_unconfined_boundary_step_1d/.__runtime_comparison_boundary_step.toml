@@ -1,67 +1,71 @@
-[method_comparison]
+workflow = "comparison"
+
+[comparison]
 comparison_id = "lu_boundary_step_same_support"
 base_simulation_config = "C:/codes/HydroModPy/validation_cases/analytical/transient/linearized_unconfined_boundary_step_1d/config_modflownwt.toml"
-output_root = "C:/codes/HydroModPy/validation_cases/analytical/transient/linearized_unconfined_boundary_step_1d/method_comparison/lu_boundary_step_same_support"
-run_variants = true
-reference_variant = "modflow6"
+output_root = "C:/codes/HydroModPy/validation_cases/analytical/transient/linearized_unconfined_boundary_step_1d/comparison/lu_boundary_step_same_support"
+reference_simulation = "modflow6"
 
-[[method_comparison.variant]]
+[comparison.execution]
+run_simulations = false
+
+[[comparison.simulation]]
 id = "modflownwt"
 label = "MODFLOW-NWT 50x5"
 solver = "modflownwt"
 mesh_mode = "structured"
 
-[method_comparison.variant.overlay]
-[method_comparison.variant.overlay.workspace]
+[comparison.simulation.overlay]
+[comparison.simulation.overlay.workspace]
 project_root = "C:/codes/HydroModPy/validation_cases/analytical/transient/linearized_unconfined_boundary_step_1d"
 root = "C:/codes/HydroModPy/tmp/lu_boundary_step_same_support_workspace"
 output_root = "C:/codes/HydroModPy/tmp/lu_boundary_step_same_support_workspace"
 
-[method_comparison.variant.overlay.flow]
-[method_comparison.variant.overlay.flow.bc]
-[method_comparison.variant.overlay.flow.bc.dirichlet]
-[method_comparison.variant.overlay.flow.bc.dirichlet.west_side]
-[method_comparison.variant.overlay.flow.bc.dirichlet.west_side.forcing]
+[comparison.simulation.overlay.flow]
+[comparison.simulation.overlay.flow.bc]
+[comparison.simulation.overlay.flow.bc.dirichlet]
+[comparison.simulation.overlay.flow.bc.dirichlet.west_side]
+[comparison.simulation.overlay.flow.bc.dirichlet.west_side.forcing]
 path_file = "C:/codes/HydroModPy/validation_cases/analytical/transient/linearized_unconfined_boundary_step_1d/west_head_step.csv"
 
-[[method_comparison.variant]]
+[[comparison.simulation]]
 id = "modflow6"
 label = "MODFLOW 6 50x5"
 solver = "modflow6"
 mesh_mode = "structured"
 
-[method_comparison.variant.overlay]
-[method_comparison.variant.overlay.workspace]
+[comparison.simulation.overlay]
+[comparison.simulation.overlay.workspace]
 project_root = "C:/codes/HydroModPy/validation_cases/analytical/transient/linearized_unconfined_boundary_step_1d"
 root = "C:/codes/HydroModPy/tmp/lu_boundary_step_same_support_workspace"
 output_root = "C:/codes/HydroModPy/tmp/lu_boundary_step_same_support_workspace"
 
-[method_comparison.variant.overlay.flow]
-[method_comparison.variant.overlay.flow.bc]
-[method_comparison.variant.overlay.flow.bc.dirichlet]
-[method_comparison.variant.overlay.flow.bc.dirichlet.west_side]
-[method_comparison.variant.overlay.flow.bc.dirichlet.west_side.forcing]
+[comparison.simulation.overlay.flow]
+[comparison.simulation.overlay.flow.bc]
+[comparison.simulation.overlay.flow.bc.dirichlet]
+[comparison.simulation.overlay.flow.bc.dirichlet.west_side]
+[comparison.simulation.overlay.flow.bc.dirichlet.west_side.forcing]
 path_file = "C:/codes/HydroModPy/validation_cases/analytical/transient/linearized_unconfined_boundary_step_1d/west_head_step.csv"
 
-[method_comparison.variant.overlay.modflow6]
-[method_comparison.variant.overlay.modflow6.runtime]
+[comparison.simulation.overlay.modflow6]
+[comparison.simulation.overlay.modflow6.runtime]
 mf_verbose = false
 mf6_ims_complexity = "COMPLEX"
 
-[method_comparison.variant.overlay.modflow6.sgrid]
-[method_comparison.variant.overlay.modflow6.sgrid.planar]
+[comparison.simulation.overlay.modflow6.sgrid]
+[comparison.simulation.overlay.modflow6.sgrid.planar]
 mode = "resample_to_shape"
 nx = 50
 ny = 5
 resampling = "nearest"
 
-[method_comparison.variant.overlay.modflow6.sgrid.vertical]
+[comparison.simulation.overlay.modflow6.sgrid.vertical]
 nlay = 1
 
-[method_comparison.variant.overlay.modflow6.tgrid]
+[comparison.simulation.overlay.modflow6.tgrid]
 firstpersteady = false
 
-[[method_comparison.observable]]
+[[comparison.observable]]
 name = "head_west_response"
 variable = "watertable_elevation"
 support = "point"
@@ -69,7 +73,7 @@ cell_index = 5
 time = "all"
 unit = "m"
 
-[[method_comparison.observable]]
+[[comparison.observable]]
 name = "head_mid_response"
 variable = "watertable_elevation"
 support = "point"
@@ -77,7 +81,7 @@ cell_index = 25
 time = "all"
 unit = "m"
 
-[[method_comparison.observable]]
+[[comparison.observable]]
 name = "head_east_response"
 variable = "watertable_elevation"
 support = "point"
@@ -85,14 +89,14 @@ cell_index = 45
 time = "all"
 unit = "m"
 
-[[method_comparison.observable]]
+[[comparison.observable]]
 name = "head_map_last"
 variable = "watertable_elevation"
 support = "map"
 time = "last"
 unit = "m"
 
-[[method_comparison.observable]]
+[[comparison.observable]]
 name = "depth_map_last"
 variable = "watertable_depth"
 support = "map"

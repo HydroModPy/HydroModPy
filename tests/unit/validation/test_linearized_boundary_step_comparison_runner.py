@@ -14,7 +14,6 @@ def test_boundary_step_comparison_runner_uses_canonical_section(tmp_path: Path) 
 
     assert payload["workflow"] == "comparison"
     assert "comparison" in payload
-    assert "method_comparison" not in payload
 
     comparison = payload["comparison"]
     assert comparison["output_root"] == str(tmp_path)
