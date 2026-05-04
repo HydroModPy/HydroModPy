@@ -1,0 +1,87 @@
+{
+  "summary_schema_version": "capability_gallery_case_v1",
+  "slug": "example12_mf6_vs_nwt_different_meshes_demonstrative",
+  "title": "MF6 Triangular vs NWT Structured on Demonstrative Forcing",
+  "category": "simulation_comparison",
+  "deck": "Different-support comparison on the more expressive demonstrative annual setup, including flux and timing diagnostics.",
+  "summary": "This case reuses the demonstrative annual forcing chosen to make temporal head changes and drainage signatures easier to read. It compares the committed triangular MODFLOW 6 run against the structured MODFLOW-NWT baseline, again through a shared fine raster, but with a forcing regime designed for stronger visual contrast than the moderate case.",
+  "case_setup": [
+    "Reference simulation: MODFLOW 6 on the committed triangular support.",
+    "Candidate simulation: MODFLOW-NWT on the 60x60 structured support.",
+    "Compared observables mirror the moderate different-support case so the main reading change is the forcing regime, not the observable list."
+  ],
+  "key_parameters": [
+    "The demonstrative forcing/hydraulic setup is chosen to make temporal and drainage signatures easier to read than in the softened moderate case.",
+    "The fine-raster comparison remains active, so map metrics are still computed after resampling onto a common grid.",
+    "Use this page alongside the moderate different-support case to separate regime sensitivity from mesh-family sensitivity."
+  ],
+  "how_to_read": [
+    "Compare this page to the moderate different-support case before drawing conclusions about the mesh effect alone.",
+    "If a mismatch grows mainly here, the forcing regime is amplifying it; if it stays similar, the support transfer is probably the dominant cause.",
+    "Do not read the demonstrative label as 'more correct'; it is a more expressive scenario, not a stronger validation claim."
+  ],
+  "next_steps": [
+    "Use :doc:`the gallery and validation reading guide </getting_started/reading-results-pages>` to distinguish example pages, comparison pages, and validation pages.",
+    "Go back to :doc:`the simulation walkthrough </getting_started/simulation-walkthrough>` when you need to inspect one contributing run in isolation."
+  ],
+  "what_it_shows": [
+    "How the different-support MF6/NWT comparison behaves when the forcing regime is tuned for stronger visible contrast.",
+    "How the same observable set can be reused across moderate and demonstrative regimes to separate regime effects from support effects.",
+    "How execution-time bars and flux panels behave on a more showcase-oriented scenario."
+  ],
+  "reference_highlights": [],
+  "equations_rst": [],
+  "walkthrough_doc": "getting_started/reading-results-pages",
+  "walkthrough_title": "the gallery and validation reading guide",
+  "reproduction_command": "python -m tools.doc_gallery",
+  "gallery_update_command": "python -m tools.doc_gallery",
+  "source_paths": [
+    "docs/readthedocs/source/_static/capability_gallery/simulation_comparison/example12_mf6_vs_nwt_different_meshes_demonstrative_comparison_manifest.json",
+    "docs/readthedocs/source/_static/capability_gallery/simulation_comparison/example12_mf6_vs_nwt_different_meshes_demonstrative_comparison_metrics.json",
+    "docs/readthedocs/source/_static/capability_gallery/simulation_comparison/example12_mf6_vs_nwt_different_meshes_demonstrative_observables.csv",
+    "docs/readthedocs/source/_static/capability_gallery/simulation_comparison/example12_mf6_vs_nwt_different_meshes_demonstrative_summary_metrics.csv",
+    "docs/readthedocs/source/_static/capability_gallery/simulation_comparison/example12_mf6_vs_nwt_different_meshes_demonstrative_difference_metrics.csv"
+  ],
+  "source_hashes": {
+    "docs/readthedocs/source/_static/capability_gallery/simulation_comparison/example12_mf6_vs_nwt_different_meshes_demonstrative_comparison_manifest.json": "4f8ab5ea5444ed2684a23d0ca2c848f711991e97f17262dc0be5e9bbbeb5aef3",
+    "docs/readthedocs/source/_static/capability_gallery/simulation_comparison/example12_mf6_vs_nwt_different_meshes_demonstrative_comparison_metrics.json": "be0e231d30d10eaaaa257914c25879f77210e7b49dfe8eba58104b7c9acb262c",
+    "docs/readthedocs/source/_static/capability_gallery/simulation_comparison/example12_mf6_vs_nwt_different_meshes_demonstrative_observables.csv": "511a896f1f6ef9b12648c6df55561ef3bb4bb8cebb9c8d5ca4ba8c327fc21db2",
+    "docs/readthedocs/source/_static/capability_gallery/simulation_comparison/example12_mf6_vs_nwt_different_meshes_demonstrative_summary_metrics.csv": "adafac9662c141946022e6180717ad2544f84d1bc8d5613339d2feb865be5463",
+    "docs/readthedocs/source/_static/capability_gallery/simulation_comparison/example12_mf6_vs_nwt_different_meshes_demonstrative_difference_metrics.csv": "92140edd3e799b48e76c98269894ec8ff3816d85b39ac03cbb666ef5da462bec"
+  },
+  "docname": "cases/example12_mf6_vs_nwt_different_meshes_demonstrative",
+  "images": [
+    {
+      "filename": "example12_mf6_vs_nwt_different_meshes_demonstrative.png",
+      "caption": "Summary comparison figure for mf6 triangular vs nwt structured on demonstrative forcing.",
+      "alt_text": "Simulation comparison summary for MF6 Triangular vs NWT Structured on Demonstrative Forcing",
+      "doc_path": "/_static/capability_gallery/simulation_comparison/example12_mf6_vs_nwt_different_meshes_demonstrative.png",
+      "repo_path": "docs/readthedocs/source/_static/capability_gallery/simulation_comparison/example12_mf6_vs_nwt_different_meshes_demonstrative.png"
+    }
+  ],
+  "metrics": [],
+  "metadata": {
+    "static_summary_path": "docs/readthedocs/source/_static/capability_gallery/simulation_comparison/example12_mf6_vs_nwt_different_meshes_demonstrative_summary.json",
+    "comparison_summary_path": "docs/readthedocs/source/_static/capability_gallery/simulation_comparison/example12_mf6_vs_nwt_different_meshes_demonstrative_summary.json",
+    "study_area": "Example12 / Naizin",
+    "focus_simulation_id": "nwt_demo_structured",
+    "comparison_family_key": "mixed_support_regime",
+    "comparison_family_label": "Different Supports, Same Regime",
+    "comparison_family_deck": "These cases keep the forcing regime fixed but intentionally change the mesh family, so the page captures both solver differences and support-transfer effects.",
+    "comparison_family_order": 20,
+    "comparison_case_order": 20,
+    "copied_assets": [
+      {
+        "source_path": "docs/readthedocs/source/_static/capability_gallery/simulation_comparison/example12_mf6_vs_nwt_different_meshes_demonstrative.png",
+        "copied_to": "docs/readthedocs/source/_static/capability_gallery/simulation_comparison/example12_mf6_vs_nwt_different_meshes_demonstrative.png"
+      }
+    ]
+  },
+  "artifacts": {
+    "summary_json_doc_path": "/_static/capability_gallery/simulation_comparison/example12_mf6_vs_nwt_different_meshes_demonstrative_summary.json",
+    "summary_json_repo_path": "docs/readthedocs/source/_static/capability_gallery/simulation_comparison/example12_mf6_vs_nwt_different_meshes_demonstrative_summary.json",
+    "image_repo_paths": [
+      "docs/readthedocs/source/_static/capability_gallery/simulation_comparison/example12_mf6_vs_nwt_different_meshes_demonstrative.png"
+    ]
+  }
+}

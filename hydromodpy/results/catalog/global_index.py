@@ -10,8 +10,8 @@ import duckdb
 import pandas as pd
 
 from hydromodpy.core.io.db_retry import connect_with_retry
+from hydromodpy.results.storage_contract import CATALOG_FILENAME
 
-CATALOG_FILENAME = "hydromodpy.duckdb"
 GLOBAL_INDEX_FILENAME = "index.duckdb"
 
 FEDERATED_TABLES = (

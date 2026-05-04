@@ -34,7 +34,7 @@ def test_dupuit_irregular_mesh_mf6_boussinesq_intercomparison_regression(
         require_modflow6=True,
         limits={
             metric_key(
-                variant_id="bouss_candidate",
+                simulation_id="bouss_candidate",
                 observable="head_map_last",
             ): {
                 "mae": 0.03,
@@ -42,19 +42,19 @@ def test_dupuit_irregular_mesh_mf6_boussinesq_intercomparison_regression(
                 "max_abs_error": 0.12,
             },
             metric_key(
-                variant_id="bouss_candidate",
+                simulation_id="bouss_candidate",
                 observable="head_west_last",
             ): {
                 "max_abs_error": 0.01,
             },
             metric_key(
-                variant_id="bouss_candidate",
+                simulation_id="bouss_candidate",
                 observable="head_middle_last",
             ): {
                 "max_abs_error": 0.01,
             },
             metric_key(
-                variant_id="bouss_candidate",
+                simulation_id="bouss_candidate",
                 observable="head_east_last",
             ): {
                 "max_abs_error": 0.01,

@@ -359,10 +359,39 @@ For transient MODFLOW 6 versus Boussinesq examples, inspect the budget
 diagnostics before interpreting head metrics alone. The same physical case can
 still expose solver-specific accounting semantics, for example whether recharge
 is applied on fixed-head cells or exported as prescribed-head outflow.
+The workflow also writes ``comparable_outflow_total_m3_s`` in the budget
+exports. This derived comparison quantity is
+``drainage_total_m3_s + surface_excess_total_m3_s`` and should be preferred
+when the question is the total groundwater release rather than the native
+mechanism that produced it.
 When the Boussinesq run exposes lower-obstacle state histories, also inspect
 ``boussinesq_obstacle_diagnostics.csv``. It reports ``min(h-z_bot)``,
 potential negative storage volume, active ``q_dry`` cells, and surface-excess
 cells for each saved snapshot.
+
+Each materialized comparison can also expose a browser-readable page at
+``web/index.html``. Treat it as the standard access point for a first review:
+it links the audit, metrics, key figures, flux dashboard, and CSV exports
+without replacing the underlying machine-readable files.
+
+The generated page is intentionally modular. Its sections are assembled from
+the comparison manifest and the files found under the comparison output folder:
+summary counters, persistence convention, audit, case configuration, categorized
+figures, simulations, important files, comparable fluxes, and main metrics.
+The report therefore remains a presentation layer over explicit artifacts, not
+a hidden database.
+
+Figure categorization is deliberately rule-based and conservative. The
+configuration figure is separated from solver results; the remaining figures are
+grouped into hydraulic heads, flux/drainage/seepage, budgets, networks/spatial
+diagnostics, performance, and fallback uncategorized figures. File names are
+kept visible so that every image remains traceable to ``comparison_figures/``.
+
+Persisted child simulations still belong to the normal simulation catalog.
+The comparison folder itself is indexed locally by ``comparison_manifest.json``.
+If a future workflow needs global SQL queries over many comparisons, use a
+dedicated comparison catalog rather than registering each comparison as a fake
+simulation run.
 
 Post-Run Stability Checks
 -------------------------
@@ -414,7 +443,7 @@ The main allowed overlay families are:
 - a narrow ``flow`` overlay used for runtime-backend selection.
 
 The workflow is deliberately conservative here. If the physical case changes
-too much between children, the result is no longer a clear method comparison.
+too much between children, the result is no longer a clear simulation comparison.
 
 When To Use This Workflow
 -------------------------

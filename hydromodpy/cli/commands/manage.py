@@ -17,6 +17,12 @@ import pandas as pd
 
 from hydromodpy.cli.commands.delete import delete_simulation_artifacts
 from hydromodpy.cli.helpers import EXIT_CONFIG, resolve_workspace
+from hydromodpy.results.storage_contract import CATALOG_FILENAME, SIMULATIONS_DIRNAME
+from hydromodpy.results.storage_diagnostics import (
+    diagnose_result_storage,
+    storage_artefact_basename,
+    storage_artefact_kind,
+)
 
 NAME = "manage"
 HELP = "Open a local browser UI to inspect DuckDB tables and manage simulations"
@@ -191,6 +197,29 @@ _HTML = """<!doctype html>
       color: var(--accent);
       font-size: 0.8rem;
     }
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 3.4rem;
+      padding: 0.22rem 0.48rem;
+      border-radius: 999px;
+      font-size: 0.76rem;
+      font-weight: 700;
+      text-transform: uppercase;
+    }
+    .pill.OK {
+      background: #dff1e6;
+      color: #12643b;
+    }
+    .pill.WARN {
+      background: #fff1cf;
+      color: #856200;
+    }
+    .pill.KO {
+      background: #f8dfdc;
+      color: var(--warn);
+    }
     .muted {
       color: var(--muted);
     }
@@ -232,6 +261,34 @@ _HTML = """<!doctype html>
         </div>
       </div>
       <div class="summary" id="summary-cards"></div>
+    </section>
+
+    <section>
+      <div class="section-head">
+        <h2>Result diagnostics</h2>
+        <div class="controls">
+          <button class="secondary" id="diag-refresh">Refresh diagnostics</button>
+          <button class="secondary" id="norm-preview">Preview legacy names</button>
+          <button class="warn" id="norm-apply">Normalize legacy names</button>
+          <button class="warn" id="diag-clean">Delete selected cleanup paths</button>
+        </div>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th></th>
+              <th>Status</th>
+              <th>Check</th>
+              <th class="wrap">Detail</th>
+              <th class="wrap">Hint</th>
+              <th>Cleanup</th>
+            </tr>
+          </thead>
+          <tbody id="diag-body"></tbody>
+        </table>
+      </div>
+      <div class="status" id="diag-status"></div>
     </section>
 
     <div class="two-col">
@@ -320,6 +377,7 @@ _HTML = """<!doctype html>
       summary: null,
       simulations: [],
       orphans: [],
+      diagnostics: [],
       tables: { catalog: [], cache: [] },
     };
 
@@ -340,6 +398,15 @@ _HTML = """<!doctype html>
       const node = document.getElementById(id);
       node.textContent = message || "";
       node.className = isError ? "status error" : "status";
+    }
+
+    function escapeHtml(value) {
+      return String(value == null ? "" : value)
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("'", "&#39;");
     }
 
     async function getJson(url) {
@@ -393,6 +460,7 @@ _HTML = """<!doctype html>
         ["Simulations", String(state.summary.simulation_count || 0)],
         ["Simulation artefacts", formatBytes(state.summary.simulation_bytes || 0)],
         ["Orphan artefacts", formatBytes(state.summary.orphan_bytes || 0)],
+        ["Diagnostic warnings", String(state.summary.diagnostic_warning_count || 0)],
         ["Catalog", formatBytes(state.summary.catalog_bytes || 0)],
         ["Input cache", formatBytes(state.summary.cache_bytes || 0)],
       ];
@@ -447,6 +515,38 @@ _HTML = """<!doctype html>
       setStatus("orph-status", `${state.orphans.length} orphan artefact(s), ${formatBytes(total)} total.`);
     }
 
+    function renderDiagnostics() {
+      const tbody = document.getElementById("diag-body");
+      tbody.innerHTML = state.diagnostics.map((row) => {
+        const paths = row.paths || [];
+        const encodedPaths = encodeURIComponent(JSON.stringify(paths));
+        const cleanupLabel = paths.length
+          ? `${paths.length} path(s), ${formatBytes(row.cleanup_bytes || 0)}`
+          : "";
+        const disabled = paths.length ? "" : "disabled";
+        return `
+          <tr>
+            <td><input type="checkbox" class="diag-check" data-paths="${encodedPaths}" ${disabled}></td>
+            <td><span class="pill ${escapeHtml(row.status)}">${escapeHtml(row.status)}</span></td>
+            <td><code>${escapeHtml(row.name)}</code></td>
+            <td class="wrap">${escapeHtml(row.detail)}</td>
+            <td class="wrap">${escapeHtml(row.hint || "")}</td>
+            <td>${escapeHtml(cleanupLabel)}</td>
+          </tr>
+        `;
+      }).join("");
+      const warnings = state.diagnostics.filter((row) => row.status !== "OK").length;
+      const cleanupCount = state.diagnostics.reduce(
+        (acc, row) => acc + Number((row.paths || []).length),
+        0
+      );
+      setStatus(
+        "diag-status",
+        `${state.diagnostics.length} diagnostic check(s), ${warnings} warning/error check(s), ${cleanupCount} cleanup path(s).`,
+        warnings > 0
+      );
+    }
+
     function renderPreview(payload) {
       const thead = document.getElementById("preview-head");
       const tbody = document.getElementById("preview-body");
@@ -490,6 +590,12 @@ _HTML = """<!doctype html>
       renderOrphans();
     }
 
+    async function loadDiagnostics() {
+      const payload = await getJson(`/api/diagnostics?${workspaceQuery()}`);
+      state.diagnostics = payload.rows || [];
+      renderDiagnostics();
+    }
+
     async function loadTables(database) {
       const payload = await getJson(
         `/api/tables?database=${encodeURIComponent(database)}&${workspaceQuery()}`
@@ -527,6 +633,20 @@ _HTML = """<!doctype html>
       return Array.from(document.querySelectorAll(selector))
         .filter((node) => node.checked)
         .map((node) => node.value);
+    }
+
+    function checkedDiagnosticPaths() {
+      const paths = [];
+      document.querySelectorAll(".diag-check").forEach((node) => {
+        if (!node.checked || node.disabled) return;
+        try {
+          const decoded = JSON.parse(decodeURIComponent(node.dataset.paths || "[]"));
+          decoded.forEach((path) => paths.push(path));
+        } catch (error) {
+          // Ignore malformed client-side state; the server still validates paths.
+        }
+      });
+      return Array.from(new Set(paths));
     }
 
     async function deleteSelectedSimulations() {
@@ -571,9 +691,63 @@ _HTML = """<!doctype html>
       await Promise.all([loadSummary(), loadOrphans()]);
     }
 
+    async function deleteSelectedDiagnosticPaths() {
+      const paths = checkedDiagnosticPaths();
+      if (!paths.length) {
+        setStatus("diag-status", "Select at least one diagnostic with cleanup paths first.", true);
+        return;
+      }
+      const ok = window.confirm(
+        `Delete ${paths.length} cleanup path(s)? Only files under simulations/ can be removed.`
+      );
+      if (!ok) return;
+      const payload = await postJson("/api/delete-orphans", {
+        workspace: state.currentWorkspace,
+        paths,
+      });
+      setStatus(
+        "diag-status",
+        `Deleted ${payload.deleted.length} cleanup path(s), freed ${formatBytes(payload.freed_bytes)}.`
+      );
+      await Promise.all([loadSummary(), loadOrphans(), loadDiagnostics()]);
+    }
+
+    async function previewStorageNormalization() {
+      const payload = await getJson(`/api/storage-normalization?${workspaceQuery()}`);
+      setStatus(
+        "diag-status",
+        `${payload.rows.length} legacy row(s), ${payload.ready_count} ready, ${payload.blocked_count} blocked.`
+      );
+    }
+
+    async function applyStorageNormalization() {
+      const preview = await getJson(`/api/storage-normalization?${workspaceQuery()}`);
+      if (!preview.ready_count) {
+        setStatus(
+          "diag-status",
+          `${preview.rows.length} legacy row(s), ${preview.ready_count} ready, ${preview.blocked_count} blocked.`,
+          preview.blocked_count > 0
+        );
+        return;
+      }
+      const ok = window.confirm(
+        `Normalize ${preview.ready_count} legacy simulation storage name(s)? This renames files under simulations/ and updates the catalog.`
+      );
+      if (!ok) return;
+      const payload = await postJson("/api/normalize-storage", {
+        workspace: state.currentWorkspace,
+        dry_run: false,
+      });
+      setStatus(
+        "diag-status",
+        `Normalized ${payload.applied_count} legacy storage name(s); ${payload.blocked_count} blocked.`
+      );
+      await Promise.all([loadSummary(), loadOrphans(), loadDiagnostics(), loadSimulations()]);
+    }
+
     async function refreshAll() {
       try {
-        await Promise.all([loadSummary(), loadSimulations(), loadOrphans()]);
+        await Promise.all([loadSummary(), loadSimulations(), loadOrphans(), loadDiagnostics()]);
         await loadTables(document.getElementById("db-select").value);
       } catch (error) {
         setStatus("preview-status", error.message, true);
@@ -581,6 +755,34 @@ _HTML = """<!doctype html>
     }
 
     document.getElementById("refresh-all").addEventListener("click", refreshAll);
+    document.getElementById("diag-refresh").addEventListener("click", async () => {
+      try {
+        await loadDiagnostics();
+      } catch (error) {
+        setStatus("diag-status", error.message, true);
+      }
+    });
+    document.getElementById("diag-clean").addEventListener("click", async () => {
+      try {
+        await deleteSelectedDiagnosticPaths();
+      } catch (error) {
+        setStatus("diag-status", error.message, true);
+      }
+    });
+    document.getElementById("norm-preview").addEventListener("click", async () => {
+      try {
+        await previewStorageNormalization();
+      } catch (error) {
+        setStatus("diag-status", error.message, true);
+      }
+    });
+    document.getElementById("norm-apply").addEventListener("click", async () => {
+      try {
+        await applyStorageNormalization();
+      } catch (error) {
+        setStatus("diag-status", error.message, true);
+      }
+    });
     document.getElementById("workspace-select").addEventListener("change", async (event) => {
       state.currentWorkspace = event.target.value;
       try {
@@ -742,7 +944,7 @@ class _WorkspaceManagerBackend:
             if not roots:
                 raise FileNotFoundError(
                     f"No HydroModPy workspace found under {self.scan_root} "
-                    "(missing hydromodpy.duckdb files)."
+                    f"(missing {CATALOG_FILENAME} files)."
                 )
 
         ordered = self._order_workspaces(roots)
@@ -757,7 +959,7 @@ class _WorkspaceManagerBackend:
                     "id": str(path),
                     "path": str(path),
                     "label": _workspace_label(path, self.scan_root),
-                    "catalog_exists": (path / "hydromodpy.duckdb").is_file(),
+                    "catalog_exists": (path / CATALOG_FILENAME).is_file(),
                     "cache_exists": (path / "data" / "cache.duckdb").is_file(),
                 }
             )
@@ -771,7 +973,8 @@ class _WorkspaceManagerBackend:
         workspace_root = self._resolve_workspace(workspace_ref)
         simulations = self.list_simulations(workspace_ref)["rows"]
         orphans = self.list_orphans(workspace_ref)["rows"]
-        catalog_path = workspace_root / "hydromodpy.duckdb"
+        diagnostics = self.result_diagnostics(workspace_ref)["rows"]
+        catalog_path = workspace_root / CATALOG_FILENAME
         cache_path = workspace_root / "data" / "cache.duckdb"
         return {
             "workspace": str(workspace_root),
@@ -783,13 +986,48 @@ class _WorkspaceManagerBackend:
             "simulation_count": len(simulations),
             "simulation_bytes": sum(int(row["total_bytes"]) for row in simulations),
             "orphan_bytes": sum(int(row["size_bytes"]) for row in orphans),
+            "diagnostic_warning_count": sum(1 for row in diagnostics if row.get("status") != "OK"),
+        }
+
+    def result_diagnostics(self, workspace_ref: str | None = None) -> dict[str, Any]:
+        workspace_root = self._resolve_workspace(workspace_ref)
+        rows: list[dict[str, Any]] = []
+        for diagnostic in diagnose_result_storage(workspace_root):
+            record = dict(diagnostic.to_check())
+            paths = [str(path) for path in record.get("paths", ()) or ()]
+            record["paths"] = paths
+            record["cleanup_count"] = len(paths)
+            record["cleanup_bytes"] = sum(_path_size(Path(path)) for path in paths)
+            rows.append(record)
+        return {"rows": rows}
+
+    def storage_name_normalization(
+        self,
+        workspace_ref: str | None = None,
+        *,
+        dry_run: bool = True,
+    ) -> dict[str, Any]:
+        from hydromodpy.results.catalog import SimulationCatalog
+
+        workspace_root = self._resolve_workspace(workspace_ref)
+        with SimulationCatalog(workspace_root) as catalog:
+            actions = catalog.normalize_storage_names(dry_run=dry_run)
+        rows = [action.to_dict() for action in actions]
+        ready_count = sum(1 for action in actions if action.ready)
+        blocked_count = sum(1 for action in actions if not action.ready)
+        return {
+            "dry_run": dry_run,
+            "rows": rows,
+            "ready_count": ready_count,
+            "blocked_count": blocked_count,
+            "applied_count": 0 if dry_run else ready_count,
         }
 
     def list_simulations(self, workspace_ref: str | None = None) -> dict[str, Any]:
         from hydromodpy.results.catalog import SimulationCatalog
 
         workspace_root = self._resolve_workspace(workspace_ref)
-        catalog_path = workspace_root / "hydromodpy.duckdb"
+        catalog_path = workspace_root / CATALOG_FILENAME
         if not catalog_path.exists():
             return {"rows": []}
 
@@ -846,8 +1084,8 @@ class _WorkspaceManagerBackend:
 
     def list_orphans(self, workspace_ref: str | None = None) -> dict[str, Any]:
         workspace_root = self._resolve_workspace(workspace_ref)
-        catalog_path = workspace_root / "hydromodpy.duckdb"
-        simulations_dir = workspace_root / "simulations"
+        catalog_path = workspace_root / CATALOG_FILENAME
+        simulations_dir = workspace_root / SIMULATIONS_DIRNAME
         registered: set[str] = set()
         if catalog_path.exists():
             from hydromodpy.results.catalog import SimulationCatalog
@@ -889,7 +1127,7 @@ class _WorkspaceManagerBackend:
         paths: list[str],
     ) -> dict[str, Any]:
         workspace_root = self._resolve_workspace(workspace_ref)
-        simulations_dir = workspace_root / "simulations"
+        simulations_dir = workspace_root / SIMULATIONS_DIRNAME
         deleted: list[dict[str, Any]] = []
         for raw_path in paths:
             path = Path(raw_path).expanduser().resolve()
@@ -976,7 +1214,7 @@ class _WorkspaceManagerBackend:
 
     def _db_path(self, workspace_root: Path, database: str) -> Path:
         if database == "catalog":
-            return workspace_root / "hydromodpy.duckdb"
+            return workspace_root / CATALOG_FILENAME
         if database == "cache":
             return workspace_root / "data" / "cache.duckdb"
         raise ValueError(f"Unsupported database '{database}'")
@@ -984,7 +1222,7 @@ class _WorkspaceManagerBackend:
     @staticmethod
     def _discover_workspaces(scan_root: Path) -> list[Path]:
         roots = {
-            path.parent.resolve() for path in scan_root.rglob("hydromodpy.duckdb") if path.is_file()
+            path.parent.resolve() for path in scan_root.rglob(CATALOG_FILENAME) if path.is_file()
         }
         return sorted(roots)
 
@@ -1027,6 +1265,12 @@ class _WorkspaceManagerHandler(BaseHTTPRequestHandler):
             return
         if parsed.path == "/api/orphans":
             self._write_json(200, self.backend.list_orphans(workspace_ref))
+            return
+        if parsed.path == "/api/diagnostics":
+            self._write_json(200, self.backend.result_diagnostics(workspace_ref))
+            return
+        if parsed.path == "/api/storage-normalization":
+            self._write_json(200, self.backend.storage_name_normalization(workspace_ref))
             return
         if parsed.path == "/api/tables":
             database = query.get("database", ["catalog"])[0]
@@ -1073,6 +1317,17 @@ class _WorkspaceManagerHandler(BaseHTTPRequestHandler):
                     self.backend.delete_orphans(
                         str(workspace_ref) if workspace_ref is not None else None,
                         paths,
+                    ),
+                )
+                return
+            if parsed.path == "/api/normalize-storage":
+                workspace_ref = payload.get("workspace")
+                dry_run = bool(payload.get("dry_run", False))
+                self._write_json(
+                    200,
+                    self.backend.storage_name_normalization(
+                        str(workspace_ref) if workspace_ref is not None else None,
+                        dry_run=dry_run,
                     ),
                 )
                 return
@@ -1131,25 +1386,11 @@ def _path_size(path: Path) -> int:
 
 
 def _artefact_kind(path: Path) -> str | None:
-    name = path.name
-    if name.endswith(".zarr.zip"):
-        return "zarr.zip"
-    if name.endswith(".zarr") and path.is_dir():
-        return "zarr"
-    if name.endswith(".parquet") and path.is_dir():
-        return "parquet-dir"
-    return None
+    return storage_artefact_kind(path)
 
 
 def _artefact_basename(path: Path) -> str:
-    name = path.name
-    if name.endswith(".zarr.zip"):
-        return name[: -len(".zarr.zip")]
-    if name.endswith(".zarr"):
-        return name[: -len(".zarr")]
-    if name.endswith(".parquet"):
-        return name[: -len(".parquet")]
-    return name
+    return storage_artefact_basename(path)
 
 
 def _workspace_label(path: Path, scan_root: Path) -> str:

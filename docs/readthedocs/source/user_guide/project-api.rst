@@ -4,6 +4,12 @@ Project API
 The ``Project`` facade is the Python path for users who want the same behavior
 as TOML workflows but need programmatic control.
 
+``Project`` is the session object: it owns the resolved config, workspace,
+geographic/domain runtime, loaded data, mesh, and catalog handles. The
+``Pipeline`` is the execution engine: it runs ordered steps with checkpoint and
+resume support. Both call the same ``workflow.steps`` helpers; ``Project`` only
+offers a more interactive way to drive them.
+
 Minimal paths
 -------------
 
@@ -39,11 +45,13 @@ Lifecycle methods
    * - ``Project.lazy(config)``
      - Build the facade without immediately running setup/data/mesh phases.
    * - ``setup_workspace()``
-     - Resolve workspace paths and prepare durable runtime folders.
+     - Bootstrap the shared runtime anchor: workspace, geographic context,
+       domain, and process objects.
    * - ``build_geographic()``
-     - Run geographic preprocessing and catchment support construction.
+     - Mark the geographic/domain runtime ready and invalidate downstream
+       data/mesh state when rerun.
    * - ``load_data()`` / ``reload_data()``
-     - Load configured data managers and refresh normalized records.
+     - Load configured data managers and bind external data to the runtime.
    * - ``rebuild_geographic()``
      - Rerun geographic preprocessing and invalidate dependent mesh state.
    * - ``build_mesh()``

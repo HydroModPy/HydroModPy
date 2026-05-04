@@ -1,3 +1,0 @@
-variant_id,variant_label,solver,mesh_mode,runtime_seconds,runtime_minutes,reference_variant,speedup_vs_reference
-modflownwt,MODFLOW-NWT 50x5,modflownwt,structured,6.58,0.10966666666666666,modflow6,1.3677811550151975
-modflow6,MODFLOW 6 50x5,modflow6,structured,9.0,0.15,modflow6,1.0

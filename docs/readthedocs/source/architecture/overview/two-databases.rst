@@ -17,7 +17,9 @@ Output catalog - ``workspace/hydromodpy.duckdb``
 ------------------------------------------------
 
 Holds the simulation metadata, parameters, metrics, provenance, and
-calibration history. Exposed through:
+calibration history. It is scoped to the workspace, not to one simulation.
+Each simulation gets a row in this catalog plus per-simulation Zarr/Parquet
+artefacts under ``workspace/simulations/``. Exposed through:
 
 - :class:`~hydromodpy.results.catalog.SimulationCatalog`
 - :class:`~hydromodpy.results.run.Run`

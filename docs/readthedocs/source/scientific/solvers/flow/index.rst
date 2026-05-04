@@ -42,6 +42,7 @@ Current Flow Solver Families
 
    modflow-family
    boussinesq-family
+   shared-flow-numerics
 
 Related Pages
 -------------

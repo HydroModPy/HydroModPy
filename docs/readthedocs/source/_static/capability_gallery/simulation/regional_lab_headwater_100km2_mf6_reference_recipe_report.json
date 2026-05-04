@@ -63,8 +63,8 @@
         "tags": "mesh_ready",
         "enabled": "true",
         "simulation_reference_config": "../run_headwater_100km2_outlet_2_mf6_transient_reference.toml",
-        "backend_comparison_config": "../run_method_comparison_headwater_100km2_outlet_2_backends.toml",
-        "transient_backend_comparison_config": "../run_method_comparison_headwater_100km2_outlet_2_transient_pulsed_recharge_backends.toml",
+        "backend_comparison_config": "../run_comparison_headwater_100km2_outlet_2_backends.toml",
+        "transient_backend_comparison_config": "../run_comparison_headwater_100km2_outlet_2_transient_pulsed_recharge_backends.toml",
         "notes": "real committed 100 km2 outlet 2"
       }
     },

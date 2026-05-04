@@ -253,7 +253,7 @@ class ReadsMixin:
             path = self._workspace / path
         if not path.is_file():
             raise FileNotFoundError(path)
-        escaped = str(path).replace("'", "''")
+        escaped = path.as_posix().replace("'", "''")
         df = self._db.execute(f"SELECT * FROM read_parquet('{escaped}')").fetchdf()
         if "geometry_wkb" not in df.columns:
             raise KeyError(f"No geometry_wkb column for feature '{feature_name}'")

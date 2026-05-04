@@ -87,7 +87,7 @@ that are 10 and 100 times lower and higher.
    :header-rows: 1
    :widths: 18 18 28 36
 
-   * - Variant
+   * - Simulation
      - K
      - Factor vs reference
      - Interpretation
@@ -102,7 +102,7 @@ that are 10 and 100 times lower and higher.
    * - ``k_2e4``
      - ``2e-4 m/s``
      - ``1x``
-     - reference variant for this sweep
+     - reference simulation for this sweep
    * - ``k_2e3``
      - ``2e-3 m/s``
      - ``10x``
@@ -132,7 +132,7 @@ The most useful files are:
 - ``simulated_active_network_metrics.csv``
 - ``simulated_active_network_overlap_metrics.csv``
 - ``simulated_active_network_distance_metrics.csv``
-- ``run_figures/<variant>/simulated_active_network_reference_overlay.png``
+- ``run_figures/<simulation_id>/simulated_active_network_reference_overlay.png``
 - ``comparison_report.md``
 - ``comparison_audit.md``
 
@@ -152,12 +152,12 @@ Case Configuration
    :alt: Nancon extreme K-sweep comparison configuration
    :width: 100%
 
-   Common comparison support for the extreme MODFLOW 6 variants.
+   Common comparison support for the extreme MODFLOW 6 simulations.
 
 Run Status
 ----------
 
-Four variants completed and one failed:
+Four simulations completed and one failed:
 
 - ``k_2e6`` completed in 4.63 min.
 - ``k_2e5`` completed in 3.84 min.
@@ -180,7 +180,7 @@ presented as the Abherve et al. distance criterion.
    :header-rows: 1
    :widths: 12 14 15 13 13 11 11 11
 
-   * - Variant
+   * - Simulation
      - K
      - Active cells
      - Missing ref.
@@ -233,7 +233,7 @@ does not replace the downslope DEM-routing metric described below.
    :header-rows: 1
    :widths: 12 14 18 18 18 18
 
-   * - Variant
+   * - Simulation
      - K
      - Sim -> ref mean m
      - Ref -> sim mean m
@@ -318,8 +318,8 @@ together.
    :math:`P_a=0.591`, :math:`F_1=0.558`,
    :math:`\bar{D}^{plan}=173` m.
 
-``K = 2e-4 m/s``: reference variant
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+``K = 2e-4 m/s``: reference simulation
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. figure:: /_static/workflows/simulated_active_network/nancon_extreme_k_sweep/k_2e4_reference_overlay.png
    :alt: Simulated active network versus reference network for K equals 2e-4 m/s
@@ -353,7 +353,7 @@ Metric Evolution
    the positive distance ratio :math:`R_D^{plan}` across the completed extreme
    ``K`` values. The horizontal reference line marks :math:`R_D^{plan}=1`.
    The failed ``k_2e3`` solve is excluded from the curve because no valid
-   simulated-active network was produced for that variant.
+   simulated-active network was produced for that simulation.
 
 .. figure:: /_static/workflows/simulated_active_network/nancon_extreme_k_sweep/metric_tradeoff.png
    :alt: Nancon extreme K-sweep overlap and distance tradeoff graph

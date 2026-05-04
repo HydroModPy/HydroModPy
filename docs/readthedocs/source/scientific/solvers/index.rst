@@ -28,4 +28,7 @@ The section should also become the main place for:
    modflow6-vs-modflownwt-scientific-comparison
    modflow-package-semantics-and-boundary-conditions
    xt3d-on-irregular-disv-meshes
+   worked-modflow-case-dupuit-fixed-head-1d
+   worked-modflow-case-linearized-unconfined-recharge-periodic-1d
+   worked-modflow-case-nancon-transient-nwt-etp-evt
    solver-capability-matrix

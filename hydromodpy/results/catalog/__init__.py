@@ -15,6 +15,8 @@ Public API
   helpers (``finalize``, ``cleanup``, ``export_package``, ``import_package``,
   ``delete``).
 - :class:`RegistrationResult`: dataclass returned by ``register_simulation``.
+- :class:`StorageNormalizationAction`: dry-run / execution record returned by
+  ``plan_storage_name_normalization`` and ``normalize_storage_names``.
 - Errors: :class:`SimulationNotFoundError`, :class:`AmbiguousReferenceError`,
   :class:`DuplicateSimulationNameError`.
 - :func:`short_id`: Git-style short identifier (first 8 hex chars).
@@ -31,6 +33,7 @@ from hydromodpy.results.catalog.registration import (
     DuplicateSimulationNameError,
     RegistrationResult,
 )
+from hydromodpy.results.catalog.storage_normalization import StorageNormalizationAction
 
 __all__ = [
     "AmbiguousReferenceError",
@@ -39,5 +42,6 @@ __all__ = [
     "CatalogIndex",
     "SimulationCatalog",
     "SimulationNotFoundError",
+    "StorageNormalizationAction",
     "short_id",
 ]

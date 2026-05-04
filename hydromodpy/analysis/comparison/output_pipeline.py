@@ -55,15 +55,17 @@ def write_comparison_output_bundle(
     cfg: Any,
     comparison_id: str,
     comparison_root: Path,
-    variant_summaries: list[dict[str, Any]],
     observables: Sequence[Any],
     rows: list[dict[str, Any]],
-    reference_variant: str | None,
     metrics_schema_version: str,
+    simulation_summaries: list[dict[str, Any]],
+    reference_simulation: str | None,
     initial_data_artifacts: Sequence[dict[str, Any]] = (),
     report_text_transform: Callable[[str], str] | None = None,
 ) -> ComparisonOutputBundle:
     """Write common comparison artifacts after observable extraction."""
+    summaries = simulation_summaries
+    reference_id = reference_simulation
     observable_payloads = [_dump_observable(observable) for observable in observables]
 
     observables_csv = comparison_root / "observables.csv"
@@ -71,7 +73,7 @@ def write_comparison_output_bundle(
 
     detail_metrics, summary_metrics = build_comparison_metrics(
         rows,
-        reference_variant=reference_variant,
+        reference_simulation=reference_id,
     )
     metrics_csv = comparison_root / "comparison_metrics.csv"
     differences_csv = comparison_root / "comparison_differences.csv"
@@ -83,42 +85,47 @@ def write_comparison_output_bundle(
         {
             "schema_version": metrics_schema_version,
             "comparison_id": comparison_id,
-            "reference_variant": reference_variant,
+            "reference_simulation": reference_id,
             "summary": summary_metrics,
             "differences": detail_metrics,
         },
     )
 
     data_artifacts: list[dict[str, Any]] = list(initial_data_artifacts)
-    observable_artifacts, _observable_long_rows, _observable_wide_rows, _observable_delta_rows = (
-        write_observable_chronicle_exports(
-            comparison_root=comparison_root,
-            rows=rows,
-            detail_metrics=detail_metrics,
-            observables=observable_payloads,
-        )
+    (
+        observable_artifacts,
+        _observable_long_rows,
+        _observable_wide_rows,
+        _observable_delta_rows,
+    ) = write_observable_chronicle_exports(
+        comparison_root=comparison_root,
+        rows=rows,
+        detail_metrics=detail_metrics,
+        observables=observable_payloads,
     )
     data_artifacts.extend(observable_artifacts)
     native_artifacts, native_long_rows, _native_wide_rows, native_delta_rows = (
         write_native_timeseries_exports(
             comparison_id=comparison_id,
             comparison_root=comparison_root,
-            variant_summaries=variant_summaries,
-            reference_variant=reference_variant,
+            simulation_summaries=summaries,
+            reference_simulation=reference_id,
         )
     )
     data_artifacts.extend(native_artifacts)
-    hydrographic_artifacts, _hydrographic_rows = write_hydrographic_network_metrics_export(
-        comparison_id=comparison_id,
-        comparison_root=comparison_root,
-        variant_summaries=variant_summaries,
+    hydrographic_artifacts, _hydrographic_rows = (
+        write_hydrographic_network_metrics_export(
+            comparison_id=comparison_id,
+            comparison_root=comparison_root,
+            simulation_summaries=summaries,
+        )
     )
     data_artifacts.extend(hydrographic_artifacts)
     simulated_active_artifacts, _simulated_active_rows = (
         write_simulated_active_network_metrics_export(
             comparison_id=comparison_id,
             comparison_root=comparison_root,
-            variant_summaries=variant_summaries,
+            simulation_summaries=summaries,
         )
     )
     data_artifacts.extend(simulated_active_artifacts)
@@ -126,7 +133,7 @@ def write_comparison_output_bundle(
         write_simulated_active_network_overlap_metrics_export(
             comparison_id=comparison_id,
             comparison_root=comparison_root,
-            variant_summaries=variant_summaries,
+            simulation_summaries=summaries,
         )
     )
     data_artifacts.extend(simulated_active_overlap_artifacts)
@@ -134,33 +141,33 @@ def write_comparison_output_bundle(
         write_simulated_active_network_distance_metrics_export(
             comparison_id=comparison_id,
             comparison_root=comparison_root,
-            variant_summaries=variant_summaries,
+            simulation_summaries=summaries,
         )
     )
     data_artifacts.extend(simulated_active_distance_artifacts)
     budget_artifacts, budget_rows = write_budget_exports(
         comparison_root=comparison_root,
-        variant_summaries=variant_summaries,
+        simulation_summaries=summaries,
     )
     data_artifacts.extend(budget_artifacts)
     obstacle_artifacts, _obstacle_rows = write_boussinesq_obstacle_diagnostics_export(
         comparison_root=comparison_root,
-        variant_summaries=variant_summaries,
+        simulation_summaries=summaries,
     )
     data_artifacts.extend(obstacle_artifacts)
     execution_artifacts, execution_rows = write_execution_summary_csv(
         comparison_root=comparison_root,
-        variant_summaries=variant_summaries,
-        reference_variant=reference_variant,
+        simulation_summaries=summaries,
+        reference_simulation=reference_id,
     )
     data_artifacts.extend(execution_artifacts)
 
     figure_artifacts = generate_comparison_figures(
         cfg=cfg,
-        variant_summaries=variant_summaries,
+        simulation_summaries=summaries,
         rows=rows,
         detail_metrics=detail_metrics,
-        reference_variant=reference_variant,
+        reference_simulation=reference_id,
         comparison_root=comparison_root,
         native_timeseries_rows=native_long_rows,
         native_timeseries_delta_rows=native_delta_rows,
@@ -170,15 +177,15 @@ def write_comparison_output_bundle(
     simulated_active_figure_artifacts, _simulated_active_figure_rows = (
         write_simulated_active_network_reference_figure_export(
             comparison_root=comparison_root,
-            variant_summaries=variant_summaries,
+            simulation_summaries=summaries,
         )
     )
     figure_artifacts.extend(simulated_active_figure_artifacts)
 
     report_text = build_comparison_report(
         comparison_id=comparison_id,
-        reference_variant=reference_variant,
-        variant_summaries=variant_summaries,
+        reference_simulation=reference_id,
+        simulation_summaries=summaries,
         observables=observable_payloads,
         rows=rows,
         summary_metrics=summary_metrics,

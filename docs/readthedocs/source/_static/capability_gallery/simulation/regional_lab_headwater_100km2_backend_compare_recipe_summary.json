@@ -4,14 +4,14 @@
   "title": "Regional Lab Backend Comparison Recipe on Headwater 100 km2",
   "category": "simulation",
   "deck": "Recipe-focused orchestration view isolating the committed backend-comparison workflow across the headwater screening population.",
-  "summary": "This page narrows the committed `regional_lab` example to the `backend_compare` recipe. It shows how one method-comparison workflow is carried as a reusable recipe, planned only where the catalog exposes one backend-comparison config, and reported with explicit gaps on the remaining headwater sites.",
+  "summary": "This page narrows the committed `regional_lab` example to the `backend_compare` recipe. It shows how one comparison workflow is carried as a reusable recipe, planned only where the catalog exposes one backend-comparison config, and reported with explicit gaps on the remaining headwater sites.",
   "case_setup": [
     "Base lab config: the same selected headwater population is reused, so the page isolates recipe logic rather than changing the site inventory.",
     "Overlay config: `config_headwater_100km2_lab_backend_compare.toml` keeps only the `backend_compare` recipe enabled and writes to its own output root.",
-    "Child-run contract: the recipe reads `backend_comparison_config` from each site row and expands into `method-comparison` child runs."
+    "Child-run contract: the recipe reads `backend_comparison_config` from each site row and expands into `comparison` child runs."
   ],
   "key_parameters": [
-    "`launcher = \"method-comparison\"` shows that `regional_lab` can plan solver-comparison suites as first-class child workflows.",
+    "`launcher = \"comparison\"` shows that `regional_lab` can plan solver-comparison suites as first-class child workflows.",
     "`required_fields = [\"backend_comparison_config\"]` is what turns the two inventory-only headwater sites into visible comparison gaps.",
     "`config_path_template = \"{backend_comparison_config}\"` keeps the recipe generic while the site catalog remains the source of truth for child inputs.",
     "The overlay keeps the other recipes disabled so the page documents one comparison workflow rather than the full laboratory at once."
@@ -23,10 +23,10 @@
   ],
   "next_steps": [
     "Switch `execute = true` in the focused overlay config when the dry plan looks correct and you want to launch the child workflow.",
-    "Use these orchestration pages as the planning complement to the individual simulation and method-comparison cases already exposed elsewhere in the gallery."
+    "Use these orchestration pages as the planning complement to the individual simulation and comparison cases already exposed elsewhere in the gallery."
   ],
   "what_it_shows": [
-    "How `regional_lab` can orchestrate `method-comparison` launchers, not only single-run simulations.",
+    "How `regional_lab` can orchestrate `comparison` launchers, not only single-run simulations.",
     "How one comparison recipe reuses the same headwater site selection while depending on a different catalog field than the MF6 replay recipe.",
     "How the dry plan remains useful even when only one site is currently comparison-ready."
   ],
@@ -34,37 +34,50 @@
   "equations_rst": [],
   "walkthrough_doc": "getting_started/simulation-walkthrough",
   "walkthrough_title": "the Simulation walkthrough",
-  "reproduction_command": "python -m hydromodpy run examples_legacy_2/projects/launcher_simulation/regional_lab/config_headwater_100km2_lab_backend_compare.toml",
+  "reproduction_command": "python -m tools.doc_gallery",
   "gallery_update_command": "python -m tools.doc_gallery",
   "source_paths": [
-    "examples_legacy_2/projects/launcher_simulation/regional_lab/config_headwater_100km2_lab_backend_compare.toml",
+    "docs/readthedocs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_backend_compare_recipe_plan.json",
+    "docs/readthedocs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_backend_compare_recipe_report.json",
+    "docs/readthedocs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_backend_compare_recipe_summary.md",
+    "docs/readthedocs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_backend_compare_recipe_site_inventory.csv",
+    "docs/readthedocs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_backend_compare_recipe_recipe_summary.csv",
+    "docs/readthedocs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_backend_compare_recipe_cluster_summary.csv",
+    "docs/readthedocs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_backend_compare_recipe_case_matrix.csv",
     "hydromodpy/analysis/batch/__init__.py",
     "hydromodpy/analysis/batch/config.py",
-    "hydromodpy/analysis/batch/runtime.py",
-    "examples_legacy_2/projects/launcher_simulation/regional_lab/README.md",
-    "examples_legacy_2/projects/launcher_simulation/regional_lab/config_headwater_100km2_lab.toml",
-    "examples_legacy_2/projects/launcher_simulation/regional_lab/site_catalog.csv",
-    "examples_legacy_2/projects/launcher_simulation/run_method_comparison_headwater_100km2_outlet_2_backends.toml"
+    "hydromodpy/analysis/batch/runtime.py"
   ],
   "source_hashes": {
-    "examples_legacy_2/projects/launcher_simulation/regional_lab/config_headwater_100km2_lab_backend_compare.toml": "__missing__",
+    "docs/readthedocs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_backend_compare_recipe_plan.json": "efd3e4cc3ddd9207f153efb8b8dab52f0423c8d83dd8924ee241e426cd22c377",
+    "docs/readthedocs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_backend_compare_recipe_report.json": "3ea6d970687680dc2890c1f3a247b045df83d26a0cf4d644ad973ac6c2f831fe",
+    "docs/readthedocs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_backend_compare_recipe_summary.md": "81ea7fb59ff533cccc2a9b48acc87b18a896f195d3b413108b38193fc45dd52d",
+    "docs/readthedocs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_backend_compare_recipe_site_inventory.csv": "75899272b8c0728456fdb64edc84af2a79c66cfdd4f5b5396e4a0a79aec9fa91",
+    "docs/readthedocs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_backend_compare_recipe_recipe_summary.csv": "aa57d743faa9b475a7f44eb654fdf126a67ccb1a23cf685d96653ee83c44f81a",
+    "docs/readthedocs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_backend_compare_recipe_cluster_summary.csv": "1738b81b72150d3df29ccd709c43345eae3ad096603da988299a8a81f74d32c1",
+    "docs/readthedocs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_backend_compare_recipe_case_matrix.csv": "836504da2dc00a18127f79f73b63b2691db6ba324c296983906cb983b5469fce",
     "hydromodpy/analysis/batch/__init__.py": "fd66fa0503694884495d6d668b29fdee9e65fb1a812e397119c033f5351b2550",
-    "hydromodpy/analysis/batch/config.py": "e24edd3579595e7e2a308af298104735bbb32abc6bce35760ff80dda81bd2abe",
-    "hydromodpy/analysis/batch/runtime.py": "75c579931a01507a6b9aaf75cb57c49229ccbf555b289a03f35621786fc84c7c",
-    "examples_legacy_2/projects/launcher_simulation/regional_lab/README.md": "__missing__",
-    "examples_legacy_2/projects/launcher_simulation/regional_lab/config_headwater_100km2_lab.toml": "__missing__",
-    "examples_legacy_2/projects/launcher_simulation/regional_lab/site_catalog.csv": "__missing__",
-    "examples_legacy_2/projects/launcher_simulation/run_method_comparison_headwater_100km2_outlet_2_backends.toml": "__missing__"
+    "hydromodpy/analysis/batch/config.py": "aa0649e89414c7820230adf35fdb71458955b3633ffc266c3943efeace04d146",
+    "hydromodpy/analysis/batch/runtime.py": "cc0b894982d0f304622fb08d2fbc814cbf77bda3ebc2ac267d95d39624aeb1b2"
   },
   "docname": "cases/regional_lab_headwater_100km2_backend_compare_recipe",
-  "images": [],
+  "images": [
+    {
+      "filename": "regional_lab_headwater_100km2_backend_compare_recipe.png",
+      "caption": "Dry-plan synthesis for regional lab backend comparison recipe on headwater 100 km2: site or candidate coverage, recipe summary, and planning metrics.",
+      "alt_text": "Regional lab dry-plan synthesis for Regional Lab Backend Comparison Recipe on Headwater 100 km2",
+      "doc_path": "/_static/capability_gallery/simulation/regional_lab_headwater_100km2_backend_compare_recipe.png",
+      "repo_path": "docs/readthedocs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_backend_compare_recipe.png"
+    }
+  ],
   "metrics": [],
   "metadata": {
-    "regional_lab_config_path": "examples_legacy_2/projects/launcher_simulation/regional_lab/config_headwater_100km2_lab_backend_compare.toml",
+    "static_summary_path": "docs/readthedocs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_backend_compare_recipe_summary.json",
+    "regional_lab_summary_path": "docs/readthedocs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_backend_compare_recipe_summary.json",
     "study_area": "Brittany regional laboratory",
     "process_families": [
       "planning",
-      "method_comparison",
+      "comparison",
       "reporting"
     ],
     "workflow_family_key": "regional_orchestration",
@@ -83,41 +96,18 @@
     "mesh_supports": [
       "committed_triangular_mesh_input"
     ],
-    "generation_status": "source_unavailable_local",
-    "generation_reason": "The regional-lab overlay config needed to regenerate this page is not available in the current checkout.",
-    "missing_source_paths": [
-      "examples_legacy_2/projects/launcher_simulation/regional_lab/config_headwater_100km2_lab_backend_compare.toml",
-      "examples_legacy_2/projects/launcher_simulation/regional_lab/README.md",
-      "examples_legacy_2/projects/launcher_simulation/regional_lab/config_headwater_100km2_lab.toml",
-      "examples_legacy_2/projects/launcher_simulation/regional_lab/site_catalog.csv",
-      "examples_legacy_2/projects/launcher_simulation/run_method_comparison_headwater_100km2_outlet_2_backends.toml"
+    "copied_assets": [
+      {
+        "source_path": "docs/readthedocs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_backend_compare_recipe.png",
+        "copied_to": "docs/readthedocs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_backend_compare_recipe.png"
+      }
     ]
   },
   "artifacts": {
     "summary_json_doc_path": "/_static/capability_gallery/simulation/regional_lab_headwater_100km2_backend_compare_recipe_summary.json",
     "summary_json_repo_path": "docs/readthedocs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_backend_compare_recipe_summary.json",
-    "image_repo_paths": []
-  },
-  "custom_sections": [
-    {
-      "title": "Local Regeneration Note",
-      "kind": "paragraphs",
-      "paragraphs": [
-        "This local checkout cannot fully rebuild the original gallery artefacts for this case because one or more legacy source files are not present.",
-        "The page is still generated so that the capability-gallery structure, cross-links, and reading guides remain valid during a full documentation rebuild.",
-        "Reason: The regional-lab overlay config needed to regenerate this page is not available in the current checkout."
-      ]
-    },
-    {
-      "title": "Missing Local Inputs",
-      "kind": "bullets",
-      "items": [
-        "``examples_legacy_2/projects/launcher_simulation/regional_lab/config_headwater_100km2_lab_backend_compare.toml``",
-        "``examples_legacy_2/projects/launcher_simulation/regional_lab/README.md``",
-        "``examples_legacy_2/projects/launcher_simulation/regional_lab/config_headwater_100km2_lab.toml``",
-        "``examples_legacy_2/projects/launcher_simulation/regional_lab/site_catalog.csv``",
-        "``examples_legacy_2/projects/launcher_simulation/run_method_comparison_headwater_100km2_outlet_2_backends.toml``"
-      ]
-    }
-  ]
+    "image_repo_paths": [
+      "docs/readthedocs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_backend_compare_recipe.png"
+    ]
+  }
 }

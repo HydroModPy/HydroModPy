@@ -1,10 +1,11 @@
-"""Model-phase verbs and configuration helpers used by :class:`Project`.
+"""Model-phase adapter verbs used by :class:`Project`.
 
 Split from ``project.py`` so the facade keeps the run/lifecycle API only.
 
-Functions here mutate the :class:`Project` instance directly; they are not
-part of the public surface and should be invoked through ``Project.*``
-methods.
+Functions here mutate the :class:`Project` instance directly and call the
+same ``workflow.steps`` helpers that the full Pipeline uses. They are not a
+second execution engine; they only adapt the shared step logic to interactive
+``Project.lazy(...)`` usage.
 """
 
 from __future__ import annotations
@@ -153,10 +154,11 @@ def configure(
 
 
 def setup_workspace(project: Project) -> None:
-    """Materialize the workspace and structural objects (Domain, Flow, Transport).
+    """Bootstrap shared runtime state for a Project session.
 
-    Idempotent: calling twice resets the structural objects. Opens the catalog
-    as a side effect so later run-phase methods can register simulations.
+    Idempotent: calling twice resets workspace, geographic, domain, and process
+    objects. Opens the catalog as a side effect so later run-phase methods can
+    register simulations.
     """
     from hydromodpy.workflow.steps.setup import step_setup, step_spatial_supports
 
@@ -171,15 +173,17 @@ def setup_workspace(project: Project) -> None:
         requested_domain_supports=project._requested_domain_supports,
         registry=project._spatial_support_registry,
     )
-    project._phase = "workspace"
+    project._phase = "setup_workspace"
     open_catalog(project)
 
 
 def build_geographic(project: Project, *, reuse_dem: bool = False) -> None:
-    """Build the geographic runtime (DEM, watershed, topography).
+    """Expose the geographic/domain runtime as ready for later phases.
 
-    Runs setup_workspace first when it has not happened yet so the
-    geographic runtime has a workspace to live in. Invalidates mesh.
+    Runs ``setup_workspace`` first when it has not happened yet. The heavy
+    geographic/domain construction currently happens there because flow/data
+    binders need those objects early. This verb records the public Project phase
+    and invalidates downstream data/mesh state.
     """
     if project._phase == "uninitialized":
         setup_workspace(project)

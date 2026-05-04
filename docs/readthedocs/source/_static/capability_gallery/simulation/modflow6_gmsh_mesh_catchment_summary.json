@@ -6,7 +6,7 @@
   "deck": "End-to-end launcher run with embedded Gmsh meshing, MODFLOW 6 flow, and GWT transport.",
   "summary": "This case keeps the standard process_simulation launcher while using mesh_catchment to build a triangular Gmsh mesh before MODFLOW 6. Only selected synthesis figures are committed to the gallery; the full solver workspace remains a reproducible run artifact.",
   "case_setup": [
-    "Entry config: `run_fast_mf6_mesh_catchment.toml` overlays one shared base profile and adds the fast-run forcing, timeline, and solver choices.",
+    "Static gallery manifest: the committed capability-gallery manifest records the published assets and their generation context.",
     "Execution chain: geographic setup -> `mesh_catchment` -> runtime triangular mesh -> MODFLOW 6 flow -> MODFLOW 6 transport -> postprocess/display.",
     "Only selected synthesis figures are republished into `examples/projects/09_capability_gallery/`; the full run workspace stays outside the doc tree."
   ],
@@ -26,7 +26,7 @@
   ],
   "next_steps": [
     "Read :doc:`the simulation walkthrough </getting_started/simulation-walkthrough>` for a guided mapping between config sections and displayed figures.",
-    "Then open :doc:`the shared-mesh method comparison case </capability_gallery/cases/example12_map_method_comparison>` to compare two solver families on the same support."
+    "Then open :doc:`the shared-mesh simulation comparison case </capability_gallery/cases/example12_map_simulation_comparison>` to compare two solver families on the same support."
   ],
   "what_it_shows": [
     "How MODFLOW 6 consumes the same runtime Gmsh mesh contract used by other solvers.",
@@ -37,19 +37,17 @@
   "equations_rst": [],
   "walkthrough_doc": "getting_started/simulation-walkthrough",
   "walkthrough_title": "the Simulation walkthrough",
-  "reproduction_command": "python -m hydromodpy run examples_legacy_2/projects/launcher_simulation/run_fast_mf6_mesh_catchment.toml",
+  "reproduction_command": "python -m tools.doc_gallery",
   "gallery_update_command": "python -m tools.doc_gallery",
   "source_paths": [
-    "examples_legacy_2/projects/launcher_simulation/run_fast_mf6_mesh_catchment.toml",
-    "examples_legacy_2/projects/launcher_simulation/config_mf6_mesh_catchment_common.toml",
+    "examples/projects/09_capability_gallery/README.md",
     "examples/projects/09_capability_gallery/launcher_simulation/modflow6_gmsh_mesh_catchment/manifest.json",
     "hydromodpy/analysis/capability_gallery.py"
   ],
   "source_hashes": {
-    "examples_legacy_2/projects/launcher_simulation/run_fast_mf6_mesh_catchment.toml": "__missing__",
-    "examples_legacy_2/projects/launcher_simulation/config_mf6_mesh_catchment_common.toml": "__missing__",
+    "examples/projects/09_capability_gallery/README.md": "b876daec8dcd95f259dd5d915975024fd548a6297f93fd8850ce20743259d874",
     "examples/projects/09_capability_gallery/launcher_simulation/modflow6_gmsh_mesh_catchment/manifest.json": "256bded46fb8da7a471fd7937338376b8961e19d2198cbac5d6ddf468b55bbe3",
-    "hydromodpy/analysis/capability_gallery.py": "38f3ad0d3b9b9ef635a9cc9e333222d42e52b481a4173918d21db8db475c84fa"
+    "hydromodpy/analysis/capability_gallery.py": "d4c536bb55217e483551d7688f6da6c7628dc206aa7e169f768aba8f60d1deec"
   },
   "docname": "cases/modflow6_gmsh_mesh_catchment",
   "images": [

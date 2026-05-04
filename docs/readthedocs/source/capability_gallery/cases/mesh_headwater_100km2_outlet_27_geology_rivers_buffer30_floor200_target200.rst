@@ -64,7 +64,7 @@ Run the underlying example or validation case with:
 
 .. code-block:: bash
 
-   python -m launchers mesh-catchment run old/launchers/mesh_catchment/scenarios/config_headwater_100km2_outlet_27_geology_rivers_min200.toml
+   python -m tools.doc_gallery
 
 Refresh the committed gallery artifacts with:
 
@@ -170,9 +170,8 @@ Mesh Summary
 Source Pointers
 ---------------
 
-- ``old/launchers/mesh_catchment/scenarios/config_headwater_100km2_outlet_27_geology_rivers_min200.toml``
-- ``examples/projects/07_mesh_gallery/100km2/mesh_headwater_100km2_outlet_27_geology_rivers_buffer30_floor200_target200/case.json``
 - ``examples/projects/07_mesh_gallery/100km2/mesh_headwater_100km2_outlet_27_geology_rivers_buffer30_floor200_target200/viewer_config.toml``
+- ``examples/projects/07_mesh_gallery/100km2/mesh_headwater_100km2_outlet_27_geology_rivers_buffer30_floor200_target200/case.json``
 - ``examples/projects/07_mesh_gallery/100km2/mesh_headwater_100km2_outlet_27_geology_rivers_buffer30_floor200_target200/README.md``
 - ``examples/projects/07_mesh_gallery/100km2/mesh_headwater_100km2_outlet_27_geology_rivers_buffer30_floor200_target200/bundle/mesh_2d.msh``
 - ``examples/projects/07_mesh_gallery/100km2/mesh_headwater_100km2_outlet_27_geology_rivers_buffer30_floor200_target200/bundle/nodes.csv``

@@ -55,7 +55,7 @@ documented at the call site. Listed in `layer_matrix.yaml` under
 | calibration | results | catalog read at planning time |
 | simulation  | solver  | dispatch through solver registry |
 | results     | spatial | results stores spatial indices |
-| analysis    | root    | method comparison launches public Project facade |
+| analysis    | root    | simulation comparison launches public Project facade |
 | calibration | root    | trial promotion launches public Project facade |
 | cli         | root    | CLI dispatch delegates to public Project facade |
 | master_config | root | module entrypoint delegates to `hydromodpy.__main__` |

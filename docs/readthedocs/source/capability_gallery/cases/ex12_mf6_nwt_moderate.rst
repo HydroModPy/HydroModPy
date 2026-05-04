@@ -11,11 +11,17 @@ This case compares a MODFLOW 6 run on the committed triangular support against a
 .. seealso::
    Read :doc:`the gallery and validation reading guide </getting_started/reading-results-pages>` if you want the parameter mapping, a recommended reading order, and the first modifications to try.
 
+.. figure:: /_static/capability_gallery/simulation_comparison/ex12_mf6_nwt_moderate.png
+   :alt: Simulation comparison summary for MF6 Triangular vs NWT Structured on Moderate Forcing
+   :width: 100%
+
+   Summary comparison figure for mf6 triangular vs nwt structured on moderate forcing.
+
 Case Setup
 ----------
 
-- Reference variant: MODFLOW 6 on the committed triangular mesh.
-- Candidate variant: MODFLOW-NWT on the 60x60 structured grid.
+- Reference simulation: MODFLOW 6 on the committed triangular mesh.
+- Candidate simulation: MODFLOW-NWT on the 60x60 structured grid.
 - Map observables are resampled on a shared fine raster over the support intersection before parity metrics are computed.
 
 What It Shows
@@ -28,7 +34,7 @@ What It Shows
 Key Parameters
 --------------
 
-- `[method_comparison.fine_raster] enabled = true` is essential here because the compared meshes are not natively aligned cell by cell.
+- `[comparison.fine_raster] enabled = true` is essential here because the compared meshes are not natively aligned cell by cell.
 - `extent_mode = "intersection"` keeps the comparison on the spatial footprint both supports actually share.
 - Read outlet-flux differences with more caution than in the same-grid case: they now reflect both solver behaviour and support discretization.
 
@@ -39,29 +45,10 @@ How To Read It
 - Read the parity metrics after checking the support mismatch described in the case setup; otherwise the numbers look more absolute than they really are.
 - Use this page to understand what changes when you leave the shared-support regime used by the tighter comparison cases.
 
-Local Regeneration Note
------------------------
-
-This local checkout cannot fully rebuild the original gallery artefacts for this case because one or more legacy source files are not present.
-
-The page is still generated so that the capability-gallery structure, cross-links, and reading guides remain valid during a full documentation rebuild.
-
-Reason: The method-comparison config and committed comparison artifacts needed to regenerate this page are not available in the current checkout.
-
-Missing Local Inputs
---------------------
-
-- ``examples_legacy_2/projects/launcher_simulation/run_method_comparison_mf6_vs_nwt_different_meshes_moderate.toml``
-- ``examples_legacy_2/projects/launcher_simulation/run_demonstrative_annual_moderate_mf6_precomputed_mesh_input.toml``
-- ``examples_legacy_2/projects/launcher_simulation/run_demonstrative_annual_moderate_nwt.toml``
-- ``examples_legacy_2/projects/launcher_simulation/method_comparison/ex12_mf6_nwt_moderate/comparison_manifest.json``
-- ``examples_legacy_2/projects/launcher_simulation/method_comparison/ex12_mf6_nwt_moderate/comparison_metrics.json``
-- ``examples_legacy_2/projects/launcher_simulation/method_comparison/ex12_mf6_nwt_moderate/observables.csv``
-
 Next Steps
 ----------
 
-- Use :doc:`the gallery and validation reading guide </getting_started/reading-results-pages>` to distinguish example pages, method-comparison pages, and validation pages.
+- Use :doc:`the gallery and validation reading guide </getting_started/reading-results-pages>` to distinguish example pages, comparison pages, and validation pages.
 - Go back to :doc:`the simulation walkthrough </getting_started/simulation-walkthrough>` when you need to inspect one contributing run in isolation.
 
 Reproduce
@@ -71,7 +58,7 @@ Run the underlying example or validation case with:
 
 .. code-block:: bash
 
-   python -m hydromodpy run examples_legacy_2/projects/launcher_simulation/run_method_comparison_mf6_vs_nwt_different_meshes_moderate.toml
+   python -m tools.doc_gallery
 
 Refresh the committed gallery artifacts with:
 
@@ -82,14 +69,14 @@ Refresh the committed gallery artifacts with:
 Source Pointers
 ---------------
 
-- ``examples_legacy_2/projects/launcher_simulation/run_method_comparison_mf6_vs_nwt_different_meshes_moderate.toml``
-- ``examples_legacy_2/projects/launcher_simulation/run_demonstrative_annual_moderate_mf6_precomputed_mesh_input.toml``
-- ``examples_legacy_2/projects/launcher_simulation/run_demonstrative_annual_moderate_nwt.toml``
-- ``examples_legacy_2/projects/launcher_simulation/method_comparison/ex12_mf6_nwt_moderate/comparison_manifest.json``
-- ``examples_legacy_2/projects/launcher_simulation/method_comparison/ex12_mf6_nwt_moderate/comparison_metrics.json``
-- ``examples_legacy_2/projects/launcher_simulation/method_comparison/ex12_mf6_nwt_moderate/observables.csv``
+- ``docs/readthedocs/source/_static/capability_gallery/simulation_comparison/ex12_mf6_nwt_moderate_comparison_manifest.json``
+- ``docs/readthedocs/source/_static/capability_gallery/simulation_comparison/ex12_mf6_nwt_moderate_comparison_metrics.json``
+- ``docs/readthedocs/source/_static/capability_gallery/simulation_comparison/ex12_mf6_nwt_moderate_observables.csv``
+- ``docs/readthedocs/source/_static/capability_gallery/simulation_comparison/ex12_mf6_nwt_moderate_summary_metrics.csv``
+- ``docs/readthedocs/source/_static/capability_gallery/simulation_comparison/ex12_mf6_nwt_moderate_difference_metrics.csv``
 
 Artifacts
 ---------
 
-- ``docs/readthedocs/source/_static/capability_gallery/method_comparison/ex12_mf6_nwt_moderate_summary.json`` stores the displayed metrics plus source hashes used by ``python -m tools.doc_gallery --check``.
+- ``docs/readthedocs/source/_static/capability_gallery/simulation_comparison/ex12_mf6_nwt_moderate.png``
+- ``docs/readthedocs/source/_static/capability_gallery/simulation_comparison/ex12_mf6_nwt_moderate_summary.json`` stores the displayed metrics plus source hashes used by ``python -m tools.doc_gallery --check``.

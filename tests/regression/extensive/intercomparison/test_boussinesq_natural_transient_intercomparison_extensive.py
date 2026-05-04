@@ -39,14 +39,14 @@ def test_natural_mesh_transient_pulse_mf6_boussinesq_intercomparison_regression(
         allowed_audit_status=("pass", "warn"),
         limits={
             metric_key(
-                variant_id="bouss_candidate",
+                simulation_id="bouss_candidate",
                 observable="head_map_initial",
             ): {
                 "rmse": 0.001,
                 "max_abs_error": 0.001,
             },
             metric_key(
-                variant_id="bouss_candidate",
+                simulation_id="bouss_candidate",
                 observable="head_map_pulse",
             ): {
                 "mae": 0.03,
@@ -54,7 +54,7 @@ def test_natural_mesh_transient_pulse_mf6_boussinesq_intercomparison_regression(
                 "max_abs_error": 0.08,
             },
             metric_key(
-                variant_id="bouss_candidate",
+                simulation_id="bouss_candidate",
                 observable="head_map_last",
             ): {
                 "mae": 0.05,
@@ -62,21 +62,21 @@ def test_natural_mesh_transient_pulse_mf6_boussinesq_intercomparison_regression(
                 "max_abs_error": 0.60,
             },
             metric_key(
-                variant_id="bouss_candidate",
+                simulation_id="bouss_candidate",
                 observable="head_west_series",
             ): {
                 "rmse": 0.04,
                 "max_abs_error": 0.05,
             },
             metric_key(
-                variant_id="bouss_candidate",
+                simulation_id="bouss_candidate",
                 observable="head_middle_series",
             ): {
                 "rmse": 0.04,
                 "max_abs_error": 0.05,
             },
             metric_key(
-                variant_id="bouss_candidate",
+                simulation_id="bouss_candidate",
                 observable="head_east_series",
             ): {
                 "rmse": 0.04,

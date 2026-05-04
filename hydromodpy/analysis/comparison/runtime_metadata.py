@@ -37,7 +37,12 @@ def _resolve_recorded_output_path(
         return None
 
     normalized = text
-    if len(text) > 7 and text.startswith("/mnt/") and text[5].isalpha() and text[6] == "/":
+    if (
+        len(text) > 7
+        and text.startswith("/mnt/")
+        and text[5].isalpha()
+        and text[6] == "/"
+    ):
         drive = text[5].upper()
         tail = text[7:].replace("/", "\\")
         normalized = f"{drive}:\\{tail}"
@@ -142,7 +147,7 @@ def read_catalog_run_metadata(store: Any, sim_id: str | None) -> dict[str, Any]:
     return payload
 
 
-def read_variant_run_metrics(
+def read_simulation_run_metrics(
     run_folder: Path,
     *,
     store: Any = None,
@@ -157,7 +162,7 @@ def read_variant_run_metrics(
     return metrics
 
 
-def read_variant_run_metadata(
+def read_simulation_run_metadata(
     run_folder: Path,
     *,
     store: Any = None,
@@ -195,9 +200,9 @@ def read_variant_run_metadata(
             if key in boussinesq_summary:
                 payload[key] = boussinesq_summary.get(key)
 
-    bundle_dir_raw = metrics.get("mesh_output_exchange_bundle_dir") or boussinesq_summary.get(
-        "bundle_dir"
-    )
+    bundle_dir_raw = metrics.get(
+        "mesh_output_exchange_bundle_dir"
+    ) or boussinesq_summary.get("bundle_dir")
     if bundle_dir_raw:
         bundle_dir = _resolve_recorded_output_path(bundle_dir_raw, base_dir=run_folder)
         if bundle_dir is None:
@@ -275,14 +280,18 @@ def discover_result_store(
                 return catalog, str(matches.iloc[-1]["sim_id"])
         if "config_source" in sims.columns:
             config_key = str(config_path_resolved).casefold()
-            config_sources = sims["config_source"].fillna("").map(_normalize_catalog_path)
+            config_sources = (
+                sims["config_source"].fillna("").map(_normalize_catalog_path)
+            )
             matches = sims.loc[config_sources == config_key]
             if not matches.empty:
                 return catalog, str(matches.iloc[-1]["sim_id"])
         sim_id = str(sims.iloc[-1]["sim_id"])
         return catalog, sim_id
     except Exception:
-        logger.debug("Could not open SimulationCatalog from %s", workspace_root, exc_info=True)
+        logger.debug(
+            "Could not open SimulationCatalog from %s", workspace_root, exc_info=True
+        )
         return None, None
 
 
@@ -291,6 +300,6 @@ __all__ = (
     "discover_result_store",
     "read_catalog_run_metadata",
     "read_json_file",
-    "read_variant_run_metrics",
-    "read_variant_run_metadata",
+    "read_simulation_run_metrics",
+    "read_simulation_run_metadata",
 )

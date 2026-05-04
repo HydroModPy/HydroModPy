@@ -1,241 +1,241 @@
-comparison_id,observable,variable,support,unit,variant_id,variant_label,comparison_time_key,time,time_index,elapsed_seconds,value_index,value
-lu_boundary_step_same_support,head_west_response,watertable_elevation,point,m,modflownwt,MODFLOW-NWT 50x5,time_index:0,0,0,,0,10.061659812927246
-lu_boundary_step_same_support,head_west_response,watertable_elevation,point,m,modflownwt,MODFLOW-NWT 50x5,time_index:1,1,1,,0,10.076245307922363
-lu_boundary_step_same_support,head_west_response,watertable_elevation,point,m,modflownwt,MODFLOW-NWT 50x5,time_index:2,2,2,,0,10.081539154052734
-lu_boundary_step_same_support,head_west_response,watertable_elevation,point,m,modflownwt,MODFLOW-NWT 50x5,time_index:3,3,3,,0,10.084589004516602
-lu_boundary_step_same_support,head_west_response,watertable_elevation,point,m,modflownwt,MODFLOW-NWT 50x5,time_index:4,4,4,,0,10.08582878112793
-lu_boundary_step_same_support,head_west_response,watertable_elevation,point,m,modflownwt,MODFLOW-NWT 50x5,time_index:5,5,5,,0,10.087128639221191
-lu_boundary_step_same_support,head_west_response,watertable_elevation,point,m,modflownwt,MODFLOW-NWT 50x5,time_index:6,6,6,,0,10.087553977966309
-lu_boundary_step_same_support,head_west_response,watertable_elevation,point,m,modflownwt,MODFLOW-NWT 50x5,time_index:7,7,7,,0,10.088109016418457
-lu_boundary_step_same_support,head_west_response,watertable_elevation,point,m,modflownwt,MODFLOW-NWT 50x5,time_index:8,8,8,,0,10.088678359985352
-lu_boundary_step_same_support,head_west_response,watertable_elevation,point,m,modflownwt,MODFLOW-NWT 50x5,time_index:9,9,9,,0,10.088695526123047
-lu_boundary_step_same_support,head_west_response,watertable_elevation,point,m,modflownwt,MODFLOW-NWT 50x5,time_index:10,10,10,,0,10.088836669921875
-lu_boundary_step_same_support,head_west_response,watertable_elevation,point,m,modflownwt,MODFLOW-NWT 50x5,time_index:11,11,11,,0,10.088851928710938
-lu_boundary_step_same_support,head_west_response,watertable_elevation,point,m,modflownwt,MODFLOW-NWT 50x5,time_index:12,12,12,,0,10.088957786560059
-lu_boundary_step_same_support,head_west_response,watertable_elevation,point,m,modflownwt,MODFLOW-NWT 50x5,time_index:13,13,13,,0,10.088980674743652
-lu_boundary_step_same_support,head_west_response,watertable_elevation,point,m,modflownwt,MODFLOW-NWT 50x5,time_index:14,14,14,,0,10.089181900024414
-lu_boundary_step_same_support,head_west_response,watertable_elevation,point,m,modflownwt,MODFLOW-NWT 50x5,time_index:15,15,15,,0,10.08919620513916
-lu_boundary_step_same_support,head_west_response,watertable_elevation,point,m,modflownwt,MODFLOW-NWT 50x5,time_index:16,16,16,,0,10.089408874511719
-lu_boundary_step_same_support,head_west_response,watertable_elevation,point,m,modflownwt,MODFLOW-NWT 50x5,time_index:17,17,17,,0,10.089415550231934
-lu_boundary_step_same_support,head_west_response,watertable_elevation,point,m,modflownwt,MODFLOW-NWT 50x5,time_index:18,18,18,,0,10.08946704864502
-lu_boundary_step_same_support,head_west_response,watertable_elevation,point,m,modflownwt,MODFLOW-NWT 50x5,time_index:19,19,19,,0,10.089472770690918
-lu_boundary_step_same_support,head_west_response,watertable_elevation,point,m,modflownwt,MODFLOW-NWT 50x5,time_index:20,20,20,,0,10.08949089050293
-lu_boundary_step_same_support,head_west_response,watertable_elevation,point,m,modflownwt,MODFLOW-NWT 50x5,time_index:21,21,21,,0,10.089516639709473
-lu_boundary_step_same_support,head_west_response,watertable_elevation,point,m,modflownwt,MODFLOW-NWT 50x5,time_index:22,22,22,,0,10.089521408081055
-lu_boundary_step_same_support,head_west_response,watertable_elevation,point,m,modflownwt,MODFLOW-NWT 50x5,time_index:23,23,23,,0,10.089532852172852
-lu_boundary_step_same_support,head_west_response,watertable_elevation,point,m,modflownwt,MODFLOW-NWT 50x5,time_index:24,24,24,,0,10.089571952819824
-lu_boundary_step_same_support,head_west_response,watertable_elevation,point,m,modflownwt,MODFLOW-NWT 50x5,time_index:25,25,25,,0,10.089578628540039
-lu_boundary_step_same_support,head_west_response,watertable_elevation,point,m,modflownwt,MODFLOW-NWT 50x5,time_index:26,26,26,,0,10.089643478393555
-lu_boundary_step_same_support,head_west_response,watertable_elevation,point,m,modflownwt,MODFLOW-NWT 50x5,time_index:27,27,27,,0,10.089648246765137
-lu_boundary_step_same_support,head_west_response,watertable_elevation,point,m,modflownwt,MODFLOW-NWT 50x5,time_index:28,28,28,,0,10.08971118927002
-lu_boundary_step_same_support,head_west_response,watertable_elevation,point,m,modflownwt,MODFLOW-NWT 50x5,time_index:29,29,29,,0,10.089713096618652
-lu_boundary_step_same_support,head_west_response,watertable_elevation,point,m,modflownwt,MODFLOW-NWT 50x5,time_index:30,30,30,,0,10.089727401733398
-lu_boundary_step_same_support,head_west_response,watertable_elevation,point,m,modflownwt,MODFLOW-NWT 50x5,time_index:31,31,31,,0,10.08973217010498
-lu_boundary_step_same_support,head_west_response,watertable_elevation,point,m,modflownwt,MODFLOW-NWT 50x5,time_index:32,32,32,,0,10.089734077453613
-lu_boundary_step_same_support,head_west_response,watertable_elevation,point,m,modflownwt,MODFLOW-NWT 50x5,time_index:33,33,33,,0,10.089737892150879
-lu_boundary_step_same_support,head_west_response,watertable_elevation,point,m,modflownwt,MODFLOW-NWT 50x5,time_index:34,34,34,,0,10.089747428894043
-lu_boundary_step_same_support,head_west_response,watertable_elevation,point,m,modflownwt,MODFLOW-NWT 50x5,time_index:35,35,35,,0,10.08974838256836
-lu_boundary_step_same_support,head_west_response,watertable_elevation,point,m,modflownwt,MODFLOW-NWT 50x5,time_index:36,36,36,,0,10.089752197265625
-lu_boundary_step_same_support,head_west_response,watertable_elevation,point,m,modflownwt,MODFLOW-NWT 50x5,time_index:37,37,37,,0,10.089761734008789
-lu_boundary_step_same_support,head_west_response,watertable_elevation,point,m,modflownwt,MODFLOW-NWT 50x5,time_index:38,38,38,,0,10.089763641357422
-lu_boundary_step_same_support,head_west_response,watertable_elevation,point,m,modflownwt,MODFLOW-NWT 50x5,time_index:39,39,39,,0,10.089766502380371
-lu_boundary_step_same_support,head_mid_response,watertable_elevation,point,m,modflownwt,MODFLOW-NWT 50x5,time_index:0,0,0,,0,10.008084297180176
-lu_boundary_step_same_support,head_mid_response,watertable_elevation,point,m,modflownwt,MODFLOW-NWT 50x5,time_index:1,1,1,,0,10.01804256439209
-lu_boundary_step_same_support,head_mid_response,watertable_elevation,point,m,modflownwt,MODFLOW-NWT 50x5,time_index:2,2,2,,0,10.026326179504395
-lu_boundary_step_same_support,head_mid_response,watertable_elevation,point,m,modflownwt,MODFLOW-NWT 50x5,time_index:3,3,3,,0,10.032489776611328
-lu_boundary_step_same_support,head_mid_response,watertable_elevation,point,m,modflownwt,MODFLOW-NWT 50x5,time_index:4,4,4,,0,10.036406517028809
-lu_boundary_step_same_support,head_mid_response,watertable_elevation,point,m,modflownwt,MODFLOW-NWT 50x5,time_index:5,5,5,,0,10.04047966003418
-lu_boundary_step_same_support,head_mid_response,watertable_elevation,point,m,modflownwt,MODFLOW-NWT 50x5,time_index:6,6,6,,0,10.041800498962402
-lu_boundary_step_same_support,head_mid_response,watertable_elevation,point,m,modflownwt,MODFLOW-NWT 50x5,time_index:7,7,7,,0,10.043578147888184
-lu_boundary_step_same_support,head_mid_response,watertable_elevation,point,m,modflownwt,MODFLOW-NWT 50x5,time_index:8,8,8,,0,10.045392990112305
-lu_boundary_step_same_support,head_mid_response,watertable_elevation,point,m,modflownwt,MODFLOW-NWT 50x5,time_index:9,9,9,,0,10.045448303222656
-lu_boundary_step_same_support,head_mid_response,watertable_elevation,point,m,modflownwt,MODFLOW-NWT 50x5,time_index:10,10,10,,0,10.045902252197266
-lu_boundary_step_same_support,head_mid_response,watertable_elevation,point,m,modflownwt,MODFLOW-NWT 50x5,time_index:11,11,11,,0,10.045948028564453
-lu_boundary_step_same_support,head_mid_response,watertable_elevation,point,m,modflownwt,MODFLOW-NWT 50x5,time_index:12,12,12,,0,10.046284675598145
-lu_boundary_step_same_support,head_mid_response,watertable_elevation,point,m,modflownwt,MODFLOW-NWT 50x5,time_index:13,13,13,,0,10.046354293823242
-lu_boundary_step_same_support,head_mid_response,watertable_elevation,point,m,modflownwt,MODFLOW-NWT 50x5,time_index:14,14,14,,0,10.047000885009766
-lu_boundary_step_same_support,head_mid_response,watertable_elevation,point,m,modflownwt,MODFLOW-NWT 50x5,time_index:15,15,15,,0,10.047042846679688
-lu_boundary_step_same_support,head_mid_response,watertable_elevation,point,m,modflownwt,MODFLOW-NWT 50x5,time_index:16,16,16,,0,10.047725677490234
-lu_boundary_step_same_support,head_mid_response,watertable_elevation,point,m,modflownwt,MODFLOW-NWT 50x5,time_index:17,17,17,,0,10.047745704650879
-lu_boundary_step_same_support,head_mid_response,watertable_elevation,point,m,modflownwt,MODFLOW-NWT 50x5,time_index:18,18,18,,0,10.047911643981934
-lu_boundary_step_same_support,head_mid_response,watertable_elevation,point,m,modflownwt,MODFLOW-NWT 50x5,time_index:19,19,19,,0,10.047928810119629
-lu_boundary_step_same_support,head_mid_response,watertable_elevation,point,m,modflownwt,MODFLOW-NWT 50x5,time_index:20,20,20,,0,10.04798412322998
-lu_boundary_step_same_support,head_mid_response,watertable_elevation,point,m,modflownwt,MODFLOW-NWT 50x5,time_index:21,21,21,,0,10.048067092895508
-lu_boundary_step_same_support,head_mid_response,watertable_elevation,point,m,modflownwt,MODFLOW-NWT 50x5,time_index:22,22,22,,0,10.048083305358887
-lu_boundary_step_same_support,head_mid_response,watertable_elevation,point,m,modflownwt,MODFLOW-NWT 50x5,time_index:23,23,23,,0,10.048118591308594
-lu_boundary_step_same_support,head_mid_response,watertable_elevation,point,m,modflownwt,MODFLOW-NWT 50x5,time_index:24,24,24,,0,10.048243522644043
-lu_boundary_step_same_support,head_mid_response,watertable_elevation,point,m,modflownwt,MODFLOW-NWT 50x5,time_index:25,25,25,,0,10.048263549804688
-lu_boundary_step_same_support,head_mid_response,watertable_elevation,point,m,modflownwt,MODFLOW-NWT 50x5,time_index:26,26,26,,0,10.048473358154297
-lu_boundary_step_same_support,head_mid_response,watertable_elevation,point,m,modflownwt,MODFLOW-NWT 50x5,time_index:27,27,27,,0,10.04848575592041
-lu_boundary_step_same_support,head_mid_response,watertable_elevation,point,m,modflownwt,MODFLOW-NWT 50x5,time_index:28,28,28,,0,10.048688888549805
-lu_boundary_step_same_support,head_mid_response,watertable_elevation,point,m,modflownwt,MODFLOW-NWT 50x5,time_index:29,29,29,,0,10.04869556427002
-lu_boundary_step_same_support,head_mid_response,watertable_elevation,point,m,modflownwt,MODFLOW-NWT 50x5,time_index:30,30,30,,0,10.04874038696289
-lu_boundary_step_same_support,head_mid_response,watertable_elevation,point,m,modflownwt,MODFLOW-NWT 50x5,time_index:31,31,31,,0,10.048754692077637
-lu_boundary_step_same_support,head_mid_response,watertable_elevation,point,m,modflownwt,MODFLOW-NWT 50x5,time_index:32,32,32,,0,10.048759460449219
-lu_boundary_step_same_support,head_mid_response,watertable_elevation,point,m,modflownwt,MODFLOW-NWT 50x5,time_index:33,33,33,,0,10.048773765563965
-lu_boundary_step_same_support,head_mid_response,watertable_elevation,point,m,modflownwt,MODFLOW-NWT 50x5,time_index:34,34,34,,0,10.048802375793457
-lu_boundary_step_same_support,head_mid_response,watertable_elevation,point,m,modflownwt,MODFLOW-NWT 50x5,time_index:35,35,35,,0,10.048807144165039
-lu_boundary_step_same_support,head_mid_response,watertable_elevation,point,m,modflownwt,MODFLOW-NWT 50x5,time_index:36,36,36,,0,10.04881763458252
-lu_boundary_step_same_support,head_mid_response,watertable_elevation,point,m,modflownwt,MODFLOW-NWT 50x5,time_index:37,37,37,,0,10.048850059509277
-lu_boundary_step_same_support,head_mid_response,watertable_elevation,point,m,modflownwt,MODFLOW-NWT 50x5,time_index:38,38,38,,0,10.048853874206543
-lu_boundary_step_same_support,head_mid_response,watertable_elevation,point,m,modflownwt,MODFLOW-NWT 50x5,time_index:39,39,39,,0,10.04886245727539
-lu_boundary_step_same_support,head_east_response,watertable_elevation,point,m,modflownwt,MODFLOW-NWT 50x5,time_index:0,0,0,,0,10.000502586364746
-lu_boundary_step_same_support,head_east_response,watertable_elevation,point,m,modflownwt,MODFLOW-NWT 50x5,time_index:1,1,1,,0,10.0016450881958
-lu_boundary_step_same_support,head_east_response,watertable_elevation,point,m,modflownwt,MODFLOW-NWT 50x5,time_index:2,2,2,,0,10.00296688079834
-lu_boundary_step_same_support,head_east_response,watertable_elevation,point,m,modflownwt,MODFLOW-NWT 50x5,time_index:3,3,3,,0,10.004101753234863
-lu_boundary_step_same_support,head_east_response,watertable_elevation,point,m,modflownwt,MODFLOW-NWT 50x5,time_index:4,4,4,,0,10.005003929138184
-lu_boundary_step_same_support,head_east_response,watertable_elevation,point,m,modflownwt,MODFLOW-NWT 50x5,time_index:5,5,5,,0,10.005992889404297
-lu_boundary_step_same_support,head_east_response,watertable_elevation,point,m,modflownwt,MODFLOW-NWT 50x5,time_index:6,6,6,,0,10.00633430480957
-lu_boundary_step_same_support,head_east_response,watertable_elevation,point,m,modflownwt,MODFLOW-NWT 50x5,time_index:7,7,7,,0,10.006791114807129
-lu_boundary_step_same_support,head_east_response,watertable_elevation,point,m,modflownwt,MODFLOW-NWT 50x5,time_index:8,8,8,,0,10.007253646850586
-lu_boundary_step_same_support,head_east_response,watertable_elevation,point,m,modflownwt,MODFLOW-NWT 50x5,time_index:9,9,9,,0,10.007266998291016
-lu_boundary_step_same_support,head_east_response,watertable_elevation,point,m,modflownwt,MODFLOW-NWT 50x5,time_index:10,10,10,,0,10.007384300231934
-lu_boundary_step_same_support,head_east_response,watertable_elevation,point,m,modflownwt,MODFLOW-NWT 50x5,time_index:11,11,11,,0,10.007394790649414
-lu_boundary_step_same_support,head_east_response,watertable_elevation,point,m,modflownwt,MODFLOW-NWT 50x5,time_index:12,12,12,,0,10.007481575012207
-lu_boundary_step_same_support,head_east_response,watertable_elevation,point,m,modflownwt,MODFLOW-NWT 50x5,time_index:13,13,13,,0,10.007497787475586
-lu_boundary_step_same_support,head_east_response,watertable_elevation,point,m,modflownwt,MODFLOW-NWT 50x5,time_index:14,14,14,,0,10.00766372680664
-lu_boundary_step_same_support,head_east_response,watertable_elevation,point,m,modflownwt,MODFLOW-NWT 50x5,time_index:15,15,15,,0,10.007674217224121
-lu_boundary_step_same_support,head_east_response,watertable_elevation,point,m,modflownwt,MODFLOW-NWT 50x5,time_index:16,16,16,,0,10.007848739624023
-lu_boundary_step_same_support,head_east_response,watertable_elevation,point,m,modflownwt,MODFLOW-NWT 50x5,time_index:17,17,17,,0,10.007853507995605
-lu_boundary_step_same_support,head_east_response,watertable_elevation,point,m,modflownwt,MODFLOW-NWT 50x5,time_index:18,18,18,,0,10.007896423339844
-lu_boundary_step_same_support,head_east_response,watertable_elevation,point,m,modflownwt,MODFLOW-NWT 50x5,time_index:19,19,19,,0,10.00790023803711
-lu_boundary_step_same_support,head_east_response,watertable_elevation,point,m,modflownwt,MODFLOW-NWT 50x5,time_index:20,20,20,,0,10.007914543151855
-lu_boundary_step_same_support,head_east_response,watertable_elevation,point,m,modflownwt,MODFLOW-NWT 50x5,time_index:21,21,21,,0,10.007936477661133
-lu_boundary_step_same_support,head_east_response,watertable_elevation,point,m,modflownwt,MODFLOW-NWT 50x5,time_index:22,22,22,,0,10.007940292358398
-lu_boundary_step_same_support,head_east_response,watertable_elevation,point,m,modflownwt,MODFLOW-NWT 50x5,time_index:23,23,23,,0,10.007948875427246
-lu_boundary_step_same_support,head_east_response,watertable_elevation,point,m,modflownwt,MODFLOW-NWT 50x5,time_index:24,24,24,,0,10.007981300354004
-lu_boundary_step_same_support,head_east_response,watertable_elevation,point,m,modflownwt,MODFLOW-NWT 50x5,time_index:25,25,25,,0,10.007986068725586
-lu_boundary_step_same_support,head_east_response,watertable_elevation,point,m,modflownwt,MODFLOW-NWT 50x5,time_index:26,26,26,,0,10.008039474487305
-lu_boundary_step_same_support,head_east_response,watertable_elevation,point,m,modflownwt,MODFLOW-NWT 50x5,time_index:27,27,27,,0,10.008042335510254
-lu_boundary_step_same_support,head_east_response,watertable_elevation,point,m,modflownwt,MODFLOW-NWT 50x5,time_index:28,28,28,,0,10.008094787597656
-lu_boundary_step_same_support,head_east_response,watertable_elevation,point,m,modflownwt,MODFLOW-NWT 50x5,time_index:29,29,29,,0,10.008096694946289
-lu_boundary_step_same_support,head_east_response,watertable_elevation,point,m,modflownwt,MODFLOW-NWT 50x5,time_index:30,30,30,,0,10.00810718536377
-lu_boundary_step_same_support,head_east_response,watertable_elevation,point,m,modflownwt,MODFLOW-NWT 50x5,time_index:31,31,31,,0,10.008111953735352
-lu_boundary_step_same_support,head_east_response,watertable_elevation,point,m,modflownwt,MODFLOW-NWT 50x5,time_index:32,32,32,,0,10.008112907409668
-lu_boundary_step_same_support,head_east_response,watertable_elevation,point,m,modflownwt,MODFLOW-NWT 50x5,time_index:33,33,33,,0,10.008116722106934
-lu_boundary_step_same_support,head_east_response,watertable_elevation,point,m,modflownwt,MODFLOW-NWT 50x5,time_index:34,34,34,,0,10.008123397827148
-lu_boundary_step_same_support,head_east_response,watertable_elevation,point,m,modflownwt,MODFLOW-NWT 50x5,time_index:35,35,35,,0,10.008125305175781
-lu_boundary_step_same_support,head_east_response,watertable_elevation,point,m,modflownwt,MODFLOW-NWT 50x5,time_index:36,36,36,,0,10.008127212524414
-lu_boundary_step_same_support,head_east_response,watertable_elevation,point,m,modflownwt,MODFLOW-NWT 50x5,time_index:37,37,37,,0,10.008135795593262
-lu_boundary_step_same_support,head_east_response,watertable_elevation,point,m,modflownwt,MODFLOW-NWT 50x5,time_index:38,38,38,,0,10.008136749267578
-lu_boundary_step_same_support,head_east_response,watertable_elevation,point,m,modflownwt,MODFLOW-NWT 50x5,time_index:39,39,39,,0,10.008138656616211
-lu_boundary_step_same_support,head_west_response,watertable_elevation,point,m,modflow6,MODFLOW 6 50x5,time_index:0,0,0,,0,10.061898693215799
-lu_boundary_step_same_support,head_west_response,watertable_elevation,point,m,modflow6,MODFLOW 6 50x5,time_index:1,1,1,,0,10.076725376643592
-lu_boundary_step_same_support,head_west_response,watertable_elevation,point,m,modflow6,MODFLOW 6 50x5,time_index:2,2,2,,0,10.082146078136233
-lu_boundary_step_same_support,head_west_response,watertable_elevation,point,m,modflow6,MODFLOW 6 50x5,time_index:3,3,3,,0,10.084905699817378
-lu_boundary_step_same_support,head_west_response,watertable_elevation,point,m,modflow6,MODFLOW 6 50x5,time_index:4,4,4,,0,10.086564065579989
-lu_boundary_step_same_support,head_west_response,watertable_elevation,point,m,modflow6,MODFLOW 6 50x5,time_index:5,5,5,,0,10.087624142465042
-lu_boundary_step_same_support,head_west_response,watertable_elevation,point,m,modflow6,MODFLOW 6 50x5,time_index:6,6,6,,0,10.088312899096529
-lu_boundary_step_same_support,head_west_response,watertable_elevation,point,m,modflow6,MODFLOW 6 50x5,time_index:7,7,7,,0,10.088783948916397
-lu_boundary_step_same_support,head_west_response,watertable_elevation,point,m,modflow6,MODFLOW 6 50x5,time_index:8,8,8,,0,10.08910798235515
-lu_boundary_step_same_support,head_west_response,watertable_elevation,point,m,modflow6,MODFLOW 6 50x5,time_index:9,9,9,,0,10.089330618792356
-lu_boundary_step_same_support,head_west_response,watertable_elevation,point,m,modflow6,MODFLOW 6 50x5,time_index:10,10,10,,0,10.089487829742508
-lu_boundary_step_same_support,head_west_response,watertable_elevation,point,m,modflow6,MODFLOW 6 50x5,time_index:11,11,11,,0,10.089596460699672
-lu_boundary_step_same_support,head_west_response,watertable_elevation,point,m,modflow6,MODFLOW 6 50x5,time_index:12,12,12,,0,10.08965484105685
-lu_boundary_step_same_support,head_west_response,watertable_elevation,point,m,modflow6,MODFLOW 6 50x5,time_index:13,13,13,,0,10.089676791133591
-lu_boundary_step_same_support,head_west_response,watertable_elevation,point,m,modflow6,MODFLOW 6 50x5,time_index:14,14,14,,0,10.089694004132987
-lu_boundary_step_same_support,head_west_response,watertable_elevation,point,m,modflow6,MODFLOW 6 50x5,time_index:15,15,15,,0,10.089705563152714
-lu_boundary_step_same_support,head_west_response,watertable_elevation,point,m,modflow6,MODFLOW 6 50x5,time_index:16,16,16,,0,10.089715134442201
-lu_boundary_step_same_support,head_west_response,watertable_elevation,point,m,modflow6,MODFLOW 6 50x5,time_index:17,17,17,,0,10.089722896344066
-lu_boundary_step_same_support,head_west_response,watertable_elevation,point,m,modflow6,MODFLOW 6 50x5,time_index:18,18,18,,0,10.089729459530798
-lu_boundary_step_same_support,head_west_response,watertable_elevation,point,m,modflow6,MODFLOW 6 50x5,time_index:19,19,19,,0,10.089735073171504
-lu_boundary_step_same_support,head_west_response,watertable_elevation,point,m,modflow6,MODFLOW 6 50x5,time_index:20,20,20,,0,10.089739941682636
-lu_boundary_step_same_support,head_west_response,watertable_elevation,point,m,modflow6,MODFLOW 6 50x5,time_index:21,21,21,,0,10.089744217383437
-lu_boundary_step_same_support,head_west_response,watertable_elevation,point,m,modflow6,MODFLOW 6 50x5,time_index:22,22,22,,0,10.089748008232233
-lu_boundary_step_same_support,head_west_response,watertable_elevation,point,m,modflow6,MODFLOW 6 50x5,time_index:23,23,23,,0,10.089751398538407
-lu_boundary_step_same_support,head_west_response,watertable_elevation,point,m,modflow6,MODFLOW 6 50x5,time_index:24,24,24,,0,10.089754453194857
-lu_boundary_step_same_support,head_west_response,watertable_elevation,point,m,modflow6,MODFLOW 6 50x5,time_index:25,25,25,,0,10.08975722345036
-lu_boundary_step_same_support,head_west_response,watertable_elevation,point,m,modflow6,MODFLOW 6 50x5,time_index:26,26,26,,0,10.089759750314892
-lu_boundary_step_same_support,head_west_response,watertable_elevation,point,m,modflow6,MODFLOW 6 50x5,time_index:27,27,27,,0,10.089762067036403
-lu_boundary_step_same_support,head_west_response,watertable_elevation,point,m,modflow6,MODFLOW 6 50x5,time_index:28,28,28,,0,10.08976420088235
-lu_boundary_step_same_support,head_west_response,watertable_elevation,point,m,modflow6,MODFLOW 6 50x5,time_index:29,29,29,,0,10.08976617444775
-lu_boundary_step_same_support,head_west_response,watertable_elevation,point,m,modflow6,MODFLOW 6 50x5,time_index:30,30,30,,0,10.089768006631214
-lu_boundary_step_same_support,head_west_response,watertable_elevation,point,m,modflow6,MODFLOW 6 50x5,time_index:31,31,31,,0,10.089769713373745
-lu_boundary_step_same_support,head_west_response,watertable_elevation,point,m,modflow6,MODFLOW 6 50x5,time_index:32,32,32,,0,10.089771308225396
-lu_boundary_step_same_support,head_west_response,watertable_elevation,point,m,modflow6,MODFLOW 6 50x5,time_index:33,33,33,,0,10.089772802785205
-lu_boundary_step_same_support,head_west_response,watertable_elevation,point,m,modflow6,MODFLOW 6 50x5,time_index:34,34,34,,0,10.08977420704641
-lu_boundary_step_same_support,head_west_response,watertable_elevation,point,m,modflow6,MODFLOW 6 50x5,time_index:35,35,35,,0,10.08977552967011
-lu_boundary_step_same_support,head_west_response,watertable_elevation,point,m,modflow6,MODFLOW 6 50x5,time_index:36,36,36,,0,10.08977677820416
-lu_boundary_step_same_support,head_west_response,watertable_elevation,point,m,modflow6,MODFLOW 6 50x5,time_index:37,37,37,,0,10.08977795925988
-lu_boundary_step_same_support,head_west_response,watertable_elevation,point,m,modflow6,MODFLOW 6 50x5,time_index:38,38,38,,0,10.089779078655688
-lu_boundary_step_same_support,head_west_response,watertable_elevation,point,m,modflow6,MODFLOW 6 50x5,time_index:39,39,39,,0,10.089780141534826
-lu_boundary_step_same_support,head_mid_response,watertable_elevation,point,m,modflow6,MODFLOW 6 50x5,time_index:0,0,0,,0,10.00890750656186
-lu_boundary_step_same_support,head_mid_response,watertable_elevation,point,m,modflow6,MODFLOW 6 50x5,time_index:1,1,1,,0,10.019470675025135
-lu_boundary_step_same_support,head_mid_response,watertable_elevation,point,m,modflow6,MODFLOW 6 50x5,time_index:2,2,2,,0,10.028133026944904
-lu_boundary_step_same_support,head_mid_response,watertable_elevation,point,m,modflow6,MODFLOW 6 50x5,time_index:3,3,3,,0,10.034478739999837
-lu_boundary_step_same_support,head_mid_response,watertable_elevation,point,m,modflow6,MODFLOW 6 50x5,time_index:4,4,4,,0,10.038938304609655
-lu_boundary_step_same_support,head_mid_response,watertable_elevation,point,m,modflow6,MODFLOW 6 50x5,time_index:5,5,5,,0,10.042059134738025
-lu_boundary_step_same_support,head_mid_response,watertable_elevation,point,m,modflow6,MODFLOW 6 50x5,time_index:6,6,6,,0,10.044227119075199
-lu_boundary_step_same_support,head_mid_response,watertable_elevation,point,m,modflow6,MODFLOW 6 50x5,time_index:7,7,7,,0,10.045726730384862
-lu_boundary_step_same_support,head_mid_response,watertable_elevation,point,m,modflow6,MODFLOW 6 50x5,time_index:8,8,8,,0,10.046761759717297
-lu_boundary_step_same_support,head_mid_response,watertable_elevation,point,m,modflow6,MODFLOW 6 50x5,time_index:9,9,9,,0,10.047472429925126
-lu_boundary_step_same_support,head_mid_response,watertable_elevation,point,m,modflow6,MODFLOW 6 50x5,time_index:10,10,10,,0,10.047975075255103
-lu_boundary_step_same_support,head_mid_response,watertable_elevation,point,m,modflow6,MODFLOW 6 50x5,time_index:11,11,11,,0,10.048322003484364
-lu_boundary_step_same_support,head_mid_response,watertable_elevation,point,m,modflow6,MODFLOW 6 50x5,time_index:12,12,12,,0,10.048508125489082
-lu_boundary_step_same_support,head_mid_response,watertable_elevation,point,m,modflow6,MODFLOW 6 50x5,time_index:13,13,13,,0,10.048577584209983
-lu_boundary_step_same_support,head_mid_response,watertable_elevation,point,m,modflow6,MODFLOW 6 50x5,time_index:14,14,14,,0,10.048632590698372
-lu_boundary_step_same_support,head_mid_response,watertable_elevation,point,m,modflow6,MODFLOW 6 50x5,time_index:15,15,15,,0,10.048669460922124
-lu_boundary_step_same_support,head_mid_response,watertable_elevation,point,m,modflow6,MODFLOW 6 50x5,time_index:16,16,16,,0,10.048700145921446
-lu_boundary_step_same_support,head_mid_response,watertable_elevation,point,m,modflow6,MODFLOW 6 50x5,time_index:17,17,17,,0,10.048724938888077
-lu_boundary_step_same_support,head_mid_response,watertable_elevation,point,m,modflow6,MODFLOW 6 50x5,time_index:18,18,18,,0,10.048745954414224
-lu_boundary_step_same_support,head_mid_response,watertable_elevation,point,m,modflow6,MODFLOW 6 50x5,time_index:19,19,19,,0,10.048763909868397
-lu_boundary_step_same_support,head_mid_response,watertable_elevation,point,m,modflow6,MODFLOW 6 50x5,time_index:20,20,20,,0,10.048779489078965
-lu_boundary_step_same_support,head_mid_response,watertable_elevation,point,m,modflow6,MODFLOW 6 50x5,time_index:21,21,21,,0,10.048793170036948
-lu_boundary_step_same_support,head_mid_response,watertable_elevation,point,m,modflow6,MODFLOW 6 50x5,time_index:22,22,22,,0,10.048805300169697
-lu_boundary_step_same_support,head_mid_response,watertable_elevation,point,m,modflow6,MODFLOW 6 50x5,time_index:23,23,23,,0,10.048816148761214
-lu_boundary_step_same_support,head_mid_response,watertable_elevation,point,m,modflow6,MODFLOW 6 50x5,time_index:24,24,24,,0,10.048825923445941
-lu_boundary_step_same_support,head_mid_response,watertable_elevation,point,m,modflow6,MODFLOW 6 50x5,time_index:25,25,25,,0,10.048834788165113
-lu_boundary_step_same_support,head_mid_response,watertable_elevation,point,m,modflow6,MODFLOW 6 50x5,time_index:26,26,26,,0,10.048842874116724
-lu_boundary_step_same_support,head_mid_response,watertable_elevation,point,m,modflow6,MODFLOW 6 50x5,time_index:27,27,27,,0,10.048850287670351
-lu_boundary_step_same_support,head_mid_response,watertable_elevation,point,m,modflow6,MODFLOW 6 50x5,time_index:28,28,28,,0,10.04885711606493
-lu_boundary_step_same_support,head_mid_response,watertable_elevation,point,m,modflow6,MODFLOW 6 50x5,time_index:29,29,29,,0,10.04886343159244
-lu_boundary_step_same_support,head_mid_response,watertable_elevation,point,m,modflow6,MODFLOW 6 50x5,time_index:30,30,30,,0,10.04886929471957
-lu_boundary_step_same_support,head_mid_response,watertable_elevation,point,m,modflow6,MODFLOW 6 50x5,time_index:31,31,31,,0,10.048874756450978
-lu_boundary_step_same_support,head_mid_response,watertable_elevation,point,m,modflow6,MODFLOW 6 50x5,time_index:32,32,32,,0,10.048879860142037
-lu_boundary_step_same_support,head_mid_response,watertable_elevation,point,m,modflow6,MODFLOW 6 50x5,time_index:33,33,33,,0,10.048884642906062
-lu_boundary_step_same_support,head_mid_response,watertable_elevation,point,m,modflow6,MODFLOW 6 50x5,time_index:34,34,34,,0,10.048889136718705
-lu_boundary_step_same_support,head_mid_response,watertable_elevation,point,m,modflow6,MODFLOW 6 50x5,time_index:35,35,35,,0,10.048893369293408
-lu_boundary_step_same_support,head_mid_response,watertable_elevation,point,m,modflow6,MODFLOW 6 50x5,time_index:36,36,36,,0,10.04889736478183
-lu_boundary_step_same_support,head_mid_response,watertable_elevation,point,m,modflow6,MODFLOW 6 50x5,time_index:37,37,37,,0,10.048901144338982
-lu_boundary_step_same_support,head_mid_response,watertable_elevation,point,m,modflow6,MODFLOW 6 50x5,time_index:38,38,38,,0,10.048904726582954
-lu_boundary_step_same_support,head_mid_response,watertable_elevation,point,m,modflow6,MODFLOW 6 50x5,time_index:39,39,39,,0,10.048908127971474
-lu_boundary_step_same_support,head_east_response,watertable_elevation,point,m,modflow6,MODFLOW 6 50x5,time_index:0,0,0,,0,10.000692366476766
-lu_boundary_step_same_support,head_east_response,watertable_elevation,point,m,modflow6,MODFLOW 6 50x5,time_index:1,1,1,,0,10.001976386123982
-lu_boundary_step_same_support,head_east_response,watertable_elevation,point,m,modflow6,MODFLOW 6 50x5,time_index:2,2,2,,0,10.003404749498355
-lu_boundary_step_same_support,head_east_response,watertable_elevation,point,m,modflow6,MODFLOW 6 50x5,time_index:3,3,3,,0,10.004677436674486
-lu_boundary_step_same_support,head_east_response,watertable_elevation,point,m,modflow6,MODFLOW 6 50x5,time_index:4,4,4,,0,10.005668588018544
-lu_boundary_step_same_support,head_east_response,watertable_elevation,point,m,modflow6,MODFLOW 6 50x5,time_index:5,5,5,,0,10.006413299443834
-lu_boundary_step_same_support,head_east_response,watertable_elevation,point,m,modflow6,MODFLOW 6 50x5,time_index:6,6,6,,0,10.00695687537049
-lu_boundary_step_same_support,head_east_response,watertable_elevation,point,m,modflow6,MODFLOW 6 50x5,time_index:7,7,7,,0,10.007339112534963
-lu_boundary_step_same_support,head_east_response,watertable_elevation,point,m,modflow6,MODFLOW 6 50x5,time_index:8,8,8,,0,10.00760292687944
-lu_boundary_step_same_support,head_east_response,watertable_elevation,point,m,modflow6,MODFLOW 6 50x5,time_index:9,9,9,,0,10.007784315390435
-lu_boundary_step_same_support,head_east_response,watertable_elevation,point,m,modflow6,MODFLOW 6 50x5,time_index:10,10,10,,0,10.007912632368525
-lu_boundary_step_same_support,head_east_response,watertable_elevation,point,m,modflow6,MODFLOW 6 50x5,time_index:11,11,11,,0,10.008001205623353
-lu_boundary_step_same_support,head_east_response,watertable_elevation,point,m,modflow6,MODFLOW 6 50x5,time_index:12,12,12,,0,10.00804859397661
-lu_boundary_step_same_support,head_east_response,watertable_elevation,point,m,modflow6,MODFLOW 6 50x5,time_index:13,13,13,,0,10.008066147254127
-lu_boundary_step_same_support,head_east_response,watertable_elevation,point,m,modflow6,MODFLOW 6 50x5,time_index:14,14,14,,0,10.008080171436102
-lu_boundary_step_same_support,head_east_response,watertable_elevation,point,m,modflow6,MODFLOW 6 50x5,time_index:15,15,15,,0,10.008089585819016
-lu_boundary_step_same_support,head_east_response,watertable_elevation,point,m,modflow6,MODFLOW 6 50x5,time_index:16,16,16,,0,10.008097444173039
-lu_boundary_step_same_support,head_east_response,watertable_elevation,point,m,modflow6,MODFLOW 6 50x5,time_index:17,17,17,,0,10.008103777990977
-lu_boundary_step_same_support,head_east_response,watertable_elevation,point,m,modflow6,MODFLOW 6 50x5,time_index:18,18,18,,0,10.008109155125402
-lu_boundary_step_same_support,head_east_response,watertable_elevation,point,m,modflow6,MODFLOW 6 50x5,time_index:19,19,19,,0,10.008113746586204
-lu_boundary_step_same_support,head_east_response,watertable_elevation,point,m,modflow6,MODFLOW 6 50x5,time_index:20,20,20,,0,10.00811773115977
-lu_boundary_step_same_support,head_east_response,watertable_elevation,point,m,modflow6,MODFLOW 6 50x5,time_index:21,21,21,,0,10.008121230194337
-lu_boundary_step_same_support,head_east_response,watertable_elevation,point,m,modflow6,MODFLOW 6 50x5,time_index:22,22,22,,0,10.008124332653578
-lu_boundary_step_same_support,head_east_response,watertable_elevation,point,m,modflow6,MODFLOW 6 50x5,time_index:23,23,23,,0,10.008127107370052
-lu_boundary_step_same_support,head_east_response,watertable_elevation,point,m,modflow6,MODFLOW 6 50x5,time_index:24,24,24,,0,10.008129607444024
-lu_boundary_step_same_support,head_east_response,watertable_elevation,point,m,modflow6,MODFLOW 6 50x5,time_index:25,25,25,,0,10.008131874796415
-lu_boundary_step_same_support,head_east_response,watertable_elevation,point,m,modflow6,MODFLOW 6 50x5,time_index:26,26,26,,0,10.008133942977658
-lu_boundary_step_same_support,head_east_response,watertable_elevation,point,m,modflow6,MODFLOW 6 50x5,time_index:27,27,27,,0,10.008135839189507
-lu_boundary_step_same_support,head_east_response,watertable_elevation,point,m,modflow6,MODFLOW 6 50x5,time_index:28,28,28,,0,10.008137585741915
-lu_boundary_step_same_support,head_east_response,watertable_elevation,point,m,modflow6,MODFLOW 6 50x5,time_index:29,29,29,,0,10.008139201122782
-lu_boundary_step_same_support,head_east_response,watertable_elevation,point,m,modflow6,MODFLOW 6 50x5,time_index:30,30,30,,0,10.008140700796039
-lu_boundary_step_same_support,head_east_response,watertable_elevation,point,m,modflow6,MODFLOW 6 50x5,time_index:31,31,31,,0,10.008142097805948
-lu_boundary_step_same_support,head_east_response,watertable_elevation,point,m,modflow6,MODFLOW 6 50x5,time_index:32,32,32,,0,10.008143403240647
-lu_boundary_step_same_support,head_east_response,watertable_elevation,point,m,modflow6,MODFLOW 6 50x5,time_index:33,33,33,,0,10.00814462659197
-lu_boundary_step_same_support,head_east_response,watertable_elevation,point,m,modflow6,MODFLOW 6 50x5,time_index:34,34,34,,0,10.008145776037859
-lu_boundary_step_same_support,head_east_response,watertable_elevation,point,m,modflow6,MODFLOW 6 50x5,time_index:35,35,35,,0,10.008146858666247
-lu_boundary_step_same_support,head_east_response,watertable_elevation,point,m,modflow6,MODFLOW 6 50x5,time_index:36,36,36,,0,10.008147880654167
-lu_boundary_step_same_support,head_east_response,watertable_elevation,point,m,modflow6,MODFLOW 6 50x5,time_index:37,37,37,,0,10.008148847412262
-lu_boundary_step_same_support,head_east_response,watertable_elevation,point,m,modflow6,MODFLOW 6 50x5,time_index:38,38,38,,0,10.008149763702356
-lu_boundary_step_same_support,head_east_response,watertable_elevation,point,m,modflow6,MODFLOW 6 50x5,time_index:39,39,39,,0,10.008150633733763
+comparison_id,observable,variable,support,unit,simulation_id,simulation_label,comparison_time_key,time_role,time,time_index,elapsed_seconds,value_index,value,surface_top_m,surface_bottom_m
+lu_boundary_step_same_support,head_west_response,watertable_elevation,point,m,modflownwt,MODFLOW-NWT 50x5,elapsed_seconds:43200,state_snapshot,0,0,43200.0,0,10.061898693215799,,
+lu_boundary_step_same_support,head_west_response,watertable_elevation,point,m,modflownwt,MODFLOW-NWT 50x5,elapsed_seconds:86400,state_snapshot,1,1,86400.0,0,10.076725376643592,,
+lu_boundary_step_same_support,head_west_response,watertable_elevation,point,m,modflownwt,MODFLOW-NWT 50x5,elapsed_seconds:129600,state_snapshot,2,2,129600.0,0,10.082146078136233,,
+lu_boundary_step_same_support,head_west_response,watertable_elevation,point,m,modflownwt,MODFLOW-NWT 50x5,elapsed_seconds:172800,state_snapshot,3,3,172800.0,0,10.084905699817378,,
+lu_boundary_step_same_support,head_west_response,watertable_elevation,point,m,modflownwt,MODFLOW-NWT 50x5,elapsed_seconds:216000,state_snapshot,4,4,216000.0,0,10.086564065579989,,
+lu_boundary_step_same_support,head_west_response,watertable_elevation,point,m,modflownwt,MODFLOW-NWT 50x5,elapsed_seconds:259200,state_snapshot,5,5,259200.0,0,10.087624142465042,,
+lu_boundary_step_same_support,head_west_response,watertable_elevation,point,m,modflownwt,MODFLOW-NWT 50x5,elapsed_seconds:302400,state_snapshot,6,6,302400.0,0,10.088312899096529,,
+lu_boundary_step_same_support,head_west_response,watertable_elevation,point,m,modflownwt,MODFLOW-NWT 50x5,elapsed_seconds:345600,state_snapshot,7,7,345600.0,0,10.088783948916397,,
+lu_boundary_step_same_support,head_west_response,watertable_elevation,point,m,modflownwt,MODFLOW-NWT 50x5,elapsed_seconds:388800,state_snapshot,8,8,388800.0,0,10.08910798235515,,
+lu_boundary_step_same_support,head_west_response,watertable_elevation,point,m,modflownwt,MODFLOW-NWT 50x5,elapsed_seconds:432000,state_snapshot,9,9,432000.0,0,10.089330618792356,,
+lu_boundary_step_same_support,head_west_response,watertable_elevation,point,m,modflownwt,MODFLOW-NWT 50x5,elapsed_seconds:475200,state_snapshot,10,10,475200.0,0,10.089487829742508,,
+lu_boundary_step_same_support,head_west_response,watertable_elevation,point,m,modflownwt,MODFLOW-NWT 50x5,elapsed_seconds:518400,state_snapshot,11,11,518400.0,0,10.089596460699672,,
+lu_boundary_step_same_support,head_west_response,watertable_elevation,point,m,modflownwt,MODFLOW-NWT 50x5,elapsed_seconds:561600,state_snapshot,12,12,561600.0,0,10.08965484105685,,
+lu_boundary_step_same_support,head_west_response,watertable_elevation,point,m,modflownwt,MODFLOW-NWT 50x5,elapsed_seconds:604800,state_snapshot,13,13,604800.0,0,10.089676791133591,,
+lu_boundary_step_same_support,head_west_response,watertable_elevation,point,m,modflownwt,MODFLOW-NWT 50x5,elapsed_seconds:648000,state_snapshot,14,14,648000.0,0,10.089694004132987,,
+lu_boundary_step_same_support,head_west_response,watertable_elevation,point,m,modflownwt,MODFLOW-NWT 50x5,elapsed_seconds:691200,state_snapshot,15,15,691200.0,0,10.089705563152714,,
+lu_boundary_step_same_support,head_west_response,watertable_elevation,point,m,modflownwt,MODFLOW-NWT 50x5,elapsed_seconds:734400,state_snapshot,16,16,734400.0,0,10.089715134442201,,
+lu_boundary_step_same_support,head_west_response,watertable_elevation,point,m,modflownwt,MODFLOW-NWT 50x5,elapsed_seconds:777600,state_snapshot,17,17,777600.0,0,10.089722896344066,,
+lu_boundary_step_same_support,head_west_response,watertable_elevation,point,m,modflownwt,MODFLOW-NWT 50x5,elapsed_seconds:820800,state_snapshot,18,18,820800.0,0,10.089729459530798,,
+lu_boundary_step_same_support,head_west_response,watertable_elevation,point,m,modflownwt,MODFLOW-NWT 50x5,elapsed_seconds:864000,state_snapshot,19,19,864000.0,0,10.089735073171504,,
+lu_boundary_step_same_support,head_west_response,watertable_elevation,point,m,modflownwt,MODFLOW-NWT 50x5,elapsed_seconds:907200,state_snapshot,20,20,907200.0,0,10.089739941682636,,
+lu_boundary_step_same_support,head_west_response,watertable_elevation,point,m,modflownwt,MODFLOW-NWT 50x5,elapsed_seconds:950400,state_snapshot,21,21,950400.0,0,10.089744217383437,,
+lu_boundary_step_same_support,head_west_response,watertable_elevation,point,m,modflownwt,MODFLOW-NWT 50x5,elapsed_seconds:993600,state_snapshot,22,22,993600.0,0,10.089748008232233,,
+lu_boundary_step_same_support,head_west_response,watertable_elevation,point,m,modflownwt,MODFLOW-NWT 50x5,elapsed_seconds:1036800,state_snapshot,23,23,1036800.0,0,10.089751398538407,,
+lu_boundary_step_same_support,head_west_response,watertable_elevation,point,m,modflownwt,MODFLOW-NWT 50x5,elapsed_seconds:1080000,state_snapshot,24,24,1080000.0,0,10.089754453194857,,
+lu_boundary_step_same_support,head_west_response,watertable_elevation,point,m,modflownwt,MODFLOW-NWT 50x5,elapsed_seconds:1123200,state_snapshot,25,25,1123200.0,0,10.08975722345036,,
+lu_boundary_step_same_support,head_west_response,watertable_elevation,point,m,modflownwt,MODFLOW-NWT 50x5,elapsed_seconds:1166400,state_snapshot,26,26,1166400.0,0,10.089759750314892,,
+lu_boundary_step_same_support,head_west_response,watertable_elevation,point,m,modflownwt,MODFLOW-NWT 50x5,elapsed_seconds:1209600,state_snapshot,27,27,1209600.0,0,10.089762067036403,,
+lu_boundary_step_same_support,head_west_response,watertable_elevation,point,m,modflownwt,MODFLOW-NWT 50x5,elapsed_seconds:1252800,state_snapshot,28,28,1252800.0,0,10.08976420088235,,
+lu_boundary_step_same_support,head_west_response,watertable_elevation,point,m,modflownwt,MODFLOW-NWT 50x5,elapsed_seconds:1296000,state_snapshot,29,29,1296000.0,0,10.08976617444775,,
+lu_boundary_step_same_support,head_west_response,watertable_elevation,point,m,modflownwt,MODFLOW-NWT 50x5,elapsed_seconds:1339200,state_snapshot,30,30,1339200.0,0,10.089768006631214,,
+lu_boundary_step_same_support,head_west_response,watertable_elevation,point,m,modflownwt,MODFLOW-NWT 50x5,elapsed_seconds:1382400,state_snapshot,31,31,1382400.0,0,10.089769713373745,,
+lu_boundary_step_same_support,head_west_response,watertable_elevation,point,m,modflownwt,MODFLOW-NWT 50x5,elapsed_seconds:1425600,state_snapshot,32,32,1425600.0,0,10.089771308225396,,
+lu_boundary_step_same_support,head_west_response,watertable_elevation,point,m,modflownwt,MODFLOW-NWT 50x5,elapsed_seconds:1468800,state_snapshot,33,33,1468800.0,0,10.089772802785205,,
+lu_boundary_step_same_support,head_west_response,watertable_elevation,point,m,modflownwt,MODFLOW-NWT 50x5,elapsed_seconds:1512000,state_snapshot,34,34,1512000.0,0,10.08977420704641,,
+lu_boundary_step_same_support,head_west_response,watertable_elevation,point,m,modflownwt,MODFLOW-NWT 50x5,elapsed_seconds:1555200,state_snapshot,35,35,1555200.0,0,10.08977552967011,,
+lu_boundary_step_same_support,head_west_response,watertable_elevation,point,m,modflownwt,MODFLOW-NWT 50x5,elapsed_seconds:1598400,state_snapshot,36,36,1598400.0,0,10.08977677820416,,
+lu_boundary_step_same_support,head_west_response,watertable_elevation,point,m,modflownwt,MODFLOW-NWT 50x5,elapsed_seconds:1641600,state_snapshot,37,37,1641600.0,0,10.08977795925988,,
+lu_boundary_step_same_support,head_west_response,watertable_elevation,point,m,modflownwt,MODFLOW-NWT 50x5,elapsed_seconds:1684800,state_snapshot,38,38,1684800.0,0,10.089779078655688,,
+lu_boundary_step_same_support,head_west_response,watertable_elevation,point,m,modflownwt,MODFLOW-NWT 50x5,elapsed_seconds:1728000,state_snapshot,39,39,1728000.0,0,10.089780141534826,,
+lu_boundary_step_same_support,head_mid_response,watertable_elevation,point,m,modflownwt,MODFLOW-NWT 50x5,elapsed_seconds:43200,state_snapshot,0,0,43200.0,0,10.00890750656186,,
+lu_boundary_step_same_support,head_mid_response,watertable_elevation,point,m,modflownwt,MODFLOW-NWT 50x5,elapsed_seconds:86400,state_snapshot,1,1,86400.0,0,10.019470675025135,,
+lu_boundary_step_same_support,head_mid_response,watertable_elevation,point,m,modflownwt,MODFLOW-NWT 50x5,elapsed_seconds:129600,state_snapshot,2,2,129600.0,0,10.028133026944904,,
+lu_boundary_step_same_support,head_mid_response,watertable_elevation,point,m,modflownwt,MODFLOW-NWT 50x5,elapsed_seconds:172800,state_snapshot,3,3,172800.0,0,10.034478739999837,,
+lu_boundary_step_same_support,head_mid_response,watertable_elevation,point,m,modflownwt,MODFLOW-NWT 50x5,elapsed_seconds:216000,state_snapshot,4,4,216000.0,0,10.038938304609655,,
+lu_boundary_step_same_support,head_mid_response,watertable_elevation,point,m,modflownwt,MODFLOW-NWT 50x5,elapsed_seconds:259200,state_snapshot,5,5,259200.0,0,10.042059134738025,,
+lu_boundary_step_same_support,head_mid_response,watertable_elevation,point,m,modflownwt,MODFLOW-NWT 50x5,elapsed_seconds:302400,state_snapshot,6,6,302400.0,0,10.044227119075199,,
+lu_boundary_step_same_support,head_mid_response,watertable_elevation,point,m,modflownwt,MODFLOW-NWT 50x5,elapsed_seconds:345600,state_snapshot,7,7,345600.0,0,10.045726730384862,,
+lu_boundary_step_same_support,head_mid_response,watertable_elevation,point,m,modflownwt,MODFLOW-NWT 50x5,elapsed_seconds:388800,state_snapshot,8,8,388800.0,0,10.046761759717297,,
+lu_boundary_step_same_support,head_mid_response,watertable_elevation,point,m,modflownwt,MODFLOW-NWT 50x5,elapsed_seconds:432000,state_snapshot,9,9,432000.0,0,10.047472429925126,,
+lu_boundary_step_same_support,head_mid_response,watertable_elevation,point,m,modflownwt,MODFLOW-NWT 50x5,elapsed_seconds:475200,state_snapshot,10,10,475200.0,0,10.047975075255103,,
+lu_boundary_step_same_support,head_mid_response,watertable_elevation,point,m,modflownwt,MODFLOW-NWT 50x5,elapsed_seconds:518400,state_snapshot,11,11,518400.0,0,10.048322003484364,,
+lu_boundary_step_same_support,head_mid_response,watertable_elevation,point,m,modflownwt,MODFLOW-NWT 50x5,elapsed_seconds:561600,state_snapshot,12,12,561600.0,0,10.048508125489082,,
+lu_boundary_step_same_support,head_mid_response,watertable_elevation,point,m,modflownwt,MODFLOW-NWT 50x5,elapsed_seconds:604800,state_snapshot,13,13,604800.0,0,10.048577584209983,,
+lu_boundary_step_same_support,head_mid_response,watertable_elevation,point,m,modflownwt,MODFLOW-NWT 50x5,elapsed_seconds:648000,state_snapshot,14,14,648000.0,0,10.048632590698372,,
+lu_boundary_step_same_support,head_mid_response,watertable_elevation,point,m,modflownwt,MODFLOW-NWT 50x5,elapsed_seconds:691200,state_snapshot,15,15,691200.0,0,10.048669460922124,,
+lu_boundary_step_same_support,head_mid_response,watertable_elevation,point,m,modflownwt,MODFLOW-NWT 50x5,elapsed_seconds:734400,state_snapshot,16,16,734400.0,0,10.048700145921446,,
+lu_boundary_step_same_support,head_mid_response,watertable_elevation,point,m,modflownwt,MODFLOW-NWT 50x5,elapsed_seconds:777600,state_snapshot,17,17,777600.0,0,10.048724938888077,,
+lu_boundary_step_same_support,head_mid_response,watertable_elevation,point,m,modflownwt,MODFLOW-NWT 50x5,elapsed_seconds:820800,state_snapshot,18,18,820800.0,0,10.048745954414224,,
+lu_boundary_step_same_support,head_mid_response,watertable_elevation,point,m,modflownwt,MODFLOW-NWT 50x5,elapsed_seconds:864000,state_snapshot,19,19,864000.0,0,10.048763909868397,,
+lu_boundary_step_same_support,head_mid_response,watertable_elevation,point,m,modflownwt,MODFLOW-NWT 50x5,elapsed_seconds:907200,state_snapshot,20,20,907200.0,0,10.048779489078965,,
+lu_boundary_step_same_support,head_mid_response,watertable_elevation,point,m,modflownwt,MODFLOW-NWT 50x5,elapsed_seconds:950400,state_snapshot,21,21,950400.0,0,10.048793170036948,,
+lu_boundary_step_same_support,head_mid_response,watertable_elevation,point,m,modflownwt,MODFLOW-NWT 50x5,elapsed_seconds:993600,state_snapshot,22,22,993600.0,0,10.048805300169697,,
+lu_boundary_step_same_support,head_mid_response,watertable_elevation,point,m,modflownwt,MODFLOW-NWT 50x5,elapsed_seconds:1036800,state_snapshot,23,23,1036800.0,0,10.048816148761214,,
+lu_boundary_step_same_support,head_mid_response,watertable_elevation,point,m,modflownwt,MODFLOW-NWT 50x5,elapsed_seconds:1080000,state_snapshot,24,24,1080000.0,0,10.048825923445941,,
+lu_boundary_step_same_support,head_mid_response,watertable_elevation,point,m,modflownwt,MODFLOW-NWT 50x5,elapsed_seconds:1123200,state_snapshot,25,25,1123200.0,0,10.048834788165113,,
+lu_boundary_step_same_support,head_mid_response,watertable_elevation,point,m,modflownwt,MODFLOW-NWT 50x5,elapsed_seconds:1166400,state_snapshot,26,26,1166400.0,0,10.048842874116724,,
+lu_boundary_step_same_support,head_mid_response,watertable_elevation,point,m,modflownwt,MODFLOW-NWT 50x5,elapsed_seconds:1209600,state_snapshot,27,27,1209600.0,0,10.048850287670351,,
+lu_boundary_step_same_support,head_mid_response,watertable_elevation,point,m,modflownwt,MODFLOW-NWT 50x5,elapsed_seconds:1252800,state_snapshot,28,28,1252800.0,0,10.04885711606493,,
+lu_boundary_step_same_support,head_mid_response,watertable_elevation,point,m,modflownwt,MODFLOW-NWT 50x5,elapsed_seconds:1296000,state_snapshot,29,29,1296000.0,0,10.04886343159244,,
+lu_boundary_step_same_support,head_mid_response,watertable_elevation,point,m,modflownwt,MODFLOW-NWT 50x5,elapsed_seconds:1339200,state_snapshot,30,30,1339200.0,0,10.04886929471957,,
+lu_boundary_step_same_support,head_mid_response,watertable_elevation,point,m,modflownwt,MODFLOW-NWT 50x5,elapsed_seconds:1382400,state_snapshot,31,31,1382400.0,0,10.048874756450978,,
+lu_boundary_step_same_support,head_mid_response,watertable_elevation,point,m,modflownwt,MODFLOW-NWT 50x5,elapsed_seconds:1425600,state_snapshot,32,32,1425600.0,0,10.048879860142037,,
+lu_boundary_step_same_support,head_mid_response,watertable_elevation,point,m,modflownwt,MODFLOW-NWT 50x5,elapsed_seconds:1468800,state_snapshot,33,33,1468800.0,0,10.048884642906062,,
+lu_boundary_step_same_support,head_mid_response,watertable_elevation,point,m,modflownwt,MODFLOW-NWT 50x5,elapsed_seconds:1512000,state_snapshot,34,34,1512000.0,0,10.048889136718705,,
+lu_boundary_step_same_support,head_mid_response,watertable_elevation,point,m,modflownwt,MODFLOW-NWT 50x5,elapsed_seconds:1555200,state_snapshot,35,35,1555200.0,0,10.048893369293408,,
+lu_boundary_step_same_support,head_mid_response,watertable_elevation,point,m,modflownwt,MODFLOW-NWT 50x5,elapsed_seconds:1598400,state_snapshot,36,36,1598400.0,0,10.04889736478183,,
+lu_boundary_step_same_support,head_mid_response,watertable_elevation,point,m,modflownwt,MODFLOW-NWT 50x5,elapsed_seconds:1641600,state_snapshot,37,37,1641600.0,0,10.048901144338982,,
+lu_boundary_step_same_support,head_mid_response,watertable_elevation,point,m,modflownwt,MODFLOW-NWT 50x5,elapsed_seconds:1684800,state_snapshot,38,38,1684800.0,0,10.048904726582954,,
+lu_boundary_step_same_support,head_mid_response,watertable_elevation,point,m,modflownwt,MODFLOW-NWT 50x5,elapsed_seconds:1728000,state_snapshot,39,39,1728000.0,0,10.048908127971474,,
+lu_boundary_step_same_support,head_east_response,watertable_elevation,point,m,modflownwt,MODFLOW-NWT 50x5,elapsed_seconds:43200,state_snapshot,0,0,43200.0,0,10.000692366476766,,
+lu_boundary_step_same_support,head_east_response,watertable_elevation,point,m,modflownwt,MODFLOW-NWT 50x5,elapsed_seconds:86400,state_snapshot,1,1,86400.0,0,10.001976386123982,,
+lu_boundary_step_same_support,head_east_response,watertable_elevation,point,m,modflownwt,MODFLOW-NWT 50x5,elapsed_seconds:129600,state_snapshot,2,2,129600.0,0,10.003404749498355,,
+lu_boundary_step_same_support,head_east_response,watertable_elevation,point,m,modflownwt,MODFLOW-NWT 50x5,elapsed_seconds:172800,state_snapshot,3,3,172800.0,0,10.004677436674486,,
+lu_boundary_step_same_support,head_east_response,watertable_elevation,point,m,modflownwt,MODFLOW-NWT 50x5,elapsed_seconds:216000,state_snapshot,4,4,216000.0,0,10.005668588018544,,
+lu_boundary_step_same_support,head_east_response,watertable_elevation,point,m,modflownwt,MODFLOW-NWT 50x5,elapsed_seconds:259200,state_snapshot,5,5,259200.0,0,10.006413299443834,,
+lu_boundary_step_same_support,head_east_response,watertable_elevation,point,m,modflownwt,MODFLOW-NWT 50x5,elapsed_seconds:302400,state_snapshot,6,6,302400.0,0,10.00695687537049,,
+lu_boundary_step_same_support,head_east_response,watertable_elevation,point,m,modflownwt,MODFLOW-NWT 50x5,elapsed_seconds:345600,state_snapshot,7,7,345600.0,0,10.007339112534963,,
+lu_boundary_step_same_support,head_east_response,watertable_elevation,point,m,modflownwt,MODFLOW-NWT 50x5,elapsed_seconds:388800,state_snapshot,8,8,388800.0,0,10.00760292687944,,
+lu_boundary_step_same_support,head_east_response,watertable_elevation,point,m,modflownwt,MODFLOW-NWT 50x5,elapsed_seconds:432000,state_snapshot,9,9,432000.0,0,10.007784315390435,,
+lu_boundary_step_same_support,head_east_response,watertable_elevation,point,m,modflownwt,MODFLOW-NWT 50x5,elapsed_seconds:475200,state_snapshot,10,10,475200.0,0,10.007912632368525,,
+lu_boundary_step_same_support,head_east_response,watertable_elevation,point,m,modflownwt,MODFLOW-NWT 50x5,elapsed_seconds:518400,state_snapshot,11,11,518400.0,0,10.008001205623353,,
+lu_boundary_step_same_support,head_east_response,watertable_elevation,point,m,modflownwt,MODFLOW-NWT 50x5,elapsed_seconds:561600,state_snapshot,12,12,561600.0,0,10.00804859397661,,
+lu_boundary_step_same_support,head_east_response,watertable_elevation,point,m,modflownwt,MODFLOW-NWT 50x5,elapsed_seconds:604800,state_snapshot,13,13,604800.0,0,10.008066147254127,,
+lu_boundary_step_same_support,head_east_response,watertable_elevation,point,m,modflownwt,MODFLOW-NWT 50x5,elapsed_seconds:648000,state_snapshot,14,14,648000.0,0,10.008080171436102,,
+lu_boundary_step_same_support,head_east_response,watertable_elevation,point,m,modflownwt,MODFLOW-NWT 50x5,elapsed_seconds:691200,state_snapshot,15,15,691200.0,0,10.008089585819016,,
+lu_boundary_step_same_support,head_east_response,watertable_elevation,point,m,modflownwt,MODFLOW-NWT 50x5,elapsed_seconds:734400,state_snapshot,16,16,734400.0,0,10.008097444173039,,
+lu_boundary_step_same_support,head_east_response,watertable_elevation,point,m,modflownwt,MODFLOW-NWT 50x5,elapsed_seconds:777600,state_snapshot,17,17,777600.0,0,10.008103777990977,,
+lu_boundary_step_same_support,head_east_response,watertable_elevation,point,m,modflownwt,MODFLOW-NWT 50x5,elapsed_seconds:820800,state_snapshot,18,18,820800.0,0,10.008109155125402,,
+lu_boundary_step_same_support,head_east_response,watertable_elevation,point,m,modflownwt,MODFLOW-NWT 50x5,elapsed_seconds:864000,state_snapshot,19,19,864000.0,0,10.008113746586204,,
+lu_boundary_step_same_support,head_east_response,watertable_elevation,point,m,modflownwt,MODFLOW-NWT 50x5,elapsed_seconds:907200,state_snapshot,20,20,907200.0,0,10.00811773115977,,
+lu_boundary_step_same_support,head_east_response,watertable_elevation,point,m,modflownwt,MODFLOW-NWT 50x5,elapsed_seconds:950400,state_snapshot,21,21,950400.0,0,10.008121230194337,,
+lu_boundary_step_same_support,head_east_response,watertable_elevation,point,m,modflownwt,MODFLOW-NWT 50x5,elapsed_seconds:993600,state_snapshot,22,22,993600.0,0,10.008124332653578,,
+lu_boundary_step_same_support,head_east_response,watertable_elevation,point,m,modflownwt,MODFLOW-NWT 50x5,elapsed_seconds:1036800,state_snapshot,23,23,1036800.0,0,10.008127107370052,,
+lu_boundary_step_same_support,head_east_response,watertable_elevation,point,m,modflownwt,MODFLOW-NWT 50x5,elapsed_seconds:1080000,state_snapshot,24,24,1080000.0,0,10.008129607444024,,
+lu_boundary_step_same_support,head_east_response,watertable_elevation,point,m,modflownwt,MODFLOW-NWT 50x5,elapsed_seconds:1123200,state_snapshot,25,25,1123200.0,0,10.008131874796415,,
+lu_boundary_step_same_support,head_east_response,watertable_elevation,point,m,modflownwt,MODFLOW-NWT 50x5,elapsed_seconds:1166400,state_snapshot,26,26,1166400.0,0,10.008133942977658,,
+lu_boundary_step_same_support,head_east_response,watertable_elevation,point,m,modflownwt,MODFLOW-NWT 50x5,elapsed_seconds:1209600,state_snapshot,27,27,1209600.0,0,10.008135839189507,,
+lu_boundary_step_same_support,head_east_response,watertable_elevation,point,m,modflownwt,MODFLOW-NWT 50x5,elapsed_seconds:1252800,state_snapshot,28,28,1252800.0,0,10.008137585741915,,
+lu_boundary_step_same_support,head_east_response,watertable_elevation,point,m,modflownwt,MODFLOW-NWT 50x5,elapsed_seconds:1296000,state_snapshot,29,29,1296000.0,0,10.008139201122782,,
+lu_boundary_step_same_support,head_east_response,watertable_elevation,point,m,modflownwt,MODFLOW-NWT 50x5,elapsed_seconds:1339200,state_snapshot,30,30,1339200.0,0,10.008140700796039,,
+lu_boundary_step_same_support,head_east_response,watertable_elevation,point,m,modflownwt,MODFLOW-NWT 50x5,elapsed_seconds:1382400,state_snapshot,31,31,1382400.0,0,10.008142097805948,,
+lu_boundary_step_same_support,head_east_response,watertable_elevation,point,m,modflownwt,MODFLOW-NWT 50x5,elapsed_seconds:1425600,state_snapshot,32,32,1425600.0,0,10.008143403240647,,
+lu_boundary_step_same_support,head_east_response,watertable_elevation,point,m,modflownwt,MODFLOW-NWT 50x5,elapsed_seconds:1468800,state_snapshot,33,33,1468800.0,0,10.00814462659197,,
+lu_boundary_step_same_support,head_east_response,watertable_elevation,point,m,modflownwt,MODFLOW-NWT 50x5,elapsed_seconds:1512000,state_snapshot,34,34,1512000.0,0,10.008145776037859,,
+lu_boundary_step_same_support,head_east_response,watertable_elevation,point,m,modflownwt,MODFLOW-NWT 50x5,elapsed_seconds:1555200,state_snapshot,35,35,1555200.0,0,10.008146858666247,,
+lu_boundary_step_same_support,head_east_response,watertable_elevation,point,m,modflownwt,MODFLOW-NWT 50x5,elapsed_seconds:1598400,state_snapshot,36,36,1598400.0,0,10.008147880654167,,
+lu_boundary_step_same_support,head_east_response,watertable_elevation,point,m,modflownwt,MODFLOW-NWT 50x5,elapsed_seconds:1641600,state_snapshot,37,37,1641600.0,0,10.008148847412262,,
+lu_boundary_step_same_support,head_east_response,watertable_elevation,point,m,modflownwt,MODFLOW-NWT 50x5,elapsed_seconds:1684800,state_snapshot,38,38,1684800.0,0,10.008149763702356,,
+lu_boundary_step_same_support,head_east_response,watertable_elevation,point,m,modflownwt,MODFLOW-NWT 50x5,elapsed_seconds:1728000,state_snapshot,39,39,1728000.0,0,10.008150633733763,,
+lu_boundary_step_same_support,head_west_response,watertable_elevation,point,m,modflow6,MODFLOW 6 50x5,elapsed_seconds:43200,state_snapshot,0,0,43200.0,0,10.061898693215799,,
+lu_boundary_step_same_support,head_west_response,watertable_elevation,point,m,modflow6,MODFLOW 6 50x5,elapsed_seconds:86400,state_snapshot,1,1,86400.0,0,10.076725376643592,,
+lu_boundary_step_same_support,head_west_response,watertable_elevation,point,m,modflow6,MODFLOW 6 50x5,elapsed_seconds:129600,state_snapshot,2,2,129600.0,0,10.082146078136233,,
+lu_boundary_step_same_support,head_west_response,watertable_elevation,point,m,modflow6,MODFLOW 6 50x5,elapsed_seconds:172800,state_snapshot,3,3,172800.0,0,10.084905699817378,,
+lu_boundary_step_same_support,head_west_response,watertable_elevation,point,m,modflow6,MODFLOW 6 50x5,elapsed_seconds:216000,state_snapshot,4,4,216000.0,0,10.086564065579989,,
+lu_boundary_step_same_support,head_west_response,watertable_elevation,point,m,modflow6,MODFLOW 6 50x5,elapsed_seconds:259200,state_snapshot,5,5,259200.0,0,10.087624142465042,,
+lu_boundary_step_same_support,head_west_response,watertable_elevation,point,m,modflow6,MODFLOW 6 50x5,elapsed_seconds:302400,state_snapshot,6,6,302400.0,0,10.088312899096529,,
+lu_boundary_step_same_support,head_west_response,watertable_elevation,point,m,modflow6,MODFLOW 6 50x5,elapsed_seconds:345600,state_snapshot,7,7,345600.0,0,10.088783948916397,,
+lu_boundary_step_same_support,head_west_response,watertable_elevation,point,m,modflow6,MODFLOW 6 50x5,elapsed_seconds:388800,state_snapshot,8,8,388800.0,0,10.08910798235515,,
+lu_boundary_step_same_support,head_west_response,watertable_elevation,point,m,modflow6,MODFLOW 6 50x5,elapsed_seconds:432000,state_snapshot,9,9,432000.0,0,10.089330618792356,,
+lu_boundary_step_same_support,head_west_response,watertable_elevation,point,m,modflow6,MODFLOW 6 50x5,elapsed_seconds:475200,state_snapshot,10,10,475200.0,0,10.089487829742508,,
+lu_boundary_step_same_support,head_west_response,watertable_elevation,point,m,modflow6,MODFLOW 6 50x5,elapsed_seconds:518400,state_snapshot,11,11,518400.0,0,10.089596460699672,,
+lu_boundary_step_same_support,head_west_response,watertable_elevation,point,m,modflow6,MODFLOW 6 50x5,elapsed_seconds:561600,state_snapshot,12,12,561600.0,0,10.08965484105685,,
+lu_boundary_step_same_support,head_west_response,watertable_elevation,point,m,modflow6,MODFLOW 6 50x5,elapsed_seconds:604800,state_snapshot,13,13,604800.0,0,10.089676791133591,,
+lu_boundary_step_same_support,head_west_response,watertable_elevation,point,m,modflow6,MODFLOW 6 50x5,elapsed_seconds:648000,state_snapshot,14,14,648000.0,0,10.089694004132987,,
+lu_boundary_step_same_support,head_west_response,watertable_elevation,point,m,modflow6,MODFLOW 6 50x5,elapsed_seconds:691200,state_snapshot,15,15,691200.0,0,10.089705563152714,,
+lu_boundary_step_same_support,head_west_response,watertable_elevation,point,m,modflow6,MODFLOW 6 50x5,elapsed_seconds:734400,state_snapshot,16,16,734400.0,0,10.089715134442201,,
+lu_boundary_step_same_support,head_west_response,watertable_elevation,point,m,modflow6,MODFLOW 6 50x5,elapsed_seconds:777600,state_snapshot,17,17,777600.0,0,10.089722896344066,,
+lu_boundary_step_same_support,head_west_response,watertable_elevation,point,m,modflow6,MODFLOW 6 50x5,elapsed_seconds:820800,state_snapshot,18,18,820800.0,0,10.089729459530798,,
+lu_boundary_step_same_support,head_west_response,watertable_elevation,point,m,modflow6,MODFLOW 6 50x5,elapsed_seconds:864000,state_snapshot,19,19,864000.0,0,10.089735073171504,,
+lu_boundary_step_same_support,head_west_response,watertable_elevation,point,m,modflow6,MODFLOW 6 50x5,elapsed_seconds:907200,state_snapshot,20,20,907200.0,0,10.089739941682636,,
+lu_boundary_step_same_support,head_west_response,watertable_elevation,point,m,modflow6,MODFLOW 6 50x5,elapsed_seconds:950400,state_snapshot,21,21,950400.0,0,10.089744217383437,,
+lu_boundary_step_same_support,head_west_response,watertable_elevation,point,m,modflow6,MODFLOW 6 50x5,elapsed_seconds:993600,state_snapshot,22,22,993600.0,0,10.089748008232233,,
+lu_boundary_step_same_support,head_west_response,watertable_elevation,point,m,modflow6,MODFLOW 6 50x5,elapsed_seconds:1036800,state_snapshot,23,23,1036800.0,0,10.089751398538407,,
+lu_boundary_step_same_support,head_west_response,watertable_elevation,point,m,modflow6,MODFLOW 6 50x5,elapsed_seconds:1080000,state_snapshot,24,24,1080000.0,0,10.089754453194857,,
+lu_boundary_step_same_support,head_west_response,watertable_elevation,point,m,modflow6,MODFLOW 6 50x5,elapsed_seconds:1123200,state_snapshot,25,25,1123200.0,0,10.08975722345036,,
+lu_boundary_step_same_support,head_west_response,watertable_elevation,point,m,modflow6,MODFLOW 6 50x5,elapsed_seconds:1166400,state_snapshot,26,26,1166400.0,0,10.089759750314892,,
+lu_boundary_step_same_support,head_west_response,watertable_elevation,point,m,modflow6,MODFLOW 6 50x5,elapsed_seconds:1209600,state_snapshot,27,27,1209600.0,0,10.089762067036403,,
+lu_boundary_step_same_support,head_west_response,watertable_elevation,point,m,modflow6,MODFLOW 6 50x5,elapsed_seconds:1252800,state_snapshot,28,28,1252800.0,0,10.08976420088235,,
+lu_boundary_step_same_support,head_west_response,watertable_elevation,point,m,modflow6,MODFLOW 6 50x5,elapsed_seconds:1296000,state_snapshot,29,29,1296000.0,0,10.08976617444775,,
+lu_boundary_step_same_support,head_west_response,watertable_elevation,point,m,modflow6,MODFLOW 6 50x5,elapsed_seconds:1339200,state_snapshot,30,30,1339200.0,0,10.089768006631214,,
+lu_boundary_step_same_support,head_west_response,watertable_elevation,point,m,modflow6,MODFLOW 6 50x5,elapsed_seconds:1382400,state_snapshot,31,31,1382400.0,0,10.089769713373745,,
+lu_boundary_step_same_support,head_west_response,watertable_elevation,point,m,modflow6,MODFLOW 6 50x5,elapsed_seconds:1425600,state_snapshot,32,32,1425600.0,0,10.089771308225396,,
+lu_boundary_step_same_support,head_west_response,watertable_elevation,point,m,modflow6,MODFLOW 6 50x5,elapsed_seconds:1468800,state_snapshot,33,33,1468800.0,0,10.089772802785205,,
+lu_boundary_step_same_support,head_west_response,watertable_elevation,point,m,modflow6,MODFLOW 6 50x5,elapsed_seconds:1512000,state_snapshot,34,34,1512000.0,0,10.08977420704641,,
+lu_boundary_step_same_support,head_west_response,watertable_elevation,point,m,modflow6,MODFLOW 6 50x5,elapsed_seconds:1555200,state_snapshot,35,35,1555200.0,0,10.08977552967011,,
+lu_boundary_step_same_support,head_west_response,watertable_elevation,point,m,modflow6,MODFLOW 6 50x5,elapsed_seconds:1598400,state_snapshot,36,36,1598400.0,0,10.08977677820416,,
+lu_boundary_step_same_support,head_west_response,watertable_elevation,point,m,modflow6,MODFLOW 6 50x5,elapsed_seconds:1641600,state_snapshot,37,37,1641600.0,0,10.08977795925988,,
+lu_boundary_step_same_support,head_west_response,watertable_elevation,point,m,modflow6,MODFLOW 6 50x5,elapsed_seconds:1684800,state_snapshot,38,38,1684800.0,0,10.089779078655688,,
+lu_boundary_step_same_support,head_west_response,watertable_elevation,point,m,modflow6,MODFLOW 6 50x5,elapsed_seconds:1728000,state_snapshot,39,39,1728000.0,0,10.089780141534826,,
+lu_boundary_step_same_support,head_mid_response,watertable_elevation,point,m,modflow6,MODFLOW 6 50x5,elapsed_seconds:43200,state_snapshot,0,0,43200.0,0,10.00890750656186,,
+lu_boundary_step_same_support,head_mid_response,watertable_elevation,point,m,modflow6,MODFLOW 6 50x5,elapsed_seconds:86400,state_snapshot,1,1,86400.0,0,10.019470675025135,,
+lu_boundary_step_same_support,head_mid_response,watertable_elevation,point,m,modflow6,MODFLOW 6 50x5,elapsed_seconds:129600,state_snapshot,2,2,129600.0,0,10.028133026944904,,
+lu_boundary_step_same_support,head_mid_response,watertable_elevation,point,m,modflow6,MODFLOW 6 50x5,elapsed_seconds:172800,state_snapshot,3,3,172800.0,0,10.034478739999837,,
+lu_boundary_step_same_support,head_mid_response,watertable_elevation,point,m,modflow6,MODFLOW 6 50x5,elapsed_seconds:216000,state_snapshot,4,4,216000.0,0,10.038938304609655,,
+lu_boundary_step_same_support,head_mid_response,watertable_elevation,point,m,modflow6,MODFLOW 6 50x5,elapsed_seconds:259200,state_snapshot,5,5,259200.0,0,10.042059134738025,,
+lu_boundary_step_same_support,head_mid_response,watertable_elevation,point,m,modflow6,MODFLOW 6 50x5,elapsed_seconds:302400,state_snapshot,6,6,302400.0,0,10.044227119075199,,
+lu_boundary_step_same_support,head_mid_response,watertable_elevation,point,m,modflow6,MODFLOW 6 50x5,elapsed_seconds:345600,state_snapshot,7,7,345600.0,0,10.045726730384862,,
+lu_boundary_step_same_support,head_mid_response,watertable_elevation,point,m,modflow6,MODFLOW 6 50x5,elapsed_seconds:388800,state_snapshot,8,8,388800.0,0,10.046761759717297,,
+lu_boundary_step_same_support,head_mid_response,watertable_elevation,point,m,modflow6,MODFLOW 6 50x5,elapsed_seconds:432000,state_snapshot,9,9,432000.0,0,10.047472429925126,,
+lu_boundary_step_same_support,head_mid_response,watertable_elevation,point,m,modflow6,MODFLOW 6 50x5,elapsed_seconds:475200,state_snapshot,10,10,475200.0,0,10.047975075255103,,
+lu_boundary_step_same_support,head_mid_response,watertable_elevation,point,m,modflow6,MODFLOW 6 50x5,elapsed_seconds:518400,state_snapshot,11,11,518400.0,0,10.048322003484364,,
+lu_boundary_step_same_support,head_mid_response,watertable_elevation,point,m,modflow6,MODFLOW 6 50x5,elapsed_seconds:561600,state_snapshot,12,12,561600.0,0,10.048508125489082,,
+lu_boundary_step_same_support,head_mid_response,watertable_elevation,point,m,modflow6,MODFLOW 6 50x5,elapsed_seconds:604800,state_snapshot,13,13,604800.0,0,10.048577584209983,,
+lu_boundary_step_same_support,head_mid_response,watertable_elevation,point,m,modflow6,MODFLOW 6 50x5,elapsed_seconds:648000,state_snapshot,14,14,648000.0,0,10.048632590698372,,
+lu_boundary_step_same_support,head_mid_response,watertable_elevation,point,m,modflow6,MODFLOW 6 50x5,elapsed_seconds:691200,state_snapshot,15,15,691200.0,0,10.048669460922124,,
+lu_boundary_step_same_support,head_mid_response,watertable_elevation,point,m,modflow6,MODFLOW 6 50x5,elapsed_seconds:734400,state_snapshot,16,16,734400.0,0,10.048700145921446,,
+lu_boundary_step_same_support,head_mid_response,watertable_elevation,point,m,modflow6,MODFLOW 6 50x5,elapsed_seconds:777600,state_snapshot,17,17,777600.0,0,10.048724938888077,,
+lu_boundary_step_same_support,head_mid_response,watertable_elevation,point,m,modflow6,MODFLOW 6 50x5,elapsed_seconds:820800,state_snapshot,18,18,820800.0,0,10.048745954414224,,
+lu_boundary_step_same_support,head_mid_response,watertable_elevation,point,m,modflow6,MODFLOW 6 50x5,elapsed_seconds:864000,state_snapshot,19,19,864000.0,0,10.048763909868397,,
+lu_boundary_step_same_support,head_mid_response,watertable_elevation,point,m,modflow6,MODFLOW 6 50x5,elapsed_seconds:907200,state_snapshot,20,20,907200.0,0,10.048779489078965,,
+lu_boundary_step_same_support,head_mid_response,watertable_elevation,point,m,modflow6,MODFLOW 6 50x5,elapsed_seconds:950400,state_snapshot,21,21,950400.0,0,10.048793170036948,,
+lu_boundary_step_same_support,head_mid_response,watertable_elevation,point,m,modflow6,MODFLOW 6 50x5,elapsed_seconds:993600,state_snapshot,22,22,993600.0,0,10.048805300169697,,
+lu_boundary_step_same_support,head_mid_response,watertable_elevation,point,m,modflow6,MODFLOW 6 50x5,elapsed_seconds:1036800,state_snapshot,23,23,1036800.0,0,10.048816148761214,,
+lu_boundary_step_same_support,head_mid_response,watertable_elevation,point,m,modflow6,MODFLOW 6 50x5,elapsed_seconds:1080000,state_snapshot,24,24,1080000.0,0,10.048825923445941,,
+lu_boundary_step_same_support,head_mid_response,watertable_elevation,point,m,modflow6,MODFLOW 6 50x5,elapsed_seconds:1123200,state_snapshot,25,25,1123200.0,0,10.048834788165113,,
+lu_boundary_step_same_support,head_mid_response,watertable_elevation,point,m,modflow6,MODFLOW 6 50x5,elapsed_seconds:1166400,state_snapshot,26,26,1166400.0,0,10.048842874116724,,
+lu_boundary_step_same_support,head_mid_response,watertable_elevation,point,m,modflow6,MODFLOW 6 50x5,elapsed_seconds:1209600,state_snapshot,27,27,1209600.0,0,10.048850287670351,,
+lu_boundary_step_same_support,head_mid_response,watertable_elevation,point,m,modflow6,MODFLOW 6 50x5,elapsed_seconds:1252800,state_snapshot,28,28,1252800.0,0,10.04885711606493,,
+lu_boundary_step_same_support,head_mid_response,watertable_elevation,point,m,modflow6,MODFLOW 6 50x5,elapsed_seconds:1296000,state_snapshot,29,29,1296000.0,0,10.04886343159244,,
+lu_boundary_step_same_support,head_mid_response,watertable_elevation,point,m,modflow6,MODFLOW 6 50x5,elapsed_seconds:1339200,state_snapshot,30,30,1339200.0,0,10.04886929471957,,
+lu_boundary_step_same_support,head_mid_response,watertable_elevation,point,m,modflow6,MODFLOW 6 50x5,elapsed_seconds:1382400,state_snapshot,31,31,1382400.0,0,10.048874756450978,,
+lu_boundary_step_same_support,head_mid_response,watertable_elevation,point,m,modflow6,MODFLOW 6 50x5,elapsed_seconds:1425600,state_snapshot,32,32,1425600.0,0,10.048879860142037,,
+lu_boundary_step_same_support,head_mid_response,watertable_elevation,point,m,modflow6,MODFLOW 6 50x5,elapsed_seconds:1468800,state_snapshot,33,33,1468800.0,0,10.048884642906062,,
+lu_boundary_step_same_support,head_mid_response,watertable_elevation,point,m,modflow6,MODFLOW 6 50x5,elapsed_seconds:1512000,state_snapshot,34,34,1512000.0,0,10.048889136718705,,
+lu_boundary_step_same_support,head_mid_response,watertable_elevation,point,m,modflow6,MODFLOW 6 50x5,elapsed_seconds:1555200,state_snapshot,35,35,1555200.0,0,10.048893369293408,,
+lu_boundary_step_same_support,head_mid_response,watertable_elevation,point,m,modflow6,MODFLOW 6 50x5,elapsed_seconds:1598400,state_snapshot,36,36,1598400.0,0,10.04889736478183,,
+lu_boundary_step_same_support,head_mid_response,watertable_elevation,point,m,modflow6,MODFLOW 6 50x5,elapsed_seconds:1641600,state_snapshot,37,37,1641600.0,0,10.048901144338982,,
+lu_boundary_step_same_support,head_mid_response,watertable_elevation,point,m,modflow6,MODFLOW 6 50x5,elapsed_seconds:1684800,state_snapshot,38,38,1684800.0,0,10.048904726582954,,
+lu_boundary_step_same_support,head_mid_response,watertable_elevation,point,m,modflow6,MODFLOW 6 50x5,elapsed_seconds:1728000,state_snapshot,39,39,1728000.0,0,10.048908127971474,,
+lu_boundary_step_same_support,head_east_response,watertable_elevation,point,m,modflow6,MODFLOW 6 50x5,elapsed_seconds:43200,state_snapshot,0,0,43200.0,0,10.000692366476766,,
+lu_boundary_step_same_support,head_east_response,watertable_elevation,point,m,modflow6,MODFLOW 6 50x5,elapsed_seconds:86400,state_snapshot,1,1,86400.0,0,10.001976386123982,,
+lu_boundary_step_same_support,head_east_response,watertable_elevation,point,m,modflow6,MODFLOW 6 50x5,elapsed_seconds:129600,state_snapshot,2,2,129600.0,0,10.003404749498355,,
+lu_boundary_step_same_support,head_east_response,watertable_elevation,point,m,modflow6,MODFLOW 6 50x5,elapsed_seconds:172800,state_snapshot,3,3,172800.0,0,10.004677436674486,,
+lu_boundary_step_same_support,head_east_response,watertable_elevation,point,m,modflow6,MODFLOW 6 50x5,elapsed_seconds:216000,state_snapshot,4,4,216000.0,0,10.005668588018544,,
+lu_boundary_step_same_support,head_east_response,watertable_elevation,point,m,modflow6,MODFLOW 6 50x5,elapsed_seconds:259200,state_snapshot,5,5,259200.0,0,10.006413299443834,,
+lu_boundary_step_same_support,head_east_response,watertable_elevation,point,m,modflow6,MODFLOW 6 50x5,elapsed_seconds:302400,state_snapshot,6,6,302400.0,0,10.00695687537049,,
+lu_boundary_step_same_support,head_east_response,watertable_elevation,point,m,modflow6,MODFLOW 6 50x5,elapsed_seconds:345600,state_snapshot,7,7,345600.0,0,10.007339112534963,,
+lu_boundary_step_same_support,head_east_response,watertable_elevation,point,m,modflow6,MODFLOW 6 50x5,elapsed_seconds:388800,state_snapshot,8,8,388800.0,0,10.00760292687944,,
+lu_boundary_step_same_support,head_east_response,watertable_elevation,point,m,modflow6,MODFLOW 6 50x5,elapsed_seconds:432000,state_snapshot,9,9,432000.0,0,10.007784315390435,,
+lu_boundary_step_same_support,head_east_response,watertable_elevation,point,m,modflow6,MODFLOW 6 50x5,elapsed_seconds:475200,state_snapshot,10,10,475200.0,0,10.007912632368525,,
+lu_boundary_step_same_support,head_east_response,watertable_elevation,point,m,modflow6,MODFLOW 6 50x5,elapsed_seconds:518400,state_snapshot,11,11,518400.0,0,10.008001205623353,,
+lu_boundary_step_same_support,head_east_response,watertable_elevation,point,m,modflow6,MODFLOW 6 50x5,elapsed_seconds:561600,state_snapshot,12,12,561600.0,0,10.00804859397661,,
+lu_boundary_step_same_support,head_east_response,watertable_elevation,point,m,modflow6,MODFLOW 6 50x5,elapsed_seconds:604800,state_snapshot,13,13,604800.0,0,10.008066147254127,,
+lu_boundary_step_same_support,head_east_response,watertable_elevation,point,m,modflow6,MODFLOW 6 50x5,elapsed_seconds:648000,state_snapshot,14,14,648000.0,0,10.008080171436102,,
+lu_boundary_step_same_support,head_east_response,watertable_elevation,point,m,modflow6,MODFLOW 6 50x5,elapsed_seconds:691200,state_snapshot,15,15,691200.0,0,10.008089585819016,,
+lu_boundary_step_same_support,head_east_response,watertable_elevation,point,m,modflow6,MODFLOW 6 50x5,elapsed_seconds:734400,state_snapshot,16,16,734400.0,0,10.008097444173039,,
+lu_boundary_step_same_support,head_east_response,watertable_elevation,point,m,modflow6,MODFLOW 6 50x5,elapsed_seconds:777600,state_snapshot,17,17,777600.0,0,10.008103777990977,,
+lu_boundary_step_same_support,head_east_response,watertable_elevation,point,m,modflow6,MODFLOW 6 50x5,elapsed_seconds:820800,state_snapshot,18,18,820800.0,0,10.008109155125402,,
+lu_boundary_step_same_support,head_east_response,watertable_elevation,point,m,modflow6,MODFLOW 6 50x5,elapsed_seconds:864000,state_snapshot,19,19,864000.0,0,10.008113746586204,,
+lu_boundary_step_same_support,head_east_response,watertable_elevation,point,m,modflow6,MODFLOW 6 50x5,elapsed_seconds:907200,state_snapshot,20,20,907200.0,0,10.00811773115977,,
+lu_boundary_step_same_support,head_east_response,watertable_elevation,point,m,modflow6,MODFLOW 6 50x5,elapsed_seconds:950400,state_snapshot,21,21,950400.0,0,10.008121230194337,,
+lu_boundary_step_same_support,head_east_response,watertable_elevation,point,m,modflow6,MODFLOW 6 50x5,elapsed_seconds:993600,state_snapshot,22,22,993600.0,0,10.008124332653578,,
+lu_boundary_step_same_support,head_east_response,watertable_elevation,point,m,modflow6,MODFLOW 6 50x5,elapsed_seconds:1036800,state_snapshot,23,23,1036800.0,0,10.008127107370052,,
+lu_boundary_step_same_support,head_east_response,watertable_elevation,point,m,modflow6,MODFLOW 6 50x5,elapsed_seconds:1080000,state_snapshot,24,24,1080000.0,0,10.008129607444024,,
+lu_boundary_step_same_support,head_east_response,watertable_elevation,point,m,modflow6,MODFLOW 6 50x5,elapsed_seconds:1123200,state_snapshot,25,25,1123200.0,0,10.008131874796415,,
+lu_boundary_step_same_support,head_east_response,watertable_elevation,point,m,modflow6,MODFLOW 6 50x5,elapsed_seconds:1166400,state_snapshot,26,26,1166400.0,0,10.008133942977658,,
+lu_boundary_step_same_support,head_east_response,watertable_elevation,point,m,modflow6,MODFLOW 6 50x5,elapsed_seconds:1209600,state_snapshot,27,27,1209600.0,0,10.008135839189507,,
+lu_boundary_step_same_support,head_east_response,watertable_elevation,point,m,modflow6,MODFLOW 6 50x5,elapsed_seconds:1252800,state_snapshot,28,28,1252800.0,0,10.008137585741915,,
+lu_boundary_step_same_support,head_east_response,watertable_elevation,point,m,modflow6,MODFLOW 6 50x5,elapsed_seconds:1296000,state_snapshot,29,29,1296000.0,0,10.008139201122782,,
+lu_boundary_step_same_support,head_east_response,watertable_elevation,point,m,modflow6,MODFLOW 6 50x5,elapsed_seconds:1339200,state_snapshot,30,30,1339200.0,0,10.008140700796039,,
+lu_boundary_step_same_support,head_east_response,watertable_elevation,point,m,modflow6,MODFLOW 6 50x5,elapsed_seconds:1382400,state_snapshot,31,31,1382400.0,0,10.008142097805948,,
+lu_boundary_step_same_support,head_east_response,watertable_elevation,point,m,modflow6,MODFLOW 6 50x5,elapsed_seconds:1425600,state_snapshot,32,32,1425600.0,0,10.008143403240647,,
+lu_boundary_step_same_support,head_east_response,watertable_elevation,point,m,modflow6,MODFLOW 6 50x5,elapsed_seconds:1468800,state_snapshot,33,33,1468800.0,0,10.00814462659197,,
+lu_boundary_step_same_support,head_east_response,watertable_elevation,point,m,modflow6,MODFLOW 6 50x5,elapsed_seconds:1512000,state_snapshot,34,34,1512000.0,0,10.008145776037859,,
+lu_boundary_step_same_support,head_east_response,watertable_elevation,point,m,modflow6,MODFLOW 6 50x5,elapsed_seconds:1555200,state_snapshot,35,35,1555200.0,0,10.008146858666247,,
+lu_boundary_step_same_support,head_east_response,watertable_elevation,point,m,modflow6,MODFLOW 6 50x5,elapsed_seconds:1598400,state_snapshot,36,36,1598400.0,0,10.008147880654167,,
+lu_boundary_step_same_support,head_east_response,watertable_elevation,point,m,modflow6,MODFLOW 6 50x5,elapsed_seconds:1641600,state_snapshot,37,37,1641600.0,0,10.008148847412262,,
+lu_boundary_step_same_support,head_east_response,watertable_elevation,point,m,modflow6,MODFLOW 6 50x5,elapsed_seconds:1684800,state_snapshot,38,38,1684800.0,0,10.008149763702356,,
+lu_boundary_step_same_support,head_east_response,watertable_elevation,point,m,modflow6,MODFLOW 6 50x5,elapsed_seconds:1728000,state_snapshot,39,39,1728000.0,0,10.008150633733763,,

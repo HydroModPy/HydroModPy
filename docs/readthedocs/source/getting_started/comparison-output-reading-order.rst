@@ -21,6 +21,27 @@ One comparison run usually leaves two kinds of artifacts:
 The comparison output folder is the right place to start. Its role is to make
 the evidence readable without reopening each child simulation manually.
 
+Persistence Model
+-----------------
+
+Child simulations keep the normal HydroModPy persistence model: simulation
+metadata are stored in the workspace/project catalog, while fields and tabular
+products live in the result storage controlled by that catalog.
+
+The comparison folder is different. It is a post-processing layer above those
+runs, not a simulation run of its own. Its HTML, CSV, JSON, Markdown, and PNG
+files are therefore written as standalone artifacts under the comparison output
+root and indexed by ``comparison_manifest.json``.
+
+That means:
+
+- the child run results remain queryable through the simulation catalog;
+- comparison artifacts are discoverable from ``comparison_manifest.json``;
+- ``web/index.html`` is a human-readable entry point, not the source of truth;
+- if fleet-scale queries over many comparison reports become necessary, the
+  right extension is a dedicated comparison catalog rather than storing report
+  HTML and images inside the simulation catalog.
+
 Reading Order
 -------------
 
@@ -28,24 +49,27 @@ Reading Order
 
 Use the order above for a first pass.
 
-1. ``comparison_audit.md``
+1. ``web/index.html``
+   Open this first when it exists. It is the generated reading page that links
+   the audit, metrics, categorized figures, budget tables, and child outputs.
+2. ``comparison_audit.md``
    Read this first. It tells you whether the workflow still considers the
    child runs to be one comparable physical case.
-2. ``comparison_report.md``
+3. ``comparison_report.md``
    Read this next for context: reference variant, candidate variants,
    observables, and main outputs.
-3. ``comparison_figures/case_configuration.png``
+4. ``comparison_figures/case_configuration.png``
    Open this before judging numerical differences. It shows the support,
    topography when available, detected fixed-head boundaries, point/outlet
    observables, and recharge forcing.
-4. ``comparison_metrics.csv``
+5. ``comparison_metrics.csv``
    Use this to quantify the gap: bias, MAE, RMSE, and max error.
-5. ``comparison_figures/*triptych*.png``
+6. ``comparison_figures/*triptych*.png``
    Use the figures to see where the discrepancy is concentrated.
-6. ``hydrographic_network_metrics.csv``
+7. ``hydrographic_network_metrics.csv``
    Inspect this when the compared runs both expose canonical hydrographic
    networks and geometry matters to the question.
-7. ``comparison_manifest.json``
+8. ``comparison_manifest.json``
    Keep this for traceability. It is the index that points to the report,
    metrics, generated configs, and child run folders.
 
@@ -68,9 +92,10 @@ observable, or physical setup.
 Case Configuration Figure
 -------------------------
 
-``comparison_figures/case_configuration.png`` is the orientation view. It is
-not a solver result; it is a compact description of the case that produced the
-results.
+``comparison_figures/case_configuration.png`` is the orientation view. In the
+HTML report, it appears in the dedicated ``Configuration du cas`` section. It
+is not a solver result; it is a compact description of the case that produced
+the results.
 
 Use it to answer:
 
@@ -82,6 +107,16 @@ Use it to answer:
 
 Triptych Figures
 ----------------
+
+In ``web/index.html``, solver-output figures are grouped by category before
+being listed:
+
+- charges hydrauliques;
+- flux, drainage, surface excess and seepage;
+- budgets and balance diagnostics;
+- networks and spatial diagnostics;
+- performance;
+- uncategorized figures when no standard rule applies.
 
 The most useful visual artifact is usually one triptych image:
 
@@ -127,6 +162,42 @@ Use the metrics file to answer magnitude questions before making causal claims.
    * - Max error
      - Flag the worst local mismatch
      - One peak does not mean the whole field is poor
+
+Time Columns In CSV Files
+-------------------------
+
+When reading ``observables.csv``, ``timeseries_long.csv``,
+``comparison_differences.csv``, or ``budget_timeseries_long.csv``, first check
+``time_role``.
+
+- ``initial_state`` is the explicit state before the first transient period.
+- ``state_snapshot`` is an instantaneous state such as head or watertable.
+- ``period_value`` is an interval value such as recharge, drainage, or a budget
+  component.
+- ``reduced`` is a statistic computed from several time rows.
+
+For ``period_value`` rows, ``elapsed_seconds`` is the end of the period. Budget
+exports also carry ``period_index``, ``period_start_seconds``, and
+``period_end_seconds`` so that interval quantities are not confused with
+instantaneous states.
+
+Comparable Outflow
+------------------
+
+For transient MODFLOW/Boussinesq comparisons, do not read drainage and surface
+excess as interchangeable native variables.
+
+- ``drainage_total_m3_s`` is the outflow through the drainage operator.
+- ``surface_excess_total_m3_s`` is the outflow associated with saturation or
+  surface excess when the backend exposes it.
+- ``comparable_outflow_total_m3_s`` is a post-processed comparison quantity:
+  ``drainage_total_m3_s + surface_excess_total_m3_s`` with missing components
+  treated as zero.
+
+Use ``comparison_figures/comparable_outflow_dashboard.png`` and
+``budget_timeseries_wide.csv`` when the question is "how much water leaves the
+groundwater system?" Keep the native components visible when the question is
+"which numerical mechanism produced the outflow?"
 
 Synthetic Shared-Mesh Case
 --------------------------

@@ -16,6 +16,13 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 from uuid import UUID
 
+from hydromodpy.results.storage_contract import (
+    PARQUET_DIR_SUFFIX,
+    PARQUET_FILE_SUFFIX,
+    ZARR_SUFFIX,
+    ZARR_ZIP_SUFFIX,
+)
+
 if TYPE_CHECKING:
     import duckdb
 
@@ -114,16 +121,16 @@ class StoragePathResolver:
 
     def parquet_dir_for(self, sim_id: str | UUID) -> Path:
         """Return the per-simulation Parquet directory (may not yet exist)."""
-        return self._simulations_dir / f"{self.basename_for(sim_id)}.parquet"
+        return self._simulations_dir / f"{self.basename_for(sim_id)}{PARQUET_DIR_SUFFIX}"
 
     def parquet_path_for(self, sim_id: str | UUID, view_name: str) -> Path:
         """Return the Parquet file path for ``view_name`` under ``sim_id``."""
-        return self.parquet_dir_for(sim_id) / f"{view_name}.parquet"
+        return self.parquet_dir_for(sim_id) / f"{view_name}{PARQUET_FILE_SUFFIX}"
 
     def zarr_path_for(self, sim_id: str | UUID) -> Path:
         """Return the Zarr artefact path on disk (``.zarr.zip`` if packed)."""
         basename = self.basename_for(sim_id)
-        zipped = self._simulations_dir / f"{basename}.zarr.zip"
+        zipped = self._simulations_dir / f"{basename}{ZARR_ZIP_SUFFIX}"
         if zipped.exists():
             return zipped
-        return self._simulations_dir / f"{basename}.zarr"
+        return self._simulations_dir / f"{basename}{ZARR_SUFFIX}"

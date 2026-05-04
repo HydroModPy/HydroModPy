@@ -39,21 +39,23 @@ workspace/
 │   ├── cache.duckdb
 │   └── <variable>/
 ├── simulations/
-│   ├── <uuid>.zarr/               # spatial fields (unchanged)
-│   ├── <uuid>.zarr.zip            # packed Zarr after finalize (unchanged)
-│   └── <uuid>.parquet/
+│   ├── <basename>.zarr/           # spatial fields
+│   ├── <basename>.zarr.zip        # packed Zarr after finalize
+│   └── <basename>.parquet/
 │       ├── timeseries.parquet
 │       ├── budgets.parquet
 │       └── mass_balance.parquet
 └── projects/
 ```
 
-The Zarr layout is unchanged. The `.parquet` suffix on the per-sim
-directory lets the view glob pick up Parquet files without ever matching
-a Zarr directory by accident.
+The per-simulation basename comes from `simulations.storage_basename`
+(`project_slug__name_slug__short_uuid`). Legacy rows with
+`storage_basename NULL` fall back to the raw UUID. The `.parquet` suffix
+lets the view glob pick up Parquet files without ever matching a Zarr
+directory by accident.
 
 A simulation with no time series (e.g. an overview-only run) has no
-`<uuid>.parquet/` directory. The view glob tolerates this.
+`<basename>.parquet/` directory. The view glob tolerates this.
 
 ## SQL surface
 
@@ -101,16 +103,18 @@ SQL tables. No casts are needed on the read path.
 
 A crash mid-write leaves a `.tmp` file behind. Because the glob only
 matches `*.parquet`, nothing in the `.tmp` file is visible through the
-view. The orphan is harmless; `hmp doctor` can be extended to prune it.
+view. The orphan is harmless and `hmp doctor` reports it as
+`results:parquet_tmp` for manual cleanup.
 
 ## Concurrency model
 
-Each per-sim Parquet file lives under its own `<uuid>.parquet/`
+Each per-sim Parquet file lives under its own `<basename>.parquet/`
 directory, so two writers targeting different sims never contend on
 disk. They do still share the DuckDB catalog file, which is the
-single-writer lock point. `connect_with_retry` in `_db_retry.py` loops
-with exponential backoff over `duckdb.IOException` at connect time, and
-`@with_lock_retry` does the same on `execute()` calls for write methods.
+single-writer lock point. `connect_with_retry` in
+`hydromodpy.core.io.db_retry` loops with exponential backoff over
+`duckdb.IOException` at connect time, and `@with_lock_retry` does the same
+on `execute()` calls for write methods.
 
 Read-only queries never hit the retry path: a reader that collides with
 a writer raises naturally and the caller can retry.
@@ -125,15 +129,15 @@ has `key=value` directories. We evaluated that but rejected it because:
 
 - The partition column (`sim_id`) is already a column inside each
   Parquet file, so hive path components would duplicate it.
-- Naming the per-sim directory `sim_id=<uuid>` collides aesthetically
-  with the existing `<uuid>.zarr/` directory and adds a layer of
-  ceremony. Keeping the suffix `.parquet` on a plain UUID dir is
-  enough to disambiguate from Zarr.
+- Naming the per-sim directory `sim_id=<uuid>` would add a partition-style
+  layer while `sim_id` is already a column inside each file. Keeping the
+  suffix `.parquet` on the simulation basename is enough to disambiguate
+  from Zarr.
 - At our scale (thousands of sims, not millions) DuckDB's row-group
   statistics in the Parquet footer give enough predicate pushdown on
   `WHERE sim_id = ?` that partition pruning by path would not change
   query times noticeably.
 
 If that ever becomes a real bottleneck, moving the layout to
-`simulations/sim_id=<uuid>/timeseries.parquet` is a drop-in change
-handled inside `_glob_for_view` and the writer's `_parquet_dir_for`.
+`simulations/sim_id=<uuid>/timeseries.parquet` is a localized change handled
+inside `_glob_for_view` and `StoragePathResolver.parquet_dir_for`.

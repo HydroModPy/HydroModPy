@@ -19,9 +19,9 @@ _DEFAULT_REQUIRED_FILES = (
 
 @dataclass(frozen=True)
 class ComparisonMetricLimit:
-    """Numerical limits for one variant/observable metric row."""
+    """Numerical limits for one simulation/observable metric row."""
 
-    variant_id: str
+    simulation_id: str
     observable: str
     limits: dict[str, float]
     n_pairs_min: int | None = None
@@ -36,7 +36,7 @@ class ComparisonStabilityTarget:
     allowed_audit_status: tuple[str, ...] = ("pass",)
     required_files: tuple[str, ...] = _DEFAULT_REQUIRED_FILES
     required_figures: tuple[str, ...] = ()
-    required_variants: tuple[str, ...] = ()
+    required_simulations: tuple[str, ...] = ()
     metric_limits: tuple[ComparisonMetricLimit, ...] = ()
 
 
@@ -119,7 +119,9 @@ def load_stability_targets(
                     payload.get("required_files", _DEFAULT_REQUIRED_FILES)
                 ),
                 required_figures=_as_string_tuple(payload.get("required_figures", [])),
-                required_variants=_as_string_tuple(payload.get("required_variants", [])),
+                required_simulations=_as_string_tuple(
+                    payload.get("required_simulations", [])
+                ),
                 metric_limits=metric_limits,
             )
         )
@@ -176,9 +178,11 @@ def validate_stability_target(
             f"{audit_status!r} is not in allowed_audit_status={target.allowed_audit_status!r}"
         )
 
-    manifest = _load_json_if_present(target.comparison_root / "comparison_manifest.json")
-    if target.required_variants:
-        _check_required_variants(
+    manifest = _load_json_if_present(
+        target.comparison_root / "comparison_manifest.json"
+    )
+    if target.required_simulations:
+        _check_required_simulations(
             target=target,
             manifest=manifest,
             add_error=add_error,
@@ -216,10 +220,12 @@ def _parse_metric_limit(
     case_id: str,
     payload: Mapping[str, Any],
 ) -> ComparisonMetricLimit:
-    variant_id = str(payload.get("variant_id", "")).strip()
+    simulation_id = str(payload.get("simulation_id", "")).strip()
     observable = str(payload.get("observable", "")).strip()
-    if not variant_id or not observable:
-        raise ValueError(f"Metric limit in case {case_id!r} must define variant_id and observable.")
+    if not simulation_id or not observable:
+        raise ValueError(
+            f"Metric limit in case {case_id!r} must define simulation_id and observable."
+        )
     limits: dict[str, float] = {}
     for key, value in payload.items():
         if not key.endswith("_max") or key == "n_pairs_min":
@@ -227,7 +233,7 @@ def _parse_metric_limit(
         limits[key[: -len("_max")]] = float(value)
     n_pairs_min_raw = payload.get("n_pairs_min")
     return ComparisonMetricLimit(
-        variant_id=variant_id,
+        simulation_id=simulation_id,
         observable=observable,
         limits=limits,
         n_pairs_min=None if n_pairs_min_raw is None else int(n_pairs_min_raw),
@@ -250,7 +256,9 @@ def _load_json_if_present(path: Path) -> Mapping[str, Any]:
     return json.loads(path.read_text(encoding="utf-8"))
 
 
-def _summary_metrics_by_key(metrics: Mapping[str, Any]) -> dict[tuple[str, str], Mapping[str, Any]]:
+def _summary_metrics_by_key(
+    metrics: Mapping[str, Any],
+) -> dict[tuple[str, str], Mapping[str, Any]]:
     rows = metrics.get("summary", [])
     if not isinstance(rows, list):
         return {}
@@ -258,31 +266,37 @@ def _summary_metrics_by_key(metrics: Mapping[str, Any]) -> dict[tuple[str, str],
     for row in rows:
         if not isinstance(row, Mapping):
             continue
-        summary[(str(row.get("variant_id", "")), str(row.get("observable", "")))] = row
+        simulation_id = _row_simulation_id(row)
+        summary[(simulation_id, str(row.get("observable", "")))] = row
     return summary
 
 
-def _check_required_variants(
+def _check_required_simulations(
     *,
     target: ComparisonStabilityTarget,
     manifest: Mapping[str, Any],
     add_error: Any,
 ) -> None:
-    variant_rows = manifest.get("variants", [])
-    if not isinstance(variant_rows, list):
-        add_error("comparison_manifest.json has no variants list")
+    simulation_rows = manifest.get("simulations", manifest.get("variants", []))
+    if not isinstance(simulation_rows, list):
+        add_error("comparison_manifest.json has no simulations or variants list")
         return
-    variants = {
-        str(row.get("id", "")): str(row.get("status", ""))
-        for row in variant_rows
+    simulations = {
+        _row_simulation_id(row): str(row.get("status", ""))
+        for row in simulation_rows
         if isinstance(row, Mapping)
     }
-    for variant_id in target.required_variants:
-        status = variants.get(variant_id)
+    for simulation_id in target.required_simulations:
+        status = simulations.get(simulation_id)
         if status is None:
-            add_error(f"required variant is missing from manifest: {variant_id}")
+            add_error(f"required simulation is missing from manifest: {simulation_id}")
         elif status not in {"completed", "reused"}:
-            add_error(f"variant {variant_id!r} status is {status!r}")
+            add_error(f"simulation {simulation_id!r} status is {status!r}")
+
+
+def _row_simulation_id(row: Mapping[str, Any]) -> str:
+    """Return the canonical simulation identifier from current or legacy rows."""
+    return str(row.get("simulation_id", row.get("variant_id", row.get("id", ""))))
 
 
 def _check_metric_limit(
@@ -292,28 +306,31 @@ def _check_metric_limit(
     summary_by_key: Mapping[tuple[str, str], Mapping[str, Any]],
     add_error: Any,
 ) -> None:
-    key = (metric_limit.variant_id, metric_limit.observable)
+    key = (metric_limit.simulation_id, metric_limit.observable)
     row = summary_by_key.get(key)
     if row is None:
         add_error(
-            f"required metric row is missing: {metric_limit.variant_id}::{metric_limit.observable}"
+            f"required metric row is missing: "
+            f"{metric_limit.simulation_id}::{metric_limit.observable}"
         )
         return
     if metric_limit.n_pairs_min is not None:
         n_pairs = int(row.get("n_pairs", 0))
         if n_pairs < metric_limit.n_pairs_min:
             add_error(
-                f"{metric_limit.variant_id}::{metric_limit.observable}.n_pairs="
+                f"{metric_limit.simulation_id}::{metric_limit.observable}.n_pairs="
                 f"{n_pairs} is below {metric_limit.n_pairs_min}"
             )
     for field, upper_bound in metric_limit.limits.items():
         value = row.get(field)
         if value is None:
-            add_error(f"{metric_limit.variant_id}::{metric_limit.observable}.{field} is missing")
+            add_error(
+                f"{metric_limit.simulation_id}::{metric_limit.observable}.{field} is missing"
+            )
             continue
         if abs(float(value)) > float(upper_bound):
             add_error(
-                f"{metric_limit.variant_id}::{metric_limit.observable}.{field}="
+                f"{metric_limit.simulation_id}::{metric_limit.observable}.{field}="
                 f"{float(value):.6g} exceeds {float(upper_bound):.6g}"
             )
 

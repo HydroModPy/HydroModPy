@@ -11,11 +11,17 @@ This case reuses the demonstrative annual forcing chosen to make temporal head c
 .. seealso::
    Read :doc:`the gallery and validation reading guide </getting_started/reading-results-pages>` if you want the parameter mapping, a recommended reading order, and the first modifications to try.
 
+.. figure:: /_static/capability_gallery/simulation_comparison/example12_mf6_vs_nwt_different_meshes_demonstrative.png
+   :alt: Simulation comparison summary for MF6 Triangular vs NWT Structured on Demonstrative Forcing
+   :width: 100%
+
+   Summary comparison figure for mf6 triangular vs nwt structured on demonstrative forcing.
+
 Case Setup
 ----------
 
-- Reference variant: MODFLOW 6 on the committed triangular support.
-- Candidate variant: MODFLOW-NWT on the 60x60 structured support.
+- Reference simulation: MODFLOW 6 on the committed triangular support.
+- Candidate simulation: MODFLOW-NWT on the 60x60 structured support.
 - Compared observables mirror the moderate different-support case so the main reading change is the forcing regime, not the observable list.
 
 What It Shows
@@ -37,31 +43,12 @@ How To Read It
 
 - Compare this page to the moderate different-support case before drawing conclusions about the mesh effect alone.
 - If a mismatch grows mainly here, the forcing regime is amplifying it; if it stays similar, the support transfer is probably the dominant cause.
-- Do not read the demonstrative label as â€˜more correctâ€™; it is a more expressive scenario, not a stronger validation claim.
-
-Local Regeneration Note
------------------------
-
-This local checkout cannot fully rebuild the original gallery artefacts for this case because one or more legacy source files are not present.
-
-The page is still generated so that the capability-gallery structure, cross-links, and reading guides remain valid during a full documentation rebuild.
-
-Reason: The method-comparison config and committed comparison artifacts needed to regenerate this page are not available in the current checkout.
-
-Missing Local Inputs
---------------------
-
-- ``examples_legacy_2/projects/launcher_simulation/run_method_comparison_mf6_vs_nwt_different_meshes_demonstrative.toml``
-- ``examples_legacy_2/projects/launcher_simulation/run_demonstrative_annual_mf6_precomputed_mesh_input.toml``
-- ``examples_legacy_2/projects/launcher_simulation/run_demonstrative_annual_nwt.toml``
-- ``examples_legacy_2/projects/launcher_simulation/method_comparison/example12_mf6_vs_nwt_different_meshes_demonstrative/comparison_manifest.json``
-- ``examples_legacy_2/projects/launcher_simulation/method_comparison/example12_mf6_vs_nwt_different_meshes_demonstrative/comparison_metrics.json``
-- ``examples_legacy_2/projects/launcher_simulation/method_comparison/example12_mf6_vs_nwt_different_meshes_demonstrative/observables.csv``
+- Do not read the demonstrative label as 'more correct'; it is a more expressive scenario, not a stronger validation claim.
 
 Next Steps
 ----------
 
-- Use :doc:`the gallery and validation reading guide </getting_started/reading-results-pages>` to distinguish example pages, method-comparison pages, and validation pages.
+- Use :doc:`the gallery and validation reading guide </getting_started/reading-results-pages>` to distinguish example pages, comparison pages, and validation pages.
 - Go back to :doc:`the simulation walkthrough </getting_started/simulation-walkthrough>` when you need to inspect one contributing run in isolation.
 
 Reproduce
@@ -71,7 +58,7 @@ Run the underlying example or validation case with:
 
 .. code-block:: bash
 
-   python -m hydromodpy run examples_legacy_2/projects/launcher_simulation/run_method_comparison_mf6_vs_nwt_different_meshes_demonstrative.toml
+   python -m tools.doc_gallery
 
 Refresh the committed gallery artifacts with:
 
@@ -82,14 +69,14 @@ Refresh the committed gallery artifacts with:
 Source Pointers
 ---------------
 
-- ``examples_legacy_2/projects/launcher_simulation/run_method_comparison_mf6_vs_nwt_different_meshes_demonstrative.toml``
-- ``examples_legacy_2/projects/launcher_simulation/run_demonstrative_annual_mf6_precomputed_mesh_input.toml``
-- ``examples_legacy_2/projects/launcher_simulation/run_demonstrative_annual_nwt.toml``
-- ``examples_legacy_2/projects/launcher_simulation/method_comparison/example12_mf6_vs_nwt_different_meshes_demonstrative/comparison_manifest.json``
-- ``examples_legacy_2/projects/launcher_simulation/method_comparison/example12_mf6_vs_nwt_different_meshes_demonstrative/comparison_metrics.json``
-- ``examples_legacy_2/projects/launcher_simulation/method_comparison/example12_mf6_vs_nwt_different_meshes_demonstrative/observables.csv``
+- ``docs/readthedocs/source/_static/capability_gallery/simulation_comparison/example12_mf6_vs_nwt_different_meshes_demonstrative_comparison_manifest.json``
+- ``docs/readthedocs/source/_static/capability_gallery/simulation_comparison/example12_mf6_vs_nwt_different_meshes_demonstrative_comparison_metrics.json``
+- ``docs/readthedocs/source/_static/capability_gallery/simulation_comparison/example12_mf6_vs_nwt_different_meshes_demonstrative_observables.csv``
+- ``docs/readthedocs/source/_static/capability_gallery/simulation_comparison/example12_mf6_vs_nwt_different_meshes_demonstrative_summary_metrics.csv``
+- ``docs/readthedocs/source/_static/capability_gallery/simulation_comparison/example12_mf6_vs_nwt_different_meshes_demonstrative_difference_metrics.csv``
 
 Artifacts
 ---------
 
-- ``docs/readthedocs/source/_static/capability_gallery/method_comparison/example12_mf6_vs_nwt_different_meshes_demonstrative_summary.json`` stores the displayed metrics plus source hashes used by ``python -m tools.doc_gallery --check``.
+- ``docs/readthedocs/source/_static/capability_gallery/simulation_comparison/example12_mf6_vs_nwt_different_meshes_demonstrative.png``
+- ``docs/readthedocs/source/_static/capability_gallery/simulation_comparison/example12_mf6_vs_nwt_different_meshes_demonstrative_summary.json`` stores the displayed metrics plus source hashes used by ``python -m tools.doc_gallery --check``.

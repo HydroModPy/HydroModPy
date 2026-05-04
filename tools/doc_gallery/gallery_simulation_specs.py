@@ -86,7 +86,7 @@ def build_simulation_specs() -> tuple[GalleryCaseSpec, ...]:
             ),
             next_steps=(
                 "Read :doc:`the simulation walkthrough </getting_started/simulation-walkthrough>` for a guided mapping between config sections and displayed figures.",
-                "Then open :doc:`the shared-mesh method comparison case </capability_gallery/cases/example12_map_method_comparison>` to compare two solver families on the same support.",
+                "Then open :doc:`the shared-mesh simulation comparison case </capability_gallery/cases/example12_map_simulation_comparison>` to compare two solver families on the same support.",
             ),
             walkthrough_doc="getting_started/simulation-walkthrough",
             walkthrough_title="the Simulation walkthrough",
@@ -206,7 +206,7 @@ def build_simulation_specs() -> tuple[GalleryCaseSpec, ...]:
             ),
             next_steps=(
                 "Read :doc:`the simulation walkthrough </getting_started/simulation-walkthrough>` for the general mapping between config sections and displayed figures.",
-                "Use the committed-mesh comparison pages in :doc:`the method-comparison section </capability_gallery/method_comparison>` when you want to compare this style of replay against other supports or solver families.",
+                "Use the committed-mesh comparison pages in :doc:`the simulation-comparison section </capability_gallery/simulation_comparison>` when you want to compare this style of replay against other supports or solver families.",
             ),
             walkthrough_doc="getting_started/simulation-walkthrough",
             walkthrough_title="the Simulation walkthrough",

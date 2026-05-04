@@ -32,7 +32,7 @@ This case keeps the standard process_simulation launcher while using mesh_catchm
 Case Setup
 ----------
 
-- Entry config: `run_fast_mf6_mesh_catchment.toml` overlays one shared base profile and adds the fast-run forcing, timeline, and solver choices.
+- Static gallery manifest: the committed capability-gallery manifest records the published assets and their generation context.
 - Execution chain: geographic setup -> `mesh_catchment` -> runtime triangular mesh -> MODFLOW 6 flow -> MODFLOW 6 transport -> postprocess/display.
 - Only selected synthesis figures are republished into `examples/projects/09_capability_gallery/`; the full run workspace stays outside the doc tree.
 
@@ -65,7 +65,7 @@ Next Steps
 ----------
 
 - Read :doc:`the simulation walkthrough </getting_started/simulation-walkthrough>` for a guided mapping between config sections and displayed figures.
-- Then open :doc:`the shared-mesh method comparison case </capability_gallery/cases/example12_map_method_comparison>` to compare two solver families on the same support.
+- Then open :doc:`the shared-mesh simulation comparison case </capability_gallery/cases/example12_map_simulation_comparison>` to compare two solver families on the same support.
 
 Reproduce
 ---------
@@ -74,7 +74,7 @@ Run the underlying example or validation case with:
 
 .. code-block:: bash
 
-   python -m hydromodpy run examples_legacy_2/projects/launcher_simulation/run_fast_mf6_mesh_catchment.toml
+   python -m tools.doc_gallery
 
 Refresh the committed gallery artifacts with:
 
@@ -85,8 +85,7 @@ Refresh the committed gallery artifacts with:
 Source Pointers
 ---------------
 
-- ``examples_legacy_2/projects/launcher_simulation/run_fast_mf6_mesh_catchment.toml``
-- ``examples_legacy_2/projects/launcher_simulation/config_mf6_mesh_catchment_common.toml``
+- ``examples/projects/09_capability_gallery/README.md``
 - ``examples/projects/09_capability_gallery/launcher_simulation/modflow6_gmsh_mesh_catchment/manifest.json``
 - ``hydromodpy/analysis/capability_gallery.py``
 

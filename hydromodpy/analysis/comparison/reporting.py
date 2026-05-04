@@ -20,34 +20,36 @@ def _format_number(value: Any) -> str:
 def build_comparison_report(
     *,
     comparison_id: str,
-    reference_variant: str | None,
-    variant_summaries: list[dict[str, Any]],
     observables: Iterable[Mapping[str, Any]],
     rows: list[dict[str, Any]],
     summary_metrics: list[dict[str, Any]],
+    reference_simulation: str | None,
+    simulation_summaries: list[dict[str, Any]],
     figure_artifacts: Iterable[Mapping[str, Any]] | None = None,
     data_artifacts: Iterable[Mapping[str, Any]] | None = None,
 ) -> str:
     """Build a short Markdown report for one comparison run."""
-    unmatched = build_unmatched_groups(rows, reference_variant=reference_variant)
+    unmatched = build_unmatched_groups(rows, reference_simulation=reference_simulation)
     figures = list(figure_artifacts or [])
     data_files = list(data_artifacts or [])
-    completed_variants = [
-        summary for summary in variant_summaries if summary.get("status") in {"completed", "reused"}
+    completed_simulations = [
+        summary
+        for summary in simulation_summaries
+        if summary.get("status") in {"completed", "reused"}
     ]
 
     lines = [
-        f"# Method Comparison Report: {comparison_id}",
+        f"# Simulation Comparison Report: {comparison_id}",
         "",
-        f"- Reference variant: `{reference_variant or 'none'}`",
-        f"- Completed variants: {len(completed_variants)} / {len(variant_summaries)}",
+        f"- Reference simulation: `{reference_simulation or 'none'}`",
+        f"- Completed simulations: {len(completed_simulations)} / {len(simulation_summaries)}",
         f"- Observable rows: {len(rows)}",
         f"- Comparable metric groups: {len(summary_metrics)}",
         f"- Unmatched row groups: {len(unmatched)}",
         "",
-        "## Variants",
+        "## Simulations",
     ]
-    for summary in variant_summaries:
+    for summary in simulation_summaries:
         wall_time = summary.get("wall_time_seconds")
         run_folder = summary.get("run_folder", "")
         lines.append(
@@ -118,7 +120,7 @@ def build_comparison_report(
         lines.append("- No comparable metric groups were produced.")
     else:
         lines.append(
-            "| Variant | Observable | Unit | Pairs | Bias | MAE | RMSE | Max abs | Mean rel |"
+            "| Simulation | Observable | Unit | Pairs | Bias | MAE | RMSE | Max abs | Mean rel |"
         )
         lines.append("| --- | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: |")
         for row in summary_metrics:
@@ -126,7 +128,7 @@ def build_comparison_report(
                 "| "
                 + " | ".join(
                     [
-                        str(row.get("variant_id", "")),
+                        str(row.get("simulation_id", "")),
                         str(row.get("observable", "")),
                         str(row.get("unit", "")),
                         str(row.get("n_pairs", "")),
@@ -150,8 +152,9 @@ def build_comparison_report(
         lines.append("- No unmatched rows.")
     else:
         for item in unmatched:
+            simulation_id = str(item.get("simulation_id", ""))
             lines.append(
-                f"- `{item['variant_id']}` / `{item['observable']}` / `{item['unit'] or 'no-unit'}`:"
+                f"- `{simulation_id}` / `{item['observable']}` / `{item['unit'] or 'no-unit'}`:"
                 f" {item['n_rows']} rows skipped ({item['reason']})."
             )
 

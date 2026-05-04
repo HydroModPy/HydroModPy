@@ -7,6 +7,10 @@ import json
 import sys
 from pathlib import Path
 
+REPO_ROOT = Path(__file__).resolve().parents[3]
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
+
 from hydromodpy.analysis.comparison.stability import (
     format_stability_report,
     validate_stability_targets,
@@ -16,7 +20,7 @@ from hydromodpy.analysis.comparison.stability import (
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         description=(
-            "Check comparison metrics, audit status, variants and key figures "
+            "Check comparison metrics, audit status, simulations and key figures "
             "against a TOML stability target file."
         )
     )

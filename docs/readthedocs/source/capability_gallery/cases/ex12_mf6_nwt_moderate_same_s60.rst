@@ -11,11 +11,17 @@ This case compares MODFLOW 6 and MODFLOW-NWT on the exact same 60x60 structured 
 .. seealso::
    Read :doc:`the gallery and validation reading guide </getting_started/reading-results-pages>` if you want the parameter mapping, a recommended reading order, and the first modifications to try.
 
+.. figure:: /_static/capability_gallery/simulation_comparison/ex12_mf6_nwt_moderate_same_s60.png
+   :alt: Simulation comparison summary for MF6 vs NWT on the Same 60x60 Grid
+   :width: 100%
+
+   Summary comparison figure for mf6 vs nwt on the same 60x60 grid.
+
 Case Setup
 ----------
 
-- Reference variant: MODFLOW 6 on the 60x60 structured grid.
-- Candidate variant: MODFLOW-NWT on the same 60x60 structured grid.
+- Reference simulation: MODFLOW 6 on the 60x60 structured grid.
+- Candidate simulation: MODFLOW-NWT on the same 60x60 structured grid.
 - Compared observables mix full maps (`head`, `depth`, `outflow_drain`), three head probes, one outlet-flux chronicle, native flux panels, and execution-time bars.
 
 What It Shows
@@ -28,8 +34,8 @@ What It Shows
 Key Parameters
 --------------
 
-- Support equality is the main control knob here: both variants use the same `mesh_label = "sgrid_60x60"`, so disagreements are not attributable to a mesh-family change.
-- `run_method_comparison_mf6_vs_nwt_same_regular_mesh_moderate.toml` selects the observables that stay comparable across the two MODFLOW families.
+- Support equality is the main control knob here: both simulations use the same `mesh_label = "sgrid_60x60"`, so disagreements are not attributable to a mesh-family change.
+- `run_comparison_mf6_vs_nwt_same_regular_mesh_moderate.toml` selects the observables that stay comparable across the two MODFLOW families.
 - Use the outlet-flux and native-flux observables together: the outlet curve shows integrated export, while the native panels reveal how each code reports internal drainage/accumulation terms.
 
 How To Read It
@@ -39,29 +45,10 @@ How To Read It
 - Then inspect the flux and execution-time observables to see whether numerical agreement and runtime cost move together or not.
 - If a discrepancy looks large, do not blame the mesh first: this page is intentionally built to remove that degree of freedom.
 
-Local Regeneration Note
------------------------
-
-This local checkout cannot fully rebuild the original gallery artefacts for this case because one or more legacy source files are not present.
-
-The page is still generated so that the capability-gallery structure, cross-links, and reading guides remain valid during a full documentation rebuild.
-
-Reason: The method-comparison config and committed comparison artifacts needed to regenerate this page are not available in the current checkout.
-
-Missing Local Inputs
---------------------
-
-- ``examples_legacy_2/projects/launcher_simulation/run_method_comparison_mf6_vs_nwt_same_regular_mesh_moderate.toml``
-- ``examples_legacy_2/projects/launcher_simulation/run_demonstrative_annual_moderate_mf6_structured.toml``
-- ``examples_legacy_2/projects/launcher_simulation/run_demonstrative_annual_moderate_nwt.toml``
-- ``examples_legacy_2/projects/launcher_simulation/method_comparison/ex12_mf6_nwt_moderate_same_s60/comparison_manifest.json``
-- ``examples_legacy_2/projects/launcher_simulation/method_comparison/ex12_mf6_nwt_moderate_same_s60/comparison_metrics.json``
-- ``examples_legacy_2/projects/launcher_simulation/method_comparison/ex12_mf6_nwt_moderate_same_s60/observables.csv``
-
 Next Steps
 ----------
 
-- Use :doc:`the gallery and validation reading guide </getting_started/reading-results-pages>` to distinguish example pages, method-comparison pages, and validation pages.
+- Use :doc:`the gallery and validation reading guide </getting_started/reading-results-pages>` to distinguish example pages, comparison pages, and validation pages.
 - Go back to :doc:`the simulation walkthrough </getting_started/simulation-walkthrough>` when you need to inspect one contributing run in isolation.
 
 Reproduce
@@ -71,7 +58,7 @@ Run the underlying example or validation case with:
 
 .. code-block:: bash
 
-   python -m hydromodpy run examples_legacy_2/projects/launcher_simulation/run_method_comparison_mf6_vs_nwt_same_regular_mesh_moderate.toml
+   python -m tools.doc_gallery
 
 Refresh the committed gallery artifacts with:
 
@@ -82,14 +69,14 @@ Refresh the committed gallery artifacts with:
 Source Pointers
 ---------------
 
-- ``examples_legacy_2/projects/launcher_simulation/run_method_comparison_mf6_vs_nwt_same_regular_mesh_moderate.toml``
-- ``examples_legacy_2/projects/launcher_simulation/run_demonstrative_annual_moderate_mf6_structured.toml``
-- ``examples_legacy_2/projects/launcher_simulation/run_demonstrative_annual_moderate_nwt.toml``
-- ``examples_legacy_2/projects/launcher_simulation/method_comparison/ex12_mf6_nwt_moderate_same_s60/comparison_manifest.json``
-- ``examples_legacy_2/projects/launcher_simulation/method_comparison/ex12_mf6_nwt_moderate_same_s60/comparison_metrics.json``
-- ``examples_legacy_2/projects/launcher_simulation/method_comparison/ex12_mf6_nwt_moderate_same_s60/observables.csv``
+- ``docs/readthedocs/source/_static/capability_gallery/simulation_comparison/ex12_mf6_nwt_moderate_same_s60_comparison_manifest.json``
+- ``docs/readthedocs/source/_static/capability_gallery/simulation_comparison/ex12_mf6_nwt_moderate_same_s60_comparison_metrics.json``
+- ``docs/readthedocs/source/_static/capability_gallery/simulation_comparison/ex12_mf6_nwt_moderate_same_s60_observables.csv``
+- ``docs/readthedocs/source/_static/capability_gallery/simulation_comparison/ex12_mf6_nwt_moderate_same_s60_summary_metrics.csv``
+- ``docs/readthedocs/source/_static/capability_gallery/simulation_comparison/ex12_mf6_nwt_moderate_same_s60_difference_metrics.csv``
 
 Artifacts
 ---------
 
-- ``docs/readthedocs/source/_static/capability_gallery/method_comparison/ex12_mf6_nwt_moderate_same_s60_summary.json`` stores the displayed metrics plus source hashes used by ``python -m tools.doc_gallery --check``.
+- ``docs/readthedocs/source/_static/capability_gallery/simulation_comparison/ex12_mf6_nwt_moderate_same_s60.png``
+- ``docs/readthedocs/source/_static/capability_gallery/simulation_comparison/ex12_mf6_nwt_moderate_same_s60_summary.json`` stores the displayed metrics plus source hashes used by ``python -m tools.doc_gallery --check``.

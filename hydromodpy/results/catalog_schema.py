@@ -1,7 +1,7 @@
 """DuckDB schema for the HydroModPy simulation catalog.
 
 Schema v1: per-simulation ``timeseries``, ``budgets`` and ``mass_balance``
-now live as Parquet files under ``simulations/<uuid>.parquet/`` and are
+now live as Parquet files under ``simulations/<basename>.parquet/`` and are
 exposed in DuckDB as views with the original table names. Every other
 per-sim table (``parameters``, ``metrics``, ``observation_points``,
 ``provenance``, ``geographic_features``, ``geographic_metadata``,
@@ -30,6 +30,11 @@ from pathlib import Path
 import duckdb
 
 from hydromodpy.core.logging import get_logger
+from hydromodpy.results.storage_contract import (
+    PARQUET_DIR_SUFFIX,
+    PARQUET_FILE_SUFFIX,
+    SIMULATIONS_DIRNAME,
+)
 
 logger = get_logger(__name__)
 
@@ -524,7 +529,7 @@ PER_SIM_TABLE_NAMES: tuple[str, ...] = (
 )
 
 # Per-simulation Parquet files, named by their view alias. Each file lives
-# at ``simulations/<uuid>.parquet/<name>.parquet`` in the workspace.
+# at ``simulations/<basename>.parquet/<name>.parquet`` in the workspace.
 PARQUET_VIEW_NAMES: tuple[str, ...] = (
     "timeseries",
     "budgets",
@@ -611,13 +616,13 @@ def _read_parquet_view_ddl(view_name: str, glob_path: str) -> str:
 
 
 def _glob_for_view(simulations_dir: Path, view_name: str) -> str:
-    return str(simulations_dir / "*.parquet" / f"{view_name}.parquet")
+    return str(simulations_dir / f"*{PARQUET_DIR_SUFFIX}" / f"{view_name}{PARQUET_FILE_SUFFIX}")
 
 
 def _parquet_files_exist(simulations_dir: Path, view_name: str) -> bool:
     if not simulations_dir.is_dir():
         return False
-    return any(simulations_dir.glob(f"*.parquet/{view_name}.parquet"))
+    return any(simulations_dir.glob(f"*{PARQUET_DIR_SUFFIX}/{view_name}{PARQUET_FILE_SUFFIX}"))
 
 
 def ensure_parquet_views(conn: duckdb.DuckDBPyConnection, simulations_dir: Path) -> None:
@@ -829,7 +834,7 @@ def ensure_schema(
         parquet_root = (
             Path(simulations_dir)
             if simulations_dir is not None
-            else Path(workspace_path) / "simulations"
+            else Path(workspace_path) / SIMULATIONS_DIRNAME
         )
         ensure_parquet_views(conn, parquet_root)
 

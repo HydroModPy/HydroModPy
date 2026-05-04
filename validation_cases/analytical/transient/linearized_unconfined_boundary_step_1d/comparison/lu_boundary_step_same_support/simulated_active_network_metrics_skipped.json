@@ -1,0 +1,18 @@
+{
+  "comparison_id": "lu_boundary_step_same_support",
+  "source_variable": "accumulation_flux",
+  "threshold": 0.0,
+  "persistence_threshold": 0.5,
+  "skipped_simulations": [
+    {
+      "simulation_id": "modflownwt",
+      "reason": "missing_simulated_active_field",
+      "source_variable": "accumulation_flux"
+    },
+    {
+      "simulation_id": "modflow6",
+      "reason": "missing_simulated_active_field",
+      "source_variable": "accumulation_flux"
+    }
+  ]
+}

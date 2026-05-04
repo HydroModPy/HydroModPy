@@ -128,13 +128,13 @@
         },
         {
           "filename": "no_seepage_reference_k.png",
-          "caption": "No-seepage benchmark on the four committed cross-code methods.",
-          "alt_text": "No seepage code comparison on the four-method benchmark",
+          "caption": "No-seepage benchmark on the four committed cross-code solvers.",
+          "alt_text": "No seepage code comparison on the four-solver benchmark",
           "source_path": "examples/projects/09_capability_gallery/code_comparison/surface_interaction_no_seepage/no_seepage_reference_k.png"
         },
         {
           "filename": "no_seepage_high_k.png",
-          "caption": "High-conductivity no-seepage benchmark on the same four committed methods.",
+          "caption": "High-conductivity no-seepage benchmark on the same four committed solvers.",
           "alt_text": "No seepage code comparison at high hydraulic conductivity",
           "source_path": "examples/projects/09_capability_gallery/code_comparison/surface_interaction_no_seepage/no_seepage_high_k.png"
         }

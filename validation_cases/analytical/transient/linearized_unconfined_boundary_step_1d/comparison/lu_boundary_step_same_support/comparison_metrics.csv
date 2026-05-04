@@ -1,6 +1,6 @@
-variant_id,reference_variant,observable,unit,n_pairs,bias,mae,rmse,max_abs_error,mean_relative_error
-modflownwt,modflow6,depth_map_last,m,250,2.8436073071247848e-05,2.845133186032456e-05,3.19320901372786e-05,4.598586983206587e-05,2.8594122951869447e-06
-modflownwt,modflow6,head_east_response,m,40,-0.00025565809812708726,0.00025565809812708726,0.000332749054920604,0.0006646588803604914,2.55479698789289e-05
-modflownwt,modflow6,head_map_last,m,250,-2.8436073071247848e-05,2.845133186032456e-05,3.19320901372786e-05,4.598586983206587e-05,2.831022632843427e-06
-modflownwt,modflow6,head_mid_response,m,40,-0.000998670334186702,0.000998670334186702,0.0012941496224447733,0.0025317875808461565,9.943263289573477e-05
-modflownwt,modflow6,head_west_response,m,40,-0.00030534296858455436,0.00030534296858455436,0.00039613188915184214,0.000758921130220358,3.0268887719293544e-05
+simulation_id,reference_simulation,observable,unit,n_pairs,bias,mae,rmse,max_abs_error,mean_relative_error
+modflownwt,modflow6,depth_map_last,m,250,0.0,0.0,0.0,0.0,0.0
+modflownwt,modflow6,head_east_response,m,40,0.0,0.0,0.0,0.0,0.0
+modflownwt,modflow6,head_map_last,m,250,0.0,0.0,0.0,0.0,0.0
+modflownwt,modflow6,head_mid_response,m,40,0.0,0.0,0.0,0.0,0.0
+modflownwt,modflow6,head_west_response,m,40,0.0,0.0,0.0,0.0,0.0

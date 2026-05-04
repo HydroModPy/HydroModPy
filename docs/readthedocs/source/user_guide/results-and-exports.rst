@@ -6,6 +6,22 @@ stores run metadata, metrics, parameters, budgets, provenance, and lookup
 tables. Per-run stores hold fields, meshes, rasters, timeseries, and derived
 arrays.
 
+There is one simulation DuckDB catalog per workspace, not one DuckDB database
+per simulation. A simulation receives one row in that workspace catalog and
+its heavy payloads live beside it under ``simulations/``:
+
+- ``hydromodpy.duckdb``: workspace-level index, metadata, metrics, parameters,
+  provenance, calibration traces, and SQL views.
+- ``simulations/<basename>.zarr`` or ``.zarr.zip``: per-simulation arrays,
+  mesh, spatial fields, rasters, and forcings.
+- ``simulations/<basename>.parquet/*.parquet``: per-simulation tabular payloads
+  such as timeseries, budgets, and mass balance, exposed through DuckDB views.
+
+``<basename>`` is normally ``<project>__<name>__<shortuuid>``. Older
+workspaces may still use the full raw ``sim_id`` on disk; they remain readable,
+and can be normalized explicitly with
+``catalog.normalize_storage_names(dry_run=False)`` or from ``hmp manage``.
+
 Result Store Map
 ----------------
 
@@ -28,9 +44,11 @@ Core objects
    * - Object
      - Role
    * - ``SimulationCatalog``
-     - Workspace-level registry opened by ``hydromodpy.open(path)``.
+     - Workspace-level registry opened by ``hydromodpy.open(path)``. It owns
+       the single ``hydromodpy.duckdb`` file for the workspace.
    * - ``Run``
-     - One persisted simulation resolved from the catalog.
+     - One persisted simulation resolved from the catalog. It reads one
+       catalog row plus that simulation's Zarr/Parquet artefacts.
    * - ``SimulationGroup``
      - A set of runs used for comparison, calibration, or batch analysis.
    * - ``ResultsConfig``
@@ -189,6 +207,38 @@ Export formats
    * - ``.hmp``
      - ``hmp export`` / ``hmp add`` / ``hmp import``
      - Portable run package containing config, inputs, results, and manifest.
+
+Temporal conventions in CSV exports
+-----------------------------------
+
+Comparison CSV files distinguish state snapshots from period values explicitly.
+Use the ``time_role`` column before interpreting ``time_index`` or
+``elapsed_seconds``.
+
+.. list-table::
+   :header-rows: 1
+   :widths: 24 76
+
+   * - ``time_role``
+     - Meaning
+   * - ``initial_state``
+     - Explicit state before the first transient period. It is useful for
+       initial-condition diagnostics, but it is not a budget period.
+   * - ``state_snapshot``
+     - Instantaneous model state at the reported elapsed time, for example a
+       hydraulic-head or watertable map.
+   * - ``period_value``
+     - Value associated with a completed period. Budget tables also provide
+       ``period_index``, ``period_start_seconds``, and
+       ``period_end_seconds``.
+   * - ``reduced``
+     - Row obtained by reducing several time rows, for example with a mean,
+       min, max, or sum reducer.
+
+For budgets, ``elapsed_seconds`` is the period end time. Do not compare a
+``period_value`` row to an ``initial_state`` row. Boussinesq histories may store
+an explicit initial state at ``t = 0``; comparison budget exports skip that row
+instead of treating it as a zero-duration budget.
 
 Package exchange
 ----------------

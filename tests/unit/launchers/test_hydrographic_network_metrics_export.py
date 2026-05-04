@@ -232,7 +232,7 @@ def test_write_hydrographic_network_metrics_export_writes_csv(tmp_path: Path) ->
     artifacts, rows = write_hydrographic_network_metrics_export(
         comparison_id="demo_compare",
         comparison_root=tmp_path / "comparison_outputs",
-        variant_summaries=[
+        simulation_summaries=[
             {
                 "id": "mf6_demo",
                 "label": "MF6 demo",
@@ -254,7 +254,7 @@ def test_write_hydrographic_network_metrics_export_writes_csv(tmp_path: Path) ->
     assert len(rows) == 1
     row = rows[0]
     assert row["comparison_id"] == "demo_compare"
-    assert row["variant_id"] == "mf6_demo"
+    assert row["simulation_id"] == "mf6_demo"
     assert row["reference_total_length_m"] == pytest.approx(1000.0)
     assert row["candidate_total_length_m"] == pytest.approx(800.0)
     assert row["reference_coverage_ratio"] == pytest.approx(0.8)
@@ -274,7 +274,7 @@ def test_write_hydrographic_network_metrics_export_skips_missing_networks(
     artifacts, rows = write_hydrographic_network_metrics_export(
         comparison_id="demo_compare",
         comparison_root=tmp_path / "comparison_outputs",
-        variant_summaries=[
+        simulation_summaries=[
             {
                 "id": "mf6_demo",
                 "label": "MF6 demo",
@@ -319,7 +319,7 @@ def test_write_hydrographic_network_metrics_export_reports_partial_skips(
     artifacts, rows = write_hydrographic_network_metrics_export(
         comparison_id="demo_compare",
         comparison_root=tmp_path / "comparison_outputs",
-        variant_summaries=[
+        simulation_summaries=[
             {
                 "id": "mf6_ok",
                 "label": "MF6 ok",
@@ -352,14 +352,16 @@ def test_write_hydrographic_network_metrics_export_reports_partial_skips(
     assert len(rows) == 1
 
 
-def test_write_simulated_active_network_metrics_export_writes_csv(tmp_path: Path) -> None:
+def test_write_simulated_active_network_metrics_export_writes_csv(
+    tmp_path: Path,
+) -> None:
     workspace_root = tmp_path / "workspace"
     config_path, sim_id = _register_completed_active_network_run(workspace_root)
 
     artifacts, rows = write_simulated_active_network_metrics_export(
         comparison_id="demo_compare",
         comparison_root=tmp_path / "comparison_outputs",
-        variant_summaries=[
+        simulation_summaries=[
             {
                 "id": "mf6_demo",
                 "label": "MF6 demo",
@@ -393,7 +395,7 @@ def test_write_simulated_active_network_overlap_metrics_export_writes_csv(
     artifacts, rows = write_simulated_active_network_overlap_metrics_export(
         comparison_id="demo_compare",
         comparison_root=tmp_path / "comparison_outputs",
-        variant_summaries=[
+        simulation_summaries=[
             {
                 "id": "mf6_demo",
                 "label": "MF6 demo",
@@ -414,7 +416,7 @@ def test_write_simulated_active_network_overlap_metrics_export_writes_csv(
     assert Path(artifacts[0]["path"]).exists()
     assert len(rows) == 1
     row = rows[0]
-    assert row["variant_id"] == "mf6_demo"
+    assert row["simulation_id"] == "mf6_demo"
     assert row["network_role"] == "reference"
     assert row["source_variable"] == "accumulation_flux"
     assert row["mode"] == "persistent"
@@ -454,7 +456,7 @@ def test_write_simulated_active_network_distance_metrics_export_writes_csv(
     artifacts, rows = write_simulated_active_network_distance_metrics_export(
         comparison_id="demo_compare",
         comparison_root=tmp_path / "comparison_outputs",
-        variant_summaries=[
+        simulation_summaries=[
             {
                 "id": "mf6_demo",
                 "label": "MF6 demo",
@@ -476,7 +478,7 @@ def test_write_simulated_active_network_distance_metrics_export_writes_csv(
     assert Path(str(artifacts[0]["path"])).exists()
     assert len(rows) == 1
     row = rows[0]
-    assert row["variant_id"] == "mf6_demo"
+    assert row["simulation_id"] == "mf6_demo"
     assert row["network_role"] == "reference"
     assert row["mode"] == "persistent"
     assert row["distance_method"] == "planar_cell_centroid_to_network"
@@ -517,7 +519,7 @@ def test_write_simulated_active_network_overlap_metrics_export_uses_steady_defau
     _artifacts, rows = write_simulated_active_network_overlap_metrics_export(
         comparison_id="demo_compare",
         comparison_root=tmp_path / "comparison_outputs",
-        variant_summaries=[
+        simulation_summaries=[
             {
                 "id": "mf6_demo",
                 "label": "MF6 demo",
@@ -561,7 +563,7 @@ def test_write_simulated_active_network_overlap_metrics_export_reports_missing_r
     artifacts, rows = write_simulated_active_network_overlap_metrics_export(
         comparison_id="demo_compare",
         comparison_root=tmp_path / "comparison_outputs",
-        variant_summaries=[
+        simulation_summaries=[
             {
                 "id": "mf6_demo",
                 "label": "MF6 demo",
@@ -577,7 +579,9 @@ def test_write_simulated_active_network_overlap_metrics_export_reports_missing_r
     )
 
     assert len(artifacts) == 1
-    assert artifacts[0]["kind"] == "simulated_active_network_overlap_metrics_skipped_json"
+    assert (
+        artifacts[0]["kind"] == "simulated_active_network_overlap_metrics_skipped_json"
+    )
     assert Path(str(artifacts[0]["path"])).exists()
     assert rows == []
     payload = Path(str(artifacts[0]["path"])).read_text(encoding="utf-8")

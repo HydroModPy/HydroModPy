@@ -14,6 +14,7 @@ Facade functions
    ~hydromodpy.open
    ~hydromodpy.run
    ~hydromodpy.calibrate
+   ~hydromodpy.compare
    ~hydromodpy.compare_pair
    ~hydromodpy.doctor
 
@@ -28,7 +29,7 @@ Project and run objects
    ~hydromodpy.results.run.Run
    ~hydromodpy.results.catalog.SimulationCatalog
    ~hydromodpy.results.simulation_group.SimulationGroup
-   ~hydromodpy.simulation.planning.results_config.ResultsConfig
+   ~hydromodpy.results.config.ResultsConfig
 
 Export helpers
 --------------
