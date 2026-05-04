@@ -19,7 +19,7 @@ from hydromodpy.analysis.comparison.visuals_style import (
     _TITLE_FONT_SIZE,
     _budget_component_color,
     _budget_component_label,
-    _display_variant_label,
+    _display_simulation_label,
     _legend_ncols,
     _pretty_label,
     _safe_float,
@@ -42,8 +42,12 @@ def _rows_have_elapsed_seconds(rows: Iterable[Mapping[str, Any]]) -> bool:
     return seen
 
 
-def _row_time_value(row: Mapping[str, Any], *, use_elapsed_seconds: bool) -> float | None:
-    value = _safe_float(row.get("elapsed_seconds" if use_elapsed_seconds else "time_index"))
+def _row_time_value(
+    row: Mapping[str, Any], *, use_elapsed_seconds: bool
+) -> float | None:
+    value = _safe_float(
+        row.get("elapsed_seconds" if use_elapsed_seconds else "time_index")
+    )
     if value is None:
         return None
     return value / _SECONDS_PER_DAY if use_elapsed_seconds else value
@@ -63,16 +67,16 @@ def _surface_reference_lines(
         if top is None:
             continue
         key = (
-            str(row.get("variant_id", "")),
-            str(row.get("variant_label", row.get("variant_id", ""))),
+            str(row.get("simulation_id", "")),
+            str(row.get("simulation_label", row.get("simulation_id", ""))),
         )
         grouped.setdefault(key, []).append(top)
 
     lines: list[tuple[str, str, float]] = []
-    for (variant_id, variant_label), values in sorted(grouped.items()):
+    for (simulation_id, simulation_label), values in sorted(grouped.items()):
         finite = [value for value in values if math.isfinite(value)]
         if finite:
-            lines.append((variant_id, variant_label, float(np.nanmedian(finite))))
+            lines.append((simulation_id, simulation_label, float(np.nanmedian(finite))))
     if len(lines) <= 1:
         return lines
 
@@ -84,14 +88,14 @@ def _surface_reference_lines(
 
 def _plot_surface_reference_lines(ax: Any, rows: Iterable[Mapping[str, Any]]) -> int:
     count = 0
-    for variant_id, variant_label, top in _surface_reference_lines(rows):
-        if variant_id == "surface":
+    for simulation_id, simulation_label, top in _surface_reference_lines(rows):
+        if simulation_id == "surface":
             color = "#111827"
             label = "Surface"
         else:
-            color = _solver_color(variant_id)
-            label = "Surface " + _display_variant_label(
-                variant_id=variant_id, variant_label=variant_label
+            color = _solver_color(simulation_id)
+            label = "Surface " + _display_simulation_label(
+                simulation_id=simulation_id, simulation_label=simulation_label
             )
         ax.axhline(
             top,
@@ -133,8 +137,8 @@ def _write_timeseries_figure(
         if use_elapsed_seconds:
             x_value = x_value / _SECONDS_PER_DAY
         key = (
-            str(row.get("variant_id", "")),
-            str(row.get("variant_label", row.get("variant_id", ""))),
+            str(row.get("simulation_id", "")),
+            str(row.get("simulation_label", row.get("simulation_id", ""))),
             int(row.get("value_index", 0)),
         )
         series_payloads.setdefault(key, []).append((x_value, value))
@@ -144,20 +148,22 @@ def _write_timeseries_figure(
 
     figure, ax = plt.subplots(1, 1, figsize=(7.0, 4.1))
     tick_positions: list[float] = []
-    for (variant_id, variant_label, value_index), points in sorted(series_payloads.items()):
+    for (simulation_id, simulation_label, value_index), points in sorted(
+        series_payloads.items()
+    ):
         ordered = sorted(points, key=lambda item: item[0])
         if len(ordered) < 2:
             continue
         x_values = [item[0] for item in ordered]
         y_values = [item[1] for item in ordered]
         tick_positions.extend(x_values)
-        label = _display_variant_label(
-            variant_id=variant_id,
-            variant_label=variant_label or variant_id,
+        label = _display_simulation_label(
+            simulation_id=simulation_id,
+            simulation_label=simulation_label or simulation_id,
         )
         if any(
-            other_value_index != value_index and other_variant_id == variant_id
-            for (other_variant_id, _, other_value_index) in series_payloads
+            other_value_index != value_index and other_simulation_id == simulation_id
+            for (other_simulation_id, _, other_value_index) in series_payloads
         ):
             label = f"{label} [{value_index}]"
         style = _series_style(observable_name)
@@ -198,16 +204,24 @@ def _write_runtime_bar_figure(
     *,
     path: Path,
     execution_rows: list[Mapping[str, Any]],
-    reference_variant: str | None,
+    reference_simulation: str | None,
 ) -> bool:
-    rows = [row for row in execution_rows if _safe_float(row.get("runtime_seconds")) is not None]
+    rows = [
+        row
+        for row in execution_rows
+        if _safe_float(row.get("runtime_seconds")) is not None
+    ]
     if len(rows) < 2:
         return False
-    ordered = sorted(rows, key=lambda item: float(item["runtime_seconds"]), reverse=True)
+    ordered = sorted(
+        rows, key=lambda item: float(item["runtime_seconds"]), reverse=True
+    )
     labels = [
-        _display_variant_label(
-            variant_id=str(row.get("variant_id", "")),
-            variant_label=str(row.get("variant_label", row.get("variant_id", ""))),
+        _display_simulation_label(
+            simulation_id=str(row.get("simulation_id", "")),
+            simulation_label=str(
+                row.get("simulation_label", row.get("simulation_id", ""))
+            ),
         )
         for row in ordered
     ]
@@ -225,9 +239,9 @@ def _write_runtime_bar_figure(
     ax.set_title("Execution time comparison", fontsize=_TITLE_FONT_SIZE, pad=8)
 
     reference_runtime = None
-    if reference_variant is not None:
+    if reference_simulation is not None:
         for row in ordered:
-            if str(row.get("variant_id", "")) == reference_variant:
+            if str(row.get("simulation_id", "")) == reference_simulation:
                 reference_runtime = float(row["runtime_seconds"])
                 break
     max_runtime = max(runtimes)
@@ -278,10 +292,12 @@ def _write_point_dashboard(
         if not observable_name or value is None or x_value is None:
             continue
         key = (
-            str(row.get("variant_id", "")),
-            str(row.get("variant_label", row.get("variant_id", ""))),
+            str(row.get("simulation_id", "")),
+            str(row.get("simulation_label", row.get("simulation_id", ""))),
         )
-        grouped.setdefault(observable_name, {}).setdefault(key, []).append((x_value, value))
+        grouped.setdefault(observable_name, {}).setdefault(key, []).append(
+            (x_value, value)
+        )
 
     plotted_observables = [
         name
@@ -303,9 +319,13 @@ def _write_point_dashboard(
     for index, observable_name in enumerate(plotted_observables):
         ax = axes_flat[index]
         observable_rows = [
-            row for row in point_rows if str(row.get("observable", "")) == observable_name
+            row
+            for row in point_rows
+            if str(row.get("observable", "")) == observable_name
         ]
-        for (variant_id, variant_label), points in sorted(grouped.get(observable_name, {}).items()):
+        for (simulation_id, simulation_label), points in sorted(
+            grouped.get(observable_name, {}).items()
+        ):
             ordered = sorted(points, key=lambda item: item[0])
             if len(ordered) < 2:
                 continue
@@ -316,13 +336,18 @@ def _write_point_dashboard(
             ax.plot(
                 x_values,
                 y_values,
-                color=_solver_color(variant_id),
-                label=_display_variant_label(variant_id=variant_id, variant_label=variant_label),
+                color=_solver_color(simulation_id),
+                label=_display_simulation_label(
+                    simulation_id=simulation_id, simulation_label=simulation_label
+                ),
                 **style,
             )
         _plot_surface_reference_lines(ax, observable_rows)
         ax.set_title(
-            _pretty_label(observable_name), fontsize=_PANEL_TITLE_FONT_SIZE, pad=5, loc="left"
+            _pretty_label(observable_name),
+            fontsize=_PANEL_TITLE_FONT_SIZE,
+            pad=5,
+            loc="left",
         )
         unit = next(
             (
@@ -372,10 +397,12 @@ def _write_native_flux_panel(
     delta_rows: list[Mapping[str, Any]],
 ) -> bool:
     flux_rows = [row for row in long_rows if str(row.get("variable", "")) == variable]
-    variant_keys = {
-        str(row.get("variant_id", "")) for row in flux_rows if str(row.get("variant_id", "")) != ""
+    simulation_keys = {
+        str(row.get("simulation_id", ""))
+        for row in flux_rows
+        if str(row.get("simulation_id", "")) != ""
     }
-    if len(variant_keys) < 2:
+    if len(simulation_keys) < 2:
         return False
 
     use_elapsed_seconds = _rows_have_elapsed_seconds(flux_rows)
@@ -386,8 +413,8 @@ def _write_native_flux_panel(
         if value is None or x_value is None:
             continue
         key = (
-            str(row.get("variant_id", "")),
-            str(row.get("variant_label", row.get("variant_id", ""))),
+            str(row.get("simulation_id", "")),
+            str(row.get("simulation_label", row.get("simulation_id", ""))),
         )
         series_payloads.setdefault(key, []).append((int(x_value), value))
     if not any(len(points) >= 2 for points in series_payloads.values()):
@@ -405,13 +432,13 @@ def _write_native_flux_panel(
     main_ax, delta_ax = axes
     tick_positions: list[float] = []
     tick_labels: list[str] = []
-    for (variant_id, variant_label), points in sorted(series_payloads.items()):
+    for (simulation_id, simulation_label), points in sorted(series_payloads.items()):
         ordered = sorted(points, key=lambda item: item[0])
-        label = _display_variant_label(
-            variant_id=variant_id,
-            variant_label=variant_label,
+        label = _display_simulation_label(
+            simulation_id=simulation_id,
+            simulation_label=simulation_label,
         )
-        color = _solver_color(variant_id)
+        color = _solver_color(simulation_id)
         tick_positions.extend(float(item[0]) for item in ordered)
         main_ax.step(
             [item[0] for item in ordered],
@@ -438,23 +465,27 @@ def _write_native_flux_panel(
         delta_groups: dict[str, list[tuple[float, float]]] = {}
         time_label_lookup: dict[int, str] = {}
         for row in relevant_delta:
-            key = str(row.get("variant_id", ""))
+            key = str(row.get("simulation_id", ""))
             time_value = _row_time_value(row, use_elapsed_seconds=use_elapsed_seconds)
             if time_value is None:
                 continue
-            delta_groups.setdefault(key, []).append((time_value, float(row["signed_error"])))
+            delta_groups.setdefault(key, []).append(
+                (time_value, float(row["signed_error"]))
+            )
             label = str(row.get("time_label", "")).strip()
             if label and not use_elapsed_seconds:
                 time_label_lookup[int(time_value)] = label
-        for variant_id, points in sorted(delta_groups.items()):
+        for simulation_id, points in sorted(delta_groups.items()):
             ordered = sorted(points, key=lambda item: item[0])
             delta_ax.step(
                 [item[0] for item in ordered],
                 [item[1] for item in ordered],
                 where="post",
                 linewidth=1.6,
-                color=_solver_color(variant_id),
-                label=_display_variant_label(variant_id=variant_id, variant_label=variant_id),
+                color=_solver_color(simulation_id),
+                label=_display_simulation_label(
+                    simulation_id=simulation_id, simulation_label=simulation_id
+                ),
             )
         tick_labels = [
             time_label_lookup.get(int(value), str(int(value)))
@@ -475,7 +506,9 @@ def _write_native_flux_panel(
             tick_labels=(tick_labels if tick_labels else None),
         )
 
-    figure.suptitle(f"{_pretty_label(variable)} hydrograph", fontsize=_TITLE_FONT_SIZE, y=0.97)
+    figure.suptitle(
+        f"{_pretty_label(variable)} hydrograph", fontsize=_TITLE_FONT_SIZE, y=0.97
+    )
     figure.subplots_adjust(left=0.12, right=0.98, top=0.9, bottom=0.18, hspace=0.25)
     path.parent.mkdir(parents=True, exist_ok=True)
     figure.savefig(path, dpi=180, bbox_inches="tight")
@@ -493,7 +526,9 @@ def _write_flux_dashboard(
         tuple[str, dict[tuple[str, str], list[tuple[float, float]]], list[str] | None]
     ] = []
 
-    outlet_rows = [row for row in rows if str(row.get("observable", "")) == "outlet_flux_series"]
+    outlet_rows = [
+        row for row in rows if str(row.get("observable", "")) == "outlet_flux_series"
+    ]
     native_flux_rows = [
         row
         for row in native_long_rows
@@ -508,8 +543,8 @@ def _write_flux_dashboard(
             if value is None or x_value is None:
                 continue
             key = (
-                str(row.get("variant_id", "")),
-                str(row.get("variant_label", row.get("variant_id", ""))),
+                str(row.get("simulation_id", "")),
+                str(row.get("simulation_label", row.get("simulation_id", ""))),
             )
             grouped.setdefault(key, []).append((x_value, value))
         if any(len(points) >= 2 for points in grouped.values()):
@@ -526,15 +561,19 @@ def _write_flux_dashboard(
             if value is None or x_value is None:
                 continue
             key = (
-                str(row.get("variant_id", "")),
-                str(row.get("variant_label", row.get("variant_id", ""))),
+                str(row.get("simulation_id", "")),
+                str(row.get("simulation_label", row.get("simulation_id", ""))),
             )
             grouped_native.setdefault(key, []).append((x_value, value))
             label = str(row.get("time_label", "")).strip()
             if label and not use_elapsed_seconds:
                 time_labels[int(x_value)] = label
         if any(len(points) >= 2 for points in grouped_native.values()):
-            labels = [time_labels[index] for index in sorted(time_labels)] if time_labels else None
+            labels = (
+                [time_labels[index] for index in sorted(time_labels)]
+                if time_labels
+                else None
+            )
             panels.append((_pretty_label(variable), grouped_native, labels))
 
     if len(panels) < 2:
@@ -552,7 +591,7 @@ def _write_flux_dashboard(
     tick_labels: list[str] | None = None
     for index, (panel_title, grouped, labels) in enumerate(panels):
         ax = axes_flat[index]
-        for (variant_id, variant_label), points in sorted(grouped.items()):
+        for (simulation_id, simulation_label), points in sorted(grouped.items()):
             ordered = sorted(points, key=lambda item: item[0])
             if len(ordered) < 2:
                 continue
@@ -566,8 +605,10 @@ def _write_flux_dashboard(
                 y_values,
                 where="post",
                 linewidth=1.8,
-                color=_solver_color(variant_id),
-                label=_display_variant_label(variant_id=variant_id, variant_label=variant_label),
+                color=_solver_color(simulation_id),
+                label=_display_simulation_label(
+                    simulation_id=simulation_id, simulation_label=simulation_label
+                ),
             )
         ax.set_title(panel_title, fontsize=_PANEL_TITLE_FONT_SIZE, pad=5, loc="left")
         ax.tick_params(labelsize=_TICK_FONT_SIZE)
@@ -591,9 +632,220 @@ def _write_flux_dashboard(
         fontsize=_LABEL_FONT_SIZE,
     )
     if not use_elapsed_seconds:
-        _apply_time_ticks(axes_flat[-1], tick_positions=tick_positions, tick_labels=tick_labels)
+        _apply_time_ticks(
+            axes_flat[-1], tick_positions=tick_positions, tick_labels=tick_labels
+        )
     figure.suptitle("Flux overview", fontsize=_TITLE_FONT_SIZE, y=0.985)
     figure.subplots_adjust(left=0.11, right=0.98, top=0.86, bottom=0.13, hspace=0.34)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    figure.savefig(path, dpi=180, bbox_inches="tight")
+    plt.close(figure)
+    return True
+
+
+def _write_comparable_outflow_dashboard(
+    *,
+    path: Path,
+    budget_rows: list[Mapping[str, Any]],
+    rows: list[dict[str, Any]],
+) -> bool:
+    """Write the solver-comparable release comparison dashboard."""
+    comparable_rows = [
+        row
+        for row in budget_rows
+        if str(row.get("component", "")) == "comparable_outflow_total_m3_s"
+    ]
+    if not comparable_rows:
+        return False
+
+    use_elapsed_seconds = all(
+        _safe_float(row.get("elapsed_seconds")) is not None for row in comparable_rows
+    )
+    x_field = "elapsed_seconds" if use_elapsed_seconds else "time_index"
+    x_label = _time_axis_label(use_elapsed_seconds=use_elapsed_seconds)
+
+    grouped_total: dict[tuple[str, str], list[tuple[float, float]]] = {}
+    grouped_components: dict[tuple[str, str, str], list[tuple[float, float]]] = {}
+    time_labels: dict[int, str] = {}
+
+    for row in budget_rows:
+        component = str(row.get("component", ""))
+        if component not in {
+            "comparable_outflow_total_m3_s",
+            "drainage_total_m3_s",
+            "surface_excess_total_m3_s",
+        }:
+            continue
+        x_value = _safe_float(row.get(x_field))
+        if x_value is not None and use_elapsed_seconds:
+            x_value = x_value / _SECONDS_PER_DAY
+        value = _safe_float(row.get("value"))
+        if x_value is None or value is None:
+            continue
+        simulation_id = str(row.get("simulation_id", ""))
+        simulation_label = str(row.get("simulation_label", simulation_id))
+        if component == "comparable_outflow_total_m3_s":
+            grouped_total.setdefault((simulation_id, simulation_label), []).append(
+                (x_value, value)
+            )
+        else:
+            grouped_components.setdefault(
+                (simulation_id, simulation_label, component), []
+            ).append((x_value, value))
+        time_index = _safe_float(row.get("time_index"))
+        label = str(row.get("time_label", "")).strip()
+        if time_index is not None and label:
+            time_labels[int(time_index)] = label
+
+    if not any(len(points) >= 2 for points in grouped_total.values()):
+        return False
+
+    outlet_points_by_sim: dict[tuple[str, str], list[tuple[float, float]]] = {}
+    for row in rows:
+        if str(row.get("observable", "")) != "outlet_flux_series":
+            continue
+        if str(row.get("unit", "")) != "m3/s":
+            continue
+        x_value = _safe_float(row.get(x_field))
+        if x_value is not None and use_elapsed_seconds:
+            x_value = x_value / _SECONDS_PER_DAY
+        value = _safe_float(row.get("value"))
+        if x_value is None or value is None:
+            continue
+        simulation_id = str(row.get("simulation_id", ""))
+        simulation_label = str(row.get("simulation_label", simulation_id))
+        outlet_points_by_sim.setdefault((simulation_id, simulation_label), []).append(
+            (x_value, value)
+        )
+
+    figure, axes = plt.subplots(2, 1, figsize=(8.1, 6.6), sharex=True, squeeze=False)
+    total_ax, component_ax = np.asarray(axes, dtype=object).ravel()
+    tick_positions: list[float] = []
+
+    for (simulation_id, simulation_label), points in sorted(grouped_total.items()):
+        ordered = sorted(points, key=lambda item: item[0])
+        x_values = [item[0] for item in ordered]
+        y_values = [item[1] for item in ordered]
+        tick_positions.extend(x_values)
+        total_ax.step(
+            x_values,
+            y_values,
+            where="post",
+            linewidth=2.0,
+            color=_solver_color(simulation_id),
+            label=_display_simulation_label(
+                simulation_id=simulation_id,
+                simulation_label=simulation_label,
+            ),
+        )
+    for (simulation_id, simulation_label), points in sorted(
+        outlet_points_by_sim.items()
+    ):
+        ordered = sorted(points, key=lambda item: item[0])
+        if len(ordered) < 2:
+            continue
+        x_values = [item[0] for item in ordered]
+        y_values = [item[1] for item in ordered]
+        total_ax.step(
+            x_values,
+            y_values,
+            where="post",
+            linewidth=1.2,
+            linestyle=":",
+            color=_solver_color(simulation_id),
+            alpha=0.85,
+            label=(
+                "Outlet "
+                + _display_simulation_label(
+                    simulation_id=simulation_id,
+                    simulation_label=simulation_label,
+                )
+            ),
+        )
+    total_ax.set_title(
+        "Comparable outflow = drainage + surface excess",
+        fontsize=_PANEL_TITLE_FONT_SIZE,
+        pad=5,
+        loc="left",
+    )
+    total_ax.set_ylabel("m3/s", fontsize=_LABEL_FONT_SIZE)
+    total_ax.tick_params(labelsize=_TICK_FONT_SIZE)
+    total_ax.grid(True, alpha=0.18, linewidth=0.6)
+    total_ax.axhline(0.0, color="#9ca3af", linewidth=0.8, alpha=0.8)
+    handles, labels = total_ax.get_legend_handles_labels()
+    if labels:
+        legend = total_ax.legend(
+            handles,
+            labels,
+            loc="upper center",
+            bbox_to_anchor=(0.5, 1.34),
+            ncol=_legend_ncols(len(labels)),
+            frameon=False,
+            fontsize=_LEGEND_FONT_SIZE,
+        )
+        for line in legend.get_lines():
+            line.set_linewidth(1.8)
+
+    for (simulation_id, simulation_label, component), points in sorted(
+        grouped_components.items()
+    ):
+        ordered = sorted(points, key=lambda item: item[0])
+        if len(ordered) < 2:
+            continue
+        x_values = [item[0] for item in ordered]
+        y_values = [item[1] for item in ordered]
+        linestyle = "-" if component == "drainage_total_m3_s" else "--"
+        component_ax.step(
+            x_values,
+            y_values,
+            where="post",
+            linewidth=1.55,
+            linestyle=linestyle,
+            color=_solver_color(simulation_id),
+            alpha=0.88,
+            label=(
+                _display_simulation_label(
+                    simulation_id=simulation_id,
+                    simulation_label=simulation_label,
+                )
+                + " - "
+                + _budget_component_label(component)
+            ),
+        )
+    component_ax.set_title(
+        "Native components kept visible",
+        fontsize=_PANEL_TITLE_FONT_SIZE,
+        pad=5,
+        loc="left",
+    )
+    component_ax.set_ylabel("m3/s", fontsize=_LABEL_FONT_SIZE)
+    component_ax.set_xlabel(x_label, fontsize=_LABEL_FONT_SIZE)
+    component_ax.tick_params(labelsize=_TICK_FONT_SIZE)
+    component_ax.grid(True, alpha=0.18, linewidth=0.6)
+    component_ax.axhline(0.0, color="#9ca3af", linewidth=0.8, alpha=0.8)
+    handles, labels = component_ax.get_legend_handles_labels()
+    if labels:
+        legend = component_ax.legend(
+            handles,
+            labels,
+            loc="upper center",
+            bbox_to_anchor=(0.5, -0.2),
+            ncol=_legend_ncols(len(labels)),
+            frameon=False,
+            fontsize=_LEGEND_FONT_SIZE,
+        )
+        for line in legend.get_lines():
+            line.set_linewidth(1.55)
+
+    tick_labels = (
+        [time_labels[index] for index in sorted(time_labels)] if time_labels else None
+    )
+    if not use_elapsed_seconds:
+        _apply_time_ticks(
+            component_ax, tick_positions=tick_positions, tick_labels=tick_labels
+        )
+    figure.suptitle("Comparable outflow diagnostics", fontsize=_TITLE_FONT_SIZE, y=0.98)
+    figure.subplots_adjust(left=0.11, right=0.98, top=0.84, bottom=0.2, hspace=0.38)
     path.parent.mkdir(parents=True, exist_ok=True)
     figure.savefig(path, dpi=180, bbox_inches="tight")
     plt.close(figure)
@@ -603,26 +855,27 @@ def _write_flux_dashboard(
 def _write_budget_diagnostic_figure(
     *,
     path: Path,
-    variant_id: str,
-    variant_label: str,
+    simulation_id: str,
+    simulation_label: str,
     budget_rows: list[Mapping[str, Any]],
     rows: list[dict[str, Any]],
 ) -> bool:
-    variant_budget_rows = [
-        row for row in budget_rows if str(row.get("variant_id", "")) == variant_id
+    simulation_budget_rows = [
+        row for row in budget_rows if str(row.get("simulation_id", "")) == simulation_id
     ]
-    if not variant_budget_rows:
+    if not simulation_budget_rows:
         return False
 
     use_elapsed_seconds = all(
-        _safe_float(row.get("elapsed_seconds")) is not None for row in variant_budget_rows
+        _safe_float(row.get("elapsed_seconds")) is not None
+        for row in simulation_budget_rows
     )
     x_field = "elapsed_seconds" if use_elapsed_seconds else "time_index"
     x_label = "Elapsed time [d]" if use_elapsed_seconds else "Time step"
 
     component_groups: dict[str, list[tuple[float, float]]] = {}
     time_labels: dict[int, str] = {}
-    for row in variant_budget_rows:
+    for row in simulation_budget_rows:
         component = str(row.get("component", "")).strip()
         x_value = _safe_float(row.get(x_field))
         if x_value is not None and use_elapsed_seconds:
@@ -641,7 +894,7 @@ def _write_budget_diagnostic_figure(
 
     outlet_points: list[tuple[float, float]] = []
     for row in rows:
-        if str(row.get("variant_id", "")) != variant_id:
+        if str(row.get("simulation_id", "")) != simulation_id:
             continue
         if str(row.get("observable", "")) != "outlet_flux_series":
             continue
@@ -658,6 +911,7 @@ def _write_budget_diagnostic_figure(
     release_components = [
         component
         for component in (
+            "comparable_outflow_total_m3_s",
             "drainage_total_m3_s",
             "surface_excess_total_m3_s",
         )
@@ -707,7 +961,9 @@ def _write_budget_diagnostic_figure(
             color=_budget_component_color("outlet_flux_series"),
             label="Compared outlet flux",
         )
-    release_ax.set_title("Release terms", fontsize=_PANEL_TITLE_FONT_SIZE, pad=5, loc="left")
+    release_ax.set_title(
+        "Release terms", fontsize=_PANEL_TITLE_FONT_SIZE, pad=5, loc="left"
+    )
     release_ax.set_ylabel("m3/s", fontsize=_LABEL_FONT_SIZE)
     release_ax.tick_params(labelsize=_TICK_FONT_SIZE)
     release_ax.grid(True, alpha=0.18, linewidth=0.6)
@@ -741,7 +997,9 @@ def _write_budget_diagnostic_figure(
             color=_budget_component_color(component),
             label=_budget_component_label(component),
         )
-    balance_ax.set_title("Inputs and storage", fontsize=_PANEL_TITLE_FONT_SIZE, pad=5, loc="left")
+    balance_ax.set_title(
+        "Inputs and storage", fontsize=_PANEL_TITLE_FONT_SIZE, pad=5, loc="left"
+    )
     balance_ax.set_ylabel("m3/s", fontsize=_LABEL_FONT_SIZE)
     balance_ax.set_xlabel(x_label, fontsize=_LABEL_FONT_SIZE)
     balance_ax.tick_params(labelsize=_TICK_FONT_SIZE)
@@ -760,10 +1018,14 @@ def _write_budget_diagnostic_figure(
         )
         for line in legend.get_lines():
             line.set_linewidth(1.8)
-    tick_labels = [time_labels[index] for index in sorted(time_labels)] if time_labels else None
-    _apply_time_ticks(balance_ax, tick_positions=tick_positions, tick_labels=tick_labels)
+    tick_labels = (
+        [time_labels[index] for index in sorted(time_labels)] if time_labels else None
+    )
+    _apply_time_ticks(
+        balance_ax, tick_positions=tick_positions, tick_labels=tick_labels
+    )
     figure.suptitle(
-        f"Budget diagnostics: {_display_variant_label(variant_id=variant_id, variant_label=variant_label)}",
+        f"Budget diagnostics: {_display_simulation_label(simulation_id=simulation_id, simulation_label=simulation_label)}",
         fontsize=_TITLE_FONT_SIZE,
         y=0.98,
     )

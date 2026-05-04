@@ -9,9 +9,13 @@ import pytest
 import hydromodpy.analysis.comparison.audit as audit_module
 import hydromodpy.analysis.comparison.output_pipeline as output_pipeline_module
 from hydromodpy.analysis.comparison.audit import build_equivalence_audit
-from hydromodpy.analysis.comparison.child_materialization import materialize_child_configs
+from hydromodpy.analysis.comparison.child_materialization import (
+    materialize_child_configs,
+)
 from hydromodpy.analysis.comparison.experiment_config import SimulationComparisonConfig
-from hydromodpy.analysis.comparison.experiment_launcher import SimulationComparisonLauncher
+from hydromodpy.analysis.comparison.experiment_launcher import (
+    SimulationComparisonLauncher,
+)
 from hydromodpy.analysis.comparison.run_backend import ChildRunResult
 from hydromodpy.analysis.comparison.runtime import resolve_bundle_cells
 from hydromodpy.cli.commands.run import _infer_workflow_from_sections
@@ -202,7 +206,10 @@ def test_simulation_comparison_accepts_existing_run_folders_without_base_config(
 
     assert cfg.base_simulation_config_path is None
     assert [child.config_path for child in children] == [None, None]
-    assert [child.run_folder for child in children] == [run_a.resolve(), run_b.resolve()]
+    assert [child.run_folder for child in children] == [
+        run_a.resolve(),
+        run_b.resolve(),
+    ]
     assert not (tmp_path / "comparison" / "existing_runs" / "_generated_configs").exists()
 
 
@@ -253,22 +260,25 @@ def test_simulation_comparison_launcher_reuses_existing_run_folders(
     def fake_extract_observables(
         self: SimulationComparisonLauncher,
         comparison_cfg,
-        variant_summaries,
+        simulation_summaries,
     ) -> list[dict[str, object]]:
-        assert [summary["config_path"] for summary in variant_summaries] == [None, None]
-        assert [Path(str(summary["run_folder"])).name for summary in variant_summaries] == [
+        assert [summary["config_path"] for summary in simulation_summaries] == [
+            None,
+            None,
+        ]
+        assert [Path(str(summary["run_folder"])).name for summary in simulation_summaries] == [
             "mf6",
             "bouss",
         ]
-        assert [variant.id for variant in comparison_cfg.comparison.variant] == [
+        assert [simulation.id for simulation in comparison_cfg.comparison.simulation] == [
             "mf6_ref",
             "bouss_candidate",
         ]
         return [
             {
                 "comparison_id": "existing_runs",
-                "variant": "mf6_ref",
-                "variant_label": "mf6_ref",
+                "simulation_id": "mf6_ref",
+                "simulation_label": "mf6_ref",
                 "solver": "modflow6",
                 "observable": "head_mid",
                 "variable": "watertable_elevation",
@@ -282,8 +292,8 @@ def test_simulation_comparison_launcher_reuses_existing_run_folders(
             },
             {
                 "comparison_id": "existing_runs",
-                "variant": "bouss_candidate",
-                "variant_label": "bouss_candidate",
+                "simulation_id": "bouss_candidate",
+                "simulation_label": "bouss_candidate",
                 "solver": "boussinesq",
                 "observable": "head_mid",
                 "variable": "watertable_elevation",
@@ -306,7 +316,7 @@ def test_simulation_comparison_launcher_reuses_existing_run_folders(
         lambda **kwargs: {
             "schema_version": "simulation_comparison_audit_v1",
             "status": "pass",
-            "reference_variant": kwargs["reference_variant"],
+            "reference_simulation": kwargs["reference_simulation"],
             "issues": [],
         },
     )
@@ -316,8 +326,8 @@ def test_simulation_comparison_launcher_reuses_existing_run_folders(
 
     assert manifest["base_simulation_config"] is None
     assert manifest["generated_config_paths"] == []
-    assert manifest["variants"][0]["status"] == "reused"
-    assert manifest["variants"][0]["config_path"] is None
+    assert manifest["simulations"][0]["status"] == "reused"
+    assert manifest["simulations"][0]["config_path"] is None
     assert manifest["n_observable_rows"] == 2
 
 
@@ -355,7 +365,9 @@ def test_simulation_comparison_rejects_physical_overlay_changes(tmp_path: Path) 
         materialize_child_configs(cfg)
 
 
-def test_simulation_comparison_allows_flow_parameter_sweep_overlay(tmp_path: Path) -> None:
+def test_simulation_comparison_allows_flow_parameter_sweep_overlay(
+    tmp_path: Path,
+) -> None:
     _write_base_simulation_config(tmp_path / "base.toml")
     config_path = tmp_path / "compare.toml"
     config_path.write_text(
@@ -391,7 +403,9 @@ def test_simulation_comparison_allows_flow_parameter_sweep_overlay(tmp_path: Pat
     assert raw["flow"]["param"]["K"]["field_homogeneous"]["value"] == "2e-4 m/s"
 
 
-def test_simulation_comparison_allows_flow_boundary_sweep_overlay(tmp_path: Path) -> None:
+def test_simulation_comparison_allows_flow_boundary_sweep_overlay(
+    tmp_path: Path,
+) -> None:
     _write_base_simulation_config(tmp_path / "base.toml")
     config_path = tmp_path / "compare.toml"
     config_path.write_text(
@@ -471,7 +485,9 @@ def test_simulation_comparison_requires_enabled_reference(tmp_path: Path) -> Non
         _load_comparison_cfg(config_path)
 
 
-def test_simulation_comparison_rejects_unknown_observable_variant(tmp_path: Path) -> None:
+def test_simulation_comparison_rejects_unknown_observable_simulation(
+    tmp_path: Path,
+) -> None:
     _write_base_simulation_config(tmp_path / "base.toml")
     config_path = tmp_path / "compare.toml"
     config_path.write_text(
@@ -489,7 +505,7 @@ def test_simulation_comparison_rejects_unknown_observable_variant(tmp_path: Path
                 "[[comparison.observable]]",
                 'name = "head_mid"',
                 'variable = "watertable_elevation"',
-                'variants = ["missing_candidate"]',
+                'simulations = ["missing_candidate"]',
                 'support = "point"',
                 "cell_index = 0",
             ]
@@ -524,7 +540,9 @@ def test_cli_resolves_comparison_workflow(tmp_path: Path) -> None:
     assert _infer_workflow_from_sections({"comparison": {}}) == "comparison"
 
 
-def test_resolve_bundle_cells_reads_mesh_input_from_generated_config(tmp_path: Path) -> None:
+def test_resolve_bundle_cells_reads_mesh_input_from_generated_config(
+    tmp_path: Path,
+) -> None:
     bundle_dir = tmp_path / "bundle"
     bundle_dir.mkdir()
     (bundle_dir / "cells.csv").write_text(
@@ -656,7 +674,7 @@ def test_equivalence_audit_flags_physical_config_mismatch(
     monkeypatch.setattr(audit_module, "discover_result_store", fake_discover_result_store)
 
     audit = build_equivalence_audit(
-        variant_summaries=[
+        simulation_summaries=[
             {
                 "id": "mf6_ref",
                 "status": "completed",
@@ -670,7 +688,7 @@ def test_equivalence_audit_flags_physical_config_mismatch(
                 "config_path": str(candidate_config),
             },
         ],
-        reference_variant="mf6_ref",
+        reference_simulation="mf6_ref",
         on_mismatch="warn",
     )
 
@@ -679,6 +697,77 @@ def test_equivalence_audit_flags_physical_config_mismatch(
         issue["kind"] == "config_section_mismatch" and issue["field"] == "data.recharge"
         for issue in audit["issues"]
     )
+
+
+def test_equivalence_audit_treats_missing_disabled_recharge_budget_as_zero(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def fake_load_audit_subject(summary: dict[str, object]) -> dict[str, object]:
+        series = {"elapsed_seconds:0": 0.0} if summary["id"] == "mf6_ref" else {}
+        return {
+            "id": summary["id"],
+            "status": "loaded",
+            "metadata": {},
+            "parameters": [],
+            "physical_config": {
+                "sections": {"flow.active_sinks_sources": []},
+                "fingerprints": {},
+            },
+            "budget_components": {audit_module.RECHARGE_COMPONENT: {"series": series}},
+        }
+
+    monkeypatch.setattr(audit_module, "_load_audit_subject", fake_load_audit_subject)
+
+    audit = build_equivalence_audit(
+        simulation_summaries=[
+            {"id": "mf6_ref", "status": "completed"},
+            {"id": "bouss_candidate", "status": "completed"},
+        ],
+        reference_simulation="mf6_ref",
+        on_mismatch="warn",
+    )
+
+    candidate = next(subject for subject in audit["subjects"] if subject["id"] == "bouss_candidate")
+    recharge_check = candidate["budget_checks"][audit_module.RECHARGE_COMPONENT]
+    assert audit["status"] == "pass"
+    assert recharge_check["status"] == "pass"
+    assert recharge_check["n_pairs"] == 1
+    assert not any(issue["kind"] == "recharge_budget_mismatch" for issue in audit["issues"])
+
+
+def test_equivalence_audit_warns_when_configured_recharge_budget_is_missing(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def fake_load_audit_subject(summary: dict[str, object]) -> dict[str, object]:
+        series = {"elapsed_seconds:0": 0.0} if summary["id"] == "mf6_ref" else {}
+        return {
+            "id": summary["id"],
+            "status": "loaded",
+            "metadata": {},
+            "parameters": [],
+            "physical_config": {
+                "sections": {"flow.active_sinks_sources": ["recharge"]},
+                "fingerprints": {},
+            },
+            "budget_components": {audit_module.RECHARGE_COMPONENT: {"series": series}},
+        }
+
+    monkeypatch.setattr(audit_module, "_load_audit_subject", fake_load_audit_subject)
+
+    audit = build_equivalence_audit(
+        simulation_summaries=[
+            {"id": "mf6_ref", "status": "completed"},
+            {"id": "bouss_candidate", "status": "completed"},
+        ],
+        reference_simulation="mf6_ref",
+        on_mismatch="warn",
+    )
+
+    candidate = next(subject for subject in audit["subjects"] if subject["id"] == "bouss_candidate")
+    recharge_check = candidate["budget_checks"][audit_module.RECHARGE_COMPONENT]
+    assert audit["status"] == "warn"
+    assert recharge_check["status"] == "missing_overlap"
+    assert any(issue["kind"] == "recharge_budget_mismatch" for issue in audit["issues"])
 
 
 def test_equivalence_audit_flags_mixed_initial_state_policy(
@@ -692,24 +781,22 @@ def test_equivalence_audit_flags_mixed_initial_state_policy(
             "parameters": [],
             "physical_config": {"fingerprints": {}},
             "budget_components": {
-                audit_module.RECHARGE_COMPONENT: {
-                    "series": {"elapsed_seconds:86400": 1.0}
-                }
+                audit_module.RECHARGE_COMPONENT: {"series": {"elapsed_seconds:86400": 1.0}}
             },
         }
 
     monkeypatch.setattr(audit_module, "_load_audit_subject", fake_load_audit_subject)
 
     audit = build_equivalence_audit(
-        variant_summaries=[
+        simulation_summaries=[
             {"id": "mf6_ref", "status": "completed"},
             {"id": "bouss_candidate", "status": "completed"},
         ],
-        reference_variant="mf6_ref",
+        reference_simulation="mf6_ref",
         on_mismatch="warn",
         observable_rows=[
             {
-                "variant_id": "mf6_ref",
+                "simulation_id": "mf6_ref",
                 "observable": "head_point_series",
                 "support": "point",
                 "requested_time": "all",
@@ -718,7 +805,7 @@ def test_equivalence_audit_flags_mixed_initial_state_policy(
                 "is_initial_state": False,
             },
             {
-                "variant_id": "bouss_candidate",
+                "simulation_id": "bouss_candidate",
                 "observable": "head_point_series",
                 "support": "point",
                 "requested_time": "all",
@@ -727,7 +814,7 @@ def test_equivalence_audit_flags_mixed_initial_state_policy(
                 "is_initial_state": True,
             },
             {
-                "variant_id": "bouss_candidate",
+                "simulation_id": "bouss_candidate",
                 "observable": "head_point_series",
                 "support": "point",
                 "requested_time": "all",
@@ -740,10 +827,7 @@ def test_equivalence_audit_flags_mixed_initial_state_policy(
 
     assert audit["status"] == "warn"
     assert audit["initial_state_policy"][0]["severity"] == "warning"
-    assert any(
-        issue["kind"] == "initial_state_policy_mismatch"
-        for issue in audit["issues"]
-    )
+    assert any(issue["kind"] == "initial_state_policy_mismatch" for issue in audit["issues"])
 
 
 def test_simulation_comparison_launcher_writes_manifest_with_mocked_runs(
@@ -768,27 +852,27 @@ def test_simulation_comparison_launcher_writes_manifest_with_mocked_runs(
         timeout_seconds: float | None = None,
     ) -> ChildRunResult:
         del python_executable, timeout_seconds
-        variant_id = child_config_path.stem
+        simulation_id = child_config_path.stem
         return ChildRunResult(
             config_path=child_config_path,
             returncode=0,
             wall_time_seconds=0.25,
-            sim_id=sim_ids[variant_id],
+            sim_id=sim_ids[simulation_id],
             stdout="",
-            stderr=f"  sim_id: {sim_ids[variant_id]}\n",
+            stderr=f"  sim_id: {sim_ids[simulation_id]}\n",
         )
 
     def fake_extract_observables(
         self: SimulationComparisonLauncher,
-        method_cfg,
-        variant_summaries: list[dict],
+        comparison_cfg,
+        simulation_summaries: list[dict],
     ) -> list[dict]:
-        del self, method_cfg, variant_summaries
+        del self, comparison_cfg, simulation_summaries
         return [
             {
                 "comparison_id": "demo_sim_compare",
-                "variant_id": "mf6_ref",
-                "variant_label": "MF6 reference",
+                "simulation_id": "mf6_ref",
+                "simulation_label": "MF6 reference",
                 "solver": "modflow6",
                 "mesh_mode": "unknown",
                 "observable": "head_mid",
@@ -807,8 +891,8 @@ def test_simulation_comparison_launcher_writes_manifest_with_mocked_runs(
             },
             {
                 "comparison_id": "demo_sim_compare",
-                "variant_id": "bouss_candidate",
-                "variant_label": "Boussinesq candidate",
+                "simulation_id": "bouss_candidate",
+                "simulation_label": "Boussinesq candidate",
                 "solver": "boussinesq",
                 "mesh_mode": "unknown",
                 "observable": "head_mid",
@@ -837,7 +921,7 @@ def test_simulation_comparison_launcher_writes_manifest_with_mocked_runs(
         lambda **kwargs: {
             "schema_version": "simulation_comparison_audit_v1",
             "status": "pass",
-            "reference_variant": kwargs["reference_variant"],
+            "reference_simulation": kwargs["reference_simulation"],
             "issues": [],
         },
     )
@@ -931,25 +1015,25 @@ def test_simulation_comparison_launcher_can_remove_generated_child_tomls(
         timeout_seconds: float | None = None,
     ) -> ChildRunResult:
         del python_executable, timeout_seconds
-        variant_id = child_config_path.stem
+        simulation_id = child_config_path.stem
         return ChildRunResult(
             config_path=child_config_path,
             returncode=0,
             wall_time_seconds=0.25,
-            sim_id=sim_ids[variant_id],
+            sim_id=sim_ids[simulation_id],
             stdout="",
-            stderr=f"  sim_id: {sim_ids[variant_id]}\n",
+            stderr=f"  sim_id: {sim_ids[simulation_id]}\n",
         )
 
     monkeypatch.setattr(launcher_module, "run_child_with_hmp", fake_run_child_with_hmp)
     monkeypatch.setattr(
         SimulationComparisonLauncher,
         "_extract_observables",
-        lambda self, method_cfg, variant_summaries: [
+        lambda self, comparison_cfg, simulation_summaries: [
             {
                 "comparison_id": "demo_sim_compare",
-                "variant_id": "mf6_ref",
-                "variant_label": "MF6 reference",
+                "simulation_id": "mf6_ref",
+                "simulation_label": "MF6 reference",
                 "solver": "modflow6",
                 "mesh_mode": "unknown",
                 "observable": "head_mid",
@@ -968,8 +1052,8 @@ def test_simulation_comparison_launcher_can_remove_generated_child_tomls(
             },
             {
                 "comparison_id": "demo_sim_compare",
-                "variant_id": "bouss_candidate",
-                "variant_label": "Boussinesq candidate",
+                "simulation_id": "bouss_candidate",
+                "simulation_label": "Boussinesq candidate",
                 "solver": "boussinesq",
                 "mesh_mode": "unknown",
                 "observable": "head_mid",
@@ -994,7 +1078,7 @@ def test_simulation_comparison_launcher_can_remove_generated_child_tomls(
         lambda **kwargs: {
             "schema_version": "simulation_comparison_audit_v1",
             "status": "pass",
-            "reference_variant": kwargs["reference_variant"],
+            "reference_simulation": kwargs["reference_simulation"],
             "issues": [],
         },
     )

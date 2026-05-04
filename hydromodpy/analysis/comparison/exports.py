@@ -26,8 +26,8 @@ logger = get_logger(__name__)
 
 HYDROGRAPHIC_NETWORK_METRICS_FIELDS = [
     "comparison_id",
-    "variant_id",
-    "variant_label",
+    "simulation_id",
+    "simulation_label",
     "solver",
     "mesh_label",
     "mesh_mode",
@@ -63,8 +63,8 @@ HYDROGRAPHIC_NETWORK_METRICS_FIELDS = [
 
 SIMULATED_ACTIVE_NETWORK_METRICS_FIELDS = [
     "comparison_id",
-    "variant_id",
-    "variant_label",
+    "simulation_id",
+    "simulation_label",
     "solver",
     "mesh_label",
     "mesh_mode",
@@ -96,8 +96,8 @@ SIMULATED_ACTIVE_NETWORK_METRICS_FIELDS = [
 
 SIMULATED_ACTIVE_NETWORK_OVERLAP_METRICS_FIELDS = [
     "comparison_id",
-    "variant_id",
-    "variant_label",
+    "simulation_id",
+    "simulation_label",
     "solver",
     "mesh_label",
     "mesh_mode",
@@ -125,8 +125,8 @@ SIMULATED_ACTIVE_NETWORK_OVERLAP_METRICS_FIELDS = [
 
 SIMULATED_ACTIVE_NETWORK_DISTANCE_METRICS_FIELDS = [
     "comparison_id",
-    "variant_id",
-    "variant_label",
+    "simulation_id",
+    "simulation_label",
     "solver",
     "mesh_label",
     "mesh_mode",
@@ -183,12 +183,12 @@ def _write_csv(path: Path, rows: list[dict[str, Any]], fieldnames: list[str]) ->
             writer.writerow({name: row.get(name, "") for name in fieldnames})
 
 
-def _completed_variant_summaries(
-    variant_summaries: Iterable[Mapping[str, Any]],
+def _completed_simulation_summaries(
+    simulation_summaries: Iterable[Mapping[str, Any]],
 ) -> list[dict[str, Any]]:
     return [
         dict(summary)
-        for summary in variant_summaries
+        for summary in simulation_summaries
         if str(summary.get("status", "")) in {"completed", "reused"}
     ]
 
@@ -229,7 +229,12 @@ def write_observable_chronicle_exports(
     rows: list[dict[str, Any]],
     detail_metrics: list[dict[str, Any]],
     observables: Iterable[Mapping[str, Any]],
-) -> tuple[list[dict[str, Any]], list[dict[str, Any]], list[dict[str, Any]], list[dict[str, Any]]]:
+) -> tuple[
+    list[dict[str, Any]],
+    list[dict[str, Any]],
+    list[dict[str, Any]],
+    list[dict[str, Any]],
+]:
     """Write CSV exports for non-map observables."""
     support_lookup = _observable_support_lookup(observables)
     variable_lookup = _observable_variable_lookup(observables)
@@ -241,8 +246,8 @@ def write_observable_chronicle_exports(
             "variable": variable_lookup.get(str(row.get("observable", "")), ""),
             "support": row.get("support", ""),
             "unit": row.get("unit", ""),
-            "variant_id": row.get("variant_id", ""),
-            "variant_label": row.get("variant_label", ""),
+            "simulation_id": row.get("simulation_id", ""),
+            "simulation_label": row.get("simulation_label", ""),
             "comparison_time_key": row.get("comparison_time_key", ""),
             "time_role": row.get("time_role", ""),
             "time": row.get("time", ""),
@@ -283,7 +288,7 @@ def write_observable_chronicle_exports(
                 "value_index": row.get("value_index", ""),
             },
         )
-        item[f"value__{row['variant_id']}"] = row.get("value", "")
+        item[f"value__{row['simulation_id']}"] = row.get("value", "")
     wide_rows = list(wide_index.values())
 
     delta_rows = [
@@ -292,8 +297,8 @@ def write_observable_chronicle_exports(
             "observable": row.get("observable", ""),
             "variable": variable_lookup.get(str(row.get("observable", "")), ""),
             "support": support_lookup.get(str(row.get("observable", "")), ""),
-            "variant_id": row.get("variant_id", ""),
-            "reference_variant": row.get("reference_variant", ""),
+            "simulation_id": row.get("simulation_id", ""),
+            "reference_simulation": row.get("reference_simulation", ""),
             "comparison_time_key": row.get("comparison_time_key", ""),
             "time_role": row.get("time_role", ""),
             "reference_time_role": row.get("reference_time_role", ""),
@@ -324,8 +329,8 @@ def write_observable_chronicle_exports(
                 "variable",
                 "support",
                 "unit",
-                "variant_id",
-                "variant_label",
+                "simulation_id",
+                "simulation_label",
                 "comparison_time_key",
                 "time_role",
                 "time",
@@ -340,7 +345,7 @@ def write_observable_chronicle_exports(
         artifacts.append({"kind": "timeseries_long_csv", "path": str(path)})
     if wide_rows:
         path = comparison_root / "timeseries_wide.csv"
-        variant_columns = sorted(
+        simulation_columns = sorted(
             {key for row in wide_rows for key in row if key.startswith("value__")}
         )
         _write_csv(
@@ -359,7 +364,7 @@ def write_observable_chronicle_exports(
                 "elapsed_seconds",
                 "value_index",
             ]
-            + variant_columns,
+            + simulation_columns,
         )
         artifacts.append({"kind": "timeseries_wide_csv", "path": str(path)})
     if delta_rows:
@@ -372,8 +377,8 @@ def write_observable_chronicle_exports(
                 "observable",
                 "variable",
                 "support",
-                "variant_id",
-                "reference_variant",
+                "simulation_id",
+                "reference_simulation",
                 "comparison_time_key",
                 "time_role",
                 "reference_time_role",
@@ -393,7 +398,9 @@ def write_observable_chronicle_exports(
     return artifacts, long_rows, wide_rows, delta_rows
 
 
-def _load_simulated_timeseries_csv(path: Path) -> tuple[list[dict[str, str]], str] | None:
+def _load_simulated_timeseries_csv(
+    path: Path,
+) -> tuple[list[dict[str, str]], str] | None:
     if not path.exists():
         return None
     raw = path.read_text(encoding="utf-8")
@@ -410,14 +417,21 @@ def write_native_timeseries_exports(
     *,
     comparison_id: str,
     comparison_root: Path,
-    variant_summaries: Iterable[Mapping[str, Any]],
-    reference_variant: str | None,
-) -> tuple[list[dict[str, Any]], list[dict[str, Any]], list[dict[str, Any]], list[dict[str, Any]]]:
+    simulation_summaries: Iterable[Mapping[str, Any]],
+    reference_simulation: str | None,
+) -> tuple[
+    list[dict[str, Any]],
+    list[dict[str, Any]],
+    list[dict[str, Any]],
+    list[dict[str, Any]],
+]:
     """Write CSV exports from `_postprocess/_timeseries/_simulated_timeseries.csv` when present."""
     tables: dict[str, dict[str, Any]] = {}
-    for summary in _completed_variant_summaries(variant_summaries):
+    for summary in _completed_simulation_summaries(simulation_summaries):
         run_folder = Path(str(summary.get("run_folder", "")))
-        source_path = run_folder / "_postprocess" / "_timeseries" / "_simulated_timeseries.csv"
+        source_path = (
+            run_folder / "_postprocess" / "_timeseries" / "_simulated_timeseries.csv"
+        )
         loaded = _load_simulated_timeseries_csv(source_path)
         if loaded is None:
             continue
@@ -425,11 +439,12 @@ def write_native_timeseries_exports(
         numeric_columns = {
             key
             for key in raw_rows[0].keys()
-            if key != "date" and any(_as_float(row.get(key)) is not None for row in raw_rows)
+            if key != "date"
+            and any(_as_float(row.get(key)) is not None for row in raw_rows)
         }
         tables[str(summary.get("id", ""))] = {
-            "variant_id": str(summary.get("id", "")),
-            "variant_label": str(summary.get("label", summary.get("id", ""))),
+            "simulation_id": str(summary.get("id", "")),
+            "simulation_label": str(summary.get("label", summary.get("id", ""))),
             "rows": raw_rows,
             "numeric_columns": numeric_columns,
             "source_path": str(source_path),
@@ -455,8 +470,8 @@ def write_native_timeseries_exports(
                 long_rows.append(
                     {
                         "comparison_id": comparison_id,
-                        "variant_id": table["variant_id"],
-                        "variant_label": table["variant_label"],
+                        "simulation_id": table["simulation_id"],
+                        "simulation_label": table["simulation_label"],
                         "variable": variable,
                         "time_index": time_index,
                         "time_label": time_label,
@@ -477,31 +492,35 @@ def write_native_timeseries_exports(
                 "time_label": row["time_label"],
             },
         )
-        item[f"value__{row['variant_id']}"] = row["value"]
+        item[f"value__{row['simulation_id']}"] = row["value"]
     wide_rows = list(wide_index.values())
 
     delta_rows: list[dict[str, Any]] = []
-    if reference_variant is not None and reference_variant in tables:
+    if reference_simulation is not None and reference_simulation in tables:
         reference_index = {
             (str(row["variable"]), int(row["time_index"])): row
             for row in long_rows
-            if str(row["variant_id"]) == reference_variant
+            if str(row["simulation_id"]) == reference_simulation
         }
         for row in long_rows:
-            if str(row["variant_id"]) == reference_variant:
+            if str(row["simulation_id"]) == reference_simulation:
                 continue
-            reference_row = reference_index.get((str(row["variable"]), int(row["time_index"])))
+            reference_row = reference_index.get(
+                (str(row["variable"]), int(row["time_index"]))
+            )
             if reference_row is None:
                 continue
             signed_error = float(row["value"]) - float(reference_row["value"])
             absolute_error = abs(signed_error)
             ref_value = float(reference_row["value"])
-            relative_error = absolute_error / abs(ref_value) if ref_value != 0.0 else math.nan
+            relative_error = (
+                absolute_error / abs(ref_value) if ref_value != 0.0 else math.nan
+            )
             delta_rows.append(
                 {
                     "comparison_id": comparison_id,
-                    "variant_id": row["variant_id"],
-                    "reference_variant": reference_variant,
+                    "simulation_id": row["simulation_id"],
+                    "reference_simulation": reference_simulation,
                     "variable": row["variable"],
                     "time_index": row["time_index"],
                     "time_label": row["time_label"],
@@ -521,8 +540,8 @@ def write_native_timeseries_exports(
             long_rows,
             [
                 "comparison_id",
-                "variant_id",
-                "variant_label",
+                "simulation_id",
+                "simulation_label",
                 "variable",
                 "time_index",
                 "time_label",
@@ -533,13 +552,14 @@ def write_native_timeseries_exports(
         artifacts.append({"kind": "native_timeseries_long_csv", "path": str(path)})
     if wide_rows:
         path = comparison_root / "native_timeseries_wide.csv"
-        variant_columns = sorted(
+        simulation_columns = sorted(
             {key for row in wide_rows for key in row if key.startswith("value__")}
         )
         _write_csv(
             path,
             wide_rows,
-            ["comparison_id", "variable", "time_index", "time_label"] + variant_columns,
+            ["comparison_id", "variable", "time_index", "time_label"]
+            + simulation_columns,
         )
         artifacts.append({"kind": "native_timeseries_wide_csv", "path": str(path)})
     if delta_rows:
@@ -549,8 +569,8 @@ def write_native_timeseries_exports(
             delta_rows,
             [
                 "comparison_id",
-                "variant_id",
-                "reference_variant",
+                "simulation_id",
+                "reference_simulation",
                 "variable",
                 "time_index",
                 "time_label",
@@ -569,7 +589,7 @@ def write_hydrographic_network_metrics_export(
     *,
     comparison_id: str,
     comparison_root: Path,
-    variant_summaries: Iterable[Mapping[str, Any]],
+    simulation_summaries: Iterable[Mapping[str, Any]],
     tolerance_m: float = 50.0,
     reference_role: str = "reference",
     candidate_role: str = "generated",
@@ -578,25 +598,31 @@ def write_hydrographic_network_metrics_export(
     from hydromodpy.analysis.comparison.runtime_metadata import discover_result_store
 
     rows: list[dict[str, Any]] = []
-    skipped_variants: list[dict[str, Any]] = []
+    skipped_simulations: list[dict[str, Any]] = []
     reference_feature_name: str | None = None
     candidate_feature_name: str | None = None
 
-    for summary in _completed_variant_summaries(variant_summaries):
-        variant_id = str(summary.get("id", ""))
+    for summary in _completed_simulation_summaries(simulation_summaries):
+        simulation_id = str(summary.get("id", ""))
         config_path_raw = summary.get("config_path")
-        config_path = None if config_path_raw in (None, "") else Path(str(config_path_raw))
+        config_path = (
+            None if config_path_raw in (None, "") else Path(str(config_path_raw))
+        )
         preferred_sim_id = summary.get("sim_id")
         preferred_run_name = summary.get("run_name")
         store, sim_id = discover_result_store(
             config_path,
-            preferred_sim_id=(None if preferred_sim_id in (None, "") else str(preferred_sim_id)),
-            preferred_name=(None if preferred_run_name in (None, "") else str(preferred_run_name)),
+            preferred_sim_id=(
+                None if preferred_sim_id in (None, "") else str(preferred_sim_id)
+            ),
+            preferred_name=(
+                None if preferred_run_name in (None, "") else str(preferred_run_name)
+            ),
         )
         if store is None or sim_id in (None, ""):
-            skipped_variants.append(
+            skipped_simulations.append(
                 {
-                    "variant_id": variant_id,
+                    "simulation_id": simulation_id,
                     "reason": "result_store_unavailable",
                     "available_roles": [],
                 }
@@ -610,9 +636,9 @@ def write_hydrographic_network_metrics_export(
             candidate_feature_name = candidate_contract.get("canonical_feature_name")
             available_roles = run.available_hydrographic_network_roles()
             if not {reference_role, candidate_role}.issubset(set(available_roles)):
-                skipped_variants.append(
+                skipped_simulations.append(
                     {
-                        "variant_id": variant_id,
+                        "simulation_id": simulation_id,
                         "reason": "missing_required_roles",
                         "available_roles": available_roles,
                     }
@@ -623,8 +649,8 @@ def write_hydrographic_network_metrics_export(
                 candidate_role=candidate_role,
                 tolerance_m=tolerance_m,
                 comparison_id=comparison_id,
-                variant_id=variant_id,
-                variant_label=str(summary.get("label", summary.get("id", ""))),
+                simulation_id=simulation_id,
+                simulation_label=str(summary.get("label", summary.get("id", ""))),
                 solver=str(summary.get("solver", "")),
                 mesh_label=str(summary.get("mesh_label", "")),
                 mesh_mode=str(summary.get("mesh_mode", "")),
@@ -636,17 +662,17 @@ def write_hydrographic_network_metrics_export(
             )
             rows.append(row)
         except Exception as exc:
-            skipped_variants.append(
+            skipped_simulations.append(
                 {
-                    "variant_id": variant_id,
+                    "simulation_id": simulation_id,
                     "reason": "comparison_metrics_failed",
                     "error_type": type(exc).__name__,
                     "error_message": str(exc),
                 }
             )
             logger.debug(
-                "Skipping hydrographic-network metrics export for variant '%s'.",
-                variant_id,
+                "Skipping hydrographic-network metrics export for simulation '%s'.",
+                simulation_id,
                 exc_info=True,
             )
         finally:
@@ -656,7 +682,7 @@ def write_hydrographic_network_metrics_export(
                 pass
 
     artifacts: list[dict[str, Any]] = []
-    if skipped_variants:
+    if skipped_simulations:
         skipped_path = comparison_root / "hydrographic_network_metrics_skipped.json"
         skipped_payload = {
             "comparison_id": comparison_id,
@@ -665,7 +691,7 @@ def write_hydrographic_network_metrics_export(
             "reference_feature_name": reference_feature_name,
             "candidate_feature_name": candidate_feature_name,
             "tolerance_m": float(tolerance_m),
-            "skipped_variants": skipped_variants,
+            "skipped_simulations": skipped_simulations,
         }
         skipped_path.parent.mkdir(parents=True, exist_ok=True)
         skipped_path.write_text(
@@ -677,15 +703,17 @@ def write_hydrographic_network_metrics_export(
                 "kind": "hydrographic_network_metrics_skipped_json",
                 "path": str(skipped_path),
                 "note": (
-                    f"{len(skipped_variants)} variant(s) skipped for hydrographic-network "
+                    f"{len(skipped_simulations)} simulation(s) skipped for hydrographic-network "
                     "metrics export."
                 ),
             }
         )
         logger.info(
-            "Hydrographic-network metrics export skipped %d variant(s): %s",
-            len(skipped_variants),
-            ", ".join(str(item.get("variant_id", "")) for item in skipped_variants),
+            "Hydrographic-network metrics export skipped %d simulation(s): %s",
+            len(skipped_simulations),
+            ", ".join(
+                str(item.get("simulation_id", "")) for item in skipped_simulations
+            ),
         )
     if not rows:
         return artifacts, rows
@@ -694,7 +722,7 @@ def write_hydrographic_network_metrics_export(
     _write_csv(path, rows, HYDROGRAPHIC_NETWORK_METRICS_FIELDS)
     artifacts.append({"kind": "hydrographic_network_metrics_csv", "path": str(path)})
     logger.info(
-        "Wrote hydrographic-network metrics export for %d variant(s) to %s",
+        "Wrote hydrographic-network metrics export for %d simulation(s) to %s",
         len(rows),
         path,
     )
@@ -705,7 +733,7 @@ def write_simulated_active_network_metrics_export(
     *,
     comparison_id: str,
     comparison_root: Path,
-    variant_summaries: Iterable[Mapping[str, Any]],
+    simulation_summaries: Iterable[Mapping[str, Any]],
     variable: str = "accumulation_flux",
     threshold: float = 0.0,
     persistence_threshold: float = 0.5,
@@ -715,22 +743,28 @@ def write_simulated_active_network_metrics_export(
     from hydromodpy.results import views
 
     rows: list[dict[str, Any]] = []
-    skipped_variants: list[dict[str, Any]] = []
-    for summary in _completed_variant_summaries(variant_summaries):
-        variant_id = str(summary.get("id", ""))
+    skipped_simulations: list[dict[str, Any]] = []
+    for summary in _completed_simulation_summaries(simulation_summaries):
+        simulation_id = str(summary.get("id", ""))
         config_path_raw = summary.get("config_path")
-        config_path = None if config_path_raw in (None, "") else Path(str(config_path_raw))
+        config_path = (
+            None if config_path_raw in (None, "") else Path(str(config_path_raw))
+        )
         preferred_sim_id = summary.get("sim_id")
         preferred_run_name = summary.get("run_name")
         store, sim_id = discover_result_store(
             config_path,
-            preferred_sim_id=(None if preferred_sim_id in (None, "") else str(preferred_sim_id)),
-            preferred_name=(None if preferred_run_name in (None, "") else str(preferred_run_name)),
+            preferred_sim_id=(
+                None if preferred_sim_id in (None, "") else str(preferred_sim_id)
+            ),
+            preferred_name=(
+                None if preferred_run_name in (None, "") else str(preferred_run_name)
+            ),
         )
         if store is None or sim_id in (None, ""):
-            skipped_variants.append(
+            skipped_simulations.append(
                 {
-                    "variant_id": variant_id,
+                    "simulation_id": simulation_id,
                     "reason": "result_store_unavailable",
                     "source_variable": variable,
                 }
@@ -739,9 +773,9 @@ def write_simulated_active_network_metrics_export(
         try:
             run = store[str(sim_id)]
             if not run.has_field(variable):
-                skipped_variants.append(
+                skipped_simulations.append(
                     {
-                        "variant_id": variant_id,
+                        "simulation_id": simulation_id,
                         "reason": "missing_simulated_active_field",
                         "source_variable": variable,
                     }
@@ -755,8 +789,8 @@ def write_simulated_active_network_metrics_export(
             )
             row = {
                 "comparison_id": comparison_id,
-                "variant_id": variant_id,
-                "variant_label": str(summary.get("label", summary.get("id", ""))),
+                "simulation_id": simulation_id,
+                "simulation_label": str(summary.get("label", summary.get("id", ""))),
                 "solver": str(summary.get("solver", "")),
                 "mesh_label": str(summary.get("mesh_label", "")),
                 "mesh_mode": str(summary.get("mesh_mode", "")),
@@ -767,9 +801,9 @@ def write_simulated_active_network_metrics_export(
             row.update(metrics)
             rows.append(row)
         except Exception as exc:
-            skipped_variants.append(
+            skipped_simulations.append(
                 {
-                    "variant_id": variant_id,
+                    "simulation_id": simulation_id,
                     "reason": "simulated_active_metrics_failed",
                     "source_variable": variable,
                     "error_type": type(exc).__name__,
@@ -777,8 +811,8 @@ def write_simulated_active_network_metrics_export(
                 }
             )
             logger.debug(
-                "Skipping simulated-active network metrics export for variant '%s'.",
-                variant_id,
+                "Skipping simulated-active network metrics export for simulation '%s'.",
+                simulation_id,
                 exc_info=True,
             )
         finally:
@@ -788,14 +822,14 @@ def write_simulated_active_network_metrics_export(
                 pass
 
     artifacts: list[dict[str, Any]] = []
-    if skipped_variants:
+    if skipped_simulations:
         skipped_path = comparison_root / "simulated_active_network_metrics_skipped.json"
         skipped_payload = {
             "comparison_id": comparison_id,
             "source_variable": variable,
             "threshold": float(threshold),
             "persistence_threshold": float(persistence_threshold),
-            "skipped_variants": skipped_variants,
+            "skipped_simulations": skipped_simulations,
         }
         skipped_path.parent.mkdir(parents=True, exist_ok=True)
         skipped_path.write_text(
@@ -807,24 +841,28 @@ def write_simulated_active_network_metrics_export(
                 "kind": "simulated_active_network_metrics_skipped_json",
                 "path": str(skipped_path),
                 "note": (
-                    f"{len(skipped_variants)} variant(s) skipped for simulated-active "
+                    f"{len(skipped_simulations)} simulation(s) skipped for simulated-active "
                     "network metrics export."
                 ),
             }
         )
         logger.info(
-            "Simulated-active network metrics export skipped %d variant(s): %s",
-            len(skipped_variants),
-            ", ".join(str(item.get("variant_id", "")) for item in skipped_variants),
+            "Simulated-active network metrics export skipped %d simulation(s): %s",
+            len(skipped_simulations),
+            ", ".join(
+                str(item.get("simulation_id", "")) for item in skipped_simulations
+            ),
         )
     if not rows:
         return artifacts, rows
 
     path = comparison_root / "simulated_active_network_metrics.csv"
     _write_csv(path, rows, SIMULATED_ACTIVE_NETWORK_METRICS_FIELDS)
-    artifacts.append({"kind": "simulated_active_network_metrics_csv", "path": str(path)})
+    artifacts.append(
+        {"kind": "simulated_active_network_metrics_csv", "path": str(path)}
+    )
     logger.info(
-        "Wrote simulated-active network metrics export for %d variant(s) to %s",
+        "Wrote simulated-active network metrics export for %d simulation(s) to %s",
         len(rows),
         path,
     )
@@ -835,7 +873,7 @@ def write_simulated_active_network_overlap_metrics_export(
     *,
     comparison_id: str,
     comparison_root: Path,
-    variant_summaries: Iterable[Mapping[str, Any]],
+    simulation_summaries: Iterable[Mapping[str, Any]],
     network_role: str = "reference",
     variable: str = "accumulation_flux",
     threshold: float = 0.0,
@@ -852,22 +890,28 @@ def write_simulated_active_network_overlap_metrics_export(
     from hydromodpy.results import views
 
     rows: list[dict[str, Any]] = []
-    skipped_variants: list[dict[str, Any]] = []
-    for summary in _completed_variant_summaries(variant_summaries):
-        variant_id = str(summary.get("id", ""))
+    skipped_simulations: list[dict[str, Any]] = []
+    for summary in _completed_simulation_summaries(simulation_summaries):
+        simulation_id = str(summary.get("id", ""))
         config_path_raw = summary.get("config_path")
-        config_path = None if config_path_raw in (None, "") else Path(str(config_path_raw))
+        config_path = (
+            None if config_path_raw in (None, "") else Path(str(config_path_raw))
+        )
         preferred_sim_id = summary.get("sim_id")
         preferred_run_name = summary.get("run_name")
         store, sim_id = discover_result_store(
             config_path,
-            preferred_sim_id=(None if preferred_sim_id in (None, "") else str(preferred_sim_id)),
-            preferred_name=(None if preferred_run_name in (None, "") else str(preferred_run_name)),
+            preferred_sim_id=(
+                None if preferred_sim_id in (None, "") else str(preferred_sim_id)
+            ),
+            preferred_name=(
+                None if preferred_run_name in (None, "") else str(preferred_run_name)
+            ),
         )
         if store is None or sim_id in (None, ""):
-            skipped_variants.append(
+            skipped_simulations.append(
                 {
-                    "variant_id": variant_id,
+                    "simulation_id": simulation_id,
                     "reason": "result_store_unavailable",
                     "source_variable": variable,
                     "network_role": network_role,
@@ -877,9 +921,9 @@ def write_simulated_active_network_overlap_metrics_export(
         try:
             run = store[str(sim_id)]
             if not run.has_hydrographic_network(network_role):
-                skipped_variants.append(
+                skipped_simulations.append(
                     {
-                        "variant_id": variant_id,
+                        "simulation_id": simulation_id,
                         "reason": "missing_vector_network_role",
                         "network_role": network_role,
                         "available_roles": run.available_hydrographic_network_roles(),
@@ -888,9 +932,9 @@ def write_simulated_active_network_overlap_metrics_export(
                 )
                 continue
             if not run.has_field(variable):
-                skipped_variants.append(
+                skipped_simulations.append(
                     {
-                        "variant_id": variant_id,
+                        "simulation_id": simulation_id,
                         "reason": "missing_simulated_active_field",
                         "network_role": network_role,
                         "source_variable": variable,
@@ -901,14 +945,16 @@ def write_simulated_active_network_overlap_metrics_export(
             try:
                 mesh = sz.root.get("mesh")
                 has_mesh = (
-                    mesh is not None and "vertices" in mesh and "face_node_connectivity" in mesh
+                    mesh is not None
+                    and "vertices" in mesh
+                    and "face_node_connectivity" in mesh
                 )
             finally:
                 sz.close()
             if not has_mesh:
-                skipped_variants.append(
+                skipped_simulations.append(
                     {
-                        "variant_id": variant_id,
+                        "simulation_id": simulation_id,
                         "reason": "missing_plottable_mesh",
                         "network_role": network_role,
                         "source_variable": variable,
@@ -927,8 +973,8 @@ def write_simulated_active_network_overlap_metrics_export(
             )
             row = {
                 "comparison_id": comparison_id,
-                "variant_id": variant_id,
-                "variant_label": str(summary.get("label", summary.get("id", ""))),
+                "simulation_id": simulation_id,
+                "simulation_label": str(summary.get("label", summary.get("id", ""))),
                 "solver": str(summary.get("solver", "")),
                 "mesh_label": str(summary.get("mesh_label", "")),
                 "mesh_mode": str(summary.get("mesh_mode", "")),
@@ -939,9 +985,9 @@ def write_simulated_active_network_overlap_metrics_export(
             row.update(metrics)
             rows.append(row)
         except Exception as exc:
-            skipped_variants.append(
+            skipped_simulations.append(
                 {
-                    "variant_id": variant_id,
+                    "simulation_id": simulation_id,
                     "reason": "simulated_active_overlap_metrics_failed",
                     "source_variable": variable,
                     "network_role": network_role,
@@ -950,8 +996,8 @@ def write_simulated_active_network_overlap_metrics_export(
                 }
             )
             logger.debug(
-                "Skipping simulated-active overlap metrics export for variant '%s'.",
-                variant_id,
+                "Skipping simulated-active overlap metrics export for simulation '%s'.",
+                simulation_id,
                 exc_info=True,
             )
         finally:
@@ -961,8 +1007,10 @@ def write_simulated_active_network_overlap_metrics_export(
                 pass
 
     artifacts: list[dict[str, Any]] = []
-    if skipped_variants:
-        skipped_path = comparison_root / "simulated_active_network_overlap_metrics_skipped.json"
+    if skipped_simulations:
+        skipped_path = (
+            comparison_root / "simulated_active_network_overlap_metrics_skipped.json"
+        )
         skipped_payload = {
             "comparison_id": comparison_id,
             "network_role": network_role,
@@ -972,7 +1020,7 @@ def write_simulated_active_network_overlap_metrics_export(
             "persistence_threshold": float(persistence_threshold),
             "timestep": timestep,
             "buffer_m": float(buffer_m),
-            "skipped_variants": skipped_variants,
+            "skipped_simulations": skipped_simulations,
         }
         skipped_path.parent.mkdir(parents=True, exist_ok=True)
         skipped_path.write_text(
@@ -984,24 +1032,28 @@ def write_simulated_active_network_overlap_metrics_export(
                 "kind": "simulated_active_network_overlap_metrics_skipped_json",
                 "path": str(skipped_path),
                 "note": (
-                    f"{len(skipped_variants)} variant(s) skipped for simulated-active "
+                    f"{len(skipped_simulations)} simulation(s) skipped for simulated-active "
                     "network overlap metrics export."
                 ),
             }
         )
         logger.info(
-            "Simulated-active network overlap metrics export skipped %d variant(s): %s",
-            len(skipped_variants),
-            ", ".join(str(item.get("variant_id", "")) for item in skipped_variants),
+            "Simulated-active network overlap metrics export skipped %d simulation(s): %s",
+            len(skipped_simulations),
+            ", ".join(
+                str(item.get("simulation_id", "")) for item in skipped_simulations
+            ),
         )
     if not rows:
         return artifacts, rows
 
     path = comparison_root / "simulated_active_network_overlap_metrics.csv"
     _write_csv(path, rows, SIMULATED_ACTIVE_NETWORK_OVERLAP_METRICS_FIELDS)
-    artifacts.append({"kind": "simulated_active_network_overlap_metrics_csv", "path": str(path)})
+    artifacts.append(
+        {"kind": "simulated_active_network_overlap_metrics_csv", "path": str(path)}
+    )
     logger.info(
-        "Wrote simulated-active network overlap metrics export for %d variant(s) to %s",
+        "Wrote simulated-active network overlap metrics export for %d simulation(s) to %s",
         len(rows),
         path,
     )
@@ -1012,7 +1064,7 @@ def write_simulated_active_network_distance_metrics_export(
     *,
     comparison_id: str,
     comparison_root: Path,
-    variant_summaries: Iterable[Mapping[str, Any]],
+    simulation_summaries: Iterable[Mapping[str, Any]],
     network_role: str = "reference",
     variable: str = "accumulation_flux",
     threshold: float = 0.0,
@@ -1031,22 +1083,28 @@ def write_simulated_active_network_distance_metrics_export(
     from hydromodpy.analysis.comparison.runtime import discover_result_store
 
     rows: list[dict[str, Any]] = []
-    skipped_variants: list[dict[str, Any]] = []
-    for summary in _completed_variant_summaries(variant_summaries):
-        variant_id = str(summary.get("id", ""))
+    skipped_simulations: list[dict[str, Any]] = []
+    for summary in _completed_simulation_summaries(simulation_summaries):
+        simulation_id = str(summary.get("id", ""))
         config_path_raw = summary.get("config_path")
-        config_path = None if config_path_raw in (None, "") else Path(str(config_path_raw))
+        config_path = (
+            None if config_path_raw in (None, "") else Path(str(config_path_raw))
+        )
         preferred_sim_id = summary.get("sim_id")
         preferred_run_name = summary.get("run_name")
         store, sim_id = discover_result_store(
             config_path,
-            preferred_sim_id=(None if preferred_sim_id in (None, "") else str(preferred_sim_id)),
-            preferred_name=(None if preferred_run_name in (None, "") else str(preferred_run_name)),
+            preferred_sim_id=(
+                None if preferred_sim_id in (None, "") else str(preferred_sim_id)
+            ),
+            preferred_name=(
+                None if preferred_run_name in (None, "") else str(preferred_run_name)
+            ),
         )
         if store is None or sim_id in (None, ""):
-            skipped_variants.append(
+            skipped_simulations.append(
                 {
-                    "variant_id": variant_id,
+                    "simulation_id": simulation_id,
                     "reason": "result_store_unavailable",
                     "source_variable": variable,
                     "network_role": network_role,
@@ -1056,9 +1114,9 @@ def write_simulated_active_network_distance_metrics_export(
         try:
             run = store[str(sim_id)]
             if not run.has_hydrographic_network(network_role):
-                skipped_variants.append(
+                skipped_simulations.append(
                     {
-                        "variant_id": variant_id,
+                        "simulation_id": simulation_id,
                         "reason": "missing_vector_network_role",
                         "network_role": network_role,
                         "available_roles": run.available_hydrographic_network_roles(),
@@ -1067,9 +1125,9 @@ def write_simulated_active_network_distance_metrics_export(
                 )
                 continue
             if not run.has_field(variable):
-                skipped_variants.append(
+                skipped_simulations.append(
                     {
-                        "variant_id": variant_id,
+                        "simulation_id": simulation_id,
                         "reason": "missing_simulated_active_field",
                         "network_role": network_role,
                         "source_variable": variable,
@@ -1078,10 +1136,14 @@ def write_simulated_active_network_distance_metrics_export(
                 continue
             zarr_root = store.open_zarr(str(sim_id)).root
             mesh = zarr_root.get("mesh")
-            if mesh is None or "vertices" not in mesh or "face_node_connectivity" not in mesh:
-                skipped_variants.append(
+            if (
+                mesh is None
+                or "vertices" not in mesh
+                or "face_node_connectivity" not in mesh
+            ):
+                skipped_simulations.append(
                     {
-                        "variant_id": variant_id,
+                        "simulation_id": simulation_id,
                         "reason": "missing_plottable_mesh",
                         "network_role": network_role,
                         "source_variable": variable,
@@ -1099,8 +1161,8 @@ def write_simulated_active_network_distance_metrics_export(
             )
             row = {
                 "comparison_id": comparison_id,
-                "variant_id": variant_id,
-                "variant_label": str(summary.get("label", summary.get("id", ""))),
+                "simulation_id": simulation_id,
+                "simulation_label": str(summary.get("label", summary.get("id", ""))),
                 "solver": str(summary.get("solver", "")),
                 "mesh_label": str(summary.get("mesh_label", "")),
                 "mesh_mode": str(summary.get("mesh_mode", "")),
@@ -1111,9 +1173,9 @@ def write_simulated_active_network_distance_metrics_export(
             row.update(metrics)
             rows.append(row)
         except Exception as exc:
-            skipped_variants.append(
+            skipped_simulations.append(
                 {
-                    "variant_id": variant_id,
+                    "simulation_id": simulation_id,
                     "reason": "simulated_active_distance_metrics_failed",
                     "source_variable": variable,
                     "network_role": network_role,
@@ -1122,8 +1184,8 @@ def write_simulated_active_network_distance_metrics_export(
                 }
             )
             logger.debug(
-                "Skipping simulated-active distance metrics export for variant '%s'.",
-                variant_id,
+                "Skipping simulated-active distance metrics export for simulation '%s'.",
+                simulation_id,
                 exc_info=True,
             )
         finally:
@@ -1133,8 +1195,10 @@ def write_simulated_active_network_distance_metrics_export(
                 pass
 
     artifacts: list[dict[str, Any]] = []
-    if skipped_variants:
-        skipped_path = comparison_root / "simulated_active_network_distance_metrics_skipped.json"
+    if skipped_simulations:
+        skipped_path = (
+            comparison_root / "simulated_active_network_distance_metrics_skipped.json"
+        )
         skipped_payload = {
             "comparison_id": comparison_id,
             "network_role": network_role,
@@ -1144,7 +1208,7 @@ def write_simulated_active_network_distance_metrics_export(
             "persistence_threshold": float(persistence_threshold),
             "timestep": timestep,
             "network_buffer_m": float(network_buffer_m),
-            "skipped_variants": skipped_variants,
+            "skipped_simulations": skipped_simulations,
         }
         skipped_path.parent.mkdir(parents=True, exist_ok=True)
         skipped_path.write_text(
@@ -1156,24 +1220,28 @@ def write_simulated_active_network_distance_metrics_export(
                 "kind": "simulated_active_network_distance_metrics_skipped_json",
                 "path": str(skipped_path),
                 "note": (
-                    f"{len(skipped_variants)} variant(s) skipped for simulated-active "
+                    f"{len(skipped_simulations)} simulation(s) skipped for simulated-active "
                     "network distance metrics export."
                 ),
             }
         )
         logger.info(
-            "Simulated-active network distance metrics export skipped %d variant(s): %s",
-            len(skipped_variants),
-            ", ".join(str(item.get("variant_id", "")) for item in skipped_variants),
+            "Simulated-active network distance metrics export skipped %d simulation(s): %s",
+            len(skipped_simulations),
+            ", ".join(
+                str(item.get("simulation_id", "")) for item in skipped_simulations
+            ),
         )
     if not rows:
         return artifacts, rows
 
     path = comparison_root / "simulated_active_network_distance_metrics.csv"
     _write_csv(path, rows, SIMULATED_ACTIVE_NETWORK_DISTANCE_METRICS_FIELDS)
-    artifacts.append({"kind": "simulated_active_network_distance_metrics_csv", "path": str(path)})
+    artifacts.append(
+        {"kind": "simulated_active_network_distance_metrics_csv", "path": str(path)}
+    )
     logger.info(
-        "Wrote simulated-active network distance metrics export for %d variant(s) to %s",
+        "Wrote simulated-active network distance metrics export for %d simulation(s) to %s",
         len(rows),
         path,
     )
@@ -1183,7 +1251,7 @@ def write_simulated_active_network_distance_metrics_export(
 def write_simulated_active_network_reference_figure_export(
     *,
     comparison_root: Path,
-    variant_summaries: Iterable[Mapping[str, Any]],
+    simulation_summaries: Iterable[Mapping[str, Any]],
     network_role: str = "reference",
     variable: str = "accumulation_flux",
     threshold: float = 0.0,
@@ -1193,10 +1261,10 @@ def write_simulated_active_network_reference_figure_export(
     buffer_m: float = 0.0,
     dpi: int = 180,
 ) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
-    """Render per-variant simulated-active maps against the reference network.
+    """Render per-simulation simulated-active maps against the reference network.
 
     The comparison target is deliberately ``reference``. Missing reference
-    linework skips the figure for that variant; it never falls back to the
+    linework skips the figure for that simulation; it never falls back to the
     topography-derived ``generated`` network.
     """
     import matplotlib.pyplot as plt
@@ -1205,28 +1273,34 @@ def write_simulated_active_network_reference_figure_export(
     from hydromodpy.display import get as get_figure
 
     rows: list[dict[str, Any]] = []
-    skipped_variants: list[dict[str, Any]] = []
+    skipped_simulations: list[dict[str, Any]] = []
     figure_root = comparison_root / "run_figures"
     figure_names = (
         "simulated_active_network",
         "simulated_active_network_reference_overlay",
     )
 
-    for summary in _completed_variant_summaries(variant_summaries):
-        variant_id = str(summary.get("id", ""))
+    for summary in _completed_simulation_summaries(simulation_summaries):
+        simulation_id = str(summary.get("id", ""))
         config_path_raw = summary.get("config_path")
-        config_path = None if config_path_raw in (None, "") else Path(str(config_path_raw))
+        config_path = (
+            None if config_path_raw in (None, "") else Path(str(config_path_raw))
+        )
         preferred_sim_id = summary.get("sim_id")
         preferred_run_name = summary.get("run_name")
         store, sim_id = discover_result_store(
             config_path,
-            preferred_sim_id=(None if preferred_sim_id in (None, "") else str(preferred_sim_id)),
-            preferred_name=(None if preferred_run_name in (None, "") else str(preferred_run_name)),
+            preferred_sim_id=(
+                None if preferred_sim_id in (None, "") else str(preferred_sim_id)
+            ),
+            preferred_name=(
+                None if preferred_run_name in (None, "") else str(preferred_run_name)
+            ),
         )
         if store is None or sim_id in (None, ""):
-            skipped_variants.append(
+            skipped_simulations.append(
                 {
-                    "variant_id": variant_id,
+                    "simulation_id": simulation_id,
                     "reason": "result_store_unavailable",
                     "source_variable": variable,
                     "network_role": network_role,
@@ -1237,9 +1311,9 @@ def write_simulated_active_network_reference_figure_export(
         try:
             run = store[str(sim_id)]
             if not run.has_field(variable):
-                skipped_variants.append(
+                skipped_simulations.append(
                     {
-                        "variant_id": variant_id,
+                        "simulation_id": simulation_id,
                         "reason": "missing_simulated_active_field",
                         "source_variable": variable,
                         "network_role": network_role,
@@ -1247,9 +1321,9 @@ def write_simulated_active_network_reference_figure_export(
                 )
                 continue
             if not run.has_hydrographic_network(network_role):
-                skipped_variants.append(
+                skipped_simulations.append(
                     {
-                        "variant_id": variant_id,
+                        "simulation_id": simulation_id,
                         "reason": "missing_vector_network_role",
                         "network_role": network_role,
                         "available_roles": run.available_hydrographic_network_roles(),
@@ -1258,9 +1332,9 @@ def write_simulated_active_network_reference_figure_export(
                 )
                 continue
 
-            variant_dir = figure_root / variant_id
+            simulation_dir = figure_root / simulation_id
             for figure_name in figure_names:
-                figure_path = variant_dir / f"{figure_name}.png"
+                figure_path = simulation_dir / f"{figure_name}.png"
                 fig = get_figure(figure_name).plot(
                     run,
                     dpi=dpi,
@@ -1275,15 +1349,15 @@ def write_simulated_active_network_reference_figure_export(
                 plt.close(fig)
                 row = {
                     "kind": "simulated_active_network_figure",
-                    "variant_id": variant_id,
+                    "simulation_id": simulation_id,
                     "figure_name": figure_name,
                     "path": str(figure_path),
                 }
                 rows.append(row)
         except Exception as exc:
-            skipped_variants.append(
+            skipped_simulations.append(
                 {
-                    "variant_id": variant_id,
+                    "simulation_id": simulation_id,
                     "reason": "simulated_active_network_figure_failed",
                     "source_variable": variable,
                     "network_role": network_role,
@@ -1292,8 +1366,8 @@ def write_simulated_active_network_reference_figure_export(
                 }
             )
             logger.debug(
-                "Skipping simulated-active network figure export for variant '%s'.",
-                variant_id,
+                "Skipping simulated-active network figure export for simulation '%s'.",
+                simulation_id,
                 exc_info=True,
             )
         finally:
@@ -1303,7 +1377,7 @@ def write_simulated_active_network_reference_figure_export(
                 pass
 
     artifacts: list[dict[str, Any]] = list(rows)
-    if skipped_variants:
+    if skipped_simulations:
         skipped_path = comparison_root / "simulated_active_network_figures_skipped.json"
         skipped_payload = {
             "network_role": network_role,
@@ -1313,7 +1387,7 @@ def write_simulated_active_network_reference_figure_export(
             "persistence_threshold": float(persistence_threshold),
             "timestep": timestep,
             "buffer_m": float(buffer_m),
-            "skipped_variants": skipped_variants,
+            "skipped_simulations": skipped_simulations,
         }
         skipped_path.parent.mkdir(parents=True, exist_ok=True)
         skipped_path.write_text(
@@ -1325,7 +1399,7 @@ def write_simulated_active_network_reference_figure_export(
                 "kind": "simulated_active_network_figures_skipped_json",
                 "path": str(skipped_path),
                 "note": (
-                    f"{len(skipped_variants)} variant(s) skipped for simulated-active "
+                    f"{len(skipped_simulations)} simulation(s) skipped for simulated-active "
                     "network figure export."
                 ),
             }
@@ -1345,7 +1419,9 @@ def _history_matrix(payload: Mapping[str, Any], key: str) -> np.ndarray | None:
     return None
 
 
-def _elapsed_seconds_axis(period_lengths: np.ndarray, *, n_snapshots: int) -> np.ndarray:
+def _elapsed_seconds_axis(
+    period_lengths: np.ndarray, *, n_snapshots: int
+) -> np.ndarray:
     if n_snapshots <= 0:
         return np.asarray([], dtype=float)
     if period_lengths.size == n_snapshots - 1:
@@ -1440,7 +1516,9 @@ def _homogeneous_sy_from_config(config_path: Path | None) -> float | None:
     params = flow.get("param")
     if not isinstance(params, Mapping):
         return None
-    sy_payload = params.get("Sy") or params.get("sy") or params.get("S") or params.get("s")
+    sy_payload = (
+        params.get("Sy") or params.get("sy") or params.get("S") or params.get("s")
+    )
     if not isinstance(sy_payload, Mapping):
         return None
 
@@ -1525,7 +1603,8 @@ def _storage_change_series_m3_s(
                 continue
             delta_storage_state_m = storage_state_m[index] - storage_state_m[index - 1]
             storage_change[index] = float(
-                np.nansum(area_m2 * storage_coefficient * delta_storage_state_m) / dt_seconds
+                np.nansum(area_m2 * storage_coefficient * delta_storage_state_m)
+                / dt_seconds
             )
         return storage_change
 
@@ -1537,7 +1616,8 @@ def _storage_change_series_m3_s(
                 continue
             delta_storage_state_m = storage_state_m[index] - storage_state_m[index - 1]
             storage_change[index] = float(
-                np.nansum(area_m2 * storage_coefficient * delta_storage_state_m) / dt_seconds
+                np.nansum(area_m2 * storage_coefficient * delta_storage_state_m)
+                / dt_seconds
             )
         return storage_change
 
@@ -1607,9 +1687,13 @@ def _load_boussinesq_budget_rows(
     drainage_history = _history_matrix(payload, "drainage_flux_history_m3_s")
     surface_history = _history_matrix(payload, "saturation_excess_history_m_s")
     dry_deficit_history = _history_matrix(payload, "dry_deficit_history_m_s")
-    prescribed_head_history = _history_matrix(payload, "prescribed_head_flux_history_m3_s")
+    prescribed_head_history = _history_matrix(
+        payload, "prescribed_head_flux_history_m3_s"
+    )
     head_history = _history_matrix(payload, "head_history_m")
-    saturated_thickness_history = _history_matrix(payload, "saturated_thickness_history_m")
+    saturated_thickness_history = _history_matrix(
+        payload, "saturated_thickness_history_m"
+    )
 
     n_snapshots = max(
         (
@@ -1782,8 +1866,8 @@ def _load_boussinesq_budget_rows(
             period_index, period_start, period_end = period_metadata
             rows.append(
                 {
-                    "variant_id": summary.get("id", ""),
-                    "variant_label": summary.get("label", summary.get("id", "")),
+                    "simulation_id": summary.get("id", ""),
+                    "simulation_label": summary.get("label", summary.get("id", "")),
                     "solver": summary.get("solver", ""),
                     "mesh_mode": summary.get("mesh_mode", ""),
                     "component": component,
@@ -1823,7 +1907,9 @@ def _mf_budget_component_name(component: str) -> str:
     return aliases.get(key, "")
 
 
-def _mf_budget_component_value_m3_s(component: str, flux_in: float, flux_out: float) -> float:
+def _mf_budget_component_value_m3_s(
+    component: str, flux_in: float, flux_out: float
+) -> float:
     target = _mf_budget_component_name(component)
     if target == "storage_change_total_m3_s":
         return float(flux_out) - float(flux_in)
@@ -1905,21 +1991,25 @@ def _load_catalog_budget_rows(
     rows: list[dict[str, Any]] = []
     for timestep, values in sorted(grouped_by_time.items()):
         elapsed = (
-            float(elapsed_axis[timestep]) if timestep < int(elapsed_axis.size) else float(timestep)
+            float(elapsed_axis[timestep])
+            if timestep < int(elapsed_axis.size)
+            else float(timestep)
         )
         period_start = (
             float(elapsed_axis[timestep - 1])
             if timestep > 0 and timestep - 1 < int(elapsed_axis.size)
             else 0.0
         )
-        time_label = f"{elapsed / 86400.0:.1f} d" if math.isfinite(elapsed) else str(timestep)
+        time_label = (
+            f"{elapsed / 86400.0:.1f} d" if math.isfinite(elapsed) else str(timestep)
+        )
         for component, value in sorted(values.items()):
             if not math.isfinite(float(value)):
                 continue
             rows.append(
                 {
-                    "variant_id": summary.get("id", ""),
-                    "variant_label": summary.get("label", summary.get("id", "")),
+                    "simulation_id": summary.get("id", ""),
+                    "simulation_label": summary.get("label", summary.get("id", "")),
                     "solver": summary.get("solver", ""),
                     "mesh_mode": summary.get("mesh_mode", ""),
                     "component": component,
@@ -1940,8 +2030,8 @@ def _load_catalog_budget_rows(
 
 
 BOUSSINESQ_OBSTACLE_DIAGNOSTICS_FIELDS = [
-    "variant_id",
-    "variant_label",
+    "simulation_id",
+    "simulation_label",
     "solver",
     "mesh_mode",
     "time_index",
@@ -2013,7 +2103,8 @@ def _load_boussinesq_obstacle_diagnostic_rows(
     )
     storage_coefficient = (
         np.asarray(cells.storage_coefficient, dtype=float).reshape(-1)
-        if cells.storage_coefficient is not None and cells.storage_coefficient.size == n_cells
+        if cells.storage_coefficient is not None
+        and cells.storage_coefficient.size == n_cells
         else np.full(n_cells, np.nan, dtype=float)
     )
     z_top = (
@@ -2057,8 +2148,8 @@ def _load_boussinesq_obstacle_diagnostic_rows(
         negative_storage_volume = area_m2 * storage_coefficient * bottom_violation
         rows.append(
             {
-                "variant_id": summary.get("id", ""),
-                "variant_label": summary.get("label", summary.get("id", "")),
+                "simulation_id": summary.get("id", ""),
+                "simulation_label": summary.get("label", summary.get("id", "")),
                 "solver": summary.get("solver", ""),
                 "mesh_mode": summary.get("mesh_mode", ""),
                 "time_index": time_index,
@@ -2088,21 +2179,27 @@ def _load_boussinesq_obstacle_diagnostic_rows(
 def write_boussinesq_obstacle_diagnostics_export(
     *,
     comparison_root: Path,
-    variant_summaries: Iterable[Mapping[str, Any]],
+    simulation_summaries: Iterable[Mapping[str, Any]],
 ) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
     """Write per-snapshot Boussinesq obstacle diagnostics when available."""
     from hydromodpy.analysis.comparison.runtime import discover_result_store
 
     rows: list[dict[str, Any]] = []
-    for summary in _completed_variant_summaries(variant_summaries):
+    for summary in _completed_simulation_summaries(simulation_summaries):
         config_path_raw = summary.get("config_path")
-        config_path = None if config_path_raw in (None, "") else Path(str(config_path_raw))
+        config_path = (
+            None if config_path_raw in (None, "") else Path(str(config_path_raw))
+        )
         preferred_sim_id = summary.get("sim_id")
         preferred_run_name = summary.get("run_name")
         store, sim_id = discover_result_store(
             config_path,
-            preferred_sim_id=(None if preferred_sim_id in (None, "") else str(preferred_sim_id)),
-            preferred_name=(None if preferred_run_name in (None, "") else str(preferred_run_name)),
+            preferred_sim_id=(
+                None if preferred_sim_id in (None, "") else str(preferred_sim_id)
+            ),
+            preferred_name=(
+                None if preferred_run_name in (None, "") else str(preferred_run_name)
+            ),
         )
         try:
             rows.extend(
@@ -2132,33 +2229,43 @@ def write_boussinesq_obstacle_diagnostics_export(
 def write_budget_exports(
     *,
     comparison_root: Path,
-    variant_summaries: Iterable[Mapping[str, Any]],
+    simulation_summaries: Iterable[Mapping[str, Any]],
 ) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
     """Write budget diagnostics derived from Boussinesq state histories."""
     from hydromodpy.analysis.comparison.runtime_metadata import discover_result_store
 
     rows: list[dict[str, Any]] = []
-    for summary in _completed_variant_summaries(variant_summaries):
+    for summary in _completed_simulation_summaries(simulation_summaries):
         config_path_raw = summary.get("config_path")
-        config_path = None if config_path_raw in (None, "") else Path(str(config_path_raw))
+        config_path = (
+            None if config_path_raw in (None, "") else Path(str(config_path_raw))
+        )
         preferred_sim_id = summary.get("sim_id")
         preferred_run_name = summary.get("run_name")
         store, sim_id = discover_result_store(
             config_path,
-            preferred_sim_id=(None if preferred_sim_id in (None, "") else str(preferred_sim_id)),
-            preferred_name=(None if preferred_run_name in (None, "") else str(preferred_run_name)),
+            preferred_sim_id=(
+                None if preferred_sim_id in (None, "") else str(preferred_sim_id)
+            ),
+            preferred_name=(
+                None if preferred_run_name in (None, "") else str(preferred_run_name)
+            ),
         )
         try:
             catalog_rows = _load_catalog_budget_rows(summary, store, sim_id)
             if catalog_rows:
                 rows.extend(catalog_rows)
-            rows.extend(_load_boussinesq_budget_rows(summary, store=store, sim_id=sim_id))
+            rows.extend(
+                _load_boussinesq_budget_rows(summary, store=store, sim_id=sim_id)
+            )
         finally:
             if store is not None:
                 try:
                     store.close()
                 except Exception:
                     pass
+
+    rows = _with_comparable_outflow_rows(rows)
 
     artifacts: list[dict[str, Any]] = []
     if not rows:
@@ -2169,8 +2276,8 @@ def write_budget_exports(
         long_path,
         rows,
         [
-            "variant_id",
-            "variant_label",
+            "simulation_id",
+            "simulation_label",
             "solver",
             "mesh_mode",
             "component",
@@ -2213,10 +2320,12 @@ def write_budget_exports(
                 "time_label": row["time_label"],
             },
         )
-        item[f"value__{row['variant_id']}"] = row["value"]
+        item[f"value__{row['simulation_id']}"] = row["value"]
     wide_rows = list(wide_index.values())
     wide_path = comparison_root / "budget_timeseries_wide.csv"
-    variant_columns = sorted({key for row in wide_rows for key in row if key.startswith("value__")})
+    simulation_columns = sorted(
+        {key for row in wide_rows for key in row if key.startswith("value__")}
+    )
     _write_csv(
         wide_path,
         wide_rows,
@@ -2232,27 +2341,94 @@ def write_budget_exports(
             "elapsed_seconds",
             "time_label",
         ]
-        + variant_columns,
+        + simulation_columns,
     )
     artifacts.append({"kind": "budget_timeseries_wide_csv", "path": str(wide_path)})
     return artifacts, rows
 
 
+def _with_comparable_outflow_rows(
+    rows: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    """Append solver-comparable outflow totals to budget rows.
+
+    The native components remain exported separately. The derived component is
+    only a post-processing comparison aid: drainage plus saturation/surface
+    excess when available, with missing terms treated as zero.
+    """
+    if any(
+        str(row.get("component", "")) == "comparable_outflow_total_m3_s" for row in rows
+    ):
+        return rows
+
+    grouped: dict[tuple[str, str], dict[str, Any]] = {}
+    for row in rows:
+        component = str(row.get("component", ""))
+        if component not in {"drainage_total_m3_s", "surface_excess_total_m3_s"}:
+            continue
+        simulation_id = str(row.get("simulation_id", ""))
+        elapsed = _as_float(row.get("elapsed_seconds"))
+        time_key = (
+            f"elapsed_seconds:{elapsed:.9g}"
+            if elapsed is not None
+            else f"time_index:{row.get('time_index', '')}"
+        )
+        item = grouped.setdefault(
+            (simulation_id, time_key),
+            {
+                "template": row,
+                "drainage_total_m3_s": 0.0,
+                "surface_excess_total_m3_s": 0.0,
+            },
+        )
+        value = _as_float(row.get("value"))
+        if value is not None:
+            item[component] = float(value)
+
+    if not grouped:
+        return rows
+
+    derived_rows: list[dict[str, Any]] = []
+    for item in grouped.values():
+        template = dict(item["template"])
+        value = float(item["drainage_total_m3_s"]) + float(
+            item["surface_excess_total_m3_s"]
+        )
+        template.update(
+            {
+                "component": "comparable_outflow_total_m3_s",
+                "unit": "m3/s",
+                "value": value,
+                "source": ("derived:drainage_total_m3_s+surface_excess_total_m3_s"),
+            }
+        )
+        derived_rows.append(template)
+
+    derived_rows.sort(
+        key=lambda row: (
+            str(row.get("simulation_id", "")),
+            _as_float(row.get("elapsed_seconds")) or 0.0,
+            int(_as_float(row.get("time_index")) or 0),
+        )
+    )
+    return rows + derived_rows
+
+
 def write_execution_summary_csv(
     *,
     comparison_root: Path,
-    variant_summaries: Iterable[Mapping[str, Any]],
-    reference_variant: str | None,
+    simulation_summaries: Iterable[Mapping[str, Any]],
+    reference_simulation: str | None,
 ) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
     """Write one flat runtime summary CSV."""
     rows: list[dict[str, Any]] = []
     reference_runtime: float | None = None
-    for summary in _completed_variant_summaries(variant_summaries):
-        if str(summary.get("id", "")) == reference_variant:
+    for summary in _completed_simulation_summaries(simulation_summaries):
+        if str(summary.get("id", "")) == reference_simulation:
             reference_runtime = _runtime_seconds(summary)
             break
 
-    for summary in _completed_variant_summaries(variant_summaries):
+    for summary in _completed_simulation_summaries(simulation_summaries):
         runtime_seconds = _runtime_seconds(summary)
         if runtime_seconds is None:
             continue
@@ -2263,13 +2439,13 @@ def write_execution_summary_csv(
         )
         rows.append(
             {
-                "variant_id": summary.get("id", ""),
-                "variant_label": summary.get("label", summary.get("id", "")),
+                "simulation_id": summary.get("id", ""),
+                "simulation_label": summary.get("label", summary.get("id", "")),
                 "solver": summary.get("solver", ""),
                 "mesh_mode": summary.get("mesh_mode", ""),
                 "runtime_seconds": runtime_seconds,
                 "runtime_minutes": runtime_seconds / 60.0,
-                "reference_variant": reference_variant or "",
+                "reference_simulation": reference_simulation or "",
                 "speedup_vs_reference": speedup,
             }
         )
@@ -2281,13 +2457,13 @@ def write_execution_summary_csv(
             path,
             rows,
             [
-                "variant_id",
-                "variant_label",
+                "simulation_id",
+                "simulation_label",
                 "solver",
                 "mesh_mode",
                 "runtime_seconds",
                 "runtime_minutes",
-                "reference_variant",
+                "reference_simulation",
                 "speedup_vs_reference",
             ],
         )

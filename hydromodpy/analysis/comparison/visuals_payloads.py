@@ -15,7 +15,7 @@ from hydromodpy.analysis.comparison.config import (
     ComparisonConfig,
     ComparisonFineRaster,
     ComparisonObservable,
-    ComparisonVariant,
+    ComparisonSimulation,
 )
 from hydromodpy.analysis.comparison.runtime_mesh import (
     resolve_bundle_cells,
@@ -44,10 +44,10 @@ except Exception:  # pragma: no cover - optional at runtime
 
 @dataclass(frozen=True, slots=True)
 class MapPayload:
-    """One rendered map payload for one observable and one variant."""
+    """One rendered map payload for one observable and one simulation."""
 
-    variant_id: str
-    variant_label: str
+    simulation_id: str
+    simulation_label: str
     solver: str
     mesh_mode: str
     observable_name: str
@@ -67,8 +67,8 @@ class MapPayload:
 class DifferencePayload:
     """One difference map aligned on a reference geometry."""
 
-    reference_variant: str
-    candidate_variant: str
+    reference_simulation: str
+    candidate_simulation: str
     observable_name: str
     unit: str
     values: np.ndarray
@@ -85,8 +85,8 @@ class CaseConfigurationPayload:
     """Visual summary of the physical support used by one comparison."""
 
     comparison_id: str
-    reference_variant: str
-    variant_lines: tuple[str, ...]
+    reference_simulation: str
+    simulation_lines: tuple[str, ...]
     metadata_lines: tuple[str, ...]
     boundary_sides: tuple[tuple[str, str], ...]
     observable_points: tuple[tuple[float, float, str], ...]
@@ -140,7 +140,9 @@ def _payload_extent(payload: MapPayload) -> tuple[float, float, float, float] | 
     return _estimate_extent_from_centroids(x_values=payload.x, y_values=payload.y)
 
 
-def _payload_samples(payload: MapPayload) -> tuple[np.ndarray, np.ndarray, np.ndarray] | None:
+def _payload_samples(
+    payload: MapPayload,
+) -> tuple[np.ndarray, np.ndarray, np.ndarray] | None:
     if payload.x is None or payload.y is None:
         return None
     x = np.asarray(payload.x, dtype=float).ravel()
@@ -220,9 +222,9 @@ def _bundle_dir_from_config(config_path: Path) -> Path | None:
 def _bundle_dir_for_case(run_folder: Path, config_path: Path | None) -> Path | None:
     metrics = read_json_file(run_folder / "_metrics.json")
     boussinesq_summary = read_json_file(run_folder / "_boussinesq_summary.json")
-    bundle_dir_raw = metrics.get("mesh_output_exchange_bundle_dir") or boussinesq_summary.get(
-        "bundle_dir"
-    )
+    bundle_dir_raw = metrics.get(
+        "mesh_output_exchange_bundle_dir"
+    ) or boussinesq_summary.get("bundle_dir")
     if bundle_dir_raw:
         bundle_dir = _resolve_recorded_output_path(bundle_dir_raw, base_dir=run_folder)
         if bundle_dir is not None and bundle_dir.exists():
@@ -295,13 +297,17 @@ def _mesh_payload_from_bundle(bundle_dir: Path | None) -> tuple[np.ndarray | Non
     )
 
 
-def _recharge_payload_from_store(store: Any, sim_id: str) -> tuple[np.ndarray | None, str]:
+def _recharge_payload_from_store(
+    store: Any, sim_id: str
+) -> tuple[np.ndarray | None, str]:
     handle = None
     try:
         grp, handle = _open_store_root(store, sim_id)
         forcing = grp.get("forcing") if grp is not None else None
         recharge = (
-            forcing.get("recharge") if forcing is not None and "recharge" in forcing else None
+            forcing.get("recharge")
+            if forcing is not None and "recharge" in forcing
+            else None
         )
         if recharge is None:
             return None, ""
@@ -309,7 +315,9 @@ def _recharge_payload_from_store(store: Any, sim_id: str) -> tuple[np.ndarray | 
         candidate_groups = [recharge]
         try:
             candidate_groups.extend(
-                recharge[key] for key in recharge.keys() if not hasattr(recharge[key], "shape")
+                recharge[key]
+                for key in recharge.keys()
+                if not hasattr(recharge[key], "shape")
             )
         except Exception:
             pass
@@ -372,11 +380,15 @@ def _side_from_text(value: str) -> str | None:
     return None
 
 
-def _boundary_sides_from_config(config_payload: Mapping[str, Any]) -> tuple[tuple[str, str], ...]:
+def _boundary_sides_from_config(
+    config_payload: Mapping[str, Any],
+) -> tuple[tuple[str, str], ...]:
     flow = config_payload.get("flow")
     if not isinstance(flow, Mapping):
         return ()
-    active = {str(item).strip() for item in (flow.get("active_bc") or ()) if str(item).strip()}
+    active = {
+        str(item).strip() for item in (flow.get("active_bc") or ()) if str(item).strip()
+    }
     bc = flow.get("bc")
     dirichlet = bc.get("dirichlet") if isinstance(bc, Mapping) else None
     if not isinstance(dirichlet, Mapping):
@@ -388,7 +400,9 @@ def _boundary_sides_from_config(config_payload: Mapping[str, Any]) -> tuple[tupl
             continue
         text_parts = [bc_name]
         if isinstance(payload, Mapping):
-            text_parts.extend(str(payload.get(key, "")) for key in ("application_domain", "type"))
+            text_parts.extend(
+                str(payload.get(key, "")) for key in ("application_domain", "type")
+            )
             value = payload.get("value", "")
         else:
             value = ""
@@ -422,11 +436,15 @@ def _flow_param_summary_lines(config_payload: Mapping[str, Any]) -> tuple[str, .
         if isinstance(field, Mapping):
             unit = str(field.get("unit", ""))
         if value:
-            lines.append(f"{name}: {value}{(' ' + unit) if unit and unit not in value else ''}")
+            lines.append(
+                f"{name}: {value}{(' ' + unit) if unit and unit not in value else ''}"
+            )
     return tuple(lines)
 
 
-def _simulation_time_summary_lines(config_payload: Mapping[str, Any]) -> tuple[str, ...]:
+def _simulation_time_summary_lines(
+    config_payload: Mapping[str, Any],
+) -> tuple[str, ...]:
     simulation = config_payload.get("simulation")
     if not isinstance(simulation, Mapping):
         return ()
@@ -457,7 +475,9 @@ def _face_centroids(
             valid_faces.append(face)
     if not valid_faces:
         return np.asarray([], dtype=float), np.asarray([], dtype=float)
-    centroids = np.asarray([vertices[face, :2].mean(axis=0) for face in valid_faces], dtype=float)
+    centroids = np.asarray(
+        [vertices[face, :2].mean(axis=0) for face in valid_faces], dtype=float
+    )
     return centroids[:, 0], centroids[:, 1]
 
 
@@ -491,18 +511,22 @@ def _observable_points_for_case(
 def _build_case_configuration_payload(
     *,
     cfg: ComparisonConfig,
-    variant_summaries: list[dict[str, Any]],
-    reference_variant: str | None,
+    simulation_summaries: list[dict[str, Any]],
+    reference_simulation: str | None,
 ) -> CaseConfigurationPayload | None:
     completed = [
         summary
-        for summary in variant_summaries
+        for summary in simulation_summaries
         if str(summary.get("status", "")) in {"completed", "reused"}
     ]
     if not completed:
         return None
     selected = next(
-        (summary for summary in completed if str(summary.get("id", "")) == str(reference_variant)),
+        (
+            summary
+            for summary in completed
+            if str(summary.get("id", "")) == str(reference_simulation)
+        ),
         completed[0],
     )
     config_path_raw = selected.get("config_path")
@@ -518,10 +542,14 @@ def _build_case_configuration_payload(
         store, sim_id = discover_result_store(
             config_path,
             preferred_sim_id=(
-                None if selected.get("sim_id") in (None, "") else str(selected.get("sim_id"))
+                None
+                if selected.get("sim_id") in (None, "")
+                else str(selected.get("sim_id"))
             ),
             preferred_name=(
-                None if selected.get("run_name") in (None, "") else str(selected.get("run_name"))
+                None
+                if selected.get("run_name") in (None, "")
+                else str(selected.get("run_name"))
             ),
         )
         if store is not None and sim_id is not None:
@@ -552,25 +580,23 @@ def _build_case_configuration_payload(
     n_cells = (
         int(surface_top.size)
         if surface_top is not None and surface_top.size
-        else int(centroid_x.size)
-        if centroid_x is not None
-        else 0
+        else int(centroid_x.size) if centroid_x is not None else 0
     )
-    variant_lines = tuple(
+    simulation_lines = tuple(
         f"{summary.get('id', '')}: {summary.get('solver', '') or 'n/a'} / {summary.get('mesh_mode', '')}"
         for summary in completed
     )
     metadata_lines = (
         f"comparison: {cfg.comparison.comparison_id}",
-        f"reference: {reference_variant or selected.get('id', '')}",
+        f"reference: {reference_simulation or selected.get('id', '')}",
         f"n_cells: {n_cells}" if n_cells else "n_cells: n/a",
         *_simulation_time_summary_lines(config_payload),
         *_flow_param_summary_lines(config_payload),
     )
     return CaseConfigurationPayload(
         comparison_id=str(cfg.comparison.comparison_id),
-        reference_variant=str(reference_variant or selected.get("id", "")),
-        variant_lines=variant_lines,
+        reference_simulation=str(reference_simulation or selected.get("id", "")),
+        simulation_lines=simulation_lines,
         metadata_lines=tuple(metadata_lines),
         boundary_sides=_boundary_sides_from_config(config_payload),
         observable_points=_observable_points_for_case(
@@ -614,7 +640,7 @@ def _choose_map_slice(
 def _build_map_payload(
     *,
     cfg: ComparisonConfig,
-    variant: ComparisonVariant,
+    simulation: ComparisonSimulation,
     summary: dict[str, Any],
     observable: ComparisonObservable,
     rows: list[dict[str, Any]],
@@ -629,7 +655,7 @@ def _build_map_payload(
     config_path_raw = summary.get("config_path")
     config_path = None if config_path_raw in ("", None) else Path(str(config_path_raw))
     if config_path is None:
-        config_path = cfg.resolve_variant_config_path(variant)
+        config_path = cfg.resolve_simulation_config_path(simulation)
     store = None
     sim_id = None
     try:
@@ -660,7 +686,7 @@ def _build_map_payload(
         (
             str(row.get("unit", ""))
             for row in rows
-            if str(row.get("variant_id", "")) == variant.id
+            if str(row.get("simulation_id", "")) == simulation.id
             and str(row.get("observable", "")) == observable.name
             and str(row.get("unit", "")) != ""
         ),
@@ -670,14 +696,14 @@ def _build_map_payload(
         run_folder_path,
         config_path=config_path,
         expected_size=values.size,
-        solver_name=variant.solver,
+        solver_name=simulation.solver,
     )
     structured_shape = (
         None
         if config_path is None or not config_path.exists()
         else resolve_structured_shape_from_config(
             config_path,
-            solver_name=variant.solver,
+            solver_name=simulation.solver,
         )
     )
     if structured_shape is None:
@@ -686,10 +712,10 @@ def _build_map_payload(
         if cells is None or cells.cell_ids.size != values.size:
             return None
         return MapPayload(
-            variant_id=variant.id,
-            variant_label=variant.label or variant.id,
-            solver=variant.solver or "",
-            mesh_mode=variant.mesh_mode,
+            simulation_id=simulation.id,
+            simulation_label=simulation.label or simulation.id,
+            solver=simulation.solver or "",
+            mesh_mode=simulation.mesh_mode,
             observable_name=observable.name,
             resolved_variable=series.variable_name,
             unit=unit,
@@ -708,10 +734,10 @@ def _build_map_payload(
         y_values=None if cells is None else cells.y,
     )
     return MapPayload(
-        variant_id=variant.id,
-        variant_label=variant.label or variant.id,
-        solver=variant.solver or "",
-        mesh_mode=variant.mesh_mode,
+        simulation_id=simulation.id,
+        simulation_label=simulation.label or simulation.id,
+        solver=simulation.solver or "",
+        mesh_mode=simulation.mesh_mode,
         observable_name=observable.name,
         resolved_variable=series.variable_name,
         unit=unit,
@@ -742,19 +768,26 @@ def _build_difference_payload(
         if reference.cell_ids.size != candidate.cell_ids.size:
             return None
         candidate_positions = {
-            int(cell_id): index for index, cell_id in enumerate(candidate.cell_ids.tolist())
+            int(cell_id): index
+            for index, cell_id in enumerate(candidate.cell_ids.tolist())
         }
-        if any(int(cell_id) not in candidate_positions for cell_id in reference.cell_ids.tolist()):
+        if any(
+            int(cell_id) not in candidate_positions
+            for cell_id in reference.cell_ids.tolist()
+        ):
             return None
         ordered = np.asarray(
-            [candidate.values[candidate_positions[int(cell_id)]] for cell_id in reference.cell_ids],
+            [
+                candidate.values[candidate_positions[int(cell_id)]]
+                for cell_id in reference.cell_ids
+            ],
             dtype=float,
         )
         reference_values = _mask_nodata(reference.values)
         candidate_values = _mask_nodata(ordered)
         return DifferencePayload(
-            reference_variant=reference.variant_id,
-            candidate_variant=candidate.variant_id,
+            reference_simulation=reference.simulation_id,
+            candidate_simulation=candidate.simulation_id,
             observable_name=reference.observable_name,
             unit=reference.unit,
             values=candidate_values - reference_values,
@@ -773,8 +806,8 @@ def _build_difference_payload(
         reference_values = _mask_nodata(reference.values)
         candidate_values = _mask_nodata(candidate.values)
         return DifferencePayload(
-            reference_variant=reference.variant_id,
-            candidate_variant=candidate.variant_id,
+            reference_simulation=reference.simulation_id,
+            candidate_simulation=candidate.simulation_id,
             observable_name=reference.observable_name,
             unit=reference.unit,
             values=np.asarray(candidate_values - reference_values, dtype=float),
@@ -789,7 +822,7 @@ def _resolve_fine_grid_bounds(
     *,
     payloads: list[MapPayload],
     fine_raster: ComparisonFineRaster,
-    reference_variant: str | None,
+    reference_simulation: str | None,
 ) -> tuple[float, float, float, float] | None:
     extents = [
         extent
@@ -799,9 +832,13 @@ def _resolve_fine_grid_bounds(
     ]
     if len(extents) < 2:
         return None
-    if fine_raster.extent_mode == "reference" and reference_variant is not None:
+    if fine_raster.extent_mode == "reference" and reference_simulation is not None:
         reference_payload = next(
-            (payload for payload in payloads if payload.variant_id == reference_variant),
+            (
+                payload
+                for payload in payloads
+                if payload.simulation_id == reference_simulation
+            ),
             None,
         )
         if reference_payload is not None:

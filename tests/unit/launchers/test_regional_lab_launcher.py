@@ -7,7 +7,9 @@ from pathlib import Path
 from types import SimpleNamespace
 
 from hydromodpy.analysis.batch.batch_catalog import load_site_catalog
-from hydromodpy.analysis.batch.batch_execution import _extract_comparison_child_artifacts
+from hydromodpy.analysis.batch.batch_execution import (
+    _extract_comparison_child_artifacts,
+)
 from hydromodpy.analysis.batch.batch_planning import (
     build_regional_lab_plan,
     build_run_command,
@@ -289,7 +291,9 @@ def test_regional_lab_recipe_can_skip_unsupported_platform(tmp_path: Path) -> No
     _write_planned_configs(tmp_path)
 
     cfg = RegionalLabConfig.from_file(config_path)
-    _, planned_cases, skipped_cases = build_regional_lab_plan(cfg, load_site_catalog(cfg.catalog))
+    _, planned_cases, skipped_cases = build_regional_lab_plan(
+        cfg, load_site_catalog(cfg.catalog)
+    )
 
     assert [case.case_id for case in planned_cases] == [
         "sim_reference::headwater_100km2_outlet_2",
@@ -303,7 +307,9 @@ def test_regional_lab_recipe_can_skip_unsupported_platform(tmp_path: Path) -> No
     assert unsupported_platform in skipped_cases[0].detail
 
 
-def test_regional_lab_execution_stops_on_first_failure(monkeypatch, tmp_path: Path) -> None:
+def test_regional_lab_execution_stops_on_first_failure(
+    monkeypatch, tmp_path: Path
+) -> None:
     config_path = _write_regional_lab_config(
         tmp_path,
         execute=True,
@@ -351,7 +357,10 @@ def test_regional_lab_execution_stops_on_first_failure(monkeypatch, tmp_path: Pa
     assert report["cases"][0]["status"] == "ok"
     assert report["cases"][1]["status"] == "failed"
     assert report["cases"][2]["status"] == "planned"
-    assert report["skipped_cases"][0]["case_id"] == "backend_compare::headwater_100km2_outlet_3"
+    assert (
+        report["skipped_cases"][0]["case_id"]
+        == "backend_compare::headwater_100km2_outlet_3"
+    )
 
 
 def test_regional_lab_resume_skips_completed_cases(monkeypatch, tmp_path: Path) -> None:
@@ -408,7 +417,10 @@ def test_regional_lab_build_run_command_dispatches_launchers(tmp_path: Path) -> 
     cfg = RegionalLabConfig.from_file(config_path)
     _, planned_cases, _ = build_regional_lab_plan(cfg, load_site_catalog(cfg.catalog))
 
-    commands = [build_run_command(case, python_executable=Path("python")) for case in planned_cases]
+    commands = [
+        build_run_command(case, python_executable=Path("python"))
+        for case in planned_cases
+    ]
 
     assert commands[0] == [
         "python",
@@ -422,16 +434,18 @@ def test_regional_lab_build_run_command_dispatches_launchers(tmp_path: Path) -> 
         "-m",
         "hydromodpy",
         "run",
-        str((tmp_path / "configs" / "compare_headwater_100km2_outlet_2.toml").resolve()),
+        str(
+            (tmp_path / "configs" / "compare_headwater_100km2_outlet_2.toml").resolve()
+        ),
     ]
 
 
-def test_regional_lab_rejects_removed_method_comparison_launcher(tmp_path: Path) -> None:
+def test_regional_lab_rejects_unknown_recipe_launcher(tmp_path: Path) -> None:
     config_path = _write_regional_lab_config(tmp_path, execute=False)
     config_path.write_text(
         config_path.read_text(encoding="utf-8").replace(
             'launcher = "comparison"',
-            'launcher = "method-comparison"',
+            'launcher = "unsupported"',
         ),
         encoding="utf-8",
     )
@@ -441,12 +455,14 @@ def test_regional_lab_rejects_removed_method_comparison_launcher(tmp_path: Path)
     try:
         RegionalLabConfig.from_file(config_path)
     except ValueError as exc:
-        assert "Unsupported regional_lab.recipe launcher 'method-comparison'" in str(exc)
+        assert "Unsupported regional_lab.recipe launcher 'unsupported'" in str(exc)
     else:
-        raise AssertionError("method-comparison launcher should be rejected")
+        raise AssertionError("unknown launcher should be rejected")
 
 
-def test_regional_lab_extracts_simulation_comparison_child_artifacts(tmp_path: Path) -> None:
+def test_regional_lab_extracts_simulation_comparison_child_artifacts(
+    tmp_path: Path,
+) -> None:
     config_path = tmp_path / "compare_case.toml"
     comparison_root = tmp_path / "comparison_outputs"
     comparison_root.mkdir(parents=True, exist_ok=True)
@@ -454,12 +470,12 @@ def test_regional_lab_extracts_simulation_comparison_child_artifacts(tmp_path: P
         json.dumps(
             {
                 "comparison_id": "demo_compare",
-                "reference_variant": "reference",
+                "reference_simulation": "reference",
                 "wall_time_seconds": 12.5,
                 "n_metric_rows": 3,
                 "n_difference_rows": 2,
                 "n_observable_rows": 1,
-                "variants": [
+                "simulations": [
                     {"id": "reference", "status": "completed"},
                     {"id": "candidate", "status": "failed"},
                 ],
@@ -510,16 +526,18 @@ def test_regional_lab_extracts_simulation_comparison_child_artifacts(tmp_path: P
     assert artifacts["child_artifact_kind"] == "comparison"
     assert artifacts["child_artifact_status"] == "resolved"
     assert artifacts["child_comparison_id"] == "demo_compare"
-    assert artifacts["child_reference_variant"] == "reference"
+    assert artifacts["child_reference_simulation"] == "reference"
     assert artifacts["child_wall_time_seconds"] == 12.5
-    assert artifacts["child_variant_count"] == 2
-    assert artifacts["child_completed_variant_count"] == 1
-    assert artifacts["child_failed_variant_count"] == 1
+    assert artifacts["child_simulation_count"] == 2
+    assert artifacts["child_completed_simulation_count"] == 1
+    assert artifacts["child_failed_simulation_count"] == 1
     assert artifacts["child_summary_max_rmse"] == 2.0
     assert artifacts["child_summary_max_mae"] == 1.1
 
 
-def test_regional_lab_extracts_canonical_comparison_child_artifacts(tmp_path: Path) -> None:
+def test_regional_lab_extracts_canonical_comparison_child_artifacts(
+    tmp_path: Path,
+) -> None:
     config_path = tmp_path / "compare_case.toml"
     comparison_root = tmp_path / "comparison_outputs"
     comparison_root.mkdir(parents=True, exist_ok=True)
@@ -527,12 +545,12 @@ def test_regional_lab_extracts_canonical_comparison_child_artifacts(tmp_path: Pa
         json.dumps(
             {
                 "comparison_id": "demo_compare",
-                "reference_variant": "reference",
+                "reference_simulation": "reference",
                 "wall_time_seconds": 12.5,
                 "n_metric_rows": 3,
                 "n_difference_rows": 2,
                 "n_observable_rows": 1,
-                "variants": [
+                "simulations": [
                     {"id": "reference", "status": "completed"},
                     {"id": "candidate", "status": "failed"},
                 ],
@@ -582,7 +600,7 @@ def test_regional_lab_extracts_canonical_comparison_child_artifacts(tmp_path: Pa
     assert artifacts["child_artifact_kind"] == "comparison"
     assert artifacts["child_artifact_status"] == "resolved"
     assert artifacts["child_comparison_id"] == "demo_compare"
-    assert artifacts["child_reference_variant"] == "reference"
+    assert artifacts["child_reference_simulation"] == "reference"
     assert artifacts["child_summary_max_rmse"] == 1.5
 
 
@@ -653,14 +671,18 @@ def test_regional_lab_bootstrap_catalog_scans_mesh_run_root(tmp_path: Path) -> N
     (mesh_run_root / "mesh_outlet_3" / "mesh_catchment_outlet_3.msh").write_text(
         "", encoding="utf-8"
     )
-    (mesh_run_root / "mesh_outlet_3" / "mesh_catchment_outlet_3_summary.json").write_text(
+    (
+        mesh_run_root / "mesh_outlet_3" / "mesh_catchment_outlet_3_summary.json"
+    ).write_text(
         "{}\n",
         encoding="utf-8",
     )
     (mesh_run_root / "mesh_outlet_3" / "mesh_catchment_outlet_3.png").write_text(
         "", encoding="utf-8"
     )
-    (mesh_run_root / "mesh_outlet_3" / "mesh_catchment_outlet_3_regional.png").write_text(
+    (
+        mesh_run_root / "mesh_outlet_3" / "mesh_catchment_outlet_3_regional.png"
+    ).write_text(
         "",
         encoding="utf-8",
     )
@@ -685,7 +707,9 @@ def test_regional_lab_bootstrap_catalog_scans_mesh_run_root(tmp_path: Path) -> N
     assert "mesh_catchment_outlet_3_bundle" in rows[1]
 
 
-def test_regional_lab_bootstrap_catalog_inspects_bundle_readiness(tmp_path: Path) -> None:
+def test_regional_lab_bootstrap_catalog_inspects_bundle_readiness(
+    tmp_path: Path,
+) -> None:
     outlets_path = tmp_path / "outlets.csv"
     outlets_path.write_text(
         "\n".join(

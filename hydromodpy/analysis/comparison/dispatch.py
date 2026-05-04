@@ -26,13 +26,7 @@ def resolve_comparison_launcher(config_path: str | Path) -> Any:
     section = raw_toml["comparison"]
     if not isinstance(section, Mapping):
         raise ValueError("[comparison] must be a mapping")
-    has_simulation = "simulation" in section
-    has_variant = "variant" in section
-    if has_variant:
-        raise ValueError(
-            "[[comparison.variant]] has been removed; use [[comparison.simulation]]."
-        )
-    if not has_simulation:
+    if "simulation" not in section:
         raise KeyError("Comparison config must declare [[comparison.simulation]].")
 
     from hydromodpy.analysis.comparison.experiment_launcher import (

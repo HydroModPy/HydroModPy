@@ -201,7 +201,9 @@ class HydroModPyConfig(HydroModelBase):
     )
     display: Annotated[DisplayConfig, Profile.USER] = Field(
         default_factory=lambda: DisplayConfig(),
-        description=("Optional display and export toggles loaded from the [display] section."),
+        description=(
+            "Optional display and export toggles loaded from the [display] section."
+        ),
     )
     persistence: Annotated[PersistenceConfig, Profile.USER] = Field(
         default_factory=PersistenceConfig,
@@ -217,7 +219,7 @@ class HydroModPyConfig(HydroModelBase):
             "Optional analysis hub loaded from [analysis]. Aggregates "
             "[analysis.batch] (regional-lab launcher), "
             "[analysis.capability_gallery] (figure publication), and "
-            "[analysis.comparison] (variant-comparison launcher)."
+            "[analysis.comparison] (simulation-comparison launcher)."
         ),
     )
 
@@ -261,7 +263,10 @@ class HydroModPyConfig(HydroModelBase):
           Boussinesq solver does not support a transport process).
         """
         data_cfg = getattr(self, "data", None)
-        if data_cfg is not None and getattr(data_cfg, "inference_mode", None) == "strict":
+        if (
+            data_cfg is not None
+            and getattr(data_cfg, "inference_mode", None) == "strict"
+        ):
             declared_types = list(getattr(data_cfg, "types", []) or [])
             if not declared_types:
                 raise ValueError(
@@ -343,7 +348,11 @@ class HydroModPyConfig(HydroModelBase):
         base_dir: str | Path | None = None,
     ) -> HydroModPyConfig:
         """Load and validate configuration from a Python mapping."""
-        base = Path(base_dir).expanduser().resolve() if base_dir is not None else Path.cwd()
+        base = (
+            Path(base_dir).expanduser().resolve()
+            if base_dir is not None
+            else Path.cwd()
+        )
         return cls._from_payload(payload, base=base)
 
     @classmethod
@@ -382,7 +391,9 @@ class HydroModPyConfig(HydroModelBase):
         workspace_section = raw.get("workspace", {})
         env_project_root = os.environ.get("HYDROMODPY_PROJECT_ROOT")
         if env_project_root:
-            workspace_section["project_root"] = str(Path(env_project_root).expanduser().resolve())
+            workspace_section["project_root"] = str(
+                Path(env_project_root).expanduser().resolve()
+            )
         elif not workspace_section.get("project_root"):
             workspace_section["project_root"] = str(base)
 
@@ -391,7 +402,9 @@ class HydroModPyConfig(HydroModelBase):
         # bare filenames in [data.*.sources].path resolve against
         # <workspace>/data/<role>/ instead of forcing the user to write
         # ../../data/<role>/<file>.
-        parsed_workspace = load_standard_section(workspace_section, WorkspaceConfig, base)
+        parsed_workspace = load_standard_section(
+            workspace_section, WorkspaceConfig, base
+        )
         workspace_data_dir = getattr(parsed_workspace, "data_dir", None)
 
         def _std(model_cls):
@@ -419,7 +432,9 @@ class HydroModPyConfig(HydroModelBase):
             "domain": ({}, _std(DomainConfig)),
             "data": (
                 {},
-                lambda data, b: _load_data_section(data, b, workspace_data_dir=workspace_data_dir),
+                lambda data, b: _load_data_section(
+                    data, b, workspace_data_dir=workspace_data_dir
+                ),
             ),
             "flow": ({}, _load_flow_section),
             "transport": ({}, _std(TransportConfig)),
@@ -493,7 +508,11 @@ def _strip_empty_string_placeholders(data: dict[str, Any]) -> dict[str, Any]:
             cleaned[key] = _strip_empty_string_placeholders(value)
         elif isinstance(value, list):
             cleaned[key] = [
-                _strip_empty_string_placeholders(item) if isinstance(item, dict) else item
+                (
+                    _strip_empty_string_placeholders(item)
+                    if isinstance(item, dict)
+                    else item
+                )
                 for item in value
             ]
         elif value == "":
@@ -590,7 +609,9 @@ def load_standard_section(
         raise ValueError(f"TOML section must be a mapping for {model_cls.__name__}")
 
     payload = dict(section_data)
-    _resolve_section_paths(payload, model_cls, base, workspace_data_dir=workspace_data_dir)
+    _resolve_section_paths(
+        payload, model_cls, base, workspace_data_dir=workspace_data_dir
+    )
     return model_cls(**payload)
 
 
@@ -619,7 +640,9 @@ def load_geographic_section(
         raise ValueError("TOML section must be a mapping for GeographicConfig")
 
     payload = dict(section_data)
-    _resolve_section_paths(payload, GeographicConfig, base, workspace_data_dir=workspace_data_dir)
+    _resolve_section_paths(
+        payload, GeographicConfig, base, workspace_data_dir=workspace_data_dir
+    )
     return GeographicConfig.model_validate(
         payload,
         context={"allow_dem_bootstrap": allow_dem_bootstrap},

@@ -21,7 +21,9 @@ import tomli_w
 if __package__ is None or __package__ == "":
     sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
 
-from hydromodpy.analysis.comparison.experiment_launcher import SimulationComparisonLauncher
+from hydromodpy.analysis.comparison.experiment_launcher import (
+    SimulationComparisonLauncher,
+)
 from hydromodpy.core.toml_io.loader import load_toml_with_base_config
 
 PROJECT_DIR = Path(__file__).resolve().parent
@@ -211,13 +213,15 @@ def _materialize_base_config(case_id: str, spec: dict[str, Any]) -> Path:
     payload["workspace"]["project_root"] = str((case_root / "workspace").resolve())
     payload["workspace"]["root"] = str(EXAMPLES_ROOT.resolve())
     payload["simulation"]["name"] = f"nancon_transient_seasonal_{case_id}"
-    payload["simulation"]["description"] = "Nancon seasonal benchmark parameter sweep case: " + str(
-        spec["label"]
+    payload["simulation"]["description"] = (
+        "Nancon seasonal benchmark parameter sweep case: " + str(spec["label"])
     )
     payload["geographic"]["dem_init_path"] = str(
         (EXAMPLES_ROOT / "data" / "dem" / "DEM_armorican_massif.tif").resolve()
     )
-    payload["data"]["dem"]["sources"][0]["path"] = payload["geographic"]["dem_init_path"]
+    payload["data"]["dem"]["sources"][0]["path"] = payload["geographic"][
+        "dem_init_path"
+    ]
 
     _set_param(payload, "K", str(spec["K"]))
     _set_param(payload, "Sy", str(spec["Sy"]))
@@ -231,7 +235,9 @@ def _materialize_base_config(case_id: str, spec: dict[str, Any]) -> Path:
     return path
 
 
-def _materialize_comparison_config(case_id: str, spec: dict[str, Any], base_path: Path) -> Path:
+def _materialize_comparison_config(
+    case_id: str, spec: dict[str, Any], base_path: Path
+) -> Path:
     payload = load_toml_with_base_config(COMPARISON_TEMPLATE)
     payload = deepcopy(payload)
     case_root = SWEEP_ROOT / case_id
@@ -274,7 +280,7 @@ def _safe_load_json(path: Path) -> dict[str, Any]:
 
 def _max_head_bound(
     audit: dict[str, Any],
-    variant_id: str,
+    simulation_id: str,
     field: str,
     *,
     observable_prefix: str | None = None,
@@ -282,10 +288,12 @@ def _max_head_bound(
 ) -> float:
     values: list[float] = []
     for item in audit.get("head_bounds", []):
-        if str(item.get("variant_id", "")) != variant_id:
+        if str(item.get("simulation_id", "")) != simulation_id:
             continue
         observable = str(item.get("observable", ""))
-        if observable_prefix is not None and not observable.startswith(observable_prefix):
+        if observable_prefix is not None and not observable.startswith(
+            observable_prefix
+        ):
             continue
         if observable_suffix is not None and not observable.endswith(observable_suffix):
             continue
@@ -301,13 +309,13 @@ def _max_head_bound(
 
 def _head_response(
     audit: dict[str, Any],
-    variant_id: str,
+    simulation_id: str,
     observable: str,
     field: str,
 ) -> float:
     for item in audit.get("head_recharge_response", []):
         if (
-            str(item.get("variant_id", "")) == variant_id
+            str(item.get("simulation_id", "")) == simulation_id
             and str(item.get("observable", "")) == observable
         ):
             value = item.get(field)
@@ -330,7 +338,9 @@ def summarize_case(
     recharge_check = {}
     for subject in audit.get("subjects", []):
         if str(subject.get("id", "")) == "bouss_candidate":
-            recharge_check = subject.get("budget_checks", {}).get("recharge_total_m3_s", {}) or {}
+            recharge_check = (
+                subject.get("budget_checks", {}).get("recharge_total_m3_s", {}) or {}
+            )
             break
 
     return {

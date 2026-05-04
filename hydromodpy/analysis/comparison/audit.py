@@ -227,8 +227,8 @@ def _series_summary(series: Mapping[str, float]) -> dict[str, Any]:
 
 def _compare_scalar_series(
     *,
-    variant_id: str,
-    reference_variant: str,
+    simulation_id: str,
+    reference_simulation: str,
     component: str,
     values: Mapping[str, float],
     reference_values: Mapping[str, float],
@@ -246,8 +246,8 @@ def _compare_scalar_series(
 
     if not differences:
         return {
-            "variant_id": variant_id,
-            "reference_variant": reference_variant,
+            "simulation_id": simulation_id,
+            "reference_simulation": reference_simulation,
             "component": component,
             "n_pairs": 0,
             "status": "missing_overlap",
@@ -263,8 +263,8 @@ def _compare_scalar_series(
         else "warn"
     )
     return {
-        "variant_id": variant_id,
-        "reference_variant": reference_variant,
+        "simulation_id": simulation_id,
+        "reference_simulation": reference_simulation,
         "component": component,
         "n_pairs": len(differences),
         "status": status,
@@ -274,6 +274,52 @@ def _compare_scalar_series(
         "tolerance_abs": RECHARGE_ABS_TOL_M3_S,
         "tolerance_rel": RECHARGE_REL_TOL,
     }
+
+
+def _has_material_value(value: Any) -> bool:
+    if value in (None, ""):
+        return False
+    if isinstance(value, Mapping):
+        return any(_has_material_value(item) for item in value.values())
+    if isinstance(value, (list, tuple)):
+        return any(_has_material_value(item) for item in value)
+    return True
+
+
+def _has_configured_recharge(subject: Mapping[str, Any]) -> bool:
+    physical_config = subject.get("physical_config", {})
+    sections = physical_config.get("sections", {}) if isinstance(physical_config, Mapping) else {}
+    if not isinstance(sections, Mapping):
+        return False
+
+    active_sources = sections.get("flow.active_sinks_sources", [])
+    if isinstance(active_sources, (list, tuple)) and any(
+        str(item).strip().lower() == "recharge" for item in active_sources
+    ):
+        return True
+    if str(active_sources).strip().lower() == "recharge":
+        return True
+    return _has_material_value(sections.get("data.recharge")) or _has_material_value(
+        sections.get("flow.sinks_sources.recharge")
+    )
+
+
+def _recharge_series_for_audit(
+    subject: Mapping[str, Any],
+    *,
+    fallback_keys: Iterable[str],
+) -> dict[str, float]:
+    budget_components = subject.get("budget_components", {})
+    recharge = (
+        budget_components.get(RECHARGE_COMPONENT, {}).get("series", {})
+        if isinstance(budget_components, Mapping)
+        else {}
+    )
+    if isinstance(recharge, Mapping) and recharge:
+        return {str(key): float(value) for key, value in recharge.items()}
+    if _has_configured_recharge(subject):
+        return {}
+    return {str(key): 0.0 for key in fallback_keys}
 
 
 def _as_float(value: Any) -> float | None:
@@ -297,16 +343,21 @@ def _row_cell_index(row: Mapping[str, Any]) -> int | None:
     return None
 
 
+def _row_simulation_id(row: Mapping[str, Any]) -> str:
+    """Return the comparison simulation id."""
+    return str(row.get("simulation_id", ""))
+
+
 def _head_bounds_diagnostics(
     *,
     observable_rows: Iterable[Mapping[str, Any]] | None,
-    variant_summaries: Iterable[Mapping[str, Any]],
+    simulation_summaries: Iterable[Mapping[str, Any]],
 ) -> list[dict[str, Any]]:
     if observable_rows is None:
         return []
 
-    cells_by_variant = {}
-    for summary in variant_summaries:
+    cells_by_simulation = {}
+    for summary in simulation_summaries:
         run_folder_raw = summary.get("run_folder")
         if run_folder_raw in ("", None):
             continue
@@ -318,7 +369,7 @@ def _head_bounds_diagnostics(
             solver_name=str(summary.get("solver", "")) or None,
         )
         if cells is not None:
-            cells_by_variant[str(summary.get("id", ""))] = cells
+            cells_by_simulation[str(summary.get("id", ""))] = cells
 
     grouped: dict[tuple[str, str], list[float]] = {}
     below_grouped: dict[tuple[str, str], list[float]] = {}
@@ -330,16 +381,16 @@ def _head_bounds_diagnostics(
         value = _as_float(row.get("value"))
         if value is None:
             continue
-        variant_id = str(row.get("variant_id", ""))
+        simulation_id = _row_simulation_id(row)
         cell_index = _row_cell_index(row)
-        cells = cells_by_variant.get(variant_id)
+        cells = cells_by_simulation.get(simulation_id)
         if cell_index is None or cells is None:
             continue
         bounds = cells.vertical_bounds_for_cell_id(cell_index)
         if bounds is None:
             continue
         top, bottom = bounds
-        key = (variant_id, str(row.get("observable", "")))
+        key = (simulation_id, str(row.get("observable", "")))
         counts[key] = counts.get(key, 0) + 1
         above = value - top
         below = bottom - value
@@ -350,20 +401,20 @@ def _head_bounds_diagnostics(
 
     diagnostics: list[dict[str, Any]] = []
     for key, n_values in sorted(counts.items()):
-        variant_id, observable = key
+        simulation_id, observable = key
         above_values = grouped.get(key, [])
         below_values = below_grouped.get(key, [])
         diagnostics.append(
             {
-                "variant_id": variant_id,
+                "simulation_id": simulation_id,
                 "observable": observable,
                 "n_values": n_values,
-                "above_top_fraction": len(above_values) / n_values if n_values else None,
+                "above_top_fraction": (len(above_values) / n_values if n_values else None),
                 "above_top_mean_m": (
                     sum(above_values) / len(above_values) if above_values else 0.0
                 ),
                 "above_top_max_m": max(above_values) if above_values else 0.0,
-                "below_bottom_fraction": len(below_values) / n_values if n_values else None,
+                "below_bottom_fraction": (len(below_values) / n_values if n_values else None),
                 "below_bottom_max_m": max(below_values) if below_values else 0.0,
             }
         )
@@ -387,7 +438,7 @@ def _correlation(left: list[float], right: list[float]) -> float | None:
 def _head_recharge_response_diagnostics(
     *,
     observable_rows: Iterable[Mapping[str, Any]] | None,
-    recharge_by_variant: Mapping[str, Mapping[str, float]],
+    recharge_by_simulation: Mapping[str, Mapping[str, float]],
 ) -> list[dict[str, Any]]:
     if observable_rows is None:
         return []
@@ -406,15 +457,15 @@ def _head_recharge_response_diagnostics(
         if value is None or elapsed is None:
             continue
         key = (
-            str(row.get("variant_id", "")),
+            _row_simulation_id(row),
             str(row.get("observable", "")),
             str(row.get("value_index", "")),
         )
         grouped.setdefault(key, {})[f"elapsed_seconds:{elapsed:.9g}"] = value
 
     diagnostics: list[dict[str, Any]] = []
-    for (variant_id, observable, value_index), head_series in sorted(grouped.items()):
-        recharge_series = recharge_by_variant.get(variant_id, {})
+    for (simulation_id, observable, value_index), head_series in sorted(grouped.items()):
+        recharge_series = recharge_by_simulation.get(simulation_id, {})
         common_keys = sorted(set(head_series).intersection(recharge_series))
         if len(common_keys) < 3:
             continue
@@ -432,7 +483,7 @@ def _head_recharge_response_diagnostics(
         nonzero_recharge_steps = sum(1 for dr in delta_recharge if abs(dr) > 0.0)
         diagnostics.append(
             {
-                "variant_id": variant_id,
+                "simulation_id": simulation_id,
                 "observable": observable,
                 "value_index": value_index,
                 "n_pairs": len(common_keys),
@@ -470,8 +521,8 @@ def _initial_state_policy_diagnostics(
         observable = str(row.get("observable", ""))
         if observable == "":
             continue
-        variant_id = str(row.get("variant_id", ""))
-        if variant_id == "":
+        simulation_id = _row_simulation_id(row)
+        if simulation_id == "":
             continue
         key = (
             observable,
@@ -479,8 +530,8 @@ def _initial_state_policy_diagnostics(
             str(row.get("requested_time", "")),
             str(row.get("resolved_variable", row.get("variable", ""))),
         )
-        variant_stats = grouped.setdefault(key, {}).setdefault(
-            variant_id,
+        simulation_stats = grouped.setdefault(key, {}).setdefault(
+            simulation_id,
             {
                 "n_rows": 0,
                 "n_initial_rows": 0,
@@ -489,38 +540,35 @@ def _initial_state_policy_diagnostics(
                 "first_non_initial_elapsed_seconds": None,
             },
         )
-        variant_stats["n_rows"] += 1
+        simulation_stats["n_rows"] += 1
         elapsed = _as_float(row.get("elapsed_seconds"))
-        if (
-            elapsed is not None
-            and variant_stats["first_elapsed_seconds"] is None
-        ):
-            variant_stats["first_elapsed_seconds"] = elapsed
+        if elapsed is not None and simulation_stats["first_elapsed_seconds"] is None:
+            simulation_stats["first_elapsed_seconds"] = elapsed
         if _is_true_flag(row.get("is_initial_state")):
-            variant_stats["n_initial_rows"] += 1
+            simulation_stats["n_initial_rows"] += 1
         else:
-            variant_stats["n_step_end_rows"] += 1
+            simulation_stats["n_step_end_rows"] += 1
             if (
                 elapsed is not None
-                and variant_stats["first_non_initial_elapsed_seconds"] is None
+                and simulation_stats["first_non_initial_elapsed_seconds"] is None
             ):
-                variant_stats["first_non_initial_elapsed_seconds"] = elapsed
+                simulation_stats["first_non_initial_elapsed_seconds"] = elapsed
 
     diagnostics: list[dict[str, Any]] = []
-    for (observable, support, requested_time, variable), by_variant in sorted(grouped.items()):
-        if len(by_variant) < 2:
+    for (observable, support, requested_time, variable), by_simulation in sorted(grouped.items()):
+        if len(by_simulation) < 2:
             continue
-        variants_with_initial = sorted(
-            variant_id
-            for variant_id, stats in by_variant.items()
+        simulations_with_initial = sorted(
+            simulation_id
+            for simulation_id, stats in by_simulation.items()
             if int(stats.get("n_initial_rows", 0)) > 0
         )
-        variants_without_initial = sorted(
-            variant_id
-            for variant_id, stats in by_variant.items()
+        simulations_without_initial = sorted(
+            simulation_id
+            for simulation_id, stats in by_simulation.items()
             if int(stats.get("n_initial_rows", 0)) == 0
         )
-        if not variants_with_initial or not variants_without_initial:
+        if not simulations_with_initial or not simulations_without_initial:
             continue
         selector = str(requested_time).strip().lower()
         severity = "warning" if selector in INITIAL_STATE_MISMATCH_SELECTORS else "info"
@@ -531,11 +579,11 @@ def _initial_state_policy_diagnostics(
                 "requested_time": requested_time,
                 "resolved_variable": variable,
                 "severity": severity,
-                "variants_with_initial_state": variants_with_initial,
-                "variants_without_initial_state": variants_without_initial,
-                "variant_stats": by_variant,
+                "simulations_with_initial_state": simulations_with_initial,
+                "simulations_without_initial_state": simulations_without_initial,
+                "simulation_stats": by_simulation,
                 "message": (
-                    "Some variants expose an explicit initial-state row while others "
+                    "Some simulations expose an explicit initial-state row while others "
                     "start at the first computed step."
                 ),
             }
@@ -550,7 +598,7 @@ def _load_audit_subject(summary: Mapping[str, Any]) -> dict[str, Any]:
     preferred_name = summary.get("run_name")
     store, sim_id = _discover_result_store(
         config_path,
-        preferred_sim_id=None if preferred_sim_id in (None, "") else str(preferred_sim_id),
+        preferred_sim_id=(None if preferred_sim_id in (None, "") else str(preferred_sim_id)),
         preferred_name=None if preferred_name in (None, "") else str(preferred_name),
     )
     try:
@@ -590,21 +638,26 @@ def _load_audit_subject(summary: Mapping[str, Any]) -> dict[str, Any]:
 
 def build_equivalence_audit(
     *,
-    variant_summaries: Iterable[Mapping[str, Any]],
-    reference_variant: str | None,
+    simulation_summaries: Iterable[Mapping[str, Any]] | None = None,
+    reference_simulation: str | None = None,
     mode: str = "strict_same_case",
     on_mismatch: str = "fail",
     observable_rows: Iterable[Mapping[str, Any]] | None = None,
 ) -> dict[str, Any]:
     """Build a comparison audit without modifying child simulations."""
+    if simulation_summaries is None:
+        summaries = ()
+    else:
+        summaries = simulation_summaries
+    reference_id = reference_simulation
     completed = [
         dict(summary)
-        for summary in variant_summaries
+        for summary in summaries
         if str(summary.get("status", "")) in {"completed", "reused"}
     ]
     subjects = [_load_audit_subject(summary) for summary in completed]
     subject_by_id = {str(subject.get("id", "")): subject for subject in subjects}
-    reference_id = reference_variant or (str(completed[0].get("id", "")) if completed else None)
+    reference_id = reference_id or (str(completed[0].get("id", "")) if completed else None)
     reference = subject_by_id.get(str(reference_id)) if reference_id else None
 
     issues: list[dict[str, Any]] = []
@@ -622,10 +675,10 @@ def build_equivalence_audit(
         ref_config = reference.get("physical_config", {})
         ref_fingerprints = ref_config.get("fingerprints", {})
         ref_budget_components = reference.get("budget_components", {})
-        ref_recharge = ref_budget_components.get(RECHARGE_COMPONENT, {}).get("series", {})
+        ref_recharge_raw = ref_budget_components.get(RECHARGE_COMPONENT, {}).get("series", {})
         for subject in subjects:
-            variant_id = str(subject.get("id", ""))
-            if variant_id == reference_id:
+            simulation_id = str(subject.get("id", ""))
+            if simulation_id == reference_id:
                 continue
             metadata = subject.get("metadata", {})
             for key in STRICT_METADATA_KEYS:
@@ -638,8 +691,8 @@ def build_equivalence_audit(
                         {
                             "level": "error" if on_mismatch == "fail" else "warning",
                             "kind": "metadata_mismatch",
-                            "variant_id": variant_id,
-                            "reference_variant": reference_id,
+                            "simulation_id": simulation_id,
+                            "reference_simulation": reference_id,
                             "field": key,
                             "value": metadata.get(key),
                             "reference_value": ref_metadata.get(key),
@@ -650,8 +703,8 @@ def build_equivalence_audit(
                     {
                         "level": "error" if on_mismatch == "fail" else "warning",
                         "kind": "parameter_mismatch",
-                        "variant_id": variant_id,
-                        "reference_variant": reference_id,
+                        "simulation_id": simulation_id,
+                        "reference_simulation": reference_id,
                         "message": "Persisted parameter tables differ from the reference.",
                     }
                 )
@@ -665,18 +718,27 @@ def build_equivalence_audit(
                     {
                         "level": "error" if on_mismatch == "fail" else "warning",
                         "kind": "config_section_mismatch",
-                        "variant_id": variant_id,
-                        "reference_variant": reference_id,
+                        "simulation_id": simulation_id,
+                        "reference_simulation": reference_id,
                         "field": section_name,
                         "message": "Physical-case TOML section differs from the reference.",
                     }
                 )
 
             budget_components = subject.get("budget_components", {})
-            recharge = budget_components.get(RECHARGE_COMPONENT, {}).get("series", {})
+            recharge_raw = budget_components.get(RECHARGE_COMPONENT, {}).get("series", {})
+            recharge_keys = sorted(set(ref_recharge_raw).union(set(recharge_raw)))
+            ref_recharge = _recharge_series_for_audit(
+                reference,
+                fallback_keys=recharge_keys,
+            )
+            recharge = _recharge_series_for_audit(
+                subject,
+                fallback_keys=recharge_keys,
+            )
             recharge_check = _compare_scalar_series(
-                variant_id=variant_id,
-                reference_variant=str(reference_id),
+                simulation_id=simulation_id,
+                reference_simulation=str(reference_id),
                 component=RECHARGE_COMPONENT,
                 values=recharge,
                 reference_values=ref_recharge,
@@ -687,8 +749,8 @@ def build_equivalence_audit(
                     {
                         "level": "error" if on_mismatch == "fail" else "warning",
                         "kind": "recharge_budget_mismatch",
-                        "variant_id": variant_id,
-                        "reference_variant": reference_id,
+                        "simulation_id": simulation_id,
+                        "reference_simulation": reference_id,
                         "field": RECHARGE_COMPONENT,
                         "message": "Persisted recharge totals differ from the reference.",
                         "max_abs_diff": recharge_check.get("max_abs_diff"),
@@ -699,7 +761,7 @@ def build_equivalence_audit(
 
     head_bounds = _head_bounds_diagnostics(
         observable_rows=observable_rows,
-        variant_summaries=completed,
+        simulation_summaries=completed,
     )
     for item in head_bounds:
         above_fraction = _as_float(item.get("above_top_fraction")) or 0.0
@@ -709,7 +771,7 @@ def build_equivalence_audit(
                 {
                     "level": "error" if on_mismatch == "fail" else "warning",
                     "kind": "watertable_above_top",
-                    "variant_id": item.get("variant_id", ""),
+                    "simulation_id": item.get("simulation_id", ""),
                     "field": item.get("observable", ""),
                     "message": (
                         "Watertable elevation is above the model top on a large fraction of cells."
@@ -731,13 +793,13 @@ def build_equivalence_audit(
             {
                 "level": "warning",
                 "kind": "initial_state_policy_mismatch",
-                "variant_id": ",".join(item.get("variants_with_initial_state", [])),
+                "simulation_id": ",".join(item.get("simulations_with_initial_state", [])),
                 "field": item.get("observable", ""),
                 "message": item.get("message", ""),
                 "requested_time": item.get("requested_time", ""),
-                "variants_with_initial_state": item.get("variants_with_initial_state", []),
-                "variants_without_initial_state": item.get(
-                    "variants_without_initial_state", []
+                "simulations_with_initial_state": item.get("simulations_with_initial_state", []),
+                "simulations_without_initial_state": item.get(
+                    "simulations_without_initial_state", []
                 ),
             }
         )
@@ -745,7 +807,7 @@ def build_equivalence_audit(
     has_error = any(issue.get("level") == "error" for issue in issues)
     has_warning = any(issue.get("level") == "warning" for issue in issues)
     status = "fail" if has_error else "warn" if has_warning else "pass"
-    recharge_by_variant = {
+    recharge_by_simulation = {
         str(subject.get("id", "")): subject.get("budget_components", {})
         .get(RECHARGE_COMPONENT, {})
         .get("series", {})
@@ -756,13 +818,13 @@ def build_equivalence_audit(
         "mode": mode,
         "on_mismatch": on_mismatch,
         "status": status,
-        "reference_variant": reference_id,
+        "reference_simulation": reference_id,
         "physical_config_sections": [label for label, _ in PHYSICAL_CONFIG_SECTIONS],
         "initial_state_policy": initial_state_policy,
         "head_bounds": head_bounds,
         "head_recharge_response": _head_recharge_response_diagnostics(
             observable_rows=observable_rows,
-            recharge_by_variant=recharge_by_variant,
+            recharge_by_simulation=recharge_by_simulation,
         ),
         "subjects": subjects,
         "issues": issues,
@@ -782,7 +844,7 @@ def write_audit_files(
     lines = [
         f"# Comparison Audit: {audit.get('status', '')}",
         "",
-        f"- Reference variant: `{audit.get('reference_variant', '')}`",
+        f"- Reference simulation: `{audit.get('reference_simulation', '')}`",
         f"- Mode: `{audit.get('mode', '')}`",
         f"- Issues: {len(audit.get('issues', []))}",
         f"- Physical config sections: {len(audit.get('physical_config_sections', []))}",
@@ -796,9 +858,10 @@ def write_audit_files(
         for issue in issues:
             field = issue.get("field")
             suffix = f" field=`{field}`" if field else ""
+            simulation_id = issue.get("simulation_id", "")
             lines.append(
                 f"- `{issue.get('level', '')}` / `{issue.get('kind', '')}`"
-                f" variant=`{issue.get('variant_id', '')}`{suffix}"
+                f" simulation=`{simulation_id}`{suffix}"
             )
     config_issue_count = sum(
         1 for issue in issues if issue.get("kind") == "config_section_mismatch"
@@ -835,8 +898,8 @@ def write_audit_files(
         lines.append("- No mixed initial-state policy was detected.")
     else:
         for item in initial_policy:
-            with_initial = ", ".join(item.get("variants_with_initial_state", []))
-            without_initial = ", ".join(item.get("variants_without_initial_state", []))
+            with_initial = ", ".join(item.get("simulations_with_initial_state", []))
+            without_initial = ", ".join(item.get("simulations_without_initial_state", []))
             lines.append(
                 "- "
                 f"`{item.get('observable', '')}` requested_time=`{item.get('requested_time', '')}`: "
@@ -850,9 +913,10 @@ def write_audit_files(
         lines.append("- No head/top-bottom diagnostic was produced.")
     else:
         for item in head_bounds:
+            simulation_id = item.get("simulation_id", "")
             lines.append(
                 "- "
-                f"`{item.get('variant_id', '')}` / `{item.get('observable', '')}`: "
+                f"`{simulation_id}` / `{item.get('observable', '')}`: "
                 f"above_top_fraction={item.get('above_top_fraction', '')}, "
                 f"above_top_max_m={item.get('above_top_max_m', '')}, "
                 f"below_bottom_fraction={item.get('below_bottom_fraction', '')}"
@@ -864,9 +928,10 @@ def write_audit_files(
         lines.append("- No point-head diagnostic was produced.")
     else:
         for item in diagnostics:
+            simulation_id = item.get("simulation_id", "")
             lines.append(
                 "- "
-                f"`{item.get('variant_id', '')}` / `{item.get('observable', '')}`: "
+                f"`{simulation_id}` / `{item.get('observable', '')}`: "
                 f"head_range_m={item.get('head_range_m', '')}, "
                 f"corr_delta_recharge_delta_head={item.get('corr_delta_recharge_delta_head', '')}, "
                 f"same_sign_delta_fraction={item.get('same_sign_delta_fraction', '')}"
