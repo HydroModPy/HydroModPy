@@ -1,8 +1,14 @@
 """High-level Project API for interactive Python usage.
 
-Setup-once, run-many interface that wraps the launcher's internal phases
-behind a clean API. The TOML-driven workflow (``hmp run``) is unchanged;
-this module provides the **programmatic** equivalent.
+Setup-once, run-many interface that keeps the user-facing session state
+(``cfg``, workspace, geographic runtime, loaded data, mesh, catalog) behind a
+clean API. The TOML-driven workflow (``hmp run``) is unchanged; this module
+provides the **programmatic** equivalent.
+
+``Project`` is intentionally not the execution engine. Ordered execution,
+checkpointing, and resume live in :mod:`hydromodpy.workflow.runner.Pipeline`.
+Both routes use the same ``workflow.steps`` helpers so interactive notebooks
+and full pipeline runs do not fork the scientific logic.
 
 The facade is composed of three cohesive helpers:
 
@@ -263,13 +269,19 @@ class Project:
     # -- Model-phase verbs (delegate to project_phases) -------------------
 
     def setup_workspace(self) -> None:
-        """Materialize the workspace and structural objects (Domain, Flow, Transport)."""
+        """Bootstrap shared runtime state for the project session.
+
+        This Project-level verb prepares the workspace/catalog anchor and the
+        shared geographic/domain/process objects used by later data, mesh, and
+        solver phases. It is not a standalone Pipeline step; Pipeline runs get
+        the same setup through ``BuildGeographicStep``.
+        """
         from hydromodpy import project_phases
 
         project_phases.setup_workspace(self)
 
     def build_geographic(self, *, reuse_dem: bool = False) -> None:
-        """Build the geographic runtime (DEM, watershed, topography)."""
+        """Mark geographic/domain runtime ready and invalidate downstream state."""
         from hydromodpy import project_phases
 
         project_phases.build_geographic(self, reuse_dem=reuse_dem)

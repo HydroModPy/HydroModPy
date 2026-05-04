@@ -19,10 +19,10 @@ This page isolates the same synthetic hillslope after moving the surface well ab
    .. tab-item:: Reference K
 
       .. figure:: /_static/capability_gallery/code_comparison/no_seepage_reference_k.png
-         :alt: No seepage code comparison on the four-method benchmark
+         :alt: No seepage code comparison on the four-solver benchmark
          :width: 100%
 
-         No-seepage benchmark on the four committed cross-code methods.
+         No-seepage benchmark on the four committed cross-code solvers.
 
       - Run source: ``out/sih_tx_4cmp_linux_no_seepage_20260415``
       - Methods: MODFLOW-NWT, MODFLOW 6, MODFLOW 6 irregular triangles, Boussinesq local partition
@@ -33,7 +33,7 @@ This page isolates the same synthetic hillslope after moving the surface well ab
          :alt: No seepage code comparison at high hydraulic conductivity
          :width: 100%
 
-         High-conductivity no-seepage benchmark on the same four committed methods.
+         High-conductivity no-seepage benchmark on the same four committed solvers.
 
       - Run source: ``out/sih_tx_4cmp_linux_no_seepage_kx8_20260416``
       - Methods: MODFLOW-NWT, MODFLOW 6, MODFLOW 6 irregular triangles, Boussinesq local partition

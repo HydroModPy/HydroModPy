@@ -117,7 +117,9 @@ def test_hydromodpy_config_from_toml_supports_base_config(tmp_path: Path) -> Non
     assert cfg.flow.active_bc == ["ocean", "drainage"]
 
 
-def test_launcher_simulation_example_config_inheritance_keeps_only_relevant_data_types() -> None:
+def test_launcher_simulation_example_config_inheritance_keeps_only_relevant_data_types() -> (
+    None
+):
     example_config = (
         Path(__file__).resolve().parents[3]
         / "tests"
@@ -153,8 +155,13 @@ def test_launcher_simulation_mf6_precomputed_mesh_input_config_uses_runtime_mesh
 
     payload = load_toml_with_base_config(example_config)
 
-    assert payload["mesh_input"]["mesh_path"] == "results_stable/mesh/mesh_catchment.msh"
-    assert payload["mesh_input"]["bundle_dir"] == "results_stable/mesh/mesh_catchment_bundle"
+    assert (
+        payload["mesh_input"]["mesh_path"] == "results_stable/mesh/mesh_catchment.msh"
+    )
+    assert (
+        payload["mesh_input"]["bundle_dir"]
+        == "results_stable/mesh/mesh_catchment_bundle"
+    )
     assert "planar" not in payload["modflow6"]["sgrid"]
     assert payload["modflow6"]["sgrid"]["vertical"]["nlay"] == 2
     assert "postprocess" not in payload
@@ -191,7 +198,10 @@ def test_launcher_simulation_mf6_mesh_catchment_config_embeds_mesh_generation(
     assert payload["data"]["recharge"]["sources"][0]["freq"] == "10D"
     assert "postprocess" not in payload
     assert payload["analysis"]["capability_gallery"]["enabled"] is True
-    assert payload["analysis"]["capability_gallery"]["case_slug"] == "modflow6_gmsh_mesh_catchment"
+    assert (
+        payload["analysis"]["capability_gallery"]["case_slug"]
+        == "modflow6_gmsh_mesh_catchment"
+    )
 
     monkeypatch.setenv("HYDROMODPY_WORKSPACE", str(tmp_path))
     cfg = HydroModPyConfig.from_toml(example_config)
@@ -303,7 +313,7 @@ def test_hydromodpy_config_loads_calibration_section(tmp_path: Path) -> None:
                 'value = "1.0e-4 m/s"',
                 "",
                 "[calibration]",
-                'method = "optuna"',
+                'method = "random_search"',
                 "max_iter = 7",
                 "",
                 "[calibration.parameters.K]",
@@ -317,7 +327,7 @@ def test_hydromodpy_config_loads_calibration_section(tmp_path: Path) -> None:
     cfg = HydroModPyConfig.from_toml(config_path)
 
     assert cfg.calibration is not None
-    assert cfg.calibration.method == "optuna"
+    assert cfg.calibration.method == "random_search"
     assert cfg.calibration.max_iter == 7
     assert "K" in cfg.calibration.parameters
 
@@ -411,11 +421,11 @@ def test_hydromodpy_config_from_json_uses_toml_normalization(tmp_path: Path) -> 
     assert cfg.geographic.dem_init_path == dem_path.resolve()
 
 
-def test_hydromodpy_config_rejects_removed_variant_comparison_workflow(tmp_path: Path) -> None:
-    with pytest.raises(ValueError, match="variant-comparison"):
+def test_hydromodpy_config_rejects_unknown_workflow(tmp_path: Path) -> None:
+    with pytest.raises(ValueError, match="unknown-workflow"):
         HydroModPyConfig.from_dict(
             {
-                "workflow": "variant-comparison",
+                "workflow": "unknown-workflow",
                 "workspace": {"root": str(tmp_path)},
                 "geographic": {"source_mode": "synthetic"},
             },

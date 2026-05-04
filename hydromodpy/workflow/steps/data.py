@@ -18,7 +18,7 @@ from hydromodpy.spatial.geographic.core.derived_features import (
     attach_reference_hydrographic_network,
 )
 from hydromodpy.spatial.geographic.structure_binders import apply_geology_to_domain
-from hydromodpy.workflow.internals.state import LoadedState, PipelineState, ResolvedState
+from hydromodpy.workflow.internals.state import GeographicState, LoadedState, PipelineState
 
 if TYPE_CHECKING:
     from hydromodpy.core.state.run_state import WorkflowContext
@@ -154,7 +154,7 @@ class LoadDataStep:
     """Ingest external + custom data via data managers."""
 
     name = "load_data"
-    tin: ClassVar[type] = ResolvedState
+    tin: ClassVar[type] = GeographicState
     tout: ClassVar[type] = LoadedState
     config_sections: ClassVar[tuple[str, ...]] = ("data",)
 

@@ -49,7 +49,7 @@ from hydromodpy.analysis.comparison.visuals_render_series import (
 from hydromodpy.analysis.comparison.visuals_style import (
     _budget_component_color,
     _budget_component_label,
-    _display_variant_label,
+    _display_simulation_label,
     _finite_limits,
     _is_flux_like_name,
     _legend_ncols,
@@ -62,7 +62,7 @@ from hydromodpy.analysis.comparison.visuals_style import (
     _series_style,
     _slug,
     _solver_color,
-    _variant_panel_title,
+    _simulation_panel_title,
 )
 
 # -- helpers --------------------------------------------------------------
@@ -70,7 +70,7 @@ from hydromodpy.analysis.comparison.visuals_style import (
 
 def _scatter_payload(
     *,
-    variant_id: str = "var",
+    simulation_id: str = "var",
     values: np.ndarray | None = None,
     cell_ids: np.ndarray | None = None,
     x: np.ndarray | None = None,
@@ -89,8 +89,8 @@ def _scatter_payload(
     if y is None:
         y = np.linspace(0.0, 3.0, n)
     return MapPayload(
-        variant_id=variant_id,
-        variant_label=variant_id.upper(),
+        simulation_id=simulation_id,
+        simulation_label=simulation_id.upper(),
         solver="modflow6",
         mesh_mode="structured",
         observable_name=observable,
@@ -108,7 +108,7 @@ def _scatter_payload(
 
 def _structured_payload(
     *,
-    variant_id: str = "var",
+    simulation_id: str = "var",
     shape: tuple[int, int] = (2, 2),
     values: np.ndarray | None = None,
     unit: str = "m",
@@ -118,8 +118,8 @@ def _structured_payload(
     if values is None:
         values = np.arange(shape[0] * shape[1], dtype=float)
     return MapPayload(
-        variant_id=variant_id,
-        variant_label=variant_id.upper(),
+        simulation_id=simulation_id,
+        simulation_label=simulation_id.upper(),
         solver="modflow6",
         mesh_mode="structured",
         observable_name=observable,
@@ -162,26 +162,38 @@ def test_pretty_label_empty_returns_value_sentinel() -> None:
     assert _pretty_label("") == "Value"
 
 
-def test_display_variant_label_short_keeps_label() -> None:
-    assert _display_variant_label(variant_id="vid", variant_label="My label") == "My label"
+def test_display_simulation_label_short_keeps_label() -> None:
+    assert (
+        _display_simulation_label(simulation_id="vid", simulation_label="My label")
+        == "My label"
+    )
 
 
-def test_display_variant_label_long_falls_back_to_id() -> None:
+def test_display_simulation_label_long_falls_back_to_id() -> None:
     long_label = "x" * 30
-    assert _display_variant_label(variant_id="vid", variant_label=long_label) == "vid"
+    assert (
+        _display_simulation_label(simulation_id="vid", simulation_label=long_label)
+        == "vid"
+    )
 
 
-def test_display_variant_label_empty_label_uses_id() -> None:
-    assert _display_variant_label(variant_id="vid", variant_label="   ") == "vid"
+def test_display_simulation_label_empty_label_uses_id() -> None:
+    assert (
+        _display_simulation_label(simulation_id="vid", simulation_label="   ") == "vid"
+    )
 
 
-def test_variant_panel_title_includes_solver_lower() -> None:
-    title = _variant_panel_title(variant_id="vid", variant_label="lab", solver="MODFLOW6")
+def test_simulation_panel_title_includes_solver_lower() -> None:
+    title = _simulation_panel_title(
+        simulation_id="vid", simulation_label="lab", solver="MODFLOW6"
+    )
     assert title == "lab\nmodflow6"
 
 
-def test_variant_panel_title_no_solver_returns_label_only() -> None:
-    title = _variant_panel_title(variant_id="vid", variant_label="lab", solver="")
+def test_simulation_panel_title_no_solver_returns_label_only() -> None:
+    title = _simulation_panel_title(
+        simulation_id="vid", simulation_label="lab", solver=""
+    )
     assert title == "lab"
 
 
@@ -249,8 +261,8 @@ def test_payload_extent_falls_back_to_centroids() -> None:
 def test_payload_samples_none_when_xy_missing() -> None:
     payload = _structured_payload()
     payload_no_xy = MapPayload(
-        variant_id=payload.variant_id,
-        variant_label=payload.variant_label,
+        simulation_id=payload.simulation_id,
+        simulation_label=payload.simulation_label,
         solver=payload.solver,
         mesh_mode=payload.mesh_mode,
         observable_name=payload.observable_name,
@@ -282,8 +294,8 @@ def test_payload_samples_returns_finite_values_only() -> None:
 
 def test_payload_samples_size_mismatch_returns_none() -> None:
     payload = MapPayload(
-        variant_id="vid",
-        variant_label="lab",
+        simulation_id="vid",
+        simulation_label="lab",
         solver="s",
         mesh_mode="structured",
         observable_name="obs",
@@ -319,7 +331,13 @@ def test_rgba_to_hex_basic() -> None:
 
 @pytest.mark.parametrize(
     "name",
-    ["accumulation_flux", "outflow_drain", "surface_excess_total", "saturation_excess", "runoff"],
+    [
+        "accumulation_flux",
+        "outflow_drain",
+        "surface_excess_total",
+        "saturation_excess",
+        "runoff",
+    ],
 )
 def test_is_flux_like_name_true(name: str) -> None:
     assert _is_flux_like_name(name) is True
@@ -577,29 +595,39 @@ def test_resolve_fine_grid_bounds_too_few_extents_returns_none() -> None:
     fine = ComparisonFineRaster(enabled=True, resolution=1.0, extent_mode="union")
     payloads = [_scatter_payload(extent=(0.0, 1.0, 0.0, 1.0))]
     assert (
-        _resolve_fine_grid_bounds(payloads=payloads, fine_raster=fine, reference_variant=None)
+        _resolve_fine_grid_bounds(
+            payloads=payloads, fine_raster=fine, reference_simulation=None
+        )
         is None
     )
 
 
 def test_resolve_fine_grid_bounds_intersection() -> None:
-    fine = ComparisonFineRaster(enabled=True, resolution=1.0, extent_mode="intersection")
+    fine = ComparisonFineRaster(
+        enabled=True, resolution=1.0, extent_mode="intersection"
+    )
     payloads = [
-        _scatter_payload(variant_id="a", extent=(0.0, 4.0, 0.0, 4.0)),
-        _scatter_payload(variant_id="b", extent=(2.0, 6.0, 2.0, 6.0)),
+        _scatter_payload(simulation_id="a", extent=(0.0, 4.0, 0.0, 4.0)),
+        _scatter_payload(simulation_id="b", extent=(2.0, 6.0, 2.0, 6.0)),
     ]
-    bounds = _resolve_fine_grid_bounds(payloads=payloads, fine_raster=fine, reference_variant=None)
+    bounds = _resolve_fine_grid_bounds(
+        payloads=payloads, fine_raster=fine, reference_simulation=None
+    )
     assert bounds == (2.0, 4.0, 2.0, 4.0)
 
 
 def test_resolve_fine_grid_bounds_intersection_disjoint_returns_none() -> None:
-    fine = ComparisonFineRaster(enabled=True, resolution=1.0, extent_mode="intersection")
+    fine = ComparisonFineRaster(
+        enabled=True, resolution=1.0, extent_mode="intersection"
+    )
     payloads = [
-        _scatter_payload(variant_id="a", extent=(0.0, 1.0, 0.0, 1.0)),
-        _scatter_payload(variant_id="b", extent=(5.0, 6.0, 5.0, 6.0)),
+        _scatter_payload(simulation_id="a", extent=(0.0, 1.0, 0.0, 1.0)),
+        _scatter_payload(simulation_id="b", extent=(5.0, 6.0, 5.0, 6.0)),
     ]
     assert (
-        _resolve_fine_grid_bounds(payloads=payloads, fine_raster=fine, reference_variant=None)
+        _resolve_fine_grid_bounds(
+            payloads=payloads, fine_raster=fine, reference_simulation=None
+        )
         is None
     )
 
@@ -607,20 +635,24 @@ def test_resolve_fine_grid_bounds_intersection_disjoint_returns_none() -> None:
 def test_resolve_fine_grid_bounds_union() -> None:
     fine = ComparisonFineRaster(enabled=True, resolution=1.0, extent_mode="union")
     payloads = [
-        _scatter_payload(variant_id="a", extent=(0.0, 4.0, 0.0, 4.0)),
-        _scatter_payload(variant_id="b", extent=(2.0, 6.0, 2.0, 6.0)),
+        _scatter_payload(simulation_id="a", extent=(0.0, 4.0, 0.0, 4.0)),
+        _scatter_payload(simulation_id="b", extent=(2.0, 6.0, 2.0, 6.0)),
     ]
-    bounds = _resolve_fine_grid_bounds(payloads=payloads, fine_raster=fine, reference_variant=None)
+    bounds = _resolve_fine_grid_bounds(
+        payloads=payloads, fine_raster=fine, reference_simulation=None
+    )
     assert bounds == (0.0, 6.0, 0.0, 6.0)
 
 
 def test_resolve_fine_grid_bounds_reference_uses_reference_extent() -> None:
     fine = ComparisonFineRaster(enabled=True, resolution=1.0, extent_mode="reference")
     payloads = [
-        _scatter_payload(variant_id="a", extent=(0.0, 4.0, 0.0, 4.0)),
-        _scatter_payload(variant_id="b", extent=(2.0, 6.0, 2.0, 6.0)),
+        _scatter_payload(simulation_id="a", extent=(0.0, 4.0, 0.0, 4.0)),
+        _scatter_payload(simulation_id="b", extent=(2.0, 6.0, 2.0, 6.0)),
     ]
-    bounds = _resolve_fine_grid_bounds(payloads=payloads, fine_raster=fine, reference_variant="a")
+    bounds = _resolve_fine_grid_bounds(
+        payloads=payloads, fine_raster=fine, reference_simulation="a"
+    )
     assert bounds == (0.0, 4.0, 0.0, 4.0)
 
 
@@ -631,7 +663,9 @@ def test_regrid_payload_linear_against_grid() -> None:
         y=np.array([0.0, 0.0, 1.0, 1.0]),
     )
     grid_x, grid_y = np.meshgrid(np.linspace(0.1, 0.9, 3), np.linspace(0.1, 0.9, 3))
-    array = _regrid_payload(payload=payload, grid_x=grid_x, grid_y=grid_y, interpolation="linear")
+    array = _regrid_payload(
+        payload=payload, grid_x=grid_x, grid_y=grid_y, interpolation="linear"
+    )
     assert array is not None
     assert array.shape == (3, 3)
     assert np.all(np.isfinite(array))
@@ -644,7 +678,9 @@ def test_regrid_payload_returns_none_when_no_finite_samples() -> None:
         y=np.array([0.0, 0.0, 1.0, 1.0]),
     )
     grid_x, grid_y = np.meshgrid([0.5], [0.5])
-    array = _regrid_payload(payload=payload, grid_x=grid_x, grid_y=grid_y, interpolation="linear")
+    array = _regrid_payload(
+        payload=payload, grid_x=grid_x, grid_y=grid_y, interpolation="linear"
+    )
     assert array is None
 
 
@@ -653,9 +689,11 @@ def test_regrid_payload_returns_none_when_no_finite_samples() -> None:
 
 def test_write_map_comparison_figure_creates_png(tmp_path: Path) -> None:
     payloads = [
-        _structured_payload(variant_id="ref", shape=(3, 3), values=np.arange(9, dtype=float)),
         _structured_payload(
-            variant_id="cand", shape=(3, 3), values=np.arange(9, dtype=float) * 2.0
+            simulation_id="ref", shape=(3, 3), values=np.arange(9, dtype=float)
+        ),
+        _structured_payload(
+            simulation_id="cand", shape=(3, 3), values=np.arange(9, dtype=float) * 2.0
         ),
     ]
     out = tmp_path / "map.png"
@@ -666,8 +704,8 @@ def test_write_map_comparison_figure_creates_png(tmp_path: Path) -> None:
 
 def test_write_difference_figure_creates_png(tmp_path: Path) -> None:
     diff = DifferencePayload(
-        reference_variant="ref",
-        candidate_variant="cand",
+        reference_simulation="ref",
+        candidate_simulation="cand",
         observable_name="head",
         unit="m",
         values=np.array([0.0, 0.5, -0.5, 1.0]),
@@ -683,8 +721,8 @@ def test_write_difference_figure_creates_png(tmp_path: Path) -> None:
 def test_write_timeseries_figure_creates_png(tmp_path: Path) -> None:
     rows = [
         {
-            "variant_id": "ref",
-            "variant_label": "Ref",
+            "simulation_id": "ref",
+            "simulation_label": "Ref",
             "value_index": 0,
             "value": 1.0 + i * 0.1,
             "elapsed_seconds": float(i),
@@ -694,8 +732,8 @@ def test_write_timeseries_figure_creates_png(tmp_path: Path) -> None:
     ]
     rows.extend(
         {
-            "variant_id": "cand",
-            "variant_label": "Cand",
+            "simulation_id": "cand",
+            "simulation_label": "Cand",
             "value_index": 0,
             "value": 2.0 + i * 0.2,
             "elapsed_seconds": float(i),
@@ -711,29 +749,53 @@ def test_write_timeseries_figure_creates_png(tmp_path: Path) -> None:
     assert out.exists()
 
 
-def test_write_timeseries_figure_returns_false_when_too_few_points(tmp_path: Path) -> None:
-    rows = [{"variant_id": "ref", "value": 1.0, "time_index": 0, "value_index": 0}]
+def test_write_timeseries_figure_returns_false_when_too_few_points(
+    tmp_path: Path,
+) -> None:
+    rows = [{"simulation_id": "ref", "value": 1.0, "time_index": 0, "value_index": 0}]
     out = tmp_path / "ts.png"
     assert (
-        _write_timeseries_figure(path=out, observable_name="head", unit="m", grouped_rows=rows)
+        _write_timeseries_figure(
+            path=out, observable_name="head", unit="m", grouped_rows=rows
+        )
         is False
     )
 
 
 def test_write_runtime_bar_figure_creates_png(tmp_path: Path) -> None:
     rows = [
-        {"variant_id": "a", "variant_label": "A", "runtime_seconds": 1.0, "solver": "modflow6"},
-        {"variant_id": "b", "variant_label": "B", "runtime_seconds": 2.0, "solver": "modflow_nwt"},
+        {
+            "simulation_id": "a",
+            "simulation_label": "A",
+            "runtime_seconds": 1.0,
+            "solver": "modflow6",
+        },
+        {
+            "simulation_id": "b",
+            "simulation_label": "B",
+            "runtime_seconds": 2.0,
+            "solver": "modflow_nwt",
+        },
     ]
     out = tmp_path / "rt.png"
-    assert _write_runtime_bar_figure(path=out, execution_rows=rows, reference_variant="a") is True
+    assert (
+        _write_runtime_bar_figure(
+            path=out, execution_rows=rows, reference_simulation="a"
+        )
+        is True
+    )
     assert out.exists()
 
 
 def test_write_runtime_bar_figure_returns_false_when_below_two(tmp_path: Path) -> None:
-    rows = [{"variant_id": "a", "runtime_seconds": 1.0, "solver": "x"}]
+    rows = [{"simulation_id": "a", "runtime_seconds": 1.0, "solver": "x"}]
     out = tmp_path / "rt.png"
-    assert _write_runtime_bar_figure(path=out, execution_rows=rows, reference_variant=None) is False
+    assert (
+        _write_runtime_bar_figure(
+            path=out, execution_rows=rows, reference_simulation=None
+        )
+        is False
+    )
 
 
 def test_write_point_dashboard_creates_png(tmp_path: Path) -> None:
@@ -744,8 +806,8 @@ def test_write_point_dashboard_creates_png(tmp_path: Path) -> None:
                 {
                     "support": "point",
                     "observable": obs,
-                    "variant_id": "ref",
-                    "variant_label": "Ref",
+                    "simulation_id": "ref",
+                    "simulation_label": "Ref",
                     "value": 1.0 + i,
                     "time_index": i,
                     "unit": "m",
@@ -757,12 +819,14 @@ def test_write_point_dashboard_creates_png(tmp_path: Path) -> None:
     assert out.exists()
 
 
-def test_write_point_dashboard_returns_false_with_one_observable(tmp_path: Path) -> None:
+def test_write_point_dashboard_returns_false_with_one_observable(
+    tmp_path: Path,
+) -> None:
     rows = [
         {
             "support": "point",
             "observable": "head",
-            "variant_id": "ref",
+            "simulation_id": "ref",
             "value": 1.0,
             "time_index": 0,
         }
@@ -773,14 +837,14 @@ def test_write_point_dashboard_returns_false_with_one_observable(tmp_path: Path)
 
 def test_write_native_flux_panel_creates_png(tmp_path: Path) -> None:
     long_rows = []
-    for variant in ("ref", "cand"):
+    for simulation in ("ref", "cand"):
         for i in range(4):
             long_rows.append(
                 {
                     "variable": "accumulation_flux",
-                    "variant_id": variant,
-                    "variant_label": variant.upper(),
-                    "value": float(i + (1 if variant == "cand" else 0)),
+                    "simulation_id": simulation,
+                    "simulation_label": simulation.upper(),
+                    "value": float(i + (1 if simulation == "cand" else 0)),
                     "time_index": i,
                     "time_label": f"2024-0{i + 1}-01",
                 }
@@ -788,7 +852,7 @@ def test_write_native_flux_panel_creates_png(tmp_path: Path) -> None:
     delta_rows = [
         {
             "variable": "accumulation_flux",
-            "variant_id": "cand",
+            "simulation_id": "cand",
             "signed_error": 0.1 * i,
             "time_index": i,
             "time_label": f"2024-0{i + 1}-01",
@@ -797,7 +861,10 @@ def test_write_native_flux_panel_creates_png(tmp_path: Path) -> None:
     ]
     out = tmp_path / "flux.png"
     ok = _write_native_flux_panel(
-        path=out, variable="accumulation_flux", long_rows=long_rows, delta_rows=delta_rows
+        path=out,
+        variable="accumulation_flux",
+        long_rows=long_rows,
+        delta_rows=delta_rows,
     )
     assert ok is True
     assert out.exists()
@@ -807,8 +874,8 @@ def test_write_flux_dashboard_creates_png(tmp_path: Path) -> None:
     rows = [
         {
             "observable": "outlet_flux_series",
-            "variant_id": "ref",
-            "variant_label": "Ref",
+            "simulation_id": "ref",
+            "simulation_label": "Ref",
             "value": float(i),
             "time_index": i,
             "unit": "m3/s",
@@ -818,8 +885,8 @@ def test_write_flux_dashboard_creates_png(tmp_path: Path) -> None:
     rows.extend(
         {
             "observable": "outlet_flux_series",
-            "variant_id": "cand",
-            "variant_label": "Cand",
+            "simulation_id": "cand",
+            "simulation_label": "Cand",
             "value": float(i) + 0.5,
             "time_index": i,
             "unit": "m3/s",
@@ -832,8 +899,8 @@ def test_write_flux_dashboard_creates_png(tmp_path: Path) -> None:
             native_rows.append(
                 {
                     "variable": variable,
-                    "variant_id": "ref",
-                    "variant_label": "Ref",
+                    "simulation_id": "ref",
+                    "simulation_label": "Ref",
                     "value": float(i),
                     "time_index": i,
                     "time_label": f"2024-0{i + 1}-01",
@@ -842,8 +909,8 @@ def test_write_flux_dashboard_creates_png(tmp_path: Path) -> None:
             native_rows.append(
                 {
                     "variable": variable,
-                    "variant_id": "cand",
-                    "variant_label": "Cand",
+                    "simulation_id": "cand",
+                    "simulation_label": "Cand",
                     "value": float(i) + 0.5,
                     "time_index": i,
                     "time_label": f"2024-0{i + 1}-01",
@@ -867,7 +934,7 @@ def test_write_budget_diagnostic_figure_creates_png(tmp_path: Path) -> None:
         for i in range(4):
             budget_rows.append(
                 {
-                    "variant_id": "ref",
+                    "simulation_id": "ref",
                     "component": component,
                     "value": float(i),
                     "elapsed_seconds": float(i),
@@ -878,8 +945,8 @@ def test_write_budget_diagnostic_figure_creates_png(tmp_path: Path) -> None:
     rows = [
         {
             "observable": "outlet_flux_series",
-            "variant_id": "ref",
-            "variant_label": "Ref",
+            "simulation_id": "ref",
+            "simulation_label": "Ref",
             "value": float(i),
             "time_index": i,
             "elapsed_seconds": float(i),
@@ -890,8 +957,8 @@ def test_write_budget_diagnostic_figure_creates_png(tmp_path: Path) -> None:
     out = tmp_path / "budget.png"
     ok = _write_budget_diagnostic_figure(
         path=out,
-        variant_id="ref",
-        variant_label="Ref",
+        simulation_id="ref",
+        simulation_label="Ref",
         budget_rows=budget_rows,
         rows=rows,
     )
@@ -899,12 +966,14 @@ def test_write_budget_diagnostic_figure_creates_png(tmp_path: Path) -> None:
     assert out.exists()
 
 
-def test_write_budget_diagnostic_figure_returns_false_for_unknown_variant(tmp_path: Path) -> None:
+def test_write_budget_diagnostic_figure_returns_false_for_unknown_simulation(
+    tmp_path: Path,
+) -> None:
     out = tmp_path / "budget.png"
     ok = _write_budget_diagnostic_figure(
         path=out,
-        variant_id="missing",
-        variant_label="Missing",
+        simulation_id="missing",
+        simulation_label="Missing",
         budget_rows=[],
         rows=[],
     )
@@ -915,8 +984,8 @@ def test_write_regridded_map_figure_creates_png(tmp_path: Path) -> None:
     array_a = np.arange(16, dtype=float).reshape(4, 4)
     array_b = array_a + 1.0
     arrays = [
-        (_structured_payload(variant_id="a"), array_a),
-        (_structured_payload(variant_id="b"), array_b),
+        (_structured_payload(simulation_id="a"), array_a),
+        (_structured_payload(simulation_id="b"), array_b),
     ]
     out = tmp_path / "fine.png"
     ok = _write_regridded_map_figure(
@@ -932,8 +1001,8 @@ def test_write_regridded_difference_figure_creates_png(tmp_path: Path) -> None:
     ok = _write_regridded_difference_figure(
         path=out,
         observable_name="head",
-        candidate_variant="cand",
-        reference_variant="ref",
+        candidate_simulation="cand",
+        reference_simulation="ref",
         array=array,
         unit="m",
         extent=(0.0, 4.0, 0.0, 4.0),

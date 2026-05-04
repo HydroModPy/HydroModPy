@@ -35,7 +35,6 @@ _DEFAULT_REGIONAL_LAB_NEXT_STEPS = (
 def _static_regional_lab_assets(slug: str) -> tuple[str, ...]:
     root = f"{_SIMULATION_STATIC_ROOT}/{slug}"
     return (
-        f"{root}_summary.json",
         f"{root}_plan.json",
         f"{root}_report.json",
         f"{root}_summary.md",

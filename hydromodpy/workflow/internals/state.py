@@ -6,7 +6,7 @@ instance; instead they produce a successor via :meth:`PipelineState.advance`.
 
 The state is parameterised by the *payload* type ``T``. Concrete payloads are
 the typed dataclasses defined below (``ValidatedState``, ``ResolvedState``,
-``LoadedState`` …), one per pipeline step transition. The generic parameter
+``GeographicState``, ``LoadedState`` ...), one per pipeline step transition. The generic parameter
 defaults to ``Mapping[str, Any]`` for callers that prefer ``state.data["key"]``
 style access.
 
@@ -15,20 +15,21 @@ Typed state hierarchy
 
 Each step refines the payload by adding fields. The payloads form an
 inheritance chain so a step that consumes ``ResolvedState`` will also accept a
-``LoadedState`` (which IS-A ``ResolvedState``):
+``GeographicState`` (which IS-A ``ResolvedState``):
 
 ::
 
     ValidatedState
     └── ResolvedState
-        └── LoadedState
-            └── MeshedState
-                └── SetupState
-                    └── OpenStoreState
-                        └── SolverRanState
-                            └── ExtractedState
-                                └── DerivedState
-                                    └── ExportedState
+        └── GeographicState
+            └── LoadedState
+                └── MeshedState
+                    └── SetupState
+                        └── OpenStoreState
+                            └── SolverRanState
+                                └── ExtractedState
+                                    └── DerivedState
+                                        └── ExportedState
 """
 
 from __future__ import annotations
@@ -177,15 +178,22 @@ class ResolvedState(ValidatedState):
 
 
 @dataclass(frozen=True, slots=True)
-class LoadedState(ResolvedState):
-    """Payload after step 02 (load_data)."""
+class GeographicState(ResolvedState):
+    """Payload after the geographic/domain runtime has been built."""
+
+    geographic_context: Any = None
+
+
+@dataclass(frozen=True, slots=True)
+class LoadedState(GeographicState):
+    """Payload after data managers have loaded and bound external data."""
 
     loaded_context: LoadedDataContext | None = None
 
 
 @dataclass(frozen=True, slots=True)
 class MeshedState(LoadedState):
-    """Payload after step 03 / 04 (build_geographic + build_mesh)."""
+    """Payload after the mesh has been built or imported."""
 
     mesh_context: Any = None
 
@@ -237,6 +245,7 @@ __all__ = (
     "DerivedState",
     "ExportedState",
     "ExtractedState",
+    "GeographicState",
     "LoadedState",
     "MeshedState",
     "OpenStoreState",

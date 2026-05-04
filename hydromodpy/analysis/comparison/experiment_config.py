@@ -11,6 +11,8 @@ from pydantic import ConfigDict, Field, field_validator, model_validator
 from hydromodpy.analysis.comparison.config import (
     ComparisonFineRaster,
     ComparisonObservable,
+    _apply_observable_anchors,
+    _load_comparison_anchors,
 )
 from hydromodpy.core.config_kit.base import HydroModelBase
 
@@ -134,6 +136,7 @@ class ComparisonSection(HydroModelBase):
 
     comparison_id: str | None = None
     base_simulation_config: str | None = None
+    anchors_file: str | None = None
     output_root: str | None = None
     reference_simulation: str | None = None
     continue_on_error: bool = False
@@ -145,6 +148,7 @@ class ComparisonSection(HydroModelBase):
 
     @field_validator(
         "base_simulation_config",
+        "anchors_file",
         "output_root",
         "reference_simulation",
     )
@@ -181,13 +185,14 @@ class ComparisonSection(HydroModelBase):
         ):
             raise ValueError("comparison.reference_simulation must match an enabled simulation id")
         for observable in self.observable:
-            if observable.variants is None:
+            if observable.simulations is None:
                 continue
-            missing = sorted(set(observable.variants) - enabled_id_set)
+            missing = sorted(set(observable.simulations) - enabled_id_set)
             if missing:
                 missing_text = ", ".join(missing)
                 raise ValueError(
-                    f"comparison.observable.variants contains unknown or disabled ids: {missing_text}"
+                    "comparison.observable.simulations contains unknown or disabled ids: "
+                    f"{missing_text}"
                 )
         needs_generated_config = any(
             simulation.enabled
@@ -211,6 +216,8 @@ class SimulationComparisonConfig(HydroModelBase):
     base_dir: Path
     comparison_root: Path
     base_simulation_config_path: Path | None = None
+    anchors_path: Path | None = None
+    anchors: dict[str, tuple[float, float]] = Field(default_factory=dict)
     comparison: ComparisonSection
 
     @classmethod
@@ -243,6 +250,18 @@ class SimulationComparisonConfig(HydroModelBase):
                     f"comparison.base_simulation_config not found: {base_simulation_config}"
                 )
 
+        anchors_path: Path | None = None
+        anchors: dict[str, tuple[float, float]] = {}
+        if section.anchors_file is not None:
+            anchors_path = Path(section.anchors_file).expanduser()
+            if not anchors_path.is_absolute():
+                anchors_path = base_dir / anchors_path
+            anchors_path = anchors_path.resolve()
+            anchors = _load_comparison_anchors(anchors_path)
+            _apply_observable_anchors(section.observable, anchors)
+        elif any(observable.anchor_id is not None for observable in section.observable):
+            raise ValueError("comparison.observable.anchor_id requires comparison.anchors_file")
+
         if section.output_root is None:
             comparison_root = base_dir / "comparison" / comparison_id
         else:
@@ -256,6 +275,8 @@ class SimulationComparisonConfig(HydroModelBase):
             base_dir=base_dir,
             comparison_root=comparison_root,
             base_simulation_config_path=base_simulation_config,
+            anchors_path=anchors_path,
+            anchors=anchors,
             comparison=section,
         )
 

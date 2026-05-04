@@ -21,21 +21,45 @@ def test_build_gallery_specs_exposes_extended_categories() -> None:
     assert specs["geometry_topography_canut"].category == "geometry"
     assert specs["geometry_indicators_canut"].category == "geometry"
     assert (
-        specs["hydraulic_conductivity_square_parameterizations"].category == "hydraulic_properties"
-    )
-    assert specs["hydraulic_conductivity_irregular_mesh"].category == "hydraulic_properties"
-    assert specs["hydraulic_conductivity_depth_dependence"].category == "hydraulic_properties"
-    assert (
-        specs["hydraulic_conductivity_geology_transfer_brittany"].category == "hydraulic_properties"
+        specs["hydraulic_conductivity_square_parameterizations"].category
+        == "hydraulic_properties"
     )
     assert (
-        specs["hydraulic_conductivity_geology_transfer_variants"].category == "hydraulic_properties"
+        specs["hydraulic_conductivity_irregular_mesh"].category
+        == "hydraulic_properties"
+    )
+    assert (
+        specs["hydraulic_conductivity_depth_dependence"].category
+        == "hydraulic_properties"
+    )
+    assert (
+        specs["hydraulic_conductivity_geology_transfer_brittany"].category
+        == "hydraulic_properties"
+    )
+    assert (
+        specs["hydraulic_conductivity_geology_transfer_variants"].category
+        == "hydraulic_properties"
     )
     assert specs["mesh_constraint_balance_scale_ladder"].category == "mesh"
     assert specs["mesh_resolution_sensitivity_scale_ladder"].category == "mesh"
     assert specs["mesh_zoom_panels_naizin_10km2"].category == "mesh"
-    assert specs["example12_map_method_comparison"].category == "method_comparison"
-    assert "comparison_summary_path" in specs["example12_map_method_comparison"].metadata
+    assert (
+        specs["example12_map_simulation_comparison"].category == "simulation_comparison"
+    )
+    assert (
+        "comparison_summary_path"
+        in specs["example12_map_simulation_comparison"].metadata
+    )
+    assert not any(
+        path.endswith(
+            "example12_map_simulation_comparison_summary.json",
+        )
+        for path in specs["example12_map_simulation_comparison"].source_paths
+    )
+    assert not any(
+        path.endswith("regional_lab_headwater_100km2_dry_plan_summary.json")
+        for path in specs["regional_lab_headwater_100km2_dry_plan"].source_paths
+    )
 
 
 def test_build_index_page_lists_extended_categories_when_populated() -> None:
@@ -45,15 +69,15 @@ def test_build_index_page_lists_extended_categories_when_populated() -> None:
             "validation": [{"slug": "validation_case"}],
             "geographic": [{"slug": "geographic_case"}],
             "hydraulic_properties": [{"slug": "property_case"}],
-            "method_comparison": [{"slug": "comparison_case"}],
+            "simulation_comparison": [{"slug": "comparison_case"}],
             "simulation": [{"slug": "simulation_case"}],
         }
     )
 
     assert ":link: hydraulic_properties" in page
-    assert ":link: method_comparison" in page
+    assert ":link: simulation_comparison" in page
     assert "   hydraulic_properties" in page
-    assert "   method_comparison" in page
+    assert "   simulation_comparison" in page
     assert "   simulation" in page
 
 
@@ -111,8 +135,8 @@ def test_generate_depth_property_case_smoke(tmp_path: Path) -> None:
     ).exists()
 
 
-def test_generate_method_comparison_case_smoke(tmp_path: Path) -> None:
-    spec = _spec_by_slug("example12_map_method_comparison")
+def test_generate_simulation_comparison_case_smoke(tmp_path: Path) -> None:
+    spec = _spec_by_slug("example12_map_simulation_comparison")
     static_root = (
         Path(__file__).resolve().parents[3]
         / "docs"
@@ -120,14 +144,16 @@ def test_generate_method_comparison_case_smoke(tmp_path: Path) -> None:
         / "source"
         / "_static"
         / "capability_gallery"
-        / "method_comparison"
+        / "simulation_comparison"
     )
     artifact_map = {
-        "example12_map_method_comparison_comparison_manifest.json": "comparison_manifest.json",
-        "example12_map_method_comparison_comparison_metrics.json": "comparison_metrics.json",
-        "example12_map_method_comparison_observables.csv": "observables.csv",
+        "example12_map_simulation_comparison_comparison_manifest.json": "comparison_manifest.json",
+        "example12_map_simulation_comparison_comparison_metrics.json": "comparison_metrics.json",
+        "example12_map_simulation_comparison_observables.csv": "observables.csv",
     }
-    committed_root = tmp_path / "method_comparison" / "example12_map_method_comparison"
+    committed_root = (
+        tmp_path / "simulation_comparison" / "example12_map_simulation_comparison"
+    )
     committed_root.mkdir(parents=True)
     for source_name, target_name in artifact_map.items():
         source_path = static_root / source_name
@@ -138,17 +164,19 @@ def test_generate_method_comparison_case_smoke(tmp_path: Path) -> None:
     config_path.write_text(
         f"""
 [comparison]
-comparison_id = "example12_map_method_comparison"
+comparison_id = "example12_map_simulation_comparison"
 output_root = "{committed_root.as_posix()}"
-run_variants = false
-reference_variant = "mf6_gmsh_existing"
+reference_simulation = "mf6_gmsh_existing"
 
-[[comparison.variant]]
+[comparison.execution]
+run_simulations = false
+
+[[comparison.simulation]]
 id = "mf6_gmsh_existing"
 label = "MODFLOW 6"
 run_folder = "mf6_gmsh_existing"
 
-[[comparison.variant]]
+[[comparison.simulation]]
 id = "boussinesq_reused_gmsh"
 label = "Boussinesq"
 run_folder = "boussinesq_reused_gmsh"
@@ -164,7 +192,7 @@ unit = "m"
     )
     spec = replace(
         spec,
-        generator="method_comparison_case",
+        generator="simulation_comparison_case",
         source_paths=(
             config_path.as_posix(),
             *((committed_root / name).as_posix() for name in artifact_map.values()),
@@ -177,7 +205,7 @@ unit = "m"
 
     summary = _generate_case(spec, tmp_path)
 
-    assert summary["category"] == "method_comparison"
+    assert summary["category"] == "simulation_comparison"
     assert summary["metadata"]["study_area"] == "Naizin catchment"
     assert any(metric["label"].endswith("RMSE") for metric in summary["metrics"])
     assert summary["artifacts"]["extra_repo_paths"]
@@ -185,6 +213,6 @@ unit = "m"
         tmp_path
         / "_static"
         / "capability_gallery"
-        / "method_comparison"
-        / "example12_map_method_comparison.png"
+        / "simulation_comparison"
+        / "example12_map_simulation_comparison.png"
     ).exists()

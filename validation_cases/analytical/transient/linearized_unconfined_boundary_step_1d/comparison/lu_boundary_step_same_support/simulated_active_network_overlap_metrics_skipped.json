@@ -1,0 +1,26 @@
+{
+  "comparison_id": "lu_boundary_step_same_support",
+  "network_role": "reference",
+  "source_variable": "accumulation_flux",
+  "threshold": 0.0,
+  "mode": null,
+  "persistence_threshold": 0.5,
+  "timestep": null,
+  "buffer_m": 0.0,
+  "skipped_simulations": [
+    {
+      "simulation_id": "modflownwt",
+      "reason": "missing_vector_network_role",
+      "network_role": "reference",
+      "available_roles": [],
+      "source_variable": "accumulation_flux"
+    },
+    {
+      "simulation_id": "modflow6",
+      "reason": "missing_vector_network_role",
+      "network_role": "reference",
+      "available_roles": [],
+      "source_variable": "accumulation_flux"
+    }
+  ]
+}

@@ -146,7 +146,7 @@ single run starting with ``ab12``.
 
 Run ``hmp doctor`` when something breaks. It checks the Python version,
 the heavy dependencies, the solver binaries, the workspace layout, and
-the data cache.
+the data/result caches.
 
 .. code-block:: bash
 
@@ -154,7 +154,9 @@ the data cache.
 
 The output flags missing pieces and prints the exact command needed to
 fix each one (for example ``hmp install-binaries`` when a binary is
-absent).
+absent). When a project catalog is present, it also reports result-storage
+drift such as completed catalog rows without Zarr artefacts, orphan
+Zarr/Parquet artefacts, and leftover ``*.parquet.tmp`` files.
 
 8. Run the test suite
 ---------------------
@@ -206,6 +208,9 @@ Less common but documented for reference:
      - Inspect or manage custom data artefacts in the workspace.
    * - ``hmp lock``
      - Manage the reproducible data lockfile (``hydromodpy.lock``).
+   * - ``hmp manage``
+     - Open a local browser UI for catalog tables, result diagnostics, and
+       selected artefact cleanup or legacy-name normalization.
    * - ``hmp report``
      - Render the HTML report for a calibration session.
    * - ``hmp schema``

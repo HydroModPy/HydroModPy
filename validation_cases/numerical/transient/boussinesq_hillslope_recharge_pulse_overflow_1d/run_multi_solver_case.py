@@ -1,4 +1,4 @@
-"""CLI entrypoint for a multi-method Boussinesq overflow comparison."""
+"""CLI entrypoint for a multi-solver Boussinesq overflow comparison."""
 
 from __future__ import annotations
 

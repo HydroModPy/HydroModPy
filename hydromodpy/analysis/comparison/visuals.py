@@ -1,4 +1,4 @@
-"""Top-level orchestrator for variant-comparison visual outputs."""
+"""Top-level orchestrator for simulation-comparison visual outputs."""
 
 from __future__ import annotations
 
@@ -30,6 +30,7 @@ from hydromodpy.analysis.comparison.visuals_render_maps import (
 )
 from hydromodpy.analysis.comparison.visuals_render_series import (
     _write_budget_diagnostic_figure,
+    _write_comparable_outflow_dashboard,
     _write_flux_dashboard,
     _write_native_flux_panel,
     _write_point_dashboard,
@@ -42,10 +43,10 @@ from hydromodpy.analysis.comparison.visuals_style import _is_flux_like_name, _sl
 def generate_comparison_figures(
     *,
     cfg: ComparisonConfig,
-    variant_summaries: list[dict[str, Any]],
+    simulation_summaries: list[dict[str, Any]],
     rows: list[dict[str, Any]],
     detail_metrics: list[dict[str, Any]],
-    reference_variant: str | None,
+    reference_simulation: str | None,
     comparison_root: Path,
     native_timeseries_rows: list[dict[str, Any]] | None = None,
     native_timeseries_delta_rows: list[dict[str, Any]] | None = None,
@@ -64,18 +65,22 @@ def generate_comparison_figures(
 
     completed_summaries = {
         str(summary.get("id", "")): summary
-        for summary in variant_summaries
+        for summary in simulation_summaries
         if summary.get("status") in {"completed", "reused"}
     }
-    variants = {variant.id: variant for variant in cfg.comparison.variant if variant.enabled}
+    simulations = {
+        simulation.id: simulation
+        for simulation in cfg.comparison.simulation
+        if simulation.enabled
+    }
 
     artifacts: list[dict[str, Any]] = []
     fine_raster = cfg.comparison.fine_raster
     try:
         case_payload = _build_case_configuration_payload(
             cfg=cfg,
-            variant_summaries=variant_summaries,
-            reference_variant=reference_variant,
+            simulation_summaries=simulation_summaries,
+            reference_simulation=reference_simulation,
         )
     except Exception:
         case_payload = None
@@ -94,14 +99,14 @@ def generate_comparison_figures(
         if observable.support != "map":
             continue
         payloads: list[MapPayload] = []
-        for variant_id, variant in variants.items():
-            summary = completed_summaries.get(variant_id)
+        for simulation_id, simulation in simulations.items():
+            summary = completed_summaries.get(simulation_id)
             if summary is None:
                 continue
             try:
                 payload = _build_map_payload(
                     cfg=cfg,
-                    variant=variant,
+                    simulation=simulation,
                     summary=summary,
                     observable=observable,
                     rows=rows,
@@ -127,16 +132,20 @@ def generate_comparison_figures(
                     }
                 )
 
-        if reference_variant is None:
+        if reference_simulation is None:
             continue
         reference_payload = next(
-            (payload for payload in payloads if payload.variant_id == reference_variant),
+            (
+                payload
+                for payload in payloads
+                if payload.simulation_id == reference_simulation
+            ),
             None,
         )
         if reference_payload is None:
             continue
         for candidate in payloads:
-            if candidate.variant_id == reference_variant:
+            if candidate.simulation_id == reference_simulation:
                 continue
             difference = _build_difference_payload(
                 reference=reference_payload,
@@ -146,7 +155,7 @@ def generate_comparison_figures(
                 continue
             diff_path = figure_root / (
                 f"{_slug(observable.name)}__difference__"
-                f"{_slug(reference_variant)}__vs__{_slug(candidate.variant_id)}.png"
+                f"{_slug(reference_simulation)}__vs__{_slug(candidate.simulation_id)}.png"
             )
             _write_difference_figure(path=diff_path, payload=difference)
             if diff_path.exists():
@@ -154,14 +163,14 @@ def generate_comparison_figures(
                     {
                         "kind": "difference_map",
                         "observable": observable.name,
-                        "reference_variant": reference_variant,
-                        "candidate_variant": candidate.variant_id,
+                        "reference_simulation": reference_simulation,
+                        "candidate_simulation": candidate.simulation_id,
                         "path": str(diff_path),
                     }
                 )
             triptych_path = figure_root / (
                 f"{_slug(observable.name)}__triptych__"
-                f"{_slug(reference_variant)}__vs__{_slug(candidate.variant_id)}.png"
+                f"{_slug(reference_simulation)}__vs__{_slug(candidate.simulation_id)}.png"
             )
             if _write_map_triptych_figure(
                 path=triptych_path,
@@ -173,8 +182,8 @@ def generate_comparison_figures(
                     {
                         "kind": "map_triptych",
                         "observable": observable.name,
-                        "reference_variant": reference_variant,
-                        "candidate_variant": candidate.variant_id,
+                        "reference_simulation": reference_simulation,
+                        "candidate_simulation": candidate.simulation_id,
                         "path": str(triptych_path),
                     }
                 )
@@ -183,7 +192,7 @@ def generate_comparison_figures(
             bounds = _resolve_fine_grid_bounds(
                 payloads=payloads,
                 fine_raster=fine_raster,
-                reference_variant=reference_variant,
+                reference_simulation=reference_simulation,
             )
             if bounds is not None:
                 fine_grid = _build_fine_grid(
@@ -206,14 +215,16 @@ def generate_comparison_figures(
                         if fine_raster.write_geotiff:
                             raster_path = figure_root / (
                                 f"{_slug(observable.name)}__fine_raster__"
-                                f"{_slug(payload.variant_id)}.tif"
+                                f"{_slug(payload.simulation_id)}.tif"
                             )
-                            if _write_geotiff(path=raster_path, array=array, extent=grid_extent):
+                            if _write_geotiff(
+                                path=raster_path, array=array, extent=grid_extent
+                            ):
                                 artifacts.append(
                                     {
                                         "kind": "fine_raster_geotiff",
                                         "observable": observable.name,
-                                        "variant_id": payload.variant_id,
+                                        "simulation_id": payload.simulation_id,
                                         "path": str(raster_path),
                                     }
                                 )
@@ -234,12 +245,12 @@ def generate_comparison_figures(
                                     "path": str(fine_map_path),
                                 }
                             )
-                    if reference_variant is not None:
+                    if reference_simulation is not None:
                         reference_array = next(
                             (
                                 array
                                 for payload, array in regridded
-                                if payload.variant_id == reference_variant
+                                if payload.simulation_id == reference_simulation
                             ),
                             None,
                         )
@@ -247,18 +258,23 @@ def generate_comparison_figures(
                             (
                                 payload
                                 for payload, _array in regridded
-                                if payload.variant_id == reference_variant
+                                if payload.simulation_id == reference_simulation
                             ),
                             None,
                         )
-                        if reference_array is not None and reference_payload is not None:
+                        if (
+                            reference_array is not None
+                            and reference_payload is not None
+                        ):
                             for payload, array in regridded:
-                                if payload.variant_id == reference_variant:
+                                if payload.simulation_id == reference_simulation:
                                     continue
-                                difference_array = np.asarray(array - reference_array, dtype=float)
+                                difference_array = np.asarray(
+                                    array - reference_array, dtype=float
+                                )
                                 triptych_path = figure_root / (
                                     f"{_slug(observable.name)}__fine_raster_triptych__"
-                                    f"{_slug(reference_variant)}__vs__{_slug(payload.variant_id)}.png"
+                                    f"{_slug(reference_simulation)}__vs__{_slug(payload.simulation_id)}.png"
                                 )
                                 if _write_regridded_triptych_figure(
                                     path=triptych_path,
@@ -273,20 +289,20 @@ def generate_comparison_figures(
                                         {
                                             "kind": "fine_raster_triptych",
                                             "observable": observable.name,
-                                            "reference_variant": reference_variant,
-                                            "candidate_variant": payload.variant_id,
+                                            "reference_simulation": reference_simulation,
+                                            "candidate_simulation": payload.simulation_id,
                                             "path": str(triptych_path),
                                         }
                                     )
                                 diff_path = figure_root / (
                                     f"{_slug(observable.name)}__fine_raster_difference__"
-                                    f"{_slug(reference_variant)}__vs__{_slug(payload.variant_id)}.png"
+                                    f"{_slug(reference_simulation)}__vs__{_slug(payload.simulation_id)}.png"
                                 )
                                 if _write_regridded_difference_figure(
                                     path=diff_path,
                                     observable_name=observable.name,
-                                    candidate_variant=payload.variant_id,
-                                    reference_variant=reference_variant,
+                                    candidate_simulation=payload.simulation_id,
+                                    reference_simulation=reference_simulation,
                                     array=difference_array,
                                     unit=payload.unit,
                                     extent=grid_extent,
@@ -295,15 +311,15 @@ def generate_comparison_figures(
                                         {
                                             "kind": "fine_raster_difference_map",
                                             "observable": observable.name,
-                                            "reference_variant": reference_variant,
-                                            "candidate_variant": payload.variant_id,
+                                            "reference_simulation": reference_simulation,
+                                            "candidate_simulation": payload.simulation_id,
                                             "path": str(diff_path),
                                         }
                                     )
                                 if fine_raster.write_geotiff:
                                     raster_path = figure_root / (
                                         f"{_slug(observable.name)}__fine_raster_difference__"
-                                        f"{_slug(reference_variant)}__vs__{_slug(payload.variant_id)}.tif"
+                                        f"{_slug(reference_simulation)}__vs__{_slug(payload.simulation_id)}.tif"
                                     )
                                     if _write_geotiff(
                                         path=raster_path,
@@ -314,8 +330,8 @@ def generate_comparison_figures(
                                             {
                                                 "kind": "fine_raster_difference_geotiff",
                                                 "observable": observable.name,
-                                                "reference_variant": reference_variant,
-                                                "candidate_variant": payload.variant_id,
+                                                "reference_simulation": reference_simulation,
+                                                "candidate_simulation": payload.simulation_id,
                                                 "path": str(raster_path),
                                             }
                                         )
@@ -397,22 +413,36 @@ def generate_comparison_figures(
         )
 
     budget_long = list(budget_rows or [])
-    budget_variants = sorted(
+    comparable_outflow_path = figure_root / "comparable_outflow_dashboard.png"
+    if _write_comparable_outflow_dashboard(
+        path=comparable_outflow_path,
+        budget_rows=budget_long,
+        rows=rows,
+    ):
+        artifacts.append(
+            {
+                "kind": "comparable_outflow_dashboard",
+                "observable": "comparable_outflow_total_m3_s",
+                "path": str(comparable_outflow_path),
+            }
+        )
+
+    budget_simulations = sorted(
         {
             (
-                str(row.get("variant_id", "")),
-                str(row.get("variant_label", row.get("variant_id", ""))),
+                str(row.get("simulation_id", "")),
+                str(row.get("simulation_label", row.get("simulation_id", ""))),
             )
             for row in budget_long
-            if str(row.get("variant_id", "")) != ""
+            if str(row.get("simulation_id", "")) != ""
         }
     )
-    for variant_id, variant_label in budget_variants:
-        budget_path = figure_root / f"{_slug(variant_id)}__budget_diagnostics.png"
+    for simulation_id, simulation_label in budget_simulations:
+        budget_path = figure_root / f"{_slug(simulation_id)}__budget_diagnostics.png"
         if _write_budget_diagnostic_figure(
             path=budget_path,
-            variant_id=variant_id,
-            variant_label=variant_label,
+            simulation_id=simulation_id,
+            simulation_label=simulation_label,
             budget_rows=budget_long,
             rows=rows,
         ):
@@ -420,7 +450,7 @@ def generate_comparison_figures(
                 {
                     "kind": "budget_diagnostics",
                     "observable": "budget",
-                    "variant_id": variant_id,
+                    "simulation_id": simulation_id,
                     "path": str(budget_path),
                 }
             )
@@ -430,7 +460,7 @@ def generate_comparison_figures(
         if _write_runtime_bar_figure(
             path=runtime_path,
             execution_rows=execution_rows,
-            reference_variant=reference_variant,
+            reference_simulation=reference_simulation,
         ):
             artifacts.append(
                 {

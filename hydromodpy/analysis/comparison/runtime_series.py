@@ -66,6 +66,7 @@ def _store_variable_mapping(variable_name: str) -> str | None:
     mapping: dict[str, str] = {
         "watertable_elevation": "watertable_elevation",
         "watertable_depth": "watertable_depth",
+        "seepage_areas": "seepage_areas",
         "seepage_mask": "seepage_mask",
         "head": "head",
         "accumulation_flux": "accumulation_flux",

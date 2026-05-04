@@ -1,0 +1,573 @@
+{
+  "schema_version": "simulation_comparison_audit_v1",
+  "mode": "strict_same_case",
+  "on_mismatch": "fail",
+  "status": "pass",
+  "reference_simulation": "modflow6",
+  "physical_config_sections": [
+    "simulation.time",
+    "geographic",
+    "domain",
+    "mesh_catchment",
+    "mesh_input",
+    "data.recharge",
+    "flow.flow_regime",
+    "flow.active_sinks_sources",
+    "flow.active_bc",
+    "flow.param",
+    "flow.ic",
+    "flow.bc",
+    "flow.sinks_sources.recharge"
+  ],
+  "initial_state_policy": [],
+  "head_bounds": [],
+  "head_recharge_response": [
+    {
+      "simulation_id": "modflow6",
+      "observable": "head_east_response",
+      "value_index": "0",
+      "n_pairs": 40,
+      "head_range_m": 0.00745826725699672,
+      "recharge_range_m3_s": 0.0,
+      "corr_recharge_head": null,
+      "corr_delta_recharge_delta_head": null,
+      "same_sign_delta_fraction": null
+    },
+    {
+      "simulation_id": "modflow6",
+      "observable": "head_mid_response",
+      "value_index": "0",
+      "n_pairs": 40,
+      "head_range_m": 0.04000062140961447,
+      "recharge_range_m3_s": 0.0,
+      "corr_recharge_head": null,
+      "corr_delta_recharge_delta_head": null,
+      "same_sign_delta_fraction": null
+    },
+    {
+      "simulation_id": "modflow6",
+      "observable": "head_west_response",
+      "value_index": "0",
+      "n_pairs": 40,
+      "head_range_m": 0.027881448319027058,
+      "recharge_range_m3_s": 0.0,
+      "corr_recharge_head": null,
+      "corr_delta_recharge_delta_head": null,
+      "same_sign_delta_fraction": null
+    },
+    {
+      "simulation_id": "modflownwt",
+      "observable": "head_east_response",
+      "value_index": "0",
+      "n_pairs": 40,
+      "head_range_m": 0.00745826725699672,
+      "recharge_range_m3_s": 0.0,
+      "corr_recharge_head": null,
+      "corr_delta_recharge_delta_head": null,
+      "same_sign_delta_fraction": null
+    },
+    {
+      "simulation_id": "modflownwt",
+      "observable": "head_mid_response",
+      "value_index": "0",
+      "n_pairs": 40,
+      "head_range_m": 0.04000062140961447,
+      "recharge_range_m3_s": 0.0,
+      "corr_recharge_head": null,
+      "corr_delta_recharge_delta_head": null,
+      "same_sign_delta_fraction": null
+    },
+    {
+      "simulation_id": "modflownwt",
+      "observable": "head_west_response",
+      "value_index": "0",
+      "n_pairs": 40,
+      "head_range_m": 0.027881448319027058,
+      "recharge_range_m3_s": 0.0,
+      "corr_recharge_head": null,
+      "corr_delta_recharge_delta_head": null,
+      "same_sign_delta_fraction": null
+    }
+  ],
+  "subjects": [
+    {
+      "id": "modflownwt",
+      "status": "loaded",
+      "sim_id": "3039ca08-2512-4e36-8ca8-fdea4b6ecb1c",
+      "metadata": {
+        "sim_id": "3039ca08-2512-4e36-8ca8-fdea4b6ecb1c",
+        "name": "modflow6",
+        "project": "linearized_unconfined_boundary_step_1d",
+        "solver": "modflow6",
+        "solver_category": "distributed",
+        "flow_regime": "transient",
+        "status": "completed",
+        "mesh_topology": null,
+        "mesh_hash": null,
+        "n_cells": null,
+        "n_layers": null,
+        "n_timesteps": 40,
+        "crs_wkt": null,
+        "crs_epsg": null,
+        "bbox_xmin": null,
+        "bbox_ymin": null,
+        "bbox_xmax": null,
+        "bbox_ymax": null,
+        "period_start": "2003-01-01 00:00:00+01:00",
+        "period_end": "2003-01-21 00:00:00+01:00",
+        "time_unit": "hour",
+        "config_toml": "{\"workflow\": \"simulation\", \"workspace\": {\"project_root\": \"C:\\\\codes\\\\HydroModPy\\\\validation_cases\\\\analytical\\\\transient\\\\linearized_unconfined_boundary_step_1d\", \"root\": \"C:\\\\codes\\\\HydroModPy\\\\tmp\\\\lu_boundary_step_same_support_workspace\", \"catalog_path\": \"C:\\\\codes\\\\HydroModPy\\\\tmp\\\\lu_boundary_step_same_support_workspace\\\\hydromodpy.duckdb\", \"data_dir\": \"C:\\\\codes\\\\HydroModPy\\\\tmp\\\\lu_boundary_step_same_support_workspace\\\\data\", \"simulations_dir\": \"C:\\\\codes\\\\HydroModPy\\\\tmp\\\\lu_boundary_step_same_support_workspace\\\\simulations\", \"output_root\": \"C:\\\\codes\\\\HydroModPy\\\\tmp\\\\lu_boundary_step_same_support_workspace\"}, \"geographic\": {\"source_mode\": \"synthetic\", \"catch_def\": null, \"dem_init_path\": null, \"cell_size\": null, \"x_outlet\": null, \"y_outlet\": null, \"snap_dist\": null, \"buff_area\": null, \"polyg_shp_path\": null, \"crs_project\": null, \"dem_correc_type\": \"breach\", \"bottom_path\": null, \"reg_fold\": null, \"synthetic\": {\"case_id\": \"val_lu_boundary_step\", \"grid\": {\"length_x\": 100.0, \"length_y\": 10.0, \"nx\": 50, \"ny\": 5, \"xmin\": 0.0, \"ymin\": 0.0, \"crs\": \"EPSG:2154\", \"nodata\": -9999.0}, \"topography\": {\"kind\": \"flat\", \"base_elevation\": 20.0, \"right_to_left_amplitude\": 0.0, \"island_radius\": null, \"crest_elevation\": 10.0, \"center_x\": null, \"center_y\": null}}, \"river_network\": {\"enabled\": false, \"threshold_mode\": \"area_km2\", \"threshold_area_km2\": null, \"threshold_cells\": null, \"prune_short_streams\": false, \"min_stream_length_m\": 0.0, \"compute_strahler_order\": true, \"compute_stream_links\": true, \"all_vertices\": false}, \"reuse_existing_outputs\": false, \"write_intermediates\": false}, \"domain\": {\"zone_ids\": [], \"supports\": {}, \"depth_model\": {\"type\": \"constant_thickness\", \"thickness\": 20.0}}, \"data\": {\"project_crs\": null, \"types\": [], \"inference_mode\": \"warn\", \"dem\": null, \"geology\": null, \"hydrography\": null, \"hydrometry\": null, \"intermittency\": null, \"oceanic\": null, \"piezometry\": null, \"water_quality\": null, \"recharge\": null, \"runoff\": null, \"precipitation\": null, \"etp\": null, \"temperature\": null, \"wind\": null, \"humidity\": null, \"radiation\": null, \"soil_moisture\": null}, \"flow\": {\"param_list\": [\"K\", \"Ss\", \"Sy\"], \"param\": {\"K\": {\"id\": \"K\", \"kind\": \"homogeneous\", \"value\": \"1e-4 m/s\"}, \"Ss\": {\"id\": \"Ss\", \"kind\": \"homogeneous\", \"value\": \"1e-10 m-1\"}, \"Sy\": {\"id\": \"Sy\", \"kind\": \"homogeneous\", \"value\": \"0.10 -\"}}, \"ic\": {\"h\": {\"id\": \"h\", \"value\": 10.0, \"description\": \"Initial condition 'h'\", \"units\": \"m\", \"type\": \"custom\"}}, \"bc\": {\"west_side\": {\"id\": \"west_side\", \"value\": null, \"description\": \"Dirichlet boundary condition 'west_side' on west side\", \"units\": \"m\", \"type\": \"dirichlet\", \"data_value\": false, \"forcing\": {\"mode\": \"csv\", \"units\": \"m\", \"value\": null, \"path_file\": \"C:\\\\codes\\\\HydroModPy\\\\validation_cases\\\\analytical\\\\transient\\\\linearized_unconfined_boundary_step_1d\\\\west_head_step.csv\", \"sep\": \",\", \"date_column\": \"date\", \"date_format\": null, \"value_column\": \"value\", \"fill_method\": \"ffill\", \"aggregate\": \"last\"}, \"application_domain\": \"west side\", \"support_label\": null}, \"east_side\": {\"id\": \"east_side\", \"value\": 10.0, \"description\": \"Dirichlet boundary condition 'east_side' on east side\", \"units\": \"m\", \"type\": \"dirichlet\", \"data_value\": false, \"forcing\": null, \"application_domain\": \"east side\", \"support_label\": null}}, \"sinks_sources\": {\"wells\": {}, \"recharge\": null, \"etp\": null}, \"active_sinks_sources\": [], \"active_bc\": [\"west_side\", \"east_side\"], \"flow_regime\": \"transient\", \"runtime_backend\": \"local\", \"surface_interaction_model\": \"auto\", \"runtime_max_iterations\": null, \"runtime_tol_residual_inf\": null, \"runtime_tol_state_update_inf\": null}, \"transport\": {\"active_sinks_sources\": [], \"active_bc\": [], \"modpath\": {\"parameters\": {\"zone_partic\": \"domain\", \"track_dir\": \"forward\", \"bore_depth\": null, \"cell_div\": 1, \"zloc_div\": false, \"sel_random\": null, \"sel_slice\": null}}, \"mt3dms\": {\"parameters\": {\"spc_name\": \"NO3\", \"sconc_init\": 0.0, \"sconc_input\": 0.0, \"disp_long\": 0.0, \"disp_transh\": 0.0, \"disp_transv\": 0.0, \"diffu_coeff\": 0.0, \"react_order\": null, \"rate_decay\": 0.0, \"plot_conc\": true}}, \"modflow6gwt\": {\"parameters\": {\"spc_name\": \"NO3\", \"sconc_init\": 0.0, \"sconc_input\": 0.0, \"disp_long\": 0.0, \"disp_transh\": 0.0, \"disp_transv\": 0.0, \"diffu_coeff\": 0.0, \"react_order\": null, \"rate_decay\": 0.0, \"plot_conc\": true}}}, \"simulation\": {\"name\": \"LU boundary step val\", \"run_id\": \"modflow6\", \"on_collision\": \"replace\", \"description\": \"Synthetic transient unconfined flow with a west-boundary head step and a fixed east boundary.\", \"time\": {\"start_datetime\": \"2003-01-01T00:00:00\", \"end_datetime\": \"2003-01-20T23:00:00\", \"step_value\": 12, \"step_unit\": \"hour\", \"substeps_per_period\": 1, \"coverage_policy\": \"ignore\"}, \"process\": [{\"id\": \"flow_validation\", \"type\": \"flow\", \"solvers\": [\"modflow6\"]}], \"results\": {\"store\": true, \"keep_solver_files\": false, \"solver_scratch\": \".solver_scratch\", \"derived\": {\"watertable_elevation\": true, \"watertable_depth\": true, \"seepage_areas\": true, \"groundwater_flux\": false, \"accumulation_flux\": true, \"outflow_drain\": true, \"concentration_seepage\": false, \"mass_seepage\": false, \"mass_accumulated\": false}, \"budget\": {\"spatial_fields\": true}, \"export\": {\"netcdf\": false, \"csv_timeseries\": true, \"vtu\": false, \"geotiff\": false, \"shapefile\": false, \"output_dir\": null, \"variables\": {\"head\": true, \"concentration\": false, \"budget\": false, \"pathlines\": false, \"derived\": true}}}}, \"solver\": {\"solver_engine\": \"modflownwt\"}, \"modflownwt\": {\"runtime\": {\"mf_version\": \"mfnwt\", \"mf_listunit\": 2, \"mf_verbose\": false, \"nwt_headtol\": 0.0001, \"nwt_fluxtol\": 500.0, \"nwt_maxiterout\": 5000, \"nwt_thickfact\": 1e-05, \"nwt_linmeth\": 1, \"nwt_iprnwt\": 1, \"nwt_ibotav\": 1, \"nwt_options\": \"COMPLEX\", \"nwt_continue\": false, \"nwt_backflag\": 0, \"nwt_stoptol\": 1e-10, \"dis_itmuni\": 0, \"bas_hnoflo\": -9999.0, \"upw_iphdry\": 1, \"upw_hdry\": -100.0, \"upw_layvka\": 1, \"evt_nevtop\": 3, \"evt_ievt\": 1, \"evt_ipakcb\": 1, \"oc_compact\": true, \"wel_ipakcb\": 1, \"lmt_output_file_name\": \"mt3d_link.ftl\", \"lmt_extension\": \"lmt8\", \"lmt_output_format\": \"unformatted\"}, \"process_specific\": {\"vka\": 1.0, \"exdp\": 1.0}, \"sgrid\": {\"planar\": {\"mode\": \"resample_to_shape\", \"nx\": 50, \"ny\": 5, \"resampling\": \"nearest\"}, \"vertical\": {\"genmtd_lay\": \"constant\", \"nlay\": 1, \"lay_decay\": null, \"lay_proportions\": null, \"nodata\": -9999.0}}, \"tgrid\": {\"itmuni\": \"seconds\", \"flow_regime\": \"transient\", \"genmtd\": \"synthetic_regular\", \"nper\": 40, \"lenper\": [43200.0, 43200.0, 43200.0, 43200.0, 43200.0, 43200.0, 43200.0, 43200.0, 43200.0, 43200.0, 43200.0, 43200.0, 43200.0, 43200.0, 43200.0, 43200.0, 43200.0, 43200.0, 43200.0, 43200.0, 43200.0, 43200.0, 43200.0, 43200.0, 43200.0, 43200.0, 43200.0, 43200.0, 43200.0, 43200.0, 43200.0, 43200.0, 43200.0, 43200.0, 43200.0, 43200.0, 43200.0, 43200.0, 43200.0, 43200.0], \"chron_path\": null, \"chron_dateformat\": \"%Y-%m-%d %H:%M:%S\", \"chron_colsep\": \"\\t\", \"chron_time_col\": \"Date\", \"start_datetime\": \"2003-01-01T00:00:00\", \"end_datetime\": \"2003-01-20T23:00:00\", \"firstpersteady\": false, \"tsmult\": 1.0, \"ntsp\": 1, \"temporal_nodata\": -9999.0}}, \"modflow6\": {\"runtime\": {\"mf6_executable_name\": \"mf6\", \"mf6_ims_complexity\": \"COMPLEX\", \"mf_verbose\": false, \"mf6_outer_dvclose\": 0.0001, \"mf6_inner_dvclose\": 0.0001, \"mf6_outer_maximum\": 500, \"mf6_inner_maximum\": 500, \"mf6_enable_rewet\": null, \"mf6_enable_xt3d\": null, \"mf6_rewet_wetfct\": 0.1, \"mf6_rewet_iwetit\": 1, \"mf6_rewet_ihdwet\": 0, \"mf6_rewet_wetdry\": 0.1}, \"process_specific\": {\"vka\": 1.0, \"evt_extinction_depth\": 1.0}, \"sgrid\": {\"planar\": {\"mode\": \"resample_to_shape\", \"nx\": 50, \"ny\": 5, \"resampling\": \"nearest\"}, \"vertical\": {\"genmtd_lay\": \"constant\", \"nlay\": 1, \"lay_decay\": null, \"lay_proportions\": null, \"nodata\": -9999.0}}, \"tgrid\": {\"itmuni\": \"seconds\", \"flow_regime\": \"transient\", \"genmtd\": \"synthetic_regular\", \"nper\": 40, \"lenper\": [43200.0, 43200.0, 43200.0, 43200.0, 43200.0, 43200.0, 43200.0, 43200.0, 43200.0, 43200.0, 43200.0, 43200.0, 43200.0, 43200.0, 43200.0, 43200.0, 43200.0, 43200.0, 43200.0, 43200.0, 43200.0, 43200.0, 43200.0, 43200.0, 43200.0, 43200.0, 43200.0, 43200.0, 43200.0, 43200.0, 43200.0, 43200.0, 43200.0, 43200.0, 43200.0, 43200.0, 43200.0, 43200.0, 43200.0, 43200.0], \"chron_path\": null, \"chron_dateformat\": \"%Y-%m-%d %H:%M:%S\", \"chron_colsep\": \"\\t\", \"chron_time_col\": \"Date\", \"start_datetime\": \"2003-01-01T00:00:00\", \"end_datetime\": \"2003-01-20T23:00:00\", \"firstpersteady\": false, \"tsmult\": 1.0, \"ntsp\": 1, \"temporal_nodata\": -9999.0}}, \"display\": {\"enabled\": false, \"backend\": \"auto\", \"preset\": \"default\", \"show\": false, \"save\": true, \"output_dir\": \"figures\", \"dpi\": 150, \"cmap\": \"viridis\", \"figures\": [], \"overrides\": {}}, \"capability_gallery\": {\"enabled\": false, \"output_dir\": null, \"case_slug\": \"launcher_simulation_flow_case\", \"assets\": [\"piezometric_map.png\", \"seepage_map.png\", \"hydrograph.png\", \"water_budget.png\", \"watershed_id_card.png\"]}, \"overview\": null, \"mesh_catchment\": null, \"calibration\": null}",
+        "config_snapshot": "{\"workflow\": \"simulation\", \"workspace\": {\"project_root\": \"C:\\\\codes\\\\HydroModPy\\\\validation_cases\\\\analytical\\\\transient\\\\linearized_unconfined_boundary_step_1d\", \"root\": \"C:\\\\codes\\\\HydroModPy\\\\tmp\\\\lu_boundary_step_same_support_workspace\", \"catalog_path\": \"C:\\\\codes\\\\HydroModPy\\\\tmp\\\\lu_boundary_step_same_support_workspace\\\\hydromodpy.duckdb\", \"data_dir\": \"C:\\\\codes\\\\HydroModPy\\\\tmp\\\\lu_boundary_step_same_support_workspace\\\\data\", \"simulations_dir\": \"C:\\\\codes\\\\HydroModPy\\\\tmp\\\\lu_boundary_step_same_support_workspace\\\\simulations\", \"output_root\": \"C:\\\\codes\\\\HydroModPy\\\\tmp\\\\lu_boundary_step_same_support_workspace\"}, \"geographic\": {\"source_mode\": \"synthetic\", \"catch_def\": null, \"dem_init_path\": null, \"cell_size\": null, \"x_outlet\": null, \"y_outlet\": null, \"snap_dist\": null, \"buff_area\": null, \"polyg_shp_path\": null, \"crs_project\": null, \"dem_correc_type\": \"breach\", \"bottom_path\": null, \"reg_fold\": null, \"synthetic\": {\"case_id\": \"val_lu_boundary_step\", \"grid\": {\"length_x\": 100.0, \"length_y\": 10.0, \"nx\": 50, \"ny\": 5, \"xmin\": 0.0, \"ymin\": 0.0, \"crs\": \"EPSG:2154\", \"nodata\": -9999.0}, \"topography\": {\"kind\": \"flat\", \"base_elevation\": 20.0, \"right_to_left_amplitude\": 0.0, \"island_radius\": null, \"crest_elevation\": 10.0, \"center_x\": null, \"center_y\": null}}, \"river_network\": {\"enabled\": false, \"threshold_mode\": \"area_km2\", \"threshold_area_km2\": null, \"threshold_cells\": null, \"prune_short_streams\": false, \"min_stream_length_m\": 0.0, \"compute_strahler_order\": true, \"compute_stream_links\": true, \"all_vertices\": false}, \"reuse_existing_outputs\": false, \"write_intermediates\": false}, \"domain\": {\"zone_ids\": [], \"supports\": {}, \"depth_model\": {\"type\": \"constant_thickness\", \"thickness\": 20.0}}, \"data\": {\"project_crs\": null, \"types\": [], \"inference_mode\": \"warn\", \"dem\": null, \"geology\": null, \"hydrography\": null, \"hydrometry\": null, \"intermittency\": null, \"oceanic\": null, \"piezometry\": null, \"water_quality\": null, \"recharge\": null, \"runoff\": null, \"precipitation\": null, \"etp\": null, \"temperature\": null, \"wind\": null, \"humidity\": null, \"radiation\": null, \"soil_moisture\": null}, \"flow\": {\"param_list\": [\"K\", \"Ss\", \"Sy\"], \"param\": {\"K\": {\"id\": \"K\", \"kind\": \"homogeneous\", \"value\": \"1e-4 m/s\"}, \"Ss\": {\"id\": \"Ss\", \"kind\": \"homogeneous\", \"value\": \"1e-10 m-1\"}, \"Sy\": {\"id\": \"Sy\", \"kind\": \"homogeneous\", \"value\": \"0.10 -\"}}, \"ic\": {\"h\": {\"id\": \"h\", \"value\": 10.0, \"description\": \"Initial condition 'h'\", \"units\": \"m\", \"type\": \"custom\"}}, \"bc\": {\"west_side\": {\"id\": \"west_side\", \"value\": null, \"description\": \"Dirichlet boundary condition 'west_side' on west side\", \"units\": \"m\", \"type\": \"dirichlet\", \"data_value\": false, \"forcing\": {\"mode\": \"csv\", \"units\": \"m\", \"value\": null, \"path_file\": \"C:\\\\codes\\\\HydroModPy\\\\validation_cases\\\\analytical\\\\transient\\\\linearized_unconfined_boundary_step_1d\\\\west_head_step.csv\", \"sep\": \",\", \"date_column\": \"date\", \"date_format\": null, \"value_column\": \"value\", \"fill_method\": \"ffill\", \"aggregate\": \"last\"}, \"application_domain\": \"west side\", \"support_label\": null}, \"east_side\": {\"id\": \"east_side\", \"value\": 10.0, \"description\": \"Dirichlet boundary condition 'east_side' on east side\", \"units\": \"m\", \"type\": \"dirichlet\", \"data_value\": false, \"forcing\": null, \"application_domain\": \"east side\", \"support_label\": null}}, \"sinks_sources\": {\"wells\": {}, \"recharge\": null, \"etp\": null}, \"active_sinks_sources\": [], \"active_bc\": [\"west_side\", \"east_side\"], \"flow_regime\": \"transient\", \"runtime_backend\": \"local\", \"surface_interaction_model\": \"auto\", \"runtime_max_iterations\": null, \"runtime_tol_residual_inf\": null, \"runtime_tol_state_update_inf\": null}, \"transport\": {\"active_sinks_sources\": [], \"active_bc\": [], \"modpath\": {\"parameters\": {\"zone_partic\": \"domain\", \"track_dir\": \"forward\", \"bore_depth\": null, \"cell_div\": 1, \"zloc_div\": false, \"sel_random\": null, \"sel_slice\": null}}, \"mt3dms\": {\"parameters\": {\"spc_name\": \"NO3\", \"sconc_init\": 0.0, \"sconc_input\": 0.0, \"disp_long\": 0.0, \"disp_transh\": 0.0, \"disp_transv\": 0.0, \"diffu_coeff\": 0.0, \"react_order\": null, \"rate_decay\": 0.0, \"plot_conc\": true}}, \"modflow6gwt\": {\"parameters\": {\"spc_name\": \"NO3\", \"sconc_init\": 0.0, \"sconc_input\": 0.0, \"disp_long\": 0.0, \"disp_transh\": 0.0, \"disp_transv\": 0.0, \"diffu_coeff\": 0.0, \"react_order\": null, \"rate_decay\": 0.0, \"plot_conc\": true}}}, \"simulation\": {\"name\": \"LU boundary step val\", \"run_id\": \"modflow6\", \"on_collision\": \"replace\", \"description\": \"Synthetic transient unconfined flow with a west-boundary head step and a fixed east boundary.\", \"time\": {\"start_datetime\": \"2003-01-01T00:00:00\", \"end_datetime\": \"2003-01-20T23:00:00\", \"step_value\": 12, \"step_unit\": \"hour\", \"substeps_per_period\": 1, \"coverage_policy\": \"ignore\"}, \"process\": [{\"id\": \"flow_validation\", \"type\": \"flow\", \"solvers\": [\"modflow6\"]}], \"results\": {\"store\": true, \"keep_solver_files\": false, \"solver_scratch\": \".solver_scratch\", \"derived\": {\"watertable_elevation\": true, \"watertable_depth\": true, \"seepage_areas\": true, \"groundwater_flux\": false, \"accumulation_flux\": true, \"outflow_drain\": true, \"concentration_seepage\": false, \"mass_seepage\": false, \"mass_accumulated\": false}, \"budget\": {\"spatial_fields\": true}, \"export\": {\"netcdf\": false, \"csv_timeseries\": true, \"vtu\": false, \"geotiff\": false, \"shapefile\": false, \"output_dir\": null, \"variables\": {\"head\": true, \"concentration\": false, \"budget\": false, \"pathlines\": false, \"derived\": true}}}}, \"solver\": {\"solver_engine\": \"modflownwt\"}, \"modflownwt\": {\"runtime\": {\"mf_version\": \"mfnwt\", \"mf_listunit\": 2, \"mf_verbose\": false, \"nwt_headtol\": 0.0001, \"nwt_fluxtol\": 500.0, \"nwt_maxiterout\": 5000, \"nwt_thickfact\": 1e-05, \"nwt_linmeth\": 1, \"nwt_iprnwt\": 1, \"nwt_ibotav\": 1, \"nwt_options\": \"COMPLEX\", \"nwt_continue\": false, \"nwt_backflag\": 0, \"nwt_stoptol\": 1e-10, \"dis_itmuni\": 0, \"bas_hnoflo\": -9999.0, \"upw_iphdry\": 1, \"upw_hdry\": -100.0, \"upw_layvka\": 1, \"evt_nevtop\": 3, \"evt_ievt\": 1, \"evt_ipakcb\": 1, \"oc_compact\": true, \"wel_ipakcb\": 1, \"lmt_output_file_name\": \"mt3d_link.ftl\", \"lmt_extension\": \"lmt8\", \"lmt_output_format\": \"unformatted\"}, \"process_specific\": {\"vka\": 1.0, \"exdp\": 1.0}, \"sgrid\": {\"planar\": {\"mode\": \"resample_to_shape\", \"nx\": 50, \"ny\": 5, \"resampling\": \"nearest\"}, \"vertical\": {\"genmtd_lay\": \"constant\", \"nlay\": 1, \"lay_decay\": null, \"lay_proportions\": null, \"nodata\": -9999.0}}, \"tgrid\": {\"itmuni\": \"seconds\", \"flow_regime\": \"transient\", \"genmtd\": \"synthetic_regular\", \"nper\": 40, \"lenper\": [43200.0, 43200.0, 43200.0, 43200.0, 43200.0, 43200.0, 43200.0, 43200.0, 43200.0, 43200.0, 43200.0, 43200.0, 43200.0, 43200.0, 43200.0, 43200.0, 43200.0, 43200.0, 43200.0, 43200.0, 43200.0, 43200.0, 43200.0, 43200.0, 43200.0, 43200.0, 43200.0, 43200.0, 43200.0, 43200.0, 43200.0, 43200.0, 43200.0, 43200.0, 43200.0, 43200.0, 43200.0, 43200.0, 43200.0, 43200.0], \"chron_path\": null, \"chron_dateformat\": \"%Y-%m-%d %H:%M:%S\", \"chron_colsep\": \"\\t\", \"chron_time_col\": \"Date\", \"start_datetime\": \"2003-01-01T00:00:00\", \"end_datetime\": \"2003-01-20T23:00:00\", \"firstpersteady\": false, \"tsmult\": 1.0, \"ntsp\": 1, \"temporal_nodata\": -9999.0}}, \"modflow6\": {\"runtime\": {\"mf6_executable_name\": \"mf6\", \"mf6_ims_complexity\": \"COMPLEX\", \"mf_verbose\": false, \"mf6_outer_dvclose\": 0.0001, \"mf6_inner_dvclose\": 0.0001, \"mf6_outer_maximum\": 500, \"mf6_inner_maximum\": 500, \"mf6_enable_rewet\": null, \"mf6_enable_xt3d\": null, \"mf6_rewet_wetfct\": 0.1, \"mf6_rewet_iwetit\": 1, \"mf6_rewet_ihdwet\": 0, \"mf6_rewet_wetdry\": 0.1}, \"process_specific\": {\"vka\": 1.0, \"evt_extinction_depth\": 1.0}, \"sgrid\": {\"planar\": {\"mode\": \"resample_to_shape\", \"nx\": 50, \"ny\": 5, \"resampling\": \"nearest\"}, \"vertical\": {\"genmtd_lay\": \"constant\", \"nlay\": 1, \"lay_decay\": null, \"lay_proportions\": null, \"nodata\": -9999.0}}, \"tgrid\": {\"itmuni\": \"seconds\", \"flow_regime\": \"transient\", \"genmtd\": \"synthetic_regular\", \"nper\": 40, \"lenper\": [43200.0, 43200.0, 43200.0, 43200.0, 43200.0, 43200.0, 43200.0, 43200.0, 43200.0, 43200.0, 43200.0, 43200.0, 43200.0, 43200.0, 43200.0, 43200.0, 43200.0, 43200.0, 43200.0, 43200.0, 43200.0, 43200.0, 43200.0, 43200.0, 43200.0, 43200.0, 43200.0, 43200.0, 43200.0, 43200.0, 43200.0, 43200.0, 43200.0, 43200.0, 43200.0, 43200.0, 43200.0, 43200.0, 43200.0, 43200.0], \"chron_path\": null, \"chron_dateformat\": \"%Y-%m-%d %H:%M:%S\", \"chron_colsep\": \"\\t\", \"chron_time_col\": \"Date\", \"start_datetime\": \"2003-01-01T00:00:00\", \"end_datetime\": \"2003-01-20T23:00:00\", \"firstpersteady\": false, \"tsmult\": 1.0, \"ntsp\": 1, \"temporal_nodata\": -9999.0}}, \"display\": {\"enabled\": false, \"backend\": \"auto\", \"preset\": \"default\", \"show\": false, \"save\": true, \"output_dir\": \"figures\", \"dpi\": 150, \"cmap\": \"viridis\", \"figures\": [], \"overrides\": {}}, \"capability_gallery\": {\"enabled\": false, \"output_dir\": null, \"case_slug\": \"launcher_simulation_flow_case\", \"assets\": [\"piezometric_map.png\", \"seepage_map.png\", \"hydrograph.png\", \"water_budget.png\", \"watershed_id_card.png\"]}, \"overview\": null, \"mesh_catchment\": null, \"calibration\": null}",
+        "config_hash": "356c48b78c0c35c52ec32c2864634721f984200b3c2022d5f787345b2183bc4a",
+        "config_source": "C:\\codes\\HydroModPy\\validation_cases\\analytical\\transient\\linearized_unconfined_boundary_step_1d\\comparison\\lu_boundary_step_same_support\\_generated_configs\\modflow6.toml",
+        "parent_sim_id": null,
+        "lineage_kind": null,
+        "zarr_path": "simulations/linearized_unconfined_boundary_s__modflow6__3039ca08.zarr.zip",
+        "zarr_packed": false,
+        "storage_basename": "linearized_unconfined_boundary_s__modflow6__3039ca08",
+        "geographic_fingerprint": null,
+        "duration_s": "8.85899999999674",
+        "started_at": null,
+        "ended_at": null,
+        "created_at": "2026-05-02 01:50:52.102308+02:00",
+        "updated_at": "2026-05-02 01:50:52.102308+02:00",
+        "tags": null,
+        "notes": null,
+        "description": null,
+        "scientific_objective": null,
+        "contact_email": null,
+        "doi": null,
+        "study_area_name": null,
+        "outlet_x": null,
+        "outlet_y": null
+      },
+      "parameters": [
+        {
+          "param_name": "K",
+          "zone_id": "__global__",
+          "value": 0.0001,
+          "unit": "m/s",
+          "parameterization": "homogeneous"
+        },
+        {
+          "param_name": "Ss",
+          "zone_id": "__global__",
+          "value": 1e-10,
+          "unit": "m-1",
+          "parameterization": "homogeneous"
+        },
+        {
+          "param_name": "Sy",
+          "zone_id": "__global__",
+          "value": 0.1,
+          "unit": "-",
+          "parameterization": "homogeneous"
+        },
+        {
+          "param_name": "thickness",
+          "zone_id": "__global__",
+          "value": 20.0,
+          "unit": "m",
+          "parameterization": "homogeneous"
+        }
+      ],
+      "physical_config": {
+        "status": "loaded",
+        "config_path": "C:\\codes\\HydroModPy\\validation_cases\\analytical\\transient\\linearized_unconfined_boundary_step_1d\\comparison\\lu_boundary_step_same_support\\_generated_configs\\modflownwt.toml",
+        "sections": {
+          "simulation.time": {
+            "coverage_policy": "ignore",
+            "end_datetime": "2003-01-20 23:00:00",
+            "start_datetime": "2003-01-01 00:00:00",
+            "step_value": "12 hour"
+          },
+          "geographic": {
+            "source_mode": "synthetic",
+            "synthetic": {
+              "case_id": "val_lu_boundary_step",
+              "grid": {
+                "length_x": "100.0 m",
+                "length_y": "10.0 m",
+                "nx": 50,
+                "ny": 5
+              },
+              "topography": {
+                "base_elevation": 20.0,
+                "kind": "flat"
+              }
+            }
+          },
+          "domain": {
+            "depth_model": {
+              "thickness": "20.0 m",
+              "type": "constant_thickness"
+            }
+          },
+          "flow.flow_regime": "transient",
+          "flow.active_bc": [
+            "west_side",
+            "east_side"
+          ],
+          "flow.param": {
+            "K": {
+              "field": {
+                "id": "K",
+                "kind": "homogeneous"
+              },
+              "field_homogeneous": {
+                "value": "1e-4 m/s"
+              }
+            },
+            "Ss": {
+              "field": {
+                "id": "Ss",
+                "kind": "homogeneous"
+              },
+              "field_homogeneous": {
+                "value": "1e-10 m-1"
+              }
+            },
+            "Sy": {
+              "field": {
+                "id": "Sy",
+                "kind": "homogeneous"
+              },
+              "field_homogeneous": {
+                "value": "0.10 -"
+              }
+            }
+          },
+          "flow.ic": {
+            "type": "custom",
+            "value": "10.0 m"
+          },
+          "flow.bc": {
+            "dirichlet": {
+              "east_side": {
+                "type": "dirichlet",
+                "value": "10.0 m"
+              },
+              "west_side": {
+                "forcing": {
+                  "aggregate": "last",
+                  "mode": "csv",
+                  "path_file": "C:/codes/HydroModPy/validation_cases/analytical/transient/linearized_unconfined_boundary_step_1d/west_head_step.csv"
+                },
+                "type": "dirichlet"
+              }
+            }
+          }
+        },
+        "fingerprints": {
+          "simulation.time": "{\"coverage_policy\":\"ignore\",\"end_datetime\":\"2003-01-20 23:00:00\",\"start_datetime\":\"2003-01-01 00:00:00\",\"step_value\":\"12 hour\"}",
+          "geographic": "{\"source_mode\":\"synthetic\",\"synthetic\":{\"case_id\":\"val_lu_boundary_step\",\"grid\":{\"length_x\":\"100.0 m\",\"length_y\":\"10.0 m\",\"nx\":50,\"ny\":5},\"topography\":{\"base_elevation\":20.0,\"kind\":\"flat\"}}}",
+          "domain": "{\"depth_model\":{\"thickness\":\"20.0 m\",\"type\":\"constant_thickness\"}}",
+          "flow.flow_regime": "\"transient\"",
+          "flow.active_bc": "[\"west_side\",\"east_side\"]",
+          "flow.param": "{\"K\":{\"field\":{\"id\":\"K\",\"kind\":\"homogeneous\"},\"field_homogeneous\":{\"value\":\"1e-4 m/s\"}},\"Ss\":{\"field\":{\"id\":\"Ss\",\"kind\":\"homogeneous\"},\"field_homogeneous\":{\"value\":\"1e-10 m-1\"}},\"Sy\":{\"field\":{\"id\":\"Sy\",\"kind\":\"homogeneous\"},\"field_homogeneous\":{\"value\":\"0.10 -\"}}}",
+          "flow.ic": "{\"type\":\"custom\",\"value\":\"10.0 m\"}",
+          "flow.bc": "{\"dirichlet\":{\"east_side\":{\"type\":\"dirichlet\",\"value\":\"10.0 m\"},\"west_side\":{\"forcing\":{\"aggregate\":\"last\",\"mode\":\"csv\",\"path_file\":\"C:/codes/HydroModPy/validation_cases/analytical/transient/linearized_unconfined_boundary_step_1d/west_head_step.csv\"},\"type\":\"dirichlet\"}}}"
+        }
+      },
+      "budget_components": {
+        "recharge_total_m3_s": {
+          "summary": {
+            "count": 40,
+            "min": 0.0,
+            "max": 0.0,
+            "mean": 0.0
+          },
+          "series": {
+            "elapsed_seconds:43200": 0.0,
+            "elapsed_seconds:86400": 0.0,
+            "elapsed_seconds:129600": 0.0,
+            "elapsed_seconds:172800": 0.0,
+            "elapsed_seconds:216000": 0.0,
+            "elapsed_seconds:259200": 0.0,
+            "elapsed_seconds:302400": 0.0,
+            "elapsed_seconds:345600": 0.0,
+            "elapsed_seconds:388800": 0.0,
+            "elapsed_seconds:432000": 0.0,
+            "elapsed_seconds:475200": 0.0,
+            "elapsed_seconds:518400": 0.0,
+            "elapsed_seconds:561600": 0.0,
+            "elapsed_seconds:604800": 0.0,
+            "elapsed_seconds:648000": 0.0,
+            "elapsed_seconds:691200": 0.0,
+            "elapsed_seconds:734400": 0.0,
+            "elapsed_seconds:777600": 0.0,
+            "elapsed_seconds:820800": 0.0,
+            "elapsed_seconds:864000": 0.0,
+            "elapsed_seconds:907200": 0.0,
+            "elapsed_seconds:950400": 0.0,
+            "elapsed_seconds:993600": 0.0,
+            "elapsed_seconds:1036800": 0.0,
+            "elapsed_seconds:1080000": 0.0,
+            "elapsed_seconds:1123200": 0.0,
+            "elapsed_seconds:1166400": 0.0,
+            "elapsed_seconds:1209600": 0.0,
+            "elapsed_seconds:1252800": 0.0,
+            "elapsed_seconds:1296000": 0.0,
+            "elapsed_seconds:1339200": 0.0,
+            "elapsed_seconds:1382400": 0.0,
+            "elapsed_seconds:1425600": 0.0,
+            "elapsed_seconds:1468800": 0.0,
+            "elapsed_seconds:1512000": 0.0,
+            "elapsed_seconds:1555200": 0.0,
+            "elapsed_seconds:1598400": 0.0,
+            "elapsed_seconds:1641600": 0.0,
+            "elapsed_seconds:1684800": 0.0,
+            "elapsed_seconds:1728000": 0.0
+          }
+        }
+      },
+      "budget_checks": {
+        "recharge_total_m3_s": {
+          "simulation_id": "modflownwt",
+          "reference_simulation": "modflow6",
+          "component": "recharge_total_m3_s",
+          "n_pairs": 40,
+          "status": "pass",
+          "mean_abs_diff": 0.0,
+          "max_abs_diff": 0.0,
+          "max_abs_rel_diff": 0.0,
+          "tolerance_abs": 1e-06,
+          "tolerance_rel": 0.01
+        }
+      }
+    },
+    {
+      "id": "modflow6",
+      "status": "loaded",
+      "sim_id": "3039ca08-2512-4e36-8ca8-fdea4b6ecb1c",
+      "metadata": {
+        "sim_id": "3039ca08-2512-4e36-8ca8-fdea4b6ecb1c",
+        "name": "modflow6",
+        "project": "linearized_unconfined_boundary_step_1d",
+        "solver": "modflow6",
+        "solver_category": "distributed",
+        "flow_regime": "transient",
+        "status": "completed",
+        "mesh_topology": null,
+        "mesh_hash": null,
+        "n_cells": null,
+        "n_layers": null,
+        "n_timesteps": 40,
+        "crs_wkt": null,
+        "crs_epsg": null,
+        "bbox_xmin": null,
+        "bbox_ymin": null,
+        "bbox_xmax": null,
+        "bbox_ymax": null,
+        "period_start": "2003-01-01 00:00:00+01:00",
+        "period_end": "2003-01-21 00:00:00+01:00",
+        "time_unit": "hour",
+        "config_toml": "{\"workflow\": \"simulation\", \"workspace\": {\"project_root\": \"C:\\\\codes\\\\HydroModPy\\\\validation_cases\\\\analytical\\\\transient\\\\linearized_unconfined_boundary_step_1d\", \"root\": \"C:\\\\codes\\\\HydroModPy\\\\tmp\\\\lu_boundary_step_same_support_workspace\", \"catalog_path\": \"C:\\\\codes\\\\HydroModPy\\\\tmp\\\\lu_boundary_step_same_support_workspace\\\\hydromodpy.duckdb\", \"data_dir\": \"C:\\\\codes\\\\HydroModPy\\\\tmp\\\\lu_boundary_step_same_support_workspace\\\\data\", \"simulations_dir\": \"C:\\\\codes\\\\HydroModPy\\\\tmp\\\\lu_boundary_step_same_support_workspace\\\\simulations\", \"output_root\": \"C:\\\\codes\\\\HydroModPy\\\\tmp\\\\lu_boundary_step_same_support_workspace\"}, \"geographic\": {\"source_mode\": \"synthetic\", \"catch_def\": null, \"dem_init_path\": null, \"cell_size\": null, \"x_outlet\": null, \"y_outlet\": null, \"snap_dist\": null, \"buff_area\": null, \"polyg_shp_path\": null, \"crs_project\": null, \"dem_correc_type\": \"breach\", \"bottom_path\": null, \"reg_fold\": null, \"synthetic\": {\"case_id\": \"val_lu_boundary_step\", \"grid\": {\"length_x\": 100.0, \"length_y\": 10.0, \"nx\": 50, \"ny\": 5, \"xmin\": 0.0, \"ymin\": 0.0, \"crs\": \"EPSG:2154\", \"nodata\": -9999.0}, \"topography\": {\"kind\": \"flat\", \"base_elevation\": 20.0, \"right_to_left_amplitude\": 0.0, \"island_radius\": null, \"crest_elevation\": 10.0, \"center_x\": null, \"center_y\": null}}, \"river_network\": {\"enabled\": false, \"threshold_mode\": \"area_km2\", \"threshold_area_km2\": null, \"threshold_cells\": null, \"prune_short_streams\": false, \"min_stream_length_m\": 0.0, \"compute_strahler_order\": true, \"compute_stream_links\": true, \"all_vertices\": false}, \"reuse_existing_outputs\": false, \"write_intermediates\": false}, \"domain\": {\"zone_ids\": [], \"supports\": {}, \"depth_model\": {\"type\": \"constant_thickness\", \"thickness\": 20.0}}, \"data\": {\"project_crs\": null, \"types\": [], \"inference_mode\": \"warn\", \"dem\": null, \"geology\": null, \"hydrography\": null, \"hydrometry\": null, \"intermittency\": null, \"oceanic\": null, \"piezometry\": null, \"water_quality\": null, \"recharge\": null, \"runoff\": null, \"precipitation\": null, \"etp\": null, \"temperature\": null, \"wind\": null, \"humidity\": null, \"radiation\": null, \"soil_moisture\": null}, \"flow\": {\"param_list\": [\"K\", \"Ss\", \"Sy\"], \"param\": {\"K\": {\"id\": \"K\", \"kind\": \"homogeneous\", \"value\": \"1e-4 m/s\"}, \"Ss\": {\"id\": \"Ss\", \"kind\": \"homogeneous\", \"value\": \"1e-10 m-1\"}, \"Sy\": {\"id\": \"Sy\", \"kind\": \"homogeneous\", \"value\": \"0.10 -\"}}, \"ic\": {\"h\": {\"id\": \"h\", \"value\": 10.0, \"description\": \"Initial condition 'h'\", \"units\": \"m\", \"type\": \"custom\"}}, \"bc\": {\"west_side\": {\"id\": \"west_side\", \"value\": null, \"description\": \"Dirichlet boundary condition 'west_side' on west side\", \"units\": \"m\", \"type\": \"dirichlet\", \"data_value\": false, \"forcing\": {\"mode\": \"csv\", \"units\": \"m\", \"value\": null, \"path_file\": \"C:\\\\codes\\\\HydroModPy\\\\validation_cases\\\\analytical\\\\transient\\\\linearized_unconfined_boundary_step_1d\\\\west_head_step.csv\", \"sep\": \",\", \"date_column\": \"date\", \"date_format\": null, \"value_column\": \"value\", \"fill_method\": \"ffill\", \"aggregate\": \"last\"}, \"application_domain\": \"west side\", \"support_label\": null}, \"east_side\": {\"id\": \"east_side\", \"value\": 10.0, \"description\": \"Dirichlet boundary condition 'east_side' on east side\", \"units\": \"m\", \"type\": \"dirichlet\", \"data_value\": false, \"forcing\": null, \"application_domain\": \"east side\", \"support_label\": null}}, \"sinks_sources\": {\"wells\": {}, \"recharge\": null, \"etp\": null}, \"active_sinks_sources\": [], \"active_bc\": [\"west_side\", \"east_side\"], \"flow_regime\": \"transient\", \"runtime_backend\": \"local\", \"surface_interaction_model\": \"auto\", \"runtime_max_iterations\": null, \"runtime_tol_residual_inf\": null, \"runtime_tol_state_update_inf\": null}, \"transport\": {\"active_sinks_sources\": [], \"active_bc\": [], \"modpath\": {\"parameters\": {\"zone_partic\": \"domain\", \"track_dir\": \"forward\", \"bore_depth\": null, \"cell_div\": 1, \"zloc_div\": false, \"sel_random\": null, \"sel_slice\": null}}, \"mt3dms\": {\"parameters\": {\"spc_name\": \"NO3\", \"sconc_init\": 0.0, \"sconc_input\": 0.0, \"disp_long\": 0.0, \"disp_transh\": 0.0, \"disp_transv\": 0.0, \"diffu_coeff\": 0.0, \"react_order\": null, \"rate_decay\": 0.0, \"plot_conc\": true}}, \"modflow6gwt\": {\"parameters\": {\"spc_name\": \"NO3\", \"sconc_init\": 0.0, \"sconc_input\": 0.0, \"disp_long\": 0.0, \"disp_transh\": 0.0, \"disp_transv\": 0.0, \"diffu_coeff\": 0.0, \"react_order\": null, \"rate_decay\": 0.0, \"plot_conc\": true}}}, \"simulation\": {\"name\": \"LU boundary step val\", \"run_id\": \"modflow6\", \"on_collision\": \"replace\", \"description\": \"Synthetic transient unconfined flow with a west-boundary head step and a fixed east boundary.\", \"time\": {\"start_datetime\": \"2003-01-01T00:00:00\", \"end_datetime\": \"2003-01-20T23:00:00\", \"step_value\": 12, \"step_unit\": \"hour\", \"substeps_per_period\": 1, \"coverage_policy\": \"ignore\"}, \"process\": [{\"id\": \"flow_validation\", \"type\": \"flow\", \"solvers\": [\"modflow6\"]}], \"results\": {\"store\": true, \"keep_solver_files\": false, \"solver_scratch\": \".solver_scratch\", \"derived\": {\"watertable_elevation\": true, \"watertable_depth\": true, \"seepage_areas\": true, \"groundwater_flux\": false, \"accumulation_flux\": true, \"outflow_drain\": true, \"concentration_seepage\": false, \"mass_seepage\": false, \"mass_accumulated\": false}, \"budget\": {\"spatial_fields\": true}, \"export\": {\"netcdf\": false, \"csv_timeseries\": true, \"vtu\": false, \"geotiff\": false, \"shapefile\": false, \"output_dir\": null, \"variables\": {\"head\": true, \"concentration\": false, \"budget\": false, \"pathlines\": false, \"derived\": true}}}}, \"solver\": {\"solver_engine\": \"modflownwt\"}, \"modflownwt\": {\"runtime\": {\"mf_version\": \"mfnwt\", \"mf_listunit\": 2, \"mf_verbose\": false, \"nwt_headtol\": 0.0001, \"nwt_fluxtol\": 500.0, \"nwt_maxiterout\": 5000, \"nwt_thickfact\": 1e-05, \"nwt_linmeth\": 1, \"nwt_iprnwt\": 1, \"nwt_ibotav\": 1, \"nwt_options\": \"COMPLEX\", \"nwt_continue\": false, \"nwt_backflag\": 0, \"nwt_stoptol\": 1e-10, \"dis_itmuni\": 0, \"bas_hnoflo\": -9999.0, \"upw_iphdry\": 1, \"upw_hdry\": -100.0, \"upw_layvka\": 1, \"evt_nevtop\": 3, \"evt_ievt\": 1, \"evt_ipakcb\": 1, \"oc_compact\": true, \"wel_ipakcb\": 1, \"lmt_output_file_name\": \"mt3d_link.ftl\", \"lmt_extension\": \"lmt8\", \"lmt_output_format\": \"unformatted\"}, \"process_specific\": {\"vka\": 1.0, \"exdp\": 1.0}, \"sgrid\": {\"planar\": {\"mode\": \"resample_to_shape\", \"nx\": 50, \"ny\": 5, \"resampling\": \"nearest\"}, \"vertical\": {\"genmtd_lay\": \"constant\", \"nlay\": 1, \"lay_decay\": null, \"lay_proportions\": null, \"nodata\": -9999.0}}, \"tgrid\": {\"itmuni\": \"seconds\", \"flow_regime\": \"transient\", \"genmtd\": \"synthetic_regular\", \"nper\": 40, \"lenper\": [43200.0, 43200.0, 43200.0, 43200.0, 43200.0, 43200.0, 43200.0, 43200.0, 43200.0, 43200.0, 43200.0, 43200.0, 43200.0, 43200.0, 43200.0, 43200.0, 43200.0, 43200.0, 43200.0, 43200.0, 43200.0, 43200.0, 43200.0, 43200.0, 43200.0, 43200.0, 43200.0, 43200.0, 43200.0, 43200.0, 43200.0, 43200.0, 43200.0, 43200.0, 43200.0, 43200.0, 43200.0, 43200.0, 43200.0, 43200.0], \"chron_path\": null, \"chron_dateformat\": \"%Y-%m-%d %H:%M:%S\", \"chron_colsep\": \"\\t\", \"chron_time_col\": \"Date\", \"start_datetime\": \"2003-01-01T00:00:00\", \"end_datetime\": \"2003-01-20T23:00:00\", \"firstpersteady\": false, \"tsmult\": 1.0, \"ntsp\": 1, \"temporal_nodata\": -9999.0}}, \"modflow6\": {\"runtime\": {\"mf6_executable_name\": \"mf6\", \"mf6_ims_complexity\": \"COMPLEX\", \"mf_verbose\": false, \"mf6_outer_dvclose\": 0.0001, \"mf6_inner_dvclose\": 0.0001, \"mf6_outer_maximum\": 500, \"mf6_inner_maximum\": 500, \"mf6_enable_rewet\": null, \"mf6_enable_xt3d\": null, \"mf6_rewet_wetfct\": 0.1, \"mf6_rewet_iwetit\": 1, \"mf6_rewet_ihdwet\": 0, \"mf6_rewet_wetdry\": 0.1}, \"process_specific\": {\"vka\": 1.0, \"evt_extinction_depth\": 1.0}, \"sgrid\": {\"planar\": {\"mode\": \"resample_to_shape\", \"nx\": 50, \"ny\": 5, \"resampling\": \"nearest\"}, \"vertical\": {\"genmtd_lay\": \"constant\", \"nlay\": 1, \"lay_decay\": null, \"lay_proportions\": null, \"nodata\": -9999.0}}, \"tgrid\": {\"itmuni\": \"seconds\", \"flow_regime\": \"transient\", \"genmtd\": \"synthetic_regular\", \"nper\": 40, \"lenper\": [43200.0, 43200.0, 43200.0, 43200.0, 43200.0, 43200.0, 43200.0, 43200.0, 43200.0, 43200.0, 43200.0, 43200.0, 43200.0, 43200.0, 43200.0, 43200.0, 43200.0, 43200.0, 43200.0, 43200.0, 43200.0, 43200.0, 43200.0, 43200.0, 43200.0, 43200.0, 43200.0, 43200.0, 43200.0, 43200.0, 43200.0, 43200.0, 43200.0, 43200.0, 43200.0, 43200.0, 43200.0, 43200.0, 43200.0, 43200.0], \"chron_path\": null, \"chron_dateformat\": \"%Y-%m-%d %H:%M:%S\", \"chron_colsep\": \"\\t\", \"chron_time_col\": \"Date\", \"start_datetime\": \"2003-01-01T00:00:00\", \"end_datetime\": \"2003-01-20T23:00:00\", \"firstpersteady\": false, \"tsmult\": 1.0, \"ntsp\": 1, \"temporal_nodata\": -9999.0}}, \"display\": {\"enabled\": false, \"backend\": \"auto\", \"preset\": \"default\", \"show\": false, \"save\": true, \"output_dir\": \"figures\", \"dpi\": 150, \"cmap\": \"viridis\", \"figures\": [], \"overrides\": {}}, \"capability_gallery\": {\"enabled\": false, \"output_dir\": null, \"case_slug\": \"launcher_simulation_flow_case\", \"assets\": [\"piezometric_map.png\", \"seepage_map.png\", \"hydrograph.png\", \"water_budget.png\", \"watershed_id_card.png\"]}, \"overview\": null, \"mesh_catchment\": null, \"calibration\": null}",
+        "config_snapshot": "{\"workflow\": \"simulation\", \"workspace\": {\"project_root\": \"C:\\\\codes\\\\HydroModPy\\\\validation_cases\\\\analytical\\\\transient\\\\linearized_unconfined_boundary_step_1d\", \"root\": \"C:\\\\codes\\\\HydroModPy\\\\tmp\\\\lu_boundary_step_same_support_workspace\", \"catalog_path\": \"C:\\\\codes\\\\HydroModPy\\\\tmp\\\\lu_boundary_step_same_support_workspace\\\\hydromodpy.duckdb\", \"data_dir\": \"C:\\\\codes\\\\HydroModPy\\\\tmp\\\\lu_boundary_step_same_support_workspace\\\\data\", \"simulations_dir\": \"C:\\\\codes\\\\HydroModPy\\\\tmp\\\\lu_boundary_step_same_support_workspace\\\\simulations\", \"output_root\": \"C:\\\\codes\\\\HydroModPy\\\\tmp\\\\lu_boundary_step_same_support_workspace\"}, \"geographic\": {\"source_mode\": \"synthetic\", \"catch_def\": null, \"dem_init_path\": null, \"cell_size\": null, \"x_outlet\": null, \"y_outlet\": null, \"snap_dist\": null, \"buff_area\": null, \"polyg_shp_path\": null, \"crs_project\": null, \"dem_correc_type\": \"breach\", \"bottom_path\": null, \"reg_fold\": null, \"synthetic\": {\"case_id\": \"val_lu_boundary_step\", \"grid\": {\"length_x\": 100.0, \"length_y\": 10.0, \"nx\": 50, \"ny\": 5, \"xmin\": 0.0, \"ymin\": 0.0, \"crs\": \"EPSG:2154\", \"nodata\": -9999.0}, \"topography\": {\"kind\": \"flat\", \"base_elevation\": 20.0, \"right_to_left_amplitude\": 0.0, \"island_radius\": null, \"crest_elevation\": 10.0, \"center_x\": null, \"center_y\": null}}, \"river_network\": {\"enabled\": false, \"threshold_mode\": \"area_km2\", \"threshold_area_km2\": null, \"threshold_cells\": null, \"prune_short_streams\": false, \"min_stream_length_m\": 0.0, \"compute_strahler_order\": true, \"compute_stream_links\": true, \"all_vertices\": false}, \"reuse_existing_outputs\": false, \"write_intermediates\": false}, \"domain\": {\"zone_ids\": [], \"supports\": {}, \"depth_model\": {\"type\": \"constant_thickness\", \"thickness\": 20.0}}, \"data\": {\"project_crs\": null, \"types\": [], \"inference_mode\": \"warn\", \"dem\": null, \"geology\": null, \"hydrography\": null, \"hydrometry\": null, \"intermittency\": null, \"oceanic\": null, \"piezometry\": null, \"water_quality\": null, \"recharge\": null, \"runoff\": null, \"precipitation\": null, \"etp\": null, \"temperature\": null, \"wind\": null, \"humidity\": null, \"radiation\": null, \"soil_moisture\": null}, \"flow\": {\"param_list\": [\"K\", \"Ss\", \"Sy\"], \"param\": {\"K\": {\"id\": \"K\", \"kind\": \"homogeneous\", \"value\": \"1e-4 m/s\"}, \"Ss\": {\"id\": \"Ss\", \"kind\": \"homogeneous\", \"value\": \"1e-10 m-1\"}, \"Sy\": {\"id\": \"Sy\", \"kind\": \"homogeneous\", \"value\": \"0.10 -\"}}, \"ic\": {\"h\": {\"id\": \"h\", \"value\": 10.0, \"description\": \"Initial condition 'h'\", \"units\": \"m\", \"type\": \"custom\"}}, \"bc\": {\"west_side\": {\"id\": \"west_side\", \"value\": null, \"description\": \"Dirichlet boundary condition 'west_side' on west side\", \"units\": \"m\", \"type\": \"dirichlet\", \"data_value\": false, \"forcing\": {\"mode\": \"csv\", \"units\": \"m\", \"value\": null, \"path_file\": \"C:\\\\codes\\\\HydroModPy\\\\validation_cases\\\\analytical\\\\transient\\\\linearized_unconfined_boundary_step_1d\\\\west_head_step.csv\", \"sep\": \",\", \"date_column\": \"date\", \"date_format\": null, \"value_column\": \"value\", \"fill_method\": \"ffill\", \"aggregate\": \"last\"}, \"application_domain\": \"west side\", \"support_label\": null}, \"east_side\": {\"id\": \"east_side\", \"value\": 10.0, \"description\": \"Dirichlet boundary condition 'east_side' on east side\", \"units\": \"m\", \"type\": \"dirichlet\", \"data_value\": false, \"forcing\": null, \"application_domain\": \"east side\", \"support_label\": null}}, \"sinks_sources\": {\"wells\": {}, \"recharge\": null, \"etp\": null}, \"active_sinks_sources\": [], \"active_bc\": [\"west_side\", \"east_side\"], \"flow_regime\": \"transient\", \"runtime_backend\": \"local\", \"surface_interaction_model\": \"auto\", \"runtime_max_iterations\": null, \"runtime_tol_residual_inf\": null, \"runtime_tol_state_update_inf\": null}, \"transport\": {\"active_sinks_sources\": [], \"active_bc\": [], \"modpath\": {\"parameters\": {\"zone_partic\": \"domain\", \"track_dir\": \"forward\", \"bore_depth\": null, \"cell_div\": 1, \"zloc_div\": false, \"sel_random\": null, \"sel_slice\": null}}, \"mt3dms\": {\"parameters\": {\"spc_name\": \"NO3\", \"sconc_init\": 0.0, \"sconc_input\": 0.0, \"disp_long\": 0.0, \"disp_transh\": 0.0, \"disp_transv\": 0.0, \"diffu_coeff\": 0.0, \"react_order\": null, \"rate_decay\": 0.0, \"plot_conc\": true}}, \"modflow6gwt\": {\"parameters\": {\"spc_name\": \"NO3\", \"sconc_init\": 0.0, \"sconc_input\": 0.0, \"disp_long\": 0.0, \"disp_transh\": 0.0, \"disp_transv\": 0.0, \"diffu_coeff\": 0.0, \"react_order\": null, \"rate_decay\": 0.0, \"plot_conc\": true}}}, \"simulation\": {\"name\": \"LU boundary step val\", \"run_id\": \"modflow6\", \"on_collision\": \"replace\", \"description\": \"Synthetic transient unconfined flow with a west-boundary head step and a fixed east boundary.\", \"time\": {\"start_datetime\": \"2003-01-01T00:00:00\", \"end_datetime\": \"2003-01-20T23:00:00\", \"step_value\": 12, \"step_unit\": \"hour\", \"substeps_per_period\": 1, \"coverage_policy\": \"ignore\"}, \"process\": [{\"id\": \"flow_validation\", \"type\": \"flow\", \"solvers\": [\"modflow6\"]}], \"results\": {\"store\": true, \"keep_solver_files\": false, \"solver_scratch\": \".solver_scratch\", \"derived\": {\"watertable_elevation\": true, \"watertable_depth\": true, \"seepage_areas\": true, \"groundwater_flux\": false, \"accumulation_flux\": true, \"outflow_drain\": true, \"concentration_seepage\": false, \"mass_seepage\": false, \"mass_accumulated\": false}, \"budget\": {\"spatial_fields\": true}, \"export\": {\"netcdf\": false, \"csv_timeseries\": true, \"vtu\": false, \"geotiff\": false, \"shapefile\": false, \"output_dir\": null, \"variables\": {\"head\": true, \"concentration\": false, \"budget\": false, \"pathlines\": false, \"derived\": true}}}}, \"solver\": {\"solver_engine\": \"modflownwt\"}, \"modflownwt\": {\"runtime\": {\"mf_version\": \"mfnwt\", \"mf_listunit\": 2, \"mf_verbose\": false, \"nwt_headtol\": 0.0001, \"nwt_fluxtol\": 500.0, \"nwt_maxiterout\": 5000, \"nwt_thickfact\": 1e-05, \"nwt_linmeth\": 1, \"nwt_iprnwt\": 1, \"nwt_ibotav\": 1, \"nwt_options\": \"COMPLEX\", \"nwt_continue\": false, \"nwt_backflag\": 0, \"nwt_stoptol\": 1e-10, \"dis_itmuni\": 0, \"bas_hnoflo\": -9999.0, \"upw_iphdry\": 1, \"upw_hdry\": -100.0, \"upw_layvka\": 1, \"evt_nevtop\": 3, \"evt_ievt\": 1, \"evt_ipakcb\": 1, \"oc_compact\": true, \"wel_ipakcb\": 1, \"lmt_output_file_name\": \"mt3d_link.ftl\", \"lmt_extension\": \"lmt8\", \"lmt_output_format\": \"unformatted\"}, \"process_specific\": {\"vka\": 1.0, \"exdp\": 1.0}, \"sgrid\": {\"planar\": {\"mode\": \"resample_to_shape\", \"nx\": 50, \"ny\": 5, \"resampling\": \"nearest\"}, \"vertical\": {\"genmtd_lay\": \"constant\", \"nlay\": 1, \"lay_decay\": null, \"lay_proportions\": null, \"nodata\": -9999.0}}, \"tgrid\": {\"itmuni\": \"seconds\", \"flow_regime\": \"transient\", \"genmtd\": \"synthetic_regular\", \"nper\": 40, \"lenper\": [43200.0, 43200.0, 43200.0, 43200.0, 43200.0, 43200.0, 43200.0, 43200.0, 43200.0, 43200.0, 43200.0, 43200.0, 43200.0, 43200.0, 43200.0, 43200.0, 43200.0, 43200.0, 43200.0, 43200.0, 43200.0, 43200.0, 43200.0, 43200.0, 43200.0, 43200.0, 43200.0, 43200.0, 43200.0, 43200.0, 43200.0, 43200.0, 43200.0, 43200.0, 43200.0, 43200.0, 43200.0, 43200.0, 43200.0, 43200.0], \"chron_path\": null, \"chron_dateformat\": \"%Y-%m-%d %H:%M:%S\", \"chron_colsep\": \"\\t\", \"chron_time_col\": \"Date\", \"start_datetime\": \"2003-01-01T00:00:00\", \"end_datetime\": \"2003-01-20T23:00:00\", \"firstpersteady\": false, \"tsmult\": 1.0, \"ntsp\": 1, \"temporal_nodata\": -9999.0}}, \"modflow6\": {\"runtime\": {\"mf6_executable_name\": \"mf6\", \"mf6_ims_complexity\": \"COMPLEX\", \"mf_verbose\": false, \"mf6_outer_dvclose\": 0.0001, \"mf6_inner_dvclose\": 0.0001, \"mf6_outer_maximum\": 500, \"mf6_inner_maximum\": 500, \"mf6_enable_rewet\": null, \"mf6_enable_xt3d\": null, \"mf6_rewet_wetfct\": 0.1, \"mf6_rewet_iwetit\": 1, \"mf6_rewet_ihdwet\": 0, \"mf6_rewet_wetdry\": 0.1}, \"process_specific\": {\"vka\": 1.0, \"evt_extinction_depth\": 1.0}, \"sgrid\": {\"planar\": {\"mode\": \"resample_to_shape\", \"nx\": 50, \"ny\": 5, \"resampling\": \"nearest\"}, \"vertical\": {\"genmtd_lay\": \"constant\", \"nlay\": 1, \"lay_decay\": null, \"lay_proportions\": null, \"nodata\": -9999.0}}, \"tgrid\": {\"itmuni\": \"seconds\", \"flow_regime\": \"transient\", \"genmtd\": \"synthetic_regular\", \"nper\": 40, \"lenper\": [43200.0, 43200.0, 43200.0, 43200.0, 43200.0, 43200.0, 43200.0, 43200.0, 43200.0, 43200.0, 43200.0, 43200.0, 43200.0, 43200.0, 43200.0, 43200.0, 43200.0, 43200.0, 43200.0, 43200.0, 43200.0, 43200.0, 43200.0, 43200.0, 43200.0, 43200.0, 43200.0, 43200.0, 43200.0, 43200.0, 43200.0, 43200.0, 43200.0, 43200.0, 43200.0, 43200.0, 43200.0, 43200.0, 43200.0, 43200.0], \"chron_path\": null, \"chron_dateformat\": \"%Y-%m-%d %H:%M:%S\", \"chron_colsep\": \"\\t\", \"chron_time_col\": \"Date\", \"start_datetime\": \"2003-01-01T00:00:00\", \"end_datetime\": \"2003-01-20T23:00:00\", \"firstpersteady\": false, \"tsmult\": 1.0, \"ntsp\": 1, \"temporal_nodata\": -9999.0}}, \"display\": {\"enabled\": false, \"backend\": \"auto\", \"preset\": \"default\", \"show\": false, \"save\": true, \"output_dir\": \"figures\", \"dpi\": 150, \"cmap\": \"viridis\", \"figures\": [], \"overrides\": {}}, \"capability_gallery\": {\"enabled\": false, \"output_dir\": null, \"case_slug\": \"launcher_simulation_flow_case\", \"assets\": [\"piezometric_map.png\", \"seepage_map.png\", \"hydrograph.png\", \"water_budget.png\", \"watershed_id_card.png\"]}, \"overview\": null, \"mesh_catchment\": null, \"calibration\": null}",
+        "config_hash": "356c48b78c0c35c52ec32c2864634721f984200b3c2022d5f787345b2183bc4a",
+        "config_source": "C:\\codes\\HydroModPy\\validation_cases\\analytical\\transient\\linearized_unconfined_boundary_step_1d\\comparison\\lu_boundary_step_same_support\\_generated_configs\\modflow6.toml",
+        "parent_sim_id": null,
+        "lineage_kind": null,
+        "zarr_path": "simulations/linearized_unconfined_boundary_s__modflow6__3039ca08.zarr.zip",
+        "zarr_packed": false,
+        "storage_basename": "linearized_unconfined_boundary_s__modflow6__3039ca08",
+        "geographic_fingerprint": null,
+        "duration_s": "8.85899999999674",
+        "started_at": null,
+        "ended_at": null,
+        "created_at": "2026-05-02 01:50:52.102308+02:00",
+        "updated_at": "2026-05-02 01:50:52.102308+02:00",
+        "tags": null,
+        "notes": null,
+        "description": null,
+        "scientific_objective": null,
+        "contact_email": null,
+        "doi": null,
+        "study_area_name": null,
+        "outlet_x": null,
+        "outlet_y": null
+      },
+      "parameters": [
+        {
+          "param_name": "K",
+          "zone_id": "__global__",
+          "value": 0.0001,
+          "unit": "m/s",
+          "parameterization": "homogeneous"
+        },
+        {
+          "param_name": "Ss",
+          "zone_id": "__global__",
+          "value": 1e-10,
+          "unit": "m-1",
+          "parameterization": "homogeneous"
+        },
+        {
+          "param_name": "Sy",
+          "zone_id": "__global__",
+          "value": 0.1,
+          "unit": "-",
+          "parameterization": "homogeneous"
+        },
+        {
+          "param_name": "thickness",
+          "zone_id": "__global__",
+          "value": 20.0,
+          "unit": "m",
+          "parameterization": "homogeneous"
+        }
+      ],
+      "physical_config": {
+        "status": "loaded",
+        "config_path": "C:\\codes\\HydroModPy\\validation_cases\\analytical\\transient\\linearized_unconfined_boundary_step_1d\\comparison\\lu_boundary_step_same_support\\_generated_configs\\modflow6.toml",
+        "sections": {
+          "simulation.time": {
+            "coverage_policy": "ignore",
+            "end_datetime": "2003-01-20 23:00:00",
+            "start_datetime": "2003-01-01 00:00:00",
+            "step_value": "12 hour"
+          },
+          "geographic": {
+            "source_mode": "synthetic",
+            "synthetic": {
+              "case_id": "val_lu_boundary_step",
+              "grid": {
+                "length_x": "100.0 m",
+                "length_y": "10.0 m",
+                "nx": 50,
+                "ny": 5
+              },
+              "topography": {
+                "base_elevation": 20.0,
+                "kind": "flat"
+              }
+            }
+          },
+          "domain": {
+            "depth_model": {
+              "thickness": "20.0 m",
+              "type": "constant_thickness"
+            }
+          },
+          "flow.flow_regime": "transient",
+          "flow.active_bc": [
+            "west_side",
+            "east_side"
+          ],
+          "flow.param": {
+            "K": {
+              "field": {
+                "id": "K",
+                "kind": "homogeneous"
+              },
+              "field_homogeneous": {
+                "value": "1e-4 m/s"
+              }
+            },
+            "Ss": {
+              "field": {
+                "id": "Ss",
+                "kind": "homogeneous"
+              },
+              "field_homogeneous": {
+                "value": "1e-10 m-1"
+              }
+            },
+            "Sy": {
+              "field": {
+                "id": "Sy",
+                "kind": "homogeneous"
+              },
+              "field_homogeneous": {
+                "value": "0.10 -"
+              }
+            }
+          },
+          "flow.ic": {
+            "type": "custom",
+            "value": "10.0 m"
+          },
+          "flow.bc": {
+            "dirichlet": {
+              "east_side": {
+                "type": "dirichlet",
+                "value": "10.0 m"
+              },
+              "west_side": {
+                "forcing": {
+                  "aggregate": "last",
+                  "mode": "csv",
+                  "path_file": "C:/codes/HydroModPy/validation_cases/analytical/transient/linearized_unconfined_boundary_step_1d/west_head_step.csv"
+                },
+                "type": "dirichlet"
+              }
+            }
+          }
+        },
+        "fingerprints": {
+          "simulation.time": "{\"coverage_policy\":\"ignore\",\"end_datetime\":\"2003-01-20 23:00:00\",\"start_datetime\":\"2003-01-01 00:00:00\",\"step_value\":\"12 hour\"}",
+          "geographic": "{\"source_mode\":\"synthetic\",\"synthetic\":{\"case_id\":\"val_lu_boundary_step\",\"grid\":{\"length_x\":\"100.0 m\",\"length_y\":\"10.0 m\",\"nx\":50,\"ny\":5},\"topography\":{\"base_elevation\":20.0,\"kind\":\"flat\"}}}",
+          "domain": "{\"depth_model\":{\"thickness\":\"20.0 m\",\"type\":\"constant_thickness\"}}",
+          "flow.flow_regime": "\"transient\"",
+          "flow.active_bc": "[\"west_side\",\"east_side\"]",
+          "flow.param": "{\"K\":{\"field\":{\"id\":\"K\",\"kind\":\"homogeneous\"},\"field_homogeneous\":{\"value\":\"1e-4 m/s\"}},\"Ss\":{\"field\":{\"id\":\"Ss\",\"kind\":\"homogeneous\"},\"field_homogeneous\":{\"value\":\"1e-10 m-1\"}},\"Sy\":{\"field\":{\"id\":\"Sy\",\"kind\":\"homogeneous\"},\"field_homogeneous\":{\"value\":\"0.10 -\"}}}",
+          "flow.ic": "{\"type\":\"custom\",\"value\":\"10.0 m\"}",
+          "flow.bc": "{\"dirichlet\":{\"east_side\":{\"type\":\"dirichlet\",\"value\":\"10.0 m\"},\"west_side\":{\"forcing\":{\"aggregate\":\"last\",\"mode\":\"csv\",\"path_file\":\"C:/codes/HydroModPy/validation_cases/analytical/transient/linearized_unconfined_boundary_step_1d/west_head_step.csv\"},\"type\":\"dirichlet\"}}}"
+        }
+      },
+      "budget_components": {
+        "recharge_total_m3_s": {
+          "summary": {
+            "count": 40,
+            "min": 0.0,
+            "max": 0.0,
+            "mean": 0.0
+          },
+          "series": {
+            "elapsed_seconds:43200": 0.0,
+            "elapsed_seconds:86400": 0.0,
+            "elapsed_seconds:129600": 0.0,
+            "elapsed_seconds:172800": 0.0,
+            "elapsed_seconds:216000": 0.0,
+            "elapsed_seconds:259200": 0.0,
+            "elapsed_seconds:302400": 0.0,
+            "elapsed_seconds:345600": 0.0,
+            "elapsed_seconds:388800": 0.0,
+            "elapsed_seconds:432000": 0.0,
+            "elapsed_seconds:475200": 0.0,
+            "elapsed_seconds:518400": 0.0,
+            "elapsed_seconds:561600": 0.0,
+            "elapsed_seconds:604800": 0.0,
+            "elapsed_seconds:648000": 0.0,
+            "elapsed_seconds:691200": 0.0,
+            "elapsed_seconds:734400": 0.0,
+            "elapsed_seconds:777600": 0.0,
+            "elapsed_seconds:820800": 0.0,
+            "elapsed_seconds:864000": 0.0,
+            "elapsed_seconds:907200": 0.0,
+            "elapsed_seconds:950400": 0.0,
+            "elapsed_seconds:993600": 0.0,
+            "elapsed_seconds:1036800": 0.0,
+            "elapsed_seconds:1080000": 0.0,
+            "elapsed_seconds:1123200": 0.0,
+            "elapsed_seconds:1166400": 0.0,
+            "elapsed_seconds:1209600": 0.0,
+            "elapsed_seconds:1252800": 0.0,
+            "elapsed_seconds:1296000": 0.0,
+            "elapsed_seconds:1339200": 0.0,
+            "elapsed_seconds:1382400": 0.0,
+            "elapsed_seconds:1425600": 0.0,
+            "elapsed_seconds:1468800": 0.0,
+            "elapsed_seconds:1512000": 0.0,
+            "elapsed_seconds:1555200": 0.0,
+            "elapsed_seconds:1598400": 0.0,
+            "elapsed_seconds:1641600": 0.0,
+            "elapsed_seconds:1684800": 0.0,
+            "elapsed_seconds:1728000": 0.0
+          }
+        }
+      }
+    }
+  ],
+  "issues": []
+}

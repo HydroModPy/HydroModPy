@@ -238,6 +238,11 @@ def compare_pair(sim_a: Any, sim_b: Any, *, workspace: Any = None) -> Any:
     return _compare_pair(sim_a, sim_b, workspace=workspace)
 
 
+def compare(sim_a: Any, sim_b: Any, *, workspace: Any = None) -> Any:
+    """Public alias for comparing two persisted simulations."""
+    return compare_pair(sim_a, sim_b, workspace=workspace)
+
+
 def testbed(toml_path: Any) -> Any:
     """Run a TOML-driven method testbed.
 

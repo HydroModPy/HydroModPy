@@ -38,7 +38,7 @@ Main Possibilities
      - PETSc mixed double-obstacle route.
      - ``complementarity``
      - ``petsc``
-   * - MODFLOW/Boussinesq method comparison
+   * - MODFLOW/Boussinesq simulation comparison
      - Start from shared geometry and forcing, then document closure and mesh
        differences explicitly.
      - Depends on comparison question.

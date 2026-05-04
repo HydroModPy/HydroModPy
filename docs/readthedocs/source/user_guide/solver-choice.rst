@@ -18,7 +18,7 @@ User path
 3. Read :doc:`../scientific/solvers/xt3d-on-irregular-disv-meshes` when an
    irregular MODFLOW 6 DISV mesh is involved.
 4. Open :doc:`../capability_gallery/validation` and
-   :doc:`../capability_gallery/method_comparison` for curated result pages.
+   :doc:`../capability_gallery/simulation_comparison` for curated result pages.
 5. Use :doc:`../architecture/solver/index` when you need software structure
    rather than method interpretation.
 
@@ -46,5 +46,5 @@ Related sections
 ----------------
 
 - :doc:`mesh` for mesh and discretization documentation.
-- :doc:`comparison` for shared-case method comparisons.
+- :doc:`comparison` for shared-case simulation comparisons.
 - :doc:`../api/hydromodpy-modeling` for solver-facing API reference.

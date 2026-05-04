@@ -56,6 +56,7 @@ def _variable_candidates(variable: str) -> tuple[str, ...]:
         "surface_excess_map": [
             "saturation_excess_history_m_s",
         ],
+        "seepage_areas": ["seepage_mask"],
         "head": ["watertable_elevation"],
         "depth": ["watertable_depth"],
         "drainage_flux": ["drainage_flux_history_m3_s", "drainage_flux_m3_s"],

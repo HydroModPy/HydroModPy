@@ -24,9 +24,21 @@ SUMMARY_METRIC_FIELDS = (
 )
 
 
-def metric_key(*, variant_id: str, observable: str) -> str:
+def _require_text(payload: dict[str, Any], field: str) -> str:
+    value = str(payload.get(field, "")).strip()
+    if not value:
+        raise ValueError(f"Comparison metrics payload must define {field!r}.")
+    return value
+
+
+def metric_key(*, simulation_id: str, observable: str) -> str:
     """Return the stable key used in intercomparison signatures."""
-    return f"{variant_id}::{observable}"
+    return f"{simulation_id}::{observable}"
+
+
+def _row_simulation_id(row: dict[str, Any]) -> str:
+    """Return the candidate simulation id from the current metrics schema."""
+    return _require_text(row, "simulation_id")
 
 
 def build_intercomparison_signature(
@@ -40,7 +52,7 @@ def build_intercomparison_signature(
     summary_rows = sorted(
         metrics.get("summary", []),
         key=lambda row: (
-            str(row.get("variant_id", "")),
+            _row_simulation_id(row),
             str(row.get("observable", "")),
         ),
     )
@@ -48,7 +60,7 @@ def build_intercomparison_signature(
     summary: dict[str, dict[str, Any]] = {}
     for row in summary_rows:
         key = metric_key(
-            variant_id=str(row.get("variant_id", "")),
+            simulation_id=_row_simulation_id(row),
             observable=str(row.get("observable", "")),
         )
         summary[key] = {
@@ -59,12 +71,14 @@ def build_intercomparison_signature(
             value = row.get(field)
             summary[key][field] = None if value is None else float(value)
 
+    reference_simulation = _require_text(metrics, "reference_simulation")
+
     return {
-        "signature_schema_version": "intercomparison_signature_v1",
+        "signature_schema_version": "simulation_comparison_signature_v1",
         "metrics_schema_version": str(metrics.get("schema_version", "")),
         "audit_schema_version": str(audit.get("schema_version", "")),
         "comparison_id": str(metrics.get("comparison_id", "")),
-        "reference_variant": str(metrics.get("reference_variant", "")),
+        "reference_simulation": reference_simulation,
         "audit_status": str(audit.get("status", "")),
         "summary": summary,
     }

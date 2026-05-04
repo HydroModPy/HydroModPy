@@ -36,7 +36,7 @@ class SweepSpec:
     name: str
     source_root: Path
     docs_dir: Path
-    variants: tuple[str, ...]
+    simulation_ids: tuple[str, ...]
     title: str
 
 
@@ -45,14 +45,14 @@ SWEEPS: tuple[SweepSpec, ...] = (
         name="wide",
         source_root=COMPARISON_ROOT / "nancon_transient_seasonal_hydrography_wide_k_sweep_mf6",
         docs_dir=DOC_STATIC_ROOT / "nancon_wide_k_sweep",
-        variants=("k_5e5", "k_1e4", "k_2e4", "k_5e4"),
+        simulation_ids=("k_5e5", "k_1e4", "k_2e4", "k_5e4"),
         title="Nancon MODFLOW 6 wide K-sweep",
     ),
     SweepSpec(
         name="extreme",
         source_root=COMPARISON_ROOT / "nancon_transient_seasonal_hydrography_extreme_k_sweep_mf6",
         docs_dir=DOC_STATIC_ROOT / "nancon_extreme_k_sweep",
-        variants=("k_2e6", "k_2e5", "k_2e4", "k_2e2"),
+        simulation_ids=("k_2e6", "k_2e5", "k_2e4", "k_2e2"),
         title="Nancon MODFLOW 6 extreme K-sweep",
     ),
 )
@@ -65,8 +65,8 @@ def _read_csv(path: Path) -> list[dict[str, str]]:
         return list(csv.DictReader(stream))
 
 
-def _by_variant(rows: list[dict[str, str]]) -> dict[str, dict[str, str]]:
-    return {str(row.get("variant_id", "")): row for row in rows}
+def _by_simulation(rows: list[dict[str, str]]) -> dict[str, dict[str, str]]:
+    return {str(row.get("simulation_id", "")): row for row in rows}
 
 
 def _float(row: dict[str, str], key: str) -> float:
@@ -110,11 +110,11 @@ def _format_k(value: float) -> str:
     return f"{mantissa}e{int(exponent)}"
 
 
-def _parse_k(variant_id: str, label: str) -> float:
+def _parse_k(simulation_id: str, label: str) -> float:
     match = re.search(r"K\s*=\s*([0-9.]+e[-+]?\d+)", label)
     if match:
         return float(match.group(1))
-    match = re.fullmatch(r"k_([0-9]+(?:p[0-9]+)?)e([0-9]+)", variant_id)
+    match = re.fullmatch(r"k_([0-9]+(?:p[0-9]+)?)e([0-9]+)", simulation_id)
     if not match:
         return float("nan")
     coefficient = float(match.group(1).replace("p", "."))
@@ -123,20 +123,20 @@ def _parse_k(variant_id: str, label: str) -> float:
 
 
 def _merged_metrics(spec: SweepSpec) -> list[dict[str, object]]:
-    occupancy = _by_variant(_read_csv(spec.source_root / "simulated_active_network_metrics.csv"))
-    overlap = _by_variant(_read_csv(spec.source_root / "simulated_active_network_overlap_metrics.csv"))
-    distance = _by_variant(_read_csv(spec.source_root / "simulated_active_network_distance_metrics.csv"))
+    occupancy = _by_simulation(_read_csv(spec.source_root / "simulated_active_network_metrics.csv"))
+    overlap = _by_simulation(_read_csv(spec.source_root / "simulated_active_network_overlap_metrics.csv"))
+    distance = _by_simulation(_read_csv(spec.source_root / "simulated_active_network_distance_metrics.csv"))
     rows: list[dict[str, object]] = []
-    for variant_id in spec.variants:
-        if variant_id not in overlap:
+    for simulation_id in spec.simulation_ids:
+        if simulation_id not in overlap:
             continue
         row: dict[str, object] = {}
-        row.update(occupancy.get(variant_id, {}))
-        row.update(overlap.get(variant_id, {}))
-        row.update(distance.get(variant_id, {}))
-        label = str(row.get("variant_label", variant_id))
-        row["variant_id"] = variant_id
-        row["K_m_s"] = _parse_k(variant_id, label)
+        row.update(occupancy.get(simulation_id, {}))
+        row.update(overlap.get(simulation_id, {}))
+        row.update(distance.get(simulation_id, {}))
+        label = str(row.get("simulation_label", simulation_id))
+        row["simulation_id"] = simulation_id
+        row["K_m_s"] = _parse_k(simulation_id, label)
         rows.append(row)
     rows.sort(key=lambda item: float(item["K_m_s"]))
     return rows
@@ -256,16 +256,16 @@ def _trim_light_margin(image: np.ndarray, *, threshold: float = 0.985, pad: int 
 
 
 def _render_annotated_overlay(spec: SweepSpec, row: dict[str, object]) -> Path:
-    variant_id = str(row["variant_id"])
+    simulation_id = str(row["simulation_id"])
     source = (
         spec.source_root
         / "run_figures"
-        / variant_id
+        / simulation_id
         / "simulated_active_network_reference_overlay.png"
     )
     if not source.exists():
-        raise FileNotFoundError(f"Missing source overlay for {variant_id}: {source}")
-    destination = spec.docs_dir / f"{variant_id}_reference_overlay.png"
+        raise FileNotFoundError(f"Missing source overlay for {simulation_id}: {source}")
+    destination = spec.docs_dir / f"{simulation_id}_reference_overlay.png"
     destination.parent.mkdir(parents=True, exist_ok=True)
 
     image = _trim_light_margin(mpimg.imread(source))
@@ -406,7 +406,7 @@ def _render_tradeoff_graph(spec: SweepSpec, rows: list[dict[str, object]]) -> Pa
     destination.parent.mkdir(parents=True, exist_ok=True)
     k_values = np.asarray([float(row["K_m_s"]) for row in rows], dtype="float64")
     log_k = np.log10(k_values)
-    labels = [str(row["variant_id"]) for row in rows]
+    labels = [str(row["simulation_id"]) for row in rows]
     active_counts = np.asarray(_series(rows, "active_cell_count"), dtype="float64")
     sizes = 80.0 + 320.0 * active_counts / max(float(np.nanmax(active_counts)), 1.0)
 

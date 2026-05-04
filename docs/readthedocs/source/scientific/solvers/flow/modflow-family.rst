@@ -79,9 +79,13 @@ inside those category pages instead of appearing directly under the family:
    :maxdepth: 1
 
    modflow/common/index
+   modflow/common-concepts
    modflow/modflow6-version/index
    modflow/modflownwt-version/index
    modflow/cross-cutting/index
+   modflow/comparison-and-method-choice
+   modflow/worked-cases
+   modflow/transport-coupling
 
 Quick Reading Order
 -------------------

@@ -16,7 +16,8 @@ Le périmètre couvert :
 
 - Fichiers DuckDB : `hydromodpy.duckdb` (catalogue workspace) et
   `data/cache.duckdb` (cache d'entrée).
-- Stores Zarr : `simulations/<sim_id>.zarr/`.
+- Stores Zarr : `simulations/<basename>.zarr/` ou `.zarr.zip`, avec fallback
+  legacy sur `sim_id` quand `simulations.storage_basename` est absent.
 - Packages `.hmp` portables produits par
   `SimulationCatalog.export_package`.
 

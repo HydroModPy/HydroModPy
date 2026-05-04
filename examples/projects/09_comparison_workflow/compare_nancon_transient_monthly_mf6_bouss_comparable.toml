@@ -51,6 +51,9 @@ vka = 1.0
 [comparison.simulation.overlay.modflow6.sgrid.vertical]
 nlay = 1
 
+[comparison.simulation.overlay.modflow6.tgrid]
+firstpersteady = false
+
 [[comparison.simulation]]
 id = "bouss_candidate"
 label = "Boussinesq Nancon monthly candidate, comparable setup"
@@ -134,6 +137,39 @@ variable = "outflow_drain"
 support = "map"
 time = "last"
 unit = "m/day"
+
+[[comparison.observable]]
+name = "surface_excess_map_wet_period"
+variable = "surface_excess_rate"
+support = "map"
+time = 1
+unit = "m/day"
+simulations = ["bouss_candidate"]
+
+[[comparison.observable]]
+name = "surface_excess_map_dry_period"
+variable = "surface_excess_rate"
+support = "map"
+time = 6
+unit = "m/day"
+simulations = ["bouss_candidate"]
+
+[[comparison.observable]]
+name = "surface_excess_map_last"
+variable = "surface_excess_rate"
+support = "map"
+time = "last"
+unit = "m/day"
+simulations = ["bouss_candidate"]
+
+[[comparison.observable]]
+name = "surface_excess_flux_series"
+variable = "surface_excess_flux"
+support = "cell_mask"
+time = "all"
+reducer = "sum"
+unit = "m3/s"
+simulations = ["bouss_candidate"]
 
 [[comparison.observable]]
 name = "head_outlet_series"

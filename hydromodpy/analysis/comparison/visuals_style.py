@@ -27,15 +27,19 @@ def _pretty_label(value: str) -> str:
     return text[:1].upper() + text[1:] if text else "Value"
 
 
-def _display_variant_label(*, variant_id: str, variant_label: str) -> str:
-    text = variant_label.strip() or variant_id.strip()
+def _display_simulation_label(*, simulation_id: str, simulation_label: str) -> str:
+    text = simulation_label.strip() or simulation_id.strip()
     if len(text) <= 26:
         return text
-    return variant_id.strip() or text
+    return simulation_id.strip() or text
 
 
-def _variant_panel_title(*, variant_id: str, variant_label: str, solver: str) -> str:
-    label = _display_variant_label(variant_id=variant_id, variant_label=variant_label)
+def _simulation_panel_title(
+    *, simulation_id: str, simulation_label: str, solver: str
+) -> str:
+    label = _display_simulation_label(
+        simulation_id=simulation_id, simulation_label=simulation_label
+    )
     solver_text = str(solver).strip().lower()
     if not solver_text:
         return label
@@ -201,6 +205,7 @@ def _budget_component_label(component: str) -> str:
         "well_total_m3_s": "Wells",
         "drainage_total_m3_s": "Drainage",
         "surface_excess_total_m3_s": "Surface excess",
+        "comparable_outflow_total_m3_s": "Comparable outflow",
         "storage_change_total_m3_s": "Storage change",
         "closure_residual_m3_s": "Closure residual",
     }
@@ -213,8 +218,9 @@ def _budget_component_color(component: str) -> str:
         "well_total_m3_s": "#8c564b",
         "drainage_total_m3_s": "#ff7f0e",
         "surface_excess_total_m3_s": "#d62728",
+        "comparable_outflow_total_m3_s": "#111827",
         "storage_change_total_m3_s": "#2ca02c",
         "closure_residual_m3_s": "#6b7280",
-        "outlet_flux_series": "#111827",
+        "outlet_flux_series": "#4b5563",
     }
     return palette.get(component, "#6b7280")

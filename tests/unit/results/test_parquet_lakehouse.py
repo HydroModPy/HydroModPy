@@ -14,6 +14,7 @@ import pandas as pd
 
 from hydromodpy.results.catalog import SimulationCatalog
 from hydromodpy.results.catalog_schema import PARQUET_VIEW_NAMES
+from hydromodpy.results.storage_contract import PARQUET_FILE_SUFFIX
 
 
 def _make_series(n: int = 5, start: str = "2020-01-01") -> pd.Series:
@@ -32,7 +33,7 @@ class TestAtomicWrite:
         with SimulationCatalog(tmp_path) as cat:
             sid = _register(cat)
             cat.write_timeseries(sid, "P01", "head", _make_series(), unit="m")
-            target = cat.parquet_dir_for(sid) / "timeseries.parquet"
+            target = cat.parquet_dir_for(sid) / f"timeseries{PARQUET_FILE_SUFFIX}"
         assert target.is_file()
         assert not target.with_name(target.name + ".tmp").exists()
 
@@ -153,7 +154,7 @@ class TestAtomicInterruption:
         with SimulationCatalog(tmp_path) as cat:
             sid = _register(cat)
             cat.write_timeseries(sid, "P01", "head", _make_series(), unit="m")
-            stray = cat.parquet_dir_for(sid) / "timeseries.parquet.tmp"
+            stray = cat.parquet_dir_for(sid) / f"timeseries{PARQUET_FILE_SUFFIX}.tmp"
             stray.write_bytes(b"corrupted")
             count = cat.connection.execute(
                 "SELECT COUNT(*) FROM timeseries WHERE sim_id = ?", [sid]

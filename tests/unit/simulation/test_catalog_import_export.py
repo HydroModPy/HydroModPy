@@ -8,6 +8,7 @@ import pandas as pd
 import pytest
 
 from hydromodpy.results.catalog import SimulationCatalog
+from hydromodpy.results.storage_contract import SIMULATIONS_DIRNAME, ZARR_ZIP_SUFFIX
 
 
 @pytest.fixture
@@ -178,6 +179,6 @@ class TestImportSimulation:
             [sid],
         ).fetchone()
         assert basename  # non-null basename populated on import
-        assert zarr_path == f"simulations/{basename}.zarr.zip"
+        assert zarr_path == f"{SIMULATIONS_DIRNAME}/{basename}{ZARR_ZIP_SUFFIX}"
         assert (ws2 / zarr_path).exists()
         cat2.close()

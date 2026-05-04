@@ -4,7 +4,7 @@ A catchment may be re-used across hundreds of simulations (e.g. calibration
 runs sweeping hydraulic parameters on a fixed domain). The geographic
 artefacts - DEM raster, geology raster, watershed polygon, river network -
 are identical across all those runs and do not need to be duplicated inside
-each ``simulations/<uuid>.zarr``.
+each ``simulations/<basename>.zarr``.
 
 This module provides :class:`GeographicCache`, a deterministic, read-through
 cache keyed by a SHA-256 fingerprint computed from the resolved spatial

@@ -370,6 +370,11 @@ class Boussinesq(Solver):
         ic_type = str(head_ic.type).strip().lower()
         if ic_type == "top":
             return np.asarray(self.mesh.z_top_m, dtype=float)
+        if ic_type == "top_offset":
+            if head_ic.value is None:
+                raise ValueError("flow.ic.value is required when flow.ic.type='top_offset'.")
+            offset_m = float(getattr(head_ic.value, "magnitude", head_ic.value))
+            return np.asarray(self.mesh.z_top_m, dtype=float) - offset_m
         if ic_type == "bottom":
             return np.asarray(self.mesh.z_bottom_m, dtype=float)
         if ic_type == "custom":

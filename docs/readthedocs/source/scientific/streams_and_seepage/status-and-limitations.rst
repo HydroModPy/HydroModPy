@@ -106,7 +106,7 @@ Calibration-grade stream-network metric
 
 K-only Nancon calibration protocol
    The committed Nancon sweep is a development and reading case. A clean
-   calibration protocol should freeze the support across variants, declare the
+   calibration protocol should freeze the support across simulations, declare the
    objective metric, and rerun the parameter search under that protocol.
 
 Recommended Acceptance Checks

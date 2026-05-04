@@ -97,12 +97,26 @@ def _read_bytes(path: Path) -> bytes:
     return Path("\\\\?\\" + text).read_bytes()
 
 
+def _write_text(path: Path, content: str) -> None:
+    if os.name != "nt":
+        path.write_text(content, encoding="utf-8")
+        return
+    text = str(path.expanduser().resolve())
+    if text.startswith("\\\\?\\"):
+        Path(text).write_text(content, encoding="utf-8")
+        return
+    if text.startswith("\\\\"):
+        Path("\\\\?\\UNC\\" + text.lstrip("\\")).write_text(content, encoding="utf-8")
+        return
+    Path("\\\\?\\" + text).write_text(content, encoding="utf-8")
+
+
 def _write_dummy_launcher_config(repo_root: Path, relative_path: str) -> None:
     config_path = repo_root / relative_path
     config_path.parent.mkdir(parents=True, exist_ok=True)
-    config_path.write_text(
+    _write_text(
+        config_path,
         "[mesh_catchment]\nconstraints_mode = 'geology_rivers'\n",
-        encoding="utf-8",
     )
 
 

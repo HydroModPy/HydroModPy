@@ -43,7 +43,7 @@ The sweep uses:
 - drainage conductance ``= 3e-3 m2/s``
 - ``modflow6.tgrid.firstpersteady = false``
 
-``k_2e4`` is only the reference variant for head-map difference plots. The
+``k_2e4`` is only the reference simulation for head-map difference plots. The
 stream comparison below always compares each simulated-active network against
 the observed ``reference`` hydrographic network.
 
@@ -71,7 +71,7 @@ The main files to inspect are:
 - ``simulated_active_network_metrics.csv``
 - ``simulated_active_network_overlap_metrics.csv``
 - ``simulated_active_network_distance_metrics.csv``
-- ``run_figures/<variant>/simulated_active_network_reference_overlay.png``
+- ``run_figures/<simulation_id>/simulated_active_network_reference_overlay.png``
 - ``comparison_report.md``
 - ``comparison_audit.md``
 
@@ -92,16 +92,16 @@ Case Configuration
    :alt: Nancon wide-K sweep comparison configuration
    :width: 100%
 
-   Common comparison support for the four MODFLOW 6 variants.
+   Common comparison support for the four MODFLOW 6 simulations.
 
-Variants
---------
+Simulations
+-----------
 
 .. list-table::
    :header-rows: 1
    :widths: 18 18 64
 
-   * - Variant
+   * - Simulation
      - K
      - Interpretation
    * - ``k_5e5``
@@ -120,7 +120,7 @@ Variants
 Overlap Metrics
 ---------------
 
-The table below compares the simulated active network of each variant against
+The table below compares the simulated active network of each simulation against
 the observed ``reference`` linework. The mode is ``persistent`` because this is
 a transient run; cells active for at least 50% of timesteps are retained.
 
@@ -128,7 +128,7 @@ a transient run; cells active for at least 50% of timesteps are retained.
    :header-rows: 1
    :widths: 12 14 15 13 13 11 11 11
 
-   * - Variant
+   * - Simulation
      - K
      - Active cells
      - Missing ref.
@@ -180,7 +180,7 @@ cell-centroid diagnostic, not the downslope DEM-routing criterion.
    :header-rows: 1
    :widths: 12 14 18 18 18 18
 
-   * - Variant
+   * - Simulation
      - K
      - Sim -> ref mean m
      - Ref -> sim mean m
@@ -330,9 +330,9 @@ Current Limitation
 ------------------
 
 This run is useful for visual development, but the audit is intentionally
-strict and reports small mesh differences between variants. For a clean
+strict and reports small mesh differences between simulations. For a clean
 K-only protocol, the next step is to freeze and reuse exactly the same mesh
-for every variant, then rerun the same sweep.
+for every simulation, then rerun the same sweep.
 
 The overlap metric is cell-based: it rasterizes the observed ``reference``
 linework onto the model mesh and compares it with simulated active cells. The

@@ -1,0 +1,87 @@
+{
+  "summary_schema_version": "capability_gallery_case_v1",
+  "slug": "ex12_mf6_nwt_moderate",
+  "title": "MF6 Triangular vs NWT Structured on Moderate Forcing",
+  "category": "simulation_comparison",
+  "deck": "Annual moderate comparison where both solver family and mesh family change, with a common fine raster used for map alignment.",
+  "summary": "This case compares a MODFLOW 6 run on the committed triangular support against a MODFLOW-NWT run on the historical 60x60 structured grid. It keeps the same moderate annual forcing as the shared-grid comparison but now mixes support families, so the page documents the combined effect of solver choice and spatial discretization.",
+  "case_setup": [
+    "Reference simulation: MODFLOW 6 on the committed triangular mesh.",
+    "Candidate simulation: MODFLOW-NWT on the 60x60 structured grid.",
+    "Map observables are resampled on a shared fine raster over the support intersection before parity metrics are computed."
+  ],
+  "key_parameters": [
+    "`[comparison.fine_raster] enabled = true` is essential here because the compared meshes are not natively aligned cell by cell.",
+    "`extent_mode = \"intersection\"` keeps the comparison on the spatial footprint both supports actually share.",
+    "Read outlet-flux differences with more caution than in the same-grid case: they now reflect both solver behaviour and support discretization."
+  ],
+  "how_to_read": [
+    "Treat this page as a mixed solver-and-support comparison, not as a pure solver benchmark.",
+    "Read the parity metrics after checking the support mismatch described in the case setup; otherwise the numbers look more absolute than they really are.",
+    "Use this page to understand what changes when you leave the shared-support regime used by the tighter comparison cases."
+  ],
+  "next_steps": [
+    "Use :doc:`the gallery and validation reading guide </getting_started/reading-results-pages>` to distinguish example pages, comparison pages, and validation pages.",
+    "Go back to :doc:`the simulation walkthrough </getting_started/simulation-walkthrough>` when you need to inspect one contributing run in isolation."
+  ],
+  "what_it_shows": [
+    "How solver and support differences accumulate when the comparison no longer uses one identical mesh.",
+    "How a fine common raster and an intersection extent make map comparisons possible across incompatible supports.",
+    "How point chronicles and outlet flux help decide whether disagreement is local, diffuse, or tied to basin export."
+  ],
+  "reference_highlights": [],
+  "equations_rst": [],
+  "walkthrough_doc": "getting_started/reading-results-pages",
+  "walkthrough_title": "the gallery and validation reading guide",
+  "reproduction_command": "python -m tools.doc_gallery",
+  "gallery_update_command": "python -m tools.doc_gallery",
+  "source_paths": [
+    "docs/readthedocs/source/_static/capability_gallery/simulation_comparison/ex12_mf6_nwt_moderate_comparison_manifest.json",
+    "docs/readthedocs/source/_static/capability_gallery/simulation_comparison/ex12_mf6_nwt_moderate_comparison_metrics.json",
+    "docs/readthedocs/source/_static/capability_gallery/simulation_comparison/ex12_mf6_nwt_moderate_observables.csv",
+    "docs/readthedocs/source/_static/capability_gallery/simulation_comparison/ex12_mf6_nwt_moderate_summary_metrics.csv",
+    "docs/readthedocs/source/_static/capability_gallery/simulation_comparison/ex12_mf6_nwt_moderate_difference_metrics.csv"
+  ],
+  "source_hashes": {
+    "docs/readthedocs/source/_static/capability_gallery/simulation_comparison/ex12_mf6_nwt_moderate_comparison_manifest.json": "4b3c1768a1e95262accde6a29debbf0ad5f9fd38e0e0723bd04bb69815ba22c3",
+    "docs/readthedocs/source/_static/capability_gallery/simulation_comparison/ex12_mf6_nwt_moderate_comparison_metrics.json": "32325d712521903d8c62a875332de1159c718ca630ae0dcaf5eb0f62408f7ced",
+    "docs/readthedocs/source/_static/capability_gallery/simulation_comparison/ex12_mf6_nwt_moderate_observables.csv": "99fa3f3b614721bc36124c0c660c4ac5ebe7212d9966c062980ac117f0fabd15",
+    "docs/readthedocs/source/_static/capability_gallery/simulation_comparison/ex12_mf6_nwt_moderate_summary_metrics.csv": "b2178b4bcaff929d657439d2e10db0f98d63b24f59ad8bb6faac077e832ec078",
+    "docs/readthedocs/source/_static/capability_gallery/simulation_comparison/ex12_mf6_nwt_moderate_difference_metrics.csv": "cfdccb9898a67f806cbf5665234ca7bd6241df8f2652586525d3d70c8a342f6c"
+  },
+  "docname": "cases/ex12_mf6_nwt_moderate",
+  "images": [
+    {
+      "filename": "ex12_mf6_nwt_moderate.png",
+      "caption": "Summary comparison figure for mf6 triangular vs nwt structured on moderate forcing.",
+      "alt_text": "Simulation comparison summary for MF6 Triangular vs NWT Structured on Moderate Forcing",
+      "doc_path": "/_static/capability_gallery/simulation_comparison/ex12_mf6_nwt_moderate.png",
+      "repo_path": "docs/readthedocs/source/_static/capability_gallery/simulation_comparison/ex12_mf6_nwt_moderate.png"
+    }
+  ],
+  "metrics": [],
+  "metadata": {
+    "static_summary_path": "docs/readthedocs/source/_static/capability_gallery/simulation_comparison/ex12_mf6_nwt_moderate_summary.json",
+    "comparison_summary_path": "docs/readthedocs/source/_static/capability_gallery/simulation_comparison/ex12_mf6_nwt_moderate_summary.json",
+    "study_area": "Example12 / Naizin",
+    "focus_simulation_id": "nwt_mod_s60",
+    "comparison_family_key": "mixed_support_regime",
+    "comparison_family_label": "Different Supports, Same Regime",
+    "comparison_family_deck": "These cases keep the forcing regime fixed but intentionally change the mesh family, so the page captures both solver differences and support-transfer effects.",
+    "comparison_family_order": 20,
+    "comparison_case_order": 10,
+    "copied_assets": [
+      {
+        "source_path": "docs/readthedocs/source/_static/capability_gallery/simulation_comparison/ex12_mf6_nwt_moderate.png",
+        "copied_to": "docs/readthedocs/source/_static/capability_gallery/simulation_comparison/ex12_mf6_nwt_moderate.png"
+      }
+    ]
+  },
+  "artifacts": {
+    "summary_json_doc_path": "/_static/capability_gallery/simulation_comparison/ex12_mf6_nwt_moderate_summary.json",
+    "summary_json_repo_path": "docs/readthedocs/source/_static/capability_gallery/simulation_comparison/ex12_mf6_nwt_moderate_summary.json",
+    "image_repo_paths": [
+      "docs/readthedocs/source/_static/capability_gallery/simulation_comparison/ex12_mf6_nwt_moderate.png"
+    ]
+  }
+}

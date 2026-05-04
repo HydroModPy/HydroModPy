@@ -1,4 +1,4 @@
-"""TOML rendering and variant-config materialization for comparisons."""
+"""TOML rendering and simulation-config materialization for comparisons."""
 
 from __future__ import annotations
 
@@ -11,7 +11,7 @@ from typing import Any
 
 from hydromodpy.analysis.comparison.config import (
     ComparisonConfig,
-    ComparisonVariant,
+    ComparisonSimulation,
 )
 from hydromodpy.core.toml_io.loader import (
     load_toml_with_base_config,
@@ -119,7 +119,8 @@ def _build_solver_process_overlay(
     flow_indices = [
         index
         for index, process in enumerate(processes)
-        if isinstance(process, Mapping) and str(process.get("type", "")).strip().lower() == "flow"
+        if isinstance(process, Mapping)
+        and str(process.get("type", "")).strip().lower() == "flow"
     ]
     if len(flow_indices) != 1:
         return None
@@ -129,13 +130,13 @@ def _build_solver_process_overlay(
     return overlays
 
 
-def materialize_variant_config(
+def materialize_simulation_config(
     *,
     cfg: ComparisonConfig,
-    variant: ComparisonVariant,
+    simulation: ComparisonSimulation,
 ) -> Path | None:
-    """Return the config path used by one variant, generating it if needed."""
-    direct_config = cfg.resolve_variant_config_path(variant)
+    """Return the config path used by one comparison simulation, generating it if needed."""
+    direct_config = cfg.resolve_simulation_config_path(simulation)
     if direct_config is not None:
         return direct_config
 
@@ -143,14 +144,14 @@ def materialize_variant_config(
     if base_config_path is None:
         return None
 
-    overlay = _deepcopy_jsonlike(variant.overlay)
+    overlay = _deepcopy_jsonlike(simulation.overlay)
     simulation_overlay = overlay.setdefault("simulation", {})
     if isinstance(simulation_overlay, dict):
-        simulation_overlay.setdefault("run_id", variant.id)
-        if variant.solver is not None and not _overlay_defines_process(overlay):
+        simulation_overlay.setdefault("run_id", simulation.id)
+        if simulation.solver is not None and not _overlay_defines_process(overlay):
             process_overlay = _build_solver_process_overlay(
                 base_config_path=base_config_path,
-                solver=variant.solver,
+                solver=simulation.solver,
             )
             if process_overlay is not None:
                 simulation_overlay["process"] = process_overlay
@@ -159,12 +160,14 @@ def materialize_variant_config(
         {"base_config": base_config_path.as_posix()},
         overlay,
     )
-    generated_path = cfg.comparison_root / "_generated_configs" / f"{variant.id}.toml"
+    generated_path = (
+        cfg.comparison_root / "_generated_configs" / f"{simulation.id}.toml"
+    )
     write_toml_payload(generated_path, payload)
     return generated_path
 
 
 __all__ = (
-    "materialize_variant_config",
+    "materialize_simulation_config",
     "write_toml_payload",
 )

@@ -4,7 +4,7 @@ This test does not run a real MODFLOW simulation - the pipeline
 orchestration is exercised through a representative synthetic workflow
 that validates the contract guaranteed by ``Pipeline``:
 
-- linear execution of an 11-step pipeline,
+- linear execution of a 12-step pipeline,
 - checkpoint persistence between steps,
 - DuckDB ledger capturing status + elapsed time,
 - resume-after-crash replays only the remaining steps.
@@ -23,26 +23,15 @@ from hydromodpy.core.exceptions import StepError
 from hydromodpy.workflow.internals.checkpoint import CheckpointStore
 from hydromodpy.workflow.internals.ledger import StepsLedger
 from hydromodpy.workflow.internals.state import PipelineState
+from hydromodpy.workflow.phases import STANDARD_PIPELINE_STEP_NAMES
 from hydromodpy.workflow.runner import Pipeline
 
 # ---------------------------------------------------------------------------
-# Synthetic 11-step workflow mirroring the canonical names of the real
+# Synthetic workflow mirroring the canonical names of the real
 # pipeline so regressions stay meaningful.
 # ---------------------------------------------------------------------------
 
-CANONICAL_NAMES = (
-    "validate",
-    "resolve",
-    "load_data",
-    "build_geographic",
-    "build_mesh",
-    "setup_process",
-    "prepare_solver",
-    "run_solver",
-    "extract",
-    "derive",
-    "export",
-)
+CANONICAL_NAMES = STANDARD_PIPELINE_STEP_NAMES
 
 
 class _NamedStep:
@@ -93,7 +82,7 @@ def test_pipeline_full_end_to_end(tmp_path: Path) -> None:
     state = PipelineState(run_id="full-1", data={})
     final = pipeline.run(state)
 
-    assert final.step_name == "export"
+    assert final.step_name == "display"
     assert final.step_index == len(CANONICAL_NAMES) - 1
     assert final.data["history"] == tuple(range(len(CANONICAL_NAMES)))
 
@@ -140,4 +129,4 @@ def test_pipeline_crash_then_resume_converges(tmp_path: Path) -> None:
 
     assert resumed_final.data["history"] == ref_final.data["history"]
     assert resumed_final.data["last_step"] == ref_final.data["last_step"]
-    assert resumed_final.step_name == "export"
+    assert resumed_final.step_name == "display"

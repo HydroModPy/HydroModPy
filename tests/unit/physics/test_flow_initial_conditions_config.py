@@ -29,6 +29,18 @@ def test_normalize_flow_initial_conditions_accepts_inline_unit() -> None:
     assert initial_conditions.h.units == "m"
 
 
+def test_normalize_flow_initial_conditions_accepts_top_offset() -> None:
+    initial_conditions = normalize_flow_initial_conditions(
+        {
+            "type": "top_offset",
+            "value": "10 m",
+        }
+    )
+    assert initial_conditions is not None
+    assert initial_conditions.h.type == "top_offset"
+    assert initial_conditions.h.value.to("m").magnitude == pytest.approx(10.0)
+
+
 def test_normalize_flow_initial_conditions_rejects_conflicting_units() -> None:
     with pytest.raises(ValueError, match="conflicting units"):
         normalize_flow_initial_conditions(

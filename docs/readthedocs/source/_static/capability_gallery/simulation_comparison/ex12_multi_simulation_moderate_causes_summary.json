@@ -1,0 +1,87 @@
+{
+  "summary_schema_version": "capability_gallery_case_v1",
+  "slug": "ex12_multi_simulation_moderate_causes",
+  "title": "Four-Simulation Moderate Suite with Surface-Excess Diagnostics",
+  "category": "simulation_comparison",
+  "deck": "Diagnostic extension of the four-simulation moderate suite, adding surface-excess observables and Boussinesq budget diagnostics.",
+  "summary": "This case keeps the same four simulations as the moderate suite but adds observables that only make sense for the triangular/Boussinesq side of the comparison: surface-excess time series, a surface-excess map, and an explicit budget-diagnostics figure. It is the diagnostic companion page for understanding where the multi-simulation spread comes from.",
+  "case_setup": [
+    "Base simulations are identical to the four-simulation moderate suite: MF6 structured, NWT structured, MF6 triangular, and Boussinesq triangular.",
+    "Additional observables expose surface-excess response and Boussinesq budget structure rather than only the shared state variables.",
+    "The page is intentionally denser because it is meant for diagnosis after reading the simpler synthesis page."
+  ],
+  "key_parameters": [
+    "This config keeps the multi-simulation backbone but adds observables that are diagnostic rather than universally shared across all simulations.",
+    "Use the surface-excess series and map to explain why the Boussinesq triangular simulation departs from the MODFLOW simulations under moderate forcing.",
+    "The budget diagnostics are explanatory aids, not a replacement for the comparable cross-simulation metrics shown on the simpler suite page."
+  ],
+  "how_to_read": [
+    "Read this page after the simpler four-simulation suite, not before it.",
+    "Use it when you need a causal explanation for one mismatch, especially on the Boussinesq triangular branch, rather than a first-pass comparison overview.",
+    "Keep in mind that not every diagnostic observable exists for every simulation, so this page is partly asymmetric by design."
+  ],
+  "next_steps": [
+    "Use :doc:`the gallery and validation reading guide </getting_started/reading-results-pages>` to distinguish example pages, comparison pages, and validation pages.",
+    "Go back to :doc:`the simulation walkthrough </getting_started/simulation-walkthrough>` when you need to inspect one contributing run in isolation."
+  ],
+  "what_it_shows": [
+    "How a multi-simulation suite can be extended with targeted diagnostic observables instead of only repeating the same state metrics.",
+    "How Boussinesq-specific surface-excess and budget views help explain disagreements seen in the more generic four-simulation page.",
+    "How the same comparison backbone can support both a compact synthesis page and a more causal diagnostic page."
+  ],
+  "reference_highlights": [],
+  "equations_rst": [],
+  "walkthrough_doc": "getting_started/reading-results-pages",
+  "walkthrough_title": "the gallery and validation reading guide",
+  "reproduction_command": "python -m tools.doc_gallery",
+  "gallery_update_command": "python -m tools.doc_gallery",
+  "source_paths": [
+    "docs/readthedocs/source/_static/capability_gallery/simulation_comparison/ex12_multi_simulation_moderate_causes_comparison_manifest.json",
+    "docs/readthedocs/source/_static/capability_gallery/simulation_comparison/ex12_multi_simulation_moderate_causes_comparison_metrics.json",
+    "docs/readthedocs/source/_static/capability_gallery/simulation_comparison/ex12_multi_simulation_moderate_causes_observables.csv",
+    "docs/readthedocs/source/_static/capability_gallery/simulation_comparison/ex12_multi_simulation_moderate_causes_summary_metrics.csv",
+    "docs/readthedocs/source/_static/capability_gallery/simulation_comparison/ex12_multi_simulation_moderate_causes_difference_metrics.csv"
+  ],
+  "source_hashes": {
+    "docs/readthedocs/source/_static/capability_gallery/simulation_comparison/ex12_multi_simulation_moderate_causes_comparison_manifest.json": "adea35ee9a02e28ba304a76a6511689f338b9296b3175d920bd180d0d46de1e9",
+    "docs/readthedocs/source/_static/capability_gallery/simulation_comparison/ex12_multi_simulation_moderate_causes_comparison_metrics.json": "b6046c5c9f40866a4e02a13515498189e5c127dff11cada3dbf35aa83261aab6",
+    "docs/readthedocs/source/_static/capability_gallery/simulation_comparison/ex12_multi_simulation_moderate_causes_observables.csv": "f5c35852fd203466b4b8e1f96c9965985b75c1a4dd5b82565a8a77c3147c4477",
+    "docs/readthedocs/source/_static/capability_gallery/simulation_comparison/ex12_multi_simulation_moderate_causes_summary_metrics.csv": "ac6c7ea54c2b91a3baa8211d8dd176305aaa6d36a27d2529b982043d4133bb49",
+    "docs/readthedocs/source/_static/capability_gallery/simulation_comparison/ex12_multi_simulation_moderate_causes_difference_metrics.csv": "6a174bc32a9b9809b2c4a1e00d676eb16264d02fea709e3ccc7a99cb371ae21c"
+  },
+  "docname": "cases/ex12_multi_simulation_moderate_causes",
+  "images": [
+    {
+      "filename": "ex12_multi_simulation_moderate_causes.png",
+      "caption": "Summary comparison figure for four-simulation moderate suite with surface-excess diagnostics.",
+      "alt_text": "Simulation comparison summary for Four-Simulation Moderate Suite with Surface-Excess Diagnostics",
+      "doc_path": "/_static/capability_gallery/simulation_comparison/ex12_multi_simulation_moderate_causes.png",
+      "repo_path": "docs/readthedocs/source/_static/capability_gallery/simulation_comparison/ex12_multi_simulation_moderate_causes.png"
+    }
+  ],
+  "metrics": [],
+  "metadata": {
+    "static_summary_path": "docs/readthedocs/source/_static/capability_gallery/simulation_comparison/ex12_multi_simulation_moderate_causes_summary.json",
+    "comparison_summary_path": "docs/readthedocs/source/_static/capability_gallery/simulation_comparison/ex12_multi_simulation_moderate_causes_summary.json",
+    "study_area": "Example12 / Naizin",
+    "focus_simulation_id": "bouss_mod_tri",
+    "comparison_family_key": "multi_simulation_suites",
+    "comparison_family_label": "Multi-Simulation Suites",
+    "comparison_family_deck": "These cases keep more than two simulations on one page so the reader can separate solver-family, support-family, and runtime-family effects without opening several independent comparisons.",
+    "comparison_family_order": 30,
+    "comparison_case_order": 20,
+    "copied_assets": [
+      {
+        "source_path": "docs/readthedocs/source/_static/capability_gallery/simulation_comparison/ex12_multi_simulation_moderate_causes.png",
+        "copied_to": "docs/readthedocs/source/_static/capability_gallery/simulation_comparison/ex12_multi_simulation_moderate_causes.png"
+      }
+    ]
+  },
+  "artifacts": {
+    "summary_json_doc_path": "/_static/capability_gallery/simulation_comparison/ex12_multi_simulation_moderate_causes_summary.json",
+    "summary_json_repo_path": "docs/readthedocs/source/_static/capability_gallery/simulation_comparison/ex12_multi_simulation_moderate_causes_summary.json",
+    "image_repo_paths": [
+      "docs/readthedocs/source/_static/capability_gallery/simulation_comparison/ex12_multi_simulation_moderate_causes.png"
+    ]
+  }
+}

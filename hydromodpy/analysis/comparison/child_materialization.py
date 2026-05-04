@@ -27,6 +27,7 @@ ALLOWED_TOP_LEVEL_OVERLAY_KEYS = {
     "simulation",
     "workspace",
     "solver",
+    "mesh_input",
     "modflow6",
     "modflownwt",
     "display",
@@ -99,6 +100,16 @@ def _looks_like_path_key(key: str) -> bool:
     if token == "base_config":
         return True
     return any(hint in token for hint in PATH_KEY_HINTS)
+
+
+def _payload_workspace_root(payload: Mapping[str, Any], *, fallback: Path) -> Path:
+    """Return the child run folder declared by the generated simulation payload."""
+    workspace = payload.get("workspace")
+    if isinstance(workspace, Mapping):
+        raw_root = workspace.get("root")
+        if isinstance(raw_root, str) and raw_root.strip():
+            return Path(raw_root).expanduser().resolve()
+    return fallback
 
 
 def _absolutize_relative_path_values(value: Any, *, source_dir: Path, key: str = "") -> Any:
@@ -199,7 +210,6 @@ def materialize_child_configs(
             base_dir=cfg.base_dir,
         )
         if declared_config_path is not None:
-            child_run_folder = declared_run_folder or declared_config_path.parent
             run_name = _child_run_name(
                 comparison_id=str(cfg.comparison.comparison_id or cfg.config_path.stem),
                 simulation_id=simulation.id,
@@ -210,7 +220,7 @@ def materialize_child_configs(
                     label=simulation.label or simulation.id,
                     solver=simulation.solver,
                     config_path=declared_config_path,
-                    run_folder=child_run_folder,
+                    run_folder=declared_run_folder,
                     run_name=run_name,
                     generated_config=False,
                     mesh_label=simulation.mesh_label,
@@ -236,13 +246,14 @@ def materialize_child_configs(
         payload, run_name = build_child_payload(cfg=cfg, simulation=simulation)
         path = generated_dir / f"{simulation.id}.toml"
         write_toml_payload(path, payload)
+        child_run_folder = _payload_workspace_root(payload, fallback=path.parent)
         children.append(
             GeneratedChildConfig(
                 simulation_id=simulation.id,
                 label=simulation.label or simulation.id,
                 solver=simulation.solver,
                 config_path=path,
-                run_folder=path.parent,
+                run_folder=child_run_folder,
                 run_name=run_name,
                 generated_config=True,
                 mesh_label=simulation.mesh_label,

@@ -53,8 +53,8 @@
         "tags": "mesh_ready",
         "enabled": "true",
         "simulation_reference_config": "../run_headwater_100km2_outlet_2_mf6_transient_reference.toml",
-        "backend_comparison_config": "../run_method_comparison_headwater_100km2_outlet_2_backends.toml",
-        "transient_backend_comparison_config": "../run_method_comparison_headwater_100km2_outlet_2_transient_pulsed_recharge_backends.toml",
+        "backend_comparison_config": "../run_comparison_headwater_100km2_outlet_2_backends.toml",
+        "transient_backend_comparison_config": "../run_comparison_headwater_100km2_outlet_2_transient_pulsed_recharge_backends.toml",
         "notes": "real committed 100 km2 outlet 2"
       }
     },
@@ -320,7 +320,7 @@
     {
       "id": "backend_compare",
       "label": "Backend comparison",
-      "launcher": "method-comparison",
+      "launcher": "comparison",
       "enabled": false,
       "config_path_template": "{backend_comparison_config}",
       "required_fields": [
@@ -331,7 +331,7 @@
     {
       "id": "transient_backend_compare",
       "label": "Transient backend comparison",
-      "launcher": "method-comparison",
+      "launcher": "comparison",
       "enabled": true,
       "config_path_template": "{transient_backend_comparison_config}",
       "required_fields": [
@@ -364,7 +364,7 @@
       ],
       "recipe_id": "transient_backend_compare",
       "recipe_label": "Transient backend comparison",
-      "launcher": "method-comparison",
+      "launcher": "comparison",
       "config_path": "docs/readthedocs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_transient_backend_compare_recipe_summary.json"
     }
   ],
@@ -386,7 +386,7 @@
       ],
       "recipe_id": "transient_backend_compare",
       "recipe_label": "Transient backend comparison",
-      "launcher": "method-comparison",
+      "launcher": "comparison",
       "reason": "missing_required_fields",
       "detail": "Missing required field(s): transient_backend_comparison_config",
       "missing_fields": [
@@ -411,7 +411,7 @@
       ],
       "recipe_id": "transient_backend_compare",
       "recipe_label": "Transient backend comparison",
-      "launcher": "method-comparison",
+      "launcher": "comparison",
       "reason": "missing_required_fields",
       "detail": "Missing required field(s): transient_backend_comparison_config",
       "missing_fields": [

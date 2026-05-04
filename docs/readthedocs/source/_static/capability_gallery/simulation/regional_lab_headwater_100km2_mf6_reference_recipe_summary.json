@@ -23,7 +23,7 @@
   ],
   "next_steps": [
     "Switch `execute = true` in the focused overlay config when the dry plan looks correct and you want to launch the child workflow.",
-    "Use these orchestration pages as the planning complement to the individual simulation and method-comparison cases already exposed elsewhere in the gallery."
+    "Use these orchestration pages as the planning complement to the individual simulation and comparison cases already exposed elsewhere in the gallery."
   ],
   "what_it_shows": [
     "How one reusable simulation recipe is expanded from the regional site catalog instead of hard-coding one child config path per case page.",
@@ -34,33 +34,46 @@
   "equations_rst": [],
   "walkthrough_doc": "getting_started/simulation-walkthrough",
   "walkthrough_title": "the Simulation walkthrough",
-  "reproduction_command": "python -m hydromodpy run examples_legacy_2/projects/launcher_simulation/regional_lab/config_headwater_100km2_lab_mf6_reference.toml",
+  "reproduction_command": "python -m tools.doc_gallery",
   "gallery_update_command": "python -m tools.doc_gallery",
   "source_paths": [
-    "examples_legacy_2/projects/launcher_simulation/regional_lab/config_headwater_100km2_lab_mf6_reference.toml",
+    "docs/readthedocs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_mf6_reference_recipe_plan.json",
+    "docs/readthedocs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_mf6_reference_recipe_report.json",
+    "docs/readthedocs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_mf6_reference_recipe_summary.md",
+    "docs/readthedocs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_mf6_reference_recipe_site_inventory.csv",
+    "docs/readthedocs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_mf6_reference_recipe_recipe_summary.csv",
+    "docs/readthedocs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_mf6_reference_recipe_cluster_summary.csv",
+    "docs/readthedocs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_mf6_reference_recipe_case_matrix.csv",
     "hydromodpy/analysis/batch/__init__.py",
     "hydromodpy/analysis/batch/config.py",
-    "hydromodpy/analysis/batch/runtime.py",
-    "examples_legacy_2/projects/launcher_simulation/regional_lab/README.md",
-    "examples_legacy_2/projects/launcher_simulation/regional_lab/config_headwater_100km2_lab.toml",
-    "examples_legacy_2/projects/launcher_simulation/regional_lab/site_catalog.csv",
-    "examples_legacy_2/projects/launcher_simulation/run_headwater_100km2_outlet_2_mf6_transient_reference.toml"
+    "hydromodpy/analysis/batch/runtime.py"
   ],
   "source_hashes": {
-    "examples_legacy_2/projects/launcher_simulation/regional_lab/config_headwater_100km2_lab_mf6_reference.toml": "__missing__",
+    "docs/readthedocs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_mf6_reference_recipe_plan.json": "e2b16fdfb30456f4700349457f94775a930bfa6cdb3891421e498ca34f4981c9",
+    "docs/readthedocs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_mf6_reference_recipe_report.json": "ff3ff846e12302772e5a896a8e392ef81a4f172a6d01b0bbd53b8abed673f3ae",
+    "docs/readthedocs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_mf6_reference_recipe_summary.md": "e2cde85ae09a43a1ef17a386c7b2185b3cc66b96934882b9c6853c753d9a44cb",
+    "docs/readthedocs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_mf6_reference_recipe_site_inventory.csv": "9e45497a24f90cfafb4660332d86d71fd32d42377a83a4b72d3e75a0b8b79ccc",
+    "docs/readthedocs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_mf6_reference_recipe_recipe_summary.csv": "1bc560b4091286f3e24e6ff46613098cde8ac7c178bdb44c0b314a3489a88383",
+    "docs/readthedocs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_mf6_reference_recipe_cluster_summary.csv": "1738b81b72150d3df29ccd709c43345eae3ad096603da988299a8a81f74d32c1",
+    "docs/readthedocs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_mf6_reference_recipe_case_matrix.csv": "88e7980c11cbbf5ef62525d60925929c9ba75c3680d345bac13ce43fc0867e39",
     "hydromodpy/analysis/batch/__init__.py": "fd66fa0503694884495d6d668b29fdee9e65fb1a812e397119c033f5351b2550",
-    "hydromodpy/analysis/batch/config.py": "e24edd3579595e7e2a308af298104735bbb32abc6bce35760ff80dda81bd2abe",
-    "hydromodpy/analysis/batch/runtime.py": "75c579931a01507a6b9aaf75cb57c49229ccbf555b289a03f35621786fc84c7c",
-    "examples_legacy_2/projects/launcher_simulation/regional_lab/README.md": "__missing__",
-    "examples_legacy_2/projects/launcher_simulation/regional_lab/config_headwater_100km2_lab.toml": "__missing__",
-    "examples_legacy_2/projects/launcher_simulation/regional_lab/site_catalog.csv": "__missing__",
-    "examples_legacy_2/projects/launcher_simulation/run_headwater_100km2_outlet_2_mf6_transient_reference.toml": "__missing__"
+    "hydromodpy/analysis/batch/config.py": "aa0649e89414c7820230adf35fdb71458955b3633ffc266c3943efeace04d146",
+    "hydromodpy/analysis/batch/runtime.py": "cc0b894982d0f304622fb08d2fbc814cbf77bda3ebc2ac267d95d39624aeb1b2"
   },
   "docname": "cases/regional_lab_headwater_100km2_mf6_reference_recipe",
-  "images": [],
+  "images": [
+    {
+      "filename": "regional_lab_headwater_100km2_mf6_reference_recipe.png",
+      "caption": "Dry-plan synthesis for regional lab mf6 reference recipe on headwater 100 km2: site or candidate coverage, recipe summary, and planning metrics.",
+      "alt_text": "Regional lab dry-plan synthesis for Regional Lab MF6 Reference Recipe on Headwater 100 km2",
+      "doc_path": "/_static/capability_gallery/simulation/regional_lab_headwater_100km2_mf6_reference_recipe.png",
+      "repo_path": "docs/readthedocs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_mf6_reference_recipe.png"
+    }
+  ],
   "metrics": [],
   "metadata": {
-    "regional_lab_config_path": "examples_legacy_2/projects/launcher_simulation/regional_lab/config_headwater_100km2_lab_mf6_reference.toml",
+    "static_summary_path": "docs/readthedocs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_mf6_reference_recipe_summary.json",
+    "regional_lab_summary_path": "docs/readthedocs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_mf6_reference_recipe_summary.json",
     "study_area": "Brittany regional laboratory",
     "process_families": [
       "planning",
@@ -86,41 +99,18 @@
     "flow_solvers": [
       "MODFLOW 6"
     ],
-    "generation_status": "source_unavailable_local",
-    "generation_reason": "The regional-lab overlay config needed to regenerate this page is not available in the current checkout.",
-    "missing_source_paths": [
-      "examples_legacy_2/projects/launcher_simulation/regional_lab/config_headwater_100km2_lab_mf6_reference.toml",
-      "examples_legacy_2/projects/launcher_simulation/regional_lab/README.md",
-      "examples_legacy_2/projects/launcher_simulation/regional_lab/config_headwater_100km2_lab.toml",
-      "examples_legacy_2/projects/launcher_simulation/regional_lab/site_catalog.csv",
-      "examples_legacy_2/projects/launcher_simulation/run_headwater_100km2_outlet_2_mf6_transient_reference.toml"
+    "copied_assets": [
+      {
+        "source_path": "docs/readthedocs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_mf6_reference_recipe.png",
+        "copied_to": "docs/readthedocs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_mf6_reference_recipe.png"
+      }
     ]
   },
   "artifacts": {
     "summary_json_doc_path": "/_static/capability_gallery/simulation/regional_lab_headwater_100km2_mf6_reference_recipe_summary.json",
     "summary_json_repo_path": "docs/readthedocs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_mf6_reference_recipe_summary.json",
-    "image_repo_paths": []
-  },
-  "custom_sections": [
-    {
-      "title": "Local Regeneration Note",
-      "kind": "paragraphs",
-      "paragraphs": [
-        "This local checkout cannot fully rebuild the original gallery artefacts for this case because one or more legacy source files are not present.",
-        "The page is still generated so that the capability-gallery structure, cross-links, and reading guides remain valid during a full documentation rebuild.",
-        "Reason: The regional-lab overlay config needed to regenerate this page is not available in the current checkout."
-      ]
-    },
-    {
-      "title": "Missing Local Inputs",
-      "kind": "bullets",
-      "items": [
-        "``examples_legacy_2/projects/launcher_simulation/regional_lab/config_headwater_100km2_lab_mf6_reference.toml``",
-        "``examples_legacy_2/projects/launcher_simulation/regional_lab/README.md``",
-        "``examples_legacy_2/projects/launcher_simulation/regional_lab/config_headwater_100km2_lab.toml``",
-        "``examples_legacy_2/projects/launcher_simulation/regional_lab/site_catalog.csv``",
-        "``examples_legacy_2/projects/launcher_simulation/run_headwater_100km2_outlet_2_mf6_transient_reference.toml``"
-      ]
-    }
-  ]
+    "image_repo_paths": [
+      "docs/readthedocs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_mf6_reference_recipe.png"
+    ]
+  }
 }

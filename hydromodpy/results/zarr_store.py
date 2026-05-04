@@ -17,6 +17,7 @@ import zarr.codecs
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.version import __version__ as _HMP_VERSION
 from hydromodpy.results import field_registry
+from hydromodpy.results.storage_contract import ZARR_ZIP_SUFFIX
 
 logger = get_logger(__name__)
 
@@ -97,7 +98,7 @@ def _update_attrs(node: Any, attrs: dict[str, object]) -> Any:
 
 
 def _is_zip_store_path(path: Path) -> bool:
-    return path.suffix == ".zip" or str(path).endswith(".zarr.zip")
+    return path.suffix == ".zip" or str(path).endswith(ZARR_ZIP_SUFFIX)
 
 
 def _windows_long_path(path: Path) -> Path:
@@ -746,7 +747,7 @@ class SimulationZarr:
 
         self.close()
 
-        zip_path = self._path.with_suffix(".zarr.zip")
+        zip_path = self._path.with_suffix(ZARR_ZIP_SUFFIX)
         tmp_path = zip_path.with_name(f"{zip_path.name}.tmp")
         if tmp_path.exists():
             tmp_path.unlink()
