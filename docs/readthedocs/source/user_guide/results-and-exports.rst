@@ -6,6 +6,17 @@ stores run metadata, metrics, parameters, budgets, provenance, and lookup
 tables. Per-run stores hold fields, meshes, rasters, timeseries, and derived
 arrays.
 
+There is one simulation DuckDB catalog per workspace, not one DuckDB database
+per simulation. A simulation receives one row in that workspace catalog and
+its heavy payloads live beside it under ``simulations/``:
+
+- ``hydromodpy.duckdb``: workspace-level index, metadata, metrics, parameters,
+  provenance, calibration traces, and SQL views.
+- ``simulations/<basename>.zarr`` or ``.zarr.zip``: per-simulation arrays,
+  mesh, spatial fields, rasters, and forcings.
+- ``simulations/<basename>.parquet/*.parquet``: per-simulation tabular payloads
+  such as timeseries, budgets, and mass balance, exposed through DuckDB views.
+
 Result Store Map
 ----------------
 
@@ -28,9 +39,11 @@ Core objects
    * - Object
      - Role
    * - ``SimulationCatalog``
-     - Workspace-level registry opened by ``hydromodpy.open(path)``.
+     - Workspace-level registry opened by ``hydromodpy.open(path)``. It owns
+       the single ``hydromodpy.duckdb`` file for the workspace.
    * - ``Run``
-     - One persisted simulation resolved from the catalog.
+     - One persisted simulation resolved from the catalog. It reads one
+       catalog row plus that simulation's Zarr/Parquet artefacts.
    * - ``SimulationGroup``
      - A set of runs used for comparison, calibration, or batch analysis.
    * - ``ResultsConfig``

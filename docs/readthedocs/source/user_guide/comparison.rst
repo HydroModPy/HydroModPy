@@ -15,7 +15,7 @@ User path
    shared-case workflow and run one comparison.
 2. Read :doc:`../getting_started/comparison-output-reading-order` before
    opening generated metrics, audits, and figures.
-3. Open :doc:`../capability_gallery/method_comparison` for curated comparison
+3. Open :doc:`../capability_gallery/simulation_comparison` for curated comparison
    cases.
 4. Use :doc:`../scientific/solvers/modflow6-vs-modflownwt-scientific-comparison`
    for method-level interpretation.
@@ -34,7 +34,7 @@ Common questions
    * - Which output should I read first?
      - :doc:`../getting_started/comparison-output-reading-order`
    * - Where are stable comparison examples?
-     - :doc:`../capability_gallery/method_comparison`
+     - :doc:`../capability_gallery/simulation_comparison`
    * - How do I distinguish gallery, comparison, and validation pages?
      - :doc:`../getting_started/reading-results-pages`
    * - Where is the comparison implementation documented?

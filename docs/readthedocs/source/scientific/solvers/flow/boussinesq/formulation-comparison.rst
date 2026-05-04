@@ -367,6 +367,6 @@ Related Pages
 - :doc:`solver-engines`
 - :doc:`possibility-map`
 - :doc:`../../../../getting_started/comparison-workflow`
-- :doc:`../../../../capability_gallery/method_comparison`
+- :doc:`../../../../capability_gallery/simulation_comparison`
 - :doc:`../../../../capability_gallery/cases/surface_interaction_ramp_code_comparison`
 - :doc:`../../../../capability_gallery/cases/surface_interaction_no_seepage_code_comparison`

@@ -26,7 +26,7 @@ Le cas recommande utilise deux niveaux de TOML:
 - un TOML de simulation de base, pointe par
   `[comparison].base_simulation_config`.
 
-Le TOML de comparaison declare les variantes a comparer:
+Le TOML de comparaison declare les simulations a comparer:
 
 ```toml
 workflow = "comparison"
@@ -76,7 +76,7 @@ physique du cas par accident. Les sections autorisees sont:
 - `display`: sortie graphique.
 
 Les sections physiques comme domaine, recharge, proprietes hydrauliques ou
-conditions aux limites ne doivent pas etre changees dans les variantes V1.
+conditions aux limites ne doivent pas etre changees dans les simulations V1.
 Si la physique doit changer, il faut creer un autre cas de simulation de base
 ou etendre explicitement le contrat.
 
@@ -96,7 +96,7 @@ de lancer les simulations:
 - au moins une simulation doit etre activee;
 - `reference_simulation`, si renseigne, doit pointer vers une simulation
   activee;
-- `observable.variants`, si renseigne, ne peut cibler que des simulations
+- `observable.simulations`, si renseigne, ne peut cibler que des simulations
   activees.
 
 Ces controles restent dans la surcouche de comparaison. Ils n'ajoutent aucune
@@ -132,22 +132,22 @@ Un run de comparaison produit notamment:
 - `hydrographic_network_metrics.csv`: comparaison geometrique `reference` vs
   `generated` quand les runs exposes stockent les deux reseaux hydrographiques
   canoniques;
-- `hydrographic_network_metrics_skipped.json`: diagnostic des variants sautes
+- `hydrographic_network_metrics_skipped.json`: diagnostic des simulations sautees
   quand un run n'expose pas les roles hydrographiques requis;
 - `simulated_active_network_metrics.csv`: metriques d'occupation du reseau
   actif simule, calculees depuis `accumulation_flux` quand ce champ existe;
-- `simulated_active_network_metrics_skipped.json`: diagnostic des variants
-  sautes quand le champ simule requis n'est pas disponible;
+- `simulated_active_network_metrics_skipped.json`: diagnostic des simulations
+  sautees quand le champ simule requis n'est pas disponible;
 - `simulated_active_network_overlap_metrics.csv`: comparaison cellule-a-cellule
   entre le reseau actif simule et le role vectoriel `reference` quand les deux
   supports existent;
 - `simulated_active_network_overlap_metrics_skipped.json`: diagnostic des
-  variants sautes pour cette comparaison observation-vs-simulation;
+  simulations sautees pour cette comparaison observation-vs-simulation;
 - `simulated_active_network_distance_metrics.csv`: distances planaires
   bidirectionnelles entre les centroïdes des cellules actives simulees et le
   role vectoriel `reference`;
 - `simulated_active_network_distance_metrics_skipped.json`: diagnostic des
-  variants sautes pour cette comparaison de distance;
+  simulations sautees pour cette comparaison de distance;
 - `comparison_figures/case_configuration.png`: figure d'orientation du cas
   compare, avec support spatial, conditions aux limites detectees, points
   observables et chronique de recharge quand elle existe;
@@ -281,9 +281,9 @@ python examples/projects/09_comparison_workflow/run_comparison_example.py --case
   les rasters fins, pas par une correspondance cell-to-cell generale.
 - Le cas naturel Boussinesq historique reste volontairement reduit: il utilise
   un maillage naturel mais une topographie analytique et des charges imposees
-  laterales. La variante recharge ajoute un forcage diffus synthetique, mais
+  laterales. La simulation recharge ajoute un forcage diffus synthetique, mais
   pas encore une physique bassin complete avec drainage et reseau
-  hydrographique. La variante transitoire ajoute Sy/Ss et un pulse de recharge,
+  hydrographique. La simulation transitoire ajoute Sy/Ss et un pulse de recharge,
   mais reste courte et controlee pour garder les ecarts interpretables.
 - Le cas `nancon-seasonal` pousse la difficulte: topographie de bassin naturel,
   drainage de surface, maillage/support regenere par chaque run, et recharge
@@ -297,7 +297,7 @@ contre Boussinesq vers une physique bassin:
 
 - comparer explicitement les flux de bord et les budgets quand les deux
   solveurs les exposent de maniere compatible;
-- ajouter une variante saisonniere multi-mois ou multi-annees sur le meme
+- ajouter une simulation saisonniere multi-mois ou multi-annees sur le meme
   maillage;
 - tester un cas bassin naturel complet avec drainage/reseau hydrographique;
 - documenter les criteres de convergence et les ecarts attendus par famille de

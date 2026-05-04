@@ -27,9 +27,10 @@ adossée à un fichier DuckDB distinct :
 Les données lourdes ne tiennent pas dans DuckDB. Trois formats
 complémentaires sont utilisés :
 
-- **Zarr** (`simulations/<uuid>.zarr/`) pour les champs spatiaux 3D
-  produits par le solveur (charges, budgets, dérivés).
-- **Parquet** (`simulations/<uuid>.parquet/`) pour les séries temporelles
+- **Zarr** (`simulations/<basename>.zarr/`, puis éventuellement
+  `.zarr.zip`) pour les champs spatiaux 3D produits par le solveur
+  (charges, budgets, dérivés).
+- **Parquet** (`simulations/<basename>.parquet/`) pour les séries temporelles
   append-only, les budgets et bilans de masse, exposés en vues SQL.
 - **Fichiers d'entrée** (`data/<variable>/`) bruts (CSV, NetCDF, TIFF)
   référencés par le cache DuckDB.
@@ -47,9 +48,9 @@ workspace/
 │       ├── hydrometry/
 │       └── ...
 ├── simulations/
-│   ├── <uuid>.zarr/                  # champs spatiaux
-│   ├── <uuid>.zarr.zip               # Zarr packé après finalize
-│   └── <uuid>.parquet/
+│   ├── <basename>.zarr/              # champs spatiaux
+│   ├── <basename>.zarr.zip           # Zarr packé après finalize
+│   └── <basename>.parquet/
 │       ├── timeseries.parquet
 │       ├── budgets.parquet
 │       └── mass_balance.parquet
@@ -69,9 +70,9 @@ Code principal :
 - `hydromodpy/results/simulation_group.py` : classe `SimulationGroup`.
 - `hydromodpy/results/views.py` : vues catchment-scale calculées à la
   volée.
-- `hydromodpy/results/_db_retry.py` : helpers de retry DuckDB.
-- `hydromodpy/results/storage_naming.py` : normalisation des noms de
-  fichiers.
+- `hydromodpy/core/io/db_retry.py` : helpers de retry DuckDB.
+- `hydromodpy/results/catalog/storage_paths.py` : normalisation et
+  résolution des noms de fichiers.
 
 ### 2.1. Tables DuckDB
 
@@ -190,7 +191,7 @@ DuckDB unique, pourquoi pas de partitionnement Hive), voir
 
 ### 2.6. Nommage des fichiers
 
-`storage_naming.build_storage_basename` construit des basenames
+`catalog.storage_paths.build_storage_basename` construit des basenames
 déterministes : `<project_slug>__<name_slug>__<short_uuid>`.
 
 - `sanitize_segment` normalise par NFD + minuscule, garde `[a-z0-9_-]`,
@@ -219,8 +220,9 @@ protégées par `@with_lock_retry`) :
   Zarr `geographic/<name>`.
 - `finalize(sim_id, ...)` : ferme proprement, passe `status` à
   `completed`, optionnellement pack le Zarr en `.zarr.zip`.
-- `delete(sim_id)` : efface la ligne et ses dépendances. Le Zarr et le
-  répertoire Parquet restent sur disque pour GC manuel.
+- `delete(sim_id, remove_storage=True)` : efface la ligne, ses dépendances,
+  le Zarr et le répertoire Parquet. Avec `remove_storage=False`, seuls les
+  enregistrements DuckDB sont supprimés.
 
 Côté lecture :
 
@@ -464,8 +466,8 @@ Campagne régionale : expansion site × recette × solveur. Code
 `hydromodpy/analysis/batch/`.
 
 - Sites exécutés en parallèle, un par process.
-- Chaque site dispose de son propre `<uuid>.zarr/` et
-  `<uuid>.parquet/`, donc pas de contention disque entre sites.
+- Chaque site dispose de son propre `<basename>.zarr/` et
+  `<basename>.parquet/`, donc pas de contention disque entre sites.
 - Les écritures DuckDB (`register_simulation`, `write_*`) sont
   sérialisées par le verrou fichier, avec retry exponentiel via
   `@with_lock_retry`.
@@ -487,7 +489,7 @@ Workflows d'inspection et de préparation :
 
 ## 5. Concurrence et robustesse
 
-Code : `hydromodpy/results/_db_retry.py`.
+Code : `hydromodpy/core/io/db_retry.py`.
 
 ### 5.1. Verrou DuckDB
 
@@ -526,17 +528,17 @@ Voir §2.5 pour le détail.
 | Acquisition du verrou DuckDB | Processus tué verrou pris | Relance ; le verrou est libéré à la fermeture du processus |
 | `INSERT` simulations | Row absente ou partielle | Relance ; insertion idempotente sur `sim_id` |
 | Écriture Zarr | Chunk incomplet | Append-safe ; la relecture renvoie NaN sur les chunks manquants |
-| `COPY TO .tmp` Parquet | Fichier cible inchangé, `.tmp` orphelin | Relance ; `hmp doctor` peut nettoyer |
+| `COPY TO .tmp` Parquet | Fichier cible inchangé, `.tmp` orphelin | Relance ; `hmp doctor` signale l'orphelin |
 | `os.replace` | Opération atomique au niveau OS | Pas de crash mi-swap possible |
 | Fermeture DuckDB | WAL DuckDB rollback automatique | Relecture saine |
 
 ### 5.4. Commandes de maintenance
 
-- `hmp doctor --toml config.toml --workspace PATH` :
+- `hmp doctor --toml config.toml` ou `hmp doctor --workspace PATH` :
   - Diagnostic de l'environnement (Python, dépendances, solveurs).
   - Vérification du workspace DuckDB (schéma, simulations).
   - Présence des binaires.
-  - Détection des orphelins Parquet.
+  - Détection des Zarr manquants, des orphelins Zarr/Parquet et des `.parquet.tmp`.
 
 ## 6. Lecture côté Python
 
@@ -611,8 +613,8 @@ Diagramme synthétique d'une simulation :
     | ingest
     v
 [hydromodpy.duckdb] (metadata)
-[simulations/<uuid>.zarr/] (champs)
-[simulations/<uuid>.parquet/] (séries)
+[simulations/<basename>.zarr/] (champs)
+[simulations/<basename>.parquet/] (séries)
     | read
     v
 [Run, SimulationGroup, figures, exports]

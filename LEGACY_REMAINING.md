@@ -56,22 +56,18 @@ Docstrings de traçabilité dans :
 
 **Statut :** documentation de provenance scientifique, conservée telle quelle.
 
-## 4. Interface `[method_comparison]`
+## 4. Interfaces historiques de comparaison
 
-Ancienne interface TOML supprimee.
+Les anciennes interfaces de comparaison de solveurs ont ete retirees du
+contrat public.
 
 **Decision :**
 - La seule section runtime acceptee est `[comparison]`.
-- Les comparaisons de simulations declarent `[[comparison.simulation]]`.
-- Les comparaisons de dossiers existants sont aussi exprimees comme des
-  simulations, via `[[comparison.simulation]]` avec `simulation_config` et/ou
-  `run_folder`.
-- Les noms `MethodComparison*`, le workflow `method-comparison`, la commande
-  `compare-methods`, et le relais `run_method_comparison.py` ne font plus partie
-  du contrat public.
-- Le lanceur historique `VariantComparisonLauncher` a ete retire ; le
-  dispatcher refuse explicitement `[[comparison.variant]]`.
-- Les chemins statiques de galerie qui contiennent `method_comparison` restent
-  des identifiants documentaires, pas des interfaces runtime.
+- Les comparaisons declarent les cas enfants avec `[[comparison.simulation]]`.
+- Les dossiers deja materialises sont aussi exprimes comme des simulations,
+  via `simulation_config` et/ou `run_folder`.
+- Le lanceur public est le lanceur de comparaison de simulations.
+- Les chemins statiques de galerie `simulation_comparison` sont des
+  identifiants documentaires, pas des interfaces runtime.
 
 **Statut :** compatibilite runtime supprimee.
