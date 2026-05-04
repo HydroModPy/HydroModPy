@@ -21,6 +21,30 @@ def open(workspace_path: Any) -> Any:
 
     Mirrors ``xarray.open_dataset`` / ``pandas.read_csv`` in intent: one call,
     a ready-to-query object backed by ``hydromodpy.duckdb``.
+
+    Parameters
+    ----------
+    workspace_path
+        Workspace directory, or a direct path to ``hydromodpy.duckdb``.
+
+    Returns
+    -------
+    SimulationCatalog
+        Catalog object used to find runs, query metadata, and open persisted
+        field stores.
+
+    Examples
+    --------
+    >>> import hydromodpy as hmp
+    >>> catalog = hmp.open("~/hmp_workspace")
+    >>> catalog.latest()
+
+    See Also
+    --------
+    hydromodpy.results.catalog.SimulationCatalog
+        Workspace-level catalog implementation.
+    hydromodpy.results.run.Run
+        Per-simulation result view returned by catalog queries.
     """
     from hydromodpy.results.catalog import SimulationCatalog
 
@@ -28,14 +52,56 @@ def open(workspace_path: Any) -> Any:
 
 
 def catalog(path: Any = None) -> Any:
-    """Open the hidden global catalog index for inter-project queries."""
+    """Open the hidden global catalog index for inter-project queries.
+
+    Parameters
+    ----------
+    path
+        Optional path to the catalog index database. ``None`` uses the default
+        user-level index location.
+
+    Returns
+    -------
+    CatalogIndex
+        Index object that can discover registered project catalogs.
+    """
     from hydromodpy.results.catalog import CatalogIndex
 
     return CatalogIndex(path)
 
 
 def run(config: Any, **kwargs: Any) -> Any:
-    """Functional facade for ``hmp run <config.toml>``."""
+    """Run a HydroModPy workflow from Python.
+
+    Passing a path executes the same dispatcher as ``hmp run``. Passing an
+    already-built configuration object opens a temporary ``Project`` and calls
+    ``Project.run``.
+
+    Parameters
+    ----------
+    config
+        TOML path or validated configuration object.
+    kwargs
+        Runtime options forwarded to the selected workflow or to
+        ``Project.run``.
+
+    Returns
+    -------
+    Any
+        Workflow result. Simulation workflows usually return a ``Run`` object;
+        overview, mesh, batch, and calibration workflows return their own
+        summary objects.
+
+    Examples
+    --------
+    >>> import hydromodpy as hmp
+    >>> run = hmp.run("run_transient_nwt.toml", name="baseline")
+
+    See Also
+    --------
+    hydromodpy.project.Project.run
+        Object-oriented form for repeated runs from one project.
+    """
     if isinstance(config, (str, Path)):
         from hydromodpy.workflow.dispatch import dispatch_workflow, resolve_workflow
 
@@ -54,7 +120,36 @@ def run(config: Any, **kwargs: Any) -> Any:
 
 
 def calibrate(config: Any, **kwargs: Any) -> Any:
-    """Functional facade for ``Project.calibrate``."""
+    """Run a calibration workflow from a TOML file or config object.
+
+    This helper opens a lazy ``Project`` and delegates to
+    ``Project.calibrate``. It is the Python equivalent of launching a
+    calibration TOML through the CLI dispatcher.
+
+    Parameters
+    ----------
+    config
+        Calibration TOML path or validated configuration object.
+    kwargs
+        Options forwarded to ``Project.calibrate``.
+
+    Returns
+    -------
+    Any
+        Calibration report or workflow-specific result.
+
+    Examples
+    --------
+    >>> import hydromodpy as hmp
+    >>> report = hmp.calibrate("calibration.toml")
+
+    See Also
+    --------
+    hydromodpy.project.Project.calibrate
+        Project method used by this facade.
+    hydromodpy.calibration.CalibrationReport
+        Structured calibration result.
+    """
     from hydromodpy.project import Project
 
     if isinstance(config, (str, Path)):
@@ -67,7 +162,20 @@ def calibrate(config: Any, **kwargs: Any) -> Any:
 
 
 def overview(config: Any, **kwargs: Any) -> Any:
-    """Functional facade for ``hmp run`` with ``workflow = "overview"``."""
+    """Run the overview workflow declared by a TOML file.
+
+    Parameters
+    ----------
+    config
+        TOML file containing ``workflow = "overview"``.
+    kwargs
+        Runtime options forwarded to the workflow dispatcher.
+
+    Returns
+    -------
+    Any
+        Overview workflow summary.
+    """
     from hydromodpy.workflow.dispatch import dispatch_workflow, resolve_workflow
 
     config_path = Path(config).expanduser().resolve()
@@ -80,7 +188,20 @@ def overview(config: Any, **kwargs: Any) -> Any:
 
 
 def batch(config: Any, **kwargs: Any) -> Any:
-    """Functional facade for ``hmp run`` with ``workflow = "batch"``."""
+    """Run the regional batch workflow declared by a TOML file.
+
+    Parameters
+    ----------
+    config
+        TOML file containing ``workflow = "batch"``.
+    kwargs
+        Runtime options forwarded to the workflow dispatcher.
+
+    Returns
+    -------
+    Any
+        Batch workflow summary.
+    """
     from hydromodpy.workflow.dispatch import dispatch_workflow, resolve_workflow
 
     config_path = Path(config).expanduser().resolve()
@@ -93,24 +214,63 @@ def batch(config: Any, **kwargs: Any) -> Any:
 
 
 def compare_pair(sim_a: Any, sim_b: Any, *, workspace: Any = None) -> Any:
-    """Pivot two simulations' metrics side-by-side as a DataFrame."""
+    """Compare two simulations by id or result object.
+
+    Parameters
+    ----------
+    sim_a, sim_b
+        Simulation ids or objects accepted by the comparison runtime.
+    workspace
+        Optional workspace used to resolve simulation ids.
+
+    Returns
+    -------
+    pandas.DataFrame
+        Side-by-side comparison table.
+
+    See Also
+    --------
+    hydromodpy.analysis.comparison
+        Comparison package used by this helper.
+    """
     from hydromodpy.analysis.comparison.pairwise import compare_pair as _compare_pair
 
     return _compare_pair(sim_a, sim_b, workspace=workspace)
 
 
 def testbed(toml_path: Any) -> Any:
-    """Run a TOML-driven method testbed."""
+    """Run a TOML-driven method testbed.
+
+    Parameters
+    ----------
+    toml_path
+        Testbed configuration path.
+
+    Returns
+    -------
+    Any
+        Testbed launcher result.
+    """
     from hydromodpy.analysis.testbed.runtime import TestbedLauncher
 
     return TestbedLauncher(toml_path).run()
 
 
 def mesh(toml_path: Any) -> dict:
-    """Functional facade for the mesh-only workflow.
+    """Run the mesh-only workflow from a TOML file.
 
     Mirrors ``hmp run`` for ``workflow = "mesh"`` configs: one call,
     returns the launcher summary dict.
+
+    Parameters
+    ----------
+    toml_path
+        Mesh workflow TOML path.
+
+    Returns
+    -------
+    dict
+        Mesh launcher summary.
     """
     from hydromodpy.workflow.pipelines.mesh import MeshCatchmentLauncher
 
@@ -124,6 +284,19 @@ def report(session_id_or_prefix: Any = None, *, workspace: Any = None) -> Any:
     or ``None`` to fall back to the most recently started session.
     ``workspace`` defaults to the nearest ancestor of the current
     working directory containing ``hydromodpy.duckdb``.
+
+    Parameters
+    ----------
+    session_id_or_prefix
+        Full session UUID, unique hex prefix, or ``None`` for the latest
+        session.
+    workspace
+        Optional workspace directory.
+
+    Returns
+    -------
+    Any
+        Report rendering result.
     """
     from hydromodpy.calibration.report import resolve_calibration_session_id
     from hydromodpy.results.catalog import SimulationCatalog
@@ -153,6 +326,17 @@ def doctor() -> dict:
     Returns a dict describing Python, hydromodpy, and solver versions. Quick
     by design (no actual solver invocation) and safe to call at import probing
     time.
+
+    Returns
+    -------
+    dict
+        Diagnostic payload with Python, HydroModPy, optional package, and solver
+        executable information.
+
+    Examples
+    --------
+    >>> import hydromodpy as hmp
+    >>> hmp.doctor()["hydromodpy"]
     """
     info: dict = {
         "python": platform.python_version(),

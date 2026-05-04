@@ -507,6 +507,22 @@ def export_hmp_package(
         The simulation UUID to export.
     output_path
         Destination file path. The ``.hmp`` suffix is added when missing.
+
+    Returns
+    -------
+    Path
+        Written archive path.
+
+    Raises
+    ------
+    KeyError
+        Raised when ``sim_id`` is not present in the catalog.
+    FileNotFoundError
+        Raised when the simulation Zarr store is missing.
+
+    Examples
+    --------
+    >>> export_hmp_package(catalog, run.sim_id, "baseline.hmp")
     """
     sid = str(sim_id)
     output = Path(output_path)

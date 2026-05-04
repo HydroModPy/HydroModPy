@@ -152,6 +152,29 @@ class Project:
 
         The caller drives :meth:`build_geographic`, :meth:`load_data`,
         :meth:`build_mesh` (and optionally :meth:`setup_workspace`) manually.
+
+        Parameters
+        ----------
+        config
+            TOML path or validated configuration object.
+        solver
+            Optional flow solver override.
+        headless
+            Disable interactive display side effects.
+        no_display
+            Skip display generation for later run phases.
+
+        Returns
+        -------
+        Project
+            Project with validated configuration and empty runtime context.
+
+        Examples
+        --------
+        >>> project = Project.lazy("project.toml")
+        >>> project.build_geographic()
+        >>> project.load_data()
+        >>> project.build_mesh()
         """
         return cls(
             config,
@@ -163,7 +186,20 @@ class Project:
 
     @classmethod
     def from_toml(cls, config_path: str | Path, **kwargs) -> Project:
-        """Build a Project from a TOML path."""
+        """Build a Project from a TOML path.
+
+        Parameters
+        ----------
+        config_path
+            Path to a HydroModPy TOML file.
+        kwargs
+            Options forwarded to ``Project``.
+
+        Returns
+        -------
+        Project
+            Project initialized from the TOML file.
+        """
         return cls(Path(config_path), **kwargs)
 
     @classmethod
@@ -174,7 +210,22 @@ class Project:
         base_dir: str | Path | None = None,
         **kwargs,
     ) -> Project:
-        """Build a Project from a JSON string validated against HydroModPyConfig."""
+        """Build a Project from a JSON string.
+
+        Parameters
+        ----------
+        payload
+            JSON payload validated against ``HydroModPyConfig``.
+        base_dir
+            Base directory used to resolve relative paths in the payload.
+        kwargs
+            Options forwarded to ``Project``.
+
+        Returns
+        -------
+        Project
+            Project initialized from the validated JSON payload.
+        """
         from hydromodpy.config import HydroModPyConfig
 
         cfg = HydroModPyConfig.from_json(payload, base_dir=base_dir)
@@ -188,7 +239,22 @@ class Project:
         base_dir: str | Path | None = None,
         **kwargs,
     ) -> Project:
-        """Build a Project from a dict payload validated against HydroModPyConfig."""
+        """Build a Project from a dictionary payload.
+
+        Parameters
+        ----------
+        payload
+            Mapping validated against ``HydroModPyConfig``.
+        base_dir
+            Base directory used to resolve relative paths in the payload.
+        kwargs
+            Options forwarded to ``Project``.
+
+        Returns
+        -------
+        Project
+            Project initialized from the validated mapping.
+        """
         from hydromodpy.config import HydroModPyConfig
 
         cfg = HydroModPyConfig.from_dict(payload, base_dir=base_dir)
@@ -342,12 +408,44 @@ class Project:
         no_display: bool = False,
         **overrides,
     ) -> Run | None:
-        """Run the simulation through the canonical workflow Pipeline.
+        """Run the configured workflow and return its result.
 
         Single entry point that unifies the interactive Python flow and the
         ``hmp run`` CLI. Flow parameter overrides (``Sy``, ``K``, ``Ss``) and
         the special keys ``thickness``, ``first_clim``, ``properties`` are
         applied to the plan before the Pipeline runs.
+
+        Parameters
+        ----------
+        name
+            Optional run name persisted in the catalog.
+        checkpoint
+            Persist step checkpoints for later resume.
+        resume
+            Existing checkpoint or run identifier to resume from.
+        from_step, until_step
+            Optional step bounds for partial workflow execution.
+        dry_run
+            Build and validate the workflow without executing solver work.
+        frozen
+            Require frozen input-data references.
+        no_display
+            Skip display rendering for this run.
+        overrides
+            Parameter overrides applied to the simulation plan.
+
+        Returns
+        -------
+        Run or None
+            Persisted run view for simulation workflows. Dry runs and some
+            non-simulation workflows may return ``None``.
+
+        See Also
+        --------
+        hydromodpy.run
+            Functional facade for one-off TOML execution.
+        hydromodpy.results.run.Run
+            Per-simulation result view returned by successful runs.
         """
         return self._runner.run(
             name=name,
@@ -369,7 +467,24 @@ class Project:
         name_template: str = "{param}_{value:.4g}",
         parallel: int = 1,
     ):
-        """Run N simulations from a parameter table."""
+        """Run a parameter sweep from one project configuration.
+
+        Parameters
+        ----------
+        parameters
+            Mapping from parameter name to sampled values or sweep descriptor.
+        strategy
+            Sweep strategy. ``"enumerate"`` runs one simulation per value.
+        name_template
+            Format string used to name generated runs.
+        parallel
+            Maximum number of concurrent workers.
+
+        Returns
+        -------
+        SimulationGroup
+            Group containing the simulations created by the sweep.
+        """
         return self._runner.sweep(
             parameters,
             strategy=strategy,
@@ -427,6 +542,38 @@ class Project:
         * Python mode (``parameters`` supplied): build a
           :class:`CalibrationConfig` in memory from the declarations and
           run the same loop.
+
+        Parameters
+        ----------
+        config_path
+            Calibration TOML path for TOML mode.
+        parameters
+            Python-mode parameter declarations.
+        outputs
+            Python-mode output declarations.
+        objective_blocks
+            Python-mode objective block declarations.
+        method
+            Optimizer method name.
+        max_iter
+            Maximum number of optimizer iterations.
+        save_runs
+            Policy controlling which trial runs remain persisted.
+        seed
+            Optional optimizer seed.
+        kwargs
+            Extra options forwarded to the calibration runner.
+
+        Returns
+        -------
+        CalibrationReport or Any
+            Structured calibration report when ``return_report`` is true,
+            otherwise the runner-specific result.
+
+        Raises
+        ------
+        ConfigMissingError
+            Raised when neither ``config_path`` nor ``parameters`` is supplied.
         """
         from hydromodpy.core.exceptions import ConfigMissingError
 
@@ -501,7 +648,30 @@ class Project:
         name: str | None = None,
         **overrides,
     ) -> Run:
-        """Run one simulation with orchestration specified from Python."""
+        """Run one simulation with orchestration specified from Python.
+
+        Parameters
+        ----------
+        time
+            Optional simulation time declaration.
+        processes
+            Optional list of process declarations such as
+            ``[("flow", "modflownwt")]``.
+        name
+            Optional run name persisted in the catalog.
+        overrides
+            Parameter overrides applied to the simulation plan.
+
+        Returns
+        -------
+        Run
+            Persisted result view for the completed simulation.
+
+        See Also
+        --------
+        Project.run
+            Main workflow entry point.
+        """
         return self._runner.simulate(
             time=time,
             processes=processes,

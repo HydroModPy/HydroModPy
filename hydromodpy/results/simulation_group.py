@@ -101,6 +101,34 @@ def _open_simulation_lazy(catalog: SimulationCatalog, sim_id: str) -> xr.Dataset
 
 
 class SimulationGroup:
+    """Collection view over several simulations from one catalog.
+
+    ``SimulationGroup`` is returned by catalog queries that match more than one
+    run. It behaves like a lightweight list of ``Run`` objects and adds cohort
+    utilities: pivot parameter tables, pivot metric tables, rank runs, compare
+    scalar metrics, export a wide DataFrame, and stack fields lazily.
+
+    Parameters
+    ----------
+    sim_ids
+        Ordered simulation ids in the group.
+    catalog
+        Catalog used to resolve ids into ``Run`` objects and tabular data.
+
+    Examples
+    --------
+    >>> group = catalog.find(project="nancon")
+    >>> group.count
+    >>> group.best("nse").summary()
+
+    See Also
+    --------
+    hydromodpy.results.run.Run
+        Per-simulation view yielded during iteration.
+    hydromodpy.results.catalog.SimulationCatalog
+        Catalog that creates simulation groups.
+    """
+
     def __init__(
         self,
         sim_ids: list[str],
@@ -111,10 +139,12 @@ class SimulationGroup:
 
     @property
     def count(self) -> int:
+        """Number of simulations in the group."""
         return len(self._sim_ids)
 
     @property
     def sim_ids(self) -> list[str]:
+        """Simulation ids in group order."""
         return list(self._sim_ids)
 
     def __len__(self) -> int:
@@ -135,6 +165,7 @@ class SimulationGroup:
 
     @property
     def parameters(self) -> pd.DataFrame:
+        """Wide parameter table with one row per simulation."""
         if not self._sim_ids:
             return pd.DataFrame()
         placeholders = ", ".join(["?"] * len(self._sim_ids))
@@ -158,6 +189,7 @@ class SimulationGroup:
 
     @property
     def metrics(self) -> pd.DataFrame:
+        """Wide metric table with one row per simulation."""
         if not self._sim_ids:
             return pd.DataFrame()
         placeholders = ", ".join(["?"] * len(self._sim_ids))
@@ -182,6 +214,18 @@ class SimulationGroup:
     # -- Comparison ----------------------------------------------------------
 
     def compare(self, metric: str) -> pd.DataFrame:
+        """Compare one metric across every simulation in the group.
+
+        Parameters
+        ----------
+        metric
+            Metric name stored in the catalog.
+
+        Returns
+        -------
+        pandas.DataFrame
+            Rows ordered from highest to lowest metric value.
+        """
         if not self._sim_ids:
             return pd.DataFrame()
         placeholders = ", ".join(["?"] * len(self._sim_ids))
@@ -195,6 +239,15 @@ class SimulationGroup:
         ).fetchdf()
 
     def best(self, metric: str) -> Run:
+        """Return the run with the highest value for ``metric``.
+
+        Raises
+        ------
+        ValueError
+            Raised when the group is empty.
+        KeyError
+            Raised when the metric is absent from every run.
+        """
         from hydromodpy.results.run import Run
 
         if not self._sim_ids:
@@ -211,6 +264,15 @@ class SimulationGroup:
         return Run(str(row[0]), self._catalog)
 
     def worst(self, metric: str) -> Run:
+        """Return the run with the lowest value for ``metric``.
+
+        Raises
+        ------
+        ValueError
+            Raised when the group is empty.
+        KeyError
+            Raised when the metric is absent from every run.
+        """
         from hydromodpy.results.run import Run
 
         if not self._sim_ids:
@@ -227,6 +289,20 @@ class SimulationGroup:
         return Run(str(row[0]), self._catalog)
 
     def sort_by(self, metric: str, ascending: bool = True) -> SimulationGroup:
+        """Return a new group ordered by one metric.
+
+        Parameters
+        ----------
+        metric
+            Metric name used for ordering.
+        ascending
+            Sort from low to high when true.
+
+        Returns
+        -------
+        SimulationGroup
+            New group containing the sorted subset that has the metric.
+        """
         if not self._sim_ids:
             return self
         placeholders = ", ".join(["?"] * len(self._sim_ids))
@@ -285,6 +361,7 @@ class SimulationGroup:
         return df
 
     def to_csv(self, path: Path | str) -> None:
+        """Write ``to_dataframe()`` to a CSV file."""
         self.to_dataframe().to_csv(str(path), index=False)
 
     def to_xarray(self, variable: str, *, dim: str = "sim") -> xr.DataArray:

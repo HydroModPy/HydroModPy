@@ -45,6 +45,17 @@ def export_netcdf(
     -------
     Path
         The written file path.
+
+    Raises
+    ------
+    KeyError
+        Raised when the simulation store does not contain a UGRID mesh.
+    ValueError
+        Raised when a time-dependent export has no Zarr time coordinate.
+
+    Examples
+    --------
+    >>> export_netcdf(run_zarr, run.sim_id, ["head", "watertable_depth"], "fields.nc")
     """
     output_path = Path(output_path)
     output_path.parent.mkdir(parents=True, exist_ok=True)

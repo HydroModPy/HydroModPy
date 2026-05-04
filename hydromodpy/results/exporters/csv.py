@@ -42,6 +42,12 @@ def export_csv(
     -------
     Path
         The written file path.
+
+    Examples
+    --------
+    >>> export_csv(
+    ...     catalog.connection, run.sim_id, "discharge.csv", variable="discharge"
+    ... )
     """
     output_path = Path(output_path)
     output_path.parent.mkdir(parents=True, exist_ok=True)

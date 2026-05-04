@@ -54,6 +54,20 @@ def export_geotiff(
     -------
     Path
         The written file path.
+
+    Raises
+    ------
+    ValueError
+        Raised when ``resolution`` or ``crs`` is missing, or when the mesh
+        cannot be rasterized.
+    KeyError
+        Raised when ``variable`` is not stored in the Zarr hierarchy.
+
+    Examples
+    --------
+    >>> export_geotiff(
+    ...     run_zarr, run.sim_id, "head", -1, "head.tif", resolution=25, crs="EPSG:2154"
+    ... )
     """
     import rasterio
     from rasterio.features import rasterize
