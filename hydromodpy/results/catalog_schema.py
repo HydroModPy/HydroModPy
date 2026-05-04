@@ -678,7 +678,7 @@ _OBSERVATION_POINTS_ADDITIVE_COLUMNS: tuple[tuple[str, str], ...] = (
 
 
 def _apply_simulations_additive_columns(conn: duckdb.DuckDBPyConnection) -> None:
-    """Add missing columns to ``simulations`` without touching existing rows."""
+    """Add missing columns to ``simulations`` and back-fill required values."""
     existing = {
         row[0]
         for row in conn.execute(
@@ -689,6 +689,31 @@ def _apply_simulations_additive_columns(conn: duckdb.DuckDBPyConnection) -> None
         if name not in existing:
             conn.execute(f"ALTER TABLE simulations ADD COLUMN {name} {sql_type}")
             logger.info("DuckDB schema upgrade: added simulations.%s", name)
+    _backfill_storage_basename(conn)
+
+
+def _backfill_storage_basename(conn: duckdb.DuckDBPyConnection) -> None:
+    """Populate ``storage_basename`` for rows that pre-date the column.
+
+    Old simulations were stored on disk under the bare ``sim_id`` basename.
+    Setting ``storage_basename = CAST(sim_id AS VARCHAR)`` for legacy rows
+    keeps the catalog ↔ disk mapping intact while letting downstream code
+    treat the column as never NULL.
+    """
+    pending = conn.execute(
+        "SELECT COUNT(*) FROM simulations WHERE storage_basename IS NULL"
+    ).fetchone()
+    if pending is None or not pending[0]:
+        return
+    conn.execute(
+        "UPDATE simulations "
+        "SET storage_basename = CAST(sim_id AS VARCHAR) "
+        "WHERE storage_basename IS NULL"
+    )
+    logger.info(
+        "DuckDB schema upgrade: back-filled simulations.storage_basename for %d row(s)",
+        pending[0],
+    )
 
 
 def _apply_runs_environment_additive_columns(conn: duckdb.DuckDBPyConnection) -> None:

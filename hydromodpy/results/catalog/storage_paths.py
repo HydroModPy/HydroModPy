@@ -4,8 +4,8 @@ A simulation's on-disk state lives at ``simulations/<basename>.zarr`` and
 ``simulations/<basename>.parquet`` where ``<basename>`` is built from the
 simulation's ``(project, name, sim_id)`` so a plain ``ls`` is human readable.
 Older workspaces written before this scheme used the bare ``sim_id`` as the
-basename; the resolver falls back to that form when ``storage_basename`` is
-``NULL`` in the ``simulations`` row.
+basename; ``ensure_schema`` back-fills ``storage_basename`` with that raw
+``sim_id`` so the resolver can read the column unconditionally.
 """
 
 from __future__ import annotations
@@ -95,9 +95,10 @@ class StoragePathResolver:
     def basename_for(self, sim_id: str | UUID) -> str:
         """Return the on-disk basename for ``sim_id``.
 
-        Reads ``simulations.storage_basename`` and falls back to the raw
-        ``sim_id`` string when the column is ``NULL`` - the case for rows
-        written before human-readable storage names were introduced.
+        Reads ``simulations.storage_basename``. ``ensure_schema`` guarantees
+        the column is non-NULL for any registered row, so the only fallback
+        is for unknown ``sim_id`` lookups, where the raw string is returned
+        to keep path computation total.
         """
         sid = str(sim_id)
         cached = self._basename_cache.get(sid)
@@ -107,7 +108,7 @@ class StoragePathResolver:
             "SELECT storage_basename FROM simulations WHERE sim_id = ?",
             [sid],
         ).fetchone()
-        basename = (row[0] if row else None) or sid
+        basename = row[0] if row else sid
         self._basename_cache[sid] = basename
         return basename
 
