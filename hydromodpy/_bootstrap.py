@@ -18,11 +18,11 @@ def _rebuild_forward_refs() -> None:
     lookup against the defining module's globals, so the sibling classes are
     written into the root-config module globals.
     """
+    from hydromodpy.analysis import config as analysis_module
     from hydromodpy.analysis.batch.config import RegionalLabConfig
     from hydromodpy.analysis.capability_gallery import CapabilityGalleryConfig
     from hydromodpy.analysis.comparison.config import ComparisonSection
     from hydromodpy.calibration.config import CalibrationConfig
-    from hydromodpy.config import analysis as analysis_module
     from hydromodpy.config import hydromodpy_config as public_cfg_module
     from hydromodpy.data.data_managers_config import DataManagersConfig
     from hydromodpy.display.config import DisplayConfig
