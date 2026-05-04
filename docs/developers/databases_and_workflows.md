@@ -199,7 +199,12 @@ déterministes : `<project_slug>__<name_slug>__<short_uuid>`.
 - `short_uuid` extrait les 8 premiers hex.
 
 Les anciens workspaces peuvent avoir `storage_basename NULL` ; dans ce
-cas le fallback est l'UUID complet.
+cas le fallback est l'UUID complet. La normalisation explicite se fait en
+deux temps :
+
+- `catalog.plan_storage_name_normalization()` : plan en lecture seule.
+- `catalog.normalize_storage_names(dry_run=False)` : renomme les artefacts
+  `<uuid>.zarr(.zip)` / `<uuid>.parquet` et met à jour la ligne DuckDB.
 
 ### 2.7. API publique de `SimulationCatalog`
 
@@ -223,6 +228,9 @@ protégées par `@with_lock_retry`) :
 - `delete(sim_id, remove_storage=True)` : efface la ligne, ses dépendances,
   le Zarr et le répertoire Parquet. Avec `remove_storage=False`, seuls les
   enregistrements DuckDB sont supprimés.
+- `plan_storage_name_normalization()` / `normalize_storage_names(...)` :
+  migration optionnelle des anciens noms de stockage raw-UUID vers le
+  basename lisible courant.
 
 Côté lecture :
 

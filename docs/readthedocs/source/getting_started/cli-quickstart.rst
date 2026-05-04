@@ -210,7 +210,7 @@ Less common but documented for reference:
      - Manage the reproducible data lockfile (``hydromodpy.lock``).
    * - ``hmp manage``
      - Open a local browser UI for catalog tables, result diagnostics, and
-       selected artefact cleanup.
+       selected artefact cleanup or legacy-name normalization.
    * - ``hmp report``
      - Render the HTML report for a calibration session.
    * - ``hmp schema``

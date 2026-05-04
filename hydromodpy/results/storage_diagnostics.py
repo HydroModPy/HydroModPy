@@ -44,6 +44,7 @@ class StorageDiagnostic:
 class _SimulationRow:
     sim_id: str
     basename: str
+    storage_basename: str | None
     status: str | None
     zarr_path: str | None
 
@@ -131,6 +132,17 @@ def diagnose_result_storage(
     zarr_by_basename, parquet_by_basename = _scan_simulation_artefacts(sims_dir)
     tmp_files = _scan_tmp_parquet_files(sims_dir)
     registered = {row.basename for row in rows}
+
+    legacy_storage_rows = [row for row in rows if row.storage_basename is None]
+    if legacy_storage_rows:
+        diagnostics.append(
+            StorageDiagnostic(
+                "results:legacy_storage_names",
+                "WARN",
+                (f"{len(legacy_storage_rows)} catalog row(s) still use raw UUID storage names"),
+                "Use SimulationCatalog.normalize_storage_names(dry_run=False) to rename them.",
+            )
+        )
 
     missing_zarr = [
         row
@@ -249,11 +261,13 @@ def _simulation_rows(conn, columns: set[str]) -> list[_SimulationRow]:
         if "storage_basename" in columns
         else "CAST(sim_id AS VARCHAR)"
     )
+    storage_raw_expr = "storage_basename" if "storage_basename" in columns else "NULL"
     status_expr = "status" if "status" in columns else "NULL"
     zarr_expr = "zarr_path" if "zarr_path" in columns else "NULL"
     rows = conn.execute(
         "SELECT CAST(sim_id AS VARCHAR) AS sim_id, "
         f"{storage_expr} AS storage_basename, "
+        f"{storage_raw_expr} AS raw_storage_basename, "
         f"{status_expr} AS status, "
         f"{zarr_expr} AS zarr_path "
         "FROM simulations"
@@ -262,10 +276,11 @@ def _simulation_rows(conn, columns: set[str]) -> list[_SimulationRow]:
         _SimulationRow(
             sim_id=str(sim_id),
             basename=str(basename),
+            storage_basename=str(raw_basename) if raw_basename else None,
             status=str(status) if status is not None else None,
             zarr_path=str(zarr_path) if zarr_path else None,
         )
-        for sim_id, basename, status, zarr_path in rows
+        for sim_id, basename, raw_basename, status, zarr_path in rows
     ]
 
 
