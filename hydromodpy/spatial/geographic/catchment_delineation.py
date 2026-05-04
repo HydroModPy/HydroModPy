@@ -94,9 +94,37 @@ class CatchmentDelineation:
     The resulting payload includes DEM metadata, watershed and buffer polygons,
     clipped rasters, derived boundary features, optional river-network products,
     and georeferencing information.
+
+    Main methods
+    ------------
+    ``build_georeferencing``
+        Return CRS, resolution, and spatial bounds for domain construction.
+    ``get_domain_surface_topo``
+        Return the DEM-derived topographic surface.
+    ``get_geographic_derived_features``
+        Return the complete geographic feature bundle, including boundaries and
+        river products.
+    ``get_domain_geographic_context``
+        Return the compact
+        :class:`~hydromodpy.spatial.geographic.core.domain_geographic_pipeline.DomainGeographicContext`
+        consumed by ``Domain``.
+    ``processing``
+        Run geographic preprocessing and hydrate the runtime attributes.
     """
 
-    def __init__(self, config: GeographicConfig, initializing):
+    def __init__(self, config: GeographicConfig, initializing: object):
+        """Initialize and run geographic preprocessing.
+
+        Parameters
+        ----------
+        config
+            Validated geographic configuration selecting the source mode,
+            catchment definition, DEM inputs, river-network settings, and cache
+            behavior.
+        initializing
+            Workspace-like object exposing ``project_root``. Generated
+            geographic artifacts are written below this project root.
+        """
         logger.info("Extracting geographic data for model area")
 
         self._config = config
@@ -200,7 +228,27 @@ class CatchmentDelineation:
         )
 
     def get_domain_geographic_context(self) -> DomainGeographicContext:
-        """Return the narrow geographic payload consumed by ``Domain``."""
+        """Return the narrow geographic payload consumed by ``Domain``.
+
+        Returns
+        -------
+        :class:`~hydromodpy.spatial.geographic.core.domain_geographic_pipeline.DomainGeographicContext`
+            Dataclass containing:
+
+            - ``surface_topo``: DEM-derived topographic surface.
+            - ``watershed_shp`` and ``box_buff_shp``: domain support polygons.
+            - ``catchment_area_km2`` and ``catch_def``: catchment metadata.
+            - ``x_outlet`` and ``y_outlet``: outlet coordinates when available.
+            - ``watershed_box_buff_dem``: DEM on the buffered rectangular support.
+            - ``zone_kind``: ``"catchment"`` or ``"uniform"`` zone semantics.
+            - ``river_mesh_trace``: optional river-to-mesh trace.
+            - ``regional_dem_path``: regional DEM path for map context.
+
+        See Also
+        --------
+        hydromodpy.spatial.geographic.core.domain_geographic_pipeline.DomainGeographicContext
+            Full field documentation for the returned object.
+        """
         return self.get_geographic_derived_features().to_domain_geographic_context()
 
     def processing(self):

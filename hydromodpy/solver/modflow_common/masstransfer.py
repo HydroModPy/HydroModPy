@@ -63,7 +63,7 @@ class Masstransfer:
             Name of the inital raster dicharge outflow simulated, e.g. 'outflow_drain.tif.
         trace_shp_name : str
             Name of the shapefile points generated from raw_rast_name.
-        mass_rast_name : TYPE
+        mass_rast_name : str
             Name of the generated flow accumulated raster.
         extraction_folder : str, optional
             Path of the model simulation results. The default is None.

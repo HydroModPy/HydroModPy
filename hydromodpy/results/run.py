@@ -498,7 +498,7 @@ class Run:
 
         See Also
         --------
-        Run.array
+        ``run.array``
             Chainable array provider for xarray-oriented access.
         """
         sz = self._catalog.open_zarr(self._sim_id)
