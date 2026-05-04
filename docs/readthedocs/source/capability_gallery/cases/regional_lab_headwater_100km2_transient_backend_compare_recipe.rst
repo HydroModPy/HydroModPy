@@ -21,7 +21,7 @@ Case Setup
 What It Shows
 -------------
 
-- How two method-comparison recipes can coexist in one laboratory while pointing to different child configs and modelling questions.
+- How two comparison recipes can coexist in one laboratory while pointing to different child configs and modelling questions.
 - How the transient backend-comparison recipe stays separate from the simpler backend-comparison recipe instead of overloading one flat page.
 - How recipe overlays can document a more specific transient workflow without cloning the site catalog or cluster rules.
 
@@ -30,7 +30,7 @@ Key Parameters
 
 - `id = "transient_backend_compare"` keeps the transient question separate from the simpler backend-comparison recipe instead of collapsing both into one card.
 - `required_fields = ["transient_backend_comparison_config"]` makes the missing transient child configs visible as coverage gaps rather than silent filtering.
-- `launcher = "method-comparison"` plus the recipe-specific config path field is what lets one lab coordinate several comparison families in parallel.
+- `launcher = "comparison"` plus the recipe-specific config path field is what lets one lab coordinate several comparison families in parallel.
 - The overlay config gives this page one exact reproduction command while preserving the shared base laboratory definition.
 
 How To Read It
@@ -62,7 +62,7 @@ Next Steps
 ----------
 
 - Switch `execute = true` in the focused overlay config when the dry plan looks correct and you want to launch the child workflow.
-- Use these orchestration pages as the planning complement to the individual simulation and method-comparison cases already exposed elsewhere in the gallery.
+- Use these orchestration pages as the planning complement to the individual simulation and comparison cases already exposed elsewhere in the gallery.
 
 Reproduce
 ---------

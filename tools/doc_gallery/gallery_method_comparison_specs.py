@@ -9,7 +9,7 @@ from .gallery_schema import GalleryCaseSpec, GalleryImageAsset
 
 _METHOD_STATIC_ROOT = "docs/readthedocs/source/_static/capability_gallery/method_comparison"
 _DEFAULT_METHOD_COMPARISON_NEXT_STEPS = (
-    "Use :doc:`the gallery and validation reading guide </getting_started/reading-results-pages>` to distinguish example pages, method-comparison pages, and validation pages.",
+    "Use :doc:`the gallery and validation reading guide </getting_started/reading-results-pages>` to distinguish example pages, comparison pages, and validation pages.",
     "Go back to :doc:`the simulation walkthrough </getting_started/simulation-walkthrough>` when you need to inspect one contributing run in isolation.",
 )
 
@@ -150,9 +150,9 @@ def build_method_comparison_specs() -> tuple[GalleryCaseSpec, ...]:
             ),
             key_parameters=(
                 "The most important modelling choice is not a scalar parameter but support equality: both runs must use the same saved mesh if you want a fair map-wide comparison.",
-                "`run_method_comparison_example12_map_existing.toml` defines which run folders are compared and which observables are sampled from them.",
+                "`run_comparison_example12_map_existing.toml` defines which run folders are compared and which observables are sampled from them.",
                 "The compared observables (`watertable_elevation`, `watertable_depth`) determine whether the figure emphasizes absolute state mismatch or near-surface response mismatch.",
-                "The three point observables reuse anchors from `method_comparison_points.toml` so the same physical locations are compared across methods.",
+                "The three point observables reuse anchors from `comparison_points.toml` so the same physical locations are compared across methods.",
                 "Interpret RMSE and MAE together: RMSE highlights stronger local mismatches while MAE gives the typical cell-wise discrepancy.",
             ),
             how_to_read=(
@@ -162,7 +162,7 @@ def build_method_comparison_specs() -> tuple[GalleryCaseSpec, ...]:
                 "Do not read this page as a validation benchmark: it is a solver-to-solver comparison, not a comparison against an analytical truth.",
             ),
             next_steps=(
-                "Use :doc:`the gallery and validation reading guide </getting_started/reading-results-pages>` to distinguish example pages, method-comparison pages, and validation pages.",
+                "Use :doc:`the gallery and validation reading guide </getting_started/reading-results-pages>` to distinguish example pages, comparison pages, and validation pages.",
                 "If you need to understand the reference MODFLOW 6 run itself, go back to :doc:`the simulation walkthrough </getting_started/simulation-walkthrough>`.",
             ),
             walkthrough_doc="getting_started/reading-results-pages",
@@ -219,7 +219,7 @@ def build_method_comparison_specs() -> tuple[GalleryCaseSpec, ...]:
             ),
             key_parameters=(
                 'Support equality is the main control knob here: both variants use the same `mesh_label = "sgrid_60x60"`, so disagreements are not attributable to a mesh-family change.',
-                "`run_method_comparison_mf6_vs_nwt_same_regular_mesh_moderate.toml` selects the observables that stay comparable across the two MODFLOW families.",
+                "`run_comparison_mf6_vs_nwt_same_regular_mesh_moderate.toml` selects the observables that stay comparable across the two MODFLOW families.",
                 "Use the outlet-flux and native-flux observables together: the outlet curve shows integrated export, while the native panels reveal how each code reports internal drainage/accumulation terms.",
             ),
             how_to_read=(
@@ -261,7 +261,7 @@ def build_method_comparison_specs() -> tuple[GalleryCaseSpec, ...]:
                 "Map observables are resampled on a shared fine raster over the support intersection before parity metrics are computed.",
             ),
             key_parameters=(
-                "`[method_comparison.fine_raster] enabled = true` is essential here because the compared meshes are not natively aligned cell by cell.",
+                "`[comparison.fine_raster] enabled = true` is essential here because the compared meshes are not natively aligned cell by cell.",
                 '`extent_mode = "intersection"` keeps the comparison on the spatial footprint both supports actually share.',
                 "Read outlet-flux differences with more caution than in the same-grid case: they now reflect both solver behaviour and support discretization.",
             ),

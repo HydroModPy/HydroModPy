@@ -310,13 +310,4 @@ def build_run_command(
             "run",
             str(case.config_path),
         ]
-    if case.launcher == "method-comparison":
-        return [
-            str(python_executable),
-            "-m",
-            "launchers",
-            "method-comparison",
-            "run",
-            str(case.config_path),
-        ]
     raise ValueError(f"Unsupported regional-lab launcher: {case.launcher}")

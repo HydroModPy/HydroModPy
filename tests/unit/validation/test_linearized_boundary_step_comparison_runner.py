@@ -6,7 +6,6 @@ from pathlib import Path
 
 from validation_cases.analytical.transient.linearized_unconfined_boundary_step_1d import (
     run_comparison,
-    run_method_comparison,
 )
 
 
@@ -31,8 +30,3 @@ def test_boundary_step_comparison_runner_can_disable_child_runs(tmp_path: Path) 
     payload = run_comparison._build_payload(output_root=tmp_path, run_variants=False)
 
     assert payload["comparison"]["execution"]["run_simulations"] is False
-
-
-def test_legacy_boundary_step_entry_point_delegates_to_canonical_runner() -> None:
-    assert run_method_comparison.main is run_comparison.main
-    assert run_method_comparison._build_payload is run_comparison._build_payload

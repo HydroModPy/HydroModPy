@@ -38,7 +38,7 @@ def test_export_full_schema_produces_valid_json(tmp_path: Path) -> None:
 
     assert "properties" in config
     assert "comparison" in config["properties"]["workflow"]["enum"]
-    assert "method-comparison" in config["properties"]["workflow"]["enum"]
+    assert "variant-comparison" not in config["properties"]["workflow"]["enum"]
     assert "testbed" in config["properties"]["workflow"]["enum"]
     assert "flow" in config["properties"]
     assert isinstance(meta.get("sections"), list)

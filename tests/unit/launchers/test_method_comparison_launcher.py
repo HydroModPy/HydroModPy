@@ -13,9 +13,8 @@ import pytest
 
 from hydromodpy.analysis.comparison.config import (
     ComparisonConfig,
-    MethodComparisonConfig,
-    MethodComparisonObservable,
-    MethodComparisonVariant,
+    ComparisonObservable,
+    ComparisonVariant,
 )
 from hydromodpy.analysis.comparison.exports import (
     _load_catalog_budget_rows,
@@ -26,7 +25,7 @@ from hydromodpy.analysis.comparison.metric_diff import (
     build_comparison_metrics,
     build_unmatched_groups,
 )
-from hydromodpy.analysis.comparison.orchestrator import MethodComparisonLauncher
+from hydromodpy.analysis.comparison.orchestrator import VariantComparisonLauncher
 from hydromodpy.analysis.comparison.runtime import (
     _resolve_recorded_output_path,
     extract_observable_rows,
@@ -147,22 +146,22 @@ def _write_solver_grid_template(run_folder: Path, *, nx: int, ny: int) -> None:
         dataset.write(np.ones((ny, nx), dtype="float32"), 1)
 
 
-def _write_method_comparison_config(path: Path, run_folder: Path) -> None:
+def _write_variant_comparison_config(path: Path, run_folder: Path) -> None:
     path.write_text(
         "\n".join(
             [
-                "[method_comparison]",
+                "[comparison]",
                 'comparison_id = "demo_compare"',
                 'output_root = "comparison_outputs"',
                 "run_variants = false",
                 "",
-                "[[method_comparison.variant]]",
+                "[[comparison.variant]]",
                 'id = "mf6_demo"',
                 'solver = "modflow6"',
                 'mesh_mode = "mesh_catchment"',
                 f'run_folder = "{run_folder.as_posix()}"',
                 "",
-                "[[method_comparison.observable]]",
+                "[[comparison.observable]]",
                 'name = "head_at_point"',
                 'variable = "watertable_elevation"',
                 'support = "point"',
@@ -171,7 +170,7 @@ def _write_method_comparison_config(path: Path, run_folder: Path) -> None:
                 'time = "last"',
                 'unit = "m"',
                 "",
-                "[[method_comparison.observable]]",
+                "[[comparison.observable]]",
                 'name = "outlet_flux"',
                 'variable = "outlet_flux"',
                 'support = "outlet"',
@@ -184,15 +183,15 @@ def _write_method_comparison_config(path: Path, run_folder: Path) -> None:
     )
 
 
-def _write_method_comparison_anchors(path: Path) -> None:
+def _write_comparison_anchors(path: Path) -> None:
     path.write_text(
         "\n".join(
             [
-                "[method_comparison_anchors.demo.reference]",
+                "[comparison_anchors.demo.reference]",
                 "x = 10.0",
                 "y = 0.0",
                 "",
-                "[method_comparison_anchors.demo.outlet]",
+                "[comparison_anchors.demo.outlet]",
                 "x = 10.0",
                 "y = 0.0",
             ]
@@ -202,7 +201,7 @@ def _write_method_comparison_anchors(path: Path) -> None:
     )
 
 
-def _write_visual_method_comparison_config(
+def _write_visual_variant_comparison_config(
     path: Path,
     *,
     reference_run_folder: Path,
@@ -213,13 +212,13 @@ def _write_visual_method_comparison_config(
     path.write_text(
         "\n".join(
             [
-                "[method_comparison]",
+                "[comparison]",
                 'comparison_id = "demo_visual_compare"',
                 'output_root = "comparison_outputs"',
                 "run_variants = false",
                 'reference_variant = "mf6_demo"',
                 "",
-                "[[method_comparison.variant]]",
+                "[[comparison.variant]]",
                 'id = "mf6_demo"',
                 'label = "MF6 reference"',
                 'solver = "modflow6"',
@@ -227,7 +226,7 @@ def _write_visual_method_comparison_config(
                 f'simulation_config = "{reference_config_path.as_posix()}"',
                 f'run_folder = "{reference_run_folder.as_posix()}"',
                 "",
-                "[[method_comparison.variant]]",
+                "[[comparison.variant]]",
                 'id = "nwt_demo"',
                 'label = "NWT candidate"',
                 'solver = "modflownwt"',
@@ -235,7 +234,7 @@ def _write_visual_method_comparison_config(
                 f'simulation_config = "{candidate_config_path.as_posix()}"',
                 f'run_folder = "{candidate_run_folder.as_posix()}"',
                 "",
-                "[[method_comparison.observable]]",
+                "[[comparison.observable]]",
                 'name = "head_map"',
                 'variable = "watertable_elevation"',
                 'support = "map"',
@@ -243,7 +242,7 @@ def _write_visual_method_comparison_config(
                 'reducer = "identity"',
                 'unit = "m"',
                 "",
-                "[[method_comparison.observable]]",
+                "[[comparison.observable]]",
                 'name = "head_left_point"',
                 'variable = "watertable_elevation"',
                 'support = "point"',
@@ -251,7 +250,7 @@ def _write_visual_method_comparison_config(
                 'time = "all"',
                 'unit = "m"',
                 "",
-                "[[method_comparison.observable]]",
+                "[[comparison.observable]]",
                 'name = "head_right_point"',
                 'variable = "watertable_elevation"',
                 'support = "point"',
@@ -259,7 +258,7 @@ def _write_visual_method_comparison_config(
                 'time = "all"',
                 'unit = "m"',
                 "",
-                "[[method_comparison.observable]]",
+                "[[comparison.observable]]",
                 'name = "outlet_flux_series"',
                 'variable = "outlet_flux"',
                 'support = "outlet"',
@@ -273,7 +272,7 @@ def _write_visual_method_comparison_config(
     )
 
 
-def _write_structured_xy_method_comparison_config(
+def _write_structured_xy_variant_comparison_config(
     path: Path,
     *,
     run_folder: Path,
@@ -282,18 +281,18 @@ def _write_structured_xy_method_comparison_config(
     path.write_text(
         "\n".join(
             [
-                "[method_comparison]",
+                "[comparison]",
                 'comparison_id = "demo_structured_xy"',
                 "run_variants = false",
                 "",
-                "[[method_comparison.variant]]",
+                "[[comparison.variant]]",
                 'id = "nwt_demo"',
                 'solver = "modflownwt"',
                 'mesh_mode = "structured"',
                 f'simulation_config = "{simulation_config_path.as_posix()}"',
                 f'run_folder = "{run_folder.as_posix()}"',
                 "",
-                "[[method_comparison.observable]]",
+                "[[comparison.observable]]",
                 'name = "head_xy_point"',
                 'variable = "watertable_elevation"',
                 'support = "point"',
@@ -302,7 +301,7 @@ def _write_structured_xy_method_comparison_config(
                 'time = "last"',
                 'unit = "m"',
                 "",
-                "[[method_comparison.observable]]",
+                "[[comparison.observable]]",
                 'name = "outlet_flux_xy"',
                 'variable = "outlet_flux"',
                 'support = "outlet"',
@@ -456,39 +455,39 @@ def _expected_outlet_flux(value_m_per_day: float) -> float:
     return value_m_per_day * OUTLET_CELL_AREA_M2 / 86400.0
 
 
-def test_method_comparison_config_resolves_paths(tmp_path: Path) -> None:
+def test_comparison_config_resolves_paths(tmp_path: Path) -> None:
     run_folder = tmp_path / "runs" / "mf6_demo"
-    config_path = tmp_path / "config_method_comparison.toml"
-    _write_method_comparison_config(config_path, run_folder)
+    config_path = tmp_path / "config_comparison.toml"
+    _write_variant_comparison_config(config_path, run_folder)
 
-    cfg = MethodComparisonConfig.from_toml(
+    cfg = ComparisonConfig.from_toml(
         load_toml_with_base_config(config_path),
         config_path=config_path,
     )
 
     assert cfg.comparison_root == (tmp_path / "comparison_outputs").resolve()
-    assert cfg.method_comparison.comparison_id == "demo_compare"
-    assert cfg.resolve_variant_run_folder(cfg.method_comparison.variant[0]) == run_folder.resolve()
-    assert cfg.method_comparison.observable[1].reducer == "sum"
+    assert cfg.comparison.comparison_id == "demo_compare"
+    assert cfg.resolve_variant_run_folder(cfg.comparison.variant[0]) == run_folder.resolve()
+    assert cfg.comparison.observable[1].reducer == "sum"
 
 
-def test_method_comparison_config_applies_anchor_file(tmp_path: Path) -> None:
-    anchors_path = tmp_path / "method_comparison_points.toml"
-    _write_method_comparison_anchors(anchors_path)
-    config_path = tmp_path / "config_method_comparison.toml"
+def test_comparison_config_applies_anchor_file(tmp_path: Path) -> None:
+    anchors_path = tmp_path / "comparison_points.toml"
+    _write_comparison_anchors(anchors_path)
+    config_path = tmp_path / "config_comparison.toml"
     config_path.write_text(
         "\n".join(
             [
-                "[method_comparison]",
+                "[comparison]",
                 'comparison_id = "demo_anchor_compare"',
-                'anchors_file = "method_comparison_points.toml"',
+                'anchors_file = "comparison_points.toml"',
                 "run_variants = false",
                 "",
-                "[[method_comparison.variant]]",
+                "[[comparison.variant]]",
                 'id = "mf6_demo"',
                 'run_folder = "run"',
                 "",
-                "[[method_comparison.observable]]",
+                "[[comparison.observable]]",
                 'name = "head_at_anchor"',
                 'variable = "watertable_elevation"',
                 'support = "point"',
@@ -499,12 +498,12 @@ def test_method_comparison_config_applies_anchor_file(tmp_path: Path) -> None:
         encoding="utf-8",
     )
 
-    cfg = MethodComparisonConfig.from_toml(
+    cfg = ComparisonConfig.from_toml(
         load_toml_with_base_config(config_path),
         config_path=config_path,
     )
 
-    observable = cfg.method_comparison.observable[0]
+    observable = cfg.comparison.observable[0]
     assert observable.anchor_id == "demo.reference"
     assert observable.x == 10.0
     assert observable.y == 0.0
@@ -523,20 +522,20 @@ def test_comparison_config_accepts_canonical_anchor_file(tmp_path: Path) -> None
         + "\n",
         encoding="utf-8",
     )
-    config_path = tmp_path / "config_method_comparison.toml"
+    config_path = tmp_path / "config_comparison.toml"
     config_path.write_text(
         "\n".join(
             [
-                "[method_comparison]",
+                "[comparison]",
                 'comparison_id = "demo_anchor_compare"',
                 'anchors_file = "comparison_points.toml"',
                 "run_variants = false",
                 "",
-                "[[method_comparison.variant]]",
+                "[[comparison.variant]]",
                 'id = "mf6_demo"',
                 'run_folder = "run"',
                 "",
-                "[[method_comparison.observable]]",
+                "[[comparison.observable]]",
                 'name = "head_at_anchor"',
                 'variable = "watertable_elevation"',
                 'support = "point"',
@@ -552,7 +551,7 @@ def test_comparison_config_accepts_canonical_anchor_file(tmp_path: Path) -> None
         config_path=config_path,
     )
 
-    assert cfg.method_comparison is cfg.comparison
+    assert cfg.comparison is cfg.comparison
     assert cfg.comparison.observable[0].x == 11.0
     assert cfg.comparison.observable[0].y == 1.0
 
@@ -560,23 +559,23 @@ def test_comparison_config_accepts_canonical_anchor_file(tmp_path: Path) -> None
 def test_materialize_variant_config_writes_base_overlay(tmp_path: Path) -> None:
     base_config = tmp_path / "run_flow_common.toml"
     _write_base_simulation_config(base_config)
-    config_path = tmp_path / "config_method_comparison.toml"
+    config_path = tmp_path / "config_comparison.toml"
     config_path.write_text(
         "\n".join(
             [
-                "[method_comparison]",
+                "[comparison]",
                 'comparison_id = "demo_compare"',
                 'base_simulation_config = "run_flow_common.toml"',
                 "run_variants = false",
                 "",
-                "[[method_comparison.variant]]",
+                "[[comparison.variant]]",
                 'id = "bouss_demo"',
                 'solver = "boussinesq"',
                 "",
-                "[method_comparison.variant.overlay.mesh_input]",
+                "[comparison.variant.overlay.mesh_input]",
                 'bundle_dir = "results_stable/mesh/bundle"',
                 "",
-                "[[method_comparison.observable]]",
+                "[[comparison.observable]]",
                 'name = "head_cell"',
                 'variable = "watertable_elevation"',
                 'support = "point"',
@@ -586,14 +585,14 @@ def test_materialize_variant_config_writes_base_overlay(tmp_path: Path) -> None:
         + "\n",
         encoding="utf-8",
     )
-    cfg = MethodComparisonConfig.from_toml(
+    cfg = ComparisonConfig.from_toml(
         load_toml_with_base_config(config_path),
         config_path=config_path,
     )
 
     generated = materialize_variant_config(
         cfg=cfg,
-        variant=cfg.method_comparison.variant[0],
+        variant=cfg.comparison.variant[0],
     )
 
     assert generated is not None
@@ -607,19 +606,19 @@ def test_extract_observable_rows_reads_point_and_strict_outlet(tmp_path: Path) -
     run_folder = tmp_path / "run"
     bundle_dir = tmp_path / "bundle"
     store = _write_fake_run_folder(run_folder, bundle_dir)
-    config_path = tmp_path / "config_method_comparison.toml"
-    _write_method_comparison_config(config_path, run_folder)
-    cfg = MethodComparisonConfig.from_toml(
+    config_path = tmp_path / "config_comparison.toml"
+    _write_variant_comparison_config(config_path, run_folder)
+    cfg = ComparisonConfig.from_toml(
         load_toml_with_base_config(config_path),
         config_path=config_path,
     )
-    variant = cfg.method_comparison.variant[0]
+    variant = cfg.comparison.variant[0]
 
     rows = extract_observable_rows(
         comparison_id="demo_compare",
         variant=variant,
         run_folder=run_folder,
-        observables=tuple(cfg.method_comparison.observable),
+        observables=tuple(cfg.comparison.observable),
         store=store,
         sim_id=SIM_ID,
     )
@@ -705,22 +704,22 @@ def test_extract_observable_rows_resolves_structured_xy_from_config(tmp_path: Pa
     )
 
     comparison_config = tmp_path / "config_structured_xy.toml"
-    _write_structured_xy_method_comparison_config(
+    _write_structured_xy_variant_comparison_config(
         comparison_config,
         run_folder=run_folder,
         simulation_config_path=simulation_config,
     )
-    cfg = MethodComparisonConfig.from_toml(
+    cfg = ComparisonConfig.from_toml(
         load_toml_with_base_config(comparison_config),
         config_path=comparison_config,
     )
 
     rows = extract_observable_rows(
         comparison_id="demo_structured_xy",
-        variant=cfg.method_comparison.variant[0],
+        variant=cfg.comparison.variant[0],
         run_folder=run_folder,
-        observables=tuple(cfg.method_comparison.observable),
-        config_path=cfg.resolve_variant_config_path(cfg.method_comparison.variant[0]),
+        observables=tuple(cfg.comparison.observable),
+        config_path=cfg.resolve_variant_config_path(cfg.comparison.variant[0]),
         store=store,
         sim_id=SIM_ID,
     )
@@ -735,19 +734,19 @@ def test_extract_observable_rows_resolves_structured_xy_from_config(tmp_path: Pa
 
 def test_extract_observable_rows_reads_direct_scalar_outlet_flux(tmp_path: Path) -> None:
     run_folder = tmp_path / "run_direct"
-    config_path = tmp_path / "config_method_comparison.toml"
-    _write_method_comparison_config(config_path, run_folder)
+    config_path = tmp_path / "config_comparison.toml"
+    _write_variant_comparison_config(config_path, run_folder)
     store = _write_direct_outlet_run_folder(run_folder, outlet_value=1.25)
-    cfg = MethodComparisonConfig.from_toml(
+    cfg = ComparisonConfig.from_toml(
         load_toml_with_base_config(config_path),
         config_path=config_path,
     )
 
     rows = extract_observable_rows(
         comparison_id="demo_compare",
-        variant=cfg.method_comparison.variant[0],
+        variant=cfg.comparison.variant[0],
         run_folder=run_folder,
-        observables=(cfg.method_comparison.observable[1],),
+        observables=(cfg.comparison.observable[1],),
         store=store,
         sim_id=SIM_ID,
     )
@@ -765,18 +764,18 @@ def test_extract_observable_rows_reads_boussinesq_outlet_flux(tmp_path: Path) ->
     run_folder = tmp_path / "run_bouss"
     bundle_dir = tmp_path / "bundle_bouss"
     store = _write_boussinesq_run_folder(run_folder, bundle_dir)
-    config_path = tmp_path / "config_method_comparison.toml"
-    _write_method_comparison_config(config_path, run_folder)
-    cfg = MethodComparisonConfig.from_toml(
+    config_path = tmp_path / "config_comparison.toml"
+    _write_variant_comparison_config(config_path, run_folder)
+    cfg = ComparisonConfig.from_toml(
         load_toml_with_base_config(config_path),
         config_path=config_path,
     )
 
     rows = extract_observable_rows(
         comparison_id="demo_compare",
-        variant=cfg.method_comparison.variant[0],
+        variant=cfg.comparison.variant[0],
         run_folder=run_folder,
-        observables=(cfg.method_comparison.observable[1],),
+        observables=(cfg.comparison.observable[1],),
         store=store,
         sim_id=SIM_ID,
     )
@@ -797,21 +796,21 @@ def test_extract_observable_rows_converts_boussinesq_drainage_map_to_outflow_dra
     bundle_dir = tmp_path / "bundle_bouss_map"
     store = _write_boussinesq_run_folder(run_folder, bundle_dir)
 
-    config_path = tmp_path / "config_method_comparison_bouss_map.toml"
+    config_path = tmp_path / "config_comparison_bouss_map.toml"
     config_path.write_text(
         "\n".join(
             [
-                "[method_comparison]",
+                "[comparison]",
                 'comparison_id = "demo_bouss_map"',
                 "run_variants = false",
                 "",
-                "[[method_comparison.variant]]",
+                "[[comparison.variant]]",
                 'id = "bouss_demo"',
                 'solver = "boussinesq"',
                 'mesh_mode = "mesh_input"',
                 f'run_folder = "{run_folder.as_posix()}"',
                 "",
-                "[[method_comparison.observable]]",
+                "[[comparison.observable]]",
                 'name = "drain_map"',
                 'variable = "outflow_drain"',
                 'support = "map"',
@@ -822,16 +821,16 @@ def test_extract_observable_rows_converts_boussinesq_drainage_map_to_outflow_dra
         + "\n",
         encoding="utf-8",
     )
-    cfg = MethodComparisonConfig.from_toml(
+    cfg = ComparisonConfig.from_toml(
         load_toml_with_base_config(config_path),
         config_path=config_path,
     )
 
     rows = extract_observable_rows(
         comparison_id="demo_bouss_map",
-        variant=cfg.method_comparison.variant[0],
+        variant=cfg.comparison.variant[0],
         run_folder=run_folder,
-        observables=tuple(cfg.method_comparison.observable),
+        observables=tuple(cfg.comparison.observable),
         store=store,
         sim_id=SIM_ID,
     )
@@ -890,21 +889,21 @@ def test_extract_observable_rows_reads_surface_excess_map_and_series(
     bundle_dir = tmp_path / "bundle_bouss_surface_compare"
     store = _write_boussinesq_run_folder(run_folder, bundle_dir)
 
-    config_path = tmp_path / "config_method_comparison_surface_excess.toml"
+    config_path = tmp_path / "config_comparison_surface_excess.toml"
     config_path.write_text(
         "\n".join(
             [
-                "[method_comparison]",
+                "[comparison]",
                 'comparison_id = "demo_surface_excess"',
                 "run_variants = false",
                 "",
-                "[[method_comparison.variant]]",
+                "[[comparison.variant]]",
                 'id = "bouss_demo"',
                 'solver = "boussinesq"',
                 'mesh_mode = "mesh_input"',
                 f'run_folder = "{run_folder.as_posix()}"',
                 "",
-                "[[method_comparison.observable]]",
+                "[[comparison.observable]]",
                 'name = "surface_excess_flux_series"',
                 'variable = "surface_excess_flux"',
                 'support = "cell_mask"',
@@ -912,7 +911,7 @@ def test_extract_observable_rows_reads_surface_excess_map_and_series(
                 'reducer = "sum"',
                 'unit = "m3/s"',
                 "",
-                "[[method_comparison.observable]]",
+                "[[comparison.observable]]",
                 'name = "surface_excess_map_last"',
                 'variable = "surface_excess_rate"',
                 'support = "map"',
@@ -923,16 +922,16 @@ def test_extract_observable_rows_reads_surface_excess_map_and_series(
         + "\n",
         encoding="utf-8",
     )
-    cfg = MethodComparisonConfig.from_toml(
+    cfg = ComparisonConfig.from_toml(
         load_toml_with_base_config(config_path),
         config_path=config_path,
     )
 
     rows = extract_observable_rows(
         comparison_id="demo_surface_excess",
-        variant=cfg.method_comparison.variant[0],
+        variant=cfg.comparison.variant[0],
         run_folder=run_folder,
-        observables=tuple(cfg.method_comparison.observable),
+        observables=tuple(cfg.comparison.observable),
         store=store,
         sim_id=SIM_ID,
     )
@@ -1190,20 +1189,20 @@ def test_extract_observable_rows_resolves_wsl_bundle_path_on_windows(
         encoding="utf-8",
     )
 
-    config_path = tmp_path / "config_method_comparison_wsl.toml"
+    config_path = tmp_path / "config_comparison_wsl.toml"
     config_path.write_text(
         "\n".join(
             [
-                "[method_comparison]",
+                "[comparison]",
                 'comparison_id = "demo_compare_wsl_bundle"',
                 "run_variants = false",
                 "",
-                "[[method_comparison.variant]]",
+                "[[comparison.variant]]",
                 'id = "bouss_demo"',
                 'solver = "boussinesq"',
                 f'run_folder = "{run_folder.as_posix()}"',
                 "",
-                "[[method_comparison.observable]]",
+                "[[comparison.observable]]",
                 'name = "outlet_flux"',
                 'variable = "outlet_flux"',
                 'support = "outlet"',
@@ -1216,16 +1215,16 @@ def test_extract_observable_rows_resolves_wsl_bundle_path_on_windows(
         + "\n",
         encoding="utf-8",
     )
-    cfg = MethodComparisonConfig.from_toml(
+    cfg = ComparisonConfig.from_toml(
         load_toml_with_base_config(config_path),
         config_path=config_path,
     )
 
     rows = extract_observable_rows(
         comparison_id="demo_compare_wsl_bundle",
-        variant=cfg.method_comparison.variant[0],
+        variant=cfg.comparison.variant[0],
         run_folder=run_folder,
-        observables=tuple(cfg.method_comparison.observable),
+        observables=tuple(cfg.comparison.observable),
         store=store,
         sim_id=SIM_ID,
     )
@@ -1251,19 +1250,19 @@ def test_extract_observable_rows_masks_depth_using_head_nodata(tmp_path: Path) -
         },
     )
 
-    config_path = tmp_path / "config_method_comparison_depth.toml"
+    config_path = tmp_path / "config_comparison_depth.toml"
     config_path.write_text(
         "\n".join(
             [
-                "[method_comparison]",
+                "[comparison]",
                 'comparison_id = "demo_depth_mask"',
                 "run_variants = false",
                 "",
-                "[[method_comparison.variant]]",
+                "[[comparison.variant]]",
                 'id = "mf6_demo"',
                 f'run_folder = "{run_folder.as_posix()}"',
                 "",
-                "[[method_comparison.observable]]",
+                "[[comparison.observable]]",
                 'name = "depth_max_last"',
                 'variable = "watertable_depth"',
                 'support = "map"',
@@ -1275,16 +1274,16 @@ def test_extract_observable_rows_masks_depth_using_head_nodata(tmp_path: Path) -
         + "\n",
         encoding="utf-8",
     )
-    cfg = MethodComparisonConfig.from_toml(
+    cfg = ComparisonConfig.from_toml(
         load_toml_with_base_config(config_path),
         config_path=config_path,
     )
 
     rows = extract_observable_rows(
         comparison_id="demo_depth_mask",
-        variant=cfg.method_comparison.variant[0],
+        variant=cfg.comparison.variant[0],
         run_folder=run_folder,
-        observables=tuple(cfg.method_comparison.observable),
+        observables=tuple(cfg.comparison.observable),
         store=store,
         sim_id=SIM_ID,
     )
@@ -1295,19 +1294,19 @@ def test_extract_observable_rows_masks_depth_using_head_nodata(tmp_path: Path) -
 
 
 def test_outlet_without_location_requires_explicit_proxy_opt_in(tmp_path: Path) -> None:
-    config_path = tmp_path / "config_method_comparison.toml"
+    config_path = tmp_path / "config_comparison.toml"
     config_path.write_text(
         "\n".join(
             [
-                "[method_comparison]",
+                "[comparison]",
                 'comparison_id = "demo_compare"',
                 "run_variants = false",
                 "",
-                "[[method_comparison.variant]]",
+                "[[comparison.variant]]",
                 'id = "mf6_demo"',
                 'run_folder = "run"',
                 "",
-                "[[method_comparison.observable]]",
+                "[[comparison.observable]]",
                 'name = "outlet_flux"',
                 'variable = "outlet_flux"',
                 'support = "outlet"',
@@ -1318,24 +1317,24 @@ def test_outlet_without_location_requires_explicit_proxy_opt_in(tmp_path: Path) 
     )
 
     with pytest.raises(ValueError, match="outlet observables require"):
-        MethodComparisonConfig.from_toml(
+        ComparisonConfig.from_toml(
             load_toml_with_base_config(config_path),
             config_path=config_path,
         )
 
 
-def test_method_comparison_launcher_reuses_existing_run_folder(
+def test_variant_comparison_launcher_reuses_existing_run_folder(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     run_folder = tmp_path / "run"
     bundle_dir = tmp_path / "bundle"
     store = _write_fake_run_folder(run_folder, bundle_dir)
-    config_path = tmp_path / "config_method_comparison.toml"
-    _write_method_comparison_config(config_path, run_folder)
+    config_path = tmp_path / "config_comparison.toml"
+    _write_variant_comparison_config(config_path, run_folder)
     _patch_result_store(monkeypatch, {config_path.resolve(): store})
 
-    summary = MethodComparisonLauncher(config_path).run()
+    summary = VariantComparisonLauncher(config_path).run()
 
     manifest_path = Path(summary["manifest_path"])
     observables_csv = Path(summary["observables_csv"])
@@ -1353,7 +1352,7 @@ def test_method_comparison_launcher_reuses_existing_run_folder(
     assert Path(summary["comparison_report_md"]).exists()
 
 
-def test_method_comparison_launcher_generates_visual_figures(
+def test_variant_comparison_launcher_generates_visual_figures(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -1384,8 +1383,8 @@ def test_method_comparison_launcher_generates_visual_figures(
         ny=1,
     )
 
-    config_path = tmp_path / "config_method_comparison_visuals.toml"
-    _write_visual_method_comparison_config(
+    config_path = tmp_path / "config_comparison_visuals.toml"
+    _write_visual_variant_comparison_config(
         config_path,
         reference_run_folder=reference_run,
         candidate_run_folder=candidate_run,
@@ -1400,7 +1399,7 @@ def test_method_comparison_launcher_generates_visual_figures(
         },
     )
 
-    summary = MethodComparisonLauncher(config_path).run()
+    summary = VariantComparisonLauncher(config_path).run()
 
     figures = summary["comparison_figures"]
     assert summary["comparison_figures_dir"]
@@ -1424,7 +1423,7 @@ def test_method_comparison_launcher_generates_visual_figures(
     assert "outlet_flux_series" in report_text
 
 
-def test_method_comparison_launcher_writes_chronicles_native_flux_and_runtime_outputs(
+def test_variant_comparison_launcher_writes_chronicles_native_flux_and_runtime_outputs(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -1477,8 +1476,8 @@ def test_method_comparison_launcher_writes_chronicles_native_flux_and_runtime_ou
     _write_structured_solver_config(reference_solver_config, solver="modflow6", nx=3, ny=1)
     _write_structured_solver_config(candidate_solver_config, solver="modflownwt", nx=3, ny=1)
 
-    config_path = tmp_path / "config_method_comparison_outputs.toml"
-    _write_visual_method_comparison_config(
+    config_path = tmp_path / "config_comparison_outputs.toml"
+    _write_visual_variant_comparison_config(
         config_path,
         reference_run_folder=reference_run,
         candidate_run_folder=candidate_run,
@@ -1493,7 +1492,7 @@ def test_method_comparison_launcher_writes_chronicles_native_flux_and_runtime_ou
         },
     )
 
-    summary = MethodComparisonLauncher(config_path).run()
+    summary = VariantComparisonLauncher(config_path).run()
 
     artifact_kinds = {item["kind"] for item in summary["comparison_data_artifacts"]}
     assert "timeseries_long_csv" in artifact_kinds
@@ -1506,7 +1505,7 @@ def test_method_comparison_launcher_writes_chronicles_native_flux_and_runtime_ou
     assert "point_dashboard" in figure_kinds
 
 
-def test_method_comparison_launcher_generates_structured_figures_from_run_folder_template(
+def test_variant_comparison_launcher_generates_structured_figures_from_run_folder_template(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -1539,17 +1538,17 @@ def test_method_comparison_launcher_generates_structured_figures_from_run_folder
     _write_structured_solver_config(reference_solver_config, solver="modflow6", nx=2, ny=2)
     _write_structured_solver_config(candidate_solver_config, solver="modflownwt", nx=2, ny=2)
 
-    config_path = tmp_path / "config_method_comparison_structured_reuse.toml"
+    config_path = tmp_path / "config_comparison_structured_reuse.toml"
     config_path.write_text(
         "\n".join(
             [
-                "[method_comparison]",
+                "[comparison]",
                 'comparison_id = "demo_structured_reuse_visuals"',
                 'output_root = "comparison_outputs"',
                 "run_variants = false",
                 'reference_variant = "mf6_demo"',
                 "",
-                "[[method_comparison.variant]]",
+                "[[comparison.variant]]",
                 'id = "mf6_demo"',
                 'label = "MF6 reference"',
                 'solver = "modflow6"',
@@ -1557,7 +1556,7 @@ def test_method_comparison_launcher_generates_structured_figures_from_run_folder
                 f'run_folder = "{reference_run.as_posix()}"',
                 f'simulation_config = "{reference_solver_config.as_posix()}"',
                 "",
-                "[[method_comparison.variant]]",
+                "[[comparison.variant]]",
                 'id = "nwt_demo"',
                 'label = "NWT candidate"',
                 'solver = "modflownwt"',
@@ -1565,7 +1564,7 @@ def test_method_comparison_launcher_generates_structured_figures_from_run_folder
                 f'run_folder = "{candidate_run.as_posix()}"',
                 f'simulation_config = "{candidate_solver_config.as_posix()}"',
                 "",
-                "[[method_comparison.observable]]",
+                "[[comparison.observable]]",
                 'name = "head_map_last"',
                 'variable = "watertable_elevation"',
                 'support = "map"',
@@ -1584,7 +1583,7 @@ def test_method_comparison_launcher_generates_structured_figures_from_run_folder
         },
     )
 
-    summary = MethodComparisonLauncher(config_path).run()
+    summary = VariantComparisonLauncher(config_path).run()
 
     figures = summary["comparison_figures"]
     assert {item["kind"] for item in figures} == {
@@ -1600,7 +1599,7 @@ def test_method_comparison_launcher_generates_structured_figures_from_run_folder
         assert figure_path.stat().st_size > 0
 
 
-def test_method_comparison_launcher_prefers_model_full_path_for_completed_runs(
+def test_variant_comparison_launcher_prefers_model_full_path_for_completed_runs(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -1628,20 +1627,20 @@ def test_method_comparison_launcher_prefers_model_full_path_for_completed_runs(
     actual_run_folder = tmp_path / "results_simulations" / "flow_main__boussinesq"
     actual_run_folder.mkdir(parents=True, exist_ok=True)
     (actual_run_folder / "_metrics.json").write_text("{}", encoding="utf-8")
-    comparison_config = tmp_path / "config_method_comparison.toml"
+    comparison_config = tmp_path / "config_comparison.toml"
     comparison_config.write_text(
         "\n".join(
             [
-                "[method_comparison]",
+                "[comparison]",
                 'comparison_id = "demo_compare"',
                 "run_variants = true",
                 "",
-                "[[method_comparison.variant]]",
+                "[[comparison.variant]]",
                 'id = "bouss_demo"',
                 'solver = "boussinesq"',
                 f'simulation_config = "{simulation_config.as_posix()}"',
                 "",
-                "[[method_comparison.observable]]",
+                "[[comparison.observable]]",
                 'name = "head_cell"',
                 'variable = "watertable_elevation"',
                 'support = "point"',
@@ -1704,14 +1703,14 @@ def test_method_comparison_launcher_prefers_model_full_path_for_completed_runs(
         lambda: _RootConfigProvider(),
     )
 
-    launcher = MethodComparisonLauncher(comparison_config)
-    summary = launcher._run_or_reuse_variant(launcher.cfg.method_comparison.variant[0])
+    launcher = VariantComparisonLauncher(comparison_config)
+    summary = launcher._run_or_reuse_variant(launcher.cfg.comparison.variant[0])
 
     assert summary["status"] == "completed"
     assert Path(summary["run_folder"]) == actual_run_folder
 
 
-def test_method_comparison_launcher_reuse_infers_process_output_folder(
+def test_variant_comparison_launcher_reuse_infers_process_output_folder(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -1733,7 +1732,7 @@ def test_method_comparison_launcher_reuse_infers_process_output_folder(
         lambda: _RootConfigProvider(),
     )
 
-    resolved = MethodComparisonLauncher._infer_run_folder_from_config(
+    resolved = VariantComparisonLauncher._infer_run_folder_from_config(
         tmp_path / "config.toml",
         solver_name="boussinesq",
     )
@@ -1752,13 +1751,13 @@ def test_build_comparison_metrics_against_reference(tmp_path: Path) -> None:
         head_offset=2.0,
         accumulation_offset=0.1,
     )
-    config_path = tmp_path / "config_method_comparison.toml"
-    _write_method_comparison_config(config_path, reference_run)
-    cfg = MethodComparisonConfig.from_toml(
+    config_path = tmp_path / "config_comparison.toml"
+    _write_variant_comparison_config(config_path, reference_run)
+    cfg = ComparisonConfig.from_toml(
         load_toml_with_base_config(config_path),
         config_path=config_path,
     )
-    reference_variant = cfg.method_comparison.variant[0]
+    reference_variant = cfg.comparison.variant[0]
     candidate_variant = reference_variant.model_copy(
         update={"id": "candidate", "label": "candidate"}
     )
@@ -1769,7 +1768,7 @@ def test_build_comparison_metrics_against_reference(tmp_path: Path) -> None:
             comparison_id="demo_compare",
             variant=reference_variant,
             run_folder=reference_run,
-            observables=tuple(cfg.method_comparison.observable),
+            observables=tuple(cfg.comparison.observable),
             store=reference_store,
             sim_id=SIM_ID,
         )
@@ -1779,7 +1778,7 @@ def test_build_comparison_metrics_against_reference(tmp_path: Path) -> None:
             comparison_id="demo_compare",
             variant=candidate_variant,
             run_folder=candidate_run,
-            observables=tuple(cfg.method_comparison.observable),
+            observables=tuple(cfg.comparison.observable),
             store=candidate_store,
             sim_id=SIM_ID,
         )

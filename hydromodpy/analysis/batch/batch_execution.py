@@ -188,6 +188,7 @@ def _extract_comparison_output_artifacts(
 
 def _extract_comparison_child_artifacts(config_path: Path) -> dict[str, Any]:
     """Extract compact comparison artifacts from one child launcher config."""
+    from hydromodpy.analysis.comparison.config import ComparisonConfig
     from hydromodpy.analysis.comparison.experiment_config import SimulationComparisonConfig
     from hydromodpy.core.toml_io.loader import load_toml_with_base_config
 
@@ -197,7 +198,13 @@ def _extract_comparison_child_artifacts(config_path: Path) -> dict[str, Any]:
     }
     try:
         payload = load_toml_with_base_config(config_path)
-        cfg = SimulationComparisonConfig.from_toml(payload, config_path=config_path)
+        section = payload.get("comparison")
+        if not isinstance(section, Mapping):
+            raise ValueError("[comparison] must be a mapping")
+        if "variant" in section:
+            cfg = ComparisonConfig.from_toml(payload, config_path=config_path)
+        else:
+            cfg = SimulationComparisonConfig.from_toml(payload, config_path=config_path)
     except Exception as exc:
         artifacts["child_artifact_status"] = "config_parse_failed"
         artifacts["child_artifact_error_type"] = type(exc).__name__
@@ -210,38 +217,12 @@ def _extract_comparison_child_artifacts(config_path: Path) -> dict[str, Any]:
     )
 
 
-def _extract_method_comparison_child_artifacts(config_path: Path) -> dict[str, Any]:
-    """Extract compact method-comparison artifacts from one child launcher config."""
-    from hydromodpy.analysis.comparison.config import ComparisonConfig
-    from hydromodpy.core.toml_io.loader import load_toml_with_base_config
-
-    artifacts: dict[str, Any] = {
-        "child_artifact_kind": "method_comparison",
-        "child_artifact_status": "unavailable",
-    }
-    try:
-        payload = load_toml_with_base_config(config_path)
-        cfg = ComparisonConfig.from_toml(payload, config_path=config_path)
-    except Exception as exc:
-        artifacts["child_artifact_status"] = "config_parse_failed"
-        artifacts["child_artifact_error_type"] = type(exc).__name__
-        artifacts["child_artifact_error_message"] = str(exc)
-        return artifacts
-
-    return _extract_comparison_output_artifacts(
-        comparison_root=cfg.comparison_root,
-        child_kind="method_comparison",
-    )
-
-
 def _extract_child_case_artifacts(case: RegionalLabPlannedCase) -> dict[str, Any]:
     """Extract launcher-specific child artifacts for one planned case."""
     if case.launcher == "simulation":
         return _extract_simulation_child_artifacts(case.config_path)
     if case.launcher == "comparison":
         return _extract_comparison_child_artifacts(case.config_path)
-    if case.launcher == "method-comparison":
-        return _extract_method_comparison_child_artifacts(case.config_path)
     return {
         "child_artifact_kind": case.launcher,
         "child_artifact_status": "unsupported_launcher",

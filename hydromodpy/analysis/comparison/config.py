@@ -1,4 +1,4 @@
-"""Shared comparison configuration models and legacy TOML compatibility."""
+"""Configuration models for variant-based comparison workflows."""
 
 from __future__ import annotations
 
@@ -6,7 +6,7 @@ from collections.abc import Mapping
 from pathlib import Path
 from typing import Any, Literal
 
-from pydantic import AliasChoices, ConfigDict, Field, field_validator, model_validator
+from pydantic import ConfigDict, Field, field_validator, model_validator
 
 from hydromodpy.core.config_kit.base import HydroModelBase
 from hydromodpy.core.toml_io.loader import load_toml_with_base_config
@@ -279,7 +279,7 @@ class ComparisonFineRaster(HydroModelBase):
 class ComparisonConfig(HydroModelBase):
     """Validated top-level configuration for TOML-compatible comparisons."""
 
-    model_config = ConfigDict(arbitrary_types_allowed=True, populate_by_name=True)
+    model_config = ConfigDict(arbitrary_types_allowed=True, extra="forbid")
 
     config_path: Path
     base_dir: Path
@@ -287,9 +287,7 @@ class ComparisonConfig(HydroModelBase):
     base_simulation_config_path: Path | None = None
     anchors_path: Path | None = None
     anchors: dict[str, tuple[float, float]] = Field(default_factory=dict)
-    comparison: ComparisonSection = Field(
-        validation_alias=AliasChoices("comparison", "method_comparison")
-    )
+    comparison: ComparisonSection
 
     @classmethod
     def from_toml(
@@ -301,12 +299,9 @@ class ComparisonConfig(HydroModelBase):
         """Validate one raw TOML payload and resolve launcher-owned paths."""
         if not isinstance(raw_toml, Mapping):
             raise ValueError("configuration must be a mapping")
-        if "comparison" in raw_toml:
-            section_payload = raw_toml["comparison"]
-        elif "method_comparison" in raw_toml:
-            section_payload = raw_toml["method_comparison"]
-        else:
-            raise KeyError("Missing required section 'comparison' or 'method_comparison'")
+        if "comparison" not in raw_toml:
+            raise KeyError("Missing required section 'comparison'")
+        section_payload = raw_toml["comparison"]
 
         resolved_config_path = Path(config_path).expanduser().resolve()
         base_dir = resolved_config_path.parent
@@ -316,7 +311,7 @@ class ComparisonConfig(HydroModelBase):
         section.comparison_id = comparison_id
 
         if section.output_root is None:
-            comparison_root = base_dir / "method_comparison" / comparison_id
+            comparison_root = base_dir / "comparison" / comparison_id
         else:
             comparison_root = Path(section.output_root).expanduser()
             if not comparison_root.is_absolute():
@@ -353,11 +348,6 @@ class ComparisonConfig(HydroModelBase):
         )
         cfg._validate_variant_inputs()
         return cfg
-
-    @property
-    def method_comparison(self) -> ComparisonSection:
-        """Legacy accessor for callers not yet migrated to ``comparison``."""
-        return self.comparison
 
     def _validate_variant_inputs(self) -> None:
         """Validate path modes requiring top-level base-config context."""
@@ -401,24 +391,12 @@ class ComparisonConfig(HydroModelBase):
         return path.resolve()
 
 
-MethodComparisonConfig = ComparisonConfig
-MethodComparisonFineRaster = ComparisonFineRaster
-MethodComparisonObservable = ComparisonObservable
-MethodComparisonSection = ComparisonSection
-MethodComparisonVariant = ComparisonVariant
-
-
 __all__ = (
     "ComparisonConfig",
     "ComparisonFineRaster",
     "ComparisonObservable",
     "ComparisonSection",
     "ComparisonVariant",
-    "MethodComparisonConfig",
-    "MethodComparisonFineRaster",
-    "MethodComparisonObservable",
-    "MethodComparisonSection",
-    "MethodComparisonVariant",
 )
 
 
@@ -426,13 +404,8 @@ def _load_comparison_anchors(path: Path) -> dict[str, tuple[float, float]]:
     """Load flattened XY anchors from one TOML file."""
     raw_toml = load_toml_with_base_config(path)
     raw_anchors = raw_toml.get("comparison_anchors")
-    if raw_anchors is None:
-        raw_anchors = raw_toml.get("method_comparison_anchors")
     if not isinstance(raw_anchors, Mapping):
-        raise KeyError(
-            f"Anchors file '{path}' must expose a [comparison_anchors] tree "
-            "or legacy [method_comparison_anchors] tree"
-        )
+        raise KeyError(f"Anchors file '{path}' must expose a [comparison_anchors] tree")
     anchors: dict[str, tuple[float, float]] = {}
     _collect_anchor_nodes(raw_anchors, anchors=anchors, prefix=())
     if not anchors:

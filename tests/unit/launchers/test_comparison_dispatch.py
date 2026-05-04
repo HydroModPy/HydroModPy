@@ -15,25 +15,24 @@ def _write_toml(path: Path, content: str) -> Path:
     return path
 
 
-def test_neutral_comparison_config_names_keep_legacy_imports() -> None:
+def test_neutral_comparison_config_exports_only_canonical_names() -> None:
     from hydromodpy.analysis.comparison.config import (
         ComparisonConfig,
         ComparisonObservable,
         ComparisonVariant,
-        MethodComparisonConfig,
-        MethodComparisonObservable,
-        MethodComparisonVariant,
     )
 
-    assert MethodComparisonConfig is ComparisonConfig
-    assert MethodComparisonObservable is ComparisonObservable
-    assert MethodComparisonVariant is ComparisonVariant
+    assert ComparisonConfig.__name__ == "ComparisonConfig"
+    assert ComparisonObservable.__name__ == "ComparisonObservable"
+    assert ComparisonVariant.__name__ == "ComparisonVariant"
 
 
 def test_dispatch_prefers_canonical_comparison_launcher(monkeypatch, tmp_path: Path) -> None:
     config_path = _write_toml(
         tmp_path / "comparison.toml",
-        "[comparison]\nbase_simulation_config = 'base.toml'\n",
+        "[comparison]\nbase_simulation_config = 'base.toml'\n"
+        "[[comparison.simulation]]\nid = 'sim_a'\nsolver = 'modflow6'\n"
+        "[[comparison.observable]]\nname = 'head'\nvariable = 'head'\ncell_index = 0\n",
     )
     captured: dict[str, object] = {}
 
@@ -55,38 +54,42 @@ def test_dispatch_prefers_canonical_comparison_launcher(monkeypatch, tmp_path: P
     assert summary == {"launcher": "simulation_comparison"}
 
 
-def test_dispatch_keeps_method_comparison_compatibility(monkeypatch, tmp_path: Path) -> None:
+def test_dispatch_routes_variant_comparison_launcher(monkeypatch, tmp_path: Path) -> None:
     config_path = _write_toml(
-        tmp_path / "method_comparison.toml",
-        "[method_comparison]\ncomparison_id = 'legacy'\n",
+        tmp_path / "variant_comparison.toml",
+        "[comparison]\ncomparison_id = 'variant_demo'\n"
+        "[[comparison.variant]]\nid = 'reference'\nrun_folder = 'runs/reference'\n"
+        "[[comparison.observable]]\nname = 'head'\nvariable = 'head'\ncell_index = 0\n",
     )
     captured: dict[str, object] = {}
 
-    class FakeMethodComparisonLauncher:
+    class FakeVariantComparisonLauncher:
         def __init__(self, path: str | Path) -> None:
             captured["path"] = Path(path)
 
         def run(self) -> dict[str, str]:
-            return {"launcher": "method_comparison"}
+            return {"launcher": "variant_comparison"}
 
     monkeypatch.setattr(
-        "hydromodpy.analysis.comparison.orchestrator.MethodComparisonLauncher",
-        FakeMethodComparisonLauncher,
+        "hydromodpy.analysis.comparison.orchestrator.VariantComparisonLauncher",
+        FakeVariantComparisonLauncher,
     )
 
     summary = run_comparison_config(config_path)
 
     assert captured["path"] == config_path.resolve()
-    assert summary == {"launcher": "method_comparison"}
+    assert summary == {"launcher": "variant_comparison"}
 
 
 def test_dispatch_rejects_ambiguous_comparison_config(tmp_path: Path) -> None:
     config_path = _write_toml(
         tmp_path / "ambiguous.toml",
-        "[comparison]\nbase_simulation_config = 'base.toml'\n[method_comparison]\n",
+        "[comparison]\nbase_simulation_config = 'base.toml'\n"
+        "[[comparison.simulation]]\nid = 'sim_a'\nsolver = 'modflow6'\n"
+        "[[comparison.variant]]\nid = 'variant_a'\nrun_folder = 'runs/a'\n",
     )
 
-    with pytest.raises(ValueError, match="both \\[comparison\\] and \\[method_comparison\\]"):
+    with pytest.raises(ValueError, match="both simulation and variant"):
         resolve_comparison_launcher(config_path)
 
 
@@ -96,7 +99,17 @@ def test_dispatch_rejects_non_comparison_config(tmp_path: Path) -> None:
         "[simulation]\nname = 'demo'\n",
     )
 
-    with pytest.raises(KeyError, match="\\[comparison\\] or legacy \\[method_comparison\\]"):
+    with pytest.raises(KeyError, match="\\[comparison\\]"):
+        resolve_comparison_launcher(config_path)
+
+
+def test_dispatch_rejects_removed_method_comparison_section(tmp_path: Path) -> None:
+    config_path = _write_toml(
+        tmp_path / "removed.toml",
+        "[method_comparison]\ncomparison_id = 'removed'\n",
+    )
+
+    with pytest.raises(KeyError, match="\\[comparison\\]"):
         resolve_comparison_launcher(config_path)
 
 

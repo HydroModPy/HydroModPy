@@ -16,7 +16,6 @@ WorkflowName = Literal[
     "overview",
     "mesh",
     "comparison",
-    "method-comparison",
     "testbed",
 ]
 
@@ -27,7 +26,6 @@ KNOWN_WORKFLOWS: tuple[str, ...] = (
     "overview",
     "mesh",
     "comparison",
-    "method-comparison",
     "testbed",
 )
 
@@ -171,18 +169,11 @@ def run_batch(config_path: str | Path) -> dict[str, Any]:
     return RegionalLabLauncher(config_path).run()
 
 
-def run_method_comparison(config_path: str | Path) -> dict[str, Any]:
-    """Run a method-comparison workflow from a TOML file."""
-    from hydromodpy.analysis.comparison.orchestrator import MethodComparisonLauncher
-
-    return MethodComparisonLauncher(config_path).run()
-
-
 def run_comparison(config_path: str | Path) -> dict[str, Any]:
-    """Run a simulation-comparison workflow from a TOML file."""
-    from hydromodpy.analysis.comparison.experiment_launcher import SimulationComparisonLauncher
+    """Run a comparison workflow from a TOML file."""
+    from hydromodpy.analysis.comparison.dispatch import run_comparison_config
 
-    return SimulationComparisonLauncher(config_path).run()
+    return run_comparison_config(config_path)
 
 
 def run_testbed(config_path: str | Path) -> dict[str, Any]:
@@ -203,7 +194,6 @@ DISPATCH: dict[str, Callable[..., dict[str, Any]]] = {
     "calibration": run_calibration,
     "batch": run_batch,
     "comparison": run_comparison,
-    "method-comparison": run_method_comparison,
     "testbed": run_testbed,
 }
 
@@ -230,7 +220,6 @@ __all__ = (
     "run_calibration",
     "run_comparison",
     "run_mesh",
-    "run_method_comparison",
     "run_overview",
     "run_simulation",
     "run_testbed",

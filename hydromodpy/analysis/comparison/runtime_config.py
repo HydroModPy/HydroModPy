@@ -10,8 +10,8 @@ from pathlib import Path
 from typing import Any
 
 from hydromodpy.analysis.comparison.config import (
-    MethodComparisonConfig,
-    MethodComparisonVariant,
+    ComparisonConfig,
+    ComparisonVariant,
 )
 from hydromodpy.core.toml_io.loader import (
     load_toml_with_base_config,
@@ -131,8 +131,8 @@ def _build_solver_process_overlay(
 
 def materialize_variant_config(
     *,
-    cfg: MethodComparisonConfig,
-    variant: MethodComparisonVariant,
+    cfg: ComparisonConfig,
+    variant: ComparisonVariant,
 ) -> Path | None:
     """Return the config path used by one variant, generating it if needed."""
     direct_config = cfg.resolve_variant_config_path(variant)
