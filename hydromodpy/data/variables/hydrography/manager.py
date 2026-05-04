@@ -10,15 +10,18 @@ import geopandas as gpd
 import numpy as np
 import pandas as pd
 import rasterio
+import xarray as xr
 
 from hydromodpy.core.logging import get_logger
+from hydromodpy.data.contracts.load_result import LoadResult
+from hydromodpy.data.contracts.spatial_field import FieldRecord
 from hydromodpy.data.variables.hydrography.config import (
     HydrographyConfig,
     HydrographySourceConfig,
 )
-from hydromodpy.data.variables.hydrography.result import HydrographyResult
 from hydromodpy.spatial.geographic.core.hydrographic_network import (
     HYDROGRAPHIC_NETWORK_REFERENCE_RASTER_FILENAME,
+    HYDROGRAPHIC_NETWORK_REFERENCE_RASTER_FORCING_NAME,
     HYDROGRAPHIC_NETWORK_REFERENCE_VECTOR_FILENAME,
 )
 
@@ -55,7 +58,7 @@ class HydrographyManager:
         self._catalog = catalog
         self._data_dir = data_dir
 
-    def load(self) -> HydrographyResult:
+    def load(self) -> LoadResult:
         """Execute the full pipeline: fetch -> reproject -> clip -> rasterise."""
         # 1. Fetch from each source
         vector_gdfs: list[gpd.GeoDataFrame] = []
@@ -101,19 +104,19 @@ class HydrographyManager:
         tif_out = self._rasterize(streams_path, rasterize_field)
 
         # 6. Read array
-        streams_array = self._read_tif_array(tif_out)
+        raster_values = self._read_tif_array(tif_out)
 
-        return HydrographyResult(
-            streams=str(streams_path),
-            tif_streams=str(tif_out),
-            streams_array=streams_array,
+        return self._build_load_result(
+            raster_values,
+            raster_path=tif_out,
+            vector_path=streams_path,
         )
 
     # ------------------------------------------------------------------
     # TIF pipeline
     # ------------------------------------------------------------------
 
-    def _load_from_tif(self, tif_path: Path) -> HydrographyResult:
+    def _load_from_tif(self, tif_path: Path) -> LoadResult:
         """Clip a pre-rasterised TIF to the watershed and return the result."""
         from rasterio.mask import mask as rio_mask
         from shapely.ops import unary_union
@@ -151,11 +154,50 @@ class HydrographyManager:
         arr = out_image[0].astype(float)
         arr[arr < 0] = np.nan
 
-        return HydrographyResult(
-            streams=None,
-            tif_streams=str(out_tif),
-            streams_array=arr,
+        return self._build_load_result(
+            arr,
+            raster_path=out_tif,
+            vector_path=None,
         )
+
+    def _build_load_result(
+        self,
+        raster_values: np.ndarray,
+        *,
+        raster_path: Path,
+        vector_path: Path | None,
+    ) -> LoadResult:
+        """Build the standard hydrography load result."""
+        bbox, crs = self._raster_bbox_crs(raster_path)
+        data = xr.Dataset(
+            data_vars={
+                HYDROGRAPHIC_NETWORK_REFERENCE_RASTER_FORCING_NAME: (
+                    ("y", "x"),
+                    raster_values,
+                )
+            }
+        )
+        record = FieldRecord(
+            variable=HYDROGRAPHIC_NETWORK_REFERENCE_RASTER_FORCING_NAME,
+            source=self.VARIABLE_NAME,
+            unit="",
+            data=data,
+            bbox=bbox,
+            crs=crs,
+            metadata={
+                "raster_path": str(raster_path),
+                "vector_path": str(vector_path) if vector_path is not None else None,
+                "array_name": HYDROGRAPHIC_NETWORK_REFERENCE_RASTER_FORCING_NAME,
+            },
+        )
+        return LoadResult(fields=[record])
+
+    @staticmethod
+    def _raster_bbox_crs(raster_path: Path) -> tuple[tuple[float, float, float, float], str]:
+        with rasterio.open(str(raster_path)) as ds:
+            bounds = ds.bounds
+            crs = str(ds.crs) if ds.crs is not None else ""
+        return (bounds.left, bounds.bottom, bounds.right, bounds.top), crs
 
     # ------------------------------------------------------------------
     # Source dispatch

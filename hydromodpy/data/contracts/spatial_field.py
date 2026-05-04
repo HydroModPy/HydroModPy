@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
 
@@ -29,6 +29,7 @@ class FieldRecord:
     date_end: datetime | None = None
     frequency: str | None = None
     source_unit: str | None = None
+    metadata: dict[str, object] = field(default_factory=dict)
 
     @property
     def is_static(self) -> bool:

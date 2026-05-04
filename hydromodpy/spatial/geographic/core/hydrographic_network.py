@@ -84,6 +84,40 @@ def _count_positive_pixels(arr: np.ndarray | None) -> int | None:
     return int(np.count_nonzero((values > 0) & valid))
 
 
+def _hydrography_field(load_result: object) -> object:
+    fields = getattr(load_result, "fields", None) or ()
+    for record in fields:
+        if getattr(record, "variable", None) == HYDROGRAPHIC_NETWORK_REFERENCE_RASTER_FORCING_NAME:
+            return record
+    raise ValueError(
+        "Hydrography LoadResult must contain a "
+        f"{HYDROGRAPHIC_NETWORK_REFERENCE_RASTER_FORCING_NAME!r} field."
+    )
+
+
+def _record_metadata(record: object) -> dict[str, object]:
+    metadata = getattr(record, "metadata", None)
+    if isinstance(metadata, dict):
+        return metadata
+    return {}
+
+
+def _record_array(record: object) -> np.ndarray | None:
+    data = getattr(record, "data", None)
+    metadata = _record_metadata(record)
+    if hasattr(data, "data_vars"):
+        var_name = str(metadata.get("array_name") or getattr(record, "variable", ""))
+        if var_name in data.data_vars:
+            return np.asarray(data[var_name].values)
+        if data.data_vars:
+            first_name = next(iter(data.data_vars))
+            return np.asarray(data[first_name].values)
+        return None
+    if hasattr(data, "values"):
+        return np.asarray(data.values)
+    return None
+
+
 def _pick_first_column(columns: Iterable[str], candidates: tuple[str, ...]) -> str | None:
     lowered = {str(name).lower(): str(name) for name in columns}
     for candidate in candidates:
@@ -318,20 +352,22 @@ class HydrographicNetwork:
         return gpd.read_file(str(self.vector_path))
 
     @classmethod
-    def from_hydrography_result(
+    def from_hydrography_load_result(
         cls,
-        hydrography_result,
+        hydrography_load_result,
         *,
         watershed_shp: str | Path | None = None,
         source_kind: str = "hydrography_loaded",
     ) -> HydrographicNetwork:
-        """Lift a loaded hydrography result into the canonical network contract."""
-        vector_path = _string_path(getattr(hydrography_result, "streams", None))
-        raster_path = _string_path(getattr(hydrography_result, "tif_streams", None))
-        arr = getattr(hydrography_result, "streams_array", None)
+        """Lift a hydrography LoadResult into the network contract."""
+        record = _hydrography_field(hydrography_load_result)
+        metadata = _record_metadata(record)
+        vector_path = _string_path(metadata.get("vector_path"))
+        raster_path = _string_path(metadata.get("raster_path"))
+        arr = _record_array(record)
 
         metrics: dict[str, ScalarMetric] = {}
-        crs: str | None = None
+        crs = str(getattr(record, "crs", "") or "") or None
         if vector_path is not None and Path(vector_path).exists():
             metrics.update(_compute_vector_metrics(vector_path, watershed_shp=watershed_shp))
             try:
@@ -357,7 +393,7 @@ class HydrographicNetwork:
             crs=crs,
             watershed_shp=watershed_shp,
             metrics=metrics,
-            metadata={"result_type": type(hydrography_result).__name__},
+            metadata={"result_type": type(hydrography_load_result).__name__},
         )
 
     @classmethod

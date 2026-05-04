@@ -23,6 +23,7 @@ from hydromodpy.data._dispatch import VARIABLE_SPECS, VariableSpec
 from hydromodpy.data.common.progress import data_phase
 from hydromodpy.data.plan import DataLoadPlan
 from hydromodpy.data.registry.catalog_duckdb import DataCatalogDuckDB
+from hydromodpy.data.store import DataStore
 
 if TYPE_CHECKING:
     from hydromodpy.core.state.run_state import WorkflowContext
@@ -44,22 +45,38 @@ class DataManagersRuntimeLoader:
         self.data_plan = data_plan
         self._catalog: DataCatalogDuckDB | None = None
         self._cache_root: Path | None = None
+        self._store: DataStore | None = None
 
     def _init_catalog(self, workspace_paths: WorkspacePathRegistry) -> None:
         """Lazily create the shared DataCatalogDuckDB backed by ``data/cache.duckdb``."""
         if self._catalog is not None:
+            if self._store is None:
+                self._store = DataStore(catalog=self._catalog, data_root=self._cache_root)
             return
         self._cache_root = workspace_paths.data_dir
         self._cache_root.mkdir(parents=True, exist_ok=True)
         self._catalog = DataCatalogDuckDB(self._cache_root / "cache.duckdb")
+        self._store = DataStore(
+            catalog=self._catalog,
+            data_root=self._cache_root,
+            workspace_root=workspace_paths.root,
+        )
 
-    def _data_dir(self, variable: str) -> Path | None:
-        """Return ``data_path/<variable>/`` for cache storage, or None."""
-        if self._cache_root is None:
-            return None
-        d = self._cache_root / variable
-        d.mkdir(parents=True, exist_ok=True)
-        return d
+    def _require_store(self) -> DataStore:
+        if self._store is None:
+            raise ValueError("DataStore is not initialized.")
+        return self._store
+
+    def _ensure_store(self, result: WorkflowContext) -> None:
+        """Initialize DataStore when internal loaders are called directly."""
+        if self._store is not None:
+            return
+        try:
+            workspace_paths = self._workspace_paths(result)
+        except (AttributeError, ValueError):
+            self._store = DataStore(catalog=self._catalog)
+            return
+        self._init_catalog(workspace_paths)
 
     @classmethod
     def known_variables(cls) -> set[str]:
@@ -126,6 +143,7 @@ class DataManagersRuntimeLoader:
         4. Instantiate the manager and stash the result on ``loaded_data``.
         5. Run an optional post-load export hook (intermittency).
         """
+        self._ensure_store(result)
         spec = VARIABLE_SPECS[variable]
 
         raw_section = self._get_data_section(result, variable)
@@ -145,37 +163,29 @@ class DataManagersRuntimeLoader:
                 importlib.import_module(spec.config_module),
                 spec.config_class,
             )
-            manager_cls = getattr(
-                importlib.import_module(spec.manager_module),
-                spec.manager_class,
-            )
-
             cfg = config_cls.model_validate(raw_section)
             period = self._resolve_period_for_spec(cfg, spec, result)
             self._apply_default_masks(cfg, result)
 
-            manager_kwargs = {
-                "config": cfg,
-                "catalog": self._catalog,
-                "project_period": period,
-                "project_extent": None,
-                "data_dir": self._data_dir(variable),
-            }
+            extra_kwargs = {}
             if variable == "oceanic":
-                manager_kwargs["geographic"] = result.setup.geographic
-
-            manager = manager_cls(
-                **manager_kwargs,
-            )
-            load_result = manager.load()
-            setattr(result.loaded_data, variable, load_result)
-
+                extra_kwargs["geographic"] = result.setup.geographic
+            export_dir = None
             if spec.export_stable_subdir:
                 workspace_paths = self._workspace_paths(result)
-                stable_dir = (
+                export_dir = (
                     workspace_paths.project_root / PREPROCESSING_DIR / spec.export_stable_subdir
                 )
-                manager.export(load_result, stable_dir)
+
+            load_result = self._require_store().load_variable(
+                variable,
+                cfg,
+                project_period=period,
+                project_extent=None,
+                export_dir=export_dir,
+                **extra_kwargs,
+            )
+            setattr(result.loaded_data, variable, load_result)
         except Exception as exc:
             self._handle_data_loading_error(result, variable, exc)
 
@@ -214,8 +224,8 @@ class DataManagersRuntimeLoader:
 
     def _load_dem_data(self, result: WorkflowContext) -> None:
         """Load DEM data via DemManager."""
+        self._ensure_store(result)
         from hydromodpy.data.variables.dem.config import DemConfig
-        from hydromodpy.data.variables.dem.manager import DemManager
 
         raw_section = self._get_data_section(result, "dem")
         if raw_section is None:
@@ -233,21 +243,18 @@ class DataManagersRuntimeLoader:
                 if not src.mask_path and result.setup.geographic is not None:
                     src.mask_path = Path(result.setup.geographic.watershed_shp)
 
-            manager = DemManager(
-                config=dem_cfg,
-                catalog=self._catalog,
-                project_extent=None,
-                data_dir=self._data_dir("dem"),
+            result.loaded_data.dem = self._require_store().load_dem(
+                dem_cfg,
                 geographic=result.setup.geographic,
+                project_extent=None,
             )
-            result.loaded_data.dem = manager.load()
         except Exception as exc:
             self._handle_data_loading_error(result, "dem", exc)
 
     def _load_geology_data(self, result: WorkflowContext) -> None:
         """Load geology data via GeologyManager, then build GeologyField."""
+        self._ensure_store(result)
         from hydromodpy.data.variables.geology.config import GeologyConfig
-        from hydromodpy.data.variables.geology.manager import GeologyManager
 
         raw_section = self._get_data_section(result, "geology")
         if raw_section is None:
@@ -267,14 +274,11 @@ class DataManagersRuntimeLoader:
                 if not src.mask_path and result.setup.geographic is not None:
                     src.mask_path = Path(result.setup.geographic.watershed_shp)
 
-            manager = GeologyManager(
-                config=geology_cfg,
-                catalog=self._catalog,
-                project_extent=None,
-                data_dir=self._data_dir("geology"),
+            load_result = self._require_store().load_geology(
+                geology_cfg,
                 geographic=result.setup.geographic,
+                project_extent=None,
             )
-            load_result = manager.load()
 
             if load_result.fields:
                 field_record = load_result.fields[0]
@@ -390,8 +394,8 @@ class DataManagersRuntimeLoader:
 
     def _load_hydrography_data(self, result: WorkflowContext) -> None:
         """Load hydrography support datasets based on ``data.hydrography`` payload."""
+        self._ensure_store(result)
         from hydromodpy.data.variables.hydrography.config import HydrographyConfig
-        from hydromodpy.data.variables.hydrography.manager import HydrographyManager
 
         raw_section = self._get_data_section(result, "hydrography")
         if raw_section is None:
@@ -405,15 +409,12 @@ class DataManagersRuntimeLoader:
         try:
             hydro_cfg = HydrographyConfig.model_validate(raw_section)
             workspace_paths = self._workspace_paths(result)
-            manager = HydrographyManager(
-                config=hydro_cfg,
+            result.loaded_data.hydrography = self._require_store().load_hydrography(
+                hydro_cfg,
                 geographic=result.setup.geographic,
                 out_path=workspace_paths.project_root,
-                catalog=self._catalog,
-                data_dir=self._data_dir("hydrography"),
                 stable_folder=workspace_paths.project_root / PREPROCESSING_DIR,
             )
-            result.loaded_data.hydrography = manager.load()
         except Exception as exc:
             self._handle_data_loading_error(result, "hydrography", exc)
 
@@ -601,26 +602,32 @@ def load_variable(
     config: Any,
     context: Any,
 ) -> Any:
-    """Pure dispatch helper: resolve and load a single variable.
-
-    Thin wrapper around :class:`DataManagersRuntimeLoader` that keeps the
-    per-variable call site free of stateful plumbing. Callers supply the
-    catalog, the already-resolved config model, and a workflow context
-    (for the time window / path registry); the helper returns whatever
-    the underlying loader method yields (typically a ``LoadResult`` or
-    variable-specific object).
-    """
+    """Load one resolved variable config through DataStore."""
     spec = VARIABLE_SPECS.get(variable_name)
     if spec is None:
         raise KeyError(f"Unknown variable: {variable_name!r}")
 
-    plan = DataLoadPlan()
-    loader = DataManagersRuntimeLoader(
-        config_path=getattr(context, "config_path", Path(".")),
-        data_plan=plan,
-    )
-    loader._catalog = catalog
-    if spec.loader_method is not None:
-        method = getattr(loader, spec.loader_method)
-        return method(config=config, context=context)
-    return loader._load_generic_variable(context, variable_name)
+    workspace_paths = None
+    workspace = getattr(getattr(context, "setup", None), "workspace", None)
+    if workspace is not None and hasattr(workspace, "paths"):
+        workspace_paths = workspace.paths
+    data_root = getattr(workspace_paths, "data_dir", None)
+    store = DataStore(catalog=catalog, data_root=data_root)
+
+    geographic = getattr(getattr(context, "setup", None), "geographic", None)
+    if variable_name == "dem":
+        return store.load_dem(config, geographic=geographic)
+    if variable_name == "geology":
+        return store.load_geology(config, geographic=geographic)
+    if variable_name == "hydrography":
+        if workspace_paths is None:
+            raise ValueError("Hydrography loading requires workspace paths.")
+        return store.load_hydrography(
+            config,
+            geographic=geographic,
+            out_path=workspace_paths.project_root,
+            stable_folder=workspace_paths.project_root / PREPROCESSING_DIR,
+        )
+    if variable_name == "oceanic":
+        return store.load_oceanic(config, geographic=geographic)
+    return store.load_variable(variable_name, config)

@@ -103,7 +103,6 @@ __all__ = [
     "RechargeConfig",
     "HydrographyConfig",
     "HydrographyManager",
-    "HydrographyResult",
     "IntermittencyConfig",
     "IntermittencyManager",
     "OceanicConfig",

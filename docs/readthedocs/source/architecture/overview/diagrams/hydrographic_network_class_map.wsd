@@ -4,10 +4,14 @@ left to right direction
 skinparam classAttributeIconSize 0
 skinparam wrapWidth 180
 
-class HydrographyResult {
-  +streams
-  +tif_streams
-  +streams_array
+class "LoadResult\nhydrography" as HydrographyLoadResult {
+  +fields
+}
+
+class "FieldRecord\nhydrography_streams" as HydrographyFieldRecord {
+  +data
+  +metadata.raster_path
+  +metadata.vector_path
 }
 
 class RiverNetworkProducts {
@@ -32,7 +36,7 @@ class HydrographicNetwork {
   +metadata
   +river_mesh_trace
   --
-  +from_hydrography_result(...)
+  +from_hydrography_load_result(...)
   +from_river_network_products(...)
 }
 
@@ -75,7 +79,8 @@ class Run {
   +simulated_active_network_distance_metrics(...)
 }
 
-HydrographyResult --> HydrographicNetwork : converted into\nrole=\"reference\"
+HydrographyLoadResult --> HydrographyFieldRecord : contains
+HydrographyFieldRecord --> HydrographicNetwork : converted into\nrole=\"reference\"
 RiverNetworkProducts --> HydrographicNetwork : converted into\nrole=\"generated\"
 RiverNetworkProducts --> RiverMeshTrace : exposes
 HydrographicNetwork --> RiverMeshTrace : may carry one

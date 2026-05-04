@@ -12,11 +12,11 @@ import tomllib
 from pathlib import Path
 from typing import Any
 
+from hydromodpy.data.store import DataStore
 from hydromodpy.data.variables.intermittency.config import (
     IntermittencyConfig,
     IntermittencySourceConfig,
 )
-from hydromodpy.data.variables.intermittency.manager import IntermittencyManager
 
 
 def _write_json(path: Path, payload: dict[str, Any]) -> None:
@@ -77,12 +77,10 @@ def run_intermittency_case_from_toml(
         date_end=cfg["date_end"],
     )
 
-    manager = IntermittencyManager(
-        config=intermittency_cfg,
-        catalog=None,
+    store = DataStore(
         project_period=(start, end),
     )
-    load_result = manager.load()
+    load_result = store.load_intermittency(intermittency_cfg)
 
     station_ids = sorted({r.station_id for r in load_result.points})
     total_obs = sum(len(r.data) for r in load_result.points)

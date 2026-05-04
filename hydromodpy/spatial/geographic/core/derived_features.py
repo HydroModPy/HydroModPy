@@ -158,7 +158,7 @@ def coerce_geographic_derived_features(
 
 def attach_reference_hydrographic_network(
     geographic_features: GeographicDerivedFeatures,
-    hydrography_result: object | None,
+    hydrography_load_result: object | None,
 ) -> GeographicDerivedFeatures:
     """Return one updated features bundle enriched with the reference network.
 
@@ -166,11 +166,11 @@ def attach_reference_hydrographic_network(
     while the imported hydrography becomes available only after data loading.
     This helper keeps that late binding explicit and localized.
     """
-    if hydrography_result is None:
+    if hydrography_load_result is None:
         return geographic_features
 
-    reference = HydrographicNetwork.from_hydrography_result(
-        hydrography_result,
+    reference = HydrographicNetwork.from_hydrography_load_result(
+        hydrography_load_result,
         watershed_shp=geographic_features.boundaries.watershed_shp,
     )
     networks = geographic_features.hydrographic_networks

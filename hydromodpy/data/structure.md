@@ -239,12 +239,8 @@ architecture car leurs pipelines sont specifiques :
 - **Geology** : vecteur/raster/CSV (Voronoi) → `FieldRecord` + encodage
   categoriel + override terre/mer optionnel
 - **Hydrography** : vecteur → clip bassin → rasterisation (WhiteBox) →
-  `HydrographyResult(streams_shp, tif_streams, streams_array)`
-
-> **A aligner** : `HydrographyManager` retourne un `HydrographyResult` custom
-> qui casse le contrat `LoadResult`. Objectif : retourner un `LoadResult` avec
-> `FieldRecord` pour le raster + metadonnees specifiques dans un champ dedie,
-> sans perdre les attributs existants (`streams_shp`, etc.).
+  `LoadResult(fields=[FieldRecord(variable="hydrography_streams", ...)])`
+  avec les chemins `raster_path` et `vector_path` dans `FieldRecord.metadata`.
 
 ---
 
@@ -294,7 +290,7 @@ recherche par bbox, masque, rayon de repli, tri haversine par centroide.
 |----------|---------|--------|
 | dem | ign_bdalti, custom | FieldRecord (TIF/NC) |
 | geology | brgm_1m, brgm_50k, custom | FieldRecord (GPKG/TIF) |
-| hydrography | bdtopage, euhydro, osm, custom | HydrographyResult |
+| hydrography | bdtopage, euhydro, osm, custom | LoadResult |
 
 ### Oceanic (1) - BaseFieldManager
 
@@ -714,13 +710,14 @@ store.cleanup()                      # Purger orphelins
 
 ### Fusion DataStore / DataManagersRuntimeLoader
 
-Actuellement deux points d'entree coexistent :
-- `DataStore` (facade interactive, registre `_MANAGER_REGISTRY`)
-- `DataManagersRuntimeLoader` (pipeline simulation, dispatch `_LOADER_DISPATCH`)
+`DataStore` est le point d'instantiation des managers. `DataManagersRuntimeLoader`
+reste responsable de l'orchestration runtime : ordre de chargement, validation
+des sections TOML, application des fenetres temporelles, gestion des erreurs, et
+conversions de sortie propres au runtime comme `LoadResult` → `GeologyField`.
 
-**Objectif** : `DataManagersRuntimeLoader` delegue a `DataStore` en interne.
-Un seul registre de managers, un seul chemin d'instantiation. L'ajout d'un
-18e manager ne se fait qu'a un seul endroit.
+Le registre unique est `data/_dispatch.py`. L'ajout d'un manager se fait dans
+ce registre et dans la methode nommee de `DataStore` si le manager demande des
+arguments runtime explicites.
 
 **Approche retenue** : methodes nommees dans `DataStore` avec kwargs
 specifiques par variable, plus un registre unique. Certains managers
@@ -730,24 +727,19 @@ nommees rendent ces dependances explicites et faciles a maintenir.
 
 ```python
 class DataStore:
-    # Registre unique (remplace _MANAGER_REGISTRY et _LOADER_DISPATCH)
-    _REGISTRY = {
-        "hydrometry": ("...hydrometry.manager", "HydrometryManager"),
-        "geology":    ("...geology.manager",    "GeologyManager"),
-        # ... 17 entrees
-    }
-
     def load_hydrometry(self, config) -> LoadResult:
-        return self._load("hydrometry", config)
+        return self.load_variable("hydrometry", config)
 
     def load_geology(self, config, *, geographic=None) -> LoadResult:
-        return self._load("geology", config, geographic=geographic)
+        # Methode nommee car geology demande un objet geographic.
+        ...
 
     def load_dem(self, config, *, geographic=None) -> LoadResult:
-        return self._load("dem", config, geographic=geographic)
+        # Methode nommee car dem demande un objet geographic.
+        ...
 
-    def _load(self, variable, config, **extra_kwargs) -> LoadResult:
-        cls = self._resolve_manager_class(variable)
+    def load_variable(self, variable, config, **extra_kwargs) -> LoadResult:
+        cls = get_manager_class(variable)  # data/_dispatch.py
         mgr = cls(config=config, catalog=self.catalog,
                   project_extent=self.project_extent,
                   project_period=self.project_period,
@@ -755,14 +747,14 @@ class DataStore:
                   **extra_kwargs)
         return mgr.load()
 
-# RuntimeLoader simplifie - delegue tout a DataStore
+# RuntimeLoader simplifie - delegue l'instantiation a DataStore
 class DataManagersRuntimeLoader:
     def load_all(self, result):
-        store = DataStore(workspace_root=..., ...)
+        store = DataStore(catalog=..., data_root=...)
         for type_name in self.data_plan.types:
             cfg = self._get_data_section(result, type_name)
             extra = self._extra_kwargs(result, type_name)
-            load_result = store._load(type_name, cfg, **extra)
+            load_result = store.load_variable(type_name, cfg, **extra)
             setattr(result.loaded_data, type_name, load_result)
 ```
 
@@ -853,12 +845,12 @@ retelecharge pas les donnees deja en cache.
 | Sujet | Statut | Section |
 |-------|--------|---------|
 | Migration catalogue SQLite → DuckDB | Planifie | §6 |
-| Fusion DataStore / RuntimeLoader | Planifie | §12 |
+| Fusion DataStore / RuntimeLoader | **Fait** - RuntimeLoader delegue l'instantiation | §12 |
 | Suppression `_FallbackDataCatalog` | Planifie (apres migration DuckDB) | §12 |
 | `LoadResult.warnings` (erreur partielle) | **Fait** - RuntimeLoader propage | §3, §10 |
 | `PointRecord.quality` (`n_duplicates` dans completude) | **Fait** - `compute_completeness()` | §3 |
 | `FieldRecord` lazy loading (`dataset` property) | **Fait** - `spatial_field.py` | §3 |
-| `HydrographyResult` → `LoadResult` | Planifie | §4.3 |
+| Hydrography `LoadResult` | **Fait** - raster dans `FieldRecord` | §4.3 |
 | `project_crs` (reprojection auto) | **Fait** - champ dans `DataManagersConfig` | §8 |
 | Chargement parallele (`ThreadPoolExecutor`) | **Fait** - `runtime_loader.py` | §10 |
 | `fetch_metadata` (provenance API) | **Fait** - dans `list_entries()` | §6 |

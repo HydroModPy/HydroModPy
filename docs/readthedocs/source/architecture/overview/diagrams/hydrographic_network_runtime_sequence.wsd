@@ -18,8 +18,8 @@ User -> Workflow : run one simulation / overview / comparison case
 
 alt reference network is loaded
   Workflow -> HydroMgr : load data.hydrography
-  HydroMgr --> Workflow : HydrographyResult
-  Workflow -> Factory : from_hydrography_result(...)
+  HydroMgr --> Workflow : LoadResult
+  Workflow -> Factory : from_hydrography_load_result(...)
   Factory --> Workflow : HydrographicNetwork(role=\"reference\")
   Workflow -> Features : attach reference role
   Workflow -> Catalog : persist hydrographic_network_reference
