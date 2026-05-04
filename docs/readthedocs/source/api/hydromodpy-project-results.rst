@@ -14,7 +14,6 @@ Facade functions
    ~hydromodpy.open
    ~hydromodpy.run
    ~hydromodpy.calibrate
-   ~hydromodpy.compare
    ~hydromodpy.compare_pair
    ~hydromodpy.doctor
 
