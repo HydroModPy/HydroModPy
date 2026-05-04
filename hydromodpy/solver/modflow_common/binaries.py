@@ -46,7 +46,7 @@ from hydromodpy.solver.modflow_common.executables import ensure_platform_executa
 logger = get_logger(__name__)
 
 MANIFEST_FILENAME = ".manifest.json"
-DEFAULT_RELEASE = "6.7.0"
+DEFAULT_RELEASE = "23.0"
 
 
 _SOLVER_FILENAMES: dict[str, dict[str, str]] = {
@@ -145,8 +145,7 @@ def download_solver_binaries(
     ``bindir`` defaults to the managed cache. ``subset`` defaults to the
     full set of solvers this module knows about. When ``force`` is True
     the download archive is re-fetched even if previously cached by
-    flopy. ``release`` pins the USGS release tag. The default follows the
-    USGS MODFLOW 6.7.0 release published on 2026-02-06.
+    flopy. ``release`` pins the MODFLOW-ORG/executables tag.
     """
     target = Path(bindir).expanduser() if bindir else get_cache_bin_dir()
     target.mkdir(parents=True, exist_ok=True)

@@ -909,7 +909,7 @@ class TestHydrographyManager:
         assert (tmp_path / ".solver_scratch/_preprocessing" / "hydrography").is_dir()
 
     @patch("hydromodpy.data.variables.hydrography.manager.HydrographyManager._fetch_from_source")
-    @patch("hydromodpy.data.variables.hydrography.manager.get_whitebox_backend")
+    @patch("hydromodpy.spatial.delineation.get_whitebox_backend")
     def test_load_pipeline_line_geometry(self, mock_backend_factory, mock_fetch, tmp_path):
         """Full pipeline with LineString data and stub backend."""
         from hydromodpy.data.variables.hydrography.manager import HydrographyManager
@@ -943,7 +943,7 @@ class TestHydrographyManager:
         assert "vector_points_to_raster" not in method_names
 
     @patch("hydromodpy.data.variables.hydrography.manager.HydrographyManager._fetch_from_source")
-    @patch("hydromodpy.data.variables.hydrography.manager.get_whitebox_backend")
+    @patch("hydromodpy.spatial.delineation.get_whitebox_backend")
     def test_load_pipeline_polygon_geometry(self, mock_backend_factory, mock_fetch, tmp_path):
         from hydromodpy.data.variables.hydrography.manager import HydrographyManager
 
@@ -977,7 +977,7 @@ class TestHydrographyManager:
         assert isinstance(result, HydrographyResult)
 
     @patch("hydromodpy.data.variables.hydrography.manager.HydrographyManager._fetch_from_source")
-    @patch("hydromodpy.data.variables.hydrography.manager.get_whitebox_backend")
+    @patch("hydromodpy.spatial.delineation.get_whitebox_backend")
     def test_load_pipeline_point_geometry(self, mock_backend_factory, mock_fetch, tmp_path):
         from hydromodpy.data.variables.hydrography.manager import HydrographyManager
 
@@ -1002,7 +1002,7 @@ class TestHydrographyManager:
         assert isinstance(result, HydrographyResult)
 
     @patch("hydromodpy.data.variables.hydrography.manager.HydrographyManager._fetch_from_source")
-    @patch("hydromodpy.data.variables.hydrography.manager.get_whitebox_backend")
+    @patch("hydromodpy.spatial.delineation.get_whitebox_backend")
     def test_synthetic_fid_field(self, mock_backend_factory, mock_fetch, tmp_path):
         """When rasterize_field doesn't exist in data, manager creates sequential FID."""
         from hydromodpy.data.variables.hydrography.manager import HydrographyManager
@@ -1060,7 +1060,7 @@ class TestHydrographyManager:
         assert 40 < lat_min < lat_max < 55
 
     @patch("hydromodpy.data.variables.hydrography.manager.HydrographyManager._fetch_from_source")
-    @patch("hydromodpy.data.variables.hydrography.manager.get_whitebox_backend")
+    @patch("hydromodpy.spatial.delineation.get_whitebox_backend")
     def test_crs_reprojection(self, mock_backend_factory, mock_fetch, tmp_path):
         """Data in EPSG:4326 gets reprojected to project CRS before clip."""
         from hydromodpy.data.variables.hydrography.manager import HydrographyManager
@@ -1439,7 +1439,7 @@ class TestCustomLoaderTif:
 class TestManagerTifPipeline:
     """Manager should use _load_from_tif when custom returns a Path."""
 
-    @patch("hydromodpy.data.variables.hydrography.manager.get_whitebox_backend")
+    @patch("hydromodpy.spatial.delineation.get_whitebox_backend")
     def test_tif_custom_skips_vector_pipeline(self, mock_backend_factory, tmp_path):
         from hydromodpy.data.variables.hydrography.manager import HydrographyManager
 
@@ -1464,7 +1464,7 @@ class TestManagerTifPipeline:
         # Vector rasterisation backend should NOT have been called
         backend.raster.vector_lines_to_raster.assert_not_called()
 
-    @patch("hydromodpy.data.variables.hydrography.manager.get_whitebox_backend")
+    @patch("hydromodpy.spatial.delineation.get_whitebox_backend")
     def test_tif_array_negative_to_nan(self, mock_backend_factory, tmp_path):
         """Negative values in the TIF should become NaN in streams_array."""
         import rasterio
@@ -1536,7 +1536,7 @@ class TestCatalogCacheManager:
         return mgr, catalog, data_dir
 
     @patch("hydromodpy.data.variables.hydrography.apis.osm.fetch")
-    @patch("hydromodpy.data.variables.hydrography.manager.get_whitebox_backend")
+    @patch("hydromodpy.spatial.delineation.get_whitebox_backend")
     def test_cache_miss_then_hit(self, mock_backend_factory, mock_osm_fetch, tmp_path):
         """First call fetches API + registers; second call hits cache."""
         from hydromodpy.data.variables.hydrography.manager import HydrographyManager
@@ -1583,7 +1583,7 @@ class TestCatalogCacheManager:
         assert mock_osm_fetch.call_count == 1
 
     @patch("hydromodpy.data.variables.hydrography.apis.osm.fetch")
-    @patch("hydromodpy.data.variables.hydrography.manager.get_whitebox_backend")
+    @patch("hydromodpy.spatial.delineation.get_whitebox_backend")
     def test_force_refresh_bypasses_cache(self, mock_backend_factory, mock_osm_fetch, tmp_path):
         from hydromodpy.data.variables.hydrography.manager import HydrographyManager
 
@@ -1773,7 +1773,7 @@ class TestDataStoreHydrography:
         assert hasattr(DataStore, "load_hydrography")
 
     @patch("hydromodpy.data.variables.hydrography.manager.HydrographyManager.load")
-    @patch("hydromodpy.data.variables.hydrography.manager.get_whitebox_backend")
+    @patch("hydromodpy.spatial.delineation.get_whitebox_backend")
     def test_load_hydrography_delegates(self, mock_backend, mock_load, tmp_path):
         from hydromodpy.data.store import DataStore
 

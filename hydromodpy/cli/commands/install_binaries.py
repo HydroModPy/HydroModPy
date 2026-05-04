@@ -32,7 +32,7 @@ def register(subparsers) -> argparse.ArgumentParser:
     parser.add_argument(
         "--release",
         default=None,
-        help="USGS executables release tag (default: HydroModPy pinned release).",
+        help="MODFLOW-ORG/executables release tag (default: HydroModPy pinned release).",
     )
     parser.add_argument(
         "--upgrade",
@@ -93,7 +93,7 @@ def run(args: argparse.Namespace) -> None:
             force=args.upgrade,
             release=release,
         )
-    except RuntimeError as exc:
+    except (RuntimeError, ValueError) as exc:
         print(f"[install-binaries] {exc}", file=sys.stderr)
         sys.exit(EXIT_CONFIG)
 

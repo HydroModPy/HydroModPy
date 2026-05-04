@@ -47,6 +47,13 @@ REFERENCE_VALUES_VTU = (
 )
 
 
+def _require_reference_assets() -> None:
+    missing = [path for path in (REFERENCE_PLANAR_MSH, REFERENCE_VALUES_VTU) if not path.is_file()]
+    if missing:
+        names = ", ".join(str(path) for path in missing)
+        pytest.skip(f"generated reference asset(s) missing: {names}")
+
+
 def _build_small_planar_mesh() -> GmshPlanarMesh2D:
     return GmshPlanarMesh2D(
         points_xy=np.array(
@@ -65,6 +72,8 @@ def _build_small_planar_mesh() -> GmshPlanarMesh2D:
 
 def test_exchange_api_can_read_reference_assets():
     import meshio  # noqa: F401
+
+    _require_reference_assets()
 
     planar_mesh = load_planar_mesh(REFERENCE_PLANAR_MSH)
     extruded_mesh = load_extruded_mesh(REFERENCE_VALUES_VTU)
@@ -117,6 +126,8 @@ def test_exchange_api_roundtrip_with_meshio_available(tmp_path):
 
 def test_read_only_example_builds_summary_from_reference_assets():
     import meshio  # noqa: F401
+
+    _require_reference_assets()
 
     summary = build_read_only_summary(
         planar_mesh_path=REFERENCE_PLANAR_MSH,
