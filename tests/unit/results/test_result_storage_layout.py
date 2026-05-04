@@ -59,7 +59,11 @@ def test_catalog_is_workspace_scoped_and_artifacts_are_per_simulation(tmp_path):
         )
 
 
-def test_legacy_catalog_row_without_storage_basename_uses_raw_sim_id(tmp_path):
+def test_pre_migration_storage_basename_is_backfilled_on_open(tmp_path):
+    """Rows that pre-date ``storage_basename`` are back-filled with the raw
+    ``sim_id`` at ``ensure_schema`` time so they keep resolving against the
+    on-disk artefacts they originally wrote.
+    """
     workspace = tmp_path / "workspace"
     sid = "11111111-1111-4111-8111-111111111111"
 
@@ -68,6 +72,16 @@ def test_legacy_catalog_row_without_storage_basename_uses_raw_sim_id(tmp_path):
             "INSERT INTO simulations (sim_id, project, solver) VALUES (?, ?, ?)",
             [sid, "legacy", "modflow6"],
         )
+        catalog.connection.execute(
+            "UPDATE simulations SET storage_basename = NULL WHERE sim_id = ?",
+            [sid],
+        )
+
+    with SimulationCatalog(workspace) as catalog:
+        row = catalog.connection.execute(
+            "SELECT storage_basename FROM simulations WHERE sim_id = ?", [sid]
+        ).fetchone()
+        assert row == (sid,)
 
         assert catalog.zarr_path_for(sid) == catalog.simulations_dir / f"{sid}{ZARR_SUFFIX}"
         assert catalog.parquet_dir_for(sid) == (

@@ -12,8 +12,8 @@ contract is the canonical source of truth for v1.0.
 ## Layers (low to high)
 
 ```
-core < schema < physics, data, spatial < simulation < solver
-     < results < display, analysis, calibration < workflow < master_config < cli
+core < schema < config < physics, data, spatial < simulation < solver
+     < results < display, analysis, calibration < workflow < cli
 ```
 
 `core` is the kernel leaf. It must not import any sibling layer (not
@@ -29,18 +29,18 @@ are always allowed.
 | src \ tgt    | allowed targets |
 |--------------|-----------------|
 | core         | core |
-| schema       | core, schema |
+| schema       | core, schema, config |
+| config       | core, schema, config, physics, data, spatial, simulation, solver, calibration, results, display, analysis, workflow |
 | physics      | core, schema, physics |
 | data         | core, schema, data |
 | spatial      | core, schema, spatial |
 | simulation   | core, schema, physics, spatial, data, simulation |
 | solver       | core, schema, physics, spatial, solver, simulation |
 | calibration  | core, schema, physics, data, spatial, solver, simulation, calibration |
-| results      | core, schema, results |
+| results      | core, schema, config, results |
 | display      | core, schema, results, display |
 | analysis     | core, schema, data, results, analysis |
-| workflow     | core, schema, physics, data, spatial, simulation, solver, calibration, results, display, analysis, workflow, master_config |
-| master_config | core, schema, physics, data, spatial, simulation, solver, calibration, results, display, analysis, workflow, master_config |
+| workflow     | core, schema, config, physics, data, spatial, simulation, solver, calibration, results, display, analysis, workflow |
 | cli          | every layer |
 
 ## Tolerated cross-edges
@@ -58,7 +58,6 @@ documented at the call site. Listed in `layer_matrix.yaml` under
 | analysis    | root    | simulation comparison launches public Project facade |
 | calibration | root    | trial promotion launches public Project facade |
 | cli         | root    | CLI dispatch delegates to public Project facade |
-| master_config | root | module entrypoint delegates to `hydromodpy.__main__` |
 | results     | root    | `Run.rerun` launches public Project facade |
 | workflow    | root    | sweep helper accepts Project facade instances |
 

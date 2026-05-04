@@ -769,19 +769,19 @@ and is mirrored as YAML in
 |--------------|-----------------|
 | `<root>`     | public facade wiring only |
 | core         | core |
-| schema       | core, schema |
+| schema       | core, schema, config |
+| config       | core, schema, config, physics, data, spatial, simulation, solver, calibration, results, display, analysis, workflow |
 | physics      | core, schema, physics |
 | data         | core, schema, data |
 | spatial      | core, schema, spatial |
 | simulation   | core, schema, physics, spatial, data, simulation |
 | solver       | core, schema, physics, spatial, solver, simulation |
 | calibration  | core, schema, physics, data, spatial, solver, simulation, calibration |
-| results      | core, schema, results |
+| results      | core, schema, config, results |
 | display      | core, schema, results, display |
 | analysis     | core, schema, data, results, analysis |
-| workflow     | core, schema, physics, data, spatial, simulation, solver, calibration, results, display, analysis, workflow, master_config |
-| master_config | core, schema, physics, data, spatial, simulation, solver, calibration, results, display, analysis, workflow, master_config |
-| cli          | core, schema, physics, data, spatial, simulation, solver, calibration, results, display, analysis, workflow, master_config, cli |
+| workflow     | core, schema, config, physics, data, spatial, simulation, solver, calibration, results, display, analysis, workflow |
+| cli          | core, schema, config, physics, data, spatial, simulation, solver, calibration, results, display, analysis, workflow, cli |
 
 The contract is checked by `tests/unit/architecture/test_layer_matrix.py`
 on every pytest run:

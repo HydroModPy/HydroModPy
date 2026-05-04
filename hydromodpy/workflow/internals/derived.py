@@ -260,10 +260,11 @@ def _surface_excess_seepage_mask(
 ) -> np.ndarray | None:
     """Return seepage cells declared by solver surface-excess fields.
 
-    This is intentionally authoritative when present. It lets Boussinesq
-    constrained formulations expose active seepage through their solver-produced
-    surface-excess flux, while legacy runs without such a field fall back to the
-    geometric head/topography criterion.
+    Authoritative when present: Boussinesq constrained formulations expose
+    active seepage through their solver-produced surface-excess flux (or
+    a pre-computed ``derived/seepage_rate``). Returns ``None`` for solvers
+    that do not write these fields (MODFLOW 6, MODFLOW-NWT); the caller
+    then derives the mask from the geometric head/topography criterion.
     """
     derived_grp = sim_zarr.root.get("derived")
     if derived_grp is not None and "seepage_rate" in derived_grp:

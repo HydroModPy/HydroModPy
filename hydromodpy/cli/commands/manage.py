@@ -1021,9 +1021,7 @@ class _WorkspaceManagerBackend:
 
             with SimulationCatalog(workspace_root) as catalog:
                 rows = catalog.connection.execute(
-                    "SELECT CAST(sim_id AS VARCHAR) AS sim_id, "
-                    "COALESCE(storage_basename, CAST(sim_id AS VARCHAR)) AS storage_basename "
-                    "FROM simulations"
+                    "SELECT CAST(sim_id AS VARCHAR) AS sim_id, storage_basename FROM simulations"
                 ).fetchall()
                 registered = {str(storage_basename) for _, storage_basename in rows}
 

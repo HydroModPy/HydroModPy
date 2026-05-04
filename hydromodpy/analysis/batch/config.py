@@ -123,7 +123,7 @@ def _validate_optional_int(value: object, *, label: str) -> int | None:
 class RegionalLabCatalogConfig(HydroModelBase):
     """Normalized catalog-loading contract."""
 
-    model_config = ConfigDict(extra="forbid", arbitrary_types_allowed=True)
+    model_config = ConfigDict(extra="forbid")
 
     path: Annotated[Path, Profile.USER] = Field(
         description="Resolved path to the site catalog (CSV or JSONL)."
@@ -209,7 +209,7 @@ class RegionalLabCatalogConfig(HydroModelBase):
 class RegionalLabSelectionConfig(HydroModelBase):
     """Top-level site selection filters."""
 
-    model_config = ConfigDict(extra="forbid", arbitrary_types_allowed=True)
+    model_config = ConfigDict(extra="forbid")
 
     site_ids: Annotated[tuple[str, ...], Profile.USER] = Field(
         default=(),
@@ -256,7 +256,7 @@ class RegionalLabSelectionConfig(HydroModelBase):
 class RegionalLabClusterRuleConfig(HydroModelBase):
     """One explicit cluster enrichment rule applied on top of the site catalog."""
 
-    model_config = ConfigDict(extra="forbid", arbitrary_types_allowed=True)
+    model_config = ConfigDict(extra="forbid")
 
     id: Annotated[str, Profile.USER] = Field(description="Unique rule identifier.")
     label: Annotated[str, Profile.USER] = Field(description="Human-readable rule label.")
@@ -302,7 +302,7 @@ class RegionalLabClusterRuleConfig(HydroModelBase):
 class RegionalLabRecipeConfig(HydroModelBase):
     """One recipe expanded across selected sites."""
 
-    model_config = ConfigDict(extra="forbid", arbitrary_types_allowed=True)
+    model_config = ConfigDict(extra="forbid")
 
     id: Annotated[str, Profile.USER] = Field(description="Unique recipe identifier.")
     label: Annotated[str, Profile.USER] = Field(description="Human-readable recipe label.")
@@ -330,7 +330,7 @@ class RegionalLabRecipeConfig(HydroModelBase):
 class RegionalLabConfig(HydroModelBase):
     """Validated top-level configuration for one regional-lab run."""
 
-    model_config = ConfigDict(extra="forbid", arbitrary_types_allowed=True)
+    model_config = ConfigDict(extra="forbid")
 
     config_path: Annotated[Path, Profile.USER] = Field(
         description="Resolved path to the source TOML file."

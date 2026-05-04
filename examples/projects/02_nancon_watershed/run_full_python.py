@@ -9,7 +9,7 @@ from __future__ import annotations
 from pathlib import Path
 
 import hydromodpy as hmp
-from hydromodpy.master_config.hydromodpy_config import HydroModPyConfig
+from hydromodpy.config.hydromodpy_config import HydroModPyConfig
 
 HERE = Path(__file__).resolve().parent
 CONFIG_PATH = HERE / "run_transient_nwt.toml"

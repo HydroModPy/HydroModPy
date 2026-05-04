@@ -1,10 +1,9 @@
 """Bootstrap helper that resolves HydroModPyConfig forward references.
 
-Lives at the top level so ``master_config/`` stays decoupled from sibling
-layers at module-load time: configs from ``physics/``, ``solver/``,
-``spatial/``, ``data/``, ``simulation/``, ``display/``, ``analysis/``,
-``calibration/``, and ``workflow/`` are imported here, never from
-``master_config/``.
+Lives at the top level so ``config/`` stays decoupled from sibling layers at
+module-load time: configs from ``physics/``, ``solver/``, ``spatial/``,
+``data/``, ``simulation/``, ``display/``, ``analysis/``, ``calibration/``,
+and ``workflow/`` are imported here, never from ``config/``.
 """
 
 from __future__ import annotations
@@ -17,18 +16,17 @@ def _rebuild_forward_refs() -> None:
 
     Pydantic resolves forward references at ``model_rebuild()`` time by name
     lookup against the defining module's globals, so the sibling classes are
-    written into the public and legacy root-config module globals.
+    written into the root-config module globals.
     """
     from hydromodpy.analysis.batch.config import RegionalLabConfig
     from hydromodpy.analysis.capability_gallery import CapabilityGalleryConfig
     from hydromodpy.analysis.comparison.config import ComparisonSection
     from hydromodpy.calibration.config import CalibrationConfig
+    from hydromodpy.config import analysis as analysis_module
     from hydromodpy.config import hydromodpy_config as public_cfg_module
     from hydromodpy.data.data_managers_config import DataManagersConfig
     from hydromodpy.display.config import DisplayConfig
     from hydromodpy.display.overview.config import OverviewSection
-    from hydromodpy.master_config import analysis as analysis_module
-    from hydromodpy.master_config import hydromodpy_config as master_cfg_module
     from hydromodpy.physics.flow.flow_config import FlowConfig
     from hydromodpy.physics.transport.transport_config import TransportConfig
     from hydromodpy.simulation.planning.config import SimulationConfig
@@ -62,8 +60,6 @@ def _rebuild_forward_refs() -> None:
     }
     public_cfg_module.__dict__.update(refs)
     public_cfg_module.HydroModPyConfig.model_rebuild()
-    master_cfg_module.__dict__.update(refs)
-    master_cfg_module.HydroModPyConfig.model_rebuild()
 
 
 def _register_physics_contracts() -> None:
@@ -185,8 +181,8 @@ def _register_simulation_contracts() -> None:
 def _register_root_config_contracts() -> None:
     """Wire HydroModPyConfig into the core config_kit registry.
 
-    The 14x14 layer matrix forbids ``core -> master_config``. The
-    config_kit registry, JSON Schema exporter and other downstream layers
+    The 14x14 layer matrix forbids ``core -> config``. The config_kit
+    registry, JSON Schema exporter and other downstream layers
     (results, schema) reach the root model through the
     ``RootConfigProvider`` Protocol declared in
     :mod:`hydromodpy.core.config_kit.root_config_protocol`.
@@ -222,8 +218,8 @@ def _register_dynamic_flow_examples_contract() -> None:
     example blocks to the provider declared in
     :mod:`hydromodpy.core.toml_io.dynamic_examples_protocol`.
     """
+    from hydromodpy.config.dynamic_flow_examples import DynamicFlowExamples
     from hydromodpy.core.toml_io import dynamic_examples_protocol
-    from hydromodpy.master_config.dynamic_flow_examples import DynamicFlowExamples
 
     dynamic_examples_protocol.set_dynamic_flow_examples_provider(DynamicFlowExamples())
 

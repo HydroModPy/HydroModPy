@@ -122,7 +122,7 @@ variable revient à écrire un manager et l'enregistrer.
 
 ## 6. Config Pydantic avec Annotated
 
-Emplacement : `hydromodpy/master_config/` et chaque `*_config.py`.
+Emplacement : `hydromodpy/config/` et chaque `*_config.py`.
 
 Toute la configuration est exprimée en modèles Pydantic avec
 `ConfigDict(extra="forbid")`. Les champs porteurs de quantités physiques
