@@ -1,7 +1,7 @@
 # Plan de refonte de la documentation
 
 Date : 2026-05-05 (révisé après session chat du 2026-05-05)
-Statut : décisions consolidées, prêt à exécution Phase 0
+Statut : Phase 0 exécutée le 2026-05-05, prête pour Phase 1
 Périmètre : dossier `docs/` de HydroModPy
 
 Ce document consolide l'audit, les décisions et l'architecture cible pour la
@@ -62,6 +62,12 @@ finales sont ici.**
 ### 0.2 Phasage exécutable (remplace les 36 étapes de la section 15)
 
 #### Phase 0 — Quick wins (~5 jours, effet immédiat)
+
+**Statut : terminée le 2026-05-05.** Build local clean (3 warnings baseline
+inchangés : workflow.internals stubs hors toctree). 10 commits sur `dev-docs`,
+de `07f2f3b30` à `a0799bf69`. Le hoist de `docs/readthedocs/source` vers
+`docs/source` a touché 941 fichiers (renames + path updates dans tools, tests,
+CI, READMEs, .gitignore, .gitleaks.toml, .readthedocs.yaml).
 
 Commits autonomes, format `[tag] - message`, sans mention de phase :
 
