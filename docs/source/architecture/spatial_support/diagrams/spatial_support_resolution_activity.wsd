@@ -14,7 +14,7 @@ if (Any heterogeneous FieldParam?) then (yes)
     :Attach setup-time zone sources\n(catchment and custom domain zones);
 
     if (Any requested support uses\nprovider = geology?) then (yes)
-      :Infer/load geology data\nthrough DataManagersPlanner\nand runtime loader;
+      :Infer/load geology data\nthrough DataPlanner\nand runtime loader;
       :Attach GeologyField to Domain;
     endif
 

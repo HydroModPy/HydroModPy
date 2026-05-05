@@ -35,7 +35,7 @@ package "hydromodpy.core.state" {
 }
 
 package "hydromodpy.data" {
-  class DataManagersPlanner {
+  class DataPlanner {
     +build(config, domain_zone_ids, raw_toml, flow_active_bc)
   }
 
@@ -79,8 +79,8 @@ package "hydromodpy.physics.flow" {
   }
 }
 
-Project --> DataManagersPlanner : build(...)
-DataManagersPlanner ..> DataLoadPlan : returns
+Project --> DataPlanner : build(...)
+DataPlanner ..> DataLoadPlan : returns
 Project --> ProjectRunState : stores raw_toml\nand data_plan
 Project --> DataManagersRuntimeLoader : load_all(run_state)
 DataManagersRuntimeLoader --> ProjectRunState : fills loaded_data

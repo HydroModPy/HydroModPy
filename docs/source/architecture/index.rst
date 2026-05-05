@@ -28,14 +28,13 @@ to study.
 .. code-block:: text
 
    hydromodpy/
-   |-- cli/           Command-line entry point (hmp, hydromodpy aliases)
+   |-- _cli/           Command-line entry point (hmp, hydromodpy aliases)
    |-- analysis/       Comparison, batch, and capability gallery helpers
    |-- calibration/    Optuna engine, objectives, optimizers, evaluators
    |-- core/           Config contracts, workspace anchoring, registry
    |-- data/           Data managers (BRGM, BD TOPAGE, Hub'Eau, SIM2, ...)
    |-- display/        Solver-agnostic figures and figure catalog
    |-- physics/        Process definitions (Flow, Transport, BCs, ICs)
-   |-- pipeline/       Pipeline runner with checkpointing on DuckDB
    |-- results/        Result catalog (DuckDB ledger + Zarr fields)
    |-- schema/         JSON Schema export for frontend integrations
    |-- simulation/     Run orchestration (planner, registry, context)
@@ -45,7 +44,7 @@ to study.
 
 Top-level helpers in ``hydromodpy/``:
 
-- ``project.py`` is the public ``Project`` facade that wires the pipeline
+- ``project.py`` is the public ``Project`` facade that wires the workflow
   end to end. Most user code only imports from here.
 - ``__init__.py`` re-exports the stable API surface (``Project``,
   ``Config``, ``Geographic``, ``Domain``, ``Flow``, ``Sim``, etc.) and

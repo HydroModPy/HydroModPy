@@ -10,7 +10,7 @@ consumed.
 
 It focuses on:
 
-- data-type inference and normalization (`DataManagersPlanner` ->
+- data-type inference and normalization (`DataPlanner` ->
   `DataLoadPlan`),
 - transfer of resolved data types into the project runtime state,
 - setup-time transfer for geology (`GeologyField` ->

@@ -9,7 +9,7 @@ transfers concrete data objects to the right runtime holders.
 
 It focuses on:
 
-- planning-time activation (`DataManagersPlanner.build`),
+- planning-time activation (`DataPlanner.build`),
 - setup-time geology transfer to `Domain`,
 - data-phase transfer of hydrometry to the ``Project`` runtime
   loaded-data state,

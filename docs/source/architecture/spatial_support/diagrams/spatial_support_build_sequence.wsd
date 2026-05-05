@@ -4,7 +4,7 @@ title Spatial Support - Build Sequence Diagram
 actor User
 participant "HydroModPyLauncher" as Launcher
 participant "DomainConfig" as DomainCfg
-participant "DataManagersPlanner" as Planner
+participant "DataPlanner" as Planner
 participant "DataManagersRuntimeLoader" as Loader
 participant "Domain" as Domain
 participant "Structure binders" as Binders

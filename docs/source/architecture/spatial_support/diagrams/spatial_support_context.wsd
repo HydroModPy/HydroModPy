@@ -4,7 +4,7 @@ title Spatial Support - Context Diagram
 component "DomainConfig\nzone_ids, supports" as DomainConfig
 component "DomainSupportConfig\nprovider-specific declarations" as SupportConfig
 component "Project" as Project
-component "DataManagersPlanner" as Planner
+component "DataPlanner" as Planner
 component "DataManagersRuntimeLoader" as Loader
 component "Structure binders\napply_catchment_zones_to_domain\napply_geology_to_domain" as Binders
 component "Domain\nzones registry\nresolve_spatial_support(...)" as Domain

@@ -6,7 +6,7 @@ start
 :Project.__init__();
 :Load validated cfg and raw TOML;
 
-:DataManagersPlanner.build(..., raw_toml, domain_zone_ids, flow_active_bc);
+:DataPlanner.build(..., raw_toml, domain_zone_ids, flow_active_bc);
 if (domain.zone_ids contains geology?) then (yes)
   :Activate geology (explicit or inferred);
 endif
