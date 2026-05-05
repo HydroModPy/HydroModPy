@@ -83,7 +83,11 @@ must not import from them.
    spatial_support/index
    field/index
    mesh/index
+   mesh_pivot
+   gmsh_meshing
    calibration/index
    process/index
    solver/index
+   boussinesq_solver
+   modflow_contracts
    simulation/index

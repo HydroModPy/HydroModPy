@@ -234,7 +234,8 @@ For any question or collaboration request, contact:
    examples/index
    Case Studies <capability_gallery/index>
    Theory <theory/index>
-   Developer Guide <architecture/index>
+   Architecture <architecture/index>
+   Developer Notes <developer/index>
    API Reference <api/index>
    contribute
 
