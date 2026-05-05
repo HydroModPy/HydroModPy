@@ -99,18 +99,18 @@ dmypy.json
 # ──────────────────────────────────────────────
 doc/
 docs/_build*/
+docs/build/
 docs/**/_build/
-docs/readthedocs/_build*/
 docs/**/_autosummary/
 docs/**/.doctrees/
-docs/readthedocs/source/notebooks/.virtual_documents/
-docs/readthedocs/source/notebooks/.ipynb_checkpoints/
-docs/readthedocs/source/notebooks/.nbconvert/
-docs/readthedocs/source/notebooks/.jupyter_cache/
+docs/source/notebooks/.virtual_documents/
+docs/source/notebooks/.ipynb_checkpoints/
+docs/source/notebooks/.nbconvert/
+docs/source/notebooks/.jupyter_cache/
 .jupyter_cache/
-docs/readthedocs/source/api/generated/
-docs/readthedocs/source/_generated/
-!docs/readthedocs/source/_generated/CHANGELOG.md
+docs/source/api/generated/
+docs/source/_generated/
+!docs/source/_generated/CHANGELOG.md
 
 # ──────────────────────────────────────────────
 # HydroModPy workspace outputs
@@ -242,38 +242,38 @@ old/*
 
 
 _workspace/*
-docs/readthedocs/source/architecture/mesh/diagrams/catchment_conformal_meshing_class_v2.wsd
-docs/readthedocs/source/architecture/mesh/diagrams/sgrid_fieldparam_discretization_class_v2.wsd
-docs/readthedocs/source/architecture/mesh/diagrams/structured_grid_class_v2.wsd
-docs/readthedocs/source/architecture/overview/global-architecture-component-diagram.rst
-docs/readthedocs/source/architecture/overview/global-architecture-component-traceability-v2.rst
-docs/readthedocs/source/architecture/overview/diagrams/diagram_composant_fin copy.wsd
-docs/readthedocs/source/architecture/overview/diagrams/diagram_composant_fin.wsd
-docs/readthedocs/source/architecture/overview/diagrams/global_architecture_class_as_built_current_state_v2.wsd
-docs/readthedocs/source/architecture/overview/diagrams/global_architecture_class_complete_traceable_v1.wsd
-docs/readthedocs/source/architecture/overview/diagrams/global_architecture_component_ports_interfaces_strict_symbols_v1.wsd
-docs/readthedocs/source/architecture/overview/diagrams/global_architecture_component_ports_interfaces_strict_symbols_v2.wsd
-docs/readthedocs/source/architecture/overview/diagrams/global_architecture_component_ports_interfaces_traceable_v2_strict_symbols_v1.wsd
-docs/readthedocs/source/architecture/overview/diagrams/global_architecture_component_ports_interfaces_traceable_v2.wsd
-docs/readthedocs/source/architecture/overview/diagrams/global_architecture_component_ports_interfaces.wsd
-docs/readthedocs/source/architecture/overview/diagrams/global_architecture_component_pure_uml_ball_socket_v1.wsd
-docs/readthedocs/source/architecture/overview/diagrams/global_architecture_component_pure_uml_nodes_ports_strict_symbols_v2.wsd
-docs/readthedocs/source/architecture/overview/diagrams/global_architecture_component_pure_uml_nodes_ports_v1.wsd
-docs/readthedocs/source/architecture/process/diagrams/process_config_class_as_built_complete.wsd
-docs/readthedocs/source/architecture/process/diagrams/process_end_to_end_class_as_built_complete.wsd
-docs/readthedocs/source/architecture/process/diagrams/process_layered_components_as_built_complete.wsd
-docs/readthedocs/source/architecture/process/diagrams/process_runtime_class_as_built_complete.wsd
-docs/readthedocs/source/architecture/process/diagrams/runtime_to_solver_sequence_as_built_complete.wsd
-docs/readthedocs/source/architecture/process/diagrams/transport_as_built_complete.wsd
-docs/readthedocs/source/architecture/simulation/diagrams/simulation_time_cycle_class_as_built.wsd
-docs/readthedocs/source/architecture/simulation/diagrams/simulation_time_cycle_sequence_as_built.wsd
-docs/readthedocs/source/architecture/solver/diagrams/boussinesq_core_classes_as_built.wsd
-docs/readthedocs/source/architecture/solver/diagrams/boussinesq_process_to_backend_sequence_as_built.wsd
-docs/readthedocs/source/architecture/spatial_support/diagrams/spatial_support_build_sequence_v2.wsd
-docs/readthedocs/source/architecture/spatial_support/diagrams/spatial_support_classes_v2.wsd
-docs/readthedocs/source/architecture/spatial_support/diagrams/spatial_support_context_v2.wsd
-docs/readthedocs/source/architecture/spatial_support/diagrams/spatial_support_fieldparam_sequence_v2.wsd
-docs/readthedocs/source/architecture/spatial_support/diagrams/spatial_support_resolution_activity_v2.wsd
+docs/source/architecture/mesh/diagrams/catchment_conformal_meshing_class_v2.wsd
+docs/source/architecture/mesh/diagrams/sgrid_fieldparam_discretization_class_v2.wsd
+docs/source/architecture/mesh/diagrams/structured_grid_class_v2.wsd
+docs/source/architecture/overview/global-architecture-component-diagram.rst
+docs/source/architecture/overview/global-architecture-component-traceability-v2.rst
+docs/source/architecture/overview/diagrams/diagram_composant_fin copy.wsd
+docs/source/architecture/overview/diagrams/diagram_composant_fin.wsd
+docs/source/architecture/overview/diagrams/global_architecture_class_as_built_current_state_v2.wsd
+docs/source/architecture/overview/diagrams/global_architecture_class_complete_traceable_v1.wsd
+docs/source/architecture/overview/diagrams/global_architecture_component_ports_interfaces_strict_symbols_v1.wsd
+docs/source/architecture/overview/diagrams/global_architecture_component_ports_interfaces_strict_symbols_v2.wsd
+docs/source/architecture/overview/diagrams/global_architecture_component_ports_interfaces_traceable_v2_strict_symbols_v1.wsd
+docs/source/architecture/overview/diagrams/global_architecture_component_ports_interfaces_traceable_v2.wsd
+docs/source/architecture/overview/diagrams/global_architecture_component_ports_interfaces.wsd
+docs/source/architecture/overview/diagrams/global_architecture_component_pure_uml_ball_socket_v1.wsd
+docs/source/architecture/overview/diagrams/global_architecture_component_pure_uml_nodes_ports_strict_symbols_v2.wsd
+docs/source/architecture/overview/diagrams/global_architecture_component_pure_uml_nodes_ports_v1.wsd
+docs/source/architecture/process/diagrams/process_config_class_as_built_complete.wsd
+docs/source/architecture/process/diagrams/process_end_to_end_class_as_built_complete.wsd
+docs/source/architecture/process/diagrams/process_layered_components_as_built_complete.wsd
+docs/source/architecture/process/diagrams/process_runtime_class_as_built_complete.wsd
+docs/source/architecture/process/diagrams/runtime_to_solver_sequence_as_built_complete.wsd
+docs/source/architecture/process/diagrams/transport_as_built_complete.wsd
+docs/source/architecture/simulation/diagrams/simulation_time_cycle_class_as_built.wsd
+docs/source/architecture/simulation/diagrams/simulation_time_cycle_sequence_as_built.wsd
+docs/source/architecture/solver/diagrams/boussinesq_core_classes_as_built.wsd
+docs/source/architecture/solver/diagrams/boussinesq_process_to_backend_sequence_as_built.wsd
+docs/source/architecture/spatial_support/diagrams/spatial_support_build_sequence_v2.wsd
+docs/source/architecture/spatial_support/diagrams/spatial_support_classes_v2.wsd
+docs/source/architecture/spatial_support/diagrams/spatial_support_context_v2.wsd
+docs/source/architecture/spatial_support/diagrams/spatial_support_fieldparam_sequence_v2.wsd
+docs/source/architecture/spatial_support/diagrams/spatial_support_resolution_activity_v2.wsd
 examples/Examples_Launchers/results/example12/results_simulations/TRANS1_0_K5.0e-05_a15.0_Sy2.0/mt3d_link.ftl
 examples/Examples_Launchers/results/example12/results_simulations/TRANS1_0_K5.0e-05_a15.0_Sy2.0/results_TRANS1_0_K5.0e-05_a15.0_Sy2.0.pkl
 examples/Examples_Launchers/results/example12/results_simulations/TRANS1_0_K5.0e-05_a15.0_Sy2.0/TRANS1_0_K5.0e-05_a15.0_Sy2.0.bas

@@ -3,7 +3,7 @@
 Cette documentation couvre l'architecture interne, les conventions de
 code et les points d'extension de HydroModPy. Public visé : contributeurs
 au code, mainteneurs, intégrateurs frontaux. Pour l'usage utilisateur voir
-`docs/readthedocs/`.
+`docs/`.
 
 ## Par où commencer
 

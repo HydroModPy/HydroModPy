@@ -24,7 +24,7 @@ EXCLUDED_PATHS = {
 SEARCH_ROOTS = (
     Path("hydromodpy"),
     Path("tests"),
-    Path("docs/readthedocs/source"),
+    Path("docs/source"),
 )
 
 

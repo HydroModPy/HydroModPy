@@ -15,7 +15,7 @@ build:
     - plantuml
 
 sphinx:
-  configuration: docs/readthedocs/source/conf.py
+  configuration: docs/source/conf.py
 
 python:
   install:
@@ -23,4 +23,4 @@ python:
     - method: pip
       path: .
     # Install documentation-specific dependencies
-    - requirements: docs/readthedocs/readthedocs_requirements.txt
+    - requirements: docs/readthedocs_requirements.txt

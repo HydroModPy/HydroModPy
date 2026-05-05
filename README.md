@@ -267,7 +267,7 @@ can pick whichever fits its workload:
 The full walkthrough (DuckDB SQL recipes, Parquet batch loading, Zarr
 DataLoader example, `runs_environment` provenance schema, train/val/test
 split convention) lives in
-[`docs/developers/ML_ACCESS_PATTERN.md`](docs/developers/ML_ACCESS_PATTERN.md).
+[`dev_notes/drafts/ml_access_pattern.md`](dev_notes/drafts/ml_access_pattern.md).
 
 ## Usage Examples
 

@@ -1,0 +1,20 @@
+/* HydroModPy custom layout overrides for pydata-sphinx-theme */
+
+/* Widen the overall page width and the article container so that wide
+   tables, equations and figures have more breathing room. */
+.bd-page-width {
+    max-width: 100rem;
+}
+
+.bd-main .bd-content .bd-article-container {
+    max-width: 80rem;
+}
+
+/* Allow wide tables to scroll horizontally instead of breaking the layout. */
+.bd-content table.docutils,
+.bd-content table.dataframe {
+    display: block;
+    width: max-content;
+    max-width: 100%;
+    overflow-x: auto;
+}

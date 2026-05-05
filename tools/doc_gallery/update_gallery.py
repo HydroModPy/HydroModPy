@@ -5092,7 +5092,7 @@ def _build_calibration_intercomparison_page(
             "- ``{}``".format(
                 comparison_summary.get(
                     "summary_repo_path",
-                    "docs/readthedocs/source/_static/capability_gallery/calibration/intercomparison/calibration_intercomparison_summary.json",
+                    "docs/source/_static/capability_gallery/calibration/intercomparison/calibration_intercomparison_summary.json",
                 )
             ),
         ]
@@ -7583,6 +7583,8 @@ def _build_case_page(case: dict[str, Any]) -> str:
     lines = [
         AUTO_GENERATED_COMMENT,
         "",
+        ":html_theme.sidebar_secondary.remove:",
+        "",
         title,
         "=" * len(title),
         "",
@@ -8097,12 +8099,12 @@ def main(argv: list[str] | None = None) -> int:
         )
         print(
             f"Capability gallery refreshed for {len(selected_specs)} selected case(s) "
-            "under docs/readthedocs/source/."
+            "under docs/source/."
         )
         return 0
 
     generate_gallery(source_root=DOCS_SOURCE_DIR)
-    print("Capability gallery refreshed under docs/readthedocs/source/.")
+    print("Capability gallery refreshed under docs/source/.")
     return 0
 
 

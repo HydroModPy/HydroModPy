@@ -415,7 +415,7 @@ simple clarifie mieux qu'un long paragraphe.
 Bon point d'atterrissage :
 
 - pages publiees RTD sous
-  `docs/readthedocs/source/architecture/overview/`
+  `docs/source/architecture/overview/`
 - sources PlantUML sous un sous-dossier `diagrams/`
 - ce document reste la partie narrative et justifie les choix
 
