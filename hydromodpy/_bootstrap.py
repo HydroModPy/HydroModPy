@@ -1,9 +1,10 @@
 """Bootstrap helper that resolves HydroModPyConfig forward references.
 
-Lives at the top level so ``config/`` stays decoupled from sibling layers at
-module-load time: configs from ``physics/``, ``solver/``, ``spatial/``,
-``data/``, ``simulation/``, ``display/``, ``analysis/``, ``calibration/``,
-and ``workflow/`` are imported here, never from ``config/``.
+Lives at the top level so ``config/`` stays decoupled from sibling
+layers at module-load time: configs from ``physics/``, ``solver/``,
+``spatial/``, ``data/``, ``simulation/``, ``display/``, ``analysis/``,
+``calibration/``, and ``workflow/`` are imported here, never from
+``config/``.
 """
 
 from __future__ import annotations
@@ -16,14 +17,14 @@ def _rebuild_forward_refs() -> None:
 
     Pydantic resolves forward references at ``model_rebuild()`` time by name
     lookup against the defining module's globals, so the sibling classes are
-    written into the root-config module globals.
+    written into the canonical root-config module globals.
     """
-    from hydromodpy.analysis import config as analysis_module
     from hydromodpy.analysis.batch.config import RegionalLabConfig
     from hydromodpy.analysis.capability_gallery import CapabilityGalleryConfig
     from hydromodpy.analysis.comparison.config import ComparisonSection
     from hydromodpy.calibration.config import CalibrationConfig
-    from hydromodpy.config import hydromodpy_config as public_cfg_module
+    from hydromodpy.analysis import config as analysis_module
+    from hydromodpy.config import hydromodpy_config as cfg_module
     from hydromodpy.data.data_managers_config import DataManagersConfig
     from hydromodpy.display.config import DisplayConfig
     from hydromodpy.display.overview.config import OverviewSection
@@ -58,8 +59,8 @@ def _rebuild_forward_refs() -> None:
         "MeshCatchmentConfig": MeshCatchmentConfig,
         "OverviewSection": OverviewSection,
     }
-    public_cfg_module.__dict__.update(refs)
-    public_cfg_module.HydroModPyConfig.model_rebuild()
+    cfg_module.__dict__.update(refs)
+    cfg_module.HydroModPyConfig.model_rebuild()
 
 
 def _register_physics_contracts() -> None:
@@ -181,8 +182,8 @@ def _register_simulation_contracts() -> None:
 def _register_root_config_contracts() -> None:
     """Wire HydroModPyConfig into the core config_kit registry.
 
-    The 14x14 layer matrix forbids ``core -> config``. The config_kit
-    registry, JSON Schema exporter and other downstream layers
+    The 14x14 layer matrix forbids ``core -> config``. The
+    config_kit registry, JSON Schema exporter and other downstream layers
     (results, schema) reach the root model through the
     ``RootConfigProvider`` Protocol declared in
     :mod:`hydromodpy.core.config_kit.root_config_protocol`.

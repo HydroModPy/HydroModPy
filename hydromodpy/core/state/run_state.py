@@ -39,8 +39,7 @@ class WorkflowContext:
 
     ``cfg`` and ``data_plan`` are typed as ``Any`` because ``core`` cannot
     import from sibling layers. Concrete types are
-    ``config.hydromodpy_config.HydroModPyConfig`` and
-    ``data.plan.DataLoadPlan``.
+    ``config.hydromodpy_config.HydroModPyConfig`` and ``data.plan.DataLoadPlan``.
     """
 
     cfg: Any

@@ -13,6 +13,22 @@ def test_hydromodpy_config_canonical_imports_match() -> None:
     assert canonical_pkg is canonical_module
 
 
+def test_master_config_package_is_removed() -> None:
+    import hydromodpy
+
+    for module_name in (
+        "hydromodpy.master_config",
+        "hydromodpy.master_config.analysis",
+        "hydromodpy.master_config.dynamic_flow_examples",
+        "hydromodpy.master_config.hydromodpy_config",
+    ):
+        sys.modules.pop(module_name, None)
+
+    assert "master_config" not in hydromodpy.__all__
+    with pytest.raises(ModuleNotFoundError):
+        importlib.import_module("hydromodpy.master_config")
+
+
 def test_core_hydromodpy_config_export_is_removed() -> None:
     import hydromodpy.core as legacy_core
 

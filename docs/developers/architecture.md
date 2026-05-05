@@ -1,7 +1,7 @@
 # Architecture (layer matrix)
 
-HydroModPy is structured as a strict layered DAG. Each top-level package
-under `hydromodpy/` is a layer; imports flow downward only. The layer
+HydroModPy is structured by a strict layer matrix. Each top-level package
+under `hydromodpy/` is a layer; imports follow the allowed matrix. The layer
 contract is the canonical source of truth for v1.0.
 
 - Authoritative spec: this document.
@@ -12,12 +12,14 @@ contract is the canonical source of truth for v1.0.
 ## Layers (low to high)
 
 ```
-core < schema < config < physics, data, spatial < simulation < solver
-     < results < display, analysis, calibration < workflow < cli
+core < schema < physics, data, spatial < simulation < solver
+     < results < display, analysis, calibration < workflow < config
+     < cli
 ```
 
 `core` is the kernel leaf. It must not import any sibling layer (not
 even under `TYPE_CHECKING`). `cli` is the on-disk CLI top-level package.
+`hydromodpy.config` is the canonical application-level configuration package.
 There is no `pipeline` package in the current tree; pipeline behavior lives
 under `workflow`.
 
@@ -55,9 +57,12 @@ documented at the call site. Listed in `layer_matrix.yaml` under
 | calibration | results | catalog read at planning time |
 | simulation  | solver  | dispatch through solver registry |
 | results     | spatial | results stores spatial indices |
-| analysis    | root    | simulation comparison launches public Project facade |
+| analysis    | physics | history contract |
+| analysis    | display | comparison exports reuse plot mesh loading |
+| analysis    | solver  | comparison runtime resolves solver families |
 | calibration | root    | trial promotion launches public Project facade |
 | cli         | root    | CLI dispatch delegates to public Project facade |
+| results     | analysis | `Run` exposes stream-network diagnostics |
 | workflow    | root    | sweep helper accepts Project facade instances |
 
 Tolerances tighten over time. Adding a new tolerance requires a

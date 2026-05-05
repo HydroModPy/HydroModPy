@@ -1,4 +1,4 @@
-"""Protocol decoupling core helpers from the config aggregate.
+"""Protocol decoupling core helpers from the application root config.
 
 The 14x14 layer matrix forbids ``core -> config``. The config_kit
 registry and JSON Schema exporter need the root Pydantic model to introspect
@@ -6,7 +6,7 @@ its fields. They consume that information through this Protocol; the concrete
 provider is wired in at package bootstrap by :mod:`hydromodpy._bootstrap`.
 
 Other layers consume the same Protocol when they need to build or validate a
-root config from raw payloads without depending on config.
+root config from raw payloads without depending on ``hydromodpy.config``.
 """
 
 from __future__ import annotations
