@@ -7,9 +7,7 @@ from typing import Any
 
 from .gallery_schema import GalleryCaseSpec, GalleryImageAsset
 
-_SIMULATION_COMPARISON_STATIC_ROOT = (
-    "docs/readthedocs/source/_static/capability_gallery/simulation_comparison"
-)
+_SIMULATION_COMPARISON_STATIC_ROOT = "docs/source/_static/capability_gallery/simulation_comparison"
 _DEFAULT_SIMULATION_COMPARISON_NEXT_STEPS = (
     "Use :doc:`the gallery and validation reading guide </getting_started/reading-results-pages>` to distinguish example pages, comparison pages, and validation pages.",
     "Go back to :doc:`the simulation walkthrough </getting_started/simulation-walkthrough>` when you need to inspect one contributing run in isolation.",
@@ -140,7 +138,7 @@ def build_simulation_comparison_specs() -> tuple[GalleryCaseSpec, ...]:
                     ),
                     alt_text="Simulation comparison figure for the shared Naizin mesh",
                     source_path=(
-                        "docs/readthedocs/source/_static/capability_gallery/simulation_comparison/"
+                        "docs/source/_static/capability_gallery/simulation_comparison/"
                         "example12_map_simulation_comparison.png"
                     ),
                 ),
@@ -172,11 +170,11 @@ def build_simulation_comparison_specs() -> tuple[GalleryCaseSpec, ...]:
             walkthrough_title="the gallery and validation reading guide",
             metadata={
                 "static_summary_path": (
-                    "docs/readthedocs/source/_static/capability_gallery/simulation_comparison/"
+                    "docs/source/_static/capability_gallery/simulation_comparison/"
                     "example12_map_simulation_comparison_summary.json"
                 ),
                 "comparison_summary_path": (
-                    "docs/readthedocs/source/_static/capability_gallery/simulation_comparison/"
+                    "docs/source/_static/capability_gallery/simulation_comparison/"
                     "example12_map_simulation_comparison_summary.json"
                 ),
                 "study_area": "Naizin catchment",

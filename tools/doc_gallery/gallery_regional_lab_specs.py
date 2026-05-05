@@ -24,7 +24,7 @@ _REGIONAL_LAB_RECIPE_METRIC_SPECS = (
     GalleryMetricSpec("Coverage gaps", "skipped_case_count", _format_int),
     GalleryMetricSpec("Pending cases", "pending_case_count", _format_int),
 )
-_SIMULATION_STATIC_ROOT = "docs/readthedocs/source/_static/capability_gallery/simulation"
+_SIMULATION_STATIC_ROOT = "docs/source/_static/capability_gallery/simulation"
 
 _DEFAULT_REGIONAL_LAB_NEXT_STEPS = (
     "Switch `execute = true` in the focused overlay config when the dry plan looks correct and you want to launch the child workflow.",
@@ -151,7 +151,7 @@ def build_regional_lab_specs() -> tuple[GalleryCaseSpec, ...]:
                     ),
                     alt_text="Regional lab dry-plan synthesis for the headwater 100 km2 example",
                     source_path=(
-                        "docs/readthedocs/source/_static/capability_gallery/simulation/"
+                        "docs/source/_static/capability_gallery/simulation/"
                         "regional_lab_headwater_100km2_dry_plan.png"
                     ),
                 ),
@@ -182,11 +182,11 @@ def build_regional_lab_specs() -> tuple[GalleryCaseSpec, ...]:
             walkthrough_title="the Simulation walkthrough",
             metadata={
                 "static_summary_path": (
-                    "docs/readthedocs/source/_static/capability_gallery/simulation/"
+                    "docs/source/_static/capability_gallery/simulation/"
                     "regional_lab_headwater_100km2_dry_plan_summary.json"
                 ),
                 "regional_lab_summary_path": (
-                    "docs/readthedocs/source/_static/capability_gallery/simulation/"
+                    "docs/source/_static/capability_gallery/simulation/"
                     "regional_lab_headwater_100km2_dry_plan_summary.json"
                 ),
                 "study_area": "Brittany regional laboratory",

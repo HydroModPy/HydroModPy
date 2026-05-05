@@ -523,7 +523,7 @@ hmp display run_calibration_k.toml --session <session_id> --figure calibration_p
 
 Pre-rendered examples for a Dupuit / MODFLOW-6 twin benchmark live
 under
-`docs/readthedocs/source/_static/capability_gallery/calibration/` :
+`docs/source/_static/capability_gallery/calibration/` :
 reuse them as visual references.
 
 You can also ask the loop to render figures automatically at the end

@@ -123,35 +123,34 @@ def test_build_case_page_renders_calibration_parameter_sections() -> None:
                 "caption": "Configuration.",
                 "alt_text": "Configuration",
                 "doc_path": "/_static/capability_gallery/calibration/synthetic__configuration.png",
-                "repo_path": "docs/readthedocs/source/_static/capability_gallery/calibration/synthetic__configuration.png",
+                "repo_path": "docs/source/_static/capability_gallery/calibration/synthetic__configuration.png",
             },
             {
                 "filename": "synthetic__random_search_landscape.png",
                 "caption": "Landscape.",
                 "alt_text": "Landscape",
                 "doc_path": "/_static/capability_gallery/calibration/synthetic__random_search_landscape.png",
-                "repo_path": "docs/readthedocs/source/_static/capability_gallery/calibration/synthetic__random_search_landscape.png",
+                "repo_path": "docs/source/_static/capability_gallery/calibration/synthetic__random_search_landscape.png",
             },
             {
                 "filename": "synthetic__random_search_trace.png",
                 "caption": "Trace.",
                 "alt_text": "Trace",
                 "doc_path": "/_static/capability_gallery/calibration/synthetic__random_search_trace.png",
-                "repo_path": "docs/readthedocs/source/_static/capability_gallery/calibration/synthetic__random_search_trace.png",
+                "repo_path": "docs/source/_static/capability_gallery/calibration/synthetic__random_search_trace.png",
             },
             {
                 "filename": "synthetic__random_search_posterior.png",
                 "caption": "Posterior.",
                 "alt_text": "Posterior",
                 "doc_path": "/_static/capability_gallery/calibration/synthetic__random_search_posterior.png",
-                "repo_path": "docs/readthedocs/source/_static/capability_gallery/calibration/synthetic__random_search_posterior.png",
+                "repo_path": "docs/source/_static/capability_gallery/calibration/synthetic__random_search_posterior.png",
             },
         ],
         "artifacts": {
             "image_repo_paths": [],
             "summary_json_repo_path": (
-                "docs/readthedocs/source/_static/capability_gallery/"
-                "calibration/synthetic_summary.json"
+                "docs/source/_static/capability_gallery/calibration/synthetic_summary.json"
             ),
         },
         "metadata": {
@@ -258,7 +257,7 @@ def test_build_calibration_intercomparison_page_renders_rows() -> None:
                 "caption": "Timing breakdown.",
                 "alt_text": "Timing breakdown",
                 "doc_path": "/_static/capability_gallery/calibration/intercomparison/benchmark_candidate_timing_breakdown.png",
-                "repo_path": "docs/readthedocs/source/_static/capability_gallery/calibration/intercomparison/benchmark_candidate_timing_breakdown.png",
+                "repo_path": "docs/source/_static/capability_gallery/calibration/intercomparison/benchmark_candidate_timing_breakdown.png",
             }
         ],
     }

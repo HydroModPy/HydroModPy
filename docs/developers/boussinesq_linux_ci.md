@@ -135,7 +135,7 @@ relancer les solveurs PETSc pendant le build.
 Build Sphinx Windows typique :
 
 ```powershell
-conda run --no-capture-output -n hydromodpy-kpg python -m sphinx -E -a -W -b html docs/readthedocs/source docs/readthedocs/build/html
+conda run --no-capture-output -n hydromodpy-kpg python -m sphinx -E -a -W -b html docs/source docs/build/html
 ```
 
 ## Benchmarks validés

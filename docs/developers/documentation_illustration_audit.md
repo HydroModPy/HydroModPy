@@ -12,8 +12,8 @@ surtout d'une strategie de repartition des images entre les pages.
 
 Les assets existent deja en grand nombre, en particulier dans:
 
-- `docs/readthedocs/source/_static/capability_gallery/`
-- `docs/readthedocs/source/_static/workflows/`
+- `docs/source/_static/capability_gallery/`
+- `docs/source/_static/workflows/`
 - `examples/projects/09_capability_gallery/`
 - `examples/projects/09_comparison_workflow/outputs/`
 
@@ -31,7 +31,7 @@ Le probleme principal est ailleurs:
 
 ## Mesure rapide
 
-Inventaire realise sur `docs/readthedocs/source`, en excluant les pages
+Inventaire realise sur `docs/source`, en excluant les pages
 generees de l'API et les pages de cas auto-generees de la capability gallery.
 
 | Indicateur | Valeur |
@@ -61,7 +61,7 @@ Lecture de ces chiffres:
 - `api` peut raisonnablement rester peu illustree, sauf pour les pages
   d'entree de module.
 
-Assets statiques disponibles dans `docs/readthedocs/source/_static`:
+Assets statiques disponibles dans `docs/source/_static`:
 
 | Type | Nombre |
 | --- | ---: |
@@ -88,29 +88,29 @@ point d'appui visuel.
 
 Priorite haute:
 
-- `docs/readthedocs/source/scientific/solvers/modflow-package-semantics-and-boundary-conditions.rst`
-- `docs/readthedocs/source/scientific/solvers/modflow-governing-equation-and-cvfd-formulation.rst`
-- `docs/readthedocs/source/scientific/solvers/worked-modflow-case-linearized-unconfined-recharge-periodic-1d.rst`
-- `docs/readthedocs/source/scientific/solvers/worked-modflow-case-linearized-unconfined-drainage-1d.rst`
-- `docs/readthedocs/source/scientific/solvers/worked-modflow-case-dupuit-fixed-head-1d.rst`
-- `docs/readthedocs/source/getting_started/read-real-basin-run.rst`
-- `docs/readthedocs/source/user_guide/results-and-exports.rst`
-- `docs/readthedocs/source/user_guide/solver-process-map.rst`
-- `docs/readthedocs/source/user_guide/data/retrieval-workflow.rst`
+- `docs/source/scientific/solvers/modflow-package-semantics-and-boundary-conditions.rst`
+- `docs/source/scientific/solvers/modflow-governing-equation-and-cvfd-formulation.rst`
+- `docs/source/scientific/solvers/worked-modflow-case-linearized-unconfined-recharge-periodic-1d.rst`
+- `docs/source/scientific/solvers/worked-modflow-case-linearized-unconfined-drainage-1d.rst`
+- `docs/source/scientific/solvers/worked-modflow-case-dupuit-fixed-head-1d.rst`
+- `docs/source/getting_started/read-real-basin-run.rst`
+- `docs/source/user_guide/results-and-exports.rst`
+- `docs/source/user_guide/solver-process-map.rst`
+- `docs/source/user_guide/data/retrieval-workflow.rst`
 
 Priorite moyenne:
 
-- `docs/readthedocs/source/scientific/calibration/calibration-methods.rst`
-- `docs/readthedocs/source/scientific/foundations/groundwater-flow-problem-definition.rst`
-- `docs/readthedocs/source/scientific/solvers/field-to-cell-parameter-transfer.rst`
-- `docs/readthedocs/source/scientific/solvers/meshes-and-numerical-methods.rst`
-- `docs/readthedocs/source/scientific/solvers/flow/modflow/modflow6.rst`
-- `docs/readthedocs/source/scientific/solvers/flow/modflow/modflownwt.rst`
-- `docs/readthedocs/source/user_guide/capability-matrix.rst`
+- `docs/source/scientific/calibration/calibration-methods.rst`
+- `docs/source/scientific/foundations/groundwater-flow-problem-definition.rst`
+- `docs/source/scientific/solvers/field-to-cell-parameter-transfer.rst`
+- `docs/source/scientific/solvers/meshes-and-numerical-methods.rst`
+- `docs/source/scientific/solvers/flow/modflow/modflow6.rst`
+- `docs/source/scientific/solvers/flow/modflow/modflownwt.rst`
+- `docs/source/user_guide/capability-matrix.rst`
 
 Cas particulier:
 
-- `docs/readthedocs/source/getting_started/workspace-layout.rst` est long et
+- `docs/source/getting_started/workspace-layout.rst` est long et
   sans illustration. Une figure `workspace -> project -> run -> store -> exports`
   serait plus efficace que du texte supplementaire.
 
@@ -119,24 +119,24 @@ Cas particulier:
 Ces pages ne sont pas vides visuellement, mais elles n'ont pas encore assez de
 supports pour leur ambition scientifique:
 
-- `docs/readthedocs/source/scientific/hydrology/recharge-and-surface-exchange-semantics.rst`
-- `docs/readthedocs/source/scientific/solvers/modflow6-vs-modflownwt-scientific-comparison.rst`
-- `docs/readthedocs/source/scientific/solvers/mesh-and-discretization-strategies.rst`
-- `docs/readthedocs/source/getting_started/comparison-output-reading-order.rst`
-- `docs/readthedocs/source/scientific/solvers/vertical-representation-and-storage-assumptions.rst`
+- `docs/source/scientific/hydrology/recharge-and-surface-exchange-semantics.rst`
+- `docs/source/scientific/solvers/modflow6-vs-modflownwt-scientific-comparison.rst`
+- `docs/source/scientific/solvers/mesh-and-discretization-strategies.rst`
+- `docs/source/getting_started/comparison-output-reading-order.rst`
+- `docs/source/scientific/solvers/vertical-representation-and-storage-assumptions.rst`
 
 ## Pages deja bien illustrees
 
 Ces pages peuvent servir de reference de style:
 
-- `docs/readthedocs/source/scientific/hydrology/simulated-active-network.rst`
-- `docs/readthedocs/source/scientific/streams_and_seepage/conceptual-model.rst`
-- `docs/readthedocs/source/scientific/streams_and_seepage/nancon-k-sweep-results.rst`
-- `docs/readthedocs/source/user_guide/workflows/simulation.rst`
-- `docs/readthedocs/source/user_guide/workflows/calibration.rst`
-- `docs/readthedocs/source/getting_started/simulation-walkthrough.rst`
-- `docs/readthedocs/source/getting_started/comparison-workflow.rst`
-- `docs/readthedocs/source/capability_gallery/cases/nancon_transient_nwt.rst`
+- `docs/source/scientific/hydrology/simulated-active-network.rst`
+- `docs/source/scientific/streams_and_seepage/conceptual-model.rst`
+- `docs/source/scientific/streams_and_seepage/nancon-k-sweep-results.rst`
+- `docs/source/user_guide/workflows/simulation.rst`
+- `docs/source/user_guide/workflows/calibration.rst`
+- `docs/source/getting_started/simulation-walkthrough.rst`
+- `docs/source/getting_started/comparison-workflow.rst`
+- `docs/source/capability_gallery/cases/nancon_transient_nwt.rst`
 
 Elles montrent trois usages efficaces:
 
@@ -409,7 +409,7 @@ aux figures transversales.
 Proposition:
 
 ```text
-docs/readthedocs/source/_static/
+docs/source/_static/
   capability_gallery/       # cas generes et manifests existants
   workflows/                # figures pedagogiques de workflows
   concepts/                 # schemas scientifiques SVG/PNG

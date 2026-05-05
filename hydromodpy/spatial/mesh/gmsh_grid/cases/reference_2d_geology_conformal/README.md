@@ -17,7 +17,7 @@ The summary sidecar exposes a stable schema marker and QA diagnostics:
 
 Architecture diagrams for the launcher/runtime/domain/river/zone pipeline are
 documented in
-`docs/readthedocs/source/architecture/mesh/catchment-conformal-meshing-diagrams.rst`.
+`docs/source/architecture/mesh/catchment-conformal-meshing-diagrams.rst`.
 
 ## Constraints modes
 

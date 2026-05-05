@@ -48,8 +48,8 @@ More detailed usage notes and documentation entry points live in:
 
 - ``hydromodpy/spatial/mesh/README.md``
 - ``hydromodpy/spatial/mesh/UML.md``
-- ``docs/readthedocs/source/architecture/index.rst``
-- ``docs/readthedocs/source/architecture/mesh/index.rst``
+- ``docs/source/architecture/index.rst``
+- ``docs/source/architecture/mesh/index.rst``
 
 On Read the Docs, the public technical documentation and UML pages live under
 the ``Architecture`` tab.  Scientific notes are documented separately under
