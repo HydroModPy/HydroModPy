@@ -593,8 +593,10 @@ sim.plot_all(save="~/figures/")                       # toutes les figures compa
 Reproduction :
 
 ```python
-sim.rerun()                                           # relance avec la meme config
-sim.rerun(K=2.0, Sy=0.1)                             # relance avec overrides
+from hydromodpy import Project
+
+Project.rerun(sim)                                   # relance avec la meme config
+Project.rerun(sim, K=2.0, Sy=0.1)                    # relance avec overrides
 ```
 
 Export complet (package portable) :
@@ -830,13 +832,24 @@ Chaque simulation stocke :
 Pour relancer une simulation :
 
 ```python
+from hydromodpy import Project
+
 sim = catalog["<uuid>"]
-sim.rerun()                    # meme config, memes parametres
-sim.rerun(K=2.0)               # override d'un parametre
+new_sim = Project.rerun(sim)                    # meme config, memes parametres
+new_sim = Project.rerun(sim, K=2.0)             # override d'un parametre
 ```
 
-`rerun()` reconstruit le TOML depuis `config_toml`, applique les overrides,
-et execute une nouvelle simulation avec `parent_sim_id` pointant vers l'originale.
+`Project.rerun()` reconstruit la configuration depuis le snapshot stocke,
+applique `config_overrides` si fourni, transmet les overrides de parametres au
+run, lance une nouvelle simulation, et enregistre `parent_sim_id` vers
+l'originale. Le `Run` reste une vue de lecture sur les resultats ; il ne relance
+pas lui-meme le workflow.
+
+Migration API :
+
+- ancienne forme retiree : `sim.rerun(...)`,
+- nouvelle forme : `Project.rerun(sim, ...)`,
+- raison : eviter que la couche `results` importe l'orchestrateur `Project`.
 
 ## 13. Ce qui disparait par rapport a l'architecture precedente
 

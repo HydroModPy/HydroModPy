@@ -31,7 +31,6 @@ tolerances:
   - {src: analysis,    tgt: physics,  reason: "history contract"}
   - {src: calibration, tgt: "<root>", reason: "trial promotion launches public Project facade"}
   - {src: cli,         tgt: "<root>", reason: "CLI dispatch delegates to public Project facade"}
-  - {src: results,     tgt: "<root>", reason: "Run.rerun launches public Project facade"}
   - {src: workflow,    tgt: "<root>", reason: "sweep helper accepts Project facade instances"}
   - {src: analysis,    tgt: display,  reason: "comparison exports reuse plot mesh loading"}
   - {src: analysis,    tgt: solver,   reason: "comparison runtime resolves solver families"}
