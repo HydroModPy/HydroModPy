@@ -229,6 +229,7 @@ extensions = [
     "sphinx.ext.viewcode",
     "sphinx.ext.githubpages",
     "sphinx.ext.autosummary",
+    "sphinx.ext.intersphinx",
     "sphinx.ext.mathjax",
     "nbsphinx",
     "sphinx_gallery.load_style",
@@ -240,6 +241,16 @@ extensions = [
     "sphinx_multiversion",
     "sphinxcontrib.autodoc_pydantic",
 ]
+
+intersphinx_mapping = {
+    "python": ("https://docs.python.org/3", None),
+    "numpy": ("https://numpy.org/doc/stable/", None),
+    "scipy": ("https://docs.scipy.org/doc/scipy/", None),
+    "pandas": ("https://pandas.pydata.org/docs/", None),
+    "matplotlib": ("https://matplotlib.org/stable/", None),
+    "xarray": ("https://docs.xarray.dev/en/stable/", None),
+    "flopy": ("https://flopy.readthedocs.io/en/stable/", None),
+}
 autoclass_content = "both"
 autosummary_generate = True
 nbsphinx_allow_errors = True
@@ -278,19 +289,10 @@ nitpick_ignore_regex = [
     ("py:class", r"Annotated\[.*"),
     ("py:class", r"Profile\..*"),
     ("py:class", r"_?duckdb\..*"),
-    ("py:class", r"abc\.ABC"),
-    ("py:class", r"collections\.abc\..*"),
-    ("py:class", r"datetime"),
     ("py:class", r"gpd\..*"),
-    ("py:class", r"matplotlib\..*"),
-    ("py:class", r"numpy\..*"),
-    ("py:class", r"pandas(?:\.|$).*"),
-    ("py:class", r"pathlib\..*Path"),
     ("py:class", r"Path"),
     ("py:class", r"pydantic(?:\.main)?\..*"),
     ("py:class", r"torch(?:\.|$).*"),
-    ("py:class", r"UUID"),
-    ("py:class", r"xarray\..*"),
     ("py:class", r"xr\..*"),
     (
         "py:class",
@@ -322,10 +324,7 @@ nitpick_ignore_regex = [
 templates_path = ["_templates"]
 
 # The suffix(es) of source filenames.
-# You can specify multiple suffix as a list of string:
-#
-# source_suffix = ['.rst', '.md']
-source_suffix = ".rst"
+source_suffix = [".rst", ".md"]
 
 # The master toctree document.
 master_doc = "index"
@@ -482,34 +481,6 @@ texinfo_documents = [
 ]
 
 # -- Extension configuration -------------------------------------------------
-autodoc_mock_imports = [
-    "certifi",
-    "contextily",
-    "flopy",
-    "geopandas",
-    "gdal",
-    "geopy",
-    "h5py",
-    "imageio",
-    "ipykernel",
-    "ipython",
-    "matplotlib_scalebar",
-    "netCDF4",
-    "osgeo",
-    "plotly",
-    "pyhelp",
-    "pyproj",
-    "pyshp",
-    "rasterio",
-    "rioxarray",
-    "spyder",
-    "spyder_kernels",
-    "pyside6",
-    "vedo",
-    "vtk",
-    "whitebox_workflows",
-    "xarray",
-]
 
 # use :numref: for references (instead of :ref:)
 numfig = True
