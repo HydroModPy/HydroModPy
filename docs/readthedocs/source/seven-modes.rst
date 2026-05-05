@@ -144,7 +144,7 @@ load the resolved Pydantic model, keep it in memory, and hand it to
 
    from pathlib import Path
    import hydromodpy as hmp
-   from hydromodpy.config.hydromodpy_config import HydroModPyConfig
+   from hydromodpy.config import HydroModPyConfig
 
    HERE = Path(__file__).parent
    cfg = HydroModPyConfig.from_toml(HERE / "run_transient_nwt.toml")
