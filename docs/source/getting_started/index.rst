@@ -87,7 +87,7 @@ Related sections
 - :doc:`read-real-basin-run` inventories what one committed real-basin run
   actually exposes through the Python API, and which outputs matter first when
   the question becomes ``EVT`` sensitivity rather than just page reading.
-- :doc:`../examples` lists the full notebook and script inventory.
+- :doc:`../examples/index` lists the full notebook and script inventory.
 - :doc:`../capability_gallery/index` shows static, versioned result pages built
   from reproducible cases.
 

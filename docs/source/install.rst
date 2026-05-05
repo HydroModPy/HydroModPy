@@ -372,7 +372,7 @@ Check the installation
    print(hydromodpy.__version__)
 
 Refer to :doc:`getting_started/index` for a guided first workflow once the
-import works. Use :doc:`examples` when you want the full notebook and script
+import works. Use :doc:`examples/index` when you want the full notebook and script
 inventory.
 
 Spyder note

@@ -40,13 +40,13 @@ First visit
    1. :doc:`install`
    2. :doc:`getting_started/index`
    3. :doc:`user_guide/index`
-   4. :doc:`examples`
+   4. :doc:`examples/index`
    5. :doc:`capability_gallery/index`
 
 Use :doc:`getting_started/index` when you want the shortest first-run path.
 Use :doc:`user_guide/index` when you need operational concepts such as usage
 modes, workflow families, workspace layout, comparison, calibration, meshes, or
-solver choice. Use :doc:`examples` when you already know that you want the full
+solver choice. Use :doc:`examples/index` when you already know that you want the full
 notebook and script inventory. Use :doc:`capability_gallery/index` when you
 want stable, curated result pages before running anything locally.
 
@@ -105,13 +105,12 @@ Documentation map
 
    .. grid-item-card::
       :class-card: sd-shadow-sm sd-rounded-3 sd-p-4
-      :link: examples
+      :link: examples/index
       :link-type: doc
 
       **Examples**
       ^^^
-      Notebook gallery showing quick demos, calibration workflows, and teaching
-      material.
+      Coming soon: TOML-first walkthroughs and migrated example notebooks.
 
    .. grid-item-card::
       :class-card: sd-shadow-sm sd-rounded-3 sd-p-4
@@ -232,7 +231,7 @@ For any question or collaboration request, contact:
    install
    Quickstart <getting_started/index>
    user_guide/index
-   examples
+   examples/index
    Case Studies <capability_gallery/index>
    Scientific Background <scientific/index>
    Developer Guide <architecture/index>
