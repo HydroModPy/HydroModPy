@@ -1,0 +1,3 @@
+# sphinx-rediraffe redirect map.
+# Format: <old_path> <new_path>  (relative to docs/source, no extension)
+# Step 19 populates this file with the moves accumulated by Phase 1.

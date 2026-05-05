@@ -1,4 +1,4 @@
-sphinx==7.2.6
+sphinx==7.4.7
 pydata-sphinx-theme==0.15.4
 autodoc-pydantic==2.2.0
 myst-parser==3.0.1
@@ -10,6 +10,12 @@ sphinx-tabs==3.4.5
 sphinx-togglebutton==0.3.2
 sphinx-multiversion==0.2.4
 sphinxcontrib-plantuml
+sphinx-codeautolink
+sphinxcontrib-mermaid
+sphinxcontrib-bibtex
+sphinx-autodoc-typehints<3
+sphinx-issues<5
+sphinxext-rediraffe
 
 nbformat==5.10.4
 nbconvert==7.16.4

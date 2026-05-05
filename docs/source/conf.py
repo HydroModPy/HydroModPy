@@ -35,6 +35,12 @@ _DOC_REQUIRED_EXTENSIONS = [
     "sphinx_tabs",
     "sphinx_multiversion",
     "sphinxcontrib.autodoc_pydantic",
+    "sphinx_codeautolink",
+    "sphinxcontrib.mermaid",
+    "sphinxcontrib.bibtex",
+    "sphinx_autodoc_typehints",
+    "sphinx_issues",
+    "sphinxext.rediraffe",
 ]
 
 
@@ -241,6 +247,12 @@ extensions = [
     "sphinx_tabs.tabs",
     "sphinx_multiversion",
     "sphinxcontrib.autodoc_pydantic",
+    "sphinx_codeautolink",
+    "sphinxcontrib.mermaid",
+    "sphinxcontrib.bibtex",
+    "sphinx_autodoc_typehints",
+    "sphinx_issues",
+    "sphinxext.rediraffe",
 ]
 
 intersphinx_mapping = {
@@ -256,6 +268,22 @@ autoclass_content = "both"
 autosummary_generate = True
 nbsphinx_allow_errors = True
 nbsphinx_execute = "never"
+
+bibtex_bibfiles = ["theory/references.bib"]
+bibtex_default_style = "alpha"
+bibtex_reference_style = "author_year"
+
+codeautolink_concat_default = True
+codeautolink_global_preface = "import hydromodpy"
+
+typehints_fully_qualified = False
+always_document_param_types = True
+typehints_document_rtype = True
+
+issues_github_path = "HydroModPy/HydroModPy"
+
+rediraffe_redirects = "redirects.txt"
+rediraffe_branch = "master~1"
 _PLANTUML_COMMAND = _resolve_plantuml_command()
 if _PLANTUML_COMMAND is not None:
     extensions.append("sphinxcontrib.plantuml")

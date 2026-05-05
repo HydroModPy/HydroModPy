@@ -87,8 +87,7 @@ mesh = ["gmsh>=4.15.2,<5"]
 ui = ["streamlit>=1.51.0,<2"]
 test = ["pytest", "pytest-xdist", "pytest-timeout", "pytest-cov", "coverage[toml]>=7.0", "pyyaml"]
 docs = [
-    "sphinx>=7.0",
-    "sphinx-rtd-theme",
+    "sphinx>=7.0,<8",
     "myst-parser",
     "nbsphinx",
     "nbconvert",
@@ -105,6 +104,12 @@ docs = [
     "sphinx-multiversion",
     "sphinxcontrib-plantuml",
     "autodoc-pydantic>=2.0",
+    "sphinx-codeautolink",
+    "sphinxcontrib-mermaid",
+    "sphinxcontrib-bibtex",
+    "sphinx-autodoc-typehints<3",
+    "sphinx-issues<5",
+    "sphinxext-rediraffe",
 ]
 ide = [
     "ipykernel",
