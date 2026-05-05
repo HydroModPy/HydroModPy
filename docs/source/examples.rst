@@ -79,10 +79,6 @@ Choose the right entry point
      - :doc:`getting_started/index`
      - It gives you the shortest path from installation to a first meaningful
        run, with parameter-reading help.
-   * - Browse every teaching notebook and replayable script
-     - :ref:`examples-notebook-gallery`
-     - This is the full inventory, useful once you already know which family
-       of examples you need.
    * - Understand usage modes and workflow families
      - :doc:`user_guide/index`
      - This is the operational guide between the quickstart and the lower-level
@@ -101,33 +97,6 @@ versioned figures generated from reproducible examples, comparisons,
 validation cases, and calibration benchmarks.
 The documentation build does not execute these cases; it only reads the
 committed PNG and JSON artifacts produced by ``python -m tools.doc_gallery``.
-
-.. _examples-notebook-gallery:
-
-Notebook gallery
-----------------
-
-Each notebook now opens with an ``Example Parameters`` block that summarizes the
-main case-specific choices before the code cells: extraction mode, main flow
-settings, and any parameter sweeps explored later in the notebook.
-
-.. nbgallery::
-    notebooks/example_00
-    notebooks/example_01
-    notebooks/example_02
-    notebooks/example_03
-    notebooks/example_04
-    notebooks/example_05
-    notebooks/example_06
-    notebooks/example_07
-    notebooks/example_08
-    notebooks/example_09
-    notebooks/example_10
-    notebooks/example_11
-
-.. warning::
-   Some interactive figures (Plotly scenes, GIF animations, etc.) are hidden in
-   the static documentation. Run the notebooks locally to see the full content.
 
 .. toctree::
    :hidden:
