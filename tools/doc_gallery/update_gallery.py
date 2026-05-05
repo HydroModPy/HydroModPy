@@ -45,7 +45,7 @@ from .mesh_case_registry import (
 )
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
-DOCS_SOURCE_DIR = REPO_ROOT / "docs" / "readthedocs" / "source"
+DOCS_SOURCE_DIR = REPO_ROOT / "docs" / "source"
 VALIDATION_REPORT_DIR = REPO_ROOT / "validation_cases" / "reports" / "latest"
 TEXTUAL_SUFFIXES = {".json", ".rst"}
 MISSING_SOURCE_HASH = "__missing__"
@@ -69,28 +69,46 @@ VALIDATION_SOLVER_ORDER = (
 )
 CATEGORY_GROUP_SPECS = (
     {
-        "title": "Build The Support",
+        "title": "1. Support",
         "deck": (
-            "Start here when the question is still about the basin, the geometry, the "
-            "properties, or the mesh rather than about solver behaviour."
+            "Pre-solver basin views, geometry diagnostics, and hydraulic-property "
+            "fields. Start here when the question is still about the support, not "
+            "the solver."
         ),
-        "categories": ("geographic", "geometry", "hydraulic_properties", "mesh"),
+        "categories": ("geographic", "geometry", "hydraulic_properties"),
+        "thumbnail": "_static/capability_gallery/geographic/geographic_bdtopage_hydrography_overlay.png",
     },
     {
-        "title": "Run And Compare",
+        "title": "2. Mesh",
+        "deck": ("Static mesh and geology illustrations produced from versioned bundle inputs."),
+        "categories": ("mesh",),
+        "thumbnail": "_static/capability_gallery/mesh/mesh_1000km2_outlet_2_geology_rivers_buffer30_overview.png",
+    },
+    {
+        "title": "3. Simulation",
         "deck": (
-            "Move here once the spatial support is understood and you want to inspect one "
-            "full workflow or compare solver families on shared supports."
+            "End-to-end solver runs, run-to-run comparisons on shared supports, and "
+            "synthetic code-to-code benchmarks."
         ),
         "categories": ("simulation", "simulation_comparison", "code_comparison"),
+        "thumbnail": "_static/capability_gallery/simulation/headwater_100km2_outlet_2_mf6_transient_reference_flow_state_triptych.png",
     },
     {
-        "title": "Validate And Calibrate",
+        "title": "4. Validation",
         "deck": (
-            "Use these pages when the goal is not demonstration only, but numerical trust "
-            "or inverse-problem behaviour."
+            "Analytical and semi-analytical comparisons rendered as reproducible teaching figures."
         ),
-        "categories": ("validation", "calibration"),
+        "categories": ("validation",),
+        "thumbnail": "_static/capability_gallery/validation/boussinesq_circular_island_piecewise_k_2d__boussinesq.png",
+    },
+    {
+        "title": "5. Calibration",
+        "deck": (
+            "Synthetic inverse problems used to inspect calibration workflows, "
+            "search methods, and timing diagnostics."
+        ),
+        "categories": ("calibration",),
+        "thumbnail": "_static/capability_gallery/calibration/calibration_twin_boussinesq_fixed_head_piecewise_k_modflow6__cma_es_landscape.png",
     },
 )
 
@@ -625,6 +643,7 @@ def _write_gallery_pages_from_summaries(
     docs_dir = source_root / "capability_gallery"
     docs_dir.mkdir(parents=True, exist_ok=True)
     _write_text(docs_dir / "index.rst", _build_index_page(summaries_by_category))
+    _write_text(docs_dir / "all_cases.rst", _build_all_cases_page(summaries_by_category))
     for category_slug, cases in summaries_by_category.items():
         if category_slugs_to_write is not None and category_slug not in category_slugs_to_write:
             continue
@@ -4515,18 +4534,31 @@ def _append_custom_sections(lines: list[str], custom_sections: list[dict[str, An
         raise ValueError(f"Unsupported custom section kind: {kind}")
 
 
-def _render_grid_card(*, link: str, title: str, deck: str) -> list[str]:
-    return [
+def _render_grid_card(
+    *,
+    link: str,
+    title: str,
+    deck: str,
+    img_top: str | None = None,
+) -> list[str]:
+    lines = [
         "   .. grid-item-card::",
         "      :class-card: sd-shadow-sm sd-rounded-3 sd-p-4",
         f"      :link: {link}",
         "      :link-type: doc",
-        "",
-        f"      **{title}**",
-        "      ^^^",
-        f"      {deck}",
-        "",
     ]
+    if img_top:
+        lines.append(f"      :img-top: /{img_top.lstrip('/')}")
+    lines.extend(
+        [
+            "",
+            f"      **{title}**",
+            "      ^^^",
+            f"      {deck}",
+            "",
+        ]
+    )
+    return lines
 
 
 def _render_case_count(value: int) -> str:
@@ -5270,10 +5302,14 @@ def _build_index_page(cases_by_category: dict[str, list[dict[str, Any]]]) -> str
 
     lines.extend(
         [
-            "Browse By Intent",
-            "----------------",
+            "Five top-level categories",
+            "-------------------------",
             "",
-            "The gallery is intentionally grouped by workflow intent first, then by case page.",
+            "The gallery is grouped into five top-level categories. Each card opens "
+            "its own landing page with the case grid for that category.",
+            "",
+            ".. grid:: 1 1 2 3",
+            "   :gutter: 2 2 3 3",
             "",
         ]
     )
@@ -5285,40 +5321,98 @@ def _build_index_page(cases_by_category: dict[str, list[dict[str, Any]]]) -> str
         ]
         if not available_categories:
             continue
-        title = str(group_spec["title"])
-        lines.extend(
-            [
-                title,
-                "~" * len(title),
-                "",
-                str(group_spec["deck"]),
-                "",
-                ".. grid:: 1 1 2 2",
-                "   :gutter: 2 2 3 3",
-                "",
-            ]
+        umbrella_count = sum(
+            len(cases_by_category.get(category.slug, [])) for category in available_categories
         )
-        for category in available_categories:
-            case_count = len(cases_by_category.get(category.slug, []))
-            lines.extend(
-                _render_grid_card(
-                    link=category.slug,
-                    title=category.title,
-                    deck=f"{category.deck} {_render_case_count(case_count)}.",
-                )
+        if len(available_categories) == 1:
+            link_target = available_categories[0].slug
+        else:
+            link_target = group_spec["categories"][0]
+        deck = f"{group_spec['deck']} {_render_case_count(umbrella_count)}."
+        lines.extend(
+            _render_grid_card(
+                link=link_target,
+                title=str(group_spec["title"]),
+                deck=deck,
+                img_top=group_spec.get("thumbnail"),
             )
+        )
+
+    lines.extend(
+        [
+            "All cases",
+            "---------",
+            "",
+            "Looking for one specific case? Browse the flat index of all available gallery cases:",
+            "",
+            ".. grid:: 1 1 2 2",
+            "   :gutter: 2 2 3 3",
+            "",
+            *_render_grid_card(
+                link="all_cases",
+                title="All cases",
+                deck=(
+                    f"Flat sortable list of {total_case_count} cases with category, "
+                    "solver, and link to the case page."
+                ),
+            ),
+        ]
+    )
+
     lines.extend(
         [
             ".. toctree::",
             "   :hidden:",
             "   :maxdepth: 1",
             "",
+            "   all_cases",
         ]
     )
     for category_slug in CATEGORY_SPECS:
         if cases_by_category.get(category_slug):
             lines.append(f"   {category_slug}")
     return "\n".join(lines)
+
+
+def _build_all_cases_page(cases_by_category: dict[str, list[dict[str, Any]]]) -> str:
+    """Generate the flat sortable cases listing page."""
+    rows: list[tuple[str, str, str, str]] = []
+    for category_slug in CATEGORY_SPECS:
+        category = CATEGORY_SPECS[category_slug]
+        for case in cases_by_category.get(category_slug, []):
+            slug = str(case.get("slug", ""))
+            title = str(case.get("title", slug))
+            deck = str(case.get("deck", ""))
+            rows.append((slug, title, category.title, deck))
+    rows.sort(key=lambda row: row[1].lower())
+
+    lines = [
+        AUTO_GENERATED_COMMENT,
+        "",
+        "All cases",
+        "=========",
+        "",
+        *_render_note_block(),
+        (
+            f"Flat index of all {len(rows)} curated gallery cases. "
+            "Cases are sorted alphabetically by title. Use the in-page browser "
+            "search to filter by category or solver name."
+        ),
+        "",
+        ".. list-table::",
+        "   :header-rows: 1",
+        "   :widths: 32 18 50",
+        "",
+        "   * - Case",
+        "     - Category",
+        "     - Description",
+    ]
+    for slug, title, category_title, deck in rows:
+        deck_short = deck.splitlines()[0].strip() if deck else ""
+        lines.append(f"   * - :doc:`{title} <cases/{slug}>`")
+        lines.append(f"     - {category_title}")
+        lines.append(f"     - {deck_short}")
+    return "\n".join(lines) + "\n"
 
 
 def _build_category_page(category_slug: str, cases: list[dict[str, Any]]) -> str:
@@ -7987,6 +8081,7 @@ def generate_gallery(*, source_root: Path) -> None:
             ]
 
         _write_text(docs_dir / "index.rst", _build_index_page(summaries_by_category))
+        _write_text(docs_dir / "all_cases.rst", _build_all_cases_page(summaries_by_category))
         calibration_cases = list(summaries_by_category.get("calibration", []))
         if calibration_cases:
             for family_group in _group_calibration_cases_by_benchmark_family(calibration_cases):

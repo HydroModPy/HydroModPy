@@ -18,104 +18,51 @@ Coverage Snapshot
 - Curated gallery cases available today: 85.
 - Most populated sections: Mesh Gallery (29), Validation Benchmarks (24), Simulation Workflows (7).
 
-Browse By Intent
-----------------
+Five top-level categories
+-------------------------
 
-The gallery is intentionally grouped by workflow intent first, then by case page.
+The gallery is grouped into five top-level categories. Each card opens its own landing page with the case grid for that category.
 
-Build The Support
-~~~~~~~~~~~~~~~~~
-
-Start here when the question is still about the basin, the geometry, the properties, or the mesh rather than about solver behaviour.
-
-.. grid:: 1 1 2 2
+.. grid:: 1 1 2 3
    :gutter: 2 2 3 3
 
    .. grid-item-card::
       :class-card: sd-shadow-sm sd-rounded-3 sd-p-4
       :link: geographic
       :link-type: doc
+      :img-top: /_static/capability_gallery/geographic/geographic_bdtopage_hydrography_overlay.png
 
-      **Data Overview**
+      **1. Support**
       ^^^
-      Pre-solver watershed and hydrography figures that explain how one domain is assembled before solving. 4 cases.
-
-   .. grid-item-card::
-      :class-card: sd-shadow-sm sd-rounded-3 sd-p-4
-      :link: geometry
-      :link-type: doc
-
-      **Geometry Diagnostics**
-      ^^^
-      Vector-only views of catchment geometry, hydrography, and geology layers. 3 cases.
-
-   .. grid-item-card::
-      :class-card: sd-shadow-sm sd-rounded-3 sd-p-4
-      :link: hydraulic_properties
-      :link-type: doc
-
-      **Hydraulic Properties**
-      ^^^
-      Hydraulic conductivity and storage parameterizations rendered on synthetic and geology-driven supports. 5 cases.
+      Pre-solver basin views, geometry diagnostics, and hydraulic-property fields. Start here when the question is still about the support, not the solver. 12 cases.
 
    .. grid-item-card::
       :class-card: sd-shadow-sm sd-rounded-3 sd-p-4
       :link: mesh
       :link-type: doc
+      :img-top: /_static/capability_gallery/mesh/mesh_1000km2_outlet_2_geology_rivers_buffer30_overview.png
 
-      **Mesh Gallery**
+      **2. Mesh**
       ^^^
       Static mesh and geology illustrations produced from versioned bundle inputs. 29 cases.
-
-Run And Compare
-~~~~~~~~~~~~~~~
-
-Move here once the spatial support is understood and you want to inspect one full workflow or compare solver families on shared supports.
-
-.. grid:: 1 1 2 2
-   :gutter: 2 2 3 3
 
    .. grid-item-card::
       :class-card: sd-shadow-sm sd-rounded-3 sd-p-4
       :link: simulation
       :link-type: doc
+      :img-top: /_static/capability_gallery/simulation/headwater_100km2_outlet_2_mf6_transient_reference_flow_state_triptych.png
 
-      **Simulation Workflows**
+      **3. Simulation**
       ^^^
-      End-to-end solver runs rendered as stable documentation artifacts. 7 cases.
-
-   .. grid-item-card::
-      :class-card: sd-shadow-sm sd-rounded-3 sd-p-4
-      :link: simulation_comparison
-      :link-type: doc
-
-      **Simulation Comparison**
-      ^^^
-      Reusable solver comparisons built from committed run folders on shared supports. 6 cases.
-
-   .. grid-item-card::
-      :class-card: sd-shadow-sm sd-rounded-3 sd-p-4
-      :link: code_comparison
-      :link-type: doc
-
-      **Code Comparison**
-      ^^^
-      Synthetic solver-to-solver benchmarks with no analytical truth claim. 2 cases.
-
-Validate And Calibrate
-~~~~~~~~~~~~~~~~~~~~~~
-
-Use these pages when the goal is not demonstration only, but numerical trust or inverse-problem behaviour.
-
-.. grid:: 1 1 2 2
-   :gutter: 2 2 3 3
+      End-to-end solver runs, run-to-run comparisons on shared supports, and synthetic code-to-code benchmarks. 15 cases.
 
    .. grid-item-card::
       :class-card: sd-shadow-sm sd-rounded-3 sd-p-4
       :link: validation
       :link-type: doc
+      :img-top: /_static/capability_gallery/validation/boussinesq_circular_island_piecewise_k_2d__boussinesq.png
 
-      **Validation Benchmarks**
+      **4. Validation**
       ^^^
       Analytical and semi-analytical comparisons rendered as reproducible teaching figures. 24 cases.
 
@@ -123,15 +70,34 @@ Use these pages when the goal is not demonstration only, but numerical trust or 
       :class-card: sd-shadow-sm sd-rounded-3 sd-p-4
       :link: calibration
       :link-type: doc
+      :img-top: /_static/capability_gallery/calibration/calibration_twin_boussinesq_fixed_head_piecewise_k_modflow6__cma_es_landscape.png
 
-      **Calibration Benchmarks**
+      **5. Calibration**
       ^^^
       Synthetic inverse problems used to inspect calibration workflows, search methods, and timing diagnostics. 5 cases.
+
+All cases
+---------
+
+Looking for one specific case? Browse the flat index of all available gallery cases:
+
+.. grid:: 1 1 2 2
+   :gutter: 2 2 3 3
+
+   .. grid-item-card::
+      :class-card: sd-shadow-sm sd-rounded-3 sd-p-4
+      :link: all_cases
+      :link-type: doc
+
+      **All cases**
+      ^^^
+      Flat sortable list of 85 cases with category, solver, and link to the case page.
 
 .. toctree::
    :hidden:
    :maxdepth: 1
 
+   all_cases
    mesh
    validation
    calibration
