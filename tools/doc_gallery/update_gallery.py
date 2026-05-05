@@ -7583,6 +7583,8 @@ def _build_case_page(case: dict[str, Any]) -> str:
     lines = [
         AUTO_GENERATED_COMMENT,
         "",
+        ":html_theme.sidebar_secondary.remove:",
+        "",
         title,
         "=" * len(title),
         "",
