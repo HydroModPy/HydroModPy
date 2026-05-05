@@ -64,7 +64,7 @@ k = st.slider(
 st.caption(f"Unité : {flow['k_aquifer']['unit']}")
 ```
 
-Voir `docs/examples/streamlit_app.py` pour un exemple de bout en bout
+Voir `examples/integrations/streamlit_app.py` pour un exemple de bout en bout
 qui découvre les sections dynamiquement.
 
 ## Angular (repo externe)

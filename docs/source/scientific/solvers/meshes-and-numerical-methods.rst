@@ -178,9 +178,9 @@ The material already exists in fragmented form. The most useful anchors are:
 - :doc:`../../architecture/mesh/index`
 - :doc:`../../architecture/solver/modflow6-architecture-notes`
 - :doc:`../../architecture/solver/modflownwt-architecture-notes`
-- ``docs/developers/gmsh_mesh_integration_note.md``
+- ``dev_notes/legacy/gmsh_mesh_integration_note.md``
 - ``docs/developers/modflow_contracts.md``
-- ``docs/developers/modflow6_gmsh_disv_development_perspective.md``
+- ``dev_notes/drafts/modflow6_gmsh_disv_development_perspective.md``
 - ``docs/developers/simulation_comparison_workflow.md``
 
 The documentation effort should now consolidate those scattered rationales into

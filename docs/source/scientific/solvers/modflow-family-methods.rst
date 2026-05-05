@@ -77,7 +77,7 @@ Useful material already exists and should later be consolidated here:
 - :doc:`../../architecture/solver/modflow6-architecture-notes`
 - :doc:`../../architecture/solver/modflownwt-architecture-notes`
 - developer note ``docs/developers/modflow_contracts.md``
-- developer note ``docs/developers/modflow6_gmsh_disv_development_perspective.md``
+- developer note ``dev_notes/drafts/modflow6_gmsh_disv_development_perspective.md``
 - the generated XT3D method-choice assets under
   ``docs/source/_static/capability_gallery/validation/``
 

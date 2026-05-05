@@ -3,7 +3,7 @@
 Run with::
 
     hmp schema export --output ./schema/
-    streamlit run docs/examples/streamlit_app.py
+    streamlit run examples/integrations/streamlit_app.py
 
 The goal is to demonstrate that a frontend can render a form without
 importing HydroModPy directly - only the three JSON files produced by
@@ -12,7 +12,7 @@ HydroModPy dependencies; install it separately if you want to try the
 example (``pip install streamlit``).
 
 The script is importable even when ``streamlit`` is missing: it checks
-the import lazily so unit tests can ``python docs/examples/streamlit_app.py``
+the import lazily so unit tests can ``python examples/integrations/streamlit_app.py``
 without failing.
 """
 
@@ -88,7 +88,7 @@ def main(schema_dir: Path = DEFAULT_SCHEMA_DIR) -> None:  # pragma: no cover - U
     except ImportError:
         print(
             "streamlit is not installed. Run 'pip install streamlit' before "
-            "'streamlit run docs/examples/streamlit_app.py'.",
+            "'streamlit run examples/integrations/streamlit_app.py'.",
             file=sys.stderr,
         )
         return
