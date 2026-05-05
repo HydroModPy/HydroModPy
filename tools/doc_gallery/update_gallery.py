@@ -31,6 +31,7 @@ from validation_cases.calibration.shared.definitions import (
     method_returns_parameter_distribution,
 )
 
+from . import png_drift
 from .gallery_manifest import (
     CATEGORY_SPECS,
     GalleryCaseSpec,
@@ -352,6 +353,23 @@ def build_parser() -> argparse.ArgumentParser:
         help=(
             "List the selected gallery cases without generating anything. This still "
             "validates the manifest inventory."
+        ),
+    )
+    parser.add_argument(
+        "--check-drift",
+        action="store_true",
+        help=(
+            "Hash every PNG under ``docs/source/_static/capability_gallery/`` and "
+            "compare against ``tools/doc_gallery/png_baseline.json``. Exits non-zero "
+            "on any mismatched, missing, or unexpected file."
+        ),
+    )
+    parser.add_argument(
+        "--update-baseline",
+        action="store_true",
+        help=(
+            "Regenerate ``tools/doc_gallery/png_baseline.json`` from the current "
+            "PNG tree under ``docs/source/_static/capability_gallery/``."
         ),
     )
     return parser
@@ -8116,6 +8134,31 @@ def main(argv: list[str] | None = None) -> int:
     """Entry point for ``python -m tools.doc_gallery``."""
 
     args = build_parser().parse_args(argv)
+
+    if args.update_baseline:
+        hashes = png_drift.update_baseline()
+        print(
+            f"Updated PNG baseline at {png_drift.BASELINE_PATH.relative_to(REPO_ROOT)} "
+            f"({len(hashes)} files)."
+        )
+        return 0
+
+    if args.check_drift:
+        report = png_drift.check_drift()
+        if report.has_drift:
+            print("Capability gallery PNG drift detected. Inspect the changes and either:")
+            print("  - regenerate with `python -m tools.doc_gallery` and rerun the check;")
+            print(
+                "  - or, if the new figures are intended, refresh the baseline with "
+                "`python -m tools.doc_gallery --update-baseline`."
+            )
+            for line in report.format_lines():
+                print(f"- {line}")
+            return 1
+        baseline_count = len(png_drift.load_baseline())
+        print(f"Capability gallery PNG tree matches the baseline ({baseline_count} files).")
+        return 0
+
     only_slugs = _normalize_filter_values(args.only)
     categories = _normalize_filter_values(args.category)
     specs = build_gallery_specs(only_slugs=only_slugs, categories=categories)
