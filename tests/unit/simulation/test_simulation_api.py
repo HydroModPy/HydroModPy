@@ -707,6 +707,83 @@ class TestSimulationGroup:
         assert first.params["thickness"] == pytest.approx(1.0)
         assert second.params["thickness"] == pytest.approx(2.0)
 
+    def test_project_run_applies_parent_sim_id_temporarily(self, monkeypatch, tmp_path):
+        from hydromodpy.project_runner import ProjectRunner
+        from hydromodpy.workflow.internals.state import PipelineState
+
+        class _Step:
+            name = "setup_process"
+
+        observed: list[str | None] = []
+
+        class _Pipeline:
+            def __init__(self, steps, *, workspace, checkpoint):
+                self.steps = steps
+                self.workspace = workspace
+                self.checkpoint = checkpoint
+
+            def run(self, state, *, resume_from=None):
+                ctx = state.get("ctx")
+                observed.append(ctx.parent_sim_id)
+                ctx.sim_id = None
+                return PipelineState(
+                    run_id=state.run_id,
+                    step_index=0,
+                    step_name="display",
+                    data={**state.data, "ctx": ctx},
+                )
+
+        monkeypatch.setattr("hydromodpy.workflow.orchestrator.standard_steps", lambda: (_Step(),))
+        monkeypatch.setattr(
+            "hydromodpy.workflow.steps.planning.step_build_plan", lambda *a, **k: None
+        )
+        monkeypatch.setattr("hydromodpy.workflow.runner.Pipeline", _Pipeline)
+        monkeypatch.setattr("hydromodpy.project_phases.open_catalog", lambda *_a, **_k: None)
+
+        workspace = SimpleNamespace(
+            root=tmp_path / "workspace",
+            project_root=tmp_path / "project",
+        )
+        ctx = SimpleNamespace(
+            setup=SimpleNamespace(
+                workspace=workspace,
+                geographic=object(),
+                domain=object(),
+                run_id=None,
+                flow_runtime_overrides=None,
+            ),
+            raw_toml={},
+            store=None,
+            sim_id=None,
+            parent_sim_id="existing-parent",
+        )
+        project = SimpleNamespace(
+            _ctx=ctx,
+            cfg=SimpleNamespace(),
+            _config_path=tmp_path / "project.toml",
+            _spatial_support_registry=None,
+            _requested_support_ids=(),
+            _requested_domain_supports={},
+            _store=None,
+            _run_counter=0,
+            _solver="fake",
+            _no_display=True,
+            _headless=True,
+            _project_name="project",
+            _active_runs={},
+            _last_wall_seconds={},
+            _run_history=[],
+        )
+
+        result = ProjectRunner(project).run(
+            name="derived",
+            _parent_sim_id="parent-run",
+        )
+
+        assert result is None
+        assert observed == ["parent-run"]
+        assert ctx.parent_sim_id == "existing-parent"
+
     def test_iter(self, catalog):
         sids = [_register(catalog) for _ in range(2)]
         group = SimulationGroup(sids, catalog)

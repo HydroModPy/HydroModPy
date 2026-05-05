@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+from types import SimpleNamespace
 from typing import Any
 
 import pytest
@@ -101,3 +102,49 @@ def test_project_from_json_validates_and_passes_config(
     payload = json.dumps(_build_payload(tmp_path))
     Project.from_json(payload)
     assert isinstance(stub_project_phases["config"], HydroModPyConfig)
+
+
+def test_project_rerun_builds_from_snapshot_and_delegates_parent(
+    monkeypatch,
+    stub_project_phases: dict,
+) -> None:
+    from hydromodpy.config import HydroModPyConfig
+    from hydromodpy.project import Project
+    from hydromodpy.project_runner import ProjectRunner
+
+    cfg = object()
+    captured: dict[str, Any] = {}
+
+    def _fake_from_snapshot(cls, snapshot, **overrides):
+        captured["snapshot"] = snapshot
+        captured["config_overrides"] = overrides
+        return cfg
+
+    def _fake_run(self, *, name=None, _parent_sim_id=None, **overrides):
+        captured["name"] = name
+        captured["parent_sim_id"] = _parent_sim_id
+        captured["run_overrides"] = overrides
+        return SimpleNamespace(sim_id="child")
+
+    monkeypatch.setattr(HydroModPyConfig, "from_snapshot", classmethod(_fake_from_snapshot))
+    monkeypatch.setattr(ProjectRunner, "run", _fake_run)
+
+    parent = SimpleNamespace(
+        sim_id="parent",
+        config_snapshot={"workflow": "simulation"},
+    )
+
+    child = Project.rerun(
+        parent,
+        name="derived",
+        config_overrides={"display": {"save": False}},
+        K=2.0,
+    )
+
+    assert child.sim_id == "child"
+    assert stub_project_phases["config"] is cfg
+    assert captured["snapshot"] == {"workflow": "simulation"}
+    assert captured["config_overrides"] == {"display": {"save": False}}
+    assert captured["name"] == "derived"
+    assert captured["parent_sim_id"] == "parent"
+    assert captured["run_overrides"]["K"] == 2.0

@@ -35,7 +35,7 @@ def test_step_register_simulation_closes_unused_bootstrap_zarr(monkeypatch) -> N
     registration = SimpleNamespace(name="run_0001", replaced_sim_id=None, zarr=fake_zarr)
     store = _FakeStore(registration)
     ctx = SimpleNamespace(
-        parent_sim_id=None,
+        parent_sim_id="parent-123",
         store=store,
         cfg=SimpleNamespace(simulation=SimpleNamespace(on_collision="replace")),
         setup=SimpleNamespace(time_grid=None, workspace=SimpleNamespace(project_root=None)),
@@ -53,6 +53,7 @@ def test_step_register_simulation_closes_unused_bootstrap_zarr(monkeypatch) -> N
     )
 
     assert final_name == "run_0001"
+    assert store.calls[0][1]["parent_sim_id"] == "parent-123"
     assert fake_zarr.close_calls == 1
 
 
@@ -64,6 +65,7 @@ def test_step_open_store_closes_unused_bootstrap_zarr(monkeypatch, tmp_path: Pat
         def __init__(self, workspace_root, *, persistence=None) -> None:
             self.workspace_root = workspace_root
             self.persistence = persistence
+            self.calls: list[tuple[tuple[object, ...], dict[str, object]]] = []
 
         @classmethod
         def from_workspace(cls, workspace, *, persistence=None, register_global=False):
@@ -71,10 +73,11 @@ def test_step_open_store_closes_unused_bootstrap_zarr(monkeypatch, tmp_path: Pat
             return cls(workspace.project_root, persistence=persistence)
 
         def register_simulation(self, *args, **kwargs):
+            self.calls.append((args, kwargs))
             return registration
 
     ctx = SimpleNamespace(
-        parent_sim_id=None,
+        parent_sim_id="parent-456",
         store=None,
         sim_id=None,
         cfg=SimpleNamespace(
@@ -113,6 +116,7 @@ def test_step_open_store_closes_unused_bootstrap_zarr(monkeypatch, tmp_path: Pat
     assert ctx.store is not None
     assert ctx.sim_id is not None
     assert ctx.setup.run_id == "run_0002"
+    assert ctx.store.calls[0][1]["parent_sim_id"] == "parent-456"
     assert fake_zarr.close_calls == 1
 
 

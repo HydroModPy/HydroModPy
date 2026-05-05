@@ -58,7 +58,6 @@ documented at the call site. Listed in `layer_matrix.yaml` under
 | analysis    | root    | simulation comparison launches public Project facade |
 | calibration | root    | trial promotion launches public Project facade |
 | cli         | root    | CLI dispatch delegates to public Project facade |
-| results     | root    | `Run.rerun` launches public Project facade |
 | workflow    | root    | sweep helper accepts Project facade instances |
 
 Tolerances tighten over time. Adding a new tolerance requires a

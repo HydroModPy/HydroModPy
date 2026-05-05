@@ -23,8 +23,7 @@ inside a session; cross-process freshness is handled by the catalog itself.
 Public API
 ----------
 - ``Run``: instantiated by ``SimulationCatalog`` resolution methods. Also
-  exposes ``rerun(**overrides)`` to spawn a derived simulation, and
-  ``run.array`` for xarray / UGRID readers.
+  exposes ``run.array`` for xarray / UGRID readers.
 - :class:`hydromodpy.results.run_loader.RunLoaderAdapter` builds a ``Run``
   from a TOML / JSON / dict config payload.
 - :class:`hydromodpy.results.run_export.RunExportAdapter` writes per-run
@@ -861,50 +860,11 @@ class Run:
             )
         return (float(meta["x_outlet"]), float(meta["y_outlet"]))
 
-    # -- Rerun ---------------------------------------------------------------
-
     @property
     def parent_sim_id(self) -> str | None:
         """Parent simulation id when this run was created from another run."""
         val = self._load_row().get("parent_sim_id")
         return str(val) if val is not None else None
-
-    def rerun(self, **overrides) -> Run:
-        """Re-run this simulation with optional top-level config overrides.
-
-        Reconstructs a :class:`HydroModPyConfig` from the stored snapshot,
-        applies ``overrides`` via ``model_copy(update=...)``, and launches
-        a new simulation through :class:`hydromodpy.project.Project`.
-
-        Parameters
-        ----------
-        overrides
-            Keyword overrides forwarded to ``HydroModPyConfig.model_copy``.
-            Each key must match a top-level field of ``HydroModPyConfig``.
-
-        Returns
-        -------
-        Run
-            The newly created run.
-        """
-        snapshot = self.config
-        if snapshot is None:
-            raise ValueError(f"Simulation '{self._sim_id}' has no config snapshot - cannot rerun")
-
-        from hydromodpy.config import HydroModPyConfig
-
-        cfg = HydroModPyConfig.from_snapshot(snapshot, **overrides)
-
-        from hydromodpy.project import Project
-
-        project = Project(cfg)
-        new_run = project.run()
-        if new_run is None:
-            raise RuntimeError(
-                f"rerun() of '{self._sim_id}' did not produce a new Run "
-                "(dry_run or short-circuited workflow)."
-            )
-        return new_run
 
     def saturated_fraction(self, **kwargs) -> pd.Series:
         """Lazy % of catchment cells with saturated head."""

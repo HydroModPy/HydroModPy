@@ -266,6 +266,69 @@ class Project:
         cfg = HydroModPyConfig.from_dict(payload, base_dir=base_dir)
         return cls(cfg, **kwargs)
 
+    @classmethod
+    def rerun(
+        cls,
+        run: Run,
+        *,
+        name: str | None = None,
+        config_overrides: dict | None = None,
+        solver: str | None = None,
+        headless: bool = False,
+        no_display: bool = False,
+        **overrides,
+    ) -> Run:
+        """Launch a new simulation from a persisted run snapshot.
+
+        ``run`` remains a read-only result view; this Project-level helper owns
+        the orchestration required to rebuild the configuration, execute the
+        workflow, and record the new run with ``parent_sim_id`` pointing to the
+        original simulation.
+
+        Parameters
+        ----------
+        run
+            Persisted run to use as the reproducible source snapshot.
+        name
+            Optional name for the derived run.
+        config_overrides
+            Optional deep-merge patch applied to the stored config snapshot
+            before a new :class:`Project` is created.
+        solver, headless, no_display
+            Options forwarded to the derived :class:`Project`.
+        overrides
+            Flow parameter overrides forwarded to :meth:`Project.run`.
+
+        Returns
+        -------
+        Run
+            Persisted run view for the derived simulation.
+        """
+        snapshot = run.config_snapshot
+        if snapshot is None:
+            raise ValueError(f"Simulation '{run.sim_id}' has no config snapshot - cannot rerun")
+
+        from hydromodpy.config import HydroModPyConfig
+
+        cfg = HydroModPyConfig.from_snapshot(snapshot, **(config_overrides or {}))
+        project = cls(
+            cfg,
+            solver=solver,
+            headless=headless,
+            no_display=no_display,
+        )
+        new_run = project._runner.run(
+            name=name,
+            _parent_sim_id=run.sim_id,
+            **overrides,
+        )
+        if new_run is None:
+            raise RuntimeError(
+                f"rerun of '{run.sim_id}' did not produce a new Run "
+                "(dry_run or short-circuited workflow)."
+            )
+        return new_run
+
     # -- Model-phase verbs (delegate to project_phases) -------------------
 
     def setup_workspace(self) -> None:
