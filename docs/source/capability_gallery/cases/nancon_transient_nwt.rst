@@ -69,7 +69,7 @@ Next Steps
 ----------
 
 - Read :doc:`the real-basin reading guide </getting_started/read-real-basin-run>` for a stricter interpretation order across committed basin-result pages.
-- Read :doc:`the Nancon scientific worked case </scientific/solvers/worked-modflow-case-nancon-transient-nwt-etp-evt>` if you want the exact `ETP -> EVT` package path and the MODFLOW-NWT option rationale behind this run.
+- Read :doc:`the Nancon scientific worked case </theory/solvers/worked-modflow-case-nancon-transient-nwt-etp-evt>` if you want the exact `ETP -> EVT` package path and the MODFLOW-NWT option rationale behind this run.
 
 Reproduce
 ---------

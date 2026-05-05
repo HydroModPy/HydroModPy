@@ -117,15 +117,15 @@ following:
 
 The key scientific notes are:
 
-- :doc:`../scientific/solvers/modflow6-vs-modflownwt-scientific-comparison`
-- :doc:`../scientific/solvers/modflow-governing-equation-and-cvfd-formulation`
-- :doc:`../scientific/solvers/modflow-package-semantics-and-boundary-conditions`
-- :doc:`../scientific/solvers/field-to-cell-parameter-transfer`
-- :doc:`../scientific/solvers/vertical-representation-and-storage-assumptions`
-- :doc:`../scientific/solvers/mesh-quality-and-acceptance-criteria`
-- :doc:`../scientific/solvers/xt3d-on-irregular-disv-meshes`
-- :doc:`../scientific/solvers/boussinesq-mathematical-notes`
-- :doc:`../scientific/hydrology/forcing-time-aggregation-and-first-clim`
+- :doc:`../theory/solvers/modflow6-vs-modflownwt-scientific-comparison`
+- :doc:`../theory/solvers/modflow-governing-equation-and-cvfd-formulation`
+- :doc:`../theory/solvers/modflow-package-semantics-and-boundary-conditions`
+- :doc:`../theory/solvers/field-to-cell-parameter-transfer`
+- :doc:`../theory/solvers/vertical-representation-and-storage-assumptions`
+- :doc:`../theory/solvers/mesh-quality-and-acceptance-criteria`
+- :doc:`../theory/solvers/xt3d-on-irregular-disv-meshes`
+- :doc:`../theory/boussinesq`
+- :doc:`../theory/hydrology/forcing-time-aggregation-and-first-clim`
 
 Recommended First Cases
 -----------------------
@@ -479,12 +479,12 @@ Related Reading
 - :doc:`comparison-output-reading-order`
 - :doc:`reading-results-pages`
 - :doc:`workflow-families`
-- :doc:`../scientific/solvers/modflow6-vs-modflownwt-scientific-comparison`
-- :doc:`../scientific/solvers/modflow-governing-equation-and-cvfd-formulation`
-- :doc:`../scientific/solvers/modflow-package-semantics-and-boundary-conditions`
-- :doc:`../scientific/solvers/field-to-cell-parameter-transfer`
-- :doc:`../scientific/solvers/meshes-and-numerical-methods`
-- :doc:`../scientific/solvers/mesh-quality-and-acceptance-criteria`
-- :doc:`../scientific/solvers/xt3d-on-irregular-disv-meshes`
-- :doc:`../scientific/solvers/boussinesq-mathematical-notes`
-- :doc:`../scientific/hydrology/forcing-time-aggregation-and-first-clim`
+- :doc:`../theory/solvers/modflow6-vs-modflownwt-scientific-comparison`
+- :doc:`../theory/solvers/modflow-governing-equation-and-cvfd-formulation`
+- :doc:`../theory/solvers/modflow-package-semantics-and-boundary-conditions`
+- :doc:`../theory/solvers/field-to-cell-parameter-transfer`
+- :doc:`../theory/solvers/meshes-and-numerical-methods`
+- :doc:`../theory/solvers/mesh-quality-and-acceptance-criteria`
+- :doc:`../theory/solvers/xt3d-on-irregular-disv-meshes`
+- :doc:`../theory/boussinesq`
+- :doc:`../theory/hydrology/forcing-time-aggregation-and-first-clim`

@@ -220,5 +220,5 @@ Next Pages
 
 - :doc:`../../getting_started/simulation-walkthrough`
 - :doc:`../../architecture/simulation/toml-to-solver-walkthrough`
-- :doc:`../../scientific/foundations/groundwater-flow-problem-definition`
-- :doc:`../../scientific/solvers/index`
+- :doc:`../../theory/foundations/groundwater-flow-problem-definition`
+- :doc:`../../theory/solvers/index`

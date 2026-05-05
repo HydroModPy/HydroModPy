@@ -11,7 +11,7 @@ This page complements :doc:`../seven-modes`:
 
 - :doc:`../seven-modes` explains usage modes;
 - this page explains workflow families;
-- :doc:`../scientific/index` explains equations, assumptions, and methods;
+- :doc:`../theory/index` explains equations, assumptions, and methods;
 - :doc:`../architecture/index` explains runtime structure and package
   boundaries.
 
@@ -44,7 +44,7 @@ Quick Map
    * - ``calibration``
      - Run parameter estimation against one or several observables
      - ``examples/projects/01_calibration/project.toml``
-     - :doc:`../scientific/calibration/index`
+     - :doc:`../theory/calibration/index`
    * - ``batch``
      - Launch a multi-site or campaign-style execution over several cases
      - no polished public example yet
@@ -75,7 +75,7 @@ The most robust documentation split is:
 
 - ``seven-modes`` answers how HydroModPy is driven;
 - ``workflow-families`` answers what the user is trying to do;
-- ``scientific/*`` answers which physical and numerical methods are used;
+- ``theory/*`` answers which physical and numerical methods are used;
 - ``architecture/*`` answers where those responsibilities live in code.
 
 That split stays coherent with ``hydromodpy/workflow/dispatch.py`` and with the
@@ -126,9 +126,9 @@ It is mainly about:
 It should link out to scientific pages rather than restating them in full.
 The main scientific companion pages are:
 
-- :doc:`../scientific/foundations/groundwater-flow-problem-definition`
-- :doc:`../scientific/hydrology/hydrological-forcing-chain`
-- :doc:`../scientific/solvers/index`
+- :doc:`../theory/foundations/groundwater-flow-problem-definition`
+- :doc:`../theory/hydrology/hydrological-forcing-chain`
+- :doc:`../theory/solvers/index`
 
 Current best public anchors:
 
@@ -155,7 +155,7 @@ still thinner than for ``overview`` or ``simulation``.
 Current best public anchors:
 
 - :doc:`../architecture/mesh/index`
-- :doc:`../scientific/solvers/meshes-and-numerical-methods`
+- :doc:`../theory/solvers/meshes-and-numerical-methods`
 
 Calibration Workflow
 ^^^^^^^^^^^^^^^^^^^^
@@ -172,7 +172,7 @@ It should explain:
 
 Current best public anchors:
 
-- :doc:`../scientific/calibration/index`
+- :doc:`../theory/calibration/index`
 - :doc:`../architecture/calibration/index`
 
 Batch Workflow

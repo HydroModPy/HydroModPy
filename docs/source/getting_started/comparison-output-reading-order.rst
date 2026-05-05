@@ -268,5 +268,5 @@ Related Reading
 
 - :doc:`comparison-workflow`
 - :doc:`reading-results-pages`
-- :doc:`../scientific/solvers/mesh-and-discretization-strategies`
-- :doc:`../scientific/hydrology/recharge-and-surface-exchange-semantics`
+- :doc:`../theory/solvers/mesh-and-discretization-strategies`
+- :doc:`../theory/hydrology/recharge-and-surface-exchange-semantics`

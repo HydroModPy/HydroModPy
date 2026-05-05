@@ -42,7 +42,7 @@ Reference Case
 Use these two pages together:
 
 - :doc:`../capability_gallery/cases/nancon_transient_nwt`
-- :doc:`../scientific/solvers/worked-modflow-case-nancon-transient-nwt-etp-evt`
+- :doc:`../theory/solvers/worked-modflow-case-nancon-transient-nwt-etp-evt`
 
 The gallery page is the committed visual reading path.
 
@@ -306,7 +306,7 @@ Where To Go Next
 
 - Use :doc:`../capability_gallery/cases/nancon_transient_nwt` for the stable
   committed figures.
-- Use :doc:`../scientific/solvers/worked-modflow-case-nancon-transient-nwt-etp-evt`
+- Use :doc:`../theory/solvers/worked-modflow-case-nancon-transient-nwt-etp-evt`
   for the package-path explanation.
 - Use :doc:`reading-results-pages` if you want to distinguish gallery pages,
   validation pages, and comparison pages more generally.

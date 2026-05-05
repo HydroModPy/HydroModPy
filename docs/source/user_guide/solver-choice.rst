@@ -11,11 +11,11 @@ Start here when the question is:
 User path
 ---------
 
-1. Read :doc:`../scientific/solvers/solver-capability-matrix` for a compact
+1. Read :doc:`../theory/solvers/solver-capability-matrix` for a compact
    overview of solver capabilities.
-2. Read :doc:`../scientific/solvers/modflow6-vs-modflownwt-scientific-comparison`
+2. Read :doc:`../theory/solvers/modflow6-vs-modflownwt-scientific-comparison`
    when comparing MODFLOW 6 and MODFLOW-NWT.
-3. Read :doc:`../scientific/solvers/xt3d-on-irregular-disv-meshes` when an
+3. Read :doc:`../theory/solvers/xt3d-on-irregular-disv-meshes` when an
    irregular MODFLOW 6 DISV mesh is involved.
 4. Open :doc:`../capability_gallery/validation` and
    :doc:`../capability_gallery/simulation_comparison` for curated result pages.
@@ -32,11 +32,11 @@ Common questions
    * - Question
      - Best entry point
    * - What can each solver family represent?
-     - :doc:`../scientific/solvers/solver-capability-matrix`
+     - :doc:`../theory/solvers/solver-capability-matrix`
    * - How do MODFLOW 6 and MODFLOW-NWT differ scientifically?
-     - :doc:`../scientific/solvers/modflow6-vs-modflownwt-scientific-comparison`
+     - :doc:`../theory/solvers/modflow6-vs-modflownwt-scientific-comparison`
    * - Why is XT3D important on irregular meshes?
-     - :doc:`../scientific/solvers/xt3d-on-irregular-disv-meshes`
+     - :doc:`../theory/solvers/xt3d-on-irregular-disv-meshes`
    * - Where are analytical or semi-analytical validation cases?
      - :doc:`../capability_gallery/validation`
    * - Where is the solver package architecture?

@@ -402,7 +402,7 @@ Until those questions are fixed, the safest position is:
 Related reading
 ---------------
 
-- :doc:`../../scientific/hydrology/simulated-active-network`
+- :doc:`../../theory/hydrology/simulated-active-network`
 - :doc:`mental-model-and-design-choices`
 - :doc:`hydrographic-network-uml-diagrams`
 - :doc:`../../getting_started/comparison-workflow`

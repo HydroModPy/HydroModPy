@@ -213,6 +213,6 @@ Next Pages
 ----------
 
 - :doc:`../calibration`
-- :doc:`../../scientific/calibration/index`
+- :doc:`../../theory/calibration/index`
 - :doc:`../../architecture/calibration/index`
 - :doc:`../../capability_gallery/calibration`

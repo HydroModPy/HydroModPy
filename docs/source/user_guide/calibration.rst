@@ -14,7 +14,7 @@ User path
 
 1. Read :doc:`../getting_started/workflow-families` to see how the
    ``calibration`` workflow differs from ``simulation`` and ``comparison``.
-2. Open :doc:`../scientific/calibration/index` for inverse-problem formulation
+2. Open :doc:`../theory/calibration/index` for inverse-problem formulation
    and implemented calibration methods.
 3. Open :doc:`../capability_gallery/calibration` for stable calibration
    benchmark pages.
@@ -31,9 +31,9 @@ Common questions
    * - Question
      - Best entry point
    * - What inverse problem is being solved?
-     - :doc:`../scientific/calibration/inverse-problem-formulation`
+     - :doc:`../theory/calibration/inverse-problem-formulation`
    * - Which calibration methods are implemented?
-     - :doc:`../scientific/calibration/calibration-methods`
+     - :doc:`../theory/calibration/calibration-methods`
    * - Where can I inspect calibration benchmark outputs?
      - :doc:`../capability_gallery/calibration`
    * - How does the calibration engine run?
@@ -44,7 +44,7 @@ Common questions
 Related sections
 ----------------
 
-- :doc:`../scientific/foundations/index` for physical scope and assumptions.
+- :doc:`../theory/foundations/index` for physical scope and assumptions.
 - :doc:`../getting_started/reading-results-pages` for reading generated result
   pages.
 - :doc:`../api/index` for generated API documentation.

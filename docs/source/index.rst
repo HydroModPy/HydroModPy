@@ -53,15 +53,15 @@ want stable, curated result pages before running anything locally.
 If you are looking for technical documentation, code-reading guides, module
 diagrams, or UML pages, use :doc:`architecture/index`. If you are looking for
 equations, modelling assumptions, or method notes, use
-:doc:`scientific/index`.
+:doc:`theory/index`.
 
 If you are specifically looking for streams, seepage, observed hydrography, or
 simulation-derived active networks, use the map
-:doc:`scientific/streams_and_seepage/index`. It points to the scientific
+:doc:`theory/streams_and_seepage/index`. It points to the scientific
 semantics, the computed ``simulated_active`` views, comparison outputs,
 developer diagrams, and example figures from one place. For a concrete
 simulation result, open
-:doc:`scientific/streams_and_seepage/nancon-k-sweep-results`.
+:doc:`theory/streams_and_seepage/nancon-k-sweep-results`.
 
 If you specifically want the quality ladder used in the repository, including
 the usual commands for unit, integration, regression, validation, PETSc, and
@@ -124,17 +124,17 @@ Documentation map
 
    .. grid-item-card::
       :class-card: sd-shadow-sm sd-rounded-3 sd-p-4
-      :link: scientific/index
+      :link: theory/index
       :link-type: doc
 
-      **Scientific background**
+      **Theory**
       ^^^
       Method notes, solver equations, and modelling assumptions separated from
       the software architecture.
 
    .. grid-item-card::
       :class-card: sd-shadow-sm sd-rounded-3 sd-p-4
-      :link: scientific/streams_and_seepage/index
+      :link: theory/streams_and_seepage/index
       :link-type: doc
 
       **Streams and seepage**
@@ -233,7 +233,7 @@ For any question or collaboration request, contact:
    user_guide/index
    examples/index
    Case Studies <capability_gallery/index>
-   Scientific Background <scientific/index>
+   Theory <theory/index>
    Developer Guide <architecture/index>
    API Reference <api/index>
    contribute

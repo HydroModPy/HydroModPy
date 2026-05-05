@@ -14,7 +14,7 @@ Use this tab when you want:
 - guided entry points for reading the codebase package by package.
 
 For equations, modelling assumptions, and method documentation, see
-:doc:`../scientific/index`.
+:doc:`../theory/index`.
 
 Package layout
 --------------

@@ -222,10 +222,10 @@ Practical Selection Rules
 Related Pages
 -------------
 
-- :doc:`../scientific/solvers/flow/index`
-- :doc:`../scientific/solvers/flow/modflow/index`
+- :doc:`../theory/solvers/flow/index`
+- :doc:`../theory/solvers/flow/modflow/index`
 - :doc:`workflows/index`
-- :doc:`../scientific/solvers/solver-capability-matrix`
-- :doc:`../scientific/solvers/index`
+- :doc:`../theory/solvers/solver-capability-matrix`
+- :doc:`../theory/solvers/index`
 - :doc:`../architecture/solver/index`
 - :doc:`../architecture/process/index`

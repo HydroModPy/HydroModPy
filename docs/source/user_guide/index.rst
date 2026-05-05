@@ -11,7 +11,7 @@ topic.
 
 If this is your first visit, start with :doc:`../getting_started/index`
 instead. If you want equations or implementation diagrams, jump directly to
-:doc:`../scientific/index` or :doc:`../architecture/index`.
+:doc:`../theory/index` or :doc:`../architecture/index`.
 
 Core concepts
 -------------

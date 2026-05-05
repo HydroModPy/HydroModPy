@@ -15,7 +15,7 @@ User path
    workflow fits relative to ``overview`` and ``simulation``.
 2. Open :doc:`../capability_gallery/mesh` to inspect stable mesh examples and
    diagnostics without running anything locally.
-3. Use :doc:`../scientific/solvers/meshes-and-numerical-methods` when you need
+3. Use :doc:`../theory/solvers/meshes-and-numerical-methods` when you need
    the numerical-method context behind structured and irregular meshes.
 4. Use :doc:`../architecture/mesh/index` when you need to understand where mesh
    construction, export, and solver handoff live in the code.
@@ -34,7 +34,7 @@ Common questions
    * - Which diagnostics should I inspect first?
      - :doc:`../getting_started/reading-results-pages`
    * - Why do mesh quality and discretization strategy matter?
-     - :doc:`../scientific/solvers/mesh-quality-and-acceptance-criteria`
+     - :doc:`../theory/solvers/mesh-quality-and-acceptance-criteria`
    * - How does a catchment mesh become a solver input?
      - :doc:`../architecture/mesh/mesh-catchment-in-process-simulation-activity-diagram`
    * - How are structured grids represented?

@@ -17,7 +17,7 @@ User path
    opening generated metrics, audits, and figures.
 3. Open :doc:`../capability_gallery/simulation_comparison` for curated comparison
    cases.
-4. Use :doc:`../scientific/solvers/modflow6-vs-modflownwt-scientific-comparison`
+4. Use :doc:`../theory/solvers/modflow6-vs-modflownwt-scientific-comparison`
    for method-level interpretation.
 
 Common questions
@@ -44,6 +44,6 @@ Related sections
 ----------------
 
 - :doc:`solver-choice` for backend and numerical-option trade-offs.
-- :doc:`../scientific/solvers/solver-capability-matrix` for a compact solver
+- :doc:`../theory/solvers/solver-capability-matrix` for a compact solver
   capability overview.
 - :doc:`../api/index` for the generated API reference.
